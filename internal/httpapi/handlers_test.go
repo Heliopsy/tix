@@ -462,3 +462,24 @@ func TestMissingPathResourcesOnWriteRoutes(t *testing.T) {
 		})
 	}
 }
+
+// The remote client calls GET /domains/{hostname} for ResolveDomain; without
+// this route it 404s and remote tenant resolution silently breaks.
+func TestResolveDomainRoute(t *testing.T) {
+	f := newFixture(t)
+
+	created := f.call(http.MethodPost, httpapi.RouteDomains,
+		core.AddDomainInput{Hostname: "resolve.example.com"})
+	defer func() { _ = created.Body.Close() }()
+	mustStatus(t, created, http.StatusCreated)
+
+	got := f.call(http.MethodGet, "/api/v1/domains/resolve.example.com", nil)
+	defer func() { _ = got.Body.Close() }()
+	mustStatus(t, got, http.StatusOK)
+
+	var tenant core.Tenant
+	decodeBody(t, got, &tenant)
+	if tenant.ID == "" {
+		t.Error("resolved tenant carries no id")
+	}
+}

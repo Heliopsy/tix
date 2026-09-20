@@ -20,6 +20,7 @@ func (rt *Router) registerTenantRoutes() {
 
 	rt.mux.HandleFunc("GET "+RouteDomains, rt.handleListDomains)
 	rt.mux.HandleFunc("POST "+RouteDomains, rt.handleAddDomain)
+	rt.mux.HandleFunc("GET "+RouteDomain, rt.handleResolveDomain)
 	rt.mux.HandleFunc("DELETE "+RouteDomain, rt.handleRemoveDomain)
 }
 
@@ -143,6 +144,16 @@ func (rt *Router) handleAddDomain(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleRemoveDomain unmaps a hostname.
+// handleResolveDomain maps a hostname to its tenant.
+func (rt *Router) handleResolveDomain(w http.ResponseWriter, r *http.Request) {
+	tenant, err := rt.cfg.Service.ResolveDomain(r.Context(), r.PathValue("hostname"))
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, tenant)
+}
+
 func (rt *Router) handleRemoveDomain(w http.ResponseWriter, r *http.Request) {
 	if err := rt.cfg.Service.RemoveDomain(r.Context(), r.PathValue("hostname")); err != nil {
 		WriteError(w, err)

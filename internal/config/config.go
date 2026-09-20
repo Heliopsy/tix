@@ -3,6 +3,7 @@
 package config
 
 import (
+	"github.com/thereisnotime/tix/internal/output"
 	"strings"
 
 	"github.com/thereisnotime/tix/internal/core"
@@ -100,10 +101,12 @@ var DefaultDiscoveryFilenames = []string{".tix.yaml", ".tix/config.yaml"}
 
 // Allowed value sets for the enumerated keys.
 var (
-	AuthModes     = []string{"none", "token", "oidc"}
-	HookModes     = []string{"off", "warn", "enforce"}
-	LogLevels     = []string{"debug", "info", "warn", "error"}
-	OutputFormats = []string{"table", "json", "yaml", "tsv"}
+	AuthModes = []string{"none", "token", "oidc"}
+	HookModes = []string{"off", "warn", "enforce"}
+	LogLevels = []string{"debug", "info", "warn", "error"}
+	// OutputFormats mirrors the formats the renderer actually implements, so
+	// config cannot accept one it cannot render or reject one it can.
+	OutputFormats = output.Formats
 )
 
 // Defaults returns the built-in configuration.
