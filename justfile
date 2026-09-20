@@ -40,6 +40,12 @@ build-all:
 install:
     go install -ldflags '{{ldflags}}' .
 
+# Install to ~/.local/bin, which is already on PATH.
+install-local: build
+    mkdir -p ~/.local/bin
+    install -m 0755 bin/{{binary}} ~/.local/bin/{{binary}}
+    @echo "installed $(~/.local/bin/{{binary}} version)"
+
 run *ARGS:
     go run -ldflags '{{ldflags}}' . {{ARGS}}
 
