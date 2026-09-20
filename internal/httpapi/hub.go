@@ -15,26 +15,66 @@ const maxPendingEvents = 1024
 
 // Hub fans committed events out to the connections entitled to receive them.
 type Hub struct {
-	mu    sync.RWMutex
-	conns map[*wsConn]struct{}
+	mu      sync.RWMutex
+	conns   map[*wsConn]struct{}
+	tenants map[string]int
+
+	onFirst func(tenantID string)
+	onLast  func(tenantID string)
 }
 
 // NewHub builds an empty hub.
-func NewHub() *Hub { return &Hub{conns: make(map[*wsConn]struct{})} }
+func NewHub() *Hub {
+	return &Hub{conns: make(map[*wsConn]struct{}), tenants: make(map[string]int)}
+}
+
+// SetTenantHooks registers callbacks fired when a tenant gains its first
+// connection and loses its last. Events are read per tenant, so a caller uses
+// these to run exactly one reader per tenant that anyone is listening to.
+func (h *Hub) SetTenantHooks(onFirst, onLast func(tenantID string)) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.onFirst, h.onLast = onFirst, onLast
+}
 
 // Register adds a connection to the fan-out set.
 func (h *Hub) Register(c *wsConn) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
 	h.conns[c] = struct{}{}
+	tenant, first, hook := h.trackLocked(c, 1)
+	h.mu.Unlock()
+	if first && hook != nil {
+		hook(tenant)
+	}
 }
 
 // Unregister removes a connection and discards its subscriptions.
 func (h *Hub) Unregister(c *wsConn) {
 	h.mu.Lock()
 	delete(h.conns, c)
+	tenant, last, hook := h.trackLocked(c, -1)
 	h.mu.Unlock()
+	if last && hook != nil {
+		hook(tenant)
+	}
 	c.dropSubs()
+}
+
+// trackLocked adjusts the per-tenant count and reports whether the count
+// crossed zero. The caller must hold h.mu.
+func (h *Hub) trackLocked(c *wsConn, delta int) (tenant string, crossed bool, hook func(string)) {
+	if c == nil || c.actor == nil || c.actor.TenantID == "" {
+		return "", false, nil
+	}
+	tenant = c.actor.TenantID
+	before := h.tenants[tenant]
+	after := before + delta
+	if after <= 0 {
+		delete(h.tenants, tenant)
+		return tenant, before > 0, h.onLast
+	}
+	h.tenants[tenant] = after
+	return tenant, before == 0, h.onFirst
 }
 
 // Len reports how many connections are registered.

@@ -29,6 +29,10 @@ type Options struct {
 	CertFile string
 	KeyFile  string
 
+	// EventPollInterval is how often a tenant's reader checks for new events.
+	// Zero uses a sensible default.
+	EventPollInterval time.Duration
+
 	AllowInsecure bool
 
 	MaxBodyBytes    int64
@@ -61,8 +65,17 @@ func Assemble(opts Options) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	// One event reader per tenant that has a live connection. Events are only
+	// readable inside a tenant-scoped transaction, so this preserves the
+	// isolation boundary rather than reading every tenant at once.
+	hub := httpapi.NewHub()
+	log := eventLog{store: opts.Store}
+	pump := newPumps(context.Background(), hub, log, opts.EventPollInterval)
+	hub.SetTenantHooks(pump.start, pump.stop)
+
 	router, err := httpapi.New(httpapi.Config{
 		Service:         opts.Service,
+		EventHandler:    httpapi.NewEventStream(hub, log),
 		Authenticator:   NewAuthenticator(opts.Store, opts.Clock),
 		Logger:          opts.Logger,
 		DefaultTenantID: opts.TenantID,
