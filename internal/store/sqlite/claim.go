@@ -47,14 +47,14 @@ func (t *tx) ClaimNextTask(ctx context.Context, in store.ClaimNextRow) (string, 
 	if len(in.Statuses) > 0 {
 		inner.WhereIn("tasks.status", in.Statuses)
 	}
-	if len(in.Labels) > 0 {
-		marks := strings.TrimSuffix(strings.Repeat("?, ", len(in.Labels)), ", ")
-		args := make([]any, 0, len(in.Labels))
-		for _, l := range in.Labels {
+	if len(in.Tags) > 0 {
+		marks := strings.TrimSuffix(strings.Repeat("?, ", len(in.Tags)), ", ")
+		args := make([]any, 0, len(in.Tags))
+		for _, l := range in.Tags {
 			args = append(args, l)
 		}
-		inner.Where("EXISTS (SELECT 1 FROM task_labels tl JOIN labels l"+
-			" ON l.id = tl.label_id AND l.tenant_id = tl.tenant_id"+
+		inner.Where("EXISTS (SELECT 1 FROM task_tags tl JOIN tags l"+
+			" ON l.id = tl.tag_id AND l.tenant_id = tl.tenant_id"+
 			" WHERE tl.tenant_id = tasks.tenant_id AND tl.task_id = tasks.id AND l.name IN ("+marks+"))",
 			args...)
 	}

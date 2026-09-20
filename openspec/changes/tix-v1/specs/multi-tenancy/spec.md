@@ -102,7 +102,7 @@ filter out rows belonging to any other tenant even when the application layer is
 ### Requirement: Tenants
 
 The system SHALL support multiple tenants, each with a stable identifier, a human-readable name, and
-a slug unique across the deployment. A tenant SHALL own its projects, workflows, labels, field
+a slug unique across the deployment. A tenant SHALL own its projects, workflows, tags, field
 definitions, and tasks.
 
 #### Scenario: Tenant created
@@ -211,7 +211,7 @@ NOT accept a tenant supplied in a request body or query parameter.
 ### Requirement: Cross-tenant leak test suite
 
 The test suite SHALL seed at least two tenants with deliberately similar data, including matching
-project keys, label names, and task titles, and SHALL assert that every service method, every HTTP
+project keys, tag names, and task titles, and SHALL assert that every service method, every HTTP
 API route, and every web handler returns no data from the other tenant.
 
 #### Scenario: Every service method covered

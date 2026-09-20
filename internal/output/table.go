@@ -83,7 +83,7 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 }
 
 var (
-	taskHeader     = table.Row{"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "LABELS", "DUE", "UPDATED", "BLOCKED"}
+	taskHeader     = table.Row{"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "UPDATED", "BLOCKED"}
 	projectHeader  = table.Row{"KEY", "NAME", "WORKFLOW", "ARCHIVED", "CREATED", "UPDATED"}
 	workflowHeader = table.Row{"KEY", "NAME", "INITIAL", "STATES", "TRANSITIONS", "BUILTIN", "UPDATED"}
 	commentHeader  = table.Row{"ID", "TASK", "AUTHOR", "BODY", "CREATED"}
@@ -100,7 +100,7 @@ func taskRow(t core.Task) table.Row {
 		t.Status,
 		priorityLabel(t.Priority),
 		t.AssigneeActorID,
-		strings.Join(t.Labels, ", "),
+		strings.Join(t.Tags, ", "),
 		FormatCompactPtr(t.DueAt),
 		FormatCompact(t.UpdatedAt),
 		yesNo(t.Blocked),

@@ -79,9 +79,9 @@ type TaskService interface {
 	RemoveDependency(ctx context.Context, ref, dependsOn TaskRef) error
 	ListDependencies(ctx context.Context, ref TaskRef) ([]Dependency, error)
 
-	AddLabel(ctx context.Context, ref TaskRef, label string) error
-	RemoveLabel(ctx context.Context, ref TaskRef, label string) error
-	ListLabels(ctx context.Context) ([]Label, error)
+	AddTag(ctx context.Context, ref TaskRef, tag string) error
+	RemoveTag(ctx context.Context, ref TaskRef, tag string) error
+	ListTags(ctx context.Context) ([]Tag, error)
 
 	AddComment(ctx context.Context, ref TaskRef, body string) (*Comment, error)
 	ListComments(ctx context.Context, ref TaskRef) ([]Comment, error)
@@ -180,7 +180,7 @@ const (
 	RecordWorkflow   RecordKind = "workflow"
 	RecordProject    RecordKind = "project"
 	RecordFieldDef   RecordKind = "field_def"
-	RecordLabel      RecordKind = "label"
+	RecordLabel      RecordKind = "tag"
 	RecordTask       RecordKind = "task"
 	RecordDependency RecordKind = "dependency"
 	RecordComment    RecordKind = "comment"
@@ -196,7 +196,7 @@ type SnapshotRecord struct {
 	Workflow   *Workflow       `json:"workflow,omitempty" yaml:"workflow,omitempty"`
 	Project    *Project        `json:"project,omitempty" yaml:"project,omitempty"`
 	FieldDef   *FieldDef       `json:"field_def,omitempty" yaml:"field_def,omitempty"`
-	Label      *Label          `json:"label,omitempty" yaml:"label,omitempty"`
+	Tag        *Tag            `json:"tag,omitempty" yaml:"tag,omitempty"`
 	Task       *Task           `json:"task,omitempty" yaml:"task,omitempty"`
 	Dependency *Dependency     `json:"dependency,omitempty" yaml:"dependency,omitempty"`
 	Comment    *Comment        `json:"comment,omitempty" yaml:"comment,omitempty"`
@@ -212,7 +212,7 @@ type Snapshot struct {
 	Projects  []Project    `json:"projects,omitempty" yaml:"projects,omitempty"`
 	Workflows []Workflow   `json:"workflows,omitempty" yaml:"workflows,omitempty"`
 	FieldDefs []FieldDef   `json:"field_defs,omitempty" yaml:"field_defs,omitempty"`
-	Labels    []Label      `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Tags      []Tag        `json:"tags,omitempty" yaml:"tags,omitempty"`
 	Tasks     []Task       `json:"tasks,omitempty" yaml:"tasks,omitempty"`
 	Deps      []Dependency `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
 	Comments  []Comment    `json:"comments,omitempty" yaml:"comments,omitempty"`

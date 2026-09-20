@@ -238,8 +238,8 @@ func TestCountQueryKeepsTenant(t *testing.T) {
 
 func TestJoinAndSetExpr(t *testing.T) {
 	q, _ := MustNew(SQLite, scope, "tasks").
-		Join("JOIN task_labels ON task_labels.task_id = tasks.id").SelectQuery()
-	if !strings.Contains(q, "JOIN task_labels") {
+		Join("JOIN task_tags ON task_tags.task_id = tasks.id").SelectQuery()
+	if !strings.Contains(q, "JOIN task_tags") {
 		t.Errorf("join missing: %s", q)
 	}
 

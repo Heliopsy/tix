@@ -4,7 +4,7 @@
 
 The system SHALL persist the following entities: `tenants`, `tenant_domains`, `tenant_members`,
 `actors`, `users`, `sessions`, `api_tokens`, `workflows`, `projects`, `field_defs`, `tasks`,
-`task_deps`, `labels`, `task_labels`, `comments`, `artifacts`, `events`, `audit_entries`,
+`task_deps`, `tags`, `task_tags`, `comments`, `artifacts`, `events`, `audit_entries`,
 `webhook_endpoints`, `webhook_deliveries`, `retention_policies`, `external_refs`, `sync_sources`,
 and `schema_migrations`. Every entity SHALL be reachable through the service layer and SHALL NOT
 require direct database access to read or write.
@@ -297,7 +297,7 @@ belong to exactly one tenant. Rows SHALL NOT be moved between tenants by an upda
 
 ### Requirement: Uniqueness within a tenant
 
-Human-facing keys SHALL be unique within their tenant rather than globally. Project keys and label
+Human-facing keys SHALL be unique within their tenant rather than globally. Project keys and tag
 names SHALL be unique per tenant, and task sequence numbers SHALL be unique per project.
 
 #### Scenario: Same project key in two tenants
@@ -310,7 +310,7 @@ names SHALL be unique per tenant, and task sequence numbers SHALL be unique per 
 - **WHEN** a tenant creates a second project with a key it already uses
 - **THEN** the creation is rejected with a conflict error
 
-#### Scenario: Duplicate label name
+#### Scenario: Duplicate tag name
 
-- **WHEN** a label name that already exists in the tenant is created again
-- **THEN** the creation is rejected and the existing label is unchanged
+- **WHEN** a tag name that already exists in the tenant is created again
+- **THEN** the creation is rejected and the existing tag is unchanged

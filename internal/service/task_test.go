@@ -120,7 +120,7 @@ func TestCreateTaskWithOnlyATitle(t *testing.T) {
 	if task.CreatorActorID != actor.ID {
 		t.Errorf("creator = %q, want %q", task.CreatorActorID, actor.ID)
 	}
-	if task.AssigneeActorID != "" || task.DueAt != nil || len(task.Labels) != 0 {
+	if task.AssigneeActorID != "" || task.DueAt != nil || len(task.Tags) != 0 {
 		t.Errorf("defaults leaked: %+v", task)
 	}
 	if task.Blocked {
@@ -190,7 +190,7 @@ func TestCreateTaskStoresEveryAttribute(t *testing.T) {
 		Body:            "body",
 		Status:          "doing",
 		Priority:        core.PriorityHigh,
-		Labels:          []string{"urgent", "infra"},
+		Tags:            []string{"urgent", "infra"},
 		AssigneeActorID: actor.ID,
 		ParentRef:       parent.Ref,
 		DueAt:           &due,
@@ -207,8 +207,8 @@ func TestCreateTaskStoresEveryAttribute(t *testing.T) {
 	if task.DueAt == nil || !task.DueAt.Equal(due) {
 		t.Errorf("due date = %v, want %v", task.DueAt, due)
 	}
-	if len(task.Labels) != 2 {
-		t.Errorf("labels = %v, want two", task.Labels)
+	if len(task.Tags) != 2 {
+		t.Errorf("tags = %v, want two", task.Tags)
 	}
 	if task.CustomFields["severity"] != "high" {
 		t.Errorf("custom fields = %v", task.CustomFields)
@@ -241,7 +241,7 @@ func TestGetTaskAcceptsBothReferenceForms(t *testing.T) {
 func TestUpdateTaskChangesOnlyWhatIsSupplied(t *testing.T) {
 	l, ctx, _, actor, _ := newTaskFixture(t)
 	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{
-		Title: "original", Body: "body", Priority: core.PriorityLow, Labels: []string{"keep"},
+		Title: "original", Body: "body", Priority: core.PriorityLow, Tags: []string{"keep"},
 	})
 
 	assignee := actor.ID
@@ -255,8 +255,8 @@ func TestUpdateTaskChangesOnlyWhatIsSupplied(t *testing.T) {
 	if updated.Title != "original" || updated.Body != "body" || updated.Priority != core.PriorityLow {
 		t.Errorf("an unrelated attribute changed: %+v", updated)
 	}
-	if len(updated.Labels) != 1 || updated.Labels[0] != "keep" {
-		t.Errorf("labels = %v, want the original label", updated.Labels)
+	if len(updated.Tags) != 1 || updated.Tags[0] != "keep" {
+		t.Errorf("tags = %v, want the original tag", updated.Tags)
 	}
 	if updated.Version <= task.Version {
 		t.Errorf("version did not move: %d then %d", task.Version, updated.Version)
@@ -266,13 +266,13 @@ func TestUpdateTaskChangesOnlyWhatIsSupplied(t *testing.T) {
 func TestUpdateTaskClearsAndReplaces(t *testing.T) {
 	l, ctx, _, _, _ := newTaskFixture(t)
 	due := time.Date(2031, 5, 6, 7, 8, 9, 0, time.UTC)
-	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "t", DueAt: &due, Labels: []string{"a", "b"}})
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "t", DueAt: &due, Tags: []string{"a", "b"}})
 
 	var cleared *time.Time
 	title := "renamed"
-	labels := []string{"b", "c"}
+	tags := []string{"b", "c"}
 	updated, err := l.UpdateTask(ctx, core.TaskRef{ID: task.ID}, core.UpdateTaskInput{
-		Title: &title, DueAt: &cleared, Labels: &labels,
+		Title: &title, DueAt: &cleared, Tags: &tags,
 	})
 	if err != nil {
 		t.Fatalf("UpdateTask: %v", err)
@@ -283,8 +283,8 @@ func TestUpdateTaskClearsAndReplaces(t *testing.T) {
 	if updated.Title != "renamed" {
 		t.Errorf("title = %q", updated.Title)
 	}
-	if strings.Join(updated.Labels, ",") != "b,c" {
-		t.Errorf("labels = %v, want exactly b and c", updated.Labels)
+	if strings.Join(updated.Tags, ",") != "b,c" {
+		t.Errorf("tags = %v, want exactly b and c", updated.Tags)
 	}
 }
 
@@ -655,7 +655,7 @@ func taskTitles(tasks []core.Task) []string {
 func TestListTasksFiltersAndSorts(t *testing.T) {
 	l, ctx, _, actor, _ := newTaskFixture(t)
 	a := mustCreateTask(t, l, ctx, core.CreateTaskInput{
-		Title: "alpha needle", Priority: core.PriorityHighest, Labels: []string{"red"},
+		Title: "alpha needle", Priority: core.PriorityHighest, Tags: []string{"red"},
 		AssigneeActorID: actor.ID,
 	})
 	mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "beta", Priority: core.PriorityLowest})
@@ -666,11 +666,11 @@ func TestListTasksFiltersAndSorts(t *testing.T) {
 		count int
 	}{
 		{"by status", core.TaskFilter{Statuses: []string{"todo"}}, 2},
-		{"by label", core.TaskFilter{Labels: []string{"red"}}, 1},
+		{"by tag", core.TaskFilter{Tags: []string{"red"}}, 1},
 		{"by assignee", core.TaskFilter{AssigneeIDs: []string{actor.ID}}, 1},
 		{"by priority", core.TaskFilter{Priorities: []core.Priority{core.PriorityHighest}}, 1},
 		{"by query", core.TaskFilter{Query: "needle"}, 1},
-		{"combined", core.TaskFilter{Labels: []string{"red"}, Statuses: []string{"todo"}, Blocked: core.No}, 1},
+		{"combined", core.TaskFilter{Tags: []string{"red"}, Statuses: []string{"todo"}, Blocked: core.No}, 1},
 		{"no match", core.TaskFilter{Statuses: []string{"done"}}, 0},
 	}
 	for _, tc := range cases {
@@ -1085,15 +1085,15 @@ func TestParentReferencesAreResolvedThroughAncestors(t *testing.T) {
 
 func TestReplacingLabelsIgnoresBlankNames(t *testing.T) {
 	l, ctx, _, _, _ := newTaskFixture(t)
-	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "t", Labels: []string{"keep", "drop"}})
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "t", Tags: []string{"keep", "drop"}})
 
-	labels := []string{"keep", "  ", ""}
-	got, err := l.UpdateTask(ctx, core.TaskRef{ID: task.ID}, core.UpdateTaskInput{Labels: &labels})
+	tags := []string{"keep", "  ", ""}
+	got, err := l.UpdateTask(ctx, core.TaskRef{ID: task.ID}, core.UpdateTaskInput{Tags: &tags})
 	if err != nil {
 		t.Fatalf("UpdateTask: %v", err)
 	}
-	if strings.Join(got.Labels, ",") != "keep" {
-		t.Errorf("labels = %v, want only the named one", got.Labels)
+	if strings.Join(got.Tags, ",") != "keep" {
+		t.Errorf("tags = %v, want only the named one", got.Tags)
 	}
 }
 

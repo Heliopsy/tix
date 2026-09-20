@@ -488,8 +488,8 @@ func TestClaimNextFiltersByStatusAndLabel(t *testing.T) {
 	if claimed.Task.ID != wanted.ID {
 		t.Errorf("claim next returned %q, want the status-matched task", claimed.Task.Title)
 	}
-	if _, err := f.local.ClaimNext(f.asOther(), core.ClaimNextInput{Labels: []string{"nope"}}); !core.IsKind(err, core.KindNoTaskAvailable) {
-		t.Errorf("claim next with an unmatched label = %v, want no task available", err)
+	if _, err := f.local.ClaimNext(f.asOther(), core.ClaimNextInput{Tags: []string{"nope"}}); !core.IsKind(err, core.KindNoTaskAvailable) {
+		t.Errorf("claim next with an unmatched tag = %v, want no task available", err)
 	}
 }
 

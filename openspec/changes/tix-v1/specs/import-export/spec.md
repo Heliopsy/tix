@@ -2,7 +2,7 @@
 
 ### Requirement: Tenant snapshot export
 
-The system SHALL export a snapshot of a tenant's data in JSON or YAML, containing its projects, workflows, field definitions, labels, tasks, subtask and dependency relationships, comments, and artifact references.
+The system SHALL export a snapshot of a tenant's data in JSON or YAML, containing its projects, workflows, field definitions, tags, tasks, subtask and dependency relationships, comments, and artifact references.
 
 #### Scenario: Full tenant export
 

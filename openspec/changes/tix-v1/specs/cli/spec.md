@@ -198,7 +198,7 @@ Every command that mutates state SHALL accept `--dry-run`, which reports exactly
 
 ### Requirement: Command surface
 
-The CLI SHALL provide the command groups `task`, `project`, `workflow`, `field`, `claim`, `comment`, `dep`, `label`, `user`, `token`, `ctx`, `config`, `doctor`, `serve`, `tui`, `export`, `import`, `sync`, `webhook`, `prune`, `docs`, `completion`, and `version`.
+The CLI SHALL provide the command groups `task`, `project`, `workflow`, `field`, `claim`, `comment`, `dep`, `tag`, `user`, `token`, `ctx`, `config`, `doctor`, `serve`, `tui`, `export`, `import`, `sync`, `webhook`, `prune`, `docs`, `completion`, and `version`.
 
 #### Scenario: Every group is reachable
 
@@ -217,7 +217,7 @@ The CLI SHALL provide the command groups `task`, `project`, `workflow`, `field`,
 
 ### Requirement: Shell completion
 
-The CLI SHALL generate completion scripts for bash, zsh, and fish, and those completions SHALL include dynamic completion of task references, project keys, labels, and statuses.
+The CLI SHALL generate completion scripts for bash, zsh, and fish, and those completions SHALL include dynamic completion of task references, project keys, tags, and statuses.
 
 #### Scenario: Script generation
 

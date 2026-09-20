@@ -151,7 +151,7 @@ func (t *tx) DeleteProject(ctx context.Context, projectID string) error {
 }
 
 var fieldDefColumns = []string{
-	"id", "tenant_id", "project_id", "key", "label", "type", "required",
+	"id", "tenant_id", "project_id", "key", "tag", "type", "required",
 	"enum_options", "default_value", "indexed", "position",
 }
 
@@ -195,7 +195,7 @@ func (t *tx) PutFieldDef(ctx context.Context, d *core.FieldDef) error {
 	upd := t.builder("field_defs").
 		Where("project_id = ?", d.ProjectID).
 		Where("key = ?", d.Key).
-		Set("label", d.Label).
+		Set("tag", d.Label).
 		Set("type", string(d.Type)).
 		Set("required", sqlb.BoolInt(d.Required)).
 		Set("enum_options", sqlb.NullText(options)).
@@ -224,7 +224,7 @@ func (t *tx) PutFieldDef(ctx context.Context, d *core.FieldDef) error {
 		Set("id", d.ID).
 		Set("project_id", d.ProjectID).
 		Set("key", d.Key).
-		Set("label", d.Label).
+		Set("tag", d.Label).
 		Set("type", string(d.Type)).
 		Set("required", sqlb.BoolInt(d.Required)).
 		Set("enum_options", sqlb.NullText(options)).

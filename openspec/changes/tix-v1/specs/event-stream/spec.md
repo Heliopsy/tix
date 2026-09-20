@@ -40,7 +40,7 @@ Each event SHALL carry a sequence number that increases monotonically within a d
 
 ### Requirement: Event taxonomy
 
-The system SHALL define a closed set of event types covering task created, task updated, task transitioned, task claimed, task released, task lease expired, task deleted, comment created, artifact created, dependency changed, label changed, project changed, workflow changed, field definition changed, webhook delivery outcome, and import completed. Each mutation SHALL emit the event type that describes it.
+The system SHALL define a closed set of event types covering task created, task updated, task transitioned, task claimed, task released, task lease expired, task deleted, comment created, artifact created, dependency changed, tag changed, project changed, workflow changed, field definition changed, webhook delivery outcome, and import completed. Each mutation SHALL emit the event type that describes it.
 
 #### Scenario: Transition emits its own type
 

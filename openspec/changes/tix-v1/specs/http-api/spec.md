@@ -16,7 +16,7 @@ The HTTP API SHALL be served under the path prefix `/api/v1`. Breaking changes t
 
 ### Requirement: Resource routes
 
-The API SHALL expose routes for tasks, projects, workflows, field definitions, dependencies, labels, comments, artifacts, claims, tenants, domains, users, tokens, webhooks, audit entries, export, import, and sync. Every operation available through the CLI SHALL have a corresponding HTTP route.
+The API SHALL expose routes for tasks, projects, workflows, field definitions, dependencies, tags, comments, artifacts, claims, tenants, domains, users, tokens, webhooks, audit entries, export, import, and sync. Every operation available through the CLI SHALL have a corresponding HTTP route.
 
 #### Scenario: Coverage
 

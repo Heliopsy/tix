@@ -96,7 +96,7 @@ func TestScopedTablesHaveTenantColumn(t *testing.T) {
 
 	scoped := []string{
 		"actors", "sessions", "api_tokens", "workflows", "projects", "field_defs",
-		"tasks", "task_deps", "labels", "task_labels", "comments", "artifacts",
+		"tasks", "task_deps", "tags", "task_tags", "comments", "artifacts",
 		"events", "audit_entries", "webhook_endpoints", "webhook_deliveries",
 		"retention_policies", "external_refs", "sync_sources", "tenant_members",
 	}
@@ -124,7 +124,7 @@ func TestExpectedTablesExist(t *testing.T) {
 	want := []string{
 		"tenants", "tenant_domains", "tenant_members", "actors", "users", "sessions",
 		"api_tokens", "workflows", "projects", "field_defs", "tasks", "task_deps",
-		"labels", "task_labels", "comments", "artifacts", "events", "audit_entries",
+		"tags", "task_tags", "comments", "artifacts", "events", "audit_entries",
 		"webhook_endpoints", "webhook_deliveries", "retention_policies",
 		"external_refs", "sync_sources", "schema_migrations",
 	}

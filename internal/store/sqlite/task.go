@@ -271,14 +271,14 @@ func (t *tx) applyTaskFilter(b *sqlb.Builder, f core.TaskFilter) error {
 		}
 		b.WhereIn("tasks.priority", values)
 	}
-	if len(f.Labels) > 0 {
-		marks := strings.TrimSuffix(strings.Repeat("?, ", len(f.Labels)), ", ")
-		args := make([]any, 0, len(f.Labels))
-		for _, l := range f.Labels {
+	if len(f.Tags) > 0 {
+		marks := strings.TrimSuffix(strings.Repeat("?, ", len(f.Tags)), ", ")
+		args := make([]any, 0, len(f.Tags))
+		for _, l := range f.Tags {
 			args = append(args, l)
 		}
-		b.Where("EXISTS (SELECT 1 FROM task_labels tl JOIN labels l"+
-			" ON l.id = tl.label_id AND l.tenant_id = tl.tenant_id"+
+		b.Where("EXISTS (SELECT 1 FROM task_tags tl JOIN tags l"+
+			" ON l.id = tl.tag_id AND l.tenant_id = tl.tenant_id"+
 			" WHERE tl.tenant_id = tasks.tenant_id AND tl.task_id = tasks.id AND l.name IN ("+marks+"))",
 			args...)
 	}
@@ -341,7 +341,7 @@ func validFieldKey(s string) bool {
 	return true
 }
 
-// fillTaskRelations loads labels, dependencies and the blocked flag for a page
+// fillTaskRelations loads tags, dependencies and the blocked flag for a page
 // of tasks in three statements rather than three per row.
 func (t *tx) fillTaskRelations(ctx context.Context, tasks []core.Task) error {
 	if len(tasks) == 0 {
@@ -354,14 +354,14 @@ func (t *tx) fillTaskRelations(ctx context.Context, tasks []core.Task) error {
 		index[tasks[i].ID] = &tasks[i]
 	}
 
-	labels := t.builder("task_labels").
-		Select("task_labels.task_id", "labels.name").
-		Join("JOIN labels ON labels.id = task_labels.label_id AND labels.tenant_id = task_labels.tenant_id").
-		OrderBy("labels.name", core.Ascending)
-	labels.WhereIn("task_labels.task_id", ids)
-	if err := t.eachPair(ctx, labels, "loading task labels", func(taskID, name string) {
+	tags := t.builder("task_tags").
+		Select("task_tags.task_id", "tags.name").
+		Join("JOIN tags ON tags.id = task_tags.tag_id AND tags.tenant_id = task_tags.tenant_id").
+		OrderBy("tags.name", core.Ascending)
+	tags.WhereIn("task_tags.task_id", ids)
+	if err := t.eachPair(ctx, tags, "loading task tags", func(taskID, name string) {
 		if task := index[taskID]; task != nil {
-			task.Labels = append(task.Labels, name)
+			task.Tags = append(task.Tags, name)
 		}
 	}); err != nil {
 		return err

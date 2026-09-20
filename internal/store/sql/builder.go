@@ -292,7 +292,7 @@ func IsScoped(table string) bool { return !unscoped[table] }
 func ScopedTables() []string {
 	all := []string{
 		"actors", "sessions", "api_tokens", "workflows", "projects", "field_defs",
-		"tasks", "task_deps", "labels", "task_labels", "comments", "artifacts",
+		"tasks", "task_deps", "tags", "task_tags", "comments", "artifacts",
 		"events", "audit_entries", "webhook_endpoints", "webhook_deliveries",
 		"retention_policies", "external_refs", "sync_sources", "tenant_members",
 	}

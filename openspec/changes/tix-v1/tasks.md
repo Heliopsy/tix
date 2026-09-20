@@ -73,7 +73,7 @@ ticked, and coverage is at or above 80% (excluding `internal/tui`).
 - [x] 3.12 WP-21 Cross-tenant leak suite over every service method
 - [x] 3.13 WP-22 `internal/service/task.go`: task CRUD, transitions, soft and hard delete
 - [x] 3.14 WP-22 `internal/service/dep.go`: dependencies with cycle rejection and blocked reporting
-- [x] 3.15 WP-22 `internal/service/label.go`: label attach and detach
+- [x] 3.15 WP-22 `internal/service/tag.go`: tag attach and detach
 - [x] 3.16 WP-22 `internal/service/comment.go`: comment create, edit, soft delete
 - [x] 3.17 WP-22 `internal/service/artifact.go`: structured result artifacts
 - [x] 3.18 WP-22 Task listing: filtering, sorting, keyset pagination, no OFFSET
@@ -89,36 +89,36 @@ ticked, and coverage is at or above 80% (excluding `internal/tui`).
 
 ## 4. Wave 4 — Transports
 
-- [ ] 4.1 WP-30 `internal/httpapi/router.go`: route table over the standard library mux
-- [ ] 4.2 WP-30 `internal/httpapi/middleware.go`: host-to-tenant resolution before authentication
-- [ ] 4.3 WP-30 `internal/httpapi/middleware.go`: bearer and cookie authentication
-- [ ] 4.4 WP-30 `internal/httpapi`: handlers for every resource
-- [ ] 4.5 WP-30 `internal/httpapi`: error envelope mapping the service taxonomy to status codes
-- [ ] 4.6 WP-30 `internal/httpapi`: health and readiness endpoints
-- [ ] 4.7 WP-30 `internal/server`: lifecycle, TLS, graceful shutdown
-- [ ] 4.8 WP-30 `internal/server`: non-loopback bind guard requiring TLS or explicit opt-out
-- [ ] 4.9 WP-30 `internal/server`: sweeper, webhook dispatcher, and pruner workers
-- [ ] 4.10 WP-30 `cmd/serve.go`
-- [ ] 4.11 WP-31 `internal/httpapi/ws.go`: WebSocket protocol messages
-- [ ] 4.12 WP-31 `internal/httpapi/hub.go`: per-tenant fan-out and slow-consumer handling
-- [ ] 4.13 WP-31 Gap-free `since_seq` resume test
-- [ ] 4.14 WP-32 `internal/client`: remote `core.Service` implementation
-- [ ] 4.15 WP-32 `internal/client`: error reconstruction preserving codes
-- [ ] 4.16 WP-32 Transport-equivalence suite running every scenario against both implementations
-- [ ] 4.17 WP-33 `internal/webhook`: endpoint registry
-- [ ] 4.18 WP-33 `internal/webhook`: HMAC signing over timestamp and body
-- [ ] 4.19 WP-33 `internal/webhook`: delivery worker, retry schedule, delivery locking
-- [ ] 4.20 WP-33 `internal/webhook`: opportunistic inline drain for the command line
-- [ ] 4.21 WP-34 `internal/connect`: resolution order selecting local or remote
-- [ ] 4.22 WP-34 `cmd/root.go`: global flags, output selection, exit code mapping
-- [ ] 4.23 WP-34 `cmd/task*.go`, `cmd/dep.go`, `cmd/label.go`, `cmd/comment.go`
-- [ ] 4.24 WP-34 `cmd/project.go`, `cmd/workflow.go`, `cmd/field.go`
-- [ ] 4.25 WP-34 `cmd/claim.go` including the exec wrapper
-- [ ] 4.26 WP-34 `cmd/tenant.go`, `cmd/domain.go`, `cmd/user.go`, `cmd/token.go`, `cmd/login.go`
-- [ ] 4.27 WP-34 `cmd/ctx.go`, `cmd/config.go`, `cmd/doctor.go`, `cmd/prune.go`, `cmd/webhook.go`
-- [ ] 4.28 WP-34 `cmd/completion.go` with dynamic completion of refs, projects, labels, statuses
-- [ ] 4.29 WP-34 `cmd/docs.go` generating the command tree as Markdown
-- [ ] 4.30 WP-34 Golden tests over the command tree covering output shapes and exit codes
+- [x] 4.1 WP-30 `internal/httpapi/router.go`: route table over the standard library mux
+- [x] 4.2 WP-30 `internal/httpapi/middleware.go`: host-to-tenant resolution before authentication
+- [x] 4.3 WP-30 `internal/httpapi/middleware.go`: bearer and cookie authentication
+- [x] 4.4 WP-30 `internal/httpapi`: handlers for every resource
+- [x] 4.5 WP-30 `internal/httpapi`: error envelope mapping the service taxonomy to status codes
+- [x] 4.6 WP-30 `internal/httpapi`: health and readiness endpoints
+- [x] 4.7 WP-30 `internal/server`: lifecycle, TLS, graceful shutdown
+- [x] 4.8 WP-30 `internal/server`: non-loopback bind guard requiring TLS or explicit opt-out
+- [x] 4.9 WP-30 `internal/server`: sweeper, webhook dispatcher, and pruner workers
+- [x] 4.10 WP-30 `cmd/serve.go`
+- [x] 4.11 WP-31 `internal/httpapi/ws.go`: WebSocket protocol messages
+- [x] 4.12 WP-31 `internal/httpapi/hub.go`: per-tenant fan-out and slow-consumer handling
+- [x] 4.13 WP-31 Gap-free `since_seq` resume test
+- [x] 4.14 WP-32 `internal/client`: remote `core.Service` implementation
+- [x] 4.15 WP-32 `internal/client`: error reconstruction preserving codes
+- [x] 4.16 WP-32 Transport-equivalence suite running every scenario against both implementations
+- [x] 4.17 WP-33 `internal/webhook`: endpoint registry
+- [x] 4.18 WP-33 `internal/webhook`: HMAC signing over timestamp and body
+- [x] 4.19 WP-33 `internal/webhook`: delivery worker, retry schedule, delivery locking
+- [x] 4.20 WP-33 `internal/webhook`: opportunistic inline drain for the command line
+- [x] 4.21 WP-34 `internal/connect`: resolution order selecting local or remote
+- [x] 4.22 WP-34 `cmd/root.go`: global flags, output selection, exit code mapping
+- [x] 4.23 WP-34 `cmd/task*.go`, `cmd/dep.go`, `cmd/tag.go`, `cmd/comment.go`
+- [x] 4.24 WP-34 `cmd/project.go`, `cmd/workflow.go`, `cmd/field.go`
+- [x] 4.25 WP-34 `cmd/claim.go` including the exec wrapper
+- [x] 4.26 WP-34 `cmd/tenant.go`, `cmd/domain.go`, `cmd/user.go`, `cmd/token.go`, `cmd/login.go`
+- [x] 4.27 WP-34 `cmd/ctx.go`, `cmd/config.go`, `cmd/doctor.go`, `cmd/prune.go`, `cmd/webhook.go`
+- [x] 4.28 WP-34 `cmd/completion.go` with dynamic completion of refs, projects, tags, statuses
+- [x] 4.29 WP-34 `cmd/docs.go` generating the command tree as Markdown
+- [x] 4.30 WP-34 Golden tests over the command tree covering output shapes and exit codes
 
 ## 5. Wave 5 — Surfaces
 

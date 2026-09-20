@@ -263,14 +263,14 @@ func TestClaimNextTaskFilters(t *testing.T) {
 	ctx := context.Background()
 	s, clk := newStore(t)
 	f := seed(t, s, clk, "acme")
-	task := f.newTask(t, "labelled", core.PriorityNormal)
+	task := f.newTask(t, "tagged", core.PriorityNormal)
 
-	label := core.Label{Name: "queue"}
+	tag := core.Tag{Name: "queue"}
 	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
-		if err := tx.PutLabel(ctx, &label); err != nil {
+		if err := tx.PutTag(ctx, &tag); err != nil {
 			return err
 		}
-		return tx.AttachLabel(ctx, task.ID, label.ID)
+		return tx.AttachTag(ctx, task.ID, tag.ID)
 	}); err != nil {
 		t.Fatalf("labelling: %v", err)
 	}
@@ -278,26 +278,26 @@ func TestClaimNextTaskFilters(t *testing.T) {
 	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
 		_, ok, err := tx.ClaimNextTask(ctx, store.ClaimNextRow{
 			ActorID: f.actor.ID, Now: clk.Now(), Until: clk.Now().Add(time.Minute),
-			LeaseToken: "l1", Labels: []string{"absent"}, TerminalStates: []string{"done"},
+			LeaseToken: "l1", Tags: []string{"absent"}, TerminalStates: []string{"done"},
 		})
 		if err != nil {
 			return err
 		}
 		if ok {
-			t.Fatal("a label filter that matches nothing must claim nothing")
+			t.Fatal("a tag filter that matches nothing must claim nothing")
 		}
 		id, ok, err := tx.ClaimNextTask(ctx, store.ClaimNextRow{
 			ActorID: f.actor.ID, Now: clk.Now(), Until: clk.Now().Add(time.Minute),
-			LeaseToken: "l2", Labels: []string{"queue"}, TerminalStates: []string{"done"},
+			LeaseToken: "l2", Tags: []string{"queue"}, TerminalStates: []string{"done"},
 		})
 		if err != nil {
 			return err
 		}
 		if !ok || id != task.ID {
-			t.Fatalf("label filter claimed %q ok=%v", id, ok)
+			t.Fatalf("tag filter claimed %q ok=%v", id, ok)
 		}
 		return nil
 	}); err != nil {
-		t.Fatalf("label filtered claim: %v", err)
+		t.Fatalf("tag filtered claim: %v", err)
 	}
 }

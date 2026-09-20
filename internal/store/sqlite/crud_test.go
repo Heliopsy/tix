@@ -509,33 +509,33 @@ func TestLabelCommentArtifactRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	s, clk := newStore(t)
 	f := seed(t, s, clk, "acme")
-	task := f.newTask(t, "labelled", core.PriorityNormal)
+	task := f.newTask(t, "tagged", core.PriorityNormal)
 
-	label := core.Label{Name: "urgent", Color: "red"}
+	tag := core.Tag{Name: "urgent", Color: "red"}
 	comment := core.Comment{TaskID: task.ID, AuthorActorID: f.actor.ID, Body: "first"}
 	artifact := core.Artifact{TaskID: task.ID, ActorID: f.actor.ID, Kind: core.ArtifactResult,
 		Name: "result", Payload: map[string]any{"ok": true}, Blob: []byte("bytes")}
 
 	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
-		if err := tx.PutLabel(ctx, &label); err != nil {
+		if err := tx.PutTag(ctx, &tag); err != nil {
 			return err
 		}
-		label.Color = "crimson"
-		label.ID = ""
-		if err := tx.PutLabel(ctx, &label); err != nil {
+		tag.Color = "crimson"
+		tag.ID = ""
+		if err := tx.PutTag(ctx, &tag); err != nil {
 			return err
 		}
-		labels, err := tx.ListLabels(ctx)
+		tags, err := tx.ListTags(ctx)
 		if err != nil {
 			return err
 		}
-		if len(labels) != 1 || labels[0].Color != "crimson" {
-			t.Fatalf("labels = %+v", labels)
+		if len(tags) != 1 || tags[0].Color != "crimson" {
+			t.Fatalf("tags = %+v", tags)
 		}
-		if err := tx.AttachLabel(ctx, task.ID, label.ID); err != nil {
+		if err := tx.AttachTag(ctx, task.ID, tag.ID); err != nil {
 			return err
 		}
-		if err := tx.AttachLabel(ctx, task.ID, label.ID); err != nil {
+		if err := tx.AttachTag(ctx, task.ID, tag.ID); err != nil {
 			t.Fatalf("attaching twice should be idempotent: %v", err)
 		}
 
@@ -563,15 +563,15 @@ func TestLabelCommentArtifactRoundTrip(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if len(got.Labels) != 1 || got.Labels[0] != "urgent" {
-			t.Fatalf("task labels = %+v", got.Labels)
+		if len(got.Tags) != 1 || got.Tags[0] != "urgent" {
+			t.Fatalf("task tags = %+v", got.Tags)
 		}
-		byLabel, err := tx.ListTasks(ctx, core.TaskFilter{Labels: []string{"urgent"}})
+		byLabel, err := tx.ListTasks(ctx, core.TaskFilter{Tags: []string{"urgent"}})
 		if err != nil {
 			return err
 		}
 		if len(byLabel) != 1 {
-			t.Fatalf("label filter = %+v", byLabel)
+			t.Fatalf("tag filter = %+v", byLabel)
 		}
 		comments, err := tx.ListComments(ctx, task.ID)
 		if err != nil {
@@ -603,10 +603,10 @@ func TestLabelCommentArtifactRoundTrip(t *testing.T) {
 	}
 
 	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
-		if err := tx.DetachLabel(ctx, task.ID, label.ID); err != nil {
+		if err := tx.DetachTag(ctx, task.ID, tag.ID); err != nil {
 			return err
 		}
-		if err := tx.DetachLabel(ctx, task.ID, label.ID); !core.IsKind(err, core.KindNotFound) {
+		if err := tx.DetachTag(ctx, task.ID, tag.ID); !core.IsKind(err, core.KindNotFound) {
 			t.Fatalf("detaching twice = %v, want not found", err)
 		}
 		if err := tx.DeleteComment(ctx, comment.ID); err != nil {

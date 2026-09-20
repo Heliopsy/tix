@@ -97,7 +97,7 @@ func (l *Local) CreateTask(ctx context.Context, in core.CreateTaskInput) (*core.
 			return err
 		}
 
-		for _, name := range in.Labels {
+		for _, name := range in.Tags {
 			if _, err := attachTaskLabel(ctx, m.tx, task.ID, name); err != nil {
 				return err
 			}
@@ -272,8 +272,8 @@ func (l *Local) UpdateTask(ctx context.Context, ref core.TaskRef, in core.Update
 		if err := m.tx.UpdateTask(ctx, task); err != nil {
 			return err
 		}
-		if in.Labels != nil {
-			if err := replaceTaskLabels(ctx, m.tx, task, *in.Labels); err != nil {
+		if in.Tags != nil {
+			if err := replaceTaskLabels(ctx, m.tx, task, *in.Tags); err != nil {
 				return err
 			}
 		}

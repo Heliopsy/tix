@@ -257,7 +257,7 @@ type Task struct {
 	Body     string   `json:"body,omitempty" yaml:"body,omitempty"`
 	Status   string   `json:"status" yaml:"status"`
 	Priority Priority `json:"priority" yaml:"priority"`
-	Labels   []string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Tags     []string `json:"tags,omitempty" yaml:"tags,omitempty"`
 
 	AssigneeActorID string `json:"assignee_actor_id,omitempty" yaml:"assignee_actor_id,omitempty"`
 	CreatorActorID  string `json:"creator_actor_id" yaml:"creator_actor_id"`
@@ -301,8 +301,8 @@ type Dependency struct {
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
 }
 
-// Label is a free-form tag.
-type Label struct {
+// Tag is a free-form tag.
+type Tag struct {
 	ID        string `json:"id" yaml:"id"`
 	TenantID  string `json:"tenant_id" yaml:"tenant_id"`
 	ProjectID string `json:"project_id,omitempty" yaml:"project_id,omitempty"`
@@ -370,7 +370,7 @@ const (
 	EventCommentAdded    EventType = "comment.added"
 	EventArtifactAdded   EventType = "artifact.added"
 	EventDependencyAdded EventType = "dependency.added"
-	EventLabelAdded      EventType = "label.added"
+	EventLabelAdded      EventType = "tag.added"
 
 	EventProjectCreated  EventType = "project.created"
 	EventProjectUpdated  EventType = "project.updated"

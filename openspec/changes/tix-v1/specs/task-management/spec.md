@@ -2,16 +2,16 @@
 
 ### Requirement: Task creation
 
-A task SHALL be creatable with a title, and optionally a body, project, priority, assignee, due date, labels, and custom field values. Only a title SHALL be required; every other attribute SHALL take a documented default.
+A task SHALL be creatable with a title, and optionally a body, project, priority, assignee, due date, tags, and custom field values. Only a title SHALL be required; every other attribute SHALL take a documented default.
 
 #### Scenario: Create with only a title
 
 - **WHEN** a task is created supplying only a title
-- **THEN** the task is created in the default project, at the default priority, in its workflow's initial state, unassigned, with no due date and no labels
+- **THEN** the task is created in the default project, at the default priority, in its workflow's initial state, unassigned, with no due date and no tags
 
 #### Scenario: Create with full attributes
 
-- **WHEN** a task is created supplying a title, body, project, priority, assignee, due date, labels, and custom field values
+- **WHEN** a task is created supplying a title, body, project, priority, assignee, due date, tags, and custom field values
 - **THEN** all supplied attributes are stored and returned on the created task
 
 #### Scenario: Empty title
@@ -55,7 +55,7 @@ A task's attributes SHALL be updatable individually, and an update SHALL change 
 #### Scenario: Partial update
 
 - **WHEN** an update supplies a new assignee only
-- **THEN** the assignee changes and the title, body, priority, due date, labels, and custom fields are unchanged
+- **THEN** the assignee changes and the title, body, priority, due date, tags, and custom fields are unchanged
 
 #### Scenario: Clearing an optional attribute
 
@@ -158,24 +158,24 @@ A task whose dependencies are not all in terminal states SHALL be reported as bl
 - **WHEN** a task has no dependencies
 - **THEN** the task is reported as unblocked
 
-### Requirement: Labels
+### Requirement: Tags
 
-Labels SHALL be attachable to and detachable from a task, a task SHALL carry any number of labels, and attaching a label already present SHALL be idempotent.
+Tags SHALL be attachable to and detachable from a task, a task SHALL carry any number of tags, and attaching a tag already present SHALL be idempotent.
 
-#### Scenario: Attach a label
+#### Scenario: Attach a tag
 
-- **WHEN** a label is attached to a task
-- **THEN** the label appears on the task and the task appears when filtering by that label
+- **WHEN** a tag is attached to a task
+- **THEN** the tag appears on the task and the task appears when filtering by that tag
 
-#### Scenario: Attach a label twice
+#### Scenario: Attach a tag twice
 
-- **WHEN** a label already on a task is attached again
-- **THEN** the operation succeeds and the label appears exactly once on the task
+- **WHEN** a tag already on a task is attached again
+- **THEN** the operation succeeds and the tag appears exactly once on the task
 
-#### Scenario: Detach a label
+#### Scenario: Detach a tag
 
-- **WHEN** a label is detached from a task
-- **THEN** the label no longer appears on the task and the task no longer matches a filter on that label
+- **WHEN** a tag is detached from a task
+- **THEN** the tag no longer appears on the task and the task no longer matches a filter on that tag
 
 ### Requirement: Comments
 
@@ -227,7 +227,7 @@ A task SHALL accept structured artifacts written by workers. An artifact SHALL c
 
 ### Requirement: Task filtering
 
-Task lists SHALL be filterable by project, status, assignee, label, priority, due date, claimed state, blocked state, parent, free-text query, and custom field values. Multiple filters SHALL combine conjunctively.
+Task lists SHALL be filterable by project, status, assignee, tag, priority, due date, claimed state, blocked state, parent, free-text query, and custom field values. Multiple filters SHALL combine conjunctively.
 
 #### Scenario: Single filter
 
@@ -236,7 +236,7 @@ Task lists SHALL be filterable by project, status, assignee, label, priority, du
 
 #### Scenario: Combined filters
 
-- **WHEN** tasks are listed filtered by project, label, and unblocked state together
+- **WHEN** tasks are listed filtered by project, tag, and unblocked state together
 - **THEN** only tasks satisfying all three conditions are returned
 
 #### Scenario: Filter by custom field

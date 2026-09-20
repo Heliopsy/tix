@@ -59,7 +59,7 @@ A claim that cannot be granted SHALL return a conflict result immediately. The s
 
 ### Requirement: Claim next
 
-A `claim next` operation SHALL atomically select and claim the highest-priority unblocked task matching a filter over project, labels, and status. It SHALL NOT return a task whose dependencies are not all in terminal states, and SHALL NOT return a task held by a live lease.
+A `claim next` operation SHALL atomically select and claim the highest-priority unblocked task matching a filter over project, tags, and status. It SHALL NOT return a task whose dependencies are not all in terminal states, and SHALL NOT return a task held by a live lease.
 
 #### Scenario: Highest priority wins
 
@@ -73,7 +73,7 @@ A `claim next` operation SHALL atomically select and claim the highest-priority 
 
 #### Scenario: Filtered selection
 
-- **WHEN** `claim next` runs with a label and status filter
+- **WHEN** `claim next` runs with a tag and status filter
 - **THEN** only tasks matching every filter term are considered
 
 #### Scenario: Concurrent claim next

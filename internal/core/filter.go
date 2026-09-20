@@ -139,7 +139,7 @@ type TaskFilter struct {
 	ProjectIDs  []string `json:"project_ids,omitempty" yaml:"project_ids,omitempty"`
 	ProjectKeys []string `json:"project_keys,omitempty" yaml:"project_keys,omitempty"`
 	Statuses    []string `json:"statuses,omitempty" yaml:"statuses,omitempty"`
-	Labels      []string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Tags        []string `json:"tags,omitempty" yaml:"tags,omitempty"`
 	AssigneeIDs []string `json:"assignee_ids,omitempty" yaml:"assignee_ids,omitempty"`
 	CreatorIDs  []string `json:"creator_ids,omitempty" yaml:"creator_ids,omitempty"`
 

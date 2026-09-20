@@ -121,7 +121,7 @@ func (l *Local) claimNextOnce(ctx context.Context, m *mutation, actor *core.Acto
 	until := m.now.Add(ttl)
 	taskID, ok, err := m.tx.ClaimNextTask(ctx, store.ClaimNextRow{
 		ProjectIDs:     projectIDs,
-		Labels:         in.Labels,
+		Tags:           in.Tags,
 		Statuses:       in.Statuses,
 		TerminalStates: terminal,
 		ActorID:        holder,

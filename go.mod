@@ -3,6 +3,7 @@ module github.com/thereisnotime/tix
 go 1.27.1
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/jedib0t/go-pretty/v6 v6.8.3
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/crypto v0.57.0

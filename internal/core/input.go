@@ -152,7 +152,7 @@ type CreateTaskInput struct {
 	Body       string   `json:"body,omitempty" yaml:"body,omitempty"`
 	Status     string   `json:"status,omitempty" yaml:"status,omitempty"`
 	Priority   Priority `json:"priority,omitempty" yaml:"priority,omitempty"`
-	Labels     []string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Tags       []string `json:"tags,omitempty" yaml:"tags,omitempty"`
 
 	AssigneeActorID string     `json:"assignee_actor_id,omitempty" yaml:"assignee_actor_id,omitempty"`
 	ParentRef       string     `json:"parent_ref,omitempty" yaml:"parent_ref,omitempty"`
@@ -193,7 +193,7 @@ type UpdateTaskInput struct {
 	ParentRef       *string        `json:"parent_ref,omitempty" yaml:"parent_ref,omitempty"`
 	DueAt           **time.Time    `json:"due_at,omitempty" yaml:"due_at,omitempty"`
 	CustomFields    map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
-	Labels          *[]string      `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Tags            *[]string      `json:"tags,omitempty" yaml:"tags,omitempty"`
 
 	Version int `json:"version,omitempty" yaml:"version,omitempty"`
 }
@@ -244,7 +244,7 @@ type ClaimInput struct {
 // ClaimNextInput claims the next eligible task.
 type ClaimNextInput struct {
 	ProjectRefs []string `json:"project_refs,omitempty" yaml:"project_refs,omitempty"`
-	Labels      []string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Tags        []string `json:"tags,omitempty" yaml:"tags,omitempty"`
 	Statuses    []string `json:"statuses,omitempty" yaml:"statuses,omitempty"`
 	TTL         Duration `json:"ttl,omitempty" yaml:"ttl,omitempty"`
 	ActorID     string   `json:"actor_id,omitempty" yaml:"actor_id,omitempty"`

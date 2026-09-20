@@ -38,7 +38,7 @@ Core behaviour being introduced:
   corrupt re-claimed work, and lazy expiry so correctness never depends on a sweeper running.
 - **Configurable workflows**: per-project state machines with allowed transitions, plus typed custom
   field definitions. Sensible defaults mean a fresh install needs no configuration.
-- **Multi-tenancy**: tenants own projects, workflows, and labels; domains map to tenants; isolation is
+- **Multi-tenancy**: tenants own projects, workflows, and tags; domains map to tenants; isolation is
   structural (scoped query builder, lint ban on raw queries, reflection test, PostgreSQL row-level
   security) rather than a filter anyone has to remember.
 - **Dual transport over one implementation**: the CLI may talk directly to the database or to a remote
@@ -68,7 +68,7 @@ schema and one migration path. The design target is 1M+ tasks.
 - `service-layer`: The Service contract, error taxonomy, actor and tenant context, transaction boundaries.
 - `transports`: Local versus remote resolution, zero-config behaviour, transport equivalence.
 - `workflows`: State machines, transition validation, custom field definitions and typing.
-- `task-management`: Task CRUD, subtasks, dependencies, labels, comments, artifacts, filtering, keyset pagination.
+- `task-management`: Task CRUD, subtasks, dependencies, tags, comments, artifacts, filtering, keyset pagination.
 - `claim-lease`: Claim semantics, claim next, lease tokens, renewal, release, expiry, the exec wrapper.
 - `auth`: No-auth mode, users, passwords, sessions, API tokens, scopes, roles, the single enforcement point.
 - `cli`: UNIX compliance, exit codes, output formats, composability, shell completion.

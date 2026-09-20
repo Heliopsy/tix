@@ -117,7 +117,7 @@ CREATE TABLE field_defs (
   tenant_id     TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   project_id    TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   key           TEXT NOT NULL,
-  label         TEXT NOT NULL,
+  tag         TEXT NOT NULL,
   type          TEXT NOT NULL CHECK (type IN
                   ('string','text','int','float','bool','date','datetime','enum','actor','json')),
   required      INTEGER NOT NULL DEFAULT 0,
@@ -181,7 +181,7 @@ CREATE TABLE task_deps (
 );
 CREATE INDEX idx_deps_depends_on ON task_deps(tenant_id, depends_on);
 
-CREATE TABLE labels (
+CREATE TABLE tags (
   id         TEXT PRIMARY KEY,
   tenant_id  TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
@@ -190,13 +190,13 @@ CREATE TABLE labels (
   UNIQUE (tenant_id, project_id, name)
 );
 
-CREATE TABLE task_labels (
+CREATE TABLE task_tags (
   tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   task_id   TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  label_id  TEXT NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
-  PRIMARY KEY (task_id, label_id)
+  tag_id  TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  PRIMARY KEY (task_id, tag_id)
 );
-CREATE INDEX idx_task_labels_label ON task_labels(tenant_id, label_id);
+CREATE INDEX idx_task_tags_tag ON task_tags(tenant_id, tag_id);
 
 CREATE TABLE comments (
   id              TEXT PRIMARY KEY,

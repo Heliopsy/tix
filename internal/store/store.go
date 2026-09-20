@@ -123,10 +123,10 @@ type TaskTx interface {
 	// reaches another, which is how a cycle is detected before it is created.
 	DependencyPathExists(ctx context.Context, from, to string) (bool, error)
 
-	PutLabel(ctx context.Context, l *core.Label) error
-	ListLabels(ctx context.Context) ([]core.Label, error)
-	AttachLabel(ctx context.Context, taskID, labelID string) error
-	DetachLabel(ctx context.Context, taskID, labelID string) error
+	PutTag(ctx context.Context, l *core.Tag) error
+	ListTags(ctx context.Context) ([]core.Tag, error)
+	AttachTag(ctx context.Context, taskID, tagID string) error
+	DetachTag(ctx context.Context, taskID, tagID string) error
 
 	CreateComment(ctx context.Context, c *core.Comment) error
 	GetComment(ctx context.Context, id string) (*core.Comment, error)
@@ -166,7 +166,7 @@ type ClaimRow struct {
 // ClaimNextRow selects which task to claim.
 type ClaimNextRow struct {
 	ProjectIDs     []string
-	Labels         []string
+	Tags           []string
 	Statuses       []string
 	TerminalStates []string
 	ActorID        string

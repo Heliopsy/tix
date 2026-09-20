@@ -83,28 +83,28 @@ func (t *tx) DependencyPathExists(ctx context.Context, from, to string) (bool, e
 	return found != 0, nil
 }
 
-var labelColumns = []string{"id", "tenant_id", "project_id", "name", "color"}
+var tagColumns = []string{"id", "tenant_id", "project_id", "name", "color"}
 
-func scanLabel(s scanner) (core.Label, error) {
+func scanTag(s scanner) (core.Tag, error) {
 	var (
-		l       core.Label
+		l       core.Tag
 		project sql.NullString
 	)
 	if err := s.Scan(&l.ID, &l.TenantID, &project, &l.Name, &l.Color); err != nil {
-		return core.Label{}, mapErr(err, "scanning label")
+		return core.Tag{}, mapErr(err, "scanning tag")
 	}
 	l.ProjectID = sqlb.Text(project)
 	return l, nil
 }
 
-// PutLabel creates or replaces a label, keyed by its project and name.
-func (t *tx) PutLabel(ctx context.Context, l *core.Label) error {
+// PutTag creates or replaces a tag, keyed by its project and name.
+func (t *tx) PutTag(ctx context.Context, l *core.Tag) error {
 	l.TenantID = t.scope.TenantID
 
-	upd := t.builder("labels").Where("name = ?", l.Name)
+	upd := t.builder("tags").Where("name = ?", l.Name)
 	scopeLabelToProject(upd, l.ProjectID)
 	upd.Set("color", l.Color)
-	n, err := t.execUpdate(ctx, upd, "updating label %q", l.Name)
+	n, err := t.execUpdate(ctx, upd, "updating tag %q", l.Name)
 	if err != nil {
 		return err
 	}
@@ -120,12 +120,12 @@ func (t *tx) PutLabel(ctx context.Context, l *core.Label) error {
 	if l.ID == "" {
 		l.ID = id.New()
 	}
-	ins := t.insert("labels").
+	ins := t.insert("tags").
 		Set("id", l.ID).
 		Set("project_id", sqlb.NullText(l.ProjectID)).
 		Set("name", l.Name).
 		Set("color", l.Color)
-	_, err = t.execInsert(ctx, ins, "creating label %q", l.Name)
+	_, err = t.execInsert(ctx, ins, "creating tag %q", l.Name)
 	return err
 }
 
@@ -137,62 +137,62 @@ func scopeLabelToProject(b *sqlb.Builder, projectID string) {
 	b.Where("project_id = ?", projectID)
 }
 
-func (t *tx) getLabel(ctx context.Context, projectID, name string) (*core.Label, error) {
-	b := t.builder("labels").Select(labelColumns...).Where("name = ?", name)
+func (t *tx) getLabel(ctx context.Context, projectID, name string) (*core.Tag, error) {
+	b := t.builder("tags").Select(tagColumns...).Where("name = ?", name)
 	scopeLabelToProject(b, projectID)
 	b.Limit(1)
 	q, args := b.SelectQuery()
-	l, err := scanLabel(t.ex.QueryRowContext(ctx, q, args...))
+	l, err := scanTag(t.ex.QueryRowContext(ctx, q, args...))
 	if err != nil {
 		if core.IsKind(err, core.KindNotFound) {
-			return nil, core.NotFound("label %q", name)
+			return nil, core.NotFound("tag %q", name)
 		}
 		return nil, err
 	}
 	return &l, nil
 }
 
-// ListLabels returns every label in this tenant.
-func (t *tx) ListLabels(ctx context.Context) ([]core.Label, error) {
-	b := t.builder("labels").Select(labelColumns...).OrderBy("name", core.Ascending)
-	rows, err := t.query(ctx, b, "listing labels")
+// ListTags returns every tag in this tenant.
+func (t *tx) ListTags(ctx context.Context) ([]core.Tag, error) {
+	b := t.builder("tags").Select(tagColumns...).OrderBy("name", core.Ascending)
+	rows, err := t.query(ctx, b, "listing tags")
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
 
-	out := []core.Label{}
+	out := []core.Tag{}
 	for rows.Next() {
-		v, err := scanLabel(rows)
+		v, err := scanTag(rows)
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, v)
 	}
-	return out, mapRowsErr(rows, "listing labels")
+	return out, mapRowsErr(rows, "listing tags")
 }
 
-// AttachLabel puts a label on a task.
-func (t *tx) AttachLabel(ctx context.Context, taskID, labelID string) error {
-	ins := t.insert("task_labels").Set("task_id", taskID).Set("label_id", labelID)
-	_, err := t.execInsert(ctx, ins, "attaching label %q to task %q", labelID, taskID)
+// AttachTag puts a tag on a task.
+func (t *tx) AttachTag(ctx context.Context, taskID, tagID string) error {
+	ins := t.insert("task_tags").Set("task_id", taskID).Set("tag_id", tagID)
+	_, err := t.execInsert(ctx, ins, "attaching tag %q to task %q", tagID, taskID)
 	if err != nil && core.IsKind(err, core.KindConflict) {
 		return nil
 	}
 	return err
 }
 
-// DetachLabel takes a label off a task.
-func (t *tx) DetachLabel(ctx context.Context, taskID, labelID string) error {
-	b := t.builder("task_labels").
+// DetachTag takes a tag off a task.
+func (t *tx) DetachTag(ctx context.Context, taskID, tagID string) error {
+	b := t.builder("task_tags").
 		Where("task_id = ?", taskID).
-		Where("label_id = ?", labelID)
-	n, err := t.execDelete(ctx, b, "detaching label")
+		Where("tag_id = ?", tagID)
+	n, err := t.execDelete(ctx, b, "detaching tag")
 	if err != nil {
 		return err
 	}
 	if n == 0 {
-		return core.NotFound("task %q does not carry label %q", taskID, labelID)
+		return core.NotFound("task %q does not carry tag %q", taskID, tagID)
 	}
 	return nil
 }

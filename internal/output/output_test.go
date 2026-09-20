@@ -30,7 +30,7 @@ func sampleTask() core.Task {
 		Title:           "Wire the output package",
 		Status:          "in_progress",
 		Priority:        core.PriorityHigh,
-		Labels:          []string{"cli", "output"},
+		Tags:            []string{"cli", "output"},
 		AssigneeActorID: "act_1",
 		CreatorActorID:  "act_2",
 		DueAt:           ptrTime(refTime2),
@@ -169,7 +169,7 @@ func TestTableTaskGolden(t *testing.T) {
 	got := render(t, FormatTable, []core.Task{sampleTask()})
 	want := "" +
 		"┌───────┬─────────────────────────┬─────────────┬──────────┬──────────┬─────────────┬──────────────────┬──────────────────┬─────────┐\n" +
-		"│ REF   │ TITLE                   │ STATUS      │ PRIORITY │ ASSIGNEE │ LABELS      │ DUE              │ UPDATED          │ BLOCKED │\n" +
+		"│ REF   │ TITLE                   │ STATUS      │ PRIORITY │ ASSIGNEE │ TAGS        │ DUE              │ UPDATED          │ BLOCKED │\n" +
 		"├───────┼─────────────────────────┼─────────────┼──────────┼──────────┼─────────────┼──────────────────┼──────────────────┼─────────┤\n" +
 		"│ ENG-7 │ Wire the output package │ in_progress │ high     │ act_1    │ cli, output │ 2026-04-05 06:07 │ 2026-03-04 05:06 │ no      │\n" +
 		"└───────┴─────────────────────────┴─────────────┴──────────┴──────────┴─────────────┴──────────────────┴──────────────────┴─────────┘\n"

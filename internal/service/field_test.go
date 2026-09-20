@@ -32,7 +32,7 @@ func TestPutFieldDefCreatesAndReplaces(t *testing.T) {
 		t.Fatalf("PutFieldDef: %v", err)
 	}
 	if def.ProjectID != p.ID || def.Label != "severity" {
-		t.Errorf("definition = %+v, want the project set and the key used as the label", def)
+		t.Errorf("definition = %+v, want the project set and the key used as the tag", def)
 	}
 	afterEvents, afterAudits := countRows(t, l, scope)
 	if afterEvents != events+1 || afterAudits != audits+1 {

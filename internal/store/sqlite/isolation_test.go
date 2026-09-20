@@ -16,7 +16,7 @@ type tenantData struct {
 	fixture
 	task     core.Task
 	other    core.Task
-	label    core.Label
+	tag      core.Tag
 	comment  core.Comment
 	artifact core.Artifact
 	webhook  core.WebhookEndpoint
@@ -42,11 +42,11 @@ func seedIsolated(t *testing.T, s *Store, clk *clock.Fake, key, hostname string)
 		if err := tx.AddMember(ctx, &core.Membership{ActorID: d.actor.ID, Role: core.RoleAdmin}); err != nil {
 			return err
 		}
-		d.label = core.Label{Name: "urgent"}
-		if err := tx.PutLabel(ctx, &d.label); err != nil {
+		d.tag = core.Tag{Name: "urgent"}
+		if err := tx.PutTag(ctx, &d.tag); err != nil {
 			return err
 		}
-		if err := tx.AttachLabel(ctx, d.task.ID, d.label.ID); err != nil {
+		if err := tx.AttachTag(ctx, d.task.ID, d.tag.ID); err != nil {
 			return err
 		}
 		d.comment = core.Comment{TaskID: d.task.ID, AuthorActorID: d.actor.ID, Body: "shared body"}
@@ -173,12 +173,12 @@ func TestTenantIsolationOnReads(t *testing.T) {
 					t.Fatalf("ListActors leaked: %+v", actors)
 				}
 
-				labels, err := tx.ListLabels(ctx)
+				tags, err := tx.ListTags(ctx)
 				if err != nil {
 					return err
 				}
-				if len(labels) != 1 || labels[0].TenantID != own.tenant.ID {
-					t.Fatalf("ListLabels leaked: %+v", labels)
+				if len(tags) != 1 || tags[0].TenantID != own.tenant.ID {
+					t.Fatalf("ListTags leaked: %+v", tags)
 				}
 
 				comments, err := tx.ListComments(ctx, own.task.ID)
@@ -353,8 +353,8 @@ func TestTenantIsolationOnWrites(t *testing.T) {
 		if err := tx.DeleteComment(ctx, b.comment.ID); !core.IsKind(err, core.KindNotFound) {
 			t.Fatalf("DeleteComment across tenants = %v, want not found", err)
 		}
-		if err := tx.DetachLabel(ctx, b.task.ID, b.label.ID); !core.IsKind(err, core.KindNotFound) {
-			t.Fatalf("DetachLabel across tenants = %v, want not found", err)
+		if err := tx.DetachTag(ctx, b.task.ID, b.tag.ID); !core.IsKind(err, core.KindNotFound) {
+			t.Fatalf("DetachTag across tenants = %v, want not found", err)
 		}
 		if err := tx.RemoveDependency(ctx, b.task.ID, b.other.ID); !core.IsKind(err, core.KindNotFound) {
 			t.Fatalf("RemoveDependency across tenants = %v, want not found", err)

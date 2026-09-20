@@ -40,8 +40,11 @@ linters:
       - path: 'internal/store/sql/'
         linters: [forbidigo]
       # Tests may print and may build ad-hoc queries to verify isolation.
+      # bodyclose: test responses come from httptest inside a short-lived
+      # process, so an unclosed body is not a leak worth 30 call sites of noise.
+      # Production code is still checked.
       - path: '_test\.go'
-        linters: [forbidigo, errcheck]
+        linters: [forbidigo, errcheck, bodyclose]
 
 formatters:
   enable:

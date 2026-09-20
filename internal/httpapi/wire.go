@@ -51,14 +51,14 @@ const (
 	RouteTaskTree       = APIPrefix + "/tasks/{ref}/tree"
 	RouteTaskDeps       = APIPrefix + "/tasks/{ref}/deps"
 	RouteTaskDep        = APIPrefix + "/tasks/{ref}/deps/{dep}"
-	RouteTaskLabels     = APIPrefix + "/tasks/{ref}/labels"
-	RouteTaskLabel      = APIPrefix + "/tasks/{ref}/labels/{name}"
+	RouteTaskLabels     = APIPrefix + "/tasks/{ref}/tags"
+	RouteTaskLabel      = APIPrefix + "/tasks/{ref}/tags/{name}"
 	RouteTaskComments   = APIPrefix + "/tasks/{ref}/comments"
 	RouteTaskArtifacts  = APIPrefix + "/tasks/{ref}/artifacts"
 	RouteTaskAudit      = APIPrefix + "/tasks/{ref}/audit"
 
 	RouteComment = APIPrefix + "/comments/{id}"
-	RouteLabels  = APIPrefix + "/labels"
+	RouteLabels  = APIPrefix + "/tags"
 
 	RouteTaskClaim        = APIPrefix + "/tasks/{ref}/claim"
 	RouteTaskClaimRenew   = APIPrefix + "/tasks/{ref}/claim/renew"
