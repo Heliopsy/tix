@@ -120,6 +120,8 @@ jobs:
 
       - name: Validate specs
         run: openspec validate tix-v1 --strict
+        env:
+          OPENSPEC_TELEMETRY: "0"
 
       - name: Docs index is complete
         run: just docs-check

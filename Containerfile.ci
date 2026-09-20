@@ -49,4 +49,7 @@ RUN npm install -g "markdownlint-cli@${MARKDOWNLINT_VERSION}" "@fission-ai/opens
  && pip install --break-system-packages --no-cache-dir "yamllint==${YAMLLINT_VERSION}" \
  && markdownlint --version && yamllint --version && openspec --version
 
+# Builds should not send usage telemetry.
+ENV OPENSPEC_TELEMETRY=0
+
 WORKDIR /src
