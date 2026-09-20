@@ -7,6 +7,7 @@ import (
 	"github.com/thereisnotime/tix/internal/core"
 	"github.com/thereisnotime/tix/internal/outbox"
 	"github.com/thereisnotime/tix/internal/store"
+	"github.com/thereisnotime/tix/internal/webhook"
 )
 
 // mutation carries everything one write needs to record about itself.
@@ -19,6 +20,10 @@ type mutation struct {
 
 	events []*core.Event
 	audits []*core.AuditEntry
+
+	// queued counts the webhook deliveries this mutation enqueued, so the
+	// caller knows whether an inline drain has anything to do.
+	queued int
 }
 
 // Event queues a domain event. It is written before commit, in this same
@@ -69,17 +74,28 @@ func (m *mutation) Record(action string, typ core.EventType, subjectType, subjec
 	return nil
 }
 
-// flush writes the queued audit entries and events. Called before commit.
+// flush writes the queued audit entries and events, and fans each event out to
+// the endpoints matching it. Called before commit, so a delivery is exactly as
+// durable as the event that caused it. Only the attempt happens after commit.
 func (m *mutation) flush(ctx context.Context) error {
 	for _, a := range m.audits {
 		if err := m.tx.AppendAudit(ctx, a); err != nil {
 			return err
 		}
 	}
+	q := &hookQueue{Tx: m.tx}
 	for _, e := range m.events {
 		if err := outbox.Append(ctx, m.tx, m.local.ids, m.now, e); err != nil {
 			return err
 		}
+		if m.local.hooks == HookOff {
+			continue
+		}
+		n, err := webhook.Enqueue(ctx, q, *e)
+		if err != nil {
+			return err
+		}
+		m.queued += n
 	}
 	return nil
 }
@@ -89,7 +105,8 @@ func (m *mutation) flush(ctx context.Context) error {
 // other way to reach a writable transaction.
 func (l *Local) write(ctx context.Context, actor *core.Actor, fn func(*mutation) error) error {
 	scope := core.TenantScope{TenantID: actor.TenantID}
-	return l.store.Update(ctx, scope, func(tx store.Tx) error {
+	queued := 0
+	err := l.store.Update(ctx, scope, func(tx store.Tx) error {
 		m := &mutation{
 			tx:     tx,
 			actor:  actor,
@@ -100,8 +117,17 @@ func (l *Local) write(ctx context.Context, actor *core.Actor, fn func(*mutation)
 		if err := fn(m); err != nil {
 			return err
 		}
-		return m.flush(ctx)
+		if err := m.flush(ctx); err != nil {
+			return err
+		}
+		queued = m.queued
+		return nil
 	})
+	if err != nil {
+		return err
+	}
+	l.drainHooks(ctx, scope, queued)
+	return nil
 }
 
 // read runs fn inside a read-only transaction.

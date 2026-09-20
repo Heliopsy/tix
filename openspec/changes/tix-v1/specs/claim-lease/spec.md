@@ -59,7 +59,7 @@ A claim that cannot be granted SHALL return a conflict result immediately. The s
 
 ### Requirement: Claim next
 
-A `claim next` operation SHALL atomically select and claim the highest-priority unblocked task matching a filter over project, tags, and status. It SHALL NOT return a task whose dependencies are not all in terminal states, and SHALL NOT return a task held by a live lease.
+A `claim next` operation SHALL atomically select and claim the highest-priority unblocked task matching a filter over project, tags, and status. It SHALL NOT return a task whose dependencies are not all in terminal states, and SHALL NOT return a task held by a live lease. A task whose own status is a terminal state of its project's workflow SHALL NOT be eligible, whatever the filter asks for, and an explicit claim of such a task SHALL be refused as a conflict.
 
 #### Scenario: Highest priority wins
 
@@ -70,6 +70,21 @@ A `claim next` operation SHALL atomically select and claim the highest-priority 
 
 - **WHEN** the highest-priority candidate has an unmet dependency
 - **THEN** it is not returned and the next eligible unblocked task is claimed instead
+
+#### Scenario: Finished tasks skipped
+
+- **WHEN** `claim next` runs against a project whose only task is in a terminal state of its workflow
+- **THEN** no task is returned and the empty-queue outcome is reported
+
+#### Scenario: Finished tasks skipped among eligible ones
+
+- **WHEN** the highest-priority candidate is in a terminal state named by its workflow, whatever that state is called
+- **THEN** it is not returned and the next eligible unfinished task is claimed instead
+
+#### Scenario: Explicit claim of a finished task
+
+- **WHEN** a worker claims a specific task that is already in a terminal state
+- **THEN** the claim fails with a conflict error and no lease is taken
 
 #### Scenario: Filtered selection
 

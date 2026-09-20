@@ -3,6 +3,7 @@ package web_test
 import (
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -13,7 +14,7 @@ func TestFormWorksWithoutJavaScript(t *testing.T) {
 	b := f.as("alice")
 
 	page := b.page("/tasks")
-	if !strings.Contains(page, `<form method="post" action="/tasks">`) {
+	if !hasPlainForm(page, "/tasks") {
 		t.Fatalf("the task list offers no plain form")
 	}
 
@@ -485,5 +486,56 @@ func TestSignOutClearsTheSessionCookie(t *testing.T) {
 	}
 	if !strings.Contains(resp.Header.Get("Set-Cookie"), "tix_session=") {
 		t.Fatalf("the session cookie was not cleared")
+	}
+}
+
+// plainForm matches a form that posts to the given action, whatever other
+// attributes it carries. The property under test is that the control works
+// with scripting turned off, not how the markup is spelled.
+func hasPlainForm(page, action string) bool {
+	for _, tag := range formTags.FindAllString(page, -1) {
+		if strings.Contains(tag, `method="post"`) && strings.Contains(tag, `action="`+action+`"`) {
+			return true
+		}
+	}
+	return false
+}
+
+var formTags = regexp.MustCompile(`<form[^>]*>`)
+
+// The tick box on the task list means "this is finished". A workflow rarely
+// allows a jump from the opening state straight to a terminal one, so the
+// action has to walk the path; if it only did the direct transition it would
+// work for almost no task on the list.
+func TestOneClickCompleteWalksTheWorkflow(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "finish me")
+
+	resp := b.post("/tasks/"+ref+"/complete", url.Values{"csrf_token": {b.csrf()}})
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("complete = %d, want 303: %s", resp.StatusCode, body(t, resp))
+	}
+
+	detail := b.page("/tasks/" + ref)
+	if !strings.Contains(detail, `<span class="badge done">done</span>`) {
+		t.Fatalf("the task did not reach a terminal state:\n%s", detail)
+	}
+}
+
+// Completing something already finished is a no-op rather than an error, so a
+// double click does not put an error page in front of the reader.
+func TestCompletingAFinishedTaskIsHarmless(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "finish me twice")
+
+	for i := range 2 {
+		resp := b.post("/tasks/"+ref+"/complete", url.Values{"csrf_token": {b.csrf()}})
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Fatalf("complete %d = %d, want 303: %s", i+1, resp.StatusCode, body(t, resp))
+		}
 	}
 }

@@ -53,10 +53,23 @@ type Discovery struct {
 	Filenames []string `yaml:"filenames"`
 }
 
-// Retention holds how long history is kept.
+// Retention holds how long history is kept. Each class is governed
+// independently, so changing one never disturbs another.
 type Retention struct {
-	Audit  core.Duration `yaml:"audit"`
-	Events core.Duration `yaml:"events"`
+	Audit             core.Duration `yaml:"audit"`
+	Events            core.Duration `yaml:"events"`
+	WebhookDeliveries core.Duration `yaml:"webhook_deliveries"`
+}
+
+// Policy renders the configured windows as a retention policy for a tenant.
+// It is the default a tenant without an explicit stored policy is pruned by.
+func (r Retention) Policy(tenantID string) core.RetentionPolicy {
+	return core.RetentionPolicy{
+		TenantID:          tenantID,
+		Events:            r.Events,
+		AuditEntries:      r.Audit,
+		WebhookDeliveries: r.WebhookDeliveries,
+	}
 }
 
 // Log holds the logging settings.
@@ -94,6 +107,8 @@ const (
 	DefaultOutputFormat   = "table"
 	DefaultRetentionAudit = "8760h"
 	DefaultRetentionEvent = "720h"
+	// DefaultRetentionDelivery matches the shipped webhook delivery window.
+	DefaultRetentionDelivery = "720h"
 )
 
 // DefaultDiscoveryFilenames are the per-directory context files looked for.
@@ -101,9 +116,17 @@ var DefaultDiscoveryFilenames = []string{".tix.yaml", ".tix/config.yaml"}
 
 // Allowed value sets for the enumerated keys.
 var (
-	AuthModes = []string{"none", "token", "oidc"}
-	HookModes = []string{"off", "warn", "enforce"}
-	LogLevels = []string{"debug", "info", "warn", "error"}
+	// AuthModes lists the authentication modes this build implements.
+	AuthModes = []string{"token"}
+	// UnimplementedAuthModes are documented modes with no implementation
+	// behind them. They are refused rather than accepted and ignored,
+	// because a mode that reads as a security setting must never be silent.
+	UnimplementedAuthModes = []string{"none", "oidc"}
+	// HookModes lists the git hook modes this build implements.
+	HookModes = []string{"off"}
+	// UnimplementedHookModes are documented modes with no implementation.
+	UnimplementedHookModes = []string{"warn", "enforce"}
+	LogLevels              = []string{"debug", "info", "warn", "error"}
 	// OutputFormats mirrors the formats the renderer actually implements, so
 	// config cannot accept one it cannot render or reject one it can.
 	OutputFormats = output.Formats
@@ -122,8 +145,9 @@ func Defaults() Config {
 			Filenames: append([]string(nil), DefaultDiscoveryFilenames...),
 		},
 		Retention: Retention{
-			Audit:  mustDuration(DefaultRetentionAudit),
-			Events: mustDuration(DefaultRetentionEvent),
+			Audit:             mustDuration(DefaultRetentionAudit),
+			Events:            mustDuration(DefaultRetentionEvent),
+			WebhookDeliveries: mustDuration(DefaultRetentionDelivery),
 		},
 		Log:    Log{Level: DefaultLogLevel},
 		Output: Output{Format: DefaultOutputFormat},

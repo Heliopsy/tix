@@ -10,20 +10,26 @@ import (
 // Validate rejects configuration that cannot be used, naming the offending key.
 func Validate(cfg *Config, sources map[string]Layer) error {
 	checks := []struct {
-		key   string
-		value string
-		set   []string
+		key           string
+		value         string
+		set           []string
+		unimplemented []string
 	}{
-		{"auth.mode", cfg.Auth.Mode, AuthModes},
-		{"hooks.mode", cfg.Hooks.Mode, HookModes},
-		{"log.level", cfg.Log.Level, LogLevels},
-		{"output.format", cfg.Output.Format, OutputFormats},
+		{"auth.mode", cfg.Auth.Mode, AuthModes, UnimplementedAuthModes},
+		{"hooks.mode", cfg.Hooks.Mode, HookModes, UnimplementedHookModes},
+		{"log.level", cfg.Log.Level, LogLevels, nil},
+		{"output.format", cfg.Output.Format, OutputFormats, nil},
 	}
 	for _, check := range checks {
-		if !allowed(check.value, check.set) {
-			return invalidKey(check.key, sources).WithDetail("value", check.value).
-				WithDetail("allowed", check.set)
+		if allowed(check.value, check.set) {
+			continue
 		}
+		if allowed(check.value, check.unimplemented) {
+			return unimplementedKey(check.key, check.value, sources).
+				WithDetail("supported", check.set)
+		}
+		return invalidKey(check.key, sources).WithDetail("value", check.value).
+			WithDetail("allowed", check.set)
 	}
 	if cfg.Server.URL != "" {
 		if _, err := url.Parse(cfg.Server.URL); err != nil {
@@ -33,8 +39,18 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 	if strings.TrimSpace(cfg.Tenant) == "" {
 		return invalidKey("tenant", sources)
 	}
-	if cfg.Retention.Audit < 0 || cfg.Retention.Events < 0 {
-		return core.Invalid("retention durations must not be negative")
+	for _, window := range []struct {
+		key string
+		d   core.Duration
+	}{
+		{"retention.audit", cfg.Retention.Audit},
+		{"retention.events", cfg.Retention.Events},
+		{"retention.webhook_deliveries", cfg.Retention.WebhookDeliveries},
+	} {
+		if window.d < 0 {
+			return invalidKey(window.key, sources).WithDetail("value", window.d.String()).
+				WithDetail("reason", "retention windows must not be negative")
+		}
 	}
 	for name, ctx := range cfg.Contexts {
 		if err := ctx.validate(name); err != nil {
@@ -42,6 +58,29 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		}
 	}
 	return nil
+}
+
+// unimplementedKey refuses a value this build documents but does not implement.
+func unimplementedKey(key, value string, sources map[string]Layer) *core.Error {
+	layer := sources[key]
+	if layer == "" {
+		layer = LayerDefault
+	}
+	err := core.Invalid("%s %q is not implemented by this build; supported: %s (set from the %s layer, %s)",
+		key, value, strings.Join(supportedFor(key), ", "), layer, EnvName(key))
+	return err.WithDetail("key", key).WithDetail("value", value).WithDetail("layer", string(layer))
+}
+
+// supportedFor returns the implemented value set of an enumerated key.
+func supportedFor(key string) []string {
+	switch key {
+	case "auth.mode":
+		return AuthModes
+	case "hooks.mode":
+		return HookModes
+	default:
+		return nil
+	}
 }
 
 func invalidKey(key string, sources map[string]Layer) *core.Error {
@@ -60,13 +99,25 @@ func (c Context) validate(name string) error {
 		return core.Invalid("context %q sets both a database dsn and a server url", name).
 			WithDetail("context", name)
 	}
-	if c.AuthMode != "" && !allowed(c.AuthMode, AuthModes) {
-		return core.Invalid("context %q has an invalid auth_mode %q", name, c.AuthMode).
-			WithDetail("allowed", AuthModes)
-	}
-	if c.HookMode != "" && !allowed(c.HookMode, HookModes) {
-		return core.Invalid("context %q has an invalid hook_mode %q", name, c.HookMode).
-			WithDetail("allowed", HookModes)
+	for _, field := range []struct {
+		name          string
+		value         string
+		set           []string
+		unimplemented []string
+	}{
+		{"auth_mode", c.AuthMode, AuthModes, UnimplementedAuthModes},
+		{"hook_mode", c.HookMode, HookModes, UnimplementedHookModes},
+	} {
+		if field.value == "" || allowed(field.value, field.set) {
+			continue
+		}
+		if allowed(field.value, field.unimplemented) {
+			return core.Invalid("context %q sets %s %q, which is not implemented by this build; supported: %s",
+				name, field.name, field.value, strings.Join(field.set, ", ")).
+				WithDetail("context", name).WithDetail("supported", field.set)
+		}
+		return core.Invalid("context %q has an invalid %s %q", name, field.name, field.value).
+			WithDetail("allowed", field.set)
 	}
 	return nil
 }

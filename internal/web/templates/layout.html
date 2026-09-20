@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Title}} &middot; {{.Brand.Title}}</title>
+<link rel="icon" href="/assets/tix.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/app.css">
 <style>:root { --accent: {{.Brand.Accent}}; --accent-soft: {{.Brand.AccentSoft}}; }</style>
 <script src="/assets/htmx.min.js" defer></script>
@@ -13,9 +14,12 @@
 {{if .Actor}}
 <div class="shell">
   <aside class="side">
-    <a class="brand" href="/"><span class="logo">{{.Brand.Monogram}}</span>{{.Brand.Title}}</a>
+    <a class="brand" href="/"><img class="logo" src="/assets/tix.svg" alt="" width="28" height="28">{{.Brand.Title}}</a>
     <p class="who">{{.Actor.Handle}}</p>
     {{template "nav" .}}
+    <div class="side-foot">
+      {{template "advanced-toggle" .}}
+    </div>
     <form method="post" action="/logout" class="actions">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
       <button class="secondary" type="submit">Sign out</button>

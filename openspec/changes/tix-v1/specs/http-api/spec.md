@@ -16,7 +16,7 @@ The HTTP API SHALL be served under the path prefix `/api/v1`. Breaking changes t
 
 ### Requirement: Resource routes
 
-The API SHALL expose routes for tasks, projects, workflows, field definitions, dependencies, tags, comments, artifacts, claims, tenants, domains, users, tokens, webhooks, audit entries, export, import, and sync. Every operation available through the CLI SHALL have a corresponding HTTP route.
+The API SHALL expose routes for tasks, projects, workflows, field definitions, dependencies, tags, comments, artifacts, claims, tenants, domains, users, tokens, webhooks, audit entries, export, import, sync, and component bundle export and import. Every operation available through the CLI SHALL have a corresponding HTTP route.
 
 #### Scenario: Coverage
 
@@ -89,6 +89,35 @@ All list endpoints SHALL paginate using a keyset cursor over a stable sort key a
 
 - **WHEN** a client supplies a malformed or unrecognized cursor
 - **THEN** the server responds with a validation error rather than silently returning the first page
+
+### Requirement: Custom field filters on list queries
+
+A list route SHALL accept custom field filters in two forms: a shorthand query parameter per field, spelled `field.<key>=<value>`, and one typed JSON object in a `custom_fields` parameter. A shorthand value SHALL be typed as the JSON scalar it spells, so an unquoted number filters a number and anything that is not JSON stays the string it was typed as. When both forms name the same key, the shorthand SHALL win. A key the store cannot address, a shorthand key given more than once, and a value that is not a string, number, or boolean SHALL each be rejected with a validation error.
+
+#### Scenario: Shorthand parameter
+
+- **WHEN** a client lists tasks with `?field.severity=high`
+- **THEN** only tasks whose `severity` field holds the string `high` are returned
+
+#### Scenario: Typed object
+
+- **WHEN** a client lists tasks with `?custom_fields={"points":3}`
+- **THEN** only tasks whose `points` field holds the number 3 are returned, and a task holding the string `3` is not
+
+#### Scenario: Shorthand wins over the object
+
+- **WHEN** a client supplies the same key in both forms, as in `?custom_fields={"severity":"low"}&field.severity=high`
+- **THEN** the filter applied is the shorthand value `high`
+
+#### Scenario: Malformed key
+
+- **WHEN** a client supplies a key holding anything other than letters, digits, underscores, and dashes, as in `?field.a'b=1`
+- **THEN** the server responds with status 400 and an `invalid` error code in the standard envelope
+
+#### Scenario: Unusable value
+
+- **WHEN** a client supplies a value that is neither a string, a number, nor a boolean, as in `?field.severity=[1,2]`
+- **THEN** the server responds with status 400 and an `invalid` error code, and no list is returned
 
 ### Requirement: Health endpoint
 

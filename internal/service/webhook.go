@@ -296,3 +296,39 @@ func (l *Local) RedeliverWebhook(ctx context.Context, deliveryID string) error {
 			})
 	})
 }
+
+// hookQueue lists a tenant's endpoints once per transaction, since every event
+// one mutation records fans out to the same set.
+type hookQueue struct {
+	store.Tx
+	endpoints []core.WebhookEndpoint
+	loaded    bool
+}
+
+// ListWebhooks returns this transaction's endpoints, reading them once.
+func (q *hookQueue) ListWebhooks(ctx context.Context) ([]core.WebhookEndpoint, error) {
+	if !q.loaded {
+		endpoints, err := q.Tx.ListWebhooks(ctx)
+		if err != nil {
+			return nil, err
+		}
+		q.endpoints, q.loaded = endpoints, true
+	}
+	return q.endpoints, nil
+}
+
+// drainMode maps a configured hook mode onto the dispatcher's drain mode.
+func (m HookMode) drainMode() webhook.Mode { return webhook.Mode(m) }
+
+// drainHooks attempts the deliveries the committed transaction just queued,
+// when this process is the one configured to deliver them. A drain failure is
+// dropped rather than returned: the mutation is already committed and the
+// deliveries stay queued for the next pass.
+func (l *Local) drainHooks(ctx context.Context, scope core.TenantScope, queued int) {
+	if queued == 0 || !l.hooks.drainMode().DrainsInline() {
+		return
+	}
+	d := webhook.NewDispatcher(l.store, scope, l.clock, webhook.WithInterval(0))
+	defer d.Stop()
+	_, _ = d.DrainFor(ctx, l.hooks.drainMode(), webhook.DefaultBound())
+}

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="tix">
+  <title>tix</title>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#14b8a6"/>
+      <stop offset="1" stop-color="#0f766e"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#g)"/>
+  <g fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <!-- The stem falls and turns up into the long arm of a tick, so the mark
+         reads as a lowercase t and as a completed task at the same time. -->
+    <path d="M26 13 V34 a5 5 0 0 0 8.4 3.6 L48 24"/>
+    <!-- The crossbar is what settles it as a letter rather than only a tick. -->
+    <path d="M17 24 H35"/>
+  </g>
+</svg>

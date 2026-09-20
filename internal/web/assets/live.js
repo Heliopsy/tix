@@ -73,4 +73,15 @@
       }
     }
   });
+
+  // htmx does not swap a non-2xx response, so a refused form used to change
+  // nothing on screen and say nothing. Every refusal here renders a full page
+  // explaining itself, so swap it in.
+  document.body.addEventListener("htmx:beforeSwap", function (event) {
+    var status = event.detail.xhr.status;
+    if (status >= 400) {
+      event.detail.shouldSwap = true;
+      event.detail.isError = false;
+    }
+  });
 })();

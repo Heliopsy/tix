@@ -1,85 +1,86 @@
 {{define "content"}}
-<h1>Tasks</h1>
+{{$v := .Data}}
+<h1>My tasks</h1>
 
-<div class="card">
-  <form method="get" action="/tasks">
-    <div class="row">
-      <div>
-        <label for="q">Filter</label>
-        <input id="q" name="q" value="{{.Data.Query}}" placeholder="project:infra status:todo tag:ops">
-      </div>
-      <div>
-        <label for="sort">Sort</label>
-        <select id="sort" name="sort">
-          {{range .Data.SortFields}}<option value="{{.}}" {{if eq . $.Data.Sort}}selected{{end}}>{{.}}</option>{{end}}
-        </select>
-      </div>
-      <div class="actions"><button type="submit">Apply</button></div>
-    </div>
-  </form>
-</div>
+<form method="post" action="/tasks" class="quickadd">
+  {{template "csrf" .CSRF}}
+  <input name="title" placeholder="Add a task and press Enter" aria-label="New task" required autofocus>
+  <select name="project_ref" aria-label="List">
+    {{range $v.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
+  </select>
+  <button type="submit">Add</button>
+</form>
 
-<div class="card">
-  <div class="table-wrap">
-    <table class="t-tasks">
-      <colgroup>
-        <col class="c-ref"><col><col class="c-state"><col class="c-state"><col class="c-tags"><col class="c-when">
-      </colgroup>
-      <thead><tr><th>Ref</th><th>Title</th><th>Status</th><th>Priority</th><th>Tags</th><th>Updated</th></tr></thead>
-      <tbody>
-      {{range .Data.Tasks}}
-        <tr>
-          <td data-label="Ref"><a class="mono" href="/tasks/{{.Ref}}">{{.Ref}}</a></td>
-          <td data-label="Title">{{.Title}}</td>
-          <td data-label="Status"><span class="badge {{slug .Status}}">{{.Status}}</span></td>
-          <td data-label="Priority"><span class="badge p-{{prio .Priority}}">{{prio .Priority}}</span></td>
-          <td data-label="Tags">
-            {{if .Tags}}<span class="tags">{{range .Tags}}<span class="tag">{{.}}</span>{{end}}</span>{{else}}<span class="muted">&mdash;</span>{{end}}
-          </td>
-          <td data-label="Updated" class="muted">{{compact .UpdatedAt}}</td>
-        </tr>
-      {{else}}
-        <tr><td colspan="6"><p class="empty">No tasks matched.</p></td></tr>
-      {{end}}
-      </tbody>
-    </table>
-  </div>
-  {{if .Data.NextCursor}}
-  <div class="actions"><a href="/tasks?q={{.Data.Query}}&amp;sort={{.Data.Sort}}&amp;cursor={{.Data.NextCursor}}">Next page</a></div>
-  {{end}}
-</div>
+<form method="get" action="/tasks" class="filterbar">
+  <input name="q" value="{{$v.Query}}" placeholder="Filter, for example status:todo tag:ops" aria-label="Filter">
+  <select name="sort" aria-label="Sort">
+    {{range $v.SortFields}}<option value="{{.}}" {{if eq . $v.Sort}}selected{{end}}>{{.}}</option>{{end}}
+  </select>
+  <button class="secondary" type="submit">Apply</button>
+</form>
 
+<ul class="tasklist">
+{{range $v.Tasks}}
+  <li class="task {{if .Blocked}}is-blocked{{end}}">
+    {{$done := index $v.CompleteState .ProjectID}}
+    {{if $done}}
+    <form method="post" action="/tasks/{{.Ref}}/complete" class="tick">
+      {{template "csrf" $.CSRF}}
+      <button type="submit" class="check{{if eq .Status $done}} is-done{{end}}" aria-label="Complete {{.Ref}}" title="Complete"></button>
+    </form>
+    {{else}}<span class="check placeholder" aria-hidden="true"></span>{{end}}
+
+    <a class="task-title" href="/tasks/{{.Ref}}">{{.Title}}</a>
+
+    <span class="task-meta">
+      <span class="badge {{slug .Status}}">{{.Status}}</span>
+      {{if ne (prio .Priority) "normal"}}<span class="badge p-{{prio .Priority}}">{{prio .Priority}}</span>{{end}}
+      {{range .Tags}}<span class="tag">{{.}}</span>{{end}}
+      <span class="ref mono">{{.Ref}}</span>
+    </span>
+  </li>
+{{else}}
+  <li class="empty">Nothing here. Add your first task above.</li>
+{{end}}
+</ul>
+
+{{if $v.NextCursor}}
+<div class="actions"><a href="/tasks?q={{$v.Query}}&amp;sort={{$v.Sort}}&amp;cursor={{$v.NextCursor}}">Next page</a></div>
+{{end}}
+
+{{if .Advanced}}
 <details class="panel">
-  <summary>New task</summary>
+  <summary>Add with details</summary>
   <div class="body">
     <form method="post" action="/tasks">
       {{template "csrf" .CSRF}}
       <div class="row">
         <div>
-          <label for="project_ref">Project</label>
-          <select id="project_ref" name="project_ref">
-            {{range .Data.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
+          <label for="project_ref2">List</label>
+          <select id="project_ref2" name="project_ref">
+            {{range $v.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
           </select>
         </div>
         <div>
           <label for="priority">Priority</label>
           <select id="priority" name="priority">
             <option value="">default</option>
-            {{range .Data.Priorities}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
+            {{range $v.Priorities}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
           </select>
         </div>
       </div>
-      <label for="title">Title</label>
-      <input id="title" name="title" required>
-      <label for="body">Body</label>
+      <label for="title2">Title</label>
+      <input id="title2" name="title" required>
+      <label for="body">Notes</label>
       <textarea id="body" name="body"></textarea>
       <label for="tags">Tags, comma separated</label>
       <input id="tags" name="tags" list="known-tags">
       <datalist id="known-tags">
-        {{range .Data.Tags}}<option value="{{.Name}}"></option>{{end}}
+        {{range $v.Tags}}<option value="{{.Name}}"></option>{{end}}
       </datalist>
       <div class="actions"><button type="submit">Create task</button></div>
     </form>
   </div>
 </details>
+{{end}}
 {{end}}

@@ -154,7 +154,7 @@ func TestProgressiveEnhancementIsOptional(t *testing.T) {
 	if !strings.Contains(page, `hx-boost="true"`) {
 		t.Fatalf("pages are not enhanced when scripts are available")
 	}
-	if !strings.Contains(page, `<form method="post" action="/tasks">`) {
+	if !hasPlainForm(page, "/tasks") {
 		t.Fatalf("the enhanced form is not a plain form underneath")
 	}
 	if strings.Contains(page, "hx-post") || strings.Contains(page, "hx-get") {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/thereisnotime/tix/internal/lease"
 	"github.com/thereisnotime/tix/internal/retention"
+	"github.com/thereisnotime/tix/internal/webhook"
 )
 
 // Worker is a named background loop that runs beside the HTTP surface.
@@ -35,6 +36,11 @@ func SweeperWorker(s *lease.Sweeper) Worker {
 // PrunerWorker runs the retention pruner.
 func PrunerWorker(p *retention.Pruner) Worker {
 	return FuncWorker{WorkerName: "retention-pruner", Fn: p.Run}
+}
+
+// DispatcherWorker runs the webhook dispatcher.
+func DispatcherWorker(d *webhook.Dispatcher) Worker {
+	return FuncWorker{WorkerName: "webhook-dispatcher", Fn: d.Run}
 }
 
 // startWorkers runs every configured worker, isolating each failure from the

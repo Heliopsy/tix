@@ -331,3 +331,148 @@ func TestTargetDescribe(t *testing.T) {
 		t.Fatalf("describe = %q", got)
 	}
 }
+
+func TestResolveSelectsTheEngineTheDSNNames(t *testing.T) {
+	home := t.TempDir()
+	cases := []struct {
+		name   string
+		dsn    string
+		engine Engine
+		want   string
+		bad    bool
+	}{
+		{name: "postgres scheme", dsn: "postgres://tix:tix@127.0.0.1:5432/tix?sslmode=disable",
+			engine: EnginePostgres, want: "postgres://tix:tix@127.0.0.1:5432/tix?sslmode=disable"},
+		{name: "postgresql scheme", dsn: "postgresql://127.0.0.1/tix",
+			engine: EnginePostgres, want: "postgresql://127.0.0.1/tix"},
+		{name: "sqlite scheme", dsn: "sqlite:///var/lib/tix.db",
+			engine: EngineSQLite, want: "/var/lib/tix.db"},
+		{name: "file prefix", dsn: "file:/var/lib/tix.db",
+			engine: EngineSQLite, want: "/var/lib/tix.db"},
+		{name: "bare path", dsn: "/var/lib/tix.db",
+			engine: EngineSQLite, want: "/var/lib/tix.db"},
+		{name: "unknown scheme", dsn: "mysql://host/db", bad: true},
+		{name: "empty", dsn: "   ", bad: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resolved := load(t, home, nil, func(o *config.Options) {
+				o.Flags = map[string]string{"database.dsn": tc.dsn}
+			})
+			target, err := Resolve(resolved, Overrides{DB: tc.dsn, Home: home})
+			if tc.bad {
+				if !core.IsKind(err, core.KindInvalid) {
+					t.Fatalf("err = %v, want invalid", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Resolve: %v", err)
+			}
+			if target.Mode != ModeLocal {
+				t.Fatalf("mode = %q, want local", target.Mode)
+			}
+			if target.Engine != tc.engine {
+				t.Fatalf("engine = %q, want %q", target.Engine, tc.engine)
+			}
+			got := target.Path
+			if target.Engine == EnginePostgres {
+				got = target.DSN
+			}
+			if got != tc.want {
+				t.Fatalf("endpoint = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestDescribeRedactsAPostgresPassword(t *testing.T) {
+	target := Target{Mode: ModeLocal, Engine: EnginePostgres,
+		DSN: "postgres://tix:hunter2@db.example:5432/tix", Origin: OriginConfig}
+	got := target.Describe()
+	if strings.Contains(got, "hunter2") {
+		t.Fatalf("describe = %q, want the password hidden", got)
+	}
+	if !strings.Contains(got, "db.example") {
+		t.Fatalf("describe = %q, want the host", got)
+	}
+}
+
+// dialTenant opens home's default database as the named tenant.
+func dialTenant(t *testing.T, home, tenant string) (*Conn, error) {
+	t.Helper()
+	resolved := load(t, home, nil, func(o *config.Options) {
+		o.Flags = map[string]string{"tenant": tenant}
+	})
+	return Dial(context.Background(), resolved, Overrides{Home: home})
+}
+
+func TestDialOpensTheSelectedTenant(t *testing.T) {
+	home := t.TempDir()
+	ctx := context.Background()
+
+	first, err := Dial(ctx, load(t, home, nil), Overrides{Home: home})
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	if _, err := first.Service.CreateTenant(first.Context(ctx),
+		core.CreateTenantInput{Key: "acme", Name: "Acme"}); err != nil {
+		t.Fatalf("CreateTenant: %v", err)
+	}
+	if _, err := first.Service.CreateTask(first.Context(ctx), core.CreateTaskInput{Title: "default work"}); err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	defaultTenantID := first.Info.TenantID
+	if err := first.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	acme, err := dialTenant(t, home, "acme")
+	if err != nil {
+		t.Fatalf("Dial acme: %v", err)
+	}
+	if acme.Info.TenantID == defaultTenantID {
+		t.Fatal("acme resolved to the default tenant")
+	}
+	if _, err := acme.Service.CreateProject(acme.Context(ctx),
+		core.CreateProjectInput{Key: "acme", Name: "Acme"}); err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	if _, err := acme.Service.CreateTask(acme.Context(ctx), core.CreateTaskInput{Title: "acme work"}); err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	assertOnlyTask(t, acme, "acme work")
+	if err := acme.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	back, err := Dial(ctx, load(t, home, nil), Overrides{Home: home})
+	if err != nil {
+		t.Fatalf("Dial default: %v", err)
+	}
+	defer func() { _ = back.Close() }()
+	assertOnlyTask(t, back, "default work")
+}
+
+// assertOnlyTask fails unless the connection sees exactly the named task.
+func assertOnlyTask(t *testing.T, conn *Conn, title string) {
+	t.Helper()
+	page, err := conn.Service.ListTasks(conn.Context(context.Background()), core.TaskFilter{})
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	if len(page.Tasks) != 1 || page.Tasks[0].Title != title {
+		t.Fatalf("tasks = %+v, want only %q", page.Tasks, title)
+	}
+}
+
+func TestDialRejectsAnUnknownTenant(t *testing.T) {
+	home := t.TempDir()
+	_, err := dialTenant(t, home, "nope")
+	if !core.IsKind(err, core.KindNotFound) {
+		t.Fatalf("err = %v, want not found", err)
+	}
+	if !strings.Contains(err.Error(), "nope") {
+		t.Fatalf("err = %v, want the tenant key named", err)
+	}
+}

@@ -47,6 +47,9 @@ func (t *tx) ClaimNextTask(ctx context.Context, in store.ClaimNextRow) (string, 
 		Where("tasks.deleted_at IS NULL").
 		Where(unclaimedPredicate, now).
 		Where("NOT EXISTS "+blockedByDependency(in.TerminalStates), terminalArgs(in.TerminalStates)...)
+	if len(in.TerminalStates) > 0 {
+		pick.Where(notTerminalPredicate(in.TerminalStates), terminalArgs(in.TerminalStates)...)
+	}
 	if len(in.ProjectIDs) > 0 {
 		pick.WhereIn("tasks.project_id", in.ProjectIDs)
 	}
@@ -103,6 +106,13 @@ func terminalArgs(terminal []string) []any {
 		out = append(out, s)
 	}
 	return out
+}
+
+// notTerminalPredicate renders the predicate excluding a task that is already
+// in one of the workflow's terminal states. Finished work is not queue work.
+func notTerminalPredicate(terminal []string) string {
+	marks := strings.TrimSuffix(strings.Repeat("?, ", len(terminal)), ", ")
+	return "tasks.status NOT IN (" + marks + ")"
 }
 
 // blockedByDependency renders the predicate matching an unfinished dependency.

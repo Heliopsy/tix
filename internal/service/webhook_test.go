@@ -3,11 +3,15 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/thereisnotime/tix/internal/core"
 	"github.com/thereisnotime/tix/internal/store"
+	"github.com/thereisnotime/tix/internal/webhook"
 )
 
 func adminCtx(actor *core.Actor) context.Context {
@@ -382,8 +386,9 @@ func TestWebhookCrossTenantReportsNotFound(t *testing.T) {
 	}
 }
 
-// seedDeliveries queues n deliveries for an endpoint, each a tick apart so the
-// keyset order is well defined.
+// seedWebhookDeliveries queues n deliveries for an endpoint directly, so a
+// listing test controls exactly how many rows exist. Its caller turns hooks
+// off, since the real fan-out would claim the same event sequences.
 func seedWebhookDeliveries(t *testing.T, l *Local, scope core.TenantScope, endpointID string, n int) []string {
 	t.Helper()
 	ctx := context.Background()
@@ -404,7 +409,7 @@ func seedWebhookDeliveries(t *testing.T, l *Local, scope core.TenantScope, endpo
 }
 
 func TestListDeliveriesPaginatesByCursor(t *testing.T) {
-	l, _, scope, actor := newLocal(t)
+	l, _, scope, actor := newLocalWith(t, WithHooks(HookOff))
 	ctx := adminCtx(actor)
 	endpoint := putEndpoint(t, l, ctx, core.WebhookInput{URL: "https://hooks.example.com/tix", Active: true})
 	want := seedWebhookDeliveries(t, l, scope, endpoint.ID, 7)
@@ -449,7 +454,7 @@ func TestListDeliveriesPaginatesByCursor(t *testing.T) {
 }
 
 func TestListDeliveriesFiltersAndRejectsBadPages(t *testing.T) {
-	l, _, scope, actor := newLocal(t)
+	l, _, scope, actor := newLocalWith(t, WithHooks(HookOff))
 	ctx := adminCtx(actor)
 	endpoint := putEndpoint(t, l, ctx, core.WebhookInput{URL: "https://hooks.example.com/tix", Active: true})
 	ids := seedWebhookDeliveries(t, l, scope, endpoint.ID, 3)
@@ -489,7 +494,7 @@ func TestListDeliveriesFiltersAndRejectsBadPages(t *testing.T) {
 }
 
 func TestRedeliverWebhookRequeuesTheDelivery(t *testing.T) {
-	l, _, scope, actor := newLocal(t)
+	l, _, scope, actor := newLocalWith(t, WithHooks(HookOff))
 	ctx := adminCtx(actor)
 	endpoint := putEndpoint(t, l, ctx, core.WebhookInput{URL: "https://hooks.example.com/tix", Active: true})
 	ids := seedWebhookDeliveries(t, l, scope, endpoint.ID, 1)
@@ -537,5 +542,161 @@ func TestWebhookIdentifiersAreRequired(t *testing.T) {
 	}
 	if err := l.RedeliverWebhook(ctx, "  "); !core.IsKind(err, core.KindInvalid) {
 		t.Errorf("RedeliverWebhook with a blank identifier = %v, want a validation error", err)
+	}
+}
+
+// hookReceiver accepts deliveries so a test can count what actually arrived.
+type hookReceiver struct {
+	server *httptest.Server
+	posts  chan string
+}
+
+func newHookReceiver(t *testing.T) *hookReceiver {
+	t.Helper()
+	r := &hookReceiver{posts: make(chan string, 16)}
+	r.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		select {
+		case r.posts <- req.Header.Get(webhook.HeaderEvent):
+		default:
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(r.server.Close)
+	return r
+}
+
+// count reports how many deliveries arrived. An inline drain finishes before
+// the mutation returns, so no waiting is needed.
+func (r *hookReceiver) count() int { return len(r.posts) }
+
+// allDeliveries reads the delivery queue straight from the store, so a test
+// sees rows a listing would filter.
+func allDeliveries(t *testing.T, l *Local, scope core.TenantScope) []core.WebhookDelivery {
+	t.Helper()
+	ctx := context.Background()
+	var out []core.WebhookDelivery
+	if err := l.store.View(ctx, scope, func(tx store.Tx) error {
+		rows, err := tx.ListDeliveries(ctx, core.DeliveryFilter{Page: core.Page{
+			Limit: 100, Sort: core.SortCreatedAt, Direction: core.Ascending,
+		}})
+		out = rows
+		return err
+	}); err != nil {
+		t.Fatalf("reading deliveries: %v", err)
+	}
+	return out
+}
+
+// hookFixture builds a service in one hook mode with a project to write into.
+func hookFixture(t *testing.T, mode HookMode) (*Local, context.Context, core.TenantScope) {
+	t.Helper()
+	l, _, scope, actor := newLocalWith(t, WithHooks(mode))
+	seedTaskProject(t, l, scope, "infra")
+	return l, taskContext(actor), scope
+}
+
+func TestMutationQueuesDeliveriesForMatchingEndpointsOnly(t *testing.T) {
+	cases := []struct {
+		name       string
+		eventTypes []string
+		active     bool
+		want       int
+	}{
+		{"an active endpoint matching the event type", []string{"task.*"}, true, 1},
+		{"an endpoint whose filter does not match", []string{"comment.*"}, true, 0},
+		{"an inactive endpoint", []string{"task.*"}, false, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			l, ctx, scope := hookFixture(t, HookServer)
+			putEndpoint(t, l, ctx, core.WebhookInput{
+				URL: "https://hooks.example.com/tix", EventTypes: tc.eventTypes, Active: tc.active,
+			})
+			mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "queued on commit"})
+
+			got := allDeliveries(t, l, scope)
+			if len(got) != tc.want {
+				t.Fatalf("committing the task queued %d deliveries, want %d", len(got), tc.want)
+			}
+			for _, d := range got {
+				if d.Status != core.DeliveryPending {
+					t.Errorf("queued delivery %q is %q, want %q", d.ID, d.Status, core.DeliveryPending)
+				}
+			}
+		})
+	}
+}
+
+func TestFailedMutationRollsBackItsQueuedDeliveries(t *testing.T) {
+	l, ctx, scope := hookFixture(t, HookServer)
+	putEndpoint(t, l, ctx, core.WebhookInput{
+		URL: "https://hooks.example.com/tix", EventTypes: []string{"task.*"}, Active: true,
+	})
+	before := len(allDeliveries(t, l, scope))
+	beforeEvents, _ := countRows(t, l, scope)
+
+	actor, err := core.RequireActor(ctx)
+	if err != nil {
+		t.Fatalf("resolving the actor: %v", err)
+	}
+	boom := errors.New("mutation failed after recording its event")
+	err = l.write(ctx, actor, func(m *mutation) error {
+		if err := m.Record("task.create", core.EventTaskCreated, "task", "rolled-back", "", nil, nil, nil); err != nil {
+			return err
+		}
+		if err := m.flush(ctx); err != nil {
+			return err
+		}
+		return boom
+	})
+	if !errors.Is(err, boom) {
+		t.Fatalf("write = %v, want the mutation's own error", err)
+	}
+
+	if after := len(allDeliveries(t, l, scope)); after != before {
+		t.Errorf("a rolled-back mutation left %d deliveries, want the %d it started with", after, before)
+	}
+	if afterEvents, _ := countRows(t, l, scope); afterEvents != beforeEvents {
+		t.Errorf("a rolled-back mutation left %d events, want %d", afterEvents, beforeEvents)
+	}
+}
+
+func TestHookModeDecidesWhoDeliversAfterCommit(t *testing.T) {
+	cases := []struct {
+		name      string
+		mode      HookMode
+		queued    int
+		delivered int
+	}{
+		{"off queues nothing", HookOff, 0, 0},
+		{"server queues without draining", HookServer, 1, 0},
+		{"inline queues and drains", HookInline, 1, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			l, ctx, scope := hookFixture(t, tc.mode)
+			receiver := newHookReceiver(t)
+			putEndpoint(t, l, ctx, core.WebhookInput{
+				URL: receiver.server.URL, EventTypes: []string{"task.*"}, Active: true,
+			})
+			mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "hook mode"})
+
+			queue := allDeliveries(t, l, scope)
+			if len(queue) != tc.queued {
+				t.Fatalf("%s queued %d deliveries, want %d", tc.mode, len(queue), tc.queued)
+			}
+			if got := receiver.count(); got != tc.delivered {
+				t.Fatalf("%s delivered %d posts, want %d", tc.mode, got, tc.delivered)
+			}
+			for _, d := range queue {
+				want := core.DeliveryPending
+				if tc.delivered > 0 {
+					want = core.DeliveryDelivered
+				}
+				if d.Status != want {
+					t.Errorf("%s left delivery %q as %q, want %q", tc.mode, d.ID, d.Status, want)
+				}
+			}
+		})
 	}
 }

@@ -31,6 +31,9 @@ func (l *Local) ClaimTask(ctx context.Context, ref core.TaskRef, in core.ClaimIn
 		if err != nil {
 			return err
 		}
+		if wf.Definition.IsTerminal(task.Status) {
+			return finishedTask(task)
+		}
 		ttl, err := lease.Resolve(in.TTL, wf.Definition.DefaultLease)
 		if err != nil {
 			return err
@@ -546,6 +549,12 @@ func claimRefused(task *core.Task, holder string, now time.Time) error {
 		task.LeaseExpiresAt.Format(time.RFC3339)).
 		WithDetail("claimed_by", task.ClaimedByActorID).
 		WithDetail("lease_expires_at", task.LeaseExpiresAt)
+}
+
+// finishedTask refuses a lease on work the workflow already considers done.
+func finishedTask(task *core.Task) error {
+	return core.Conflict("task %q is already finished in status %q", task.Ref, task.Status).
+		WithDetail("status", task.Status)
 }
 
 // staleLease reports a token that is no longer current, which a worker answers

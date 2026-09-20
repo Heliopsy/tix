@@ -3,6 +3,7 @@ package connect
 
 import (
 	"context"
+	"net/url"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"github.com/thereisnotime/tix/internal/core"
 	"github.com/thereisnotime/tix/internal/service"
 	"github.com/thereisnotime/tix/internal/store"
+	"github.com/thereisnotime/tix/internal/store/postgres"
 	"github.com/thereisnotime/tix/internal/store/sqlite"
 )
 
@@ -38,6 +40,15 @@ const (
 	OriginDefault Origin = "default"
 )
 
+// Engine names the database engine behind a local target.
+type Engine string
+
+// Database engines a local target can name.
+const (
+	EngineSQLite   Engine = "sqlite"
+	EnginePostgres Engine = "postgres"
+)
+
 // LocalHandle is the handle given to the actor synthesized for local use.
 const LocalHandle = "local"
 
@@ -53,7 +64,9 @@ type Overrides struct {
 // Target is the resolved endpoint a command will talk to.
 type Target struct {
 	Mode    Mode   `json:"mode" yaml:"mode"`
+	Engine  Engine `json:"engine,omitempty" yaml:"engine,omitempty"`
 	Path    string `json:"path,omitempty" yaml:"path,omitempty"`
+	DSN     string `json:"dsn,omitempty" yaml:"dsn,omitempty"`
 	URL     string `json:"url,omitempty" yaml:"url,omitempty"`
 	Tenant  string `json:"tenant" yaml:"tenant"`
 	Context string `json:"context,omitempty" yaml:"context,omitempty"`
@@ -63,8 +76,11 @@ type Target struct {
 // Describe renders the target for a diagnostic line.
 func (t Target) Describe() string {
 	endpoint := t.Path
-	if t.Mode == ModeRemote {
+	switch {
+	case t.Mode == ModeRemote:
 		endpoint = t.URL
+	case t.Engine == EnginePostgres:
+		endpoint = redactDSN(t.DSN)
 	}
 	return string(t.Mode) + " " + endpoint + " (from " + string(t.Origin) + ")"
 }
@@ -81,6 +97,11 @@ type Conn struct {
 	Service core.Service
 	Actor   *core.Actor
 	Info    Info
+
+	// Store is the engine opened for a local target, so a caller that needs the
+	// store itself does not open the database a second time. It is nil for a
+	// remote target.
+	Store store.Store
 
 	closers []func() error
 }
@@ -135,11 +156,10 @@ func Resolve(cfg *config.Resolved, ov Overrides) (Target, error) {
 		target.Mode, target.URL, target.Origin = ModeRemote, strings.TrimSpace(ov.Server), OriginFlag
 		return target, nil
 	case strings.TrimSpace(ov.DB) != "":
-		path, err := sqlitePath(ov.DB, ov.Home)
-		if err != nil {
+		if err := target.setLocal(ov.DB, ov.Home); err != nil {
 			return Target{}, err
 		}
-		target.Mode, target.Path, target.Origin = ModeLocal, path, OriginFlag
+		target.Origin = OriginFlag
 		return target, nil
 	}
 
@@ -153,12 +173,49 @@ func Resolve(cfg *config.Resolved, ov Overrides) (Target, error) {
 	if target.Origin == OriginDefault {
 		dsn = defaultDSN(ov)
 	}
-	path, err := sqlitePath(dsn, ov.Home)
-	if err != nil {
+	if err := target.setLocal(dsn, ov.Home); err != nil {
 		return Target{}, err
 	}
-	target.Mode, target.Path = ModeLocal, path
 	return target, nil
+}
+
+// setLocal classifies dsn as the engine and endpoint it names.
+func (t *Target) setLocal(dsn, home string) error {
+	dsn = strings.TrimSpace(dsn)
+	if dsn == "" {
+		return core.Invalid("no database is configured")
+	}
+	if scheme, rest, ok := strings.Cut(dsn, "://"); ok {
+		switch scheme {
+		case "postgres", "postgresql":
+			t.Mode, t.Engine, t.DSN = ModeLocal, EnginePostgres, dsn
+			return nil
+		case "sqlite", "sqlite3", "file":
+			dsn = rest
+		default:
+			return core.Invalid("database engine %q is not supported by this build", scheme)
+		}
+	} else if rest, ok := strings.CutPrefix(dsn, "file:"); ok {
+		dsn = rest
+	}
+	if dsn == "" {
+		return core.Invalid("database dsn names no file")
+	}
+	t.Mode, t.Engine, t.Path = ModeLocal, EngineSQLite, expandHome(dsn, home)
+	return nil
+}
+
+// redactDSN hides the password of a connection string shown in a diagnostic.
+func redactDSN(dsn string) string {
+	u, err := url.Parse(dsn)
+	if err != nil || u.User == nil {
+		return dsn
+	}
+	if _, ok := u.User.Password(); !ok {
+		return dsn
+	}
+	u.User = url.UserPassword(u.User.Username(), "xxxxx")
+	return u.String()
 }
 
 // originOf reports which layer decided the endpoint.
@@ -185,28 +242,6 @@ func defaultDSN(ov Overrides) string {
 		home, _ = os.UserHomeDir()
 	}
 	return filepath.Join(home, ".local", "share", "tix", "tix.db")
-}
-
-// sqlitePath turns a dsn into a filesystem path, rejecting other engines.
-func sqlitePath(dsn, home string) (string, error) {
-	dsn = strings.TrimSpace(dsn)
-	if dsn == "" {
-		return "", core.Invalid("no database is configured")
-	}
-	if scheme, rest, ok := strings.Cut(dsn, "://"); ok {
-		switch scheme {
-		case "sqlite", "sqlite3", "file":
-			dsn = rest
-		default:
-			return "", core.Invalid("database engine %q is not supported by this build", scheme)
-		}
-	} else if rest, ok := strings.CutPrefix(dsn, "file:"); ok {
-		dsn = rest
-	}
-	if dsn == "" {
-		return "", core.Invalid("database dsn names no file")
-	}
-	return expandHome(dsn, home), nil
 }
 
 // expandHome replaces a leading ~ with home.
@@ -242,20 +277,15 @@ func dialRemote(ctx context.Context, target Target, ov Overrides) (*Conn, error)
 	return conn, nil
 }
 
-// dialLocal opens the SQLite store, migrates it, seeds defaults and
-// establishes the actor every subsequent call runs as.
+// dialLocal opens the store the target names, migrates it, resolves the
+// tenant and establishes the actor every subsequent call runs as.
 func dialLocal(ctx context.Context, target Target, ov Overrides) (*Conn, error) {
-	if dir := filepath.Dir(target.Path); dir != "" && dir != "." {
-		if err := os.MkdirAll(dir, 0o700); err != nil {
-			return nil, core.Internal("creating database directory %q", dir).Wrap(err)
-		}
-	}
 	clk := clock.New()
-	st, err := sqlite.Open(target.Path, clk)
+	st, err := openStore(target, clk)
 	if err != nil {
 		return nil, err
 	}
-	conn := &Conn{Info: Info{Target: target}, closers: []func() error{st.Close}}
+	conn := &Conn{Store: st, Info: Info{Target: target}, closers: []func() error{st.Close}}
 
 	if err := st.Migrate(ctx); err != nil {
 		return nil, closeWith(conn, err)
@@ -267,7 +297,7 @@ func dialLocal(ctx context.Context, target Target, ov Overrides) (*Conn, error) 
 	conn.Info.SchemaVersion = version
 
 	local := service.New(st, service.WithClock(clk))
-	tenant, err := local.EnsureDefaults(ctx)
+	tenant, err := resolveTenant(ctx, st, local, target.Tenant)
 	if err != nil {
 		return nil, closeWith(conn, err)
 	}
@@ -281,6 +311,44 @@ func dialLocal(ctx context.Context, target Target, ov Overrides) (*Conn, error) 
 	}
 	conn.Actor = actor
 	return conn, nil
+}
+
+// openStore opens the engine the target names.
+func openStore(target Target, clk clock.Clock) (store.Store, error) {
+	if target.Engine == EnginePostgres {
+		return postgres.Open(target.DSN, clk)
+	}
+	if dir := filepath.Dir(target.Path); dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return nil, core.Internal("creating database directory %q", dir).Wrap(err)
+		}
+	}
+	return sqlite.Open(target.Path, clk)
+}
+
+// resolveTenant returns the tenant the target selects. The default tenant is
+// seeded on first use; any other key must already exist.
+func resolveTenant(ctx context.Context, st store.Store, local *service.Local, key string) (*core.Tenant, error) {
+	key = strings.ToLower(strings.TrimSpace(key))
+	if key == "" || key == service.DefaultTenantKey {
+		return local.EnsureDefaults(ctx)
+	}
+	var found *core.Tenant
+	err := st.Unscoped(ctx, func(u store.UnscopedTx) error {
+		t, err := u.GetTenantByKey(ctx, key)
+		if core.IsKind(err, core.KindNotFound) {
+			return nil
+		}
+		found = t
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	if found == nil || found.DeletedAt != nil {
+		return nil, core.NotFound("tenant %q does not exist; create it with tix tenant create %s", key, key)
+	}
+	return found, nil
 }
 
 // closeWith releases a half-built connection and returns the original error.

@@ -14,19 +14,19 @@ The web UI SHALL provide every operation available through the CLI, the TUI, and
 - **WHEN** a new operation is added to the service and wired to the CLI and the API but not to the web UI
 - **THEN** the build fails
 
-### Requirement: Operation registry declares every binding
+### Requirement: The web binding is declared in the capability registry
 
-Every operation SHALL be declared once in a registry that records its service method, required scopes, and its CLI, HTTP, and web bindings. The registry SHALL be the single source of truth for what operations exist.
+Every browser screen that exposes an operation SHALL be declared as that operation's web binding in the capability registry, naming the route and the template it renders. The registry SHALL be the single source of truth for which operations the browser reaches, and a browser route SHALL NOT expose an operation the registry does not declare.
 
-#### Scenario: Every service method is registered
+#### Scenario: Web binding names its route and template
 
-- **WHEN** the registry is checked against the exported service interface
-- **THEN** every exported service method appears in the registry
+- **WHEN** a registry entry declaring a web binding is read
+- **THEN** it names the browser route and the embedded template that renders it
 
-#### Scenario: Registry entries name their bindings
+#### Scenario: Every operation reaches the browser or says why not
 
-- **WHEN** a registry entry is read
-- **THEN** it names the CLI command, the HTTP route, and the web route that expose that operation
+- **WHEN** the registry is checked for web bindings
+- **THEN** every operation either names a browser route or carries a web exemption with a written reason
 
 ### Requirement: Parity is mechanically verified
 

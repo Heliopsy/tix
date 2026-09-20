@@ -85,7 +85,8 @@ func TestEveryKeyHasOneUniqueEnvVar(t *testing.T) {
 	}
 	for _, want := range []string{"database.dsn", "server.url", "server.token", "tenant", "project",
 		"auth.mode", "hooks.mode", "discovery.enabled", "discovery.filenames",
-		"retention.audit", "retention.events", "log.level", "server.listen"} {
+		"retention.audit", "retention.events", "retention.webhook_deliveries",
+		"log.level", "server.listen"} {
 		if _, ok := Lookup(want); !ok {
 			t.Fatalf("required key %q is missing from the registry", want)
 		}
@@ -345,13 +346,13 @@ func TestNoConfigFileAnywhereStillResolves(t *testing.T) {
 		"HOME":             home,
 		"TIX_DATABASE_DSN": "sqlite://env.db",
 		"TIX_TENANT":       "acme",
-		"TIX_HOOKS_MODE":   "enforce",
+		"TIX_LOG_LEVEL":    "debug",
 	}
 	got := mustLoad(t, Options{Dir: dir, Home: home, Environ: environ(env)})
 	if got.ConfigFile != "" {
 		t.Fatalf("config file = %q, want empty", got.ConfigFile)
 	}
-	if got.Config.Database.DSN != "sqlite://env.db" || got.Config.Tenant != "acme" || got.Config.Hooks.Mode != "enforce" {
+	if got.Config.Database.DSN != "sqlite://env.db" || got.Config.Tenant != "acme" || got.Config.Log.Level != "debug" {
 		t.Fatalf("config = %+v, want the environment values", got.Config)
 	}
 }
@@ -470,7 +471,9 @@ func TestContextValidate(t *testing.T) {
 		{"both", Context{Database: "sqlite://a.db", Server: "https://a.example"}, false},
 		{"bad auth mode", Context{Server: "https://a", AuthMode: "magic"}, false},
 		{"bad hook mode", Context{Server: "https://a", HookMode: "always"}, false},
-		{"good modes", Context{Server: "https://a", AuthMode: "token", HookMode: "warn"}, true},
+		{"good modes", Context{Server: "https://a", AuthMode: "token", HookMode: "off"}, true},
+		{"unimplemented auth mode", Context{Server: "https://a", AuthMode: "oidc"}, false},
+		{"unimplemented hook mode", Context{Server: "https://a", HookMode: "warn"}, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -692,6 +695,8 @@ func TestValidationErrors(t *testing.T) {
 		{"wrong duration type", "retention:\n  audit: not-a-duration\n", nil, "retention.audit"},
 		{"bad bool", "discovery:\n  enabled: maybe\n", nil, "discovery.enabled"},
 		{"invalid env value", "", map[string]string{"TIX_HOOKS_MODE": "always"}, "hooks.mode"},
+		{"negative retention", "", map[string]string{"TIX_RETENTION_EVENTS": "-1h"}, "retention.events"},
+		{"negative delivery retention", "", map[string]string{"TIX_RETENTION_WEBHOOK_DELIVERIES": "-1h"}, "retention.webhook_deliveries"},
 		{"invalid log level", "", map[string]string{"TIX_LOG_LEVEL": "loud"}, "log.level"},
 		{"invalid output format", "", map[string]string{"TIX_OUTPUT_FORMAT": "xml"}, "output.format"},
 		{"empty tenant", "", map[string]string{"TIX_TENANT": " "}, "tenant"},
@@ -896,4 +901,184 @@ func TestLoadUsesProcessEnvironmentByDefault(t *testing.T) {
 
 func errorsAs(err error, target **core.Error) bool {
 	return errors.As(err, target)
+}
+
+func TestProjectPrecedenceChain(t *testing.T) {
+	cases := []struct {
+		name       string
+		flag       bool
+		env        bool
+		dotenv     bool
+		file       bool
+		want       string
+		wantSource Layer
+	}{
+		{"flag beats all", true, true, true, true, "p-flag", LayerFlag},
+		{"env beats dotenv and file", false, true, true, true, "p-env", LayerEnv},
+		{"dotenv beats file", false, false, true, true, "p-dotenv", LayerDotenv},
+		{"file beats default", false, false, false, true, "p-file", LayerFile},
+		{"default when nothing set", false, false, false, false, "", LayerDefault},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			home := t.TempDir()
+			env := map[string]string{"HOME": home}
+
+			if tc.dotenv {
+				write(t, filepath.Join(dir, ".env"), "TIX_PROJECT=p-dotenv\n")
+			}
+			if tc.file {
+				cfg := write(t, filepath.Join(home, ".config", "tix", "config.yaml"), "project: p-file\n")
+				env[EnvConfigFile] = cfg
+			}
+			if tc.env {
+				env["TIX_PROJECT"] = "p-env"
+			}
+			opts := Options{Dir: dir, Home: home, Environ: environ(env)}
+			if tc.flag {
+				opts.Flags = map[string]string{"project": "p-flag"}
+			}
+
+			got := mustLoad(t, opts)
+			if got.Config.Project != tc.want {
+				t.Fatalf("project = %q, want %q", got.Config.Project, tc.want)
+			}
+			if got.Source("project") != tc.wantSource {
+				t.Fatalf("source = %q, want %q", got.Source("project"), tc.wantSource)
+			}
+		})
+	}
+}
+
+func TestProjectFromAContextIsResolved(t *testing.T) {
+	const body = `
+current_context: work
+contexts:
+  work:
+    database: sqlite://work.db
+    project: ctx-project
+`
+	home := t.TempDir()
+	env := map[string]string{"HOME": home}
+	env[EnvConfigFile] = write(t, filepath.Join(home, "config.yaml"), body)
+
+	got := mustLoad(t, Options{Dir: t.TempDir(), Home: home, Environ: environ(env)})
+	if got.Config.Project != "ctx-project" {
+		t.Fatalf("project = %q, want the context value", got.Config.Project)
+	}
+	if got.Source("project") != LayerFile {
+		t.Fatalf("source = %q, want %q", got.Source("project"), LayerFile)
+	}
+}
+
+func TestUnimplementedEnumValuesAreRefused(t *testing.T) {
+	cases := []struct {
+		name      string
+		env       map[string]string
+		key       string
+		supported []string
+	}{
+		{"auth mode oidc", map[string]string{"TIX_AUTH_MODE": "oidc"}, "auth.mode", AuthModes},
+		{"auth mode none", map[string]string{"TIX_AUTH_MODE": "none"}, "auth.mode", AuthModes},
+		{"hook mode warn", map[string]string{"TIX_HOOKS_MODE": "warn"}, "hooks.mode", HookModes},
+		{"hook mode enforce", map[string]string{"TIX_HOOKS_MODE": "enforce"}, "hooks.mode", HookModes},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			env := map[string]string{"HOME": home}
+			for name, value := range tc.env {
+				env[name] = value
+			}
+			_, err := Load(Options{Dir: t.TempDir(), Home: home, Environ: environ(env)})
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			if !core.IsKind(err, core.KindInvalid) {
+				t.Fatalf("err = %v, want an invalid-kind error", err)
+			}
+			if !strings.Contains(err.Error(), "not implemented") {
+				t.Fatalf("err = %v, want it to say the value is not implemented", err)
+			}
+			if !strings.Contains(err.Error(), tc.key) {
+				t.Fatalf("err = %v, want it to name %q", err, tc.key)
+			}
+			for _, supported := range tc.supported {
+				if !strings.Contains(err.Error(), supported) {
+					t.Fatalf("err = %v, want it to name the supported value %q", err, supported)
+				}
+			}
+		})
+	}
+}
+
+func TestUnimplementedContextModesAreRefused(t *testing.T) {
+	const body = `
+current_context: work
+contexts:
+  work:
+    database: sqlite://work.db
+    auth_mode: oidc
+`
+	home := t.TempDir()
+	env := map[string]string{"HOME": home, EnvConfigFile: write(t, filepath.Join(home, "config.yaml"), body)}
+	_, err := Load(Options{Dir: t.TempDir(), Home: home, Environ: environ(env)})
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if !core.IsKind(err, core.KindInvalid) {
+		t.Fatalf("err = %v, want an invalid-kind error", err)
+	}
+	if !strings.Contains(err.Error(), "not implemented") || !strings.Contains(err.Error(), "token") {
+		t.Fatalf("err = %v, want it to refuse the mode and name what is supported", err)
+	}
+}
+
+func TestRetentionKeysResolveIndependently(t *testing.T) {
+	home := t.TempDir()
+	cfg := write(t, filepath.Join(home, "config.yaml"), "retention:\n  audit: 100h\n")
+	env := map[string]string{
+		"HOME":                             home,
+		EnvConfigFile:                      cfg,
+		"TIX_RETENTION_WEBHOOK_DELIVERIES": "48h",
+	}
+	got := mustLoad(t, Options{Dir: t.TempDir(), Home: home, Environ: environ(env)})
+
+	cases := []struct {
+		key        string
+		value      string
+		wantSource Layer
+	}{
+		{"retention.audit", "100h0m0s", LayerFile},
+		{"retention.events", mustDuration(DefaultRetentionEvent).String(), LayerDefault},
+		{"retention.webhook_deliveries", "48h0m0s", LayerEnv},
+	}
+	for _, tc := range cases {
+		t.Run(tc.key, func(t *testing.T) {
+			key, ok := Lookup(tc.key)
+			if !ok {
+				t.Fatalf("key %q is not registered", tc.key)
+			}
+			if value := key.Get(&got.Config); value != tc.value {
+				t.Fatalf("%s = %q, want %q", tc.key, value, tc.value)
+			}
+			if src := got.Source(tc.key); src != tc.wantSource {
+				t.Fatalf("%s source = %q, want %q", tc.key, src, tc.wantSource)
+			}
+		})
+	}
+}
+
+func TestRetentionPolicyMirrorsTheConfiguredWindows(t *testing.T) {
+	cfg := Defaults()
+	policy := cfg.Retention.Policy("acme")
+	if policy.TenantID != "acme" {
+		t.Fatalf("tenant = %q, want acme", policy.TenantID)
+	}
+	if policy.AuditEntries != cfg.Retention.Audit ||
+		policy.Events != cfg.Retention.Events ||
+		policy.WebhookDeliveries != cfg.Retention.WebhookDeliveries {
+		t.Fatalf("policy = %+v, want the configured windows %+v", policy, cfg.Retention)
+	}
 }

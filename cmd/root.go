@@ -30,6 +30,7 @@ type globals struct {
 	contextName string
 	db          string
 	server      string
+	tenant      string
 	token       string
 	format      string
 	quiet       bool
@@ -121,6 +122,7 @@ func newRoot(environ []string, dir string) (*cobra.Command, *globals) {
 	f.StringVar(&g.contextName, "ctx", "", "named context to use")
 	f.StringVar(&g.db, "db", "", "database dsn to use instead of the configured target")
 	f.StringVar(&g.server, "server", "", "server url to use instead of the configured target")
+	f.StringVar(&g.tenant, "tenant", "", "tenant key to work in instead of the configured one")
 	f.StringVar(&g.token, "token", "", "api token to authenticate with")
 	f.StringVarP(&g.format, "output", "o", "", "output format: "+strings.Join(output.Formats, "|"))
 	f.BoolVarP(&g.quiet, "quiet", "q", false, "suppress diagnostics")
@@ -177,6 +179,9 @@ func (g *globals) resolve() (*config.Resolved, error) {
 	}
 	if g.server != "" {
 		flags["server.url"] = g.server
+	}
+	if g.tenant != "" {
+		flags["tenant"] = g.tenant
 	}
 	if tok := g.bearer(); tok != "" {
 		flags["server.token"] = tok

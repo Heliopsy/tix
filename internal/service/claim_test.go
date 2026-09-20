@@ -1011,3 +1011,46 @@ func TestReleaseToAStatusRequiringAScope(t *testing.T) {
 		t.Fatalf("release by an actor holding every scope: %v", err)
 	}
 }
+
+func TestClaimNextSkipsTasksAlreadyFinished(t *testing.T) {
+	for _, status := range []string{"done", "audit"} {
+		t.Run(status, func(t *testing.T) {
+			f := newClaimFixture(t, 0)
+			finished := f.seedTask(t, "finished", status, core.PriorityHighest)
+
+			if _, err := f.local.ClaimNext(f.ctx, core.ClaimNextInput{}); !core.IsKind(err, core.KindNoTaskAvailable) {
+				t.Fatalf("claim next over a finished queue = %v, want no task available", err)
+			}
+			if got := f.reload(t, finished); got.ClaimedByActorID != "" || got.ClaimCount != 0 {
+				t.Fatalf("a task in terminal status %q was handed out: %+v", status, got)
+			}
+
+			open := f.seedTask(t, "open", "todo", core.PriorityLowest)
+			claimed, err := f.local.ClaimNext(f.ctx, core.ClaimNextInput{})
+			if err != nil {
+				t.Fatalf("ClaimNext: %v", err)
+			}
+			if claimed.Task.ID != open.ID {
+				t.Errorf("claim next returned %q, want the unfinished task", claimed.Task.Title)
+			}
+		})
+	}
+}
+
+func TestClaimOfAFinishedTaskIsRefused(t *testing.T) {
+	f := newClaimFixture(t, 0)
+	finished := f.seedTask(t, "finished", "done", core.PriorityNormal)
+
+	_, err := f.local.ClaimTask(f.ctx, ref(finished), core.ClaimInput{})
+	if !core.IsKind(err, core.KindConflict) {
+		t.Fatalf("claiming a finished task = %v, want conflict", err)
+	}
+	if got := f.reload(t, finished); got.ClaimedByActorID != "" || got.ClaimCount != 0 {
+		t.Fatalf("a finished task was leased: %+v", got)
+	}
+
+	open := f.seedTask(t, "open", "todo", core.PriorityNormal)
+	if _, err := f.local.ClaimTask(f.ctx, ref(open), core.ClaimInput{}); err != nil {
+		t.Fatalf("claiming an unfinished task: %v", err)
+	}
+}

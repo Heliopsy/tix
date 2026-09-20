@@ -228,6 +228,49 @@ Operations documented as idempotent SHALL produce the same resulting state and t
 - **WHEN** an idempotent operation results in no state change
 - **THEN** no outbox event is emitted for that invocation
 
+### Requirement: Operation registry spans every surface
+
+Every operation SHALL be declared once in a registry that records its stable product name, the service method it maps to, and its bindings on each access path: the CLI command path, the HTTP route, the browser route and the template it renders, and the terminal view it is reachable from where one exists. The CLI, the HTTP API, and the browser SHALL be the surfaces every operation is required to reach; the terminal interface SHALL be recorded where it applies but SHALL NOT be required. The registry SHALL be the single source of truth for what operations exist, and no surface SHALL expose an operation the registry does not declare.
+
+#### Scenario: Every service method is registered
+
+- **WHEN** the registry is checked against the exported service interface
+- **THEN** every exported service method appears in the registry exactly once
+
+#### Scenario: Entries name their bindings
+
+- **WHEN** a registry entry is read
+- **THEN** it names the CLI command, the HTTP route, and the browser route that expose that operation, or carries an exemption for each required surface it omits
+
+#### Scenario: Lookup by service method
+
+- **WHEN** an operation is looked up by the service method it maps to
+- **THEN** the registry returns the single entry declaring that method
+
+### Requirement: Exemptions distinguish inapplicability from a known gap
+
+An operation absent from a bound surface SHALL carry an exemption recording the surface and a written reason. An exemption SHALL further record whether the absence is permanent, because the surface cannot serve the operation, or a known defect held open until the binding is written. A defect exemption SHALL be enumerable on its own, so the set of missing bindings can be read off the registry rather than discovered by hand.
+
+#### Scenario: Permanent exemption
+
+- **WHEN** an operation a browser cannot serve carries an exemption naming the browser surface and its reason
+- **THEN** the parity test accepts the absence and the exemption is not counted as a defect
+
+#### Scenario: Known gap is flagged as one
+
+- **WHEN** an operation lacks a binding that ought to exist and records an exemption for it
+- **THEN** the exemption is marked as a gap and its reason says so, and the parity test fails when the marking and the reason disagree
+
+#### Scenario: Gaps are enumerable
+
+- **WHEN** the registry's gaps are listed
+- **THEN** every exemption marked as a defect is returned with the service method carrying it, and no permanent exemption is included
+
+#### Scenario: Exemption without a reason is rejected
+
+- **WHEN** an operation records an exemption carrying no written reason
+- **THEN** the parity test fails
+
 ### Requirement: Attribution of every mutation
 
 Every mutation SHALL be attributed to the acting identity in its audit entry and its event, including synthetic identities used for automated operations.

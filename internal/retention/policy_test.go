@@ -134,3 +134,62 @@ func TestMergeLeavesUnsetWindowsAlone(t *testing.T) {
 		t.Errorf("tenant = %q, want t2", next.TenantID)
 	}
 }
+
+func TestResolveLayersConfiguredDefaultsUnderTheStoredPolicy(t *testing.T) {
+	def := core.DefaultRetention("t1")
+	configured := core.RetentionPolicy{
+		TenantID:          "t1",
+		Events:            core.Duration(time.Hour),
+		AuditEntries:      core.Duration(2 * time.Hour),
+		WebhookDeliveries: core.Duration(3 * time.Hour),
+	}
+	cases := []struct {
+		name   string
+		stored core.RetentionPolicy
+		config core.RetentionPolicy
+		want   core.RetentionPolicy
+	}{
+		{
+			name:   "configuration fills a tenant with no stored policy",
+			stored: core.RetentionPolicy{TenantID: "t1"},
+			config: configured,
+			want:   configured,
+		},
+		{
+			name:   "configuration fills a tenant left at the shipped default",
+			stored: def,
+			config: configured,
+			want:   configured,
+		},
+		{
+			name: "an explicit stored window beats configuration",
+			stored: core.RetentionPolicy{
+				TenantID: "t1",
+				Events:   core.Duration(9 * time.Hour),
+			},
+			config: configured,
+			want: core.RetentionPolicy{
+				TenantID:          "t1",
+				Events:            core.Duration(9 * time.Hour),
+				AuditEntries:      configured.AuditEntries,
+				WebhookDeliveries: configured.WebhookDeliveries,
+			},
+		},
+		{
+			name:   "the shipped default remains when nothing is configured",
+			stored: core.RetentionPolicy{TenantID: "t1"},
+			config: core.RetentionPolicy{},
+			want:   def,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := Resolve(tc.stored, tc.config)
+			if got.Events != tc.want.Events ||
+				got.AuditEntries != tc.want.AuditEntries ||
+				got.WebhookDeliveries != tc.want.WebhookDeliveries {
+				t.Fatalf("Resolve = %+v, want %+v", got, tc.want)
+			}
+		})
+	}
+}

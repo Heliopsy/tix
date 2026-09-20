@@ -131,7 +131,7 @@ The CLI SHALL disable colour when `NO_COLOR` is set, when output is not a termin
 
 ### Requirement: Documented exit codes
 
-The CLI SHALL use exit code 0 for success, 1 for a generic error, 2 for a usage error, 3 for not found or no task available, 4 for conflict or lease expired, and 5 for an authentication or authorization failure. These codes SHALL be documented in help output.
+The CLI SHALL use exit code 0 for success, 1 for a generic error, 2 for a usage error, 3 for not found or no task available, 4 for conflict or lease expired, 5 for an authentication or authorization failure, and 6 for a failed precondition. These codes SHALL be documented in help output.
 
 #### Scenario: Success
 
@@ -142,6 +142,11 @@ The CLI SHALL use exit code 0 for success, 1 for a generic error, 2 for a usage 
 
 - **WHEN** a command is invoked with an unknown flag or a missing required argument
 - **THEN** it exits 2 and prints usage to standard error
+
+#### Scenario: Failed precondition
+
+- **WHEN** a command is refused because the data is in a state the operation forbids, such as a transition the workflow does not allow or deleting a task that still has subtasks
+- **THEN** it exits 6 rather than the generic error code
 
 #### Scenario: Empty queue
 
@@ -198,7 +203,7 @@ Every command that mutates state SHALL accept `--dry-run`, which reports exactly
 
 ### Requirement: Command surface
 
-The CLI SHALL provide the command groups `task`, `project`, `workflow`, `field`, `claim`, `comment`, `dep`, `tag`, `user`, `token`, `ctx`, `config`, `doctor`, `serve`, `tui`, `export`, `import`, `sync`, `webhook`, `prune`, `docs`, `completion`, and `version`.
+The CLI SHALL provide the command groups `task`, `project`, `workflow`, `field`, `claim`, `comment`, `dep`, `tag`, `user`, `token`, `ctx`, `config`, `doctor`, `serve`, `tui`, `export`, `import`, `bundle`, `sync`, `webhook`, `prune`, `docs`, `completion`, and `version`.
 
 #### Scenario: Every group is reachable
 

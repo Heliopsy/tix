@@ -90,6 +90,7 @@ const (
 	RouteRoot     = "/"
 	RouteLogin    = "/login"
 	RouteLogout   = "/logout"
+	RouteAdvanced = "/advanced"
 	RouteActivity = "/activity"
 
 	RouteProjects     = "/projects"
@@ -106,6 +107,7 @@ const (
 	RouteTasks        = "/tasks"
 	RouteTask         = "/tasks/{ref}"
 	RouteTaskMove     = "/tasks/{ref}/transition"
+	RouteTaskComplete = "/tasks/{ref}/complete"
 	RouteTaskDelete   = "/tasks/{ref}/delete"
 	RouteTaskRestore  = "/tasks/{ref}/restore"
 	RouteTaskDeps     = "/tasks/{ref}/deps"

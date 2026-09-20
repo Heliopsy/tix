@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/thereisnotime/tix/internal/retention"
 	"github.com/thereisnotime/tix/internal/store"
 	"github.com/thereisnotime/tix/internal/store/migrations"
+	"github.com/thereisnotime/tix/internal/webhook"
 )
 
 // Options describe the process the serve command starts.
@@ -43,10 +45,12 @@ type Options struct {
 	RequestTimeout  time.Duration
 	ShutdownTimeout time.Duration
 
-	SweepInterval time.Duration
-	PruneInterval time.Duration
-	DisableSweep  bool
-	DisablePrune  bool
+	SweepInterval    time.Duration
+	PruneInterval    time.Duration
+	DispatchInterval time.Duration
+	DisableSweep     bool
+	DisablePrune     bool
+	DisableDispatch  bool
 }
 
 // Assemble builds the router over the service and returns a server with its
@@ -134,6 +138,26 @@ func workersFor(opts Options) []Worker {
 			}),
 		)
 		workers = append(workers, PrunerWorker(pruner))
+	}
+
+	if !opts.DisableDispatch {
+		interval := opts.DispatchInterval
+		if interval <= 0 {
+			interval = webhook.DefaultInterval
+		}
+		dispatcher := webhook.NewDispatcher(
+			opts.Store,
+			core.TenantScope{TenantID: opts.TenantID},
+			opts.Clock,
+			webhook.WithInterval(interval),
+			webhook.WithErrorHandler(func(err error) {
+				if errors.Is(err, context.Canceled) {
+					return
+				}
+				opts.Logger.Error("webhook dispatch failed", "error", err.Error())
+			}),
+		)
+		workers = append(workers, DispatcherWorker(dispatcher))
 	}
 	return workers
 }

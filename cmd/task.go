@@ -26,6 +26,26 @@ func newTaskCmd(g *globals) *cobra.Command {
 // helpRunner prints help for a group that was invoked without a subcommand.
 func helpRunner(cmd *cobra.Command, _ []string) error { return cmd.Help() }
 
+// defaultProject returns the configured default project key. It is consulted
+// only when --project was not given, so the flag always wins and the resolver
+// decides between environment, .env, configuration file and the default.
+func (g *globals) defaultProject() (string, error) {
+	resolved, err := g.resolve()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(resolved.Config.Project), nil
+}
+
+// projectFallback returns the configured default project, or "" when the
+// command was given an explicit --project.
+func (g *globals) projectFallback(cmd *cobra.Command) (string, error) {
+	if cmd.Flags().Changed("project") {
+		return "", nil
+	}
+	return g.defaultProject()
+}
+
 func taskAddCmd(g *globals) *cobra.Command {
 	var (
 		project, bodyFlag, status, priority, assignee, parent, due string
@@ -39,6 +59,13 @@ func taskAddCmd(g *globals) *cobra.Command {
 		Example: "  tix task add \"buy milk\"\n  tix task add \"ship release\" -p infra --priority high --tag ops",
 		Args:    minArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			fallback, err := g.projectFallback(cmd)
+			if err != nil {
+				return err
+			}
+			if fallback != "" {
+				project = fallback
+			}
 			title := strings.Join(args, " ")
 			if len(args) == 1 && args[0] == StdinMarker {
 				read, err := readAll(cmd.InOrStdin())
@@ -119,6 +146,13 @@ func taskLsCmd(g *globals) *cobra.Command {
 		Example: "  tix task ls\n  tix task ls --status todo -o ndjson\n  tix task ls -p infra --tag ops --all",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			fallback, err := g.projectFallback(cmd)
+			if err != nil {
+				return err
+			}
+			if fallback != "" {
+				projects = []string{fallback}
+			}
 			filter := core.TaskFilter{
 				ProjectKeys: projects, Statuses: statuses, Tags: tags,
 				AssigneeIDs: assignees, Query: query, IncludeDeleted: deleted,

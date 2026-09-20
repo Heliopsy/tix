@@ -8,9 +8,7 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/thereisnotime/tix/internal/clock"
 	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
 	"github.com/thereisnotime/tix/internal/webhook"
 )
 
@@ -136,12 +134,9 @@ func TestSubscribingBelowTheRetainedFloorIsRefused(t *testing.T) {
 
 // The outbox row a direct-database write commits is what a webhook delivery
 // carries, and the signature the receiver verifies covers the timestamp and
-// that body.
-//
-// The fan-out step below is performed by the test. No production code path
-// calls webhook.Enqueue or constructs a webhook.Dispatcher today, so nothing
-// queues or drains a delivery on its own; see the note in the work package
-// report. Everything else here is the shipped component.
+// that body. The fan-out and the attempt are both the shipped path: the write
+// queues the delivery in its own transaction and, in the default inline hook
+// mode, drains it after that transaction commits. The test only watches.
 func TestDirectDatabaseWriteProducesASignedWebhookDelivery(t *testing.T) {
 	t.Parallel()
 	h := newHarness(t)
@@ -162,20 +157,6 @@ func TestDirectDatabaseWriteProducesASignedWebhookDelivery(t *testing.T) {
 	if event.SubjectID != task.ID {
 		t.Fatalf("newest outbox event names %q, want the task %q", event.SubjectID, task.ID)
 	}
-	if queued := h.queueForDelivery(event); queued != 1 {
-		t.Fatalf("queued %d deliveries for the matching endpoint, want 1", queued)
-	}
-
-	dispatcher := webhook.NewDispatcher(h.cliStore, h.scope, clock.New(), webhook.WithInterval(0))
-	defer dispatcher.Stop()
-	res, err := dispatcher.Drain(context.Background(), webhook.Bound{MaxDeliveries: 4, Budget: deliveryWait})
-	if err != nil {
-		t.Fatalf("draining the delivery queue: %v", err)
-	}
-	if res.Delivered != 1 {
-		t.Fatalf("drain reported %+v, want exactly one delivery", res)
-	}
-
 	got := receiver.await(t, deliveryWait)
 	if got.eventType != string(core.EventTaskCreated) {
 		t.Errorf("%s = %q, want %q", webhook.HeaderEvent, got.eventType, core.EventTaskCreated)
@@ -199,20 +180,4 @@ func TestDirectDatabaseWriteProducesASignedWebhookDelivery(t *testing.T) {
 		t.Errorf("delivered event %d/%q, want the committed %d/%q",
 			delivered.Seq, delivered.SubjectID, event.Seq, task.ID)
 	}
-}
-
-// queueForDelivery fans one committed event out to the endpoints that match
-// it, and reports how many deliveries were queued.
-func (h *harness) queueForDelivery(e core.Event) int {
-	h.t.Helper()
-	ctx := context.Background()
-	queued := 0
-	if err := h.cliStore.Update(ctx, h.scope, func(tx store.Tx) error {
-		var err error
-		queued, err = webhook.Enqueue(ctx, tx, e)
-		return err
-	}); err != nil {
-		h.t.Fatalf("queueing event %d for delivery: %v", e.Seq, err)
-	}
-	return queued
 }

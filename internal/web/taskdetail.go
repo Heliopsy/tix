@@ -20,6 +20,7 @@ func (h *handler) taskRoutes() []route {
 			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs"),
 		post(RouteTask, h.updateTask, "UpdateTask"),
 		post(RouteTaskMove, h.transitionTask, "TransitionTask"),
+		post(RouteTaskComplete, h.completeTask, "TransitionTask"),
 		post(RouteTaskDelete, h.deleteTask, "DeleteTask"),
 		post(RouteTaskRestore, h.restoreTask, "RestoreTask"),
 		post(RouteTaskDeps, h.addDependency, "AddDependency"),

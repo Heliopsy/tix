@@ -87,7 +87,8 @@ fresh install needs no configuration: one default workflow, no required fields, 
 
 Multi-tenant, with domains mapping to tenants. Isolation is structural rather than a `WHERE` clause
 somebody has to remember: queries are built by a scoped builder that cannot produce an unscoped
-statement, a lint rule forbids raw database calls, and PostgreSQL adds row-level security underneath.
+statement, and a lint rule forbids raw database calls. On PostgreSQL the same scoping is enforced a
+second time by row-level security policies, applied to the connection when tix opens the database.
 
 ## Access paths
 
@@ -199,8 +200,14 @@ Binaries and container images are published per release.
 | SQLite     | Default. Local and single-user. Pure Go driver, so builds stay `CGO_ENABLED=0`        |
 | PostgreSQL | Shared deployments. Adds row-level security, full-text search, partitioned retention  |
 
-One schema and one migration path across both. The CLI talks to either directly, or to a remote server,
-executing the same service code in both cases.
+One schema and one migration path across both. SQLite is the default and needs nothing configured.
+PostgreSQL needs a connection string, passed as `--db postgres://...` or set through `TIX_DATABASE_DSN`
+or the config file.
+
+The CLI runs against either engine, in one of two modes. Given a database it opens it directly and
+executes the service code in process. Given a server URL instead, as `--server https://...` or
+`TIX_SERVER_URL`, it calls a running `tix serve` over the HTTP API, which executes the same service
+code there. Nothing else changes: the commands, the output and the exit codes are identical.
 
 ## Documentation
 
@@ -210,7 +217,7 @@ executing the same service code in both cases.
 | [proposal.md](openspec/changes/tix-v1/proposal.md) | Why tix exists and what it does |
 | [design.md](openspec/changes/tix-v1/design.md) | Technical decisions and their trade-offs |
 | [tasks.md](openspec/changes/tix-v1/tasks.md) | Implementation checklist by work package |
-| [specs/](openspec/changes/tix-v1/specs/) | 22 capabilities, 292 requirements, 885 scenarios |
+| [specs/](openspec/changes/tix-v1/specs/) | 23 capabilities, 305 requirements, 928 scenarios |
 | [docs/](docs/) | User and operator guides, indexed in [docs/README.md](docs/README.md) |
 | [docs/agents.md](docs/agents.md) | Leases, lease tokens, `tix claim exec`, scopes and exit codes for agents |
 | [docs/api.md](docs/api.md) | HTTP API and the WebSocket event stream |
@@ -234,7 +241,7 @@ Each links to its normative specification.
 | [http-api](openspec/changes/tix-v1/specs/http-api/spec.md) | [event-stream](openspec/changes/tix-v1/specs/event-stream/spec.md) | [webhooks](openspec/changes/tix-v1/specs/webhooks/spec.md) |
 | [audit-log](openspec/changes/tix-v1/specs/audit-log/spec.md) | [retention](openspec/changes/tix-v1/specs/retention/spec.md) | [import-export](openspec/changes/tix-v1/specs/import-export/spec.md) |
 | [external-sync](openspec/changes/tix-v1/specs/external-sync/spec.md) | [web-ui](openspec/changes/tix-v1/specs/web-ui/spec.md) | [tui](openspec/changes/tix-v1/specs/tui/spec.md) |
-| [server](openspec/changes/tix-v1/specs/server/spec.md) | | |
+| [server](openspec/changes/tix-v1/specs/server/spec.md) | [component-sharing](openspec/changes/tix-v1/specs/component-sharing/spec.md) | |
 <!-- markdownlint-enable MD013 -->
 
 ## Development

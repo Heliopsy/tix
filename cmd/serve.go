@@ -11,7 +11,6 @@ import (
 	"github.com/thereisnotime/tix/internal/connect"
 	"github.com/thereisnotime/tix/internal/core"
 	"github.com/thereisnotime/tix/internal/server"
-	"github.com/thereisnotime/tix/internal/store/sqlite"
 	"github.com/thereisnotime/tix/internal/web"
 )
 
@@ -27,6 +26,7 @@ type serveOptions struct {
 	sweepInterval   time.Duration
 	pruneInterval   time.Duration
 	disableSweep    bool
+	disableDispatch bool
 	disablePrune    bool
 }
 
@@ -56,6 +56,7 @@ func newServeCmd(g *globals) *cobra.Command {
 	f.DurationVar(&o.pruneInterval, "prune-interval", time.Hour,
 		"how often retention pruning runs")
 	f.BoolVar(&o.disableSweep, "no-lease-sweeper", false, "disable the lease sweeper")
+	f.BoolVar(&o.disableDispatch, "no-webhook-dispatcher", false, "disable the webhook dispatcher")
 	f.BoolVar(&o.disablePrune, "no-retention-pruner", false, "disable the retention pruner")
 	return cmd
 }
@@ -70,18 +71,11 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 		return core.Invalid("serve needs a local database target, not %q", conn.Info.Target.URL)
 	}
 
-	clk := clock.New()
-	st, err := sqlite.Open(conn.Info.Target.Path, clk)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = st.Close() }()
-
 	srv, err := server.Assemble(server.Options{
 		Service:         conn.Service,
 		WebHandler:      web.Handler(conn.Service, web.WithSecureCookies(o.certFile != "")),
-		Store:           st,
-		Clock:           clk,
+		Store:           conn.Store,
+		Clock:           clock.New(),
 		TenantID:        conn.Info.TenantID,
 		Addr:            o.listen,
 		CertFile:        o.certFile,
@@ -93,6 +87,7 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 		SweepInterval:   o.sweepInterval,
 		PruneInterval:   o.pruneInterval,
 		DisableSweep:    o.disableSweep,
+		DisableDispatch: o.disableDispatch,
 		DisablePrune:    o.disablePrune,
 	})
 	if err != nil {

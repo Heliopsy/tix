@@ -87,6 +87,33 @@ func Effective(p core.RetentionPolicy) core.RetentionPolicy {
 	return p
 }
 
+// Resolve layers a configured default under a tenant's stored policy. A window
+// the tenant set explicitly wins, because the stored policy is per tenant and
+// authoritative for a shared deployment; configuration only supplies the
+// windows the tenant never moved off the shipped default.
+func Resolve(stored, configured core.RetentionPolicy) core.RetentionPolicy {
+	def := core.DefaultRetention(stored.TenantID)
+	out := Effective(stored)
+	for _, f := range []struct {
+		stored     core.Duration
+		configured core.Duration
+		def        core.Duration
+		dst        *core.Duration
+	}{
+		{stored.Events, configured.Events, def.Events, &out.Events},
+		{stored.AuditEntries, configured.AuditEntries, def.AuditEntries, &out.AuditEntries},
+		{stored.WebhookDeliveries, configured.WebhookDeliveries, def.WebhookDeliveries, &out.WebhookDeliveries},
+	} {
+		if f.stored > 0 && f.stored != f.def {
+			continue
+		}
+		if f.configured > 0 {
+			*f.dst = f.configured
+		}
+	}
+	return out
+}
+
 // IsDefault reports whether every window of p equals the shipped default.
 func IsDefault(p core.RetentionPolicy) bool {
 	def := core.DefaultRetention(p.TenantID)

@@ -484,6 +484,10 @@ func TestConfigAndContextCommands(t *testing.T) {
 	if got := c.mustRun("ctx", "show", "-o", "json"); !strings.Contains(got.out, "\"current\": true") {
 		t.Fatalf("ctx show = %q", got.out)
 	}
+	// The context names tenant acme, which the context's own database does not
+	// have yet: create it through the default tenant, then work inside it.
+	c.mustRun("--tenant", "default", "tenant", "create", "acme", "Acme")
+	c.mustRun("project", "create", "acme", "Acme")
 	c.mustRun("task", "add", "in the work context")
 	if _, err := os.Stat(filepath.Join(c.home, "work.db")); err != nil {
 		t.Fatalf("context database was not used: %v", err)

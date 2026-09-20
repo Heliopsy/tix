@@ -72,6 +72,7 @@ type view struct {
 	EventsPath string
 	Brand      branding
 	Actor      *core.Actor
+	Advanced   bool
 	Data       any
 }
 
@@ -183,8 +184,20 @@ func (h *handler) newView(r *http.Request, title string, data any) view {
 		EventsPath: h.eventsPath,
 		Brand:      h.brand(r),
 		Actor:      actor,
+		Advanced:   advancedMode(r),
 		Data:       data,
 	}
+}
+
+// AdvancedCookie remembers whether this browser wants the administrative
+// screens. The simple view is the default: most people are here to work
+// through a list, not to configure domains and tokens.
+const AdvancedCookie = "tix_advanced"
+
+// advancedMode reports whether this browser asked for the full interface.
+func advancedMode(r *http.Request) bool {
+	c, err := r.Cookie(AdvancedCookie)
+	return err == nil && c.Value == "1"
 }
 
 // brand resolves the signed-in tenant's branding, falling back to the default

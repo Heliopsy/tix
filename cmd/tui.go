@@ -17,6 +17,13 @@ func newTUICmd(g *globals) *cobra.Command {
 		GroupID: "work",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			fallback, err := g.projectFallback(cmd)
+			if err != nil {
+				return err
+			}
+			if fallback != "" {
+				project = fallback
+			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
