@@ -103,7 +103,7 @@ func Valid(s string) bool {
 		return false
 	}
 	for _, c := range s {
-		if strings.IndexRune(crockford, upper(c)) < 0 {
+		if !strings.ContainsRune(crockford, upper(c)) {
 			return false
 		}
 	}

@@ -140,9 +140,13 @@ jobs:
         run: go install github.com/securego/gosec/v2/cmd/gosec@v2.25.0
 
       - name: Run gosec
-        run: gosec -fmt sarif -out gosec.sarif ./...
+        run: gosec -fmt sarif -out gosec.sarif -stdout -verbose=text ./...
 
+      # Code scanning is unavailable on a private repository without Advanced
+      # Security, so the upload is skipped until the repo is public. gosec
+      # itself still runs above and still fails the job on findings.
       - name: Upload SARIF to GitHub Security tab
+        if: github.event.repository.visibility == 'public'
         uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e  # v4.36.2
         with:
           sarif_file: gosec.sarif
@@ -177,7 +181,7 @@ jobs:
           exit-code: "1"
 
       - name: Upload Trivy SARIF
-        if: always()
+        if: always() && github.event.repository.visibility == 'public'
         uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e  # v4.36.2
         with:
           sarif_file: trivy.sarif

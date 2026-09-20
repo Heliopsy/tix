@@ -93,7 +93,9 @@ tidy-check:
 
 # Run an arbitrary command inside the pinned CI toolbox image.
 tool +ARGS: _ensure-ci-image
-    {{engine}} run --rm -v "$PWD":/src:z -w /src {{ci_image}} {{ARGS}}
+    # -buildvcs=false: the repository is bind-mounted, so git inside the
+    # container sees an ownership mismatch and the VCS stamp fails.
+    {{engine}} run --rm -v "$PWD":/src:z -w /src -e GOFLAGS=-buildvcs=false {{ci_image}} {{ARGS}}
 
 lint: (tool "golangci-lint" "run" "./...")
 actionlint: (tool "actionlint")
