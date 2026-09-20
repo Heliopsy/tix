@@ -14,7 +14,7 @@ ARG TRIVY_VERSION=v0.69.1
 ARG HADOLINT_VERSION=v2.14.0
 ARG OPENSPEC_VERSION=1.2.0
 
-RUN apk add --no-cache git bash curl nodejs npm py3-pip ca-certificates
+RUN apk add --no-cache git bash curl tar nodejs npm py3-pip ca-certificates
 
 RUN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_LINT_VERSION} \
  && go install github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION} \
@@ -22,12 +22,19 @@ RUN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI
  && go install github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION} \
  && go install github.com/goreleaser/goreleaser/v2@${GORELEASER_VERSION}
 
-RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-      | sh -s -- -b /usr/local/bin ${TRIVY_VERSION}
+# Fetch the release tarball directly. The upstream install.sh needs capabilities
+# that are not available in a rootless build.
+RUN TRIVY_NUM=$(echo "${TRIVY_VERSION}" | sed 's/^v//') \
+ && curl -sfL -o /tmp/trivy.tar.gz \
+      "https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_NUM}_Linux-64bit.tar.gz" \
+ && tar -xzf /tmp/trivy.tar.gz -C /usr/local/bin trivy \
+ && rm -f /tmp/trivy.tar.gz \
+ && trivy --version
 
 RUN curl -sfL -o /usr/local/bin/hadolint \
-      https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64 \
- && chmod +x /usr/local/bin/hadolint
+      "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64" \
+ && chmod +x /usr/local/bin/hadolint \
+ && hadolint --version
 
 RUN npm install -g markdownlint-cli @fission-ai/openspec@${OPENSPEC_VERSION} \
  && pip install --break-system-packages --no-cache-dir yamllint

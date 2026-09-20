@@ -27,8 +27,8 @@ ticked, and coverage is at or above 80% (excluding `internal/tui`).
 - [x] 1.13 WP-03 `internal/core`: error taxonomy and its exit-code and HTTP-status mappings
 - [x] 1.14 WP-03 `internal/core`: `TaskRef` parsing accepting identifiers and human refs
 - [x] 1.15 WP-03 `internal/core`: filter and keyset cursor types
-- [ ] 1.16 WP-04 `internal/clock`: `Clock` interface, real and fake implementations
-- [ ] 1.17 WP-04 `internal/id`: sortable identifier generation from `crypto/rand`
+- [x] 1.16 WP-04 `internal/clock`: `Clock` interface, real and fake implementations
+- [x] 1.17 WP-04 `internal/id`: sortable identifier generation from `crypto/rand`
 - [ ] 1.18 WP-05 `internal/store/store.go`: `Store` and `Tx` interfaces
 - [ ] 1.19 WP-05 `internal/store/sql/builder.go`: tenant-scoped query builder with no unscoped API
 - [ ] 1.20 WP-05 `internal/store/migrations/0001_init.sql`: full schema
