@@ -26,7 +26,6 @@ func TestActorHasScopeWildcard(t *testing.T) {
 }
 
 func TestActorHasScopeFromRole(t *testing.T) {
-	// A human's scopes come from their role without being enumerated on the actor.
 	member := &Actor{Role: RoleMember}
 	if !member.HasScope(ScopeTaskClaim) {
 		t.Error("member role should grant task:claim")
@@ -61,8 +60,6 @@ func TestViewerCannotWrite(t *testing.T) {
 }
 
 func TestAgentTokenCannotDeleteProject(t *testing.T) {
-	// A typical queue-working agent token. The spec requires that such a token
-	// can work a queue but cannot destroy the project it works in.
 	agent := &Actor{
 		Kind: ActorAgent,
 		Scopes: []Scope{
@@ -135,8 +132,6 @@ func TestActorKindValid(t *testing.T) {
 }
 
 func TestWithActorAlsoSetsTenant(t *testing.T) {
-	// An actor must never be evaluated against a tenant it did not authenticate
-	// for, so carrying the actor implies carrying its tenant.
 	ctx := WithActor(context.Background(), &Actor{ID: "a1", TenantID: "t1"})
 
 	got, ok := TenantFrom(ctx)
@@ -196,7 +191,6 @@ func TestTenantScopeValid(t *testing.T) {
 			t.Errorf("TenantScope{%q}.Valid() = %v, want %v", tt.in, got, tt.want)
 		}
 	}
-	// A blank tenant must not satisfy RequireTenant either.
 	ctx := WithTenant(context.Background(), TenantScope{TenantID: "  "})
 	if _, err := RequireTenant(ctx); err == nil {
 		t.Error("blank tenant must not satisfy RequireTenant")
@@ -211,7 +205,6 @@ func TestSourceDefaultsToSystem(t *testing.T) {
 	if got := SourceFrom(ctx); got != SourceCLI {
 		t.Errorf("SourceFrom() = %q, want %q", got, SourceCLI)
 	}
-	// An empty source must not mask the default.
 	if got := SourceFrom(WithSource(context.Background(), "")); got != SourceSystem {
 		t.Errorf("SourceFrom(empty source) = %q, want %q", got, SourceSystem)
 	}

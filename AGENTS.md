@@ -25,6 +25,12 @@ Coding standards for tix. Terse by design. Read before writing code.
 - Prefer the standard library. New dependencies need a reason in the PR description.
 - Keep functions short enough to test without a mock.
 
+## Comments
+
+- One line of doc comment on exported items. No multi-line essays.
+- No commentary inside function bodies. If code needs explaining, rename or restructure it.
+- Comment only what the code cannot say: a non-obvious invariant, a deliberate trade-off.
+
 ## Tests
 
 - Tests live next to the code they cover, `*_test.go`.

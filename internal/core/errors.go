@@ -1,9 +1,4 @@
 // Package core holds the tix domain model and the Service contract.
-//
-// This package imports only the standard library. Both the local service
-// implementation and the remote HTTP client depend on it, and neither depends
-// on the other, so "one authoritative code path" is a compile-time property
-// rather than a convention. Do not add a dependency here.
 package core
 
 import (
@@ -11,48 +6,26 @@ import (
 	"fmt"
 )
 
-// Kind classifies an error so every transport can map it consistently. A Kind
-// determines the HTTP status code the API returns and the exit code the CLI
-// exits with, which is what makes local and remote behaviour indistinguishable.
+// Kind classifies an error so every transport can map it consistently.
 type Kind string
 
-// Error kinds. These are the complete taxonomy; a new kind requires updating
-// the HTTP and exit-code mappings below, both of which are exhaustively tested.
+// Error kinds.
 const (
-	// KindInvalid means the request was malformed or failed validation.
-	KindInvalid Kind = "invalid"
-	// KindNotFound means the addressed resource does not exist, or is not
-	// visible to the caller. Tenant isolation deliberately reports a
-	// cross-tenant reference as not found rather than forbidden, so the API
-	// does not confirm that another tenant's resource exists.
-	KindNotFound Kind = "not_found"
-	// KindConflict means the resource changed underneath the caller, or is
-	// already claimed. Claim contention reports this.
-	KindConflict Kind = "conflict"
-	// KindUnauthenticated means no valid credential was presented.
+	KindInvalid         Kind = "invalid"
+	KindNotFound        Kind = "not_found"
+	KindConflict        Kind = "conflict"
 	KindUnauthenticated Kind = "unauthenticated"
-	// KindForbidden means the caller is known but lacks the required scope.
-	KindForbidden Kind = "forbidden"
-	// KindLeaseExpired means the presented lease token is no longer current.
-	// A worker receiving this must re-claim before acting on the task again.
-	KindLeaseExpired Kind = "lease_expired"
-	// KindNoTaskAvailable means a claim-next found no eligible task. This is
-	// an ordinary empty result, not a failure, and is distinct from not found.
+	KindForbidden       Kind = "forbidden"
+	KindLeaseExpired    Kind = "lease_expired"
 	KindNoTaskAvailable Kind = "no_task_available"
-	// KindPrecondition means a rule prevented the operation, such as an
-	// illegal workflow transition or a dependency cycle.
-	KindPrecondition Kind = "precondition_failed"
-	// KindInternal means an unexpected failure. Details are logged, not returned.
-	KindInternal Kind = "internal"
+	KindPrecondition    Kind = "precondition_failed"
+	KindInternal        Kind = "internal"
 )
 
-// Error is a domain error carrying a Kind, a human-readable message, optional
-// structured details, and an optional wrapped cause.
+// Error is a domain error with a Kind, a message and optional details.
 type Error struct {
 	Kind    Kind
 	Message string
-	// Details carries machine-readable context, such as the field that failed
-	// validation. It SHALL NOT contain secrets.
 	Details map[string]any
 	cause   error
 }
@@ -107,8 +80,7 @@ func Precondition(format string, args ...any) *Error {
 // Internal reports an unexpected failure.
 func Internal(format string, args ...any) *Error { return newf(KindInternal, format, args...) }
 
-// WithDetail attaches a machine-readable detail and returns the error, so it
-// can be built in a single expression. It SHALL NOT be used for secrets.
+// WithDetail attaches a machine-readable detail. Never use it for secrets.
 func (e *Error) WithDetail(key string, value any) *Error {
 	if e.Details == nil {
 		e.Details = make(map[string]any, 1)
@@ -123,9 +95,7 @@ func (e *Error) Wrap(cause error) *Error {
 	return e
 }
 
-// KindOf reports the Kind of err, following the wrap chain. An error that is
-// not a domain error is reported as KindInternal, so an unexpected failure
-// never accidentally maps to a success-adjacent status.
+// KindOf reports the Kind of err, following the wrap chain.
 func KindOf(err error) Kind {
 	if err == nil {
 		return ""
@@ -162,8 +132,7 @@ func (k Kind) HTTPStatus() int {
 	}
 }
 
-// Exit codes returned by the CLI. They are documented in the cli capability and
-// scripts depend on them, so they SHALL NOT be renumbered.
+// Exit codes returned by the CLI.
 const (
 	ExitOK          = 0
 	ExitError       = 1

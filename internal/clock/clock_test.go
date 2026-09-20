@@ -7,8 +7,6 @@ import (
 )
 
 func TestRealClockReturnsUTC(t *testing.T) {
-	// Times are stored as RFC3339 strings on SQLite, where a non-UTC offset
-	// would break the lexicographic ordering lease comparisons depend on.
 	got := New().Now()
 	if got.Location() != time.UTC {
 		t.Errorf("Now() location = %v, want UTC", got.Location())
@@ -150,7 +148,6 @@ func TestFakeTickerFiresRepeatedly(t *testing.T) {
 		t.Fatal("ticker did not fire after one interval")
 	}
 
-	// A ticker must keep firing, which is what drives lease renewal.
 	f.Advance(time.Minute)
 	select {
 	case <-tk.C():
@@ -181,8 +178,6 @@ func TestFakeSleepUnblocksOnAdvance(t *testing.T) {
 		close(done)
 	}()
 
-	// Wait for the sleeper to register before advancing, otherwise the advance
-	// races ahead of it and the test hangs.
 	waitForWaiters(t, f, 1)
 	f.Advance(time.Hour)
 
@@ -209,8 +204,6 @@ func TestFakeSleepNonPositiveReturnsImmediately(t *testing.T) {
 }
 
 func TestFakeIsConcurrencySafe(t *testing.T) {
-	// Lease tests advance the clock while the code under test reads it, so the
-	// fake must tolerate that without a data race.
 	f := NewFakeAt()
 
 	var wg sync.WaitGroup

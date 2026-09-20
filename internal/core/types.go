@@ -5,8 +5,7 @@ import (
 	"time"
 )
 
-// Tenant is the top-level isolation boundary. It owns projects, workflows,
-// labels, field definitions, webhook endpoints and retention policy.
+// Tenant is the top-level isolation boundary.
 type Tenant struct {
 	ID        string     `json:"id"`
 	Key       string     `json:"key"`
@@ -19,16 +18,13 @@ type Tenant struct {
 // CertMode describes how a domain obtains its TLS certificate.
 type CertMode string
 
-// Certificate modes. ACME is deliberately absent in v1; see ROADMAP.md.
+// Certificate modes.
 const (
-	// CertNone means TLS is terminated ahead of tix, by a reverse proxy.
 	CertNone CertMode = "none"
-	// CertFile means tix serves a supplied certificate and key.
 	CertFile CertMode = "file"
 )
 
-// Domain maps a hostname to a tenant. The server resolves the request Host to a
-// tenant before authentication runs, and pins it for the whole request.
+// Domain maps a hostname to a tenant.
 type Domain struct {
 	ID         string     `json:"id"`
 	TenantID   string     `json:"tenant_id"`
@@ -43,24 +39,19 @@ type Domain struct {
 // Verified reports whether the domain has completed verification.
 func (d Domain) Verified() bool { return d.VerifiedAt != nil }
 
-// User is a credentialed human. One user row may hold memberships in several
-// tenants, so credentials are never duplicated per tenant.
+// User is a credentialed human.
 type User struct {
-	ID          string    `json:"id"`
-	Email       string    `json:"email"`
-	DisplayName string    `json:"display_name,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	// DisabledAt, when set, prevents authentication without deleting history.
-	DisabledAt *time.Time `json:"disabled_at,omitempty"`
-	// SSOProvider and SSOSubject are the v2 single sign-on seam. They are
-	// persisted but never read in v1.
-	SSOProvider string `json:"sso_provider,omitempty"`
-	SSOSubject  string `json:"sso_subject,omitempty"`
+	ID          string     `json:"id"`
+	Email       string     `json:"email"`
+	DisplayName string     `json:"display_name,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	DisabledAt  *time.Time `json:"disabled_at,omitempty"`
+	SSOProvider string     `json:"sso_provider,omitempty"`
+	SSOSubject  string     `json:"sso_subject,omitempty"`
 }
 
-// APIToken is a scoped bearer credential, normally held by an agent. The token
-// value itself is returned once at creation and never stored, only its hash.
+// APIToken is a scoped bearer credential, normally held by an agent.
 type APIToken struct {
 	ID         string     `json:"id"`
 	TenantID   string     `json:"tenant_id"`
@@ -82,8 +73,7 @@ func (t APIToken) Active(now time.Time) bool {
 	return t.ExpiresAt == nil || t.ExpiresAt.After(now)
 }
 
-// IssuedToken carries a newly minted token value. The Token field is populated
-// exactly once, at creation, and is never recoverable afterwards.
+// IssuedToken carries a newly minted token value.
 type IssuedToken struct {
 	APIToken
 	Token string `json:"token"`
@@ -105,8 +95,7 @@ type Project struct {
 // Archived reports whether the project is archived.
 func (p Project) Archived() bool { return p.ArchivedAt != nil }
 
-// StateCategory groups workflow states for display and for reporting, without
-// constraining what states a workflow may define.
+// StateCategory groups workflow states for display and reporting.
 type StateCategory string
 
 // State categories.
@@ -118,31 +107,23 @@ const (
 
 // State is one node of a workflow's state machine.
 type State struct {
-	Key   string `json:"key"`
-	Label string `json:"label"`
-	// Terminal marks a state that satisfies a dependency. A task blocks its
-	// dependents until it reaches a terminal state.
-	Terminal bool          `json:"terminal"`
-	Category StateCategory `json:"category,omitempty"`
-	// RevertOnLeaseExpiry makes the sweeper move a task out of this state when
-	// its lease expires, so abandoned work returns to the queue visibly.
-	RevertOnLeaseExpiry bool `json:"revert_on_lease_expiry,omitempty"`
-	// RevertTo names the state to revert to. Empty means the initial state.
-	RevertTo string `json:"revert_to,omitempty"`
+	Key                 string        `json:"key"`
+	Label               string        `json:"label"`
+	Terminal            bool          `json:"terminal"`
+	Category            StateCategory `json:"category,omitempty"`
+	RevertOnLeaseExpiry bool          `json:"revert_on_lease_expiry,omitempty"`
+	RevertTo            string        `json:"revert_to,omitempty"`
 }
 
 // Transition is one permitted edge of a workflow's state machine.
 type Transition struct {
-	From string `json:"from"`
-	To   string `json:"to"`
-	// RequiresScope, when set, demands an additional scope beyond task:transition.
-	RequiresScope Scope `json:"requires_scope,omitempty"`
-	// RequiresComment demands a comment accompany the transition.
-	RequiresComment bool `json:"requires_comment,omitempty"`
+	From            string `json:"from"`
+	To              string `json:"to"`
+	RequiresScope   Scope  `json:"requires_scope,omitempty"`
+	RequiresComment bool   `json:"requires_comment,omitempty"`
 }
 
-// WorkflowDefinition is the state machine itself, stored as one JSON document
-// because it is always read whole and never queried by sub-field.
+// WorkflowDefinition is the state machine, stored as one JSON document.
 type WorkflowDefinition struct {
 	Initial      string       `json:"initial"`
 	States       []State      `json:"states"`
@@ -166,9 +147,7 @@ func (d WorkflowDefinition) HasState(key string) bool {
 	return ok
 }
 
-// IsTerminal reports whether the named state satisfies a dependency. An unknown
-// state is not terminal, so a task in a state removed from the workflow keeps
-// blocking its dependents rather than silently unblocking them.
+// IsTerminal reports whether the named state satisfies a dependency.
 func (d WorkflowDefinition) IsTerminal(key string) bool {
 	s, ok := d.State(key)
 	return ok && s.Terminal
@@ -185,8 +164,7 @@ func (d WorkflowDefinition) TerminalStates() []string {
 	return out
 }
 
-// CanTransition reports whether moving from one state to another is permitted,
-// and returns the transition so its requirements can be checked.
+// CanTransition reports whether a move between states is permitted.
 func (d WorkflowDefinition) CanTransition(from, to string) (Transition, bool) {
 	for _, t := range d.Transitions {
 		if t.From == from && t.To == to {
@@ -203,10 +181,9 @@ type Workflow struct {
 	Key        string             `json:"key"`
 	Name       string             `json:"name"`
 	Definition WorkflowDefinition `json:"definition"`
-	// Builtin marks the workflow shipped by tix. It may be copied but not deleted.
-	Builtin   bool      `json:"builtin"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Builtin    bool               `json:"builtin"`
+	CreatedAt  time.Time          `json:"created_at"`
+	UpdatedAt  time.Time          `json:"updated_at"`
 }
 
 // FieldType is the type of a custom field's value.
@@ -248,15 +225,11 @@ type FieldDef struct {
 	Required    bool      `json:"required"`
 	EnumOptions []string  `json:"enum_options,omitempty"`
 	Default     any       `json:"default,omitempty"`
-	// Indexed generates a database index so the field can be filtered
-	// efficiently. Filtering a non-indexed field is a scan, which is documented
-	// behaviour rather than an error.
-	Indexed  bool `json:"indexed"`
-	Position int  `json:"position"`
+	Indexed     bool      `json:"indexed"`
+	Position    int       `json:"position"`
 }
 
-// Priority orders tasks in a queue. Lower is more urgent, so the default sort
-// is ascending and PriorityHighest sorts first.
+// Priority orders tasks in a queue.
 type Priority int
 
 // Priorities.
@@ -271,17 +244,13 @@ const (
 // Valid reports whether p is within range.
 func (p Priority) Valid() bool { return p >= PriorityHighest && p <= PriorityLowest }
 
-// Task is the central record. A task belongs to exactly one project, may have a
-// parent (containment) and dependencies (ordering), and may be claimed by an
-// actor holding a lease.
+// Task is the central record.
 type Task struct {
 	ID        string `json:"id"`
 	TenantID  string `json:"tenant_id"`
 	ProjectID string `json:"project_id"`
-	// Seq is the per-project number behind the human reference "infra-42".
-	Seq int64 `json:"seq"`
-	// Ref is the rendered human reference, populated on read.
-	Ref string `json:"ref"`
+	Seq       int64  `json:"seq"`
+	Ref       string `json:"ref"`
 
 	ParentID string   `json:"parent_id,omitempty"`
 	Title    string   `json:"title"`
@@ -297,8 +266,6 @@ type Task struct {
 	StartedAt   *time.Time `json:"started_at,omitempty"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 
-	// Claim fields. A lease whose expiry has passed is treated as unclaimed by
-	// every read and every claim, so correctness never depends on the sweeper.
 	ClaimedByActorID string     `json:"claimed_by_actor_id,omitempty"`
 	ClaimedAt        *time.Time `json:"claimed_at,omitempty"`
 	LeaseExpiresAt   *time.Time `json:"lease_expires_at,omitempty"`
@@ -306,21 +273,16 @@ type Task struct {
 
 	CustomFields map[string]any `json:"custom_fields,omitempty"`
 
-	// Version supports optimistic concurrency. An update carrying a stale
-	// version is rejected rather than silently overwriting.
 	Version   int        `json:"version"`
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
 	DeletedAt *time.Time `json:"deleted_at,omitempty"`
 
-	// Blocked is computed on read: true when any dependency is not terminal.
-	Blocked bool `json:"blocked"`
-	// DependsOn lists the tasks this one waits for, populated on detailed reads.
+	Blocked   bool     `json:"blocked"`
 	DependsOn []string `json:"depends_on,omitempty"`
 }
 
 // ClaimedAtTime reports whether the task is effectively claimed at time now.
-// An expired lease is not a claim.
 func (t Task) ClaimedAtTime(now time.Time) bool {
 	if t.ClaimedByActorID == "" || t.LeaseExpiresAt == nil {
 		return false
@@ -339,7 +301,7 @@ type Dependency struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// Label is a free-form tag. A label with no project is available tenant-wide.
+// Label is a free-form tag.
 type Label struct {
 	ID        string `json:"id"`
 	TenantID  string `json:"tenant_id"`
@@ -363,7 +325,7 @@ type Comment struct {
 // ArtifactKind classifies a worker's structured output.
 type ArtifactKind string
 
-// Artifact kinds. The set is open; these are the ones tix itself writes.
+// Artifact kinds.
 const (
 	ArtifactResult ArtifactKind = "result"
 	ArtifactLog    ArtifactKind = "log"
@@ -371,8 +333,7 @@ const (
 	ArtifactMetric ArtifactKind = "metric"
 )
 
-// Artifact is structured output attached to a task by a worker. This is how an
-// agent reports what it did in a form another program can read.
+// Artifact is structured output attached to a task by a worker.
 type Artifact struct {
 	ID          string         `json:"id"`
 	TenantID    string         `json:"tenant_id"`
@@ -382,14 +343,11 @@ type Artifact struct {
 	Name        string         `json:"name,omitempty"`
 	Payload     map[string]any `json:"payload,omitempty"`
 	ContentType string         `json:"content_type,omitempty"`
-	// Blob carries small inline content. Large content belongs elsewhere and is
-	// referenced from Payload.
-	Blob      []byte    `json:"blob,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	Blob        []byte         `json:"blob,omitempty"`
+	CreatedAt   time.Time      `json:"created_at"`
 }
 
-// Claim is the result of successfully claiming a task. The lease token is
-// returned once and must be presented to renew, transition or release.
+// Claim is the result of successfully claiming a task.
 type Claim struct {
 	Task           *Task     `json:"task"`
 	LeaseToken     string    `json:"lease_token"`
@@ -423,11 +381,8 @@ const (
 	EventImportCompleted  EventType = "import.completed"
 )
 
-// Event is one durable record in the outbox. Events are appended in the same
-// transaction as the rows they describe, which is why a command-line write with
-// no server running still reaches every connected subscriber.
+// Event is one durable record in the outbox.
 type Event struct {
-	// Seq is the monotonic cursor consumers resume from.
 	Seq         int64          `json:"seq"`
 	ID          string         `json:"id"`
 	TenantID    string         `json:"tenant_id"`
@@ -440,29 +395,25 @@ type Event struct {
 	OccurredAt  time.Time      `json:"occurred_at"`
 }
 
-// AuditEntry is one append-only record of a change. Entries cannot be edited or
-// deleted through any API.
+// AuditEntry is one append-only record of a change.
 type AuditEntry struct {
-	Seq         int64  `json:"seq"`
-	TenantID    string `json:"tenant_id"`
-	ActorID     string `json:"actor_id,omitempty"`
-	Action      string `json:"action"`
-	SubjectType string `json:"subject_type"`
-	SubjectID   string `json:"subject_id"`
-	// Before is nil for a creation, After is nil for a deletion. Neither ever
-	// contains a secret or a password hash.
-	Before     json.RawMessage `json:"before,omitempty"`
-	After      json.RawMessage `json:"after,omitempty"`
-	Source     Source          `json:"source"`
-	OccurredAt time.Time       `json:"occurred_at"`
+	Seq         int64           `json:"seq"`
+	TenantID    string          `json:"tenant_id"`
+	ActorID     string          `json:"actor_id,omitempty"`
+	Action      string          `json:"action"`
+	SubjectType string          `json:"subject_type"`
+	SubjectID   string          `json:"subject_id"`
+	Before      json.RawMessage `json:"before,omitempty"`
+	After       json.RawMessage `json:"after,omitempty"`
+	Source      Source          `json:"source"`
+	OccurredAt  time.Time       `json:"occurred_at"`
 }
 
 // WebhookEndpoint is a registered delivery target.
 type WebhookEndpoint struct {
-	ID       string `json:"id"`
-	TenantID string `json:"tenant_id"`
-	URL      string `json:"url"`
-	// Secret signs deliveries. It is never included in an export.
+	ID         string    `json:"id"`
+	TenantID   string    `json:"tenant_id"`
+	URL        string    `json:"url"`
 	Secret     string    `json:"-"`
 	EventTypes []string  `json:"event_types"`
 	Active     bool      `json:"active"`
@@ -494,8 +445,6 @@ type WebhookDelivery struct {
 }
 
 // RetentionPolicy bounds how long a tenant keeps its append-only tables.
-// Audit is kept substantially longer than events by default: audit is the
-// compliance record, events are a transport buffer.
 type RetentionPolicy struct {
 	TenantID          string   `json:"tenant_id"`
 	Events            Duration `json:"events"`
@@ -513,31 +462,24 @@ func DefaultRetention(tenantID string) RetentionPolicy {
 	}
 }
 
-// ExternalRef ties a tix entity to its counterpart in an external system. This
-// is what makes a re-import an update rather than a duplicate, and it is the
-// field bidirectional sync will build on.
+// ExternalRef ties a tix entity to its counterpart in an external system.
 type ExternalRef struct {
-	TenantID    string `json:"tenant_id"`
-	EntityType  string `json:"entity_type"`
-	EntityID    string `json:"entity_id"`
-	System      string `json:"system"`
-	ExternalID  string `json:"external_id"`
-	ExternalURL string `json:"external_url,omitempty"`
-	// ExternalVersion records the source's version or etag. v1 reads it only to
-	// detect change; v2 uses it to detect conflicts.
+	TenantID        string    `json:"tenant_id"`
+	EntityType      string    `json:"entity_type"`
+	EntityID        string    `json:"entity_id"`
+	System          string    `json:"system"`
+	ExternalID      string    `json:"external_id"`
+	ExternalURL     string    `json:"external_url,omitempty"`
 	ExternalVersion string    `json:"external_version,omitempty"`
 	LastSyncedAt    time.Time `json:"last_synced_at"`
 }
 
-// SyncSource records an import source and its cursor, so a refresh fetches only
-// what changed since the last successful run.
+// SyncSource records an import source and its cursor.
 type SyncSource struct {
-	ID       string `json:"id"`
-	TenantID string `json:"tenant_id"`
-	System   string `json:"system"`
-	Name     string `json:"name"`
-	// Cursor advances only when a run succeeds, so an interrupted import is
-	// safely re-runnable.
+	ID         string     `json:"id"`
+	TenantID   string     `json:"tenant_id"`
+	System     string     `json:"system"`
+	Name       string     `json:"name"`
 	Cursor     string     `json:"cursor,omitempty"`
 	LastRunAt  *time.Time `json:"last_run_at,omitempty"`
 	LastStatus string     `json:"last_status,omitempty"`

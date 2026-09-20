@@ -6,8 +6,7 @@ import (
 	"testing"
 )
 
-// allKinds is the complete taxonomy. Adding a Kind without adding it here
-// fails the exhaustiveness tests below.
+// allKinds is the complete taxonomy.
 var allKinds = []Kind{
 	KindInvalid, KindNotFound, KindConflict, KindUnauthenticated, KindForbidden,
 	KindLeaseExpired, KindNoTaskAvailable, KindPrecondition, KindInternal,
@@ -61,7 +60,6 @@ func TestErrorWrapsCause(t *testing.T) {
 	if got := err.Error(); got == "" {
 		t.Error("Error() must not be empty")
 	}
-	// The cause must be visible in the message so logs are useful.
 	if !contains(err.Error(), "underlying") {
 		t.Errorf("Error() = %q, should mention the cause", err.Error())
 	}
@@ -89,8 +87,6 @@ func TestWithDetail(t *testing.T) {
 }
 
 func TestHTTPStatusForEveryKind(t *testing.T) {
-	// Every kind must map to a real client or server error status. A kind that
-	// fell through to a 2xx would report failure as success.
 	for _, k := range allKinds {
 		got := k.HTTPStatus()
 		if got < 400 || got > 599 {
@@ -139,7 +135,6 @@ func TestExitCodeMapping(t *testing.T) {
 }
 
 func TestExitCodeNonZeroForEveryFailure(t *testing.T) {
-	// A failing operation must never exit 0, or scripts silently continue.
 	for _, k := range allKinds {
 		if got := k.ExitCode(); got == ExitOK {
 			t.Errorf("Kind %q maps to exit 0, want non-zero", k)

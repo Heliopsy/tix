@@ -52,8 +52,6 @@ func TestWorkflowTerminal(t *testing.T) {
 	if d.IsTerminal("doing") {
 		t.Error("doing must not be terminal")
 	}
-	// A state removed from the workflow must keep blocking dependents rather
-	// than silently unblocking them.
 	if d.IsTerminal("state-that-was-deleted") {
 		t.Error("an unknown state must not be treated as terminal")
 	}
@@ -145,8 +143,6 @@ func TestAPITokenActive(t *testing.T) {
 }
 
 func TestWebhookSecretNeverMarshalled(t *testing.T) {
-	// A secret leaking through an export or an API response would let anyone
-	// forge signed deliveries.
 	e := WebhookEndpoint{ID: "w1", URL: "https://example.com", Secret: "super-secret-value"}
 	b, err := json.Marshal(e)
 	if err != nil {
@@ -168,7 +164,6 @@ func TestPriorityValid(t *testing.T) {
 			t.Errorf("%d must be invalid", p)
 		}
 	}
-	// Lower must sort as more urgent, which the queue relies on.
 	if PriorityHighest >= PriorityLowest {
 		t.Error("PriorityHighest must be numerically lower than PriorityLowest")
 	}
@@ -209,7 +204,6 @@ func TestProjectArchived(t *testing.T) {
 }
 
 func TestDefaultRetentionKeepsAuditLongest(t *testing.T) {
-	// Audit is the compliance record; events are a transport buffer.
 	r := DefaultRetention("t1")
 	if r.AuditEntries <= r.Events {
 		t.Errorf("audit retention %v must exceed event retention %v", r.AuditEntries, r.Events)
@@ -286,8 +280,6 @@ func TestDurationString(t *testing.T) {
 }
 
 func TestDurationYAMLRoundTrip(t *testing.T) {
-	// Lease TTLs and retention windows are written by hand in config files, so
-	// the YAML path matters as much as the JSON one.
 	type cfg struct {
 		Lease Duration `yaml:"lease"`
 	}

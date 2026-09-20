@@ -1,9 +1,4 @@
 // Package clock provides an injectable time source.
-//
-// Leases, retention windows and webhook backoff are all time-driven, and tests
-// for them must not depend on wall-clock timing. Sleeping to let a lease expire
-// makes a suite slow and flaky; advancing a fake clock makes it instant and
-// deterministic. Every package that reads the time takes a Clock.
 package clock
 
 import (
@@ -13,20 +8,14 @@ import (
 
 // Clock is a source of time.
 type Clock interface {
-	// Now returns the current time in UTC.
 	Now() time.Time
-	// Since returns the time elapsed since t.
 	Since(t time.Time) time.Duration
-	// NewTicker returns a ticker that fires on this clock.
 	NewTicker(d time.Duration) Ticker
-	// After returns a channel that receives once d has elapsed.
 	After(d time.Duration) <-chan time.Time
-	// Sleep blocks for d.
 	Sleep(d time.Duration)
 }
 
-// Ticker fires repeatedly. It mirrors time.Ticker so real and fake tickers are
-// interchangeable at a call site.
+// Ticker fires repeatedly.
 type Ticker interface {
 	C() <-chan time.Time
 	Stop()
@@ -38,9 +27,7 @@ type Real struct{}
 // New returns a real clock.
 func New() Real { return Real{} }
 
-// Now returns the current UTC time. Times are normalized to UTC because SQLite
-// stores them as RFC3339 strings, where a non-UTC offset would break the
-// lexicographic ordering that lease and cursor comparisons depend on.
+// Now returns the current UTC time.
 func (Real) Now() time.Time { return time.Now().UTC() }
 
 // Since returns the time elapsed since t.
@@ -60,8 +47,7 @@ type realTicker struct{ t *time.Ticker }
 func (r *realTicker) C() <-chan time.Time { return r.t.C }
 func (r *realTicker) Stop()               { r.t.Stop() }
 
-// Fake is a Clock under test control. It is safe for concurrent use, so a test
-// may advance it while goroutines read it.
+// Fake is a Clock under test control.
 type Fake struct {
 	mu      sync.Mutex
 	now     time.Time
@@ -77,8 +63,7 @@ type waiter struct {
 // NewFake returns a fake clock set to t, normalized to UTC.
 func NewFake(t time.Time) *Fake { return &Fake{now: t.UTC()} }
 
-// NewFakeAt returns a fake clock set to a fixed, arbitrary instant. Use it when
-// a test needs a clock but does not care what time it reads.
+// NewFakeAt returns a fake clock set to a fixed, arbitrary instant.
 func NewFakeAt() *Fake {
 	return NewFake(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
 }
@@ -111,8 +96,7 @@ func (f *Fake) Advance(d time.Duration) {
 	fire(due)
 }
 
-// collectDueLocked removes and returns waiters that are now due, and returns
-// ticker channels that should fire. The caller must hold f.mu.
+// collectDueLocked returns channels that are now due. Caller holds f.mu.
 func (f *Fake) collectDueLocked() []chan time.Time {
 	var due []chan time.Time
 
@@ -138,8 +122,7 @@ func (f *Fake) collectDueLocked() []chan time.Time {
 	return due
 }
 
-// fire delivers to each channel without blocking. A ticker channel that nobody
-// is reading drops the tick, matching time.Ticker's behaviour.
+// fire delivers to each channel without blocking.
 func fire(chans []chan time.Time) {
 	now := time.Now()
 	for _, ch := range chans {
@@ -151,7 +134,6 @@ func fire(chans []chan time.Time) {
 }
 
 // After returns a channel that receives once the fake clock reaches now+d.
-// A non-positive duration fires immediately.
 func (f *Fake) After(d time.Duration) <-chan time.Time {
 	ch := make(chan time.Time, 1)
 	if d <= 0 {
@@ -164,8 +146,7 @@ func (f *Fake) After(d time.Duration) <-chan time.Time {
 	return ch
 }
 
-// Sleep blocks until the fake clock has advanced by d. A test that calls this
-// from the goroutine under test must advance the clock from another one.
+// Sleep blocks until the fake clock has advanced by d.
 func (f *Fake) Sleep(d time.Duration) {
 	if d <= 0 {
 		return

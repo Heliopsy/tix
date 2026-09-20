@@ -3,11 +3,6 @@ package core
 import "time"
 
 // Input types for Service methods.
-//
-// Update inputs use pointer fields so that "set this field to its zero value"
-// is distinguishable from "leave this field alone". A partial update that could
-// not express the difference would silently blank fields the caller never
-// mentioned.
 
 // CreateTenantInput creates a tenant.
 type CreateTenantInput struct {
@@ -44,7 +39,6 @@ type CreateProjectInput struct {
 	Key         string `json:"key"`
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
-	// WorkflowKey names the workflow to assign. Empty assigns the builtin default.
 	WorkflowKey string `json:"workflow_key,omitempty"`
 }
 
@@ -100,13 +94,10 @@ type WorkflowInput struct {
 	Key        string             `json:"key"`
 	Name       string             `json:"name"`
 	Definition WorkflowDefinition `json:"definition"`
-	// Migrate maps states being removed onto surviving ones. Without it, a
-	// change that would orphan existing tasks is rejected.
-	Migrate map[string]string `json:"migrate,omitempty"`
+	Migrate    map[string]string  `json:"migrate,omitempty"`
 }
 
-// Validate checks the workflow definition for internal consistency. It does not
-// check it against existing tasks; the service does that.
+// Validate checks the workflow definition for internal consistency.
 func (in WorkflowInput) Validate() error {
 	if in.Key == "" {
 		return Invalid("workflow key is required")
@@ -148,25 +139,20 @@ func (in WorkflowInput) Validate() error {
 		}
 	}
 
-	// A workflow with no terminal state can never satisfy a dependency, so
-	// every task in it would block its dependents forever.
 	if len(d.TerminalStates()) == 0 {
 		return Invalid("a workflow requires at least one terminal state")
 	}
 	return nil
 }
 
-// CreateTaskInput creates a task. Only Title is required.
+// CreateTaskInput creates a task.
 type CreateTaskInput struct {
-	// ProjectRef names the project by key or identifier. Empty uses the
-	// context's default project.
-	ProjectRef string `json:"project_ref,omitempty"`
-	Title      string `json:"title"`
-	Body       string `json:"body,omitempty"`
-	// Status defaults to the workflow's initial state.
-	Status   string   `json:"status,omitempty"`
-	Priority Priority `json:"priority,omitempty"`
-	Labels   []string `json:"labels,omitempty"`
+	ProjectRef string   `json:"project_ref,omitempty"`
+	Title      string   `json:"title"`
+	Body       string   `json:"body,omitempty"`
+	Status     string   `json:"status,omitempty"`
+	Priority   Priority `json:"priority,omitempty"`
+	Labels     []string `json:"labels,omitempty"`
 
 	AssigneeActorID string     `json:"assignee_actor_id,omitempty"`
 	ParentRef       string     `json:"parent_ref,omitempty"`
@@ -190,8 +176,7 @@ func (in CreateTaskInput) Validate() error {
 	return nil
 }
 
-// Field length limits, enforced so a single record cannot be used to bloat the
-// database or a response.
+// Field length limits.
 const (
 	MaxTitleLength   = 500
 	MaxBodyLength    = 1 << 20
@@ -199,7 +184,7 @@ const (
 	MaxBlobSize      = 1 << 20
 )
 
-// UpdateTaskInput changes a task. Nil fields are left alone.
+// UpdateTaskInput changes a task.
 type UpdateTaskInput struct {
 	Title           *string        `json:"title,omitempty"`
 	Body            *string        `json:"body,omitempty"`
@@ -210,16 +195,13 @@ type UpdateTaskInput struct {
 	CustomFields    map[string]any `json:"custom_fields,omitempty"`
 	Labels          *[]string      `json:"labels,omitempty"`
 
-	// Version, when non-zero, enforces optimistic concurrency: the update
-	// applies only if the task is still at this version.
 	Version int `json:"version,omitempty"`
 }
 
 // TransitionInput moves a task to a new status.
 type TransitionInput struct {
-	To      string `json:"to"`
-	Comment string `json:"comment,omitempty"`
-	// LeaseToken is required when the task is under a live lease.
+	To           string         `json:"to"`
+	Comment      string         `json:"comment,omitempty"`
 	LeaseToken   string         `json:"lease_token,omitempty"`
 	CustomFields map[string]any `json:"custom_fields,omitempty"`
 	Version      int            `json:"version,omitempty"`
@@ -255,10 +237,8 @@ func (in ArtifactInput) Validate() error {
 
 // ClaimInput claims one task.
 type ClaimInput struct {
-	// TTL overrides the workflow's default lease duration.
-	TTL Duration `json:"ttl,omitempty"`
-	// ActorID claims on behalf of another actor, which requires admin scope.
-	ActorID string `json:"actor_id,omitempty"`
+	TTL     Duration `json:"ttl,omitempty"`
+	ActorID string   `json:"actor_id,omitempty"`
 }
 
 // ClaimNextInput claims the next eligible task.
@@ -272,12 +252,9 @@ type ClaimNextInput struct {
 
 // ReleaseInput gives up a lease.
 type ReleaseInput struct {
-	// Status, when set, transitions the task as part of releasing.
-	Status string `json:"status,omitempty"`
-	// Result, when set, is recorded as a result artifact.
-	Result map[string]any `json:"result,omitempty"`
-	// Comment, when set, is added to the task.
-	Comment string `json:"comment,omitempty"`
+	Status  string         `json:"status,omitempty"`
+	Result  map[string]any `json:"result,omitempty"`
+	Comment string         `json:"comment,omitempty"`
 }
 
 // CreateUserInput creates a user.
@@ -286,8 +263,7 @@ type CreateUserInput struct {
 	Password    string `json:"password,omitempty"`
 	DisplayName string `json:"display_name,omitempty"`
 	Handle      string `json:"handle,omitempty"`
-	// Role grants membership in the current tenant.
-	Role Role `json:"role,omitempty"`
+	Role        Role   `json:"role,omitempty"`
 }
 
 // Validate checks the input.
@@ -317,8 +293,7 @@ type UpdateUserInput struct {
 
 // CreateTokenInput mints an API token.
 type CreateTokenInput struct {
-	Name string `json:"name"`
-	// ActorID defaults to the calling actor.
+	Name      string     `json:"name"`
 	ActorID   string     `json:"actor_id,omitempty"`
 	Scopes    []Scope    `json:"scopes"`
 	ProjectID string     `json:"project_id,omitempty"`
@@ -355,11 +330,9 @@ func (in WebhookInput) Validate() error {
 
 // ExportInput selects what to export.
 type ExportInput struct {
-	ProjectRefs []string `json:"project_refs,omitempty"`
-	// IncludeArtifacts includes artifact payloads and inline blobs, which can
-	// be large.
-	IncludeArtifacts bool `json:"include_artifacts,omitempty"`
-	IncludeComments  bool `json:"include_comments,omitempty"`
+	ProjectRefs      []string `json:"project_refs,omitempty"`
+	IncludeArtifacts bool     `json:"include_artifacts,omitempty"`
+	IncludeComments  bool     `json:"include_comments,omitempty"`
 }
 
 // ImportInput controls an import.
@@ -382,14 +355,11 @@ func (in ImportInput) Validate() error {
 
 // SyncSourceInput registers an external import source.
 type SyncSourceInput struct {
-	ID     string `json:"id,omitempty"`
-	System string `json:"system"`
-	Name   string `json:"name"`
-	// Config holds adapter settings such as the base URL and project mapping.
-	// Credentials are supplied by environment or config, never stored here.
-	Config map[string]any `json:"config,omitempty"`
-	// MappingPath points at the declarative YAML mapping file.
-	MappingPath string `json:"mapping_path,omitempty"`
+	ID          string         `json:"id,omitempty"`
+	System      string         `json:"system"`
+	Name        string         `json:"name"`
+	Config      map[string]any `json:"config,omitempty"`
+	MappingPath string         `json:"mapping_path,omitempty"`
 }
 
 // Supported external systems.
@@ -416,16 +386,12 @@ func (in SyncSourceInput) Validate() error {
 // RunSyncInput runs an import from a configured source.
 type RunSyncInput struct {
 	SourceID string `json:"source_id"`
-	// DryRun reports what would change without writing anything.
-	DryRun bool `json:"dry_run,omitempty"`
-	// Full ignores the stored cursor and re-reads everything.
-	Full bool `json:"full,omitempty"`
+	DryRun   bool   `json:"dry_run,omitempty"`
+	Full     bool   `json:"full,omitempty"`
 }
 
 // PruneInput removes records past their retention window.
 type PruneInput struct {
 	DryRun bool `json:"dry_run,omitempty"`
-	// Limit bounds how many rows a single run removes, so pruning a large
-	// backlog can be spread over several runs.
-	Limit int `json:"limit,omitempty"`
+	Limit  int  `json:"limit,omitempty"`
 }

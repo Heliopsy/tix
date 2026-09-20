@@ -8,10 +8,6 @@ import (
 )
 
 // TestGeneratedIDsParseAsTaskRefs pins a cross-package invariant that is easy
-// to break from either side: core decides what a stable identifier looks like,
-// id decides what one contains. If the alphabet or length here ever drifted
-// outside what core accepts, every generated identifier would be rejected the
-// moment it was used as a task reference.
 func TestGeneratedIDsParseAsTaskRefs(t *testing.T) {
 	for range 2000 {
 		v := id.New()
@@ -30,8 +26,6 @@ func TestGeneratedIDsParseAsTaskRefs(t *testing.T) {
 }
 
 // TestGeneratedIDsAreNeverMistakenForHumanRefs guards the other direction: a
-// human reference is "key-number", and an identifier containing a hyphen
-// followed by digits would be parsed as one.
 func TestGeneratedIDsAreNeverMistakenForHumanRefs(t *testing.T) {
 	for range 2000 {
 		v := id.New()

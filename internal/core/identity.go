@@ -7,17 +7,13 @@ import (
 	"time"
 )
 
-// ActorKind distinguishes the sort of worker an Actor represents. Tasks are
-// claimed by actors, so humans and agents are the same kind of thing here.
+// ActorKind distinguishes the sort of worker an Actor represents.
 type ActorKind string
 
 // Actor kinds.
 const (
-	// ActorUser is a human with credentials.
-	ActorUser ActorKind = "user"
-	// ActorAgent is an automated worker authenticating with an API token.
-	ActorAgent ActorKind = "agent"
-	// ActorSystem is tix itself, used to attribute imports, sweeps and pruning.
+	ActorUser   ActorKind = "user"
+	ActorAgent  ActorKind = "agent"
 	ActorSystem ActorKind = "system"
 )
 
@@ -34,12 +30,10 @@ func (k ActorKind) Valid() bool {
 // Scope is a coarse permission over a resource and verb, such as "task:claim".
 type Scope string
 
-// ScopeAll grants every scope. Held by tenant admins and by the synthesized
-// actor in no-auth mode.
+// ScopeAll grants every scope.
 const ScopeAll Scope = "*"
 
-// Scopes. The vocabulary is deliberately coarse: fine-grained permissions are
-// harder to reason about and agents need only a handful of them.
+// Scopes.
 const (
 	ScopeTaskRead       Scope = "task:read"
 	ScopeTaskWrite      Scope = "task:write"
@@ -85,12 +79,9 @@ type Role string
 
 // Roles.
 const (
-	// RoleViewer may read everything and subscribe to events.
 	RoleViewer Role = "viewer"
-	// RoleMember may additionally create and work tasks.
 	RoleMember Role = "member"
-	// RoleAdmin holds every scope within the tenant.
-	RoleAdmin Role = "admin"
+	RoleAdmin  Role = "admin"
 )
 
 // Valid reports whether r is a known role.
@@ -125,9 +116,7 @@ func (r Role) Scopes() []Scope {
 	}
 }
 
-// Actor is the authenticated identity performing an operation. It travels in
-// the request context, populated differently by each transport but consumed
-// identically by the service.
+// Actor is the authenticated identity performing an operation.
 type Actor struct {
 	ID          string    `json:"id"`
 	TenantID    string    `json:"tenant_id"`
@@ -135,17 +124,12 @@ type Actor struct {
 	Handle      string    `json:"handle"`
 	DisplayName string    `json:"display_name,omitempty"`
 	Scopes      []Scope   `json:"scopes,omitempty"`
-	// Role is the actor's role within TenantID, empty for agents and system actors.
-	Role Role `json:"role,omitempty"`
-	// TokenID identifies the API token used, when authentication was by token.
-	TokenID string `json:"token_id,omitempty"`
-	// ProjectID restricts a project-scoped token to a single project. Empty
-	// means the actor may act across every project in its tenant.
-	ProjectID string `json:"project_id,omitempty"`
+	Role        Role      `json:"role,omitempty"`
+	TokenID     string    `json:"token_id,omitempty"`
+	ProjectID   string    `json:"project_id,omitempty"`
 }
 
-// HasScope reports whether the actor holds the given scope, honouring ScopeAll
-// and the scopes implied by the actor's role.
+// HasScope reports whether the actor holds the scope, directly or by role.
 func (a *Actor) HasScope(s Scope) bool {
 	if a == nil {
 		return false
@@ -166,8 +150,7 @@ func (a *Actor) HasScope(s Scope) bool {
 // ScopedToProject reports whether the actor is restricted to a single project.
 func (a *Actor) ScopedToProject() bool { return a != nil && a.ProjectID != "" }
 
-// SystemActor builds the actor used to attribute imports, lease sweeps and
-// pruning, which have no human or agent behind them.
+// SystemActor builds the actor that imports, sweeps and pruning act as.
 func SystemActor(tenantID string) *Actor {
 	return &Actor{
 		ID:       "system",
@@ -178,9 +161,7 @@ func SystemActor(tenantID string) *Actor {
 	}
 }
 
-// TenantScope pins an operation to one tenant. Every query is built against a
-// scope, and there is no way to construct a query without one, which is what
-// makes tenant isolation structural rather than remembered.
+// TenantScope pins an operation to one tenant.
 type TenantScope struct {
 	TenantID string
 }
@@ -196,9 +177,7 @@ const (
 	ctxKeySource
 )
 
-// Source records which access path an operation arrived through. It is written
-// to the audit log so history shows whether a change came from a person at a
-// terminal, a browser, or an agent over the API.
+// Source records which access path an operation arrived through.
 type Source string
 
 // Sources.
@@ -210,9 +189,7 @@ const (
 	SourceSystem Source = "system"
 )
 
-// WithActor returns a context carrying the actor. It also carries the actor's
-// tenant, so an actor can never be evaluated against a different tenant than
-// the one it authenticated for.
+// WithActor returns a context carrying the actor.
 func WithActor(ctx context.Context, a *Actor) context.Context {
 	ctx = context.WithValue(ctx, ctxKeyActor, a)
 	if a != nil && a.TenantID != "" {
@@ -228,7 +205,6 @@ func ActorFrom(ctx context.Context) (*Actor, bool) {
 }
 
 // RequireActor returns the actor carried by ctx, or an unauthenticated error.
-// Every mutating service method starts here.
 func RequireActor(ctx context.Context) (*Actor, error) {
 	a, ok := ActorFrom(ctx)
 	if !ok {
@@ -237,8 +213,7 @@ func RequireActor(ctx context.Context) (*Actor, error) {
 	return a, nil
 }
 
-// WithTenant returns a context carrying the tenant scope. The HTTP layer sets
-// this from the request Host before authentication runs.
+// WithTenant returns a context carrying the tenant scope.
 func WithTenant(ctx context.Context, t TenantScope) context.Context {
 	return context.WithValue(ctx, ctxKeyTenant, t)
 }
@@ -249,8 +224,7 @@ func TenantFrom(ctx context.Context) (TenantScope, bool) {
 	return t, ok && t.Valid()
 }
 
-// RequireTenant returns the tenant scope carried by ctx, or an error. Every
-// store query is built from the result.
+// RequireTenant returns the tenant scope carried by ctx, or an error.
 func RequireTenant(ctx context.Context) (TenantScope, error) {
 	t, ok := TenantFrom(ctx)
 	if !ok {
@@ -264,8 +238,7 @@ func WithSource(ctx context.Context, s Source) context.Context {
 	return context.WithValue(ctx, ctxKeySource, s)
 }
 
-// SourceFrom returns the access path recorded in ctx, defaulting to
-// SourceSystem when nothing set one.
+// SourceFrom returns the access path in ctx, or SourceSystem.
 func SourceFrom(ctx context.Context) Source {
 	if s, ok := ctx.Value(ctxKeySource).(Source); ok && s != "" {
 		return s
@@ -273,8 +246,7 @@ func SourceFrom(ctx context.Context) Source {
 	return SourceSystem
 }
 
-// Membership grants a human a role within one tenant. One user row may hold
-// several memberships, so credentials are never duplicated per tenant.
+// Membership grants a human a role within one tenant.
 type Membership struct {
 	TenantID  string    `json:"tenant_id"`
 	ActorID   string    `json:"actor_id"`

@@ -20,19 +20,9 @@ const (
 func (d SortDirection) Valid() bool { return d == Ascending || d == Descending }
 
 // Cursor is an opaque position in a keyset-paginated listing.
-//
-// Listings page by (sort key, id) rather than by OFFSET. OFFSET at depth scans
-// every skipped row, which is what makes a tracker feel broken once it holds
-// real data; keyset pagination stays constant-time at any page.
 type Cursor struct {
-	// SortValue is the value of the sort field on the last row of the previous
-	// page. Encoded as a string so one cursor type serves every sort field.
-	SortValue string `json:"v"`
-	// ID breaks ties, so rows sharing a sort value still page deterministically.
-	ID string `json:"i"`
-	// Sort and Direction pin the cursor to the ordering it was produced for. A
-	// cursor replayed against a different ordering would silently skip or repeat
-	// rows, so it is rejected instead.
+	SortValue string        `json:"v"`
+	ID        string        `json:"i"`
 	Sort      string        `json:"s"`
 	Direction SortDirection `json:"d"`
 }
@@ -52,8 +42,7 @@ func (c Cursor) Encode() string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
-// DecodeCursor parses a cursor token. An empty token decodes to the zero
-// cursor, meaning the first page.
+// DecodeCursor parses a cursor token.
 func DecodeCursor(s string) (Cursor, error) {
 	if strings.TrimSpace(s) == "" {
 		return Cursor{}, nil
@@ -72,8 +61,7 @@ func DecodeCursor(s string) (Cursor, error) {
 	return c, nil
 }
 
-// CheckOrdering reports an error when the cursor was produced for a different
-// ordering than the one now requested.
+// CheckOrdering rejects a cursor produced for a different ordering.
 func (c Cursor) CheckOrdering(sort string, dir SortDirection) error {
 	if c.Zero() {
 		return nil
@@ -86,13 +74,9 @@ func (c Cursor) CheckOrdering(sort string, dir SortDirection) error {
 
 // Page bounds one page of a listing.
 type Page struct {
-	// Limit caps the rows returned. Zero means DefaultPageLimit.
-	Limit int `json:"limit,omitempty"`
-	// Cursor positions the page. Empty means the first page.
-	Cursor string `json:"cursor,omitempty"`
-	// Sort names the field to order by. Empty means the listing's default.
-	Sort string `json:"sort,omitempty"`
-	// Direction orders the sort. Empty means Ascending.
+	Limit     int           `json:"limit,omitempty"`
+	Cursor    string        `json:"cursor,omitempty"`
+	Sort      string        `json:"sort,omitempty"`
 	Direction SortDirection `json:"direction,omitempty"`
 }
 
@@ -102,9 +86,7 @@ const (
 	MaxPageLimit     = 500
 )
 
-// Normalize clamps the page to usable values, returning an error only for input
-// that cannot be interpreted. An over-large limit is clamped rather than
-// rejected, so a caller asking for too much gets a usable answer.
+// Normalize clamps the page to usable values.
 func (p Page) Normalize() (Page, error) {
 	if p.Limit < 0 {
 		return Page{}, Invalid("limit must not be negative")
@@ -126,13 +108,11 @@ func (p Page) Normalize() (Page, error) {
 
 // TaskPage is one page of tasks plus the cursor for the next.
 type TaskPage struct {
-	Tasks []Task `json:"tasks"`
-	// NextCursor is empty when there are no further pages.
+	Tasks      []Task `json:"tasks"`
 	NextCursor string `json:"next_cursor,omitempty"`
 }
 
 // TriState expresses an optional boolean filter, distinguishing "not filtered"
-// from "filtered to false".
 type TriState uint8
 
 // TriState values.
@@ -154,8 +134,7 @@ func (t TriState) Match(v bool) bool {
 	}
 }
 
-// TaskFilter selects tasks. Every field is optional; the zero value selects all
-// live tasks in the tenant.
+// TaskFilter selects tasks.
 type TaskFilter struct {
 	ProjectIDs  []string `json:"project_ids,omitempty"`
 	ProjectKeys []string `json:"project_keys,omitempty"`
@@ -169,27 +148,18 @@ type TaskFilter struct {
 	DueBefore *time.Time `json:"due_before,omitempty"`
 	DueAfter  *time.Time `json:"due_after,omitempty"`
 
-	// ParentID selects children of one task. Set ParentIsNull to select only
-	// top-level tasks instead.
 	ParentID     string `json:"parent_id,omitempty"`
 	ParentIsNull bool   `json:"parent_is_null,omitempty"`
 
-	// Claimed and Blocked filter on computed state. Claimed honours lease
-	// expiry, so an expired lease reads as unclaimed.
 	Claimed TriState `json:"claimed,omitempty"`
 	Blocked TriState `json:"blocked,omitempty"`
 
-	// ClaimedBy selects tasks held by specific actors.
 	ClaimedBy []string `json:"claimed_by,omitempty"`
 
-	// Query is a free-text search over title and body.
 	Query string `json:"query,omitempty"`
 
-	// CustomFields filters on custom field values. Filtering a field not marked
-	// indexed is a scan, which is documented behaviour rather than an error.
 	CustomFields map[string]any `json:"custom_fields,omitempty"`
 
-	// IncludeDeleted includes soft-deleted tasks, which are excluded by default.
 	IncludeDeleted bool `json:"include_deleted,omitempty"`
 
 	Page Page `json:"page,omitempty"`
@@ -205,8 +175,7 @@ const (
 	SortTitle     = "title"
 )
 
-// TaskSortFields lists the fields a task listing may be ordered by. Restricting
-// this is what keeps every sort backed by an index.
+// TaskSortFields lists the fields a task listing may be ordered by.
 var TaskSortFields = []string{
 	SortCreatedAt, SortUpdatedAt, SortPriority, SortDueAt, SortSeq, SortTitle,
 }
@@ -263,13 +232,10 @@ func validSortField(s string) bool {
 type EventFilter struct {
 	ProjectIDs []string    `json:"project_ids,omitempty"`
 	Types      []EventType `json:"types,omitempty"`
-	// SinceSeq resumes from a cursor. Because events are durable, a reconnect
-	// replays anything missed rather than leaving a gap.
-	SinceSeq int64 `json:"since_seq,omitempty"`
+	SinceSeq   int64       `json:"since_seq,omitempty"`
 }
 
-// Matches reports whether an event satisfies the filter. Type patterns may end
-// in "*" to match a prefix, so "task.*" selects every task event.
+// Matches reports whether an event satisfies the filter.
 func (f EventFilter) Matches(e Event) bool {
 	if len(f.ProjectIDs) > 0 && !containsString(f.ProjectIDs, e.ProjectID) {
 		return false

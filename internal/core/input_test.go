@@ -108,7 +108,6 @@ func TestWorkflowInputValidate(t *testing.T) {
 			}},
 		},
 		{
-			// Without a terminal state every task blocks its dependents forever.
 			"no terminal state",
 			WorkflowInput{Key: "k", Definition: WorkflowDefinition{
 				Initial: "todo",
@@ -148,7 +147,6 @@ func TestFieldDefInputValidate(t *testing.T) {
 }
 
 func TestImportInputRequiresExplicitMode(t *testing.T) {
-	// Replace is destructive, so there is deliberately no default mode.
 	if err := (ImportInput{}).Validate(); err == nil {
 		t.Error("an import with no mode must be rejected")
 	}
@@ -169,7 +167,6 @@ func TestArtifactInputValidate(t *testing.T) {
 	if err := (ArtifactInput{}).Validate(); err == nil {
 		t.Error("an artifact with no kind must be rejected")
 	}
-	// A blob cap keeps one artifact from bloating the database.
 	big := ArtifactInput{Kind: ArtifactFile, Blob: make([]byte, MaxBlobSize+1)}
 	if err := big.Validate(); err == nil {
 		t.Error("an over-large inline blob must be rejected")
@@ -207,7 +204,6 @@ func TestCreateTokenInputValidate(t *testing.T) {
 	if err := ok.Validate(); err != nil {
 		t.Errorf("Validate() = %v, want nil", err)
 	}
-	// A token with no scopes would be indistinguishable from an unscoped one.
 	if err := (CreateTokenInput{Name: "agent"}).Validate(); err == nil {
 		t.Error("a token with no scopes must be rejected")
 	}
@@ -274,8 +270,6 @@ func TestWebhookInputValidate(t *testing.T) {
 }
 
 // UpdateTaskInput uses pointers so clearing a field is distinguishable from
-// leaving it alone. Losing that distinction would make partial updates blank
-// fields the caller never mentioned.
 func TestUpdateTaskInputDistinguishesUnsetFromZero(t *testing.T) {
 	var unset UpdateTaskInput
 	if unset.Title != nil {

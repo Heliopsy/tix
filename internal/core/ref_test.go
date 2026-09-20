@@ -161,7 +161,6 @@ func TestValidateProjectKey(t *testing.T) {
 			t.Errorf("ValidateProjectKey(%q) = nil, want an error", bad)
 		}
 	}
-	// Keys are length-limited so they cannot be used to bloat a ref.
 	long := make([]byte, 65)
 	for i := range long {
 		long[i] = 'a'

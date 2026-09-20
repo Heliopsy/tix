@@ -51,8 +51,6 @@ func TestCursorCheckOrdering(t *testing.T) {
 	if err := c.CheckOrdering(SortCreatedAt, Ascending); err != nil {
 		t.Errorf("matching ordering should be accepted, got %v", err)
 	}
-	// Replaying a cursor against a different ordering would silently skip or
-	// repeat rows, so it must be rejected rather than tolerated.
 	if err := c.CheckOrdering(SortPriority, Ascending); err == nil {
 		t.Error("a cursor from a different sort field must be rejected")
 	}
@@ -185,7 +183,6 @@ func TestTriState(t *testing.T) {
 			t.Errorf("TriState(%d).Match(%v) = %v, want %v", tt.state, tt.in, got, tt.want)
 		}
 	}
-	// The zero value must mean "not filtered", or an unset filter would exclude rows.
 	if Either != 0 {
 		t.Error("Either must be the zero value")
 	}

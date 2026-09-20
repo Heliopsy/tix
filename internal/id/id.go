@@ -1,13 +1,4 @@
 // Package id generates sortable unique identifiers.
-//
-// Identifiers are ULID-shaped: a 48-bit millisecond timestamp followed by 80
-// bits of randomness, rendered in Crockford base32. Two properties matter here.
-// They sort lexicographically in creation order, which gives the event outbox a
-// naturally ordered primary key and makes keyset pagination on identifier
-// cheap. And they are unguessable, so an identifier appearing in a URL does not
-// reveal how many records exist or let one be enumerated.
-//
-// This is 40 lines rather than a dependency because that is all it needs to be.
 package id
 
 import (
@@ -21,15 +12,12 @@ import (
 // Length is the number of characters in a generated identifier.
 const Length = 26
 
-// crockford is Crockford base32: no I, L, O or U, so an identifier read aloud
-// or typed from a screen cannot be confused with a digit.
+// crockford is Crockford base32, omitting the ambiguous I, L, O and U.
 const crockford = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
 // Generator produces identifiers.
 type Generator interface {
 	New() string
-	// NewAt produces an identifier whose timestamp component is t. Used by
-	// tests and by imports that preserve source creation times.
 	NewAt(t time.Time) string
 }
 
@@ -52,11 +40,6 @@ type generator struct {
 func (g *generator) New() string { return g.NewAt(time.Now()) }
 
 // NewAt returns an identifier timestamped at t.
-//
-// Identifiers generated within the same millisecond are monotonic: the random
-// component is incremented rather than redrawn. Without that, two records
-// created in the same millisecond could sort in either order, and an event
-// outbox that sorts non-deterministically would deliver events out of order.
 func (g *generator) NewAt(t time.Time) string {
 	ms := uint64(t.UnixMilli())
 
@@ -67,9 +50,6 @@ func (g *generator) NewAt(t time.Time) string {
 		incr(&entropy)
 	} else {
 		if _, err := rand.Read(entropy[:]); err != nil {
-			// crypto/rand does not fail on any supported platform. If it ever
-			// did, continuing with predictable identifiers would be worse than
-			// stopping.
 			panic("id: crypto/rand failed: " + err.Error())
 		}
 		g.lastMS = ms
@@ -97,7 +77,6 @@ func incr(b *[10]byte) {
 // encode renders 16 bytes as 26 Crockford base32 characters.
 func encode(raw [16]byte) string {
 	var out [Length]byte
-	// The first character carries only the top 3 bits of the timestamp.
 	out[0] = crockford[(raw[0]&0xE0)>>5]
 	out[1] = crockford[raw[0]&0x1F]
 
@@ -118,9 +97,7 @@ func encode(raw [16]byte) string {
 	return string(out[:])
 }
 
-// Valid reports whether s is a well-formed identifier. Decoding is
-// case-insensitive because Crockford base32 is, so an identifier retyped in
-// lower case still validates.
+// Valid reports whether s is a well-formed identifier.
 func Valid(s string) bool {
 	if len(s) != Length {
 		return false
@@ -140,8 +117,7 @@ func upper(c rune) rune {
 	return c
 }
 
-// Fixed is a Generator returning a predetermined sequence, for tests that need
-// identifiers to be reproducible.
+// Fixed returns a predetermined sequence, for reproducible tests.
 type Fixed struct {
 	mu     sync.Mutex
 	Values []string

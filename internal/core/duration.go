@@ -6,9 +6,6 @@ import (
 )
 
 // Duration is a time.Duration that marshals as a human string such as "15m"
-// rather than as a nanosecond count. Lease TTLs and retention windows appear in
-// config files, JSON payloads and CLI output, where a bare integer would be
-// both unreadable and easy to misread by a factor of a billion.
 type Duration time.Duration
 
 // D converts to a standard duration.
@@ -22,8 +19,7 @@ func (d Duration) MarshalJSON() ([]byte, error) {
 	return json.Marshal(time.Duration(d).String())
 }
 
-// UnmarshalJSON accepts either a duration string ("15m") or a number of
-// nanoseconds, so payloads produced by other tooling still load.
+// UnmarshalJSON accepts a duration string such as "15m", or nanoseconds.
 func (d *Duration) UnmarshalJSON(b []byte) error {
 	var s string
 	if err := json.Unmarshal(b, &s); err == nil {
@@ -46,9 +42,7 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 // MarshalYAML renders the duration as a string.
 func (d Duration) MarshalYAML() (any, error) { return time.Duration(d).String(), nil }
 
-// UnmarshalYAML accepts a duration string such as "15m", or a bare number of
-// nanoseconds. YAML coerces a scalar number into a string, so a string that
-// does not parse as a duration falls back to the numeric form before failing.
+// UnmarshalYAML accepts a duration string such as "15m", or nanoseconds.
 func (d *Duration) UnmarshalYAML(unmarshal func(any) error) error {
 	var s string
 	if err := unmarshal(&s); err == nil {

@@ -9,10 +9,6 @@ import (
 )
 
 // TestCoreImportsOnlyStdlib enforces the invariant the whole architecture rests
-// on. Both the local service and the remote HTTP client depend on core; if core
-// could depend on either, or on anything with its own opinions, the two
-// transports could drift apart. Keeping core at stdlib-only makes that a
-// compile-time property rather than a code-review habit.
 func TestCoreImportsOnlyStdlib(t *testing.T) {
 	pkg, err := build.Default.ImportDir(".", 0)
 	if err != nil {
@@ -20,7 +16,6 @@ func TestCoreImportsOnlyStdlib(t *testing.T) {
 	}
 
 	for _, imp := range pkg.Imports {
-		// Standard library import paths have no dot in their first segment.
 		first, _, _ := strings.Cut(imp, "/")
 		if strings.Contains(first, ".") {
 			t.Errorf("internal/core imports %q; it must depend on the standard library only", imp)
@@ -29,12 +24,9 @@ func TestCoreImportsOnlyStdlib(t *testing.T) {
 }
 
 // TestServiceInterfaceIsComplete guards against a sub-interface being dropped
-// from Service during a refactor. Each embedded interface is a distinct area of
-// the product, and a caller holding a Service must reach all of them.
 func TestServiceInterfaceIsComplete(t *testing.T) {
 	var svc core.Service
 
-	// These assignments fail to compile if Service stops embedding an area.
 	var (
 		_ core.TenantService   = svc
 		_ core.ProjectService  = svc
@@ -50,7 +42,6 @@ func TestServiceInterfaceIsComplete(t *testing.T) {
 }
 
 // TestScopeVocabularyIsUnique catches a copy-paste error in the scope constants,
-// which would silently grant one permission when another was intended.
 func TestScopeVocabularyIsUnique(t *testing.T) {
 	seen := make(map[core.Scope]bool, len(core.AllScopes))
 	for _, s := range core.AllScopes {
@@ -68,7 +59,6 @@ func TestScopeVocabularyIsUnique(t *testing.T) {
 }
 
 // TestRoleScopesAreKnown ensures a role never grants a scope outside the
-// vocabulary, which would be a permission nothing checks for.
 func TestRoleScopesAreKnown(t *testing.T) {
 	known := make(map[core.Scope]bool, len(core.AllScopes))
 	for _, s := range core.AllScopes {
@@ -86,8 +76,6 @@ func TestRoleScopesAreKnown(t *testing.T) {
 }
 
 // TestRolesAreOrderedByPrivilege asserts the roles nest: anything a viewer can
-// do, a member can do. A gap here would mean promoting someone removed a
-// permission.
 func TestRolesAreOrderedByPrivilege(t *testing.T) {
 	viewer := &core.Actor{Role: core.RoleViewer}
 	member := &core.Actor{Role: core.RoleMember}

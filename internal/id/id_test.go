@@ -31,8 +31,6 @@ func TestNewIsUnique(t *testing.T) {
 }
 
 func TestIdentifiersSortInCreationOrder(t *testing.T) {
-	// The event outbox uses identifier order as its cursor, so lexicographic
-	// order must match creation order.
 	base := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	var ids []string
 	for i := range 200 {
@@ -52,8 +50,6 @@ func TestIdentifiersSortInCreationOrder(t *testing.T) {
 }
 
 func TestSameMillisecondIsMonotonic(t *testing.T) {
-	// Two records created in the same millisecond must still sort
-	// deterministically, or events could be delivered out of order.
 	at := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 
 	var ids []string
@@ -107,8 +103,6 @@ func TestValid(t *testing.T) {
 }
 
 func TestAlphabetExcludesAmbiguousLetters(t *testing.T) {
-	// Crockford base32 omits I, L, O and U so an identifier read aloud or
-	// retyped cannot be confused with a digit.
 	for _, c := range "ILOU" {
 		if strings.ContainsRune(crockford, c) {
 			t.Errorf("alphabet must not contain %q", c)
@@ -193,7 +187,6 @@ func TestFixedGenerator(t *testing.T) {
 	if got := f.New(); got != "b" {
 		t.Errorf("second = %q, want b", got)
 	}
-	// Cycling keeps a test from running out of identifiers unexpectedly.
 	if got := f.New(); got != "a" {
 		t.Errorf("third = %q, want a (cycled)", got)
 	}
