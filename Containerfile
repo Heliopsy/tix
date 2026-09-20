@@ -1,7 +1,7 @@
 # Runtime image for tix.
 # GO_VERSION is supplied by the build so it cannot drift from go.mod:
 #   podman build --build-arg GO_VERSION=$(go mod edit -json | jq -r .Go) .
-ARG GO_VERSION=1.26.5
+ARG GO_VERSION=1.27.1
 
 FROM docker.io/library/golang:${GO_VERSION}-alpine AS builder
 WORKDIR /src

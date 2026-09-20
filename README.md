@@ -1,60 +1,118 @@
 # tix
 
-Task management for humans and AI agents, in one binary.
+<!-- Badge markup and link tables are naturally long; wrapping them helps nobody. -->
+<!-- markdownlint-disable MD013 -->
+<table>
+  <tr>
+    <th>CI</th>
+    <th>Code</th>
+    <th>OpenSpec</th>
+    <th>Security</th>
+  </tr>
+  <tr>
+    <td>
+      <a href="https://github.com/thereisnotime/tix/actions/workflows/ci.yaml"><img src="https://github.com/thereisnotime/tix/actions/workflows/ci.yaml/badge.svg" alt="CI"></a><br>
+      <a href="https://github.com/thereisnotime/tix/actions/workflows/release.yaml"><img src="https://github.com/thereisnotime/tix/actions/workflows/release.yaml/badge.svg" alt="Release"></a><br>
+      <a href="https://github.com/thereisnotime/tix/actions/workflows/codeql.yaml"><img src="https://github.com/thereisnotime/tix/actions/workflows/codeql.yaml/badge.svg" alt="CodeQL"></a><br>
+      <a href="https://github.com/thereisnotime/tix/actions/workflows/scorecard.yaml"><img src="https://github.com/thereisnotime/tix/actions/workflows/scorecard.yaml/badge.svg" alt="Scorecard"></a>
+    </td>
+    <td>
+      <a href="https://github.com/thereisnotime/tix/releases/latest"><img src="https://img.shields.io/github/v/release/thereisnotime/tix" alt="Latest Release"></a><br>
+      <a href="https://codecov.io/gh/thereisnotime/tix"><img src="https://codecov.io/gh/thereisnotime/tix/branch/main/graph/badge.svg" alt="codecov"></a><br>
+      <a href="https://goreportcard.com/report/github.com/thereisnotime/tix"><img src="https://goreportcard.com/badge/github.com/thereisnotime/tix" alt="Go Report Card"></a><br>
+      <a href="https://pkg.go.dev/github.com/thereisnotime/tix"><img src="https://pkg.go.dev/badge/github.com/thereisnotime/tix.svg" alt="Go Reference"></a>
+    </td>
+    <td>
+      <a href="openspec/changes/tix-v1/specs/"><img src="https://raw.githubusercontent.com/thereisnotime/tix/gh-pages/badges/number_of_specs.svg" alt="Specs"></a><br>
+      <a href="openspec/changes/tix-v1/specs/"><img src="https://raw.githubusercontent.com/thereisnotime/tix/gh-pages/badges/number_of_requirements.svg" alt="Requirements"></a><br>
+      <a href="openspec/changes/tix-v1/tasks.md"><img src="https://raw.githubusercontent.com/thereisnotime/tix/gh-pages/badges/tasks_status.svg" alt="Tasks"></a><br>
+      <a href="openspec/changes/"><img src="https://raw.githubusercontent.com/thereisnotime/tix/gh-pages/badges/open_changes.svg" alt="Open Changes"></a>
+    </td>
+    <td>
+      <a href="https://scorecard.dev/viewer/?uri=github.com/thereisnotime/tix"><img src="https://api.scorecard.dev/projects/github.com/thereisnotime/tix/badge" alt="OpenSSF Scorecard"></a><br>
+      <a href="SECURITY.md"><img src="https://img.shields.io/badge/security-policy-blue.svg" alt="Security Policy"></a><br>
+      <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" alt="License: AGPL v3"></a><br>
+      <a href="CLA.md"><img src="https://img.shields.io/badge/CLA-required-lightgrey.svg" alt="CLA"></a>
+    </td>
+  </tr>
+</table>
+<!-- markdownlint-enable MD013 -->
 
-People get boards, workflows, and comments. Agents get an atomic queue pop, a lease that
-returns work to the queue when a worker dies, machine-readable output everywhere, and a
-durable event stream. Both work the same tasks in the same store.
+Task management for humans and AI agents, in one binary. People get boards, workflows and comments.
+Agents get an atomic queue pop, a lease that returns work when a worker dies, machine-readable output
+everywhere, and a durable event stream. Both work the same tasks in the same store.
 
-> Status: in development. The behaviour contract lives in `openspec/`; see
-> [`openspec/changes/tix-v1/`](openspec/changes/tix-v1/).
+> **Status: in development.** The behaviour contract is written and validated; implementation is in
+> progress. See [`openspec/changes/tix-v1/`](openspec/changes/tix-v1/) and the
+> [task list](openspec/changes/tix-v1/tasks.md).
 
-## Why
+## How it works
 
-Existing trackers assume an interactive human. There is no atomic "give me the next
-unblocked task", no lease that expires when a worker crashes, and no structured way to
-write a result back. An agent that dies holding a ticket leaves it assigned and stalled
-until somebody notices.
+```text
+$ tix task add "migrate the database"     # creates db, tenant and project on first run
+infra-42
 
-tix starts from the assumption that a worker may be a process:
+$ tix claim next --project infra          # an agent grabs the next unblocked task
+{"task":{"ref":"infra-42","status":"doing"},"lease_token":"...","lease_expires_at":"..."}
 
-- **Claiming is a compare-and-swap** with a TTL lease. A dead agent's task becomes
-  available again on its own, with no supervisor.
-- **A lease token** is required to renew, transition, or release. A zombie worker whose
-  task was re-claimed cannot corrupt the new holder's work.
-- **Every mutation emits a durable event**, so other workers can subscribe and a
-  reconnect resumes without gaps.
-- **Everything is scriptable** and speaks JSON.
+  → agent works, renewing the lease on a ticker
+  → agent crashes
+  → lease expires, task returns to the queue automatically, no supervisor involved
+```
+
+The lease is the point. A worker that dies holding a task does not leave it stranded, and a zombie
+worker whose task was re-claimed cannot overwrite the new holder's work, because renew, transition and
+release all require the lease token minted at claim time.
+
+## Why tix?
+
+### For agent workflows
+
+Existing trackers assume an interactive human. There is no atomic "give me the next unblocked task", no
+lease that expires when a process dies, and no structured way to write a result back. An agent that
+crashes holding a Jira ticket leaves it assigned and stalled until somebody notices.
+
+tix starts from the assumption that a worker may be a process. Claiming is a compare-and-swap, so two
+agents racing for the same task resolve correctly with no lock and no server. Every operation speaks
+JSON and returns a meaningful exit code. Every mutation emits a durable event, so other workers can
+subscribe and a reconnect resumes from a cursor without gaps.
+
+### For humans
+
+The same data, with a board, custom workflows, custom fields, dependencies, comments and history. A
+fresh install needs no configuration: one default workflow, no required fields, and `tix task add
+"buy milk"` works on a machine that has never seen tix.
+
+### For teams
+
+Multi-tenant, with domains mapping to tenants. Isolation is structural rather than a `WHERE` clause
+somebody has to remember: queries are built by a scoped builder that cannot produce an unscoped
+statement, a lint rule forbids raw database calls, and PostgreSQL adds row-level security underneath.
 
 ## Access paths
 
-One binary, one service layer, five ways in:
+One binary, one service layer, five ways in. The web UI is required to cover 100% of the CLI, enforced
+by a test that fails the build when an operation lacks a binding.
 
-| | |
-| --- | --- |
-| CLI | UNIX-composable, `-o table\|json\|yaml`, meaningful exit codes, zero config |
-| TUI | terminal board for interactive use |
+| Path | Notes |
+| ------ | ------- |
+| CLI | UNIX-composable, `-o table\|json\|yaml`, documented exit codes, works with zero configuration |
+| TUI | Terminal board for interactive use, over the same service interface |
 | HTTP API | `/api/v1`, keyset paginated, consistent error envelope |
-| WebSocket | subscribe to events, resume from a cursor |
-| Web UI | required to cover 100% of the CLI, enforced by a build-failing test |
+| WebSocket | Subscribe to events, resume from a cursor after a reconnect |
+| Web UI | Server-rendered, no JavaScript build step, works without JavaScript |
 
 ## Quick start
 
 ```sh
-tix task add "buy milk"        # creates the database, tenant, and project on first run
+tix task add "buy milk"        # creates the database, tenant and project on first run
 tix task ls
 tix claim next                 # an agent grabs the next unblocked task
-tix serve                      # HTTP API, WebSocket, and web UI on 127.0.0.1:8080
+tix serve                      # HTTP API, WebSocket and web UI on 127.0.0.1:8080
 ```
 
-No configuration file is required. Everything is also settable by environment variable
-(`TIX_DATABASE_DSN`, `TIX_SERVER`, ...) or a `.env` file.
-
-## Storage
-
-SQLite by default, for local and single-user use. PostgreSQL for anything shared, which
-adds row-level security, full-text search, and partitioned event retention. One schema,
-one migration path, and the CLI works against either directly or through a server.
+No configuration file is required. Every setting also has a `TIX_*` environment variable and can come
+from a `.env` file, with precedence `flags > env > .env > config > defaults`.
 
 ## Install
 
@@ -63,6 +121,48 @@ go install github.com/thereisnotime/tix@latest
 ```
 
 Binaries and container images are published per release.
+
+## Storage
+
+| Engine     | Use                                                                                   |
+|------------|---------------------------------------------------------------------------------------|
+| SQLite     | Default. Local and single-user. Pure Go driver, so builds stay `CGO_ENABLED=0`        |
+| PostgreSQL | Shared deployments. Adds row-level security, full-text search, partitioned retention  |
+
+One schema and one migration path across both. The CLI talks to either directly, or to a remote server,
+executing the same service code in both cases.
+
+## Documentation
+
+| Document | Contents |
+| ---------- | ---------- |
+| [openspec/changes/tix-v1/](openspec/changes/tix-v1/) | The normative behaviour contract |
+| [proposal.md](openspec/changes/tix-v1/proposal.md) | Why tix exists and what it does |
+| [design.md](openspec/changes/tix-v1/design.md) | Technical decisions and their trade-offs |
+| [tasks.md](openspec/changes/tix-v1/tasks.md) | Implementation checklist by work package |
+| [specs/](openspec/changes/tix-v1/specs/) | 22 capabilities, 292 requirements, 885 scenarios |
+| [docs/](docs/) | User and operator guides |
+| [AGENTS.md](AGENTS.md) | Coding standards and architecture invariants |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Build, test and pull request process |
+| [ROADMAP.md](ROADMAP.md) | What comes after v1, and the v1 seams that enable it |
+| [SECURITY.md](SECURITY.md) | Reporting a vulnerability, and deployment notes |
+
+### Capabilities
+
+Each links to its normative specification.
+
+<!-- markdownlint-disable MD013 -->
+| | | |
+| --- | --- | --- |
+| [data-model](openspec/changes/tix-v1/specs/data-model/spec.md) | [multi-tenancy](openspec/changes/tix-v1/specs/multi-tenancy/spec.md) | [domains](openspec/changes/tix-v1/specs/domains/spec.md) |
+| [storage-engines](openspec/changes/tix-v1/specs/storage-engines/spec.md) | [configuration](openspec/changes/tix-v1/specs/configuration/spec.md) | [service-layer](openspec/changes/tix-v1/specs/service-layer/spec.md) |
+| [transports](openspec/changes/tix-v1/specs/transports/spec.md) | [workflows](openspec/changes/tix-v1/specs/workflows/spec.md) | [task-management](openspec/changes/tix-v1/specs/task-management/spec.md) |
+| [claim-lease](openspec/changes/tix-v1/specs/claim-lease/spec.md) | [auth](openspec/changes/tix-v1/specs/auth/spec.md) | [cli](openspec/changes/tix-v1/specs/cli/spec.md) |
+| [http-api](openspec/changes/tix-v1/specs/http-api/spec.md) | [event-stream](openspec/changes/tix-v1/specs/event-stream/spec.md) | [webhooks](openspec/changes/tix-v1/specs/webhooks/spec.md) |
+| [audit-log](openspec/changes/tix-v1/specs/audit-log/spec.md) | [retention](openspec/changes/tix-v1/specs/retention/spec.md) | [import-export](openspec/changes/tix-v1/specs/import-export/spec.md) |
+| [external-sync](openspec/changes/tix-v1/specs/external-sync/spec.md) | [web-ui](openspec/changes/tix-v1/specs/web-ui/spec.md) | [tui](openspec/changes/tix-v1/specs/tui/spec.md) |
+| [server](openspec/changes/tix-v1/specs/server/spec.md) | | |
+<!-- markdownlint-enable MD013 -->
 
 ## Development
 
@@ -73,12 +173,20 @@ just check     # fast pre-push gate set
 just ci        # the entire CI suite locally, in containers
 ```
 
-Requires Go and [just](https://just.systems/). Linters, scanners, and PostgreSQL run in
-containers via podman, so nothing needs installing on the host.
+Requires Go and [just](https://just.systems/). Linters, scanners and PostgreSQL run in containers via
+podman, so nothing needs installing on the host, and every CI job invokes the same `just` recipe so
+local and CI results cannot drift apart.
 
-Coding standards are in [AGENTS.md](AGENTS.md). Contribution process is in
-[CONTRIBUTING.md](CONTRIBUTING.md). What comes after v1 is in [ROADMAP.md](ROADMAP.md).
+| Recipe | Does |
+| -------- | ------ |
+| `just build` / `just build-all` | Build for the host, or the full release matrix |
+| `just test` / `just cover` | Tests with the race detector; coverage report |
+| `just lint` `just sec` `just vuln` `just trivy` | Individual gates, in the pinned toolbox image |
+| `just spec` | `openspec validate --strict` |
+| `just pg-up` / `just test-postgres` | PostgreSQL in a container, and the suite against it |
+| `just ci` | Everything CI runs, locally |
 
 ## Licence
 
-[AGPL-3.0](LICENSE). Contributions are accepted under the [CLA](CLA.md).
+[AGPL-3.0](LICENSE). Contributions are accepted under the [CLA](CLA.md), which keeps the option of
+offering tix under other terms in future.
