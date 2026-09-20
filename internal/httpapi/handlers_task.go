@@ -187,7 +187,8 @@ func (rt *Router) handleDeleteTask(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, err)
 		return
 	}
-	if err := rt.cfg.Service.DeleteTask(r.Context(), ref, boolParam(r, "hard")); err != nil {
+	in := core.DeleteTaskInput{Hard: boolParam(r, "hard"), Cascade: boolParam(r, "cascade")}
+	if err := rt.cfg.Service.DeleteTask(r.Context(), ref, in); err != nil {
 		WriteError(w, err)
 		return
 	}

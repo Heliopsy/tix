@@ -187,6 +187,7 @@
 <form method="post" action="/tasks/{{.Data.Task.Ref}}/delete">
   {{template "csrf" .CSRF}}
   <label for="hard"><input id="hard" type="checkbox" name="hard" value="1"> Delete permanently</label>
+  <label for="cascade"><input id="cascade" type="checkbox" name="cascade" value="1"> Also delete subtasks</label>
   <button class="secondary" type="submit">Delete task</button>
 </form>
 <form method="post" action="/tasks/{{.Data.Task.Ref}}/restore">

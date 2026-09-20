@@ -151,7 +151,9 @@ func (f *fakeService) GetTask(_ context.Context, ref core.TaskRef) (*core.Task, 
 func (f *fakeService) UpdateTask(context.Context, core.TaskRef, core.UpdateTaskInput) (*core.Task, error) {
 	return nil, nil
 }
-func (f *fakeService) DeleteTask(context.Context, core.TaskRef, bool) error          { return nil }
+func (f *fakeService) DeleteTask(context.Context, core.TaskRef, core.DeleteTaskInput) error {
+	return nil
+}
 func (f *fakeService) RestoreTask(context.Context, core.TaskRef) (*core.Task, error) { return nil, nil }
 func (f *fakeService) TaskTree(context.Context, core.TaskRef, int) ([]core.Task, error) {
 	return nil, nil

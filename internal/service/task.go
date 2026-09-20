@@ -384,8 +384,10 @@ func (l *Local) TransitionTask(ctx context.Context, ref core.TaskRef, in core.Tr
 	return out, nil
 }
 
-// DeleteTask soft deletes a task, or removes it permanently when hard is set.
-func (l *Local) DeleteTask(ctx context.Context, ref core.TaskRef, hard bool) error {
+// DeleteTask soft deletes a task, or removes it permanently when Hard is set.
+// A task with children is refused unless Cascade is set, in which case the
+// whole subtree goes in the same transaction, deepest first.
+func (l *Local) DeleteTask(ctx context.Context, ref core.TaskRef, in core.DeleteTaskInput) error {
 	actor, err := l.authorize(ctx, authz.ActionTaskDelete, authz.Resource{})
 	if err != nil {
 		return err
@@ -398,21 +400,64 @@ func (l *Local) DeleteTask(ctx context.Context, ref core.TaskRef, hard bool) err
 		if err := l.authorizeTask(ctx, authz.ActionTaskDelete, task); err != nil {
 			return err
 		}
-		children, err := m.tx.Children(ctx, task.ID)
+		subtree, err := deleteOrder(ctx, m.tx, task)
 		if err != nil {
 			return err
 		}
-		if len(children) > 0 {
-			return core.Precondition("task %q has %d child task(s); detach or delete them first",
-				task.Ref, len(children)).WithDetail("children", len(children))
+		if len(subtree) > 1 && !in.Cascade {
+			return core.Precondition("task %q has %d descendant task(s); pass cascade or delete them first",
+				task.Ref, len(subtree)-1).WithDetail("descendants", len(subtree)-1)
 		}
-		if err := m.tx.DeleteTask(ctx, task.ID, hard); err != nil {
-			return err
+		for i := range subtree {
+			t := &subtree[i]
+			if err := l.authorizeTask(ctx, authz.ActionTaskDelete, t); err != nil {
+				return err
+			}
+			if err := m.tx.DeleteTask(ctx, t.ID, in.Hard); err != nil {
+				return err
+			}
+			if err := m.Record("task.delete", core.EventTaskDeleted, "task", t.ID, t.ProjectID,
+				t, nil, map[string]any{"ref": t.Ref, "hard": in.Hard, "cascade": in.Cascade}); err != nil {
+				return err
+			}
 		}
-		return m.Record("task.delete", core.EventTaskDeleted, "task", task.ID, task.ProjectID,
-			task, nil, map[string]any{"ref": task.Ref, "hard": hard})
+		return nil
 	})
 }
+
+// deleteOrder returns the task and every descendant, deepest first, so each
+// row is removed before its parent. It refuses a subtree deeper than
+// maxSubtreeDepth, which a cycle in parent links would otherwise turn into an
+// unbounded walk.
+func deleteOrder(ctx context.Context, tx store.Tx, root *core.Task) ([]core.Task, error) {
+	out := []core.Task{*root}
+	seen := map[string]bool{root.ID: true}
+	for i := 0; i < len(out); i++ {
+		if i >= maxSubtreeSize {
+			return nil, core.Precondition("task %q has more than %d descendants; delete them in smaller batches",
+				root.Ref, maxSubtreeSize)
+		}
+		children, err := tx.Children(ctx, out[i].ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, c := range children {
+			if seen[c.ID] {
+				continue
+			}
+			seen[c.ID] = true
+			out = append(out, c)
+		}
+	}
+	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+		out[i], out[j] = out[j], out[i]
+	}
+	return out, nil
+}
+
+// maxSubtreeSize bounds a cascading delete so one call cannot walk an
+// unbounded number of rows inside a write transaction.
+const maxSubtreeSize = 10000
 
 // RestoreTask clears a task's soft deletion.
 func (l *Local) RestoreTask(ctx context.Context, ref core.TaskRef) (*core.Task, error) {

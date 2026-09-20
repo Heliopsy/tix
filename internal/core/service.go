@@ -72,7 +72,7 @@ type TaskService interface {
 	ListTasks(ctx context.Context, f TaskFilter) (TaskPage, error)
 	UpdateTask(ctx context.Context, ref TaskRef, in UpdateTaskInput) (*Task, error)
 	TransitionTask(ctx context.Context, ref TaskRef, in TransitionInput) (*Task, error)
-	DeleteTask(ctx context.Context, ref TaskRef, hard bool) error
+	DeleteTask(ctx context.Context, ref TaskRef, in DeleteTaskInput) error
 	RestoreTask(ctx context.Context, ref TaskRef) (*Task, error)
 	TaskTree(ctx context.Context, ref TaskRef, depth int) ([]Task, error)
 

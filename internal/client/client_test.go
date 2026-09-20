@@ -127,7 +127,7 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 			_, err := c.TransitionTask(ctx, ref("infra-1"), core.TransitionInput{To: "done"})
 			return err
 		}, http.MethodPost, "/api/v1/tasks/infra-1/transition"},
-		{"delete task", func(c *Client) error { return c.DeleteTask(ctx, ref("infra-1"), true) }, http.MethodDelete, "/api/v1/tasks/infra-1"},
+		{"delete task", func(c *Client) error { return c.DeleteTask(ctx, ref("infra-1"), core.DeleteTaskInput{Hard: true}) }, http.MethodDelete, "/api/v1/tasks/infra-1"},
 		{"restore task", func(c *Client) error { _, err := c.RestoreTask(ctx, ref("infra-1")); return err }, http.MethodPost, "/api/v1/tasks/infra-1/restore"},
 		{"task tree", func(c *Client) error { _, err := c.TaskTree(ctx, ref("infra-1"), 2); return err }, http.MethodGet, "/api/v1/tasks/infra-1/tree"},
 		{"add dependency", func(c *Client) error { return c.AddDependency(ctx, ref("infra-1"), ref("infra-2")) }, http.MethodPost, "/api/v1/tasks/infra-1/deps"},
@@ -248,7 +248,7 @@ func TestArchiveProjectMarksTheQuery(t *testing.T) {
 
 func TestDeleteTaskHardFlag(t *testing.T) {
 	c, got := newClient(t, okHandler)
-	if err := c.DeleteTask(context.Background(), ref("infra-1"), true); err != nil {
+	if err := c.DeleteTask(context.Background(), ref("infra-1"), core.DeleteTaskInput{Hard: true}); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 	if got.query != "hard=true" {

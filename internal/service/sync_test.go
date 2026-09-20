@@ -1161,7 +1161,7 @@ func TestRunSyncSkipsDeletedTasksAndUnknownStatuses(t *testing.T) {
 	if len(tasks) != 1 {
 		t.Fatalf("imported %d tasks", len(tasks))
 	}
-	if err := f.local.DeleteTask(f.ctx, core.TaskRef{ID: tasks[0].ID}, false); err != nil {
+	if err := f.local.DeleteTask(f.ctx, core.TaskRef{ID: tasks[0].ID}, core.DeleteTaskInput{}); err != nil {
 		t.Fatalf("deleting task: %v", err)
 	}
 
@@ -1192,7 +1192,7 @@ func TestRunSyncRecreatesATaskWhoseReferenceOutlivedIt(t *testing.T) {
 	f.run(t, core.RunSyncInput{})
 
 	tasks := f.tasks(t)
-	if err := f.local.DeleteTask(f.ctx, core.TaskRef{ID: tasks[0].ID}, true); err != nil {
+	if err := f.local.DeleteTask(f.ctx, core.TaskRef{ID: tasks[0].ID}, core.DeleteTaskInput{Hard: true}); err != nil {
 		t.Fatalf("hard deleting task: %v", err)
 	}
 	imp.pages[0].Records[0].Fields["updated"] = "2026-06-01T00:00:00Z"

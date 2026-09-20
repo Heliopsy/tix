@@ -530,7 +530,7 @@ func TestSoftDeleteHidesAndRestoreBringsBack(t *testing.T) {
 	ref := core.TaskRef{ID: task.ID}
 
 	beforeEvents, beforeAudits := countRows(t, l, scope)
-	if err := l.DeleteTask(ctx, ref, false); err != nil {
+	if err := l.DeleteTask(ctx, ref, core.DeleteTaskInput{}); err != nil {
 		t.Fatalf("DeleteTask: %v", err)
 	}
 	afterEvents, afterAudits := countRows(t, l, scope)
@@ -571,7 +571,7 @@ func TestHardDeleteIsPermanent(t *testing.T) {
 	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "gone"})
 	ref := core.TaskRef{ID: task.ID}
 
-	if err := l.DeleteTask(ctx, ref, true); err != nil {
+	if err := l.DeleteTask(ctx, ref, core.DeleteTaskInput{Hard: true}); err != nil {
 		t.Fatalf("DeleteTask: %v", err)
 	}
 	if _, err := l.RestoreTask(ctx, ref); !core.IsKind(err, core.KindNotFound) {
@@ -582,7 +582,7 @@ func TestHardDeleteIsPermanent(t *testing.T) {
 func TestReferencesAreNotReusedAfterADelete(t *testing.T) {
 	l, ctx, _, _, _ := newTaskFixture(t)
 	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "retired"})
-	if err := l.DeleteTask(ctx, core.TaskRef{ID: task.ID}, false); err != nil {
+	if err := l.DeleteTask(ctx, core.TaskRef{ID: task.ID}, core.DeleteTaskInput{}); err != nil {
 		t.Fatalf("DeleteTask: %v", err)
 	}
 	next := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "successor"})
@@ -596,7 +596,7 @@ func TestDeleteTaskWithChildrenIsRejected(t *testing.T) {
 	parent := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "parent"})
 	mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "child", ParentRef: parent.Ref})
 
-	if err := l.DeleteTask(ctx, core.TaskRef{ID: parent.ID}, false); !core.IsKind(err, core.KindPrecondition) {
+	if err := l.DeleteTask(ctx, core.TaskRef{ID: parent.ID}, core.DeleteTaskInput{}); !core.IsKind(err, core.KindPrecondition) {
 		t.Errorf("deleting a parent = %v, want precondition failed", err)
 	}
 }
@@ -632,7 +632,7 @@ func TestTaskTreeReportsDescendants(t *testing.T) {
 		t.Errorf("leaf tree = %v, want just the leaf", taskTitles(only))
 	}
 
-	if err := l.DeleteTask(ctx, core.TaskRef{ID: grand.ID}, false); err != nil {
+	if err := l.DeleteTask(ctx, core.TaskRef{ID: grand.ID}, core.DeleteTaskInput{}); err != nil {
 		t.Fatalf("deleting a descendant: %v", err)
 	}
 	pruned, err := l.TaskTree(ctx, core.TaskRef{ID: root.ID}, 0)
@@ -859,7 +859,7 @@ func TestTaskOperationsRequireAnActorAndScopes(t *testing.T) {
 	if _, err := l.TransitionTask(anonymous, ref, core.TransitionInput{To: "doing"}); !core.IsKind(err, core.KindUnauthenticated) {
 		t.Errorf("TransitionTask unauthenticated = %v", err)
 	}
-	if err := l.DeleteTask(anonymous, ref, false); !core.IsKind(err, core.KindUnauthenticated) {
+	if err := l.DeleteTask(anonymous, ref, core.DeleteTaskInput{}); !core.IsKind(err, core.KindUnauthenticated) {
 		t.Errorf("DeleteTask unauthenticated = %v", err)
 	}
 	if _, err := l.RestoreTask(anonymous, ref); !core.IsKind(err, core.KindUnauthenticated) {
@@ -870,7 +870,7 @@ func TestTaskOperationsRequireAnActorAndScopes(t *testing.T) {
 	}
 
 	viewer := taskContext(seedTaskActor(t, l, tenantScope(t, l), "viewer", core.RoleViewer))
-	if err := l.DeleteTask(viewer, ref, false); !core.IsKind(err, core.KindForbidden) {
+	if err := l.DeleteTask(viewer, ref, core.DeleteTaskInput{}); !core.IsKind(err, core.KindForbidden) {
 		t.Errorf("a viewer deleting a task = %v, want forbidden", err)
 	}
 	if _, err := l.GetTask(viewer, ref); err != nil {
@@ -904,7 +904,7 @@ func TestCrossTenantAccessReportsNotFound(t *testing.T) {
 	if _, err := l.TransitionTask(intruder, ref, core.TransitionInput{To: "doing"}); !core.IsKind(err, core.KindNotFound) {
 		t.Errorf("cross-tenant TransitionTask = %v, want not found", err)
 	}
-	if err := l.DeleteTask(intruder, ref, false); !core.IsKind(err, core.KindNotFound) {
+	if err := l.DeleteTask(intruder, ref, core.DeleteTaskInput{}); !core.IsKind(err, core.KindNotFound) {
 		t.Errorf("cross-tenant DeleteTask = %v, want not found", err)
 	}
 	if _, err := l.AddComment(intruder, ref, "hello"); !core.IsKind(err, core.KindNotFound) {
@@ -1103,5 +1103,47 @@ func TestCreateTaskInAProjectWithoutTasksReportsMissingProject(t *testing.T) {
 
 	if _, err := l.CreateTask(ctx, core.CreateTaskInput{Title: "orphan"}); !core.IsKind(err, core.KindNotFound) {
 		t.Errorf("CreateTask with no project at all = %v, want not found", err)
+	}
+}
+
+func TestDeleteRefusesSubtasksUnlessCascadeIsAsked(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	parent := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "parent"})
+	child := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "child", ParentRef: parent.ID})
+	grand := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "grandchild", ParentRef: child.ID})
+
+	err := l.DeleteTask(ctx, core.TaskRef{ID: parent.ID}, core.DeleteTaskInput{})
+	if !core.IsKind(err, core.KindPrecondition) {
+		t.Fatalf("delete without cascade = %v, want precondition", err)
+	}
+	if _, err := l.GetTask(ctx, core.TaskRef{ID: grand.ID}); err != nil {
+		t.Fatalf("refused delete disturbed the subtree: %v", err)
+	}
+}
+
+func TestCascadeDeleteRemovesTheWholeSubtree(t *testing.T) {
+	l, ctx, scope, _, _ := newTaskFixture(t)
+	parent := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "parent"})
+	child := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "child", ParentRef: parent.ID})
+	grand := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "grandchild", ParentRef: child.ID})
+	bystander := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "bystander"})
+
+	beforeEvents, beforeAudits := countRows(t, l, scope)
+	if err := l.DeleteTask(ctx, core.TaskRef{ID: parent.ID}, core.DeleteTaskInput{Cascade: true}); err != nil {
+		t.Fatalf("cascade delete: %v", err)
+	}
+	afterEvents, afterAudits := countRows(t, l, scope)
+	if afterEvents != beforeEvents+3 || afterAudits != beforeAudits+3 {
+		t.Errorf("cascade wrote %d events and %d audit entries, want three of each",
+			afterEvents-beforeEvents, afterAudits-beforeAudits)
+	}
+
+	for _, id := range []string{parent.ID, child.ID, grand.ID} {
+		if _, err := l.GetTask(ctx, core.TaskRef{ID: id}); !core.IsKind(err, core.KindNotFound) {
+			t.Errorf("task %s after cascade = %v, want not found", id, err)
+		}
+	}
+	if _, err := l.GetTask(ctx, core.TaskRef{ID: bystander.ID}); err != nil {
+		t.Errorf("cascade reached a task outside the subtree: %v", err)
 	}
 }

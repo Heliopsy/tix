@@ -40,9 +40,10 @@ func (c *Client) TransitionTask(ctx context.Context, ref core.TaskRef, in core.T
 }
 
 // DeleteTask removes a task, soft by default.
-func (c *Client) DeleteTask(ctx context.Context, ref core.TaskRef, hard bool) error {
+func (c *Client) DeleteTask(ctx context.Context, ref core.TaskRef, in core.DeleteTaskInput) error {
 	q := url.Values{}
-	setBool(q, "hard", hard)
+	setBool(q, "hard", in.Hard)
+	setBool(q, "cascade", in.Cascade)
 	return callVoid(ctx, c, http.MethodDelete, taskPath(httpapi.RouteTask, ref), q, nil)
 }
 

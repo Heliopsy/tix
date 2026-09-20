@@ -184,6 +184,14 @@ const (
 	MaxBlobSize      = 1 << 20
 )
 
+// DeleteTaskInput says how far a delete reaches. Cascade is required to
+// delete a task that still has children; without it such a delete is refused
+// so a subtree is never removed by accident.
+type DeleteTaskInput struct {
+	Hard    bool `json:"hard,omitempty" yaml:"hard,omitempty"`
+	Cascade bool `json:"cascade,omitempty" yaml:"cascade,omitempty"`
+}
+
 // UpdateTaskInput changes a task.
 type UpdateTaskInput struct {
 	Title           *string        `json:"title,omitempty" yaml:"title,omitempty"`

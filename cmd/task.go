@@ -353,13 +353,13 @@ func taskMvCmd(g *globals) *cobra.Command {
 }
 
 func taskRmCmd(g *globals) *cobra.Command {
-	var hard, dryRun bool
+	var hard, cascade, dryRun bool
 	cmd := &cobra.Command{
 		Use:     "rm REF...",
 		Aliases: []string{"delete"},
 		Short:   "Delete tasks",
-		Long:    "Soft delete tasks, or remove them permanently with --hard.\n\nExit codes: 3 unknown reference, 5 permission denied.",
-		Example: "  tix task rm default-1\n  tix task rm default-1 --hard",
+		Long:    "Soft delete tasks, or remove them permanently with --hard.\n\nA task with subtasks is refused unless --cascade is given.\n\nExit codes: 3 unknown reference, 5 permission denied, 6 the task has subtasks.",
+		Example: "  tix task rm default-1\n  tix task rm default-1 --hard\n  tix task rm default-1 --cascade",
 		Args:    minArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			refs, err := readRefs(cmd, args)
@@ -371,15 +371,18 @@ func taskRmCmd(g *globals) *cobra.Command {
 				return err
 			}
 			if dryRun {
-				return g.dryBulk(cmd, conn, ctx, refs, "task.delete", map[string]any{"hard": hard})
+				return g.dryBulk(cmd, conn, ctx, refs, "task.delete",
+					map[string]any{"hard": hard, "cascade": cascade})
 			}
+			in := core.DeleteTaskInput{Hard: hard, Cascade: cascade}
 			return g.bulk(cmd, refs, func(ref core.TaskRef) error {
-				return conn.Service.DeleteTask(ctx, ref, hard)
+				return conn.Service.DeleteTask(ctx, ref, in)
 			})
 		},
 		ValidArgsFunction: g.completeTaskRefs,
 	}
 	cmd.Flags().BoolVar(&hard, "hard", false, "delete permanently instead of soft deleting")
+	cmd.Flags().BoolVar(&cascade, "cascade", false, "also delete the task's subtasks")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be deleted without writing")
 	return cmd
 }

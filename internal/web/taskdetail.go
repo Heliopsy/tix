@@ -374,7 +374,8 @@ func (h *handler) deleteTask(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	if err := h.svc.DeleteTask(r.Context(), ref, checked(r, "hard")); err != nil {
+	in := core.DeleteTaskInput{Hard: checked(r, "hard"), Cascade: checked(r, "cascade")}
+	if err := h.svc.DeleteTask(r.Context(), ref, in); err != nil {
 		return err
 	}
 	redirect(w, r, RouteTasks, "task deleted")
