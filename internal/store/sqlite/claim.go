@@ -117,6 +117,9 @@ func blockedByDependency(terminal []string) string {
 }
 
 // RenewLease extends a lease only while the caller's token is the current one.
+// An expired lease cannot be renewed. Lazy expiry means such a task already
+// reads as unclaimed and may have been handed to another worker, so the holder
+// must re-claim rather than resurrect its old lease.
 func (t *tx) RenewLease(ctx context.Context, taskID, token string, until time.Time) (bool, error) {
 	if token == "" {
 		return false, core.Invalid("lease token must not be empty")
@@ -124,6 +127,7 @@ func (t *tx) RenewLease(ctx context.Context, taskID, token string, until time.Ti
 	b := t.builder("tasks").
 		Where("tasks.id = ?", taskID).
 		Where("tasks.lease_token = ?", token).
+		Where("tasks.lease_expires_at > ?", t.now()).
 		Set("lease_expires_at", sqlb.TimeText(until)).
 		Set("updated_at", t.now())
 	n, err := t.execUpdate(ctx, b, "renewing the lease on task %q", taskID)
@@ -133,7 +137,7 @@ func (t *tx) RenewLease(ctx context.Context, taskID, token string, until time.Ti
 	return n > 0, nil
 }
 
-// ReleaseLease clears a claim only while the caller's token is the current one.
+// ReleaseLease clears a claim only while the caller holds a live lease.
 func (t *tx) ReleaseLease(ctx context.Context, taskID, token string) (bool, error) {
 	if token == "" {
 		return false, core.Invalid("lease token must not be empty")
@@ -141,6 +145,7 @@ func (t *tx) ReleaseLease(ctx context.Context, taskID, token string) (bool, erro
 	b := t.builder("tasks").
 		Where("tasks.id = ?", taskID).
 		Where("tasks.lease_token = ?", token).
+		Where("tasks.lease_expires_at > ?", t.now()).
 		Set("claimed_by_actor_id", nil).
 		Set("claimed_at", nil).
 		Set("lease_expires_at", nil).

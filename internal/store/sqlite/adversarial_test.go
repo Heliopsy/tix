@@ -237,3 +237,69 @@ func TestClaimNextNeverDoubleClaimsAcrossStores(t *testing.T) {
 		seen[id] = true
 	}
 }
+
+// Spec: "Renew after expiry -> the request is rejected as lease-expired and no
+// lease is re-established." Without this, a worker whose lease lapsed could
+// resurrect its claim on a task that lazy expiry had already made available,
+// and the next worker to ask for it would be refused.
+func TestExpiredLeaseCannotBeRenewedOrReleased(t *testing.T) {
+	ctx := context.Background()
+	s, clk := newStore(t)
+	f := seed(t, s, clk, "alpha")
+	task := f.newTask(t, "long job", core.PriorityNormal)
+
+	const ttl = 15 * time.Minute
+	now := clk.Now()
+
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+		ok, err := tx.ClaimTask(ctx, store.ClaimRow{
+			TaskID: task.ID, ActorID: f.actor.ID, Now: now,
+			Until: now.Add(ttl), LeaseToken: "tok-1",
+		})
+		if err != nil || !ok {
+			t.Fatalf("initial claim: ok=%v err=%v", ok, err)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	clk.Advance(ttl + time.Minute)
+	later := clk.Now()
+
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+		ok, err := tx.RenewLease(ctx, task.ID, "tok-1", later.Add(ttl))
+		if err != nil {
+			return err
+		}
+		if ok {
+			t.Error("an expired lease was renewed; the holder must re-claim instead")
+		}
+		ok, err = tx.ReleaseLease(ctx, task.ID, "tok-1")
+		if err != nil {
+			return err
+		}
+		if ok {
+			t.Error("an expired lease was released with its stale token")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+		ok, err := tx.ClaimTask(ctx, store.ClaimRow{
+			TaskID: task.ID, ActorID: f.actor.ID, Now: later,
+			Until: later.Add(ttl), LeaseToken: "tok-2",
+		})
+		if err != nil {
+			return err
+		}
+		if !ok {
+			t.Error("the task was not claimable after its lease expired")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+}

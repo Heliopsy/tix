@@ -9,3 +9,4 @@ coverage.html
 *.db
 *.db-wal
 *.db-shm
+trivy.sarif

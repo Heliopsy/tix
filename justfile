@@ -112,7 +112,8 @@ mdlint: (tool "markdownlint" "--ignore" "node_modules" "--ignore" "openspec" "."
         (tool "markdownlint" "--config" ".markdownlint-specs.yaml" "openspec")
 sec: (tool "gosec" "./...")
 vuln: (tool "govulncheck" "./...")
-trivy: (tool "trivy" "fs" "--severity" "CRITICAL,HIGH" "--exit-code" "1" ".")
+trivy: (tool "trivy" "fs" "--severity" "CRITICAL,HIGH" "--exit-code" "1" "--ignorefile" ".trivyignore" "--scanners" "vuln,secret" ".")
+trivy-sarif: (tool "trivy" "fs" "--format" "sarif" "--output" "trivy.sarif" "--severity" "CRITICAL,HIGH" "--ignorefile" ".trivyignore" ".")
 spec: (tool "openspec" "validate" "tix-v1" "--strict")
 
 # Every file in docs/ must be linked from docs/README.md.
