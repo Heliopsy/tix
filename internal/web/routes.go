@@ -63,6 +63,7 @@ func (h *handler) routes() []route {
 	out = append(out, h.adminRoutes()...)
 	out = append(out, h.webhookRoutes()...)
 	out = append(out, h.transferRoutes()...)
+	out = append(out, h.bundleRoutes()...)
 	return out
 }
 
@@ -139,4 +140,11 @@ const (
 	RouteSyncSources = "/sync/sources"
 	RouteSyncDelete  = "/sync/sources/delete"
 	RouteSyncRun     = "/sync/run"
+)
+
+// Route patterns for component sharing.
+const (
+	RouteBundles      = "/bundles"
+	RouteBundleExport = "/bundles/export"
+	RouteBundleImport = "/bundles/import"
 )

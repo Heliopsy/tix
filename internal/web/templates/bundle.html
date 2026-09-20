@@ -1,0 +1,68 @@
+{{define "content"}}
+<h1>Share components</h1>
+<p>A bundle carries configuration only. It never carries tasks, comments, artifacts or webhook secrets.</p>
+
+<h2>Export a bundle</h2>
+<form method="post" action="/bundles/export">
+  {{template "csrf" .CSRF}}
+  <label for="bundle_name">Bundle name</label>
+  <input id="bundle_name" name="name" placeholder="starter kit">
+  <fieldset>
+    <legend>Component kinds, blank for every kind the selection reaches</legend>
+    {{range .Data.Kinds}}
+    <label for="kind-{{.}}"><input id="kind-{{.}}" type="checkbox" name="kinds" value="{{.}}"> {{.}}</label>
+    {{end}}
+  </fieldset>
+  <label for="workflow_keys">Workflow keys, comma separated</label>
+  <input id="workflow_keys" name="workflow_keys">
+  <label for="project_refs">Projects to export as templates, comma separated</label>
+  <input id="project_refs" name="project_refs">
+  <label for="webhook_ids">Webhook endpoint ids, comma separated</label>
+  <input id="webhook_ids" name="webhook_ids">
+  <p><button type="submit">Download bundle</button></p>
+</form>
+
+<h2>Import a bundle</h2>
+<form method="post" action="/bundles/import" enctype="multipart/form-data">
+  {{template "csrf" .CSRF}}
+  <label for="bundle">Bundle file</label>
+  <input id="bundle" name="bundle" type="file">
+  <label for="bundle_text">Or paste the bundle</label>
+  <textarea id="bundle_text" name="bundle_text"></textarea>
+  <label for="project_ref">Target project for project-scoped components</label>
+  <input id="project_ref" name="project_ref">
+  <div class="row">
+    <div>
+      <label for="on_collision">On a name collision, required</label>
+      <select id="on_collision" name="on_collision" required>
+        <option value="">Choose what to do</option>
+        {{range .Data.Policies}}<option value="{{.}}">{{.}}</option>{{end}}
+      </select>
+    </div>
+    <div><label for="preview"><input id="preview" type="checkbox" name="preview" value="1" checked> Preview only</label></div>
+    <div><button type="submit">Run import</button></div>
+  </div>
+</form>
+
+{{if .Data.Result}}
+{{with .Data.Result}}
+<h2>{{if .Preview}}Preview, nothing was written{{else}}Import result{{end}}</h2>
+<dl class="fields">
+  <dt>Bundle</dt><dd>{{if .BundleName}}{{.BundleName}}{{else}}unnamed{{end}}</dd>
+  <dt>Schema version</dt><dd>{{.BundleVersion}}</dd>
+</dl>
+<table>
+  <thead><tr><th>Kind</th><th>Key</th><th>Action</th><th>New key</th><th>Reason</th></tr></thead>
+  <tbody>
+  {{range .Outcomes}}
+    <tr><td>{{.Kind}}</td><td>{{.Key}}</td><td>{{.Action}}</td><td>{{.NewKey}}</td><td>{{.Reason}}</td></tr>
+  {{else}}
+    <tr><td colspan="5">This bundle carries no components.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+{{if .Warnings}}<p class="flash">{{join .Warnings}}</p>{{end}}
+{{if .Preview}}<p>Nothing was written: no component, no audit entry and no event.</p>{{end}}
+{{end}}
+{{end}}
+{{end}}

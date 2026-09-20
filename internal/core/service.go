@@ -20,10 +20,7 @@ type Service interface {
 	WebhookService
 	TransferService
 	SyncService
-	// BundleService is deliberately not embedded yet: it is embedded once
-	// service.Local implements it, so the tree keeps building while that work
-	// lands rather than carrying a placeholder that hides a missing method.
-	// BundleService
+	BundleService
 
 	Close() error
 }

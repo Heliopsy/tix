@@ -245,4 +245,12 @@ func (f *fakeService) RunSync(context.Context, core.RunSyncInput) (*core.SyncRes
 	return nil, nil
 }
 
+func (f *fakeService) ExportBundle(context.Context, core.BundleExportInput, io.Writer) error {
+	return nil
+}
+
+func (f *fakeService) ImportBundle(context.Context, io.Reader, core.BundleImportInput) (*core.BundleResult, error) {
+	return nil, nil
+}
+
 var _ core.Service = (*fakeService)(nil)

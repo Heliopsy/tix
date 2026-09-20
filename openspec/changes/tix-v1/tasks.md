@@ -152,15 +152,15 @@ ticked, and coverage is at or above 80% (excluding `internal/tui`).
 
 ## 6. Wave 6 — Component sharing
 
-- [ ] 6.1 WP-45 `internal/bundle`: bundle schema, versioning, deterministic encoding
-- [ ] 6.2 WP-45 Export selection per component kind, excluding work items and secrets
-- [ ] 6.3 WP-45 Validation of a whole bundle before any write
-- [ ] 6.4 WP-45 Collision policy: skip, rename, replace, with no silent overwrite
-- [ ] 6.5 WP-45 Preview reporting the plan without writing or auditing
-- [ ] 6.6 WP-45 Atomic import, audited per component, attributed to the bundle
-- [ ] 6.7 WP-45 `core.Service` methods and authorization for both directions
-- [ ] 6.8 WP-45 CLI `tix bundle export|import` streaming stdout and stdin
-- [ ] 6.9 WP-45 HTTP routes and the web UI screens, keeping capability parity
+- [x] 6.1 WP-45 `internal/bundle`: bundle schema, versioning, deterministic encoding
+- [x] 6.2 WP-45 Export selection per component kind, excluding work items and secrets
+- [x] 6.3 WP-45 Validation of a whole bundle before any write
+- [x] 6.4 WP-45 Collision policy: skip, rename, replace, with no silent overwrite
+- [x] 6.5 WP-45 Preview reporting the plan without writing or auditing
+- [x] 6.6 WP-45 Atomic import, audited per component, attributed to the bundle
+- [x] 6.7 WP-45 `core.Service` methods and authorization for both directions
+- [x] 6.8 WP-45 CLI `tix bundle export|import` streaming stdout and stdin
+- [x] 6.9 WP-45 HTTP routes and the web UI screens, keeping capability parity
 
 ## 7. Wave 7 — Closing
 

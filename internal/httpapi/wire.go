@@ -151,3 +151,16 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 // IsPublicForTest reports whether a path bypasses authentication. Exported for
 // tests in this package's external test files.
 func IsPublicForTest(path string) bool { return isPublicPath(path) }
+
+// Route patterns for component sharing, which moves reusable configuration
+// between projects, tenants and installations.
+const (
+	RouteBundleExport = APIPrefix + "/bundles/export"
+	RouteBundleImport = APIPrefix + "/bundles/import"
+)
+
+// ContentBundle is the media type a component bundle is served as.
+const ContentBundle = "application/vnd.tix.bundle+json"
+
+// HeaderContentDisposition names the download a bundle response carries.
+const HeaderContentDisposition = "Content-Disposition"
