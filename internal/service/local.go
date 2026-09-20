@@ -3,7 +3,9 @@ package service
 
 import (
 	"context"
+	"sync"
 
+	"github.com/thereisnotime/tix/internal/auth"
 	"github.com/thereisnotime/tix/internal/authz"
 	"github.com/thereisnotime/tix/internal/clock"
 	"github.com/thereisnotime/tix/internal/core"
@@ -18,6 +20,14 @@ type Local struct {
 	clock  clock.Clock
 	ids    id.Generator
 	hooks  HookMode
+	hasher *auth.Hasher
+
+	// allowInsecureWebhooks permits a plaintext delivery target outside
+	// loopback. Deliveries carry task content, so this is opt-in.
+	allowInsecureWebhooks bool
+
+	dummyOnce sync.Once
+	dummy     string
 }
 
 // HookMode selects who delivers webhooks after a mutation commits.
@@ -42,6 +52,16 @@ func WithIDs(g id.Generator) Option { return func(l *Local) { l.ids = g } }
 // WithHooks sets the webhook delivery mode.
 func WithHooks(m HookMode) Option { return func(l *Local) { l.hooks = m } }
 
+// WithHasher sets the password hasher. Tests use cheaper parameters; production
+// must not.
+func WithHasher(h *auth.Hasher) Option { return func(l *Local) { l.hasher = h } }
+
+// WithInsecureWebhooks allows plaintext delivery targets outside loopback, for
+// a deployment terminating TLS at a proxy.
+func WithInsecureWebhooks(allow bool) Option {
+	return func(l *Local) { l.allowInsecureWebhooks = allow }
+}
+
 // New builds a Local over a store.
 func New(st store.Store, opts ...Option) *Local {
 	l := &Local{
@@ -50,6 +70,7 @@ func New(st store.Store, opts ...Option) *Local {
 		clock:  clock.New(),
 		ids:    id.Default,
 		hooks:  HookInline,
+		hasher: auth.NewHasher(),
 	}
 	for _, opt := range opts {
 		opt(l)

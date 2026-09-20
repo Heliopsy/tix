@@ -76,6 +76,36 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, tenantHeader, v, tenantRow)
 	case []*core.Tenant:
 		return renderRows(w, tenantHeader, deref(v), tenantRow)
+	case []core.User:
+		return renderRows(w, userHeader, v, userRow)
+	case core.User:
+		return renderRows(w, userHeader, []core.User{v}, userRow)
+	case *core.User:
+		return renderRows(w, userHeader, []core.User{*v}, userRow)
+	case core.IssuedToken:
+		return renderRows(w, issuedHeader, []core.IssuedToken{v}, issuedRow)
+	case *core.IssuedToken:
+		return renderRows(w, issuedHeader, []core.IssuedToken{*v}, issuedRow)
+	case core.Claim:
+		return renderRows(w, claimHeader, []core.Claim{v}, claimRow)
+	case *core.Claim:
+		return renderRows(w, claimHeader, []core.Claim{*v}, claimRow)
+	case []core.FieldDef:
+		return renderRows(w, fieldHeader, v, fieldRow)
+	case core.FieldDef:
+		return renderRows(w, fieldHeader, []core.FieldDef{v}, fieldRow)
+	case *core.FieldDef:
+		return renderRows(w, fieldHeader, []core.FieldDef{*v}, fieldRow)
+	case []core.Dependency:
+		return renderRows(w, depHeader, v, depRow)
+	case []core.WebhookDelivery:
+		return renderRows(w, deliveryHeader, v, deliveryRow)
+	case []core.Tag:
+		return renderRows(w, tagHeader, v, tagRow)
+	case core.Tag:
+		return renderRows(w, tagHeader, []core.Tag{v}, tagRow)
+	case []core.SyncSource:
+		return renderRows(w, syncHeader, v, syncRow)
 	case core.Tenant:
 		return renderRows(w, tenantHeader, []core.Tenant{v}, tenantRow)
 	}
@@ -91,7 +121,67 @@ var (
 	auditHeader    = table.Row{"SEQ", "ACTION", "SUBJECT", "ACTOR", "SOURCE", "OCCURRED"}
 	endpointHeader = table.Row{"ID", "URL", "EVENTS", "ACTIVE", "CREATED"}
 	tenantHeader   = table.Row{"ID", "KEY", "NAME", "CREATED", "DELETED"}
+	userHeader     = table.Row{"ID", "EMAIL", "NAME", "CREATED", "DISABLED"}
+	issuedHeader   = table.Row{"ID", "NAME", "SCOPES", "TOKEN", "EXPIRES"}
+	claimHeader    = table.Row{"REF", "TITLE", "STATUS", "LEASE EXPIRES", "TOKEN"}
+	fieldHeader    = table.Row{"KEY", "LABEL", "TYPE", "REQUIRED", "INDEXED", "OPTIONS"}
+	depHeader      = table.Row{"TASK", "DEPENDS ON", "CREATED"}
+	deliveryHeader = table.Row{"ID", "ENDPOINT", "EVENT", "STATUS", "ATTEMPTS", "NEXT ATTEMPT", "CODE"}
+	tagHeader      = table.Row{"ID", "NAME", "PROJECT", "COLOR"}
+	syncHeader     = table.Row{"ID", "SYSTEM", "NAME", "CURSOR", "LAST RUN", "LAST STATUS"}
 )
+
+func userRow(u core.User) table.Row {
+	return table.Row{u.ID, u.Email, truncate(u.DisplayName, 30),
+		FormatCompact(u.CreatedAt), FormatCompactPtr(u.DisabledAt)}
+}
+
+func issuedRow(t core.IssuedToken) table.Row {
+	return table.Row{t.ID, t.Name, joinScopes(t.Scopes), t.Token, FormatCompactPtr(t.ExpiresAt)}
+}
+
+func claimRow(c core.Claim) table.Row {
+	var ref, title, status string
+	if c.Task != nil {
+		ref, title, status = c.Task.Ref, truncate(c.Task.Title, 40), c.Task.Status
+	}
+	return table.Row{ref, title, status, FormatCompact(c.LeaseExpiresAt), c.LeaseToken}
+}
+
+func fieldRow(f core.FieldDef) table.Row {
+	return table.Row{f.Key, f.Label, string(f.Type), yesNo(f.Required), yesNo(f.Indexed),
+		truncate(strings.Join(f.EnumOptions, ", "), 40)}
+}
+
+func depRow(d core.Dependency) table.Row {
+	return table.Row{d.TaskID, d.DependsOn, FormatCompact(d.CreatedAt)}
+}
+
+func deliveryRow(d core.WebhookDelivery) table.Row {
+	code := ""
+	if d.LastStatusCode != 0 {
+		code = strconv.Itoa(d.LastStatusCode)
+	}
+	return table.Row{d.ID, d.EndpointID, strconv.FormatInt(d.EventSeq, 10), string(d.Status),
+		strconv.Itoa(d.Attempts), FormatCompact(d.NextAttemptAt), code}
+}
+
+func tagRow(t core.Tag) table.Row {
+	return table.Row{t.ID, t.Name, t.ProjectID, t.Color}
+}
+
+func syncRow(s core.SyncSource) table.Row {
+	return table.Row{s.ID, s.System, s.Name, truncate(s.Cursor, 24),
+		FormatCompactPtr(s.LastRunAt), s.LastStatus}
+}
+
+func joinScopes(scopes []core.Scope) string {
+	out := make([]string, len(scopes))
+	for i, s := range scopes {
+		out[i] = string(s)
+	}
+	return truncate(strings.Join(out, ", "), 40)
+}
 
 func taskRow(t core.Task) table.Row {
 	return table.Row{

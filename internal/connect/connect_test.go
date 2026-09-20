@@ -333,25 +333,13 @@ func TestTargetDescribe(t *testing.T) {
 }
 
 func TestFallbackMethodsReportTheyAreAbsent(t *testing.T) {
+	svc := &localService{}
 	ctx := context.Background()
-	var svc core.Service = &localService{}
 
+	// Only snapshot transfer and external sync remain unimplemented. Everything
+	// else now reaches the real service, so listing it here would pass for the
+	// wrong reason.
 	unary := []func() error{
-		func() error { _, err := svc.CreateUser(ctx, core.CreateUserInput{}); return err },
-		func() error { _, err := svc.GetUser(ctx, "x"); return err },
-		func() error { _, _, err := svc.ListUsers(ctx, core.Page{}); return err },
-		func() error { _, err := svc.UpdateUser(ctx, "x", core.UpdateUserInput{}); return err },
-		func() error { return svc.DeleteUser(ctx, "x") },
-		func() error { _, err := svc.Login(ctx, "a", "b"); return err },
-		func() error { return svc.Logout(ctx) },
-		func() error { _, err := svc.CreateToken(ctx, core.CreateTokenInput{}); return err },
-		func() error { _, err := svc.ListTokens(ctx, "x"); return err },
-		func() error { return svc.RevokeToken(ctx, "x") },
-		func() error { _, err := svc.PutWebhook(ctx, core.WebhookInput{}); return err },
-		func() error { _, err := svc.ListWebhooks(ctx); return err },
-		func() error { return svc.DeleteWebhook(ctx, "x") },
-		func() error { _, _, err := svc.ListDeliveries(ctx, core.DeliveryFilter{}); return err },
-		func() error { return svc.RedeliverWebhook(ctx, "x") },
 		func() error { return svc.ExportTo(ctx, core.ExportInput{}, io.Discard) },
 		func() error {
 			_, err := svc.ImportFrom(ctx, strings.NewReader(""), core.ImportInput{})

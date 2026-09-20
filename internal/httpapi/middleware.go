@@ -9,6 +9,7 @@ import (
 
 	"github.com/thereisnotime/tix/internal/core"
 	"github.com/thereisnotime/tix/internal/id"
+	"github.com/thereisnotime/tix/internal/service"
 )
 
 // HeaderRequestID carries the identifier correlating a request with its logs.
@@ -302,6 +303,11 @@ func (rt *Router) authenticate(next http.Handler) http.Handler {
 			actor.TenantID = scope.TenantID
 		}
 		ctx := core.WithSource(core.WithActor(r.Context(), actor), core.SourceAPI)
+		// Logout ends the session the caller presented, so it has to know which
+		// one that was. Only a cookie identifies a session; a bearer token does not.
+		if c, err := r.Cookie(SessionCookieName); err == nil && c.Value != "" {
+			ctx = service.WithSessionToken(ctx, c.Value)
+		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

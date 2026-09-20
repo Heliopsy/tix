@@ -538,13 +538,27 @@ func TestAdministrativeCommands(t *testing.T) {
 	}
 }
 
-func TestUnimplementedSurfacesFailLoudly(t *testing.T) {
+// User, token and webhook management are implemented; only snapshot transfer
+// and external sync are not. Listing surfaces must therefore succeed, and the
+// two that remain absent must still fail rather than pretend.
+func TestImplementedSurfacesWork(t *testing.T) {
 	c := newCLI(t)
 	for _, args := range [][]string{
 		{"user", "ls"},
 		{"token", "ls"},
 		{"webhook", "ls"},
-		{"login", "--email", "a@b.c", "--password", "hunter2hunter2"},
+	} {
+		if got := c.run(args...); got.code != core.ExitOK {
+			t.Fatalf("tix %s exited %d: %s", strings.Join(args, " "), got.code, got.err)
+		}
+	}
+}
+
+func TestStillUnimplementedSurfacesFailLoudly(t *testing.T) {
+	c := newCLI(t)
+	for _, args := range [][]string{
+		{"export"},
+		{"import"},
 	} {
 		got := c.run(args...)
 		if got.code == core.ExitOK {
@@ -718,14 +732,19 @@ func TestDryRunAcrossTheMutatingSurface(t *testing.T) {
 
 func TestWebhookAndTokenListFlags(t *testing.T) {
 	c := newCLI(t)
-	if got := c.run("webhook", "deliveries", "--status", "failed", "--endpoint", "x"); got.code == core.ExitOK {
-		t.Fatal("deliveries succeeded while webhooks are unimplemented")
+	if got := c.run("webhook", "deliveries", "--status", "failed", "--endpoint", "x"); got.code != core.ExitOK {
+		t.Fatalf("deliveries exited %d: %s", got.code, got.err)
 	}
-	if got := c.run("token", "ls", "--actor", "someone"); got.code == core.ExitOK {
-		t.Fatal("token ls succeeded while tokens are unimplemented")
+	if got := c.run("token", "ls"); got.code != core.ExitOK {
+		t.Fatalf("token ls exited %d: %s", got.code, got.err)
 	}
-	if got := c.run("user", "show", "someid"); got.code == core.ExitOK {
-		t.Fatal("user show succeeded while users are unimplemented")
+	// An unknown actor is reported as missing rather than listing nothing.
+	if got := c.run("token", "ls", "--actor", "someone"); got.code != core.ExitNotFound {
+		t.Fatalf("token ls for an unknown actor exited %d, want %d", got.code, core.ExitNotFound)
+	}
+	// An unknown user id must still be reported as missing.
+	if got := c.run("user", "show", "someid"); got.code != core.ExitNotFound {
+		t.Fatalf("user show for an unknown id exited %d, want %d", got.code, core.ExitNotFound)
 	}
 }
 

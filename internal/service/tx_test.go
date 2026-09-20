@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/thereisnotime/tix/internal/auth"
 	"github.com/thereisnotime/tix/internal/authz"
 	"github.com/thereisnotime/tix/internal/clock"
 	"github.com/thereisnotime/tix/internal/core"
@@ -14,6 +15,14 @@ import (
 )
 
 func newLocal(t *testing.T) (*Local, *clock.Fake, core.TenantScope, *core.Actor) {
+	t.Helper()
+	return newLocalWith(t)
+}
+
+// newLocalWith builds a service with extra options. Tests use cheap argon2id
+// parameters: production cost is deliberately high, and paying it in every test
+// made the package take a minute under the race detector.
+func newLocalWith(t *testing.T, opts ...Option) (*Local, *clock.Fake, core.TenantScope, *core.Actor) {
 	t.Helper()
 	ctx := context.Background()
 	clk := clock.NewFakeAt()
@@ -43,7 +52,11 @@ func newLocal(t *testing.T) (*Local, *clock.Fake, core.TenantScope, *core.Actor)
 	}
 	actor.TenantID = tenant.ID
 
-	return New(st, WithClock(clk)), clk, scope, &actor
+	all := append([]Option{
+		WithClock(clk),
+		WithHasher(auth.NewHasherWithParams(auth.TestParams())),
+	}, opts...)
+	return New(st, all...), clk, scope, &actor
 }
 
 func countRows(t *testing.T, l *Local, scope core.TenantScope) (events, audits int) {
