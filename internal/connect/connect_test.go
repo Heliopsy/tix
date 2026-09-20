@@ -292,7 +292,9 @@ func TestConfigWritePathPrefersXDG(t *testing.T) {
 	if want := filepath.Join(xdg, config.RelativeConfigPath); got != want {
 		t.Fatalf("path = %q, want %q", got, want)
 	}
-	if got := ConfigWritePath(nil, home); got != filepath.Join(home, ".config", config.RelativeConfigPath) {
+	// An explicitly empty environment, not nil: nil means "read the real one",
+	// and a runner with XDG_CONFIG_HOME set would otherwise decide this test.
+	if got := ConfigWritePath([]string{}, home); got != filepath.Join(home, ".config", config.RelativeConfigPath) {
 		t.Fatalf("fallback path = %q", got)
 	}
 }

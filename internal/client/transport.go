@@ -53,6 +53,9 @@ func (c *Client) newRequest(ctx context.Context, method, path string, q url.Valu
 		req.Header.Set(httpapi.HeaderAuth, "Bearer "+c.token)
 	}
 	if c.cookie != "" {
+		// #nosec G124 -- an outgoing request cookie carries only a name and a
+		// value; Secure, HttpOnly and SameSite are server response directives
+		// and have no meaning here.
 		req.AddCookie(&http.Cookie{Name: httpapi.SessionCookieName, Value: c.cookie})
 	}
 	return req, nil

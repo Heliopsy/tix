@@ -133,6 +133,8 @@ func (c *Client) dialEvents(ctx context.Context) (*websocket.Conn, error) {
 		header.Set(httpapi.HeaderAuth, "Bearer "+c.token)
 	}
 	if c.cookie != "" {
+		// #nosec G124 -- see transport.go: an outgoing cookie header carries no
+		// response directives.
 		header.Set("Cookie", (&http.Cookie{Name: httpapi.SessionCookieName, Value: c.cookie}).String())
 	}
 	header.Set("User-Agent", c.userAgent)
