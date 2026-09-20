@@ -76,7 +76,12 @@ func (c *StoreCredentials) SessionByHash(ctx context.Context, hash string) (*aut
 		}
 		if actor, err := tx.GetActor(ctx, actorID); err == nil {
 			session.Handle = actor.Handle
-			session.Role = actor.Role
+		}
+		// The role is per tenant and lives on the membership, not on the actor,
+		// so a session that read it off the actor would carry no role at all
+		// and be denied every action.
+		if member, err := tx.GetMember(ctx, actorID); err == nil && member != nil {
+			session.Role = member.Role
 		}
 		out = &session
 		return nil

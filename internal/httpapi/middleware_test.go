@@ -2,11 +2,14 @@ package httpapi_test
 
 import (
 	"bytes"
+	"context"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/thereisnotime/tix/internal/auth"
 	"github.com/thereisnotime/tix/internal/core"
 	"github.com/thereisnotime/tix/internal/httpapi"
 )
@@ -297,17 +300,41 @@ func TestRouterRejectsAnIncompleteConfiguration(t *testing.T) {
 }
 
 // The browser surface redirects an anonymous visitor to its own login page, so
-// the API middleware must let it through. Refusing here answered a JSON
-// envelope and made signing in impossible.
-func TestBrowserPathsReachTheWebHandler(t *testing.T) {
-	for _, path := range []string{"/", "/login", "/assets/app.css", "/projects"} {
-		if !httpapi.IsPublicForTest(path) {
-			t.Errorf("%q is refused before the web handler runs", path)
+// an anonymous browser request must reach the web handler rather than being
+// answered with a JSON envelope. Refusing here made signing in impossible.
+// Anything under the API prefix must still be refused.
+func TestAnonymousBrowserRequestsReachTheWebHandler(t *testing.T) {
+	reached := false
+	f := newFixtureWith(t, func(_ *apiFixture, cfg *httpapi.Config) {
+		cfg.Authenticator = abstainingAuthenticator{}
+		cfg.WebHandler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			reached = true
+			w.WriteHeader(http.StatusOK)
+		})
+	})
+
+	for _, path := range []string{"/", "/projects", "/assets/app.css"} {
+		reached = false
+		res := f.do(http.MethodGet, path, f.hostA, "", nil)
+		_ = res.Body.Close()
+		if !reached {
+			t.Errorf("anonymous GET %q never reached the web handler (status %d)", path, res.StatusCode)
 		}
 	}
-	for _, path := range []string{"/api/v1/tasks", "/api/v1/users", "/api/v1/whoami"} {
-		if httpapi.IsPublicForTest(path) {
-			t.Errorf("%q must still require a credential", path)
+
+	for _, path := range []string{"/api/v1/tasks", "/api/v1/users"} {
+		res := f.do(http.MethodGet, path, f.hostA, "", nil)
+		body, _ := io.ReadAll(res.Body)
+		_ = res.Body.Close()
+		if res.StatusCode != http.StatusUnauthorized {
+			t.Errorf("anonymous GET %q = %d, want 401: %s", path, res.StatusCode, body)
 		}
 	}
+}
+
+// abstainingAuthenticator presents no credential, as an anonymous visitor does.
+type abstainingAuthenticator struct{}
+
+func (abstainingAuthenticator) Authenticate(context.Context, *http.Request) (*core.Actor, error) {
+	return nil, auth.ErrNoCredential
 }

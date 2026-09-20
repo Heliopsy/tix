@@ -148,10 +148,6 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 	}
 }
 
-// IsPublicForTest reports whether a path bypasses authentication. Exported for
-// tests in this package's external test files.
-func IsPublicForTest(path string) bool { return isPublicPath(path) }
-
 // Route patterns for component sharing, which moves reusable configuration
 // between projects, tenants and installations.
 const (

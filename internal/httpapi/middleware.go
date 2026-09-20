@@ -291,7 +291,15 @@ func (rt *Router) authenticate(next http.Handler) http.Handler {
 		}
 		actor, err := rt.cfg.Authenticator.Authenticate(r.Context(), r)
 		if err != nil {
-			WriteError(w, err)
+			// The browser surface manages its own session: it redirects an
+			// anonymous visitor to its login page rather than answering with a
+			// JSON envelope. Carrying on without an actor is what lets it do
+			// that. Anything under the API prefix must present a credential.
+			if strings.HasPrefix(r.URL.Path, APIPrefix) {
+				WriteError(w, err)
+				return
+			}
+			next.ServeHTTP(w, r)
 			return
 		}
 		scope, ok := core.TenantFrom(r.Context())
@@ -319,12 +327,5 @@ func isUnscopedPath(path string) bool {
 
 // isPublicPath reports whether a route runs without a credential.
 func isPublicPath(path string) bool {
-	if isUnscopedPath(path) || path == RouteLogin {
-		return true
-	}
-	// The browser surface manages its own session: it redirects an anonymous
-	// visitor to its login page rather than answering with a JSON envelope, so
-	// refusing the request here would make signing in impossible. Anything
-	// under the API prefix still requires a credential.
-	return !strings.HasPrefix(path, APIPrefix)
+	return isUnscopedPath(path) || path == RouteLogin
 }
