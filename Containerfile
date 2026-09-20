@@ -20,7 +20,9 @@ RUN CGO_ENABLED=0 go build \
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=builder /out/tix /usr/local/bin/tix
-USER nonroot:nonroot
+# 65532 is distroless nonroot. Numeric so a host or Kubernetes runAsNonRoot
+# check can resolve it without the image's passwd file.
+USER 65532:65532
 EXPOSE 8080
 ENV TIX_DATABASE_DSN=/data/tix.db
 VOLUME ["/data"]
