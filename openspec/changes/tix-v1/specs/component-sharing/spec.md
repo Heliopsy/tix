@@ -21,7 +21,7 @@ tix SHALL be able to export a named set of reusable components as a self-contain
 
 ### Requirement: Component kinds
 
-A bundle SHALL be able to carry workflows, custom field definitions, tag vocabularies, project templates, webhook endpoint definitions without their secrets, and saved filters. Each kind SHALL be independently selectable, so a user can share one workflow without also sharing unrelated configuration.
+A bundle SHALL be able to carry workflows, custom field definitions, tag vocabularies, project templates, and webhook endpoint definitions without their secrets. Each kind SHALL be independently selectable, so a user can share one workflow without also sharing unrelated configuration. Saved filters are deliberately excluded: tix has no such entity, and inventing one to make it shareable would be a larger change than sharing itself.
 
 #### Scenario: Selecting one kind
 

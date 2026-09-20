@@ -20,6 +20,10 @@ type Service interface {
 	WebhookService
 	TransferService
 	SyncService
+	// BundleService is deliberately not embedded yet: it is embedded once
+	// service.Local implements it, so the tree keeps building while that work
+	// lands rather than carrying a placeholder that hides a missing method.
+	// BundleService
 
 	Close() error
 }
@@ -145,6 +149,134 @@ type TransferService interface {
 	ExportTo(ctx context.Context, in ExportInput, w io.Writer) error
 	// ImportFrom reads a snapshot record by record.
 	ImportFrom(ctx context.Context, r io.Reader, in ImportInput) (*ImportResult, error)
+}
+
+// BundleService covers sharing reusable components between projects, tenants
+// and installations.
+//
+// A bundle carries configuration and never work items, so sharing a way of
+// working cannot disclose what anyone is working on.
+type BundleService interface {
+	// ExportBundle writes the selected components as it walks them.
+	ExportBundle(ctx context.Context, in BundleExportInput, w io.Writer) error
+	// ImportBundle reads a bundle and applies it atomically. With Preview set
+	// it reports what it would do and writes nothing at all.
+	ImportBundle(ctx context.Context, r io.Reader, in BundleImportInput) (*BundleResult, error)
+}
+
+// ComponentKind names a kind of reusable component a bundle can carry.
+type ComponentKind string
+
+// Component kinds. Work items are deliberately absent.
+const (
+	ComponentWorkflow ComponentKind = "workflow"
+	ComponentFieldDef ComponentKind = "field_def"
+	ComponentTag      ComponentKind = "tag"
+	ComponentProject  ComponentKind = "project_template"
+	ComponentWebhook  ComponentKind = "webhook"
+)
+
+// ComponentKinds lists every kind a bundle may carry.
+var ComponentKinds = []ComponentKind{
+	ComponentWorkflow, ComponentFieldDef, ComponentTag, ComponentProject, ComponentWebhook,
+}
+
+// Valid reports whether k is a known component kind.
+func (k ComponentKind) Valid() bool {
+	for _, known := range ComponentKinds {
+		if k == known {
+			return true
+		}
+	}
+	return false
+}
+
+// BundleVersion is the current bundle schema version.
+const BundleVersion = 1
+
+// BundleExportInput selects what a bundle carries.
+type BundleExportInput struct {
+	// Name labels the bundle for the people who receive it.
+	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	// Kinds restricts the export. Empty exports every kind the selectors reach.
+	Kinds []ComponentKind `json:"kinds,omitempty" yaml:"kinds,omitempty"`
+	// WorkflowKeys, ProjectRefs and WebhookIDs select individual components.
+	WorkflowKeys []string `json:"workflow_keys,omitempty" yaml:"workflow_keys,omitempty"`
+	ProjectRefs  []string `json:"project_refs,omitempty" yaml:"project_refs,omitempty"`
+	WebhookIDs   []string `json:"webhook_ids,omitempty" yaml:"webhook_ids,omitempty"`
+}
+
+// Validate checks the selection.
+func (in BundleExportInput) Validate() error {
+	for _, k := range in.Kinds {
+		if !k.Valid() {
+			return Invalid("component kind %q is not one this build can share", k)
+		}
+	}
+	return nil
+}
+
+// CollisionPolicy decides what an import does when a component's key is taken.
+type CollisionPolicy string
+
+// Collision policies. There is deliberately no default, because replacing a
+// component somebody else is using should never be implicit.
+const (
+	CollisionSkip    CollisionPolicy = "skip"
+	CollisionRename  CollisionPolicy = "rename"
+	CollisionReplace CollisionPolicy = "replace"
+)
+
+// BundleImportInput controls an import.
+type BundleImportInput struct {
+	OnCollision CollisionPolicy `json:"on_collision" yaml:"on_collision"`
+	// Preview reports the plan and writes nothing, not even an audit entry.
+	Preview bool `json:"preview,omitempty" yaml:"preview,omitempty"`
+	// ProjectRef targets project-scoped components such as field definitions.
+	ProjectRef string `json:"project_ref,omitempty" yaml:"project_ref,omitempty"`
+}
+
+// Validate checks the input.
+func (in BundleImportInput) Validate() error {
+	switch in.OnCollision {
+	case CollisionSkip, CollisionRename, CollisionReplace:
+		return nil
+	case "":
+		return Invalid("a collision policy is required; there is no default because replace overwrites a component others may be using")
+	default:
+		return Invalid("collision policy %q must be %q, %q or %q",
+			in.OnCollision, CollisionSkip, CollisionRename, CollisionReplace)
+	}
+}
+
+// ComponentAction names what an import did, or would do, to one component.
+type ComponentAction string
+
+// Component actions.
+const (
+	ActionCreated ComponentAction = "created"
+	ActionUpdated ComponentAction = "updated"
+	ActionRenamed ComponentAction = "renamed"
+	ActionSkipped ComponentAction = "skipped"
+)
+
+// ComponentOutcome reports what happened to one component.
+type ComponentOutcome struct {
+	Kind   ComponentKind   `json:"kind" yaml:"kind"`
+	Key    string          `json:"key" yaml:"key"`
+	Action ComponentAction `json:"action" yaml:"action"`
+	// NewKey is set when the component was renamed to avoid a collision.
+	NewKey string `json:"new_key,omitempty" yaml:"new_key,omitempty"`
+	Reason string `json:"reason,omitempty" yaml:"reason,omitempty"`
+}
+
+// BundleResult reports an import, or what a preview would have done.
+type BundleResult struct {
+	BundleName    string             `json:"bundle_name,omitempty" yaml:"bundle_name,omitempty"`
+	BundleVersion int                `json:"bundle_version" yaml:"bundle_version"`
+	Outcomes      []ComponentOutcome `json:"outcomes" yaml:"outcomes"`
+	Warnings      []string           `json:"warnings,omitempty" yaml:"warnings,omitempty"`
+	Preview       bool               `json:"preview" yaml:"preview"`
 }
 
 // SyncService covers one-way import from external systems.
