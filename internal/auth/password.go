@@ -37,6 +37,13 @@ func TestParams() Params {
 	return Params{Memory: 64, Time: 1, Threads: 1, SaltLength: 16, KeyLength: 32}
 }
 
+// Bounds on decoded hash components. The encoded hash is attacker-controlled on
+// the verify path, so its lengths are checked before any conversion.
+const (
+	MaxSaltLength = 1024
+	MaxKeyLength  = 1024
+)
+
 // Validate reports whether the parameters can produce a usable hash.
 func (p Params) Validate() error {
 	switch {
@@ -50,6 +57,10 @@ func (p Params) Validate() error {
 		return core.Invalid("argon2id salt must be at least 8 bytes")
 	case p.KeyLength < 16:
 		return core.Invalid("argon2id key must be at least 16 bytes")
+	case p.SaltLength > MaxSaltLength:
+		return core.Invalid("argon2id salt must be at most %d bytes", MaxSaltLength)
+	case p.KeyLength > MaxKeyLength:
+		return core.Invalid("argon2id key must be at most %d bytes", MaxKeyLength)
 	}
 	return nil
 }
@@ -161,8 +172,11 @@ func decode(encoded string) (Params, []byte, []byte, error) {
 	if err != nil {
 		return Params{}, nil, nil, core.Unauthenticated("malformed password hash key")
 	}
-	p.SaltLength = uint32(len(salt))
-	p.KeyLength = uint32(len(key))
+	if len(salt) > MaxSaltLength || len(key) > MaxKeyLength {
+		return Params{}, nil, nil, core.Unauthenticated("malformed password hash")
+	}
+	p.SaltLength = uint32(len(salt)) // #nosec G115 -- bounded by MaxSaltLength above
+	p.KeyLength = uint32(len(key))   // #nosec G115 -- bounded by MaxKeyLength above
 	if err := p.Validate(); err != nil {
 		return Params{}, nil, nil, core.Unauthenticated("malformed password hash parameters")
 	}

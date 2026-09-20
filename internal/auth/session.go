@@ -134,8 +134,12 @@ func (v *SessionVerifier) Verify(ctx context.Context, token string) (*core.Actor
 }
 
 // NewSessionCookie builds the session cookie, marking it Secure under TLS.
+//
+// HttpOnly and SameSite are always set. Secure follows the caller, because the
+// server binds loopback over plain HTTP by default and a Secure cookie would
+// never be sent there; a non-loopback bind requires TLS or an explicit opt-out.
 func NewSessionCookie(token string, expires time.Time, secure bool) *http.Cookie {
-	return &http.Cookie{
+	return &http.Cookie{ // #nosec G124 -- HttpOnly and SameSite are always set; Secure tracks TLS, see above
 		Name:     SessionCookieName,
 		Value:    token,
 		Path:     "/",
@@ -148,6 +152,7 @@ func NewSessionCookie(token string, expires time.Time, secure bool) *http.Cookie
 
 // ClearSessionCookie builds the cookie that removes a session from the browser.
 func ClearSessionCookie(secure bool) *http.Cookie {
+	// #nosec G124 -- delegates to NewSessionCookie, which sets HttpOnly and SameSite.
 	c := NewSessionCookie("", time.Unix(0, 0).UTC(), secure)
 	c.MaxAge = -1
 	return c

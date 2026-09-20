@@ -1,0 +1,15 @@
+# Accepted findings. Each entry states why, and how to re-check it.
+#
+# GO-2026-5932 / golang.org/x/crypto
+#   The advisory is that golang.org/x/crypto/openpgp is unmaintained and unsafe
+#   by design. It has no fix because the whole module version range is flagged,
+#   and trivy matches on module version rather than on reachability.
+#
+#   We import golang.org/x/crypto/argon2 for password hashing. openpgp is not in
+#   the build at all. Verify with:
+#       go list -deps ./... | grep -i openpgp      # expect no output
+#       just vuln                                   # govulncheck: not called
+#
+#   Remove this entry if openpgp ever enters the dependency graph.
+GO-2026-5932
+CVE-2026-5932
