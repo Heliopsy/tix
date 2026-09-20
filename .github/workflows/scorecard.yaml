@@ -12,6 +12,9 @@ permissions: read-all
 jobs:
   analysis:
     name: Scorecard analysis
+    # Scorecard cannot read a private repository. This becomes active
+    # automatically when the repo is made public at v0.1.0.
+    if: github.event.repository.visibility == 'public'
     runs-on: ubuntu-latest
     permissions:
       security-events: write
