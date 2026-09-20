@@ -1,0 +1,11 @@
+bin/
+dist/
+*.exe
+*.test
+coverage.out
+coverage.filtered.out
+coverage.html
+.env
+*.db
+*.db-wal
+*.db-shm

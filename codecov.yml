@@ -1,0 +1,11 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 80%
+        threshold: 2%
+  ignore:
+    - "main.go"
+    # bubbletea View() rendering is string-producing and low-value to unit test;
+    # the logic it renders lives in pure functions that are covered.
+    - "internal/tui/**"

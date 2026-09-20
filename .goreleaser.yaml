@@ -1,0 +1,49 @@
+version: 2
+project_name: tix
+before:
+  hooks:
+    - go mod tidy
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X github.com/thereisnotime/tix/internal/version.Version={{.Version}}
+      - -X github.com/thereisnotime/tix/internal/version.Commit={{.Commit}}
+      - -X github.com/thereisnotime/tix/internal/version.Date={{.Date}}
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+checksum:
+  name_template: "checksums.txt"
+
+signs:
+  - cmd: cosign
+    args:
+      - sign-blob
+      - --bundle=${artifact}.bundle
+      - ${artifact}
+      - --yes
+    signature: ${artifact}.bundle
+    artifacts: checksum
+
+sboms:
+  - artifacts: archive
+
+changelog:
+  use: github
+  format: "{{.SHA}}: {{.Message}} (@{{.AuthorUsername}})"
+  sort: asc
+  filters:
+    exclude: ['^docs:', '^test:', '^ci:']
+
+release:
+  footer: |
+    **Full changelog**: See [CHANGELOG.md](https://github.com/thereisnotime/tix/blob/main/CHANGELOG.md)

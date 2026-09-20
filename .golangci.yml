@@ -1,0 +1,48 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - errorlint
+    - forbidigo
+    - gocritic
+    - misspell
+    - nilerr
+    - revive
+    - unconvert
+    - usestdlibvars
+    - wastedassign
+
+  settings:
+    forbidigo:
+      # Tenant isolation is structural: every statement must be built by the
+      # scoped query builder in internal/store/sql, which requires a TenantScope.
+      # Raw database calls would bypass that guarantee.
+      forbid:
+        - pattern: '^\(\*database/sql\.DB\)\.(Query|QueryRow|Exec)(Context)?$'
+          msg: "use the tenant-scoped query builder in internal/store/sql; raw DB calls bypass tenant isolation"
+        - pattern: '^fmt\.Print(f|ln)?$'
+          msg: "write to the command's configured writer, not stdout directly"
+      analyze-types: true
+
+    revive:
+      rules:
+        - name: exported
+        - name: package-comments
+
+  exclusions:
+    rules:
+      # The query builder itself is the one place raw database calls belong.
+      - path: 'internal/store/sql/'
+        linters: [forbidigo]
+      # Tests may print and may build ad-hoc queries to verify isolation.
+      - path: '_test\.go'
+        linters: [forbidigo, errcheck]
+
+formatters:
+  enable:
+    - gofmt

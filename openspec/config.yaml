@@ -1,0 +1,31 @@
+schema: spec-driven
+
+context: |
+  tix is a multi-tenant task management system for humans and AI agents, written in Go.
+  A single binary provides CLI, TUI, HTTP REST API, WebSocket event stream, and a web UI,
+  all backed by one service layer so every access path shares identical business rules.
+  Agents claim tasks via an atomic compare-and-swap with a TTL lease, so a crashed agent's
+  task returns to the queue. Humans get boards, custom workflows, and custom fields.
+  Tech stack: Go, Cobra CLI, database/sql over modernc.org/sqlite (pure Go, no cgo) and
+  jackc/pgx/v5, coder/websocket, charmbracelet/bubbletea, html/template + go:embed.
+  Storage: SQLite for local/dev, PostgreSQL for shared deployments. Target scale 1M+ tasks.
+  Distribution: GitHub Releases (GoReleaser), container images, go install.
+  Licence: AGPL-3.0 with a CLA.
+
+rules:
+  specs:
+    - Requirements use SHALL language (RFC 2119)
+    - Every requirement must have at least one Scenario
+    - Scenarios describe observable behaviour, not implementation details
+  design:
+    - Separate cmd/ (Cobra layer) from internal/ (business logic) — no Cobra imports in internal/
+    - internal/core imports only the standard library
+    - Business rules and authorization live only in internal/service; internal/client performs no validation
+    - Every mutation writes its audit entry and outbox event in the same transaction as the domain rows
+    - Every query is tenant-scoped through store/sql's builder; raw query construction is forbidden
+    - All list queries are keyset-paginated; OFFSET is never used
+    - Every operation must exist in the capability registry with CLI, HTTP, and Web bindings
+    - Builds must stay CGO_ENABLED=0 so cross-compilation keeps working
+  tasks:
+    - Tasks map 1:1 to files or discrete behaviours, not broad phases
+    - Mark tasks complete as soon as the code ships, not when the PR merges
