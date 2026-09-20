@@ -29,6 +29,11 @@ with the thing.
 - Coming from another tracker: [migrating.md](migrating.md).
 - Building a client: [api.md](api.md).
 
+## Screenshots
+
+[screenshots/](screenshots/README.md) shows the command line, the terminal
+interface and the browser interface over the same store.
+
 ## Elsewhere
 
 | Document | Contents |
