@@ -5,7 +5,7 @@ Captured against a seeded demo database on the commit that added them.
 | File | Surface |
 | --- | --- |
 | [cli-task-list.png](cli-task-list.png) | `tix task ls` |
-| [cli-task-show.png](cli-task-show.png) | `tix task show` |
+| [cli-task-show.png](cli-task-show.png) | `tix task show -o yaml` |
 | [cli-agent.png](cli-agent.png) | `tix claim next -o json` and NDJSON piped through `jq`, the agent path |
 | [tui-board.png](tui-board.png) | `tix tui`, the workflow board |
 | [web-task-list.png](web-task-list.png) | Browser task list |

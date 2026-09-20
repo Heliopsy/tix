@@ -102,6 +102,16 @@ by a test that fails the build when an operation lacks a binding.
 | WebSocket | Subscribe to events, resume from a cursor after a reconnect |
 | Web UI | Server-rendered, no JavaScript build step, works without JavaScript |
 
+## Screenshots
+
+The same store, three ways in. More in [screenshots/](screenshots/README.md).
+
+| Command line | Terminal |
+| --- | --- |
+| [![Task list on the command line](screenshots/cli-task-list.png)](screenshots/cli-task-list.png) | [![Workflow board in the terminal](screenshots/tui-board.png)](screenshots/tui-board.png) |
+
+[![Task detail in the browser](screenshots/web-task-detail.png)](screenshots/web-task-detail.png)
+
 ## Quick start
 
 ```sh
