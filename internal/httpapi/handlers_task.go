@@ -1,7 +1,9 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -105,7 +107,92 @@ func taskFilterFrom(r *http.Request) (core.TaskFilter, error) {
 	if f.DueAfter, err = timeParam(q.Get("due_after")); err != nil {
 		return core.TaskFilter{}, err
 	}
+	if f.CustomFields, err = customFieldsFrom(q); err != nil {
+		return core.TaskFilter{}, err
+	}
 	return f.Validate()
+}
+
+// FieldFilterPrefix marks a query parameter that filters on a custom field, as
+// in "?field.severity=high".
+const FieldFilterPrefix = "field."
+
+// FieldFilterParam carries custom field filters as one typed JSON object, which
+// is how a machine client keeps a numeric field numeric.
+const FieldFilterParam = "custom_fields"
+
+// customFieldsFrom reads custom field filters from the query string. A key given
+// both as an object entry and as a shorthand parameter takes the shorthand.
+func customFieldsFrom(q url.Values) (map[string]any, error) {
+	out := map[string]any{}
+	if raw := strings.TrimSpace(q.Get(FieldFilterParam)); raw != "" {
+		var decoded map[string]any
+		if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+			return nil, core.Invalid("%s must be a JSON object", FieldFilterParam)
+		}
+		for key, value := range decoded {
+			if err := putFieldFilter(out, key, value); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for param, values := range q {
+		key, ok := strings.CutPrefix(param, FieldFilterPrefix)
+		if !ok {
+			continue
+		}
+		if len(values) != 1 {
+			return nil, core.Invalid("custom field filter %q takes one value", key)
+		}
+		if err := putFieldFilter(out, key, fieldFilterValue(values[0])); err != nil {
+			return nil, err
+		}
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
+}
+
+// putFieldFilter records one filter, refusing a key the store cannot address
+// and a value it cannot compare.
+func putFieldFilter(out map[string]any, key string, value any) error {
+	if !validFieldKey(key) {
+		return core.Invalid("custom field key %q must hold only letters, digits, underscores and dashes", key)
+	}
+	switch value.(type) {
+	case string, bool, float64:
+		out[key] = value
+		return nil
+	default:
+		return core.Invalid("custom field filter %q takes a string, number or boolean", key)
+	}
+}
+
+// fieldFilterValue types a shorthand value as the JSON scalar it spells, so that
+// a number filters a number and a quoted number filters a string. Anything that
+// is not JSON at all stays the string it was typed as.
+func fieldFilterValue(raw string) any {
+	var decoded any
+	if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+		return raw
+	}
+	return decoded
+}
+
+// validFieldKey mirrors what the stores accept in a JSON path.
+func validFieldKey(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9', c == '_', c == '-':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // triState reads an optional boolean filter.

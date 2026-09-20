@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -149,22 +150,31 @@ func (t *tx) CreateTask(ctx context.Context, task *core.Task) error {
 	return nil
 }
 
-// NextSeq reserves the next per-project task number. The project row is locked
-// first, so two concurrent writers cannot read the same highest number.
+// NextSeq reserves the next per-project task number by advancing the project's
+// counter, which never moves backwards however many tasks are hard deleted. The
+// update takes the project's row lock, so a concurrent allocation waits for this
+// transaction and then increments the committed value rather than the same one.
 func (t *tx) NextSeq(ctx context.Context, projectID string) (int64, error) {
-	lock := t.builder("projects").Select("1").Where("id = ?", projectID).Limit(1)
-	lockQuery, lockArgs := lock.SelectQuery()
-	if _, err := t.ex.ExecContext(ctx, lockQuery+" FOR UPDATE", lockArgs...); err != nil {
-		return 0, mapErr(err, "locking project %q", projectID)
+	b := t.builder("projects").
+		Where("projects.id = ?", projectID).
+		SetExpr("seq_counter", "seq_counter + 1")
+	q, args, err := b.UpdateQuery()
+	if err != nil {
+		return 0, err
 	}
-	b := t.builder("tasks").
-		Select("COALESCE(MAX(tasks.seq), 0) + 1").
-		Where("tasks.project_id = ?", projectID)
-	q, args := b.SelectQuery()
+	const what = "reserving next task number for project %q"
+	if err := t.savepoint(ctx, what, projectID); err != nil {
+		return 0, err
+	}
 	var seq int64
-	if err := t.ex.QueryRowContext(ctx, q, args...).Scan(&seq); err != nil {
-		return 0, mapErr(err, "reserving next task number for project %q", projectID)
+	if err := t.ex.QueryRowContext(ctx, q+" RETURNING seq_counter", args...).Scan(&seq); err != nil {
+		t.rollbackToSavepoint(ctx)
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, core.NotFound("project %q", projectID)
+		}
+		return 0, mapErr(err, what, projectID)
 	}
+	t.releaseSavepoint(ctx)
 	return seq, nil
 }
 

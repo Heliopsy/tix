@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -449,6 +450,20 @@ func TestTaskFilterQueryCarriesEveryField(t *testing.T) {
 		if !strings.Contains(got.query, want) {
 			t.Errorf("query %q missing %q", got.query, want)
 		}
+	}
+}
+
+func TestTaskFilterQueryKeepsCustomFieldTypes(t *testing.T) {
+	c, got := newClient(t, okHandler)
+	_, err := c.ListTasks(context.Background(), core.TaskFilter{
+		CustomFields: map[string]any{"points": 3},
+	})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	want := "custom_fields=" + url.QueryEscape(`{"points":3}`)
+	if !strings.Contains(got.query, want) {
+		t.Fatalf("query = %q, want %q", got.query, want)
 	}
 }
 

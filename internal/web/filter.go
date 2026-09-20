@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +16,10 @@ var filterKeys = []string{
 	"project", "status", "tag", "assignee", "creator", "priority",
 	"claimed", "blocked", "parent", "deleted", "due-before", "due-after",
 }
+
+// customFieldPrefix marks a term that filters on a custom field, as in
+// "field.severity:high".
+const customFieldPrefix = "field."
 
 // filterTimeLayouts are the timestamp forms a filter term may take.
 var filterTimeLayouts = []string{time.RFC3339, "2006-01-02T15:04:05", "2006-01-02"}
@@ -35,7 +40,14 @@ func ParseFilter(expression string) (core.TaskFilter, error) {
 			words = append(words, term)
 			continue
 		}
-		if err := applyTerm(&filter, strings.ToLower(strings.TrimSpace(key)), strings.TrimSpace(value)); err != nil {
+		name, value := strings.TrimSpace(key), strings.TrimSpace(value)
+		if field, ok := strings.CutPrefix(name, customFieldPrefix); ok {
+			if err := applyCustomField(&filter, field, value); err != nil {
+				return core.TaskFilter{}, err
+			}
+			continue
+		}
+		if err := applyTerm(&filter, strings.ToLower(name), value); err != nil {
 			return core.TaskFilter{}, err
 		}
 	}
@@ -107,9 +119,50 @@ func applyTerm(filter *core.TaskFilter, key, value string) error {
 	case "due-after":
 		return applyTime(&filter.DueAfter, key, value)
 	default:
-		return core.Invalid("filter term %q is not one of %s", key, strings.Join(filterKeys, ", "))
+		return core.Invalid("filter term %q is not one of %s, or a field.<key> term",
+			key, strings.Join(filterKeys, ", "))
 	}
 	return nil
+}
+
+// applyCustomField folds a "field.<key>:<value>" term into the filter. The value
+// takes the type of the JSON scalar it spells, so a number filters a number.
+func applyCustomField(filter *core.TaskFilter, key, value string) error {
+	if value == "" {
+		return core.Invalid("filter term %q has no value", customFieldPrefix+key)
+	}
+	if !validFieldKey(key) {
+		return core.Invalid("custom field key %q must hold only letters, digits, underscores and dashes", key)
+	}
+	var decoded any
+	if err := json.Unmarshal([]byte(value), &decoded); err != nil {
+		decoded = value
+	}
+	switch decoded.(type) {
+	case string, bool, float64:
+	default:
+		return core.Invalid("custom field filter %q takes a string, number or boolean", key)
+	}
+	if filter.CustomFields == nil {
+		filter.CustomFields = map[string]any{}
+	}
+	filter.CustomFields[key] = decoded
+	return nil
+}
+
+// validFieldKey mirrors what the stores accept in a JSON path.
+func validFieldKey(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9', c == '_', c == '-':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // applyPriority folds a priority term into the filter.

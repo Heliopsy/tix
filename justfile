@@ -203,3 +203,23 @@ ci: tidy-check fmt-check vet lint build test-postgres cover-check sec vuln trivy
 # Run a single named CI job in isolation, e.g. `just ci-job sec`.
 ci-job JOB:
     just {{JOB}}
+
+# ---------------------------------------------------------------- bench
+
+# Latency budgets at the default small fixture, including postgres when it is up.
+bench-budgets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if {{engine}} exec {{pg_name}} pg_isready -U tix -q 2>/dev/null; then
+      export TIX_TEST_POSTGRES_DSN='{{pg_dsn}}'
+      echo "postgres: included"
+    else
+      echo "postgres: not running, its run will skip (run: just pg-up)"
+    fi
+    go test ./internal/bench/ -v -run 'Test' -count=1
+
+# The design target: a million tasks over fifty projects and five tenants.
+# Seeding takes minutes; see internal/bench/README.md before running it.
+bench-full ENGINE="postgres": pg-up
+    TIX_BENCH_SIZE=full TIX_BENCH_ENGINE={{ENGINE}} TIX_TEST_POSTGRES_DSN='{{pg_dsn}}' \
+      go test ./internal/bench/ -v -run 'Test' -count=1 -timeout 3h

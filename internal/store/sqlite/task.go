@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"strconv"
 	"strings"
 
@@ -165,14 +166,21 @@ func (t *tx) CreateTask(ctx context.Context, task *core.Task) error {
 	return nil
 }
 
-// NextSeq reserves the next per-project task number.
+// NextSeq reserves the next per-project task number by advancing the project's
+// counter, which never moves backwards however many tasks are hard deleted.
 func (t *tx) NextSeq(ctx context.Context, projectID string) (int64, error) {
-	b := t.builder("tasks").
-		Select("COALESCE(MAX(tasks.seq), 0) + 1").
-		Where("tasks.project_id = ?", projectID)
-	q, args := b.SelectQuery()
+	b := t.builder("projects").
+		Where("projects.id = ?", projectID).
+		SetExpr("seq_counter", "seq_counter + 1")
+	q, args, err := b.UpdateQuery()
+	if err != nil {
+		return 0, err
+	}
 	var seq int64
-	if err := t.ex.QueryRowContext(ctx, q, args...).Scan(&seq); err != nil {
+	if err := t.ex.QueryRowContext(ctx, q+" RETURNING seq_counter", args...).Scan(&seq); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, core.NotFound("project %q", projectID)
+		}
 		return 0, mapErr(err, "reserving next task number for project %q", projectID)
 	}
 	return seq, nil

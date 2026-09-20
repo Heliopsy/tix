@@ -10,3 +10,4 @@ coverage.html
 *.db-wal
 *.db-shm
 trivy.sarif
+.screenshots/

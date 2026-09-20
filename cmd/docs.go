@@ -86,15 +86,31 @@ func newCompletionCmd(_ *globals) *cobra.Command {
 
 // newDocsCmd builds the documentation generator.
 func newDocsCmd(_ *globals) *cobra.Command {
-	var dir string
+	var (
+		dir   string
+		table bool
+		depth int
+	)
 	cmd := &cobra.Command{
-		Use:     "docs",
-		Short:   "Emit the command tree as Markdown",
-		Long:    "Emit reference documentation for every command as Markdown.\n\nExit codes: 1 the output directory could not be written.",
-		Example: "  tix docs > docs/cli.md\n  tix docs --dir docs/cli",
+		Use:   "docs",
+		Short: "Emit the command tree as Markdown",
+		Long: "Emit reference documentation for every command as Markdown.\n\n" +
+			"--table emits the command summary table README.md carries, grouped the way " +
+			"the root help groups commands.\n\n" +
+			"Exit codes: 1 the output directory could not be written, 2 an unusable flag combination.",
+		Example: "  tix docs > docs/cli.md\n  tix docs --dir docs/cli\n  tix docs --table --depth 2",
 		GroupID: "setup",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if table {
+				if dir != "" {
+					return usagef(cmd, "--table writes one document and cannot be combined with --dir")
+				}
+				if depth < 1 {
+					return usagef(cmd, "--depth must be at least 1")
+				}
+				return writeCommandTable(cmd.OutOrStdout(), cmd.Root(), depth)
+			}
 			if dir == "" {
 				return writeMarkdown(cmd.OutOrStdout(), cmd.Root())
 			}
@@ -104,8 +120,63 @@ func newDocsCmd(_ *globals) *cobra.Command {
 			return writeMarkdownTree(dir, cmd.Root())
 		},
 	}
-	cmd.Flags().StringVar(&dir, "dir", "", "write one file per command into this directory")
+	f := cmd.Flags()
+	f.StringVar(&dir, "dir", "", "write one file per command into this directory")
+	f.BoolVar(&table, "table", false, "emit the grouped command summary table instead of full pages")
+	f.IntVar(&depth, "depth", 1, "levels of the command tree the table covers")
 	return cmd
+}
+
+// writeCommandTable renders the command tree as one Markdown table per group.
+func writeCommandTable(w io.Writer, root *cobra.Command, depth int) error {
+	b := &strings.Builder{}
+	for _, group := range root.Groups() {
+		rows := tableRows(root, group.ID, depth)
+		if len(rows) == 0 {
+			continue
+		}
+		fmt.Fprintf(b, "### %s\n\n", strings.TrimSuffix(group.Title, ":"))
+		b.WriteString("| Command | Does |\n| --- | --- |\n")
+		for _, r := range rows {
+			fmt.Fprintf(b, "| `%s` | %s |\n", r.path, r.short)
+		}
+		b.WriteString("\n")
+	}
+	_, err := io.WriteString(w, strings.TrimRight(b.String(), "\n")+"\n")
+	return err
+}
+
+// tableRow is one command's line in the summary table.
+type tableRow struct {
+	path  string
+	short string
+}
+
+// tableRows collects the commands of one group down to the requested depth.
+func tableRows(root *cobra.Command, groupID string, depth int) []tableRow {
+	var rows []tableRow
+	var walk func(cmd *cobra.Command, level int)
+	walk = func(cmd *cobra.Command, level int) {
+		for _, sub := range cmd.Commands() {
+			if !sub.IsAvailableCommand() || sub.Name() == "help" {
+				continue
+			}
+			rows = append(rows, tableRow{path: sub.CommandPath(), short: sub.Short})
+			if level < depth {
+				walk(sub, level+1)
+			}
+		}
+	}
+	for _, top := range root.Commands() {
+		if !top.IsAvailableCommand() || top.GroupID != groupID {
+			continue
+		}
+		rows = append(rows, tableRow{path: top.CommandPath(), short: top.Short})
+		if depth > 1 {
+			walk(top, 2)
+		}
+	}
+	return rows
 }
 
 // writeMarkdownTree writes one Markdown file per command.

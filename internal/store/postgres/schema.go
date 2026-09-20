@@ -88,6 +88,10 @@ func runMigrations(ctx context.Context, db *sql.DB, clk clock.Clock) error {
 	return nil
 }
 
+// firstMigration is the version that creates the portable schema; the
+// Postgres-only adjustments are layered onto it once.
+const firstMigration = 1
+
 func applyMigration(ctx context.Context, db *sql.DB, m migrations.Migration, clk clock.Clock) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
@@ -99,7 +103,13 @@ func applyMigration(ctx context.Context, db *sql.DB, m migrations.Migration, clk
 	if err != nil {
 		return err
 	}
-	stmts = append(stmts, adjustments(clk.Now())...)
+	// The adjustments add Postgres-only structure over the portable schema:
+	// search columns, partitions and row-level security policies. None of them
+	// is idempotent, so running them after every migration makes the second
+	// migration fail on a column that already exists.
+	if m.Version == firstMigration {
+		stmts = append(stmts, adjustments(clk.Now())...)
+	}
 	for _, stmt := range stmts {
 		if _, err := tx.ExecContext(ctx, stmt); err != nil {
 			return core.Internal("migration %d (%s): %s", m.Version, m.Name, truncate(stmt)).Wrap(err)

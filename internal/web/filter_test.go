@@ -36,6 +36,14 @@ func TestParseFilterSharesTheCLIGrammar(t *testing.T) {
 			core.TaskFilter{Tags: []string{"ops"}, Query: "two words"}},
 		{"mixed", "project:infra urgent", core.TaskFilter{
 			ProjectKeys: []string{"infra"}, Query: "urgent"}},
+		{"custom field", "field.severity:high",
+			core.TaskFilter{CustomFields: map[string]any{"severity": "high"}}},
+		{"two custom fields", "field.severity:high field.team:infra",
+			core.TaskFilter{CustomFields: map[string]any{"severity": "high", "team": "infra"}}},
+		{"numeric custom field", "field.points:3",
+			core.TaskFilter{CustomFields: map[string]any{"points": float64(3)}}},
+		{"custom field keeps its case", "field.storyPoints:3",
+			core.TaskFilter{CustomFields: map[string]any{"storyPoints": float64(3)}}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -74,6 +82,10 @@ func TestParseFilterReportsMalformedExpressions(t *testing.T) {
 		"status:",
 		`tag:"unclosed`,
 		"due-before:never",
+		"field.:high",
+		"field.bad$key:high",
+		"field.severity:",
+		"field.severity:null",
 	}
 	for _, expression := range cases {
 		t.Run(expression, func(t *testing.T) {
