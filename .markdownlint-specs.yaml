@@ -1,0 +1,9 @@
+# Config for openspec/. Specs are normative prose; hard-wrapping requirement
+# sentences adds no quality and makes every spec diff noisy. Every other rule
+# still applies.
+default: true
+MD013: false
+MD024:
+  siblings_only: true
+MD033: false
+MD041: false

@@ -31,7 +31,7 @@ tix starts from the assumption that a worker may be a process:
 One binary, one service layer, five ways in:
 
 | | |
-|---|---|
+| --- | --- |
 | CLI | UNIX-composable, `-o table\|json\|yaml`, meaningful exit codes, zero config |
 | TUI | terminal board for interactive use |
 | HTTP API | `/api/v1`, keyset paginated, consistent error envelope |

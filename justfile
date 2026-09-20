@@ -101,7 +101,9 @@ lint: (tool "golangci-lint" "run" "./...")
 actionlint: (tool "actionlint")
 hadolint: (tool "hadolint" "Containerfile" "Containerfile.ci")
 yamllint: (tool "yamllint" ".")
-mdlint: (tool "markdownlint" "**/*.md")
+# Two passes: specs are prose and exempt from line length, everything else is not.
+mdlint: (tool "markdownlint" "--ignore" "node_modules" "--ignore" "openspec" ".") \
+        (tool "markdownlint" "--config" ".markdownlint-specs.yaml" "openspec")
 sec: (tool "gosec" "./...")
 vuln: (tool "govulncheck" "./...")
 trivy: (tool "trivy" "fs" "--severity" "CRITICAL,HIGH" "--exit-code" "1" ".")

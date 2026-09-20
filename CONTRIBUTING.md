@@ -40,7 +40,7 @@ than approximating it. The first run builds that image.
 
 [Conventional Commits](https://www.conventionalcommits.org/), enforced by a commit-msg hook:
 
-```
+```text
 <type>[optional scope]: <description>
 
 Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
