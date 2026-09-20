@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/thereisnotime/tix/internal/auth"
@@ -47,6 +48,8 @@ func (h *handler) doLogin(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	http.SetCookie(w, auth.NewSessionCookie(session.Token, session.ExpiresAt, h.secure))
+	// #nosec G710 -- safeNext rejects anything that is not a relative path on
+	// this origin, including protocol-relative, backslash and control forms.
 	http.Redirect(w, r, safeNext(field(r, "next")), http.StatusSeeOther)
 	return nil
 }
@@ -63,10 +66,20 @@ func (h *handler) doLogout(w http.ResponseWriter, r *http.Request) error {
 
 // safeNext keeps a post-login redirect on this origin.
 func safeNext(next string) string {
-	if strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") {
-		return next
+	if !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
+		return RouteProjects
 	}
-	return RouteProjects
+	// A backslash is treated as a separator by some browsers, so "/\evil.com"
+	// can navigate off-site despite the leading slash. A control character can
+	// split the header. Parse it and require a purely relative reference.
+	if strings.ContainsAny(next, "\\\r\n\t") {
+		return RouteProjects
+	}
+	u, err := url.Parse(next)
+	if err != nil || u.IsAbs() || u.Host != "" || u.Scheme != "" {
+		return RouteProjects
+	}
+	return u.String()
 }
 
 // activityView is what the activity screen renders.

@@ -275,6 +275,8 @@ func issuedToken(w http.ResponseWriter, r *http.Request) string {
 	if err != nil || cookie.Value == "" {
 		return ""
 	}
+	// #nosec G124 -- this clears the cookie (MaxAge -1). HttpOnly and SameSite
+	// are set; Secure follows the deployment and is applied where it is issued.
 	http.SetCookie(w, &http.Cookie{Name: issuedTokenCookie, Path: RouteTokens,
 		MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode})
 	return cookie.Value

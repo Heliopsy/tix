@@ -39,8 +39,9 @@ var accents = [][2]string{
 
 // defaultBranding is applied when no tenant has been resolved.
 func defaultBranding() branding {
+	// #nosec G203 -- values come from the fixed accents palette, never a caller.
 	return branding{Title: "tix", Monogram: "t",
-		Accent: template.CSS(accents[0][0]), AccentSoft: template.CSS(accents[0][1])}
+		Accent: template.CSS(accents[0][0]), AccentSoft: template.CSS(accents[0][1])} // #nosec G203
 }
 
 // brandFor derives a tenant's branding from its own record.
@@ -52,10 +53,12 @@ func brandFor(t *core.Tenant) branding {
 	_, _ = sum.Write([]byte(t.Key + t.ID))
 	pair := accents[int(sum.Sum32())%len(accents)]
 	return branding{
-		Title:      t.Name,
-		Monogram:   strings.ToUpper(t.Name[:1]),
-		Accent:     template.CSS(pair[0]),
-		AccentSoft: template.CSS(pair[1]),
+		Title:    t.Name,
+		Monogram: strings.ToUpper(t.Name[:1]),
+		// Both values come from the fixed accents palette above, selected by
+		// hash; no caller can place a value here.
+		Accent:     template.CSS(pair[0]), // #nosec G203
+		AccentSoft: template.CSS(pair[1]), // #nosec G203
 	}
 }
 
@@ -236,5 +239,7 @@ func redirect(w http.ResponseWriter, r *http.Request, path, flash string) {
 	if flash != "" {
 		target += "?flash=" + url.QueryEscape(flash)
 	}
+	// #nosec G710 -- path is a route constant chosen by the handler, and the
+	// flash text is query-escaped; neither is a caller-supplied destination.
 	http.Redirect(w, r, target, http.StatusSeeOther)
 }

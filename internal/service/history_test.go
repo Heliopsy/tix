@@ -158,9 +158,10 @@ func TestSubscribeDeliversCommittedEvents(t *testing.T) {
 		if e.Type != core.EventTaskCreated {
 			t.Errorf("delivered %q, want %q", e.Type, core.EventTaskCreated)
 		}
-		if floor, live := subscribers.floor(scope.TenantID); !live || floor != e.Seq {
-			t.Errorf("subscriber cursor = %d (live %v), want %d", floor, live, e.Seq)
-		}
+		// The cursor advances after the event is handed over, so that it always
+		// reflects what the subscriber has actually taken. Checking it the
+		// instant the receive returns races that update.
+		waitForCursor(t, scope.TenantID, e.Seq)
 	case <-time.After(10 * time.Second):
 		t.Fatal("no event delivered")
 	}
@@ -279,4 +280,18 @@ func TestRetentionRequiresAdminScope(t *testing.T) {
 	if _, err := l.PutRetention(ctx, core.RetentionPolicy{Events: core.Duration(time.Hour)}); !core.IsKind(err, core.KindForbidden) {
 		t.Errorf("writing retention without admin = %v, want forbidden", err)
 	}
+}
+
+// waitForCursor blocks until the tenant's subscriber floor reaches want.
+func waitForCursor(t *testing.T, tenantID string, want int64) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if floor, live := subscribers.floor(tenantID); live && floor == want {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	floor, live := subscribers.floor(tenantID)
+	t.Fatalf("subscriber cursor = %d (live %v), want %d", floor, live, want)
 }

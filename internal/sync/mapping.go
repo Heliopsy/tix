@@ -105,6 +105,8 @@ func LoadMapping(path string) (*Mapping, error) {
 	if strings.TrimSpace(path) == "" {
 		return nil, core.Invalid("a mapping file is required; none is configured for this source")
 	}
+	// #nosec G304 -- the operator configures this path in their own environment,
+	// exactly like a config file; it is not reachable from a request.
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, core.Invalid("reading mapping file %q: %v", path, err)

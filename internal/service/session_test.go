@@ -126,7 +126,10 @@ func TestLoginFailuresAreIndistinguishable(t *testing.T) {
 // Absence must not be detectable by timing, so a login for an address nobody
 // holds still verifies against a hash.
 func TestLoginForAnUnknownEmailStillCostsAHashVerification(t *testing.T) {
-	l, _, scope, admin := newLocal(t)
+	// The real hasher, so the verification dominates: under the cheap test
+	// parameters the cost being measured is smaller than the database noise
+	// around it, which made this assertion a coin flip.
+	l, _, scope, admin := newLocalWith(t, WithHasher(auth.NewHasher()))
 	seedUser(t, l, admin, "ada@example.com")
 	l.dummyHash()
 

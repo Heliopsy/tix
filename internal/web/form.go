@@ -14,15 +14,19 @@ import (
 const maxUploadBytes = 1 << 20
 
 // ensureForm parses a submission, whether it is url encoded or multipart.
+//
+// The body is bounded here as well as by the server's limit middleware, so the
+// property holds even if this handler is mounted somewhere that lacks it.
 func ensureForm(r *http.Request) error {
+	r.Body = http.MaxBytesReader(nil, r.Body, maxUploadBytes)
 	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err == nil && media == "multipart/form-data" {
-		if err := r.ParseMultipartForm(maxUploadBytes); err != nil {
+		if err := r.ParseMultipartForm(maxUploadBytes); err != nil { // #nosec G120 -- bounded above and by the limit
 			return core.Invalid("this submission could not be read: %v", err)
 		}
 		return nil
 	}
-	if err := r.ParseForm(); err != nil {
+	if err := r.ParseForm(); err != nil { // #nosec G120 -- body bounded by MaxBytesReader above
 		return core.Invalid("this submission could not be read")
 	}
 	return nil

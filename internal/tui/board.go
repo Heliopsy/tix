@@ -184,6 +184,7 @@ func priorityDigit(p core.Priority) string {
 	if !p.Valid() {
 		return "?"
 	}
+	// #nosec G115 -- p is a priority in 1..5; anything else returned above.
 	return string(rune('0' + int(p)))
 }
 

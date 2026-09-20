@@ -127,7 +127,7 @@ const (
 	RouteUserUpdate    = "/admin/users/update"
 	RouteUserDelete    = "/admin/users/delete"
 	RouteTokens        = "/admin/tokens"
-	RouteTokenRevoke   = "/admin/tokens/revoke"
+	RouteTokenRevoke   = "/admin/tokens/revoke" // #nosec G101 -- a url path, not a credential
 	RouteWebhooks      = "/admin/webhooks"
 	RouteWebhookDelete = "/admin/webhooks/delete"
 	RouteRedeliver     = "/admin/webhooks/deliveries/redeliver"
