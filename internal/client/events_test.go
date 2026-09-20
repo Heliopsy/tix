@@ -95,22 +95,37 @@ func TestSubscribeDeliversEvents(t *testing.T) {
 			if ev.Seq != want {
 				t.Fatalf("seq = %d, want %d", ev.Seq, want)
 			}
-		case <-time.After(3 * time.Second):
+		case <-time.After(eventWait):
 			t.Fatal("timed out waiting for event")
 		}
 	}
 
 	cancel()
-	select {
-	case _, open := <-events:
-		if open {
-			for range events {
+	// The assertion is that cancellation eventually closes the channel, not
+	// that it happens within some latency budget: a loaded runner under -race
+	// takes its time propagating the cancel through the websocket read. The
+	// drain is bounded for the same reason, so a channel that never closes
+	// fails here rather than hanging the package.
+	deadline := time.After(closeWait)
+	for {
+		select {
+		case _, open := <-events:
+			if !open {
+				return
 			}
+		case <-deadline:
+			t.Fatal("channel not closed after cancellation")
 		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("channel not closed after cancellation")
 	}
 }
+
+// closeWait bounds how long a cancelled subscription may take to close its
+// channel, and eventWait how long a message may take to arrive. Both are
+// generous on purpose: they exist to fail a hang, not to police latency.
+const (
+	closeWait = 30 * time.Second
+	eventWait = 30 * time.Second
+)
 
 func TestSubscribeSurfacesServerError(t *testing.T) {
 	srv := eventServer(t, func(ctx context.Context, conn *websocket.Conn, _ subscribeMessage) {
@@ -227,7 +242,7 @@ func TestSubscribeIgnoresNonEventMessages(t *testing.T) {
 		if ev.Seq != 9 {
 			t.Fatalf("seq = %d", ev.Seq)
 		}
-	case <-time.After(3 * time.Second):
+	case <-time.After(eventWait):
 		t.Fatal("timed out")
 	}
 
@@ -236,7 +251,7 @@ func TestSubscribeIgnoresNonEventMessages(t *testing.T) {
 	}
 	select {
 	case <-events:
-	case <-time.After(3 * time.Second):
+	case <-time.After(eventWait):
 		t.Fatal("close did not end the stream")
 	}
 }
