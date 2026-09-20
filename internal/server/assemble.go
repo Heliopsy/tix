@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/thereisnotime/tix/internal/clock"
@@ -32,6 +33,9 @@ type Options struct {
 	// EventPollInterval is how often a tenant's reader checks for new events.
 	// Zero uses a sensible default.
 	EventPollInterval time.Duration
+
+	// WebHandler serves the browser interface. Leaving it nil serves the API only.
+	WebHandler http.Handler
 
 	AllowInsecure bool
 
@@ -76,6 +80,7 @@ func Assemble(opts Options) (*Server, error) {
 	router, err := httpapi.New(httpapi.Config{
 		Service:         opts.Service,
 		EventHandler:    httpapi.NewEventStream(hub, log),
+		WebHandler:      opts.WebHandler,
 		Authenticator:   NewAuthenticator(opts.Store, opts.Clock),
 		Logger:          opts.Logger,
 		DefaultTenantID: opts.TenantID,

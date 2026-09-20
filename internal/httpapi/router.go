@@ -56,6 +56,11 @@ type Config struct {
 
 	// EventHandler serves the WebSocket event route when it is supplied.
 	EventHandler http.Handler
+
+	// WebHandler serves the browser interface at the root when it is supplied.
+	// It is registered last and only for paths the API does not claim, so an
+	// API route can never be shadowed by a page.
+	WebHandler http.Handler
 }
 
 // Router serves the tix REST API.
@@ -132,6 +137,9 @@ func (rt *Router) register() {
 
 	if rt.cfg.EventHandler != nil {
 		rt.mux.Handle(RouteEvents, rt.cfg.EventHandler)
+	}
+	if rt.cfg.WebHandler != nil {
+		rt.mux.Handle("/", rt.cfg.WebHandler)
 	}
 }
 
