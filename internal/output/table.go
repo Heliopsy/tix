@@ -193,6 +193,7 @@ func renderReflected(w io.Writer, data any) error {
 		_, err := fmt.Fprintf(w, "%v\n", data)
 		return err
 	}
+	rv = concreteSlice(rv)
 	elem := rv.Type().Elem()
 	if elem.Kind() == reflect.Pointer {
 		elem = elem.Elem()
@@ -219,6 +220,9 @@ func renderStructs(w io.Writer, rv reflect.Value) error {
 	tbl := newWriter(w)
 	header := make(table.Row, 0, elem.NumField())
 	for i := 0; i < elem.NumField(); i++ {
+		if skipField(elem.Field(i)) {
+			continue
+		}
 		header = append(header, elem.Field(i).Name)
 	}
 	tbl.AppendHeader(header)
@@ -232,6 +236,9 @@ func renderStructs(w io.Writer, rv reflect.Value) error {
 		}
 		row := make(table.Row, 0, elem.NumField())
 		for f := 0; f < elem.NumField(); f++ {
+			if skipField(elem.Field(f)) {
+				continue
+			}
 			row = append(row, fmt.Sprintf("%v", item.Field(f).Interface()))
 		}
 		tbl.AppendRow(row)
@@ -315,4 +322,36 @@ func truncate(s string, max int) string {
 		return s
 	}
 	return string([]rune(s)[:max-1]) + "…"
+}
+
+// skipField reports whether the reflection fallback must leave a field out.
+// A field marked json:"-" is excluded from serialisation deliberately, which is
+// how secrets are kept out of output; the fallback has to honour that too.
+func skipField(f reflect.StructField) bool {
+	if f.PkgPath != "" {
+		return true
+	}
+	return strings.HasPrefix(f.Tag.Get("json"), "-") || strings.HasPrefix(f.Tag.Get("yaml"), "-")
+}
+
+// concreteSlice retypes a slice of interfaces to the concrete type its elements
+// share, so a buffered stream renders real columns instead of falling through
+// to a whole-struct %v that would ignore field tags.
+func concreteSlice(rv reflect.Value) reflect.Value {
+	if rv.Type().Elem().Kind() != reflect.Interface || rv.Len() == 0 {
+		return rv
+	}
+	first := rv.Index(0).Elem()
+	if !first.IsValid() {
+		return rv
+	}
+	typed := reflect.MakeSlice(reflect.SliceOf(first.Type()), 0, rv.Len())
+	for i := range rv.Len() {
+		e := rv.Index(i).Elem()
+		if !e.IsValid() || e.Type() != first.Type() {
+			return rv
+		}
+		typed = reflect.Append(typed, e)
+	}
+	return typed
 }

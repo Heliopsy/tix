@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"io"
 	"time"
 )
 
@@ -135,9 +136,15 @@ type WebhookService interface {
 }
 
 // TransferService covers snapshot export and import.
+//
+// Both directions stream. A tenant at the scale tix targets does not fit
+// comfortably in memory, and a snapshot assembled before the first byte is
+// written would bound export by RAM rather than by disk.
 type TransferService interface {
-	Export(ctx context.Context, in ExportInput) (*Snapshot, error)
-	Import(ctx context.Context, snap *Snapshot, in ImportInput) (*ImportResult, error)
+	// ExportTo writes a snapshot as it walks the data.
+	ExportTo(ctx context.Context, in ExportInput, w io.Writer) error
+	// ImportFrom reads a snapshot record by record.
+	ImportFrom(ctx context.Context, r io.Reader, in ImportInput) (*ImportResult, error)
 }
 
 // SyncService covers one-way import from external systems.
@@ -154,6 +161,46 @@ type Session struct {
 	ActorID   string    `json:"actor_id" yaml:"actor_id"`
 	TenantID  string    `json:"tenant_id" yaml:"tenant_id"`
 	ExpiresAt time.Time `json:"expires_at" yaml:"expires_at"`
+}
+
+// SnapshotHeader is the first record of a streamed snapshot.
+type SnapshotHeader struct {
+	Version    int       `json:"version" yaml:"version"`
+	TenantKey  string    `json:"tenant_key" yaml:"tenant_key"`
+	ExportedAt time.Time `json:"exported_at" yaml:"exported_at"`
+}
+
+// RecordKind names what a streamed snapshot record carries.
+type RecordKind string
+
+// Record kinds, in the order a snapshot writes them so an importer can rely on
+// referenced rows arriving before the rows that reference them.
+const (
+	RecordHeader     RecordKind = "header"
+	RecordWorkflow   RecordKind = "workflow"
+	RecordProject    RecordKind = "project"
+	RecordFieldDef   RecordKind = "field_def"
+	RecordLabel      RecordKind = "label"
+	RecordTask       RecordKind = "task"
+	RecordDependency RecordKind = "dependency"
+	RecordComment    RecordKind = "comment"
+	RecordArtifact   RecordKind = "artifact"
+)
+
+// SnapshotRecord is one line of a streamed snapshot. Exactly one payload field
+// is set, selected by Kind.
+type SnapshotRecord struct {
+	Kind RecordKind `json:"kind" yaml:"kind"`
+
+	Header     *SnapshotHeader `json:"header,omitempty" yaml:"header,omitempty"`
+	Workflow   *Workflow       `json:"workflow,omitempty" yaml:"workflow,omitempty"`
+	Project    *Project        `json:"project,omitempty" yaml:"project,omitempty"`
+	FieldDef   *FieldDef       `json:"field_def,omitempty" yaml:"field_def,omitempty"`
+	Label      *Label          `json:"label,omitempty" yaml:"label,omitempty"`
+	Task       *Task           `json:"task,omitempty" yaml:"task,omitempty"`
+	Dependency *Dependency     `json:"dependency,omitempty" yaml:"dependency,omitempty"`
+	Comment    *Comment        `json:"comment,omitempty" yaml:"comment,omitempty"`
+	Artifact   *Artifact       `json:"artifact,omitempty" yaml:"artifact,omitempty"`
 }
 
 // Snapshot is a portable dump of a tenant's data.

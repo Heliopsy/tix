@@ -11,7 +11,7 @@ const (
 )
 
 // Formats lists every supported output format.
-var Formats = []string{FormatTable, FormatJSON, FormatYAML}
+var Formats = []string{FormatTable, FormatJSON, FormatYAML, FormatNDJSON}
 
 // Formatter renders structured data to a writer.
 type Formatter interface {
@@ -25,6 +25,8 @@ func New(format string) Formatter {
 		return &jsonFormatter{}
 	case FormatYAML:
 		return &yamlFormatter{}
+	case FormatNDJSON:
+		return &ndjsonFormatter{}
 	default:
 		return &tableFormatter{}
 	}

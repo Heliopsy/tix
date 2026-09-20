@@ -1,5 +1,30 @@
 ## ADDED Requirements
 
+### Requirement: Streaming output for large results
+
+The CLI SHALL provide an `ndjson` output format that emits one JSON object per line and writes each record as it is produced. A listing or an export SHALL NOT be held in memory in its entirety before the first byte is written.
+
+#### Scenario: One object per line
+
+- **WHEN** a listing is requested with `-o ndjson`
+- **THEN** each record is a complete JSON object on its own line, parseable independently of the others
+
+#### Scenario: Records are written as they are produced
+
+- **WHEN** a large listing is streamed
+- **THEN** output begins before the final record has been read, and memory use does not grow with the number of records
+
+#### Scenario: Export streams
+
+- **WHEN** a tenant is exported
+- **THEN** the snapshot is written record by record rather than assembled first, so export is bounded by output size and not by available memory
+
+#### Scenario: Import streams
+
+- **WHEN** a snapshot is imported
+- **THEN** it is read record by record, so importing does not require holding the whole snapshot in memory
+
+
 ### Requirement: Separation of data and diagnostics
 
 The CLI SHALL write command data to standard output and SHALL write all diagnostics, progress, warnings, and errors to standard error, so that standard output can be piped without contamination.
