@@ -183,7 +183,7 @@ release-dry: (tool "goreleaser" "build" "--snapshot" "--clean")
 # ---------------------------------------------------------------- aggregates
 
 # Fast pre-push gate set. Run this before every commit.
-check: fmt-check vet tidy-check lint test spec docs-check
+check: fmt-check vet tidy-check lint mdlint yamllint actionlint test spec docs-check
 
 # The entire CI suite, locally, in containers. Matches what GitHub runs.
 ci: tidy-check fmt-check vet lint build test-postgres cover-check sec vuln trivy actionlint hadolint yamllint mdlint spec docs-check release-dry

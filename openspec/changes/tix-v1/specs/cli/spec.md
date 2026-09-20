@@ -24,7 +24,6 @@ The CLI SHALL provide an `ndjson` output format that emits one JSON object per l
 - **WHEN** a snapshot is imported
 - **THEN** it is read record by record, so importing does not require holding the whole snapshot in memory
 
-
 ### Requirement: Separation of data and diagnostics
 
 The CLI SHALL write command data to standard output and SHALL write all diagnostics, progress, warnings, and errors to standard error, so that standard output can be piped without contamination.
