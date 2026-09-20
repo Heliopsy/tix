@@ -205,6 +205,7 @@
       <dt>Assignee</dt><dd>{{if $t.AssigneeActorID}}<span class="mono">{{$t.AssigneeActorID}}</span>{{else}}<span class="muted">unassigned</span>{{end}}</dd>
       <dt>Creator</dt><dd class="mono" title="{{$t.CreatorActorID}}">{{actor $t.CreatorActorID}}</dd>
       <dt>Due</dt><dd>{{if $t.DueAt}}{{stamp $t.DueAt}}{{else}}<span class="muted">&mdash;</span>{{end}}</dd>
+      <dt>Id</dt><dd class="mono id">{{$t.ID}}</dd>
       <dt>Created</dt><dd class="muted">{{compact $t.CreatedAt}}</dd>
       <dt>Updated</dt><dd class="muted">{{compact $t.UpdatedAt}}</dd>
     </dl>

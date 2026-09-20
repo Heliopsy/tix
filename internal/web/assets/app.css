@@ -19,8 +19,43 @@
   --gutter: 16px;
 }
 
+/* Low contrast: the same layout with the extremes taken out. Text stops being
+   black on white, borders stop competing with content, and the accent is
+   muted, for anyone who finds the default harsh to sit in front of all day. */
+:root[data-theme="dim"] {
+  --bg: #1d2126;
+  --surface: #23282e;
+  --ink: #c7ccd3;
+  --muted: #8a929c;
+  --line: #2e343b;
+  --line-strong: #3b434c;
+  --accent: #5eb3ab;
+  --accent-soft: #24322f;
+  --danger: #d98b83;
+  --danger-soft: #2e2220;
+  --warn: #d0a06a;
+  --warn-soft: #2d2620;
+  --ok: #7fbf9a;
+  --ok-soft: #1f2c25;
+  --shadow: none;
+}
+
+:root[data-theme="dark"] {
+  --bg: #14171b;
+  --surface: #1b1f24;
+  --ink: #e7eaee;
+  --muted: #98a2b3;
+  --line: #2b3138;
+  --line-strong: #3a424b;
+  --accent-soft: #14312d;
+  --danger-soft: #2a1613;
+  --warn-soft: #2a1f10;
+  --ok-soft: #10261c;
+  --shadow: none;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme="light"]):not([data-theme="dim"]) {
     --bg: #14171b;
     --surface: #1b1f24;
     --ink: #e7eaee;
@@ -279,6 +314,8 @@ col.c-when { width: 142px; }
   color: var(--muted);
 }
 
+dd.id { font-size: 0.78rem; overflow-wrap: anywhere; user-select: all; }
+
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; }
 
 /* Definition grid used by detail screens */
@@ -512,6 +549,9 @@ li.task.is-blocked a.task-title { color: var(--muted); }
 /* The advanced toggle sits under the navigation. */
 .side-foot { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
 .side-foot .link { font-size: 0.82rem; color: var(--muted); text-decoration: none; }
+.side-foot .theme { margin-top: 10px; }
+.side-foot .theme label { margin: 0 0 3px; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.side-foot .theme select { font-size: 0.85rem; padding: 5px 8px; }
 .side-foot .link:hover { color: var(--accent); text-decoration: underline; }
 
 /* Flashes */

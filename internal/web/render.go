@@ -73,6 +73,7 @@ type view struct {
 	Brand      branding
 	Actor      *core.Actor
 	Advanced   bool
+	Theme      string
 	Data       any
 }
 
@@ -185,6 +186,7 @@ func (h *handler) newView(r *http.Request, title string, data any) view {
 		Brand:      h.brand(r),
 		Actor:      actor,
 		Advanced:   advancedMode(r),
+		Theme:      themeOf(r),
 		Data:       data,
 	}
 }
@@ -198,6 +200,28 @@ const AdvancedCookie = "tix_advanced"
 func advancedMode(r *http.Request) bool {
 	c, err := r.Cookie(AdvancedCookie)
 	return err == nil && c.Value == "1"
+}
+
+// ThemeCookie remembers the colour scheme this browser asked for.
+const ThemeCookie = "tix_theme"
+
+// Themes are the schemes on offer. An empty value follows the system, and
+// "dim" is a low contrast scheme for people who find the default too stark.
+var Themes = []string{"", "light", "dark", "dim"}
+
+// themeOf reports the scheme this browser asked for, or an empty string when
+// it has not asked and the system preference should decide.
+func themeOf(r *http.Request) string {
+	c, err := r.Cookie(ThemeCookie)
+	if err != nil {
+		return ""
+	}
+	for _, t := range Themes {
+		if t != "" && c.Value == t {
+			return t
+		}
+	}
+	return ""
 }
 
 // brand resolves the signed-in tenant's branding, falling back to the default

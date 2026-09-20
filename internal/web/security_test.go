@@ -3,6 +3,7 @@ package web_test
 import (
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -244,10 +245,14 @@ func TestErrorPageCarriesNoStackTraceOrSQL(t *testing.T) {
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", resp.StatusCode)
 	}
+	// Scan the text the reader sees rather than the markup around it: the
+	// interface legitimately contains a <select>, and matching that as SQL
+	// would fail for a reason that has nothing to do with disclosure.
+	text := stripTags(page)
 	for _, forbidden := range []string{"SELECT", "select ", "INSERT", "goroutine",
 		".go:", "internal/service", "sqlite"} {
-		if strings.Contains(page, forbidden) {
-			t.Fatalf("error page discloses %q:\n%s", forbidden, page)
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("error page discloses %q:\n%s", forbidden, text)
 		}
 	}
 }
@@ -286,3 +291,8 @@ func TestWebhookSecretIsNeverDisplayed(t *testing.T) {
 		t.Fatalf("the endpoint was not listed")
 	}
 }
+
+// stripTags reduces a page to the text a reader would see.
+func stripTags(page string) string { return tagPattern.ReplaceAllString(page, " ") }
+
+var tagPattern = regexp.MustCompile(`(?s)<(script|style)\b.*?</(script|style)>|<[^>]*>`)

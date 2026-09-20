@@ -19,6 +19,21 @@
 </nav>
 {{end}}
 
+{{define "theme-picker"}}
+<form method="post" action="/theme" class="toggle theme">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="next" value="{{.Path}}">
+  <label for="theme">Theme</label>
+  <select id="theme" name="theme" onchange="this.form.submit()">
+    <option value="" {{if eq .Theme ""}}selected{{end}}>System</option>
+    <option value="light" {{if eq .Theme "light"}}selected{{end}}>Light</option>
+    <option value="dark" {{if eq .Theme "dark"}}selected{{end}}>Dark</option>
+    <option value="dim" {{if eq .Theme "dim"}}selected{{end}}>Low contrast</option>
+  </select>
+  <noscript><button class="link" type="submit">Apply</button></noscript>
+</form>
+{{end}}
+
 {{define "advanced-toggle"}}
 <form method="post" action="/advanced" class="toggle">
   {{template "csrf" .CSRF}}

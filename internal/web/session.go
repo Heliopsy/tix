@@ -17,6 +17,7 @@ func (h *handler) sessionRoutes() []route {
 		public(post(RouteLogin, h.doLogin, "Login")),
 		post(RouteLogout, h.doLogout, "Logout"),
 		post(RouteAdvanced, h.toggleAdvanced, "Logout"),
+		post(RouteTheme, h.setTheme, "Logout"),
 		get(RouteActivity, "activity.html", h.showActivity, "ListAudit"),
 	}
 }
@@ -77,6 +78,25 @@ func (h *handler) toggleAdvanced(w http.ResponseWriter, r *http.Request) error {
 	// tracks TLS like every other cookie here.
 	http.SetCookie(w, &http.Cookie{
 		Name: AdvancedCookie, Value: value, Path: "/",
+		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
+		MaxAge: cookieYear,
+	})
+	http.Redirect(w, r, safeNext(field(r, "next")), http.StatusSeeOther)
+	return nil
+}
+
+// setTheme records the colour scheme this browser wants.
+func (h *handler) setTheme(w http.ResponseWriter, r *http.Request) error {
+	want := field(r, "theme")
+	value := ""
+	for _, t := range Themes {
+		if t != "" && t == want {
+			value = t
+		}
+	}
+	// #nosec G124 -- a display preference, readable by no script.
+	http.SetCookie(w, &http.Cookie{
+		Name: ThemeCookie, Value: value, Path: "/",
 		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
 		MaxAge: cookieYear,
 	})

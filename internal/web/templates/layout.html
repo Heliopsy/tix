@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en"{{if .Theme}} data-theme="{{.Theme}}"{{end}}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -19,6 +19,7 @@
     {{template "nav" .}}
     <div class="side-foot">
       {{template "advanced-toggle" .}}
+      {{template "theme-picker" .}}
     </div>
     <form method="post" action="/logout" class="actions">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
