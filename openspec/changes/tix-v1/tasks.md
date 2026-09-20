@@ -21,12 +21,12 @@ ticked, and coverage is at or above 80% (excluding `internal/tui`).
 - [x] 1.7 WP-01 `LICENSE` (AGPL-3.0), `CLA.md`, `README.md`, `CONTRIBUTING.md`, `SECURITY.md`
 - [x] 1.8 WP-02 `openspec/config.yaml` with project context and design rules
 - [x] 1.9 WP-02 `proposal.md` and `design.md`
-- [ ] 1.10 WP-03 `internal/core`: domain types for every entity, stdlib imports only
-- [ ] 1.11 WP-03 `internal/core`: `Service` interface covering the complete product surface
-- [ ] 1.12 WP-03 `internal/core`: `TenantScope`, `Actor`, context carriers and accessors
-- [ ] 1.13 WP-03 `internal/core`: error taxonomy and its exit-code and HTTP-status mappings
-- [ ] 1.14 WP-03 `internal/core`: `TaskRef` parsing accepting identifiers and human refs
-- [ ] 1.15 WP-03 `internal/core`: filter and keyset cursor types
+- [x] 1.10 WP-03 `internal/core`: domain types for every entity, stdlib imports only
+- [x] 1.11 WP-03 `internal/core`: `Service` interface covering the complete product surface
+- [x] 1.12 WP-03 `internal/core`: `TenantScope`, `Actor`, context carriers and accessors
+- [x] 1.13 WP-03 `internal/core`: error taxonomy and its exit-code and HTTP-status mappings
+- [x] 1.14 WP-03 `internal/core`: `TaskRef` parsing accepting identifiers and human refs
+- [x] 1.15 WP-03 `internal/core`: filter and keyset cursor types
 - [ ] 1.16 WP-04 `internal/clock`: `Clock` interface, real and fake implementations
 - [ ] 1.17 WP-04 `internal/id`: sortable identifier generation from `crypto/rand`
 - [ ] 1.18 WP-05 `internal/store/store.go`: `Store` and `Tx` interfaces
