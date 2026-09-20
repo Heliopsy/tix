@@ -404,3 +404,96 @@ func TestUserMutationsRecordAuditAndEvent(t *testing.T) {
 		t.Errorf("audit entries grew by %d, want 2", afterAudits-beforeAudits)
 	}
 }
+
+// Removing a user must cut off access immediately. Leaving a live session or a
+// valid token behind would mean a revoked account kept working until the
+// credential happened to expire.
+func TestDeleteUserEndsSessionsAndRevokesTokens(t *testing.T) {
+	l, _, scope, admin := newLocal(t)
+	ctx := adminCtx(admin)
+
+	user := seedUser(t, l, admin, "ada@example.com")
+	session, err := l.Login(loginContext(scope), "ada@example.com", testPassword)
+	if err != nil {
+		t.Fatalf("Login: %v", err)
+	}
+
+	subject := &core.Actor{
+		ID: user.ID, TenantID: scope.TenantID, Kind: core.ActorUser,
+		Handle: "ada", Scopes: []core.Scope{core.ScopeAll},
+	}
+	issued, err := l.CreateToken(core.WithActor(context.Background(), subject),
+		core.CreateTokenInput{Name: "ada-bot", Scopes: []core.Scope{core.ScopeTaskRead}})
+	if err != nil {
+		t.Fatalf("CreateToken: %v", err)
+	}
+
+	if err := l.DeleteUser(ctx, user.ID); err != nil {
+		t.Fatalf("DeleteUser: %v", err)
+	}
+
+	assertSessionGone(t, l, scope, session.Token)
+	assertTokenRevoked(t, l, scope, issued.Token)
+}
+
+func TestDisablingAUserEndsSessionsAndRevokesTokens(t *testing.T) {
+	l, _, scope, admin := newLocal(t)
+	ctx := adminCtx(admin)
+
+	user := seedUser(t, l, admin, "grace@example.com")
+	session, err := l.Login(loginContext(scope), "grace@example.com", testPassword)
+	if err != nil {
+		t.Fatalf("Login: %v", err)
+	}
+	subject := &core.Actor{
+		ID: user.ID, TenantID: scope.TenantID, Kind: core.ActorUser,
+		Handle: "grace", Scopes: []core.Scope{core.ScopeAll},
+	}
+	issued, err := l.CreateToken(core.WithActor(context.Background(), subject),
+		core.CreateTokenInput{Name: "grace-bot", Scopes: []core.Scope{core.ScopeTaskRead}})
+	if err != nil {
+		t.Fatalf("CreateToken: %v", err)
+	}
+
+	disabled := true
+	if _, err := l.UpdateUser(ctx, user.ID, core.UpdateUserInput{Disabled: &disabled}); err != nil {
+		t.Fatalf("UpdateUser: %v", err)
+	}
+
+	assertSessionGone(t, l, scope, session.Token)
+	assertTokenRevoked(t, l, scope, issued.Token)
+}
+
+func assertSessionGone(t *testing.T, l *Local, scope core.TenantScope, token string) {
+	t.Helper()
+	ctx := context.Background()
+	if err := l.store.View(ctx, scope, func(tx store.Tx) error {
+		_, _, err := tx.GetSessionByHash(ctx, auth.HashToken(token))
+		if err == nil {
+			t.Error("a session survived the account being removed or disabled")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("checking session: %v", err)
+	}
+}
+
+func assertTokenRevoked(t *testing.T, l *Local, scope core.TenantScope, token string) {
+	t.Helper()
+	ctx := context.Background()
+	if err := l.store.View(ctx, scope, func(tx store.Tx) error {
+		stored, err := tx.GetTokenByHash(ctx, auth.HashToken(token))
+		if core.IsKind(err, core.KindNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if stored.RevokedAt == nil {
+			t.Error("an api token survived the account being removed or disabled")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("checking token: %v", err)
+	}
+}

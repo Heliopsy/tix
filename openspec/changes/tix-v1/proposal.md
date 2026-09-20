@@ -78,6 +78,7 @@ schema and one migration path. The design target is 1M+ tasks.
 - `audit-log`: Append-only guarantees, before/after capture, source attribution, history rendering.
 - `retention`: Per-tenant retention policy, pruning, partition management, subscriber-cursor safety.
 - `import-export`: Snapshot format, merge versus replace, identifier remapping, round-trip fidelity.
+- `component-sharing`: Exporting reusable components (workflows, field definitions, tag vocabularies, project templates, saved filters) as portable bundles and importing them into another project, tenant or installation, so teams can share a way of working without sharing their work items.
 - `external-sync`: One-way import and refresh from Jira, OpenProject, and a generic CSV/JSON format; external identity mapping; field and status mapping; the seam for bidirectional sync in v2.
 - `web-ui`: Every screen, the parity requirement as a testable requirement, no-JS-build constraint.
 - `tui`: Views, keybindings, live updates, transport agnosticism.

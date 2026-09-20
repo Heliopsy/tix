@@ -245,7 +245,7 @@ func (l *Local) UpdateUser(ctx context.Context, id string, in core.UpdateUserInp
 
 	var out *core.User
 	err = l.write(ctx, actor, func(m *mutation) error {
-		u, _, err := ownUser(ctx, m.tx, id)
+		u, subject, err := ownUser(ctx, m.tx, id)
 		if err != nil {
 			return err
 		}
@@ -258,6 +258,14 @@ func (l *Local) UpdateUser(ctx context.Context, id string, in core.UpdateUserInp
 			case *in.Disabled && u.DisabledAt == nil:
 				now := m.now
 				u.DisabledAt = &now
+				// Disabling must take effect now, not when the credential
+				// happens to expire.
+				if _, err := m.tx.DeleteActorSessions(ctx, subject.ID); err != nil {
+					return err
+				}
+				if _, err := m.tx.RevokeActorTokens(ctx, subject.ID, m.now); err != nil {
+					return err
+				}
 			case !*in.Disabled:
 				u.DisabledAt = nil
 			}
@@ -303,10 +311,24 @@ func (l *Local) DeleteUser(ctx context.Context, id string) error {
 		case !core.IsKind(err, core.KindNotFound):
 			return err
 		}
+		// Removing the row is not enough: a live session or token would keep
+		// working until it expired, so the credentials go in the same
+		// transaction as the deletion.
+		sessions, err := m.tx.DeleteActorSessions(ctx, a.ID)
+		if err != nil {
+			return err
+		}
+		tokens, err := m.tx.RevokeActorTokens(ctx, a.ID, m.now)
+		if err != nil {
+			return err
+		}
 		if err := m.tx.DeleteUser(ctx, u.ID); err != nil {
 			return err
 		}
 		return m.Record(auditUserDelete, eventUserDeleted, "user", u.ID, "", u, nil,
-			map[string]any{"email": u.Email, "handle": a.Handle})
+			map[string]any{
+				"email": u.Email, "handle": a.Handle,
+				"sessions_ended": sessions, "tokens_revoked": tokens,
+			})
 	})
 }

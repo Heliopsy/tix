@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/thereisnotime/tix/internal/core"
@@ -440,4 +441,25 @@ func (t *tx) TouchToken(ctx context.Context, tokenID string, at time.Time) error
 		return core.NotFound("api token %q", tokenID)
 	}
 	return nil
+}
+
+// DeleteActorSessions ends every session an actor holds.
+func (t *tx) DeleteActorSessions(ctx context.Context, actorID string) (int64, error) {
+	if strings.TrimSpace(actorID) == "" {
+		return 0, core.Invalid("actor id must not be empty")
+	}
+	b := t.builder("sessions").Where("actor_id = ?", actorID)
+	return t.execDelete(ctx, b, "deleting sessions for actor %q", actorID)
+}
+
+// RevokeActorTokens revokes every token an actor holds that is not already revoked.
+func (t *tx) RevokeActorTokens(ctx context.Context, actorID string, at time.Time) (int64, error) {
+	if strings.TrimSpace(actorID) == "" {
+		return 0, core.Invalid("actor id must not be empty")
+	}
+	b := t.builder("api_tokens").
+		Where("actor_id = ?", actorID).
+		Where("revoked_at IS NULL").
+		Set("revoked_at", sqlb.TimeText(at))
+	return t.execUpdate(ctx, b, "revoking tokens for actor %q", actorID)
 }

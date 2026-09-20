@@ -189,6 +189,9 @@ type AuthTx interface {
 	DeleteUser(ctx context.Context, id string) error
 
 	CreateSession(ctx context.Context, actorID, tokenHash string, expiresAt time.Time) error
+	// DeleteActorSessions ends every session an actor holds, so removing or
+	// disabling a user takes effect immediately rather than at expiry.
+	DeleteActorSessions(ctx context.Context, actorID string) (int64, error)
 	GetSessionByHash(ctx context.Context, tokenHash string) (actorID string, expiresAt time.Time, err error)
 	DeleteSession(ctx context.Context, tokenHash string) error
 	DeleteExpiredSessions(ctx context.Context, now time.Time) (int64, error)
@@ -197,6 +200,8 @@ type AuthTx interface {
 	GetTokenByHash(ctx context.Context, tokenHash string) (*core.APIToken, error)
 	ListTokens(ctx context.Context, actorID string) ([]core.APIToken, error)
 	RevokeToken(ctx context.Context, id string, at time.Time) error
+	// RevokeActorTokens revokes every token an actor holds.
+	RevokeActorTokens(ctx context.Context, actorID string, at time.Time) (int64, error)
 	TouchToken(ctx context.Context, id string, at time.Time) error
 }
 
