@@ -21,10 +21,10 @@ func (d SortDirection) Valid() bool { return d == Ascending || d == Descending }
 
 // Cursor is an opaque position in a keyset-paginated listing.
 type Cursor struct {
-	SortValue string        `json:"v"`
-	ID        string        `json:"i"`
-	Sort      string        `json:"s"`
-	Direction SortDirection `json:"d"`
+	SortValue string        `json:"v" yaml:"v"`
+	ID        string        `json:"i" yaml:"i"`
+	Sort      string        `json:"s" yaml:"s"`
+	Direction SortDirection `json:"d" yaml:"d"`
 }
 
 // Zero reports whether the cursor addresses nothing, meaning the first page.
@@ -74,10 +74,10 @@ func (c Cursor) CheckOrdering(sort string, dir SortDirection) error {
 
 // Page bounds one page of a listing.
 type Page struct {
-	Limit     int           `json:"limit,omitempty"`
-	Cursor    string        `json:"cursor,omitempty"`
-	Sort      string        `json:"sort,omitempty"`
-	Direction SortDirection `json:"direction,omitempty"`
+	Limit     int           `json:"limit,omitempty" yaml:"limit,omitempty"`
+	Cursor    string        `json:"cursor,omitempty" yaml:"cursor,omitempty"`
+	Sort      string        `json:"sort,omitempty" yaml:"sort,omitempty"`
+	Direction SortDirection `json:"direction,omitempty" yaml:"direction,omitempty"`
 }
 
 // Page limits.
@@ -108,8 +108,8 @@ func (p Page) Normalize() (Page, error) {
 
 // TaskPage is one page of tasks plus the cursor for the next.
 type TaskPage struct {
-	Tasks      []Task `json:"tasks"`
-	NextCursor string `json:"next_cursor,omitempty"`
+	Tasks      []Task `json:"tasks" yaml:"tasks"`
+	NextCursor string `json:"next_cursor,omitempty" yaml:"next_cursor,omitempty"`
 }
 
 // TriState expresses an optional boolean filter, distinguishing "not filtered"
@@ -136,33 +136,33 @@ func (t TriState) Match(v bool) bool {
 
 // TaskFilter selects tasks.
 type TaskFilter struct {
-	ProjectIDs  []string `json:"project_ids,omitempty"`
-	ProjectKeys []string `json:"project_keys,omitempty"`
-	Statuses    []string `json:"statuses,omitempty"`
-	Labels      []string `json:"labels,omitempty"`
-	AssigneeIDs []string `json:"assignee_ids,omitempty"`
-	CreatorIDs  []string `json:"creator_ids,omitempty"`
+	ProjectIDs  []string `json:"project_ids,omitempty" yaml:"project_ids,omitempty"`
+	ProjectKeys []string `json:"project_keys,omitempty" yaml:"project_keys,omitempty"`
+	Statuses    []string `json:"statuses,omitempty" yaml:"statuses,omitempty"`
+	Labels      []string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	AssigneeIDs []string `json:"assignee_ids,omitempty" yaml:"assignee_ids,omitempty"`
+	CreatorIDs  []string `json:"creator_ids,omitempty" yaml:"creator_ids,omitempty"`
 
-	Priorities []Priority `json:"priorities,omitempty"`
+	Priorities []Priority `json:"priorities,omitempty" yaml:"priorities,omitempty"`
 
-	DueBefore *time.Time `json:"due_before,omitempty"`
-	DueAfter  *time.Time `json:"due_after,omitempty"`
+	DueBefore *time.Time `json:"due_before,omitempty" yaml:"due_before,omitempty"`
+	DueAfter  *time.Time `json:"due_after,omitempty" yaml:"due_after,omitempty"`
 
-	ParentID     string `json:"parent_id,omitempty"`
-	ParentIsNull bool   `json:"parent_is_null,omitempty"`
+	ParentID     string `json:"parent_id,omitempty" yaml:"parent_id,omitempty"`
+	ParentIsNull bool   `json:"parent_is_null,omitempty" yaml:"parent_is_null,omitempty"`
 
-	Claimed TriState `json:"claimed,omitempty"`
-	Blocked TriState `json:"blocked,omitempty"`
+	Claimed TriState `json:"claimed,omitempty" yaml:"claimed,omitempty"`
+	Blocked TriState `json:"blocked,omitempty" yaml:"blocked,omitempty"`
 
-	ClaimedBy []string `json:"claimed_by,omitempty"`
+	ClaimedBy []string `json:"claimed_by,omitempty" yaml:"claimed_by,omitempty"`
 
-	Query string `json:"query,omitempty"`
+	Query string `json:"query,omitempty" yaml:"query,omitempty"`
 
-	CustomFields map[string]any `json:"custom_fields,omitempty"`
+	CustomFields map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
 
-	IncludeDeleted bool `json:"include_deleted,omitempty"`
+	IncludeDeleted bool `json:"include_deleted,omitempty" yaml:"include_deleted,omitempty"`
 
-	Page Page `json:"page,omitempty"`
+	Page Page `json:"page,omitempty" yaml:"page,omitempty"`
 }
 
 // Task sort fields.
@@ -230,9 +230,9 @@ func validSortField(s string) bool {
 
 // EventFilter selects events for a subscription.
 type EventFilter struct {
-	ProjectIDs []string    `json:"project_ids,omitempty"`
-	Types      []EventType `json:"types,omitempty"`
-	SinceSeq   int64       `json:"since_seq,omitempty"`
+	ProjectIDs []string    `json:"project_ids,omitempty" yaml:"project_ids,omitempty"`
+	Types      []EventType `json:"types,omitempty" yaml:"types,omitempty"`
+	SinceSeq   int64       `json:"since_seq,omitempty" yaml:"since_seq,omitempty"`
 }
 
 // Matches reports whether an event satisfies the filter.
@@ -272,26 +272,26 @@ func containsString(haystack []string, needle string) bool {
 
 // AuditFilter selects audit entries.
 type AuditFilter struct {
-	SubjectType string     `json:"subject_type,omitempty"`
-	SubjectID   string     `json:"subject_id,omitempty"`
-	ActorIDs    []string   `json:"actor_ids,omitempty"`
-	Actions     []string   `json:"actions,omitempty"`
-	Sources     []Source   `json:"sources,omitempty"`
-	Since       *time.Time `json:"since,omitempty"`
-	Until       *time.Time `json:"until,omitempty"`
-	Page        Page       `json:"page,omitempty"`
+	SubjectType string     `json:"subject_type,omitempty" yaml:"subject_type,omitempty"`
+	SubjectID   string     `json:"subject_id,omitempty" yaml:"subject_id,omitempty"`
+	ActorIDs    []string   `json:"actor_ids,omitempty" yaml:"actor_ids,omitempty"`
+	Actions     []string   `json:"actions,omitempty" yaml:"actions,omitempty"`
+	Sources     []Source   `json:"sources,omitempty" yaml:"sources,omitempty"`
+	Since       *time.Time `json:"since,omitempty" yaml:"since,omitempty"`
+	Until       *time.Time `json:"until,omitempty" yaml:"until,omitempty"`
+	Page        Page       `json:"page,omitempty" yaml:"page,omitempty"`
 }
 
 // ProjectFilter selects projects.
 type ProjectFilter struct {
-	Keys            []string `json:"keys,omitempty"`
-	IncludeArchived bool     `json:"include_archived,omitempty"`
-	Page            Page     `json:"page,omitempty"`
+	Keys            []string `json:"keys,omitempty" yaml:"keys,omitempty"`
+	IncludeArchived bool     `json:"include_archived,omitempty" yaml:"include_archived,omitempty"`
+	Page            Page     `json:"page,omitempty" yaml:"page,omitempty"`
 }
 
 // DeliveryFilter selects webhook deliveries.
 type DeliveryFilter struct {
-	EndpointID string           `json:"endpoint_id,omitempty"`
-	Statuses   []DeliveryStatus `json:"statuses,omitempty"`
-	Page       Page             `json:"page,omitempty"`
+	EndpointID string           `json:"endpoint_id,omitempty" yaml:"endpoint_id,omitempty"`
+	Statuses   []DeliveryStatus `json:"statuses,omitempty" yaml:"statuses,omitempty"`
+	Page       Page             `json:"page,omitempty" yaml:"page,omitempty"`
 }

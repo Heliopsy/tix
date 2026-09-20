@@ -150,26 +150,26 @@ type SyncService interface {
 
 // Session is a browser or terminal login.
 type Session struct {
-	Token     string    `json:"token"`
-	ActorID   string    `json:"actor_id"`
-	TenantID  string    `json:"tenant_id"`
-	ExpiresAt time.Time `json:"expires_at"`
+	Token     string    `json:"token" yaml:"token"`
+	ActorID   string    `json:"actor_id" yaml:"actor_id"`
+	TenantID  string    `json:"tenant_id" yaml:"tenant_id"`
+	ExpiresAt time.Time `json:"expires_at" yaml:"expires_at"`
 }
 
 // Snapshot is a portable dump of a tenant's data.
 type Snapshot struct {
-	Version    int       `json:"version"`
-	TenantKey  string    `json:"tenant_key"`
-	ExportedAt time.Time `json:"exported_at"`
+	Version    int       `json:"version" yaml:"version"`
+	TenantKey  string    `json:"tenant_key" yaml:"tenant_key"`
+	ExportedAt time.Time `json:"exported_at" yaml:"exported_at"`
 
-	Projects  []Project    `json:"projects,omitempty"`
-	Workflows []Workflow   `json:"workflows,omitempty"`
-	FieldDefs []FieldDef   `json:"field_defs,omitempty"`
-	Labels    []Label      `json:"labels,omitempty"`
-	Tasks     []Task       `json:"tasks,omitempty"`
-	Deps      []Dependency `json:"dependencies,omitempty"`
-	Comments  []Comment    `json:"comments,omitempty"`
-	Artifacts []Artifact   `json:"artifacts,omitempty"`
+	Projects  []Project    `json:"projects,omitempty" yaml:"projects,omitempty"`
+	Workflows []Workflow   `json:"workflows,omitempty" yaml:"workflows,omitempty"`
+	FieldDefs []FieldDef   `json:"field_defs,omitempty" yaml:"field_defs,omitempty"`
+	Labels    []Label      `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Tasks     []Task       `json:"tasks,omitempty" yaml:"tasks,omitempty"`
+	Deps      []Dependency `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
+	Comments  []Comment    `json:"comments,omitempty" yaml:"comments,omitempty"`
+	Artifacts []Artifact   `json:"artifacts,omitempty" yaml:"artifacts,omitempty"`
 }
 
 // SnapshotVersion is the current snapshot format version.
@@ -186,27 +186,27 @@ const (
 
 // ImportResult reports what an import did, or would do under a dry run.
 type ImportResult struct {
-	Created  map[string]int `json:"created"`
-	Updated  map[string]int `json:"updated"`
-	Skipped  map[string]int `json:"skipped"`
-	Deleted  map[string]int `json:"deleted,omitempty"`
-	Warnings []string       `json:"warnings,omitempty"`
-	DryRun   bool           `json:"dry_run"`
+	Created  map[string]int `json:"created" yaml:"created"`
+	Updated  map[string]int `json:"updated" yaml:"updated"`
+	Skipped  map[string]int `json:"skipped" yaml:"skipped"`
+	Deleted  map[string]int `json:"deleted,omitempty" yaml:"deleted,omitempty"`
+	Warnings []string       `json:"warnings,omitempty" yaml:"warnings,omitempty"`
+	DryRun   bool           `json:"dry_run" yaml:"dry_run"`
 }
 
 // SyncResult reports what an external import did, or would do under a dry run.
 type SyncResult struct {
 	ImportResult
-	System string `json:"system"`
-	Source string `json:"source"`
-	Cursor string `json:"cursor,omitempty"`
+	System string `json:"system" yaml:"system"`
+	Source string `json:"source" yaml:"source"`
+	Cursor string `json:"cursor,omitempty" yaml:"cursor,omitempty"`
 }
 
 // PruneResult reports what pruning removed, or would remove under a dry run.
 type PruneResult struct {
-	Events                 int64 `json:"events"`
-	AuditEntries           int64 `json:"audit_entries"`
-	WebhookDeliveries      int64 `json:"webhook_deliveries"`
-	RetainedForSubscribers int64 `json:"retained_for_subscribers"`
-	DryRun                 bool  `json:"dry_run"`
+	Events                 int64 `json:"events" yaml:"events"`
+	AuditEntries           int64 `json:"audit_entries" yaml:"audit_entries"`
+	WebhookDeliveries      int64 `json:"webhook_deliveries" yaml:"webhook_deliveries"`
+	RetainedForSubscribers int64 `json:"retained_for_subscribers" yaml:"retained_for_subscribers"`
+	DryRun                 bool  `json:"dry_run" yaml:"dry_run"`
 }

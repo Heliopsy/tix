@@ -6,8 +6,8 @@ import "time"
 
 // CreateTenantInput creates a tenant.
 type CreateTenantInput struct {
-	Key  string `json:"key"`
-	Name string `json:"name"`
+	Key  string `json:"key" yaml:"key"`
+	Name string `json:"name" yaml:"name"`
 }
 
 // Validate checks the input.
@@ -23,23 +23,23 @@ func (in CreateTenantInput) Validate() error {
 
 // UpdateTenantInput changes a tenant.
 type UpdateTenantInput struct {
-	Name *string `json:"name,omitempty"`
+	Name *string `json:"name,omitempty" yaml:"name,omitempty"`
 }
 
 // AddDomainInput maps a hostname to the current tenant.
 type AddDomainInput struct {
-	Hostname string   `json:"hostname"`
-	CertMode CertMode `json:"cert_mode,omitempty"`
-	CertPath string   `json:"cert_path,omitempty"`
-	KeyPath  string   `json:"key_path,omitempty"`
+	Hostname string   `json:"hostname" yaml:"hostname"`
+	CertMode CertMode `json:"cert_mode,omitempty" yaml:"cert_mode,omitempty"`
+	CertPath string   `json:"cert_path,omitempty" yaml:"cert_path,omitempty"`
+	KeyPath  string   `json:"key_path,omitempty" yaml:"key_path,omitempty"`
 }
 
 // CreateProjectInput creates a project.
 type CreateProjectInput struct {
-	Key         string `json:"key"`
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	WorkflowKey string `json:"workflow_key,omitempty"`
+	Key         string `json:"key" yaml:"key"`
+	Name        string `json:"name" yaml:"name"`
+	Description string `json:"description,omitempty" yaml:"description,omitempty"`
+	WorkflowKey string `json:"workflow_key,omitempty" yaml:"workflow_key,omitempty"`
 }
 
 // Validate checks the input.
@@ -55,21 +55,21 @@ func (in CreateProjectInput) Validate() error {
 
 // UpdateProjectInput changes a project.
 type UpdateProjectInput struct {
-	Name        *string `json:"name,omitempty"`
-	Description *string `json:"description,omitempty"`
-	WorkflowKey *string `json:"workflow_key,omitempty"`
+	Name        *string `json:"name,omitempty" yaml:"name,omitempty"`
+	Description *string `json:"description,omitempty" yaml:"description,omitempty"`
+	WorkflowKey *string `json:"workflow_key,omitempty" yaml:"workflow_key,omitempty"`
 }
 
 // FieldDefInput defines or redefines a custom field.
 type FieldDefInput struct {
-	Key         string    `json:"key"`
-	Label       string    `json:"label"`
-	Type        FieldType `json:"type"`
-	Required    bool      `json:"required"`
-	EnumOptions []string  `json:"enum_options,omitempty"`
-	Default     any       `json:"default,omitempty"`
-	Indexed     bool      `json:"indexed"`
-	Position    int       `json:"position"`
+	Key         string    `json:"key" yaml:"key"`
+	Label       string    `json:"label" yaml:"label"`
+	Type        FieldType `json:"type" yaml:"type"`
+	Required    bool      `json:"required" yaml:"required"`
+	EnumOptions []string  `json:"enum_options,omitempty" yaml:"enum_options,omitempty"`
+	Default     any       `json:"default,omitempty" yaml:"default,omitempty"`
+	Indexed     bool      `json:"indexed" yaml:"indexed"`
+	Position    int       `json:"position" yaml:"position"`
 }
 
 // Validate checks the input.
@@ -91,10 +91,10 @@ func (in FieldDefInput) Validate() error {
 
 // WorkflowInput defines or redefines a workflow.
 type WorkflowInput struct {
-	Key        string             `json:"key"`
-	Name       string             `json:"name"`
-	Definition WorkflowDefinition `json:"definition"`
-	Migrate    map[string]string  `json:"migrate,omitempty"`
+	Key        string             `json:"key" yaml:"key"`
+	Name       string             `json:"name" yaml:"name"`
+	Definition WorkflowDefinition `json:"definition" yaml:"definition"`
+	Migrate    map[string]string  `json:"migrate,omitempty" yaml:"migrate,omitempty"`
 }
 
 // Validate checks the workflow definition for internal consistency.
@@ -147,19 +147,19 @@ func (in WorkflowInput) Validate() error {
 
 // CreateTaskInput creates a task.
 type CreateTaskInput struct {
-	ProjectRef string   `json:"project_ref,omitempty"`
-	Title      string   `json:"title"`
-	Body       string   `json:"body,omitempty"`
-	Status     string   `json:"status,omitempty"`
-	Priority   Priority `json:"priority,omitempty"`
-	Labels     []string `json:"labels,omitempty"`
+	ProjectRef string   `json:"project_ref,omitempty" yaml:"project_ref,omitempty"`
+	Title      string   `json:"title" yaml:"title"`
+	Body       string   `json:"body,omitempty" yaml:"body,omitempty"`
+	Status     string   `json:"status,omitempty" yaml:"status,omitempty"`
+	Priority   Priority `json:"priority,omitempty" yaml:"priority,omitempty"`
+	Labels     []string `json:"labels,omitempty" yaml:"labels,omitempty"`
 
-	AssigneeActorID string     `json:"assignee_actor_id,omitempty"`
-	ParentRef       string     `json:"parent_ref,omitempty"`
-	DueAt           *time.Time `json:"due_at,omitempty"`
+	AssigneeActorID string     `json:"assignee_actor_id,omitempty" yaml:"assignee_actor_id,omitempty"`
+	ParentRef       string     `json:"parent_ref,omitempty" yaml:"parent_ref,omitempty"`
+	DueAt           *time.Time `json:"due_at,omitempty" yaml:"due_at,omitempty"`
 
-	CustomFields map[string]any `json:"custom_fields,omitempty"`
-	DependsOn    []string       `json:"depends_on,omitempty"`
+	CustomFields map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
+	DependsOn    []string       `json:"depends_on,omitempty" yaml:"depends_on,omitempty"`
 }
 
 // Validate checks the input.
@@ -186,25 +186,25 @@ const (
 
 // UpdateTaskInput changes a task.
 type UpdateTaskInput struct {
-	Title           *string        `json:"title,omitempty"`
-	Body            *string        `json:"body,omitempty"`
-	Priority        *Priority      `json:"priority,omitempty"`
-	AssigneeActorID *string        `json:"assignee_actor_id,omitempty"`
-	ParentRef       *string        `json:"parent_ref,omitempty"`
-	DueAt           **time.Time    `json:"due_at,omitempty"`
-	CustomFields    map[string]any `json:"custom_fields,omitempty"`
-	Labels          *[]string      `json:"labels,omitempty"`
+	Title           *string        `json:"title,omitempty" yaml:"title,omitempty"`
+	Body            *string        `json:"body,omitempty" yaml:"body,omitempty"`
+	Priority        *Priority      `json:"priority,omitempty" yaml:"priority,omitempty"`
+	AssigneeActorID *string        `json:"assignee_actor_id,omitempty" yaml:"assignee_actor_id,omitempty"`
+	ParentRef       *string        `json:"parent_ref,omitempty" yaml:"parent_ref,omitempty"`
+	DueAt           **time.Time    `json:"due_at,omitempty" yaml:"due_at,omitempty"`
+	CustomFields    map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
+	Labels          *[]string      `json:"labels,omitempty" yaml:"labels,omitempty"`
 
-	Version int `json:"version,omitempty"`
+	Version int `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
 // TransitionInput moves a task to a new status.
 type TransitionInput struct {
-	To           string         `json:"to"`
-	Comment      string         `json:"comment,omitempty"`
-	LeaseToken   string         `json:"lease_token,omitempty"`
-	CustomFields map[string]any `json:"custom_fields,omitempty"`
-	Version      int            `json:"version,omitempty"`
+	To           string         `json:"to" yaml:"to"`
+	Comment      string         `json:"comment,omitempty" yaml:"comment,omitempty"`
+	LeaseToken   string         `json:"lease_token,omitempty" yaml:"lease_token,omitempty"`
+	CustomFields map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
+	Version      int            `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
 // Validate checks the input.
@@ -217,11 +217,11 @@ func (in TransitionInput) Validate() error {
 
 // ArtifactInput records structured output on a task.
 type ArtifactInput struct {
-	Kind        ArtifactKind   `json:"kind"`
-	Name        string         `json:"name,omitempty"`
-	Payload     map[string]any `json:"payload,omitempty"`
-	ContentType string         `json:"content_type,omitempty"`
-	Blob        []byte         `json:"blob,omitempty"`
+	Kind        ArtifactKind   `json:"kind" yaml:"kind"`
+	Name        string         `json:"name,omitempty" yaml:"name,omitempty"`
+	Payload     map[string]any `json:"payload,omitempty" yaml:"payload,omitempty"`
+	ContentType string         `json:"content_type,omitempty" yaml:"content_type,omitempty"`
+	Blob        []byte         `json:"blob,omitempty" yaml:"blob,omitempty"`
 }
 
 // Validate checks the input.
@@ -237,33 +237,33 @@ func (in ArtifactInput) Validate() error {
 
 // ClaimInput claims one task.
 type ClaimInput struct {
-	TTL     Duration `json:"ttl,omitempty"`
-	ActorID string   `json:"actor_id,omitempty"`
+	TTL     Duration `json:"ttl,omitempty" yaml:"ttl,omitempty"`
+	ActorID string   `json:"actor_id,omitempty" yaml:"actor_id,omitempty"`
 }
 
 // ClaimNextInput claims the next eligible task.
 type ClaimNextInput struct {
-	ProjectRefs []string `json:"project_refs,omitempty"`
-	Labels      []string `json:"labels,omitempty"`
-	Statuses    []string `json:"statuses,omitempty"`
-	TTL         Duration `json:"ttl,omitempty"`
-	ActorID     string   `json:"actor_id,omitempty"`
+	ProjectRefs []string `json:"project_refs,omitempty" yaml:"project_refs,omitempty"`
+	Labels      []string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Statuses    []string `json:"statuses,omitempty" yaml:"statuses,omitempty"`
+	TTL         Duration `json:"ttl,omitempty" yaml:"ttl,omitempty"`
+	ActorID     string   `json:"actor_id,omitempty" yaml:"actor_id,omitempty"`
 }
 
 // ReleaseInput gives up a lease.
 type ReleaseInput struct {
-	Status  string         `json:"status,omitempty"`
-	Result  map[string]any `json:"result,omitempty"`
-	Comment string         `json:"comment,omitempty"`
+	Status  string         `json:"status,omitempty" yaml:"status,omitempty"`
+	Result  map[string]any `json:"result,omitempty" yaml:"result,omitempty"`
+	Comment string         `json:"comment,omitempty" yaml:"comment,omitempty"`
 }
 
 // CreateUserInput creates a user.
 type CreateUserInput struct {
-	Email       string `json:"email"`
-	Password    string `json:"password,omitempty"`
-	DisplayName string `json:"display_name,omitempty"`
-	Handle      string `json:"handle,omitempty"`
-	Role        Role   `json:"role,omitempty"`
+	Email       string `json:"email" yaml:"email"`
+	Password    string `json:"password,omitempty" yaml:"password,omitempty"`
+	DisplayName string `json:"display_name,omitempty" yaml:"display_name,omitempty"`
+	Handle      string `json:"handle,omitempty" yaml:"handle,omitempty"`
+	Role        Role   `json:"role,omitempty" yaml:"role,omitempty"`
 }
 
 // Validate checks the input.
@@ -285,19 +285,19 @@ const MinPasswordLength = 12
 
 // UpdateUserInput changes a user.
 type UpdateUserInput struct {
-	DisplayName *string `json:"display_name,omitempty"`
-	Password    *string `json:"password,omitempty"`
-	Role        *Role   `json:"role,omitempty"`
-	Disabled    *bool   `json:"disabled,omitempty"`
+	DisplayName *string `json:"display_name,omitempty" yaml:"display_name,omitempty"`
+	Password    *string `json:"password,omitempty" yaml:"password,omitempty"`
+	Role        *Role   `json:"role,omitempty" yaml:"role,omitempty"`
+	Disabled    *bool   `json:"disabled,omitempty" yaml:"disabled,omitempty"`
 }
 
 // CreateTokenInput mints an API token.
 type CreateTokenInput struct {
-	Name      string     `json:"name"`
-	ActorID   string     `json:"actor_id,omitempty"`
-	Scopes    []Scope    `json:"scopes"`
-	ProjectID string     `json:"project_id,omitempty"`
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	Name      string     `json:"name" yaml:"name"`
+	ActorID   string     `json:"actor_id,omitempty" yaml:"actor_id,omitempty"`
+	Scopes    []Scope    `json:"scopes" yaml:"scopes"`
+	ProjectID string     `json:"project_id,omitempty" yaml:"project_id,omitempty"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty" yaml:"expires_at,omitempty"`
 }
 
 // Validate checks the input.
@@ -313,11 +313,11 @@ func (in CreateTokenInput) Validate() error {
 
 // WebhookInput registers or updates a delivery endpoint.
 type WebhookInput struct {
-	ID         string   `json:"id,omitempty"`
-	URL        string   `json:"url"`
-	Secret     string   `json:"secret,omitempty"`
-	EventTypes []string `json:"event_types,omitempty"`
-	Active     bool     `json:"active"`
+	ID         string   `json:"id,omitempty" yaml:"id,omitempty"`
+	URL        string   `json:"url" yaml:"url"`
+	Secret     string   `json:"secret,omitempty" yaml:"secret,omitempty"`
+	EventTypes []string `json:"event_types,omitempty" yaml:"event_types,omitempty"`
+	Active     bool     `json:"active" yaml:"active"`
 }
 
 // Validate checks the input.
@@ -330,15 +330,15 @@ func (in WebhookInput) Validate() error {
 
 // ExportInput selects what to export.
 type ExportInput struct {
-	ProjectRefs      []string `json:"project_refs,omitempty"`
-	IncludeArtifacts bool     `json:"include_artifacts,omitempty"`
-	IncludeComments  bool     `json:"include_comments,omitempty"`
+	ProjectRefs      []string `json:"project_refs,omitempty" yaml:"project_refs,omitempty"`
+	IncludeArtifacts bool     `json:"include_artifacts,omitempty" yaml:"include_artifacts,omitempty"`
+	IncludeComments  bool     `json:"include_comments,omitempty" yaml:"include_comments,omitempty"`
 }
 
 // ImportInput controls an import.
 type ImportInput struct {
-	Mode   ImportMode `json:"mode"`
-	DryRun bool       `json:"dry_run,omitempty"`
+	Mode   ImportMode `json:"mode" yaml:"mode"`
+	DryRun bool       `json:"dry_run,omitempty" yaml:"dry_run,omitempty"`
 }
 
 // Validate checks the input.
@@ -355,11 +355,11 @@ func (in ImportInput) Validate() error {
 
 // SyncSourceInput registers an external import source.
 type SyncSourceInput struct {
-	ID          string         `json:"id,omitempty"`
-	System      string         `json:"system"`
-	Name        string         `json:"name"`
-	Config      map[string]any `json:"config,omitempty"`
-	MappingPath string         `json:"mapping_path,omitempty"`
+	ID          string         `json:"id,omitempty" yaml:"id,omitempty"`
+	System      string         `json:"system" yaml:"system"`
+	Name        string         `json:"name" yaml:"name"`
+	Config      map[string]any `json:"config,omitempty" yaml:"config,omitempty"`
+	MappingPath string         `json:"mapping_path,omitempty" yaml:"mapping_path,omitempty"`
 }
 
 // Supported external systems.
@@ -385,13 +385,13 @@ func (in SyncSourceInput) Validate() error {
 
 // RunSyncInput runs an import from a configured source.
 type RunSyncInput struct {
-	SourceID string `json:"source_id"`
-	DryRun   bool   `json:"dry_run,omitempty"`
-	Full     bool   `json:"full,omitempty"`
+	SourceID string `json:"source_id" yaml:"source_id"`
+	DryRun   bool   `json:"dry_run,omitempty" yaml:"dry_run,omitempty"`
+	Full     bool   `json:"full,omitempty" yaml:"full,omitempty"`
 }
 
 // PruneInput removes records past their retention window.
 type PruneInput struct {
-	DryRun bool `json:"dry_run,omitempty"`
-	Limit  int  `json:"limit,omitempty"`
+	DryRun bool `json:"dry_run,omitempty" yaml:"dry_run,omitempty"`
+	Limit  int  `json:"limit,omitempty" yaml:"limit,omitempty"`
 }

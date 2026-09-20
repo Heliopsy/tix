@@ -37,25 +37,25 @@ ticked, and coverage is at or above 80% (excluding `internal/tui`).
 
 ## 2. Wave 2 — Independent foundations
 
-- [ ] 2.1 WP-10 `internal/config`: config types and `TIX_*` key-path mapping
-- [ ] 2.2 WP-10 `internal/config`: file location resolution and loading
-- [ ] 2.3 WP-10 `internal/config`: `.env` discovery by upward walk, never overriding the real environment
-- [ ] 2.4 WP-10 `internal/config`: per-directory context discovery, stopping at the git root
-- [ ] 2.5 WP-10 `internal/config`: five-layer precedence resolution into one struct
-- [ ] 2.6 WP-10 `internal/config`: source attribution for `config show --sources`, with secret redaction
-- [ ] 2.7 WP-11 `internal/output`: `Formatter` interface and table, JSON, YAML implementations
-- [ ] 2.8 WP-12 `internal/authz`: scope vocabulary and role composition
-- [ ] 2.9 WP-12 `internal/authz`: `Policy.Can` with tenant membership evaluation
-- [ ] 2.10 WP-13 `internal/auth`: argon2id hashing and verification
-- [ ] 2.11 WP-13 `internal/auth`: session mint, verify, expiry, revoke
-- [ ] 2.12 WP-13 `internal/auth`: API token mint, verify, scope and tenant binding, revoke
-- [ ] 2.13 WP-13 `internal/auth`: `Authenticator` interface and chain (the SSO seam)
-- [ ] 2.14 WP-14 `internal/store/sqlite`: driver open, WAL, busy timeout, writer and reader pools
-- [ ] 2.15 WP-14 `internal/store/sql`: shared scoped queries for every entity
-- [ ] 2.16 WP-14 `internal/store/sql`: keyset pagination helpers
-- [ ] 2.17 WP-14 Migration runner, forward-only, one transaction per file
-- [ ] 2.18 WP-14 Concurrent-writer test proving serialization rather than failure
-- [ ] 2.19 WP-14 Reflection test asserting every generated statement carries a tenant predicate
+- [x] 2.1 WP-10 `internal/config`: config types and `TIX_*` key-path mapping
+- [x] 2.2 WP-10 `internal/config`: file location resolution and loading
+- [x] 2.3 WP-10 `internal/config`: `.env` discovery by upward walk, never overriding the real environment
+- [x] 2.4 WP-10 `internal/config`: per-directory context discovery, stopping at the git root
+- [x] 2.5 WP-10 `internal/config`: five-layer precedence resolution into one struct
+- [x] 2.6 WP-10 `internal/config`: source attribution for `config show --sources`, with secret redaction
+- [x] 2.7 WP-11 `internal/output`: `Formatter` interface and table, JSON, YAML implementations
+- [x] 2.8 WP-12 `internal/authz`: scope vocabulary and role composition
+- [x] 2.9 WP-12 `internal/authz`: `Policy.Can` with tenant membership evaluation
+- [x] 2.10 WP-13 `internal/auth`: argon2id hashing and verification
+- [x] 2.11 WP-13 `internal/auth`: session mint, verify, expiry, revoke
+- [x] 2.12 WP-13 `internal/auth`: API token mint, verify, scope and tenant binding, revoke
+- [x] 2.13 WP-13 `internal/auth`: `Authenticator` interface and chain (the SSO seam)
+- [x] 2.14 WP-14 `internal/store/sqlite`: driver open, WAL, busy timeout, writer and reader pools
+- [x] 2.15 WP-14 `internal/store/sql`: shared scoped queries for every entity
+- [x] 2.16 WP-14 `internal/store/sql`: keyset pagination helpers
+- [x] 2.17 WP-14 Migration runner, forward-only, one transaction per file
+- [x] 2.18 WP-14 Concurrent-writer test proving serialization rather than failure
+- [x] 2.19 WP-14 Reflection test asserting every generated statement carries a tenant predicate
 
 ## 3. Wave 3 — Service layer
 

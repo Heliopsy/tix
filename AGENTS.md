@@ -7,7 +7,8 @@ Coding standards for tix. Terse by design. Read before writing code.
 - `cmd/` is Cobra flags and wiring only. No business logic, no database access.
 - No package under `internal/` may import Cobra.
 - `internal/core` imports only the standard library. It is the frozen contract.
-- Business rules and authorization live only in `internal/service`.
+- Business rules live only in `internal/service`.
+- The authorization policy lives in `internal/authz`, and `internal/service` is its only caller.
 - `internal/client` performs no validation and no rules. It marshals and nothing else.
 - Every mutation writes domain rows, its audit entry, and its outbox event in ONE transaction.
 - Every query is built by the tenant-scoped builder in `internal/store/sql`. Never construct a query without a tenant scope.

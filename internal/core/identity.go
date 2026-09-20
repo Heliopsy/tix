@@ -118,15 +118,15 @@ func (r Role) Scopes() []Scope {
 
 // Actor is the authenticated identity performing an operation.
 type Actor struct {
-	ID          string    `json:"id"`
-	TenantID    string    `json:"tenant_id"`
-	Kind        ActorKind `json:"kind"`
-	Handle      string    `json:"handle"`
-	DisplayName string    `json:"display_name,omitempty"`
-	Scopes      []Scope   `json:"scopes,omitempty"`
-	Role        Role      `json:"role,omitempty"`
-	TokenID     string    `json:"token_id,omitempty"`
-	ProjectID   string    `json:"project_id,omitempty"`
+	ID          string    `json:"id" yaml:"id"`
+	TenantID    string    `json:"tenant_id" yaml:"tenant_id"`
+	Kind        ActorKind `json:"kind" yaml:"kind"`
+	Handle      string    `json:"handle" yaml:"handle"`
+	DisplayName string    `json:"display_name,omitempty" yaml:"display_name,omitempty"`
+	Scopes      []Scope   `json:"scopes,omitempty" yaml:"scopes,omitempty"`
+	Role        Role      `json:"role,omitempty" yaml:"role,omitempty"`
+	TokenID     string    `json:"token_id,omitempty" yaml:"token_id,omitempty"`
+	ProjectID   string    `json:"project_id,omitempty" yaml:"project_id,omitempty"`
 }
 
 // HasScope reports whether the actor holds the scope, directly or by role.
@@ -248,8 +248,8 @@ func SourceFrom(ctx context.Context) Source {
 
 // Membership grants a human a role within one tenant.
 type Membership struct {
-	TenantID  string    `json:"tenant_id"`
-	ActorID   string    `json:"actor_id"`
-	Role      Role      `json:"role"`
-	CreatedAt time.Time `json:"created_at"`
+	TenantID  string    `json:"tenant_id" yaml:"tenant_id"`
+	ActorID   string    `json:"actor_id" yaml:"actor_id"`
+	Role      Role      `json:"role" yaml:"role"`
+	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
 }
