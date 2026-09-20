@@ -63,6 +63,9 @@ func newServeCmd(g *globals) *cobra.Command {
 
 // runServe opens the configured target and serves it until a signal arrives.
 func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
+	if !o.disableDispatch {
+		g.drainMode = connect.DrainModeServer
+	}
 	conn, _, err := g.dial(cmd)
 	if err != nil {
 		return err

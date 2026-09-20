@@ -18,6 +18,7 @@ import (
 	"github.com/thereisnotime/tix/internal/store"
 	"github.com/thereisnotime/tix/internal/store/postgres"
 	"github.com/thereisnotime/tix/internal/store/sqlite"
+	"github.com/thereisnotime/tix/internal/webhook"
 )
 
 // Mode names the transport a resolved target uses.
@@ -52,6 +53,12 @@ const (
 // LocalHandle is the handle given to the actor synthesized for local use.
 const LocalHandle = "local"
 
+// KeyDrainMode is the configuration key selecting the webhook drain mode.
+const KeyDrainMode = "webhooks.drain_mode"
+
+// DrainModeServer is the mode a process running the dispatcher itself prefers.
+const DrainModeServer = string(webhook.ModeServer)
+
 // Overrides are the raw target selectors a command may supply.
 type Overrides struct {
 	DB      string
@@ -59,6 +66,11 @@ type Overrides struct {
 	Token   string
 	Home    string
 	Environ []string
+
+	// DrainMode is the webhook drain mode a process prefers when the operator
+	// left the key at its default. A serving process sets it, because it runs
+	// the dispatcher itself; an explicit setting still wins.
+	DrainMode string
 }
 
 // Target is the resolved endpoint a command will talk to.
@@ -141,7 +153,7 @@ func Dial(ctx context.Context, cfg *config.Resolved, ov Overrides) (*Conn, error
 	if target.Mode == ModeRemote {
 		return dialRemote(ctx, target, ov)
 	}
-	return dialLocal(ctx, target, ov)
+	return dialLocal(ctx, cfg, target, ov)
 }
 
 // Resolve selects the target without opening it.
@@ -279,7 +291,11 @@ func dialRemote(ctx context.Context, target Target, ov Overrides) (*Conn, error)
 
 // dialLocal opens the store the target names, migrates it, resolves the
 // tenant and establishes the actor every subsequent call runs as.
-func dialLocal(ctx context.Context, target Target, ov Overrides) (*Conn, error) {
+func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Overrides) (*Conn, error) {
+	mode, err := drainMode(cfg, ov)
+	if err != nil {
+		return nil, err
+	}
 	clk := clock.New()
 	st, err := openStore(target, clk)
 	if err != nil {
@@ -296,7 +312,11 @@ func dialLocal(ctx context.Context, target Target, ov Overrides) (*Conn, error) 
 	}
 	conn.Info.SchemaVersion = version
 
-	local := service.New(st, service.WithClock(clk))
+	local := service.New(st,
+		service.WithClock(clk),
+		service.WithHooks(service.HookModeOf(mode)),
+		service.WithRetentionDefaults(cfg.Config.Retention.Policy("")),
+	)
 	tenant, err := resolveTenant(ctx, st, local, target.Tenant)
 	if err != nil {
 		return nil, closeWith(conn, err)
@@ -311,6 +331,17 @@ func dialLocal(ctx context.Context, target Target, ov Overrides) (*Conn, error) 
 	}
 	conn.Actor = actor
 	return conn, nil
+}
+
+// drainMode resolves who delivers queued webhooks. The process preference only
+// applies while the key still sits on its default layer.
+func drainMode(cfg *config.Resolved, ov Overrides) (webhook.Mode, error) {
+	raw := cfg.Config.Webhooks.DrainMode
+	if preferred := strings.TrimSpace(ov.DrainMode); preferred != "" &&
+		cfg.Source(KeyDrainMode) == config.LayerDefault {
+		raw = preferred
+	}
+	return webhook.ParseMode(raw)
 }
 
 // openStore opens the engine the target names.

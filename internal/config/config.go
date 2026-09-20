@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/thereisnotime/tix/internal/core"
+	"github.com/thereisnotime/tix/internal/webhook"
 )
 
 // Config is the fully resolved tix configuration.
@@ -19,6 +20,7 @@ type Config struct {
 	Server         Server             `yaml:"server"`
 	Auth           Auth               `yaml:"auth"`
 	Hooks          Hooks              `yaml:"hooks"`
+	Webhooks       Webhooks           `yaml:"webhooks"`
 	Discovery      Discovery          `yaml:"discovery"`
 	Retention      Retention          `yaml:"retention"`
 	Log            Log                `yaml:"log"`
@@ -45,6 +47,12 @@ type Auth struct {
 // Hooks holds the git hook settings.
 type Hooks struct {
 	Mode string `yaml:"mode"`
+}
+
+// Webhooks holds the outgoing webhook settings. It is unrelated to Hooks,
+// which governs git hooks.
+type Webhooks struct {
+	DrainMode string `yaml:"drain_mode"`
 }
 
 // Discovery holds the per-directory context discovery settings.
@@ -98,15 +106,17 @@ func (c Context) Remote() bool { return strings.TrimSpace(c.Server) != "" }
 
 // Default configuration values.
 const (
-	DefaultDSN            = "sqlite://~/.local/share/tix/tix.db"
-	DefaultListen         = "127.0.0.1:8080"
-	DefaultTenant         = "default"
-	DefaultAuthMode       = "token"
-	DefaultHookMode       = "off"
-	DefaultLogLevel       = "info"
-	DefaultOutputFormat   = "table"
-	DefaultRetentionAudit = "8760h"
-	DefaultRetentionEvent = "720h"
+	DefaultDSN      = "sqlite://~/.local/share/tix/tix.db"
+	DefaultListen   = "127.0.0.1:8080"
+	DefaultTenant   = "default"
+	DefaultAuthMode = "token"
+	DefaultHookMode = "off"
+	// DefaultWebhookDrainMode names the process that delivers queued webhooks.
+	DefaultWebhookDrainMode = string(webhook.DefaultMode)
+	DefaultLogLevel         = "info"
+	DefaultOutputFormat     = "table"
+	DefaultRetentionAudit   = "8760h"
+	DefaultRetentionEvent   = "720h"
 	// DefaultRetentionDelivery matches the shipped webhook delivery window.
 	DefaultRetentionDelivery = "720h"
 )
@@ -126,7 +136,9 @@ var (
 	HookModes = []string{"off"}
 	// UnimplementedHookModes are documented modes with no implementation.
 	UnimplementedHookModes = []string{"warn", "enforce"}
-	LogLevels              = []string{"debug", "info", "warn", "error"}
+	// WebhookDrainModes lists the webhook drain modes this build implements.
+	WebhookDrainModes = drainModeNames()
+	LogLevels         = []string{"debug", "info", "warn", "error"}
 	// OutputFormats mirrors the formats the renderer actually implements, so
 	// config cannot accept one it cannot render or reject one it can.
 	OutputFormats = output.Formats
@@ -140,6 +152,7 @@ func Defaults() Config {
 		Server:   Server{Listen: DefaultListen},
 		Auth:     Auth{Mode: DefaultAuthMode},
 		Hooks:    Hooks{Mode: DefaultHookMode},
+		Webhooks: Webhooks{DrainMode: DefaultWebhookDrainMode},
 		Discovery: Discovery{
 			Enabled:   true,
 			Filenames: append([]string(nil), DefaultDiscoveryFilenames...),
@@ -152,4 +165,14 @@ func Defaults() Config {
 		Log:    Log{Level: DefaultLogLevel},
 		Output: Output{Format: DefaultOutputFormat},
 	}
+}
+
+// drainModeNames renders every implemented drain mode as a string.
+func drainModeNames() []string {
+	modes := webhook.Modes()
+	out := make([]string, 0, len(modes))
+	for _, m := range modes {
+		out = append(out, string(m))
+	}
+	return out
 }

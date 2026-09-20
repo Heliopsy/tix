@@ -80,7 +80,7 @@ func (l *Local) pruneWindow(ctx context.Context, tx store.Tx, actor *core.Actor,
 	if err != nil {
 		return pruneWindow{}, err
 	}
-	policy := retention.Effective(*stored)
+	policy := retention.Resolve(*stored, l.retentionDefaults)
 	now := l.clock.Now()
 	cutoffs := retention.Cutoffs(policy, now)
 

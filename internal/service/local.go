@@ -22,6 +22,10 @@ type Local struct {
 	hooks  HookMode
 	hasher *auth.Hasher
 
+	// retentionDefaults are the configured windows a tenant that never moved
+	// off the shipped default is pruned by.
+	retentionDefaults core.RetentionPolicy
+
 	// allowInsecureWebhooks permits a plaintext delivery target outside
 	// loopback. Deliveries carry task content, so this is opt-in.
 	allowInsecureWebhooks bool
@@ -51,6 +55,12 @@ func WithIDs(g id.Generator) Option { return func(l *Local) { l.ids = g } }
 
 // WithHooks sets the webhook delivery mode.
 func WithHooks(m HookMode) Option { return func(l *Local) { l.hooks = m } }
+
+// WithRetentionDefaults sets the configured retention windows layered under a
+// tenant's stored policy.
+func WithRetentionDefaults(p core.RetentionPolicy) Option {
+	return func(l *Local) { l.retentionDefaults = p }
+}
 
 // WithHasher sets the password hasher. Tests use cheaper parameters; production
 // must not.

@@ -37,6 +37,10 @@ type globals struct {
 	verbose     bool
 	noDiscovery bool
 
+	// drainMode is the webhook drain mode this process prefers while the
+	// operator has left the key on its default layer.
+	drainMode string
+
 	environ []string
 	dir     string
 
@@ -211,11 +215,12 @@ func (g *globals) bearer() string {
 // overrides builds the raw selectors handed to the resolver.
 func (g *globals) overrides() connect.Overrides {
 	return connect.Overrides{
-		DB:      g.db,
-		Server:  g.server,
-		Token:   g.bearer(),
-		Home:    lookupEnv(g.environ, "HOME"),
-		Environ: g.environ,
+		DB:        g.db,
+		Server:    g.server,
+		Token:     g.bearer(),
+		Home:      lookupEnv(g.environ, "HOME"),
+		Environ:   g.environ,
+		DrainMode: g.drainMode,
 	}
 }
 

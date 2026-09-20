@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/thereisnotime/tix/internal/core"
+	"github.com/thereisnotime/tix/internal/webhook"
 )
 
 // Validate rejects configuration that cannot be used, naming the offending key.
@@ -30,6 +31,11 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		}
 		return invalidKey(check.key, sources).WithDetail("value", check.value).
 			WithDetail("allowed", check.set)
+	}
+	if _, err := webhook.ParseMode(cfg.Webhooks.DrainMode); err != nil {
+		return invalidKey("webhooks.drain_mode", sources).
+			WithDetail("value", cfg.Webhooks.DrainMode).
+			WithDetail("allowed", WebhookDrainModes)
 	}
 	if cfg.Server.URL != "" {
 		if _, err := url.Parse(cfg.Server.URL); err != nil {

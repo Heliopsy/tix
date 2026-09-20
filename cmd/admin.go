@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"time"
+
 	"github.com/spf13/cobra"
 	"github.com/thereisnotime/tix/internal/core"
 )
@@ -227,6 +229,9 @@ func webhookPutCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if endpoint.Secret != "" {
+				return g.render(cmd, registered(*endpoint))
+			}
 			return g.render(cmd, endpoint)
 		},
 	}
@@ -237,6 +242,28 @@ func webhookPutCmd(g *globals) *cobra.Command {
 	f.BoolVar(&inactive, "inactive", false, "register the endpoint without enabling it")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	return cmd
+}
+
+// webhookRegistration carries a newly registered endpoint together with the
+// signing secret the service disclosed exactly once. core.WebhookEndpoint
+// keeps its secret out of every serialised form, so the create path renders
+// this instead of making the stored field serialisable.
+type webhookRegistration struct {
+	ID         string    `json:"id" yaml:"id"`
+	TenantID   string    `json:"tenant_id" yaml:"tenant_id"`
+	URL        string    `json:"url" yaml:"url"`
+	EventTypes []string  `json:"event_types" yaml:"event_types"`
+	Active     bool      `json:"active" yaml:"active"`
+	CreatedAt  time.Time `json:"created_at" yaml:"created_at"`
+	Secret     string    `json:"secret" yaml:"secret"`
+}
+
+// registered pairs an endpoint with the secret only a registration returns.
+func registered(e core.WebhookEndpoint) webhookRegistration {
+	return webhookRegistration{
+		ID: e.ID, TenantID: e.TenantID, URL: e.URL, EventTypes: e.EventTypes,
+		Active: e.Active, CreatedAt: e.CreatedAt, Secret: e.Secret,
+	}
 }
 
 func webhookLsCmd(g *globals) *cobra.Command {

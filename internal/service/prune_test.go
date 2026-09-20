@@ -392,3 +392,76 @@ func TestPruneDryRunCountsEveryClass(t *testing.T) {
 		t.Errorf("real run %+v did not match the dry run %+v", actual, dry)
 	}
 }
+
+// The configured windows must reach the pruner, and a window a tenant stored
+// explicitly must still beat them.
+func TestPruneAppliesConfiguredRetentionDefaults(t *testing.T) {
+	const hour = core.Duration(time.Hour)
+	year := core.Duration(365 * 24 * time.Hour)
+
+	tests := []struct {
+		name          string
+		configured    core.RetentionPolicy
+		stored        *core.RetentionPolicy
+		advance       time.Duration
+		wantEvents    int64
+		wantAudit     int64
+		wantDelivered int64
+	}{
+		{
+			name:          "configuration prunes what the shipped default would keep",
+			configured:    core.RetentionPolicy{Events: hour, AuditEntries: hour, WebhookDeliveries: hour},
+			advance:       48 * time.Hour,
+			wantEvents:    2,
+			wantAudit:     2,
+			wantDelivered: 2,
+		},
+		{
+			name:       "shipped default still governs a class configuration leaves alone",
+			configured: core.RetentionPolicy{AuditEntries: hour},
+			advance:    48 * time.Hour,
+			wantEvents: 0,
+			wantAudit:  2,
+		},
+		{
+			name:       "a stored policy that moved off the shipped default beats configuration",
+			configured: core.RetentionPolicy{Events: hour, AuditEntries: hour},
+			stored:     &core.RetentionPolicy{Events: year, AuditEntries: 2 * year},
+			advance:    48 * time.Hour,
+			wantEvents: 0,
+			wantAudit:  0,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			l, clk, scope, actor := newLocalWith(t, WithRetentionDefaults(tc.configured))
+			ctx := core.WithActor(context.Background(), actor)
+
+			old := clk.Now()
+			seedEvents(t, l, scope, 2, old)
+			seedAudit(t, l, scope, 2, old)
+			seedDeliveries(t, l, scope, 2, old)
+			if tc.stored != nil {
+				if _, err := l.PutRetention(ctx, *tc.stored); err != nil {
+					t.Fatalf("put retention: %v", err)
+				}
+			}
+			clk.Advance(tc.advance)
+
+			res, err := l.Prune(ctx, core.PruneInput{})
+			if err != nil {
+				t.Fatalf("prune: %v", err)
+			}
+			if res.Events != tc.wantEvents {
+				t.Errorf("pruned events = %d, want %d", res.Events, tc.wantEvents)
+			}
+			if res.AuditEntries != tc.wantAudit {
+				t.Errorf("pruned audit entries = %d, want %d", res.AuditEntries, tc.wantAudit)
+			}
+			if res.WebhookDeliveries != tc.wantDelivered {
+				t.Errorf("pruned deliveries = %d, want %d", res.WebhookDeliveries, tc.wantDelivered)
+			}
+		})
+	}
+}

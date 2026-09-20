@@ -317,6 +317,9 @@ func (q *hookQueue) ListWebhooks(ctx context.Context) ([]core.WebhookEndpoint, e
 	return q.endpoints, nil
 }
 
+// HookModeOf adapts a parsed webhook drain mode to the service's hook mode.
+func HookModeOf(m webhook.Mode) HookMode { return HookMode(m) }
+
 // drainMode maps a configured hook mode onto the dispatcher's drain mode.
 func (m HookMode) drainMode() webhook.Mode { return webhook.Mode(m) }
 

@@ -1082,3 +1082,67 @@ func TestRetentionPolicyMirrorsTheConfiguredWindows(t *testing.T) {
 		t.Fatalf("policy = %+v, want the configured windows %+v", policy, cfg.Retention)
 	}
 }
+
+// The drain mode key is distinct from hooks.mode, which governs git hooks.
+func TestWebhookDrainModeKey(t *testing.T) {
+	key, ok := Lookup("webhooks.drain_mode")
+	if !ok {
+		t.Fatal("webhooks.drain_mode is not registered")
+	}
+	if key.Env != "TIX_WEBHOOKS_DRAIN_MODE" {
+		t.Fatalf("env = %q, want TIX_WEBHOOKS_DRAIN_MODE", key.Env)
+	}
+	if hook, _ := Lookup("hooks.mode"); hook.Env == key.Env {
+		t.Fatal("the drain mode collides with the git hook mode")
+	}
+
+	tests := []struct {
+		name       string
+		file       string
+		env        map[string]string
+		wantValue  string
+		wantSource Layer
+		wantErr    bool
+	}{
+		{name: "default", wantValue: DefaultWebhookDrainMode, wantSource: LayerDefault},
+		{name: "file", file: "webhooks:\n  drain_mode: server\n", wantValue: "server", wantSource: LayerFile},
+		{
+			name:       "environment beats file",
+			file:       "webhooks:\n  drain_mode: server\n",
+			env:        map[string]string{"TIX_WEBHOOKS_DRAIN_MODE": "off"},
+			wantValue:  "off",
+			wantSource: LayerEnv,
+		},
+		{name: "bad value", env: map[string]string{"TIX_WEBHOOKS_DRAIN_MODE": "sometimes"}, wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			env := map[string]string{"HOME": home}
+			if tc.file != "" {
+				env[EnvConfigFile] = write(t, filepath.Join(home, "config.yaml"), tc.file)
+			}
+			for name, value := range tc.env {
+				env[name] = value
+			}
+
+			got, err := Load(Options{Dir: t.TempDir(), Home: home, Environ: environ(env)})
+			if tc.wantErr {
+				if !core.IsKind(err, core.KindInvalid) {
+					t.Fatalf("err = %v, want an invalid-value error", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if got.Config.Webhooks.DrainMode != tc.wantValue {
+				t.Fatalf("drain mode = %q, want %q", got.Config.Webhooks.DrainMode, tc.wantValue)
+			}
+			if src := got.Source("webhooks.drain_mode"); src != tc.wantSource {
+				t.Fatalf("source = %q, want %q", src, tc.wantSource)
+			}
+		})
+	}
+}

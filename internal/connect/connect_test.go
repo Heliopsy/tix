@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/thereisnotime/tix/internal/auth"
@@ -17,6 +18,7 @@ import (
 	"github.com/thereisnotime/tix/internal/httpapi"
 	"github.com/thereisnotime/tix/internal/store"
 	"github.com/thereisnotime/tix/internal/store/sqlite"
+	"github.com/thereisnotime/tix/internal/webhook"
 )
 
 // load resolves a configuration rooted at a throwaway home directory.
@@ -475,4 +477,105 @@ func TestDialRejectsAnUnknownTenant(t *testing.T) {
 	if !strings.Contains(err.Error(), "nope") {
 		t.Fatalf("err = %v, want the tenant key named", err)
 	}
+}
+
+// The configured drain mode must decide who delivers, through the same path a
+// command takes: off queues nothing, server queues without posting, and inline
+// queues and posts before the call returns.
+func TestConfiguredDrainModeGovernsDelivery(t *testing.T) {
+	tests := []struct {
+		name      string
+		mode      string
+		wantRows  int
+		wantPosts bool
+	}{
+		{name: "off queues nothing", mode: "off"},
+		{name: "server queues without draining", mode: "server", wantRows: 2},
+		{name: "inline queues and drains", mode: "inline", wantRows: 2, wantPosts: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var posts atomic.Int64
+			receiver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				posts.Add(1)
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer receiver.Close()
+
+			home := t.TempDir()
+			cfg := load(t, home, []string{"TIX_WEBHOOKS_DRAIN_MODE=" + tc.mode})
+			conn := dialTemp(t, cfg, home)
+			ctx := conn.Context(context.Background())
+
+			if _, err := conn.Service.PutWebhook(ctx, core.WebhookInput{
+				URL: receiver.URL, EventTypes: []string{"*"}, Active: true,
+			}); err != nil {
+				t.Fatalf("put webhook: %v", err)
+			}
+			if _, err := conn.Service.CreateTask(ctx, core.CreateTaskInput{Title: "deliver me"}); err != nil {
+				t.Fatalf("create task: %v", err)
+			}
+
+			deliveries, _, err := conn.Service.ListDeliveries(ctx, core.DeliveryFilter{})
+			if err != nil {
+				t.Fatalf("list deliveries: %v", err)
+			}
+			if len(deliveries) != tc.wantRows {
+				t.Fatalf("%s queued %d deliveries, want %d", tc.mode, len(deliveries), tc.wantRows)
+			}
+			if got := posts.Load() > 0; got != tc.wantPosts {
+				t.Fatalf("%s posted = %v, want %v", tc.mode, got, tc.wantPosts)
+			}
+			for _, d := range deliveries {
+				if want := core.DeliveryPending; !tc.wantPosts && d.Status != want {
+					t.Errorf("%s left a delivery in %q, want %q", tc.mode, d.Status, want)
+				}
+			}
+		})
+	}
+}
+
+// A serving process prefers the server mode, but only while the operator has
+// left the key alone.
+func TestServeDrainPreferenceYieldsToAnExplicitSetting(t *testing.T) {
+	tests := []struct {
+		name    string
+		environ []string
+		want    webhook.Mode
+	}{
+		{name: "default layer yields to the process preference", want: webhook.ModeServer},
+		{
+			name:    "an explicit setting wins",
+			environ: []string{"TIX_WEBHOOKS_DRAIN_MODE=inline"},
+			want:    webhook.ModeInline,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			got, err := drainMode(load(t, home, tc.environ), Overrides{DrainMode: DrainModeServer})
+			if err != nil {
+				t.Fatalf("drainMode: %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("drain mode = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// dialTemp opens a throwaway local database through the ordinary dial path.
+func dialTemp(t *testing.T, cfg *config.Resolved, home string) *Conn {
+	t.Helper()
+	conn, err := Dial(context.Background(), cfg, Overrides{
+		DB:   filepath.Join(t.TempDir(), "tix.db"),
+		Home: home,
+	})
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	return conn
 }
