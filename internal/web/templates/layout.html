@@ -10,23 +10,29 @@
 <script src="/assets/live.js" defer></script>
 </head>
 <body hx-boost="true">
-<header class="top">
-  <div class="bar">
+{{if .Actor}}
+<div class="shell">
+  <aside class="side">
     <a class="brand" href="/"><span class="logo">{{.Brand.Monogram}}</span>{{.Brand.Title}}</a>
-    <span class="meta">{{if .Actor}}{{.Actor.Handle}}{{end}}</span>
-    {{if .Actor}}
-    <form method="post" action="/logout">
+    <p class="who">{{.Actor.Handle}}</p>
+    {{template "nav" .}}
+    <form method="post" action="/logout" class="actions">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
       <button class="secondary" type="submit">Sign out</button>
     </form>
-    {{end}}
-  </div>
-</header>
-{{if .Actor}}{{template "nav" .}}{{end}}
-<main class="wrap">
+  </aside>
+  <main class="wrap">
+    {{if .Flash}}<p class="flash">{{.Flash}}</p>{{end}}
+    {{if .Error}}<p class="flash error">{{.Error}}</p>{{end}}
+    {{block "content" .}}{{end}}
+  </main>
+</div>
+{{else}}
+<main class="auth">
   {{if .Flash}}<p class="flash">{{.Flash}}</p>{{end}}
   {{if .Error}}<p class="flash error">{{.Error}}</p>{{end}}
-  {{block "content" .}}{{end}}
+  {{template "content" .}}
 </main>
+{{end}}
 </body>
 </html>

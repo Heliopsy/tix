@@ -102,7 +102,45 @@ func funcs() template.FuncMap {
 		"join":    joinValues,
 		"scopes":  joinScopes,
 		"counts":  formatCounts,
+		"prio":    priorityName,
+		"slug":    slug,
+		"actor":   actorLabel,
 	}
+}
+
+// priorityName renders a priority as the word the CLI and the forms use, so a
+// task does not read as a bare number on one surface and a name on another.
+func priorityName(p core.Priority) string {
+	for _, c := range priorityChoices {
+		if c.Value == p {
+			return c.Label
+		}
+	}
+	return "normal"
+}
+
+// actorLabel shortens an actor identifier so it does not dominate a line.
+// Resolving it to a handle needs an actor lookup the Service does not expose
+// yet, so the full value stays available as the title.
+func actorLabel(id string) string {
+	if len(id) <= 10 {
+		return id
+	}
+	return id[:4] + "\u2026" + id[len(id)-4:]
+}
+
+// slug reduces a value to a css class suffix.
+func slug(v any) string {
+	out := strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			return r
+		case r >= 'A' && r <= 'Z':
+			return r + 32
+		}
+		return '-'
+	}, fmt.Sprint(v))
+	return out
 }
 
 // joinValues renders a list of strings as a comma separated line.

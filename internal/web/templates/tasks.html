@@ -1,62 +1,85 @@
 {{define "content"}}
 <h1>Tasks</h1>
-<form method="get" action="/tasks">
-  <div class="row">
-    <div><label for="q">Filter</label><input id="q" name="q" value="{{.Data.Query}}" placeholder="project:infra status:todo tag:ops"></div>
-    <div>
-      <label for="sort">Sort</label>
-      <select id="sort" name="sort">
-        {{range .Data.SortFields}}<option value="{{.}}" {{if eq . $.Data.Sort}}selected{{end}}>{{.}}</option>{{end}}
-      </select>
-    </div>
-    <div><button type="submit">Apply</button></div>
-  </div>
-</form>
-<table>
-  <thead><tr><th>Ref</th><th>Title</th><th>Status</th><th>Priority</th><th>Updated</th></tr></thead>
-  <tbody>
-  {{range .Data.Tasks}}
-    <tr>
-      <td><a href="/tasks/{{.Ref}}">{{.Ref}}</a></td>
-      <td>{{.Title}}</td>
-      <td>{{.Status}}</td>
-      <td>{{.Priority}}</td>
-      <td>{{compact .UpdatedAt}}</td>
-    </tr>
-  {{else}}
-    <tr><td colspan="5">No tasks matched.</td></tr>
-  {{end}}
-  </tbody>
-</table>
-{{if .Data.NextCursor}}<p><a href="/tasks?q={{.Data.Query}}&amp;sort={{.Data.Sort}}&amp;cursor={{.Data.NextCursor}}">Next page</a></p>{{end}}
 
-<h2>New task</h2>
-<form method="post" action="/tasks">
-  {{template "csrf" .CSRF}}
-  <div class="row">
-    <div>
-      <label for="project_ref">Project</label>
-      <select id="project_ref" name="project_ref">
-        {{range .Data.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
-      </select>
+<div class="card">
+  <form method="get" action="/tasks">
+    <div class="row">
+      <div>
+        <label for="q">Filter</label>
+        <input id="q" name="q" value="{{.Data.Query}}" placeholder="project:infra status:todo tag:ops">
+      </div>
+      <div>
+        <label for="sort">Sort</label>
+        <select id="sort" name="sort">
+          {{range .Data.SortFields}}<option value="{{.}}" {{if eq . $.Data.Sort}}selected{{end}}>{{.}}</option>{{end}}
+        </select>
+      </div>
+      <div class="actions"><button type="submit">Apply</button></div>
     </div>
-    <div>
-      <label for="priority">Priority</label>
-      <select id="priority" name="priority">
-        <option value="">default</option>
-        {{range .Data.Priorities}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
-      </select>
-    </div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="t-tasks">
+      <colgroup>
+        <col class="c-ref"><col><col class="c-state"><col class="c-state"><col class="c-tags"><col class="c-when">
+      </colgroup>
+      <thead><tr><th>Ref</th><th>Title</th><th>Status</th><th>Priority</th><th>Tags</th><th>Updated</th></tr></thead>
+      <tbody>
+      {{range .Data.Tasks}}
+        <tr>
+          <td data-label="Ref"><a class="mono" href="/tasks/{{.Ref}}">{{.Ref}}</a></td>
+          <td data-label="Title">{{.Title}}</td>
+          <td data-label="Status"><span class="badge {{slug .Status}}">{{.Status}}</span></td>
+          <td data-label="Priority"><span class="badge p-{{prio .Priority}}">{{prio .Priority}}</span></td>
+          <td data-label="Tags">
+            {{if .Tags}}<span class="tags">{{range .Tags}}<span class="tag">{{.}}</span>{{end}}</span>{{else}}<span class="muted">&mdash;</span>{{end}}
+          </td>
+          <td data-label="Updated" class="muted">{{compact .UpdatedAt}}</td>
+        </tr>
+      {{else}}
+        <tr><td colspan="6"><p class="empty">No tasks matched.</p></td></tr>
+      {{end}}
+      </tbody>
+    </table>
   </div>
-  <label for="title">Title</label>
-  <input id="title" name="title" required>
-  <label for="body">Body</label>
-  <textarea id="body" name="body"></textarea>
-  <label for="tags">Tags, comma separated</label>
-  <input id="tags" name="tags" list="known-tags">
-  <datalist id="known-tags">
-    {{range .Data.Tags}}<option value="{{.Name}}"></option>{{end}}
-  </datalist>
-  <p><button type="submit">Create task</button></p>
-</form>
+  {{if .Data.NextCursor}}
+  <div class="actions"><a href="/tasks?q={{.Data.Query}}&amp;sort={{.Data.Sort}}&amp;cursor={{.Data.NextCursor}}">Next page</a></div>
+  {{end}}
+</div>
+
+<details class="panel">
+  <summary>New task</summary>
+  <div class="body">
+    <form method="post" action="/tasks">
+      {{template "csrf" .CSRF}}
+      <div class="row">
+        <div>
+          <label for="project_ref">Project</label>
+          <select id="project_ref" name="project_ref">
+            {{range .Data.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
+          </select>
+        </div>
+        <div>
+          <label for="priority">Priority</label>
+          <select id="priority" name="priority">
+            <option value="">default</option>
+            {{range .Data.Priorities}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
+          </select>
+        </div>
+      </div>
+      <label for="title">Title</label>
+      <input id="title" name="title" required>
+      <label for="body">Body</label>
+      <textarea id="body" name="body"></textarea>
+      <label for="tags">Tags, comma separated</label>
+      <input id="tags" name="tags" list="known-tags">
+      <datalist id="known-tags">
+        {{range .Data.Tags}}<option value="{{.Name}}"></option>{{end}}
+      </datalist>
+      <div class="actions"><button type="submit">Create task</button></div>
+    </form>
+  </div>
+</details>
 {{end}}

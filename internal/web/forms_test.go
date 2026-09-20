@@ -56,7 +56,7 @@ func TestBoardMoveTransitionsATask(t *testing.T) {
 	wantStatus(t, resp, http.StatusSeeOther)
 
 	detail := b.page("/tasks/" + ref)
-	if !strings.Contains(detail, "Status doing") {
+	if !strings.Contains(detail, `<span class="badge doing">doing</span>`) {
 		t.Fatalf("the task did not transition:\n%s", detail)
 	}
 }
@@ -77,7 +77,7 @@ func TestIllegalBoardMoveIsRefusedWithAnExplanation(t *testing.T) {
 	}
 
 	detail := b.page("/tasks/" + ref)
-	if !strings.Contains(detail, "Status todo") {
+	if !strings.Contains(detail, `<span class="badge todo">todo</span>`) {
 		t.Fatalf("the refused move changed the task")
 	}
 }
@@ -112,7 +112,7 @@ func TestTaskDetailEditsApply(t *testing.T) {
 		{"tag", "/tasks/" + ref + "/tags", url.Values{"tag": {"ops"}}, "ops"},
 		{"artifact", "/tasks/" + ref + "/artifacts", url.Values{"kind": {"result"},
 			"name": {"summary"}, "payload": {"lines=12"}}, "summary"},
-		{"transition", "/tasks/" + ref + "/transition", url.Values{"to": {"doing"}}, "Status doing"},
+		{"transition", "/tasks/" + ref + "/transition", url.Values{"to": {"doing"}}, `<span class="badge doing">doing</span>`},
 	}
 	for _, step := range steps {
 		t.Run(step.name, func(t *testing.T) {

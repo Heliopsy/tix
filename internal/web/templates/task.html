@@ -1,198 +1,265 @@
 {{define "content"}}
-<h1>{{.Data.Task.Ref}} {{.Data.Task.Title}}</h1>
-<p class="meta">Status {{.Data.Task.Status}} &middot; priority {{.Data.Task.Priority}} &middot; version {{.Data.Task.Version}}{{if .Data.Task.Blocked}} &middot; blocked{{end}}</p>
+{{$t := .Data.Task}}
+<div class="titlebar">
+  <span class="ref">{{$t.Ref}}</span>
+  <h1>{{$t.Title}}</h1>
+</div>
+<p>
+  <span class="badge {{slug $t.Status}}">{{$t.Status}}</span>
+  <span class="badge p-{{prio $t.Priority}}">{{prio $t.Priority}}</span>
+  {{if $t.Blocked}}<span class="badge blocked">blocked</span>{{end}}
+  <span class="muted">version {{$t.Version}}</span>
+</p>
 
-<dl class="fields">
-  <dt>Project</dt><dd>{{.Data.ProjectKey}}</dd>
-  <dt>Assignee</dt><dd>{{.Data.Task.AssigneeActorID}}</dd>
-  <dt>Creator</dt><dd>{{.Data.Task.CreatorActorID}}</dd>
-  <dt>Due</dt><dd>{{stamp .Data.Task.DueAt}}</dd>
-  <dt>Created</dt><dd>{{compact .Data.Task.CreatedAt}}</dd>
-  <dt>Updated</dt><dd>{{compact .Data.Task.UpdatedAt}}</dd>
-  <dt>Tags</dt><dd>{{join .Data.Task.Tags}}</dd>
-  <dt>Body</dt><dd><pre>{{.Data.Task.Body}}</pre></dd>
-</dl>
+<div class="detail">
+<div class="main">
 
-<h2>Custom fields</h2>
-{{if .Data.Fields}}
-<dl class="fields">
-  {{range .Data.Fields}}<dt>{{.Def.Label}}</dt><dd>{{.Value}}</dd>{{end}}
-</dl>
-{{else}}<p class="meta">This project defines no custom fields.</p>{{end}}
-
-{{if .Data.CanWrite}}
-<h2>Edit</h2>
-<form method="post" action="/tasks/{{.Data.Task.Ref}}">
-  {{template "csrf" .CSRF}}
-  <input type="hidden" name="version" value="{{.Data.Task.Version}}">
-  <label for="title">Title</label>
-  <input id="title" name="title" value="{{.Data.Task.Title}}" required>
-  <label for="body">Body</label>
-  <textarea id="body" name="body">{{.Data.Task.Body}}</textarea>
-  <div class="row">
-    <div>
-      <label for="priority">Priority</label>
-      <select id="priority" name="priority">
-        {{range .Data.Priorities}}<option value="{{.Value}}" {{if eq .Value $.Data.Task.Priority}}selected{{end}}>{{.Label}}</option>{{end}}
-      </select>
-    </div>
-    <div><label for="assignee">Assignee</label><input id="assignee" name="assignee" value="{{.Data.Task.AssigneeActorID}}"></div>
+  <div class="card">
+    <h2>Description</h2>
+    {{if $t.Body}}<pre>{{$t.Body}}</pre>{{else}}<p class="empty">No description.</p>{{end}}
   </div>
-  {{range .Data.Fields}}
-    <label for="field-{{.Def.Key}}">{{.Def.Label}}</label>
-    <input id="field-{{.Def.Key}}" name="field.{{.Def.Key}}" value="{{.Value}}">
-  {{end}}
-  <p><button type="submit">Save</button></p>
-</form>
 
-<h2>Transition</h2>
-<form method="post" action="/tasks/{{.Data.Task.Ref}}/transition">
-  {{template "csrf" .CSRF}}
-  <div class="row">
-    <div>
+  {{if .Data.CanWrite}}
+  <details class="panel">
+    <summary>Edit task</summary>
+    <div class="body">
+      <form method="post" action="/tasks/{{$t.Ref}}">
+        {{template "csrf" .CSRF}}
+        <input type="hidden" name="version" value="{{$t.Version}}">
+        <label for="title">Title</label>
+        <input id="title" name="title" value="{{$t.Title}}" required>
+        <label for="body">Body</label>
+        <textarea id="body" name="body">{{$t.Body}}</textarea>
+        <div class="row">
+          <div>
+            <label for="priority">Priority</label>
+            <select id="priority" name="priority">
+              {{range .Data.Priorities}}<option value="{{.Value}}" {{if eq .Value $t.Priority}}selected{{end}}>{{.Label}}</option>{{end}}
+            </select>
+          </div>
+          <div><label for="assignee">Assignee</label><input id="assignee" name="assignee" value="{{$t.AssigneeActorID}}"></div>
+        </div>
+        {{range .Data.Fields}}
+          <label for="field-{{.Def.Key}}">{{.Def.Label}}</label>
+          <input id="field-{{.Def.Key}}" name="field.{{.Def.Key}}" value="{{.Value}}">
+        {{end}}
+        <div class="actions"><button type="submit">Save changes</button></div>
+      </form>
+    </div>
+  </details>
+  {{else}}
+  <p class="flash">You may read this task but not change it.</p>
+  {{end}}
+
+  <div class="card">
+    <h2>Subtasks</h2>
+    <ul class="plain">
+      {{range .Data.Subtasks}}
+      <li><a class="mono" href="/tasks/{{.Ref}}">{{.Ref}}</a> {{.Title}} <span class="badge {{slug .Status}}">{{.Status}}</span></li>
+      {{else}}<li class="empty">None.</li>{{end}}
+    </ul>
+
+    <h3>Dependencies</h3>
+    <ul class="plain">
+      {{range .Data.Dependencies}}
+      <li>
+        <span class="mono">{{.DependsOn}}</span>
+        {{if $.Data.CanWrite}}
+        <form method="post" action="/tasks/{{$t.Ref}}/deps/remove" style="display:inline">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="depends_on" value="{{.DependsOn}}">
+          <button class="link" type="submit">remove</button>
+        </form>
+        {{end}}
+      </li>
+      {{else}}<li class="empty">None.</li>{{end}}
+    </ul>
+    {{if .Data.CanWrite}}
+    <form method="post" action="/tasks/{{$t.Ref}}/deps">
+      {{template "csrf" .CSRF}}
+      <label for="depends_on">Depends on</label>
+      <div class="row">
+        <div><input id="depends_on" name="depends_on" placeholder="infra-2" required></div>
+        <div class="actions"><button class="secondary" type="submit">Add dependency</button></div>
+      </div>
+    </form>
+    {{end}}
+  </div>
+
+  <div class="card">
+    <h2>Comments</h2>
+    <ul class="plain">
+      {{range .Data.Comments}}
+      <li class="comment">
+        <p class="byline"><span class="mono" title="{{.AuthorActorID}}">{{actor .AuthorActorID}}</span> &middot; {{compact .CreatedAt}}</p>
+        <div>{{.Body}}</div>
+        {{if $.Data.CanComment}}
+        <details class="panel">
+          <summary>Edit</summary>
+          <div class="body">
+            <form method="post" action="/tasks/{{$t.Ref}}/comments/edit">
+              {{template "csrf" $.CSRF}}
+              <input type="hidden" name="id" value="{{.ID}}">
+              <label for="edit-{{.ID}}">Rewrite</label>
+              <input id="edit-{{.ID}}" name="body" value="{{.Body}}">
+              <div class="actions"><button type="submit">Save</button></div>
+            </form>
+            <form method="post" action="/tasks/{{$t.Ref}}/comments/delete">
+              {{template "csrf" $.CSRF}}
+              <input type="hidden" name="id" value="{{.ID}}">
+              <div class="actions"><button class="secondary" type="submit">Delete comment</button></div>
+            </form>
+          </div>
+        </details>
+        {{end}}
+      </li>
+      {{else}}<li class="empty">No comments yet.</li>{{end}}
+    </ul>
+    {{if .Data.CanComment}}
+    <form method="post" action="/tasks/{{$t.Ref}}/comments">
+      {{template "csrf" .CSRF}}
+      <label for="comment-body">Add a comment</label>
+      <textarea id="comment-body" name="body" required></textarea>
+      <div class="actions"><button type="submit">Comment</button></div>
+    </form>
+    {{end}}
+  </div>
+
+  <details class="panel">
+    <summary>Artifacts</summary>
+    <div class="body">
+      <ul class="plain">
+        {{range .Data.Artifacts}}<li>{{.Kind}} {{.Name}} <span class="muted">{{compact .CreatedAt}}</span></li>{{else}}<li class="empty">None.</li>{{end}}
+      </ul>
+      {{if .Data.CanComment}}
+      <form method="post" action="/tasks/{{$t.Ref}}/artifacts">
+        {{template "csrf" .CSRF}}
+        <div class="row">
+          <div>
+            <label for="artifact-kind">Kind</label>
+            <select id="artifact-kind" name="kind">
+              {{range .Data.ArtifactKinds}}<option value="{{.}}">{{.}}</option>{{end}}
+            </select>
+          </div>
+          <div><label for="artifact-name">Name</label><input id="artifact-name" name="name"></div>
+        </div>
+        <label for="artifact-payload">Payload, one key=value per line</label>
+        <textarea id="artifact-payload" name="payload"></textarea>
+        <div class="actions"><button class="secondary" type="submit">Attach artifact</button></div>
+      </form>
+      {{end}}
+    </div>
+  </details>
+
+  <details class="panel">
+    <summary>History</summary>
+    <div class="body">
+      {{if .Data.CanAudit}}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Source</th><th>Changed</th></tr></thead>
+          <tbody>
+          {{range .Data.History}}
+            <tr>
+              <td data-label="When" class="muted">{{compact .Entry.OccurredAt}}</td>
+              <td data-label="Actor" class="mono" title="{{.Entry.ActorID}}">{{actor .Entry.ActorID}}</td>
+              <td data-label="Action">{{.Entry.Action}}</td>
+              <td data-label="Source">{{.Entry.Source}}</td>
+              <td data-label="Changed" class="muted">{{join .Changed}}</td>
+            </tr>
+          {{else}}
+            <tr><td colspan="5"><p class="empty">No recorded changes.</p></td></tr>
+          {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{else}}<p class="empty">You do not hold the audit read scope.</p>{{end}}
+    </div>
+  </details>
+
+  {{if .Data.CanDelete}}
+  <details class="panel danger">
+    <summary>Danger zone</summary>
+    <div class="body">
+      <form method="post" action="/tasks/{{$t.Ref}}/delete">
+        {{template "csrf" .CSRF}}
+        <label for="hard"><input id="hard" type="checkbox" name="hard" value="1"> Delete permanently</label>
+        <label for="cascade"><input id="cascade" type="checkbox" name="cascade" value="1"> Also delete subtasks</label>
+        <div class="actions"><button class="danger" type="submit">Delete task</button></div>
+      </form>
+      <form method="post" action="/tasks/{{$t.Ref}}/restore">
+        {{template "csrf" .CSRF}}
+        <div class="actions"><button class="secondary" type="submit">Restore task</button></div>
+      </form>
+    </div>
+  </details>
+  {{end}}
+
+</div>
+
+<aside class="rail">
+  <div class="card">
+    <h3>Details</h3>
+    <dl class="fields">
+      <dt>Project</dt><dd><a href="/projects/{{.Data.ProjectKey}}">{{.Data.ProjectKey}}</a></dd>
+      <dt>Assignee</dt><dd>{{if $t.AssigneeActorID}}<span class="mono">{{$t.AssigneeActorID}}</span>{{else}}<span class="muted">unassigned</span>{{end}}</dd>
+      <dt>Creator</dt><dd class="mono" title="{{$t.CreatorActorID}}">{{actor $t.CreatorActorID}}</dd>
+      <dt>Due</dt><dd>{{if $t.DueAt}}{{stamp $t.DueAt}}{{else}}<span class="muted">&mdash;</span>{{end}}</dd>
+      <dt>Created</dt><dd class="muted">{{compact $t.CreatedAt}}</dd>
+      <dt>Updated</dt><dd class="muted">{{compact $t.UpdatedAt}}</dd>
+    </dl>
+  </div>
+
+  {{if .Data.CanWrite}}
+  <div class="card">
+    <h3>Move to</h3>
+    <form method="post" action="/tasks/{{$t.Ref}}/transition">
+      {{template "csrf" .CSRF}}
       <label for="to">Target state</label>
       <select id="to" name="to">
         {{range .Data.Targets}}<option value="{{.Key}}">{{.Label}}</option>{{end}}
       </select>
-    </div>
-    <div><label for="transition-comment">Comment</label><input id="transition-comment" name="comment"></div>
-    <div><button type="submit">Apply transition</button></div>
+      <label for="transition-comment">Comment</label>
+      <input id="transition-comment" name="comment">
+      <div class="actions"><button type="submit">Apply transition</button></div>
+    </form>
   </div>
-</form>
-{{else}}
-<p class="flash">You may read this task but not change it.</p>
-{{end}}
-
-<h2>Subtasks</h2>
-<ul>
-  {{range .Data.Subtasks}}<li><a href="/tasks/{{.Ref}}">{{.Ref}}</a> {{.Title}} <span class="meta">{{.Status}}</span></li>{{else}}<li class="meta">None.</li>{{end}}
-</ul>
-
-<h2>Dependencies</h2>
-<ul>
-  {{range .Data.Dependencies}}
-  <li>{{.DependsOn}}
-    {{if $.Data.CanWrite}}
-    <form method="post" action="/tasks/{{$.Data.Task.Ref}}/deps/remove">
-      {{template "csrf" $.CSRF}}
-      <input type="hidden" name="depends_on" value="{{.DependsOn}}">
-      <button class="secondary" type="submit">Remove</button>
-    </form>
-    {{end}}
-  </li>
-  {{else}}<li class="meta">None.</li>{{end}}
-</ul>
-{{if .Data.CanWrite}}
-<form method="post" action="/tasks/{{.Data.Task.Ref}}/deps">
-  {{template "csrf" .CSRF}}
-  <label for="depends_on">Depends on</label>
-  <input id="depends_on" name="depends_on" placeholder="infra-2" required>
-  <p><button type="submit">Add dependency</button></p>
-</form>
-{{end}}
-
-<h2>Tags</h2>
-<ul>
-  {{range .Data.Task.Tags}}
-  <li>{{.}}
-    {{if $.Data.CanWrite}}
-    <form method="post" action="/tasks/{{$.Data.Task.Ref}}/tags/remove">
-      {{template "csrf" $.CSRF}}
-      <input type="hidden" name="tag" value="{{.}}">
-      <button class="secondary" type="submit">Remove</button>
-    </form>
-    {{end}}
-  </li>
-  {{else}}<li class="meta">None.</li>{{end}}
-</ul>
-{{if .Data.CanWrite}}
-<form method="post" action="/tasks/{{.Data.Task.Ref}}/tags">
-  {{template "csrf" .CSRF}}
-  <label for="tag">Tag</label>
-  <input id="tag" name="tag" required>
-  <p><button type="submit">Add tag</button></p>
-</form>
-{{end}}
-
-<h2>Comments</h2>
-<ul>
-  {{range .Data.Comments}}
-  <li>
-    <span class="meta">{{.AuthorActorID}} {{compact .CreatedAt}}</span>
-    <div>{{.Body}}</div>
-    {{if $.Data.CanComment}}
-    <form method="post" action="/tasks/{{$.Data.Task.Ref}}/comments/edit">
-      {{template "csrf" $.CSRF}}
-      <input type="hidden" name="id" value="{{.ID}}">
-      <label for="edit-{{.ID}}">Rewrite</label>
-      <input id="edit-{{.ID}}" name="body" value="{{.Body}}">
-      <button class="secondary" type="submit">Save</button>
-    </form>
-    <form method="post" action="/tasks/{{$.Data.Task.Ref}}/comments/delete">
-      {{template "csrf" $.CSRF}}
-      <input type="hidden" name="id" value="{{.ID}}">
-      <button class="secondary" type="submit">Delete comment</button>
-    </form>
-    {{end}}
-  </li>
-  {{else}}<li class="meta">None.</li>{{end}}
-</ul>
-{{if .Data.CanComment}}
-<form method="post" action="/tasks/{{.Data.Task.Ref}}/comments">
-  {{template "csrf" .CSRF}}
-  <label for="comment-body">Comment</label>
-  <textarea id="comment-body" name="body" required></textarea>
-  <p><button type="submit">Add comment</button></p>
-</form>
-{{end}}
-
-<h2>Artifacts</h2>
-<ul>
-  {{range .Data.Artifacts}}<li>{{.Kind}} {{.Name}} <span class="meta">{{compact .CreatedAt}}</span></li>{{else}}<li class="meta">None.</li>{{end}}
-</ul>
-{{if .Data.CanComment}}
-<form method="post" action="/tasks/{{.Data.Task.Ref}}/artifacts">
-  {{template "csrf" .CSRF}}
-  <div class="row">
-    <div>
-      <label for="artifact-kind">Kind</label>
-      <select id="artifact-kind" name="kind">
-        {{range .Data.ArtifactKinds}}<option value="{{.}}">{{.}}</option>{{end}}
-      </select>
-    </div>
-    <div><label for="artifact-name">Name</label><input id="artifact-name" name="name"></div>
-  </div>
-  <label for="artifact-payload">Payload, one key=value per line</label>
-  <textarea id="artifact-payload" name="payload"></textarea>
-  <p><button type="submit">Attach artifact</button></p>
-</form>
-{{end}}
-
-<h2>History</h2>
-{{if .Data.CanAudit}}
-<table>
-  <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Source</th><th>Changed</th></tr></thead>
-  <tbody>
-  {{range .Data.History}}
-    <tr><td>{{compact .Entry.OccurredAt}}</td><td>{{.Entry.ActorID}}</td><td>{{.Entry.Action}}</td><td>{{.Entry.Source}}</td><td>{{join .Changed}}</td></tr>
-  {{else}}
-    <tr><td colspan="5">No recorded changes.</td></tr>
   {{end}}
-  </tbody>
-</table>
-{{else}}<p class="meta">You do not hold the audit read scope.</p>{{end}}
 
-{{if .Data.CanDelete}}
-<h2>Danger zone</h2>
-<form method="post" action="/tasks/{{.Data.Task.Ref}}/delete">
-  {{template "csrf" .CSRF}}
-  <label for="hard"><input id="hard" type="checkbox" name="hard" value="1"> Delete permanently</label>
-  <label for="cascade"><input id="cascade" type="checkbox" name="cascade" value="1"> Also delete subtasks</label>
-  <button class="secondary" type="submit">Delete task</button>
-</form>
-<form method="post" action="/tasks/{{.Data.Task.Ref}}/restore">
-  {{template "csrf" .CSRF}}
-  <button class="secondary" type="submit">Restore task</button>
-</form>
-{{end}}
+  <div class="card">
+    <h3>Tags</h3>
+    <ul class="plain">
+      {{range $t.Tags}}
+      <li>
+        <span class="tag">{{.}}</span>
+        {{if $.Data.CanWrite}}
+        <form method="post" action="/tasks/{{$t.Ref}}/tags/remove" style="display:inline">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="tag" value="{{.}}">
+          <button class="link" type="submit">remove</button>
+        </form>
+        {{end}}
+      </li>
+      {{else}}<li class="empty">None.</li>{{end}}
+    </ul>
+    {{if .Data.CanWrite}}
+    <form method="post" action="/tasks/{{$t.Ref}}/tags">
+      {{template "csrf" .CSRF}}
+      <label for="tag">Add tag</label>
+      <input id="tag" name="tag" required>
+      <div class="actions"><button class="secondary" type="submit">Add</button></div>
+    </form>
+    {{end}}
+  </div>
+
+  <div class="card">
+    <h3>Custom fields</h3>
+    {{if .Data.Fields}}
+    <dl class="fields">
+      {{range .Data.Fields}}<dt>{{.Def.Label}}</dt><dd>{{.Value}}</dd>{{end}}
+    </dl>
+    {{else}}<p class="empty">This project defines none.</p>{{end}}
+  </div>
+</aside>
+</div>
 {{end}}
