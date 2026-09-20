@@ -1,6 +1,14 @@
 {{define "content"}}
 {{$v := .Data}}
 <h1>My tasks</h1>
+{{with $v.Summary}}
+<p class="lede summary">
+  {{if eq .Total 0}}Nothing on the list.
+  {{else if .AllDone}}All clear. Everything here is done.
+  {{else}}<strong>{{.Open}}</strong> to go{{if .Done}}, {{.Done}} done{{end}}{{if .Held}} &middot; <span class="held">{{.Held}} held by an agent</span>{{end}}{{if .Blocked}} &middot; {{.Blocked}} blocked{{end}}
+  {{end}}
+</p>
+{{end}}
 
 <form method="post" action="/tasks" class="quickadd">
   {{template "csrf" .CSRF}}
@@ -26,7 +34,9 @@
     {{if $done}}
     <form method="post" action="/tasks/{{.Ref}}/complete" class="tick">
       {{template "csrf" $.CSRF}}
-      <button type="submit" class="check{{if eq .Status $done}} is-done{{end}}" aria-label="Complete {{.Ref}}" title="Complete"></button>
+      <button type="submit" class="check{{if eq .Status $done}} is-done{{end}}" aria-label="Complete {{.Ref}}" title="Complete">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5 10.2 16.7 18 8.4"/></svg>
+      </button>
     </form>
     {{else}}<span class="check placeholder" aria-hidden="true"></span>{{end}}
 
@@ -40,7 +50,10 @@
     </span>
   </li>
 {{else}}
-  <li class="empty">Nothing here. Add your first task above.</li>
+  <li class="empty">
+    <p class="empty-title">Nothing on the list</p>
+    <p>Add the first one above. Agents can add them too, over the API.</p>
+  </li>
 {{end}}
 </ul>
 

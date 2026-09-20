@@ -403,7 +403,9 @@ ul.tasklist li.empty { padding: 26px 14px; text-align: center; }
 .tick { flex: 0 0 auto; display: flex; }
 
 button.check, span.check {
-  position: relative;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
   width: 22px;
   height: 22px;
   padding: 0;
@@ -411,83 +413,72 @@ button.check, span.check {
   border-radius: 50%;
   background: transparent;
   cursor: pointer;
-  transition: border-color 120ms ease, background-color 120ms ease, transform 120ms ease;
+  transition: border-color 140ms ease, background-color 140ms ease, transform 140ms ease;
 }
 
-button.check:hover { border-color: var(--accent); transform: scale(1.12); }
-button.check:active { transform: scale(0.94); }
-
-/* The tick is drawn as two strokes from the corner so it can be revealed by
-   growing them, which reads as the mark being made rather than appearing. */
-button.check::before, button.check::after {
-  content: "";
-  position: absolute;
-  background: var(--accent);
-  border-radius: 1px;
-  transform-origin: bottom left;
-  opacity: 0;
-  transition: opacity 120ms ease;
+button.check svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* The path is ~22 units long, so hiding it behind its own length lets the
+     stroke draw itself rather than blink into place. */
+  stroke-dasharray: 22;
+  stroke-dashoffset: 22;
+  transition: stroke-dashoffset 180ms ease, stroke 140ms ease;
 }
 
-button.check::before {
-  width: 2px;
-  height: 6px;
-  left: 6px;
-  top: 9px;
-  transform: rotate(-45deg);
-}
-
-button.check::after {
-  width: 2px;
-  height: 11px;
-  left: 10px;
-  top: 4px;
-  transform: rotate(35deg);
-}
-
-button.check:hover::before, button.check:hover::after { opacity: 0.55; }
+button.check:hover { border-color: var(--accent); transform: scale(1.1); }
+button.check:hover svg { stroke-dashoffset: 7; opacity: 0.5; }
+button.check:active { transform: scale(0.92); }
 
 button.check.is-done {
   background: var(--ok);
   border-color: var(--ok);
-  animation: pop 220ms ease;
+  animation: pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-button.check.is-done::before, button.check.is-done::after {
-  background: #fff;
+button.check.is-done svg {
+  stroke: #fff;
+  stroke-dashoffset: 0;
   opacity: 1;
-  animation: draw 220ms ease both;
+  animation: draw 260ms ease-out both;
 }
-
-button.check.is-done::after { animation-delay: 60ms; }
 
 @keyframes pop {
-  0% { transform: scale(0.7); }
-  55% { transform: scale(1.14); }
+  0% { transform: scale(0.75); }
+  60% { transform: scale(1.12); }
   100% { transform: scale(1); }
 }
 
 @keyframes draw {
-  from { height: 0; opacity: 0; }
+  from { stroke-dashoffset: 22; }
+  to { stroke-dashoffset: 0; }
 }
 
 span.check.placeholder { border-style: dashed; cursor: default; }
 
-/* Rows settle in rather than snapping, which makes a reordered list after a
-   completion readable instead of jarring. */
-li.task { animation: settle 180ms ease both; }
+li.task { animation: settle 200ms ease both; }
 
 @keyframes settle {
   from { opacity: 0; transform: translateY(-3px); }
 }
 
-/* Anyone who has asked for less motion gets the states without the movement. */
+/* Voice: the line under the heading, and the empty state. */
+.summary strong { color: var(--ink); }
+.summary .held { color: var(--accent); }
+
+ul.tasklist li.empty { padding: 40px 16px; text-align: center; }
+.empty-title { font-weight: 600; color: var(--ink); margin: 0 0 4px; }
+ul.tasklist li.empty p { margin: 0; }
+
 @media (prefers-reduced-motion: reduce) {
-  button.check, button.check::before, button.check::after, li.task, a.task-title {
-    animation: none;
-    transition: none;
-  }
+  button.check, button.check svg, li.task, a.task-title { animation: none; transition: none; }
   button.check:hover, button.check:active { transform: none; }
+  button.check.is-done svg { stroke-dashoffset: 0; }
 }
 
 a.task-title {

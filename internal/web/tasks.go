@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/thereisnotime/tix/internal/core"
 )
@@ -32,10 +33,48 @@ type tasksView struct {
 	Sort       string
 	NextCursor string
 
+	// Summary is the one line under the heading. A tracker that only ever
+	// shows rows tells you nothing about the shape of your day.
+	Summary taskSummary
+
 	// CompleteState maps a project id to the state a one click complete moves
 	// its tasks into, so the list can offer a tick box without the reader
 	// knowing the project's workflow.
 	CompleteState map[string]string
+}
+
+// taskSummary counts what is on the page, so the heading can say something.
+type taskSummary struct {
+	Open    int
+	Held    int
+	Done    int
+	Blocked int
+}
+
+// Total is how many tasks the page carries.
+func (s taskSummary) Total() int { return s.Open + s.Done }
+
+// AllDone reports whether everything on the page is finished.
+func (s taskSummary) AllDone() bool { return s.Total() > 0 && s.Done == s.Total() }
+
+// summarise counts the page by what a reader cares about: what is left, what
+// is moving, and what an agent is holding right now.
+func summarise(tasks []core.Task, complete map[string]string, now time.Time) taskSummary {
+	var out taskSummary
+	for _, t := range tasks {
+		if t.Status == complete[t.ProjectID] {
+			out.Done++
+		} else {
+			out.Open++
+		}
+		if t.Blocked {
+			out.Blocked++
+		}
+		if t.ClaimedByActorID != "" && t.LeaseExpiresAt != nil && t.LeaseExpiresAt.After(now) {
+			out.Held++
+		}
+	}
+	return out
 }
 
 // showTasks renders the filterable task list.
@@ -79,6 +118,7 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 		Sort:          filter.Page.Sort,
 		NextCursor:    page.NextCursor,
 		CompleteState: complete,
+		Summary:       summarise(page.Tasks, complete, time.Now()),
 	})
 }
 
