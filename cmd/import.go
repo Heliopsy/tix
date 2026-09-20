@@ -1,0 +1,52 @@
+package cmd
+
+import (
+	"fmt"
+
+	"github.com/spf13/cobra"
+	"github.com/thereisnotime/tix/internal/core"
+)
+
+// importModes are the modes the import command accepts.
+var importModes = []string{string(core.ImportMerge), string(core.ImportReplace)}
+
+// newImportCmd builds the snapshot import command.
+func newImportCmd(g *globals) *cobra.Command {
+	var mode string
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "import",
+		Short: "Apply a tenant snapshot read from standard input",
+		Long: "Read a snapshot from standard input, one record per line, and apply it " +
+			"to the tenant in a single transaction.\n" +
+			"A mode is required: merge creates and updates, replace also removes " +
+			"records the snapshot does not carry.\n\n" +
+			fmt.Sprintf("Exit codes: %d invalid snapshot or missing mode, %d unknown reference, %d permission denied.",
+				core.KindInvalid.ExitCode(), core.KindNotFound.ExitCode(), core.KindForbidden.ExitCode()),
+		Example: "  tix import --mode merge < snapshot.ndjson\n" +
+			"  tix export | tix import --mode replace\n" +
+			"  tix import --mode replace --dry-run < snapshot.ndjson",
+		GroupID: "admin",
+		Args:    noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			in := core.ImportInput{Mode: core.ImportMode(mode), DryRun: dryRun}
+			if err := in.Validate(); err != nil {
+				return err
+			}
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			result, err := conn.Service.ImportFrom(ctx, cmd.InOrStdin(), in)
+			if err != nil {
+				return err
+			}
+			return g.render(cmd, result)
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&mode, "mode", "", "how to apply the snapshot: "+importModes[0]+"|"+importModes[1])
+	f.BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
+	_ = cmd.RegisterFlagCompletionFunc("mode", fixedCompletion(importModes))
+	return cmd
+}

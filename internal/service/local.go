@@ -101,3 +101,7 @@ func (l *Local) authorize(ctx context.Context, action authz.Action, res authz.Re
 	}
 	return actor, nil
 }
+
+// Local implements the whole product surface. This assertion is what stopped
+// the connect layer needing a shim for methods that did not exist yet.
+var _ core.Service = (*Local)(nil)

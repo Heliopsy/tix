@@ -1,0 +1,57 @@
+{{define "content"}}
+<h1>External sync</h1>
+<table>
+  <thead><tr><th>Name</th><th>System</th><th>Last run</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data.Sources}}
+    <tr>
+      <td>{{.Name}}</td><td>{{.System}}</td><td>{{stamp .LastRunAt}}</td><td>{{.LastStatus}}</td>
+      <td>
+        <form method="post" action="/sync/run">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="source_id" value="{{.ID}}">
+          <label for="dry-{{.ID}}"><input id="dry-{{.ID}}" type="checkbox" name="dry_run" value="1" checked> Dry run</label>
+          <button type="submit">Run</button>
+        </form>
+        <form method="post" action="/sync/sources/delete">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="id" value="{{.ID}}">
+          <button class="secondary" type="submit">Delete</button>
+        </form>
+      </td>
+    </tr>
+  {{else}}
+    <tr><td colspan="5">No sources configured.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+
+<h2>Configure a source</h2>
+<form method="post" action="/sync/sources">
+  {{template "csrf" .CSRF}}
+  <div class="row">
+    <div><label for="name">Name</label><input id="name" name="name" required></div>
+    <div>
+      <label for="system">System</label>
+      <select id="system" name="system">
+        {{range .Data.Systems}}<option value="{{.}}">{{.}}</option>{{end}}
+      </select>
+    </div>
+    <div><label for="mapping_path">Mapping path</label><input id="mapping_path" name="mapping_path"></div>
+  </div>
+  <label for="config">Configuration, one key=value per line</label>
+  <textarea id="config" name="config"></textarea>
+  <p><button type="submit">Save source</button></p>
+</form>
+
+{{if .Data.Result}}
+<h2>Run result{{if .Data.Result.DryRun}}, dry run, nothing was written{{end}}</h2>
+<dl class="fields">
+  <dt>System</dt><dd>{{.Data.Result.System}}</dd>
+  <dt>Created</dt><dd>{{counts .Data.Result.Created}}</dd>
+  <dt>Updated</dt><dd>{{counts .Data.Result.Updated}}</dd>
+  <dt>Skipped</dt><dd>{{counts .Data.Result.Skipped}}</dd>
+  <dt>Warnings</dt><dd>{{join .Data.Result.Warnings}}</dd>
+</dl>
+{{end}}
+{{end}}

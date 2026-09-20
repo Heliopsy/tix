@@ -1,0 +1,53 @@
+{{define "content"}}
+<h1>Users</h1>
+<table>
+  <thead><tr><th>Email</th><th>Name</th><th>State</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data.Users}}
+    <tr>
+      <td>{{.Email}}</td><td>{{.DisplayName}}</td>
+      <td>{{if .DisabledAt}}disabled{{else}}active{{end}}</td>
+      <td>
+        <form method="post" action="/admin/users/update">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="id" value="{{.ID}}">
+          <label for="role-{{.ID}}">Role</label>
+          <select id="role-{{.ID}}" name="role">
+            {{range $.Data.Roles}}<option value="{{.}}">{{.}}</option>{{end}}
+          </select>
+          <label for="disabled-{{.ID}}"><input id="disabled-{{.ID}}" type="checkbox" name="disabled" value="1" {{if .DisabledAt}}checked{{end}}> Disabled</label>
+          <button class="secondary" type="submit">Update</button>
+        </form>
+        <form method="post" action="/admin/users/delete">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="id" value="{{.ID}}">
+          <button class="secondary" type="submit">Delete</button>
+        </form>
+      </td>
+    </tr>
+  {{else}}
+    <tr><td colspan="4">No users.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+
+{{if .Data.NextCursor}}<p><a href="/admin/users?cursor={{.Data.NextCursor}}">Next page</a></p>{{end}}
+
+<h2>Create a user</h2>
+<form method="post" action="/admin/users">
+  {{template "csrf" .CSRF}}
+  <div class="row">
+    <div><label for="email">Email</label><input id="email" name="email" type="email" required></div>
+    <div><label for="display_name">Display name</label><input id="display_name" name="display_name"></div>
+    <div>
+      <label for="role">Role</label>
+      <select id="role" name="role">
+        {{range .Data.Roles}}<option value="{{.}}">{{.}}</option>{{end}}
+      </select>
+    </div>
+  </div>
+  <label for="password">Password</label>
+  <input id="password" name="password" type="password" autocomplete="new-password">
+  <p><button type="submit">Create user</button></p>
+</form>
+{{end}}

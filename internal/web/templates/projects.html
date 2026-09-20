@@ -1,0 +1,37 @@
+{{define "content"}}
+<h1>Projects</h1>
+<table>
+  <thead><tr><th>Key</th><th>Name</th><th>State</th><th>Screens</th></tr></thead>
+  <tbody>
+  {{range .Data.Projects}}
+    <tr>
+      <td><a href="/projects/{{.Key}}">{{.Key}}</a></td>
+      <td>{{.Name}}</td>
+      <td>{{if .Archived}}archived{{else}}active{{end}}</td>
+      <td><a href="/projects/{{.Key}}/fields">Fields</a></td>
+    </tr>
+  {{else}}
+    <tr><td colspan="4">No projects yet.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+{{if .Data.NextCursor}}<p><a href="/projects?cursor={{.Data.NextCursor}}">Next page</a></p>{{end}}
+
+<h2>New project</h2>
+<form method="post" action="/projects">
+  {{template "csrf" .CSRF}}
+  <div class="row">
+    <div><label for="key">Key</label><input id="key" name="key" required></div>
+    <div><label for="name">Name</label><input id="name" name="name" required></div>
+    <div>
+      <label for="workflow_key">Workflow</label>
+      <select id="workflow_key" name="workflow_key">
+        {{range .Data.Workflows}}<option value="{{.Key}}">{{.Name}}</option>{{end}}
+      </select>
+    </div>
+  </div>
+  <label for="description">Description</label>
+  <textarea id="description" name="description"></textarea>
+  <p><button type="submit">Create project</button></p>
+</form>
+{{end}}

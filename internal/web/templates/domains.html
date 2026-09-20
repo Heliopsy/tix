@@ -1,0 +1,43 @@
+{{define "content"}}
+<h1>Domains</h1>
+<table>
+  <thead><tr><th>Hostname</th><th>Verified</th><th>Certificate</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data.Domains}}
+    <tr>
+      <td>{{.Hostname}}</td>
+      <td>{{if .Verified}}verified {{stamp .VerifiedAt}}{{else}}pending{{end}}</td>
+      <td>{{.CertMode}}</td>
+      <td>
+        <form method="post" action="/admin/domains/remove">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="hostname" value="{{.Hostname}}">
+          <button class="secondary" type="submit">Remove</button>
+        </form>
+      </td>
+    </tr>
+  {{else}}
+    <tr><td colspan="4">No domains mapped.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+
+<h2>Map a hostname</h2>
+<form method="post" action="/admin/domains">
+  {{template "csrf" .CSRF}}
+  <div class="row">
+    <div><label for="hostname">Hostname</label><input id="hostname" name="hostname" required></div>
+    <div>
+      <label for="cert_mode">Certificate mode</label>
+      <select id="cert_mode" name="cert_mode">
+        {{range .Data.CertModes}}<option value="{{.}}">{{.}}</option>{{end}}
+      </select>
+    </div>
+    <div><button type="submit">Add domain</button></div>
+  </div>
+  <div class="row">
+    <div><label for="cert_path">Certificate path</label><input id="cert_path" name="cert_path"></div>
+    <div><label for="key_path">Key path</label><input id="key_path" name="key_path"></div>
+  </div>
+</form>
+{{end}}

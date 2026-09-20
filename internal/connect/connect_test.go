@@ -331,32 +331,3 @@ func TestTargetDescribe(t *testing.T) {
 		t.Fatalf("describe = %q", got)
 	}
 }
-
-func TestFallbackMethodsReportTheyAreAbsent(t *testing.T) {
-	svc := &localService{}
-	ctx := context.Background()
-
-	// Only snapshot transfer and external sync remain unimplemented. Everything
-	// else now reaches the real service, so listing it here would pass for the
-	// wrong reason.
-	unary := []func() error{
-		func() error { return svc.ExportTo(ctx, core.ExportInput{}, io.Discard) },
-		func() error {
-			_, err := svc.ImportFrom(ctx, strings.NewReader(""), core.ImportInput{})
-			return err
-		},
-		func() error { _, err := svc.PutSyncSource(ctx, core.SyncSourceInput{}); return err },
-		func() error { _, err := svc.ListSyncSources(ctx); return err },
-		func() error { return svc.DeleteSyncSource(ctx, "x") },
-		func() error { _, err := svc.RunSync(ctx, core.RunSyncInput{}); return err },
-	}
-	for i, call := range unary {
-		err := call()
-		if err == nil {
-			t.Fatalf("call %d returned no error", i)
-		}
-		if !strings.Contains(err.Error(), "not available in this build") {
-			t.Fatalf("call %d error = %v", i, err)
-		}
-	}
-}

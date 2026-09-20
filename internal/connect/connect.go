@@ -272,7 +272,7 @@ func dialLocal(ctx context.Context, target Target, ov Overrides) (*Conn, error) 
 		return nil, closeWith(conn, err)
 	}
 	conn.Info.TenantID = tenant.ID
-	conn.Service = &localService{Local: local}
+	conn.Service = local
 	conn.closers = []func() error{local.Close}
 
 	actor, err := localActor(ctx, st, clk, tenant.ID, ov.Token)

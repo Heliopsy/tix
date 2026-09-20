@@ -59,11 +59,21 @@ test:
 test-short:
     go test ./... -short -race -shuffle=on
 
+# Coverage mirrors CI, which runs a postgres service, so the engine's tests are
+# included rather than skipped. Falls back to sqlite-only when nothing is up.
 cover:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if {{engine}} exec {{pg_name}} pg_isready -U tix -q 2>/dev/null; then
+      export TIX_TEST_POSTGRES_DSN='{{pg_dsn}}'
+      echo "postgres: included"
+    else
+      echo "postgres: not running, its tests will skip (run: just pg-up)"
+    fi
     go test ./... -race -shuffle=on -coverprofile=coverage.out -covermode=atomic
-    @go tool cover -func=coverage.out | tail -1
+    go tool cover -func=coverage.out | tail -1
     go tool cover -html=coverage.out -o coverage.html
-    @echo "report: coverage.html"
+    echo "report: coverage.html"
 
 # Enforce the coverage threshold, excluding {{cov_exclude}}.
 cover-check: cover

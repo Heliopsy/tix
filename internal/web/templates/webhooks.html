@@ -1,0 +1,57 @@
+{{define "content"}}
+<h1>Webhooks</h1>
+<table>
+  <thead><tr><th>URL</th><th>Events</th><th>Active</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data.Endpoints}}
+    <tr>
+      <td>{{.URL}}</td><td>{{join .EventTypes}}</td><td>{{if .Active}}yes{{else}}no{{end}}</td>
+      <td>
+        <form method="post" action="/admin/webhooks/delete">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="id" value="{{.ID}}">
+          <button class="secondary" type="submit">Delete</button>
+        </form>
+      </td>
+    </tr>
+  {{else}}
+    <tr><td colspan="4">No endpoints.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+<p class="meta">Signing secrets are write-only and are never displayed.</p>
+
+<h2>Register an endpoint</h2>
+<form method="post" action="/admin/webhooks">
+  {{template "csrf" .CSRF}}
+  <label for="url">URL</label>
+  <input id="url" name="url" type="url" required>
+  <label for="secret">Signing secret</label>
+  <input id="secret" name="secret" type="password" autocomplete="new-password">
+  <label for="event_types">Event types, comma separated</label>
+  <input id="event_types" name="event_types" placeholder="task.*">
+  <label for="active"><input id="active" type="checkbox" name="active" value="1" checked> Active</label>
+  <p><button type="submit">Save endpoint</button></p>
+</form>
+
+<h2>Delivery log</h2>
+<table>
+  <thead><tr><th>Delivery</th><th>Endpoint</th><th>Status</th><th>Attempts</th><th>Last error</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data.Deliveries}}
+    <tr>
+      <td>{{.ID}}</td><td>{{.EndpointID}}</td><td>{{.Status}}</td><td>{{.Attempts}}</td><td>{{.LastError}}</td>
+      <td>
+        <form method="post" action="/admin/webhooks/deliveries/redeliver">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="id" value="{{.ID}}">
+          <button class="secondary" type="submit">Redeliver</button>
+        </form>
+      </td>
+    </tr>
+  {{else}}
+    <tr><td colspan="6">No deliveries recorded.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+{{end}}

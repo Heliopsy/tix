@@ -1,0 +1,15 @@
+{{define "content"}}
+<h1>Activity</h1>
+<p class="meta">Recent changes for this tenant, newest first. With JavaScript the list updates as events arrive.</p>
+<ul class="feed" id="live-feed" data-events="{{.EventsPath}}">
+  {{range .Data.Entries}}
+    <li>
+      <strong>{{.Action}}</strong>
+      <span class="meta">{{.SubjectType}} {{.SubjectID}} &middot; {{.ActorID}} &middot; {{compact .OccurredAt}} &middot; {{.Source}}</span>
+    </li>
+  {{else}}
+    <li class="meta">No recorded activity.</li>
+  {{end}}
+</ul>
+{{if .Data.NextCursor}}<p><a href="/activity?cursor={{.Data.NextCursor}}">Older</a></p>{{end}}
+{{end}}

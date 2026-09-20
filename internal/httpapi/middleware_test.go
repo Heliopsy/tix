@@ -295,3 +295,19 @@ func TestRouterRejectsAnIncompleteConfiguration(t *testing.T) {
 		t.Error("a router without an authenticator was accepted")
 	}
 }
+
+// The browser surface redirects an anonymous visitor to its own login page, so
+// the API middleware must let it through. Refusing here answered a JSON
+// envelope and made signing in impossible.
+func TestBrowserPathsReachTheWebHandler(t *testing.T) {
+	for _, path := range []string{"/", "/login", "/assets/app.css", "/projects"} {
+		if !httpapi.IsPublicForTest(path) {
+			t.Errorf("%q is refused before the web handler runs", path)
+		}
+	}
+	for _, path := range []string{"/api/v1/tasks", "/api/v1/users", "/api/v1/whoami"} {
+		if httpapi.IsPublicForTest(path) {
+			t.Errorf("%q must still require a credential", path)
+		}
+	}
+}

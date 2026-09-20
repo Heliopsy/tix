@@ -1,0 +1,42 @@
+{{define "content"}}
+<h1>Import and export</h1>
+<h2>Export a snapshot</h2>
+<form method="post" action="/transfer/export">
+  {{template "csrf" .CSRF}}
+  <label for="projects">Projects, comma separated, blank for every project</label>
+  <input id="projects" name="projects">
+  <label for="include_comments"><input id="include_comments" type="checkbox" name="include_comments" value="1" checked> Include comments</label>
+  <label for="include_artifacts"><input id="include_artifacts" type="checkbox" name="include_artifacts" value="1"> Include artifacts</label>
+  <p><button type="submit">Download snapshot</button></p>
+</form>
+
+<h2>Import a snapshot</h2>
+<form method="post" action="/transfer/import" enctype="multipart/form-data">
+  {{template "csrf" .CSRF}}
+  <label for="snapshot">Snapshot file</label>
+  <input id="snapshot" name="snapshot" type="file">
+  <label for="snapshot_text">Or paste the snapshot</label>
+  <textarea id="snapshot_text" name="snapshot_text"></textarea>
+  <div class="row">
+    <div>
+      <label for="mode">Mode</label>
+      <select id="mode" name="mode">
+        {{range .Data.Modes}}<option value="{{.}}">{{.}}</option>{{end}}
+      </select>
+    </div>
+    <div><label for="dry_run"><input id="dry_run" type="checkbox" name="dry_run" value="1" checked> Dry run</label></div>
+    <div><button type="submit">Run import</button></div>
+  </div>
+</form>
+
+{{if .Data.Result}}
+<h2>Result{{if .Data.Result.DryRun}}, dry run, nothing was written{{end}}</h2>
+<dl class="fields">
+  <dt>Created</dt><dd>{{counts .Data.Result.Created}}</dd>
+  <dt>Updated</dt><dd>{{counts .Data.Result.Updated}}</dd>
+  <dt>Skipped</dt><dd>{{counts .Data.Result.Skipped}}</dd>
+  <dt>Deleted</dt><dd>{{counts .Data.Result.Deleted}}</dd>
+  <dt>Warnings</dt><dd>{{join .Data.Result.Warnings}}</dd>
+</dl>
+{{end}}
+{{end}}

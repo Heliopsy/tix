@@ -554,16 +554,12 @@ func TestImplementedSurfacesWork(t *testing.T) {
 	}
 }
 
-func TestStillUnimplementedSurfacesFailLoudly(t *testing.T) {
+// Import deliberately has no default mode, because replace is destructive, so
+// invoking it with no mode is a usage error rather than a silent choice.
+func TestImportRequiresAnExplicitMode(t *testing.T) {
 	c := newCLI(t)
-	for _, args := range [][]string{
-		{"export"},
-		{"import"},
-	} {
-		got := c.run(args...)
-		if got.code == core.ExitOK {
-			t.Fatalf("tix %s exited 0 while unimplemented", strings.Join(args, " "))
-		}
+	if got := c.run("import"); got.code != core.ExitUsage {
+		t.Fatalf("tix import with no mode exited %d, want %d", got.code, core.ExitUsage)
 	}
 }
 

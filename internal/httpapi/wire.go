@@ -147,3 +147,7 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 		_ = json.NewEncoder(w).Encode(v)
 	}
 }
+
+// IsPublicForTest reports whether a path bypasses authentication. Exported for
+// tests in this package's external test files.
+func IsPublicForTest(path string) bool { return isPublicPath(path) }

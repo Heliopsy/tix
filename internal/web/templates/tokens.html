@@ -1,0 +1,40 @@
+{{define "content"}}
+<h1>API tokens</h1>
+{{if .Data.Issued}}
+<div class="flash">
+  <p>Copy this token now. It is shown once and cannot be retrieved again.</p>
+  <pre>{{.Data.Issued}}</pre>
+</div>
+{{end}}
+<table>
+  <thead><tr><th>Name</th><th>Scopes</th><th>Expires</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data.Tokens}}
+    <tr>
+      <td>{{.Name}}</td><td>{{scopes .Scopes}}</td><td>{{stamp .ExpiresAt}}</td>
+      <td>
+        <form method="post" action="/admin/tokens/revoke">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="id" value="{{.ID}}">
+          <button class="secondary" type="submit">Revoke</button>
+        </form>
+      </td>
+    </tr>
+  {{else}}
+    <tr><td colspan="4">No tokens.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+
+<h2>Issue a token</h2>
+<form method="post" action="/admin/tokens">
+  {{template "csrf" .CSRF}}
+  <label for="name">Name</label>
+  <input id="name" name="name" required>
+  <label for="scopes">Scopes</label>
+  <select id="scopes" name="scopes" multiple size="8">
+    {{range .Data.Scopes}}<option value="{{.}}">{{.}}</option>{{end}}
+  </select>
+  <p><button type="submit">Issue token</button></p>
+</form>
+{{end}}

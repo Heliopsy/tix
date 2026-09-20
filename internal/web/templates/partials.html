@@ -1,0 +1,17 @@
+{{define "nav"}}
+<nav class="main">
+  <a href="/projects" {{if eq .Path "/projects"}}aria-current="page"{{end}}>Projects</a>
+  <a href="/tasks" {{if eq .Path "/tasks"}}aria-current="page"{{end}}>Tasks</a>
+  <a href="/workflows" {{if eq .Path "/workflows"}}aria-current="page"{{end}}>Workflows</a>
+  <a href="/activity" {{if eq .Path "/activity"}}aria-current="page"{{end}}>Activity</a>
+  <a href="/admin/tenant" {{if eq .Path "/admin/tenant"}}aria-current="page"{{end}}>Tenant</a>
+  <a href="/admin/domains" {{if eq .Path "/admin/domains"}}aria-current="page"{{end}}>Domains</a>
+  <a href="/admin/users" {{if eq .Path "/admin/users"}}aria-current="page"{{end}}>Users</a>
+  <a href="/admin/tokens" {{if eq .Path "/admin/tokens"}}aria-current="page"{{end}}>Tokens</a>
+  <a href="/admin/webhooks" {{if eq .Path "/admin/webhooks"}}aria-current="page"{{end}}>Webhooks</a>
+  <a href="/transfer" {{if eq .Path "/transfer"}}aria-current="page"{{end}}>Transfer</a>
+  <a href="/sync" {{if eq .Path "/sync"}}aria-current="page"{{end}}>Sync</a>
+</nav>
+{{end}}
+
+{{define "csrf"}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}

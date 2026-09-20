@@ -12,6 +12,7 @@ import (
 	"github.com/thereisnotime/tix/internal/core"
 	"github.com/thereisnotime/tix/internal/server"
 	"github.com/thereisnotime/tix/internal/store/sqlite"
+	"github.com/thereisnotime/tix/internal/web"
 )
 
 // serveOptions are the flags that only the serve command takes.
@@ -78,6 +79,7 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 
 	srv, err := server.Assemble(server.Options{
 		Service:         conn.Service,
+		WebHandler:      web.Handler(conn.Service, web.WithSecureCookies(o.certFile != "")),
 		Store:           st,
 		Clock:           clk,
 		TenantID:        conn.Info.TenantID,

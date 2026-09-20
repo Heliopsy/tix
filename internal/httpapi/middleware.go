@@ -319,5 +319,12 @@ func isUnscopedPath(path string) bool {
 
 // isPublicPath reports whether a route runs without a credential.
 func isPublicPath(path string) bool {
-	return isUnscopedPath(path) || path == RouteLogin
+	if isUnscopedPath(path) || path == RouteLogin {
+		return true
+	}
+	// The browser surface manages its own session: it redirects an anonymous
+	// visitor to its login page rather than answering with a JSON envelope, so
+	// refusing the request here would make signing in impossible. Anything
+	// under the API prefix still requires a credential.
+	return !strings.HasPrefix(path, APIPrefix)
 }

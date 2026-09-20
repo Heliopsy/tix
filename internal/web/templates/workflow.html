@@ -1,0 +1,24 @@
+{{define "content"}}
+<h1>Workflow {{.Data.Workflow.Key}}</h1>
+<form method="post" action="/workflows">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="key" value="{{.Data.Workflow.Key}}">
+  <label for="name">Name</label>
+  <input id="name" name="name" value="{{.Data.Workflow.Name}}" required>
+  <label for="initial">Initial state</label>
+  <input id="initial" name="initial" value="{{.Data.Workflow.Definition.Initial}}" required>
+  <label for="states">States, one per line as key|label|terminal</label>
+  <textarea id="states" name="states" required>{{.Data.States}}</textarea>
+  <label for="transitions">Transitions, one per line as from&gt;to</label>
+  <textarea id="transitions" name="transitions">{{.Data.Transitions}}</textarea>
+  <label for="migrate">Migrations, one per line as oldstate=newstate</label>
+  <textarea id="migrate" name="migrate"></textarea>
+  <p><button type="submit">Save workflow</button></p>
+</form>
+{{if not .Data.Workflow.Builtin}}
+<form method="post" action="/workflows/{{.Data.Workflow.Key}}/delete">
+  {{template "csrf" .CSRF}}
+  <button class="secondary" type="submit">Delete workflow</button>
+</form>
+{{end}}
+{{end}}

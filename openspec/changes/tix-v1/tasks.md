@@ -122,33 +122,33 @@ ticked, and coverage is at or above 80% (excluding `internal/tui`).
 
 ## 5. Wave 5 — Surfaces
 
-- [ ] 5.1 WP-40 `internal/web`: templates, layout, and embedded assets with vendored htmx
-- [ ] 5.2 WP-40 `internal/web`: board, task list, task detail
-- [ ] 5.3 WP-40 `internal/web`: workflow and field definition editors
-- [ ] 5.4 WP-40 `internal/web`: tenant, domain, user, token administration
-- [ ] 5.5 WP-40 `internal/web`: webhook administration with delivery log and redelivery
-- [ ] 5.6 WP-40 `internal/web`: import, export, and sync screens
-- [ ] 5.7 WP-40 `internal/web`: live activity feed over the event stream
-- [ ] 5.8 WP-40 Forms verified to work with JavaScript disabled
-- [ ] 5.9 WP-41 `internal/tui`: program, model, and message plumbing
-- [ ] 5.10 WP-41 `internal/tui`: project picker, board, task detail, filter bar
-- [ ] 5.11 WP-41 `internal/tui`: live updates preserving selection
-- [ ] 5.12 WP-41 `cmd/tui.go` and terminal restore on interrupt
-- [ ] 5.13 WP-42 `internal/store/postgres`: driver, dialect handling, placeholder rewriting
-- [ ] 5.14 WP-42 `internal/store/postgres`: LISTEN/NOTIFY tailer wake-up
-- [ ] 5.15 WP-42 `internal/store/postgres`: row-level security wiring per transaction
-- [ ] 5.16 WP-42 `internal/store/postgres`: tsvector search and partition management
-- [ ] 5.17 WP-43 `internal/transfer`: deterministic snapshot export excluding secrets
-- [ ] 5.18 WP-43 `internal/transfer`: import with merge and replace modes and identifier remapping
-- [ ] 5.19 WP-43 `cmd/export.go`, `cmd/import.go`
-- [ ] 5.20 WP-44 `internal/sync`: `Importer` interface and mapping file format
-- [ ] 5.21 WP-44 `internal/sync/generic`: CSV and JSON adapter
-- [ ] 5.22 WP-44 `internal/sync/jira`: Jira adapter with pagination and backoff
-- [ ] 5.23 WP-44 `internal/sync/openproject`: OpenProject adapter
-- [ ] 5.24 WP-44 External reference recording making re-import idempotent
-- [ ] 5.25 WP-44 Per-source cursors advancing only on success
-- [ ] 5.26 WP-44 `cmd/sync.go` with dry run reporting creates, updates, and skips
-- [ ] 5.27 WP-44 Adapter tests against recorded HTTP fixtures
+- [x] 5.1 WP-40 `internal/web`: templates, layout, and embedded assets with vendored htmx
+- [x] 5.2 WP-40 `internal/web`: board, task list, task detail
+- [x] 5.3 WP-40 `internal/web`: workflow and field definition editors
+- [x] 5.4 WP-40 `internal/web`: tenant, domain, user, token administration
+- [x] 5.5 WP-40 `internal/web`: webhook administration with delivery log and redelivery
+- [x] 5.6 WP-40 `internal/web`: import, export, and sync screens
+- [x] 5.7 WP-40 `internal/web`: live activity feed over the event stream
+- [x] 5.8 WP-40 Forms verified to work with JavaScript disabled
+- [x] 5.9 WP-41 `internal/tui`: program, model, and message plumbing
+- [x] 5.10 WP-41 `internal/tui`: project picker, board, task detail, filter bar
+- [x] 5.11 WP-41 `internal/tui`: live updates preserving selection
+- [x] 5.12 WP-41 `cmd/tui.go` and terminal restore on interrupt
+- [x] 5.13 WP-42 `internal/store/postgres`: driver, dialect handling, placeholder rewriting
+- [x] 5.14 WP-42 `internal/store/postgres`: LISTEN/NOTIFY tailer wake-up
+- [x] 5.15 WP-42 `internal/store/postgres`: row-level security wiring per transaction
+- [x] 5.16 WP-42 `internal/store/postgres`: tsvector search and partition management
+- [x] 5.17 WP-43 `internal/transfer`: deterministic snapshot export excluding secrets
+- [x] 5.18 WP-43 `internal/transfer`: import with merge and replace modes and identifier remapping
+- [x] 5.19 WP-43 `cmd/export.go`, `cmd/import.go`
+- [x] 5.20 WP-44 `internal/sync`: `Importer` interface and mapping file format
+- [x] 5.21 WP-44 `internal/sync/generic`: CSV and JSON adapter
+- [x] 5.22 WP-44 `internal/sync/jira`: Jira adapter with pagination and backoff
+- [x] 5.23 WP-44 `internal/sync/openproject`: OpenProject adapter
+- [x] 5.24 WP-44 External reference recording making re-import idempotent
+- [x] 5.25 WP-44 Per-source cursors advancing only on success
+- [x] 5.26 WP-44 `cmd/sync.go` with dry run reporting creates, updates, and skips
+- [x] 5.27 WP-44 Adapter tests against recorded HTTP fixtures
 
 ## 6. Wave 6 — Component sharing
 

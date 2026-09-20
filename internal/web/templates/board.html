@@ -1,0 +1,48 @@
+{{define "content"}}
+<h1>{{.Data.Project.Name}} board</h1>
+<p class="meta">Workflow {{.Data.Workflow.Name}} &middot; <a href="/projects/{{.Data.Project.Key}}/fields">Field definitions</a> &middot; <a href="/workflows/{{.Data.Workflow.Key}}">Workflow editor</a></p>
+<div class="board">
+{{range .Data.Columns}}
+  <section class="column" data-state="{{.State.Key}}">
+    <h2>{{.State.Label}} <span class="meta">({{len .Tasks}})</span></h2>
+    {{range .Tasks}}
+      <article class="card" draggable="true" data-task="{{.Task.Ref}}">
+        <div class="ref">{{.Task.Ref}}</div>
+        <div><a href="/tasks/{{.Task.Ref}}">{{.Task.Title}}</a></div>
+        <form method="post" action="/projects/{{$.Data.Project.Key}}/move">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="ref" value="{{.Task.Ref}}">
+          <label for="to-{{.Task.Ref}}">Move to</label>
+          <select id="to-{{.Task.Ref}}" name="to">
+            {{range .Targets}}<option value="{{.Key}}">{{.Label}}</option>{{end}}
+          </select>
+          <button type="submit">Move</button>
+        </form>
+      </article>
+    {{else}}
+      <p class="meta">Empty.</p>
+    {{end}}
+  </section>
+{{end}}
+</div>
+
+<h2>Project settings</h2>
+<form method="post" action="/projects/{{.Data.Project.Key}}/update">
+  {{template "csrf" .CSRF}}
+  <div class="row">
+    <div><label for="name">Name</label><input id="name" name="name" value="{{.Data.Project.Name}}" required></div>
+    <div><label for="workflow_key">Workflow key</label><input id="workflow_key" name="workflow_key" value="{{.Data.Workflow.Key}}"></div>
+  </div>
+  <label for="description">Description</label>
+  <textarea id="description" name="description">{{.Data.Project.Description}}</textarea>
+  <p><button type="submit">Save project</button></p>
+</form>
+<form method="post" action="/projects/{{.Data.Project.Key}}/archive">
+  {{template "csrf" .CSRF}}
+  <button class="secondary" type="submit">Archive project</button>
+</form>
+<form method="post" action="/projects/{{.Data.Project.Key}}/delete">
+  {{template "csrf" .CSRF}}
+  <button class="secondary" type="submit">Delete project</button>
+</form>
+{{end}}

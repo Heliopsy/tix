@@ -1,0 +1,62 @@
+{{define "content"}}
+<h1>Tenant</h1>
+<form method="post" action="/admin/tenant">
+  {{template "csrf" .CSRF}}
+  <label for="name">Display name</label>
+  <input id="name" name="name" value="{{.Data.Tenant.Name}}" required>
+  <p class="meta">Key {{.Data.Tenant.Key}}</p>
+  <p><button type="submit">Save</button></p>
+</form>
+
+<h2>Members</h2>
+<table>
+  <thead><tr><th>Actor</th><th>Role</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data.Members}}
+    <tr>
+      <td>{{.ActorID}}</td><td>{{.Role}}</td>
+      <td>
+        <form method="post" action="/admin/tenant/members/remove">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="actor_id" value="{{.ActorID}}">
+          <button class="secondary" type="submit">Remove</button>
+        </form>
+      </td>
+    </tr>
+  {{else}}
+    <tr><td colspan="3">No members.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+
+<h2>Retention</h2>
+<form method="post" action="/admin/tenant/retention">
+  {{template "csrf" .CSRF}}
+  <div class="row">
+    <div><label for="events">Events</label><input id="events" name="events" value="{{.Data.Retention.Events}}"></div>
+    <div><label for="audit_entries">Audit entries</label><input id="audit_entries" name="audit_entries" value="{{.Data.Retention.AuditEntries}}"></div>
+    <div><label for="webhook_deliveries">Webhook deliveries</label><input id="webhook_deliveries" name="webhook_deliveries" value="{{.Data.Retention.WebhookDeliveries}}"></div>
+  </div>
+  <p><button type="submit">Save retention</button></p>
+</form>
+<form method="post" action="/admin/tenant/prune">
+  {{template "csrf" .CSRF}}
+  <label for="prune-dry"><input id="prune-dry" type="checkbox" name="dry_run" value="1" checked> Dry run</label>
+  <p><button class="secondary" type="submit">Prune now</button></p>
+</form>
+
+<h2>Add a member</h2>
+<form method="post" action="/admin/tenant/members">
+  {{template "csrf" .CSRF}}
+  <div class="row">
+    <div><label for="actor_id">Actor identifier</label><input id="actor_id" name="actor_id" required></div>
+    <div>
+      <label for="role">Role</label>
+      <select id="role" name="role">
+        {{range .Data.Roles}}<option value="{{.}}">{{.}}</option>{{end}}
+      </select>
+    </div>
+    <div><button type="submit">Add member</button></div>
+  </div>
+</form>
+{{end}}

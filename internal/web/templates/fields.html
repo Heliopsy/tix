@@ -1,0 +1,41 @@
+{{define "content"}}
+<h1>Field definitions for {{.Data.Project.Key}}</h1>
+<table>
+  <thead><tr><th>Key</th><th>Label</th><th>Type</th><th>Required</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data.Fields}}
+    <tr>
+      <td>{{.Key}}</td><td>{{.Label}}</td><td>{{.Type}}</td><td>{{if .Required}}yes{{else}}no{{end}}</td>
+      <td>
+        <form method="post" action="/projects/{{$.Data.Project.Key}}/fields/delete">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="key" value="{{.Key}}">
+          <button class="secondary" type="submit">Delete</button>
+        </form>
+      </td>
+    </tr>
+  {{else}}
+    <tr><td colspan="5">No custom fields.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+
+<h2>Define a field</h2>
+<form method="post" action="/projects/{{.Data.Project.Key}}/fields">
+  {{template "csrf" .CSRF}}
+  <div class="row">
+    <div><label for="key">Key</label><input id="key" name="key" required></div>
+    <div><label for="label">Label</label><input id="label" name="label"></div>
+    <div>
+      <label for="type">Type</label>
+      <select id="type" name="type">
+        {{range .Data.Types}}<option value="{{.}}">{{.}}</option>{{end}}
+      </select>
+    </div>
+  </div>
+  <label for="enum_options">Enum options, comma separated</label>
+  <input id="enum_options" name="enum_options">
+  <label for="required"><input id="required" type="checkbox" name="required" value="1"> Required</label>
+  <p><button type="submit">Save field</button></p>
+</form>
+{{end}}

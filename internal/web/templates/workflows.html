@@ -1,0 +1,18 @@
+{{define "content"}}
+<h1>Workflows</h1>
+<table>
+  <thead><tr><th>Key</th><th>Name</th><th>States</th><th>Builtin</th></tr></thead>
+  <tbody>
+  {{range .Data.Workflows}}
+    <tr>
+      <td><a href="/workflows/{{.Key}}">{{.Key}}</a></td>
+      <td>{{.Name}}</td>
+      <td>{{len .Definition.States}}</td>
+      <td>{{if .Builtin}}yes{{else}}no{{end}}</td>
+    </tr>
+  {{else}}
+    <tr><td colspan="4">No workflows.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+{{end}}
