@@ -170,7 +170,7 @@ func explode(data any) []any {
 		return nil
 	}
 	v := reflect.ValueOf(data)
-	for v.Kind() == reflect.Ptr {
+	for v.Kind() == reflect.Pointer {
 		if v.IsNil() {
 			return nil
 		}
