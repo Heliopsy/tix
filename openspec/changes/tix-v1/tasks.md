@@ -59,33 +59,33 @@ ticked, and coverage is at or above 80% (excluding `internal/tui`).
 
 ## 3. Wave 3 — Service layer
 
-- [ ] 3.1 WP-20 `internal/service/local.go`: `Local` struct and `core.Service` assertion
-- [ ] 3.2 WP-20 `internal/service/tx.go`: transaction helper used by every mutation
-- [ ] 3.3 WP-20 `internal/service/audit.go`: audit entry capture with secret exclusion
-- [ ] 3.4 WP-20 `internal/outbox`: in-transaction event append
-- [ ] 3.5 WP-20 `internal/outbox`: cursor-based `Tailer` with per-engine wake-up
-- [ ] 3.6 WP-21 `internal/service/tenant.go`: tenant CRUD and membership
-- [ ] 3.7 WP-21 `internal/service/domain.go`: domain registration and resolution
-- [ ] 3.8 WP-21 `internal/service/project.go`: project CRUD
-- [ ] 3.9 WP-21 `internal/service/workflow.go`: workflow definition, validation, transition legality
-- [ ] 3.10 WP-21 `internal/service/field.go`: field definitions and value validation
-- [ ] 3.11 WP-21 `internal/service/bootstrap.go`: `EnsureDefaults` creating the default tenant and project
-- [ ] 3.12 WP-21 Cross-tenant leak suite over every service method
-- [ ] 3.13 WP-22 `internal/service/task.go`: task CRUD, transitions, soft and hard delete
-- [ ] 3.14 WP-22 `internal/service/dep.go`: dependencies with cycle rejection and blocked reporting
-- [ ] 3.15 WP-22 `internal/service/label.go`: label attach and detach
-- [ ] 3.16 WP-22 `internal/service/comment.go`: comment create, edit, soft delete
-- [ ] 3.17 WP-22 `internal/service/artifact.go`: structured result artifacts
-- [ ] 3.18 WP-22 Task listing: filtering, sorting, keyset pagination, no OFFSET
-- [ ] 3.19 WP-23 `internal/lease`: claim compare-and-swap helper
-- [ ] 3.20 WP-23 `internal/lease`: `ClaimNext` with dependency gating and retry
-- [ ] 3.21 WP-23 `internal/lease`: renew, release, lease token verification
-- [ ] 3.22 WP-23 `internal/lease`: `Sweeper` materializing expiry
-- [ ] 3.23 WP-23 `internal/service/claim.go`: claim operations over the lease helpers
-- [ ] 3.24 WP-23 Concurrent `ClaimNext` test proving no task is claimed twice
-- [ ] 3.25 WP-24 `internal/retention`: per-tenant policy evaluation and pruning
-- [ ] 3.26 WP-24 `internal/retention`: subscriber-cursor safety check
-- [ ] 3.27 WP-24 `internal/service/prune.go`: prune operation with dry run
+- [x] 3.1 WP-20 `internal/service/local.go`: `Local` struct and `core.Service` assertion
+- [x] 3.2 WP-20 `internal/service/tx.go`: transaction helper used by every mutation
+- [x] 3.3 WP-20 `internal/service/audit.go`: audit entry capture with secret exclusion
+- [x] 3.4 WP-20 `internal/outbox`: in-transaction event append
+- [x] 3.5 WP-20 `internal/outbox`: cursor-based `Tailer` with per-engine wake-up
+- [x] 3.6 WP-21 `internal/service/tenant.go`: tenant CRUD and membership
+- [x] 3.7 WP-21 `internal/service/domain.go`: domain registration and resolution
+- [x] 3.8 WP-21 `internal/service/project.go`: project CRUD
+- [x] 3.9 WP-21 `internal/service/workflow.go`: workflow definition, validation, transition legality
+- [x] 3.10 WP-21 `internal/service/field.go`: field definitions and value validation
+- [x] 3.11 WP-21 `internal/service/bootstrap.go`: `EnsureDefaults` creating the default tenant and project
+- [x] 3.12 WP-21 Cross-tenant leak suite over every service method
+- [x] 3.13 WP-22 `internal/service/task.go`: task CRUD, transitions, soft and hard delete
+- [x] 3.14 WP-22 `internal/service/dep.go`: dependencies with cycle rejection and blocked reporting
+- [x] 3.15 WP-22 `internal/service/label.go`: label attach and detach
+- [x] 3.16 WP-22 `internal/service/comment.go`: comment create, edit, soft delete
+- [x] 3.17 WP-22 `internal/service/artifact.go`: structured result artifacts
+- [x] 3.18 WP-22 Task listing: filtering, sorting, keyset pagination, no OFFSET
+- [x] 3.19 WP-23 `internal/lease`: claim compare-and-swap helper
+- [x] 3.20 WP-23 `internal/lease`: `ClaimNext` with dependency gating and retry
+- [x] 3.21 WP-23 `internal/lease`: renew, release, lease token verification
+- [x] 3.22 WP-23 `internal/lease`: `Sweeper` materializing expiry
+- [x] 3.23 WP-23 `internal/service/claim.go`: claim operations over the lease helpers
+- [x] 3.24 WP-23 Concurrent `ClaimNext` test proving no task is claimed twice
+- [x] 3.25 WP-24 `internal/retention`: per-tenant policy evaluation and pruning
+- [x] 3.26 WP-24 `internal/retention`: subscriber-cursor safety check
+- [x] 3.27 WP-24 `internal/service/prune.go`: prune operation with dry run
 
 ## 4. Wave 4 — Transports
 

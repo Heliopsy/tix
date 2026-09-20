@@ -1,0 +1,1107 @@
+package service
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/thereisnotime/tix/internal/core"
+	"github.com/thereisnotime/tix/internal/store"
+)
+
+// taskWorkflow is the state machine the task tests exercise. "review" to "done"
+// requires a comment and "cancelled" requires a scope, so the transition
+// requirements have an edge each.
+func taskWorkflow() core.WorkflowDefinition {
+	return core.WorkflowDefinition{
+		Initial: "todo",
+		States: []core.State{
+			{Key: "todo", Label: "Todo", Category: core.CategoryTodo},
+			{Key: "doing", Label: "Doing", Category: core.CategoryInProgress},
+			{Key: "review", Label: "Review", Category: core.CategoryInProgress},
+			{Key: "done", Label: "Done", Terminal: true, Category: core.CategoryDone},
+			{Key: "cancelled", Label: "Cancelled", Terminal: true, Category: core.CategoryDone},
+		},
+		Transitions: []core.Transition{
+			{From: "todo", To: "doing"},
+			{From: "doing", To: "todo"},
+			{From: "doing", To: "review"},
+			{From: "review", To: "done", RequiresComment: true},
+			{From: "doing", To: "done"},
+			{From: "todo", To: "cancelled", RequiresScope: core.ScopeTaskDelete},
+		},
+	}
+}
+
+func seedTaskProject(t *testing.T, l *Local, scope core.TenantScope, key string) *core.Project {
+	t.Helper()
+	ctx := context.Background()
+	wf := core.Workflow{Key: "wf-" + key, Name: "Workflow " + key, Definition: taskWorkflow()}
+	project := core.Project{Key: key, Name: strings.ToUpper(key)}
+	if err := l.store.Update(ctx, scope, func(tx store.Tx) error {
+		if err := tx.PutWorkflow(ctx, &wf); err != nil {
+			return err
+		}
+		project.WorkflowID = wf.ID
+		return tx.CreateProject(ctx, &project)
+	}); err != nil {
+		t.Fatalf("seeding project %q: %v", key, err)
+	}
+	return &project
+}
+
+func seedFieldDef(t *testing.T, l *Local, scope core.TenantScope, d core.FieldDef) {
+	t.Helper()
+	ctx := context.Background()
+	if err := l.store.Update(ctx, scope, func(tx store.Tx) error {
+		return tx.PutFieldDef(ctx, &d)
+	}); err != nil {
+		t.Fatalf("seeding field %q: %v", d.Key, err)
+	}
+}
+
+func seedTaskActor(t *testing.T, l *Local, scope core.TenantScope, handle string, role core.Role, scopes ...core.Scope) *core.Actor {
+	t.Helper()
+	ctx := context.Background()
+	actor := core.Actor{Kind: core.ActorUser, Handle: handle, Role: role, Scopes: scopes}
+	if err := l.store.Update(ctx, scope, func(tx store.Tx) error {
+		return tx.CreateActor(ctx, &actor)
+	}); err != nil {
+		t.Fatalf("seeding actor %q: %v", handle, err)
+	}
+	actor.TenantID = scope.TenantID
+	return &actor
+}
+
+func taskContext(actor *core.Actor) context.Context {
+	return core.WithSource(core.WithActor(context.Background(), actor), core.SourceCLI)
+}
+
+func newTaskFixture(t *testing.T) (*Local, context.Context, core.TenantScope, *core.Actor, *core.Project) {
+	t.Helper()
+	l, _, scope, actor := newLocal(t)
+	project := seedTaskProject(t, l, scope, "infra")
+	return l, taskContext(actor), scope, actor, project
+}
+
+func mustCreateTask(t *testing.T, l *Local, ctx context.Context, in core.CreateTaskInput) *core.Task {
+	t.Helper()
+	task, err := l.CreateTask(ctx, in)
+	if err != nil {
+		t.Fatalf("creating task %q: %v", in.Title, err)
+	}
+	return task
+}
+
+func TestCreateTaskWithOnlyATitle(t *testing.T) {
+	l, ctx, scope, actor, project := newTaskFixture(t)
+	beforeEvents, beforeAudits := countRows(t, l, scope)
+
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "  ship it  "})
+
+	if task.Title != "ship it" {
+		t.Errorf("title = %q, want the trimmed title", task.Title)
+	}
+	if task.ProjectID != project.ID {
+		t.Errorf("project = %q, want the only project %q", task.ProjectID, project.ID)
+	}
+	if task.Status != "todo" {
+		t.Errorf("status = %q, want the workflow's initial state", task.Status)
+	}
+	if task.Priority != core.PriorityNormal {
+		t.Errorf("priority = %d, want normal", task.Priority)
+	}
+	if task.Ref != "infra-1" {
+		t.Errorf("ref = %q, want infra-1", task.Ref)
+	}
+	if task.CreatorActorID != actor.ID {
+		t.Errorf("creator = %q, want %q", task.CreatorActorID, actor.ID)
+	}
+	if task.AssigneeActorID != "" || task.DueAt != nil || len(task.Labels) != 0 {
+		t.Errorf("defaults leaked: %+v", task)
+	}
+	if task.Blocked {
+		t.Error("a task with no dependencies must report unblocked")
+	}
+
+	afterEvents, afterAudits := countRows(t, l, scope)
+	if afterEvents != beforeEvents+1 || afterAudits != beforeAudits+1 {
+		t.Errorf("create wrote %d events and %d audit entries, want one of each",
+			afterEvents-beforeEvents, afterAudits-beforeAudits)
+	}
+}
+
+func TestCreateTaskAssignsSequentialHumanRefs(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+
+	for i := 1; i <= 3; i++ {
+		task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: fmt.Sprintf("task %d", i)})
+		want := fmt.Sprintf("infra-%d", i)
+		if task.Ref != want {
+			t.Fatalf("ref = %q, want %q", task.Ref, want)
+		}
+		if task.Seq != int64(i) {
+			t.Fatalf("seq = %d, want %d", task.Seq, i)
+		}
+	}
+}
+
+func TestCreateTaskRejectsBadInput(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+
+	cases := []struct {
+		name string
+		in   core.CreateTaskInput
+		kind core.Kind
+	}{
+		{"empty title", core.CreateTaskInput{Title: "   "}, core.KindInvalid},
+		{"long title", core.CreateTaskInput{Title: strings.Repeat("x", core.MaxTitleLength+1)}, core.KindInvalid},
+		{"long body", core.CreateTaskInput{Title: "t", Body: strings.Repeat("x", core.MaxBodyLength+1)}, core.KindInvalid},
+		{"bad priority", core.CreateTaskInput{Title: "t", Priority: 9}, core.KindInvalid},
+		{"unknown project", core.CreateTaskInput{Title: "t", ProjectRef: "nope"}, core.KindNotFound},
+		{"unknown status", core.CreateTaskInput{Title: "t", Status: "nowhere"}, core.KindInvalid},
+		{"unknown parent", core.CreateTaskInput{Title: "t", ParentRef: "infra-99"}, core.KindNotFound},
+		{"unknown dependency", core.CreateTaskInput{Title: "t", DependsOn: []string{"infra-99"}}, core.KindNotFound},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := l.CreateTask(ctx, tc.in); !core.IsKind(err, tc.kind) {
+				t.Errorf("CreateTask = %v, want %s", err, tc.kind)
+			}
+		})
+	}
+}
+
+func TestCreateTaskStoresEveryAttribute(t *testing.T) {
+	l, ctx, _, actor, project := newTaskFixture(t)
+	due := time.Date(2030, 1, 2, 3, 4, 5, 0, time.UTC)
+	parent := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "parent"})
+	seedFieldDef(t, l, core.TenantScope{TenantID: actor.TenantID}, core.FieldDef{
+		ProjectID: project.ID, Key: "severity", Label: "Severity",
+		Type: core.FieldEnum, EnumOptions: []string{"low", "high"},
+	})
+
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{
+		ProjectRef:      "infra",
+		Title:           "full",
+		Body:            "body",
+		Status:          "doing",
+		Priority:        core.PriorityHigh,
+		Labels:          []string{"urgent", "infra"},
+		AssigneeActorID: actor.ID,
+		ParentRef:       parent.Ref,
+		DueAt:           &due,
+		CustomFields:    map[string]any{"severity": "high"},
+		DependsOn:       []string{parent.Ref},
+	})
+
+	if task.Body != "body" || task.Status != "doing" || task.Priority != core.PriorityHigh {
+		t.Errorf("attributes not stored: %+v", task)
+	}
+	if task.ParentID != parent.ID || task.AssigneeActorID != actor.ID {
+		t.Errorf("relations not stored: %+v", task)
+	}
+	if task.DueAt == nil || !task.DueAt.Equal(due) {
+		t.Errorf("due date = %v, want %v", task.DueAt, due)
+	}
+	if len(task.Labels) != 2 {
+		t.Errorf("labels = %v, want two", task.Labels)
+	}
+	if task.CustomFields["severity"] != "high" {
+		t.Errorf("custom fields = %v", task.CustomFields)
+	}
+	if !task.Blocked {
+		t.Error("a task depending on an open task must report blocked")
+	}
+}
+
+func TestGetTaskAcceptsBothReferenceForms(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	created := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "addressable"})
+
+	byID, err := l.GetTask(ctx, core.TaskRef{ID: created.ID})
+	if err != nil {
+		t.Fatalf("GetTask by id: %v", err)
+	}
+	byRef, err := l.GetTask(ctx, core.MustParseTaskRef(created.Ref))
+	if err != nil {
+		t.Fatalf("GetTask by ref: %v", err)
+	}
+	if byID.ID != byRef.ID {
+		t.Errorf("the two reference forms addressed different tasks: %q and %q", byID.ID, byRef.ID)
+	}
+	if _, err := l.GetTask(ctx, core.MustParseTaskRef("infra-404")); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("unknown reference = %v, want not found", err)
+	}
+}
+
+func TestUpdateTaskChangesOnlyWhatIsSupplied(t *testing.T) {
+	l, ctx, _, actor, _ := newTaskFixture(t)
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{
+		Title: "original", Body: "body", Priority: core.PriorityLow, Labels: []string{"keep"},
+	})
+
+	assignee := actor.ID
+	updated, err := l.UpdateTask(ctx, core.TaskRef{ID: task.ID}, core.UpdateTaskInput{AssigneeActorID: &assignee})
+	if err != nil {
+		t.Fatalf("UpdateTask: %v", err)
+	}
+	if updated.AssigneeActorID != actor.ID {
+		t.Errorf("assignee = %q, want %q", updated.AssigneeActorID, actor.ID)
+	}
+	if updated.Title != "original" || updated.Body != "body" || updated.Priority != core.PriorityLow {
+		t.Errorf("an unrelated attribute changed: %+v", updated)
+	}
+	if len(updated.Labels) != 1 || updated.Labels[0] != "keep" {
+		t.Errorf("labels = %v, want the original label", updated.Labels)
+	}
+	if updated.Version <= task.Version {
+		t.Errorf("version did not move: %d then %d", task.Version, updated.Version)
+	}
+}
+
+func TestUpdateTaskClearsAndReplaces(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	due := time.Date(2031, 5, 6, 7, 8, 9, 0, time.UTC)
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "t", DueAt: &due, Labels: []string{"a", "b"}})
+
+	var cleared *time.Time
+	title := "renamed"
+	labels := []string{"b", "c"}
+	updated, err := l.UpdateTask(ctx, core.TaskRef{ID: task.ID}, core.UpdateTaskInput{
+		Title: &title, DueAt: &cleared, Labels: &labels,
+	})
+	if err != nil {
+		t.Fatalf("UpdateTask: %v", err)
+	}
+	if updated.DueAt != nil {
+		t.Errorf("due date = %v, want cleared", updated.DueAt)
+	}
+	if updated.Title != "renamed" {
+		t.Errorf("title = %q", updated.Title)
+	}
+	if strings.Join(updated.Labels, ",") != "b,c" {
+		t.Errorf("labels = %v, want exactly b and c", updated.Labels)
+	}
+}
+
+func TestUpdateTaskRejectsStaleVersion(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "contended"})
+	first := "first"
+	if _, err := l.UpdateTask(ctx, core.TaskRef{ID: task.ID}, core.UpdateTaskInput{
+		Title: &first, Version: task.Version,
+	}); err != nil {
+		t.Fatalf("first update: %v", err)
+	}
+
+	second := "second"
+	_, err := l.UpdateTask(ctx, core.TaskRef{ID: task.ID}, core.UpdateTaskInput{
+		Title: &second, Version: task.Version,
+	})
+	if !core.IsKind(err, core.KindConflict) {
+		t.Fatalf("stale update = %v, want conflict", err)
+	}
+	got, err := l.GetTask(ctx, core.TaskRef{ID: task.ID})
+	if err != nil {
+		t.Fatalf("GetTask: %v", err)
+	}
+	if got.Title != "first" {
+		t.Errorf("title = %q, want the first update to have survived", got.Title)
+	}
+
+	third := "third"
+	if _, err := l.UpdateTask(ctx, core.TaskRef{ID: task.ID}, core.UpdateTaskInput{
+		Title: &third, Version: got.Version,
+	}); err != nil {
+		t.Errorf("update at the current version = %v, want success", err)
+	}
+}
+
+func TestUpdateTaskRejectsInvalidValues(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "guarded"})
+	ref := core.TaskRef{ID: task.ID}
+
+	empty := "  "
+	long := strings.Repeat("x", core.MaxTitleLength+1)
+	body := strings.Repeat("x", core.MaxBodyLength+1)
+	bad := core.Priority(42)
+	self := task.Ref
+	cases := []struct {
+		name string
+		in   core.UpdateTaskInput
+		kind core.Kind
+	}{
+		{"empty title", core.UpdateTaskInput{Title: &empty}, core.KindInvalid},
+		{"long title", core.UpdateTaskInput{Title: &long}, core.KindInvalid},
+		{"long body", core.UpdateTaskInput{Body: &body}, core.KindInvalid},
+		{"bad priority", core.UpdateTaskInput{Priority: &bad}, core.KindInvalid},
+		{"self parent", core.UpdateTaskInput{ParentRef: &self}, core.KindInvalid},
+		{"unknown field", core.UpdateTaskInput{CustomFields: map[string]any{"nope": 1}}, core.KindInvalid},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := l.UpdateTask(ctx, ref, tc.in); !core.IsKind(err, tc.kind) {
+				t.Errorf("UpdateTask = %v, want %s", err, tc.kind)
+			}
+		})
+	}
+	got, err := l.GetTask(ctx, ref)
+	if err != nil {
+		t.Fatalf("GetTask: %v", err)
+	}
+	if got.Title != "guarded" {
+		t.Errorf("a rejected update changed the task: %+v", got)
+	}
+}
+
+func TestUpdateTaskRejectsParentCycle(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	root := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "root"})
+	child := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "child", ParentRef: root.Ref})
+
+	ref := child.Ref
+	if _, err := l.UpdateTask(ctx, core.TaskRef{ID: root.ID}, core.UpdateTaskInput{ParentRef: &ref}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("parent cycle = %v, want invalid", err)
+	}
+
+	none := ""
+	detached, err := l.UpdateTask(ctx, core.TaskRef{ID: child.ID}, core.UpdateTaskInput{ParentRef: &none})
+	if err != nil {
+		t.Fatalf("detaching: %v", err)
+	}
+	if detached.ParentID != "" {
+		t.Errorf("parent = %q, want detached", detached.ParentID)
+	}
+}
+
+func TestTransitionRejectsIllegalTarget(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "t"})
+	ref := core.TaskRef{ID: task.ID}
+
+	if _, err := l.TransitionTask(ctx, ref, core.TransitionInput{To: "done"}); !core.IsKind(err, core.KindPrecondition) {
+		t.Errorf("todo to done = %v, want precondition failed", err)
+	}
+	if _, err := l.TransitionTask(ctx, ref, core.TransitionInput{To: "nowhere"}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("unknown state = %v, want invalid", err)
+	}
+	if _, err := l.TransitionTask(ctx, ref, core.TransitionInput{}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("missing target = %v, want invalid", err)
+	}
+	got, err := l.GetTask(ctx, ref)
+	if err != nil {
+		t.Fatalf("GetTask: %v", err)
+	}
+	if got.Status != "todo" {
+		t.Errorf("status = %q, want unchanged", got.Status)
+	}
+}
+
+func TestTransitionRequiringAComment(t *testing.T) {
+	l, ctx, scope, _, _ := newTaskFixture(t)
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "reviewed"})
+	ref := core.TaskRef{ID: task.ID}
+
+	if _, err := l.TransitionTask(ctx, ref, core.TransitionInput{To: "doing"}); err != nil {
+		t.Fatalf("todo to doing: %v", err)
+	}
+	if _, err := l.TransitionTask(ctx, ref, core.TransitionInput{To: "review"}); err != nil {
+		t.Fatalf("doing to review: %v", err)
+	}
+	if _, err := l.TransitionTask(ctx, ref, core.TransitionInput{To: "done"}); !core.IsKind(err, core.KindInvalid) {
+		t.Fatalf("review to done without a comment = %v, want invalid", err)
+	}
+
+	beforeEvents, beforeAudits := countRows(t, l, scope)
+	done, err := l.TransitionTask(ctx, ref, core.TransitionInput{To: "done", Comment: "looks good"})
+	if err != nil {
+		t.Fatalf("review to done with a comment: %v", err)
+	}
+	if done.Status != "done" {
+		t.Errorf("status = %q, want done", done.Status)
+	}
+	if done.CompletedAt == nil {
+		t.Error("a terminal state must record a completion time")
+	}
+	comments, err := l.ListComments(ctx, ref)
+	if err != nil {
+		t.Fatalf("ListComments: %v", err)
+	}
+	if len(comments) != 1 || comments[0].Body != "looks good" {
+		t.Errorf("comments = %+v, want the transition's comment", comments)
+	}
+	afterEvents, afterAudits := countRows(t, l, scope)
+	if afterEvents != beforeEvents+1 || afterAudits != beforeAudits+1 {
+		t.Errorf("transition wrote %d events and %d audit entries, want one of each",
+			afterEvents-beforeEvents, afterAudits-beforeAudits)
+	}
+}
+
+func TestTransitionRequiringAScope(t *testing.T) {
+	l, admin, scope, _, _ := newTaskFixture(t)
+	task := mustCreateTask(t, l, admin, core.CreateTaskInput{Title: "cancellable"})
+
+	member := taskContext(seedTaskActor(t, l, scope, "member", "",
+		core.ScopeTaskRead, core.ScopeTaskWrite, core.ScopeTaskTransition,
+		core.ScopeProjectRead, core.ScopeWorkflowRead))
+	if _, err := l.TransitionTask(member, core.TaskRef{ID: task.ID}, core.TransitionInput{To: "cancelled"}); !core.IsKind(err, core.KindForbidden) {
+		t.Errorf("transition without the required scope = %v, want forbidden", err)
+	}
+	if _, err := l.TransitionTask(admin, core.TaskRef{ID: task.ID}, core.TransitionInput{To: "cancelled"}); err != nil {
+		t.Errorf("transition with the required scope = %v, want success", err)
+	}
+}
+
+func TestTransitionUnderALeaseNeedsTheToken(t *testing.T) {
+	l, ctx, scope, actor, _ := newTaskFixture(t)
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "claimed"})
+
+	const token = "lease-token"
+	if err := l.store.Update(context.Background(), scope, func(tx store.Tx) error {
+		ok, err := tx.ClaimTask(context.Background(), store.ClaimRow{
+			TaskID: task.ID, ActorID: actor.ID,
+			Now: l.clock.Now(), Until: l.clock.Now().Add(time.Hour), LeaseToken: token,
+		})
+		if err != nil {
+			return err
+		}
+		if !ok {
+			t.Fatal("seeding a claim did not take the lease")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("claiming: %v", err)
+	}
+
+	ref := core.TaskRef{ID: task.ID}
+	if _, err := l.TransitionTask(ctx, ref, core.TransitionInput{To: "doing"}); !core.IsKind(err, core.KindLeaseExpired) {
+		t.Errorf("transition with no lease token = %v, want lease expired", err)
+	}
+	if _, err := l.TransitionTask(ctx, ref, core.TransitionInput{To: "doing", LeaseToken: "wrong"}); !core.IsKind(err, core.KindLeaseExpired) {
+		t.Errorf("transition with the wrong lease token = %v, want lease expired", err)
+	}
+	got, err := l.TransitionTask(ctx, ref, core.TransitionInput{To: "doing", LeaseToken: token})
+	if err != nil {
+		t.Fatalf("transition with the matching lease token: %v", err)
+	}
+	if got.Status != "doing" {
+		t.Errorf("status = %q, want doing", got.Status)
+	}
+	if got.StartedAt == nil {
+		t.Error("leaving the initial state must record a start time")
+	}
+}
+
+func TestTransitionChecksVersionAndCustomFields(t *testing.T) {
+	l, ctx, scope, _, project := newTaskFixture(t)
+	seedFieldDef(t, l, scope, core.FieldDef{
+		ProjectID: project.ID, Key: "reason", Label: "Reason", Type: core.FieldString,
+	})
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "t"})
+	ref := core.TaskRef{ID: task.ID}
+
+	if _, err := l.TransitionTask(ctx, ref, core.TransitionInput{To: "doing", Version: task.Version + 5}); !core.IsKind(err, core.KindConflict) {
+		t.Errorf("transition at a stale version = %v, want conflict", err)
+	}
+	if _, err := l.TransitionTask(ctx, ref, core.TransitionInput{
+		To: "doing", CustomFields: map[string]any{"reason": 7},
+	}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("transition with a mistyped field = %v, want invalid", err)
+	}
+	got, err := l.TransitionTask(ctx, ref, core.TransitionInput{
+		To: "doing", Version: task.Version, CustomFields: map[string]any{"reason": "starting"},
+	})
+	if err != nil {
+		t.Fatalf("transition: %v", err)
+	}
+	if got.CustomFields["reason"] != "starting" {
+		t.Errorf("custom fields = %v", got.CustomFields)
+	}
+}
+
+func TestSoftDeleteHidesAndRestoreBringsBack(t *testing.T) {
+	l, ctx, scope, _, _ := newTaskFixture(t)
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "temporary"})
+	ref := core.TaskRef{ID: task.ID}
+
+	beforeEvents, beforeAudits := countRows(t, l, scope)
+	if err := l.DeleteTask(ctx, ref, false); err != nil {
+		t.Fatalf("DeleteTask: %v", err)
+	}
+	afterEvents, afterAudits := countRows(t, l, scope)
+	if afterEvents != beforeEvents+1 || afterAudits != beforeAudits+1 {
+		t.Errorf("delete wrote %d events and %d audit entries, want one of each",
+			afterEvents-beforeEvents, afterAudits-beforeAudits)
+	}
+
+	if _, err := l.GetTask(ctx, ref); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("reading a soft-deleted task = %v, want not found", err)
+	}
+	page, err := l.ListTasks(ctx, core.TaskFilter{})
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	if len(page.Tasks) != 0 {
+		t.Errorf("a soft-deleted task still lists: %+v", page.Tasks)
+	}
+
+	restored, err := l.RestoreTask(ctx, ref)
+	if err != nil {
+		t.Fatalf("RestoreTask: %v", err)
+	}
+	if restored.Deleted() || restored.Title != "temporary" {
+		t.Errorf("restored task = %+v", restored)
+	}
+	page, err = l.ListTasks(ctx, core.TaskFilter{})
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	if len(page.Tasks) != 1 {
+		t.Errorf("restored task does not list again: %+v", page.Tasks)
+	}
+}
+
+func TestHardDeleteIsPermanent(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "gone"})
+	ref := core.TaskRef{ID: task.ID}
+
+	if err := l.DeleteTask(ctx, ref, true); err != nil {
+		t.Fatalf("DeleteTask: %v", err)
+	}
+	if _, err := l.RestoreTask(ctx, ref); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("restoring a hard-deleted task = %v, want not found", err)
+	}
+}
+
+func TestReferencesAreNotReusedAfterADelete(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "retired"})
+	if err := l.DeleteTask(ctx, core.TaskRef{ID: task.ID}, false); err != nil {
+		t.Fatalf("DeleteTask: %v", err)
+	}
+	next := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "successor"})
+	if next.Ref == task.Ref {
+		t.Errorf("reference %q was reused after a delete", next.Ref)
+	}
+}
+
+func TestDeleteTaskWithChildrenIsRejected(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	parent := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "parent"})
+	mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "child", ParentRef: parent.Ref})
+
+	if err := l.DeleteTask(ctx, core.TaskRef{ID: parent.ID}, false); !core.IsKind(err, core.KindPrecondition) {
+		t.Errorf("deleting a parent = %v, want precondition failed", err)
+	}
+}
+
+func TestTaskTreeReportsDescendants(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	root := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "root"})
+	child := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "child", ParentRef: root.Ref})
+	grand := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "grandchild", ParentRef: child.Ref})
+	leaf := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "leaf"})
+
+	full, err := l.TaskTree(ctx, core.TaskRef{ID: root.ID}, 0)
+	if err != nil {
+		t.Fatalf("TaskTree: %v", err)
+	}
+	if len(full) != 3 || full[0].ID != root.ID || full[2].ID != grand.ID {
+		t.Errorf("tree = %d nodes %v, want root, child, grandchild", len(full), taskTitles(full))
+	}
+
+	shallow, err := l.TaskTree(ctx, core.TaskRef{ID: root.ID}, 1)
+	if err != nil {
+		t.Fatalf("TaskTree with a depth limit: %v", err)
+	}
+	if len(shallow) != 2 {
+		t.Errorf("depth-limited tree = %v, want the root and its child", taskTitles(shallow))
+	}
+
+	only, err := l.TaskTree(ctx, core.TaskRef{ID: leaf.ID}, 0)
+	if err != nil {
+		t.Fatalf("TaskTree of a leaf: %v", err)
+	}
+	if len(only) != 1 {
+		t.Errorf("leaf tree = %v, want just the leaf", taskTitles(only))
+	}
+
+	if err := l.DeleteTask(ctx, core.TaskRef{ID: grand.ID}, false); err != nil {
+		t.Fatalf("deleting a descendant: %v", err)
+	}
+	pruned, err := l.TaskTree(ctx, core.TaskRef{ID: root.ID}, 0)
+	if err != nil {
+		t.Fatalf("TaskTree: %v", err)
+	}
+	if len(pruned) != 2 {
+		t.Errorf("tree = %v, want the soft-deleted descendant omitted", taskTitles(pruned))
+	}
+}
+
+func taskTitles(tasks []core.Task) []string {
+	out := make([]string, len(tasks))
+	for i, task := range tasks {
+		out[i] = task.Title
+	}
+	return out
+}
+
+func TestListTasksFiltersAndSorts(t *testing.T) {
+	l, ctx, _, actor, _ := newTaskFixture(t)
+	a := mustCreateTask(t, l, ctx, core.CreateTaskInput{
+		Title: "alpha needle", Priority: core.PriorityHighest, Labels: []string{"red"},
+		AssigneeActorID: actor.ID,
+	})
+	mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "beta", Priority: core.PriorityLowest})
+
+	cases := []struct {
+		name  string
+		f     core.TaskFilter
+		count int
+	}{
+		{"by status", core.TaskFilter{Statuses: []string{"todo"}}, 2},
+		{"by label", core.TaskFilter{Labels: []string{"red"}}, 1},
+		{"by assignee", core.TaskFilter{AssigneeIDs: []string{actor.ID}}, 1},
+		{"by priority", core.TaskFilter{Priorities: []core.Priority{core.PriorityHighest}}, 1},
+		{"by query", core.TaskFilter{Query: "needle"}, 1},
+		{"combined", core.TaskFilter{Labels: []string{"red"}, Statuses: []string{"todo"}, Blocked: core.No}, 1},
+		{"no match", core.TaskFilter{Statuses: []string{"done"}}, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			page, err := l.ListTasks(ctx, tc.f)
+			if err != nil {
+				t.Fatalf("ListTasks: %v", err)
+			}
+			if len(page.Tasks) != tc.count {
+				t.Errorf("returned %d tasks, want %d", len(page.Tasks), tc.count)
+			}
+		})
+	}
+
+	page, err := l.ListTasks(ctx, core.TaskFilter{Page: core.Page{Sort: core.SortPriority, Direction: core.Ascending}})
+	if err != nil {
+		t.Fatalf("ListTasks sorted: %v", err)
+	}
+	if len(page.Tasks) != 2 || page.Tasks[0].ID != a.ID {
+		t.Errorf("sorted order = %v, want the highest priority first", taskTitles(page.Tasks))
+	}
+	if _, err := l.ListTasks(ctx, core.TaskFilter{Page: core.Page{Sort: "colour"}}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("unsupported sort = %v, want invalid", err)
+	}
+	if _, err := l.ListTasks(ctx, core.TaskFilter{Page: core.Page{Limit: -1}}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("negative limit = %v, want invalid", err)
+	}
+}
+
+func TestListTasksPagesOverEveryRowExactlyOnce(t *testing.T) {
+	l, _, scope, actor, _ := newTaskFixture(t)
+	ctx := taskContext(actor)
+	clk := l.clock.(interface{ Advance(time.Duration) })
+
+	const total = 23
+	want := map[string]bool{}
+	for i := range total {
+		task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: fmt.Sprintf("task-%02d", i)})
+		want[task.ID] = true
+		clk.Advance(time.Second)
+	}
+	_ = scope
+
+	for _, dir := range []core.SortDirection{core.Ascending, core.Descending} {
+		t.Run(string(dir), func(t *testing.T) {
+			seen := map[string]int{}
+			cursor := ""
+			for page := 0; page <= total; page++ {
+				got, err := l.ListTasks(ctx, core.TaskFilter{Page: core.Page{
+					Limit: 7, Cursor: cursor, Sort: core.SortCreatedAt, Direction: dir,
+				}})
+				if err != nil {
+					t.Fatalf("listing page %d: %v", page, err)
+				}
+				for _, task := range got.Tasks {
+					seen[task.ID]++
+				}
+				if got.NextCursor == "" {
+					break
+				}
+				if len(got.Tasks) != 7 {
+					t.Fatalf("page %d returned %d tasks with a next cursor", page, len(got.Tasks))
+				}
+				cursor = got.NextCursor
+			}
+			if len(seen) != total {
+				t.Errorf("saw %d distinct tasks, want %d", len(seen), total)
+			}
+			for id, n := range seen {
+				if n != 1 {
+					t.Errorf("task %q appeared %d times", id, n)
+				}
+			}
+		})
+	}
+
+	if _, err := l.ListTasks(ctx, core.TaskFilter{Page: core.Page{
+		Cursor: core.Cursor{SortValue: "x", ID: "y", Sort: core.SortCreatedAt, Direction: core.Ascending}.Encode(),
+		Sort:   core.SortSeq,
+	}}); !core.IsKind(err, core.KindInvalid) {
+		t.Error("a cursor from a different ordering must be rejected")
+	}
+}
+
+func TestCustomFieldValuesAreValidated(t *testing.T) {
+	l, ctx, scope, _, project := newTaskFixture(t)
+	seedFieldDef(t, l, scope, core.FieldDef{ProjectID: project.ID, Key: "count", Label: "Count", Type: core.FieldInt})
+	seedFieldDef(t, l, scope, core.FieldDef{ProjectID: project.ID, Key: "ratio", Label: "Ratio", Type: core.FieldFloat})
+	seedFieldDef(t, l, scope, core.FieldDef{ProjectID: project.ID, Key: "urgent", Label: "Urgent", Type: core.FieldBool})
+	seedFieldDef(t, l, scope, core.FieldDef{ProjectID: project.ID, Key: "when", Label: "When", Type: core.FieldDate})
+	seedFieldDef(t, l, scope, core.FieldDef{ProjectID: project.ID, Key: "at", Label: "At", Type: core.FieldDateTime})
+	seedFieldDef(t, l, scope, core.FieldDef{ProjectID: project.ID, Key: "blob", Label: "Blob", Type: core.FieldJSON})
+	seedFieldDef(t, l, scope, core.FieldDef{
+		ProjectID: project.ID, Key: "severity", Label: "Severity",
+		Type: core.FieldEnum, EnumOptions: []string{"low", "high"},
+	})
+	seedFieldDef(t, l, scope, core.FieldDef{
+		ProjectID: project.ID, Key: "owner", Label: "Owner", Type: core.FieldActor,
+		Required: true, Default: "nobody",
+	})
+
+	good := map[string]any{
+		"count": 3, "ratio": 1.5, "urgent": true, "when": "2030-01-02",
+		"at": "2030-01-02T03:04:05Z", "blob": map[string]any{"k": "v"}, "severity": "low",
+	}
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "typed", CustomFields: good})
+	if task.CustomFields["owner"] != "nobody" {
+		t.Errorf("the declared default was not applied: %v", task.CustomFields)
+	}
+
+	bad := []struct {
+		name   string
+		fields map[string]any
+	}{
+		{"unknown key", map[string]any{"nope": 1}},
+		{"int as text", map[string]any{"count": "three"}},
+		{"float as text", map[string]any{"ratio": "half"}},
+		{"bool as text", map[string]any{"urgent": "yes"}},
+		{"date format", map[string]any{"when": "yesterday"}},
+		{"datetime format", map[string]any{"at": "noon"}},
+		{"enum option", map[string]any{"severity": "critical"}},
+		{"actor type", map[string]any{"owner": 12}},
+	}
+	for _, tc := range bad {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := l.CreateTask(ctx, core.CreateTaskInput{Title: "t", CustomFields: tc.fields}); !core.IsKind(err, core.KindInvalid) {
+				t.Errorf("CreateTask = %v, want invalid", err)
+			}
+		})
+	}
+
+	t.Run("required without a default", func(t *testing.T) {
+		other := seedTaskProject(t, l, scope, "app")
+		seedFieldDef(t, l, scope, core.FieldDef{
+			ProjectID: other.ID, Key: "team", Label: "Team", Type: core.FieldString, Required: true,
+		})
+		if _, err := l.CreateTask(ctx, core.CreateTaskInput{ProjectRef: "app", Title: "t"}); !core.IsKind(err, core.KindInvalid) {
+			t.Errorf("CreateTask without a required field = %v, want invalid", err)
+		}
+		if _, err := l.CreateTask(ctx, core.CreateTaskInput{
+			ProjectRef: "app", Title: "t", CustomFields: map[string]any{"team": "core"},
+		}); err != nil {
+			t.Errorf("CreateTask with the required field = %v, want success", err)
+		}
+	})
+
+	t.Run("clearing a required field", func(t *testing.T) {
+		if _, err := l.UpdateTask(ctx, core.TaskRef{ID: task.ID}, core.UpdateTaskInput{
+			CustomFields: map[string]any{"owner": nil},
+		}); !core.IsKind(err, core.KindInvalid) {
+			t.Error("clearing a required custom field must be rejected")
+		}
+	})
+}
+
+func TestCreateTaskNeedsAProjectWhenSeveralExist(t *testing.T) {
+	l, ctx, scope, _, _ := newTaskFixture(t)
+	seedTaskProject(t, l, scope, "app")
+
+	if _, err := l.CreateTask(ctx, core.CreateTaskInput{Title: "ambiguous"}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("CreateTask with several projects = %v, want invalid", err)
+	}
+	if _, err := l.CreateTask(ctx, core.CreateTaskInput{Title: "explicit", ProjectRef: "app"}); err != nil {
+		t.Errorf("CreateTask naming a project = %v, want success", err)
+	}
+}
+
+func TestTaskOperationsRequireAnActorAndScopes(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "guarded"})
+	ref := core.TaskRef{ID: task.ID}
+	anonymous := context.Background()
+
+	if _, err := l.CreateTask(anonymous, core.CreateTaskInput{Title: "t"}); !core.IsKind(err, core.KindUnauthenticated) {
+		t.Errorf("CreateTask unauthenticated = %v", err)
+	}
+	if _, err := l.GetTask(anonymous, ref); !core.IsKind(err, core.KindUnauthenticated) {
+		t.Errorf("GetTask unauthenticated = %v", err)
+	}
+	if _, err := l.ListTasks(anonymous, core.TaskFilter{}); !core.IsKind(err, core.KindUnauthenticated) {
+		t.Errorf("ListTasks unauthenticated = %v", err)
+	}
+	if _, err := l.UpdateTask(anonymous, ref, core.UpdateTaskInput{}); !core.IsKind(err, core.KindUnauthenticated) {
+		t.Errorf("UpdateTask unauthenticated = %v", err)
+	}
+	if _, err := l.TransitionTask(anonymous, ref, core.TransitionInput{To: "doing"}); !core.IsKind(err, core.KindUnauthenticated) {
+		t.Errorf("TransitionTask unauthenticated = %v", err)
+	}
+	if err := l.DeleteTask(anonymous, ref, false); !core.IsKind(err, core.KindUnauthenticated) {
+		t.Errorf("DeleteTask unauthenticated = %v", err)
+	}
+	if _, err := l.RestoreTask(anonymous, ref); !core.IsKind(err, core.KindUnauthenticated) {
+		t.Errorf("RestoreTask unauthenticated = %v", err)
+	}
+	if _, err := l.TaskTree(anonymous, ref, 0); !core.IsKind(err, core.KindUnauthenticated) {
+		t.Errorf("TaskTree unauthenticated = %v", err)
+	}
+
+	viewer := taskContext(seedTaskActor(t, l, tenantScope(t, l), "viewer", core.RoleViewer))
+	if err := l.DeleteTask(viewer, ref, false); !core.IsKind(err, core.KindForbidden) {
+		t.Errorf("a viewer deleting a task = %v, want forbidden", err)
+	}
+	if _, err := l.GetTask(viewer, ref); err != nil {
+		t.Errorf("a viewer reading a task = %v, want success", err)
+	}
+}
+
+// A task belonging to another tenant must read as absent rather than forbidden,
+// so no operation confirms that another tenant's record exists.
+func TestCrossTenantAccessReportsNotFound(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "private"})
+
+	other := core.Tenant{Key: "other", Name: "Other"}
+	if err := l.store.Unscoped(context.Background(), func(u store.UnscopedTx) error {
+		return u.CreateTenant(context.Background(), &other)
+	}); err != nil {
+		t.Fatalf("creating the second tenant: %v", err)
+	}
+	intruder := taskContext(&core.Actor{
+		ID: "intruder", TenantID: other.ID, Kind: core.ActorUser, Scopes: []core.Scope{core.ScopeAll},
+	})
+
+	ref := core.TaskRef{ID: task.ID}
+	if _, err := l.GetTask(intruder, ref); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("cross-tenant GetTask = %v, want not found", err)
+	}
+	if _, err := l.UpdateTask(intruder, ref, core.UpdateTaskInput{}); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("cross-tenant UpdateTask = %v, want not found", err)
+	}
+	if _, err := l.TransitionTask(intruder, ref, core.TransitionInput{To: "doing"}); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("cross-tenant TransitionTask = %v, want not found", err)
+	}
+	if err := l.DeleteTask(intruder, ref, false); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("cross-tenant DeleteTask = %v, want not found", err)
+	}
+	if _, err := l.AddComment(intruder, ref, "hello"); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("cross-tenant AddComment = %v, want not found", err)
+	}
+	page, err := l.ListTasks(intruder, core.TaskFilter{})
+	if err != nil {
+		t.Fatalf("cross-tenant ListTasks: %v", err)
+	}
+	if len(page.Tasks) != 0 {
+		t.Errorf("another tenant's listing returned %d tasks", len(page.Tasks))
+	}
+}
+
+// tenantScope reads back the scope of the tenant the fixture created.
+func tenantScope(t *testing.T, l *Local) core.TenantScope {
+	t.Helper()
+	var scope core.TenantScope
+	if err := l.store.Unscoped(context.Background(), func(u store.UnscopedTx) error {
+		tenant, err := u.GetTenantByKey(context.Background(), "acme")
+		if err != nil {
+			return err
+		}
+		scope = core.TenantScope{TenantID: tenant.ID}
+		return nil
+	}); err != nil {
+		t.Fatalf("reading the tenant: %v", err)
+	}
+	return scope
+}
+
+func TestTaskSortValueRendersEverySortField(t *testing.T) {
+	due := time.Date(2030, 7, 8, 9, 10, 11, 0, time.UTC)
+	created := time.Date(2029, 1, 1, 0, 0, 0, 0, time.UTC)
+	updated := time.Date(2029, 2, 2, 0, 0, 0, 0, time.UTC)
+	task := core.Task{
+		Title: "title", Seq: 42, Priority: core.PriorityHigh,
+		CreatedAt: created, UpdatedAt: updated, DueAt: &due,
+	}
+
+	cases := []struct {
+		sort string
+		want string
+	}{
+		{core.SortCreatedAt, "2029-01-01T00:00:00.000000000Z"},
+		{core.SortUpdatedAt, "2029-02-02T00:00:00.000000000Z"},
+		{core.SortDueAt, "2030-07-08T09:10:11.000000000Z"},
+		{core.SortPriority, "2"},
+		{core.SortSeq, "42"},
+		{core.SortTitle, "title"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.sort, func(t *testing.T) {
+			if got := taskSortValue(tc.sort, task); got != tc.want {
+				t.Errorf("taskSortValue = %q, want %q", got, tc.want)
+			}
+		})
+	}
+	if got := taskSortValue(core.SortDueAt, core.Task{}); got != "" {
+		t.Errorf("a task with no due date rendered %q, want an empty sort value", got)
+	}
+}
+
+func TestPagingWorksForEverySortField(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	due := time.Date(2032, 3, 4, 5, 6, 7, 0, time.UTC)
+	for i := range 4 {
+		mustCreateTask(t, l, ctx, core.CreateTaskInput{
+			Title: fmt.Sprintf("row-%d", i), Priority: core.Priority(i%5 + 1), DueAt: &due,
+		})
+	}
+
+	for _, sort := range core.TaskSortFields {
+		t.Run(sort, func(t *testing.T) {
+			seen := map[string]int{}
+			cursor := ""
+			for range 5 {
+				page, err := l.ListTasks(ctx, core.TaskFilter{Page: core.Page{
+					Limit: 2, Cursor: cursor, Sort: sort, Direction: core.Ascending,
+				}})
+				if err != nil {
+					t.Fatalf("ListTasks sorted by %s: %v", sort, err)
+				}
+				for _, task := range page.Tasks {
+					seen[task.ID]++
+				}
+				if page.NextCursor == "" {
+					break
+				}
+				cursor = page.NextCursor
+			}
+			if len(seen) != 4 {
+				t.Errorf("paging by %s saw %d tasks, want 4", sort, len(seen))
+			}
+		})
+	}
+}
+
+func TestFieldCoercionAcceptsEveryNumericForm(t *testing.T) {
+	intDef := core.FieldDef{Key: "n", Type: core.FieldInt}
+	floatDef := core.FieldDef{Key: "f", Type: core.FieldFloat}
+	dateDef := core.FieldDef{Key: "d", Type: core.FieldDate}
+	when := time.Date(2030, 4, 5, 6, 7, 8, 0, time.UTC)
+
+	cases := []struct {
+		name string
+		def  core.FieldDef
+		in   any
+		want any
+	}{
+		{"int from int", intDef, 7, int64(7)},
+		{"int from int32", intDef, int32(7), int64(7)},
+		{"int from int64", intDef, int64(7), int64(7)},
+		{"int from whole float", intDef, float64(7), int64(7)},
+		{"int from json number", intDef, json.Number("7"), int64(7)},
+		{"float from int", floatDef, 7, float64(7)},
+		{"float from int64", floatDef, int64(7), float64(7)},
+		{"float from float", floatDef, 7.5, 7.5},
+		{"float from json number", floatDef, json.Number("7.5"), 7.5},
+		{"date from time", dateDef, when, "2030-04-05"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := coerceFieldValue(tc.def, tc.in)
+			if err != nil {
+				t.Fatalf("coerceFieldValue: %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("coerceFieldValue = %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+
+	bad := []struct {
+		name string
+		def  core.FieldDef
+		in   any
+	}{
+		{"int from fraction", intDef, 7.5},
+		{"int from bad json number", intDef, json.Number("x")},
+		{"int from bool", intDef, true},
+		{"float from bool", floatDef, true},
+		{"float from bad json number", floatDef, json.Number("x")},
+		{"date from number", dateDef, 7},
+		{"unsupported type", core.FieldDef{Key: "u", Type: "colour"}, "red"},
+	}
+	for _, tc := range bad {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := coerceFieldValue(tc.def, tc.in); !core.IsKind(err, core.KindInvalid) {
+				t.Errorf("coerceFieldValue = %v, want invalid", err)
+			}
+		})
+	}
+}
+
+func TestParentReferencesAreResolvedThroughAncestors(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	root := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "root"})
+	middle := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "middle", ParentRef: root.Ref})
+	leaf := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "leaf", ParentRef: middle.Ref})
+
+	deep := leaf.Ref
+	if _, err := l.UpdateTask(ctx, core.TaskRef{ID: root.ID}, core.UpdateTaskInput{ParentRef: &deep}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("making a task a child of its own grandchild = %v, want invalid", err)
+	}
+
+	malformed := "not a ref!"
+	if _, err := l.UpdateTask(ctx, core.TaskRef{ID: leaf.ID}, core.UpdateTaskInput{ParentRef: &malformed}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("a malformed parent reference = %v, want invalid", err)
+	}
+	if _, err := l.CreateTask(ctx, core.CreateTaskInput{Title: "t", ParentRef: malformed}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("creating under a malformed parent reference = %v, want invalid", err)
+	}
+	if _, err := l.CreateTask(ctx, core.CreateTaskInput{Title: "t", DependsOn: []string{malformed}}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("depending on a malformed reference = %v, want invalid", err)
+	}
+}
+
+func TestReplacingLabelsIgnoresBlankNames(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "t", Labels: []string{"keep", "drop"}})
+
+	labels := []string{"keep", "  ", ""}
+	got, err := l.UpdateTask(ctx, core.TaskRef{ID: task.ID}, core.UpdateTaskInput{Labels: &labels})
+	if err != nil {
+		t.Fatalf("UpdateTask: %v", err)
+	}
+	if strings.Join(got.Labels, ",") != "keep" {
+		t.Errorf("labels = %v, want only the named one", got.Labels)
+	}
+}
+
+func TestCreateTaskInAProjectWithoutTasksReportsMissingProject(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	ctx := taskContext(actor)
+
+	if _, err := l.CreateTask(ctx, core.CreateTaskInput{Title: "orphan"}); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("CreateTask with no project at all = %v, want not found", err)
+	}
+}
