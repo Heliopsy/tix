@@ -81,12 +81,25 @@ const (
 	styleWarn       sgr = "33"
 )
 
-// Painter applies ANSI styles when colour is enabled for one writer.
-type Painter struct{ on bool }
+// Painter applies ANSI styles when colour is enabled for one writer, and
+// carries the TimeStyle every timestamp it renders is formatted through.
+type Painter struct {
+	on    bool
+	style TimeStyle
+}
 
-// NewPainter returns a Painter for writing to w under the given mode.
+// NewPainter returns a Painter for writing to w under the given mode, with the
+// zero-value TimeStyle. Prefer NewPainterWithStyle wherever a timestamp will
+// be rendered; this constructor stays for callers, such as an error label,
+// that never format a time.
 func NewPainter(mode Mode, w io.Writer) Painter {
-	return Painter{on: colorAllowed(mode, w)}
+	return NewPainterWithStyle(mode, w, TimeStyle{})
+}
+
+// NewPainterWithStyle returns a Painter for writing to w under the given
+// mode, rendering every timestamp through style.
+func NewPainterWithStyle(mode Mode, w io.Writer, style TimeStyle) Painter {
+	return Painter{on: colorAllowed(mode, w), style: style}
 }
 
 // Enabled reports whether this Painter writes escape codes.

@@ -42,6 +42,7 @@ func mustLoad(t *testing.T, opts Options) *Resolved {
 func TestEnvNameIsDerivedFromKeyPath(t *testing.T) {
 	cases := []struct{ key, want string }{
 		{"database.dsn", "TIX_DATABASE_DSN"},
+		{"database.allow_network_fs", "TIX_DATABASE_ALLOW_NETWORK_FS"},
 		{"server.url", "TIX_SERVER_URL"},
 		{"hooks.mode", "TIX_HOOKS_MODE"},
 		{"discovery.enabled", "TIX_DISCOVERY_ENABLED"},
@@ -786,6 +787,19 @@ func TestDefaultsAreValid(t *testing.T) {
 	}
 	if !slices.Equal(defaults.Discovery.Filenames, DefaultDiscoveryFilenames) {
 		t.Fatalf("filenames = %v", defaults.Discovery.Filenames)
+	}
+	if defaults.Database.AllowNetworkFS {
+		t.Fatal("a database on a network filesystem should default to refused, not allowed")
+	}
+}
+
+func TestAllowNetworkFSIsSettableFromTheEnvironment(t *testing.T) {
+	dir := t.TempDir()
+	home := t.TempDir()
+	env := map[string]string{"HOME": home, "TIX_DATABASE_ALLOW_NETWORK_FS": "true"}
+	got := mustLoad(t, Options{Dir: dir, Home: home, Environ: environ(env)})
+	if !got.Config.Database.AllowNetworkFS {
+		t.Fatal("TIX_DATABASE_ALLOW_NETWORK_FS=true did not override the default")
 	}
 }
 

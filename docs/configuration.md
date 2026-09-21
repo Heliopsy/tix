@@ -51,6 +51,8 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `log.level` | `TIX_LOG_LEVEL` | `info` (`debug`, `info`, `warn`, `error`) |
 | `output.format` | `TIX_OUTPUT_FORMAT` | `table` (`table`, `json`, `yaml`, `ndjson`) |
 | `output.color` | `TIX_OUTPUT_COLOR` | `auto` (`auto`, `always`, `never`) |
+| `output.time_format` | `TIX_OUTPUT_TIME_FORMAT` | `iso` (`iso`, `rfc3339`, `short`, `us`, `relative`) |
+| `output.timezone` | `TIX_OUTPUT_TIMEZONE` | `local` (`local`, `utc`, or an IANA name) |
 
 List values are comma-separated. Durations use Go syntax (`15m`, `24h`, `720h`).
 
@@ -67,6 +69,58 @@ command that produced them, `server` leaves them for `tix serve`, and `off` queu
 `project` names the project used when a command does not say. It is the default for `tix task add`, `tix task ls`
 and `tix tui`, and `-p`/`--project` on any of them overrides it for that run. Unset, `tix task add` uses the only
 project when there is one and is exit 2 when there are several.
+
+### How a timestamp is shown
+
+`output.time_format` and `output.timezone` govern how an instant is shown to a person: the CLI table, a live
+`tix watch` line, and the web interface all render every timestamp the same way, through one shared setting.
+
+An unknown format or an unknown timezone name is refused at load rather than silently falling back, because a
+timestamp quietly in the wrong zone is worse than an error at startup.
+
+`output.time_format` picks the layout, shown here for `2026-09-21T14:05:09Z`:
+
+| Name | Renders as |
+| --- | --- |
+| `iso` (default) | `2026-09-21 14:05` |
+| `rfc3339` | `2026-09-21T14:05:09+03:00` |
+| `short` | `21 Sep 14:05` |
+| `us` | `09/21/2026 2:05 PM` |
+| `relative` | `18 minutes ago` |
+
+A blank field in a table, or an empty value in a `Due` or `Expires` column on the web, means the timestamp was
+never set: the zero time renders as nothing rather than as `1970-01-01`, which every reader misreads as a real
+date. A relative timestamp on the web still carries the absolute instant in its `title` attribute (hover it), in
+the fixed `iso` layout regardless of the configured format, so a reader can always get the exact time.
+
+`output.timezone` picks the zone a timestamp is converted into before it is laid out:
+
+- `local` (the default) uses the machine's own zone: the CLI's host, or the `tix serve` process for the web.
+- `utc` fixes it to UTC regardless of the machine.
+- Any IANA zone name (`Asia/Tokyo`, `America/New_York`, `Europe/Sofia`, ...) fixes it to that zone.
+
+**Machine-readable output is not affected.** `-o json`, `-o yaml` and `-o ndjson` always carry timestamps as RFC
+3339 in UTC, whatever `output.time_format` and `output.timezone` are set to, because a script or another program
+parsing a timestamp must never have to guess which zone or format a deployment happened to configure.
+
+```console
+$ TIX_OUTPUT_TIME_FORMAT=short TIX_OUTPUT_TIMEZONE=Asia/Tokyo tix task ls
+┌───────┬─────────────────┬────────┬──────────┬──────────┬──────┬──────────────┬─────────┐
+│ REF   │ TITLE           │ STATUS │ PRIORITY │ ASSIGNEE │ TAGS │ UPDATED      │ BLOCKED │
+├───────┼─────────────────┼────────┼──────────┼──────────┼──────┼──────────────┼─────────┤
+│ ENG-7 │ Wire the output │ doing  │ high     │ act_1    │ cli  │ 21 Sep 23:05 │ no      │
+└───────┴─────────────────┴────────┴──────────┴──────────┴──────┴──────────────┴─────────┘
+$ TIX_OUTPUT_TIME_FORMAT=short TIX_OUTPUT_TIMEZONE=Asia/Tokyo tix task ls -o json | grep updated_at
+  "updated_at": "2026-09-21T14:05:09Z",
+```
+
+The web reads the same two keys from the server's configuration: it is one setting for every browser hitting that
+`tix serve` process, not a per-user preference. That is deliberate for now, since the configuration keys describe
+a server setting, and a tenant's members are usually close enough in time zone for one setting to be fine. A
+future per-user version would need somewhere to keep each signed-in actor's preferred format and zone (most
+naturally alongside the theme and keyboard-scheme choices the web already remembers per browser, or on the actor
+record if it should follow someone to a new device) and would resolve the rendering per request from that instead
+of once when the server starts.
 
 ### Variables outside the generated scheme
 
@@ -122,6 +176,8 @@ database:
 output:
   format: table
   color: auto
+  time_format: iso
+  timezone: local
 
 webhooks:
   drain_mode: inline

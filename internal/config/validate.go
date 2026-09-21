@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 	"github.com/heliopsy/tix/internal/webhook"
 )
 
@@ -21,6 +22,7 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		{"log.level", cfg.Log.Level, LogLevels, nil},
 		{"output.format", cfg.Output.Format, OutputFormats, nil},
 		{"output.color", cfg.Output.Color, OutputColors, nil},
+		{"output.time_format", cfg.Output.TimeFormat, OutputTimeFormats, nil},
 	}
 	for _, check := range checks {
 		if allowed(check.value, check.set) {
@@ -37,6 +39,13 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		return invalidKey("webhooks.drain_mode", sources).
 			WithDetail("value", cfg.Webhooks.DrainMode).
 			WithDetail("allowed", WebhookDrainModes)
+	}
+	// A timezone is not an enumeration, so it is validated by resolving it
+	// rather than by membership. A name the system cannot load would otherwise
+	// only fail much later, while rendering something.
+	if _, err := output.NewTimeStyle(cfg.Output.TimeFormat, cfg.Output.Timezone); err != nil {
+		return invalidKey("output.timezone", sources).WithDetail("value", cfg.Output.Timezone).
+			WithDetail("reason", err.Error())
 	}
 	if cfg.Server.URL != "" {
 		if _, err := url.Parse(cfg.Server.URL); err != nil {

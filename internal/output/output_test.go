@@ -95,10 +95,22 @@ func sampleTenant() core.Tenant {
 	return core.Tenant{ID: "ten_1", Key: "acme", Name: "Acme", CreatedAt: refTime, UpdatedAt: refTime}
 }
 
+// utcStyle is the TimeStyle every test in this file renders table output
+// through, so a golden string is the same regardless of the host machine's
+// local timezone. Zone-specific behaviour has its own tests in timestyle_test.go.
+func utcStyle(t *testing.T) TimeStyle {
+	t.Helper()
+	style, err := NewTimeStyle(TimeISO, "utc")
+	if err != nil {
+		t.Fatalf("building utc style: %v", err)
+	}
+	return style
+}
+
 func render(t *testing.T, format string, data any) string {
 	t.Helper()
 	var buf bytes.Buffer
-	if err := New(format).Format(&buf, data); err != nil {
+	if err := NewWithStyle(format, ModeAuto, utcStyle(t)).Format(&buf, data); err != nil {
 		t.Fatalf("format %s: %v", format, err)
 	}
 	return buf.String()

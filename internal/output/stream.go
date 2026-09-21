@@ -24,8 +24,18 @@ type Stream interface {
 // format falls back to table, matching New.
 func NewStream(format string, w io.Writer) Stream { return NewStreamWithMode(format, w, ModeAuto) }
 
-// NewStreamWithMode returns a Stream that colours table output according to mode.
+// NewStreamWithMode returns a Stream that colours table output according to
+// mode, rendering any timestamp with the zero-value TimeStyle. Prefer
+// NewStreamWithStyle wherever a caller has resolved the configured time
+// format and timezone.
 func NewStreamWithMode(format string, w io.Writer, mode Mode) Stream {
+	return NewStreamWithStyle(format, w, mode, TimeStyle{})
+}
+
+// NewStreamWithStyle returns a Stream that colours table output according to
+// mode and renders every human-readable timestamp through style. JSON, YAML
+// and NDJSON never consult style: they always carry RFC 3339 in UTC.
+func NewStreamWithStyle(format string, w io.Writer, mode Mode, style TimeStyle) Stream {
 	switch format {
 	case FormatNDJSON:
 		return &ndjsonStream{enc: json.NewEncoder(w)}
@@ -34,7 +44,7 @@ func NewStreamWithMode(format string, w io.Writer, mode Mode) Stream {
 	case FormatYAML:
 		return &yamlStream{w: w}
 	default:
-		return &bufferedStream{w: w, format: format, mode: mode}
+		return &bufferedStream{w: w, format: format, mode: mode, style: style}
 	}
 }
 
@@ -133,6 +143,7 @@ type bufferedStream struct {
 	w       io.Writer
 	format  string
 	mode    Mode
+	style   TimeStyle
 	records []any
 	err     error
 }
@@ -149,7 +160,7 @@ func (s *bufferedStream) Close() error {
 	if s.err != nil {
 		return s.err
 	}
-	s.err = NewWithMode(s.format, s.mode).Format(s.w, s.records)
+	s.err = NewWithStyle(s.format, s.mode, s.style).Format(s.w, s.records)
 	return s.err
 }
 

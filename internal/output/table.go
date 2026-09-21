@@ -14,11 +14,14 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 )
 
-type tableFormatter struct{ mode Mode }
+type tableFormatter struct {
+	mode  Mode
+	style TimeStyle
+}
 
 // Format renders data as a terminal table, falling back to reflection for unknown types.
 func (t *tableFormatter) Format(w io.Writer, data any) error {
-	p := NewPainter(t.mode, w)
+	p := NewPainterWithStyle(t.mode, w, t.style)
 	if data == nil {
 		return noResults(w)
 	}
@@ -51,43 +54,43 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 	case core.Workflow:
 		return renderRows(w, p, workflowHeader, []core.Workflow{v}, p.workflowRow)
 	case []core.Comment:
-		return renderRows(w, p, commentHeader, v, commentRow)
+		return renderRows(w, p, commentHeader, v, p.commentRow)
 	case []*core.Comment:
-		return renderRows(w, p, commentHeader, deref(v), commentRow)
+		return renderRows(w, p, commentHeader, deref(v), p.commentRow)
 	case core.Comment:
-		return renderRows(w, p, commentHeader, []core.Comment{v}, commentRow)
+		return renderRows(w, p, commentHeader, []core.Comment{v}, p.commentRow)
 	case []core.APIToken:
-		return renderRows(w, p, tokenHeader, v, tokenRow)
+		return renderRows(w, p, tokenHeader, v, p.tokenRow)
 	case []*core.APIToken:
-		return renderRows(w, p, tokenHeader, deref(v), tokenRow)
+		return renderRows(w, p, tokenHeader, deref(v), p.tokenRow)
 	case core.APIToken:
-		return renderRows(w, p, tokenHeader, []core.APIToken{v}, tokenRow)
+		return renderRows(w, p, tokenHeader, []core.APIToken{v}, p.tokenRow)
 	case []core.AuditEntry:
-		return renderRows(w, p, auditHeader, v, auditRow)
+		return renderRows(w, p, auditHeader, v, p.auditRow)
 	case []*core.AuditEntry:
-		return renderRows(w, p, auditHeader, deref(v), auditRow)
+		return renderRows(w, p, auditHeader, deref(v), p.auditRow)
 	case core.AuditEntry:
-		return renderRows(w, p, auditHeader, []core.AuditEntry{v}, auditRow)
+		return renderRows(w, p, auditHeader, []core.AuditEntry{v}, p.auditRow)
 	case []core.WebhookEndpoint:
-		return renderRows(w, p, endpointHeader, v, endpointRow)
+		return renderRows(w, p, endpointHeader, v, p.endpointRow)
 	case []*core.WebhookEndpoint:
-		return renderRows(w, p, endpointHeader, deref(v), endpointRow)
+		return renderRows(w, p, endpointHeader, deref(v), p.endpointRow)
 	case core.WebhookEndpoint:
-		return renderRows(w, p, endpointHeader, []core.WebhookEndpoint{v}, endpointRow)
+		return renderRows(w, p, endpointHeader, []core.WebhookEndpoint{v}, p.endpointRow)
 	case []core.Tenant:
-		return renderRows(w, p, tenantHeader, v, tenantRow)
+		return renderRows(w, p, tenantHeader, v, p.tenantRow)
 	case []*core.Tenant:
-		return renderRows(w, p, tenantHeader, deref(v), tenantRow)
+		return renderRows(w, p, tenantHeader, deref(v), p.tenantRow)
 	case []core.User:
-		return renderRows(w, p, userHeader, v, userRow)
+		return renderRows(w, p, userHeader, v, p.userRow)
 	case core.User:
-		return renderRows(w, p, userHeader, []core.User{v}, userRow)
+		return renderRows(w, p, userHeader, []core.User{v}, p.userRow)
 	case *core.User:
-		return renderRows(w, p, userHeader, []core.User{*v}, userRow)
+		return renderRows(w, p, userHeader, []core.User{*v}, p.userRow)
 	case core.IssuedToken:
-		return renderRows(w, p, issuedHeader, []core.IssuedToken{v}, issuedRow)
+		return renderRows(w, p, issuedHeader, []core.IssuedToken{v}, p.issuedRow)
 	case *core.IssuedToken:
-		return renderRows(w, p, issuedHeader, []core.IssuedToken{*v}, issuedRow)
+		return renderRows(w, p, issuedHeader, []core.IssuedToken{*v}, p.issuedRow)
 	case core.Claim:
 		return renderRows(w, p, claimHeader, []core.Claim{v}, p.claimRow)
 	case *core.Claim:
@@ -99,17 +102,17 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 	case *core.FieldDef:
 		return renderRows(w, p, fieldHeader, []core.FieldDef{*v}, fieldRow)
 	case []core.Dependency:
-		return renderRows(w, p, depHeader, v, depRow)
+		return renderRows(w, p, depHeader, v, p.depRow)
 	case []core.WebhookDelivery:
-		return renderRows(w, p, deliveryHeader, v, deliveryRow)
+		return renderRows(w, p, deliveryHeader, v, p.deliveryRow)
 	case []core.Tag:
 		return renderRows(w, p, tagHeader, v, tagRow)
 	case core.Tag:
 		return renderRows(w, p, tagHeader, []core.Tag{v}, tagRow)
 	case []core.SyncSource:
-		return renderRows(w, p, syncHeader, v, syncRow)
+		return renderRows(w, p, syncHeader, v, p.syncRow)
 	case core.Tenant:
-		return renderRows(w, p, tenantHeader, []core.Tenant{v}, tenantRow)
+		return renderRows(w, p, tenantHeader, []core.Tenant{v}, p.tenantRow)
 	}
 	return renderReflected(w, p, data)
 }
@@ -133,13 +136,13 @@ var (
 	syncHeader     = table.Row{"ID", "SYSTEM", "NAME", "CURSOR", "LAST RUN", "LAST STATUS"}
 )
 
-func userRow(u core.User) table.Row {
+func (p Painter) userRow(u core.User) table.Row {
 	return table.Row{u.ID, u.Email, truncate(u.DisplayName, 30),
-		FormatCompact(u.CreatedAt), FormatCompactPtr(u.DisabledAt)}
+		p.style.Format(u.CreatedAt), p.style.FormatPtr(u.DisabledAt)}
 }
 
-func issuedRow(t core.IssuedToken) table.Row {
-	return table.Row{t.ID, t.Name, joinScopes(t.Scopes), t.Token, FormatCompactPtr(t.ExpiresAt)}
+func (p Painter) issuedRow(t core.IssuedToken) table.Row {
+	return table.Row{t.ID, t.Name, joinScopes(t.Scopes), t.Token, p.style.FormatPtr(t.ExpiresAt)}
 }
 
 func (p Painter) claimRow(c core.Claim) table.Row {
@@ -147,7 +150,7 @@ func (p Painter) claimRow(c core.Claim) table.Row {
 	if c.Task != nil {
 		ref, title, status = p.Ref(c.Task.Ref), truncate(c.Task.Title, 40), p.Status(c.Task.Status)
 	}
-	return table.Row{ref, title, status, FormatCompact(c.LeaseExpiresAt), c.LeaseToken}
+	return table.Row{ref, title, status, p.style.Format(c.LeaseExpiresAt), c.LeaseToken}
 }
 
 func fieldRow(f core.FieldDef) table.Row {
@@ -155,26 +158,26 @@ func fieldRow(f core.FieldDef) table.Row {
 		truncate(strings.Join(f.EnumOptions, ", "), 40)}
 }
 
-func depRow(d core.Dependency) table.Row {
-	return table.Row{d.TaskID, d.DependsOn, FormatCompact(d.CreatedAt)}
+func (p Painter) depRow(d core.Dependency) table.Row {
+	return table.Row{d.TaskID, d.DependsOn, p.style.Format(d.CreatedAt)}
 }
 
-func deliveryRow(d core.WebhookDelivery) table.Row {
+func (p Painter) deliveryRow(d core.WebhookDelivery) table.Row {
 	code := ""
 	if d.LastStatusCode != 0 {
 		code = strconv.Itoa(d.LastStatusCode)
 	}
 	return table.Row{d.ID, d.EndpointID, strconv.FormatInt(d.EventSeq, 10), string(d.Status),
-		strconv.Itoa(d.Attempts), FormatCompact(d.NextAttemptAt), code}
+		strconv.Itoa(d.Attempts), p.style.Format(d.NextAttemptAt), code}
 }
 
 func tagRow(t core.Tag) table.Row {
 	return table.Row{t.ID, t.Name, t.ProjectID, t.Color}
 }
 
-func syncRow(s core.SyncSource) table.Row {
+func (p Painter) syncRow(s core.SyncSource) table.Row {
 	return table.Row{s.ID, s.System, s.Name, truncate(s.Cursor, 24),
-		FormatCompactPtr(s.LastRunAt), s.LastStatus}
+		p.style.FormatPtr(s.LastRunAt), s.LastStatus}
 }
 
 func joinScopes(scopes []core.Scope) string {
@@ -193,8 +196,8 @@ func (p Painter) taskRow(t core.Task) table.Row {
 		p.Priority(t.Priority, priorityLabel(t.Priority)),
 		t.AssigneeActorID,
 		strings.Join(t.Tags, ", "),
-		FormatCompactPtr(t.DueAt),
-		FormatCompact(t.UpdatedAt),
+		p.style.FormatPtr(t.DueAt),
+		p.style.Format(t.UpdatedAt),
 		p.Blocked(t.Blocked, yesNo(t.Blocked)),
 	}
 }
@@ -203,7 +206,7 @@ func (p Painter) projectRow(project core.Project) table.Row {
 	return table.Row{
 		project.Key, truncate(project.Name, 40), project.WorkflowID,
 		p.Swatch(project.Color), project.Icon,
-		yesNo(project.Archived()), FormatCompact(project.CreatedAt), FormatCompact(project.UpdatedAt),
+		yesNo(project.Archived()), p.style.Format(project.CreatedAt), p.style.Format(project.UpdatedAt),
 	}
 }
 
@@ -216,46 +219,46 @@ func (p Painter) workflowRow(wf core.Workflow) table.Row {
 		wf.Key, truncate(wf.Name, 40), initial,
 		strconv.Itoa(len(wf.Definition.States)),
 		strconv.Itoa(len(wf.Definition.Transitions)),
-		yesNo(wf.Builtin), FormatCompact(wf.UpdatedAt),
+		yesNo(wf.Builtin), p.style.Format(wf.UpdatedAt),
 	}
 }
 
-func commentRow(c core.Comment) table.Row {
-	return table.Row{c.ID, c.TaskID, c.AuthorActorID, truncate(c.Body, 60), FormatCompact(c.CreatedAt)}
+func (p Painter) commentRow(c core.Comment) table.Row {
+	return table.Row{c.ID, c.TaskID, c.AuthorActorID, truncate(c.Body, 60), p.style.Format(c.CreatedAt)}
 }
 
-func tokenRow(t core.APIToken) table.Row {
+func (p Painter) tokenRow(t core.APIToken) table.Row {
 	scopes := make([]string, 0, len(t.Scopes))
 	for _, s := range t.Scopes {
 		scopes = append(scopes, string(s))
 	}
 	return table.Row{
 		t.ID, t.Name, t.ActorID, strings.Join(scopes, ", "), t.ProjectID,
-		FormatCompact(t.CreatedAt), FormatCompactPtr(t.ExpiresAt),
-		FormatCompactPtr(t.LastUsedAt), FormatCompactPtr(t.RevokedAt),
+		p.style.Format(t.CreatedAt), p.style.FormatPtr(t.ExpiresAt),
+		p.style.FormatPtr(t.LastUsedAt), p.style.FormatPtr(t.RevokedAt),
 	}
 }
 
-func auditRow(a core.AuditEntry) table.Row {
+func (p Painter) auditRow(a core.AuditEntry) table.Row {
 	subject := a.SubjectType
 	if a.SubjectID != "" {
 		subject = a.SubjectType + "/" + a.SubjectID
 	}
 	return table.Row{
 		strconv.FormatInt(a.Seq, 10), a.Action, subject, a.ActorID,
-		string(a.Source), FormatCompact(a.OccurredAt),
+		string(a.Source), p.style.Format(a.OccurredAt),
 	}
 }
 
-func endpointRow(e core.WebhookEndpoint) table.Row {
+func (p Painter) endpointRow(e core.WebhookEndpoint) table.Row {
 	return table.Row{
 		e.ID, truncate(e.URL, 60), strings.Join(e.EventTypes, ", "),
-		yesNo(e.Active), FormatCompact(e.CreatedAt),
+		yesNo(e.Active), p.style.Format(e.CreatedAt),
 	}
 }
 
-func tenantRow(t core.Tenant) table.Row {
-	return table.Row{t.ID, t.Key, truncate(t.Name, 40), FormatCompact(t.CreatedAt), FormatCompactPtr(t.DeletedAt)}
+func (p Painter) tenantRow(t core.Tenant) table.Row {
+	return table.Row{t.ID, t.Key, truncate(t.Name, 40), p.style.Format(t.CreatedAt), p.style.FormatPtr(t.DeletedAt)}
 }
 
 func renderTaskPage(w io.Writer, p Painter, page core.TaskPage) error {

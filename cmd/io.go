@@ -29,14 +29,29 @@ func (g *globals) formatName() string {
 	return output.FormatTable
 }
 
+// timeStyle resolves how an instant is shown to a person. Configuration is
+// validated at load, so a bad value cannot reach here; a zero style is still
+// the fallback rather than a panic, because rendering a timestamp in the wrong
+// layout is a far smaller failure than refusing to print a task list.
+func (g *globals) timeStyle() output.TimeStyle {
+	if g.resolved == nil {
+		return output.TimeStyle{}
+	}
+	style, err := output.NewTimeStyle(g.resolved.Config.Output.TimeFormat, g.resolved.Config.Output.Timezone)
+	if err != nil {
+		return output.TimeStyle{}
+	}
+	return style
+}
+
 // render writes one result to standard output in the selected format.
 func (g *globals) render(cmd *cobra.Command, data any) error {
-	return output.NewWithMode(g.formatName(), g.colorMode()).Format(cmd.OutOrStdout(), data)
+	return output.NewWithStyle(g.formatName(), g.colorMode(), g.timeStyle()).Format(cmd.OutOrStdout(), data)
 }
 
 // stream returns a writer that emits records as they are produced.
 func (g *globals) stream(cmd *cobra.Command) output.Stream {
-	return output.NewStreamWithMode(g.formatName(), cmd.OutOrStdout(), g.colorMode())
+	return output.NewStreamWithStyle(g.formatName(), cmd.OutOrStdout(), g.colorMode(), g.timeStyle())
 }
 
 // diag writes a diagnostic to standard error unless quiet was requested.

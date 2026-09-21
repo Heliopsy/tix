@@ -25,11 +25,17 @@ type Config struct {
 	Retention      Retention          `yaml:"retention"`
 	Log            Log                `yaml:"log"`
 	Output         Output             `yaml:"output"`
+	TUI            TUI                `yaml:"tui"`
 }
 
 // Database holds the local storage settings.
 type Database struct {
 	DSN string `yaml:"dsn" secret:"dsn"`
+	// AllowNetworkFS overrides the refusal to open a SQLite database
+	// detected on a network filesystem. The default is refuse, because that
+	// placement corrupts a SQLite database. Set only when the operator has
+	// accepted the risk.
+	AllowNetworkFS bool `yaml:"allow_network_fs"`
 }
 
 // Server holds the remote endpoint and the listen address of `tix serve`.
@@ -80,15 +86,36 @@ func (r Retention) Policy(tenantID string) core.RetentionPolicy {
 	}
 }
 
+// TUI holds the terminal interface settings. Keymap names a shipped
+// keybinding scheme; Keys rebinds individual actions on top of it. Neither is
+// validated here: the schemes live in internal/tui, which must not be imported
+// from configuration, so `tix tui` refuses an unknown name at startup.
+//
+// Keys is a map, which the key walker does not enumerate, so it is settable
+// from a configuration file rather than from a flag or an environment
+// variable. One override per variable is not a shape an env var carries well.
+type TUI struct {
+	Keymap string            `yaml:"keymap"`
+	Keys   map[string]string `yaml:"keys,omitempty"`
+}
+
 // Log holds the logging settings.
 type Log struct {
 	Level string `yaml:"level"`
 }
 
 // Output holds the rendering settings.
+//
+// TimeFormat and Timezone govern how an instant is shown to a person. They do
+// not touch how an instant is stored or how a machine-readable format renders
+// one: JSON, YAML and NDJSON always carry RFC 3339 in UTC, because a consumer
+// parsing a timestamp must never have to guess which zone a deployment
+// configured.
 type Output struct {
-	Format string `yaml:"format"`
-	Color  string `yaml:"color"`
+	Format     string `yaml:"format"`
+	Color      string `yaml:"color"`
+	TimeFormat string `yaml:"time_format"`
+	Timezone   string `yaml:"timezone"`
 }
 
 // Context is a named bundle of connection and identity settings.
@@ -122,6 +149,14 @@ const (
 	DefaultRetentionEvent = "720h"
 	// DefaultRetentionDelivery matches the shipped webhook delivery window.
 	DefaultRetentionDelivery = "720h"
+	// DefaultTUIKeymap names the keybinding scheme every install starts on.
+	DefaultTUIKeymap = "default"
+	// DefaultOutputTimeFormat is short and unambiguous: a date nobody reads
+	// backwards and a time without a meridiem.
+	DefaultOutputTimeFormat = "iso"
+	// DefaultOutputTimezone follows the machine rather than imposing UTC on
+	// somebody reading their own task list.
+	DefaultOutputTimezone = "local"
 )
 
 // DefaultDiscoveryFilenames are the per-directory context files looked for.
@@ -147,6 +182,8 @@ var (
 	OutputFormats = output.Formats
 	// OutputColors mirrors the colour modes the renderer implements.
 	OutputColors = output.ColorModes
+	// OutputTimeFormats mirrors the named time layouts the renderer implements.
+	OutputTimeFormats = output.TimeFormats
 )
 
 // Defaults returns the built-in configuration.
@@ -167,8 +204,14 @@ func Defaults() Config {
 			Events:            mustDuration(DefaultRetentionEvent),
 			WebhookDeliveries: mustDuration(DefaultRetentionDelivery),
 		},
-		Log:    Log{Level: DefaultLogLevel},
-		Output: Output{Format: DefaultOutputFormat, Color: DefaultOutputColor},
+		Log: Log{Level: DefaultLogLevel},
+		Output: Output{
+			Format:     DefaultOutputFormat,
+			Color:      DefaultOutputColor,
+			TimeFormat: DefaultOutputTimeFormat,
+			Timezone:   DefaultOutputTimezone,
+		},
+		TUI: TUI{Keymap: DefaultTUIKeymap},
 	}
 }
 
