@@ -40,6 +40,8 @@ type CreateProjectInput struct {
 	Name        string `json:"name" yaml:"name"`
 	Description string `json:"description,omitempty" yaml:"description,omitempty"`
 	WorkflowKey string `json:"workflow_key,omitempty" yaml:"workflow_key,omitempty"`
+	Color       string `json:"color,omitempty" yaml:"color,omitempty"`
+	Icon        string `json:"icon,omitempty" yaml:"icon,omitempty"`
 }
 
 // Validate checks the input.
@@ -50,14 +52,23 @@ func (in CreateProjectInput) Validate() error {
 	if in.Name == "" {
 		return Invalid("project name is required")
 	}
+	if _, err := NormalizeProjectColor(in.Color); err != nil {
+		return err
+	}
+	if _, err := NormalizeProjectIcon(in.Icon); err != nil {
+		return err
+	}
 	return nil
 }
 
-// UpdateProjectInput changes a project.
+// UpdateProjectInput changes a project. A pointer to an empty colour or icon
+// clears it.
 type UpdateProjectInput struct {
 	Name        *string `json:"name,omitempty" yaml:"name,omitempty"`
 	Description *string `json:"description,omitempty" yaml:"description,omitempty"`
 	WorkflowKey *string `json:"workflow_key,omitempty" yaml:"workflow_key,omitempty"`
+	Color       *string `json:"color,omitempty" yaml:"color,omitempty"`
+	Icon        *string `json:"icon,omitempty" yaml:"icon,omitempty"`
 }
 
 // FieldDefInput defines or redefines a custom field.

@@ -91,6 +91,14 @@ func (l *Local) CreateProject(ctx context.Context, in core.CreateProjectInput) (
 	if err := in.Validate(); err != nil {
 		return nil, err
 	}
+	color, err := core.NormalizeProjectColor(in.Color)
+	if err != nil {
+		return nil, err
+	}
+	icon, err := core.NormalizeProjectIcon(in.Icon)
+	if err != nil {
+		return nil, err
+	}
 	key := strings.ToLower(strings.TrimSpace(in.Key))
 	workflowKey := strings.TrimSpace(in.WorkflowKey)
 	if workflowKey == "" {
@@ -114,6 +122,8 @@ func (l *Local) CreateProject(ctx context.Context, in core.CreateProjectInput) (
 			Name:        in.Name,
 			Description: in.Description,
 			WorkflowID:  wf.ID,
+			Color:       color,
+			Icon:        icon,
 		}
 		if err := m.tx.CreateProject(ctx, p); err != nil {
 			return err
@@ -188,6 +198,18 @@ func (l *Local) UpdateProject(ctx context.Context, ref string, in core.UpdatePro
 	if in.Name != nil && strings.TrimSpace(*in.Name) == "" {
 		return nil, core.Invalid("project name is required")
 	}
+	var color core.ProjectColor
+	if in.Color != nil {
+		if color, err = core.NormalizeProjectColor(*in.Color); err != nil {
+			return nil, err
+		}
+	}
+	var icon string
+	if in.Icon != nil {
+		if icon, err = core.NormalizeProjectIcon(*in.Icon); err != nil {
+			return nil, err
+		}
+	}
 
 	var out *core.Project
 	err = l.write(ctx, actor, func(m *mutation) error {
@@ -204,6 +226,12 @@ func (l *Local) UpdateProject(ctx context.Context, ref string, in core.UpdatePro
 		}
 		if in.Description != nil {
 			p.Description = *in.Description
+		}
+		if in.Color != nil {
+			p.Color = color
+		}
+		if in.Icon != nil {
+			p.Icon = icon
 		}
 		if in.WorkflowKey != nil {
 			wf, err := m.tx.GetWorkflow(ctx, strings.TrimSpace(*in.WorkflowKey))

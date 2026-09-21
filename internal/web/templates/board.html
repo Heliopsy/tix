@@ -1,5 +1,5 @@
 {{define "content"}}
-<h1>{{.Data.Project.Name}} board</h1>
+<h1>{{if .Data.Project.Icon}}<span class="proj-icon" role="img" aria-label="{{.Data.Project.Name}}">{{.Data.Project.Icon}}</span> {{end}}{{.Data.Project.Name}} board</h1>
 <p class="meta">Workflow {{.Data.Workflow.Name}} &middot; <a href="/projects/{{.Data.Project.Key}}/fields">Field definitions</a> &middot; <a href="/workflows/{{.Data.Workflow.Key}}">Workflow editor</a></p>
 <div class="board">
 {{range .Data.Columns}}
@@ -32,6 +32,20 @@
   <div class="row">
     <div><label for="name">Name</label><input id="name" name="name" value="{{.Data.Project.Name}}" required></div>
     <div><label for="workflow_key">Workflow key</label><input id="workflow_key" name="workflow_key" value="{{.Data.Workflow.Key}}"></div>
+  </div>
+  <div class="row">
+    <div>
+      <label for="color">Colour</label>
+      <select id="color" name="color">
+        <option value="" {{if not .Data.Project.Color}}selected{{end}}>none</option>
+        {{$current := .Data.Project.Color}}
+        {{range .Data.Colors}}<option value="{{.}}" {{if eq . $current}}selected{{end}}>{{.}}</option>{{end}}
+      </select>
+    </div>
+    <div>
+      <label for="icon">Icon</label>
+      <input id="icon" name="icon" maxlength="2" value="{{.Data.Project.Icon}}" placeholder="an emoji, or one or two letters">
+    </div>
   </div>
   <label for="description">Description</label>
   <textarea id="description" name="description">{{.Data.Project.Description}}</textarea>

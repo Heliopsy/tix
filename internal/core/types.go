@@ -81,15 +81,20 @@ type IssuedToken struct {
 
 // Project groups tasks and is assigned exactly one workflow.
 type Project struct {
-	ID          string     `json:"id" yaml:"id"`
-	TenantID    string     `json:"tenant_id" yaml:"tenant_id"`
-	Key         string     `json:"key" yaml:"key"`
-	Name        string     `json:"name" yaml:"name"`
-	Description string     `json:"description,omitempty" yaml:"description,omitempty"`
-	WorkflowID  string     `json:"workflow_id" yaml:"workflow_id"`
-	ArchivedAt  *time.Time `json:"archived_at,omitempty" yaml:"archived_at,omitempty"`
-	CreatedAt   time.Time  `json:"created_at" yaml:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at" yaml:"updated_at"`
+	ID          string `json:"id" yaml:"id"`
+	TenantID    string `json:"tenant_id" yaml:"tenant_id"`
+	Key         string `json:"key" yaml:"key"`
+	Name        string `json:"name" yaml:"name"`
+	Description string `json:"description,omitempty" yaml:"description,omitempty"`
+	WorkflowID  string `json:"workflow_id" yaml:"workflow_id"`
+
+	// Color and Icon let a reader tell one project's rows from another's.
+	Color ProjectColor `json:"color,omitempty" yaml:"color,omitempty"`
+	Icon  string       `json:"icon,omitempty" yaml:"icon,omitempty"`
+
+	ArchivedAt *time.Time `json:"archived_at,omitempty" yaml:"archived_at,omitempty"`
+	CreatedAt  time.Time  `json:"created_at" yaml:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at" yaml:"updated_at"`
 }
 
 // Archived reports whether the project is archived.

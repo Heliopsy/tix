@@ -408,3 +408,125 @@ func readTask(t *testing.T, l *Local, scope core.TenantScope, taskID string) *co
 	}
 	return out
 }
+
+func TestProjectColourAndIconRoundTrip(t *testing.T) {
+	l, _, ctx := withDefaults(t)
+
+	p, err := l.CreateProject(ctx, core.CreateProjectInput{
+		Key: "infra", Name: "Infrastructure", Color: " BLUE ", Icon: " \U0001F680 ",
+	})
+	if err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	if p.Color != core.ColorBlue || p.Icon != "\U0001F680" {
+		t.Fatalf("created = %q/%q, want the trimmed and lowercased pair", p.Color, p.Icon)
+	}
+
+	pink, monogram := "pink", "IN"
+	edited, err := l.UpdateProject(ctx, "infra", core.UpdateProjectInput{Color: &pink, Icon: &monogram})
+	if err != nil {
+		t.Fatalf("UpdateProject: %v", err)
+	}
+	if edited.Color != core.ColorPink || edited.Icon != "IN" {
+		t.Fatalf("edited = %q/%q, want pink/IN", edited.Color, edited.Icon)
+	}
+
+	empty := ""
+	cleared, err := l.UpdateProject(ctx, "infra", core.UpdateProjectInput{Color: &empty, Icon: &empty})
+	if err != nil {
+		t.Fatalf("clearing: %v", err)
+	}
+	if cleared.Color != core.ColorNone || cleared.Icon != "" {
+		t.Fatalf("cleared = %q/%q, want neither", cleared.Color, cleared.Icon)
+	}
+	if cleared.Name != "Infrastructure" || cleared.WorkflowID != p.WorkflowID {
+		t.Errorf("clearing disturbed the project: %+v", cleared)
+	}
+
+	reloaded, err := l.GetProject(ctx, "infra")
+	if err != nil {
+		t.Fatalf("GetProject: %v", err)
+	}
+	if reloaded.Color != core.ColorNone || reloaded.Icon != "" {
+		t.Errorf("reloaded = %q/%q, want neither", reloaded.Color, reloaded.Icon)
+	}
+}
+
+// The rule is the service's, not the form's: an unknown colour or an oversized
+// icon is refused whichever way the input arrives.
+func TestProjectAppearanceIsValidatedByTheService(t *testing.T) {
+	l, _, ctx := withDefaults(t)
+	if _, err := l.CreateProject(ctx, core.CreateProjectInput{Key: "infra", Name: "Infrastructure"}); err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+
+	creates := []struct {
+		name string
+		in   core.CreateProjectInput
+	}{
+		{"unknown colour", core.CreateProjectInput{Key: "ops", Name: "Ops", Color: "chartreuse"}},
+		{"hex colour", core.CreateProjectInput{Key: "ops", Name: "Ops", Color: "#ff00ff"}},
+		{"oversized icon", core.CreateProjectInput{Key: "ops", Name: "Ops", Icon: "ops!"}},
+		{"icon with a control character", core.CreateProjectInput{Key: "ops", Name: "Ops", Icon: "a\u0007"}},
+	}
+	for _, tc := range creates {
+		t.Run("create "+tc.name, func(t *testing.T) {
+			if _, err := l.CreateProject(ctx, tc.in); !core.IsKind(err, core.KindInvalid) {
+				t.Errorf("CreateProject = %v, want invalid", err)
+			}
+		})
+	}
+
+	updates := []struct {
+		name  string
+		color string
+		icon  string
+	}{
+		{"unknown colour", "chartreuse", ""},
+		{"hex colour", "#ff00ff", ""},
+		{"oversized icon", "", "ops!"},
+	}
+	for _, tc := range updates {
+		t.Run("update "+tc.name, func(t *testing.T) {
+			in := core.UpdateProjectInput{}
+			if tc.color != "" {
+				in.Color = &tc.color
+			}
+			if tc.icon != "" {
+				in.Icon = &tc.icon
+			}
+			if _, err := l.UpdateProject(ctx, "infra", in); !core.IsKind(err, core.KindInvalid) {
+				t.Errorf("UpdateProject = %v, want invalid", err)
+			}
+		})
+	}
+
+	after, err := l.GetProject(ctx, "infra")
+	if err != nil {
+		t.Fatalf("GetProject: %v", err)
+	}
+	if after.Color != core.ColorNone || after.Icon != "" {
+		t.Errorf("a refused change was persisted: %q/%q", after.Color, after.Icon)
+	}
+	if _, err := l.GetProject(ctx, "ops"); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("a refused create left a project behind: %v", err)
+	}
+}
+
+// Every colour the palette offers has to survive a write and a read, or the
+// browser would offer an option the service refuses.
+func TestEveryPaletteColourIsAccepted(t *testing.T) {
+	l, _, ctx := withDefaults(t)
+	for i, colour := range core.ProjectColors() {
+		key := "p" + string(rune('a'+i))
+		p, err := l.CreateProject(ctx, core.CreateProjectInput{
+			Key: key, Name: key, Color: colour.String(),
+		})
+		if err != nil {
+			t.Fatalf("CreateProject with colour %q: %v", colour, err)
+		}
+		if p.Color != colour {
+			t.Errorf("project %q colour = %q, want %q", key, p.Color, colour)
+		}
+	}
+}

@@ -357,3 +357,69 @@ func TestLatest(t *testing.T) {
 		t.Errorf("Latest() = %d, want at least 1", got)
 	}
 }
+
+// projectAppearanceVersion is the migration that adds the colour and icon.
+const projectAppearanceVersion = 3
+
+// runThrough applies migrations up to and including version v.
+func runThrough(ctx context.Context, t *testing.T, db *sql.DB, v int) {
+	t.Helper()
+	all, err := All()
+	if err != nil {
+		t.Fatalf("All() error = %v", err)
+	}
+	if _, err := db.ExecContext(ctx, createVersionTable); err != nil {
+		t.Fatalf("creating schema_migrations: %v", err)
+	}
+	for _, m := range all {
+		if m.Version > v {
+			return
+		}
+		if err := apply(ctx, db, m); err != nil {
+			t.Fatalf("applying migration %d: %v", m.Version, err)
+		}
+	}
+}
+
+// A project written before the colour and icon existed must come through the
+// migration with empty values and nothing else touched.
+func TestProjectAppearanceBackfillsExistingRows(t *testing.T) {
+	db := open(t)
+	ctx := context.Background()
+	runThrough(ctx, t, db, projectAppearanceVersion-1)
+
+	for _, stmt := range []string{
+		`INSERT INTO tenants (id, key, name, created_at, updated_at)
+		 VALUES ('t1', 'acme', 'Acme', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')`,
+		`INSERT INTO workflows (id, tenant_id, key, name, definition, builtin, created_at, updated_at)
+		 VALUES ('w1', 't1', 'default', 'Default', '{}', 1, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')`,
+		`INSERT INTO projects (id, tenant_id, key, name, description, workflow_id, created_at, updated_at)
+		 VALUES ('p1', 't1', 'infra', 'Infrastructure', 'the old one', 'w1', '2026-01-01T00:00:00Z', '2026-01-02T00:00:00Z')`,
+	} {
+		if _, err := db.ExecContext(ctx, stmt); err != nil {
+			t.Fatalf("seeding the old schema: %v", err)
+		}
+	}
+
+	if _, err := Run(ctx, db); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	var color, icon, name, description, workflow, created, updated string
+	err := db.QueryRowContext(ctx,
+		`SELECT color, icon, name, description, workflow_id, created_at, updated_at
+		 FROM projects WHERE id = 'p1'`,
+	).Scan(&color, &icon, &name, &description, &workflow, &created, &updated)
+	if err != nil {
+		t.Fatalf("reading the migrated project: %v", err)
+	}
+	if color != "" || icon != "" {
+		t.Errorf("migrated project = %q/%q, want both empty", color, icon)
+	}
+	if name != "Infrastructure" || description != "the old one" || workflow != "w1" {
+		t.Errorf("migration disturbed the project: %q %q %q", name, description, workflow)
+	}
+	if created != "2026-01-01T00:00:00Z" || updated != "2026-01-02T00:00:00Z" {
+		t.Errorf("migration disturbed the timestamps: %q %q", created, updated)
+	}
+}

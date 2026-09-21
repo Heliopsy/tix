@@ -307,3 +307,36 @@ Every web response SHALL contain only data belonging to the tenant resolved for 
 
 - **WHEN** a user supplies filter parameters naming another tenant
 - **THEN** the response contains no data from that tenant
+
+### Requirement: Project colour and icon distinguish rows
+
+The task list SHALL mark each row with its project's colour as an accent along the row's leading
+edge, and SHALL show the project's icon beside it when one is set. The accent SHALL be visually
+distinct from the status badges, so that a project stripe is not read as a status. A row whose
+project carries neither SHALL render as it did before, without an accent. The project screens SHALL
+allow a project's colour and icon to be set from the palette and cleared again.
+
+#### Scenario: Row carries the project accent
+
+- **WHEN** the task list renders a task belonging to a project that has a colour
+- **THEN** the row carries that project's colour as a leading-edge accent
+
+#### Scenario: Row carries the project icon
+
+- **WHEN** the task list renders a task belonging to a project that has an icon
+- **THEN** the icon is shown on the row
+
+#### Scenario: A project without either renders plainly
+
+- **WHEN** the task list renders a task belonging to a project with no colour and no icon
+- **THEN** the row renders without an accent or icon and the list is otherwise unchanged
+
+#### Scenario: Colour remains legible in every scheme
+
+- **WHEN** a project colour is rendered under the light, dark, and low contrast schemes
+- **THEN** each scheme renders a shade of that palette token that remains distinguishable against its own background
+
+#### Scenario: Clearing from the browser
+
+- **WHEN** a project's colour is set to none and its icon emptied on the project screen
+- **THEN** the project is saved with neither and its rows lose the accent

@@ -29,7 +29,8 @@
 
 <ul class="tasklist">
 {{range $v.Tasks}}
-  <li class="task {{if .Blocked}}is-blocked{{end}}">
+  {{$acc := index $v.Accent .ProjectID}}
+  <li class="task{{if .Blocked}} is-blocked{{end}}{{if $acc.Color}} is-accented proj-{{$acc.Color}}{{end}}">
     {{$done := index $v.CompleteState .ProjectID}}
     {{if $done}}
     <form method="post" action="/tasks/{{.Ref}}/complete" class="tick">
@@ -39,6 +40,8 @@
       </button>
     </form>
     {{else}}<span class="check placeholder" aria-hidden="true"></span>{{end}}
+
+    {{if $acc.Icon}}<span class="proj-icon" role="img" aria-label="{{$acc.Name}}" title="{{$acc.Name}}">{{$acc.Icon}}</span>{{end}}
 
     <a class="task-title" href="/tasks/{{.Ref}}">{{.Title}}</a>
 

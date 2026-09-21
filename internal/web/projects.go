@@ -26,6 +26,7 @@ func (h *handler) projectRoutes() []route {
 type projectsView struct {
 	Projects   []core.Project
 	Workflows  []core.Workflow
+	Colors     []core.ProjectColor
 	NextCursor string
 }
 
@@ -44,7 +45,8 @@ func (h *handler) showProjects(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	return h.render(w, r, "projects.html", "Projects",
-		projectsView{Projects: projects, Workflows: workflows, NextCursor: next})
+		projectsView{Projects: projects, Workflows: workflows,
+			Colors: core.ProjectColors(), NextCursor: next})
 }
 
 // createProject creates a project from the list screen's form.
@@ -54,6 +56,8 @@ func (h *handler) createProject(w http.ResponseWriter, r *http.Request) error {
 		Name:        field(r, "name"),
 		Description: field(r, "description"),
 		WorkflowKey: field(r, "workflow_key"),
+		Color:       field(r, "color"),
+		Icon:        field(r, "icon"),
 	}
 	project, err := h.svc.CreateProject(r.Context(), in)
 	if err != nil {
@@ -67,7 +71,9 @@ func (h *handler) createProject(w http.ResponseWriter, r *http.Request) error {
 func (h *handler) updateProject(w http.ResponseWriter, r *http.Request) error {
 	key := r.PathValue("key")
 	name, description := field(r, "name"), field(r, "description")
-	in := core.UpdateProjectInput{Name: &name, Description: &description}
+	color, icon := field(r, "color"), field(r, "icon")
+	in := core.UpdateProjectInput{Name: &name, Description: &description,
+		Color: &color, Icon: &icon}
 	if wf := field(r, "workflow_key"); wf != "" {
 		in.WorkflowKey = &wf
 	}
@@ -112,6 +118,7 @@ type column struct {
 type boardView struct {
 	Project  core.Project
 	Workflow core.Workflow
+	Colors   []core.ProjectColor
 	Columns  []column
 }
 
@@ -134,7 +141,7 @@ func (h *handler) showBoard(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	return h.render(w, r, "board.html", project.Name,
-		boardView{Project: *project, Workflow: *workflow,
+		boardView{Project: *project, Workflow: *workflow, Colors: core.ProjectColors(),
 			Columns: buildColumns(workflow.Definition, page.Tasks)})
 }
 

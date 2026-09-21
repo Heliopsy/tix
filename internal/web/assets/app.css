@@ -17,6 +17,18 @@
   --radius: 10px;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
   --gutter: 16px;
+
+  /* Project palette. A project stores a token, not a colour, so each scheme
+     renders its own shade; every one of these clears 4.4:1 against both the
+     surface and the page background. */
+  --proj-slate: #64748b;
+  --proj-red: #dc2626;
+  --proj-amber: #b45309;
+  --proj-green: #15803d;
+  --proj-teal: #0f766e;
+  --proj-blue: #2563eb;
+  --proj-violet: #7c3aed;
+  --proj-pink: #be185d;
 }
 
 /* Low contrast: the same layout with the extremes taken out. Text stops being
@@ -38,6 +50,14 @@
   --ok: #7fbf9a;
   --ok-soft: #1f2c25;
   --shadow: none;
+  --proj-slate: #8b95a3;
+  --proj-red: #cf8d86;
+  --proj-amber: #c2a15f;
+  --proj-green: #84bd91;
+  --proj-teal: #6fb8ae;
+  --proj-blue: #85a9d9;
+  --proj-violet: #a695d1;
+  --proj-pink: #cd90b0;
 }
 
 :root[data-theme="dark"] {
@@ -52,6 +72,14 @@
   --warn-soft: #2a1f10;
   --ok-soft: #10261c;
   --shadow: none;
+  --proj-slate: #94a3b8;
+  --proj-red: #f87171;
+  --proj-amber: #fbbf24;
+  --proj-green: #4ade80;
+  --proj-teal: #2dd4bf;
+  --proj-blue: #60a5fa;
+  --proj-violet: #a78bfa;
+  --proj-pink: #f472b6;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -67,6 +95,14 @@
     --warn-soft: #2a1f10;
     --ok-soft: #10261c;
     --shadow: none;
+    --proj-slate: #94a3b8;
+    --proj-red: #f87171;
+    --proj-amber: #fbbf24;
+    --proj-green: #4ade80;
+    --proj-teal: #2dd4bf;
+    --proj-blue: #60a5fa;
+    --proj-violet: #a78bfa;
+    --proj-pink: #f472b6;
   }
 }
 
@@ -431,6 +467,40 @@ li.task {
   gap: 12px;
   padding: 11px 14px;
   border-bottom: 1px solid var(--line);
+  border-left: 3px solid transparent;
+}
+
+/* A project stripe, deliberately unlike a status: an edge and a wash that fade
+   out a quarter of the way across, never a filled pill. */
+li.task.is-accented {
+  border-left-color: var(--proj);
+  background-image: linear-gradient(
+    to right, color-mix(in srgb, var(--proj) 14%, transparent), transparent 25%);
+}
+
+.proj-slate { --proj: var(--proj-slate); }
+.proj-red { --proj: var(--proj-red); }
+.proj-amber { --proj: var(--proj-amber); }
+.proj-green { --proj: var(--proj-green); }
+.proj-teal { --proj: var(--proj-teal); }
+.proj-blue { --proj: var(--proj-blue); }
+.proj-violet { --proj: var(--proj-violet); }
+.proj-pink { --proj: var(--proj-pink); }
+
+.proj-icon {
+  flex: 0 0 auto;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 6px;
+  vertical-align: baseline;
+  background: var(--proj, var(--line-strong));
 }
 
 li.task:last-child { border-bottom: 0; }

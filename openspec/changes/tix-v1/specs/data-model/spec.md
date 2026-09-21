@@ -314,3 +314,38 @@ names SHALL be unique per tenant, and task sequence numbers SHALL be unique per 
 
 - **WHEN** a tag name that already exists in the tenant is created again
 - **THEN** the creation is rejected and the existing tag is unchanged
+
+### Requirement: Project colour and icon
+
+A project SHALL carry an optional colour and an optional icon so that rows belonging to different
+projects can be told apart at a glance. The colour SHALL be a token drawn from a fixed palette
+defined by the system rather than a free-form colour value, and a colour outside the palette SHALL
+be rejected with a validation error by the service layer, on every access path. The icon SHALL be a
+short printable token, at most two characters, which admits a single emoji or a brief monogram and
+requires no icon font or asset pipeline. Both SHALL default to empty, SHALL be settable at creation
+and afterwards, and SHALL be clearable by setting them to empty.
+
+#### Scenario: Colour and icon round trip
+
+- **WHEN** a project is created with a palette colour and an icon
+- **THEN** reading the project back returns the same colour and icon
+
+#### Scenario: Colour outside the palette is refused
+
+- **WHEN** a project is created or updated with a colour that is not in the palette
+- **THEN** the write is rejected with a validation error and nothing is persisted
+
+#### Scenario: Icon longer than the limit is refused
+
+- **WHEN** a project is created or updated with an icon longer than two characters
+- **THEN** the write is rejected with a validation error
+
+#### Scenario: Both are clearable
+
+- **WHEN** a project that has a colour and an icon is updated with an empty colour and an empty icon
+- **THEN** the project keeps its other fields and carries neither a colour nor an icon
+
+#### Scenario: Existing projects are unaffected by the migration
+
+- **WHEN** the migration adding the colour and icon columns is applied to a database holding projects
+- **THEN** every existing project carries an empty colour and an empty icon and every other field is unchanged

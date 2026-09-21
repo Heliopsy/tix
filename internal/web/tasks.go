@@ -41,6 +41,27 @@ type tasksView struct {
 	// its tasks into, so the list can offer a tick box without the reader
 	// knowing the project's workflow.
 	CompleteState map[string]string
+
+	// Accent maps a project id to the stripe and icon its rows carry, so a
+	// mixed list can be read one project at a time.
+	Accent map[string]projectAccent
+}
+
+// projectAccent is how one project marks its rows apart from another's.
+type projectAccent struct {
+	Key   string
+	Name  string
+	Color core.ProjectColor
+	Icon  string
+}
+
+// projectAccents maps each project to its row marking.
+func projectAccents(projects []core.Project) map[string]projectAccent {
+	out := make(map[string]projectAccent, len(projects))
+	for _, p := range projects {
+		out[p.ID] = projectAccent{Key: p.Key, Name: p.Name, Color: p.Color, Icon: p.Icon}
+	}
+	return out
 }
 
 // taskSummary counts what is on the page, so the heading can say something.
@@ -118,6 +139,7 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 		Sort:          filter.Page.Sort,
 		NextCursor:    page.NextCursor,
 		CompleteState: complete,
+		Accent:        projectAccents(projects),
 		Summary:       summarise(page.Tasks, complete, time.Now()),
 	})
 }

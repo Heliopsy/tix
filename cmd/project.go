@@ -2,10 +2,28 @@ package cmd
 
 import (
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/thereisnotime/tix/internal/core"
 )
+
+// colorFlagUsage and iconFlagUsage describe the appearance flags once, so the
+// create and edit forms of them cannot drift apart.
+var (
+	colorFlagUsage = "palette colour marking the project's rows (" + projectColorList() + ")"
+	iconFlagUsage  = "an emoji or a short monogram shown beside the project's rows"
+)
+
+// projectColorList renders the palette for a flag's usage line.
+func projectColorList() string {
+	colors := core.ProjectColors()
+	parts := make([]string, 0, len(colors))
+	for _, c := range colors {
+		parts = append(parts, c.String())
+	}
+	return strings.Join(parts, ", ")
+}
 
 // newProjectCmd builds the project command group.
 func newProjectCmd(g *globals) *cobra.Command {
@@ -22,17 +40,18 @@ func newProjectCmd(g *globals) *cobra.Command {
 }
 
 func projectCreateCmd(g *globals) *cobra.Command {
-	var description, workflow string
+	var description, workflow, color, icon string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:     "create KEY NAME",
 		Short:   "Create a project",
 		Long:    "Create a project with a key used in task references.\n\nExit codes: 2 invalid key, 4 key already exists.",
-		Example: "  tix project create infra Infrastructure\n  tix project create infra Infrastructure --workflow default",
+		Example: "  tix project create infra Infrastructure\n  tix project create infra Infrastructure --color blue --icon \U0001F680",
 		Args:    exactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			in := core.CreateProjectInput{
 				Key: args[0], Name: args[1], Description: description, WorkflowKey: workflow,
+				Color: color, Icon: icon,
 			}
 			if err := in.Validate(); err != nil {
 				return err
@@ -53,6 +72,8 @@ func projectCreateCmd(g *globals) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&description, "description", "", "project description")
 	cmd.Flags().StringVar(&workflow, "workflow", "", "workflow key to assign")
+	cmd.Flags().StringVar(&color, "color", "", colorFlagUsage)
+	cmd.Flags().StringVar(&icon, "icon", "", iconFlagUsage)
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be created without writing")
 	return cmd
 }
@@ -119,13 +140,13 @@ func projectShowCmd(g *globals) *cobra.Command {
 }
 
 func projectEditCmd(g *globals) *cobra.Command {
-	var name, description, workflow string
+	var name, description, workflow, color, icon string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:     "edit KEY",
 		Short:   "Change a project",
-		Long:    "Change a project's name, description or workflow.\n\nExit codes: 3 unknown project.",
-		Example: "  tix project edit infra --name \"Platform\"",
+		Long:    "Change a project's name, description, workflow, colour or icon.\n\nExit codes: 2 invalid colour or icon, 3 unknown project.",
+		Example: "  tix project edit infra --name \"Platform\"\n  tix project edit infra --color \"\" --icon \"\"",
 		Args:    exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var in core.UpdateProjectInput
@@ -137,6 +158,12 @@ func projectEditCmd(g *globals) *cobra.Command {
 			}
 			if cmd.Flags().Changed("workflow") {
 				in.WorkflowKey = &workflow
+			}
+			if cmd.Flags().Changed("color") {
+				in.Color = &color
+			}
+			if cmd.Flags().Changed("icon") {
+				in.Icon = &icon
 			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
@@ -159,6 +186,8 @@ func projectEditCmd(g *globals) *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "new name")
 	cmd.Flags().StringVar(&description, "description", "", "new description")
 	cmd.Flags().StringVar(&workflow, "workflow", "", "new workflow key")
+	cmd.Flags().StringVar(&color, "color", "", colorFlagUsage+", or empty to clear it")
+	cmd.Flags().StringVar(&icon, "icon", "", iconFlagUsage+", or empty to clear it")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	return cmd
 }

@@ -133,9 +133,14 @@ func TestMigrationResumesAboveExistingTasks(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		highest = f.newTask(t, fmt.Sprintf("task-%d", i), core.PriorityNormal).Seq
 	}
+	// Rewinding means undoing every migration above the first, or the runner
+	// would skip the one under test: it replays from the highest version
+	// recorded, not from each missing one.
 	for _, stmt := range []string{
 		"ALTER TABLE projects DROP COLUMN seq_counter",
-		"DELETE FROM schema_migrations WHERE version = 2",
+		"ALTER TABLE projects DROP COLUMN color",
+		"ALTER TABLE projects DROP COLUMN icon",
+		"DELETE FROM schema_migrations WHERE version > 1",
 	} {
 		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
 			t.Fatalf("rewinding the schema (%s): %v", stmt, err)
