@@ -86,11 +86,21 @@ func (k KeyMap) ViewHelp(v viewKind) []HelpEntry {
 	}
 }
 
-// ShortHelp lists the bindings a view advertises on its footer.
+// ShortHelp lists the bindings a view advertises on its footer. It names the
+// actions rather than the first few of ViewHelp: taking the first four left
+// the board advertising its four arrow keys and hiding the one binding that
+// opens a task, so the screen looked like it could only be scrolled.
 func (k KeyMap) ShortHelp(v viewKind) []HelpEntry {
-	all := k.ViewHelp(v)
-	if len(all) > 4 {
-		all = all[:4]
+	var short []HelpEntry
+	switch v {
+	case viewProjects:
+		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Enter)}
+	case viewBoard:
+		short = []HelpEntry{entry(k.Enter), entry(k.Claim), entry(k.Transition), entry(k.Filter)}
+	case viewDetail:
+		short = []HelpEntry{entry(k.Claim), entry(k.Release), entry(k.Transition), entry(k.Back)}
+	default:
+		short = []HelpEntry{entry(k.Back)}
 	}
-	return append(all, entry(k.Help), entry(k.Quit))
+	return append(short, entry(k.Help), entry(k.Quit))
 }
