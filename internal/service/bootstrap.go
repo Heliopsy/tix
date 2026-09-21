@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
 )
 
 // Keys of the records a fresh installation is given, so that single-user local
@@ -49,11 +49,27 @@ func BuiltinWorkflow() core.WorkflowDefinition {
 	}
 }
 
-// EnsureDefaults creates the default tenant, the builtin workflow and the
-// default project if they are missing, and returns the default tenant. It is
-// idempotent, so it can run on every start.
+// starterProjects are the lists a brand new installation opens on, so the
+// first screen shows a workspace rather than an empty table. They are seeded
+// once, when the tenant is first created, and never afterwards: see
+// EnsureDefaults.
+var starterProjects = []core.Project{
+	{Key: DefaultProjectKey, Name: "Default", Color: core.ColorSlate, Icon: "\U0001F4CB"},
+	{Key: "work", Name: "Work", Color: core.ColorBlue, Icon: "\U0001F4BC"},
+	{Key: "homelab", Name: "Homelab", Color: core.ColorViolet, Icon: "\U0001F5A5"},
+	{Key: "house", Name: "House", Color: core.ColorGreen, Icon: "\U0001F3E1"},
+}
+
+// EnsureDefaults creates the default tenant and the builtin workflow if they
+// are missing, and on a tenant it has just created seeds the starter lists. It
+// is idempotent, so it can run on every start.
+//
+// Seeding is deliberately tied to creating the tenant rather than to a project
+// being absent. "Create if missing" would resurrect a list someone deleted on
+// purpose every time the process dialled, and would drop new lists into an
+// installation that has been running for a year.
 func (l *Local) EnsureDefaults(ctx context.Context) (*core.Tenant, error) {
-	tenant, err := l.ensureDefaultTenant(ctx)
+	tenant, fresh, err := l.ensureDefaultTenant(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -63,21 +79,46 @@ func (l *Local) EnsureDefaults(ctx context.Context) (*core.Tenant, error) {
 		if err != nil {
 			return err
 		}
-		return ensureDefaultProject(ctx, m, wf)
+		if !fresh {
+			return nil
+		}
+		return l.seedProjects(ctx, m, wf)
 	}); err != nil {
 		return nil, err
 	}
 	return tenant, nil
 }
 
-// ensureDefaultTenant returns the default tenant, creating it on first use.
-func (l *Local) ensureDefaultTenant(ctx context.Context) (*core.Tenant, error) {
+// seedProjects writes the starter lists into a tenant that has just been
+// created.
+func (l *Local) seedProjects(ctx context.Context, m *mutation, wf *core.Workflow) error {
+	wanted := starterProjects
+	if l.noStarterProjects {
+		wanted = starterProjects[:1]
+	}
+	for _, seed := range wanted {
+		p := seed
+		p.WorkflowID = wf.ID
+		if err := m.tx.CreateProject(ctx, &p); err != nil {
+			return err
+		}
+		if err := m.Record(auditProjectCreate, core.EventProjectCreated, "project", p.ID, p.ID, nil, &p,
+			map[string]any{"key": p.Key, "seeded": true}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ensureDefaultTenant returns the default tenant, reporting whether this call
+// is what created it.
+func (l *Local) ensureDefaultTenant(ctx context.Context) (*core.Tenant, bool, error) {
 	existing, err := l.findDefaultTenant(ctx)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if existing != nil {
-		return existing, nil
+		return existing, false, nil
 	}
 
 	tenantID := l.ids.New()
@@ -88,12 +129,13 @@ func (l *Local) ensureDefaultTenant(ctx context.Context) (*core.Tenant, error) {
 		return err
 	})
 	if core.IsKind(err, core.KindConflict) {
-		return l.requireDefaultTenant(ctx)
+		t, err := l.requireDefaultTenant(ctx)
+		return t, false, err
 	}
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return created, nil
+	return created, true, nil
 }
 
 // findDefaultTenant returns the default tenant, or nil when it does not exist.
@@ -151,21 +193,4 @@ func ensureBuiltinWorkflow(ctx context.Context, m *mutation) (*core.Workflow, er
 		return nil, err
 	}
 	return wf, nil
-}
-
-// ensureDefaultProject creates the default project if it is missing.
-func ensureDefaultProject(ctx context.Context, m *mutation, wf *core.Workflow) error {
-	switch _, err := m.tx.GetProject(ctx, DefaultProjectKey); {
-	case err == nil:
-		return nil
-	case !core.IsKind(err, core.KindNotFound):
-		return err
-	}
-
-	p := &core.Project{Key: DefaultProjectKey, Name: "Default", WorkflowID: wf.ID}
-	if err := m.tx.CreateProject(ctx, p); err != nil {
-		return err
-	}
-	return m.Record(auditProjectCreate, core.EventProjectCreated, "project", p.ID, p.ID, nil, p,
-		map[string]any{"key": p.Key})
 }

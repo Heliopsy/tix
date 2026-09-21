@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // TimeLayout is fixed-width RFC3339 in UTC, so lexicographic order equals chronological order.

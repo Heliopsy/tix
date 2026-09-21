@@ -3,8 +3,8 @@ package cmd
 import (
 	"strings"
 
+	"github.com/heliopsy/tix/internal/core"
 	"github.com/spf13/cobra"
-	"github.com/thereisnotime/tix/internal/core"
 )
 
 // newTaskCmd builds the task command group.

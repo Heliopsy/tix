@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // Column is one optional column of a listing: the key the picker submits, the
@@ -65,6 +65,7 @@ var columnSets = map[string][]Column{
 		{Key: "colour", Label: "Colour", Default: true},
 		{Key: "state", Label: "State", Default: true},
 		{Key: "screens", Label: "Screens", Default: true},
+		{Key: "manage", Label: "Manage", Default: true},
 	},
 }
 

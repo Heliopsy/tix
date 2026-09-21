@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/httpapi"
-	"github.com/thereisnotime/tix/internal/outbox"
-	"github.com/thereisnotime/tix/internal/store"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/outbox"
+	"github.com/heliopsy/tix/internal/store"
 )
 
 // eventLog reads the durable outbox for one tenant at a time.

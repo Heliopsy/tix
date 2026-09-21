@@ -90,7 +90,7 @@ None — this is a new project.
 
 ## Impact
 
-- New repository `github.com/thereisnotime/tix`; no existing code is affected.
+- New repository `github.com/heliopsy/tix`; no existing code is affected.
 - New direct dependencies: `spf13/cobra`, `jedib0t/go-pretty/v6`, `gopkg.in/yaml.v3`,
   `modernc.org/sqlite`, `jackc/pgx/v5`, `coder/websocket`, `golang.org/x/crypto`,
   `charmbracelet/bubbletea`, `charmbracelet/bubbles`, `charmbracelet/lipgloss`.

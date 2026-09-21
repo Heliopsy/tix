@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // fakeLog is an in-memory durable event log with a configurable pruned floor.

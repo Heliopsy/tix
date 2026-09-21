@@ -13,9 +13,9 @@ builds:
         goarch: arm64
     ldflags:
       - -s -w
-      - -X github.com/thereisnotime/tix/internal/version.Version={{.Version}}
-      - -X github.com/thereisnotime/tix/internal/version.Commit={{.Commit}}
-      - -X github.com/thereisnotime/tix/internal/version.Date={{.Date}}
+      - -X github.com/heliopsy/tix/internal/version.Version={{.Version}}
+      - -X github.com/heliopsy/tix/internal/version.Commit={{.Commit}}
+      - -X github.com/heliopsy/tix/internal/version.Date={{.Date}}
 archives:
   - formats: [tar.gz]
     format_overrides:
@@ -46,4 +46,4 @@ changelog:
 
 release:
   footer: |
-    **Full changelog**: See [CHANGELOG.md](https://github.com/thereisnotime/tix/blob/main/CHANGELOG.md)
+    **Full changelog**: See [CHANGELOG.md](https://github.com/heliopsy/tix/blob/main/CHANGELOG.md)

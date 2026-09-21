@@ -12,14 +12,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/auth"
-	"github.com/thereisnotime/tix/internal/clock"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/httpapi"
-	"github.com/thereisnotime/tix/internal/service"
-	"github.com/thereisnotime/tix/internal/store"
-	"github.com/thereisnotime/tix/internal/store/migrations"
-	"github.com/thereisnotime/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/service"
+	"github.com/heliopsy/tix/internal/store"
+	"github.com/heliopsy/tix/internal/store/migrations"
+	"github.com/heliopsy/tix/internal/store/sqlite"
 )
 
 // apiFixture is a live server over a real service on a temporary database.

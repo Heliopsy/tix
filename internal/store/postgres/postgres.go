@@ -16,10 +16,10 @@ import (
 	// The pgx driver is pure Go, so builds stay CGO_ENABLED=0.
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/thereisnotime/tix/internal/clock"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
-	"github.com/thereisnotime/tix/internal/store/migrations"
+	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
+	"github.com/heliopsy/tix/internal/store/migrations"
 )
 
 // driverName is the name pgx/v5/stdlib registers itself under.

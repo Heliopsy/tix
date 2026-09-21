@@ -11,7 +11,7 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 type tableFormatter struct{ mode Mode }

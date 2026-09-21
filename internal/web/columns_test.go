@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/web"
+	"github.com/heliopsy/tix/internal/web"
 )
 
 // An installation nobody has touched renders what it rendered before the

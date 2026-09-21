@@ -3,7 +3,7 @@ package web
 import (
 	"net/http"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // webhookRoutes are the webhook endpoint and delivery log screens.

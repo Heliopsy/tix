@@ -1,8 +1,8 @@
 package sqlite
 
 import (
-	"github.com/thereisnotime/tix/internal/core"
-	sqlb "github.com/thereisnotime/tix/internal/store/sql"
+	"github.com/heliopsy/tix/internal/core"
+	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
 // pageSpec is a normalized listing window. Listings page by keyset only; no

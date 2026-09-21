@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/auth"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
+	"github.com/heliopsy/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
 )
 
 // seedProject creates a workflow and a project straight through the store, so

@@ -4,7 +4,7 @@ package retention
 import (
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // Class names one retention-governed table.

@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/version"
 	"github.com/spf13/cobra"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/version"
 )
 
 // buildInfo is the structured form of the version banner.

@@ -3,9 +3,43 @@ package cmd
 import (
 	"strings"
 
+	"github.com/heliopsy/tix/internal/core"
 	"github.com/spf13/cobra"
-	"github.com/thereisnotime/tix/internal/core"
 )
+
+// newActorCmd builds the actor command group.
+func newActorCmd(g *globals) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "actor",
+		Short:   "Resolve actor identifiers",
+		GroupID: "admin",
+		Args:    noArgs,
+		RunE:    helpRunner,
+	}
+	cmd.AddCommand(actorShowCmd(g))
+	return cmd
+}
+
+func actorShowCmd(g *globals) *cobra.Command {
+	return &cobra.Command{
+		Use:     "show ID",
+		Short:   "Show the identity behind an actor identifier",
+		Long:    "Resolve an actor identifier to its handle, kind and display name.\n\nExit codes: 3 unknown actor, 5 permission denied.",
+		Example: "  tix actor show 01J000000000000000000A",
+		Args:    exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			actor, err := conn.Service.GetActor(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			return g.render(cmd, actor)
+		},
+	}
+}
 
 // newUserCmd builds the user command group.
 func newUserCmd(g *globals) *cobra.Command {

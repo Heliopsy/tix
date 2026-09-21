@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/core"
-	extsync "github.com/thereisnotime/tix/internal/sync"
+	"github.com/heliopsy/tix/internal/core"
+	extsync "github.com/heliopsy/tix/internal/sync"
 )
 
 const cliMapping = `

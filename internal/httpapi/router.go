@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/auth"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/output"
+	"github.com/heliopsy/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 )
 
 // Defaults for the limits every request is subject to.

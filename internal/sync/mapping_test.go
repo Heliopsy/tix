@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 const sampleMapping = `

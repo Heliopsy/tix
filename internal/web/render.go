@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/output"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 )
 
 // layoutFiles are parsed into every screen.
@@ -109,7 +109,6 @@ func funcs() template.FuncMap {
 		"counts":  formatCounts,
 		"prio":    priorityName,
 		"slug":    slug,
-		"actor":   actorLabel,
 	}
 }
 
@@ -122,16 +121,6 @@ func priorityName(p core.Priority) string {
 		}
 	}
 	return "normal"
-}
-
-// actorLabel shortens an actor identifier so it does not dominate a line.
-// Resolving it to a handle needs an actor lookup the Service does not expose
-// yet, so the full value stays available as the title.
-func actorLabel(id string) string {
-	if len(id) <= 10 {
-		return id
-	}
-	return id[:4] + "\u2026" + id[len(id)-4:]
 }
 
 // slug reduces a value to a css class suffix.
@@ -276,6 +265,8 @@ func (h *handler) renderStatus(w http.ResponseWriter, r *http.Request, status in
 type errorView struct {
 	Heading string
 	Message string
+	Hint    string
+	Back    string
 }
 
 // fail renders the error screen, disclosing the domain message only. An
@@ -287,10 +278,35 @@ func (h *handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 	if kind == core.KindInternal {
 		h.logger.Error("serving page", "path", r.URL.Path, "error", err)
 	}
-	data := errorView{Heading: headingFor(kind), Message: message}
+	data := errorView{Heading: headingFor(kind), Message: message,
+		Hint: hintFor(kind), Back: backFrom(r)}
 	if renderErr := h.renderStatus(w, r, kind.HTTPStatus(), "error.html", headingFor(kind), data); renderErr != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 	}
+}
+
+// hintFor says what to do next, for the failures where the answer is not
+// obvious from the message. A refused save is the one that needs it: two forms
+// on a screen carry the same version, so the second submission is refused and
+// the reader has to be told that reloading is the way out.
+func hintFor(kind core.Kind) string {
+	switch kind {
+	case core.KindConflict, core.KindLeaseExpired:
+		return "Somebody, or an agent, changed this while the page was open. Reload it and apply your change to the current version."
+	case core.KindForbidden:
+		return "Ask an administrator of this tenant for the scope the message names."
+	default:
+		return ""
+	}
+}
+
+// backFrom is the screen a failed mutation came from, so the reader returns to
+// their work rather than to the dashboard.
+func backFrom(r *http.Request) string {
+	if r.Method != http.MethodPost {
+		return RouteRoot
+	}
+	return safeNext(r.URL.Path)
 }
 
 // safeMessage returns the text an error may disclose to a browser.

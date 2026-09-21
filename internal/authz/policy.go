@@ -1,6 +1,6 @@
 package authz
 
-import "github.com/thereisnotime/tix/internal/core"
+import "github.com/heliopsy/tix/internal/core"
 
 // Resource identifies what an action is being performed on.
 type Resource struct {

@@ -11,8 +11,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
 )
 
 // seeded names what a seeded tenant contains, so a test can assert against it.

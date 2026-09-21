@@ -4,8 +4,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/heliopsy/tix/internal/core"
 	"github.com/spf13/cobra"
-	"github.com/thereisnotime/tix/internal/core"
 )
 
 // colorFlagUsage and iconFlagUsage describe the appearance flags once, so the

@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/id"
-	sqlb "github.com/thereisnotime/tix/internal/store/sql"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/id"
+	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
 var workflowColumns = []string{

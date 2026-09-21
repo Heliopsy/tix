@@ -27,7 +27,40 @@
   <button class="secondary" type="submit">Apply</button>
 </form>
 
-{{template "column-picker" .}}
+<div class="listprefs">
+  {{template "column-picker" .}}
+  <details class="panel lists">
+    <summary>Lists{{if $v.Hidden}} &middot; {{$v.Hidden}} hidden{{end}}</summary>
+    <div class="body">
+      <form method="post" action="/lists" class="listform">
+        {{template "csrf" .CSRF}}
+        <input type="hidden" name="next" value="{{.Here}}">
+        <div class="choices">
+          {{range $v.Lists}}
+          <label class="listchoice{{if .Color}} proj-{{.Color}}{{end}}">
+            <input type="checkbox" name="list" value="{{.Key}}" {{if .Shown}}checked{{end}}>
+            {{if .Color}}<span class="swatch proj-{{.Color}}" aria-hidden="true"></span>{{end}}
+            {{if .Icon}}<span class="proj-icon" role="img" aria-label="{{.Name}}">{{.Icon}}</span>{{end}}
+            {{.Key}}
+          </label>
+          {{else}}<span class="muted">No lists yet.</span>{{end}}
+        </div>
+        <div class="actions">
+          <button type="submit">Apply</button>
+          <button class="secondary" type="submit" name="reset" value="1">Show all</button>
+        </div>
+      </form>
+    </div>
+  </details>
+</div>
+
+{{if $v.Filtered}}
+<p class="lede">The filter names a list explicitly, so it is shown even though the list visibility hides {{$v.Hidden}} of them.</p>
+{{else if $v.Empty}}
+<p class="lede">Every list is hidden, so there is nothing to show. Use Lists above to bring one back.</p>
+{{else if $v.Hidden}}
+<p class="lede">{{$v.Hidden}} list{{if ne $v.Hidden 1}}s are{{else}} is{{end}} hidden. Use Lists above to change that.</p>
+{{end}}
 
 <ul class="tasklist">
 {{range $v.Tasks}}

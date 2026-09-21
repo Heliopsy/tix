@@ -6,10 +6,10 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 	"github.com/spf13/cobra"
-	"github.com/thereisnotime/tix/internal/clock"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/output"
 )
 
 // claimView is the table rendering of a claim. Machine formats emit the claim

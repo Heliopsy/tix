@@ -14,16 +14,16 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/thereisnotime/tix/internal/auth"
-	"github.com/thereisnotime/tix/internal/clock"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/httpapi"
-	"github.com/thereisnotime/tix/internal/server"
-	"github.com/thereisnotime/tix/internal/service"
-	"github.com/thereisnotime/tix/internal/store"
-	"github.com/thereisnotime/tix/internal/store/sqlite"
-	"github.com/thereisnotime/tix/internal/web"
-	"github.com/thereisnotime/tix/internal/webhook"
+	"github.com/heliopsy/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/server"
+	"github.com/heliopsy/tix/internal/service"
+	"github.com/heliopsy/tix/internal/store"
+	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/web"
+	"github.com/heliopsy/tix/internal/webhook"
 )
 
 // Waits are bounded generously rather than tuned: the tenant reader polls the

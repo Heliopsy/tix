@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/httpapi"
 )
 
 // CreateTask creates a task.

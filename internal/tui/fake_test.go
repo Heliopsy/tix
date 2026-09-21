@@ -5,7 +5,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // fakeService is a core.Service whose task methods are scripted by the test.
@@ -205,7 +205,8 @@ func (f *fakeService) PutRetention(context.Context, core.RetentionPolicy) (*core
 func (f *fakeService) CreateUser(context.Context, core.CreateUserInput) (*core.User, error) {
 	return nil, nil
 }
-func (f *fakeService) GetUser(context.Context, string) (*core.User, error) { return nil, nil }
+func (f *fakeService) GetActor(context.Context, string) (*core.Actor, error) { return nil, nil }
+func (f *fakeService) GetUser(context.Context, string) (*core.User, error)   { return nil, nil }
 func (f *fakeService) ListUsers(context.Context, core.Page) ([]core.User, string, error) {
 	return nil, "", nil
 }

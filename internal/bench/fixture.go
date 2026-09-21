@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
-	sqlb "github.com/thereisnotime/tix/internal/store/sql"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
+	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
 // Tenant is one seeded tenant and everything the benchmarks address inside it.

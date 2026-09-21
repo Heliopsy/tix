@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/bundle"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
+	"github.com/heliopsy/tix/internal/bundle"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
 )
 
 // bundleFixture is a tenant with one of everything a bundle can carry, plus the

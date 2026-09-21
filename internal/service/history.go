@@ -6,12 +6,12 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/thereisnotime/tix/internal/authz"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/outbox"
-	"github.com/thereisnotime/tix/internal/retention"
-	"github.com/thereisnotime/tix/internal/store"
-	sqlb "github.com/thereisnotime/tix/internal/store/sql"
+	"github.com/heliopsy/tix/internal/authz"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/outbox"
+	"github.com/heliopsy/tix/internal/retention"
+	"github.com/heliopsy/tix/internal/store"
+	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
 // auditSortColumns are the orderings an audit listing accepts.

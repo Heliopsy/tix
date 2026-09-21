@@ -13,12 +13,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/clock"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/service"
-	"github.com/thereisnotime/tix/internal/store"
-	"github.com/thereisnotime/tix/internal/store/sqlite"
-	"github.com/thereisnotime/tix/internal/web"
+	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/service"
+	"github.com/heliopsy/tix/internal/store"
+	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/web"
 )
 
 // webService completes core.Service with stand-ins for the transfer and sync

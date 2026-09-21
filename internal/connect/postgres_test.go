@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/config"
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/config"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // dsnEnv names the environment variable that points the suite at a database.

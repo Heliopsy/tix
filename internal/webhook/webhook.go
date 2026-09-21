@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // Mode selects which process drains the delivery queue.

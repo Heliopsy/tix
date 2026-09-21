@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 func TestArtifactsAreStoredAndListed(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // Client message types accepted on the event stream.

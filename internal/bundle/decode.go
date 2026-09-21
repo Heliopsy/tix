@@ -7,7 +7,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // Decoder reads a bundle one record at a time, never holding more than the

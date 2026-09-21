@@ -1,16 +1,61 @@
 {{define "content"}}
 <h1>Projects</h1>
+<p class="lede">Each row opens onto the settings for that list: its name, workflow, colour, icon, and the controls to archive or delete it.</p>
 {{template "column-picker" .}}
 <table>
-  <thead><tr><th>Key</th>{{if .Columns.Show "projects" "name"}}<th>Name</th>{{end}}{{if .Columns.Show "projects" "colour"}}<th>Colour</th>{{end}}{{if .Columns.Show "projects" "state"}}<th>State</th>{{end}}{{if .Columns.Show "projects" "screens"}}<th>Screens</th>{{end}}</tr></thead>
+  <thead><tr><th>Key</th>{{if .Columns.Show "projects" "name"}}<th>Name</th>{{end}}{{if .Columns.Show "projects" "colour"}}<th>Colour</th>{{end}}{{if .Columns.Show "projects" "state"}}<th>State</th>{{end}}{{if .Columns.Show "projects" "screens"}}<th>Screens</th>{{end}}{{if .Columns.Show "projects" "manage"}}<th>Manage</th>{{end}}</tr></thead>
   <tbody>
   {{range .Data.Projects}}
     <tr>
       <td>{{if .Icon}}<span class="proj-icon" role="img" aria-label="{{.Name}}">{{.Icon}}</span> {{end}}<a href="/projects/{{.Key}}">{{.Key}}</a></td>
-      {{if $.Columns.Show "projects" "name"}}<td>{{.Name}}</td>{{end}}
+      {{if $.Columns.Show "projects" "name"}}<td data-label="Name">{{.Name}}</td>{{end}}
       {{if $.Columns.Show "projects" "colour"}}<td>{{if .Color}}<span class="swatch proj-{{.Color}}" aria-hidden="true"></span>{{.Color}}{{else}}<span class="muted">none</span>{{end}}</td>{{end}}
       {{if $.Columns.Show "projects" "state"}}<td>{{if .Archived}}archived{{else}}active{{end}}</td>{{end}}
-      {{if $.Columns.Show "projects" "screens"}}<td><a href="/projects/{{.Key}}/fields">Fields</a></td>{{end}}
+      {{if $.Columns.Show "projects" "screens"}}<td data-label="Screens"><a href="/projects/{{.Key}}/fields">Fields</a></td>{{end}}
+      {{if $.Columns.Show "projects" "manage"}}
+      <td data-label="Manage">
+        <details class="panel">
+          <summary>Edit</summary>
+          <div class="body">
+            <form method="post" action="/projects/{{.Key}}/update">
+              {{template "csrf" $.CSRF}}
+              <div class="row">
+                <div><label for="name-{{.Key}}">Name</label><input id="name-{{.Key}}" name="name" value="{{.Name}}" required></div>
+                <div>
+                  <label for="workflow-{{.Key}}">Workflow</label>
+                  {{$wf := .WorkflowKey}}
+                  <select id="workflow-{{.Key}}" name="workflow_key">
+                    {{range $.Data.Workflows}}<option value="{{.Key}}" {{if eq .Key $wf}}selected{{end}}>{{.Name}}</option>{{end}}
+                  </select>
+                </div>
+              </div>
+              <div class="row">
+                <div>
+                  <label for="color-{{.Key}}">Colour</label>
+                  {{$current := .Color}}
+                  <select id="color-{{.Key}}" name="color">
+                    <option value="" {{if not $current}}selected{{end}}>none</option>
+                    {{range $.Data.Colors}}<option value="{{.}}" {{if eq . $current}}selected{{end}}>{{.}}</option>{{end}}
+                  </select>
+                </div>
+                <div><label for="icon-{{.Key}}">Icon</label><input id="icon-{{.Key}}" name="icon" maxlength="2" value="{{.Icon}}" placeholder="an emoji, or one or two letters"></div>
+              </div>
+              <label for="desc-{{.Key}}">Description</label>
+              <textarea id="desc-{{.Key}}" name="description">{{.Description}}</textarea>
+              <div class="actions"><button type="submit">Save</button></div>
+            </form>
+            <form method="post" action="/projects/{{.Key}}/archive">
+              {{template "csrf" $.CSRF}}
+              <div class="actions"><button class="secondary" type="submit">Archive</button></div>
+            </form>
+            <form method="post" action="/projects/{{.Key}}/delete">
+              {{template "csrf" $.CSRF}}
+              <div class="actions"><button class="danger" type="submit">Delete</button></div>
+            </form>
+          </div>
+        </details>
+      </td>
+      {{end}}
     </tr>
   {{else}}
     <tr><td colspan="{{$.Columns.Span "projects" 1}}">No projects yet.</td></tr>

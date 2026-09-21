@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // defaultSendQueue bounds the messages one connection may have awaiting a write.

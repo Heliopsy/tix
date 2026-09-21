@@ -1,6 +1,6 @@
 package sql
 
-import "github.com/thereisnotime/tix/internal/core"
+import "github.com/heliopsy/tix/internal/core"
 
 // dependencyPath walks task_deps transitively inside one tenant. A recursive CTE
 // cannot be composed by Builder, so the tenant predicate is written in by hand

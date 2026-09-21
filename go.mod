@@ -1,4 +1,4 @@
-module github.com/thereisnotime/tix
+module github.com/heliopsy/tix
 
 go 1.27.1
 

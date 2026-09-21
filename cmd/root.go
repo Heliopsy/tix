@@ -13,11 +13,11 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/heliopsy/tix/internal/config"
+	"github.com/heliopsy/tix/internal/connect"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 	"github.com/spf13/cobra"
-	"github.com/thereisnotime/tix/internal/config"
-	"github.com/thereisnotime/tix/internal/connect"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/output"
 )
 
 // EnvToken names the variable holding a personal access token.
@@ -156,7 +156,7 @@ func newRoot(environ []string, dir string) (*cobra.Command, *globals) {
 var builders = []func(*globals) *cobra.Command{
 	newTaskCmd, newDepCmd, newTagCmd, newCommentCmd,
 	newProjectCmd, newWorkflowCmd, newFieldCmd, newClaimCmd,
-	newTenantCmd, newDomainCmd, newMemberCmd, newUserCmd, newTokenCmd, newLoginCmd,
+	newTenantCmd, newDomainCmd, newMemberCmd, newActorCmd, newUserCmd, newTokenCmd, newLoginCmd,
 	newCtxCmd, newConfigCmd, newDoctorCmd, newPruneCmd, newWebhookCmd, newAuditCmd, newSyncCmd,
 	newDocsCmd, newCompletionCmd, newVersionCmd,
 }

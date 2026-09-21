@@ -3,8 +3,8 @@ package capability
 import (
 	"net/http"
 
-	"github.com/thereisnotime/tix/internal/httpapi"
-	"github.com/thereisnotime/tix/internal/web"
+	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/web"
 )
 
 // apiGet and its siblings name a route on the REST surface.
@@ -443,6 +443,12 @@ var registry = []Operation{
 		},
 	},
 
+	{
+		Name: "actor.show", Method: "GetActor",
+		CLI:  "tix actor show",
+		HTTP: apiGet(httpapi.RouteActor),
+		Web:  webGet(web.RouteActivity, tplActivity),
+	},
 	{
 		Name: "user.create", Method: "CreateUser",
 		CLI:  "tix user create",

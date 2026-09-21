@@ -8,8 +8,8 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/webhook"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/webhook"
 )
 
 // A command line writing straight to the database knows nothing about any

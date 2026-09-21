@@ -113,6 +113,11 @@ type HistoryService interface {
 
 // AuthService covers users, sessions and API tokens.
 type AuthService interface {
+	// GetActor resolves an actor identifier of this tenant to the identity
+	// behind it, so a record can name who acted rather than show a raw
+	// identifier. It returns the naming fields only, never authority.
+	GetActor(ctx context.Context, id string) (*Actor, error)
+
 	CreateUser(ctx context.Context, in CreateUserInput) (*User, error)
 	GetUser(ctx context.Context, id string) (*User, error)
 	ListUsers(ctx context.Context, page Page) ([]User, string, error)

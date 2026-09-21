@@ -4,10 +4,10 @@ import (
 	"os"
 	"sort"
 
+	"github.com/heliopsy/tix/internal/config"
+	"github.com/heliopsy/tix/internal/connect"
+	"github.com/heliopsy/tix/internal/core"
 	"github.com/spf13/cobra"
-	"github.com/thereisnotime/tix/internal/config"
-	"github.com/thereisnotime/tix/internal/connect"
-	"github.com/thereisnotime/tix/internal/core"
 )
 
 // contextRow is one row of a context listing.

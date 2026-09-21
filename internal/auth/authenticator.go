@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // ErrNoCredential reports that a request carried nothing this authenticator handles.

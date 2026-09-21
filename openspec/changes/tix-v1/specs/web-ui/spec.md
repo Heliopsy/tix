@@ -396,3 +396,174 @@ of the declared default rather than failing the page.
 
 - **WHEN** a reader resets a listing's columns
 - **THEN** the listing renders the declared default set again
+
+### Requirement: An actor is shown by name rather than by identifier
+
+The browser interface SHALL name the actor behind a record -- a creator, an assignee, a comment
+byline, an audit row -- by that actor's handle when the directory holds one. Where no
+handle can be resolved, it SHALL show a two-word name derived from the identifier itself, so that
+one identifier always yields the same name in every process and on every installation. A generated
+name SHALL be a display aid only: the identifier SHALL remain reachable on the element that carries
+the name, and machine-readable output SHALL be unchanged, carrying the identifier and no generated
+name. Resolving a name SHALL be scoped to the caller's own tenant.
+
+#### Scenario: A handle is used where one exists
+
+- **WHEN** a screen names an actor that has a handle
+- **THEN** the handle is shown rather than the identifier or a generated name
+
+#### Scenario: A name is generated where no handle exists
+
+- **WHEN** a screen names an actor whose handle cannot be resolved
+- **THEN** a two-word name derived from the identifier is shown in its place
+
+#### Scenario: The same identifier always reads the same
+
+- **WHEN** one identifier is rendered in two processes or on two installations
+- **THEN** both produce the same generated name
+
+#### Scenario: The identifier stays reachable
+
+- **WHEN** a generated name or a handle is shown for an actor
+- **THEN** the identifier it stands for is available on the element, and the record's machine-readable
+  form still carries the identifier and gains no name field
+
+#### Scenario: Names do not cross the tenant boundary
+
+- **WHEN** a record names an actor belonging to another tenant
+- **THEN** that actor's handle is not disclosed and the generated name is shown instead
+
+### Requirement: Display preferences live in one always-visible settings menu
+
+The browser interface SHALL gather the preferences that apply to every screen -- the colour scheme
+and whether the administrative screens are shown -- into a single settings control that is present
+in the sidebar on every signed-in screen. Every control within it SHALL be a plain form that works
+with scripting disabled, and the menu SHALL render under every colour scheme on offer, including the
+low contrast one. Preferences scoped to one listing, such as which columns it shows, SHALL stay on
+that listing rather than moving into the settings menu.
+
+#### Scenario: The menu is on every screen
+
+- **WHEN** any signed-in screen is rendered
+- **THEN** the sidebar carries one settings control gathering the theme and the advanced toggle
+
+#### Scenario: Every scheme renders it
+
+- **WHEN** the interface is rendered under the system, light, dark, and low contrast schemes
+- **THEN** the settings menu renders in each, showing the current scheme as the chosen one
+
+#### Scenario: The menu needs no scripting
+
+- **WHEN** a preference is changed with JavaScript disabled
+- **THEN** the change is recorded and the reader is returned to the page they made it on
+
+### Requirement: The project listing offers every project control
+
+The project listing SHALL make every operation on a project reachable from the listing itself: its
+name, workflow, colour, icon and description, and the controls to archive and to delete it, in
+addition to creating a new one. A reader on the listing SHALL be able to tell that a project can be
+changed without first opening it. The controls SHALL be plain forms, SHALL be governed by the
+listing's column preference like any other optional column, and the listing SHALL always name each
+row whatever is chosen.
+
+#### Scenario: Controls are reachable from the listing
+
+- **WHEN** the project listing is rendered
+- **THEN** each row offers the project's settings and the controls to archive and delete it
+
+#### Scenario: Editing from the listing preserves what it did not show
+
+- **WHEN** a project is saved from the listing
+- **THEN** every field the form carried is stored and no unshown field is blanked
+
+#### Scenario: The controls are an optional column
+
+- **WHEN** the column carrying the controls is switched off
+- **THEN** the listing still names each row and links to the project
+
+### Requirement: The task list shows a chosen set of lists
+
+The task list SHALL offer a control selecting which projects it draws from, placed with the listing's
+own controls rather than in the settings menu. An installation that has made no choice SHALL show
+every list, and a project created after a choice was made SHALL be visible without the choice being
+revisited. The choice SHALL be recorded per browser and SHALL survive later requests. A filter
+naming a project explicitly SHALL override the choice, and the screen SHALL say which rule produced
+what it shows rather than presenting a shorter or empty list without explanation. A recorded value
+this build does not recognise SHALL fall back to showing every list.
+
+#### Scenario: An untouched installation is unchanged
+
+- **WHEN** the task list is rendered for a browser that has chosen no lists
+- **THEN** every project's tasks are shown and nothing is reported as hidden
+
+#### Scenario: A hidden list disappears and stays hidden
+
+- **WHEN** a reader hides a list
+- **THEN** its tasks are absent from the task list, the screen says how many lists are hidden, and the
+  choice applies to later requests from that browser
+
+#### Scenario: A new list is visible without being chosen
+
+- **WHEN** a project is created after a visibility choice was made
+- **THEN** its tasks appear on the task list without the choice being revisited
+
+#### Scenario: An explicit filter wins
+
+- **WHEN** the filter names a project that the visibility choice hides
+- **THEN** that project's tasks are shown and the screen says the filter overrode the choice
+
+#### Scenario: An empty result is explained
+
+- **WHEN** every list is hidden
+- **THEN** the screen says so and offers the way to bring one back
+
+#### Scenario: An unrecognised choice falls back
+
+- **WHEN** the recorded choice is malformed or oversized
+- **THEN** every list is shown and no error is raised
+
+### Requirement: The activity feed reads as records, not identifiers
+
+The activity feed SHALL render each entry with the kind of change it records distinguished from the
+others, the actor named as any other screen names one, and the subject shown by the reference a
+reader recognises where one exists rather than by its identifier. Entries arriving over the event
+stream SHALL be rendered in the same shape as entries rendered by the server, so a live entry is
+indistinguishable from a reloaded one.
+
+#### Scenario: A change is distinguishable by kind
+
+- **WHEN** the feed renders a creation, an update and a deletion
+- **THEN** each is marked so the three do not read identically
+
+#### Scenario: A task is named by its reference
+
+- **WHEN** the feed renders an entry whose subject is a task
+- **THEN** the task's reference is shown, with the identifier still reachable
+
+#### Scenario: A live entry matches a rendered one
+
+- **WHEN** an entry arrives over the event stream
+- **THEN** it is appended in the same shape the server renders
+
+### Requirement: Primary task attributes are edited without a disclosure
+
+The task detail screen SHALL present a task's primary attributes -- its title, description, priority
+and assignee -- in the form that is visible on arrival, and SHALL reserve a disclosure for the
+attributes a project defines for itself. Where a screen carries more than one form over the same
+task, each SHALL carry the values it does not show, so submitting one never blanks a field held by
+another, and a submission refused because the task moved on SHALL be reported with what to do next.
+
+#### Scenario: Priority is visible on arrival
+
+- **WHEN** the task detail screen is rendered for an actor who may change the task
+- **THEN** the priority control is in the visible form, not behind a disclosure
+
+#### Scenario: One form does not blank another's fields
+
+- **WHEN** a form on the task screen is submitted
+- **THEN** every attribute the screen holds is preserved, whether or not that form showed it
+
+#### Scenario: A refused save says what to do
+
+- **WHEN** a save is refused because the task changed while the page was open
+- **THEN** the failure names the conflict and tells the reader to reload and reapply the change

@@ -1,8 +1,8 @@
 package cmd
 
 import (
+	"github.com/heliopsy/tix/internal/core"
 	"github.com/spf13/cobra"
-	"github.com/thereisnotime/tix/internal/core"
 )
 
 // newTenantCmd builds the tenant command group.

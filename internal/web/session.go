@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/auth"
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // sessionRoutes are the sign-in, sign-out, landing and activity screens.
@@ -19,7 +19,8 @@ func (h *handler) sessionRoutes() []route {
 		post(RouteAdvanced, h.toggleAdvanced, "Logout"),
 		post(RouteTheme, h.setTheme, "Logout"),
 		post(RouteColumns, h.setColumns, "Logout"),
-		get(RouteActivity, "activity.html", h.showActivity, "ListAudit"),
+		post(RouteLists, h.setLists, "Logout"),
+		get(RouteActivity, "activity.html", h.showActivity, "ListAudit", "GetActor", "GetTask"),
 	}
 }
 
@@ -126,9 +127,18 @@ func safeNext(next string) string {
 	return u.String()
 }
 
+// activityRow is one audit entry with the words the feed shows for it: the
+// kind of change, and a subject a reader recognises.
+type activityRow struct {
+	Entry   core.AuditEntry
+	Verb    string
+	Subject string
+}
+
 // activityView is what the activity screen renders.
 type activityView struct {
-	Entries    []core.AuditEntry
+	Rows       []activityRow
+	Names      actorNames
 	NextCursor string
 }
 
@@ -144,6 +154,27 @@ func (h *handler) showActivity(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return h.render(w, r, "activity.html", "Activity",
-		activityView{Entries: entries, NextCursor: next})
+	data := activityView{Rows: make([]activityRow, 0, len(entries)), NextCursor: next}
+	actors := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		data.Rows = append(data.Rows, activityRow{Entry: entry,
+			Verb: actionVerb(entry.Action), Subject: h.subjectLabel(r, entry)})
+		actors = append(actors, entry.ActorID)
+	}
+	data.Names = h.resolveActors(r, actors...)
+	return h.render(w, r, "activity.html", "Activity", data)
+}
+
+// subjectLabel names what an entry happened to. A task is shown by the
+// reference people quote to each other; anything else keeps its identifier,
+// abbreviated, because inventing a name for a record would only mislead.
+func (h *handler) subjectLabel(r *http.Request, entry core.AuditEntry) string {
+	if entry.SubjectType != "task" || entry.SubjectID == "" {
+		return shortID(entry.SubjectID)
+	}
+	task, err := h.svc.GetTask(r.Context(), core.TaskRef{ID: entry.SubjectID})
+	if err != nil || task == nil || task.Ref == "" {
+		return shortID(entry.SubjectID)
+	}
+	return task.Ref
 }

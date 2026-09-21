@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 Report security issues privately through
-[GitHub Security Advisories](https://github.com/thereisnotime/tix/security/advisories/new).
+[GitHub Security Advisories](https://github.com/heliopsy/tix/security/advisories/new).
 
 Please do not open a public issue for a vulnerability.
 

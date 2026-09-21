@@ -3,11 +3,11 @@
 package config
 
 import (
-	"github.com/thereisnotime/tix/internal/output"
+	"github.com/heliopsy/tix/internal/output"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/webhook"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/webhook"
 )
 
 // Config is the fully resolved tix configuration.

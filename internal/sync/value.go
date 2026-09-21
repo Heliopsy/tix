@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // timeLayouts are the shapes external systems write timestamps in.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 func withProject(t *testing.T) (*Local, core.TenantScope, context.Context, *core.Project) {

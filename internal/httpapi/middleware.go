@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/id"
-	"github.com/thereisnotime/tix/internal/service"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/id"
+	"github.com/heliopsy/tix/internal/service"
 )
 
 // HeaderRequestID carries the identifier correlating a request with its logs.

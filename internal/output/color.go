@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // Colour mode names accepted by the output.color key and the colour flags.

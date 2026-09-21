@@ -1,7 +1,7 @@
 // Package authz is the single place where tix decides whether an actor may act.
 package authz
 
-import "github.com/thereisnotime/tix/internal/core"
+import "github.com/heliopsy/tix/internal/core"
 
 // Action names one authorization decision point in the product surface.
 type Action string

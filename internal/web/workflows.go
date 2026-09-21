@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // workflowRoutes are the workflow list and editor screens.

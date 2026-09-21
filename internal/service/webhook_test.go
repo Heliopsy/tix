@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
-	"github.com/thereisnotime/tix/internal/webhook"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
+	"github.com/heliopsy/tix/internal/webhook"
 )
 
 func adminCtx(actor *core.Actor) context.Context {

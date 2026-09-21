@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/httpapi"
 )
 
 // maxErrorBody bounds how much of a failing response is read before decoding.

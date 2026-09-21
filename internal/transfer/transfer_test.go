@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/transfer"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/transfer"
 )
 
 func at() time.Time { return time.Date(2024, 3, 1, 12, 0, 0, 0, time.UTC) }

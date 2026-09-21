@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/heliopsy/tix/internal/core"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/thereisnotime/tix/internal/core"
 )
 
 // pgDSNEnv names the environment variable that points the suite at a database.

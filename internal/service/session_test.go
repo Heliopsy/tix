@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/auth"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
+	"github.com/heliopsy/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
 )
 
 // loginContext returns the unauthenticated, tenant-pinned context a login

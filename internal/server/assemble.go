@@ -7,14 +7,14 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/clock"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/httpapi"
-	"github.com/thereisnotime/tix/internal/lease"
-	"github.com/thereisnotime/tix/internal/retention"
-	"github.com/thereisnotime/tix/internal/store"
-	"github.com/thereisnotime/tix/internal/store/migrations"
-	"github.com/thereisnotime/tix/internal/webhook"
+	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/lease"
+	"github.com/heliopsy/tix/internal/retention"
+	"github.com/heliopsy/tix/internal/store"
+	"github.com/heliopsy/tix/internal/store/migrations"
+	"github.com/heliopsy/tix/internal/webhook"
 )
 
 // Options describe the process the serve command starts.

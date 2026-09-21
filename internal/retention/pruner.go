@@ -3,8 +3,8 @@ package retention
 import (
 	"context"
 
-	"github.com/thereisnotime/tix/internal/clock"
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // Runner prunes a tenant's expired records once.

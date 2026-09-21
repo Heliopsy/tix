@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/clock"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/lease"
-	"github.com/thereisnotime/tix/internal/store"
+	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/lease"
+	"github.com/heliopsy/tix/internal/store"
 )
 
 // claimFixture is a seeded queue: one workflow, one project and the actors

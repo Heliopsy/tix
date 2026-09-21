@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
 )
 
 // notifyTimeout only guards the test against hanging; the listener is woken by

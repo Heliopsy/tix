@@ -11,8 +11,8 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/httpapi"
 )
 
 func eventServer(t *testing.T, handle func(ctx context.Context, conn *websocket.Conn, sub subscribeMessage)) *httptest.Server {

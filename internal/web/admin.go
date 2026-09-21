@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // adminRoutes are the tenant, domain, user and token administration screens.

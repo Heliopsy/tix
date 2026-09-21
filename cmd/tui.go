@@ -1,9 +1,9 @@
 package cmd
 
 import (
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/tui"
 	"github.com/spf13/cobra"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/tui"
 )
 
 // newTUICmd builds the command that runs the terminal interface.

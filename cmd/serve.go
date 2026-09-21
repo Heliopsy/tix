@@ -6,12 +6,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/connect"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/server"
+	"github.com/heliopsy/tix/internal/web"
 	"github.com/spf13/cobra"
-	"github.com/thereisnotime/tix/internal/clock"
-	"github.com/thereisnotime/tix/internal/connect"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/server"
-	"github.com/thereisnotime/tix/internal/web"
 )
 
 // serveOptions are the flags that only the serve command takes.

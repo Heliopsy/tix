@@ -13,10 +13,10 @@ import (
 	// The pgx driver creates and drops the throwaway bench database.
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/thereisnotime/tix/internal/clock"
-	"github.com/thereisnotime/tix/internal/store"
-	"github.com/thereisnotime/tix/internal/store/postgres"
-	"github.com/thereisnotime/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/store"
+	"github.com/heliopsy/tix/internal/store/postgres"
+	"github.com/heliopsy/tix/internal/store/sqlite"
 )
 
 // engine is one database the suite measures.

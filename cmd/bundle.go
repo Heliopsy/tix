@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 	"github.com/spf13/cobra"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/output"
 )
 
 // init registers component sharing alongside the other command groups.

@@ -3,8 +3,8 @@ package cmd
 import (
 	"time"
 
+	"github.com/heliopsy/tix/internal/core"
 	"github.com/spf13/cobra"
-	"github.com/thereisnotime/tix/internal/core"
 )
 
 // check is one doctor finding.

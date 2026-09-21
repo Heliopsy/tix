@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/authz"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/retention"
-	"github.com/thereisnotime/tix/internal/store"
+	"github.com/heliopsy/tix/internal/authz"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/retention"
+	"github.com/heliopsy/tix/internal/store"
 )
 
 // pruneWindow is one class of records and the instant before which it expired.

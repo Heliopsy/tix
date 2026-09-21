@@ -3,7 +3,7 @@ package web
 import (
 	"net/http"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // projectRoutes are the project list, board and field definition screens.
@@ -22,12 +22,32 @@ func (h *handler) projectRoutes() []route {
 	}
 }
 
+// projectRow is one project with the workflow key its settings form shows, so
+// the listing can offer the whole record without a second screen.
+type projectRow struct {
+	core.Project
+	WorkflowKey string
+}
+
 // projectsView is what the project list renders.
 type projectsView struct {
-	Projects   []core.Project
+	Projects   []projectRow
 	Workflows  []core.Workflow
 	Colors     []core.ProjectColor
 	NextCursor string
+}
+
+// projectRows pairs each project with the key of the workflow it runs.
+func projectRows(projects []core.Project, workflows []core.Workflow) []projectRow {
+	keys := make(map[string]string, len(workflows))
+	for _, w := range workflows {
+		keys[w.ID] = w.Key
+	}
+	out := make([]projectRow, 0, len(projects))
+	for _, p := range projects {
+		out = append(out, projectRow{Project: p, WorkflowKey: keys[p.WorkflowID]})
+	}
+	return out
 }
 
 // showProjects renders the project list and the creation form.
@@ -45,7 +65,7 @@ func (h *handler) showProjects(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	return h.render(w, r, "projects.html", "Projects",
-		projectsView{Projects: projects, Workflows: workflows,
+		projectsView{Projects: projectRows(projects, workflows), Workflows: workflows,
 			Colors: core.ProjectColors(), NextCursor: next})
 }
 

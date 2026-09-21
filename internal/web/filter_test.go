@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/web"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/web"
 )
 
 func TestParseFilterSharesTheCLIGrammar(t *testing.T) {

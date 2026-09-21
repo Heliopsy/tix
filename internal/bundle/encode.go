@@ -5,8 +5,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/version"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/version"
 )
 
 // Encoder writes a bundle as one JSON record per line.

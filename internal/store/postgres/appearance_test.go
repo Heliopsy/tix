@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
 )
 
 // TestProjectAppearanceRoundTrip covers the colour and icon through a create,

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	extsync "github.com/thereisnotime/tix/internal/sync"
+	extsync "github.com/heliopsy/tix/internal/sync"
 )
 
 func write(t *testing.T, name, body string) string {

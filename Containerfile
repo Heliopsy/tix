@@ -13,9 +13,9 @@ ARG COMMIT=none
 ARG DATE=unknown
 RUN CGO_ENABLED=0 go build \
       -ldflags "-s -w \
-        -X github.com/thereisnotime/tix/internal/version.Version=${VERSION} \
-        -X github.com/thereisnotime/tix/internal/version.Commit=${COMMIT} \
-        -X github.com/thereisnotime/tix/internal/version.Date=${DATE}" \
+        -X github.com/heliopsy/tix/internal/version.Version=${VERSION} \
+        -X github.com/heliopsy/tix/internal/version.Commit=${COMMIT} \
+        -X github.com/heliopsy/tix/internal/version.Date=${DATE}" \
       -o /out/tix .
 
 FROM gcr.io/distroless/static-debian12:nonroot

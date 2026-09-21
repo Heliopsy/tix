@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // taskRoutes are the task list, detail and attachment screens.
@@ -17,7 +17,7 @@ func (h *handler) taskRoutes() []route {
 		get(RouteTasks, "tasks.html", h.showTasks, "ListTasks", "ListProjects", "ListTags"),
 		post(RouteTasks, h.createTask, "CreateTask"),
 		get(RouteTask, "task.html", h.showTask, "GetTask", "TaskTree",
-			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs"),
+			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor"),
 		post(RouteTask, h.updateTask, "UpdateTask"),
 		post(RouteTaskMove, h.transitionTask, "TransitionTask"),
 		post(RouteTaskComplete, h.completeTask, "TransitionTask"),
@@ -56,6 +56,7 @@ type taskView struct {
 	Comments      []core.Comment
 	Artifacts     []core.Artifact
 	History       []historyRow
+	Names         actorNames
 	Targets       []core.State
 	Priorities    []priorityChoice
 	ArtifactKinds []core.ArtifactKind
@@ -63,6 +64,19 @@ type taskView struct {
 	CanComment    bool
 	CanDelete     bool
 	CanAudit      bool
+}
+
+// actorIDs lists every actor the screen names, so one pass over the directory
+// covers the whole page rather than one lookup per element.
+func (v taskView) actorIDs() []string {
+	out := []string{v.Task.CreatorActorID, v.Task.AssigneeActorID}
+	for _, c := range v.Comments {
+		out = append(out, c.AuthorActorID)
+	}
+	for _, h := range v.History {
+		out = append(out, h.Entry.ActorID)
+	}
+	return out
 }
 
 // artifactKinds is the vocabulary the artifact form offers.
@@ -106,6 +120,7 @@ func (h *handler) showTask(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 	}
+	data.Names = h.resolveActors(r, data.actorIDs()...)
 	return h.render(w, r, "task.html", task.Ref, data)
 }
 

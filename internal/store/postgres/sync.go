@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/id"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/id"
 )
 
 var syncSourceColumns = []string{

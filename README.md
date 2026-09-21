@@ -11,25 +11,25 @@
   </tr>
   <tr>
     <td>
-      <a href="https://github.com/thereisnotime/tix/actions/workflows/ci.yaml"><img src="https://github.com/thereisnotime/tix/actions/workflows/ci.yaml/badge.svg" alt="CI"></a><br>
-      <a href="https://github.com/thereisnotime/tix/actions/workflows/release.yaml"><img src="https://github.com/thereisnotime/tix/actions/workflows/release.yaml/badge.svg" alt="Release"></a><br>
-      <a href="https://github.com/thereisnotime/tix/actions/workflows/codeql.yaml"><img src="https://github.com/thereisnotime/tix/actions/workflows/codeql.yaml/badge.svg" alt="CodeQL"></a><br>
-      <a href="https://github.com/thereisnotime/tix/actions/workflows/scorecard.yaml"><img src="https://github.com/thereisnotime/tix/actions/workflows/scorecard.yaml/badge.svg" alt="Scorecard"></a>
+      <a href="https://github.com/heliopsy/tix/actions/workflows/ci.yaml"><img src="https://github.com/heliopsy/tix/actions/workflows/ci.yaml/badge.svg" alt="CI"></a><br>
+      <a href="https://github.com/heliopsy/tix/actions/workflows/release.yaml"><img src="https://github.com/heliopsy/tix/actions/workflows/release.yaml/badge.svg" alt="Release"></a><br>
+      <a href="https://github.com/heliopsy/tix/actions/workflows/codeql.yaml"><img src="https://github.com/heliopsy/tix/actions/workflows/codeql.yaml/badge.svg" alt="CodeQL"></a><br>
+      <a href="https://github.com/heliopsy/tix/actions/workflows/scorecard.yaml"><img src="https://github.com/heliopsy/tix/actions/workflows/scorecard.yaml/badge.svg" alt="Scorecard"></a>
     </td>
     <td>
-      <a href="https://github.com/thereisnotime/tix/releases/latest"><img src="https://img.shields.io/github/v/release/thereisnotime/tix" alt="Latest Release"></a><br>
-      <a href="https://codecov.io/gh/thereisnotime/tix"><img src="https://codecov.io/gh/thereisnotime/tix/branch/main/graph/badge.svg" alt="codecov"></a><br>
-      <a href="https://goreportcard.com/report/github.com/thereisnotime/tix"><img src="https://goreportcard.com/badge/github.com/thereisnotime/tix" alt="Go Report Card"></a><br>
-      <a href="https://pkg.go.dev/github.com/thereisnotime/tix"><img src="https://pkg.go.dev/badge/github.com/thereisnotime/tix.svg" alt="Go Reference"></a>
+      <a href="https://github.com/heliopsy/tix/releases/latest"><img src="https://img.shields.io/github/v/release/heliopsy/tix" alt="Latest Release"></a><br>
+      <a href="https://codecov.io/gh/heliopsy/tix"><img src="https://codecov.io/gh/heliopsy/tix/branch/main/graph/badge.svg" alt="codecov"></a><br>
+      <a href="https://goreportcard.com/report/github.com/heliopsy/tix"><img src="https://goreportcard.com/badge/github.com/heliopsy/tix" alt="Go Report Card"></a><br>
+      <a href="https://pkg.go.dev/github.com/heliopsy/tix"><img src="https://pkg.go.dev/badge/github.com/heliopsy/tix.svg" alt="Go Reference"></a>
     </td>
     <td>
-      <a href="openspec/changes/tix-v1/specs/"><img src="https://raw.githubusercontent.com/thereisnotime/tix/gh-pages/badges/number_of_specs.svg" alt="Specs"></a><br>
-      <a href="openspec/changes/tix-v1/specs/"><img src="https://raw.githubusercontent.com/thereisnotime/tix/gh-pages/badges/number_of_requirements.svg" alt="Requirements"></a><br>
-      <a href="openspec/changes/tix-v1/tasks.md"><img src="https://raw.githubusercontent.com/thereisnotime/tix/gh-pages/badges/tasks_status.svg" alt="Tasks"></a><br>
-      <a href="openspec/changes/"><img src="https://raw.githubusercontent.com/thereisnotime/tix/gh-pages/badges/open_changes.svg" alt="Open Changes"></a>
+      <a href="openspec/changes/tix-v1/specs/"><img src="https://raw.githubusercontent.com/heliopsy/tix/gh-pages/badges/number_of_specs.svg" alt="Specs"></a><br>
+      <a href="openspec/changes/tix-v1/specs/"><img src="https://raw.githubusercontent.com/heliopsy/tix/gh-pages/badges/number_of_requirements.svg" alt="Requirements"></a><br>
+      <a href="openspec/changes/tix-v1/tasks.md"><img src="https://raw.githubusercontent.com/heliopsy/tix/gh-pages/badges/tasks_status.svg" alt="Tasks"></a><br>
+      <a href="openspec/changes/"><img src="https://raw.githubusercontent.com/heliopsy/tix/gh-pages/badges/open_changes.svg" alt="Open Changes"></a>
     </td>
     <td>
-      <a href="https://scorecard.dev/viewer/?uri=github.com/thereisnotime/tix"><img src="https://api.scorecard.dev/projects/github.com/thereisnotime/tix/badge" alt="OpenSSF Scorecard"></a><br>
+      <a href="https://scorecard.dev/viewer/?uri=github.com/heliopsy/tix"><img src="https://api.scorecard.dev/projects/github.com/heliopsy/tix/badge" alt="OpenSSF Scorecard"></a><br>
       <a href="SECURITY.md"><img src="https://img.shields.io/badge/security-policy-blue.svg" alt="Security Policy"></a><br>
       <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" alt="License: AGPL v3"></a><br>
       <a href="CLA.md"><img src="https://img.shields.io/badge/CLA-required-lightgrey.svg" alt="CLA"></a>
@@ -188,7 +188,7 @@ awk '/^<!-- BEGIN COMMANDS/{print; system("cat /tmp/tix-commands.md"); skip=1; n
 ## Install
 
 ```sh
-go install github.com/thereisnotime/tix@latest
+go install github.com/heliopsy/tix@latest
 ```
 
 Binaries and container images are published per release.

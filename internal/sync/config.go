@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // EnvPrefix is the environment namespace external source configuration is read

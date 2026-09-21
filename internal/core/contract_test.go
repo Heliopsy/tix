@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // TestCoreImportsOnlyStdlib enforces the invariant the whole architecture rests

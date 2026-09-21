@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"time"
 
-	sqlb "github.com/thereisnotime/tix/internal/store/sql"
+	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
 // timeArg renders an instant for a TIMESTAMPTZ column.

@@ -7,10 +7,10 @@ import (
 	"io"
 	"strings"
 
+	"github.com/heliopsy/tix/internal/connect"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 	"github.com/spf13/cobra"
-	"github.com/thereisnotime/tix/internal/connect"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/output"
 )
 
 // StdinMarker is the argument that means "read this from standard input".

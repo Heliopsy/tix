@@ -5,9 +5,9 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/thereisnotime/tix/internal/lease"
-	"github.com/thereisnotime/tix/internal/retention"
-	"github.com/thereisnotime/tix/internal/webhook"
+	"github.com/heliopsy/tix/internal/lease"
+	"github.com/heliopsy/tix/internal/retention"
+	"github.com/heliopsy/tix/internal/webhook"
 )
 
 // Worker is a named background loop that runs beside the HTTP surface.

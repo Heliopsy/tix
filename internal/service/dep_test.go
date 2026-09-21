@@ -3,7 +3,7 @@ package service
 import (
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 func TestDependenciesAddListAndRemove(t *testing.T) {

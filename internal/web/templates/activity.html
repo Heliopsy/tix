@@ -1,15 +1,19 @@
 {{define "content"}}
 <h1>Activity</h1>
-<p class="meta">Recent changes for this tenant, newest first. With JavaScript the list updates as events arrive.</p>
-<ul class="feed" id="live-feed" data-events="{{.EventsPath}}">
-  {{range .Data.Entries}}
-    <li>
-      <strong>{{.Action}}</strong>
-      <span class="meta">{{.SubjectType}} {{.SubjectID}} &middot; {{.ActorID}} &middot; {{compact .OccurredAt}} &middot; {{.Source}}</span>
-    </li>
-  {{else}}
-    <li class="meta">No recorded activity.</li>
-  {{end}}
-</ul>
+<p class="lede">Recent changes for this tenant, newest first. With JavaScript the list updates as events arrive.</p>
+<div class="card">
+  <ul class="plain feed" id="live-feed" data-events="{{.EventsPath}}">
+    {{range .Data.Rows}}
+      <li>
+        <span class="badge act-{{.Verb}}">{{.Entry.Action}}</span>
+        <span class="subject">{{.Entry.SubjectType}} <span class="mono" title="{{.Entry.SubjectID}}">{{.Subject}}</span></span>
+        <span class="muted">{{compact .Entry.OccurredAt}} &middot; {{.Entry.Source}}</span>
+        <span class="who-name" title="{{.Entry.ActorID}}">{{$.Data.Names.Label .Entry.ActorID}}</span>
+      </li>
+    {{else}}
+      <li class="empty">No recorded activity.</li>
+    {{end}}
+  </ul>
+</div>
 {{if .Data.NextCursor}}<p><a href="/activity?cursor={{.Data.NextCursor}}">Older</a></p>{{end}}
 {{end}}

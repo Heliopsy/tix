@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // runEnv runs one invocation with extra variables added to the environment.

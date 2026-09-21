@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 func testWorkflow() *core.WorkflowDefinition {

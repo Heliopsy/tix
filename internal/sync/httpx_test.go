@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // recorder collects the delays a client backs off for, so a test can assert on

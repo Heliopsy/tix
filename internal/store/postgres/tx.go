@@ -9,9 +9,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
-	sqlb "github.com/thereisnotime/tix/internal/store/sql"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
+	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
 // dialect is the placeholder form every statement in this package is built with.

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/authz"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
-	sqlb "github.com/thereisnotime/tix/internal/store/sql"
+	"github.com/heliopsy/tix/internal/authz"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
+	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
 // CreateTask creates a task, defaulting every attribute except its title.
@@ -578,9 +578,18 @@ func projectForTask(ctx context.Context, tx store.Tx, ref string) (*core.Project
 		return nil, core.NotFound("this tenant has no project; create one first")
 	case 1:
 		return &projects[0], nil
-	default:
-		return nil, core.Invalid("this tenant has several projects; name the one to create the task in")
 	}
+	// A tenant seeded on first run has several lists, one of which is the
+	// documented zero-config target. Falling back to it is what keeps
+	// "tix task add buy milk" working on a fresh install; a tenant whose
+	// lists were all named by hand still has to be told which one.
+	switch p, err := tx.GetProject(ctx, DefaultProjectKey); {
+	case err == nil:
+		return p, nil
+	case !core.IsKind(err, core.KindNotFound):
+		return nil, err
+	}
+	return nil, core.Invalid("this tenant has several projects; name the one to create the task in")
 }
 
 // workflowForTask returns the state machine governing a task.

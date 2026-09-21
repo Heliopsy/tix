@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/server"
+	"github.com/heliopsy/tix/internal/server"
 )
 
 func TestBindGuardRefusesNonLoopbackWithoutTLS(t *testing.T) {

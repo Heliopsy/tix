@@ -6,10 +6,10 @@ import (
 	"io"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/authz"
-	"github.com/thereisnotime/tix/internal/bundle"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
+	"github.com/heliopsy/tix/internal/authz"
+	"github.com/heliopsy/tix/internal/bundle"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
 )
 
 // auditBundleImport names the audit action each imported component records.

@@ -289,3 +289,36 @@ Every mutation SHALL be attributed to the acting identity in its audit entry and
 
 - **WHEN** any mutation is committed
 - **THEN** an actor is recorded, including the synthetic local actor used in no-auth mode
+
+### Requirement: An actor identifier can be resolved to an identity
+
+The service SHALL offer an operation resolving an actor identifier of the caller's tenant to the
+identity behind it. Because every reader of a record that names an actor needs it, the operation
+SHALL require no scope beyond an authenticated caller, and it SHALL return the naming fields only --
+identifier, kind, handle and display name -- never the actor's scopes, role or token. An identifier
+belonging to another tenant SHALL be reported missing, like any other record of another tenant.
+
+#### Scenario: A handle is returned
+
+- **WHEN** an actor identifier of the caller's tenant is resolved
+- **THEN** the actor's handle, kind and display name are returned
+
+#### Scenario: Authority is not disclosed
+
+- **WHEN** an actor is resolved
+- **THEN** no scope, role or token identifier is returned with it
+
+#### Scenario: A reader with no administrative scope can resolve
+
+- **WHEN** an actor holding only read scopes resolves an identifier
+- **THEN** the lookup succeeds
+
+#### Scenario: Resolution is tenant scoped
+
+- **WHEN** an identifier belonging to another tenant is resolved
+- **THEN** the operation reports it missing and discloses nothing about it
+
+#### Scenario: The system actor is named
+
+- **WHEN** the identifier recording an import, a sweep or a prune is resolved
+- **THEN** it resolves to the system identity rather than being reported missing

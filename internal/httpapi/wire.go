@@ -6,7 +6,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // APIPrefix is the versioned namespace every resource route lives under.
@@ -22,6 +22,8 @@ const (
 
 	RouteLogin  = APIPrefix + "/auth/login"
 	RouteLogout = APIPrefix + "/auth/logout"
+
+	RouteActor = APIPrefix + "/actors/{id}"
 
 	RouteUsers = APIPrefix + "/users"
 	RouteUser  = APIPrefix + "/users/{id}"

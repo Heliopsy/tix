@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/auth"
 )
 
 func TestLoginIssuesASessionCookie(t *testing.T) {

@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/outbox"
-	"github.com/thereisnotime/tix/internal/store"
-	"github.com/thereisnotime/tix/internal/webhook"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/outbox"
+	"github.com/heliopsy/tix/internal/store"
+	"github.com/heliopsy/tix/internal/webhook"
 )
 
 // mutation carries everything one write needs to record about itself.

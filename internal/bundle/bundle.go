@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // RecordKind names the two record shapes a bundle document holds.

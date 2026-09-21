@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/heliopsy/tix/internal/core"
 	"github.com/spf13/cobra"
-	"github.com/thereisnotime/tix/internal/core"
 )
 
 // init registers snapshot transfer alongside the other command groups.

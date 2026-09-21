@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/clock"
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // stubAuthenticator records calls and returns a fixed result.

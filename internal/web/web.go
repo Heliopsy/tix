@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 //go:embed templates

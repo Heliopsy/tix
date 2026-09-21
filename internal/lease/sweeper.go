@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/clock"
 )
 
 // DefaultInterval is how often a running sweeper materializes expiry.

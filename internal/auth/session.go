@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/clock"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/id"
+	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/id"
 )
 
 // SessionCookieName is the cookie a browser session token travels in.

@@ -11,10 +11,10 @@ import (
 	// The pure Go driver keeps every build CGO_ENABLED=0.
 	_ "modernc.org/sqlite"
 
-	"github.com/thereisnotime/tix/internal/clock"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
-	"github.com/thereisnotime/tix/internal/store/migrations"
+	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
+	"github.com/heliopsy/tix/internal/store/migrations"
 )
 
 // BusyTimeoutMillis is how long a blocked writer waits for the lock before failing.

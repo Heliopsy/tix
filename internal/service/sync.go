@@ -7,13 +7,13 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/authz"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
-	extsync "github.com/thereisnotime/tix/internal/sync"
-	"github.com/thereisnotime/tix/internal/sync/generic"
-	"github.com/thereisnotime/tix/internal/sync/jira"
-	"github.com/thereisnotime/tix/internal/sync/openproject"
+	"github.com/heliopsy/tix/internal/authz"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
+	extsync "github.com/heliopsy/tix/internal/sync"
+	"github.com/heliopsy/tix/internal/sync/generic"
+	"github.com/heliopsy/tix/internal/sync/jira"
+	"github.com/heliopsy/tix/internal/sync/openproject"
 )
 
 // Event types for external sync.

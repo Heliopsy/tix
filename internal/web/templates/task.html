@@ -24,27 +24,30 @@
       <input id="title" name="title" value="{{$t.Title}}" required>
       <label for="body">Description</label>
       <textarea id="body" name="body" placeholder="Add a description">{{$t.Body}}</textarea>
+      <div class="row">
+        <div>
+          <label for="priority">Priority</label>
+          <select id="priority" name="priority">
+            {{range .Data.Priorities}}<option value="{{.Value}}" {{if eq .Value $t.Priority}}selected{{end}}>{{.Label}}</option>{{end}}
+          </select>
+        </div>
+        <div><label for="assignee">Assignee</label><input id="assignee" name="assignee" value="{{$t.AssigneeActorID}}"></div>
+      </div>
       <div class="actions"><button type="submit">Save</button></div>
     </form>
   </div>
 
+  {{if .Data.Fields}}
   <details class="panel">
-    <summary>More fields</summary>
+    <summary>Edit custom fields</summary>
     <div class="body">
       <form method="post" action="/tasks/{{$t.Ref}}">
         {{template "csrf" .CSRF}}
         <input type="hidden" name="version" value="{{$t.Version}}">
         <input type="hidden" name="title" value="{{$t.Title}}">
         <input type="hidden" name="body" value="{{$t.Body}}">
-        <div class="row">
-          <div>
-            <label for="priority">Priority</label>
-            <select id="priority" name="priority">
-              {{range .Data.Priorities}}<option value="{{.Value}}" {{if eq .Value $t.Priority}}selected{{end}}>{{.Label}}</option>{{end}}
-            </select>
-          </div>
-          <div><label for="assignee">Assignee</label><input id="assignee" name="assignee" value="{{$t.AssigneeActorID}}"></div>
-        </div>
+        <input type="hidden" name="priority" value="{{$t.Priority}}">
+        <input type="hidden" name="assignee" value="{{$t.AssigneeActorID}}">
         {{range .Data.Fields}}
           <label for="field-{{.Def.Key}}">{{.Def.Label}}</label>
           <input id="field-{{.Def.Key}}" name="field.{{.Def.Key}}" value="{{.Value}}">
@@ -53,6 +56,7 @@
       </form>
     </div>
   </details>
+  {{end}}
   {{else}}
   <div class="card">
     <h2>Description</h2>
@@ -101,7 +105,7 @@
     <ul class="plain">
       {{range .Data.Comments}}
       <li class="comment">
-        <p class="byline"><span class="mono" title="{{.AuthorActorID}}">{{actor .AuthorActorID}}</span> &middot; {{compact .CreatedAt}}</p>
+        <p class="byline"><span class="who-name" title="{{.AuthorActorID}}">{{$.Data.Names.Label .AuthorActorID}}</span> &middot; {{compact .CreatedAt}}</p>
         <div>{{.Body}}</div>
         {{if $.Data.CanComment}}
         <details class="panel">
@@ -172,7 +176,7 @@
           {{range .Data.History}}
             <tr>
               <td data-label="When" class="muted">{{compact .Entry.OccurredAt}}</td>
-              <td data-label="Actor" class="mono" title="{{.Entry.ActorID}}">{{actor .Entry.ActorID}}</td>
+              <td data-label="Actor" class="who-name" title="{{.Entry.ActorID}}">{{$.Data.Names.Label .Entry.ActorID}}</td>
               <td data-label="Action">{{.Entry.Action}}</td>
               <td data-label="Source">{{.Entry.Source}}</td>
               <td data-label="Changed" class="muted">{{join .Changed}}</td>
@@ -212,8 +216,8 @@
     <h3>Details</h3>
     <dl class="fields">
       <dt>Project</dt><dd><a href="/projects/{{.Data.ProjectKey}}">{{.Data.ProjectKey}}</a></dd>
-      <dt>Assignee</dt><dd>{{if $t.AssigneeActorID}}<span class="mono">{{$t.AssigneeActorID}}</span>{{else}}<span class="muted">unassigned</span>{{end}}</dd>
-      <dt>Creator</dt><dd class="mono" title="{{$t.CreatorActorID}}">{{actor $t.CreatorActorID}}</dd>
+      <dt>Assignee</dt><dd>{{if $t.AssigneeActorID}}<span class="who-name" title="{{$t.AssigneeActorID}}">{{$.Data.Names.Label $t.AssigneeActorID}}</span>{{else}}<span class="muted">unassigned</span>{{end}}</dd>
+      <dt>Creator</dt><dd class="who-name" title="{{$t.CreatorActorID}}">{{$.Data.Names.Label $t.CreatorActorID}}</dd>
       <dt>Due</dt><dd>{{if $t.DueAt}}{{stamp $t.DueAt}}{{else}}<span class="muted">&mdash;</span>{{end}}</dd>
       <dt>Id</dt><dd class="mono id">{{$t.ID}}</dd>
       <dt>Created</dt><dd class="muted">{{compact $t.CreatedAt}}</dd>

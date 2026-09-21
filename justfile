@@ -3,7 +3,7 @@
 # `just check` runs the fast pre-push gate set.
 # `just ci`    runs the entire CI suite locally in containers, matching GitHub.
 
-module  := "github.com/thereisnotime/tix"
+module  := "github.com/heliopsy/tix"
 binary  := "tix"
 version := `git describe --tags --always --dirty 2>/dev/null || echo "dev"`
 commit  := `git rev-parse --short HEAD 2>/dev/null || echo "none"`

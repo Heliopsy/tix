@@ -5,12 +5,12 @@ import (
 	"context"
 	"sync"
 
-	"github.com/thereisnotime/tix/internal/auth"
-	"github.com/thereisnotime/tix/internal/authz"
-	"github.com/thereisnotime/tix/internal/clock"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/id"
-	"github.com/thereisnotime/tix/internal/store"
+	"github.com/heliopsy/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/authz"
+	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/id"
+	"github.com/heliopsy/tix/internal/store"
 )
 
 // Local is the authoritative implementation of core.Service.
@@ -29,6 +29,10 @@ type Local struct {
 	// allowInsecureWebhooks permits a plaintext delivery target outside
 	// loopback. Deliveries carry task content, so this is opt-in.
 	allowInsecureWebhooks bool
+
+	// noStarterProjects suppresses the starter lists a brand new installation
+	// is given, for an operator who wants an empty one.
+	noStarterProjects bool
 
 	dummyOnce sync.Once
 	dummy     string
@@ -70,6 +74,12 @@ func WithHasher(h *auth.Hasher) Option { return func(l *Local) { l.hasher = h } 
 // a deployment terminating TLS at a proxy.
 func WithInsecureWebhooks(allow bool) Option {
 	return func(l *Local) { l.allowInsecureWebhooks = allow }
+}
+
+// WithoutStarterProjects leaves a brand new installation with only the default
+// list, for an operator installing tix for one purpose.
+func WithoutStarterProjects() Option {
+	return func(l *Local) { l.noStarterProjects = true }
 }
 
 // New builds a Local over a store.

@@ -19,27 +19,33 @@
 </nav>
 {{end}}
 
-{{define "theme-picker"}}
-<form method="post" action="/theme" class="toggle theme">
-  {{template "csrf" .CSRF}}
-  <input type="hidden" name="next" value="{{.Path}}">
-  <label for="theme">Theme</label>
-  <select id="theme" name="theme" onchange="this.form.submit()">
-    <option value="" {{if eq .Theme ""}}selected{{end}}>System</option>
-    <option value="light" {{if eq .Theme "light"}}selected{{end}}>Light</option>
-    <option value="dark" {{if eq .Theme "dark"}}selected{{end}}>Dark</option>
-    <option value="dim" {{if eq .Theme "dim"}}selected{{end}}>Low contrast</option>
-  </select>
-  <noscript><button class="link" type="submit">Apply</button></noscript>
-</form>
-{{end}}
-
-{{define "advanced-toggle"}}
-<form method="post" action="/advanced" class="toggle">
-  {{template "csrf" .CSRF}}
-  <input type="hidden" name="next" value="{{.Path}}">
-  <button class="link" type="submit">{{if .Advanced}}Hide advanced{{else}}Show advanced{{end}}</button>
-</form>
+{{define "settings-menu"}}
+<details class="panel settings">
+  <summary>Settings</summary>
+  <div class="body">
+    <form method="post" action="/theme" class="pref">
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="next" value="{{.Here}}">
+      <label for="theme">Theme</label>
+      <select id="theme" name="theme">
+        <option value="" {{if eq .Theme ""}}selected{{end}}>System</option>
+        <option value="light" {{if eq .Theme "light"}}selected{{end}}>Light</option>
+        <option value="dark" {{if eq .Theme "dark"}}selected{{end}}>Dark</option>
+        <option value="dim" {{if eq .Theme "dim"}}selected{{end}}>Low contrast</option>
+      </select>
+      <div class="actions"><button type="submit">Apply theme</button></div>
+    </form>
+    <form method="post" action="/advanced" class="pref">
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="next" value="{{.Here}}">
+      <p class="muted">The configuration and data screens are {{if .Advanced}}shown{{else}}hidden{{end}}.</p>
+      <div class="actions">
+        <button class="secondary" type="submit">{{if .Advanced}}Hide advanced{{else}}Show advanced{{end}}</button>
+      </div>
+    </form>
+    <p class="muted">Which columns a listing shows is chosen on the listing itself.</p>
+  </div>
+</details>
 {{end}}
 
 {{define "csrf"}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}

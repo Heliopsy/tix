@@ -4,8 +4,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/webhook"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/webhook"
 )
 
 // Validate rejects configuration that cannot be used, naming the offending key.

@@ -3,7 +3,7 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // registerHistoryRoutes binds the audit log, retention and pruning.

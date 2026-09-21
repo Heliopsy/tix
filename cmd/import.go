@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/heliopsy/tix/internal/core"
 	"github.com/spf13/cobra"
-	"github.com/thereisnotime/tix/internal/core"
 )
 
 // importModes are the modes the import command accepts.

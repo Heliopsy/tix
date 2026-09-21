@@ -8,10 +8,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/authz"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
-	"github.com/thereisnotime/tix/internal/transfer"
+	"github.com/heliopsy/tix/internal/authz"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
+	"github.com/heliopsy/tix/internal/transfer"
 )
 
 // auditImport names the audit action an import records for the whole run.

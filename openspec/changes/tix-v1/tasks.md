@@ -175,3 +175,18 @@ ticked, and coverage is at or above 80% (excluding `internal/tui`).
 - [ ] 7.9 WP-52 Cross-transport integration test: direct-database write observed over WebSocket and webhook (the WebSocket half is proved; the webhook half is not, because `internal/integration/outbox_test.go` fans the event out through a test helper and builds the dispatcher in the test body instead of exercising the production path)
 - [ ] 7.10 WP-52 Coverage at or above 80% and the full gate set green
 - [ ] 7.11 WP-52 Repository made public and v0.1.0 tagged
+
+## 8. Wave 8 — Readable identities and a workspace that shows its controls
+
+- [x] 8.1 WP-60 `core.FriendlyName`: deterministic two-word name derived from an identifier
+- [x] 8.2 WP-60 `core.Service.GetActor`: tenant-scoped directory lookup returning naming fields only
+- [x] 8.3 WP-60 CLI `tix actor show`, HTTP `GET /api/v1/actors/{id}`, and the capability registry entry
+- [x] 8.4 WP-60 Browser screens naming actors by handle, falling back to a generated name, identifier on the title
+- [x] 8.5 WP-61 One always-visible settings menu in the sidebar carrying the theme and the advanced toggle
+- [x] 8.6 WP-62 Project listing offering edit, archive and delete per row, governed by the column preference
+- [x] 8.7 WP-63 Activity feed on the current stylesheet vocabulary, with action badges and task references
+- [x] 8.8 WP-63 `assets/live.js` building a live entry in the same shape the server renders
+- [x] 8.9 WP-64 Per-browser list visibility on the task list, storing the hidden set so new lists appear
+- [x] 8.10 WP-65 Priority and assignee in the visible task form, custom fields behind the disclosure
+- [x] 8.11 WP-65 Conflict and permission failures carrying a hint and a way back
+- [x] 8.12 WP-66 Starter projects seeded once, on tenant creation only, each with a colour and an icon

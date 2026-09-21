@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/output"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 )
 
 // Layer names one of the five configuration sources.

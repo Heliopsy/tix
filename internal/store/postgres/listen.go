@@ -5,7 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // eventsChannel is the NOTIFY channel a committing transaction announces on.

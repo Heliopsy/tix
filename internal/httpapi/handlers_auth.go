@@ -3,8 +3,8 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/thereisnotime/tix/internal/auth"
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // LoginRequest carries the credentials of a password login.
@@ -34,6 +34,8 @@ func (rt *Router) registerAuthRoutes() {
 	rt.mux.HandleFunc("POST "+RouteLogin, rt.handleLogin)
 	rt.mux.HandleFunc("POST "+RouteLogout, rt.handleLogout)
 
+	rt.mux.HandleFunc("GET "+RouteActor, rt.handleGetActor)
+
 	rt.mux.HandleFunc("GET "+RouteUsers, rt.handleListUsers)
 	rt.mux.HandleFunc("POST "+RouteUsers, rt.handleCreateUser)
 	rt.mux.HandleFunc("GET "+RouteUser, rt.handleGetUser)
@@ -48,6 +50,16 @@ func (rt *Router) registerAuthRoutes() {
 // handleWhoAmI returns the authenticated actor.
 func (rt *Router) handleWhoAmI(w http.ResponseWriter, r *http.Request) {
 	actor, err := rt.cfg.Service.WhoAmI(r.Context())
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, actor)
+}
+
+// handleGetActor resolves an actor identifier to the identity behind it.
+func (rt *Router) handleGetActor(w http.ResponseWriter, r *http.Request) {
+	actor, err := rt.cfg.Service.GetActor(r.Context(), r.PathValue("id"))
 	if err != nil {
 		WriteError(w, err)
 		return

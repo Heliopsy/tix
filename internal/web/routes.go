@@ -93,6 +93,7 @@ const (
 	RouteAdvanced = "/advanced"
 	RouteTheme    = "/theme"
 	RouteColumns  = "/columns"
+	RouteLists    = "/lists"
 	RouteActivity = "/activity"
 
 	RouteProjects     = "/projects"

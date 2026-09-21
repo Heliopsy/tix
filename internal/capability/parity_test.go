@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thereisnotime/tix/cmd"
-	"github.com/thereisnotime/tix/internal/auth"
-	"github.com/thereisnotime/tix/internal/capability"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/httpapi"
-	"github.com/thereisnotime/tix/internal/web"
+	"github.com/heliopsy/tix/cmd"
+	"github.com/heliopsy/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/capability"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/web"
 )
 
 // serviceMethods returns every exported method of the frozen service contract.

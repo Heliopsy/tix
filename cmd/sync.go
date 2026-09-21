@@ -1,9 +1,9 @@
 package cmd
 
 import (
+	"github.com/heliopsy/tix/internal/core"
+	extsync "github.com/heliopsy/tix/internal/sync"
 	"github.com/spf13/cobra"
-	"github.com/thereisnotime/tix/internal/core"
-	extsync "github.com/thereisnotime/tix/internal/sync"
 )
 
 // newSyncCmd builds the external import command group.

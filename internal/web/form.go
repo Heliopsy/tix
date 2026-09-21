@@ -7,7 +7,7 @@ import (
 
 	"net/http"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // maxUploadBytes bounds the part of a multipart submission kept in memory.

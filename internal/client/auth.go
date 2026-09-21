@@ -5,13 +5,18 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/httpapi"
 )
 
 // WhoAmI returns the actor the server resolved for this credential.
 func (c *Client) WhoAmI(ctx context.Context) (*core.Actor, error) {
 	return call[core.Actor](ctx, c, http.MethodGet, httpapi.RouteWhoAmI, nil, nil)
+}
+
+// GetActor resolves an actor identifier to the identity behind it.
+func (c *Client) GetActor(ctx context.Context, id string) (*core.Actor, error) {
+	return call[core.Actor](ctx, c, http.MethodGet, routePath(httpapi.RouteActor, "id", id), nil, nil)
 }
 
 // CreateUser creates a user.

@@ -1,6 +1,6 @@
 package tui
 
-import "github.com/thereisnotime/tix/internal/core"
+import "github.com/heliopsy/tix/internal/core"
 
 // viewKind names one of the interface's screens.
 type viewKind int

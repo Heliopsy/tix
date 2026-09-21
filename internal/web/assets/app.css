@@ -346,6 +346,28 @@ col.c-when { width: 142px; }
 .badge.p-highest, .badge.p-high { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
 .badge.p-low, .badge.p-lowest { background: var(--bg); color: var(--muted); }
 
+.badge.act-create { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.badge.act-update { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.badge.act-delete { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.badge.act-other { background: var(--bg); color: var(--muted); }
+
+/* An actor reads as a name, not as a serial number; the identifier it stands
+   for is on the element's title. */
+.who-name { color: var(--ink); font-weight: 600; }
+
+/* The activity feed. One row wraps rather than scrolling sideways. */
+.feed > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  max-width: 100%;
+}
+
+.feed .subject { color: var(--ink); }
+.feed .muted, .feed .who-name { font-size: 0.85rem; }
+.feed .who-name { margin-left: auto; }
+
 .tags { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 
 .tag {
@@ -626,40 +648,56 @@ li.task.is-blocked a.task-title { color: var(--muted); }
   .quickadd input[name="title"], .filterbar input { flex: 1 1 100%; }
 }
 
-/* The advanced toggle sits under the navigation. */
+/* Display preferences live in one disclosure under the navigation, so the way
+   to change them is always on screen and never hunted for. It is a plain
+   <details> with plain forms inside: no script takes part. */
 .side-foot { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
-/* The advanced switch read as a caption rather than a control, so nobody
-   found it. It is a button now, and says what it will do. */
-.side-foot .link {
-  display: block;
-  width: 100%;
-  font-size: 0.85rem;
-  text-align: left;
-  padding: 7px 10px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--surface);
-  color: var(--muted);
-  text-decoration: none;
-}
 
-.side-foot .link:hover { border-color: var(--accent); color: var(--accent); }
-.side-foot .theme { margin-top: 10px; }
-.side-foot .theme label { margin: 0 0 3px; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
-.side-foot .theme select { font-size: 0.85rem; padding: 5px 8px; }
-.side-foot .link:hover { color: var(--accent); text-decoration: underline; }
+.side-foot details.panel.settings { background: transparent; border-color: var(--line); }
+.side-foot details.panel.settings > summary { padding: 8px 10px; font-size: 0.85rem; }
+.side-foot details.panel.settings > .body { padding: 0 10px 10px; }
+.side-foot .pref { margin: 0 0 12px; }
+.side-foot .pref:last-of-type { margin-bottom: 0; }
+.side-foot .pref label { margin: 0 0 3px; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.side-foot .pref select { font-size: 0.85rem; padding: 5px 8px; max-width: 100%; }
+.side-foot .pref p.muted { font-size: 0.78rem; margin: 0 0 6px; }
+.side-foot .pref .actions { margin-top: 6px; }
+.side-foot .pref button { width: 100%; font-size: 0.82rem; padding: 6px 10px; }
+.side-foot > .body > p.muted, .side-foot details.panel.settings > .body > p.muted {
+  font-size: 0.75rem;
+  margin: 10px 0 0;
+}
 
 /* Flashes */
+/* A confirmation used to sit in the flow and shove the page down as it
+   appeared, so the row you just ticked moved out from under the pointer. It
+   floats over the content instead and takes no space. */
 .flash {
-  padding: 10px 14px;
-  border-radius: 8px;
+  position: fixed;
+  right: var(--gutter);
+  bottom: var(--gutter);
+  z-index: 20;
+  max-width: min(420px, calc(100vw - 2 * var(--gutter)));
+  margin: 0;
+  padding: 11px 15px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
   background: var(--accent-soft);
   color: var(--accent);
-  margin: 0 0 16px;
   font-size: 0.9rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  animation: flash-in 160ms ease both;
 }
 
-.flash.error { background: var(--danger-soft); color: var(--danger); }
+@keyframes flash-in {
+  from { opacity: 0; transform: translateY(6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flash { animation: none; }
+}
+
+.flash.error { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
 
 /* Sign-in is the one screen without the shell. */
 .auth { max-width: 360px; margin: 12vh auto; padding: 0 var(--gutter); }
@@ -687,3 +725,33 @@ details.panel.columns { margin-bottom: 18px; }
 }
 
 .columnform .actions { margin-top: 12px; }
+
+/* The listing's own controls sit together above it: which columns it shows,
+   and which lists it draws from. Both are plain disclosures. */
+.listprefs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+  max-width: 100%;
+}
+
+.listprefs > details.panel { flex: 1 1 260px; margin-bottom: 0; }
+
+.listform .choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  max-width: 100%;
+}
+
+.listform .choices .listchoice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+  color: var(--ink);
+  margin: 0;
+}
+
+.listform .actions { margin-top: 12px; }

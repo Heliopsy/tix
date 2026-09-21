@@ -4,7 +4,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // Column is one board column: a workflow state and the tasks sitting in it.

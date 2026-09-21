@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/clock"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store/sqlite"
 )
 
 // newEmpty returns a service over a migrated but otherwise empty database, so
@@ -99,8 +99,8 @@ func TestEnsureDefaultsIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListProjects: %v", err)
 	}
-	if len(projects) != 1 {
-		t.Errorf("projects after two runs = %d, want 1", len(projects))
+	if len(projects) != len(starterProjects) {
+		t.Errorf("projects after two runs = %d, want %d", len(projects), len(starterProjects))
 	}
 }
 
@@ -116,8 +116,9 @@ func TestEnsureDefaultsRecordsWhatItCreated(t *testing.T) {
 	if events != audits {
 		t.Errorf("bootstrap wrote %d events and %d audit entries; they must move together", events, audits)
 	}
-	if events != 3 {
-		t.Errorf("bootstrap wrote %d records, want one each for the tenant, the workflow and the project", events)
+	if want := 2 + len(starterProjects); events != want {
+		t.Errorf("bootstrap wrote %d records, want %d: the tenant, the workflow and one per starter list",
+			events, want)
 	}
 }
 
@@ -156,5 +157,124 @@ func TestEnsureDefaultsRefusesADeletedDefaultTenant(t *testing.T) {
 	}
 	if _, err := l.EnsureDefaults(ctx); !core.IsKind(err, core.KindConflict) {
 		t.Errorf("EnsureDefaults after the default tenant was deleted = %v, want conflict", err)
+	}
+}
+
+// A fresh installation opens on a workspace, not on an empty table.
+func TestEnsureDefaultsSeedsTheStarterLists(t *testing.T) {
+	ctx := context.Background()
+	l := newEmpty(t)
+
+	tenant, err := l.EnsureDefaults(ctx)
+	if err != nil {
+		t.Fatalf("EnsureDefaults: %v", err)
+	}
+	admin := core.WithActor(ctx, core.SystemActor(tenant.ID))
+	projects, _, err := l.ListProjects(admin, core.ProjectFilter{})
+	if err != nil {
+		t.Fatalf("ListProjects: %v", err)
+	}
+
+	byKey := map[string]core.Project{}
+	for _, p := range projects {
+		byKey[p.Key] = p
+	}
+	for _, want := range []string{DefaultProjectKey, "work", "homelab", "house"} {
+		p, ok := byKey[want]
+		if !ok {
+			t.Errorf("a fresh installation has no %q list", want)
+			continue
+		}
+		if p.Color == core.ColorNone || p.Icon == "" {
+			t.Errorf("list %q has no colour or icon, so it is not distinguishable", want)
+		}
+	}
+	seen := map[core.ProjectColor]bool{}
+	for _, p := range projects {
+		if seen[p.Color] {
+			t.Errorf("two starter lists share the colour %q", p.Color)
+		}
+		seen[p.Color] = true
+	}
+}
+
+// Seeding is tied to creating the tenant, not to a list being absent, so a
+// list somebody deleted on purpose stays deleted.
+func TestEnsureDefaultsDoesNotResurrectADeletedList(t *testing.T) {
+	ctx := context.Background()
+	l := newEmpty(t)
+
+	tenant, err := l.EnsureDefaults(ctx)
+	if err != nil {
+		t.Fatalf("EnsureDefaults: %v", err)
+	}
+	admin := core.WithActor(ctx, core.SystemActor(tenant.ID))
+	if err := l.DeleteProject(admin, "homelab"); err != nil {
+		t.Fatalf("DeleteProject: %v", err)
+	}
+	if _, err := l.EnsureDefaults(ctx); err != nil {
+		t.Fatalf("second EnsureDefaults: %v", err)
+	}
+	if _, err := l.GetProject(admin, "homelab"); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("a deleted list came back on the next dial: %v", err)
+	}
+}
+
+// An installation that predates the starter lists is left exactly as it is.
+func TestEnsureDefaultsLeavesAnExistingTenantAlone(t *testing.T) {
+	ctx := context.Background()
+	l := newEmpty(t)
+
+	// Stand in for the older shape: the tenant and the workflow exist, and the
+	// only project is the default one.
+	tenant, fresh, err := l.ensureDefaultTenant(ctx)
+	if err != nil || !fresh {
+		t.Fatalf("ensureDefaultTenant = %v, fresh %v", err, fresh)
+	}
+	admin := core.WithActor(ctx, core.SystemActor(tenant.ID))
+	if err := l.write(ctx, core.SystemActor(tenant.ID), func(m *mutation) error {
+		_, err := ensureBuiltinWorkflow(ctx, m)
+		return err
+	}); err != nil {
+		t.Fatalf("seeding the workflow: %v", err)
+	}
+
+	if _, err := l.EnsureDefaults(ctx); err != nil {
+		t.Fatalf("EnsureDefaults: %v", err)
+	}
+	projects, _, err := l.ListProjects(admin, core.ProjectFilter{})
+	if err != nil {
+		t.Fatalf("ListProjects: %v", err)
+	}
+	if len(projects) != 0 {
+		t.Errorf("an existing tenant gained %d lists on upgrade", len(projects))
+	}
+}
+
+// An operator installing tix for one purpose can keep it empty.
+func TestStarterListsAreSuppressible(t *testing.T) {
+	ctx := context.Background()
+	clk := clock.NewFakeAt()
+	st, err := sqlite.Open(filepath.Join(t.TempDir(), "tix.db"), clk)
+	if err != nil {
+		t.Fatalf("opening store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	if err := st.Migrate(ctx); err != nil {
+		t.Fatalf("migrating: %v", err)
+	}
+	l := New(st, WithClock(clk), WithoutStarterProjects())
+
+	tenant, err := l.EnsureDefaults(ctx)
+	if err != nil {
+		t.Fatalf("EnsureDefaults: %v", err)
+	}
+	admin := core.WithActor(ctx, core.SystemActor(tenant.ID))
+	projects, _, err := l.ListProjects(admin, core.ProjectFilter{})
+	if err != nil {
+		t.Fatalf("ListProjects: %v", err)
+	}
+	if len(projects) != 1 || projects[0].Key != DefaultProjectKey {
+		t.Errorf("suppressed starter lists left %d projects, want only %q", len(projects), DefaultProjectKey)
 	}
 }

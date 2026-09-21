@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 	"golang.org/x/crypto/argon2"
 )
 

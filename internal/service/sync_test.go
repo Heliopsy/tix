@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/clock"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
-	extsync "github.com/thereisnotime/tix/internal/sync"
-	"github.com/thereisnotime/tix/internal/sync/jira"
+	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
+	extsync "github.com/heliopsy/tix/internal/sync"
+	"github.com/heliopsy/tix/internal/sync/jira"
 )
 
 const syncMapping = `

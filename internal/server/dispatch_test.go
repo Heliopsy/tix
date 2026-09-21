@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/server"
-	"github.com/thereisnotime/tix/internal/service"
-	"github.com/thereisnotime/tix/internal/webhook"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/server"
+	"github.com/heliopsy/tix/internal/service"
+	"github.com/heliopsy/tix/internal/webhook"
 )
 
 // hookPost is one delivery as the receiving end saw it.

@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // Defaults for the process lifecycle.

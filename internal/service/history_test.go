@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
 )
 
 func seedAuditSubjects(t *testing.T, l *Local, scope core.TenantScope, n int) {

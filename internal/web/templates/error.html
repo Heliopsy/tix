@@ -1,5 +1,6 @@
 {{define "content"}}
 <h1>{{.Data.Heading}}</h1>
 <p class="flash error">{{.Data.Message}}</p>
-<p><a href="/">Back to the dashboard</a></p>
+{{if .Data.Hint}}<p class="lede">{{.Data.Hint}}</p>{{end}}
+<p><a href="{{.Data.Back}}">Back to where you were</a> &middot; <a href="/">Back to the dashboard</a></p>
 {{end}}

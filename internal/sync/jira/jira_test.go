@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	extsync "github.com/thereisnotime/tix/internal/sync"
+	extsync "github.com/heliopsy/tix/internal/sync"
 )
 
 // issuePage is one recorded Jira search answer.

@@ -4,10 +4,10 @@ import (
 	"context"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/authz"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
-	sqlb "github.com/thereisnotime/tix/internal/store/sql"
+	"github.com/heliopsy/tix/internal/authz"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
+	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
 // lookupProject resolves a project by identifier or by key, accepting a key in

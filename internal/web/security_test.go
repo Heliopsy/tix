@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/web"
+	"github.com/heliopsy/tix/internal/web"
 )
 
 func TestCSRFRejection(t *testing.T) {

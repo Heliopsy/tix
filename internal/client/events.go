@@ -10,8 +10,8 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/httpapi"
 )
 
 // Message types exchanged over the event stream.

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // FilterDateLayouts are the timestamp forms a filter term may take.

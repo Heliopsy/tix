@@ -4,10 +4,10 @@ import (
 	"context"
 	"strings"
 
-	"github.com/thereisnotime/tix/internal/authz"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
-	sqlb "github.com/thereisnotime/tix/internal/store/sql"
+	"github.com/heliopsy/tix/internal/authz"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
+	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
 // Event types for the identity records the core vocabulary does not name.
@@ -30,6 +30,11 @@ const defaultUserRole = core.RoleViewer
 
 // userHandle derives the actor handle for a user, falling back to the local
 // part of the email so that every user is addressable without extra input.
+//
+// It deliberately does not fall back to a generated name. An address with no
+// local part is malformed input, and inventing a handle for it would accept
+// the mistake silently; a handle is also a name people type, which a name
+// nobody chose is not.
 func userHandle(handle, email string) string {
 	handle = strings.ToLower(strings.TrimSpace(handle))
 	if handle != "" {

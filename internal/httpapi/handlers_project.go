@@ -3,7 +3,7 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // registerProjectRoutes binds projects, their field definitions and workflows.

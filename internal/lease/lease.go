@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // DefaultTTL is the lease lifetime used when neither the claim nor the

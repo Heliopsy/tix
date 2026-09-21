@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 var fixedTime = time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)

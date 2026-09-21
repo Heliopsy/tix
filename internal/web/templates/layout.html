@@ -18,8 +18,7 @@
     <p class="who">{{.Actor.Handle}}</p>
     {{template "nav" .}}
     <div class="side-foot">
-      {{template "advanced-toggle" .}}
-      {{template "theme-picker" .}}
+      {{template "settings-menu" .}}
     </div>
     <form method="post" action="/logout" class="actions">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">

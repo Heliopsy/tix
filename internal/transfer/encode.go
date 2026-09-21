@@ -5,7 +5,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // Encoder writes a snapshot as one JSON record per line.

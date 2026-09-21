@@ -3,7 +3,7 @@
 ## Getting started
 
 ```sh
-git clone git@github.com:thereisnotime/tix.git
+git clone git@github.com:heliopsy/tix.git
 cd tix
 go mod download
 just build   # outputs bin/tix

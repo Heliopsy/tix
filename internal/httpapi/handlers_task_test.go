@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/thereisnotime/tix/internal/client"
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/client"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/httpapi"
 )
 
 // seedCustomFields defines the fields the custom field filter tests select on.

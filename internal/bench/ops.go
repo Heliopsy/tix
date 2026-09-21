@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/thereisnotime/tix/internal/core"
-	"github.com/thereisnotime/tix/internal/store"
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
 )
 
 // PageLimit is the page size every benchmarked listing asks for.
