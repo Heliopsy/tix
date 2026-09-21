@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -47,9 +48,19 @@ type Config struct {
 	MaxBodyBytes   int64
 	RequestTimeout time.Duration
 
-	// SecureCookies marks the session cookie Secure, which is correct whenever
-	// the server is reached over TLS.
+	// SecureCookies forces the session and CSRF cookies Secure regardless of
+	// the scheme a request arrived on. It is the floor, not the ceiling: a
+	// request whose effective scheme is https gets a Secure cookie anyway.
 	SecureCookies bool
+
+	// CookieSecurity overrides how Secure is decided. The default derives it
+	// from the effective scheme of each request.
+	CookieSecurity string
+
+	// TrustedProxies lists the proxy addresses, as IPs or CIDR blocks, whose
+	// X-Forwarded-Proto and X-Forwarded-For are believed. Leaving it empty
+	// believes neither header from anybody, because any client can send them.
+	TrustedProxies []string
 
 	Probe          DBProbe
 	ExpectedSchema int
@@ -63,9 +74,24 @@ type Config struct {
 	WebHandler http.Handler
 }
 
+// CookieSecurity settings, deciding whether a cookie is marked Secure.
+const (
+	// CookieSecurityAuto follows the effective scheme of each request.
+	CookieSecurityAuto = "auto"
+	// CookieSecurityAlways marks every cookie Secure.
+	CookieSecurityAlways = "always"
+	// CookieSecurityNever marks none, for a deployment that is deliberately
+	// plaintext on a private network.
+	CookieSecurityNever = "never"
+)
+
+// CookieSecurities lists the settings CookieSecurity accepts.
+var CookieSecurities = []string{CookieSecurityAuto, CookieSecurityAlways, CookieSecurityNever}
+
 // Router serves the tix REST API.
 type Router struct {
 	cfg     Config
+	proxies *auth.ProxyPolicy
 	mux     *http.ServeMux
 	handler http.Handler
 }
@@ -91,7 +117,19 @@ func New(cfg Config) (*Router, error) {
 		cfg.RequestTimeout = DefaultRequestTimeout
 	}
 
-	rt := &Router{cfg: cfg, mux: http.NewServeMux()}
+	if cfg.CookieSecurity == "" {
+		cfg.CookieSecurity = CookieSecurityAuto
+	}
+	if !slices.Contains(CookieSecurities, cfg.CookieSecurity) {
+		return nil, core.Invalid("cookie security %q is not one of %s",
+			cfg.CookieSecurity, strings.Join(CookieSecurities, ", "))
+	}
+	proxies, err := auth.NewProxyPolicy(cfg.TrustedProxies)
+	if err != nil {
+		return nil, err
+	}
+
+	rt := &Router{cfg: cfg, proxies: proxies, mux: http.NewServeMux()}
 	rt.register()
 	rt.handler = chain(rt.mux,
 		rt.authenticate,
@@ -101,6 +139,7 @@ func New(cfg Config) (*Router, error) {
 		rt.envelopeMuxErrors,
 		rt.logRequest,
 		rt.withRequestID,
+		rt.withForwarded,
 		rt.recoverPanic,
 	)
 	return rt, nil

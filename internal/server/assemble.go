@@ -21,8 +21,19 @@ import (
 type Options struct {
 	Service core.Service
 	Store   store.Store
-	Logger  *slog.Logger
-	Clock   clock.Clock
+
+	// TrustedProxies lists the proxies whose forwarded headers are believed.
+	// Empty means none, so a forwarded scheme or client address from an
+	// untrusted peer is ignored rather than taken at its word.
+	TrustedProxies []string
+	// CookieSecurity overrides how the Secure attribute is decided.
+	CookieSecurity string
+	// AllowPrivateWebhookTargets lets webhook deliveries reach loopback and
+	// private network addresses. Off by default: a tenant-supplied URL
+	// reaching internal infrastructure is the classic request-forgery shape.
+	AllowPrivateWebhookTargets bool
+	Logger                     *slog.Logger
+	Clock                      clock.Clock
 
 	// TenantID serves requests whose Host maps to no tenant. Leaving it empty
 	// answers an unknown host with not found instead.
@@ -78,7 +89,7 @@ func Assemble(opts Options) (*Server, error) {
 	// isolation boundary rather than reading every tenant at once.
 	hub := httpapi.NewHub()
 	log := eventLog{store: opts.Store}
-	pump := newPumps(context.Background(), hub, log, opts.EventPollInterval)
+	pump := newPumps(context.Background(), hub, log, opts.EventPollInterval, opts.Logger)
 	hub.SetTenantHooks(pump.start, pump.stop)
 
 	router, err := httpapi.New(httpapi.Config{
@@ -91,6 +102,8 @@ func Assemble(opts Options) (*Server, error) {
 		MaxBodyBytes:    opts.MaxBodyBytes,
 		RequestTimeout:  opts.RequestTimeout,
 		SecureCookies:   opts.CertFile != "",
+		TrustedProxies:  opts.TrustedProxies,
+		CookieSecurity:  opts.CookieSecurity,
 		Probe:           opts.Store,
 		ExpectedSchema:  latest,
 	})
@@ -106,7 +119,7 @@ func Assemble(opts Options) (*Server, error) {
 		KeyFile:         opts.KeyFile,
 		AllowInsecure:   opts.AllowInsecure,
 		ShutdownTimeout: opts.ShutdownTimeout,
-		Workers:         workersFor(opts),
+		Workers:         append(workersFor(opts), EventPumpWorker(pump)),
 	})
 }
 
@@ -156,6 +169,11 @@ func workersFor(opts Options) []Worker {
 				}
 				opts.Logger.Error("webhook dispatch failed", "error", err.Error())
 			}),
+			// The dispatcher refuses private network targets unless the
+			// operator allowed them. Without this it would build its own
+			// deny-by-default guard, which is safe but would also refuse a
+			// target an operator deliberately permitted.
+			webhook.WithGuard(webhook.NewGuard(opts.AllowPrivateWebhookTargets)),
 		)
 		workers = append(workers, DispatcherWorker(dispatcher))
 	}

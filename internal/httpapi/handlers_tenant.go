@@ -143,17 +143,31 @@ func (rt *Router) handleAddDomain(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, http.StatusCreated, domain)
 }
 
-// handleRemoveDomain unmaps a hostname.
-// handleResolveDomain maps a hostname to its tenant.
+// handleResolveDomain maps a hostname to the tenant this request is already
+// scoped to.
+//
+// The service call underneath is deliberately unscoped, because the server
+// resolves the Host header before any credential exists. That path is an
+// in-process call from the middleware. Reached as a route it is merely
+// authenticated, so answering it unscoped would let an actor holding nothing
+// but task:read in one tenant read another tenant's record. A hostname of
+// another tenant is therefore reported missing, exactly as an unmapped one is.
 func (rt *Router) handleResolveDomain(w http.ResponseWriter, r *http.Request) {
-	tenant, err := rt.cfg.Service.ResolveDomain(r.Context(), r.PathValue("hostname"))
+	hostname := r.PathValue("hostname")
+	tenant, err := rt.cfg.Service.ResolveDomain(r.Context(), hostname)
 	if err != nil {
 		WriteError(w, err)
+		return
+	}
+	scope, ok := core.TenantFrom(r.Context())
+	if !ok || tenant == nil || tenant.ID != scope.TenantID {
+		WriteError(w, core.NotFound("domain %q", hostname))
 		return
 	}
 	WriteJSON(w, http.StatusOK, tenant)
 }
 
+// handleRemoveDomain unmaps a hostname.
 func (rt *Router) handleRemoveDomain(w http.ResponseWriter, r *http.Request) {
 	if err := rt.cfg.Service.RemoveDomain(r.Context(), r.PathValue("hostname")); err != nil {
 		WriteError(w, err)

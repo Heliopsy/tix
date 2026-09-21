@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -67,25 +69,55 @@ func (r tenantReader) Latest(ctx context.Context) (int64, error) {
 // no way to read every tenant's events at once. Running a reader per listening
 // tenant keeps that property and costs nothing while nobody is subscribed.
 type pumps struct {
-	hub  *httpapi.Hub
-	log  eventLog
-	poll time.Duration
+	hub    *httpapi.Hub
+	log    eventLog
+	poll   time.Duration
+	logger *slog.Logger
+
+	// reader builds the source a tenant's pump tails, so a test can supply one
+	// that fails on demand.
+	reader func(tenantID string) outbox.Reader
+
+	// retryBackoff, retryMax and retryLimit shape how long a pump rides out a
+	// failing database before it gives up and frees the tenant.
+	retryBackoff time.Duration
+	retryMax     time.Duration
+	retryLimit   int
 
 	mu      sync.Mutex
-	running map[string]context.CancelFunc
+	running map[string]*pump
 	ctx     context.Context
+	cancel  context.CancelFunc
 	wg      sync.WaitGroup
 }
 
-func newPumps(ctx context.Context, hub *httpapi.Hub, log eventLog, poll time.Duration) *pumps {
+// pump is one tenant's running reader.
+type pump struct{ cancel context.CancelFunc }
+
+func newPumps(ctx context.Context, hub *httpapi.Hub, log eventLog, poll time.Duration, logger *slog.Logger) *pumps {
 	if poll <= 0 {
 		poll = 250 * time.Millisecond
 	}
-	return &pumps{
-		hub: hub, log: log, poll: poll,
-		running: make(map[string]context.CancelFunc),
-		ctx:     ctx,
+	if logger == nil {
+		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	p := &pumps{
+		hub: hub, log: log, poll: poll, logger: logger,
+		running:      make(map[string]*pump),
+		ctx:          ctx,
+		cancel:       cancel,
+		retryBackoff: outbox.DefaultRetryBackoff,
+		retryMax:     outbox.DefaultMaxBackoff,
+		retryLimit:   outbox.DefaultRetryLimit,
+	}
+	p.reader = func(tenantID string) outbox.Reader {
+		return tenantReader{log: p.log, tenantID: tenantID}
+	}
+	return p
 }
 
 // start runs a reader for tenantID unless one is already running.
@@ -98,12 +130,17 @@ func (p *pumps) start(tenantID string) {
 	if _, ok := p.running[tenantID]; ok {
 		return
 	}
+	if p.ctx.Err() != nil {
+		return
+	}
 	ctx, cancel := context.WithCancel(p.ctx)
-	p.running[tenantID] = cancel
+	cur := &pump{cancel: cancel}
+	p.running[tenantID] = cur
 
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
+		defer p.finish(tenantID, cur)
 		p.run(ctx, tenantID)
 	}()
 }
@@ -111,23 +148,63 @@ func (p *pumps) start(tenantID string) {
 // stop ends the reader for tenantID.
 func (p *pumps) stop(tenantID string) {
 	p.mu.Lock()
-	cancel, ok := p.running[tenantID]
+	cur, ok := p.running[tenantID]
 	delete(p.running, tenantID)
 	p.mu.Unlock()
 	if ok {
-		cancel()
+		cur.cancel()
+	}
+}
+
+// finish releases a reader that ended on its own, so the next listener on that
+// tenant starts a fresh one instead of being refused by a stale entry.
+func (p *pumps) finish(tenantID string, cur *pump) {
+	cur.cancel()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.running[tenantID] == cur {
+		delete(p.running, tenantID)
 	}
 }
 
 func (p *pumps) run(ctx context.Context, tenantID string) {
-	tailer := outbox.NewTailer(tenantReader{log: p.log, tenantID: tenantID}, p.poll, 256)
+	tailer := outbox.NewTailer(p.reader(tenantID), p.poll, 256,
+		outbox.WithRetry(p.retryBackoff, p.retryMax, p.retryLimit),
+		outbox.WithErrorHandler(func(err error) {
+			p.logger.Error("tenant event reader failed", "tenant", tenantID, "error", err.Error())
+		}),
+	)
 	events, err := tailer.Subscribe(ctx, core.EventFilter{})
 	if err != nil {
+		p.logger.Error("tenant event reader did not start", "tenant", tenantID, "error", err.Error())
 		return
 	}
 	for e := range events {
 		p.hub.Broadcast(e)
 	}
+	if ctx.Err() == nil {
+		p.logger.Warn("tenant event reader ended; it restarts on the next connection", "tenant", tenantID)
+	}
+}
+
+// serve ties the readers to the caller's lifecycle, stopping every one of them
+// once ctx is done.
+func (p *pumps) serve(ctx context.Context) error {
+	<-ctx.Done()
+	p.shutdown()
+	return nil
+}
+
+// shutdown cancels every reader, including any started concurrently, and waits.
+func (p *pumps) shutdown() {
+	p.cancel()
+	p.mu.Lock()
+	for tenantID, cur := range p.running {
+		cur.cancel()
+		delete(p.running, tenantID)
+	}
+	p.mu.Unlock()
+	p.wg.Wait()
 }
 
 // wait blocks until every reader has stopped.

@@ -75,3 +75,62 @@ func TestCheckNetworkFSLocalDir(t *testing.T) {
 		t.Fatalf("CheckNetworkFS(%q) refused a plain temp directory: %+v", dbPath, dec)
 	}
 }
+
+// TestResolveDirMakesARelativePathAbsolute pins the miss: `tix --db tix.db`
+// handed filepath.Dir "." straight to the mount lookup, where it matched the
+// root mount and reported the root filesystem instead of the one the working
+// directory sits on.
+func TestResolveDirMakesARelativePathAbsolute(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	got := resolveDir("tix.db")
+	if !filepath.IsAbs(got) {
+		t.Fatalf("resolveDir(%q) = %q, want an absolute path", "tix.db", got)
+	}
+	want, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Errorf("resolveDir(%q) = %q, want %q", "tix.db", got, want)
+	}
+}
+
+// TestResolveDirFollowsSymlinks pins the other half: a path belongs to the
+// mount of the symlink's target, not of the link.
+func TestResolveDirFollowsSymlinks(t *testing.T) {
+	target := t.TempDir()
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks are unavailable here: %v", err)
+	}
+	want, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := resolveDir(filepath.Join(link, "tix.db")); got != want {
+		t.Errorf("resolveDir through a symlink = %q, want %q", got, want)
+	}
+}
+
+// TestResolveDirKeepsADirectoryThatDoesNotExistYet checks that a database
+// about to be created still resolves through its existing symlinked
+// ancestor, rather than falling back to the unresolved path.
+func TestResolveDirKeepsADirectoryThatDoesNotExistYet(t *testing.T) {
+	target := t.TempDir()
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks are unavailable here: %v", err)
+	}
+	resolved, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := filepath.Join(resolved, "new", "nested")
+	if got := resolveDir(filepath.Join(link, "new", "nested", "tix.db")); got != want {
+		t.Errorf("resolveDir of a directory that does not exist yet = %q, want %q", got, want)
+	}
+}

@@ -44,6 +44,10 @@ type Config struct {
 	ReadHeaderTimeout time.Duration
 
 	Workers []Worker
+
+	// WorkerRestartDelay paces the restart of a worker that panicked. Zero
+	// uses DefaultWorkerRestartDelay; a negative value restarts immediately.
+	WorkerRestartDelay time.Duration
 }
 
 // Server owns the listener, the HTTP server and the background workers.

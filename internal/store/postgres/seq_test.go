@@ -140,6 +140,7 @@ func TestMigrationResumesAboveExistingTasks(t *testing.T) {
 		"ALTER TABLE projects DROP COLUMN seq_counter",
 		"ALTER TABLE projects DROP COLUMN color",
 		"ALTER TABLE projects DROP COLUMN icon",
+		"DROP INDEX idx_tasks_urgency",
 		"DELETE FROM schema_migrations WHERE version > 1",
 	} {
 		if _, err := s.db.ExecContext(ctx, stmt); err != nil {

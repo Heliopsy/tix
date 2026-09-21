@@ -299,3 +299,66 @@ func TestAllowedMirrorsCan(t *testing.T) {
 		}
 	}
 }
+
+// A project-pinned token used to be confined only when the call site happened
+// to name a project, so it could export the whole tenant, read the tenant's
+// audit log, mint itself an unpinned token and write tenant-wide state. Nothing
+// outside the confinable set may be reached by a pinned token at all.
+func TestProjectPinnedTokenCannotReachTenantWideActions(t *testing.T) {
+	p := New()
+	tenantWide := []Action{
+		ActionExport, ActionImport, ActionAuditRead, ActionEventSubscribe,
+		ActionTokenAdmin, ActionUserAdmin, ActionWebhookAdmin, ActionTenantAdmin,
+		ActionSyncAdmin, ActionRetentionWrite, ActionWorkflowWrite,
+	}
+	for _, action := range tenantWide {
+		actor := scopeActor(core.ScopeAll)
+		actor.ProjectID = projA
+		for _, res := range []Resource{{}, {TenantID: tenantA}, {TenantID: tenantA, ProjectID: projA}} {
+			err := p.Can(actor, action, res)
+			if !core.IsKind(err, core.KindForbidden) {
+				t.Errorf("pinned token allowed %q on %+v (err=%v)", action, res, err)
+			}
+		}
+		if unpinned := scopeActor(core.ScopeAll); p.Can(unpinned, action, Resource{TenantID: tenantA}) != nil {
+			t.Errorf("unpinned token denied %q", action)
+		}
+	}
+}
+
+// The confinable actions stay available to a pinned token inside its project,
+// or pinning a token would make it useless rather than confined.
+func TestProjectPinnedTokenKeepsItsOwnProject(t *testing.T) {
+	p := New()
+	for _, action := range Actions() {
+		if !action.ProjectConfinable() {
+			continue
+		}
+		actor := scopeActor(core.ScopeAll)
+		actor.ProjectID = projA
+		if err := p.Can(actor, action, Resource{TenantID: tenantA, ProjectID: projA}); err != nil {
+			t.Errorf("pinned token denied %q inside its own project: %v", action, err)
+		}
+		if err := p.Can(actor, action, Resource{TenantID: tenantA, ProjectID: projB}); !core.IsKind(err, core.KindForbidden) {
+			t.Errorf("pinned token allowed %q in another project (err=%v)", action, err)
+		}
+	}
+}
+
+// Every action is classified, so a new action is tenant-wide by default rather
+// than silently reachable by a pinned token.
+func TestEveryActionIsClassifiedForConfinement(t *testing.T) {
+	for _, a := range Actions() {
+		if _, named := projectConfinable[a]; !named && a.ProjectConfinable() {
+			t.Errorf("action %q is confinable without being named", a)
+		}
+	}
+	if Action("task.nope").ProjectConfinable() {
+		t.Error("an unknown action reported itself confinable")
+	}
+	for a := range projectConfinable {
+		if !slices.Contains(Actions(), a) {
+			t.Errorf("confinable set names unknown action %q", a)
+		}
+	}
+}

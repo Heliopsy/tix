@@ -72,6 +72,42 @@ var actionScopes = map[Action]core.Scope{
 	ActionRetentionWrite: core.ScopeTenantAdmin,
 }
 
+// projectConfinable enumerates the actions a project-pinned API token may
+// still perform, because everything they reach belongs to one project and the
+// policy can hold the token inside its own.
+//
+// It is an allow list on purpose. Confinement used to depend on each call site
+// remembering to name a project, which made it opt-in and left a pinned token
+// able to export the tenant, read the tenant's audit log and mint itself an
+// unpinned token. Anything absent here reaches tenant-wide state, so a pinned
+// token is refused it outright rather than trusted to have been passed a
+// project identifier.
+//
+// Workflow definitions are tenant-wide configuration a pinned agent must read
+// to drive its own project's tasks, so reading them is confinable while
+// rewriting them, which changes every project, is not.
+var projectConfinable = map[Action]bool{
+	ActionTaskRead:       true,
+	ActionTaskCreate:     true,
+	ActionTaskUpdate:     true,
+	ActionTaskTransition: true,
+	ActionTaskClaim:      true,
+	ActionTaskDelete:     true,
+
+	ActionProjectRead:  true,
+	ActionProjectWrite: true,
+
+	ActionWorkflowRead: true,
+
+	ActionFieldWrite:    true,
+	ActionCommentWrite:  true,
+	ActionArtifactWrite: true,
+}
+
+// ProjectConfinable reports whether a project-pinned token may perform the
+// action at all. An unknown action is not confinable.
+func (a Action) ProjectConfinable() bool { return projectConfinable[a] }
+
 // allActions is the action vocabulary in a stable order.
 var allActions = []Action{
 	ActionTaskRead, ActionTaskCreate, ActionTaskUpdate, ActionTaskTransition,

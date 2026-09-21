@@ -182,3 +182,62 @@ func TestNewSessionCookie(t *testing.T) {
 		t.Fatalf("unexpected cleared cookie %+v", cleared)
 	}
 }
+
+// TestSessionVerifierFollowsMembership pins that authority comes from the
+// membership the lookup reports now, never from the role the session was
+// minted with: a demotion lands on the next request, and an actor removed from
+// the tenant is left holding nothing.
+func TestSessionVerifierFollowsMembership(t *testing.T) {
+	clk := clock.NewFakeAt()
+	store := newSessionStore()
+	v := NewSessionVerifier(store, clk)
+	minted := mintSessionInto(t, store, clk)
+	stored := store.byHash[minted.Stored.TokenHash]
+
+	t.Run("demotion applies", func(t *testing.T) {
+		stored.Role = core.RoleViewer
+		actor, err := v.Verify(context.Background(), minted.Session.Token)
+		if err != nil {
+			t.Fatalf("verify: %v", err)
+		}
+		if actor.Role != core.RoleViewer {
+			t.Fatalf("role = %q, want %q", actor.Role, core.RoleViewer)
+		}
+		if actor.HasScope(core.ScopeUserAdmin) {
+			t.Fatal("a demoted session kept administrative scope")
+		}
+	})
+
+	t.Run("removed member holds nothing", func(t *testing.T) {
+		stored.Role = ""
+		actor, err := v.Verify(context.Background(), minted.Session.Token)
+		if err != nil {
+			t.Fatalf("verify: %v", err)
+		}
+		for _, scope := range core.AllScopes {
+			if actor.HasScope(scope) {
+				t.Fatalf("an actor with no membership still holds %q", scope)
+			}
+		}
+	})
+
+	// mintSessionInto mints with RoleMember, so a verifier answering RoleViewer
+	// can only be reading what the lookup reports now.
+	t.Run("the minted role is never the answer", func(t *testing.T) {
+		stored.Role = core.RoleViewer
+		actor, err := v.Verify(context.Background(), minted.Session.Token)
+		if err != nil {
+			t.Fatalf("verify: %v", err)
+		}
+		if actor.Role != core.RoleViewer {
+			t.Fatalf("role = %q, want the current %q", actor.Role, core.RoleViewer)
+		}
+	})
+
+	t.Run("unknown role is refused", func(t *testing.T) {
+		stored.Role = core.Role("superuser")
+		if _, err := v.Verify(context.Background(), minted.Session.Token); !core.IsKind(err, core.KindUnauthenticated) {
+			t.Fatalf("a session carrying an unknown role was accepted: %v", err)
+		}
+	})
+}

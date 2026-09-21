@@ -89,3 +89,34 @@ func TestParseOctal3RefusesAValueLargerThanAByte(t *testing.T) {
 		}
 	}
 }
+
+// TestLongestMatchingMountPrefersTheLastOfEqualLengthMountPoints pins the
+// overmount: /proc/mounts lists the covering mount after the one it covers,
+// and the kernel resolves the path to the last one, so taking the first of
+// equal length reported nfs4 for a directory the kernel resolves on ext4.
+func TestLongestMatchingMountPrefersTheLastOfEqualLengthMountPoints(t *testing.T) {
+	mounts := []mountEntry{
+		{mountPoint: "/", fsType: "ext4"},
+		{mountPoint: "/data", fsType: "nfs4"},
+		{mountPoint: "/data", fsType: "ext4"},
+	}
+	fstype, ok := longestMatchingMount(mounts, "/data/tix")
+	if !ok || fstype != "ext4" {
+		t.Errorf("longestMatchingMount(%q) = (%q, %v), want (%q, true)", "/data/tix", fstype, ok, "ext4")
+	}
+}
+
+// TestIsPathUnderRejectsARelativePath pins the unconditional root match: a
+// relative directory is under no mount point, so the caller falls through to
+// a check that can actually resolve it instead of being told "the root
+// filesystem" for a path anywhere on disk.
+func TestIsPathUnderRejectsARelativePath(t *testing.T) {
+	for _, dir := range []string{".", "tix", "./sub/dir"} {
+		if isPathUnder(dir, "/") {
+			t.Errorf("isPathUnder(%q, %q) = true, want false", dir, "/")
+		}
+	}
+	if !isPathUnder("/data/tix", "/") {
+		t.Error(`isPathUnder("/data/tix", "/") = false, want true`)
+	}
+}

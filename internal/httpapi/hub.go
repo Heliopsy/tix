@@ -15,6 +15,13 @@ const maxPendingEvents = 1024
 
 // Hub fans committed events out to the connections entitled to receive them.
 type Hub struct {
+	// hookMu is held across a tenant count transition and the hook that
+	// transition triggers, so two connections changing the same tenant can
+	// never deliver their hooks in the opposite order to their counts. The
+	// hooks themselves run outside mu: they are caller-supplied, they may
+	// block, and a hook that read the hub back under mu would deadlock.
+	hookMu sync.Mutex
+
 	mu      sync.RWMutex
 	conns   map[*wsConn]struct{}
 	tenants map[string]int
@@ -31,6 +38,7 @@ func NewHub() *Hub {
 // SetTenantHooks registers callbacks fired when a tenant gains its first
 // connection and loses its last. Events are read per tenant, so a caller uses
 // these to run exactly one reader per tenant that anyone is listening to.
+// A hook must not register or unregister a connection itself.
 func (h *Hub) SetTenantHooks(onFirst, onLast func(tenantID string)) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -39,6 +47,9 @@ func (h *Hub) SetTenantHooks(onFirst, onLast func(tenantID string)) {
 
 // Register adds a connection to the fan-out set.
 func (h *Hub) Register(c *wsConn) {
+	h.hookMu.Lock()
+	defer h.hookMu.Unlock()
+
 	h.mu.Lock()
 	h.conns[c] = struct{}{}
 	tenant, first, hook := h.trackLocked(c, 1)
@@ -50,6 +61,7 @@ func (h *Hub) Register(c *wsConn) {
 
 // Unregister removes a connection and discards its subscriptions.
 func (h *Hub) Unregister(c *wsConn) {
+	h.hookMu.Lock()
 	h.mu.Lock()
 	delete(h.conns, c)
 	tenant, last, hook := h.trackLocked(c, -1)
@@ -57,6 +69,8 @@ func (h *Hub) Unregister(c *wsConn) {
 	if last && hook != nil {
 		hook(tenant)
 	}
+	h.hookMu.Unlock()
+
 	c.dropSubs()
 }
 
@@ -75,6 +89,13 @@ func (h *Hub) trackLocked(c *wsConn, delta int) (tenant string, crossed bool, ho
 	}
 	h.tenants[tenant] = after
 	return tenant, before == 0, h.onFirst
+}
+
+// tenantCount reports how many connections the tenant currently has.
+func (h *Hub) tenantCount(tenantID string) int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.tenants[tenantID]
 }
 
 // Len reports how many connections are registered.

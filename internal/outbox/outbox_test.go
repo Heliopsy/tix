@@ -2,6 +2,8 @@ package outbox
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -251,5 +253,164 @@ func TestAppendRejectsIncompleteEvents(t *testing.T) {
 				t.Error("expected an error")
 			}
 		})
+	}
+}
+
+// flakyReader fails its first failures reads, then behaves.
+type flakyReader struct {
+	fakeReader
+
+	failMu   sync.Mutex
+	failures int
+	seen     int
+	always   bool
+	err      error
+}
+
+func (f *flakyReader) ReadSince(ctx context.Context, since int64, limit int) ([]core.Event, error) {
+	f.failMu.Lock()
+	fail := f.always || f.seen < f.failures
+	f.seen++
+	f.failMu.Unlock()
+	if fail {
+		return nil, f.err
+	}
+	return f.fakeReader.ReadSince(ctx, since, limit)
+}
+
+func (f *flakyReader) reads() int {
+	f.failMu.Lock()
+	defer f.failMu.Unlock()
+	return f.seen
+}
+
+// A read failure is usually a busy database, not a dead one. Returning on the
+// first error left the tenant with no reader and nothing to restart it, so the
+// stream went quiet forever with no error anywhere.
+func TestSubscribeRetriesATransientReadFailure(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	r := &flakyReader{failures: 3, err: errors.New("database is locked")}
+	r.add(core.Event{Type: core.EventTaskCreated, SubjectType: "task", SubjectID: "t1"})
+
+	reported := make(chan error, 8)
+	ch, err := NewTailer(r, time.Millisecond, 10,
+		WithRetry(0, 0, 0),
+		WithErrorHandler(func(err error) { reported <- err }),
+	).Subscribe(ctx, core.EventFilter{SinceSeq: 0})
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+
+	r.add(core.Event{Type: core.EventTaskCreated, SubjectType: "task", SubjectID: "t2"})
+
+	select {
+	case got := <-ch:
+		if got.SubjectID != "t2" {
+			t.Errorf("delivered %q, want the event committed after the failures", got.SubjectID)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the stream never recovered from a transient read failure")
+	}
+
+	if len(reported) == 0 {
+		t.Error("a read failure was swallowed instead of reported")
+	}
+	for range len(reported) {
+		if err := <-reported; err == nil || !strings.Contains(err.Error(), "database is locked") {
+			t.Errorf("reported error = %v, want the reader's cause", err)
+		}
+	}
+}
+
+// A reader that never recovers must give up loudly and close its channel,
+// rather than spinning or dying in silence.
+func TestSubscribeGivesUpLoudlyOnAPermanentFailure(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	r := &flakyReader{always: true, err: errors.New("schema is missing")}
+	reported := make(chan error, 16)
+	ch, err := NewTailer(r, time.Millisecond, 10,
+		WithRetry(0, 0, 4),
+		WithErrorHandler(func(err error) { reported <- err }),
+	).Subscribe(ctx, core.EventFilter{SinceSeq: 1})
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+
+	select {
+	case _, ok := <-ch:
+		if ok {
+			t.Fatal("a failing reader delivered an event")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the stream neither recovered nor gave up")
+	}
+
+	if got := r.reads(); got != 4 {
+		t.Errorf("reads before giving up = %d, want 4", got)
+	}
+	var fatal bool
+	close(reported)
+	var count int
+	for err := range reported {
+		count++
+		if strings.Contains(err.Error(), "giving up") {
+			fatal = true
+		}
+	}
+	if count == 0 {
+		t.Error("the failures were never reported")
+	}
+	if !fatal {
+		t.Error("giving up on the stream was never reported")
+	}
+}
+
+// Backoff grows per consecutive failure and stops at the ceiling.
+func TestTailerBackoffGrowsToItsCeiling(t *testing.T) {
+	tl := NewTailer(&fakeReader{}, time.Millisecond, 10, WithRetry(time.Second, 4*time.Second, 5))
+	want := []time.Duration{time.Second, 2 * time.Second, 4 * time.Second, 4 * time.Second}
+	for i, w := range want {
+		if got := tl.backoffFor(i + 1); got != w {
+			t.Errorf("backoffFor(%d) = %v, want %v", i+1, got, w)
+		}
+	}
+}
+
+func TestTailerRetryDefaults(t *testing.T) {
+	tl := NewTailer(&fakeReader{}, 0, 0)
+	if tl.retryLimit != DefaultRetryLimit || tl.backoff != DefaultRetryBackoff || tl.maxBackoff != DefaultMaxBackoff {
+		t.Errorf("retry defaults = %d/%v/%v", tl.retryLimit, tl.backoff, tl.maxBackoff)
+	}
+	if tl.onError == nil {
+		t.Error("a tailer must always have an error handler")
+	}
+	tl.onError(errors.New("boom"))
+}
+
+// A cancelled context ends the stream without reporting the cancellation as a
+// read failure.
+func TestSubscribeStopsQuietlyWhenCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	r := &flakyReader{always: true, err: context.Canceled}
+	reported := make(chan error, 4)
+	ch, err := NewTailer(r, time.Millisecond, 10,
+		WithRetry(time.Hour, time.Hour, 0),
+		WithErrorHandler(func(err error) { reported <- err }),
+	).Subscribe(ctx, core.EventFilter{SinceSeq: 1})
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	cancel()
+	select {
+	case _, ok := <-ch:
+		if ok {
+			t.Fatal("a cancelled stream delivered an event")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("cancelling the context did not end the stream")
 	}
 }

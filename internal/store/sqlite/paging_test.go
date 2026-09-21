@@ -298,3 +298,124 @@ func indexOfID(tasks []core.Task, id string) int {
 	}
 	return -1
 }
+
+// dueCursor renders the cursor a client carries from one page of the due-date
+// ordering to the next. An undated task carries the sentinel, exactly as the
+// SQL COALESCE renders it: a bare NULL there makes the keyset predicate NULL,
+// which is never true, so every undated task would be dropped.
+func dueCursor(task core.Task, dir core.SortDirection) string {
+	due := sqlb.NoDueSentinel
+	if task.DueAt != nil {
+		due = sqlb.TimeText(*task.DueAt)
+	}
+	return core.Cursor{
+		SortValue: due,
+		ID:        task.ID,
+		Sort:      core.SortDueAt,
+		Direction: dir,
+	}.Encode()
+}
+
+// TestDueAtKeysetPaginationCoversEveryRowExactlyOnce pins the silent drop:
+// with a bare due_at column an undated task never satisfied the keyset
+// predicate, so ascending lost them after the first page and descending lost
+// every one of them, differently on each engine because SQLite and PostgreSQL
+// order NULLs the other way round.
+func TestDueAtKeysetPaginationCoversEveryRowExactlyOnce(t *testing.T) {
+	ctx := context.Background()
+	s, clk := newStore(t)
+	f := seed(t, s, clk, "acme")
+
+	dueOn := func(day int) *time.Time {
+		d := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, day)
+		return &d
+	}
+	dues := []*time.Time{dueOn(2), nil, dueOn(0), nil, dueOn(3), nil, dueOn(1), nil}
+
+	created := make([]core.Task, 0, len(dues))
+	for i, due := range dues {
+		task := core.Task{
+			ProjectID:      f.project.ID,
+			Title:          fmt.Sprintf("task-%02d", i),
+			Status:         "todo",
+			Priority:       core.PriorityNormal,
+			DueAt:          due,
+			CreatorActorID: f.actor.ID,
+		}
+		if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+			return tx.CreateTask(ctx, &task)
+		}); err != nil {
+			t.Fatalf("creating task %d: %v", i, err)
+		}
+		created = append(created, task)
+	}
+
+	dueKey := func(task core.Task) string {
+		if task.DueAt == nil {
+			return sqlb.NoDueSentinel
+		}
+		return sqlb.TimeText(*task.DueAt)
+	}
+	asc := append([]core.Task{}, created...)
+	sort.SliceStable(asc, func(i, j int) bool {
+		a, b := dueKey(asc[i]), dueKey(asc[j])
+		if a != b {
+			return a < b
+		}
+		return asc[i].ID < asc[j].ID
+	})
+	desc := make([]core.Task, len(asc))
+	for i, task := range asc {
+		desc[len(asc)-1-i] = task
+	}
+
+	for _, tc := range []struct {
+		dir  core.SortDirection
+		want []core.Task
+	}{
+		{core.Ascending, asc},
+		{core.Descending, desc},
+	} {
+		tc := tc
+		t.Run(string(tc.dir), func(t *testing.T) {
+			var (
+				seen   []string
+				unique = map[string]bool{}
+				cursor string
+			)
+			for page := 0; page < len(tc.want); page++ {
+				var batch []core.Task
+				err := s.View(ctx, f.scope, func(tx store.Tx) error {
+					var err error
+					batch, err = tx.ListTasks(ctx, core.TaskFilter{Page: core.Page{
+						Limit: 2, Cursor: cursor, Sort: core.SortDueAt, Direction: tc.dir,
+					}})
+					return err
+				})
+				if err != nil {
+					t.Fatalf("listing page %d: %v", page, err)
+				}
+				if len(batch) == 0 {
+					break
+				}
+				for _, task := range batch {
+					if unique[task.ID] {
+						t.Fatalf("task %q appeared on more than one page", task.ID)
+					}
+					unique[task.ID] = true
+					seen = append(seen, task.ID)
+				}
+				cursor = dueCursor(batch[len(batch)-1], tc.dir)
+			}
+
+			if len(seen) != len(tc.want) {
+				t.Fatalf("saw %d of %d tasks across every page; the undated ones were dropped", len(seen), len(tc.want))
+			}
+			for i := range tc.want {
+				if seen[i] != tc.want[i].ID {
+					t.Fatalf("row %d = %q, want %q (due=%v)", i, seen[i], tc.want[i].ID, tc.want[i].DueAt)
+				}
+			}
+		})
+	}
+}

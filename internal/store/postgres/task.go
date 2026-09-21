@@ -30,16 +30,19 @@ var taskSortColumns = map[string]string{
 	core.SortCreatedAt: "tasks.created_at",
 	core.SortUpdatedAt: "tasks.updated_at",
 	core.SortPriority:  "tasks.priority",
-	core.SortDueAt:     "tasks.due_at",
+	core.SortDueAt:     dueColumn,
 	core.SortSeq:       "tasks.seq",
 	core.SortTitle:     "tasks.title",
 }
 
-// urgencyDueColumn is the second key of the urgency ordering: due date, with
-// a task carrying no deadline coalesced to the distant future so it sorts
-// after every dated task at the same priority rather than before or among
-// them, which is what NULL-first or dialect-default NULL ordering would do.
-const urgencyDueColumn = "COALESCE(tasks.due_at, '" + sqlb.NoDueSentinel + "')"
+// dueColumn orders by due date with a task carrying no deadline coalesced to
+// the distant future, so it sorts after every dated task rather than before
+// or among them, which is what NULL-first or dialect-default NULL ordering
+// would do. Ordering on the bare column also dropped undated rows outright,
+// because a keyset predicate against NULL is NULL and so never true. It is
+// the second key of the urgency ordering and the only key of the due-date
+// ordering.
+const dueColumn = "COALESCE(tasks.due_at, '" + sqlb.NoDueSentinel + "')"
 
 // resolveTaskPage extends resolvePage with the second key the urgency
 // ordering needs; every other task ordering has one sort key.
@@ -49,7 +52,7 @@ func resolveTaskPage(p core.Page) (pageSpec, error) {
 		return pageSpec{}, err
 	}
 	if p.Sort == core.SortUrgency {
-		spec.column2 = urgencyDueColumn
+		spec.column2 = dueColumn
 	}
 	return spec, nil
 }

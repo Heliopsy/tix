@@ -126,8 +126,10 @@ func (s *Store) View(ctx context.Context, scope core.TenantScope, fn func(store.
 	if err != nil {
 		return err
 	}
+	// Rollback is a no-op once the transaction is finished, so this releases
+	// the connection however fn leaves: returning, or panicking.
+	defer func() { _ = t.Rollback() }()
 	if err := fn(t); err != nil {
-		_ = t.Rollback()
 		return err
 	}
 	return t.Commit()
@@ -142,8 +144,10 @@ func (s *Store) Update(ctx context.Context, scope core.TenantScope, fn func(stor
 	if err != nil {
 		return err
 	}
+	// Rollback is a no-op once the transaction is finished, so this releases
+	// the connection however fn leaves: returning, or panicking.
+	defer func() { _ = t.Rollback() }()
 	if err := fn(t); err != nil {
-		_ = t.Rollback()
 		return err
 	}
 	return t.Commit()
@@ -155,8 +159,8 @@ func (s *Store) Unscoped(ctx context.Context, fn func(store.UnscopedTx) error) e
 	if err != nil {
 		return err
 	}
+	defer func() { _ = t.Rollback() }()
 	if err := fn(t); err != nil {
-		_ = t.Rollback()
 		return err
 	}
 	return t.Commit()

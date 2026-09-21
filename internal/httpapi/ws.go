@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -92,6 +93,12 @@ func NewEventStream(hub *Hub, log EventLog) *EventStream {
 	}
 }
 
+// closeCredentialGone is the reason a stream whose credential stopped being
+// valid is closed with. It names no account and no reason beyond the fact.
+// #nosec G101 -- a close reason shown to a client, not a credential; the
+// scanner matches on the identifier containing "Credential".
+const closeCredentialGone = "the credential behind this stream is no longer valid; reconnect"
+
 // ServeHTTP authenticates at upgrade time and then runs the connection.
 func (s *EventStream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	actor, ok := core.ActorFrom(r.Context())
@@ -113,11 +120,44 @@ func (s *EventStream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	c := newConn(actor, s.queue)
 	s.hub.Register(c)
 	defer s.hub.Unregister(c)
-	s.run(r.Context(), ws, c)
+	revalidate, _ := RevalidateFrom(r.Context())
+	s.run(r.Context(), ws, c, revalidate)
+}
+
+// stillValid reports whether the credential the stream was opened with still
+// resolves to the same authority.
+//
+// A revoked token, an ended session, an expired session and a role change all
+// happen after the upgrade, and none of them reach a connection that only ever
+// authenticated once. The actor is compared rather than replaced, because the
+// hub reads it from another goroutine: a stream whose authority moved in any
+// direction is closed, and the client reconnects under what it holds now.
+func stillValid(ctx context.Context, c *wsConn, revalidate Revalidate) bool {
+	if revalidate == nil {
+		return true
+	}
+	fresh, err := revalidate(ctx)
+	if err != nil || fresh == nil {
+		return false
+	}
+	return sameAuthority(c.actor, fresh)
+}
+
+// sameAuthority reports whether two resolutions of one credential grant the same.
+func sameAuthority(a, b *core.Actor) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	return a.ID == b.ID &&
+		a.TenantID == b.TenantID &&
+		a.Role == b.Role &&
+		a.TokenID == b.TokenID &&
+		a.ProjectID == b.ProjectID &&
+		slices.Equal(a.Scopes, b.Scopes)
 }
 
 // run pairs the read loop with a single writer and tears both down together.
-func (s *EventStream) run(ctx context.Context, ws *websocket.Conn, c *wsConn) {
+func (s *EventStream) run(ctx context.Context, ws *websocket.Conn, c *wsConn, revalidate Revalidate) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -126,7 +166,7 @@ func (s *EventStream) run(ctx context.Context, ws *websocket.Conn, c *wsConn) {
 	go func() {
 		defer wg.Done()
 		defer cancel()
-		s.writeLoop(ctx, ws, c)
+		s.writeLoop(ctx, ws, c, revalidate)
 	}()
 
 	s.readLoop(ctx, ws, c)
@@ -254,7 +294,13 @@ func (s *EventStream) replay(ctx context.Context, c *wsConn, sub *subscription) 
 }
 
 // writeLoop is the only writer on the socket, pinging while it waits for work.
-func (s *EventStream) writeLoop(ctx context.Context, ws *websocket.Conn, c *wsConn) {
+//
+// The credential is re-checked on the same tick as the ping rather than on
+// every event, so the cost is one credential lookup per connection per ping
+// interval whatever the event rate. That leaves a staleness window of one ping
+// interval, 30 seconds by default: a revocation lands within that, not at the
+// end of the session lifetime.
+func (s *EventStream) writeLoop(ctx context.Context, ws *websocket.Conn, c *wsConn, revalidate Revalidate) {
 	ticker := time.NewTicker(s.pingInterval)
 	defer ticker.Stop()
 
@@ -270,6 +316,11 @@ func (s *EventStream) writeLoop(ctx context.Context, ws *websocket.Conn, c *wsCo
 			_ = ws.Close(websocket.StatusPolicyViolation, truncateReason(reason))
 			return
 		case <-ticker.C:
+			if !stillValid(ctx, c, revalidate) {
+				_ = s.write(ctx, ws, errorMessage("", core.Unauthenticated("%s", closeCredentialGone)))
+				_ = ws.Close(websocket.StatusPolicyViolation, truncateReason(closeCredentialGone))
+				return
+			}
 			pingCtx, cancel := context.WithTimeout(ctx, s.pingTimeout)
 			err := ws.Ping(pingCtx)
 			cancel()

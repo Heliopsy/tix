@@ -16,6 +16,11 @@ import (
 const SessionCookieName = "tix_session"
 
 // StoredSession is the persisted half of a session: a hash and its metadata.
+//
+// Role is the actor's authority as it stands now, so a SessionLookup reads it
+// from the membership at lookup time. It is never the role the session was
+// minted with: a demotion or a RemoveMember must land on the next request, not
+// at the end of SessionTTL.
 type StoredSession struct {
 	ID        string
 	TokenHash string
@@ -122,6 +127,13 @@ func (v *SessionVerifier) Verify(ctx context.Context, token string) (*core.Actor
 		return nil, core.Unauthenticated("invalid credentials")
 	}
 	if !stored.Active(v.clk.Now()) {
+		return nil, core.Unauthenticated("invalid credentials")
+	}
+	// The role is the caller's authority and it belongs to the membership, so
+	// a lookup reporting no role is reporting no membership: the actor keeps
+	// its identity and holds no scope. A role that is set but unknown is not
+	// that case, it is a row nobody can reason about, and it ends the session.
+	if stored.Role != "" && !stored.Role.Valid() {
 		return nil, core.Unauthenticated("invalid credentials")
 	}
 	return &core.Actor{

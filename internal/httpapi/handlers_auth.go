@@ -78,7 +78,7 @@ func (rt *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, err)
 		return
 	}
-	http.SetCookie(w, auth.NewSessionCookie(session.Token, session.ExpiresAt, rt.cfg.SecureCookies))
+	http.SetCookie(w, auth.NewSessionCookie(session.Token, session.ExpiresAt, rt.secureCookie(r)))
 	WriteJSON(w, http.StatusOK, session)
 }
 
@@ -88,7 +88,7 @@ func (rt *Router) handleLogout(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, err)
 		return
 	}
-	http.SetCookie(w, auth.ClearSessionCookie(rt.cfg.SecureCookies))
+	http.SetCookie(w, auth.ClearSessionCookie(rt.secureCookie(r)))
 	writeNoContent(w)
 }
 

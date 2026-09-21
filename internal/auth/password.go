@@ -112,12 +112,21 @@ func ValidatePassword(password string) error {
 }
 
 // Verify reports whether password matches the encoded argon2id hash.
+//
+// Derivation runs under a process-wide concurrency bound, so a burst of logins
+// cannot allocate one hash's memory parameter per inbound request. A caller
+// past the queue gets ErrVerifyOverloaded, which is the same answer for every
+// account and so leaks nothing. The comparison stays constant time, and both
+// the matching and the non-matching path derive exactly once.
 func Verify(encoded, password string) error {
 	params, salt, want, err := decode(encoded)
 	if err != nil {
 		return err
 	}
-	got := derive(password, salt, params)
+	var got []byte
+	if err := verifyGate.do(func() { got = derive(password, salt, params) }); err != nil {
+		return err
+	}
 	if subtle.ConstantTimeCompare(got, want) != 1 {
 		return core.Unauthenticated("invalid credentials")
 	}

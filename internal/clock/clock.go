@@ -111,7 +111,7 @@ func (f *Fake) collectDueLocked() []chan time.Time {
 	f.waiters = remaining
 
 	for _, t := range f.tickers {
-		if t.stopped || t.interval <= 0 {
+		if t.interval <= 0 {
 			continue
 		}
 		for !t.next.After(f.now) {
@@ -156,7 +156,7 @@ func (f *Fake) Sleep(d time.Duration) {
 
 // NewTicker returns a ticker driven by the fake clock.
 func (f *Fake) NewTicker(d time.Duration) Ticker {
-	t := &fakeTicker{ch: make(chan time.Time, 1), interval: d}
+	t := &fakeTicker{ch: make(chan time.Time, 1), interval: d, fake: f}
 	f.mu.Lock()
 	t.next = f.now.Add(d)
 	f.tickers = append(f.tickers, t)
@@ -164,15 +164,44 @@ func (f *Fake) NewTicker(d time.Duration) Ticker {
 	return t
 }
 
+// dropTicker unregisters t, so a stopped ticker costs nothing to later sweeps.
+func (f *Fake) dropTicker(t *fakeTicker) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i, cur := range f.tickers {
+		if cur != t {
+			continue
+		}
+		last := len(f.tickers) - 1
+		f.tickers[i] = f.tickers[last]
+		f.tickers[last] = nil
+		f.tickers = f.tickers[:last]
+		return
+	}
+}
+
+// Tickers reports how many live tickers the clock is driving.
+func (f *Fake) Tickers() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.tickers)
+}
+
+// fakeTicker is registered with its Fake, whose mutex guards every field the
+// clock touches. Stop is called from the goroutine owning the ticker while the
+// test goroutine advances the clock, so it may not write without that lock.
 type fakeTicker struct {
+	fake *Fake
+
 	ch       chan time.Time
 	interval time.Duration
 	next     time.Time
-	stopped  bool
 }
 
 func (t *fakeTicker) C() <-chan time.Time { return t.ch }
-func (t *fakeTicker) Stop()               { t.stopped = true }
+
+// Stop unregisters the ticker. It is safe to call more than once.
+func (t *fakeTicker) Stop() { t.fake.dropTicker(t) }
 
 // Compile-time assertions that both clocks satisfy the interface.
 var (

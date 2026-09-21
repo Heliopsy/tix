@@ -272,3 +272,84 @@ func waitForWaiters(t *testing.T, f *Fake, n int) {
 	}
 	t.Fatalf("timed out waiting for %d waiters", n)
 }
+
+// Stop runs on the goroutine owning the ticker while the test goroutine
+// advances the clock. Before the fix that wrote an unguarded field the race
+// detector flagged, so this exercises both sides at once.
+func TestFakeTickerStopRacesAdvance(t *testing.T) {
+	f := NewFakeAt()
+
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for range 8 {
+		tk := f.NewTicker(time.Minute)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			tk.Stop()
+			tk.Stop()
+		}()
+	}
+	for range 4 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			for range 50 {
+				f.Advance(time.Minute)
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	if got := f.Tickers(); got != 0 {
+		t.Errorf("live tickers after every Stop = %d, want 0", got)
+	}
+}
+
+// A stopped ticker must leave no trace, or a long test that builds one
+// dispatcher per mutation sweeps a list that only ever grows.
+func TestFakeStoppedTickersAreUnregistered(t *testing.T) {
+	f := NewFakeAt()
+	for range 100 {
+		tk := f.NewTicker(time.Minute)
+		if got := f.Tickers(); got != 1 {
+			t.Fatalf("live tickers while one is running = %d, want 1", got)
+		}
+		tk.Stop()
+		if got := f.Tickers(); got != 0 {
+			t.Fatalf("live tickers after Stop = %d, want 0", got)
+		}
+	}
+	f.Advance(time.Hour)
+}
+
+// Stopping one ticker must not disturb the others, since unregistering moves
+// the tail of the list into the freed slot.
+func TestFakeStopLeavesOtherTickersRunning(t *testing.T) {
+	f := NewFakeAt()
+	first := f.NewTicker(time.Minute)
+	second := f.NewTicker(time.Minute)
+	third := f.NewTicker(time.Minute)
+
+	second.Stop()
+	f.Advance(time.Minute)
+
+	for name, tk := range map[string]Ticker{"first": first, "third": third} {
+		select {
+		case <-tk.C():
+		default:
+			t.Errorf("%s ticker did not fire after another was stopped", name)
+		}
+	}
+	select {
+	case <-second.C():
+		t.Error("the stopped ticker fired")
+	default:
+	}
+	if got := f.Tickers(); got != 2 {
+		t.Errorf("live tickers = %d, want 2", got)
+	}
+}

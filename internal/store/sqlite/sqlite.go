@@ -201,8 +201,12 @@ func (s *Store) View(ctx context.Context, scope core.TenantScope, fn func(store.
 	if err != nil {
 		return err
 	}
+	// Rollback is a no-op once the transaction is finished, so this releases
+	// the connection however fn leaves: returning, or panicking. Without it a
+	// panic recovered upstream drained the reader pool one connection at a
+	// time until every read blocked.
+	defer func() { _ = t.Rollback() }()
 	if err := fn(t); err != nil {
-		_ = t.Rollback()
 		return err
 	}
 	return t.Commit()
@@ -217,8 +221,12 @@ func (s *Store) Update(ctx context.Context, scope core.TenantScope, fn func(stor
 	if err != nil {
 		return err
 	}
+	// Rollback is a no-op once the transaction is finished, so this releases
+	// the connection however fn leaves: returning, or panicking. Without it a
+	// panic recovered upstream left the single writer connection checked out
+	// for the life of the process, and every later write blocked on it.
+	defer func() { _ = t.Rollback() }()
 	if err := fn(t); err != nil {
-		_ = t.Rollback()
 		return err
 	}
 	return t.Commit()
@@ -230,8 +238,8 @@ func (s *Store) Unscoped(ctx context.Context, fn func(store.UnscopedTx) error) e
 	if err != nil {
 		return err
 	}
+	defer func() { _ = t.Rollback() }()
 	if err := fn(t); err != nil {
-		_ = t.Rollback()
 		return err
 	}
 	return t.Commit()

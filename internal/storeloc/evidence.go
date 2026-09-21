@@ -11,7 +11,38 @@ import (
 // cannot be inspected, on this platform or for this path, comes back as
 // FSUnknown with Detected false, which Decide never refuses.
 func CheckNetworkFS(dbPath string, allowOverride bool) Decision {
-	return Decide(detectFS(filepath.Dir(dbPath)), allowOverride)
+	return Decide(detectFS(resolveDir(dbPath)), allowOverride)
+}
+
+// resolveDir renders dbPath's directory the way the kernel would: absolute,
+// and with every symlink followed. A relative path such as "tix.db" is under
+// no mount point but the root one, so the check reported the root filesystem
+// instead of the network filesystem the working directory actually sits on,
+// and a symlink belongs to the mount of its target rather than of the link.
+func resolveDir(dbPath string) string {
+	dir := filepath.Dir(dbPath)
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
+	return followSymlinks(dir)
+}
+
+// followSymlinks resolves the longest existing prefix of dir and rejoins the
+// rest, so a database whose directory does not exist yet is still classified
+// by the filesystem that will hold it.
+func followSymlinks(dir string) string {
+	rest := ""
+	for cur := filepath.Clean(dir); ; {
+		if resolved, err := filepath.EvalSymlinks(cur); err == nil {
+			return filepath.Join(resolved, rest)
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return dir
+		}
+		rest = filepath.Join(filepath.Base(cur), rest)
+		cur = parent
+	}
 }
 
 // CollectSyncEvidence walks from dbPath's directory toward the filesystem

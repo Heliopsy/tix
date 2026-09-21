@@ -23,8 +23,13 @@ func (p Policy) Can(actor *core.Actor, action Action, res Resource) error {
 	if res.TenantID != "" && res.TenantID != actor.TenantID {
 		return core.NotFound("resource not found")
 	}
-	if actor.ScopedToProject() && res.ProjectID != "" && res.ProjectID != actor.ProjectID {
-		return p.deny(action, res, "token is restricted to another project")
+	if actor.ScopedToProject() {
+		switch {
+		case !action.ProjectConfinable():
+			return p.deny(action, res, "token is pinned to a project and this action is not confined to one")
+		case res.ProjectID != "" && res.ProjectID != actor.ProjectID:
+			return p.deny(action, res, "token is restricted to another project")
+		}
 	}
 	scope, ok := action.Scope()
 	if !ok {

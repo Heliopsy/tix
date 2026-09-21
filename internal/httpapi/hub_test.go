@@ -2,7 +2,9 @@ package httpapi
 
 import (
 	"context"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 )
@@ -262,4 +264,242 @@ func TestConnFailIsIdempotent(t *testing.T) {
 	if c.failure() != "first" {
 		t.Fatalf("failure reason = %q, want %q", c.failure(), "first")
 	}
+}
+
+// hookCall is one tenant hook firing and the tenant count it observed.
+type hookCall struct {
+	kind   string
+	tenant string
+	count  int
+}
+
+// hookRecorder collects tenant hook calls with the state each one saw.
+type hookRecorder struct {
+	hub *Hub
+
+	mu    sync.Mutex
+	calls []hookCall
+
+	gate func(kind string)
+}
+
+func newHookRecorder(h *Hub) *hookRecorder {
+	r := &hookRecorder{hub: h}
+	h.SetTenantHooks(r.hook("first"), r.hook("last"))
+	return r
+}
+
+func (r *hookRecorder) hook(kind string) func(string) {
+	return func(tenant string) {
+		if r.gate != nil {
+			r.gate(kind)
+		}
+		count := r.hub.tenantCount(tenant)
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		r.calls = append(r.calls, hookCall{kind: kind, tenant: tenant, count: count})
+	}
+}
+
+func (r *hookRecorder) recorded() []hookCall {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]hookCall(nil), r.calls...)
+}
+
+func (r *hookRecorder) kinds() []string {
+	out := []string{}
+	for _, c := range r.recorded() {
+		out = append(out, c.kind+":"+c.tenant)
+	}
+	return out
+}
+
+func TestHubTenantHooksFireOnceAtEachEdge(t *testing.T) {
+	h := NewHub()
+	rec := newHookRecorder(h)
+
+	first := newConn(testActor("t1"), 4)
+	second := newConn(testActor("t1"), 4)
+
+	h.Register(first)
+	h.Register(second)
+	h.Unregister(first)
+	h.Unregister(second)
+
+	want := []string{"first:t1", "last:t1"}
+	if got := rec.kinds(); !equalStrings(got, want) {
+		t.Errorf("hook calls = %v, want %v", got, want)
+	}
+	for _, c := range rec.recorded() {
+		if c.kind == "first" && c.count != 1 {
+			t.Errorf("onFirst saw count %d, want 1", c.count)
+		}
+		if c.kind == "last" && c.count != 0 {
+			t.Errorf("onLast saw count %d, want 0", c.count)
+		}
+	}
+}
+
+func TestHubTenantHooksAreIndependentPerTenant(t *testing.T) {
+	h := NewHub()
+	rec := newHookRecorder(h)
+
+	one := newConn(testActor("t1"), 4)
+	two := newConn(testActor("t2"), 4)
+
+	h.Register(one)
+	h.Register(two)
+	h.Unregister(two)
+	h.Unregister(one)
+
+	want := []string{"first:t1", "first:t2", "last:t2", "last:t1"}
+	if got := rec.kinds(); !equalStrings(got, want) {
+		t.Errorf("hook calls = %v, want %v", got, want)
+	}
+}
+
+func TestHubTenantHooksSkipConnectionsWithoutATenant(t *testing.T) {
+	tests := []struct {
+		name string
+		conn *wsConn
+	}{
+		{name: "no actor", conn: newConn(nil, 4)},
+		{name: "empty tenant", conn: newConn(&core.Actor{ID: "a"}, 4)},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			h := NewHub()
+			rec := newHookRecorder(h)
+			h.Register(tc.conn)
+			h.Unregister(tc.conn)
+			if got := rec.kinds(); len(got) != 0 {
+				t.Errorf("hook calls = %v, want none", got)
+			}
+		})
+	}
+}
+
+func TestHubWithoutTenantHooksIsSafe(t *testing.T) {
+	h := NewHub()
+	c := newConn(testActor("t1"), 4)
+	h.Register(c)
+	h.Unregister(c)
+
+	h.SetTenantHooks(nil, nil)
+	h.Register(c)
+	h.Unregister(c)
+}
+
+func TestHubSetTenantHooksReplacesThePreviousPair(t *testing.T) {
+	h := NewHub()
+	rec := newHookRecorder(h)
+
+	replaced := make(chan string, 2)
+	h.SetTenantHooks(func(tenant string) { replaced <- "first:" + tenant }, func(tenant string) { replaced <- "last:" + tenant })
+
+	c := newConn(testActor("t1"), 4)
+	h.Register(c)
+	h.Unregister(c)
+
+	if got := rec.kinds(); len(got) != 0 {
+		t.Errorf("the replaced hooks still fired: %v", got)
+	}
+	close(replaced)
+	var got []string
+	for s := range replaced {
+		got = append(got, s)
+	}
+	if want := []string{"first:t1", "last:t1"}; !equalStrings(got, want) {
+		t.Errorf("hook calls = %v, want %v", got, want)
+	}
+}
+
+// Unregistering a connection the hub never held must not report the tenant's
+// last connection as gone.
+func TestHubUnregisterOfAnUnknownConnectionFiresNothing(t *testing.T) {
+	h := NewHub()
+	rec := newHookRecorder(h)
+	h.Unregister(newConn(testActor("t1"), 4))
+	if got := rec.kinds(); len(got) != 0 {
+		t.Errorf("hook calls = %v, want none", got)
+	}
+}
+
+// A reconnect races a disconnect on one tenant. If the hooks may run out of
+// order with the counts that triggered them, the surviving connection is left
+// with no reader and the count never returns to zero to start one, so the
+// stream is silently dead forever.
+//
+// The interleaving is driven, not waited for: onLast is held inside the hook
+// while the reconnect is attempted, so the defect reproduces on every run.
+func TestHubTenantHookOrderMatchesCountOrder(t *testing.T) {
+	h := NewHub()
+	rec := newHookRecorder(h)
+
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	reconnected := make(chan struct{})
+	rec.gate = func(kind string) {
+		if kind != "last" {
+			return
+		}
+		close(entered)
+		<-release
+	}
+
+	going := newConn(testActor("t1"), 4)
+	coming := newConn(testActor("t1"), 4)
+
+	h.Register(going)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		h.Unregister(going)
+	}()
+	<-entered
+
+	go func() {
+		defer close(reconnected)
+		h.Register(coming)
+	}()
+
+	// The reconnect must not be able to change the tenant count while a hook
+	// for an earlier transition is still in flight. Only the broken ordering
+	// lets it finish here; the fix holds it until onLast returns.
+	select {
+	case <-reconnected:
+		t.Error("a reconnect changed the tenant count while onLast was still running")
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	close(release)
+	<-done
+	<-reconnected
+
+	calls := rec.recorded()
+	for _, c := range calls {
+		if c.kind == "last" && c.count != 0 {
+			t.Errorf("onLast ran with %d live connections on %q: the live connection now has no reader", c.count, c.tenant)
+		}
+	}
+	if len(calls) == 0 || calls[len(calls)-1].kind != "first" {
+		t.Errorf("hook calls = %v, want the reconnect's onFirst last", rec.kinds())
+	}
+	if got := h.tenantCount("t1"); got != 1 {
+		t.Errorf("tenant count after the reconnect = %d, want 1", got)
+	}
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

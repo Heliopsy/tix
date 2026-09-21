@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -10,12 +11,15 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
+	"log/slog"
 	"math/big"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -392,4 +396,112 @@ func writePEM(t *testing.T, path, blockType string, der []byte) {
 	if err := pem.Encode(f, &pem.Block{Type: blockType, Bytes: der}); err != nil {
 		t.Fatalf("encoding %q: %v", path, err)
 	}
+}
+
+// A worker that panics used to vanish, leaving the process apparently healthy
+// while sweeping, pruning or dispatching silently stopped happening.
+func TestServeRestartsAPanickingWorker(t *testing.T) {
+	var logs syncBuffer
+	runs := make(chan int, 4)
+	var attempts atomic.Int32
+
+	panicky := server.FuncWorker{WorkerName: "panicky", Fn: func(ctx context.Context) error {
+		n := int(attempts.Add(1))
+		runs <- n
+		if n < 3 {
+			panic("worker exploded")
+		}
+		<-ctx.Done()
+		return ctx.Err()
+	}}
+
+	srv := mustServer(t, server.Config{
+		Addr:               "127.0.0.1:0",
+		Handler:            okHandler(),
+		Logger:             slog.New(slog.NewTextHandler(&logs, nil)),
+		Workers:            []server.Worker{panicky},
+		WorkerRestartDelay: -1,
+	})
+	if err := srv.Listen(); err != nil {
+		t.Fatalf("listening: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- srv.Serve(ctx) }()
+
+	for want := 1; want <= 3; want++ {
+		select {
+		case got := <-runs:
+			if got != want {
+				t.Fatalf("worker attempt = %d, want %d", got, want)
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatalf("the worker was not restarted after attempt %d panicked", want-1)
+		}
+	}
+
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatalf("serving: %v", err)
+	}
+	if got := attempts.Load(); got != 3 {
+		t.Errorf("worker attempts = %d, want the panics restarted it exactly twice", got)
+	}
+	if out := logs.String(); !strings.Contains(out, "worker exploded") || !strings.Contains(out, "restarting background worker") {
+		t.Errorf("logged output = %q, want the panic and the restart", out)
+	}
+}
+
+// A worker that returns is finished, not broken, so it must not be restarted.
+func TestServeDoesNotRestartAWorkerThatReturns(t *testing.T) {
+	var attempts atomic.Int32
+	finished := make(chan struct{})
+	worker := server.FuncWorker{WorkerName: "one-shot", Fn: func(context.Context) error {
+		if attempts.Add(1) == 1 {
+			close(finished)
+		}
+		return errors.New("worker failed")
+	}}
+
+	srv := mustServer(t, server.Config{
+		Addr:               "127.0.0.1:0",
+		Handler:            okHandler(),
+		Workers:            []server.Worker{worker},
+		WorkerRestartDelay: -1,
+	})
+	if err := srv.Listen(); err != nil {
+		t.Fatalf("listening: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- srv.Serve(ctx) }()
+
+	<-finished
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatalf("serving: %v", err)
+	}
+	if got := attempts.Load(); got != 1 {
+		t.Errorf("worker attempts = %d, want 1", got)
+	}
+}
+
+// syncBuffer collects log output written from worker goroutines.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }

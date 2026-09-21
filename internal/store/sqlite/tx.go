@@ -71,6 +71,13 @@ func (t *tx) Commit() error {
 		return nil
 	}
 	_, err := t.conn.ExecContext(context.Background(), "COMMIT")
+	if err != nil {
+		// A COMMIT can fail with the transaction still open, a violated
+		// deferred constraint being the usual cause. Handing that connection
+		// back to the single-slot writer pool leaves every later BEGIN
+		// IMMEDIATE facing a transaction that is already running.
+		_, _ = t.conn.ExecContext(context.Background(), "ROLLBACK")
+	}
 	closeErr := t.conn.Close()
 	if err != nil {
 		return mapErr(err, "committing transaction")

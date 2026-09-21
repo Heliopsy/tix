@@ -5,6 +5,7 @@ package storeloc
 import (
 	"bufio"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"golang.org/x/sys/unix"
@@ -115,7 +116,10 @@ func (*octalError) Error() string { return "not an octal escape" }
 
 // longestMatchingMount finds the mount entry whose mount point is the
 // longest prefix of dir, the same rule the kernel uses to resolve which
-// mount a path belongs to.
+// mount a path belongs to. Mount points of equal length are resolved to the
+// last entry rather than the first, because /proc/mounts lists an overmount
+// after the mount it covers and the kernel resolves the path to the
+// overmount.
 func longestMatchingMount(mounts []mountEntry, dir string) (string, bool) {
 	best := ""
 	bestLen := -1
@@ -123,7 +127,7 @@ func longestMatchingMount(mounts []mountEntry, dir string) (string, bool) {
 		if !isPathUnder(dir, m.mountPoint) {
 			continue
 		}
-		if len(m.mountPoint) > bestLen {
+		if len(m.mountPoint) >= bestLen {
 			bestLen = len(m.mountPoint)
 			best = m.fsType
 		}
@@ -132,7 +136,13 @@ func longestMatchingMount(mounts []mountEntry, dir string) (string, bool) {
 }
 
 // isPathUnder reports whether dir is mountPoint itself or a descendant of it.
+// A relative dir is under no mount point at all: answering otherwise made
+// every relative path match the root mount and so hid the filesystem the
+// working directory really sits on.
 func isPathUnder(dir, mountPoint string) bool {
+	if !filepath.IsAbs(dir) {
+		return false
+	}
 	if mountPoint == "/" {
 		return true
 	}
