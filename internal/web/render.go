@@ -37,11 +37,22 @@ var accents = [][2]string{
 	{"#a61e4d", "#fbeaf0"},
 }
 
+// defaultAccent and defaultAccentSoft are the brand colour shown before any
+// tenant has been resolved (the sign-in screen, most of all). They must stay
+// equal to assets/app.css's :root --accent and --accent-soft: the inline
+// style block below always overrides those tokens with one of these two
+// values, so if they drifted apart the stylesheet's own default would never
+// actually be seen by anyone.
+const (
+	defaultAccent     = "#0f766e"
+	defaultAccentSoft = "#e6f4f1"
+)
+
 // defaultBranding is applied when no tenant has been resolved.
 func defaultBranding() branding {
-	// #nosec G203 -- values come from the fixed accents palette, never a caller.
+	// #nosec G203 -- fixed constants above, never a caller.
 	return branding{Title: "tix", Monogram: "t",
-		Accent: template.CSS(accents[0][0]), AccentSoft: template.CSS(accents[0][1])} // #nosec G203
+		Accent: template.CSS(defaultAccent), AccentSoft: template.CSS(defaultAccentSoft)} // #nosec G203
 }
 
 // brandFor derives a tenant's branding from its own record.
@@ -64,25 +75,30 @@ func brandFor(t *core.Tenant) branding {
 
 // view is what every template is executed against.
 type view struct {
-	Title      string
-	Path       string
-	Flash      string
-	Error      string
-	CSRF       string
-	EventsPath string
-	Brand      branding
-	Actor      *core.Actor
-	Advanced   bool
-	Theme      string
-	Columns    columnPrefs
-	ColumnPage string
-	Here       string
-	Data       any
+	Title         string
+	Path          string
+	Flash         string
+	Error         string
+	CSRF          string
+	EventsPath    string
+	Brand         branding
+	Actor         *core.Actor
+	Advanced      bool
+	Theme         string
+	KeyScheme     string
+	Schemes       []KeyScheme
+	ShortcutsJSON template.JS
+	Columns       columnPrefs
+	ColumnPage    string
+	Here          string
+	Data          any
 }
 
 // parseTemplates builds one template set per screen, so that two screens can
-// define the same block without colliding.
-func parseTemplates() map[string]*template.Template {
+// define the same block without colliding. Every timestamp a template renders
+// goes through style, so the browser and the CLI table cannot disagree about
+// what an instant means.
+func parseTemplates(style output.TimeStyle) map[string]*template.Template {
 	entries, err := fs.ReadDir(templateFS, "templates")
 	if err != nil {
 		panic(err)
@@ -94,21 +110,26 @@ func parseTemplates() map[string]*template.Template {
 			continue
 		}
 		files := append(append([]string{}, layoutFiles...), "templates/"+name)
-		out[name] = template.Must(template.New("layout.html").Funcs(funcs()).ParseFS(templateFS, files...))
+		out[name] = template.Must(template.New("layout.html").Funcs(funcs(style)).ParseFS(templateFS, files...))
 	}
 	return out
 }
 
-// funcs are the formatting helpers templates may call.
-func funcs() template.FuncMap {
+// funcs are the formatting helpers templates may call, bound to the handler's
+// configured TimeStyle.
+func funcs(style output.TimeStyle) template.FuncMap {
 	return template.FuncMap{
-		"compact": output.FormatCompact,
-		"stamp":   output.FormatTimestampPtr,
-		"join":    joinValues,
-		"scopes":  joinScopes,
-		"counts":  formatCounts,
-		"prio":    priorityName,
-		"slug":    slug,
+		"compact":     style.Format,
+		"stamp":       style.FormatPtr,
+		"absolute":    style.Absolute,
+		"join":        joinValues,
+		"scopes":      joinScopes,
+		"counts":      formatCounts,
+		"prio":        priorityName,
+		"slug":        slug,
+		"schemeLabel": keySchemeLabel,
+		"relativeAt":  style.Relative,
+		"sentence":    sentenceFor,
 	}
 }
 
@@ -169,20 +190,24 @@ func formatCounts(counts map[string]int) string {
 // newView assembles the common part of every page.
 func (h *handler) newView(r *http.Request, name, title string, data any) view {
 	actor, _ := core.ActorFrom(r.Context())
+	scheme := keySchemeOf(r)
 	return view{
-		Title:      title,
-		Path:       r.URL.Path,
-		Here:       here(r),
-		ColumnPage: columnPage(name),
-		Columns:    columnsOf(r),
-		Flash:      r.URL.Query().Get("flash"),
-		CSRF:       csrfFrom(r),
-		EventsPath: h.eventsPath,
-		Brand:      h.brand(r),
-		Actor:      actor,
-		Advanced:   advancedMode(r),
-		Theme:      themeOf(r),
-		Data:       data,
+		Title:         title,
+		Path:          r.URL.Path,
+		Here:          here(r),
+		ColumnPage:    columnPage(name),
+		Columns:       columnsOf(r),
+		Flash:         r.URL.Query().Get("flash"),
+		CSRF:          csrfFrom(r),
+		EventsPath:    h.eventsPath,
+		Brand:         h.brand(r),
+		Actor:         actor,
+		Advanced:      advancedMode(r),
+		Theme:         themeOf(r),
+		KeyScheme:     string(scheme),
+		Schemes:       KeySchemes(),
+		ShortcutsJSON: shortcutsJSON(scheme),
+		Data:          data,
 	}
 }
 

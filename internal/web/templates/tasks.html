@@ -12,7 +12,7 @@
 
 <form method="post" action="/tasks" class="quickadd">
   {{template "csrf" .CSRF}}
-  <input name="title" placeholder="Add a task and press Enter" aria-label="New task" required autofocus>
+  <input name="title" placeholder="Add a task and press Enter" aria-label="New task" data-shortcut-target="new" required autofocus>
   <select name="project_ref" aria-label="List">
     {{range $v.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
   </select>
@@ -20,7 +20,7 @@
 </form>
 
 <form method="get" action="/tasks" class="filterbar">
-  <input name="q" value="{{$v.Query}}" placeholder="Filter, for example status:todo tag:ops" aria-label="Filter">
+  <input name="q" value="{{$v.Query}}" placeholder="Filter, for example status:todo tag:ops" aria-label="Filter" data-shortcut-target="filter">
   <select name="sort" aria-label="Sort">
     {{range $v.SortFields}}<option value="{{.}}" {{if eq . $v.Sort}}selected{{end}}>{{.}}</option>{{end}}
   </select>
@@ -65,7 +65,7 @@
 <ul class="tasklist">
 {{range $v.Tasks}}
   {{$acc := index $v.Accent .ProjectID}}
-  <li class="task{{if .Blocked}} is-blocked{{end}}{{if $acc.Color}} is-accented proj-{{$acc.Color}}{{end}}">
+  <li class="task{{if .Blocked}} is-blocked{{end}}{{if $acc.Color}} is-accented proj-{{$acc.Color}}{{end}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Ref}}">
     {{$done := index $v.CompleteState .ProjectID}}
     {{if $done}}
     <form method="post" action="/tasks/{{.Ref}}/complete" class="tick">

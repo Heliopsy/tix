@@ -87,14 +87,15 @@ func public(rt route) route {
 
 // Route patterns the browser interface serves.
 const (
-	RouteRoot     = "/"
-	RouteLogin    = "/login"
-	RouteLogout   = "/logout"
-	RouteAdvanced = "/advanced"
-	RouteTheme    = "/theme"
-	RouteColumns  = "/columns"
-	RouteLists    = "/lists"
-	RouteActivity = "/activity"
+	RouteRoot      = "/"
+	RouteLogin     = "/login"
+	RouteLogout    = "/logout"
+	RouteAdvanced  = "/advanced"
+	RouteTheme     = "/theme"
+	RouteKeyScheme = "/keyscheme"
+	RouteColumns   = "/columns"
+	RouteLists     = "/lists"
+	RouteActivity  = "/activity"
 
 	RouteProjects     = "/projects"
 	RouteProject      = "/projects/{key}"

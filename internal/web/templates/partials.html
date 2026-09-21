@@ -35,6 +35,16 @@
       </select>
       <div class="actions"><button type="submit">Apply theme</button></div>
     </form>
+    <form method="post" action="/keyscheme" class="pref">
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="next" value="{{.Here}}">
+      <label for="keyscheme">Keyboard shortcuts</label>
+      <select id="keyscheme" name="keyscheme">
+        {{range .Schemes}}<option value="{{.}}" {{if eq $.KeyScheme (print .)}}selected{{end}}>{{schemeLabel .}}</option>{{end}}
+      </select>
+      <div class="actions"><button type="submit">Apply shortcuts</button></div>
+    </form>
+    <p class="muted">Press <kbd>?</kbd> anywhere to see the active bindings.</p>
     <form method="post" action="/advanced" class="pref">
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{.Here}}">
@@ -49,6 +59,23 @@
 {{end}}
 
 {{define "csrf"}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}
+
+{{/* The dl content is filled entirely by assets/shortcuts.js from the same
+     JSON blob the keydown handler reads, so this markup is a shell: nothing
+     here names a key or an action, which is what keeps the overlay from
+     drifting away from what actually happens on a keypress. */}}
+{{define "shortcuts-help"}}
+<div id="shortcuts-help" class="shortcuts-help" hidden>
+  <div class="shortcuts-help-backdrop" data-shortcuts-close></div>
+  <div class="shortcuts-help-dialog" role="dialog" aria-modal="true" aria-labelledby="shortcuts-help-title" tabindex="-1">
+    <div class="shortcuts-help-head">
+      <h2 id="shortcuts-help-title">Keyboard shortcuts</h2>
+      <button type="button" class="secondary" data-shortcuts-close>Close</button>
+    </div>
+    <dl class="shortcuts-help-list" id="shortcuts-help-list"></dl>
+  </div>
+</div>
+{{end}}
 
 {{define "column-picker"}}
 {{if .Columns.Configurable .ColumnPage}}

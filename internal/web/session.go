@@ -18,6 +18,7 @@ func (h *handler) sessionRoutes() []route {
 		post(RouteLogout, h.doLogout, "Logout"),
 		post(RouteAdvanced, h.toggleAdvanced, "Logout"),
 		post(RouteTheme, h.setTheme, "Logout"),
+		post(RouteKeyScheme, h.setKeyScheme, "Logout"),
 		post(RouteColumns, h.setColumns, "Logout"),
 		post(RouteLists, h.setLists, "Logout"),
 		get(RouteActivity, "activity.html", h.showActivity, "ListAudit", "GetActor", "GetTask"),
@@ -36,13 +37,21 @@ func (h *handler) showRoot(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// loginView is what the sign-in screen renders. TargetHint is the resolved
+// --db or --ctx target, when the process was started with WithTargetHint; it
+// is not tenant- or account-specific, so showing it never depends on what
+// was typed into the form above it.
+type loginView struct {
+	TargetHint string
+}
+
 // showLogin renders the sign-in screen.
 func (h *handler) showLogin(w http.ResponseWriter, r *http.Request) error {
 	if _, ok := core.ActorFrom(r.Context()); ok {
 		http.Redirect(w, r, RouteProjects, http.StatusSeeOther)
 		return nil
 	}
-	return h.render(w, r, "login.html", "Sign in", nil)
+	return h.render(w, r, "login.html", "Sign in", loginView{TargetHint: h.targetHint})
 }
 
 // doLogin exchanges an email and password for a browser session.
@@ -83,6 +92,8 @@ func (h *handler) toggleAdvanced(w http.ResponseWriter, r *http.Request) error {
 		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
 		MaxAge: cookieYear,
 	})
+	// #nosec G710 -- safeNext rejects anything that is not a relative path on
+	// this origin, including protocol-relative, backslash and control forms.
 	http.Redirect(w, r, safeNext(field(r, "next")), http.StatusSeeOther)
 	return nil
 }
@@ -102,6 +113,29 @@ func (h *handler) setTheme(w http.ResponseWriter, r *http.Request) error {
 		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
 		MaxAge: cookieYear,
 	})
+	// #nosec G710 -- safeNext rejects anything that is not a relative path on
+	// this origin, including protocol-relative, backslash and control forms.
+	http.Redirect(w, r, safeNext(field(r, "next")), http.StatusSeeOther)
+	return nil
+}
+
+// setKeyScheme records the keyboard shortcut scheme this browser wants,
+// following exactly the pattern setTheme above uses to persist a per-browser
+// display preference: a cookie, not a tenant setting, because two people
+// sharing a tenant may want different muscle memory.
+func (h *handler) setKeyScheme(w http.ResponseWriter, r *http.Request) error {
+	value := string(ParseKeyScheme(field(r, "keyscheme")))
+	if value == string(KeySchemeDefault) {
+		value = ""
+	}
+	// #nosec G124 -- a display preference, readable by no script.
+	http.SetCookie(w, &http.Cookie{
+		Name: KeySchemeCookie, Value: value, Path: "/",
+		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
+		MaxAge: cookieYear,
+	})
+	// #nosec G710 -- safeNext rejects anything that is not a relative path on
+	// this origin, including protocol-relative, backslash and control forms.
 	http.Redirect(w, r, safeNext(field(r, "next")), http.StatusSeeOther)
 	return nil
 }

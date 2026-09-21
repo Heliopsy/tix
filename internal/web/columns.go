@@ -244,6 +244,8 @@ func (h *handler) setColumns(w http.ResponseWriter, r *http.Request) error {
 		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
 		MaxAge: age,
 	})
+	// #nosec G710 -- safeNext rejects anything that is not a relative path on
+	// this origin, including protocol-relative, backslash and control forms.
 	http.Redirect(w, r, safeNext(field(r, "next")), http.StatusSeeOther)
 	return nil
 }

@@ -6,7 +6,7 @@
   <section class="column" data-state="{{.State.Key}}">
     <h2>{{.State.Label}} <span class="meta">({{len .Tasks}})</span></h2>
     {{range .Tasks}}
-      <article class="card" draggable="true" data-task="{{.Task.Ref}}">
+      <article class="card" draggable="true" data-task="{{.Task.Ref}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
         <div class="ref">{{.Task.Ref}}</div>
         <div><a href="/tasks/{{.Task.Ref}}">{{.Task.Title}}</a></div>
         <form method="post" action="/projects/{{$.Data.Project.Key}}/move">

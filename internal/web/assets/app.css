@@ -15,8 +15,21 @@
   --ok: #067647;
   --on-ok: #ffffff;
   --ok-soft: #ecfdf3;
+  /* Text painted on top of --accent (buttons, filled badges). Kept as its
+     own token rather than reusing --on-ok, because the two backgrounds
+     happen to track each other by luminance in every scope below but are
+     conceptually different colours; a future accent change should not have
+     to remember that on-ok also depends on it. */
+  --on-accent: #ffffff;
   --radius: 10px;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  /* A stronger shadow for content that floats above the page itself (a
+     toast, a modal), not just above the background the way a card does. */
+  --shadow-strong: 0 8px 24px rgba(16, 24, 40, 0.18);
+  /* The dimming layer behind a modal dialog. Deliberately the same in every
+     scope: it dims whatever is behind it, light or dark, rather than being a
+     themed surface colour itself. */
+  --scrim: rgba(16, 24, 40, 0.45);
   --gutter: 16px;
 
   /* Project palette. A project stores a token, not a colour, so each scheme
@@ -51,7 +64,9 @@
   --ok: #7fbf9a;
   --on-ok: #10201a;
   --ok-soft: #1f2c25;
+  --on-accent: #10201a;
   --shadow: none;
+  --shadow-strong: none;
   --proj-slate: #8b95a3;
   --proj-red: #cf8d86;
   --proj-amber: #c2a15f;
@@ -78,7 +93,9 @@
   --warn: #fbbf24;
   --ok: #34d399;
   --on-ok: #08231a;
+  --on-accent: #08231a;
   --shadow: none;
+  --shadow-strong: none;
   --proj-slate: #94a3b8;
   --proj-red: #f87171;
   --proj-amber: #fbbf24;
@@ -89,6 +106,14 @@
   --proj-pink: #f472b6;
 }
 
+/* Mirrors :root[data-theme="dark"] above for a browser that has never been
+   told to use it explicitly: the OS preference alone should not read as a
+   half-applied theme. This used to redefine only the background/surface/soft
+   tokens and leave --accent, --danger, --warn, --ok, --on-ok (and now
+   --on-accent) at their light-mode values, which put light-mode link and
+   badge colours on a dark background -- several of them below the 4.5:1
+   floor. Keep this block's non-soft values identical to the explicit dark
+   theme's. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="dim"]) {
     --bg: #14171b;
@@ -101,7 +126,14 @@
     --danger-soft: #2a1613;
     --warn-soft: #2a1f10;
     --ok-soft: #10261c;
+    --accent: #2dd4bf;
+    --danger: #f87171;
+    --warn: #fbbf24;
+    --ok: #34d399;
+    --on-ok: #08231a;
+    --on-accent: #08231a;
     --shadow: none;
+    --shadow-strong: none;
     --proj-slate: #94a3b8;
     --proj-red: #f87171;
     --proj-amber: #fbbf24;
@@ -242,6 +274,16 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   outline-offset: 1px;
 }
 
+/* The keyboard shortcut layer (assets/shortcuts.js) moves real focus onto a
+   row rather than only toggling a class, so these need the same visible ring
+   as every other focusable element; a screen reader already follows the
+   focus move, this is only what a sighted keyboard user sees. */
+.tasklist .task:focus-visible, .board .card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  background: var(--accent-soft);
+}
+
 /* A checkbox or radio is a glyph, not a field: full width stretches it across
    the row and strands its label. */
 input[type="checkbox"], input[type="radio"] { width: auto; margin: 0; }
@@ -264,7 +306,7 @@ button {
   border: 1px solid transparent;
   border-radius: 8px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   cursor: pointer;
 }
 
@@ -685,7 +727,7 @@ li.task.is-blocked a.task-title { color: var(--muted); }
   background: var(--accent-soft);
   color: var(--accent);
   font-size: 0.9rem;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow-strong);
   animation: flash-in 160ms ease both;
 }
 
@@ -755,3 +797,116 @@ details.panel.columns { margin-bottom: 18px; }
 }
 
 .listform .actions { margin-top: 12px; }
+
+/* Keyboard shortcut help overlay (assets/shortcuts.js). Hidden by the native
+   [hidden] behaviour until the script clears the attribute; the rule below is
+   explicit anyway so the show/hide state never depends on cascade order. */
+.shortcuts-help[hidden] { display: none; }
+
+.shortcuts-help:not([hidden]) {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--gutter);
+}
+
+.shortcuts-help-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+}
+
+.shortcuts-help-dialog {
+  position: relative;
+  max-width: 480px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-strong);
+  padding: 20px;
+}
+
+.shortcuts-help-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.shortcuts-help-head h2 { margin: 0; }
+
+.shortcuts-help-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  margin: 0;
+  max-width: 100%;
+}
+
+.shortcuts-help-list dt { min-width: 0; }
+.shortcuts-help-list dd { margin: 0; min-width: 0; color: var(--muted); }
+
+kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+}
+
+/* The sign-in screen's "can't sign in?" disclosure (templates/login.html).
+   Quiet by design: a signpost for an operator locked out of a fresh install,
+   not an error state, so it carries no warning colour. */
+.login-help { margin-top: 14px; }
+
+.copyline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: 100%;
+  margin: 6px 0 12px;
+}
+
+.copyline code {
+  flex: 1 1 220px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+}
+
+.copyline button { flex: 0 0 auto; padding: 6px 10px; font-size: 0.85em; }
+
+/* The per-row "raw detail" disclosure inside the task history table
+   (templates/task.html). A bordered, shadowed panel reads as a card; inside
+   a table cell that is too heavy, so this trims it down to an inline
+   disclosure instead. */
+details.panel.raw {
+  margin: 4px 0 0;
+  border: 0;
+  box-shadow: none;
+  background: none;
+}
+
+details.panel.raw > summary {
+  padding: 2px 0;
+  font-weight: 500;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+details.panel.raw ul.plain { margin: 2px 0 0; padding-left: 14px; font-size: 0.82rem; }

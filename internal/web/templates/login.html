@@ -10,4 +10,29 @@
   <div class="actions"><button type="submit">Sign in</button></div>
 </form>
 </div>
+
+{{/* Static guidance, the same for every visitor: it never reacts to what was
+     typed above, so it cannot be used to probe whether an account exists.
+     Both commands need shell access to the machine running tix; a browser
+     alone cannot create or reset an account. */}}
+<details class="panel login-help">
+  <summary>Can't sign in?</summary>
+  <div class="body">
+    <p class="muted">No account yet on this tenant? Create one from a shell with access to this server:</p>
+    <div class="copyline">
+      <code id="hint-create">tix user create you@example.com --role admin --password 'change-me'{{if .Data.TargetHint}} --db {{.Data.TargetHint}}{{end}}</code>
+      <button type="button" class="secondary" data-copy-target="hint-create">Copy</button>
+    </div>
+    <p class="muted">Forgot a password for an existing account? List it to find its id, then reset it:</p>
+    <div class="copyline">
+      <code id="hint-list">tix user ls{{if .Data.TargetHint}} --db {{.Data.TargetHint}}{{end}}</code>
+      <button type="button" class="secondary" data-copy-target="hint-list">Copy</button>
+    </div>
+    <div class="copyline">
+      <code id="hint-reset">tix user edit &lt;id&gt; --password 'change-me'{{if .Data.TargetHint}} --db {{.Data.TargetHint}}{{end}}</code>
+      <button type="button" class="secondary" data-copy-target="hint-reset">Copy</button>
+    </div>
+    <p class="muted">Both run on the machine running tix, not in this browser.</p>
+  </div>
+</details>
 {{end}}

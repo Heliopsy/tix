@@ -21,7 +21,7 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="version" value="{{$t.Version}}">
       <label for="title">Title</label>
-      <input id="title" name="title" value="{{$t.Title}}" required>
+      <input id="title" name="title" value="{{$t.Title}}" data-shortcut-target="editTitle" required>
       <label for="body">Description</label>
       <textarea id="body" name="body" placeholder="Add a description">{{$t.Body}}</textarea>
       <div class="row">
@@ -133,7 +133,7 @@
     <form method="post" action="/tasks/{{$t.Ref}}/comments">
       {{template "csrf" .CSRF}}
       <label for="comment-body">Add a comment</label>
-      <textarea id="comment-body" name="body" required></textarea>
+      <textarea id="comment-body" name="body" data-shortcut-target="comment" required></textarea>
       <div class="actions"><button type="submit">Comment</button></div>
     </form>
     {{end}}
@@ -171,18 +171,30 @@
       {{if .Data.CanAudit}}
       <div class="table-wrap">
         <table>
-          <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Source</th><th>Changed</th></tr></thead>
+          <thead><tr><th>When</th><th>What changed</th><th>Source</th></tr></thead>
           <tbody>
           {{range .Data.History}}
+            {{$latest := .Latest}}
             <tr>
-              <td data-label="When" class="muted">{{compact .Entry.OccurredAt}}</td>
-              <td data-label="Actor" class="who-name" title="{{.Entry.ActorID}}">{{$.Data.Names.Label .Entry.ActorID}}</td>
-              <td data-label="Action">{{.Entry.Action}}</td>
-              <td data-label="Source">{{.Entry.Source}}</td>
-              <td data-label="Changed" class="muted">{{join .Changed}}</td>
+              <td data-label="When" class="muted">
+                <time datetime="{{$latest.Entry.OccurredAt.Format "2006-01-02T15:04:05Z07:00"}}" title="{{absolute $latest.Entry.OccurredAt}}">{{relativeAt $latest.Entry.OccurredAt}}</time>
+              </td>
+              <td data-label="What changed">
+                <span class="badge act-{{.Verb}}">{{.Verb}}</span>
+                {{sentence ($.Data.Names.Label $latest.Entry.ActorID) .}}
+                <details class="panel raw">
+                  <summary>{{if gt (len .Hops) 1}}{{len .Hops}} steps{{else}}Raw{{end}}</summary>
+                  <ul class="plain">
+                    {{range .Hops}}
+                    <li class="muted">{{compact .Entry.OccurredAt}} &middot; {{.Entry.Action}}{{if .Changed}} &middot; {{join .Changed}}{{end}}</li>
+                    {{end}}
+                  </ul>
+                </details>
+              </td>
+              <td data-label="Source"><span class="badge source">{{$latest.Entry.Source}}</span></td>
             </tr>
           {{else}}
-            <tr><td colspan="5"><p class="empty">No recorded changes.</p></td></tr>
+            <tr><td colspan="3"><p class="empty">No recorded changes.</p></td></tr>
           {{end}}
           </tbody>
         </table>
@@ -231,7 +243,7 @@
     <form method="post" action="/tasks/{{$t.Ref}}/transition">
       {{template "csrf" .CSRF}}
       <label for="to">Target state</label>
-      <select id="to" name="to">
+      <select id="to" name="to" data-shortcut-target="transition">
         {{range .Data.Targets}}<option value="{{.Key}}">{{.Label}}</option>{{end}}
       </select>
       <label for="transition-comment">Comment</label>

@@ -55,7 +55,7 @@ type taskView struct {
 	Dependencies  []core.Dependency
 	Comments      []core.Comment
 	Artifacts     []core.Artifact
-	History       []historyRow
+	History       []historyGroup
 	Names         actorNames
 	Targets       []core.State
 	Priorities    []priorityChoice
@@ -73,8 +73,10 @@ func (v taskView) actorIDs() []string {
 	for _, c := range v.Comments {
 		out = append(out, c.AuthorActorID)
 	}
-	for _, h := range v.History {
-		out = append(out, h.Entry.ActorID)
+	for _, g := range v.History {
+		for _, h := range g.Hops {
+			out = append(out, h.Entry.ActorID)
+		}
 	}
 	return out
 }
@@ -184,7 +186,9 @@ func renderFieldValue(value any) string {
 	return fmt.Sprintf("%v", value)
 }
 
-// attachHistory loads the audit entries recorded against the task.
+// attachHistory loads the audit entries recorded against the task and folds
+// a multi-hop workflow walk (completeTask, in tasks.go) into a single row per
+// user action. See groupHistory for the rule that decides what chains.
 func (h *handler) attachHistory(r *http.Request, taskID string, data *taskView) error {
 	entries, _, err := h.svc.ListAudit(r.Context(), core.AuditFilter{
 		SubjectType: "task",
@@ -198,8 +202,16 @@ func (h *handler) attachHistory(r *http.Request, taskID string, data *taskView) 
 		}
 		return err
 	}
-	for _, entry := range entries {
-		data.History = append(data.History, historyRow{Entry: entry, Changed: changedFields(entry)})
+	// entries arrive newest first; chaining reads left to right in time, so
+	// it runs oldest first and the result is reversed back to newest first.
+	rows := make([]historyRow, len(entries))
+	for i, entry := range entries {
+		rows[len(entries)-1-i] = historyRow{Entry: entry, Changed: changedFields(entry)}
+	}
+	groups := groupHistory(rows)
+	data.History = make([]historyGroup, len(groups))
+	for i, g := range groups {
+		data.History[len(groups)-1-i] = g
 	}
 	return nil
 }
