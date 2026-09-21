@@ -74,6 +74,9 @@ type view struct {
 	Actor      *core.Actor
 	Advanced   bool
 	Theme      string
+	Columns    columnPrefs
+	ColumnPage string
+	Here       string
 	Data       any
 }
 
@@ -175,11 +178,14 @@ func formatCounts(counts map[string]int) string {
 }
 
 // newView assembles the common part of every page.
-func (h *handler) newView(r *http.Request, title string, data any) view {
+func (h *handler) newView(r *http.Request, name, title string, data any) view {
 	actor, _ := core.ActorFrom(r.Context())
 	return view{
 		Title:      title,
 		Path:       r.URL.Path,
+		Here:       here(r),
+		ColumnPage: columnPage(name),
+		Columns:    columnsOf(r),
 		Flash:      r.URL.Query().Get("flash"),
 		CSRF:       csrfFrom(r),
 		EventsPath: h.eventsPath,
@@ -189,6 +195,17 @@ func (h *handler) newView(r *http.Request, title string, data any) view {
 		Theme:      themeOf(r),
 		Data:       data,
 	}
+}
+
+// here is the page a preference form returns to, filters and page position
+// intact, minus the flash a previous redirect left behind.
+func here(r *http.Request) string {
+	query := r.URL.Query()
+	query.Del("flash")
+	if len(query) == 0 {
+		return r.URL.Path
+	}
+	return r.URL.Path + "?" + query.Encode()
 }
 
 // AdvancedCookie remembers whether this browser wants the administrative
@@ -248,7 +265,7 @@ func (h *handler) renderStatus(w http.ResponseWriter, r *http.Request, status in
 	if !ok {
 		return core.Internal("no template named %q", name)
 	}
-	v := h.newView(r, title, data)
+	v := h.newView(r, name, title, data)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(status)

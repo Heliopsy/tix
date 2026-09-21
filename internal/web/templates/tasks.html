@@ -27,6 +27,8 @@
   <button class="secondary" type="submit">Apply</button>
 </form>
 
+{{template "column-picker" .}}
+
 <ul class="tasklist">
 {{range $v.Tasks}}
   {{$acc := index $v.Accent .ProjectID}}
@@ -46,10 +48,12 @@
     <a class="task-title" href="/tasks/{{.Ref}}">{{.Title}}</a>
 
     <span class="task-meta">
-      <span class="badge {{slug .Status}}">{{.Status}}</span>
-      {{if ne (prio .Priority) "normal"}}<span class="badge p-{{prio .Priority}}">{{prio .Priority}}</span>{{end}}
-      {{range .Tags}}<span class="tag">{{.}}</span>{{end}}
-      <span class="ref mono">{{.Ref}}</span>
+      {{if $.Columns.Show "tasks" "status"}}<span class="badge {{slug .Status}}">{{.Status}}</span>{{end}}
+      {{if $.Columns.Show "tasks" "priority"}}{{if ne (prio .Priority) "normal"}}<span class="badge p-{{prio .Priority}}">{{prio .Priority}}</span>{{end}}{{end}}
+      {{if $.Columns.Show "tasks" "tags"}}{{range .Tags}}<span class="tag">{{.}}</span>{{end}}{{end}}
+      {{if $.Columns.Show "tasks" "list"}}<span class="tag list">{{$acc.Key}}</span>{{end}}
+      {{if $.Columns.Show "tasks" "updated"}}<span class="when">{{compact .UpdatedAt}}</span>{{end}}
+      {{if $.Columns.Show "tasks" "ref"}}<span class="ref mono">{{.Ref}}</span>{{end}}
     </span>
   </li>
 {{else}}

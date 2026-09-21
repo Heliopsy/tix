@@ -1,5 +1,6 @@
 {{define "content"}}
 <h1>API tokens</h1>
+{{template "column-picker" .}}
 {{if .Data.Issued}}
 <div class="flash">
   <p>Copy this token now. It is shown once and cannot be retrieved again.</p>
@@ -7,11 +8,13 @@
 </div>
 {{end}}
 <table>
-  <thead><tr><th>Name</th><th>Scopes</th><th>Expires</th><th></th></tr></thead>
+  <thead><tr><th>Name</th>{{if .Columns.Show "tokens" "scopes"}}<th>Scopes</th>{{end}}{{if .Columns.Show "tokens" "expires"}}<th>Expires</th>{{end}}<th></th></tr></thead>
   <tbody>
   {{range .Data.Tokens}}
     <tr>
-      <td>{{.Name}}</td><td>{{scopes .Scopes}}</td><td>{{stamp .ExpiresAt}}</td>
+      <td>{{.Name}}</td>
+      {{if $.Columns.Show "tokens" "scopes"}}<td>{{scopes .Scopes}}</td>{{end}}
+      {{if $.Columns.Show "tokens" "expires"}}<td>{{stamp .ExpiresAt}}</td>{{end}}
       <td>
         <form method="post" action="/admin/tokens/revoke">
           {{template "csrf" $.CSRF}}
@@ -21,7 +24,7 @@
       </td>
     </tr>
   {{else}}
-    <tr><td colspan="4">No tokens.</td></tr>
+    <tr><td colspan="{{$.Columns.Span "tokens" 2}}">No tokens.</td></tr>
   {{end}}
   </tbody>
 </table>

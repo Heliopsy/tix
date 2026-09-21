@@ -1,12 +1,14 @@
 {{define "content"}}
 <h1>Users</h1>
+{{template "column-picker" .}}
 <table>
-  <thead><tr><th>Email</th><th>Name</th><th>State</th><th></th></tr></thead>
+  <thead><tr><th>Email</th>{{if .Columns.Show "users" "name"}}<th>Name</th>{{end}}{{if .Columns.Show "users" "state"}}<th>State</th>{{end}}<th></th></tr></thead>
   <tbody>
   {{range .Data.Users}}
     <tr>
-      <td>{{.Email}}</td><td>{{.DisplayName}}</td>
-      <td>{{if .DisabledAt}}disabled{{else}}active{{end}}</td>
+      <td>{{.Email}}</td>
+      {{if $.Columns.Show "users" "name"}}<td>{{.DisplayName}}</td>{{end}}
+      {{if $.Columns.Show "users" "state"}}<td>{{if .DisabledAt}}disabled{{else}}active{{end}}</td>{{end}}
       <td>
         <form method="post" action="/admin/users/update">
           {{template "csrf" $.CSRF}}
@@ -26,7 +28,7 @@
       </td>
     </tr>
   {{else}}
-    <tr><td colspan="4">No users.</td></tr>
+    <tr><td colspan="{{$.Columns.Span "users" 2}}">No users.</td></tr>
   {{end}}
   </tbody>
 </table>

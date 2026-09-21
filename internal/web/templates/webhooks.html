@@ -1,11 +1,14 @@
 {{define "content"}}
 <h1>Webhooks</h1>
+{{template "column-picker" .}}
 <table>
-  <thead><tr><th>URL</th><th>Events</th><th>Active</th><th></th></tr></thead>
+  <thead><tr><th>URL</th>{{if .Columns.Show "webhooks" "events"}}<th>Events</th>{{end}}{{if .Columns.Show "webhooks" "active"}}<th>Active</th>{{end}}<th></th></tr></thead>
   <tbody>
   {{range .Data.Endpoints}}
     <tr>
-      <td>{{.URL}}</td><td>{{join .EventTypes}}</td><td>{{if .Active}}yes{{else}}no{{end}}</td>
+      <td>{{.URL}}</td>
+      {{if $.Columns.Show "webhooks" "events"}}<td>{{join .EventTypes}}</td>{{end}}
+      {{if $.Columns.Show "webhooks" "active"}}<td>{{if .Active}}yes{{else}}no{{end}}</td>{{end}}
       <td>
         <form method="post" action="/admin/webhooks/delete">
           {{template "csrf" $.CSRF}}
@@ -15,7 +18,7 @@
       </td>
     </tr>
   {{else}}
-    <tr><td colspan="4">No endpoints.</td></tr>
+    <tr><td colspan="{{$.Columns.Span "webhooks" 2}}">No endpoints.</td></tr>
   {{end}}
   </tbody>
 </table>

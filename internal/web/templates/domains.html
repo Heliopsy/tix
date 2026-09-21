@@ -1,13 +1,14 @@
 {{define "content"}}
 <h1>Domains</h1>
+{{template "column-picker" .}}
 <table>
-  <thead><tr><th>Hostname</th><th>Verified</th><th>Certificate</th><th></th></tr></thead>
+  <thead><tr><th>Hostname</th>{{if .Columns.Show "domains" "verified"}}<th>Verified</th>{{end}}{{if .Columns.Show "domains" "cert"}}<th>Certificate</th>{{end}}<th></th></tr></thead>
   <tbody>
   {{range .Data.Domains}}
     <tr>
       <td>{{.Hostname}}</td>
-      <td>{{if .Verified}}verified {{stamp .VerifiedAt}}{{else}}pending{{end}}</td>
-      <td>{{.CertMode}}</td>
+      {{if $.Columns.Show "domains" "verified"}}<td>{{if .Verified}}verified {{stamp .VerifiedAt}}{{else}}pending{{end}}</td>{{end}}
+      {{if $.Columns.Show "domains" "cert"}}<td>{{.CertMode}}</td>{{end}}
       <td>
         <form method="post" action="/admin/domains/remove">
           {{template "csrf" $.CSRF}}
@@ -17,7 +18,7 @@
       </td>
     </tr>
   {{else}}
-    <tr><td colspan="4">No domains mapped.</td></tr>
+    <tr><td colspan="{{$.Columns.Span "domains" 2}}">No domains mapped.</td></tr>
   {{end}}
   </tbody>
 </table>

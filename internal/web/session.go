@@ -18,6 +18,7 @@ func (h *handler) sessionRoutes() []route {
 		post(RouteLogout, h.doLogout, "Logout"),
 		post(RouteAdvanced, h.toggleAdvanced, "Logout"),
 		post(RouteTheme, h.setTheme, "Logout"),
+		post(RouteColumns, h.setColumns, "Logout"),
 		get(RouteActivity, "activity.html", h.showActivity, "ListAudit"),
 	}
 }

@@ -340,3 +340,59 @@ allow a project's colour and icon to be set from the palette and cleared again.
 
 - **WHEN** a project's colour is set to none and its icon emptied on the project screen
 - **THEN** the project is saved with neither and its rows lose the accent
+
+### Requirement: Listings offer a chosen column set
+
+Every listing screen whose columns can be chosen SHALL offer a control selecting which of its
+optional columns render. The available columns and the set an untouched installation shows SHALL be
+declared in one place rather than repeated per screen, and a listing with no recorded choice SHALL
+render that declared default. Each listing SHALL always render the column naming its rows, whatever
+is chosen, so no choice can produce a listing with nothing in it or put a record out of reach.
+Hiding a column is a display choice and not a permission: every hidden value SHALL remain reachable
+on the record's own screen. The choice SHALL be recorded per browser rather than in tenant data, so
+two people working in one tenant may read a listing differently, and SHALL survive later requests
+from that browser. A recorded choice that this build does not recognise SHALL be discarded in favour
+of the declared default rather than failing the page.
+
+#### Scenario: An untouched installation is unchanged
+
+- **WHEN** a listing is rendered for a browser that has chosen no columns
+- **THEN** it renders exactly the declared default set, in the declared order
+
+#### Scenario: A chosen set changes what renders
+
+- **WHEN** a reader chooses a column set for a listing
+- **THEN** that listing renders the chosen columns and omits the rest
+
+#### Scenario: The choice survives the next request
+
+- **WHEN** the same browser requests the listing again
+- **THEN** it is rendered with the chosen set rather than with the default
+
+#### Scenario: The choice belongs to the browser
+
+- **WHEN** a second browser requests the same listing
+- **THEN** it is rendered with the default set, unaffected by the first browser's choice
+
+#### Scenario: An unrecognised choice falls back
+
+- **WHEN** a listing is rendered for a browser whose recorded preference names an unknown listing or
+  column, or is malformed or oversized
+- **THEN** the declared default is rendered and no error is raised
+
+#### Scenario: Nothing is put out of reach
+
+- **WHEN** a column is hidden from a listing
+- **THEN** the listing still names each row, and the hidden value is still shown on the record's own
+  screen
+
+#### Scenario: The control needs no scripting
+
+- **WHEN** the column control is submitted with JavaScript disabled
+- **THEN** the choice is recorded and the reader is returned to the listing they chose it from,
+  filter and position intact
+
+#### Scenario: Resetting restores the default
+
+- **WHEN** a reader resets a listing's columns
+- **THEN** the listing renders the declared default set again

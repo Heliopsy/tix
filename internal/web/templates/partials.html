@@ -43,3 +43,27 @@
 {{end}}
 
 {{define "csrf"}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}
+
+{{define "column-picker"}}
+{{if .Columns.Configurable .ColumnPage}}
+<details class="panel columns">
+  <summary>Columns</summary>
+  <div class="body">
+    <form method="post" action="/columns" class="columnform">
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="page" value="{{.ColumnPage}}">
+      <input type="hidden" name="next" value="{{.Here}}">
+      <div class="choices">
+        {{range .Columns.Options .ColumnPage}}
+        <label><input type="checkbox" name="column" value="{{.Key}}" {{if .Shown}}checked{{end}}> {{.Label}}</label>
+        {{end}}
+      </div>
+      <div class="actions">
+        <button type="submit">Apply</button>
+        <button class="secondary" type="submit" name="reset" value="1">Reset</button>
+      </div>
+    </form>
+  </div>
+</details>
+{{end}}
+{{end}}

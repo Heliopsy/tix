@@ -1,18 +1,19 @@
 {{define "content"}}
 <h1>Projects</h1>
+{{template "column-picker" .}}
 <table>
-  <thead><tr><th>Key</th><th>Name</th><th>Colour</th><th>State</th><th>Screens</th></tr></thead>
+  <thead><tr><th>Key</th>{{if .Columns.Show "projects" "name"}}<th>Name</th>{{end}}{{if .Columns.Show "projects" "colour"}}<th>Colour</th>{{end}}{{if .Columns.Show "projects" "state"}}<th>State</th>{{end}}{{if .Columns.Show "projects" "screens"}}<th>Screens</th>{{end}}</tr></thead>
   <tbody>
   {{range .Data.Projects}}
     <tr>
       <td>{{if .Icon}}<span class="proj-icon" role="img" aria-label="{{.Name}}">{{.Icon}}</span> {{end}}<a href="/projects/{{.Key}}">{{.Key}}</a></td>
-      <td>{{.Name}}</td>
-      <td>{{if .Color}}<span class="swatch proj-{{.Color}}" aria-hidden="true"></span>{{.Color}}{{else}}<span class="muted">none</span>{{end}}</td>
-      <td>{{if .Archived}}archived{{else}}active{{end}}</td>
-      <td><a href="/projects/{{.Key}}/fields">Fields</a></td>
+      {{if $.Columns.Show "projects" "name"}}<td>{{.Name}}</td>{{end}}
+      {{if $.Columns.Show "projects" "colour"}}<td>{{if .Color}}<span class="swatch proj-{{.Color}}" aria-hidden="true"></span>{{.Color}}{{else}}<span class="muted">none</span>{{end}}</td>{{end}}
+      {{if $.Columns.Show "projects" "state"}}<td>{{if .Archived}}archived{{else}}active{{end}}</td>{{end}}
+      {{if $.Columns.Show "projects" "screens"}}<td><a href="/projects/{{.Key}}/fields">Fields</a></td>{{end}}
     </tr>
   {{else}}
-    <tr><td colspan="5">No projects yet.</td></tr>
+    <tr><td colspan="{{$.Columns.Span "projects" 1}}">No projects yet.</td></tr>
   {{end}}
   </tbody>
 </table>

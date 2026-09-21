@@ -92,6 +92,7 @@ const (
 	RouteLogout   = "/logout"
 	RouteAdvanced = "/advanced"
 	RouteTheme    = "/theme"
+	RouteColumns  = "/columns"
 	RouteActivity = "/activity"
 
 	RouteProjects     = "/projects"
