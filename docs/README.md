@@ -10,7 +10,7 @@ with the thing.
 
 | Guide | Covers |
 | --- | --- |
-| [agents.md](agents.md) | Claiming work, leases and lease tokens, `tix claim --exec`, token scopes, exit codes, why a zombie cannot write |
+| [agents.md](agents.md) | Claiming work, leases and lease tokens, `tix claim exec`, token scopes, exit codes, why a zombie cannot write |
 | [workflows.md](workflows.md) | Custom state machines, transitions, terminal states, custom fields, indexed versus scanned filters |
 | [configuration.md](configuration.md) | Contexts, the five layers, `TIX_*` variables, per-directory discovery |
 | [tenancy.md](tenancy.md) | Tenants, domains, roles, and how isolation is enforced |

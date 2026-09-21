@@ -40,19 +40,45 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `server.url` | `TIX_SERVER_URL` | (unset) |
 | `server.listen` | `TIX_SERVER_LISTEN` | `127.0.0.1:8080` |
 | `server.token` | `TIX_SERVER_TOKEN` | (unset) |
-| `auth.mode` | `TIX_AUTH_MODE` | `token` (`none`, `token`, `oidc`) |
-| `hooks.mode` | `TIX_HOOKS_MODE` | `off` (`off`, `warn`, `enforce`) |
+| `auth.mode` | `TIX_AUTH_MODE` | `token` |
+| `hooks.mode` | `TIX_HOOKS_MODE` | `off` |
+| `webhooks.drain_mode` | `TIX_WEBHOOKS_DRAIN_MODE` | `inline` (`inline`, `server`, `off`) |
 | `discovery.enabled` | `TIX_DISCOVERY_ENABLED` | `true` |
 | `discovery.filenames` | `TIX_DISCOVERY_FILENAMES` | `.tix.yaml,.tix/config.yaml` |
 | `retention.audit` | `TIX_RETENTION_AUDIT` | `8760h` |
 | `retention.events` | `TIX_RETENTION_EVENTS` | `720h` |
+| `retention.webhook_deliveries` | `TIX_RETENTION_WEBHOOK_DELIVERIES` | `720h` |
 | `log.level` | `TIX_LOG_LEVEL` | `info` (`debug`, `info`, `warn`, `error`) |
 | `output.format` | `TIX_OUTPUT_FORMAT` | `table` (`table`, `json`, `yaml`, `ndjson`) |
+| `output.color` | `TIX_OUTPUT_COLOR` | `auto` (`auto`, `always`, `never`) |
 
 List values are comma-separated. Durations use Go syntax (`15m`, `24h`, `720h`).
 
-`TIX_TOKEN` is separate from the generated names: it holds the personal access token a command authenticates
-with, and is equivalent to `--token`.
+`auth.mode` and `hooks.mode` each accept one value in this build. `none` and `oidc` for `auth.mode`, and `warn`
+and `enforce` for `hooks.mode`, are refused with "is not implemented by this build" rather than accepted and
+ignored, because a setting that reads as a security control must never be silent.
+
+`hooks.mode` and `webhooks.drain_mode` are unrelated, despite the similar names. `hooks.mode` is the git hook
+setting. `webhooks.drain_mode` decides which process delivers queued webhook events: `inline` drains them in the
+command that produced them, `server` leaves them for `tix serve`, and `off` queues them and delivers nothing.
+
+### The default project
+
+`project` names the project used when a command does not say. It is the default for `tix task add`, `tix task ls`
+and `tix tui`, and `-p`/`--project` on any of them overrides it for that run. Unset, `tix task add` uses the only
+project when there is one and is exit 2 when there are several.
+
+### Variables outside the generated scheme
+
+| Variable | Effect |
+| --- | --- |
+| `TIX_TOKEN` | the personal access token a command authenticates with, equivalent to `--token` |
+| `NO_COLOR` | set and non-empty, suppresses colour, per [no-color.org](https://no-color.org) |
+| `TIX_NO_COLOR` | the tix-scoped spelling of the same thing |
+
+The two colour variables only apply while the colour mode is `auto`. An explicit `TIX_OUTPUT_COLOR` (or
+`output.color`, or `--color`/`--no-color`) beats them, so `NO_COLOR=1 TIX_OUTPUT_COLOR=always tix task ls` is
+coloured.
 
 ## Global flags
 
@@ -65,12 +91,19 @@ These apply to every command:
 | `--db` | database DSN, instead of the configured target |
 | `--server` | server URL, instead of the configured target |
 | `--token` | API token to authenticate with |
+| `--tenant` | tenant key to work in, instead of the configured one |
 | `-o, --output` | `table`, `json`, `yaml` or `ndjson` |
+| `--color` | force coloured output, even when not writing to a terminal |
+| `--no-color` | disable coloured output |
 | `-q, --quiet` | suppress diagnostics |
 | `-v, --verbose` | report how the target was resolved |
 | `--no-discovery` | ignore per-directory context files |
 
 `--db` and `--server` are mutually exclusive in effect: one names a local database, the other a remote server.
+`--color` and `--no-color` together are exit 2.
+
+`tix project create` and `tix project edit` take their own `--color`, which names a palette colour for the
+project and shadows the global flag on those two commands.
 
 ## The configuration file
 
@@ -88,10 +121,15 @@ database:
 
 output:
   format: table
+  color: auto
+
+webhooks:
+  drain_mode: inline
 
 retention:
   audit: 8760h
   events: 720h
+  webhook_deliveries: 720h
 
 contexts:
   work:
@@ -168,11 +206,17 @@ tix doctor
 ```
 
 ```text
-version        ok   dev
-configuration  ok   no configuration file; using defaults
-target         ok   local /home/you/.local/share/tix/tix.db (from config)
-schema         ok   version 2
-identity       ok   local
+┌───────────────┬────────┬───────────────────────────────────────────────────────────┐
+│ NAME          │ STATUS │ DETAIL                                                    │
+├───────────────┼────────┼───────────────────────────────────────────────────────────┤
+│ version       │ ok     │ dev                                                       │
+│ configuration │ ok     │ no configuration file; using defaults                     │
+│ target        │ ok     │ local /home/you/.local/share/tix/tix.db (from config)     │
+│ schema        │ ok     │ version 3                                                 │
+│ identity      │ ok     │ local                                                     │
+└───────────────┴────────┴───────────────────────────────────────────────────────────┘
 ```
+
+`-o json` gives the same checks as records, which is the form a health script should read.
 
 Exit 1 when a check fails.

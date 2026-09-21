@@ -217,7 +217,7 @@ code there. Nothing else changes: the commands, the output and the exit codes ar
 | [proposal.md](openspec/changes/tix-v1/proposal.md) | Why tix exists and what it does |
 | [design.md](openspec/changes/tix-v1/design.md) | Technical decisions and their trade-offs |
 | [tasks.md](openspec/changes/tix-v1/tasks.md) | Implementation checklist by work package |
-| [specs/](openspec/changes/tix-v1/specs/) | 23 capabilities, 305 requirements, 928 scenarios |
+| [specs/](openspec/changes/tix-v1/specs/) | 23 capabilities, 308 requirements, 949 scenarios |
 | [docs/](docs/) | User and operator guides, indexed in [docs/README.md](docs/README.md) |
 | [docs/agents.md](docs/agents.md) | Leases, lease tokens, `tix claim exec`, scopes and exit codes for agents |
 | [docs/api.md](docs/api.md) | HTTP API and the WebSocket event stream |

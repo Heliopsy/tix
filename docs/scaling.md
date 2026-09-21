@@ -48,18 +48,42 @@ both engines record the same migration identifiers:
 | `BLOB` | `BYTEA` |
 | `LIKE '%term%'` search | `tsvector` with a GIN index |
 
-### Current status
+### Using it
 
-The engine is implemented and tested, but the CLI and `tix serve` do not yet open it. A PostgreSQL DSN is
-rejected:
+Point the DSN at PostgreSQL and every command works as it does on SQLite. The schema migrates on first use:
 
 ```console
-$ TIX_DATABASE_DSN='postgres://tix@localhost/tix' tix task ls
-error: invalid: database engine "postgres" is not supported by this build
+$ tix --db 'postgres://tix:tix@127.0.0.1:55432/tix?sslmode=disable' task add "on postgres"
+┌───────────┬─────────────┬────────┬──────────┬──────────┬──────┬─────┬──────────────────┬─────────┐
+│ REF       │ TITLE       │ STATUS │ PRIORITY │ ASSIGNEE │ TAGS │ DUE │ UPDATED          │ BLOCKED │
+├───────────┼─────────────┼────────┼──────────┼──────────┼──────┼─────┼──────────────────┼─────────┤
+│ default-1 │ on postgres │ todo   │ normal   │          │      │     │ 2026-09-21 00:30 │ no      │
+└───────────┴─────────────┴────────┴──────────┴──────────┴──────┴─────┴──────────────────┴─────────┘
 ```
 
-`tix serve` likewise requires a local SQLite target. Until the wiring lands, treat this section as what the engine
-provides rather than as an operational option. Its tests run against a real database:
+`tix doctor` reports the engine and the schema version it found:
+
+```console
+$ TIX_DATABASE_DSN='postgres://tix:tix@127.0.0.1:55432/tix?sslmode=disable' tix doctor
+┌───────────────┬────────┬──────────────────────────────────────────────────────────────────────────────┐
+│ NAME          │ STATUS │ DETAIL                                                                       │
+├───────────────┼────────┼──────────────────────────────────────────────────────────────────────────────┤
+│ version       │ ok     │ dev                                                                          │
+│ configuration │ ok     │ no configuration file; using defaults                                        │
+│ target        │ ok     │ local postgres://tix:xxxxx@127.0.0.1:55432/tix?sslmode=disable (from config) │
+│ schema        │ ok     │ version 3                                                                    │
+│ identity      │ ok     │ local                                                                        │
+└───────────────┴────────┴──────────────────────────────────────────────────────────────────────────────┘
+```
+
+The password is redacted wherever the DSN is printed. `tix serve --db postgres://...` takes the same target, and
+a context can name it once:
+
+```sh
+tix ctx add prod --db 'postgres://tix@db.internal:5432/tix?sslmode=require' --use
+```
+
+The engine's own tests run against a real database:
 
 ```sh
 just pg-up
@@ -109,8 +133,8 @@ tix prune --dry-run
 tix prune --limit 10000   # bound the work per run
 ```
 
-`retention.events` (720h) and `retention.audit` (8760h) set the windows. `tix serve` runs the pruner hourly by
-default.
+`retention.events` (720h), `retention.audit` (8760h) and `retention.webhook_deliveries` (720h) set the windows.
+`tix serve` runs the pruner hourly by default.
 
 Retention interacts with the event stream: a subscriber resuming from a `since_seq` older than the oldest
 retained event is refused rather than silently skipped. A consumer that may be offline longer than the event

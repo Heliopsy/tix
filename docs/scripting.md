@@ -22,6 +22,22 @@ $ tix task ls -o ndjson
 
 An unsupported format is rejected before anything is opened, with exit 2.
 
+## Colour
+
+`json`, `yaml` and `ndjson` never carry colour. Whatever the colour mode, a machine-readable format is written
+without a single escape code, so a parser never has to strip one:
+
+```console
+$ tix project ls --color -o json | grep -c $'\e['
+0
+```
+
+Only `table` is coloured, and only when standard output is a terminal. A pipe, a redirect to a file or a
+subshell capture is detected and drops the colour, which is why `out=$(tix task ls)` holds plain text with no
+flag needed. `--no-color` or `TIX_OUTPUT_COLOR=never` turns it off everywhere; `--color` or
+`TIX_OUTPUT_COLOR=always` keeps it on through a pipe, for feeding a pager. `NO_COLOR` and `TIX_NO_COLOR` are
+honoured while the mode is `auto`. See [configuration.md](configuration.md).
+
 ## NDJSON everywhere
 
 The same line-per-record shape shows up in four places, and they compose:

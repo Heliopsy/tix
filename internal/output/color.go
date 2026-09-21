@@ -212,3 +212,32 @@ func isTerminal(w io.Writer) bool {
 	}
 	return info.Mode()&os.ModeCharDevice != 0
 }
+
+// paletteStyles maps each project palette colour onto the closest terminal
+// colour. A colour outside the palette has no style, so it renders plainly.
+var paletteStyles = map[core.ProjectColor]sgr{
+	core.ColorSlate:  "90",
+	core.ColorRed:    "31",
+	core.ColorAmber:  "33",
+	core.ColorGreen:  "32",
+	core.ColorTeal:   "36",
+	core.ColorBlue:   "34",
+	core.ColorViolet: "35",
+	core.ColorPink:   "95",
+}
+
+// swatchGlyph marks a colour sample in a table cell.
+const swatchGlyph = "● "
+
+// Swatch renders a project colour as a sample in that colour, and as the bare
+// colour name when colour is off. An empty colour renders as nothing.
+func (p Painter) Swatch(c core.ProjectColor) string {
+	if c == core.ColorNone {
+		return ""
+	}
+	style, ok := paletteStyles[c]
+	if !ok || !p.on {
+		return string(c)
+	}
+	return p.apply(style, swatchGlyph+string(c))
+}

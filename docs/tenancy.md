@@ -89,12 +89,31 @@ still does not produce a cross-tenant read, because the database itself refuses.
 
 There is an isolation test suite: `just leak`.
 
-## Current limits
+## Choosing a tenant
 
-Tenant selection on the command line is not yet wired. The `tenant` configuration key, `TIX_TENANT` and a
-context's `--tenant` are accepted and reported by `tix config show`, but a local database target always opens the
-default tenant, and a remote target takes its tenant from the token presented. Work in a second tenant through
-the HTTP API with a token minted in that tenant, or through a hostname mapped to it.
+Against a local database, `--tenant`, `TIX_TENANT`, the `tenant` configuration key and a context's `--tenant` all
+select which tenant a command works in. The flag wins, then the environment, then the file.
+
+```console
+$ tix tenant create acme "Acme Corp"
+$ tix --tenant acme project create web Web
+$ tix project ls -o json | grep -o '"key":"[^"]*"'
+"key":"default"
+$ tix --tenant acme project ls -o json | grep -o '"key":"[^"]*"'
+"key":"web"
+$ TIX_TENANT=acme tix project ls -o json | grep -o '"key":"[^"]*"'
+"key":"web"
+```
+
+Name it once with a context instead of repeating the flag:
+
+```sh
+tix ctx add acme --db sqlite://~/.local/share/tix/tix.db --tenant acme --use
+```
+
+Against a remote server the tenant comes from the credentials and the hostname, not from the client: a token
+authenticates within the tenant it was minted in, and the `Host` header selects the tenant before any handler
+runs. A client cannot ask a server for a tenant it does not hold a token for.
 
 ## Related
 

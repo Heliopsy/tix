@@ -74,12 +74,14 @@ type Tag struct {
 
 // Project is a project template: the way of working, never the work.
 type Project struct {
-	Key         string    `json:"key"`
-	Name        string    `json:"name,omitempty"`
-	Description string    `json:"description,omitempty"`
-	Workflow    *Workflow `json:"workflow,omitempty"`
-	Fields      []Field   `json:"fields,omitempty"`
-	Tags        []Tag     `json:"tags,omitempty"`
+	Key         string            `json:"key"`
+	Name        string            `json:"name,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Color       core.ProjectColor `json:"color,omitempty"`
+	Icon        string            `json:"icon,omitempty"`
+	Workflow    *Workflow         `json:"workflow,omitempty"`
+	Fields      []Field           `json:"fields,omitempty"`
+	Tags        []Tag             `json:"tags,omitempty"`
 }
 
 // Webhook is a delivery endpoint definition. A signing secret never travels in
@@ -197,6 +199,12 @@ func (f Field) validate() error {
 func (p Project) validate() error {
 	if err := core.ValidateProjectKey(p.Key); err != nil {
 		return core.Invalid("project template %q is not valid: %s", p.Key, message(err))
+	}
+	if !p.Color.Valid() {
+		return core.Invalid("project template %q carries colour %q, which is not in the palette", p.Key, p.Color)
+	}
+	if _, err := core.NormalizeProjectIcon(p.Icon); err != nil {
+		return core.Invalid("project template %q carries an invalid icon: %s", p.Key, message(err))
 	}
 	if p.Workflow != nil {
 		if err := p.Workflow.validate(); err != nil {

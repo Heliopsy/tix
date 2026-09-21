@@ -39,11 +39,11 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 	case core.Task:
 		return renderRows(w, p, taskHeader, []core.Task{v}, p.taskRow)
 	case []core.Project:
-		return renderRows(w, p, projectHeader, v, projectRow)
+		return renderRows(w, p, projectHeader, v, p.projectRow)
 	case []*core.Project:
-		return renderRows(w, p, projectHeader, deref(v), projectRow)
+		return renderRows(w, p, projectHeader, deref(v), p.projectRow)
 	case core.Project:
-		return renderRows(w, p, projectHeader, []core.Project{v}, projectRow)
+		return renderRows(w, p, projectHeader, []core.Project{v}, p.projectRow)
 	case []core.Workflow:
 		return renderRows(w, p, workflowHeader, v, p.workflowRow)
 	case []*core.Workflow:
@@ -116,7 +116,7 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 
 var (
 	taskHeader     = table.Row{"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "UPDATED", "BLOCKED"}
-	projectHeader  = table.Row{"KEY", "NAME", "WORKFLOW", "ARCHIVED", "CREATED", "UPDATED"}
+	projectHeader  = table.Row{"KEY", "NAME", "WORKFLOW", "COLOR", "ICON", "ARCHIVED", "CREATED", "UPDATED"}
 	workflowHeader = table.Row{"KEY", "NAME", "INITIAL", "STATES", "TRANSITIONS", "BUILTIN", "UPDATED"}
 	commentHeader  = table.Row{"ID", "TASK", "AUTHOR", "BODY", "CREATED"}
 	tokenHeader    = table.Row{"ID", "NAME", "ACTOR", "SCOPES", "PROJECT", "CREATED", "EXPIRES", "LAST USED", "REVOKED"}
@@ -199,10 +199,11 @@ func (p Painter) taskRow(t core.Task) table.Row {
 	}
 }
 
-func projectRow(p core.Project) table.Row {
+func (p Painter) projectRow(project core.Project) table.Row {
 	return table.Row{
-		p.Key, truncate(p.Name, 40), p.WorkflowID,
-		yesNo(p.Archived()), FormatCompact(p.CreatedAt), FormatCompact(p.UpdatedAt),
+		project.Key, truncate(project.Name, 40), project.WorkflowID,
+		p.Swatch(project.Color), project.Icon,
+		yesNo(project.Archived()), FormatCompact(project.CreatedAt), FormatCompact(project.UpdatedAt),
 	}
 }
 

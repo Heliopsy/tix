@@ -572,6 +572,12 @@ func (i *importer) applyProject(ctx context.Context, tx store.Tx, m *mutation, p
 	if err := core.ValidateProjectKey(p.Key); err != nil {
 		return i.reject("project at line %d is not valid: %v", i.dec.Line(), err)
 	}
+	if !p.Color.Valid() {
+		return i.reject("project %q at line %d has colour %q, which is not in the palette", p.Key, i.dec.Line(), p.Color)
+	}
+	if _, err := core.NormalizeProjectIcon(p.Icon); err != nil {
+		return i.reject("project %q at line %d has an invalid icon: %v", p.Key, i.dec.Line(), err)
+	}
 	existing, err := findProject(ctx, tx, p.Key)
 	if err != nil {
 		return err
@@ -591,7 +597,8 @@ func (i *importer) applyProject(ctx context.Context, tx store.Tx, m *mutation, p
 
 	target := &core.Project{
 		Key: p.Key, Name: name, Description: p.Description,
-		WorkflowID: workflowID, ArchivedAt: p.ArchivedAt, CreatedAt: p.CreatedAt,
+		WorkflowID: workflowID, Color: p.Color, Icon: p.Icon,
+		ArchivedAt: p.ArchivedAt, CreatedAt: p.CreatedAt,
 	}
 	i.count(core.RecordProject, existing != nil)
 	switch {

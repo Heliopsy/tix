@@ -260,3 +260,60 @@ func TestPainterLeavesEmptyTextAlone(t *testing.T) {
 		t.Errorf("unknown category was painted: %q", got)
 	}
 }
+
+func TestProjectTableShowsColourAndIcon(t *testing.T) {
+	project := sampleProject()
+	project.Color = core.ColorViolet
+	project.Icon = "🚀"
+
+	var plain bytes.Buffer
+	if err := NewWithMode(FormatTable, ModeNever).Format(&plain, []core.Project{project}); err != nil {
+		t.Fatalf("plain: %v", err)
+	}
+	if strings.Contains(plain.String(), "\x1b[") {
+		t.Errorf("colour off still wrote escape codes:\n%s", plain.String())
+	}
+	for _, want := range []string{"COLOR", "ICON", "violet", "🚀"} {
+		if !strings.Contains(plain.String(), want) {
+			t.Errorf("project table is missing %q:\n%s", want, plain.String())
+		}
+	}
+
+	var painted bytes.Buffer
+	if err := NewWithMode(FormatTable, ModeAlways).Format(&painted, []core.Project{project}); err != nil {
+		t.Fatalf("painted: %v", err)
+	}
+	if !strings.Contains(painted.String(), "\x1b[35m"+swatchGlyph+"violet") {
+		t.Errorf("colour on did not paint a swatch:\n%q", painted.String())
+	}
+}
+
+func TestProjectTableWithoutColourOrIcon(t *testing.T) {
+	var buf bytes.Buffer
+	if err := NewWithMode(FormatTable, ModeAlways).Format(&buf, []core.Project{sampleProject()}); err != nil {
+		t.Fatalf("format: %v", err)
+	}
+	if strings.Contains(strip(buf.String()), swatchGlyph) {
+		t.Errorf("a project with no colour drew a swatch:\n%s", buf.String())
+	}
+	if !strings.Contains(buf.String(), "ENG") {
+		t.Errorf("project row missing:\n%s", buf.String())
+	}
+}
+
+func TestSwatchCoversThePalette(t *testing.T) {
+	on := Painter{on: true}
+	off := Painter{on: false}
+	if got := on.Swatch(core.ColorNone); got != "" {
+		t.Errorf("empty colour rendered %q", got)
+	}
+	for _, c := range core.ProjectColors() {
+		if got := off.Swatch(c); got != string(c) {
+			t.Errorf("colour off rendered %q for %s", got, c)
+		}
+		got := on.Swatch(c)
+		if !strings.HasPrefix(got, "\x1b[") || strip(got) != swatchGlyph+string(c) {
+			t.Errorf("colour on rendered %q for %s", got, c)
+		}
+	}
+}

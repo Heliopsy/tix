@@ -1182,3 +1182,33 @@ func TestReplaceDryRunCountsDeletionsWithoutMakingThem(t *testing.T) {
 		t.Errorf("a replace dry run deleted a task: %v", err)
 	}
 }
+
+func TestRoundTripPreservesProjectAppearance(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	source := core.WithActor(context.Background(), actor)
+	seed(t, l, source, "infra")
+	if _, err := l.UpdateProject(source, "infra", core.UpdateProjectInput{
+		Color: strPtr("violet"), Icon: strPtr("🚀"),
+	}); err != nil {
+		t.Fatalf("update project: %v", err)
+	}
+	snapshot := exportBytes(t, l, source, core.ExportInput{})
+
+	target, _, _ := newTenant(t, l, "beta")
+	if _, err := l.ImportFrom(target, bytes.NewReader(snapshot), core.ImportInput{Mode: core.ImportMerge}); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	got, err := l.GetProject(target, "infra")
+	if err != nil {
+		t.Fatalf("get project: %v", err)
+	}
+	if got.Color != core.ColorViolet {
+		t.Errorf("colour = %q, want violet", got.Color)
+	}
+	if got.Icon != "🚀" {
+		t.Errorf("icon = %q, want 🚀", got.Icon)
+	}
+}
+
+func strPtr(s string) *string { return &s }

@@ -349,3 +349,21 @@ and afterwards, and SHALL be clearable by setting them to empty.
 
 - **WHEN** the migration adding the colour and icon columns is applied to a database holding projects
 - **THEN** every existing project carries an empty colour and an empty icon and every other field is unchanged
+
+#### Scenario: The project listing shows both
+
+- **WHEN** projects are listed in the human-readable table format
+- **THEN** the table carries a colour column and an icon column, the colour is drawn as a sample in
+  that palette colour when colour is enabled and as the bare colour name when it is not, and a
+  project with neither renders both columns empty
+
+#### Scenario: Appearance survives a snapshot round trip
+
+- **WHEN** a project carrying a colour and an icon is exported and the snapshot is imported elsewhere
+- **THEN** the imported project carries the same colour and the same icon
+
+#### Scenario: Appearance travels with a project template
+
+- **WHEN** a project carrying a colour and an icon is exported as a bundle component and the bundle is applied
+- **THEN** the resulting project carries the same colour and the same icon, and a bundle naming a
+  colour outside the palette or an over-long icon is rejected before anything is written

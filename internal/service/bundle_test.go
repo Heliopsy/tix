@@ -950,3 +950,48 @@ func TestExportSelectedWebhookByID(t *testing.T) {
 		t.Error("selecting an unknown workflow must be refused")
 	}
 }
+
+func TestBundleCarriesProjectAppearance(t *testing.T) {
+	f := newBundleFixture(t)
+	if _, err := f.l.UpdateProject(f.ctx, "acme", core.UpdateProjectInput{
+		Color: strPtr("teal"), Icon: strPtr("AC"),
+	}); err != nil {
+		t.Fatalf("update project: %v", err)
+	}
+
+	raw := f.export(t, core.BundleExportInput{Kinds: []core.ComponentKind{core.ComponentProject}})
+	comps := f.components(t, raw)
+	if len(comps) != 1 || comps[0].Project == nil {
+		t.Fatalf("exported %d components, want one template", len(comps))
+	}
+	if comps[0].Project.Color != core.ColorTeal || comps[0].Project.Icon != "AC" {
+		t.Errorf("template appearance = %q/%q, want teal/AC", comps[0].Project.Color, comps[0].Project.Icon)
+	}
+
+	other := newBundleTenant(t, f.l)
+	if _, err := f.l.ImportBundle(other, bytes.NewReader(raw),
+		core.BundleImportInput{OnCollision: core.CollisionReplace}); err != nil {
+		t.Fatalf("ImportBundle: %v", err)
+	}
+	got, err := f.l.GetProject(other, "acme")
+	if err != nil {
+		t.Fatalf("get project: %v", err)
+	}
+	if got.Color != core.ColorTeal {
+		t.Errorf("imported colour = %q, want teal", got.Color)
+	}
+	if got.Icon != "AC" {
+		t.Errorf("imported icon = %q, want AC", got.Icon)
+	}
+}
+
+func TestBundleRefusesAnAppearanceOutsideThePalette(t *testing.T) {
+	f := newBundleFixture(t)
+	raw := `{"record":"header","header":{"version":1}}` + "\n" +
+		`{"record":"component","component":{"kind":"project_template","project":{"key":"acme","color":"chartreuse"}}}` + "\n"
+	_, err := f.l.ImportBundle(f.ctx, strings.NewReader(raw),
+		core.BundleImportInput{OnCollision: core.CollisionReplace})
+	if err == nil || !strings.Contains(err.Error(), "palette") {
+		t.Fatalf("import = %v, want a palette complaint", err)
+	}
+}

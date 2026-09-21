@@ -123,6 +123,25 @@ tix project edit rv --workflow review
 Removing a state that tasks currently sit in is refused with exit 6, as is removing a workflow still assigned to a
 project.
 
+## Marking a project
+
+A project carries a colour and an icon so its rows are recognisable at a glance in the CLI table and in the
+browser interface:
+
+```sh
+tix project create rv "Review" --workflow review --color violet --icon 🚀
+tix project edit rv --color teal --icon RV
+tix project edit rv --color "" --icon ""        # clear both
+```
+
+`--color` is one of `slate`, `red`, `amber`, `green`, `teal`, `blue`, `violet` or `pink`; anything else is exit 2.
+`--icon` is one emoji or a monogram of at most two characters. Both are optional, and a project with neither
+renders with those columns empty. They travel with `tix export`/`tix import` and with a project template in a
+bundle.
+
+The `COLOR` column is drawn as a swatch in the project's own colour when the output is a terminal, and as the
+bare colour name otherwise.
+
 ## Custom fields
 
 Fields are defined per project:
