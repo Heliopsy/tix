@@ -261,6 +261,20 @@ An import SHALL be applied atomically: either every change it describes is commi
 - **WHEN** the process is terminated during an import
 - **THEN** the target contains either the complete import or none of it
 
+### Requirement: Uploads are read outside the write transaction
+
+An import SHALL read its whole snapshot before it opens a write transaction, so a slow or stalled client cannot hold the store's write lock. A snapshot too large to hold in memory SHALL spill to temporary storage, and one larger than the configured bound SHALL be rejected with a validation error naming the bound.
+
+#### Scenario: A stalled upload holds no write lock
+
+- **WHEN** a client uploads a snapshot slowly
+- **THEN** other writers are unaffected until the upload has been read in full
+
+#### Scenario: An oversized snapshot is refused
+
+- **WHEN** an uploaded snapshot exceeds the size bound
+- **THEN** the import is rejected with a validation error naming the bound and nothing is written
+
 ### Requirement: Import dry run
 
 Import SHALL support a dry run that reports exactly what would be created, updated, and skipped, without writing anything.

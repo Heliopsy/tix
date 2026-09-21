@@ -46,7 +46,7 @@ func (h *handler) issueCSRF(w http.ResponseWriter, r *http.Request) string {
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   h.secure,
+		Secure:   h.secureCookie(r),
 		SameSite: http.SameSiteLaxMode,
 	})
 	return token

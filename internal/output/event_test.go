@@ -54,6 +54,58 @@ func TestEventDetail(t *testing.T) {
 	}
 }
 
+func TestEventDetailTaskUpdated(t *testing.T) {
+	tests := []struct {
+		name    string
+		payload map[string]any
+		want    string
+	}{
+		{"plain field edit carries nothing today", map[string]any{"ref": "homelab-3", "version": 2}, ""},
+		{"fields key, once the service ships one", map[string]any{"fields": []string{"title", "priority"}}, "the title and priority"},
+		{"fields key as []any, JSON's own decoded shape", map[string]any{"fields": []any{"title"}}, "the title"},
+		{"restore", map[string]any{"restored": true}, "restored"},
+		{"comment delete", map[string]any{"deleted": true}, "comment deleted"},
+		{"lease renew", map[string]any{"lease_expires_at": "2026-01-01T00:00:00Z"}, "lease renewed"},
+		{"tag removed", map[string]any{"removed": true, "tag": "urgent"}, "tag removed: urgent"},
+		{"dependency removed", map[string]any{"removed": true, "depends_on": "infra-9"}, "dependency removed: infra-9"},
+		{"sync import", map[string]any{"system": "jira", "title": "buy milk"}, "synced from jira"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := EventDetail(core.Event{Type: core.EventTaskUpdated, Payload: tc.payload})
+			if got != tc.want {
+				t.Fatalf("EventDetail = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestFieldLabel(t *testing.T) {
+	if got := FieldLabel("title"); got != "title" {
+		t.Fatalf("FieldLabel(title) = %q", got)
+	}
+	if got := FieldLabel("some_custom_key"); got != "some custom key" {
+		t.Fatalf("FieldLabel(some_custom_key) = %q, want the underscore fallback", got)
+	}
+}
+
+func TestSummariseFields(t *testing.T) {
+	tests := []struct {
+		in   []string
+		want string
+	}{
+		{nil, ""},
+		{[]string{"title"}, "the title"},
+		{[]string{"title", "priority"}, "the title and priority"},
+		{[]string{"title", "priority", "due_at"}, "the title, priority and due date"},
+	}
+	for _, tc := range tests {
+		if got := SummariseFields(tc.in); got != tc.want {
+			t.Fatalf("SummariseFields(%v) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
 func TestEventActor(t *testing.T) {
 	if got := EventActor(core.Event{ActorID: "alice"}); got != "alice" {
 		t.Fatalf("EventActor = %q", got)

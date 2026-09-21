@@ -62,7 +62,7 @@ func (h *handler) doLogin(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	http.SetCookie(w, auth.NewSessionCookie(session.Token, session.ExpiresAt, h.secure))
+	http.SetCookie(w, auth.NewSessionCookie(session.Token, session.ExpiresAt, h.secureCookie(r)))
 	// #nosec G710 -- safeNext rejects anything that is not a relative path on
 	// this origin, including protocol-relative, backslash and control forms.
 	http.Redirect(w, r, safeNext(field(r, "next")), http.StatusSeeOther)
@@ -96,7 +96,7 @@ func (h *handler) doLogout(w http.ResponseWriter, r *http.Request) error {
 	if err := h.svc.Logout(r.Context()); err != nil && !core.IsKind(err, core.KindUnauthenticated) {
 		return err
 	}
-	http.SetCookie(w, auth.ClearSessionCookie(h.secure))
+	http.SetCookie(w, auth.ClearSessionCookie(h.secureCookie(r)))
 	http.Redirect(w, r, RouteLogin, http.StatusSeeOther)
 	return nil
 }
@@ -113,7 +113,7 @@ func (h *handler) toggleAdvanced(w http.ResponseWriter, r *http.Request) error {
 	// tracks TLS like every other cookie here.
 	http.SetCookie(w, &http.Cookie{
 		Name: AdvancedCookie, Value: value, Path: "/",
-		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
+		HttpOnly: true, Secure: h.secureCookie(r), SameSite: http.SameSiteLaxMode,
 		MaxAge: cookieYear,
 	})
 	// #nosec G710 -- safeNext rejects anything that is not a relative path on
@@ -136,7 +136,7 @@ func (h *handler) toggleDragMove(w http.ResponseWriter, r *http.Request) error {
 	// #nosec G124 -- a display preference, readable by no script.
 	http.SetCookie(w, &http.Cookie{
 		Name: DragMoveCookie, Value: value, Path: "/",
-		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
+		HttpOnly: true, Secure: h.secureCookie(r), SameSite: http.SameSiteLaxMode,
 		MaxAge: cookieYear,
 	})
 	// #nosec G710 -- safeNext rejects anything that is not a relative path on
@@ -157,7 +157,7 @@ func (h *handler) setTheme(w http.ResponseWriter, r *http.Request) error {
 	// #nosec G124 -- a display preference, readable by no script.
 	http.SetCookie(w, &http.Cookie{
 		Name: ThemeCookie, Value: value, Path: "/",
-		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
+		HttpOnly: true, Secure: h.secureCookie(r), SameSite: http.SameSiteLaxMode,
 		MaxAge: cookieYear,
 	})
 	// #nosec G710 -- safeNext rejects anything that is not a relative path on
@@ -178,7 +178,7 @@ func (h *handler) setKeyScheme(w http.ResponseWriter, r *http.Request) error {
 	// #nosec G124 -- a display preference, readable by no script.
 	http.SetCookie(w, &http.Cookie{
 		Name: KeySchemeCookie, Value: value, Path: "/",
-		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
+		HttpOnly: true, Secure: h.secureCookie(r), SameSite: http.SameSiteLaxMode,
 		MaxAge: cookieYear,
 	})
 	// #nosec G710 -- safeNext rejects anything that is not a relative path on

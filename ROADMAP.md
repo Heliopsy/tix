@@ -188,6 +188,39 @@ session's streams can be handed to it directly. `internal/connect` already resol
 invocation, so a per-session target needs no new concept. `golang.org/x/crypto` is already a
 direct dependency.
 
+### Rate limiting and security headers
+
+Two things a server facing the internet needs, neither of which v1 has.
+
+**Rate limiting.** Nothing is limited today. The login form is the sharpest edge, because a
+password endpoint with no limit is a password endpoint with an offline-speed online attack
+against it, but token authentication, the event stream and, once it exists, the SSH listener all
+want the same treatment. Limits belong per credential and per source address, not only per
+tenant, since one tenant's runaway agent should not exhaust everyone else's budget, and an
+unauthenticated attacker has no tenant at all.
+
+There is a prerequisite: **tix does not read `X-Forwarded-For`, `X-Real-IP` or
+`X-Forwarded-Proto` anywhere.** Behind a reverse proxy, which is the documented deployment,
+every request already appears to come from the proxy. Limiting by source address before that is
+fixed would either limit everyone as one client or be trivially evaded, so the forwarded-header
+handling has to land first, with an explicit trusted-proxy setting rather than blind faith in a
+header any client can send.
+
+**Security headers.** `X-Content-Type-Options: nosniff` is set in three places and nothing else
+is. Missing: a Content Security Policy, `Strict-Transport-Security`, `Referrer-Policy`,
+`Permissions-Policy`, and frame-ancestors.
+
+CSP is the one with real work behind it. `layout.html` carries inline scripts, deliberately, so
+the theme and the dismissed announcement apply before first paint rather than flashing. A
+policy strict enough to be worth having cannot allow `unsafe-inline`, so those scripts need
+nonces threaded through the render path, or hashes computed at build time. Everything else on
+the list is a header and a test.
+
+**Seam in v1:** the HTTP middleware chain already exists in `internal/httpapi`, authentication
+and tenant resolution already run there, and a limiter is another link in it. `tix serve`
+already refuses a non-loopback bind without TLS or an explicit override, so the deployment shape
+these protect is already the documented one.
+
 ### Desktop application
 
 A thin wrapper around the browser interface rather than a second client: the same

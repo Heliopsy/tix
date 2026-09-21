@@ -63,3 +63,77 @@ func TestDetailForResolvesEveryActorTheDetailViewNames(t *testing.T) {
 		}
 	}
 }
+
+// A title edit names the field it touched, not the generic "edited".
+func TestUpdateSentenceNamesASingleField(t *testing.T) {
+	title := "a better title"
+	got := updateSentence("infra-3", core.UpdateTaskInput{Title: &title})
+	if got != "edited the title of infra-3" {
+		t.Fatalf("updateSentence = %q", got)
+	}
+}
+
+// A priority edit is the one single-field case that names the value it was
+// set to, since "P2" is exactly as short as the field name it would
+// otherwise repeat.
+func TestUpdateSentenceNamesThePriorityValue(t *testing.T) {
+	p := core.PriorityHigh
+	got := updateSentence("infra-3", core.UpdateTaskInput{Priority: &p})
+	if got != "set the priority of infra-3 to P2" {
+		t.Fatalf("updateSentence = %q", got)
+	}
+}
+
+// Several fields changed at once summarise rather than listing everything
+// changed to.
+func TestUpdateSentenceSummarisesSeveralFields(t *testing.T) {
+	title, p := "a better title", core.PriorityHigh
+	got := updateSentence("infra-3", core.UpdateTaskInput{Title: &title, Priority: &p})
+	if got != "edited the title and priority of infra-3" {
+		t.Fatalf("updateSentence = %q", got)
+	}
+}
+
+// An update that somehow set nothing still says something, rather than an
+// empty status bar.
+func TestUpdateSentenceFallsBackWhenNothingChanged(t *testing.T) {
+	if got := updateSentence("infra-3", core.UpdateTaskInput{}); got != "edited infra-3" {
+		t.Fatalf("updateSentence = %q", got)
+	}
+}
+
+// updateTask's returned command carries the sentence the status bar shows,
+// computed before the service call so a failed edit can still be explained
+// by the generic path (actionFailure uses kind.Label(), not the sentence).
+func TestUpdateTaskCommandCarriesTheSentence(t *testing.T) {
+	svc := newFakeService()
+	m := New(Config{Service: svc})
+	title := "a better title"
+	cmd := m.updateTask(core.Task{ID: "t1", Ref: "infra-3"}, core.UpdateTaskInput{Title: &title})
+	msg, ok := cmd().(actionMsg)
+	if !ok {
+		t.Fatalf("updateTask did not return an actionMsg")
+	}
+	if msg.sentence != "edited the title of infra-3" {
+		t.Fatalf("sentence = %q", msg.sentence)
+	}
+	if got := msg.statusText(); got != "edited the title of infra-3" {
+		t.Fatalf("statusText = %q", got)
+	}
+}
+
+// transition's returned command names the states it moved between, using
+// the task's own ref rather than its raw identifier. boardModel's first
+// task, "a", starts selected and sits in "todo".
+func TestTransitionCommandNamesTheStates(t *testing.T) {
+	m := boardModel(t)
+	m.svc = newFakeService()
+	cmd := m.transition("doing")
+	msg, ok := cmd().(actionMsg)
+	if !ok {
+		t.Fatalf("transition did not return an actionMsg")
+	}
+	if msg.sentence != "moved infra-a from todo to doing" {
+		t.Fatalf("sentence = %q", msg.sentence)
+	}
+}

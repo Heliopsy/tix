@@ -167,11 +167,11 @@ Every command uses the same table, which `tix --help` also prints.
 | --- | --- |
 | 0 | success |
 | 1 | error |
-| 2 | usage, including an invalid flag or an illegal transition |
+| 2 | usage, including an invalid flag or a dependency cycle |
 | 3 | not found, including an empty queue |
 | 4 | conflict, including a held task, a lost lease and a version clash |
 | 5 | permission denied |
-| 6 | precondition failed, such as a dependency cycle or a task with subtasks |
+| 6 | precondition failed, such as an illegal transition or a task with subtasks |
 
 An empty queue is exit 3 with a `no_task_available` error on stderr, not exit 0 with an empty result. A polling
 worker should treat 3 as "sleep and try again" and anything above it as a real failure.
@@ -241,7 +241,9 @@ resuming a subscription after a disconnect without missing events.
 
 `tix watch -o ndjson` gives the same stream on the command line, for a script or for a person watching agents
 work: `--type` narrows to event types, `--project` to projects, and `--actor` to the agents whose activity
-matters right now, each repeatable. `--since` resumes without a gap. See
+matters right now, each repeatable. `--since` resumes without a gap. On connecting it prints one line to
+standard error confirming the stream is live and what it is filtered on; standard output carries nothing but
+events, so a script reading ndjson off stdout never has to skip it. See
 [scripting.md](scripting.md#watching-the-event-stream) for the human-readable default a person reads instead
 of ndjson.
 

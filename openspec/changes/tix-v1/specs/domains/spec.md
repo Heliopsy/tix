@@ -41,6 +41,20 @@ resolved tenant.
 - **WHEN** an unauthenticated request arrives for a mapped hostname
 - **THEN** the tenant is resolved and the request is then refused for lack of credentials, without disclosing tenant data
 
+### Requirement: Domain resolution is not a cross-tenant read
+
+Resolving a hostname to a tenant SHALL read across tenants only on the server's own pre-authentication path, where no credential exists yet. Where hostname resolution is also exposed as a request-scoped endpoint, it SHALL answer only for the tenant the request already resolved to, and SHALL report a hostname belonging to another tenant as not found, exactly as it reports an unmapped one.
+
+#### Scenario: Hostname of another tenant
+
+- **WHEN** an authenticated caller of tenant A asks the resolution endpoint for a hostname mapped to tenant B
+- **THEN** the response is not found and discloses no part of tenant B's record
+
+#### Scenario: Own hostname
+
+- **WHEN** an authenticated caller of tenant A asks the resolution endpoint for a hostname mapped to tenant A
+- **THEN** the tenant is returned
+
 ### Requirement: Resolved tenant is pinned for the request
 
 Once resolved, the tenant SHALL be pinned for the entire lifetime of the request. No header,

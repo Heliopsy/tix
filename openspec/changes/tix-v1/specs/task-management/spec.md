@@ -268,6 +268,11 @@ Task lists SHALL be sortable by documented fields including creation time, updat
 - **WHEN** tasks are listed with no sort field given
 - **THEN** they are returned by priority first, most urgent priority leading, and by due date within a shared priority, soonest deadline leading, with a task carrying no due date sorted after every dated task at that priority as if its deadline were the most distant
 
+#### Scenario: Sort by due date includes undated tasks
+
+- **WHEN** tasks are listed sorted by due date, ascending or descending, over a mix of dated and undated tasks and across every page
+- **THEN** each task is returned exactly once, with a task carrying no due date ordered as if its deadline were the most distant, identically on every storage engine
+
 #### Scenario: Deterministic tie-breaking
 
 - **WHEN** several tasks share the same value for the requested sort field

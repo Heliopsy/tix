@@ -22,8 +22,17 @@ linters:
       # Tenant isolation is structural: every statement must be built by the
       # scoped query builder in internal/store/sql, which requires a TenantScope.
       # Raw database calls would bypass that guarantee.
+      #
+      # analyze-types renders a method call as `sql.DB.ExecContext`, so the
+      # pattern matches that shape. It covers *sql.Tx and *sql.Conn as well as
+      # *sql.DB, because a transaction or a pinned connection reaches the same
+      # rows. It cannot usefully cover the dialect executor interface the store
+      # runs builder output through: every correct call site in
+      # internal/store/{sqlite,postgres} goes through it, so forbidding it would
+      # flag the sanctioned path and prove nothing. What is still caught is a
+      # developer taking a handle out of the store and querying it directly.
       forbid:
-        - pattern: '^\(\*database/sql\.DB\)\.(Query|QueryRow|Exec)(Context)?$'
+        - pattern: '^sql\.(DB|Tx|Conn)\.(Query|QueryRow|Exec)(Context)?$'
           msg: "use the tenant-scoped query builder in internal/store/sql; raw DB calls bypass tenant isolation"
         - pattern: '^fmt\.Print(f|ln)?$'
           msg: "write to the command's configured writer, not stdout directly"
@@ -38,6 +47,25 @@ linters:
     rules:
       # The query builder itself is the one place raw database calls belong.
       - path: 'internal/store/sql/'
+        linters: [forbidigo]
+      # Migrations create the tenant-owned tables. They cannot be built by a
+      # builder that requires a scope over tables that do not exist yet.
+      - path: 'internal/store/migrations/'
+        linters: [forbidigo]
+      # DDL, the RLS policies themselves and monthly partition maintenance act
+      # on the schema, not on rows, so there is no tenant to scope them to.
+      - path: 'internal/store/postgres/schema\.go'
+        linters: [forbidigo]
+      # Transaction lifecycle, and the statements that install the tenant scope
+      # and drop into the unprivileged role. These are what makes every later
+      # statement scoped; they cannot themselves go through the scope.
+      - path: 'internal/store/(postgres|sqlite)/tx\.go'
+        linters: [forbidigo]
+      # LISTEN on a dedicated connection carries a channel name and no rows.
+      - path: 'internal/store/postgres/listen\.go'
+        linters: [forbidigo]
+      # PRAGMA journal_mode on open, before any tenant is known.
+      - path: 'internal/store/sqlite/sqlite\.go'
         linters: [forbidigo]
       # Tests may print and may build ad-hoc queries to verify isolation.
       # bodyclose: test responses come from httptest inside a short-lived

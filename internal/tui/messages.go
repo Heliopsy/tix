@@ -1,6 +1,10 @@
 package tui
 
-import "github.com/heliopsy/tix/internal/core"
+import (
+	"strings"
+
+	"github.com/heliopsy/tix/internal/core"
+)
 
 // viewKind names one of the interface's screens.
 type viewKind int
@@ -119,6 +123,13 @@ type actionMsg struct {
 	label string
 	token string
 	err   error
+
+	// sentence is the status bar text a command already knows enough to write
+	// for itself: an update names the fields it sent, a transition names the
+	// states it moved between. It wins over kind.Past()+name() whenever it is
+	// set, which is what lets "edited homelab-3" become "edited the title of
+	// homelab-3" without every action needing its own sentence.
+	sentence string
 }
 
 // name is what an action calls its subject on screen. A task's identifier is
@@ -128,6 +139,16 @@ func (a actionMsg) name() string {
 		return a.label
 	}
 	return a.ref.String()
+}
+
+// statusText is what the status bar shows once this action has succeeded:
+// the action's own sentence when it built one, and the generic "past tense
+// verb plus subject" otherwise.
+func (a actionMsg) statusText() string {
+	if a.sentence != "" {
+		return a.sentence
+	}
+	return strings.TrimSpace(a.kind.Past() + " " + a.name())
 }
 
 // errMsg carries a failure to the interface.

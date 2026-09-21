@@ -143,7 +143,7 @@ func (h *handler) setLists(w http.ResponseWriter, r *http.Request) error {
 	// tracks TLS like every other cookie here.
 	http.SetCookie(w, &http.Cookie{
 		Name: ListsCookie, Value: value, Path: "/",
-		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
+		HttpOnly: true, Secure: h.secureCookie(r), SameSite: http.SameSiteLaxMode,
 		MaxAge: age,
 	})
 	// #nosec G710 -- safeNext rejects anything that is not a relative path on

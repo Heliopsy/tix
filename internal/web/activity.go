@@ -147,6 +147,8 @@ func (h *handler) buildActivityView(r *http.Request, cursor string) (activityVie
 // a failure there falls back here too rather than breaking the page for a
 // viewer or member). Saying what kind of thing changed, without a name, is
 // still honest; showing the bare identifier, or inventing a name, is not.
+// #nosec G101 -- these are display nouns for audit subject kinds, not
+// credentials; the scanner matches on the word "token" in "an API token".
 var subjectKindNouns = map[string]string{
 	"comment":          "a comment",
 	"artifact":         "an artifact",

@@ -40,22 +40,36 @@ honoured while the mode is `auto`. See [configuration.md](configuration.md).
 
 ## Watching the event stream
 
-`tix watch` follows domain events as they are committed, until it is interrupted:
+`tix watch` follows domain events as they are committed, until it is interrupted. Once the stream is up it prints a
+one-line banner naming what it is connected to, any active filter, and how to stop:
 
 ```console
 $ tix watch
+watching local /tmp/scratch/tix.db (from --db); ctrl-c to stop
 10:15:03  alice  created       homelab-9   Move backups off the old NAS
 10:15:12  alice  claimed       homelab-9
 10:15:40  alice  transitioned  homelab-9   todo → doing
 10:16:02  bob    claimed       homelab-4   Rotate the API keys
+10:16:20  alice  updated       homelab-9   comment deleted
 ```
+
+The banner always goes to standard error, never standard output, and `--quiet` suppresses it the same way it
+suppresses every other diagnostic: a working stream, a hung one, a wrong filter and a failed connection no
+longer all look identical -- silence -- but stdout stays exactly as parseable as before.
+
+The `updated` line's detail is only ever as specific as the event's own payload: a restore, a lease renewal, a
+tag or dependency removal and a comment deletion each say what happened, because their payload carries a flag
+for it, and a plain field edit now does too -- the `task.updated` payload carries a `fields` array naming every
+attribute the edit touched, so the line reads `updated  homelab-9  the title, priority and due date` for a
+multi-field `task edit`, not just "updated" with no detail.
 
 That default line-per-event format is what `table` renders for this command: a table cannot size its columns
 until the stream ends, which a live tail never does, so `watch` draws one readable line per event instead. Pass
-`-o ndjson` for a machine to parse, matching every other listing:
+`-o ndjson` for a machine to parse, matching every other listing; the startup banner still lands on standard
+error only, so a pipeline never sees it:
 
 ```console
-$ tix watch -o ndjson --since 42
+$ tix watch -o ndjson --since 42 | jq .
 {"seq":43,"type":"task.claimed","project_id":"...","subject_id":"...","actor_id":"...", ...}
 ```
 
@@ -112,11 +126,11 @@ and `tix task add --body -` composable with anything that writes to a pipe.
 | --- | --- |
 | 0 | success |
 | 1 | error |
-| 2 | usage, invalid input, illegal transition |
+| 2 | usage, invalid input, dependency cycle |
 | 3 | not found, empty queue |
 | 4 | conflict, held lease, version clash |
 | 5 | permission denied |
-| 6 | precondition failed |
+| 6 | precondition failed, illegal transition |
 
 `tix tui` additionally uses 130 for an interrupt, and `tix claim exec` passes the child's exit status through.
 See [agents.md](agents.md).

@@ -68,7 +68,7 @@ Every error response SHALL use a single JSON envelope carrying a machine-readabl
 
 ### Requirement: Keyset pagination
 
-All list endpoints SHALL paginate using a keyset cursor over a stable sort key and identifier, SHALL NOT use OFFSET, and SHALL return an opaque cursor for the next page when more results exist.
+All list endpoints SHALL paginate using a keyset cursor over a stable sort key and identifier, SHALL NOT use OFFSET, and SHALL return an opaque cursor for the next page when more results exist. A cursor is opaque by convention only, being an encoding of a sort key and an identifier, so a cursor SHALL describe only a record the caller is permitted to read. An endpoint SHALL NOT return an empty page together with a cursor.
 
 #### Scenario: First page
 
@@ -84,6 +84,11 @@ All list endpoints SHALL paginate using a keyset cursor over a stable sort key a
 
 - **WHEN** the final page of a list is returned
 - **THEN** no next cursor is present in the response
+
+#### Scenario: Cursor describes only visible records
+
+- **WHEN** a caller lists a resource whose underlying rows span tenants and the next row belongs to another tenant
+- **THEN** the listing continues past that row rather than returning it, and the returned cursor names a record of the caller's own tenant
 
 #### Scenario: Invalid cursor
 

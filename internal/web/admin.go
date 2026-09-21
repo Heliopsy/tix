@@ -295,7 +295,7 @@ func (h *handler) createToken(w http.ResponseWriter, r *http.Request) error {
 	}
 	http.SetCookie(w, &http.Cookie{ // #nosec G124 -- one-time value, HttpOnly, cleared by the screen that shows it
 		Name: issuedTokenCookie, Value: issued.Token, Path: RouteTokens,
-		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteStrictMode, MaxAge: 60,
+		HttpOnly: true, Secure: h.secureCookie(r), SameSite: http.SameSiteStrictMode, MaxAge: 60,
 	})
 	redirect(w, r, RouteTokens, "token issued")
 	return nil

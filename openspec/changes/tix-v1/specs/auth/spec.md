@@ -108,10 +108,27 @@ An API token's secret value SHALL be displayed exactly once, at creation time, a
 
 Every API token SHALL be bound to exactly one tenant, MAY be further restricted to a single project, and MAY carry an expiry. A token SHALL grant no more than its declared scopes, and a token restricted to a project SHALL NOT authorize operations on resources outside that project.
 
+Confinement SHALL be the default rather than a property of the operation being asked for. The authorization policy SHALL name the operations a project-restricted token may perform, being those whose subject belongs to a single project, and SHALL refuse a project-restricted token every other operation outright. An operation that reads or writes state belonging to the tenant rather than to one project — exporting, importing, reading the audit log, subscribing to the tenant event stream, administering tenants, users, tokens, webhooks, sync sources or retention, and rewriting workflow definitions — SHALL therefore be refused to a project-restricted token, whether or not the call names a project.
+
 #### Scenario: Project-restricted token
 
 - **WHEN** a token restricted to project A is used to read a task in project B of the same tenant
 - **THEN** the request is rejected as unauthorized
+
+#### Scenario: Project-restricted token cannot export the tenant
+
+- **WHEN** a token restricted to project A and carrying the export scope requests an export
+- **THEN** the request is rejected as unauthorized and no tenant data is produced
+
+#### Scenario: Project-restricted token cannot read the audit log
+
+- **WHEN** a token restricted to project A and carrying the audit read scope lists audit entries
+- **THEN** the request is rejected as unauthorized, because an audit entry names no project and so cannot be confined to one
+
+#### Scenario: Project-restricted token cannot widen itself
+
+- **WHEN** a token restricted to project A and carrying the token admin scope mints a new token naming no project
+- **THEN** the request is rejected as unauthorized and no token is created
 
 #### Scenario: Expired token
 

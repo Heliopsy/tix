@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 )
 
 // loadProjects lists the projects the caller can reach.
@@ -198,11 +199,12 @@ func (m Model) transition(to string) tea.Cmd {
 	if !ok || m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref := m.svc, m.ctx, core.TaskRef{ID: task.ID}
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
 	in := core.TransitionInput{To: to, LeaseToken: m.leases[task.ID]}
+	sentence := "moved " + label + " from " + task.Status + " to " + to
 	return func() tea.Msg {
 		_, err := svc.TransitionTask(ctx, ref, in)
-		return actionMsg{kind: actionTransition, ref: ref, err: err}
+		return actionMsg{kind: actionTransition, ref: ref, label: label, sentence: sentence, err: err}
 	}
 }
 
@@ -259,10 +261,61 @@ func (m Model) updateTask(task core.Task, in core.UpdateTaskInput) tea.Cmd {
 		return nil
 	}
 	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	sentence := updateSentence(label, in)
 	return func() tea.Msg {
 		_, err := svc.UpdateTask(ctx, ref, in)
-		return actionMsg{kind: actionUpdate, ref: ref, label: label, err: err}
+		return actionMsg{kind: actionUpdate, ref: ref, label: label, sentence: sentence, err: err}
 	}
+}
+
+// updatedFields names the UpdateTaskInput fields this edit set, in a fixed
+// order, using the same keys internal/output.FieldLabel knows so the status
+// bar and the CLI's own event line never name a field two different ways.
+func updatedFields(in core.UpdateTaskInput) []string {
+	var fields []string
+	if in.Title != nil {
+		fields = append(fields, "title")
+	}
+	if in.Body != nil {
+		fields = append(fields, "body")
+	}
+	if in.Priority != nil {
+		fields = append(fields, "priority")
+	}
+	if in.AssigneeActorID != nil {
+		fields = append(fields, "assignee_actor_id")
+	}
+	if in.DueAt != nil {
+		fields = append(fields, "due_at")
+	}
+	if in.ParentRef != nil {
+		fields = append(fields, "parent_ref")
+	}
+	if in.CustomFields != nil {
+		fields = append(fields, "custom_fields")
+	}
+	if in.Tags != nil {
+		fields = append(fields, "tags")
+	}
+	return fields
+}
+
+// updateSentence is the status bar text for a task edit: which field or
+// fields it touched, and, for the single most common single-field edit
+// besides the title, the value it set. Naming every field this way rather
+// than every value is the same summary the CLI's own watch line and the
+// activity view use (internal/output.SummariseFields) for a multi-field
+// edit -- precise about what changed, silent about the values, so a
+// five-field edit is still one short phrase.
+func updateSentence(ref string, in core.UpdateTaskInput) string {
+	fields := updatedFields(in)
+	if len(fields) == 0 {
+		return "edited " + ref
+	}
+	if len(fields) == 1 && fields[0] == "priority" && in.Priority != nil {
+		return "set the priority of " + ref + " to P" + priorityDigit(*in.Priority)
+	}
+	return "edited " + output.SummariseFields(fields) + " of " + ref
 }
 
 // comment records a comment on a task.

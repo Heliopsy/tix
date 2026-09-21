@@ -27,6 +27,10 @@ service code, so a direct write is visible to a subscriber on the server immedia
 
 `--listen` also reads from `server.listen` / `TIX_SERVER_LISTEN`.
 
+Two settings that shape how the server is reached have no flag and are set from configuration only:
+`server.trusted_proxies` / `TIX_SERVER_TRUSTED_PROXIES` and `server.cookie_security` /
+`TIX_SERVER_COOKIE_SECURITY`. See [configuration.md](configuration.md).
+
 ## The non-loopback bind guard
 
 Binding anything other than loopback without TLS is refused:
@@ -61,6 +65,26 @@ the network itself is the boundary, such as a pod whose port is reachable only f
 
 Preserve the `Host` header. The tenant is resolved from it, so a proxy that rewrites `Host` sends every request
 to the default tenant regardless of which hostname the client asked for. See [tenancy.md](tenancy.md).
+
+**List the proxy in `server.trusted_proxies`.** Without it tix reads neither `X-Forwarded-Proto` nor
+`X-Forwarded-For`, because any client can send them: a forged `X-Forwarded-Proto: https` would otherwise be
+enough to change how cookies are issued, and a forged `X-Forwarded-For` would be enough to wear somebody else's
+address. With the proxy listed, the client's scheme and address are taken from those headers when, and only
+when, the connection came from that proxy.
+
+```sh
+TIX_SERVER_TRUSTED_PROXIES=127.0.0.1,::1 tix serve --listen 127.0.0.1:8080
+```
+
+```yaml
+server:
+  trusted_proxies: [127.0.0.1, "::1"]
+```
+
+This is what puts `Secure` on the session cookie in this deployment. tix terminates no TLS here, so it holds no
+certificate, and the flag follows the scheme the client used rather than the scheme of the hop to the proxy. Set
+`server.cookie_security` to `always` or `never` to override the derivation; see
+[configuration.md](configuration.md).
 
 nginx:
 
@@ -119,6 +143,53 @@ The server runs two tickers:
   Disable it only if something else runs `tix prune`.
 
 Run exactly one process with these enabled against a given database.
+
+## Webhook delivery targets
+
+A webhook endpoint is registered by a tenant administrator, who is a lower-privilege party than whoever runs the
+server. The url they supply is a request the server makes from inside your network, so it is treated as untrusted
+input rather than as configuration.
+
+Registration and delivery both refuse a target that resolves to:
+
+- loopback, including `localhost`, `127.0.0.0/8` and `::1`
+- link-local, which is where the cloud metadata endpoint lives at `169.254.169.254` and `fe80::/10`
+- RFC1918 (`10/8`, `172.16/12`, `192.168/16`) and IPv6 unique-local `fc00::/7`
+- the unspecified address, multicast, the IPv4 broadcast address, carrier-grade NAT `100.64/10`, IETF protocol
+  assignments `192.0.0.0/24`, the benchmarking range `198.18/15` and the NAT64 well-known prefixes
+
+Three details are worth knowing, because a guard that only inspects the string is not a guard:
+
+- **The address decides, not the name.** The check runs again in the dialer, immediately before connect, on the
+  address the socket is about to use. A hostname that answers publicly while the endpoint is being registered and
+  answers `127.0.0.1` when the delivery is attempted is refused at that second point, so DNS rebinding does not
+  get past it. The lookup done at registration time is a courtesy that gives an immediate error for the obvious
+  case; it is not what the guard rests on.
+- **Redirects are not followed.** A delivery that is answered with a 3xx stops there and is recorded as a failed
+  attempt carrying that status. Following it would take the signature headers to a host that passed no check,
+  which is the simplest way around any address policy. A receiver that needs to move should be re-registered at
+  its new url.
+- **No proxy is used for delivery.** `HTTP_PROXY` and friends are ignored on this path, because a proxied request
+  dials the proxy and the guard would then be inspecting the proxy's address rather than the endpoint's.
+
+A url that embeds a username or password (`https://user:pass@host/hook`) is refused outright. Send a credential in
+a header your receiver checks, or in a path segment you treat as a bearer.
+
+A delivery failure is recorded in categories only — `endpoint address is not permitted`, `endpoint host could not
+be resolved`, `endpoint did not answer in time`, `endpoint could not be reached` — because the delivery log is
+readable by the tenant who registered the endpoint, and a precise transport error turns it into a port scan of
+your network.
+
+### Allowing an internal target
+
+Some deployments genuinely deliver to something inside the network: a queue bridge on the same host, a service on
+the cluster network. That is allowed only when the operator turns it on, never by a tenant, and it is off by
+default.
+
+Today the allowance is the same switch as the plaintext opt-out: the `service.WithInsecureWebhooks(true)`
+construction option. It is not yet reachable from a flag, an environment variable or the config file, so a stock
+`tix serve` refuses every internal target. If your deployment needs one, that wiring has to be added first — see
+the note in `internal/service/local.go`.
 
 ## systemd
 

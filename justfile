@@ -143,9 +143,13 @@ docs-check:
 parity:
     go test ./internal/capability/... -run TestParity -count=1
 
-# Cross-tenant isolation suite.
-leak:
-    go test ./... -run 'TestTenantIsolation|TestLeak' -count=1
+# Cross-tenant isolation suite: the scoped builder on both engines, and the
+# PostgreSQL row-level security policies. Layer 4 only exists on PostgreSQL, so
+# the recipe starts one and passes the DSN rather than skipping it in silence.
+# -v is deliberate: a suite that proves isolation has to show what it ran.
+leak: pg-up
+    TIX_TEST_POSTGRES_DSN='{{pg_dsn}}' go test ./... -count=1 -v \
+      -run 'TestTenantIsolation|TestRowLevelSecurity|TestPoliciesExistForEveryScopedTable|TestPruningStaysInsideTheTenant|TestTenantSettingDoesNotLeakOntoTheNextTransaction|TestProjectAppearanceStaysInsideTheTenant'
 
 # ---------------------------------------------------------------- postgres
 

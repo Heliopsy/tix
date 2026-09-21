@@ -302,7 +302,7 @@ func (m Model) onAction(msg actionMsg) (Model, tea.Cmd) {
 	case actionRelease:
 		delete(m.leases, msg.ref.ID)
 	}
-	m.status, m.err = strings.TrimSpace(msg.kind.Past()+" "+msg.name()), ""
+	m.status, m.err = msg.statusText(), ""
 	if msg.kind == actionNewProject {
 		return m, m.loadProjects()
 	}

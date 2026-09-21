@@ -1,12 +1,19 @@
 ---
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. There is no MCP server; this CLI is the only interface. Covers the claim/lease/release loop, `tix claim exec`, machine-readable output, exit codes, filtering, `tix watch`, comments/artifacts, dependencies, and multi-target config.
+version: 2
+verified-against: tix 2fa5c11-dirty (2026-09-21)
 ---
 
 # tix
 
 One queue, shared by people and agents. Read this once; you should not need
 `tix --help` after.
+
+Skill version 2, written against tix `2fa5c11-dirty` (HEAD plus a large uncommitted
+working tree). Run `tix version` and, if the build you are driving is much newer,
+trust `tix <command> --help` over this file where the two disagree. The CLI is the
+source of truth; this is a summary of it.
 
 ## The agent loop
 
@@ -126,8 +133,8 @@ diagnostics (not errors — those still go to stderr with a nonzero exit).
 $ tix claim next -p default -s todo -o json -q
 {
   "task": {"ref": "default-1", "status": "todo", "priority": 2, ...},
-  "lease_token": "1OKVvsZlacH-KaBNorYe86ZsxwFnCN45k1GhBB0ylIs",
-  "lease_expires_at": "2026-09-21T11:25:11.271317441Z"
+  "lease_token": "00ev7YoK_7ynx0Nk-TKxmRQvPfGeWUieVnD7OjgANyo",
+  "lease_expires_at": "2026-09-21T19:35:34.280287907Z"
 }
 ```
 
@@ -147,7 +154,12 @@ Same table for every command except `claim exec` (see above), printed by
 | 3 | not found — includes an empty/no-match queue |
 | 4 | conflict — held task, lost lease, version clash |
 | 5 | permission denied |
-| 6 | precondition failed — dependency cycle, illegal transition, task has subtasks |
+| 6 | precondition failed — illegal transition, task has subtasks |
+
+A dependency cycle is exit `2` (`invalid`), not `6` — verified with `dep add` closing
+a loop. Exit `6` is for things a legal *value* still can't do right now (no edge from
+the current status, subtasks blocking a delete), exit `2` is for the value itself
+being wrong (unknown status name, self-dependency, a cycle).
 
 Never ignore exit `4`. It means your write did not happen and the state you
 think you're in is not the state that's actually there.
@@ -166,6 +178,10 @@ tix task ls --assignee alice --sort priority --desc
 tix task ls -p infra --all              # follow cursors, read every page
 ```
 
+Default `--sort` is `urgency`: priority first, then soonest `due_at`, undated tasks
+last within a priority band. `--sort created_at|updated_at|priority|due_at|title`
+still work; an unknown value is exit `2`.
+
 `--cursor`/`--limit` (default 50) page manually; `--all` does it for you.
 `task show REF -o json` for one task; `task tree REF` for a task and its
 descendants.
@@ -179,12 +195,18 @@ tix watch --type task.created --type task.released -o ndjson --since "$last_seq"
 ```
 
 Prints one JSON event per line as it happens (`--since` resumes without a
-gap, `--limit N` stops after N events, `0` follows forever). Default output
-(no `-o`) is one human-readable line: `13:53:02  local  created  default-7
-watch me`. Filter with `--actor`, `--project`, `--type` (trailing `*` is a
-prefix match). A server started with `tix serve` also exposes the same
-event stream over WebSocket — see the project's `api.md` if you're
-integrating outside the CLI.
+gap, `--limit N` stops after N events, `0` follows forever; with no
+`--since` the stream starts at the *next* event, it does not replay
+history). On connect it prints one banner line to **stderr** — `watching
+local <db> (from flag); ctrl-c to stop` — never stdout, so a piped `-o
+ndjson` stays clean; `-q` suppresses it like every other diagnostic.
+Default output (no `-o`) is one human-readable line per event, e.g.
+`13:53:02  local  created  default-7  watch me` or, for an edit,
+`13:53:02  local  updated  default-7  the title, priority and due date` —
+the payload now names the changed field(s). Filter with `--actor`,
+`--project`, `--type` (trailing `*` is a prefix match). A server started
+with `tix serve` also exposes the same event stream over WebSocket — see
+the project's `api.md` if you're integrating outside the CLI.
 
 ## Comments and artifacts
 
@@ -210,8 +232,14 @@ tix task add "child" --parent default-1
 
 A task with an unfinished dependency shows `"blocked": true` in its JSON
 and `claim next`/`claim task` will not hand it out. `dep add` fails exit
-`6` on a cycle. `task rm` on a task with subtasks fails exit `6` unless you
-pass `--cascade`.
+`2` on a self-edge or a cycle (`invalid`, not `precondition_failed`).
+`task rm` on a task with subtasks fails exit `6` unless you pass
+`--cascade`.
+
+`dep add` needs `task:write` (not just `task:claim`/`task:transition`) and
+checks authority over *both* ends of the edge: a project-scoped token can
+only link two tasks it can both reach, and a cross-project link with such a
+token fails exit `5`, not a database error.
 
 ## Targets and contexts
 
@@ -241,12 +269,11 @@ tix token create ci-agent --scope task:read --scope task:claim \
 ```
 
 The value prints once. `task:read`, `task:claim`, `task:transition`,
-`comment:write` is normally all an agent needs; `artifact:write` if it
-records artifacts too. To scope the token to one project, `--project` wants
-the project's **id**, not its key — unlike `-p`/`--project` everywhere
-else in the CLI, `token create --project` does not resolve a key and fails
-with a foreign-key error if you pass one:
-`--project "$(tix project ls -o json | jq -r '.[]|select(.key=="infra").id')"`.
+`comment:write` is normally all an agent needs; add `task:write` if it
+will call `dep add`, `artifact:write` if it records artifacts. `--project`
+on `token create` now takes either the project's key or its id, same as
+`-p`/`--project` everywhere else (`--project infra` works); an unknown key
+or id is a clean `not_found`, exit `3`.
 
 ## Do not
 

@@ -40,6 +40,8 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `server.url` | `TIX_SERVER_URL` | (unset) |
 | `server.listen` | `TIX_SERVER_LISTEN` | `127.0.0.1:8080` |
 | `server.token` | `TIX_SERVER_TOKEN` | (unset) |
+| `server.trusted_proxies` | `TIX_SERVER_TRUSTED_PROXIES` | (unset) |
+| `server.cookie_security` | `TIX_SERVER_COOKIE_SECURITY` | `auto` (`auto`, `always`, `never`) |
 | `auth.mode` | `TIX_AUTH_MODE` | `token` |
 | `hooks.mode` | `TIX_HOOKS_MODE` | `off` |
 | `webhooks.drain_mode` | `TIX_WEBHOOKS_DRAIN_MODE` | `inline` (`inline`, `server`, `off`) |
@@ -55,6 +57,17 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `output.timezone` | `TIX_OUTPUT_TIMEZONE` | `local` (`local`, `utc`, or an IANA name) |
 
 List values are comma-separated. Durations use Go syntax (`15m`, `24h`, `720h`).
+
+`server.trusted_proxies` lists the reverse proxies, as IPs or CIDR blocks, whose `X-Forwarded-Proto` and
+`X-Forwarded-For` are believed. Any client can send those headers, so an empty list, the default, believes
+neither from anybody, and a request is attributed to the address that opened the connection. When the immediate
+peer is on the list, the effective scheme comes from `X-Forwarded-Proto` and the client address is the rightmost
+`X-Forwarded-For` entry that is not itself a listed proxy. An address that does not parse is refused at startup.
+
+`server.cookie_security` decides the `Secure` flag on the session and CSRF cookies. `auto` follows the effective
+scheme of each request, so a deployment behind a TLS-terminating proxy gets `Secure` once that proxy is listed in
+`server.trusted_proxies`. `always` sets it unconditionally; `never` never sets it, which is only correct on a
+network that is deliberately plaintext. Serving TLS from tix itself sets it regardless of this key.
 
 `auth.mode` and `hooks.mode` each accept one value in this build. `none` and `oidc` for `auth.mode`, and `warn`
 and `enforce` for `hooks.mode`, are refused with "is not implemented by this build" rather than accepted and

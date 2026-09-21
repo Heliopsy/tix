@@ -3,6 +3,7 @@ package web
 
 import (
 	"embed"
+	"github.com/heliopsy/tix/internal/httpapi"
 	"html/template"
 	"io/fs"
 	"log/slog"
@@ -25,10 +26,33 @@ const DefaultEventsPath = "/api/v1/events"
 // Option configures the browser interface.
 type Option func(*handler)
 
-// WithSecureCookies marks the CSRF and session cookies Secure, which is correct
-// whenever the server is reached over TLS.
+// WithSecureCookies forces the CSRF and session cookies Secure regardless of
+// how a request arrived. It is a floor, not the whole rule: a server holding
+// its own certificate sets it, and a server behind a trusted proxy derives the
+// same answer per request from the forwarded scheme instead.
 func WithSecureCookies(secure bool) Option {
 	return func(h *handler) { h.secure = secure }
+}
+
+// secureCookie reports whether a cookie set for this request must be Secure.
+//
+// Deriving it from a TLS certificate alone was wrong in the deployment the
+// documentation recommends: behind a reverse proxy tix speaks plain HTTP, so
+// every session and CSRF cookie went out without the flag even though the
+// browser was on https. The effective scheme is resolved once per request by
+// the API router's forwarded-header middleware, which believes those headers
+// only when the immediate peer is a configured trusted proxy.
+func (h *handler) secureCookie(r *http.Request) bool {
+	if h.secure {
+		return true
+	}
+	if r == nil {
+		return false
+	}
+	if r.TLS != nil {
+		return true
+	}
+	return httpapi.SchemeFrom(r.Context()) == "https"
 }
 
 // WithLogger sets the logger internal failures are reported to.
