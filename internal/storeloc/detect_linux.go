@@ -26,7 +26,9 @@ func detectFS(dir string) Detection {
 	if err := unix.Statfs(dir, &st); err != nil {
 		return Detection{Kind: FSUnknown, Detected: false}
 	}
-	switch uint32(st.Type) {
+	// Every filesystem magic number is a uint32 constant; the field is int64
+	// only because that is how the syscall struct is laid out.
+	switch uint32(st.Type) { // #nosec G115 -- comparing against uint32 magic constants
 	case unix.NFS_SUPER_MAGIC:
 		return Detection{Kind: FSNetworkNFS, Detected: true}
 	case unix.CIFS_SUPER_MAGIC, unix.SMB_SUPER_MAGIC:
@@ -49,7 +51,7 @@ type mountEntry struct {
 // readProcMounts parses a mounts file in fstab format: device, mount point,
 // filesystem type, then fields this package does not need.
 func readProcMounts(path string) ([]mountEntry, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) // #nosec G304 -- path is this package's own constant, parameterised only so a test can pass a fixture
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +80,7 @@ func unescapeMountField(s string) string {
 	for i := 0; i < len(s); i++ {
 		if s[i] == '\\' && i+3 < len(s) {
 			if v, err := parseOctal3(s[i+1 : i+4]); err == nil {
-				b.WriteByte(byte(v))
+				b.WriteByte(byte(v)) // #nosec G115 -- parseOctal3 refuses anything above 0377
 				i += 3
 				continue
 			}
@@ -95,6 +97,12 @@ func parseOctal3(s string) (int, error) {
 			return 0, errNotOctal
 		}
 		v = v*8 + int(c-'0')
+	}
+	// An escape in a mounts file encodes a single byte, so 0377 is the
+	// largest valid value. Without this, \777 parsed to 511 and the
+	// conversion to a byte silently wrapped it to 255.
+	if v > 0xFF {
+		return 0, errNotOctal
 	}
 	return v, nil
 }

@@ -73,3 +73,19 @@ func TestReadProcMounts(t *testing.T) {
 		t.Errorf("readProcMounts()[1] = %+v", got[1])
 	}
 }
+
+// TestParseOctal3RefusesAValueLargerThanAByte pins the wrap: 0777 parsed to
+// 511, and writing that as a byte silently produced 255 instead of failing.
+func TestParseOctal3RefusesAValueLargerThanAByte(t *testing.T) {
+	for _, s := range []string{"400", "777", "500"} {
+		if v, err := parseOctal3(s); err == nil {
+			t.Fatalf("parseOctal3(%q) = %d, want an error since it is not one byte", s, v)
+		}
+	}
+	for s, want := range map[string]int{"000": 0, "040": 32, "377": 255} {
+		got, err := parseOctal3(s)
+		if err != nil || got != want {
+			t.Fatalf("parseOctal3(%q) = %d, %v; want %d, nil", s, got, err, want)
+		}
+	}
+}
