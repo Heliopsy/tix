@@ -524,18 +524,32 @@ func TestOneClickCompleteWalksTheWorkflow(t *testing.T) {
 	}
 }
 
-// Completing something already finished is a no-op rather than an error, so a
-// double click does not put an error page in front of the reader.
-func TestCompletingAFinishedTaskIsHarmless(t *testing.T) {
+// The control is a tick box, so it toggles. Clicking it on a finished task
+// used to post "complete" again and change nothing, which reads as a broken
+// control rather than as a deliberate no-op.
+func TestUntickingAFinishedTaskReopensIt(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	b := f.as("alice")
-	ref := b.createTask("infra", "finish me twice")
+	ref := b.createTask("infra", "finish then reopen")
 
-	for i := range 2 {
-		resp := b.post("/tasks/"+ref+"/complete", url.Values{"csrf_token": {b.csrf()}})
-		if resp.StatusCode != http.StatusSeeOther {
-			t.Fatalf("complete %d = %d, want 303: %s", i+1, resp.StatusCode, body(t, resp))
-		}
+	resp := b.post("/tasks/"+ref+"/complete", url.Values{"csrf_token": {b.csrf()}})
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("complete = %d, want 303: %s", resp.StatusCode, body(t, resp))
+	}
+	if detail := b.page("/tasks/" + ref); !strings.Contains(detail, `<span class="badge done">done</span>`) {
+		t.Fatalf("the task did not reach a terminal state")
+	}
+
+	again := b.post("/tasks/"+ref+"/complete", url.Values{"csrf_token": {b.csrf()}})
+	if again.StatusCode != http.StatusSeeOther {
+		t.Fatalf("untick = %d, want 303: %s", again.StatusCode, body(t, again))
+	}
+	detail := b.page("/tasks/" + ref)
+	if strings.Contains(detail, `<span class="badge done">done</span>`) {
+		t.Fatalf("unticking a finished task left it finished")
+	}
+	if !strings.Contains(detail, `<span class="badge todo">todo</span>`) {
+		t.Fatalf("the reopened task is not back in the starting state")
 	}
 }

@@ -13,6 +13,7 @@
   --warn: #b54708;
   --warn-soft: #fffaeb;
   --ok: #067647;
+  --on-ok: #ffffff;
   --ok-soft: #ecfdf3;
   --radius: 10px;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
@@ -48,6 +49,7 @@
   --warn: #d0a06a;
   --warn-soft: #2d2620;
   --ok: #7fbf9a;
+  --on-ok: #10201a;
   --ok-soft: #1f2c25;
   --shadow: none;
   --proj-slate: #8b95a3;
@@ -67,10 +69,15 @@
   --muted: #98a2b3;
   --line: #2b3138;
   --line-strong: #3a424b;
-  --accent-soft: #14312d;
-  --danger-soft: #2a1613;
-  --warn-soft: #2a1f10;
-  --ok-soft: #10261c;
+  --accent-soft: #123b36;
+  --danger-soft: #341c1c;
+  --warn-soft: #33270f;
+  --ok-soft: #102e23;
+  --accent: #2dd4bf;
+  --danger: #f87171;
+  --warn: #fbbf24;
+  --ok: #34d399;
+  --on-ok: #08231a;
   --shadow: none;
   --proj-slate: #94a3b8;
   --proj-red: #f87171;
@@ -549,7 +556,7 @@ button.check.is-done {
 }
 
 button.check.is-done svg {
-  stroke: #fff;
+  stroke: var(--on-ok);
   stroke-dashoffset: 0;
   opacity: 1;
   animation: draw 260ms ease-out both;
@@ -621,7 +628,22 @@ li.task.is-blocked a.task-title { color: var(--muted); }
 
 /* The advanced toggle sits under the navigation. */
 .side-foot { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
-.side-foot .link { font-size: 0.82rem; color: var(--muted); text-decoration: none; }
+/* The advanced switch read as a caption rather than a control, so nobody
+   found it. It is a button now, and says what it will do. */
+.side-foot .link {
+  display: block;
+  width: 100%;
+  font-size: 0.85rem;
+  text-align: left;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.side-foot .link:hover { border-color: var(--accent); color: var(--accent); }
 .side-foot .theme { margin-top: 10px; }
 .side-foot .theme label { margin: 0 0 3px; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
 .side-foot .theme select { font-size: 0.85rem; padding: 5px 8px; }

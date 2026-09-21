@@ -14,22 +14,28 @@
 <div class="detail">
 <div class="main">
 
+  {{if .Data.CanWrite}}
   <div class="card">
-    <h2>Description</h2>
-    {{if $t.Body}}<pre>{{$t.Body}}</pre>{{else}}<p class="empty">No description.</p>{{end}}
+    <h2>Details</h2>
+    <form method="post" action="/tasks/{{$t.Ref}}">
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="version" value="{{$t.Version}}">
+      <label for="title">Title</label>
+      <input id="title" name="title" value="{{$t.Title}}" required>
+      <label for="body">Description</label>
+      <textarea id="body" name="body" placeholder="Add a description">{{$t.Body}}</textarea>
+      <div class="actions"><button type="submit">Save</button></div>
+    </form>
   </div>
 
-  {{if .Data.CanWrite}}
   <details class="panel">
-    <summary>Edit task</summary>
+    <summary>More fields</summary>
     <div class="body">
       <form method="post" action="/tasks/{{$t.Ref}}">
         {{template "csrf" .CSRF}}
         <input type="hidden" name="version" value="{{$t.Version}}">
-        <label for="title">Title</label>
-        <input id="title" name="title" value="{{$t.Title}}" required>
-        <label for="body">Body</label>
-        <textarea id="body" name="body">{{$t.Body}}</textarea>
+        <input type="hidden" name="title" value="{{$t.Title}}">
+        <input type="hidden" name="body" value="{{$t.Body}}">
         <div class="row">
           <div>
             <label for="priority">Priority</label>
@@ -48,6 +54,10 @@
     </div>
   </details>
   {{else}}
+  <div class="card">
+    <h2>Description</h2>
+    {{if $t.Body}}<pre>{{$t.Body}}</pre>{{else}}<p class="empty">No description.</p>{{end}}
+  </div>
   <p class="flash">You may read this task but not change it.</p>
   {{end}}
 

@@ -37,7 +37,7 @@
     {{if $done}}
     <form method="post" action="/tasks/{{.Ref}}/complete" class="tick">
       {{template "csrf" $.CSRF}}
-      <button type="submit" class="check{{if eq .Status $done}} is-done{{end}}" aria-label="Complete {{.Ref}}" title="Complete">
+      <button type="submit" class="check{{if eq .Status $done}} is-done{{end}}" {{if eq .Status $done}}aria-label="Reopen {{.Ref}}" title="Reopen"{{else}}aria-label="Complete {{.Ref}}" title="Complete"{{end}}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5 10.2 16.7 18 8.4"/></svg>
       </button>
     </form>

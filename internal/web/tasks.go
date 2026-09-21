@@ -231,9 +231,15 @@ func (h *handler) completeTask(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	target := doneState(flow.Definition)
+	// The control is a tick box, so it toggles: a finished task reopens into
+	// the workflow's starting state. Treating it as complete-only left the
+	// click on an already finished row doing nothing at all.
+	target, done := doneState(flow.Definition), "completed "
+	if flow.Definition.IsTerminal(task.Status) {
+		target, done = flow.Definition.Initial, "reopened "
+	}
 	if target == "" {
-		return core.Precondition("workflow %q has no terminal state to complete into", flow.Key)
+		return core.Precondition("workflow %q has no state to move %q into", flow.Key, task.Ref)
 	}
 	path := pathBetween(flow.Definition, task.Status, target)
 	if path == nil {
@@ -244,7 +250,7 @@ func (h *handler) completeTask(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 	}
-	redirect(w, r, RouteTasks, "completed "+task.Ref)
+	redirect(w, r, RouteTasks, done+task.Ref)
 	return nil
 }
 
