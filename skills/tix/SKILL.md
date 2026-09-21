@@ -2,7 +2,7 @@
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. There is no MCP server; this CLI is the only interface. Covers the claim/lease/release loop, `tix claim exec`, machine-readable output, exit codes, filtering, `tix watch`, comments/artifacts, dependencies, and multi-target config.
 version: 2
-verified-against: tix 2fa5c11-dirty (2026-09-21)
+verified-against: tix ac47bc8 (2026-09-21)
 ---
 
 # tix
