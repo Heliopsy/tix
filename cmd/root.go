@@ -33,6 +33,8 @@ type globals struct {
 	tenant      string
 	token       string
 	format      string
+	color       bool
+	noColor     bool
 	quiet       bool
 	verbose     bool
 	noDiscovery bool
@@ -88,16 +90,17 @@ func Run(args []string, in io.Reader, out, errw io.Writer, environ []string, dir
 		return child.code
 	}
 
+	label := output.NewPainter(g.colorMode(), errw).Error("error:")
 	var usage *usageError
 	switch {
 	case errors.As(err, &usage):
 		_, _ = fmt.Fprintln(errw, usage.cmd.UsageString())
 	case strings.HasPrefix(err.Error(), "unknown command"), strings.HasPrefix(err.Error(), "unknown flag"),
 		strings.HasPrefix(err.Error(), "unknown shorthand"):
-		_, _ = fmt.Fprintf(errw, "error: %v\n", err)
+		_, _ = fmt.Fprintf(errw, "%s %v\n", label, err)
 		return core.ExitUsage
 	}
-	_, _ = fmt.Fprintf(errw, "error: %v\n", err)
+	_, _ = fmt.Fprintf(errw, "%s %v\n", label, err)
 	return core.KindOf(err).ExitCode()
 }
 
@@ -115,7 +118,7 @@ func newRoot(environ []string, dir string) (*cobra.Command, *globals) {
 		},
 		SilenceErrors:     true,
 		SilenceUsage:      true,
-		PersistentPreRunE: g.validateFormat,
+		PersistentPreRunE: g.validateGlobals,
 	}
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
 		return &usageError{cmd: cmd, err: core.Invalid("%v", err)}
@@ -129,6 +132,8 @@ func newRoot(environ []string, dir string) (*cobra.Command, *globals) {
 	f.StringVar(&g.tenant, "tenant", "", "tenant key to work in instead of the configured one")
 	f.StringVar(&g.token, "token", "", "api token to authenticate with")
 	f.StringVarP(&g.format, "output", "o", "", "output format: "+strings.Join(output.Formats, "|"))
+	f.BoolVar(&g.noColor, "no-color", false, "disable coloured output")
+	f.BoolVar(&g.color, "color", false, "force coloured output, even when not writing to a terminal")
 	f.BoolVarP(&g.quiet, "quiet", "q", false, "suppress diagnostics")
 	f.BoolVarP(&g.verbose, "verbose", "v", false, "report how the target was resolved")
 	f.BoolVar(&g.noDiscovery, "no-discovery", false, "ignore per-directory context files")
@@ -156,8 +161,11 @@ var builders = []func(*globals) *cobra.Command{
 	newDocsCmd, newCompletionCmd, newVersionCmd,
 }
 
-// validateFormat rejects an unsupported -o value before anything is opened.
-func (g *globals) validateFormat(cmd *cobra.Command, _ []string) error {
+// validateGlobals rejects contradictory global flags before anything is opened.
+func (g *globals) validateGlobals(cmd *cobra.Command, _ []string) error {
+	if g.color && g.noColor {
+		return usagef(cmd, "--color and --no-color contradict each other")
+	}
 	if g.format == "" {
 		return nil
 	}
@@ -190,6 +198,9 @@ func (g *globals) resolve() (*config.Resolved, error) {
 	if tok := g.bearer(); tok != "" {
 		flags["server.token"] = tok
 	}
+	if mode := g.colorFlag(); mode != "" {
+		flags[config.KeyOutputColor] = mode
+	}
 	resolved, err := config.Load(config.Options{
 		Dir:         g.dir,
 		Environ:     environ,
@@ -202,6 +213,42 @@ func (g *globals) resolve() (*config.Resolved, error) {
 	}
 	g.resolved = resolved
 	return resolved, nil
+}
+
+// colorFlag returns the colour mode requested on the command line, if any.
+func (g *globals) colorFlag() string {
+	switch {
+	case g.noColor:
+		return output.ColorNever
+	case g.color:
+		return output.ColorAlways
+	default:
+		return ""
+	}
+}
+
+// colorMode returns the colour mode for this invocation. It prefers the fully
+// resolved configuration, and falls back to flags and the environment for the
+// failures reported before configuration could be loaded.
+func (g *globals) colorMode() output.Mode {
+	if name := g.colorFlag(); name != "" {
+		mode, _ := output.ParseMode(name)
+		return mode
+	}
+	if g.resolved != nil {
+		if mode, ok := output.ParseMode(g.resolved.Config.Output.Color); ok {
+			return mode
+		}
+	}
+	if name := lookupEnv(g.environ, config.EnvName(config.KeyOutputColor)); name != "" {
+		if mode, ok := output.ParseMode(name); ok {
+			return mode
+		}
+	}
+	if output.NoColorSet(func(name string) string { return lookupEnv(g.environ, name) }) {
+		return output.ModeNever
+	}
+	return output.ModeAuto
 }
 
 // bearer returns the token supplied by flag or by the environment.

@@ -22,7 +22,10 @@ type Stream interface {
 
 // NewStream returns a Stream writing to w in the named format. An unrecognised
 // format falls back to table, matching New.
-func NewStream(format string, w io.Writer) Stream {
+func NewStream(format string, w io.Writer) Stream { return NewStreamWithMode(format, w, ModeAuto) }
+
+// NewStreamWithMode returns a Stream that colours table output according to mode.
+func NewStreamWithMode(format string, w io.Writer, mode Mode) Stream {
 	switch format {
 	case FormatNDJSON:
 		return &ndjsonStream{enc: json.NewEncoder(w)}
@@ -31,7 +34,7 @@ func NewStream(format string, w io.Writer) Stream {
 	case FormatYAML:
 		return &yamlStream{w: w}
 	default:
-		return &bufferedStream{w: w, format: format}
+		return &bufferedStream{w: w, format: format, mode: mode}
 	}
 }
 
@@ -129,6 +132,7 @@ func (s *yamlStream) Close() error { return s.err }
 type bufferedStream struct {
 	w       io.Writer
 	format  string
+	mode    Mode
 	records []any
 	err     error
 }
@@ -145,7 +149,7 @@ func (s *bufferedStream) Close() error {
 	if s.err != nil {
 		return s.err
 	}
-	s.err = New(s.format).Format(s.w, s.records)
+	s.err = NewWithMode(s.format, s.mode).Format(s.w, s.records)
 	return s.err
 }
 

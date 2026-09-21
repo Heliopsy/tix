@@ -88,6 +88,7 @@ type Log struct {
 // Output holds the rendering settings.
 type Output struct {
 	Format string `yaml:"format"`
+	Color  string `yaml:"color"`
 }
 
 // Context is a named bundle of connection and identity settings.
@@ -115,8 +116,10 @@ const (
 	DefaultWebhookDrainMode = string(webhook.DefaultMode)
 	DefaultLogLevel         = "info"
 	DefaultOutputFormat     = "table"
-	DefaultRetentionAudit   = "8760h"
-	DefaultRetentionEvent   = "720h"
+	// DefaultOutputColor colours a terminal and nothing else.
+	DefaultOutputColor    = output.ColorAuto
+	DefaultRetentionAudit = "8760h"
+	DefaultRetentionEvent = "720h"
 	// DefaultRetentionDelivery matches the shipped webhook delivery window.
 	DefaultRetentionDelivery = "720h"
 )
@@ -142,6 +145,8 @@ var (
 	// OutputFormats mirrors the formats the renderer actually implements, so
 	// config cannot accept one it cannot render or reject one it can.
 	OutputFormats = output.Formats
+	// OutputColors mirrors the colour modes the renderer implements.
+	OutputColors = output.ColorModes
 )
 
 // Defaults returns the built-in configuration.
@@ -163,7 +168,7 @@ func Defaults() Config {
 			WebhookDeliveries: mustDuration(DefaultRetentionDelivery),
 		},
 		Log:    Log{Level: DefaultLogLevel},
-		Output: Output{Format: DefaultOutputFormat},
+		Output: Output{Format: DefaultOutputFormat, Color: DefaultOutputColor},
 	}
 }
 

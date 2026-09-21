@@ -1146,3 +1146,125 @@ func TestWebhookDrainModeKey(t *testing.T) {
 		})
 	}
 }
+
+func TestOutputColourPrecedence(t *testing.T) {
+	cases := []struct {
+		name   string
+		file   string
+		dotenv string
+		env    map[string]string
+		flags  map[string]string
+		want   string
+		source Layer
+	}{
+		{name: "default", want: DefaultOutputColor, source: LayerDefault},
+		{
+			name: "file", file: "output:\n  color: never\n",
+			want: "never", source: LayerFile,
+		},
+		{
+			name: "dotenv beats file", file: "output:\n  color: never\n",
+			dotenv: "TIX_OUTPUT_COLOR=always\n",
+			want:   "always", source: LayerDotenv,
+		},
+		{
+			name: "env beats dotenv", file: "output:\n  color: never\n",
+			dotenv: "TIX_OUTPUT_COLOR=always\n",
+			env:    map[string]string{"TIX_OUTPUT_COLOR": "auto"},
+			want:   "auto", source: LayerEnv,
+		},
+		{
+			name: "flag beats env",
+			env:  map[string]string{"TIX_OUTPUT_COLOR": "never"},
+			flags: map[string]string{
+				KeyOutputColor: "always",
+			},
+			want: "always", source: LayerFlag,
+		},
+		{
+			name: "NO_COLOR disables",
+			env:  map[string]string{"NO_COLOR": "1"},
+			want: "never", source: LayerEnv,
+		},
+		{
+			name: "TIX_NO_COLOR disables",
+			env:  map[string]string{"TIX_NO_COLOR": "yes"},
+			want: "never", source: LayerEnv,
+		},
+		{
+			name: "empty NO_COLOR is not set",
+			env:  map[string]string{"NO_COLOR": ""},
+			want: DefaultOutputColor, source: LayerDefault,
+		},
+		{
+			name: "the explicit key beats NO_COLOR",
+			env:  map[string]string{"NO_COLOR": "1", "TIX_OUTPUT_COLOR": "always"},
+			want: "always", source: LayerEnv,
+		},
+		{
+			name: "NO_COLOR beats a file that asks for colour",
+			file: "output:\n  color: always\n",
+			env:  map[string]string{"NO_COLOR": "1"},
+			want: "never", source: LayerEnv,
+		},
+		{
+			name: "a flag beats NO_COLOR",
+			env:  map[string]string{"NO_COLOR": "1"},
+			flags: map[string]string{
+				KeyOutputColor: "always",
+			},
+			want: "always", source: LayerFlag,
+		},
+		{
+			name:   "NO_COLOR in a dotenv disables",
+			dotenv: "NO_COLOR=1\n",
+			want:   "never", source: LayerDotenv,
+		},
+		{
+			name:   "an exported colour key beats a dotenv NO_COLOR",
+			dotenv: "NO_COLOR=1\n",
+			env:    map[string]string{"TIX_OUTPUT_COLOR": "always"},
+			want:   "always", source: LayerEnv,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			dir := t.TempDir()
+			env := map[string]string{"HOME": home, "XDG_CONFIG_HOME": filepath.Join(home, "conf")}
+			for name, value := range tc.env {
+				env[name] = value
+			}
+			if tc.file != "" {
+				write(t, filepath.Join(home, "conf", RelativeConfigPath), tc.file)
+			}
+			if tc.dotenv != "" {
+				write(t, filepath.Join(dir, DotenvName), tc.dotenv)
+			}
+			got := mustLoad(t, Options{
+				Dir: dir, Home: home, Environ: environ(env), Flags: tc.flags,
+			})
+			if got.Config.Output.Color != tc.want {
+				t.Fatalf("output.color = %q, want %q", got.Config.Output.Color, tc.want)
+			}
+			if source := got.Source(KeyOutputColor); source != tc.source {
+				t.Fatalf("output.color came from %q, want %q", source, tc.source)
+			}
+		})
+	}
+}
+
+func TestOutputColourRejectsAnUnknownMode(t *testing.T) {
+	home := t.TempDir()
+	_, err := Load(Options{
+		Dir:     t.TempDir(),
+		Home:    home,
+		Environ: environ(map[string]string{"HOME": home, "TIX_OUTPUT_COLOR": "sometimes"}),
+	})
+	if err == nil {
+		t.Fatal("expected an invalid colour mode to be refused")
+	}
+	if !strings.Contains(err.Error(), KeyOutputColor) {
+		t.Fatalf("error does not name the key: %v", err)
+	}
+}

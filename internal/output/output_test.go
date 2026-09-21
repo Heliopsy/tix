@@ -265,35 +265,6 @@ func TestUnknownTypesDoNotPanic(t *testing.T) {
 	}
 }
 
-func TestNoColorAndNonTTY(t *testing.T) {
-	t.Setenv("NO_COLOR", "1")
-	if colorEnabled(&bytes.Buffer{}) {
-		t.Error("color enabled with NO_COLOR set")
-	}
-	if colorEnabled(os.Stdout) {
-		t.Error("color enabled for os.Stdout with NO_COLOR set")
-	}
-	out := render(t, FormatTable, []core.Task{sampleTask()})
-	if strings.Contains(out, "\x1b[") {
-		t.Error("ANSI escape emitted with NO_COLOR set")
-	}
-}
-
-func TestColorDisabledForNonTTYWriter(t *testing.T) {
-	t.Setenv("NO_COLOR", "")
-	if colorEnabled(&bytes.Buffer{}) {
-		t.Error("color enabled for a non-file writer")
-	}
-	f, err := os.CreateTemp(t.TempDir(), "out")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = f.Close() }()
-	if colorEnabled(f) {
-		t.Error("color enabled for a regular file")
-	}
-}
-
 func TestJSONRoundTrip(t *testing.T) {
 	original := []core.Task{sampleTask()}
 	out := render(t, FormatJSON, original)

@@ -18,8 +18,14 @@ type Formatter interface {
 	Format(w io.Writer, data any) error
 }
 
-// New returns a Formatter for the given format, defaulting to table.
-func New(format string) Formatter {
+// New returns a Formatter for the given format, defaulting to table, with
+// colour decided by the writer it is handed.
+func New(format string) Formatter { return NewWithMode(format, ModeAuto) }
+
+// NewWithMode returns a Formatter that colours according to mode. Only the
+// table format ever colours: the machine-readable formats are piped into other
+// programs, where an escape code is a bug.
+func NewWithMode(format string, mode Mode) Formatter {
 	switch format {
 	case FormatJSON:
 		return &jsonFormatter{}
@@ -28,6 +34,6 @@ func New(format string) Formatter {
 	case FormatNDJSON:
 		return &ndjsonFormatter{}
 	default:
-		return &tableFormatter{}
+		return &tableFormatter{mode: mode}
 	}
 }

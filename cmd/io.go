@@ -31,12 +31,12 @@ func (g *globals) formatName() string {
 
 // render writes one result to standard output in the selected format.
 func (g *globals) render(cmd *cobra.Command, data any) error {
-	return output.New(g.formatName()).Format(cmd.OutOrStdout(), data)
+	return output.NewWithMode(g.formatName(), g.colorMode()).Format(cmd.OutOrStdout(), data)
 }
 
 // stream returns a writer that emits records as they are produced.
 func (g *globals) stream(cmd *cobra.Command) output.Stream {
-	return output.NewStream(g.formatName(), cmd.OutOrStdout())
+	return output.NewStreamWithMode(g.formatName(), cmd.OutOrStdout(), g.colorMode())
 }
 
 // diag writes a diagnostic to standard error unless quiet was requested.
@@ -44,7 +44,9 @@ func (g *globals) diag(cmd *cobra.Command, format string, args ...any) {
 	if g.quiet {
 		return
 	}
-	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), format+"\n", args...)
+	errw := cmd.ErrOrStderr()
+	line := output.NewPainter(g.colorMode(), errw).Muted(fmt.Sprintf(format, args...))
+	_, _ = fmt.Fprintln(errw, line)
 }
 
 // exactArgs accepts precisely n positional arguments.

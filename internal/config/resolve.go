@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/thereisnotime/tix/internal/core"
+	"github.com/thereisnotime/tix/internal/output"
 )
 
 // Layer names one of the five configuration sources.
@@ -214,7 +215,19 @@ func envValues(env map[string]string) map[string]string {
 			out[k.Path] = value
 		}
 	}
+	applyNoColor(out, func(name string) string { return env[name] })
 	return out
+}
+
+// applyNoColor folds the NO_COLOR convention into the colour key. The explicit
+// key wins over the convention, because it is the more specific statement.
+func applyNoColor(values map[string]string, lookup func(string) string) {
+	if _, explicit := values[KeyOutputColor]; explicit {
+		return
+	}
+	if output.NoColorSet(lookup) {
+		values[KeyOutputColor] = output.ColorNever
+	}
 }
 
 func dotenvLayerFor(dir string, env map[string]string) (string, map[string]string, error) {
@@ -234,6 +247,9 @@ func dotenvLayerFor(dir string, env map[string]string) (string, map[string]strin
 		if value, ok := values[k.Env]; ok {
 			out[k.Path] = value
 		}
+	}
+	if !output.NoColorSet(func(name string) string { return env[name] }) {
+		applyNoColor(out, func(name string) string { return values[name] })
 	}
 	return path, out, nil
 }

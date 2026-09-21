@@ -20,6 +20,7 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		{"hooks.mode", cfg.Hooks.Mode, HookModes, UnimplementedHookModes},
 		{"log.level", cfg.Log.Level, LogLevels, nil},
 		{"output.format", cfg.Output.Format, OutputFormats, nil},
+		{"output.color", cfg.Output.Color, OutputColors, nil},
 	}
 	for _, check := range checks {
 		if allowed(check.value, check.set) {

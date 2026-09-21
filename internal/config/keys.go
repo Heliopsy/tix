@@ -17,6 +17,9 @@ const EnvPrefix = "TIX_"
 // EnvConfigFile names the variable holding an explicit configuration path.
 const EnvConfigFile = EnvPrefix + "CONFIG"
 
+// KeyOutputColor is the key deciding whether output is coloured.
+const KeyOutputColor = "output.color"
+
 type valueKind int
 
 const (

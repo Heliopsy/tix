@@ -3,20 +3,22 @@ package output
 import (
 	"fmt"
 	"io"
-	"os"
+
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/jedib0t/go-pretty/v6/text"
+
 	"github.com/thereisnotime/tix/internal/core"
 )
 
-type tableFormatter struct{}
+type tableFormatter struct{ mode Mode }
 
 // Format renders data as a terminal table, falling back to reflection for unknown types.
 func (t *tableFormatter) Format(w io.Writer, data any) error {
+	p := NewPainter(t.mode, w)
 	if data == nil {
 		return noResults(w)
 	}
@@ -29,87 +31,87 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 
 	switch v := data.(type) {
 	case core.TaskPage:
-		return renderTaskPage(w, v)
+		return renderTaskPage(w, p, v)
 	case []core.Task:
-		return renderRows(w, taskHeader, v, taskRow)
+		return renderRows(w, p, taskHeader, v, p.taskRow)
 	case []*core.Task:
-		return renderRows(w, taskHeader, deref(v), taskRow)
+		return renderRows(w, p, taskHeader, deref(v), p.taskRow)
 	case core.Task:
-		return renderRows(w, taskHeader, []core.Task{v}, taskRow)
+		return renderRows(w, p, taskHeader, []core.Task{v}, p.taskRow)
 	case []core.Project:
-		return renderRows(w, projectHeader, v, projectRow)
+		return renderRows(w, p, projectHeader, v, projectRow)
 	case []*core.Project:
-		return renderRows(w, projectHeader, deref(v), projectRow)
+		return renderRows(w, p, projectHeader, deref(v), projectRow)
 	case core.Project:
-		return renderRows(w, projectHeader, []core.Project{v}, projectRow)
+		return renderRows(w, p, projectHeader, []core.Project{v}, projectRow)
 	case []core.Workflow:
-		return renderRows(w, workflowHeader, v, workflowRow)
+		return renderRows(w, p, workflowHeader, v, p.workflowRow)
 	case []*core.Workflow:
-		return renderRows(w, workflowHeader, deref(v), workflowRow)
+		return renderRows(w, p, workflowHeader, deref(v), p.workflowRow)
 	case core.Workflow:
-		return renderRows(w, workflowHeader, []core.Workflow{v}, workflowRow)
+		return renderRows(w, p, workflowHeader, []core.Workflow{v}, p.workflowRow)
 	case []core.Comment:
-		return renderRows(w, commentHeader, v, commentRow)
+		return renderRows(w, p, commentHeader, v, commentRow)
 	case []*core.Comment:
-		return renderRows(w, commentHeader, deref(v), commentRow)
+		return renderRows(w, p, commentHeader, deref(v), commentRow)
 	case core.Comment:
-		return renderRows(w, commentHeader, []core.Comment{v}, commentRow)
+		return renderRows(w, p, commentHeader, []core.Comment{v}, commentRow)
 	case []core.APIToken:
-		return renderRows(w, tokenHeader, v, tokenRow)
+		return renderRows(w, p, tokenHeader, v, tokenRow)
 	case []*core.APIToken:
-		return renderRows(w, tokenHeader, deref(v), tokenRow)
+		return renderRows(w, p, tokenHeader, deref(v), tokenRow)
 	case core.APIToken:
-		return renderRows(w, tokenHeader, []core.APIToken{v}, tokenRow)
+		return renderRows(w, p, tokenHeader, []core.APIToken{v}, tokenRow)
 	case []core.AuditEntry:
-		return renderRows(w, auditHeader, v, auditRow)
+		return renderRows(w, p, auditHeader, v, auditRow)
 	case []*core.AuditEntry:
-		return renderRows(w, auditHeader, deref(v), auditRow)
+		return renderRows(w, p, auditHeader, deref(v), auditRow)
 	case core.AuditEntry:
-		return renderRows(w, auditHeader, []core.AuditEntry{v}, auditRow)
+		return renderRows(w, p, auditHeader, []core.AuditEntry{v}, auditRow)
 	case []core.WebhookEndpoint:
-		return renderRows(w, endpointHeader, v, endpointRow)
+		return renderRows(w, p, endpointHeader, v, endpointRow)
 	case []*core.WebhookEndpoint:
-		return renderRows(w, endpointHeader, deref(v), endpointRow)
+		return renderRows(w, p, endpointHeader, deref(v), endpointRow)
 	case core.WebhookEndpoint:
-		return renderRows(w, endpointHeader, []core.WebhookEndpoint{v}, endpointRow)
+		return renderRows(w, p, endpointHeader, []core.WebhookEndpoint{v}, endpointRow)
 	case []core.Tenant:
-		return renderRows(w, tenantHeader, v, tenantRow)
+		return renderRows(w, p, tenantHeader, v, tenantRow)
 	case []*core.Tenant:
-		return renderRows(w, tenantHeader, deref(v), tenantRow)
+		return renderRows(w, p, tenantHeader, deref(v), tenantRow)
 	case []core.User:
-		return renderRows(w, userHeader, v, userRow)
+		return renderRows(w, p, userHeader, v, userRow)
 	case core.User:
-		return renderRows(w, userHeader, []core.User{v}, userRow)
+		return renderRows(w, p, userHeader, []core.User{v}, userRow)
 	case *core.User:
-		return renderRows(w, userHeader, []core.User{*v}, userRow)
+		return renderRows(w, p, userHeader, []core.User{*v}, userRow)
 	case core.IssuedToken:
-		return renderRows(w, issuedHeader, []core.IssuedToken{v}, issuedRow)
+		return renderRows(w, p, issuedHeader, []core.IssuedToken{v}, issuedRow)
 	case *core.IssuedToken:
-		return renderRows(w, issuedHeader, []core.IssuedToken{*v}, issuedRow)
+		return renderRows(w, p, issuedHeader, []core.IssuedToken{*v}, issuedRow)
 	case core.Claim:
-		return renderRows(w, claimHeader, []core.Claim{v}, claimRow)
+		return renderRows(w, p, claimHeader, []core.Claim{v}, p.claimRow)
 	case *core.Claim:
-		return renderRows(w, claimHeader, []core.Claim{*v}, claimRow)
+		return renderRows(w, p, claimHeader, []core.Claim{*v}, p.claimRow)
 	case []core.FieldDef:
-		return renderRows(w, fieldHeader, v, fieldRow)
+		return renderRows(w, p, fieldHeader, v, fieldRow)
 	case core.FieldDef:
-		return renderRows(w, fieldHeader, []core.FieldDef{v}, fieldRow)
+		return renderRows(w, p, fieldHeader, []core.FieldDef{v}, fieldRow)
 	case *core.FieldDef:
-		return renderRows(w, fieldHeader, []core.FieldDef{*v}, fieldRow)
+		return renderRows(w, p, fieldHeader, []core.FieldDef{*v}, fieldRow)
 	case []core.Dependency:
-		return renderRows(w, depHeader, v, depRow)
+		return renderRows(w, p, depHeader, v, depRow)
 	case []core.WebhookDelivery:
-		return renderRows(w, deliveryHeader, v, deliveryRow)
+		return renderRows(w, p, deliveryHeader, v, deliveryRow)
 	case []core.Tag:
-		return renderRows(w, tagHeader, v, tagRow)
+		return renderRows(w, p, tagHeader, v, tagRow)
 	case core.Tag:
-		return renderRows(w, tagHeader, []core.Tag{v}, tagRow)
+		return renderRows(w, p, tagHeader, []core.Tag{v}, tagRow)
 	case []core.SyncSource:
-		return renderRows(w, syncHeader, v, syncRow)
+		return renderRows(w, p, syncHeader, v, syncRow)
 	case core.Tenant:
-		return renderRows(w, tenantHeader, []core.Tenant{v}, tenantRow)
+		return renderRows(w, p, tenantHeader, []core.Tenant{v}, tenantRow)
 	}
-	return renderReflected(w, data)
+	return renderReflected(w, p, data)
 }
 
 var (
@@ -140,10 +142,10 @@ func issuedRow(t core.IssuedToken) table.Row {
 	return table.Row{t.ID, t.Name, joinScopes(t.Scopes), t.Token, FormatCompactPtr(t.ExpiresAt)}
 }
 
-func claimRow(c core.Claim) table.Row {
+func (p Painter) claimRow(c core.Claim) table.Row {
 	var ref, title, status string
 	if c.Task != nil {
-		ref, title, status = c.Task.Ref, truncate(c.Task.Title, 40), c.Task.Status
+		ref, title, status = p.Ref(c.Task.Ref), truncate(c.Task.Title, 40), p.Status(c.Task.Status)
 	}
 	return table.Row{ref, title, status, FormatCompact(c.LeaseExpiresAt), c.LeaseToken}
 }
@@ -183,17 +185,17 @@ func joinScopes(scopes []core.Scope) string {
 	return truncate(strings.Join(out, ", "), 40)
 }
 
-func taskRow(t core.Task) table.Row {
+func (p Painter) taskRow(t core.Task) table.Row {
 	return table.Row{
-		t.Ref,
+		p.Ref(t.Ref),
 		truncate(t.Title, 60),
-		t.Status,
-		priorityLabel(t.Priority),
+		p.Status(t.Status),
+		p.Priority(t.Priority, priorityLabel(t.Priority)),
 		t.AssigneeActorID,
 		strings.Join(t.Tags, ", "),
 		FormatCompactPtr(t.DueAt),
 		FormatCompact(t.UpdatedAt),
-		yesNo(t.Blocked),
+		p.Blocked(t.Blocked, yesNo(t.Blocked)),
 	}
 }
 
@@ -204,9 +206,13 @@ func projectRow(p core.Project) table.Row {
 	}
 }
 
-func workflowRow(wf core.Workflow) table.Row {
+func (p Painter) workflowRow(wf core.Workflow) table.Row {
+	initial := wf.Definition.Initial
+	if state, ok := wf.Definition.State(initial); ok {
+		initial = p.StatusIn(state.Category, initial)
+	}
 	return table.Row{
-		wf.Key, truncate(wf.Name, 40), wf.Definition.Initial,
+		wf.Key, truncate(wf.Name, 40), initial,
 		strconv.Itoa(len(wf.Definition.States)),
 		strconv.Itoa(len(wf.Definition.Transitions)),
 		yesNo(wf.Builtin), FormatCompact(wf.UpdatedAt),
@@ -251,34 +257,33 @@ func tenantRow(t core.Tenant) table.Row {
 	return table.Row{t.ID, t.Key, truncate(t.Name, 40), FormatCompact(t.CreatedAt), FormatCompactPtr(t.DeletedAt)}
 }
 
-func renderTaskPage(w io.Writer, p core.TaskPage) error {
-	if err := renderRows(w, taskHeader, p.Tasks, taskRow); err != nil {
+func renderTaskPage(w io.Writer, p Painter, page core.TaskPage) error {
+	if err := renderRows(w, p, taskHeader, page.Tasks, p.taskRow); err != nil {
 		return err
 	}
-	if p.NextCursor == "" {
+	if page.NextCursor == "" {
 		return nil
 	}
-	if _, err := fmt.Fprintf(w, "next cursor: %s\n", p.NextCursor); err != nil {
+	if _, err := fmt.Fprintf(w, "%s %s\n", p.Muted("next cursor:"), page.NextCursor); err != nil {
 		return fmt.Errorf("writing cursor: %w", err)
 	}
 	return nil
 }
 
-func renderRows[T any](w io.Writer, header table.Row, items []T, row func(T) table.Row) error {
-	tbl := newWriter(w)
-	tbl.AppendHeader(header)
+func renderRows[T any](w io.Writer, p Painter, header table.Row, items []T, row func(T) table.Row) error {
+	tbl := newWriter()
+	tbl.AppendHeader(paintHeader(p, header))
 	for _, item := range items {
 		tbl.AppendRow(row(item))
 	}
-	tbl.Render()
-	return nil
+	return emit(w, p, tbl)
 }
 
-func renderReflected(w io.Writer, data any) error {
+func renderReflected(w io.Writer, p Painter, data any) error {
 	rv := reflect.ValueOf(data)
 	if rv.Kind() != reflect.Slice {
 		if rv.Kind() == reflect.Struct {
-			return renderStructs(w, reflect.Append(reflect.MakeSlice(reflect.SliceOf(rv.Type()), 0, 1), rv))
+			return renderStructs(w, p, reflect.Append(reflect.MakeSlice(reflect.SliceOf(rv.Type()), 0, 1), rv))
 		}
 		_, err := fmt.Fprintf(w, "%v\n", data)
 		return err
@@ -299,15 +304,15 @@ func renderReflected(w io.Writer, data any) error {
 		}
 		return nil
 	}
-	return renderStructs(w, rv)
+	return renderStructs(w, p, rv)
 }
 
-func renderStructs(w io.Writer, rv reflect.Value) error {
+func renderStructs(w io.Writer, p Painter, rv reflect.Value) error {
 	elem := rv.Type().Elem()
 	if elem.Kind() == reflect.Pointer {
 		elem = elem.Elem()
 	}
-	tbl := newWriter(w)
+	tbl := newWriter()
 	header := make(table.Row, 0, elem.NumField())
 	for i := 0; i < elem.NumField(); i++ {
 		if skipField(elem.Field(i)) {
@@ -315,7 +320,7 @@ func renderStructs(w io.Writer, rv reflect.Value) error {
 		}
 		header = append(header, elem.Field(i).Name)
 	}
-	tbl.AppendHeader(header)
+	tbl.AppendHeader(paintHeader(p, header))
 	for i := 0; i < rv.Len(); i++ {
 		item := rv.Index(i)
 		if item.Kind() == reflect.Pointer {
@@ -333,37 +338,59 @@ func renderStructs(w io.Writer, rv reflect.Value) error {
 		}
 		tbl.AppendRow(row)
 	}
-	tbl.Render()
-	return nil
+	return emit(w, p, tbl)
 }
 
-func newWriter(w io.Writer) table.Writer {
+func newWriter() table.Writer {
 	tbl := table.NewWriter()
-	tbl.SetOutputMirror(w)
 	style := table.StyleLight
-	if !colorEnabled(w) {
-		style.Color = table.ColorOptions{}
-	} else {
-		style.Color.Header = text.Colors{text.Bold}
-	}
+	// go-pretty decides its own colours from the real process environment,
+	// which ignores the mode this invocation resolved, so every style is
+	// applied by the Painter instead. go-pretty measures cell widths with
+	// escape codes stripped, which is what keeps a coloured table's columns
+	// identical to a plain one's.
+	style.Color = table.ColorOptions{}
 	tbl.SetStyle(style)
 	return tbl
 }
 
-// colorEnabled reports whether ANSI colour may be written to w.
-func colorEnabled(w io.Writer) bool {
-	if os.Getenv("NO_COLOR") != "" {
-		return false
+// emit writes a rendered table, dimming its rules when colour is on.
+func emit(w io.Writer, p Painter, tbl table.Writer) error {
+	out := tbl.Render()
+	if p.Enabled() {
+		out = dimRules(p, out)
 	}
-	f, ok := w.(*os.File)
-	if !ok {
-		return false
+	if _, err := fmt.Fprintln(w, out); err != nil {
+		return fmt.Errorf("writing table: %w", err)
 	}
-	info, err := f.Stat()
-	if err != nil {
-		return false
+	return nil
+}
+
+// boxRun matches a run of box-drawing characters. The rules are dimmed after
+// rendering rather than through the style, because go-pretty builds a
+// horizontal rule by repeating its character and counts raw runes while doing
+// it, which an escape sequence would throw off.
+var boxRun = regexp.MustCompile(`[\x{2500}-\x{257F}]+`)
+
+// dimRules mutes every rule so the data is what the eye lands on.
+func dimRules(p Painter, rendered string) string {
+	return boxRun.ReplaceAllStringFunc(rendered, p.Muted)
+}
+
+// paintHeader styles every header cell, leaving non-string cells alone.
+func paintHeader(p Painter, header table.Row) table.Row {
+	if !p.Enabled() {
+		return header
 	}
-	return info.Mode()&os.ModeCharDevice != 0
+	out := make(table.Row, len(header))
+	for i, cell := range header {
+		if s, ok := cell.(string); ok {
+			out[i] = p.Header(s)
+			continue
+		}
+		out[i] = cell
+	}
+	return out
 }
 
 func noResults(w io.Writer) error {
