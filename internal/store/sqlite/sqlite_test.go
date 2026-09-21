@@ -134,6 +134,20 @@ func TestOpenRejectsEmptyPath(t *testing.T) {
 	}
 }
 
+// TestOpenAllowsNetworkFSOptionOnLocalDisk cannot exercise the refusal path
+// itself, which needs a real network mount; that decision is covered
+// exhaustively without touching the OS in internal/storeloc. This only
+// proves the option plumbs through without breaking an ordinary open, on
+// disk or overridden.
+func TestOpenAllowsNetworkFSOptionOnLocalDisk(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "tix.db")
+	s, err := Open(path, clock.NewFakeAt(), WithAllowNetworkFS(true))
+	if err != nil {
+		t.Fatalf("Open with WithAllowNetworkFS(true) on local disk: %v", err)
+	}
+	_ = s.Close()
+}
+
 func TestScopeRequired(t *testing.T) {
 	ctx := context.Background()
 	s, _ := newStore(t)

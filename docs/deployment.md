@@ -164,6 +164,11 @@ podman run --rm -p 127.0.0.1:8080:8080 \
 Binding `0.0.0.0` inside the container is what makes the published port reachable, which is why the opt-out is
 there. Publish it on `127.0.0.1` and terminate TLS outside, or mount a certificate and drop the opt-out.
 
+Back the `/var/lib/tix` volume with local storage. A named volume on the container host is fine; an NFS- or
+SMB-backed volume, or a network block device mounted from another host, is not: `tix` refuses to open a SQLite
+database it detects on one, for the reasons in [scaling.md](scaling.md#sqlite). Run PostgreSQL instead if the
+deployment needs its database on shared storage.
+
 ## Backup
 
 For SQLite, stop writers or use `sqlite3 tix.db ".backup out.db"` rather than copying a live file. A logical

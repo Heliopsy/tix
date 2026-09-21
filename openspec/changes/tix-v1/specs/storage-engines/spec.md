@@ -226,14 +226,30 @@ SHALL be negative when migrations are pending.
 
 ### Requirement: Refuse SQLite on a network filesystem
 
-The diagnostic command SHALL detect when a SQLite database file resides on a network filesystem and
-SHALL refuse that configuration, because such placement corrupts the database rather than merely
-degrading performance. The refusal SHALL name the path and the detected filesystem type.
+The system SHALL detect when a SQLite database file resides on a network filesystem and SHALL refuse
+to open it, because such placement corrupts the database rather than merely degrading performance.
+The refusal SHALL happen when the database is opened, not only when the diagnostic command runs, so
+that it cannot be bypassed by never running diagnostics. The refusal SHALL name the path and the
+detected filesystem type, and SHALL say what to do instead.
 
-#### Scenario: Network filesystem detected
+An operator SHALL be able to override the refusal explicitly, by flag or by configuration key,
+because a refusal with no escape hatch invites patching the binary. The override SHALL NOT be the
+default, and taking it SHALL be reported as a warning by the diagnostic command.
+
+#### Scenario: Network filesystem detected on open
+
+- **WHEN** a SQLite database on a network filesystem is opened
+- **THEN** the open fails, naming the path, the detected filesystem type, and the alternatives
+
+#### Scenario: Network filesystem detected by the diagnostic command
 
 - **WHEN** the diagnostic command runs against a SQLite file on a network filesystem
-- **THEN** it fails with a non-zero exit status and reports the path and the filesystem type
+- **THEN** it reports the path and the filesystem type
+
+#### Scenario: Override taken
+
+- **WHEN** the override is set and the database is on a network filesystem
+- **THEN** the database opens and the diagnostic command reports a warning that the override is active
 
 #### Scenario: Local filesystem
 
@@ -243,7 +259,40 @@ degrading performance. The refusal SHALL name the path and the detected filesyst
 #### Scenario: Filesystem type undeterminable
 
 - **WHEN** the filesystem type cannot be determined
-- **THEN** the check reports a warning explaining what could not be verified rather than silently passing
+- **THEN** the database opens and the check reports a warning explaining what could not be verified
+  rather than silently passing
+
+### Requirement: Warn about a database inside a file-sync directory
+
+The system SHALL detect when a SQLite database sits inside a directory managed by a file
+synchronisation tool and SHALL warn, because such a tool replaces whole files and resolves
+divergence by choosing a winner, which loses one side's writes silently and can corrupt the
+database. The warning SHALL name both risks, since silent loss is the more common of the two and the
+less obvious.
+
+Detection is a heuristic, so the system SHALL warn rather than refuse. A false positive that blocked
+an operator from their own tasks would be worse than the risk it prevents.
+
+#### Scenario: Database inside a synchronised directory
+
+- **WHEN** a database is opened from a directory carrying a sync tool's markers
+- **THEN** the database opens and a warning names the tool, the risk of lost writes, and the alternatives
+
+#### Scenario: Ordinary directory
+
+- **WHEN** a database is opened from a directory with no such markers
+- **THEN** no warning is reported
+
+### Requirement: Report existing sync conflict files
+
+The system SHALL detect files beside the database that a synchronisation tool created to hold a
+losing version, and SHALL report them, because their presence means a divergence has already
+happened and the operator is unlikely to know.
+
+#### Scenario: Conflict file present
+
+- **WHEN** a file matching a sync tool's conflict naming sits beside the database
+- **THEN** the diagnostic command reports each such file by name
 
 ### Requirement: Text search asymmetry is documented behaviour
 

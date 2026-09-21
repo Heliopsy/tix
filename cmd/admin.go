@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"strings"
 	"time"
 
+	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/storeloc"
 	"github.com/spf13/cobra"
 )
 
@@ -47,6 +50,7 @@ func newDoctorCmd(g *globals) *cobra.Command {
 			checks = append(checks,
 				check{Name: "target", Status: checkOK, Detail: conn.Info.Target.Describe()},
 				check{Name: "schema", Status: checkOK, Detail: schemaDetail(conn.Info.SchemaVersion)})
+			checks = append(checks, storageLocationChecks(conn, resolved.Config.Database.AllowNetworkFS || g.allowNetworkFS)...)
 
 			actor, err := conn.Service.WhoAmI(ctx)
 			if err != nil {
@@ -78,6 +82,85 @@ func configFileDetail(path string) string {
 		return "no configuration file; using defaults"
 	}
 	return path
+}
+
+// storageLocationChecks reports where the database file lives: whether it
+// sits on a network filesystem, whether its directory looks managed by a
+// sync tool, and whether a sync tool has already left conflicted copies
+// beside it. It only applies to a local SQLite target; a remote or
+// PostgreSQL target reports each check as not applicable.
+func storageLocationChecks(conn *connect.Conn, allowNetworkFS bool) []check {
+	target := conn.Info.Target
+	if target.Mode != connect.ModeLocal || target.Engine != connect.EngineSQLite {
+		na := "not applicable to a " + string(target.Mode) + " " + string(target.Engine) + " target"
+		return []check{
+			{Name: "network-filesystem", Status: checkOK, Detail: na},
+			{Name: "sync-directory", Status: checkOK, Detail: na},
+			{Name: "conflict-files", Status: checkOK, Detail: na},
+		}
+	}
+
+	checks := []check{networkFilesystemCheck(target.Path, allowNetworkFS)}
+
+	if finding, ok := storeloc.CollectSyncEvidence(target.Path); ok {
+		checks = append(checks, check{
+			Name:   "sync-directory",
+			Status: checkWarn,
+			Detail: syncFindingDetail(finding),
+		})
+	} else {
+		checks = append(checks, check{Name: "sync-directory", Status: checkOK, Detail: "no sync tool markers found above the database"})
+	}
+
+	conflicts, err := storeloc.CollectConflictFiles(target.Path)
+	switch {
+	case err != nil:
+		checks = append(checks, check{Name: "conflict-files", Status: checkWarn, Detail: "could not list the database directory: " + err.Error()})
+	case len(conflicts) > 0:
+		checks = append(checks, check{Name: "conflict-files", Status: checkWarn, Detail: conflictFilesDetail(conflicts)})
+	default:
+		checks = append(checks, check{Name: "conflict-files", Status: checkOK, Detail: "no conflicted copies found beside the database"})
+	}
+
+	return checks
+}
+
+// networkFilesystemCheck reports the filesystem holding path. It never fails
+// here: a network filesystem that is not overridden already stopped the
+// database from opening, so by the time doctor runs, this reports what was
+// found rather than deciding anything.
+func networkFilesystemCheck(path string, allowNetworkFS bool) check {
+	dec := storeloc.CheckNetworkFS(path, allowNetworkFS)
+	switch {
+	case !dec.Detected:
+		return check{Name: "network-filesystem", Status: checkWarn, Detail: "could not determine the filesystem type for " + path}
+	case dec.Overridden:
+		return check{Name: "network-filesystem", Status: checkWarn,
+			Detail: path + " is on " + dec.Kind.String() + "; refusal was overridden, which risks corruption"}
+	default:
+		return check{Name: "network-filesystem", Status: checkOK, Detail: "local disk"}
+	}
+}
+
+// syncFindingDetail renders a sync-directory finding, naming both risks: not
+// only corruption, but a sync tool silently keeping only one side's writes.
+func syncFindingDetail(f storeloc.SyncFinding) string {
+	basis := "the marker " + f.Marker
+	if !f.Strong {
+		basis = "its directory name"
+	}
+	return string(f.Tool) + " appears to manage " + f.Dir + " (" + basis + "); syncing a SQLite database risks corruption, and more likely " +
+		"loses one machine's writes silently when the sync tool picks a winner"
+}
+
+// conflictFilesDetail renders the conflicted copies a sync tool already left
+// beside the database.
+func conflictFilesDetail(conflicts []storeloc.ConflictFile) string {
+	names := make([]string, len(conflicts))
+	for i, c := range conflicts {
+		names[i] = c.Name + " (" + string(c.Tool) + ")"
+	}
+	return "found " + strings.Join(names, ", ") + "; this means a sync tool already diverged and dropped one side's writes"
 }
 
 // schemaDetail renders a schema version for a doctor finding.

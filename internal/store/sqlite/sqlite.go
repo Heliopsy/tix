@@ -15,6 +15,7 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/migrations"
+	"github.com/heliopsy/tix/internal/storeloc"
 )
 
 // BusyTimeoutMillis is how long a blocked writer waits for the lock before failing.
@@ -32,10 +33,49 @@ type Store struct {
 	path   string
 }
 
+// openConfig holds the options Open accepts.
+type openConfig struct {
+	allowNetworkFS bool
+}
+
+// Option configures Open.
+type Option func(*openConfig)
+
+// WithAllowNetworkFS overrides the refusal to open a database that has been
+// detected on a network filesystem, such as NFS, SMB/CIFS or a network FUSE
+// mount. The default is to refuse, because such placement corrupts a SQLite
+// database rather than merely degrading its performance. Only pass true when
+// the operator has explicitly accepted that risk, for example through a
+// dedicated flag or configuration key.
+func WithAllowNetworkFS(allow bool) Option {
+	return func(c *openConfig) { c.allowNetworkFS = allow }
+}
+
 // Open opens, creating if needed, a SQLite database at path.
-func Open(path string, c clock.Clock) (*Store, error) {
+//
+// Before opening anything, it refuses a path detected on a network
+// filesystem: NFS, SMB/CIFS, a network FUSE mount such as sshfs, WebDAV, or,
+// on Windows, a UNC path or a mapped network drive. This refusal happens
+// here, not only in a diagnostic command, so it cannot be bypassed by simply
+// not running one. Pass WithAllowNetworkFS(true) to override it. When the
+// filesystem cannot be classified at all, on an unsupported platform or
+// because the check itself failed, Open allows the database rather than
+// refusing it: a detection that cannot speak should not overrule one that
+// can.
+func Open(path string, c clock.Clock, opts ...Option) (*Store, error) {
 	if strings.TrimSpace(path) == "" {
 		return nil, core.Invalid("sqlite path must not be empty")
+	}
+	var cfg openConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	if dec := storeloc.CheckNetworkFS(path, cfg.allowNetworkFS); dec.Refuse {
+		return nil, core.Precondition(
+			"sqlite database %q is on a %s, which corrupts a SQLite database rather than merely running it slowly; "+
+				"keep the database on local disk, or use PostgreSQL for a shared deployment; "+
+				"pass --allow-network-fs, or set database.allow_network_fs, if you have accepted this risk",
+			path, dec.Kind)
 	}
 	if c == nil {
 		c = clock.New()

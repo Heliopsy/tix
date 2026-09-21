@@ -71,6 +71,12 @@ type Overrides struct {
 	// left the key at its default. A serving process sets it, because it runs
 	// the dispatcher itself; an explicit setting still wins.
 	DrainMode string
+
+	// AllowNetworkFS opts into opening a database detected on a network
+	// filesystem. It is combined with the configured database.allow_network_fs
+	// key: either one being set is enough, since both express the same
+	// operator decision through a different layer.
+	AllowNetworkFS bool
 }
 
 // Target is the resolved endpoint a command will talk to.
@@ -297,7 +303,8 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		return nil, err
 	}
 	clk := clock.New()
-	st, err := openStore(target, clk)
+	allowNetworkFS := cfg.Config.Database.AllowNetworkFS || ov.AllowNetworkFS
+	st, err := openStore(target, clk, allowNetworkFS)
 	if err != nil {
 		return nil, err
 	}
@@ -344,8 +351,10 @@ func drainMode(cfg *config.Resolved, ov Overrides) (webhook.Mode, error) {
 	return webhook.ParseMode(raw)
 }
 
-// openStore opens the engine the target names.
-func openStore(target Target, clk clock.Clock) (store.Store, error) {
+// openStore opens the engine the target names. allowNetworkFS carries the
+// operator's explicit opt-in past SQLite's refusal to open a database
+// detected on a network filesystem; it does nothing for PostgreSQL.
+func openStore(target Target, clk clock.Clock, allowNetworkFS bool) (store.Store, error) {
 	if target.Engine == EnginePostgres {
 		return postgres.Open(target.DSN, clk)
 	}
@@ -354,7 +363,7 @@ func openStore(target Target, clk clock.Clock) (store.Store, error) {
 			return nil, core.Internal("creating database directory %q", dir).Wrap(err)
 		}
 	}
-	return sqlite.Open(target.Path, clk)
+	return sqlite.Open(target.Path, clk, sqlite.WithAllowNetworkFS(allowNetworkFS))
 }
 
 // resolveTenant returns the tenant the target selects. The default tenant is

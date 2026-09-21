@@ -15,7 +15,39 @@ process, that is not the bottleneck; claims are short transactions and reads run
 comfortable when several processes write to the same file at once, which is the case a network filesystem makes
 worse rather than better.
 
-Keep the database on local disk. SQLite over NFS or SMB is a reliable way to corrupt it.
+Keep the database on local disk. SQLite over NFS or SMB is a reliable way to corrupt it, and this is enforced,
+not just documented: `Open` refuses a database file it detects on NFS, SMB/CIFS, a network FUSE mount (sshfs,
+rclone, and similar), WebDAV, or, on Windows, a UNC path or a mapped network drive. The refusal happens at open
+time, in `internal/store/sqlite`, so it applies to every command and to `tix serve`, not only to `tix doctor`.
+The error names the path and the detected filesystem, and says to move the database to local disk or to switch
+to PostgreSQL for a shared deployment.
+
+If you know better, for instance a network filesystem your setup happens to serialize safely, pass
+`--allow-network-fs`, or set `database.allow_network_fs: true` in the configuration file, or
+`TIX_DATABASE_ALLOW_NETWORK_FS=1` in the environment. The default is refuse; opting out is always visible, either
+on the command line or in the resolved configuration `tix doctor` reports.
+
+**Do not sync the database with Syncthing, Dropbox, Nextcloud, OneDrive or iCloud Drive either.** That is a
+different failure mode from a network filesystem: the file is written locally and safely, on disk, but two
+machines write to their own local copy and the sync tool reconciles them after the fact. SQLite's file format
+does not merge; when both sides wrote, the sync tool picks one winner and renames the other to a
+`*.sync-conflict-*` or `... (conflicted copy ...)` file. That is silent data loss, not a crash, and it is
+detected the same way corruption from a stale mount is: nothing tells you unless you know to look. Because
+detecting a sync-managed directory is a heuristic, `tix doctor` warns rather than refusing:
+
+- **`sync-directory`** walks up from the database's directory looking for a marker a sync tool leaves behind
+  (Syncthing's `.stfolder`/`.stignore`, Nextcloud's sync database or `.nextcloudsync.log`, Dropbox's
+  `.dropbox`, or the fixed `.../Mobile Documents/com~apple~CloudDocs/...` path iCloud Drive uses), falling back
+  to the directory's name when no marker is found. It warns; it never refuses, because a false positive would
+  block someone from their own tasks, which is worse than the risk it flags.
+- **`conflict-files`** looks beside the database for files a sync tool already produced, such as
+  `tix.sync-conflict-20260101-120000-ABCDEFG.db` or `tix (conflicted copy 20260101).db`. Their presence means a
+  divergence already happened and the two copies were never reconciled; `tix doctor` reports every one it finds.
+- **`network-filesystem`** reports what filesystem was detected even when the open already succeeded (local
+  disk, or a network filesystem with the override set), and warns rather than failing when the filesystem type
+  could not be determined at all.
+
+Run `tix doctor` after moving a database, or periodically on a shared machine, to see all three.
 
 ## PostgreSQL
 

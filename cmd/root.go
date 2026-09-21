@@ -43,6 +43,10 @@ type globals struct {
 	// operator has left the key on its default layer.
 	drainMode string
 
+	// allowNetworkFS opts into opening a database detected on a network
+	// filesystem, which is refused by default because it corrupts SQLite.
+	allowNetworkFS bool
+
 	environ []string
 	dir     string
 
@@ -137,6 +141,7 @@ func newRoot(environ []string, dir string) (*cobra.Command, *globals) {
 	f.BoolVarP(&g.quiet, "quiet", "q", false, "suppress diagnostics")
 	f.BoolVarP(&g.verbose, "verbose", "v", false, "report how the target was resolved")
 	f.BoolVar(&g.noDiscovery, "no-discovery", false, "ignore per-directory context files")
+	f.BoolVar(&g.allowNetworkFS, "allow-network-fs", false, "allow opening a database detected on a network filesystem, which risks corruption")
 
 	_ = root.RegisterFlagCompletionFunc("output", fixedCompletion(output.Formats))
 
@@ -157,7 +162,8 @@ var builders = []func(*globals) *cobra.Command{
 	newTaskCmd, newDepCmd, newTagCmd, newCommentCmd,
 	newProjectCmd, newWorkflowCmd, newFieldCmd, newClaimCmd,
 	newTenantCmd, newDomainCmd, newMemberCmd, newActorCmd, newUserCmd, newTokenCmd, newLoginCmd,
-	newCtxCmd, newConfigCmd, newDoctorCmd, newPruneCmd, newWebhookCmd, newAuditCmd, newSyncCmd,
+	newCtxCmd, newConfigCmd, newDoctorCmd, newPruneCmd, newRetentionCmd, newWebhookCmd,
+	newAuditCmd, newSyncCmd, newArtifactCmd, newWatchCmd, newLogoutCmd,
 	newDocsCmd, newCompletionCmd, newVersionCmd,
 }
 
@@ -262,12 +268,13 @@ func (g *globals) bearer() string {
 // overrides builds the raw selectors handed to the resolver.
 func (g *globals) overrides() connect.Overrides {
 	return connect.Overrides{
-		DB:        g.db,
-		Server:    g.server,
-		Token:     g.bearer(),
-		Home:      lookupEnv(g.environ, "HOME"),
-		Environ:   g.environ,
-		DrainMode: g.drainMode,
+		DB:             g.db,
+		Server:         g.server,
+		Token:          g.bearer(),
+		Home:           lookupEnv(g.environ, "HOME"),
+		Environ:        g.environ,
+		DrainMode:      g.drainMode,
+		AllowNetworkFS: g.allowNetworkFS,
 	}
 }
 
