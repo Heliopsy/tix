@@ -15,7 +15,7 @@ func TestParseFilter(t *testing.T) {
 		check func(t *testing.T, f core.TaskFilter)
 	}{
 		{"empty", "", func(t *testing.T, f core.TaskFilter) {
-			if f.Query != "" || f.Page.Sort != core.SortCreatedAt {
+			if f.Query != "" || f.Page.Sort != core.SortUrgency {
 				t.Fatalf("unexpected filter %+v", f)
 			}
 		}},

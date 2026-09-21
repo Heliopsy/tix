@@ -19,12 +19,16 @@ const (
 // Valid reports whether d is a known direction.
 func (d SortDirection) Valid() bool { return d == Ascending || d == Descending }
 
-// Cursor is an opaque position in a keyset-paginated listing.
+// Cursor is an opaque position in a keyset-paginated listing. SortValue2 is
+// additive: it carries the second key of a compound ordering (currently only
+// SortUrgency) and is empty for every single-key ordering, so an older
+// encoded cursor decodes unchanged.
 type Cursor struct {
-	SortValue string        `json:"v" yaml:"v"`
-	ID        string        `json:"i" yaml:"i"`
-	Sort      string        `json:"s" yaml:"s"`
-	Direction SortDirection `json:"d" yaml:"d"`
+	SortValue  string        `json:"v" yaml:"v"`
+	SortValue2 string        `json:"v2,omitempty" yaml:"v2,omitempty"`
+	ID         string        `json:"i" yaml:"i"`
+	Sort       string        `json:"s" yaml:"s"`
+	Direction  SortDirection `json:"d" yaml:"d"`
 }
 
 // Zero reports whether the cursor addresses nothing, meaning the first page.
@@ -173,11 +177,18 @@ const (
 	SortDueAt     = "due_at"
 	SortSeq       = "seq"
 	SortTitle     = "title"
+
+	// SortUrgency is the compound ordering: priority first (PriorityHighest
+	// leads), then due date within a priority (soonest leads, and a task with
+	// no due date sorts as if its deadline were the distant future, since a
+	// dated task at the same priority is more urgent than an undated one).
+	// It is the default ordering for a task listing.
+	SortUrgency = "urgency"
 )
 
 // TaskSortFields lists the fields a task listing may be ordered by.
 var TaskSortFields = []string{
-	SortCreatedAt, SortUpdatedAt, SortPriority, SortDueAt, SortSeq, SortTitle,
+	SortUrgency, SortCreatedAt, SortUpdatedAt, SortPriority, SortDueAt, SortSeq, SortTitle,
 }
 
 // Validate checks the filter and normalizes its page.
@@ -195,7 +206,7 @@ func (f TaskFilter) Validate() (TaskFilter, error) {
 	}
 
 	if f.Page.Sort == "" {
-		f.Page.Sort = SortCreatedAt
+		f.Page.Sort = SortUrgency
 	}
 	if !validSortField(f.Page.Sort) {
 		return f, Invalid("cannot sort tasks by %q", f.Page.Sort)

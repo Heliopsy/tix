@@ -263,6 +263,11 @@ Task lists SHALL be sortable by documented fields including creation time, updat
 - **WHEN** tasks are listed sorted by priority descending
 - **THEN** tasks are returned in descending priority order
 
+#### Scenario: Default sort is urgency
+
+- **WHEN** tasks are listed with no sort field given
+- **THEN** they are returned by priority first, most urgent priority leading, and by due date within a shared priority, soonest deadline leading, with a task carrying no due date sorted after every dated task at that priority as if its deadline were the most distant
+
 #### Scenario: Deterministic tie-breaking
 
 - **WHEN** several tasks share the same value for the requested sort field
@@ -301,6 +306,11 @@ Every list result SHALL be paginated by an opaque cursor derived from the sort k
 
 - **WHEN** a cursor is supplied with filter or sort parameters that differ from those it was produced under
 - **THEN** the request is rejected with a validation error
+
+#### Scenario: Paging a compound ordering
+
+- **WHEN** a list is sorted by more than one key, such as the default urgency ordering
+- **THEN** the cursor carries every key the ordering uses, plus the task identifier, so paging never skips or repeats a row
 
 ### Requirement: Optimistic concurrency
 

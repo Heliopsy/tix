@@ -184,6 +184,36 @@ func TestKeysetPredicate(t *testing.T) {
 	}
 }
 
+func TestKeyset2Predicate(t *testing.T) {
+	c := core.Cursor{SortValue: "3", SortValue2: "2026-01-01", ID: "abc", Sort: "urgency", Direction: core.Ascending}
+
+	q, args := MustNew(SQLite, scope, "tasks").
+		Keyset2("priority", "due_at", "id", c, core.Ascending).SelectQuery()
+	if !strings.Contains(q, "(priority, due_at, id) > (?, ?, ?)") {
+		t.Errorf("ascending compound keyset predicate wrong: %s", q)
+	}
+	if len(args) != 4 {
+		t.Errorf("args = %v, want tenant plus the three-part cursor", args)
+	}
+
+	q, _ = MustNew(SQLite, scope, "tasks").
+		Keyset2("priority", "due_at", "id", c, core.Descending).SelectQuery()
+	if !strings.Contains(q, "(priority, due_at, id) < (?, ?, ?)") {
+		t.Errorf("descending compound keyset predicate wrong: %s", q)
+	}
+}
+
+func TestZeroCursorAddsNoKeyset2Predicate(t *testing.T) {
+	q, args := MustNew(SQLite, scope, "tasks").
+		Keyset2("priority", "due_at", "id", core.Cursor{}, core.Ascending).SelectQuery()
+	if strings.Contains(q, "priority, due_at, id") {
+		t.Errorf("the zero cursor should add no predicate: %s", q)
+	}
+	if len(args) != 1 {
+		t.Errorf("args = %v, want only the tenant", args)
+	}
+}
+
 func TestZeroCursorAddsNoPredicate(t *testing.T) {
 	q, args := MustNew(SQLite, scope, "tasks").
 		Keyset("created_at", "id", core.Cursor{}, core.Ascending).SelectQuery()

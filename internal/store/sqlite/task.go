@@ -25,12 +25,32 @@ var taskColumns = []string{
 const projectJoin = "JOIN projects ON projects.id = tasks.project_id AND projects.tenant_id = tasks.tenant_id"
 
 var taskSortColumns = map[string]string{
+	core.SortUrgency:   "tasks.priority",
 	core.SortCreatedAt: "tasks.created_at",
 	core.SortUpdatedAt: "tasks.updated_at",
 	core.SortPriority:  "tasks.priority",
 	core.SortDueAt:     "tasks.due_at",
 	core.SortSeq:       "tasks.seq",
 	core.SortTitle:     "tasks.title",
+}
+
+// urgencyDueColumn is the second key of the urgency ordering: due date, with
+// a task carrying no deadline coalesced to the distant future so it sorts
+// after every dated task at the same priority rather than before or among
+// them, which is what NULL-first or dialect-default NULL ordering would do.
+const urgencyDueColumn = "COALESCE(tasks.due_at, '" + sqlb.NoDueSentinel + "')"
+
+// resolveTaskPage extends resolvePage with the second key the urgency
+// ordering needs; every other task ordering has one sort key.
+func resolveTaskPage(p core.Page) (pageSpec, error) {
+	spec, err := resolvePage(p, core.SortUrgency, taskSortColumns)
+	if err != nil {
+		return pageSpec{}, err
+	}
+	if p.Sort == core.SortUrgency {
+		spec.column2 = urgencyDueColumn
+	}
+	return spec, nil
 }
 
 // unclaimedPredicate reads a lease whose expiry has passed as unclaimed, so
@@ -218,7 +238,7 @@ func (t *tx) ListTasks(ctx context.Context, f core.TaskFilter) ([]core.Task, err
 	if err != nil {
 		return nil, err
 	}
-	spec, err := resolvePage(f.Page, core.SortCreatedAt, taskSortColumns)
+	spec, err := resolveTaskPage(f.Page)
 	if err != nil {
 		return nil, err
 	}

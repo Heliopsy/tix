@@ -204,7 +204,7 @@ func taskLsCmd(g *globals) *cobra.Command {
 	f.StringSliceVar(&assignees, "assignee", nil, "restrict to assignees")
 	f.StringVar(&query, "query", "", "match title and body text")
 	f.StringVar(&cursor, "cursor", "", "continue from a previous page")
-	f.StringVar(&sort, "sort", core.SortCreatedAt, "sort field")
+	f.StringVar(&sort, "sort", core.SortUrgency, "sort field")
 	f.IntVar(&limit, "limit", core.DefaultPageLimit, "maximum records per page")
 	f.BoolVar(&desc, "desc", false, "sort descending")
 	f.BoolVar(&all, "all", false, "follow cursors until every page is read")

@@ -154,8 +154,10 @@ tix task ls --all                          # follow cursors until exhausted
 
 The cost of this is that you cannot jump to page 500, only walk. For a task list that is the right trade.
 
-Sort fields are `created_at`, `updated_at`, `priority`, `due_at`, `seq` and `title`. Sorting on an indexed column
-is what keeps a cursor cheap, which is the same reasoning behind `--indexed` on custom fields.
+Sort fields for tasks are `urgency` (the default), `created_at`, `updated_at`, `priority`, `due_at`, `seq` and
+`title`. Sorting on an indexed column is what keeps a cursor cheap, which is the same reasoning behind
+`--indexed` on custom fields. `urgency` is a compound key, priority then due date, and its cursor carries both
+values plus the task id; `idx_tasks_urgency` covers it so it costs the same as any other sort at scale.
 
 ## Retention
 

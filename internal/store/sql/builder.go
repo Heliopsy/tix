@@ -147,6 +147,24 @@ func (b *Builder) Keyset(sortCol, idCol string, c core.Cursor, dir core.SortDire
 	return b
 }
 
+// Keyset2 applies a two-key cursor predicate for a compound ordering, via a
+// row-value comparison against both sort keys and the id tiebreaker in one
+// go. A single-key Keyset cannot express this: paging on only the first key
+// would repeat or skip rows whenever two tasks share it.
+func (b *Builder) Keyset2(col1, col2, idCol string, c core.Cursor, dir core.SortDirection) *Builder {
+	if c.Zero() {
+		return b
+	}
+	op := ">"
+	if dir == core.Descending {
+		op = "<"
+	}
+	b.wheres = append(b.wheres,
+		fmt.Sprintf("(%s, %s, %s) %s (?, ?, ?)", col1, col2, idCol, op))
+	b.args = append(b.args, c.SortValue, c.SortValue2, c.ID)
+	return b
+}
+
 // SelectQuery renders the SELECT and its arguments.
 func (b *Builder) SelectQuery() (string, []any) {
 	cols := "*"

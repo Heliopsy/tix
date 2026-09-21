@@ -192,10 +192,11 @@ func (l *Local) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 	if more && len(tasks) > 0 {
 		last := tasks[len(tasks)-1]
 		page.NextCursor = core.Cursor{
-			SortValue: taskSortValue(f.Page.Sort, last),
-			ID:        last.ID,
-			Sort:      f.Page.Sort,
-			Direction: f.Page.Direction,
+			SortValue:  taskSortValue(f.Page.Sort, last),
+			SortValue2: taskSortValue2(f.Page.Sort, last),
+			ID:         last.ID,
+			Sort:       f.Page.Sort,
+			Direction:  f.Page.Direction,
 		}.Encode()
 	}
 	return page, nil
@@ -671,13 +672,13 @@ func resolveParent(ctx context.Context, tx store.Tx, task *core.Task, ref string
 	return parent.ID, nil
 }
 
-// taskSortValue renders the sort key a cursor carries for a listing.
+// taskSortValue renders the first sort key a cursor carries for a listing.
 func taskSortValue(sort string, task core.Task) string {
 	switch sort {
+	case core.SortUrgency, core.SortPriority:
+		return strconv.Itoa(int(task.Priority))
 	case core.SortUpdatedAt:
 		return sqlb.TimeText(task.UpdatedAt)
-	case core.SortPriority:
-		return strconv.Itoa(int(task.Priority))
 	case core.SortDueAt:
 		if task.DueAt == nil {
 			return ""
@@ -690,6 +691,18 @@ func taskSortValue(sort string, task core.Task) string {
 	default:
 		return sqlb.TimeText(task.CreatedAt)
 	}
+}
+
+// taskSortValue2 renders the second sort key of a compound ordering. It is
+// empty for every single-key sort; SortUrgency is the only one today.
+func taskSortValue2(sort string, task core.Task) string {
+	if sort != core.SortUrgency {
+		return ""
+	}
+	if task.DueAt == nil {
+		return sqlb.NoDueSentinel
+	}
+	return sqlb.TimeText(*task.DueAt)
 }
 
 // validateTaskFields checks custom field values against their definitions,

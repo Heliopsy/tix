@@ -12,6 +12,13 @@ import (
 // TimeLayout is fixed-width RFC3339 in UTC, so lexicographic order equals chronological order.
 const TimeLayout = "2006-01-02T15:04:05.000000000Z07:00"
 
+// NoDueSentinel stands in for a missing due date when it orders alongside
+// real ones, so a task with no deadline sorts as if its deadline were the
+// distant future: a dated task at the same priority is the more urgent one.
+// It is formatted exactly like TimeText so a Go-rendered cursor value and the
+// SQL COALESCE fallback compare equal, which keyset paging depends on.
+const NoDueSentinel = "9999-12-31T23:59:59.000000000Z"
+
 // TimeText renders t for storage.
 func TimeText(t time.Time) string { return t.UTC().Format(TimeLayout) }
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
+	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
 // taskWorkflow is the state machine the task tests exercise. "review" to "done"
@@ -949,6 +950,7 @@ func TestTaskSortValueRendersEverySortField(t *testing.T) {
 		sort string
 		want string
 	}{
+		{core.SortUrgency, "2"},
 		{core.SortCreatedAt, "2029-01-01T00:00:00.000000000Z"},
 		{core.SortUpdatedAt, "2029-02-02T00:00:00.000000000Z"},
 		{core.SortDueAt, "2030-07-08T09:10:11.000000000Z"},
@@ -965,6 +967,16 @@ func TestTaskSortValueRendersEverySortField(t *testing.T) {
 	}
 	if got := taskSortValue(core.SortDueAt, core.Task{}); got != "" {
 		t.Errorf("a task with no due date rendered %q, want an empty sort value", got)
+	}
+
+	if got := taskSortValue2(core.SortUrgency, task); got != "2030-07-08T09:10:11.000000000Z" {
+		t.Errorf("taskSortValue2(urgency) = %q, want the due date", got)
+	}
+	if got := taskSortValue2(core.SortUrgency, core.Task{}); got != sqlb.NoDueSentinel {
+		t.Errorf("taskSortValue2(urgency) with no due date = %q, want the sentinel", got)
+	}
+	if got := taskSortValue2(core.SortCreatedAt, task); got != "" {
+		t.Errorf("taskSortValue2 outside urgency = %q, want empty", got)
 	}
 }
 

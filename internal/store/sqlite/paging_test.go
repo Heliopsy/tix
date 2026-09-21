@@ -3,6 +3,8 @@ package sqlite
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +20,22 @@ func taskCursor(task core.Task, dir core.SortDirection) string {
 		ID:        task.ID,
 		Sort:      core.SortCreatedAt,
 		Direction: dir,
+	}.Encode()
+}
+
+// urgencyCursor renders the compound cursor a client would carry from one
+// page of the urgency ordering to the next.
+func urgencyCursor(task core.Task, dir core.SortDirection) string {
+	due := sqlb.NoDueSentinel
+	if task.DueAt != nil {
+		due = sqlb.TimeText(*task.DueAt)
+	}
+	return core.Cursor{
+		SortValue:  strconv.Itoa(int(task.Priority)),
+		SortValue2: due,
+		ID:         task.ID,
+		Sort:       core.SortUrgency,
+		Direction:  dir,
 	}.Encode()
 }
 
@@ -160,4 +178,123 @@ func TestTenantListingPaginates(t *testing.T) {
 			t.Fatalf("tenants out of order: %q then %q", seen[i-1], seen[i])
 		}
 	}
+}
+
+// TestUrgencyKeysetPaginationCoversEveryRowExactlyOnce seeds tasks across
+// every priority, with some dated and some not, walks the default (urgency)
+// ordering to its end, and checks both that every task is visited exactly
+// once and that the order itself is priority first, then due date, with a
+// task carrying no due date sorting after every dated task at the same
+// priority.
+func TestUrgencyKeysetPaginationCoversEveryRowExactlyOnce(t *testing.T) {
+	ctx := context.Background()
+	s, clk := newStore(t)
+	f := seed(t, s, clk, "acme")
+
+	type spec struct {
+		priority core.Priority
+		due      *time.Time
+	}
+	dueOn := func(day int) *time.Time {
+		d := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, day)
+		return &d
+	}
+
+	var specs []spec
+	for p := core.PriorityHighest; p <= core.PriorityLowest; p++ {
+		specs = append(specs,
+			spec{priority: p, due: dueOn(2)},
+			spec{priority: p, due: dueOn(0)},
+			spec{priority: p, due: dueOn(1)},
+			spec{priority: p, due: nil},
+			spec{priority: p, due: nil},
+		)
+	}
+
+	created := make([]core.Task, 0, len(specs))
+	for i, sp := range specs {
+		task := core.Task{
+			ProjectID:      f.project.ID,
+			Title:          fmt.Sprintf("task-%02d", i),
+			Status:         "todo",
+			Priority:       sp.priority,
+			DueAt:          sp.due,
+			CreatorActorID: f.actor.ID,
+		}
+		if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+			return tx.CreateTask(ctx, &task)
+		}); err != nil {
+			t.Fatalf("creating task %d: %v", i, err)
+		}
+		created = append(created, task)
+	}
+
+	want := append([]core.Task{}, created...)
+	sort.SliceStable(want, func(i, j int) bool {
+		a, b := want[i], want[j]
+		if a.Priority != b.Priority {
+			return a.Priority < b.Priority
+		}
+		ad, bd := sqlb.NoDueSentinel, sqlb.NoDueSentinel
+		if a.DueAt != nil {
+			ad = sqlb.TimeText(*a.DueAt)
+		}
+		if b.DueAt != nil {
+			bd = sqlb.TimeText(*b.DueAt)
+		}
+		if ad != bd {
+			return ad < bd
+		}
+		return a.ID < b.ID
+	})
+
+	var (
+		seen   []string
+		unique = map[string]bool{}
+		cursor string
+	)
+	for page := 0; page < len(want); page++ {
+		var batch []core.Task
+		err := s.View(ctx, f.scope, func(tx store.Tx) error {
+			var err error
+			batch, err = tx.ListTasks(ctx, core.TaskFilter{Page: core.Page{
+				Limit: 4, Cursor: cursor, Sort: core.SortUrgency, Direction: core.Ascending,
+			}})
+			return err
+		})
+		if err != nil {
+			t.Fatalf("listing page %d: %v", page, err)
+		}
+		if len(batch) == 0 {
+			break
+		}
+		for _, task := range batch {
+			if unique[task.ID] {
+				t.Fatalf("task %q appeared on more than one page", task.ID)
+			}
+			unique[task.ID] = true
+			seen = append(seen, task.ID)
+		}
+		cursor = urgencyCursor(batch[len(batch)-1], core.Ascending)
+	}
+
+	if len(seen) != len(want) {
+		t.Fatalf("saw %d rows across pages, want %d", len(seen), len(want))
+	}
+	for i := range want {
+		if seen[i] != want[i].ID {
+			t.Fatalf("row %d = %q (priority=%d due=%v), want %q (priority=%d due=%v)",
+				i, seen[i], created[indexOfID(created, seen[i])].Priority, created[indexOfID(created, seen[i])].DueAt,
+				want[i].ID, want[i].Priority, want[i].DueAt)
+		}
+	}
+}
+
+func indexOfID(tasks []core.Task, id string) int {
+	for i, t := range tasks {
+		if t.ID == id {
+			return i
+		}
+	}
+	return -1
 }

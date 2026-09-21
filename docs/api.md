@@ -90,8 +90,11 @@ curl -H "Authorization: Bearer $TIX_TOKEN" \
 ```
 
 Pass `next_cursor` back as `cursor` for the following page. An empty or absent `next_cursor` means the last page.
-Sort fields are `created_at`, `updated_at`, `priority`, `due_at`, `seq` and `title`. An unparseable cursor or
-limit is `400` with the standard envelope.
+Sort fields for tasks are `urgency` (the default), `created_at`, `updated_at`, `priority`, `due_at`, `seq` and
+`title`. `urgency` is a compound ordering: priority first, most urgent priority leading, then due date within a
+shared priority, soonest deadline leading. A task with no due date sorts after every dated task at the same
+priority, as if its deadline were the most distant. An unparseable cursor or limit is `400` with the standard
+envelope.
 
 The CLI equivalents are `--cursor`, `--limit`, `--sort`, `--desc`, and `--all` to follow cursors until exhausted.
 

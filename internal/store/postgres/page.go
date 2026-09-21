@@ -8,10 +8,11 @@ import (
 // pageSpec is a normalized listing window. Listings page by keyset only; no
 // statement in this package emits OFFSET.
 type pageSpec struct {
-	limit  int
-	column string
-	dir    core.SortDirection
-	cursor core.Cursor
+	limit   int
+	column  string
+	column2 string // set only for a compound ordering; empty otherwise
+	dir     core.SortDirection
+	cursor  core.Cursor
 }
 
 // resolvePage normalizes a page against the sort columns a listing allows.
@@ -35,9 +36,17 @@ func resolvePage(p core.Page, defaultSort string, columns map[string]string) (pa
 }
 
 // apply adds the ordering, the keyset predicate and the limit to a statement.
+// A compound ordering (column2 set) carries every key it orders by in the
+// keyset predicate, or a page could skip or repeat rows whenever two rows
+// share the first key.
 func (p pageSpec) apply(b *sqlb.Builder, idColumn string) *sqlb.Builder {
-	return b.Keyset(p.column, idColumn, p.cursor, p.dir).
-		OrderBy(p.column, p.dir).
-		OrderBy(idColumn, p.dir).
-		Limit(p.limit)
+	if p.column2 != "" {
+		b.Keyset2(p.column, p.column2, idColumn, p.cursor, p.dir).
+			OrderBy(p.column, p.dir).
+			OrderBy(p.column2, p.dir)
+	} else {
+		b.Keyset(p.column, idColumn, p.cursor, p.dir).
+			OrderBy(p.column, p.dir)
+	}
+	return b.OrderBy(idColumn, p.dir).Limit(p.limit)
 }

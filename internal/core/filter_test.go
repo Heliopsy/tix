@@ -17,6 +17,38 @@ func TestCursorRoundTrip(t *testing.T) {
 	}
 }
 
+// TestCursorRoundTripCompound checks the additive second sort value used by
+// a compound ordering.
+func TestCursorRoundTripCompound(t *testing.T) {
+	c := Cursor{SortValue: "2", SortValue2: "2030-01-01T00:00:00Z", ID: "01JBXR8GTM4K", Sort: SortUrgency, Direction: Ascending}
+
+	got, err := DecodeCursor(c.Encode())
+	if err != nil {
+		t.Fatalf("DecodeCursor() error = %v", err)
+	}
+	if got != c {
+		t.Errorf("round trip = %+v, want %+v", got, c)
+	}
+}
+
+// TestOldCursorDecodesWithoutTheSecondSortValue confirms a cursor encoded
+// before SortValue2 existed still decodes, with the new field zero.
+func TestOldCursorDecodesWithoutTheSecondSortValue(t *testing.T) {
+	old := Cursor{SortValue: "x", ID: "1", Sort: SortCreatedAt, Direction: Ascending}
+	token := old.Encode()
+
+	got, err := DecodeCursor(token)
+	if err != nil {
+		t.Fatalf("DecodeCursor() error = %v", err)
+	}
+	if got.SortValue2 != "" {
+		t.Errorf("SortValue2 = %q, want empty for a single-key cursor", got.SortValue2)
+	}
+	if got != old {
+		t.Errorf("decoded = %+v, want %+v", got, old)
+	}
+}
+
 func TestCursorZero(t *testing.T) {
 	if !(Cursor{}).Zero() {
 		t.Error("empty cursor should be zero")
@@ -103,8 +135,8 @@ func TestTaskFilterValidateDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
-	if got.Page.Sort != SortCreatedAt {
-		t.Errorf("default sort = %q, want %q", got.Page.Sort, SortCreatedAt)
+	if got.Page.Sort != SortUrgency {
+		t.Errorf("default sort = %q, want %q", got.Page.Sort, SortUrgency)
 	}
 	if got.Page.Limit != DefaultPageLimit {
 		t.Errorf("default limit = %d, want %d", got.Page.Limit, DefaultPageLimit)
@@ -136,6 +168,20 @@ func TestTaskFilterValidateRejects(t *testing.T) {
 				t.Errorf("error kind = %q, want invalid", KindOf(err))
 			}
 		})
+	}
+}
+
+// TestTaskFilterRejectsCursorFromBeforeTheDefaultChanged confirms a cursor
+// minted under the old created_at default is refused, rather than silently
+// misread, once no explicit sort is given and the filter defaults to urgency.
+func TestTaskFilterRejectsCursorFromBeforeTheDefaultChanged(t *testing.T) {
+	old := Cursor{SortValue: "2026-01-01T00:00:00Z", ID: "1", Sort: SortCreatedAt, Direction: Ascending}
+	f := TaskFilter{Page: Page{Cursor: old.Encode()}}
+
+	if _, err := f.Validate(); err == nil {
+		t.Error("a cursor produced under the previous default sort must be rejected, not reinterpreted")
+	} else if !IsKind(err, KindInvalid) {
+		t.Errorf("error kind = %q, want invalid", KindOf(err))
 	}
 }
 
