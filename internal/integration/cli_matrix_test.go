@@ -81,9 +81,8 @@ func mintCLIToken(t *testing.T, run func(args ...string) cliResult, scopes []cor
 
 // cliScenario is one row of the CLI transport-equivalence table.
 type cliScenario struct {
-	name    string
-	exempt  string
-	wantErr bool
+	name   string
+	exempt string
 	// run drives the scenario and returns a comparable signature; the final
 	// invocation's exit code is what is compared for both success and error
 	// cases, since the CLI's exit code IS its error-kind mapping.

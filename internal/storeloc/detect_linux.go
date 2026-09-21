@@ -53,7 +53,8 @@ func readProcMounts(path string) ([]mountEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	// Reading only, so a close error says nothing a caller could act on.
+	defer func() { _ = f.Close() }()
 
 	var out []mountEntry
 	sc := bufio.NewScanner(f)

@@ -26,7 +26,7 @@ func volumeRoot(path string) string {
 		return ""
 	}
 	c := path[0]
-	if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+	if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') {
 		return ""
 	}
 	return path[:2] + `\`
