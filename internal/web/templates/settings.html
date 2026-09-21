@@ -1,9 +1,15 @@
+{{/*
+  The preference forms opt out of hx-boost deliberately. data-theme lives on
+  <html>, and a boosted form swaps only the body, so the cookie changed but the
+  page kept its old theme until the next real navigation. That reads as a button
+  that does nothing. A full navigation costs one round trip and is correct.
+*/}}
 {{define "content"}}
 <h1>Settings</h1>
 <p class="lede">Display preferences for this browser. Each one is stored in a cookie, not on the tenant, so two people sharing a tenant can choose differently.</p>
 
 <h2>Appearance</h2>
-<form method="post" action="/theme">
+<form method="post" action="/theme" hx-boost="false">
   {{template "csrf" .CSRF}}
   <input type="hidden" name="next" value="{{.Here}}">
   <label for="theme">Theme</label>
@@ -19,7 +25,7 @@
 
 <h2>Interface</h2>
 
-<form method="post" action="/advanced">
+<form method="post" action="/advanced" hx-boost="false">
   {{template "csrf" .CSRF}}
   <input type="hidden" name="next" value="{{.Here}}">
   <p class="muted" id="advanced-help">Adds the configuration and data screens to the sidebar: workflows, tenant, domains, users, tokens, webhooks, bundles, transfer and sync. Off by default, because most visits are to a list of tasks, not to administration.</p>
@@ -29,7 +35,7 @@
   </div>
 </form>
 
-<form method="post" action="/dragmove">
+<form method="post" action="/dragmove" hx-boost="false">
   {{template "csrf" .CSRF}}
   <input type="hidden" name="next" value="{{.Here}}">
   <p class="muted" id="dragmove-help">Lets you drag a card between board columns to move it. Each card's own Move disclosure always works, drag or no drag, so turning this off costs nothing for keyboard or touch use.</p>
@@ -39,7 +45,7 @@
   </div>
 </form>
 
-<form method="post" action="/keyscheme">
+<form method="post" action="/keyscheme" hx-boost="false">
   {{template "csrf" .CSRF}}
   <input type="hidden" name="next" value="{{.Here}}">
   <label for="keyscheme">Keyboard shortcuts</label>
