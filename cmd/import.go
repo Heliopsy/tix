@@ -20,7 +20,10 @@ func newImportCmd(g *globals) *cobra.Command {
 		Long: "Read a snapshot from standard input, one record per line, and apply it " +
 			"to the tenant in a single transaction.\n" +
 			"A mode is required: merge creates and updates, replace also removes " +
-			"records the snapshot does not carry.\n\n" +
+			"records the snapshot does not carry.\n" +
+			"A task is matched by its own identifier, never by its project-and-sequence " +
+			"reference; a record older than what it would replace is skipped, not applied, " +
+			"and every skip is named in the result.\n\n" +
 			fmt.Sprintf("Exit codes: %d invalid snapshot or missing mode, %d unknown reference, %d permission denied.",
 				core.KindInvalid.ExitCode(), core.KindNotFound.ExitCode(), core.KindForbidden.ExitCode()),
 		Example: "  tix import --mode merge < snapshot.ndjson\n" +

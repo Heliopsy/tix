@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -632,5 +633,40 @@ func TestLeaseBodiesUseTheServerFieldNames(t *testing.T) {
 	}
 	if !strings.Contains(got.body, `"token":"tok"`) || !strings.Contains(got.body, `"status":"done"`) {
 		t.Fatalf("release body = %q", got.body)
+	}
+}
+
+// A session is ended with the cookie that names it, while the bearer token the
+// client was built with still authenticates the request. The client the copy
+// came from keeps presenting no cookie at all.
+func TestWithSessionSendsTheSessionCookieOnlyOnTheCopy(t *testing.T) {
+	var cookies []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		value := ""
+		if cookie, err := r.Cookie(httpapi.SessionCookieName); err == nil {
+			value = cookie.Value
+		}
+		cookies = append(cookies, value)
+		if got := r.Header.Get(httpapi.HeaderAuth); got != "Bearer pat-1" {
+			t.Errorf("authorization = %q", got)
+		}
+		okHandler(w, r)
+	}))
+	defer srv.Close()
+
+	c, err := New(srv.URL, "pat-1", WithHTTPClient(&http.Client{}), WithTimeout(5*time.Second))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	if err := c.WithSession("sess-2").Logout(context.Background()); err != nil {
+		t.Fatalf("logout: %v", err)
+	}
+	if err := c.Logout(context.Background()); err != nil {
+		t.Fatalf("logout: %v", err)
+	}
+	if want := []string{"sess-2", ""}; !slices.Equal(cookies, want) {
+		t.Fatalf("cookies = %q, want %q", cookies, want)
 	}
 }

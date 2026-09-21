@@ -37,7 +37,7 @@ func (l *Local) GetActor(ctx context.Context, id string) (*core.Actor, error) {
 	}
 	var out *core.Actor
 	if err := l.read(ctx, caller, func(tx store.Tx) error {
-		found, err := tx.GetActor(ctx, id)
+		found, err := lookupActor(ctx, tx, id)
 		if err != nil {
 			return err
 		}
@@ -48,4 +48,29 @@ func (l *Local) GetActor(ctx context.Context, id string) (*core.Actor, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+// lookupActor resolves an actor by identifier or by handle, accepting a
+// handle in any case because references are typed by hand. It mirrors
+// lookupProject.
+func lookupActor(ctx context.Context, tx store.Tx, ref string) (*core.Actor, error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return nil, core.Invalid("actor reference is required")
+	}
+	a, err := tx.GetActor(ctx, ref)
+	if err == nil {
+		return a, nil
+	}
+	if !core.IsKind(err, core.KindNotFound) {
+		return nil, err
+	}
+	a, err = tx.GetActorByHandle(ctx, strings.ToLower(ref))
+	if err != nil {
+		if core.IsKind(err, core.KindNotFound) {
+			return nil, core.NotFound("actor %q", ref)
+		}
+		return nil, err
+	}
+	return a, nil
 }

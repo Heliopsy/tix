@@ -20,6 +20,8 @@ func newExportCmd(g *globals) *cobra.Command {
 		Long: "Stream a snapshot of the tenant to standard output, one record per line.\n" +
 			"Records are written as the data is walked, so a snapshot of any size " +
 			"streams in constant memory and pipes straight into tix import.\n\n" +
+			"Deleted tasks are included as tombstones, carrying their deletion time, " +
+			"so an import elsewhere can apply the deletion instead of recreating the task.\n\n" +
 			fmt.Sprintf("Exit codes: %d unknown project, %d permission denied.",
 				core.KindNotFound.ExitCode(), core.KindForbidden.ExitCode()),
 		Example: "  tix export > snapshot.ndjson\n" +

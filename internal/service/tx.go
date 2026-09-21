@@ -35,9 +35,30 @@ func (m *mutation) Event(typ core.EventType, subjectType, subjectID, projectID s
 		SubjectType: subjectType,
 		SubjectID:   subjectID,
 		ActorID:     m.actor.ID,
-		Payload:     payload,
+		Payload:     m.withActor(payload),
 		OccurredAt:  m.now,
 	})
+}
+
+// withActor names the actor in the payload. ActorID alone is a ULID, and a
+// stream a person is watching to see which agent took which task is useless if
+// every line identifies the agent by an identifier nobody recognises. The
+// mutation already holds the actor, so this costs no query. An explicit
+// actor_handle already in the payload wins, and an actor with no handle adds
+// nothing rather than an empty key.
+func (m *mutation) withActor(payload map[string]any) map[string]any {
+	if m.actor == nil || m.actor.Handle == "" {
+		return payload
+	}
+	if _, ok := payload["actor_handle"]; ok {
+		return payload
+	}
+	out := make(map[string]any, len(payload)+1)
+	for k, v := range payload {
+		out[k] = v
+	}
+	out["actor_handle"] = m.actor.Handle
+	return out
 }
 
 // Audit queues an audit entry. before is nil for a creation, after is nil for a
@@ -70,8 +91,48 @@ func (m *mutation) Record(action string, typ core.EventType, subjectType, subjec
 	if err := m.Audit(action, subjectType, subjectID, before, after); err != nil {
 		return err
 	}
-	m.Event(typ, subjectType, subjectID, projectID, payload)
+	m.Event(typ, subjectType, subjectID, projectID, withRef(payload, before, after))
 	return nil
+}
+
+// withRef adds the human reference of the subject to an event payload when the
+// snapshots carry one. A consumer of the stream sees "infra-42" rather than a
+// ULID, which is the only form a person recognises. Doing it here rather than at
+// each call site is what stops the next event type from forgetting: a claim, a
+// release and a lease expiry all used to ship without a ref while a create
+// shipped with one, for no reason anybody chose.
+func withRef(payload map[string]any, before, after any) map[string]any {
+	if payload != nil {
+		if _, ok := payload["ref"]; ok {
+			return payload
+		}
+	}
+	ref := refOf(after)
+	if ref == "" {
+		ref = refOf(before)
+	}
+	if ref == "" {
+		return payload
+	}
+	out := make(map[string]any, len(payload)+1)
+	for k, v := range payload {
+		out[k] = v
+	}
+	out["ref"] = ref
+	return out
+}
+
+// refOf reads the Ref of a snapshot that has one, by value or by pointer.
+func refOf(v any) string {
+	switch t := v.(type) {
+	case core.Task:
+		return t.Ref
+	case *core.Task:
+		if t != nil {
+			return t.Ref
+		}
+	}
+	return ""
 }
 
 // flush writes the queued audit entries and events, and fans each event out to

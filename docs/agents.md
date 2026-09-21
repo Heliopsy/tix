@@ -37,10 +37,11 @@ each get a different task, with no lock, no coordinator and no server process.
 | `--ttl` | lease duration; defaults to the workflow's `default_lease` |
 | `--actor` | claim on behalf of another actor |
 
-Claim eligibility covers every task that is not blocked by an unfinished dependency and not held by a live lease.
-It does not currently exclude tasks sitting in a terminal state, so a worker that should only pick up new work
-should say so: `tix claim next -s todo`. Without a status filter, a queue whose tasks are all `done` will hand one
-back rather than reporting an empty queue.
+Claim eligibility covers every task that is not blocked by an unfinished dependency, not held by a live lease,
+and not already in a terminal state (`done`, `cancelled`). A queue whose tasks are all terminal reports the same
+empty-queue result as a queue with nothing in it: exit 3, `no_task_available`. A worker that should only pick up
+work in a specific non-terminal status still should say so, e.g. `tix claim next -s todo`, since a task sitting in
+`blocked` is non-terminal and would otherwise be handed out.
 
 `tix claim task REF` claims one named task instead of taking the next. It fails with exit 4 when the task is
 already held.
@@ -180,8 +181,11 @@ worker should treat 3 as "sleep and try again" and anything above it as a real f
 Give an agent a token, not a user session:
 
 ```sh
-tix token create ci --scope task:read --scope task:claim --scope task:transition --project infra
+tix token create ci --scope task:read --scope task:claim --scope task:transition
 ```
+
+`--project` on `token create` takes either the project's key or its id, the same as `-p/--project` on `task ls`,
+`claim next` and friends: `tix token create ci --project infra ...` restricts the token to that project.
 
 The token value is printed once and cannot be retrieved again. Supply it with `--token`, or the `TIX_TOKEN`
 environment variable, or a named context.
@@ -234,6 +238,12 @@ transitions the task if the workflow allows that edge from the current state.
 An agent that reacts to work rather than polls for it should subscribe to the event stream over WebSocket and
 claim when a `task.created` or `task.released` event arrives. See [api.md](api.md) for the protocol and for
 resuming a subscription after a disconnect without missing events.
+
+`tix watch -o ndjson` gives the same stream on the command line, for a script or for a person watching agents
+work: `--type` narrows to event types, `--project` to projects, and `--actor` to the agents whose activity
+matters right now, each repeatable. `--since` resumes without a gap. See
+[scripting.md](scripting.md#watching-the-event-stream) for the human-readable default a person reads instead
+of ndjson.
 
 ## Related
 

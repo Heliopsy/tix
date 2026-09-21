@@ -66,6 +66,19 @@ func WithSessionCookie(value string) Option {
 	return func(c *Client) { c.cookie = value }
 }
 
+// WithSession returns a copy of the client that also presents a session
+// cookie, which is the only credential that identifies a session to end.
+func (c *Client) WithSession(token string) *Client {
+	return &Client{
+		base:      c.base,
+		token:     c.token,
+		cookie:    token,
+		userAgent: c.userAgent,
+		timeout:   c.timeout,
+		http:      c.http,
+	}
+}
+
 // New builds a client for the server at baseURL authenticating with token.
 func New(baseURL, token string, opts ...Option) (*Client, error) {
 	trimmed := strings.TrimRight(strings.TrimSpace(baseURL), "/")

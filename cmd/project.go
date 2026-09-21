@@ -71,7 +71,7 @@ func projectCreateCmd(g *globals) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&description, "description", "", "project description")
-	cmd.Flags().StringVar(&workflow, "workflow", "", "workflow key to assign")
+	cmd.Flags().StringVar(&workflow, "workflow", "", "workflow key or identifier to assign")
 	cmd.Flags().StringVar(&color, "color", "", colorFlagUsage)
 	cmd.Flags().StringVar(&icon, "icon", "", iconFlagUsage)
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be created without writing")
@@ -185,7 +185,7 @@ func projectEditCmd(g *globals) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&name, "name", "", "new name")
 	cmd.Flags().StringVar(&description, "description", "", "new description")
-	cmd.Flags().StringVar(&workflow, "workflow", "", "new workflow key")
+	cmd.Flags().StringVar(&workflow, "workflow", "", "new workflow key or identifier")
 	cmd.Flags().StringVar(&color, "color", "", colorFlagUsage+", or empty to clear it")
 	cmd.Flags().StringVar(&icon, "icon", "", iconFlagUsage+", or empty to clear it")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
@@ -310,7 +310,7 @@ func workflowGetCmd(g *globals) *cobra.Command {
 	return &cobra.Command{
 		Use:     "get KEY",
 		Short:   "Show one workflow",
-		Long:    "Show a workflow definition.\n\nExit codes: 3 unknown workflow.",
+		Long:    "Show a workflow definition by key or identifier.\n\nExit codes: 3 unknown workflow.",
 		Example: "  tix workflow get default -o yaml",
 		Args:    exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -355,7 +355,7 @@ func workflowRmCmd(g *globals) *cobra.Command {
 		Use:     "rm KEY",
 		Aliases: []string{"delete"},
 		Short:   "Delete a workflow",
-		Long:    "Delete a workflow no project uses.\n\nExit codes: 3 unknown workflow, 6 still in use.",
+		Long:    "Delete a workflow no project uses, by key or identifier.\n\nExit codes: 3 unknown workflow, 6 still in use.",
 		Example: "  tix workflow rm review",
 		Args:    exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -53,14 +53,14 @@ func (d *Decoder) Header() (*core.SnapshotHeader, error) {
 	if rec.Kind != core.RecordHeader {
 		return nil, core.Invalid("snapshot opens with a %q record at line %d, not a header", rec.Kind, d.line)
 	}
-	switch rec.Header.Version {
-	case 0:
+	switch v := rec.Header.Version; {
+	case v == 0:
 		return nil, core.Invalid("snapshot declares no format version; version %d is required", core.SnapshotVersion)
-	case core.SnapshotVersion:
+	case v >= core.SnapshotVersionMin && v <= core.SnapshotVersion:
 		return rec.Header, nil
 	default:
-		return nil, core.Invalid("snapshot format version %d is not supported; this build reads version %d",
-			rec.Header.Version, core.SnapshotVersion)
+		return nil, core.Invalid("snapshot format version %d is not supported; this build reads versions %d to %d",
+			v, core.SnapshotVersionMin, core.SnapshotVersion)
 	}
 }
 

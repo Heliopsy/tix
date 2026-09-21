@@ -113,7 +113,7 @@ func (l *Local) CreateProject(ctx context.Context, in core.CreateProjectInput) (
 		case !core.IsKind(err, core.KindNotFound):
 			return err
 		}
-		wf, err := m.tx.GetWorkflow(ctx, workflowKey)
+		wf, err := lookupWorkflow(ctx, m.tx, workflowKey)
 		if err != nil {
 			return err
 		}
@@ -234,7 +234,7 @@ func (l *Local) UpdateProject(ctx context.Context, ref string, in core.UpdatePro
 			p.Icon = icon
 		}
 		if in.WorkflowKey != nil {
-			wf, err := m.tx.GetWorkflow(ctx, strings.TrimSpace(*in.WorkflowKey))
+			wf, err := lookupWorkflow(ctx, m.tx, *in.WorkflowKey)
 			if err != nil {
 				return err
 			}

@@ -174,6 +174,93 @@ func TestCreateTokenRefusesUnknownSubjects(t *testing.T) {
 	}
 }
 
+// --project used to be passed straight through as the project's identifier,
+// so a key like "infra" fell all the way to a foreign key violation instead
+// of a clean "not found". CreateToken now resolves a key exactly as
+// task-facing commands already do, by key, by identifier or refusing
+// something that is neither.
+func TestCreateTokenResolvesProjectByKeyOrID(t *testing.T) {
+	l, _, scope, admin := newLocal(t)
+	ctx := authContext(admin)
+	p := seedProject(t, l, scope, "infra")
+
+	cases := []struct {
+		name     string
+		project  string
+		wantErr  bool
+		wantKind core.Kind
+	}{
+		{name: "by key", project: p.Key},
+		{name: "by key, mixed case", project: strings.ToUpper(p.Key)},
+		{name: "by id", project: p.ID},
+		{name: "unknown key", project: "no-such-project", wantErr: true, wantKind: core.KindNotFound},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			issued, err := l.CreateToken(ctx, core.CreateTokenInput{
+				Name: "agent-" + tc.name, ProjectID: tc.project, Scopes: []core.Scope{core.ScopeTaskRead},
+			})
+			if tc.wantErr {
+				if !core.IsKind(err, tc.wantKind) {
+					t.Fatalf("CreateToken(%q) = %v, want kind %v", tc.project, err, tc.wantKind)
+				}
+				if core.IsKind(err, core.KindPrecondition) {
+					t.Fatalf("CreateToken(%q) leaked a precondition error instead of not found", tc.project)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("CreateToken(%q): %v", tc.project, err)
+			}
+			if issued.ProjectID != p.ID {
+				t.Errorf("token project = %q, want the resolved id %q", issued.ProjectID, p.ID)
+			}
+		})
+	}
+}
+
+// --actor on token create used to accept only an identifier. It now resolves
+// a handle too, mirroring GetActor.
+func TestCreateTokenResolvesActorByHandleOrID(t *testing.T) {
+	l, _, scope, admin := newLocal(t)
+	ctx := authContext(admin)
+
+	agent := core.Actor{Kind: core.ActorAgent, Handle: "ci-bot", Scopes: []core.Scope{core.ScopeAll}}
+	if err := l.store.Update(context.Background(), scope, func(tx store.Tx) error {
+		return tx.CreateActor(context.Background(), &agent)
+	}); err != nil {
+		t.Fatalf("seeding actor: %v", err)
+	}
+
+	cases := []struct {
+		name string
+		ref  string
+	}{
+		{"by id", agent.ID},
+		{"by handle", "ci-bot"},
+		{"by handle, mixed case", "CI-BOT"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			issued, err := l.CreateToken(ctx, core.CreateTokenInput{
+				Name: "agent-" + tc.name, ActorID: tc.ref, Scopes: []core.Scope{core.ScopeTaskRead},
+			})
+			if err != nil {
+				t.Fatalf("CreateToken(actor=%q): %v", tc.ref, err)
+			}
+			if issued.ActorID != agent.ID {
+				t.Errorf("token actor = %q, want %q", issued.ActorID, agent.ID)
+			}
+		})
+	}
+
+	if _, err := l.CreateToken(ctx, core.CreateTokenInput{
+		Name: "agent-bad", ActorID: "no-such-actor", Scopes: []core.Scope{core.ScopeTaskRead},
+	}); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("CreateToken for an unknown actor = %v, want not found", err)
+	}
+}
+
 // A token restricted to one project cannot mint a token for another.
 func TestCreateTokenHonoursTheCallersProject(t *testing.T) {
 	l, _, _, admin := newLocal(t)

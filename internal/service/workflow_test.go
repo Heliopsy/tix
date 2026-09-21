@@ -124,6 +124,71 @@ func TestGetAndListWorkflows(t *testing.T) {
 	}
 }
 
+// GetWorkflow and DeleteWorkflow used to accept only a key. A web route or a
+// script that already holds a workflow's identifier (from ListWorkflows, or
+// from a project's workflow_id) should be able to address it directly too.
+func TestGetWorkflowAcceptsKeyOrID(t *testing.T) {
+	l, _, ctx := withDefaults(t)
+	wf, err := l.PutWorkflow(ctx, core.WorkflowInput{Key: "lean", Definition: twoStateDefinition()})
+	if err != nil {
+		t.Fatalf("PutWorkflow: %v", err)
+	}
+
+	cases := []struct {
+		name string
+		ref  string
+	}{
+		{"by key", "lean"},
+		{"by key, mixed case", "LEAN"},
+		{"by id", wf.ID},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := l.GetWorkflow(ctx, tc.ref)
+			if err != nil {
+				t.Fatalf("GetWorkflow(%q): %v", tc.ref, err)
+			}
+			if got.Key != "lean" {
+				t.Errorf("GetWorkflow(%q) = %+v, want key lean", tc.ref, got)
+			}
+		})
+	}
+
+	if _, err := l.GetWorkflow(ctx, "no-such-workflow"); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("GetWorkflow for an unknown reference = %v, want not found", err)
+	}
+}
+
+func TestDeleteWorkflowAcceptsKeyOrID(t *testing.T) {
+	cases := []struct {
+		name string
+		ref  func(wf *core.Workflow) string
+	}{
+		{"by key", func(wf *core.Workflow) string { return wf.Key }},
+		{"by id", func(wf *core.Workflow) string { return wf.ID }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			l, _, ctx := withDefaults(t)
+			wf, err := l.PutWorkflow(ctx, core.WorkflowInput{Key: "lean", Definition: twoStateDefinition()})
+			if err != nil {
+				t.Fatalf("PutWorkflow: %v", err)
+			}
+			if err := l.DeleteWorkflow(ctx, tc.ref(wf)); err != nil {
+				t.Fatalf("DeleteWorkflow: %v", err)
+			}
+			if _, err := l.GetWorkflow(ctx, "lean"); !core.IsKind(err, core.KindNotFound) {
+				t.Errorf("GetWorkflow after deletion = %v, want not found", err)
+			}
+		})
+	}
+
+	l, _, ctx := withDefaults(t)
+	if err := l.DeleteWorkflow(ctx, "no-such-workflow"); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("DeleteWorkflow for an unknown reference = %v, want not found", err)
+	}
+}
+
 // Removing a state that tasks are still in destroys data unless the caller says
 // where those tasks should go.
 func TestPutWorkflowRefusesToOrphanTasks(t *testing.T) {

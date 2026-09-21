@@ -61,15 +61,15 @@ func (l *Local) PutWorkflow(ctx context.Context, in core.WorkflowInput) (*core.W
 	return out, nil
 }
 
-// GetWorkflow returns a workflow by key.
-func (l *Local) GetWorkflow(ctx context.Context, key string) (*core.Workflow, error) {
+// GetWorkflow returns a workflow by key or by identifier.
+func (l *Local) GetWorkflow(ctx context.Context, ref string) (*core.Workflow, error) {
 	actor, err := l.authorize(ctx, authz.ActionWorkflowRead, authz.Resource{})
 	if err != nil {
 		return nil, err
 	}
 	var out *core.Workflow
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
-		wf, err := tx.GetWorkflow(ctx, strings.ToLower(strings.TrimSpace(key)))
+		wf, err := lookupWorkflow(ctx, tx, ref)
 		out = wf
 		return err
 	}); err != nil {
@@ -95,19 +95,20 @@ func (l *Local) ListWorkflows(ctx context.Context) ([]core.Workflow, error) {
 	return out, nil
 }
 
-// DeleteWorkflow removes a workflow no project is using. The builtin workflow
-// may be copied under another key but never deleted.
-func (l *Local) DeleteWorkflow(ctx context.Context, key string) error {
+// DeleteWorkflow removes a workflow no project is using, addressed by key or
+// by identifier. The builtin workflow may be copied under another key but
+// never deleted.
+func (l *Local) DeleteWorkflow(ctx context.Context, ref string) error {
 	actor, err := l.authorize(ctx, authz.ActionWorkflowWrite, authz.Resource{})
 	if err != nil {
 		return err
 	}
-	key = strings.ToLower(strings.TrimSpace(key))
 	return l.write(ctx, actor, func(m *mutation) error {
-		wf, err := m.tx.GetWorkflow(ctx, key)
+		wf, err := lookupWorkflow(ctx, m.tx, ref)
 		if err != nil {
 			return err
 		}
+		key := wf.Key
 		if wf.Builtin {
 			return core.Conflict("the builtin workflow %q cannot be deleted; copy it under another key instead", key)
 		}
@@ -142,6 +143,28 @@ func findWorkflow(ctx context.Context, tx store.Tx, key string) (*core.Workflow,
 		return nil, nil
 	}
 	return nil, err
+}
+
+// lookupWorkflow resolves a workflow by key or by identifier, accepting a key
+// in any case because references are typed by hand. It mirrors lookupProject.
+func lookupWorkflow(ctx context.Context, tx store.Tx, ref string) (*core.Workflow, error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return nil, core.Invalid("workflow reference is required")
+	}
+	if wf, err := tx.GetWorkflow(ctx, strings.ToLower(ref)); err == nil {
+		return wf, nil
+	} else if !core.IsKind(err, core.KindNotFound) {
+		return nil, err
+	}
+	wf, err := tx.GetWorkflowByID(ctx, ref)
+	if err != nil {
+		if core.IsKind(err, core.KindNotFound) {
+			return nil, core.NotFound("workflow %q", ref)
+		}
+		return nil, err
+	}
+	return wf, nil
 }
 
 // projectsUsingWorkflow returns every project assigned to a workflow.

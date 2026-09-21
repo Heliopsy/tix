@@ -308,3 +308,37 @@ func TestReadPropagatesError(t *testing.T) {
 		t.Errorf("read error = %v, want the propagated failure", err)
 	}
 }
+
+// TestEveryTaskEventCarriesItsRef pins the defect that made `tix watch` print a
+// ULID for a claim and "infra-3" for a create: the ref was added per call site,
+// so each new event type forgot it again.
+func TestEveryTaskEventCarriesItsRef(t *testing.T) {
+	task := core.Task{ID: "01ABC", Ref: "infra-42"}
+	for _, tc := range []struct {
+		name          string
+		before, after any
+		payload       map[string]any
+		want          string
+	}{
+		{"after by value", nil, task, nil, "infra-42"},
+		{"after by pointer", nil, &task, nil, "infra-42"},
+		{"falls back to before", task, nil, nil, "infra-42"},
+		{"keeps an existing payload", nil, task, map[string]any{"claimed_by": "a1"}, "infra-42"},
+		{"never overrides an explicit ref", nil, task, map[string]any{"ref": "set"}, "set"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := withRef(tc.payload, tc.before, tc.after)
+			if got["ref"] != tc.want {
+				t.Fatalf("ref = %v, want %q", got["ref"], tc.want)
+			}
+			for k, v := range tc.payload {
+				if k != "ref" && got[k] != v {
+					t.Fatalf("payload lost %q", k)
+				}
+			}
+		})
+	}
+	if got := withRef(nil, nil, nil); got != nil {
+		t.Fatalf("a subject with no ref should not gain a payload, got %v", got)
+	}
+}

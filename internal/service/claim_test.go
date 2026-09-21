@@ -367,6 +367,36 @@ func TestClaimOnBehalfOfAnotherActor(t *testing.T) {
 	}
 }
 
+// --actor on claim next used to accept only an identifier, even though a
+// handle is what a human types at a shell.
+func TestClaimOnBehalfOfAnotherActorAcceptsHandleOrID(t *testing.T) {
+	cases := []struct {
+		name string
+		ref  string
+	}{
+		{"by id", "id"},
+		{"by handle", "bob"},
+		{"by handle, mixed case", "BOB"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newClaimFixture(t, 0)
+			onBehalf := tc.ref
+			if onBehalf == "id" {
+				onBehalf = f.other.ID
+			}
+			task := f.seedTask(t, "delegated-"+tc.name, "todo", core.PriorityNormal)
+			claimed, err := f.local.ClaimTask(f.ctx, ref(task), core.ClaimInput{ActorID: onBehalf})
+			if err != nil {
+				t.Fatalf("claim on behalf of %q: %v", onBehalf, err)
+			}
+			if claimed.Task.ClaimedByActorID != f.other.ID {
+				t.Errorf("holder = %q, want %q", claimed.Task.ClaimedByActorID, f.other.ID)
+			}
+		})
+	}
+}
+
 func TestClaimRejectsAMissingTask(t *testing.T) {
 	f := newClaimFixture(t, 0)
 	if _, err := f.local.ClaimTask(f.ctx, core.TaskRef{ID: "missingtaskident"}, core.ClaimInput{}); !core.IsKind(err, core.KindNotFound) {

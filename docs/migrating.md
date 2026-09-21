@@ -155,6 +155,11 @@ tix export -p infra --comments --artifacts > infra.ndjson
 tix export | tix import --mode merge
 ```
 
+Deleted tasks are included, as tombstone records carrying their deletion time. This is not optional: an import
+that never saw a deletion has no way to know a task in its own snapshot was removed elsewhere, and would recreate
+it. Dependencies, comments and artifacts of a deleted task are not exported; they serve no purpose once the task
+is dead.
+
 `tix import` requires a mode:
 
 | Mode | Effect |
@@ -169,6 +174,44 @@ tix import --mode replace --dry-run < snapshot.ndjson
 
 The whole snapshot is applied in a single transaction, so a partial import is not a state you can end up in. A
 snapshot never chooses where it lands: the importing caller's own tenant does.
+
+### Identity, staleness, and what gets skipped
+
+A task is matched against an existing one by its own identifier, never by its human-facing `project-42` reference:
+that reference is a per-project counter, and two databases can independently mint the same one for entirely
+unrelated tasks. A record with no identifier, or whose identifier belongs to a task in a different project, is
+never merged into anything; it is created as its own task, renumbered if its sequence number is already taken.
+
+Every matched record is compared against what is already there by its `updated_at`. An import never lets an
+older record overwrite something newer:
+
+- an older update is skipped, and the existing task is left alone
+- an older deletion is skipped, and the task stays, even if the snapshot says it was deleted
+- ties (nothing changed since the snapshot was taken) apply cleanly and are reported as unchanged, not as an
+  update
+
+Everything skipped is named in the result's warnings, in both a dry run and a real import, so a stale skip is
+never silent:
+
+```sh
+tix import --mode merge --dry-run < snapshot.ndjson
+```
+
+```json
+{"created":{},"updated":{"task":1},"skipped":{"task":1},"deleted":{"task":1},
+ "warnings":["line 42: kept task \"infra-7\", which was updated more recently than the snapshot's version"],
+ "dry_run":true}
+```
+
+Reimporting the same, unchanged snapshot into the tenant it came from is a no-op: matched tasks report as
+unchanged, and nothing is created, updated, or audited a second time.
+
+Importing the same snapshot into a *different* tenant, more than once, is not idempotent by identifier: the
+first import into a tenant other than the one it was exported from always assigns fresh identifiers, since the
+snapshot's own identifiers are still in use by the source tenant's rows. There is no persistent mapping from a
+snapshot's identifiers to what a previous import turned them into, so a second import of the same snapshot into
+that other tenant creates a second copy rather than matching the first. Reconciling repeated imports across
+separate databases is future work; today, treat cross-database import as a one-time migration, not a sync loop.
 
 ## Sharing configuration between installations
 

@@ -23,6 +23,38 @@ func TestGetActorResolvesAHandle(t *testing.T) {
 	}
 }
 
+// GetActor used to resolve only an identifier, even though actors also carry
+// a handle a human would type. It now resolves either, mirroring how a
+// project reference resolves a key or an identifier.
+func TestGetActorAcceptsHandleOrID(t *testing.T) {
+	l, _, _, admin := newLocal(t)
+	ctx := authContext(admin)
+
+	cases := []struct {
+		name string
+		ref  string
+	}{
+		{"by id", admin.ID},
+		{"by handle", "alice"},
+		{"by handle, mixed case", "ALICE"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := l.GetActor(ctx, tc.ref)
+			if err != nil {
+				t.Fatalf("GetActor(%q): %v", tc.ref, err)
+			}
+			if got.ID != admin.ID {
+				t.Errorf("GetActor(%q) = %q, want %q", tc.ref, got.ID, admin.ID)
+			}
+		})
+	}
+
+	if _, err := l.GetActor(ctx, "no-such-actor"); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("GetActor for an unknown reference = %v, want not found", err)
+	}
+}
+
 // A directory lookup names an actor. It must not double as a way of reading
 // what that actor is allowed to do.
 func TestGetActorDisclosesNoAuthority(t *testing.T) {

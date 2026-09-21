@@ -90,6 +90,11 @@ Every snapshot SHALL carry a format version, and import SHALL read that version 
 - **WHEN** a document with no format version is imported
 - **THEN** the import is refused as invalid
 
+#### Scenario: An older supported version is still read
+
+- **WHEN** a snapshot declaring an older format version this build still supports is imported
+- **THEN** the import proceeds normally
+
 ### Requirement: Merge and replace import modes
 
 Import SHALL accept a snapshot in merge mode, which creates missing entities and updates matching ones while leaving unreferenced existing entities intact, or in replace mode, which makes the target match the snapshot by also removing entities within the snapshot's scope that the snapshot does not contain. The mode SHALL be explicit with no destructive default.
@@ -127,6 +132,82 @@ Import SHALL support remapping identifiers so that a snapshot can be loaded into
 
 - **WHEN** an import remaps identifiers
 - **THEN** the result reports the mapping from snapshot identifiers to created identifiers
+
+### Requirement: Task identity is the task's own identifier
+
+Import SHALL match an incoming task record against an existing task by the task's own stable identifier, never by the human-facing project-and-sequence reference, because a sequence number is a per-project counter and two databases can independently assign the same reference to unrelated tasks.
+
+#### Scenario: A shared project-and-sequence reference does not merge unrelated tasks
+
+- **WHEN** a snapshot is imported into a project that already has its own, unrelated task at the same sequence number
+- **THEN** the imported task is created as its own task, the existing task is untouched, and the imported task is assigned a sequence number that is not already taken
+
+#### Scenario: A record with no identifier is always created
+
+- **WHEN** a task record carries no identifier
+- **THEN** import creates it as a new task rather than attempting to match it against an existing one
+
+#### Scenario: A matching identifier in a different project is not treated as the same task
+
+- **WHEN** an imported task's identifier matches an existing task that belongs to a different project than the one being imported into
+- **THEN** the existing task is left untouched and the imported task is created as its own task, identifier collisions being resolved the same way any other colliding identifier is
+
+### Requirement: Soft-deleted tasks travel as tombstones
+
+Export SHALL include soft-deleted tasks, carrying their deletion time, so that a deletion is visible to whatever imports the snapshot. Import SHALL apply a deletion it receives to a matching existing task rather than silently discarding the record.
+
+#### Scenario: A deleted task is exported
+
+- **WHEN** a tenant containing a soft-deleted task is exported
+- **THEN** the snapshot contains a record for that task carrying its deletion time
+
+#### Scenario: An imported deletion is applied to an existing live task
+
+- **WHEN** a snapshot containing a deleted task is imported and the target has a live task matching that identifier, last updated no more recently than the snapshot's record
+- **THEN** the target's task is deleted
+
+#### Scenario: A deletion for a task the target never had is still recorded
+
+- **WHEN** a snapshot containing a deleted task is imported into a target with no matching task
+- **THEN** the task is created already deleted, so its identity and sequence number survive the round trip
+
+### Requirement: Import does not silently overwrite newer data
+
+Import SHALL compare an incoming record's last-updated time against the matching existing record's, and SHALL skip applying a record that is not newer than what already exists, rather than overwriting it. Every such skip SHALL appear in the result the caller receives.
+
+#### Scenario: An older update is skipped, not applied
+
+- **WHEN** a snapshot record is imported over an existing task that was updated more recently than the snapshot's record
+- **THEN** the existing task is left unchanged, and the result reports the task as skipped with the reason
+
+#### Scenario: An older deletion does not remove newer work
+
+- **WHEN** a snapshot's deletion of a task is imported and the target's task was updated more recently than the deletion
+- **THEN** the target's task remains, and the result reports the deletion as skipped
+
+#### Scenario: A stale skip is visible in a dry run
+
+- **WHEN** a dry run would skip a record as stale
+- **THEN** the dry run's result reports the skip in the same way a real import would
+
+### Requirement: Import audits record what actually happened
+
+A successful import SHALL record, for each task it touches, whether the task was created, updated, deleted, or left unchanged, and SHALL NOT record a creation for a task that already existed.
+
+#### Scenario: Updating an existing task is audited as an update
+
+- **WHEN** an import updates a task that already exists in the target
+- **THEN** the audit entry for that task records an update, not a creation
+
+#### Scenario: Deleting a task is audited as a deletion
+
+- **WHEN** an import applies a task's deletion
+- **THEN** the audit entry for that task records a deletion, not a creation
+
+#### Scenario: Reimporting unchanged data writes no audit entry
+
+- **WHEN** a snapshot is imported a second time with nothing changed since the first import
+- **THEN** no audit entry or event is written for the tasks that did not change
 
 ### Requirement: Round-trip fidelity
 

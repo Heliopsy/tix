@@ -519,10 +519,82 @@ func TestTargetOverrides(t *testing.T) {
 func TestDoctorReportsTheResolvedTarget(t *testing.T) {
 	c := newCLI(t)
 	got := c.mustRun("doctor", "-o", "json")
-	for _, want := range []string{"target", "schema", "identity", "configuration"} {
+	for _, want := range []string{"target", "schema", "identity", "configuration",
+		"network-filesystem", "sync-directory", "conflict-files"} {
 		if !strings.Contains(got.out, want) {
 			t.Fatalf("doctor output is missing %q: %s", want, got.out)
 		}
+	}
+	if strings.Contains(got.out, `"status":"warn"`) {
+		t.Fatalf("doctor warned about a plain temp directory: %s", got.out)
+	}
+}
+
+func TestAllowNetworkFSFlagIsAccepted(t *testing.T) {
+	c := newCLI(t)
+	db := filepath.Join(c.home, "data", "tix.db")
+	// A plain temp directory is never detected as a network filesystem, so
+	// this only proves the flag parses and does not break an ordinary open;
+	// the refusal and override decision itself is covered exhaustively in
+	// internal/storeloc without touching the OS.
+	got := c.mustRun("--db", db, "--allow-network-fs", "task", "add", "on local disk")
+	if !strings.Contains(got.out, "on local disk") {
+		t.Fatalf("task add with --allow-network-fs on a local path failed: %s", got.out)
+	}
+}
+
+func TestDoctorWarnsAboutASyncedDirectory(t *testing.T) {
+	c := newCLI(t)
+	syncDir := filepath.Join(c.home, "Sync")
+	if err := os.MkdirAll(syncDir, 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(syncDir, ".stfolder"), nil, 0o600); err != nil {
+		t.Fatalf("write marker: %v", err)
+	}
+	db := filepath.Join(syncDir, "tix.db")
+
+	got := c.mustRun("--db", db, "doctor", "-o", "json")
+	if !strings.Contains(got.out, "sync-directory") || !strings.Contains(got.out, "Syncthing") {
+		t.Fatalf("doctor did not report the Syncthing directory: %s", got.out)
+	}
+	var checks []struct {
+		Name   string `json:"name"`
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal([]byte(got.out), &checks); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	found := false
+	for _, ch := range checks {
+		if ch.Name == "sync-directory" {
+			found = true
+			if ch.Status != "warn" {
+				t.Fatalf("sync-directory status = %q, want warn", ch.Status)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no sync-directory check in doctor output")
+	}
+}
+
+func TestDoctorReportsExistingConflictFiles(t *testing.T) {
+	c := newCLI(t)
+	dir := filepath.Join(c.home, "data")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	db := filepath.Join(dir, "tix.db")
+	c.mustRun("--db", db, "task", "add", "seed")
+	conflict := filepath.Join(dir, "tix.sync-conflict-20260101-120000-ABCDEFG.db")
+	if err := os.WriteFile(conflict, nil, 0o600); err != nil {
+		t.Fatalf("write conflict file: %v", err)
+	}
+
+	got := c.mustRun("--db", db, "doctor", "-o", "json")
+	if !strings.Contains(got.out, "conflict-files") || !strings.Contains(got.out, "sync-conflict") {
+		t.Fatalf("doctor did not report the conflict file: %s", got.out)
 	}
 }
 

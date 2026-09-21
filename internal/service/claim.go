@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/heliopsy/tix/internal/authz"
@@ -446,7 +447,7 @@ func (l *Local) claimScope(ctx context.Context, tx store.Tx, actor *core.Actor, 
 
 	ids := make([]string, 0, len(refs))
 	for _, ref := range refs {
-		project, err := tx.GetProject(ctx, ref)
+		project, err := lookupProject(ctx, tx, ref)
 		if err != nil {
 			return nil, err
 		}
@@ -511,13 +512,15 @@ func claimWorkflow(ctx context.Context, tx store.Tx, projectID string) (*core.Wo
 // claimHolder resolves who the lease is taken for. A claim on another actor's
 // behalf is only accepted for an actor of this tenant.
 func claimHolder(ctx context.Context, tx store.Tx, actor *core.Actor, onBehalfOf string) (string, error) {
+	onBehalfOf = strings.TrimSpace(onBehalfOf)
 	if onBehalfOf == "" || onBehalfOf == actor.ID {
 		return actor.ID, nil
 	}
-	if _, err := tx.GetActor(ctx, onBehalfOf); err != nil {
+	a, err := lookupActor(ctx, tx, onBehalfOf)
+	if err != nil {
 		return "", err
 	}
-	return onBehalfOf, nil
+	return a.ID, nil
 }
 
 // recordClaim reloads the claimed task and records the claim.

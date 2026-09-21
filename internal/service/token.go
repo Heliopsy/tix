@@ -37,16 +37,21 @@ func checkScopeGrant(actor *core.Actor, scopes []core.Scope) error {
 }
 
 // tokenActor resolves the actor a token acts as, defaulting to the caller.
-func tokenActor(ctx context.Context, tx store.Tx, actor *core.Actor, actorID string) (*core.Actor, error) {
-	actorID = strings.TrimSpace(actorID)
-	if actorID == "" {
-		actorID = actor.ID
+func tokenActor(ctx context.Context, tx store.Tx, actor *core.Actor, ref string) (*core.Actor, error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return tx.GetActor(ctx, actor.ID)
 	}
-	return tx.GetActor(ctx, actorID)
+	return lookupActor(ctx, tx, ref)
 }
 
 // CreateToken mints an API token whose value is returned exactly once.
+// --project accepts either the project's key or its identifier, resolved the
+// same way a task reference resolves a project key.
 func (l *Local) CreateToken(ctx context.Context, in core.CreateTokenInput) (*core.IssuedToken, error) {
+	// The coarse scoping check runs on the reference as given, before it is
+	// resolved, so a project-scoped actor is refused for a mismatched project
+	// without disclosing whether that project even exists.
 	actor, err := l.authorize(ctx, authz.ActionTokenAdmin, authz.Resource{ProjectID: in.ProjectID})
 	if err != nil {
 		return nil, err
@@ -64,10 +69,12 @@ func (l *Local) CreateToken(ctx context.Context, in core.CreateTokenInput) (*cor
 		if err != nil {
 			return err
 		}
-		if in.ProjectID != "" {
-			if _, err := m.tx.GetProject(ctx, in.ProjectID); err != nil {
+		if strings.TrimSpace(in.ProjectID) != "" {
+			project, err := lookupProject(ctx, m.tx, in.ProjectID)
+			if err != nil {
 				return err
 			}
+			in.ProjectID = project.ID
 		}
 		in.ActorID = target.ID
 

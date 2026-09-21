@@ -119,7 +119,7 @@ func taskAddCmd(g *globals) *cobra.Command {
 	f.StringVar(&bodyFlag, "body", "", "task body, or - to read standard input")
 	f.StringVar(&status, "status", "", "initial status")
 	f.StringVar(&priority, "priority", "", "priority name or number")
-	f.StringVar(&assignee, "assignee", "", "actor the task is assigned to")
+	f.StringVar(&assignee, "assignee", "", "actor id the task is assigned to")
 	f.StringVar(&parent, "parent", "", "parent task reference")
 	f.StringVar(&due, "due", "", "due date")
 	f.StringSliceVarP(&tags, "tag", "l", nil, "tag to attach, repeatable")

@@ -353,8 +353,13 @@ type Snapshot struct {
 	Artifacts []Artifact   `json:"artifacts,omitempty" yaml:"artifacts,omitempty"`
 }
 
-// SnapshotVersion is the current snapshot format version.
-const SnapshotVersion = 1
+// SnapshotVersion is the current snapshot format version. Version 2 added
+// tombstone task records for soft-deleted tasks; a version 1 document never
+// contains one, so this build reads both.
+const SnapshotVersion = 2
+
+// SnapshotVersionMin is the oldest format version this build still reads.
+const SnapshotVersionMin = 1
 
 // ImportMode selects how an import treats existing data.
 type ImportMode string

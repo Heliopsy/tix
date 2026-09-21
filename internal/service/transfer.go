@@ -2,11 +2,13 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/heliopsy/tix/internal/authz"
 	"github.com/heliopsy/tix/internal/core"
@@ -171,11 +173,17 @@ func writeTags(ctx context.Context, tx store.Tx, enc *transfer.Encoder) error {
 }
 
 // writeTasks emits tasks, then the relationships and attachments that reference
-// them, each in its own pass so nothing is buffered between them.
+// them, each in its own pass so nothing is buffered between them. Tasks are
+// walked with tombstones included: a soft-deleted task still travels, as a
+// record carrying its deleted_at, so an import elsewhere can tell a deletion
+// happened rather than silently resurrecting the row. Its dependencies,
+// comments and artifacts do not travel; they are of no use once the task is
+// dead, and the deleted task itself is out of scope for a live task's own
+// references (see taskInScope).
 func writeTasks(ctx context.Context, tx store.Tx, enc *transfer.Encoder, projects []core.Project, in core.ExportInput) error {
 	scope := projectIDSet(projects)
 	for _, p := range projects {
-		if err := eachTask(ctx, tx, p.ID, func(t core.Task) error {
+		if err := eachTask(ctx, tx, p.ID, true, func(t core.Task) error {
 			out, err := exportTask(ctx, tx, t, scope)
 			if err != nil {
 				return err
@@ -186,7 +194,7 @@ func writeTasks(ctx context.Context, tx store.Tx, enc *transfer.Encoder, project
 		}
 	}
 	for _, p := range projects {
-		if err := eachTask(ctx, tx, p.ID, func(t core.Task) error {
+		if err := eachTask(ctx, tx, p.ID, false, func(t core.Task) error {
 			return writeDependencies(ctx, tx, enc, t, scope)
 		}); err != nil {
 			return err
@@ -194,7 +202,7 @@ func writeTasks(ctx context.Context, tx store.Tx, enc *transfer.Encoder, project
 	}
 	if in.IncludeComments {
 		for _, p := range projects {
-			if err := eachTask(ctx, tx, p.ID, func(t core.Task) error {
+			if err := eachTask(ctx, tx, p.ID, false, func(t core.Task) error {
 				return writeComments(ctx, tx, enc, t)
 			}); err != nil {
 				return err
@@ -205,7 +213,7 @@ func writeTasks(ctx context.Context, tx store.Tx, enc *transfer.Encoder, project
 		return nil
 	}
 	for _, p := range projects {
-		if err := eachTask(ctx, tx, p.ID, func(t core.Task) error {
+		if err := eachTask(ctx, tx, p.ID, false, func(t core.Task) error {
 			return writeArtifacts(ctx, tx, enc, t)
 		}); err != nil {
 			return err
@@ -214,11 +222,13 @@ func writeTasks(ctx context.Context, tx store.Tx, enc *transfer.Encoder, project
 	return nil
 }
 
-// eachTask streams one project's live tasks in sequence order.
-func eachTask(ctx context.Context, tx store.Tx, projectID string, fn func(core.Task) error) error {
+// eachTask streams one project's tasks in sequence order, including
+// soft-deleted tasks when includeDeleted is set.
+func eachTask(ctx context.Context, tx store.Tx, projectID string, includeDeleted bool, fn func(core.Task) error) error {
 	f := core.TaskFilter{
-		ProjectIDs: []string{projectID},
-		Page:       core.Page{Limit: transferPage, Sort: core.SortSeq, Direction: core.Ascending},
+		ProjectIDs:     []string{projectID},
+		IncludeDeleted: includeDeleted,
+		Page:           core.Page{Limit: transferPage, Sort: core.SortSeq, Direction: core.Ascending},
 	}
 	for {
 		tasks, err := tx.ListTasks(ctx, f)
@@ -795,7 +805,13 @@ func findTag(ctx context.Context, tx store.Tx, projectID, name string) (*core.Ta
 	return nil, nil
 }
 
-// applyTask creates or updates one task, matched by project and sequence number.
+// applyTask dispatches one task record once its identity has been resolved.
+// Identity is the task's ULID, never the human-facing project-and-sequence
+// reference: a sequence number is a per-project counter, so two databases can
+// independently mint the same "infra-42" for unrelated tasks, and matching on
+// it would silently merge them. A snapshot task record with no ULID (an old,
+// hand-written, or otherwise stripped snapshot) cannot be matched to anything
+// and is always created fresh; see matchTask.
 func (i *importer) applyTask(ctx context.Context, tx store.Tx, m *mutation, t core.Task) error {
 	line := i.dec.Line()
 	projectID, ok := i.ids[t.ProjectID]
@@ -804,82 +820,351 @@ func (i *importer) applyTask(ctx context.Context, tx store.Tx, m *mutation, t co
 			t.Title, line, t.ProjectID)
 	}
 	project := i.projects[projectID]
-	flow, err := i.workflowFor(ctx, tx, project)
+	existing, err := i.matchTask(ctx, tx, t.ID, projectID)
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(t.Title) == "" {
-		return i.reject("task at line %d has no title", line)
+	if t.Deleted() {
+		return i.applyTaskDeletion(ctx, tx, m, t, project, projectID, existing, line)
+	}
+	return i.applyTaskLive(ctx, tx, m, t, project, projectID, existing, line)
+}
+
+// matchTask resolves the row a snapshot task's ULID names, scoped to the
+// project the record is being imported into. An identifier that is blank,
+// unused, or that belongs to a task in a different project is reported as no
+// match: the caller then creates a new row, and if the identifier is already
+// taken it is remapped the same way any other identifier collision is (see
+// createWithID). Matching a same-ID row in a different project directly would
+// silently move an unrelated task, so that case is deliberately treated as no
+// match rather than as an update.
+func (i *importer) matchTask(ctx context.Context, tx store.Tx, snapshotID, projectID string) (*core.Task, error) {
+	if snapshotID == "" {
+		return nil, nil
+	}
+	other, err := tx.GetTask(ctx, core.TaskRef{ID: snapshotID})
+	if core.IsKind(err, core.KindNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if other.ProjectID != projectID {
+		return nil, nil
+	}
+	return other, nil
+}
+
+// taskStale reports whether a snapshot record is older than the row it would
+// replace, so an import never lets an older snapshot revert newer data or
+// resurrect a task that was deleted more recently than the snapshot was taken.
+// A record with no timestamp carries no evidence either way and is never
+// treated as stale.
+func taskStale(incoming, existing core.Task) bool {
+	return !incoming.UpdatedAt.IsZero() && incoming.UpdatedAt.Before(existing.UpdatedAt)
+}
+
+// taskContentEqual reports whether target already matches what is stored, so
+// an import that would change nothing writes nothing and audits nothing.
+// Deletion state is compared by the caller, not here.
+func taskContentEqual(existing, target *core.Task) bool {
+	return existing.Title == target.Title &&
+		existing.Body == target.Body &&
+		existing.Status == target.Status &&
+		existing.Priority == target.Priority &&
+		existing.AssigneeActorID == target.AssigneeActorID &&
+		timePtrEqual(existing.DueAt, target.DueAt) &&
+		timePtrEqual(existing.StartedAt, target.StartedAt) &&
+		timePtrEqual(existing.CompletedAt, target.CompletedAt) &&
+		customFieldsEqual(existing.CustomFields, target.CustomFields) &&
+		tagsEqual(existing.Tags, target.Tags)
+}
+
+// customFieldsEqual compares custom field values by their JSON representation
+// rather than by Go type, because a value read back from storage and a value
+// freshly decoded from a snapshot can differ only in numeric type (int64
+// versus float64) while meaning the same thing.
+func customFieldsEqual(a, b map[string]any) bool {
+	if len(a) == 0 && len(b) == 0 {
+		return true
+	}
+	ab, err := json.Marshal(a)
+	if err != nil {
+		return false
+	}
+	bb, err := json.Marshal(b)
+	if err != nil {
+		return false
+	}
+	return string(ab) == string(bb)
+}
+
+// timePtrEqual compares two optional timestamps.
+func timePtrEqual(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Equal(*b)
+}
+
+// tagsEqual compares two tag sets without regard to order.
+func tagsEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	sa, sb := append([]string(nil), a...), append([]string(nil), b...)
+	sort.Strings(sa)
+	sort.Strings(sb)
+	for i := range sa {
+		if sa[i] != sb[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// buildLiveTaskTarget validates a snapshot task's content against the target
+// project and returns the row it would become. ok is false when the record
+// was rejected, in which case the rejection is already recorded and the
+// caller simply stops processing this record.
+func (i *importer) buildLiveTaskTarget(ctx context.Context, tx store.Tx, project *core.Project, projectID string, t core.Task, line int) (target *core.Task, ok bool, err error) {
+	flow, err := i.workflowFor(ctx, tx, project)
+	if err != nil {
+		return nil, false, err
+	}
+	title := strings.TrimSpace(t.Title)
+	if title == "" {
+		return nil, false, i.reject("task at line %d has no title", line)
 	}
 	status := t.Status
 	if status == "" {
 		status = flow.Definition.Initial
 	}
 	if !flow.Definition.HasState(status) {
-		return i.reject("task %q at line %d is in state %q, which workflow %q does not define",
+		return nil, false, i.reject("task %q at line %d is in state %q, which workflow %q does not define",
 			t.Title, line, status, flow.Key)
 	}
 	fields, err := validateTaskFields(i.defs[projectID], t.CustomFields, false)
 	if err != nil {
-		return i.reject("task %q at line %d: %v", t.Title, line, err)
-	}
-
-	existing, err := findTaskBySeq(ctx, tx, project.Key, t.Seq)
-	if err != nil {
-		return err
+		return nil, false, i.reject("task %q at line %d: %v", t.Title, line, err)
 	}
 	creator, err := i.actorRef(ctx, tx, t.CreatorActorID, true)
 	if err != nil {
-		return err
+		return nil, false, err
 	}
 	assignee, err := i.actorRef(ctx, tx, t.AssigneeActorID, false)
 	if err != nil {
-		return err
+		return nil, false, err
 	}
 
-	target := &core.Task{
-		ProjectID: projectID, Seq: t.Seq, Title: strings.TrimSpace(t.Title), Body: t.Body,
+	target = &core.Task{
+		ProjectID: projectID, Seq: t.Seq, Title: title, Body: t.Body,
 		Status: status, Priority: t.Priority, AssigneeActorID: assignee, CreatorActorID: creator,
 		DueAt: t.DueAt, StartedAt: t.StartedAt, CompletedAt: t.CompletedAt,
-		CustomFields: fields, CreatedAt: t.CreatedAt,
+		CustomFields: fields, CreatedAt: t.CreatedAt, Tags: t.Tags,
 	}
 	if target.Priority == 0 {
 		target.Priority = core.PriorityNormal
 	}
-	i.count(core.RecordTask, existing != nil)
-	switch {
-	case existing != nil:
-		target.ID = existing.ID
-		target.Seq = existing.Seq
-		target.Tags = existing.Tags
-		i.mapID(t.ID, existing.ID)
-		if !i.dryRun {
-			if err := tx.UpdateTask(ctx, target); err != nil {
-				return err
-			}
+	return target, true, nil
+}
+
+// avoidSeqCollision reassigns a genuinely new task's sequence number when the
+// snapshot's number is already held by an unrelated task in the target
+// project. This is only reachable once identity matching (see matchTask) has
+// already decided this is not the same task: two independently seeded
+// projects sharing a key can each mint a task numbered 1, and importing one
+// into the other must not collide with, or silently reuse, a number some
+// other task already holds.
+func (i *importer) avoidSeqCollision(ctx context.Context, tx store.Tx, project *core.Project, target *core.Task, line int) error {
+	if target.Seq <= 0 {
+		return nil
+	}
+	_, err := tx.GetTask(ctx, core.TaskRef{ProjectKey: project.Key, Seq: target.Seq})
+	if core.IsKind(err, core.KindNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	// The project's own counter cannot be trusted to mint the replacement: it
+	// only advances when a task is created without an explicit number, and
+	// every task an import creates carries one, so the counter can still read
+	// zero in a project that already holds numbered tasks.
+	fresh, err := nextAvailableSeq(ctx, tx, target.ProjectID)
+	if err != nil {
+		return err
+	}
+	i.result.Warnings = append(i.result.Warnings, fmt.Sprintf(
+		"line %d: renumbered task %q from %s-%d to %s-%d, whose original number in project %q was already held by an unrelated task",
+		line, target.Title, project.Key, target.Seq, project.Key, fresh, project.Key))
+	target.Seq = fresh
+	return nil
+}
+
+// nextAvailableSeq returns a sequence number no task, live or deleted,
+// currently holds in the project.
+func nextAvailableSeq(ctx context.Context, tx store.Tx, projectID string) (int64, error) {
+	tasks, err := tx.ListTasks(ctx, core.TaskFilter{
+		ProjectIDs:     []string{projectID},
+		IncludeDeleted: true,
+		Page:           core.Page{Limit: 1, Sort: core.SortSeq, Direction: core.Descending},
+	})
+	if err != nil {
+		return 0, err
+	}
+	if len(tasks) == 0 {
+		return 1, nil
+	}
+	return tasks[0].Seq + 1, nil
+}
+
+// applyTaskLive creates or updates a task the snapshot carries as live. A
+// match against a newer target row is skipped rather than overwritten; a
+// match against a target row that is currently deleted is resurrected only
+// when the snapshot's record is newer than the deletion, since that is the
+// only case in which the snapshot is known to postdate it.
+func (i *importer) applyTaskLive(ctx context.Context, tx store.Tx, m *mutation, t core.Task, project *core.Project, projectID string, existing *core.Task, line int) error {
+	target, ok, err := i.buildLiveTaskTarget(ctx, tx, project, projectID, t, line)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
+
+	if existing == nil {
+		if err := i.avoidSeqCollision(ctx, tx, project, target, line); err != nil {
+			return err
 		}
-	case i.dryRun:
-		target.ID = i.plannedID(t.ID)
-	default:
-		if _, err := i.createWithID(core.RecordTask, t.ID, func(id string) error {
+		if i.dryRun {
+			target.ID = i.plannedID(t.ID)
+		} else if _, err := i.createWithID(core.RecordTask, t.ID, func(id string) error {
 			target.ID = id
 			return tx.CreateTask(ctx, target)
 		}); err != nil {
 			return err
 		}
+		i.count(core.RecordTask, false)
+		i.taskOwner[target.ID] = projectID
+		if t.ParentID != "" {
+			i.parents = append(i.parents, parentLink{taskID: target.ID, parentID: t.ParentID, line: line})
+		}
+		if i.dryRun {
+			return nil
+		}
+		if err := replaceTaskLabels(ctx, tx, target, t.Tags); err != nil {
+			return err
+		}
+		return m.Record("task.create", core.EventTaskCreated, "task", target.ID, projectID,
+			nil, target, map[string]any{"title": target.Title, "status": target.Status})
 	}
-	i.taskOwner[target.ID] = projectID
+
+	i.mapID(t.ID, existing.ID)
+	i.taskOwner[existing.ID] = projectID
 	if t.ParentID != "" {
-		i.parents = append(i.parents, parentLink{taskID: target.ID, parentID: t.ParentID, line: line})
+		i.parents = append(i.parents, parentLink{taskID: existing.ID, parentID: t.ParentID, line: line})
 	}
+
+	if taskStale(t, *existing) {
+		i.result.Skipped[string(core.RecordTask)]++
+		i.result.Warnings = append(i.result.Warnings, fmt.Sprintf(
+			"line %d: kept task %q, which was updated more recently than the snapshot's version", line, existing.Ref))
+		return nil
+	}
+
+	target.ID = existing.ID
+	target.Seq = existing.Seq
+	resurrecting := existing.Deleted()
+	if !resurrecting && taskContentEqual(existing, target) {
+		i.result.Skipped[string(core.RecordTask)]++
+		return nil
+	}
+
+	i.count(core.RecordTask, true)
 	if i.dryRun {
 		return nil
+	}
+	if resurrecting {
+		if err := tx.RestoreTask(ctx, existing.ID); err != nil {
+			return err
+		}
+	}
+	if err := tx.UpdateTask(ctx, target); err != nil {
+		return err
 	}
 	if err := replaceTaskLabels(ctx, tx, target, t.Tags); err != nil {
 		return err
 	}
-	return m.Record("task.create", core.EventTaskCreated, "task", target.ID, projectID,
+	return m.Record("task.update", core.EventTaskUpdated, "task", target.ID, projectID,
 		existing, target, map[string]any{"title": target.Title, "status": target.Status})
+}
+
+// applyTaskDeletion applies a tombstone. Against a row the target has never
+// seen, the tombstone is still materialised so the sequence number and
+// identity it names survive a round trip into an empty database. Against an
+// existing row, the deletion is applied only when it is not older than the
+// row's own last update, so a stale tombstone can never remove work a target
+// has since built on; an already-deleted row is left alone rather than
+// deleted again.
+func (i *importer) applyTaskDeletion(ctx context.Context, tx store.Tx, m *mutation, t core.Task, project *core.Project, projectID string, existing *core.Task, line int) error {
+	if existing == nil {
+		target, ok, err := i.buildLiveTaskTarget(ctx, tx, project, projectID, t, line)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return nil
+		}
+		target.DeletedAt = t.DeletedAt
+		if err := i.avoidSeqCollision(ctx, tx, project, target, line); err != nil {
+			return err
+		}
+		if i.dryRun {
+			target.ID = i.plannedID(t.ID)
+		} else if _, err := i.createWithID(core.RecordTask, t.ID, func(id string) error {
+			target.ID = id
+			return tx.CreateTask(ctx, target)
+		}); err != nil {
+			return err
+		}
+		i.result.Deleted[string(core.RecordTask)]++
+		i.taskOwner[target.ID] = projectID
+		if t.ParentID != "" {
+			i.parents = append(i.parents, parentLink{taskID: target.ID, parentID: t.ParentID, line: line})
+		}
+		if i.dryRun {
+			return nil
+		}
+		return m.Record("task.delete", core.EventTaskDeleted, "task", target.ID, projectID,
+			nil, target, map[string]any{"ref": target.Ref})
+	}
+
+	i.mapID(t.ID, existing.ID)
+	i.taskOwner[existing.ID] = projectID
+
+	if taskStale(t, *existing) {
+		i.result.Skipped[string(core.RecordTask)]++
+		i.result.Warnings = append(i.result.Warnings, fmt.Sprintf(
+			"line %d: kept task %q live, which was updated more recently than the deletion the snapshot carries", line, existing.Ref))
+		return nil
+	}
+	if existing.Deleted() {
+		i.result.Skipped[string(core.RecordTask)]++
+		return nil
+	}
+
+	i.result.Deleted[string(core.RecordTask)]++
+	if i.dryRun {
+		return nil
+	}
+	if err := tx.DeleteTask(ctx, existing.ID, false); err != nil {
+		return err
+	}
+	after := *existing
+	after.DeletedAt = t.DeletedAt
+	return m.Record("task.delete", core.EventTaskDeleted, "task", existing.ID, projectID,
+		existing, after, map[string]any{"ref": existing.Ref})
 }
 
 // workflowFor returns the state machine a project's tasks are checked against.
@@ -893,21 +1178,6 @@ func (i *importer) workflowFor(ctx context.Context, tx store.Tx, project *core.P
 	}
 	i.flows[flow.ID] = flow
 	return flow, nil
-}
-
-// findTaskBySeq returns the task holding a sequence number, or nil.
-func findTaskBySeq(ctx context.Context, tx store.Tx, projectKey string, seq int64) (*core.Task, error) {
-	if seq <= 0 {
-		return nil, nil
-	}
-	t, err := tx.GetTask(ctx, core.TaskRef{ProjectKey: projectKey, Seq: seq})
-	if core.IsKind(err, core.KindNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return t, nil
 }
 
 // actorRef keeps an actor the target knows and otherwise falls back to the
@@ -1175,7 +1445,7 @@ func (i *importer) sortedProjects() []string {
 // removeAbsentTasks deletes the project's tasks the snapshot did not carry.
 func (i *importer) removeAbsentTasks(ctx context.Context, tx store.Tx, m *mutation, projectID string) error {
 	var doomed []core.Task
-	if err := eachTask(ctx, tx, projectID, func(t core.Task) error {
+	if err := eachTask(ctx, tx, projectID, false, func(t core.Task) error {
 		if _, kept := i.taskOwner[t.ID]; !kept {
 			doomed = append(doomed, t)
 		}

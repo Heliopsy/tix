@@ -3,7 +3,9 @@ package cmd
 import (
 	"strings"
 
+	"github.com/heliopsy/tix/internal/client"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/service"
 	"github.com/spf13/cobra"
 )
 
@@ -23,9 +25,9 @@ func newActorCmd(g *globals) *cobra.Command {
 func actorShowCmd(g *globals) *cobra.Command {
 	return &cobra.Command{
 		Use:     "show ID",
-		Short:   "Show the identity behind an actor identifier",
-		Long:    "Resolve an actor identifier to its handle, kind and display name.\n\nExit codes: 3 unknown actor, 5 permission denied.",
-		Example: "  tix actor show 01J000000000000000000A",
+		Short:   "Show the identity behind an actor handle or identifier",
+		Long:    "Resolve an actor handle or identifier to its handle, kind and display name.\n\nExit codes: 3 unknown actor, 5 permission denied.",
+		Example: "  tix actor show 01J000000000000000000A\n  tix actor show ada",
 		Args:    exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			conn, ctx, err := g.dial(cmd)
@@ -237,7 +239,7 @@ func tokenCreateCmd(g *globals) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "create NAME",
 		Short:   "Mint an API token",
-		Long:    "Mint a token whose secret is shown exactly once.\n\nExit codes: 2 unknown scope, 5 permission denied.",
+		Long:    "Mint a token whose secret is shown exactly once.\n\nExit codes: 2 unknown scope, 3 unknown project or actor, 5 permission denied.",
 		Example: "  tix token create agent --scope task:read --scope task:claim",
 		Args:    exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -269,8 +271,8 @@ func tokenCreateCmd(g *globals) *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringSliceVar(&scopes, "scope", nil, "scope to grant, repeatable")
-	f.StringVar(&actor, "actor", "", "actor the token acts as")
-	f.StringVar(&project, "project", "", "restrict the token to one project")
+	f.StringVar(&actor, "actor", "", "actor the token acts as, by handle or identifier")
+	f.StringVar(&project, "project", "", "restrict the token to one project, by key or identifier")
 	f.StringVar(&expires, "expires", "", "expiry date")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would be created without writing")
 	_ = cmd.RegisterFlagCompletionFunc("scope", fixedCompletion(scopeNames()))
@@ -381,4 +383,58 @@ func scopeNames() []string {
 		out = append(out, string(s))
 	}
 	return out
+}
+
+// EnvSession names the variable holding a session token.
+const EnvSession = "TIX_SESSION"
+
+// newLogoutCmd builds the logout command.
+func newLogoutCmd(g *globals) *cobra.Command {
+	var session string
+	cmd := &cobra.Command{
+		Use:   "logout",
+		Short: "End a session",
+		Long: "End the session tix login issued. The token is read from --session, " +
+			"and from " + EnvSession + " when the flag is absent.\n\n" +
+			"Exit codes: 2 no session token given, 5 the session is not valid.",
+		Example: "  tix logout --session -\n  TIX_SESSION=$token tix logout",
+		GroupID: "setup",
+		Args:    noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			token, err := g.sessionToken(cmd, session)
+			if err != nil {
+				return err
+			}
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			svc := conn.Service
+			if remote, ok := svc.(*client.Client); ok {
+				svc = remote.WithSession(token)
+			}
+			if err := svc.Logout(service.WithSessionToken(ctx, token)); err != nil {
+				return err
+			}
+			return g.render(cmd, outcome{Ref: "session", Status: statusOK})
+		},
+	}
+	cmd.Flags().StringVar(&session, "session", "", "session token to end, or - to read standard input")
+	return cmd
+}
+
+// sessionToken returns the session token the invocation presents.
+func (g *globals) sessionToken(cmd *cobra.Command, value string) (string, error) {
+	token, err := body(cmd, value)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(token) == "" {
+		token = lookupEnv(g.environ, EnvSession)
+	}
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return "", usagef(cmd, "a session token is required; pass --session or set %s", EnvSession)
+	}
+	return token, nil
 }

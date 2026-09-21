@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
@@ -529,8 +530,10 @@ func TestImportRemapsCollidingIdentifiers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("import: %v", err)
 	}
-	if result.Updated["task"] != 2 {
-		t.Errorf("re-importing into the same tenant created rows instead of updating: %v", result)
+	// Nothing changed since the export, so both tasks are matched by ULID and
+	// reported unchanged rather than created as duplicates.
+	if result.Created["task"] != 0 || result.Skipped["task"] != 2 {
+		t.Errorf("re-importing into the same tenant did not match the existing tasks by identifier: %v", result)
 	}
 
 	rewritten := strings.ReplaceAll(string(snapshot), `"key":"infra"`, `"key":"clone"`)
@@ -952,13 +955,18 @@ func TestReimportUpdatesAttachmentsInPlace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-import: %v", err)
 	}
-	for _, kind := range []string{"comment", "artifact", "task", "project", "workflow", "field_def", "tag"} {
+	for _, kind := range []string{"comment", "artifact", "project", "workflow", "field_def", "tag"} {
 		if result.Updated[kind] == 0 {
 			t.Errorf("re-import created %s records instead of updating them: %v", kind, result)
 		}
 	}
 	if result.Skipped["dependency"] != 1 {
 		t.Errorf("re-import did not skip the existing dependency: %v", result.Skipped)
+	}
+	// Nothing about either task changed since the export, so a correctly
+	// audited re-import reports them unchanged rather than as updates.
+	if result.Created["task"] != 0 || result.Updated["task"] != 0 || result.Skipped["task"] != 2 {
+		t.Errorf("re-import did not report the unchanged tasks accurately: %v", result)
 	}
 
 	comments, err := l.ListComments(ctx, s.first)
@@ -1212,3 +1220,444 @@ func TestRoundTripPreservesProjectAppearance(t *testing.T) {
 }
 
 func strPtr(s string) *string { return &s }
+
+// auditActionCounts tallies task audit entries by action, so a test can check
+// what an import actually recorded rather than only how many rows changed.
+func auditActionCounts(t *testing.T, l *Local, scope core.TenantScope) map[string]int {
+	t.Helper()
+	counts := map[string]int{}
+	if err := l.store.View(context.Background(), scope, func(tx store.Tx) error {
+		entries, err := tx.ListAudit(context.Background(), core.AuditFilter{Page: core.Page{Limit: 1000}})
+		if err != nil {
+			return err
+		}
+		for _, e := range entries {
+			if e.SubjectType == "task" {
+				counts[e.Action]++
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("reading audit: %v", err)
+	}
+	return counts
+}
+
+// Defect 1: export used to stream only live tasks, so importing an earlier
+// snapshot into a database where the task had since been deleted resurrected
+// it, with import unable to tell the deletion had happened. Deleted tasks
+// must travel as tombstones, and applying an older tombstone against a newer
+// local edit must not destroy that edit either: both directions of the
+// UpdatedAt comparison are exercised below.
+
+func TestExportIncludesSoftDeletedTasksAsTombstones(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+	s := seed(t, l, ctx, "infra")
+	// second is a leaf: deleting it needs no cascade, and first's comment and
+	// artifact stay live so the test can tell live attachments from a
+	// tombstone's, which must not travel.
+	if err := l.DeleteTask(ctx, s.second, core.DeleteTaskInput{}); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	snapshot := string(exportBytes(t, l, ctx, core.ExportInput{IncludeComments: true, IncludeArtifacts: true}))
+	if counts := kindsOf(t, []byte(snapshot)); counts["task"] != 2 {
+		t.Errorf("export dropped the deleted task: counts = %v", counts)
+	}
+	if !strings.Contains(snapshot, `"deleted_at"`) {
+		t.Error("the exported tombstone does not carry a deletion time")
+	}
+	// first's comment and artifact are still live and must still travel.
+	if counts := kindsOf(t, []byte(snapshot)); counts["comment"] == 0 || counts["artifact"] == 0 {
+		t.Errorf("a live task's attachments were dropped alongside the tombstone: counts = %v", counts)
+	}
+}
+
+func TestImportDoesNotResurrectATaskDeletedMoreRecentlyThanTheSnapshot(t *testing.T) {
+	l, clk, _, actor := newLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+	s := seed(t, l, ctx, "infra")
+	stale := exportBytes(t, l, ctx, core.ExportInput{}) // the task is still live here
+
+	clk.Advance(time.Hour)
+	if err := l.DeleteTask(ctx, s.second, core.DeleteTaskInput{}); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	result, err := l.ImportFrom(ctx, bytes.NewReader(stale), core.ImportInput{Mode: core.ImportMerge})
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	if result.Created["task"] != 0 || result.Updated["task"] != 0 {
+		t.Errorf("importing a stale live snapshot resurrected a deleted task: %v", result)
+	}
+	if result.Skipped["task"] == 0 {
+		t.Error("the resurrection attempt was not reported as skipped")
+	}
+	if len(result.Warnings) == 0 {
+		t.Error("the resurrection attempt was not explained in the warnings")
+	}
+
+	scope := core.TenantScope{TenantID: actor.TenantID}
+	if err := l.store.View(context.Background(), scope, func(tx store.Tx) error {
+		task, err := tx.GetTask(context.Background(), s.second)
+		if err != nil {
+			return err
+		}
+		if !task.Deleted() {
+			t.Error("the task was resurrected")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("reading task: %v", err)
+	}
+}
+
+func TestImportAppliesATombstoneUnlessTheLocalEditIsNewer(t *testing.T) {
+	l, clk, _, actor := newLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+	s := seed(t, l, ctx, "infra")
+
+	clk.Advance(time.Hour)
+	if err := l.DeleteTask(ctx, s.second, core.DeleteTaskInput{}); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	tombstone := exportBytes(t, l, ctx, core.ExportInput{})
+
+	clk.Advance(time.Hour)
+	if _, err := l.RestoreTask(ctx, s.second); err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	edited := "revived and edited after the deletion"
+	if _, err := l.UpdateTask(ctx, s.second, core.UpdateTaskInput{Title: &edited}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	// The tombstone predates this edit, so applying it must not remove the
+	// task: the edit is newer evidence than the deletion it would apply.
+	result, err := l.ImportFrom(ctx, bytes.NewReader(tombstone), core.ImportInput{Mode: core.ImportMerge})
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	if result.Deleted["task"] != 0 {
+		t.Errorf("an older tombstone deleted a task that was edited more recently: %v", result)
+	}
+	got, err := l.GetTask(ctx, s.second)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Title != edited {
+		t.Errorf("title = %q, the newer edit was lost", got.Title)
+	}
+}
+
+func TestRoundTripReproducesATombstoneInAnEmptyDatabase(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	source := core.WithActor(context.Background(), actor)
+	s := seed(t, l, source, "infra")
+	if err := l.DeleteTask(source, s.second, core.DeleteTaskInput{}); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	snapshot := exportBytes(t, l, source, core.ExportInput{})
+
+	target, targetScope, _ := newTenant(t, l, "beta")
+	result, err := l.ImportFrom(target, bytes.NewReader(snapshot), core.ImportInput{Mode: core.ImportMerge})
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	if result.Deleted["task"] != 1 {
+		t.Errorf("importing a tombstone into an empty tenant did not report a deletion: %v", result)
+	}
+	if result.Created["task"] != 1 {
+		t.Errorf("the live task was not created: %v", result)
+	}
+
+	if err := l.store.View(context.Background(), targetScope, func(tx store.Tx) error {
+		tasks, err := tx.ListTasks(context.Background(), core.TaskFilter{
+			ProjectKeys: []string{"infra"}, IncludeDeleted: true,
+		})
+		if err != nil {
+			return err
+		}
+		if len(tasks) != 2 {
+			t.Fatalf("target has %d tasks, want 2 including the tombstone", len(tasks))
+		}
+		for _, task := range tasks {
+			if task.Title == "second" && !task.Deleted() {
+				t.Error("the tombstone was imported as a live task")
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("reading target: %v", err)
+	}
+}
+
+// Defect 2: import used to match existing tasks by (project key, sequence
+// number), which is only a per-project counter. Two databases can each mint
+// "infra-1" for entirely unrelated tasks, and importing one into the other
+// used to merge them silently. Identity is the task's ULID, and a match
+// against a different project's row is treated as no match at all.
+
+func TestImportMatchesTaskIdentityByULIDNotByProjectAndSequence(t *testing.T) {
+	l, _, _, actorA := newLocal(t)
+	a := core.WithActor(context.Background(), actorA)
+	seed(t, l, a, "infra")
+	snapshotA := exportBytes(t, l, a, core.ExportInput{})
+
+	b, _, _ := newTenant(t, l, "beta")
+	if _, err := l.PutWorkflow(b, core.WorkflowInput{
+		Key: "flow", Name: "Flow", Definition: BuiltinWorkflow(),
+	}); err != nil {
+		t.Fatalf("workflow: %v", err)
+	}
+	if _, err := l.CreateProject(b, core.CreateProjectInput{Key: "infra", Name: "INFRA", WorkflowKey: "flow"}); err != nil {
+		t.Fatalf("project: %v", err)
+	}
+	ownTask, err := l.CreateTask(b, core.CreateTaskInput{ProjectRef: "infra", Title: "tenant beta's own first task"})
+	if err != nil {
+		t.Fatalf("own task: %v", err)
+	}
+	if ownTask.Seq != 1 {
+		t.Fatalf("test setup: tenant beta's own task is not seq 1")
+	}
+
+	result, err := l.ImportFrom(b, bytes.NewReader(snapshotA), core.ImportInput{Mode: core.ImportMerge})
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	if result.Created["task"] != 2 {
+		t.Errorf("importing an unrelated snapshot did not create its own tasks: %v", result)
+	}
+	if len(result.Warnings) == 0 {
+		t.Error("the sequence-number collision with tenant beta's own task was not reported")
+	}
+
+	got, err := l.GetTask(b, core.TaskRef{ID: ownTask.ID})
+	if err != nil {
+		t.Fatalf("own task: %v", err)
+	}
+	if got.Title != "tenant beta's own first task" {
+		t.Errorf("the colliding project-and-sequence reference merged an unrelated task: title = %q", got.Title)
+	}
+
+	page, err := l.ListTasks(b, core.TaskFilter{ProjectKeys: []string{"infra"}})
+	if err != nil {
+		t.Fatalf("listing: %v", err)
+	}
+	if len(page.Tasks) != 3 {
+		t.Fatalf("tenant beta has %d tasks, want 3 (its own plus the two imported)", len(page.Tasks))
+	}
+}
+
+func TestImportCreatesATaskThatCarriesNoIdentifier(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+	seed(t, l, ctx, "infra")
+	project, err := l.GetProject(ctx, "infra")
+	if err != nil {
+		t.Fatalf("project: %v", err)
+	}
+
+	snapshot := `{"kind":"header","header":{"version":1,"tenant_key":"acme"}}` + "\n" +
+		`{"kind":"project","project":{"id":"` + project.ID + `","key":"infra","name":"INFRA","workflow_id":"` + project.WorkflowID + `"}}` + "\n" +
+		`{"kind":"task","task":{"project_id":"` + project.ID + `","title":"no identifier","status":"todo"}}` + "\n"
+
+	// Run it twice: with nothing to match on, a record with no identifier is
+	// always a create, never merged with anything the first run produced.
+	for range 2 {
+		result, err := l.ImportFrom(ctx, strings.NewReader(snapshot), core.ImportInput{Mode: core.ImportMerge})
+		if err != nil {
+			t.Fatalf("import: %v", err)
+		}
+		if result.Created["task"] != 1 {
+			t.Errorf("task with no identifier: created = %v, want 1", result.Created)
+		}
+	}
+	page, err := l.ListTasks(ctx, core.TaskFilter{ProjectKeys: []string{"infra"}})
+	if err != nil {
+		t.Fatalf("listing: %v", err)
+	}
+	count := 0
+	for _, task := range page.Tasks {
+		if task.Title == "no identifier" {
+			count++
+		}
+	}
+	if count != 2 {
+		t.Errorf("two imports of an identifier-less task produced %d rows, want 2", count)
+	}
+}
+
+// Defect 3: import never compared UpdatedAt, so an older snapshot imported
+// over a newer database silently reverted it. Newer local data must win, and
+// the caller must be able to see what was skipped.
+
+func TestImportSkipsAnOlderTaskUpdateAndReportsIt(t *testing.T) {
+	l, clk, _, actor := newLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+	s := seed(t, l, ctx, "infra")
+	stale := exportBytes(t, l, ctx, core.ExportInput{})
+
+	clk.Advance(time.Hour)
+	newer := "edited after the snapshot was taken"
+	if _, err := l.UpdateTask(ctx, s.first, core.UpdateTaskInput{Title: &newer}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	result, err := l.ImportFrom(ctx, bytes.NewReader(stale), core.ImportInput{Mode: core.ImportMerge})
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	if result.Updated["task"] != 0 {
+		t.Errorf("a stale snapshot overwrote newer local data: %v", result)
+	}
+	if result.Skipped["task"] == 0 {
+		t.Errorf("a stale task update was not reported as skipped: %v", result)
+	}
+	if len(result.Warnings) == 0 {
+		t.Fatal("a stale skip was not explained in the warnings")
+	}
+
+	got, err := l.GetTask(ctx, s.first)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Title != newer {
+		t.Errorf("title = %q, an older snapshot overwrote newer local data", got.Title)
+	}
+}
+
+func TestImportDryRunReportsStaleSkipsWithoutWriting(t *testing.T) {
+	l, clk, _, actor := newLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+	s := seed(t, l, ctx, "infra")
+	stale := exportBytes(t, l, ctx, core.ExportInput{})
+
+	clk.Advance(time.Hour)
+	newer := "edited after the snapshot was taken"
+	if _, err := l.UpdateTask(ctx, s.first, core.UpdateTaskInput{Title: &newer}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	dry, err := l.ImportFrom(ctx, bytes.NewReader(stale), core.ImportInput{Mode: core.ImportMerge, DryRun: true})
+	if err != nil {
+		t.Fatalf("dry run: %v", err)
+	}
+	if dry.Skipped["task"] == 0 {
+		t.Errorf("a dry run did not predict the stale skip: %v", dry)
+	}
+	got, err := l.GetTask(ctx, s.first)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Title != newer {
+		t.Error("a dry run modified the task")
+	}
+}
+
+// Defect 4: every touched task used to record a task.create audit entry and
+// event, even when the import updated an existing task or changed nothing at
+// all, so the audit log misrepresented what an import did.
+
+// Every one of these imports a snapshot exported from a tenant back into that
+// very same tenant, matching identifiers directly. Importing into a different
+// tenant always assigns fresh identifiers on the very first import, because a
+// snapshot never anonymises them and the source tenant's own rows are still
+// there to collide with; that remapping is identifier remapping (already
+// covered above), not a case a repeated identity match could ever hit, since
+// nothing durably remembers a mapping across separate import runs.
+
+func TestImportTaskAuditReflectsCreateUpdateDeleteAndNoChange(t *testing.T) {
+	l, _, scope, actor := newLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+	seed(t, l, ctx, "infra")
+	baseline := exportBytes(t, l, ctx, core.ExportInput{})
+
+	afterCreate := auditActionCounts(t, l, scope)
+	if afterCreate["task.create"] != 2 {
+		t.Fatalf("seeding audited %d task creations, want 2", afterCreate["task.create"])
+	}
+
+	// Reimporting the very same, unchanged snapshot must add no task audit
+	// entries at all: nothing about either task actually changed.
+	if _, err := l.ImportFrom(ctx, bytes.NewReader(baseline), core.ImportInput{Mode: core.ImportMerge}); err != nil {
+		t.Fatalf("no-op reimport: %v", err)
+	}
+	afterNoop := auditActionCounts(t, l, scope)
+	if total := afterNoop["task.create"] + afterNoop["task.update"] + afterNoop["task.delete"]; total != afterCreate["task.create"] {
+		t.Errorf("a no-op reimport wrote %d task audit entries, want none beyond the original creations", total-afterCreate["task.create"])
+	}
+
+	// Hand-build a snapshot, timestamped after the tasks' current updated_at,
+	// that edits the first task and deletes the second, and import it. The
+	// tasks are addressed by their real identifiers so this exercises import
+	// applying an update and a delete, not creating either from scratch.
+	project, err := l.GetProject(ctx, "infra")
+	if err != nil {
+		t.Fatalf("project: %v", err)
+	}
+	first, err := l.GetTask(ctx, core.TaskRef{ProjectKey: "infra", Seq: 1})
+	if err != nil {
+		t.Fatalf("first task: %v", err)
+	}
+	second, err := l.GetTask(ctx, core.TaskRef{ProjectKey: "infra", Seq: 2})
+	if err != nil {
+		t.Fatalf("second task: %v", err)
+	}
+	const later = `"2026-01-01T01:00:00Z"`
+	snapshot := `{"kind":"header","header":{"version":1,"tenant_key":"acme"}}` + "\n" +
+		`{"kind":"project","project":{"id":"` + project.ID + `","key":"infra","name":"INFRA"}}` + "\n" +
+		`{"kind":"task","task":{"id":"` + first.ID + `","project_id":"` + project.ID + `","seq":1,` +
+		`"title":"edited by import","status":"` + first.Status + `","updated_at":` + later + `}}` + "\n" +
+		`{"kind":"task","task":{"id":"` + second.ID + `","project_id":"` + project.ID + `","seq":2,` +
+		`"title":"` + second.Title + `","status":"` + second.Status + `","updated_at":` + later + `,"deleted_at":` + later + `}}` + "\n"
+
+	if _, err := l.ImportFrom(ctx, strings.NewReader(snapshot), core.ImportInput{Mode: core.ImportMerge}); err != nil {
+		t.Fatalf("second import: %v", err)
+	}
+	afterChange := auditActionCounts(t, l, scope)
+	if afterChange["task.update"] == 0 {
+		t.Errorf("the edited task was not audited as an update: %v", afterChange)
+	}
+	if afterChange["task.delete"] == 0 {
+		t.Errorf("the deleted task was not audited as a delete: %v", afterChange)
+	}
+	if afterChange["task.create"] != afterCreate["task.create"] {
+		t.Errorf("updating and deleting existing tasks was audited as %d creations", afterChange["task.create"])
+	}
+}
+
+// Round-trip fidelity: reimporting the same snapshot twice must be a no-op
+// the second time, and an export/import cycle into an empty database must
+// reproduce the original.
+
+func TestReimportingTheSameSnapshotTwiceIsANoOp(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+	seed(t, l, ctx, "infra")
+	snapshot := exportBytes(t, l, ctx, core.ExportInput{IncludeComments: true, IncludeArtifacts: true})
+	first := exportBytes(t, l, ctx, core.ExportInput{IncludeComments: true, IncludeArtifacts: true})
+
+	result, err := l.ImportFrom(ctx, bytes.NewReader(snapshot), core.ImportInput{Mode: core.ImportMerge})
+	if err != nil {
+		t.Fatalf("reimport: %v", err)
+	}
+	if result.Created["task"] != 0 {
+		t.Errorf("reimporting the same snapshot created rows instead of matching the existing ones: %v", result)
+	}
+	second := exportBytes(t, l, ctx, core.ExportInput{IncludeComments: true, IncludeArtifacts: true})
+
+	if want, got := kindsOf(t, first), kindsOf(t, second); len(want) != len(got) {
+		t.Fatalf("a no-op reimport changed the record kinds: %v then %v", want, got)
+	}
+	for kind, n := range kindsOf(t, first) {
+		if kindsOf(t, second)[kind] != n {
+			t.Errorf("a no-op reimport changed %s count: %d then %d", kind, n, kindsOf(t, second)[kind])
+		}
+	}
+}
+
+// TestRoundTripIntoAFreshTenant (above) already covers export, import into an
+// empty tenant, and export again reproducing the content.

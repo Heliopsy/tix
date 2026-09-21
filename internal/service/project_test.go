@@ -215,6 +215,43 @@ func TestUpdateProject(t *testing.T) {
 	}
 }
 
+// CreateProject and UpdateProject's --workflow used to accept only a key.
+// Since ListWorkflows and a project's own workflow_id hand back an
+// identifier, both a key and an identifier must resolve.
+func TestProjectWorkflowAcceptsKeyOrID(t *testing.T) {
+	l, scope, ctx := withDefaults(t)
+	lean := seedWorkflow(t, l, scope, "lean", core.WorkflowDefinition{
+		Initial: "todo",
+		States:  []core.State{{Key: "todo"}, {Key: "done", Terminal: true}},
+	}, false)
+
+	byID, err := l.CreateProject(ctx, core.CreateProjectInput{Key: "byid", Name: "By ID", WorkflowKey: lean.ID})
+	if err != nil {
+		t.Fatalf("CreateProject with a workflow identifier: %v", err)
+	}
+	if byID.WorkflowID != lean.ID {
+		t.Errorf("workflow id = %q, want %q", byID.WorkflowID, lean.ID)
+	}
+
+	if _, err := l.CreateProject(ctx, core.CreateProjectInput{
+		Key: "bad", Name: "Bad", WorkflowKey: "no-such-workflow",
+	}); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("CreateProject with an unknown workflow = %v, want not found", err)
+	}
+
+	if _, err := l.CreateProject(ctx, core.CreateProjectInput{Key: "infra", Name: "Infrastructure"}); err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	id := lean.ID
+	got, err := l.UpdateProject(ctx, "infra", core.UpdateProjectInput{WorkflowKey: &id})
+	if err != nil {
+		t.Fatalf("UpdateProject with a workflow identifier: %v", err)
+	}
+	if got.WorkflowID != lean.ID {
+		t.Errorf("workflow id = %q, want %q", got.WorkflowID, lean.ID)
+	}
+}
+
 // A project may only move to a workflow that still defines every status its
 // tasks are in.
 func TestUpdateProjectRefusesAWorkflowMissingAStatusInUse(t *testing.T) {
