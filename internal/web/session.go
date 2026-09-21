@@ -22,7 +22,7 @@ func (h *handler) sessionRoutes() []route {
 		post(RouteTheme, h.setTheme, "Logout"),
 		post(RouteKeyScheme, h.setKeyScheme, "Logout"),
 		post(RouteColumns, h.setColumns, "Logout"),
-		post(RouteLists, h.setLists, "Logout"),
+		post(RouteVisibility, h.setVisibility, "Logout"),
 		post(RouteDragMove, h.toggleDragMove, "Logout"),
 	}
 }

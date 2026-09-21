@@ -50,7 +50,7 @@ func TestChosenColumnsApplyAndSurviveASecondRequest(t *testing.T) {
 	b.createTask("infra", "narrowed list")
 
 	resp := b.post("/columns", url.Values{
-		"page": {"tasks"}, "column": {"ref", "list"}, "next": {"/tasks"}})
+		"page": {"tasks"}, "column": {"ref", "project"}, "next": {"/tasks"}})
 	defer func() { _ = resp.Body.Close() }()
 	wantStatus(t, resp, http.StatusSeeOther)
 	if got := resp.Header.Get("Location"); got != "/tasks" {
@@ -64,8 +64,8 @@ func TestChosenColumnsApplyAndSurviveASecondRequest(t *testing.T) {
 	if !strings.Contains(page, `<span class="ref mono">`) {
 		t.Errorf("the reference column was hidden although it was chosen")
 	}
-	if !strings.Contains(page, `<span class="tag list">infra</span>`) {
-		t.Errorf("the list column was not shown although it was chosen:\n%s", page)
+	if !strings.Contains(page, `<span class="tag project">infra</span>`) {
+		t.Errorf("the project column was not shown although it was chosen:\n%s", page)
 	}
 	if !strings.Contains(page, `value="ref" checked`) {
 		t.Errorf("the picker does not show the choice back")

@@ -13,7 +13,7 @@
 <form method="post" action="/tasks" class="quickadd">
   {{template "csrf" .CSRF}}
   <input name="title" placeholder="Add a task and press Enter" aria-label="New task" data-shortcut-target="new" required autofocus>
-  <select name="project_ref" aria-label="List">
+  <select name="project_ref" aria-label="Project">
     {{range $v.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
   </select>
   <button type="submit">Add</button>
@@ -29,21 +29,21 @@
 
 <div class="listprefs">
   {{template "column-picker" .}}
-  <details class="panel lists">
-    <summary>Lists{{if $v.Hidden}} &middot; {{$v.Hidden}} hidden{{end}}</summary>
+  <details class="panel visibility">
+    <summary>Projects{{if $v.Hidden}} &middot; {{$v.Hidden}} hidden{{end}}</summary>
     <div class="body">
-      <form method="post" action="/lists" class="listform">
+      <form method="post" action="/visibility" class="visibilityform">
         {{template "csrf" .CSRF}}
         <input type="hidden" name="next" value="{{.Here}}">
         <div class="choices">
-          {{range $v.Lists}}
-          <label class="listchoice{{if .Color}} proj-{{.Color}}{{end}}">
-            <input type="checkbox" name="list" value="{{.Key}}" {{if .Shown}}checked{{end}}>
+          {{range $v.Visibility}}
+          <label class="projectchoice{{if .Color}} proj-{{.Color}}{{end}}">
+            <input type="checkbox" name="project" value="{{.Key}}" {{if .Shown}}checked{{end}}>
             {{if .Color}}<span class="swatch proj-{{.Color}}" aria-hidden="true"></span>{{end}}
             {{if .Icon}}<span class="proj-icon" role="img" aria-label="{{.Name}}">{{.Icon}}</span>{{end}}
             {{.Key}}
           </label>
-          {{else}}<span class="muted">No lists yet.</span>{{end}}
+          {{else}}<span class="muted">No projects yet.</span>{{end}}
         </div>
         <div class="actions">
           <button type="submit">Apply</button>
@@ -55,11 +55,11 @@
 </div>
 
 {{if $v.Filtered}}
-<p class="lede">The filter names a list explicitly, so it is shown even though the list visibility hides {{$v.Hidden}} of them.</p>
+<p class="lede">The filter names a project explicitly, so it is shown even though project visibility hides {{$v.Hidden}} of them.</p>
 {{else if $v.Empty}}
-<p class="lede">Every list is hidden, so there is nothing to show. Use Lists above to bring one back.</p>
+<p class="lede">Every project is hidden, so there is nothing to show. Use Projects above to bring one back.</p>
 {{else if $v.Hidden}}
-<p class="lede">{{$v.Hidden}} list{{if ne $v.Hidden 1}}s are{{else}} is{{end}} hidden. Use Lists above to change that.</p>
+<p class="lede">{{$v.Hidden}} project{{if ne $v.Hidden 1}}s are{{else}} is{{end}} hidden. Use Projects above to change that.</p>
 {{end}}
 
 <ul class="tasklist">
@@ -84,7 +84,7 @@
       {{if $.Columns.Show "tasks" "status"}}<span class="badge {{slug .Status}}">{{.Status}}</span>{{end}}
       {{if $.Columns.Show "tasks" "priority"}}{{if ne (prio .Priority) "normal"}}<span class="badge p-{{prio .Priority}}">{{prio .Priority}}</span>{{end}}{{end}}
       {{if $.Columns.Show "tasks" "tags"}}{{range .Tags}}<span class="tag">{{.}}</span>{{end}}{{end}}
-      {{if $.Columns.Show "tasks" "list"}}<span class="tag list">{{$acc.Key}}</span>{{end}}
+      {{if $.Columns.Show "tasks" "project"}}<span class="tag project">{{$acc.Key}}</span>{{end}}
       {{if $.Columns.Show "tasks" "updated"}}<span class="when">{{compact .UpdatedAt}}</span>{{end}}
       {{if $.Columns.Show "tasks" "ref"}}<span class="ref mono">{{.Ref}}</span>{{end}}
     </span>
@@ -109,7 +109,7 @@
       {{template "csrf" .CSRF}}
       <div class="row">
         <div>
-          <label for="project_ref2">List</label>
+          <label for="project_ref2">Project</label>
           <select id="project_ref2" name="project_ref">
             {{range $v.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
           </select>

@@ -1,7 +1,7 @@
 {{define "nav"}}
 <nav class="main">
   <a href="/tasks" {{if eq .Path "/tasks"}}aria-current="page"{{end}}>My tasks</a>
-  <a href="/projects" {{if eq .Path "/projects"}}aria-current="page"{{end}}>Lists</a>
+  <a href="/projects" {{if eq .Path "/projects"}}aria-current="page"{{end}}>Projects</a>
   <a href="/activity" {{if eq .Path "/activity"}}aria-current="page"{{end}}>Activity</a>
   {{if .Advanced}}
   <p class="group">Configure</p>

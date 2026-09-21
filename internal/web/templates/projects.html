@@ -1,6 +1,6 @@
 {{define "content"}}
 <h1>Projects</h1>
-<p class="lede">Each row opens onto the settings for that list: its name, workflow, colour, icon, and the controls to archive or delete it.</p>
+<p class="lede">Each row opens onto the settings for that project: its name, workflow, colour, icon, and the controls to archive or delete it.</p>
 {{template "column-picker" .}}
 <table>
   <thead><tr><th>Key</th>{{if .Columns.Show "projects" "name"}}<th>Name</th>{{end}}{{if .Columns.Show "projects" "colour"}}<th>Colour</th>{{end}}{{if .Columns.Show "projects" "state"}}<th>State</th>{{end}}{{if .Columns.Show "projects" "screens"}}<th>Screens</th>{{end}}{{if .Columns.Show "projects" "manage"}}<th>Manage</th>{{end}}</tr></thead>

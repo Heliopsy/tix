@@ -46,14 +46,14 @@ type tasksView struct {
 	// mixed list can be read one project at a time.
 	Accent map[string]projectAccent
 
-	// Lists is the visibility control, and Hidden how many of them are put
-	// away. Filtered is set when an explicit project: filter overrode that
-	// choice, so a reader is never shown a shorter list without being told
-	// which rule produced it.
-	Lists    []listChoice
-	Hidden   int
-	Filtered bool
-	Empty    bool
+	// Visibility is the visibility control, and Hidden how many projects are
+	// put away. Filtered is set when an explicit project: filter overrode
+	// that choice, so a reader is never shown a shorter task list without
+	// being told which rule produced it.
+	Visibility []projectChoice
+	Hidden     int
+	Filtered   bool
+	Empty      bool
 }
 
 // projectAccent is how one project marks its rows apart from another's.
@@ -126,13 +126,13 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	lists := listChoices(projects, hiddenLists(r))
+	visibility := projectChoices(projects, hiddenProjects(r))
 	filtered := len(filter.ProjectKeys) > 0
-	hidden := hiddenCount(lists)
-	// An explicit project: filter is the reader asking for that list by name,
-	// so it wins over what the visibility control put away.
+	hidden := hiddenCount(visibility)
+	// An explicit project: filter is the reader asking for that project by
+	// name, so it wins over what the visibility control put away.
 	if !filtered && hidden > 0 {
-		filter.ProjectKeys = shownKeys(lists)
+		filter.ProjectKeys = shownKeys(visibility)
 	}
 	var page core.TaskPage
 	if len(filter.ProjectKeys) > 0 || hidden == 0 || len(projects) == 0 {
@@ -160,10 +160,10 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 		CompleteState: complete,
 		Accent:        projectAccents(projects),
 		Summary:       summarise(page.Tasks, complete, time.Now()),
-		Lists:         lists,
+		Visibility:    visibility,
 		Hidden:        hidden,
 		Filtered:      filtered && hidden > 0,
-		Empty:         hidden > 0 && hidden == len(lists),
+		Empty:         hidden > 0 && hidden == len(visibility),
 	})
 }
 

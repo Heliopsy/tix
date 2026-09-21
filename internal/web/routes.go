@@ -96,7 +96,7 @@ const (
 	RouteTheme        = "/theme"
 	RouteKeyScheme    = "/keyscheme"
 	RouteColumns      = "/columns"
-	RouteLists        = "/lists"
+	RouteVisibility   = "/visibility"
 	RouteDragMove     = "/dragmove"
 	RouteActivity     = "/activity"
 	RouteActivityFeed = "/activity/feed"
