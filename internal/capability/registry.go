@@ -58,6 +58,9 @@ var registry = []Operation{
 		CLI:  "tix doctor",
 		HTTP: apiGet(httpapi.RouteWhoAmI),
 		Web:  webGet(web.RouteRoot, ""),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; the header names the actor it was handed rather than asking the service who it is"),
+		},
 	},
 	{
 		Name: "service.close", Method: "Close",
@@ -75,6 +78,7 @@ var registry = []Operation{
 		HTTP: apiPost(httpapi.RouteTenants),
 		Exempt: []Exemption{
 			off(SurfaceWeb, "a browser session is pinned to one tenant, so creating another is an installation-level operation reserved for the CLI"),
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no tenant administration view"),
 		},
 	},
 	{
@@ -82,18 +86,27 @@ var registry = []Operation{
 		CLI:  "tix tenant show",
 		HTTP: apiGet(httpapi.RouteTenant),
 		Web:  webGet(web.RouteTenant, tplTenant),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no tenant administration view"),
+		},
 	},
 	{
 		Name: "tenant.list", Method: "ListTenants",
 		CLI:  "tix tenant ls",
 		HTTP: apiGet(httpapi.RouteTenants),
 		Web:  webGet(web.RouteTenant, tplTenant),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no tenant administration view"),
+		},
 	},
 	{
 		Name: "tenant.update", Method: "UpdateTenant",
 		CLI:  "tix tenant edit",
 		HTTP: apiPatch(httpapi.RouteTenant),
 		Web:  webPost(web.RouteTenant),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no tenant administration view"),
+		},
 	},
 	{
 		Name: "tenant.delete", Method: "DeleteTenant",
@@ -101,6 +114,7 @@ var registry = []Operation{
 		HTTP: apiDelete(httpapi.RouteTenant),
 		Exempt: []Exemption{
 			off(SurfaceWeb, "deleting the tenant the session belongs to would destroy the operator's own access, so it is reserved for the CLI"),
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no tenant administration view"),
 		},
 	},
 	{
@@ -108,18 +122,27 @@ var registry = []Operation{
 		CLI:  "tix domain add",
 		HTTP: apiPost(httpapi.RouteDomains),
 		Web:  webPost(web.RouteDomains),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no domain administration view"),
+		},
 	},
 	{
 		Name: "domain.list", Method: "ListDomains",
 		CLI:  "tix domain ls",
 		HTTP: apiGet(httpapi.RouteDomains),
 		Web:  webGet(web.RouteDomains, tplDomains),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no domain administration view"),
+		},
 	},
 	{
 		Name: "domain.remove", Method: "RemoveDomain",
 		CLI:  "tix domain rm",
 		HTTP: apiDelete(httpapi.RouteDomain),
 		Web:  webPost(web.RouteDomainRemove),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no domain administration view"),
+		},
 	},
 	{
 		Name: "domain.resolve", Method: "ResolveDomain",
@@ -127,6 +150,7 @@ var registry = []Operation{
 		Exempt: []Exemption{
 			off(SurfaceCLI, "hostname resolution runs in the server request path; an operator inspects the mappings with tix domain ls"),
 			off(SurfaceWeb, "hostname resolution runs before any screen is chosen and is not an operator action"),
+			off(SurfaceTUI, "hostname resolution runs in the server request path and is not an operator action"),
 		},
 	},
 	{
@@ -134,18 +158,27 @@ var registry = []Operation{
 		CLI:  "tix member add",
 		HTTP: apiPost(httpapi.RouteMembers),
 		Web:  webPost(web.RouteMembers),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no membership administration view"),
+		},
 	},
 	{
 		Name: "member.list", Method: "ListMembers",
 		CLI:  "tix member ls",
 		HTTP: apiGet(httpapi.RouteMembers),
 		Web:  webGet(web.RouteTenant, tplTenant),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no membership administration view"),
+		},
 	},
 	{
 		Name: "member.remove", Method: "RemoveMember",
 		CLI:  "tix member rm",
 		HTTP: apiDelete(httpapi.RouteMember),
 		Web:  webPost(web.RouteMemberRemove),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no membership administration view"),
+		},
 	},
 
 	{
@@ -153,12 +186,16 @@ var registry = []Operation{
 		CLI:  "tix project create",
 		HTTP: apiPost(httpapi.RouteProjects),
 		Web:  webPost(web.RouteProjects),
+		TUI:  "projects",
 	},
 	{
 		Name: "project.show", Method: "GetProject",
 		CLI:  "tix project show",
 		HTTP: apiGet(httpapi.RouteProject),
 		Web:  webGet(web.RouteProject, tplBoard),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; the project list opens a board from the listing it already holds and never fetches one project"),
+		},
 	},
 	{
 		Name: "project.list", Method: "ListProjects",
@@ -172,24 +209,36 @@ var registry = []Operation{
 		CLI:  "tix project edit",
 		HTTP: apiPatch(httpapi.RouteProject),
 		Web:  webPost(web.RouteProjectEdit),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; the project list creates and opens projects but cannot edit one"),
+		},
 	},
 	{
 		Name: "project.archive", Method: "ArchiveProject",
 		CLI:  "tix project archive",
 		HTTP: apiDelete(httpapi.RouteProject),
 		Web:  webPost(web.RouteProjectArch),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; the project list creates and opens projects but cannot archive one"),
+		},
 	},
 	{
 		Name: "project.delete", Method: "DeleteProject",
 		CLI:  "tix project rm",
 		HTTP: apiDelete(httpapi.RouteProject),
 		Web:  webPost(web.RouteProjectDel),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; the project list creates and opens projects but cannot delete one"),
+		},
 	},
 	{
 		Name: "field.put", Method: "PutFieldDef",
 		CLI:  "tix field put",
 		HTTP: apiPut(httpapi.RouteProjectFields),
 		Web:  webPost(web.RouteFields),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; the detail view shows custom field values but there is no field definition editor"),
+		},
 	},
 	{
 		Name: "field.list", Method: "ListFieldDefs",
@@ -203,6 +252,9 @@ var registry = []Operation{
 		CLI:  "tix field rm",
 		HTTP: apiDelete(httpapi.RouteProjectField),
 		Web:  webPost(web.RouteFieldDelete),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; the detail view shows custom field values but there is no field definition editor"),
+		},
 	},
 
 	{
@@ -210,12 +262,18 @@ var registry = []Operation{
 		CLI:  "tix workflow put",
 		HTTP: apiPut(httpapi.RouteWorkflows),
 		Web:  webPost(web.RouteWorkflows),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; the board renders a workflow but there is no workflow editor"),
+		},
 	},
 	{
 		Name: "workflow.get", Method: "GetWorkflow",
 		CLI:  "tix workflow get",
 		HTTP: apiGet(httpapi.RouteWorkflow),
 		Web:  webGet(web.RouteWorkflow, tplWorkflow),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; the board resolves its workflow from the listing and never fetches one by key"),
+		},
 	},
 	{
 		Name: "workflow.list", Method: "ListWorkflows",
@@ -229,6 +287,9 @@ var registry = []Operation{
 		CLI:  "tix workflow rm",
 		HTTP: apiDelete(httpapi.RouteWorkflow),
 		Web:  webPost(web.RouteWorkflowDel),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; the board renders a workflow but there is no workflow editor"),
+		},
 	},
 
 	{
@@ -236,6 +297,7 @@ var registry = []Operation{
 		CLI:  "tix task add",
 		HTTP: apiPost(httpapi.RouteTasks),
 		Web:  webPost(web.RouteTasks),
+		TUI:  "board",
 	},
 	{
 		Name: "task.show", Method: "GetTask",
@@ -256,6 +318,7 @@ var registry = []Operation{
 		CLI:  "tix task edit",
 		HTTP: apiPatch(httpapi.RouteTask),
 		Web:  webPost(web.RouteTask),
+		TUI:  "board",
 	},
 	{
 		Name: "task.transition", Method: "TransitionTask",
@@ -269,12 +332,18 @@ var registry = []Operation{
 		CLI:  "tix task rm",
 		HTTP: apiDelete(httpapi.RouteTask),
 		Web:  webPost(web.RouteTaskDelete),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; deleting a task needs a confirmation step the interface does not have yet"),
+		},
 	},
 	{
 		Name: "task.restore", Method: "RestoreTask",
 		CLI:  "tix task restore",
 		HTTP: apiPost(httpapi.RouteTaskRestore),
 		Web:  webPost(web.RouteTaskRestore),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no view of deleted tasks to restore one from"),
+		},
 	},
 	{
 		Name: "task.tree", Method: "TaskTree",
@@ -288,12 +357,16 @@ var registry = []Operation{
 		CLI:  "tix dep add",
 		HTTP: apiPost(httpapi.RouteTaskDeps),
 		Web:  webPost(web.RouteTaskDeps),
+		TUI:  "detail",
 	},
 	{
 		Name: "dependency.remove", Method: "RemoveDependency",
 		CLI:  "tix dep rm",
 		HTTP: apiDelete(httpapi.RouteTaskDep),
 		Web:  webPost(web.RouteTaskDepDel),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; the detail view lists dependencies and can add one but cannot remove one"),
+		},
 	},
 	{
 		Name: "dependency.list", Method: "ListDependencies",
@@ -307,24 +380,30 @@ var registry = []Operation{
 		CLI:  "tix tag add",
 		HTTP: apiPost(httpapi.RouteTaskLabels),
 		Web:  webPost(web.RouteTaskTags),
+		TUI:  "detail",
 	},
 	{
 		Name: "tag.remove", Method: "RemoveTag",
 		CLI:  "tix tag rm",
 		HTTP: apiDelete(httpapi.RouteTaskLabel),
 		Web:  webPost(web.RouteTaskTagDel),
+		TUI:  "detail",
 	},
 	{
 		Name: "tag.list", Method: "ListTags",
 		CLI:  "tix tag ls",
 		HTTP: apiGet(httpapi.RouteLabels),
 		Web:  webGet(web.RouteTasks, tplTasks),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; tags are added and removed by name; the interface offers no tag listing to choose from"),
+		},
 	},
 	{
 		Name: "comment.add", Method: "AddComment",
 		CLI:  "tix comment add",
 		HTTP: apiPost(httpapi.RouteTaskComments),
 		Web:  webPost(web.RouteTaskComments),
+		TUI:  "detail",
 	},
 	{
 		Name: "comment.list", Method: "ListComments",
@@ -338,28 +417,34 @@ var registry = []Operation{
 		CLI:  "tix comment edit",
 		HTTP: apiPatch(httpapi.RouteComment),
 		Web:  webPost(web.RouteCommentEdit),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; comments are shown as a thread with no way to select one to edit"),
+		},
 	},
 	{
 		Name: "comment.delete", Method: "DeleteComment",
 		CLI:  "tix comment rm",
 		HTTP: apiDelete(httpapi.RouteComment),
 		Web:  webPost(web.RouteCommentDel),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; comments are shown as a thread with no way to select one to delete"),
+		},
 	},
 	{
 		Name: "artifact.put", Method: "PutArtifact",
+		CLI:  "tix artifact put",
 		HTTP: apiPut(httpapi.RouteTaskArtifacts),
 		Web:  webPost(web.RouteTaskArts),
 		Exempt: []Exemption{
-			gap(SurfaceCLI, "GAP: no cli binding yet; artifacts can be attached over http and from the browser but tix has no artifact command"),
+			gap(SurfaceTUI, "GAP: no tui binding yet; the detail view lists artifacts but recording one needs structured input the single-line prompt cannot gather"),
 		},
 	},
 	{
 		Name: "artifact.list", Method: "ListArtifacts",
+		CLI:  "tix artifact ls",
 		HTTP: apiGet(httpapi.RouteTaskArtifacts),
 		Web:  webGet(web.RouteTask, tplTask),
-		Exempt: []Exemption{
-			gap(SurfaceCLI, "GAP: no cli binding yet; artifacts are listed over http and on the task screen but tix has no artifact command"),
-		},
+		TUI:  "detail",
 	},
 
 	{
@@ -375,6 +460,7 @@ var registry = []Operation{
 		Name: "claim.next", Method: "ClaimNext",
 		CLI:  "tix claim next",
 		HTTP: apiPost(httpapi.RouteClaimNext),
+		TUI:  "board",
 		Exempt: []Exemption{
 			off(SurfaceWeb, "claiming is the agent work queue; a browser operator picks a task by name instead"),
 		},
@@ -383,6 +469,7 @@ var registry = []Operation{
 		Name: "claim.renew", Method: "RenewLease",
 		CLI:  "tix claim renew",
 		HTTP: apiPost(httpapi.RouteTaskClaimRenew),
+		TUI:  "board",
 		Exempt: []Exemption{
 			off(SurfaceWeb, "a lease is renewed by the worker holding its token, which a browser session does not hold"),
 		},
@@ -402,6 +489,7 @@ var registry = []Operation{
 		HTTP: apiPost(httpapi.RouteClaimSweep),
 		Exempt: []Exemption{
 			off(SurfaceWeb, "lease sweeping is a background maintenance loop, not an operator action"),
+			off(SurfaceTUI, "lease sweeping is a background maintenance loop, not an operator action"),
 		},
 	},
 
@@ -410,13 +498,16 @@ var registry = []Operation{
 		CLI:  "tix audit ls",
 		HTTP: apiGet(httpapi.RouteAudit),
 		Web:  webGet(web.RouteActivity, tplActivity),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no history view on a task or a project"),
+		},
 	},
 	{
 		Name: "event.subscribe", Method: "Subscribe",
+		CLI:  "tix watch",
 		HTTP: apiGet(httpapi.RouteEvents),
 		TUI:  "board",
 		Exempt: []Exemption{
-			gap(SurfaceCLI, "GAP: no cli binding yet; the event stream is reachable over the websocket route and from the tui but tix has no watch command"),
 			off(SurfaceWeb, "the browser consumes the event stream over the websocket route rather than calling the method from a screen"),
 		},
 	},
@@ -425,21 +516,26 @@ var registry = []Operation{
 		CLI:  "tix prune",
 		HTTP: apiPost(httpapi.RoutePrune),
 		Web:  webPost(web.RoutePrune),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no retention view"),
+		},
 	},
 	{
 		Name: "retention.get", Method: "GetRetention",
+		CLI:  "tix retention show",
 		HTTP: apiGet(httpapi.RouteRetention),
 		Web:  webGet(web.RouteTenant, tplTenant),
 		Exempt: []Exemption{
-			gap(SurfaceCLI, "GAP: no cli binding yet; the policy is readable over http and on the tenant screen but tix prune cannot show it"),
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no retention view"),
 		},
 	},
 	{
 		Name: "retention.put", Method: "PutRetention",
+		CLI:  "tix retention set",
 		HTTP: apiPut(httpapi.RouteRetention),
 		Web:  webPost(web.RouteRetention),
 		Exempt: []Exemption{
-			gap(SurfaceCLI, "GAP: no cli binding yet; the policy is writable over http and on the tenant screen but tix has no retention command"),
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no retention view"),
 		},
 	},
 
@@ -448,12 +544,18 @@ var registry = []Operation{
 		CLI:  "tix actor show",
 		HTTP: apiGet(httpapi.RouteActor),
 		Web:  webGet(web.RouteActivity, tplActivity),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; the interface shows actor identifiers without resolving them to people"),
+		},
 	},
 	{
 		Name: "user.create", Method: "CreateUser",
 		CLI:  "tix user create",
 		HTTP: apiPost(httpapi.RouteUsers),
 		Web:  webPost(web.RouteUsers),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no user administration view"),
+		},
 	},
 	{
 		Name: "user.show", Method: "GetUser",
@@ -461,6 +563,7 @@ var registry = []Operation{
 		HTTP: apiGet(httpapi.RouteUser),
 		Exempt: []Exemption{
 			off(SurfaceWeb, "the user administration list already shows every field a single user screen would show"),
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no user administration view"),
 		},
 	},
 	{
@@ -468,31 +571,44 @@ var registry = []Operation{
 		CLI:  "tix user ls",
 		HTTP: apiGet(httpapi.RouteUsers),
 		Web:  webGet(web.RouteUsers, tplUsers),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no user administration view"),
+		},
 	},
 	{
 		Name: "user.update", Method: "UpdateUser",
 		CLI:  "tix user edit",
 		HTTP: apiPatch(httpapi.RouteUser),
 		Web:  webPost(web.RouteUserUpdate),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no user administration view"),
+		},
 	},
 	{
 		Name: "user.delete", Method: "DeleteUser",
 		CLI:  "tix user rm",
 		HTTP: apiDelete(httpapi.RouteUser),
 		Web:  webPost(web.RouteUserDelete),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no user administration view"),
+		},
 	},
 	{
 		Name: "session.login", Method: "Login",
 		CLI:  "tix login",
 		HTTP: apiPost(httpapi.RouteLogin),
 		Web:  webPost(web.RouteLogin),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "the interface opens on a session that already exists; tix login establishes it before the program starts"),
+		},
 	},
 	{
 		Name: "session.logout", Method: "Logout",
+		CLI:  "tix logout",
 		HTTP: apiPost(httpapi.RouteLogout),
 		Web:  webPost(web.RouteLogout),
 		Exempt: []Exemption{
-			gap(SurfaceCLI, "GAP: no cli binding yet; tix login stores a session the CLI offers no way to end"),
+			off(SurfaceTUI, "ending the session would revoke the credential the running interface is using; tix logout is the way out"),
 		},
 	},
 	{
@@ -500,18 +616,27 @@ var registry = []Operation{
 		CLI:  "tix token create",
 		HTTP: apiPost(httpapi.RouteTokens),
 		Web:  webPost(web.RouteTokens),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no token administration view"),
+		},
 	},
 	{
 		Name: "token.list", Method: "ListTokens",
 		CLI:  "tix token ls",
 		HTTP: apiGet(httpapi.RouteTokens),
 		Web:  webGet(web.RouteTokens, tplTokens),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no token administration view"),
+		},
 	},
 	{
 		Name: "token.revoke", Method: "RevokeToken",
 		CLI:  "tix token rm",
 		HTTP: apiDelete(httpapi.RouteToken),
 		Web:  webPost(web.RouteTokenRevoke),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no token administration view"),
+		},
 	},
 
 	{
@@ -519,30 +644,45 @@ var registry = []Operation{
 		CLI:  "tix webhook put",
 		HTTP: apiPut(httpapi.RouteWebhooks),
 		Web:  webPost(web.RouteWebhooks),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no webhook administration view"),
+		},
 	},
 	{
 		Name: "webhook.list", Method: "ListWebhooks",
 		CLI:  "tix webhook ls",
 		HTTP: apiGet(httpapi.RouteWebhooks),
 		Web:  webGet(web.RouteWebhooks, tplWebhooks),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no webhook administration view"),
+		},
 	},
 	{
 		Name: "webhook.delete", Method: "DeleteWebhook",
 		CLI:  "tix webhook rm",
 		HTTP: apiDelete(httpapi.RouteWebhook),
 		Web:  webPost(web.RouteWebhookDelete),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no webhook administration view"),
+		},
 	},
 	{
 		Name: "webhook.deliveries", Method: "ListDeliveries",
 		CLI:  "tix webhook deliveries",
 		HTTP: apiGet(httpapi.RouteDeliveries),
 		Web:  webGet(web.RouteWebhooks, tplWebhooks),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no webhook delivery view"),
+		},
 	},
 	{
 		Name: "webhook.redeliver", Method: "RedeliverWebhook",
 		CLI:  "tix webhook redeliver",
 		HTTP: apiPost(httpapi.RouteDeliveryRedeliver),
 		Web:  webPost(web.RouteRedeliver),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no webhook delivery view"),
+		},
 	},
 
 	{
@@ -550,24 +690,36 @@ var registry = []Operation{
 		CLI:  "tix export",
 		HTTP: apiPost(httpapi.RouteExport),
 		Web:  webPost(web.RouteExport),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no import or export view"),
+		},
 	},
 	{
 		Name: "snapshot.import", Method: "ImportFrom",
 		CLI:  "tix import",
 		HTTP: apiPost(httpapi.RouteImport),
 		Web:  webPost(web.RouteImport),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no import or export view"),
+		},
 	},
 	{
 		Name: "bundle.export", Method: "ExportBundle",
 		CLI:  "tix bundle export",
 		HTTP: apiPost(httpapi.RouteBundleExport),
 		Web:  webPost(web.RouteBundleExport),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no import or export view"),
+		},
 	},
 	{
 		Name: "bundle.import", Method: "ImportBundle",
 		CLI:  "tix bundle import",
 		HTTP: apiPost(httpapi.RouteBundleImport),
 		Web:  webPost(web.RouteBundleImport),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no import or export view"),
+		},
 	},
 
 	{
@@ -575,23 +727,35 @@ var registry = []Operation{
 		CLI:  "tix sync source add",
 		HTTP: apiPut(httpapi.RouteSyncSources),
 		Web:  webPost(web.RouteSyncSources),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no external sync view"),
+		},
 	},
 	{
 		Name: "sync.source.list", Method: "ListSyncSources",
 		CLI:  "tix sync source ls",
 		HTTP: apiGet(httpapi.RouteSyncSources),
 		Web:  webGet(web.RouteSync, tplSync),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no external sync view"),
+		},
 	},
 	{
 		Name: "sync.source.delete", Method: "DeleteSyncSource",
 		CLI:  "tix sync source rm",
 		HTTP: apiDelete(httpapi.RouteSyncSource),
 		Web:  webPost(web.RouteSyncDelete),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no external sync view"),
+		},
 	},
 	{
 		Name: "sync.run", Method: "RunSync",
 		CLI:  "tix sync run",
 		HTTP: apiPost(httpapi.RouteSyncRun),
 		Web:  webPost(web.RouteSyncRun),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no external sync view"),
+		},
 	},
 }

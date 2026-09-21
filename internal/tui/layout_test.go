@@ -14,8 +14,8 @@ func TestLayoutFor(t *testing.T) {
 		wantVisible   int
 	}{
 		{"full board", 120, 40, 4, LayoutBoard, 4},
-		{"board scrolls columns", 60, 40, 4, LayoutBoard, 3},
-		{"two columns still a board", 40, 24, 4, LayoutBoard, 2},
+		{"board scrolls columns", 65, 40, 4, LayoutBoard, 3},
+		{"two columns still a board", 44, 24, 4, LayoutBoard, 2},
 		{"narrow falls back to one column", 30, 24, 4, LayoutSingleColumn, 1},
 		{"too narrow explains itself", 20, 24, 4, LayoutTooSmall, 0},
 		{"too short explains itself", 120, 5, 4, LayoutTooSmall, 0},

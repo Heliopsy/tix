@@ -11,6 +11,8 @@ const (
 	viewBoard
 	viewDetail
 	viewHelp
+	viewSettings
+	viewActivity
 )
 
 // actionKind names a board action whose result is reported back.
@@ -21,17 +23,46 @@ const (
 	actionClaim actionKind = iota
 	actionRelease
 	actionTransition
+	actionCreate
+	actionUpdate
+	actionComment
+	actionTag
+	actionUntag
+	actionDepend
+	actionRenew
+	actionNewProject
 )
 
+// actionLabels name each action in the present tense, for a refusal, and in
+// the past tense, for the status bar.
+var actionLabels = map[actionKind][2]string{
+	actionClaim:      {"claim", "claimed"},
+	actionRelease:    {"release", "released"},
+	actionTransition: {"transition", "transitioned"},
+	actionCreate:     {"create the task", "created"},
+	actionUpdate:     {"edit the task", "edited"},
+	actionComment:    {"comment", "commented on"},
+	actionTag:        {"tag", "tagged"},
+	actionUntag:      {"untag", "untagged"},
+	actionDepend:     {"add the dependency", "added a dependency to"},
+	actionRenew:      {"renew the lease", "renewed the lease on"},
+	actionNewProject: {"create the project", "created"},
+}
+
 // Label renders an action for a message.
-func (a actionKind) Label() string {
+func (a actionKind) Label() string { return actionLabels[a][0] }
+
+// Past renders an action for the status bar once it has succeeded.
+func (a actionKind) Past() string { return actionLabels[a][1] }
+
+// Mutates reports whether an action changes the task it names, so the detail
+// view knows to fetch it again.
+func (a actionKind) Mutates() bool {
 	switch a {
-	case actionClaim:
-		return "claim"
-	case actionRelease:
-		return "release"
+	case actionClaim, actionRelease, actionRenew:
+		return false
 	default:
-		return "transition"
+		return true
 	}
 }
 
@@ -59,6 +90,11 @@ type detailMsg struct {
 	deps      []core.Dependency
 	comments  []core.Comment
 	fieldDefs []core.FieldDef
+	artifacts []core.Artifact
+	// actors maps an actor identifier to its handle, for every actor the
+	// task or its comments name, so the detail view never has to show a raw
+	// identifier for a lookup it already made.
+	actors map[string]string
 }
 
 // eventMsg carries one event from the subscription.
@@ -80,8 +116,18 @@ type reconnectMsg struct{}
 type actionMsg struct {
 	kind  actionKind
 	ref   core.TaskRef
+	label string
 	token string
 	err   error
+}
+
+// name is what an action calls its subject on screen. A task's identifier is
+// what the service is addressed by; its ref is what a person recognises.
+func (a actionMsg) name() string {
+	if a.label != "" {
+		return a.label
+	}
+	return a.ref.String()
 }
 
 // errMsg carries a failure to the interface.

@@ -311,10 +311,10 @@ func TestHelpToggle(t *testing.T) {
 		m.sel = Selection{Col: 1}
 
 		opened, _ := m.reduce(pressKey("?"))
-		if opened.view != viewHelp || opened.prev != view {
+		if opened.view != viewHelp || opened.underView() != view {
 			t.Fatalf("help did not open from view %v: %+v", view, opened.view)
 		}
-		if len(opened.keys.ViewHelp(opened.prev)) == 0 || len(opened.keys.GlobalHelp()) == 0 {
+		if len(opened.keys.ViewHelp(opened.underView())) == 0 || len(opened.keys.GlobalHelp()) == 0 {
 			t.Fatal("help listed no bindings")
 		}
 
@@ -326,16 +326,26 @@ func TestHelpToggle(t *testing.T) {
 }
 
 func TestQuitAndInterruptAreDistinct(t *testing.T) {
-	m := boardModel(t)
+	m := boardModel(t).rootView()
 
 	quit, cmd := m.reduce(pressKey("q"))
 	if cmd == nil || quit.interrupted {
-		t.Fatal("q did not quit cleanly")
+		t.Fatal("q did not quit cleanly from the top level")
 	}
 
 	interrupted, cmd := m.reduce(pressKey("ctrl+c"))
 	if cmd == nil || !interrupted.interrupted {
 		t.Fatal("ctrl+c was not recorded as an interrupt")
+	}
+}
+
+func TestInterruptEndsTheProgramFromAnyDepth(t *testing.T) {
+	m := boardModel(t)
+	task, _ := TaskAt(m.columns, m.sel)
+	m, _ = m.reduce(detailMsg{task: task})
+	interrupted, cmd := m.reduce(pressKey("ctrl+c"))
+	if cmd == nil || !interrupted.interrupted {
+		t.Fatal("ctrl+c was swallowed by the view stack")
 	}
 }
 
@@ -381,16 +391,16 @@ func TestFilterBar(t *testing.T) {
 		m := boardModel(t)
 		m.filterText = "status:todo"
 		next, _ := m.reduce(pressKey("/"))
-		if !next.editing || next.input.Value() != "status:todo" {
-			t.Fatalf("editing = %v value = %q", next.editing, next.input.Value())
+		if next.prompt != promptFilter || next.input.Value() != "status:todo" {
+			t.Fatalf("prompt = %v value = %q", next.prompt, next.input.Value())
 		}
 	})
 	t.Run("escape abandons the edit", func(t *testing.T) {
 		m := boardModel(t)
 		m, _ = m.reduce(pressKey("/"))
 		m, _ = m.reduce(pressKey("esc"))
-		if m.editing || m.filterText != "" {
-			t.Fatalf("editing = %v text = %q", m.editing, m.filterText)
+		if m.prompt != promptNone || m.filterText != "" {
+			t.Fatalf("prompt = %v text = %q", m.prompt, m.filterText)
 		}
 	})
 	t.Run("a valid expression filters every column", func(t *testing.T) {
@@ -399,8 +409,8 @@ func TestFilterBar(t *testing.T) {
 		m, _ = m.reduce(pressKey("/"))
 		m.input.SetValue("status:doing")
 		m, cmd := m.reduce(pressKey("enter"))
-		if m.editing || m.filterErr != "" || cmd == nil {
-			t.Fatalf("editing = %v filterErr = %q", m.editing, m.filterErr)
+		if m.prompt != promptNone || m.filterErr != "" || cmd == nil {
+			t.Fatalf("prompt = %v filterErr = %q", m.prompt, m.filterErr)
 		}
 		if len(m.columns[0].Tasks) != 0 || len(m.columns[1].Tasks) != 1 {
 			t.Fatalf("filter was not applied to the columns: %+v", m.columns)
@@ -415,7 +425,7 @@ func TestFilterBar(t *testing.T) {
 		if m.filterErr == "" || !strings.Contains(m.filterErr, "colour") {
 			t.Fatalf("filterErr = %q", m.filterErr)
 		}
-		if !m.editing || cmd != nil {
+		if m.prompt != promptFilter || cmd != nil {
 			t.Fatal("a malformed expression left the filter bar")
 		}
 		if len(m.columns[0].Tasks) != before {
@@ -449,7 +459,7 @@ func TestTransitionChooser(t *testing.T) {
 		m := boardModel(t)
 		m.svc = newFakeService()
 		next, _ := m.reduce(pressKey("t"))
-		if !next.choosing || len(next.choices) != 1 || next.choices[0].Key != "doing" {
+		if next.choice != choiceTransition || len(next.choices) != 1 || next.choices[0].Value != "doing" {
 			t.Fatalf("choices = %+v", next.choices)
 		}
 	})
@@ -459,8 +469,8 @@ func TestTransitionChooser(t *testing.T) {
 		m.svc = svc
 		m, _ = m.reduce(pressKey("t"))
 		m, cmd := m.reduce(pressKey("1"))
-		if m.choosing || cmd == nil {
-			t.Fatalf("choosing = %v cmd = %v", m.choosing, cmd)
+		if m.choice != choiceNone || cmd == nil {
+			t.Fatalf("choice = %v cmd = %v", m.choice, cmd)
 		}
 		cmd()
 		if len(svc.transitions) != 1 || svc.transitions[0].To != "doing" {
@@ -472,7 +482,7 @@ func TestTransitionChooser(t *testing.T) {
 		m.svc = newFakeService()
 		m, _ = m.reduce(pressKey("t"))
 		next, cmd := m.reduce(pressKey("9"))
-		if !next.choosing || cmd != nil {
+		if next.choice != choiceTransition || cmd != nil {
 			t.Fatal("an out of range choice acted")
 		}
 	})
@@ -480,7 +490,7 @@ func TestTransitionChooser(t *testing.T) {
 		m := boardModel(t)
 		m, _ = m.reduce(pressKey("t"))
 		m, _ = m.reduce(pressKey("esc"))
-		if m.choosing || m.choices != nil {
+		if m.choice != choiceNone || m.choices != nil {
 			t.Fatal("the chooser survived a cancel")
 		}
 	})
@@ -490,8 +500,8 @@ func TestTransitionChooser(t *testing.T) {
 		m, _ = m.reduce(tasksMsg{tasks: []core.Task{task("d", "done", 4, core.PriorityNormal)}})
 		m.sel, _ = FindTask(m.columns, "d")
 		next, _ := m.reduce(pressKey("t"))
-		if next.choosing || !strings.Contains(next.err, "no transition") {
-			t.Fatalf("choosing = %v err = %q", next.choosing, next.err)
+		if next.choice != choiceNone || !strings.Contains(next.err, "no transition") {
+			t.Fatalf("choice = %v err = %q", next.choice, next.err)
 		}
 	})
 }

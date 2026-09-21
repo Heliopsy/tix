@@ -2,12 +2,16 @@ package tui
 
 import (
 	"context"
+	"io"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 )
 
 // Model is the whole state of the terminal interface.
@@ -18,15 +22,19 @@ type Model struct {
 	keys  KeyMap
 	theme Theme
 	now   func() time.Time
+	// timeStyle renders every timestamp the interface draws. The zero value
+	// is a working default, so a Model built without one still renders.
+	timeStyle output.TimeStyle
 
-	view viewKind
-	prev viewKind
+	view  viewKind
+	stack []viewKind
 
 	width  int
 	height int
 
 	projects   []core.Project
 	projectSel int
+	projectOff int
 
 	project  core.Project
 	workflow *core.WorkflowDefinition
@@ -39,18 +47,27 @@ type Model struct {
 	filter     core.TaskFilter
 	filterErr  string
 	input      textinput.Model
-	editing    bool
+	prompt     promptKind
 
 	detail    *detailMsg
 	detailOff int
+	helpOff   int
 
-	choosing bool
-	choices  []core.State
+	scheme    Scheme
+	schemeSel int
+	overrides map[string]string
+
+	choice  choiceKind
+	choices []Choice
 
 	leases    map[string]string
 	lastSeq   int64
 	connected bool
 	events    <-chan core.Event
+
+	activity    []core.Event
+	activitySel int
+	activityOff int
 
 	err         string
 	status      string
@@ -65,9 +82,18 @@ type Config struct {
 	Context context.Context
 	Actor   *core.Actor
 	Environ []string
-	Project string
-	Filter  string
-	Now     func() time.Time
+	Out     io.Writer
+	// Scheme names the keybinding preset, and Overrides rebinds single
+	// actions on top of it.
+	Scheme    string
+	Overrides map[string]string
+	// TimeStyle renders every timestamp the interface draws. The zero value
+	// still works, so a caller that has not wired configuration through yet
+	// is not broken.
+	TimeStyle output.TimeStyle
+	Project   string
+	Filter    string
+	Now       func() time.Time
 }
 
 // New builds the initial model.
@@ -86,13 +112,33 @@ func New(cfg Config) Model {
 	}
 	m := Model{
 		svc: cfg.Service, ctx: ctx, actor: cfg.Actor,
-		keys: DefaultKeyMap(), theme: NewTheme(ColorEnabled(cfg.Environ)), now: now,
-		view: viewProjects, input: in, leases: map[string]string{},
+		keys: DefaultKeyMap(), theme: NewTheme(ColorEnabled(cfg.Environ, cfg.Out)), now: now,
+		timeStyle: cfg.TimeStyle,
+		view:      viewProjects, input: in, leases: map[string]string{},
 		openProject: cfg.Project, width: 80, height: 24,
+		scheme: SchemeDefault, overrides: cfg.Overrides,
 	}
+	m = m.installScheme(cfg.Scheme)
 	if cfg.Filter != "" {
 		m = m.applyFilterText(cfg.Filter)
 	}
+	return m
+}
+
+// installScheme adopts the configured keys, reporting a scheme or an override
+// it cannot use rather than falling back to the defaults in silence.
+func (m Model) installScheme(name string) Model {
+	scheme, err := ParseScheme(name)
+	if err != nil {
+		m.err = err.Error()
+		return m
+	}
+	keys, err := KeyMapFrom(scheme, m.overrides)
+	if err != nil {
+		m.err = "keybindings: " + err.Error()
+		return m
+	}
+	m.scheme, m.keys = scheme, keys
 	return m
 }
 
@@ -118,8 +164,8 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 	case tasksMsg:
 		return m.onTasks(msg)
 	case detailMsg:
-		m.detail, m.detailOff, m.view = &msg, 0, viewDetail
-		return m, nil
+		m.detail, m.detailOff = &msg, 0
+		return m.enterView(viewDetail), nil
 	case eventMsg:
 		return m.onEvent(msg)
 	case streamMsg:
@@ -165,8 +211,8 @@ func (m Model) onProjects(msg projectsMsg) (Model, tea.Cmd) {
 
 // onBoard installs a project's workflow and first page of tasks.
 func (m Model) onBoard(msg boardMsg) (Model, tea.Cmd) {
-	m.project, m.workflow, m.view = msg.project, msg.workflow, viewBoard
-	return m.installTasks(msg.tasks)
+	m.project, m.workflow = msg.project, msg.workflow
+	return m.enterView(viewBoard).installTasks(msg.tasks)
 }
 
 // onTasks refreshes the board's tasks without changing the open project.
@@ -201,6 +247,7 @@ func (m Model) onEvent(msg eventMsg) (Model, tea.Cmd) {
 		m.lastSeq = msg.event.Seq
 	}
 	m.connected = true
+	m = m.recordActivity(msg.event)
 	if m.events == nil {
 		return m, m.reloadFor(msg.event)
 	}
@@ -252,18 +299,26 @@ func (m Model) onAction(msg actionMsg) (Model, tea.Cmd) {
 	switch msg.kind {
 	case actionClaim:
 		m.leases[msg.ref.ID] = msg.token
-		m.status = "claimed " + msg.ref.String()
 	case actionRelease:
 		delete(m.leases, msg.ref.ID)
-		m.status = "released " + msg.ref.String()
-	default:
-		m.status = "transitioned " + msg.ref.String()
 	}
-	m.err = ""
+	m.status, m.err = strings.TrimSpace(msg.kind.Past()+" "+msg.name()), ""
+	if msg.kind == actionNewProject {
+		return m, m.loadProjects()
+	}
 	if m.project.ID == "" {
 		return m, nil
 	}
-	return m, m.loadTasks()
+	return m, m.reloadAfter(msg)
+}
+
+// reloadAfter fetches whatever the action can have changed, including the open
+// task, so the detail view never shows a value the action has just replaced.
+func (m Model) reloadAfter(msg actionMsg) tea.Cmd {
+	if m.view == viewDetail && m.detail != nil && msg.kind.Mutates() {
+		return tea.Batch(m.loadTasks(), m.reloadDetail(m.detail.task))
+	}
+	return m.loadTasks()
 }
 
 // actionFailure explains a refused action in the words the service used.
@@ -296,19 +351,27 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Interrupt):
 		m.interrupted = true
 		return m, tea.Quit
-	case m.editing:
-		return m.handleFilterKey(msg)
-	case m.choosing:
+	case m.prompt != promptNone:
+		return m.handlePromptKey(msg)
+	case m.choice != choiceNone:
 		return m.handleChoiceKey(msg)
 	case m.view == viewHelp:
 		return m.handleHelpKey(msg)
+	case m.view == viewSettings:
+		return m.handleSettingsKey(msg)
 	case key.Matches(msg, m.keys.Help):
-		m.prev, m.view = m.view, viewHelp
-		return m, nil
+		m.helpOff = 0
+		return m.enterView(viewHelp), nil
 	case key.Matches(msg, m.keys.Quit):
-		return m, tea.Quit
+		return m.leave(tea.Quit)
 	case key.Matches(msg, m.keys.Refresh):
 		return m, m.refresh()
+	case key.Matches(msg, m.keys.Projects):
+		return m.rootView(), nil
+	case key.Matches(msg, m.keys.Settings):
+		return m.openSettings(), nil
+	case key.Matches(msg, m.keys.Activity):
+		return m.openActivity(), nil
 	}
 	switch m.view {
 	case viewProjects:
@@ -317,16 +380,121 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.handleBoardKey(msg)
 	case viewDetail:
 		return m.handleDetailKey(msg)
+	case viewActivity:
+		return m.handleActivityKey(msg)
 	}
 	return m, nil
 }
 
-// handleHelpKey dismisses the help view back to where it was opened from.
+// handleHelpKey scrolls the help view and dismisses it back to where it was
+// opened from.
 func (m Model) handleHelpKey(msg tea.KeyMsg) (Model, tea.Cmd) {
-	if key.Matches(msg, m.keys.Back, m.keys.Help, m.keys.Quit) {
-		m.view = m.prev
+	switch {
+	case key.Matches(msg, m.keys.Back, m.keys.Help, m.keys.Quit):
+		m.helpOff = 0
+		m, _ = m.popView()
+	case key.Matches(msg, m.keys.Up):
+		m.helpOff = max(0, m.helpOff-1)
+	case key.Matches(msg, m.keys.Down):
+		m.helpOff++
+	case key.Matches(msg, m.keys.Top):
+		m.helpOff = 0
 	}
 	return m, nil
+}
+
+// enterView moves one level deeper, remembering where it came from. Entering
+// the view already open is a refresh rather than a step, so a reload never
+// makes the way back one press longer.
+func (m Model) enterView(v viewKind) Model {
+	if m.view == v {
+		return m
+	}
+	m.stack = append(append([]viewKind{}, m.stack...), m.view)
+	m.view = v
+	return m
+}
+
+// popView returns to the view one level up, reporting whether there was one.
+func (m Model) popView() (Model, bool) {
+	if len(m.stack) == 0 {
+		return m, false
+	}
+	m.view = m.stack[len(m.stack)-1]
+	m.stack = m.stack[:len(m.stack)-1]
+	if m.view != viewDetail {
+		m.detail = nil
+	}
+	return m, true
+}
+
+// underView names the view the open one was reached from, which is what help
+// describes when it is asked about "this view".
+func (m Model) underView() viewKind {
+	if len(m.stack) == 0 {
+		return m.view
+	}
+	return m.stack[len(m.stack)-1]
+}
+
+// rootView returns to the project list, discarding the way back.
+func (m Model) rootView() Model {
+	m.view, m.stack, m.detail = viewProjects, nil, nil
+	return m
+}
+
+// leave goes back one level, and does what the caller asked only when there is
+// no level to go back to. Quitting from a nested view would otherwise lose a
+// place a reflex press was only meant to step out of.
+func (m Model) leave(fallback tea.Cmd) (Model, tea.Cmd) {
+	if next, ok := m.popView(); ok {
+		return next, nil
+	}
+	return m, fallback
+}
+
+// openSettings shows the keybinding schemes, with the active one selected.
+func (m Model) openSettings() Model {
+	m.schemeSel = 0
+	for i, s := range Schemes() {
+		if s == m.scheme {
+			m.schemeSel = i
+		}
+	}
+	return m.enterView(viewSettings)
+}
+
+// handleSettingsKey picks a keybinding scheme and applies it at once, so the
+// footer a person is reading is always the one they are typing against.
+func (m Model) handleSettingsKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	schemes := Schemes()
+	switch {
+	case key.Matches(msg, m.keys.Back, m.keys.Quit):
+		m, _ = m.popView()
+	case key.Matches(msg, m.keys.Up):
+		m.schemeSel = clamp(m.schemeSel-1, 0, len(schemes)-1)
+	case key.Matches(msg, m.keys.Down):
+		m.schemeSel = clamp(m.schemeSel+1, 0, len(schemes)-1)
+	case key.Matches(msg, m.keys.Top):
+		m.schemeSel = 0
+	case key.Matches(msg, m.keys.Bottom):
+		m.schemeSel = max(0, len(schemes)-1)
+	case key.Matches(msg, m.keys.Enter):
+		return m.useScheme(schemes[m.schemeSel]), nil
+	}
+	return m, nil
+}
+
+// useScheme adopts a scheme, refusing one whose bindings would collide.
+func (m Model) useScheme(scheme Scheme) Model {
+	keys, err := KeyMapFrom(scheme, m.overrides)
+	if err != nil {
+		m.err = "cannot use the " + string(scheme) + " keys: " + err.Error()
+		return m
+	}
+	m.scheme, m.keys, m.err = scheme, keys, ""
+	m.status = "keybindings: " + string(scheme)
+	return m
 }
 
 // handleProjectsKey moves through the project listing and opens a board.
@@ -340,13 +508,21 @@ func (m Model) handleProjectsKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.projectSel = 0
 	case key.Matches(msg, m.keys.Bottom):
 		m.projectSel = max(0, len(m.projects)-1)
+	case key.Matches(msg, m.keys.New):
+		return m.openPrompt(promptNewProject)
 	case key.Matches(msg, m.keys.Enter):
 		if m.projectSel < len(m.projects) {
 			m.err = ""
 			return m, m.loadBoard(m.projects[m.projectSel])
 		}
 	}
+	m.projectOff = ScrollWindow(m.projectOff, m.projectSel, m.projectRows(), len(m.projects))
 	return m, nil
+}
+
+// projectRows is how many project rows the current terminal has room for.
+func (m Model) projectRows() int {
+	return VisibleRows(LayoutFor(m.width, m.height, len(m.columns)).BodyHeight, len(m.projects))
 }
 
 // handleBoardKey moves the board selection and runs the board actions.
@@ -368,86 +544,238 @@ func (m Model) handleBoardKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.startEditing(), textinput.Blink
 	case key.Matches(msg, m.keys.ClearFltr):
 		return m.applyFilterText(""), m.loadTasks()
-	case key.Matches(msg, m.keys.Projects), key.Matches(msg, m.keys.Back):
-		m.view = viewProjects
-		return m, nil
+	case key.Matches(msg, m.keys.Back):
+		return m.leave(nil)
 	case key.Matches(msg, m.keys.Enter):
 		return m, m.loadDetail()
-	case key.Matches(msg, m.keys.Claim):
-		return m, m.claim()
-	case key.Matches(msg, m.keys.Release):
-		return m.release()
-	case key.Matches(msg, m.keys.Transition):
-		return m.startChoosing(), nil
 	default:
-		return m, nil
+		return m.handleTaskKey(msg)
 	}
-	m.rowOff = ScrollOffset(m.rowOff, m.sel.Row, LayoutFor(m.width, m.height, len(m.columns)).BodyHeight)
+	m.rowOff = ScrollWindow(m.rowOff, m.sel.Row, m.cardRows(), m.columnLength(m.sel.Col))
 	return m, nil
+}
+
+// cardRows is how many cards the selected column has room to draw.
+func (m Model) cardRows() int {
+	return VisibleRows(LayoutFor(m.width, m.height, len(m.columns)).CardRows(), m.columnLength(m.sel.Col))
+}
+
+// columnLength is how many cards the selected column holds.
+func (m Model) columnLength(col int) int {
+	if col < 0 || col >= len(m.columns) {
+		return 0
+	}
+	return len(m.columns[col].Tasks)
 }
 
 // handleDetailKey scrolls the detail view and returns to the board.
 func (m Model) handleDetailKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Back):
-		m.view, m.detail = viewBoard, nil
+		return m.leave(nil)
 	case key.Matches(msg, m.keys.Up):
 		m.detailOff = max(0, m.detailOff-1)
 	case key.Matches(msg, m.keys.Down):
 		m.detailOff++
+	default:
+		return m.handleTaskKey(msg)
+	}
+	return m, nil
+}
+
+// handleTaskKey runs the actions that act on the selected task, so the board
+// and the detail view offer exactly the same set.
+func (m Model) handleTaskKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch {
 	case key.Matches(msg, m.keys.Claim):
 		return m, m.claim()
 	case key.Matches(msg, m.keys.Release):
 		return m.release()
 	case key.Matches(msg, m.keys.Transition):
-		return m.startChoosing(), nil
+		return m.startChoosing(choiceTransition), nil
+	case key.Matches(msg, m.keys.Priority):
+		return m.startChoosing(choicePriority), nil
+	case key.Matches(msg, m.keys.New):
+		return m.openPrompt(promptNewTask)
+	case key.Matches(msg, m.keys.EditTitle):
+		return m.openPrompt(promptTitle)
+	case key.Matches(msg, m.keys.EditBody):
+		return m.openPrompt(promptBody)
+	case key.Matches(msg, m.keys.Assign):
+		return m.openPrompt(promptAssignee)
+	case key.Matches(msg, m.keys.Comment):
+		return m.openPrompt(promptComment)
+	case key.Matches(msg, m.keys.Tag):
+		return m.openPrompt(promptTag)
+	case key.Matches(msg, m.keys.Untag):
+		return m.openPrompt(promptUntag)
+	case key.Matches(msg, m.keys.Depend):
+		return m.openPrompt(promptDependency)
+	case key.Matches(msg, m.keys.ClaimNext):
+		return m, m.claimNext()
+	case key.Matches(msg, m.keys.Renew):
+		return m.renewLease()
 	}
 	return m, nil
 }
 
-// handleFilterKey edits the filter bar and applies it on acceptance.
-func (m Model) handleFilterKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+// handlePromptKey edits the open input and acts on it when it is accepted.
+func (m Model) handlePromptKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Cancel):
-		m.editing, m.filterErr = false, ""
-		m.input.Blur()
-		return m, nil
+		return m.closePrompt(), nil
 	case key.Matches(msg, m.keys.Accept):
-		next := m.applyFilterText(m.input.Value())
-		if next.filterErr != "" {
-			return next, nil
-		}
-		next.editing = false
-		next.input.Blur()
-		return next, next.loadTasks()
+		return m.submitPrompt(strings.TrimSpace(m.input.Value()))
 	}
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
 	return m, cmd
 }
 
-// handleChoiceKey picks a transition target by number.
+// submitPrompt performs the action the open input was gathering text for. An
+// empty input cancels, so a stray keystroke never sends a blank edit.
+func (m Model) submitPrompt(text string) (Model, tea.Cmd) {
+	if m.prompt == promptFilter {
+		next := m.applyFilterText(m.input.Value())
+		if next.filterErr != "" {
+			return next, nil
+		}
+		return next.closePrompt(), next.loadTasks()
+	}
+	if text == "" {
+		return m.closePrompt(), nil
+	}
+	kind := m.prompt
+	next := m.closePrompt()
+	return next, next.runPrompt(kind, text)
+}
+
+// runPrompt turns accepted text into the one service call it stands for.
+func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
+	switch kind {
+	case promptNewTask:
+		return m.createTask(text)
+	case promptNewProject:
+		key, name := SplitProjectEntry(text)
+		return m.createProject(key, name)
+	}
+	task, ok := m.selectedTask()
+	if !ok {
+		return nil
+	}
+	switch kind {
+	case promptTitle:
+		return m.updateTask(task, core.UpdateTaskInput{Title: &text})
+	case promptBody:
+		return m.updateTask(task, core.UpdateTaskInput{Body: &text})
+	case promptAssignee:
+		return m.updateTask(task, core.UpdateTaskInput{AssigneeActorID: &text})
+	case promptComment:
+		return m.comment(task, text)
+	case promptTag:
+		return m.tag(task, text)
+	case promptUntag:
+		return m.untag(task, text)
+	case promptDependency:
+		return m.depend(task, text)
+	default:
+		return nil
+	}
+}
+
+// openPrompt focuses an input, refusing one that needs a task when none is
+// selected so the interface never gathers text it cannot use.
+func (m Model) openPrompt(kind promptKind) (Model, tea.Cmd) {
+	if kind.NeedsTask() {
+		if _, ok := m.selectedTask(); !ok {
+			m.err = "no task is selected"
+			return m, nil
+		}
+	}
+	if kind == promptNewTask && m.project.Key == "" {
+		m.err = "open a project before adding a task"
+		return m, nil
+	}
+	return m.startPrompt(kind, m.promptSeed(kind)), textinput.Blink
+}
+
+// promptSeed prefills an input with the value the action would replace.
+func (m Model) promptSeed(kind promptKind) string {
+	task, ok := m.selectedTask()
+	if !ok {
+		return ""
+	}
+	switch kind {
+	case promptFilter:
+		return m.filterText
+	case promptTitle:
+		return task.Title
+	case promptBody:
+		return strings.ReplaceAll(task.Body, "\n", " ")
+	case promptAssignee:
+		return task.AssigneeActorID
+	default:
+		return ""
+	}
+}
+
+// startPrompt focuses an input introduced by its own spec.
+func (m Model) startPrompt(kind promptKind, initial string) Model {
+	spec, ok := kind.Spec()
+	if !ok {
+		return m
+	}
+	m.prompt, m.err = kind, ""
+	m.input.Prompt, m.input.Placeholder, m.input.CharLimit = spec.Prompt, spec.Placeholder, spec.Limit
+	m.input.SetValue(initial)
+	m.input.CursorEnd()
+	m.input.Focus()
+	return m
+}
+
+// closePrompt dismisses the open input.
+func (m Model) closePrompt() Model {
+	m.prompt, m.filterErr = promptNone, ""
+	m.input.SetValue("")
+	m.input.Blur()
+	return m
+}
+
+// handleChoiceKey picks a numbered option.
 func (m Model) handleChoiceKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	if key.Matches(msg, m.keys.Cancel) {
-		m.choosing, m.choices = false, nil
+		m.choice, m.choices = choiceNone, nil
 		return m, nil
 	}
-	n := digit(msg.String())
-	if n < 1 || n > len(m.choices) {
+	picked, ok := ChoiceAt(m.choices, msg.String())
+	if !ok {
 		return m, nil
 	}
-	target := m.choices[n-1].Key
-	m.choosing, m.choices = false, nil
-	return m, m.transition(target)
+	kind := m.choice
+	m.choice, m.choices = choiceNone, nil
+	return m, m.runChoice(kind, picked)
+}
+
+// runChoice turns a picked option into the one service call it stands for.
+func (m Model) runChoice(kind choiceKind, picked Choice) tea.Cmd {
+	if kind == choiceTransition {
+		return m.transition(picked.Value)
+	}
+	task, ok := m.selectedTask()
+	if !ok {
+		return nil
+	}
+	value, err := strconv.Atoi(picked.Value)
+	if err != nil {
+		return nil
+	}
+	priority := core.Priority(value)
+	return m.updateTask(task, core.UpdateTaskInput{Priority: &priority})
 }
 
 // startEditing focuses the filter bar on the current expression.
 func (m Model) startEditing() Model {
-	m.editing = true
-	m.input.SetValue(m.filterText)
-	m.input.CursorEnd()
-	m.input.Focus()
-	return m
+	return m.startPrompt(promptFilter, m.filterText)
 }
 
 // applyFilterText parses an expression, keeping the old filter when it is bad.
@@ -464,19 +792,36 @@ func (m Model) applyFilterText(text string) Model {
 	return m
 }
 
-// startChoosing offers the transitions the workflow permits from here.
-func (m Model) startChoosing() Model {
+// startChoosing offers the options a picker has, refusing one that has none.
+func (m Model) startChoosing(kind choiceKind) Model {
 	task, ok := m.selectedTask()
 	if !ok {
+		m.err = "no task is selected"
 		return m
 	}
-	choices := NextStates(m.workflow, task.Status)
-	if len(choices) == 0 {
-		m.err = "no transition is permitted from " + task.Status
-		return m
+	choices := PriorityChoices()
+	if kind == choiceTransition {
+		choices = TransitionChoices(m.workflow, task.Status)
+		if len(choices) == 0 {
+			m.err = "no transition is permitted from " + task.Status
+			return m
+		}
 	}
-	m.choosing, m.choices, m.err = true, choices, ""
+	m.choice, m.choices, m.err = kind, choices, ""
 	return m
+}
+
+// renewLease refuses when this session does not hold the task's lease.
+func (m Model) renewLease() (Model, tea.Cmd) {
+	task, ok := m.selectedTask()
+	if !ok {
+		return m, nil
+	}
+	if m.leases[task.ID] == "" {
+		m.err = "cannot renew: this session does not hold a lease on " + task.Ref
+		return m, nil
+	}
+	return m, m.renew(task)
 }
 
 // release refuses when this session does not hold the task's lease.
@@ -490,6 +835,37 @@ func (m Model) release() (Model, tea.Cmd) {
 		return m, nil
 	}
 	return m, m.releaseCmd(task)
+}
+
+// actionContext describes the selected task so the footer only offers keys
+// that will work on it.
+func (m Model) actionContext() ActionContext {
+	ctx := ActionContext{HasProject: m.project.Key != ""}
+	task, ok := m.selectedTask()
+	if !ok {
+		return ctx
+	}
+	ctx.HasTask = true
+	ctx.CanTransition = len(TransitionChoices(m.workflow, task.Status)) > 0
+	if !task.ClaimedAtTime(m.now()) {
+		return ctx
+	}
+	if m.leases[task.ID] != "" {
+		ctx.HeldHere = true
+		return ctx
+	}
+	ctx.HeldElsewhere = true
+	return ctx
+}
+
+// holderNote names the worker holding the selected task, which the footer says
+// instead of offering a lease key that would be refused.
+func (m Model) holderNote() string {
+	task, ok := m.selectedTask()
+	if !ok || !task.ClaimedAtTime(m.now()) || m.leases[task.ID] != "" {
+		return ""
+	}
+	return "held by " + shortID(task.ClaimedByActorID)
 }
 
 // selectedTask returns the task the current view acts on.

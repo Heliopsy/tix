@@ -61,7 +61,7 @@ func TestViewNeverPanics(t *testing.T) {
 			m, _ = m.reduce(detailMsg{task: task("a", "todo", 1, core.PriorityNormal)})
 			m.view = v
 			m.err, m.status, m.filterErr = "boom", "ok", "bad filter"
-			m.editing, m.choosing, m.choices = true, true, NextStates(testWorkflow(), "todo")
+			m.prompt, m.choice, m.choices = promptFilter, choiceTransition, TransitionChoices(testWorkflow(), "todo")
 			if m.View() == "" && size.w > 0 {
 				t.Fatalf("view %v at %dx%d rendered nothing", v, size.w, size.h)
 			}

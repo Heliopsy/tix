@@ -15,7 +15,10 @@ const (
 )
 
 // Bound are the surfaces every operation must reach unless it is exempted.
-var Bound = []Surface{SurfaceCLI, SurfaceHTTP, SurfaceWeb}
+// The terminal interface is in this list: leaving it out was an enforcement
+// hole, not a decision, and it let the tui drift to twelve of eighty-one
+// operations with nothing failing the build.
+var Bound = []Surface{SurfaceCLI, SurfaceHTTP, SurfaceWeb, SurfaceTUI}
 
 // Route is one HTTP or browser route. Template is set only for a browser
 // screen that renders one.

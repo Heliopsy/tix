@@ -25,6 +25,23 @@ type fakeService struct {
 	claimed     []core.TaskRef
 	released    []core.TaskRef
 	transitions []core.TransitionInput
+
+	created  []core.CreateTaskInput
+	updated  []core.UpdateTaskInput
+	comments []string
+	tagged   []string
+	untagged []string
+	deps     []core.TaskRef
+
+	createErr error
+	updateErr error
+
+	claimedNext  bool
+	renewed      int
+	projectsMade []core.CreateProjectInput
+
+	actors        map[string]*core.Actor
+	actorsQueried []string
 }
 
 func newFakeService() *fakeService {
@@ -111,8 +128,11 @@ func (f *fakeService) AddMember(context.Context, string, core.Role) (*core.Membe
 func (f *fakeService) ListMembers(context.Context) ([]core.Membership, error) { return nil, nil }
 func (f *fakeService) RemoveMember(context.Context, string) error             { return nil }
 
-func (f *fakeService) CreateProject(context.Context, core.CreateProjectInput) (*core.Project, error) {
-	return nil, nil
+func (f *fakeService) CreateProject(_ context.Context, in core.CreateProjectInput) (*core.Project, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.projectsMade = append(f.projectsMade, in)
+	return &core.Project{Key: in.Key, Name: in.Name}, nil
 }
 func (f *fakeService) GetProject(context.Context, string) (*core.Project, error) { return nil, nil }
 func (f *fakeService) UpdateProject(context.Context, string, core.UpdateProjectInput) (*core.Project, error) {
@@ -134,8 +154,14 @@ func (f *fakeService) PutWorkflow(context.Context, core.WorkflowInput) (*core.Wo
 func (f *fakeService) GetWorkflow(context.Context, string) (*core.Workflow, error) { return nil, nil }
 func (f *fakeService) DeleteWorkflow(context.Context, string) error                { return nil }
 
-func (f *fakeService) CreateTask(context.Context, core.CreateTaskInput) (*core.Task, error) {
-	return nil, nil
+func (f *fakeService) CreateTask(_ context.Context, in core.CreateTaskInput) (*core.Task, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.created = append(f.created, in)
+	if f.createErr != nil {
+		return nil, f.createErr
+	}
+	return &core.Task{ID: "new", Ref: in.ProjectRef + "-99", Title: in.Title}, nil
 }
 func (f *fakeService) GetTask(_ context.Context, ref core.TaskRef) (*core.Task, error) {
 	f.mu.Lock()
@@ -148,8 +174,14 @@ func (f *fakeService) GetTask(_ context.Context, ref core.TaskRef) (*core.Task, 
 	}
 	return nil, core.NotFound("task %q", ref.String())
 }
-func (f *fakeService) UpdateTask(context.Context, core.TaskRef, core.UpdateTaskInput) (*core.Task, error) {
-	return nil, nil
+func (f *fakeService) UpdateTask(_ context.Context, _ core.TaskRef, in core.UpdateTaskInput) (*core.Task, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.updated = append(f.updated, in)
+	if f.updateErr != nil {
+		return nil, f.updateErr
+	}
+	return &core.Task{}, nil
 }
 func (f *fakeService) DeleteTask(context.Context, core.TaskRef, core.DeleteTaskInput) error {
 	return nil
@@ -158,16 +190,36 @@ func (f *fakeService) RestoreTask(context.Context, core.TaskRef) (*core.Task, er
 func (f *fakeService) TaskTree(context.Context, core.TaskRef, int) ([]core.Task, error) {
 	return nil, nil
 }
-func (f *fakeService) AddDependency(context.Context, core.TaskRef, core.TaskRef) error    { return nil }
+func (f *fakeService) AddDependency(_ context.Context, _ core.TaskRef, on core.TaskRef) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.deps = append(f.deps, on)
+	return nil
+}
+
 func (f *fakeService) RemoveDependency(context.Context, core.TaskRef, core.TaskRef) error { return nil }
 func (f *fakeService) ListDependencies(context.Context, core.TaskRef) ([]core.Dependency, error) {
 	return nil, nil
 }
-func (f *fakeService) AddTag(context.Context, core.TaskRef, string) error    { return nil }
-func (f *fakeService) RemoveTag(context.Context, core.TaskRef, string) error { return nil }
-func (f *fakeService) ListTags(context.Context) ([]core.Tag, error)          { return nil, nil }
-func (f *fakeService) AddComment(context.Context, core.TaskRef, string) (*core.Comment, error) {
-	return nil, nil
+func (f *fakeService) AddTag(_ context.Context, _ core.TaskRef, tag string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.tagged = append(f.tagged, tag)
+	return nil
+}
+
+func (f *fakeService) RemoveTag(_ context.Context, _ core.TaskRef, tag string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.untagged = append(f.untagged, tag)
+	return nil
+}
+func (f *fakeService) ListTags(context.Context) ([]core.Tag, error) { return nil, nil }
+func (f *fakeService) AddComment(_ context.Context, _ core.TaskRef, body string) (*core.Comment, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.comments = append(f.comments, body)
+	return &core.Comment{Body: body}, nil
 }
 func (f *fakeService) ListComments(context.Context, core.TaskRef) ([]core.Comment, error) {
 	return nil, nil
@@ -184,11 +236,19 @@ func (f *fakeService) ListArtifacts(context.Context, core.TaskRef) ([]core.Artif
 }
 
 func (f *fakeService) ClaimNext(context.Context, core.ClaimNextInput) (*core.Claim, error) {
-	return nil, nil
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.claimedNext = true
+	return &core.Claim{Task: &core.Task{ID: "next"}, LeaseToken: "token-next"}, nil
 }
+
 func (f *fakeService) RenewLease(context.Context, core.TaskRef, string, core.Duration) (*core.Claim, error) {
-	return nil, nil
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.renewed++
+	return &core.Claim{}, nil
 }
+
 func (f *fakeService) SweepLeases(context.Context, int) (int, error) { return 0, nil }
 
 func (f *fakeService) ListAudit(context.Context, core.AuditFilter) ([]core.AuditEntry, string, error) {
@@ -205,8 +265,16 @@ func (f *fakeService) PutRetention(context.Context, core.RetentionPolicy) (*core
 func (f *fakeService) CreateUser(context.Context, core.CreateUserInput) (*core.User, error) {
 	return nil, nil
 }
-func (f *fakeService) GetActor(context.Context, string) (*core.Actor, error) { return nil, nil }
-func (f *fakeService) GetUser(context.Context, string) (*core.User, error)   { return nil, nil }
+func (f *fakeService) GetActor(_ context.Context, id string) (*core.Actor, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.actorsQueried = append(f.actorsQueried, id)
+	if a, ok := f.actors[id]; ok {
+		return a, nil
+	}
+	return nil, core.NotFound("actor %q", id)
+}
+func (f *fakeService) GetUser(context.Context, string) (*core.User, error) { return nil, nil }
 func (f *fakeService) ListUsers(context.Context, core.Page) ([]core.User, string, error) {
 	return nil, "", nil
 }

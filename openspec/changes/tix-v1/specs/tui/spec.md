@@ -255,3 +255,260 @@ Errors from the service, the transport, or the event subscription SHALL be displ
 
 - **WHEN** an error occurs from which the TUI cannot continue
 - **THEN** the terminal is restored, the error is printed, and a failing exit status is returned
+
+### Requirement: Task editing from the terminal interface
+
+The TUI SHALL allow a task to be created, retitled, re-bodied, reprioritised, reassigned, commented on, tagged, untagged, and given a dependency, and SHALL perform each through the same service call the CLI and the HTTP API use, holding no validation of its own.
+
+#### Scenario: A task is created from the board
+
+- **WHEN** the user creates a task from an open board
+- **THEN** the task is created in that project and appears on the board
+
+#### Scenario: A field is edited in place
+
+- **WHEN** the user edits the title, body, priority, or assignee of the selected task
+- **THEN** the change is applied and the board and the detail view show the new value
+
+#### Scenario: A comment is recorded
+
+- **WHEN** the user comments on the selected task
+- **THEN** the comment is recorded and appears in the task's comment thread
+
+#### Scenario: A tag is attached and detached
+
+- **WHEN** the user adds a tag to the selected task and later removes it
+- **THEN** the task carries the tag and then does not
+
+#### Scenario: A dependency is added by reference
+
+- **WHEN** the user names another task by the reference form the CLI accepts
+- **THEN** the dependency is recorded against the selected task
+
+#### Scenario: A malformed reference is refused without reaching the service
+
+- **WHEN** the user names a dependency that is not a valid task reference
+- **THEN** the interface reports the parse failure and no call is made
+
+#### Scenario: Validation is the service's, not the interface's
+
+- **WHEN** an edit the service rejects is submitted
+- **THEN** the service's own refusal is displayed and the task is unchanged
+
+#### Scenario: An empty input cancels
+
+- **WHEN** an input is accepted with nothing typed into it
+- **THEN** the action is abandoned and no call is made
+
+#### Scenario: The same actions are offered wherever a task is selected
+
+- **WHEN** a task is selected on the board and when the same task is open in the detail view
+- **THEN** the same editing actions are available in both
+
+### Requirement: Navigation back out of a view
+
+The TUI SHALL maintain a stack of the views the user has entered, and SHALL provide a binding that returns one level at a time, so no view can be entered that the user cannot leave without ending the program.
+
+#### Scenario: Back returns one level
+
+- **WHEN** the user has opened a board from the project list and a task from that board, and presses the back key twice
+- **THEN** the board is shown and then the project list is shown
+
+#### Scenario: Back at the top level does nothing
+
+- **WHEN** the back key is pressed on the project list
+- **THEN** the view does not change and the program keeps running
+
+#### Scenario: Quit steps out of a nested view
+
+- **WHEN** the quit key is pressed while a view is open above the project list
+- **THEN** the interface returns one level rather than ending the program
+
+#### Scenario: Quit at the top level ends the program
+
+- **WHEN** the quit key is pressed on the project list
+- **THEN** the program exits
+
+#### Scenario: Cancelling an input does not leave the view
+
+- **WHEN** an input or a picker is open and the cancel key is pressed
+- **THEN** the input closes and the view it was opened over is still displayed
+
+#### Scenario: Reloading a view does not lengthen the way back
+
+- **WHEN** the open view is reloaded from the event stream or by a manual refresh
+- **THEN** the number of levels between it and the project list is unchanged
+
+#### Scenario: The way out is advertised
+
+- **WHEN** any view is displayed
+- **THEN** its footer names either the key that returns one level or the key that exits
+
+### Requirement: Scrolling lists that do not fit the terminal
+
+Every list the TUI displays SHALL scroll with its selection, and SHALL state that it continues beyond the visible rows, so no entry is unreachable on a short terminal.
+
+#### Scenario: Every project is reachable on a short terminal
+
+- **WHEN** the project list holds more projects than the terminal has rows and the selection is moved through it
+- **THEN** every project is displayed at some point and can be opened
+
+#### Scenario: A board column scrolls with its selection
+
+- **WHEN** a column holds more tasks than the column has rows and the selection is moved down it
+- **THEN** every task in the column is displayed at some point
+
+#### Scenario: A list that continues says so
+
+- **WHEN** a list holds more entries than are visible
+- **THEN** the interface states how many entries lie above and below the visible rows
+
+#### Scenario: A list that fits claims nothing
+
+- **WHEN** every entry of a list is visible
+- **THEN** no indication of further entries is shown
+
+### Requirement: Empty states that explain themselves
+
+Where the TUI has nothing to display it SHALL say so in words and SHALL say what would change that, rather than drawing an empty frame that cannot be told apart from a failure.
+
+#### Scenario: An empty board says it is empty
+
+- **WHEN** a project's board holds no tasks
+- **THEN** the interface states that the board is empty and names the key that adds a task to it
+
+#### Scenario: A filtered-out board blames the filter
+
+- **WHEN** a board holds tasks but the active filter excludes all of them
+- **THEN** the interface states that no task matches the filter and names the keys that clear or change it
+
+#### Scenario: A project with no workflow says so
+
+- **WHEN** a project's workflow declares no states
+- **THEN** the interface states that there is no board and names the command that defines a workflow
+
+#### Scenario: An empty project list says how to create one
+
+- **WHEN** the caller can reach no projects
+- **THEN** the interface states that there are none and gives the command that creates one
+
+### Requirement: Colour vocabulary shared with the CLI
+
+The TUI SHALL colour a workflow state by the category its state belongs to rather than by the state's name, SHALL distinguish the ends of the priority range, SHALL render a task reference distinctly, and SHALL use the same colours for these meanings as the CLI does.
+
+#### Scenario: A state is coloured by its category
+
+- **WHEN** a board column's state belongs to a known category
+- **THEN** it is drawn in the colour the CLI draws that category in
+
+#### Scenario: A user-defined state is not guessed at
+
+- **WHEN** a state belongs to no known category
+- **THEN** it is drawn without colour rather than assigned a guessed one
+
+#### Scenario: The top of the queue stands out
+
+- **WHEN** tasks of differing priority are drawn
+- **THEN** the highest priority is distinguished and the lowest is muted, matching the CLI
+
+#### Scenario: A project carries its own colour and icon
+
+- **WHEN** a project has a palette colour and an icon
+- **THEN** the project list and the board header render them
+
+#### Scenario: Colour is never the only cue
+
+- **WHEN** colour is unavailable
+- **THEN** selection, claimed status, blocked status, and priority remain readable as text
+
+#### Scenario: A destination that is not a terminal is not coloured
+
+- **WHEN** the interface writes somewhere that is not a character device
+- **THEN** no colour escape sequences are emitted, as the CLI does for the same destination
+
+### Requirement: Terminal interface parity is enforced
+
+The capability registry SHALL include the terminal interface among the surfaces every operation must reach, so an operation that binds no terminal view SHALL carry a recorded exemption stating why, and a missing binding SHALL be marked as a gap rather than passing unnoticed.
+
+#### Scenario: A new operation cannot omit the terminal interface silently
+
+- **WHEN** an operation declares no terminal binding and no terminal exemption
+- **THEN** the parity tests fail
+
+#### Scenario: A binding must name a view that exists
+
+- **WHEN** an operation names a terminal view the interface does not offer
+- **THEN** the parity tests fail
+
+#### Scenario: Daily work is bound rather than exempted
+
+- **WHEN** an operation a person performs on a board by hand carries a terminal exemption instead of a binding
+- **THEN** the parity tests fail
+
+#### Scenario: Remaining gaps are counted
+
+- **WHEN** the number of terminal gaps changes
+- **THEN** the parity tests fail until the recorded count is brought into line
+
+### Requirement: Footer keys are a promise
+
+The keys a view advertises on its footer SHALL be only those the selected task can accept, so a key shown to the user SHALL NOT be refused when pressed. The help view SHALL continue to document every binding the view has, whatever the current selection allows.
+
+#### Scenario: An unclaimed task offers the claim key
+
+- **WHEN** the selected task is unclaimed
+- **THEN** the footer offers the claim key and offers neither release nor renew
+
+#### Scenario: A task held here offers release and renew
+
+- **WHEN** the selected task is held under a lease this session took
+- **THEN** the footer offers release and renew and does not offer claim
+
+#### Scenario: A task held elsewhere offers no lease key
+
+- **WHEN** the selected task is held by another worker
+- **THEN** the footer offers no lease key and the interface states who holds it
+
+#### Scenario: A state with no way out does not offer a transition
+
+- **WHEN** the workflow permits no transition from the selected task's state
+- **THEN** the footer does not offer the transition key
+
+#### Scenario: Help documents what the footer hides
+
+- **WHEN** the help view is opened
+- **THEN** it lists every binding the view has, including those the current selection cannot use
+
+### Requirement: Keybinding schemes
+
+The TUI SHALL offer named keybinding schemes and per-action overrides, SHALL provide a settings view for choosing between them, and SHALL render every advertised key from the active bindings rather than from fixed text.
+
+#### Scenario: A scheme is chosen from the settings view
+
+- **WHEN** the user opens the settings view and selects a scheme
+- **THEN** the scheme takes effect immediately and the footer advertises its keys
+
+#### Scenario: Every scheme leaves every action reachable
+
+- **WHEN** any shipped scheme is active
+- **THEN** every action carries at least one key and a description
+
+#### Scenario: Advertised keys follow the active scheme
+
+- **WHEN** two different schemes are active in turn
+- **THEN** the keys named in the footer differ accordingly
+
+#### Scenario: An override keeps the action's meaning
+
+- **WHEN** a single action is rebound on top of a scheme
+- **THEN** the action answers to the new key and is still described by its own words
+
+#### Scenario: A colliding override is refused
+
+- **WHEN** an override would make one key mean two things within one view
+- **THEN** the interface reports which key collided, with which actions, in which view, and does not apply the override
+
+#### Scenario: An unusable configuration is reported rather than ignored
+
+- **WHEN** the configured scheme name is not one that ships, or a configured override cannot be applied
+- **THEN** the interface starts on the default bindings and states why

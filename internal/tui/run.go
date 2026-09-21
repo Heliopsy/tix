@@ -9,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 )
 
 // ExitInterrupt is the status returned when the interface is interrupted.
@@ -21,10 +22,17 @@ type Options struct {
 	Context context.Context
 	Project string
 	Filter  string
-	In      io.Reader
-	Out     io.Writer
-	Err     io.Writer
-	Environ []string
+	// Scheme names the keybinding preset and Overrides rebinds single actions.
+	Scheme    string
+	Overrides map[string]string
+	// TimeStyle renders every timestamp the interface draws. The zero value
+	// still works: it renders the compact layout in the machine's local zone,
+	// so a caller that has not wired configuration through yet is not broken.
+	TimeStyle output.TimeStyle
+	In        io.Reader
+	Out       io.Writer
+	Err       io.Writer
+	Environ   []string
 }
 
 // Run starts the terminal interface and returns the process exit code.
@@ -39,7 +47,8 @@ func Run(o Options) int {
 	}
 	model := New(Config{
 		Service: o.Service, Context: ctx, Actor: o.Actor,
-		Environ: o.Environ, Project: o.Project, Filter: o.Filter,
+		Environ: o.Environ, Out: o.Out, Project: o.Project, Filter: o.Filter,
+		Scheme: o.Scheme, Overrides: o.Overrides, TimeStyle: o.TimeStyle,
 	})
 	final, err := tea.NewProgram(model, programOptions(ctx, o)...).Run()
 	return exitStatus(final, err, errw)

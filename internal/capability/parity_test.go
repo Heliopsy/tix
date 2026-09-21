@@ -303,3 +303,76 @@ func contains(values []string, want string) bool {
 	}
 	return false
 }
+
+// tuiViews are the screens the terminal interface offers. A TUI binding must
+// name one of them, so the registry cannot claim an operation is reachable
+// from a view that does not exist.
+var tuiViews = map[string]bool{"projects": true, "board": true, "detail": true}
+
+func TestEveryTUIBindingNamesAKnownView(t *testing.T) {
+	t.Parallel()
+	for _, op := range capability.Operations() {
+		if op.TUI == "" {
+			continue
+		}
+		if !tuiViews[op.TUI] {
+			t.Errorf("%s: tui binding names view %q, which the interface does not have", op.Name, op.TUI)
+		}
+	}
+}
+
+// TestTheOperationsAPersonWorksWithDailyReachTheTUI names the work a person
+// does on a board by hand. These are the operations the terminal interface
+// exists for, so a gap in one of them is a defect rather than a backlog item.
+func TestTheOperationsAPersonWorksWithDailyReachTheTUI(t *testing.T) {
+	t.Parallel()
+	daily := []string{
+		"ListProjects", "CreateProject",
+		"ListTasks", "GetTask", "CreateTask", "UpdateTask", "TransitionTask",
+		"AddComment", "ListComments", "AddTag", "RemoveTag",
+		"AddDependency", "ListDependencies",
+		"ClaimTask", "ClaimNext", "RenewLease", "ReleaseLease",
+		"Subscribe", "TaskTree", "ListFieldDefs", "ListArtifacts", "ListWorkflows",
+	}
+	for _, method := range daily {
+		op, ok := capability.ByMethod(method)
+		if !ok {
+			t.Errorf("%s is not in the registry", method)
+			continue
+		}
+		if !op.Binds(capability.SurfaceTUI) {
+			t.Errorf("%s: %s is daily work and has no tui binding", op.Name, method)
+		}
+	}
+}
+
+// TestNoCLIGapRemains holds the line on the six commands that were missing.
+func TestNoCLIGapRemains(t *testing.T) {
+	t.Parallel()
+	for _, absence := range capability.Gaps() {
+		if absence.Surface == capability.SurfaceCLI {
+			t.Errorf("%s: the cli gap on %s is back", absence.Method, absence.Surface)
+		}
+	}
+}
+
+// TestRemainingGapsAreOnlyTheTUIOnes states where parity actually stands, so
+// the number cannot grow quietly and cannot be mistaken for zero.
+func TestRemainingGapsAreOnlyTheTUIOnes(t *testing.T) {
+	t.Parallel()
+	const knownTUIGaps = 54
+	count := 0
+	for _, absence := range capability.Gaps() {
+		if absence.Surface != capability.SurfaceTUI {
+			t.Errorf("%s: an unexpected gap on %s", absence.Method, absence.Surface)
+			continue
+		}
+		count++
+	}
+	if count > knownTUIGaps {
+		t.Errorf("tui gaps grew to %d, from %d", count, knownTUIGaps)
+	}
+	if count < knownTUIGaps {
+		t.Errorf("tui gaps fell to %d from %d; lower the constant so the gate keeps holding", count, knownTUIGaps)
+	}
+}

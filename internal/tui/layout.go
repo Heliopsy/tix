@@ -1,5 +1,7 @@
 package tui
 
+import "fmt"
+
 // LayoutMode names how much of the board fits on the terminal.
 type LayoutMode int
 
@@ -10,12 +12,15 @@ const (
 	LayoutTooSmall
 )
 
-// Layout sizes.
+// Layout sizes. A column is drawn inside a box, so BorderWidth of its width
+// and BorderHeight of its height are spent on the frame rather than content.
 const (
-	MinColumnWidth = 18
+	MinColumnWidth = 20
 	MinWidth       = 24
 	MinHeight      = 8
 	ChromeHeight   = 5
+	BorderWidth    = 2
+	BorderHeight   = 2
 )
 
 // Layout is the geometry one frame is drawn with.
@@ -27,6 +32,13 @@ type Layout struct {
 	VisibleColumns int
 	BodyHeight     int
 }
+
+// InnerWidth is the room inside a column's border.
+func (l Layout) InnerWidth() int { return max(1, l.ColumnWidth-BorderWidth) }
+
+// CardRows is how many cards fit inside a column's border, leaving a line for
+// the column's own heading.
+func (l Layout) CardRows() int { return max(1, l.BodyHeight-BorderHeight-1) }
 
 // LayoutFor decides the geometry for a terminal size and a column count.
 func LayoutFor(width, height, columns int) Layout {
@@ -125,4 +137,55 @@ func Truncate(s string, width int) string {
 		return string(r[:1])
 	}
 	return string(r[:width-1]) + "…"
+}
+
+// ScrollWindow keeps a selected row inside a window of the given height and,
+// unlike ScrollOffset, never leaves the window hanging past the end of a list
+// that has shrunk. It is what every scrolling view in the interface uses.
+func ScrollWindow(offset, selected, height, total int) int {
+	if height <= 0 || total <= 0 {
+		return 0
+	}
+	if total <= height {
+		return 0
+	}
+	offset = ScrollOffset(offset, clamp(selected, 0, total-1), height)
+	return clamp(offset, 0, total-height)
+}
+
+// VisibleRows is how many rows a scrolling list may draw into a body of the
+// given height. A list that does not fit gives up one row to the hint that
+// says so, rather than drawing over its own last row.
+func VisibleRows(height, total int) int {
+	if total > height {
+		return max(1, height-1)
+	}
+	return max(1, height)
+}
+
+// MoreAbove reports whether a scrolled window hides rows before it.
+func MoreAbove(offset int) bool { return offset > 0 }
+
+// MoreBelow reports whether a scrolled window hides rows after it.
+func MoreBelow(offset, height, total int) bool {
+	return height > 0 && offset+height < total
+}
+
+// ScrollHint states that a window hides rows, so a list that runs off the
+// screen never looks like the whole list. It is empty when nothing is hidden.
+func ScrollHint(offset, height, total int) string {
+	above, below := offset, 0
+	if MoreBelow(offset, height, total) {
+		below = total - offset - height
+	}
+	switch {
+	case MoreAbove(offset) && below > 0:
+		return fmt.Sprintf("↑ %d more   ↓ %d more", above, below)
+	case MoreAbove(offset):
+		return fmt.Sprintf("↑ %d more", above)
+	case below > 0:
+		return fmt.Sprintf("↓ %d more", below)
+	default:
+		return ""
+	}
 }
