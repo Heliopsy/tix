@@ -41,6 +41,20 @@ Coding standards for tix. Terse by design. Read before writing code.
 - Coverage threshold is 80%, excluding `internal/tui`.
 - New behaviour ships with its test in the same change.
 
+## Never touch a real store
+
+- Tests, hand verification and demos use an isolated database, always. Pass
+  `--db` or `TIX_DATABASE_DSN` pointing at a temporary path, and prefer a fresh
+  tenant over reusing `default`.
+- Never run against the zero-config store at `$XDG_DATA_HOME/tix/tix.db`. That
+  is somebody's real work. A command with no `--db` resolves there, so the
+  absence of a flag is the bug.
+- `tix serve` for a demo takes the same `--db`. A server started without one
+  puts a browser on the real store.
+- This is not hypothetical: hand verification once created projects in a real
+  store, which then broke the zero-config `task add` path for its owner because
+  the tenant no longer had exactly one project.
+
 ## Specs
 
 - OpenSpec is normative. Behaviour changes update `openspec/` before the code.
