@@ -38,6 +38,35 @@ flag needed. `--no-color` or `TIX_OUTPUT_COLOR=never` turns it off everywhere; `
 `TIX_OUTPUT_COLOR=always` keeps it on through a pipe, for feeding a pager. `NO_COLOR` and `TIX_NO_COLOR` are
 honoured while the mode is `auto`. See [configuration.md](configuration.md).
 
+## Watching the event stream
+
+`tix watch` follows domain events as they are committed, until it is interrupted:
+
+```console
+$ tix watch
+10:15:03  alice  created       homelab-9   Move backups off the old NAS
+10:15:12  alice  claimed       homelab-9
+10:15:40  alice  transitioned  homelab-9   todo → doing
+10:16:02  bob    claimed       homelab-4   Rotate the API keys
+```
+
+That default line-per-event format is what `table` renders for this command: a table cannot size its columns
+until the stream ends, which a live tail never does, so `watch` draws one readable line per event instead. Pass
+`-o ndjson` for a machine to parse, matching every other listing:
+
+```console
+$ tix watch -o ndjson --since 42
+{"seq":43,"type":"task.claimed","project_id":"...","subject_id":"...","actor_id":"...", ...}
+```
+
+`--project`, `--type` and `--actor` narrow the stream, each repeatable; `--type` takes a trailing `*` for a
+prefix match such as `task.*`. `--since` resumes after a sequence number without missing anything the outbox
+already holds, and `--limit` stops after a fixed number of events instead of running until interrupted.
+
+```sh
+tix watch --actor agent-pax --type task.*
+```
+
 ## NDJSON everywhere
 
 The same line-per-record shape shows up in four places, and they compose:
