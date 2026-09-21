@@ -30,6 +30,13 @@ type Local struct {
 	// loopback. Deliveries carry task content, so this is opt-in.
 	allowInsecureWebhooks bool
 
+	// allowPrivateWebhookTargets permits a delivery target on loopback, a
+	// link-local address or a private range. Separate from the plaintext
+	// allowance above because they are different decisions: accepting http is
+	// about confidentiality, accepting an internal address is about what the
+	// server can be pointed at on the operator's own network.
+	allowPrivateWebhookTargets bool
+
 	// noStarterProjects suppresses the starter lists a brand new installation
 	// is given, for an operator who wants an empty one.
 	noStarterProjects bool
@@ -76,6 +83,14 @@ func WithInsecureWebhooks(allow bool) Option {
 	return func(l *Local) { l.allowInsecureWebhooks = allow }
 }
 
+// WithPrivateWebhookTargets allows delivery to loopback and private network
+// addresses. Off by default, and an operator decision only: a tenant supplying
+// a URL that reaches internal infrastructure is the request-forgery case this
+// guards.
+func WithPrivateWebhookTargets(allow bool) Option {
+	return func(l *Local) { l.allowPrivateWebhookTargets = allow }
+}
+
 // WithoutStarterProjects leaves a brand new installation with only the default
 // list, for an operator installing tix for one purpose.
 func WithoutStarterProjects() Option {
@@ -94,6 +109,14 @@ func New(st store.Store, opts ...Option) *Local {
 	}
 	for _, opt := range opts {
 		opt(l)
+	}
+	// An injected clock has to reach identifier generation too. A ULID carries
+	// its own timestamp, so leaving the default generator on the wall clock
+	// while the rest of a build runs on a fake one makes an event's identifier
+	// disagree with its own OccurredAt. Only the default is replaced, so an
+	// explicitly supplied generator still wins.
+	if l.ids == id.Default {
+		l.ids = id.NewGenerator(l.clock)
 	}
 	return l
 }

@@ -148,6 +148,63 @@ func TestFilterByActorPassesEverythingWhenNoneWereRequested(t *testing.T) {
 	}
 }
 
+// Establishing the stream prints a banner to standard error, not standard
+// output, so a pipeline reading ndjson off stdout never sees it.
+func TestWatchPrintsAStartupBannerToStderr(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("task", "add", "buy milk")
+
+	got := c.mustRun("watch", "--since", "1", "--limit", "1", "--type", "task.created")
+	if !strings.Contains(got.err, "watching") {
+		t.Fatalf("stderr = %q, want a startup banner", got.err)
+	}
+	if !strings.Contains(got.err, "ctrl-c to stop") {
+		t.Fatalf("stderr = %q, want it to say how to stop", got.err)
+	}
+	if strings.Contains(got.out, "watching") {
+		t.Fatalf("stdout = %q, the banner leaked into the event stream", got.out)
+	}
+}
+
+// The banner names an active filter, so a person watching a narrow slice of
+// the stream can tell that is what they asked for.
+func TestWatchBannerNamesTheFilter(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("task", "add", "buy milk")
+
+	got := c.mustRun("watch", "--since", "1", "--limit", "1", "--type", "task.created")
+	if !strings.Contains(got.err, "type=task.created") {
+		t.Fatalf("stderr = %q, want it to name the type filter", got.err)
+	}
+}
+
+// --quiet suppresses the banner the same way it suppresses every other
+// diagnostic, and ndjson stays exactly parseable either way.
+func TestWatchBannerRespectsQuiet(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("task", "add", "buy milk")
+
+	got := c.mustRun("watch", "--since", "1", "--limit", "1", "-o", "ndjson", "--quiet")
+	if strings.TrimSpace(got.err) != "" {
+		t.Fatalf("stderr = %q, want nothing under --quiet", got.err)
+	}
+	var event core.Event
+	if err := json.Unmarshal([]byte(strings.TrimSpace(got.out)), &event); err != nil {
+		t.Fatalf("watch is not ndjson: %v\n%s", err, got.out)
+	}
+}
+
+// The banner never appears when the command exits before the stream is
+// established: a bad filter fails before dialling, and a dial failure fails
+// before subscribing.
+func TestWatchBannerDoesNotAppearWhenTheCommandNeverConnects(t *testing.T) {
+	c := newCLI(t)
+	got := c.run("watch", "--since", "-1")
+	if strings.Contains(got.err, "watching") {
+		t.Fatalf("stderr = %q, want no banner for a filter the command refused", got.err)
+	}
+}
+
 // A filter the service or the command refuses fails before anything streams.
 func TestWatchRejectsABadFilter(t *testing.T) {
 	tests := []struct {

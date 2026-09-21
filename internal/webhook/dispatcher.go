@@ -3,11 +3,12 @@ package webhook
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/heliopsy/tix/internal/clock"
@@ -67,6 +68,7 @@ type Dispatcher struct {
 	scope    core.TenantScope
 	clk      clock.Clock
 	client   *http.Client
+	guard    Guard
 	schedule Schedule
 	owner    string
 	lease    time.Duration
@@ -78,12 +80,27 @@ type Dispatcher struct {
 // Option configures a Dispatcher.
 type Option func(*Dispatcher)
 
-// WithHTTPClient replaces the client used for delivery.
+// WithHTTPClient replaces the client used for delivery. A client that states
+// no redirect policy inherits the one that follows none, so a replacement made
+// for another reason cannot quietly reopen the redirect hole.
 func WithHTTPClient(c *http.Client) Option {
 	return func(d *Dispatcher) {
 		if c != nil {
+			if c.CheckRedirect == nil {
+				c.CheckRedirect = refuseRedirect
+			}
 			d.client = c
 		}
+	}
+}
+
+// WithGuard sets the network policy delivery is held to. The zero guard
+// refuses every private destination.
+func WithGuard(g Guard) Option {
+	return func(d *Dispatcher) {
+		d.guard = g
+		timeout := d.client.Timeout
+		d.client = g.Client(timeout)
 	}
 }
 
@@ -154,11 +171,13 @@ func NewDispatcher(s store.Store, scope core.TenantScope, clk clock.Clock, opts 
 	if clk == nil {
 		clk = clock.New()
 	}
+	guard := NewGuard(false)
 	d := &Dispatcher{
 		store:    s,
 		scope:    scope,
 		clk:      clk,
-		client:   &http.Client{Timeout: DefaultTimeout},
+		client:   guard.Client(DefaultTimeout),
+		guard:    guard,
 		schedule: DefaultSchedule(),
 		owner:    id.New(),
 		lease:    DefaultLease,
@@ -350,6 +369,9 @@ func (d *Dispatcher) attempt(ctx context.Context, j *job) error {
 // arrived. The signing secret is never placed in a header value that is not
 // the signature, nor in any error this returns.
 func (d *Dispatcher) post(ctx context.Context, j *job, body []byte) (int, error) {
+	if err := d.guard.CheckURL(j.endpoint.URL); err != nil {
+		return 0, ErrBlockedTarget
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, j.endpoint.URL, bytes.NewReader(body))
 	if err != nil {
 		return 0, err
@@ -445,16 +467,36 @@ func responseError(code int) string {
 	return fmt.Sprintf("endpoint responded %d", code)
 }
 
-// transportError describes a failed request without repeating the target url,
-// which may itself carry a credential.
+// transportError describes a failed request in categories only. The operator
+// learns what went wrong; the tenant reading the same field learns nothing
+// about the network, because an address, port or resolver answer quoted here
+// would turn the delivery log into a probe result.
 func transportError(err error) string {
-	msg := err.Error()
-	var ue *url.Error
-	if errors.As(err, &ue) && ue.Err != nil {
-		msg = ue.Op + ": " + ue.Err.Error()
+	switch {
+	case errors.Is(err, ErrBlockedTarget):
+		return "endpoint address is not permitted"
+	case errors.Is(err, context.DeadlineExceeded), isTimeout(err):
+		return "endpoint did not answer in time"
+	case errors.Is(err, context.Canceled):
+		return "delivery was cancelled"
 	}
-	if len(msg) > maxErrorLength {
-		msg = msg[:maxErrorLength]
+	var de *net.DNSError
+	if errors.As(err, &de) {
+		return "endpoint host could not be resolved"
 	}
-	return msg
+	var ce *tls.CertificateVerificationError
+	if errors.As(err, &ce) {
+		return "endpoint tls certificate was not accepted"
+	}
+	var re *tls.RecordHeaderError
+	if errors.As(err, &re) {
+		return "endpoint did not complete a tls handshake"
+	}
+	return "endpoint could not be reached"
+}
+
+// isTimeout reports a deadline reached at the socket rather than the context.
+func isTimeout(err error) bool {
+	var te interface{ Timeout() bool }
+	return errors.As(err, &te) && te.Timeout()
 }

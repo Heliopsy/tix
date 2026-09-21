@@ -185,7 +185,7 @@ func TestValidateEndpoint(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := ValidateEndpoint(c.endpoint)
+			err := ValidateEndpoint(NewGuard(false), c.endpoint)
 			if (err != nil) != c.wantErr {
 				t.Fatalf("ValidateEndpoint = %v, wantErr %v", err, c.wantErr)
 			}

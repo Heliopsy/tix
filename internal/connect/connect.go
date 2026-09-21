@@ -3,7 +3,6 @@ package connect
 
 import (
 	"context"
-	"net/url"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -223,17 +222,15 @@ func (t *Target) setLocal(dsn, home string) error {
 	return nil
 }
 
-// redactDSN hides the password of a connection string shown in a diagnostic.
+// redactDSN hides the credentials of a connection string shown in a diagnostic.
+//
+// It defers to config.RedactDSN rather than keeping a second, weaker rule. The
+// version that lived here handled only the userinfo form, so a DSN carrying its
+// password as a query parameter, which both drivers accept, was printed intact
+// wherever a target is described: the diagnostic command, and the settings page
+// that now names the database a server is talking to.
 func redactDSN(dsn string) string {
-	u, err := url.Parse(dsn)
-	if err != nil || u.User == nil {
-		return dsn
-	}
-	if _, ok := u.User.Password(); !ok {
-		return dsn
-	}
-	u.User = url.UserPassword(u.User.Username(), "xxxxx")
-	return u.String()
+	return config.RedactDSN(dsn)
 }
 
 // originOf reports which layer decided the endpoint.
@@ -323,6 +320,7 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		service.WithClock(clk),
 		service.WithHooks(service.HookModeOf(mode)),
 		service.WithRetentionDefaults(cfg.Config.Retention.Policy("")),
+		service.WithPrivateWebhookTargets(cfg.Config.Webhooks.AllowPrivateTargets),
 	)
 	tenant, err := resolveTenant(ctx, st, local, target.Tenant)
 	if err != nil {

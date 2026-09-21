@@ -9,7 +9,15 @@ import (
 // Redacted replaces a secret value in displayed output.
 const Redacted = "***"
 
-var dsnKeyValueSecret = regexp.MustCompile(`(?i)\b(password|passwd|pwd|token|secret)\s*=\s*[^\s;]+`)
+// dsnKeyValueSecret matches a credential carried as a key and value in a
+// connection string.
+//
+// The leading [a-z_]* is what catches a prefixed parameter such as
+// sslpassword, which both PostgreSQL drivers accept: a word boundary alone sits
+// between two word characters there and never matches. The value stops at & as
+// well as whitespace and a semicolon, so redacting one query parameter does not
+// swallow every parameter after it.
+var dsnKeyValueSecret = regexp.MustCompile(`(?i)\b[a-z_]*(?:password|passwd|pwd|token|secret)\s*=\s*[^\s;&]+`)
 
 func redact(level secrecy, value string) string {
 	switch {

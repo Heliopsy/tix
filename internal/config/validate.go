@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
 	"github.com/heliopsy/tix/internal/webhook"
@@ -23,6 +24,7 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		{"output.format", cfg.Output.Format, OutputFormats, nil},
 		{"output.color", cfg.Output.Color, OutputColors, nil},
 		{"output.time_format", cfg.Output.TimeFormat, OutputTimeFormats, nil},
+		{"server.cookie_security", cfg.Server.CookieSecurity, CookieSecurities, nil},
 	}
 	for _, check := range checks {
 		if allowed(check.value, check.set) {
@@ -45,6 +47,14 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 	// only fail much later, while rendering something.
 	if _, err := output.NewTimeStyle(cfg.Output.TimeFormat, cfg.Output.Timezone); err != nil {
 		return invalidKey("output.timezone", sources).WithDetail("value", cfg.Output.Timezone).
+			WithDetail("reason", err.Error())
+	}
+	// A trusted proxy list decides whether a forwarded header is believed, so
+	// an address that does not parse must fail at startup rather than quietly
+	// trust nothing.
+	if _, err := auth.NewProxyPolicy(cfg.Server.TrustedProxies); err != nil {
+		return invalidKey("server.trusted_proxies", sources).
+			WithDetail("value", strings.Join(cfg.Server.TrustedProxies, ",")).
 			WithDetail("reason", err.Error())
 	}
 	if cfg.Server.URL != "" {

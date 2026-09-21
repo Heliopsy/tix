@@ -150,3 +150,34 @@ func TestDependencyOperationsRequireAnActor(t *testing.T) {
 		t.Errorf("ListDependencies unauthenticated = %v", err)
 	}
 }
+
+// TestDependencyEdgesAuthoriseBothEnds pins the fifth consequence of the
+// project-confinement defect: authorising only the source task let a caller
+// link to, and unlink from, a task it has no authority over. An edge reaches
+// into the task at its far end, so both ends need the same authority.
+func TestDependencyEdgesAuthoriseBothEnds(t *testing.T) {
+	l, ctx, scope, actor, project := newTaskFixture(t)
+	mine := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "mine"})
+	other := seedTaskProject(t, l, scope, "other")
+	theirs := mustCreateTask(t, l, ctx, core.CreateTaskInput{
+		Title: "theirs", ProjectRef: other.Key,
+	})
+
+	// The same actor, confined to the project holding "mine".
+	pinned := *actor
+	pinned.ProjectID = project.ID
+	pinnedCtx := taskContext(&pinned)
+
+	refMine := core.TaskRef{ID: mine.ID}
+	refTheirs := core.TaskRef{ID: theirs.ID}
+
+	if err := l.AddDependency(pinnedCtx, refMine, refTheirs); err == nil {
+		t.Error("a pinned caller linked its task to one in another project")
+	}
+	if err := l.AddDependency(ctx, refMine, refTheirs); err != nil {
+		t.Fatalf("an unpinned caller must still link across projects: %v", err)
+	}
+	if err := l.RemoveDependency(pinnedCtx, refMine, refTheirs); err == nil {
+		t.Error("a pinned caller unlinked a task in another project")
+	}
+}

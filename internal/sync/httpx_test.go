@@ -264,3 +264,66 @@ func TestBatchJSONRoundTrips(t *testing.T) {
 		t.Errorf("round trip = %+v", back)
 	}
 }
+
+// A source that redirects out of its configured origin is not followed. The
+// hop is what would otherwise carry an operator-configured request, and the
+// credential attached to it, to an arbitrary address such as the cloud
+// metadata endpoint.
+func TestHTTPClientDoesNotFollowARedirectOffTheConfiguredOrigin(t *testing.T) {
+	var reached atomic.Int32
+	elsewhere := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		reached.Add(1)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer elsewhere.Close()
+	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, elsewhere.URL+"/latest/meta-data/", http.StatusFound)
+	}))
+	defer source.Close()
+
+	rec := &recorder{}
+	c, err := NewHTTPClient(HTTPOptions{
+		System: "test", BaseURL: source.URL, Sleep: rec.sleep,
+		MaxRetries: 0, BaseDelay: time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("NewHTTPClient: %v", err)
+	}
+	var out map[string]any
+	if err := c.GetJSON(context.Background(), "/issues", nil, &out); err == nil {
+		t.Fatal("a redirect off the configured origin was followed")
+	}
+	if n := reached.Load(); n != 0 {
+		t.Fatalf("the redirect target was requested %d times", n)
+	}
+}
+
+// A redirect that stays inside the configured origin is ordinary and is still
+// followed, so a source that normalises its own paths keeps working.
+func TestHTTPClientFollowsASameOriginRedirect(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/moved" {
+			http.Redirect(w, r, srv.URL+"/moved", http.StatusFound)
+			return
+		}
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	rec := &recorder{}
+	c, err := NewHTTPClient(HTTPOptions{
+		System: "test", BaseURL: srv.URL, Sleep: rec.sleep,
+		MaxRetries: 0, BaseDelay: time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("NewHTTPClient: %v", err)
+	}
+	var out map[string]any
+	if err := c.GetJSON(context.Background(), "/issues", nil, &out); err != nil {
+		t.Fatalf("GetJSON across a same-origin redirect: %v", err)
+	}
+	if out["ok"] != true {
+		t.Fatalf("decoded %v, want the redirected body", out)
+	}
+}

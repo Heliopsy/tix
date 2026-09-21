@@ -43,6 +43,16 @@ type Server struct {
 	URL    string `yaml:"url"`
 	Listen string `yaml:"listen"`
 	Token  string `yaml:"token" secret:"opaque"`
+
+	// TrustedProxies lists the reverse proxies, as IPs or CIDR blocks, whose
+	// X-Forwarded-Proto and X-Forwarded-For are believed. Any client can send
+	// those headers, so an empty list believes neither from anybody.
+	TrustedProxies []string `yaml:"trusted_proxies,omitempty"`
+
+	// CookieSecurity decides the Secure flag on the session and CSRF cookies.
+	// The default derives it from the scheme the client used, which behind a
+	// TLS-terminating proxy is the proxy's, not this process's.
+	CookieSecurity string `yaml:"cookie_security"`
 }
 
 // Auth holds the authentication settings.
@@ -59,6 +69,12 @@ type Hooks struct {
 // which governs git hooks.
 type Webhooks struct {
 	DrainMode string `yaml:"drain_mode"`
+	// AllowPrivateTargets permits a webhook endpoint to point at loopback, a
+	// link-local address or a private range. Off by default, and deliberately
+	// an operator setting rather than a tenant one: a tenant-supplied URL
+	// reaching internal infrastructure is the classic request-forgery shape,
+	// and the cloud metadata endpoint is a link-local address.
+	AllowPrivateTargets bool `yaml:"allow_private_targets"`
 }
 
 // Discovery holds the per-directory context discovery settings.
@@ -134,11 +150,13 @@ func (c Context) Remote() bool { return strings.TrimSpace(c.Server) != "" }
 
 // Default configuration values.
 const (
-	DefaultDSN      = "sqlite://~/.local/share/tix/tix.db"
-	DefaultListen   = "127.0.0.1:8080"
-	DefaultTenant   = "default"
-	DefaultAuthMode = "token"
-	DefaultHookMode = "off"
+	DefaultDSN    = "sqlite://~/.local/share/tix/tix.db"
+	DefaultListen = "127.0.0.1:8080"
+	DefaultTenant = "default"
+	// DefaultCookieSecurity follows the effective request scheme.
+	DefaultCookieSecurity = CookieSecurityAuto
+	DefaultAuthMode       = "token"
+	DefaultHookMode       = "off"
 	// DefaultWebhookDrainMode names the process that delivers queued webhooks.
 	DefaultWebhookDrainMode = string(webhook.DefaultMode)
 	DefaultLogLevel         = "info"
@@ -158,6 +176,19 @@ const (
 	// somebody reading their own task list.
 	DefaultOutputTimezone = "local"
 )
+
+// Cookie security settings, deciding whether a cookie is marked Secure.
+const (
+	// CookieSecurityAuto follows the effective scheme of each request.
+	CookieSecurityAuto = "auto"
+	// CookieSecurityAlways marks every cookie Secure.
+	CookieSecurityAlways = "always"
+	// CookieSecurityNever marks none, for a deliberately plaintext deployment.
+	CookieSecurityNever = "never"
+)
+
+// CookieSecurities lists the settings server.cookie_security accepts.
+var CookieSecurities = []string{CookieSecurityAuto, CookieSecurityAlways, CookieSecurityNever}
 
 // DefaultDiscoveryFilenames are the per-directory context files looked for.
 var DefaultDiscoveryFilenames = []string{".tix.yaml", ".tix/config.yaml"}
@@ -191,7 +222,7 @@ func Defaults() Config {
 	return Config{
 		Tenant:   DefaultTenant,
 		Database: Database{DSN: DefaultDSN},
-		Server:   Server{Listen: DefaultListen},
+		Server:   Server{Listen: DefaultListen, CookieSecurity: DefaultCookieSecurity},
 		Auth:     Auth{Mode: DefaultAuthMode},
 		Hooks:    Hooks{Mode: DefaultHookMode},
 		Webhooks: Webhooks{DrainMode: DefaultWebhookDrainMode},

@@ -1,11 +1,13 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -18,6 +20,16 @@ import (
 
 // auditImport names the audit action an import records for the whole run.
 const auditImport = "import"
+
+// auditTagPut names the audit action an imported tag records.
+const auditTagPut = "tag.put"
+
+// maxSnapshotMemory is how much of an uploaded snapshot is held in memory
+// before the remainder spills to a temporary file.
+const maxSnapshotMemory = 8 << 20
+
+// maxSnapshotBytes bounds one uploaded snapshot.
+const maxSnapshotBytes = 1 << 30
 
 // transferPage bounds how many rows a snapshot walk holds at once, so export
 // stays bounded by this constant rather than by the size of the tenant.
@@ -339,6 +351,69 @@ func writeArtifacts(ctx context.Context, tx store.Tx, enc *transfer.Encoder, t c
 	return nil
 }
 
+// snapshot holds an uploaded snapshot away from the reader it arrived on.
+type snapshot struct {
+	io.Reader
+	file *os.File
+}
+
+// Close releases the temporary file a large snapshot spilled to.
+func (s *snapshot) Close() error {
+	if s.file == nil {
+		return nil
+	}
+	name := s.file.Name()
+	err := s.file.Close()
+	if rmErr := os.Remove(name); err == nil {
+		err = rmErr
+	}
+	return err
+}
+
+// bufferSnapshot drains r before any transaction opens. An import holds one
+// write transaction for its whole run, and reading the network inside that
+// transaction lets a slow client hold the write lock and stall every other
+// writer in the process. The first maxSnapshotMemory bytes stay in memory and
+// the rest spills to a temporary file, so the bound is that constant rather
+// than the size of the upload.
+func bufferSnapshot(r io.Reader) (*snapshot, error) {
+	limited := io.LimitReader(r, maxSnapshotBytes+1)
+
+	var mem bytes.Buffer
+	n, err := io.CopyN(&mem, limited, maxSnapshotMemory)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, core.Invalid("reading snapshot: %v", err)
+	}
+	if n < maxSnapshotMemory {
+		return &snapshot{Reader: bytes.NewReader(mem.Bytes())}, nil
+	}
+
+	f, err := os.CreateTemp("", "tix-snapshot-*.ndjson")
+	if err != nil {
+		return nil, core.Internal("buffering snapshot: %v", err)
+	}
+	out := &snapshot{Reader: f, file: f}
+	if _, err := f.Write(mem.Bytes()); err != nil {
+		_ = out.Close()
+		return nil, core.Internal("buffering snapshot: %v", err)
+	}
+	spilled, err := io.Copy(f, limited)
+	if err != nil {
+		_ = out.Close()
+		return nil, core.Invalid("reading snapshot: %v", err)
+	}
+	if n+spilled > maxSnapshotBytes {
+		_ = out.Close()
+		return nil, core.Invalid("snapshot is larger than %d bytes", maxSnapshotBytes).
+			WithDetail("max_bytes", maxSnapshotBytes)
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		_ = out.Close()
+		return nil, core.Internal("buffering snapshot: %v", err)
+	}
+	return out, nil
+}
+
 // ImportFrom reads a snapshot record by record and applies it atomically.
 func (l *Local) ImportFrom(ctx context.Context, r io.Reader, in core.ImportInput) (*core.ImportResult, error) {
 	actor, err := l.authorize(ctx, authz.ActionImport, authz.Resource{})
@@ -348,7 +423,16 @@ func (l *Local) ImportFrom(ctx context.Context, r io.Reader, in core.ImportInput
 	if err := in.Validate(); err != nil {
 		return nil, err
 	}
-	dec := transfer.NewDecoder(r)
+	buffered, err := bufferSnapshot(r)
+	if err != nil {
+		return nil, err
+	}
+	// The buffer is read-only here and its Close only removes a spill file, so
+	// a failure changes nothing the caller could act on. Discarding it is
+	// deliberate rather than overlooked.
+	defer func() { _ = buffered.Close() }()
+
+	dec := transfer.NewDecoder(buffered)
 	if _, err := dec.Header(); err != nil {
 		return nil, err
 	}
@@ -456,7 +540,7 @@ func (i *importer) apply(ctx context.Context, tx store.Tx, m *mutation, rec *cor
 	case core.RecordFieldDef:
 		return i.applyFieldDef(ctx, tx, m, *rec.FieldDef)
 	case core.RecordLabel:
-		return i.applyTag(ctx, tx, *rec.Tag)
+		return i.applyTag(ctx, tx, m, *rec.Tag)
 	case core.RecordTask:
 		return i.applyTask(ctx, tx, m, *rec.Task)
 	case core.RecordDependency:
@@ -751,7 +835,7 @@ func (i *importer) putDef(projectID string, d core.FieldDef) {
 }
 
 // applyTag creates or updates one tag, matched by name within its project.
-func (i *importer) applyTag(ctx context.Context, tx store.Tx, tag core.Tag) error {
+func (i *importer) applyTag(ctx context.Context, tx store.Tx, m *mutation, tag core.Tag) error {
 	tag.Name = strings.TrimSpace(tag.Name)
 	if tag.Name == "" {
 		return i.reject("tag at line %d has no name", i.dec.Line())
@@ -772,23 +856,30 @@ func (i *importer) applyTag(ctx context.Context, tx store.Tx, tag core.Tag) erro
 	}
 	target := &core.Tag{ProjectID: projectID, Name: tag.Name, Color: tag.Color}
 	i.count(core.RecordLabel, existing != nil)
-	if existing != nil {
-		target.ID = existing.ID
-		i.mapID(tag.ID, existing.ID)
-		if i.dryRun {
-			return nil
-		}
-		return tx.PutTag(ctx, target)
-	}
 	if i.dryRun {
-		i.plannedID(tag.ID)
+		if existing != nil {
+			i.mapID(tag.ID, existing.ID)
+		} else {
+			i.plannedID(tag.ID)
+		}
 		return nil
 	}
-	_, err = i.createWithID(core.RecordLabel, tag.ID, func(id string) error {
+	var before any
+	if existing != nil {
+		before = *existing
+		target.ID = existing.ID
+		i.mapID(tag.ID, existing.ID)
+		if err := tx.PutTag(ctx, target); err != nil {
+			return err
+		}
+	} else if _, err := i.createWithID(core.RecordLabel, tag.ID, func(id string) error {
 		target.ID = id
 		return tx.PutTag(ctx, target)
-	})
-	return err
+	}); err != nil {
+		return err
+	}
+	return m.Record(auditTagPut, core.EventLabelAdded, "tag", target.ID, projectID,
+		before, target, map[string]any{"tag": target.Name})
 }
 
 // findTag returns a tag by project and name, or nil when it does not exist.
@@ -1096,8 +1187,12 @@ func (i *importer) applyTaskLive(ctx context.Context, tx store.Tx, m *mutation, 
 	if err := replaceTaskLabels(ctx, tx, target, t.Tags); err != nil {
 		return err
 	}
+	payload := map[string]any{"title": target.Title, "status": target.Status}
+	if fields := changedTaskFields(existing, target); len(fields) > 0 {
+		payload["fields"] = fields
+	}
 	return m.Record("task.update", core.EventTaskUpdated, "task", target.ID, projectID,
-		existing, target, map[string]any{"title": target.Title, "status": target.Status})
+		existing, target, payload)
 }
 
 // applyTaskDeletion applies a tombstone. Against a row the target has never
@@ -1385,7 +1480,12 @@ func artifactExists(ctx context.Context, tx store.Tx, taskID, id string) (bool, 
 }
 
 // linkParents resolves the deferred subtask links once every task is mapped.
+// The whole set is checked for cycles before anything is written, because a
+// snapshot naming A the parent of B and B the parent of A is only cyclic once
+// both links are considered together.
 func (i *importer) linkParents(ctx context.Context, tx store.Tx) error {
+	resolved := make([]parentLink, 0, len(i.parents))
+	pending := make(map[string]string, len(i.parents))
 	for _, link := range i.parents {
 		parentID, ok := i.ids[link.parentID]
 		if !ok {
@@ -1397,6 +1497,20 @@ func (i *importer) linkParents(ctx context.Context, tx store.Tx) error {
 			_ = i.reject("task at line %d is its own parent", link.line)
 			continue
 		}
+		resolved = append(resolved, parentLink{taskID: link.taskID, parentID: parentID, line: link.line})
+		pending[link.taskID] = parentID
+	}
+
+	parentOf := importParentOf(tx, pending)
+	for _, link := range resolved {
+		cyclic, err := closesParentCycle(ctx, link.taskID, link.parentID, parentOf)
+		if err != nil {
+			return err
+		}
+		if cyclic {
+			_ = i.reject("task at line %d would close a parent cycle", link.line)
+			continue
+		}
 		if i.dryRun {
 			continue
 		}
@@ -1404,15 +1518,28 @@ func (i *importer) linkParents(ctx context.Context, tx store.Tx) error {
 		if err != nil {
 			return err
 		}
-		if task.ParentID == parentID {
+		if task.ParentID == link.parentID {
 			continue
 		}
-		task.ParentID = parentID
+		task.ParentID = link.parentID
 		if err := tx.UpdateTask(ctx, task); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// importParentOf answers a task's parent from the links this import is about
+// to write, falling back to the store, and treats a row that does not exist
+// yet as having no parent so a dry run walks the same graph.
+func importParentOf(tx store.Tx, pending map[string]string) parentLookup {
+	fromStore := storeParentOf(tx)
+	return func(ctx context.Context, id string) (string, error) {
+		if p, ok := pending[id]; ok {
+			return p, nil
+		}
+		return fromStore(ctx, id)
+	}
 }
 
 // reconcile removes, in replace mode, the rows of an imported project that the

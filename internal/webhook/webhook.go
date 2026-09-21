@@ -3,7 +3,6 @@ package webhook
 
 import (
 	"context"
-	"net/url"
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -69,11 +68,11 @@ func Matches(e core.WebhookEndpoint, t core.EventType) bool {
 	return false
 }
 
-// ValidateEndpoint rejects an endpoint the dispatcher could never deliver to.
-func ValidateEndpoint(e core.WebhookEndpoint) error {
-	u, err := url.Parse(strings.TrimSpace(e.URL))
-	if err != nil || !u.IsAbs() || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
-		return core.Invalid("webhook url %q must be an absolute http or https url", e.URL)
+// ValidateEndpoint rejects an endpoint the dispatcher could never deliver to,
+// or must not deliver to. The guard carries the operator's network policy.
+func ValidateEndpoint(g Guard, e core.WebhookEndpoint) error {
+	if err := g.CheckURL(e.URL); err != nil {
+		return err
 	}
 	if strings.TrimSpace(e.Secret) == "" {
 		return core.Invalid("webhook signing secret is required")

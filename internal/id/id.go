@@ -21,8 +21,29 @@ type Generator interface {
 	NewAt(t time.Time) string
 }
 
+// Clock is the time source a generator timestamps identifiers from. It is
+// satisfied by clock.Clock, so a service under a fake clock can hand its own
+// clock here and keep event identifiers agreeing with OccurredAt.
+type Clock interface {
+	Now() time.Time
+}
+
+type systemClock struct{}
+
+// Now returns the current UTC time.
+func (systemClock) Now() time.Time { return time.Now().UTC() }
+
+// NewGenerator returns a generator reading the time from c. A nil clock reads
+// the system clock.
+func NewGenerator(c Clock) Generator {
+	if c == nil {
+		c = systemClock{}
+	}
+	return &generator{clock: c}
+}
+
 // Default is the package-level generator.
-var Default Generator = &generator{}
+var Default Generator = NewGenerator(nil)
 
 // New returns a new identifier from the default generator.
 func New() string { return Default.New() }
@@ -31,13 +52,14 @@ func New() string { return Default.New() }
 func NewAt(t time.Time) string { return Default.NewAt(t) }
 
 type generator struct {
+	clock    Clock
 	mu       sync.Mutex
 	lastMS   uint64
 	lastRand [10]byte
 }
 
-// New returns an identifier timestamped now.
-func (g *generator) New() string { return g.NewAt(time.Now()) }
+// New returns an identifier timestamped by the generator's clock.
+func (g *generator) New() string { return g.NewAt(g.clock.Now()) }
 
 // NewAt returns an identifier timestamped at t.
 func (g *generator) NewAt(t time.Time) string {
@@ -47,13 +69,14 @@ func (g *generator) NewAt(t time.Time) string {
 	var entropy [10]byte
 	if ms == g.lastMS {
 		entropy = g.lastRand
-		incr(&entropy)
-	} else {
-		if _, err := rand.Read(entropy[:]); err != nil {
-			panic("id: crypto/rand failed: " + err.Error())
+		if incr(&entropy) {
+			ms++
+			entropy = randomEntropy()
 		}
-		g.lastMS = ms
+	} else {
+		entropy = randomEntropy()
 	}
+	g.lastMS = ms
 	g.lastRand = entropy
 	g.mu.Unlock()
 
@@ -64,14 +87,26 @@ func (g *generator) NewAt(t time.Time) string {
 	return encode(raw)
 }
 
-// incr adds one to the entropy, treated as a big-endian integer.
-func incr(b *[10]byte) {
+// incr adds one to the entropy, treated as a big-endian integer. It reports
+// whether the addition wrapped, which is the one case where the next
+// identifier of a millisecond would not sort after the last.
+func incr(b *[10]byte) bool {
 	for i := len(b) - 1; i >= 0; i-- {
 		b[i]++
 		if b[i] != 0 {
-			return
+			return false
 		}
 	}
+	return true
+}
+
+// randomEntropy draws the ten random bytes an identifier carries.
+func randomEntropy() [10]byte {
+	var b [10]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		panic("id: crypto/rand failed: " + err.Error())
+	}
+	return b
 }
 
 // encode renders 16 bytes as 26 Crockford base32 characters.

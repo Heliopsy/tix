@@ -1201,3 +1201,94 @@ func TestRunSyncRecreatesATaskWhoseReferenceOutlivedIt(t *testing.T) {
 		t.Errorf("created = %v, want the task re-created", res.Created)
 	}
 }
+
+const syncParentMapping = `
+version: 1
+project: ops
+workflow: syncflow
+identity:
+  id: id
+  url: url
+  version: updated
+  updated_at: updated
+fields:
+  title: title
+  parent: parent
+status_field: status
+statuses:
+  To Do: todo
+  Done: done
+default_status: todo
+`
+
+// newParentSyncFixture registers a source whose mapping carries a parent link.
+func newParentSyncFixture(t *testing.T, name, rows string) *syncFixture {
+	t.Helper()
+	l, clk, scope, actor := newLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+
+	if _, err := l.PutWorkflow(ctx, core.WorkflowInput{
+		Key: "syncflow", Name: "Sync", Definition: core.WorkflowDefinition{
+			Initial: "todo",
+			States:  []core.State{{Key: "todo"}, {Key: "done", Terminal: true}},
+		},
+	}); err != nil {
+		t.Fatalf("creating workflow: %v", err)
+	}
+	if _, err := l.CreateProject(ctx, core.CreateProjectInput{
+		Key: "ops", Name: "Ops", WorkflowKey: "syncflow",
+	}); err != nil {
+		t.Fatalf("creating project: %v", err)
+	}
+
+	dir := t.TempDir()
+	mappingPath := filepath.Join(dir, "mapping.yaml")
+	if err := os.WriteFile(mappingPath, []byte(syncParentMapping), 0o600); err != nil {
+		t.Fatalf("writing mapping: %v", err)
+	}
+	file := filepath.Join(dir, "rows.csv")
+	if err := os.WriteFile(file, []byte(rows), 0o600); err != nil {
+		t.Fatalf("writing rows: %v", err)
+	}
+	t.Setenv(extsync.EnvName(name, extsync.EnvMapping), mappingPath)
+	t.Setenv(extsync.EnvName(name, extsync.EnvFile), file)
+
+	src, err := l.PutSyncSource(ctx, core.SyncSourceInput{System: core.SystemGeneric, Name: name})
+	if err != nil {
+		t.Fatalf("registering sync source: %v", err)
+	}
+	return &syncFixture{local: l, clock: clk, scope: scope, actor: actor, ctx: ctx,
+		source: src, dir: dir, file: file}
+}
+
+// A source that reparents A under its own child used to write the cycle
+// straight through, after which any walk of the parent chain ran without end.
+func TestRunSyncRejectsAParentCycle(t *testing.T) {
+	f := newParentSyncFixture(t, "cyc", `id,title,status,updated,parent,url
+E-1,first,To Do,2026-01-01T00:00:00Z,,https://src.test/E-1
+E-2,second,To Do,2026-01-01T00:00:00Z,E-1,https://src.test/E-2
+`)
+	if res := f.run(t, core.RunSyncInput{}); res.Created["task"] != 2 {
+		t.Fatalf("created = %v, want both rows", res.Created)
+	}
+
+	if err := os.WriteFile(f.file, []byte(`id,title,status,updated,parent,url
+E-1,first,To Do,2026-01-02T00:00:00Z,E-2,https://src.test/E-1
+`), 0o600); err != nil {
+		t.Fatalf("rewriting rows: %v", err)
+	}
+
+	res := f.run(t, core.RunSyncInput{})
+	if res.Updated["task"] != 0 {
+		t.Errorf("updated = %v, want the cyclic record rejected", res.Updated)
+	}
+	if res.Skipped["task"] != 1 {
+		t.Errorf("skipped = %v, want the cyclic record counted as skipped", res.Skipped)
+	}
+
+	for _, task := range f.tasks(t) {
+		if task.Title == "first" && task.ParentID != "" {
+			t.Fatalf("task %q was reparented under its own descendant", task.Ref)
+		}
+	}
+}

@@ -548,6 +548,16 @@ func (r *syncRun) applyOne(ctx context.Context, m *mutation, rec extsync.Record)
 	if err != nil {
 		return err
 	}
+	if decision.action == syncUpdate {
+		cyclic, err := closesParentCycle(ctx, decision.existing.ID, fields.parent, storeParentOf(m.tx))
+		if err != nil {
+			return err
+		}
+		if cyclic {
+			r.skip(mapped.ExternalID, "parent "+mapped.ExternalParentID+" would close a parent cycle")
+			return nil
+		}
+	}
 	var task *core.Task
 	if decision.action == syncCreate {
 		task, err = r.create(ctx, m, mapped, fields)

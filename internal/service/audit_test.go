@@ -89,3 +89,55 @@ func TestIsSecretKey(t *testing.T) {
 		}
 	}
 }
+
+// Key names alone are not enough: a credential embedded in a url reaches the
+// audit log under a key nobody would call secret.
+func TestRedactedJSONRemovesCredentialsFromValues(t *testing.T) {
+	const leak = "hunter2-SHOULD-NOT-APPEAR"
+
+	in := map[string]any{
+		"url":           "https://admin:" + leak + "@hooks.example.com/notify",
+		"callback":      "https://hooks.example.com/notify?access_token=" + leak + "&project=infra",
+		"header":        "Bearer " + leak + "AAAA",
+		"note":          "-----BEGIN RSA PRIVATE KEY-----\n" + leak + "\n-----END RSA PRIVATE KEY-----",
+		"authorization": leak,
+		"api_key":       leak,
+		"cookie":        leak,
+		"nested": map[string]any{
+			"endpoint": "postgres://tix:" + leak + "@db.internal:5432/tix",
+		},
+		"list": []any{"amqp://guest:" + leak + "@broker.internal/"},
+	}
+
+	got, err := redactedJSON(in)
+	if err != nil {
+		t.Fatalf("redactedJSON: %v", err)
+	}
+	if strings.Contains(string(got), leak) {
+		t.Fatalf("a credential survived redaction:\n%s", got)
+	}
+	for _, keep := range []string{"hooks.example.com", "db.internal", "project=infra"} {
+		if !strings.Contains(string(got), keep) {
+			t.Errorf("redaction removed the non-secret %q:\n%s", keep, got)
+		}
+	}
+}
+
+func TestIsSecretKeyCoversTheWiderSet(t *testing.T) {
+	for _, k := range []string{
+		"authorization", "Authorization", "cookie", "Set-Cookie", "api_key", "apiKey",
+		"access_key", "signing_key", "signature", "salt", "passwd", "bearer_token",
+	} {
+		if !isSecretKey(k) {
+			t.Errorf("isSecretKey(%q) = false, want true", k)
+		}
+	}
+	for _, k := range []string{
+		"key", "keys", "new_key", "project_key", "workflow_key", "tenant_key",
+		"field_key", "key_path", "id", "title", "url", "status",
+	} {
+		if isSecretKey(k) {
+			t.Errorf("isSecretKey(%q) = true, want false; it names an identifier", k)
+		}
+	}
+}

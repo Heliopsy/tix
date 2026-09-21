@@ -53,37 +53,62 @@ func newWebhookSecret() (string, error) {
 	return strings.ToLower(webhookSecretEncoding.EncodeToString(buf)), nil
 }
 
-// checkTransport refuses a plaintext target outside the loopback interface,
+// webhookGuard is the network policy a tenant-supplied delivery target is held
+// to. The allowance is read from the operator's construction option and is
+// never reachable from tenant input.
+func (l *Local) webhookGuard() webhook.Guard {
+	return webhook.NewGuard(l.allowPrivateWebhookTargets)
+}
+
+// checkTransport refuses a plaintext target the guard has not already allowed,
 // because a delivery body carries task content and a signature that a network
 // observer could replay. An operator with a terminating proxy opts out through
-// the environment.
+// the construction option.
 func checkTransport(raw string, allowInsecure bool) error {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil {
 		return core.Invalid("webhook url %q is not a valid url", raw)
 	}
-	if u.Scheme != "http" {
+	if u.Scheme != "http" || allowInsecure {
 		return nil
 	}
-	if isLoopbackHost(u.Hostname()) || allowInsecure {
+	if isLoopbackHost(u.Hostname()) {
 		return nil
 	}
 	return core.Invalid("webhook url %q must use https; deliveries carry task content", raw)
 }
 
+// isLoopbackHost reports a loopback literal or name. Whether a loopback target
+// may be registered at all is the guard's decision, not this one; this only
+// decides whether plaintext is tolerable once it has been.
 func isLoopbackHost(host string) bool {
-	if strings.EqualFold(host, "localhost") {
+	if strings.EqualFold(strings.TrimSuffix(host, "."), "localhost") {
 		return true
 	}
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
 }
 
+// sanitizedWebhookURL is what a subscriber may be told about an endpoint's
+// target: scheme, host and path only. Userinfo is already refused at
+// registration, and the query string is dropped here because a receiver
+// commonly puts a shared token in one, and a webhook event reaches every
+// matching endpoint rather than only the endpoint it describes.
+func sanitizedWebhookURL(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || !u.IsAbs() {
+		return ""
+	}
+	clean := url.URL{Scheme: u.Scheme, Host: u.Host, Path: u.Path}
+	return clean.String()
+}
+
 // webhookPayload describes an endpoint change to subscribers. It carries no
-// signing secret, since an event is delivered to every matching endpoint.
+// signing secret and no part of the url that could be a credential, since an
+// event is delivered to every matching endpoint rather than only this one.
 func webhookPayload(e core.WebhookEndpoint) map[string]any {
 	return map[string]any{
-		"url":         e.URL,
+		"url":         sanitizedWebhookURL(e.URL),
 		"active":      e.Active,
 		"event_types": e.EventTypes,
 	}
@@ -134,7 +159,7 @@ func (l *Local) PutWebhook(ctx context.Context, in core.WebhookInput) (*core.Web
 			EventTypes: in.EventTypes,
 			Active:     in.Active,
 		}
-		if err := webhook.ValidateEndpoint(e); err != nil {
+		if err := webhook.ValidateEndpoint(l.webhookGuard(), e); err != nil {
 			return err
 		}
 		if err := checkTransport(e.URL, l.allowInsecureWebhooks); err != nil {
@@ -331,7 +356,8 @@ func (l *Local) drainHooks(ctx context.Context, scope core.TenantScope, queued i
 	if queued == 0 || !l.hooks.drainMode().DrainsInline() {
 		return
 	}
-	d := webhook.NewDispatcher(l.store, scope, l.clock, webhook.WithInterval(0))
+	d := webhook.NewDispatcher(l.store, scope, l.clock,
+		webhook.WithInterval(0), webhook.WithGuard(l.webhookGuard()))
 	defer d.Stop()
 	_, _ = d.DrainFor(ctx, l.hooks.drainMode(), webhook.DefaultBound())
 }

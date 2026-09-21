@@ -26,6 +26,13 @@ func (l *Local) AddDependency(ctx context.Context, ref, dependsOn core.TaskRef) 
 		if err != nil {
 			return err
 		}
+		// An edge reaches into the task it points at, so the caller needs the
+		// same authority over both ends. Without this a project-pinned token
+		// could link its own task to one it cannot read, and learn from the
+		// result that the other task exists.
+		if err := l.authorizeTask(ctx, authz.ActionTaskUpdate, dep); err != nil {
+			return err
+		}
 		if err := linkDependency(ctx, m.tx, task, dep); err != nil {
 			return err
 		}
@@ -53,6 +60,9 @@ func (l *Local) RemoveDependency(ctx context.Context, ref, dependsOn core.TaskRe
 		if err != nil {
 			return err
 		}
+		if err := l.authorizeTask(ctx, authz.ActionTaskUpdate, dep); err != nil {
+			return err
+		}
 		if err := m.tx.RemoveDependency(ctx, task.ID, dep.ID); err != nil {
 			return err
 		}
@@ -77,8 +87,25 @@ func (l *Local) ListDependencies(ctx context.Context, ref core.TaskRef) ([]core.
 		if err := l.authorizeTask(ctx, authz.ActionTaskRead, task); err != nil {
 			return err
 		}
-		out, err = tx.ListDependencies(ctx, task.ID)
-		return err
+		edges, err := tx.ListDependencies(ctx, task.ID)
+		if err != nil {
+			return err
+		}
+		// An edge names a task at its far end, so listing them discloses refs.
+		// A caller confined to one project sees only the edges it may read,
+		// rather than learning the refs of tasks in projects it cannot reach.
+		out = out[:0]
+		for _, edge := range edges {
+			other, err := tx.GetTask(ctx, core.TaskRef{ID: edge.DependsOn})
+			if err != nil {
+				continue
+			}
+			if l.authorizeTask(ctx, authz.ActionTaskRead, other) != nil {
+				continue
+			}
+			out = append(out, edge)
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, err

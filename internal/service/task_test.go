@@ -965,8 +965,8 @@ func TestTaskSortValueRendersEverySortField(t *testing.T) {
 			}
 		})
 	}
-	if got := taskSortValue(core.SortDueAt, core.Task{}); got != "" {
-		t.Errorf("a task with no due date rendered %q, want an empty sort value", got)
+	if got := taskSortValue(core.SortDueAt, core.Task{}); got != sqlb.NoDueSentinel {
+		t.Errorf("a task with no due date rendered %q, want the no-due sentinel", got)
 	}
 
 	if got := taskSortValue2(core.SortUrgency, task); got != "2030-07-08T09:10:11.000000000Z" {
@@ -1157,5 +1157,183 @@ func TestCascadeDeleteRemovesTheWholeSubtree(t *testing.T) {
 	}
 	if _, err := l.GetTask(ctx, core.TaskRef{ID: bystander.ID}); err != nil {
 		t.Errorf("cascade reached a task outside the subtree: %v", err)
+	}
+}
+
+// seedParentCycle writes A as the parent of B and B as the parent of A,
+// straight into the store, which is the state a snapshot import or a sync used
+// to be able to leave behind.
+func seedParentCycle(t *testing.T, l *Local, scope core.TenantScope, a, b *core.Task) {
+	t.Helper()
+	ctx := context.Background()
+	if err := l.store.Update(ctx, scope, func(tx store.Tx) error {
+		first, err := tx.GetTask(ctx, core.TaskRef{ID: a.ID})
+		if err != nil {
+			return err
+		}
+		second, err := tx.GetTask(ctx, core.TaskRef{ID: b.ID})
+		if err != nil {
+			return err
+		}
+		first.ParentID = second.ID
+		second.ParentID = first.ID
+		if err := tx.UpdateTask(ctx, first); err != nil {
+			return err
+		}
+		return tx.UpdateTask(ctx, second)
+	}); err != nil {
+		t.Fatalf("seeding a parent cycle: %v", err)
+	}
+}
+
+// A cycle in parent links used to make TaskTree recurse without end, which is
+// a stack overflow: a fatal runtime error no recover in the http layer can
+// catch. The walk must terminate instead.
+func TestTaskTreeTerminatesOnAParentCycle(t *testing.T) {
+	l, _, scope, actor := newLocal(t)
+	project := seedTaskProject(t, l, scope, "cyc")
+	ctx := taskContext(actor)
+
+	first, err := l.CreateTask(ctx, core.CreateTaskInput{ProjectRef: project.Key, Title: "first"})
+	if err != nil {
+		t.Fatalf("first task: %v", err)
+	}
+	second, err := l.CreateTask(ctx, core.CreateTaskInput{
+		ProjectRef: project.Key, Title: "second", ParentRef: first.Ref,
+	})
+	if err != nil {
+		t.Fatalf("second task: %v", err)
+	}
+	seedParentCycle(t, l, scope, first, second)
+
+	tree, err := l.TaskTree(ctx, core.TaskRef{ID: first.ID}, 0)
+	if err != nil {
+		t.Fatalf("TaskTree over a cycle: %v", err)
+	}
+	if len(tree) != 2 {
+		t.Fatalf("tree has %d tasks, want the root and its one child visited once each", len(tree))
+	}
+	seen := map[string]bool{}
+	for _, task := range tree {
+		if seen[task.ID] {
+			t.Fatalf("task %q appears twice in the tree", task.Ref)
+		}
+		seen[task.ID] = true
+	}
+}
+
+// Reparenting into a graph that already holds a cycle used to spin inside an
+// open write transaction, holding the write lock against every other writer.
+func TestUpdateTaskRefusesToWalkAParentCycle(t *testing.T) {
+	l, _, scope, actor := newLocal(t)
+	project := seedTaskProject(t, l, scope, "spin")
+	ctx := taskContext(actor)
+
+	first, err := l.CreateTask(ctx, core.CreateTaskInput{ProjectRef: project.Key, Title: "first"})
+	if err != nil {
+		t.Fatalf("first task: %v", err)
+	}
+	second, err := l.CreateTask(ctx, core.CreateTaskInput{ProjectRef: project.Key, Title: "second"})
+	if err != nil {
+		t.Fatalf("second task: %v", err)
+	}
+	loose, err := l.CreateTask(ctx, core.CreateTaskInput{ProjectRef: project.Key, Title: "loose"})
+	if err != nil {
+		t.Fatalf("loose task: %v", err)
+	}
+	seedParentCycle(t, l, scope, first, second)
+
+	ref := first.Ref
+	_, err = l.UpdateTask(ctx, core.TaskRef{ID: loose.ID}, core.UpdateTaskInput{ParentRef: &ref})
+	if !core.IsKind(err, core.KindInvalid) {
+		t.Fatalf("UpdateTask = %v, want a refusal naming the cycle", err)
+	}
+}
+
+// Subscribers see only an event's payload, so an update event that does not
+// name the fields it changed makes every edit read the same in tix watch.
+func TestUpdateTaskEventNamesTheChangedFields(t *testing.T) {
+	l, _, scope, actor := newLocal(t)
+	project := seedTaskProject(t, l, scope, "fld")
+	ctx := taskContext(actor)
+
+	task, err := l.CreateTask(ctx, core.CreateTaskInput{ProjectRef: project.Key, Title: "first"})
+	if err != nil {
+		t.Fatalf("task: %v", err)
+	}
+	title := "renamed"
+	priority := core.PriorityHigh
+	if _, err := l.UpdateTask(ctx, core.TaskRef{ID: task.ID}, core.UpdateTaskInput{
+		Title: &title, Priority: &priority,
+	}); err != nil {
+		t.Fatalf("UpdateTask: %v", err)
+	}
+
+	var payload map[string]any
+	if err := l.store.View(context.Background(), scope, func(tx store.Tx) error {
+		events, err := tx.ReadEvents(context.Background(), 0, 100)
+		if err != nil {
+			return err
+		}
+		for _, e := range events {
+			if e.Type == core.EventTaskUpdated {
+				payload = e.Payload
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("reading events: %v", err)
+	}
+	if payload == nil {
+		t.Fatal("the update emitted no task.updated event")
+	}
+	raw, ok := payload["fields"].([]any)
+	if !ok {
+		t.Fatalf("payload fields = %#v, want the changed field names", payload["fields"])
+	}
+	got := make([]string, 0, len(raw))
+	for _, item := range raw {
+		got = append(got, fmt.Sprint(item))
+	}
+	want := []string{"title", "priority"}
+	if len(got) != len(want) {
+		t.Fatalf("fields = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("fields = %v, want %v", got, want)
+		}
+	}
+}
+
+// TestAssigneeAcceptsAHandleWithoutLeakingSQL pins the rough edge the skill
+// refresh found: a handle reached the database as though it were an identifier
+// and surfaced "FOREIGN KEY constraint failed" verbatim. An identifier-shaped
+// value still passes through unresolved, because an actor from another tenant
+// is deliberately assignable and never resolves locally.
+func TestAssigneeAcceptsAHandleWithoutLeakingSQL(t *testing.T) {
+	l, ctx, _, actor, _ := newTaskFixture(t)
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "assign me"})
+	ref := core.TaskRef{ID: task.ID}
+
+	handle := actor.Handle
+	updated, err := l.UpdateTask(ctx, ref, core.UpdateTaskInput{AssigneeActorID: &handle})
+	if err != nil {
+		t.Fatalf("assigning by handle %q: %v", handle, err)
+	}
+	if updated.AssigneeActorID != actor.ID {
+		t.Errorf("assignee = %q, want the actor id %q", updated.AssigneeActorID, actor.ID)
+	}
+
+	unknown := "nosuchperson"
+	_, err = l.UpdateTask(ctx, ref, core.UpdateTaskInput{AssigneeActorID: &unknown})
+	if err == nil {
+		t.Fatal("an unknown handle was accepted")
+	}
+	if core.KindOf(err) != core.KindNotFound {
+		t.Errorf("unknown handle gave %v, want a not-found", core.KindOf(err))
+	}
+	if strings.Contains(err.Error(), "FOREIGN KEY") || strings.Contains(err.Error(), "constraint") {
+		t.Errorf("the error leaks the schema: %v", err)
 	}
 }

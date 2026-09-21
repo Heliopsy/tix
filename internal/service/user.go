@@ -99,22 +99,32 @@ func setUserRole(ctx context.Context, tx store.Tx, actorID string, role core.Rol
 	return tx.AddMember(ctx, &core.Membership{ActorID: actorID, Role: role})
 }
 
+// userCursor addresses the position just after this user in the ordering.
+func userCursor(page core.Page, u core.User) core.Cursor {
+	value := sqlb.TimeText(u.CreatedAt)
+	if page.Sort == "email" {
+		value = u.Email
+	}
+	return core.Cursor{
+		SortValue: value,
+		ID:        u.ID,
+		Sort:      page.Sort,
+		Direction: page.Direction,
+	}
+}
+
 // nextUserCursor returns the cursor for the page after these users.
+//
+// A cursor is an opaque token only by convention: it is base64 of the sort key
+// and the identifier, so it must never describe a record the caller may not
+// read. It is therefore built from the users being returned, never from the
+// unfiltered page underneath them, and a short page ends the listing rather
+// than handing back a position in rows the caller cannot see.
 func nextUserCursor(page core.Page, items []core.User) string {
 	if len(items) == 0 || len(items) < page.Limit {
 		return ""
 	}
-	last := items[len(items)-1]
-	value := sqlb.TimeText(last.CreatedAt)
-	if page.Sort == "email" {
-		value = last.Email
-	}
-	return core.Cursor{
-		SortValue: value,
-		ID:        last.ID,
-		Sort:      page.Sort,
-		Direction: page.Direction,
-	}.Encode()
+	return userCursor(page, items[len(items)-1]).Encode()
 }
 
 // CreateUser creates a user, its actor in this tenant, and its membership.
@@ -208,27 +218,41 @@ func (l *Local) ListUsers(ctx context.Context, page core.Page) ([]core.User, str
 		return nil, "", err
 	}
 
-	var fetched []core.User
 	out := []core.User{}
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
-		found, err := tx.ListUsers(ctx, page)
-		if err != nil {
-			return err
-		}
-		fetched = found
-		for _, u := range found {
-			switch _, err := tx.GetActor(ctx, u.ID); {
-			case err == nil:
-				out = append(out, u)
-			case !core.IsKind(err, core.KindNotFound):
+		// The users table is global: it carries no tenant_id, so the scoped
+		// builder cannot constrain it and membership of this tenant is decided
+		// by the actor row instead. Paging therefore walks the global ordering
+		// and keeps refilling until this tenant's page is full, so that the
+		// page the caller sees is a page of its own users rather than a
+		// filtered remnant of somebody else's.
+		scan := page
+		scan.Limit = core.MaxPageLimit
+		for {
+			found, err := tx.ListUsers(ctx, scan)
+			if err != nil {
 				return err
 			}
+			for _, u := range found {
+				switch _, err := tx.GetActor(ctx, u.ID); {
+				case err == nil:
+					out = append(out, u)
+					if len(out) == page.Limit {
+						return nil
+					}
+				case !core.IsKind(err, core.KindNotFound):
+					return err
+				}
+			}
+			if len(found) < scan.Limit {
+				return nil
+			}
+			scan.Cursor = userCursor(scan, found[len(found)-1]).Encode()
 		}
-		return nil
 	}); err != nil {
 		return nil, "", err
 	}
-	return out, nextUserCursor(page, fetched), nil
+	return out, nextUserCursor(page, out), nil
 }
 
 // UpdateUser changes a user's display name, password, role or disabled state.

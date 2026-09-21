@@ -73,25 +73,32 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 	if conn.Info.Target.Mode != connect.ModeLocal {
 		return core.Invalid("serve needs a local database target, not %q", conn.Info.Target.URL)
 	}
+	resolved, err := g.resolve()
+	if err != nil {
+		return err
+	}
 
 	srv, err := server.Assemble(server.Options{
-		Service:         conn.Service,
-		WebHandler:      web.Handler(conn.Service, web.WithSecureCookies(o.certFile != ""), web.WithTimeStyle(g.timeStyle()), web.WithTargetDescribe(conn.Info.Target.Describe())),
-		Store:           conn.Store,
-		Clock:           clock.New(),
-		TenantID:        conn.Info.TenantID,
-		Addr:            o.listen,
-		CertFile:        o.certFile,
-		KeyFile:         o.keyFile,
-		AllowInsecure:   o.insecure,
-		MaxBodyBytes:    o.maxBody,
-		RequestTimeout:  o.requestTimeout,
-		ShutdownTimeout: o.shutdownTimeout,
-		SweepInterval:   o.sweepInterval,
-		PruneInterval:   o.pruneInterval,
-		DisableSweep:    o.disableSweep,
-		DisableDispatch: o.disableDispatch,
-		DisablePrune:    o.disablePrune,
+		Service:                    conn.Service,
+		WebHandler:                 web.Handler(conn.Service, web.WithSecureCookies(o.certFile != ""), web.WithTimeStyle(g.timeStyle()), web.WithTargetDescribe(conn.Info.Target.Describe())),
+		Store:                      conn.Store,
+		Clock:                      clock.New(),
+		TenantID:                   conn.Info.TenantID,
+		Addr:                       o.listen,
+		CertFile:                   o.certFile,
+		KeyFile:                    o.keyFile,
+		AllowInsecure:              o.insecure,
+		MaxBodyBytes:               o.maxBody,
+		RequestTimeout:             o.requestTimeout,
+		ShutdownTimeout:            o.shutdownTimeout,
+		TrustedProxies:             resolved.Config.Server.TrustedProxies,
+		CookieSecurity:             resolved.Config.Server.CookieSecurity,
+		AllowPrivateWebhookTargets: resolved.Config.Webhooks.AllowPrivateTargets,
+		SweepInterval:              o.sweepInterval,
+		PruneInterval:              o.pruneInterval,
+		DisableSweep:               o.disableSweep,
+		DisableDispatch:            o.disableDispatch,
+		DisablePrune:               o.disablePrune,
 	})
 	if err != nil {
 		return err

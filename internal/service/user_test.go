@@ -497,3 +497,106 @@ func assertTokenRevoked(t *testing.T, l *Local, scope core.TenantScope, token st
 		t.Fatalf("checking token: %v", err)
 	}
 }
+
+// A cursor is base64, not a secret. Paging the user listing must never hand
+// back a position taken from the unfiltered global page, because that names
+// another tenant's user and its email address to any tenant administrator.
+func TestListUsersCursorNeverNamesAnotherTenantsUser(t *testing.T) {
+	l, _, _, admin := newLocal(t)
+	ctx := authContext(admin)
+	intruder := otherTenantActor(t, l)
+	other := authContext(intruder)
+
+	mine := []string{"b@example.com", "d@example.com"}
+	theirs := []string{"a@example.com", "c@example.com", "e@example.com"}
+	for _, email := range mine {
+		if _, err := l.CreateUser(ctx, core.CreateUserInput{Email: email}); err != nil {
+			t.Fatalf("CreateUser %q: %v", email, err)
+		}
+	}
+	for _, email := range theirs {
+		if _, err := l.CreateUser(other, core.CreateUserInput{Email: email}); err != nil {
+			t.Fatalf("CreateUser %q in the other tenant: %v", email, err)
+		}
+	}
+
+	visible := map[string]bool{}
+	cursor := ""
+	for i, want := range mine {
+		users, next, err := l.ListUsers(ctx, core.Page{Limit: 1, Sort: "email", Cursor: cursor})
+		if err != nil {
+			t.Fatalf("ListUsers page %d: %v", i, err)
+		}
+		if len(users) != 1 {
+			t.Fatalf("page %d returned %d users, want 1", i, len(users))
+		}
+		if users[0].Email != want {
+			t.Fatalf("page %d = %q, want %q", i, users[0].Email, want)
+		}
+		visible[users[0].ID] = true
+		visible[users[0].Email] = true
+		cursor = next
+		if cursor == "" {
+			continue
+		}
+		c, err := core.DecodeCursor(cursor)
+		if err != nil {
+			t.Fatalf("decoding the cursor of page %d: %v", i, err)
+		}
+		if !visible[c.ID] || !visible[c.SortValue] {
+			t.Fatalf("page %d cursor names %q/%q, which this tenant cannot see", i, c.ID, c.SortValue)
+		}
+	}
+
+	last, next, err := l.ListUsers(ctx, core.Page{Limit: 1, Sort: "email", Cursor: cursor})
+	if err != nil {
+		t.Fatalf("ListUsers past the end: %v", err)
+	}
+	if len(last) != 0 || next != "" {
+		t.Fatalf("past the end = %d users, cursor %q, want none", len(last), next)
+	}
+}
+
+// An empty page with a cursor tells a caller to keep walking rows it cannot
+// read. The listing must exhaust the global ordering itself instead.
+func TestListUsersNeverReturnsAnEmptyPageWithACursor(t *testing.T) {
+	l, _, _, admin := newLocal(t)
+	ctx := authContext(admin)
+	other := authContext(otherTenantActor(t, l))
+
+	for _, email := range []string{"a@example.com", "b@example.com", "c@example.com"} {
+		if _, err := l.CreateUser(other, core.CreateUserInput{Email: email}); err != nil {
+			t.Fatalf("CreateUser %q in the other tenant: %v", email, err)
+		}
+	}
+	if _, err := l.CreateUser(ctx, core.CreateUserInput{Email: "z@example.com"}); err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	users, next, err := l.ListUsers(ctx, core.Page{Limit: 1, Sort: "email"})
+	if err != nil {
+		t.Fatalf("ListUsers: %v", err)
+	}
+	if len(users) != 1 || users[0].Email != "z@example.com" {
+		t.Fatalf("ListUsers returned %d users (%+v), want only this tenant's own", len(users), users)
+	}
+	for next != "" {
+		c, err := core.DecodeCursor(next)
+		if err != nil {
+			t.Fatalf("decoding the cursor: %v", err)
+		}
+		if c.SortValue != "z@example.com" {
+			t.Fatalf("cursor names %q, which this tenant cannot see", c.SortValue)
+		}
+		users, next, err = l.ListUsers(ctx, core.Page{Limit: 1, Sort: "email", Cursor: next})
+		if err != nil {
+			t.Fatalf("ListUsers: %v", err)
+		}
+		if len(users) == 0 && next != "" {
+			t.Fatalf("empty page returned with cursor %q", next)
+		}
+		if len(users) != 0 {
+			t.Fatalf("ListUsers returned %d unexpected users: %+v", len(users), users)
+		}
+	}
+}

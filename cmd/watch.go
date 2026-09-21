@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os/signal"
 	"slices"
+	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -51,6 +53,7 @@ func newWatchCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			g.watchBanner(cmd, conn.Info.Target.Describe(), projects, types, actors, since)
 			return g.follow(cmd, filterByActor(events, actors), limit)
 		},
 	}
@@ -81,6 +84,45 @@ func filterByActor(events <-chan core.Event, actors []string) <-chan core.Event 
 		}
 	}()
 	return out
+}
+
+// watchBanner tells a person the stream is actually live before the first
+// event, which may be minutes away, ever arrives: without it a working tail,
+// a wrong filter and a connection that never came up all look identical --
+// silence. It names what the stream is filtered on, if anything, what target
+// it reached, and how to stop it.
+//
+// It always goes through diag, so it lands on standard error, never standard
+// output: stdout is the machine-readable stream, and `tix watch -o ndjson |
+// jq` must never see a line jq cannot parse. diag also already respects
+// --quiet and colours through the shared Painter (NO_COLOR, --no-color, and
+// a non-tty writer all disable it there), so this needs no colour or
+// quietness logic of its own.
+//
+// A silent stream after this line prints is not itself a problem worth a
+// heartbeat: the whole point of the banner is that a person who saw it knows
+// the connection came up, and a subscription that has genuinely died closes
+// the channel and ends the command rather than hanging quietly forever.
+// Printing on a timer besides would just be noise on top of that signal.
+func (g *globals) watchBanner(cmd *cobra.Command, target string, projects, types, actors []string, since int64) {
+	var filters []string
+	if len(projects) > 0 {
+		filters = append(filters, "project="+strings.Join(projects, ","))
+	}
+	if len(types) > 0 {
+		filters = append(filters, "type="+strings.Join(types, ","))
+	}
+	if len(actors) > 0 {
+		filters = append(filters, "actor="+strings.Join(actors, ","))
+	}
+	if since > 0 {
+		filters = append(filters, "since="+strconv.FormatInt(since, 10))
+	}
+	msg := "watching " + target
+	if len(filters) > 0 {
+		msg += ", filtering on " + strings.Join(filters, " ")
+	}
+	g.diag(cmd, "%s; ctrl-c to stop", msg)
 }
 
 // follow renders events until the stream ends or limit events were rendered.

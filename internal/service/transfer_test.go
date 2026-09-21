@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -825,40 +826,121 @@ func TestImportAuditsAndEmitsEventsAsTheSystemActor(t *testing.T) {
 	}
 }
 
-// The importer acts on the header while the rest of the snapshot is still
-// unwritten: the writer below sends nothing more until the import has returned,
-// so an importer that buffered the whole stream first would never finish.
-func TestImportActsOnAnEarlyRecordBeforeALaterOneIsSent(t *testing.T) {
+// gatedReader hands out its first chunk, then blocks inside the second Read
+// until it is released, which is how a slow upload behaves.
+type gatedReader struct {
+	first, rest []byte
+	stage       int
+	entered     chan struct{}
+	release     chan struct{}
+}
+
+func newGatedReader(first, rest string) *gatedReader {
+	return &gatedReader{
+		first: []byte(first), rest: []byte(rest),
+		entered: make(chan struct{}), release: make(chan struct{}),
+	}
+}
+
+func (g *gatedReader) Read(p []byte) (int, error) {
+	switch g.stage {
+	case 0:
+		g.stage++
+		return copy(p, g.first), nil
+	case 1:
+		g.stage++
+		close(g.entered)
+		<-g.release
+		return copy(p, g.rest), nil
+	default:
+		return 0, io.EOF
+	}
+}
+
+// The upload is drained before any transaction opens. An import holds one
+// write transaction for its whole run, so reading the client inside it lets a
+// slow upload hold the sqlite write lock against every other writer in the
+// process. The reader below stalls after its first chunk: an importer that
+// decided anything before reading again would return without ever asking for
+// the rest.
+func TestImportDrainsTheUploadBeforeDeciding(t *testing.T) {
 	l, _, _, actor := newLocal(t)
 	ctx := core.WithActor(context.Background(), actor)
 
-	pr, pw := io.Pipe()
-	release := make(chan struct{})
-	var sent sync.WaitGroup
-	sent.Add(1)
+	r := newGatedReader(
+		`{"kind":"header","header":{"version":99,"tenant_key":"acme"}}`+"\n",
+		`{"kind":"project","project":{"key":"infra"}}`+"\n")
+
+	done := make(chan error, 1)
 	go func() {
-		defer sent.Done()
-		_, _ = pw.Write([]byte(`{"kind":"header","header":{"version":99,"tenant_key":"acme"}}` + "\n"))
-		<-release
-		_, _ = pw.Write([]byte(`{"kind":"project","project":{"key":"infra"}}` + "\n"))
-		_ = pw.Close()
+		_, err := l.ImportFrom(ctx, r, core.ImportInput{Mode: core.ImportMerge})
+		done <- err
 	}()
 
-	_, err := l.ImportFrom(ctx, pr, core.ImportInput{Mode: core.ImportMerge})
-	close(release)
+	select {
+	case err := <-done:
+		t.Fatalf("import returned %v after one read; the rest of the upload would be read inside the transaction", err)
+	case <-r.entered:
+	}
+	close(r.release)
+
+	err := <-done
 	if !core.IsKind(err, core.KindInvalid) {
 		t.Fatalf("import = %v, want the version refusal", err)
 	}
 	if !strings.Contains(err.Error(), "99") {
 		t.Errorf("error %q does not name the unsupported version", err)
 	}
-	_ = pr.CloseWithError(err)
-	sent.Wait()
 }
 
-// The whole stream is consumed incrementally: each record is read and applied
-// before the next one exists.
-func TestImportConsumesRecordsOneAtATime(t *testing.T) {
+// A snapshot larger than the bound is refused rather than buffered.
+func TestImportRefusesAnOversizedSnapshot(t *testing.T) {
+	_, err := bufferSnapshot(io.LimitReader(zeros{}, maxSnapshotBytes+1))
+	if !core.IsKind(err, core.KindInvalid) {
+		t.Fatalf("bufferSnapshot = %v, want a refusal", err)
+	}
+}
+
+// zeros is an endless reader, used to reach the snapshot size bound without
+// holding the bytes anywhere.
+type zeros struct{}
+
+func (zeros) Read(p []byte) (int, error) {
+	for i := range p {
+		p[i] = '\n'
+	}
+	return len(p), nil
+}
+
+// A snapshot too large for memory still imports, from a temporary file.
+func TestBufferSnapshotSpillsToDisk(t *testing.T) {
+	body := strings.Repeat("x", maxSnapshotMemory+1024)
+	buffered, err := bufferSnapshot(strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("bufferSnapshot: %v", err)
+	}
+	defer buffered.Close()
+	if buffered.file == nil {
+		t.Fatal("a snapshot past the memory bound stayed in memory")
+	}
+	got, err := io.ReadAll(buffered)
+	if err != nil {
+		t.Fatalf("reading the buffered snapshot: %v", err)
+	}
+	if string(got) != body {
+		t.Fatalf("buffered %d bytes, want %d", len(got), len(body))
+	}
+	name := buffered.file.Name()
+	if err := buffered.Close(); err != nil {
+		t.Fatalf("closing: %v", err)
+	}
+	if _, err := os.Stat(name); !os.IsNotExist(err) {
+		t.Errorf("temporary file %q survived the import", name)
+	}
+}
+
+// The whole upload is consumed, whatever pace it arrives at.
+func TestImportConsumesTheWholeUpload(t *testing.T) {
 	l, _, _, actor := newLocal(t)
 	source := core.WithActor(context.Background(), actor)
 	seed(t, l, source, "infra")
@@ -1661,3 +1743,136 @@ func TestReimportingTheSameSnapshotTwiceIsANoOp(t *testing.T) {
 
 // TestRoundTripIntoAFreshTenant (above) already covers export, import into an
 // empty tenant, and export again reproducing the content.
+
+// cyclicSnapshot rewrites an exported snapshot so its two tasks are each
+// other's parent, which is the shape a hostile or corrupted snapshot carries.
+func cyclicSnapshot(t *testing.T, snapshot []byte) []byte {
+	t.Helper()
+	lines := strings.Split(strings.TrimRight(string(snapshot), "\n"), "\n")
+	var records []core.SnapshotRecord
+	var tasks []int
+	for _, line := range lines {
+		var rec core.SnapshotRecord
+		if err := json.Unmarshal([]byte(line), &rec); err != nil {
+			t.Fatalf("snapshot line %q: %v", line, err)
+		}
+		if rec.Kind == core.RecordTask {
+			tasks = append(tasks, len(records))
+		}
+		records = append(records, rec)
+	}
+	if len(tasks) != 2 {
+		t.Fatalf("snapshot carries %d tasks, want 2", len(tasks))
+	}
+	first := records[tasks[0]].Task
+	second := records[tasks[1]].Task
+	first.ParentID = second.ID
+	second.ParentID = first.ID
+
+	var out bytes.Buffer
+	enc := json.NewEncoder(&out)
+	for i := range records {
+		if err := enc.Encode(records[i]); err != nil {
+			t.Fatalf("re-encoding line %d: %v", i, err)
+		}
+	}
+	return out.Bytes()
+}
+
+// A snapshot naming A the parent of B and B the parent of A used to apply
+// verbatim, after which resolving a parent walked the cycle without end inside
+// an open write transaction.
+func TestImportRejectsAParentCycle(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	source := core.WithActor(context.Background(), actor)
+	seed(t, l, source, "infra")
+
+	target, scope, _ := newTenant(t, l, "beta")
+	snapshot := cyclicSnapshot(t, exportBytes(t, l, source, core.ExportInput{}))
+
+	_, err := l.ImportFrom(target, bytes.NewReader(snapshot), core.ImportInput{Mode: core.ImportMerge})
+	if !core.IsKind(err, core.KindInvalid) {
+		t.Fatalf("import = %v, want a refusal naming the cycle", err)
+	}
+	if !strings.Contains(err.Error(), "cycle") {
+		t.Errorf("error %q does not name the cycle", err)
+	}
+
+	var count int
+	if err := l.store.View(context.Background(), scope, func(tx store.Tx) error {
+		tasks, err := tx.ListTasks(context.Background(), core.TaskFilter{
+			IncludeDeleted: true, Page: core.Page{Limit: 100},
+		})
+		count = len(tasks)
+		return err
+	}); err != nil {
+		t.Fatalf("listing tasks: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("the refused import left %d tasks behind", count)
+	}
+}
+
+// A dry run decides everything a real run decides, so it reports the cycle too.
+func TestImportDryRunReportsAParentCycle(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	source := core.WithActor(context.Background(), actor)
+	seed(t, l, source, "infra")
+
+	target, _, _ := newTenant(t, l, "beta")
+	snapshot := cyclicSnapshot(t, exportBytes(t, l, source, core.ExportInput{}))
+
+	_, err := l.ImportFrom(target, bytes.NewReader(snapshot), core.ImportInput{
+		Mode: core.ImportMerge, DryRun: true,
+	})
+	if !core.IsKind(err, core.KindInvalid) {
+		t.Fatalf("dry run = %v, want a refusal naming the cycle", err)
+	}
+}
+
+// Every mutation writes its rows, its audit entry and its event in one
+// transaction. Imported tags used to write the row alone.
+func TestImportedTagWritesAuditAndEvent(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	source := core.WithActor(context.Background(), actor)
+	seed(t, l, source, "infra")
+	snapshot := exportBytes(t, l, source, core.ExportInput{})
+
+	target, scope, _ := newTenant(t, l, "beta")
+	if _, err := l.ImportFrom(target, bytes.NewReader(snapshot), core.ImportInput{Mode: core.ImportMerge}); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	ctx := context.Background()
+	var tagAudits int
+	var tagEvents int
+	if err := l.store.View(ctx, scope, func(tx store.Tx) error {
+		entries, err := tx.ListAudit(ctx, core.AuditFilter{Page: core.Page{Limit: 1000}})
+		if err != nil {
+			return err
+		}
+		for _, e := range entries {
+			if e.Action == auditTagPut {
+				tagAudits++
+			}
+		}
+		events, err := tx.ReadEvents(ctx, 0, 1000)
+		if err != nil {
+			return err
+		}
+		for _, e := range events {
+			if e.Type == core.EventLabelAdded && e.SubjectType == "tag" {
+				tagEvents++
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("reading the audit log: %v", err)
+	}
+	if tagAudits == 0 {
+		t.Error("an imported tag wrote no audit entry")
+	}
+	if tagEvents == 0 {
+		t.Error("an imported tag emitted no event")
+	}
+}

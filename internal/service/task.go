@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"github.com/heliopsy/tix/internal/id"
 	"strconv"
 	"strings"
 	"time"
@@ -246,7 +247,11 @@ func (l *Local) UpdateTask(ctx context.Context, ref core.TaskRef, in core.Update
 			task.Priority = *in.Priority
 		}
 		if in.AssigneeActorID != nil {
-			task.AssigneeActorID = *in.AssigneeActorID
+			assignee, err := resolveAssignee(ctx, m.tx, *in.AssigneeActorID)
+			if err != nil {
+				return err
+			}
+			task.AssigneeActorID = assignee
 		}
 		if in.DueAt != nil {
 			task.DueAt = *in.DueAt
@@ -278,8 +283,12 @@ func (l *Local) UpdateTask(ctx context.Context, ref core.TaskRef, in core.Update
 				return err
 			}
 		}
+		payload := map[string]any{"ref": task.Ref, "version": task.Version}
+		if fields := updatedFields(in); len(fields) > 0 {
+			payload["fields"] = fields
+		}
 		if err := m.Record("task.update", core.EventTaskUpdated, "task", task.ID, task.ProjectID,
-			before, task, map[string]any{"ref": task.Ref, "version": task.Version}); err != nil {
+			before, task, payload); err != nil {
 			return err
 		}
 		out, err = m.tx.GetTask(ctx, core.TaskRef{ID: task.ID})
@@ -289,6 +298,73 @@ func (l *Local) UpdateTask(ctx context.Context, ref core.TaskRef, in core.Update
 		return nil, err
 	}
 	return out, nil
+}
+
+// updatedFields names the fields an update supplied, in the wire spelling the
+// rest of the system labels them by. Subscribers see only an event's payload,
+// so without this a title change and a due date change are the same line.
+func updatedFields(in core.UpdateTaskInput) []string {
+	var out []string
+	if in.Title != nil {
+		out = append(out, "title")
+	}
+	if in.Body != nil {
+		out = append(out, "body")
+	}
+	if in.Priority != nil {
+		out = append(out, "priority")
+	}
+	if in.AssigneeActorID != nil {
+		out = append(out, "assignee_actor_id")
+	}
+	if in.ParentRef != nil {
+		out = append(out, "parent_ref")
+	}
+	if in.DueAt != nil {
+		out = append(out, "due_at")
+	}
+	if in.CustomFields != nil {
+		out = append(out, "custom_fields")
+	}
+	if in.Tags != nil {
+		out = append(out, "tags")
+	}
+	return out
+}
+
+// changedTaskFields names the fields two snapshots of a task differ in, using
+// the same spelling updatedFields does, for a writer that applies a whole task
+// rather than a list of changes.
+func changedTaskFields(before, after *core.Task) []string {
+	var out []string
+	if before.Title != after.Title {
+		out = append(out, "title")
+	}
+	if before.Body != after.Body {
+		out = append(out, "body")
+	}
+	if before.Status != after.Status {
+		out = append(out, "status")
+	}
+	if before.Priority != after.Priority {
+		out = append(out, "priority")
+	}
+	if before.AssigneeActorID != after.AssigneeActorID {
+		out = append(out, "assignee_actor_id")
+	}
+	if before.ParentID != after.ParentID {
+		out = append(out, "parent_ref")
+	}
+	if !timePtrEqual(before.DueAt, after.DueAt) {
+		out = append(out, "due_at")
+	}
+	if !customFieldsEqual(before.CustomFields, after.CustomFields) {
+		out = append(out, "custom_fields")
+	}
+	if !tagsEqual(before.Tags, after.Tags) {
+		out = append(out, "tags")
+	}
+	return out
 }
 
 // TransitionTask moves a task along an edge its project's workflow permits.
@@ -515,20 +591,50 @@ func (l *Local) TaskTree(ctx context.Context, ref core.TaskRef, depth int) ([]co
 	return out, nil
 }
 
-// appendDescendants walks children depth-first, stopping at the depth limit.
+// appendDescendants walks children depth-first in pre-order, stopping at the
+// depth limit. It visits each task once and refuses a subtree larger than
+// maxSubtreeSize: a cycle in parent links would otherwise make the walk
+// unbounded, and as a recursion that is a stack overflow, which is fatal and
+// cannot be recovered by the caller.
 func appendDescendants(ctx context.Context, tx store.Tx, parentID string, limit, level int, out *[]core.Task) error {
-	if limit > 0 && level > limit {
-		return nil
+	type frame struct {
+		task  core.Task
+		level int
 	}
+	var stack []frame
+	push := func(children []core.Task, level int) {
+		for i := len(children) - 1; i >= 0; i-- {
+			stack = append(stack, frame{task: children[i], level: level})
+		}
+	}
+
+	seen := map[string]bool{parentID: true}
 	children, err := tx.Children(ctx, parentID)
 	if err != nil {
 		return err
 	}
-	for i := range children {
-		*out = append(*out, children[i])
-		if err := appendDescendants(ctx, tx, children[i].ID, limit, level+1, out); err != nil {
+	push(children, level)
+
+	for len(stack) > 0 {
+		cur := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if limit > 0 && cur.level > limit {
+			continue
+		}
+		if seen[cur.task.ID] {
+			continue
+		}
+		seen[cur.task.ID] = true
+		if len(*out) >= maxSubtreeSize {
+			return core.Precondition("task subtree is larger than %d tasks; ask for a bounded depth",
+				maxSubtreeSize).WithDetail("max_subtree_size", maxSubtreeSize)
+		}
+		*out = append(*out, cur.task)
+		children, err := tx.Children(ctx, cur.task.ID)
+		if err != nil {
 			return err
 		}
+		push(children, cur.level+1)
 	}
 	return nil
 }
@@ -659,6 +765,7 @@ func resolveParent(ctx context.Context, tx store.Tx, task *core.Task, ref string
 	if parent.ID == task.ID {
 		return "", core.Invalid("a task cannot be its own parent")
 	}
+	seen := map[string]bool{parent.ID: true}
 	for cur := parent; cur.ParentID != ""; {
 		next, err := tx.GetTask(ctx, core.TaskRef{ID: cur.ParentID})
 		if err != nil {
@@ -667,12 +774,68 @@ func resolveParent(ctx context.Context, tx store.Tx, task *core.Task, ref string
 		if next.ID == task.ID {
 			return "", core.Invalid("task %q is already an ancestor of %q", task.Ref, parent.Ref)
 		}
+		if seen[next.ID] {
+			return "", core.Invalid("task %q sits under a parent cycle; repair it before reparenting", parent.Ref)
+		}
+		seen[next.ID] = true
 		cur = next
 	}
 	return parent.ID, nil
 }
 
-// taskSortValue renders the first sort key a cursor carries for a listing.
+// parentLookup answers a task's parent identifier. An importer resolves it
+// from links it has not written yet; everything else reads the store.
+type parentLookup func(ctx context.Context, taskID string) (string, error)
+
+// closesParentCycle reports whether making parentID the parent of taskID would
+// put taskID on its own ancestor chain. A chain longer than maxSubtreeSize
+// counts as cyclic: no legitimate hierarchy is that deep, and treating it as
+// sound is what lets a walk run without end.
+func closesParentCycle(ctx context.Context, taskID, parentID string, parentOf parentLookup) (bool, error) {
+	if parentID == "" {
+		return false, nil
+	}
+	if parentID == taskID {
+		return true, nil
+	}
+	seen := map[string]bool{taskID: true}
+	cur := parentID
+	for range maxSubtreeSize {
+		if cur == "" {
+			return false, nil
+		}
+		if seen[cur] {
+			return true, nil
+		}
+		seen[cur] = true
+		next, err := parentOf(ctx, cur)
+		if err != nil {
+			return false, err
+		}
+		cur = next
+	}
+	return true, nil
+}
+
+// storeParentOf reads a task's parent from the transaction, treating a task
+// that does not exist as having none.
+func storeParentOf(tx store.Tx) parentLookup {
+	return func(ctx context.Context, taskID string) (string, error) {
+		task, err := tx.GetTask(ctx, core.TaskRef{ID: taskID})
+		if core.IsKind(err, core.KindNotFound) {
+			return "", nil
+		}
+		if err != nil {
+			return "", err
+		}
+		return task.ParentID, nil
+	}
+}
+
+// taskSortValue renders the first sort key a cursor carries for a listing. A
+// missing due date renders as the sentinel the due-date orderings coalesce to
+// in SQL, or the keyset predicate would compare against NULL and drop every
+// undated task from the listing.
 func taskSortValue(sort string, task core.Task) string {
 	switch sort {
 	case core.SortUrgency, core.SortPriority:
@@ -681,7 +844,7 @@ func taskSortValue(sort string, task core.Task) string {
 		return sqlb.TimeText(task.UpdatedAt)
 	case core.SortDueAt:
 		if task.DueAt == nil {
-			return ""
+			return sqlb.NoDueSentinel
 		}
 		return sqlb.TimeText(*task.DueAt)
 	case core.SortSeq:
@@ -882,4 +1045,35 @@ func toFloat(v any) (float64, bool) {
 	default:
 		return 0, false
 	}
+}
+
+// resolveAssignee turns an assignee reference into an actor identifier.
+//
+// Assignment deliberately accepts an identifier this tenant cannot resolve,
+// because actor identifiers are globally unique and a task may name someone
+// from elsewhere; the interface renders an unresolvable one as a generated
+// name rather than leaking a handle. So an identifier-shaped value is passed
+// through untouched, exactly as before.
+//
+// Anything else is a handle, and used to reach the database as if it were an
+// identifier, where it failed a foreign key and surfaced the constraint error
+// verbatim. A handle now resolves, and an unknown one is reported as not found
+// rather than as a schema error.
+func resolveAssignee(ctx context.Context, tx store.Tx, ref string) (string, error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return ref, nil
+	}
+	// A handle wins when it resolves here. Only a value with the exact shape of
+	// a generated identifier falls through unresolved, which is what keeps an
+	// actor from another tenant assignable: those never resolve locally,
+	// because actors are tenant scoped. A name that resolves nowhere and is not
+	// identifier-shaped is a mistake, and is reported as one.
+	if actor, err := lookupActor(ctx, tx, ref); err == nil {
+		return actor.ID, nil
+	}
+	if id.Valid(ref) {
+		return ref, nil
+	}
+	return "", core.NotFound("no actor with handle or id %q", ref)
 }

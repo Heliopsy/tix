@@ -700,3 +700,81 @@ func TestHookModeDecidesWhoDeliversAfterCommit(t *testing.T) {
 		})
 	}
 }
+
+// A tenant is a lower-privilege party than the operator, so a tenant-supplied
+// target that reaches the operator's own network is refused. Loopback is
+// additionally permitted inside a test binary, so the cases here are the ones
+// that are refused in a test binary and in a shipped one alike.
+func TestPutWebhookRefusesTargetsInsideTheNetwork(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	ctx := adminCtx(actor)
+
+	cases := []struct {
+		name string
+		url  string
+	}{
+		{"cloud metadata endpoint", "http://169.254.169.254/latest/meta-data/iam/"},
+		{"link local v6", "https://[fe80::1]/hook"},
+		{"rfc1918 ten", "https://10.0.0.5/hook"},
+		{"rfc1918 172", "https://172.20.1.1/hook"},
+		{"rfc1918 192.168", "https://192.168.0.10/hook"},
+		{"unique local v6", "https://[fd00::1]/hook"},
+		{"unspecified", "http://0.0.0.0:8080/hook"},
+		{"carrier grade nat", "https://100.100.1.1/hook"},
+		{"credentials in the url", "https://admin:hunter2@hooks.example.com/tix"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := l.PutWebhook(ctx, core.WebhookInput{URL: tc.url, Active: true})
+			if !core.IsKind(err, core.KindInvalid) {
+				t.Fatalf("PutWebhook(%q) = %v, want a validation error", tc.url, err)
+			}
+			if strings.Contains(err.Error(), "hunter2") {
+				t.Errorf("the refusal repeats the credential: %v", err)
+			}
+		})
+	}
+
+	list, err := l.ListWebhooks(ctx)
+	if err != nil {
+		t.Fatalf("ListWebhooks: %v", err)
+	}
+	if len(list) != 0 {
+		t.Errorf("a rejected registration was stored: %+v", list)
+	}
+}
+
+// The allowance is an operator construction option. Nothing a tenant can send
+// reaches it, and it is off unless the operator turned it on.
+func TestInternalWebhookTargetsNeedTheOperatorOptIn(t *testing.T) {
+	lax, _, _, laxActor := newLocalWith(t, WithInsecureWebhooks(true), WithPrivateWebhookTargets(true))
+	for _, target := range []string{"http://10.0.0.5:9000/hook", "http://169.254.169.254/latest/"} {
+		if _, err := lax.PutWebhook(adminCtx(laxActor),
+			core.WebhookInput{URL: target, Active: true}); err != nil {
+			t.Errorf("PutWebhook(%q) with the operator opt-in = %v, want it accepted", target, err)
+		}
+	}
+}
+
+// A webhook event reaches every matching endpoint, so what it says about an
+// endpoint's url must not be something another subscriber could use as a
+// credential.
+func TestWebhookPayloadCarriesNoCredentialFromTheURL(t *testing.T) {
+	cases := []struct {
+		raw  string
+		want string
+	}{
+		{"https://hooks.example.com/tix?token=hunter2", "https://hooks.example.com/tix"},
+		{"https://hooks.example.com/tix", "https://hooks.example.com/tix"},
+		{"https://admin:hunter2@hooks.example.com/tix", "https://hooks.example.com/tix"},
+	}
+	for _, tc := range cases {
+		got := webhookPayload(core.WebhookEndpoint{URL: tc.raw})
+		if got["url"] != tc.want {
+			t.Errorf("webhookPayload(%q)[url] = %v, want %q", tc.raw, got["url"], tc.want)
+		}
+		if strings.Contains(got["url"].(string), "hunter2") {
+			t.Errorf("webhookPayload(%q) carries the credential: %v", tc.raw, got["url"])
+		}
+	}
+}

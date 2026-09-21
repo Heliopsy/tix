@@ -81,7 +81,7 @@ func NewHTTPClient(o HTTPOptions) (*HTTPClient, error) {
 		maxDelay:   o.MaxDelay,
 	}
 	if c.client == nil {
-		c.client = &http.Client{Timeout: time.Minute}
+		c.client = &http.Client{Timeout: time.Minute, CheckRedirect: sameOriginRedirect}
 	}
 	if c.sleep == nil {
 		c.sleep = time.Sleep
@@ -177,6 +177,28 @@ func (c *HTTPClient) once(ctx context.Context, target string) ([]byte, time.Dura
 // maxResponseBytes bounds a single page, so a hostile source cannot exhaust
 // memory during an import.
 const maxResponseBytes = 32 << 20
+
+// maxRedirects bounds a redirect chain the source is allowed to walk.
+const maxRedirects = 5
+
+// sameOriginRedirect keeps a redirect inside the origin the operator
+// configured. A source is operator configuration rather than tenant input, so
+// redirects are not refused outright the way webhook delivery refuses them;
+// what is refused is a hop that leaves the configured scheme and host. That is
+// what would otherwise carry the configured credential, or a request the
+// operator believes is going to their tracker, to an arbitrary address such as
+// the cloud metadata endpoint.
+func sameOriginRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= maxRedirects {
+		return core.Invalid("source redirected more than %d times", maxRedirects)
+	}
+	first := via[0].URL
+	if req.URL.Scheme != first.Scheme || !strings.EqualFold(req.URL.Host, first.Host) {
+		return core.Invalid("source redirected to %s://%s, which is not the configured origin",
+			req.URL.Scheme, req.URL.Host)
+	}
+	return nil
+}
 
 // authenticate applies the configured credential. The value is written to the
 // request and nowhere else.

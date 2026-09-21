@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -636,5 +637,82 @@ func TestDispatcherOptionsAndDefaults(t *testing.T) {
 	}
 	if d.clk == nil {
 		t.Fatal("a nil clock must fall back to the real one")
+	}
+}
+
+// A stored endpoint that points inside the network is refused at delivery as
+// well as at registration, so an endpoint registered before the guard existed,
+// or one whose name has since been pointed inward, never reaches the address.
+func TestDeliveryToABlockedTargetIsRefusedAndSaysNothingAboutTheNetwork(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	f.addEndpoint(t, "http://169.254.169.254/latest/meta-data/", "top-secret", true, "*")
+	f.emit(t, core.EventTaskCreated)
+
+	d := NewDispatcher(f.store, f.scope, f.clk, WithGuard(Guard{}))
+	defer d.Stop()
+	res, err := d.Drain(ctx, DefaultBound())
+	if err != nil {
+		t.Fatalf("draining: %v", err)
+	}
+	if res.Delivered != 0 || res.Failed != 1 {
+		t.Fatalf("result = %+v, want the attempt to have failed", res)
+	}
+	row := f.only(t)
+	if row.LastError != "endpoint address is not permitted" {
+		t.Errorf("last error = %q, want the generic refusal", row.LastError)
+	}
+	for _, leak := range []string{"169.254", "meta-data", "top-secret"} {
+		if strings.Contains(row.LastError, leak) {
+			t.Errorf("last error leaks %q: %q", leak, row.LastError)
+		}
+	}
+}
+
+// A receiver that answers a delivery with a redirect is not followed, so the
+// signature headers never reach a host that passed no validation.
+func TestDeliveryDoesNotFollowARedirect(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+
+	var hops int32
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&hops, 1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer target.Close()
+	redirector := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL+"/latest/meta-data/", http.StatusFound)
+	}))
+	defer redirector.Close()
+
+	f.addEndpoint(t, redirector.URL, "top-secret", true, "*")
+	f.emit(t, core.EventTaskCreated)
+
+	d := NewDispatcher(f.store, f.scope, f.clk, WithGuard(Guard{AllowPrivate: true}))
+	defer d.Stop()
+	res, err := d.Drain(ctx, DefaultBound())
+	if err != nil {
+		t.Fatalf("draining: %v", err)
+	}
+	if res.Delivered != 0 || res.Failed != 1 {
+		t.Fatalf("result = %+v, want the redirect treated as a failed delivery", res)
+	}
+	if n := atomic.LoadInt32(&hops); n != 0 {
+		t.Fatalf("the redirect target was posted to %d times", n)
+	}
+	row := f.only(t)
+	if row.LastStatusCode != http.StatusFound {
+		t.Errorf("last status = %d, want the redirect itself recorded", row.LastStatusCode)
+	}
+}
+
+// A client supplied for another reason does not silently reopen redirects.
+func TestAReplacementClientKeepsTheRedirectPolicy(t *testing.T) {
+	f := newFixture(t)
+	d := NewDispatcher(f.store, f.scope, f.clk, WithHTTPClient(&http.Client{}))
+	defer d.Stop()
+	if d.client.CheckRedirect == nil {
+		t.Fatal("a replacement client was installed with no redirect policy")
 	}
 }
