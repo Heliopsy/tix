@@ -9,19 +9,21 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 )
 
-// sessionRoutes are the sign-in, sign-out, landing and activity screens.
+// sessionRoutes are the sign-in, sign-out and landing screens, plus the
+// per-browser display preferences.
 func (h *handler) sessionRoutes() []route {
 	return []route{
 		get(RouteRoot, "", h.showRoot, "WhoAmI"),
 		public(get(RouteLogin, "login.html", h.showLogin)),
 		public(post(RouteLogin, h.doLogin, "Login")),
 		post(RouteLogout, h.doLogout, "Logout"),
+		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI"),
 		post(RouteAdvanced, h.toggleAdvanced, "Logout"),
 		post(RouteTheme, h.setTheme, "Logout"),
 		post(RouteKeyScheme, h.setKeyScheme, "Logout"),
 		post(RouteColumns, h.setColumns, "Logout"),
 		post(RouteLists, h.setLists, "Logout"),
-		get(RouteActivity, "activity.html", h.showActivity, "ListAudit", "GetActor", "GetTask"),
+		post(RouteDragMove, h.toggleDragMove, "Logout"),
 	}
 }
 
@@ -67,6 +69,28 @@ func (h *handler) doLogin(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// settingsView is what the dedicated settings screen renders. TargetDescribe
+// is the redacted target description a process started with
+// WithTargetDescribe carries; blank when the caller passed none. Shortcuts is
+// the scheme comparison table, built once per request from shortcuts.go's own
+// action and binding tables so it can never list a key the scripted help
+// overlay does not also know about.
+type settingsView struct {
+	TargetDescribe string
+	Shortcuts      shortcutTable
+}
+
+// showSettings renders the settings screen: every per-browser display
+// preference, grouped and explained, replacing the sidebar disclosure that
+// used to hold the same controls. Keeping both would let them drift, so the
+// sidebar now only links here.
+func (h *handler) showSettings(w http.ResponseWriter, r *http.Request) error {
+	return h.render(w, r, "settings.html", "Settings", settingsView{
+		TargetDescribe: h.targetDescribe,
+		Shortcuts:      buildShortcutTable(),
+	})
+}
+
 // doLogout ends the session the browser presented.
 func (h *handler) doLogout(w http.ResponseWriter, r *http.Request) error {
 	if err := h.svc.Logout(r.Context()); err != nil && !core.IsKind(err, core.KindUnauthenticated) {
@@ -89,6 +113,29 @@ func (h *handler) toggleAdvanced(w http.ResponseWriter, r *http.Request) error {
 	// tracks TLS like every other cookie here.
 	http.SetCookie(w, &http.Cookie{
 		Name: AdvancedCookie, Value: value, Path: "/",
+		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
+		MaxAge: cookieYear,
+	})
+	// #nosec G710 -- safeNext rejects anything that is not a relative path on
+	// this origin, including protocol-relative, backslash and control forms.
+	http.Redirect(w, r, safeNext(field(r, "next")), http.StatusSeeOther)
+	return nil
+}
+
+// toggleDragMove flips whether the board offers dragging a card between
+// columns, in addition to its per-card Move disclosure, which never goes
+// away: dragging is unreachable from a keyboard and unusable for anyone who
+// cannot hold a pointer gesture. A per-browser preference, like Advanced, so
+// it lives in a cookie; default on, unlike Advanced, so the polarity here is
+// reversed -- an absent or non-"0" cookie means on.
+func (h *handler) toggleDragMove(w http.ResponseWriter, r *http.Request) error {
+	value := "0"
+	if !dragMoveMode(r) {
+		value = ""
+	}
+	// #nosec G124 -- a display preference, readable by no script.
+	http.SetCookie(w, &http.Cookie{
+		Name: DragMoveCookie, Value: value, Path: "/",
 		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
 		MaxAge: cookieYear,
 	})
@@ -161,54 +208,6 @@ func safeNext(next string) string {
 	return u.String()
 }
 
-// activityRow is one audit entry with the words the feed shows for it: the
-// kind of change, and a subject a reader recognises.
-type activityRow struct {
-	Entry   core.AuditEntry
-	Verb    string
-	Subject string
-}
-
-// activityView is what the activity screen renders.
-type activityView struct {
-	Rows       []activityRow
-	Names      actorNames
-	NextCursor string
-}
-
-// showActivity renders recent tenant activity, newest first.
-func (h *handler) showActivity(w http.ResponseWriter, r *http.Request) error {
-	filter := core.AuditFilter{Page: core.Page{
-		Cursor:    r.URL.Query().Get("cursor"),
-		Sort:      "seq",
-		Direction: core.Descending,
-		Limit:     50,
-	}}
-	entries, next, err := h.svc.ListAudit(r.Context(), filter)
-	if err != nil {
-		return err
-	}
-	data := activityView{Rows: make([]activityRow, 0, len(entries)), NextCursor: next}
-	actors := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		data.Rows = append(data.Rows, activityRow{Entry: entry,
-			Verb: actionVerb(entry.Action), Subject: h.subjectLabel(r, entry)})
-		actors = append(actors, entry.ActorID)
-	}
-	data.Names = h.resolveActors(r, actors...)
-	return h.render(w, r, "activity.html", "Activity", data)
-}
-
-// subjectLabel names what an entry happened to. A task is shown by the
-// reference people quote to each other; anything else keeps its identifier,
-// abbreviated, because inventing a name for a record would only mislead.
-func (h *handler) subjectLabel(r *http.Request, entry core.AuditEntry) string {
-	if entry.SubjectType != "task" || entry.SubjectID == "" {
-		return shortID(entry.SubjectID)
-	}
-	task, err := h.svc.GetTask(r.Context(), core.TaskRef{ID: entry.SubjectID})
-	if err != nil || task == nil || task.Ref == "" {
-		return shortID(entry.SubjectID)
-	}
-	return task.Ref
-}
+// The tenant-wide activity feed and its live-update fragment live in
+// activity.go, next to the grouping and sentence rendering they share with
+// the per-task history view in history.go.

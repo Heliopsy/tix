@@ -60,6 +60,19 @@ func WithTargetHint(hint string) Option {
 	return func(h *handler) { h.targetHint = strings.TrimSpace(hint) }
 }
 
+// WithTargetDescribe sets the redacted, human-readable description of the
+// database or server this process is talking to, shown on the settings page
+// so an operator running several instances can tell them apart. Unlike
+// WithTargetHint, whose value is pasted verbatim into the CLI commands the
+// sign-in screen's "can't sign in" disclosure shows, this string is meant for
+// broad display: pass internal/connect's Target.Describe, which already
+// strips any password from a DSN before producing it, never a raw DSN or
+// server URL. Without it the settings page names no target, which is the
+// correct fallback for a build that has no notion of connect.Target at all.
+func WithTargetDescribe(describe string) Option {
+	return func(h *handler) { h.targetDescribe = strings.TrimSpace(describe) }
+}
+
 // WithTimeStyle sets the TimeStyle every screen renders its timestamps
 // through. Without it a handler uses the zero-value TimeStyle, which reads
 // the machine's local zone in the same layout output.time_format's "iso"
@@ -79,15 +92,16 @@ func WithTimeStyle(style output.TimeStyle) Option {
 
 // handler serves every browser screen over the service.
 type handler struct {
-	svc        core.Service
-	mux        *http.ServeMux
-	templates  map[string]*template.Template
-	assets     http.Handler
-	logger     *slog.Logger
-	secure     bool
-	eventsPath string
-	targetHint string
-	style      output.TimeStyle
+	svc            core.Service
+	mux            *http.ServeMux
+	templates      map[string]*template.Template
+	assets         http.Handler
+	logger         *slog.Logger
+	secure         bool
+	eventsPath     string
+	targetHint     string
+	targetDescribe string
+	style          output.TimeStyle
 }
 
 // Handler returns an http.Handler serving the browser interface.

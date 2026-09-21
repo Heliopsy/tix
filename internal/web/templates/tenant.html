@@ -33,15 +33,34 @@
 <form method="post" action="/admin/tenant/retention">
   {{template "csrf" .CSRF}}
   <div class="row">
-    <div><label for="events">Events</label><input id="events" name="events" value="{{.Data.Retention.Events}}"></div>
-    <div><label for="audit_entries">Audit entries</label><input id="audit_entries" name="audit_entries" value="{{.Data.Retention.AuditEntries}}"></div>
-    <div><label for="webhook_deliveries">Webhook deliveries</label><input id="webhook_deliveries" name="webhook_deliveries" value="{{.Data.Retention.WebhookDeliveries}}"></div>
+    <div>
+      <div class="field-label">
+        <label for="events">Events</label>
+        {{template "field-info" "How long to keep the domain event stream before Prune deletes the old rows, written as a Go duration: 720h for 30 days, 8760h for a year. Blank keeps events forever, which grows the store without bound."}}
+      </div>
+      <input id="events" name="events" value="{{.Data.Retention.Events}}">
+    </div>
+    <div>
+      <div class="field-label">
+        <label for="audit_entries">Audit entries</label>
+        {{template "field-info" "How long to keep the audit log before Prune deletes the old rows, in the same Go duration format as Events (for example 2160h for 90 days). This is the history a Raw disclosure and the Activity feed both read, so pruning it early means older changes stop showing up there too."}}
+      </div>
+      <input id="audit_entries" name="audit_entries" value="{{.Data.Retention.AuditEntries}}">
+    </div>
+    <div>
+      <div class="field-label">
+        <label for="webhook_deliveries">Webhook deliveries</label>
+        {{template "field-info" "How long to keep webhook delivery attempts before Prune deletes the old rows, in the same Go duration format as Events. Usually the shortest of the three: a delivery log is for debugging a recent failure, not a long-term record."}}
+      </div>
+      <input id="webhook_deliveries" name="webhook_deliveries" value="{{.Data.Retention.WebhookDeliveries}}">
+    </div>
   </div>
   <p><button type="submit">Save retention</button></p>
 </form>
 <form method="post" action="/admin/tenant/prune">
   {{template "csrf" .CSRF}}
   <label for="prune-dry"><input id="prune-dry" type="checkbox" name="dry_run" value="1" checked> Dry run</label>
+  {{template "field-info" "Prune permanently deletes whatever is older than the retention durations saved above, for all three kinds at once. Dry run reports what it would delete without deleting anything; uncheck it only once you have checked that report."}}
   <p><button class="secondary" type="submit">Prune now</button></p>
 </form>
 

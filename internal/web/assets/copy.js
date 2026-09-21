@@ -56,4 +56,29 @@
       btn.textContent = original;
     }, 1500);
   }
+
+  // A styled file field (.file-field, app.css) hides the browser's own
+  // "Choose file / No file chosen" text, so the one thing that native widget
+  // told you for free -- which file, if any, is selected -- has to be read
+  // out here, or the replacement would be worse than what it replaced.
+  // Delegated at the document like the copy button above, so a file field
+  // added to a future screen starts working with no extra wiring.
+  document.addEventListener("change", function (event) {
+    var input = event.target;
+    if (!input || input.type !== "file" || !input.closest) {
+      return;
+    }
+    var field = input.closest(".file-field");
+    var name = field && field.querySelector("[data-file-name]");
+    if (!name) {
+      return;
+    }
+    if (input.files && input.files.length > 1) {
+      name.textContent = input.files.length + " files chosen";
+    } else if (input.files && input.files.length === 1) {
+      name.textContent = input.files[0].name;
+    } else {
+      name.textContent = "No file chosen";
+    }
+  });
 })();

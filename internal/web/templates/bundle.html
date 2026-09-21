@@ -10,14 +10,23 @@
   <fieldset>
     <legend>Component kinds, blank for every kind the selection reaches</legend>
     {{range .Data.Kinds}}
-    <label for="kind-{{.}}"><input id="kind-{{.}}" type="checkbox" name="kinds" value="{{.}}"> {{.}}</label>
+    <label for="kind-{{.}}"><input id="kind-{{.}}" type="checkbox" name="kinds" value="{{.}}"> {{kindLabel .}}</label>
     {{end}}
   </fieldset>
-  <label for="workflow_keys">Workflow keys, comma separated</label>
+  <div class="field-label">
+    <label for="workflow_keys">Workflow keys, comma separated</label>
+    {{template "field-info" "Which workflows to include, by their key (not their display name), for example default,triage. Leave it blank to include every workflow the selected component kinds and projects reach."}}
+  </div>
   <input id="workflow_keys" name="workflow_keys">
-  <label for="project_refs">Projects to export as templates, comma separated</label>
+  <div class="field-label">
+    <label for="project_refs">Projects to export as templates, comma separated</label>
+    {{template "field-info" "Which projects to carry, by their key or ref, for example infra,house. Exported as templates means their tasks are never included, only their configuration: fields, tags and the workflow they use."}}
+  </div>
   <input id="project_refs" name="project_refs">
-  <label for="webhook_ids">Webhook endpoint ids, comma separated</label>
+  <div class="field-label">
+    <label for="webhook_ids">Webhook endpoint ids, comma separated</label>
+    {{template "field-info" "Which webhook endpoints to include, by id. The bundle carries the URL and event types only; the signing secret never leaves this tenant, so a target importing this bundle must set its own."}}
+  </div>
   <input id="webhook_ids" name="webhook_ids">
   <p><button type="submit">Download bundle</button></p>
 </form>
@@ -25,15 +34,21 @@
 <h2>Import a bundle</h2>
 <form method="post" action="/bundles/import" enctype="multipart/form-data">
   {{template "csrf" .CSRF}}
-  <label for="bundle">Bundle file</label>
-  <input id="bundle" name="bundle" type="file">
+  <label class="file-field">
+    <input id="bundle" name="bundle" type="file" aria-label="Bundle file">
+    <span class="file-button">Choose file</span>
+    <span class="file-name" data-file-name>No file chosen</span>
+  </label>
   <label for="bundle_text">Or paste the bundle</label>
   <textarea id="bundle_text" name="bundle_text"></textarea>
   <label for="project_ref">Target project for project-scoped components</label>
   <input id="project_ref" name="project_ref">
   <div class="row">
     <div>
-      <label for="on_collision">On a name collision, required</label>
+      <div class="field-label">
+        <label for="on_collision">On a name collision, required</label>
+        {{template "field-info" "What to do when an incoming component's key already names something in this tenant: skip leaves the existing one alone, replace overwrites it, and rename keeps both by giving the incoming one a new key. There is no default on purpose -- pick the one you mean for this import."}}
+      </div>
       <select id="on_collision" name="on_collision" required>
         <option value="">Choose what to do</option>
         {{range .Data.Policies}}<option value="{{.}}">{{.}}</option>{{end}}
@@ -55,7 +70,7 @@
   <thead><tr><th>Kind</th><th>Key</th><th>Action</th><th>New key</th><th>Reason</th></tr></thead>
   <tbody>
   {{range .Outcomes}}
-    <tr><td>{{.Kind}}</td><td>{{.Key}}</td><td>{{.Action}}</td><td>{{.NewKey}}</td><td>{{.Reason}}</td></tr>
+    <tr><td>{{kindLabel .Kind}}</td><td>{{.Key}}</td><td>{{.Action}}</td><td>{{.NewKey}}</td><td>{{.Reason}}</td></tr>
   {{else}}
     <tr><td colspan="5">This bundle carries no components.</td></tr>
   {{end}}

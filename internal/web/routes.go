@@ -57,6 +57,7 @@ func Exemptions() []Exemption {
 func (h *handler) routes() []route {
 	var out []route
 	out = append(out, h.sessionRoutes()...)
+	out = append(out, h.activityRoutes()...)
 	out = append(out, h.projectRoutes()...)
 	out = append(out, h.workflowRoutes()...)
 	out = append(out, h.taskRoutes()...)
@@ -87,15 +88,18 @@ func public(rt route) route {
 
 // Route patterns the browser interface serves.
 const (
-	RouteRoot      = "/"
-	RouteLogin     = "/login"
-	RouteLogout    = "/logout"
-	RouteAdvanced  = "/advanced"
-	RouteTheme     = "/theme"
-	RouteKeyScheme = "/keyscheme"
-	RouteColumns   = "/columns"
-	RouteLists     = "/lists"
-	RouteActivity  = "/activity"
+	RouteRoot         = "/"
+	RouteLogin        = "/login"
+	RouteLogout       = "/logout"
+	RouteSettings     = "/settings"
+	RouteAdvanced     = "/advanced"
+	RouteTheme        = "/theme"
+	RouteKeyScheme    = "/keyscheme"
+	RouteColumns      = "/columns"
+	RouteLists        = "/lists"
+	RouteDragMove     = "/dragmove"
+	RouteActivity     = "/activity"
+	RouteActivityFeed = "/activity/feed"
 
 	RouteProjects     = "/projects"
 	RouteProject      = "/projects/{key}"

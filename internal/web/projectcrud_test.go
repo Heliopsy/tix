@@ -7,35 +7,45 @@ import (
 	"testing"
 )
 
-// Every mutation but create used to live one screen down with nothing on the
-// listing hinting it existed.
-func TestProjectListingOffersEveryProjectControl(t *testing.T) {
+// The listing used to carry a full edit form -- name, workflow, colour,
+// icon, description, save, archive, delete -- squeezed into one narrow table
+// cell: opening it produced a roughly 700px tall row with the form crammed
+// into a sliver of width and the rest of the row empty. The project's own
+// page (board.html) already carries that whole form properly, in a
+// disclosure with the room to lay itself out, so the listing links through
+// to it instead of duplicating it. Two places to edit the same project is
+// also how they drift apart.
+func TestProjectListingLinksThroughToEveryProjectControl(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	b := f.as("alice")
 
 	page := b.page("/projects")
-	for _, want := range []string{
-		`action="/projects/infra/update"`,
-		`action="/projects/infra/archive"`,
-		`action="/projects/infra/delete"`,
-		`action="/projects"`,
-	} {
+	for _, want := range []string{`href="/projects/infra"`, `action="/projects"`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("the projects listing offers no %s:\n%s", want, page)
 		}
 	}
 	if !strings.Contains(page, "<th>Manage</th>") {
-		t.Error("the listing does not name the column carrying the controls")
+		t.Error("the listing does not name the column carrying the link to a project's controls")
 	}
 	if strings.Contains(page, "hx-post") || strings.Contains(page, "hx-get") {
 		t.Error("a project control depends on scripting")
 	}
+
+	board := b.page("/projects/infra")
+	for _, want := range []string{`action="/projects/infra/update"`,
+		`action="/projects/infra/archive"`, `action="/projects/infra/delete"`} {
+		if !strings.Contains(board, want) {
+			t.Errorf("the project page offers no %s:\n%s", want, board)
+		}
+	}
 }
 
-// The per-row form carries the values it is editing, so a save from the
-// listing does not blank what it did not show.
-func TestProjectListingEditsInPlace(t *testing.T) {
+// The project page's settings form is the only place a project is edited
+// now, so it has to carry the whole record -- not just whatever the listing
+// happened to show -- or saving there would blank what it did not carry.
+func TestProjectPageSettingsFormCarriesTheWholeRecordAndSavingKeepsIt(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	b := f.as("alice")
@@ -45,11 +55,11 @@ func TestProjectListingEditsInPlace(t *testing.T) {
 	defer func() { _ = created.Body.Close() }()
 	wantStatus(t, created, http.StatusSeeOther)
 
-	page := b.page("/projects")
-	for _, want := range []string{`id="name-ops"`, `value="Ops"`, `id="color-ops"`,
-		`value="teal" selected`, `id="icon-ops"`, "keeps the lights on", `id="workflow-ops"`} {
+	page := b.page("/projects/ops")
+	for _, want := range []string{`value="Ops"`, `value="teal" selected`,
+		"keeps the lights on", `id="workflow_key"`} {
 		if !strings.Contains(page, want) {
-			t.Errorf("the row's form does not carry %q:\n%s", want, page)
+			t.Errorf("the settings form does not carry %q:\n%s", want, page)
 		}
 	}
 
@@ -63,8 +73,9 @@ func TestProjectListingEditsInPlace(t *testing.T) {
 	if !strings.Contains(after, "Operations") {
 		t.Errorf("the edit did not take:\n%s", after)
 	}
-	if !strings.Contains(after, "keeps the lights on") {
-		t.Error("saving from the listing blanked a field the row did not show")
+	reloaded := b.page("/projects/ops")
+	if !strings.Contains(reloaded, "keeps the lights on") {
+		t.Error("saving blanked a field the form did not change")
 	}
 }
 
@@ -81,8 +92,8 @@ func TestProjectManageColumnCanBeHidden(t *testing.T) {
 	wantStatus(t, resp, http.StatusSeeOther)
 
 	page := b.page("/projects")
-	if strings.Contains(page, `action="/projects/infra/delete"`) {
-		t.Error("the hidden column still rendered its controls")
+	if strings.Contains(page, `data-label="Manage"`) {
+		t.Error("the hidden column still rendered its cell")
 	}
 	if !strings.Contains(page, `href="/projects/infra"`) {
 		t.Error("the row no longer names the project it stands for")

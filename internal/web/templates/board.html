@@ -1,62 +1,101 @@
 {{define "content"}}
 <h1>{{if .Data.Project.Icon}}<span class="proj-icon" role="img" aria-label="{{.Data.Project.Name}}">{{.Data.Project.Icon}}</span> {{end}}{{.Data.Project.Name}} board</h1>
 <p class="meta">Workflow {{.Data.Workflow.Name}} &middot; <a href="/projects/{{.Data.Project.Key}}/fields">Field definitions</a> &middot; <a href="/workflows/{{.Data.Workflow.Key}}">Workflow editor</a></p>
-<div class="board">
+{{/* A screen reader user learns a drag-and-drop move happened here, since
+     nothing else on the page narrates it: the move itself patches the DOM in
+     place (assets/live.js) rather than navigating, which a screen reader
+     would otherwise announce on its own. Visually hidden, never removed. */}}
+<p class="sr-only" aria-live="polite" id="board-status"></p>
+<div class="board" data-drag="{{if .DragMove}}1{{else}}0{{end}}">
 {{range .Data.Columns}}
   <section class="column" data-state="{{.State.Key}}">
     <h2>{{.State.Label}} <span class="meta">({{len .Tasks}})</span></h2>
     {{range .Tasks}}
-      <article class="card" draggable="true" data-task="{{.Task.Ref}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
+      <article class="card" draggable="{{if $.DragMove}}true{{else}}false{{end}}" data-task="{{.Task.Ref}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
         <div class="ref">{{.Task.Ref}}</div>
         <div><a href="/tasks/{{.Task.Ref}}">{{.Task.Title}}</a></div>
-        <form method="post" action="/projects/{{$.Data.Project.Key}}/move">
-          {{template "csrf" $.CSRF}}
-          <input type="hidden" name="ref" value="{{.Task.Ref}}">
-          <label for="to-{{.Task.Ref}}">Move to</label>
-          <select id="to-{{.Task.Ref}}" name="to">
-            {{range .Targets}}<option value="{{.Key}}">{{.Label}}</option>{{end}}
-          </select>
-          <button type="submit">Move</button>
-        </form>
+        {{if or (ne (prio .Task.Priority) "normal") .Task.Tags}}
+        <div class="card-meta">
+          {{if ne (prio .Task.Priority) "normal"}}<span class="badge p-{{prio .Task.Priority}}">{{prio .Task.Priority}}</span>{{end}}
+          {{range .Task.Tags}}<span class="tag">{{.}}</span>{{end}}
+        </div>
+        {{end}}
+        {{if .Targets}}
+        <details class="card-move">
+          <summary aria-label="Move {{.Task.Ref}}">Move</summary>
+          <div class="body">
+            <form method="post" action="/projects/{{$.Data.Project.Key}}/move">
+              {{template "csrf" $.CSRF}}
+              <input type="hidden" name="ref" value="{{.Task.Ref}}">
+              <select id="to-{{.Task.Ref}}" name="to" aria-label="Move {{.Task.Ref}} to">
+                {{range .Targets}}<option value="{{.Key}}">{{.Label}}</option>{{end}}
+              </select>
+              <button type="submit">Move</button>
+            </form>
+          </div>
+        </details>
+        {{end}}
       </article>
     {{else}}
-      <p class="meta">Empty.</p>
+      <p class="meta column-empty">No tasks.</p>
     {{end}}
   </section>
 {{end}}
 </div>
 
-<h2>Project settings</h2>
-<form method="post" action="/projects/{{.Data.Project.Key}}/update">
-  {{template "csrf" .CSRF}}
-  <div class="row">
-    <div><label for="name">Name</label><input id="name" name="name" value="{{.Data.Project.Name}}" required></div>
-    <div><label for="workflow_key">Workflow key</label><input id="workflow_key" name="workflow_key" value="{{.Data.Workflow.Key}}"></div>
+<details class="panel">
+  <summary>Project settings</summary>
+  <div class="body">
+    <form method="post" action="/projects/{{.Data.Project.Key}}/update">
+      {{template "csrf" .CSRF}}
+      <div class="row">
+        <div><label for="name">Name</label><input id="name" name="name" value="{{.Data.Project.Name}}" required></div>
+        <div>
+          <label for="workflow_key">Workflow</label>
+          {{$wf := .Data.Workflow.Key}}
+          <select id="workflow_key" name="workflow_key">
+            {{range .Data.Workflows}}<option value="{{.Key}}" {{if eq .Key $wf}}selected{{end}}>{{.Name}}</option>{{end}}
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="color">Colour</label>
+          <select id="color" name="color">
+            <option value="" {{if not .Data.Project.Color}}selected{{end}}>none</option>
+            {{$current := .Data.Project.Color}}
+            {{range .Data.Colors}}<option value="{{.}}" {{if eq . $current}}selected{{end}}>{{.}}</option>{{end}}
+          </select>
+        </div>
+        <div>
+          <label for="icon">Icon</label>
+          <input id="icon" name="icon" maxlength="2" value="{{.Data.Project.Icon}}" placeholder="an emoji, or one or two letters" list="icon-suggestions">
+          <datalist id="icon-suggestions">
+            <option value="&#128230;"><option value="&#128640;"><option value="&#128736;">
+            <option value="&#128202;"><option value="&#127968;"><option value="&#128421;">
+            <option value="&#128272;"><option value="&#127760;"><option value="&#11088;">
+          </datalist>
+        </div>
+      </div>
+      <label for="description">Description</label>
+      <textarea id="description" name="description">{{.Data.Project.Description}}</textarea>
+      <div class="actions"><button type="submit">Save project</button></div>
+    </form>
   </div>
-  <div class="row">
-    <div>
-      <label for="color">Colour</label>
-      <select id="color" name="color">
-        <option value="" {{if not .Data.Project.Color}}selected{{end}}>none</option>
-        {{$current := .Data.Project.Color}}
-        {{range .Data.Colors}}<option value="{{.}}" {{if eq . $current}}selected{{end}}>{{.}}</option>{{end}}
-      </select>
-    </div>
-    <div>
-      <label for="icon">Icon</label>
-      <input id="icon" name="icon" maxlength="2" value="{{.Data.Project.Icon}}" placeholder="an emoji, or one or two letters">
-    </div>
+</details>
+
+<details class="panel danger">
+  <summary>Danger zone</summary>
+  <div class="body">
+    <p class="muted">Archiving hides {{.Data.Project.Name}} from active lists. Deleting it removes it, and cannot be undone.</p>
+    <form method="post" action="/projects/{{.Data.Project.Key}}/archive">
+      {{template "csrf" .CSRF}}
+      <div class="actions"><button class="secondary" type="submit">Archive project</button></div>
+    </form>
+    <form method="post" action="/projects/{{.Data.Project.Key}}/delete">
+      {{template "csrf" .CSRF}}
+      <div class="actions"><button class="danger" type="submit">Delete project</button></div>
+    </form>
   </div>
-  <label for="description">Description</label>
-  <textarea id="description" name="description">{{.Data.Project.Description}}</textarea>
-  <p><button type="submit">Save project</button></p>
-</form>
-<form method="post" action="/projects/{{.Data.Project.Key}}/archive">
-  {{template "csrf" .CSRF}}
-  <button class="secondary" type="submit">Archive project</button>
-</form>
-<form method="post" action="/projects/{{.Data.Project.Key}}/delete">
-  {{template "csrf" .CSRF}}
-  <button class="secondary" type="submit">Delete project</button>
-</form>
+</details>
 {{end}}

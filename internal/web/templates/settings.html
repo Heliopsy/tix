@@ -1,0 +1,82 @@
+{{define "content"}}
+<h1>Settings</h1>
+<p class="lede">Display preferences for this browser. Each one is stored in a cookie, not on the tenant, so two people sharing a tenant can choose differently.</p>
+
+<h2>Appearance</h2>
+<form method="post" action="/theme">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="next" value="{{.Here}}">
+  <label for="theme">Theme</label>
+  <p class="muted" id="theme-help">Switches between light and dark, or "Low contrast" for a softer dark palette. System follows whatever your browser or operating system prefers.</p>
+  <select id="theme" name="theme" aria-describedby="theme-help">
+    <option value="" {{if eq .Theme ""}}selected{{end}}>System</option>
+    <option value="light" {{if eq .Theme "light"}}selected{{end}}>Light</option>
+    <option value="dark" {{if eq .Theme "dark"}}selected{{end}}>Dark</option>
+    <option value="dim" {{if eq .Theme "dim"}}selected{{end}}>Low contrast</option>
+  </select>
+  <div class="actions"><button type="submit">Apply theme</button></div>
+</form>
+
+<h2>Interface</h2>
+
+<form method="post" action="/advanced">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="next" value="{{.Here}}">
+  <p class="muted" id="advanced-help">Adds the configuration and data screens to the sidebar: workflows, tenant, domains, users, tokens, webhooks, bundles, transfer and sync. Off by default, because most visits are to a list of tasks, not to administration.</p>
+  <p>The advanced screens are currently {{if .Advanced}}<strong>shown</strong>{{else}}<strong>hidden</strong>{{end}}.</p>
+  <div class="actions">
+    <button class="secondary" type="submit" aria-describedby="advanced-help">{{if .Advanced}}Hide advanced{{else}}Show advanced{{end}}</button>
+  </div>
+</form>
+
+<form method="post" action="/dragmove">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="next" value="{{.Here}}">
+  <p class="muted" id="dragmove-help">Lets you drag a card between board columns to move it. Each card's own Move disclosure always works, drag or no drag, so turning this off costs nothing for keyboard or touch use.</p>
+  <p>Drag to move is currently {{if .DragMove}}<strong>on</strong>{{else}}<strong>off</strong>{{end}}.</p>
+  <div class="actions">
+    <button class="secondary" type="submit" aria-describedby="dragmove-help">{{if .DragMove}}Turn off drag to move{{else}}Turn on drag to move{{end}}</button>
+  </div>
+</form>
+
+<form method="post" action="/keyscheme">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="next" value="{{.Here}}">
+  <label for="keyscheme">Keyboard shortcuts</label>
+  <p class="muted" id="keyscheme-help">Picks which keys drive the actions below. Press <kbd>?</kbd> on any screen to see the scheme currently active.</p>
+  <select id="keyscheme" name="keyscheme" aria-describedby="keyscheme-help">
+    {{range .Schemes}}<option value="{{.}}" {{if eq $.KeyScheme (print .)}}selected{{end}}>{{schemeLabel .}}</option>{{end}}
+  </select>
+  <div class="actions"><button type="submit">Apply shortcuts</button></div>
+</form>
+
+<h3>Compare the schemes</h3>
+<p class="muted">What each key does under every shipped scheme, so you can see what changes before switching.</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Action</th>
+      {{range .Data.Shortcuts.Schemes}}<th scope="col">{{.Label}}</th>{{end}}
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Data.Shortcuts.Rows}}
+    <tr>
+      <td data-label="Action">{{.Label}}</td>
+      {{range $i, $keys := .Cells}}<td data-label="{{(index $.Data.Shortcuts.Schemes $i).Label}}">{{range $j, $key := $keys}}{{if $j}} or {{end}}<kbd>{{$key}}</kbd>{{end}}</td>{{end}}
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+</div>
+
+<p class="muted">Which columns a listing shows is chosen on the listing itself, not here.</p>
+
+<h2>Database</h2>
+{{if .Data.TargetDescribe}}
+<p>This server is talking to <code>{{.Data.TargetDescribe}}</code>.</p>
+{{else}}
+<p class="muted">This server was not started with a database description to show, so its target cannot be shown here.</p>
+{{end}}
+{{end}}

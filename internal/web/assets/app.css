@@ -247,6 +247,101 @@ a { color: var(--accent); }
 
 .card > h2:first-child, .card > h3:first-child { margin-top: 0; }
 
+/* The project board: one column per workflow state, side by side wherever
+   there is room for more than one. The phone-width rule below stacks them. */
+.board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+  align-items: start;
+  margin-bottom: 8px;
+}
+
+.column {
+  min-width: 0;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px;
+}
+
+.column > h2 { margin: 0 0 10px; font-size: 0.92rem; }
+.column .card { margin-bottom: 10px; }
+.column .card:last-child { margin-bottom: 0; }
+.column .ref { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); font-size: 0.78rem; }
+
+/* An empty column still names itself, but does not spend a heading's worth
+   of space saying so. */
+.column-empty { margin: 0; padding: 4px 2px; }
+
+/* Drag-and-drop (assets/live.js): an addition to the Move disclosure above,
+   never a replacement for it, so a dragged card keeps its normal look apart
+   from a faded, slightly scaled cue that it is the one moving, and a column
+   is marked a legal drop target only while a card that may actually move
+   there is over it -- an illegal column never lights up, which is the
+   dragover handler's legality check made visible. */
+.card[draggable="true"] { cursor: grab; }
+.card.is-dragging { opacity: 0.5; transform: scale(0.98); }
+.column.is-drop-target {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* Visually hidden but still present for assistive technology: the board's
+   live region (templates/board.html) that narrates a drag-and-drop move,
+   and any future use that needs the same. Unlike .file-field's hidden input,
+   this is never meant to be reachable by tab, so it takes no size at all
+   rather than the 1px real inputs need to stay clickable. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.card-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+
+/* The move form is the one action every card offers, but it does not need to
+   be on screen for every card at once: a disclosure keeps the board scannable
+   while leaving the form itself a plain, scriptless post. */
+details.card-move {
+  margin: 8px 0 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+details.card-move > summary {
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 0;
+  font-size: 0.8rem;
+  font-weight: 550;
+  color: var(--accent);
+}
+
+details.card-move > summary::-webkit-details-marker { display: none; }
+details.card-move > summary::before { content: "\25B8"; font-size: 0.75em; }
+details.card-move[open] > summary::before { content: "\25BE"; }
+
+details.card-move > .body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+details.card-move select { width: auto; flex: 1 1 120px; padding: 6px 8px; font-size: 0.85rem; }
+details.card-move button { padding: 6px 10px; font-size: 0.85rem; flex: 0 0 auto; }
+
 /* Forms */
 form { margin: 0; }
 
@@ -285,8 +380,16 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 }
 
 /* A checkbox or radio is a glyph, not a field: full width stretches it across
-   the row and strands its label. */
-input[type="checkbox"], input[type="radio"] { width: auto; margin: 0; }
+   the row and strands its label. accent-color themes the native control --
+   box, radio dot and the checkmark glyph inside it -- in every current
+   browser, keeping its real focus ring, keyboard handling and hit target for
+   free. The checkmark itself is a shape change, not only a colour change, so
+   a checked box does not rely on colour alone to read as checked. */
+input[type="checkbox"], input[type="radio"] {
+  width: auto;
+  margin: 0;
+  accent-color: var(--accent);
+}
 
 label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) {
   display: flex;
@@ -298,6 +401,133 @@ label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) {
 }
 
 textarea { min-height: 92px; resize: vertical; }
+
+/* field-label pairs a <label> with an optional field-info disclosure, so the
+   "i" sits on the label's own line instead of falling below it -- label is
+   display:block on its own. */
+.field-label { display: flex; align-items: center; gap: 6px; margin: 10px 0 4px; }
+.field-label > label { margin: 0; }
+
+/* The small "i" affordance itself: a disclosure, not a hover tooltip, so it
+   works for touch and keyboard alike. Closed, it is a plain circular button
+   that never competes with the label for attention; open, it drops a short
+   explanation in its own bordered line rather than floating over other
+   content, which would need JavaScript to position and dismiss. */
+.field-info { position: relative; }
+.field-info > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-style: normal;
+  line-height: 1;
+}
+.field-info > summary::-webkit-details-marker { display: none; }
+.field-info > summary:hover,
+.field-info > summary:focus-visible { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.field-info[open] > summary { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.field-info > p {
+  position: absolute;
+  z-index: 5;
+  top: 100%;
+  left: 0;
+  margin: 4px 0 0;
+  padding: 8px 10px;
+  width: max-content;
+  max-width: min(320px, 80vw);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* A single-choice <select> gets the same border, background and padding
+   every other field already has from the shared rule above; what is left of
+   its own browser chrome is the dropdown arrow, replaced here with one drawn
+   from the same --muted token everything else uses, so it stops looking like
+   the one native control left on the page. A multi-select listbox (the
+   token scopes picker) keeps its native rendering: it is not a dropdown, and
+   there is no arrow to replace. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 32px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 17px) center, calc(100% - 13px) center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+select[multiple] {
+  appearance: auto;
+  -webkit-appearance: auto;
+  background-image: none;
+  padding-right: 10px;
+}
+
+/* File inputs: the native "Choose file" button cannot be restyled directly
+   in any browser, so the real <input type="file"> is visually hidden --
+   never display:none or visibility:hidden, either of which would also drop
+   it from the tab order -- behind a label styled like the rest of this
+   form language. The label carries the input inside it, so activating the
+   label (a click, or Tab then Space/Enter) opens the file picker through
+   the browser's own native behaviour, with no script involved and nothing
+   that breaks if JavaScript is off. */
+.file-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  margin: 10px 0 4px;
+  cursor: pointer;
+}
+
+.file-field input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.file-field .file-button {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 550;
+}
+
+.file-field input[type="file"]:focus-visible ~ .file-button {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.file-field .file-name {
+  color: var(--muted);
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
 
 button {
   font: inherit;
@@ -397,13 +627,17 @@ col.c-when { width: 142px; }
    for is on the element's title. */
 .who-name { color: var(--ink); font-weight: 600; }
 
-/* The activity feed. One row wraps rather than scrolling sideways. */
+/* The activity feed. One row wraps rather than scrolling sideways. The left
+   border is always reserved, even on a row with no project, so an accented
+   row does not shift its neighbours when the stripe appears. */
 .feed > li {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 6px 12px;
   max-width: 100%;
+  padding-left: 11px;
+  border-left: 3px solid transparent;
 }
 
 .feed .subject { color: var(--ink); }
@@ -542,8 +776,10 @@ li.task {
 }
 
 /* A project stripe, deliberately unlike a status: an edge and a wash that fade
-   out a quarter of the way across, never a filled pill. */
-li.task.is-accented {
+   out a quarter of the way across, never a filled pill. Shared by the task
+   list (li.task) and the tenant-wide activity feed (.feed > li), so the same
+   project reads the same way on both. */
+li.task.is-accented, .feed > li.is-accented {
   border-left-color: var(--proj);
   background-image: linear-gradient(
     to right, color-mix(in srgb, var(--proj) 14%, transparent), transparent 25%);
@@ -690,24 +926,28 @@ li.task.is-blocked a.task-title { color: var(--muted); }
   .quickadd input[name="title"], .filterbar input { flex: 1 1 100%; }
 }
 
-/* Display preferences live in one disclosure under the navigation, so the way
-   to change them is always on screen and never hunted for. It is a plain
-   <details> with plain forms inside: no script takes part. */
+/* The settings entry is a plain link under the navigation, so the way to
+   reach the display preferences is always on screen and never hunted for.
+   The preferences themselves live on their own page (templates/settings.html)
+   rather than in a sidebar disclosure, so there is exactly one place that
+   holds them. */
 .side-foot { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
 
-.side-foot details.panel.settings { background: transparent; border-color: var(--line); }
-.side-foot details.panel.settings > summary { padding: 8px 10px; font-size: 0.85rem; }
-.side-foot details.panel.settings > .body { padding: 0 10px 10px; }
-.side-foot .pref { margin: 0 0 12px; }
-.side-foot .pref:last-of-type { margin-bottom: 0; }
-.side-foot .pref label { margin: 0 0 3px; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
-.side-foot .pref select { font-size: 0.85rem; padding: 5px 8px; max-width: 100%; }
-.side-foot .pref p.muted { font-size: 0.78rem; margin: 0 0 6px; }
-.side-foot .pref .actions { margin-top: 6px; }
-.side-foot .pref button { width: 100%; font-size: 0.82rem; padding: 6px 10px; }
-.side-foot > .body > p.muted, .side-foot details.panel.settings > .body > p.muted {
-  font-size: 0.75rem;
-  margin: 10px 0 0;
+.side-foot a {
+  display: block;
+  padding: 7px 10px;
+  border-radius: 7px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.side-foot a:hover { background: var(--bg); color: var(--ink); }
+
+.side-foot a[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
 }
 
 /* Flashes */
@@ -891,22 +1131,57 @@ kbd {
 
 .copyline button { flex: 0 0 auto; padding: 6px 10px; font-size: 0.85em; }
 
-/* The per-row "raw detail" disclosure inside the task history table
-   (templates/task.html). A bordered, shadowed panel reads as a card; inside
-   a table cell that is too heavy, so this trims it down to an inline
-   disclosure instead. */
+/* The per-row "raw detail" disclosure: on the task history table
+   (templates/task.html) and on the tenant-wide activity feed
+   (templates/partials.html, "activity-rows"). A bordered, shadowed panel
+   reads as a card; inside a table cell, or between the badge and the row's
+   own timestamp, that is too heavy, so this trims it down to a small
+   button-like disclosure with a light panel underneath -- never a plain
+   run of muted text, which is what made it read as an inert, already
+   -selected label rather than something to click. */
 details.panel.raw {
   margin: 4px 0 0;
-  border: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
   box-shadow: none;
-  background: none;
+  background: var(--surface);
+  align-self: flex-start;
 }
 
 details.panel.raw > summary {
-  padding: 2px 0;
-  font-weight: 500;
-  font-size: 0.8rem;
+  padding: 3px 9px;
+  font-weight: 600;
+  font-size: 0.78rem;
   color: var(--muted);
+  border-radius: 6px;
 }
 
-details.panel.raw ul.plain { margin: 2px 0 0; padding-left: 14px; font-size: 0.82rem; }
+details.panel.raw > summary::before { font-size: 0.75em; }
+
+details.panel.raw > summary:hover,
+details.panel.raw > summary:focus-visible {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+details.panel.raw[open] > summary {
+  border-bottom: 1px solid var(--line);
+  border-radius: 6px 6px 0 0;
+}
+
+details.panel.raw > .body { padding: 8px 10px; }
+details.panel.raw > .body > .raw-fields:not(:last-child) { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed var(--line); }
+
+/* One hop's raw record: labelled data, not a run-on line joined by
+   separators. Identifiers, action keys and field names are monospace,
+   because that is what they are -- machine tokens, not prose. */
+dl.raw-fields { margin: 0; font-size: 0.8rem; }
+dl.raw-fields > div { display: flex; gap: 8px; padding: 1px 0; }
+dl.raw-fields dt { flex: 0 0 60px; color: var(--muted); }
+dl.raw-fields dd { margin: 0; overflow-wrap: anywhere; }
+
+/* On the activity feed only: the disclosure is always its own full-width
+   line, placed in the markup after the row's timestamp and actor, so
+   opening it grows the row downward and never moves those two spans --
+   they are already laid out by the time this line wraps. */
+.feed-raw { flex: 1 1 100%; margin-top: 6px; }

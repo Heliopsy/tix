@@ -9,22 +9,27 @@
       <td>{{.Email}}</td>
       {{if $.Columns.Show "users" "name"}}<td>{{.DisplayName}}</td>{{end}}
       {{if $.Columns.Show "users" "state"}}<td>{{if .DisabledAt}}disabled{{else}}active{{end}}</td>{{end}}
-      <td>
-        <form method="post" action="/admin/users/update">
-          {{template "csrf" $.CSRF}}
-          <input type="hidden" name="id" value="{{.ID}}">
-          <label for="role-{{.ID}}">Role</label>
-          <select id="role-{{.ID}}" name="role">
-            {{range $.Data.Roles}}<option value="{{.}}">{{.}}</option>{{end}}
-          </select>
-          <label for="disabled-{{.ID}}"><input id="disabled-{{.ID}}" type="checkbox" name="disabled" value="1" {{if .DisabledAt}}checked{{end}}> Disabled</label>
-          <button class="secondary" type="submit">Update</button>
-        </form>
-        <form method="post" action="/admin/users/delete">
-          {{template "csrf" $.CSRF}}
-          <input type="hidden" name="id" value="{{.ID}}">
-          <button class="secondary" type="submit">Delete</button>
-        </form>
+      <td data-label="Manage">
+        <details class="panel">
+          <summary>Edit</summary>
+          <div class="body">
+            <form method="post" action="/admin/users/update">
+              {{template "csrf" $.CSRF}}
+              <input type="hidden" name="id" value="{{.ID}}">
+              <label for="role-{{.ID}}">Role</label>
+              <select id="role-{{.ID}}" name="role">
+                {{range $.Data.Roles}}<option value="{{.}}">{{.}}</option>{{end}}
+              </select>
+              <label for="disabled-{{.ID}}"><input id="disabled-{{.ID}}" type="checkbox" name="disabled" value="1" {{if .DisabledAt}}checked{{end}}> Disabled</label>
+              <div class="actions"><button type="submit">Update</button></div>
+            </form>
+            <form method="post" action="/admin/users/delete">
+              {{template "csrf" $.CSRF}}
+              <input type="hidden" name="id" value="{{.ID}}">
+              <div class="actions"><button class="danger" type="submit">Delete</button></div>
+            </form>
+          </div>
+        </details>
       </td>
     </tr>
   {{else}}

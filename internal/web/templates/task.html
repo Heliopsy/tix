@@ -184,11 +184,15 @@
                 {{sentence ($.Data.Names.Label $latest.Entry.ActorID) .}}
                 <details class="panel raw">
                   <summary>{{if gt (len .Hops) 1}}{{len .Hops}} steps{{else}}Raw{{end}}</summary>
-                  <ul class="plain">
+                  <div class="body">
                     {{range .Hops}}
-                    <li class="muted">{{compact .Entry.OccurredAt}} &middot; {{.Entry.Action}}{{if .Changed}} &middot; {{join .Changed}}{{end}}</li>
+                    <dl class="raw-fields">
+                      <div><dt>When</dt><dd class="mono">{{compact .Entry.OccurredAt}}</dd></div>
+                      <div><dt>Action</dt><dd class="mono">{{.Entry.Action}}</dd></div>
+                      {{if .Changed}}<div><dt>Fields</dt><dd class="mono">{{join .Changed}}</dd></div>{{end}}
+                    </dl>
                     {{end}}
-                  </ul>
+                  </div>
                 </details>
               </td>
               <td data-label="Source"><span class="badge source">{{$latest.Entry.Source}}</span></td>

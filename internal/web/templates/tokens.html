@@ -34,7 +34,10 @@
   {{template "csrf" .CSRF}}
   <label for="name">Name</label>
   <input id="name" name="name" required>
-  <label for="scopes">Scopes</label>
+  <div class="field-label">
+    <label for="scopes">Scopes</label>
+    {{template "field-info" "Exactly what this token may do; the CLI or agent holding it can do nothing outside this list, and at least one scope is required. Select every scope its work needs, for example task:write and task:transition for an agent that moves its own tasks, and no more than that -- a token is usually held outside your own control."}}
+  </div>
   <select id="scopes" name="scopes" multiple size="8">
     {{range .Data.Scopes}}<option value="{{.}}">{{.}}</option>{{end}}
   </select>

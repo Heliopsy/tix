@@ -171,22 +171,24 @@ func TestSetKeySchemePersists(t *testing.T) {
 	f := newFixture(t)
 	b := f.as("alice")
 
-	page := b.page("/tasks")
+	page := b.page("/settings")
 	if !hasPlainForm(page, "/keyscheme") {
-		t.Fatalf("the settings menu offers no keyboard scheme control:\n%s", page)
+		t.Fatalf("the settings page offers no keyboard scheme control:\n%s", page)
 	}
 
 	resp := b.post("/keyscheme", url.Values{"keyscheme": {"vim"}, "next": {"/tasks"}})
 	defer func() { _ = resp.Body.Close() }()
 	wantStatus(t, resp, http.StatusSeeOther)
 
-	after := b.page("/tasks")
-	if !strings.Contains(after, `<option value="vim" selected>Vim</option>`) {
-		t.Errorf("the vim scheme did not stick across a reload:\n%s", after)
+	settings := b.page("/settings")
+	if !strings.Contains(settings, `<option value="vim" selected>Vim</option>`) {
+		t.Errorf("the vim scheme did not stick across a reload:\n%s", settings)
 	}
 
-	// A page carries the active scheme's bindings for the shortcut script to
-	// read, and it has to be the one that was just chosen.
+	// Every page, not only the settings page, carries the active scheme's
+	// bindings for the shortcut script to read, and it has to be the one that
+	// was just chosen.
+	after := b.page("/tasks")
 	blob := extractShortcutsJSON(t, after)
 	if blob.Scheme != "vim" {
 		t.Errorf("embedded scheme = %q, want %q", blob.Scheme, "vim")
@@ -207,7 +209,7 @@ func TestSetKeySchemeRefusesAnUnknownScheme(t *testing.T) {
 	resp := b.post("/keyscheme", url.Values{"keyscheme": {"colemak"}, "next": {"/tasks"}})
 	_ = resp.Body.Close()
 
-	page := b.page("/tasks")
+	page := b.page("/settings")
 	if !strings.Contains(page, `<option value="default" selected>Default</option>`) {
 		t.Errorf("an unknown scheme was not rejected back to default:\n%s", page)
 	}

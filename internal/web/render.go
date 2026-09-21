@@ -84,6 +84,7 @@ type view struct {
 	Brand         branding
 	Actor         *core.Actor
 	Advanced      bool
+	DragMove      bool
 	Theme         string
 	KeyScheme     string
 	Schemes       []KeyScheme
@@ -119,17 +120,19 @@ func parseTemplates(style output.TimeStyle) map[string]*template.Template {
 // configured TimeStyle.
 func funcs(style output.TimeStyle) template.FuncMap {
 	return template.FuncMap{
-		"compact":     style.Format,
-		"stamp":       style.FormatPtr,
-		"absolute":    style.Absolute,
-		"join":        joinValues,
-		"scopes":      joinScopes,
-		"counts":      formatCounts,
-		"prio":        priorityName,
-		"slug":        slug,
-		"schemeLabel": keySchemeLabel,
-		"relativeAt":  style.Relative,
-		"sentence":    sentenceFor,
+		"compact":         style.Format,
+		"stamp":           style.FormatPtr,
+		"absolute":        style.Absolute,
+		"join":            joinValues,
+		"scopes":          joinScopes,
+		"counts":          formatCounts,
+		"prio":            priorityName,
+		"slug":            slug,
+		"kindLabel":       componentKindLabel,
+		"schemeLabel":     keySchemeLabel,
+		"relativeAt":      style.Relative,
+		"sentence":        sentenceFor,
+		"sentenceSubject": sentenceForSubject,
 	}
 }
 
@@ -156,6 +159,28 @@ func slug(v any) string {
 		return '-'
 	}, fmt.Sprint(v))
 	return out
+}
+
+// componentKindLabels names each component kind for display. Most of
+// core.ComponentKind's values already read as English; the two that do not
+// ("field_def", "project_template") get a label here rather than reaching a
+// screen as a raw Go identifier.
+var componentKindLabels = map[core.ComponentKind]string{
+	core.ComponentWorkflow: "workflow",
+	core.ComponentFieldDef: "field definition",
+	core.ComponentTag:      "tag",
+	core.ComponentProject:  "project template",
+	core.ComponentWebhook:  "webhook",
+}
+
+// componentKindLabel renders a component kind as the words above, falling
+// back to the raw value for a kind this build does not know, so an unknown
+// kind is visible rather than silently blank.
+func componentKindLabel(k core.ComponentKind) string {
+	if label, ok := componentKindLabels[k]; ok {
+		return label
+	}
+	return string(k)
 }
 
 // joinValues renders a list of strings as a comma separated line.
@@ -203,6 +228,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Brand:         h.brand(r),
 		Actor:         actor,
 		Advanced:      advancedMode(r),
+		DragMove:      dragMoveMode(r),
 		Theme:         themeOf(r),
 		KeyScheme:     string(scheme),
 		Schemes:       KeySchemes(),
@@ -231,6 +257,22 @@ const AdvancedCookie = "tix_advanced"
 func advancedMode(r *http.Request) bool {
 	c, err := r.Cookie(AdvancedCookie)
 	return err == nil && c.Value == "1"
+}
+
+// DragMoveCookie remembers whether this browser wants drag-and-drop on the
+// board, on top of the per-card Move disclosure that is always there. It
+// defaults on, the opposite polarity of AdvancedCookie: most people who can
+// drag a card would rather drag it than open a disclosure and pick from a
+// select, and the people for whom that never works (no pointer, or no
+// pointer gesture) are unaffected either way since the Move disclosure never
+// leaves.
+const DragMoveCookie = "tix_drag_move"
+
+// dragMoveMode reports whether this browser wants drag-and-drop on the
+// board. Unset, or any value other than "0", means on.
+func dragMoveMode(r *http.Request) bool {
+	c, err := r.Cookie(DragMoveCookie)
+	return err != nil || c.Value != "0"
 }
 
 // ThemeCookie remembers the colour scheme this browser asked for.

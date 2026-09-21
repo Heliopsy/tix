@@ -13,8 +13,11 @@
 <h2>Import a snapshot</h2>
 <form method="post" action="/transfer/import" enctype="multipart/form-data">
   {{template "csrf" .CSRF}}
-  <label for="snapshot">Snapshot file</label>
-  <input id="snapshot" name="snapshot" type="file">
+  <label class="file-field">
+    <input id="snapshot" name="snapshot" type="file" aria-label="Snapshot file">
+    <span class="file-button">Choose file</span>
+    <span class="file-name" data-file-name>No file chosen</span>
+  </label>
   <label for="snapshot_text">Or paste the snapshot</label>
   <textarea id="snapshot_text" name="snapshot_text"></textarea>
   <div class="row">

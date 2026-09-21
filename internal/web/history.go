@@ -1,6 +1,7 @@
 package web
 
 import (
+	"html/template"
 	"strconv"
 	"strings"
 	"time"
@@ -113,15 +114,25 @@ func groupHistory(rows []historyRow) []historyGroup {
 const maxHopGap = 5 * time.Second
 
 // continuesChain reports whether row is the next hop of the open group at
-// the end of groups: the same actor, the same transition action, its
-// starting status equal to the previous hop's ending status, and close
-// enough in time to plausibly be the same request.
+// the end of groups: the same subject, the same actor, the same transition
+// action, its starting status equal to the previous hop's ending status, and
+// close enough in time to plausibly be the same request.
+//
+// The subject check is not needed by attachHistory's own caller, since a
+// single task's audit trail already shares one subject throughout, but it is
+// required once the same grouping runs over the tenant-wide activity feed
+// (activity.go), whose rows interleave many different subjects: without it,
+// two unrelated tasks whose statuses and timing happened to line up could
+// chain into one row.
 func continuesChain(groups []historyGroup, row historyRow) bool {
 	if len(groups) == 0 || row.Entry.Action != "task.transition" {
 		return false
 	}
 	last := groups[len(groups)-1].Latest()
 	if last.Entry.Action != "task.transition" || last.Entry.ActorID != row.Entry.ActorID {
+		return false
+	}
+	if last.Entry.SubjectType != row.Entry.SubjectType || last.Entry.SubjectID != row.Entry.SubjectID {
 		return false
 	}
 	if gap := row.Entry.OccurredAt.Sub(last.Entry.OccurredAt); gap < 0 || gap > maxHopGap {
@@ -146,48 +157,104 @@ func stringField(raw []byte, key string) (string, bool) {
 	return s, ok
 }
 
-// sentenceFor renders a group as the sentence a reader sees: who, and what
-// changed, in words rather than field names.
+// sentenceFor renders a group as the sentence the task detail page shows:
+// who, and what changed, in words rather than field names. The subject is
+// always "this", since the whole page it appears on is already about one
+// task and naming it again would be noise.
 func sentenceFor(actorLabel string, g historyGroup) string {
+	return string(sentenceForSubject(actorLabel, "this", "", g))
+}
+
+// sentenceForSubject is sentenceFor generalised with an explicit name for
+// the record acted on, and an optional link for it. The task detail page
+// calls it (via sentenceFor) with the subject fixed at "this"; the
+// tenant-wide activity feed (activity.go) calls it directly, naming and
+// linking the task a row is about, since a feed spanning every task has no
+// single implied subject the way one task's own history does. Reusing this
+// one switch statement for both, rather than writing a second sentence
+// builder for the feed, is what keeps the two views from ever disagreeing
+// about how the same kind of event reads.
+//
+// It returns template.HTML because subject may carry a real anchor tag.
+// Every other dynamic fragment -- the actor label, state names, field
+// labels -- is escaped by hand, since returning template.HTML bypasses the
+// automatic escaping html/template would otherwise apply to the whole
+// string.
+func sentenceForSubject(actorLabel, subjectText, subjectHref string, g historyGroup) template.HTML {
+	esc := template.HTMLEscapeString
+	subject := esc(subjectText)
+	if subjectHref != "" {
+		subject = `<a href="` + esc(subjectHref) + `">` + subject + `</a>`
+	}
 	if actorLabel == "" {
 		actorLabel = "The system"
 	}
+	actor := esc(actorLabel)
 	first, last := g.Hops[0], g.Latest()
 	switch {
 	case first.Entry.Action == "task.transition":
 		from, _ := stringField(first.Entry.Before, "status")
 		to, _ := stringField(last.Entry.After, "status")
+		sentence := actor + " moved " + subject + " from " + esc(from) + " to " + esc(to)
 		if len(g.Hops) > 1 {
-			return actorLabel + " moved this from " + from + " to " + to +
-				" (" + strconv.Itoa(len(g.Hops)) + " steps)"
+			sentence += " (" + strconv.Itoa(len(g.Hops)) + " steps)"
 		}
-		return actorLabel + " moved this from " + from + " to " + to
+		return template.HTML(sentence) // #nosec G203 -- every dynamic piece above is escaped by hand
 	case last.Entry.Action == "task.create":
-		return actorLabel + " created this"
+		return template.HTML(actor + " created " + subject) // #nosec G203
 	case last.Entry.Action == "task.delete":
-		return actorLabel + " deleted this"
+		return template.HTML(actor + " deleted " + subject) // #nosec G203
 	case last.Entry.Action == "task.restore":
-		return actorLabel + " restored this"
+		return template.HTML(actor + " restored " + subject) // #nosec G203
 	case last.Entry.Action == "task.claim":
-		return actorLabel + " claimed this"
+		return template.HTML(actor + " claimed " + subject) // #nosec G203
 	case last.Entry.Action == "task.release":
-		return actorLabel + " released the claim on this"
+		return template.HTML(actor + " released the claim on " + subject) // #nosec G203
 	case last.Entry.Action == "task.lease_renew":
-		return actorLabel + " renewed the claim on this"
+		return template.HTML(actor + " renewed the claim on " + subject) // #nosec G203
 	case last.Entry.Action == "task.lease_expire":
-		return "The claim on this expired"
+		return template.HTML("The claim on " + subject + " expired") // #nosec G203
+	case last.Entry.Action == "user.login":
+		return template.HTML(actor + " signed in") // #nosec G203
+	case last.Entry.Action == "user.logout":
+		return template.HTML(actor + " signed out") // #nosec G203
+	case last.Entry.Action == "member.add":
+		return template.HTML(actor + " added " + subject + " to the tenant") // #nosec G203
+	case last.Entry.Action == "member.remove":
+		return template.HTML(actor + " removed " + subject + " from the tenant") // #nosec G203
 	case last.Entry.Action == "task.update":
 		fields := meaningfulFields(last.Changed)
 		if len(fields) == 0 {
-			return actorLabel + " updated this"
+			return template.HTML(actor + " updated " + subject) // #nosec G203
 		}
 		labels := make([]string, 0, len(fields))
 		for _, f := range fields {
-			labels = append(labels, fieldLabel(f))
+			labels = append(labels, esc(fieldLabel(f)))
 		}
-		return actorLabel + " updated " + strings.Join(labels, ", ")
+		sentence := actor + " updated " + strings.Join(labels, ", ")
+		// The task page's own sentence never names "this" a second time here,
+		// so an explicit subject is appended only when there is one to show.
+		if subjectText != "this" {
+			sentence += " on " + subject
+		}
+		return template.HTML(sentence) // #nosec G203
 	default:
-		return actorLabel + " changed this"
+		// Every task action above is spelled out because each reads as its
+		// own sentence shape ("moved", "claimed", "released the claim on").
+		// A subject that is not a task -- a project, a workflow, a tenant,
+		// and so on (activity.go's subjectFor names them) -- writes far
+		// fewer distinct actions, and none of them need a shape of their
+		// own: the three-way split the row's own badge already uses
+		// (actionVerb) says everything a reader needs -- created, deleted,
+		// or some other change -- without a switch arm per action.
+		switch actionVerb(last.Entry.Action) {
+		case "create":
+			return template.HTML(actor + " created " + subject) // #nosec G203
+		case "delete":
+			return template.HTML(actor + " deleted " + subject) // #nosec G203
+		default:
+			return template.HTML(actor + " changed " + subject) // #nosec G203
+		}
 	}
 }
 

@@ -22,32 +22,17 @@ func (h *handler) projectRoutes() []route {
 	}
 }
 
-// projectRow is one project with the workflow key its settings form shows, so
-// the listing can offer the whole record without a second screen.
-type projectRow struct {
-	core.Project
-	WorkflowKey string
-}
-
-// projectsView is what the project list renders.
+// projectsView is what the project list renders. Editing a project, and
+// archiving or deleting it, happen on the project's own page (board.html),
+// which has carried a full settings disclosure and a danger zone since the
+// board rework; the listing only ever needs to link to it, not to carry a
+// second copy of that form. Workflows and Colors are still needed here for
+// the "New project" form below the table.
 type projectsView struct {
-	Projects   []projectRow
+	Projects   []core.Project
 	Workflows  []core.Workflow
 	Colors     []core.ProjectColor
 	NextCursor string
-}
-
-// projectRows pairs each project with the key of the workflow it runs.
-func projectRows(projects []core.Project, workflows []core.Workflow) []projectRow {
-	keys := make(map[string]string, len(workflows))
-	for _, w := range workflows {
-		keys[w.ID] = w.Key
-	}
-	out := make([]projectRow, 0, len(projects))
-	for _, p := range projects {
-		out = append(out, projectRow{Project: p, WorkflowKey: keys[p.WorkflowID]})
-	}
-	return out
 }
 
 // showProjects renders the project list and the creation form.
@@ -65,7 +50,7 @@ func (h *handler) showProjects(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	return h.render(w, r, "projects.html", "Projects",
-		projectsView{Projects: projectRows(projects, workflows), Workflows: workflows,
+		projectsView{Projects: projects, Workflows: workflows,
 			Colors: core.ProjectColors(), NextCursor: next})
 }
 
@@ -136,10 +121,11 @@ type column struct {
 
 // boardView is what the project board renders.
 type boardView struct {
-	Project  core.Project
-	Workflow core.Workflow
-	Colors   []core.ProjectColor
-	Columns  []column
+	Project   core.Project
+	Workflow  core.Workflow
+	Workflows []core.Workflow
+	Colors    []core.ProjectColor
+	Columns   []column
 }
 
 // showBoard renders one column per workflow state.
@@ -149,7 +135,11 @@ func (h *handler) showBoard(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	workflow, err := h.workflowOf(r, project)
+	workflows, err := h.svc.ListWorkflows(r.Context())
+	if err != nil {
+		return err
+	}
+	workflow, err := workflowFor(project, workflows)
 	if err != nil {
 		return err
 	}
@@ -161,7 +151,7 @@ func (h *handler) showBoard(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	return h.render(w, r, "board.html", project.Name,
-		boardView{Project: *project, Workflow: *workflow, Colors: core.ProjectColors(),
+		boardView{Project: *project, Workflow: *workflow, Workflows: workflows, Colors: core.ProjectColors(),
 			Columns: buildColumns(workflow.Definition, page.Tasks)})
 }
 
@@ -171,6 +161,11 @@ func (h *handler) workflowOf(r *http.Request, project *core.Project) (*core.Work
 	if err != nil {
 		return nil, err
 	}
+	return workflowFor(project, workflows)
+}
+
+// workflowFor picks the workflow a project is assigned out of a known list.
+func workflowFor(project *core.Project, workflows []core.Workflow) (*core.Workflow, error) {
 	for i := range workflows {
 		if workflows[i].ID == project.WorkflowID {
 			return &workflows[i], nil

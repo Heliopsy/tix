@@ -120,7 +120,7 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 		Direction: core.Ascending,
 	}
 	if filter.Page.Sort == "" {
-		filter.Page.Sort = core.SortCreatedAt
+		filter.Page.Sort = core.SortUrgency
 	}
 	projects, _, err := h.svc.ListProjects(r.Context(), core.ProjectFilter{})
 	if err != nil {

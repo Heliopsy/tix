@@ -76,7 +76,7 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 
 	srv, err := server.Assemble(server.Options{
 		Service:         conn.Service,
-		WebHandler:      web.Handler(conn.Service, web.WithSecureCookies(o.certFile != ""), web.WithTimeStyle(g.timeStyle())),
+		WebHandler:      web.Handler(conn.Service, web.WithSecureCookies(o.certFile != ""), web.WithTimeStyle(g.timeStyle()), web.WithTargetDescribe(conn.Info.Target.Describe())),
 		Store:           conn.Store,
 		Clock:           clock.New(),
 		TenantID:        conn.Info.TenantID,

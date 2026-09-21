@@ -29,9 +29,15 @@
   {{template "csrf" .CSRF}}
   <label for="url">URL</label>
   <input id="url" name="url" type="url" required>
-  <label for="secret">Signing secret</label>
+  <div class="field-label">
+    <label for="secret">Signing secret</label>
+    {{template "field-info" "Every delivery to this endpoint carries an X-Tix-Signature header: an HMAC-SHA256 of the request body, keyed by this secret, that your receiver checks to confirm the delivery really came from tix. Leave it blank and tix generates one, shown once, right after you save."}}
+  </div>
   <input id="secret" name="secret" type="password" autocomplete="new-password">
-  <label for="event_types">Event types, comma separated</label>
+  <div class="field-label">
+    <label for="event_types">Event types, comma separated</label>
+    {{template "field-info" "Which event types this endpoint receives, for example task.created,task.transitioned. A trailing star matches a whole family, so task.* covers every task event. Leave it blank to receive everything."}}
+  </div>
   <input id="event_types" name="event_types" placeholder="task.*">
   <label for="active"><input id="active" type="checkbox" name="active" value="1" checked> Active</label>
   <p><button type="submit">Save endpoint</button></p>

@@ -29,7 +29,10 @@
   <div class="row">
     <div><label for="hostname">Hostname</label><input id="hostname" name="hostname" required></div>
     <div>
-      <label for="cert_mode">Certificate mode</label>
+      <div class="field-label">
+        <label for="cert_mode">Certificate mode</label>
+        {{template "field-info" "Records how this hostname's TLS certificate is meant to be provided. none means something in front of tix, such as a reverse proxy, terminates TLS for it. file means a certificate and key on disk, whose paths you set below when you choose it."}}
+      </div>
       <select id="cert_mode" name="cert_mode">
         {{range .Data.CertModes}}<option value="{{.}}">{{.}}</option>{{end}}
       </select>

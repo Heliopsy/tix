@@ -21,7 +21,7 @@
     <p class="who">{{.Actor.Handle}}</p>
     {{template "nav" .}}
     <div class="side-foot">
-      {{template "settings-menu" .}}
+      <a href="/settings" {{if eq .Path "/settings"}}aria-current="page"{{end}}>Settings</a>
     </div>
     <form method="post" action="/logout" class="actions">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">

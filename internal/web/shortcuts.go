@@ -207,6 +207,44 @@ func shortcutDataFor(active KeyScheme) shortcutData {
 	}
 }
 
+// shortcutTable is the settings page's scheme comparison: one column per
+// scheme, one row per action, built from the same shortcutActions and
+// KeyBindingsFor that drive the embedded JSON, so the two can never disagree
+// about what a scheme binds.
+type shortcutTable struct {
+	Schemes []shortcutSchemeChoice
+	Rows    []shortcutTableRow
+}
+
+// shortcutTableRow is one action's binding across every scheme, in the same
+// order as shortcutTable.Schemes.
+type shortcutTableRow struct {
+	Label string
+	Cells [][]string
+}
+
+// buildShortcutTable renders the comparison every shipped scheme offers, so a
+// reader can weigh vim or emacs against the default before switching, rather
+// than switching, checking the help overlay, and switching back.
+func buildShortcutTable() shortcutTable {
+	schemes := KeySchemes()
+	choices := make([]shortcutSchemeChoice, 0, len(schemes))
+	bindings := make([]map[string][]string, 0, len(schemes))
+	for _, s := range schemes {
+		choices = append(choices, shortcutSchemeChoice{Value: string(s), Label: keySchemeLabel(s)})
+		bindings = append(bindings, KeyBindingsFor(s))
+	}
+	rows := make([]shortcutTableRow, 0, len(shortcutActions))
+	for _, a := range shortcutActions {
+		row := shortcutTableRow{Label: a.Label}
+		for _, table := range bindings {
+			row.Cells = append(row.Cells, table[a.Name])
+		}
+		rows = append(rows, row)
+	}
+	return shortcutTable{Schemes: choices, Rows: rows}
+}
+
 // shortcutsJSON renders the active scheme's binding table as the JSON a page
 // embeds inside a <script type="application/json"> element. The data is
 // fixed literals plus the resolved cookie value, so marshalling cannot fail
