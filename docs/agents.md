@@ -220,6 +220,17 @@ its subscription narrowed to that project, and naming a different project is ref
 A useful agent token is `task:read`, `task:claim`, `task:transition` and, if the agent comments on its work,
 `comment:write`. Anything more is unnecessary.
 
+### Public keys
+
+A public key is the third kind of credential, beside a password and a token. `tix ssh` accepts any key and
+treats the fingerprint as the identity, which is what lets the demo listener hand every visitor their own
+sandbox with no signup. See [deployment.md](deployment.md#the-terminal-interface-over-ssh).
+
+Enrolling a key against an existing user, so that a real account can be reached over SSH rather than a
+throwaway sandbox, is not built yet. The credential is already the right shape for it: resolution is
+fingerprint to actor behind one interface, and enrolment replaces the lookup without touching anything above it.
+An agent today should still use a token.
+
 ## Reporting results
 
 `tix claim release` records what happened:

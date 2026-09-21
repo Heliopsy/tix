@@ -31,8 +31,10 @@ type Options struct {
 	TimeStyle output.TimeStyle
 	In        io.Reader
 	Out       io.Writer
-	Err       io.Writer
-	Environ   []string
+	// Color overrides the colour probe; nil lets the environment decide.
+	Color   *bool
+	Err     io.Writer
+	Environ []string
 }
 
 // Run starts the terminal interface and returns the process exit code.
@@ -47,7 +49,7 @@ func Run(o Options) int {
 	}
 	model := New(Config{
 		Service: o.Service, Context: ctx, Actor: o.Actor,
-		Environ: o.Environ, Out: o.Out, Project: o.Project, Filter: o.Filter,
+		Environ: o.Environ, Out: o.Out, Color: o.Color, Project: o.Project, Filter: o.Filter,
 		Scheme: o.Scheme, Overrides: o.Overrides, TimeStyle: o.TimeStyle,
 	})
 	final, err := tea.NewProgram(model, programOptions(ctx, o)...).Run()

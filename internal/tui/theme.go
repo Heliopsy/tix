@@ -64,6 +64,16 @@ func ColorEnabled(environ []string, out io.Writer) bool {
 	return isTerminal(out)
 }
 
+// colorChoice resolves whether this run draws in colour. An explicit choice on
+// the configuration wins, because a caller writing to something that is not a
+// file knows better than a device probe can; otherwise the environment decides.
+func colorChoice(cfg Config) bool {
+	if cfg.Color != nil {
+		return *cfg.Color
+	}
+	return ColorEnabled(cfg.Environ, cfg.Out)
+}
+
 // isTerminal reports whether w is a character device. A nil writer stands for
 // the terminal bubbletea writes to when no output was configured.
 func isTerminal(w io.Writer) bool {

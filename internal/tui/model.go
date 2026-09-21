@@ -83,6 +83,11 @@ type Config struct {
 	Actor   *core.Actor
 	Environ []string
 	Out     io.Writer
+	// Color overrides the environment probe. A caller whose destination is not
+	// a file, an SSH session for instance, cannot be judged by asking whether
+	// the writer is a character device, but it still knows whether the client
+	// wants colour. Nil leaves the decision to ColorEnabled.
+	Color *bool
 	// Scheme names the keybinding preset, and Overrides rebinds single
 	// actions on top of it.
 	Scheme    string
@@ -112,7 +117,7 @@ func New(cfg Config) Model {
 	}
 	m := Model{
 		svc: cfg.Service, ctx: ctx, actor: cfg.Actor,
-		keys: DefaultKeyMap(), theme: NewTheme(ColorEnabled(cfg.Environ, cfg.Out)), now: now,
+		keys: DefaultKeyMap(), theme: NewTheme(colorChoice(cfg)), now: now,
 		timeStyle: cfg.TimeStyle,
 		view:      viewProjects, input: in, leases: map[string]string{},
 		openProject: cfg.Project, width: 80, height: 24,

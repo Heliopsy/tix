@@ -258,8 +258,109 @@ Migrations run automatically when the database is opened, and `tix doctor` repor
 Take a backup before upgrading a shared deployment, and roll one process at a time only after confirming the new
 version's migrations have been applied.
 
+## The terminal interface over SSH
+
+`tix ssh` serves the terminal interface over SSH. tix is the SSH server: there is no sshd, no system user
+and no shell. A client connects, proves a public key, and lands on a board.
+
+```sh
+tix ssh --db /var/lib/tix/demo.db
+ssh -p 2222 visitor@localhost
+```
+
+### The fingerprint is the identity
+
+Any public key is accepted. SSH requires a client to prove a key, but nothing requires the server to have seen
+it before, and that proof is the whole identity here: no signup, no password, no enrolment.
+
+Each fingerprint gets an **ephemeral tenant of its own**, seeded on first connection with a demo board. The same
+key connecting again gets the same tenant back, with whatever the visitor changed still in it. Two visitors are
+two tenants, so the scoped query builder, the tenant predicate and, on PostgreSQL, row-level security are all
+doing their real job.
+
+A visitor holds an explicit set of scopes rather than a role: enough to work the board, edit projects and edit
+workflows, and not enough to administer the tenant, mint tokens, create users, register webhooks or bulk import.
+
+### Its own database
+
+This listener faces strangers, so it takes its own target. `tix ssh` refuses the zero-configuration store:
+
+```console
+$ tix ssh
+error: invalid: ssh refuses the zero-configuration store, which is somebody's real work: name a database of its
+own with --db
+```
+
+Give it a database nothing else uses. Sandboxes are created and deleted in it continuously, and no real tenant
+should share that process boundary.
+
+### Flags
+
+| Flag | Default | Effect |
+| --- | --- | --- |
+| `--listen` | `127.0.0.1:2222` | address to bind |
+| `--host-key` | beside the database | persisted host key, generated on first run at mode 0600 |
+| `--allow-public` | off | allow a non-loopback bind |
+| `--tenant-ttl` | `6h` | how long a sandbox survives without a visit |
+| `--reap-interval` | `10m` | how often expired sandboxes are deleted |
+| `--max-tenants` | `200` | live sandboxes before a new key is refused |
+| `--max-tasks` | `200` | tasks one sandbox may hold |
+| `--lease-ttl` | `2m` | lease length in a seeded sandbox |
+| `--rate-per-hour` | `60` | connections per hour from one source address |
+| `--rate-burst` | `5` | connections one source may make back to back |
+| `--idle-timeout` | `30m` | how long a session may sit idle |
+
+### The non-loopback bind guard
+
+Like `tix serve`, binding anything other than loopback needs an explicit choice:
+
+```console
+$ tix ssh --db /var/lib/tix/demo.db --listen 0.0.0.0:2222
+error: invalid: refusing to bind non-loopback address "0.0.0.0:2222" without tls: configure a certificate and
+key, or pass the explicit insecure opt-out
+```
+
+Pass `--allow-public` when that is what you want. SSH encrypts its own transport, so unlike `tix serve` there is
+no certificate to configure; the guard exists so a demo is never exposed by accident.
+
+### Colour
+
+Whether a session is drawn in colour is decided from what the client said, not from the server's own terminal:
+`NO_COLOR` or `TIX_NO_COLOR` set to a non-empty value, a `TERM` of `dumb`, or a session that names no terminal
+type all get a monochrome board. Everything else gets colour, at ANSI-16, which is the whole palette the
+interface uses.
+
+### Expiry, and why it slides
+
+The time to live counts from the **last connection**, not from creation, so someone who keeps coming back keeps
+their board. A sandbox nobody has visited for the time to live is deleted with everything under it: the delete
+is the store's hard delete, and every tenant-owned table cascades from `tenants(id)`.
+
+When `--max-tenants` is reached a **new** fingerprint is refused with a message saying so. An existing sandbox is
+never evicted to make room; silently deleting somebody's work to admit a stranger would be the worst behaviour
+available. A fingerprint whose sandbox has already been reaped simply gets a fresh one.
+
+The interface says, on the board and again when the session ends, that this is a sandbox and roughly how long it
+survives unvisited.
+
+### Port 22
+
+Binding port 22 for a bare `ssh tix.example.com` is a deployment problem, not a code one. tix binds 2222 and
+does not ask for the privilege to bind a low port. Put one of these in front:
+
+```sh
+# iptables
+iptables -t nat -A PREROUTING -p tcp --dport 22 -j REDIRECT --to-port 2222
+
+# systemd socket activation, or simply
+# AmbientCapabilities=CAP_NET_BIND_SERVICE in the unit, with --listen 0.0.0.0:22 --allow-public
+```
+
+If the host already runs a real sshd on 22, give tix its own address or leave it on 2222.
+
 ## Related
 
 - [api.md](api.md) for routes, errors and the event protocol
 - [scaling.md](scaling.md) for when one process stops being enough
 - [tenancy.md](tenancy.md) for hostname to tenant mapping
+- [agents.md](agents.md) for the lease behaviour the demo board shows off

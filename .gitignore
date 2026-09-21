@@ -11,3 +11,7 @@ coverage.html
 *.db-shm
 trivy.sarif
 .screenshots/
+
+# cmd tests write these while exercising the event stream
+watch_stdout*.log
+watch_stderr*.log
