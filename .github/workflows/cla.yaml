@@ -10,7 +10,7 @@ permissions: read-all
 
 jobs:
   cla:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER }}
     permissions:
       actions: write
       contents: write

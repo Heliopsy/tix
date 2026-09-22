@@ -8,7 +8,7 @@ permissions: read-all
 
 jobs:
   badge:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER }}
     permissions:
       contents: write
     steps:

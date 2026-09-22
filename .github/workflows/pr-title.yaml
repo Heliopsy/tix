@@ -9,7 +9,7 @@ permissions: read-all
 jobs:
   conventional:
     name: Conventional commit title
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER }}
     permissions:
       pull-requests: read
     steps:

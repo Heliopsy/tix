@@ -66,7 +66,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER }}
     permissions:
       contents: read
     steps:
@@ -108,7 +108,7 @@ jobs:
 
   spec:
     name: Specs & Docs
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER }}
     permissions:
       contents: read
     steps:
@@ -128,7 +128,7 @@ jobs:
 
   sast:
     name: SAST (gosec)
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER }}
     permissions:
       contents: read
       security-events: write
@@ -155,7 +155,7 @@ jobs:
 
   sca:
     name: SCA (govulncheck + trivy)
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER }}
     permissions:
       contents: read
       security-events: write
@@ -200,7 +200,7 @@ jobs:
 
   crosscompile:
     name: Cross-compile (CGO_ENABLED=0)
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER }}
     permissions:
       contents: read
     steps:
