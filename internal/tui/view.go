@@ -63,7 +63,7 @@ func (m Model) fit(line string) string {
 	if m.width <= 0 || lipgloss.Width(line) <= m.width {
 		return line
 	}
-	return lipgloss.NewStyle().MaxWidth(m.width).Render(line)
+	return m.theme.Style().MaxWidth(m.width).Render(line)
 }
 
 // bodyLines renders whichever view is open.

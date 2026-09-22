@@ -52,6 +52,11 @@ var columnSets = map[string][]Column{
 		{Key: "scopes", Label: "Scopes", Default: true},
 		{Key: "expires", Label: "Expires", Default: true},
 	},
+	"sshkeys": {
+		{Key: "label", Label: "Label", Default: true},
+		{Key: "added", Label: "Added", Default: true},
+		{Key: "used", Label: "Last used", Default: true},
+	},
 	"webhooks": {
 		{Key: "events", Label: "Events", Default: true},
 		{Key: "active", Label: "Active", Default: true},

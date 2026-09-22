@@ -58,6 +58,7 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `ssh.listen` | `TIX_SSH_LISTEN` | `127.0.0.1:2222` |
 | `ssh.host_key` | `TIX_SSH_HOST_KEY` | (unset: beside the database) |
 | `ssh.allow_public` | `TIX_SSH_ALLOW_PUBLIC` | `false` |
+| `ssh.demo` | `TIX_SSH_DEMO` | `false` |
 | `ssh.tenant_ttl` | `TIX_SSH_TENANT_TTL` | `6h` |
 | `ssh.reap_interval` | `TIX_SSH_REAP_INTERVAL` | `10m` |
 | `ssh.max_tenants` | `TIX_SSH_MAX_TENANTS` | `200` |
@@ -100,6 +101,17 @@ admits ten. A flag nobody typed does not count as a layer: it leaves the configu
 flag has a default of its own. The deployment most likely to run this listener is a container, where a command
 line is the hardest layer to reach and an environment variable the easiest, which is why none of this is
 flag-only. See [deployment.md](deployment.md) for what each setting protects.
+
+`ssh.demo` picks the mode. It is `false`, so the listener serves only the keys enrolled with `tix user key add`
+and refuses everything else. Setting it to `true` is `--demo`: any key is accepted and handed a seeded
+ephemeral tenant, and the listener then refuses the zero-configuration store and needs a database of its own.
+This default flipped: the sandbox used to be unconditional. `ssh.tenant_ttl`, `ssh.reap_interval`,
+`ssh.max_tenants`, `ssh.max_tasks` and `ssh.lease_ttl` shape that sandbox and do nothing while `ssh.demo` is
+false.
+
+None of these keys reach `tix serve`. Its four SSH flags (`--ssh-listen`, `--ssh-host-key`,
+`--ssh-allow-public`, `--ssh-idle-timeout`) are flags only, so `TIX_SSH_LISTEN` in a `tix serve` environment
+binds nothing, and `tix serve` has no demo mode at all.
 
 `ssh.idle_timeout` closes a session nobody is typing at, measured from the last key the interface saw.
 `ssh.keepalive_interval` and `ssh.keepalive_max_missed` are a different question: whether the client is still

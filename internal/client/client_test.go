@@ -206,6 +206,13 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 		{"list sync sources", func(c *Client) error { _, err := c.ListSyncSources(ctx); return err }, http.MethodGet, httpapi.RouteSyncSources},
 		{"delete sync source", func(c *Client) error { return c.DeleteSyncSource(ctx, "s1") }, http.MethodDelete, "/api/v1/sync/sources/s1"},
 		{"run sync", func(c *Client) error { _, err := c.RunSync(ctx, core.RunSyncInput{SourceID: "s1"}); return err }, http.MethodPost, httpapi.RouteSyncRun},
+
+		{"enrol ssh key", func(c *Client) error {
+			_, err := c.EnrolSSHKey(ctx, core.EnrolSSHKeyInput{PublicKey: "ssh-ed25519 AAAA"})
+			return err
+		}, http.MethodPost, httpapi.RouteSSHKeys},
+		{"list ssh keys", func(c *Client) error { _, err := c.ListSSHKeys(ctx, ""); return err }, http.MethodGet, httpapi.RouteSSHKeys},
+		{"revoke ssh key", func(c *Client) error { return c.RevokeSSHKey(ctx, "k1") }, http.MethodDelete, "/api/v1/ssh-keys/k1"},
 	}
 
 	for _, tc := range tests {
@@ -668,5 +675,68 @@ func TestWithSessionSendsTheSessionCookieOnlyOnTheCopy(t *testing.T) {
 	}
 	if want := []string{"sess-2", ""}; !slices.Equal(cookies, want) {
 		t.Fatalf("cookies = %q, want %q", cookies, want)
+	}
+}
+
+// The client marshals and unmarshals; it holds no opinion about what an ssh
+// public key is. Text the service would refuse goes out exactly as given, and
+// the enrolled record comes back exactly as the server rendered it.
+func TestSSHKeyBodyIsMarshalledUnvalidated(t *testing.T) {
+	c, got := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set(httpapi.HeaderContentType, httpapi.ContentJSON)
+		w.WriteHeader(http.StatusCreated)
+		_, _ = io.WriteString(w, `{"id":"k1","tenant_id":"t1","actor_id":"u1",`+
+			`"fingerprint":"SHA256:abc","public_key":"ssh-ed25519 AAAA","label":"laptop",`+
+			`"created_at":"2024-01-01T00:00:00Z","revoked_at":"2024-02-01T00:00:00Z"}`)
+	})
+
+	key, err := c.EnrolSSHKey(context.Background(), core.EnrolSSHKeyInput{
+		PublicKey: "-----BEGIN OPENSSH PRIVATE KEY-----", Label: "laptop"})
+	if err != nil {
+		t.Fatalf("enrol: %v", err)
+	}
+	if !strings.Contains(got.body, "BEGIN OPENSSH PRIVATE KEY") {
+		t.Errorf("body = %q, want the submission sent through untouched", got.body)
+	}
+	if key.Fingerprint != "SHA256:abc" || key.PublicKey != "ssh-ed25519 AAAA" {
+		t.Errorf("key = %+v, want the server's own fields", key)
+	}
+	if key.Active() {
+		t.Error("a key the server reported revoked came back active")
+	}
+}
+
+// A revoked key is part of the listing, so the client must not filter one out.
+func TestListSSHKeysCarriesRevokedKeysThrough(t *testing.T) {
+	c, got := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set(httpapi.HeaderContentType, httpapi.ContentJSON)
+		_, _ = io.WriteString(w, `{"items":[`+
+			`{"id":"live","fingerprint":"SHA256:one"},`+
+			`{"id":"dead","fingerprint":"SHA256:two","revoked_at":"2024-02-01T00:00:00Z"}]}`)
+	})
+
+	keys, err := c.ListSSHKeys(context.Background(), "u1")
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if got.query != "actor_id=u1" {
+		t.Errorf("query = %q, want the actor carried as a parameter", got.query)
+	}
+	if len(keys) != 2 {
+		t.Fatalf("listed %d keys, want both", len(keys))
+	}
+	if !keys[0].Active() || keys[1].Active() {
+		t.Errorf("revocation did not survive the round trip: %+v", keys)
+	}
+}
+
+// An actor left empty asks the server who the caller is, so no parameter goes.
+func TestListSSHKeysWithoutAnActorSendsNoParameter(t *testing.T) {
+	c, got := newClient(t, okHandler)
+	if _, err := c.ListSSHKeys(context.Background(), ""); err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if got.query != "" {
+		t.Fatalf("query = %q, want none", got.query)
 	}
 }

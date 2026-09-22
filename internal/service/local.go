@@ -8,6 +8,7 @@ import (
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/authz"
 	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/id"
 	"github.com/heliopsy/tix/internal/store"
@@ -21,6 +22,11 @@ type Local struct {
 	ids    id.Generator
 	hooks  HookMode
 	hasher *auth.Hasher
+
+	// conns is the live connections this process is holding. It is memory
+	// only, and a connection lives in exactly one process, so a server lists
+	// and ends its own and no other's.
+	conns *connections.Registry
 
 	// retentionDefaults are the configured windows a tenant that never moved
 	// off the shipped default is pruned by.
@@ -64,6 +70,17 @@ func WithClock(c clock.Clock) Option { return func(l *Local) { l.clock = c } }
 // WithIDs sets the identifier generator.
 func WithIDs(g id.Generator) Option { return func(l *Local) { l.ids = g } }
 
+// WithConnections sets the live connection registry the service reads and
+// ends connections through. Without it the process-wide default is used, which
+// is the same registry the surfaces accepting connections feed.
+func WithConnections(r *connections.Registry) Option {
+	return func(l *Local) {
+		if r != nil {
+			l.conns = r
+		}
+	}
+}
+
 // WithHooks sets the webhook delivery mode.
 func WithHooks(m HookMode) Option { return func(l *Local) { l.hooks = m } }
 
@@ -106,6 +123,7 @@ func New(st store.Store, opts ...Option) *Local {
 		ids:    id.Default,
 		hooks:  HookInline,
 		hasher: auth.NewHasher(),
+		conns:  connections.Default,
 	}
 	for _, opt := range opts {
 		opt(l)

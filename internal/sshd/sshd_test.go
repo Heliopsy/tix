@@ -346,9 +346,9 @@ func TestMessageHidesAnInternalFailureFromAStranger(t *testing.T) {
 	}{
 		{"a domain refusal is explained", core.Precondition("this demo is full"), "this demo is full"},
 		{"an internal failure is not", core.Internal("the disk is gone"),
-			"this demo could not open a sandbox for you; try again shortly"},
+			"tix could not open a session for you; try again shortly"},
 		{"nor is an unclassified one", errors.New("raw"),
-			"this demo could not open a sandbox for you; try again shortly"},
+			"tix could not open a session for you; try again shortly"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

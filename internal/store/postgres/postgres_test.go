@@ -13,6 +13,7 @@ import (
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
+	"github.com/heliopsy/tix/internal/store/migrations"
 	sqlb "github.com/heliopsy/tix/internal/store/sql"
 	"github.com/heliopsy/tix/internal/testenv"
 )
@@ -219,7 +220,23 @@ func TestTranslateRewritesThePortableSchema(t *testing.T) {
 }
 
 func TestAdjustmentsCoverEveryScopedTable(t *testing.T) {
-	stmts := strings.Join(adjustments(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)), "\n")
+	// Union across every migration, not just the first. A scoped table added
+	// later carries its policy on its own migration, and the point of this test
+	// is that no table falls between the two: a table whose policy is attached
+	// to a migration that has already run on a live database would be readable
+	// across tenants there while looking correct on a fresh one.
+	all, err := migrations.All()
+	if err != nil {
+		t.Fatalf("loading migrations: %v", err)
+	}
+	var b strings.Builder
+	for _, m := range all {
+		for _, stmt := range adjustmentsFor(m.Version, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)) {
+			b.WriteString(stmt)
+			b.WriteByte('\n')
+		}
+	}
+	stmts := b.String()
 	for _, table := range sqlb.ScopedTables() {
 		if !strings.Contains(stmts, "ALTER TABLE "+table+" ENABLE ROW LEVEL SECURITY") {
 			t.Fatalf("no row-level security for %q", table)

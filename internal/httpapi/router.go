@@ -174,6 +174,7 @@ func (rt *Router) register() {
 	rt.registerWebhookRoutes()
 	rt.registerTransferRoutes()
 	rt.registerBundleRoutes()
+	rt.registerConnectionRoutes()
 
 	if rt.cfg.EventHandler != nil {
 		rt.mux.Handle(RouteEvents, rt.cfg.EventHandler)

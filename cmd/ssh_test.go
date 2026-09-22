@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,12 +17,49 @@ import (
 
 func TestSSHRefusesTheZeroConfigurationStore(t *testing.T) {
 	c := newCLI(t)
-	got := c.run("ssh", "--listen", "127.0.0.1:0")
+	got := c.run("ssh", "--demo", "--listen", "127.0.0.1:0")
 	if got.code != core.ExitUsage {
 		t.Fatalf("exit = %d, want %d: %s", got.code, core.ExitUsage, got.err)
 	}
-	if !strings.Contains(got.err, "zero-configuration store") {
+	if !strings.Contains(got.err, "your own work") {
 		t.Fatalf("stderr = %q, want the refusal to name the store it protects", got.err)
+	}
+}
+
+// TestSSHRefusesTheDefaultStoreWithoutCreatingIt pins the difference between
+// refusing a database and refusing it after having made one. Opening a target
+// migrates it into existence, so a guard that ran after the open left behind
+// the very file it was protecting, on exactly the machines that had never run
+// tix before.
+func TestSSHRefusesTheDefaultStoreWithoutCreatingIt(t *testing.T) {
+	c := newCLI(t)
+	got := c.run("ssh", "--demo", "--listen", "127.0.0.1:0")
+	if got.code != core.ExitUsage {
+		t.Fatalf("exit = %d, want %d: %s", got.code, core.ExitUsage, got.err)
+	}
+	var found []string
+	_ = filepath.WalkDir(c.home, func(path string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() && strings.Contains(d.Name(), ".db") {
+			found = append(found, path)
+		}
+		return nil
+	})
+	if len(found) != 0 {
+		t.Fatalf("the refusal left a database behind: %v", found)
+	}
+}
+
+// TestSSHInEnrolledModeServesTheConfiguredTarget is the other half of the
+// guard above. Serving enrolled keys is the point of the hosted listener, so
+// the refusal that protects a demo from real work must not fire here.
+func TestSSHInEnrolledModeServesTheConfiguredTarget(t *testing.T) {
+	c := newCLI(t)
+	got := c.run("ssh", "--listen", "0.0.0.0:0")
+	if strings.Contains(got.err, "your own work") {
+		t.Fatalf("stderr = %q, want the demo-only refusal to stay out of enrolled mode", got.err)
+	}
+	if !strings.Contains(got.err, "non-loopback") {
+		t.Fatalf("stderr = %q, want the run to have reached the bind guard", got.err)
 	}
 }
 
@@ -100,7 +138,7 @@ func TestResolveHostKey(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := resolveHostKey(tc.flag, tc.target)
+			got, err := resolveHostKey(tc.flag, tc.target, "--host-key")
 			if tc.fails {
 				if err == nil {
 					t.Fatalf("resolveHostKey = %q, want a refusal", got)
@@ -131,6 +169,7 @@ func TestSSHOptionsTakeConfiguredKeysAndFlagsBeatThem(t *testing.T) {
 		KeepaliveMaxMissed: 4,
 		MaxSessionsPerKey:  5,
 		MaxSessions:        6,
+		Demo:               true,
 	}
 	tests := []struct {
 		name  string
@@ -172,10 +211,21 @@ func TestSSHOptionsTakeConfiguredKeysAndFlagsBeatThem(t *testing.T) {
 		},
 		{
 			name: "an explicit flag equal to its default still wins",
-			args: []string{"--allow-public=false"},
+			args: []string{"--allow-public=false", "--demo=false"},
 			check: func(t *testing.T, o sshOptions) {
 				if o.allowPublic {
 					t.Fatal("allow-public=false lost to the configured true")
+				}
+				if o.demo {
+					t.Fatal("demo=false lost to the configured true")
+				}
+			},
+		},
+		{
+			name: "the demo key is read like every other",
+			check: func(t *testing.T, o sshOptions) {
+				if !o.demo {
+					t.Fatal("ssh.demo was configured and the listener ignored it")
 				}
 			},
 		},

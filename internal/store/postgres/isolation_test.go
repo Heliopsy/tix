@@ -20,6 +20,7 @@ type tenantData struct {
 	artifact core.Artifact
 	webhook  core.WebhookEndpoint
 	token    core.APIToken
+	sshKey   core.SSHKey
 	event    core.Event
 	audit    core.AuditEntry
 	source   core.SyncSource
@@ -62,6 +63,11 @@ func seedIsolated(t *testing.T, s *Store, clk *clock.Fake, key, hostname string)
 		}
 		d.token = core.APIToken{ActorID: d.actor.ID, Name: "shared"}
 		if err := tx.CreateToken(ctx, &d.token, "hash-"+key); err != nil {
+			return err
+		}
+		d.sshKey = core.SSHKey{ActorID: d.actor.ID, Fingerprint: "SHA256:shared",
+			PublicKey: "ssh-ed25519 AAAAshared", Label: "shared"}
+		if err := tx.CreateSSHKey(ctx, &d.sshKey); err != nil {
 			return err
 		}
 		d.event = core.Event{Type: core.EventTaskCreated, SubjectType: "task", SubjectID: d.task.ID}
@@ -141,6 +147,7 @@ func TestTenantIsolationOnEveryRead(t *testing.T) {
 			{"sync sources", func() (int, error) { v, err := tx.ListSyncSources(ctx); return len(v), err }},
 			{"external refs", func() (int, error) { v, err := tx.ListExternalRefs(ctx, "github"); return len(v), err }},
 			{"tokens", func() (int, error) { v, err := tx.ListTokens(ctx, one.actor.ID); return len(v), err }},
+			{"ssh keys", func() (int, error) { v, err := tx.ListSSHKeys(ctx, one.actor.ID); return len(v), err }},
 			{"events", func() (int, error) { v, err := tx.ReadEvents(ctx, 0, 100); return len(v), err }},
 			{"audit", func() (int, error) { v, err := tx.ListAudit(ctx, core.AuditFilter{}); return len(v), err }},
 			{"projects", func() (int, error) {

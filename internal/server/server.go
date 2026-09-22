@@ -45,6 +45,12 @@ type Config struct {
 
 	Workers []Worker
 
+	// SSH runs the terminal interface beside the HTTP surface, over the same
+	// database and under the same shutdown. Nil runs no SSH listener and
+	// binds no SSH port: a listener that accepts connections is never
+	// implied.
+	SSH SSHListener
+
 	// WorkerRestartDelay paces the restart of a worker that panicked. Zero
 	// uses DefaultWorkerRestartDelay; a negative value restarts immediately.
 	WorkerRestartDelay time.Duration
@@ -57,6 +63,10 @@ type Server struct {
 	listener net.Listener
 	tls      *tls.Config
 	mu       sync.Mutex
+
+	ssh     SSHListener
+	sshCtx  context.Context
+	sshStop context.CancelFunc
 }
 
 // New validates the configuration, loads any certificate and returns a server
@@ -90,7 +100,7 @@ func New(cfg Config) (*Server, error) {
 			"addr", cfg.Addr)
 	}
 
-	return &Server{
+	s := &Server{
 		cfg: cfg,
 		tls: tlsConfig,
 		http: &http.Server{
@@ -99,7 +109,13 @@ func New(cfg Config) (*Server, error) {
 			ReadHeaderTimeout: cfg.ReadHeaderTimeout,
 			TLSConfig:         tlsConfig,
 		},
-	}, nil
+	}
+	if cfg.SSH != nil {
+		s.ssh = cfg.SSH
+		s.sshCtx, s.sshStop = context.WithCancel(context.Background())
+		s.cfg.Workers = append(s.cfg.Workers, s.sshWorker())
+	}
+	return s, nil
 }
 
 // loadTLS reads the certificate pair, reporting which file failed.
@@ -154,8 +170,21 @@ func (s *Server) Listen() error {
 	if s.listener != nil {
 		return nil
 	}
+	// The SSH listener binds first. A port conflict then fails the process at
+	// startup, with the HTTP server holding nothing it could have begun
+	// answering requests on.
+	if s.ssh != nil {
+		if err := s.ssh.Listen(); err != nil {
+			s.stopSSH()
+			return err
+		}
+	}
 	ln, err := net.Listen("tcp", s.cfg.Addr)
 	if err != nil {
+		if s.ssh != nil {
+			s.stopSSH()
+			_ = s.ssh.Close()
+		}
 		return core.Internal("listening on %q: %v", s.cfg.Addr, err)
 	}
 	s.listener = ln
@@ -188,6 +217,7 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	select {
 	case err := <-served:
+		s.stopSSH()
 		workers.Wait()
 		return err
 	case <-ctx.Done():
@@ -222,6 +252,15 @@ func (s *Server) shutdown() error {
 	ctx, cancel := context.WithTimeout(context.Background(), s.cfg.ShutdownTimeout)
 	defer cancel()
 
+	// Both surfaces drain against the one deadline, rather than the HTTP
+	// requests spending it and the sessions inheriting whatever is left.
+	drained := make(chan struct{})
+	go func() {
+		defer close(drained)
+		s.drainSSH(ctx)
+	}()
+	defer func() { <-drained }()
+
 	if err := s.http.Shutdown(ctx); err != nil {
 		s.cfg.Logger.Error("shutdown did not drain in time",
 			"timeout", s.cfg.ShutdownTimeout.String())
@@ -232,4 +271,10 @@ func (s *Server) shutdown() error {
 }
 
 // Close stops the server immediately, dropping connections.
-func (s *Server) Close() error { return s.http.Close() }
+func (s *Server) Close() error {
+	if s.ssh != nil {
+		s.stopSSH()
+		_ = s.ssh.Close()
+	}
+	return s.http.Close()
+}

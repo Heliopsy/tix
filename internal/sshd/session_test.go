@@ -1,6 +1,10 @@
 package sshd
 
-import "testing"
+import (
+	"strings"
+	"testing"
+	"time"
+)
 
 func TestColorForReadsWhatTheClientSaid(t *testing.T) {
 	tests := []struct {
@@ -31,5 +35,40 @@ func TestColorForReadsWhatTheClientSaid(t *testing.T) {
 				t.Fatalf("colorFor(%q) = %v, want %v", tc.environ, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestASessionLandsWhereItsModeHasABoard(t *testing.T) {
+	tests := []struct {
+		name string
+		demo bool
+		want string
+	}{
+		{"a sandbox opens its seeded board", true, seedProjectKey},
+		{"a hosted session opens the project list", false, ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &Server{opts: Options{Demo: tc.demo}}
+			if got := s.openProject(); got != tc.want {
+				t.Fatalf("openProject() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestOnlyASandboxSaysAnythingOnTheWayOut guards the claim rather than the
+// wording: a hosted session must not tell somebody their real board was a
+// sandbox that is about to be deleted.
+func TestOnlyASandboxSaysAnythingOnTheWayOut(t *testing.T) {
+	sandbox := (&Server{opts: Options{Demo: true, TenantTTL: 6 * time.Hour}}).notice()
+	for _, want := range []string{"demo sandbox", "6h", "\r\n"} {
+		if !strings.Contains(sandbox, want) {
+			t.Errorf("a sandbox's notice %q does not mention %q", sandbox, want)
+		}
+	}
+	hosted := (&Server{opts: Options{Demo: false, TenantTTL: 6 * time.Hour}}).notice()
+	if hosted != "" {
+		t.Fatalf("a hosted session left %q behind, want nothing", hosted)
 	}
 }

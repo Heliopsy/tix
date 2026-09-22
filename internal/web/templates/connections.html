@@ -1,0 +1,28 @@
+{{define "content"}}
+<h1>Connections</h1>
+<p class="lede">The live connections this server is holding for your tenant, on the event stream and over SSH. Another server running against the same database holds its own, which this screen cannot see. Ending a connection closes it; it is not revocation, so the holder may reconnect with credentials that are still valid.</p>
+<p>Answered by <code>{{.Data.ServerID}}</code>. Your tenant holds {{.Data.Counts.Tenant}} ({{.Data.Counts.Events}} on the event stream, {{.Data.Counts.SSH}} over SSH). This server is holding {{.Data.Counts.Process}} in total.</p>
+<table>
+  <thead><tr><th>Surface</th><th>Actor</th><th>From</th><th>Since</th><th>Key</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data.Connections}}
+    <tr>
+      <td>{{.Surface}}</td>
+      <td>{{if .ActorHandle}}{{.ActorHandle}}{{else}}{{.ActorID}}{{end}}</td>
+      <td>{{.Remote}}</td>
+      <td>{{compact .Since}}</td>
+      <td>{{if .Fingerprint}}<code>{{.Fingerprint}}</code>{{end}}</td>
+      <td>
+        <form method="post" action="/admin/connections/end">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="id" value="{{.ID}}">
+          <button class="secondary" type="submit">End</button>
+        </form>
+      </td>
+    </tr>
+  {{else}}
+    <tr><td colspan="6">No live connections.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+{{end}}

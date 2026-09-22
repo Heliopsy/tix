@@ -113,6 +113,10 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, syncHeader, v, p.syncRow)
 	case core.Tenant:
 		return renderRows(w, p, tenantHeader, []core.Tenant{v}, p.tenantRow)
+	case []core.Connection:
+		return renderRows(w, p, connectionHeader, v, p.connectionRow)
+	case core.ConnectionList:
+		return renderConnectionList(w, p, v)
 	}
 	return renderReflected(w, p, data)
 }
@@ -134,7 +138,30 @@ var (
 	deliveryHeader = table.Row{"ID", "ENDPOINT", "EVENT", "STATUS", "ATTEMPTS", "NEXT ATTEMPT", "CODE"}
 	tagHeader      = table.Row{"ID", "NAME", "PROJECT", "COLOR"}
 	syncHeader     = table.Row{"ID", "SYSTEM", "NAME", "CURSOR", "LAST RUN", "LAST STATUS"}
+
+	connectionHeader = table.Row{"ID", "SURFACE", "ACTOR", "FROM", "SINCE", "KEY"}
 )
+
+func (p Painter) connectionRow(c core.Connection) table.Row {
+	who := c.ActorHandle
+	if who == "" {
+		who = c.ActorID
+	}
+	return table.Row{c.ID, string(c.Surface), who, c.Remote, p.style.Format(c.Since), c.Fingerprint}
+}
+
+// renderConnectionList names the server that answered before the connections
+// it holds, because the view is one process's and reads as whole otherwise.
+func renderConnectionList(w io.Writer, p Painter, list core.ConnectionList) error {
+	if _, err := fmt.Fprintf(w, "Server %s, holding %d connections in total.\n",
+		list.ServerID, list.Counts.Process); err != nil {
+		return err
+	}
+	if len(list.Connections) == 0 {
+		return noResults(w)
+	}
+	return renderRows(w, p, connectionHeader, list.Connections, p.connectionRow)
+}
 
 func (p Painter) userRow(u core.User) table.Row {
 	return table.Row{u.ID, u.Email, truncate(u.DisplayName, 30),

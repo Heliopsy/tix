@@ -52,7 +52,7 @@ func newUserCmd(g *globals) *cobra.Command {
 		Args:    noArgs,
 		RunE:    helpRunner,
 	}
-	cmd.AddCommand(userCreateCmd(g), userLsCmd(g), userShowCmd(g), userEditCmd(g), userRmCmd(g))
+	cmd.AddCommand(userCreateCmd(g), userLsCmd(g), userShowCmd(g), userEditCmd(g), userRmCmd(g), newUserKeyCmd(g))
 	return cmd
 }
 

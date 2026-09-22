@@ -23,6 +23,16 @@ const tenantSetting = "tix.tenant_id"
 // isolationPolicy is the name given to every tenant isolation policy.
 const isolationPolicy = "tix_tenant_isolation"
 
+// sshAuthSetting is the per-transaction flag that admits the one cross-tenant
+// read in the store: resolving a public key fingerprint before any tenant is
+// known. sshAuthPolicy grants it on ssh_keys alone, for SELECT alone, so the
+// flag can widen a read and can never become a write path.
+const (
+	sshAuthSetting = "tix.ssh_auth"
+	sshAuthOn      = "on"
+	sshAuthPolicy  = "tix_ssh_auth_lookup"
+)
+
 // partitionMonthsBack and partitionMonthsAhead bound the partitions created up
 // front, so writes never wait on partition creation.
 const (
@@ -89,8 +99,29 @@ func runMigrations(ctx context.Context, db *sql.DB, clk clock.Clock) error {
 }
 
 // firstMigration is the version that creates the portable schema; the
-// Postgres-only adjustments are layered onto it once.
+// Postgres-only adjustments over it are layered on with that migration.
 const firstMigration = 1
+
+// tableIntroducedIn records the migration that creates a tenant-scoped table,
+// for the tables that arrived after the initial schema. Anything absent was
+// created by firstMigration.
+//
+// This exists because the row-level security policies are not idempotent and so
+// run exactly once. Bundling them all into migration 1 would give a fresh
+// database policies on every table and an existing database no policy at all on
+// a table added later: the isolation would hold on a developer's laptop and
+// fail on the deployment that has been running for months. Recording the
+// version here keeps the two paths identical.
+var tableIntroducedIn = map[string]int{
+	"ssh_keys": 5,
+}
+
+func introducedIn(table string) int {
+	if v, ok := tableIntroducedIn[table]; ok {
+		return v
+	}
+	return firstMigration
+}
 
 func applyMigration(ctx context.Context, db *sql.DB, m migrations.Migration, clk clock.Clock) error {
 	tx, err := db.BeginTx(ctx, nil)
@@ -107,9 +138,7 @@ func applyMigration(ctx context.Context, db *sql.DB, m migrations.Migration, clk
 	// search columns, partitions and row-level security policies. None of them
 	// is idempotent, so running them after every migration makes the second
 	// migration fail on a column that already exists.
-	if m.Version == firstMigration {
-		stmts = append(stmts, adjustments(clk.Now())...)
-	}
+	stmts = append(stmts, adjustmentsFor(m.Version, clk.Now())...)
 	for _, stmt := range stmts {
 		if _, err := tx.ExecContext(ctx, stmt); err != nil {
 			return core.Internal("migration %d (%s): %s", m.Version, m.Name, truncate(stmt)).Wrap(err)
@@ -281,20 +310,44 @@ func splitTopLevel(body string) []string {
 	return out
 }
 
-// adjustments are the statements that exist only on this engine: the monthly
-// partitions, the search vector and the row-level security policies.
-func adjustments(now time.Time) []string {
+// adjustmentsFor are the statements that exist only on this engine, for the
+// migration they belong with: the monthly partitions, the search vector and the
+// row-level security policies.
+//
+// None of them is idempotent, so each runs with exactly one migration. A table
+// that arrives later brings its own policy, rather than relying on a bundle that
+// already ran.
+func adjustmentsFor(version int, now time.Time) []string {
 	var out []string
-	for table := range partitionedTables {
-		out = append(out, partitionStatements(table, now)...)
+	if version == firstMigration {
+		for table := range partitionedTables {
+			out = append(out, partitionStatements(table, now)...)
+		}
+		out = append(out,
+			"ALTER TABLE tasks ADD COLUMN search_tsv tsvector GENERATED ALWAYS AS "+
+				"(to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(body, ''))) STORED",
+			"CREATE INDEX idx_tasks_search ON tasks USING GIN (search_tsv)",
+		)
 	}
-	out = append(out,
-		"ALTER TABLE tasks ADD COLUMN search_tsv tsvector GENERATED ALWAYS AS "+
-			"(to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(body, ''))) STORED",
-		"CREATE INDEX idx_tasks_search ON tasks USING GIN (search_tsv)",
-	)
-	out = append(out, rowLevelSecurity()...)
-	return out
+	out = append(out, rowLevelSecurity(version)...)
+	return append(out, sshAuthLookup(version)...)
+}
+
+// sshAuthLookup returns the policy that lets the authentication path read
+// ssh_keys across tenants in one statement.
+//
+// PostgreSQL ORs permissive policies, so this sits beside the isolation policy
+// rather than replacing it: without the flag the table behaves exactly as
+// before. It is emitted with the migration that introduces ssh_keys, for the
+// same reason the isolation policy is.
+func sshAuthLookup(version int) []string {
+	if introducedIn("ssh_keys") != version {
+		return nil
+	}
+	return []string{
+		fmt.Sprintf("CREATE POLICY %s ON ssh_keys FOR SELECT USING (current_setting('%s', true) = '%s')",
+			sshAuthPolicy, sshAuthSetting, sshAuthOn),
+	}
 }
 
 func partitionStatements(table string, now time.Time) []string {
@@ -320,10 +373,16 @@ func partitionName(table string, month time.Time) string {
 	return fmt.Sprintf("%s_p%04d%02d", table, month.Year(), int(month.Month()))
 }
 
-func rowLevelSecurity() []string {
+// rowLevelSecurity returns the policies for the scoped tables that the given
+// migration creates, so each table is locked down by the migration that
+// introduces it.
+func rowLevelSecurity(version int) []string {
 	var out []string
 	predicate := fmt.Sprintf("%s = current_setting('%s', true)", sqlb.TenantColumn, tenantSetting)
 	for _, table := range sqlb.ScopedTables() {
+		if introducedIn(table) != version {
+			continue
+		}
 		out = append(out,
 			"ALTER TABLE "+table+" ENABLE ROW LEVEL SECURITY",
 			"ALTER TABLE "+table+" FORCE ROW LEVEL SECURITY",

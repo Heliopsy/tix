@@ -65,6 +65,11 @@ type UnscopedTx interface {
 	UpdateTenant(ctx context.Context, t *core.Tenant) error
 	DeleteTenant(ctx context.Context, id string) error
 	GetUserByEmail(ctx context.Context, email string) (*core.User, string, error)
+	// FindSSHKeysByFingerprint returns every live enrolment of a fingerprint,
+	// across tenants. An SSH client proves a key before any tenant is known, so
+	// this is the one lookup that cannot be scoped; the caller narrows to a
+	// single tenant, or refuses, before anything else happens.
+	FindSSHKeysByFingerprint(ctx context.Context, fingerprint string) ([]core.SSHKey, error)
 	Commit() error
 	Rollback() error
 }
@@ -203,6 +208,12 @@ type AuthTx interface {
 	// RevokeActorTokens revokes every token an actor holds.
 	RevokeActorTokens(ctx context.Context, actorID string, at time.Time) (int64, error)
 	TouchToken(ctx context.Context, id string, at time.Time) error
+
+	CreateSSHKey(ctx context.Context, k *core.SSHKey) error
+	GetSSHKey(ctx context.Context, id string) (*core.SSHKey, error)
+	ListSSHKeys(ctx context.Context, actorID string) ([]core.SSHKey, error)
+	RevokeSSHKey(ctx context.Context, id string, at time.Time) error
+	TouchSSHKey(ctx context.Context, id string, at time.Time) error
 }
 
 // EventTx covers the outbox, the audit log and retention.

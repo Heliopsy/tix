@@ -14,6 +14,7 @@ func TestSSHKeysAreRegisteredWithTheirVariables(t *testing.T) {
 		"ssh.listen":               "TIX_SSH_LISTEN",
 		"ssh.host_key":             "TIX_SSH_HOST_KEY",
 		"ssh.allow_public":         "TIX_SSH_ALLOW_PUBLIC",
+		"ssh.demo":                 "TIX_SSH_DEMO",
 		"ssh.tenant_ttl":           "TIX_SSH_TENANT_TTL",
 		"ssh.reap_interval":        "TIX_SSH_REAP_INTERVAL",
 		"ssh.max_tenants":          "TIX_SSH_MAX_TENANTS",

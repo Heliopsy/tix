@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/store"
@@ -127,6 +128,7 @@ type fixture struct {
 	actorA  core.Actor
 	actorB  core.Actor
 	project core.Project
+	live    *connections.Registry
 }
 
 // contextActor is the actor a test request speaks for, chosen by a header the
@@ -151,7 +153,9 @@ func newFixture(t *testing.T) *fixture {
 	f := &fixture{t: t, store: st, clock: clk}
 	f.tenantA = seedTenant(t, st, "acme", "Acme Works")
 	f.tenantB = seedTenant(t, st, "other", "Other Ltd")
-	local := service.New(st, service.WithClock(clk), service.WithHooks(service.HookOff))
+	f.live = connections.New(connections.WithClock(clk), connections.WithServerID("srv-test"))
+	local := service.New(st, service.WithClock(clk), service.WithHooks(service.HookOff),
+		service.WithConnections(f.live))
 	f.svc = newWebService(local)
 	f.actorA = seedActor(t, st, f.tenantA.ID, "alice", core.RoleAdmin)
 	f.actorB = seedActor(t, st, f.tenantB.ID, "bob", core.RoleAdmin)

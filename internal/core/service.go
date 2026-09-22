@@ -21,6 +21,7 @@ type Service interface {
 	TransferService
 	SyncService
 	BundleService
+	ConnectionService
 
 	Close() error
 }
@@ -130,6 +131,16 @@ type AuthService interface {
 	CreateToken(ctx context.Context, in CreateTokenInput) (*IssuedToken, error)
 	ListTokens(ctx context.Context, actorID string) ([]APIToken, error)
 	RevokeToken(ctx context.Context, id string) error
+
+	// EnrolSSHKey registers a public key against an actor of this tenant, so
+	// that key can reach the terminal interface over SSH.
+	EnrolSSHKey(ctx context.Context, in EnrolSSHKeyInput) (*SSHKey, error)
+	// ListSSHKeys returns an actor's enrolled keys, revoked ones included: a
+	// key that stopped working is the thing an operator most wants to see.
+	ListSSHKeys(ctx context.Context, actorID string) ([]SSHKey, error)
+	// RevokeSSHKey stops a key authenticating. Sessions it already holds are
+	// bounded by the listener's idle timeout rather than cut.
+	RevokeSSHKey(ctx context.Context, id string) error
 }
 
 // WebhookService covers outgoing delivery.

@@ -313,6 +313,7 @@ func ScopedTables() []string {
 		"tasks", "task_deps", "tags", "task_tags", "comments", "artifacts",
 		"events", "audit_entries", "webhook_endpoints", "webhook_deliveries",
 		"retention_policies", "external_refs", "sync_sources", "tenant_members",
+		"ssh_keys",
 	}
 	return all
 }

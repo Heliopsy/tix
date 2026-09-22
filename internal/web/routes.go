@@ -62,6 +62,7 @@ func (h *handler) routes() []route {
 	out = append(out, h.workflowRoutes()...)
 	out = append(out, h.taskRoutes()...)
 	out = append(out, h.adminRoutes()...)
+	out = append(out, h.connectionRoutes()...)
 	out = append(out, h.webhookRoutes()...)
 	out = append(out, h.transferRoutes()...)
 	out = append(out, h.bundleRoutes()...)
@@ -139,6 +140,10 @@ const (
 	RouteUserDelete    = "/admin/users/delete"
 	RouteTokens        = "/admin/tokens"
 	RouteTokenRevoke   = "/admin/tokens/revoke" // #nosec G101 -- a url path, not a credential
+	RouteConnections   = "/admin/connections"
+	RouteConnectionEnd = "/admin/connections/end"
+	RouteSSHKeys       = "/admin/ssh-keys"
+	RouteSSHKeyRevoke  = "/admin/ssh-keys/revoke"
 	RouteWebhooks      = "/admin/webhooks"
 	RouteWebhookDelete = "/admin/webhooks/delete"
 	RouteRedeliver     = "/admin/webhooks/deliveries/redeliver"

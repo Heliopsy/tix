@@ -172,6 +172,7 @@ func newServer(t *testing.T) (*Server, store.Store) {
 		Service:     p.service,
 		Store:       st,
 		Clock:       p.clk,
+		Demo:        true,
 		Addr:        "127.0.0.1:0",
 		HostKeyPath: filepath.Join(t.TempDir(), "host_key"),
 		Logger:      slog.New(slog.DiscardHandler),

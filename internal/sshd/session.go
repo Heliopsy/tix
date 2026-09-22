@@ -3,12 +3,14 @@ package sshd
 import (
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/ssh"
 	bm "github.com/charmbracelet/wish/bubbletea"
 	"github.com/heliopsy/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/tui"
 	"github.com/muesli/termenv"
@@ -17,6 +19,11 @@ import (
 // noticeKey carries the farewell line from the program handler to the handler
 // that runs once the interface has given the terminal back.
 type noticeKey struct{}
+
+// handleKey carries the registry handle from the program handler back to
+// handle, which is the one place that brackets the whole session and so the
+// only correct place to give the registration back.
+type handleKey struct{}
 
 // handle serves one connection: the wish middleware owns the terminal, the
 // program handler owns the identity.
@@ -35,11 +42,23 @@ func (s *Server) handle(sess ssh.Session) {
 		}
 		defer s.live.release(fingerprint)
 	}
-	bm.MiddlewareWithProgramHandler(s.program, termenv.ANSI256)(s.farewell)(sess)
+	// The registration is made once the actor is known, inside program, and
+	// given back here: this defer runs when the session is genuinely over,
+	// however it ended.
+	defer func() {
+		if h, ok := sess.Context().Value(handleKey{}).(*connections.Handle); ok {
+			h.Unregister()
+		}
+	}()
+	// No floor is forced on the client's profile: the interface builds its own
+	// renderer per session, from what that client said its terminal is, and a
+	// floor here would raise a 16-colour or a colourless client to a depth it
+	// never claimed.
+	bm.MiddlewareWithProgramHandler(s.program, termenv.Ascii)(s.farewell)(sess)
 }
 
-// program resolves the connecting key into its own sandbox and returns the
-// interface bound to that session's streams.
+// program resolves the connecting key into the actor it belongs to and
+// returns the interface bound to that session's streams.
 //
 // Every value it builds is per connection: the actor, the context carrying it,
 // the capped service and the model. Nothing is shared between sessions but the
@@ -48,7 +67,7 @@ func (s *Server) handle(sess ssh.Session) {
 func (s *Server) program(sess ssh.Session) *tea.Program {
 	key := sess.PublicKey()
 	if key == nil {
-		fatalf(sess, "tix needs a public key to know which sandbox is yours; ssh with a key, not a password")
+		fatalf(sess, "tix needs a public key to know who you are; ssh with a key, not a password")
 		return nil
 	}
 	actor, err := s.verifier.Verify(sess.Context(), key)
@@ -72,13 +91,30 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 		Actor:     actor,
 		Environ:   environ,
 		Color:     &color,
-		Project:   seedProjectKey,
+		Renderer:  tui.NewRenderer(environ, sess),
+		Project:   s.openProject(),
 		TimeStyle: s.opts.TimeStyle,
 		Now:       s.opts.Clock.Now,
 	})
-	sess.Context().SetValue(noticeKey{}, fmt.Sprintf(
-		"This was a demo sandbox owned by your ssh key. Reconnect with the same key to find it as you left it; "+
-			"it is deleted after %s without a visit.\r\n", short(s.opts.TenantTTL)))
+	if notice := s.notice(); notice != "" {
+		sess.Context().SetValue(noticeKey{}, notice)
+	}
+	// An administrator listing connections sees this session from now until
+	// handle gives the registration back. Closing it writes the reason first,
+	// so somebody cut off mid-edit is told why rather than simply dropped.
+	sess.Context().SetValue(handleKey{}, s.opts.Connections.Register(connections.Entry{
+		Surface:     core.ConnectionSSH,
+		TenantID:    actor.TenantID,
+		ActorID:     actor.ID,
+		ActorHandle: actor.Handle,
+		Remote:      sourceOf(sess.RemoteAddr()),
+		Fingerprint: auth.Fingerprint(key),
+	}, func(reason string) error {
+		if reason != "" {
+			_, _ = io.WriteString(sess.Stderr(), "\r\n"+reason+"\r\n")
+		}
+		return sess.Close()
+	}))
 
 	opts := append([]tea.ProgramOption{
 		tea.WithAltScreen(),
@@ -89,8 +125,41 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 	return program
 }
 
-// farewell prints the sandbox notice once the alternate screen is gone, which
-// is the one moment a line is certain to be read rather than painted over.
+// openProject names the board a session lands on.
+//
+// A sandbox holds exactly one seeded board, and opening it is the demo. A
+// hosted tenant's projects are its own, and there is no board this listener
+// could name without inventing one, so the session lands on the project list
+// and its owner chooses, which is what the local interface does with no
+// --project.
+func (s *Server) openProject() string {
+	if s.opts.Demo {
+		return seedProjectKey
+	}
+	return ""
+}
+
+// notice is the line a session leaves behind, or the empty string for a
+// session that has nothing to say.
+//
+// A sandbox says one thing its owner cannot learn anywhere else: the board
+// they were just working on is on a timer. A hosted session is somebody's real
+// board, nothing is being deleted, and every other fact about it was on screen
+// the whole time, so it ends without comment. A line printed on every
+// disconnect that carries nothing is noise, and noise is how a real notice
+// stops being read.
+func (s *Server) notice() string {
+	if !s.opts.Demo {
+		return ""
+	}
+	return fmt.Sprintf(
+		"This was a demo sandbox owned by your ssh key. Reconnect with the same key to find it as you left it; "+
+			"it is deleted after %s without a visit.\r\n", short(s.opts.TenantTTL))
+}
+
+// farewell prints the session's notice once the alternate screen is gone,
+// which is the one moment a line is certain to be read rather than painted
+// over.
 func (s *Server) farewell(sess ssh.Session) {
 	notice, ok := sess.Context().Value(noticeKey{}).(string)
 	if !ok {
@@ -113,7 +182,7 @@ func message(err error) string {
 	if errors.As(err, &e) && e.Kind != core.KindInternal {
 		return e.Message
 	}
-	return "this demo could not open a sandbox for you; try again shortly"
+	return "tix could not open a session for you; try again shortly"
 }
 
 // colorFor decides whether a session is drawn in colour, from what the client

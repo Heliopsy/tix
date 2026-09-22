@@ -31,6 +31,9 @@ const (
 	RouteTokens = APIPrefix + "/tokens"
 	RouteToken  = APIPrefix + "/tokens/{id}"
 
+	RouteSSHKeys = APIPrefix + "/ssh-keys"
+	RouteSSHKey  = APIPrefix + "/ssh-keys/{id}"
+
 	RouteTenants = APIPrefix + "/tenants"
 	RouteTenant  = APIPrefix + "/tenants/{ref}"
 	RouteMembers = APIPrefix + "/members"
@@ -85,6 +88,9 @@ const (
 	RouteSyncRun     = APIPrefix + "/sync/run"
 
 	RouteEvents = APIPrefix + "/events"
+
+	RouteConnections = APIPrefix + "/connections"
+	RouteConnection  = APIPrefix + "/connections/{id}"
 )
 
 // Content types.

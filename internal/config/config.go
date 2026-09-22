@@ -69,6 +69,10 @@ type SSH struct {
 	// AllowPublic permits binding a non-loopback address, which is the same
 	// explicit choice `tix serve` demands before it faces a network.
 	AllowPublic bool `yaml:"allow_public"`
+	// Demo opts in to sandbox provisioning, where any key is accepted and
+	// given an ephemeral tenant. It is off by default: a listener that hands
+	// a tenant to any stranger is a deliberate choice, not an inherited one.
+	Demo bool `yaml:"demo"`
 
 	// TenantTTL is how long a sandbox survives without a visit. It slides from
 	// the last connection, so a returning visitor keeps their board.

@@ -146,6 +146,7 @@ func newLiveServer(t *testing.T, with ...func(*Options)) (*Server, store.Store) 
 		Service:            p.service,
 		Store:              st,
 		Clock:              clock.New(),
+		Demo:               true,
 		Addr:               "127.0.0.1:0",
 		HostKeyPath:        filepath.Join(t.TempDir(), "host_key"),
 		KeepaliveInterval:  100 * time.Millisecond,

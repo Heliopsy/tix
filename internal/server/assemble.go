@@ -50,6 +50,10 @@ type Options struct {
 	// WebHandler serves the browser interface. Leaving it nil serves the API only.
 	WebHandler http.Handler
 
+	// SSH runs the terminal interface beside the HTTP surface. Nil starts no
+	// listener and binds no port.
+	SSH SSHListener
+
 	AllowInsecure bool
 
 	MaxBodyBytes    int64
@@ -119,6 +123,7 @@ func Assemble(opts Options) (*Server, error) {
 		KeyFile:         opts.KeyFile,
 		AllowInsecure:   opts.AllowInsecure,
 		ShutdownTimeout: opts.ShutdownTimeout,
+		SSH:             opts.SSH,
 		Workers:         append(workersFor(opts), EventPumpWorker(pump)),
 	})
 }

@@ -1,0 +1,43 @@
+{{define "content"}}
+<h1>SSH keys</h1>
+{{template "column-picker" .}}
+<p class="lede">Keys enrolled against your actor, which let you reach the terminal interface over SSH without a password. A revoked key stays listed so you can see it stopped working.</p>
+<table>
+  <thead><tr><th>Fingerprint</th>{{if .Columns.Show "sshkeys" "label"}}<th>Label</th>{{end}}{{if .Columns.Show "sshkeys" "added"}}<th>Added</th>{{end}}{{if .Columns.Show "sshkeys" "used"}}<th>Last used</th>{{end}}<th>State</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data.Keys}}
+    <tr>
+      <td><code>{{.Fingerprint}}</code></td>
+      {{if $.Columns.Show "sshkeys" "label"}}<td>{{.Label}}</td>{{end}}
+      {{if $.Columns.Show "sshkeys" "added"}}<td>{{compact .CreatedAt}}</td>{{end}}
+      {{if $.Columns.Show "sshkeys" "used"}}<td>{{stamp .LastUsedAt}}</td>{{end}}
+      <td>{{if .Active}}Active{{else}}Revoked {{stamp .RevokedAt}}{{end}}</td>
+      <td>
+        {{if .Active}}
+        <form method="post" action="/admin/ssh-keys/revoke">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="id" value="{{.ID}}">
+          <button class="secondary" type="submit">Revoke</button>
+        </form>
+        {{end}}
+      </td>
+    </tr>
+  {{else}}
+    <tr><td colspan="{{$.Columns.Span "sshkeys" 3}}">No keys.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+
+<h2>Enrol a key</h2>
+<form method="post" action="/admin/ssh-keys">
+  {{template "csrf" .CSRF}}
+  <div class="field-label">
+    <label for="public_key">Public key</label>
+    {{template "field-info" "The contents of a .pub file, such as ~/.ssh/id_ed25519.pub -- never the private half. Paste one key. Any authorized_keys options or the trailing comment are discarded: only the key itself is stored."}}
+  </div>
+  <textarea id="public_key" name="public_key" rows="4" required placeholder="ssh-ed25519 AAAAC3Nza..."></textarea>
+  <label for="label">Label</label>
+  <input id="label" name="label" placeholder="laptop">
+  <p><button type="submit">Enrol key</button></p>
+</form>
+{{end}}

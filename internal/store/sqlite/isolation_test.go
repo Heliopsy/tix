@@ -21,6 +21,7 @@ type tenantData struct {
 	artifact core.Artifact
 	webhook  core.WebhookEndpoint
 	token    core.APIToken
+	sshKey   core.SSHKey
 	event    core.Event
 	audit    core.AuditEntry
 	source   core.SyncSource
@@ -70,6 +71,11 @@ func seedIsolated(t *testing.T, s *Store, clk *clock.Fake, key, hostname string)
 			return err
 		}
 		if err := tx.CreateSession(ctx, d.actor.ID, "session-"+key, clk.Now().Add(time.Hour)); err != nil {
+			return err
+		}
+		d.sshKey = core.SSHKey{ActorID: d.actor.ID, Fingerprint: "SHA256:shared",
+			PublicKey: "ssh-ed25519 AAAAshared", Label: "shared"}
+		if err := tx.CreateSSHKey(ctx, &d.sshKey); err != nil {
 			return err
 		}
 		d.webhook = core.WebhookEndpoint{URL: "https://example.test/hook", Secret: "shh", Active: true}
@@ -219,6 +225,14 @@ func TestTenantIsolationOnReads(t *testing.T) {
 				}
 				if len(tokens) != 1 || tokens[0].TenantID != own.tenant.ID {
 					t.Fatalf("ListTokens leaked: %+v", tokens)
+				}
+
+				sshKeys, err := tx.ListSSHKeys(ctx, own.actor.ID)
+				if err != nil {
+					return err
+				}
+				if len(sshKeys) != 1 || sshKeys[0].TenantID != own.tenant.ID {
+					t.Fatalf("ListSSHKeys leaked: %+v", sshKeys)
 				}
 
 				hooks, err := tx.ListWebhooks(ctx)

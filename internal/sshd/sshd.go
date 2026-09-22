@@ -9,15 +9,14 @@ import (
 	"net"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/ssh"
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
 	"github.com/heliopsy/tix/internal/server"
 	"github.com/heliopsy/tix/internal/store"
-	"github.com/muesli/termenv"
 )
 
 // DefaultAddr is the loopback address and port the listener takes by default.
@@ -75,6 +74,12 @@ type Options struct {
 	// explicit choice tix serve demands before it faces a network.
 	AllowInsecure bool
 
+	// Demo opts in to sandbox provisioning: any key is accepted and given an
+	// ephemeral tenant of its own. Without it the listener serves enrolled
+	// keys only, because handing a tenant to a stranger is a choice somebody
+	// must make deliberately rather than inherit from a default.
+	Demo bool
+
 	// TenantTTL is how long a sandbox survives without a visit. It slides on
 	// every connection, so a returning visitor keeps their board.
 	TenantTTL    time.Duration
@@ -101,6 +106,12 @@ type Options struct {
 	// the listener as a whole.
 	MaxSessionsPerKey int
 	MaxSessions       int
+
+	// Connections is the registry this listener records its sessions in, so
+	// an administrator can see and end them. Left nil it is the process-wide
+	// one, which is the same registry the event stream feeds: a connection
+	// lives in one process, so one process has one registry.
+	Connections *connections.Registry
 
 	TimeStyle output.TimeStyle
 	Logger    *slog.Logger
@@ -135,31 +146,13 @@ func New(o Options) (*Server, error) {
 		return nil, err
 	}
 
-	// lipgloss resolves its colour profile once, from this process's own
-	// standard output. A server's output is a log file or a journal, so the
-	// profile lands on Ascii and every style the interface builds is stripped
-	// before it can reach a session. Pinning it here is what lets a session be
-	// drawn in colour at all. The interface's palette is entirely ANSI-16, so
-	// that is the depth chosen: everything it uses, and nothing a colour
-	// terminal might not understand. Whether a particular session is drawn in
-	// colour remains a per-session decision, made by colorFor from what that
-	// client said.
-	lipgloss.SetColorProfile(termenv.ANSI)
-
 	s := &Server{
 		opts:    o,
 		log:     o.Logger,
 		limiter: newLimiter(o.Clock, rateInterval(o.RatePerHour), o.RateBurst, o.MaxTenants*4),
 		live:    newGate(o.MaxSessionsPerKey, o.MaxSessions),
 	}
-	s.verifier = auth.NewPublicKeyVerifier(&provisioner{
-		store:      o.Store,
-		service:    o.Service,
-		clk:        o.Clock,
-		maxTenants: o.MaxTenants,
-		leaseTTL:   o.LeaseTTL,
-		tenantTTL:  o.TenantTTL,
-	})
+	s.verifier = auth.NewPublicKeyVerifier(s.lookup())
 	s.ssh = &ssh.Server{
 		Addr:        o.Addr,
 		Handler:     s.handle,
@@ -170,14 +163,32 @@ func New(o Options) (*Server, error) {
 		// sends, keepalives included, so the session's own idleness is
 		// decided by the watchdog in keepalive.go instead.
 		IdleTimeout: o.IdleTimeout,
-		// Every key is accepted. SSH requires a client to prove a key, but
-		// nothing requires the server to have seen it before, and that proof
-		// is the whole identity here.
+		// A public key is the only credential. Declaring this handler and no
+		// other is what refuses a password, a keyboard-interactive exchange
+		// and an authentication offering nothing at all. Which keys are
+		// admitted is decided later, by the lookup, so a refusal is reported
+		// to the client rather than swallowed by the handshake.
 		PublicKeyHandler: func(ctx ssh.Context, _ ssh.PublicKey) bool {
 			return s.limiter.allow(sourceOf(ctx.RemoteAddr()))
 		},
 	}
 	return s, nil
+}
+
+// lookup returns the identity resolution this listener's mode calls for.
+func (s *Server) lookup() auth.PublicKeyLookup {
+	o := s.opts
+	if !o.Demo {
+		return &enrolled{store: o.Store, clk: o.Clock, log: o.Logger}
+	}
+	return &provisioner{
+		store:      o.Store,
+		service:    o.Service,
+		clk:        o.Clock,
+		maxTenants: o.MaxTenants,
+		leaseTTL:   o.LeaseTTL,
+		tenantTTL:  o.TenantTTL,
+	}
 }
 
 // withDefaults fills every unset limit with its default.
@@ -187,6 +198,9 @@ func (o Options) withDefaults() Options {
 	}
 	if o.Logger == nil {
 		o.Logger = slog.Default()
+	}
+	if o.Connections == nil {
+		o.Connections = connections.Default
 	}
 	if o.Addr == "" {
 		o.Addr = DefaultAddr

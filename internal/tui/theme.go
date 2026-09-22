@@ -33,7 +33,11 @@ const (
 
 // Theme holds the styles a frame is rendered with.
 type Theme struct {
-	Color    bool
+	Color bool
+	// renderer draws every style this theme builds. Colour depth is resolved
+	// per renderer, so a theme built against one client's terminal cannot
+	// change the depth another client is drawn at.
+	renderer *lipgloss.Renderer
 	Title    lipgloss.Style
 	Header   lipgloss.Style
 	Selected lipgloss.Style
@@ -103,12 +107,19 @@ func lookupEnv(environ []string, name string) (string, bool) {
 }
 
 // NewTheme builds the styles, emitting no attributes at all without colour.
-func NewTheme(color bool) Theme {
+// A nil renderer takes the process-wide default, which is what a single local
+// terminal wants; a caller drawing several terminals at once passes one
+// renderer per terminal.
+func NewTheme(r *lipgloss.Renderer, color bool) Theme {
+	if r == nil {
+		r = lipgloss.DefaultRenderer()
+	}
 	if !color {
-		plain := lipgloss.NewStyle()
-		border := lipgloss.NewStyle().Border(lipgloss.NormalBorder())
+		plain := r.NewStyle()
+		border := r.NewStyle().Border(lipgloss.NormalBorder())
 		return Theme{
-			Title: plain, Header: plain, Selected: plain, Claimed: plain,
+			renderer: r,
+			Title:    plain, Header: plain, Selected: plain, Claimed: plain,
 			Dim: plain, Error: plain, Status: plain, Ref: plain,
 			Blocked: plain, Empty: plain, Bar: plain,
 			Column: border, Focused: border,
@@ -116,20 +127,31 @@ func NewTheme(color bool) Theme {
 	}
 	return Theme{
 		Color:    true,
-		Title:    lipgloss.NewStyle().Bold(true).Foreground(colorTitle),
-		Header:   lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12")),
-		Selected: lipgloss.NewStyle().Bold(true).Foreground(colorAccent),
-		Claimed:  lipgloss.NewStyle().Foreground(lipgloss.Color("11")),
-		Dim:      lipgloss.NewStyle().Foreground(colorMuted),
-		Error:    lipgloss.NewStyle().Bold(true).Foreground(colorUrgent),
-		Status:   lipgloss.NewStyle().Foreground(colorOK),
-		Ref:      lipgloss.NewStyle().Foreground(colorRef),
-		Blocked:  lipgloss.NewStyle().Foreground(colorUrgent),
-		Empty:    lipgloss.NewStyle().Foreground(colorMuted).Italic(true),
-		Bar:      lipgloss.NewStyle().Foreground(colorMuted),
-		Column:   lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(colorMuted),
-		Focused:  lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(colorAccent),
+		renderer: r,
+		Title:    r.NewStyle().Bold(true).Foreground(colorTitle),
+		Header:   r.NewStyle().Bold(true).Foreground(lipgloss.Color("12")),
+		Selected: r.NewStyle().Bold(true).Foreground(colorAccent),
+		Claimed:  r.NewStyle().Foreground(lipgloss.Color("11")),
+		Dim:      r.NewStyle().Foreground(colorMuted),
+		Error:    r.NewStyle().Bold(true).Foreground(colorUrgent),
+		Status:   r.NewStyle().Foreground(colorOK),
+		Ref:      r.NewStyle().Foreground(colorRef),
+		Blocked:  r.NewStyle().Foreground(colorUrgent),
+		Empty:    r.NewStyle().Foreground(colorMuted).Italic(true),
+		Bar:      r.NewStyle().Foreground(colorMuted),
+		Column:   r.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(colorMuted),
+		Focused:  r.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(colorAccent),
 	}
+}
+
+// Style starts a style bound to this theme's renderer, so a style built after
+// the theme still renders at that terminal's depth. The zero Theme falls back
+// to the process-wide default renderer.
+func (t Theme) Style() lipgloss.Style {
+	if t.renderer == nil {
+		return lipgloss.NewStyle()
+	}
+	return t.renderer.NewStyle()
 }
 
 // CategoryColor returns the colour a workflow state category is drawn in.
@@ -205,27 +227,27 @@ func ProjectColor(c core.ProjectColor) (lipgloss.Color, bool) {
 func (t Theme) Category(c core.StateCategory) lipgloss.Style {
 	color, ok := CategoryColor(c)
 	if !ok || !t.Color {
-		return lipgloss.NewStyle()
+		return t.Style()
 	}
-	return lipgloss.NewStyle().Foreground(color)
+	return t.Style().Foreground(color)
 }
 
 // Priority styles text so the ends of the priority range stand out.
 func (t Theme) Priority(p core.Priority) lipgloss.Style {
 	color, bold, ok := PriorityColor(p)
 	if !ok || !t.Color {
-		return lipgloss.NewStyle()
+		return t.Style()
 	}
-	return lipgloss.NewStyle().Foreground(color).Bold(bold)
+	return t.Style().Foreground(color).Bold(bold)
 }
 
 // Project styles text in a project's own palette colour.
 func (t Theme) Project(c core.ProjectColor) lipgloss.Style {
 	color, ok := ProjectColor(c)
 	if !ok || !t.Color {
-		return lipgloss.NewStyle()
+		return t.Style()
 	}
-	return lipgloss.NewStyle().Foreground(color)
+	return t.Style().Foreground(color)
 }
 
 // SelectionMarker renders selection as text so colour is never the only cue.

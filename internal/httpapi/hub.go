@@ -2,8 +2,11 @@ package httpapi
 
 import (
 	"context"
+	"net"
+	"net/http"
 	"sync"
 
+	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
 )
 
@@ -26,13 +29,35 @@ type Hub struct {
 	conns   map[*wsConn]struct{}
 	tenants map[string]int
 
+	// live is the process registry an administrator lists and ends
+	// connections through. The hub already knows on upgrade and on close
+	// exactly what the registry wants to be told, so it is fed from those
+	// two points rather than from a second tracking path.
+	live *connections.Registry
+
 	onFirst func(tenantID string)
 	onLast  func(tenantID string)
 }
 
-// NewHub builds an empty hub.
+// NewHub builds an empty hub feeding the process-wide connection registry.
 func NewHub() *Hub {
-	return &Hub{conns: make(map[*wsConn]struct{}), tenants: make(map[string]int)}
+	return &Hub{
+		conns:   make(map[*wsConn]struct{}),
+		tenants: make(map[string]int),
+		live:    connections.Default,
+	}
+}
+
+// SetRegistry sends this hub's connections to another registry. A process has
+// one registry, so this exists for a test that wants its own and for a caller
+// assembling a server explicitly.
+func (h *Hub) SetRegistry(r *connections.Registry) {
+	if r == nil {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.live = r
 }
 
 // SetTenantHooks registers callbacks fired when a tenant gains its first
@@ -53,10 +78,31 @@ func (h *Hub) Register(c *wsConn) {
 	h.mu.Lock()
 	h.conns[c] = struct{}{}
 	tenant, first, hook := h.trackLocked(c, 1)
+	registry := h.live
 	h.mu.Unlock()
+	c.handle = registerLive(registry, c)
 	if first && hook != nil {
 		hook(tenant)
 	}
+}
+
+// registerLive records the connection in the registry, if it speaks for
+// anybody. An unauthenticated connection is not something an administrator can
+// be shown or asked to end.
+func registerLive(r *connections.Registry, c *wsConn) *connections.Handle {
+	if r == nil || c == nil || c.actor == nil || c.actor.TenantID == "" {
+		return nil
+	}
+	return r.Register(connections.Entry{
+		Surface:     core.ConnectionEvents,
+		TenantID:    c.actor.TenantID,
+		ActorID:     c.actor.ID,
+		ActorHandle: c.actor.Handle,
+		Remote:      c.remote,
+	}, func(reason string) error {
+		c.fail(reason)
+		return nil
+	})
 }
 
 // Unregister removes a connection and discards its subscriptions.
@@ -71,6 +117,7 @@ func (h *Hub) Unregister(c *wsConn) {
 	}
 	h.hookMu.Unlock()
 
+	c.handle.Unregister()
 	c.dropSubs()
 }
 
@@ -96,6 +143,19 @@ func (h *Hub) tenantCount(tenantID string) int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return h.tenants[tenantID]
+}
+
+// remoteOf names where a request came from, believing a forwarded address only
+// when the middleware already decided the peer was a trusted proxy.
+func remoteOf(r *http.Request) string {
+	if addr := ClientIPFrom(r.Context()); addr.IsValid() {
+		return addr.String()
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
 
 // Len reports how many connections are registered.
@@ -140,8 +200,13 @@ func (h *Hub) snapshot() []*wsConn {
 
 // wsConn is one authenticated event-stream connection and the subscriptions held on it.
 type wsConn struct {
-	actor *core.Actor
-	send  chan ServerMessage
+	actor  *core.Actor
+	remote string
+	send   chan ServerMessage
+
+	// handle is this connection's place in the process registry, held from
+	// the hub's Register to its Unregister.
+	handle *connections.Handle
 
 	mu   sync.Mutex
 	subs map[string]*subscription

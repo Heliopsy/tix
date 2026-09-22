@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/web"
 )
 
@@ -63,7 +64,8 @@ func TestEveryFormCarriesACSRFField(t *testing.T) {
 
 	paths := []string{"/projects", "/projects/infra", "/projects/infra/fields", "/workflows",
 		"/workflows/default", "/tasks", "/tasks/" + ref, "/admin/tenant", "/admin/domains",
-		"/admin/users", "/admin/tokens", "/admin/webhooks", "/transfer", "/sync", "/activity"}
+		"/admin/users", "/admin/tokens", "/admin/ssh-keys", "/admin/webhooks", "/transfer", "/sync",
+		"/activity"}
 	for _, path := range paths {
 		page := b.page(path)
 		for _, form := range splitForms(page) {
@@ -128,6 +130,28 @@ func TestForeignTenantIdentifierInAFormIsRefused(t *testing.T) {
 	page := bob.page("/tasks/" + foreign)
 	if strings.Contains(page, "leaked") {
 		t.Fatalf("a cross-tenant comment was written")
+	}
+}
+
+// A live connection is not a row, but an observability screen that leaks
+// across tenants is still a leak, so it sits in this suite with the rest.
+func TestForeignTenantConnectionIdentifierIsNotFound(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	var closed string
+	foreign := liveOn(f, f.tenantB.ID, f.actorB.ID, core.ConnectionEvents, &closed)
+
+	alice := f.as("alice")
+	resp := alice.post("/admin/connections/end", url.Values{"id": {foreign.ID()}})
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", resp.StatusCode)
+	}
+	if closed != "" {
+		t.Fatal("another tenant's connection was closed")
+	}
+	if page := alice.page("/admin/connections"); strings.Contains(page, foreign.ID()) {
+		t.Fatal("another tenant's connection identifier was disclosed")
 	}
 }
 

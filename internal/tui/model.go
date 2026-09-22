@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
 )
@@ -88,6 +89,11 @@ type Config struct {
 	// the writer is a character device, but it still knows whether the client
 	// wants colour. Nil leaves the decision to ColorEnabled.
 	Color *bool
+	// Renderer draws this run's styles. lipgloss resolves a colour depth once
+	// per renderer, so a caller serving several terminals at once gives each
+	// one its own and no client can set another client's depth. Nil takes the
+	// process-wide default, which is what a single local terminal wants.
+	Renderer *lipgloss.Renderer
 	// Scheme names the keybinding preset, and Overrides rebinds single
 	// actions on top of it.
 	Scheme    string
@@ -117,7 +123,7 @@ func New(cfg Config) Model {
 	}
 	m := Model{
 		svc: cfg.Service, ctx: ctx, actor: cfg.Actor,
-		keys: DefaultKeyMap(), theme: NewTheme(colorChoice(cfg)), now: now,
+		keys: DefaultKeyMap(), theme: NewTheme(cfg.Renderer, colorChoice(cfg)), now: now,
 		timeStyle: cfg.TimeStyle,
 		view:      viewProjects, input: in, leases: map[string]string{},
 		openProject: cfg.Project, width: 80, height: 24,

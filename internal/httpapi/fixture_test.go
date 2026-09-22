@@ -14,6 +14,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/httpapi"
 	"github.com/heliopsy/tix/internal/service"
@@ -39,6 +40,7 @@ type apiFixture struct {
 	hostB    string
 	projectA core.Project
 	svc      *apiService
+	live     *connections.Registry
 	logs     *bytes.Buffer
 }
 
@@ -307,7 +309,9 @@ func newFixtureWith(t *testing.T, mutators ...func(*apiFixture, *httpapi.Config)
 	f.tenantA = seedTenant(t, st, "acme", "Acme", f.hostA)
 	f.tenantB = seedTenant(t, st, "other", "Other", f.hostB)
 
-	f.local = service.New(st, service.WithClock(clk), service.WithHooks(service.HookOff))
+	f.live = connections.New(connections.WithClock(clk), connections.WithServerID("srv-test"))
+	f.local = service.New(st, service.WithClock(clk), service.WithHooks(service.HookOff),
+		service.WithConnections(f.live))
 	f.actorA = seedActor(t, st, f.tenantA.ID, "alice")
 	f.actorB = seedActor(t, st, f.tenantB.ID, "bob")
 

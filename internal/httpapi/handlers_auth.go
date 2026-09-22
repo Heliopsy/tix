@@ -29,7 +29,7 @@ type SweepResult struct {
 	Swept int `json:"swept"`
 }
 
-// registerAuthRoutes binds sessions, users and API tokens.
+// registerAuthRoutes binds sessions, users, API tokens and enrolled SSH keys.
 func (rt *Router) registerAuthRoutes() {
 	rt.mux.HandleFunc("POST "+RouteLogin, rt.handleLogin)
 	rt.mux.HandleFunc("POST "+RouteLogout, rt.handleLogout)
@@ -45,6 +45,10 @@ func (rt *Router) registerAuthRoutes() {
 	rt.mux.HandleFunc("GET "+RouteTokens, rt.handleListTokens)
 	rt.mux.HandleFunc("POST "+RouteTokens, rt.handleCreateToken)
 	rt.mux.HandleFunc("DELETE "+RouteToken, rt.handleRevokeToken)
+
+	rt.mux.HandleFunc("GET "+RouteSSHKeys, rt.handleListSSHKeys)
+	rt.mux.HandleFunc("POST "+RouteSSHKeys, rt.handleEnrolSSHKey)
+	rt.mux.HandleFunc("DELETE "+RouteSSHKey, rt.handleRevokeSSHKey)
 }
 
 // handleWhoAmI returns the authenticated actor.
@@ -181,6 +185,40 @@ func (rt *Router) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 // handleRevokeToken revokes an API token.
 func (rt *Router) handleRevokeToken(w http.ResponseWriter, r *http.Request) {
 	if err := rt.cfg.Service.RevokeToken(r.Context(), r.PathValue("id")); err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeNoContent(w)
+}
+
+// handleListSSHKeys returns the enrolled keys of one actor, revoked ones
+// included, because a key that stopped working is what an operator looks for.
+func (rt *Router) handleListSSHKeys(w http.ResponseWriter, r *http.Request) {
+	keys, err := rt.cfg.Service.ListSSHKeys(r.Context(), r.URL.Query().Get("actor_id"))
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeList(w, r, keys, "")
+}
+
+// handleEnrolSSHKey enrols a public key against an actor.
+func (rt *Router) handleEnrolSSHKey(w http.ResponseWriter, r *http.Request) {
+	var in core.EnrolSSHKeyInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	key, err := rt.cfg.Service.EnrolSSHKey(r.Context(), in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusCreated, key)
+}
+
+// handleRevokeSSHKey stops an enrolled key authenticating.
+func (rt *Router) handleRevokeSSHKey(w http.ResponseWriter, r *http.Request) {
+	if err := rt.cfg.Service.RevokeSSHKey(r.Context(), r.PathValue("id")); err != nil {
 		WriteError(w, err)
 		return
 	}

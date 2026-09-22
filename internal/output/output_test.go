@@ -417,3 +417,26 @@ func TestPointerSlicesRender(t *testing.T) {
 		t.Errorf("pointer slice not rendered: %s", out)
 	}
 }
+
+func TestTableRendersLiveConnections(t *testing.T) {
+	list := core.ConnectionList{
+		ServerID: "srv-test",
+		Connections: []core.Connection{{
+			ID: "c1", Surface: core.ConnectionSSH, ActorID: "a1", ActorHandle: "alice",
+			Remote: "203.0.113.4", Since: refTime, Fingerprint: "SHA256:abc",
+		}},
+		Counts: core.ConnectionCounts{SSH: 1, Tenant: 1, Process: 2},
+	}
+	got := render(t, FormatTable, list)
+	for _, want := range []string{"srv-test", "holding 2 connections", "alice", "ssh", "203.0.113.4", "SHA256:abc"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("connection table omits %q:\n%s", want, got)
+		}
+	}
+	if empty := render(t, FormatTable, core.ConnectionList{ServerID: "srv-test"}); !strings.Contains(empty, "No results.") {
+		t.Errorf("an idle server rendered %q", empty)
+	}
+	if rows := render(t, FormatTable, list.Connections); !strings.Contains(rows, "alice") {
+		t.Errorf("a bare connection slice rendered %q", rows)
+	}
+}

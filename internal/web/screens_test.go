@@ -31,6 +31,7 @@ func TestScreensRenderForEntitledActor(t *testing.T) {
 		{"domains", "/admin/domains", []string{"Domains", "Map a hostname"}},
 		{"users", "/admin/users", []string{"Users", "Create a user"}},
 		{"tokens", "/admin/tokens", []string{"API tokens", "Issue a token"}},
+		{"ssh keys", "/admin/ssh-keys", []string{"SSH keys", "Enrol a key"}},
 		{"webhooks", "/admin/webhooks", []string{"Webhooks", "Delivery log"}},
 		{"transfer", "/transfer", []string{"Import and export", "Export a snapshot"}},
 		{"sync", "/sync", []string{"External sync", "Configure a source"}},

@@ -37,6 +37,7 @@ const (
 	tplDomains   = "domains.html"
 	tplUsers     = "users.html"
 	tplTokens    = "tokens.html"
+	tplSSHKeys   = "sshkeys.html"
 	tplProjects  = "projects.html"
 	tplBoard     = "board.html"
 	tplFields    = "fields.html"
@@ -47,6 +48,7 @@ const (
 	tplActivity  = "activity.html"
 	tplWebhooks  = "webhooks.html"
 	tplSync      = "sync.html"
+	tplConns     = "connections.html"
 )
 
 // registry declares every operation the product offers. Every exported method
@@ -640,6 +642,34 @@ var registry = []Operation{
 	},
 
 	{
+		Name: "sshkey.enrol", Method: "EnrolSSHKey",
+		CLI:  "tix user key add",
+		HTTP: apiPost(httpapi.RouteSSHKeys),
+		Web:  webPost(web.RouteSSHKeys),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
+		},
+	},
+	{
+		Name: "sshkey.list", Method: "ListSSHKeys",
+		CLI:  "tix user key ls",
+		HTTP: apiGet(httpapi.RouteSSHKeys),
+		Web:  webGet(web.RouteSSHKeys, tplSSHKeys),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
+		},
+	},
+	{
+		Name: "sshkey.revoke", Method: "RevokeSSHKey",
+		CLI:  "tix user key rm",
+		HTTP: apiDelete(httpapi.RouteSSHKey),
+		Web:  webPost(web.RouteSSHKeyRevoke),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
+		},
+	},
+
+	{
 		Name: "webhook.put", Method: "PutWebhook",
 		CLI:  "tix webhook put",
 		HTTP: apiPut(httpapi.RouteWebhooks),
@@ -756,6 +786,25 @@ var registry = []Operation{
 		Web:  webPost(web.RouteSyncRun),
 		Exempt: []Exemption{
 			gap(SurfaceTUI, "GAP: no tui binding yet; there is no external sync view"),
+		},
+	},
+
+	{
+		Name: "connection.list", Method: "ListConnections",
+		CLI:  "tix connection ls",
+		HTTP: apiGet(httpapi.RouteConnections),
+		Web:  webGet(web.RouteConnections, tplConns),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no server administration view"),
+		},
+	},
+	{
+		Name: "connection.end", Method: "EndConnection",
+		CLI:  "tix connection kill",
+		HTTP: apiDelete(httpapi.RouteConnection),
+		Web:  webPost(web.RouteConnectionEnd),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no server administration view"),
 		},
 	},
 }

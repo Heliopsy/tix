@@ -7,7 +7,7 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 )
 
-// adminRoutes are the tenant, domain, user and token administration screens.
+// adminRoutes are the tenant, domain, user, token and key administration screens.
 func (h *handler) adminRoutes() []route {
 	return []route{
 		get(RouteTenant, "tenant.html", h.showTenant,
@@ -27,6 +27,9 @@ func (h *handler) adminRoutes() []route {
 		get(RouteTokens, "tokens.html", h.showTokens, "ListTokens"),
 		post(RouteTokens, h.createToken, "CreateToken"),
 		post(RouteTokenRevoke, h.revokeToken, "RevokeToken"),
+		get(RouteSSHKeys, "sshkeys.html", h.showSSHKeys, "ListSSHKeys"),
+		post(RouteSSHKeys, h.enrolSSHKey, "EnrolSSHKey"),
+		post(RouteSSHKeyRevoke, h.revokeSSHKey, "RevokeSSHKey"),
 	}
 }
 
@@ -307,5 +310,48 @@ func (h *handler) revokeToken(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	redirect(w, r, RouteTokens, "token revoked")
+	return nil
+}
+
+// sshKeysView is what the enrolled key screen renders.
+type sshKeysView struct {
+	Keys []core.SSHKey
+}
+
+// showSSHKeys renders the caller's own enrolled keys, revoked ones included,
+// because a key that stopped working is the one somebody came here about.
+func (h *handler) showSSHKeys(w http.ResponseWriter, r *http.Request) error {
+	actor, err := core.RequireActor(r.Context())
+	if err != nil {
+		return err
+	}
+	keys, err := h.svc.ListSSHKeys(r.Context(), actor.ID)
+	if err != nil {
+		return err
+	}
+	return h.render(w, r, "sshkeys.html", "SSH keys", sshKeysView{Keys: keys})
+}
+
+// enrolSSHKey enrols a public key against the signed-in actor. The submission
+// is passed through untouched: the service is the authority on what an ssh
+// public key is, and parsing one here would be a second, divergent opinion.
+func (h *handler) enrolSSHKey(w http.ResponseWriter, r *http.Request) error {
+	in := core.EnrolSSHKeyInput{
+		PublicKey: field(r, "public_key"),
+		Label:     field(r, "label"),
+	}
+	if _, err := h.svc.EnrolSSHKey(r.Context(), in); err != nil {
+		return err
+	}
+	redirect(w, r, RouteSSHKeys, "key enrolled")
+	return nil
+}
+
+// revokeSSHKey stops an enrolled key authenticating.
+func (h *handler) revokeSSHKey(w http.ResponseWriter, r *http.Request) error {
+	if err := h.svc.RevokeSSHKey(r.Context(), field(r, "id")); err != nil {
+		return err
+	}
+	redirect(w, r, RouteSSHKeys, "key revoked")
 	return nil
 }

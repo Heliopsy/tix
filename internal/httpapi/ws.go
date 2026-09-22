@@ -118,6 +118,7 @@ func (s *EventStream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ws.SetReadLimit(maxClientMessage)
 
 	c := newConn(actor, s.queue)
+	c.remote = remoteOf(r)
 	s.hub.Register(c)
 	defer s.hub.Unregister(c)
 	revalidate, _ := RevalidateFrom(r.Context())

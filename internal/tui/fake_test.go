@@ -292,6 +292,17 @@ func (f *fakeService) CreateToken(context.Context, core.CreateTokenInput) (*core
 func (f *fakeService) ListTokens(context.Context, string) ([]core.APIToken, error) { return nil, nil }
 func (f *fakeService) RevokeToken(context.Context, string) error                   { return nil }
 
+func (f *fakeService) ListConnections(context.Context) (*core.ConnectionList, error) {
+	return nil, nil
+}
+func (f *fakeService) EndConnection(context.Context, string) error { return nil }
+
+func (f *fakeService) EnrolSSHKey(context.Context, core.EnrolSSHKeyInput) (*core.SSHKey, error) {
+	return nil, nil
+}
+func (f *fakeService) ListSSHKeys(context.Context, string) ([]core.SSHKey, error) { return nil, nil }
+func (f *fakeService) RevokeSSHKey(context.Context, string) error                 { return nil }
+
 func (f *fakeService) PutWebhook(context.Context, core.WebhookInput) (*core.WebhookEndpoint, error) {
 	return nil, nil
 }

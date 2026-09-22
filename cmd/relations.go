@@ -25,7 +25,7 @@ func depAddCmd(g *globals) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "add REF DEPENDS_ON",
 		Short:   "Make one task depend on another",
-		Long:    "Record that REF waits for DEPENDS_ON to reach a terminal state.\n\nExit codes: 3 unknown reference, 6 dependency cycle.",
+		Long:    "Record that REF waits for DEPENDS_ON to reach a terminal state.\n\nExit codes: 2 a cycle or a self-edge, 3 unknown reference.",
 		Example: "  tix dep add default-2 default-1",
 		Args:    exactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

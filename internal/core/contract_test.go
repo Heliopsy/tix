@@ -30,32 +30,34 @@ var service core.Service
 // Dropping a sub-interface out of Service stops this file compiling, which is
 // a build failure rather than a test failure and needs no test to report it.
 var (
-	_ core.TenantService   = service
-	_ core.ProjectService  = service
-	_ core.WorkflowService = service
-	_ core.TaskService     = service
-	_ core.ClaimService    = service
-	_ core.HistoryService  = service
-	_ core.AuthService     = service
-	_ core.WebhookService  = service
-	_ core.TransferService = service
-	_ core.SyncService     = service
-	_ core.BundleService   = service
+	_ core.TenantService     = service
+	_ core.ProjectService    = service
+	_ core.WorkflowService   = service
+	_ core.TaskService       = service
+	_ core.ClaimService      = service
+	_ core.HistoryService    = service
+	_ core.AuthService       = service
+	_ core.WebhookService    = service
+	_ core.TransferService   = service
+	_ core.SyncService       = service
+	_ core.BundleService     = service
+	_ core.ConnectionService = service
 )
 
 // serviceParts names every sub-interface Service is assembled from.
 var serviceParts = map[string]reflect.Type{
-	"TenantService":   reflect.TypeOf((*core.TenantService)(nil)).Elem(),
-	"ProjectService":  reflect.TypeOf((*core.ProjectService)(nil)).Elem(),
-	"WorkflowService": reflect.TypeOf((*core.WorkflowService)(nil)).Elem(),
-	"TaskService":     reflect.TypeOf((*core.TaskService)(nil)).Elem(),
-	"ClaimService":    reflect.TypeOf((*core.ClaimService)(nil)).Elem(),
-	"HistoryService":  reflect.TypeOf((*core.HistoryService)(nil)).Elem(),
-	"AuthService":     reflect.TypeOf((*core.AuthService)(nil)).Elem(),
-	"WebhookService":  reflect.TypeOf((*core.WebhookService)(nil)).Elem(),
-	"TransferService": reflect.TypeOf((*core.TransferService)(nil)).Elem(),
-	"SyncService":     reflect.TypeOf((*core.SyncService)(nil)).Elem(),
-	"BundleService":   reflect.TypeOf((*core.BundleService)(nil)).Elem(),
+	"TenantService":     reflect.TypeOf((*core.TenantService)(nil)).Elem(),
+	"ProjectService":    reflect.TypeOf((*core.ProjectService)(nil)).Elem(),
+	"WorkflowService":   reflect.TypeOf((*core.WorkflowService)(nil)).Elem(),
+	"TaskService":       reflect.TypeOf((*core.TaskService)(nil)).Elem(),
+	"ClaimService":      reflect.TypeOf((*core.ClaimService)(nil)).Elem(),
+	"HistoryService":    reflect.TypeOf((*core.HistoryService)(nil)).Elem(),
+	"AuthService":       reflect.TypeOf((*core.AuthService)(nil)).Elem(),
+	"WebhookService":    reflect.TypeOf((*core.WebhookService)(nil)).Elem(),
+	"TransferService":   reflect.TypeOf((*core.TransferService)(nil)).Elem(),
+	"SyncService":       reflect.TypeOf((*core.SyncService)(nil)).Elem(),
+	"BundleService":     reflect.TypeOf((*core.BundleService)(nil)).Elem(),
+	"ConnectionService": reflect.TypeOf((*core.ConnectionService)(nil)).Elem(),
 }
 
 // serviceOwnMethods are the only two methods Service may declare itself.
