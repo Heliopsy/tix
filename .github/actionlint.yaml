@@ -1,0 +1,8 @@
+# Labels of self-hosted runners this repository targets.
+#
+# actionlint knows GitHub's own runner labels and rejects anything else, since
+# a typo in runs-on is a job that silently never starts. A custom label has to
+# be declared here for it to tell the two apart.
+self-hosted-runner:
+  labels:
+    - ho-z10
