@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // defaultBundleFilename names a download whose bundle carries no usable name.
@@ -12,8 +13,8 @@ const defaultBundleFilename = "tix-bundle"
 
 // registerBundleRoutes binds component sharing.
 func (rt *Router) registerBundleRoutes() {
-	rt.mux.HandleFunc("POST "+RouteBundleExport, rt.handleBundleExport)
-	rt.mux.HandleFunc("POST "+RouteBundleImport, rt.handleBundleImport)
+	rt.mux.HandleFunc("POST "+wire.RouteBundleExport, rt.handleBundleExport)
+	rt.mux.HandleFunc("POST "+wire.RouteBundleImport, rt.handleBundleImport)
 }
 
 // handleBundleExport streams a component bundle as the service produces it.
@@ -26,11 +27,11 @@ func (rt *Router) handleBundleExport(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, err)
 		return
 	}
-	w.Header().Set(HeaderContentType, ContentBundle)
-	w.Header().Set(HeaderContentDisposition, bundleAttachment(in.Name))
+	w.Header().Set(wire.HeaderContentType, wire.ContentBundle)
+	w.Header().Set(wire.HeaderContentDisposition, bundleAttachment(in.Name))
 	if err := rt.cfg.Service.ExportBundle(r.Context(), in, w); err != nil {
-		w.Header().Del(HeaderContentType)
-		w.Header().Del(HeaderContentDisposition)
+		w.Header().Del(wire.HeaderContentType)
+		w.Header().Del(wire.HeaderContentDisposition)
 		WriteError(w, err)
 		return
 	}

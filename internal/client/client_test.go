@@ -15,6 +15,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 type capture struct {
@@ -48,7 +49,7 @@ func newClient(t *testing.T, handler http.HandlerFunc) (*Client, *capture) {
 }
 
 func okHandler(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set(httpapi.HeaderContentType, httpapi.ContentJSON)
+	w.Header().Set(wire.HeaderContentType, wire.ContentJSON)
 	_, _ = io.WriteString(w, `{"items":[],"next_cursor":"","swept":3}`)
 }
 
@@ -62,13 +63,13 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 		method string
 		path   string
 	}{
-		{"whoami", func(c *Client) error { _, err := c.WhoAmI(ctx); return err }, http.MethodGet, httpapi.RouteWhoAmI},
+		{"whoami", func(c *Client) error { _, err := c.WhoAmI(ctx); return err }, http.MethodGet, wire.RouteWhoAmI},
 		{"create tenant", func(c *Client) error {
 			_, err := c.CreateTenant(ctx, core.CreateTenantInput{Key: "acme"})
 			return err
-		}, http.MethodPost, httpapi.RouteTenants},
+		}, http.MethodPost, wire.RouteTenants},
 		{"get tenant", func(c *Client) error { _, err := c.GetTenant(ctx, "acme"); return err }, http.MethodGet, "/api/v1/tenants/acme"},
-		{"list tenants", func(c *Client) error { _, _, err := c.ListTenants(ctx, core.Page{}); return err }, http.MethodGet, httpapi.RouteTenants},
+		{"list tenants", func(c *Client) error { _, _, err := c.ListTenants(ctx, core.Page{}); return err }, http.MethodGet, wire.RouteTenants},
 		{"update tenant", func(c *Client) error {
 			_, err := c.UpdateTenant(ctx, "acme", core.UpdateTenantInput{})
 			return err
@@ -77,23 +78,23 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 		{"add domain", func(c *Client) error {
 			_, err := c.AddDomain(ctx, core.AddDomainInput{Hostname: "a.example"})
 			return err
-		}, http.MethodPost, httpapi.RouteDomains},
-		{"list domains", func(c *Client) error { _, err := c.ListDomains(ctx); return err }, http.MethodGet, httpapi.RouteDomains},
+		}, http.MethodPost, wire.RouteDomains},
+		{"list domains", func(c *Client) error { _, err := c.ListDomains(ctx); return err }, http.MethodGet, wire.RouteDomains},
 		{"remove domain", func(c *Client) error { return c.RemoveDomain(ctx, "a.example") }, http.MethodDelete, "/api/v1/domains/a.example"},
 		{"resolve domain", func(c *Client) error { _, err := c.ResolveDomain(ctx, "a.example"); return err }, http.MethodGet, "/api/v1/domains/a.example"},
-		{"add member", func(c *Client) error { _, err := c.AddMember(ctx, "u1", core.Role("admin")); return err }, http.MethodPost, httpapi.RouteMembers},
-		{"list members", func(c *Client) error { _, err := c.ListMembers(ctx); return err }, http.MethodGet, httpapi.RouteMembers},
+		{"add member", func(c *Client) error { _, err := c.AddMember(ctx, "u1", core.Role("admin")); return err }, http.MethodPost, wire.RouteMembers},
+		{"list members", func(c *Client) error { _, err := c.ListMembers(ctx); return err }, http.MethodGet, wire.RouteMembers},
 		{"remove member", func(c *Client) error { return c.RemoveMember(ctx, "u1") }, http.MethodDelete, "/api/v1/members/u1"},
 
 		{"create project", func(c *Client) error {
 			_, err := c.CreateProject(ctx, core.CreateProjectInput{Key: "infra"})
 			return err
-		}, http.MethodPost, httpapi.RouteProjects},
+		}, http.MethodPost, wire.RouteProjects},
 		{"get project", func(c *Client) error { _, err := c.GetProject(ctx, "infra"); return err }, http.MethodGet, "/api/v1/projects/infra"},
 		{"list projects", func(c *Client) error {
 			_, _, err := c.ListProjects(ctx, core.ProjectFilter{IncludeArchived: true})
 			return err
-		}, http.MethodGet, httpapi.RouteProjects},
+		}, http.MethodGet, wire.RouteProjects},
 		{"update project", func(c *Client) error {
 			_, err := c.UpdateProject(ctx, "infra", core.UpdateProjectInput{})
 			return err
@@ -112,15 +113,15 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 			return err
 		}, http.MethodPut, "/api/v1/workflows/default"},
 		{"get workflow", func(c *Client) error { _, err := c.GetWorkflow(ctx, "default"); return err }, http.MethodGet, "/api/v1/workflows/default"},
-		{"list workflows", func(c *Client) error { _, err := c.ListWorkflows(ctx); return err }, http.MethodGet, httpapi.RouteWorkflows},
+		{"list workflows", func(c *Client) error { _, err := c.ListWorkflows(ctx); return err }, http.MethodGet, wire.RouteWorkflows},
 		{"delete workflow", func(c *Client) error { return c.DeleteWorkflow(ctx, "default") }, http.MethodDelete, "/api/v1/workflows/default"},
 
 		{"create task", func(c *Client) error {
 			_, err := c.CreateTask(ctx, core.CreateTaskInput{Title: "t"})
 			return err
-		}, http.MethodPost, httpapi.RouteTasks},
+		}, http.MethodPost, wire.RouteTasks},
 		{"get task", func(c *Client) error { _, err := c.GetTask(ctx, ref("infra-1")); return err }, http.MethodGet, "/api/v1/tasks/infra-1"},
-		{"list tasks", func(c *Client) error { _, err := c.ListTasks(ctx, core.TaskFilter{}); return err }, http.MethodGet, httpapi.RouteTasks},
+		{"list tasks", func(c *Client) error { _, err := c.ListTasks(ctx, core.TaskFilter{}); return err }, http.MethodGet, wire.RouteTasks},
 		{"update task", func(c *Client) error {
 			_, err := c.UpdateTask(ctx, ref("infra-1"), core.UpdateTaskInput{})
 			return err
@@ -137,7 +138,7 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 		{"list dependencies", func(c *Client) error { _, err := c.ListDependencies(ctx, ref("infra-1")); return err }, http.MethodGet, "/api/v1/tasks/infra-1/deps"},
 		{"add tag", func(c *Client) error { return c.AddTag(ctx, ref("infra-1"), "bug") }, http.MethodPost, "/api/v1/tasks/infra-1/tags"},
 		{"remove tag", func(c *Client) error { return c.RemoveTag(ctx, ref("infra-1"), "bug") }, http.MethodDelete, "/api/v1/tasks/infra-1/tags/bug"},
-		{"list tags", func(c *Client) error { _, err := c.ListTags(ctx); return err }, http.MethodGet, httpapi.RouteLabels},
+		{"list tags", func(c *Client) error { _, err := c.ListTags(ctx); return err }, http.MethodGet, wire.RouteLabels},
 		{"add comment", func(c *Client) error { _, err := c.AddComment(ctx, ref("infra-1"), "hi"); return err }, http.MethodPost, "/api/v1/tasks/infra-1/comments"},
 		{"list comments", func(c *Client) error { _, err := c.ListComments(ctx, ref("infra-1")); return err }, http.MethodGet, "/api/v1/tasks/infra-1/comments"},
 		{"edit comment", func(c *Client) error { _, err := c.EditComment(ctx, "c1", "hi"); return err }, http.MethodPatch, "/api/v1/comments/c1"},
@@ -152,7 +153,7 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 			_, err := c.ClaimTask(ctx, ref("infra-1"), core.ClaimInput{})
 			return err
 		}, http.MethodPost, "/api/v1/tasks/infra-1/claim"},
-		{"claim next", func(c *Client) error { _, err := c.ClaimNext(ctx, core.ClaimNextInput{}); return err }, http.MethodPost, httpapi.RouteClaimNext},
+		{"claim next", func(c *Client) error { _, err := c.ClaimNext(ctx, core.ClaimNextInput{}); return err }, http.MethodPost, wire.RouteClaimNext},
 		{"renew lease", func(c *Client) error {
 			_, err := c.RenewLease(ctx, ref("infra-1"), "tok", core.Duration(time.Minute))
 			return err
@@ -160,58 +161,58 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 		{"release lease", func(c *Client) error {
 			return c.ReleaseLease(ctx, ref("infra-1"), "tok", core.ReleaseInput{})
 		}, http.MethodPost, "/api/v1/tasks/infra-1/claim/release"},
-		{"sweep leases", func(c *Client) error { _, err := c.SweepLeases(ctx, 10); return err }, http.MethodPost, httpapi.RouteClaimSweep},
+		{"sweep leases", func(c *Client) error { _, err := c.SweepLeases(ctx, 10); return err }, http.MethodPost, wire.RouteClaimSweep},
 
-		{"list audit", func(c *Client) error { _, _, err := c.ListAudit(ctx, core.AuditFilter{}); return err }, http.MethodGet, httpapi.RouteAudit},
-		{"prune", func(c *Client) error { _, err := c.Prune(ctx, core.PruneInput{}); return err }, http.MethodPost, httpapi.RoutePrune},
-		{"get retention", func(c *Client) error { _, err := c.GetRetention(ctx); return err }, http.MethodGet, httpapi.RouteRetention},
+		{"list audit", func(c *Client) error { _, _, err := c.ListAudit(ctx, core.AuditFilter{}); return err }, http.MethodGet, wire.RouteAudit},
+		{"prune", func(c *Client) error { _, err := c.Prune(ctx, core.PruneInput{}); return err }, http.MethodPost, wire.RoutePrune},
+		{"get retention", func(c *Client) error { _, err := c.GetRetention(ctx); return err }, http.MethodGet, wire.RouteRetention},
 		{"put retention", func(c *Client) error {
 			_, err := c.PutRetention(ctx, core.RetentionPolicy{})
 			return err
-		}, http.MethodPut, httpapi.RouteRetention},
+		}, http.MethodPut, wire.RouteRetention},
 
 		{"create user", func(c *Client) error {
 			_, err := c.CreateUser(ctx, core.CreateUserInput{Email: "a@b.c"})
 			return err
-		}, http.MethodPost, httpapi.RouteUsers},
+		}, http.MethodPost, wire.RouteUsers},
 		{"get user", func(c *Client) error { _, err := c.GetUser(ctx, "u1"); return err }, http.MethodGet, "/api/v1/users/u1"},
-		{"list users", func(c *Client) error { _, _, err := c.ListUsers(ctx, core.Page{}); return err }, http.MethodGet, httpapi.RouteUsers},
+		{"list users", func(c *Client) error { _, _, err := c.ListUsers(ctx, core.Page{}); return err }, http.MethodGet, wire.RouteUsers},
 		{"update user", func(c *Client) error { _, err := c.UpdateUser(ctx, "u1", core.UpdateUserInput{}); return err }, http.MethodPatch, "/api/v1/users/u1"},
 		{"delete user", func(c *Client) error { return c.DeleteUser(ctx, "u1") }, http.MethodDelete, "/api/v1/users/u1"},
-		{"login", func(c *Client) error { _, err := c.Login(ctx, "a@b.c", "pw"); return err }, http.MethodPost, httpapi.RouteLogin},
-		{"logout", func(c *Client) error { return c.Logout(ctx) }, http.MethodPost, httpapi.RouteLogout},
+		{"login", func(c *Client) error { _, err := c.Login(ctx, "a@b.c", "pw"); return err }, http.MethodPost, wire.RouteLogin},
+		{"logout", func(c *Client) error { return c.Logout(ctx) }, http.MethodPost, wire.RouteLogout},
 		{"create token", func(c *Client) error {
 			_, err := c.CreateToken(ctx, core.CreateTokenInput{Name: "agent"})
 			return err
-		}, http.MethodPost, httpapi.RouteTokens},
-		{"list tokens", func(c *Client) error { _, err := c.ListTokens(ctx, "u1"); return err }, http.MethodGet, httpapi.RouteTokens},
+		}, http.MethodPost, wire.RouteTokens},
+		{"list tokens", func(c *Client) error { _, err := c.ListTokens(ctx, "u1"); return err }, http.MethodGet, wire.RouteTokens},
 		{"revoke token", func(c *Client) error { return c.RevokeToken(ctx, "t1") }, http.MethodDelete, "/api/v1/tokens/t1"},
 
 		{"put webhook", func(c *Client) error {
 			_, err := c.PutWebhook(ctx, core.WebhookInput{URL: "https://x"})
 			return err
-		}, http.MethodPut, httpapi.RouteWebhooks},
-		{"list webhooks", func(c *Client) error { _, err := c.ListWebhooks(ctx); return err }, http.MethodGet, httpapi.RouteWebhooks},
+		}, http.MethodPut, wire.RouteWebhooks},
+		{"list webhooks", func(c *Client) error { _, err := c.ListWebhooks(ctx); return err }, http.MethodGet, wire.RouteWebhooks},
 		{"delete webhook", func(c *Client) error { return c.DeleteWebhook(ctx, "w1") }, http.MethodDelete, "/api/v1/webhooks/w1"},
 		{"list deliveries", func(c *Client) error {
 			_, _, err := c.ListDeliveries(ctx, core.DeliveryFilter{EndpointID: "w1", Statuses: []core.DeliveryStatus{core.DeliveryFailed}})
 			return err
-		}, http.MethodGet, httpapi.RouteDeliveries},
+		}, http.MethodGet, wire.RouteDeliveries},
 		{"redeliver", func(c *Client) error { return c.RedeliverWebhook(ctx, "d1") }, http.MethodPost, "/api/v1/webhooks/deliveries/d1/redeliver"},
 
 		{"put sync source", func(c *Client) error {
 			_, err := c.PutSyncSource(ctx, core.SyncSourceInput{System: core.SystemJira, Name: "jira"})
 			return err
-		}, http.MethodPut, httpapi.RouteSyncSources},
-		{"list sync sources", func(c *Client) error { _, err := c.ListSyncSources(ctx); return err }, http.MethodGet, httpapi.RouteSyncSources},
+		}, http.MethodPut, wire.RouteSyncSources},
+		{"list sync sources", func(c *Client) error { _, err := c.ListSyncSources(ctx); return err }, http.MethodGet, wire.RouteSyncSources},
 		{"delete sync source", func(c *Client) error { return c.DeleteSyncSource(ctx, "s1") }, http.MethodDelete, "/api/v1/sync/sources/s1"},
-		{"run sync", func(c *Client) error { _, err := c.RunSync(ctx, core.RunSyncInput{SourceID: "s1"}); return err }, http.MethodPost, httpapi.RouteSyncRun},
+		{"run sync", func(c *Client) error { _, err := c.RunSync(ctx, core.RunSyncInput{SourceID: "s1"}); return err }, http.MethodPost, wire.RouteSyncRun},
 
 		{"enrol ssh key", func(c *Client) error {
 			_, err := c.EnrolSSHKey(ctx, core.EnrolSSHKeyInput{PublicKey: "ssh-ed25519 AAAA"})
 			return err
-		}, http.MethodPost, httpapi.RouteSSHKeys},
-		{"list ssh keys", func(c *Client) error { _, err := c.ListSSHKeys(ctx, ""); return err }, http.MethodGet, httpapi.RouteSSHKeys},
+		}, http.MethodPost, wire.RouteSSHKeys},
+		{"list ssh keys", func(c *Client) error { _, err := c.ListSSHKeys(ctx, ""); return err }, http.MethodGet, wire.RouteSSHKeys},
 		{"revoke ssh key", func(c *Client) error { return c.RevokeSSHKey(ctx, "k1") }, http.MethodDelete, "/api/v1/ssh-keys/k1"},
 	}
 
@@ -227,7 +228,7 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 			if got.path != tc.path {
 				t.Errorf("path = %q, want %q", got.path, tc.path)
 			}
-			if auth := got.header.Get(httpapi.HeaderAuth); auth != "Bearer secret-token" {
+			if auth := got.header.Get(wire.HeaderAuth); auth != "Bearer secret-token" {
 				t.Errorf("authorization = %q", auth)
 			}
 		})
@@ -400,7 +401,7 @@ func TestPathParametersAreEncoded(t *testing.T) {
 func TestCursorRoundTrips(t *testing.T) {
 	cursor := core.Cursor{SortValue: "2026-01-01", ID: "x", Sort: core.SortCreatedAt, Direction: core.Ascending}.Encode()
 	c, got := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(httpapi.Page[core.Task]{
+		_ = json.NewEncoder(w).Encode(wire.Page[core.Task]{
 			Items:      []core.Task{{ID: "t1"}},
 			NextCursor: "next-cursor",
 		})
@@ -515,18 +516,18 @@ func TestBodyIsMarshalledUnvalidated(t *testing.T) {
 	if !strings.Contains(got.body, `"title":""`) {
 		t.Fatalf("body = %q", got.body)
 	}
-	if got.header.Get(httpapi.HeaderContentType) != httpapi.ContentJSON {
-		t.Fatalf("content type = %q", got.header.Get(httpapi.HeaderContentType))
+	if got.header.Get(wire.HeaderContentType) != wire.ContentJSON {
+		t.Fatalf("content type = %q", got.header.Get(wire.HeaderContentType))
 	}
 }
 
 func TestSessionCookieAuthentication(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie(httpapi.SessionCookieName)
+		cookie, err := r.Cookie(wire.SessionCookieName)
 		if err != nil || cookie.Value != "sess-1" {
 			t.Errorf("cookie = %v, err = %v", cookie, err)
 		}
-		if r.Header.Get(httpapi.HeaderAuth) != "" {
+		if r.Header.Get(wire.HeaderAuth) != "" {
 			t.Errorf("unexpected bearer header")
 		}
 		if r.Header.Get("User-Agent") != "tix-test" {
@@ -574,7 +575,7 @@ func TestBaseURLPathIsPreserved(t *testing.T) {
 	if _, err := c.WhoAmI(context.Background()); err != nil {
 		t.Fatalf("whoami: %v", err)
 	}
-	if path != "/tix"+httpapi.RouteWhoAmI {
+	if path != "/tix"+wire.RouteWhoAmI {
 		t.Fatalf("path = %q", path)
 	}
 }
@@ -650,11 +651,11 @@ func TestWithSessionSendsTheSessionCookieOnlyOnTheCopy(t *testing.T) {
 	var cookies []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		value := ""
-		if cookie, err := r.Cookie(httpapi.SessionCookieName); err == nil {
+		if cookie, err := r.Cookie(wire.SessionCookieName); err == nil {
 			value = cookie.Value
 		}
 		cookies = append(cookies, value)
-		if got := r.Header.Get(httpapi.HeaderAuth); got != "Bearer pat-1" {
+		if got := r.Header.Get(wire.HeaderAuth); got != "Bearer pat-1" {
 			t.Errorf("authorization = %q", got)
 		}
 		okHandler(w, r)
@@ -683,7 +684,7 @@ func TestWithSessionSendsTheSessionCookieOnlyOnTheCopy(t *testing.T) {
 // the enrolled record comes back exactly as the server rendered it.
 func TestSSHKeyBodyIsMarshalledUnvalidated(t *testing.T) {
 	c, got := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set(httpapi.HeaderContentType, httpapi.ContentJSON)
+		w.Header().Set(wire.HeaderContentType, wire.ContentJSON)
 		w.WriteHeader(http.StatusCreated)
 		_, _ = io.WriteString(w, `{"id":"k1","tenant_id":"t1","actor_id":"u1",`+
 			`"fingerprint":"SHA256:abc","public_key":"ssh-ed25519 AAAA","label":"laptop",`+
@@ -709,7 +710,7 @@ func TestSSHKeyBodyIsMarshalledUnvalidated(t *testing.T) {
 // A revoked key is part of the listing, so the client must not filter one out.
 func TestListSSHKeysCarriesRevokedKeysThrough(t *testing.T) {
 	c, got := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set(httpapi.HeaderContentType, httpapi.ContentJSON)
+		w.Header().Set(wire.HeaderContentType, wire.ContentJSON)
 		_, _ = io.WriteString(w, `{"items":[`+
 			`{"id":"live","fingerprint":"SHA256:one"},`+
 			`{"id":"dead","fingerprint":"SHA256:two","revoked_at":"2024-02-01T00:00:00Z"}]}`)

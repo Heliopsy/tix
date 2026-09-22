@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // CommentRequest carries a comment body.
@@ -28,32 +29,32 @@ type DependencyRequest struct {
 
 // registerTaskRoutes binds tasks and everything attached to them.
 func (rt *Router) registerTaskRoutes() {
-	rt.mux.HandleFunc("GET "+RouteTasks, rt.handleListTasks)
-	rt.mux.HandleFunc("POST "+RouteTasks, rt.handleCreateTask)
-	rt.mux.HandleFunc("GET "+RouteTask, rt.handleGetTask)
-	rt.mux.HandleFunc("PATCH "+RouteTask, rt.handleUpdateTask)
-	rt.mux.HandleFunc("DELETE "+RouteTask, rt.handleDeleteTask)
-	rt.mux.HandleFunc("POST "+RouteTaskTransition, rt.handleTransitionTask)
-	rt.mux.HandleFunc("POST "+RouteTaskRestore, rt.handleRestoreTask)
-	rt.mux.HandleFunc("GET "+RouteTaskTree, rt.handleTaskTree)
+	rt.mux.HandleFunc("GET "+wire.RouteTasks, rt.handleListTasks)
+	rt.mux.HandleFunc("POST "+wire.RouteTasks, rt.handleCreateTask)
+	rt.mux.HandleFunc("GET "+wire.RouteTask, rt.handleGetTask)
+	rt.mux.HandleFunc("PATCH "+wire.RouteTask, rt.handleUpdateTask)
+	rt.mux.HandleFunc("DELETE "+wire.RouteTask, rt.handleDeleteTask)
+	rt.mux.HandleFunc("POST "+wire.RouteTaskTransition, rt.handleTransitionTask)
+	rt.mux.HandleFunc("POST "+wire.RouteTaskRestore, rt.handleRestoreTask)
+	rt.mux.HandleFunc("GET "+wire.RouteTaskTree, rt.handleTaskTree)
 
-	rt.mux.HandleFunc("GET "+RouteTaskDeps, rt.handleListDependencies)
-	rt.mux.HandleFunc("POST "+RouteTaskDeps, rt.handleAddDependency)
-	rt.mux.HandleFunc("DELETE "+RouteTaskDep, rt.handleRemoveDependency)
+	rt.mux.HandleFunc("GET "+wire.RouteTaskDeps, rt.handleListDependencies)
+	rt.mux.HandleFunc("POST "+wire.RouteTaskDeps, rt.handleAddDependency)
+	rt.mux.HandleFunc("DELETE "+wire.RouteTaskDep, rt.handleRemoveDependency)
 
-	rt.mux.HandleFunc("GET "+RouteTaskLabels, rt.handleTaskLabels)
-	rt.mux.HandleFunc("POST "+RouteTaskLabels, rt.handleAddLabel)
-	rt.mux.HandleFunc("DELETE "+RouteTaskLabel, rt.handleRemoveLabel)
-	rt.mux.HandleFunc("GET "+RouteLabels, rt.handleListLabels)
+	rt.mux.HandleFunc("GET "+wire.RouteTaskLabels, rt.handleTaskLabels)
+	rt.mux.HandleFunc("POST "+wire.RouteTaskLabels, rt.handleAddLabel)
+	rt.mux.HandleFunc("DELETE "+wire.RouteTaskLabel, rt.handleRemoveLabel)
+	rt.mux.HandleFunc("GET "+wire.RouteLabels, rt.handleListLabels)
 
-	rt.mux.HandleFunc("GET "+RouteTaskComments, rt.handleListComments)
-	rt.mux.HandleFunc("POST "+RouteTaskComments, rt.handleAddComment)
-	rt.mux.HandleFunc("PATCH "+RouteComment, rt.handleEditComment)
-	rt.mux.HandleFunc("DELETE "+RouteComment, rt.handleDeleteComment)
+	rt.mux.HandleFunc("GET "+wire.RouteTaskComments, rt.handleListComments)
+	rt.mux.HandleFunc("POST "+wire.RouteTaskComments, rt.handleAddComment)
+	rt.mux.HandleFunc("PATCH "+wire.RouteComment, rt.handleEditComment)
+	rt.mux.HandleFunc("DELETE "+wire.RouteComment, rt.handleDeleteComment)
 
-	rt.mux.HandleFunc("GET "+RouteTaskArtifacts, rt.handleListArtifacts)
-	rt.mux.HandleFunc("PUT "+RouteTaskArtifacts, rt.handlePutArtifact)
-	rt.mux.HandleFunc("GET "+RouteTaskAudit, rt.handleTaskAudit)
+	rt.mux.HandleFunc("GET "+wire.RouteTaskArtifacts, rt.handleListArtifacts)
+	rt.mux.HandleFunc("PUT "+wire.RouteTaskArtifacts, rt.handlePutArtifact)
+	rt.mux.HandleFunc("GET "+wire.RouteTaskAudit, rt.handleTaskAudit)
 }
 
 // handleListTasks returns a page of tasks.

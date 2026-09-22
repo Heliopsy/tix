@@ -4,14 +4,15 @@ import (
 	"net/http"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // registerHistoryRoutes binds the audit log, retention and pruning.
 func (rt *Router) registerHistoryRoutes() {
-	rt.mux.HandleFunc("GET "+RouteAudit, rt.handleListAudit)
-	rt.mux.HandleFunc("GET "+RouteRetention, rt.handleGetRetention)
-	rt.mux.HandleFunc("PUT "+RouteRetention, rt.handlePutRetention)
-	rt.mux.HandleFunc("POST "+RoutePrune, rt.handlePrune)
+	rt.mux.HandleFunc("GET "+wire.RouteAudit, rt.handleListAudit)
+	rt.mux.HandleFunc("GET "+wire.RouteRetention, rt.handleGetRetention)
+	rt.mux.HandleFunc("PUT "+wire.RouteRetention, rt.handlePutRetention)
+	rt.mux.HandleFunc("POST "+wire.RoutePrune, rt.handlePrune)
 }
 
 // auditFilterFrom builds an audit filter from the query string.

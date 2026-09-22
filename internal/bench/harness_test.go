@@ -186,3 +186,18 @@ func TestMain(m *testing.M) {
 	testenv.Report(os.Stderr)
 	os.Exit(code)
 }
+
+// TestPostgresEnvAgreesWithTestenv keeps the two spellings of the DSN variable
+// from drifting.
+//
+// bench/spec.go declares its own because it is not test code and must not
+// import a test-support package to learn the name of an environment variable.
+// The cost of that is two constants that could disagree, and a bench suite
+// silently skipping while the rest of the tree runs. A test may import both, so
+// the drift is caught here rather than avoided by coupling.
+func TestPostgresEnvAgreesWithTestenv(t *testing.T) {
+	if PostgresEnv != testenv.PostgresEnv {
+		t.Fatalf("bench names the DSN variable %q, testenv names it %q",
+			PostgresEnv, testenv.PostgresEnv)
+	}
+}

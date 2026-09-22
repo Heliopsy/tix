@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
-	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // The keys the enrolment routes are exercised with, and the fingerprint
@@ -23,7 +23,7 @@ const (
 // enrol posts one key and returns the record the route answered with.
 func (f *apiFixture) enrol(in core.EnrolSSHKeyInput) core.SSHKey {
 	f.t.Helper()
-	resp := f.call(http.MethodPost, httpapi.RouteSSHKeys, in)
+	resp := f.call(http.MethodPost, wire.RouteSSHKeys, in)
 	mustStatus(f.t, resp, http.StatusCreated)
 	var key core.SSHKey
 	decodeBody(f.t, resp, &key)
@@ -80,10 +80,10 @@ func TestEnrolSSHKeyRouteReturnsWhatWasStoredRatherThanWhatWasSubmitted(t *testi
 // successfully; that disagreement lives in core.EnrolSSHKeyInput.Validate.
 func TestEnrolSSHKeyRouteRefusesAnOptionsBearingLine(t *testing.T) {
 	f := newFixture(t)
-	resp := f.call(http.MethodPost, httpapi.RouteSSHKeys,
+	resp := f.call(http.MethodPost, wire.RouteSSHKeys,
 		core.EnrolSSHKeyInput{PublicKey: directiveKeyAlice})
 	mustStatus(t, resp, http.StatusBadRequest)
-	var env httpapi.ErrorEnvelope
+	var env wire.ErrorEnvelope
 	decodeBody(t, resp, &env)
 	if env.Error.Code != core.KindInvalid {
 		t.Errorf("code = %q, want %q", env.Error.Code, core.KindInvalid)
@@ -102,9 +102,9 @@ func TestListSSHKeysRouteReportsARevokedKeyRatherThanOmittingIt(t *testing.T) {
 	mustStatus(t, revoked, http.StatusNoContent)
 	_ = revoked.Body.Close()
 
-	listed := f.call(http.MethodGet, httpapi.RouteSSHKeys+"?actor_id="+f.actorA.ID, nil)
+	listed := f.call(http.MethodGet, wire.RouteSSHKeys+"?actor_id="+f.actorA.ID, nil)
 	mustStatus(t, listed, http.StatusOK)
-	var page httpapi.Page[core.SSHKey]
+	var page wire.Page[core.SSHKey]
 	decodeBody(t, listed, &page)
 
 	if len(page.Items) != 2 {
@@ -151,9 +151,9 @@ func TestSSHKeyRoutesRefuseBadInputWithTheStandardEnvelope(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			resp := f.call(http.MethodPost, httpapi.RouteSSHKeys, tc.body)
+			resp := f.call(http.MethodPost, wire.RouteSSHKeys, tc.body)
 			mustStatus(t, resp, tc.status)
-			var env httpapi.ErrorEnvelope
+			var env wire.ErrorEnvelope
 			decodeBody(t, resp, &env)
 			if env.Error.Code != core.KindInvalid {
 				t.Errorf("code = %q, want %q", env.Error.Code, core.KindInvalid)
@@ -164,9 +164,9 @@ func TestSSHKeyRoutesRefuseBadInputWithTheStandardEnvelope(t *testing.T) {
 		})
 	}
 
-	nothing := f.call(http.MethodGet, httpapi.RouteSSHKeys, nil)
+	nothing := f.call(http.MethodGet, wire.RouteSSHKeys, nil)
 	mustStatus(t, nothing, http.StatusOK)
-	var page httpapi.Page[core.SSHKey]
+	var page wire.Page[core.SSHKey]
 	decodeBody(t, nothing, &page)
 	if len(page.Items) != 0 {
 		t.Fatalf("a refused enrolment recorded %d keys", len(page.Items))
@@ -177,10 +177,10 @@ func TestEnrollingTheSameKeyTwiceInOneTenantConflicts(t *testing.T) {
 	f := newFixture(t)
 	f.enrol(core.EnrolSSHKeyInput{PublicKey: keyAlice})
 
-	again := f.call(http.MethodPost, httpapi.RouteSSHKeys,
+	again := f.call(http.MethodPost, wire.RouteSSHKeys,
 		core.EnrolSSHKeyInput{PublicKey: canonicalKeyAlice + " a different comment"})
 	mustStatus(t, again, http.StatusConflict)
-	var env httpapi.ErrorEnvelope
+	var env wire.ErrorEnvelope
 	decodeBody(t, again, &env)
 	if env.Error.Code != core.KindConflict {
 		t.Errorf("code = %q, want %q", env.Error.Code, core.KindConflict)
@@ -191,7 +191,7 @@ func TestRevokeSSHKeyRouteReportsAKeyItCannotFind(t *testing.T) {
 	f := newFixture(t)
 	resp := f.call(http.MethodDelete, "/api/v1/ssh-keys/no-such-key", nil)
 	mustStatus(t, resp, http.StatusNotFound)
-	var env httpapi.ErrorEnvelope
+	var env wire.ErrorEnvelope
 	decodeBody(t, resp, &env)
 	if env.Error.Code != core.KindNotFound {
 		t.Errorf("code = %q, want %q", env.Error.Code, core.KindNotFound)
@@ -205,7 +205,7 @@ func TestSSHKeyRoutesDoNotLeakAcrossTenants(t *testing.T) {
 	mine := f.enrol(core.EnrolSSHKeyInput{PublicKey: keyAlice, Label: "tenant a laptop"})
 
 	// The same key enrolled in the second tenant is a second, separate row.
-	theirs := f.do(http.MethodPost, httpapi.RouteSSHKeys, f.hostB, f.tokenB,
+	theirs := f.do(http.MethodPost, wire.RouteSSHKeys, f.hostB, f.tokenB,
 		core.EnrolSSHKeyInput{PublicKey: keyAlice, Label: "tenant b laptop"})
 	mustStatus(t, theirs, http.StatusCreated)
 	var other core.SSHKey
@@ -214,7 +214,7 @@ func TestSSHKeyRoutesDoNotLeakAcrossTenants(t *testing.T) {
 		t.Fatalf("the second tenant's enrolment is not its own row: %+v", other)
 	}
 
-	listed := f.do(http.MethodGet, httpapi.RouteSSHKeys, f.hostB, f.tokenB, nil)
+	listed := f.do(http.MethodGet, wire.RouteSSHKeys, f.hostB, f.tokenB, nil)
 	mustStatus(t, listed, http.StatusOK)
 	body := readBody(t, listed)
 	for _, forbidden := range []string{mine.ID, "tenant a laptop", f.actorA.ID, f.tenantA.ID} {
@@ -223,7 +223,7 @@ func TestSSHKeyRoutesDoNotLeakAcrossTenants(t *testing.T) {
 		}
 	}
 
-	named := f.do(http.MethodGet, httpapi.RouteSSHKeys+"?actor_id="+f.actorA.ID,
+	named := f.do(http.MethodGet, wire.RouteSSHKeys+"?actor_id="+f.actorA.ID,
 		f.hostB, f.tokenB, nil)
 	mustStatus(t, named, http.StatusNotFound)
 	if named := readBody(t, named); strings.Contains(named, "tenant a laptop") {
@@ -234,9 +234,9 @@ func TestSSHKeyRoutesDoNotLeakAcrossTenants(t *testing.T) {
 	mustStatus(t, revoke, http.StatusNotFound)
 	_ = revoke.Body.Close()
 
-	still := f.call(http.MethodGet, httpapi.RouteSSHKeys, nil)
+	still := f.call(http.MethodGet, wire.RouteSSHKeys, nil)
 	mustStatus(t, still, http.StatusOK)
-	var page httpapi.Page[core.SSHKey]
+	var page wire.Page[core.SSHKey]
 	decodeBody(t, still, &page)
 	if len(page.Items) != 1 || !page.Items[0].Active() {
 		t.Fatalf("a cross-tenant revocation reached the key: %+v", page.Items)

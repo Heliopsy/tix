@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
-	"github.com/heliopsy/tix/internal/httpapi"
 	"github.com/heliopsy/tix/internal/web"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // signIn drives the real browser sign-in: fetch the login page for a CSRF
@@ -124,7 +124,7 @@ func TestAnonymousVisitorIsRedirectedAndTheAPIIsRefused(t *testing.T) {
 		t.Errorf("anonymous browser was sent to %q, want the login page", loc)
 	}
 
-	api, err := client.Get(h.baseURL + httpapi.RouteTasks)
+	api, err := client.Get(h.baseURL + wire.RouteTasks)
 	if err != nil {
 		t.Fatalf("anonymous API GET: %v", err)
 	}

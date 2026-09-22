@@ -12,6 +12,7 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/id"
 	"github.com/heliopsy/tix/internal/service"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // HeaderRequestID carries the identifier correlating a request with its logs.
@@ -119,9 +120,9 @@ func (m *muxErrorWriter) WriteHeader(status int) {
 	}
 	m.written = true
 	if status == http.StatusNotFound || status == http.StatusMethodNotAllowed {
-		if !isJSONContentType(m.Header().Get(HeaderContentType)) {
+		if !isJSONContentType(m.Header().Get(wire.HeaderContentType)) {
 			m.swallow = true
-			m.Header().Set(HeaderContentType, ContentJSON)
+			m.Header().Set(wire.HeaderContentType, wire.ContentJSON)
 			m.ResponseWriter.WriteHeader(status)
 			_, _ = m.ResponseWriter.Write(muxErrorBody(status))
 			return
@@ -145,11 +146,11 @@ func (m *muxErrorWriter) Unwrap() http.ResponseWriter { return m.ResponseWriter 
 
 // muxErrorBody renders the envelope for a routing failure.
 func muxErrorBody(status int) []byte {
-	body := ErrorBody{Code: core.KindNotFound, Message: "no such route"}
+	body := wire.ErrorBody{Code: core.KindNotFound, Message: "no such route"}
 	if status == http.StatusMethodNotAllowed {
-		body = ErrorBody{Code: core.KindInvalid, Message: "method not allowed for this route"}
+		body = wire.ErrorBody{Code: core.KindInvalid, Message: "method not allowed for this route"}
 	}
-	return append(mustMarshal(ErrorEnvelope{Error: body}), '\n')
+	return append(mustMarshal(wire.ErrorEnvelope{Error: body}), '\n')
 }
 
 // envelopeMuxErrors gives the mux's own not found and method not allowed
@@ -163,7 +164,7 @@ func (rt *Router) envelopeMuxErrors(next http.Handler) http.Handler {
 // limitBody caps how much of a request body a handler can read.
 func (rt *Router) limitBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == RouteEvents || r.Body == nil {
+		if r.URL.Path == wire.RouteEvents || r.Body == nil {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -193,7 +194,7 @@ func (t *timeoutWriter) WriteHeader(status int) {
 	t.written = true
 	if errors.Is(t.ctx.Err(), context.DeadlineExceeded) {
 		t.swallow = true
-		t.Header().Set(HeaderContentType, ContentJSON)
+		t.Header().Set(wire.HeaderContentType, wire.ContentJSON)
 		t.ResponseWriter.WriteHeader(http.StatusGatewayTimeout)
 		_, _ = t.ResponseWriter.Write(timeoutBody())
 		return
@@ -216,7 +217,7 @@ func (t *timeoutWriter) Unwrap() http.ResponseWriter { return t.ResponseWriter }
 
 // timeoutBody renders the envelope a timed out request answers with.
 func timeoutBody() []byte {
-	return append(mustMarshal(ErrorEnvelope{Error: ErrorBody{
+	return append(mustMarshal(wire.ErrorEnvelope{Error: wire.ErrorBody{
 		Code:    core.KindInternal,
 		Message: "the request exceeded the server timeout",
 	}}), '\n')
@@ -225,7 +226,7 @@ func timeoutBody() []byte {
 // withTimeout bounds how long a request may run.
 func (rt *Router) withTimeout(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == RouteEvents {
+		if r.URL.Path == wire.RouteEvents {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -297,7 +298,7 @@ func (rt *Router) authenticate(next http.Handler) http.Handler {
 			// anonymous visitor to its login page rather than answering with a
 			// JSON envelope. Carrying on without an actor is what lets it do
 			// that. Anything under the API prefix must present a credential.
-			if strings.HasPrefix(r.URL.Path, APIPrefix) {
+			if strings.HasPrefix(r.URL.Path, wire.APIPrefix) {
 				WriteError(w, err)
 				return
 			}
@@ -317,7 +318,7 @@ func (rt *Router) authenticate(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, ctxKeyRevalidate, rt.revalidator(r))
 		// Logout ends the session the caller presented, so it has to know which
 		// one that was. Only a cookie identifies a session; a bearer token does not.
-		if c, err := r.Cookie(SessionCookieName); err == nil && c.Value != "" {
+		if c, err := r.Cookie(wire.SessionCookieName); err == nil && c.Value != "" {
 			ctx = service.WithSessionToken(ctx, c.Value)
 		}
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -326,12 +327,12 @@ func (rt *Router) authenticate(next http.Handler) http.Handler {
 
 // isUnscopedPath reports whether a route runs before tenant resolution.
 func isUnscopedPath(path string) bool {
-	return path == RouteHealth || path == RouteReady
+	return path == wire.RouteHealth || path == wire.RouteReady
 }
 
 // isPublicPath reports whether a route runs without a credential.
 func isPublicPath(path string) bool {
-	return isUnscopedPath(path) || path == RouteLogin
+	return isUnscopedPath(path) || path == wire.RouteLogin
 }
 
 // Context keys for the values the forwarded-header and credential middleware
@@ -411,8 +412,8 @@ func credentialRequest(r *http.Request) *http.Request {
 		Host:       r.Host,
 		RemoteAddr: r.RemoteAddr,
 	}
-	if v := r.Header.Get(HeaderAuth); v != "" {
-		clone.Header.Set(HeaderAuth, v)
+	if v := r.Header.Get(wire.HeaderAuth); v != "" {
+		clone.Header.Set(wire.HeaderAuth, v)
 	}
 	if v := r.Header.Get("Cookie"); v != "" {
 		clone.Header.Set("Cookie", v)

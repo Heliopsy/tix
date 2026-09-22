@@ -77,6 +77,15 @@ func sampleToken() core.APIToken {
 	}
 }
 
+func sampleSSHKey() core.SSHKey {
+	return core.SSHKey{
+		ID: "key_1", TenantID: "ten_1", ActorID: "act_1", Label: "laptop",
+		Fingerprint: "SHA256:AZiwkKf4f0CPBmKWlToNT9jORyRQB1ZMPy2VQVmD4A4",
+		PublicKey:   "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMBtWpAN",
+		CreatedAt:   refTime,
+	}
+}
+
 func sampleAudit() core.AuditEntry {
 	return core.AuditEntry{
 		Seq: 42, TenantID: "ten_1", ActorID: "act_1", Action: "task.create",
@@ -147,6 +156,8 @@ func TestAllTypesRenderInEveryFormat(t *testing.T) {
 		"comment":   sampleComment(),
 		"tokens":    []core.APIToken{sampleToken()},
 		"token":     sampleToken(),
+		"sshkeys":   []core.SSHKey{sampleSSHKey()},
+		"sshkey":    sampleSSHKey(),
 		"audits":    []core.AuditEntry{sampleAudit()},
 		"audit":     sampleAudit(),
 		"endpoints": []core.WebhookEndpoint{sampleEndpoint()},
@@ -438,5 +449,39 @@ func TestTableRendersLiveConnections(t *testing.T) {
 	}
 	if rows := render(t, FormatTable, list.Connections); !strings.Contains(rows, "alice") {
 		t.Errorf("a bare connection slice rendered %q", rows)
+	}
+}
+
+// TestSSHKeyTableIsReadable pins the two things the reflection fallback got
+// wrong before this type had a renderer of its own: an unset time printed as
+// "<nil>", and the key itself taking eighty columns that never differ usefully
+// between rows.
+func TestSSHKeyTableIsReadable(t *testing.T) {
+	key := sampleSSHKey()
+	got := render(t, FormatTable, []core.SSHKey{key})
+	if strings.Contains(got, "<nil>") {
+		t.Errorf("an unset time rendered as <nil>:\n%s", got)
+	}
+	if strings.Contains(got, key.PublicKey) {
+		t.Errorf("the whole public key is a column:\n%s", got)
+	}
+	for _, want := range []string{key.ID, key.Label, key.Fingerprint, "LAST USED", "REVOKED"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("table is missing %q:\n%s", want, got)
+		}
+	}
+}
+
+// TestSSHKeyTableShowsARevocation checks a revoked key reads as revoked, which
+// is the state an operator is usually looking for.
+func TestSSHKeyTableShowsARevocation(t *testing.T) {
+	key := sampleSSHKey()
+	key.RevokedAt = ptrTime(refTime2)
+	got := render(t, FormatTable, []core.SSHKey{key})
+	if strings.Contains(got, "<nil>") {
+		t.Errorf("unset times still render as <nil>:\n%s", got)
+	}
+	if !strings.Contains(got, refTime2.UTC().Format("2006-01-02")) {
+		t.Errorf("no revocation date in the row:\n%s", got)
 	}
 }

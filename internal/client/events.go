@@ -11,7 +11,7 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/heliopsy/tix/internal/core"
-	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // Message types exchanged over the event stream.
@@ -39,11 +39,11 @@ type subscribeMessage struct {
 }
 
 type serverMessage struct {
-	Type     string             `json:"type"`
-	ID       string             `json:"id,omitempty"`
-	SinceSeq int64              `json:"since_seq,omitempty"`
-	Event    *core.Event        `json:"event,omitempty"`
-	Error    *httpapi.ErrorBody `json:"error,omitempty"`
+	Type     string          `json:"type"`
+	ID       string          `json:"id,omitempty"`
+	SinceSeq int64           `json:"since_seq,omitempty"`
+	Event    *core.Event     `json:"event,omitempty"`
+	Error    *wire.ErrorBody `json:"error,omitempty"`
 }
 
 // Subscribe streams matching events until ctx is cancelled.
@@ -120,7 +120,7 @@ func readServerMessage(ctx context.Context, conn *websocket.Conn) (*serverMessag
 	return &msg, nil
 }
 
-func envelopeError(body *httpapi.ErrorBody) error {
+func envelopeError(body *wire.ErrorBody) error {
 	if body == nil || body.Code == "" {
 		return core.Internal("event stream refused the subscription")
 	}
@@ -130,12 +130,12 @@ func envelopeError(body *httpapi.ErrorBody) error {
 func (c *Client) dialEvents(ctx context.Context) (*websocket.Conn, error) {
 	header := http.Header{}
 	if c.token != "" {
-		header.Set(httpapi.HeaderAuth, "Bearer "+c.token)
+		header.Set(wire.HeaderAuth, "Bearer "+c.token)
 	}
 	if c.cookie != "" {
 		// #nosec G124 -- see transport.go: an outgoing cookie header carries no
 		// response directives.
-		header.Set("Cookie", (&http.Cookie{Name: httpapi.SessionCookieName, Value: c.cookie}).String())
+		header.Set("Cookie", (&http.Cookie{Name: wire.SessionCookieName, Value: c.cookie}).String())
 	}
 	header.Set("User-Agent", c.userAgent)
 
@@ -165,9 +165,9 @@ func subscriptionID() string {
 }
 
 func (c *Client) eventsURL() string {
-	u, err := url.Parse(c.url(httpapi.RouteEvents, nil))
+	u, err := url.Parse(c.url(wire.RouteEvents, nil))
 	if err != nil {
-		return c.url(httpapi.RouteEvents, nil)
+		return c.url(wire.RouteEvents, nil)
 	}
 	switch u.Scheme {
 	case "https":

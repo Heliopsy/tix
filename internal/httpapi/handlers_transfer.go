@@ -4,17 +4,18 @@ import (
 	"net/http"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // registerTransferRoutes binds snapshot transfer and external sync.
 func (rt *Router) registerTransferRoutes() {
-	rt.mux.HandleFunc("POST "+RouteExport, rt.handleExport)
-	rt.mux.HandleFunc("POST "+RouteImport, rt.handleImport)
+	rt.mux.HandleFunc("POST "+wire.RouteExport, rt.handleExport)
+	rt.mux.HandleFunc("POST "+wire.RouteImport, rt.handleImport)
 
-	rt.mux.HandleFunc("GET "+RouteSyncSources, rt.handleListSyncSources)
-	rt.mux.HandleFunc("PUT "+RouteSyncSources, rt.handlePutSyncSource)
-	rt.mux.HandleFunc("DELETE "+RouteSyncSource, rt.handleDeleteSyncSource)
-	rt.mux.HandleFunc("POST "+RouteSyncRun, rt.handleRunSync)
+	rt.mux.HandleFunc("GET "+wire.RouteSyncSources, rt.handleListSyncSources)
+	rt.mux.HandleFunc("PUT "+wire.RouteSyncSources, rt.handlePutSyncSource)
+	rt.mux.HandleFunc("DELETE "+wire.RouteSyncSource, rt.handleDeleteSyncSource)
+	rt.mux.HandleFunc("POST "+wire.RouteSyncRun, rt.handleRunSync)
 }
 
 // handleExport streams a snapshot as ndjson.
@@ -23,9 +24,9 @@ func (rt *Router) handleExport(w http.ResponseWriter, r *http.Request) {
 	if !readOptionalJSON(w, r, &in) {
 		return
 	}
-	w.Header().Set(HeaderContentType, ContentNDJSON)
+	w.Header().Set(wire.HeaderContentType, wire.ContentNDJSON)
 	if err := rt.cfg.Service.ExportTo(r.Context(), in, w); err != nil {
-		w.Header().Del(HeaderContentType)
+		w.Header().Del(wire.HeaderContentType)
 		WriteError(w, err)
 		return
 	}

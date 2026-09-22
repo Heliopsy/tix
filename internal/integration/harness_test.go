@@ -24,6 +24,7 @@ import (
 	"github.com/heliopsy/tix/internal/store/sqlite"
 	"github.com/heliopsy/tix/internal/web"
 	"github.com/heliopsy/tix/internal/webhook"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // Waits are bounded generously rather than tuned: the tenant reader polls the
@@ -199,7 +200,7 @@ func (h *harness) dial() *wsClient {
 	ctx, cancel := context.WithTimeout(context.Background(), dialWait)
 	defer cancel()
 
-	conn, resp, err := websocket.Dial(ctx, "ws"+h.baseURL[len("http"):]+httpapi.RouteEvents,
+	conn, resp, err := websocket.Dial(ctx, "ws"+h.baseURL[len("http"):]+wire.RouteEvents,
 		&websocket.DialOptions{
 			HTTPHeader: http.Header{"Authorization": []string{"Bearer " + h.token}},
 		})

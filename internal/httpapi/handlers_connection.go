@@ -1,11 +1,15 @@
 package httpapi
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/heliopsy/tix/internal/wire"
+)
 
 // registerConnectionRoutes binds the live connection routes.
 func (rt *Router) registerConnectionRoutes() {
-	rt.mux.HandleFunc("GET "+RouteConnections, rt.handleListConnections)
-	rt.mux.HandleFunc("DELETE "+RouteConnection, rt.handleEndConnection)
+	rt.mux.HandleFunc("GET "+wire.RouteConnections, rt.handleListConnections)
+	rt.mux.HandleFunc("DELETE "+wire.RouteConnection, rt.handleEndConnection)
 }
 
 // handleListConnections answers with the connections this server holds for the

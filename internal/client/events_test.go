@@ -13,6 +13,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 func eventServer(t *testing.T, handle func(ctx context.Context, conn *websocket.Conn, sub subscribeMessage)) *httptest.Server {
@@ -129,7 +130,7 @@ const (
 
 func TestSubscribeSurfacesServerError(t *testing.T) {
 	srv := eventServer(t, func(ctx context.Context, conn *websocket.Conn, _ subscribeMessage) {
-		body := httpapi.ErrorBody{
+		body := wire.ErrorBody{
 			Code:    core.KindInvalid,
 			Message: "unknown event type",
 			Details: map[string]any{"type": "task.exploded"},
@@ -258,8 +259,8 @@ func TestSubscribeIgnoresNonEventMessages(t *testing.T) {
 
 func TestEventsURLSchemes(t *testing.T) {
 	tests := []struct{ in, want string }{
-		{"http://example.com", "ws://example.com" + httpapi.RouteEvents},
-		{"https://example.com/tix", "wss://example.com/tix" + httpapi.RouteEvents},
+		{"http://example.com", "ws://example.com" + wire.RouteEvents},
+		{"https://example.com/tix", "wss://example.com/tix" + wire.RouteEvents},
 	}
 	for _, tc := range tests {
 		c, err := New(tc.in, "t")

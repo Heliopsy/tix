@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
-	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // minimalBundle is a bundle body carrying nothing but its header, so a
@@ -17,7 +17,7 @@ const minimalBundle = `{"record":"header","header":{"name":"starter","version":1
 // exportBundle asks the API for a bundle and returns its body.
 func (f *apiFixture) exportBundle(in core.BundleExportInput) []byte {
 	f.t.Helper()
-	resp := f.call(http.MethodPost, httpapi.RouteBundleExport, in)
+	resp := f.call(http.MethodPost, wire.RouteBundleExport, in)
 	mustStatus(f.t, resp, http.StatusOK)
 	return []byte(readBody(f.t, resp))
 }
@@ -26,13 +26,13 @@ func (f *apiFixture) exportBundle(in core.BundleExportInput) []byte {
 func (f *apiFixture) importBundle(query string, body []byte, host, token string) *http.Response {
 	f.t.Helper()
 	req, err := http.NewRequest(http.MethodPost,
-		f.server.URL+httpapi.RouteBundleImport+query, bytes.NewReader(body))
+		f.server.URL+wire.RouteBundleImport+query, bytes.NewReader(body))
 	if err != nil {
 		f.t.Fatalf("building request: %v", err)
 	}
 	req.Host = host
-	req.Header.Set(httpapi.HeaderAuth, "Bearer "+token)
-	req.Header.Set(httpapi.HeaderContentType, httpapi.ContentBundle)
+	req.Header.Set(wire.HeaderAuth, "Bearer "+token)
+	req.Header.Set(wire.HeaderContentType, wire.ContentBundle)
 	resp, err := f.server.Client().Do(req)
 	if err != nil {
 		f.t.Fatalf("sending import: %v", err)
@@ -43,13 +43,13 @@ func (f *apiFixture) importBundle(query string, body []byte, host, token string)
 func TestBundleExportReturnsABundleBody(t *testing.T) {
 	f := newFixture(t)
 
-	resp := f.call(http.MethodPost, httpapi.RouteBundleExport,
+	resp := f.call(http.MethodPost, wire.RouteBundleExport,
 		core.BundleExportInput{Name: "starter", Kinds: []core.ComponentKind{core.ComponentWorkflow}})
 	mustStatus(t, resp, http.StatusOK)
-	if got := resp.Header.Get(httpapi.HeaderContentType); got != httpapi.ContentBundle {
-		t.Errorf("content type = %q, want %q", got, httpapi.ContentBundle)
+	if got := resp.Header.Get(wire.HeaderContentType); got != wire.ContentBundle {
+		t.Errorf("content type = %q, want %q", got, wire.ContentBundle)
 	}
-	if got := resp.Header.Get(httpapi.HeaderContentDisposition); !strings.Contains(got, "filename=") {
+	if got := resp.Header.Get(wire.HeaderContentDisposition); !strings.Contains(got, "filename=") {
 		t.Errorf("content disposition = %q, want a filename", got)
 	}
 	if body := readBody(t, resp); strings.TrimSpace(body) == "" {
@@ -60,10 +60,10 @@ func TestBundleExportReturnsABundleBody(t *testing.T) {
 func TestBundleExportRefusesAnUnknownKind(t *testing.T) {
 	f := newFixture(t)
 
-	resp := f.call(http.MethodPost, httpapi.RouteBundleExport,
+	resp := f.call(http.MethodPost, wire.RouteBundleExport,
 		core.BundleExportInput{Kinds: []core.ComponentKind{"saved_filter"}})
 	mustStatus(t, resp, http.StatusBadRequest)
-	var env httpapi.ErrorEnvelope
+	var env wire.ErrorEnvelope
 	decodeBody(t, resp, &env)
 	if env.Error.Code != core.KindInvalid {
 		t.Errorf("code = %q, want %q", env.Error.Code, core.KindInvalid)
@@ -92,7 +92,7 @@ func TestBundleImportRequiresACollisionPolicy(t *testing.T) {
 
 	resp := f.importBundle("", []byte(minimalBundle), f.hostA, f.tokenA)
 	mustStatus(t, resp, http.StatusBadRequest)
-	var env httpapi.ErrorEnvelope
+	var env wire.ErrorEnvelope
 	decodeBody(t, resp, &env)
 	if env.Error.Code != core.KindInvalid {
 		t.Errorf("code = %q, want %q", env.Error.Code, core.KindInvalid)
@@ -145,9 +145,9 @@ func TestBundleImportTargetsTheCallersOwnTenant(t *testing.T) {
 // workflowCount reports how many workflows tenant A can see.
 func (f *apiFixture) workflowCount() int {
 	f.t.Helper()
-	resp := f.call(http.MethodGet, httpapi.RouteWorkflows, nil)
+	resp := f.call(http.MethodGet, wire.RouteWorkflows, nil)
 	mustStatus(f.t, resp, http.StatusOK)
-	var page httpapi.Page[core.Workflow]
+	var page wire.Page[core.Workflow]
 	decodeBody(f.t, resp, &page)
 	return len(page.Items)
 }
@@ -155,8 +155,8 @@ func (f *apiFixture) workflowCount() int {
 func TestBundleExportRefusesAMalformedBody(t *testing.T) {
 	f := newFixture(t)
 
-	req := f.newRequest(http.MethodPost, httpapi.RouteBundleExport, strings.NewReader("{"))
-	req.Header.Set(httpapi.HeaderContentType, httpapi.ContentJSON)
+	req := f.newRequest(http.MethodPost, wire.RouteBundleExport, strings.NewReader("{"))
+	req.Header.Set(wire.HeaderContentType, wire.ContentJSON)
 	resp, err := f.server.Client().Do(req)
 	if err != nil {
 		t.Fatalf("sending request: %v", err)
@@ -168,10 +168,10 @@ func TestBundleExportRefusesAMalformedBody(t *testing.T) {
 func TestUnnamedBundleDownloadsUnderADefaultName(t *testing.T) {
 	f := newFixture(t)
 
-	resp := f.call(http.MethodPost, httpapi.RouteBundleExport, core.BundleExportInput{})
+	resp := f.call(http.MethodPost, wire.RouteBundleExport, core.BundleExportInput{})
 	mustStatus(t, resp, http.StatusOK)
 	_ = resp.Body.Close()
-	if got := resp.Header.Get(httpapi.HeaderContentDisposition); got != `attachment; filename="tix-bundle.ndjson"` {
+	if got := resp.Header.Get(wire.HeaderContentDisposition); got != `attachment; filename="tix-bundle.ndjson"` {
 		t.Errorf("content disposition = %q, want the default bundle filename", got)
 	}
 }
@@ -179,11 +179,11 @@ func TestUnnamedBundleDownloadsUnderADefaultName(t *testing.T) {
 func TestBundleNameIsReducedToASafeFilename(t *testing.T) {
 	f := newFixture(t)
 
-	resp := f.call(http.MethodPost, httpapi.RouteBundleExport,
+	resp := f.call(http.MethodPost, wire.RouteBundleExport,
 		core.BundleExportInput{Name: `Ops "kit"; rm -rf /`})
 	mustStatus(t, resp, http.StatusOK)
 	_ = resp.Body.Close()
-	got := resp.Header.Get(httpapi.HeaderContentDisposition)
+	got := resp.Header.Get(wire.HeaderContentDisposition)
 	if strings.ContainsAny(got[len("attachment; filename="):], ";") {
 		t.Errorf("content disposition = %q, want no punctuation from the bundle name", got)
 	}
@@ -199,7 +199,7 @@ func TestBundleImportRefusesAMalformedBundle(t *testing.T) {
 	if resp.StatusCode < 400 {
 		t.Fatalf("status = %d, want a failure: %s", resp.StatusCode, readBody(t, resp))
 	}
-	var env httpapi.ErrorEnvelope
+	var env wire.ErrorEnvelope
 	decodeBody(t, resp, &env)
 	if env.Error.Message == "" {
 		t.Error("a malformed bundle carried no error envelope")

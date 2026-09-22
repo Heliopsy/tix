@@ -7,6 +7,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 func TestTaskMutationRoutes(t *testing.T) {
@@ -95,7 +96,7 @@ func TestTaskListFilters(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			resp := f.call(http.MethodGet, httpapi.RouteTasks+tc.query, nil)
+			resp := f.call(http.MethodGet, wire.RouteTasks+tc.query, nil)
 			mustStatus(t, resp, tc.want)
 			_ = resp.Body.Close()
 		})
@@ -115,12 +116,12 @@ func TestTaskTreeAndAuditFilters(t *testing.T) {
 	_ = badDepth.Body.Close()
 
 	audit := f.call(http.MethodGet,
-		httpapi.RouteAudit+"?action=task.create&actor_id="+f.actorA.ID+
+		wire.RouteAudit+"?action=task.create&actor_id="+f.actorA.ID+
 			"&source=api&since=2020-01-01T00:00:00Z&until=2030-01-01T00:00:00Z", nil)
 	mustStatus(t, audit, http.StatusOK)
 	_ = audit.Body.Close()
 
-	badAudit := f.call(http.MethodGet, httpapi.RouteAudit+"?since=never", nil)
+	badAudit := f.call(http.MethodGet, wire.RouteAudit+"?since=never", nil)
 	mustStatus(t, badAudit, http.StatusBadRequest)
 	_ = badAudit.Body.Close()
 
@@ -145,7 +146,7 @@ func TestProjectAndWorkflowMutationRoutes(t *testing.T) {
 		},
 	}
 
-	put := f.call(http.MethodPut, httpapi.RouteWorkflows, definition)
+	put := f.call(http.MethodPut, wire.RouteWorkflows, definition)
 	mustStatus(t, put, http.StatusOK)
 	_ = put.Body.Close()
 
@@ -153,7 +154,7 @@ func TestProjectAndWorkflowMutationRoutes(t *testing.T) {
 	mustStatus(t, byKey, http.StatusOK)
 	_ = byKey.Body.Close()
 
-	created := f.call(http.MethodPost, httpapi.RouteProjects,
+	created := f.call(http.MethodPost, wire.RouteProjects,
 		core.CreateProjectInput{Key: "ops", Name: "Ops", WorkflowKey: "temp"})
 	mustStatus(t, created, http.StatusCreated)
 	_ = created.Body.Close()
@@ -174,12 +175,12 @@ func TestProjectAndWorkflowMutationRoutes(t *testing.T) {
 func TestTenantMutationRoutes(t *testing.T) {
 	f := newFixture(t)
 
-	created := f.call(http.MethodPost, httpapi.RouteTenants,
+	created := f.call(http.MethodPost, wire.RouteTenants,
 		core.CreateTenantInput{Key: "third", Name: "Third"})
 	mustStatus(t, created, http.StatusCreated)
 	_ = created.Body.Close()
 
-	member := f.call(http.MethodPost, httpapi.RouteMembers,
+	member := f.call(http.MethodPost, wire.RouteMembers,
 		httpapi.AddMemberRequest{ActorID: f.actorA.ID, Role: core.RoleMember})
 	mustStatus(t, member, http.StatusCreated)
 	_ = member.Body.Close()
@@ -188,7 +189,7 @@ func TestTenantMutationRoutes(t *testing.T) {
 	mustStatus(t, unmember, http.StatusNoContent)
 	_ = unmember.Body.Close()
 
-	domain := f.call(http.MethodPost, httpapi.RouteDomains,
+	domain := f.call(http.MethodPost, wire.RouteDomains,
 		core.AddDomainInput{Hostname: "extra.test", CertMode: core.CertNone})
 	mustStatus(t, domain, http.StatusCreated)
 	_ = domain.Body.Close()
@@ -212,7 +213,7 @@ func TestTenantMutationRoutes(t *testing.T) {
 func TestUserAndTokenMutationRoutes(t *testing.T) {
 	f := newFixture(t)
 
-	created := f.call(http.MethodPost, httpapi.RouteUsers,
+	created := f.call(http.MethodPost, wire.RouteUsers,
 		core.CreateUserInput{Email: "dana@example.com", Password: "correct-horse-battery"})
 	mustStatus(t, created, http.StatusCreated)
 	var user core.User
@@ -223,7 +224,7 @@ func TestUserAndTokenMutationRoutes(t *testing.T) {
 	mustStatus(t, updated, http.StatusOK)
 	_ = updated.Body.Close()
 
-	token := f.call(http.MethodPost, httpapi.RouteTokens,
+	token := f.call(http.MethodPost, wire.RouteTokens,
 		core.CreateTokenInput{Name: "ci", Scopes: []core.Scope{core.ScopeTaskRead}})
 	mustStatus(t, token, http.StatusCreated)
 	var issued core.IssuedToken
@@ -242,11 +243,11 @@ func TestRetentionAndWebhookMutationRoutes(t *testing.T) {
 	f := newFixture(t)
 
 	policy := core.DefaultRetention(f.tenantA.ID)
-	put := f.call(http.MethodPut, httpapi.RouteRetention, policy)
+	put := f.call(http.MethodPut, wire.RouteRetention, policy)
 	mustStatus(t, put, http.StatusOK)
 	_ = put.Body.Close()
 
-	hook := f.call(http.MethodPut, httpapi.RouteWebhooks,
+	hook := f.call(http.MethodPut, wire.RouteWebhooks,
 		core.WebhookInput{ID: "hook-2", URL: "https://example.com/hook", Active: true})
 	mustStatus(t, hook, http.StatusOK)
 	_ = hook.Body.Close()
@@ -255,7 +256,7 @@ func TestRetentionAndWebhookMutationRoutes(t *testing.T) {
 	mustStatus(t, dropped, http.StatusNoContent)
 	_ = dropped.Body.Close()
 
-	source := f.call(http.MethodPut, httpapi.RouteSyncSources,
+	source := f.call(http.MethodPut, wire.RouteSyncSources,
 		core.SyncSourceInput{ID: "src-2", System: core.SystemGeneric, Name: "feed"})
 	mustStatus(t, source, http.StatusOK)
 	_ = source.Body.Close()
@@ -269,9 +270,9 @@ func TestImportStreamsTheRequestBody(t *testing.T) {
 	f := newFixture(t)
 
 	snapshot := []byte(`{"kind":"header","header":{"version":1,"tenant_key":"acme"}}` + "\n")
-	req := f.newRequest(http.MethodPost, httpapi.RouteImport+"?mode=merge&dry_run=true",
+	req := f.newRequest(http.MethodPost, wire.RouteImport+"?mode=merge&dry_run=true",
 		bytes.NewReader(snapshot))
-	req.Header.Set(httpapi.HeaderContentType, httpapi.ContentNDJSON)
+	req.Header.Set(wire.HeaderContentType, wire.ContentNDJSON)
 	resp, err := f.server.Client().Do(req)
 	if err != nil {
 		t.Fatalf("sending request: %v", err)
@@ -287,10 +288,10 @@ func TestImportStreamsTheRequestBody(t *testing.T) {
 func TestExportStreamsNDJSON(t *testing.T) {
 	f := newFixture(t)
 
-	resp := f.call(http.MethodPost, httpapi.RouteExport, core.ExportInput{})
+	resp := f.call(http.MethodPost, wire.RouteExport, core.ExportInput{})
 	mustStatus(t, resp, http.StatusOK)
-	if got := resp.Header.Get(httpapi.HeaderContentType); got != httpapi.ContentNDJSON {
-		t.Errorf("content type = %q, want %q", got, httpapi.ContentNDJSON)
+	if got := resp.Header.Get(wire.HeaderContentType); got != wire.ContentNDJSON {
+		t.Errorf("content type = %q, want %q", got, wire.ContentNDJSON)
 	}
 	if body := readBody(t, resp); !bytes.Contains([]byte(body), []byte(`"kind":"header"`)) {
 		t.Errorf("body = %s, want a snapshot header", body)
@@ -334,16 +335,16 @@ func TestOptionalBodiesRejectMalformedJSON(t *testing.T) {
 	task := f.createTask("claimable")
 
 	paths := []string{
-		httpapi.RouteClaimSweep,
-		httpapi.RoutePrune,
-		httpapi.RouteClaimNext,
+		wire.RouteClaimSweep,
+		wire.RoutePrune,
+		wire.RouteClaimNext,
 		"/api/v1/tasks/" + task.Ref + "/claim",
 	}
 
 	for _, path := range paths {
 		t.Run(path, func(t *testing.T) {
 			req := f.newRequest(http.MethodPost, path, bytes.NewReader([]byte("{oops")))
-			req.Header.Set(httpapi.HeaderContentType, httpapi.ContentJSON)
+			req.Header.Set(wire.HeaderContentType, wire.ContentJSON)
 			resp, err := f.server.Client().Do(req)
 			if err != nil {
 				t.Fatalf("sending request: %v", err)
@@ -410,7 +411,7 @@ func TestMissingPathResourcesOnWriteRoutes(t *testing.T) {
 			core.UpdateTenantInput{Name: strPtr("x")}, http.StatusNotFound},
 		{"update missing user", http.MethodPatch, "/api/v1/users/nobody",
 			core.UpdateUserInput{DisplayName: strPtr("x")}, http.StatusNotFound},
-		{"run missing sync source", http.MethodPost, httpapi.RouteSyncRun,
+		{"run missing sync source", http.MethodPost, wire.RouteSyncRun,
 			core.RunSyncInput{SourceID: "nope"}, http.StatusNotFound},
 		{"malformed ref on claim", http.MethodPost, "/api/v1/tasks/!!/claim",
 			core.ClaimInput{}, http.StatusBadRequest},
@@ -468,7 +469,7 @@ func TestMissingPathResourcesOnWriteRoutes(t *testing.T) {
 func TestResolveDomainRoute(t *testing.T) {
 	f := newFixture(t)
 
-	created := f.call(http.MethodPost, httpapi.RouteDomains,
+	created := f.call(http.MethodPost, wire.RouteDomains,
 		core.AddDomainInput{Hostname: "resolve.example.com"})
 	defer func() { _ = created.Body.Close() }()
 	mustStatus(t, created, http.StatusCreated)

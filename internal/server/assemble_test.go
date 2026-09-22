@@ -13,10 +13,10 @@ import (
 	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
-	"github.com/heliopsy/tix/internal/httpapi"
 	"github.com/heliopsy/tix/internal/server"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // assembled is a serve process wired the way the command wires it.
@@ -81,7 +81,7 @@ func TestAssembledServerServesHealthAndReadiness(t *testing.T) {
 	go func() { done <- a.srv.Serve(ctx) }()
 
 	base := "http://" + a.srv.Addr()
-	for _, path := range []string{httpapi.RouteHealth, httpapi.RouteReady} {
+	for _, path := range []string{wire.RouteHealth, wire.RouteReady} {
 		resp, err := http.Get(base + path)
 		if err != nil {
 			t.Fatalf("requesting %s: %v", path, err)
@@ -92,7 +92,7 @@ func TestAssembledServerServesHealthAndReadiness(t *testing.T) {
 		_ = resp.Body.Close()
 	}
 
-	unauth, err := http.Get(base + httpapi.RouteTasks)
+	unauth, err := http.Get(base + wire.RouteTasks)
 	if err != nil {
 		t.Fatalf("requesting tasks: %v", err)
 	}
@@ -155,8 +155,8 @@ func TestStoreCredentialsResolveATokenWithinTheTenant(t *testing.T) {
 	}
 
 	authenticator := server.NewAuthenticator(a.store, clk)
-	req := httptest.NewRequest(http.MethodGet, httpapi.RouteTasks, nil)
-	req.Header.Set(httpapi.HeaderAuth, "Bearer "+minted.Issued.Token)
+	req := httptest.NewRequest(http.MethodGet, wire.RouteTasks, nil)
+	req.Header.Set(wire.HeaderAuth, "Bearer "+minted.Issued.Token)
 
 	scoped := core.WithTenant(ctx, scope)
 	actor, err := authenticator.Authenticate(scoped, req)
@@ -197,8 +197,8 @@ func TestStoreCredentialsResolveASession(t *testing.T) {
 	}
 
 	authenticator := server.NewAuthenticator(a.store, clk)
-	req := httptest.NewRequest(http.MethodGet, httpapi.RouteTasks, nil)
-	req.AddCookie(&http.Cookie{Name: httpapi.SessionCookieName, Value: minted.Session.Token})
+	req := httptest.NewRequest(http.MethodGet, wire.RouteTasks, nil)
+	req.AddCookie(&http.Cookie{Name: wire.SessionCookieName, Value: minted.Session.Token})
 
 	actor, err := authenticator.Authenticate(core.WithTenant(ctx, scope), req)
 	if err != nil {
@@ -208,8 +208,8 @@ func TestStoreCredentialsResolveASession(t *testing.T) {
 		t.Errorf("actor = %q, want %q", actor.ID, a.conn.Actor.ID)
 	}
 
-	unknown := httptest.NewRequest(http.MethodGet, httpapi.RouteTasks, nil)
-	unknown.AddCookie(&http.Cookie{Name: httpapi.SessionCookieName, Value: "not-a-session"})
+	unknown := httptest.NewRequest(http.MethodGet, wire.RouteTasks, nil)
+	unknown.AddCookie(&http.Cookie{Name: wire.SessionCookieName, Value: "not-a-session"})
 	if _, err := authenticator.Authenticate(core.WithTenant(ctx, scope), unknown); err == nil {
 		t.Error("an unknown session token authenticated")
 	}

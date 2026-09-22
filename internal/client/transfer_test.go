@@ -15,6 +15,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 type signalWriter struct {
@@ -45,7 +46,7 @@ func TestExportStreamsWithoutBuffering(t *testing.T) {
 	out := &signalWriter{written: make(chan struct{}, 1)}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set(httpapi.HeaderContentType, httpapi.ContentNDJSON)
+		w.Header().Set(wire.HeaderContentType, wire.ContentNDJSON)
 		_, _ = io.WriteString(w, `{"kind":"header"}`+"\n")
 		w.(http.Flusher).Flush()
 
@@ -88,11 +89,11 @@ func TestExportSurfacesServerError(t *testing.T) {
 	if !core.IsKind(err, core.KindForbidden) {
 		t.Fatalf("kind = %q", core.KindOf(err))
 	}
-	if got.path != httpapi.RouteExport || got.method != http.MethodPost {
+	if got.path != wire.RouteExport || got.method != http.MethodPost {
 		t.Fatalf("%s %s", got.method, got.path)
 	}
-	if got.header.Get(httpapi.HeaderAccept) != httpapi.ContentNDJSON {
-		t.Fatalf("accept = %q", got.header.Get(httpapi.HeaderAccept))
+	if got.header.Get(wire.HeaderAccept) != wire.ContentNDJSON {
+		t.Fatalf("accept = %q", got.header.Get(wire.HeaderAccept))
 	}
 }
 
@@ -105,7 +106,7 @@ func TestImportStreamsRequestBody(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		contentLength = r.ContentLength
 		query = r.URL.RawQuery
-		contentType = r.Header.Get(httpapi.HeaderContentType)
+		contentType = r.Header.Get(wire.HeaderContentType)
 
 		scanner := bufio.NewScanner(r.Body)
 		for scanner.Scan() {
@@ -151,7 +152,7 @@ func TestImportStreamsRequestBody(t *testing.T) {
 	if !strings.Contains(query, "mode=merge") || !strings.Contains(query, "dry_run=true") {
 		t.Fatalf("query = %q", query)
 	}
-	if contentType != httpapi.ContentNDJSON {
+	if contentType != wire.ContentNDJSON {
 		t.Fatalf("content type = %q", contentType)
 	}
 }

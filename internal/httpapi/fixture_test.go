@@ -21,6 +21,7 @@ import (
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/migrations"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // apiFixture is a live server over a real service on a temporary database.
@@ -428,10 +429,10 @@ func (f *apiFixture) do(method, path, host, token string, body any) *http.Respon
 	}
 	req.Host = host
 	if body != nil {
-		req.Header.Set(httpapi.HeaderContentType, httpapi.ContentJSON)
+		req.Header.Set(wire.HeaderContentType, wire.ContentJSON)
 	}
 	if token != "" {
-		req.Header.Set(httpapi.HeaderAuth, "Bearer "+token)
+		req.Header.Set(wire.HeaderAuth, "Bearer "+token)
 	}
 	resp, err := f.server.Client().Do(req)
 	if err != nil {
@@ -477,7 +478,7 @@ func mustStatus(t *testing.T, resp *http.Response, want int) {
 // createTask creates a task through the API and returns it.
 func (f *apiFixture) createTask(title string) core.Task {
 	f.t.Helper()
-	resp := f.call(http.MethodPost, httpapi.RouteTasks,
+	resp := f.call(http.MethodPost, wire.RouteTasks,
 		core.CreateTaskInput{ProjectRef: "infra", Title: title})
 	defer func() { _ = resp.Body.Close() }()
 	mustStatus(f.t, resp, http.StatusCreated)
@@ -494,6 +495,6 @@ func (f *apiFixture) newRequest(method, path string, body io.Reader) *http.Reque
 		f.t.Fatalf("building request: %v", err)
 	}
 	req.Host = f.hostA
-	req.Header.Set(httpapi.HeaderAuth, "Bearer "+f.tokenA)
+	req.Header.Set(wire.HeaderAuth, "Bearer "+f.tokenA)
 	return req
 }

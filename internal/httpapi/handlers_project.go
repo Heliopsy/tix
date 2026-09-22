@@ -4,25 +4,26 @@ import (
 	"net/http"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // registerProjectRoutes binds projects, their field definitions and workflows.
 func (rt *Router) registerProjectRoutes() {
-	rt.mux.HandleFunc("GET "+RouteProjects, rt.handleListProjects)
-	rt.mux.HandleFunc("POST "+RouteProjects, rt.handleCreateProject)
-	rt.mux.HandleFunc("GET "+RouteProject, rt.handleGetProject)
-	rt.mux.HandleFunc("PATCH "+RouteProject, rt.handleUpdateProject)
-	rt.mux.HandleFunc("DELETE "+RouteProject, rt.handleDeleteProject)
+	rt.mux.HandleFunc("GET "+wire.RouteProjects, rt.handleListProjects)
+	rt.mux.HandleFunc("POST "+wire.RouteProjects, rt.handleCreateProject)
+	rt.mux.HandleFunc("GET "+wire.RouteProject, rt.handleGetProject)
+	rt.mux.HandleFunc("PATCH "+wire.RouteProject, rt.handleUpdateProject)
+	rt.mux.HandleFunc("DELETE "+wire.RouteProject, rt.handleDeleteProject)
 
-	rt.mux.HandleFunc("GET "+RouteProjectFields, rt.handleListFieldDefs)
-	rt.mux.HandleFunc("PUT "+RouteProjectFields, rt.handlePutFieldDef)
-	rt.mux.HandleFunc("DELETE "+RouteProjectField, rt.handleDeleteFieldDef)
+	rt.mux.HandleFunc("GET "+wire.RouteProjectFields, rt.handleListFieldDefs)
+	rt.mux.HandleFunc("PUT "+wire.RouteProjectFields, rt.handlePutFieldDef)
+	rt.mux.HandleFunc("DELETE "+wire.RouteProjectField, rt.handleDeleteFieldDef)
 
-	rt.mux.HandleFunc("GET "+RouteWorkflows, rt.handleListWorkflows)
-	rt.mux.HandleFunc("PUT "+RouteWorkflows, rt.handlePutWorkflow)
-	rt.mux.HandleFunc("GET "+RouteWorkflow, rt.handleGetWorkflow)
-	rt.mux.HandleFunc("PUT "+RouteWorkflow, rt.handlePutWorkflowByKey)
-	rt.mux.HandleFunc("DELETE "+RouteWorkflow, rt.handleDeleteWorkflow)
+	rt.mux.HandleFunc("GET "+wire.RouteWorkflows, rt.handleListWorkflows)
+	rt.mux.HandleFunc("PUT "+wire.RouteWorkflows, rt.handlePutWorkflow)
+	rt.mux.HandleFunc("GET "+wire.RouteWorkflow, rt.handleGetWorkflow)
+	rt.mux.HandleFunc("PUT "+wire.RouteWorkflow, rt.handlePutWorkflowByKey)
+	rt.mux.HandleFunc("DELETE "+wire.RouteWorkflow, rt.handleDeleteWorkflow)
 }
 
 // handleListProjects returns a page of projects.

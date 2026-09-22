@@ -8,7 +8,7 @@ import (
 	"net/url"
 
 	"github.com/heliopsy/tix/internal/core"
-	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // ExportTo streams a snapshot to w as the server produces it.
@@ -18,12 +18,12 @@ func (c *Client) ExportTo(ctx context.Context, in core.ExportInput, w io.Writer)
 		return err
 	}
 
-	req, err := c.newRequest(ctx, http.MethodPost, httpapi.RouteExport, nil, body)
+	req, err := c.newRequest(ctx, http.MethodPost, wire.RouteExport, nil, body)
 	if err != nil {
 		return err
 	}
-	req.Header.Set(httpapi.HeaderContentType, contentType)
-	req.Header.Set(httpapi.HeaderAccept, httpapi.ContentNDJSON)
+	req.Header.Set(wire.HeaderContentType, contentType)
+	req.Header.Set(wire.HeaderAccept, wire.ContentNDJSON)
 
 	resp, err := c.send(req)
 	if err != nil {
@@ -45,11 +45,11 @@ func (c *Client) ImportFrom(ctx context.Context, r io.Reader, in core.ImportInpu
 	}
 	setBool(q, "dry_run", in.DryRun)
 
-	req, err := c.newRequest(ctx, http.MethodPost, httpapi.RouteImport, q, r)
+	req, err := c.newRequest(ctx, http.MethodPost, wire.RouteImport, q, r)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set(httpapi.HeaderContentType, httpapi.ContentNDJSON)
+	req.Header.Set(wire.HeaderContentType, wire.ContentNDJSON)
 
 	resp, err := c.send(req)
 	if err != nil {

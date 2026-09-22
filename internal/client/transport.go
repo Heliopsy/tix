@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
-	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // maxErrorBody bounds how much of a failing response is read before decoding.
@@ -47,16 +47,16 @@ func (c *Client) newRequest(ctx context.Context, method, path string, q url.Valu
 	if err != nil {
 		return nil, core.Internal("building request: %v", err).Wrap(err)
 	}
-	req.Header.Set(httpapi.HeaderAccept, httpapi.ContentJSON)
+	req.Header.Set(wire.HeaderAccept, wire.ContentJSON)
 	req.Header.Set("User-Agent", c.userAgent)
 	if c.token != "" {
-		req.Header.Set(httpapi.HeaderAuth, "Bearer "+c.token)
+		req.Header.Set(wire.HeaderAuth, "Bearer "+c.token)
 	}
 	if c.cookie != "" {
 		// #nosec G124 -- an outgoing request cookie carries only a name and a
 		// value; Secure, HttpOnly and SameSite are server response directives
 		// and have no meaning here.
-		req.AddCookie(&http.Cookie{Name: httpapi.SessionCookieName, Value: c.cookie})
+		req.AddCookie(&http.Cookie{Name: wire.SessionCookieName, Value: c.cookie})
 	}
 	return req, nil
 }
@@ -84,7 +84,7 @@ func transportError(method, target string, err error) error {
 func responseError(resp *http.Response) error {
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBody))
 
-	var env httpapi.ErrorEnvelope
+	var env wire.ErrorEnvelope
 	if err := json.Unmarshal(raw, &env); err == nil && env.Error.Code != "" {
 		return &core.Error{
 			Kind:    env.Error.Code,
@@ -140,7 +140,7 @@ func encodeBody(body any) (io.Reader, string, error) {
 	if err != nil {
 		return nil, "", core.Internal("encoding request body: %v", err).Wrap(err)
 	}
-	return bytes.NewReader(raw), httpapi.ContentJSON, nil
+	return bytes.NewReader(raw), wire.ContentJSON, nil
 }
 
 // call issues a request and decodes the response into a new Out.
@@ -158,7 +158,7 @@ func call[Out any](ctx context.Context, c *Client, method, path string, q url.Va
 		return nil, err
 	}
 	if contentType != "" {
-		req.Header.Set(httpapi.HeaderContentType, contentType)
+		req.Header.Set(wire.HeaderContentType, contentType)
 	}
 
 	resp, err := c.send(req)
@@ -188,7 +188,7 @@ func callVoid(ctx context.Context, c *Client, method, path string, q url.Values,
 
 // list issues a request and unwraps the paged envelope.
 func list[T any](ctx context.Context, c *Client, path string, q url.Values) ([]T, string, error) {
-	page, err := call[httpapi.Page[T]](ctx, c, http.MethodGet, path, q, nil)
+	page, err := call[wire.Page[T]](ctx, c, http.MethodGet, path, q, nil)
 	if err != nil {
 		return nil, "", err
 	}

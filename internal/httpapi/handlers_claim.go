@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // RenewRequest extends a lease held under a token.
@@ -20,11 +21,11 @@ type ReleaseRequest struct {
 
 // registerClaimRoutes binds the agent work queue.
 func (rt *Router) registerClaimRoutes() {
-	rt.mux.HandleFunc("POST "+RouteTaskClaim, rt.handleClaimTask)
-	rt.mux.HandleFunc("POST "+RouteTaskClaimRenew, rt.handleRenewLease)
-	rt.mux.HandleFunc("POST "+RouteTaskClaimRelease, rt.handleReleaseLease)
-	rt.mux.HandleFunc("POST "+RouteClaimNext, rt.handleClaimNext)
-	rt.mux.HandleFunc("POST "+RouteClaimSweep, rt.handleSweepLeases)
+	rt.mux.HandleFunc("POST "+wire.RouteTaskClaim, rt.handleClaimTask)
+	rt.mux.HandleFunc("POST "+wire.RouteTaskClaimRenew, rt.handleRenewLease)
+	rt.mux.HandleFunc("POST "+wire.RouteTaskClaimRelease, rt.handleReleaseLease)
+	rt.mux.HandleFunc("POST "+wire.RouteClaimNext, rt.handleClaimNext)
+	rt.mux.HandleFunc("POST "+wire.RouteClaimSweep, rt.handleSweepLeases)
 }
 
 // handleClaimTask claims one named task.

@@ -9,6 +9,7 @@ import (
 	"github.com/heliopsy/tix/internal/client"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // seedCustomFields defines the fields the custom field filter tests select on.
@@ -29,7 +30,7 @@ func (f *apiFixture) seedCustomFields() {
 // createTaskWithFields creates a task carrying custom field values.
 func (f *apiFixture) createTaskWithFields(title string, fields map[string]any) core.Task {
 	f.t.Helper()
-	resp := f.call(http.MethodPost, httpapi.RouteTasks,
+	resp := f.call(http.MethodPost, wire.RouteTasks,
 		core.CreateTaskInput{ProjectRef: "infra", Title: title, CustomFields: fields})
 	defer func() { _ = resp.Body.Close() }()
 	mustStatus(f.t, resp, http.StatusCreated)
@@ -50,7 +51,7 @@ func (f *apiFixture) listTitles(query string) []string {
 		sep = "?"
 	}
 	query += sep + "sort=" + core.SortTitle + "&direction=" + string(core.Ascending)
-	resp := f.call(http.MethodGet, httpapi.RouteTasks+query, nil)
+	resp := f.call(http.MethodGet, wire.RouteTasks+query, nil)
 	defer func() { _ = resp.Body.Close() }()
 	mustStatus(f.t, resp, http.StatusOK)
 	var body struct {
@@ -112,10 +113,10 @@ func TestCustomFieldFilterRejectsMalformedInput(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			resp := f.call(http.MethodGet, httpapi.RouteTasks+tc.query, nil)
+			resp := f.call(http.MethodGet, wire.RouteTasks+tc.query, nil)
 			defer func() { _ = resp.Body.Close() }()
 			mustStatus(t, resp, http.StatusBadRequest)
-			var body httpapi.ErrorEnvelope
+			var body wire.ErrorEnvelope
 			decodeBody(t, resp, &body)
 			if body.Error.Code != core.KindInvalid {
 				t.Fatalf("error code = %q, want %q", body.Error.Code, core.KindInvalid)

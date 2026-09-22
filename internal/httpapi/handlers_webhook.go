@@ -4,15 +4,16 @@ import (
 	"net/http"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // registerWebhookRoutes binds delivery endpoints and their queue.
 func (rt *Router) registerWebhookRoutes() {
-	rt.mux.HandleFunc("GET "+RouteWebhooks, rt.handleListWebhooks)
-	rt.mux.HandleFunc("PUT "+RouteWebhooks, rt.handlePutWebhook)
-	rt.mux.HandleFunc("DELETE "+RouteWebhook, rt.handleDeleteWebhook)
-	rt.mux.HandleFunc("GET "+RouteDeliveries, rt.handleListDeliveries)
-	rt.mux.HandleFunc("POST "+RouteDeliveryRedeliver, rt.handleRedeliver)
+	rt.mux.HandleFunc("GET "+wire.RouteWebhooks, rt.handleListWebhooks)
+	rt.mux.HandleFunc("PUT "+wire.RouteWebhooks, rt.handlePutWebhook)
+	rt.mux.HandleFunc("DELETE "+wire.RouteWebhook, rt.handleDeleteWebhook)
+	rt.mux.HandleFunc("GET "+wire.RouteDeliveries, rt.handleListDeliveries)
+	rt.mux.HandleFunc("POST "+wire.RouteDeliveryRedeliver, rt.handleRedeliver)
 }
 
 // handleListWebhooks returns the tenant's delivery endpoints.

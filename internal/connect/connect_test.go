@@ -15,10 +15,10 @@ import (
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
-	"github.com/heliopsy/tix/internal/httpapi"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/sqlite"
 	"github.com/heliopsy/tix/internal/webhook"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // load resolves a configuration rooted at a throwaway home directory.
@@ -256,7 +256,7 @@ func mintToken(t *testing.T, path, tenantID, actorID string) string {
 func TestOpenRemoteUsesTheHTTPClient(t *testing.T) {
 	home := t.TempDir()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != httpapi.RouteWhoAmI {
+		if r.URL.Path != wire.RouteWhoAmI {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}

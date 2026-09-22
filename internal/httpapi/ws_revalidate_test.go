@@ -11,6 +11,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // revalidatingFixture serves the event stream with a revalidator the test
@@ -46,7 +47,7 @@ func newRevalidatingFixture(t *testing.T, actor *core.Actor, resolve func() (*co
 
 func (f *revalidatingFixture) dial(t *testing.T, ctx context.Context) *websocket.Conn {
 	t.Helper()
-	url := "ws" + strings.TrimPrefix(f.srv.URL, "http") + RouteEvents
+	url := "ws" + strings.TrimPrefix(f.srv.URL, "http") + wire.RouteEvents
 	c, resp, err := websocket.Dial(ctx, url, nil)
 	if resp != nil && resp.Body != nil {
 		_ = resp.Body.Close()

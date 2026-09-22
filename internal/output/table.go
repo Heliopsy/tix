@@ -65,6 +65,12 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, tokenHeader, deref(v), p.tokenRow)
 	case core.APIToken:
 		return renderRows(w, p, tokenHeader, []core.APIToken{v}, p.tokenRow)
+	case []core.SSHKey:
+		return renderRows(w, p, sshKeyHeader, v, p.sshKeyRow)
+	case []*core.SSHKey:
+		return renderRows(w, p, sshKeyHeader, deref(v), p.sshKeyRow)
+	case core.SSHKey:
+		return renderRows(w, p, sshKeyHeader, []core.SSHKey{v}, p.sshKeyRow)
 	case []core.AuditEntry:
 		return renderRows(w, p, auditHeader, v, p.auditRow)
 	case []*core.AuditEntry:
@@ -127,6 +133,7 @@ var (
 	workflowHeader = table.Row{"KEY", "NAME", "INITIAL", "STATES", "TRANSITIONS", "BUILTIN", "UPDATED"}
 	commentHeader  = table.Row{"ID", "TASK", "AUTHOR", "BODY", "CREATED"}
 	tokenHeader    = table.Row{"ID", "NAME", "ACTOR", "SCOPES", "PROJECT", "CREATED", "EXPIRES", "LAST USED", "REVOKED"}
+	sshKeyHeader   = table.Row{"ID", "ACTOR", "LABEL", "FINGERPRINT", "CREATED", "LAST USED", "REVOKED"}
 	auditHeader    = table.Row{"SEQ", "ACTION", "SUBJECT", "ACTOR", "SOURCE", "OCCURRED"}
 	endpointHeader = table.Row{"ID", "URL", "EVENTS", "ACTIVE", "CREATED"}
 	tenantHeader   = table.Row{"ID", "KEY", "NAME", "CREATED", "DELETED"}
@@ -263,6 +270,19 @@ func (p Painter) tokenRow(t core.APIToken) table.Row {
 		t.ID, t.Name, t.ActorID, strings.Join(scopes, ", "), t.ProjectID,
 		p.style.Format(t.CreatedAt), p.style.FormatPtr(t.ExpiresAt),
 		p.style.FormatPtr(t.LastUsedAt), p.style.FormatPtr(t.RevokedAt),
+	}
+}
+
+// sshKeyRow shows what tells one enrolled key from another.
+//
+// The key itself is not a column: it is eighty characters that never differ
+// usefully between rows, and the fingerprint already identifies it, in the form
+// an operator can compare against ssh-keygen -lf. The tenant is not a column
+// either, since a listing only ever covers one.
+func (p Painter) sshKeyRow(k core.SSHKey) table.Row {
+	return table.Row{
+		k.ID, k.ActorID, k.Label, k.Fingerprint,
+		p.style.Format(k.CreatedAt), p.style.FormatPtr(k.LastUsedAt), p.style.FormatPtr(k.RevokedAt),
 	}
 }
 

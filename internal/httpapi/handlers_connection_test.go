@@ -7,7 +7,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
-	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // liveOn registers a connection on the fixture's registry and reports the
@@ -26,7 +26,7 @@ func TestConnectionRouteListsThisServersConnections(t *testing.T) {
 	var closed string
 	liveOn(f, f.tenantA.ID, f.actorA.ID, core.ConnectionEvents, &closed)
 
-	resp := f.call(http.MethodGet, httpapi.RouteConnections, nil)
+	resp := f.call(http.MethodGet, wire.RouteConnections, nil)
 	mustStatus(t, resp, http.StatusOK)
 	var got core.ConnectionList
 	decodeBody(t, resp, &got)
@@ -44,7 +44,7 @@ func TestConnectionRouteListsThisServersConnections(t *testing.T) {
 
 func TestConnectionRouteAnswersEmptyWhenNothingIsLive(t *testing.T) {
 	f := newFixture(t)
-	resp := f.call(http.MethodGet, httpapi.RouteConnections, nil)
+	resp := f.call(http.MethodGet, wire.RouteConnections, nil)
 	mustStatus(t, resp, http.StatusOK)
 	var got core.ConnectionList
 	decodeBody(t, resp, &got)
@@ -59,7 +59,7 @@ func TestConnectionRouteEndsOneConnection(t *testing.T) {
 	target := liveOn(f, f.tenantA.ID, f.actorA.ID, core.ConnectionEvents, &ended)
 	other := liveOn(f, f.tenantA.ID, f.actorA.ID, core.ConnectionSSH, &spared)
 
-	resp := f.call(http.MethodDelete, strings.Replace(httpapi.RouteConnection, "{id}", target.ID(), 1), nil)
+	resp := f.call(http.MethodDelete, strings.Replace(wire.RouteConnection, "{id}", target.ID(), 1), nil)
 	mustStatus(t, resp, http.StatusNoContent)
 	_ = resp.Body.Close()
 
@@ -76,7 +76,7 @@ func TestConnectionRouteEndsOneConnection(t *testing.T) {
 
 func TestConnectionRouteReportsAnUnknownIdentifierAsNotFound(t *testing.T) {
 	f := newFixture(t)
-	resp := f.call(http.MethodDelete, strings.Replace(httpapi.RouteConnection, "{id}", "01JNOTHING", 1), nil)
+	resp := f.call(http.MethodDelete, strings.Replace(wire.RouteConnection, "{id}", "01JNOTHING", 1), nil)
 	mustStatus(t, resp, http.StatusNotFound)
 	_ = resp.Body.Close()
 }
@@ -88,7 +88,7 @@ func TestConnectionRouteHidesAnotherTenantsConnection(t *testing.T) {
 	var theirs string
 	other := liveOn(f, f.tenantB.ID, f.actorB.ID, core.ConnectionSSH, &theirs)
 
-	resp := f.call(http.MethodGet, httpapi.RouteConnections, nil)
+	resp := f.call(http.MethodGet, wire.RouteConnections, nil)
 	mustStatus(t, resp, http.StatusOK)
 	var got core.ConnectionList
 	decodeBody(t, resp, &got)
@@ -102,7 +102,7 @@ func TestConnectionRouteHidesAnotherTenantsConnection(t *testing.T) {
 		t.Errorf("process total = %d, want every connection the server holds", got.Counts.Process)
 	}
 
-	resp = f.call(http.MethodDelete, strings.Replace(httpapi.RouteConnection, "{id}", other.ID(), 1), nil)
+	resp = f.call(http.MethodDelete, strings.Replace(wire.RouteConnection, "{id}", other.ID(), 1), nil)
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("ending another tenant's connection = %d, want 404", resp.StatusCode)
 	}
@@ -119,7 +119,7 @@ func TestConnectionRouteHidesAnotherTenantsConnection(t *testing.T) {
 
 func TestConnectionRoutesRequireACredential(t *testing.T) {
 	f := newFixture(t)
-	resp := f.do(http.MethodGet, httpapi.RouteConnections, f.hostA, "", nil)
+	resp := f.do(http.MethodGet, wire.RouteConnections, f.hostA, "", nil)
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("listing without a credential = %d", resp.StatusCode)
 	}

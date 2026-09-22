@@ -4,24 +4,25 @@ import (
 	"net/http"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // registerTenantRoutes binds tenants, their domains and their membership.
 func (rt *Router) registerTenantRoutes() {
-	rt.mux.HandleFunc("GET "+RouteTenants, rt.handleListTenants)
-	rt.mux.HandleFunc("POST "+RouteTenants, rt.handleCreateTenant)
-	rt.mux.HandleFunc("GET "+RouteTenant, rt.handleGetTenant)
-	rt.mux.HandleFunc("PATCH "+RouteTenant, rt.handleUpdateTenant)
-	rt.mux.HandleFunc("DELETE "+RouteTenant, rt.handleDeleteTenant)
+	rt.mux.HandleFunc("GET "+wire.RouteTenants, rt.handleListTenants)
+	rt.mux.HandleFunc("POST "+wire.RouteTenants, rt.handleCreateTenant)
+	rt.mux.HandleFunc("GET "+wire.RouteTenant, rt.handleGetTenant)
+	rt.mux.HandleFunc("PATCH "+wire.RouteTenant, rt.handleUpdateTenant)
+	rt.mux.HandleFunc("DELETE "+wire.RouteTenant, rt.handleDeleteTenant)
 
-	rt.mux.HandleFunc("GET "+RouteMembers, rt.handleListMembers)
-	rt.mux.HandleFunc("POST "+RouteMembers, rt.handleAddMember)
-	rt.mux.HandleFunc("DELETE "+RouteMember, rt.handleRemoveMember)
+	rt.mux.HandleFunc("GET "+wire.RouteMembers, rt.handleListMembers)
+	rt.mux.HandleFunc("POST "+wire.RouteMembers, rt.handleAddMember)
+	rt.mux.HandleFunc("DELETE "+wire.RouteMember, rt.handleRemoveMember)
 
-	rt.mux.HandleFunc("GET "+RouteDomains, rt.handleListDomains)
-	rt.mux.HandleFunc("POST "+RouteDomains, rt.handleAddDomain)
-	rt.mux.HandleFunc("GET "+RouteDomain, rt.handleResolveDomain)
-	rt.mux.HandleFunc("DELETE "+RouteDomain, rt.handleRemoveDomain)
+	rt.mux.HandleFunc("GET "+wire.RouteDomains, rt.handleListDomains)
+	rt.mux.HandleFunc("POST "+wire.RouteDomains, rt.handleAddDomain)
+	rt.mux.HandleFunc("GET "+wire.RouteDomain, rt.handleResolveDomain)
+	rt.mux.HandleFunc("DELETE "+wire.RouteDomain, rt.handleRemoveDomain)
 }
 
 // handleListTenants returns a page of tenants.

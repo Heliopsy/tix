@@ -7,22 +7,22 @@ import (
 	"strconv"
 
 	"github.com/heliopsy/tix/internal/core"
-	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // CreateTask creates a task.
 func (c *Client) CreateTask(ctx context.Context, in core.CreateTaskInput) (*core.Task, error) {
-	return call[core.Task](ctx, c, http.MethodPost, httpapi.RouteTasks, nil, in)
+	return call[core.Task](ctx, c, http.MethodPost, wire.RouteTasks, nil, in)
 }
 
 // GetTask returns one task.
 func (c *Client) GetTask(ctx context.Context, ref core.TaskRef) (*core.Task, error) {
-	return call[core.Task](ctx, c, http.MethodGet, taskPath(httpapi.RouteTask, ref), nil, nil)
+	return call[core.Task](ctx, c, http.MethodGet, taskPath(wire.RouteTask, ref), nil, nil)
 }
 
 // ListTasks returns one page of tasks.
 func (c *Client) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage, error) {
-	items, next, err := list[core.Task](ctx, c, httpapi.RouteTasks, taskFilterQuery(f))
+	items, next, err := list[core.Task](ctx, c, wire.RouteTasks, taskFilterQuery(f))
 	if err != nil {
 		return core.TaskPage{}, err
 	}
@@ -31,12 +31,12 @@ func (c *Client) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPag
 
 // UpdateTask changes a task.
 func (c *Client) UpdateTask(ctx context.Context, ref core.TaskRef, in core.UpdateTaskInput) (*core.Task, error) {
-	return call[core.Task](ctx, c, http.MethodPatch, taskPath(httpapi.RouteTask, ref), nil, in)
+	return call[core.Task](ctx, c, http.MethodPatch, taskPath(wire.RouteTask, ref), nil, in)
 }
 
 // TransitionTask moves a task to a new status.
 func (c *Client) TransitionTask(ctx context.Context, ref core.TaskRef, in core.TransitionInput) (*core.Task, error) {
-	return call[core.Task](ctx, c, http.MethodPost, taskPath(httpapi.RouteTaskTransition, ref), nil, in)
+	return call[core.Task](ctx, c, http.MethodPost, taskPath(wire.RouteTaskTransition, ref), nil, in)
 }
 
 // DeleteTask removes a task, soft by default.
@@ -44,12 +44,12 @@ func (c *Client) DeleteTask(ctx context.Context, ref core.TaskRef, in core.Delet
 	q := url.Values{}
 	setBool(q, "hard", in.Hard)
 	setBool(q, "cascade", in.Cascade)
-	return callVoid(ctx, c, http.MethodDelete, taskPath(httpapi.RouteTask, ref), q, nil)
+	return callVoid(ctx, c, http.MethodDelete, taskPath(wire.RouteTask, ref), q, nil)
 }
 
 // RestoreTask undoes a soft delete.
 func (c *Client) RestoreTask(ctx context.Context, ref core.TaskRef) (*core.Task, error) {
-	return call[core.Task](ctx, c, http.MethodPost, taskPath(httpapi.RouteTaskRestore, ref), nil, nil)
+	return call[core.Task](ctx, c, http.MethodPost, taskPath(wire.RouteTaskRestore, ref), nil, nil)
 }
 
 // TaskTree returns a task and its descendants.
@@ -58,7 +58,7 @@ func (c *Client) TaskTree(ctx context.Context, ref core.TaskRef, depth int) ([]c
 	if depth != 0 {
 		q.Set("depth", strconv.Itoa(depth))
 	}
-	return listAll[core.Task](ctx, c, taskPath(httpapi.RouteTaskTree, ref), q)
+	return listAll[core.Task](ctx, c, taskPath(wire.RouteTaskTree, ref), q)
 }
 
 // AddDependency records that ref waits for dependsOn.
@@ -66,18 +66,18 @@ func (c *Client) AddDependency(ctx context.Context, ref, dependsOn core.TaskRef)
 	body := struct {
 		DependsOn string `json:"depends_on"`
 	}{DependsOn: dependsOn.String()}
-	return callVoid(ctx, c, http.MethodPost, taskPath(httpapi.RouteTaskDeps, ref), nil, body)
+	return callVoid(ctx, c, http.MethodPost, taskPath(wire.RouteTaskDeps, ref), nil, body)
 }
 
 // RemoveDependency drops a dependency edge.
 func (c *Client) RemoveDependency(ctx context.Context, ref, dependsOn core.TaskRef) error {
-	path := routePath(httpapi.RouteTaskDep, "ref", ref.String(), "dep", dependsOn.String())
+	path := routePath(wire.RouteTaskDep, "ref", ref.String(), "dep", dependsOn.String())
 	return callVoid(ctx, c, http.MethodDelete, path, nil, nil)
 }
 
 // ListDependencies returns a task's dependency edges.
 func (c *Client) ListDependencies(ctx context.Context, ref core.TaskRef) ([]core.Dependency, error) {
-	return listAll[core.Dependency](ctx, c, taskPath(httpapi.RouteTaskDeps, ref), nil)
+	return listAll[core.Dependency](ctx, c, taskPath(wire.RouteTaskDeps, ref), nil)
 }
 
 // AddTag attaches a tag to a task.
@@ -85,18 +85,18 @@ func (c *Client) AddTag(ctx context.Context, ref core.TaskRef, tag string) error
 	body := struct {
 		Name string `json:"name"`
 	}{Name: tag}
-	return callVoid(ctx, c, http.MethodPost, taskPath(httpapi.RouteTaskLabels, ref), nil, body)
+	return callVoid(ctx, c, http.MethodPost, taskPath(wire.RouteTaskLabels, ref), nil, body)
 }
 
 // RemoveTag detaches a tag from a task.
 func (c *Client) RemoveTag(ctx context.Context, ref core.TaskRef, tag string) error {
-	path := routePath(httpapi.RouteTaskLabel, "ref", ref.String(), "name", tag)
+	path := routePath(wire.RouteTaskLabel, "ref", ref.String(), "name", tag)
 	return callVoid(ctx, c, http.MethodDelete, path, nil, nil)
 }
 
 // ListTags returns the tenant's tags.
 func (c *Client) ListTags(ctx context.Context) ([]core.Tag, error) {
-	return listAll[core.Tag](ctx, c, httpapi.RouteLabels, nil)
+	return listAll[core.Tag](ctx, c, wire.RouteLabels, nil)
 }
 
 // AddComment posts a comment on a task.
@@ -104,12 +104,12 @@ func (c *Client) AddComment(ctx context.Context, ref core.TaskRef, body string) 
 	payload := struct {
 		Body string `json:"body"`
 	}{Body: body}
-	return call[core.Comment](ctx, c, http.MethodPost, taskPath(httpapi.RouteTaskComments, ref), nil, payload)
+	return call[core.Comment](ctx, c, http.MethodPost, taskPath(wire.RouteTaskComments, ref), nil, payload)
 }
 
 // ListComments returns a task's comments.
 func (c *Client) ListComments(ctx context.Context, ref core.TaskRef) ([]core.Comment, error) {
-	return listAll[core.Comment](ctx, c, taskPath(httpapi.RouteTaskComments, ref), nil)
+	return listAll[core.Comment](ctx, c, taskPath(wire.RouteTaskComments, ref), nil)
 }
 
 // EditComment rewrites a comment body.
@@ -117,22 +117,22 @@ func (c *Client) EditComment(ctx context.Context, id, body string) (*core.Commen
 	payload := struct {
 		Body string `json:"body"`
 	}{Body: body}
-	return call[core.Comment](ctx, c, http.MethodPatch, routePath(httpapi.RouteComment, "id", id), nil, payload)
+	return call[core.Comment](ctx, c, http.MethodPatch, routePath(wire.RouteComment, "id", id), nil, payload)
 }
 
 // DeleteComment removes a comment.
 func (c *Client) DeleteComment(ctx context.Context, id string) error {
-	return callVoid(ctx, c, http.MethodDelete, routePath(httpapi.RouteComment, "id", id), nil, nil)
+	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteComment, "id", id), nil, nil)
 }
 
 // PutArtifact records structured output on a task.
 func (c *Client) PutArtifact(ctx context.Context, ref core.TaskRef, in core.ArtifactInput) (*core.Artifact, error) {
-	return call[core.Artifact](ctx, c, http.MethodPut, taskPath(httpapi.RouteTaskArtifacts, ref), nil, in)
+	return call[core.Artifact](ctx, c, http.MethodPut, taskPath(wire.RouteTaskArtifacts, ref), nil, in)
 }
 
 // ListArtifacts returns a task's artifacts.
 func (c *Client) ListArtifacts(ctx context.Context, ref core.TaskRef) ([]core.Artifact, error) {
-	return listAll[core.Artifact](ctx, c, taskPath(httpapi.RouteTaskArtifacts, ref), nil)
+	return listAll[core.Artifact](ctx, c, taskPath(wire.RouteTaskArtifacts, ref), nil)
 }
 
 func taskPath(pattern string, ref core.TaskRef) string {

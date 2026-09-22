@@ -5,6 +5,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // LoginRequest carries the credentials of a password login.
@@ -31,24 +32,24 @@ type SweepResult struct {
 
 // registerAuthRoutes binds sessions, users, API tokens and enrolled SSH keys.
 func (rt *Router) registerAuthRoutes() {
-	rt.mux.HandleFunc("POST "+RouteLogin, rt.handleLogin)
-	rt.mux.HandleFunc("POST "+RouteLogout, rt.handleLogout)
+	rt.mux.HandleFunc("POST "+wire.RouteLogin, rt.handleLogin)
+	rt.mux.HandleFunc("POST "+wire.RouteLogout, rt.handleLogout)
 
-	rt.mux.HandleFunc("GET "+RouteActor, rt.handleGetActor)
+	rt.mux.HandleFunc("GET "+wire.RouteActor, rt.handleGetActor)
 
-	rt.mux.HandleFunc("GET "+RouteUsers, rt.handleListUsers)
-	rt.mux.HandleFunc("POST "+RouteUsers, rt.handleCreateUser)
-	rt.mux.HandleFunc("GET "+RouteUser, rt.handleGetUser)
-	rt.mux.HandleFunc("PATCH "+RouteUser, rt.handleUpdateUser)
-	rt.mux.HandleFunc("DELETE "+RouteUser, rt.handleDeleteUser)
+	rt.mux.HandleFunc("GET "+wire.RouteUsers, rt.handleListUsers)
+	rt.mux.HandleFunc("POST "+wire.RouteUsers, rt.handleCreateUser)
+	rt.mux.HandleFunc("GET "+wire.RouteUser, rt.handleGetUser)
+	rt.mux.HandleFunc("PATCH "+wire.RouteUser, rt.handleUpdateUser)
+	rt.mux.HandleFunc("DELETE "+wire.RouteUser, rt.handleDeleteUser)
 
-	rt.mux.HandleFunc("GET "+RouteTokens, rt.handleListTokens)
-	rt.mux.HandleFunc("POST "+RouteTokens, rt.handleCreateToken)
-	rt.mux.HandleFunc("DELETE "+RouteToken, rt.handleRevokeToken)
+	rt.mux.HandleFunc("GET "+wire.RouteTokens, rt.handleListTokens)
+	rt.mux.HandleFunc("POST "+wire.RouteTokens, rt.handleCreateToken)
+	rt.mux.HandleFunc("DELETE "+wire.RouteToken, rt.handleRevokeToken)
 
-	rt.mux.HandleFunc("GET "+RouteSSHKeys, rt.handleListSSHKeys)
-	rt.mux.HandleFunc("POST "+RouteSSHKeys, rt.handleEnrolSSHKey)
-	rt.mux.HandleFunc("DELETE "+RouteSSHKey, rt.handleRevokeSSHKey)
+	rt.mux.HandleFunc("GET "+wire.RouteSSHKeys, rt.handleListSSHKeys)
+	rt.mux.HandleFunc("POST "+wire.RouteSSHKeys, rt.handleEnrolSSHKey)
+	rt.mux.HandleFunc("DELETE "+wire.RouteSSHKey, rt.handleRevokeSSHKey)
 }
 
 // handleWhoAmI returns the authenticated actor.

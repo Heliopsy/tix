@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 func TestWriteErrorMapsEveryKindToItsStatus(t *testing.T) {
@@ -32,7 +33,7 @@ func TestWriteErrorMapsEveryKindToItsStatus(t *testing.T) {
 			if rec.Code != tt.status {
 				t.Errorf("status = %d, want %d", rec.Code, tt.status)
 			}
-			var got ErrorEnvelope
+			var got wire.ErrorEnvelope
 			if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
 				t.Fatalf("decoding envelope: %v", err)
 			}
@@ -71,7 +72,7 @@ func TestWriteErrorCarriesDetails(t *testing.T) {
 	rec := httptest.NewRecorder()
 	WriteError(rec, err)
 
-	var got ErrorEnvelope
+	var got wire.ErrorEnvelope
 	if decErr := json.NewDecoder(rec.Body).Decode(&got); decErr != nil {
 		t.Fatalf("decoding: %v", decErr)
 	}
@@ -101,8 +102,8 @@ func TestWriteJSON(t *testing.T) {
 	if rec.Code != 201 {
 		t.Errorf("status = %d, want 201", rec.Code)
 	}
-	if ct := rec.Header().Get(HeaderContentType); ct != ContentJSON {
-		t.Errorf("content type = %q, want %q", ct, ContentJSON)
+	if ct := rec.Header().Get(wire.HeaderContentType); ct != wire.ContentJSON {
+		t.Errorf("content type = %q, want %q", ct, wire.ContentJSON)
 	}
 }
 
@@ -115,24 +116,5 @@ func TestWriteJSONNoBody(t *testing.T) {
 	}
 	if rec.Body.Len() != 0 {
 		t.Errorf("204 should have no body, got %q", rec.Body.String())
-	}
-}
-
-// Every route must sit under the versioned prefix, apart from the two health
-// endpoints which deliberately do not.
-func TestRoutesAreVersioned(t *testing.T) {
-	unversioned := map[string]bool{RouteHealth: true, RouteReady: true}
-	routes := []string{
-		RouteWhoAmI, RouteLogin, RouteUsers, RouteTokens, RouteTenants, RouteDomains,
-		RouteProjects, RouteWorkflows, RouteTasks, RouteTaskClaim, RouteClaimNext,
-		RouteWebhooks, RouteAudit, RouteExport, RouteImport, RouteEvents, RouteSyncRun,
-	}
-	for _, r := range routes {
-		if unversioned[r] {
-			continue
-		}
-		if !strings.HasPrefix(r, APIPrefix) {
-			t.Errorf("route %q is not under %q", r, APIPrefix)
-		}
 	}
 }

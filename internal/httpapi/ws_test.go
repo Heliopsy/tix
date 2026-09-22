@@ -15,6 +15,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // fakeLog is an in-memory durable event log with a configurable pruned floor.
@@ -104,7 +105,7 @@ func fixedActor(a *core.Actor) func(*http.Request) *core.Actor {
 
 func (f *wsFixture) dial(t *testing.T, ctx context.Context) *websocket.Conn {
 	t.Helper()
-	url := "ws" + strings.TrimPrefix(f.srv.URL, "http") + RouteEvents
+	url := "ws" + strings.TrimPrefix(f.srv.URL, "http") + wire.RouteEvents
 	c, resp, err := websocket.Dial(ctx, url, nil)
 	if resp != nil && resp.Body != nil {
 		_ = resp.Body.Close()
@@ -387,7 +388,7 @@ func TestSubscriberNeverSeesAnotherTenantsEvent(t *testing.T) {
 		return testActor(r.URL.Query().Get("tenant"))
 	})
 
-	url := "ws" + strings.TrimPrefix(f.srv.URL, "http") + RouteEvents
+	url := "ws" + strings.TrimPrefix(f.srv.URL, "http") + wire.RouteEvents
 	a, aResp, err := websocket.Dial(ctx, url+"?tenant=t1", nil)
 	if aResp != nil && aResp.Body != nil {
 		_ = aResp.Body.Close()
@@ -458,7 +459,7 @@ func TestUpgradeRejectedWithoutActorOrScope(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
 			f := newFixture(t, fixedActor(tc.actor))
-			url := "ws" + strings.TrimPrefix(f.srv.URL, "http") + RouteEvents
+			url := "ws" + strings.TrimPrefix(f.srv.URL, "http") + wire.RouteEvents
 			c, resp, err := websocket.Dial(ctx, url, nil)
 			if resp != nil && resp.Body != nil {
 				_ = resp.Body.Close()

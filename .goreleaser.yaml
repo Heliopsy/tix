@@ -6,11 +6,18 @@ before:
 builds:
   - env:
       - CGO_ENABLED=0
-    goos: [linux, darwin, windows]
+    # android/arm64 is here for Termux, where the linux binary will not run:
+    # Android's linker and its lack of a standard glibc make it a distinct
+    # target, and the pure-Go sqlite driver builds for it because nothing here
+    # uses cgo.
+    goos: [linux, darwin, windows, android]
     goarch: [amd64, arm64]
     ignore:
       - goos: windows
         goarch: arm64
+      # android/amd64 is emulators only, and nobody runs a task tracker there.
+      - goos: android
+        goarch: amd64
     ldflags:
       - -s -w
       - -X github.com/heliopsy/tix/internal/version.Version={{.Version}}

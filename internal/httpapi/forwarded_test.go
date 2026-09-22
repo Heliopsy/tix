@@ -11,6 +11,7 @@ import (
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // login posts a password login carrying the given forwarded headers and
@@ -22,8 +23,8 @@ func loginWithHeaders(t *testing.T, f *apiFixture, headers map[string]string) *h
 	if err != nil {
 		t.Fatalf("marshalling login: %v", err)
 	}
-	req := f.newRequest(http.MethodPost, httpapi.RouteLogin, bytes.NewReader(raw))
-	req.Header.Set(httpapi.HeaderContentType, httpapi.ContentJSON)
+	req := f.newRequest(http.MethodPost, wire.RouteLogin, bytes.NewReader(raw))
+	req.Header.Set(wire.HeaderContentType, wire.ContentJSON)
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}

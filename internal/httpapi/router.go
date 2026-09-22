@@ -15,6 +15,7 @@ import (
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // Defaults for the limits every request is subject to.
@@ -161,9 +162,9 @@ func chain(h http.Handler, mw ...func(http.Handler) http.Handler) http.Handler {
 // register binds every route constant except the event stream, which the
 // WebSocket handler owns.
 func (rt *Router) register() {
-	rt.mux.HandleFunc("GET "+RouteHealth, rt.handleHealth)
-	rt.mux.HandleFunc("GET "+RouteReady, rt.handleReady)
-	rt.mux.HandleFunc("GET "+RouteWhoAmI, rt.handleWhoAmI)
+	rt.mux.HandleFunc("GET "+wire.RouteHealth, rt.handleHealth)
+	rt.mux.HandleFunc("GET "+wire.RouteReady, rt.handleReady)
+	rt.mux.HandleFunc("GET "+wire.RouteWhoAmI, rt.handleWhoAmI)
 
 	rt.registerAuthRoutes()
 	rt.registerTenantRoutes()
@@ -177,7 +178,7 @@ func (rt *Router) register() {
 	rt.registerConnectionRoutes()
 
 	if rt.cfg.EventHandler != nil {
-		rt.mux.Handle(RouteEvents, rt.cfg.EventHandler)
+		rt.mux.Handle(wire.RouteEvents, rt.cfg.EventHandler)
 	}
 	if rt.cfg.WebHandler != nil {
 		rt.mux.Handle("/", rt.cfg.WebHandler)
@@ -186,9 +187,9 @@ func (rt *Router) register() {
 
 // readJSON decodes a JSON request body, answering the client on failure.
 func readJSON(w http.ResponseWriter, r *http.Request, v any) bool {
-	if ct := r.Header.Get(HeaderContentType); ct != "" && !isJSONContentType(ct) {
+	if ct := r.Header.Get(wire.HeaderContentType); ct != "" && !isJSONContentType(ct) {
 		writeStatusError(w, http.StatusUnsupportedMediaType, core.KindInvalid,
-			"request body must be "+ContentJSON)
+			"request body must be "+wire.ContentJSON)
 		return false
 	}
 	dec := json.NewDecoder(r.Body)
@@ -220,13 +221,13 @@ func readOptionalJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 // isJSONContentType reports whether a Content-Type names JSON.
 func isJSONContentType(ct string) bool {
 	media, _, _ := strings.Cut(ct, ";")
-	return strings.EqualFold(strings.TrimSpace(media), ContentJSON)
+	return strings.EqualFold(strings.TrimSpace(media), wire.ContentJSON)
 }
 
 // writeStatusError renders the standard envelope at a status the error taxonomy
 // does not itself name, such as payload too large.
 func writeStatusError(w http.ResponseWriter, status int, kind core.Kind, message string) {
-	WriteJSON(w, status, ErrorEnvelope{Error: ErrorBody{Code: kind, Message: message}})
+	WriteJSON(w, status, wire.ErrorEnvelope{Error: wire.ErrorBody{Code: kind, Message: message}})
 }
 
 // taskRef parses the task reference in a route path.
@@ -259,7 +260,7 @@ func pageFrom(r *http.Request) (core.Page, error) {
 
 // wantsNDJSON reports whether the client asked for a streamed listing.
 func wantsNDJSON(r *http.Request) bool {
-	return strings.Contains(strings.ToLower(r.Header.Get(HeaderAccept)), ContentNDJSON)
+	return strings.Contains(strings.ToLower(r.Header.Get(wire.HeaderAccept)), wire.ContentNDJSON)
 }
 
 // writeList renders a page of items, streaming as ndjson when negotiated.
@@ -268,10 +269,10 @@ func writeList[T any](w http.ResponseWriter, r *http.Request, items []T, next st
 		items = []T{}
 	}
 	if !wantsNDJSON(r) {
-		WriteJSON(w, http.StatusOK, Page[T]{Items: items, NextCursor: next})
+		WriteJSON(w, http.StatusOK, wire.Page[T]{Items: items, NextCursor: next})
 		return
 	}
-	w.Header().Set(HeaderContentType, ContentNDJSON)
+	w.Header().Set(wire.HeaderContentType, wire.ContentNDJSON)
 	w.WriteHeader(http.StatusOK)
 	stream := output.NewStream(output.FormatNDJSON, w)
 	for _, item := range items {

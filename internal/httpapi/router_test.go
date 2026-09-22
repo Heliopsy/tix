@@ -8,6 +8,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 func TestRouteHappyPaths(t *testing.T) {
@@ -21,8 +22,8 @@ func TestRouteHappyPaths(t *testing.T) {
 		body   any
 		want   int
 	}{
-		{"whoami", http.MethodGet, httpapi.RouteWhoAmI, nil, http.StatusOK},
-		{"list tasks", http.MethodGet, httpapi.RouteTasks, nil, http.StatusOK},
+		{"whoami", http.MethodGet, wire.RouteWhoAmI, nil, http.StatusOK},
+		{"list tasks", http.MethodGet, wire.RouteTasks, nil, http.StatusOK},
 		{"get task", http.MethodGet, "/api/v1/tasks/" + task.Ref, nil, http.StatusOK},
 		{"update task", http.MethodPatch, "/api/v1/tasks/" + task.Ref,
 			core.UpdateTaskInput{Title: strPtr("renamed")}, http.StatusOK},
@@ -34,7 +35,7 @@ func TestRouteHappyPaths(t *testing.T) {
 			httpapi.TagRequest{Name: "urgent"}, http.StatusNoContent},
 		{"remove tag", http.MethodDelete, "/api/v1/tasks/" + task.Ref + "/tags/urgent",
 			nil, http.StatusNoContent},
-		{"list tags", http.MethodGet, httpapi.RouteLabels, nil, http.StatusOK},
+		{"list tags", http.MethodGet, wire.RouteLabels, nil, http.StatusOK},
 		{"list deps", http.MethodGet, "/api/v1/tasks/" + task.Ref + "/deps", nil, http.StatusOK},
 		{"add comment", http.MethodPost, "/api/v1/tasks/" + task.Ref + "/comments",
 			httpapi.CommentRequest{Body: "looks good"}, http.StatusCreated},
@@ -43,8 +44,8 @@ func TestRouteHappyPaths(t *testing.T) {
 			core.ArtifactInput{Kind: core.ArtifactResult, Name: "out"}, http.StatusOK},
 		{"list artifacts", http.MethodGet, "/api/v1/tasks/" + task.Ref + "/artifacts", nil, http.StatusOK},
 		{"task audit", http.MethodGet, "/api/v1/tasks/" + task.Ref + "/audit", nil, http.StatusOK},
-		{"list projects", http.MethodGet, httpapi.RouteProjects, nil, http.StatusOK},
-		{"create project", http.MethodPost, httpapi.RouteProjects,
+		{"list projects", http.MethodGet, wire.RouteProjects, nil, http.StatusOK},
+		{"create project", http.MethodPost, wire.RouteProjects,
 			core.CreateProjectInput{Key: "ops", Name: "Ops"}, http.StatusCreated},
 		{"get project", http.MethodGet, "/api/v1/projects/infra", nil, http.StatusOK},
 		{"update project", http.MethodPatch, "/api/v1/projects/infra",
@@ -53,35 +54,35 @@ func TestRouteHappyPaths(t *testing.T) {
 			core.FieldDefInput{Key: "team", Label: "Team", Type: core.FieldString}, http.StatusOK},
 		{"list fields", http.MethodGet, "/api/v1/projects/infra/fields", nil, http.StatusOK},
 		{"delete field", http.MethodDelete, "/api/v1/projects/infra/fields/team", nil, http.StatusNoContent},
-		{"list workflows", http.MethodGet, httpapi.RouteWorkflows, nil, http.StatusOK},
+		{"list workflows", http.MethodGet, wire.RouteWorkflows, nil, http.StatusOK},
 		{"get workflow", http.MethodGet, "/api/v1/workflows/default", nil, http.StatusOK},
-		{"list tenants", http.MethodGet, httpapi.RouteTenants, nil, http.StatusOK},
+		{"list tenants", http.MethodGet, wire.RouteTenants, nil, http.StatusOK},
 		{"get tenant", http.MethodGet, "/api/v1/tenants/acme", nil, http.StatusOK},
-		{"list members", http.MethodGet, httpapi.RouteMembers, nil, http.StatusOK},
-		{"list domains", http.MethodGet, httpapi.RouteDomains, nil, http.StatusOK},
-		{"list audit", http.MethodGet, httpapi.RouteAudit, nil, http.StatusOK},
-		{"get retention", http.MethodGet, httpapi.RouteRetention, nil, http.StatusOK},
-		{"prune", http.MethodPost, httpapi.RoutePrune, core.PruneInput{DryRun: true}, http.StatusOK},
-		{"sweep", http.MethodPost, httpapi.RouteClaimSweep, httpapi.SweepRequest{Limit: 10}, http.StatusOK},
-		{"create user", http.MethodPost, httpapi.RouteUsers,
+		{"list members", http.MethodGet, wire.RouteMembers, nil, http.StatusOK},
+		{"list domains", http.MethodGet, wire.RouteDomains, nil, http.StatusOK},
+		{"list audit", http.MethodGet, wire.RouteAudit, nil, http.StatusOK},
+		{"get retention", http.MethodGet, wire.RouteRetention, nil, http.StatusOK},
+		{"prune", http.MethodPost, wire.RoutePrune, core.PruneInput{DryRun: true}, http.StatusOK},
+		{"sweep", http.MethodPost, wire.RouteClaimSweep, httpapi.SweepRequest{Limit: 10}, http.StatusOK},
+		{"create user", http.MethodPost, wire.RouteUsers,
 			core.CreateUserInput{Email: "a@example.com", Password: "correct-horse-battery"},
 			http.StatusCreated},
-		{"list users", http.MethodGet, httpapi.RouteUsers, nil, http.StatusOK},
-		{"create token", http.MethodPost, httpapi.RouteTokens,
+		{"list users", http.MethodGet, wire.RouteUsers, nil, http.StatusOK},
+		{"create token", http.MethodPost, wire.RouteTokens,
 			core.CreateTokenInput{Name: "ci", Scopes: []core.Scope{core.ScopeTaskRead}},
 			http.StatusCreated},
-		{"list tokens", http.MethodGet, httpapi.RouteTokens, nil, http.StatusOK},
-		{"put webhook", http.MethodPut, httpapi.RouteWebhooks,
+		{"list tokens", http.MethodGet, wire.RouteTokens, nil, http.StatusOK},
+		{"put webhook", http.MethodPut, wire.RouteWebhooks,
 			core.WebhookInput{URL: "https://example.com/hook", Active: true}, http.StatusOK},
-		{"list webhooks", http.MethodGet, httpapi.RouteWebhooks, nil, http.StatusOK},
-		{"list deliveries", http.MethodGet, httpapi.RouteDeliveries, nil, http.StatusOK},
-		{"put sync source", http.MethodPut, httpapi.RouteSyncSources,
+		{"list webhooks", http.MethodGet, wire.RouteWebhooks, nil, http.StatusOK},
+		{"list deliveries", http.MethodGet, wire.RouteDeliveries, nil, http.StatusOK},
+		{"put sync source", http.MethodPut, wire.RouteSyncSources,
 			core.SyncSourceInput{System: core.SystemGeneric, Name: "feed"}, http.StatusOK},
-		{"list sync sources", http.MethodGet, httpapi.RouteSyncSources, nil, http.StatusOK},
-		{"run sync", http.MethodPost, httpapi.RouteSyncRun,
+		{"list sync sources", http.MethodGet, wire.RouteSyncSources, nil, http.StatusOK},
+		{"run sync", http.MethodPost, wire.RouteSyncRun,
 			core.RunSyncInput{SourceID: "src-1", DryRun: true}, http.StatusOK},
-		{"export", http.MethodPost, httpapi.RouteExport, core.ExportInput{}, http.StatusOK},
-		{"logout", http.MethodPost, httpapi.RouteLogout, nil, http.StatusNoContent},
+		{"export", http.MethodPost, wire.RouteExport, core.ExportInput{}, http.StatusOK},
+		{"logout", http.MethodPost, wire.RouteLogout, nil, http.StatusNoContent},
 	}
 
 	for _, tc := range cases {
@@ -109,7 +110,7 @@ func TestRouteErrorStatuses(t *testing.T) {
 			http.StatusNotFound, core.KindNotFound},
 		{"malformed ref", http.MethodGet, "/api/v1/tasks/!!", nil,
 			http.StatusBadRequest, core.KindInvalid},
-		{"task without title", http.MethodPost, httpapi.RouteTasks,
+		{"task without title", http.MethodPost, wire.RouteTasks,
 			core.CreateTaskInput{ProjectRef: "infra"}, http.StatusBadRequest, core.KindInvalid},
 		{"illegal transition", http.MethodPost, "/api/v1/tasks/" + task.Ref + "/transition",
 			core.TransitionInput{To: "done"}, http.StatusUnprocessableEntity, core.KindPrecondition},
@@ -127,11 +128,11 @@ func TestRouteErrorStatuses(t *testing.T) {
 			http.StatusNotFound, core.KindNotFound},
 		{"missing delivery", http.MethodPost, "/api/v1/webhooks/deliveries/nope/redeliver", nil,
 			http.StatusNotFound, core.KindNotFound},
-		{"import without mode", http.MethodPost, httpapi.RouteImport, core.ExportInput{},
+		{"import without mode", http.MethodPost, wire.RouteImport, core.ExportInput{},
 			http.StatusBadRequest, core.KindInvalid},
 		{"unknown route", http.MethodGet, "/api/tasks", nil,
 			http.StatusNotFound, core.KindNotFound},
-		{"method not allowed", http.MethodDelete, httpapi.RouteTasks, nil,
+		{"method not allowed", http.MethodDelete, wire.RouteTasks, nil,
 			http.StatusMethodNotAllowed, core.KindInvalid},
 	}
 
@@ -141,10 +142,10 @@ func TestRouteErrorStatuses(t *testing.T) {
 			if resp.StatusCode != tc.want {
 				t.Fatalf("status = %d, want %d: %s", resp.StatusCode, tc.want, readBody(t, resp))
 			}
-			if got := resp.Header.Get(httpapi.HeaderContentType); !strings.Contains(got, httpapi.ContentJSON) {
+			if got := resp.Header.Get(wire.HeaderContentType); !strings.Contains(got, wire.ContentJSON) {
 				t.Errorf("content type = %q, want json", got)
 			}
-			var env httpapi.ErrorEnvelope
+			var env wire.ErrorEnvelope
 			decodeBody(t, resp, &env)
 			if env.Error.Code != tc.code {
 				t.Errorf("code = %q, want %q", env.Error.Code, tc.code)
@@ -189,9 +190,9 @@ func TestClaimLifecycle(t *testing.T) {
 func TestClaimNextReportsAnEmptyQueueDistinctly(t *testing.T) {
 	f := newFixture(t)
 
-	resp := f.call(http.MethodPost, httpapi.RouteClaimNext, core.ClaimNextInput{})
+	resp := f.call(http.MethodPost, wire.RouteClaimNext, core.ClaimNextInput{})
 	mustStatus(t, resp, http.StatusNotFound)
-	var env httpapi.ErrorEnvelope
+	var env wire.ErrorEnvelope
 	decodeBody(t, resp, &env)
 	if env.Error.Code != core.KindNoTaskAvailable {
 		t.Errorf("code = %q, want %q", env.Error.Code, core.KindNoTaskAvailable)
@@ -231,13 +232,13 @@ func TestKeysetPaginationHasNoDuplicatesOrGaps(t *testing.T) {
 	cursor := ""
 	pages := 0
 	for {
-		path := httpapi.RouteTasks + "?limit=3"
+		path := wire.RouteTasks + "?limit=3"
 		if cursor != "" {
 			path += "&cursor=" + cursor
 		}
 		resp := f.call(http.MethodGet, path, nil)
 		mustStatus(t, resp, http.StatusOK)
-		var page httpapi.Page[core.Task]
+		var page wire.Page[core.Task]
 		decodeBody(t, resp, &page)
 		pages++
 
@@ -268,9 +269,9 @@ func TestInvalidCursorIsRejected(t *testing.T) {
 	f := newFixture(t)
 	f.createTask("only one")
 
-	resp := f.call(http.MethodGet, httpapi.RouteTasks+"?cursor=not-a-cursor", nil)
+	resp := f.call(http.MethodGet, wire.RouteTasks+"?cursor=not-a-cursor", nil)
 	mustStatus(t, resp, http.StatusBadRequest)
-	var env httpapi.ErrorEnvelope
+	var env wire.ErrorEnvelope
 	decodeBody(t, resp, &env)
 	if env.Error.Code != core.KindInvalid {
 		t.Errorf("code = %q, want %q", env.Error.Code, core.KindInvalid)
@@ -282,15 +283,15 @@ func TestListNegotiatesNDJSON(t *testing.T) {
 	f.createTask("first")
 	f.createTask("second")
 
-	req := f.newRequest(http.MethodGet, httpapi.RouteTasks, nil)
-	req.Header.Set(httpapi.HeaderAccept, httpapi.ContentNDJSON)
+	req := f.newRequest(http.MethodGet, wire.RouteTasks, nil)
+	req.Header.Set(wire.HeaderAccept, wire.ContentNDJSON)
 	resp, err := f.server.Client().Do(req)
 	if err != nil {
 		t.Fatalf("sending request: %v", err)
 	}
 	mustStatus(t, resp, http.StatusOK)
-	if got := resp.Header.Get(httpapi.HeaderContentType); got != httpapi.ContentNDJSON {
-		t.Fatalf("content type = %q, want %q", got, httpapi.ContentNDJSON)
+	if got := resp.Header.Get(wire.HeaderContentType); got != wire.ContentNDJSON {
+		t.Fatalf("content type = %q, want %q", got, wire.ContentNDJSON)
 	}
 
 	body := readBody(t, resp)
@@ -312,7 +313,7 @@ func TestListNegotiatesNDJSON(t *testing.T) {
 func TestEmptyListRendersAnEmptyArray(t *testing.T) {
 	f := newFixture(t)
 
-	resp := f.call(http.MethodGet, httpapi.RouteTasks, nil)
+	resp := f.call(http.MethodGet, wire.RouteTasks, nil)
 	mustStatus(t, resp, http.StatusOK)
 	body := readBody(t, resp)
 	if !strings.Contains(body, `"items":[]`) {
@@ -326,7 +327,7 @@ func TestHealthWorksWithTheDatabaseClosed(t *testing.T) {
 		t.Fatalf("closing store: %v", err)
 	}
 
-	resp := f.do(http.MethodGet, httpapi.RouteHealth, "unknown.example", "", nil)
+	resp := f.do(http.MethodGet, wire.RouteHealth, "unknown.example", "", nil)
 	mustStatus(t, resp, http.StatusOK)
 	var body httpapi.HealthBody
 	decodeBody(t, resp, &body)
@@ -338,7 +339,7 @@ func TestHealthWorksWithTheDatabaseClosed(t *testing.T) {
 func TestReadyReportsFailingChecks(t *testing.T) {
 	f := newFixture(t)
 
-	ready := f.do(http.MethodGet, httpapi.RouteReady, f.hostA, "", nil)
+	ready := f.do(http.MethodGet, wire.RouteReady, f.hostA, "", nil)
 	mustStatus(t, ready, http.StatusOK)
 	var body httpapi.ReadyBody
 	decodeBody(t, ready, &body)
@@ -349,7 +350,7 @@ func TestReadyReportsFailingChecks(t *testing.T) {
 	if err := f.store.Close(); err != nil {
 		t.Fatalf("closing store: %v", err)
 	}
-	down := f.do(http.MethodGet, httpapi.RouteReady, f.hostA, "", nil)
+	down := f.do(http.MethodGet, wire.RouteReady, f.hostA, "", nil)
 	if down.StatusCode != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want 503: %s", down.StatusCode, readBody(t, down))
 	}

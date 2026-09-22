@@ -12,6 +12,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // Client message types accepted on the event stream.
@@ -58,11 +59,11 @@ type ClientMessage struct {
 
 // ServerMessage is one message sent by the server on the event stream.
 type ServerMessage struct {
-	Type     string      `json:"type"`
-	ID       string      `json:"id,omitempty"`
-	SinceSeq int64       `json:"since_seq,omitempty"`
-	Event    *core.Event `json:"event,omitempty"`
-	Error    *ErrorBody  `json:"error,omitempty"`
+	Type     string          `json:"type"`
+	ID       string          `json:"id,omitempty"`
+	SinceSeq int64           `json:"since_seq,omitempty"`
+	Event    *core.Event     `json:"event,omitempty"`
+	Error    *wire.ErrorBody `json:"error,omitempty"`
 }
 
 // EventLog replays durable events so a resuming subscriber loses nothing.
@@ -353,7 +354,7 @@ func eventMessage(subID string, e core.Event) ServerMessage {
 // errorMessage renders err with the same taxonomy the REST envelope uses.
 func errorMessage(subID string, err error) ServerMessage {
 	kind := core.KindOf(err)
-	body := ErrorBody{Code: kind, Message: err.Error()}
+	body := wire.ErrorBody{Code: kind, Message: err.Error()}
 
 	var domain *core.Error
 	if errors.As(err, &domain) {
@@ -361,7 +362,7 @@ func errorMessage(subID string, err error) ServerMessage {
 		body.Details = domain.Details
 	}
 	if kind == core.KindInternal {
-		body = ErrorBody{Code: core.KindInternal, Message: "internal error"}
+		body = wire.ErrorBody{Code: core.KindInternal, Message: "internal error"}
 	}
 	return ServerMessage{Type: MsgError, ID: subID, Error: &body}
 }

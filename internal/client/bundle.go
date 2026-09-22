@@ -9,7 +9,7 @@ import (
 	"strconv"
 
 	"github.com/heliopsy/tix/internal/core"
-	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // ExportBundle streams a component bundle to w as the server produces it.
@@ -19,12 +19,12 @@ func (c *Client) ExportBundle(ctx context.Context, in core.BundleExportInput, w 
 		return err
 	}
 
-	req, err := c.newRequest(ctx, http.MethodPost, httpapi.RouteBundleExport, nil, body)
+	req, err := c.newRequest(ctx, http.MethodPost, wire.RouteBundleExport, nil, body)
 	if err != nil {
 		return err
 	}
-	req.Header.Set(httpapi.HeaderContentType, contentType)
-	req.Header.Set(httpapi.HeaderAccept, httpapi.ContentBundle)
+	req.Header.Set(wire.HeaderContentType, contentType)
+	req.Header.Set(wire.HeaderAccept, wire.ContentBundle)
 
 	resp, err := c.send(req)
 	if err != nil {
@@ -51,11 +51,11 @@ func (c *Client) ImportBundle(ctx context.Context, r io.Reader, in core.BundleIm
 		q.Set("project_ref", in.ProjectRef)
 	}
 
-	req, err := c.newRequest(ctx, http.MethodPost, httpapi.RouteBundleImport, q, r)
+	req, err := c.newRequest(ctx, http.MethodPost, wire.RouteBundleImport, q, r)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set(httpapi.HeaderContentType, httpapi.ContentBundle)
+	req.Header.Set(wire.HeaderContentType, wire.ContentBundle)
 
 	resp, err := c.send(req)
 	if err != nil {

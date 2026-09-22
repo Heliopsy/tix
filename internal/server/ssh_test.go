@@ -15,10 +15,10 @@ import (
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/core"
-	"github.com/heliopsy/tix/internal/httpapi"
 	"github.com/heliopsy/tix/internal/server"
 	"github.com/heliopsy/tix/internal/sshd"
 	"github.com/heliopsy/tix/internal/store"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // freePort binds and releases a port, returning an address nothing is
@@ -113,7 +113,7 @@ func TestBothListenersServeOneDatabase(t *testing.T) {
 	}
 
 	base := "http://" + srv.Addr()
-	resp, err := http.Get(base + httpapi.RouteHealth)
+	resp, err := http.Get(base + wire.RouteHealth)
 	if err != nil {
 		t.Fatalf("requesting health: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestNoSSHListenerWithoutAnAddress(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- a.srv.Serve(ctx) }()
 
-	resp, err := http.Get("http://" + a.srv.Addr() + httpapi.RouteHealth)
+	resp, err := http.Get("http://" + a.srv.Addr() + wire.RouteHealth)
 	if err != nil {
 		t.Fatalf("requesting health: %v", err)
 	}
@@ -203,7 +203,7 @@ func TestSSHPortConflictFailsBeforeHTTPAccepts(t *testing.T) {
 	// than after it had begun answering requests.
 	nothingListensOn(t, httpAddr)
 
-	if _, err := http.Get("http://" + httpAddr + httpapi.RouteHealth); err == nil {
+	if _, err := http.Get("http://" + httpAddr + wire.RouteHealth); err == nil {
 		t.Error("the http surface answered after a failed startup")
 	}
 }
@@ -243,7 +243,7 @@ func TestShutdownDrainsBothListeners(t *testing.T) {
 			go func() { done <- srv.Serve(ctx) }()
 
 			release := make(chan struct{})
-			inFlight := blockingRequest(t, "http://"+srv.Addr()+httpapi.RouteHealth, release)
+			inFlight := blockingRequest(t, "http://"+srv.Addr()+wire.RouteHealth, release)
 
 			cancel()
 			close(release)
@@ -488,11 +488,11 @@ func getTasks(t *testing.T, base string, a *assembled) string {
 		t.Fatalf("storing token: %v", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+httpapi.RouteTasks, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+wire.RouteTasks, nil)
 	if err != nil {
 		t.Fatalf("building the request: %v", err)
 	}
-	req.Header.Set(httpapi.HeaderAuth, "Bearer "+minted.Issued.Token)
+	req.Header.Set(wire.HeaderAuth, "Bearer "+minted.Issued.Token)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("listing tasks: %v", err)
