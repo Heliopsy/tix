@@ -33,12 +33,6 @@ func (h *handler) adminRoutes() []route {
 	}
 }
 
-// roles is the role vocabulary the administration forms offer.
-var roles = []core.Role{core.RoleViewer, core.RoleMember, core.RoleAdmin}
-
-// certModes is the certificate vocabulary the domain form offers.
-var certModes = []core.CertMode{core.CertNone, core.CertFile}
-
 // tenantView is what the tenant administration screen renders.
 type tenantView struct {
 	Tenant    core.Tenant
@@ -68,7 +62,7 @@ func (h *handler) showTenant(w http.ResponseWriter, r *http.Request) error {
 	}
 	return h.render(w, r, "tenant.html", "Tenant", tenantView{
 		Tenant: *tenant, Tenants: tenants, Members: members,
-		Retention: *retention, Roles: roles})
+		Retention: *retention, Roles: core.Roles})
 }
 
 // updateTenant saves the tenant's display name.
@@ -160,7 +154,7 @@ func (h *handler) showDomains(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	return h.render(w, r, "domains.html", "Domains",
-		domainsView{Domains: domains, CertModes: certModes})
+		domainsView{Domains: domains, CertModes: core.CertModes})
 }
 
 // addDomain maps a hostname to this tenant.
@@ -201,7 +195,7 @@ func (h *handler) showUsers(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	return h.render(w, r, "users.html", "Users",
-		usersView{Users: users, Roles: roles, NextCursor: next})
+		usersView{Users: users, Roles: core.Roles, NextCursor: next})
 }
 
 // createUser creates a credentialed user.

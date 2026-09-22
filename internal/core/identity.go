@@ -84,15 +84,11 @@ const (
 	RoleAdmin  Role = "admin"
 )
 
+// Roles lists every role, least privileged first.
+var Roles = []Role{RoleViewer, RoleMember, RoleAdmin}
+
 // Valid reports whether r is a known role.
-func (r Role) Valid() bool {
-	switch r {
-	case RoleViewer, RoleMember, RoleAdmin:
-		return true
-	default:
-		return false
-	}
-}
+func (r Role) Valid() bool { return slices.Contains(Roles, r) }
 
 // Scopes returns the scopes granted by the role.
 func (r Role) Scopes() []Scope {

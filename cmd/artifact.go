@@ -12,10 +12,7 @@ import (
 )
 
 // artifactKinds are the kinds an artifact may take.
-var artifactKinds = []string{
-	string(core.ArtifactResult), string(core.ArtifactLog),
-	string(core.ArtifactFile), string(core.ArtifactMetric),
-}
+var artifactKinds = flagValues(core.ArtifactKinds)
 
 // newArtifactCmd builds the artifact command group.
 func newArtifactCmd(g *globals) *cobra.Command {

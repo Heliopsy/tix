@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"io"
+	"slices"
 	"time"
 )
 
@@ -240,6 +241,12 @@ const (
 	CollisionReplace CollisionPolicy = "replace"
 )
 
+// CollisionPolicies lists every collision policy.
+var CollisionPolicies = []CollisionPolicy{CollisionSkip, CollisionRename, CollisionReplace}
+
+// Valid reports whether p is a known collision policy.
+func (p CollisionPolicy) Valid() bool { return slices.Contains(CollisionPolicies, p) }
+
 // BundleImportInput controls an import.
 type BundleImportInput struct {
 	OnCollision CollisionPolicy `json:"on_collision" yaml:"on_collision"`
@@ -251,10 +258,10 @@ type BundleImportInput struct {
 
 // Validate checks the input.
 func (in BundleImportInput) Validate() error {
-	switch in.OnCollision {
-	case CollisionSkip, CollisionRename, CollisionReplace:
+	switch {
+	case in.OnCollision.Valid():
 		return nil
-	case "":
+	case in.OnCollision == "":
 		return Invalid("a collision policy is required; there is no default because replace overwrites a component others may be using")
 	default:
 		return Invalid("collision policy %q must be %q, %q or %q",
@@ -380,6 +387,12 @@ const (
 	ImportMerge   ImportMode = "merge"
 	ImportReplace ImportMode = "replace"
 )
+
+// ImportModes lists every import mode.
+var ImportModes = []ImportMode{ImportMerge, ImportReplace}
+
+// Valid reports whether m is a known import mode.
+func (m ImportMode) Valid() bool { return slices.Contains(ImportModes, m) }
 
 // ImportResult reports what an import did, or would do under a dry run.
 type ImportResult struct {

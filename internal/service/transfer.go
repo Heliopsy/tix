@@ -1453,14 +1453,7 @@ func (i *importer) applyArtifact(ctx context.Context, tx store.Tx, m *mutation, 
 }
 
 // artifactKindValid reports whether the kind is one tix stores.
-func artifactKindValid(k core.ArtifactKind) bool {
-	switch k {
-	case core.ArtifactResult, core.ArtifactLog, core.ArtifactFile, core.ArtifactMetric:
-		return true
-	default:
-		return false
-	}
-}
+func artifactKindValid(k core.ArtifactKind) bool { return k.Valid() }
 
 // artifactExists reports whether a task already carries this artifact.
 func artifactExists(ctx context.Context, tx store.Tx, taskID, id string) (bool, error) {

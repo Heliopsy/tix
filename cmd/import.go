@@ -2,13 +2,14 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/spf13/cobra"
 )
 
 // importModes are the modes the import command accepts.
-var importModes = []string{string(core.ImportMerge), string(core.ImportReplace)}
+var importModes = flagValues(core.ImportModes)
 
 // newImportCmd builds the snapshot import command.
 func newImportCmd(g *globals) *cobra.Command {
@@ -48,7 +49,7 @@ func newImportCmd(g *globals) *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&mode, "mode", "", "how to apply the snapshot: "+importModes[0]+"|"+importModes[1])
+	f.StringVar(&mode, "mode", "", "how to apply the snapshot: "+strings.Join(importModes, "|"))
 	f.BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	_ = cmd.RegisterFlagCompletionFunc("mode", fixedCompletion(importModes))
 	return cmd

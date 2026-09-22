@@ -81,11 +81,6 @@ func (v taskView) actorIDs() []string {
 	return out
 }
 
-// artifactKinds is the vocabulary the artifact form offers.
-var artifactKinds = []core.ArtifactKind{
-	core.ArtifactResult, core.ArtifactLog, core.ArtifactFile, core.ArtifactMetric,
-}
-
 // showTask renders one task with every section attached to it.
 func (h *handler) showTask(w http.ResponseWriter, r *http.Request) error {
 	ref, err := core.ParseTaskRef(r.PathValue("ref"))
@@ -105,7 +100,7 @@ func (h *handler) showTask(w http.ResponseWriter, r *http.Request) error {
 		Task:          *task,
 		ProjectKey:    ref.ProjectKey,
 		Priorities:    priorityChoices,
-		ArtifactKinds: artifactKinds,
+		ArtifactKinds: core.ArtifactKinds,
 		CanWrite:      actor.HasScope(core.ScopeTaskWrite),
 		CanComment:    actor.HasScope(core.ScopeCommentWrite),
 		CanDelete:     actor.HasScope(core.ScopeTaskDelete),

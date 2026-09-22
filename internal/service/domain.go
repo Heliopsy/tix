@@ -45,14 +45,11 @@ func (l *Local) AddDomain(ctx context.Context, in core.AddDomainInput) (*core.Do
 	if mode == "" {
 		mode = core.CertNone
 	}
-	switch mode {
-	case core.CertNone:
-	case core.CertFile:
-		if in.CertPath == "" || in.KeyPath == "" {
-			return nil, core.Invalid("cert mode %q requires both a certificate and a key path", core.CertFile)
-		}
-	default:
+	if !mode.Valid() {
 		return nil, core.Invalid("cert mode %q must be %q or %q", mode, core.CertNone, core.CertFile)
+	}
+	if mode == core.CertFile && (in.CertPath == "" || in.KeyPath == "") {
+		return nil, core.Invalid("cert mode %q requires both a certificate and a key path", core.CertFile)
 	}
 
 	var out *core.Domain

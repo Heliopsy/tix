@@ -1,6 +1,9 @@
 package core
 
-import "time"
+import (
+	"slices"
+	"time"
+)
 
 // Input types for Service methods.
 
@@ -362,10 +365,10 @@ type ImportInput struct {
 
 // Validate checks the input.
 func (in ImportInput) Validate() error {
-	switch in.Mode {
-	case ImportMerge, ImportReplace:
+	switch {
+	case in.Mode.Valid():
 		return nil
-	case "":
+	case in.Mode == "":
 		return Invalid("import mode is required; there is no default because replace is destructive")
 	default:
 		return Invalid("import mode %q must be %q or %q", in.Mode, ImportMerge, ImportReplace)
@@ -388,10 +391,13 @@ const (
 	SystemOpenProject = "openproject"
 )
 
+// SyncSystems lists every supported external system.
+var SyncSystems = []string{SystemGeneric, SystemJira, SystemOpenProject}
+
 // Validate checks the input.
 func (in SyncSourceInput) Validate() error {
-	switch in.System {
-	case SystemGeneric, SystemJira, SystemOpenProject:
+	switch {
+	case slices.Contains(SyncSystems, in.System):
 	default:
 		return Invalid("system %q must be one of %q, %q or %q",
 			in.System, SystemGeneric, SystemJira, SystemOpenProject)

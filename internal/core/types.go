@@ -25,6 +25,12 @@ const (
 	CertFile CertMode = "file"
 )
 
+// CertModes lists every certificate mode.
+var CertModes = []CertMode{CertNone, CertFile}
+
+// Valid reports whether m is a known certificate mode.
+func (m CertMode) Valid() bool { return slices.Contains(CertModes, m) }
+
 // Domain maps a hostname to a tenant.
 type Domain struct {
 	ID         string     `json:"id" yaml:"id"`
@@ -209,16 +215,14 @@ const (
 	FieldJSON     FieldType = "json"
 )
 
-// Valid reports whether t is a known field type.
-func (t FieldType) Valid() bool {
-	switch t {
-	case FieldString, FieldText, FieldInt, FieldFloat, FieldBool,
-		FieldDate, FieldDateTime, FieldEnum, FieldActor, FieldJSON:
-		return true
-	default:
-		return false
-	}
+// FieldTypes lists every custom field type.
+var FieldTypes = []FieldType{
+	FieldString, FieldText, FieldInt, FieldFloat, FieldBool,
+	FieldDate, FieldDateTime, FieldEnum, FieldActor, FieldJSON,
 }
+
+// Valid reports whether t is a known field type.
+func (t FieldType) Valid() bool { return slices.Contains(FieldTypes, t) }
 
 // FieldDef defines one custom field on a project's tasks.
 type FieldDef struct {
@@ -338,6 +342,14 @@ const (
 	ArtifactFile   ArtifactKind = "file"
 	ArtifactMetric ArtifactKind = "metric"
 )
+
+// ArtifactKinds lists every artifact kind.
+var ArtifactKinds = []ArtifactKind{
+	ArtifactResult, ArtifactLog, ArtifactFile, ArtifactMetric,
+}
+
+// Valid reports whether k is a known artifact kind.
+func (k ArtifactKind) Valid() bool { return slices.Contains(ArtifactKinds, k) }
 
 // Artifact is structured output attached to a task by a worker.
 type Artifact struct {

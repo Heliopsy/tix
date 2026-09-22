@@ -22,6 +22,12 @@ const (
 	KindInternal        Kind = "internal"
 )
 
+// Kinds lists every error kind, in the order the exit code table reads.
+var Kinds = []Kind{
+	KindInvalid, KindNotFound, KindConflict, KindUnauthenticated, KindForbidden,
+	KindLeaseExpired, KindNoTaskAvailable, KindPrecondition, KindInternal,
+}
+
 // Error is a domain error with a Kind, a message and optional details.
 type Error struct {
 	Kind    Kind

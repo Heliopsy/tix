@@ -15,12 +15,6 @@ const bundleContentType = "application/vnd.tix.bundle+json"
 // defaultBundleFilename names a download whose bundle carries no usable name.
 const defaultBundleFilename = "tix-bundle"
 
-// collisionPolicies is the vocabulary the import form offers. It has no
-// default: replace overwrites a component other people may be using.
-var collisionPolicies = []core.CollisionPolicy{
-	core.CollisionSkip, core.CollisionRename, core.CollisionReplace,
-}
-
 // bundleRoutes are the component sharing screens.
 func (h *handler) bundleRoutes() []route {
 	return []route{
@@ -39,7 +33,7 @@ type bundleView struct {
 
 // newBundleView assembles the screen around an optional import result.
 func newBundleView(result *core.BundleResult) bundleView {
-	return bundleView{Kinds: core.ComponentKinds, Policies: collisionPolicies, Result: result}
+	return bundleView{Kinds: core.ComponentKinds, Policies: core.CollisionPolicies, Result: result}
 }
 
 // bundleService returns the component sharing surface the service provides.

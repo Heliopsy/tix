@@ -224,12 +224,6 @@ type fieldsView struct {
 	Types   []core.FieldType
 }
 
-// fieldTypes is the vocabulary the field editor offers.
-var fieldTypes = []core.FieldType{
-	core.FieldString, core.FieldText, core.FieldInt, core.FieldFloat, core.FieldBool,
-	core.FieldDate, core.FieldDateTime, core.FieldEnum, core.FieldActor, core.FieldJSON,
-}
-
 // showFields renders a project's typed custom field definitions.
 func (h *handler) showFields(w http.ResponseWriter, r *http.Request) error {
 	key := r.PathValue("key")
@@ -242,7 +236,7 @@ func (h *handler) showFields(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	return h.render(w, r, "fields.html", "Fields",
-		fieldsView{Project: *project, Fields: defs, Types: fieldTypes})
+		fieldsView{Project: *project, Fields: defs, Types: core.FieldTypes})
 }
 
 // putField defines or redefines one custom field.

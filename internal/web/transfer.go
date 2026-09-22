@@ -22,12 +22,6 @@ func (h *handler) transferRoutes() []route {
 	}
 }
 
-// importModes is the vocabulary the import form offers.
-var importModes = []core.ImportMode{core.ImportMerge, core.ImportReplace}
-
-// syncSystems is the vocabulary the sync source form offers.
-var syncSystems = []string{core.SystemGeneric, core.SystemJira, core.SystemOpenProject}
-
 // transferView is what the import and export screen renders.
 type transferView struct {
 	Modes  []core.ImportMode
@@ -36,7 +30,7 @@ type transferView struct {
 
 // showTransfer renders the export and import forms.
 func (h *handler) showTransfer(w http.ResponseWriter, r *http.Request) error {
-	return h.render(w, r, "transfer.html", "Transfer", transferView{Modes: importModes})
+	return h.render(w, r, "transfer.html", "Transfer", transferView{Modes: core.ImportModes})
 }
 
 // exportSnapshot streams a snapshot as a download.
@@ -72,7 +66,7 @@ func (h *handler) importSnapshot(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	return h.render(w, r, "transfer.html", "Transfer",
-		transferView{Modes: importModes, Result: result})
+		transferView{Modes: core.ImportModes, Result: result})
 }
 
 // snapshotReader returns the uploaded file, or the pasted text when no file
@@ -107,7 +101,7 @@ func (h *handler) showSync(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return h.render(w, r, "sync.html", "Sync", syncView{Sources: sources, Systems: syncSystems})
+	return h.render(w, r, "sync.html", "Sync", syncView{Sources: sources, Systems: core.SyncSystems})
 }
 
 // putSyncSource registers or updates an external import source.
@@ -150,5 +144,5 @@ func (h *handler) runSync(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	return h.render(w, r, "sync.html", "Sync",
-		syncView{Sources: sources, Systems: syncSystems, Result: result})
+		syncView{Sources: sources, Systems: core.SyncSystems, Result: result})
 }

@@ -15,18 +15,17 @@ import (
 func init() { builders = append(builders, newBundleCmd) }
 
 // collisionPolicies are the policies the import subcommand accepts.
-var collisionPolicies = []string{
-	string(core.CollisionSkip), string(core.CollisionRename), string(core.CollisionReplace),
-}
+var collisionPolicies = flagValues(core.CollisionPolicies)
 
 // componentKinds are the kinds the --kind flag accepts.
-var componentKinds = kindNames()
+var componentKinds = flagValues(core.ComponentKinds)
 
-// kindNames lists every shareable component kind as a flag value.
-func kindNames() []string {
-	names := make([]string, 0, len(core.ComponentKinds))
-	for _, k := range core.ComponentKinds {
-		names = append(names, string(k))
+// flagValues renders a core vocabulary as the flag values that name it, so a
+// flag offers exactly the set core declares and never a stale copy of it.
+func flagValues[T ~string](vocabulary []T) []string {
+	names := make([]string, 0, len(vocabulary))
+	for _, v := range vocabulary {
+		names = append(names, string(v))
 	}
 	return names
 }

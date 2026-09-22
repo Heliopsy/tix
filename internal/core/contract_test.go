@@ -158,40 +158,89 @@ func TestRolesAreOrderedByPrivilege(t *testing.T) {
 	}
 }
 
-// TestEventTypesCoversEveryDeclaredConstant reads the constants out of the
+// vocabularies pairs a constant type in the package source with the exported
+// list that is supposed to carry every one of its constants. The list is the
+// single owner every other layer derives its choices from, so a constant
+// missing from it is a value the domain accepts and no screen, flag or
+// subscriber may name; a value in the list that no constant declares is the
+// opposite mistake. Nothing here restates a vocabulary: the expected set is
+// read out of the source.
+var vocabularies = []struct {
+	// typeName is the declared type of the constants to scan for.
+	typeName string
+	// listName names the exported list in a failure message.
+	listName string
+	// list is the exported list, rendered as strings.
+	list []string
+	// except names constants that deliberately stay out of the list.
+	except []string
+}{
+	{"Kind", "core.Kinds", asStrings(core.Kinds), nil},
+	{"Role", "core.Roles", asStrings(core.Roles), nil},
+	{"CertMode", "core.CertModes", asStrings(core.CertModes), nil},
+	{"FieldType", "core.FieldTypes", asStrings(core.FieldTypes), nil},
+	{"ArtifactKind", "core.ArtifactKinds", asStrings(core.ArtifactKinds), nil},
+	{"ComponentKind", "core.ComponentKinds", asStrings(core.ComponentKinds), nil},
+	{"CollisionPolicy", "core.CollisionPolicies", asStrings(core.CollisionPolicies), nil},
+	{"ImportMode", "core.ImportModes", asStrings(core.ImportModes), nil},
+	{"EventType", "core.EventTypes()", asStrings(core.EventTypes()), nil},
+	// ScopeAll is the wildcard, not a scope anyone may be granted by name.
+	{"Scope", "core.AllScopes", asStrings(core.AllScopes), []string{"ScopeAll"}},
+}
+
+// asStrings renders a vocabulary of named string constants as plain strings.
+func asStrings[T ~string](values []T) []string {
+	out := make([]string, 0, len(values))
+	for _, v := range values {
+		out = append(out, string(v))
+	}
+	return out
+}
+
+// TestVocabulariesCoverEveryDeclaredConstant reads the constants out of the
 // package source rather than restating them, so the assertion cannot drift the
-// way a hand-written copy of the list does. EventTypes is what every other
-// layer derives its closed set from; a constant missing from it is an event the
-// outbox emits and no subscriber may name.
-func TestEventTypesCoversEveryDeclaredConstant(t *testing.T) {
-	declared := declaredEventTypes(t)
-	if len(declared) == 0 {
-		t.Fatal("found no EventType constants in the package source; the scan is broken")
-	}
+// way a hand-written copy of the list does.
+func TestVocabulariesCoverEveryDeclaredConstant(t *testing.T) {
+	for _, v := range vocabularies {
+		t.Run(v.typeName, func(t *testing.T) {
+			declared := declaredConstants(t, v.typeName)
+			for _, name := range v.except {
+				if _, ok := declared[name]; !ok {
+					t.Errorf("%s is named as an exception but no %s constant declares it",
+						name, v.typeName)
+				}
+				delete(declared, name)
+			}
+			if len(declared) == 0 {
+				t.Fatalf("found no %s constants in the package source; the scan is broken",
+					v.typeName)
+			}
 
-	exported := make(map[core.EventType]string, len(core.EventTypes()))
-	for _, got := range core.EventTypes() {
-		if previous, ok := exported[got]; ok {
-			t.Errorf("event type %q appears twice in EventTypes (as %s and again)", got, previous)
-		}
-		exported[got] = "EventTypes"
-	}
-
-	for name, value := range declared {
-		if _, ok := exported[value]; !ok {
-			t.Errorf("core.%s is declared as %q but EventTypes() omits it", name, value)
-		}
-	}
-	for value := range exported {
-		if !slices.Contains(slices.Collect(maps.Values(declared)), value) {
-			t.Errorf("EventTypes() returns %q, which no EventType constant declares", value)
-		}
+			listed := make(map[string]bool, len(v.list))
+			for _, value := range v.list {
+				if listed[value] {
+					t.Errorf("%s carries %q twice", v.listName, value)
+				}
+				listed[value] = true
+			}
+			for name, value := range declared {
+				if !listed[value] {
+					t.Errorf("core.%s is declared as %q but %s omits it", name, value, v.listName)
+				}
+			}
+			for value := range listed {
+				if !slices.Contains(slices.Collect(maps.Values(declared)), value) {
+					t.Errorf("%s carries %q, which no %s constant declares",
+						v.listName, value, v.typeName)
+				}
+			}
+		})
 	}
 }
 
-// declaredEventTypes returns every constant in the package source whose
-// declared type is EventType, keyed by identifier.
-func declaredEventTypes(t *testing.T) map[string]core.EventType {
+// declaredConstants returns every constant in the package source whose declared
+// type is typeName, keyed by identifier.
+func declaredConstants(t *testing.T, typeName string) map[string]string {
 	t.Helper()
 
 	entries, err := os.ReadDir(".")
@@ -199,7 +248,7 @@ func declaredEventTypes(t *testing.T) map[string]core.EventType {
 		t.Fatalf("reading package directory: %v", err)
 	}
 
-	found := make(map[string]core.EventType)
+	found := make(map[string]string)
 	fset := token.NewFileSet()
 	for _, entry := range entries {
 		name := entry.Name()
@@ -221,7 +270,7 @@ func declaredEventTypes(t *testing.T) map[string]core.EventType {
 					continue
 				}
 				ident, ok := value.Type.(*ast.Ident)
-				if !ok || ident.Name != "EventType" {
+				if !ok || ident.Name != typeName {
 					continue
 				}
 				for i, n := range value.Names {
@@ -233,7 +282,7 @@ func declaredEventTypes(t *testing.T) map[string]core.EventType {
 					if err != nil {
 						t.Fatalf("unquoting %s: %v", n.Name, err)
 					}
-					found[n.Name] = core.EventType(unquoted)
+					found[n.Name] = unquoted
 				}
 			}
 		}
