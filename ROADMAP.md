@@ -188,6 +188,46 @@ session's streams can be handed to it directly. `internal/connect` already resol
 invocation, so a per-session target needs no new concept. `golang.org/x/crypto` is already a
 direct dependency.
 
+### Scheduled backups to S3 or a directory
+
+A backup is a snapshot plus a schedule plus somewhere to put it, and tix already has the first
+one: `tix export` writes a per-tenant snapshot the importer can read back. What is missing is
+the other two.
+
+A backup target names where a dump goes and what goes in it: a filesystem path, or an
+S3-compatible bucket, which covers S3 itself, MinIO, Backblaze B2, Garage and the rest without
+a second implementation. Several targets can be configured at once, because the useful
+arrangement is usually more than one: an hourly dump of one busy project to a local disk, a
+nightly dump of everything to object storage offsite, and a weekly copy somewhere a different
+person controls.
+
+Each target carries its own scope, schedule and retention:
+
+- **Scope.** Everything, one tenant, or named projects. A project that matters more than the
+  rest should be backupable more often than the rest, without dragging the whole database along
+  each time.
+- **Schedule.** A cron expression, evaluated by the server that already runs the lease sweeper,
+  the webhook dispatcher and the retention pruner. In direct mode there is no daemon, so the
+  same job runs from `tix backup run`, and `tix doctor` says when a target last succeeded.
+- **Retention.** Keep the last N, or everything within a window. A backup scheme that fills the
+  disk it writes to has replaced one failure with another.
+- **Naming.** A template with the tenant, the scope and the timestamp, so a bucket listing is
+  legible without opening anything.
+
+What it must not do is become a second, weaker export path. The dump is the existing snapshot
+format, written by the same code, so a backup is restorable by the importer that already exists
+and is already tested. If the two ever diverge, the backup is the thing that will be wrong on
+the day it matters.
+
+Two things it has to get right, because they are the ones that are embarrassing later:
+
+- **Credentials stay out of the snapshot and out of the logs.** A dump carries task content, and
+  the target carries a secret key. Neither belongs in the other, and the redaction that already
+  covers DSNs covers this too.
+- **A failed backup is loud.** A target that has not succeeded since Tuesday is the whole
+  problem with backups, so a stale target is a `doctor` failure and an event on the stream, not
+  a line in a log nobody reads.
+
 ### Rate limiting and security headers
 
 Two things a server facing the internet needs, neither of which v1 has.
