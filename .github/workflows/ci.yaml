@@ -33,7 +33,7 @@ jobs:
       - name: Start Postgres
         run: |
           sudo pg_ctlcluster 16 main start
-          for i in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             pg_isready -h 127.0.0.1 -p 5432 -q && break
             sleep 1
           done

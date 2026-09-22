@@ -208,19 +208,39 @@ tidy-check:
 
 # ---------------------------------------------------------------- gates
 
-# Run a gate tool directly.
+# Run a gate tool, in the pinned toolbox image when that is possible.
 #
-# These used to run inside the pinned toolbox image so that local and CI agreed
-# on versions. The CI runner has no container engine, so the pinning moved to
-# asdf instead: .tool-versions is the single source of truth, the runner image
-# installs exactly those versions, and a developer gets them with `asdf install`.
-# None of these tools need a container to do their job - trivy's fs scanner,
-# golangci-lint and the rest all operate on the checkout.
+# Two environments have to agree on tool versions and they get there by
+# different routes. A developer has a container engine, so the toolbox image is
+# the surer answer: it pins every linter and scanner at once and needs nothing
+# installed on the host. The CI runner has no engine at all, so it falls back to
+# whatever .tool-versions has put on PATH.
 #
-# Containerfile.ci is kept for `just ci`, which still runs the whole suite in
-# containers when an engine is available.
+# The fallback is announced rather than silent. Running a different set of tools
+# than you think you are running is how a gate stops meaning anything, and a
+# quiet fallback is exactly the shape of the four silent skips this repository
+# has already been bitten by.
+#
+# TIX_TOOL_MODE forces the choice: "container" fails rather than falling back,
+# "direct" skips the engine entirely.
 tool +ARGS:
-    {{ARGS}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mode="${TIX_TOOL_MODE:-auto}"
+    if [ "$mode" != "direct" ] && command -v {{engine}} >/dev/null 2>&1 && {{engine}} info >/dev/null 2>&1; then
+      just _ensure-ci-image
+      # -buildvcs=false: the repository is bind-mounted, so git inside the
+      # container sees an ownership mismatch and the VCS stamp fails.
+      exec {{engine}} run --rm -v "$PWD":/src:z -w /src -e GOFLAGS=-buildvcs=false {{ci_image}} {{ARGS}}
+    fi
+    if [ "$mode" = "container" ]; then
+      echo "TIX_TOOL_MODE=container but {{engine}} is unavailable" >&2
+      exit 1
+    fi
+    if [ "$mode" != "direct" ]; then
+      echo "note: no container engine, running {{ARGS}} from PATH at whatever version is installed" >&2
+    fi
+    exec {{ARGS}}
 
 lint: (tool "golangci-lint" "run" "./...")
 actionlint: (tool "actionlint")
