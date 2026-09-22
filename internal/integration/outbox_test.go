@@ -9,6 +9,7 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/webhook"
 )
 
@@ -134,12 +135,14 @@ func TestSubscribingBelowTheRetainedFloorIsRefused(t *testing.T) {
 
 // The outbox row a direct-database write commits is what a webhook delivery
 // carries, and the signature the receiver verifies covers the timestamp and
-// that body. The fan-out and the attempt are both the shipped path: the write
-// queues the delivery in its own transaction and, in the default inline hook
-// mode, drains it after that transaction commits. The test only watches.
+// that body. Nothing here dispatches: the writer runs in server hook mode, so
+// it queues the delivery in its own transaction and hands the queue over. The
+// only process that can drain it is the running server, through the
+// dispatcher `server.Assemble` wires into its workers. Unwiring that
+// dispatcher leaves the delivery pending and fails this test.
 func TestDirectDatabaseWriteProducesASignedWebhookDelivery(t *testing.T) {
 	t.Parallel()
-	h := newHarness(t)
+	h := newHarness(t, withDirectHooks(service.HookServer), withDispatchInterval(eventPoll))
 	receiver := newHookRecorder(t)
 
 	endpoint, err := h.direct.PutWebhook(h.adminCtx, core.WebhookInput{
@@ -152,17 +155,23 @@ func TestDirectDatabaseWriteProducesASignedWebhookDelivery(t *testing.T) {
 		t.Fatal("registering an endpoint without a secret returned no generated secret")
 	}
 
+	start := time.Now()
 	task := h.createTaskDirectly("delivered to a webhook")
 	event := h.latestEvent()
 	if event.SubjectID != task.ID {
 		t.Fatalf("newest outbox event names %q, want the task %q", event.SubjectID, task.ID)
 	}
 	got := receiver.await(t, deliveryWait)
+	latency := time.Since(start)
+
 	if got.eventType != string(core.EventTaskCreated) {
 		t.Errorf("%s = %q, want %q", webhook.HeaderEvent, got.eventType, core.EventTaskCreated)
 	}
 	if got.delivery == "" {
 		t.Errorf("%s was empty", webhook.HeaderDelivery)
+	}
+	if _, err := time.Parse(webhook.TimestampLayout, got.timestamp); err != nil {
+		t.Errorf("%s %q is not a %s instant: %v", webhook.HeaderTimestamp, got.timestamp, webhook.TimestampLayout, err)
 	}
 	if !webhook.Verify(endpoint.Secret, got.timestamp, got.body, got.signature) {
 		t.Errorf("%s %q does not verify as sha256 hmac over timestamp %q and the body",
@@ -170,6 +179,15 @@ func TestDirectDatabaseWriteProducesASignedWebhookDelivery(t *testing.T) {
 	}
 	if webhook.Verify(endpoint.Secret, got.timestamp, append(got.body, '!'), got.signature) {
 		t.Error("the signature verified against a modified body")
+	}
+	// The timestamp is inside the signed material, so a body captured now
+	// cannot be replayed under a later one: the receiver's check fails.
+	replayed := webhook.FormatTimestamp(time.Now().Add(time.Hour))
+	if webhook.Verify(endpoint.Secret, replayed, got.body, got.signature) {
+		t.Error("the signature verified under a different timestamp, so a replay is undetectable")
+	}
+	if webhook.Verify(endpoint.Secret+"x", got.timestamp, got.body, got.signature) {
+		t.Error("the signature verified under a secret the endpoint never issued")
 	}
 
 	var delivered core.Event
@@ -180,4 +198,9 @@ func TestDirectDatabaseWriteProducesASignedWebhookDelivery(t *testing.T) {
 		t.Errorf("delivered event %d/%q, want the committed %d/%q",
 			delivered.Seq, delivered.SubjectID, event.Seq, task.ID)
 	}
+	if delivered.TenantID != h.tenantID || delivered.Type != core.EventTaskCreated {
+		t.Errorf("delivered event %q/%q, want %q/%q",
+			delivered.TenantID, delivered.Type, h.tenantID, core.EventTaskCreated)
+	}
+	t.Logf("direct-database write dispatched by the server's own dispatcher in %s", latency)
 }

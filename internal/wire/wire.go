@@ -134,3 +134,16 @@ const ContentBundle = "application/vnd.tix.bundle+json"
 
 // HeaderContentDisposition names the download a bundle response carries.
 const HeaderContentDisposition = "Content-Disposition"
+
+// TenantSelf is the reference that means "the tenant the caller is already in".
+//
+// The service contract lets an empty reference mean that, which a direct caller
+// can express and a URL cannot: an empty path segment addresses no route at all.
+// So the two sides agree on a stand-in. The client sends it in place of an empty
+// reference and the server turns it back into one before the service sees it, so
+// both transports honour the same convention.
+//
+// It starts with a character a tenant key may not: a key must begin with a
+// letter and an identifier is alphanumeric, so this can never be mistaken for
+// either. It is also unreserved in RFC 3986 and needs no escaping.
+const TenantSelf = "~"

@@ -78,7 +78,7 @@ A user SHALL be able to perform a complete operation on a machine that has never
 
 ### Requirement: Transport equivalence
 
-Any operation invoked through the local implementation and through the remote client SHALL produce identical results and identical error kinds for identical inputs and identical actor and tenant context. This equivalence SHALL be verified by an automated test that runs each scenario against both transports.
+Any operation invoked through the local implementation and through the remote client SHALL produce identical results and identical error kinds for identical inputs and identical actor and tenant context. This equivalence SHALL be verified by an automated test that exercises every operation on the service contract against both transports. An operation that is not exercised SHALL carry a written exemption naming the reason it is not, and an operation with neither SHALL fail the build. The obligation is on the operations, not on whichever scenarios happen to be written.
 
 #### Scenario: Identical success results
 
@@ -93,7 +93,17 @@ Any operation invoked through the local implementation and through the remote cl
 #### Scenario: Equivalence suite covers every operation
 
 - **WHEN** the equivalence test suite runs
-- **THEN** every operation on the service contract is exercised on both transports
+- **THEN** every operation on the service contract is exercised on both transports, or carries an exemption stating why it is not
+
+#### Scenario: A new operation without a scenario fails the build
+
+- **WHEN** an operation is added to the service contract and no equivalence scenario exercises it and no exemption names it
+- **THEN** the equivalence suite fails and names the operation
+
+#### Scenario: An exemption states its reason
+
+- **WHEN** an operation is exempted from the equivalence suite
+- **THEN** the exemption carries a reason, and an empty reason fails the build
 
 #### Scenario: Divergence fails the build
 

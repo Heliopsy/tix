@@ -48,7 +48,8 @@
 
 ## 7. Left for the next change
 
-- [ ] 7.1 `tix user key add`: enrol a public key against an existing user
-- [ ] 7.2 A store-backed `PublicKeyLookup` over enrolled keys, and the table behind it
-- [ ] 7.3 A read-only scope set in `internal/authz`, if one is wanted
-- [ ] 7.4 A `*lipgloss.Renderer` on `tui.Config`, so each session renders at its own client's depth
+- [x] 7.1 `tix user key add`: enrol a public key against an existing user
+- [x] 7.2 A store-backed `PublicKeyLookup` over enrolled keys, and the table behind it
+- [x] 7.3 A read-only scope set in `internal/authz`, if one is wanted. Nothing wanted one: the
+      membership role already carries the distinction, so no scope set was added
+- [x] 7.4 A `*lipgloss.Renderer` on `tui.Config`, so each session renders at its own client's depth

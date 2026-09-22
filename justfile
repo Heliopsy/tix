@@ -166,6 +166,24 @@ cover-check: cover
     awk "BEGIN {exit !(${total} < ${floor})}" && { echo "FAIL: below the ${floor}% floor"; exit 1; } || true
     awk "BEGIN {exit !(${headroom} < 1.5)}" && echo "WARNING: under 1.5 points of headroom, raise coverage before it turns CI red" || true
 
+# Smoke: build the real binary and drive it as a subprocess. It is a sanity
+# pass over the shipped artifact, not a second test suite, so it covers the
+# zero-configuration path, what the listings actually render, serve, and the
+# SSH surface through a real client. Every bug that reached a person recently
+# was found by running a binary rather than by a test.
+#
+# -count=1 because a cached pass proves nothing about a binary just rebuilt.
+smoke:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export TIX_TEST_ENV_LOG=$(mktemp); trap 'rm -f "$TIX_TEST_ENV_LOG"' EXIT
+    set +e
+    go test -tags smoke ./internal/smoke/ -count=1 -timeout 10m -v
+    rc=$?
+    set -e
+    just _env-summary "$TIX_TEST_ENV_LOG"
+    exit $rc
+
 bench:
     go test ./internal/bench/... -bench=. -benchmem -run '^$'
 
@@ -296,10 +314,10 @@ release-dry: (tool "goreleaser" "build" "--snapshot" "--clean")
 # ---------------------------------------------------------------- aggregates
 
 # Fast pre-push gate set. Run this before every commit.
-check: fmt-check vet tidy-check lint mdlint yamllint actionlint test jstest spec docs-check
+check: fmt-check vet tidy-check lint mdlint yamllint actionlint test smoke jstest spec docs-check
 
 # The entire CI suite, locally, in containers. Matches what GitHub runs.
-ci: tidy-check fmt-check vet lint build test-postgres cover-check jstest sec vuln trivy actionlint hadolint yamllint mdlint spec docs-check release-dry
+ci: tidy-check fmt-check vet lint build test-postgres cover-check smoke jstest sec vuln trivy actionlint hadolint yamllint mdlint spec docs-check release-dry
     @echo ""
     @echo "all CI gates passed"
 

@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/wire"
@@ -15,7 +16,20 @@ func (c *Client) CreateTenant(ctx context.Context, in core.CreateTenantInput) (*
 
 // GetTenant returns one tenant.
 func (c *Client) GetTenant(ctx context.Context, ref string) (*core.Tenant, error) {
-	return call[core.Tenant](ctx, c, http.MethodGet, routePath(wire.RouteTenant, "ref", ref), nil, nil)
+	return call[core.Tenant](ctx, c, http.MethodGet, routePath(wire.RouteTenant, "ref", tenantRef(ref)), nil, nil)
+}
+
+// tenantRef renders a tenant reference for a URL.
+//
+// The contract lets an empty reference mean the caller's own tenant, which no
+// path segment can carry, so it travels as wire.TenantSelf and the server turns
+// it back. This is transport spelling, not a rule: the meaning is decided by the
+// service on the other side exactly as it is for a direct caller.
+func tenantRef(ref string) string {
+	if strings.TrimSpace(ref) == "" {
+		return wire.TenantSelf
+	}
+	return ref
 }
 
 // ListTenants returns one page of tenants.
@@ -25,12 +39,12 @@ func (c *Client) ListTenants(ctx context.Context, page core.Page) ([]core.Tenant
 
 // UpdateTenant changes a tenant.
 func (c *Client) UpdateTenant(ctx context.Context, ref string, in core.UpdateTenantInput) (*core.Tenant, error) {
-	return call[core.Tenant](ctx, c, http.MethodPatch, routePath(wire.RouteTenant, "ref", ref), nil, in)
+	return call[core.Tenant](ctx, c, http.MethodPatch, routePath(wire.RouteTenant, "ref", tenantRef(ref)), nil, in)
 }
 
 // DeleteTenant removes a tenant.
 func (c *Client) DeleteTenant(ctx context.Context, ref string) error {
-	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteTenant, "ref", ref), nil, nil)
+	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteTenant, "ref", tenantRef(ref)), nil, nil)
 }
 
 // AddDomain maps a hostname to the current tenant.

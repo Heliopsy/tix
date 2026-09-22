@@ -2,6 +2,10 @@ version: "2"
 
 run:
   timeout: 5m
+  # The smoke suite is behind a build tag so `go test ./...` stays a unit gate.
+  # Without this the linter never sees those files at all.
+  build-tags:
+    - smoke
 
 linters:
   default: standard

@@ -1,9 +1,12 @@
 package integration
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -220,3 +223,50 @@ func mustf(t *testing.T, tg target, err error, format string, args ...any) {
 		t.Fatalf("[%s] %s: %v", tg.name, fmt.Sprintf(format, args...), err)
 	}
 }
+
+// matrixPublicKey is a real ed25519 public key, generated once for these
+// tests and used by nothing else. Enrolment parses it with a real SSH
+// implementation, so a placeholder string would not reach the code under test.
+const matrixPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE2cRkwPTkB3l3lzn3Ly3DwLAFnv+gwVS73+1cL61Zjk matrix@example.test"
+
+// matrixWorkflow is a minimal valid workflow: two states, one edge, one
+// terminal state.
+func matrixWorkflow(key string) core.WorkflowInput {
+	return core.WorkflowInput{
+		Key:  key,
+		Name: "Matrix " + key,
+		Definition: core.WorkflowDefinition{
+			Initial: "open",
+			States: []core.State{
+				{Key: "open", Label: "Open", Category: core.CategoryTodo},
+				{Key: "shut", Label: "Shut", Terminal: true, Category: core.CategoryDone},
+			},
+			Transitions: []core.Transition{{From: "open", To: "shut"}},
+		},
+	}
+}
+
+// snapshotKinds reduces a streamed snapshot to the sequence of record kinds it
+// carries, which is what two transports must agree on; the identifiers and
+// timestamps inside the records are necessarily different per run.
+func snapshotKinds(t *testing.T, tg target, snapshot []byte) []string {
+	t.Helper()
+	var kinds []string
+	dec := json.NewDecoder(bytes.NewReader(snapshot))
+	for {
+		var rec core.SnapshotRecord
+		err := dec.Decode(&rec)
+		if errors.Is(err, io.EOF) {
+			return kinds
+		}
+		if err != nil {
+			t.Fatalf("[%s] decoding a snapshot record: %v", tg.name, err)
+		}
+		kinds = append(kinds, string(rec.Kind))
+	}
+}
+
+// closedEndpoint is a port nothing listens on, so an opportunistic delivery
+// drain fails at connect instead of spending the dial timeout resolving a
+// name. These scenarios are about the delivery records, not about delivery.
+const closedEndpoint = "http://127.0.0.1:1/hook"

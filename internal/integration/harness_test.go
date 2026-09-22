@@ -54,9 +54,34 @@ type harness struct {
 	adminCtx context.Context
 }
 
+// harnessOption adjusts how the harness is wired.
+type harnessOption func(*harnessConfig)
+
+// harnessConfig carries the wiring choices a test makes.
+type harnessConfig struct {
+	directHooks      service.HookMode
+	dispatchInterval time.Duration
+}
+
+// withDirectHooks sets who delivers webhooks for the direct-database writer.
+// The server mode hands the queue to the running server, which is what a
+// command line configured with `--webhook-mode server` does.
+func withDirectHooks(m service.HookMode) harnessOption {
+	return func(c *harnessConfig) { c.directHooks = m }
+}
+
+// withDispatchInterval paces the server's own webhook dispatcher.
+func withDispatchInterval(d time.Duration) harnessOption {
+	return func(c *harnessConfig) { c.dispatchInterval = d }
+}
+
 // newHarness boots the database, the server and the direct-database service.
-func newHarness(t *testing.T) *harness {
+func newHarness(t *testing.T, opts ...harnessOption) *harness {
 	t.Helper()
+	cfg := harnessConfig{directHooks: service.HookInline}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 	ctx := context.Background()
 	clk := clock.New()
 	path := filepath.Join(t.TempDir(), "tix.db")
@@ -94,6 +119,7 @@ func newHarness(t *testing.T) *harness {
 		WebHandler:        web.Handler(serverSvc),
 		Addr:              "127.0.0.1:0",
 		EventPollInterval: eventPoll,
+		DispatchInterval:  cfg.dispatchInterval,
 		DisableSweep:      true,
 		DisablePrune:      true,
 	})
@@ -124,6 +150,7 @@ func newHarness(t *testing.T) *harness {
 	cliStore := openStore(t, path, clk)
 	direct := service.New(cliStore,
 		service.WithClock(clk),
+		service.WithHooks(cfg.directHooks),
 		service.WithHasher(auth.NewHasherWithParams(auth.TestParams())))
 
 	return &harness{

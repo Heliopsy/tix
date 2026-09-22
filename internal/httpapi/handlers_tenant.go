@@ -54,9 +54,23 @@ func (rt *Router) handleCreateTenant(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, http.StatusCreated, tenant)
 }
 
+// tenantRef reads the tenant reference from the path.
+//
+// wire.TenantSelf becomes the empty reference the service contract already
+// understands as "the caller's own tenant". A URL cannot carry an empty path
+// segment, so the client sends the stand-in and it is undone here, before the
+// service sees it: the convention stays the service's, not the transport's.
+func tenantRef(r *http.Request) string {
+	ref := r.PathValue("ref")
+	if ref == wire.TenantSelf {
+		return ""
+	}
+	return ref
+}
+
 // handleGetTenant returns one tenant.
 func (rt *Router) handleGetTenant(w http.ResponseWriter, r *http.Request) {
-	tenant, err := rt.cfg.Service.GetTenant(r.Context(), r.PathValue("ref"))
+	tenant, err := rt.cfg.Service.GetTenant(r.Context(), tenantRef(r))
 	if err != nil {
 		WriteError(w, err)
 		return
@@ -70,7 +84,7 @@ func (rt *Router) handleUpdateTenant(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &in) {
 		return
 	}
-	tenant, err := rt.cfg.Service.UpdateTenant(r.Context(), r.PathValue("ref"), in)
+	tenant, err := rt.cfg.Service.UpdateTenant(r.Context(), tenantRef(r), in)
 	if err != nil {
 		WriteError(w, err)
 		return
@@ -80,7 +94,7 @@ func (rt *Router) handleUpdateTenant(w http.ResponseWriter, r *http.Request) {
 
 // handleDeleteTenant removes one tenant.
 func (rt *Router) handleDeleteTenant(w http.ResponseWriter, r *http.Request) {
-	if err := rt.cfg.Service.DeleteTenant(r.Context(), r.PathValue("ref")); err != nil {
+	if err := rt.cfg.Service.DeleteTenant(r.Context(), tenantRef(r)); err != nil {
 		WriteError(w, err)
 		return
 	}

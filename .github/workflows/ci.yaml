@@ -57,6 +57,11 @@ jobs:
       - name: Check coverage threshold
         run: just cover-check
 
+      # The runner carries an SSH client and pseudo-terminals, so the whole
+      # suite runs here rather than announcing a skipped capability.
+      - name: Smoke the built binary
+        run: just smoke
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
         with:
