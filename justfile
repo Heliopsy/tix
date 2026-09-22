@@ -205,13 +205,21 @@ tidy-check:
     go mod tidy
     git diff --exit-code go.mod go.sum
 
-# ---------------------------------------------------------------- gates (containerized)
+# ---------------------------------------------------------------- gates
 
-# Run an arbitrary command inside the pinned CI toolbox image.
-tool +ARGS: _ensure-ci-image
-    # -buildvcs=false: the repository is bind-mounted, so git inside the
-    # container sees an ownership mismatch and the VCS stamp fails.
-    {{engine}} run --rm -v "$PWD":/src:z -w /src -e GOFLAGS=-buildvcs=false {{ci_image}} {{ARGS}}
+# Run a gate tool directly.
+#
+# These used to run inside the pinned toolbox image so that local and CI agreed
+# on versions. The CI runner has no container engine, so the pinning moved to
+# asdf instead: .tool-versions is the single source of truth, the runner image
+# installs exactly those versions, and a developer gets them with `asdf install`.
+# None of these tools need a container to do their job - trivy's fs scanner,
+# golangci-lint and the rest all operate on the checkout.
+#
+# Containerfile.ci is kept for `just ci`, which still runs the whole suite in
+# containers when an engine is available.
+tool +ARGS:
+    {{ARGS}}
 
 lint: (tool "golangci-lint" "run" "./...")
 actionlint: (tool "actionlint")

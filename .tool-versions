@@ -1,2 +1,6 @@
-golang 1.27.1
 golangci-lint 2.13.2
+actionlint 1.7.12
+goreleaser 2.18.2
+trivy 0.74.0
+hadolint 2.15.1
+yamllint 1.38.0
