@@ -16,7 +16,7 @@ jobs:
     # CodeQL requires code scanning, which a private repository does not have
     # without Advanced Security. Activates automatically when the repo is public.
     if: github.event.repository.visibility == 'public'
-    runs-on: ${{ vars.RUNNER }}
+    runs-on: ho-z10
     permissions:
       contents: read
       security-events: write

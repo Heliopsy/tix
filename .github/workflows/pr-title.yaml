@@ -9,7 +9,7 @@ permissions: read-all
 jobs:
   conventional:
     name: Conventional commit title
-    runs-on: ${{ vars.RUNNER }}
+    runs-on: ho-z10
     permissions:
       pull-requests: read
     steps:

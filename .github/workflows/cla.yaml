@@ -10,7 +10,7 @@ permissions: read-all
 
 jobs:
   cla:
-    runs-on: ${{ vars.RUNNER }}
+    runs-on: ho-z10
     permissions:
       actions: write
       contents: write
