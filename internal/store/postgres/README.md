@@ -83,3 +83,11 @@ one runs against a database of its own:
     just pg-up
     TIX_TEST_POSTGRES_DSN='postgres://tix:tix@127.0.0.1:55432/tix?sslmode=disable' \
       go test ./internal/store/postgres/ -race
+
+Without that DSN this package covers 6.9% of its statements rather than 85.7%,
+which is why the skip announces itself: the suite gates on
+`testenv.PostgresDSN`, and `TestMain` reports at the end of the run that only
+SQLite was exercised. `just test` collects that report for every package into
+one block. The row-level security tests have a second gate, the unprivileged
+`tix_app` role, because without it the login role bypasses the policies and the
+tests would prove nothing. See [docs/testing.md](../../../docs/testing.md).

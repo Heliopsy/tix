@@ -3,6 +3,7 @@ package httpapi_test
 import (
 	"context"
 	"net/http"
+	"slices"
 	"testing"
 
 	"github.com/heliopsy/tix/internal/client"
@@ -37,9 +38,18 @@ func (f *apiFixture) createTaskWithFields(title string, fields map[string]any) c
 	return task
 }
 
-// listTitles lists tasks through the API and returns their titles.
+// listTitles lists tasks through the API and returns their titles in title
+// order. The ordering is requested explicitly: the default is by urgency, and
+// tasks that share a priority and carry no due date tie there, leaving the
+// order to the identifier tiebreak. Asserting on that would test the shape of
+// generated identifiers rather than the filter.
 func (f *apiFixture) listTitles(query string) []string {
 	f.t.Helper()
+	sep := "&"
+	if query == "" {
+		sep = "?"
+	}
+	query += sep + "sort=" + core.SortTitle + "&direction=" + string(core.Ascending)
 	resp := f.call(http.MethodGet, httpapi.RouteTasks+query, nil)
 	defer func() { _ = resp.Body.Close() }()
 	mustStatus(f.t, resp, http.StatusOK)
@@ -66,23 +76,17 @@ func TestTaskListFiltersByCustomField(t *testing.T) {
 		query string
 		want  []string
 	}{
-		{"one field", "?field.severity=high", []string{"outage", "audit"}},
+		{"one field", "?field.severity=high", []string{"audit", "outage"}},
 		{"two fields are an and", "?field.severity=high&field.team=infra", []string{"outage"}},
-		{"a number filters a number", "?field.points=3", []string{"outage", "audit"}},
+		{"a number filters a number", "?field.points=3", []string{"audit", "outage"}},
 		{"a quoted number filters a string", `?field.points="3"`, []string{}},
 		{"no match is an empty page", "?field.severity=catastrophic", []string{}},
 		{"a typed object is equivalent", `?custom_fields={"severity":"low"}`, []string{"paperwork"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := f.listTitles(tc.query)
-			if len(got) != len(tc.want) {
-				t.Fatalf("titles = %v, want %v", got, tc.want)
-			}
-			for i, title := range tc.want {
-				if got[i] != title {
-					t.Fatalf("titles = %v, want %v", got, tc.want)
-				}
+			if got := f.listTitles(tc.query); !slices.Equal(got, tc.want) {
+				t.Fatalf("titles = %v, want %v (in title order)", got, tc.want)
 			}
 		})
 	}

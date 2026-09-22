@@ -2,6 +2,7 @@ package core_test
 
 import (
 	"go/build"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -23,22 +24,79 @@ func TestCoreImportsOnlyStdlib(t *testing.T) {
 	}
 }
 
-// TestServiceInterfaceIsComplete guards against a sub-interface being dropped
-func TestServiceInterfaceIsComplete(t *testing.T) {
-	var svc core.Service
+// service is the typed nil the assertions below are written against.
+var service core.Service
 
-	var (
-		_ core.TenantService   = svc
-		_ core.ProjectService  = svc
-		_ core.WorkflowService = svc
-		_ core.TaskService     = svc
-		_ core.ClaimService    = svc
-		_ core.HistoryService  = svc
-		_ core.AuthService     = svc
-		_ core.WebhookService  = svc
-		_ core.TransferService = svc
-		_ core.SyncService     = svc
-	)
+// Dropping a sub-interface out of Service stops this file compiling, which is
+// a build failure rather than a test failure and needs no test to report it.
+var (
+	_ core.TenantService   = service
+	_ core.ProjectService  = service
+	_ core.WorkflowService = service
+	_ core.TaskService     = service
+	_ core.ClaimService    = service
+	_ core.HistoryService  = service
+	_ core.AuthService     = service
+	_ core.WebhookService  = service
+	_ core.TransferService = service
+	_ core.SyncService     = service
+	_ core.BundleService   = service
+)
+
+// serviceParts names every sub-interface Service is assembled from.
+var serviceParts = map[string]reflect.Type{
+	"TenantService":   reflect.TypeOf((*core.TenantService)(nil)).Elem(),
+	"ProjectService":  reflect.TypeOf((*core.ProjectService)(nil)).Elem(),
+	"WorkflowService": reflect.TypeOf((*core.WorkflowService)(nil)).Elem(),
+	"TaskService":     reflect.TypeOf((*core.TaskService)(nil)).Elem(),
+	"ClaimService":    reflect.TypeOf((*core.ClaimService)(nil)).Elem(),
+	"HistoryService":  reflect.TypeOf((*core.HistoryService)(nil)).Elem(),
+	"AuthService":     reflect.TypeOf((*core.AuthService)(nil)).Elem(),
+	"WebhookService":  reflect.TypeOf((*core.WebhookService)(nil)).Elem(),
+	"TransferService": reflect.TypeOf((*core.TransferService)(nil)).Elem(),
+	"SyncService":     reflect.TypeOf((*core.SyncService)(nil)).Elem(),
+	"BundleService":   reflect.TypeOf((*core.BundleService)(nil)).Elem(),
+}
+
+// serviceOwnMethods are the only two methods Service may declare itself.
+// Everything else belongs to one of the sub-interfaces above, which is what
+// lets a caller depend on the narrow surface it needs.
+var serviceOwnMethods = []string{"WhoAmI", "Close"}
+
+// TestServiceIsExactlyItsParts checks at run time what the assertions above
+// cannot: that Service grew no method outside the sub-interfaces it is
+// assembled from, and that no sub-interface listed here has fallen out of it.
+func TestServiceIsExactlyItsParts(t *testing.T) {
+	svc := reflect.TypeOf((*core.Service)(nil)).Elem()
+
+	owner := make(map[string]string, svc.NumMethod())
+	for _, name := range serviceOwnMethods {
+		owner[name] = "Service itself"
+	}
+	for part, typ := range serviceParts {
+		for i := 0; i < typ.NumMethod(); i++ {
+			name := typ.Method(i).Name
+			if previous, ok := owner[name]; ok {
+				t.Errorf("method %q is declared by both %s and %s", name, previous, part)
+				continue
+			}
+			owner[name] = part
+		}
+	}
+
+	on := make(map[string]bool, svc.NumMethod())
+	for i := 0; i < svc.NumMethod(); i++ {
+		name := svc.Method(i).Name
+		on[name] = true
+		if _, ok := owner[name]; !ok {
+			t.Errorf("Service declares %q outside every sub-interface; give it one", name)
+		}
+	}
+	for name, part := range owner {
+		if !on[name] {
+			t.Errorf("%s declares %q but Service does not carry it", part, name)
+		}
+	}
 }
 
 // TestScopeVocabularyIsUnique catches a copy-paste error in the scope constants,

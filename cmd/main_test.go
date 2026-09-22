@@ -5,6 +5,8 @@ import (
 	"os/signal"
 	"syscall"
 	"testing"
+
+	"github.com/heliopsy/tix/internal/testenv"
 )
 
 // TestMain keeps a stray interrupt from killing the test binary.
@@ -27,5 +29,7 @@ func TestMain(m *testing.M) {
 	// Not deferred: os.Exit does not run deferred calls, so a defer here would
 	// read as cleanup while doing nothing.
 	signal.Stop(stray)
+	testenv.AppendLog()
+	testenv.Report(os.Stderr)
 	os.Exit(code)
 }

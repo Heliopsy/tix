@@ -13,3 +13,18 @@
 #   Remove this entry if openpgp ever enters the dependency graph.
 GO-2026-5932
 CVE-2026-5932
+
+# CVE-2026-41589 / github.com/charmbracelet/wish
+#   SCP path traversal in wish/scp: a client can read or write arbitrary paths
+#   through the SCP middleware. There is no fixed version (v1.4.7 is latest),
+#   and trivy matches on module version rather than on which packages are built.
+#
+#   We never register the SCP middleware. Only wish and wish/bubbletea are in
+#   the build, for PTY setup and renderer wiring in internal/sshd/session.go.
+#   Verify with:
+#       go list -deps ./... | grep wish/scp      # expect no output
+#       just vuln                                 # govulncheck: not called
+#
+#   Remove this entry when wish ships a fix, or if wish/scp ever enters the
+#   dependency graph.
+CVE-2026-41589

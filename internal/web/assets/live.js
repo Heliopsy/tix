@@ -1,5 +1,9 @@
 (function () {
   "use strict";
+  var tix = window.tix;
+  if (!tix) {
+    return;
+  }
   var feed = document.getElementById("live-feed");
   if (!feed || !window.WebSocket || !window.fetch) {
     return;
@@ -37,16 +41,7 @@
   // milliseconds apart. Waiting a moment for them all to land before
   // rebuilding the row list is what lets the feed group them the way a page
   // load would, rather than briefly showing the first hop on its own.
-  var timer = null;
-  function scheduleRefresh() {
-    if (timer) {
-      clearTimeout(timer);
-    }
-    timer = setTimeout(function () {
-      timer = null;
-      refresh();
-    }, 300);
-  }
+  var scheduleRefresh = tix.debouncer(300, refresh);
 
   var scheme = window.location.protocol === "https:" ? "wss://" : "ws://";
   var socket = new WebSocket(scheme + window.location.host + path);
@@ -86,24 +81,26 @@
 
 (function () {
   "use strict";
-  var board = document.querySelector(".board");
-  // The settings toggle (partials.html "settings-menu", posts to /dragmove)
-  // is server truth, read here the same way the board itself reads it: as a
-  // data attribute the template already rendered from the cookie, since the
-  // cookie is HttpOnly and this script cannot read it directly. The Move
-  // disclosure on every card needs none of this and keeps working exactly
-  // as before either way.
-  if (!board || board.getAttribute("data-drag") !== "1") {
+  var tix = window.tix;
+  if (!tix) {
     return;
   }
+  var board = document.querySelector(".board");
+  // Two gates, both in tix.dragEnabled. The settings toggle (partials.html
+  // "settings-menu", posts to /dragmove) is server truth, read here the same
+  // way the board itself reads it: as a data attribute the template already
+  // rendered from the cookie, since the cookie is HttpOnly and this script
+  // cannot read it directly. The Move disclosure on every card needs none of
+  // this and keeps working exactly as before either way.
+  //
   // Native HTML5 drag-and-drop has no working touch equivalent in mobile
   // browsers -- there is no drop event a touch gesture ever fires -- and
   // leaving "draggable" live on a coarse pointer only fights the page's own
-  // scrolling and long-press behaviour for no payoff. So this is scoped to a
-  // fine pointer (mouse, trackpad, pen): a touch user gets the Move
-  // disclosure, which already works everywhere, rather than a half-working
-  // drag.
-  if (!window.matchMedia || !window.matchMedia("(pointer: fine)").matches) {
+  // scrolling and long-press behaviour for no payoff. So tix.dragEnabled
+  // scopes this to a fine pointer (mouse, trackpad, pen): a touch user gets
+  // the Move disclosure, which already works everywhere, rather than a
+  // half-working drag.
+  if (!board || !tix.dragEnabled(board.getAttribute("data-drag"), window.matchMedia && window.matchMedia.bind(window))) {
     return;
   }
 
@@ -116,8 +113,7 @@
 
   function columnLabel(column) {
     var heading = column.querySelector("h2");
-    return heading ? heading.textContent.replace(/\s*\(\d+\)\s*$/, "").trim()
-      : column.getAttribute("data-state");
+    return heading ? tix.stripCount(heading.textContent) : column.getAttribute("data-state");
   }
 
   function clearDropTargets() {
@@ -145,10 +141,7 @@
       return;
     }
     dragged = card;
-    legal = {};
-    for (var i = 0; i < select.options.length; i++) {
-      legal[select.options[i].value] = true;
-    }
+    legal = tix.legalStates(select.options);
     card.classList.add("is-dragging");
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = "move";
@@ -168,7 +161,7 @@
 
   board.addEventListener("dragover", function (event) {
     var column = event.target.closest(".column");
-    if (!dragged || !column || !legal[column.getAttribute("data-state")]) {
+    if (!dragged || !column || !tix.canDrop(legal, column.getAttribute("data-state"))) {
       return;
     }
     event.preventDefault();
@@ -189,7 +182,7 @@
   board.addEventListener("drop", function (event) {
     var column = event.target.closest(".column");
     var card = dragged;
-    if (!card || !column || !legal[column.getAttribute("data-state")]) {
+    if (!card || !column || !tix.canDrop(legal, column.getAttribute("data-state"))) {
       return;
     }
     event.preventDefault();
@@ -213,15 +206,15 @@
     }).then(function (resp) {
       if (!resp.ok) {
         return resp.text().then(function (html) {
-          announce(ref + " was not moved to " + destination + ": " + (extractError(html) || "the move was refused."));
+          announce(tix.refusedMessage(ref, destination, extractError(html)));
         });
       }
       // The server is the only source of truth for what a card may do next
       // (its legal states, its version), so success re-fetches the board
       // fragment rather than moving the card by hand here and guessing.
-      return refreshBoard(ref + " moved to " + destination + ".");
+      return refreshBoard(tix.movedMessage(ref, destination));
     }).catch(function () {
-      announce(ref + " was not moved to " + destination + ": the request failed.");
+      announce(tix.refusedMessage(ref, destination, "the request failed."));
     });
   });
 

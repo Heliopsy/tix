@@ -55,6 +55,21 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `output.color` | `TIX_OUTPUT_COLOR` | `auto` (`auto`, `always`, `never`) |
 | `output.time_format` | `TIX_OUTPUT_TIME_FORMAT` | `iso` (`iso`, `rfc3339`, `short`, `us`, `relative`) |
 | `output.timezone` | `TIX_OUTPUT_TIMEZONE` | `local` (`local`, `utc`, or an IANA name) |
+| `ssh.listen` | `TIX_SSH_LISTEN` | `127.0.0.1:2222` |
+| `ssh.host_key` | `TIX_SSH_HOST_KEY` | (unset: beside the database) |
+| `ssh.allow_public` | `TIX_SSH_ALLOW_PUBLIC` | `false` |
+| `ssh.tenant_ttl` | `TIX_SSH_TENANT_TTL` | `6h` |
+| `ssh.reap_interval` | `TIX_SSH_REAP_INTERVAL` | `10m` |
+| `ssh.max_tenants` | `TIX_SSH_MAX_TENANTS` | `200` |
+| `ssh.max_tasks` | `TIX_SSH_MAX_TASKS` | `200` |
+| `ssh.lease_ttl` | `TIX_SSH_LEASE_TTL` | `2m` |
+| `ssh.rate_per_hour` | `TIX_SSH_RATE_PER_HOUR` | `60` |
+| `ssh.rate_burst` | `TIX_SSH_RATE_BURST` | `5` |
+| `ssh.idle_timeout` | `TIX_SSH_IDLE_TIMEOUT` | `30m` |
+| `ssh.keepalive_interval` | `TIX_SSH_KEEPALIVE_INTERVAL` | `30s` |
+| `ssh.keepalive_max_missed` | `TIX_SSH_KEEPALIVE_MAX_MISSED` | `3` |
+| `ssh.max_sessions_per_key` | `TIX_SSH_MAX_SESSIONS_PER_KEY` | `3` |
+| `ssh.max_sessions` | `TIX_SSH_MAX_SESSIONS` | `100` |
 
 List values are comma-separated. Durations use Go syntax (`15m`, `24h`, `720h`).
 
@@ -76,6 +91,31 @@ ignored, because a setting that reads as a security control must never be silent
 `hooks.mode` and `webhooks.drain_mode` are unrelated, despite the similar names. `hooks.mode` is the git hook
 setting. `webhooks.drain_mode` decides which process delivers queued webhook events: `inline` drains them in the
 command that produced them, `server` leaves them for `tix serve`, and `off` queues them and delivers nothing.
+
+### The SSH listener
+
+The `ssh.*` keys configure `tix ssh`, which serves the terminal interface over SSH. Every one of them is also a
+flag on the command, and the flag wins wherever one was given, so `TIX_SSH_MAX_TENANTS=50 tix ssh --max-tenants 10`
+admits ten. A flag nobody typed does not count as a layer: it leaves the configured value alone even though the
+flag has a default of its own. The deployment most likely to run this listener is a container, where a command
+line is the hardest layer to reach and an environment variable the easiest, which is why none of this is
+flag-only. See [deployment.md](deployment.md) for what each setting protects.
+
+`ssh.idle_timeout` closes a session nobody is typing at, measured from the last key the interface saw.
+`ssh.keepalive_interval` and `ssh.keepalive_max_missed` are a different question: whether the client is still
+there at all. They are deliberately separate, and the idle clock is fed by keystrokes rather than by traffic, so
+a keepalive cannot hold an abandoned session open. The defaults notice a vanished client in about two minutes
+rather than in the thirty the idle timeout would take, because a session whose client has gone still holds its
+slot and any lease it was carrying.
+
+`ssh.max_sessions_per_key` and `ssh.max_sessions` cap sessions that are live at once, which `ssh.rate_per_hour`
+does not: the rate limit counts connections from one source address over an hour, and says nothing about how
+many of them are still open. A refusal names the limit and is worded the same for every key, so it cannot tell a
+stranger whether the listener had seen theirs before. A per-key cap above `ssh.max_sessions` is refused at
+startup as unreachable.
+
+A negative window or a negative cap is refused at startup rather than accepted and quietly replaced by a default
+much later.
 
 ### The default project
 

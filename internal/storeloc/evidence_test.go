@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/heliopsy/tix/internal/testenv"
 )
 
 func TestCollectSyncEvidence(t *testing.T) {
@@ -103,7 +105,11 @@ func TestResolveDirFollowsSymlinks(t *testing.T) {
 	target := t.TempDir()
 	link := filepath.Join(t.TempDir(), "link")
 	if err := os.Symlink(target, link); err != nil {
-		t.Skipf("symlinks are unavailable here: %v", err)
+		testenv.Skip(t, testenv.Capability{
+			Name: "symlinks",
+			Why:  "this filesystem or user cannot create them: " + err.Error(),
+			How:  "run the suite on a filesystem that permits symlinks",
+		})
 	}
 	want, err := filepath.EvalSymlinks(target)
 	if err != nil {
@@ -122,7 +128,11 @@ func TestResolveDirKeepsADirectoryThatDoesNotExistYet(t *testing.T) {
 	target := t.TempDir()
 	link := filepath.Join(t.TempDir(), "link")
 	if err := os.Symlink(target, link); err != nil {
-		t.Skipf("symlinks are unavailable here: %v", err)
+		testenv.Skip(t, testenv.Capability{
+			Name: "symlinks",
+			Why:  "this filesystem or user cannot create them: " + err.Error(),
+			How:  "run the suite on a filesystem that permits symlinks",
+		})
 	}
 	resolved, err := filepath.EvalSymlinks(target)
 	if err != nil {

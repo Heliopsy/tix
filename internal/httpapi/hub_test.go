@@ -223,38 +223,89 @@ func TestConnAddSubRejectsDuplicateAndRemoveReportsUnknown(t *testing.T) {
 	}
 }
 
-func TestHubPumpStopsOnContextCancel(t *testing.T) {
+// pumpDeadline bounds every wait in the Pump tests. A Pump that never reads,
+// or never returns, has to fail the test rather than stall the suite: the
+// whole point of these two is that the goroutine stops.
+const pumpDeadline = 5 * time.Second
+
+// pumping starts a Pump over a fresh source and returns the source, a
+// connection subscribed to everything, and the channel closed when Pump
+// returns.
+func pumping(ctx context.Context, t *testing.T) (chan core.Event, *wsConn, chan struct{}) {
+	t.Helper()
 	h := NewHub()
 	c := newConn(testActor("t1"), 8)
 	liveSub(c, "s1", core.EventFilter{})
 	h.Register(c)
 
 	src := make(chan core.Event)
-	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		h.Pump(ctx, src)
 	}()
+	return src, c, done
+}
 
-	src <- core.Event{Seq: 1, TenantID: "t1", Type: core.EventTaskCreated}
-	if m := <-c.send; m.Type != MsgEvent {
-		t.Fatalf("pumped message type = %q", m.Type)
+// pumpOne sends one event and waits for it to reach the connection, which is
+// what proves Pump is reading its source and broadcasting at all.
+func pumpOne(t *testing.T, src chan<- core.Event, c *wsConn) {
+	t.Helper()
+	select {
+	case src <- core.Event{Seq: 1, TenantID: "t1", Type: core.EventTaskCreated}:
+	case <-time.After(pumpDeadline):
+		t.Fatal("Pump never read from its source")
 	}
+	select {
+	case m := <-c.send:
+		if m.Type != MsgEvent {
+			t.Fatalf("pumped message type = %q, want %q", m.Type, MsgEvent)
+		}
+	case <-time.After(pumpDeadline):
+		t.Fatal("Pump read an event but did not broadcast it")
+	}
+}
+
+// wantStopped fails if Pump has not returned within the deadline.
+func wantStopped(t *testing.T, done <-chan struct{}, why string) {
+	t.Helper()
+	select {
+	case <-done:
+	case <-time.After(pumpDeadline):
+		t.Fatalf("Pump did not return %s", why)
+	}
+}
+
+func TestHubPumpStopsOnContextCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	src, c, done := pumping(ctx, t)
+
+	pumpOne(t, src, c)
+
+	select {
+	case <-done:
+		t.Fatal("Pump returned while its context was still live")
+	default:
+	}
+
 	cancel()
-	<-done
+	wantStopped(t, done, "when its context was cancelled")
 }
 
 func TestHubPumpStopsWhenSourceCloses(t *testing.T) {
-	h := NewHub()
-	src := make(chan core.Event)
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		h.Pump(context.Background(), src)
-	}()
+	src, c, done := pumping(context.Background(), t)
+
+	pumpOne(t, src, c)
+
+	select {
+	case <-done:
+		t.Fatal("Pump returned while its source was still open")
+	default:
+	}
+
 	close(src)
-	<-done
+	wantStopped(t, done, "when its source closed")
 }
 
 func TestConnFailIsIdempotent(t *testing.T) {
@@ -380,15 +431,31 @@ func TestHubTenantHooksSkipConnectionsWithoutATenant(t *testing.T) {
 	}
 }
 
+// A hub with no hooks set, and one whose hooks were cleared, still has to
+// track its connections: the hooks are a notification, not the bookkeeping.
 func TestHubWithoutTenantHooksIsSafe(t *testing.T) {
 	h := NewHub()
 	c := newConn(testActor("t1"), 4)
-	h.Register(c)
-	h.Unregister(c)
 
-	h.SetTenantHooks(nil, nil)
-	h.Register(c)
-	h.Unregister(c)
+	for _, stage := range []string{"never set", "cleared"} {
+		if stage == "cleared" {
+			h.SetTenantHooks(nil, nil)
+		}
+		h.Register(c)
+		if got := h.tenantCount("t1"); got != 1 {
+			t.Errorf("%s: tenant count after register = %d, want 1", stage, got)
+		}
+		if got := h.Len(); got != 1 {
+			t.Errorf("%s: Len after register = %d, want 1", stage, got)
+		}
+		h.Unregister(c)
+		if got := h.tenantCount("t1"); got != 0 {
+			t.Errorf("%s: tenant count after unregister = %d, want 0", stage, got)
+		}
+		if got := h.Len(); got != 0 {
+			t.Errorf("%s: Len after unregister = %d, want 0", stage, got)
+		}
+	}
 }
 
 func TestHubSetTenantHooksReplacesThePreviousPair(t *testing.T) {

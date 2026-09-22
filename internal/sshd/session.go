@@ -20,7 +20,21 @@ type noticeKey struct{}
 
 // handle serves one connection: the wish middleware owns the terminal, the
 // program handler owns the identity.
+//
+// The cap on live sessions is taken here, before anything has been looked up,
+// so a full listener refuses every key the same way and a refusal says nothing
+// about whether this one had been seen before.
 func (s *Server) handle(sess ssh.Session) {
+	if key := sess.PublicKey(); key != nil {
+		fingerprint := auth.Fingerprint(key)
+		if err := s.live.acquire(fingerprint); err != nil {
+			s.log.Warn("refusing an ssh session over the concurrency cap",
+				"source", sourceOf(sess.RemoteAddr()), "error", err.Error())
+			fatalf(sess, "%s", message(err))
+			return
+		}
+		defer s.live.release(fingerprint)
+	}
 	bm.MiddlewareWithProgramHandler(s.program, termenv.ANSI256)(s.farewell)(sess)
 }
 
@@ -50,6 +64,8 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 	ctx := core.WithSource(core.WithActor(sess.Context(), actor), core.SourceTUI)
 	environ := sess.Environ()
 	color := colorFor(environ)
+	act := &activity{}
+	act.touch(s.opts.Clock.Now())
 	model := tui.New(tui.Config{
 		Service:   capped{Service: s.opts.Service, limit: s.opts.MaxTasks},
 		Context:   ctx,
@@ -68,7 +84,9 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 		tea.WithAltScreen(),
 		tea.WithContext(sess.Context()),
 	}, bm.MakeOptions(sess)...)
-	return tea.NewProgram(model, opts...)
+	program := tea.NewProgram(watched{Model: model, act: act, clk: s.opts.Clock}, opts...)
+	go s.watch(sess, program, act)
+	return program
 }
 
 // farewell prints the sandbox notice once the alternate screen is gone, which

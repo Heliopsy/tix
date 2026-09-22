@@ -17,6 +17,7 @@ import (
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/postgres"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/testenv"
 )
 
 // engine is one database the suite measures.
@@ -38,6 +39,7 @@ func engines(tb testing.TB) []engine {
 		if strings.TrimSpace(os.Getenv(PostgresEnv)) != "" {
 			out = append(out, engine{name: "postgres", open: openPostgres})
 		} else {
+			testenv.Record(testenv.PostgresCapability())
 			tb.Logf("%s is not set; the postgres run is skipped", PostgresEnv)
 		}
 	}
@@ -180,5 +182,7 @@ func TestMain(m *testing.M) {
 		pgDropper()
 	}
 	cacheMu.Unlock()
+	testenv.AppendLog()
+	testenv.Report(os.Stderr)
 	os.Exit(code)
 }

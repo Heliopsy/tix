@@ -59,7 +59,21 @@ func TestPumpsIgnoreAnEmptyTenant(t *testing.T) {
 
 func TestPumpsStopIsSafeWhenNotRunning(t *testing.T) {
 	p := newPumps(context.Background(), httpapi.NewHub(), eventLog{store: testStore(t)}, time.Millisecond, nil)
+
+	// Asserting only that this does not panic would pass with stop() gutted to
+	// a no-op, so the set it manages is what gets checked: stopping a tenant
+	// that never ran must leave a running one alone.
+	p.start("live")
+	defer p.stop("live")
+	if got := p.active(); got != 1 {
+		t.Fatalf("active after starting one = %d, want 1", got)
+	}
+
 	p.stop("never-started")
+
+	if got := p.active(); got != 1 {
+		t.Fatalf("active after stopping a tenant that never ran = %d, want the live one untouched", got)
+	}
 }
 
 // OldestSeq backs the pruned-cursor error, so a resuming subscriber is told

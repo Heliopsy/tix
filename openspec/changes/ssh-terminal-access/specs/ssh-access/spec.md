@@ -217,3 +217,76 @@ or a dumb terminal SHALL get a monochrome board.
 
 - **WHEN** a session names a dumb terminal, or names no terminal type at all
 - **THEN** the board is drawn without colour
+
+### Requirement: Every listener setting is a configuration key
+
+Every setting of the listener SHALL be a configuration key with a generated environment variable, in addition to
+its flag, and SHALL follow the documented layer order: flag, environment, `.env`, configuration file, default. A
+flag the operator did not give SHALL NOT outrank a configured value. A duration SHALL be expressed as a duration
+rather than as a string or a count of seconds. A value that cannot be used SHALL be refused at startup, naming
+the key.
+
+#### Scenario: Configured and not flagged
+
+- **WHEN** the listener's address, limits and timeouts are set in a configuration file and no flag names them
+- **THEN** the listener runs with those values
+
+#### Scenario: An environment variable beats the file
+
+- **WHEN** a key is set both in the configuration file and in the matching `TIX_SSH_*` variable
+- **THEN** the variable's value is used
+
+#### Scenario: A flag beats everything
+
+- **WHEN** a key is set in the environment and the matching flag is also given
+- **THEN** the flag's value is used, and keys whose flags were not given keep their configured values
+
+#### Scenario: A value that cannot be used
+
+- **WHEN** a negative window, a negative cap, or a per-key session cap above the listener's own cap is configured
+- **THEN** the process refuses to start and names the offending key
+
+### Requirement: A client that has gone is detected
+
+The listener SHALL send a keepalive request to each session's client at a configurable interval, and SHALL close
+the connection once a configurable number of them go unanswered. Keepalive traffic SHALL NOT count as activity
+for the idle timeout. The defaults SHALL detect an absent client in appreciably less time than the idle timeout.
+
+#### Scenario: The client vanishes without disconnecting
+
+- **WHEN** a session's client stops answering without closing the connection
+- **THEN** the connection is closed after the configured number of unanswered keepalives, releasing its session
+  slot and any lease it held
+
+#### Scenario: Keepalives do not keep an idle session alive
+
+- **WHEN** a client answers every keepalive but nobody types for the idle timeout
+- **THEN** the session is closed, because idleness is measured from the input the interface received and never
+  from traffic
+
+#### Scenario: A live client is left alone
+
+- **WHEN** a client answers its keepalives
+- **THEN** the session continues
+
+### Requirement: Caps on concurrent sessions
+
+The listener SHALL cap how many sessions one key holds at once and how many the listener holds in total, both
+configurable. A session over either cap SHALL be refused with a message the client can read that names the
+limit. The refusal SHALL NOT differ according to whether the key has been seen before.
+
+#### Scenario: One key opens too many sessions
+
+- **WHEN** a key already holding its limit of sessions opens another
+- **THEN** the session is refused, on the session's error stream, with a message naming the limit, and the
+  existing sessions are unaffected
+
+#### Scenario: The listener is at its total
+
+- **WHEN** the listener holds its limit of sessions and any key connects
+- **THEN** the session is refused with a message naming that limit
+
+#### Scenario: A refusal tells a stranger nothing
+
+- **WHEN** a full listener refuses a key it has a sandbox for and a key it has never seen
+- **THEN** both refusals are identical, and neither required a lookup to produce

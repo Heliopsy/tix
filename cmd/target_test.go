@@ -15,22 +15,16 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/testenv"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
-
-// pgDSNEnv names the environment variable that points the suite at a database.
-// Without it every postgres-backed test skips, so the suite still passes.
-const pgDSNEnv = "TIX_TEST_POSTGRES_DSN"
 
 var pgCounter atomic.Int64
 
 // freshPostgresDSN creates a database of its own for one test.
 func freshPostgresDSN(t *testing.T) string {
 	t.Helper()
-	base := strings.TrimSpace(os.Getenv(pgDSNEnv))
-	if base == "" {
-		t.Skipf("%s is not set", pgDSNEnv)
-	}
+	base := testenv.PostgresDSN(t)
 	admin, err := sql.Open("pgx", base)
 	if err != nil {
 		t.Fatalf("opening the admin connection: %v", err)

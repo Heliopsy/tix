@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/sshd"
@@ -31,6 +32,70 @@ type sshOptions struct {
 	ratePerHour  int
 	rateBurst    int
 	idleTimeout  time.Duration
+
+	keepaliveInterval  time.Duration
+	keepaliveMaxMissed int
+	maxSessionsPerKey  int
+	maxSessions        int
+}
+
+// fromConfig lays the resolved configuration under the flags: every setting is
+// a key, and a flag is the layer above every other. A flag nobody gave carries
+// its declared default, which would otherwise silently outrank a configured
+// value, so only a flag the operator actually typed is read.
+func (o sshOptions) fromConfig(cmd *cobra.Command, cfg config.SSH) sshOptions {
+	f := cmd.Flags()
+	paths := []struct {
+		flag string
+		into *string
+		from string
+	}{
+		{"listen", &o.listen, cfg.Listen},
+		{"host-key", &o.hostKey, cfg.HostKey},
+	}
+	for _, s := range paths {
+		if !f.Changed(s.flag) {
+			*s.into = s.from
+		}
+	}
+	durations := []struct {
+		flag string
+		into *time.Duration
+		from core.Duration
+	}{
+		{"tenant-ttl", &o.tenantTTL, cfg.TenantTTL},
+		{"reap-interval", &o.reapInterval, cfg.ReapInterval},
+		{"lease-ttl", &o.leaseTTL, cfg.LeaseTTL},
+		{"idle-timeout", &o.idleTimeout, cfg.IdleTimeout},
+		{"keepalive-interval", &o.keepaliveInterval, cfg.KeepaliveInterval},
+	}
+	for _, d := range durations {
+		if !f.Changed(d.flag) {
+			*d.into = time.Duration(d.from)
+		}
+	}
+	counts := []struct {
+		flag string
+		into *int
+		from int
+	}{
+		{"max-tenants", &o.maxTenants, cfg.MaxTenants},
+		{"max-tasks", &o.maxTasks, cfg.MaxTasks},
+		{"rate-per-hour", &o.ratePerHour, cfg.RatePerHour},
+		{"rate-burst", &o.rateBurst, cfg.RateBurst},
+		{"keepalive-max-missed", &o.keepaliveMaxMissed, cfg.KeepaliveMaxMissed},
+		{"max-sessions-per-key", &o.maxSessionsPerKey, cfg.MaxSessionsPerKey},
+		{"max-sessions", &o.maxSessions, cfg.MaxSessions},
+	}
+	for _, c := range counts {
+		if !f.Changed(c.flag) {
+			*c.into = c.from
+		}
+	}
+	if !f.Changed("allow-public") {
+		o.allowPublic = cfg.AllowPublic
+	}
+	return o
 }
 
 // newSSHCmd builds the command that serves the terminal interface over SSH.
@@ -58,6 +123,12 @@ func newSSHCmd(g *globals) *cobra.Command {
 		RunE:    func(cmd *cobra.Command, _ []string) error { return runSSH(cmd, g, o) },
 	}
 
+	registerSSHFlags(cmd, &o)
+	return cmd
+}
+
+// registerSSHFlags declares the ssh flags on cmd, binding them to o.
+func registerSSHFlags(cmd *cobra.Command, o *sshOptions) {
 	f := cmd.Flags()
 	f.StringVar(&o.listen, "listen", sshd.DefaultAddr, "address to listen on")
 	f.StringVar(&o.hostKey, "host-key", "",
@@ -79,7 +150,14 @@ func newSSHCmd(g *globals) *cobra.Command {
 		"connections one source address may make back to back")
 	f.DurationVar(&o.idleTimeout, "idle-timeout", sshd.DefaultIdleTimeout,
 		"how long a session may sit idle before it is closed")
-	return cmd
+	f.DurationVar(&o.keepaliveInterval, "keepalive-interval", sshd.DefaultKeepaliveInterval,
+		"how often a client is asked whether it is still there")
+	f.IntVar(&o.keepaliveMaxMissed, "keepalive-max-missed", sshd.DefaultKeepaliveMaxMissed,
+		"unanswered keepalives before the connection is dropped")
+	f.IntVar(&o.maxSessionsPerKey, "max-sessions-per-key", sshd.DefaultMaxSessionsPerKey,
+		"how many sessions one key may hold at once")
+	f.IntVar(&o.maxSessions, "max-sessions", sshd.DefaultMaxSessions,
+		"how many sessions the listener may hold at once")
 }
 
 // runSSH opens the configured target and serves it until a signal arrives.
@@ -98,6 +176,11 @@ func runSSH(cmd *cobra.Command, g *globals, o sshOptions) error {
 			"ssh refuses the zero-configuration store, which is somebody's real work: " +
 				"name a database of its own with --db")
 	}
+	resolved, err := g.resolve()
+	if err != nil {
+		return err
+	}
+	o = o.fromConfig(cmd, resolved.Config.SSH)
 	hostKey, err := resolveHostKey(o.hostKey, conn.Info.Target)
 	if err != nil {
 		return err
@@ -118,7 +201,13 @@ func runSSH(cmd *cobra.Command, g *globals, o sshOptions) error {
 		RatePerHour:   o.ratePerHour,
 		RateBurst:     o.rateBurst,
 		IdleTimeout:   o.idleTimeout,
-		TimeStyle:     g.timeStyle(),
+
+		KeepaliveInterval:  o.keepaliveInterval,
+		KeepaliveMaxMissed: o.keepaliveMaxMissed,
+		MaxSessionsPerKey:  o.maxSessionsPerKey,
+		MaxSessions:        o.maxSessions,
+
+		TimeStyle: g.timeStyle(),
 	})
 	if err != nil {
 		return err

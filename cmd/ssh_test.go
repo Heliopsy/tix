@@ -8,8 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/spf13/cobra"
 )
 
 func TestSSHRefusesTheZeroConfigurationStore(t *testing.T) {
@@ -109,5 +111,99 @@ func TestResolveHostKey(t *testing.T) {
 				t.Fatalf("resolveHostKey = %q, %v; want %q", got, err, tc.want)
 			}
 		})
+	}
+}
+
+func TestSSHOptionsTakeConfiguredKeysAndFlagsBeatThem(t *testing.T) {
+	cfg := config.SSH{
+		Listen:             "127.0.0.1:2300",
+		HostKey:            "/etc/tix/host_key",
+		AllowPublic:        true,
+		TenantTTL:          core.Duration(2 * time.Hour),
+		ReapInterval:       core.Duration(5 * time.Minute),
+		MaxTenants:         11,
+		MaxTasks:           12,
+		LeaseTTL:           core.Duration(90 * time.Second),
+		RatePerHour:        13,
+		RateBurst:          14,
+		IdleTimeout:        core.Duration(7 * time.Minute),
+		KeepaliveInterval:  core.Duration(15 * time.Second),
+		KeepaliveMaxMissed: 4,
+		MaxSessionsPerKey:  5,
+		MaxSessions:        6,
+	}
+	tests := []struct {
+		name  string
+		args  []string
+		check func(*testing.T, sshOptions)
+	}{
+		{
+			name: "no flag leaves the configured value",
+			check: func(t *testing.T, o sshOptions) {
+				if o.listen != cfg.Listen || o.hostKey != cfg.HostKey || !o.allowPublic {
+					t.Fatalf("options = %+v, want the configured listener", o)
+				}
+				if o.idleTimeout != 7*time.Minute || o.keepaliveInterval != 15*time.Second {
+					t.Fatalf("timings = %v/%v, want the configured ones", o.idleTimeout, o.keepaliveInterval)
+				}
+				if o.maxTenants != 11 || o.maxTasks != 12 || o.ratePerHour != 13 || o.rateBurst != 14 {
+					t.Fatalf("limits = %+v, want the configured ones", o)
+				}
+				if o.keepaliveMaxMissed != 4 || o.maxSessionsPerKey != 5 || o.maxSessions != 6 {
+					t.Fatalf("caps = %+v, want the configured ones", o)
+				}
+				if o.tenantTTL != 2*time.Hour || o.reapInterval != 5*time.Minute ||
+					o.leaseTTL != 90*time.Second {
+					t.Fatalf("windows = %+v, want the configured ones", o)
+				}
+			},
+		},
+		{
+			name: "a flag beats the configured value",
+			args: []string{"--idle-timeout", "9m", "--max-sessions", "42", "--listen", "127.0.0.1:2400"},
+			check: func(t *testing.T, o sshOptions) {
+				if o.idleTimeout != 9*time.Minute || o.maxSessions != 42 || o.listen != "127.0.0.1:2400" {
+					t.Fatalf("options = %+v, want the flags to win", o)
+				}
+				if o.keepaliveInterval != 15*time.Second || o.maxSessionsPerKey != 5 {
+					t.Fatalf("options = %+v, want the untouched keys to stay configured", o)
+				}
+			},
+		},
+		{
+			name: "an explicit flag equal to its default still wins",
+			args: []string{"--allow-public=false"},
+			check: func(t *testing.T, o sshOptions) {
+				if o.allowPublic {
+					t.Fatal("allow-public=false lost to the configured true")
+				}
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var o sshOptions
+			cmd := &cobra.Command{Use: "ssh"}
+			registerSSHFlags(cmd, &o)
+			if err := cmd.Flags().Parse(tc.args); err != nil {
+				t.Fatalf("parsing %v: %v", tc.args, err)
+			}
+			tc.check(t, o.fromConfig(cmd, cfg))
+		})
+	}
+}
+
+func TestSSHTakesItsListenAddressFromAConfigurationFile(t *testing.T) {
+	c := newCLI(t)
+	db := filepath.Join(t.TempDir(), "demo.db")
+	writeFile(t, filepath.Join(c.home, "conf", "tix", "config.yaml"),
+		"ssh:\n  listen: 0.0.0.0:2222\n")
+
+	got := c.run("--db", db, "ssh")
+	if got.code != core.ExitUsage {
+		t.Fatalf("exit = %d, want %d: %s", got.code, core.ExitUsage, got.err)
+	}
+	if !strings.Contains(got.err, "0.0.0.0:2222") {
+		t.Fatalf("stderr = %q, want the bind guard to name the configured address", got.err)
 	}
 }

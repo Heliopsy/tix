@@ -38,7 +38,8 @@ Coding standards for tix. Terse by design. Read before writing code.
 - Table-driven by default.
 - Use a real temporary SQLite database, not mocks.
 - Anything time-dependent uses `clock.FakeClock`. Never `time.Sleep` to coordinate.
-- Coverage threshold is 80%, excluding `internal/tui`.
+- Coverage floor is 85% with both engines, 78% when the PostgreSQL suite skips. No package is excluded.
+- A test that skips on a missing capability skips through `internal/testenv`, so the run reports it.
 - New behaviour ships with its test in the same change.
 
 ## Never touch a real store

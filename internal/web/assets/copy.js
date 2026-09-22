@@ -1,5 +1,9 @@
 (function () {
   "use strict";
+  var tix = window.tix;
+  if (!tix) {
+    return;
+  }
   // One generic copy-to-clipboard affordance for the whole site: any button
   // carrying data-copy-target="<id>" copies the text content of the element
   // with that id. Nothing here is specific to any one screen, so a future
@@ -17,15 +21,12 @@
     copy(source.textContent || "", btn);
   });
 
+  // tix.copyText owns the choice of mechanism and every failure path, so a
+  // clipboard the browser refuses becomes a label rather than an error.
   function copy(text, btn) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(
-        function () { announce(btn, true); },
-        function () { announce(btn, false); }
-      );
-      return;
-    }
-    announce(btn, legacyCopy(text));
+    tix.copyText(text, { clipboard: navigator.clipboard, legacy: legacyCopy }, function (ok) {
+      announce(btn, ok);
+    });
   }
 
   // legacyCopy supports a browser without the async Clipboard API, using a
@@ -73,12 +74,6 @@
     if (!name) {
       return;
     }
-    if (input.files && input.files.length > 1) {
-      name.textContent = input.files.length + " files chosen";
-    } else if (input.files && input.files.length === 1) {
-      name.textContent = input.files[0].name;
-    } else {
-      name.textContent = "No file chosen";
-    }
+    name.textContent = tix.fileChoiceLabel(input.files);
   });
 })();

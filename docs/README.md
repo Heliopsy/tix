@@ -20,6 +20,7 @@ with the thing.
 | [scaling.md](scaling.md) | SQLite versus PostgreSQL, keyset pagination, partitioning, when to move |
 | [migrating.md](migrating.md) | Importing from Jira and OpenProject, mapping files, snapshots, bundles |
 | [shell-completion.md](shell-completion.md) | Installing completions for bash, zsh and fish |
+| [testing.md](testing.md) | Running the suite, what a partial run announces, the coverage floors |
 
 ## Where to start
 
@@ -28,6 +29,7 @@ with the thing.
   [deployment.md](deployment.md).
 - Coming from another tracker: [migrating.md](migrating.md).
 - Building a client: [api.md](api.md).
+- Changing the code: [AGENTS.md](../AGENTS.md), then [testing.md](testing.md).
 
 ## Elsewhere
 

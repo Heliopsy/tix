@@ -7,7 +7,23 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
 	sqlb "github.com/heliopsy/tix/internal/store/sql"
+	"github.com/heliopsy/tix/internal/testenv"
 )
+
+// requireAppRole skips when the database granted no unprivileged role, because
+// the login role then bypasses row-level security and the policies below would
+// prove nothing.
+func requireAppRole(t *testing.T, s *Store) {
+	t.Helper()
+	if s.appRole {
+		return
+	}
+	testenv.Skip(t, testenv.Capability{
+		Name: "postgres-app-role",
+		Why:  "the " + appRoleName + " role is unavailable, so the login role bypasses row-level security",
+		How:  "point " + testenv.PostgresEnv + " at a database whose user may CREATE ROLE (just pg-up does)",
+	})
+}
 
 // TestRowLevelSecurityRefusesACrossTenantRead issues statements with no tenant
 // predicate at all, which is what a bug in the query builder would produce. The
@@ -15,9 +31,7 @@ import (
 func TestRowLevelSecurityRefusesACrossTenantRead(t *testing.T) {
 	ctx := context.Background()
 	s, clk := newStore(t)
-	if !s.appRole {
-		t.Skipf("the %q role is unavailable, so the login role bypasses row-level security", appRoleName)
-	}
+	requireAppRole(t, s)
 	one := seed(t, s, clk, "one")
 	two := seed(t, s, clk, "two")
 	one.newTask(t, "mine", core.PriorityNormal)
@@ -49,9 +63,7 @@ func TestRowLevelSecurityRefusesACrossTenantRead(t *testing.T) {
 func TestRowLevelSecurityRefusesACrossTenantWrite(t *testing.T) {
 	ctx := context.Background()
 	s, clk := newStore(t)
-	if !s.appRole {
-		t.Skipf("the %q role is unavailable, so the login role bypasses row-level security", appRoleName)
-	}
+	requireAppRole(t, s)
 	one := seed(t, s, clk, "one")
 	two := seed(t, s, clk, "two")
 

@@ -5,6 +5,7 @@ dist/
 coverage.out
 coverage.filtered.out
 coverage.html
+coverage-env.log
 .env
 *.db
 *.db-wal

@@ -32,6 +32,14 @@ to reach the same authorization decisions everything else goes through rather th
 - **The same non-loopback bind guard** `tix serve` applies.
 - **Its own database**, refusing the zero-configuration store, because a listener strangers reach must not share
   a process boundary with real tenants.
+- **Every setting is a configuration key**, not only a flag: an `ssh.` section with a generated `TIX_SSH_*`
+  variable for each, under the same layer order as everything else. The deployment most likely to run this
+  listener is a container, where a command line is the hardest layer to reach.
+- **A keepalive**, because an idle timeout notices a session nobody is typing at and never notices a session
+  whose client has gone. A vanished client holds its slot and its lease until the idle timeout expires, which on
+  a demo built around leases is the wrong story to tell.
+- **Caps on concurrent sessions**, per key and in total. The rate limiter counts connections per hour from one
+  address and says nothing about how many are still open.
 
 ## Deliberately not in this change
 
@@ -45,5 +53,6 @@ to reach the same authorization decisions everything else goes through rather th
 ## Impact
 
 - New: `internal/sshd`, `cmd/ssh.go`, `internal/auth/publickey.go`.
+- New: an `SSH` section in `internal/config`, `internal/sshd/keepalive.go`, `internal/sshd/gate.go`.
 - New dependencies: `github.com/charmbracelet/wish` and `github.com/charmbracelet/ssh`.
 - No change to `internal/core`, `internal/service`, `internal/store` or the schema.

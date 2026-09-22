@@ -36,9 +36,19 @@
 - [x] 5.2 `docs/deployment.md`: the listener, its flags, expiry, caps, and port 22
 - [x] 5.3 `docs/agents.md`: the public key as a third credential, and what is not built yet
 
-## 6. Left for the next change
+## 6. Configuration, keepalive and session caps
 
-- [ ] 6.1 `tix user key add`: enrol a public key against an existing user
-- [ ] 6.2 A store-backed `PublicKeyLookup` over enrolled keys, and the table behind it
-- [ ] 6.3 A read-only scope set in `internal/authz`, if one is wanted
-- [ ] 6.4 A `*lipgloss.Renderer` on `tui.Config`, so each session renders at its own client's depth
+- [x] 6.1 `internal/config`: an `SSH` section covering every listener setting, with defaults and validation
+- [x] 6.2 `cmd/ssh.go`: read the resolved keys, flags overriding only where one was given
+- [x] 6.3 `internal/sshd/keepalive.go`: keepalive requests, missed-reply count, connection dropped
+- [x] 6.4 Idleness measured from the interface's input, so keepalive traffic cannot defeat the idle timeout
+- [x] 6.5 `internal/sshd/gate.go`: caps on concurrent sessions per key and in total
+- [x] 6.6 `docs/configuration.md` and `docs/deployment.md`: the keys, the keepalive and the caps
+- [x] 6.7 Tests: key registry and layering, the activity tap, a vanished client, both caps
+
+## 7. Left for the next change
+
+- [ ] 7.1 `tix user key add`: enrol a public key against an existing user
+- [ ] 7.2 A store-backed `PublicKeyLookup` over enrolled keys, and the table behind it
+- [ ] 7.3 A read-only scope set in `internal/authz`, if one is wanted
+- [ ] 7.4 A `*lipgloss.Renderer` on `tui.Config`, so each session renders at its own client's depth

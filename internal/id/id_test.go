@@ -1,6 +1,7 @@
 package id
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -201,17 +202,33 @@ func TestFixedGenerator(t *testing.T) {
 
 func TestFixedIsConcurrencySafe(t *testing.T) {
 	f := NewFixed("a", "b", "c")
+	errs := make(chan error, 8)
 	var wg sync.WaitGroup
 	for range 8 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for range 100 {
-				_ = f.New()
+				got := f.New()
+				// Relying on -race alone means this cannot fail under a plain
+				// go test. Every value must be one the generator was given.
+				if got != "a" && got != "b" && got != "c" {
+					errs <- fmt.Errorf("New() = %q, want one of the declared values", got)
+					return
+				}
 			}
 		}()
 	}
 	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Error(err)
+	}
+
+	// 800 calls over a three-value cycle must land back where it started.
+	if got := f.New(); got != "c" {
+		t.Errorf("after 800 calls New() = %q, want the cycle to have advanced exactly 800 times", got)
+	}
 }
 
 func BenchmarkNew(b *testing.B) {

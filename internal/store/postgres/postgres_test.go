@@ -14,11 +14,15 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
 	sqlb "github.com/heliopsy/tix/internal/store/sql"
+	"github.com/heliopsy/tix/internal/testenv"
 )
 
-// dsnEnv names the environment variable that points the suite at a database.
-// Without it every database-backed test skips, so the suite still passes.
-const dsnEnv = "TIX_TEST_POSTGRES_DSN"
+// TestMain reports, after the run, whether this package proved anything at
+// all. Without a database every test here skips, and a silent skip reads
+// exactly like a pass.
+func TestMain(m *testing.M) {
+	testenv.Main(m)
+}
 
 var dbCounter atomic.Int64
 
@@ -34,11 +38,7 @@ type fixture struct {
 
 func requireDSN(t *testing.T) string {
 	t.Helper()
-	dsn := strings.TrimSpace(os.Getenv(dsnEnv))
-	if dsn == "" {
-		t.Skipf("%s is not set", dsnEnv)
-	}
-	return dsn
+	return testenv.PostgresDSN(t)
 }
 
 // freshDSN creates a database of its own for one test, so listings that count

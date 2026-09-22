@@ -2,6 +2,7 @@ package config
 
 import (
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/heliopsy/tix/internal/auth"
@@ -77,6 +78,49 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 			return invalidKey(window.key, sources).WithDetail("value", window.d.String()).
 				WithDetail("reason", "retention windows must not be negative")
 		}
+	}
+	// The ssh listener's limits are numbers rather than enumerations, so what
+	// can be wrong about one is its sign: a negative window or a negative cap
+	// would otherwise be accepted here and quietly replaced by a default much
+	// later, which is the same silence a security setting must never have.
+	for _, window := range []struct {
+		key string
+		d   core.Duration
+	}{
+		{"ssh.tenant_ttl", cfg.SSH.TenantTTL},
+		{"ssh.reap_interval", cfg.SSH.ReapInterval},
+		{"ssh.lease_ttl", cfg.SSH.LeaseTTL},
+		{"ssh.idle_timeout", cfg.SSH.IdleTimeout},
+		{"ssh.keepalive_interval", cfg.SSH.KeepaliveInterval},
+	} {
+		if window.d < 0 {
+			return invalidKey(window.key, sources).WithDetail("value", window.d.String()).
+				WithDetail("reason", "an ssh duration must not be negative")
+		}
+	}
+	for _, limit := range []struct {
+		key string
+		n   int
+	}{
+		{"ssh.max_tenants", cfg.SSH.MaxTenants},
+		{"ssh.max_tasks", cfg.SSH.MaxTasks},
+		{"ssh.rate_per_hour", cfg.SSH.RatePerHour},
+		{"ssh.rate_burst", cfg.SSH.RateBurst},
+		{"ssh.keepalive_max_missed", cfg.SSH.KeepaliveMaxMissed},
+		{"ssh.max_sessions_per_key", cfg.SSH.MaxSessionsPerKey},
+		{"ssh.max_sessions", cfg.SSH.MaxSessions},
+	} {
+		if limit.n < 0 {
+			return invalidKey(limit.key, sources).WithDetail("value", strconv.Itoa(limit.n)).
+				WithDetail("reason", "an ssh limit must not be negative")
+		}
+	}
+	// A cap on one key that exceeds the cap on the listener is not wrong so
+	// much as unreachable, and an operator who wrote it meant something else.
+	if cfg.SSH.MaxSessions > 0 && cfg.SSH.MaxSessionsPerKey > cfg.SSH.MaxSessions {
+		return invalidKey("ssh.max_sessions_per_key", sources).
+			WithDetail("value", strconv.Itoa(cfg.SSH.MaxSessionsPerKey)).
+			WithDetail("reason", "one key may not be allowed more sessions than the whole listener")
 	}
 	for name, ctx := range cfg.Contexts {
 		if err := ctx.validate(name); err != nil {

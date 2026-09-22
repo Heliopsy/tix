@@ -22,6 +22,10 @@ ARG YAMLLINT_VERSION=1.38.0
 # hadolint ignore=DL3018
 SHELL ["/bin/ash", "-o", "pipefail", "-c"]
 
+# nodejs also backs `just jstest`, which runs internal/web/jstest with node's
+# own built-in test runner. That suite pulls in no npm package, so there is no
+# JavaScript build step and no developer-side dependency: node only has to
+# exist here.
 # hadolint ignore=DL3018
 RUN apk add --no-cache git bash curl tar nodejs npm py3-pip ca-certificates
 

@@ -106,7 +106,8 @@ func TestAssetsAreServedFromTheBinary(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	b := f.as("alice")
-	for _, asset := range []string{"/assets/app.css", "/assets/htmx.min.js", "/assets/live.js"} {
+	for _, asset := range []string{"/assets/app.css", "/assets/htmx.min.js", "/assets/live.js",
+		"/assets/decide.js", "/assets/shortcuts.js", "/assets/copy.js"} {
 		resp := b.get(asset)
 		wantStatus(t, resp, http.StatusOK)
 		if len(body(t, resp)) == 0 {

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/testenv"
 )
 
 var escapes = regexp.MustCompile("\x1b\\[[0-9;]*m")
@@ -19,11 +20,19 @@ func charDevice(t *testing.T) *os.File {
 	t.Helper()
 	f, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 	if err != nil {
-		t.Skipf("no character device available: %v", err)
+		testenv.Skip(t, testenv.Capability{
+			Name: "character-device",
+			Why:  "the null device cannot be opened here: " + err.Error(),
+			How:  "run the suite on a host that exposes " + os.DevNull,
+		})
 	}
 	t.Cleanup(func() { _ = f.Close() })
 	if !isTerminal(f) {
-		t.Skip("the null device is not a character device here")
+		testenv.Skip(t, testenv.Capability{
+			Name: "character-device",
+			Why:  "the null device is not a character device here, so auto colour cannot be exercised",
+			How:  "run the suite on a host where " + os.DevNull + " is a character device",
+		})
 	}
 	return f
 }

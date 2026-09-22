@@ -147,10 +147,16 @@ func TestTagRemoval(t *testing.T) {
 	added := b.post("/tasks/"+ref+"/tags", url.Values{"tag": {"ops"}})
 	_ = added.Body.Close()
 	wantStatus(t, added, http.StatusSeeOther)
+	if page := b.page("/tasks/" + ref); !strings.Contains(page, `<span class="tag">ops</span>`) {
+		t.Fatal("the tag was not added to the task")
+	}
 
 	removed := b.post("/tasks/"+ref+"/tags/remove", url.Values{"tag": {"ops"}})
 	_ = removed.Body.Close()
 	wantStatus(t, removed, http.StatusSeeOther)
+	if page := b.page("/tasks/" + ref); strings.Contains(page, `<span class="tag">ops</span>`) {
+		t.Error("the tag is still on the task after its removal was accepted")
+	}
 }
 
 func TestMalformedReferencesAndNumbersAreRefused(t *testing.T) {

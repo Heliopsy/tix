@@ -96,4 +96,5 @@ one-click signing link.
 
 Tests live next to the code (`*_test.go`), are table-driven, use a real temporary SQLite
 database rather than mocks, and use `clock.FakeClock` for anything time-dependent.
-Coverage must stay at or above 80%, excluding `internal/tui`.
+Coverage must stay at or above 85% with both engines, or 78% when the PostgreSQL suite skips.
+`just cover-check` prints which floor applied and the headroom left. See [docs/testing.md](docs/testing.md).

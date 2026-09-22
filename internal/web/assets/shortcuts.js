@@ -1,5 +1,11 @@
 (function () {
   "use strict";
+  // The pure decisions this handler makes live in assets/decide.js, which is
+  // covered by internal/web/jstest. What is left here is the wiring.
+  var tix = window.tix;
+  if (!tix) {
+    return;
+  }
   // The binding table is embedded once per page by internal/web/shortcuts.go
   // as JSON, and both the keydown handler below and the help overlay read it
   // at runtime. Neither ever hardcodes a key or a label, so the two cannot
@@ -18,50 +24,7 @@
     return;
   }
 
-  // comboOf renders a keydown event the same way the binding table names a
-  // key, so a lookup is a single map access. Only the ctrl modifier is
-  // represented: none of the shipped schemes use alt or a bare shift chord.
-  function comboOf(event) {
-    var key = event.key;
-    if (event.ctrlKey && key.length === 1) {
-      return "ctrl+" + key.toLowerCase();
-    }
-    return key;
-  }
-
-  // actionsByCombo inverts one scheme's table, since the keydown handler
-  // looks a key up but the binding table (and the help overlay) is written
-  // the other way around, one or more keys per action.
-  function actionsByCombo(scheme) {
-    var table = data.bindings[scheme] || {};
-    var out = {};
-    for (var action in table) {
-      if (!Object.prototype.hasOwnProperty.call(table, action)) {
-        continue;
-      }
-      var keys = table[action];
-      for (var i = 0; i < keys.length; i++) {
-        out[keys[i]] = action;
-      }
-    }
-    return out;
-  }
-
-  var comboToAction = actionsByCombo(data.scheme);
-
-  // isTypingTarget reports whether a keystroke is text entry rather than a
-  // shortcut. Every handler below is gated on this first, so a scheme never
-  // steals a letter out of something the reader is typing.
-  function isTypingTarget(el) {
-    if (!el) {
-      return false;
-    }
-    if (el.isContentEditable) {
-      return true;
-    }
-    var tag = el.tagName;
-    return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
-  }
+  var comboToAction = tix.actionsByCombo(data.bindings[data.scheme]);
 
   // -- selection: a real DOM focus move over whichever rows this page has --
 
@@ -255,10 +218,10 @@
     if (helpOpen()) {
       return;
     }
-    if (isTypingTarget(event.target)) {
+    if (tix.isTypingTarget(event.target)) {
       return;
     }
-    var action = comboToAction[comboOf(event)];
+    var action = comboToAction[tix.comboOf(event)];
     var handler = action && handlers[action];
     if (!handler) {
       return;

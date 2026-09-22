@@ -38,6 +38,26 @@ const (
 	DefaultIdleTimeout  = 30 * time.Minute
 )
 
+// Keepalive defaults. An idle timeout closes a session nobody is typing at; it
+// says nothing about a session whose client has gone, which holds its slot and
+// any lease it was carrying until the idle timeout finally expires. Half a
+// minute between requests and three unanswered ones notice that in about two
+// minutes, which is the length of a seeded lease rather than the length of the
+// idle timeout: on a demo whose argument is that a lease returns work when a
+// worker dies, a zombie session sitting on a claim is the wrong demonstration.
+const (
+	DefaultKeepaliveInterval  = 30 * time.Second
+	DefaultKeepaliveMaxMissed = 3
+)
+
+// Defaults for the caps on live sessions. The rate limiter counts connections
+// per hour from one address; neither it nor the tenant cap stops one key from
+// holding many sessions at once, each a program with its own subscription.
+const (
+	DefaultMaxSessionsPerKey = 3
+	DefaultMaxSessions       = 100
+)
+
 // Options configure the SSH listener.
 type Options struct {
 	// Service is the tenant-agnostic service every session calls through. It
@@ -67,7 +87,20 @@ type Options struct {
 
 	RatePerHour int
 	RateBurst   int
+	// IdleTimeout closes a session nobody is typing at. It is measured from
+	// the last key the interface saw, never from traffic, so the keepalive
+	// below cannot hold an abandoned session open forever.
 	IdleTimeout time.Duration
+	// KeepaliveInterval is the gap between liveness requests, and
+	// KeepaliveMaxMissed how many may go unanswered before the connection is
+	// dropped.
+	KeepaliveInterval  time.Duration
+	KeepaliveMaxMissed int
+
+	// MaxSessionsPerKey caps the sessions one key holds at once, MaxSessions
+	// the listener as a whole.
+	MaxSessionsPerKey int
+	MaxSessions       int
 
 	TimeStyle output.TimeStyle
 	Logger    *slog.Logger
@@ -79,6 +112,7 @@ type Server struct {
 	ssh      *ssh.Server
 	listener net.Listener
 	limiter  *limiter
+	live     *gate
 	verifier *auth.PublicKeyVerifier
 	log      *slog.Logger
 }
@@ -116,6 +150,7 @@ func New(o Options) (*Server, error) {
 		opts:    o,
 		log:     o.Logger,
 		limiter: newLimiter(o.Clock, rateInterval(o.RatePerHour), o.RateBurst, o.MaxTenants*4),
+		live:    newGate(o.MaxSessionsPerKey, o.MaxSessions),
 	}
 	s.verifier = auth.NewPublicKeyVerifier(&provisioner{
 		store:      o.Store,
@@ -129,6 +164,11 @@ func New(o Options) (*Server, error) {
 		Addr:        o.Addr,
 		Handler:     s.handle,
 		HostSigners: []ssh.Signer{signer},
+		// This deadline bounds a connection that has not opened a session
+		// yet, where there is no interface to ask about idleness. Once a
+		// session is running it is refreshed by every byte either side
+		// sends, keepalives included, so the session's own idleness is
+		// decided by the watchdog in keepalive.go instead.
 		IdleTimeout: o.IdleTimeout,
 		// Every key is accepted. SSH requires a client to prove a key, but
 		// nothing requires the server to have seen it before, and that proof
@@ -174,6 +214,21 @@ func (o Options) withDefaults() Options {
 	}
 	if o.IdleTimeout <= 0 {
 		o.IdleTimeout = DefaultIdleTimeout
+	}
+	if o.KeepaliveInterval <= 0 {
+		o.KeepaliveInterval = DefaultKeepaliveInterval
+	}
+	if o.KeepaliveMaxMissed <= 0 {
+		o.KeepaliveMaxMissed = DefaultKeepaliveMaxMissed
+	}
+	if o.MaxSessions <= 0 {
+		o.MaxSessions = DefaultMaxSessions
+	}
+	if o.MaxSessionsPerKey <= 0 {
+		o.MaxSessionsPerKey = DefaultMaxSessionsPerKey
+	}
+	if o.MaxSessionsPerKey > o.MaxSessions {
+		o.MaxSessionsPerKey = o.MaxSessions
 	}
 	return o
 }

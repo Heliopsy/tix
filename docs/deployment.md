@@ -308,7 +308,56 @@ should share that process boundary.
 | `--lease-ttl` | `2m` | lease length in a seeded sandbox |
 | `--rate-per-hour` | `60` | connections per hour from one source address |
 | `--rate-burst` | `5` | connections one source may make back to back |
-| `--idle-timeout` | `30m` | how long a session may sit idle |
+| `--idle-timeout` | `30m` | how long a session may sit idle with nobody typing |
+| `--keepalive-interval` | `30s` | how often a client is asked whether it is still there |
+| `--keepalive-max-missed` | `3` | unanswered keepalives before the connection is dropped |
+| `--max-sessions-per-key` | `3` | sessions one key may hold at once |
+| `--max-sessions` | `100` | sessions the listener may hold at once |
+
+Every one of these is also a configuration key under `ssh.` with a generated `TIX_SSH_*` variable, so a container
+deployment does not have to reach the command line for any of it. The flag wins where one was given; see
+[configuration.md](configuration.md) for the key list and the layer order.
+
+```sh
+# the same listener, configured rather than flagged
+TIX_SSH_LISTEN=0.0.0.0:2222 TIX_SSH_ALLOW_PUBLIC=true TIX_SSH_MAX_TENANTS=500 \
+  tix ssh --db /var/lib/tix/demo.db
+```
+
+### A client that goes away without saying so
+
+`--idle-timeout` closes a session nobody is typing at. It does not notice a session whose **client** has gone: a
+closed laptop, an expired NAT entry, a dropped network. Nothing arrives and nothing closes, so that session holds
+its slot against `--max-sessions` and keeps any lease it was carrying until the idle timeout finally expires. On
+a demo whose whole argument is that a lease returns work when a worker dies, a zombie session sitting on a claim
+is precisely the wrong demonstration.
+
+So the listener asks. Every `--keepalive-interval` it sends the request every SSH client answers, and after
+`--keepalive-max-missed` unanswered ones it closes the connection rather than the session, because a write to a
+vanished client blocks until TCP gives up. The defaults notice in about two minutes, which is the length of a
+seeded lease rather than the length of the idle timeout.
+
+The two are independent by construction. A keepalive is traffic, and so is its reply, so an idle clock fed by
+traffic would be reset by the very mechanism meant to detect an absent client. The idle clock is fed by the key
+and mouse messages the interface receives instead, which no protocol traffic produces: keepalives refresh the
+transport's own deadlines and move nothing that decides idleness.
+
+### Caps on live sessions
+
+`--rate-per-hour` counts connections from one source address over an hour. It says nothing about how many are
+still open, so one key can hold fifty sessions at once, each a program with its own event subscription, without
+ever exceeding its allowance. `--max-sessions-per-key` and `--max-sessions` cap that.
+
+A session over either cap is refused on the session's standard error, before any board is drawn, with a message
+naming the limit:
+
+```console
+$ ssh -p 2222 visitor@localhost
+tix: this key is at its limit of 3 concurrent sessions; close one and reconnect
+```
+
+The cap is taken before the key is looked up at all, and the wording does not depend on the key, so a refusal
+cannot tell a stranger whether this listener had seen theirs before.
 
 ### The non-loopback bind guard
 

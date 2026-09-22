@@ -264,6 +264,7 @@ local and CI results cannot drift apart.
 | `just lint` `just sec` `just vuln` `just trivy` | Individual gates, in the pinned toolbox image |
 | `just spec` | `openspec validate --strict` |
 | `just pg-up` / `just test-postgres` | PostgreSQL in a container, and the suite against it |
+| `just cover-check` | The coverage floor, the headroom above it, and what the run skipped |
 | `just ci` | Everything CI runs, locally |
 
 ## Licence

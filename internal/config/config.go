@@ -21,6 +21,7 @@ type Config struct {
 	Auth           Auth               `yaml:"auth"`
 	Hooks          Hooks              `yaml:"hooks"`
 	Webhooks       Webhooks           `yaml:"webhooks"`
+	SSH            SSH                `yaml:"ssh"`
 	Discovery      Discovery          `yaml:"discovery"`
 	Retention      Retention          `yaml:"retention"`
 	Log            Log                `yaml:"log"`
@@ -53,6 +54,48 @@ type Server struct {
 	// The default derives it from the scheme the client used, which behind a
 	// TLS-terminating proxy is the proxy's, not this process's.
 	CookieSecurity string `yaml:"cookie_security"`
+}
+
+// SSH holds the settings of the listener `tix ssh` runs: where it binds, the
+// identity it presents, and the limits that keep a listener strangers reach
+// from becoming an availability problem.
+//
+// Every one of them is a key rather than only a flag, because the deployment
+// most likely to run this listener is a container, where a command line is the
+// hardest layer to reach and an environment variable the easiest.
+type SSH struct {
+	Listen  string `yaml:"listen"`
+	HostKey string `yaml:"host_key"`
+	// AllowPublic permits binding a non-loopback address, which is the same
+	// explicit choice `tix serve` demands before it faces a network.
+	AllowPublic bool `yaml:"allow_public"`
+
+	// TenantTTL is how long a sandbox survives without a visit. It slides from
+	// the last connection, so a returning visitor keeps their board.
+	TenantTTL    core.Duration `yaml:"tenant_ttl"`
+	ReapInterval core.Duration `yaml:"reap_interval"`
+	MaxTenants   int           `yaml:"max_tenants"`
+	MaxTasks     int           `yaml:"max_tasks"`
+	LeaseTTL     core.Duration `yaml:"lease_ttl"`
+
+	RatePerHour int `yaml:"rate_per_hour"`
+	RateBurst   int `yaml:"rate_burst"`
+
+	// IdleTimeout closes a session nobody is typing at. It says nothing about
+	// a session whose client has gone, which is what the keepalive is for.
+	IdleTimeout core.Duration `yaml:"idle_timeout"`
+	// KeepaliveInterval is the gap between liveness requests sent to a client.
+	KeepaliveInterval core.Duration `yaml:"keepalive_interval"`
+	// KeepaliveMaxMissed is how many of those may go unanswered before the
+	// connection is dropped, releasing its session slot and its leases.
+	KeepaliveMaxMissed int `yaml:"keepalive_max_missed"`
+
+	// MaxSessionsPerKey caps how many sessions one key may hold at once, and
+	// MaxSessions caps the listener as a whole. Each session is a program with
+	// its own event subscription, so the rate limit on new connections is not
+	// a limit on live ones.
+	MaxSessionsPerKey int `yaml:"max_sessions_per_key"`
+	MaxSessions       int `yaml:"max_sessions"`
 }
 
 // Auth holds the authentication settings.
@@ -177,6 +220,30 @@ const (
 	DefaultOutputTimezone = "local"
 )
 
+// Default settings of the SSH listener. They mirror internal/sshd, which holds
+// the same defaults for a caller that assembles a listener directly; a test
+// there keeps the two from drifting.
+const (
+	// DefaultSSHListen is loopback and port 2222. Port 22 is a deployment
+	// concern, not something this process asks for the privilege to bind.
+	DefaultSSHListen       = "127.0.0.1:2222"
+	DefaultSSHTenantTTL    = "6h"
+	DefaultSSHReapInterval = "10m"
+	DefaultSSHMaxTenants   = 200
+	DefaultSSHMaxTasks     = 200
+	DefaultSSHLeaseTTL     = "2m"
+	DefaultSSHRatePerHour  = 60
+	DefaultSSHRateBurst    = 5
+	DefaultSSHIdleTimeout  = "30m"
+	// DefaultSSHKeepaliveInterval and DefaultSSHKeepaliveMaxMissed together
+	// notice a vanished client in about two minutes, which is the length of a
+	// seeded lease rather than the length of the idle timeout.
+	DefaultSSHKeepaliveInterval  = "30s"
+	DefaultSSHKeepaliveMaxMissed = 3
+	DefaultSSHMaxSessionsPerKey  = 3
+	DefaultSSHMaxSessions        = 100
+)
+
 // Cookie security settings, deciding whether a cookie is marked Secure.
 const (
 	// CookieSecurityAuto follows the effective scheme of each request.
@@ -226,6 +293,21 @@ func Defaults() Config {
 		Auth:     Auth{Mode: DefaultAuthMode},
 		Hooks:    Hooks{Mode: DefaultHookMode},
 		Webhooks: Webhooks{DrainMode: DefaultWebhookDrainMode},
+		SSH: SSH{
+			Listen:             DefaultSSHListen,
+			TenantTTL:          mustDuration(DefaultSSHTenantTTL),
+			ReapInterval:       mustDuration(DefaultSSHReapInterval),
+			MaxTenants:         DefaultSSHMaxTenants,
+			MaxTasks:           DefaultSSHMaxTasks,
+			LeaseTTL:           mustDuration(DefaultSSHLeaseTTL),
+			RatePerHour:        DefaultSSHRatePerHour,
+			RateBurst:          DefaultSSHRateBurst,
+			IdleTimeout:        mustDuration(DefaultSSHIdleTimeout),
+			KeepaliveInterval:  mustDuration(DefaultSSHKeepaliveInterval),
+			KeepaliveMaxMissed: DefaultSSHKeepaliveMaxMissed,
+			MaxSessionsPerKey:  DefaultSSHMaxSessionsPerKey,
+			MaxSessions:        DefaultSSHMaxSessions,
+		},
 		Discovery: Discovery{
 			Enabled:   true,
 			Filenames: append([]string(nil), DefaultDiscoveryFilenames...),
