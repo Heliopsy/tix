@@ -254,3 +254,39 @@ func TestTenantMethodsRequireTenantAdminScope(t *testing.T) {
 		t.Errorf("viewer listing tenants = %v, want forbidden", err)
 	}
 }
+
+func TestCreateTenantSeedsTheBuiltinWorkflow(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+
+	other, err := l.CreateTenant(ctx, core.CreateTenantInput{Key: "beta", Name: "Beta"})
+	if err != nil {
+		t.Fatalf("CreateTenant: %v", err)
+	}
+	otherCtx := core.WithActor(context.Background(), core.SystemActor(other.ID))
+
+	wf, err := l.GetWorkflow(otherCtx, BuiltinWorkflowKey)
+	if err != nil {
+		t.Fatalf("GetWorkflow in the new tenant: %v", err)
+	}
+	if !wf.Builtin || wf.Definition.Initial != BuiltinWorkflow().Initial {
+		t.Errorf("seeded workflow = %+v, want the builtin definition", wf)
+	}
+
+	if err := l.seedTenantWorkflow(context.Background(), other.ID); err != nil {
+		t.Fatalf("seeding twice: %v", err)
+	}
+	all, err := l.ListWorkflows(otherCtx)
+	if err != nil {
+		t.Fatalf("ListWorkflows: %v", err)
+	}
+	var seen int
+	for _, w := range all {
+		if w.Key == BuiltinWorkflowKey {
+			seen++
+		}
+	}
+	if seen != 1 {
+		t.Errorf("tenant holds %d workflows keyed %q, want exactly 1", seen, BuiltinWorkflowKey)
+	}
+}

@@ -435,11 +435,34 @@ func TestClaimCommands(t *testing.T) {
 	if err := json.Unmarshal([]byte(claim.out), &payload); err != nil {
 		t.Fatalf("not json: %v", err)
 	}
-	c.mustRun("claim", "renew", "default-1", "--token", payload.LeaseToken, "--ttl", "10m")
+	renewed := c.mustRun("claim", "renew", "default-1", "--token", payload.LeaseToken,
+		"--ttl", "10m", "-o", "json")
+	if !strings.Contains(renewed.out, payload.LeaseToken) {
+		t.Fatalf("renew reported a different lease: %s", renewed.out)
+	}
+
 	c.mustRun("claim", "release", "default-1", "--token", payload.LeaseToken,
 		"--status", "doing", "--result", "exit_code=0")
-	c.mustRun("claim", "sweep", "--limit", "10")
-	c.mustRun("claim", "sweep", "--dry-run")
+	shown := c.mustRun("task", "show", "default-1", "-o", "json")
+	if !strings.Contains(shown.out, `"status": "doing"`) {
+		t.Fatalf("release did not leave the task in doing: %s", shown.out)
+	}
+	if strings.Contains(shown.out, payload.LeaseToken) {
+		t.Fatalf("release left the lease in place: %s", shown.out)
+	}
+
+	swept := c.mustRun("claim", "sweep", "--limit", "10", "-o", "json")
+	if !strings.Contains(swept.out, `"swept"`) {
+		t.Fatalf("sweep did not report what it swept: %s", swept.out)
+	}
+
+	dry := c.mustRun("claim", "sweep", "--dry-run", "-o", "json")
+	if !strings.Contains(dry.out, `"dry_run": true`) || !strings.Contains(dry.out, `"claim.sweep"`) {
+		t.Fatalf("claim sweep --dry-run did not report a plan: %s", dry.out)
+	}
+	if strings.Contains(dry.out, `"swept"`) {
+		t.Fatalf("claim sweep --dry-run swept for real: %s", dry.out)
+	}
 }
 
 func TestClaimExecRunsAndReleases(t *testing.T) {

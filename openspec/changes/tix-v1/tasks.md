@@ -32,7 +32,7 @@ ticked, and coverage is at or above 80% (excluding `internal/tui`).
 - [x] 1.18 WP-05 `internal/store/store.go`: `Store` and `Tx` interfaces
 - [x] 1.19 WP-05 `internal/store/sql/builder.go`: tenant-scoped query builder with no unscoped API
 - [x] 1.20 WP-05 `internal/store/migrations/0001_init.sql`: full schema
-- [ ] 1.21 WP-05 Migration seeding the builtin default workflow
+- [x] 1.21 WP-05 Seeding the builtin default workflow (seeded per tenant when the tenant is created, by `internal/service/bootstrap.go`, not by a migration file: a workflow row is tenant-scoped and needs an identifier, a clock, an audit entry and an outbox event, none of which a once-per-database migration can supply)
 - [x] 1.22 WP-05 PostgreSQL partitioning and row-level security policies (built by `internal/store/postgres/schema.go` at open time, not by a migration file)
 
 ## 2. Wave 2 — Independent foundations

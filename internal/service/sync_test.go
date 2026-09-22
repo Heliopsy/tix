@@ -974,15 +974,26 @@ func TestImporterForNamesTheAvailableAdapters(t *testing.T) {
 		!strings.Contains(err.Error(), core.SystemOpenProject) {
 		t.Fatalf("importerFor = %v, want the adapters listed", err)
 	}
-	if _, err := importerFor(core.SystemGeneric, extsync.SourceConfig{File: "x.csv"}, m); err != nil {
-		t.Errorf("importerFor(generic) = %v", err)
+	remote := extsync.SourceConfig{BaseURL: "https://x.test", Project: "P"}
+	tests := []struct {
+		system  string
+		cfg     extsync.SourceConfig
+		adapter string
+	}{
+		{core.SystemGeneric, extsync.SourceConfig{File: "x.csv"}, "generic."},
+		{core.SystemJira, remote, "jira."},
+		{core.SystemOpenProject, remote, "openproject."},
 	}
-	cfg := extsync.SourceConfig{BaseURL: "https://x.test", Project: "P"}
-	if _, err := importerFor(core.SystemJira, cfg, m); err != nil {
-		t.Errorf("importerFor(jira) = %v", err)
-	}
-	if _, err := importerFor(core.SystemOpenProject, cfg, m); err != nil {
-		t.Errorf("importerFor(openproject) = %v", err)
+	for _, tc := range tests {
+		t.Run(tc.system, func(t *testing.T) {
+			got, err := importerFor(tc.system, tc.cfg, m)
+			if err != nil {
+				t.Fatalf("importerFor(%s) = %v", tc.system, err)
+			}
+			if name := fmt.Sprintf("%T", got); !strings.Contains(name, tc.adapter) {
+				t.Errorf("importerFor(%s) built %s, want the %s adapter", tc.system, name, tc.adapter)
+			}
+		})
 	}
 }
 

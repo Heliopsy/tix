@@ -7,12 +7,22 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/heliopsy/tix/internal/testenv"
 )
 
 // jsSuite is the node test runner invocation the containerised gate also runs.
 // It is a glob, not a directory: node resolves a directory argument as a
 // module rather than as a set of test files.
 var jsSuite = []string{"--test", "--test-reporter=tap", "jstest/*.test.mjs"}
+
+// nodeCapability names the interpreter this wrapper needs, so a machine
+// without it reports the gap instead of skipping into a green run.
+var nodeCapability = testenv.Capability{
+	Name: "node",
+	Why:  "node is not on PATH",
+	How:  "just jstest",
+}
 
 // TestJavaScriptAssets runs the suite covering assets/*.js. The authoritative
 // gate is `just jstest`, which runs the same command inside the pinned CI
@@ -22,7 +32,7 @@ func TestJavaScriptAssets(t *testing.T) {
 	t.Parallel()
 	node, err := exec.LookPath("node")
 	if err != nil {
-		t.Skip("node is not on PATH; run `just jstest` for the containerised gate")
+		testenv.Skip(t, nodeCapability)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)

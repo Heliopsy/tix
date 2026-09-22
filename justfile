@@ -27,8 +27,9 @@ pg_dsn   := "postgres://tix:tix@127.0.0.1:55432/tix?sslmode=disable"
 # well before it turns CI red.
 #
 # There is no excluded package. internal/tui used to be excluded as untestable
-# View() rendering; it now sits at 89% over 125 tests, so the exclusion only
-# hid a covered package from the total.
+# View() rendering; it is now covered like everything else, so the exclusion
+# only hid a covered package from the total. Its current number comes from the
+# coverage profile like any other package, so no figure is frozen here.
 cov_min         := "85"
 cov_min_partial := "78"
 

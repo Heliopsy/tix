@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -87,58 +88,122 @@ func TestRunIsIdempotent(t *testing.T) {
 // Every table the query builder treats as tenant-scoped must actually have the
 // column, or the builder would generate SQL referencing a column that does not
 // exist.
-func TestScopedTablesHaveTenantColumn(t *testing.T) {
+// unscopedTables are the only tables allowed to hold no tenant_id. Every other
+// table is tenant data, so the scoping check derives its subject from the
+// schema instead of from a list somebody has to remember to extend.
+var unscopedTables = map[string]bool{
+	"tenants":           true,
+	"users":             true,
+	"schema_migrations": true,
+}
+
+func TestEveryTableIsTenantScoped(t *testing.T) {
 	db := open(t)
 	ctx := context.Background()
 	if _, err := Run(ctx, db); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 
-	scoped := []string{
-		"actors", "sessions", "api_tokens", "workflows", "projects", "field_defs",
-		"tasks", "task_deps", "tags", "task_tags", "comments", "artifacts",
-		"events", "audit_entries", "webhook_endpoints", "webhook_deliveries",
-		"retention_policies", "external_refs", "sync_sources", "tenant_members",
-	}
-	for _, table := range scoped {
+	present := tablesIn(t, db)
+	for _, table := range present {
+		if unscopedTables[table] {
+			continue
+		}
 		var n int
-		err := db.QueryRowContext(ctx,
+		if err := db.QueryRowContext(ctx,
 			`SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = 'tenant_id'`, table,
-		).Scan(&n)
-		if err != nil {
+		).Scan(&n); err != nil {
 			t.Fatalf("inspecting %q: %v", table, err)
 		}
 		if n != 1 {
-			t.Errorf("table %q has no tenant_id column", table)
+			t.Errorf("table %q has no tenant_id column and is not named in unscopedTables", table)
+		}
+	}
+
+	have := map[string]bool{}
+	for _, table := range present {
+		have[table] = true
+	}
+	for table := range unscopedTables {
+		if !have[table] {
+			t.Errorf("unscopedTables exempts %q, which no migration creates", table)
 		}
 	}
 }
 
-func TestExpectedTablesExist(t *testing.T) {
+func TestEveryDeclaredTableExists(t *testing.T) {
 	db := open(t)
 	ctx := context.Background()
 	if _, err := Run(ctx, db); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 
-	want := []string{
-		"tenants", "tenant_domains", "tenant_members", "actors", "users", "sessions",
-		"api_tokens", "workflows", "projects", "field_defs", "tasks", "task_deps",
-		"tags", "task_tags", "comments", "artifacts", "events", "audit_entries",
-		"webhook_endpoints", "webhook_deliveries", "retention_policies",
-		"external_refs", "sync_sources", "schema_migrations",
+	declared := declaredTables(t)
+	present := map[string]bool{}
+	for _, table := range tablesIn(t, db) {
+		present[table] = true
 	}
-	for _, table := range want {
-		var n int
-		if err := db.QueryRowContext(ctx,
-			`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?`, table,
-		).Scan(&n); err != nil {
-			t.Fatalf("checking %q: %v", table, err)
-		}
-		if n != 1 {
-			t.Errorf("table %q was not created", table)
+	for _, table := range declared {
+		if !present[table] {
+			t.Errorf("migrations declare table %q but it was not created", table)
 		}
 	}
+
+	declaredSet := map[string]bool{"schema_migrations": true}
+	for _, table := range declared {
+		declaredSet[table] = true
+	}
+	for table := range present {
+		if !declaredSet[table] {
+			t.Errorf("table %q exists but no migration declares it", table)
+		}
+	}
+}
+
+var createTable = regexp.MustCompile(`(?i)CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z_]+)`)
+
+// declaredTables lists every table the migration set creates, read back out of
+// the same SQL the runner applies. Checked in both directions against the live
+// schema it is not circular: it catches a migration that silently did not run
+// and a table that appeared from somewhere else, and an empty result fails the
+// reverse direction rather than passing quietly.
+func declaredTables(t *testing.T) []string {
+	t.Helper()
+	all, err := All()
+	if err != nil {
+		t.Fatalf("All() error = %v", err)
+	}
+	var out []string
+	for _, m := range all {
+		for _, match := range createTable.FindAllStringSubmatch(m.SQL, -1) {
+			out = append(out, match[1])
+		}
+	}
+	return out
+}
+
+// tablesIn lists the real tables in the database, SQLite's own excluded.
+func tablesIn(t *testing.T, db *sql.DB) []string {
+	t.Helper()
+	rows, err := db.QueryContext(context.Background(),
+		`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`)
+	if err != nil {
+		t.Fatalf("listing tables: %v", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatalf("scanning table name: %v", err)
+		}
+		out = append(out, name)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("listing tables: %v", err)
+	}
+	return out
 }
 
 func TestForeignKeysAreEnforced(t *testing.T) {

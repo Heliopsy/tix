@@ -37,6 +37,7 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `project` | `TIX_PROJECT` | (unset) |
 | `current_context` | `TIX_CURRENT_CONTEXT` | (unset) |
 | `database.dsn` | `TIX_DATABASE_DSN` | `sqlite://~/.local/share/tix/tix.db` |
+| `database.allow_network_fs` | `TIX_DATABASE_ALLOW_NETWORK_FS` | `false` |
 | `server.url` | `TIX_SERVER_URL` | (unset) |
 | `server.listen` | `TIX_SERVER_LISTEN` | `127.0.0.1:8080` |
 | `server.token` | `TIX_SERVER_TOKEN` | (unset) |
@@ -45,6 +46,7 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `auth.mode` | `TIX_AUTH_MODE` | `token` |
 | `hooks.mode` | `TIX_HOOKS_MODE` | `off` |
 | `webhooks.drain_mode` | `TIX_WEBHOOKS_DRAIN_MODE` | `inline` (`inline`, `server`, `off`) |
+| `webhooks.allow_private_targets` | `TIX_WEBHOOKS_ALLOW_PRIVATE_TARGETS` | `false` |
 | `discovery.enabled` | `TIX_DISCOVERY_ENABLED` | `true` |
 | `discovery.filenames` | `TIX_DISCOVERY_FILENAMES` | `.tix.yaml,.tix/config.yaml` |
 | `retention.audit` | `TIX_RETENTION_AUDIT` | `8760h` |
@@ -71,6 +73,7 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `ssh.keepalive_max_missed` | `TIX_SSH_KEEPALIVE_MAX_MISSED` | `3` |
 | `ssh.max_sessions_per_key` | `TIX_SSH_MAX_SESSIONS_PER_KEY` | `3` |
 | `ssh.max_sessions` | `TIX_SSH_MAX_SESSIONS` | `100` |
+| `tui.keymap` | `TIX_TUI_KEYMAP` | `default` |
 
 List values are comma-separated. Durations use Go syntax (`15m`, `24h`, `720h`).
 
@@ -217,6 +220,7 @@ These apply to every command:
 | `-q, --quiet` | suppress diagnostics |
 | `-v, --verbose` | report how the target was resolved |
 | `--no-discovery` | ignore per-directory context files |
+| `--allow-network-fs` | allow opening a database on a network filesystem, which risks corruption |
 
 `--db` and `--server` are mutually exclusive in effect: one names a local database, the other a remote server.
 `--color` and `--no-color` together are exit 2.

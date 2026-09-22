@@ -28,6 +28,21 @@ A workflow SHALL be a named state machine consisting of a set of states and a se
 
 The system SHALL ship a builtin default workflow containing the states `todo`, `doing`, `blocked`, `done`, and `cancelled`, so that a fresh installation is usable without configuring any workflow.
 
+A workflow belongs to exactly one tenant, so the builtin workflow SHALL be seeded per tenant, at the
+moment the tenant is created, rather than by a schema migration: a migration runs once per database
+and cannot reach a tenant created afterwards. Seeding SHALL be idempotent, so a repeated start or a
+retry after a partial failure neither duplicates the workflow nor fails.
+
+#### Scenario: New tenant seeded
+
+- **WHEN** a tenant is created
+- **THEN** that tenant holds the builtin default workflow and a project can be created in it without naming a workflow
+
+#### Scenario: Seeding repeated
+
+- **WHEN** the seeding path runs again against a tenant that already holds the builtin default workflow
+- **THEN** it succeeds and the tenant still holds exactly one workflow under that key
+
 #### Scenario: Fresh installation
 
 - **WHEN** a project is created on a fresh installation with no workflow configured

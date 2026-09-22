@@ -92,7 +92,9 @@ nearest the bottom, so a slow decline is visible while it is still small. Under 
 headroom it warns rather than failing, which is the moment to raise coverage rather than the floor.
 
 No package is excluded from the total. `internal/tui` used to be, as untestable `View()` rendering;
-it now sits near 89% over 125 tests, and excluding it only hid a covered package from the number.
+it is now covered like every other package, and excluding it only hid a covered package from the
+number. Its current figure comes from `go tool cover`, like any other package, so no count is
+repeated here to go stale.
 
 ## PostgreSQL
 
