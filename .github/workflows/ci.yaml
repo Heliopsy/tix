@@ -87,35 +87,20 @@ jobs:
           go-version-file: go.mod
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
 
-      - name: Build CI toolbox image
-        run: just image-ci
-        env:
-          CONTAINER_ENGINE: docker
-
       - name: golangci-lint
         run: just lint
-        env:
-          CONTAINER_ENGINE: docker
 
       - name: actionlint
         run: just actionlint
-        env:
-          CONTAINER_ENGINE: docker
 
       - name: hadolint
         run: just hadolint
-        env:
-          CONTAINER_ENGINE: docker
 
       - name: yamllint
         run: just yamllint
-        env:
-          CONTAINER_ENGINE: docker
 
       - name: markdownlint
         run: just mdlint
-        env:
-          CONTAINER_ENGINE: docker
 
   spec:
     name: Specs & Docs
@@ -178,15 +163,8 @@ jobs:
 
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
 
-      - name: Build CI toolbox image
-        run: just image-ci
-        env:
-          CONTAINER_ENGINE: docker
-
       - name: Run govulncheck
         run: just vuln
-        env:
-          CONTAINER_ENGINE: docker
 
       # Trivy runs from our own pinned toolbox image rather than the upstream
       # action, so there is exactly one trivy version in the project and CI
@@ -194,14 +172,10 @@ jobs:
       - name: Run Trivy (filesystem scan)
         if: always()
         run: just trivy
-        env:
-          CONTAINER_ENGINE: docker
 
       - name: Trivy SARIF
         if: always()
         run: just trivy-sarif
-        env:
-          CONTAINER_ENGINE: docker
 
       - name: Upload Trivy SARIF
         if: always() && github.event.repository.visibility == 'public'
