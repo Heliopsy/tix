@@ -14,26 +14,32 @@ permissions: read-all
 jobs:
   build-and-test:
     name: Build & Test
-    runs-on: ubuntu-latest
+    runs-on: ho-z10
     permissions:
       contents: read
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_USER: tix
-          POSTGRES_PASSWORD: tix
-          POSTGRES_DB: tix
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U tix"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     env:
       TIX_TEST_POSTGRES_DSN: postgres://tix:tix@127.0.0.1:5432/tix?sslmode=disable
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      # This was a `services:` container. The self-hosted runner has no Docker
+      # daemon, so the cluster shipped in the runner image is started in-job
+      # instead; the job's ephemeral pod is the same isolation boundary the
+      # service container was.
+      #
+      # Version note: the runner image carries Postgres 16, the service
+      # container used 18. Credentials, database and port are unchanged, so
+      # TIX_TEST_POSTGRES_DSN above still matches.
+      - name: Start Postgres
+        run: |
+          sudo pg_ctlcluster 16 main start
+          for i in $(seq 1 30); do
+            pg_isready -h 127.0.0.1 -p 5432 -q && break
+            sleep 1
+          done
+          pg_isready -h 127.0.0.1 -p 5432
+          sudo -u postgres psql -c "CREATE USER tix WITH PASSWORD 'tix' SUPERUSER;"
+          sudo -u postgres createdb -O tix tix
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
           go-version-file: go.mod
