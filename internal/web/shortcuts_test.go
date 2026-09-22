@@ -294,3 +294,46 @@ func containsKey(keys []string, want string) bool {
 	}
 	return false
 }
+
+// A scheme that resolves to a table another scheme already ships is a second
+// name for the same keys: a picker entry that changes nothing when chosen.
+// This is the guard that keeps a scheme out of the list unless it earns its
+// place, which is why nano and helix stay on the TUI side (see KeySchemes).
+func TestNoTwoSchemesShipTheSameBindings(t *testing.T) {
+	t.Parallel()
+	schemes := web.KeySchemes()
+	for i, a := range schemes {
+		for _, b := range schemes[i+1:] {
+			ta, tb := web.KeyBindingsFor(a), web.KeyBindingsFor(b)
+			same := true
+			for _, action := range web.ShortcutActionNames() {
+				if !equalKeys(ta[action], tb[action]) {
+					same = false
+					break
+				}
+			}
+			if same {
+				t.Errorf("schemes %q and %q bind every action identically", a, b)
+			}
+		}
+	}
+}
+
+// The same fault internal/tui/scheme.go's KeyMapFor now panics on exists here
+// in a quieter form: an override naming an action shortcutActions does not
+// have adds a dead row to the table while the real action keeps the base key,
+// so the scheme silently does less than it claims.
+func TestNoSchemeOverridesAnActionThatDoesNotExist(t *testing.T) {
+	t.Parallel()
+	known := map[string]bool{}
+	for _, name := range web.ShortcutActionNames() {
+		known[name] = true
+	}
+	for _, scheme := range web.KeySchemes() {
+		for action := range web.KeyBindingsFor(scheme) {
+			if !known[action] {
+				t.Errorf("scheme %q carries a binding for %q, which is not a shortcut action", scheme, action)
+			}
+		}
+	}
+}

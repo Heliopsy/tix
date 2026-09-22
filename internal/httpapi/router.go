@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
 	"github.com/heliopsy/tix/internal/wire"
@@ -55,7 +56,9 @@ type Config struct {
 	SecureCookies bool
 
 	// CookieSecurity overrides how Secure is decided. The default derives it
-	// from the effective scheme of each request.
+	// from the effective scheme of each request. Its vocabulary is owned by
+	// internal/config, which is where server.cookie_security is parsed and
+	// validated; this package names those constants rather than restating them.
 	CookieSecurity string
 
 	// TrustedProxies lists the proxy addresses, as IPs or CIDR blocks, whose
@@ -74,20 +77,6 @@ type Config struct {
 	// API route can never be shadowed by a page.
 	WebHandler http.Handler
 }
-
-// CookieSecurity settings, deciding whether a cookie is marked Secure.
-const (
-	// CookieSecurityAuto follows the effective scheme of each request.
-	CookieSecurityAuto = "auto"
-	// CookieSecurityAlways marks every cookie Secure.
-	CookieSecurityAlways = "always"
-	// CookieSecurityNever marks none, for a deployment that is deliberately
-	// plaintext on a private network.
-	CookieSecurityNever = "never"
-)
-
-// CookieSecurities lists the settings CookieSecurity accepts.
-var CookieSecurities = []string{CookieSecurityAuto, CookieSecurityAlways, CookieSecurityNever}
 
 // Router serves the tix REST API.
 type Router struct {
@@ -119,11 +108,11 @@ func New(cfg Config) (*Router, error) {
 	}
 
 	if cfg.CookieSecurity == "" {
-		cfg.CookieSecurity = CookieSecurityAuto
+		cfg.CookieSecurity = config.CookieSecurityAuto
 	}
-	if !slices.Contains(CookieSecurities, cfg.CookieSecurity) {
+	if !slices.Contains(config.CookieSecurities, cfg.CookieSecurity) {
 		return nil, core.Invalid("cookie security %q is not one of %s",
-			cfg.CookieSecurity, strings.Join(CookieSecurities, ", "))
+			cfg.CookieSecurity, strings.Join(config.CookieSecurities, ", "))
 	}
 	proxies, err := auth.NewProxyPolicy(cfg.TrustedProxies)
 	if err != nil {

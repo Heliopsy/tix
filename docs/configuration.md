@@ -77,6 +77,13 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 
 List values are comma-separated. Durations use Go syntax (`15m`, `24h`, `720h`).
 
+`tui.keymap` picks the terminal interface's keybinding scheme: `default`, `vim`, `emacs`, `nano` or
+`helix`. `tix tui --keys` takes the same names for a single run, and the TUI's settings view lists them
+with what each one rebinds. A scheme only moves the actions it names; everything else keeps the shipped
+keys, so no scheme can leave an action unreachable. There is no `mac` scheme: a terminal never receives
+the command key, and the ctrl chords macOS applies to every text field are the emacs ones, so `emacs`
+is the mac scheme.
+
 `server.trusted_proxies` lists the reverse proxies, as IPs or CIDR blocks, whose `X-Forwarded-Proto` and
 `X-Forwarded-For` are believed. Any client can send those headers, so an empty list, the default, believes
 neither from anybody, and a request is attributed to the address that opened the connection. When the immediate

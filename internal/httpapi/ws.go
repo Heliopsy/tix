@@ -39,15 +39,10 @@ const (
 	maxClientMessage    = 64 << 10
 )
 
-// knownEventTypes is the closed set a subscription filter may name.
-var knownEventTypes = []core.EventType{
-	core.EventTaskCreated, core.EventTaskUpdated, core.EventTaskTransitioned,
-	core.EventTaskClaimed, core.EventTaskReleased, core.EventTaskLeaseExpired,
-	core.EventTaskDeleted, core.EventCommentAdded, core.EventArtifactAdded,
-	core.EventDependencyAdded, core.EventLabelAdded, core.EventProjectCreated,
-	core.EventProjectUpdated, core.EventWorkflowUpdated, core.EventFieldUpdated,
-	core.EventWebhookDelivered, core.EventImportCompleted,
-}
+// knownEventTypes is the closed set a subscription filter may name. It is
+// derived from the contract package, never copied: a copy would refuse
+// subscriptions to an event type the outbox already emits.
+var knownEventTypes = core.EventTypes()
 
 // ClientMessage is one message sent by a client on the event stream.
 type ClientMessage struct {

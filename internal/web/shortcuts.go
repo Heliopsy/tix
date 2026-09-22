@@ -20,6 +20,15 @@ const (
 )
 
 // KeySchemes lists every shipped scheme.
+//
+// internal/tui/scheme.go also ships nano and helix, which are deliberately not
+// mirrored here. Every key that makes nano nano is a chord the browser owns
+// and never delivers to page script: ctrl+w closes the tab, ctrl+x cuts,
+// ctrl+o opens a file, ctrl+l focuses the address bar, ctrl+g and ctrl+p are
+// find-next and print. Helix differs from vim mainly in Release and Settings,
+// two actions the browser interface does not offer at all. Either one would
+// therefore resolve to a table already shipped under another name, which is a
+// second entry in the picker that changes nothing when chosen.
 func KeySchemes() []KeyScheme { return []KeyScheme{KeySchemeDefault, KeySchemeVim, KeySchemeEmacs} }
 
 // KeySchemeCookie remembers the keyboard scheme this browser asked for. Like

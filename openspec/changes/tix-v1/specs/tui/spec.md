@@ -508,6 +508,11 @@ The TUI SHALL offer named keybinding schemes and per-action overrides, SHALL pro
 - **WHEN** an override would make one key mean two things within one view
 - **THEN** the interface reports which key collided, with which actions, in which view, and does not apply the override
 
+#### Scenario: A scheme cannot name an action the interface does not have
+
+- **WHEN** a shipped scheme's table rebinds an action the key map does not carry
+- **THEN** building that scheme's bindings fails loudly rather than dropping the binding and leaving the action on its default key
+
 #### Scenario: An unusable configuration is reported rather than ignored
 
 - **WHEN** the configured scheme name is not one that ships, or a configured override cannot be applied

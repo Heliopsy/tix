@@ -9,6 +9,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/httpapi"
 	"github.com/heliopsy/tix/internal/wire"
@@ -61,8 +62,8 @@ func TestSessionCookieSecureFollowsForwardedProto(t *testing.T) {
 			header: "https", want: true},
 		{name: "trusted proxy on plain http", trusted: []string{"127.0.0.1", "::1"},
 			header: "http", want: false},
-		{name: "explicit always", security: httpapi.CookieSecurityAlways, want: true},
-		{name: "explicit never overrides a trusted proxy", security: httpapi.CookieSecurityNever,
+		{name: "explicit always", security: config.CookieSecurityAlways, want: true},
+		{name: "explicit never overrides a trusted proxy", security: config.CookieSecurityNever,
 			trusted: []string{"127.0.0.1", "::1"}, header: "https", want: false},
 		{name: "own certificate still forces secure", forced: true, want: true},
 	}
@@ -155,6 +156,44 @@ func TestClientIPIsResolvedOnce(t *testing.T) {
 			_ = resp.Body.Close()
 			if got := <-seen; got != tt.want {
 				t.Fatalf("client ip = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestCookieSecurityHonoursEverySettingConfigAccepts walks the vocabulary
+// internal/config accepts for server.cookie_security rather than restating it,
+// and pins that the router handles each value explicitly. Only the auto setting
+// may follow the request: every other setting is an operator overriding the
+// derivation, so its answer must not move when the derivation does. A value the
+// router's switch does not name falls through to the auto branch and would mark
+// cookies Secure on a deployment that asked for plaintext, which is a security
+// control failing in the unsafe direction and in silence.
+func TestCookieSecurityHonoursEverySettingConfigAccepts(t *testing.T) {
+	if len(config.CookieSecurities) == 0 {
+		t.Fatal("config accepts no cookie security setting; the vocabulary is gone")
+	}
+	secureFor := func(t *testing.T, security string, forced bool) bool {
+		t.Helper()
+		f := newFixtureWith(t, func(_ *apiFixture, cfg *httpapi.Config) {
+			cfg.CookieSecurity = security
+			cfg.SecureCookies = forced
+		})
+		return loginWithHeaders(t, f, map[string]string{}).Secure
+	}
+
+	for _, security := range config.CookieSecurities {
+		t.Run(security, func(t *testing.T) {
+			derived, overridden := secureFor(t, security, false), secureFor(t, security, true)
+			if security == config.CookieSecurityAuto {
+				if derived == overridden {
+					t.Fatalf("auto ignored the derivation: Secure = %v either way", derived)
+				}
+				return
+			}
+			if derived != overridden {
+				t.Fatalf("setting %q is not handled by the router: Secure = %v derived but %v when the derivation changes, so it fell through to %q",
+					security, derived, overridden, config.CookieSecurityAuto)
 			}
 		})
 	}

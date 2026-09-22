@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 	"strings"
@@ -19,10 +20,20 @@ const (
 	SchemeDefault Scheme = "default"
 	SchemeVim     Scheme = "vim"
 	SchemeEmacs   Scheme = "emacs"
+	SchemeNano    Scheme = "nano"
+	SchemeHelix   Scheme = "helix"
 )
 
+// There is deliberately no "mac" scheme. A terminal never sees the command
+// key, and the ctrl chords macOS applies to every text field system wide
+// (ctrl-a, ctrl-e, ctrl-b, ctrl-f, ctrl-n, ctrl-p, ctrl-k) are the emacs ones,
+// inherited from Cocoa's emacs key bindings. A mac scheme would therefore be
+// SchemeEmacs under a second name, so the emacs description names mac instead.
+
 // Schemes lists every shipped scheme, in the order the settings view offers.
-func Schemes() []Scheme { return []Scheme{SchemeDefault, SchemeVim, SchemeEmacs} }
+func Schemes() []Scheme {
+	return []Scheme{SchemeDefault, SchemeVim, SchemeEmacs, SchemeNano, SchemeHelix}
+}
 
 // SchemeDescription says what a scheme changes, for the settings view.
 func SchemeDescription(s Scheme) string {
@@ -31,6 +42,10 @@ func SchemeDescription(s Scheme) string {
 		return "vim reflexes: o opens a new task, i edits, : opens the filter"
 	case SchemeEmacs:
 		return "emacs and mac reflexes: ctrl-n, ctrl-p, ctrl-a, ctrl-e, ctrl-g"
+	case SchemeNano:
+		return "nano reflexes: ctrl-w searches, ctrl-g helps, ctrl-x quits, ctrl-o applies"
+	case SchemeHelix:
+		return "helix reflexes: x opens the row, o adds, i edits, d releases, space opens settings"
 	default:
 		return "the shipped bindings"
 	}
@@ -84,6 +99,45 @@ var schemeKeys = map[Scheme]map[string][]string{
 		"Refresh":   {"ctrl+l"},
 		"EditTitle": {"ctrl+t"},
 	},
+	// nano's keys are its own footer, from the GNU nano manual: ^W searches
+	// ("Where Is"), ^G shows help, ^X exits, ^O writes out, ^L redraws, and
+	// ^P/^N/^B/^F/^A/^E move. ^K, which cuts a line, is deliberately left
+	// alone: tix has no action that removes the selected task, and Release
+	// gives up a lease rather than deleting anything, so binding it would be
+	// inventing a meaning nano does not have. ^C is left alone too, because
+	// Interrupt already owns it.
+	SchemeNano: {
+		"Up":      {"up", "ctrl+p"},
+		"Down":    {"down", "ctrl+n"},
+		"Left":    {"left", "ctrl+b", "shift+tab"},
+		"Right":   {"right", "ctrl+f", "tab"},
+		"Top":     {"home", "ctrl+a"},
+		"Bottom":  {"end", "ctrl+e"},
+		"Filter":  {"ctrl+w", "/"},
+		"Help":    {"ctrl+g", "?"},
+		"Quit":    {"ctrl+x", "q"},
+		"Refresh": {"ctrl+l", "r"},
+		"Accept":  {"ctrl+o", "enter"},
+	},
+	// helix is modal but selection first, so its keys are not vim's: from the
+	// helix keymap, x selects the line under the cursor, d deletes the
+	// selection, o opens a line below, i inserts before it, a appends after
+	// it, : enters command mode, / searches, and space opens the menu layer.
+	// x taking the row means Release moves to d, helix's own discard key,
+	// rather than keeping the default x and meaning two things. Space is
+	// listed second for Settings because the first key of a binding is the one
+	// the footer prints, and a footer cannot show a space.
+	SchemeHelix: {
+		"Enter":      {"x", "enter"},
+		"Release":    {"d"},
+		"New":        {"o"},
+		"NewProject": {"o"},
+		"EditTitle":  {"i"},
+		"EditBody":   {"I"},
+		"Comment":    {"a"},
+		"Filter":     {"/", ":"},
+		"Settings":   {",", " "},
+	},
 }
 
 // ActionNames lists every action a binding can be attached to, in a stable
@@ -123,11 +177,26 @@ func (k KeyMap) WithBinding(action string, keys []string) (KeyMap, error) {
 	return out, nil
 }
 
-// KeyMapFor builds the bindings of a scheme.
+// KeyMapFor builds the bindings of a scheme. A scheme naming an action the
+// KeyMap does not have is a typo in a compiled-in table, not a condition a
+// run can recover from, so it panics rather than dropping the binding: a
+// discarded error here costs the user a key with nothing failing anywhere.
+// Actions are applied in name order so a table with two faults always reports
+// the same one.
 func KeyMapFor(scheme Scheme) KeyMap {
 	k := DefaultKeyMap()
-	for action, keys := range schemeKeys[scheme] {
-		k, _ = k.WithBinding(action, keys)
+	table := schemeKeys[scheme]
+	actions := make([]string, 0, len(table))
+	for action := range table {
+		actions = append(actions, action)
+	}
+	sort.Strings(actions)
+	for _, action := range actions {
+		next, err := k.WithBinding(action, table[action])
+		if err != nil {
+			panic(fmt.Sprintf("keybinding scheme %q: %v", scheme, err))
+		}
+		k = next
 	}
 	return k
 }

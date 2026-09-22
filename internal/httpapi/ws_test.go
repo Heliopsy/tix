@@ -599,3 +599,21 @@ func TestTruncateReasonFitsTheCloseFrame(t *testing.T) {
 		t.Fatalf("truncateReason mangled a short reason: %q", got)
 	}
 }
+
+// TestSubscriptionAcceptsEveryCoreEventType walks the contract package's
+// vocabulary instead of restating it, so re-hardcoding the closed set here
+// fails the moment core declares an event type the copy misses.
+func TestSubscriptionAcceptsEveryCoreEventType(t *testing.T) {
+	types := core.EventTypes()
+	if len(types) == 0 {
+		t.Fatal("core.EventTypes() is empty; the subscription filter would accept nothing")
+	}
+	for _, typ := range types {
+		if err := validateEventTypes([]core.EventType{typ}); err != nil {
+			t.Errorf("subscribing to %q is refused: %v", typ, err)
+		}
+	}
+	if err := validateEventTypes([]core.EventType{"nope.invented"}); err == nil {
+		t.Error("an invented event type was accepted; the filter is not a closed set")
+	}
+}

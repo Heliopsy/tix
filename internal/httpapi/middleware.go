@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/id"
 	"github.com/heliopsy/tix/internal/service"
@@ -393,9 +394,9 @@ func (rt *Router) withForwarded(next http.Handler) http.Handler {
 // private plaintext network needs a way to say so.
 func (rt *Router) secureCookie(r *http.Request) bool {
 	switch rt.cfg.CookieSecurity {
-	case CookieSecurityAlways:
+	case config.CookieSecurityAlways:
 		return true
-	case CookieSecurityNever:
+	case config.CookieSecurityNever:
 		return false
 	default:
 		return rt.cfg.SecureCookies || SchemeFrom(r.Context()) == auth.SchemeHTTPS

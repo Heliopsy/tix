@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"slices"
 	"time"
 )
 
@@ -385,6 +386,22 @@ const (
 	EventWebhookDelivered EventType = "webhook.delivered"
 	EventImportCompleted  EventType = "import.completed"
 )
+
+// eventTypes is the complete event vocabulary, in declaration order.
+var eventTypes = []EventType{
+	EventTaskCreated, EventTaskUpdated, EventTaskTransitioned,
+	EventTaskClaimed, EventTaskReleased, EventTaskLeaseExpired,
+	EventTaskDeleted, EventCommentAdded, EventArtifactAdded,
+	EventDependencyAdded, EventLabelAdded, EventProjectCreated,
+	EventProjectUpdated, EventWorkflowUpdated, EventFieldUpdated,
+	EventWebhookDelivered, EventImportCompleted,
+}
+
+// EventTypes returns the complete event vocabulary. Callers outside this
+// package derive their closed sets from it rather than copying the constants,
+// so a new event type reaches every layer at once. The slice is a copy, which
+// keeps the vocabulary read-only without exporting a mutable package variable.
+func EventTypes() []EventType { return slices.Clone(eventTypes) }
 
 // Event is one durable record in the outbox.
 type Event struct {

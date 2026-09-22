@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"strings"
+
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/tui"
 	"github.com/spf13/cobra"
@@ -77,7 +79,7 @@ func newTUICmd(g *globals) *cobra.Command {
 	f := cmd.Flags()
 	f.StringVarP(&project, "project", "p", "", "project key to open the board for")
 	f.StringVar(&filter, "filter", "", "filter expression to start with")
-	f.StringVar(&scheme, "keys", "", "keybinding scheme: default|vim|emacs")
+	f.StringVar(&scheme, "keys", "", "keybinding scheme: "+strings.Join(schemeNames(), "|"))
 	f.StringToStringVar(&overrides, "key", nil, "rebind one action, such as --key New=o")
 	_ = cmd.RegisterFlagCompletionFunc("keys", fixedCompletion(schemeNames()))
 	return cmd

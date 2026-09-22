@@ -1,8 +1,15 @@
 package core_test
 
 import (
+	"go/ast"
 	"go/build"
+	"go/parser"
+	"go/token"
+	"maps"
+	"os"
 	"reflect"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -149,4 +156,87 @@ func TestRolesAreOrderedByPrivilege(t *testing.T) {
 			t.Errorf("admin lacks %q which member holds", s)
 		}
 	}
+}
+
+// TestEventTypesCoversEveryDeclaredConstant reads the constants out of the
+// package source rather than restating them, so the assertion cannot drift the
+// way a hand-written copy of the list does. EventTypes is what every other
+// layer derives its closed set from; a constant missing from it is an event the
+// outbox emits and no subscriber may name.
+func TestEventTypesCoversEveryDeclaredConstant(t *testing.T) {
+	declared := declaredEventTypes(t)
+	if len(declared) == 0 {
+		t.Fatal("found no EventType constants in the package source; the scan is broken")
+	}
+
+	exported := make(map[core.EventType]string, len(core.EventTypes()))
+	for _, got := range core.EventTypes() {
+		if previous, ok := exported[got]; ok {
+			t.Errorf("event type %q appears twice in EventTypes (as %s and again)", got, previous)
+		}
+		exported[got] = "EventTypes"
+	}
+
+	for name, value := range declared {
+		if _, ok := exported[value]; !ok {
+			t.Errorf("core.%s is declared as %q but EventTypes() omits it", name, value)
+		}
+	}
+	for value := range exported {
+		if !slices.Contains(slices.Collect(maps.Values(declared)), value) {
+			t.Errorf("EventTypes() returns %q, which no EventType constant declares", value)
+		}
+	}
+}
+
+// declaredEventTypes returns every constant in the package source whose
+// declared type is EventType, keyed by identifier.
+func declaredEventTypes(t *testing.T) map[string]core.EventType {
+	t.Helper()
+
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("reading package directory: %v", err)
+	}
+
+	found := make(map[string]core.EventType)
+	fset := token.NewFileSet()
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(fset, name, nil, 0)
+		if err != nil {
+			t.Fatalf("parsing %s: %v", name, err)
+		}
+		for _, decl := range file.Decls {
+			gen, ok := decl.(*ast.GenDecl)
+			if !ok || gen.Tok != token.CONST {
+				continue
+			}
+			for _, spec := range gen.Specs {
+				value, ok := spec.(*ast.ValueSpec)
+				if !ok {
+					continue
+				}
+				ident, ok := value.Type.(*ast.Ident)
+				if !ok || ident.Name != "EventType" {
+					continue
+				}
+				for i, n := range value.Names {
+					lit, ok := value.Values[i].(*ast.BasicLit)
+					if !ok || lit.Kind != token.STRING {
+						t.Fatalf("constant %s is not a string literal; teach this scan about it", n.Name)
+					}
+					unquoted, err := strconv.Unquote(lit.Value)
+					if err != nil {
+						t.Fatalf("unquoting %s: %v", n.Name, err)
+					}
+					found[n.Name] = core.EventType(unquoted)
+				}
+			}
+		}
+	}
+	return found
 }
