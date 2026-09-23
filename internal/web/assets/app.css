@@ -1187,3 +1187,356 @@ dl.raw-fields dd { margin: 0; overflow-wrap: anywhere; }
    opening it grows the row downward and never moves those two spans --
    they are already laid out by the time this line wraps. */
 .feed-raw { flex: 1 1 100%; margin-top: 6px; }
+
+/* ------------------------------------------------------------------------
+   Telling one marking from another on a task row.
+
+   A row carries four different kinds of fact -- a status, a priority, tags,
+   and the project it belongs to -- and they used to be four pills with the
+   same border radius, the same size and much the same colour, so the row
+   read as a row of chips and none of them said what kind of thing it was.
+   Each kind now has its own shape, and the shape is what carries the
+   meaning: colour alone never distinguishes them, which also keeps them
+   apart for a reader who cannot separate the hues.
+   ------------------------------------------------------------------------ */
+
+/* Status: the one solid, filled pill on the row. Nothing else is filled. */
+.pill.status {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  background: var(--line);
+  color: var(--ink);
+  border: 1px solid transparent;
+}
+
+.pill.status.todo { background: var(--line); color: var(--muted); }
+.pill.status.doing { background: var(--accent); color: var(--surface); }
+.pill.status.blocked { background: var(--warn); color: var(--surface); }
+.pill.status.done { background: var(--ok); color: var(--surface); }
+.pill.status.cancelled { background: var(--bg); color: var(--muted); border-color: var(--line); }
+
+/* Priority: no pill at all, a caret and a word. The caret points up for the
+   two priorities above normal and down for the two below, so the direction
+   says which way it went before the colour does. Normal is never rendered. */
+.prio {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.prio .caret {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+}
+
+.prio.p-highest, .prio.p-high { color: var(--danger); }
+.prio.p-highest .caret, .prio.p-high .caret { border-bottom: 6px solid currentColor; }
+.prio.p-low, .prio.p-lowest { color: var(--muted); }
+.prio.p-low .caret, .prio.p-lowest .caret { border-top: 6px solid currentColor; }
+/* The outermost two get a second mark, so "highest" is not merely "high" in
+   the same colour at the same size. */
+.prio.p-highest, .prio.p-lowest { text-decoration: underline; text-underline-offset: 2px; }
+
+/* A tag is written the way a tag is written: a hash and a word, outlined,
+   never filled. It links to the list narrowed to that tag. */
+.tagref {
+  display: inline-flex;
+  align-items: baseline;
+  font-size: 0.75rem;
+  padding: 1px 7px 1px 5px;
+  border-radius: 6px;
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.tagref .hash { color: var(--line-strong); font-weight: 700; margin-right: 1px; }
+.tagref:hover { border-style: solid; color: var(--ink); background: var(--bg); }
+
+/* The project carries its own colour and icon and sits at the end of the
+   meta, squared off rather than rounded, so it is not mistaken for either a
+   status or a tag. It links to the list narrowed to that project. */
+.projref {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 3px;
+  border-left: 3px solid var(--proj, var(--line-strong));
+  background: color-mix(in srgb, var(--proj, var(--line-strong)) 12%, transparent);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.projref:hover { background: color-mix(in srgb, var(--proj, var(--line-strong)) 24%, transparent); }
+.projref .proj-icon { font-size: 0.85rem; }
+
+/* ------------------------------------------------------------------------
+   The user administration list. One block per account rather than a table
+   of cells: an account has an identity, an authority and a state, and those
+   are three different kinds of thing that a row of equal columns flattened.
+   ------------------------------------------------------------------------ */
+
+ul.peoplelist {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+li.person {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "avatar id marks" ". edit edit";
+  align-items: center;
+  gap: 4px 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+li.person:last-child { border-bottom: 0; }
+li.person:hover { background: var(--bg); }
+li.person.is-off { background: repeating-linear-gradient(
+  135deg, transparent, transparent 7px, var(--bg) 7px, var(--bg) 14px); }
+
+.avatar {
+  grid-area: avatar;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+}
+
+li.person.is-off .avatar { background: var(--line); color: var(--muted); }
+
+.person-id { grid-area: id; display: flex; flex-direction: column; min-width: 0; }
+.person-name { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.person-mail { color: var(--muted); font-size: 0.82rem; overflow-wrap: anywhere; }
+
+.person-marks { grid-area: marks; display: flex; align-items: center; gap: 8px; }
+
+/* A role is authority, so it reads as a solid badge; a state is a condition,
+   so it reads as a dot and a word. Two different kinds of fact, two shapes. */
+.role {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+}
+
+.role-admin { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.role-member { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.role-viewer { background: var(--bg); color: var(--muted); }
+.role-none { border-style: dashed; font-style: italic; text-transform: none; }
+
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.state::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.state.on { color: var(--ok); }
+.state.off { color: var(--muted); }
+.state.off::before { background: transparent; border: 2px solid currentColor; width: 5px; height: 5px; }
+
+.chip.you {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: var(--accent);
+  color: var(--surface);
+  vertical-align: 1px;
+}
+
+details.person-edit { grid-area: edit; margin: 8px 0 0; }
+.person-delete { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.check-inline { display: inline-flex; align-items: center; gap: 6px; }
+
+@media (max-width: 559px) {
+  li.person { grid-template-areas: "avatar id id" ". marks marks" ". edit edit"; }
+  .person-marks { margin-top: 4px; }
+}
+
+/* ------------------------------------------------------------------------
+   The activity filter. Its state lives in the query string, so each active
+   term is shown as its own removable chip: a reader can see exactly what is
+   narrowing the feed and drop one part of it without retyping the rest.
+   ------------------------------------------------------------------------ */
+
+.activityfilter { flex-wrap: wrap; }
+.activechips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -8px 0 16px; }
+
+.activechips .chip.removable {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid transparent;
+  text-decoration: none;
+}
+
+.activechips .chip.removable:hover { border-color: var(--accent); }
+.activechips .clear { font-size: 0.8rem; color: var(--muted); }
+.feed .who-name { text-decoration: none; }
+.feed .who-name:hover, .feed .who-link:hover { text-decoration: underline; }
+
+/* A record a deep link landed on, marked until the reader looks elsewhere so
+   a link from the activity feed lands somewhere they can see. */
+.is-target {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: var(--radius);
+}
+
+/* The feed row lost the duplicated actor name that used to sit at its end,
+   so the timestamp takes over that job of pushing to the right, and the Raw
+   disclosure -- which keeps the small button-like shape details.panel.raw
+   already gives it -- follows on the same line instead of claiming one of
+   its own. It is still last in the markup, so opening it still grows the
+   row downward without moving anything already laid out. */
+.feed .feed-raw { flex: 0 0 auto; margin: 0 0 0 4px; }
+.feed .muted.when { margin-left: auto; font-size: 0.82rem; }
+
+/* The same reasoning on the user list: Manage is one account's controls, not
+   a section of the page, so it reads as a small control on the row. */
+details.person-edit {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+details.person-edit > summary {
+  padding: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+details.person-edit > summary:hover { color: var(--accent); }
+
+details.person-edit > .body {
+  padding: 14px;
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+/* ------------------------------------------------------------------------
+   Live connections. Counts first, because "how many and where" is the
+   question, then one block per connection with the one action it has.
+   ------------------------------------------------------------------------ */
+
+.statrow { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 10px; }
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  min-width: 96px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.stat-n { font-size: 1.35rem; font-weight: 700; color: var(--ink); line-height: 1.2; }
+.stat-l { font-size: 0.76rem; color: var(--muted); }
+
+ul.connlist {
+  list-style: none;
+  margin: 18px 0;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+li.conn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  border-left: 3px solid transparent;
+}
+
+li.conn:last-child { border-bottom: 0; }
+li.conn.is-mine { border-left-color: var(--accent); background: var(--accent-soft); }
+ul.connlist li.empty { padding: 26px 14px; text-align: center; }
+
+/* The surface a connection arrived on is a kind, so it reads as a square
+   tag, never as the round status pill a task carries. */
+.surface {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+}
+
+.surface.s-ssh { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.surface.s-events { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+
+.conn-id { display: flex; flex-direction: column; min-width: 0; flex: 1 1 200px; }
+.conn-who { display: flex; align-items: center; gap: 6px; }
+.conn-actor { font-weight: 600; color: var(--ink); text-decoration: none; }
+.conn-actor:hover { text-decoration: underline; }
+.conn-from { color: var(--muted); font-size: 0.8rem; overflow-wrap: anywhere; }
+.conn-since { font-size: 0.82rem; }
+.conn-end { flex: 0 0 auto; }

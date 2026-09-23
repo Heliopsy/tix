@@ -4,6 +4,7 @@ package web
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -22,7 +23,7 @@ func (h *handler) adminRoutes() []route {
 		get(RouteDomains, "domains.html", h.showDomains, "ListDomains"),
 		post(RouteDomains, h.addDomain, "AddDomain"),
 		post(RouteDomainRemove, h.removeDomain, "RemoveDomain"),
-		get(RouteUsers, "users.html", h.showUsers, "ListUsers"),
+		get(RouteUsers, "users.html", h.showUsers, "ListUsers", "ListMembers"),
 		post(RouteUsers, h.createUser, "CreateUser"),
 		post(RouteUserUpdate, h.updateUser, "UpdateUser"),
 		post(RouteUserDelete, h.deleteUser, "DeleteUser"),
@@ -183,21 +184,90 @@ func (h *handler) removeDomain(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// usersView is what the user administration screen renders.
-type usersView struct {
-	Users      []core.User
-	Roles      []core.Role
-	NextCursor string
+// userRow is one account as the administration screen shows it: the record
+// itself, the role its membership grants, and whether it is the account the
+// reader is signed in as.
+//
+// Role does not live on core.User -- it is a property of the membership that
+// joins an account to this tenant -- which is why this screen has to bring
+// the two together. It did not, and the consequence was not cosmetic: the
+// edit form's role control listed every role with none of them selected, so
+// a browser submitted the first one. Opening a user to tick "disabled" and
+// pressing Update silently demoted an administrator to a viewer.
+type userRow struct {
+	User core.User
+	Role core.Role
+	Self bool
 }
 
-// showUsers renders the tenant's users.
+// Label is what the row is called: the name they chose, or their email.
+func (u userRow) Label() string { return userLabel(u.User) }
+
+// Monogram is the one or two letters the avatar shows, taken from whatever
+// the row is called so it changes with the name rather than with the id.
+func (u userRow) Monogram() string {
+	label := strings.TrimSpace(u.Label())
+	if label == "" {
+		return "?"
+	}
+	fields := strings.Fields(label)
+	if len(fields) > 1 {
+		return strings.ToUpper(fields[0][:1] + fields[1][:1])
+	}
+	return strings.ToUpper(label[:1])
+}
+
+// Disabled reports whether the account has been switched off.
+func (u userRow) Disabled() bool { return u.User.DisabledAt != nil }
+
+// usersView is what the user administration screen renders.
+type usersView struct {
+	Users      []userRow
+	Roles      []core.Role
+	NextCursor string
+	Active     int
+	Off        int
+}
+
+// showUsers renders the tenant's users, each with the role its membership
+// grants. A membership listing the caller may not read leaves every row's
+// role empty rather than failing the screen, and the edit control then says
+// so instead of quietly proposing a role nobody chose.
 func (h *handler) showUsers(w http.ResponseWriter, r *http.Request) error {
 	users, next, err := h.svc.ListUsers(r.Context(), core.Page{Cursor: r.URL.Query().Get("cursor")})
 	if err != nil {
 		return err
 	}
-	return h.render(w, r, "users.html", "Users",
-		usersView{Users: users, Roles: core.Roles, NextCursor: next})
+	roles := h.memberRoles(r)
+	actor, _ := core.ActorFrom(r.Context())
+	data := usersView{Users: make([]userRow, 0, len(users)), Roles: core.Roles, NextCursor: next}
+	for _, u := range users {
+		row := userRow{User: u, Role: roles[u.ID]}
+		if actor != nil && actor.ID == u.ID {
+			row.Self = true
+		}
+		if row.Disabled() {
+			data.Off++
+		} else {
+			data.Active++
+		}
+		data.Users = append(data.Users, row)
+	}
+	return h.render(w, r, "users.html", "Users", data)
+}
+
+// memberRoles maps each actor to the role their membership of this tenant
+// grants them.
+func (h *handler) memberRoles(r *http.Request) map[string]core.Role {
+	members, err := h.svc.ListMembers(r.Context())
+	if err != nil {
+		return nil
+	}
+	out := make(map[string]core.Role, len(members))
+	for _, m := range members {
+		out[m.ActorID] = m.Role
+	}
+	return out
 }
 
 // createUser creates a credentialed user.

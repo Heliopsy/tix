@@ -42,12 +42,13 @@ var columnSets = map[string][]Column{
 		{Key: "status", Label: "Status", Default: true},
 		{Key: "priority", Label: "Priority", Default: true},
 		{Key: "tags", Label: "Tags", Default: true},
-		{Key: "project", Label: "Project"},
+		{Key: "project", Label: "Project", Default: true},
 		{Key: "updated", Label: "Updated"},
 		{Key: "ref", Label: "Reference", Default: true},
 	},
 	"users": {
 		{Key: "name", Label: "Name", Default: true},
+		{Key: "role", Label: "Role", Default: true},
 		{Key: "state", Label: "State", Default: true},
 	},
 	"tokens": {

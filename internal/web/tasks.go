@@ -76,11 +76,16 @@ func projectAccents(projects []core.Project) map[string]projectAccent {
 }
 
 // taskSummary counts what is on the page, so the heading can say something.
+// Projects is how many distinct lists the rows come from, which is the count
+// that tells a reader whether they are looking at one project's work or at
+// everything at once -- the same question the visibility control answers, so
+// the two belong on screen together.
 type taskSummary struct {
-	Open    int
-	Held    int
-	Done    int
-	Blocked int
+	Open     int
+	Held     int
+	Done     int
+	Blocked  int
+	Projects int
 }
 
 // Total is how many tasks the page carries.
@@ -93,6 +98,7 @@ func (s taskSummary) AllDone() bool { return s.Total() > 0 && s.Done == s.Total(
 // is moving, and what an agent is holding right now.
 func summarise(tasks []core.Task, complete map[string]string, now time.Time) taskSummary {
 	var out taskSummary
+	seen := make(map[string]bool, len(tasks))
 	for _, t := range tasks {
 		if t.Status == complete[t.ProjectID] {
 			out.Done++
@@ -104,6 +110,10 @@ func summarise(tasks []core.Task, complete map[string]string, now time.Time) tas
 		}
 		if t.ClaimedByActorID != "" && t.LeaseExpiresAt != nil && t.LeaseExpiresAt.After(now) {
 			out.Held++
+		}
+		if t.ProjectID != "" && !seen[t.ProjectID] {
+			seen[t.ProjectID] = true
+			out.Projects++
 		}
 	}
 	return out

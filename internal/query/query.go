@@ -18,11 +18,11 @@ import (
 // DateLayouts are the timestamp forms a filter term may take.
 var DateLayouts = []string{time.RFC3339, "2006-01-02T15:04:05", "2006-01-02 15:04", "2006-01-02"}
 
-// Keys are the term prefixes the filter language accepts.
 // CustomFieldPrefix marks a term that filters on a custom field, as in
 // "field.severity:high".
 const CustomFieldPrefix = "field."
 
+// Keys are the term prefixes the filter language accepts.
 var Keys = []string{
 	"project", "status", "tag", "assignee", "creator", "claimed-by",
 	"priority", "due-before", "due-after", "parent", "is", "sort", "limit",

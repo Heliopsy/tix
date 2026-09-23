@@ -1,10 +1,44 @@
 {{define "content"}}
+{{$v := .Data}}
 <h1>Activity</h1>
-<p class="lede">Recent changes for this tenant, newest first.{{if eq .Data.Cursor ""}} With JavaScript the list updates as events arrive.{{end}}</p>
+<p class="lede">Recent changes for this tenant, newest first.{{if eq $v.Cursor ""}} With JavaScript the list updates as events arrive.{{end}}</p>
+
+{{/* The whole filter lives in the query string, so a narrowed feed is a link
+     somebody can send. The form is a plain GET for exactly that reason: it
+     writes its state into the address bar with no script involved. */}}
+<form method="get" action="/activity" class="filterbar activityfilter">
+  <input name="q" value="{{$v.Query.Text}}" placeholder="Search records, for example infra-5" aria-label="Search activity" data-shortcut-target="filter">
+  <select name="kind" aria-label="Kind of record">
+    <option value="">Everything</option>
+    {{$kind := $v.Query.Kind}}
+    {{range $v.Kinds}}<option value="{{.Value}}" {{if eq .Value $kind}}selected{{end}}>{{.Label}}</option>{{end}}
+  </select>
+  <select name="source" aria-label="Where the change came from">
+    <option value="">Any surface</option>
+    {{$src := $v.Query.Source}}
+    {{range $v.Sources}}<option value="{{.}}" {{if eq (printf "%s" .) $src}}selected{{end}}>{{.}}</option>{{end}}
+  </select>
+  {{if $v.Query.Actor}}<input type="hidden" name="actor" value="{{$v.Query.Actor}}">{{end}}
+  <button class="secondary" type="submit">Filter</button>
+</form>
+
+{{if $v.Query.Active}}
+<p class="activechips">
+  <span class="muted">Showing</span>
+  {{if $v.Query.Text}}<a class="chip removable" href="{{$v.Query.Without "q"}}">matching &ldquo;{{$v.Query.Text}}&rdquo;<span aria-hidden="true">&times;</span><span class="sr-only"> (remove this filter)</span></a>{{end}}
+  {{if $v.Query.Actor}}<a class="chip removable" href="{{$v.Query.Without "actor"}}">by {{if $v.ActorLabel}}{{$v.ActorLabel}}{{else}}{{$v.Query.Actor}}{{end}}<span aria-hidden="true">&times;</span><span class="sr-only"> (remove this filter)</span></a>{{end}}
+  {{if $v.Query.Kind}}<a class="chip removable" href="{{$v.Query.Without "kind"}}">{{$v.Query.Kind}}<span aria-hidden="true">&times;</span><span class="sr-only"> (remove this filter)</span></a>{{end}}
+  {{if $v.Query.Source}}<a class="chip removable" href="{{$v.Query.Without "source"}}">from {{$v.Query.Source}}<span aria-hidden="true">&times;</span><span class="sr-only"> (remove this filter)</span></a>{{end}}
+  <a class="clear" href="/activity">Clear all</a>
+</p>
+{{end}}
+
 <div class="card">
-  <ul class="plain feed" id="live-feed"{{if eq .Data.Cursor ""}} data-events="{{.EventsPath}}" data-feed="/activity/feed"{{end}}>
+  {{/* data-feed carries the filter too, so a live refresh re-renders the feed
+       the reader is actually looking at rather than widening it back out. */}}
+  <ul class="plain feed" id="live-feed"{{if eq $v.Cursor ""}} data-events="{{.EventsPath}}" data-feed="{{$v.Query.FeedHref}}"{{end}}>
     {{template "activity-rows" .}}
   </ul>
 </div>
-{{if .Data.NextCursor}}<p><a href="/activity?cursor={{.Data.NextCursor}}">Older</a></p>{{end}}
+{{if $v.NextCursor}}<p><a href="{{$v.Query.Href $v.NextCursor}}">Older</a></p>{{end}}
 {{end}}

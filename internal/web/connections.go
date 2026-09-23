@@ -16,11 +16,19 @@ func (h *handler) connectionRoutes() []route {
 	}
 }
 
+// connectionRow is one live connection as the screen shows it. Mine marks a
+// connection the signed-in actor holds, because ending one of those cuts the
+// reader's own live updates and that is worth knowing before clicking.
+type connectionRow struct {
+	core.Connection
+	Mine bool
+}
+
 // connectionsView is what the live connection screen renders. It carries this
 // server's connections and no other's, which is why the server is named on it.
 type connectionsView struct {
 	ServerID    string
-	Connections []core.Connection
+	Connections []connectionRow
 	Counts      core.ConnectionCounts
 }
 
@@ -30,8 +38,17 @@ func (h *handler) showConnections(w http.ResponseWriter, r *http.Request) error 
 	if err != nil {
 		return err
 	}
+	actor, _ := core.ActorFrom(r.Context())
+	rows := make([]connectionRow, 0, len(list.Connections))
+	for _, conn := range list.Connections {
+		row := connectionRow{Connection: conn}
+		if actor != nil && actor.ID == conn.ActorID {
+			row.Mine = true
+		}
+		rows = append(rows, row)
+	}
 	return h.render(w, r, "connections.html", "Connections",
-		connectionsView{ServerID: list.ServerID, Connections: list.Connections, Counts: list.Counts})
+		connectionsView{ServerID: list.ServerID, Connections: rows, Counts: list.Counts})
 }
 
 // endConnection closes one live connection.

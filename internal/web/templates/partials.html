@@ -90,9 +90,17 @@
   <li{{if .Accent.Color}} class="is-accented proj-{{.Accent.Color}}"{{end}}>
     <span class="badge act-{{.Group.Verb}}">{{.Group.Verb}}</span>
     {{if .Accent.Icon}}<span class="proj-icon" role="img" aria-label="{{.Accent.Name}}" title="{{.Accent.Name}}">{{.Accent.Icon}}</span>{{end}}
-    <span class="subject">{{sentenceSubject ($.Data.Names.Label .Group.Latest.Entry.ActorID) .Subject .SubjectHref .Group}}</span>
-    <span class="muted">{{relativeAt .Group.Latest.Entry.OccurredAt}} &middot; {{.Group.Source}}</span>
-    <span class="who-name" title="{{.Group.Latest.Entry.ActorID}}">{{$.Data.Names.Label .Group.Latest.Entry.ActorID}}</span>
+    {{/* Both the actor and the record it changed are links: the actor to this
+         same feed narrowed to them, the record to the thing itself -- a task,
+         a project, a workflow, or the comment's own place on its task. A row
+         nobody could click through to was the whole complaint about this
+         screen. */}}
+    <span class="subject">{{sentenceSubject ($.Data.Names.Label .Group.Latest.Entry.ActorID) .ActorHref .Subject .SubjectHref .Group}}</span>
+    {{/* The actor used to be repeated at the end of the row as well as
+         inside the sentence. One of the two had to go, and the one in the
+         sentence is the one that reads; what is left here is when it
+         happened and which surface it came from. */}}
+    <span class="muted when">{{relativeAt .Group.Latest.Entry.OccurredAt}} &middot; {{.Group.Source}}</span>
     {{/* Ordered after the row's own timestamp and actor, and always its own
          full-width flex line (see .feed-raw in app.css), so opening it can
          never push those two spans around: everything they need is already
@@ -111,6 +119,6 @@
     </details>
   </li>
 {{else}}
-  <li class="empty">No recorded activity.</li>
+  <li class="empty">{{if .Data.Query.Active}}Nothing here matches that filter{{if .Data.Scanned}}, out of the {{.Data.Scanned}} most recent records searched{{end}}. <a href="/activity">Clear it</a> to see everything.{{else}}No recorded activity.{{end}}</li>
 {{end}}
 {{end}}

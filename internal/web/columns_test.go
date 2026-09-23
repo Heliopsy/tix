@@ -5,11 +5,22 @@ package web_test
 import (
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/heliopsy/tix/internal/web"
 )
+
+// createUser adds one credentialed account, so a test about what the user
+// listing renders has a row to render.
+func (b *browser) createUser(email string) {
+	b.t.Helper()
+	resp := b.post("/admin/users", url.Values{"email": {email},
+		"password": {"correct-horse-battery"}, "role": {"member"}})
+	defer func() { _ = resp.Body.Close() }()
+	wantStatus(b.t, resp, http.StatusSeeOther)
+}
 
 // An installation nobody has touched renders what it rendered before the
 // picker existed: every declared column, in its declared order.
@@ -18,16 +29,17 @@ func TestDefaultColumnsRenderEveryListingUnchanged(t *testing.T) {
 	f := newFixture(t)
 	b := f.as("alice")
 	b.createTask("infra", "default columns")
+	b.createUser("default-columns@example.test")
 
 	tasks := b.page("/tasks")
-	for _, want := range []string{`<span class="badge todo">todo</span>`, `<span class="ref mono">`} {
+	for _, want := range []string{`<span class="pill status todo">todo</span>`, `<span class="ref mono">`} {
 		if !strings.Contains(tasks, want) {
 			t.Errorf("the task list lost %q by default:\n%s", want, tasks)
 		}
 	}
 
 	headings := map[string][]string{
-		"/admin/users":    {"<th>Email</th>", "<th>Name</th>", "<th>State</th>"},
+		"/admin/users":    {`class="person-mail`, `class="person-name"`, `class="role `, `class="state `},
 		"/admin/tokens":   {"<th>Name</th>", "<th>Scopes</th>", "<th>Expires</th>"},
 		"/admin/webhooks": {"<th>URL</th>", "<th>Events</th>", "<th>Active</th>"},
 		"/admin/domains":  {"<th>Hostname</th>", "<th>Verified</th>", "<th>Certificate</th>"},
@@ -37,7 +49,7 @@ func TestDefaultColumnsRenderEveryListingUnchanged(t *testing.T) {
 		page := b.page(path)
 		for _, want := range wants {
 			if !strings.Contains(page, want) {
-				t.Errorf("%s lost its %s heading by default", path, want)
+				t.Errorf("%s lost its %s column by default", path, want)
 			}
 		}
 	}
@@ -60,13 +72,13 @@ func TestChosenColumnsApplyAndSurviveASecondRequest(t *testing.T) {
 	}
 
 	page := b.page("/tasks")
-	if strings.Contains(page, `<span class="badge todo">`) {
+	if strings.Contains(page, `<span class="pill status todo">`) {
 		t.Errorf("the status column was not hidden:\n%s", page)
 	}
 	if !strings.Contains(page, `<span class="ref mono">`) {
 		t.Errorf("the reference column was hidden although it was chosen")
 	}
-	if !strings.Contains(page, `<span class="tag project">infra</span>`) {
+	if !strings.Contains(page, `href="/tasks?q=project:infra"`) {
 		t.Errorf("the project column was not shown although it was chosen:\n%s", page)
 	}
 	if !strings.Contains(page, `value="ref" checked`) {
@@ -74,13 +86,13 @@ func TestChosenColumnsApplyAndSurviveASecondRequest(t *testing.T) {
 	}
 
 	again := b.page("/tasks")
-	if strings.Contains(again, `<span class="badge todo">`) {
+	if strings.Contains(again, `<span class="pill status todo">`) {
 		t.Fatalf("the choice did not survive a second request")
 	}
 
 	// Hiding a column withholds nothing: the value is still on the record.
 	detail := b.page("/tasks/" + b.createTask("infra", "still reachable"))
-	if !strings.Contains(detail, `<span class="badge todo">todo</span>`) {
+	if !strings.Contains(detail, `<span class="pill status todo">todo</span>`) {
 		t.Fatalf("the hidden value is not reachable on the task's own screen")
 	}
 }
@@ -101,11 +113,11 @@ func TestAdminListingKeepsItsIdentifyingColumn(t *testing.T) {
 	wantStatus(t, resp, http.StatusSeeOther)
 
 	page := b.page("/admin/users")
-	if strings.Contains(page, "<th>State</th>") {
+	if strings.Contains(page, `class="state `) {
 		t.Errorf("an unchosen column still renders:\n%s", page)
 	}
-	if !strings.Contains(page, "<th>Email</th>") || !strings.Contains(page, "columns@example.test") {
-		t.Fatalf("the listing lost the column naming its rows:\n%s", page)
+	if !strings.Contains(page, `class="person-mail`) || !strings.Contains(page, "columns@example.test") {
+		t.Fatalf("the listing lost the field naming its rows:\n%s", page)
 	}
 }
 
@@ -118,14 +130,14 @@ func TestResetRestoresTheDefaultColumns(t *testing.T) {
 
 	chosen := b.post("/columns", url.Values{"page": {"tasks"}, "column": {"ref"}, "next": {"/tasks"}})
 	_ = chosen.Body.Close()
-	if strings.Contains(b.page("/tasks"), `<span class="badge todo">`) {
+	if strings.Contains(b.page("/tasks"), `<span class="pill status todo">`) {
 		t.Fatalf("the choice did not apply")
 	}
 
 	reset := b.post("/columns", url.Values{"page": {"tasks"}, "reset": {"1"}, "next": {"/tasks"}})
 	defer func() { _ = reset.Body.Close() }()
 	wantStatus(t, reset, http.StatusSeeOther)
-	if !strings.Contains(b.page("/tasks"), `<span class="badge todo">todo</span>`) {
+	if !strings.Contains(b.page("/tasks"), `<span class="pill status todo">todo</span>`) {
 		t.Fatalf("reset did not restore the default columns")
 	}
 }
@@ -140,10 +152,11 @@ func TestMalformedPreferenceFallsBackToTheDefault(t *testing.T) {
 		"tasks:status" + strings.Repeat("x", 600), "~~~:::"} {
 		b := f.as("alice")
 		b.createTask("infra", "still listed")
+		b.createUser("fallback-" + strconv.Itoa(len(raw)) + "@example.test")
 		b.setCookie(web.ColumnsCookie, raw)
 
 		page := b.page("/tasks")
-		if !strings.Contains(page, `<span class="badge todo">todo</span>`) {
+		if !strings.Contains(page, `<span class="pill status todo">todo</span>`) {
 			t.Errorf("cookie %q did not fall back to the default columns:\n%s", raw, page)
 		}
 		if !strings.Contains(page, "still listed") {
@@ -151,8 +164,8 @@ func TestMalformedPreferenceFallsBackToTheDefault(t *testing.T) {
 		}
 
 		users := b.page("/admin/users")
-		if !strings.Contains(users, "<th>Email</th>") {
-			t.Errorf("cookie %q emptied the user table", raw)
+		if !strings.Contains(users, `class="person-mail`) {
+			t.Errorf("cookie %q emptied the user listing", raw)
 		}
 	}
 }
@@ -206,13 +219,13 @@ func TestColumnChoiceIsPerBrowserAndCarriesNoTenantData(t *testing.T) {
 
 	resp := alice.post("/columns", url.Values{"page": {"tasks"}, "column": {"ref"}, "next": {"/tasks"}})
 	_ = resp.Body.Close()
-	if strings.Contains(alice.page("/tasks"), `<span class="badge todo">`) {
+	if strings.Contains(alice.page("/tasks"), `<span class="pill status todo">`) {
 		t.Fatalf("alice's choice did not apply")
 	}
 
 	fresh := f.as("alice")
 	page := fresh.page("/tasks")
-	if !strings.Contains(page, `<span class="badge todo">todo</span>`) {
+	if !strings.Contains(page, `<span class="pill status todo">todo</span>`) {
 		t.Errorf("a second browser inherited the choice, so it is not per-browser:\n%s", page)
 	}
 

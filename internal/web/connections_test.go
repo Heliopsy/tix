@@ -36,8 +36,16 @@ func TestConnectionScreenShowsWhatThisServerHolds(t *testing.T) {
 			t.Errorf("the connection screen omits %q:\n%s", want, page)
 		}
 	}
-	if !strings.Contains(page, "is not revocation") {
+	if !strings.Contains(page, "does not revoke anything") {
 		t.Error("the screen does not say that ending is not revocation")
+	}
+	// Saying so is half of it: the screen has to point at what does revoke,
+	// or an operator who wanted somebody gone is left with a button that
+	// looks like it did the job and did not.
+	for _, want := range []string{`href="/admin/tokens"`, `href="/admin/ssh-keys"`, `href="/admin/users"`} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the screen offers no way to actually revoke: missing %q", want)
+		}
 	}
 }
 
@@ -45,7 +53,7 @@ func TestConnectionScreenExplainsAnEmptyServer(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	page := f.as("alice").page("/admin/connections")
-	if !strings.Contains(page, "No live connections.") {
+	if !strings.Contains(page, "Nothing connected") {
 		t.Errorf("an idle server's screen does not say so:\n%s", page)
 	}
 }
@@ -91,7 +99,7 @@ func TestTheConnectionScreenIsScopedToTheSessionTenant(t *testing.T) {
 			t.Errorf("the screen discloses %q:\n%s", secret, page)
 		}
 	}
-	if !strings.Contains(page, "holding 1 in total") {
+	if !strings.Contains(page, `<span class="stat-n">1</span><span class="stat-l">this server, all tenants</span>`) {
 		t.Errorf("the process total does not cover the other tenant's connection:\n%s", page)
 	}
 

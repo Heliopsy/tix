@@ -16,8 +16,8 @@
         <div><a href="/tasks/{{.Task.Ref}}">{{.Task.Title}}</a></div>
         {{if or (ne (prio .Task.Priority) "normal") .Task.Tags}}
         <div class="card-meta">
-          {{if ne (prio .Task.Priority) "normal"}}<span class="badge p-{{prio .Task.Priority}}">{{prio .Task.Priority}}</span>{{end}}
-          {{range .Task.Tags}}<span class="tag">{{.}}</span>{{end}}
+          {{if ne (prio .Task.Priority) "normal"}}<span class="prio p-{{prio .Task.Priority}}" title="Priority: {{prio .Task.Priority}}"><span class="caret" aria-hidden="true"></span>{{prio .Task.Priority}}</span>{{end}}
+          {{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}
         </div>
         {{end}}
         {{if .Targets}}

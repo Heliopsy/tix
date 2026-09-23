@@ -97,12 +97,82 @@ export function element(tagName, attrs = {}) {
   };
 }
 
+// domNode is the smallest thing the delegated handlers in live.js will accept
+// as an element: it answers closest() by walking real parents, and carries
+// attributes and a classList. Unlike element() above it has a place in a tree,
+// which is the whole point -- a delegated handler's first move is to ask the
+// event target what it is inside of.
+export function domNode(selectors = [], attrs = {}, children = []) {
+  const own = { ...attrs };
+  const classes = new Set((own.class || "").split(" ").filter(Boolean));
+  const node = {
+    selectors: [...selectors],
+    parentNode: null,
+    children,
+    tagName: own.tagName || "DIV",
+    innerHTML: "",
+    textContent: own.textContent || "",
+    options: own.options || [],
+    value: own.value,
+    fields: own.fields || {},
+    matches(sel) {
+      return this.selectors.indexOf(sel) !== -1;
+    },
+    closest(sel) {
+      let at = this;
+      while (at) {
+        if (at.matches(sel)) {
+          return at;
+        }
+        at = at.parentNode;
+      }
+      return null;
+    },
+    getAttribute(name) {
+      return Object.prototype.hasOwnProperty.call(own, name) ? own[name] : null;
+    },
+    setAttribute(name, value) {
+      own[name] = value;
+    },
+    hasAttribute(name) {
+      return Object.prototype.hasOwnProperty.call(own, name);
+    },
+    classList: {
+      add: (c) => classes.add(c),
+      remove: (c) => classes.delete(c),
+      contains: (c) => classes.has(c),
+    },
+    // descendants walks the subtree, which is all querySelector needs here:
+    // these trees are a handful of nodes, and a real engine's ordering rules
+    // are not what any of these tests are about.
+    descendants() {
+      return this.children.flatMap((c) => [c, ...c.descendants()]);
+    },
+    querySelector(sel) {
+      return this.descendants().find((c) => c.matches(sel)) || null;
+    },
+    querySelectorAll(sel) {
+      return this.descendants().filter((c) => c.matches(sel));
+    },
+  };
+  for (const child of children) {
+    child.parentNode = node;
+  }
+  return node;
+}
+
 // fakeDocument dispatches to whatever the script registered, and serves the
 // handful of lookups the scripts make by id or selector.
 export function fakeDocument({ byId = {}, bySelector = {}, bySelectorAll = {} } = {}) {
   const listeners = new Map();
   return {
     activeElement: null,
+    // body is a node in its own right: live.js binds its htmx:beforeSwap
+    // handler there, because hx-boost replaces the body's contents and leaves
+    // the body itself in place.
+    body: {
+      addEventListener() {},
+    },
     addEventListener(type, fn) {
       if (!listeners.has(type)) {
         listeners.set(type, []);

@@ -60,6 +60,39 @@
     }, 1500);
   }
 
+  // A deep link from the activity feed can name a record that sits inside a
+  // closed disclosure (a task's Artifacts panel), which the browser will not
+  // scroll to and nobody would find. Opening the disclosure the fragment's
+  // own prefix names, and marking the row, is what makes such a link land
+  // somewhere visible. Re-run on every boosted navigation, because the
+  // layout swaps the page without a document load.
+  function revealTarget() {
+    var kind = tix.targetKind(window.location.hash);
+    if (!kind) {
+      return;
+    }
+    var panel = document.querySelector('[data-open-for="' + kind + '"]');
+    if (panel) {
+      panel.setAttribute("open", "");
+    }
+    var row = document.getElementById(window.location.hash.slice(1));
+    if (!row) {
+      return;
+    }
+    var marked = document.querySelectorAll(".is-target");
+    for (var i = 0; i < marked.length; i++) {
+      marked[i].classList.remove("is-target");
+    }
+    row.classList.add("is-target");
+    if (typeof row.scrollIntoView === "function") {
+      row.scrollIntoView({ block: "center" });
+    }
+  }
+
+  revealTarget();
+  window.addEventListener("hashchange", revealTarget);
+  document.addEventListener("htmx:load", revealTarget);
+
   // A styled file field (.file-field, app.css) hides the browser's own
   // "Choose file / No file chosen" text, so the one thing that native widget
   // told you for free -- which file, if any, is selected -- has to be read

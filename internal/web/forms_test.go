@@ -59,7 +59,7 @@ func TestBoardMoveTransitionsATask(t *testing.T) {
 	wantStatus(t, resp, http.StatusSeeOther)
 
 	detail := b.page("/tasks/" + ref)
-	if !strings.Contains(detail, `<span class="badge doing">doing</span>`) {
+	if !strings.Contains(detail, `<span class="pill status doing">doing</span>`) {
 		t.Fatalf("the task did not transition:\n%s", detail)
 	}
 }
@@ -80,7 +80,7 @@ func TestIllegalBoardMoveIsRefusedWithAnExplanation(t *testing.T) {
 	}
 
 	detail := b.page("/tasks/" + ref)
-	if !strings.Contains(detail, `<span class="badge todo">todo</span>`) {
+	if !strings.Contains(detail, `<span class="pill status todo">todo</span>`) {
 		t.Fatalf("the refused move changed the task")
 	}
 }
@@ -115,7 +115,7 @@ func TestTaskDetailEditsApply(t *testing.T) {
 		{"tag", "/tasks/" + ref + "/tags", url.Values{"tag": {"ops"}}, "ops"},
 		{"artifact", "/tasks/" + ref + "/artifacts", url.Values{"kind": {"result"},
 			"name": {"summary"}, "payload": {"lines=12"}}, "summary"},
-		{"transition", "/tasks/" + ref + "/transition", url.Values{"to": {"doing"}}, `<span class="badge doing">doing</span>`},
+		{"transition", "/tasks/" + ref + "/transition", url.Values{"to": {"doing"}}, `<span class="pill status doing">doing</span>`},
 	}
 	for _, step := range steps {
 		t.Run(step.name, func(t *testing.T) {
@@ -521,7 +521,7 @@ func TestOneClickCompleteWalksTheWorkflow(t *testing.T) {
 	}
 
 	detail := b.page("/tasks/" + ref)
-	if !strings.Contains(detail, `<span class="badge done">done</span>`) {
+	if !strings.Contains(detail, `<span class="pill status done">done</span>`) {
 		t.Fatalf("the task did not reach a terminal state:\n%s", detail)
 	}
 }
@@ -539,7 +539,7 @@ func TestUntickingAFinishedTaskReopensIt(t *testing.T) {
 	if resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("complete = %d, want 303: %s", resp.StatusCode, body(t, resp))
 	}
-	if detail := b.page("/tasks/" + ref); !strings.Contains(detail, `<span class="badge done">done</span>`) {
+	if detail := b.page("/tasks/" + ref); !strings.Contains(detail, `<span class="pill status done">done</span>`) {
 		t.Fatalf("the task did not reach a terminal state")
 	}
 
@@ -548,10 +548,10 @@ func TestUntickingAFinishedTaskReopensIt(t *testing.T) {
 		t.Fatalf("untick = %d, want 303: %s", again.StatusCode, body(t, again))
 	}
 	detail := b.page("/tasks/" + ref)
-	if strings.Contains(detail, `<span class="badge done">done</span>`) {
+	if strings.Contains(detail, `<span class="pill status done">done</span>`) {
 		t.Fatalf("unticking a finished task left it finished")
 	}
-	if !strings.Contains(detail, `<span class="badge todo">todo</span>`) {
+	if !strings.Contains(detail, `<span class="pill status todo">todo</span>`) {
 		t.Fatalf("the reopened task is not back in the starting state")
 	}
 }

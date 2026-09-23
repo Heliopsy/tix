@@ -1,18 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+// Everything in this file is bound at the document, or rebound on htmx:load,
+// and never to an element captured when the file first ran.
+//
+// The layout sets hx-boost on <body>, so every internal navigation is an htmx
+// swap of the body's contents rather than a document load. The scripts in
+// <head> run exactly once, at the first page a visitor happens to open. A
+// setup that captured `document.querySelector(".board")` at that moment found
+// nothing -- the first page is almost never a board -- and stood down for the
+// rest of the session, so drag-and-drop worked only for somebody who typed a
+// board's URL and never for somebody who clicked their way to it. The live
+// feed had the same fault for the same reason. Resolving the element at event
+// time, or on htmx:load, is what makes the two arrivals equivalent.
+
 (function () {
   "use strict";
   var tix = window.tix;
   if (!tix) {
-    return;
-  }
-  var feed = document.getElementById("live-feed");
-  if (!feed || !window.WebSocket || !window.fetch) {
-    return;
-  }
-  var path = feed.getAttribute("data-events");
-  var feedURL = feed.getAttribute("data-feed");
-  if (!path || !feedURL) {
     return;
   }
 
@@ -21,17 +25,22 @@
   // the identical template block templates/activity.html uses). That is the
   // whole rendering: there is no second, JavaScript-side copy of the
   // grouping rule or the sentence wording to keep in sync with history.go.
+  var feed = null;
+  var socket = null;
   var pending = null;
+
   function refresh() {
-    if (pending) {
+    if (pending || !feed) {
       return;
     }
+    var target = feed;
+    var feedURL = target.getAttribute("data-feed");
     pending = fetch(feedURL, { credentials: "same-origin" })
       .then(function (resp) { return resp.ok ? resp.text() : null; })
       .then(function (html) {
         pending = null;
-        if (html !== null) {
-          feed.innerHTML = html;
+        if (html !== null && feed === target) {
+          target.innerHTML = html;
         }
       })
       .catch(function () {
@@ -45,23 +54,48 @@
   // load would, rather than briefly showing the first hop on its own.
   var scheduleRefresh = tix.debouncer(300, refresh);
 
-  var scheme = window.location.protocol === "https:" ? "wss://" : "ws://";
-  var socket = new WebSocket(scheme + window.location.host + path);
-  socket.addEventListener("open", function () {
-    socket.send(JSON.stringify({ type: "subscribe", id: "feed" }));
-  });
-  socket.addEventListener("message", function (message) {
-    var parsed;
-    try {
-      parsed = JSON.parse(message.data);
-    } catch (err) {
+  // connectFeed binds whatever feed element the current page carries. It is
+  // safe to call on every swap: a page with no feed drops the socket, and a
+  // page whose feed is already the bound one is left alone, so clicking
+  // between two pages never opens a second socket.
+  function connectFeed() {
+    var next = document.getElementById("live-feed");
+    if (next && !(next.getAttribute("data-events") && next.getAttribute("data-feed"))) {
+      next = null;
+    }
+    if (!tix.shouldRebind(next, feed)) {
       return;
     }
-    if (!parsed || parsed.type !== "event") {
+    if (socket) {
+      socket.close();
+      socket = null;
+    }
+    feed = next;
+    if (!feed || !window.WebSocket || !window.fetch) {
       return;
     }
-    scheduleRefresh();
-  });
+    var path = feed.getAttribute("data-events");
+    var scheme = window.location.protocol === "https:" ? "wss://" : "ws://";
+    socket = new WebSocket(scheme + window.location.host + path);
+    socket.addEventListener("open", function () {
+      socket.send(JSON.stringify({ type: "subscribe", id: "feed" }));
+    });
+    socket.addEventListener("message", function (message) {
+      var parsed;
+      try {
+        parsed = JSON.parse(message.data);
+      } catch (err) {
+        return;
+      }
+      if (!parsed || parsed.type !== "event") {
+        return;
+      }
+      scheduleRefresh();
+    });
+  }
+
+  connectFeed();
+  document.addEventListener("htmx:load", connectFeed);
 })();
 
 // htmx does not swap a non-2xx response, so a refused form used to change
@@ -87,13 +121,14 @@
   if (!tix) {
     return;
   }
-  var board = document.querySelector(".board");
-  // Two gates, both in tix.dragEnabled. The settings toggle (partials.html
-  // "settings-menu", posts to /dragmove) is server truth, read here the same
-  // way the board itself reads it: as a data attribute the template already
-  // rendered from the cookie, since the cookie is HttpOnly and this script
-  // cannot read it directly. The Move disclosure on every card needs none of
-  // this and keeps working exactly as before either way.
+
+  // The board is resolved from the event, never captured: see the note at the
+  // top of this file. Two gates, both in tix.dragEnabled. The settings toggle
+  // (partials.html "settings-menu", posts to /dragmove) is server truth, read
+  // here the same way the board itself reads it: as a data attribute the
+  // template already rendered from the cookie, since the cookie is HttpOnly
+  // and this script cannot read it directly. The Move disclosure on every
+  // card needs none of this and keeps working exactly as before either way.
   //
   // Native HTML5 drag-and-drop has no working touch equivalent in mobile
   // browsers -- there is no drop event a touch gesture ever fires -- and
@@ -102,12 +137,20 @@
   // scopes this to a fine pointer (mouse, trackpad, pen): a touch user gets
   // the Move disclosure, which already works everywhere, rather than a
   // half-working drag.
-  if (!board || !tix.dragEnabled(board.getAttribute("data-drag"), window.matchMedia && window.matchMedia.bind(window))) {
-    return;
+  function boardFor(event) {
+    var target = event && event.target;
+    if (!target || typeof target.closest !== "function") {
+      return null;
+    }
+    var board = target.closest(".board");
+    if (!board || !tix.dragEnabled(board.getAttribute("data-drag"), window.matchMedia && window.matchMedia.bind(window))) {
+      return null;
+    }
+    return board;
   }
 
-  var status = document.getElementById("board-status");
-  function announce(text) {
+  function announce(board, text) {
+    var status = document.getElementById("board-status");
     if (status) {
       status.textContent = text;
     }
@@ -118,7 +161,7 @@
     return heading ? tix.stripCount(heading.textContent) : column.getAttribute("data-state");
   }
 
-  function clearDropTargets() {
+  function clearDropTargets(board) {
     var marked = board.querySelectorAll(".column.is-drop-target");
     for (var i = 0; i < marked.length; i++) {
       marked[i].classList.remove("is-drop-target");
@@ -133,7 +176,11 @@
   var dragged = null;
   var legal = null;
 
-  board.addEventListener("dragstart", function (event) {
+  document.addEventListener("dragstart", function (event) {
+    var board = boardFor(event);
+    if (!board) {
+      return;
+    }
     var card = event.target.closest(".card");
     var select = card && card.querySelector("form select[name=to]");
     if (!card || !select) {
@@ -152,17 +199,21 @@
     }
   });
 
-  board.addEventListener("dragend", function () {
+  document.addEventListener("dragend", function (event) {
     if (dragged) {
       dragged.classList.remove("is-dragging");
+      var board = dragged.closest(".board");
+      if (board) {
+        clearDropTargets(board);
+      }
     }
     dragged = null;
     legal = null;
-    clearDropTargets();
   });
 
-  board.addEventListener("dragover", function (event) {
-    var column = event.target.closest(".column");
+  document.addEventListener("dragover", function (event) {
+    var board = boardFor(event);
+    var column = board && event.target.closest(".column");
     if (!dragged || !column || !tix.canDrop(legal, column.getAttribute("data-state"))) {
       return;
     }
@@ -171,7 +222,7 @@
       event.dataTransfer.dropEffect = "move";
     }
     if (!column.classList.contains("is-drop-target")) {
-      clearDropTargets();
+      clearDropTargets(board);
       column.classList.add("is-drop-target");
     }
   });
@@ -181,14 +232,15 @@
   // leaves the card exactly where it started: nothing here ever moves it in
   // the DOM before the server confirms it, so there is no position to roll
   // back. Only the explanation, through the live region, says what happened.
-  board.addEventListener("drop", function (event) {
-    var column = event.target.closest(".column");
+  document.addEventListener("drop", function (event) {
+    var board = boardFor(event);
+    var column = board && event.target.closest(".column");
     var card = dragged;
     if (!card || !column || !tix.canDrop(legal, column.getAttribute("data-state"))) {
       return;
     }
     event.preventDefault();
-    clearDropTargets();
+    clearDropTargets(board);
 
     var form = card.querySelector("form");
     var select = form && form.querySelector("select[name=to]");
@@ -208,15 +260,15 @@
     }).then(function (resp) {
       if (!resp.ok) {
         return resp.text().then(function (html) {
-          announce(tix.refusedMessage(ref, destination, extractError(html)));
+          announce(board, tix.refusedMessage(ref, destination, extractError(html)));
         });
       }
       // The server is the only source of truth for what a card may do next
       // (its legal states, its version), so success re-fetches the board
       // fragment rather than moving the card by hand here and guessing.
-      return refreshBoard(tix.movedMessage(ref, destination));
+      return refreshBoard(board, tix.movedMessage(ref, destination));
     }).catch(function () {
-      announce(tix.refusedMessage(ref, destination, "the request failed."));
+      announce(board, tix.refusedMessage(ref, destination, "the request failed."));
     });
   });
 
@@ -235,12 +287,11 @@
   }
 
   // refreshBoard re-fetches this same board page and swaps in only the
-  // board's own contents, not the whole page: the listeners above are bound
-  // to the .board element itself, which this leaves in place, so a freshly
-  // rendered card -- with its own now-current Move options -- is live
-  // without re-running any setup.
+  // board's own contents, not the whole page. The listeners above are on the
+  // document, so a freshly rendered card -- with its own now-current Move
+  // options -- is live whatever this replaces.
   var refreshing = null;
-  function refreshBoard(announceText) {
+  function refreshBoard(board, announceText) {
     if (refreshing) {
       return refreshing;
     }
@@ -256,7 +307,7 @@
         if (fresh) {
           board.innerHTML = fresh.innerHTML;
         }
-        announce(announceText);
+        announce(board, announceText);
       })
       .catch(function () {
         refreshing = null;

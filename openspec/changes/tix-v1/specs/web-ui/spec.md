@@ -545,6 +545,65 @@ indistinguishable from a reloaded one.
 - **WHEN** an entry arrives over the event stream
 - **THEN** it is appended in the same shape the server renders
 
+### Requirement: Every activity row leads to what it is about
+
+Each row of the activity feed SHALL link both the actor that made the change and the record the
+change was made to. The actor's name SHALL link to the feed narrowed to that actor, so one person's
+trail can be followed from any row. The subject SHALL link to the record itself where the reader may
+reach one: a task to its own screen, a project or workflow to its screen, and a comment or an
+artifact to its place on the task it hangs off, addressed so the browser lands on that record rather
+than on the top of the page. A subject the feed cannot resolve SHALL name its kind in words and
+carry no link, never a bare identifier presented as a destination.
+
+#### Scenario: An actor leads to that actor's own trail
+
+- **WHEN** a reader follows the actor named on a row
+- **THEN** the feed is shown narrowed to that actor, and says so
+
+#### Scenario: A comment is reachable from the row about it
+
+- **WHEN** the feed renders an entry whose subject is a comment
+- **THEN** the row links to that comment's own place on the task it was left on
+
+#### Scenario: A record inside a closed disclosure is still reached
+
+- **WHEN** a link from the feed addresses a record that the target screen keeps behind a disclosure
+- **THEN** that disclosure is opened and the record is marked, so the link lands somewhere visible
+
+#### Scenario: An unresolvable subject is not a dead link
+
+- **WHEN** the feed renders an entry whose subject it cannot name
+- **THEN** the row says what kind of record changed and offers no link
+
+### Requirement: The activity feed is searchable and filterable from its own address
+
+The activity feed SHALL offer a filter over free text, the kind of record changed, the surface the
+change arrived from, and the actor that made it. The whole filter SHALL live in the query string, so
+a narrowed feed is a link that can be shared, bookmarked and restored, and the control SHALL be a
+plain form that submits without scripting. Every term that is narrowing the feed SHALL be shown, each
+removable on its own without retyping the rest. A filter that matches nothing SHALL say so and say
+how much was searched, rather than reading as an empty tenant.
+
+#### Scenario: A filter is addressable
+
+- **WHEN** a filter is applied to the feed
+- **THEN** the address bar carries it, and loading that address again restores the same feed
+
+#### Scenario: The live update respects the filter
+
+- **WHEN** a change arrives over the event stream while the feed is filtered
+- **THEN** the re-rendered rows are still narrowed by that filter
+
+#### Scenario: An active term can be dropped on its own
+
+- **WHEN** a feed is narrowed by more than one term
+- **THEN** each term is shown separately and can be removed without disturbing the others
+
+#### Scenario: Nothing matching is distinguished from nothing recorded
+
+- **WHEN** a search matches no record
+- **THEN** the feed says the filter matched nothing and how many records were searched
+
 ### Requirement: Primary task attributes are edited without a disclosure
 
 The task detail screen SHALL present a task's primary attributes -- its title, description, priority
@@ -567,3 +626,109 @@ another, and a submission refused because the task moved on SHALL be reported wi
 
 - **WHEN** a save is refused because the task changed while the page was open
 - **THEN** the failure names the conflict and tells the reader to reload and reapply the change
+
+### Requirement: A task row distinguishes its markings by shape
+
+A task row carries several kinds of fact -- the workflow state it is in, its priority, its tags, and
+the project it belongs to -- and each kind SHALL be given a form distinct from the others, so the
+kind of a marking is readable without depending on its colour. A reader SHALL be able to tell a tag
+from a project from a priority at a glance. The same fact SHALL take the same form on every screen
+that shows it, so a state or a priority does not change shape between the list, the board and a
+task's own screen.
+
+#### Scenario: Four kinds of marking are four shapes
+
+- **WHEN** a task row renders its state, its priority, its tags and its project
+- **THEN** each kind is rendered in a form that differs from the other three by more than its colour
+
+#### Scenario: A marking reads the same everywhere
+
+- **WHEN** the same workflow state is rendered on the task list, on the board and on a task's screen
+- **THEN** it takes the same form on all three
+
+#### Scenario: A tag and a project lead to the rest of their own
+
+- **WHEN** a reader follows a tag or a project on a row
+- **THEN** the task list is shown narrowed to that tag or that project
+
+### Requirement: The task list says how much is on it
+
+The task list SHALL summarise the page it is showing: how much is outstanding, how much is finished,
+how many projects the rows come from, and how much is blocked or held by an agent. The project count
+SHALL be the number of distinct projects the rows actually belong to, so a reader can tell one
+project's work from everything at once.
+
+#### Scenario: The summary counts projects
+
+- **WHEN** the task list renders rows belonging to more than one project
+- **THEN** the summary says how many distinct projects they come from
+
+### Requirement: The user listing shows and preserves each account's role
+
+The user administration screen SHALL show, for every account it lists, the role that account's
+membership of this tenant grants, and the edit control SHALL open with that role already selected.
+Saving any other change to an account SHALL NOT alter its role unless the role was itself changed.
+An account the screen cannot resolve a membership for SHALL be shown as having none, and its control
+SHALL offer to leave the role unchanged rather than proposing one.
+
+#### Scenario: The role is on the row
+
+- **WHEN** the user listing renders an account whose membership grants it a role
+- **THEN** that role is shown on the row
+
+#### Scenario: Editing another field does not change the role
+
+- **WHEN** an administrator opens an account, changes only whether it is disabled, and saves
+- **THEN** the account keeps the role it had
+
+#### Scenario: An account with no membership proposes no role
+
+- **WHEN** the listing renders an account it can resolve no membership for
+- **THEN** the control offers to leave the role unchanged and selects no role
+
+### Requirement: The connection screen offers the action it describes
+
+The live connection screen SHALL offer, for every connection it lists, the action that ends it, and
+SHALL mark a connection held by the reader's own account. It SHALL state that ending closes the
+socket without revoking anything, and SHALL link to the screens that do revoke -- API tokens, SSH
+keys, and the account itself -- so an operator who meant to stop somebody is not left with an action
+that looks like it did that and did not.
+
+#### Scenario: Every listed connection can be ended
+
+- **WHEN** the connection screen lists a live connection
+- **THEN** it offers the control that ends that connection
+
+#### Scenario: Ending points at revocation
+
+- **WHEN** the connection screen is rendered
+- **THEN** it says that ending is not revocation and links to the screens that revoke a credential
+
+#### Scenario: The reader's own connection is marked
+
+- **WHEN** the screen lists a connection held by the account the reader is signed in as
+- **THEN** that connection is marked as theirs
+
+### Requirement: Behaviour survives a boosted navigation
+
+The browser interface swaps the page's contents on an internal navigation rather than loading a new
+document, so the scripts in the document head run once per session. Every behaviour those scripts
+provide SHALL therefore be bound in a way that survives such a swap: either delegated at the
+document and resolved from the event, or re-established when the swap completes. A behaviour SHALL
+NOT depend on an element that existed when the script first ran, and re-establishing one SHALL NOT
+leave a second connection or a second handler behind.
+
+#### Scenario: Dragging works on a board reached by clicking
+
+- **WHEN** a reader navigates to a project board from another screen by following a link
+- **THEN** a card dragged to a legal column is moved, exactly as it is for a board reached by its own URL
+
+#### Scenario: The live feed follows the reader
+
+- **WHEN** a reader navigates to the activity feed from another screen by following a link
+- **THEN** the feed updates as events arrive
+
+#### Scenario: Re-establishing opens nothing twice
+
+- **WHEN** a reader navigates between two screens repeatedly
+- **THEN** no more than one event-stream connection is held at a time

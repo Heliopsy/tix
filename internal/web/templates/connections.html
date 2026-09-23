@@ -1,28 +1,52 @@
 {{define "content"}}
+{{$v := .Data}}
 <h1>Connections</h1>
-<p class="lede">The live connections this server is holding for your tenant, on the event stream and over SSH. Another server running against the same database holds its own, which this screen cannot see. Ending a connection closes it; it is not revocation, so the holder may reconnect with credentials that are still valid.</p>
-<p>Answered by <code>{{.Data.ServerID}}</code>. Your tenant holds {{.Data.Counts.Tenant}} ({{.Data.Counts.Events}} on the event stream, {{.Data.Counts.SSH}} over SSH). This server is holding {{.Data.Counts.Process}} in total.</p>
-<table>
-  <thead><tr><th>Surface</th><th>Actor</th><th>From</th><th>Since</th><th>Key</th><th></th></tr></thead>
-  <tbody>
-  {{range .Data.Connections}}
-    <tr>
-      <td>{{.Surface}}</td>
-      <td>{{if .ActorHandle}}{{.ActorHandle}}{{else}}{{.ActorID}}{{end}}</td>
-      <td>{{.Remote}}</td>
-      <td>{{compact .Since}}</td>
-      <td>{{if .Fingerprint}}<code>{{.Fingerprint}}</code>{{end}}</td>
-      <td>
-        <form method="post" action="/admin/connections/end">
-          {{template "csrf" $.CSRF}}
-          <input type="hidden" name="id" value="{{.ID}}">
-          <button class="secondary" type="submit">End</button>
-        </form>
-      </td>
-    </tr>
-  {{else}}
-    <tr><td colspan="6">No live connections.</td></tr>
-  {{end}}
-  </tbody>
-</table>
+<p class="lede">The live connections this server is holding for your tenant, on the event stream and over SSH. Another server running against the same database holds its own, which this screen cannot see.</p>
+
+<div class="statrow">
+  <div class="stat"><span class="stat-n">{{$v.Counts.Tenant}}</span><span class="stat-l">yours</span></div>
+  <div class="stat"><span class="stat-n">{{$v.Counts.Events}}</span><span class="stat-l">event stream</span></div>
+  <div class="stat"><span class="stat-n">{{$v.Counts.SSH}}</span><span class="stat-l">over SSH</span></div>
+  <div class="stat"><span class="stat-n">{{$v.Counts.Process}}</span><span class="stat-l">this server, all tenants</span></div>
+</div>
+<p class="meta">Answered by <code>{{$v.ServerID}}</code>.</p>
+
+{{/* Ending is the one action this surface has, and it is not revocation, so
+     the control says what it does and what it does not do rather than being
+     a bare button somebody has to guess at. The reader's own connection is
+     marked, because ending that one drops their live updates. */}}
+<ul class="connlist">
+{{range $v.Connections}}
+  <li class="conn{{if .Mine}} is-mine{{end}}">
+    <span class="surface s-{{slug .Surface}}">{{.Surface}}</span>
+    <span class="conn-id">
+      <span class="conn-who">
+        <a class="conn-actor" href="/activity?actor={{.ActorID}}" title="Everything this actor has done">{{if .ActorHandle}}{{.ActorHandle}}{{else}}{{.ActorID}}{{end}}</a>
+        {{if .Mine}}<span class="chip you">you</span>{{end}}
+      </span>
+      <span class="conn-from mono">{{.Remote}}{{if .Fingerprint}} &middot; {{.Fingerprint}}{{end}}</span>
+    </span>
+    <span class="conn-since muted">since {{compact .Since}}</span>
+    <form method="post" action="/admin/connections/end" class="conn-end">
+      {{template "csrf" $.CSRF}}
+      <input type="hidden" name="id" value="{{.ID}}">
+      <button class="danger" type="submit">End</button>
+    </form>
+  </li>
+{{else}}
+  <li class="empty">
+    <p class="empty-title">Nothing connected</p>
+    <p>Nobody on your tenant is holding an event stream or an SSH session on this server right now.</p>
+  </li>
+{{end}}
+</ul>
+
+<p class="lede">
+  <strong>Ending closes the socket; it does not revoke anything.</strong>
+  The holder may reconnect immediately with credentials that are still valid.
+  To actually stop them, revoke the credential: an
+  <a href="/admin/tokens">API token</a>, an <a href="/admin/ssh-keys">SSH key</a>,
+  or the account itself on the <a href="/admin/users">Users</a> screen, where
+  disabling drops every session and revokes every token in one move.
+</p>
 {{end}}

@@ -164,7 +164,7 @@ func stringField(raw []byte, key string) (string, bool) {
 // always "this", since the whole page it appears on is already about one
 // task and naming it again would be noise.
 func sentenceFor(actorLabel string, g historyGroup) string {
-	return string(sentenceForSubject(actorLabel, "this", "", g))
+	return string(sentenceForSubject(actorLabel, "", "this", "", g))
 }
 
 // sentenceForSubject is sentenceFor generalised with an explicit name for
@@ -177,12 +177,18 @@ func sentenceFor(actorLabel string, g historyGroup) string {
 // builder for the feed, is what keeps the two views from ever disagreeing
 // about how the same kind of event reads.
 //
+// It returns template.HTML because the subject, and the actor, may each
+// carry a real anchor tag: on the tenant-wide feed the actor's name links to
+// the same feed narrowed to that actor, which is how a reader follows one
+// person's trail. The task detail page passes no actor link, since every row
+// there is already about the one task.
+//
 // It returns template.HTML because subject may carry a real anchor tag.
 // Every other dynamic fragment -- the actor label, state names, field
 // labels -- is escaped by hand, since returning template.HTML bypasses the
 // automatic escaping html/template would otherwise apply to the whole
 // string.
-func sentenceForSubject(actorLabel, subjectText, subjectHref string, g historyGroup) template.HTML {
+func sentenceForSubject(actorLabel, actorHref, subjectText, subjectHref string, g historyGroup) template.HTML {
 	esc := template.HTMLEscapeString
 	subject := esc(subjectText)
 	if subjectHref != "" {
@@ -190,8 +196,12 @@ func sentenceForSubject(actorLabel, subjectText, subjectHref string, g historyGr
 	}
 	if actorLabel == "" {
 		actorLabel = "The system"
+		actorHref = ""
 	}
 	actor := esc(actorLabel)
+	if actorHref != "" {
+		actor = `<a class="who-link" href="` + esc(actorHref) + `">` + actor + `</a>`
+	}
 	first, last := g.Hops[0], g.Latest()
 	switch {
 	case first.Entry.Action == "task.transition":

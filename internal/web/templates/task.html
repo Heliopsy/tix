@@ -5,9 +5,9 @@
   <h1>{{$t.Title}}</h1>
 </div>
 <p>
-  <span class="badge {{slug $t.Status}}">{{$t.Status}}</span>
-  <span class="badge p-{{prio $t.Priority}}">{{prio $t.Priority}}</span>
-  {{if $t.Blocked}}<span class="badge blocked">blocked</span>{{end}}
+  <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span>
+  <span class="prio p-{{prio $t.Priority}}" title="Priority: {{prio $t.Priority}}"><span class="caret" aria-hidden="true"></span>{{prio $t.Priority}}</span>
+  {{if $t.Blocked}}<span class="pill status blocked">blocked</span>{{end}}
   <span class="muted">version {{$t.Version}}</span>
 </p>
 
@@ -69,7 +69,7 @@
     <h2>Subtasks</h2>
     <ul class="plain">
       {{range .Data.Subtasks}}
-      <li><a class="mono" href="/tasks/{{.Ref}}">{{.Ref}}</a> {{.Title}} <span class="badge {{slug .Status}}">{{.Status}}</span></li>
+      <li><a class="mono" href="/tasks/{{.Ref}}">{{.Ref}}</a> {{.Title}} <span class="pill status {{slug .Status}}">{{.Status}}</span></li>
       {{else}}<li class="empty">None.</li>{{end}}
     </ul>
 
@@ -104,7 +104,7 @@
     <h2>Comments</h2>
     <ul class="plain">
       {{range .Data.Comments}}
-      <li class="comment">
+      <li class="comment" id="comment-{{.ID}}">
         <p class="byline"><span class="who-name" title="{{.AuthorActorID}}">{{$.Data.Names.Label .AuthorActorID}}</span> &middot; {{compact .CreatedAt}}</p>
         <div>{{.Body}}</div>
         {{if $.Data.CanComment}}
@@ -139,11 +139,14 @@
     {{end}}
   </div>
 
-  <details class="panel">
+  {{/* Open when the address bar names an artifact, so a link from the
+       activity feed lands on a visible record rather than inside a closed
+       disclosure. */}}
+  <details class="panel" id="artifacts" data-open-for="artifact">
     <summary>Artifacts</summary>
     <div class="body">
       <ul class="plain">
-        {{range .Data.Artifacts}}<li>{{.Kind}} {{.Name}} <span class="muted">{{compact .CreatedAt}}</span></li>{{else}}<li class="empty">None.</li>{{end}}
+        {{range .Data.Artifacts}}<li id="artifact-{{.ID}}">{{.Kind}} {{.Name}} <span class="muted">{{compact .CreatedAt}}</span></li>{{else}}<li class="empty">None.</li>{{end}}
       </ul>
       {{if .Data.CanComment}}
       <form method="post" action="/tasks/{{$t.Ref}}/artifacts">
@@ -262,7 +265,7 @@
     <ul class="plain">
       {{range $t.Tags}}
       <li>
-        <span class="tag">{{.}}</span>
+        <a class="tagref" href="/tasks?q=tag:{{.}}" title="Only tasks tagged {{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>
         {{if $.Data.CanWrite}}
         <form method="post" action="/tasks/{{$t.Ref}}/tags/remove" style="display:inline">
           {{template "csrf" $.CSRF}}

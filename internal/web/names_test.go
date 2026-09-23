@@ -93,7 +93,7 @@ func TestActivityFeedNamesItsActorsAndSubjects(t *testing.T) {
 
 	page := b.page("/activity")
 	for _, want := range []string{`class="lede"`, `class="card"`, `class="plain feed"`,
-		`id="live-feed"`, `data-events=`, `class="badge act-create"`, `class="who-name"`} {
+		`id="live-feed"`, `data-events=`, `class="badge act-create"`, `class="who-link"`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("the activity feed is missing %q:\n%s", want, page)
 		}
@@ -106,5 +106,11 @@ func TestActivityFeedNamesItsActorsAndSubjects(t *testing.T) {
 	}
 	if !strings.Contains(page, ">alice<") {
 		t.Errorf("the feed does not name the actor:\n%s", page)
+	}
+	// Naming the actor is not enough on its own: the name is the way to
+	// everything that actor did, which is the question the feed could not
+	// answer before, so it has to be a link to that and not plain text.
+	if !strings.Contains(page, `href="/activity?actor=`+f.actorA.ID+`"`) {
+		t.Errorf("the feed's actor is not a link to that actor's own trail:\n%s", page)
 	}
 }

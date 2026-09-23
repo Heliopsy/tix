@@ -76,6 +76,33 @@
     };
   };
 
+  // targetKind reads the kind of record a URL fragment names, which is the
+  // prefix the templates give every deep-linkable row ("#comment-<id>",
+  // "#artifact-<id>"). A link from the activity feed can land on a record
+  // that lives inside a closed disclosure, and the kind is what says which
+  // disclosure to open.
+  tix.targetKind = function (hash) {
+    if (typeof hash !== "string") {
+      return "";
+    }
+    var at = hash.charAt(0) === "#" ? hash.slice(1) : hash;
+    var dash = at.indexOf("-");
+    if (dash <= 0) {
+      return "";
+    }
+    return at.slice(0, dash).toLowerCase();
+  };
+
+  // shouldRebind reports whether a setup bound to one element should move to
+  // another. The layout boosts every internal navigation, so the element a
+  // page-local setup connected to is replaced without the script running
+  // again; re-running on htmx:load then has to tell "there is a new one" from
+  // "this is the same one I already hold", or clicking between two pages
+  // would open a second socket for every visit.
+  tix.shouldRebind = function (next, bound) {
+    return (next || null) !== (bound || null);
+  };
+
   // dragEnabled reports whether the board should attach drag handlers at all.
   // Native HTML5 drag-and-drop has no working touch equivalent, so this is
   // scoped to a fine pointer; a touch user gets the Move disclosure instead.

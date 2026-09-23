@@ -5,7 +5,7 @@
 <p class="lede summary">
   {{if eq .Total 0}}Nothing on the list.
   {{else if .AllDone}}All clear. Everything here is done.
-  {{else}}<strong>{{.Open}}</strong> to go{{if .Done}}, {{.Done}} done{{end}}{{if .Held}} &middot; <span class="held">{{.Held}} held by an agent</span>{{end}}{{if .Blocked}} &middot; {{.Blocked}} blocked{{end}}
+  {{else}}<strong>{{.Open}}</strong> to go{{if .Done}}, {{.Done}} done{{end}}{{if .Projects}} &middot; across {{.Projects}} project{{if ne .Projects 1}}s{{end}}{{end}}{{if .Held}} &middot; <span class="held">{{.Held}} held by an agent</span>{{end}}{{if .Blocked}} &middot; {{.Blocked}} blocked{{end}}
   {{end}}
 </p>
 {{end}}
@@ -80,11 +80,23 @@
 
     <a class="task-title" href="/tasks/{{.Ref}}">{{.Title}}</a>
 
+    {{/* Four kinds of marking used to be four near-identical chips, so a row
+         read as a row of indistinguishable pills and nobody could tell a tag
+         from a project from a priority. Each kind now has a shape of its own,
+         and the shape carries the meaning rather than the colour alone:
+
+           status    one solid filled pill, the only filled thing on the row
+           priority  a caret and a word, no pill at all, pointing up or down
+           tag       a hash and a word, outlined, the way a tag is written
+           project   the project's own colour and icon, keyed, at the end
+
+         The tag and the project are links that narrow the list to themselves,
+         since "show me the rest of these" is what a reader wants from them. */}}
     <span class="task-meta">
-      {{if $.Columns.Show "tasks" "status"}}<span class="badge {{slug .Status}}">{{.Status}}</span>{{end}}
-      {{if $.Columns.Show "tasks" "priority"}}{{if ne (prio .Priority) "normal"}}<span class="badge p-{{prio .Priority}}">{{prio .Priority}}</span>{{end}}{{end}}
-      {{if $.Columns.Show "tasks" "tags"}}{{range .Tags}}<span class="tag">{{.}}</span>{{end}}{{end}}
-      {{if $.Columns.Show "tasks" "project"}}<span class="tag project">{{$acc.Key}}</span>{{end}}
+      {{if $.Columns.Show "tasks" "status"}}<span class="pill status {{slug .Status}}">{{.Status}}</span>{{end}}
+      {{if $.Columns.Show "tasks" "priority"}}{{$p := prio .Priority}}{{if ne $p "normal"}}<span class="prio p-{{$p}}" title="Priority: {{$p}}"><span class="caret" aria-hidden="true"></span>{{$p}}</span>{{end}}{{end}}
+      {{if $.Columns.Show "tasks" "tags"}}{{range .Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}" title="Only tasks tagged {{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
+      {{if $.Columns.Show "tasks" "project"}}<a class="projref{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" href="/tasks?q=project:{{$acc.Key}}" title="Only tasks in {{$acc.Name}}">{{if $acc.Icon}}<span class="proj-icon" aria-hidden="true">{{$acc.Icon}}</span>{{end}}{{$acc.Key}}</a>{{end}}
       {{if $.Columns.Show "tasks" "updated"}}<span class="when">{{compact .UpdatedAt}}</span>{{end}}
       {{if $.Columns.Show "tasks" "ref"}}<span class="ref mono">{{.Ref}}</span>{{end}}
     </span>
