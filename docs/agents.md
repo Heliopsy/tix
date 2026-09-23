@@ -201,7 +201,7 @@ environment variable, or a named context.
 | `workflow:read` / `workflow:write` | read and change workflows |
 | `comment:write` | comment on tasks |
 | `artifact:write` | attach artifacts |
-| `event:subscribe` | subscribe to the event stream |
+| `event:subscribe` | subscribe to the event stream: task, comment, artifact, dependency, label, project, workflow and field events. Events about people, credentials, webhooks and sync sources additionally need the admin scope that reads them |
 | `user:admin` | manage users |
 | `token:admin` | manage tokens |
 | `webhook:admin` | manage webhooks |

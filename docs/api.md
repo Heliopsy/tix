@@ -151,6 +151,14 @@ adjustable with `--max-body-bytes`). Each request has a 30 second timeout by def
 `GET /api/v1/events` upgrades to a WebSocket. The caller must hold `event:subscribe`; anything else is rejected
 before the upgrade.
 
+`event:subscribe` covers ordinary work: tasks, comments, artifacts, dependencies, labels, projects,
+workflows and fields. It does not, on its own, deliver events about users, memberships, sessions, API
+tokens, SSH keys, tenants, domains, connections, webhook endpoints or sync sources. Those carry details
+you would be refused over REST with the same credential, such as a user's email address, the scope list of
+a token, or a webhook's destination, so each one also requires the scope that reads it: `user:admin`,
+`token:admin`, `tenant:admin`, `webhook:admin` or `sync:admin`. A credential holding `*`, or a role that
+grants these, sees everything as before.
+
 Client messages: `subscribe`, `unsubscribe`, `ping`.
 Server messages: `subscribed`, `event`, `pong`, `error`.
 

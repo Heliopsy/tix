@@ -152,6 +152,8 @@ A subscription SHALL support filtering by project and by event type, including s
 
 Events SHALL be delivered only to subscribers entitled to the event's tenant and holding the event subscribe scope. A subscriber SHALL NOT receive any event belonging to a tenant it is not entitled to.
 
+An event whose subject is an administrative object SHALL additionally require the scope that reads that object over the API. Administrative subjects are users, memberships, sessions, API tokens, SSH keys, tenants, domains, connections, webhook endpoints, webhook deliveries, and sync sources. Events describing ordinary work SHALL require the event subscribe scope alone.
+
 #### Scenario: Cross-tenant isolation
 
 - **WHEN** a mutation occurs in tenant A while a subscriber is connected for tenant B
@@ -161,6 +163,16 @@ Events SHALL be delivered only to subscribers entitled to the event's tenant and
 
 - **WHEN** a client whose credential lacks the event subscribe scope sends a subscribe message
 - **THEN** the server replies with an authorization error and delivers no events
+
+#### Scenario: Administrative subject without its scope
+
+- **WHEN** a credential holding only the event subscribe scope is connected and a user is created
+- **THEN** that subscriber receives no event for the creation, because the same credential is refused the user over the API
+
+#### Scenario: Ordinary work needs no further scope
+
+- **WHEN** a credential holding only the event subscribe scope is connected and a task is created
+- **THEN** that subscriber receives the event
 
 #### Scenario: Project-restricted credential
 

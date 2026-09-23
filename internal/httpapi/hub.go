@@ -231,12 +231,50 @@ func newConn(a *core.Actor, queue int) *wsConn {
 	}
 }
 
+// subjectScope names, for each event subject that describes an administrative
+// object, the scope that lets a subscriber read that object over REST.
+//
+// event:subscribe on its own used to be enough for every event in the tenant,
+// which is what the spec said and what the code did. The effect was that a
+// token holding only event:subscribe received user.created carrying an email
+// address, token.created carrying the name and scope list of every credential
+// minted, and session.created naming who logged in and when: a directory of
+// the tenant's people and of which key can do what, assembled by a credential
+// that is refused all three over REST. None of it is a secret in the sense of
+// being usable on its own, which is why it survived review for so long, and
+// all of it is exactly what you would want before attacking the tenant.
+//
+// A subject absent from this map is ordinary work -- tasks, comments,
+// projects, workflows -- and event:subscribe remains sufficient for it, which
+// is the whole point of the scope. TestEveryEventSubjectIsClassified refuses a
+// new subject that appears in neither this map nor the work list, so the next
+// administrative object cannot be added to the stream by omission.
+var subjectScope = map[string]core.Scope{
+	"api_token":  core.ScopeTokenAdmin,
+	"ssh_key":    core.ScopeTokenAdmin,
+	"user":       core.ScopeUserAdmin,
+	"membership": core.ScopeUserAdmin,
+	"session":    core.ScopeUserAdmin,
+	"tenant":     core.ScopeTenantAdmin,
+	"domain":     core.ScopeTenantAdmin,
+	"connection": core.ScopeTenantAdmin,
+
+	// webhook.put carries the endpoint URL, so an ungated subscriber learns
+	// the internal hostnames this tenant delivers to.
+	"webhook":          core.ScopeWebhookAdmin,
+	"webhook_delivery": core.ScopeWebhookAdmin,
+	"sync_source":      core.ScopeSyncAdmin,
+}
+
 // entitled reports whether the connection's credential may see the event at all.
 func (c *wsConn) entitled(e core.Event) bool {
 	if c.actor == nil || c.actor.TenantID == "" || c.actor.TenantID != e.TenantID {
 		return false
 	}
 	if !c.actor.HasScope(core.ScopeEventSubscribe) {
+		return false
+	}
+	if need, ok := subjectScope[e.SubjectType]; ok && !c.actor.HasScope(need) {
 		return false
 	}
 	return !c.actor.ScopedToProject() || c.actor.ProjectID == e.ProjectID
