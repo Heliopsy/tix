@@ -1,0 +1,52 @@
+# gitleaks configuration for tix.
+#
+# The default ruleset is kept in full; this file only records the findings that
+# are deliberately not secrets, each with the argument for why. An allowlist
+# entry here is a claim someone can check, not a way to make the scanner quiet.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = """
+Example lease tokens in the agent documentation.
+
+A lease token is not an access credential. It is minted per claim, it is only
+meaningful against the one task row it was minted for, and presenting it buys
+nothing without database or API access you would have to already hold. These
+four values came from throwaway scratch databases that no longer exist, and
+they appear in prose showing an agent what the claim response looks like.
+
+They are matched by shape and confined to the two documentation paths, so a
+lease token pasted into source would still be reported.
+"""
+paths = [
+  '''^docs/agents\.md$''',
+  '''^skills/tix/SKILL\.md$''',
+]
+matchCondition = "AND"
+regexTarget = "line"
+regexes = [
+  '''"lease_token":\s*"[A-Za-z0-9_-]{43}"''',
+]
+
+[[allowlists]]
+description = """
+ULIDs in documentation and tests.
+
+internal/id mints 26-character Crockford base32 identifiers, which carry enough
+entropy to trip the generic-api-key rule. These are row identifiers: a token_id
+naming which token a response describes, and literal task references a parser
+test runs over. Neither is a secret, and the id format is public by design since
+it appears in every URL.
+"""
+paths = [
+  '''^docs/api\.md$''',
+  '''^internal/core/ref_test\.go$''',
+]
+matchCondition = "AND"
+regexTarget = "line"
+regexes = [
+  '''\b01[0-9A-HJKMNP-TV-Z]{24}\b''',
+  '''\b01[0-9A-HJKMNP-TV-Z]{14}\b''',
+]

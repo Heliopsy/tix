@@ -11,6 +11,7 @@ ARG GOVULNCHECK_VERSION=v1.8.0
 ARG ACTIONLINT_VERSION=v1.7.12
 ARG GORELEASER_VERSION=v2.18.2
 ARG TRIVY_VERSION=v0.74.0
+ARG GITLEAKS_VERSION=v8.30.1
 ARG HADOLINT_VERSION=v2.15.1
 ARG OPENSPEC_VERSION=1.13.1
 ARG MARKDOWNLINT_VERSION=0.49.1
@@ -37,7 +38,8 @@ RUN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI
  && go install github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION} \
  && go install golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION} \
  && go install github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION} \
- && go install github.com/goreleaser/goreleaser/v2@${GORELEASER_VERSION}
+ && go install github.com/goreleaser/goreleaser/v2@${GORELEASER_VERSION} \
+ && go install github.com/zricethezav/gitleaks/v8@${GITLEAKS_VERSION}
 
 # Fetch the release tarball directly. The upstream install.sh needs capabilities
 # that are not available in a rootless build.

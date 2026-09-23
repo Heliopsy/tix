@@ -162,7 +162,11 @@ jobs:
       contents: read
       security-events: write
     steps:
+      # fetch-depth: 0 because `just secrets` reads the whole history. It refuses
+      # to run on a shallow clone rather than scanning one commit and passing.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
           go-version-file: go.mod
@@ -171,6 +175,10 @@ jobs:
 
       - name: Run govulncheck
         run: just vuln
+
+      - name: Scan the history for secrets
+        if: always()
+        run: just secrets
 
       # Trivy runs from our own pinned toolbox image rather than the upstream
       # action, so there is exactly one trivy version in the project and CI

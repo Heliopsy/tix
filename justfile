@@ -12,7 +12,13 @@ ldflags := "-s -w -X " + module + "/internal/version.Version=" + version + " -X 
 
 # Container engine: podman by default, override with CONTAINER_ENGINE=docker
 engine   := env("CONTAINER_ENGINE", "podman")
-ci_image := "localhost/tix-ci:latest"
+# Tagged by the content of the recipe that builds it, so editing Containerfile.ci
+# produces a tag that does not exist yet and _ensure-ci-image rebuilds. Under a
+# fixed tag it did not: a new tool added to the image was simply never there,
+# and the gate that needed it either fell back to whatever was on PATH or failed
+# for a reason that pointed nowhere near the actual cause.
+ci_tag   := shell('sha256sum Containerfile.ci | cut -c1-12')
+ci_image := "localhost/tix-ci:" + ci_tag
 pg_name  := "tix-test-pg"
 pg_dsn   := "postgres://tix:tix@127.0.0.1:55432/tix?sslmode=disable"
 
@@ -256,6 +262,33 @@ mdlint: (tool "markdownlint" "--ignore" "node_modules" "--ignore" "openspec" "."
 jstest: (tool "node" "--test" "--test-reporter=tap" "internal/web/jstest/*.test.mjs")
 sec: (tool "gosec" "./...")
 vuln: (tool "govulncheck" "./...")
+# Secret scan over the whole history, not just the current tree. A credential
+# that was committed and later removed is still published the moment the
+# repository is, so the working tree alone proves nothing. --all reaches every
+# ref; --full-history is omitted because it only changes anything under path
+# filtering, which this does not use.
+#
+# The tree itself is deliberately not scanned. .env is gitignored and is meant
+# to hold real tokens locally, and failing a gate on a file that will never be
+# published would train people to ignore the gate. What is committed is what
+# matters here.
+#
+# .gitleaks.toml keeps the default ruleset and adds only allowlist entries, each
+# carrying the argument for why the thing it exempts is not a secret.
+secrets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # A shallow clone has one commit, so the scan would pass in under a second
+    # having looked at almost nothing, and report success. Refuse instead: a
+    # history gate that cannot see the history is worse than no gate, because
+    # it produces a green tick nobody re-examines.
+    if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+      echo "refusing to scan a shallow clone: this gate reads the whole history." >&2
+      echo "in CI, give the checkout step fetch-depth: 0." >&2
+      exit 1
+    fi
+    just tool gitleaks git --log-opts=--all --config=.gitleaks.toml --redact .
+
 trivy: (tool "trivy" "fs" "--severity" "CRITICAL,HIGH" "--exit-code" "1" "--ignorefile" ".trivyignore" "--scanners" "vuln,secret" ".")
 trivy-sarif: (tool "trivy" "fs" "--format" "sarif" "--output" "trivy.sarif" "--severity" "CRITICAL,HIGH" "--ignorefile" ".trivyignore" ".")
 # OPENSPEC_TELEMETRY=0 because the toolbox image and the CI job both set it, and
@@ -352,7 +385,7 @@ release-dry: (tool "goreleaser" "build" "--snapshot" "--clean")
 check: fmt-check vet tidy-check lint mdlint yamllint actionlint test smoke jstest spec docs-check
 
 # The entire CI suite, locally, in containers. Matches what GitHub runs.
-ci: tidy-check fmt-check vet lint build test-postgres cover-check smoke jstest sec vuln trivy actionlint hadolint yamllint mdlint spec docs-check release-dry
+ci: tidy-check fmt-check vet lint build test-postgres cover-check smoke jstest sec vuln secrets trivy actionlint hadolint yamllint mdlint spec docs-check release-dry
     @echo ""
     @echo "all CI gates passed"
 
