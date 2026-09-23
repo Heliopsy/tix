@@ -18,6 +18,20 @@
   <a href="/transfer" {{if eq .Path "/transfer"}}aria-current="page"{{end}}>Transfer</a>
   <a href="/sync" {{if eq .Path "/sync"}}aria-current="page"{{end}}>Sync</a>
   {{end}}
+
+  {{/* The running version, under the last button, and whether anything newer
+       exists.
+
+       Text, not a link. TestPagesReferenceNoExternalOrigin forbids any
+       external origin in a rendered page, and that guard is worth more than
+       the convenience of a hyperlink: it is what stops a CDN tag or a tracking
+       pixel arriving here later. The lookup happens on the server, cached and
+       off the render path, so a machine with no route out shows the version
+       alone and says nothing about an upgrade it could not check. */}}
+  <p class="version">
+    v{{.Upgrade.Running}}
+    {{if .Upgrade.Newer}}<span class="upgrade">v{{.Upgrade.Latest}} is available</span>{{end}}
+  </p>
 </nav>
 {{end}}
 

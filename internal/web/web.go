@@ -128,11 +128,13 @@ type handler struct {
 	targetHint     string
 	targetDescribe string
 	style          output.TimeStyle
+	releases       *releaseWatch
 }
 
 // Handler returns an http.Handler serving the browser interface.
 func Handler(svc core.Service, opts ...Option) http.Handler {
 	h := &handler{
+		releases:   newReleaseWatch(),
 		svc:        svc,
 		mux:        http.NewServeMux(),
 		logger:     slog.New(slog.NewTextHandler(discard{}, nil)),

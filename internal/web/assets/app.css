@@ -1540,3 +1540,18 @@ ul.connlist li.empty { padding: 26px 14px; text-align: center; }
 .conn-from { color: var(--muted); font-size: 0.8rem; overflow-wrap: anywhere; }
 .conn-since { font-size: 0.82rem; }
 .conn-end { flex: 0 0 auto; }
+
+/* The version sits under the navigation rather than in it: it is a fact about
+   the server, not a place to go. The upgrade note only renders when there is
+   one, so it never occupies space saying everything is fine. */
+nav.main .version {
+  margin-top: 1.25rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+nav.main .version .upgrade {
+  display: block;
+  color: var(--accent);
+  font-weight: 600;
+}

@@ -94,6 +94,7 @@ type view struct {
 	Columns       columnPrefs
 	ColumnPage    string
 	Here          string
+	Upgrade       upgrade
 	Data          any
 }
 
@@ -222,6 +223,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Title:         title,
 		Path:          r.URL.Path,
 		Here:          here(r),
+		Upgrade:       h.releases.state(),
 		ColumnPage:    columnPage(name),
 		Columns:       columnsOf(r),
 		Flash:         r.URL.Query().Get("flash"),
