@@ -21,6 +21,12 @@ jobs:
       TIX_TEST_POSTGRES_DSN: postgres://tix:tix@127.0.0.1:5432/tix?sslmode=disable
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # The skill staleness guard locates a recorded commit with
+          # merge-base, which a depth-1 checkout cannot answer. Without the
+          # full history it skips, announcing itself, and the check that is
+          # meant to catch a stale marker never runs at all.
+          fetch-depth: 0
 
       # This was a `services:` container. The self-hosted runner has no Docker
       # daemon, so the cluster shipped in the runner image is started in-job

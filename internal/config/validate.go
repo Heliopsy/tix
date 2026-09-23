@@ -68,6 +68,14 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 	if strings.TrimSpace(cfg.Tenant) == "" {
 		return invalidKey("tenant", sources)
 	}
+	// A connect timeout of zero would not mean "wait forever" but "give up
+	// immediately", which no operator writes on purpose, so it is refused here
+	// rather than turned into an unreachable database at startup.
+	if cfg.Database.ConnectTimeout <= 0 {
+		return invalidKey("database.connect_timeout", sources).
+			WithDetail("value", cfg.Database.ConnectTimeout.String()).
+			WithDetail("reason", "a database connect timeout must be positive")
+	}
 	for _, window := range []struct {
 		key string
 		d   core.Duration

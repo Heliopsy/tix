@@ -35,6 +35,30 @@ const (
 	ConnMaxIdleTime = 5 * time.Minute
 )
 
+// DefaultConnectTimeout bounds the startup reachability check when a caller
+// passes no timeout of its own.
+const DefaultConnectTimeout = 15 * time.Second
+
+// openConfig holds the options Open accepts.
+type openConfig struct {
+	connectTimeout time.Duration
+}
+
+// Option configures Open.
+type Option func(*openConfig)
+
+// WithConnectTimeout bounds how long Open waits for the database to answer its
+// startup check before calling it unreachable. A non-positive value keeps
+// DefaultConnectTimeout, so a caller that has not decided cannot accidentally
+// ask for no wait at all.
+func WithConnectTimeout(d time.Duration) Option {
+	return func(c *openConfig) {
+		if d > 0 {
+			c.connectTimeout = d
+		}
+	}
+}
+
 // Store is a PostgreSQL-backed store.
 type Store struct {
 	db      *sql.DB
@@ -43,13 +67,19 @@ type Store struct {
 	appRole bool
 }
 
-// Open connects to the PostgreSQL database named by dsn.
-func Open(dsn string, c clock.Clock) (*Store, error) {
+// Open connects to the PostgreSQL database named by dsn. It refuses to return
+// a store it could not reach within the connect timeout, which
+// WithConnectTimeout sets and database.connect_timeout carries.
+func Open(dsn string, c clock.Clock, opts ...Option) (*Store, error) {
 	if strings.TrimSpace(dsn) == "" {
 		return nil, core.Invalid("postgres dsn must not be empty")
 	}
 	if c == nil {
 		c = clock.New()
+	}
+	cfg := openConfig{connectTimeout: DefaultConnectTimeout}
+	for _, opt := range opts {
+		opt(&cfg)
 	}
 
 	db, err := sql.Open(driverName, dsn)
@@ -61,11 +91,11 @@ func Open(dsn string, c clock.Clock) (*Store, error) {
 	db.SetConnMaxLifetime(ConnMaxLifetime)
 	db.SetConnMaxIdleTime(ConnMaxIdleTime)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.connectTimeout)
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
 		_ = db.Close()
-		return nil, core.Internal("postgres at %q is unreachable", redact(dsn)).Wrap(err)
+		return nil, core.Internal("postgres at %q is unreachable within %s", redact(dsn), cfg.connectTimeout).Wrap(err)
 	}
 
 	s := &Store{db: db, clock: c, dsn: dsn}

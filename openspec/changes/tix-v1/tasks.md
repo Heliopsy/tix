@@ -190,3 +190,5 @@ ticked, and coverage is at or above 80% (excluding `internal/tui`).
 - [x] 8.10 WP-65 Priority and assignee in the visible task form, custom fields behind the disclosure
 - [x] 8.11 WP-65 Conflict and permission failures carrying a hint and a way back
 - [x] 8.12 WP-66 Starter projects seeded once, on tenant creation only, each with a colour and an icon
+- [x] 8.13 WP-67 `database.connect_timeout`: the PostgreSQL startup wait as a key, defaulting to the 15s it was hard-coded to, refused when non-positive
+- [x] 8.14 WP-67 `tix serve`'s flag tables in `docs/deployment.md` cross-checked against the registered flags, the way the global table already is

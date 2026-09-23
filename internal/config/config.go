@@ -39,6 +39,13 @@ type Database struct {
 	// placement corrupts a SQLite database. Set only when the operator has
 	// accepted the risk.
 	AllowNetworkFS bool `yaml:"allow_network_fs"`
+	// ConnectTimeout bounds the reachability check a PostgreSQL target makes
+	// before the process will serve anything. It is a key rather than a
+	// constant because the right wait is a property of the deployment: a
+	// database still starting beside this process needs longer than the
+	// default, and a process behind a supervisor that retries wants shorter.
+	// SQLite ignores it, having no connection to wait for.
+	ConnectTimeout core.Duration `yaml:"connect_timeout"`
 }
 
 // Server holds the remote endpoint and the listen address of `tix serve`.
@@ -199,9 +206,13 @@ func (c Context) Remote() bool { return strings.TrimSpace(c.Server) != "" }
 
 // Default configuration values.
 const (
-	DefaultDSN    = "sqlite://~/.local/share/tix/tix.db"
-	DefaultListen = "127.0.0.1:8080"
-	DefaultTenant = "default"
+	DefaultDSN = "sqlite://~/.local/share/tix/tix.db"
+	// DefaultDatabaseConnectTimeout is the wait a PostgreSQL target is given
+	// to answer before it is called unreachable. It is what the engine used
+	// before the wait was configurable.
+	DefaultDatabaseConnectTimeout = "15s"
+	DefaultListen                 = "127.0.0.1:8080"
+	DefaultTenant                 = "default"
 	// DefaultCookieSecurity follows the effective request scheme.
 	DefaultCookieSecurity = CookieSecurityAuto
 	DefaultAuthMode       = "token"
@@ -294,7 +305,7 @@ var (
 func Defaults() Config {
 	return Config{
 		Tenant:   DefaultTenant,
-		Database: Database{DSN: DefaultDSN},
+		Database: Database{DSN: DefaultDSN, ConnectTimeout: mustDuration(DefaultDatabaseConnectTimeout)},
 		Server:   Server{Listen: DefaultListen, CookieSecurity: DefaultCookieSecurity},
 		Auth:     Auth{Mode: DefaultAuthMode},
 		Hooks:    Hooks{Mode: DefaultHookMode},

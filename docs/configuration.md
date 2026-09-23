@@ -38,6 +38,7 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `current_context` | `TIX_CURRENT_CONTEXT` | (unset) |
 | `database.dsn` | `TIX_DATABASE_DSN` | `sqlite://~/.local/share/tix/tix.db` |
 | `database.allow_network_fs` | `TIX_DATABASE_ALLOW_NETWORK_FS` | `false` |
+| `database.connect_timeout` | `TIX_DATABASE_CONNECT_TIMEOUT` | `15s` |
 | `server.url` | `TIX_SERVER_URL` | (unset) |
 | `server.listen` | `TIX_SERVER_LISTEN` | `127.0.0.1:8080` |
 | `server.token` | `TIX_SERVER_TOKEN` | (unset) |
@@ -83,6 +84,14 @@ with what each one rebinds. A scheme only moves the actions it names; everything
 keys, so no scheme can leave an action unreachable. There is no `mac` scheme: a terminal never receives
 the command key, and the ctrl chords macOS applies to every text field are the emacs ones, so `emacs`
 is the mac scheme.
+
+`database.connect_timeout` bounds the reachability check a PostgreSQL target makes before the process will
+serve anything. The default, `15s`, is what the engine waited before the wait was configurable, so an
+installation that sets nothing behaves exactly as it did. Raise it when the database starts beside this
+process and is still coming up, which is the ordinary shape of a compose file or a pod: the alternative is a
+process that refuses to start against a database that is merely busy. Lower it when something above restarts
+this process and a fast failure is worth more than a slow success. It must be positive; zero would mean "give
+up immediately", not "wait forever". SQLite ignores it, having no connection to wait for.
 
 `server.trusted_proxies` lists the reverse proxies, as IPs or CIDR blocks, whose `X-Forwarded-Proto` and
 `X-Forwarded-For` are believed. Any client can send those headers, so an empty list, the default, believes

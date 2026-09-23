@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 )
@@ -45,6 +46,7 @@ func TestEnvNameIsDerivedFromKeyPath(t *testing.T) {
 	cases := []struct{ key, want string }{
 		{"database.dsn", "TIX_DATABASE_DSN"},
 		{"database.allow_network_fs", "TIX_DATABASE_ALLOW_NETWORK_FS"},
+		{"database.connect_timeout", "TIX_DATABASE_CONNECT_TIMEOUT"},
 		{"server.url", "TIX_SERVER_URL"},
 		{"hooks.mode", "TIX_HOOKS_MODE"},
 		{"discovery.enabled", "TIX_DISCOVERY_ENABLED"},
@@ -792,6 +794,40 @@ func TestDefaultsAreValid(t *testing.T) {
 	}
 	if defaults.Database.AllowNetworkFS {
 		t.Fatal("a database on a network filesystem should default to refused, not allowed")
+	}
+	// The default is not merely positive: it is the fifteen seconds the
+	// engine waited before the wait was configurable, so adding the key
+	// changed nothing for an installation that sets nothing.
+	if got, want := defaults.Database.ConnectTimeout.D(), 15*time.Second; got != want {
+		t.Fatalf("database.connect_timeout default = %s, want %s", got, want)
+	}
+}
+
+func TestConnectTimeoutIsSettableFromTheEnvironment(t *testing.T) {
+	home := t.TempDir()
+	env := map[string]string{"HOME": home, "TIX_DATABASE_CONNECT_TIMEOUT": "2s"}
+	got := mustLoad(t, Options{Dir: t.TempDir(), Home: home, Environ: environ(env)})
+	if got.Config.Database.ConnectTimeout.D() != 2*time.Second {
+		t.Fatalf("connect_timeout = %s, want 2s", got.Config.Database.ConnectTimeout)
+	}
+	if src := got.Source("database.connect_timeout"); src != LayerEnv {
+		t.Fatalf("source = %q, want %q", src, LayerEnv)
+	}
+}
+
+func TestConnectTimeoutMustBePositive(t *testing.T) {
+	for _, value := range []string{"0s", "-1s"} {
+		t.Run(value, func(t *testing.T) {
+			cfg := Defaults()
+			cfg.Database.ConnectTimeout = mustDuration(value)
+			err := Validate(&cfg, map[string]Layer{})
+			if err == nil {
+				t.Fatalf("connect_timeout %s validated", value)
+			}
+			if !strings.Contains(err.Error(), "database.connect_timeout") {
+				t.Fatalf("error does not name the key: %v", err)
+			}
+		})
 	}
 }
 

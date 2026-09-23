@@ -15,7 +15,7 @@ service code, so a direct write is visible to a subscriber on the server immedia
 | Flag | Default | Effect |
 | --- | --- | --- |
 | `--listen` | `127.0.0.1:8080` | address to bind |
-| `--tls-cert`, `--tls-key` | (none) | serve HTTPS |
+| `--tls-cert, --tls-key` | (none) | serve HTTPS |
 | `--insecure-no-tls` | off | allow a non-loopback bind without TLS |
 | `--max-body-bytes` | 1 MiB | request body cap |
 | `--request-timeout` | 30s | per-request timeout |
@@ -24,8 +24,13 @@ service code, so a direct write is visible to a subscriber on the server immedia
 | `--no-lease-sweeper` | off | disable the sweeper |
 | `--prune-interval` | `1h` | how often retention pruning runs |
 | `--no-retention-pruner` | off | disable the pruner |
+| `--no-webhook-dispatcher` | off | disable the dispatcher, leaving queued deliveries for another drainer |
 
 `--listen` also reads from `server.listen` / `TIX_SERVER_LISTEN`.
+
+The four `--ssh-*` flags belong to the same command and are listed with the listener they turn on, under
+[Both listeners in one process](#both-listeners-in-one-process). Together the two tables are every flag
+`tix serve` registers, and a test asserts it.
 
 Two settings that shape how the server is reached have no flag and are set from configuration only:
 `server.trusted_proxies` / `TIX_SERVER_TRUSTED_PROXIES` and `server.cookie_security` /
@@ -239,6 +244,11 @@ Back the `/var/lib/tix` volume with local storage. A named volume on the contain
 SMB-backed volume, or a network block device mounted from another host, is not: `tix` refuses to open a SQLite
 database it detects on one, for the reasons in [scaling.md](scaling.md#sqlite). Run PostgreSQL instead if the
 deployment needs its database on shared storage.
+
+Against PostgreSQL in the same compose file or pod, raise `TIX_DATABASE_CONNECT_TIMEOUT` above its `15s`
+default. The database is often still starting when this process first reaches it, and the startup check
+refuses to serve rather than waiting past its timeout, so a database that is merely slow to accept the first
+connection reads as an unreachable one. See [configuration.md](configuration.md).
 
 ## Backup
 

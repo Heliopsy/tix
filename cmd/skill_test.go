@@ -65,6 +65,20 @@ func TestSkillVerifiedAgainstIsAnAncestorOfHead(t *testing.T) {
 			How:  "run the tests from a clone",
 		})
 	}
+	// A shallow clone cannot answer this. CI checks out with depth 1 by
+	// default, so the recorded commit is simply absent and merge-base reports
+	// "not an ancestor" for a marker that is perfectly current. That made the
+	// guard fail for the one reason it is not meant to catch. It announces the
+	// gap rather than passing quietly, because a staleness check that silently
+	// does nothing is the thing it exists to prevent.
+	if out, err := exec.Command("git", "-C", "..", "rev-parse", "--is-shallow-repository").CombinedOutput(); err == nil &&
+		strings.TrimSpace(string(out)) == "true" {
+		testenv.Skip(t, testenv.Capability{
+			Name: "git-full-history",
+			Why:  "the checkout is shallow, so the recorded commit cannot be located",
+			How:  "fetch the full history (actions/checkout with fetch-depth: 0)",
+		})
+	}
 	out, err := exec.Command("git", "-C", "..", "merge-base", "--is-ancestor", m[1], "HEAD").CombinedOutput()
 	if err != nil {
 		t.Fatalf("verified-against names %s, which is not an ancestor of HEAD: %v %s; "+

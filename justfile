@@ -258,7 +258,13 @@ sec: (tool "gosec" "./...")
 vuln: (tool "govulncheck" "./...")
 trivy: (tool "trivy" "fs" "--severity" "CRITICAL,HIGH" "--exit-code" "1" "--ignorefile" ".trivyignore" "--scanners" "vuln,secret" ".")
 trivy-sarif: (tool "trivy" "fs" "--format" "sarif" "--output" "trivy.sarif" "--severity" "CRITICAL,HIGH" "--ignorefile" ".trivyignore" ".")
-spec: (tool "openspec" "validate" "tix-v1" "--strict")
+# OPENSPEC_TELEMETRY=0 because the toolbox image and the CI job both set it, and
+# the PATH fallback did not. A contributor with no container engine was sending
+# anonymous usage data to a third party by following the documented workflow,
+# without being told. It is disabled everywhere now, not only where somebody
+# happened to remember.
+spec:
+    OPENSPEC_TELEMETRY=0 just tool openspec validate tix-v1 --strict
 
 # Every file in docs/ must be linked from docs/README.md.
 docs-check:

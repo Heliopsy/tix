@@ -9,6 +9,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/client"
@@ -303,7 +304,7 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 	}
 	clk := clock.New()
 	allowNetworkFS := cfg.Config.Database.AllowNetworkFS || ov.AllowNetworkFS
-	st, err := openStore(target, clk, allowNetworkFS)
+	st, err := openStore(target, clk, allowNetworkFS, cfg.Config.Database.ConnectTimeout.D())
 	if err != nil {
 		return nil, err
 	}
@@ -354,9 +355,11 @@ func drainMode(cfg *config.Resolved, ov Overrides) (webhook.Mode, error) {
 // openStore opens the engine the target names. allowNetworkFS carries the
 // operator's explicit opt-in past SQLite's refusal to open a database
 // detected on a network filesystem; it does nothing for PostgreSQL.
-func openStore(target Target, clk clock.Clock, allowNetworkFS bool) (store.Store, error) {
+// connectTimeout bounds PostgreSQL's startup reachability check, and does
+// nothing for SQLite, which has no connection to wait for.
+func openStore(target Target, clk clock.Clock, allowNetworkFS bool, connectTimeout time.Duration) (store.Store, error) {
 	if target.Engine == EnginePostgres {
-		return postgres.Open(target.DSN, clk)
+		return postgres.Open(target.DSN, clk, postgres.WithConnectTimeout(connectTimeout))
 	}
 	if dir := filepath.Dir(target.Path); dir != "" && dir != "." {
 		if err := os.MkdirAll(dir, 0o700); err != nil {

@@ -117,7 +117,10 @@ func TestUserKeyAddListAndRevokeRoundTripThroughTheCLI(t *testing.T) {
 	if !strings.Contains(table, added.ID) {
 		t.Fatalf("the default listing omits the revoked key: %s", table)
 	}
-	if !strings.Contains(table, after[0].RevokedAt.Format("2006-01-02")) {
+	// The table renders an instant in the configured zone, which defaults to
+	// local, while the JSON carries UTC. Comparing the two raw dates passes
+	// only while the zones agree about which day it is.
+	if !strings.Contains(table, after[0].RevokedAt.Local().Format("2006-01-02")) {
 		t.Fatalf("the default listing does not mark the key revoked: %s", table)
 	}
 }

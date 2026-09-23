@@ -105,6 +105,33 @@ command SHALL state that shared deployments belong on PostgreSQL.
 - **WHEN** all pooled connections are in use and another is requested
 - **THEN** the request waits up to the configured timeout and then fails with a clear resource error
 
+### Requirement: Configurable PostgreSQL connect timeout
+
+The wait a PostgreSQL target is given to answer its startup reachability check SHALL be a configuration
+key, `database.connect_timeout`, resolved through the same five layers as every other key. Its default
+SHALL be 15 seconds, which is the wait the engine applied before the key existed. A non-positive value
+SHALL be refused at startup, naming the key. SQLite SHALL be unaffected by it.
+
+#### Scenario: Default preserves the previous wait
+
+- **WHEN** no layer sets `database.connect_timeout`
+- **THEN** the startup check waits 15 seconds before reporting the database unreachable
+
+#### Scenario: A shorter wait fails sooner
+
+- **WHEN** `database.connect_timeout` is set below the default and the PostgreSQL target does not answer
+- **THEN** the process reports the database unreachable after about the configured wait rather than after 15 seconds
+
+#### Scenario: A longer wait keeps waiting
+
+- **WHEN** `database.connect_timeout` is set above the default and the PostgreSQL target does not answer
+- **THEN** the process is still waiting after 15 seconds
+
+#### Scenario: A non-positive wait is refused
+
+- **WHEN** `database.connect_timeout` is set to zero or to a negative duration
+- **THEN** startup fails with an error naming `database.connect_timeout`
+
 ### Requirement: PostgreSQL row-level security
 
 On PostgreSQL the engine SHALL enable row-level security on tenant-owned tables and SHALL set the
