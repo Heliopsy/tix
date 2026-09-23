@@ -253,7 +253,13 @@ actionlint: (tool "actionlint")
 hadolint: (tool "hadolint" "Containerfile" "Containerfile.ci")
 yamllint: (tool "yamllint" ".")
 # Two passes: specs are prose and exempt from line length, everything else is not.
-mdlint: (tool "markdownlint" "--ignore" "node_modules" "--ignore" "openspec" ".") \
+#
+# CHANGELOG.md is exempt from both because release-please writes it. It puts
+# two blank lines before each version and a breaking-change note runs to
+# whatever length the commit footer was, so the file arrives failing and the
+# only way to make it pass is to edit a file that is regenerated on the next
+# release. Linting generated output teaches people to ignore the linter.
+mdlint: (tool "markdownlint" "--ignore" "node_modules" "--ignore" "openspec" "--ignore" "CHANGELOG.md" ".") \
         (tool "markdownlint" "--config" ".markdownlint-specs.yaml" "openspec")
 # A glob, not a directory: node resolves a directory argument as a module. The
 # CI image already carries node for markdownlint and openspec, so a developer

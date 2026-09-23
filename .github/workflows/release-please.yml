@@ -12,9 +12,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    outputs:
-      released: ${{ steps.release.outputs.release_created }}
-      tag: ${{ steps.release.outputs.tag_name }}
+      actions: write
     steps:
       - id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7  # v5.0.0
@@ -22,17 +20,15 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  # The tag this workflow just created cannot start the Release workflow by
-  # itself, because a tag pushed with GITHUB_TOKEN does not raise a push event
-  # for other workflows. Calling it is the way to build the artifacts without
-  # handing out a personal access token.
-  build:
-    needs: release-please
-    if: needs.release-please.outputs.released == 'true'
-    permissions:
-      contents: write
-      id-token: write
-      packages: write
-    uses: ./.github/workflows/release.yaml
-    with:
-      ref: ${{ needs.release-please.outputs.tag }}
+      # The tag this job just created cannot start the Release workflow on its
+      # own: GitHub does not raise a push event for a tag pushed with
+      # GITHUB_TOKEN, which is why v0.1.0 was published with nothing to
+      # download and nothing failed to say so. workflow_dispatch through the
+      # API is the one trigger GITHUB_TOKEN is allowed to fire, so ask for the
+      # build explicitly rather than hoping for a cascade.
+      - name: Build the release
+        if: steps.release.outputs.release_created
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+        run: gh workflow run release.yaml --repo "$GITHUB_REPOSITORY" --ref main -f ref="$TAG"

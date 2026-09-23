@@ -3,20 +3,15 @@ name: Release
 # A tag pushed by hand still builds. The tag release-please creates does not
 # reach here on its own: it is made with GITHUB_TOKEN, and GitHub deliberately
 # does not let a workflow's own token start another workflow, so v0.1.0 was
-# published with no binaries attached and nothing failed to say so. The
-# release-please workflow calls this one directly when it cuts a release.
+# published with no binaries attached and nothing failed to say so.
 #
-# workflow_dispatch is for building a tag that already exists, which is how
-# v0.1.0 got its artifacts after the fact.
+# The release-please workflow asks for the build with a workflow_dispatch API
+# call, which is the one trigger GITHUB_TOKEN may fire. Dispatching by hand
+# also rebuilds a tag that already exists, which is how v0.1.0 got its
+# artifacts after the fact.
 on:
   push:
     tags: ['v*']
-  workflow_call:
-    inputs:
-      ref:
-        description: The tag to build.
-        required: true
-        type: string
   workflow_dispatch:
     inputs:
       ref:
