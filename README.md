@@ -42,9 +42,10 @@ Task management for humans and AI agents, in one binary. People get boards, work
 Agents get an atomic queue pop, a lease that returns work when a worker dies, machine-readable output
 everywhere, and a durable event stream. Both work the same tasks in the same store.
 
-> **Status: in development.** The behaviour contract is written and validated; implementation is in
-> progress. See [`openspec/changes/tix-v1/`](openspec/changes/tix-v1/) and the
-> [task list](openspec/changes/tix-v1/tasks.md).
+> **Status: early.** Every capability described below is built and tested, and the behaviour contract
+> in [`openspec/changes/tix-v1/`](openspec/changes/tix-v1/) is validated against it. It has not been
+> run by anyone but its author, so expect the rough edges of a first release rather than the polish of
+> a used one. The [task list](openspec/changes/tix-v1/tasks.md) says what is done and what is not.
 
 ## How it works
 
