@@ -176,6 +176,22 @@ jobs:
       - name: Run govulncheck
         run: just vuln
 
+      # This runner has no container engine, so `just tool` falls back to
+      # PATH, and gitleaks is not installed there the way trivy is. Install the
+      # version Containerfile.ci pins rather than a second one written here:
+      # two places naming a tool version is how the local gate and this one
+      # start disagreeing without anybody noticing.
+      - name: Install gitleaks
+        if: always()
+        run: |
+          version=$(sed -n 's/^ARG GITLEAKS_VERSION=//p' Containerfile.ci)
+          if [ -z "$version" ]; then
+            echo "no GITLEAKS_VERSION in Containerfile.ci; the scan would run an unpinned build" >&2
+            exit 1
+          fi
+          go install "github.com/zricethezav/gitleaks/v8@${version}"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
       - name: Scan the history for secrets
         if: always()
         run: just secrets
