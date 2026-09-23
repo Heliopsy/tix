@@ -235,3 +235,32 @@ A subscriber that reads the event log over a direct database connection with no 
 
 - **WHEN** a separate process commits a mutation to the same database
 - **THEN** the direct database subscriber observes that event without any coordination between the two processes
+
+#### Scenario: Resume is gap-free on the direct path too
+
+- **WHEN** a direct database subscriber resumes from the sequence number of the last event it handled, after events were committed while it was not subscribed
+- **THEN** it receives every matching event committed in between, in order and once each, exactly as the served path delivers them
+
+#### Scenario: Pruned cursor on the direct path
+
+- **WHEN** a direct database subscriber subscribes with a sequence number older than the oldest retained event
+- **THEN** it is given an error indicating the cursor is no longer available, rather than being handed the oldest surviving event as though nothing were missing
+
+### Requirement: Event stream delivery guarantee is stated
+
+The delivery guarantee SHALL be documented as at-least-once with a cursor, not exactly-once, on every surface that exposes the stream. Each delivered event SHALL carry the sequence number a consumer records to resume, and the surface SHALL accept that number as a resume point.
+
+#### Scenario: The cursor is readable from every output
+
+- **WHEN** an event is rendered in the human-readable stream format or in a structured format
+- **THEN** its sequence number is present in the output, so a consumer can record its position without a second request
+
+#### Scenario: Structured output is self-sufficient
+
+- **WHEN** an event is rendered in a structured format
+- **THEN** it carries its sequence number, identifier, tenant, type, actor, subject type and identifier, timestamp and full payload, so a consumer never has to query for what the event already knows
+
+#### Scenario: Duplicates are possible and documented
+
+- **WHEN** a consumer resumes from a cursor at or before an event it already handled
+- **THEN** that event is delivered again, and the documented guarantee says so rather than implying exactly-once delivery

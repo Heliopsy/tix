@@ -142,13 +142,69 @@ func scalarString(value any) string {
 	}
 }
 
+// SaveChanges writes back only what the file already carried plus the keys
+// that differ between before and after, leaving every other key absent.
+//
+// Save, which writes a whole Config, cannot be used to edit a file in place:
+// a Config always holds a value for every key, so saving one pins the
+// defaults and, worse, pins whatever the environment was resolving at that
+// moment. `tix tenant use` writing the default database path over a DSN that
+// XDG_DATA_HOME had been supplying is what found this; `tix ctx use` had the
+// same defect and nothing noticed because a context names its own database.
+func SaveChanges(path string, existing *File, before, after *Config) error {
+	values := map[string]string{}
+	if existing != nil {
+		for k, v := range existing.Values {
+			values[k] = v
+		}
+	}
+	for _, key := range Keys() {
+		was, now := key.Get(before), key.Get(after)
+		if was != now {
+			values[key.Path] = now
+		}
+	}
+	delete(values, "current_context")
+
+	tree := map[string]any{}
+	for path, value := range values {
+		insertKey(tree, strings.Split(path, "."), value)
+	}
+	if after.CurrentContext != "" {
+		tree["current_context"] = after.CurrentContext
+	}
+	if len(after.Contexts) > 0 {
+		tree["contexts"] = after.Contexts
+	}
+	return writeYAML(path, tree)
+}
+
+// insertKey places a dotted key into a nested tree.
+func insertKey(tree map[string]any, parts []string, value string) {
+	if len(parts) == 1 {
+		tree[parts[0]] = value
+		return
+	}
+	child, ok := tree[parts[0]].(map[string]any)
+	if !ok {
+		child = map[string]any{}
+		tree[parts[0]] = child
+	}
+	insertKey(child, parts[1:], value)
+}
+
 // Save writes cfg to path atomically with owner-only permissions.
 func Save(path string, cfg *Config) error {
+	return writeYAML(path, cfg)
+}
+
+// writeYAML encodes v and replaces path atomically with owner-only permissions.
+func writeYAML(path string, v any) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("creating config directory %q: %w", dir, err)
 	}
-	encoded, err := yaml.Marshal(cfg)
+	encoded, err := yaml.Marshal(v)
 	if err != nil {
 		return fmt.Errorf("encoding config %q: %w", path, err)
 	}

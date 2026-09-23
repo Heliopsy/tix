@@ -196,3 +196,20 @@ ticked, and coverage is at or above 80% (excluding `internal/tui`).
 - [x] 8.16 WP-68 `log.format`, `log.output` and `log.file.*` as keys across every layer, validated at startup and reported by `tix config show`
 - [x] 8.17 WP-68 `tix serve` and `tix ssh` build the configured logger instead of the discarding default, so `log.level` stops being a key nothing reads
 - [x] 8.18 WP-68 Retention defaults tied to `core.DefaultRetention` by a guard test, and the three windows documented with what a zero means
+
+## 9. Wave 9 — A filter language that replaces Jira's, and a stream agents can resume
+
+- [x] 9.1 WP-70 `internal/core`: `TextTerm`, `TextField`, `MatchMode` and `TaskExclude`, with a wire form that round-trips
+- [x] 9.2 WP-70 `internal/query`: the one filter-expression parser and in-memory matcher the CLI and the terminal interface share, with `-` for negation and `~` for the weak match
+- [x] 9.3 WP-70 `internal/store/sql`: `WhereNotIn` keeping NULL columns, and one text predicate built identically for both engines
+- [x] 9.4 WP-70 `internal/store/sqltest`: the filter conformance corpus, asserted against SQLite and PostgreSQL from their own packages
+- [x] 9.5 WP-70 Negated terms and text terms over the HTTP API as `not_*` and a repeatable `text` parameter, with a client round-trip test
+- [x] 9.6 WP-70 `tix task ls --filter` taking the whole expression language, composing with the existing flags
+- [x] 9.7 WP-71 `tix watch` leads every line with the resume cursor, and names what changed on a claim, a release and a lease expiry
+- [x] 9.8 WP-71 `claimed_by_handle` and `previous_holder_handle` on the claim and lease-expiry payloads, so a stream can name the lease holder
+- [x] 9.9 WP-71 The direct subscription refuses a cursor retention has removed, which the served path already did
+- [x] 9.10 WP-71 Resume proved across both transports: consume, stop, commit while unwatched, resume, assert order and no duplicates
+- [x] 9.11 WP-72 `tix tenant use`, verifying the key by opening the target tenant, because an actor cannot list another one
+- [x] 9.12 WP-72 `config.SaveChanges`: editing one configuration key stops pinning every other key's resolved value
+- [ ] 9.13 WP-72 Terminal interface: an in-session tenant switcher, and the filter bar's help naming the two new operators
+- [ ] 9.14 WP-70 Browser: `internal/web`'s own filter parser taught the same negation and weak-match syntax

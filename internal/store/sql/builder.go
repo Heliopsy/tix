@@ -104,6 +104,24 @@ func (b *Builder) WhereIn(col string, values []string) *Builder {
 	return b
 }
 
+// WhereNotIn adds a NOT IN condition, and nothing at all when values is empty,
+// since excluding no value excludes no row. A NULL column is kept: SQL's NOT IN
+// would drop it, and a task with no assignee is not a task assigned to somebody
+// the filter excluded.
+func (b *Builder) WhereNotIn(col string, values []string) *Builder {
+	if len(values) == 0 {
+		return b
+	}
+	marks := make([]string, len(values))
+	for i, v := range values {
+		marks[i] = "?"
+		b.args = append(b.args, v)
+	}
+	b.wheres = append(b.wheres,
+		"("+col+" IS NULL OR "+col+" NOT IN ("+strings.Join(marks, ", ")+"))")
+	return b
+}
+
 // Set adds an assignment for an update.
 func (b *Builder) Set(col string, value any) *Builder {
 	b.sets = append(b.sets, col+" = ?")

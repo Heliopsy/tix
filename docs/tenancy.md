@@ -153,11 +153,38 @@ $ TIX_TENANT=acme tix project ls -o json | grep -o '"key":"[^"]*"'
 "key":"web"
 ```
 
-Name it once with a context instead of repeating the flag:
+`tix tenant use` makes the choice stick, so the flag is for exceptions rather than for every command:
+
+```console
+$ tix tenant use acme
+reached tenant acme
+$ tix project ls -o json | grep -o '"key":"[^"]*"'
+"key":"web"
+$ tix --tenant default project ls -o json | grep -o '"key":"[^"]*"'
+"key":"default"
+```
+
+The key is checked before it is written, by opening the target tenant and asking it who you are. That check is
+not a nicety: an actor is bound to exactly one tenant, so from inside `default` a tenant named `acme` and a
+tenant that was never created are indistinguishable -- `tix tenant ls` returns your own tenant and nothing
+else, by design. Writing an unreachable key would leave every later command failing with an error that names
+the wrong problem. Pass `--force` for the case where the tenant genuinely does not exist yet.
+
+With a context current, the key is stored on that context rather than at the top level, because a context is
+what pins the database or server the tenant lives in:
 
 ```sh
 tix ctx add acme --db sqlite://~/.local/share/tix/tix.db --tenant acme --use
+tix ctx use acme          # switches database and tenant together
+tix tenant use other      # changes only the tenant, on the current context
 ```
+
+Nothing else in the configuration file is touched: selecting a tenant writes the one key, so a database path
+you were resolving from `XDG_DATA_HOME` or `TIX_DATABASE_DSN` keeps resolving from there afterwards.
+
+Inside the terminal interface, `tix tui --tenant acme` starts in that tenant, and `tix tenant use` before
+launching it has the same effect. There is no in-session switcher: switching tenant mid-session would mean
+tearing down and rebuilding every loaded view, so for now leaving and relaunching is the supported path.
 
 Against a remote server the tenant comes from the credentials and the hostname, not from the client: a token
 authenticates within the tenant it was minted in, and the `Host` header selects the tenant before any handler

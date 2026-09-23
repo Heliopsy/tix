@@ -297,15 +297,8 @@ func (t *tx) applyTaskFilter(b *sqlb.Builder, f core.TaskFilter) error {
 		b.WhereIn("CAST(tasks.priority AS TEXT)", values)
 	}
 	if len(f.Tags) > 0 {
-		marks := strings.TrimSuffix(strings.Repeat("?, ", len(f.Tags)), ", ")
-		args := make([]any, 0, len(f.Tags))
-		for _, l := range f.Tags {
-			args = append(args, l)
-		}
-		b.Where("EXISTS (SELECT 1 FROM task_tags tl JOIN tags l"+
-			" ON l.id = tl.tag_id AND l.tenant_id = tl.tenant_id"+
-			" WHERE tl.tenant_id = tasks.tenant_id AND tl.task_id = tasks.id AND l.name IN ("+marks+"))",
-			args...)
+		cond, args := taggedWithAny(f.Tags)
+		b.Where("EXISTS "+cond, args...)
 	}
 	if f.DueBefore != nil {
 		b.Where("tasks.due_at IS NOT NULL AND tasks.due_at <= ?", timeArg(*f.DueBefore))
@@ -336,6 +329,10 @@ func (t *tx) applyTaskFilter(b *sqlb.Builder, f core.TaskFilter) error {
 	if q := strings.TrimSpace(f.Query); q != "" {
 		b.Where("tasks.search_tsv @@ plainto_tsquery('simple', ?)", q)
 	}
+	applyTaskExclude(b, f.Exclude)
+	if err := sqlb.ApplyTextTerms(b, f.Text, "tasks.title", "tasks.body"); err != nil {
+		return err
+	}
 	for key, value := range f.CustomFields {
 		if !validFieldKey(key) {
 			return core.Invalid("custom field key %q contains unsupported characters", key)
@@ -343,6 +340,40 @@ func (t *tx) applyTaskFilter(b *sqlb.Builder, f core.TaskFilter) error {
 		b.Where("tasks.custom_fields ->> '"+key+"' = ?", fmt.Sprint(value))
 	}
 	return nil
+}
+
+// applyTaskExclude removes the tasks the filter's negated terms name. An
+// exclusion beats an inclusion of the same value, because the predicates are
+// ANDed: "tag:ops -tag:ops" is deliberately empty rather than ambiguous.
+func applyTaskExclude(b *sqlb.Builder, e core.TaskExclude) {
+	b.WhereNotIn("projects.key", e.ProjectKeys)
+	b.WhereNotIn("tasks.status", e.Statuses)
+	b.WhereNotIn("tasks.assignee_actor_id", e.AssigneeIDs)
+	b.WhereNotIn("tasks.creator_actor_id", e.CreatorIDs)
+	b.WhereNotIn("tasks.claimed_by_actor_id", e.ClaimedBy)
+	if len(e.Priorities) > 0 {
+		values := make([]string, len(e.Priorities))
+		for i, p := range e.Priorities {
+			values[i] = strconv.Itoa(int(p))
+		}
+		b.WhereNotIn("CAST(tasks.priority AS TEXT)", values)
+	}
+	if len(e.Tags) > 0 {
+		cond, args := taggedWithAny(e.Tags)
+		b.Where("NOT EXISTS "+cond, args...)
+	}
+}
+
+// taggedWithAny renders the subquery matching a task carrying any of tags.
+func taggedWithAny(tags []string) (string, []any) {
+	marks := strings.TrimSuffix(strings.Repeat("?, ", len(tags)), ", ")
+	args := make([]any, 0, len(tags))
+	for _, l := range tags {
+		args = append(args, l)
+	}
+	return "(SELECT 1 FROM task_tags tl JOIN tags l" +
+		" ON l.id = tl.tag_id AND l.tenant_id = tl.tenant_id" +
+		" WHERE tl.tenant_id = tasks.tenant_id AND tl.task_id = tasks.id AND l.name IN (" + marks + "))", args
 }
 
 // blockingSubquery matches a task with at least one unfinished dependency.

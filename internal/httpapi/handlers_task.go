@@ -97,12 +97,14 @@ func taskFilterFrom(r *http.Request) (core.TaskFilter, error) {
 		IncludeDeleted: boolParam(r, "include_deleted"),
 		Page:           page,
 	}
-	for _, raw := range q["priority"] {
-		n, err := strconv.Atoi(raw)
-		if err != nil {
-			return core.TaskFilter{}, core.Invalid("priority %q is not a number", raw)
-		}
-		f.Priorities = append(f.Priorities, core.Priority(n))
+	if f.Priorities, err = priorities(q["priority"]); err != nil {
+		return core.TaskFilter{}, err
+	}
+	if f.Exclude, err = excludeFrom(q); err != nil {
+		return core.TaskFilter{}, err
+	}
+	if f.Text, err = textTermsFrom(q[TextTermParam]); err != nil {
+		return core.TaskFilter{}, err
 	}
 	if f.DueBefore, err = timeParam(q.Get("due_before")); err != nil {
 		return core.TaskFilter{}, err
@@ -114,6 +116,59 @@ func taskFilterFrom(r *http.Request) (core.TaskFilter, error) {
 		return core.TaskFilter{}, err
 	}
 	return f.Validate()
+}
+
+// NegatedPrefix marks the excluding form of a list parameter, so "?not_tag=ops"
+// is the wire spelling of the filter expression's "-tag:ops".
+const NegatedPrefix = "not_"
+
+// TextTermParam carries one explicit title or body predicate per value, each
+// spelled the way the filter expression spells it: "title~api", "-body~legacy".
+// One repeated parameter rather than a parameter per field and mode keeps the
+// negated weak match expressible without six more names.
+const TextTermParam = "text"
+
+// excludeFrom reads the negated list parameters.
+func excludeFrom(q url.Values) (core.TaskExclude, error) {
+	e := core.TaskExclude{
+		ProjectKeys: q[NegatedPrefix+"project"],
+		Statuses:    q[NegatedPrefix+"status"],
+		Tags:        q[NegatedPrefix+"tag"],
+		AssigneeIDs: q[NegatedPrefix+"assignee"],
+		CreatorIDs:  q[NegatedPrefix+"creator"],
+		ClaimedBy:   q[NegatedPrefix+"claimed_by"],
+	}
+	var err error
+	if e.Priorities, err = priorities(q[NegatedPrefix+"priority"]); err != nil {
+		return core.TaskExclude{}, err
+	}
+	return e, nil
+}
+
+// priorities parses a repeated priority parameter.
+func priorities(raws []string) ([]core.Priority, error) {
+	var out []core.Priority
+	for _, raw := range raws {
+		n, err := strconv.Atoi(raw)
+		if err != nil {
+			return nil, core.Invalid("priority %q is not a number", raw)
+		}
+		out = append(out, core.Priority(n))
+	}
+	return out, nil
+}
+
+// textTermsFrom parses the repeated text term parameter.
+func textTermsFrom(raws []string) ([]core.TextTerm, error) {
+	var out []core.TextTerm
+	for _, raw := range raws {
+		term, err := core.ParseTextTerm(raw)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, term)
+	}
+	return out, nil
 }
 
 // FieldFilterPrefix marks a query parameter that filters on a custom field, as

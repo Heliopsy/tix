@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -147,5 +148,109 @@ func TestUnimplementedModesExitTwo(t *testing.T) {
 				t.Fatalf("stderr = %q, want it to name %q as supported", got.err, tc.supported)
 			}
 		})
+	}
+}
+
+// --filter is the whole expression language on the command line, so the terms
+// a person types into the terminal interface's filter bar select the same
+// tasks from a shell. Negation and the weak match are the two that had no
+// flag at all before.
+func TestTaskLsFilterExpression(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("task", "add", "Deploy the API gateway", "--tag", "ops")
+	c.mustRun("task", "add", "rotate API keys", "--tag", "sec")
+	c.mustRun("task", "add", "write runbook", "--tag", "ops")
+
+	tests := []struct {
+		name   string
+		filter string
+		want   []string
+	}{
+		{"an excluded tag", "-tag:ops", []string{"rotate API keys"}},
+		{"two excluded tags leave nothing", "-tag:ops -tag:sec", nil},
+		{"a weak title match", "title~api", []string{"Deploy the API gateway", "rotate API keys"}},
+		{"a weak match ignores case", "title~API", []string{"Deploy the API gateway", "rotate API keys"}},
+		{"a negated weak title match", "-title~api", []string{"write runbook"}},
+		{"an exact title match", `title:"write runbook"`, []string{"write runbook"}},
+		{"an exact match rejects a substring", "title:api", nil},
+		{"selection and exclusion combine", "status:todo -tag:sec",
+			[]string{"Deploy the API gateway", "write runbook"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := c.mustRun("task", "ls", "--filter", tt.filter, "-o", "json").out
+			var tasks []core.Task
+			if err := json.Unmarshal([]byte(out), &tasks); err != nil {
+				t.Fatalf("decoding: %v\n%s", err, out)
+			}
+			got := make([]string, 0, len(tasks))
+			for _, task := range tasks {
+				got = append(got, task.Title)
+			}
+			sort.Strings(got)
+			want := append([]string(nil), tt.want...)
+			sort.Strings(want)
+			if len(got) != len(want) {
+				t.Fatalf("filter %q selected %v, want %v", tt.filter, got, want)
+			}
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("filter %q selected %v, want %v", tt.filter, got, want)
+				}
+			}
+		})
+	}
+}
+
+// A filter the parser cannot read is a usage error, not an empty listing: an
+// empty listing reads as "nothing matched", which is the wrong answer.
+func TestTaskLsRejectsAnUnreadableFilter(t *testing.T) {
+	c := newCLI(t)
+	for _, expr := range []string{"colour:red", "status~todo", "-sort:title"} {
+		if got := c.run("task", "ls", "--filter", expr); got.code == core.ExitOK {
+			t.Errorf("filter %q was accepted: %s", expr, got.out)
+		}
+	}
+}
+
+// The flags and the expression add up rather than one silently replacing the
+// other, so an alias or a shell function carrying --filter still composes.
+func TestTaskLsFilterAndFlagsCombine(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("task", "add", "keep me", "--tag", "ops")
+	c.mustRun("task", "add", "drop me", "--tag", "ops")
+
+	out := c.mustRun("task", "ls", "--filter", "-title~drop", "--tag", "ops", "-o", "json").out
+	var tasks []core.Task
+	if err := json.Unmarshal([]byte(out), &tasks); err != nil {
+		t.Fatalf("decoding: %v\n%s", err, out)
+	}
+	if len(tasks) != 1 || tasks[0].Title != "keep me" {
+		t.Fatalf("tasks = %+v, want only the one both terms keep", tasks)
+	}
+}
+
+// The configured default project is a fallback. An expression that names a
+// project has answered the question, so the default must not widen the
+// listing back out to two projects.
+func TestTaskLsFilterProjectBeatsTheConfiguredDefault(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("project", "create", "infra", "Infra")
+	c.mustRun("task", "add", "in infra", "-p", "infra")
+	c.mustRun("task", "add", "in default", "-p", "default")
+	// The context names the database explicitly: a context with no database
+	// falls back to the literal default path rather than the XDG one these
+	// tasks were written to, which would make this test pass for the wrong
+	// reason by listing an empty database.
+	c.mustRun("ctx", "add", "home", "--db", filepath.Join(c.data, "tix", "tix.db"),
+		"--project", "default", "--use")
+
+	out := c.mustRun("task", "ls", "--filter", "project:infra", "-o", "json").out
+	var tasks []core.Task
+	if err := json.Unmarshal([]byte(out), &tasks); err != nil {
+		t.Fatalf("decoding: %v\n%s", err, out)
+	}
+	if len(tasks) != 1 || tasks[0].Title != "in infra" {
+		t.Fatalf("tasks = %+v, want only the project the filter named", tasks)
 	}
 }

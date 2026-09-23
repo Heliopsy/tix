@@ -15,6 +15,7 @@ with the thing.
 | [configuration.md](configuration.md) | Contexts, the five layers, `TIX_*` variables, per-directory discovery |
 | [tenancy.md](tenancy.md) | Tenants, domains, roles, and how isolation is enforced |
 | [api.md](api.md) | The HTTP API, the WebSocket event stream, and resuming with `since_seq` |
+| [filtering.md](filtering.md) | The filter expression language: negation, weak matching, and what each engine does |
 | [scripting.md](scripting.md) | NDJSON everywhere, output formats, piping, exit codes |
 | [deployment.md](deployment.md) | Running `tix serve`, TLS, reverse proxies, the non-loopback bind guard |
 | [scaling.md](scaling.md) | SQLite versus PostgreSQL, keyset pagination, partitioning, when to move |
@@ -25,6 +26,7 @@ with the thing.
 ## Where to start
 
 - Running an AI agent against tix: [agents.md](agents.md), then [scripting.md](scripting.md).
+- Building a queue view to replace a Jira filter: [filtering.md](filtering.md).
 - Setting up a team: [configuration.md](configuration.md), [workflows.md](workflows.md),
   [deployment.md](deployment.md).
 - Coming from another tracker: [migrating.md](migrating.md).

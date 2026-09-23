@@ -203,7 +203,7 @@ Every command that mutates state SHALL accept `--dry-run`, which reports exactly
 
 ### Requirement: Command surface
 
-The CLI SHALL provide the command groups `task`, `project`, `workflow`, `field`, `claim`, `comment`, `dep`, `tag`, `user`, `token`, `ctx`, `config`, `doctor`, `serve`, `tui`, `export`, `import`, `bundle`, `sync`, `webhook`, `prune`, `docs`, `completion`, and `version`.
+The CLI SHALL provide the command groups `task`, `project`, `workflow`, `field`, `claim`, `comment`, `dep`, `tag`, `user`, `token`, `ctx`, `config`, `tenant`, `watch`, `doctor`, `serve`, `tui`, `export`, `import`, `bundle`, `sync`, `webhook`, `prune`, `docs`, `completion`, and `version`.
 
 #### Scenario: Every group is reachable
 
@@ -219,6 +219,49 @@ The CLI SHALL provide the command groups `task`, `project`, `workflow`, `field`,
 
 - **WHEN** `tix version` is run
 - **THEN** the version is printed, and `-o json` yields it as structured data along with build metadata
+
+### Requirement: Filter expression on the command line
+
+The task listing command SHALL accept the same filter expression language the terminal interface's filter bar accepts, so an expression selects the same tasks from either surface. The expression SHALL be a conjunction of space-separated terms, SHALL support negating a term with a leading `-`, and SHALL support a weak match written with `~` in place of `:`. Flags given alongside the expression SHALL add to it rather than replace it. An expression the parser cannot read SHALL be a usage error, not an empty listing.
+
+#### Scenario: Negated term
+
+- **WHEN** tasks are listed with the expression `-tag:ops`
+- **THEN** only tasks lacking that tag are returned
+
+#### Scenario: Weak match
+
+- **WHEN** tasks are listed with the expression `title~api`
+- **THEN** only tasks whose title contains that value are returned, whatever its case
+
+#### Scenario: Expression and flags combine
+
+- **WHEN** tasks are listed with both an expression and a filter flag
+- **THEN** only tasks satisfying both are returned
+
+#### Scenario: Unreadable expression
+
+- **WHEN** tasks are listed with an expression naming an unknown key, or applying the weak operator to a term that has no text
+- **THEN** the command exits with a usage error rather than returning an empty listing
+
+### Requirement: Event stream command exposes its resume cursor
+
+The command that follows the event stream SHALL print each event's sequence number in every output format, SHALL accept a sequence number to resume after, and SHALL document its delivery guarantee as at-least-once with a cursor.
+
+#### Scenario: Cursor on the default line
+
+- **WHEN** the stream is followed in the default format
+- **THEN** each line leads with the sequence number the consumer would resume from
+
+#### Scenario: Structured output carries the whole event
+
+- **WHEN** the stream is followed with a structured output format
+- **THEN** each record carries the sequence number, actor, subject type and identifier, timestamp and full payload
+
+#### Scenario: Resume after a sequence number
+
+- **WHEN** the stream is followed resuming after a recorded sequence number
+- **THEN** every matching event committed after that number is delivered, in order, before live delivery begins
 
 ### Requirement: Shell completion
 

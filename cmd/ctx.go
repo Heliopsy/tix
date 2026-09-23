@@ -187,17 +187,18 @@ func (g *globals) completeContexts(_ *cobra.Command, _ []string, _ string) ([]st
 // editConfig applies a change to the configuration file on disk.
 func (g *globals) editConfig(cmd *cobra.Command, dryRun bool, action, target string, apply func(*config.Config) error) error {
 	path := g.configFilePath()
-	cfg, err := readConfigFile(path)
+	existing, cfg, err := readConfigFile(path)
 	if err != nil {
 		return err
 	}
+	before := *cfg
 	if err := apply(cfg); err != nil {
 		return err
 	}
 	if dryRun {
 		return g.render(cmd, newPlan(action, target, map[string]any{"file": path}))
 	}
-	if err := config.Save(path, cfg); err != nil {
+	if err := config.SaveChanges(path, existing, &before, cfg); err != nil {
 		return core.Internal("saving configuration").Wrap(err)
 	}
 	g.diag(cmd, "wrote %s", path)
@@ -215,15 +216,17 @@ func (g *globals) configFilePath() string {
 	return connect.ConfigWritePath(g.environ, lookupEnv(g.environ, "HOME"))
 }
 
-// readConfigFile loads an existing configuration file, or the defaults.
-func readConfigFile(path string) (*config.Config, error) {
+// readConfigFile loads an existing configuration file, returning both the raw
+// document and the Config it resolves to. The raw document is what a later
+// save writes back, so editing one key never pins the rest.
+func readConfigFile(path string) (*config.File, *config.Config, error) {
 	cfg := config.Defaults()
 	if !exists(path) {
-		return &cfg, nil
+		return nil, &cfg, nil
 	}
 	file, err := config.LoadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for name, raw := range file.Values {
 		key, ok := config.Lookup(name)
@@ -231,12 +234,12 @@ func readConfigFile(path string) (*config.Config, error) {
 			continue
 		}
 		if err := key.Set(&cfg, raw); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	cfg.Contexts = file.Contexts
 	cfg.CurrentContext = file.CurrentContext
-	return &cfg, nil
+	return file, &cfg, nil
 }
 
 // exists reports whether path names a readable file.

@@ -23,11 +23,19 @@ func newWatchCmd(g *globals) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "watch",
 		Short: "Follow the event stream",
-		Long: "Stream domain events as they are committed, until the command is interrupted.\n" +
-			"With no --since the stream starts at the next event; --since resumes after a sequence number.\n" +
-			"The default format prints one readable line per event as it arrives: when, who, what happened, " +
-			"to which task. Pass -o ndjson for a machine to parse instead.\n\n" +
-			fmt.Sprintf("Exit codes: %d invalid filter, %d permission denied.",
+		Long: "Stream domain events as they are committed, until the command is interrupted.\n\n" +
+			"Every event carries a sequence number, monotonic and gapless within a tenant, which is the " +
+			"resume cursor. The default line leads with it; -o json and -o ndjson carry the whole event, " +
+			"sequence number, actor, subject type and id, and the full payload, so a watcher never has to " +
+			"go back and query. Use ndjson for a process reading line by line.\n\n" +
+			"Delivery is at-least-once with a cursor, not exactly-once. With no --since the stream starts " +
+			"at the next event, so anything committed before the command started is skipped. --since N " +
+			"resumes after sequence N by replaying the durable log, which is gap-free: record the sequence " +
+			"of the last event you handled, pass it back, and every event committed in between arrives in " +
+			"order. An event may arrive twice if you resume from a cursor you had already handled, so " +
+			"handling must be idempotent. A cursor the retention sweep has already removed is refused " +
+			"rather than silently skipped, on both the direct and the served path.\n\n" +
+			fmt.Sprintf("Exit codes: %d invalid filter or unavailable cursor, %d permission denied.",
 				core.KindInvalid.ExitCode(), core.KindForbidden.ExitCode()),
 		Example: "  tix watch\n" +
 			"  tix watch --actor agent-pax --type task.*\n" +

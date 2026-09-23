@@ -100,6 +100,8 @@ func (l *Local) Subscribe(ctx context.Context, f core.EventFilter) (<-chan core.
 			return nil, err
 		}
 		f.SinceSeq = latest
+	} else if err := reader.checkRetained(ctx, f.SinceSeq); err != nil {
+		return nil, err
 	}
 	src, err := outbox.NewTailer(reader, 0, 0).Subscribe(ctx, f)
 	if err != nil {
@@ -141,6 +143,33 @@ func (r *eventReader) ReadSince(ctx context.Context, sinceSeq int64, limit int) 
 		return nil
 	})
 	return out, err
+}
+
+// checkRetained refuses a resume cursor the retention sweep has already
+// overtaken. Without it a subscriber resuming from a pruned position is handed
+// the oldest surviving event as though nothing were missing, which is the one
+// failure a cursor exists to prevent. The WebSocket path has always made this
+// check; the direct path did not, so the same `tix watch --since` was gap-free
+// against a server and silently lossy against a database file.
+func (r *eventReader) checkRetained(ctx context.Context, sinceSeq int64) error {
+	oldest, err := r.oldest(ctx)
+	if err != nil {
+		return err
+	}
+	if oldest > 0 && sinceSeq+1 < oldest {
+		return core.Invalid("cursor %d is no longer available; the oldest retained event is %d", sinceSeq, oldest)
+	}
+	return nil
+}
+
+// oldest reports the lowest retained sequence number, or zero when the tenant
+// has no events at all.
+func (r *eventReader) oldest(ctx context.Context) (int64, error) {
+	events, err := r.ReadSince(ctx, 0, 1)
+	if err != nil || len(events) == 0 {
+		return 0, err
+	}
+	return events[0].Seq, nil
 }
 
 // Latest returns the highest committed sequence number.

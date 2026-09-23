@@ -150,8 +150,20 @@ func taskFilterQuery(f core.TaskFilter) url.Values {
 	setStrings(q, "assignee", f.AssigneeIDs)
 	setStrings(q, "creator", f.CreatorIDs)
 	setStrings(q, "claimed_by", f.ClaimedBy)
+	setStrings(q, "not_project", f.Exclude.ProjectKeys)
+	setStrings(q, "not_status", f.Exclude.Statuses)
+	setStrings(q, "not_tag", f.Exclude.Tags)
+	setStrings(q, "not_assignee", f.Exclude.AssigneeIDs)
+	setStrings(q, "not_creator", f.Exclude.CreatorIDs)
+	setStrings(q, "not_claimed_by", f.Exclude.ClaimedBy)
 	for _, p := range f.Priorities {
 		q.Add("priority", strconv.Itoa(int(p)))
+	}
+	for _, p := range f.Exclude.Priorities {
+		q.Add("not_priority", strconv.Itoa(int(p)))
+	}
+	for _, t := range f.Text {
+		q.Add("text", t.String())
 	}
 	setTime(q, "due_before", f.DueBefore)
 	setTime(q, "due_after", f.DueAfter)

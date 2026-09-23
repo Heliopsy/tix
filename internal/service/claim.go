@@ -368,6 +368,9 @@ func (l *Local) sweepOne(ctx context.Context, m *mutation, before core.Task, wor
 	}
 
 	payload := map[string]any{"previous_holder": before.ClaimedByActorID}
+	if holder, err := lookupActor(ctx, m.tx, before.ClaimedByActorID); err == nil {
+		payload["previous_holder_handle"] = holder.Handle
+	}
 	if state, found := wf.Definition.State(before.Status); found && state.RevertOnLeaseExpiry {
 		to := state.RevertTo
 		if to == "" {
@@ -531,11 +534,22 @@ func (l *Local) recordClaim(ctx context.Context, m *mutation, before *core.Task,
 	if err != nil {
 		return nil, err
 	}
+	payload := map[string]any{
+		"claimed_by":       claimed.ClaimedByActorID,
+		"lease_expires_at": until,
+	}
+	// A claim taken on another actor's behalf has a holder the acting actor's
+	// handle does not name, and a stream showing only the ULID cannot answer
+	// "who holds this lease".
+	if claimed.ClaimedByActorID != m.actor.ID {
+		holder, err := lookupActor(ctx, m.tx, claimed.ClaimedByActorID)
+		if err != nil {
+			return nil, err
+		}
+		payload["claimed_by_handle"] = holder.Handle
+	}
 	if err := m.Record("task.claim", core.EventTaskClaimed, "task", claimed.ID, claimed.ProjectID,
-		before, claimed, map[string]any{
-			"claimed_by":       claimed.ClaimedByActorID,
-			"lease_expires_at": until,
-		}); err != nil {
+		before, claimed, payload); err != nil {
 		return nil, err
 	}
 	return &core.Claim{Task: claimed, LeaseToken: token, LeaseExpiresAt: until}, nil

@@ -232,3 +232,60 @@ func TestWatchRejectsABadFilter(t *testing.T) {
 		})
 	}
 }
+
+// The machine formats are what a monitoring agent reads, so every field it
+// would otherwise have to go back and query for has to be on the line: the
+// resume cursor, who acted, what the subject is, and the whole payload.
+func TestWatchNDJSONCarriesTheWholeEvent(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("task", "add", "buy milk")
+
+	event := watchOne(t, c, "--type", "task.created")
+	switch {
+	case event.Seq == 0:
+		t.Error("event has no sequence number, so a watcher cannot record its position")
+	case event.ID == "":
+		t.Error("event has no id")
+	case event.TenantID == "":
+		t.Error("event has no tenant")
+	case event.ActorID == "":
+		t.Error("event has no actor")
+	case event.SubjectType != "task" || event.SubjectID == "":
+		t.Errorf("subject = %q/%q, want a typed identifier", event.SubjectType, event.SubjectID)
+	case event.OccurredAt.IsZero():
+		t.Error("event has no timestamp")
+	}
+	for _, key := range []string{"ref", "title", "actor_handle"} {
+		if _, ok := event.Payload[key]; !ok {
+			t.Errorf("payload %v is missing %q; a watcher would have to query for it", event.Payload, key)
+		}
+	}
+}
+
+// The default line is what a person sees, and it has to carry the cursor or
+// the resume story only works for whoever already parses ndjson.
+func TestWatchDefaultLineCarriesTheResumeCursor(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("task", "add", "buy milk")
+
+	out := c.mustRun("watch", "--since", "1", "--limit", "1", "--type", "task.created").out
+	line := strings.TrimSpace(out)
+	seq := strings.Fields(line)
+	if len(seq) == 0 {
+		t.Fatalf("watch printed nothing")
+	}
+	n, err := strconv.Atoi(seq[0])
+	if err != nil || n <= 0 {
+		t.Fatalf("line %q does not lead with a sequence number a watcher can resume from", line)
+	}
+}
+
+// A cursor the retention sweep has already passed cannot be resumed from, and
+// a watcher told nothing would wait forever believing it was caught up. Both
+// the direct and the served path refuse it; this pins the CLI's half.
+func TestWatchRejectsANegativeCursor(t *testing.T) {
+	c := newCLI(t)
+	if got := c.run("watch", "--since", "-1"); got.code == core.ExitOK {
+		t.Fatalf("watch accepted a negative cursor: %s", got.out)
+	}
+}

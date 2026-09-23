@@ -164,6 +164,14 @@ type TaskFilter struct {
 
 	Query string `json:"query,omitempty" yaml:"query,omitempty"`
 
+	// Text holds the explicit title and body predicates: exact equality, or
+	// the weak substring match. Unlike Query, which each engine answers with
+	// its own native search, every engine answers these the same way.
+	Text []TextTerm `json:"text,omitempty" yaml:"text,omitempty"`
+
+	// Exclude removes tasks the inclusion terms would otherwise have kept.
+	Exclude TaskExclude `json:"exclude,omitempty" yaml:"exclude,omitempty"`
+
 	CustomFields map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
 
 	IncludeDeleted bool `json:"include_deleted,omitempty" yaml:"include_deleted,omitempty"`
@@ -201,6 +209,14 @@ func (f TaskFilter) Validate() (TaskFilter, error) {
 	for _, p := range f.Priorities {
 		if !p.Valid() {
 			return f, Invalid("priority %d is out of range", p)
+		}
+	}
+	if err := f.Exclude.Validate(); err != nil {
+		return f, err
+	}
+	for _, t := range f.Text {
+		if err := t.Validate(); err != nil {
+			return f, err
 		}
 	}
 	if f.DueBefore != nil && f.DueAfter != nil && f.DueBefore.Before(*f.DueAfter) {

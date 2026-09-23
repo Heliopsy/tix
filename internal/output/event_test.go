@@ -139,3 +139,111 @@ func TestFormatEventLineReadsAtAGlanceAndNeverColoursWithoutAPainter(t *testing.
 		t.Fatalf("coloured line carries no escape code: %q", coloured)
 	}
 }
+
+// A watcher's whole resume story rests on being able to read its position off
+// the stream. The default line is the one output a person and a shell pipeline
+// both see, so the sequence number has to be on it.
+func TestFormatEventLineLeadsWithTheResumeCursor(t *testing.T) {
+	line := FormatEventLine(NewPainter(ModeNever, nil), core.Event{
+		Seq: 42, Type: core.EventTaskCreated, ActorID: "alice",
+		OccurredAt: time.Date(2026, 1, 1, 10, 15, 3, 0, time.Local),
+		Payload:    map[string]any{"ref": "homelab-3", "title": "buy milk"},
+	})
+	if !strings.HasPrefix(line, "000042") {
+		t.Fatalf("line = %q, want it to lead with the sequence number a watcher resumes from", line)
+	}
+}
+
+// What a person watching a queue needs is what changed, not a re-listing of
+// the task. Each of these event types used to print its ref and nothing else.
+func TestEventDetailNamesWhatActuallyChanged(t *testing.T) {
+	occurred := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name  string
+		event core.Event
+		want  string
+	}{
+		{"a transition names both states", core.Event{
+			Type: core.EventTaskTransitioned, Payload: map[string]any{"from": "todo", "to": "doing"},
+		}, "todo → doing"},
+		{"an edit names the fields it touched", core.Event{
+			Type: core.EventTaskUpdated, Payload: map[string]any{"fields": []any{"title", "priority"}},
+		}, "the title and priority"},
+		{"a self claim names the lease length", core.Event{
+			Type: core.EventTaskClaimed, ActorID: "alice", OccurredAt: occurred,
+			Payload: map[string]any{
+				"actor_handle": "alice", "claimed_by": "alice",
+				"lease_expires_at": occurred.Add(30 * time.Minute),
+			},
+		}, "lease 30m"},
+		{"a claim for somebody else names the holder", core.Event{
+			Type: core.EventTaskClaimed, ActorID: "a1", OccurredAt: occurred,
+			Payload: map[string]any{
+				"actor_handle": "alice", "claimed_by": "a2", "claimed_by_handle": "pax",
+				"lease_expires_at": occurred.Add(time.Hour),
+			},
+		}, "for pax, lease 1h"},
+		{"a lease expiry names the holder it was taken from", core.Event{
+			Type: core.EventTaskLeaseExpired,
+			Payload: map[string]any{
+				"previous_holder": "a2", "previous_holder_handle": "pax", "reverted_to": "todo",
+			},
+		}, "held by pax, reverted to todo"},
+		{"a lease expiry with no revert still names the holder", core.Event{
+			Type:    core.EventTaskLeaseExpired,
+			Payload: map[string]any{"previous_holder": "a2", "previous_holder_handle": "pax"},
+		}, "held by pax"},
+		{"a holder with no handle falls back to its identifier", core.Event{
+			Type:    core.EventTaskLeaseExpired,
+			Payload: map[string]any{"previous_holder": "a2"},
+		}, "held by a2"},
+		{"a release names the status it left the task in", core.Event{
+			Type: core.EventTaskReleased, Payload: map[string]any{"final_status": "done", "status": "done"},
+		}, "→ done"},
+		{"a timestamp that survived a JSON round trip still reads", core.Event{
+			Type: core.EventTaskClaimed, ActorID: "alice", OccurredAt: occurred,
+			Payload: map[string]any{
+				"actor_handle": "alice", "claimed_by": "alice",
+				"lease_expires_at": occurred.Add(90 * time.Minute).Format(time.RFC3339Nano),
+			},
+		}, "lease 1h30m"},
+		{"an already expired lease says nothing rather than a negative", core.Event{
+			Type: core.EventTaskClaimed, ActorID: "alice", OccurredAt: occurred,
+			Payload: map[string]any{
+				"actor_handle": "alice", "claimed_by": "alice",
+				"lease_expires_at": occurred.Add(-time.Minute),
+			},
+		}, ""},
+		{"a creation still names the title", core.Event{
+			Type: core.EventTaskCreated, Payload: map[string]any{"title": "buy milk"},
+		}, "buy milk"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := EventDetail(tt.event); got != tt.want {
+				t.Errorf("EventDetail = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// The default line is for a person scanning a queue, so the richness lives in
+// the structured formats. A detail that grew to a paragraph would make the
+// tail unreadable, which is the failure the original one-line format avoided
+// by saying nothing at all.
+func TestEventDetailStaysShortEnoughToScan(t *testing.T) {
+	occurred := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+	events := []core.Event{
+		{Type: core.EventTaskClaimed, ActorID: "a1", OccurredAt: occurred, Payload: map[string]any{
+			"claimed_by": "a2", "claimed_by_handle": "pax", "lease_expires_at": occurred.Add(time.Hour)}},
+		{Type: core.EventTaskLeaseExpired, Payload: map[string]any{
+			"previous_holder_handle": "pax", "reverted_to": "todo"}},
+		{Type: core.EventTaskUpdated, Payload: map[string]any{
+			"fields": []any{"title", "body", "priority", "assignee_actor_id", "due_at"}}},
+	}
+	for _, e := range events {
+		if got := EventDetail(e); len(got) > 80 {
+			t.Errorf("detail for %s is %d characters, too long for one scannable line: %q", e.Type, len(got), got)
+		}
+	}
+}

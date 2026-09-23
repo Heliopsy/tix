@@ -5,6 +5,7 @@ package output
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 )
@@ -37,14 +38,20 @@ func EventRef(e core.Event) string {
 // was added, which fields an update touched. It returns empty when the
 // payload has nothing more to say.
 func EventDetail(e core.Event) string {
-	if e.Type == core.EventTaskTransitioned {
+	switch e.Type {
+	case core.EventTaskTransitioned:
 		from, _ := e.Payload["from"].(string)
 		to, _ := e.Payload["to"].(string)
 		if from != "" || to != "" {
 			return from + " → " + to
 		}
-	}
-	if e.Type == core.EventTaskUpdated {
+	case core.EventTaskClaimed:
+		return claimDetail(e)
+	case core.EventTaskReleased:
+		return releaseDetail(e.Payload)
+	case core.EventTaskLeaseExpired:
+		return leaseExpiredDetail(e.Payload)
+	case core.EventTaskUpdated:
 		if d := taskUpdatedDetail(e.Payload); d != "" {
 			return d
 		}
@@ -59,6 +66,99 @@ func EventDetail(e core.Event) string {
 		}
 	}
 	return ""
+}
+
+// claimDetail names who now holds the lease and for how long. The holder is
+// only named when it is not the actor the line already leads with, which is
+// the claim-on-behalf-of case; naming it every time would print the same
+// handle twice on the same line for no information.
+func claimDetail(e core.Event) string {
+	var parts []string
+	if holder := payloadHolder(e.Payload, "claimed_by_handle", "claimed_by"); holder != "" &&
+		holder != EventActor(e) && holder != e.ActorID {
+		parts = append(parts, "for "+holder)
+	}
+	if d, ok := leaseFor(e); ok {
+		parts = append(parts, "lease "+shortDuration(d))
+	}
+	return strings.Join(parts, ", ")
+}
+
+// shortDuration renders a lease length the way a person says it: "30m", not
+// Go's "30m0s". Anything under a minute keeps its seconds.
+func shortDuration(d time.Duration) string {
+	out := d.Round(time.Second).String()
+	for _, suffix := range []string{"h0m0s", "m0s"} {
+		if trimmed, ok := strings.CutSuffix(out, suffix); ok {
+			return trimmed + suffix[:1]
+		}
+	}
+	return out
+}
+
+// releaseDetail names the status a release left the task in.
+func releaseDetail(payload map[string]any) string {
+	status, _ := payload["final_status"].(string)
+	if status == "" {
+		status, _ = payload["status"].(string)
+	}
+	if status == "" {
+		return ""
+	}
+	return "→ " + status
+}
+
+// leaseExpiredDetail names who lost the lease and where the task went back to.
+func leaseExpiredDetail(payload map[string]any) string {
+	var parts []string
+	if holder := payloadHolder(payload, "previous_holder_handle", "previous_holder"); holder != "" {
+		parts = append(parts, "held by "+holder)
+	}
+	if to, _ := payload["reverted_to"].(string); to != "" {
+		parts = append(parts, "reverted to "+to)
+	}
+	return strings.Join(parts, ", ")
+}
+
+// payloadHolder prefers a handle over the identifier behind it.
+func payloadHolder(payload map[string]any, handleKey, idKey string) string {
+	if h, ok := payload[handleKey].(string); ok && h != "" {
+		return h
+	}
+	id, _ := payload[idKey].(string)
+	return id
+}
+
+// leaseFor reports how long the lease an event granted runs for. The payload
+// carries an absolute expiry, which is what a machine wants; a person reading
+// a tail wants the length, and the event already says when it happened.
+func leaseFor(e core.Event) (time.Duration, bool) {
+	until, ok := payloadTime(e.Payload["lease_expires_at"])
+	if !ok || e.OccurredAt.IsZero() {
+		return 0, false
+	}
+	d := until.Sub(e.OccurredAt)
+	if d <= 0 {
+		return 0, false
+	}
+	return d, true
+}
+
+// payloadTime reads a timestamp that may still be a time.Time in process, or
+// the RFC3339 string a round trip through the store leaves behind.
+func payloadTime(v any) (time.Time, bool) {
+	switch t := v.(type) {
+	case time.Time:
+		return t, true
+	case string:
+		parsed, err := time.Parse(time.RFC3339Nano, t)
+		if err != nil {
+			return time.Time{}, false
+		}
+		return parsed, true
+	default:
+		return time.Time{}, false
+	}
 }
 
 // taskUpdatedDetail is as specific as core.EventTaskUpdated's payload allows
@@ -190,13 +290,23 @@ func EventActor(e core.Event) string {
 	return e.ActorID
 }
 
-// FormatEventLine renders one event as a single line: a time of day in the
-// painter's configured zone, the actor, what happened, and the task or
-// subject it happened to. It is what a live tail draws instead of buffering
-// into a table that can never finish sizing its columns while the stream is
-// still open.
+// EventSeq renders an event's position in the tenant's log, zero-padded so a
+// tail's columns do not shift as the sequence gains a digit. It leads the line
+// because it is the resume cursor: whoever read this line can hand the number
+// back to `tix watch --since` and carry on from exactly here.
+func EventSeq(e core.Event) string {
+	return fmt.Sprintf("%06d", e.Seq)
+}
+
+// FormatEventLine renders one event as a single line: its sequence number, a
+// time of day in the painter's configured zone, the actor, what happened, and
+// the task or subject it happened to. It is what a live tail draws instead of
+// buffering into a table that can never finish sizing its columns while the
+// stream is still open. The structured formats carry the whole event; this
+// line carries what a person scanning a queue reads.
 func FormatEventLine(p Painter, e core.Event) string {
 	line := strings.Join([]string{
+		p.Muted(EventSeq(e)),
 		p.Muted(p.style.Clock(e.OccurredAt)),
 		EventActor(e),
 		EventVerb(e.Type),

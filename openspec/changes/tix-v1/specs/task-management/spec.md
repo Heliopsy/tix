@@ -254,6 +254,69 @@ Task lists SHALL be filterable by project, status, assignee, tag, priority, due 
 - **WHEN** tasks are listed with a filter naming a field that does not exist
 - **THEN** the request is rejected with a validation error naming the unknown field
 
+### Requirement: Negated filter terms
+
+Task lists SHALL be filterable by the absence of a value as well as its presence, for project, status, tag, assignee, creator, lease holder and priority. A negated term SHALL combine conjunctively with every other term, and SHALL take precedence over a selecting term naming the same value.
+
+#### Scenario: Exclude a tag
+
+- **WHEN** tasks are listed excluding the tag `ops`
+- **THEN** every returned task lacks that tag, and a task carrying no tags at all is returned
+
+#### Scenario: Exclusion beats selection
+
+- **WHEN** tasks are listed selecting status `todo` and excluding status `todo`
+- **THEN** no tasks are returned
+
+#### Scenario: Selection and exclusion combine
+
+- **WHEN** tasks are listed selecting status `todo` and excluding tag `docs`
+- **THEN** only tasks in status `todo` that lack that tag are returned
+
+#### Scenario: A null column is not an excluded value
+
+- **WHEN** tasks are listed excluding an assignee
+- **THEN** tasks with no assignee are returned, because having no assignee is not being assigned to the excluded actor
+
+#### Scenario: Negating a term that shapes the listing
+
+- **WHEN** tasks are listed with a negated sort, limit, parent or due bound
+- **THEN** the request is rejected with a validation error, because those terms select a shape of the listing rather than a set of tasks
+
+### Requirement: Weak text matching
+
+Task lists SHALL support a weak text match, distinct from exact match, on title and body. A weak match SHALL succeed when the value appears anywhere inside the field; an exact match SHALL succeed only when the value is the whole field. Both SHALL be case-insensitive, and both SHALL be answerable on every storage engine with the same result for the same corpus. A weak or exact term SHALL be negatable.
+
+#### Scenario: Weak match is a substring
+
+- **WHEN** tasks are listed with a weak title match on `api`
+- **THEN** every task whose title contains `api` anywhere is returned
+
+#### Scenario: Exact match is the whole field
+
+- **WHEN** tasks are listed with an exact title match on `api`
+- **THEN** no task whose title merely contains `api` is returned
+
+#### Scenario: Case is ignored
+
+- **WHEN** tasks are listed with a weak title match on `API` and again on `api`
+- **THEN** both return the same tasks
+
+#### Scenario: Wildcards in the value are literal
+
+- **WHEN** tasks are listed with a weak title match on a value holding `%` or `_`
+- **THEN** those characters match themselves and do not act as pattern wildcards
+
+#### Scenario: Engines agree
+
+- **WHEN** the same weak, exact or negated text term is answered by each supported storage engine over the same corpus
+- **THEN** both engines return the same tasks
+
+#### Scenario: Unknown text field
+
+- **WHEN** tasks are listed with a text term naming a field other than title, body or the pair of them
+- **THEN** the request is rejected with a validation error
+
 ### Requirement: Task sorting
 
 Task lists SHALL be sortable by documented fields including creation time, update time, priority, due date, and status, in ascending or descending order, with a deterministic total order.

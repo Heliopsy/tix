@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/query"
 	"github.com/spf13/cobra"
 )
 
@@ -135,7 +136,7 @@ func taskAddCmd(g *globals) *cobra.Command {
 func taskLsCmd(g *globals) *cobra.Command {
 	var (
 		projects, statuses, tags, assignees []string
-		query, cursor, sort                 string
+		text, cursor, sort, expr            string
 		limit                               int
 		desc, all, deleted                  bool
 		claimed, unclaimed, blocked         bool
@@ -144,21 +145,48 @@ func taskLsCmd(g *globals) *cobra.Command {
 		Use:     "ls",
 		Aliases: []string{"list"},
 		Short:   "List tasks",
-		Long:    "List tasks. Results stream, so large listings are never buffered.\n\nExit codes: 2 invalid filter, 5 permission denied.",
-		Example: "  tix task ls\n  tix task ls --status todo -o ndjson\n  tix task ls -p infra --tag ops --all",
-		Args:    noArgs,
+		Long: "List tasks. Results stream, so large listings are never buffered.\n\n" +
+			"--filter takes the expression language the terminal interface's filter bar uses: " +
+			"space separated key:value terms, ANDed. A leading - excludes (-tag:ops, -status:done), " +
+			"and ~ in place of : matches weakly, anywhere inside the field (title~api, text~deploy). " +
+			"The other flags add to whatever --filter selected.\n\n" +
+			"Exit codes: 2 invalid filter, 5 permission denied.",
+		Example: "  tix task ls\n  tix task ls --status todo -o ndjson\n" +
+			"  tix task ls -p infra --tag ops --all\n" +
+			"  tix task ls --filter 'status:todo -tag:ops title~deploy'",
+		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			fallback, err := g.projectFallback(cmd)
+			filter, err := query.Parse(expr)
 			if err != nil {
 				return err
 			}
-			if fallback != "" {
-				projects = []string{fallback}
+			filter.ProjectKeys = append(filter.ProjectKeys, projects...)
+			// The configured default project is a fallback, so an expression
+			// naming a project answers the question and the default must not
+			// widen the listing back out to two projects.
+			if len(filter.ProjectKeys) == 0 {
+				fallback, err := g.projectFallback(cmd)
+				if err != nil {
+					return err
+				}
+				if fallback != "" {
+					filter.ProjectKeys = []string{fallback}
+				}
 			}
-			filter := core.TaskFilter{
-				ProjectKeys: projects, Statuses: statuses, Tags: tags,
-				AssigneeIDs: assignees, Query: query, IncludeDeleted: deleted,
-				Page: core.Page{Limit: limit, Cursor: cursor, Sort: sort, Direction: core.Ascending},
+			filter.Statuses = append(filter.Statuses, statuses...)
+			filter.Tags = append(filter.Tags, tags...)
+			filter.AssigneeIDs = append(filter.AssigneeIDs, assignees...)
+			filter.IncludeDeleted = filter.IncludeDeleted || deleted
+			if text != "" {
+				filter.Query = strings.TrimSpace(filter.Query + " " + text)
+			}
+			filter.Page.Cursor = cursor
+			filter.Page.Direction = core.Ascending
+			if cmd.Flags().Changed("limit") || filter.Page.Limit == 0 {
+				filter.Page.Limit = limit
+			}
+			if cmd.Flags().Changed("sort") || filter.Page.Sort == "" {
+				filter.Page.Sort = sort
 			}
 			if desc {
 				filter.Page.Direction = core.Descending
@@ -204,7 +232,8 @@ func taskLsCmd(g *globals) *cobra.Command {
 	f.StringSliceVarP(&statuses, "status", "s", nil, "restrict to statuses")
 	f.StringSliceVarP(&tags, "tag", "l", nil, "restrict to tags")
 	f.StringSliceVar(&assignees, "assignee", nil, "restrict to assignees")
-	f.StringVar(&query, "query", "", "match title and body text")
+	f.StringVar(&text, "query", "", "match title and body text")
+	f.StringVar(&expr, "filter", "", "filter expression, such as 'status:todo -tag:ops title~deploy'")
 	f.StringVar(&cursor, "cursor", "", "continue from a previous page")
 	f.StringVar(&sort, "sort", core.SortUrgency, "sort field")
 	f.IntVar(&limit, "limit", core.DefaultPageLimit, "maximum records per page")

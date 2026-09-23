@@ -187,6 +187,40 @@ naming, creating, or selecting a tenant.
 - **WHEN** a deployment later adds a second tenant
 - **THEN** the default tenant continues to work unchanged and is subject to the same isolation rules
 
+### Requirement: Tenant selection is reachable from the command line
+
+Selecting the tenant that later commands work in SHALL be an operation, not an instruction to edit a configuration file. The selection SHALL be persisted, SHALL be overridable for a single command by the global tenant flag, and SHALL be reported by the command that shows the effective configuration.
+
+#### Scenario: Select a tenant
+
+- **WHEN** an operator selects a tenant by key
+- **THEN** later commands run against that tenant without naming it, and the command that shows the effective configuration reports it
+
+#### Scenario: A single command still overrides
+
+- **WHEN** a command is run with the global tenant flag after a tenant has been selected
+- **THEN** that one command uses the flag's tenant and the persisted selection is unchanged
+
+#### Scenario: Selection is verified against the target
+
+- **WHEN** an operator selects a tenant that cannot be reached with the current configuration
+- **THEN** the selection is refused with a not-found error and nothing is written, because an actor is bound to one tenant and so cannot list another to validate the key against
+
+#### Scenario: Selecting a tenant that does not exist yet
+
+- **WHEN** an operator selects a tenant with the check explicitly skipped
+- **THEN** the key is written without being verified, so a tenant can be selected before it is created
+
+#### Scenario: Selection belongs with the connection it applies to
+
+- **WHEN** a named context is current and a tenant is selected
+- **THEN** the key is stored on that context, because a context pins the database or server the tenant lives in
+
+#### Scenario: Persisting a selection pins nothing else
+
+- **WHEN** a tenant is selected while other settings are being resolved from the environment
+- **THEN** only the tenant key is written, and those other settings continue to resolve from the environment afterwards
+
 ### Requirement: Tenant resolved once per request
 
 The tenant for a request SHALL be resolved once, before any service method executes, and SHALL be

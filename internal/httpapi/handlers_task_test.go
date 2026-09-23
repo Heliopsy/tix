@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/http"
 	"slices"
+	"sort"
 	"testing"
 
 	"github.com/heliopsy/tix/internal/client"
@@ -172,5 +173,74 @@ func TestCustomFieldFilterSurvivesTheClientRoundTrip(t *testing.T) {
 
 	if _, err := remote.ListTasks(ctx, core.TaskFilter{CustomFields: map[string]any{"bad key": 1}}); !core.IsKind(err, core.KindInvalid) {
 		t.Fatalf("error = %v, want an invalid error", err)
+	}
+}
+
+// The CLI builds a core.TaskFilter and the client has to put it on the wire
+// without losing a term. Negation and the weak match are the two terms with no
+// pre-existing parameter, so this drives them end to end: Go filter, query
+// string, handler, store, and back.
+func TestNegationAndWeakMatchSurviveTheClientRoundTrip(t *testing.T) {
+	f := newFixtureWith(t, func(fx *apiFixture, cfg *httpapi.Config) {
+		cfg.DefaultTenantID = fx.tenantA.ID
+	})
+	f.createTask("Deploy the API gateway")
+	f.createTask("rotate API keys")
+	f.createTask("write runbook")
+
+	remote, err := client.New(f.server.URL, f.tokenA)
+	if err != nil {
+		t.Fatalf("building client: %v", err)
+	}
+	t.Cleanup(func() { _ = remote.Close() })
+	ctx := context.Background()
+
+	weak := func(field core.TextField, v string, negate bool) core.TextTerm {
+		return core.TextTerm{Field: field, Mode: core.MatchContains, Value: v, Negate: negate}
+	}
+	cases := []struct {
+		name   string
+		filter core.TaskFilter
+		want   []string
+	}{
+		{"weak title match", core.TaskFilter{Text: []core.TextTerm{weak(core.TextTitle, "api", false)}},
+			[]string{"Deploy the API gateway", "rotate API keys"}},
+		{"negated weak title match", core.TaskFilter{Text: []core.TextTerm{weak(core.TextTitle, "api", true)}},
+			[]string{"write runbook"}},
+		{"exact title match", core.TaskFilter{Text: []core.TextTerm{
+			{Field: core.TextTitle, Mode: core.MatchExact, Value: "write runbook"}}},
+			[]string{"write runbook"}},
+		{"excluded status", core.TaskFilter{Exclude: core.TaskExclude{Statuses: []string{"todo"}}}, nil},
+		{"excluded priority", core.TaskFilter{
+			Exclude: core.TaskExclude{Priorities: []core.Priority{core.PriorityNormal}}}, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			page, err := remote.ListTasks(ctx, tc.filter)
+			if err != nil {
+				t.Fatalf("listing: %v", err)
+			}
+			got := make([]string, 0, len(page.Tasks))
+			for _, task := range page.Tasks {
+				got = append(got, task.Title)
+			}
+			sort.Strings(got)
+			want := append([]string(nil), tc.want...)
+			sort.Strings(want)
+			if len(got) != len(want) {
+				t.Fatalf("selected %v, want %v: a term was dropped on the wire", got, want)
+			}
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("selected %v, want %v", got, want)
+				}
+			}
+		})
+	}
+
+	if _, err := remote.ListTasks(ctx, core.TaskFilter{
+		Text: []core.TextTerm{{Field: "colour", Mode: core.MatchContains, Value: "red"}},
+	}); !core.IsKind(err, core.KindInvalid) {
+		t.Fatalf("an unknown text field = %v, want invalid", err)
 	}
 }

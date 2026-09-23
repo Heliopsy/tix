@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -296,4 +297,67 @@ func waitForCursor(t *testing.T, tenantID string, want int64) {
 	}
 	floor, live := subscribers.floor(tenantID)
 	t.Fatalf("subscriber cursor = %d (live %v), want %d", floor, live, want)
+}
+
+// A cursor the retention sweep has overtaken cannot be resumed from: the
+// events between it and the oldest surviving row are gone. Handing the
+// subscriber the oldest survivor instead would look, from the outside, exactly
+// like being caught up, which is the one failure a resume cursor exists to
+// prevent. The served path has always refused this; the direct path did not,
+// so the same `tix watch --since` was gap-free against a server and silently
+// lossy against a database file.
+func TestSubscribeRefusesACursorRetentionHasAlreadyRemoved(t *testing.T) {
+	l, clk, scope, actor := newLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+
+	seedEvents(t, l, scope, 3, clk.Now())
+	clk.Advance(60 * 24 * time.Hour)
+	if _, err := l.Prune(ctx, core.PruneInput{}); err != nil {
+		t.Fatalf("prune: %v", err)
+	}
+	seedEvents(t, l, scope, 2, clk.Now())
+
+	_, err := l.Subscribe(ctx, core.EventFilter{SinceSeq: 1})
+	if !core.IsKind(err, core.KindInvalid) {
+		t.Fatalf("subscribing from a pruned cursor = %v, want invalid: a resume that cannot be honoured "+
+			"must be refused, not answered with the oldest surviving event", err)
+	}
+	if !strings.Contains(err.Error(), "no longer available") {
+		t.Errorf("error %q does not tell the subscriber its cursor is gone", err)
+	}
+}
+
+// A cursor still inside the retained window is honoured, so the check above
+// refuses only what it must.
+func TestSubscribeAcceptsARetainedCursor(t *testing.T) {
+	l, clk, scope, actor := newLocal(t)
+	ctx, cancel := context.WithCancel(core.WithActor(context.Background(), actor))
+	defer cancel()
+
+	seedEvents(t, l, scope, 3, clk.Now())
+	oldest := oldestEventSeq(t, l, scope)
+
+	if _, err := l.Subscribe(ctx, core.EventFilter{SinceSeq: oldest}); err != nil {
+		t.Fatalf("subscribing from the oldest retained event = %v, want it accepted", err)
+	}
+}
+
+// oldestEventSeq reports the lowest sequence number still stored.
+func oldestEventSeq(t *testing.T, l *Local, scope core.TenantScope) int64 {
+	t.Helper()
+	var seq int64
+	if err := l.store.View(context.Background(), scope, func(tx store.Tx) error {
+		events, err := tx.ReadEvents(context.Background(), 0, 1)
+		if err != nil {
+			return err
+		}
+		if len(events) == 0 {
+			t.Fatal("no events were seeded")
+		}
+		seq = events[0].Seq
+		return nil
+	}); err != nil {
+		t.Fatalf("reading the oldest event: %v", err)
+	}
+	return seq
 }

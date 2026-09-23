@@ -46,12 +46,20 @@ one-line banner naming what it is connected to, any active filter, and how to st
 ```console
 $ tix watch
 watching local /tmp/scratch/tix.db (from --db); ctrl-c to stop
-10:15:03  alice  created       homelab-9   Move backups off the old NAS
-10:15:12  alice  claimed       homelab-9
-10:15:40  alice  transitioned  homelab-9   todo → doing
-10:16:02  bob    claimed       homelab-4   Rotate the API keys
-10:16:20  alice  updated       homelab-9   comment deleted
+000043  10:15:03  alice  created         homelab-9   Move backups off the old NAS
+000044  10:15:12  alice  claimed         homelab-9   lease 30m
+000045  10:15:40  alice  transitioned    homelab-9   todo → doing
+000046  10:16:02  bob    claimed         homelab-4   for agent-pax, lease 1h
+000047  10:16:20  alice  updated         homelab-9   the title and priority
+000048  10:46:02  bob    lease expired   homelab-4   held by agent-pax, reverted to todo
+000049  10:47:11  alice  released        homelab-9   → done
 ```
+
+Each line leads with the event's sequence number, and that number is the resume cursor: whatever handled line
+`000047` can pass `--since 47` after a restart and pick up from there. The rest of the line answers "what
+changed", not just "something changed": a transition names both states, an edit names the attributes it
+touched, a claim names the lease length and, when the lease was taken on somebody else's behalf, its holder,
+and a lease expiry names the holder it was taken from and the state the task fell back to.
 
 The banner always goes to standard error, never standard output, and `--quiet` suppresses it the same way it
 suppresses every other diagnostic: a working stream, a hung one, a wrong filter and a failed connection no
@@ -70,15 +78,55 @@ error only, so a pipeline never sees it:
 
 ```console
 $ tix watch -o ndjson --since 42 | jq .
-{"seq":43,"type":"task.claimed","project_id":"...","subject_id":"...","actor_id":"...", ...}
+{"seq":43,"type":"task.claimed","project_id":"...","subject_type":"task","subject_id":"...","actor_id":"...",
+ "payload":{"ref":"homelab-9","actor_handle":"alice","claimed_by":"...","lease_expires_at":"..."},
+ "occurred_at":"..."}
 ```
 
+The structured formats carry the whole event -- sequence number, identifier, tenant, type, actor, subject type
+and identifier, timestamp and the full payload -- so a watching process never has to go back and query for
+what the event already knows. The human line is the summary; `ndjson` is the record.
+
 `--project`, `--type` and `--actor` narrow the stream, each repeatable; `--type` takes a trailing `*` for a
-prefix match such as `task.*`. `--since` resumes after a sequence number without missing anything the outbox
-already holds, and `--limit` stops after a fixed number of events instead of running until interrupted.
+prefix match such as `task.*`. `--limit` stops after a fixed number of events instead of running until
+interrupted.
 
 ```sh
 tix watch --actor agent-pax --type task.*
+```
+
+### The delivery guarantee
+
+**At-least-once, with a cursor.** Not exactly-once. Concretely:
+
+- Every event is a durable row with a sequence number that is monotonic within a tenant. That number is the
+  only thing a consumer has to remember.
+- With no `--since`, the stream starts at the *next* event. Anything committed before the command started is
+  skipped, deliberately: a tail is a tail.
+- With `--since N`, the durable log is replayed from just after `N` before live delivery begins. Every event
+  committed while nothing was watching arrives, in order. That is the gap-free property, and it holds whether
+  `tix watch` is talking to a database file directly or to a server over the WebSocket. Both paths were tested
+  against the same property; a divergence between them would be a bug, not a documented difference.
+- Resuming from a cursor at or before an event you already handled delivers that event **again**. Handling has
+  to be idempotent. There is no acknowledgement protocol and no exactly-once mode.
+- A cursor the retention sweep has already passed is **refused** with an error naming the oldest retained
+  sequence, rather than silently handing back the oldest survivor as though nothing were missing. Both paths
+  refuse it.
+- Against a server, a consumer too slow to keep up is disconnected with `slow consumer: ... resume from your
+  last seq` rather than being quietly starved. Record the cursor, reconnect, resume.
+
+A minimal resumable loop:
+
+```sh
+cursor=$(cat .tix-cursor 2>/dev/null || echo 0)
+while :; do
+  tix watch --since "$cursor" -o ndjson \
+    | while IFS= read -r line; do
+        handle "$line"                                   # must be idempotent
+        printf '%s' "$(jq -r .seq <<<"$line")" > .tix-cursor
+      done
+  cursor=$(cat .tix-cursor)
+done
 ```
 
 ## NDJSON everywhere

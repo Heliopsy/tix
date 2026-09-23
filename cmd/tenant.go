@@ -3,6 +3,9 @@
 package cmd
 
 import (
+	"strings"
+
+	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/spf13/cobra"
 )
@@ -27,7 +30,7 @@ func newTenantCmd(g *globals) *cobra.Command {
 				}
 				return conn.Service.CreateTenant(ctx, core.CreateTenantInput{Key: args[0], Name: args[1]})
 			}, 2, "tenant.create"),
-		tenantLsCmd(g), tenantShowCmd(g), tenantEditCmd(g), tenantRmCmd(g),
+		tenantLsCmd(g), tenantShowCmd(g), tenantUseCmd(g), tenantEditCmd(g), tenantRmCmd(g),
 	)
 	return cmd
 }
@@ -58,6 +61,77 @@ func tenantLsCmd(g *globals) *cobra.Command {
 	}
 	cmd.Flags().IntVar(&limit, "limit", core.DefaultPageLimit, "maximum records to return")
 	return cmd
+}
+
+// tenantUseCmd selects the tenant every later command runs against. It is the
+// counterpart of the --tenant flag: the flag answers "this one command", this
+// answers "from now on". It writes into the current context when one is
+// selected, because a context is what pins a database or a server and the
+// tenant belongs with it; with no context it writes the top-level default,
+// which is the same key the resolver reads.
+func tenantUseCmd(g *globals) *cobra.Command {
+	var dryRun, force bool
+	cmd := &cobra.Command{
+		Use:   "use KEY",
+		Short: "Select the tenant later commands use",
+		Long: "Write a tenant key into the configuration file so later commands run against it.\n" +
+			"With a current context the key is stored on that context; otherwise it becomes the top-level default.\n" +
+			"--tenant still overrides it for one command.\n\n" +
+			"The key is checked by opening the target tenant and asking it who the actor is, because an actor " +
+			"is bound to one tenant and so cannot list another one to validate the key against. " +
+			"--force skips that check, which is what a tenant that does not exist yet needs.\n\n" +
+			"Exit codes: 2 unreadable configuration, 3 the tenant could not be reached, 5 permission denied.",
+		Example: "  tix tenant use acme\n  tix tenant use acme --dry-run\n  tix tenant use new-tenant --force",
+		Args:    exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			key := strings.TrimSpace(args[0])
+			if key == "" {
+				return usagef(cmd, "a tenant key is required")
+			}
+			if !force {
+				if err := g.probeTenant(cmd, key); err != nil {
+					return err
+				}
+			}
+			return g.editConfig(cmd, dryRun, "tenant.use", key, func(cfg *config.Config) error {
+				if current, ok := cfg.Contexts[cfg.CurrentContext]; ok && cfg.CurrentContext != "" {
+					current.Tenant = key
+					cfg.Contexts[cfg.CurrentContext] = current
+					return nil
+				}
+				cfg.Tenant = key
+				return nil
+			})
+		},
+	}
+	f := cmd.Flags()
+	f.BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
+	f.BoolVar(&force, "force", false, "write the key without checking that the tenant can be reached")
+	return cmd
+}
+
+// probeTenant opens a second connection pinned to key and asks it who the
+// actor is. Validating through the current connection is not possible:
+// ListTenants and GetTenant are both scoped to the caller's own tenant by
+// design, so from inside "default" the tenant "acme" is indistinguishable
+// from one that was never created.
+func (g *globals) probeTenant(cmd *cobra.Command, key string) error {
+	probe := &globals{
+		configPath: g.configPath, contextName: g.contextName,
+		db: g.db, server: g.server, tenant: key, token: g.token,
+		noDiscovery: g.noDiscovery, allowNetworkFS: g.allowNetworkFS,
+		environ: g.environ, dir: g.dir,
+	}
+	conn, ctx, err := probe.dial(cmd)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = conn.Close() }()
+	if _, err := conn.Service.WhoAmI(ctx); err != nil {
+		return core.NotFound("tenant %q could not be reached: %v; pass --force to select it anyway", key, err)
+	}
+	g.diag(cmd, "reached tenant %s", key)
+	return nil
 }
 
 func tenantShowCmd(g *globals) *cobra.Command {
