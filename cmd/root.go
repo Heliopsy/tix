@@ -11,13 +11,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
+	"time"
 
+	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/logging"
 	"github.com/heliopsy/tix/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -49,11 +54,61 @@ type globals struct {
 	// filesystem, which is refused by default because it corrupts SQLite.
 	allowNetworkFS bool
 
+	// log holds the flag layer of the logging keys. Rotation is not gated
+	// behind `tix serve`: a destination is a property of the process, and an
+	// operator who points TIX_LOG_OUTPUT at a file expects every command that
+	// logs to land there. The file is only opened by a command that asks for a
+	// logger, so `tix task add` never creates one.
+	log       logFlags
+	logCloser io.Closer
+
 	environ []string
 	dir     string
 
 	resolved *config.Resolved
 	conn     *connect.Conn
+}
+
+// logFlags are the logging settings as the command line carries them.
+type logFlags struct {
+	// changed reports whether the operator actually typed a flag, which is
+	// what separates the flag layer from a declared default.
+	changed    func(string) bool
+	level      string
+	format     string
+	output     string
+	maxSizeMB  int
+	maxAge     time.Duration
+	maxBackups int
+	compress   bool
+}
+
+// values renders the flags the operator actually typed as a configuration
+// layer. A flag nobody gave carries its declared default, which would
+// otherwise silently outrank every other layer.
+func (l logFlags) values() map[string]string {
+	out := map[string]string{}
+	if l.changed == nil {
+		return out
+	}
+	for _, f := range []struct {
+		flag string
+		key  string
+		val  func() string
+	}{
+		{"log-level", "log.level", func() string { return l.level }},
+		{"log-format", "log.format", func() string { return l.format }},
+		{"log-output", "log.output", func() string { return l.output }},
+		{"log-max-size-mb", "log.file.max_size_mb", func() string { return strconv.Itoa(l.maxSizeMB) }},
+		{"log-max-age", "log.file.max_age", func() string { return l.maxAge.String() }},
+		{"log-max-backups", "log.file.max_backups", func() string { return strconv.Itoa(l.maxBackups) }},
+		{"log-compress", "log.file.compress", func() string { return strconv.FormatBool(l.compress) }},
+	} {
+		if l.changed(f.flag) {
+			out[f.key] = f.val()
+		}
+	}
+	return out
 }
 
 // usageError marks a failure that should print usage and exit 2.
@@ -86,6 +141,9 @@ func Run(args []string, in io.Reader, out, errw io.Writer, environ []string, dir
 	err := root.Execute()
 	if g.conn != nil {
 		_ = g.conn.Close()
+	}
+	if g.logCloser != nil {
+		_ = g.logCloser.Close()
 	}
 	if err == nil {
 		return core.ExitOK
@@ -144,6 +202,7 @@ func newRoot(environ []string, dir string) (*cobra.Command, *globals) {
 	f.BoolVarP(&g.verbose, "verbose", "v", false, "report how the target was resolved")
 	f.BoolVar(&g.noDiscovery, "no-discovery", false, "ignore per-directory context files")
 	f.BoolVar(&g.allowNetworkFS, "allow-network-fs", false, "allow opening a database detected on a network filesystem, which risks corruption")
+	registerLogFlags(root, &g.log)
 
 	_ = root.RegisterFlagCompletionFunc("output", fixedCompletion(output.Formats))
 
@@ -209,6 +268,9 @@ func (g *globals) resolve() (*config.Resolved, error) {
 	if mode := g.colorFlag(); mode != "" {
 		flags[config.KeyOutputColor] = mode
 	}
+	for key, value := range g.log.values() {
+		flags[key] = value
+	}
 	resolved, err := config.Load(config.Options{
 		Dir:         g.dir,
 		Environ:     environ,
@@ -221,6 +283,56 @@ func (g *globals) resolve() (*config.Resolved, error) {
 	}
 	g.resolved = resolved
 	return resolved, nil
+}
+
+// registerLogFlags declares the logging flags, so every logging key has the
+// flag layer the other keys have rather than being configuration-only.
+func registerLogFlags(cmd *cobra.Command, l *logFlags) {
+	f := cmd.PersistentFlags()
+	defaults := config.Defaults().Log
+	l.changed = f.Changed
+	f.StringVar(&l.level, "log-level", config.DefaultLogLevel,
+		"log level: "+strings.Join(config.LogLevels, "|"))
+	f.StringVar(&l.format, "log-format", config.DefaultLogFormat,
+		"log format: "+strings.Join(config.LogFormats, "|"))
+	f.StringVar(&l.output, "log-output", config.DefaultLogOutput,
+		"where logs go: stderr, stdout or a file path to rotate")
+	f.IntVar(&l.maxSizeMB, "log-max-size-mb", config.DefaultLogFileMaxSizeMB,
+		"size one log file may reach before it is rotated")
+	f.DurationVar(&l.maxAge, "log-max-age", time.Duration(defaults.File.MaxAge),
+		"how long a rotated log file is kept (0 keeps it until the backup count evicts it)")
+	f.IntVar(&l.maxBackups, "log-max-backups", config.DefaultLogFileMaxBackups,
+		"how many rotated log files are kept (0 keeps every file still inside the age)")
+	f.BoolVar(&l.compress, "log-compress", defaults.File.Compress, "gzip a rotated log file")
+}
+
+// logger builds the process logger from the resolved configuration, opening a
+// file destination at most once per invocation. The closer is released by Run.
+func (g *globals) logger(cmd *cobra.Command) (*slog.Logger, error) {
+	resolved, err := g.resolve()
+	if err != nil {
+		return nil, err
+	}
+	cfg := resolved.Config.Log
+	log, closer, err := logging.New(logging.Options{
+		Level:  cfg.Level,
+		Format: cfg.Format,
+		Output: cfg.Output,
+		Stderr: cmd.ErrOrStderr(),
+		Stdout: cmd.OutOrStdout(),
+		File: logging.FileOptions{
+			MaxSizeMB:  cfg.File.MaxSizeMB,
+			MaxAge:     cfg.File.MaxAge,
+			MaxBackups: cfg.File.MaxBackups,
+			Compress:   cfg.File.Compress,
+		},
+		Clock: clock.New(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	g.logCloser = closer
+	return log, nil
 }
 
 // colorFlag returns the colour mode requested on the command line, if any.

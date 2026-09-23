@@ -121,7 +121,7 @@ The server SHALL run background workers for lease sweeping, webhook dispatch, an
 
 ### Requirement: Structured logging
 
-The server SHALL emit structured logs at a configurable level.
+The server SHALL emit structured logs at a configurable level and in a configurable format, offering at least a human-readable text format and a machine-parseable JSON format.
 
 #### Scenario: Level filtering
 
@@ -132,6 +132,79 @@ The server SHALL emit structured logs at a configurable level.
 
 - **WHEN** a log record is emitted
 - **THEN** it carries machine-parseable key and value fields rather than only free text
+
+#### Scenario: JSON format is parseable
+
+- **WHEN** the log format is set to JSON and a record is emitted
+- **THEN** the record is one complete JSON object whose message and attributes are separate fields
+
+#### Scenario: Unknown format is refused
+
+- **WHEN** the log format names a handler this build does not implement
+- **THEN** the process fails at startup with an error naming the key and listing the supported formats
+
+### Requirement: Configurable log destination
+
+The log destination SHALL be configurable to the standard error stream, the standard output stream, or a file path, and SHALL default to the standard error stream so that a process supervised by an init system keeps behaving as it did. A destination that cannot be opened SHALL be reported at startup rather than at the first record.
+
+#### Scenario: Default destination
+
+- **WHEN** no log destination is configured and the server starts
+- **THEN** records are written to the standard error stream and no log file is created
+
+#### Scenario: File destination
+
+- **WHEN** the log destination names a file path
+- **THEN** records are written to that file, its directory is created if absent, and no record is written to the standard streams
+
+#### Scenario: Undeliverable destination fails at startup
+
+- **WHEN** the log destination names a path that cannot be opened for writing
+- **THEN** the process fails at startup with an error naming the path, rather than starting and silently logging nothing
+
+#### Scenario: Destination is not exclusive to the server
+
+- **WHEN** a command other than the server builds a logger
+- **THEN** it honours the same destination setting, and a command that builds no logger creates no file
+
+### Requirement: Bounded log files
+
+A file log destination SHALL be rotated on a configurable size, and the archives it produces SHALL be bounded by a configurable count, a configurable age, or both, so that an unattended process cannot fill its disk. The shipped defaults SHALL bound the total on disk without any operator action.
+
+#### Scenario: Rotation on size
+
+- **WHEN** the next record would carry the log file past its configured maximum size
+- **THEN** the file is archived under a name carrying the rotation time and a new file is opened for the record
+
+#### Scenario: Archive count is bounded
+
+- **WHEN** more archives exist than the configured maximum count
+- **THEN** the oldest archives beyond that count are removed
+
+#### Scenario: Archive age is bounded
+
+- **WHEN** an archive is older than the configured maximum age
+- **THEN** it is removed
+
+#### Scenario: Unbounded is a deliberate choice
+
+- **WHEN** the maximum count and the maximum age are both set to zero
+- **THEN** archives are kept indefinitely, and neither bound applies by accident
+
+#### Scenario: Optional compression
+
+- **WHEN** compression is enabled and a file is archived
+- **THEN** the archive is stored compressed, and it is stored uncompressed when compression is disabled
+
+#### Scenario: Concurrent writers lose no records across a rotation
+
+- **WHEN** several goroutines write records while the file rotates repeatedly
+- **THEN** every record appears exactly once, whole, in exactly one of the files, and none is split across two
+
+#### Scenario: Unusable rotation limits are refused
+
+- **WHEN** a file destination is configured with a non-positive maximum size, or a negative count or age
+- **THEN** the process fails at startup with an error naming the offending key
 
 ### Requirement: Request logging without secrets
 

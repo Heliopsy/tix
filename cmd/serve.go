@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -104,12 +105,17 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 	if err != nil {
 		return err
 	}
-	sshListener, err := buildServeSSH(conn, g, o)
+	log, err := g.logger(cmd)
+	if err != nil {
+		return err
+	}
+	sshListener, err := buildServeSSH(conn, g, o, log)
 	if err != nil {
 		return err
 	}
 
 	srv, err := server.Assemble(server.Options{
+		Logger:                     log,
 		Service:                    conn.Service,
 		WebHandler:                 web.Handler(conn.Service, web.WithSecureCookies(o.certFile != ""), web.WithTimeStyle(g.timeStyle()), web.WithTargetDescribe(conn.Info.Target.Describe())),
 		Store:                      conn.Store,
@@ -155,7 +161,7 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 // The nil is returned as an untyped one on purpose: a typed nil in the
 // interface would be a listener as far as the server is concerned, and it
 // would bind a port.
-func buildServeSSH(conn *connect.Conn, g *globals, o serveOptions) (server.SSHListener, error) {
+func buildServeSSH(conn *connect.Conn, g *globals, o serveOptions, log *slog.Logger) (server.SSHListener, error) {
 	if strings.TrimSpace(o.sshListen) == "" {
 		return nil, nil
 	}
@@ -172,6 +178,7 @@ func buildServeSSH(conn *connect.Conn, g *globals, o serveOptions) (server.SSHLi
 		AllowInsecure: o.sshAllowPublic,
 		IdleTimeout:   o.sshIdleTimeout,
 		TimeStyle:     g.timeStyle(),
+		Logger:        log,
 	})
 	if err != nil {
 		return nil, err

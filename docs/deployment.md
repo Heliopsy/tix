@@ -36,6 +36,44 @@ Two settings that shape how the server is reached have no flag and are set from 
 `server.trusted_proxies` / `TIX_SERVER_TRUSTED_PROXIES` and `server.cookie_security` /
 `TIX_SERVER_COOKIE_SECURITY`. See [configuration.md](configuration.md).
 
+The `--log-*` flags are global rather than serve's own, so they are not in the table above. See
+[Logs](#logs).
+
+## Logs
+
+`tix serve` logs to stderr in text at `info`, which is what a supervisor collects and what `journalctl -u tix`
+shows. Nothing needs configuring for that.
+
+Point `log.output` at a path instead and tix owns that file, which means tix has to bound it. It does:
+
+```sh
+tix serve --db /var/lib/tix/tix.db \
+  --log-output /var/log/tix/tix.log --log-format json
+```
+
+```ini
+Environment=TIX_LOG_OUTPUT=/var/log/tix/tix.log
+Environment=TIX_LOG_FORMAT=json
+```
+
+The file is rotated once the next record would carry it past `log.file.max_size_mb`, and the archives are capped
+by `log.file.max_backups` and `log.file.max_age`. The defaults, 100 MiB and seven archives kept for a week, bound
+the worst case at 800 MiB, which is the number to check against the volume you are writing to. Raise them on a
+busy server; lower them on a small one. Setting a bound to `0` drops it, and setting both to `0` keeps every
+archive forever, which on an unattended box is how the disk fills.
+
+Rotation happens inside the process. Do not also point logrotate at the file: tix keeps its own descriptor and
+would go on writing to a file logrotate has renamed, and there is no signal to tell it otherwise. If your fleet
+rotates centrally, leave `log.output` on `stderr` and let the supervisor collect the stream, which is what the
+default is for.
+
+The directory is created if missing and the file is written `0600`. A path tix cannot open is refused at startup
+rather than at the first record, so a unit that fails to start is the signal rather than a server that runs and
+logs nothing. Under `ProtectSystem=strict`, add the log directory to `ReadWritePaths`.
+
+The `--log-*` flags apply to every command, not only to `serve`, because the destination is a property of the
+process. Only a command that builds a logger opens the file, which today is `tix serve` and `tix ssh`.
+
 ## The non-loopback bind guard
 
 Binding anything other than loopback without TLS is refused:
@@ -144,8 +182,10 @@ The server runs two tickers:
 - the **lease sweeper**, which expires leases past their deadline and reverts their tasks where the workflow says
   to. Without it, a task held by a dead worker stays held. Disable it only if something else runs
   `tix claim sweep`.
-- the **retention pruner**, which removes events and audit entries past `retention.events` and `retention.audit`.
-  Disable it only if something else runs `tix prune`.
+- the **retention pruner**, which removes events, audit entries and webhook deliveries past
+  `retention.events`, `retention.audit` and `retention.webhook_deliveries`. Those keys are the defaults for a
+  tenant that has set no policy of its own; `tix retention set` overrides them per tenant. Disable the worker
+  only if something else runs `tix prune`.
 
 Run exactly one process with these enabled against a given database.
 

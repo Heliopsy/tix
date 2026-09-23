@@ -230,7 +230,12 @@ func runSSH(cmd *cobra.Command, g *globals, o sshOptions) error {
 		return err
 	}
 
+	log, err := g.logger(cmd)
+	if err != nil {
+		return err
+	}
 	srv, err := sshd.New(sshd.Options{
+		Logger:        log,
 		Service:       conn.Service,
 		Store:         conn.Store,
 		Clock:         clock.New(),

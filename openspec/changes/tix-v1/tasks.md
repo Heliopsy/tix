@@ -192,3 +192,7 @@ ticked, and coverage is at or above 80% (excluding `internal/tui`).
 - [x] 8.12 WP-66 Starter projects seeded once, on tenant creation only, each with a colour and an icon
 - [x] 8.13 WP-67 `database.connect_timeout`: the PostgreSQL startup wait as a key, defaulting to the 15s it was hard-coded to, refused when non-positive
 - [x] 8.14 WP-67 `tix serve`'s flag tables in `docs/deployment.md` cross-checked against the registered flags, the way the global table already is
+- [x] 8.15 WP-68 `internal/logging`: level, format and destination, with a size-bounded rotating file writer that is safe under concurrent writers
+- [x] 8.16 WP-68 `log.format`, `log.output` and `log.file.*` as keys across every layer, validated at startup and reported by `tix config show`
+- [x] 8.17 WP-68 `tix serve` and `tix ssh` build the configured logger instead of the discarding default, so `log.level` stops being a key nothing reads
+- [x] 8.18 WP-68 Retention defaults tied to `core.DefaultRetention` by a guard test, and the three windows documented with what a zero means

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/logging"
 	"github.com/heliopsy/tix/internal/webhook"
 )
 
@@ -171,9 +172,42 @@ type TUI struct {
 	Keys   map[string]string `yaml:"keys,omitempty"`
 }
 
-// Log holds the logging settings.
+// Log holds the logging settings: how much is emitted, how it is formatted,
+// and where it lands.
+//
+// Output is the key that makes the rest matter. It is stderr by default, which
+// is what a supervisor collects and what an operator sees, and the rotation
+// settings then govern nothing. Naming a path instead turns this process into
+// the thing that owns the file, so the file keys below are what stops an
+// unattended `tix serve` filling the disk it runs on.
 type Log struct {
-	Level string `yaml:"level"`
+	Level  string  `yaml:"level"`
+	Format string  `yaml:"format"`
+	Output string  `yaml:"output"`
+	File   LogFile `yaml:"file"`
+}
+
+// LogFile bounds what a file log destination may leave on disk. It is read
+// only when log.output names a path.
+//
+// The shipped values bound the worst case at MaxBackups+1 files of MaxSizeMB
+// each, which is 800 MiB, and that number is the point of the defaults: it is
+// large enough that nobody loses an incident to rotation and small enough that
+// no reasonable disk is filled by a server nobody is watching.
+type LogFile struct {
+	// MaxSizeMB is the size one file may reach before it is archived.
+	MaxSizeMB int `yaml:"max_size_mb"`
+	// MaxAge is how long an archive is kept. Zero keeps them until MaxBackups
+	// evicts them, which is what a deployment shipping logs elsewhere wants.
+	MaxAge core.Duration `yaml:"max_age"`
+	// MaxBackups is how many archives are kept. Zero keeps every archive that
+	// is still inside MaxAge, and setting both to zero keeps everything, which
+	// is a deliberate choice rather than the default.
+	MaxBackups int `yaml:"max_backups"`
+	// Compress gzips an archive once it is closed. It is off by default
+	// because it spends CPU on the machine already busy writing the log, and
+	// the disk bound is enforced by size and count either way.
+	Compress bool `yaml:"compress"`
 }
 
 // Output holds the rendering settings.
@@ -220,7 +254,23 @@ const (
 	// DefaultWebhookDrainMode names the process that delivers queued webhooks.
 	DefaultWebhookDrainMode = string(webhook.DefaultMode)
 	DefaultLogLevel         = "info"
-	DefaultOutputFormat     = "table"
+	// DefaultLogFormat is the handler a person reads at a terminal. Machines
+	// that want to parse the stream ask for json.
+	DefaultLogFormat = logging.FormatText
+	// DefaultLogOutput keeps logs on stderr, where a supervisor already
+	// collects them. A default that wrote files would create one on a machine
+	// whose operator never asked for it.
+	DefaultLogOutput = logging.DestStderr
+	// DefaultLogFileMaxSizeMB keeps one file small enough to open in an editor
+	// and to move off the box, while still holding hours of request logs.
+	DefaultLogFileMaxSizeMB = 100
+	// DefaultLogFileMaxAge is a week, the shortest window that still answers
+	// "what happened over the weekend" on the Monday somebody asks.
+	DefaultLogFileMaxAge = "168h"
+	// DefaultLogFileMaxBackups is seven, so the age bound and the count bound
+	// agree on the usual shape of roughly one rotation a day.
+	DefaultLogFileMaxBackups = 7
+	DefaultOutputFormat      = "table"
 	// DefaultOutputColor colours a terminal and nothing else.
 	DefaultOutputColor    = output.ColorAuto
 	DefaultRetentionAudit = "8760h"
@@ -291,7 +341,10 @@ var (
 	UnimplementedHookModes = []string{"warn", "enforce"}
 	// WebhookDrainModes lists the webhook drain modes this build implements.
 	WebhookDrainModes = drainModeNames()
-	LogLevels         = []string{"debug", "info", "warn", "error"}
+	// LogLevels and LogFormats mirror what internal/logging implements, so
+	// configuration cannot accept a level or a handler that does not exist.
+	LogLevels  = logging.Levels
+	LogFormats = logging.Formats
 	// OutputFormats mirrors the formats the renderer actually implements, so
 	// config cannot accept one it cannot render or reject one it can.
 	OutputFormats = output.Formats
@@ -334,7 +387,16 @@ func Defaults() Config {
 			Events:            mustDuration(DefaultRetentionEvent),
 			WebhookDeliveries: mustDuration(DefaultRetentionDelivery),
 		},
-		Log: Log{Level: DefaultLogLevel},
+		Log: Log{
+			Level:  DefaultLogLevel,
+			Format: DefaultLogFormat,
+			Output: DefaultLogOutput,
+			File: LogFile{
+				MaxSizeMB:  DefaultLogFileMaxSizeMB,
+				MaxAge:     mustDuration(DefaultLogFileMaxAge),
+				MaxBackups: DefaultLogFileMaxBackups,
+			},
+		},
 		Output: Output{
 			Format:     DefaultOutputFormat,
 			Color:      DefaultOutputColor,

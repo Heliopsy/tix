@@ -54,6 +54,12 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `retention.events` | `TIX_RETENTION_EVENTS` | `720h` |
 | `retention.webhook_deliveries` | `TIX_RETENTION_WEBHOOK_DELIVERIES` | `720h` |
 | `log.level` | `TIX_LOG_LEVEL` | `info` (`debug`, `info`, `warn`, `error`) |
+| `log.format` | `TIX_LOG_FORMAT` | `text` (`text`, `json`) |
+| `log.output` | `TIX_LOG_OUTPUT` | `stderr` (`stderr`, `stdout`, or a file path) |
+| `log.file.max_size_mb` | `TIX_LOG_FILE_MAX_SIZE_MB` | `100` |
+| `log.file.max_age` | `TIX_LOG_FILE_MAX_AGE` | `168h` |
+| `log.file.max_backups` | `TIX_LOG_FILE_MAX_BACKUPS` | `7` |
+| `log.file.compress` | `TIX_LOG_FILE_COMPRESS` | `false` |
 | `output.format` | `TIX_OUTPUT_FORMAT` | `table` (`table`, `json`, `yaml`, `ndjson`) |
 | `output.color` | `TIX_OUTPUT_COLOR` | `auto` (`auto`, `always`, `never`) |
 | `output.time_format` | `TIX_OUTPUT_TIME_FORMAT` | `iso` (`iso`, `rfc3339`, `short`, `us`, `relative`) |
@@ -92,6 +98,57 @@ process and is still coming up, which is the ordinary shape of a compose file or
 process that refuses to start against a database that is merely busy. Lower it when something above restarts
 this process and a fast failure is worth more than a slow success. It must be positive; zero would mean "give
 up immediately", not "wait forever". SQLite ignores it, having no connection to wait for.
+
+### Logging
+
+`log.level` and `log.format` decide how much is emitted and in what shape. `text` is what a person reads at a
+terminal; `json` is one object per record, for anything that parses the stream.
+
+`log.output` decides where records land, and it is the key the rest hang off. The default, `stderr`, is what a
+supervisor already collects, and the `log.file.*` keys then govern nothing. Naming a path instead makes tix the
+owner of that file, and the rotation settings are what keeps it bounded:
+
+```yaml
+log:
+  output: /var/log/tix/tix.log
+  format: json
+  file:
+    max_size_mb: 100
+    max_age: 168h
+    max_backups: 7
+    compress: false
+```
+
+A file is rotated once the next record would carry it past `max_size_mb`, to a sibling named after the rotation
+time, as in `tix-20260923T041233.417.log`. Archives are then removed once there are more than `max_backups` of
+them or once they are older than `max_age`, whichever comes first. Setting either to `0` drops that bound alone,
+which is what a deployment shipping its logs elsewhere wants; setting both to `0` keeps every archive forever and
+is a deliberate choice rather than something you can arrive at by accident. `compress` gzips an archive once it is
+closed, off by default because it spends CPU on the machine that is already busy writing the log.
+
+The shipped values bound the worst case at eight files of 100 MiB, so 800 MiB. That number is the point of the
+defaults: large enough that no incident is lost to rotation, small enough that no reasonable disk is filled by a
+server nobody is watching.
+
+Rotation is not limited to `tix serve`. The destination is a property of the process, so a command that logs
+honours it wherever it runs. The file is opened only by a command that actually builds a logger, which today is
+`tix serve` and `tix ssh`, so an ordinary `tix task add` never creates one.
+
+The directory is created if it is missing, and the file is written `0600`: a record carries tenant keys and
+request paths. A path tix cannot open is refused at startup rather than at the first record, because a server
+that started and then logged nothing is the failure that is hardest to notice.
+
+### Retention
+
+`retention.audit`, `retention.events` and `retention.webhook_deliveries` are the windows history is kept for, and
+each is governed independently, so shortening one never disturbs another. They are the defaults a tenant that has
+set no policy of its own is pruned by; `tix retention show` reports the effective windows, and `tix retention set`
+overrides them for one tenant. Pruning runs from `tix prune`, or from the background pruner inside `tix serve`.
+
+The audit window defaults to a year and the other two to thirty days, because an audit entry is the compliance
+record while an event is a transport buffer and a delivery is a receipt. A negative window is refused. A window of
+`0` does not mean "keep forever": it means "unset", and the shipped default for that class applies. Say `87600h`
+rather than `0` if you mean ten years.
 
 `server.trusted_proxies` lists the reverse proxies, as IPs or CIDR blocks, whose `X-Forwarded-Proto` and
 `X-Forwarded-For` are believed. Any client can send those headers, so an empty list, the default, believes
@@ -237,9 +294,19 @@ These apply to every command:
 | `-v, --verbose` | report how the target was resolved |
 | `--no-discovery` | ignore per-directory context files |
 | `--allow-network-fs` | allow opening a database on a network filesystem, which risks corruption |
+| `--log-level` | `debug`, `info`, `warn` or `error` |
+| `--log-format` | `text` or `json` |
+| `--log-output` | `stderr`, `stdout` or a file path to rotate |
+| `--log-max-size-mb` | size one log file may reach before it is rotated |
+| `--log-max-age` | how long a rotated log file is kept |
+| `--log-max-backups` | how many rotated log files are kept |
+| `--log-compress` | gzip a rotated log file |
 
 `--db` and `--server` are mutually exclusive in effect: one names a local database, the other a remote server.
 `--color` and `--no-color` together are exit 2.
+
+The seven `--log-*` flags are the flag layer of the `log.*` keys, so they apply to every command for the same
+reason the keys do, and only a command that builds a logger acts on them. See [Logging](#logging).
 
 `tix project create` and `tix project edit` take their own `--color`, which names a palette colour for the
 project and shadows the global flag on those two commands.

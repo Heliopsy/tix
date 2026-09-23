@@ -47,6 +47,30 @@ Default retention SHALL keep audit entries substantially longer than events, bec
 - **WHEN** a caller reads the retention policy of a tenant that has not configured one
 - **THEN** the effective default windows are returned and marked as defaults
 
+### Requirement: Default windows are operator-configurable
+
+The default retention window for each data class SHALL be a configuration key, settable through every configuration layer, reported by the configuration inspection command, and applied to any tenant that has set no policy of its own. The configured defaults SHALL be the same windows the system falls back to when a stored window is unset, so that one promise is not described by two different numbers.
+
+#### Scenario: Default window set from the environment
+
+- **WHEN** the audit retention default is set through its environment variable and pruning runs for a tenant with no stored policy
+- **THEN** audit entries are pruned to that window
+
+#### Scenario: Each class is reachable independently
+
+- **WHEN** one class's default is set in the configuration file and another's in the environment
+- **THEN** each key reports the value and the layer it came from, and the third keeps its built-in default
+
+#### Scenario: Unset means the shipped default, not forever
+
+- **WHEN** a retention window resolves to zero
+- **THEN** the shipped default window for that class applies rather than the data being kept indefinitely
+
+#### Scenario: Negative window is refused
+
+- **WHEN** a retention default is set to a negative duration
+- **THEN** the process fails at startup with an error naming the offending key
+
 ### Requirement: On-demand pruning
 
 The system SHALL provide a command that prunes data according to the effective retention policy when invoked, without requiring a server to be running.

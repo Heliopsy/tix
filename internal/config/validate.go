@@ -9,6 +9,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/logging"
 	"github.com/heliopsy/tix/internal/output"
 	"github.com/heliopsy/tix/internal/webhook"
 )
@@ -24,6 +25,7 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		{"auth.mode", cfg.Auth.Mode, AuthModes, UnimplementedAuthModes},
 		{"hooks.mode", cfg.Hooks.Mode, HookModes, UnimplementedHookModes},
 		{"log.level", cfg.Log.Level, LogLevels, nil},
+		{"log.format", cfg.Log.Format, LogFormats, nil},
 		{"output.format", cfg.Output.Format, OutputFormats, nil},
 		{"output.color", cfg.Output.Color, OutputColors, nil},
 		{"output.time_format", cfg.Output.TimeFormat, OutputTimeFormats, nil},
@@ -75,6 +77,9 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		return invalidKey("database.connect_timeout", sources).
 			WithDetail("value", cfg.Database.ConnectTimeout.String()).
 			WithDetail("reason", "a database connect timeout must be positive")
+	}
+	if err := validateLog(cfg, sources); err != nil {
+		return err
 	}
 	for _, window := range []struct {
 		key string
@@ -136,6 +141,36 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		if err := ctx.validate(name); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// validateLog refuses a destination that cannot be written and rotation limits
+// that would either never rotate or never keep anything. A file destination
+// that turns out to be undeliverable at the first record is a server that
+// started and then logged nothing, so the path is opened at startup instead.
+func validateLog(cfg *Config, sources map[string]Layer) error {
+	if strings.TrimSpace(cfg.Log.Output) == "" {
+		return invalidKey("log.output", sources).WithDetail("value", cfg.Log.Output).
+			WithDetail("reason", "name stderr, stdout or a file path")
+	}
+	if logging.Stream(cfg.Log.Output) {
+		return nil
+	}
+	if cfg.Log.File.MaxSizeMB <= 0 {
+		return invalidKey("log.file.max_size_mb", sources).
+			WithDetail("value", strconv.Itoa(cfg.Log.File.MaxSizeMB)).
+			WithDetail("reason", "a rotation size must be positive; zero would rotate on every record")
+	}
+	if cfg.Log.File.MaxBackups < 0 {
+		return invalidKey("log.file.max_backups", sources).
+			WithDetail("value", strconv.Itoa(cfg.Log.File.MaxBackups)).
+			WithDetail("reason", "a backup count must not be negative")
+	}
+	if cfg.Log.File.MaxAge < 0 {
+		return invalidKey("log.file.max_age", sources).
+			WithDetail("value", cfg.Log.File.MaxAge.String()).
+			WithDetail("reason", "a log retention window must not be negative")
 	}
 	return nil
 }
