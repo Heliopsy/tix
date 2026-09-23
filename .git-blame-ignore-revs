@@ -1,0 +1,27 @@
+# Commits that touched a great many lines without changing what any of them
+# does. `git blame` skips them and reports the commit underneath, which is the
+# one that actually wrote the code.
+#
+# Enable it once per clone:
+#
+#     git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# It cannot be enabled from inside the repository: blame.ignoreRevsFile is a
+# configuration setting, and git does not read configuration out of a working
+# tree it just cloned. GitHub, GitLab and Gitea read this file without being
+# asked.
+#
+# Adding an entry is a two-step sequence, because a commit cannot contain its
+# own hash:
+#
+#   1. Make the mass change and commit it on its own, touching nothing else.
+#   2. Append the hash that commit was given, with the subject after it, and
+#      commit that one line separately. The second commit is one line long, so
+#      it never needs ignoring itself.
+#
+# Only commits that rewrote lines which still exist belong here. A commit that
+# deleted lines moves no blame, and a mechanical rename carrying real changes
+# alongside it would hide genuine authorship, so neither is listed.
+
+# chore: give every file we own its licence notice
+d43f757e5abca192bc7b4e56f6e765fb4982114f
