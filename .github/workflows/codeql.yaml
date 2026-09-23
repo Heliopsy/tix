@@ -16,7 +16,12 @@ jobs:
     # CodeQL requires code scanning, which a private repository does not have
     # without Advanced Security. Activates automatically when the repo is public.
     if: github.event.repository.visibility == 'public'
-    runs-on: ho-z10
+    # Not ho-z10. A pull request can start this, it checks the pull request's
+    # own code out, and CodeQL then builds it. On a public repository that is a
+    # stranger's code compiling on our hardware. GitHub's runners are free for
+    # public repositories and are thrown away afterwards, which is what this
+    # job wants anyway.
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
