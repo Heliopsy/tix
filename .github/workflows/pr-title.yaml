@@ -9,7 +9,7 @@ permissions: read-all
 jobs:
   conventional:
     name: Conventional commit title
-    runs-on: ho-z10
+    runs-on: ubuntu-24.04
     permissions:
       pull-requests: read
     steps:

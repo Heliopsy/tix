@@ -8,7 +8,7 @@ permissions: read-all
 
 jobs:
   release-please:
-    runs-on: ho-z10
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
       pull-requests: write

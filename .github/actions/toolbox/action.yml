@@ -1,0 +1,85 @@
+name: Toolbox
+description: >-
+  Install the pinned gate tools onto PATH, at the versions Containerfile.ci
+  names, so a GitHub runner runs the same versions as the local container.
+
+inputs:
+  tools:
+    description: Space-separated tool names to install.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # The versions live in Containerfile.ci and are read from it rather than
+    # repeated here. Writing them twice is how `just ci` on a laptop and this
+    # workflow quietly stop being the same gate, which is the whole reason the
+    # toolbox image exists.
+    #
+    # TIX_TOOL_MODE=direct because `just tool` prefers a container engine when
+    # it finds one, and a GitHub runner has Docker. Left to itself it would
+    # build the six-gigabyte toolbox image on every job. Here the tools are on
+    # PATH and that is what should run.
+    - shell: bash
+      env:
+        TOOLS: ${{ inputs.tools }}
+      run: |
+        set -euo pipefail
+
+        version() {
+          local v
+          v=$(sed -n "s/^ARG $1=//p" Containerfile.ci)
+          if [ -z "$v" ]; then
+            echo "no $1 in Containerfile.ci: refusing to install an unpinned tool" >&2
+            exit 1
+          fi
+          printf '%s' "$v"
+        }
+
+        echo "TIX_TOOL_MODE=direct" >> "$GITHUB_ENV"
+        echo "OPENSPEC_TELEMETRY=0" >> "$GITHUB_ENV"
+        echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+        for tool in $TOOLS; do
+          case "$tool" in
+            golangci-lint)
+              go install "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(version GOLANGCI_LINT_VERSION)" ;;
+            gosec)
+              go install "github.com/securego/gosec/v2/cmd/gosec@$(version GOSEC_VERSION)" ;;
+            govulncheck)
+              go install "golang.org/x/vuln/cmd/govulncheck@$(version GOVULNCHECK_VERSION)" ;;
+            goreleaser)
+              go install "github.com/goreleaser/goreleaser/v2@$(version GORELEASER_VERSION)" ;;
+            gitleaks)
+              go install "github.com/zricethezav/gitleaks/v8@$(version GITLEAKS_VERSION)" ;;
+            actionlint)
+              go install "github.com/rhysd/actionlint/cmd/actionlint@$(version ACTIONLINT_VERSION)"
+              # actionlint shells out to shellcheck when it is present and
+              # skips that integration in silence when it is not, so the gate
+              # would be weaker here than in the container without saying so.
+              # The runner image ships it; assert rather than assume.
+              command -v shellcheck >/dev/null || {
+                echo "shellcheck is missing, so actionlint would skip its shell checks silently" >&2
+                exit 1
+              } ;;
+            trivy)
+              v=$(version TRIVY_VERSION)
+              curl -sfL -o /tmp/trivy.tar.gz \
+                "https://github.com/aquasecurity/trivy/releases/download/${v}/trivy_${v#v}_Linux-64bit.tar.gz"
+              sudo tar -xzf /tmp/trivy.tar.gz -C /usr/local/bin trivy
+              rm -f /tmp/trivy.tar.gz ;;
+            hadolint)
+              v=$(version HADOLINT_VERSION)
+              sudo curl -sfL -o /usr/local/bin/hadolint \
+                "https://github.com/hadolint/hadolint/releases/download/${v}/hadolint-Linux-x86_64"
+              sudo chmod +x /usr/local/bin/hadolint ;;
+            markdownlint)
+              npm install -g "markdownlint-cli@$(version MARKDOWNLINT_VERSION)" ;;
+            openspec)
+              npm install -g "@fission-ai/openspec@$(version OPENSPEC_VERSION)" ;;
+            yamllint)
+              pipx install "yamllint==$(version YAMLLINT_VERSION)" ;;
+            *)
+              echo "unknown tool: $tool" >&2; exit 1 ;;
+          esac
+        done

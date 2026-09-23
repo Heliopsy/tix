@@ -12,29 +12,9 @@ permissions: read-all
 # `just ci` locally and this workflow cannot drift apart.
 
 jobs:
-  # Everything below this job runs on ho-z10, a self-hosted runner, which means
-  # a pull request from a fork would build and test someone else's code on our
-  # own hardware. Fork pull requests already need a maintainer to approve the
-  # run, but approval is a person clicking a button, and it should not be the
-  # only thing between a stranger's code and the machine.
-  #
-  # So a fork gets this job instead, on a throwaway GitHub runner. Every step
-  # in Build & Test uses the Go toolchain alone, so the whole of it runs here
-  # unchanged, against both engines: a contributor gets real signal on whether
-  # their change works, not a token green tick.
-  #
-  # What a fork does not get is the container-backed gates -- golangci-lint,
-  # gosec, govulncheck, trivy, the spec and docs checks -- because those run
-  # from a pinned toolbox image that takes minutes to build and exists to keep
-  # one version of each tool in the project. Rebuilding it per pull request to
-  # avoid one runner is the wrong trade. Those run on push, so an external
-  # change is fully scanned once it lands on a branch here. The job name says
-  # which suite this is, so a green tick on a fork is not mistaken for the
-  # whole of CI.
-  fork-pr:
-    name: Build & Test (fork PR)
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-    runs-on: ubuntu-latest
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     services:
@@ -53,45 +33,6 @@ jobs:
     env:
       TIX_TEST_POSTGRES_DSN: postgres://tix:tix@127.0.0.1:5432/tix?sslmode=disable
     steps:
-      # Same reason as Build & Test: the skill staleness guard needs history.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
-        with:
-          go-version-file: go.mod
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
-
-      - name: Verify go.sum is tidy
-        run: just tidy-check
-
-      - name: Check formatting
-        run: just fmt-check
-
-      - name: Vet
-        run: just vet
-
-      - name: Build
-        run: go build ./...
-
-      - name: Test with coverage
-        run: go test ./... -race -shuffle=on -coverprofile=coverage.out -covermode=atomic
-
-      - name: Check coverage threshold
-        run: just cover-check
-
-      - name: Smoke the built binary
-        run: just smoke
-
-  build-and-test:
-    name: Build & Test
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ho-z10
-    permissions:
-      contents: read
-    env:
-      TIX_TEST_POSTGRES_DSN: postgres://tix:tix@127.0.0.1:5432/tix?sslmode=disable
-    steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           # The skill staleness guard locates a recorded commit with
@@ -100,24 +41,6 @@ jobs:
           # meant to catch a stale marker never runs at all.
           fetch-depth: 0
 
-      # This was a `services:` container. The self-hosted runner has no Docker
-      # daemon, so the cluster shipped in the runner image is started in-job
-      # instead; the job's ephemeral pod is the same isolation boundary the
-      # service container was.
-      #
-      # Version note: the runner image carries Postgres 16, the service
-      # container used 18. Credentials, database and port are unchanged, so
-      # TIX_TEST_POSTGRES_DSN above still matches.
-      - name: Start Postgres
-        run: |
-          sudo pg_ctlcluster 16 main start
-          for _ in $(seq 1 30); do
-            pg_isready -h 127.0.0.1 -p 5432 -q && break
-            sleep 1
-          done
-          pg_isready -h 127.0.0.1 -p 5432
-          sudo -u postgres psql -c "CREATE USER tix WITH PASSWORD 'tix' SUPERUSER;"
-          sudo -u postgres createdb -O tix tix
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
           go-version-file: go.mod
@@ -155,8 +78,7 @@ jobs:
 
   lint:
     name: Lint
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ho-z10
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -165,6 +87,9 @@ jobs:
         with:
           go-version-file: go.mod
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
+      - uses: ./.github/actions/toolbox
+        with:
+          tools: golangci-lint actionlint hadolint yamllint markdownlint
 
       - name: golangci-lint
         run: just lint
@@ -183,13 +108,15 @@ jobs:
 
   spec:
     name: Specs & Docs
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ho-z10
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
+      - uses: ./.github/actions/toolbox
+        with:
+          tools: openspec
 
       - name: Install OpenSpec
         run: npm install -g @fission-ai/openspec@1.13.1
@@ -204,8 +131,7 @@ jobs:
 
   sast:
     name: SAST (gosec)
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ho-z10
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       security-events: write
@@ -215,8 +141,9 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Install gosec
-        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.29.0
+      - uses: ./.github/actions/toolbox
+        with:
+          tools: gosec
 
       - name: Run gosec
         run: gosec -fmt sarif -out gosec.sarif -stdout -verbose=text ./...
@@ -232,8 +159,7 @@ jobs:
 
   sca:
     name: SCA (govulncheck + trivy)
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ho-z10
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       security-events: write
@@ -248,25 +174,12 @@ jobs:
           go-version-file: go.mod
 
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
+      - uses: ./.github/actions/toolbox
+        with:
+          tools: govulncheck gitleaks trivy
 
       - name: Run govulncheck
         run: just vuln
-
-      # This runner has no container engine, so `just tool` falls back to
-      # PATH, and gitleaks is not installed there the way trivy is. Install the
-      # version Containerfile.ci pins rather than a second one written here:
-      # two places naming a tool version is how the local gate and this one
-      # start disagreeing without anybody noticing.
-      - name: Install gitleaks
-        if: always()
-        run: |
-          version=$(sed -n 's/^ARG GITLEAKS_VERSION=//p' Containerfile.ci)
-          if [ -z "$version" ]; then
-            echo "no GITLEAKS_VERSION in Containerfile.ci; the scan would run an unpinned build" >&2
-            exit 1
-          fi
-          go install "github.com/zricethezav/gitleaks/v8@${version}"
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Scan the history for secrets
         if: always()
@@ -291,8 +204,7 @@ jobs:
 
   crosscompile:
     name: Cross-compile (CGO_ENABLED=0)
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ho-z10
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -301,6 +213,9 @@ jobs:
         with:
           go-version-file: go.mod
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
+      - uses: ./.github/actions/toolbox
+        with:
+          tools: goreleaser
 
       # Proves no cgo dependency has crept in and broken the release matrix.
       - name: Build all targets

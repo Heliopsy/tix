@@ -21,7 +21,7 @@ jobs:
     # stranger's code compiling on our hardware. GitHub's runners are free for
     # public repositories and are thrown away afterwards, which is what this
     # job wants anyway.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       security-events: write

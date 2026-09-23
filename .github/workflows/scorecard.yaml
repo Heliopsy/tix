@@ -15,7 +15,7 @@ jobs:
     # Scorecard cannot read a private repository. This becomes active
     # automatically when the repo is made public at v0.1.0.
     if: github.event.repository.visibility == 'public'
-    runs-on: ho-z10
+    runs-on: ubuntu-24.04
     permissions:
       security-events: write
       id-token: write

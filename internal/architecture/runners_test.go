@@ -36,11 +36,14 @@ type workflow struct {
 
 // TestNoForkPullRequestRunsOnOurHardware is the one that matters.
 //
-// This repository is public and its CI runs on a self-hosted runner. Without a
-// guard, a pull request from a fork builds and tests a stranger's code on our
-// own machine. GitHub's fork-approval setting is the other half of this, but
-// that is a person clicking a button, and it should not be the only thing in
-// the way.
+// CI runs on GitHub's runners now, so at the time of writing this finds
+// nothing to complain about, which is the point rather than a reason to delete
+// it. Moving a job back onto a self-hosted runner is a one-word edit, and the
+// word does not look dangerous. On a public repository it means a stranger's
+// pull request builds and tests their code on hardware we own.
+//
+// GitHub's fork-approval setting is the other half of this, but that is a
+// person clicking a button, and it should not be the only thing in the way.
 //
 // The check reads the workflows rather than taking a list of jobs, so the
 // seventh job somebody adds next month is covered without anybody remembering
@@ -53,7 +56,7 @@ func TestNoForkPullRequestRunsOnOurHardware(t *testing.T) {
 		t.Fatalf("no workflows found: %v", err)
 	}
 
-	checked := 0
+	checked, jobsSeen := 0, 0
 	for _, path := range paths {
 		name := filepath.Base(path)
 
@@ -72,6 +75,7 @@ func TestNoForkPullRequestRunsOnOurHardware(t *testing.T) {
 		}
 
 		for job, spec := range wf.Jobs {
+			jobsSeen++
 			if !runsSelfHosted(spec.RunsOn) {
 				continue
 			}
@@ -93,19 +97,22 @@ func TestNoForkPullRequestRunsOnOurHardware(t *testing.T) {
 					"checks that pull request's code out, but it does not carry the fork guard.\n"+
 					"  want if: %s\n"+
 					"  got  if: %s\n"+
-					"Either add that condition, or move the job to ubuntu-latest the way fork-pr, "+
-					"codeql and dependency-review do.",
+					"Either add that condition, or put the job back on ubuntu-24.04 with the rest.",
 					name, job, forkGuard, orNone(spec.If))
 			}
 		}
 	}
 
-	// If the scan stops finding jobs it is not proving anything any more.
-	if checked == 0 {
-		t.Fatal("no self-hosted job that checks code out and is reachable from a pull request was " +
-			"found. That is the state we want, but it also means this check no longer proves anything, " +
-			"so make it fail loudly rather than pass quietly on nothing.")
+	// checked is allowed to be zero: no self-hosted job reachable from a pull
+	// request is the state we want, not a suspicious one. What is not allowed
+	// is the scan finding no jobs at all, because that reads the same from
+	// here as a clean bill of health while actually meaning the parser broke
+	// or the workflows moved.
+	if jobsSeen == 0 {
+		t.Fatal("read the workflows and found no jobs at all, so this check proves nothing: " +
+			"the parser or the workflow layout changed")
 	}
+	_ = checked
 }
 
 // fetchesCode reports whether any step brings the branch onto the runner.
