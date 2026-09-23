@@ -7,6 +7,7 @@
 package query
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 	"time"
@@ -18,10 +19,14 @@ import (
 var DateLayouts = []string{time.RFC3339, "2006-01-02T15:04:05", "2006-01-02 15:04", "2006-01-02"}
 
 // Keys are the term prefixes the filter language accepts.
+// CustomFieldPrefix marks a term that filters on a custom field, as in
+// "field.severity:high".
+const CustomFieldPrefix = "field."
+
 var Keys = []string{
 	"project", "status", "tag", "assignee", "creator", "claimed-by",
 	"priority", "due-before", "due-after", "parent", "is", "sort", "limit",
-	"text", "title", "body",
+	"text", "title", "body", "claimed", "blocked", "deleted",
 }
 
 // SyntaxHint is the one line that tells somebody the two operators exist. A
@@ -75,7 +80,18 @@ func Parse(expr string) (core.TaskFilter, error) {
 			}
 			continue
 		}
-		if err := applyTerm(&f, strings.ToLower(strings.TrimSpace(key)), value, op, negate); err != nil {
+		// A custom field keeps the case it was written in: the name is a
+		// key in a JSON document, where "storyPoints" and "storypoints" are
+		// two different fields. Every other key is a fixed word and is
+		// folded, so Status: and status: mean the same thing.
+		trimmed := strings.TrimSpace(key)
+		if name, ok := strings.CutPrefix(trimmed, CustomFieldPrefix); ok {
+			if err := applyCustomField(&f, name, value, negate); err != nil {
+				return core.TaskFilter{}, err
+			}
+			continue
+		}
+		if err := applyTerm(&f, strings.ToLower(trimmed), value, op, negate); err != nil {
 			return core.TaskFilter{}, err
 		}
 	}
@@ -185,10 +201,82 @@ func applyTerm(f *core.TaskFilter, key, value, op string, negate bool) error {
 		f.Text = append(f.Text, textTerm(core.TextField(key), value, weak, negate))
 	case "text", "q":
 		return applyText(f, value, weak, negate)
+	// The three boolean forms the web filter bar has always accepted. They
+	// say the same thing as is:, and dropping them would break every saved
+	// link and bookmark that spells it the old way for no gain.
+	case "claimed", "blocked", "deleted":
+		state, err := boolTerm(key, value)
+		if err != nil {
+			return err
+		}
+		return applyIs(f, state, negate)
 	default:
 		return core.Invalid("unknown filter key %q; try one of %s", key, strings.Join(Keys, ", "))
 	}
 	return nil
+}
+
+// boolTerm turns claimed:true and blocked:false into the is: state they mean.
+func boolTerm(key, value string) (string, error) {
+	switch strings.ToLower(value) {
+	case "true", "yes", "1", "":
+		return key, nil
+	case "false", "no", "0":
+		switch key {
+		case "claimed":
+			return "unclaimed", nil
+		case "blocked":
+			return "unblocked", nil
+		default:
+			return "", core.Invalid("filter term %q cannot be negated with a value; use -%s", key, key)
+		}
+	default:
+		return "", core.Invalid("filter term %q takes true or false, not %q", key, value)
+	}
+}
+
+// applyCustomField folds a field.<name>:<value> term into the filter. The
+// value is read as JSON when it parses as one, so field.count:3 filters on a
+// number rather than the string "3", and falls back to the literal text.
+func applyCustomField(f *core.TaskFilter, name, value string, negate bool) error {
+	if negate {
+		return core.Invalid("custom field term %q cannot be negated yet", CustomFieldPrefix+name)
+	}
+	if value == "" {
+		return core.Invalid("filter term %q has no value", CustomFieldPrefix+name)
+	}
+	if !validFieldKey(name) {
+		return core.Invalid("custom field key %q must hold only letters, digits, underscores and dashes", name)
+	}
+	var decoded any
+	if err := json.Unmarshal([]byte(value), &decoded); err != nil {
+		decoded = value
+	}
+	switch decoded.(type) {
+	case string, bool, float64:
+	default:
+		return core.Invalid("custom field filter %q takes a string, number or boolean", name)
+	}
+	if f.CustomFields == nil {
+		f.CustomFields = map[string]any{}
+	}
+	f.CustomFields[name] = decoded
+	return nil
+}
+
+// validFieldKey mirrors what the stores accept in a JSON path.
+func validFieldKey(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9', c == '_', c == '-':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // textKey reports whether a key addresses task text, the only place the weak

@@ -53,6 +53,11 @@ func TestParseFilterSharesTheCLIGrammar(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parsing %q: %v", tc.in, err)
 			}
+			// Page is the shared parser's business, not this test's: the
+			// handler overwrites it with the cursor and sort from the query
+			// string straight after parsing. Comparing it here only pinned
+			// the old web-only parser's habit of leaving it empty.
+			got.Page = core.Page{}
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("filter = %+v, want %+v", got, tc.want)
 			}
@@ -78,7 +83,9 @@ func TestParseFilterReportsMalformedExpressions(t *testing.T) {
 	t.Parallel()
 	cases := []string{
 		"nosuchkey:value",
-		"priority:high",
+		// "priority:high" belongs in the accepted set now. The old web-only
+		// parser took numbers alone, so a name that worked on the command
+		// line was rejected in the browser. Sharing the parser fixed that.
 		"priority:9",
 		"claimed:maybe",
 		"status:",
@@ -162,5 +169,53 @@ func TestTaskListPaginatesByCursor(t *testing.T) {
 	defer func() { _ = invalid.Body.Close() }()
 	if invalid.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400 for an unknown sort field", invalid.StatusCode)
+	}
+}
+
+// TestFilterBarUnderstandsTheWholeLanguage is the regression for the bug this
+// shim exists to kill.
+//
+// The browser used to run its own parser. When the language gained negation
+// and weak matching, "-tag:ops" failed here with a clear message, which is
+// survivable, but "title~api" was swallowed as free text: it became a Query
+// nothing matched, so the board came back empty with no error at all. A person
+// reads that as their tasks having disappeared.
+//
+// Every operator is checked for the property that matters. Not that it parses
+// to some particular struct, but that it is either understood or refused, and
+// never quietly turned into a different question.
+func TestFilterBarUnderstandsTheWholeLanguage(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		expr string
+		want func(core.TaskFilter) bool
+	}{
+		{"weak title", "title~api", func(f core.TaskFilter) bool { return len(f.Text) == 1 }},
+		{"weak body", "body~gateway", func(f core.TaskFilter) bool { return len(f.Text) == 1 }},
+		{"weak text", "text~deploy", func(f core.TaskFilter) bool { return len(f.Text) == 1 }},
+		{"negated tag", "-tag:ops", func(f core.TaskFilter) bool { return len(f.Exclude.Tags) == 1 }},
+		{"negated status", "-status:done", func(f core.TaskFilter) bool { return len(f.Exclude.Statuses) == 1 }},
+		{"negated weak", "-title~wip", func(f core.TaskFilter) bool {
+			return len(f.Text) == 1 && f.Text[0].Negate
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := web.ParseFilter(tc.expr)
+			if err != nil {
+				t.Fatalf("the filter bar refused %q: %v\n"+
+					"the browser must understand every operator the CLI does", tc.expr, err)
+			}
+			if !tc.want(got) {
+				t.Fatalf("the filter bar accepted %q and built nothing from it: %+v\n"+
+					"a term swallowed into free text returns an empty board with no error, "+
+					"which reads as missing data", tc.expr, got)
+			}
+			if got.Query != "" {
+				t.Fatalf("%q landed in free text as %q, which is the silent-empty-board bug",
+					tc.expr, got.Query)
+			}
+		})
 	}
 }
