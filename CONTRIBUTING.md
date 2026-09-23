@@ -98,3 +98,20 @@ Tests live next to the code (`*_test.go`), are table-driven, use a real temporar
 database rather than mocks, and use `clock.FakeClock` for anything time-dependent.
 Coverage must stay at or above 85% with both engines, or 78% when the PostgreSQL suite skips.
 `just cover-check` prints which floor applied and the headroom left. See [docs/testing.md](docs/testing.md).
+
+## Supporting tix
+
+There is no donation link, and the Sponsor button brings you here on purpose. tix is one
+binary you run yourself, so it costs nothing to use and there is nothing to subscribe to.
+
+The things that actually help, in the order they help most:
+
+- **Tell us when it breaks.** A bug report with the command you ran and what happened
+  instead is worth more than money, because it is the only way a fault on hardware we do
+  not own reaches us.
+- **Send a patch.** The sections above cover everything you need to open one.
+- **Say it works.** Which parts you use, what you replaced, what still gets in the way.
+  A tracker built for agents has very few users to learn from yet.
+
+If you represent an organisation that would rather pay for support or a feature than wait
+for it, mail <hi@tix.red> and say what you need.

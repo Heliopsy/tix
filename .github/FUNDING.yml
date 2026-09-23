@@ -1,0 +1,10 @@
+# Renders the "Sponsor" button on the repository page.
+#
+# It points at CONTRIBUTING.md rather than a payment page because there is no
+# payment page: tix is a binary you run yourself and there is nothing to
+# subscribe to. A button that collected money for a thing that costs nothing to
+# use would be the wrong shape.
+#
+# The section it lands on says exactly that, and names what does help instead,
+# so nobody arrives expecting a checkout and finds build instructions.
+custom: ["https://github.com/heliopsy/tix/blob/main/CONTRIBUTING.md#supporting-tix"]

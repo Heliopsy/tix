@@ -224,7 +224,7 @@ code there. Nothing else changes: the commands, the output and the exit codes ar
 | [docs/api.md](docs/api.md) | HTTP API and the WebSocket event stream |
 | [docs/deployment.md](docs/deployment.md) | Running `tix serve`, TLS, proxies and the bind guard |
 | [AGENTS.md](AGENTS.md) | Coding standards and architecture invariants |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Build, test and pull request process |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Build, test and pull request process, and what supporting tix actually means |
 | [ROADMAP.md](ROADMAP.md) | What comes after v1, and the v1 seams that enable it |
 | [SECURITY.md](SECURITY.md) | Reporting a vulnerability, and deployment notes |
 
