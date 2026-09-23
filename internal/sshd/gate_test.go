@@ -141,8 +141,21 @@ func TestOneKeyCannotHoldMoreSessionsThanTheCap(t *testing.T) {
 	if err := sess.RequestPty("xterm-256color", 40, 120, gossh.TerminalModes{}); err != nil {
 		t.Fatalf("pty: %v", err)
 	}
-	if err := sess.Run(""); err == nil {
-		t.Fatal("the second session under one key was served, past the cap of 1")
+	// Bounded on purpose. Run blocks until the server closes the session, so
+	// anything that stops the refusal arriving hangs here until the package
+	// timeout takes the whole suite down ten minutes later, which is what
+	// happened once under heavy parallel load. A refusal that does not arrive
+	// promptly is a failure worth reporting as itself, not as a timeout in
+	// whichever test the shuffle happened to leave running.
+	done := make(chan error, 1)
+	go func() { done <- sess.Run("") }()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("the second session under one key was served, past the cap of 1")
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("the second session neither opened nor was refused within 30s")
 	}
 	if got := stderr.String(); !strings.Contains(got, "limit of 1 concurrent sessions") {
 		t.Fatalf("stderr = %q, want a refusal naming the limit", got)
