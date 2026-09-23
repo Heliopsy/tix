@@ -1,8 +1,28 @@
 name: Release
 
+# A tag pushed by hand still builds. The tag release-please creates does not
+# reach here on its own: it is made with GITHUB_TOKEN, and GitHub deliberately
+# does not let a workflow's own token start another workflow, so v0.1.0 was
+# published with no binaries attached and nothing failed to say so. The
+# release-please workflow calls this one directly when it cuts a release.
+#
+# workflow_dispatch is for building a tag that already exists, which is how
+# v0.1.0 got its artifacts after the fact.
 on:
   push:
     tags: ['v*']
+  workflow_call:
+    inputs:
+      ref:
+        description: The tag to build.
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: The tag to build.
+        required: true
+        type: string
 
 permissions: read-all
 
@@ -17,6 +37,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
+          # Empty on a tag push, where the event already checks out the tag.
+          ref: ${{ inputs.ref }}
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
           go-version-file: go.mod
