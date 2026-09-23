@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/Heliopsy/tix/compare/v0.1.0...v0.2.0) (2026-09-23)
+
+
+### Features
+
+* **log:** give logs somewhere to go and a size to stay under ([dbdb337](https://github.com/Heliopsy/tix/commit/dbdb337436f56b8941a9c2af97ae071329cadb36))
+
+
+### Bug Fixes
+
+* report a real version from go install, and keep fork code off our runner ([343eda8](https://github.com/Heliopsy/tix/commit/343eda8b7b22a4d076d7c00f7bea4d03be0db7df))
+
 ## 0.1.0 (2026-09-23)
 
 
