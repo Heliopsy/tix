@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+
 -- Per-project colour and icon.
 --
 -- Someone working across several projects reads a mixed task list, where the

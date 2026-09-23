@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 (function (global) {
   "use strict";
   // The decisions the other scripts make, lifted out of their DOM handlers so

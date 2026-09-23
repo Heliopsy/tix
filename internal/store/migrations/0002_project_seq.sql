@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+
 -- Monotonic per-project task numbering.
 --
 -- A task number leaks into commit messages, chat and webhooks, so it must never

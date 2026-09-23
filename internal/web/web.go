@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package web serves the tix browser interface from the single binary.
 package web
 

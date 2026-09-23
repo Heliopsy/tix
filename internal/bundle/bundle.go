@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package bundle encodes and decodes shareable component bundles.
 package bundle
 

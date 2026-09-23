@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package retention decides what has expired and prunes it on a schedule.
 package retention
 

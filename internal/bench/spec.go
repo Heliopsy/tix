@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package bench builds large task fixtures and measures the operations that
 // decide whether tix holds up at a million tasks.
 package bench

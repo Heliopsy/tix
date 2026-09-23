@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package authz is the single place where tix decides whether an actor may act.
 package authz
 

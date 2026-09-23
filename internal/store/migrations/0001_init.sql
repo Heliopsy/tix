@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+
 -- Initial schema.
 --
 -- Portable subset: TEXT timestamps in RFC3339 UTC so lexicographic comparison

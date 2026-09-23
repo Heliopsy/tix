@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package capability declares every tix operation once, with the bindings that
 // expose it, so parity between the CLI, the HTTP API and the web UI is checked
 // by tests rather than asserted in documentation.

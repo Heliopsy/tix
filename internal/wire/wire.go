@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package wire holds the tix HTTP wire contract: route patterns, header and
 // content-type names, and the envelope types both the server and the client
 // marshal. It carries no behaviour and depends on nothing but internal/core.

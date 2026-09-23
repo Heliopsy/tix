@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package connect resolves the single target every tix command talks to.
 package connect
 

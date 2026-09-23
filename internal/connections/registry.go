@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package connections tracks the live connections one server process holds.
 //
 // Nothing here is persisted. A connection exists only while the process that

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package testenv reports the optional capabilities a test run could not use,
 // so a green suite says what it actually proved and not merely that it passed.
 package testenv

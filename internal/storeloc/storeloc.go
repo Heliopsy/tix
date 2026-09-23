@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package storeloc decides whether a database file's location on disk is
 // safe to write to: whether it sits on a network filesystem SQLite corrupts
 // on, and whether it sits inside a directory a sync tool manages, which

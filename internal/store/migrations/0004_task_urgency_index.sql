@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+
 -- Index for the default task ordering: priority first, then due date, with a
 -- task that carries no due date treated as the most distant deadline, so at
 -- the same priority a dated task always leads an undated one.

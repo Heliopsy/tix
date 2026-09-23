@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package cmd contains all Cobra CLI commands for tix.
 //
 // This layer holds flag definitions and wiring only. All business logic lives

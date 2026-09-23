@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package core holds the tix domain model and the Service contract.
 package core
 

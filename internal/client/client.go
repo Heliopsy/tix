@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package client implements core.Service over the tix HTTP API.
 //
 // It marshals, sends and reconstructs. Validation and business rules live on

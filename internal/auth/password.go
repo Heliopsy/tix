@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package auth hashes credentials, mints tokens and resolves actors from requests.
 package auth
 

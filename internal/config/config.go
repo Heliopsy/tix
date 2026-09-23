@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package config resolves tix configuration from flags, environment
 // variables, a .env file, configuration files and built-in defaults.
 package config

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package version holds build-time version information injected via ldflags.
 package version
 

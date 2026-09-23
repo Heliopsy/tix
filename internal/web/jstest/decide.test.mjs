@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // The decisions assets/decide.js makes on behalf of every other script.
 import test from "node:test";
 import assert from "node:assert/strict";

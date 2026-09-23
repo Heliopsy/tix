@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package postgres implements the store on PostgreSQL through pgx.
 //
 // pgx is driven through database/sql rather than through its native pool, so the

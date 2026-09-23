@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package httpapi serves the tix REST API and event stream.
 package httpapi
 

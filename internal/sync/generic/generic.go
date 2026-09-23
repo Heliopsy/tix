@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package generic imports records from a CSV or JSON file, so a system with no
 // adapter of its own is imported by shaping a file and writing a mapping.
 package generic

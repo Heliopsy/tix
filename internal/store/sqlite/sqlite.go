@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package sqlite implements the store on SQLite through a pure Go driver.
 package sqlite
 

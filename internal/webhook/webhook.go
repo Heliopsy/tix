@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package webhook signs, queues and delivers outgoing event notifications.
 package webhook
 

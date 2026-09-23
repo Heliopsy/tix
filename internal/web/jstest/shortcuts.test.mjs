@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // assets/shortcuts.js at its own call sites: that the keydown handler really
 // is gated on the typing guard, and really routes a combo to one action.
 // The DOM here is a stub, so this covers dispatch and nothing about layout,

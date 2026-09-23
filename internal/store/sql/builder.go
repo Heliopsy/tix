@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package sql builds tenant-scoped statements shared by every engine.
 package sql
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package jira imports issues from a Jira instance.
 package jira
 

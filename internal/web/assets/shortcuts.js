@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 (function () {
   "use strict";
   // The pure decisions this handler makes live in assets/decide.js, which is

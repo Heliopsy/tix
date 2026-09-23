@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package migrations holds the embedded schema and the forward-only runner.
 package migrations
 

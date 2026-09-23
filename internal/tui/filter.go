@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package tui implements the tix terminal interface over the core service.
 package tui
 

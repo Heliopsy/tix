@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package tui
 
 // EmptyState is what a view says when it has nothing to show. Five columns

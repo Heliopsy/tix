@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package lease resolves lease lifetimes, mints lease tokens and materializes
 // lease expiry.
 package lease

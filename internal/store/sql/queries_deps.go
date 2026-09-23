@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package sql
 
 import "github.com/heliopsy/tix/internal/core"

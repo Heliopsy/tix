@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+
 -- Public keys enrolled against an actor, so the terminal interface can be
 -- reached over SSH without a password.
 --

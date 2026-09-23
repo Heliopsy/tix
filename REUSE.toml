@@ -1,0 +1,29 @@
+version = 1
+SPDX-PackageName = "tix"
+SPDX-PackageSupplier = "tix contributors"
+SPDX-PackageDownloadLocation = "https://github.com/heliopsy/tix"
+
+# Everything tix itself ships is AGPL-3.0-or-later and carries an SPDX line in
+# the file. The annotations below cover only what a per-file header cannot: the
+# binary and generated artifacts, and third-party code we vendor unmodified.
+
+# htmx, vendored unmodified from the upstream release tarball.
+#   version : 2.0.4
+#   source  : https://github.com/bigskysoftware/htmx/blob/v2.0.4/dist/htmx.min.js
+#   sha256  : e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447
+#   licence : 0BSD, per https://github.com/bigskysoftware/htmx/blob/v2.0.4/LICENSE
+#             and the "license" field of its package.json. The minified build
+#             carries no header of its own, which is why it is recorded here.
+# Do not add an SPDX line to this file: it is not ours to relicense.
+[[annotations]]
+path = "internal/web/assets/htmx.min.js"
+precedence = "override"
+SPDX-FileCopyrightText = "Big Sky Software"
+SPDX-License-Identifier = "0BSD"
+
+# Binary and fixture files that cannot hold a comment.
+[[annotations]]
+path = ["screenshots/**", "tix.svg", "internal/web/assets/**.png"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "tix contributors"
+SPDX-License-Identifier = "AGPL-3.0-or-later"

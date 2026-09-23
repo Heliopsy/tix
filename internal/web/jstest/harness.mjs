@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Loads the shipped assets into a fresh vm context, with only as much of a
 // browser as the script under test actually touches. Nothing here is a DOM
 // implementation: a test that needs real layout, real events or real

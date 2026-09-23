@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package server runs the tix HTTP surface and its background workers.
 package server
 

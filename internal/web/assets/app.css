@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
 /* Design tokens. Accent is overridden per tenant by the layout. */
 :root {
   --accent: #0f766e;

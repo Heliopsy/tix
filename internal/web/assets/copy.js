@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 (function () {
   "use strict";
   var tix = window.tix;

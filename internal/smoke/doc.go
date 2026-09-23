@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package smoke drives the compiled tix binary end to end.
 //
 // It holds no production code and it is not a second test suite. Everything
