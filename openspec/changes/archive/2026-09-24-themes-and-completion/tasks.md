@@ -41,4 +41,4 @@
 
 - [x] `just ci` green, coverage above the gate
 - [x] `openspec validate themes-and-completion --strict`
-- [ ] Archive the change, tag v0.3.0
+- [x] Archive the change, tag v0.3.0
