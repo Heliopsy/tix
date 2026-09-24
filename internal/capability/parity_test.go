@@ -311,6 +311,7 @@ func contains(values []string, want string) bool {
 // from a view that does not exist.
 var tuiViews = map[string]bool{
 	"projects": true, "board": true, "detail": true, "activity": true, "tenant": true,
+	"stats": true,
 }
 
 func TestEveryTUIBindingNamesAKnownView(t *testing.T) {

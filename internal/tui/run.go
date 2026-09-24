@@ -29,6 +29,9 @@ type Options struct {
 	// read-only, which is what a caller that cannot re-dial should show.
 	Tenant string
 	Dial   TenantDialer
+	// Brand is the tenant's resolved accent, so the board carries the same
+	// colour a browser does. The zero value keeps the built-in accent.
+	Brand core.Theme
 	// Scheme names the keybinding preset and Overrides rebinds single actions.
 	Scheme    string
 	Overrides map[string]string
@@ -57,7 +60,7 @@ func Run(o Options) int {
 	model := New(Config{
 		Service: o.Service, Context: ctx, Actor: o.Actor,
 		Environ: o.Environ, Out: o.Out, Color: o.Color, Project: o.Project, Filter: o.Filter,
-		Scheme: o.Scheme, Overrides: o.Overrides, TimeStyle: o.TimeStyle,
+		Scheme: o.Scheme, Overrides: o.Overrides, TimeStyle: o.TimeStyle, Brand: o.Brand,
 		Tenant: o.Tenant, Dial: o.Dial,
 	})
 	final, err := tea.NewProgram(model, programOptions(ctx, o)...).Run()

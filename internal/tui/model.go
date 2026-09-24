@@ -30,8 +30,14 @@ type Model struct {
 	// is a working default, so a Model built without one still renders.
 	timeStyle output.TimeStyle
 
-	view  viewKind
-	stack []viewKind
+	view viewKind
+	// stats is the last statistics read, statsWindow indexes
+	// statsWindowDays, and statsOff scrolls the view.
+	stats       *core.Stats
+	statsErr    error
+	statsWindow int
+	statsOff    int
+	stack       []viewKind
 
 	width  int
 	height int
@@ -119,6 +125,10 @@ type Config struct {
 	// one its own and no client can set another client's depth. Nil takes the
 	// process-wide default, which is what a single local terminal wants.
 	Renderer *lipgloss.Renderer
+	// Brand is the tenant's resolved accent, from core's theme registry, so
+	// a tenant presents one colour here and in a browser. The zero value
+	// keeps the built-in accent, which is what an unthemed tenant gets.
+	Brand core.Theme
 	// Scheme names the keybinding preset, and Overrides rebinds single
 	// actions on top of it.
 	Scheme    string
@@ -153,7 +163,7 @@ func New(cfg Config) Model {
 	}
 	m := Model{
 		svc: cfg.Service, ctx: ctx, actor: cfg.Actor,
-		keys: DefaultKeyMap(), theme: NewTheme(cfg.Renderer, colorChoice(cfg)), now: now,
+		keys: DefaultKeyMap(), theme: NewTheme(cfg.Renderer, colorChoice(cfg), cfg.Brand), now: now,
 		timeStyle: cfg.TimeStyle,
 		view:      viewProjects, input: in, leases: map[string]string{},
 		openProject: cfg.Project, width: 80, height: 24,
@@ -201,6 +211,8 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 		return m.handleKey(msg)
 	case tenantMsg:
 		return m.onTenant(msg)
+	case statsMsg:
+		return m.applyStats(msg), nil
 	case projectsMsg:
 		return m.onProjects(msg)
 	case boardMsg:
@@ -425,6 +437,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.openSettings(), nil
 	case key.Matches(msg, m.keys.Activity):
 		return m.openActivity(), nil
+	case key.Matches(msg, m.keys.Stats):
+		return m.openStats()
 	case key.Matches(msg, m.keys.Tenant):
 		return m.openTenant(), nil
 	}
@@ -439,6 +453,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.handleActivityKey(msg)
 	case viewTenant:
 		return m.handleTenantKey(msg)
+	case viewStats:
+		return m.handleStatsKey(msg)
 	}
 	return m, nil
 }

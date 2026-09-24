@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"github.com/heliopsy/tix/internal/core"
 	"io"
 	"strings"
 	"sync"
@@ -89,7 +90,7 @@ func TestSessionsHeldAtOnceRenderAtTheirOwnDepth(t *testing.T) {
 			<-start
 			for range rounds {
 				r := NewRenderer(tc.environ, io.Discard)
-				theme := NewTheme(r, true)
+				theme := NewTheme(r, true, core.Theme{})
 				if got := theme.Ref.Render("TIX-1"); got != tc.ref {
 					t.Errorf("%s rendered the reference as %q, want %q", tc.name, got, tc.ref)
 					return
@@ -128,10 +129,10 @@ func TestThemeIgnoresTheDefaultRendererWhenGivenOne(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.Ascii)
 	t.Cleanup(func() { lipgloss.SetColorProfile(previous) })
 
-	if got := NewTheme(nil, true).Ref.Render("TIX-1"); strings.Contains(got, "\x1b[") {
+	if got := NewTheme(nil, true, core.Theme{}).Ref.Render("TIX-1"); strings.Contains(got, "\x1b[") {
 		t.Fatalf("the default renderer was flattened yet rendered %q", got)
 	}
-	theme := NewTheme(NewRenderer([]string{"TERM=xterm-256color"}, io.Discard), true)
+	theme := NewTheme(NewRenderer([]string{"TERM=xterm-256color"}, io.Discard), true, core.Theme{})
 	if got := theme.Ref.Render("TIX-1"); got != "\x1b[36mTIX-1\x1b[0m" {
 		t.Fatalf("a session with its own renderer rendered %q, want the reference in colour", got)
 	}

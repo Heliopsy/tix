@@ -30,6 +30,13 @@ type Local struct {
 	// and ends its own and no other's.
 	conns *connections.Registry
 
+	// themes resolves a tenant's theme name to a palette. It is here so the
+	// write path can refuse a name that does not resolve, which is the moment
+	// someone can still fix a typo; reads fall back to the default instead,
+	// because a configuration file that stopped defining a theme must not
+	// take a board down.
+	themes *core.ThemeRegistry
+
 	// retentionDefaults are the configured windows a tenant that never moved
 	// off the shipped default is pruned by.
 	retentionDefaults core.RetentionPolicy
@@ -95,6 +102,12 @@ func WithRetentionDefaults(p core.RetentionPolicy) Option {
 // WithHasher sets the password hasher. Tests use cheaper parameters; production
 // must not.
 func WithHasher(h *auth.Hasher) Option { return func(l *Local) { l.hasher = h } }
+
+// WithThemes supplies the registry a tenant's theme name is validated against.
+//
+// Without it the built-in themes are the whole vocabulary, which is what a
+// deployment that configures no palettes gets.
+func WithThemes(r *core.ThemeRegistry) Option { return func(l *Local) { l.themes = r } }
 
 // WithInsecureWebhooks allows plaintext delivery targets outside loopback, for
 // a deployment terminating TLS at a proxy.

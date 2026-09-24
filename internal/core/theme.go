@@ -187,3 +187,17 @@ func DerivedTheme(t *Tenant) Theme {
 	// this, so reporting it as "indigo" would imply somebody did.
 	return Theme{Name: "", Accent: picked.Accent, AccentSoft: picked.AccentSoft, BuiltIn: true}
 }
+
+// ThemeNames lists the built-in theme names, for shell completion.
+//
+// Built-ins only: completion runs in a shell that has not resolved this
+// deployment's configuration, and offering a name that does not exist here is
+// worse than offering fewer. `tix theme ls` is the complete answer.
+func ThemeNames() []string {
+	out := make([]string, 0, len(builtInThemes))
+	for _, t := range builtInThemes {
+		out = append(out, t.Name)
+	}
+	sort.Strings(out)
+	return out
+}

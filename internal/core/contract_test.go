@@ -67,6 +67,7 @@ var serviceParts = map[string]reflect.Type{
 	"SyncService":       reflect.TypeOf((*core.SyncService)(nil)).Elem(),
 	"BundleService":     reflect.TypeOf((*core.BundleService)(nil)).Elem(),
 	"ConnectionService": reflect.TypeOf((*core.ConnectionService)(nil)).Elem(),
+	"StatsService":      reflect.TypeOf((*core.StatsService)(nil)).Elem(),
 }
 
 // serviceOwnMethods are the only two methods Service may declare itself.

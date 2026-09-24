@@ -127,6 +127,9 @@ func (f *fakeService) GetTenant(context.Context, string) (*core.Tenant, error) {
 func (f *fakeService) ListTenants(context.Context, core.Page) ([]core.Tenant, string, error) {
 	return nil, "", nil
 }
+func (f *fakeService) Stats(context.Context, core.StatsInput) (*core.Stats, error) {
+	return &core.Stats{}, nil
+}
 func (f *fakeService) UpdateTenant(context.Context, string, core.UpdateTenantInput) (*core.Tenant, error) {
 	return nil, nil
 }

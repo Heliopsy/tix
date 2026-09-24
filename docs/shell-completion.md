@@ -8,6 +8,34 @@ statuses by querying the target the current directory resolves to, so `tix task 
 and `tix task ls --status <TAB>` offers the states your workflows actually define. A lookup that cannot reach the
 target offers nothing rather than hanging.
 
+## The short way
+
+```sh
+tix completion install
+```
+
+It detects your shell from `$SHELL`, writes the script where that shell looks for it, and prints the path.
+Nothing is installed outside your own directories, and no startup file is edited: appending to a `.zshrc`
+is the kind of help that gets discovered months later in a bisect. Where a shell needs something further,
+zsh's `fpath` most of all, it says so.
+
+```sh
+tix completion install --shell fish    # $SHELL is your login shell, not always the one you are in
+tix completion install --dry-run       # print the path, write nothing
+tix completion install --uninstall     # remove what it wrote
+```
+
+Running it twice is not an error and leaves the same file.
+
+The rest of this page is the manual placement, for a system-wide install, a packaging script, or a layout
+that differs from the one below.
+
+| Shell | Where `install` writes |
+| --- | --- |
+| bash | `${XDG_DATA_HOME:-~/.local/share}/bash-completion/completions/tix` |
+| zsh | `${XDG_DATA_HOME:-~/.local/share}/zsh/site-functions/_tix` |
+| fish | `${XDG_CONFIG_HOME:-~/.config}/fish/completions/tix.fish` |
+
 ## bash
 
 Requires `bash-completion` to be installed and sourced by your shell.

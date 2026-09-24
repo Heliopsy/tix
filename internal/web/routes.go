@@ -60,6 +60,7 @@ func (h *handler) routes() []route {
 	var out []route
 	out = append(out, h.sessionRoutes()...)
 	out = append(out, h.activityRoutes()...)
+	out = append(out, h.statsRoutes()...)
 	out = append(out, h.projectRoutes()...)
 	out = append(out, h.workflowRoutes()...)
 	out = append(out, h.taskRoutes()...)
@@ -102,6 +103,7 @@ const (
 	RouteColumns      = "/columns"
 	RouteVisibility   = "/visibility"
 	RouteDragMove     = "/dragmove"
+	RouteStats        = "/stats"
 	RouteActivity     = "/activity"
 	RouteActivityFeed = "/activity/feed"
 

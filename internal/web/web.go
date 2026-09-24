@@ -99,6 +99,14 @@ func WithTargetDescribe(describe string) Option {
 	return func(h *handler) { h.targetDescribe = strings.TrimSpace(describe) }
 }
 
+// WithThemes supplies the registry a tenant's accent is resolved from.
+//
+// Without it the handler falls back to the built-in themes, which is what the
+// sign-in screen and any deployment that configures no palettes get.
+func WithThemes(r *core.ThemeRegistry) Option {
+	return func(h *handler) { h.themes = r }
+}
+
 // WithTimeStyle sets the TimeStyle every screen renders its timestamps
 // through. Without it a handler uses the zero-value TimeStyle, which reads
 // the machine's local zone in the same layout output.time_format's "iso"
@@ -129,6 +137,7 @@ type handler struct {
 	targetDescribe string
 	style          output.TimeStyle
 	releases       *releaseWatch
+	themes         *core.ThemeRegistry
 }
 
 // Handler returns an http.Handler serving the browser interface.
@@ -142,6 +151,11 @@ func Handler(svc core.Service, opts ...Option) http.Handler {
 	}
 	for _, opt := range opts {
 		opt(h)
+	}
+	if h.themes == nil {
+		// A registry of built-ins only. NewThemeRegistry(nil) cannot fail:
+		// the built-ins are constants that this package's own tests validate.
+		h.themes, _ = core.NewThemeRegistry(nil)
 	}
 	h.templates = parseTemplates(h.style)
 	h.assets = assetHandler()

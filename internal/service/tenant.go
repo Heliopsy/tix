@@ -209,6 +209,17 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 	if in.Name != nil && strings.TrimSpace(*in.Name) == "" {
 		return nil, core.Invalid("tenant name is required")
 	}
+	// Refused here rather than at render time. A name that does not resolve is
+	// almost always a typo, and this is the moment the person who made it is
+	// still looking; a page that quietly fell back to the default would teach
+	// them nothing. The empty string clears the theme and is always allowed.
+	if in.Theme != nil {
+		if name := strings.TrimSpace(*in.Theme); name != "" {
+			if _, ok := l.themeRegistry().Lookup(name); !ok {
+				return nil, core.NotFound("theme %q", name)
+			}
+		}
+	}
 
 	var out *core.Tenant
 	err = l.write(ctx, actor, func(m *mutation) error {
@@ -219,6 +230,9 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 		before := *t
 		if in.Name != nil {
 			t.Name = *in.Name
+		}
+		if in.Theme != nil {
+			t.Theme = strings.ToLower(strings.TrimSpace(*in.Theme))
 		}
 		u, err := asUnscoped(m.tx)
 		if err != nil {
@@ -336,4 +350,22 @@ func (l *Local) RemoveMember(ctx context.Context, actorID string) error {
 		return m.Record(auditMemberRemove, eventMemberRemoved, "membership", actorID, "", before, nil,
 			map[string]any{"role": string(before.Role)})
 	})
+}
+
+// themeRegistry is the configured registry, or the built-ins when nothing
+// supplied one. A Local built without WithThemes still has to resolve names,
+// and every test that constructs one is such a caller.
+func (l *Local) themeRegistry() *core.ThemeRegistry {
+	if l.themes != nil {
+		return l.themes
+	}
+	// Cannot fail: the built-ins are constants core's own tests validate.
+	r, _ := core.NewThemeRegistry(nil)
+	return r
+}
+
+// ResolveTheme returns the palette a tenant presents itself with, for the
+// surfaces that render it.
+func (l *Local) ResolveTheme(t *core.Tenant) core.Theme {
+	return l.themeRegistry().Resolve(t)
 }

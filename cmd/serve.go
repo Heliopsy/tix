@@ -114,10 +114,18 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 		return err
 	}
 
+	// Validate rejects a malformed palette at load, so a registry built here
+	// cannot fail on colour; an error would mean a themes block that Validate
+	// somehow let through, and serving the built-ins is the safe answer.
+	themes, err := resolved.Config.ThemeRegistry()
+	if err != nil {
+		return err
+	}
+
 	srv, err := server.Assemble(server.Options{
 		Logger:                     log,
 		Service:                    conn.Service,
-		WebHandler:                 web.Handler(conn.Service, web.WithSecureCookies(o.certFile != ""), web.WithTimeStyle(g.timeStyle()), web.WithTargetDescribe(conn.Info.Target.Describe())),
+		WebHandler:                 web.Handler(conn.Service, web.WithSecureCookies(o.certFile != ""), web.WithTimeStyle(g.timeStyle()), web.WithTargetDescribe(conn.Info.Target.Describe()), web.WithThemes(themes)),
 		Store:                      conn.Store,
 		Clock:                      clock.New(),
 		TenantID:                   conn.Info.TenantID,

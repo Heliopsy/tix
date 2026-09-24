@@ -112,7 +112,17 @@ func lookupEnv(environ []string, name string) (string, bool) {
 // A nil renderer takes the process-wide default, which is what a single local
 // terminal wants; a caller drawing several terminals at once passes one
 // renderer per terminal.
-func NewTheme(r *lipgloss.Renderer, color bool) Theme {
+// NewTheme builds the styles a frame is rendered with.
+//
+// brand is the tenant's resolved accent, and it reaches only the three places
+// a brand belongs: the header, the selection, and the focused column's border.
+// Everything else keeps a fixed colour because it carries meaning rather than
+// identity, and a tenant that themes itself red must not lose the red that
+// means blocked.
+//
+// An empty brand accent keeps the built-in accent, which is what a tenant that
+// names no theme and every non-tenant context gets.
+func NewTheme(r *lipgloss.Renderer, color bool, brand core.Theme) Theme {
 	if r == nil {
 		r = lipgloss.DefaultRenderer()
 	}
@@ -127,12 +137,20 @@ func NewTheme(r *lipgloss.Renderer, color bool) Theme {
 			Column: border, Focused: border,
 		}
 	}
+	accent := colorAccent
+	header := lipgloss.Color("12")
+	if brand.Accent != "" {
+		// Validated as #rrggbb in core before it ever gets here; lipgloss
+		// takes hex directly and downsamples for a shallower terminal.
+		accent = lipgloss.Color(brand.Accent)
+		header = accent
+	}
 	return Theme{
 		Color:    true,
 		renderer: r,
 		Title:    r.NewStyle().Bold(true).Foreground(colorTitle),
-		Header:   r.NewStyle().Bold(true).Foreground(lipgloss.Color("12")),
-		Selected: r.NewStyle().Bold(true).Foreground(colorAccent),
+		Header:   r.NewStyle().Bold(true).Foreground(header),
+		Selected: r.NewStyle().Bold(true).Foreground(accent),
 		Claimed:  r.NewStyle().Foreground(lipgloss.Color("11")),
 		Dim:      r.NewStyle().Foreground(colorMuted),
 		Error:    r.NewStyle().Bold(true).Foreground(colorUrgent),
@@ -142,7 +160,7 @@ func NewTheme(r *lipgloss.Renderer, color bool) Theme {
 		Empty:    r.NewStyle().Foreground(colorMuted).Italic(true),
 		Bar:      r.NewStyle().Foreground(colorMuted),
 		Column:   r.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(colorMuted),
-		Focused:  r.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(colorAccent),
+		Focused:  r.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(accent),
 	}
 }
 

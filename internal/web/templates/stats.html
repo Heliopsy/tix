@@ -1,0 +1,122 @@
+{{define "content"}}
+<h1>Statistics</h1>
+
+{{/* The window and the project are a GET form, so every view of this screen
+     has a URL someone can send. A POST here would make "show me the last 90
+     days of infra" unlinkable. */}}
+<form class="filters" method="get" action="/stats">
+  <label for="stats-days">Window</label>
+  <select id="stats-days" name="days">
+    {{$days := .Data.Days}}
+    {{range .Data.Windows}}
+    <option value="{{.Days}}" {{if eq .Days $days}}selected{{end}}>{{.Label}}</option>
+    {{end}}
+  </select>
+
+  <label for="stats-project">Project</label>
+  <select id="stats-project" name="project">
+    <option value="">Every project</option>
+    {{$project := .Data.Project}}
+    {{range .Data.Projects}}
+    <option value="{{.Key}}" {{if eq .Key $project}}selected{{end}}>{{.Name}}</option>
+    {{end}}
+  </select>
+
+  <button type="submit">Apply</button>
+</form>
+
+<section class="cards">
+  <div class="card">
+    <p class="figure">{{.Data.Stats.Completed}}</p>
+    <p class="caption">completed</p>
+  </div>
+  <div class="card">
+    <p class="figure">{{.Data.Stats.Created}}</p>
+    <p class="caption">created</p>
+  </div>
+  <div class="card">
+    <p class="figure">{{.Data.Stats.MedianLeadTime}}</p>
+    <p class="caption">median lead time</p>
+  </div>
+  <div class="card">
+    <p class="figure">{{.Data.Stats.SlowestLeadTime}}</p>
+    <p class="caption">slowest</p>
+  </div>
+</section>
+
+<h2>Completed per day</h2>
+{{if .Data.MaxDay}}
+{{/* Bars are div widths. Six numbers do not justify a plotting library, which
+     would be the largest dependency in the project and the only one that
+     needed a build step. */}}
+<ul class="bars">
+  {{$max := .Data.MaxDay}}
+  {{range .Data.Stats.PerDay}}
+  <li>
+    <span class="bar-label">{{.Date}}</span>
+    <span class="bar-track">
+      <span class="bar-fill" style="width: {{percent .Completed $max}}%"></span>
+    </span>
+    <span class="bar-value">{{.Completed}}</span>
+  </li>
+  {{end}}
+</ul>
+{{else}}
+<p class="empty">Nothing was completed in this window.</p>
+{{end}}
+
+<h2>Where the work is</h2>
+{{if .Data.Stats.ByCategory}}
+<table>
+  <thead><tr><th>Category</th><th class="num">Tasks</th></tr></thead>
+  <tbody>
+    {{range .Data.Stats.ByCategory}}
+    <tr><td>{{.Category}}</td><td class="num">{{.Count}}</td></tr>
+    {{end}}
+  </tbody>
+</table>
+{{else}}
+<p class="empty">No tasks yet.</p>
+{{end}}
+
+<h2>Most active</h2>
+{{/* The measure is printed every time the leaderboard is. A ticket-closing
+     count that looks like a productivity measure is worse than no
+     leaderboard, and the wording comes from core so it cannot drift from the
+     CLI's. */}}
+<p class="note">Counting {{.Data.Measure}}.</p>
+{{if .Data.Stats.TopActors}}
+<table>
+  <thead><tr><th>Actor</th><th class="num">Moved</th></tr></thead>
+  <tbody>
+    {{range .Data.Stats.TopActors}}
+    <tr>
+      <td>{{if .Handle}}{{.Handle}}{{else}}{{.ActorID}}{{end}}</td>
+      <td class="num">{{.Moved}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{else}}
+<p class="empty">Nobody moved a task to a terminal state in this window.</p>
+{{end}}
+
+<h2>Waiting longest</h2>
+{{if .Data.Stats.Oldest}}
+<table>
+  <thead><tr><th>Ref</th><th>Title</th><th>Status</th><th class="num">Age</th></tr></thead>
+  <tbody>
+    {{range .Data.Stats.Oldest}}
+    <tr>
+      <td><a href="/tasks/{{.Ref}}">{{.Ref}}</a></td>
+      <td>{{.Title}}</td>
+      <td>{{.Status}}</td>
+      <td class="num">{{.Age}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{else}}
+<p class="empty">Nothing is waiting: every task has reached a terminal state.</p>
+{{end}}
+{{end}}

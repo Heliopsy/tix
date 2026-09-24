@@ -34,6 +34,7 @@ type KeyMap struct {
 	Projects   key.Binding
 	Settings   key.Binding
 	Activity   key.Binding
+	Stats      key.Binding
 	Tenant     key.Binding
 	Refresh    key.Binding
 	Help       key.Binding
@@ -74,13 +75,17 @@ func DefaultKeyMap() KeyMap {
 		Projects:   key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "projects")),
 		Settings:   key.NewBinding(key.WithKeys(","), key.WithHelp(",", "settings")),
 		Activity:   key.NewBinding(key.WithKeys("v"), key.WithHelp("v", "activity")),
-		Tenant:     key.NewBinding(key.WithKeys("T"), key.WithHelp("T", "tenant")),
-		Refresh:    key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh")),
-		Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
-		Quit:       key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
-		Interrupt:  key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "interrupt")),
-		Accept:     key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "apply")),
-		Cancel:     key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel")),
+		// S, not s: lowercase s is taken on the board, and a capital is what
+		// the other cross-view keys already use when their letter is spoken
+		// for.
+		Stats:     key.NewBinding(key.WithKeys("S"), key.WithHelp("S", "statistics")),
+		Tenant:    key.NewBinding(key.WithKeys("T"), key.WithHelp("T", "tenant")),
+		Refresh:   key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh")),
+		Help:      key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
+		Quit:      key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
+		Interrupt: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "interrupt")),
+		Accept:    key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "apply")),
+		Cancel:    key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel")),
 	}
 }
 

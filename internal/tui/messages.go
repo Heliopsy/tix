@@ -20,6 +20,7 @@ const (
 	viewSettings
 	viewActivity
 	viewTenant
+	viewStats
 )
 
 // actionKind names a board action whose result is reported back.
@@ -171,4 +172,10 @@ func (a actionMsg) statusText() string {
 type errMsg struct {
 	err   error
 	fatal bool
+}
+
+// statsMsg carries one statistics read back to the model.
+type statsMsg struct {
+	stats *core.Stats
+	err   error
 }

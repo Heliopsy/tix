@@ -5,8 +5,10 @@
 package config
 
 import (
-	"github.com/heliopsy/tix/internal/output"
+	"sort"
 	"strings"
+
+	"github.com/heliopsy/tix/internal/output"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/logging"
@@ -30,6 +32,47 @@ type Config struct {
 	Log            Log                `yaml:"log"`
 	Output         Output             `yaml:"output"`
 	TUI            TUI                `yaml:"tui"`
+	// Themes are custom palettes, by name, that a tenant may then name.
+	//
+	// Deployment configuration rather than a table: a palette is something an
+	// operator writes once for the whole install, and a per-tenant row would
+	// need its own CRUD, authorization and audit trail to say the same thing.
+	// A tenant stores only the name, so the palette lives in one place.
+	Themes map[string]Theme `yaml:"themes,omitempty"`
+}
+
+// Theme is one custom palette. Both colours must be #rrggbb; they end up
+// inside a stylesheet, so core validates them before anything renders.
+type Theme struct {
+	Accent     string `yaml:"accent"`
+	AccentSoft string `yaml:"accent_soft"`
+}
+
+// ThemeRegistry builds the resolver every surface reads a tenant's accent
+// from, with the configured palettes merged over the built-in ones.
+//
+// It returns an error rather than dropping a bad palette silently: a colour
+// that does not parse is a typo an operator wants told about at start-up, not
+// a tenant that quietly renders in the default.
+func (c *Config) ThemeRegistry() (*core.ThemeRegistry, error) {
+	if c == nil || len(c.Themes) == 0 {
+		return core.NewThemeRegistry(nil)
+	}
+	// Sorted, so a malformed colour in a map reports the same offending theme
+	// on every run rather than whichever one iteration reached first.
+	names := make([]string, 0, len(c.Themes))
+	for name := range c.Themes {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	custom := make([]core.Theme, 0, len(names))
+	for _, name := range names {
+		t := c.Themes[name]
+		custom = append(custom, core.Theme{
+			Name: name, Accent: t.Accent, AccentSoft: t.AccentSoft,
+		})
+	}
+	return core.NewThemeRegistry(custom)
 }
 
 // Database holds the local storage settings.

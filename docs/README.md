@@ -21,6 +21,7 @@ with the thing.
 | [scaling.md](scaling.md) | SQLite versus PostgreSQL, keyset pagination, partitioning, when to move |
 | [migrating.md](migrating.md) | Importing from Jira and OpenProject, mapping files, snapshots, bundles |
 | [shell-completion.md](shell-completion.md) | Installing completions for bash, zsh and fish |
+| [theming.md](theming.md) | Tenant accents, built-in and custom themes, what is deliberately not themed |
 | [testing.md](testing.md) | Running the suite, what a partial run announces, the coverage floors |
 
 ## Where to start

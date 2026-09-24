@@ -14,7 +14,7 @@ func TestRoutesAreVersioned(t *testing.T) {
 	routes := []string{
 		RouteWhoAmI, RouteLogin, RouteUsers, RouteTokens, RouteTenants, RouteDomains,
 		RouteProjects, RouteWorkflows, RouteTasks, RouteTaskClaim, RouteClaimNext,
-		RouteWebhooks, RouteAudit, RouteExport, RouteImport, RouteEvents, RouteSyncRun,
+		RouteWebhooks, RouteAudit, RouteStats, RouteExport, RouteImport, RouteEvents, RouteSyncRun,
 	}
 	for _, r := range routes {
 		if unversioned[r] {

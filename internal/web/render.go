@@ -5,7 +5,6 @@ package web
 import (
 	"errors"
 	"fmt"
-	"hash/fnv"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -28,17 +27,6 @@ type branding struct {
 	AccentSoft template.CSS
 }
 
-// accents is the palette a tenant's colour is chosen from, so the value placed
-// in the stylesheet is always one this package wrote.
-var accents = [][2]string{
-	{"#3b5bdb", "#edf0ff"},
-	{"#2b8a3e", "#e9f7ec"},
-	{"#c2410c", "#fdf0e8"},
-	{"#7048e8", "#f1ecfd"},
-	{"#0b7285", "#e6f4f6"},
-	{"#a61e4d", "#fbeaf0"},
-}
-
 // defaultAccent and defaultAccentSoft are the brand colour shown before any
 // tenant has been resolved (the sign-in screen, most of all). They must stay
 // equal to assets/app.css's :root --accent and --accent-soft: the inline
@@ -57,21 +45,27 @@ func defaultBranding() branding {
 		Accent: template.CSS(defaultAccent), AccentSoft: template.CSS(defaultAccentSoft)} // #nosec G203
 }
 
-// brandFor derives a tenant's branding from its own record.
-func brandFor(t *core.Tenant) branding {
+// brandFor derives a tenant's branding from its own record and the theme it
+// names.
+//
+// The palette moved to core so the terminal interface could read the same one:
+// this package used to hash the tenant into six pairs of its own, which made a
+// tenant one colour in a browser and something unrelated in a terminal. The
+// hash still decides for a tenant that names no theme, but it lives in
+// core.DerivedTheme now and both surfaces call it.
+func brandFor(t *core.Tenant, themes *core.ThemeRegistry) branding {
 	if t == nil || strings.TrimSpace(t.Name) == "" {
 		return defaultBranding()
 	}
-	sum := fnv.New32a()
-	_, _ = sum.Write([]byte(t.Key + t.ID))
-	pair := accents[int(sum.Sum32())%len(accents)]
+	theme := themes.Resolve(t)
 	return branding{
 		Title:    t.Name,
 		Monogram: strings.ToUpper(t.Name[:1]),
-		// Both values come from the fixed accents palette above, selected by
-		// hash; no caller can place a value here.
-		Accent:     template.CSS(pair[0]), // #nosec G203
-		AccentSoft: template.CSS(pair[1]), // #nosec G203
+		// Every value core resolves has passed its hex validation, which is
+		// the boundary that keeps a configuration file out of the stylesheet;
+		// no caller can place a value here.
+		Accent:     template.CSS(theme.Accent),     // #nosec G203
+		AccentSoft: template.CSS(theme.AccentSoft), // #nosec G203
 	}
 }
 
@@ -137,6 +131,7 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"relativeAt":      style.Relative,
 		"sentence":        sentenceFor,
 		"sentenceSubject": sentenceForSubject,
+		"percent":         barPercent,
 	}
 }
 
@@ -312,7 +307,7 @@ func (h *handler) brand(r *http.Request) branding {
 	if err != nil {
 		return defaultBranding()
 	}
-	return brandFor(tenant)
+	return brandFor(tenant, h.themes)
 }
 
 // render writes one screen.
@@ -422,4 +417,26 @@ func redirect(w http.ResponseWriter, r *http.Request, path, flash string) {
 	// #nosec G710 -- path is a route constant chosen by the handler, and the
 	// flash text is query-escaped; neither is a caller-supplied destination.
 	http.Redirect(w, r, target, http.StatusSeeOther)
+}
+
+// barPercent is one bar's width as a percentage of the tallest.
+//
+// It clamps rather than trusting arithmetic to stay in range: the value goes
+// straight into a style attribute, and a width over 100 would push a bar
+// outside its track for whatever rounding produced it. A zero maximum returns
+// zero instead of dividing, which is the empty-window case.
+func barPercent(v, max int) int {
+	if max <= 0 || v <= 0 {
+		return 0
+	}
+	p := v * 100 / max
+	if p > 100 {
+		return 100
+	}
+	// A count that is present but tiny still gets a sliver, so "one completed"
+	// does not render as an empty row indistinguishable from none.
+	if p < 2 {
+		return 2
+	}
+	return p
 }

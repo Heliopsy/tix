@@ -58,7 +58,7 @@ func TestColorEnabled(t *testing.T) {
 }
 
 func TestThemeWithoutColorEmitsNoEscapes(t *testing.T) {
-	theme := NewTheme(nil, false)
+	theme := NewTheme(nil, false, core.Theme{})
 	if theme.Color {
 		t.Fatal("a colourless theme reports colour")
 	}
@@ -79,7 +79,7 @@ func TestThemeWithoutColorEmitsNoEscapes(t *testing.T) {
 }
 
 func TestColourlessThemeStillStylesNothingByMeaning(t *testing.T) {
-	theme := NewTheme(nil, false)
+	theme := NewTheme(nil, false, core.Theme{})
 	for _, got := range []string{
 		theme.Category(core.CategoryInProgress).Render("doing"),
 		theme.Priority(core.PriorityHighest).Render("P1"),

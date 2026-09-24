@@ -3,6 +3,32 @@
 v1 scope is the `tix-v1` OpenSpec change. This file records what comes after, and
 the seam in v1 that makes each one additive rather than a rewrite.
 
+## Shipped since v1
+
+### Theming across every surface
+
+A tenant names a theme and both the browser and the terminal interface render its accent.
+Several palettes are built in, configuration defines more under `themes:`, and a tenant that
+names none keeps the colour derived from its own identity, so upgrading repaints nothing.
+
+**What differs from the plan below:** the palette is two colours rather than a scheme per
+surface. The web interface already has light, dark and dim for everything structural, and a
+terminal cannot honour a browser's palette, so the themeable thing is the accent. State and
+priority colours are deliberately excluded: they carry meaning, and a tenant that themes itself
+red should not lose the red that means blocked. See [docs/theming.md](docs/theming.md).
+
+### Shell completion that installs itself
+
+`tix completion install` detects the shell, writes the script to that shell's own completions
+directory, reports the path, and takes `--shell`, `--dry-run` and `--uninstall`.
+
+**What differs from the plan below:** it never edits a startup file. The original note called a
+completions directory "the better target than the startup file, so the block is a fallback";
+in practice all three supported shells have one, so the fallback was never needed and the
+marker-block machinery would have been code nobody reaches. Writing into a file the user did
+not name is also the part that is hard to undo, and this way `--uninstall` removes exactly one
+file it wrote.
+
 ## v2
 
 ### Bidirectional sync with Jira and OpenProject
@@ -43,18 +69,6 @@ certificate. v1 supports supplied certificate files; ACME becomes another mode.
 and a SQLite `LIKE` implementation. FTS5 becomes a third implementation of the same method.
 The asymmetry is documented in `docs/scaling.md`.
 
-### Theming for the web interface and the TUI
-
-User-supplied colour schemes on both surfaces, rather than the fixed palettes plus dark and
-low-contrast modes that v1 ships.
-
-**Seam in v1:** the web interface already defines every colour as a custom property on
-`:root`, redefined per theme scope, so an additional theme is a block of property values and
-no template change. The TUI resolves colour through pure functions tested against
-`output.Painter`, so a palette becomes another input to those functions rather than a rewrite
-of the views. Both surfaces already persist a display preference, so a theme name travels the
-same path a theme choice would.
-
 ### Self-update from the CLI
 
 `tix update` detects how this binary was installed, fetches the matching build, verifies it
@@ -79,25 +93,6 @@ ldflags, so a build can identify itself. GoReleaser already publishes `checksums
 the archives and signs them, so verification needs no new release machinery, and
 `install.sh` already does the platform detection and checksum verification that `tix update`
 would repeat. `tix serve` already shuts down gracefully, so a restart has something to wait on.
-
-### Shell completion that installs itself
-
-`tix completion install` detects the running shell, then writes or refreshes a marked block at
-the end of that shell's startup file, so completion works in the next terminal without anyone
-reading an installation note.
-
-The block is delimited by begin and end markers and rewritten wholesale on every run, which is
-what makes it idempotent and what makes `tix completion uninstall` exact. Appending without
-markers is how a startup file collects six copies of the same snippet over a year.
-
-Detection should prefer the shell that is actually running over `$SHELL`, which records a login
-default rather than the current process. Where a shell has a completions directory of its own,
-that is the better target than the startup file, so the block is a fallback rather than the
-first choice. Anything ambiguous asks rather than guessing, since this edits a file the user
-did not name.
-
-**Seam in v1:** `tix completion` already generates scripts for every shell Cobra supports. The
-command grows an `install` and an `uninstall` subcommand; nothing about the generation changes.
 
 ### Automatic enrichment
 

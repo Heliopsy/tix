@@ -16,6 +16,12 @@ import (
 
 // Validate rejects configuration that cannot be used, naming the offending key.
 func Validate(cfg *Config, sources map[string]Layer) error {
+	// Themes first: a malformed colour is refused at start-up rather than at
+	// the moment a page renders, because the value goes into a stylesheet
+	// where escaping is suppressed and there is no good failure mode later.
+	if _, err := cfg.ThemeRegistry(); err != nil {
+		return core.Invalid("themes: %s", err)
+	}
 	checks := []struct {
 		key           string
 		value         string

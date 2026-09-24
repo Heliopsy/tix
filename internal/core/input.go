@@ -29,6 +29,10 @@ func (in CreateTenantInput) Validate() error {
 // UpdateTenantInput changes a tenant.
 type UpdateTenantInput struct {
 	Name *string `json:"name,omitempty" yaml:"name,omitempty"`
+	// Theme names the palette this tenant presents itself with. A pointer to
+	// the empty string clears it, which returns the tenant to the accent
+	// derived from its own identity; nil leaves it alone.
+	Theme *string `json:"theme,omitempty" yaml:"theme,omitempty"`
 }
 
 // AddDomainInput maps a hostname to the current tenant.

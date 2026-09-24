@@ -1451,6 +1451,37 @@ var serviceScenarios = []svcScenario{
 			return nil, err
 		},
 	},
+	{
+		name:   "read statistics over a window",
+		covers: []string{"Stats"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{
+				ProjectRef: p.Key, Title: "counted",
+			})
+			if err != nil {
+				return nil, err
+			}
+			for _, to := range []string{"doing", "done"} {
+				if _, err := tg.svc.TransitionTask(tg.ctx, core.TaskRef{ID: task.ID},
+					core.TransitionInput{To: to}); err != nil {
+					return nil, err
+				}
+			}
+			stats, err := tg.svc.Stats(tg.ctx, core.StatsInput{ProjectRef: p.Key})
+			if err != nil {
+				return nil, err
+			}
+			return sig{
+				"completed": stats.Completed,
+				"created":   stats.Created,
+				"actors":    len(stats.TopActors),
+				"moved":     stats.TopActors[0].Moved,
+				"measure":   stats.LeaderboardMeasure,
+				"open":      len(stats.Oldest),
+			}, nil
+		},
+	},
 }
 
 func TestTransportEquivalence(t *testing.T) {

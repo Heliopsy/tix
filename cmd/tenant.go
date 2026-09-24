@@ -157,17 +157,29 @@ func tenantShowCmd(g *globals) *cobra.Command {
 
 func tenantEditCmd(g *globals) *cobra.Command {
 	var name string
+	var theme string
 	var dryRun bool
 	cmd := &cobra.Command{
-		Use:     "edit REF",
-		Short:   "Change a tenant",
-		Long:    "Change a tenant's name.\n\nExit codes: 3 unknown tenant.",
-		Example: "  tix tenant edit acme --name \"Acme Limited\"",
-		Args:    exactArgs(1),
+		Use:   "edit REF",
+		Short: "Change a tenant",
+		Long: "Change a tenant's name or the theme it presents itself with.\n\n" +
+			"The theme is the accent every surface renders: the browser and the terminal\n" +
+			"interface both read it. --theme \"\" clears it, which returns the tenant to the\n" +
+			"colour derived from its own identity. `tix theme ls` lists what resolves.\n\n" +
+			"Exit codes: 3 unknown tenant or unknown theme.",
+		Example: "  tix tenant edit acme --name \"Acme Limited\"\n" +
+			"  tix tenant edit acme --theme ocean\n" +
+			"  tix tenant edit acme --theme \"\"",
+		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var in core.UpdateTenantInput
 			if cmd.Flags().Changed("name") {
 				in.Name = &name
+			}
+			// Changed, not non-empty: the empty string is the way to clear a
+			// theme, so it has to reach the service rather than look unset.
+			if cmd.Flags().Changed("theme") {
+				in.Theme = &theme
 			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
@@ -187,7 +199,9 @@ func tenantEditCmd(g *globals) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "new name")
+	cmd.Flags().StringVar(&theme, "theme", "", "theme name, or \"\" to use the derived colour")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
+	_ = cmd.RegisterFlagCompletionFunc("theme", fixedCompletion(core.ThemeNames()))
 	return cmd
 }
 

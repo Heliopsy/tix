@@ -64,7 +64,19 @@ func newTUICmd(g *globals) *cobra.Command {
 			if _, err := tui.ParseScheme(scheme); err != nil {
 				return err
 			}
+			// The tenant's accent, resolved the same way the browser resolves
+			// it, so one tenant is one colour on both surfaces. A tenant that
+			// cannot be read (no membership, a server that refuses) leaves the
+			// zero theme, which is the built-in accent: a board that will not
+			// open over a branding lookup would be a poor trade.
+			brand := core.Theme{}
+			if reg, err := resolved.Config.ThemeRegistry(); err == nil {
+				if tenant, err := conn.Service.GetTenant(ctx, resolved.Config.Tenant); err == nil {
+					brand = reg.Resolve(tenant)
+				}
+			}
 			code := tui.Run(tui.Options{
+				Brand:     brand,
 				TimeStyle: g.timeStyle(),
 				Tenant:    resolved.Config.Tenant,
 				Dial:      g.tenantDialer(cmd),

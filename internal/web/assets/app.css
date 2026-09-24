@@ -1623,3 +1623,85 @@ ul.shape .note { color: var(--muted); font-size: 0.85rem; margin-left: auto; tex
   overflow-wrap: normal;
   word-break: keep-all;
 }
+
+/* The statistics screen.
+ *
+ * The bars are div widths rather than a chart library: six numbers do not
+ * justify the largest dependency in the project, and a static export has no
+ * build step to feed one. Every colour here is a token, so the accent follows
+ * whatever theme the tenant resolved and the whole screen follows light, dark
+ * and dim without a second rule set. */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 0 0 24px;
+}
+
+.cards .card { margin: 0; }
+
+.figure {
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.1;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.caption {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 4px 0 0;
+}
+
+.bars { list-style: none; margin: 0 0 24px; padding: 0; }
+
+.bars li {
+  display: grid;
+  /* The label and the value are fixed columns so the tracks all start and end
+     in the same place: bars that begin at different offsets cannot be
+     compared by eye, which is the only thing a bar chart is for. */
+  grid-template-columns: 6.5rem 1fr 3rem;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0;
+}
+
+.bar-label, .bar-value {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar-value { text-align: right; }
+
+.bar-track {
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  height: 14px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  background: var(--accent);
+  border-radius: var(--radius);
+  display: block;
+  height: 100%;
+}
+
+/* Numbers right-align so columns of them can be scanned. */
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.filters {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 24px;
+}
+
+.filters label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+}

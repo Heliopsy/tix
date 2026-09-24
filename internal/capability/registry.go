@@ -48,6 +48,7 @@ const (
 	tplTasks     = "tasks.html"
 	tplTask      = "task.html"
 	tplActivity  = "activity.html"
+	tplStats     = "stats.html"
 	tplWebhooks  = "webhooks.html"
 	tplSync      = "sync.html"
 	tplConns     = "connections.html"
@@ -496,6 +497,14 @@ var registry = []Operation{
 			off(SurfaceWeb, "lease sweeping is a background maintenance loop, not an operator action"),
 			off(SurfaceTUI, "lease sweeping is a background maintenance loop, not an operator action"),
 		},
+	},
+
+	{
+		Name: "stats.read", Method: "Stats",
+		CLI:  "tix stats",
+		HTTP: apiGet(wire.RouteStats),
+		Web:  webGet(web.RouteStats, tplStats),
+		TUI:  "stats",
 	},
 
 	{

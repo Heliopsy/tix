@@ -51,6 +51,7 @@ type Tx interface {
 	EventTx
 	WebhookTx
 	SyncTx
+	StatsTx
 
 	Commit() error
 	Rollback() error
@@ -263,4 +264,43 @@ type SyncTx interface {
 	PutExternalRef(ctx context.Context, r *core.ExternalRef) error
 	GetExternalRef(ctx context.Context, system, externalID, entityType string) (*core.ExternalRef, error)
 	ListExternalRefs(ctx context.Context, system string) ([]core.ExternalRef, error)
+}
+
+// StatsTx covers the aggregates behind a statistics read.
+type StatsTx interface {
+	// TaskStats answers one statistics read with the smallest set of rows the
+	// figures can be derived from.
+	TaskStats(ctx context.Context, q StatsQuery) (*StatsRows, error)
+}
+
+// StatsQuery bounds one statistics read. Statuses is supplied by the caller
+// because which statuses exist is a workflow question, and the store does not
+// answer workflow questions.
+type StatsQuery struct {
+	ProjectID string
+	Since     time.Time
+	Until     time.Time
+	Statuses  []string
+	Oldest    int
+}
+
+// CompletedTask is one task that reached a terminal state inside the window.
+// ActorID is empty when the transition that terminated it is no longer in the
+// audit trail, because the tasks table records when a task was completed and
+// never by whom.
+type CompletedTask struct {
+	TaskID      string
+	ProjectID   string
+	ActorID     string
+	CreatedAt   time.Time
+	CompletedAt time.Time
+}
+
+// StatsRows are the raw aggregates a statistics read is derived from. Soft
+// deleted tasks are absent from every field.
+type StatsRows struct {
+	Completed    []CompletedTask
+	Created      int
+	StatusCounts map[string]int
+	Oldest       []core.Task
 }

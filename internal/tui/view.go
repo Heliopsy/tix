@@ -89,6 +89,8 @@ func (m Model) bodyLines(layout Layout) []string {
 		return m.activityLines(layout)
 	case viewTenant:
 		return m.tenantLines(layout)
+	case viewStats:
+		return m.statsLines(layout)
 	default:
 		return m.boardLines(layout)
 	}

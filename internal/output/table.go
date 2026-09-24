@@ -125,6 +125,10 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, connectionHeader, v, p.connectionRow)
 	case core.ConnectionList:
 		return renderConnectionList(w, p, v)
+	case []core.Theme:
+		return renderRows(w, p, themeHeader, v, themeRow)
+	case core.Theme:
+		return renderRows(w, p, themeHeader, []core.Theme{v}, themeRow)
 	}
 	return renderReflected(w, p, data)
 }
@@ -138,7 +142,8 @@ var (
 	sshKeyHeader   = table.Row{"ID", "ACTOR", "LABEL", "FINGERPRINT", "CREATED", "LAST USED", "REVOKED"}
 	auditHeader    = table.Row{"SEQ", "ACTION", "SUBJECT", "ACTOR", "SOURCE", "OCCURRED"}
 	endpointHeader = table.Row{"ID", "URL", "EVENTS", "ACTIVE", "CREATED"}
-	tenantHeader   = table.Row{"ID", "KEY", "NAME", "CREATED", "DELETED"}
+	tenantHeader   = table.Row{"ID", "KEY", "NAME", "THEME", "CREATED", "DELETED"}
+	themeHeader    = table.Row{"NAME", "ACCENT", "SOFT", "SOURCE"}
 	userHeader     = table.Row{"ID", "EMAIL", "NAME", "CREATED", "DISABLED"}
 	issuedHeader   = table.Row{"ID", "NAME", "SCOPES", "TOKEN", "EXPIRES"}
 	claimHeader    = table.Row{"REF", "TITLE", "STATUS", "LEASE EXPIRES", "TOKEN"}
@@ -307,7 +312,26 @@ func (p Painter) endpointRow(e core.WebhookEndpoint) table.Row {
 }
 
 func (p Painter) tenantRow(t core.Tenant) table.Row {
-	return table.Row{t.ID, t.Key, truncate(t.Name, 40), p.style.Format(t.CreatedAt), p.style.FormatPtr(t.DeletedAt)}
+	theme := t.Theme
+	if theme == "" {
+		// Not blank: a tenant that names nothing still has an accent, and an
+		// empty cell reads as "no colour" rather than "one nobody picked".
+		theme = "(derived)"
+	}
+	return table.Row{
+		t.ID, t.Key, truncate(t.Name, 40), theme,
+		p.style.Format(t.CreatedAt), p.style.FormatPtr(t.DeletedAt),
+	}
+}
+
+// themeRow renders one resolvable palette. The source column is the useful
+// one: it says which names an operator may redefine in configuration.
+func themeRow(t core.Theme) table.Row {
+	source := "config"
+	if t.BuiltIn {
+		source = "built-in"
+	}
+	return table.Row{t.Name, t.Accent, t.AccentSoft, source}
 }
 
 func renderTaskPage(w io.Writer, p Painter, page core.TaskPage) error {
