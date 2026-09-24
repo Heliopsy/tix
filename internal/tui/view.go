@@ -259,7 +259,7 @@ func (m Model) cardLine(t core.Task, width int, selected bool) string {
 	marker := SelectionMarker(selected)
 	ref := t.Ref
 	badge := "P" + priorityDigit(t.Priority)
-	flags := CardFlags(t, m.now())
+	flags := CardFlags(t, m.now(), m.actorID())
 	head := marker + ref + " " + badge + flags + " "
 	title := Truncate(t.Title, max(1, width-len([]rune(head))))
 	if selected {
@@ -272,10 +272,20 @@ func (m Model) cardLine(t core.Task, width int, selected bool) string {
 
 // CardFlags renders a card's state markers compactly, so a narrow column still
 // says what is true of a task. The help view carries the legend.
-func CardFlags(t core.Task, now time.Time) string {
+//
+// mine is the actor reading the board. A claimed card said only that somebody
+// held it, which on a shared board leaves the first question anyone asks, "is
+// that me", answerable only by opening the task. A card held by the reader is
+// marked differently, and an empty mine degrades to the old behaviour rather
+// than guessing.
+func CardFlags(t core.Task, now time.Time, mine string) string {
 	var b strings.Builder
 	if t.ClaimedAtTime(now) {
-		b.WriteString("@")
+		if mine != "" && t.ClaimedByActorID == mine {
+			b.WriteString("@me")
+		} else {
+			b.WriteString("@")
+		}
 	}
 	if t.Blocked {
 		b.WriteString("!")
@@ -541,7 +551,12 @@ func (m Model) helpLines(layout Layout) []string {
 }
 
 // CardLegend explains the markers a card carries.
-var CardLegend = []string{"@ claimed", "! blocked", "+ has dependencies", "* has a due date"}
+// CardLegend explains the markers a card carries. It renders as one line, so
+// the entries stay short enough that the whole legend fits a narrow terminal
+// rather than being truncated into uselessness.
+var CardLegend = []string{
+	"@ claimed", "@me claimed by you", "! blocked", "+ dependencies", "* due date",
+}
 
 // footerLines renders the prompt, the status bar and the advertised bindings.
 func (m Model) footerLines() string {

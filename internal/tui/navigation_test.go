@@ -187,7 +187,10 @@ func TestTheHelpViewScrollsRatherThanLosingItsTop(t *testing.T) {
 		}
 		m, _ = m.reduce(pressKey("j"))
 	}
-	for _, want := range []string{"card markers: @ claimed, ! blocked, + has dependencies, * has a due date"} {
+	// Built from CardLegend rather than spelled out, so adding a marker does
+	// not mean editing the same sentence in two places and finding out which
+	// one is stale from a failure.
+	for _, want := range []string{"card markers: " + strings.Join(CardLegend, ", ")} {
 		found := false
 		for line := range seen {
 			if strings.Contains(line, want) {

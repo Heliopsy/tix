@@ -1002,3 +1002,12 @@ func clamp(v, lo, hi int) int {
 	}
 	return v
 }
+
+// actorID is the reader's own actor identifier, or empty when the session has
+// none. Used to tell a card this reader holds from one somebody else does.
+func (m Model) actorID() string {
+	if m.actor == nil {
+		return ""
+	}
+	return m.actor.ID
+}
