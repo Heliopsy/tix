@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.3.0](https://github.com/Heliopsy/tix/compare/v0.2.0...v0.3.0) (2026-09-24)
+
+
+### Features
+
+* **core:** a theme a tenant can name, and completion that installs itself ([343af15](https://github.com/Heliopsy/tix/commit/343af15744ee4ae1fc43982e0781a9c0c3a6bdf0))
+* **query:** negation and weak matching, a resumable watch, and tenant switching ([dabfb2d](https://github.com/Heliopsy/tix/commit/dabfb2d3026f1c8339423f2b99b8608ba82ae841))
+* statistics on every surface, and a theme that reaches all of them ([65261dd](https://github.com/Heliopsy/tix/commit/65261ddae0f688ea4b5f32fbcdba5dbffba31d4c))
+* **tui:** say which claimed cards are yours ([ac60743](https://github.com/Heliopsy/tix/commit/ac607439e024d79999a0ff86d11f674a7e2526e8))
+* **tui:** switch tenant without leaving, and filter the activity tail ([2c65c19](https://github.com/Heliopsy/tix/commit/2c65c19ea937fd3a4a34157c8ab525a95b478dca))
+* **web:** make import and export one screen that says what it does ([2d4c534](https://github.com/Heliopsy/tix/commit/2d4c5344eafa47f571a137d7e2416f0a56d26690))
+* **web:** make the screens people actually use less embarrassing ([e6685e0](https://github.com/Heliopsy/tix/commit/e6685e065bb0d633344156dfac98201f8bd80fa7))
+* **web:** say what sync does, and show what it has done ([8c2e1a1](https://github.com/Heliopsy/tix/commit/8c2e1a17d80e9f89cc3c59703dfbb2ad7b14358e))
+* **web:** show the running version, and say when a newer one exists ([9e1bc55](https://github.com/Heliopsy/tix/commit/9e1bc55b47e110a2ada78bae83ccbf8a25eda131))
+* **web:** show what sits under a tenant ([2d3daca](https://github.com/Heliopsy/tix/commit/2d3dacaa346607f71a9c201873be5c2fdaff4ee2))
+
+
+### Bug Fixes
+
+* **ci:** make the parity gate actually run the parity tests ([4b0abfd](https://github.com/Heliopsy/tix/commit/4b0abfd12c586c3d5ae3d6cedec130d2ceda3e83))
+* **ci:** unchecked writes in the stats table, and two markdown lint errors ([e612d98](https://github.com/Heliopsy/tix/commit/e612d981ae3f386d427928d6994db8db63650d2d))
+* **web:** one filter parser, so the browser stops answering a different question ([babb4b1](https://github.com/Heliopsy/tix/commit/babb4b1147669cc4eeefb28ca0e51347acb63a7a))
+
 ## [0.2.0](https://github.com/Heliopsy/tix/compare/v0.1.0...v0.2.0) (2026-09-23)
 
 
