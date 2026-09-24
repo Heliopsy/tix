@@ -1555,3 +1555,33 @@ nav.main .version .upgrade {
   color: var(--accent);
   font-weight: 600;
 }
+
+/* The tab strip on the import and export screen. Each tab is a link to its own
+   page, so the only job here is to make two links read as a pair and show
+   which one you are on. */
+nav.tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin: 0 0 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+nav.tabs a {
+  padding: 0.5rem 0.9rem;
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+nav.tabs a:hover { color: var(--text); }
+nav.tabs a[aria-current="page"] {
+  color: var(--text);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* The "what this does" notes. Closed by default: somebody who already knows
+   should not have to scroll past an explanation every time. */
+details.note { margin: 0 0 1rem; font-size: 0.9rem; }
+details.note > summary { cursor: pointer; color: var(--muted); }
+details.note > summary:hover { color: var(--text); }
+details.note p { margin: 0.5rem 0 0; color: var(--muted); max-width: 60ch; }

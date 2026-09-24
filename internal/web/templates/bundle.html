@@ -1,8 +1,19 @@
 {{define "content"}}
 <h1>Share components</h1>
-<p>A bundle carries configuration only. It never carries tasks, comments, artifacts or webhook secrets.</p>
+{{template "datatabs" .}}
+
+<p>A bundle carries this tenant's <strong>configuration</strong>: the shapes
+work takes, rather than the work itself. The work travels separately, under
+Snapshot.</p>
 
 <h2>Export a bundle</h2>
+<details class="note">
+  <summary>What goes into the file</summary>
+  <p>Workflows, field definitions, tags, project templates and webhook
+  endpoints. Never tasks, comments or artifacts, and never a webhook's signing
+  secret: the endpoint arrives, its secret does not, so an imported webhook is
+  inert until somebody gives it one.</p>
+</details>
 <form method="post" action="/bundles/export">
   {{template "csrf" .CSRF}}
   <label for="bundle_name">Bundle name</label>
@@ -32,6 +43,16 @@
 </form>
 
 <h2>Import a bundle</h2>
+<details class="note">
+  <summary>What an import changes</summary>
+  <p>Nothing here is deleted. A component whose key is free is created.</p>
+  <p>A component whose key is already taken stops the import and asks what to
+  do with it: <strong>skip</strong> keeps what is here, <strong>rename</strong>
+  brings the incoming one in under a new key, and <strong>replace</strong>
+  overwrites what is here with the incoming one.</p>
+  <p>Leave <strong>preview</strong> ticked to see what would happen. Nothing is
+  written until you untick it.</p>
+</details>
 <form method="post" action="/bundles/import" enctype="multipart/form-data">
   {{template "csrf" .CSRF}}
   <label class="file-field">

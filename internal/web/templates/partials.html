@@ -1,3 +1,19 @@
+{{define "datatabs"}}
+{{/* Bundles and Transfer were two screens with the same shape and no word
+     anywhere saying how they differ, so the only way to learn that one moves
+     work and the other moves configuration was to export one and read it.
+     They read as one screen with two tabs now.
+
+     Each tab stays its own URL rather than becoming a JavaScript panel: the
+     tab is then linkable, survives a reload, works with no script, and needs
+     no state kept anywhere. aria-current tells a screen reader which one it
+     is on, the same way the main navigation does. */}}
+<nav class="tabs" aria-label="Import and export">
+  <a href="/transfer" {{if eq .Path "/transfer"}}aria-current="page"{{end}}>Snapshot</a>
+  <a href="/bundles" {{if eq .Path "/bundles"}}aria-current="page"{{end}}>Components</a>
+</nav>
+{{end}}
+
 {{define "nav"}}
 <nav class="main">
   <a href="/tasks" {{if eq .Path "/tasks"}}aria-current="page"{{end}}>My tasks</a>
@@ -14,8 +30,10 @@
   <a href="/admin/connections" {{if eq .Path "/admin/connections"}}aria-current="page"{{end}}>Connections</a>
   <a href="/admin/webhooks" {{if eq .Path "/admin/webhooks"}}aria-current="page"{{end}}>Webhooks</a>
   <p class="group">Data</p>
-  <a href="/bundles" {{if eq .Path "/bundles"}}aria-current="page"{{end}}>Bundles</a>
-  <a href="/transfer" {{if eq .Path "/transfer"}}aria-current="page"{{end}}>Transfer</a>
+  {{/* One entry, because they are one screen now. Either tab's URL lights it,
+       so landing on Components from a link does not leave the navigation
+       looking like you are somewhere else. */}}
+  <a href="/transfer" {{if or (eq .Path "/transfer") (eq .Path "/bundles")}}aria-current="page"{{end}}>Import and export</a>
   <a href="/sync" {{if eq .Path "/sync"}}aria-current="page"{{end}}>Sync</a>
   {{end}}
 
