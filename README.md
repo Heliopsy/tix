@@ -181,6 +181,7 @@ from a `.env` file, with precedence `flags > env > .env > config > defaults`.
 | `tix login` | Exchange a password for a session |
 | `tix logout` | End a session |
 | `tix version` | Print version information |
+
 ## Install
 
 ```sh

@@ -21,7 +21,7 @@ browser and a 256-colour terminal, and the two cannot honour the same values any
 
 ## Resolution order, and why the hash stays
 
-```
+```text
 tenant.Theme named and resolvable -> that theme
 tenant.Theme named and unknown    -> error at write time, default at read time
 tenant.Theme empty                -> today's FNV hash over key+id

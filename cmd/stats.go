@@ -80,38 +80,38 @@ func writeStatsTable(w io.Writer, s *core.Stats) error {
 	if s.ProjectKey != "" {
 		scope = "project " + s.ProjectKey
 	}
-	fmt.Fprintf(tw, "WINDOW\t%s .. %s\t(%s)\n",
+	_, _ = fmt.Fprintf(tw, "WINDOW\t%s .. %s\t(%s)\n",
 		s.Since.Format(core.StatsDayLayout), s.Until.Format(core.StatsDayLayout), scope)
-	fmt.Fprintf(tw, "COMPLETED\t%d\t\n", s.Completed)
-	fmt.Fprintf(tw, "CREATED\t%d\t\n", s.Created)
-	fmt.Fprintf(tw, "MEDIAN LEAD TIME\t%s\t\n", s.MedianLeadTime)
-	fmt.Fprintf(tw, "SLOWEST LEAD TIME\t%s\t\n", s.SlowestLeadTime)
+	_, _ = fmt.Fprintf(tw, "COMPLETED\t%d\t\n", s.Completed)
+	_, _ = fmt.Fprintf(tw, "CREATED\t%d\t\n", s.Created)
+	_, _ = fmt.Fprintf(tw, "MEDIAN LEAD TIME\t%s\t\n", s.MedianLeadTime)
+	_, _ = fmt.Fprintf(tw, "SLOWEST LEAD TIME\t%s\t\n", s.SlowestLeadTime)
 
 	statsSection(tw, "COMPLETED PER DAY", len(s.PerDay))
 	for _, day := range s.PerDay {
-		fmt.Fprintf(tw, "  %s\t%d\t\n", day.Date, day.Completed)
+		_, _ = fmt.Fprintf(tw, "  %s\t%d\t\n", day.Date, day.Completed)
 	}
 
 	statsSection(tw, "TASKS BY STATE CATEGORY", len(s.ByCategory))
 	for _, c := range s.ByCategory {
-		fmt.Fprintf(tw, "  %s\t%d\t\n", c.Category, c.Count)
+		_, _ = fmt.Fprintf(tw, "  %s\t%d\t\n", c.Category, c.Count)
 	}
 
-	fmt.Fprintf(tw, "\nMOST ACTIVE ACTORS\t%s\t\n", statsMeasure(s))
+	_, _ = fmt.Fprintf(tw, "\nMOST ACTIVE ACTORS\t%s\t\n", statsMeasure(s))
 	for _, a := range s.TopActors {
 		name := a.Handle
 		if name == "" {
 			name = a.ActorID
 		}
-		fmt.Fprintf(tw, "  %s\t%d\t\n", name, a.Moved)
+		_, _ = fmt.Fprintf(tw, "  %s\t%d\t\n", name, a.Moved)
 	}
 	if len(s.TopActors) == 0 {
-		fmt.Fprint(tw, "  none\t\t\n")
+		_, _ = fmt.Fprint(tw, "  none\t\t\n")
 	}
 
 	statsSection(tw, "OLDEST TASKS NOT YET IN A TERMINAL STATE", len(s.Oldest))
 	for _, o := range s.Oldest {
-		fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\n", o.Ref, o.Status, o.Age, o.Title)
+		_, _ = fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\n", o.Ref, o.Status, o.Age, o.Title)
 	}
 	return tw.Flush()
 }
@@ -129,8 +129,8 @@ func statsMeasure(s *core.Stats) string {
 // statsSection writes a section heading, saying so when it has no rows.
 func statsSection(w io.Writer, title string, rows int) {
 	if rows == 0 {
-		fmt.Fprintf(w, "\n%s\t%s\t\n", title, "none")
+		_, _ = fmt.Fprintf(w, "\n%s\t%s\t\n", title, "none")
 		return
 	}
-	fmt.Fprintf(w, "\n%s\t%s\t\n", title, strconv.Itoa(rows))
+	_, _ = fmt.Fprintf(w, "\n%s\t%s\t\n", title, strconv.Itoa(rows))
 }
