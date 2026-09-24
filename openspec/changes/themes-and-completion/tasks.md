@@ -10,7 +10,7 @@
 - [x] `internal/web`: accent from the resolved theme, hash only when unthemed
 - [x] `internal/tui`: `NewTheme` takes the resolved theme; accent on header, ref, selection
 - [x] `cmd`: `tix theme ls`, `tix tenant set --theme`
-- [ ] Leak test: a theme name never crosses a tenant
+- [x] Leak test: a theme name never crosses a tenant
 
 ## Completion install
 
@@ -35,10 +35,10 @@
 
 - [x] `docs/theming.md`, `docs/statistics.md`, both linked from `docs/README.md`
 - [x] `ROADMAP.md`: move completion and theming into what shipped
-- [ ] Regenerate the README command table
+- [x] Regenerate the README command table
 
 ## Release
 
-- [ ] `just ci` green, coverage above the gate
-- [ ] `openspec validate themes-and-completion --strict`
+- [x] `just ci` green, coverage above the gate
+- [x] `openspec validate themes-and-completion --strict`
 - [ ] Archive the change, tag v0.3.0
