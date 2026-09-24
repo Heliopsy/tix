@@ -10,9 +10,13 @@ import (
 
 // Tenant is the top-level isolation boundary.
 type Tenant struct {
-	ID        string     `json:"id" yaml:"id"`
-	Key       string     `json:"key" yaml:"key"`
-	Name      string     `json:"name" yaml:"name"`
+	ID   string `json:"id" yaml:"id"`
+	Key  string `json:"key" yaml:"key"`
+	Name string `json:"name" yaml:"name"`
+	// Theme names the palette this tenant presents itself with, on every
+	// surface. Empty means nobody chose, and the accent is derived from the
+	// tenant's own identity instead; see ThemeRegistry.Resolve.
+	Theme     string     `json:"theme,omitempty" yaml:"theme,omitempty"`
 	CreatedAt time.Time  `json:"created_at" yaml:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at" yaml:"updated_at"`
 	DeletedAt *time.Time `json:"deleted_at,omitempty" yaml:"deleted_at,omitempty"`

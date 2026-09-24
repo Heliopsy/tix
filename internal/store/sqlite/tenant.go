@@ -11,7 +11,7 @@ import (
 	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
-var tenantColumns = []string{"id", "key", "name", "created_at", "updated_at", "deleted_at"}
+var tenantColumns = []string{"id", "key", "name", "theme", "created_at", "updated_at", "deleted_at"}
 
 func scanTenant(s scanner) (core.Tenant, error) {
 	var (
@@ -20,7 +20,7 @@ func scanTenant(s scanner) (core.Tenant, error) {
 		updated   sql.NullString
 		deletedAt sql.NullString
 	)
-	if err := s.Scan(&t.ID, &t.Key, &t.Name, &created, &updated, &deletedAt); err != nil {
+	if err := s.Scan(&t.ID, &t.Key, &t.Name, &t.Theme, &created, &updated, &deletedAt); err != nil {
 		return core.Tenant{}, mapErr(err, "scanning tenant")
 	}
 	var err error
@@ -107,6 +107,7 @@ func (t *tx) CreateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("id", in.ID).
 		Set("key", in.Key).
 		Set("name", in.Name).
+		Set("theme", in.Theme).
 		Set("created_at", sqlb.TimeText(in.CreatedAt)).
 		Set("updated_at", sqlb.TimeText(in.UpdatedAt)).
 		Set("deleted_at", sqlb.NullTimeText(in.DeletedAt))
@@ -121,6 +122,7 @@ func (t *tx) UpdateTenant(ctx context.Context, in *core.Tenant) error {
 		Where("id = ?", in.ID).
 		Set("key", in.Key).
 		Set("name", in.Name).
+		Set("theme", in.Theme).
 		Set("updated_at", sqlb.TimeText(in.UpdatedAt)).
 		Set("deleted_at", sqlb.NullTimeText(in.DeletedAt))
 	n, err := t.execUpdate(ctx, b, "updating tenant %q", in.ID)

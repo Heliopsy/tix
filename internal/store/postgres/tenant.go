@@ -98,6 +98,7 @@ func (t *tx) CreateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("id", in.ID).
 		Set("key", in.Key).
 		Set("name", in.Name).
+		Set("theme", in.Theme).
 		Set("created_at", timeArg(in.CreatedAt)).
 		Set("updated_at", timeArg(in.UpdatedAt)).
 		Set("deleted_at", nullTimeArg(in.DeletedAt))
@@ -112,6 +113,7 @@ func (t *tx) UpdateTenant(ctx context.Context, in *core.Tenant) error {
 		Where("id = ?", in.ID).
 		Set("key", in.Key).
 		Set("name", in.Name).
+		Set("theme", in.Theme).
 		Set("updated_at", timeArg(in.UpdatedAt)).
 		Set("deleted_at", nullTimeArg(in.DeletedAt))
 	n, err := t.execUpdate(ctx, b, "updating tenant %q", in.ID)

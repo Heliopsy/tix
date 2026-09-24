@@ -58,7 +58,7 @@ func newVersionCmd(g *globals) *cobra.Command {
 }
 
 // newCompletionCmd builds the shell completion command.
-func newCompletionCmd(_ *globals) *cobra.Command {
+func newCompletionCmd(g *globals) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "completion SHELL",
 		Short: "Generate a shell completion script",
@@ -83,6 +83,7 @@ func newCompletionCmd(_ *globals) *cobra.Command {
 		},
 		ValidArgsFunction: fixedCompletion([]string{"bash", "zsh", "fish"}),
 	}
+	cmd.AddCommand(newCompletionInstallCmd(g))
 	return cmd
 }
 

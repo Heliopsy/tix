@@ -6,10 +6,12 @@ before:
 builds:
   - env:
       - CGO_ENABLED=0
-    # android/arm64 is here for Termux, where the linux binary will not run:
-    # Android's linker and its lack of a standard glibc make it a distinct
-    # target, and the pure-Go sqlite driver builds for it because nothing here
-    # uses cgo.
+    # android/arm64 is published for Termux, though the claim that used to be
+    # here, that the linux binary will not run there, is wrong: a
+    # CGO_ENABLED=0 linux/arm64 binary runs on Android fine, and that is what
+    # install.sh actually delivers, because Termux answers "Linux" to
+    # `uname -s`. This target stays for anyone who wants the native GOOS, and
+    # it builds because nothing here uses cgo.
     goos: [linux, darwin, windows, android]
     goarch: [amd64, arm64]
     ignore:
