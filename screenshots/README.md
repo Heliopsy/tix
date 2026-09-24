@@ -10,7 +10,8 @@ Captured against a seeded demo database on the commit that added them.
 | [tui-board.png](tui-board.png) | `tix tui`, the workflow board |
 | [web-task-list.png](web-task-list.png) | Browser task list |
 | [web-task-detail.png](web-task-detail.png) | Browser task detail |
-| [web-bundles-dark.png](web-bundles-dark.png) | Component sharing |
+| [web-bundles-dark.png](web-bundles-dark.png) | Import and export, the snapshot tab |
+| [web-tenant-shape.png](web-tenant-shape.png) | The tenant screen, showing what sits under what |
 
 The browser images use the dark scheme. The interface also offers light and a
 low contrast scheme, chosen per browser from the sidebar.
