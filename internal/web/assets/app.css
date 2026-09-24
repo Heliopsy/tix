@@ -1585,3 +1585,30 @@ details.note { margin: 0 0 1rem; font-size: 0.9rem; }
 details.note > summary { cursor: pointer; color: var(--muted); }
 details.note > summary:hover { color: var(--text); }
 details.note p { margin: 0.5rem 0 0; color: var(--muted); max-width: 60ch; }
+
+/* The tenant shape. A list drawn as a tree: the indent carries the nesting
+   that the markup already states, so nothing here is load bearing for meaning
+   and a reader with styles off still gets the hierarchy. */
+ul.shape { list-style: none; margin: 0 0 2rem; padding: 0; max-width: 60ch; }
+ul.shape li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--line-faint, var(--line));
+}
+ul.shape li.depth-1 { padding-left: 1.5rem; }
+ul.shape li.depth-2 { padding-left: 3rem; }
+ul.shape li.depth-1::before,
+ul.shape li.depth-2::before {
+  content: "└";
+  margin-left: -1rem;
+  color: var(--muted);
+}
+ul.shape .name { font-weight: 600; }
+ul.shape .count {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+ul.shape .note { color: var(--muted); font-size: 0.85rem; margin-left: auto; text-align: right; }

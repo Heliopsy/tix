@@ -43,6 +43,25 @@ type tenantView struct {
 	Members   []core.Membership
 	Retention core.RetentionPolicy
 	Roles     []core.Role
+	Shape     []shapeNode
+}
+
+// shapeNode is one row of the diagram showing what sits under what.
+//
+// It carries a live count rather than being a static picture, because the
+// question somebody actually has on this screen is "where does my stuff
+// live", and a drawing of an empty model does not answer it. A count of zero
+// is worth as much as any other: it is how you find out that a tenant has no
+// domains, which is the usual reason a hostname is not resolving.
+type shapeNode struct {
+	Depth int
+	Name  string
+	Count int
+	// Href links to where that kind is managed, empty when there is nowhere
+	// to go.
+	Href string
+	// Note says what the thing is, in one clause.
+	Note string
 }
 
 // showTenant renders the tenant record, its members and its retention policy.
@@ -63,9 +82,48 @@ func (h *handler) showTenant(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	shape, err := h.tenantShape(r, len(members))
+	if err != nil {
+		return err
+	}
 	return h.render(w, r, "tenant.html", "Tenant", tenantView{
 		Tenant: *tenant, Tenants: tenants, Members: members,
-		Retention: *retention, Roles: core.Roles})
+		Retention: *retention, Roles: core.Roles, Shape: shape})
+}
+
+// tenantShape counts what hangs off this tenant, for the diagram.
+//
+// Every count is a listing this screen's reader is already allowed to make,
+// so the diagram shows nothing that a walk of the navigation would not. A
+// listing that fails is not fatal: the diagram is an explanation, and losing
+// the tenant page because a count errored would be a poor trade.
+func (h *handler) tenantShape(r *http.Request, members int) ([]shapeNode, error) {
+	ctx := r.Context()
+	count := func(n int, err error) int {
+		if err != nil {
+			return -1
+		}
+		return n
+	}
+
+	projects, _, err := h.svc.ListProjects(ctx, core.ProjectFilter{})
+	if err != nil {
+		return nil, err
+	}
+	workflows, wErr := h.svc.ListWorkflows(ctx)
+	domains, dErr := h.svc.ListDomains(ctx)
+	tokens, tErr := h.svc.ListTokens(ctx, "")
+
+	return []shapeNode{
+		{Depth: 0, Name: "Tenant", Count: -1, Note: "everything below belongs to it and is invisible from any other"},
+		{Depth: 1, Name: "Members", Count: members, Href: RouteUsers, Note: "people, each with a role here"},
+		{Depth: 1, Name: "Domains", Count: count(len(domains), dErr), Href: RouteDomains, Note: "hostnames that resolve to this tenant"},
+		{Depth: 1, Name: "API tokens", Count: count(len(tokens), tErr), Href: RouteTokens, Note: "what an agent authenticates with"},
+		{Depth: 1, Name: "Workflows", Count: count(len(workflows), wErr), Href: RouteWorkflows, Note: "the states a task moves between"},
+		{Depth: 1, Name: "Projects", Count: len(projects), Href: RouteProjects, Note: "each one picks a workflow"},
+		{Depth: 2, Name: "Tasks", Count: -1, Note: "the work, and its comments, artifacts and dependencies"},
+		{Depth: 2, Name: "Field definitions", Count: -1, Note: "the custom fields a task in that project carries"},
+	}, nil
 }
 
 // updateTenant saves the tenant's display name.

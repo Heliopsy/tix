@@ -72,3 +72,40 @@ func TestImportExportExplainsWhatItOverwrites(t *testing.T) {
 			"which is what makes it different from a snapshot replace")
 	}
 }
+
+// TestTenantShowsItsShape pins the diagram, including the part that makes it
+// worth having: live counts rather than a drawing of the model.
+//
+// A picture of an empty tenant answers a question nobody has. "Domains 0" is
+// how somebody works out why their hostname does not resolve, so the count
+// has to be real and a zero has to render.
+func TestTenantShowsItsShape(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	page := f.as("alice").page("/admin/tenant")
+
+	if !strings.Contains(page, `class="shape"`) {
+		t.Fatal("the tenant page has no shape diagram")
+	}
+	for _, kind := range []string{"Members", "Domains", "API tokens", "Workflows", "Projects", "Tasks"} {
+		if !strings.Contains(page, kind) {
+			t.Errorf("the diagram never mentions %q", kind)
+		}
+	}
+	// Nesting is in the markup, not only in the indent, so a reader with no
+	// styles still learns that tasks sit under projects.
+	if !strings.Contains(page, `class="depth-2"`) {
+		t.Error("nothing is drawn as nested, so the diagram states no hierarchy")
+	}
+	// The kinds that have somewhere to go, go there.
+	for _, href := range []string{`href="/admin/users"`, `href="/admin/domains"`, `href="/projects"`} {
+		if !strings.Contains(page, href) {
+			t.Errorf("the diagram does not link %s", href)
+		}
+	}
+	// A zero must render rather than being mistaken for absent. A fresh
+	// fixture has no domains, so this is the live zero.
+	if !strings.Contains(page, `<span class="count">0</span>`) {
+		t.Error("a count of zero is not rendered, so an empty kind looks unmeasured")
+	}
+}

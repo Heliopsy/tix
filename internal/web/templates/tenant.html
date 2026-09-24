@@ -1,5 +1,31 @@
 {{define "content"}}
 <h1>Tenant</h1>
+
+{{/* What sits under what.
+
+     A nested list, not a drawing. The thing being explained is a hierarchy,
+     and a list is what a hierarchy is: a screen reader announces the nesting
+     and the item counts without being told, keyboard focus moves through the
+     links in the order they are drawn, and it reflows on a narrow screen
+     because it is text. An SVG would have needed all of that describing
+     again in parallel, and would have gone stale the first time somebody
+     added a kind.
+
+     The counts are live. A drawing of the empty model answers a question
+     nobody has; "you have no domains" is how somebody finds out why their
+     hostname does not resolve. */}}
+<h2>What sits under this tenant</h2>
+<ul class="shape">
+  {{range .Data.Shape}}
+  <li class="depth-{{.Depth}}">
+    <span class="name">
+      {{if .Href}}<a href="{{.Href}}">{{.Name}}</a>{{else}}{{.Name}}{{end}}
+    </span>
+    {{if ge .Count 0}}<span class="count">{{.Count}}</span>{{end}}
+    <span class="note">{{.Note}}</span>
+  </li>
+  {{end}}
+</ul>
 <form method="post" action="/admin/tenant">
   {{template "csrf" .CSRF}}
   <label for="name">Display name</label>
