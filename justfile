@@ -319,8 +319,26 @@ docs-check:
     exit $rc
 
 # Capability registry parity: every operation reachable from CLI, HTTP and web.
+#
+# The whole package, not `-run TestParity`. No test here has ever been named
+# that, so the filter matched nothing and the recipe reported "ok ... [no tests
+# to run]" and passed. A gate that watches nothing is worse than no gate,
+# because its green tick is read as evidence.
+#
+# The count check is the other half. Running the package would silently go
+# vacuous again if the tests were renamed or moved, so the recipe asserts it
+# actually ran them.
 parity:
-    go test ./internal/capability/... -run TestParity -count=1
+    #!/usr/bin/env bash
+    set -euo pipefail
+    out=$(go test ./internal/capability/... -count=1 -v 2>&1)
+    echo "$out" | grep -E '^(ok|FAIL|---)' || true
+    ran=$(echo "$out" | grep -c '^=== RUN   Test' || true)
+    if [ "$ran" -lt 10 ]; then
+      echo "parity ran $ran tests, expected at least 10: the suite has moved or been renamed" >&2
+      exit 1
+    fi
+    echo "parity: $ran tests"
 
 # Cross-tenant isolation suite: the scoped builder on both engines, and the
 # PostgreSQL row-level security policies. Layer 4 only exists on PostgreSQL, so
