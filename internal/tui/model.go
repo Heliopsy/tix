@@ -595,8 +595,18 @@ func (m Model) handleProjectsKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // projectRows is how many project rows the current terminal has room for.
 func (m Model) projectRows() int {
-	return VisibleRows(LayoutFor(m.width, m.height, len(m.columns)).BodyHeight, len(m.projects))
+	// The header and its blank line are body lines too. Budgeting the whole
+	// body for rows drew more of them than the frame had, which the scroll
+	// guard caught: the count and the rows have to come out of one total.
+	body := LayoutFor(m.width, m.height, len(m.columns)).BodyHeight - projectHeaderLines
+	if body < 1 {
+		body = 1
+	}
+	return VisibleRows(body, len(m.projects))
 }
+
+// projectHeaderLines is how many body lines the projects header occupies.
+const projectHeaderLines = 2
 
 // handleBoardKey moves the board selection and runs the board actions.
 func (m Model) handleBoardKey(msg tea.KeyMsg) (Model, tea.Cmd) {

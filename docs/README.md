@@ -22,6 +22,7 @@ with the thing.
 | [migrating.md](migrating.md) | Importing from Jira and OpenProject, mapping files, snapshots, bundles |
 | [shell-completion.md](shell-completion.md) | Installing completions for bash, zsh and fish |
 | [theming.md](theming.md) | Tenant accents, built-in and custom themes, what is deliberately not themed |
+| [statistics.md](statistics.md) | Throughput, lead time, ageing, and what the leaderboard actually counts |
 | [testing.md](testing.md) | Running the suite, what a partial run announces, the coverage floors |
 
 ## Where to start

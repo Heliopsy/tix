@@ -40,6 +40,12 @@ func (m Model) titleBar() string {
 	if m.project.Key != "" {
 		parts = append(parts, m.projectLabel(m.project))
 	}
+	// Which view is open, before the connection state. Nothing on screen said
+	// this: projects, the board, activity, the tenant screen and statistics
+	// all rendered into the same frame under the same title, so the only way
+	// to know where you were was to recognise the body, and the only way to
+	// know a key did anything was that the body changed.
+	parts = append(parts, m.theme.Header.Render(m.viewName()))
 	parts = append(parts, m.connectionLabel())
 	if m.view == viewActivity && m.activityFilterText != "" {
 		parts = append(parts, m.theme.Ref.Render("activity: "+m.activityFilterText))
@@ -47,6 +53,29 @@ func (m Model) titleBar() string {
 		parts = append(parts, m.theme.Ref.Render("filter: "+m.filterText))
 	}
 	return m.fit(strings.Join(parts, m.theme.Bar.Render(" │ ")))
+}
+
+// viewName is the open view, for the title bar.
+func (m Model) viewName() string {
+	switch m.view {
+	case viewProjects:
+		return "projects"
+	case viewBoard:
+		return "board"
+	case viewDetail:
+		return "task"
+	case viewActivity:
+		return "activity"
+	case viewTenant:
+		return "tenant"
+	case viewStats:
+		return "statistics"
+	case viewSettings:
+		return "settings"
+	case viewHelp:
+		return "help"
+	}
+	return ""
 }
 
 // projectLabel renders a project with its icon and its palette colour.
@@ -102,6 +131,9 @@ func (m Model) projectLines() []string {
 	if empty := ProjectsEmptyState(len(m.projects)); !empty.Zero() {
 		return m.emptyLines(empty)
 	}
+	// A count, because a scrolling list with no total cannot tell you whether
+	// you have seen all of it.
+	head := []string{m.theme.Header.Render(fmt.Sprintf("  %d projects", len(m.projects))), ""}
 	rows := m.projectRows()
 	offset := ScrollWindow(m.projectOff, m.projectSel, rows, len(m.projects))
 	lines := make([]string, 0, rows+1)
@@ -111,7 +143,7 @@ func (m Model) projectLines() []string {
 	if hint := ScrollHint(offset, rows, len(m.projects)); hint != "" {
 		lines = append(lines, m.theme.Dim.Render("  "+hint))
 	}
-	return lines
+	return append(head, lines...)
 }
 
 // settingsLines renders the keybinding schemes on offer, marking the active

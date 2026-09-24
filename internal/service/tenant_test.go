@@ -292,3 +292,69 @@ func TestCreateTenantSeedsTheBuiltinWorkflow(t *testing.T) {
 		t.Errorf("tenant holds %d workflows keyed %q, want exactly 1", seen, BuiltinWorkflowKey)
 	}
 }
+
+// TestTenantThemeIsRefusedUnlessItResolves pins the write-side half of the
+// split the design makes deliberately: a write refuses an unknown name,
+// because that is the moment a typo can still be fixed, while a read falls
+// back so a configuration file that lost a block cannot take a board down.
+func TestTenantThemeIsRefusedUnlessItResolves(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+
+	ocean := "ocean"
+	got, err := l.UpdateTenant(ctx, "", core.UpdateTenantInput{Theme: &ocean})
+	if err != nil {
+		t.Fatalf("setting a built-in theme: %v", err)
+	}
+	if got.Theme != "ocean" {
+		t.Errorf("theme = %q, want %q", got.Theme, "ocean")
+	}
+
+	unknown := "nothing-defines-this"
+	if _, err := l.UpdateTenant(ctx, "", core.UpdateTenantInput{Theme: &unknown}); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("setting an unknown theme = %v, want not found", err)
+	}
+
+	// The empty string is how a theme is cleared, so it must not be mistaken
+	// for an unset field and must not be validated as a name.
+	clear := ""
+	cleared, err := l.UpdateTenant(ctx, "", core.UpdateTenantInput{Theme: &clear})
+	if err != nil {
+		t.Fatalf("clearing the theme: %v", err)
+	}
+	if cleared.Theme != "" {
+		t.Errorf("theme after clearing = %q, want empty", cleared.Theme)
+	}
+	// Cleared means derived, not colourless: the tenant keeps the accent it
+	// had before themes existed.
+	if l.ResolveTheme(cleared).Accent == "" {
+		t.Error("a cleared theme resolved to no accent")
+	}
+}
+
+// TestTenantThemeNeverCrossesATenant seeds two tenants that differ only in
+// their theme and checks neither can see or change the other's.
+func TestTenantThemeNeverCrossesATenant(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+
+	ocean := "ocean"
+	if _, err := l.UpdateTenant(ctx, "", core.UpdateTenantInput{Theme: &ocean}); err != nil {
+		t.Fatalf("theming the actor's own tenant: %v", err)
+	}
+
+	// A tenant the actor does not belong to. Writing its theme must be a
+	// not-found rather than a silent success against someone else's row.
+	plum := "plum"
+	if _, err := l.UpdateTenant(ctx, "someothertenant", core.UpdateTenantInput{Theme: &plum}); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("theming a foreign tenant = %v, want not found", err)
+	}
+
+	own, err := l.GetTenant(ctx, "")
+	if err != nil {
+		t.Fatalf("GetTenant: %v", err)
+	}
+	if own.Theme != "ocean" {
+		t.Errorf("own theme = %q, want it untouched by the foreign write", own.Theme)
+	}
+}

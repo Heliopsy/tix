@@ -133,29 +133,37 @@ from a `.env` file, with precedence `flags > env > .env > config > defaults`.
 
 | Command | Does |
 | --- | --- |
+| `tix artifact` | Attach and read task artifacts |
 | `tix claim` | Take and hold leases on tasks |
 | `tix comment` | Manage task comments |
 | `tix dep` | Manage task dependencies |
 | `tix project` | Manage projects |
+| `tix stats` | Report throughput, ageing and who closed what |
 | `tix tag` | Manage task tags |
 | `tix task` | Create, list and change tasks |
 | `tix tui` | Browse and work on tasks in a terminal interface |
+| `tix watch` | Follow the event stream |
 
 ### Administration
 
 | Command | Does |
 | --- | --- |
+| `tix actor` | Resolve actor identifiers |
 | `tix audit` | Read the audit log |
 | `tix bundle` | Share reusable components between projects, tenants and installations |
+| `tix connection` | See and end the connections a server holds |
 | `tix domain` | Map hostnames to the current tenant |
 | `tix export` | Stream a tenant snapshot to standard output |
 | `tix field` | Manage project custom fields |
 | `tix import` | Apply a tenant snapshot read from standard input |
 | `tix member` | Manage tenant membership |
 | `tix prune` | Remove history past its retention window |
+| `tix retention` | Inspect and change the history retention policy |
 | `tix serve` | Serve the tix HTTP API |
+| `tix ssh` | Serve the terminal interface over SSH |
 | `tix sync` | Import from Jira, OpenProject and shaped files |
 | `tix tenant` | Manage tenants |
+| `tix theme` | Inspect the palettes a tenant may use |
 | `tix token` | Manage API tokens |
 | `tix user` | Manage users |
 | `tix webhook` | Manage outgoing webhooks |
@@ -171,21 +179,8 @@ from a `.env` file, with precedence `flags > env > .env > config > defaults`.
 | `tix docs` | Emit the command tree as Markdown |
 | `tix doctor` | Diagnose the local installation |
 | `tix login` | Exchange a password for a session |
+| `tix logout` | End a session |
 | `tix version` | Print version information |
-<!-- END COMMANDS -->
-
-`tix <command> --help` documents every flag and its exit codes. `tix docs` emits the whole tree as Markdown, and
-`tix docs --table --depth 2` includes subcommands.
-
-Regenerate the table above after changing the command tree:
-
-```sh
-just build
-bin/tix docs --table > /tmp/tix-commands.md
-awk '/^<!-- BEGIN COMMANDS/{print; system("cat /tmp/tix-commands.md"); skip=1; next}
-     /^<!-- END COMMANDS/{skip=0} !skip' README.md > README.new && mv README.new README.md
-```
-
 ## Install
 
 ```sh
