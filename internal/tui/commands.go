@@ -215,30 +215,31 @@ func (m Model) subscribe(since int64) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx := m.svc, m.ctx
+	svc, ctx, gen := m.svc, m.ctx, m.gen
 	return func() tea.Msg {
 		events, err := svc.Subscribe(ctx, core.EventFilter{SinceSeq: since})
 		if err != nil {
-			return streamMsg{err: err}
+			return streamMsg{err: err, gen: gen}
 		}
-		return streamMsg{connected: true, events: events}
+		return streamMsg{connected: true, events: events, gen: gen}
 	}
 }
 
-// nextEvent waits for one more event from an open subscription.
-func nextEvent(events <-chan core.Event) tea.Cmd {
+// nextEvent waits for one more event from an open subscription, tagged with
+// the connection it belongs to.
+func nextEvent(events <-chan core.Event, gen int) tea.Cmd {
 	return func() tea.Msg {
 		event, ok := <-events
 		if !ok {
-			return streamMsg{}
+			return streamMsg{gen: gen}
 		}
-		return eventMsg{event: event}
+		return eventMsg{event: event, gen: gen}
 	}
 }
 
 // reconnect waits before opening a dropped subscription again.
-func reconnect() tea.Cmd {
-	return tea.Tick(time.Second, func(time.Time) tea.Msg { return reconnectMsg{} })
+func reconnect(gen int) tea.Cmd {
+	return tea.Tick(time.Second, func(time.Time) tea.Msg { return reconnectMsg{gen: gen} })
 }
 
 // createTask adds a task to the open project.

@@ -211,3 +211,22 @@ Reading the audit log SHALL require a dedicated audit read scope that is distinc
 
 - **WHEN** a caller holding audit read scope for one tenant requests entries for another tenant
 - **THEN** the request is refused and no entries are returned
+
+### Requirement: One activity vocabulary across the surfaces
+
+The filter the activity feed is narrowed by SHALL be one vocabulary and one parser, whatever surface applies it, so an expression selects the same entries from the browser, the command line and the terminal interface. A term that one surface's rows cannot answer SHALL be refused by that surface, naming the term and where it can be applied, rather than being accepted and matching nothing.
+
+#### Scenario: An expression selects the same entries everywhere
+
+- **WHEN** the same activity filter expression is applied on the command line and in the terminal interface
+- **THEN** both are read by one parser, so a key or an operator accepted by one is accepted by the other
+
+#### Scenario: The store answers what it can
+
+- **WHEN** an expression carries terms the audit query takes, such as actor, subject kind, action or source
+- **THEN** those terms are handed to the store rather than applied over rows it has already returned, and the result is the same either way
+
+#### Scenario: A term the live event tail cannot answer is refused by name
+
+- **WHEN** a source term is applied to the live event tail
+- **THEN** it is refused with the reason that an event records what happened rather than which surface asked for it, and the audit listing is named as where source can be filtered

@@ -517,3 +517,86 @@ The TUI SHALL offer named keybinding schemes and per-action overrides, SHALL pro
 
 - **WHEN** the configured scheme name is not one that ships, or a configured override cannot be applied
 - **THEN** the interface starts on the default bindings and states why
+
+### Requirement: Tenant switching from inside the interface
+
+The TUI SHALL offer a tenant view that names the tenant the session is working in and accepts a tenant key to switch to, SHALL validate that key by opening a connection pinned to it and asking that connection who the actor is, and SHALL NOT present a list of tenants to choose from. A session opened without a way to dial another tenant SHALL say so and name the command that can.
+
+#### Scenario: The tenant in force is stated
+
+- **WHEN** the tenant view is open
+- **THEN** it names the tenant the session is working in and the actor it is working as
+
+#### Scenario: A key is typed rather than picked from a list
+
+- **WHEN** the user asks to switch tenant
+- **THEN** the interface takes a typed key, and says that no list exists because an actor belongs to one tenant and tenant listings are scoped to it
+
+#### Scenario: A reachable tenant replaces the session
+
+- **WHEN** a typed key names a tenant the actor can reach
+- **THEN** the session works in that tenant, the project list, board, task detail and event tail loaded from the previous tenant are discarded, and the interface returns to the project list
+
+#### Scenario: An unreachable tenant leaves the session alone
+
+- **WHEN** a typed key cannot be dialled, or the tenant it names refuses the actor
+- **THEN** the interface reports the key that could not be reached and the session keeps working in the tenant it was in
+
+#### Scenario: The key the session is already on is refused
+
+- **WHEN** the typed key is the tenant already in force
+- **THEN** the interface says so and dials nothing
+
+#### Scenario: Leases are not silently abandoned
+
+- **WHEN** a switch happens while this session holds leases
+- **THEN** the interface states that those leases were dropped from the session and will expire unreleased, because a lease is held in the tenant it was taken in
+
+#### Scenario: The previous tenant's events are not drawn under the new one
+
+- **WHEN** an event from the subscription opened on the previous tenant arrives after a switch
+- **THEN** it is discarded rather than recorded in the new tenant's activity tail
+
+#### Scenario: A session that cannot switch says so
+
+- **WHEN** the interface was started without a way to open another tenant
+- **THEN** the tenant view states that this session cannot switch and names `tix tenant use`
+
+### Requirement: Activity filtering in the terminal interface
+
+The TUI SHALL offer a filter over its activity view, SHALL accept the same expression `tix audit ls --filter` accepts, and SHALL refuse by name any term the live event tail cannot answer rather than applying it as a term that matches nothing.
+
+#### Scenario: The tail is narrowed
+
+- **WHEN** an activity filter expression is applied
+- **THEN** only the events it accepts are drawn, and the events it hides remain in the tail rather than being discarded
+
+#### Scenario: The filter is the shared one
+
+- **WHEN** the same expression is given to the activity view and to `tix audit ls --filter`
+- **THEN** both are parsed by one parser, so a key accepted by one is accepted by the other
+
+#### Scenario: A term an event cannot answer is refused
+
+- **WHEN** an expression carries a `source:` term
+- **THEN** the interface refuses it, states that an event carries no source, and names `tix audit ls` as where source can be filtered
+
+#### Scenario: A bad expression keeps the one in force
+
+- **WHEN** an expression cannot be parsed
+- **THEN** the error is shown and the filter already applied keeps selecting
+
+#### Scenario: The view says how much it is hiding
+
+- **WHEN** a filter is in force
+- **THEN** the status bar counts the events it keeps against the events the tail holds
+
+#### Scenario: A filter that hides everything blames itself
+
+- **WHEN** a filter accepts none of the events in the tail
+- **THEN** the view says no event matches the filter, rather than saying the tenant is quiet
+
+#### Scenario: The filter can be cleared
+
+- **WHEN** the clear-filter key is pressed in the activity view
+- **THEN** the whole tail is drawn again

@@ -3,11 +3,13 @@
 package cmd
 
 import (
+	"context"
 	"strings"
 	"time"
 
 	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/query"
 	"github.com/heliopsy/tix/internal/storeloc"
 	"github.com/spf13/cobra"
 )
@@ -214,17 +216,32 @@ func newAuditCmd(g *globals) *cobra.Command {
 	return cmd
 }
 
+// auditScanPages bounds how many store pages one filtered listing may read
+// while looking for a screenful of matches. The structured parts of a filter
+// are answered by the store itself, so they need one page; only the free text
+// and the negated terms can leave a page with nothing on it, and this is what
+// stops a word that matches nothing from walking the whole audit table. A
+// listing that hits the bound still reports its cursor, so the reader can
+// carry on rather than being told the search is over.
+const auditScanPages = 8
+
 func auditLsCmd(g *globals) *cobra.Command {
-	var subjectType, subjectID, since, until, cursor string
+	var subjectType, subjectID, since, until, cursor, expr string
 	var actors, actions []string
 	var limit int
 	cmd := &cobra.Command{
 		Use:     "ls",
 		Aliases: []string{"list"},
 		Short:   "List audit entries",
-		Long:    "List audit entries, newest first, streamed as they are read.\n\nExit codes: 5 permission denied.",
-		Example: "  tix audit ls --subject-type task -o ndjson",
-		Args:    noArgs,
+		Long: "List audit entries, newest first, streamed as they are read.\n\n" +
+			"--filter takes the same expression the activity screen's search and dropdowns build: " +
+			strings.Join(query.ActivityKeys, ", ") + ". " + query.ActivitySyntaxHint() + ".\n" +
+			"A filter and the flags above it both apply, so a filter never widens what a flag selected.\n\n" +
+			"Exit codes: 2 unreadable filter, 5 permission denied.",
+		Example: "  tix audit ls --subject-type task -o ndjson\n" +
+			"  tix audit ls --filter \"kind:task source:web -action:task.deleted\"\n" +
+			"  tix audit ls --filter \"actor:01J0 certificates\"",
+		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			from, err := parseTime(since)
 			if err != nil {
@@ -234,29 +251,20 @@ func auditLsCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			filter := core.AuditFilter{
+			activity, err := query.ParseActivity(expr)
+			if err != nil {
+				return err
+			}
+			filter := activity.AuditFilter(core.AuditFilter{
 				SubjectType: subjectType, SubjectID: subjectID,
 				ActorIDs: actors, Actions: actions, Since: from, Until: to,
 				Page: core.Page{Limit: limit, Cursor: cursor},
-			}
+			})
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
 			}
-			entries, next, err := conn.Service.ListAudit(ctx, filter)
-			if err != nil {
-				return err
-			}
-			out := newList[core.AuditEntry](g, cmd)
-			for _, e := range entries {
-				if err := out.Write(e); err != nil {
-					return out.fail(err)
-				}
-			}
-			if next != "" {
-				g.diag(cmd, "more results available; next cursor %s", next)
-			}
-			return out.Close()
+			return g.streamAudit(ctx, cmd, conn.Service.ListAudit, filter, activity, limit)
 		},
 	}
 	f := cmd.Flags()
@@ -266,9 +274,76 @@ func auditLsCmd(g *globals) *cobra.Command {
 	f.StringSliceVar(&actions, "action", nil, "restrict to actions, repeatable")
 	f.StringVar(&since, "since", "", "only entries at or after this time")
 	f.StringVar(&until, "until", "", "only entries at or before this time")
+	f.StringVar(&expr, "filter", "", "activity filter expression, such as \"kind:task source:web\"")
 	f.StringVar(&cursor, "cursor", "", "continue from a previous page")
 	f.IntVar(&limit, "limit", core.DefaultPageLimit, "maximum records to return")
+	_ = cmd.RegisterFlagCompletionFunc("subject-type", fixedCompletion(auditKinds))
 	return cmd
+}
+
+// auditKinds are the subject types completion offers. They are the kinds the
+// service records, named here so shell completion and the activity filter's
+// kind: term suggest the same words.
+var auditKinds = []string{
+	"task", "comment", "artifact", "project", "workflow", "user",
+	"membership", "session", "api_token", "webhook", "tenant",
+}
+
+// auditLister is the listing call streamAudit reads pages from.
+type auditLister func(context.Context, core.AuditFilter) ([]core.AuditEntry, string, error)
+
+// streamAudit writes the entries a filter accepts, reading further pages only
+// while the filter is still discarding rows. With no filter the loop makes
+// exactly the one call the listing has always made.
+func (g *globals) streamAudit(ctx context.Context, cmd *cobra.Command, list auditLister,
+	filter core.AuditFilter, activity query.ActivityFilter, limit int,
+) error {
+	out := newList[core.AuditEntry](g, cmd)
+	next, written, scanned := filter.Page.Cursor, 0, 0
+	for page := 0; page < auditScanPages; page++ {
+		filter.Page.Cursor = next
+		entries, after, err := list(ctx, filter)
+		if err != nil {
+			return out.fail(err)
+		}
+		scanned += len(entries)
+		for _, e := range entries {
+			if !activity.Matches(query.AuditRow(e)) {
+				continue
+			}
+			if err := out.Write(e); err != nil {
+				return out.fail(err)
+			}
+			written++
+		}
+		next = after
+		if auditScanDone(activity.Active(), written, limit, next) {
+			break
+		}
+	}
+	if activity.Active() && scanned > written {
+		g.diag(cmd, "filter kept %d of %d entries read", written, scanned)
+	}
+	if next != "" {
+		g.diag(cmd, "more results available; next cursor %s", next)
+	}
+	return out.Close()
+}
+
+// auditScanDone reports whether a listing has read enough: always after one
+// page when no filter is discarding rows, and otherwise once the page limit
+// is filled or the log runs out.
+func auditScanDone(active bool, written, limit int, next string) bool {
+	switch {
+	case !active:
+		return true
+	case next == "":
+		return true
+	case limit > 0 && written >= limit:
+		return true
+	default:
+		return false
+	}
 }
 
 // newWebhookCmd builds the webhook command group.

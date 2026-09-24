@@ -44,6 +44,9 @@ type fakeService struct {
 
 	actors        map[string]*core.Actor
 	actorsQueried []string
+
+	whoAmI    *core.Actor
+	whoAmIErr error
 }
 
 func newFakeService() *fakeService {
@@ -104,8 +107,18 @@ func (f *fakeService) Subscribe(context.Context, core.EventFilter) (<-chan core.
 	return f.events, nil
 }
 
-func (f *fakeService) WhoAmI(context.Context) (*core.Actor, error) { return &core.Actor{}, nil }
-func (f *fakeService) Close() error                                { return nil }
+func (f *fakeService) WhoAmI(context.Context) (*core.Actor, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.whoAmIErr != nil {
+		return nil, f.whoAmIErr
+	}
+	if f.whoAmI != nil {
+		return f.whoAmI, nil
+	}
+	return &core.Actor{}, nil
+}
+func (f *fakeService) Close() error { return nil }
 
 func (f *fakeService) CreateTenant(context.Context, core.CreateTenantInput) (*core.Tenant, error) {
 	return nil, nil

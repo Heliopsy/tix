@@ -211,8 +211,9 @@ ticked, and coverage is at or above 80% (excluding `internal/tui`).
 - [x] 9.10 WP-71 Resume proved across both transports: consume, stop, commit while unwatched, resume, assert order and no duplicates
 - [x] 9.11 WP-72 `tix tenant use`, verifying the key by opening the target tenant, because an actor cannot list another one
 - [x] 9.12 WP-72 `config.SaveChanges`: editing one configuration key stops pinning every other key's resolved value
-- [ ] 9.13 WP-72 Terminal interface: an in-session tenant switcher, and the filter bar's help naming the two new operators
+- [x] 9.13 WP-72 Terminal interface: an in-session tenant switcher taking a typed key, because an actor cannot list another tenant, and the filter bar's help naming the two new operators
 - [ ] 9.14 WP-70 Browser: `internal/web`'s own filter parser taught the same negation and weak-match syntax
+- [x] 9.15 WP-70 `internal/query`: the activity filter the audit listing and the terminal interface's event tail share, with `tix audit ls --filter` and an activity filter bar over it
 
 ## 10. Wave 10 — Screens that say what they do
 

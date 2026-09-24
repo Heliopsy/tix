@@ -309,7 +309,9 @@ func contains(values []string, want string) bool {
 // tuiViews are the screens the terminal interface offers. A TUI binding must
 // name one of them, so the registry cannot claim an operation is reachable
 // from a view that does not exist.
-var tuiViews = map[string]bool{"projects": true, "board": true, "detail": true}
+var tuiViews = map[string]bool{
+	"projects": true, "board": true, "detail": true, "activity": true, "tenant": true,
+}
 
 func TestEveryTUIBindingNamesAKnownView(t *testing.T) {
 	t.Parallel()
@@ -362,7 +364,7 @@ func TestNoCLIGapRemains(t *testing.T) {
 // the number cannot grow quietly and cannot be mistaken for zero.
 func TestRemainingGapsAreOnlyTheTUIOnes(t *testing.T) {
 	t.Parallel()
-	const knownTUIGaps = 59
+	const knownTUIGaps = 58
 	count := 0
 	for _, absence := range capability.Gaps() {
 		if absence.Surface != capability.SurfaceTUI {

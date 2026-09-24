@@ -34,6 +34,7 @@ type KeyMap struct {
 	Projects   key.Binding
 	Settings   key.Binding
 	Activity   key.Binding
+	Tenant     key.Binding
 	Refresh    key.Binding
 	Help       key.Binding
 	Quit       key.Binding
@@ -73,6 +74,7 @@ func DefaultKeyMap() KeyMap {
 		Projects:   key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "projects")),
 		Settings:   key.NewBinding(key.WithKeys(","), key.WithHelp(",", "settings")),
 		Activity:   key.NewBinding(key.WithKeys("v"), key.WithHelp("v", "activity")),
+		Tenant:     key.NewBinding(key.WithKeys("T"), key.WithHelp("T", "tenant")),
 		Refresh:    key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh")),
 		Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
 		Quit:       key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
@@ -97,7 +99,7 @@ func entry(b key.Binding) HelpEntry {
 func (k KeyMap) GlobalHelp() []HelpEntry {
 	return []HelpEntry{
 		entry(k.Help), entry(k.Refresh), entry(k.Projects), entry(k.Settings), entry(k.Activity),
-		entry(k.Quit), entry(k.Interrupt),
+		entry(k.Tenant), entry(k.Quit), entry(k.Interrupt),
 	}
 }
 
@@ -130,7 +132,12 @@ func (k KeyMap) ViewHelp(v viewKind) []HelpEntry {
 	case viewSettings:
 		return []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Enter), entry(k.Back)}
 	case viewActivity:
-		return []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom), entry(k.Back)}
+		return []HelpEntry{
+			entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom),
+			entry(k.Filter), entry(k.ClearFltr), entry(k.Back),
+		}
+	case viewTenant:
+		return []HelpEntry{entry(k.Enter), entry(k.Back)}
 	default:
 		return []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
 	}
@@ -169,7 +176,9 @@ func (k KeyMap) ShortHelp(v viewKind, ctx ActionContext) []HelpEntry {
 		short = append(k.editHelp(ctx), k.claimHelp(ctx)...)
 		short = append(short, entry(k.Back))
 	case viewActivity:
-		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
+		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Filter), entry(k.Back)}
+	case viewTenant:
+		short = []HelpEntry{entry(k.Enter), entry(k.Back)}
 	default:
 		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
+	"github.com/heliopsy/tix/internal/query"
 )
 
 // Model is the whole state of the terminal interface.
@@ -67,10 +68,32 @@ type Model struct {
 	lastSeq   int64
 	connected bool
 	events    <-chan core.Event
+	// gen names the connection the open subscription belongs to. Switching
+	// tenants bumps it, so an event the previous tenant's stream was already
+	// holding is dropped rather than drawn under the new tenant's name.
+	gen int
+
+	// tenantKey is the tenant this session is pinned to, and dialTenant opens
+	// a connection pinned to another. dialTenant is nil when the caller gave
+	// no way to dial, and the tenant view then says so rather than offering a
+	// switch that cannot happen.
+	tenantKey  string
+	dialTenant TenantDialer
+	// ownConn is the connection this session opened for itself by switching.
+	// The connection it started with belongs to the caller, so it is never
+	// closed here.
+	ownConn TenantConn
 
 	activity    []core.Event
 	activitySel int
 	activityOff int
+
+	// activityFilter narrows the live tail. It is the audit filter the CLI
+	// takes, parsed by the same grammar, minus the terms an event cannot
+	// answer.
+	activityFilterText string
+	activityFilter     query.ActivityFilter
+	activityFilterErr  string
 
 	err         string
 	status      string
@@ -106,7 +129,12 @@ type Config struct {
 	TimeStyle output.TimeStyle
 	Project   string
 	Filter    string
-	Now       func() time.Time
+	// Tenant names the tenant the supplied service is pinned to, and Dial
+	// opens a connection pinned to another one. A nil Dial leaves the tenant
+	// view read-only.
+	Tenant string
+	Dial   TenantDialer
+	Now    func() time.Time
 }
 
 // New builds the initial model.
@@ -130,6 +158,7 @@ func New(cfg Config) Model {
 		view:      viewProjects, input: in, leases: map[string]string{},
 		openProject: cfg.Project, width: 80, height: 24,
 		scheme: SchemeDefault, overrides: cfg.Overrides,
+		tenantKey: cfg.Tenant, dialTenant: cfg.Dial,
 	}
 	m = m.installScheme(cfg.Scheme)
 	if cfg.Filter != "" {
@@ -170,6 +199,8 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 		return m.onResize(msg), nil
 	case tea.KeyMsg:
 		return m.handleKey(msg)
+	case tenantMsg:
+		return m.onTenant(msg)
 	case projectsMsg:
 		return m.onProjects(msg)
 	case boardMsg:
@@ -184,6 +215,9 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 	case streamMsg:
 		return m.onStream(msg)
 	case reconnectMsg:
+		if msg.gen != m.gen {
+			return m, nil
+		}
 		return m, m.subscribe(m.lastSeq)
 	case actionMsg:
 		return m.onAction(msg)
@@ -256,6 +290,9 @@ func (m Model) visibleTasks(tasks []core.Task) []core.Task {
 
 // onEvent records the stream position and refreshes what the event touched.
 func (m Model) onEvent(msg eventMsg) (Model, tea.Cmd) {
+	if msg.gen != m.gen {
+		return m, nil
+	}
 	if msg.event.Seq > m.lastSeq {
 		m.lastSeq = msg.event.Seq
 	}
@@ -264,7 +301,7 @@ func (m Model) onEvent(msg eventMsg) (Model, tea.Cmd) {
 	if m.events == nil {
 		return m, m.reloadFor(msg.event)
 	}
-	return m, tea.Batch(nextEvent(m.events), m.reloadFor(msg.event))
+	return m, tea.Batch(nextEvent(m.events, m.gen), m.reloadFor(msg.event))
 }
 
 // reloadFor reloads only what an event can have changed.
@@ -289,15 +326,18 @@ func (m Model) reloadFor(e core.Event) tea.Cmd {
 
 // onStream records the subscription's health and reconnects without a gap.
 func (m Model) onStream(msg streamMsg) (Model, tea.Cmd) {
+	if msg.gen != m.gen {
+		return m, nil
+	}
 	if msg.connected && msg.events != nil {
 		m.connected, m.events, m.status = true, msg.events, "connected"
-		return m, nextEvent(msg.events)
+		return m, nextEvent(msg.events, m.gen)
 	}
 	m.connected, m.events = false, nil
 	if msg.err != nil {
 		m.err = "event stream: " + msg.err.Error()
 	}
-	return m, reconnect()
+	return m, reconnect(m.gen)
 }
 
 // onAction reports a board action and reloads so the board shows the truth.
@@ -385,6 +425,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.openSettings(), nil
 	case key.Matches(msg, m.keys.Activity):
 		return m.openActivity(), nil
+	case key.Matches(msg, m.keys.Tenant):
+		return m.openTenant(), nil
 	}
 	switch m.view {
 	case viewProjects:
@@ -395,6 +437,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.handleDetailKey(msg)
 	case viewActivity:
 		return m.handleActivityKey(msg)
+	case viewTenant:
+		return m.handleTenantKey(msg)
 	}
 	return m, nil
 }
@@ -655,8 +699,18 @@ func (m Model) submitPrompt(text string) (Model, tea.Cmd) {
 		}
 		return next.closePrompt(), next.loadTasks()
 	}
+	if m.prompt == promptActivityFilter {
+		next := m.applyActivityFilterText(m.input.Value())
+		if next.activityFilterErr != "" {
+			return next, nil
+		}
+		return next.closePrompt(), nil
+	}
 	if text == "" {
 		return m.closePrompt(), nil
+	}
+	if m.prompt == promptTenant {
+		return m.submitTenant(text)
 	}
 	kind := m.prompt
 	next := m.closePrompt()
@@ -714,13 +768,17 @@ func (m Model) openPrompt(kind promptKind) (Model, tea.Cmd) {
 
 // promptSeed prefills an input with the value the action would replace.
 func (m Model) promptSeed(kind promptKind) string {
+	switch kind {
+	case promptFilter:
+		return m.filterText
+	case promptActivityFilter:
+		return m.activityFilterText
+	}
 	task, ok := m.selectedTask()
 	if !ok {
 		return ""
 	}
 	switch kind {
-	case promptFilter:
-		return m.filterText
 	case promptTitle:
 		return task.Title
 	case promptBody:
@@ -748,7 +806,7 @@ func (m Model) startPrompt(kind promptKind, initial string) Model {
 
 // closePrompt dismisses the open input.
 func (m Model) closePrompt() Model {
-	m.prompt, m.filterErr = promptNone, ""
+	m.prompt, m.filterErr, m.activityFilterErr = promptNone, "", ""
 	m.input.SetValue("")
 	m.input.Blur()
 	return m

@@ -63,12 +63,21 @@ func BoardEmptyState(projectKey string, columns []Column, filtered bool) EmptySt
 	return EmptyState{Title: "This board is empty.", Hint: hint}
 }
 
-// ActivityEmptyState decides what the activity view says before any event has
-// arrived, distinguishing a quiet tenant from a dropped subscription so a
-// long silence never looks like the interface has stalled.
-func ActivityEmptyState(events int, connected bool) EmptyState {
-	if events > 0 {
+// ActivityEmptyState decides what the activity view says when it draws no
+// line. It distinguishes a quiet tenant, a dropped subscription and a tail
+// every event was filtered out of, because a long silence must never look
+// like the interface has stalled, and a filter that hides everything must
+// never look like a tenant that has gone quiet. shown counts the events the
+// filter keeps, kept counts the events the tail holds at all.
+func ActivityEmptyState(shown, kept int, connected bool) EmptyState {
+	if shown > 0 {
 		return EmptyState{}
+	}
+	if kept > 0 {
+		return EmptyState{
+			Title: "No event matches the filter.",
+			Hint:  "Press C to clear the filter, or / to change it.",
+		}
 	}
 	if !connected {
 		return EmptyState{Title: "Not connected to the event stream.", Hint: "Retrying..."}

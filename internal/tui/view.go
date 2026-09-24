@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
+	"github.com/heliopsy/tix/internal/query"
 )
 
 // View renders the current frame.
@@ -33,11 +34,16 @@ func (m Model) titleBar() string {
 	if m.actor != nil && m.actor.Handle != "" {
 		parts = append(parts, m.theme.Dim.Render("as "+m.actor.Handle))
 	}
+	if m.tenantKey != "" {
+		parts = append(parts, m.theme.Dim.Render("@"+m.tenantKey))
+	}
 	if m.project.Key != "" {
 		parts = append(parts, m.projectLabel(m.project))
 	}
 	parts = append(parts, m.connectionLabel())
-	if m.filterText != "" {
+	if m.view == viewActivity && m.activityFilterText != "" {
+		parts = append(parts, m.theme.Ref.Render("activity: "+m.activityFilterText))
+	} else if m.filterText != "" {
 		parts = append(parts, m.theme.Ref.Render("filter: "+m.filterText))
 	}
 	return m.fit(strings.Join(parts, m.theme.Bar.Render(" │ ")))
@@ -81,6 +87,8 @@ func (m Model) bodyLines(layout Layout) []string {
 		return m.settingsLines()
 	case viewActivity:
 		return m.activityLines(layout)
+	case viewTenant:
+		return m.tenantLines(layout)
 	default:
 		return m.boardLines(layout)
 	}
@@ -482,6 +490,9 @@ func (m Model) helpLines(layout Layout) []string {
 	}
 	lines = append(lines, "", "card markers: "+strings.Join(CardLegend, ", "))
 	lines = append(lines, "", "filter bar accepts: "+strings.Join(FilterKeys, ", "))
+	lines = append(lines, "  "+query.SyntaxHint())
+	lines = append(lines, "", "activity filter accepts: "+strings.Join(ActivityFilterKeys, ", "))
+	lines = append(lines, "  "+ActivitySyntaxHint())
 	rows := VisibleRows(layout.BodyHeight, len(lines))
 	offset := ScrollWindow(m.helpOff, m.helpOff, rows, len(lines))
 	windowed := WindowLines(lines, offset, rows)
@@ -537,9 +548,11 @@ func (m Model) statusBar() string {
 		segments = append(segments, m.theme.Dim.Render(fmt.Sprintf("%d projects", len(m.projects))))
 	}
 	if m.view == viewActivity {
-		segments = append(segments, m.theme.Dim.Render(fmt.Sprintf("%d events kept, cap %d", len(m.activity), activityCap)))
+		segments = append(segments, m.theme.Dim.Render(m.activityCount()))
 	}
 	switch {
+	case m.activityFilterErr != "":
+		segments = append(segments, m.theme.Error.Render("activity filter error: "+m.activityFilterErr))
 	case m.filterErr != "":
 		segments = append(segments, m.theme.Error.Render("filter error: "+m.filterErr))
 	case m.err != "":

@@ -27,6 +27,8 @@ const (
 	promptUntag
 	promptDependency
 	promptNewProject
+	promptActivityFilter
+	promptTenant
 )
 
 // PromptSpec is how one input introduces itself.
@@ -48,6 +50,12 @@ var promptSpecs = map[promptKind]PromptSpec{
 	promptUntag:      {"remove tag: ", "tag to detach", 128},
 	promptDependency: {"depends on: ", "task ref, such as infra-42", 128},
 	promptNewProject: {"new project: ", "key and name, such as: infra Infrastructure", 256},
+
+	// The activity bar takes the audit filter's own grammar rather than the
+	// task filter's: an event has a kind and an actor, and no status, tag or
+	// due date to ask about.
+	promptActivityFilter: {"activity: ", "kind:task actor:ada -action:task.updated word", 512},
+	promptTenant:         {"tenant: ", "tenant key, such as acme", 128},
 }
 
 // Spec describes an input, reporting whether the kind names one at all.
@@ -60,7 +68,7 @@ func (k promptKind) Spec() (PromptSpec, bool) {
 // the board as a whole.
 func (k promptKind) NeedsTask() bool {
 	switch k {
-	case promptNone, promptFilter, promptNewTask, promptNewProject:
+	case promptNone, promptFilter, promptActivityFilter, promptTenant, promptNewTask, promptNewProject:
 		return false
 	default:
 		return true

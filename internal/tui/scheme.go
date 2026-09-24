@@ -207,7 +207,7 @@ func KeyMapFor(scheme Scheme) KeyMap {
 // collision has to be looked for within: the same key may mean two things in
 // two views, and often should.
 func viewActions(v viewKind) []string {
-	global := []string{"Help", "Refresh", "Projects", "Activity", "Quit", "Interrupt"}
+	global := []string{"Help", "Refresh", "Projects", "Activity", "Tenant", "Quit", "Interrupt"}
 	switch v {
 	case viewProjects:
 		return append([]string{"Up", "Down", "Top", "Bottom", "Enter", "NewProject", "Back"}, global...)
@@ -225,7 +225,9 @@ func viewActions(v viewKind) []string {
 	case viewSettings:
 		return append([]string{"Up", "Down", "Top", "Bottom", "Enter", "Back"}, global...)
 	case viewActivity:
-		return append([]string{"Up", "Down", "Top", "Bottom", "Back"}, global...)
+		return append([]string{"Up", "Down", "Top", "Bottom", "Filter", "ClearFltr", "Back"}, global...)
+	case viewTenant:
+		return append([]string{"Enter", "Back"}, global...)
 	default:
 		return append([]string{"Up", "Down", "Top", "Back"}, global...)
 	}
@@ -250,7 +252,9 @@ func (c Collision) Error() string {
 // that quietly stops doing what its owner expects.
 func (k KeyMap) Validate() []Collision {
 	var out []Collision
-	for _, v := range []viewKind{viewProjects, viewBoard, viewDetail, viewSettings, viewActivity, viewHelp} {
+	for _, v := range []viewKind{
+		viewProjects, viewBoard, viewDetail, viewSettings, viewActivity, viewTenant, viewHelp,
+	} {
 		owners := map[string][]string{}
 		for _, action := range viewActions(v) {
 			b, ok := k.Binding(action)
@@ -321,6 +325,8 @@ func viewName(v viewKind) string {
 		return "settings"
 	case viewActivity:
 		return "activity"
+	case viewTenant:
+		return "tenant"
 	default:
 		return "help"
 	}

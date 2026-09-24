@@ -145,6 +145,38 @@ $ curl -s -H "Authorization: Bearer $TIX_TOKEN" \
 Everything is keyset-paginated as usual: there is no `OFFSET`, and the `cursor` a page returns is what fetches
 the next one. See [api.md](api.md).
 
+## Filtering activity
+
+The activity feed is a different set of rows, so it takes a different set of terms: an audit entry has a kind
+and a source, and no status, tag or due date to ask about. The spelling is shared -- the same quoting, the same
+leading `-` for negation -- so only the vocabulary changes.
+
+| Term | Meaning |
+| --- | --- |
+| `actor:ID` | who made the change |
+| `kind:TYPE` | what kind of record it happened to: `task`, `comment`, `project`, `workflow`, `user`, … |
+| `action:NAME`, `type:NAME` | the recorded action, such as `task.created` |
+| `source:NAME` | the surface it arrived through: `cli`, `web`, `api`, `tui`, `system` |
+| `text:VALUE`, `q:VALUE`, bare word | free text over the action, the kind, the source and the before and after snapshots |
+
+Every term negates with a leading `-`. Values of one term are alternatives, different terms are conjunctions,
+and every free-text word must appear somewhere in the row.
+
+```sh
+tix audit ls --filter "kind:task source:web -action:task.deleted"
+tix audit ls --filter "actor:01J0 certificates" -o ndjson
+```
+
+`--filter` and the `tix audit ls` flags both apply, so a filter never widens what `--subject-type`, `--actor`
+or `--since` selected. The structured terms are answered by the store; the free text is applied over the rows
+it returns, so a listing keeps reading pages until it has a screenful or has read eight of them, and says on
+stderr how much it discarded.
+
+In the terminal interface, `v` opens the activity view and `/` filters it with the same expression, `C` clears
+it. One term is missing there: an event carries no source, because the event log records what happened rather
+than which surface asked for it, so `source:` is refused on the live tail by name and belongs to
+`tix audit ls`.
+
 ## Related
 
 - [scripting.md](scripting.md) for NDJSON output and piping listings

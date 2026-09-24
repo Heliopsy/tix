@@ -183,8 +183,17 @@ Nothing else in the configuration file is touched: selecting a tenant writes the
 you were resolving from `XDG_DATA_HOME` or `TIX_DATABASE_DSN` keeps resolving from there afterwards.
 
 Inside the terminal interface, `tix tui --tenant acme` starts in that tenant, and `tix tenant use` before
-launching it has the same effect. There is no in-session switcher: switching tenant mid-session would mean
-tearing down and rebuilding every loaded view, so for now leaving and relaunching is the supported path.
+launching it has the same effect. `T` opens the tenant view mid-session, which shows the tenant in force and
+takes a key to switch to. It asks for a key rather than offering a list, for the same reason `tix tenant use`
+checks one by opening it: the actor cannot see any tenant but its own, so there is no list to draw. The key is
+checked by opening a connection pinned to it and asking who you are there; a key that cannot be reached is
+refused and the session stays where it was.
+
+A switch inside the interface lasts for the session. Everything loaded from the previous tenant is dropped --
+the project list, the open board, the event tail -- because all of it belonged to that tenant, and the session
+lands back on the project list of the new one. A lease this session was holding goes with it: a lease is held
+in the tenant it was taken in, so it is not released by walking away from it and will expire on its own. The
+status bar says so when it happens. Use `tix tenant use` to write the choice down for later runs.
 
 Against a remote server the tenant comes from the credentials and the hostname, not from the client: a token
 authenticates within the tenant it was minted in, and the `Host` header selects the tenant before any handler

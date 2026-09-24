@@ -19,6 +19,7 @@ const (
 	viewHelp
 	viewSettings
 	viewActivity
+	viewTenant
 )
 
 // actionKind names a board action whose result is reported back.
@@ -103,9 +104,12 @@ type detailMsg struct {
 	actors map[string]string
 }
 
-// eventMsg carries one event from the subscription.
+// eventMsg carries one event from the subscription. gen names the connection
+// it was read from, so a switch to another tenant cannot be followed by an
+// event the previous tenant's stream was already holding.
 type eventMsg struct {
 	event core.Event
+	gen   int
 }
 
 // streamMsg reports the state of the event subscription.
@@ -113,10 +117,20 @@ type streamMsg struct {
 	connected bool
 	err       error
 	events    <-chan core.Event
+	gen       int
 }
 
 // reconnectMsg asks for a dropped subscription to be opened again.
-type reconnectMsg struct{}
+type reconnectMsg struct{ gen int }
+
+// tenantMsg reports the outcome of switching the session to another tenant.
+// A failure carries the key that was asked for, so the refusal can name it.
+type tenantMsg struct {
+	key   string
+	conn  TenantConn
+	actor *core.Actor
+	err   error
+}
 
 // actionMsg reports the outcome of a board action.
 type actionMsg struct {

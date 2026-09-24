@@ -376,3 +376,42 @@ When a command operates on multiple references, it SHALL report a per-reference 
 
 - **WHEN** every reference in a bulk operation succeeds
 - **THEN** the command exits 0
+
+### Requirement: Activity filter expression on the command line
+
+The audit listing command SHALL accept a filter expression over the activity vocabulary, spelled the way the task filter expression is spelled, and SHALL accept the same expression the terminal interface's activity filter accepts. The expression SHALL select on actor, subject kind, action, source and free text, SHALL support negating any of those with a leading `-`, and SHALL add to the command's own flags rather than replace them. An expression the parser cannot read, or one naming a source that is not recorded, SHALL be a usage error rather than an empty listing.
+
+#### Scenario: Select by kind
+
+- **WHEN** audit entries are listed with the expression `kind:project`
+- **THEN** only entries whose subject is a project are returned
+
+#### Scenario: Select by source
+
+- **WHEN** audit entries are listed with the expression `source:web`
+- **THEN** only entries recorded as arriving through the browser are returned
+
+#### Scenario: Free text searches what the entry recorded
+
+- **WHEN** audit entries are listed with a bare word
+- **THEN** only entries whose action, kind, source or before and after snapshots contain that word are returned
+
+#### Scenario: Negated term
+
+- **WHEN** audit entries are listed with the expression `-kind:task`
+- **THEN** entries about tasks are excluded
+
+#### Scenario: Expression and flags combine
+
+- **WHEN** audit entries are listed with both an expression and a filter flag that contradict each other
+- **THEN** nothing is returned, because a filter narrows what the flags selected and never widens it
+
+#### Scenario: Unreadable expression
+
+- **WHEN** audit entries are listed with an expression naming a key the activity vocabulary does not have, or a source that is not recorded
+- **THEN** the command exits with a usage error rather than returning an empty listing
+
+#### Scenario: Free text does not stop at the first page
+
+- **WHEN** a free-text expression discards every entry on the first page read
+- **THEN** further pages are read, up to a bound, and the command reports on its diagnostic stream how much was discarded and the cursor to resume from

@@ -62,9 +62,10 @@ var registry = []Operation{
 		CLI:  "tix doctor",
 		HTTP: apiGet(wire.RouteWhoAmI),
 		Web:  webGet(web.RouteRoot, ""),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; the header names the actor it was handed rather than asking the service who it is"),
-		},
+		// The tenant view asks the tenant it is switching to who the actor is
+		// there, which is the only way to tell a tenant that does not exist
+		// from one this actor cannot see.
+		TUI: "tenant",
 	},
 	{
 		Name: "service.close", Method: "Close",

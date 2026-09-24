@@ -24,6 +24,11 @@ type Options struct {
 	Context context.Context
 	Project string
 	Filter  string
+	// Tenant names the tenant Service is pinned to, and Dial opens a
+	// connection pinned to another. A nil Dial leaves the tenant view
+	// read-only, which is what a caller that cannot re-dial should show.
+	Tenant string
+	Dial   TenantDialer
 	// Scheme names the keybinding preset and Overrides rebinds single actions.
 	Scheme    string
 	Overrides map[string]string
@@ -53,6 +58,7 @@ func Run(o Options) int {
 		Service: o.Service, Context: ctx, Actor: o.Actor,
 		Environ: o.Environ, Out: o.Out, Color: o.Color, Project: o.Project, Filter: o.Filter,
 		Scheme: o.Scheme, Overrides: o.Overrides, TimeStyle: o.TimeStyle,
+		Tenant: o.Tenant, Dial: o.Dial,
 	})
 	final, err := tea.NewProgram(model, programOptions(ctx, o)...).Run()
 	return exitStatus(final, err, errw)
