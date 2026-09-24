@@ -1612,3 +1612,14 @@ ul.shape .count {
   font-size: 0.85rem;
 }
 ul.shape .note { color: var(--muted); font-size: 0.85rem; margin-left: auto; text-align: right; }
+
+/* An environment variable name is one token to a reader, and td's
+   overflow-wrap: anywhere was splitting it mid-word (TIX_SYNC_OPS_EXPO /
+   RT_*), which reads as two variables rather than one. The name is rendered
+   with a break opportunity after each underscore instead (see envName in
+   sync.go), so this only has to stop the automatic break; the wbr elements
+   keep a long name from overflowing a narrow cell. */
+.envname {
+  overflow-wrap: normal;
+  word-break: keep-all;
+}

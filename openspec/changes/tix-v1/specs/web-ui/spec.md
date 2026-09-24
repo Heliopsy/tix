@@ -182,7 +182,7 @@ The web UI SHALL allow webhook endpoints to be configured, SHALL show a delivery
 
 ### Requirement: Import, export, and sync screens
 
-The web UI SHALL provide screens for exporting a snapshot, importing a snapshot with mode selection and dry run, and running or refreshing an external import with its mapping and dry run.
+The web UI SHALL provide screens for exporting a snapshot, importing a snapshot with mode selection and dry run, and running or refreshing an external import with its dry run and its full refresh.
 
 #### Scenario: Export is downloadable
 
@@ -198,6 +198,59 @@ The web UI SHALL provide screens for exporting a snapshot, importing a snapshot 
 
 - **WHEN** an external import is run from the web UI
 - **THEN** the created, updated, skipped, and lossy results are displayed
+
+#### Scenario: A full refresh is available in the browser
+
+- **WHEN** an operator runs an external import from the web UI and asks for a full refresh
+- **THEN** the run ignores the stored cursor and reconsiders every source record
+
+### Requirement: The sync screen explains what a source is before asking for one
+
+The external sync screen SHALL state, on the screen itself, what an import reads from, what each available adapter is for, where a source's settings are supplied, what the mapping file governs, what a dry run does, and what a second run does. It SHALL NOT collect any value that a sync source record does not keep.
+
+#### Scenario: An operator learns what generic means without leaving the page
+
+- **WHEN** an operator opens the external sync screen
+- **THEN** the screen states that the generic adapter reads a CSV or JSON file and is the choice for a system with no adapter of its own
+
+#### Scenario: The screen names where settings are supplied
+
+- **WHEN** a source is configured
+- **THEN** the screen names the exact environment variables that source reads, derived from its name, and only those its system reads
+
+#### Scenario: No field is collected that is not stored
+
+- **WHEN** an operator registers a source from the web UI
+- **THEN** the form collects only the values a sync source record keeps, and no field whose value would be discarded
+
+#### Scenario: Idempotent refresh is explained
+
+- **WHEN** an operator reads the external sync screen
+- **THEN** the screen states that a re-run updates entities carrying an external reference rather than duplicating them, and that a matching external version is skipped
+
+### Requirement: A view of what imports have run
+
+The web UI SHALL provide a view of completed external imports, listing for each the time it ran, the source and system it read, and the entities it created, updated, and skipped, together with the current state of every configured source. The view SHALL state which runs it cannot show.
+
+#### Scenario: A completed run is listed
+
+- **WHEN** an external import completes
+- **THEN** it appears in the run history with its time, its source, its system, and its created, updated, and skipped counts
+
+#### Scenario: A dry run leaves no row
+
+- **WHEN** an external import is run as a dry run
+- **THEN** no row is added to the run history, and the view states that a dry run does not appear
+
+#### Scenario: A failed run is reported against its source
+
+- **WHEN** an external import fails
+- **THEN** the run history states that failed runs do not appear in it, and the source's current state reports the failure
+
+#### Scenario: Run history is scoped to the tenant
+
+- **WHEN** an operator opens the run history
+- **THEN** no import belonging to another tenant is shown
 
 ### Requirement: Live activity feed
 
@@ -432,6 +485,11 @@ name. Resolving a name SHALL be scoped to the caller's own tenant.
 
 - **WHEN** a record names an actor belonging to another tenant
 - **THEN** that actor's handle is not disclosed and the generated name is shown instead
+
+#### Scenario: A membership names the person it grants a role to
+
+- **WHEN** the tenant administration screen lists this tenant's members
+- **THEN** each row names the actor rather than showing its bare identifier
 
 ### Requirement: Display preferences live in one always-visible settings menu
 

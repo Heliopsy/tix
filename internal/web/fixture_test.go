@@ -5,6 +5,7 @@ package web_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -12,8 +13,10 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/connections"
@@ -31,13 +34,21 @@ type webService struct {
 	sources    map[string]*core.SyncSource
 	exported   string
 	lastImport core.ImportInput
+	clock      *clock.Fake
+	// syncRuns are the completion entries a real import would have written.
+	// The stand-in RunSync below never reaches internal/service, so nothing
+	// else would put a "sync.run" entry in the trail, and the run history
+	// screen reads exactly those. They are shaped like the entries
+	// (*Local).RunSync records: action "sync.run", subject "sync_source",
+	// and the whole core.SyncResult as the after image.
+	syncRuns []core.AuditEntry
 }
 
 var _ core.Service = (*webService)(nil)
 
 // newWebService wraps the real local service.
-func newWebService(l *service.Local) *webService {
-	return &webService{Local: l, sources: map[string]*core.SyncSource{},
+func newWebService(l *service.Local, clk *clock.Fake) *webService {
+	return &webService{Local: l, clock: clk, sources: map[string]*core.SyncSource{},
 		exported: `{"kind":"header","header":{"version":1,"tenant_key":"acme"}}` + "\n"}
 }
 
@@ -107,15 +118,66 @@ func (s *webService) DeleteSyncSource(ctx context.Context, id string) error {
 }
 
 func (s *webService) RunSync(ctx context.Context, in core.RunSyncInput) (*core.SyncResult, error) {
-	if _, err := core.RequireActor(ctx); err != nil {
+	actor, err := core.RequireActor(ctx)
+	if err != nil {
 		return nil, err
 	}
 	src, ok := s.sources[in.SourceID]
 	if !ok {
 		return nil, core.NotFound("sync source %q", in.SourceID)
 	}
-	return &core.SyncResult{System: src.System, Source: src.ID,
-		ImportResult: core.ImportResult{Created: map[string]int{"task": 1}, DryRun: in.DryRun}}, nil
+	// Three distinct counts, so a test asserting on the run history pins each
+	// column separately rather than matching whichever one happens to share a
+	// value with another.
+	result := &core.SyncResult{System: src.System, Source: src.Name,
+		ImportResult: core.ImportResult{
+			Created:  map[string]int{"task": 2},
+			Updated:  map[string]int{"task": 3},
+			Skipped:  map[string]int{"task": 5},
+			Warnings: []string{"assignee nobody has no tix actor; preserved as a custom field"},
+			DryRun:   in.DryRun,
+		}}
+	if in.DryRun {
+		return result, nil
+	}
+	snapshot, err := json.Marshal(result)
+	if err != nil {
+		return nil, err
+	}
+	now := s.now()
+	src.LastRunAt, src.LastStatus = &now, "ok"
+	s.syncRuns = append(s.syncRuns, core.AuditEntry{
+		Seq: int64(len(s.syncRuns) + 1), TenantID: actor.TenantID, ActorID: actor.ID,
+		Action: "sync.run", SubjectType: "sync_source", SubjectID: src.ID,
+		After: snapshot, Source: core.SourceSystem, OccurredAt: now,
+	})
+	return result, nil
+}
+
+// now is the instant the stand-in stamps a run with, taken from the fixture's
+// fake clock so a test never depends on wall time.
+func (s *webService) now() time.Time { return s.clock.Now() }
+
+// ListAudit serves the run history from the entries the stand-in RunSync
+// above recorded, and delegates every other filter to the real service. A
+// real import writes its completion entry through the same trail, so the
+// screen reading it cannot tell the difference; nothing else in this package
+// asks for that action, so no other test is affected.
+func (s *webService) ListAudit(ctx context.Context, f core.AuditFilter) ([]core.AuditEntry, string, error) {
+	if !slices.Contains(f.Actions, "sync.run") {
+		return s.Local.ListAudit(ctx, f)
+	}
+	actor, err := core.RequireActor(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	out := []core.AuditEntry{}
+	for i := len(s.syncRuns) - 1; i >= 0; i-- {
+		if s.syncRuns[i].TenantID == actor.TenantID {
+			out = append(out, s.syncRuns[i])
+		}
+	}
+	return out, "", nil
 }
 
 // fixture is the browser interface over a real service on a temporary database.
@@ -158,7 +220,7 @@ func newFixture(t *testing.T) *fixture {
 	f.live = connections.New(connections.WithClock(clk), connections.WithServerID("srv-test"))
 	local := service.New(st, service.WithClock(clk), service.WithHooks(service.HookOff),
 		service.WithConnections(f.live))
-	f.svc = newWebService(local)
+	f.svc = newWebService(local, clk)
 	f.actorA = seedActor(t, st, f.tenantA.ID, "alice", core.RoleAdmin)
 	f.actorB = seedActor(t, st, f.tenantB.ID, "bob", core.RoleAdmin)
 	f.project = seedProject(t, st, f.tenantA.ID, "infra")

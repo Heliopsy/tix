@@ -465,7 +465,7 @@ func TestSyncRunReportsItsResult(t *testing.T) {
 	resp := b.post("/sync/run", url.Values{"source_id": {id}, "dry_run": {"1"}})
 	result := body(t, resp)
 	wantStatus(t, resp, http.StatusOK)
-	for _, want := range []string{"dry run", "task 1", "generic"} {
+	for _, want := range []string{"dry run", "task 2", "task 3", "task 5", "generic"} {
 		if !strings.Contains(result, want) {
 			t.Fatalf("the sync result does not report %q:\n%s", want, result)
 		}

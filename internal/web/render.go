@@ -129,6 +129,7 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"join":            joinValues,
 		"scopes":          joinScopes,
 		"counts":          formatCounts,
+		"envName":         envName,
 		"prio":            priorityName,
 		"slug":            slug,
 		"kindLabel":       componentKindLabel,

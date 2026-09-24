@@ -213,3 +213,13 @@ ticked, and coverage is at or above 80% (excluding `internal/tui`).
 - [x] 9.12 WP-72 `config.SaveChanges`: editing one configuration key stops pinning every other key's resolved value
 - [ ] 9.13 WP-72 Terminal interface: an in-session tenant switcher, and the filter bar's help naming the two new operators
 - [ ] 9.14 WP-70 Browser: `internal/web`'s own filter parser taught the same negation and weak-match syntax
+
+## 10. Wave 10 — Screens that say what they do
+
+- [x] 10.1 WP-73 `internal/web/sync.go`: the external sync screens split out of `transfer.go`, each source carrying the environment namespace it reads
+- [x] 10.2 WP-73 The sync screen explains the adapters, the mapping file, the dry run and the idempotent refresh, in closed-by-default notes
+- [x] 10.3 WP-73 The registration form stops collecting a mapping path and a configuration block that no source record keeps
+- [x] 10.4 WP-73 The run form offers the full refresh `RunSync` already honoured
+- [x] 10.5 WP-73 `/sync/runs`: completed imports read from the audit trail, beside each source's current state, saying which runs it cannot show
+- [x] 10.6 WP-73 The tenant screen names its members instead of listing their identifiers
+- [x] 10.7 WP-73 `TestPagesReferenceNoExternalOrigin` widened from one screen to every screen, with a source of each system registered

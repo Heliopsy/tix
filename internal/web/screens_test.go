@@ -119,13 +119,36 @@ func TestAssetsAreServedFromTheBinary(t *testing.T) {
 	}
 }
 
+// TestPagesReferenceNoExternalOrigin checks every screen, not one of them.
+// It used to fetch /projects alone, which meant the guard watched a single
+// page while prose was being added to a dozen others -- and prose is exactly
+// where a helpful example url gets written down. A screen naming a real
+// external host would both leak a reference off this install and hand
+// somebody a link this product did not vouch for.
 func TestPagesReferenceNoExternalOrigin(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
-	page := f.as("alice").page("/projects")
-	for _, forbidden := range []string{"http://", "https://", "//cdn", "unpkg"} {
-		if strings.Contains(page, forbidden) {
-			t.Fatalf("page references an external origin %q", forbidden)
+	b := f.as("alice")
+	ref := b.createTask("infra", "first task")
+	// One source of each system, because the sync screen describes a source
+	// with the settings its own adapter reads, and an example url written
+	// into one of those descriptions would only appear once a source of that
+	// system existed.
+	for _, system := range []string{"generic", "jira", "openproject"} {
+		addSource(t, b, system, system+" source")
+	}
+	for _, path := range []string{
+		"/projects", "/projects/infra", "/projects/infra/fields", "/workflows",
+		"/workflows/default", "/tasks", "/tasks/" + ref, "/activity",
+		"/admin/tenant", "/admin/domains", "/admin/users", "/admin/tokens",
+		"/admin/ssh-keys", "/admin/webhooks", "/admin/connections",
+		"/transfer", "/bundles", "/sync", "/sync/runs", "/settings",
+	} {
+		page := b.page(path)
+		for _, forbidden := range []string{"http://", "https://", "//cdn", "unpkg"} {
+			if strings.Contains(page, forbidden) {
+				t.Errorf("%s references an external origin %q", path, forbidden)
+			}
 		}
 	}
 }

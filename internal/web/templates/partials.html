@@ -14,6 +14,17 @@
 </nav>
 {{end}}
 
+{{define "synctabs"}}
+{{/* Same shape and reasoning as datatabs: each tab is its own URL, so it is
+     linkable, survives a reload and needs no script. Sources is where you
+     configure and run; Runs is what happened. They were one screen that could
+     only answer the first question. */}}
+<nav class="tabs" aria-label="External sync">
+  <a href="/sync" {{if eq .Path "/sync"}}aria-current="page"{{end}}>Sources</a>
+  <a href="/sync/runs" {{if eq .Path "/sync/runs"}}aria-current="page"{{end}}>Runs</a>
+</nav>
+{{end}}
+
 {{define "nav"}}
 <nav class="main">
   <a href="/tasks" {{if eq .Path "/tasks"}}aria-current="page"{{end}}>My tasks</a>
@@ -34,7 +45,7 @@
        so landing on Components from a link does not leave the navigation
        looking like you are somewhere else. */}}
   <a href="/transfer" {{if or (eq .Path "/transfer") (eq .Path "/bundles")}}aria-current="page"{{end}}>Import and export</a>
-  <a href="/sync" {{if eq .Path "/sync"}}aria-current="page"{{end}}>Sync</a>
+  <a href="/sync" {{if or (eq .Path "/sync") (eq .Path "/sync/runs")}}aria-current="page"{{end}}>Sync</a>
   {{end}}
 
   {{/* The running version, under the last button, and whether anything newer

@@ -11,16 +11,13 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 )
 
-// transferRoutes are the export, import and external sync screens.
+// transferRoutes are the snapshot export and import screens. The external
+// sync screens live in sync.go.
 func (h *handler) transferRoutes() []route {
 	return []route{
 		get(RouteTransfer, "transfer.html", h.showTransfer),
 		post(RouteExport, h.exportSnapshot, "ExportTo"),
 		post(RouteImport, h.importSnapshot, "ImportFrom"),
-		get(RouteSync, "sync.html", h.showSync, "ListSyncSources"),
-		post(RouteSyncSources, h.putSyncSource, "PutSyncSource"),
-		post(RouteSyncDelete, h.deleteSyncSource, "DeleteSyncSource"),
-		post(RouteSyncRun, h.runSync, "RunSync"),
 	}
 }
 
@@ -88,63 +85,4 @@ func snapshotReader(r *http.Request) (io.Reader, error) {
 		return nil, core.Invalid("choose a snapshot file or paste a snapshot")
 	}
 	return strings.NewReader(pasted), nil
-}
-
-// syncView is what the external sync screen renders.
-type syncView struct {
-	Sources []core.SyncSource
-	Systems []string
-	Result  *core.SyncResult
-}
-
-// showSync renders the configured external import sources.
-func (h *handler) showSync(w http.ResponseWriter, r *http.Request) error {
-	sources, err := h.svc.ListSyncSources(r.Context())
-	if err != nil {
-		return err
-	}
-	return h.render(w, r, "sync.html", "Sync", syncView{Sources: sources, Systems: core.SyncSystems})
-}
-
-// putSyncSource registers or updates an external import source.
-func (h *handler) putSyncSource(w http.ResponseWriter, r *http.Request) error {
-	in := core.SyncSourceInput{
-		ID:          field(r, "id"),
-		System:      field(r, "system"),
-		Name:        field(r, "name"),
-		Config:      pairs(field(r, "config")),
-		MappingPath: field(r, "mapping_path"),
-	}
-	if _, err := h.svc.PutSyncSource(r.Context(), in); err != nil {
-		return err
-	}
-	redirect(w, r, RouteSync, "source saved")
-	return nil
-}
-
-// deleteSyncSource removes an external import source.
-func (h *handler) deleteSyncSource(w http.ResponseWriter, r *http.Request) error {
-	if err := h.svc.DeleteSyncSource(r.Context(), field(r, "id")); err != nil {
-		return err
-	}
-	redirect(w, r, RouteSync, "source deleted")
-	return nil
-}
-
-// runSync runs or refreshes an external import and shows its result.
-func (h *handler) runSync(w http.ResponseWriter, r *http.Request) error {
-	sources, err := h.svc.ListSyncSources(r.Context())
-	if err != nil {
-		return err
-	}
-	result, err := h.svc.RunSync(r.Context(), core.RunSyncInput{
-		SourceID: field(r, "source_id"),
-		DryRun:   checked(r, "dry_run"),
-		Full:     checked(r, "full"),
-	})
-	if err != nil {
-		return err
-	}
-	return h.render(w, r, "sync.html", "Sync",
-		syncView{Sources: sources, Systems: core.SyncSystems, Result: result})
 }

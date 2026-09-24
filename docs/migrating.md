@@ -25,6 +25,10 @@ tix sync source rm 01J0000000000000000000
 `SYSTEM` is `generic`, `jira` or `openproject`. `NAME` selects the environment variables the source reads. Pass
 `--id` to `tix sync source add` to update an existing source rather than create one.
 
+The same operations are on the web interface under **Sync**. Its Sources tab registers and runs a source, and
+prints the exact environment variables that source reads; its Runs tab lists the imports that have completed,
+with what each created, updated and skipped, beside the current state of every source.
+
 ### Configuration and credentials
 
 Credentials are read from the environment and nowhere else. They are never written to the store, a snapshot, an

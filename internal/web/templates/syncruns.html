@@ -1,0 +1,81 @@
+{{define "content"}}
+{{$v := .Data}}
+<h1>Sync runs</h1>
+{{template "synctabs" .}}
+
+<p class="lede">Every import that finished, newest first: which source it read,
+and what it did when it got there.</p>
+
+<details class="note">
+  <summary>What this list does and does not contain</summary>
+  <p>A row appears here when an import <strong>finishes</strong>. There is no
+  separate record of a run: each row is read back out of the audit entry the
+  import wrote when it completed, which is also why it can show the counts and
+  the warnings at all.</p>
+  <p>Two kinds of run are therefore missing, and both are missing on purpose
+  rather than by oversight. A <strong>dry run</strong> writes nothing, so it
+  leaves nothing to list. A run that <strong>failed</strong> stops without
+  writing a completion entry, so it does not appear either: what it leaves
+  behind is a status of <code>failed</code> on its source, in the second table.
+  If a source reads <code>failed</code> below with no matching row above, that
+  is the run that failed.</p>
+  <p>A row also cannot show where the cursor stood after that particular run:
+  the completion entry is written before the run fills its cursor in, so the
+  value never reaches the trail. The second table shows where each source's
+  cursor stands <em>now</em>, which is the question that usually matters.</p>
+  <p>The tasks an import created or updated are audited individually and show up
+  in <a href="/activity?source=system">activity</a>, attributed to the System
+  actor.</p>
+</details>
+
+<h2>Completed runs</h2>
+<table>
+  <thead><tr><th>When</th><th>Source</th><th>System</th><th>Created</th><th>Updated</th><th>Skipped</th><th>Ran as</th></tr></thead>
+  <tbody>
+  {{range $v.Runs}}
+    <tr>
+      <td>{{compact .At}}</td>
+      <td>{{if .Source}}{{.Source}}{{else}}<span class="muted">unknown</span>{{end}}</td>
+      <td>{{.System}}</td>
+      <td>{{.Created}}</td>
+      <td>{{.Updated}}</td>
+      <td>{{.Skipped}}</td>
+      <td>{{$v.Names.Label .ActorID}}</td>
+    </tr>
+    {{if .Warnings}}
+    <tr>
+      <td colspan="7">
+        <details class="note">
+          <summary>{{len .Warnings}} warning{{if ne (len .Warnings) 1}}s{{end}}</summary>
+          <ul>{{range .Warnings}}<li>{{.}}</li>{{end}}</ul>
+        </details>
+      </td>
+    </tr>
+    {{end}}
+  {{else}}
+    <tr><td colspan="7">No import has finished yet. A dry run does not count: untick it to write.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+{{if $v.NextCursor}}<p><a href="/sync/runs?cursor={{$v.NextCursor}}">Older</a></p>{{end}}
+
+<h2>Where each source stands</h2>
+<p>The current state of every configured source, which is the only place a run
+that failed is reported.</p>
+<table>
+  <thead><tr><th>Name</th><th>System</th><th>Last run</th><th>Status</th><th>Cursor</th></tr></thead>
+  <tbody>
+  {{range $v.Sources}}
+    <tr>
+      <td>{{.Name}}</td>
+      <td>{{.System}}</td>
+      <td>{{stamp .LastRunAt}}</td>
+      <td>{{if .LastStatus}}{{.LastStatus}}{{else}}never run{{end}}</td>
+      <td>{{if .Cursor}}<code>{{.Cursor}}</code>{{else}}<span class="muted">none yet, the next run reads everything</span>{{end}}</td>
+    </tr>
+  {{else}}
+    <tr><td colspan="5">No sources configured. <a href="/sync">Add one</a>.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+{{end}}

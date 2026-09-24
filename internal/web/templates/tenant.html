@@ -36,11 +36,15 @@
 
 <h2>Members</h2>
 <table>
-  <thead><tr><th>Actor</th><th>Role</th><th></th></tr></thead>
+  <thead><tr><th>Member</th><th>Role</th><th></th></tr></thead>
   <tbody>
+  {{$names := .Data.Names}}
   {{range .Data.Members}}
     <tr>
-      <td>{{.ActorID}}</td><td>{{.Role}}</td>
+      {{/* The identifier stays on the title, the way every other actor label
+           on this product does, so the row is readable without losing the
+           value somebody occasionally needs to paste. */}}
+      <td><span title="{{.ActorID}}">{{$names.Label .ActorID}}</span></td><td>{{.Role}}</td>
       <td>
         <form method="post" action="/admin/tenant/members/remove">
           {{template "csrf" $.CSRF}}

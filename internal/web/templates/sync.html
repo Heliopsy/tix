@@ -1,16 +1,120 @@
 {{define "content"}}
 <h1>External sync</h1>
+{{template "synctabs" .}}
+
+<p class="lede">Pull work that already lives in another tracker into tix. Imports
+run one way: tix reads from the source and never writes anything back to it.</p>
+
+<details class="note">
+  <summary>What a source is, and what happens when you run it</summary>
+  <p>A <strong>source</strong> is a name and a system. That is all you supply:
+  the record holds no url, no file path and no credential, only those two and
+  the cursor and status its own runs leave behind. Everything a run needs to
+  reach the other system is read from the server's environment when the run
+  starts, which is why no credential can reach a snapshot, an audit entry, an
+  event or a log line.</p>
+  <p>Running one fetches records from that system, translates each through a
+  <strong>mapping file</strong>, and creates or updates tasks in the project the
+  mapping names. Imported tasks are ordinary tasks: nothing downstream treats
+  them specially. They are attributed to a <strong>System</strong> actor rather
+  than to you.</p>
+  <p>Every task an import touches gets an <strong>external reference</strong>
+  recording the system, the identifier and url at the source, the version it was
+  at, and when it was last synced. That reference is what makes a second run a
+  refresh instead of a second copy.</p>
+</details>
+
+<details class="note">
+  <summary>Which system to choose</summary>
+  <dl class="fields">
+    {{range .Data.Systems}}<dt>{{.Label}}</dt><dd>{{.Note}}</dd>{{end}}
+  </dl>
+  <p>These three are what this build carries. Naming anything else is refused
+  when you save.</p>
+</details>
+
+<details class="note">
+  <summary>Where a source's settings live</summary>
+  <p>In environment variables on the machine running tix, named after the
+  source. The name is upper-cased and every run of other characters becomes a
+  single underscore, so a source called <code>ops export</code> is configured
+  through <code class="envname">{{envName .Data.Prefix "OPS_EXPORT_*"}}</code>. Each saved source below
+  prints its own exact prefix, and the variables that system reads.</p>
+  <p>They are read when a run starts, not when you save, so changing one takes
+  effect on the next run. A variable the server's process cannot see does not
+  exist as far as the import is concerned: setting it in your own shell does
+  nothing unless tix was started from that shell.</p>
+</details>
+
+<details class="note">
+  <summary>What the mapping file does</summary>
+  <p>It is a YAML file, and every source needs one: a run with no mapping is
+  refused before a single record is read. It says which tix project the records
+  land in, which field on each record is its stable identifier, and what each
+  external field becomes here.</p>
+  <p>It maps external statuses onto the states of that project's workflow, and
+  a status it names that the workflow does not define is refused up front,
+  naming the offending entry, with nothing written. External fields you assign
+  to a custom field are created as real field definitions on the project.
+  Fields the mapping does not name are preserved into custom fields rather than
+  dropped, unless the mapping turns that off.</p>
+  <p>The identity section is what makes a re-import safe. Its
+  <code>updated_at</code> field is also how an incremental run knows what is
+  new, and, when you name no explicit version field, doubles as the version a
+  record is compared against.</p>
+</details>
+
+<details class="note">
+  <summary>Dry run, and what a second run does</summary>
+  <p>A <strong>dry run</strong> reads the source and reports exactly what a real
+  run would create, update and skip, with a reason for every skip. It writes
+  nothing at all: no tasks, no custom field definitions, no audit entries, and
+  it does not move the source's cursor. It also does not appear in the run
+  history, because nothing happened.</p>
+  <p>A <strong>second run</strong> is a refresh, not a second import. For each
+  record, a task that already carries an external reference for that system and
+  identifier is updated in place; one whose external version still matches the
+  stored one is skipped as unchanged; anything with no reference yet is created.
+  Titles, bodies and statuses are overwritten from the source, custom field
+  values are merged over what is there, and tags are added but never removed.</p>
+  <p>Each source keeps a <strong>cursor</strong>, the watermark of the last
+  record it committed, so a normal run fetches only what changed since. It moves
+  forward in the same transaction as the records it covers, so a run that fails
+  part way leaves it at the last page that did commit, and re-running picks up
+  from there rather than starting over.</p>
+  <p>Tick <strong>Full</strong> to ignore the cursor and reconsider every record
+  at the source. Note that a Full run starts from no cursor, so one that fails
+  before committing a page leaves the source with no cursor at all: the next
+  run then reads everything, which is slower but loses nothing. The Runs tab
+  shows where each source's cursor stands.</p>
+</details>
+
+<h2>Sources</h2>
 <table>
-  <thead><tr><th>Name</th><th>System</th><th>Last run</th><th>Status</th><th></th></tr></thead>
+  <thead><tr><th>Name</th><th>System</th><th>Configured through</th><th>Last run</th><th>Status</th><th></th></tr></thead>
   <tbody>
   {{range .Data.Sources}}
     <tr>
-      <td>{{.Name}}</td><td>{{.System}}</td><td>{{stamp .LastRunAt}}</td><td>{{.LastStatus}}</td>
+      <td>{{.Name}}</td>
+      <td>{{.System}}</td>
+      <td>
+        <code class="envname">{{envName .EnvPrefix "*"}}</code>
+        <details class="note">
+          <summary>Which variables</summary>
+          <dl class="fields">
+            {{$prefix := .EnvPrefix}}
+            {{range .Settings}}<dt><code class="envname">{{envName $prefix .Name}}</code></dt><dd>{{.Purpose}}{{if .Required}} (required){{end}}</dd>{{end}}
+          </dl>
+        </details>
+      </td>
+      <td>{{stamp .LastRunAt}}</td>
+      <td>{{if .LastStatus}}{{.LastStatus}}{{else}}never run{{end}}</td>
       <td>
         <form method="post" action="/sync/run">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="source_id" value="{{.ID}}">
           <label for="dry-{{.ID}}"><input id="dry-{{.ID}}" type="checkbox" name="dry_run" value="1" checked> Dry run</label>
+          <label for="full-{{.ID}}"><input id="full-{{.ID}}" type="checkbox" name="full" value="1"> Full</label>
           <button type="submit">Run</button>
         </form>
         <form method="post" action="/sync/sources/delete">
@@ -21,37 +125,44 @@
       </td>
     </tr>
   {{else}}
-    <tr><td colspan="5">No sources configured.</td></tr>
+    <tr><td colspan="6">No sources configured.</td></tr>
   {{end}}
   </tbody>
 </table>
 
 <h2>Configure a source</h2>
+<p>A source is just a name and a system. Save it here, then set its environment
+variables on the server: the row above will tell you which ones.</p>
 <form method="post" action="/sync/sources">
   {{template "csrf" .CSRF}}
   <div class="row">
-    <div><label for="name">Name</label><input id="name" name="name" required></div>
+    <div>
+      <div class="field-label">
+        <label for="name">Name</label>
+        {{template "field-info" "Your own label for this source, and also what its environment variables are named after. Something short and stable is easiest to live with, because renaming a source renames every variable that configures it."}}
+      </div>
+      <input id="name" name="name" required>
+    </div>
     <div>
       <label for="system">System</label>
       <select id="system" name="system">
-        {{range .Data.Systems}}<option value="{{.}}">{{.}}</option>{{end}}
+        {{range .Data.Systems}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
       </select>
     </div>
-    <div><label for="mapping_path">Mapping path</label><input id="mapping_path" name="mapping_path"></div>
   </div>
-  <label for="config">Configuration, one key=value per line</label>
-  <textarea id="config" name="config"></textarea>
   <p><button type="submit">Save source</button></p>
 </form>
 
 {{if .Data.Result}}
 <h2>Run result{{if .Data.Result.DryRun}}, dry run, nothing was written{{end}}</h2>
 <dl class="fields">
-  <dt>System</dt><dd>{{.Data.Result.System}}</dd>
+  <dt>Source</dt><dd>{{.Data.Result.Source}} ({{.Data.Result.System}})</dd>
   <dt>Created</dt><dd>{{counts .Data.Result.Created}}</dd>
   <dt>Updated</dt><dd>{{counts .Data.Result.Updated}}</dd>
   <dt>Skipped</dt><dd>{{counts .Data.Result.Skipped}}</dd>
-  <dt>Warnings</dt><dd>{{join .Data.Result.Warnings}}</dd>
+  <dt>Warnings</dt><dd>{{if .Data.Result.Warnings}}{{join .Data.Result.Warnings}}{{else}}none{{end}}</dd>
+  {{if .Data.Result.Cursor}}<dt>Cursor now</dt><dd><code>{{.Data.Result.Cursor}}</code></dd>{{end}}
 </dl>
+{{if not .Data.Result.DryRun}}<p><a href="/sync/runs">See this run in the history</a></p>{{end}}
 {{end}}
 {{end}}
