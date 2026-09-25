@@ -84,8 +84,8 @@ func writeStatsTable(w io.Writer, s *core.Stats) error {
 		s.Since.Format(core.StatsDayLayout), s.Until.Format(core.StatsDayLayout), scope)
 	_, _ = fmt.Fprintf(tw, "COMPLETED\t%d\t\n", s.Completed)
 	_, _ = fmt.Fprintf(tw, "CREATED\t%d\t\n", s.Created)
-	_, _ = fmt.Fprintf(tw, "MEDIAN LEAD TIME\t%s\t\n", s.MedianLeadTime)
-	_, _ = fmt.Fprintf(tw, "SLOWEST LEAD TIME\t%s\t\n", s.SlowestLeadTime)
+	_, _ = fmt.Fprintf(tw, "MEDIAN LEAD TIME\t%s\t\n", s.MedianLeadTime.Human())
+	_, _ = fmt.Fprintf(tw, "SLOWEST LEAD TIME\t%s\t\n", s.SlowestLeadTime.Human())
 
 	statsSection(tw, "COMPLETED PER DAY", len(s.PerDay))
 	for _, day := range s.PerDay {
@@ -111,7 +111,7 @@ func writeStatsTable(w io.Writer, s *core.Stats) error {
 
 	statsSection(tw, "OLDEST TASKS NOT YET IN A TERMINAL STATE", len(s.Oldest))
 	for _, o := range s.Oldest {
-		_, _ = fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\n", o.Ref, o.Status, o.Age, o.Title)
+		_, _ = fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\n", o.Ref, o.Status, o.Age.Human(), o.Title)
 	}
 	return tw.Flush()
 }

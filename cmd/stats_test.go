@@ -3,9 +3,12 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 )
@@ -118,5 +121,51 @@ func TestStatsFlagRejections(t *testing.T) {
 				t.Errorf("a rejected command wrote to standard output: %q", got.out)
 			}
 		})
+	}
+}
+
+// goDuration matches Go's own duration rendering at the precision a reader
+// never wants: a sub-second fraction, or an hours-minutes-seconds run. "16d"
+// and "3h 25m" do not match; "384h50m23.606839092s" does.
+var goDuration = regexp.MustCompile(`\d+\.\d+s|\d+h\d+m\d`)
+
+// TestStatsPrintsNoRawGoDurations pins the fix for a screen that answered "how
+// long does work sit here" with nanoseconds.
+//
+// The browser had a private humaniser and the command line and terminal had
+// none, so the same figure read "16d" in one place and
+// "384h50m23.606839092s" in the other two. The rendering belongs to
+// core.Duration now, which is what makes the three agree.
+//
+// The figures are built here rather than seeded through the CLI on purpose.
+// A seeded run creates and completes its tasks in the same instant, so every
+// duration is "0s", which matches nothing: the first version of this test
+// passed just as happily with the humaniser taken back out.
+func TestStatsPrintsNoRawGoDurations(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
+	stats := &core.Stats{
+		Since: now.AddDate(0, 0, -14), Until: now,
+		Completed: 16, Created: 3,
+		MedianLeadTime:  core.Duration(384*time.Hour + 50*time.Minute + 23*time.Second + 606839092),
+		SlowestLeadTime: core.Duration(1008*time.Hour + 21*time.Minute + 38*time.Second),
+		Oldest: []core.StatsAgeing{
+			{Ref: "infra-2", Status: "todo", Title: "Rotate the staging TLS certificates",
+				Age: core.Duration(411*time.Hour + 49*time.Minute + 51*time.Second)},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := writeStatsTable(&buf, stats); err != nil {
+		t.Fatalf("writeStatsTable: %v", err)
+	}
+	out := buf.String()
+	if m := goDuration.FindString(out); m != "" {
+		t.Errorf("stats printed the raw Go duration %q:\n%s", m, out)
+	}
+	for _, want := range []string{"16d", "42d", "17d 3h"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("stats is missing the humanised figure %q:\n%s", want, out)
+		}
 	}
 }

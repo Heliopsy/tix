@@ -79,6 +79,14 @@ type Overrides struct {
 	// key: either one being set is enough, since both express the same
 	// operator decision through a different layer.
 	AllowNetworkFS bool
+
+	// Clock replaces the wall clock this connection runs on. It exists for
+	// `tix demo seed`, which replays months of history through the ordinary
+	// service calls rather than writing rows behind them: without a clock it
+	// can move, every seeded task is created and completed in the same second
+	// and the statistics screens it exists to populate have nothing to show.
+	// Nil means the real clock, which is every other caller.
+	Clock clock.Clock
 }
 
 // Target is the resolved endpoint a command will talk to.
@@ -302,7 +310,10 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 	if err != nil {
 		return nil, err
 	}
-	clk := clock.New()
+	var clk clock.Clock = clock.New()
+	if ov.Clock != nil {
+		clk = ov.Clock
+	}
 	allowNetworkFS := cfg.Config.Database.AllowNetworkFS || ov.AllowNetworkFS
 	st, err := openStore(target, clk, allowNetworkFS, cfg.Config.Database.ConnectTimeout.D())
 	if err != nil {

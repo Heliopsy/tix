@@ -87,8 +87,8 @@ func (m Model) statsLines(layout Layout) []string {
 	lines = append(lines,
 		fmt.Sprintf("  %-18s %d", "completed", s.Completed),
 		fmt.Sprintf("  %-18s %d", "created", s.Created),
-		fmt.Sprintf("  %-18s %s", "median lead time", s.MedianLeadTime),
-		fmt.Sprintf("  %-18s %s", "slowest", s.SlowestLeadTime),
+		fmt.Sprintf("  %-18s %s", "median lead time", s.MedianLeadTime.Human()),
+		fmt.Sprintf("  %-18s %s", "slowest", s.SlowestLeadTime.Human()),
 		"",
 	)
 
@@ -134,7 +134,7 @@ func (m Model) statsLines(layout Layout) []string {
 	}
 	for _, o := range s.Oldest {
 		lines = append(lines, fmt.Sprintf("  %s  %-*s %s",
-			m.theme.Ref.Render(o.Ref), 34, Truncate(o.Title, 34), o.Age))
+			m.theme.Ref.Render(o.Ref), 34, Truncate(o.Title, 34), o.Age.Human()))
 	}
 
 	rows := VisibleRows(layout.BodyHeight, len(lines))

@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
@@ -502,27 +501,6 @@ func barPercent(v, max int) int {
 //
 // Two units at most, largest first, because "15d 8h" answers the question and
 // "15d 8h 36m 42s" makes the reader do the rounding themselves.
-func humanDuration(d core.Duration) string {
-	t := d.D()
-	if t < 0 {
-		t = -t
-	}
-	switch {
-	case t < time.Minute:
-		return fmt.Sprintf("%ds", int(t.Seconds()))
-	case t < time.Hour:
-		return fmt.Sprintf("%dm", int(t.Minutes()))
-	case t < 24*time.Hour:
-		h := int(t.Hours())
-		if m := int(t.Minutes()) % 60; m > 0 {
-			return fmt.Sprintf("%dh %dm", h, m)
-		}
-		return fmt.Sprintf("%dh", h)
-	default:
-		days := int(t.Hours()) / 24
-		if h := int(t.Hours()) % 24; h > 0 {
-			return fmt.Sprintf("%dd %dh", days, h)
-		}
-		return fmt.Sprintf("%dd", days)
-	}
-}
+// humanDuration defers to the type, which is where the rendering lives so the
+// three surfaces showing these figures cannot drift apart on them.
+func humanDuration(d core.Duration) string { return d.Human() }

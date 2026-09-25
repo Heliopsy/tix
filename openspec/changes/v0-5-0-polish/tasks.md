@@ -24,9 +24,14 @@
 
 ## Demo seed
 
-- [ ] `cmd/demo.go`: backdated creation and completion times spanning the statistics window
-- [ ] descriptions, tags, due dates, assignees and custom fields
+- [x] `internal/demo` + `cmd/demo.go`: history replayed through the service on a steppable clock
+- [x] descriptions, tags, due dates, assignees and custom fields
 - [ ] screenshots regenerate from the new seed
+
+## Durations
+
+- [x] `core.Duration.Human`, shared by the browser, command line and terminal
+- [x] guard: the statistics table prints no machine-rendered duration
 
 ## Release
 

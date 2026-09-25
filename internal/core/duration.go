@@ -4,6 +4,7 @@ package core
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -67,4 +68,41 @@ func (d *Duration) UnmarshalYAML(unmarshal func(any) error) error {
 	}
 	*d = Duration(n)
 	return nil
+}
+
+// Human renders a duration the way a reader wants it rather than the way Go
+// prints it, so an eighteen day lead time reads "16d 1h" and not
+// "384h50m23.606839092s".
+//
+// It lives here because three surfaces show the same figures. The browser had
+// a private copy of this and the command line and terminal had none, so the
+// statistics screen that was readable in a browser printed nanoseconds
+// everywhere else. A measure the product presents in three places has one
+// rendering, for the same reason the leaderboard's caption does.
+//
+// The precision drops as the magnitude rises, which is the point: nobody
+// reading "how long does work sit here" needs the seconds on a figure counted
+// in weeks.
+func (d Duration) Human() string {
+	t := d.D()
+	if t < 0 {
+		t = -t
+	}
+	switch {
+	case t < time.Minute:
+		return fmt.Sprintf("%ds", int(t.Seconds()))
+	case t < time.Hour:
+		return fmt.Sprintf("%dm", int(t.Minutes()))
+	case t < 24*time.Hour:
+		if m := int(t.Minutes()) % 60; m > 0 {
+			return fmt.Sprintf("%dh %dm", int(t.Hours()), m)
+		}
+		return fmt.Sprintf("%dh", int(t.Hours()))
+	default:
+		days := int(t.Hours()) / 24
+		if h := int(t.Hours()) % 24; h > 0 {
+			return fmt.Sprintf("%dd %dh", days, h)
+		}
+		return fmt.Sprintf("%dd", days)
+	}
 }
