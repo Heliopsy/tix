@@ -11,7 +11,9 @@ entry written in the same instant as the completion, so data written behind the 
 leaderboard and lead-time figure empty, which is the opposite of the point.
 
 The seeded backlog SHALL carry descriptions, tags, priorities, assignees, due dates and custom fields,
-completions spread across many days and performed by several actors, and lead times that vary.
+completions spread unevenly across many days and performed by several actors, and lead times that vary.
+A completion on every day of the window is as useless to the throughput chart as no completion at all,
+because every value is then also the maximum the bars are scaled against.
 
 #### Scenario: Seeding a scratch database
 
@@ -24,6 +26,18 @@ completions spread across many days and performed by several actors, and lead ti
 - **WHEN** statistics are read over the seeded window
 - **THEN** completions fall on many different days, the leaderboard names more than one actor, and the
   median lead time is not zero
+
+#### Scenario: The throughput chart reads as work rather than a flat wall
+
+- **WHEN** statistics are read over each of the windows the statistics screen offers
+- **THEN** the per-day completion counts within that window differ from one another, so the chart draws
+  bars of differing lengths rather than one identical bar per day
+
+#### Scenario: A dropped claim falls on the first page of the default ordering
+
+- **WHEN** the seeded backlog is listed in the default urgency ordering
+- **THEN** a task carrying a recently expired claim falls inside the first page, so the expiry badge and
+  the pager can be seen on one screen
 
 #### Scenario: A database that already holds work is refused
 

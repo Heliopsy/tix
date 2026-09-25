@@ -30,6 +30,8 @@
 - [x] `internal/demo`: `--reset` keeps the accounts it cannot recreate, and a re-seed re-credentials them
 - [x] `cmd/demo.go`: `--password`, and the credentials reported in table, json and yaml
 - [x] guard: a freshly seeded and a re-seeded database both authenticate the reported credentials
+- [x] `internal/demo`: completions cluster into bursts and quiet stretches, uneven at 7, 14, 30 and 90 days
+- [x] `internal/demo`: an abandoned claim sits on urgent work, so it lands on the first page of the default sort
 - [ ] screenshots regenerate from the new seed
 
 ## Durations
@@ -119,6 +121,23 @@
 - [x] guard: every refusal, watched to fail with the resolver broken
 - [x] guard: the queries the rule must not refuse, so a narrower status check cannot ship
 - [x] `claim next` obeys the same status rule: an undefined status is not an idle queue
+
+## The release photographs
+
+- [x] the task listing is named for what it renders: "Tasks" in the heading and in the navigation, since
+      the page carries every actor's rows and `assignee:<handle>` already says "mine" precisely
+- [x] guard: the heading read out of the h1 and the entry read out of the navigation, each watched to
+      fail on its own so neither can be corrected while the other still claims otherwise
+- [x] a retention window renders as `30d`, and the field parses what it renders through
+      `core.ParseDuration` rather than `time.ParseDuration`, which knows no day
+- [x] guard: the value the screen printed, submitted back and accepted, watched to fail both with the
+      rendering reverted and with the parser reverted
+- [x] guard: the refusals use values the wider grammar still rejects, since `720h` now passes
+- [x] every row of the tenant tree carries a figure or says why it has none, a failed count included
+- [x] the prune notice sits in a field-label row with the checkbox it explains, instead of falling onto
+      a line of its own as an icon with no text
+- [ ] the tenant screen still fetches a tenant listing it never renders; dropping it also needs the
+      `tenant.list` web binding removed from `internal/capability`, which this change does not own
 
 ## Release
 

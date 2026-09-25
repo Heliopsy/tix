@@ -342,3 +342,91 @@ Each choice's submit SHALL name what it commits, since two controls in one panel
 
 - **WHEN** the panel is open
 - **THEN** each submit names the choice it applies
+
+### Requirement: The task listing is named for what it shows
+
+The task listing SHALL carry a heading, and a navigation entry, that name the set of tasks it actually
+renders. The listing is the tenant's queue: it carries every actor's rows, people and agents alike, and
+the summary beneath it counts the projects they span and the ones an agent is holding.
+
+The listing SHALL NOT be presented as the reader's own work while it renders everybody's. A reader who
+wants only their own rows already has a precise way to ask for them, the `assignee:<handle>` term of the
+filter expression, which the assignee column writes into the filter box in one click; a heading is not a
+second, weaker way of saying the same thing.
+
+The heading and the navigation entry SHALL agree with each other and with the rows below them, so that
+neither can be corrected while the other goes on claiming otherwise.
+
+#### Scenario: The listing carries rows assigned to other actors
+
+- **WHEN** the task listing renders rows belonging to several actors
+- **THEN** its heading names the listing rather than claiming it is the reader's own work
+
+#### Scenario: The entry that leads to it
+
+- **WHEN** the navigation is rendered
+- **THEN** the entry leading to the task listing names it the same way its heading does
+
+### Requirement: A retention window is written the way it is shown
+
+A retention window SHALL be rendered in the duration vocabulary the product prints elsewhere, so that a
+thirty day window reads as `30d` rather than as `720h0m0s`.
+
+The field SHALL accept every value it renders. A form that prints a value its own handler refuses is a
+form that rejects its own contents on save, so the rendering and the parsing are one change and not two:
+the screen SHALL read a submitted window through the same grammar that produced the value in the box,
+which knows the day unit that Go's own duration syntax does not.
+
+A value that grammar does not accept SHALL still be refused, with a message naming the field and the
+value and saying what a window looks like.
+
+#### Scenario: Saving the value the screen rendered
+
+- **WHEN** the value a retention field renders is submitted back unchanged
+- **THEN** it is accepted, and the field renders the same value again
+
+#### Scenario: A window that is not a duration
+
+- **WHEN** a retention field is submitted with a value the duration grammar does not accept
+- **THEN** the submission is refused and the message says what a window looks like
+
+### Requirement: Every row of the tenant tree carries a figure or says why it has none
+
+Each row of the diagram showing what sits under a tenant SHALL render either its live count or, in the
+count's place, a short statement of why it carries none.
+
+A blank beside a column of figures reads as a count that failed rather than one deliberately not made,
+and a count that really did fail read exactly like one nobody attempted. A row whose figure the service
+cannot produce SHALL name where that figure does live instead: a task listing is paginated by cursor and
+carries no total, and a custom field is declared on one project at a time.
+
+A row whose listing errored SHALL say that its count is unavailable rather than rendering nothing.
+
+#### Scenario: A kind the service can count
+
+- **WHEN** the tenant tree renders a kind whose listing returns
+- **THEN** that row carries the figure
+
+#### Scenario: A kind that has no tenant-wide figure
+
+- **WHEN** the tenant tree renders a kind the service cannot total
+- **THEN** that row says where its figure lives, in the figure's place
+
+#### Scenario: A listing that failed
+
+- **WHEN** a count cannot be made because its listing errored
+- **THEN** the row says the count is unavailable rather than leaving a gap
+
+### Requirement: A field notice sits on the line of the control it explains
+
+The small disclosure that carries a field's explanation SHALL be rendered on the same line as the label
+or control it belongs to.
+
+The disclosure shows only a one-character marker until it is opened, so one left to fall onto a line of
+its own reads as an icon whose text failed to render rather than as an affordance. Placement is therefore
+part of the affordance and not decoration.
+
+#### Scenario: A notice beside a checkbox
+
+- **WHEN** a notice explains a checkbox rather than a labelled input
+- **THEN** it renders on that checkbox's line, as it does beside every other control that carries one
