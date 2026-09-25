@@ -119,3 +119,226 @@ different timezones, for the same reason they may want different keyboard scheme
 
 - **WHEN** a timezone or format that does not resolve is submitted
 - **THEN** it is not stored and the deployment's default is used
+
+### Requirement: Every keyset listing carries the same position control
+
+Each listing paged by a keyset cursor SHALL render one shared control, which SHALL say which page the
+reader is on and SHALL offer the next page when one exists and the previous page when one exists.
+
+Six listings each carried a different control: five a bare paragraph holding a link, one a row of
+actions, two different words for the same direction, and no styling on any of them. None of them said
+where the reader was, and none of them offered a way back.
+
+A listing that fits on one page SHALL render no control at all, rather than a pair of controls that lead
+nowhere.
+
+#### Scenario: A listing with more than one page
+
+- **WHEN** a listing has a further page
+- **THEN** it offers a next control and says which page is on screen
+
+#### Scenario: A listing that fits on one page
+
+- **WHEN** a listing has no further page and no previous one
+- **THEN** it renders no position control
+
+#### Scenario: Every paged listing renders the same control
+
+- **WHEN** any keyset-paged listing is rendered
+- **THEN** its position control is the shared one, not a control of its own
+
+### Requirement: A reader can go back to the page they came from
+
+A keyset cursor addresses only the page that follows it, so a listing SHALL carry, in its own URL, the
+cursors of the pages already walked, and the previous control SHALL return to the last of them.
+
+The first page has no cursor, so the previous control SHALL be absent there rather than present and
+inert.
+
+The record of the walk SHALL be treated as untrusted input: a value carrying anything this deployment
+did not issue, or more entries than the bound this deployment sets, SHALL be discarded whole rather than
+partly kept, and the reader SHALL be returned to the first page. Keeping part of it would send the
+previous control to a page the reader was never on, and a value that grows without bound would lengthen
+with every page walked.
+
+Changing the filter or the sort SHALL discard the record. Its cursors address positions in one ordered
+result set; under a different filter, or a different ordering, they name rows that were never on the
+reader's screen.
+
+The whole position SHALL live in the URL, so a link to a page deep in a listing can be shared, reloaded
+and bookmarked, and SHALL require no change to the store, the domain or the API.
+
+#### Scenario: Walking back
+
+- **WHEN** a reader on the third page uses the previous control
+- **THEN** they are returned to the second page, and its own previous control returns to the first
+
+#### Scenario: The first page
+
+- **WHEN** the first page of a listing is rendered
+- **THEN** it offers no previous control
+
+#### Scenario: A record of the walk that was not issued here
+
+- **WHEN** a listing is requested with a record of the walk carrying a value this deployment did not issue
+- **THEN** the screen renders, the value is discarded, and the previous control returns to the first page
+
+#### Scenario: A record of the walk longer than the bound
+
+- **WHEN** a listing is requested with more walked pages than the deployment's bound allows
+- **THEN** the value is discarded rather than walked
+
+#### Scenario: Changing the filter
+
+- **WHEN** a reader deep in a listing submits a new filter
+- **THEN** they start again at the first page with no record of the previous walk
+
+### Requirement: The task list says who each task is assigned to
+
+The task listing SHALL show the handle of the actor each task is assigned to, and SHALL say when a task
+is assigned to nobody.
+
+The handle SHALL be resolved for the whole page at once rather than once per row. The listing showed a
+task's status, priority, tags, project, reference and date, and not the one thing a shared list is opened
+to answer.
+
+A task assigned to nobody SHALL say so, rather than leaving the column empty, which reads as a value
+that failed to load.
+
+#### Scenario: An assigned task
+
+- **WHEN** a task with an assignee is listed
+- **THEN** the row names that actor by handle, not by identifier
+
+#### Scenario: An unassigned task
+
+- **WHEN** a task with no assignee is listed
+- **THEN** the row says it is unassigned
+
+### Requirement: An abandoned claim is visible after it has been swept
+
+A listing SHALL report that a task's last claim expired, for as long as the domain holds that expiry to be
+recent, and SHALL say how long ago it lapsed and which actor held it.
+
+The report SHALL be read from the durable evidence of the expiry rather than from the lease fields, which
+a sweeper clears within a minute of the lease lapsing. Reading the lease fields made the report
+unreachable in practice: a task an agent took and stopped answering for looked exactly like a task nobody
+had ever touched, which is the opposite of what the report is for.
+
+A task claimed again after an expiry SHALL report the live claim rather than the old expiry.
+
+How many times a task has been claimed SHALL be shown beside such an expiry, where repeated claims
+followed by a lapse distinguish a holder that keeps failing from work that has simply changed hands.
+
+#### Scenario: The sweeper has cleared the lease
+
+- **WHEN** a task whose claim expired is listed after the sweeper has cleared its lease fields
+- **THEN** the row reports the expired claim, how long ago it lapsed, and who held it
+
+#### Scenario: The expiry is no longer recent
+
+- **WHEN** the expiry is older than the window the domain treats as recent
+- **THEN** the row reports nothing about it
+
+#### Scenario: Claimed again
+
+- **WHEN** a task with an earlier expiry is claimed again and the new lease is live
+- **THEN** the row reports the live claim, not the earlier expiry
+
+#### Scenario: A holder that keeps failing
+
+- **WHEN** a task that has been claimed more than once reports an expired claim
+- **THEN** the row also says how many times it has been claimed
+
+### Requirement: A column preference records what is hidden
+
+The cookie that carries a reader's column choice SHALL record, for each listing, the columns that listing
+leaves OUT, and SHALL show every other column the build declares.
+
+Recording the columns shown cannot distinguish a column the reader turned off from a column that did not
+exist when the reader chose, so every column added afterwards read as one the reader had refused. The
+readers it silenced were exactly those who had used the picker at all. Project visibility already records
+what is hidden, for the same reason, and the two preferences SHALL agree on that.
+
+A listing the reader has never chosen for SHALL keep the declared defaults, which is a different state
+from a listing whose hidden set is empty: the first shows the columns declared on by default, the second
+shows every declared column. The stored value SHALL distinguish them.
+
+A value written in an earlier form SHALL NOT be read as though it were written in the current one. It
+SHALL be recognised and converted, so the reader's recorded choices survive unchanged and no choice is
+inverted, and the columns that earlier form could not name SHALL be shown rather than counted as refused.
+
+The value SHALL stay within the size this build will read back for the widest choice the picker can
+produce, which is every listing with every column hidden.
+
+#### Scenario: A column is added to a listing
+
+- **WHEN** a build declares a column that did not exist when a reader chose that listing's columns
+- **THEN** the column is shown to that reader without the stored choice being touched
+
+#### Scenario: A choice recorded in the earlier form
+
+- **WHEN** a stored value written when the cookie recorded the columns shown is read
+- **THEN** every column that reader put away is still put away, and every column they kept is still shown
+
+#### Scenario: Hiding nothing
+
+- **WHEN** a reader ticks every column a listing offers
+- **THEN** the listing shows the column that is declared off by default, which an untouched install does not
+
+#### Scenario: The widest choice
+
+- **WHEN** every listing is stored with every column hidden
+- **THEN** the value is within the size the build reads back, so the choice is not silently discarded
+
+### Requirement: A refused filter reports on the filter bar
+
+A filter expression the listing cannot answer SHALL be reported beside the filter box, on the listing,
+with the expression left in the box, and SHALL NOT replace the screen with the error page.
+
+Every way a term can be refused SHALL be treated alike: an expression that does not parse, and one that
+names a project, status, tag or actor this tenant does not have. A rule written per term goes stale the
+next time the filter language learns to refuse something.
+
+The screen SHALL be served as a success, because it is the listing that was asked for, and a browser that
+swaps a fragment swaps nothing from a response that is not one, which would leave the previous page on
+screen carrying no message at all.
+
+A failure that is not the expression's fault SHALL still fail the page.
+
+#### Scenario: A handle nobody has
+
+- **WHEN** a filter names an actor this tenant does not have
+- **THEN** the listing renders with the message beside the filter box and the expression still in it
+
+#### Scenario: An expression that does not parse
+
+- **WHEN** a filter expression cannot be parsed
+- **THEN** it is reported the same way, on the filter bar
+
+#### Scenario: A failure of the page itself
+
+- **WHEN** a listing fails for a reason that is not the filter expression
+- **THEN** the page fails as it did before
+
+### Requirement: The view panel's arrangement and its decoration agree
+
+The panel that holds the column choice and the project choice SHALL size each to what it holds: the
+column list is fixed by the build, the project list grows with the tenant.
+
+A rule drawn between the two SHALL follow the arrangement they are actually in, rather than a viewport
+width that only guesses at it. A track count chosen by the browser can wrap the sections apart at any
+width, leaving a rule that separates nothing.
+
+Each choice's submit SHALL name what it commits, since two controls in one panel both labelled only
+"Apply" say nothing about which is which.
+
+#### Scenario: The panel is too narrow for two columns
+
+- **WHEN** the panel renders in one column
+- **THEN** the rule between the sections runs across rather than down
+
+#### Scenario: Committing one of the two choices
+
+- **WHEN** the panel is open
+- **THEN** each submit names the choice it applies
