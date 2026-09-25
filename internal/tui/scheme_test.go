@@ -143,8 +143,7 @@ func TestSwitchingSchemeInTheSettingsViewTakesEffectAtOnce(t *testing.T) {
 	if m.view != viewSettings {
 		t.Fatalf("the settings view did not open: %v", m.view)
 	}
-	m, _ = m.reduce(pressKey("j"))
-	m, _ = m.reduce(pressKey("enter"))
+	m, _ = m.reduce(pressKey("l"))
 	if m.scheme != SchemeVim {
 		t.Fatalf("scheme = %q", m.scheme)
 	}
@@ -162,21 +161,20 @@ func TestSwitchingSchemeInTheSettingsViewTakesEffectAtOnce(t *testing.T) {
 	}
 }
 
-func TestTheSettingsViewMarksTheActiveScheme(t *testing.T) {
+func TestTheSettingsViewNamesTheActiveScheme(t *testing.T) {
 	m := boardModel(t)
 	m = m.useScheme(SchemeEmacs)
 	m = m.openSettings()
-	lines := strings.Join(m.settingsLines(), "\n")
-	if !strings.Contains(lines, "✓ emacs") {
-		t.Fatalf("the active scheme is not marked:\n%s", lines)
+	row := settingRow(t, m, SettingKeymap)
+	if !strings.Contains(row, "emacs") {
+		t.Fatalf("the keys row does not name the active scheme: %q", row)
 	}
-	for _, scheme := range Schemes() {
-		if !strings.Contains(lines, string(scheme)) {
-			t.Fatalf("%s is not offered:\n%s", scheme, lines)
-		}
+	preview := strings.Join(m.settingsLines(LayoutFor(m.width, m.height, 0)), "\n")
+	if !strings.Contains(preview, "ctrl+t") {
+		t.Fatalf("the emacs bindings are not previewed:\n%s", preview)
 	}
-	if m.schemeSel != 2 {
-		t.Fatalf("the settings view opened on row %d rather than the active scheme", m.schemeSel)
+	if m.settingSel != SettingKeymap {
+		t.Fatalf("the settings view opened on row %d rather than the keys row", m.settingSel)
 	}
 }
 

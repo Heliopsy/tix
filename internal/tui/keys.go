@@ -135,7 +135,8 @@ func (k KeyMap) ViewHelp(v viewKind) []HelpEntry {
 		return append([]HelpEntry{entry(k.Up), entry(k.Down), entry(k.New)},
 			append(k.taskActions(), entry(k.Back))...)
 	case viewSettings:
-		return []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Enter), entry(k.Back)}
+		return append([]HelpEntry{entry(k.Up), entry(k.Down)},
+			append(k.settingHelp(), entry(k.Back))...)
 	case viewActivity:
 		return []HelpEntry{
 			entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom),
@@ -145,6 +146,16 @@ func (k KeyMap) ViewHelp(v viewKind) []HelpEntry {
 		return []HelpEntry{entry(k.Enter), entry(k.Back)}
 	default:
 		return []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
+	}
+}
+
+// settingHelp relabels the column keys for the settings view, where they step
+// through a setting's values rather than moving between columns. A footer that
+// promised "column left" on a screen with no columns was describing the board.
+func (k KeyMap) settingHelp() []HelpEntry {
+	return []HelpEntry{
+		{Keys: k.Left.Help().Key, Desc: "previous value"},
+		{Keys: k.Right.Help().Key, Desc: "next value"},
 	}
 }
 
@@ -168,7 +179,8 @@ func (k KeyMap) ShortHelp(v viewKind, ctx ActionContext) []HelpEntry {
 	case viewProjects:
 		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Enter), entry(k.NewProject)}
 	case viewSettings:
-		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Enter), entry(k.Back)}
+		short = append([]HelpEntry{entry(k.Up), entry(k.Down)},
+			append(k.settingHelp(), entry(k.Back))...)
 	case viewBoard:
 		short = []HelpEntry{entry(k.Enter)}
 		if ctx.HasProject {

@@ -64,8 +64,23 @@ type Model struct {
 	helpOff   int
 
 	scheme    Scheme
-	schemeSel int
 	overrides map[string]string
+
+	// prefs is what the settings screen reads and writes, prefSources names
+	// the configuration layer each value arrived from, and savePrefs writes
+	// a change down. A nil savePrefs is a session with nowhere to write.
+	prefs       Preferences
+	prefSources Preferences
+	savePrefs   PreferenceWriter
+	session     SessionInfo
+	settingSel  int
+	settingsOff int
+	// autoColor is what the colour probe decided for this run, which the auto
+	// mode resolves to. renderer and brand rebuild the theme when the colour
+	// preference changes.
+	autoColor bool
+	renderer  *lipgloss.Renderer
+	brand     core.Theme
 
 	choice  choiceKind
 	choices []Choice
@@ -133,6 +148,16 @@ type Config struct {
 	// actions on top of it.
 	Scheme    string
 	Overrides map[string]string
+	// Prefs are the display settings the settings screen offers, Sources
+	// names the configuration layer each one arrived from, and SavePrefs
+	// writes a change back. A nil SavePrefs leaves the screen usable and
+	// says the choices last only for the session.
+	Prefs     Preferences
+	Sources   Preferences
+	SavePrefs PreferenceWriter
+	// Session is what the settings screen answers "what am I connected to"
+	// with. It is read-only: the target belongs to configuration.
+	Session SessionInfo
 	// TimeStyle renders every timestamp the interface draws. The zero value
 	// still works, so a caller that has not wired configuration through yet
 	// is not broken.
@@ -161,16 +186,27 @@ func New(cfg Config) Model {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	auto := colorChoice(cfg)
+	prefs := cfg.Prefs
+	if strings.TrimSpace(prefs.Keymap) == "" {
+		prefs.Keymap = cfg.Scheme
+	}
 	m := Model{
 		svc: cfg.Service, ctx: ctx, actor: cfg.Actor,
-		keys: DefaultKeyMap(), theme: NewTheme(cfg.Renderer, colorChoice(cfg), cfg.Brand), now: now,
+		keys: DefaultKeyMap(), theme: NewTheme(cfg.Renderer, auto, cfg.Brand), now: now,
 		timeStyle: cfg.TimeStyle,
 		view:      viewProjects, input: in, leases: map[string]string{},
 		openProject: cfg.Project, width: 80, height: 24,
 		scheme: SchemeDefault, overrides: cfg.Overrides,
 		tenantKey: cfg.Tenant, dialTenant: cfg.Dial,
+		prefs: prefs, prefSources: cfg.Sources, savePrefs: cfg.SavePrefs,
+		session:   cfg.Session,
+		autoColor: auto, renderer: cfg.Renderer, brand: cfg.Brand,
 	}
-	m = m.installScheme(cfg.Scheme)
+	// The probe decides only when no colour mode was configured, so a reader
+	// who asked for colour over a pipe still gets it.
+	m.theme = NewTheme(cfg.Renderer, ColorFor(prefs.Color, auto), cfg.Brand)
+	m = m.installScheme(prefs.Keymap)
 	if cfg.Filter != "" {
 		m = m.applyFilterText(cfg.Filter)
 	}
@@ -191,6 +227,7 @@ func (m Model) installScheme(name string) Model {
 		return m
 	}
 	m.scheme, m.keys = scheme, keys
+	m.prefs.Keymap = string(scheme)
 	return m
 }
 
@@ -526,48 +563,110 @@ func (m Model) leave(fallback tea.Cmd) (Model, tea.Cmd) {
 	return m, fallback
 }
 
-// openSettings shows the keybinding schemes, with the active one selected.
+// openSettings shows the display preferences and what this session is
+// connected to, starting on the first setting.
 func (m Model) openSettings() Model {
-	m.schemeSel = 0
-	for i, s := range Schemes() {
-		if s == m.scheme {
-			m.schemeSel = i
-		}
-	}
+	m.settingSel, m.settingsOff = 0, 0
 	return m.enterView(viewSettings)
 }
 
-// handleSettingsKey picks a keybinding scheme and applies it at once, so the
-// footer a person is reading is always the one they are typing against.
+// settingsState is what the settings screen renders from.
+func (m Model) settingsState() SettingsState {
+	return SettingsState{
+		Prefs: m.prefs, Sources: m.prefSources, Session: m.sessionInfo(),
+		Selected: m.settingSel, Persistent: m.savePrefs != nil,
+		ColorAuto: m.autoColor, Now: m.now(),
+	}
+}
+
+// sessionInfo fills in the facts the interface knows better than its caller:
+// the tenant and the actor both change when a session switches tenant.
+func (m Model) sessionInfo() SessionInfo {
+	info := m.session
+	if m.tenantKey != "" {
+		info.Tenant = m.tenantKey
+	}
+	if m.actor != nil && m.actor.Handle != "" {
+		info.Actor = "@" + m.actor.Handle
+	}
+	return info
+}
+
+// handleSettingsKey moves between the settings and cycles the selected one.
+// A change applies to the frame it is read in and is written down at once,
+// because a preference that lasts until the next restart is worse than none.
 func (m Model) handleSettingsKey(msg tea.KeyMsg) (Model, tea.Cmd) {
-	schemes := Schemes()
 	switch {
 	case key.Matches(msg, m.keys.Back, m.keys.Quit):
 		m, _ = m.popView()
 	case key.Matches(msg, m.keys.Up):
-		m.schemeSel = clamp(m.schemeSel-1, 0, len(schemes)-1)
+		m.settingSel, m.settingsOff = m.moveSettings(-1)
 	case key.Matches(msg, m.keys.Down):
-		m.schemeSel = clamp(m.schemeSel+1, 0, len(schemes)-1)
+		m.settingSel, m.settingsOff = m.moveSettings(1)
 	case key.Matches(msg, m.keys.Top):
-		m.schemeSel = 0
+		m.settingSel, m.settingsOff = 0, 0
 	case key.Matches(msg, m.keys.Bottom):
-		m.schemeSel = max(0, len(schemes)-1)
-	case key.Matches(msg, m.keys.Enter):
-		return m.useScheme(schemes[m.schemeSel]), nil
+		lines, rows := m.settingsBody()
+		m.settingSel, m.settingsOff = SettingCount-1, max(0, len(lines)-rows)
+	case key.Matches(msg, m.keys.Left):
+		return m.cycleSetting(-1), nil
+	case key.Matches(msg, m.keys.Right, m.keys.Enter):
+		return m.cycleSetting(1), nil
 	}
 	return m, nil
 }
 
-// useScheme adopts a scheme, refusing one whose bindings would collide.
-func (m Model) useScheme(scheme Scheme) Model {
-	keys, err := KeyMapFrom(scheme, m.overrides)
-	if err != nil {
-		m.err = "cannot use the " + string(scheme) + " keys: " + err.Error()
+// settingsBody is the screen's lines and how many of them fit.
+func (m Model) settingsBody() ([]SettingsLine, int) {
+	lines := SettingsView(m.settingsState())
+	height := LayoutFor(m.width, m.height, len(m.columns)).BodyHeight
+	return lines, VisibleRows(height, len(lines))
+}
+
+// moveSettings steps the cursor or the window by one line.
+func (m Model) moveSettings(delta int) (int, int) {
+	lines, rows := m.settingsBody()
+	return MoveSettings(lines, m.settingSel, m.settingsOff, delta, rows)
+}
+
+// cycleSetting steps the selected setting and adopts the result, leaving the
+// value alone when the build cannot render what it would become.
+func (m Model) cycleSetting(delta int) Model {
+	settings := SettingsFor(m.prefs)
+	if m.settingSel < 0 || m.settingSel >= len(settings) {
 		return m
 	}
-	m.scheme, m.keys, m.err = scheme, keys, ""
-	m.status = "keybindings: " + string(scheme)
+	set := settings[m.settingSel]
+	value := CycleValue(set.Options, m.prefs.Value(m.settingSel), delta)
+	return m.usePreferences(m.prefs.With(m.settingSel, value), set, value)
+}
+
+// usePreferences adopts a changed preference set and persists it, reporting a
+// value the interface cannot render rather than taking it on.
+func (m Model) usePreferences(next Preferences, set Setting, value string) Model {
+	keys, style, err := ApplyPreference(next, m.overrides)
+	if err != nil {
+		m.err = set.Key + " cannot be " + value + ": " + err.Error()
+		return m
+	}
+	scheme, _ := ParseScheme(next.Keymap)
+	m.prefs, m.keys, m.timeStyle, m.scheme = next, keys, style, scheme
+	m.theme = NewTheme(m.renderer, ColorFor(next.Color, m.autoColor), m.brand)
+	m.err = ""
+	var saveErr error
+	if m.savePrefs != nil {
+		saveErr = m.savePrefs(next)
+	}
+	m.status = SaveNote(set, value, m.session.ConfigFile, saveErr, m.savePrefs != nil)
 	return m
+}
+
+// useScheme adopts a keybinding scheme, which is the settings screen's keymap
+// row reached by name rather than by cycling.
+func (m Model) useScheme(scheme Scheme) Model {
+	settings := SettingsFor(m.prefs)
+	return m.usePreferences(m.prefs.With(SettingKeymap, string(scheme)),
+		settings[SettingKeymap], string(scheme))
 }
 
 // handleProjectsKey moves through the project listing and opens a board.

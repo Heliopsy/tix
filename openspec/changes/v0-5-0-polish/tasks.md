@@ -136,6 +136,18 @@
 - [x] every row of the tenant tree carries a figure or says why it has none, a failed count included
 - [x] the prune notice sits in a field-label row with the checkbox it explains, instead of falling onto
       a line of its own as an icon with no text
+- [x] the tenant key is a labelled read-only field with the notice idiom its neighbours use, instead of
+      a bare "Key default" paragraph between the theme help and the Save button
+- [x] guard: the label, the notice, the read-only rendering and the absence of a name, each watched to
+      fail on its own, plus the rule that paints a read-only field unlike an editable one
+- [x] the task screen's history spans both columns below them, and its two short columns are sized down,
+      so the one column holding a sentence stops wrapping on every row beside an empty gutter
+- [x] guard: the panel's own tag, its position after the rail's close and the sizing rule, watched to
+      fail against the previous markup
+- [x] the task list no longer autofocuses its quick-add box: the shortcut scheme already binds a key to
+      it, and focus on arrival took the screen away from the rows it exists to show
+- [x] guard: the box read as an element rather than the page, watched to fail with autofocus restored
+      and with the shortcut target removed
 - [ ] the tenant screen still fetches a tenant listing it never renders; dropping it also needs the
       `tenant.list` web binding removed from `internal/capability`, which this change does not own
 

@@ -223,7 +223,7 @@ func viewActions(v viewKind) []string {
 			"Priority", "Assign", "Comment", "Tag", "Untag", "Depend", "Renew", "Settings", "Back",
 		}, global...)
 	case viewSettings:
-		return append([]string{"Up", "Down", "Top", "Bottom", "Enter", "Back"}, global...)
+		return append([]string{"Up", "Down", "Left", "Right", "Top", "Bottom", "Enter", "Back"}, global...)
 	case viewActivity:
 		return append([]string{"Up", "Down", "Top", "Bottom", "Filter", "ClearFltr", "Back"}, global...)
 	case viewTenant:

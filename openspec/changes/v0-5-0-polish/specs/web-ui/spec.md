@@ -430,3 +430,48 @@ part of the affordance and not decoration.
 
 - **WHEN** a notice explains a checkbox rather than a labelled input
 - **THEN** it renders on that checkbox's line, as it does beside every other control that carries one
+
+### Requirement: A value a screen shows but cannot change is still a field
+
+A value rendered on a form that no control on that form can change SHALL carry a label and, where the
+value's purpose is not evident from the label, the same notice idiom the fields beside it carry. It SHALL
+be rendered as read-only rather than editable, and SHALL NOT be submitted with the form.
+
+The tenant key was a bare run of body text between a field's help and the form's submit, reading as
+output left behind rather than as a value anybody was meant to use. A label and a notice are what say
+which value it is, that a shell addresses this tenant by it, and that this form cannot change it; the
+read-only rendering is what stops a reader typing into a box whose Save was never going to carry it.
+
+The value SHALL remain selectable, because the reason it is on the screen is that it has to be copied
+somewhere else.
+
+#### Scenario: A value no handler saves
+
+- **WHEN** a form renders a value that none of its handlers accept
+- **THEN** the value is labelled, rendered read-only, and not submitted with the form
+
+#### Scenario: A value whose purpose the label alone does not give
+
+- **WHEN** such a value is one used outside the browser
+- **THEN** its notice says where it is used and that this form cannot change it
+
+### Requirement: Arriving at a listing leaves the reader on the listing
+
+A listing SHALL NOT move focus away from the page when it loads. The reader arrived to read the rows, and
+a form at the top of the screen taking focus makes the form the subject: it draws a focus ring onto the
+loudest position on the screen, starts a screen reader at a text box rather than at the page's heading,
+and on a small screen raises the keyboard over the rows.
+
+Where a listing carries a control worth reaching without a pointer, the keyboard scheme SHALL bind a key
+to it and that binding SHALL appear in the shortcut help, so reaching the control costs one keystroke
+rather than a page that has already decided for everybody.
+
+#### Scenario: Loading the task list
+
+- **WHEN** the task list is rendered, with or without a message from a previous action
+- **THEN** no control on it takes focus, and the reader's starting point is the page itself
+
+#### Scenario: Reaching the quick-add field
+
+- **WHEN** a reader presses the key their scheme binds to the new-task action
+- **THEN** focus moves to the quick-add field

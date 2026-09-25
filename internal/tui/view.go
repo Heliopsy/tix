@@ -113,7 +113,7 @@ func (m Model) bodyLines(layout Layout) []string {
 	case viewDetail:
 		return m.detailLines(layout)
 	case viewSettings:
-		return m.settingsLines()
+		return m.settingsLines(layout)
 	case viewActivity:
 		return m.activityLines(layout)
 	case viewTenant:
@@ -146,28 +146,34 @@ func (m Model) projectLines() []string {
 	return append(head, lines...)
 }
 
-// settingsLines renders the keybinding schemes on offer, marking the active
-// one and showing the keys each would give the actions people reach for most.
-func (m Model) settingsLines() []string {
-	lines := []string{m.theme.Header.Render("keybindings"), ""}
-	for i, scheme := range Schemes() {
-		mark := "  "
-		if scheme == m.scheme {
-			mark = "✓ "
-		}
-		label := SelectionMarker(i == m.schemeSel) + mark + pad(string(scheme), 10) + SchemeDescription(scheme)
-		lines = append(lines, m.emphasize(m.fit(label), i == m.schemeSel))
+// settingsLines renders the display preferences and the session facts,
+// scrolled so the selected setting is always on screen.
+func (m Model) settingsLines(layout Layout) []string {
+	raw := SettingsView(m.settingsState())
+	rows := VisibleRows(layout.BodyHeight, len(raw))
+	window, offset := SettingsWindow(raw, m.settingsOff, rows)
+	out := make([]string, 0, len(window)+1)
+	for _, l := range window {
+		out = append(out, m.fit(m.settingsStyle(l)))
 	}
-	lines = append(lines, "", m.theme.Dim.Render("  the highlighted scheme binds:"))
-	preview := KeyMapFor(Schemes()[clamp(m.schemeSel, 0, len(Schemes())-1)])
-	for _, action := range []string{"Up", "Down", "New", "EditTitle", "Comment", "Filter", "Back"} {
-		b, ok := preview.Binding(action)
-		if !ok {
-			continue
-		}
-		lines = append(lines, "    "+pad(strings.Join(b.Keys(), ", "), 22)+b.Help().Desc)
+	if hint := ScrollHint(offset, rows, len(raw)); hint != "" {
+		out = append(out, m.theme.Dim.Render("  "+hint))
 	}
-	return lines
+	return out
+}
+
+// settingsStyle draws one settings line by what it is.
+func (m Model) settingsStyle(l SettingsLine) string {
+	switch {
+	case l.Heading:
+		return m.theme.Header.Render(l.Text)
+	case l.Row == m.settingSel && !l.Dim:
+		return m.theme.Selected.Render(l.Text)
+	case l.Dim:
+		return m.theme.Dim.Render(l.Text)
+	default:
+		return l.Text
+	}
 }
 
 // projectRow renders one project of the picker.
@@ -624,12 +630,4 @@ func pad(s string, width int) string {
 		return s + strings.Repeat(" ", n)
 	}
 	return s
-}
-
-// emphasize marks a line as selected without relying on colour.
-func (m Model) emphasize(line string, selected bool) string {
-	if !selected {
-		return line
-	}
-	return m.theme.Selected.Render(line)
 }

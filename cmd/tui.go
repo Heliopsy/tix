@@ -6,8 +6,10 @@ import (
 	"context"
 	"strings"
 
+	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/tui"
+	"github.com/heliopsy/tix/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -78,6 +80,15 @@ func newTUICmd(g *globals) *cobra.Command {
 			code := tui.Run(tui.Options{
 				Brand:     brand,
 				TimeStyle: g.timeStyle(),
+				Prefs: tui.Preferences{
+					Keymap:     scheme,
+					TimeFormat: resolved.Config.Output.TimeFormat,
+					Timezone:   resolved.Config.Output.Timezone,
+					Color:      resolved.Config.Output.Color,
+				},
+				Sources:   preferenceSources(resolved),
+				SavePrefs: g.savePreferences(),
+				Session:   g.sessionInfo(resolved),
 				Tenant:    resolved.Config.Tenant,
 				Dial:      g.tenantDialer(cmd),
 				Service:   conn.Service,
@@ -147,4 +158,82 @@ func mergeOverrides(configured, flags map[string]string) map[string]string {
 		out[action] = key
 	}
 	return out
+}
+
+// preferenceSources names the configuration layer each display preference
+// arrived from, so the settings screen can warn that writing one down will not
+// change what this run is using.
+func preferenceSources(resolved *config.Resolved) tui.Preferences {
+	return tui.Preferences{
+		Keymap:     string(resolved.Source(tui.KeyTUIKeymap)),
+		TimeFormat: string(resolved.Source(tui.KeyOutputTimeFormat)),
+		Timezone:   string(resolved.Source(tui.KeyOutputTimezone)),
+		Color:      string(resolved.Source(tui.KeyOutputColor)),
+	}
+}
+
+// sessionInfo is what the settings screen states about this run. The target is
+// taken from the redacted view of the resolved configuration, so a DSN
+// carrying a password is never drawn on a screen somebody is sharing.
+func (g *globals) sessionInfo(resolved *config.Resolved) tui.SessionInfo {
+	path := resolved.ConfigFile
+	if path == "" {
+		path = g.configFilePath()
+	}
+	return tui.SessionInfo{
+		Target:     redactedTarget(resolved),
+		Tenant:     resolved.Config.Tenant,
+		Version:    shortVersion(),
+		ConfigFile: path,
+	}
+}
+
+// shortVersion names this build in what a settings row has room for. The full
+// version.String carries the build date and the platform and ran off the side
+// of a 120 column terminal, truncated mid-commit.
+func shortVersion() string {
+	commit, dirty := version.Commit, ""
+	if trimmed, cut := strings.CutSuffix(commit, "-dirty"); cut {
+		commit, dirty = trimmed, "-dirty"
+	}
+	if len(commit) > 7 {
+		commit = commit[:7]
+	}
+	return "tix " + version.Version + " (" + commit + dirty + ")"
+}
+
+// redactedTarget names what this run is talking to, preferring the server over
+// the database because a run with both configured uses the server.
+func redactedTarget(resolved *config.Resolved) string {
+	values := map[string]string{}
+	for _, entry := range resolved.Sources() {
+		values[entry.Key] = entry.Value
+	}
+	if url := strings.TrimSpace(values["server.url"]); url != "" {
+		return url
+	}
+	return values["database.dsn"]
+}
+
+// savePreferences writes the settings screen's choices to the configuration
+// file. It is the same in-place edit `tix ctx use` performs, for the same
+// reason: writing a whole Config would pin every default and every value the
+// environment happened to be supplying at that moment.
+func (g *globals) savePreferences() tui.PreferenceWriter {
+	return func(p tui.Preferences) error {
+		path := g.configFilePath()
+		existing, cfg, err := readConfigFile(path)
+		if err != nil {
+			return err
+		}
+		before := *cfg
+		cfg.TUI.Keymap = p.Keymap
+		cfg.Output.TimeFormat = p.TimeFormat
+		cfg.Output.Timezone = p.Timezone
+		cfg.Output.Color = p.Color
+		if err := config.SaveChanges(path, existing, &before, cfg); err != nil {
+			return core.Internal("saving configuration").Wrap(err)
+		}
+		return nil
+	}
 }

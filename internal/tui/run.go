@@ -35,6 +35,14 @@ type Options struct {
 	// Scheme names the keybinding preset and Overrides rebinds single actions.
 	Scheme    string
 	Overrides map[string]string
+	// Prefs are the display settings the settings screen offers, Sources
+	// names the configuration layer each arrived from, and SavePrefs writes a
+	// change back. A nil SavePrefs leaves the screen usable and says so.
+	Prefs     Preferences
+	Sources   Preferences
+	SavePrefs PreferenceWriter
+	// Session is what the settings screen states about this run.
+	Session SessionInfo
 	// TimeStyle renders every timestamp the interface draws. The zero value
 	// still works: it renders the compact layout in the machine's local zone,
 	// so a caller that has not wired configuration through yet is not broken.
@@ -62,6 +70,7 @@ func Run(o Options) int {
 		Environ: o.Environ, Out: o.Out, Color: o.Color, Project: o.Project, Filter: o.Filter,
 		Scheme: o.Scheme, Overrides: o.Overrides, TimeStyle: o.TimeStyle, Brand: o.Brand,
 		Tenant: o.Tenant, Dial: o.Dial,
+		Prefs: o.Prefs, Sources: o.Sources, SavePrefs: o.SavePrefs, Session: o.Session,
 	})
 	final, err := tea.NewProgram(model, programOptions(ctx, o)...).Run()
 	return exitStatus(final, err, errw)
