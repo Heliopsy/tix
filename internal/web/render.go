@@ -25,6 +25,12 @@ type branding struct {
 	Monogram   string
 	Accent     template.CSS
 	AccentSoft template.CSS
+	// The same pair for the dark and dim schemes. See layout.html: the scheme
+	// rules in app.css are selector-specific (:root[data-theme="dark"]), so a
+	// tenant accent emitted only as plain :root loses to them and the theme
+	// silently does nothing on the scheme the browser defaults to.
+	AccentDark     template.CSS
+	AccentSoftDark template.CSS
 }
 
 // defaultAccent and defaultAccentSoft are the brand colour shown before any
@@ -41,8 +47,10 @@ const (
 // defaultBranding is applied when no tenant has been resolved.
 func defaultBranding() branding {
 	// #nosec G203 -- fixed constants above, never a caller.
+	d := builtInDefault()
 	return branding{Title: "tix", Monogram: "t",
-		Accent: template.CSS(defaultAccent), AccentSoft: template.CSS(defaultAccentSoft)} // #nosec G203
+		Accent: template.CSS(defaultAccent), AccentSoft: template.CSS(defaultAccentSoft), // #nosec G203
+		AccentDark: template.CSS(d.AccentDark), AccentSoftDark: template.CSS(d.AccentSoftDark)} // #nosec G203
 }
 
 // brandFor derives a tenant's branding from its own record and the theme it
@@ -66,7 +74,26 @@ func brandFor(t *core.Tenant, themes *core.ThemeRegistry) branding {
 		// no caller can place a value here.
 		Accent:     template.CSS(theme.Accent),     // #nosec G203
 		AccentSoft: template.CSS(theme.AccentSoft), // #nosec G203
+		// Empty would emit an empty custom property and blank the accent, so
+		// a theme with no dark pair falls back to its light one.
+		AccentDark:     template.CSS(orElse(theme.AccentDark, theme.Accent)),         // #nosec G203
+		AccentSoftDark: template.CSS(orElse(theme.AccentSoftDark, theme.AccentSoft)), // #nosec G203
 	}
+}
+
+// orElse is the fallback for a theme that names no dark colour.
+func orElse(v, fallback string) string {
+	if v == "" {
+		return fallback
+	}
+	return v
+}
+
+// builtInDefault is the shipped default theme, for the branding shown before
+// any tenant has been resolved.
+func builtInDefault() core.Theme {
+	r, _ := core.NewThemeRegistry(nil)
+	return r.Default()
 }
 
 // view is what every template is executed against.

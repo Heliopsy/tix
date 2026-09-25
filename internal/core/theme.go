@@ -26,6 +26,17 @@ type Theme struct {
 	Accent string `json:"accent" yaml:"accent"`
 	// AccentSoft is the tint it sits on, as #rrggbb.
 	AccentSoft string `json:"accent_soft" yaml:"accent_soft"`
+	// AccentDark and AccentSoftDark are the same two colours for the dark and
+	// dim schemes.
+	//
+	// They exist because an accent picked to read on white is usually too dark
+	// to read on near-black, and the browser defaults to the dark scheme: a
+	// theme with only a light accent renders as a barely visible smear on the
+	// scheme most people actually see. Empty falls back to the light pair, so
+	// a configured theme that names only an accent still applies everywhere
+	// rather than being ignored on half the schemes.
+	AccentDark     string `json:"accent_dark,omitempty" yaml:"accent_dark,omitempty"`
+	AccentSoftDark string `json:"accent_soft_dark,omitempty" yaml:"accent_soft_dark,omitempty"`
 	// BuiltIn reports whether this theme ships with tix rather than coming
 	// from configuration. Listing says which, so an operator can tell what
 	// they can redefine.
@@ -42,14 +53,22 @@ const DefaultThemeName = "default"
 // style block always overrides that token: if the two drifted, the value in
 // the stylesheet would never actually be seen.
 var builtInThemes = []Theme{
-	{Name: DefaultThemeName, Accent: "#0f766e", AccentSoft: "#e6f4f1", BuiltIn: true},
-	{Name: "indigo", Accent: "#3b5bdb", AccentSoft: "#edf0ff", BuiltIn: true},
-	{Name: "forest", Accent: "#2b8a3e", AccentSoft: "#e9f7ec", BuiltIn: true},
-	{Name: "ember", Accent: "#c2410c", AccentSoft: "#fdf0e8", BuiltIn: true},
-	{Name: "violet", Accent: "#7048e8", AccentSoft: "#f1ecfd", BuiltIn: true},
-	{Name: "ocean", Accent: "#0b7285", AccentSoft: "#e6f4f6", BuiltIn: true},
-	{Name: "plum", Accent: "#a61e4d", AccentSoft: "#fbeaf0", BuiltIn: true},
-	{Name: "slate", Accent: "#334155", AccentSoft: "#eef2f6", BuiltIn: true},
+	{Name: DefaultThemeName, Accent: "#0f766e", AccentSoft: "#e6f4f1",
+		AccentDark: "#2dd4bf", AccentSoftDark: "#123b36", BuiltIn: true},
+	{Name: "indigo", Accent: "#3b5bdb", AccentSoft: "#edf0ff",
+		AccentDark: "#8da2fb", AccentSoftDark: "#1e2749", BuiltIn: true},
+	{Name: "forest", Accent: "#2b8a3e", AccentSoft: "#e9f7ec",
+		AccentDark: "#6ee7a5", AccentSoftDark: "#13301f", BuiltIn: true},
+	{Name: "ember", Accent: "#c2410c", AccentSoft: "#fdf0e8",
+		AccentDark: "#fb923c", AccentSoftDark: "#3a2113", BuiltIn: true},
+	{Name: "violet", Accent: "#7048e8", AccentSoft: "#f1ecfd",
+		AccentDark: "#c4b5fd", AccentSoftDark: "#2a2145", BuiltIn: true},
+	{Name: "ocean", Accent: "#0b7285", AccentSoft: "#e6f4f6",
+		AccentDark: "#67e8f9", AccentSoftDark: "#0e3440", BuiltIn: true},
+	{Name: "plum", Accent: "#a61e4d", AccentSoft: "#fbeaf0",
+		AccentDark: "#f9a8d4", AccentSoftDark: "#3d1528", BuiltIn: true},
+	{Name: "slate", Accent: "#334155", AccentSoft: "#eef2f6",
+		AccentDark: "#a8b6c8", AccentSoftDark: "#242c36", BuiltIn: true},
 }
 
 // derivedAccents is the set an unthemed tenant's colour is drawn from.
@@ -88,9 +107,28 @@ func NewThemeRegistry(custom []Theme) (*ThemeRegistry, error) {
 		if err := validateHexColor(name, "accent_soft", t.AccentSoft); err != nil {
 			return nil, err
 		}
+		// The dark pair is optional; a theme that names only an accent still
+		// applies on every scheme, using its light colours, rather than being
+		// silently dropped on the scheme most people see.
+		dark, softDark := strings.ToLower(t.AccentDark), strings.ToLower(t.AccentSoftDark)
+		if dark != "" {
+			if err := validateHexColor(name, "accent_dark", t.AccentDark); err != nil {
+				return nil, err
+			}
+		} else {
+			dark = strings.ToLower(t.Accent)
+		}
+		if softDark != "" {
+			if err := validateHexColor(name, "accent_soft_dark", t.AccentSoftDark); err != nil {
+				return nil, err
+			}
+		} else {
+			softDark = strings.ToLower(t.AccentSoft)
+		}
 		byName[name] = Theme{
 			Name: name, Accent: strings.ToLower(t.Accent),
-			AccentSoft: strings.ToLower(t.AccentSoft), BuiltIn: false,
+			AccentSoft: strings.ToLower(t.AccentSoft),
+			AccentDark: dark, AccentSoftDark: softDark, BuiltIn: false,
 		}
 	}
 	return &ThemeRegistry{byName: byName}, nil
@@ -185,7 +223,8 @@ func DerivedTheme(t *Tenant) Theme {
 	picked := derivedAccents[int(sum.Sum32())%len(derivedAccents)]
 	// Named for the tenant rather than for the palette entry: nobody chose
 	// this, so reporting it as "indigo" would imply somebody did.
-	return Theme{Name: "", Accent: picked.Accent, AccentSoft: picked.AccentSoft, BuiltIn: true}
+	return Theme{Name: "", Accent: picked.Accent, AccentSoft: picked.AccentSoft,
+		AccentDark: picked.AccentDark, AccentSoftDark: picked.AccentSoftDark, BuiltIn: true}
 }
 
 // ThemeNames lists the built-in theme names, for shell completion.

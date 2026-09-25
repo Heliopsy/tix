@@ -6,7 +6,20 @@
 <title>{{.Title}} &middot; {{.Brand.Title}}</title>
 <link rel="icon" href="/assets/tix.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/app.css">
-<style>:root { --accent: {{.Brand.Accent}}; --accent-soft: {{.Brand.AccentSoft}}; }</style>
+{{/* The scheme rules in app.css are written as :root[data-theme="dark"] and
+     :root:not([data-theme="light"]), which outrank a plain :root however late
+     it appears. A tenant accent emitted only as :root therefore applied in the
+     light scheme and was silently ignored in dark and dim, which is the scheme
+     a browser defaults to: the feature looked like it did nothing. These
+     blocks match those selectors exactly and sit after the stylesheet, so they
+     win on source order. */}}
+<style>
+:root { --accent: {{.Brand.Accent}}; --accent-soft: {{.Brand.AccentSoft}}; }
+:root[data-theme="dark"], :root[data-theme="dim"] { --accent: {{.Brand.AccentDark}}; --accent-soft: {{.Brand.AccentSoftDark}}; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dim"]) { --accent: {{.Brand.AccentDark}}; --accent-soft: {{.Brand.AccentSoftDark}}; }
+}
+</style>
 <script src="/assets/decide.js" defer></script>
 <script src="/assets/htmx.min.js" defer></script>
 <script src="/assets/live.js" defer></script>

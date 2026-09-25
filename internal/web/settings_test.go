@@ -98,12 +98,17 @@ func TestSettingsPageRendersInEveryScheme(t *testing.T) {
 			_ = resp.Body.Close()
 
 			page := b.page("/settings")
+			// Checked on the <html> element rather than anywhere in the
+			// document: the tenant's accent is emitted as a style block whose
+			// selectors legitimately name data-theme, and a substring search
+			// over the whole page cannot tell a selector from an attribute.
+			html := htmlTag(t, page)
 			if theme == "" {
-				if strings.Contains(page, "data-theme=") {
-					t.Errorf("the system scheme pinned a theme:\n%s", page)
+				if strings.Contains(html, "data-theme=") {
+					t.Errorf("the system scheme pinned a theme: %s", html)
 				}
-			} else if !strings.Contains(page, `data-theme="`+theme+`"`) {
-				t.Errorf("the page does not carry the %q scheme", theme)
+			} else if !strings.Contains(html, `data-theme="`+theme+`"`) {
+				t.Errorf("the html element does not carry the %q scheme: %s", theme, html)
 			}
 			if !strings.Contains(page, "<h1>Settings</h1>") {
 				t.Errorf("the settings page is missing under the %q scheme", name)
@@ -222,4 +227,54 @@ func (f *fixture) settingsPage(t *testing.T, handler http.Handler) string {
 		t.Fatalf("reading body: %v", err)
 	}
 	return string(body)
+}
+
+// htmlTag returns the opening <html ...> tag, which is where a pinned colour
+// scheme lives.
+func htmlTag(t *testing.T, page string) string {
+	t.Helper()
+	i := strings.Index(page, "<html")
+	if i < 0 {
+		t.Fatalf("the page has no <html> element:\n%s", page)
+	}
+	j := strings.Index(page[i:], ">")
+	if j < 0 {
+		t.Fatalf("the <html> element is not closed:\n%s", page)
+	}
+	return page[i : i+j+1]
+}
+
+// TestATenantAccentReachesEveryScheme is the test that was missing when
+// theming shipped.
+//
+// The accent was emitted as a plain `:root` block, and app.css writes its
+// scheme rules as `:root[data-theme="dark"]` and
+// `:root:not([data-theme="light"])`, which outrank it however late it appears.
+// So a themed tenant rendered its own accent in the light scheme and the
+// built-in one everywhere else, including the scheme a browser defaults to:
+// the feature looked like it did nothing. Every test that existed asserted
+// what brandFor returned, never that a scheme could not overrule it.
+//
+// Checked as text rather than in a browser: this package has no engine, and
+// what went wrong is what the page declares, not how it paints.
+func TestATenantAccentReachesEveryScheme(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	page := b.page("/settings")
+
+	// The three places a scheme is decided: the unqualified default, the
+	// pinned dark and dim schemes, and the system preference.
+	for _, want := range []string{
+		`:root { --accent:`,
+		`:root[data-theme="dark"], :root[data-theme="dim"] { --accent:`,
+		`:root:not([data-theme="light"]):not([data-theme="dim"]) { --accent:`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the page declares no accent for %q; a scheme rule will outrank it", want)
+		}
+	}
+	if !strings.Contains(page, "@media (prefers-color-scheme: dark)") {
+		t.Error("the accent is not restated for the system dark preference, which is the default")
+	}
 }
