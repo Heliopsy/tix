@@ -1086,3 +1086,102 @@ func TestClaimOfAFinishedTaskIsRefused(t *testing.T) {
 		t.Fatalf("claiming an unfinished task: %v", err)
 	}
 }
+
+// The evidence is the whole point of the sweep writing anything at all: once
+// the lease columns are null a swept task is indistinguishable from one nobody
+// ever claimed, and "somebody took this and stopped answering" is the signal an
+// operator watches for. Driven off the fixture clock, so the window boundary is
+// exact rather than nearly.
+func TestSweepLeavesEvidenceThatTheClaimExpired(t *testing.T) {
+	f := newClaimFixture(t, 0)
+	dropped := f.seedTask(t, "dropped", "doing", core.PriorityNormal)
+	released := f.seedTask(t, "released", "doing", core.PriorityNormal)
+
+	mustClaim(t, f, dropped)
+	handed := mustClaim(t, f, released)
+	if err := f.local.ReleaseLease(f.ctx, ref(released), handed.LeaseToken, core.ReleaseInput{}); err != nil {
+		t.Fatalf("releasing a live lease: %v", err)
+	}
+
+	f.clock.Advance(lease.DefaultTTL + time.Minute)
+	expiredAt := f.clock.Now()
+	if _, err := f.local.SweepLeases(f.ctx, 100); err != nil {
+		t.Fatalf("SweepLeases: %v", err)
+	}
+
+	got := f.reload(t, dropped)
+	if got.ClaimedByActorID != "" || got.LeaseExpiresAt != nil {
+		t.Fatalf("task = %+v, want the lease cleared", got)
+	}
+	if got.LeaseExpiredAt == nil || !got.LeaseExpiredAt.Equal(expiredAt) {
+		t.Errorf("lease expired at %v, want %v", got.LeaseExpiredAt, expiredAt)
+	}
+	if got.LeaseExpiredByActorID != f.actor.ID {
+		t.Errorf("previous holder = %q, want %q", got.LeaseExpiredByActorID, f.actor.ID)
+	}
+	if !got.ClaimExpiredRecently(f.clock.Now()) {
+		t.Error("a claim that expired this instant does not read as recently expired")
+	}
+
+	if rel := f.reload(t, released); rel.LeaseExpiredAt != nil {
+		t.Errorf("a released lease left expiry evidence: %+v", rel)
+	}
+}
+
+// The mark means "recently". It stops being current on its own schedule, and a
+// fresh claim erases it outright, because the question is whether the work was
+// dropped and left dropped.
+func TestExpiryEvidenceAgesOutAndAFreshClaimClearsIt(t *testing.T) {
+	f := newClaimFixture(t, 0)
+	task := f.seedTask(t, "kept dying", "doing", core.PriorityNormal)
+	mustClaim(t, f, task)
+	f.clock.Advance(lease.DefaultTTL + time.Minute)
+	if _, err := f.local.SweepLeases(f.ctx, 100); err != nil {
+		t.Fatalf("SweepLeases: %v", err)
+	}
+
+	got := f.reload(t, task)
+	edge := got.LeaseExpiredAt.Add(core.LeaseExpiryEvidenceWindow)
+	if !got.ClaimExpiredRecently(edge.Add(-time.Second)) {
+		t.Error("evidence went stale before the window closed")
+	}
+	if got.ClaimExpiredRecently(edge) {
+		t.Error("evidence is still current at the end of the window")
+	}
+
+	f.clock.Advance(time.Minute)
+	if _, err := f.local.ClaimTask(f.asOther(), ref(task), core.ClaimInput{}); err != nil {
+		t.Fatalf("re-claiming a dropped task: %v", err)
+	}
+	reclaimed := f.reload(t, task)
+	if reclaimed.LeaseExpiredAt != nil || reclaimed.LeaseExpiredByActorID != "" {
+		t.Errorf("a fresh claim left the old evidence: %+v", reclaimed)
+	}
+	if reclaimed.ClaimExpiredRecently(f.clock.Now()) {
+		t.Error("a task under a live claim reads as recently expired")
+	}
+}
+
+// TestClaimNextRejectsAStatusNoWorkflowDefines extends the filter rule to the
+// queue. A claim reports an unmatched filter as no_task_available, and the
+// published guidance tells an agent to read that as "nothing to do right now",
+// so a status no workflow declares would be answered as an idle queue: the
+// same wrong conclusion the listing used to invite, wearing a different code.
+func TestClaimNextRejectsAStatusNoWorkflowDefines(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "claimable"})
+
+	if _, err := l.ClaimNext(ctx, core.ClaimNextInput{Statuses: []string{"nosuchstatus"}}); err == nil {
+		t.Fatal("an undefined status answered as an empty queue, want a not-found")
+	} else if core.KindOf(err) != core.KindNotFound {
+		t.Errorf("undefined status gave %v, want a not-found", core.KindOf(err))
+	}
+
+	claim, err := l.ClaimNext(ctx, core.ClaimNextInput{Statuses: []string{"TODO"}})
+	if err != nil {
+		t.Fatalf("a declared status in another case must still claim: %v", err)
+	}
+	if claim == nil {
+		t.Fatal("no claim, want the one claimable task")
+	}
+}

@@ -107,6 +107,10 @@ func (l *Local) claimNextOnce(ctx context.Context, m *mutation, actor *core.Acto
 	if err != nil {
 		return nil, err
 	}
+	statuses, err := resolveStatusList(ctx, m.tx, in.Statuses)
+	if err != nil {
+		return nil, err
+	}
 	terminal, err := claimTerminalStates(ctx, m.tx, projectIDs)
 	if err != nil {
 		return nil, err
@@ -128,7 +132,7 @@ func (l *Local) claimNextOnce(ctx context.Context, m *mutation, actor *core.Acto
 	taskID, ok, err := m.tx.ClaimNextTask(ctx, store.ClaimNextRow{
 		ProjectIDs:     projectIDs,
 		Tags:           in.Tags,
-		Statuses:       in.Statuses,
+		Statuses:       statuses,
 		TerminalStates: terminal,
 		ActorID:        holder,
 		Now:            m.now,
@@ -350,10 +354,19 @@ func (l *Local) SweepLeases(ctx context.Context, limit int) (int, error) {
 	return swept, nil
 }
 
-// sweepOne clears one expired claim and reverts the status when the workflow's
-// state asks for it.
+// sweepOne clears one expired claim, leaves the evidence that it expired, and
+// reverts the status when the workflow's state asks for it.
+//
+// The evidence is what survives the clearing. Once the lease columns are null
+// the row is indistinguishable from one nobody ever claimed, and the fact worth
+// keeping is precisely the opposite: somebody took this task and stopped
+// answering. That is how a repeatedly dying holder is spotted.
 func (l *Local) sweepOne(ctx context.Context, m *mutation, before core.Task, workflows map[string]*core.Workflow) error {
-	if err := m.tx.ClearClaim(ctx, before.ID); err != nil {
+	if err := m.tx.ClearClaim(ctx, store.ExpireClaimRow{
+		TaskID:   before.ID,
+		HolderID: before.ClaimedByActorID,
+		At:       m.now,
+	}); err != nil {
 		return err
 	}
 

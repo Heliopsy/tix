@@ -75,6 +75,11 @@ func (l *Local) CreateTask(ctx context.Context, in core.CreateTaskInput) (*core.
 			return err
 		}
 
+		assignee, err := resolveAssignee(ctx, m.tx, in.AssigneeActorID)
+		if err != nil {
+			return err
+		}
+
 		priority := in.Priority
 		if priority == 0 {
 			priority = core.PriorityNormal
@@ -87,7 +92,7 @@ func (l *Local) CreateTask(ctx context.Context, in core.CreateTaskInput) (*core.
 			Body:            in.Body,
 			Status:          status,
 			Priority:        priority,
-			AssigneeActorID: in.AssigneeActorID,
+			AssigneeActorID: assignee,
 			CreatorActorID:  actor.ID,
 			DueAt:           in.DueAt,
 			CustomFields:    fields,
@@ -178,6 +183,9 @@ func (l *Local) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 
 	var tasks []core.Task
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
+		if err := resolveTaskFilter(ctx, tx, &probe); err != nil {
+			return err
+		}
 		var err error
 		tasks, err = tx.ListTasks(ctx, probe)
 		return err
@@ -1049,13 +1057,29 @@ func toFloat(v any) (float64, bool) {
 	}
 }
 
+// assigneeIsIdentifier reports whether an assignee reference names an actor by
+// identifier rather than by handle.
+//
+// The rule is shape and nothing else: exactly the length and alphabet of a
+// generated identifier is an identifier, anything else is a handle. Handles
+// come from the local part of an address or are typed by hand, so nothing a
+// person would pick collides with twenty-six characters of Crockford base32,
+// and a value that did would be unreadable as a name anyway.
+//
+// Deciding by shape rather than by asking the database is the point. It makes
+// the decision free, which is what keeps resolving a filter proportional to
+// the handles in it rather than to every value in it: a listing filtered by
+// identifiers, which is what every picker and every stored filter produces,
+// issues no lookups at all.
+func assigneeIsIdentifier(ref string) bool { return id.Valid(ref) }
+
 // resolveAssignee turns an assignee reference into an actor identifier.
 //
 // Assignment deliberately accepts an identifier this tenant cannot resolve,
 // because actor identifiers are globally unique and a task may name someone
 // from elsewhere; the interface renders an unresolvable one as a generated
 // name rather than leaking a handle. So an identifier-shaped value is passed
-// through untouched, exactly as before.
+// through untouched.
 //
 // Anything else is a handle, and used to reach the database as if it were an
 // identifier, where it failed a foreign key and surfaced the constraint error
@@ -1063,19 +1087,48 @@ func toFloat(v any) (float64, bool) {
 // rather than as a schema error.
 func resolveAssignee(ctx context.Context, tx store.Tx, ref string) (string, error) {
 	ref = strings.TrimSpace(ref)
-	if ref == "" {
+	if ref == "" || assigneeIsIdentifier(ref) {
 		return ref, nil
 	}
-	// A handle wins when it resolves here. Only a value with the exact shape of
-	// a generated identifier falls through unresolved, which is what keeps an
-	// actor from another tenant assignable: those never resolve locally,
-	// because actors are tenant scoped. A name that resolves nowhere and is not
-	// identifier-shaped is a mistake, and is reported as one.
-	if actor, err := lookupActor(ctx, tx, ref); err == nil {
-		return actor.ID, nil
+	actor, err := lookupActor(ctx, tx, ref)
+	if err != nil {
+		if core.IsKind(err, core.KindNotFound) {
+			return "", core.NotFound("no actor with handle or id %q", ref)
+		}
+		return "", err
 	}
-	if id.Valid(ref) {
-		return ref, nil
+	return actor.ID, nil
+}
+
+// resolveAssigneeRefs resolves the assignee terms of a filter, sharing one
+// cache across every term list so a handle named in both the inclusion and the
+// exclusion set is looked up once.
+//
+// A filter is the half of this that used to fail silently: a handle matched no
+// stored identifier, so the listing came back empty with a zero exit status and
+// read as "this actor has no tasks" rather than "that is not an identifier".
+// An unresolvable name is now an error, because an empty answer to a question
+// nobody asked is the worst of the three possible outcomes.
+func resolveAssigneeRefs(ctx context.Context, tx store.Tx, refs []string, cache map[string]string) ([]string, error) {
+	if len(refs) == 0 {
+		return refs, nil
 	}
-	return "", core.NotFound("no actor with handle or id %q", ref)
+	out := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		// An empty term is left as it was rather than dropped: whatever a
+		// filter holding one selects today, deciding that here would be a
+		// second change hiding inside this one.
+		trimmed := strings.TrimSpace(ref)
+		if resolved, ok := cache[trimmed]; ok {
+			out = append(out, resolved)
+			continue
+		}
+		resolved, err := resolveAssignee(ctx, tx, trimmed)
+		if err != nil {
+			return nil, err
+		}
+		cache[trimmed] = resolved
+		out = append(out, resolved)
+	}
+	return out, nil
 }

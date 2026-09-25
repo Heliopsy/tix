@@ -1339,3 +1339,412 @@ func TestAssigneeAcceptsAHandleWithoutLeakingSQL(t *testing.T) {
 		t.Errorf("the error leaks the schema: %v", err)
 	}
 }
+
+// TestListTasksRejectsAnUnknownAssigneeInsteadOfAnsweringEmpty pins the defect
+// the published skill demonstrated: `task ls --assignee alice` answered with an
+// empty list and a zero exit status, which reads as "alice has no tasks" rather
+// than "that is a handle, and the filter wanted an identifier". An empty
+// success is the one outcome that cannot be told apart from a correct answer,
+// so the unknown name must fail.
+func TestListTasksRejectsAnUnknownAssigneeInsteadOfAnsweringEmpty(t *testing.T) {
+	l, ctx, _, actor, _ := newTaskFixture(t)
+	mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "assigned", AssigneeActorID: actor.ID})
+
+	page, err := l.ListTasks(ctx, core.TaskFilter{AssigneeIDs: []string{"nosuchperson"}})
+	if err == nil {
+		t.Fatalf("an unknown assignee returned %d tasks and no error, want a not-found",
+			len(page.Tasks))
+	}
+	if core.KindOf(err) != core.KindNotFound {
+		t.Errorf("unknown assignee gave %v, want a not-found", core.KindOf(err))
+	}
+	if !strings.Contains(err.Error(), "nosuchperson") {
+		t.Errorf("the error does not name what was not found: %v", err)
+	}
+	if len(page.Tasks) != 0 {
+		t.Errorf("a failed listing also returned %d tasks", len(page.Tasks))
+	}
+}
+
+// TestListTasksAcceptsAnAssigneeHandle covers the working half of the same
+// rule, on both the inclusion and the exclusion side, because the filter
+// language offers "-assignee:" too and a term resolved on one side only would
+// answer a different question than the one asked.
+func TestListTasksAcceptsAnAssigneeHandle(t *testing.T) {
+	l, ctx, _, actor, _ := newTaskFixture(t)
+	mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "mine", AssigneeActorID: actor.ID})
+	mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "nobody's"})
+
+	cases := []struct {
+		name string
+		f    core.TaskFilter
+		want []string
+	}{
+		{"handle", core.TaskFilter{AssigneeIDs: []string{actor.Handle}}, []string{"mine"}},
+		{"identifier", core.TaskFilter{AssigneeIDs: []string{actor.ID}}, []string{"mine"}},
+		{"handle in upper case", core.TaskFilter{AssigneeIDs: []string{strings.ToUpper(actor.Handle)}},
+			[]string{"mine"}},
+		{"excluded by handle", core.TaskFilter{Exclude: core.TaskExclude{AssigneeIDs: []string{actor.Handle}}},
+			[]string{"nobody's"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			page, err := l.ListTasks(ctx, tc.f)
+			if err != nil {
+				t.Fatalf("ListTasks: %v", err)
+			}
+			got := taskTitles(page.Tasks)
+			if len(got) != len(tc.want) || (len(got) == 1 && got[0] != tc.want[0]) {
+				t.Errorf("tasks = %v, want %v", got, tc.want)
+			}
+		})
+	}
+
+	if _, err := l.ListTasks(ctx, core.TaskFilter{
+		Exclude: core.TaskExclude{AssigneeIDs: []string{"nosuchperson"}},
+	}); core.KindOf(err) != core.KindNotFound {
+		t.Errorf("an unknown excluded assignee gave %v, want a not-found", core.KindOf(err))
+	}
+}
+
+// TestCreateTaskResolvesTheAssigneeHandle pins the creation half. An
+// unresolved handle reached the foreign key and surfaced the constraint error
+// verbatim, which is a schema leak rather than an answer; and had the column
+// carried no constraint it would have stored a task assigned to nobody.
+func TestCreateTaskResolvesTheAssigneeHandle(t *testing.T) {
+	l, ctx, _, actor, _ := newTaskFixture(t)
+
+	task := mustCreateTask(t, l, ctx, core.CreateTaskInput{
+		Title: "by handle", AssigneeActorID: actor.Handle})
+	if task.AssigneeActorID != actor.ID {
+		t.Errorf("assignee = %q, want the actor id %q", task.AssigneeActorID, actor.ID)
+	}
+
+	_, err := l.CreateTask(ctx, core.CreateTaskInput{Title: "nope", AssigneeActorID: "nosuchperson"})
+	if err == nil {
+		t.Fatal("an unknown handle was accepted")
+	}
+	if core.KindOf(err) != core.KindNotFound {
+		t.Errorf("unknown handle gave %v, want a not-found", core.KindOf(err))
+	}
+	if strings.Contains(err.Error(), "FOREIGN KEY") || strings.Contains(err.Error(), "constraint") {
+		t.Errorf("the error leaks the schema: %v", err)
+	}
+
+	page, err := l.ListTasks(ctx, core.TaskFilter{})
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	for _, got := range page.Tasks {
+		if got.Title == "nope" {
+			t.Errorf("the refused task was written anyway: %+v", got)
+		}
+	}
+}
+
+// TestAssigneeIdentifierShapeDecidesResolution documents the disambiguation
+// rule, because it is the part a reader would otherwise have to infer from two
+// call sites. Shape alone decides, and an identifier-shaped value is never
+// looked up, which is what keeps an actor of another tenant assignable and
+// what keeps a filter from costing one query per value.
+func TestAssigneeIdentifierShapeDecidesResolution(t *testing.T) {
+	cases := []struct {
+		ref  string
+		want bool
+	}{
+		{"01ARZ3NDEKTSV4RRFFQ69G5FAV", true},
+		{"alice", false},
+		{"", false},
+		{"alice@example.com", false},
+		{"01ARZ3NDEKTSV4RRFFQ69G5FA", false},
+		{"01ARZ3NDEKTSV4RRFFQ69G5FAVX", false},
+		{"01arz3ndektsv4rrffq69g5fav", true},
+		{"01ARZ3NDEKTSV4RRFFQ69G5FAU", false},
+	}
+	for _, tc := range cases {
+		if got := assigneeIsIdentifier(tc.ref); got != tc.want {
+			t.Errorf("assigneeIsIdentifier(%q) = %v, want %v", tc.ref, got, tc.want)
+		}
+	}
+}
+
+// seedTaskProjectWith seeds a project whose workflow is not the shared one, so
+// a test can ask what a status defined by one workflow and not another does.
+func seedTaskProjectWith(t *testing.T, l *Local, scope core.TenantScope, key string, def core.WorkflowDefinition) *core.Project {
+	t.Helper()
+	ctx := context.Background()
+	wf := core.Workflow{Key: "wf-" + key, Name: "Workflow " + key, Definition: def}
+	project := core.Project{Key: key, Name: strings.ToUpper(key)}
+	if err := l.store.Update(ctx, scope, func(tx store.Tx) error {
+		if err := tx.PutWorkflow(ctx, &wf); err != nil {
+			return err
+		}
+		project.WorkflowID = wf.ID
+		return tx.CreateProject(ctx, &project)
+	}); err != nil {
+		t.Fatalf("seeding project %q: %v", key, err)
+	}
+	return &project
+}
+
+// shippingWorkflow defines states the shared task workflow does not, so a
+// status can be real for the tenant and undefined for one project at once.
+func shippingWorkflow() core.WorkflowDefinition {
+	return core.WorkflowDefinition{
+		Initial: "backlog",
+		States: []core.State{
+			{Key: "backlog", Label: "Backlog", Category: core.CategoryTodo},
+			{Key: "shipped", Label: "Shipped", Terminal: true, Category: core.CategoryDone},
+		},
+		Transitions: []core.Transition{{From: "backlog", To: "shipped"}},
+	}
+}
+
+// TestListTasksRejectsAnUnknownProjectInsteadOfAnsweringEmpty pins the same
+// defect the assignee filter had, in the term a reader is most likely to get
+// wrong: `task ls -p nosuchproject` printed an empty document and exited zero,
+// which reads as "that project has no work" rather than "there is no such
+// project". A project key names a row that exists or does not, so there is no
+// legitimate query the refusal takes away.
+func TestListTasksRejectsAnUnknownProjectInsteadOfAnsweringEmpty(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "real work"})
+
+	cases := []struct {
+		name string
+		f    core.TaskFilter
+	}{
+		{"key", core.TaskFilter{ProjectKeys: []string{"nosuchproject"}}},
+		{"excluded key", core.TaskFilter{Exclude: core.TaskExclude{ProjectKeys: []string{"nosuchproject"}}}},
+		{"identifier", core.TaskFilter{ProjectIDs: []string{"01ARZ3NDEKTSV4RRFFQ69G5FAV"}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			page, err := l.ListTasks(ctx, tc.f)
+			if err == nil {
+				t.Fatalf("an unknown project returned %d tasks and no error, want a not-found", len(page.Tasks))
+			}
+			if core.KindOf(err) != core.KindNotFound {
+				t.Errorf("unknown project gave %v, want a not-found", core.KindOf(err))
+			}
+			if len(page.Tasks) != 0 {
+				t.Errorf("a failed listing also returned %d tasks", len(page.Tasks))
+			}
+		})
+	}
+}
+
+// TestListTasksAcceptsAProjectKeyInAnyCase covers the other half of the same
+// term. The store matches a key exactly, so an upper-case key selected nothing
+// while naming a project that plainly exists.
+func TestListTasksAcceptsAProjectKeyInAnyCase(t *testing.T) {
+	l, ctx, _, _, project := newTaskFixture(t)
+	mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "mine"})
+
+	page, err := l.ListTasks(ctx, core.TaskFilter{ProjectKeys: []string{strings.ToUpper(project.Key)}})
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	if len(page.Tasks) != 1 {
+		t.Fatalf("an upper-case project key returned %d tasks, want 1", len(page.Tasks))
+	}
+}
+
+// TestListTasksRejectsAStatusNoWorkflowDefines pins the status half of the
+// defect. The vocabulary is every state of every workflow the tenant has, so
+// what is refused here is a word that cannot describe any task at all.
+func TestListTasksRejectsAStatusNoWorkflowDefines(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "real work"})
+
+	cases := []struct {
+		name string
+		f    core.TaskFilter
+	}{
+		{"included", core.TaskFilter{Statuses: []string{"nosuchstatus"}}},
+		{"excluded", core.TaskFilter{Exclude: core.TaskExclude{Statuses: []string{"nosuchstatus"}}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			page, err := l.ListTasks(ctx, tc.f)
+			if err == nil {
+				t.Fatalf("an undefined status returned %d tasks and no error, want a not-found", len(page.Tasks))
+			}
+			if core.KindOf(err) != core.KindNotFound {
+				t.Errorf("undefined status gave %v, want a not-found", core.KindOf(err))
+			}
+			if !strings.Contains(err.Error(), "nosuchstatus") {
+				t.Errorf("the error does not name what was not found: %v", err)
+			}
+			if !strings.Contains(err.Error(), "todo") {
+				t.Errorf("the error does not offer the vocabulary it checked against: %v", err)
+			}
+		})
+	}
+}
+
+// TestListTasksAllowsAStatusOnlyOneWorkflowDefines is the regression the
+// status rule exists to avoid creating. A tenant's workflows need not agree,
+// so a listing spanning projects, or scoped to a project whose workflow lacks
+// the state, may legitimately name a status defined elsewhere. That query must
+// answer, with an empty page where there is nothing, rather than be refused:
+// here the status is a real thing that this scope does not reach, which is not
+// the same as a word that names nothing.
+func TestListTasksAllowsAStatusOnlyOneWorkflowDefines(t *testing.T) {
+	l, ctx, scope, _, infra := newTaskFixture(t)
+	ship := seedTaskProjectWith(t, l, scope, "ship", shippingWorkflow())
+	mustCreateTask(t, l, ctx, core.CreateTaskInput{ProjectRef: infra.Key, Title: "in infra"})
+	mustCreateTask(t, l, ctx, core.CreateTaskInput{ProjectRef: ship.Key, Title: "in ship"})
+
+	cases := []struct {
+		name string
+		f    core.TaskFilter
+		want int
+	}{
+		{"tenant wide", core.TaskFilter{Statuses: []string{"backlog"}}, 1},
+		{"scoped to the project that lacks the state",
+			core.TaskFilter{ProjectKeys: []string{infra.Key}, Statuses: []string{"backlog"}}, 0},
+		{"spanning both projects",
+			core.TaskFilter{ProjectKeys: []string{infra.Key, ship.Key}, Statuses: []string{"todo", "backlog"}}, 2},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			page, err := l.ListTasks(ctx, tc.f)
+			if err != nil {
+				t.Fatalf("a status defined by one workflow must not fail the listing: %v", err)
+			}
+			if len(page.Tasks) != tc.want {
+				t.Errorf("got %d tasks, want %d", len(page.Tasks), tc.want)
+			}
+		})
+	}
+}
+
+// TestListTasksAcceptsAStatusInAnyCase mirrors the project key: the store
+// matches the state exactly, so an upper-case status selected nothing.
+func TestListTasksAcceptsAStatusInAnyCase(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "mine"})
+
+	page, err := l.ListTasks(ctx, core.TaskFilter{Statuses: []string{"TODO"}})
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	if len(page.Tasks) != 1 {
+		t.Fatalf("an upper-case status returned %d tasks, want 1", len(page.Tasks))
+	}
+}
+
+// TestListTasksAnswersAnUnknownTagWithAnEmptyPage records the one term of the
+// family that is deliberately not an error. A tag is free-form and exists only
+// by being applied, so "unknown tag" and "tag nothing carries" are the same
+// state: refusing the first refuses the second, removing the last task from a
+// tag would turn a working filter into a failure, and excluding a tag is a
+// question whose whole point is that nothing carries it.
+func TestListTasksAnswersAnUnknownTagWithAnEmptyPage(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "untagged"})
+
+	page, err := l.ListTasks(ctx, core.TaskFilter{Tags: []string{"nosuchtag"}})
+	if err != nil {
+		t.Fatalf("an unapplied tag must not fail a listing: %v", err)
+	}
+	if len(page.Tasks) != 0 {
+		t.Errorf("got %d tasks, want none", len(page.Tasks))
+	}
+
+	page, err = l.ListTasks(ctx, core.TaskFilter{Exclude: core.TaskExclude{Tags: []string{"nosuchtag"}}})
+	if err != nil {
+		t.Fatalf("excluding an unapplied tag must not fail a listing: %v", err)
+	}
+	if len(page.Tasks) != 1 {
+		t.Errorf("excluding a tag nothing carries removed %d tasks", 1-len(page.Tasks))
+	}
+}
+
+// TestListTasksResolvesTheParentTerm pins the term where silence was most
+// convincing: the parent column holds an identifier, so a parent written in
+// the reference form every surface displays selected nothing while looking
+// exactly right.
+func TestListTasksResolvesTheParentTerm(t *testing.T) {
+	l, ctx, _, _, _ := newTaskFixture(t)
+	parent := mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "parent"})
+	mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "child", ParentRef: parent.Ref})
+
+	page, err := l.ListTasks(ctx, core.TaskFilter{ParentID: parent.Ref})
+	if err != nil {
+		t.Fatalf("a parent named by reference must resolve: %v", err)
+	}
+	if len(page.Tasks) != 1 || page.Tasks[0].Title != "child" {
+		t.Fatalf("filtering by parent reference returned %d tasks, want the one child", len(page.Tasks))
+	}
+
+	if _, err := l.ListTasks(ctx, core.TaskFilter{ParentID: "infra-999"}); err == nil {
+		t.Fatal("an unknown parent answered successfully, want a not-found")
+	} else if core.KindOf(err) != core.KindNotFound {
+		t.Errorf("unknown parent gave %v, want a not-found", core.KindOf(err))
+	}
+}
+
+// TestListTasksResolvesEveryActorTerm extends the assignee rule to the other
+// two actor-shaped terms. All three reach storage as identifiers, so a handle
+// in any of them selected nothing and said so with a zero exit status.
+func TestListTasksResolvesEveryActorTerm(t *testing.T) {
+	l, ctx, _, actor, _ := newTaskFixture(t)
+	mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "mine"})
+
+	cases := []struct {
+		name string
+		f    core.TaskFilter
+		want int
+	}{
+		{"creator by handle", core.TaskFilter{CreatorIDs: []string{actor.Handle}}, 1},
+		{"creator excluded by handle",
+			core.TaskFilter{Exclude: core.TaskExclude{CreatorIDs: []string{actor.Handle}}}, 0},
+		{"claimant by handle", core.TaskFilter{ClaimedBy: []string{actor.Handle}}, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			page, err := l.ListTasks(ctx, tc.f)
+			if err != nil {
+				t.Fatalf("ListTasks: %v", err)
+			}
+			if len(page.Tasks) != tc.want {
+				t.Errorf("got %d tasks, want %d", len(page.Tasks), tc.want)
+			}
+		})
+	}
+
+	unknown := []core.TaskFilter{
+		{CreatorIDs: []string{"nosuchperson"}},
+		{ClaimedBy: []string{"nosuchperson"}},
+		{Exclude: core.TaskExclude{ClaimedBy: []string{"nosuchperson"}}},
+	}
+	for _, f := range unknown {
+		if _, err := l.ListTasks(ctx, f); err == nil || core.KindOf(err) != core.KindNotFound {
+			t.Errorf("an unknown actor term gave %v, want a not-found", err)
+		}
+	}
+}
+
+// TestListTasksResolvesARepeatedReferenceOnce exercises the cache that keeps a
+// listing's cost proportional to the distinct references its filter names: the
+// same project and the same handle appear on both sides of the filter, and an
+// identifier passes through with no lookup at all.
+func TestListTasksResolvesARepeatedReferenceOnce(t *testing.T) {
+	l, ctx, _, actor, project := newTaskFixture(t)
+	mustCreateTask(t, l, ctx, core.CreateTaskInput{Title: "mine", AssigneeActorID: actor.ID})
+
+	page, err := l.ListTasks(ctx, core.TaskFilter{
+		ProjectKeys: []string{project.Key, project.Key},
+		AssigneeIDs: []string{actor.Handle, actor.ID},
+		Statuses:    []string{"todo", "TODO"},
+		Exclude:     core.TaskExclude{ProjectKeys: []string{project.Key}, AssigneeIDs: []string{actor.Handle}},
+	})
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	if len(page.Tasks) != 0 {
+		t.Errorf("an exclusion of the included project returned %d tasks", len(page.Tasks))
+	}
+}
