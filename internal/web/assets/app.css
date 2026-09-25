@@ -2057,16 +2057,24 @@ ul.shape .note { color: var(--muted); font-size: 0.85rem; margin-left: auto; tex
 /* Numbers right-align so columns of them can be scanned. */
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
-.filters {
-  align-items: end;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin: 0 0 24px;
+/* The statistics filter is a .filterbar like every other filter row. It used
+   to be its own .filters rule whose children were the labels and the selects
+   themselves, and a select inherits width: 100% from the form-control rule,
+   so each one measured the whole content column and wrapped onto a line of
+   its own: two dropdowns a thousand pixels wide holding "14 days" and "Every
+   project", stacked above the figures they filter. .filterbar select already
+   sizes a select to its content, so the row only has to pair each label with
+   the control it names. */
+.statsfilter { flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
+
+.statsfilter .field {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
 }
 
-.filters label {
-  display: block;
-  font-size: 0.85rem;
+.statsfilter label {
   color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0;
 }

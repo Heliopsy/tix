@@ -4,25 +4,33 @@
 {{/* The window and the project are a GET form, so every view of this screen
      has a URL someone can send. A POST here would make "show me the last 90
      days of infra" unlinkable. */}}
-<form class="filters" method="get" action="/stats">
-  <label for="stats-days">Window</label>
-  <select id="stats-days" name="days">
-    {{$days := .Data.Days}}
-    {{range .Data.Windows}}
-    <option value="{{.Days}}" {{if eq .Days $days}}selected{{end}}>{{.Label}}</option>
-    {{end}}
-  </select>
+{{/* The same .filterbar the task list and the activity feed narrow
+     themselves with, so one screen's filter row is not a different thing
+     from another's. Each control keeps a visible label, paired with it in a
+     .field so the two read as one choice. */}}
+<form class="filterbar statsfilter" method="get" action="/stats">
+  <span class="field">
+    <label for="stats-days">Window</label>
+    <select id="stats-days" name="days">
+      {{$days := .Data.Days}}
+      {{range .Data.Windows}}
+      <option value="{{.Days}}" {{if eq .Days $days}}selected{{end}}>{{.Label}}</option>
+      {{end}}
+    </select>
+  </span>
 
-  <label for="stats-project">Project</label>
-  <select id="stats-project" name="project">
-    <option value="">Every project</option>
-    {{$project := .Data.Project}}
-    {{range .Data.Projects}}
-    <option value="{{.Key}}" {{if eq .Key $project}}selected{{end}}>{{.Name}}</option>
-    {{end}}
-  </select>
+  <span class="field">
+    <label for="stats-project">Project</label>
+    <select id="stats-project" name="project">
+      <option value="">Every project</option>
+      {{$project := .Data.Project}}
+      {{range .Data.Projects}}
+      <option value="{{.Key}}" {{if eq .Key $project}}selected{{end}}>{{.Name}}</option>
+      {{end}}
+    </select>
+  </span>
 
-  <button type="submit">Apply</button>
+  <button class="secondary" type="submit">Apply</button>
 </form>
 
 <section class="cards">

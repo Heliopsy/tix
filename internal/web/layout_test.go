@@ -161,3 +161,73 @@ func TestTheTickAnimatesOnlyTheRowThatWasActedOn(t *testing.T) {
 		t.Error("the completed state is not painted outside the animation")
 	}
 }
+
+// formTag returns the opening tag of the form submitting to action, so an
+// assertion about a form reads that form and not the whole page. Two guards in
+// this package passed while the screen was broken because they searched the
+// document for a string some other element happened to carry.
+func formTag(t *testing.T, page, action string) string {
+	t.Helper()
+	at := strings.Index(page, `action="`+action+`"`)
+	if at < 0 {
+		t.Fatalf("no form submits to %s", action)
+	}
+	start := strings.LastIndex(page[:at], "<form")
+	end := strings.Index(page[at:], ">")
+	if start < 0 || end < 0 {
+		t.Fatalf("the form submitting to %s is not a tag", action)
+	}
+	return page[start : at+end+1]
+}
+
+// declarations returns the body of the first rule whose selector list carries
+// selector, so a stylesheet assertion reads the rule it names rather than
+// finding the text somewhere else in the sheet.
+func declarations(t *testing.T, sheet, selector string) string {
+	t.Helper()
+	at := strings.Index(sheet, selector)
+	if at < 0 {
+		t.Fatalf("the stylesheet has no %s rule", selector)
+	}
+	start := strings.Index(sheet[at:], "{")
+	if start < 0 {
+		t.Fatalf("the %s rule opens no block", selector)
+	}
+	start += at
+	end := strings.Index(sheet[start:], "}")
+	if end < 0 {
+		t.Fatalf("the %s rule never closes", selector)
+	}
+	return sheet[start : start+end+1]
+}
+
+// TestTheStatisticsFilterIsARowNotTwoFullWidthDropdowns pins the repair of the
+// Window and Project controls.
+//
+// They had a .filters rule of their own whose flex items were the selects
+// themselves, so the width: 100% every form control carries measured the whole
+// content column: two dropdowns a thousand pixels wide holding "14 days" and
+// "Every project", stacked over the figures they filter and taking the top
+// third of the screen. The task list already had a filter row that sizes a
+// select to its content, so this one uses it.
+func TestTheStatisticsFilterIsARowNotTwoFullWidthDropdowns(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+
+	form := formTag(t, b.page("/stats"), "/stats")
+	if !strings.Contains(form, "filterbar") {
+		t.Errorf("the statistics filter is not the shared filter row: %s", form)
+	}
+	if !strings.Contains(form, `method="get"`) {
+		t.Errorf("the statistics filter no longer submits without script: %s", form)
+	}
+
+	sheet := body(t, b.get("/assets/app.css"))
+	if sized := declarations(t, sheet, ".filterbar select"); !strings.Contains(sized, "width: auto") {
+		t.Errorf("a filter row's select is not sized to its content: %s", sized)
+	}
+	if row := declarations(t, sheet, ".statsfilter {"); !strings.Contains(row, "flex-wrap: wrap") {
+		t.Errorf("the statistics filter cannot wrap, so it overflows a phone: %s", row)
+	}
+}
