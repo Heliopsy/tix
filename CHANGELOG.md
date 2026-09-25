@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/Heliopsy/tix/compare/v0.3.0...v0.4.0) (2026-09-25)
+
+
+### Features
+
+* **cli:** tix update, replacing this binary with a published release ([53a7d13](https://github.com/Heliopsy/tix/commit/53a7d13443e7f84ebda77cb523f969067dec7b7b))
+
 ## [0.3.0](https://github.com/Heliopsy/tix/compare/v0.2.0...v0.3.0) (2026-09-24)
 
 
