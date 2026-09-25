@@ -70,6 +70,7 @@ func TestRouteHappyPaths(t *testing.T) {
 			core.CreateUserInput{Email: "a@example.com", Password: "correct-horse-battery"},
 			http.StatusCreated},
 		{"list users", http.MethodGet, wire.RouteUsers, nil, http.StatusOK},
+		{"list actors", http.MethodGet, wire.RouteActors, nil, http.StatusOK},
 		{"create token", http.MethodPost, wire.RouteTokens,
 			core.CreateTokenInput{Name: "ci", Scopes: []core.Scope{core.ScopeTaskRead}},
 			http.StatusCreated},

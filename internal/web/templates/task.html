@@ -1,5 +1,10 @@
 {{define "content"}}
 {{$t := .Data.Task}}
+{{/* The way back to the listing the reader came from, filters and all. A
+     task opened from a filtered list had no way back to it: the sidebar goes
+     to the unfiltered list, so the browser's back button was the only thing
+     that preserved the reader's place. */}}
+<p class="backlink"><a href="{{.Data.Back}}">&larr; Back to the list</a></p>
 <div class="titlebar">
   <span class="ref">{{$t.Ref}}</span>
   <h1>{{$t.Title}}</h1>
@@ -31,7 +36,17 @@
             {{range .Data.Priorities}}<option value="{{.Value}}" {{if eq .Value $t.Priority}}selected{{end}}>{{.Label}}</option>{{end}}
           </select>
         </div>
-        <div><label for="assignee">Assignee</label><input id="assignee" name="assignee" value="{{$t.AssigneeActorID}}"></div>
+        {{/* The handle, not the identifier. The panel beside this field
+             already showed "mint" while the field showed twenty-six
+             characters of ULID, which reads as two different values for the
+             same thing. The service resolves a handle back to an actor on
+             save, so what is shown is what can be typed. */}}
+        {{/* A datalist rather than a select: the field stays free text, so an
+             actor of another tenant, which the directory cannot list, is
+             still assignable by identifier. */}}
+        <div><label for="assignee">Assignee</label><input id="assignee" name="assignee" list="actor-handles" autocomplete="off" value="{{$.Data.Names.Label $t.AssigneeActorID}}">
+          <datalist id="actor-handles">{{range $.Data.Names.Handles}}<option value="{{.}}"></option>{{end}}</datalist>
+        </div>
       </div>
       <div class="actions"><button type="submit">Save</button></div>
     </form>

@@ -37,6 +37,14 @@ func NewWithMode(format string, mode Mode) Formatter {
 // UTC, so a consumer parsing one never has to guess which zone or format a
 // deployment configured.
 func NewWithStyle(format string, mode Mode, style TimeStyle) Formatter {
+	return NewWithNames(format, mode, style, nil)
+}
+
+// NewWithNames is NewWithStyle plus the actor labels a command resolved, so a
+// table can print handles where the data carries identifiers. Only the table
+// format uses them: the machine formats carry the identifier, which is what a
+// consumer needs to look the actor up.
+func NewWithNames(format string, mode Mode, style TimeStyle, names map[string]string) Formatter {
 	switch format {
 	case FormatJSON:
 		return &jsonFormatter{}
@@ -45,6 +53,6 @@ func NewWithStyle(format string, mode Mode, style TimeStyle) Formatter {
 	case FormatNDJSON:
 		return &ndjsonFormatter{}
 	default:
-		return &tableFormatter{mode: mode, style: style}
+		return &tableFormatter{mode: mode, style: style, names: names}
 	}
 }

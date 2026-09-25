@@ -102,3 +102,51 @@ func TestSyncResultStillEncodesAsDataInJSONAndYAML(t *testing.T) {
 		}
 	}
 }
+
+// TestTheTableLabelsActorsAndTheMachineFormatsDoNot pins the split.
+//
+// A task list printed its assignee as a 26 character identifier, the widest
+// column in the table, telling a reader nothing. The label is resolved per
+// listing and handed to the renderer rather than carried on the task, because
+// a handle is not a property of a task. The machine formats keep the
+// identifier: that is what a consumer looks the actor up by, and a handle can
+// be renamed.
+func TestTheTableLabelsActorsAndTheMachineFormatsDoNot(t *testing.T) {
+	t.Parallel()
+	const id = "01KW4DM3ARD6SK4SFAF83K4431"
+	tasks := []core.Task{{Ref: "infra-1", Title: "Rotate the certificates",
+		Status: "todo", AssigneeActorID: id}}
+	names := map[string]string{id: "tom"}
+
+	var table bytes.Buffer
+	if err := output.NewWithNames(output.FormatTable, output.ModeNever, output.TimeStyle{}, names).
+		Format(&table, tasks); err != nil {
+		t.Fatalf("Format: %v", err)
+	}
+	if got := table.String(); !strings.Contains(got, "tom") || strings.Contains(got, id) {
+		t.Errorf("the table did not label the actor:\n%s", got)
+	}
+
+	var asJSON bytes.Buffer
+	if err := output.New(output.FormatJSON).Format(&asJSON, tasks); err != nil {
+		t.Fatalf("Format json: %v", err)
+	}
+	if got := asJSON.String(); !strings.Contains(got, id) || strings.Contains(got, "tom") {
+		t.Errorf("json should carry the identifier and no handle:\n%s", got)
+	}
+}
+
+// An actor nothing resolves still has to print something.
+func TestAnUnresolvedActorFallsBackToItsIdentifier(t *testing.T) {
+	t.Parallel()
+	const id = "01KW4DM3ARD6SK4SFAF83K4431"
+	tasks := []core.Task{{Ref: "infra-1", Title: "x", Status: "todo", AssigneeActorID: id}}
+	var buf bytes.Buffer
+	if err := output.NewWithNames(output.FormatTable, output.ModeNever, output.TimeStyle{}, nil).
+		Format(&buf, tasks); err != nil {
+		t.Fatalf("Format: %v", err)
+	}
+	if !strings.Contains(buf.String(), id) {
+		t.Errorf("an unresolved actor printed nothing:\n%s", buf.String())
+	}
+}

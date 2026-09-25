@@ -292,6 +292,9 @@ func (f *fakeService) GetActor(_ context.Context, id string) (*core.Actor, error
 	}
 	return nil, core.NotFound("actor %q", id)
 }
+func (f *fakeService) ListActors(context.Context, core.Page) ([]core.Actor, string, error) {
+	return nil, "", nil
+}
 func (f *fakeService) GetUser(context.Context, string) (*core.User, error) { return nil, nil }
 func (f *fakeService) ListUsers(context.Context, core.Page) ([]core.User, string, error) {
 	return nil, "", nil

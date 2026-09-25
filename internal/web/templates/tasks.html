@@ -30,32 +30,51 @@
     {{range $v.SortFields}}<option value="{{.}}" {{if eq . $v.Sort}}selected{{end}}>{{.}}</option>{{end}}
   </select>
   <button class="secondary" type="submit">Apply</button>
+  {{/* Clearing a filter had no control: the only way back to the whole list
+       was to select the text in the box and delete it. A project chip on a row
+       writes a filter into that box in one click, so getting out of it should
+       cost one click too. The sort is kept, because a sort is not a filter. */}}
+  {{if $v.Query}}<a class="secondary clear" href="/tasks{{if $v.Sort}}?sort={{$v.Sort}}{{end}}">Clear</a>{{end}}
 </form>
 
+{{/* One panel, not two. Columns and Projects were separate disclosures sitting
+     side by side, so deciding what the list shows meant opening one, applying,
+     then opening the other: two clicks and two page loads for one decision.
+     They are the same decision -- what is on screen -- so they share a panel
+     and each keeps its own form, because they are applied by different
+     handlers and either can be used without the other. */}}
 <div class="listprefs">
-  {{template "column-picker" .}}
-  <details class="panel visibility">
-    <summary>Projects{{if $v.Hidden}} &middot; {{$v.Hidden}} hidden{{end}}</summary>
-    <div class="body">
-      <form method="post" action="/visibility" class="visibilityform"
-            hx-swap="innerHTML show:none">
-        {{template "csrf" .CSRF}}
-        <input type="hidden" name="next" value="{{.Here}}">
-        <div class="choices">
-          {{range $v.Visibility}}
-          <label class="projectchoice{{if .Color}} proj-{{.Color}}{{end}}">
-            <input type="checkbox" name="project" value="{{.Key}}" {{if .Shown}}checked{{end}}>
-            {{if .Color}}<span class="swatch proj-{{.Color}}" aria-hidden="true"></span>{{end}}
-            {{if .Icon}}<span class="proj-icon" role="img" aria-label="{{.Name}}">{{.Icon}}</span>{{end}}
-            {{.Key}}
-          </label>
-          {{else}}<span class="muted">No projects yet.</span>{{end}}
-        </div>
-        <div class="actions">
-          <button type="submit">Apply</button>
-          <button class="secondary" type="submit" name="reset" value="1">Show all</button>
-        </div>
-      </form>
+  <details class="panel viewprefs">
+    <summary>View{{if $v.Hidden}} &middot; {{$v.Hidden}} project{{if ne $v.Hidden 1}}s{{end}} hidden{{end}}</summary>
+    <div class="body viewgrid">
+      {{if .Columns.Configurable .ColumnPage}}
+      <section>
+        <h3>Columns</h3>
+        {{template "column-choices" .}}
+      </section>
+      {{end}}
+      <section>
+        <h3>Projects</h3>
+        <form method="post" action="/visibility" class="visibilityform"
+              hx-swap="innerHTML show:none">
+          {{template "csrf" .CSRF}}
+          <input type="hidden" name="next" value="{{.Here}}">
+          <div class="choices">
+            {{range $v.Visibility}}
+            <label class="projectchoice{{if .Color}} proj-{{.Color}}{{end}}">
+              <input type="checkbox" name="project" value="{{.Key}}" {{if .Shown}}checked{{end}}>
+              {{if .Color}}<span class="swatch proj-{{.Color}}" aria-hidden="true"></span>{{end}}
+              {{if .Icon}}<span class="proj-icon" role="img" aria-label="{{.Name}}">{{.Icon}}</span>{{end}}
+              {{.Key}}
+            </label>
+            {{else}}<span class="muted">No projects yet.</span>{{end}}
+          </div>
+          <div class="actions">
+            <button type="submit">Apply</button>
+            <button class="secondary" type="submit" name="reset" value="1">Show all</button>
+          </div>
+        </form>
+      </section>
     </div>
   </details>
 </div>
@@ -107,7 +126,9 @@
 
     {{if $acc.Icon}}<span class="proj-icon" role="img" aria-label="{{$acc.Name}}" title="{{$acc.Name}}">{{$acc.Icon}}</span>{{end}}
 
-    <a class="task-title" href="/tasks/{{.Ref}}">{{.Title}}</a>
+    {{/* next carries this listing, filters and sort included, so the task
+         screen can offer a way back to exactly it. */}}
+    <a class="task-title" href="/tasks/{{.Ref}}?next={{$v.Self | urlquery}}">{{.Title}}</a>
 
     {{/* Four kinds of marking used to be four near-identical chips, so a row
          read as a row of indistinguishable pills and nobody could tell a tag
@@ -122,11 +143,63 @@
          The tag and the project are links that narrow the list to themselves,
          since "show me the rest of these" is what a reader wants from them. */}}
     <span class="task-meta">
-      {{if $.Columns.Show "tasks" "status"}}<span class="pill status {{slug .Status}}">{{.Status}}</span>{{end}}
+      {{/* The status is the control, not just a label. The row offered a tick
+           and nothing else, so the only reachable states from a listing were
+           done and not done: moving anything to blocked, or back out of it,
+           meant opening the task. The moves offered are the ones this row's
+           own workflow allows, adjacent states and the ones reachable through
+           them, because a listing mixes projects and a state legal in one need
+           not be legal in another.
+
+           A popover rather than the disclosure this used to be. The panel is
+           absolutely positioned inside ul.tasklist, which clips to its rounded
+           corners with overflow: hidden, so it was cut off at the row's edge
+           however it was styled -- no positioned element escapes a clipping
+           ancestor. A popover renders in the top layer, outside every such
+           ancestor, and popovertarget drives it from plain HTML: no script,
+           light dismissal and Escape for free, and one open at a time. Where
+           the attribute is not understood the panel simply stays in the row,
+           which is the list of choices it always was. */}}
+      {{if $.Columns.Show "tasks" "status"}}
+      {{$flow := $v.Flow (index $.Data.Moves .ProjectID) .Status}}
+      {{if $flow}}
+      <span class="statusmenu">
+        <button type="button" class="statuspill" popovertarget="flow-{{.Ref}}"
+                aria-label="Status {{.Status}}; move {{.Ref}}" title="Move {{.Ref}}">
+          <span class="pill status {{slug .Status}}">{{.Status}}</span>
+        </button>
+        <div id="flow-{{.Ref}}" class="flowmenu" popover>
+          <p class="flowhead">Move <span class="mono">{{.Ref}}</span> from <span class="pill status {{slug .Status}}">{{.Status}}</span></p>
+          <form method="post" action="/tasks/{{.Ref}}/transition">
+            {{template "csrf" $.CSRF}}
+            <input type="hidden" name="next" value="{{$v.Self}}">
+            {{range $flow}}
+            <button type="submit" name="route" value="{{.Value}}" class="flowgo{{if .MultiHop}} is-multi{{end}}">
+              <span class="flowto">{{.To.Label}}</span>
+              {{if .MultiHop}}<span class="flowvia">{{.Path}}</span><span class="flowhops">{{.Hops}} steps</span>
+              {{else}}<span class="flowhops">1 step</span>{{end}}
+            </button>
+            {{end}}
+          </form>
+          <button type="button" class="flowclose" popovertarget="flow-{{.Ref}}" popovertargetaction="hide">Close</button>
+        </div>
+      </span>
+      {{else}}<span class="pill status {{slug .Status}}">{{.Status}}</span>{{end}}
+      {{end}}
       {{if $.Columns.Show "tasks" "priority"}}{{$p := prio .Priority}}{{if ne $p "normal"}}<span class="prio p-{{$p}}" title="Priority: {{$p}}"><span class="caret" aria-hidden="true"></span>{{$p}}</span>{{end}}{{end}}
       {{if $.Columns.Show "tasks" "tags"}}{{range .Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}" title="Only tasks tagged {{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
       {{if $.Columns.Show "tasks" "project"}}<a class="projref{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" href="/tasks?q=project:{{$acc.Key}}" title="Only tasks in {{$acc.Name}}">{{if $acc.Icon}}<span class="proj-icon" aria-hidden="true">{{$acc.Icon}}</span>{{end}}{{$acc.Key}}</a>{{end}}
-      {{if $.Columns.Show "tasks" "updated"}}<span class="when">{{compact .UpdatedAt}}</span>{{end}}
+      {{/* A lease is the one thing on a row that is about to change by
+           itself. Held says an agent has it; expired says one took it and
+           never came back, which is a task looking for an owner rather than
+           a task in hand. Expiry is lazy everywhere else, so a row that
+           showed neither made an abandoned claim look untouched. */}}
+      {{$held := claim .}}
+      {{if eq $held "held"}}<span class="lease held" title="Held by {{$.Data.Names.Label .ClaimedByActorID}} until {{compact .LeaseExpiresAt}}">held &middot; {{$.Data.Names.Label .ClaimedByActorID}}</span>
+      {{else if eq $held "expired"}}<span class="lease expired" title="{{$.Data.Names.Label .ClaimedByActorID}} let the lease run out at {{compact .LeaseExpiresAt}}; the task is claimable again">claim expired</span>{{end}}
+      {{/* The date carried no label, so it was a number nobody could name.
+           It is the last time the row changed, and saying so costs one word. */}}
+      {{if $.Columns.Show "tasks" "updated"}}<span class="when" title="Last updated {{compact .UpdatedAt}}"><span class="when-label">updated</span> {{compact .UpdatedAt}}</span>{{end}}
       {{if $.Columns.Show "tasks" "ref"}}<span class="ref mono">{{.Ref}}</span>{{end}}
     </span>
   </li>

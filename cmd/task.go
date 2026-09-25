@@ -207,6 +207,9 @@ func taskLsCmd(g *globals) *cobra.Command {
 				return err
 			}
 			out := newList[core.Task](g, cmd)
+			out.names = func(rows []core.Task) map[string]string {
+				return resolveActorNames(ctx, conn.Service, rows)
+			}
 			for {
 				page, err := conn.Service.ListTasks(ctx, filter)
 				if err != nil {

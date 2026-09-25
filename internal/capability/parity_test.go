@@ -365,7 +365,7 @@ func TestNoCLIGapRemains(t *testing.T) {
 // the number cannot grow quietly and cannot be mistaken for zero.
 func TestRemainingGapsAreOnlyTheTUIOnes(t *testing.T) {
 	t.Parallel()
-	const knownTUIGaps = 58
+	const knownTUIGaps = 59
 	count := 0
 	for _, absence := range capability.Gaps() {
 		if absence.Surface != capability.SurfaceTUI {

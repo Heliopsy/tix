@@ -7,7 +7,6 @@ import (
 	"embed"
 	"github.com/heliopsy/tix/internal/httpapi"
 	"html/template"
-	"io/fs"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -181,15 +180,6 @@ type discard struct{}
 
 // Write reports every byte as written and keeps none of them.
 func (discard) Write(p []byte) (int, error) { return len(p), nil }
-
-// assetHandler serves the embedded stylesheet and scripts.
-func assetHandler() http.Handler {
-	sub, err := fs.Sub(assetFS, "assets")
-	if err != nil {
-		panic(err)
-	}
-	return http.StripPrefix("/assets/", http.FileServer(http.FS(sub)))
-}
 
 // HasTemplate reports whether a template is embedded in the binary, so a
 // binding can be checked against what is actually shipped.

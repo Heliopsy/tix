@@ -6,9 +6,11 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 )
 
 // sessionRoutes are the sign-in, sign-out and landing screens, plus the
@@ -23,6 +25,8 @@ func (h *handler) sessionRoutes() []route {
 		post(RouteAdvanced, h.toggleAdvanced, "Logout"),
 		post(RouteTheme, h.setTheme, "Logout"),
 		post(RouteKeyScheme, h.setKeyScheme, "Logout"),
+		post(RouteTimeFormat, h.setTimeFormat, "Logout"),
+		post(RouteTimezone, h.setTimezone, "Logout"),
 		post(RouteColumns, h.setColumns, "Logout"),
 		post(RouteVisibility, h.setVisibility, "Logout"),
 		post(RouteDragMove, h.toggleDragMove, "Logout"),
@@ -80,6 +84,10 @@ func (h *handler) doLogin(w http.ResponseWriter, r *http.Request) error {
 type settingsView struct {
 	TargetDescribe string
 	Shortcuts      shortcutTable
+	TimeFormat     string
+	Timezone       string
+	TimeFormats    []timeChoice
+	Timezones      []timeChoice
 }
 
 // showSettings renders the settings screen: every per-browser display
@@ -87,9 +95,14 @@ type settingsView struct {
 // used to hold the same controls. Keeping both would let them drift, so the
 // sidebar now only links here.
 func (h *handler) showSettings(w http.ResponseWriter, r *http.Request) error {
+	zone := timezoneOf(r)
 	return h.render(w, r, "settings.html", "Settings", settingsView{
 		TargetDescribe: h.targetDescribe,
 		Shortcuts:      buildShortcutTable(),
+		TimeFormat:     timeFormatOf(r),
+		Timezone:       zone,
+		TimeFormats:    timeFormatChoices(zone),
+		Timezones:      timezoneChoices(),
 	})
 }
 
@@ -187,6 +200,103 @@ func (h *handler) setKeyScheme(w http.ResponseWriter, r *http.Request) error {
 	// this origin, including protocol-relative, backslash and control forms.
 	http.Redirect(w, r, safeNext(field(r, "next")), http.StatusSeeOther)
 	return nil
+}
+
+// Route patterns for the two date preferences. They belong with the rest of
+// the patterns, and move there whenever routes.go is next edited.
+const (
+	RouteTimeFormat = "/timeformat"
+	RouteTimezone   = "/timezone"
+)
+
+// setTimeFormat records the timestamp layout this browser wants, following the
+// pattern setTheme and setKeyScheme use: a cookie, not a tenant setting,
+// because two people sharing a tenant read a date in different conventions
+// just as they type in different shortcuts. A layout this build does not
+// render is stored as the empty value, which means the deployment's own.
+func (h *handler) setTimeFormat(w http.ResponseWriter, r *http.Request) error {
+	h.setDisplayCookie(w, r, TimeFormatCookie, resolvedTimeFormat(field(r, "time_format")))
+	return nil
+}
+
+// setTimezone records the zone this browser wants. A name that is not on offer,
+// or that this system's zone database cannot load, is stored as the empty
+// value, so a timestamp is never rendered in a zone nobody chose.
+func (h *handler) setTimezone(w http.ResponseWriter, r *http.Request) error {
+	h.setDisplayCookie(w, r, TimezoneCookie, resolvedZone(field(r, "timezone")))
+	return nil
+}
+
+// setDisplayCookie stores one already-validated display preference and returns
+// the browser to the page the form named.
+func (h *handler) setDisplayCookie(w http.ResponseWriter, r *http.Request, name, value string) {
+	// #nosec G124 -- a display preference, readable by no script.
+	http.SetCookie(w, &http.Cookie{
+		Name: name, Value: value, Path: "/",
+		HttpOnly: true, Secure: h.secureCookie(r), SameSite: http.SameSiteLaxMode,
+		MaxAge: cookieYear,
+	})
+	// #nosec G710 -- safeNext rejects anything that is not a relative path on
+	// this origin, including protocol-relative, backslash and control forms.
+	http.Redirect(w, r, safeNext(field(r, "next")), http.StatusSeeOther)
+}
+
+// timeChoice is one option in a date preference select.
+type timeChoice struct {
+	Value string
+	Label string
+}
+
+// timeFormatNames are the words a layout is offered under, since the
+// configuration keys ("iso", "rfc3339") are not how anybody reads them.
+var timeFormatNames = map[string]string{
+	output.TimeISO:      "ISO",
+	output.TimeRFC3339:  "RFC 3339",
+	output.TimeShort:    "Short",
+	output.TimeUS:       "US",
+	output.TimeRelative: "Relative",
+}
+
+// timeFormatExample is the instant every absolute layout is demonstrated with.
+var timeFormatExample = time.Date(2026, time.September, 21, 14, 5, 9, 0, time.UTC)
+
+// timeFormatChoices offers every layout with an example rendered by the
+// renderer itself, in the zone this browser reads in, so an example can never
+// claim a layout the screens do not actually produce.
+func timeFormatChoices(zone string) []timeChoice {
+	out := make([]timeChoice, 0, len(output.TimeFormats)+1)
+	out = append(out, timeChoice{Value: "", Label: "Server default"})
+	for _, name := range output.TimeFormats {
+		style, err := output.NewTimeStyle(name, zone)
+		if err != nil {
+			continue
+		}
+		sample := timeFormatExample
+		if name == output.TimeRelative {
+			sample = time.Now().Add(-18 * time.Minute)
+		}
+		out = append(out, timeChoice{Value: name,
+			Label: timeFormatNames[name] + " (" + style.Format(sample) + ")"})
+	}
+	return out
+}
+
+// timezoneChoices offers every zone this system can load, so a host without a
+// zone database offers only the deployment default rather than names that
+// would silently fall back to it.
+func timezoneChoices() []timeChoice {
+	out := make([]timeChoice, 0, len(Timezones))
+	for _, zone := range Timezones {
+		if zone == "" {
+			out = append(out, timeChoice{Value: "", Label: "Server default"})
+			continue
+		}
+		if _, err := time.LoadLocation(zone); err != nil {
+			continue
+		}
+		out = append(out, timeChoice{Value: zone, Label: strings.ReplaceAll(zone, "_", " ")})
+	}
+	return out
 }
 
 // cookieYear keeps a display preference for a year.

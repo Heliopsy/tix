@@ -21,7 +21,8 @@ const (
 	RouteLogin  = APIPrefix + "/auth/login"
 	RouteLogout = APIPrefix + "/auth/logout"
 
-	RouteActor = APIPrefix + "/actors/{id}"
+	RouteActors = APIPrefix + "/actors"
+	RouteActor  = APIPrefix + "/actors/{id}"
 
 	RouteUsers = APIPrefix + "/users"
 	RouteUser  = APIPrefix + "/users/{id}"

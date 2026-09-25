@@ -138,9 +138,11 @@ func TestTheTickAnimatesOnlyTheRowThatWasActedOn(t *testing.T) {
 			at = i + len(decl)
 			found++
 			sel := selectorBefore(sheet, i)
-			if !strings.Contains(sel, ".is-target") {
+			if !strings.Contains(sel, ".is-ticked") {
 				t.Errorf("%q is declared under %q, which fires on every render of an\n"+
-					"already-completed task; it belongs under .is-target", decl, sel)
+					"already-completed task; it belongs under .is-ticked, the mark that\n"+
+					"clears itself, not .is-target, which holds until the reader moves on",
+					decl, sel)
 			}
 		}
 	}

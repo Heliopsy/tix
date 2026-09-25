@@ -76,3 +76,65 @@ func lookupActor(ctx context.Context, tx store.Tx, ref string) (*core.Actor, err
 	}
 	return a, nil
 }
+
+// actorSort is the only ordering the directory offers. An actor row carries
+// no timestamp in the columns the store reads back, so a cursor can address a
+// position by handle and by nothing else.
+const actorSort = "handle"
+
+// ListActors returns this tenant's actors, keyset paginated by handle.
+//
+// It needs no scope beyond being signed in, for the reason GetActor needs
+// none: the directory answers who is here, never what they may do. Agents are
+// actors without a user, so a picker built from ListUsers would omit the
+// actors most of the work in this product is assigned to.
+func (l *Local) ListActors(ctx context.Context, page core.Page) ([]core.Actor, string, error) {
+	caller, err := core.RequireActor(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	if page.Sort == "" {
+		page.Sort = actorSort
+	}
+	if page.Sort != actorSort {
+		return nil, "", core.Invalid("actors sort by %s only", actorSort)
+	}
+	if page, err = page.Normalize(); err != nil {
+		return nil, "", err
+	}
+	if err := mustCursorMatch(page); err != nil {
+		return nil, "", err
+	}
+
+	out := []core.Actor{}
+	if err := l.read(ctx, caller, func(tx store.Tx) error {
+		found, err := tx.ListActors(ctx, page)
+		if err != nil {
+			return err
+		}
+		for _, a := range found {
+			out = append(out, core.Actor{ID: a.ID, TenantID: a.TenantID, Kind: a.Kind,
+				Handle: a.Handle, DisplayName: a.DisplayName})
+		}
+		return nil
+	}); err != nil {
+		return nil, "", err
+	}
+	return out, nextActorCursor(page, out), nil
+}
+
+// actorCursor addresses the position just after this actor in the ordering.
+func actorCursor(page core.Page, a core.Actor) core.Cursor {
+	return core.Cursor{SortValue: a.Handle, ID: a.ID, Sort: page.Sort, Direction: page.Direction}
+}
+
+// nextActorCursor returns the cursor for the page after these actors. Like
+// nextUserCursor it is built from the rows being returned, never from the
+// page underneath them, so an opaque token can never describe a record the
+// caller may not read.
+func nextActorCursor(page core.Page, items []core.Actor) string {
+	if len(items) == 0 || len(items) < page.Limit {
+		return ""
+	}
+	return actorCursor(page, items[len(items)-1]).Encode()
+}

@@ -20,7 +20,7 @@ func newActorCmd(g *globals) *cobra.Command {
 		Args:    noArgs,
 		RunE:    helpRunner,
 	}
-	cmd.AddCommand(actorShowCmd(g))
+	cmd.AddCommand(actorLsCmd(g), actorShowCmd(g))
 	return cmd
 }
 

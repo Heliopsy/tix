@@ -20,11 +20,12 @@ import (
 type tableFormatter struct {
 	mode  Mode
 	style TimeStyle
+	names map[string]string
 }
 
 // Format renders data as a terminal table, falling back to reflection for unknown types.
 func (t *tableFormatter) Format(w io.Writer, data any) error {
-	p := NewPainterWithStyle(t.mode, w, t.style)
+	p := NewPainterWithNames(t.mode, w, t.style, t.names)
 	if data == nil {
 		return noResults(w)
 	}
@@ -296,7 +297,7 @@ func (p Painter) taskRow(t core.Task) table.Row {
 		truncate(t.Title, 60),
 		p.Status(t.Status),
 		p.Priority(t.Priority, priorityLabel(t.Priority)),
-		t.AssigneeActorID,
+		p.Actor(t.AssigneeActorID),
 		strings.Join(t.Tags, ", "),
 		p.style.FormatPtr(t.DueAt),
 		p.style.Format(t.UpdatedAt),

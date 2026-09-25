@@ -179,6 +179,7 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 		}, http.MethodPost, wire.RouteUsers},
 		{"get user", func(c *Client) error { _, err := c.GetUser(ctx, "u1"); return err }, http.MethodGet, "/api/v1/users/u1"},
 		{"list users", func(c *Client) error { _, _, err := c.ListUsers(ctx, core.Page{}); return err }, http.MethodGet, wire.RouteUsers},
+		{"list actors", func(c *Client) error { _, _, err := c.ListActors(ctx, core.Page{}); return err }, http.MethodGet, wire.RouteActors},
 		{"update user", func(c *Client) error { _, err := c.UpdateUser(ctx, "u1", core.UpdateUserInput{}); return err }, http.MethodPatch, "/api/v1/users/u1"},
 		{"delete user", func(c *Client) error { return c.DeleteUser(ctx, "u1") }, http.MethodDelete, "/api/v1/users/u1"},
 		{"login", func(c *Client) error { _, err := c.Login(ctx, "a@b.c", "pw"); return err }, http.MethodPost, wire.RouteLogin},

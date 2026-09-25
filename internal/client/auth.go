@@ -21,6 +21,11 @@ func (c *Client) GetActor(ctx context.Context, id string) (*core.Actor, error) {
 	return call[core.Actor](ctx, c, http.MethodGet, routePath(wire.RouteActor, "id", id), nil, nil)
 }
 
+// ListActors returns one page of this tenant's actors.
+func (c *Client) ListActors(ctx context.Context, page core.Page) ([]core.Actor, string, error) {
+	return list[core.Actor](ctx, c, wire.RouteActors, pageQuery(page))
+}
+
 // CreateUser creates a user.
 func (c *Client) CreateUser(ctx context.Context, in core.CreateUserInput) (*core.User, error) {
 	return call[core.User](ctx, c, http.MethodPost, wire.RouteUsers, nil, in)

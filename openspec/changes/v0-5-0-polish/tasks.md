@@ -33,6 +33,22 @@
 - [x] `core.Duration.Human`, shared by the browser, command line and terminal
 - [x] guard: the statistics table prints no machine-rendered duration
 
+## Web, found while reviewing the demo
+
+- [x] the tick mark clears itself; `.is-target` keeps its deep-link meaning
+- [x] a way back to the listing a task was opened from
+- [x] the assignee field shows a handle, not an identifier
+- [x] a Clear control on the filter, and the project filter says when it overrides visibility
+- [x] lease badges: held, and claim expired
+- [x] the date says what it is; the reference reads as an identifier
+- [x] Columns and Projects merged into one View panel
+- [x] the status pill is a control, offering the workflow's own moves
+- [x] assets carry a cache validator so an upgrade cannot serve a stale stylesheet
+- [x] the status panel is a popover, so a listing's overflow cannot clip it
+- [x] multi-step moves, route shown first, one audit entry per step
+- [x] per-browser date format and timezone
+- [x] `ListActors` end to end, and an assignee picker that suggests without constraining
+
 ## Release
 
 - [ ] `just ci` green

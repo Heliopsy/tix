@@ -88,6 +88,25 @@ const (
 type Painter struct {
 	on    bool
 	style TimeStyle
+	names map[string]string
+}
+
+// Actor labels an actor identifier for a reader, falling back to the
+// identifier when nothing resolved it.
+//
+// A task list showed its assignee as a 26 character identifier, which was the
+// widest column in the table and told nobody anything. The browser already
+// resolves actors per screen rather than carrying a name on the task, because
+// a name is not a property of the task; this is the same resolution for the
+// command line.
+func (p Painter) Actor(id string) string {
+	if id == "" {
+		return ""
+	}
+	if name := p.names[id]; name != "" {
+		return name
+	}
+	return id
 }
 
 // NewPainter returns a Painter for writing to w under the given mode, with the
@@ -102,6 +121,14 @@ func NewPainter(mode Mode, w io.Writer) Painter {
 // mode, rendering every timestamp through style.
 func NewPainterWithStyle(mode Mode, w io.Writer, style TimeStyle) Painter {
 	return Painter{on: colorAllowed(mode, w), style: style}
+}
+
+// NewPainterWithNames is NewPainterWithStyle plus the actor labels a screen
+// resolved, so identifiers can be printed as the handles people use.
+func NewPainterWithNames(mode Mode, w io.Writer, style TimeStyle, names map[string]string) Painter {
+	pa := NewPainterWithStyle(mode, w, style)
+	pa.names = names
+	return pa
 }
 
 // Enabled reports whether this Painter writes escape codes.

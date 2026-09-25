@@ -66,6 +66,27 @@ type taskView struct {
 	CanComment    bool
 	CanDelete     bool
 	CanAudit      bool
+
+	// Back is the listing the reader came from, carried in the link they
+	// followed. A task opened from a filtered list used to strand them: the
+	// only ways out were the browser's back button and the sidebar, and the
+	// sidebar goes to the unfiltered list. It falls back to the plain task
+	// list so the link is always there rather than appearing and vanishing.
+	Back string
+}
+
+// backTo resolves where this screen's back link points. The listing travels
+// in the link the reader followed, and goes through the same check as every
+// other redirect target, so a crafted next cannot send them off site.
+func backTo(r *http.Request) string {
+	next := r.URL.Query().Get("next")
+	if next == "" {
+		return RouteTasks
+	}
+	if back := safeNext(next); back != RouteProjects || strings.HasPrefix(next, RouteProjects) {
+		return back
+	}
+	return RouteTasks
 }
 
 // actorIDs lists every actor the screen names, so one pass over the directory
@@ -107,6 +128,7 @@ func (h *handler) showTask(w http.ResponseWriter, r *http.Request) error {
 		CanComment:    actor.HasScope(core.ScopeCommentWrite),
 		CanDelete:     actor.HasScope(core.ScopeTaskDelete),
 		CanAudit:      actor.HasScope(core.ScopeAuditRead),
+		Back:          backTo(r),
 	}
 	if err := h.attachRelations(r, ref, &data); err != nil {
 		return err
@@ -379,18 +401,71 @@ func customFieldsFrom(r *http.Request) map[string]any {
 	return out
 }
 
-// transitionTask applies a state change from the detail screen.
+// transitionTask applies a state change from the detail screen or a listing.
 func (h *handler) transitionTask(w http.ResponseWriter, r *http.Request) error {
 	ref, err := taskRefOf(r)
 	if err != nil {
 		return err
 	}
-	in := core.TransitionInput{To: field(r, "to"), Comment: field(r, "comment")}
-	if _, err := h.svc.TransitionTask(r.Context(), ref, in); err != nil {
+	steps, err := transitionSteps(r)
+	if err != nil {
 		return err
 	}
-	redirect(w, r, taskPath(r), "task moved to "+in.To)
+	comment := field(r, "comment")
+	var done []string
+	for _, to := range steps {
+		// Every hop is an ordinary service call, so a route through three
+		// states writes three audit entries and emits three events, exactly
+		// as making those moves one at a time would.
+		if _, err := h.svc.TransitionTask(r.Context(), ref, core.TransitionInput{To: to, Comment: comment}); err != nil {
+			if len(done) == 0 {
+				return err
+			}
+			// Part of the route did happen. Saying only that it failed would
+			// leave the reader with a task in a state nobody chose.
+			flash := "task moved to " + done[len(done)-1] + ", then stopped: could not move to " + to
+			h.afterTransition(w, r, ref, flash)
+			return nil
+		}
+		done = append(done, to)
+	}
+	h.afterTransition(w, r, ref, transitionFlash(done))
 	return nil
+}
+
+// transitionSteps reads the states this submission asks for, in order. A row
+// menu submits a whole route; the detail screen and the board submit one
+// state, and both go through the same loop.
+func transitionSteps(r *http.Request) ([]string, error) {
+	if route := field(r, "route"); route != "" {
+		return parseFlowRoute(route)
+	}
+	to := field(r, "to")
+	if to == "" {
+		return nil, core.Invalid("no state to move to")
+	}
+	return []string{to}, nil
+}
+
+// transitionFlash says where the task ended up, and through what if it took
+// more than one hop.
+func transitionFlash(done []string) string {
+	if len(done) < 2 {
+		return "task moved to " + done[len(done)-1]
+	}
+	return "task moved " + strings.Join(done, " \u2192 ") + ", one step at a time"
+}
+
+// afterTransition returns the reader where they were working. A move made from
+// a listing returns to that listing, on the row it was made from; one made
+// from the detail screen stays there. Without this the list could offer the
+// control but always threw the reader onto the task screen afterwards.
+func (h *handler) afterTransition(w http.ResponseWriter, r *http.Request, ref core.TaskRef, flash string) {
+	if next := field(r, "next"); next != "" {
+		redirectTo(w, r, safeNext(next), "t-"+ref.String(), flash)
+		return
+	}
+	redirect(w, r, taskPath(r), flash)
 }
 
 // deleteTask soft deletes a task.

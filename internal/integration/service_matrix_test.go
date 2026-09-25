@@ -5,6 +5,7 @@ package integration
 import (
 	"bytes"
 	"reflect"
+	"slices"
 	"sort"
 	"testing"
 	"time"
@@ -829,6 +830,32 @@ var serviceScenarios = []svcScenario{
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
 			_, err := tg.svc.GetActor(tg.ctx, "nosuchactor0000000")
 			return nil, err
+		},
+	},
+	{
+		name:   "list the actor directory",
+		covers: []string{"ListActors"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			actors, _, err := tg.svc.ListActors(tg.ctx, core.Page{Limit: 50})
+			if err != nil {
+				return nil, err
+			}
+			// The two targets do not hold the same actors: the remote one
+			// authenticates as the agent its bearer token names, so a count
+			// would diverge for a reason that is no finding. What must agree
+			// is that the directory is this tenant's, ordered by handle, and
+			// that it names the administrator.
+			handles := make([]string, 0, len(actors))
+			own := true
+			for _, a := range actors {
+				handles = append(handles, a.Handle)
+				own = own && a.TenantID == h.tenantID
+			}
+			return sig{
+				"own_tenant": own,
+				"sorted":     slices.IsSorted(handles),
+				"has_admin":  slices.Contains(handles, h.adminActor.Handle),
+			}, nil
 		},
 	},
 	{

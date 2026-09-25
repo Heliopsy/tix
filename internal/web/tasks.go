@@ -56,6 +56,15 @@ type tasksView struct {
 	// put away. Filtered is set when an explicit project: filter overrode
 	// that choice, so a reader is never shown a shorter task list without
 	// being told which rule produced it.
+	// Moves lists, per project, the workflow that project runs, so a row can
+	// offer the states its own task may move to. A listing mixes projects,
+	// and a state that is legal in one is not necessarily legal in another.
+	Moves map[string]core.WorkflowDefinition
+
+	// Names labels the actors holding a lease, so a held row can say who has
+	// it rather than only that somebody does.
+	Names actorNames
+
 	Visibility []projectChoice
 	Hidden     int
 	Filtered   bool
@@ -164,6 +173,10 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	moves, err := h.workflowsByProject(r, projects)
+	if err != nil {
+		return err
+	}
 	return h.render(w, r, "tasks.html", "Tasks", tasksView{
 		Tasks:         page.Tasks,
 		Projects:      projects,
@@ -177,11 +190,25 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 		CompleteState: complete,
 		Accent:        projectAccents(projects),
 		Summary:       summarise(page.Tasks, complete, time.Now()),
+		Names:         h.resolveActors(r, holders(page.Tasks)...),
+		Moves:         moves,
 		Visibility:    visibility,
 		Hidden:        hidden,
 		Filtered:      filtered && hidden > 0,
 		Empty:         hidden > 0 && hidden == len(visibility),
 	})
+}
+
+// holders lists the actors holding a lease on any row, so one pass over the
+// directory covers the listing rather than one lookup per row.
+func holders(tasks []core.Task) []string {
+	var out []string
+	for _, t := range tasks {
+		if t.ClaimedByActorID != "" {
+			out = append(out, t.ClaimedByActorID)
+		}
+	}
+	return out
 }
 
 // completeStates resolves, per project, the state that finishing a task moves
@@ -204,6 +231,27 @@ func (h *handler) completeStates(r *http.Request, projects []core.Project) (map[
 		}
 		if key := doneState(w.Definition); key != "" {
 			out[p.ID] = key
+		}
+	}
+	return out, nil
+}
+
+// workflowsByProject maps each project to the state machine it runs, so the
+// listing can offer a row the moves its own workflow allows rather than a
+// fixed set that happens to suit one project.
+func (h *handler) workflowsByProject(r *http.Request, projects []core.Project) (map[string]core.WorkflowDefinition, error) {
+	workflows, err := h.svc.ListWorkflows(r.Context())
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[string]core.Workflow, len(workflows))
+	for _, w := range workflows {
+		byID[w.ID] = w
+	}
+	out := make(map[string]core.WorkflowDefinition, len(projects))
+	for _, p := range projects {
+		if w, ok := byID[p.WorkflowID]; ok {
+			out[p.ID] = w.Definition
 		}
 	}
 	return out, nil

@@ -98,29 +98,36 @@
 </div>
 {{end}}
 
+{{/* The columns form on its own, so a screen that has nothing else to put
+     beside it can wrap it in its own disclosure (column-picker, below) while
+     the task list can sit it next to the project filter inside one. */}}
+{{define "column-choices"}}
+{{/* show:none for the same reason the tick has it: a boosted swap scrolls
+     to the top by default, and applying a column should not move the reader
+     off whatever they were looking at. */}}
+<form method="post" action="/columns" class="columnform"
+      hx-swap="innerHTML show:none">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="page" value="{{.ColumnPage}}">
+  <input type="hidden" name="next" value="{{.Here}}">
+  <div class="choices">
+    {{range .Columns.Options .ColumnPage}}
+    <label><input type="checkbox" name="column" value="{{.Key}}" {{if .Shown}}checked{{end}}> {{.Label}}</label>
+    {{end}}
+  </div>
+  <div class="actions">
+    <button type="submit">Apply</button>
+    <button class="secondary" type="submit" name="reset" value="1">Reset</button>
+  </div>
+</form>
+{{end}}
+
 {{define "column-picker"}}
 {{if .Columns.Configurable .ColumnPage}}
 <details class="panel columns">
   <summary>Columns</summary>
   <div class="body">
-    {{/* show:none for the same reason the tick has it: a boosted swap scrolls
-         to the top by default, and applying a column should not move the
-         reader off whatever they were looking at. */}}
-    <form method="post" action="/columns" class="columnform"
-          hx-swap="innerHTML show:none">
-      {{template "csrf" .CSRF}}
-      <input type="hidden" name="page" value="{{.ColumnPage}}">
-      <input type="hidden" name="next" value="{{.Here}}">
-      <div class="choices">
-        {{range .Columns.Options .ColumnPage}}
-        <label><input type="checkbox" name="column" value="{{.Key}}" {{if .Shown}}checked{{end}}> {{.Label}}</label>
-        {{end}}
-      </div>
-      <div class="actions">
-        <button type="submit">Apply</button>
-        <button class="secondary" type="submit" name="reset" value="1">Reset</button>
-      </div>
-    </form>
+    {{template "column-choices" .}}
   </div>
 </details>
 {{end}}

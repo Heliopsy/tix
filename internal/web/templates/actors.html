@@ -1,0 +1,23 @@
+{{define "content"}}
+<h1>Directory</h1>
+{{/* Kind is on every row because it is the one thing the identifier does not
+     say: work is assigned to agents as often as to people, and a handle
+     alone does not tell the two apart. */}}
+<p class="lede summary">{{if eq (len .Data.Actors) 0}}No actors yet.{{else}}Everyone and everything work can be assigned to here.{{end}}</p>
+<table>
+  <thead><tr><th>Handle</th><th>Kind</th><th>Name</th><th>Id</th></tr></thead>
+  <tbody>
+  {{range .Data.Actors}}
+    <tr id="actor-{{.ID}}">
+      <td>{{.Handle}}</td>
+      <td><span class="chip">{{.Kind}}</span></td>
+      <td>{{if .DisplayName}}{{.DisplayName}}{{else}}<span class="muted">&mdash;</span>{{end}}</td>
+      <td class="mono id" title="{{.ID}}">{{.ID}}</td>
+    </tr>
+  {{else}}
+    <tr><td colspan="4">No actors yet.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+{{if .Data.NextCursor}}<p><a href="/actors?cursor={{.Data.NextCursor}}">Next page</a></p>{{end}}
+{{end}}

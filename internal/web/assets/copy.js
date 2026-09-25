@@ -156,16 +156,31 @@
   // stands, which is the feedback the movement used to give without moving
   // anything. The converging entrance is for a list that really did
   // re-render, after a filter or on arrival.
-  document.addEventListener("htmx:afterSwap", function (event) {
+  //
+  // On afterSettle rather than afterSwap. htmx settles a swap by re-applying
+  // the attributes the response carried, so a class added in afterSwap is
+  // wiped about fifteen milliseconds later. The tick animation hangs off this
+  // class, so it started and was cancelled almost immediately: the mark began
+  // to draw, then snapped back, which read as a ring appearing and vanishing.
+  // Nothing removed the class, which is why looking for a remover found
+  // nothing; the element's class attribute was simply overwritten.
+  document.addEventListener("htmx:afterSettle", function (event) {
     var row = event.target;
     if (!row || !row.classList || !row.classList.contains("task")) {
       return;
     }
-    var marked = document.querySelectorAll("li.task.is-target");
-    for (var i = 0; i < marked.length; i++) {
-      marked[i].classList.remove("is-target");
-    }
-    row.classList.add("is-target");
+    // is-ticked, not is-target. The two want opposite lifetimes: is-target
+    // marks where a deep link landed and holds until the reader moves on,
+    // which left a green outline sitting around every row anyone ticked.
+    // This one clears itself the moment its animation finishes.
+    row.classList.add("is-ticked");
+    var clear = function () {
+      row.classList.remove("is-ticked");
+    };
+    row.addEventListener("animationend", clear, { once: true });
+    // A row whose animation never runs, because the reader asked for reduced
+    // motion or the tab is in the background, must still shed the class.
+    window.setTimeout(clear, 600);
   });
 
   // A boosted swap replaces the markup, so a <details> the reader had opened

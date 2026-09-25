@@ -5,26 +5,64 @@ package web
 import (
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/heliopsy/tix/internal/core"
 )
+
+// RouteActors is the directory screen: the people and the agents of this
+// tenant, which is also what the assignee picker draws its handles from.
+const RouteActors = "/actors"
+
+// actorRoutes is the directory screen.
+func (h *handler) actorRoutes() []route {
+	return []route{get(RouteActors, "actors.html", h.showActors, "ListActors")}
+}
+
+// actorsView is what the directory screen renders.
+type actorsView struct {
+	Actors     []core.Actor
+	NextCursor string
+}
+
+// showActors renders this tenant's directory.
+func (h *handler) showActors(w http.ResponseWriter, r *http.Request) error {
+	actors, next, err := h.svc.ListActors(r.Context(), core.Page{Cursor: r.URL.Query().Get("cursor")})
+	if err != nil {
+		return err
+	}
+	return h.render(w, r, "actors.html", "Directory", actorsView{Actors: actors, NextCursor: next})
+}
 
 // actorNames labels the actor identifiers one screen shows. A handle is used
 // wherever the directory holds one, because a name someone chose beats any
 // name a machine can invent. Everything else falls back to a generated name,
 // which is stable and pronounceable but means nothing beyond telling two rows
 // apart. Either way the identifier stays on the element as its title.
-type actorNames map[string]string
+type actorNames struct {
+	labels    map[string]string
+	directory func() []string
+}
 
 // Label returns the words to show for one actor identifier.
 func (n actorNames) Label(id string) string {
 	if id == "" {
 		return ""
 	}
-	if handle := n[id]; handle != "" {
+	if handle := n.labels[id]; handle != "" {
 		return handle
 	}
 	return core.FriendlyName(id)
+}
+
+// Handles lists every handle this tenant holds, in the order the directory
+// returns them, for the pickers a form offers. Agents are in it: they are
+// actors without a user, and work is assigned to them as often as to people.
+func (n actorNames) Handles() []string {
+	if n.directory == nil {
+		return nil
+	}
+	return n.directory()
 }
 
 // resolveActors looks up the handles of the actors a screen names. An
@@ -32,22 +70,47 @@ func (n actorNames) Label(id string) string {
 // absent, so the screen falls back to its generated name rather than failing
 // over a label.
 func (h *handler) resolveActors(r *http.Request, ids ...string) actorNames {
-	out := make(actorNames, len(ids))
+	out := actorNames{labels: make(map[string]string, len(ids)), directory: h.actorHandles(r)}
 	for _, id := range ids {
 		if id == "" {
 			continue
 		}
-		if _, seen := out[id]; seen {
+		if _, seen := out.labels[id]; seen {
 			continue
 		}
-		out[id] = ""
+		out.labels[id] = ""
 		actor, err := h.svc.GetActor(r.Context(), id)
 		if err != nil || actor == nil {
 			continue
 		}
-		out[id] = actor.Handle
+		out.labels[id] = actor.Handle
 	}
 	return out
+}
+
+// actorHandles defers the directory listing to the first screen that asks for
+// it, so the screens that only label the actors they name never pay for it. A
+// listing that fails leaves the picker empty rather than losing the page: the
+// field it decorates takes a typed identifier either way.
+func (h *handler) actorHandles(r *http.Request) func() []string {
+	var (
+		once    sync.Once
+		handles []string
+	)
+	return func() []string {
+		once.Do(func() {
+			actors, _, err := h.svc.ListActors(r.Context(), core.Page{Limit: core.MaxPageLimit})
+			if err != nil {
+				return
+			}
+			for _, a := range actors {
+				if a.Handle != "" {
+					handles = append(handles, a.Handle)
+				}
+			}
+		})
+		return handles
+	}
 }
 
 // shortID abbreviates an identifier that names a record rather than a person,

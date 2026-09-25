@@ -51,6 +51,30 @@ func (g *globals) render(cmd *cobra.Command, data any) error {
 	return output.NewWithStyle(g.formatName(), g.colorMode(), g.timeStyle()).Format(cmd.OutOrStdout(), data)
 }
 
+// resolveActorNames looks up each distinct actor a list names. An actor that
+// no longer resolves is left out, and the column falls back to the identifier
+// rather than the row vanishing or claiming a name it cannot support.
+func resolveActorNames(ctx context.Context, svc core.Service, tasks []core.Task) map[string]string {
+	names := map[string]string{}
+	for _, t := range tasks {
+		for _, id := range []string{t.AssigneeActorID, t.ClaimedByActorID} {
+			if id == "" {
+				continue
+			}
+			if _, done := names[id]; done {
+				continue
+			}
+			names[id] = ""
+			actor, err := svc.GetActor(ctx, id)
+			if err != nil || actor.Handle == "" {
+				continue
+			}
+			names[id] = actor.Handle
+		}
+	}
+	return names
+}
+
 // stream returns a writer that emits records as they are produced.
 func (g *globals) stream(cmd *cobra.Command) output.Stream {
 	return output.NewStreamWithStyle(g.formatName(), cmd.OutOrStdout(), g.colorMode(), g.timeStyle())
@@ -249,6 +273,11 @@ type listWriter[T any] struct {
 	cmd    *cobra.Command
 	stream output.Stream
 	rows   []T
+
+	// names labels the actors the buffered rows refer to. It is resolved at
+	// close, when every row is in hand, so one lookup covers a whole listing
+	// however many rows mention the same person.
+	names func([]T) map[string]string
 }
 
 // newList returns a writer for a listing of T.
@@ -273,6 +302,10 @@ func (l *listWriter[T]) Write(record T) error {
 func (l *listWriter[T]) Close() error {
 	if l.stream != nil {
 		return l.stream.Close()
+	}
+	if l.names != nil {
+		return output.NewWithNames(l.g.formatName(), l.g.colorMode(), l.g.timeStyle(), l.names(l.rows)).
+			Format(l.cmd.OutOrStdout(), l.rows)
 	}
 	return l.g.render(l.cmd, l.rows)
 }

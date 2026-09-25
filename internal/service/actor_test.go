@@ -4,9 +4,11 @@ package service
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
 )
 
 func TestGetActorResolvesAHandle(t *testing.T) {
@@ -123,5 +125,136 @@ func TestGetActorNamesTheSystemActor(t *testing.T) {
 	}
 	if got.Handle != "system" || got.Kind != core.ActorSystem {
 		t.Errorf("system resolved to %q/%q", got.Handle, got.Kind)
+	}
+}
+
+// seedActors creates actors in a tenant, so a directory listing has both
+// kinds of actor in it: agents hold no user, which is exactly why a picker
+// built from ListUsers would not show them.
+func seedActors(t *testing.T, l *Local, tenantID string, actors ...core.Actor) {
+	t.Helper()
+	ctx := context.Background()
+	scope := core.TenantScope{TenantID: tenantID}
+	for i := range actors {
+		a := actors[i]
+		if err := l.store.Update(ctx, scope, func(tx store.Tx) error {
+			return tx.CreateActor(ctx, &a)
+		}); err != nil {
+			t.Fatalf("creating actor %q: %v", a.Handle, err)
+		}
+	}
+}
+
+// handlesOf reduces a listing to the handles it named.
+func handlesOf(actors []core.Actor) []string {
+	out := make([]string, 0, len(actors))
+	for _, a := range actors {
+		out = append(out, a.Handle)
+	}
+	return out
+}
+
+// TestListActorsIsTenantScoped is the guard on the isolation rule: a
+// directory is a listing of people and agents, and one tenant's must never
+// name another's.
+func TestListActorsIsTenantScoped(t *testing.T) {
+	l, _, _, admin := newLocal(t)
+	seedActors(t, l, admin.TenantID,
+		core.Actor{Kind: core.ActorUser, Handle: "ada"},
+		core.Actor{Kind: core.ActorAgent, Handle: "mint"})
+
+	intruder := otherTenantActor(t, l)
+	seedActors(t, l, intruder.TenantID,
+		core.Actor{Kind: core.ActorUser, Handle: "eve"},
+		core.Actor{Kind: core.ActorAgent, Handle: "spy"})
+
+	cases := []struct {
+		name    string
+		caller  *core.Actor
+		want    []string
+		refused []string
+	}{
+		{"this tenant", admin, []string{"ada", "alice", "mint"}, []string{"eve", "spy"}},
+		{"the other tenant", intruder, []string{"bob", "eve", "spy"}, []string{"ada", "alice", "mint"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			actors, _, err := l.ListActors(authContext(tc.caller), core.Page{})
+			if err != nil {
+				t.Fatalf("ListActors: %v", err)
+			}
+			got := handlesOf(actors)
+			if !slices.Equal(got, tc.want) {
+				t.Fatalf("ListActors = %v, want %v", got, tc.want)
+			}
+			for _, a := range actors {
+				if a.TenantID != tc.caller.TenantID {
+					t.Errorf("ListActors disclosed an actor of tenant %q", a.TenantID)
+				}
+			}
+			for _, handle := range tc.refused {
+				if slices.Contains(got, handle) {
+					t.Errorf("ListActors disclosed another tenant's actor %q", handle)
+				}
+			}
+		})
+	}
+}
+
+func TestListActorsPaginatesByHandle(t *testing.T) {
+	l, _, _, admin := newLocal(t)
+	ctx := authContext(admin)
+	seedActors(t, l, admin.TenantID,
+		core.Actor{Kind: core.ActorAgent, Handle: "mint"},
+		core.Actor{Kind: core.ActorUser, Handle: "ada"})
+
+	first, next, err := l.ListActors(ctx, core.Page{Limit: 2})
+	if err != nil {
+		t.Fatalf("ListActors: %v", err)
+	}
+	if got := handlesOf(first); !slices.Equal(got, []string{"ada", "alice"}) {
+		t.Fatalf("first page = %v, want [ada alice]", got)
+	}
+	if next == "" {
+		t.Fatal("first page returned no cursor")
+	}
+	rest, last, err := l.ListActors(ctx, core.Page{Limit: 2, Cursor: next})
+	if err != nil {
+		t.Fatalf("ListActors page two: %v", err)
+	}
+	if got := handlesOf(rest); !slices.Equal(got, []string{"mint"}) {
+		t.Fatalf("second page = %v, want [mint]", got)
+	}
+	if last != "" {
+		t.Errorf("a short page returned cursor %q", last)
+	}
+}
+
+// A member is not an administrator: the directory answers who is here, so
+// every signed-in caller reads it and an unauthenticated one does not.
+func TestListActorsRejectsWhatItCannotServe(t *testing.T) {
+	l, _, _, admin := newLocal(t)
+	member := &core.Actor{ID: "m1", TenantID: admin.TenantID, Kind: core.ActorUser, Role: core.RoleMember}
+
+	cases := []struct {
+		name string
+		ctx  context.Context
+		page core.Page
+		kind core.Kind
+	}{
+		{"unauthenticated", context.Background(), core.Page{}, core.KindUnauthenticated},
+		{"negative limit", authContext(admin), core.Page{Limit: -1}, core.KindInvalid},
+		{"unsupported sort", authContext(admin), core.Page{Sort: core.SortCreatedAt}, core.KindInvalid},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, _, err := l.ListActors(tc.ctx, tc.page); !core.IsKind(err, tc.kind) {
+				t.Errorf("ListActors = %v, want %v", err, tc.kind)
+			}
+		})
+	}
+
+	if _, _, err := l.ListActors(authContext(member), core.Page{}); err != nil {
+		t.Errorf("ListActors as a member: %v", err)
 	}
 }

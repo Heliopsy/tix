@@ -47,6 +47,7 @@ const (
 	tplWorkflow  = "workflow.html"
 	tplTasks     = "tasks.html"
 	tplTask      = "task.html"
+	tplActors    = "actors.html"
 	tplActivity  = "activity.html"
 	tplStats     = "stats.html"
 	tplWebhooks  = "webhooks.html"
@@ -553,6 +554,15 @@ var registry = []Operation{
 		},
 	},
 
+	{
+		Name: "actor.list", Method: "ListActors",
+		CLI:  "tix actor ls",
+		HTTP: apiGet(wire.RouteActors),
+		Web:  webGet(web.RouteActors, tplActors),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; the interface has no directory view"),
+		},
+	},
 	{
 		Name: "actor.show", Method: "GetActor",
 		CLI:  "tix actor show",

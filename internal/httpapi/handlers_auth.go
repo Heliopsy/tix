@@ -37,6 +37,7 @@ func (rt *Router) registerAuthRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteLogin, rt.handleLogin)
 	rt.mux.HandleFunc("POST "+wire.RouteLogout, rt.handleLogout)
 
+	rt.mux.HandleFunc("GET "+wire.RouteActors, rt.handleListActors)
 	rt.mux.HandleFunc("GET "+wire.RouteActor, rt.handleGetActor)
 
 	rt.mux.HandleFunc("GET "+wire.RouteUsers, rt.handleListUsers)
@@ -72,6 +73,21 @@ func (rt *Router) handleGetActor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, http.StatusOK, actor)
+}
+
+// handleListActors returns a page of this tenant's actors.
+func (rt *Router) handleListActors(w http.ResponseWriter, r *http.Request) {
+	page, err := pageFrom(r)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	actors, next, err := rt.cfg.Service.ListActors(r.Context(), page)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeList(w, r, actors, next)
 }
 
 // handleLogin exchanges an email and password for a session.

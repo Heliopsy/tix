@@ -123,6 +123,12 @@ type AuthService interface {
 	// identifier. It returns the naming fields only, never authority.
 	GetActor(ctx context.Context, id string) (*Actor, error)
 
+	// ListActors returns this tenant's directory, agents included, so a
+	// caller can offer the actors it holds instead of asking for an
+	// identifier to be typed from memory. Like GetActor it returns the
+	// naming fields only, never authority.
+	ListActors(ctx context.Context, page Page) ([]Actor, string, error)
+
 	CreateUser(ctx context.Context, in CreateUserInput) (*User, error)
 	GetUser(ctx context.Context, id string) (*User, error)
 	ListUsers(ctx context.Context, page Page) ([]User, string, error)

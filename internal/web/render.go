@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
@@ -160,6 +162,8 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"sentenceSubject": sentenceForSubject,
 		"percent":         barPercent,
 		"age":             humanDuration,
+		"claim":           claimState,
+		"moves":           targetsFrom,
 	}
 }
 
@@ -325,6 +329,123 @@ func themeOf(r *http.Request) string {
 	return ""
 }
 
+// TimeFormatCookie remembers the timestamp layout this browser asked for.
+const TimeFormatCookie = "tix_time_format"
+
+// TimezoneCookie remembers the zone this browser asked for.
+const TimezoneCookie = "tix_timezone"
+
+// Timezones are the zones on offer. An empty value follows the deployment's
+// own output.timezone. The list is a selection rather than every name the
+// system zone database carries: a select of six hundred entries is not a
+// control anybody can use, and a fixed list bounds how many template sets a
+// process can be made to parse.
+var Timezones = []string{
+	"", "UTC",
+	"Pacific/Auckland", "Australia/Sydney", "Australia/Perth",
+	"Asia/Tokyo", "Asia/Shanghai", "Asia/Singapore", "Asia/Bangkok",
+	"Asia/Kolkata", "Asia/Karachi", "Asia/Dubai", "Asia/Jerusalem",
+	"Africa/Cairo", "Africa/Johannesburg", "Africa/Lagos",
+	"Europe/Moscow", "Europe/Sofia", "Europe/Berlin", "Europe/Madrid",
+	"Europe/London", "America/Sao_Paulo", "America/New_York",
+	"America/Chicago", "America/Denver", "America/Los_Angeles",
+}
+
+// timeFormatOf reports the layout this browser asked for, or an empty string
+// when it has not asked and the deployment's configuration should decide.
+func timeFormatOf(r *http.Request) string {
+	c, err := r.Cookie(TimeFormatCookie)
+	if err != nil {
+		return ""
+	}
+	return resolvedTimeFormat(c.Value)
+}
+
+// resolvedTimeFormat returns want when it names a layout this build renders,
+// and an empty string otherwise, so a value typed by hand into the cookie can
+// never reach the renderer.
+func resolvedTimeFormat(want string) string {
+	for _, f := range output.TimeFormats {
+		if want == f {
+			return f
+		}
+	}
+	return ""
+}
+
+// timezoneOf reports the zone this browser asked for, or an empty string when
+// it has not asked and the deployment's configuration should decide.
+func timezoneOf(r *http.Request) string {
+	c, err := r.Cookie(TimezoneCookie)
+	if err != nil {
+		return ""
+	}
+	return resolvedZone(c.Value)
+}
+
+// resolvedZone returns want when it is on offer and this system's zone
+// database can load it. A name this system does not know falls back to the
+// deployment default rather than failing the page: tzdata is a property of the
+// host, not of the person reading, and a missing zone must not take a screen
+// down.
+func resolvedZone(want string) string {
+	if want == "" {
+		return ""
+	}
+	for _, z := range Timezones {
+		if z == "" || z != want {
+			continue
+		}
+		if _, err := time.LoadLocation(z); err != nil {
+			return ""
+		}
+		return z
+	}
+	return ""
+}
+
+// styleKey identifies one resolved way of rendering an instant.
+type styleKey struct{ format, zone string }
+
+// styleTemplates caches one parsed template set per style a browser has asked
+// for.
+//
+// The formatting helpers are bound into a template at parse time, so a
+// per-viewer zone cannot be a value handed to Execute; it has to be a set
+// parsed against that viewer's style. A set is immutable once parsed and is
+// only ever executed under the key it was parsed for, so no request can be
+// served another's preference, and Timezones above bounds how many sets exist.
+var styleTemplates sync.Map
+
+// templatesFor returns the template set this request renders through: the
+// deployment's own when the browser has chosen neither preference, and one
+// parsed for the chosen style otherwise.
+//
+// Choosing one of the two leaves the other at output's neutral default, which
+// is what NewTimeStyle reads an empty value as, because a TimeStyle does not
+// give its format and zone back and this package therefore cannot compose a
+// half-overridden one. Those neutral values are the shipped configuration
+// defaults, so only a deployment that moved one of them away sees a
+// difference.
+func (h *handler) templatesFor(r *http.Request) map[string]*template.Template {
+	if r == nil {
+		return h.templates
+	}
+	key := styleKey{format: timeFormatOf(r), zone: timezoneOf(r)}
+	if key.format == "" && key.zone == "" {
+		return h.templates
+	}
+	if set, ok := styleTemplates.Load(key); ok {
+		return set.(map[string]*template.Template)
+	}
+	style, err := output.NewTimeStyle(key.format, key.zone)
+	if err != nil {
+		return h.templates
+	}
+	set, _ := styleTemplates.LoadOrStore(key, parseTemplates(style))
+	return set.(map[string]*template.Template)
+}
+
 // brand resolves the signed-in tenant's branding, falling back to the default
 // when the caller may not read the tenant record.
 func (h *handler) brand(r *http.Request) branding {
@@ -345,7 +466,7 @@ func (h *handler) render(w http.ResponseWriter, r *http.Request, name, title str
 
 // renderStatus writes one screen with an explicit status.
 func (h *handler) renderStatus(w http.ResponseWriter, r *http.Request, status int, name, title string, data any) error {
-	tmpl, ok := h.templates[name]
+	tmpl, ok := h.templatesFor(r)[name]
 	if !ok {
 		return core.Internal("no template named %q", name)
 	}
@@ -501,6 +622,24 @@ func barPercent(v, max int) int {
 //
 // Two units at most, largest first, because "15d 8h" answers the question and
 // "15d 8h 36m 42s" makes the reader do the rounding themselves.
+// claimState reports how a task's lease reads on a listing: held while it is
+// live, expired once it has run out, and empty when nobody holds it.
+//
+// Expiry is lazy everywhere else in the product: a lease past its time is
+// treated as unclaimed without anything having swept it. A list that showed
+// nothing therefore hid both facts, and the one that matters most to whoever
+// is looking for work -- a task some agent took and never finished -- looked
+// exactly like a task nobody had touched.
+func claimState(t core.Task) string {
+	if t.ClaimedByActorID == "" {
+		return ""
+	}
+	if t.LeaseExpiresAt == nil || t.LeaseExpiresAt.After(time.Now()) {
+		return "held"
+	}
+	return "expired"
+}
+
 // humanDuration defers to the type, which is where the rendering lives so the
 // three surfaces showing these figures cannot drift apart on them.
 func humanDuration(d core.Duration) string { return d.Human() }
