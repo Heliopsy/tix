@@ -131,6 +131,15 @@ func TestOneKeyCannotHoldMoreSessionsThanTheCap(t *testing.T) {
 	client := dialRelay(t, srv.Addr())
 	defer func() { _ = client.Close() }()
 
+	// dialRelay's Shell() returns once the request is written, not once the
+	// server has taken a slot for it, so without this the two sessions race
+	// for the only one. The second winning it is served rather than refused,
+	// and Run then blocks on a terminal interface that never exits until the
+	// bound below fires: a test failure that reads like a stalled refusal
+	// when the cap is working exactly as intended. Reproduced by running this
+	// package under full CPU load.
+	waitForLiveSessions(t, srv, 1)
+
 	sess, err := client.NewSession()
 	if err != nil {
 		t.Fatalf("second session: %v", err)
@@ -159,5 +168,25 @@ func TestOneKeyCannotHoldMoreSessionsThanTheCap(t *testing.T) {
 	}
 	if got := stderr.String(); !strings.Contains(got, "limit of 1 concurrent sessions") {
 		t.Fatalf("stderr = %q, want a refusal naming the limit", got)
+	}
+}
+
+// waitForLiveSessions blocks until the listener is holding want sessions.
+//
+// The gate is the authority on that: the client cannot tell the difference
+// between a request written and a slot taken, and every attempt to infer it
+// from the client side is the race this exists to remove.
+func waitForLiveSessions(t *testing.T, srv *Server, want int) {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		if _, live := srv.live.counts(""); live >= want {
+			return
+		}
+		if time.Now().After(deadline) {
+			_, live := srv.live.counts("")
+			t.Fatalf("the listener holds %d sessions after 30s, want %d", live, want)
+		}
+		time.Sleep(2 * time.Millisecond)
 	}
 }
