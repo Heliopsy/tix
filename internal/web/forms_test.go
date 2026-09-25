@@ -645,27 +645,34 @@ func TestTickingStaysOnThePageAndDoesNotScroll(t *testing.T) {
 	}
 }
 
-// TestTheNewTaskBoxDoesNotStealTheScrollAfterATick is the second half of the
-// tick-scrolls bug, and the half that made the first half invisible.
+// TestTheTaskListDoesNotAutofocusItsNewTaskBox pins the removal of an
+// autofocus that had already cost this screen one bug.
 //
-// The list autofocuses its new-task box so typing needs no click. autofocus
-// scrolls the focused element into view, so after completing a row the
-// browser applied the returning fragment, jumped to the row, and was then
-// yanked straight back to the top by the focus. The server was already
-// sending the right Location; the page threw it away on arrival.
+// Focus on arrival scrolls the focused element into view, so completing a row
+// applied the returning fragment, jumped to the row, and was yanked back to
+// the top: the flash condition below the field was added to stop exactly
+// that. It also put a bright focus ring on a text box at the top of a screen
+// whose subject is the list beneath it, started a screen reader at that box
+// rather than at the heading, and raised a phone keyboard over the rows.
 //
-// A flash only exists on the response to an action, which is exactly when the
-// reader was sent somewhere specific and must not be moved.
-func TestTheNewTaskBoxDoesNotStealTheScrollAfterATick(t *testing.T) {
+// The shortcut layer binds a key to this field (data-shortcut-target="new",
+// "n" in the default scheme and "o" in vi), and the "?" overlay names it, so
+// reaching the field without a click still costs one keystroke.
+func TestTheTaskListDoesNotAutofocusItsNewTaskBox(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	b := f.as("alice")
 
-	if fresh := b.page("/tasks"); !strings.Contains(fresh, "autofocus") {
-		t.Error("arriving at the list does not focus the new-task box; typing needs a click")
+	page := b.page("/tasks")
+	if form := formTag(t, page, "/tasks"); !strings.Contains(form, "quickadd") {
+		t.Fatalf("the quick-add form is not the form read: %s", form)
 	}
-	if after := b.page("/tasks?flash=completed+infra-1"); strings.Contains(after, "autofocus") {
-		t.Error("the new-task box is focused after an action, which pulls the page back to the top")
+	box := between(t, page, `<input name="title"`, ">")
+	if strings.Contains(box, "autofocus") {
+		t.Errorf("the new-task box takes focus on arrival: %s", box)
+	}
+	if !strings.Contains(box, `data-shortcut-target="new"`) {
+		t.Errorf("the new-task box carries no shortcut target, so a key cannot reach it: %s", box)
 	}
 }
 

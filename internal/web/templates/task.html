@@ -200,66 +200,6 @@
     </div>
   </details>
 
-  <details class="panel">
-    <summary>History</summary>
-    <div class="body">
-      {{if .Data.CanAudit}}
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>When</th><th>What changed</th><th>Source</th></tr></thead>
-          <tbody>
-          {{range .Data.History}}
-            {{$latest := .Latest}}
-            <tr>
-              <td data-label="When" class="muted">
-                <time datetime="{{$latest.Entry.OccurredAt.Format "2006-01-02T15:04:05Z07:00"}}" title="{{absolute $latest.Entry.OccurredAt}}">{{relativeAt $latest.Entry.OccurredAt}}</time>
-              </td>
-              <td data-label="What changed">
-                <span class="badge act-{{.Verb}}">{{.Verb}}</span>
-                {{sentence ($.Data.Names.Label $latest.Entry.ActorID) .}}
-                <details class="panel raw">
-                  <summary>{{if gt (len .Hops) 1}}{{len .Hops}} steps{{else}}Raw{{end}}</summary>
-                  <div class="body">
-                    {{range .Hops}}
-                    <dl class="raw-fields">
-                      <div><dt>When</dt><dd class="mono">{{compact .Entry.OccurredAt}}</dd></div>
-                      <div><dt>Action</dt><dd class="mono">{{.Entry.Action}}</dd></div>
-                      {{if .Changed}}<div><dt>Fields</dt><dd class="mono">{{join .Changed}}</dd></div>{{end}}
-                    </dl>
-                    {{end}}
-                  </div>
-                </details>
-              </td>
-              <td data-label="Source"><span class="badge source">{{$latest.Entry.Source}}</span></td>
-            </tr>
-          {{else}}
-            <tr><td colspan="3"><p class="empty">No recorded changes.</p></td></tr>
-          {{end}}
-          </tbody>
-        </table>
-      </div>
-      {{else}}<p class="empty">You do not hold the audit read scope.</p>{{end}}
-    </div>
-  </details>
-
-  {{if .Data.CanDelete}}
-  <details class="panel danger">
-    <summary>Danger zone</summary>
-    <div class="body">
-      <form method="post" action="/tasks/{{$t.Ref}}/delete">
-        {{template "csrf" .CSRF}}
-        <label for="hard"><input id="hard" type="checkbox" name="hard" value="1"> Delete permanently</label>
-        <label for="cascade"><input id="cascade" type="checkbox" name="cascade" value="1"> Also delete subtasks</label>
-        <div class="actions"><button class="danger" type="submit">Delete task</button></div>
-      </form>
-      <form method="post" action="/tasks/{{$t.Ref}}/restore">
-        {{template "csrf" .CSRF}}
-        <div class="actions"><button class="secondary" type="submit">Restore task</button></div>
-      </form>
-    </div>
-  </details>
-  {{end}}
-
 </div>
 
 <aside class="rail">
@@ -327,5 +267,74 @@
     {{else}}<p class="empty">This project defines none.</p>{{end}}
   </div>
 </aside>
+
+  {{/* Below both columns and across the whole width. A table of three
+       columns is the widest thing on this screen, and it was the one piece
+       of it rendered in the narrower track. */}}
+  <details class="panel wide">
+    <summary>History</summary>
+    <div class="body">
+      {{if .Data.CanAudit}}
+      <div class="table-wrap">
+        <table>
+          {{/* When holds a relative stamp and Source a one-word badge, so an
+               even three-way split starved the only column with a sentence in
+               it: "What changed" wrapped on every row while the two beside it
+               sat mostly empty. */}}
+          <colgroup><col class="c-when"><col><col class="c-source"></colgroup>
+          <thead><tr><th>When</th><th>What changed</th><th>Source</th></tr></thead>
+          <tbody>
+          {{range .Data.History}}
+            {{$latest := .Latest}}
+            <tr>
+              <td data-label="When" class="muted">
+                <time datetime="{{$latest.Entry.OccurredAt.Format "2006-01-02T15:04:05Z07:00"}}" title="{{absolute $latest.Entry.OccurredAt}}">{{relativeAt $latest.Entry.OccurredAt}}</time>
+              </td>
+              <td data-label="What changed">
+                <span class="badge act-{{.Verb}}">{{.Verb}}</span>
+                {{sentence ($.Data.Names.Label $latest.Entry.ActorID) .}}
+                <details class="panel raw">
+                  <summary>{{if gt (len .Hops) 1}}{{len .Hops}} steps{{else}}Raw{{end}}</summary>
+                  <div class="body">
+                    {{range .Hops}}
+                    <dl class="raw-fields">
+                      <div><dt>When</dt><dd class="mono">{{compact .Entry.OccurredAt}}</dd></div>
+                      <div><dt>Action</dt><dd class="mono">{{.Entry.Action}}</dd></div>
+                      {{if .Changed}}<div><dt>Fields</dt><dd class="mono">{{join .Changed}}</dd></div>{{end}}
+                    </dl>
+                    {{end}}
+                  </div>
+                </details>
+              </td>
+              <td data-label="Source"><span class="badge source">{{$latest.Entry.Source}}</span></td>
+            </tr>
+          {{else}}
+            <tr><td colspan="3"><p class="empty">No recorded changes.</p></td></tr>
+          {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{else}}<p class="empty">You do not hold the audit read scope.</p>{{end}}
+    </div>
+  </details>
+
+  {{if .Data.CanDelete}}
+  <details class="panel danger wide">
+    <summary>Danger zone</summary>
+    <div class="body">
+      <form method="post" action="/tasks/{{$t.Ref}}/delete">
+        {{template "csrf" .CSRF}}
+        <label for="hard"><input id="hard" type="checkbox" name="hard" value="1"> Delete permanently</label>
+        <label for="cascade"><input id="cascade" type="checkbox" name="cascade" value="1"> Also delete subtasks</label>
+        <div class="actions"><button class="danger" type="submit">Delete task</button></div>
+      </form>
+      <form method="post" action="/tasks/{{$t.Ref}}/restore">
+        {{template "csrf" .CSRF}}
+        <div class="actions"><button class="secondary" type="submit">Restore task</button></div>
+      </form>
+    </div>
+  </details>
+  {{end}}
+
 </div>
 {{end}}

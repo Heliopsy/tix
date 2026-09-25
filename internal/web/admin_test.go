@@ -332,3 +332,60 @@ func TestCustomFieldValuesRoundTrip(t *testing.T) {
 		t.Fatalf("the custom field value is not shown:\n%s", page)
 	}
 }
+
+// TestTheTenantKeyIsALabelledReadOnlyField pins the repair of a string that
+// read as debug output.
+//
+// The tenant screen rendered "Key default" as a bare paragraph between the
+// theme's help text and the Save button: no label, no field frame, and
+// nothing saying what a tenant key is or what anybody would do with one. Two
+// independent capture passes reported it as something left behind.
+//
+// It is the key the tenant is addressed by from outside the browser, it is
+// fixed at creation, and this form's handler takes only a display name and a
+// theme. So it is a field a reader can read and copy, with the same label and
+// notice idiom every other field on the screen carries, and it submits
+// nothing: a readonly input still posts its value, so it carries no name.
+func TestTheTenantKeyIsALabelledReadOnlyField(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	page := f.as("alice").page("/admin/tenant")
+
+	if strings.Contains(page, `<p class="meta">Key `) {
+		t.Error("the tenant key is still a bare paragraph of body text")
+	}
+	form := formAt(t, page, "/admin/tenant")
+	label := between(t, form, `<label for="key">`, "</label>")
+	if label != "Tenant key" {
+		t.Errorf("the tenant key carries no label of its own: %q", label)
+	}
+	notice := between(t, form, `<label for="key">Tenant key</label>`, "</details>")
+	if !strings.Contains(notice, `class="field-info"`) {
+		t.Errorf("the tenant key has no notice saying what a tenant key is:\n%s", notice)
+	}
+	for _, want := range []string{"--tenant", "TIX_TENANT", "cannot be changed"} {
+		if !strings.Contains(notice, want) {
+			t.Errorf("the tenant key's notice does not mention %q:\n%s", want, notice)
+		}
+	}
+	field := between(t, form, `<input id="key"`, ">")
+	if !strings.Contains(field, "readonly") {
+		t.Errorf("the tenant key is offered as editable, and no handler saves it: %s", field)
+	}
+	if strings.Contains(field, "name=") {
+		t.Errorf("the tenant key would be submitted with the form: %s", field)
+	}
+	if got := inputValue(t, form, "key"); got != "acme" {
+		t.Errorf("the tenant key field holds %q, not the tenant's key", got)
+	}
+
+	// And it has to look unlike the fields around it, or it reads as one more
+	// box to type into whose Save silently drops what was typed.
+	sheet := body(t, f.as("alice").get("/assets/app.css"))
+	painted := declarations(t, sheet, "input[readonly]")
+	for _, want := range []string{"background:", "border-style: dashed"} {
+		if !strings.Contains(painted, want) {
+			t.Errorf("a read-only field is painted like an editable one, missing %q: %s", want, painted)
+		}
+	}
+}

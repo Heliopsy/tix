@@ -35,6 +35,19 @@
   <label for="name">Display name</label>
   <input id="name" name="name" value="{{.Data.Tenant.Name}}" required>
 
+  {{/* The key is fixed when the tenant is created and no input on this form
+       can change it, so it is rendered as a field the reader can read and
+       copy rather than one they can edit. It carries no name attribute: a
+       readonly control still submits, and this form's handler takes a
+       display name and a theme. It was a bare "Key default" paragraph
+       between the theme note and the Save button, which read as debug
+       output left behind rather than as the value a shell needs. */}}
+  <div class="field-label">
+    <label for="key">Tenant key</label>
+    {{template "field-info" "The short name this tenant is addressed by from outside the browser: tix --tenant <key>, the TIX_TENANT variable, and the tenant a saved context selects. It is chosen when the tenant is created and cannot be changed here, because everything already pointed at it would stop resolving."}}
+  </div>
+  <input id="key" class="mono" value="{{.Data.Tenant.Key}}" readonly>
+
   {{/* The accent every surface renders this tenant with, the browser and the
        terminal interface alike. Until this existed the setting could only be
        changed by someone with shell access to the server, which made a
@@ -50,7 +63,6 @@
     {{end}}
   </select>
   <p class="note">Applies to this tenant everywhere: the browser and the terminal interface both read it.</p>
-  <p class="meta">Key {{.Data.Tenant.Key}}</p>
   <p><button type="submit">Save</button></p>
 </form>
 

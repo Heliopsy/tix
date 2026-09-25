@@ -413,6 +413,18 @@ label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) {
 
 textarea { min-height: 92px; resize: vertical; }
 
+/* A value the screen shows but no form can change, such as the tenant key.
+   It keeps a field's frame and its label so it reads as part of the form,
+   and drops the editable surface so nobody types into it and waits for a
+   Save that was never going to carry it. Selectable, because the reason it
+   is on screen is that somebody needs to paste it into a shell. */
+input[readonly] {
+  background: var(--bg);
+  color: var(--muted);
+  border-style: dashed;
+  cursor: default;
+}
+
 /* field-label pairs a <label> with an optional field-info disclosure, so the
    "i" sits on the label's own line instead of falling below it -- label is
    display:block on its own. */
@@ -607,6 +619,7 @@ col.c-ref { width: 104px; }
 col.c-state { width: 104px; }
 col.c-tags { width: 150px; }
 col.c-when { width: 142px; }
+col.c-source { width: 116px; }
 
 @media (max-width: 639px) { colgroup { display: none; } }
 
@@ -720,6 +733,14 @@ details.panel.danger > summary { color: var(--danger); }
   .detail { grid-template-columns: minmax(0, 1fr) 300px; align-items: start; }
   .detail .rail { position: sticky; top: 22px; }
 }
+
+/* The two columns hold different amounts and always will: the rail is a
+   fixed set of metadata cards, the column beside it grows with every comment
+   written. Anything tabular therefore goes below both of them rather than
+   inside the narrower of the two, where the history table was getting a
+   third of the page while the gutter beside it ran empty for thousands of
+   pixels. In one column this is simply the last thing on the page. */
+.detail > .wide { grid-column: 1 / -1; }
 
 .titlebar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin-bottom: 4px; }
 .titlebar .ref { font-family: ui-monospace, monospace; color: var(--muted); font-size: 0.9rem; }
@@ -1477,6 +1498,11 @@ kbd {
    -selected label rather than something to click. */
 details.panel.raw {
   margin: 4px 0 0;
+  /* Hugs its own contents rather than the cell it sits in: closed, it is the
+     word "Raw", and a full-width bordered box for one word reads as a region
+     rather than a control. */
+  width: fit-content;
+  max-width: 100%;
   border: 1px solid var(--line);
   border-radius: 6px;
   box-shadow: none;

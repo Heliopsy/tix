@@ -231,3 +231,72 @@ func TestTheStatisticsFilterIsARowNotTwoFullWidthDropdowns(t *testing.T) {
 		t.Errorf("the statistics filter cannot wrap, so it overflows a phone: %s", row)
 	}
 }
+
+// disclosureTag returns the opening tag of the disclosure whose summary is
+// text, so an assertion about one panel reads that panel's own tag instead of
+// finding a class somewhere on a screen made of panels.
+func disclosureTag(t *testing.T, page, summary string) string {
+	t.Helper()
+	at := strings.Index(page, "<summary>"+summary+"</summary>")
+	if at < 0 {
+		t.Fatalf("the page has no %s disclosure", summary)
+	}
+	start := strings.LastIndex(page[:at], "<details")
+	end := strings.Index(page[start:], ">")
+	if start < 0 || end < 0 {
+		t.Fatalf("the %s disclosure is not a tag", summary)
+	}
+	return page[start : start+end+1]
+}
+
+// TestTheTaskHistoryTakesTheWholeWidthBelowBothColumns pins a layout that gave
+// width to the side that had nothing to put in it.
+//
+// The history table sat inside the detail screen's left column, so its three
+// columns shared about 750 of 1100 pixels and, being a fixed-layout table,
+// split them evenly: "What changed", the only column holding a sentence,
+// wrapped on every row while "When" and "Source" held a relative stamp and a
+// one-word badge in the same width. The rail beside it is a fixed set of
+// metadata cards and ends within the first screenful, so thousands of pixels
+// of gutter ran empty down the rest of the page.
+//
+// The table therefore spans both tracks, below them, and the two short
+// columns are sized down. In one column at phone width the grid is a single
+// track and this is simply the last thing on the page.
+func TestTheTaskHistoryTakesTheWholeWidthBelowBothColumns(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "history width")
+	page := b.page("/tasks/" + ref)
+
+	if tag := disclosureTag(t, page, "History"); !strings.Contains(tag, "wide") {
+		t.Errorf("the history panel does not span the detail grid: %s", tag)
+	}
+	// The navigation sidebar is an <aside> too, and it closes before the
+	// content starts, so this has to find the rail's own close and not the
+	// first one in the document.
+	rail := strings.Index(page, `<aside class="rail">`)
+	if rail < 0 {
+		t.Fatal("the task screen renders no rail")
+	}
+	closes := strings.Index(page[rail:], "</aside>")
+	if closes < 0 {
+		t.Fatal("the task screen's rail never closes")
+	}
+	if at := strings.Index(page, "<summary>History</summary>"); at < rail+closes {
+		t.Error("the history panel is still inside the column beside the rail")
+	}
+	cols := between(t, page, "<colgroup>", "</colgroup>")
+	if !strings.Contains(cols, `<col class="c-when">`) || !strings.Contains(cols, `<col class="c-source">`) {
+		t.Errorf("the history table's short columns are not sized down: %q", cols)
+	}
+
+	sheet := body(t, b.get("/assets/app.css"))
+	if span := declarations(t, sheet, ".detail > .wide"); !strings.Contains(span, "grid-column: 1 / -1") {
+		t.Errorf("a wide detail panel does not span both tracks: %s", span)
+	}
+	if sized := declarations(t, sheet, "col.c-source"); !strings.Contains(sized, "width:") {
+		t.Errorf("the source column takes an even share of the table: %s", sized)
+	}
+}

@@ -18,12 +18,15 @@
 
 <form method="post" action="/tasks" class="quickadd">
   {{template "csrf" .CSRF}}
-  {{/* Focused on arrival so typing a task needs no click, but not when the
-       URL names a row. Completing a task returns to the row it was on, and
-       autofocus pulled the page straight back to the top of the list: the
-       reader ticked one item and lost their place, every time. A fragment
-       means the reader was sent somewhere specific, and that wins. */}}
-  <input name="title" placeholder="Add a task and press Enter" aria-label="New task" data-shortcut-target="new" required{{if not $.Flash}} autofocus{{end}}>
+  {{/* Not autofocused. The field was focused on arrival so typing a task
+       needed no click, and it cost every arrival the top of the page: the
+       focus ring made the form the loudest thing on a screen whose subject
+       is the list under it, a screen reader began reading at a text box
+       instead of the heading, and on a phone it raised the keyboard over the
+       rows. The shortcut layer already focuses this field, and says so in
+       the "?" overlay, so the cost of reaching it without a click is one
+       keystroke rather than a click. */}}
+  <input name="title" placeholder="Add a task and press Enter" aria-label="New task" data-shortcut-target="new" required>
   <select name="project_ref" aria-label="Project">
     {{range $v.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
   </select>
