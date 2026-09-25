@@ -287,6 +287,12 @@ type Task struct {
 	LeaseExpiresAt   *time.Time `json:"lease_expires_at,omitempty" yaml:"lease_expires_at,omitempty"`
 	ClaimCount       int        `json:"claim_count" yaml:"claim_count"`
 
+	// Evidence of the last claim that ran out rather than being released. The
+	// sweeper writes both as it clears the lease columns, so the fact that a
+	// holder dropped the task survives the clearing that hides it.
+	LeaseExpiredAt        *time.Time `json:"lease_expired_at,omitempty" yaml:"lease_expired_at,omitempty"`
+	LeaseExpiredByActorID string     `json:"lease_expired_by_actor_id,omitempty" yaml:"lease_expired_by_actor_id,omitempty"`
+
 	CustomFields map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
 
 	Version   int        `json:"version" yaml:"version"`
@@ -304,6 +310,32 @@ func (t Task) ClaimedAtTime(now time.Time) bool {
 		return false
 	}
 	return t.LeaseExpiresAt.After(now)
+}
+
+// LeaseExpiryEvidenceWindow is how long a task keeps reporting that its last
+// claim expired.
+//
+// The signal answers one operational question: is a holder dying and dropping
+// work? That is read by a person opening a list, so the window has to span the
+// gap between one person looking and the next, and a claim that lapsed
+// overnight must still be visible in the morning. A day covers that, and it is
+// also a full MaxTTL lease cycle, so no single lease can outlive its own
+// evidence. Much longer and a backlog of long-lived tasks carries the mark
+// permanently, at which point it no longer means "recently" and stops being
+// worth looking at.
+//
+// The columns themselves are not cleared when the window passes. The window is
+// a read-time judgement about what is still interesting; the row keeps the
+// fact so an operator can still ask about older expiries directly.
+const LeaseExpiryEvidenceWindow = 24 * time.Hour
+
+// ClaimExpiredRecently reports whether the task's last claim expired within
+// LeaseExpiryEvidenceWindow of now and nothing has claimed it since.
+func (t Task) ClaimExpiredRecently(now time.Time) bool {
+	if t.LeaseExpiredAt == nil || t.ClaimedAtTime(now) {
+		return false
+	}
+	return now.Sub(*t.LeaseExpiredAt) < LeaseExpiryEvidenceWindow
 }
 
 // Deleted reports whether the task is soft deleted.

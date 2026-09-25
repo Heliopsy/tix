@@ -218,7 +218,7 @@ func TestTenantIsolationOnEveryWrite(t *testing.T) {
 		if err := tx.RevokeToken(ctx, two.token.ID, clk.Now()); !core.IsKind(err, core.KindNotFound) {
 			t.Fatalf("revoking another tenant's token = %v, want not found", err)
 		}
-		if err := tx.ClearClaim(ctx, two.task.ID); !core.IsKind(err, core.KindNotFound) {
+		if err := tx.ClearClaim(ctx, store.ExpireClaimRow{TaskID: two.task.ID, At: clk.Now()}); !core.IsKind(err, core.KindNotFound) {
 			t.Fatalf("clearing another tenant's claim = %v, want not found", err)
 		}
 		ok, err := tx.ClaimTask(ctx, store.ClaimRow{TaskID: two.task.ID, ActorID: one.actor.ID,

@@ -204,7 +204,7 @@ func TestClaimNextTaskRespectsOrderFiltersAndDependencies(t *testing.T) {
 	}
 
 	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
-		if err := tx.ClearClaim(ctx, high.ID); err != nil {
+		if err := tx.ClearClaim(ctx, store.ExpireClaimRow{TaskID: high.ID, HolderID: f.actor.ID, At: clk.Now()}); err != nil {
 			return err
 		}
 		got, err := tx.GetTask(ctx, core.TaskRef{ID: high.ID})
@@ -213,6 +213,12 @@ func TestClaimNextTaskRespectsOrderFiltersAndDependencies(t *testing.T) {
 		}
 		if got.ClaimedByActorID != "" {
 			t.Fatalf("claim was not cleared: %+v", got)
+		}
+		if got.LeaseExpiredAt == nil || !got.LeaseExpiredAt.Equal(clk.Now()) {
+			t.Fatalf("expiry evidence = %v, want %v", got.LeaseExpiredAt, clk.Now())
+		}
+		if got.LeaseExpiredByActorID != f.actor.ID {
+			t.Fatalf("expiry evidence holder = %q, want %q", got.LeaseExpiredByActorID, f.actor.ID)
 		}
 		return nil
 	}); err != nil {

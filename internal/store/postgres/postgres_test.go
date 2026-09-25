@@ -214,6 +214,10 @@ func TestTranslateRewritesThePortableSchema(t *testing.T) {
 		"PRIMARY KEY (seq, occurred_at)",
 		"UNIQUE (id, occurred_at)",
 		"blob BYTEA",
+		// A column added by a later migration follows the same conventions as
+		// one created by the first. Passing the ALTER through untranslated gave
+		// an upgraded deployment TEXT where a fresh one has TIMESTAMPTZ.
+		"ALTER TABLE tasks ADD COLUMN lease_expired_at TIMESTAMPTZ",
 	} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("translated schema is missing %q", want)

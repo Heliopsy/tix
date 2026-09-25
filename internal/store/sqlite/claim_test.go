@@ -157,18 +157,35 @@ func TestClearClaim(t *testing.T) {
 			Now: clk.Now(), Until: clk.Now().Add(time.Minute), LeaseToken: "token"}); err != nil {
 			return err
 		}
-		return tx.ClearClaim(ctx, task.ID)
+		return tx.ClearClaim(ctx, store.ExpireClaimRow{TaskID: task.ID, HolderID: f.actor.ID, At: clk.Now()})
 	}); err != nil {
 		t.Fatalf("clearing a claim: %v", err)
 	}
 
-	if err := s.View(ctx, f.scope, func(tx store.Tx) error {
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
 		got, err := tx.GetTask(ctx, core.TaskRef{ID: task.ID})
 		if err != nil {
 			return err
 		}
 		if got.ClaimedByActorID != "" {
 			t.Fatalf("claim was not cleared: %+v", got)
+		}
+		if got.LeaseExpiredAt == nil || !got.LeaseExpiredAt.Equal(clk.Now()) {
+			t.Fatalf("expiry evidence = %v, want %v", got.LeaseExpiredAt, clk.Now())
+		}
+		if got.LeaseExpiredByActorID != f.actor.ID {
+			t.Fatalf("expiry evidence holder = %q, want %q", got.LeaseExpiredByActorID, f.actor.ID)
+		}
+		if _, err := tx.ClaimTask(ctx, store.ClaimRow{TaskID: task.ID, ActorID: f.actor.ID,
+			Now: clk.Now(), Until: clk.Now().Add(time.Minute), LeaseToken: "again"}); err != nil {
+			return err
+		}
+		reclaimed, err := tx.GetTask(ctx, core.TaskRef{ID: task.ID})
+		if err != nil {
+			return err
+		}
+		if reclaimed.LeaseExpiredAt != nil || reclaimed.LeaseExpiredByActorID != "" {
+			t.Fatalf("a fresh claim kept the old evidence: %+v", reclaimed)
 		}
 		return nil
 	}); err != nil {

@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -162,17 +163,38 @@ func applyMigration(ctx context.Context, db *sql.DB, m migrations.Migration, clk
 func translate(body string) ([]string, error) {
 	var out []string
 	for _, stmt := range migrations.Split(body) {
-		if !strings.HasPrefix(strings.ToUpper(strings.TrimSpace(stmt)), "CREATE TABLE") {
+		upper := strings.ToUpper(strings.TrimSpace(stmt))
+		switch {
+		case strings.HasPrefix(upper, "CREATE TABLE"):
+			translated, err := translateTable(stmt)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, translated)
+		case addColumn.MatchString(stmt):
+			out = append(out, translateAddColumn(stmt))
+		default:
 			out = append(out, stmt)
-			continue
 		}
-		translated, err := translateTable(stmt)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, translated)
 	}
 	return out, nil
+}
+
+// addColumn matches a portable ALTER TABLE that appends one column.
+var addColumn = regexp.MustCompile(`(?is)^\s*ALTER\s+TABLE\s+(\w+)\s+ADD\s+COLUMN\s+(\w+)\s+(.*)$`)
+
+// translateAddColumn maps a portable column definition added after the initial
+// schema onto its PostgreSQL type.
+//
+// Without this an ALTER passed through verbatim, so a later migration adding a
+// TEXT column named with the _at convention got TEXT here while every column of
+// the same kind created in migration 1 got TIMESTAMPTZ. The scan layer reads
+// instants as TIMESTAMPTZ, so the divergence only shows up on a deployment that
+// upgraded rather than on one built fresh.
+func translateAddColumn(stmt string) string {
+	m := addColumn.FindStringSubmatch(stmt)
+	table, col, rest := m[1], m[2], strings.Join(strings.Fields(m[3]), " ")
+	return "ALTER TABLE " + table + " ADD COLUMN " + col + " " + rewriteColumn(table, col, rest)
 }
 
 func translateTable(stmt string) (string, error) {

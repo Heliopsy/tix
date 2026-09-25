@@ -20,6 +20,7 @@ var taskColumns = []string{
 	"tasks.assignee_actor_id", "tasks.creator_actor_id",
 	"tasks.due_at", "tasks.started_at", "tasks.completed_at",
 	"tasks.claimed_by_actor_id", "tasks.claimed_at", "tasks.lease_expires_at", "tasks.claim_count",
+	"tasks.lease_expired_at", "tasks.lease_expired_by",
 	"tasks.custom_fields", "tasks.version", "tasks.created_at", "tasks.updated_at", "tasks.deleted_at",
 	"projects.key",
 }
@@ -73,6 +74,8 @@ func scanTask(s scanner) (core.Task, error) {
 		claimedBy    sql.NullString
 		claimedAt    sql.NullString
 		leaseExpires sql.NullString
+		expiredAt    sql.NullString
+		expiredBy    sql.NullString
 		custom       string
 		created      sql.NullString
 		updated      sql.NullString
@@ -84,6 +87,7 @@ func scanTask(s scanner) (core.Task, error) {
 		&assignee, &t.CreatorActorID,
 		&due, &started, &completed,
 		&claimedBy, &claimedAt, &leaseExpires, &t.ClaimCount,
+		&expiredAt, &expiredBy,
 		&custom, &t.Version, &created, &updated, &deleted, &projectKey); err != nil {
 		return core.Task{}, mapErr(err, "scanning task")
 	}
@@ -91,6 +95,7 @@ func scanTask(s scanner) (core.Task, error) {
 	t.ParentID = sqlb.Text(parent)
 	t.AssigneeActorID = sqlb.Text(assignee)
 	t.ClaimedByActorID = sqlb.Text(claimedBy)
+	t.LeaseExpiredByActorID = sqlb.Text(expiredBy)
 	t.Ref = projectKey + "-" + strconv.FormatInt(t.Seq, 10)
 
 	if err := sqlb.ParseJSON(custom, &t.CustomFields); err != nil {
@@ -111,6 +116,9 @@ func scanTask(s scanner) (core.Task, error) {
 		return core.Task{}, err
 	}
 	if t.LeaseExpiresAt, err = sqlb.ScanNullTime(leaseExpires); err != nil {
+		return core.Task{}, err
+	}
+	if t.LeaseExpiredAt, err = sqlb.ScanNullTime(expiredAt); err != nil {
 		return core.Task{}, err
 	}
 	if t.CreatedAt, err = sqlb.ScanTime(created); err != nil {

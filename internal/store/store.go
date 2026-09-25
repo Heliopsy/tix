@@ -159,7 +159,17 @@ type ClaimTx interface {
 	ReleaseLease(ctx context.Context, taskID, token string) (bool, error)
 	// ExpiredLeases returns tasks whose lease has passed, for the sweeper.
 	ExpiredLeases(ctx context.Context, now time.Time, limit int) ([]core.Task, error)
-	ClearClaim(ctx context.Context, taskID string) error
+	// ClearClaim drops an expired claim and records that it expired.
+	ClearClaim(ctx context.Context, in ExpireClaimRow) error
+}
+
+// ExpireClaimRow is the input to clearing a lapsed claim. The holder and the
+// instant travel with it rather than being read from the store clock, so the
+// evidence a sweep leaves carries the sweep's own time.
+type ExpireClaimRow struct {
+	TaskID   string
+	HolderID string
+	At       time.Time
 }
 
 // ClaimRow is the input to a conditional claim.

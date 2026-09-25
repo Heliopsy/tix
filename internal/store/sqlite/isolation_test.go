@@ -381,7 +381,7 @@ func TestTenantIsolationOnWrites(t *testing.T) {
 		if err := tx.RemoveMember(ctx, b.actor.ID); !core.IsKind(err, core.KindNotFound) {
 			t.Fatalf("RemoveMember across tenants = %v, want not found", err)
 		}
-		if err := tx.ClearClaim(ctx, b.task.ID); !core.IsKind(err, core.KindNotFound) {
+		if err := tx.ClearClaim(ctx, store.ExpireClaimRow{TaskID: b.task.ID, At: clk.Now()}); !core.IsKind(err, core.KindNotFound) {
 			t.Fatalf("ClearClaim across tenants = %v, want not found", err)
 		}
 		claimed, err := tx.ClaimTask(ctx, store.ClaimRow{

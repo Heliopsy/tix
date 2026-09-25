@@ -29,6 +29,8 @@ func (t *tx) ClaimTask(ctx context.Context, in store.ClaimRow) (bool, error) {
 		Set("claimed_at", now).
 		Set("lease_expires_at", timeArg(in.Until)).
 		Set("lease_token", in.LeaseToken).
+		Set("lease_expired_at", nil).
+		Set("lease_expired_by", nil).
 		Set("updated_at", now).
 		SetExpr("claim_count", "claim_count + 1")
 	n, err := t.execUpdate(ctx, b, "claiming task %q", in.TaskID)
@@ -90,6 +92,8 @@ func (t *tx) ClaimNextTask(ctx context.Context, in store.ClaimNextRow) (string, 
 		Set("claimed_at", now).
 		Set("lease_expires_at", timeArg(in.Until)).
 		Set("lease_token", in.LeaseToken).
+		Set("lease_expired_at", nil).
+		Set("lease_expired_by", nil).
 		Set("updated_at", now).
 		SetExpr("claim_count", "claim_count + 1")
 	n, err := t.execUpdate(ctx, b, "claiming task %q", taskID)
@@ -172,21 +176,25 @@ func (t *tx) ReleaseLease(ctx context.Context, taskID, token string) (bool, erro
 	return n > 0, nil
 }
 
-// ClearClaim drops a claim regardless of its token, for the sweeper.
-func (t *tx) ClearClaim(ctx context.Context, taskID string) error {
+// ClearClaim drops a claim regardless of its token, for the sweeper, and
+// records who held it and when it lapsed in the same statement so the evidence
+// cannot disagree with the lease it describes.
+func (t *tx) ClearClaim(ctx context.Context, in store.ExpireClaimRow) error {
 	b := t.builder("tasks").
-		Where("tasks.id = ?", taskID).
+		Where("tasks.id = ?", in.TaskID).
 		Set("claimed_by_actor_id", nil).
 		Set("claimed_at", nil).
 		Set("lease_expires_at", nil).
 		Set("lease_token", nil).
+		Set("lease_expired_at", timeArg(in.At)).
+		Set("lease_expired_by", nullText(in.HolderID)).
 		Set("updated_at", t.now())
-	n, err := t.execUpdate(ctx, b, "clearing the claim on task %q", taskID)
+	n, err := t.execUpdate(ctx, b, "clearing the claim on task %q", in.TaskID)
 	if err != nil {
 		return err
 	}
 	if n == 0 {
-		return core.NotFound("task %q", taskID)
+		return core.NotFound("task %q", in.TaskID)
 	}
 	return nil
 }
