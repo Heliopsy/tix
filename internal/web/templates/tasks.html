@@ -1,14 +1,14 @@
 {{define "content"}}
 {{$v := .Data}}
 <h1>My tasks</h1>
-{{with $v.Summary}}
+{{if not $v.FilterError}}{{with $v.Summary}}
 <p class="lede summary">
   {{if eq .Total 0}}Nothing on the list.
   {{else if .AllDone}}All clear. Everything here is done.
   {{else}}<strong>{{.Open}}</strong> to go{{if .Done}}, {{.Done}} done{{end}}{{if .Projects}} &middot; across {{.Projects}} project{{if ne .Projects 1}}s{{end}}{{end}}{{if .Held}} &middot; <span class="held">{{.Held}} held by an agent</span>{{end}}{{if .Blocked}} &middot; {{.Blocked}} blocked{{end}}
   {{end}}
 </p>
-{{end}}
+{{end}}{{end}}
 
 <form method="post" action="/tasks" class="quickadd">
   {{template "csrf" .CSRF}}
@@ -36,6 +36,14 @@
        cost one click too. The sort is kept, because a sort is not a filter. */}}
   {{if $v.Query}}<a class="secondary clear" href="/tasks{{if $v.Sort}}?sort={{$v.Sort}}{{end}}">Clear</a>{{end}}
 </form>
+{{/* A filter that names something this tenant does not have is a typo in a
+     box, not a missing page. It used to be answered with the full-page error
+     screen, which threw the query away and made the reader retype it to find
+     out what was wrong. The message belongs under the box it is about, with
+     the expression still in the box. */}}
+{{if $v.FilterError}}
+<p class="filterfault" role="alert">{{$v.FilterError}}</p>
+{{end}}
 
 {{/* One panel, not two. Columns and Projects were separate disclosures sitting
      side by side, so deciding what the list shows meant opening one, applying,
@@ -70,7 +78,7 @@
             {{else}}<span class="muted">No projects yet.</span>{{end}}
           </div>
           <div class="actions">
-            <button type="submit">Apply</button>
+            <button type="submit">Apply projects</button>
             <button class="secondary" type="submit" name="reset" value="1">Show all</button>
           </div>
         </form>
@@ -188,15 +196,29 @@
       {{end}}
       {{if $.Columns.Show "tasks" "priority"}}{{$p := prio .Priority}}{{if ne $p "normal"}}<span class="prio p-{{$p}}" title="Priority: {{$p}}"><span class="caret" aria-hidden="true"></span>{{$p}}</span>{{end}}{{end}}
       {{if $.Columns.Show "tasks" "tags"}}{{range .Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}" title="Only tasks tagged {{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
+      {{/* Who the work belongs to. The listing showed everything about a task
+           except that, so the one question a reader opens a shared list to
+           answer -- whose is this -- could only be answered on the command
+           line or by opening every row. The handle comes from the page's own
+           directory pass, not a lookup per row, and links to the tasks that
+           actor holds, the way a tag and a project already do. */}}
+      {{if $.Columns.Show "tasks" "assignee"}}{{$who := $.Data.Names.Label .AssigneeActorID}}{{if $who}}<a class="who-ref" href="/tasks?q=assignee:{{$who}}" title="Assigned to {{$who}}"><span class="at" aria-hidden="true">@</span>{{$who}}</a>{{else}}<span class="who-ref is-none" title="Nobody is assigned to this">unassigned</span>{{end}}{{end}}
       {{if $.Columns.Show "tasks" "project"}}<a class="projref{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" href="/tasks?q=project:{{$acc.Key}}" title="Only tasks in {{$acc.Name}}">{{if $acc.Icon}}<span class="proj-icon" aria-hidden="true">{{$acc.Icon}}</span>{{end}}{{$acc.Key}}</a>{{end}}
       {{/* A lease is the one thing on a row that is about to change by
            itself. Held says an agent has it; expired says one took it and
            never came back, which is a task looking for an owner rather than
            a task in hand. Expiry is lazy everywhere else, so a row that
            showed neither made an abandoned claim look untouched. */}}
+      {{/* The expired badge reads off the evidence the sweeper leaves behind,
+           not off lease columns it is about to clear, so a claim that lapsed
+           overnight still says so in the morning. The claim count rides along
+           only here, where it means something: a task claimed seven times
+           whose last claim was dropped is an agent that keeps dying, while
+           the same seven claims with no expiry is ordinary work changing
+           hands. */}}
       {{$held := claim .}}
       {{if eq $held "held"}}<span class="lease held" title="Held by {{$.Data.Names.Label .ClaimedByActorID}} until {{compact .LeaseExpiresAt}}">held &middot; {{$.Data.Names.Label .ClaimedByActorID}}</span>
-      {{else if eq $held "expired"}}<span class="lease expired" title="{{$.Data.Names.Label .ClaimedByActorID}} let the lease run out at {{compact .LeaseExpiresAt}}; the task is claimable again">claim expired</span>{{end}}
+      {{else if eq $held "expired"}}<span class="lease expired" title="{{$.Data.Names.Label .LeaseExpiredByActorID}} let the claim run out {{expiredAgo .}} ago, at {{compact .LeaseExpiredAt}}; the task is claimable again">claim expired &middot; {{expiredAgo .}} ago{{if gt .ClaimCount 1}} <span class="lease-count">&middot; {{.ClaimCount}} claims</span>{{end}}</span>{{end}}
       {{/* The date carried no label, so it was a number nobody could name.
            It is the last time the row changed, and saying so costs one word. */}}
       {{if $.Columns.Show "tasks" "updated"}}<span class="when" title="Last updated {{compact .UpdatedAt}}"><span class="when-label">updated</span> {{compact .UpdatedAt}}</span>{{end}}
@@ -205,15 +227,18 @@
   </li>
 {{else}}
   <li class="empty">
+    {{if $v.FilterError}}
+    <p class="empty-title">Nothing to show while the filter is refused</p>
+    <p>Correct the filter above, or clear it to see everything.</p>
+    {{else}}
     <p class="empty-title">Nothing on the list</p>
     <p>Add the first one above. Agents can add them too, over the API.</p>
+    {{end}}
   </li>
 {{end}}
 </ul>
 
-{{if $v.NextCursor}}
-<div class="actions"><a href="/tasks?q={{$v.Query}}&amp;sort={{$v.Sort}}&amp;cursor={{$v.NextCursor}}">Next page</a></div>
-{{end}}
+{{template "pager" $v.Pager}}
 
 {{if .Advanced}}
 <details class="panel">

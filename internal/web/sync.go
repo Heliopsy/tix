@@ -257,10 +257,10 @@ type syncRun struct {
 
 // syncRunsView is what the run history screen renders.
 type syncRunsView struct {
-	Runs       []syncRun
-	Sources    []syncSourceRow
-	Names      actorNames
-	NextCursor string
+	Runs    []syncRun
+	Sources []syncSourceRow
+	Names   actorNames
+	Pager   pager
 }
 
 // showSyncRuns renders the history of completed imports, newest first, beside
@@ -272,7 +272,7 @@ type syncRunsView struct {
 // stands now, and it is the only thing that reports a run that failed --
 // see the note the template carries, and syncRun's own comment, for why.
 func (h *handler) showSyncRuns(w http.ResponseWriter, r *http.Request) error {
-	cursor := r.URL.Query().Get("cursor")
+	cursor := r.URL.Query().Get(CursorParam)
 	entries, next, err := h.svc.ListAudit(r.Context(), core.AuditFilter{
 		SubjectType: syncSubjectType,
 		Actions:     []string{auditSyncRunAction},
@@ -291,7 +291,7 @@ func (h *handler) showSyncRuns(w http.ResponseWriter, r *http.Request) error {
 
 	data := syncRunsView{
 		Runs: make([]syncRun, 0, len(entries)), Sources: sources.Sources,
-		NextCursor: next,
+		Pager: newPager(r, RouteSyncRuns, next, len(entries), "runs"),
 	}
 	actors := make([]string, 0, len(entries))
 	for _, entry := range entries {

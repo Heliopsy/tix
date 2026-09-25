@@ -21,17 +21,18 @@ func (h *handler) actorRoutes() []route {
 
 // actorsView is what the directory screen renders.
 type actorsView struct {
-	Actors     []core.Actor
-	NextCursor string
+	Actors []core.Actor
+	Pager  pager
 }
 
 // showActors renders this tenant's directory.
 func (h *handler) showActors(w http.ResponseWriter, r *http.Request) error {
-	actors, next, err := h.svc.ListActors(r.Context(), core.Page{Cursor: r.URL.Query().Get("cursor")})
+	actors, next, err := h.svc.ListActors(r.Context(), core.Page{Cursor: r.URL.Query().Get(CursorParam)})
 	if err != nil {
 		return err
 	}
-	return h.render(w, r, "actors.html", "Directory", actorsView{Actors: actors, NextCursor: next})
+	return h.render(w, r, "actors.html", "Directory", actorsView{
+		Actors: actors, Pager: newPager(r, RouteActors, next, len(actors), "actors")})
 }
 
 // actorNames labels the actor identifiers one screen shows. A handle is used
@@ -142,6 +143,11 @@ func actionVerb(action string) string {
 		strings.HasPrefix(verb, "transition"), strings.HasPrefix(verb, "put"),
 		strings.HasPrefix(verb, "mov"):
 		return "update"
+	// A lease running out is the one entry nobody performed, and the only one
+	// that records work being dropped rather than done. It read as "other",
+	// the same mark a history gives an action this build has no opinion on.
+	case strings.HasPrefix(verb, "expir"), strings.HasPrefix(verb, "lease_expir"):
+		return "expire"
 	default:
 		return "other"
 	}

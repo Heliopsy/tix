@@ -71,7 +71,10 @@
   <thead><tr><th>Category</th><th class="num">Tasks</th></tr></thead>
   <tbody>
     {{range .Data.Stats.ByCategory}}
-    <tr><td>{{.Category}}</td><td class="num">{{.Count}}</td></tr>
+    {{/* The value stays what core, the store and every filter call it. Only
+         the words change, and only here: the screen read "in_progress" at a
+         reader because a Go constant had been printed straight onto it. */}}
+    <tr><td title="{{.Category}}">{{category .Category}}</td><td class="num">{{.Count}}</td></tr>
     {{end}}
   </tbody>
 </table>

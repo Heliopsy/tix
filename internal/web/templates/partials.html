@@ -115,8 +115,10 @@
     <label><input type="checkbox" name="column" value="{{.Key}}" {{if .Shown}}checked{{end}}> {{.Label}}</label>
     {{end}}
   </div>
+  {{/* Named by what it commits. Two sections in one panel each ended in a
+       button reading "Apply", so neither said what it applied. */}}
   <div class="actions">
-    <button type="submit">Apply</button>
+    <button type="submit">Apply columns</button>
     <button class="secondary" type="submit" name="reset" value="1">Reset</button>
   </div>
 </form>
@@ -175,5 +177,23 @@
   </li>
 {{else}}
   <li class="empty">{{if .Data.Query.Active}}Nothing here matches that filter{{if .Data.Scanned}}, out of the {{.Data.Scanned}} most recent records searched{{end}}. <a href="/activity">Clear it</a> to see everything.{{else}}No recorded activity.{{end}}</li>
+{{end}}
+{{end}}
+
+{{/* The position control every keyset listing renders. It was six hand-rolled
+     copies before this: five bare paragraphs holding a link, one div.actions,
+     two different words for the same direction, no styling on any of them, no
+     way back and nothing anywhere saying where the reader had got to.
+
+     Previous is absent rather than disabled on the first page, and the three
+     slots are placed explicitly on the grid, so a missing control leaves the
+     other two exactly where they were rather than sliding them across. */}}
+{{define "pager"}}
+{{if .Show}}
+<nav class="pager" aria-label="Pages of this list">
+  {{if .HasPrev}}<a class="pager-step pager-prev" href="{{.PrevHref}}" rel="prev"><span class="pager-arrow" aria-hidden="true">&larr;</span> Previous</a>{{end}}
+  <span class="pager-at">Page {{.Page}}{{if .Count}} <span class="pager-count">&middot; {{.Count}} {{.Unit}}</span>{{end}}</span>
+  {{if .HasNext}}<a class="pager-step pager-next" href="{{.NextHref}}" rel="next">Next <span class="pager-arrow" aria-hidden="true">&rarr;</span></a>{{end}}
+</nav>
 {{end}}
 {{end}}

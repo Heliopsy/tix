@@ -18,18 +18,38 @@ type Column struct {
 	Default bool
 }
 
-// ColumnsCookie carries which optional columns each listing shows. One cookie
-// holds every listing, because a cookie per screen would multiply with the
-// screens and eventually exceed what a browser will send back.
+// ColumnsCookie carries which optional columns each listing leaves out. One
+// cookie holds every listing, because a cookie per screen would multiply with
+// the screens and eventually exceed what a browser will send back.
 const ColumnsCookie = "tix_columns"
 
 // maxColumnsValue bounds the cookie this package will read, so a value another
 // program left behind cannot make parsing walk a large string.
 const maxColumnsValue = 512
 
-// noColumns marks a listing whose optional columns were all switched off, so
-// that choice survives a round trip instead of reading as an absent one.
-const noColumns = "-"
+// emptyList marks a listing whose hidden set is empty, so "hide nothing" is
+// distinguishable from "this browser has chosen nothing". They are different:
+// the first shows every declared column, the second shows the declared
+// defaults, and a column declared off by default is shown by one and not the
+// other.
+const emptyList = "-"
+
+// columnsVersion is the first segment of the cookie, and says that what
+// follows names the columns each listing HIDES.
+//
+// The cookie used to name the columns shown, which cannot distinguish "the
+// reader turned this off" from "this column did not exist when the reader
+// chose", so every column added later read as refused by every browser that
+// had ever opened the picker. Recording what is hidden is how project
+// visibility already works, and for the same reason.
+//
+// The marker covers the whole value rather than each column, because the
+// inversion changes what the empty-list sentinel means as well as what a key
+// means: read as the new form, an old "tasks:-" would show every column to a
+// reader who asked for none. A per-column marker could not carry that.
+// No listing is named "v2", so a value written in the old form can never
+// begin with this segment.
+const columnsVersion = "v2"
 
 // columnSets declares every listing whose columns can be chosen, in the order
 // they render, and is the only place a default is written down. A listing not
@@ -42,6 +62,7 @@ var columnSets = map[string][]Column{
 		{Key: "status", Label: "Status", Default: true},
 		{Key: "priority", Label: "Priority", Default: true},
 		{Key: "tags", Label: "Tags", Default: true},
+		{Key: "assignee", Label: "Assignee", Default: true},
 		{Key: "project", Label: "Project", Default: true},
 		{Key: "updated", Label: "Updated"},
 		{Key: "ref", Label: "Reference", Default: true},
@@ -79,6 +100,10 @@ var columnSets = map[string][]Column{
 
 // columnPrefs is the resolved choice for every listing, with the declared
 // default filled in wherever the browser has not chosen.
+//
+// A column this browser has never had an opinion about is shown if it is
+// declared on by default, whether the browser chose nothing at all or chose
+// before the column existed.
 type columnPrefs map[string]map[string]bool
 
 // Show reports whether a listing renders one of its optional columns.
@@ -126,18 +151,19 @@ func columnPage(template string) string {
 // columnsOf resolves what this browser asked for, applying the declared
 // default to every listing it has not chosen.
 func columnsOf(r *http.Request) columnPrefs {
-	chosen := parseColumns(cookieValue(r, ColumnsCookie))
+	hidden := parseColumns(cookieValue(r, ColumnsCookie))
 	out := make(columnPrefs, len(columnSets))
 	for page, cols := range columnSets {
-		picked, ok := chosen[page]
-		out[page] = resolveColumns(cols, picked, ok)
+		off, ok := hidden[page]
+		out[page] = resolveColumns(cols, off, ok)
 	}
 	return out
 }
 
-// resolveColumns applies a chosen set, falling back to the declared default
-// when this browser has chosen nothing for the listing.
-func resolveColumns(cols []Column, chosen []string, chose bool) map[string]bool {
+// resolveColumns shows every declared column except the hidden ones, falling
+// back to the declared default when this browser has chosen nothing for the
+// listing.
+func resolveColumns(cols []Column, hidden []string, chose bool) map[string]bool {
 	out := make(map[string]bool, len(cols))
 	if !chose {
 		for _, c := range cols {
@@ -145,37 +171,106 @@ func resolveColumns(cols []Column, chosen []string, chose bool) map[string]bool 
 		}
 		return out
 	}
-	want := make(map[string]bool, len(chosen))
-	for _, key := range chosen {
-		want[key] = true
+	off := make(map[string]bool, len(hidden))
+	for _, key := range hidden {
+		off[key] = true
 	}
 	for _, c := range cols {
-		out[c.Key] = want[c.Key]
+		out[c.Key] = !off[c.Key]
 	}
 	return out
 }
 
-// parseColumns reads the compact cookie form, "page:col.col~page:col", keeping
-// only the listings and columns this build declares. Anything else is dropped,
-// so a stale, truncated or hand-edited value falls back to the default rather
-// than failing the page or emptying a table.
+// parseColumns reads the cookie into the columns each listing hides.
+//
+// The current form is "v2~page:col.col~page:-", where a listing's list names
+// the columns it leaves out and "-" means it leaves out none. A listing absent
+// from the value has not been chosen and keeps its declared defaults.
+//
+// A value without the version segment was written by a build that recorded
+// the columns SHOWN, and is converted rather than read as it stands, since
+// read as it stands it would mean the opposite. Only the listings and columns
+// this build declares survive either way, so a stale, truncated or hand-edited
+// value falls back to the default rather than failing the page or emptying a
+// table.
 func parseColumns(raw string) map[string][]string {
 	out := map[string][]string{}
 	if raw == "" || len(raw) > maxColumnsValue {
 		return out
 	}
-	for _, entry := range strings.Split(raw, "~") {
+	entries := strings.Split(raw, "~")
+	if entries[0] != columnsVersion {
+		return shownToHidden(entries)
+	}
+	for _, entry := range entries[1:] {
 		page, list, found := strings.Cut(entry, ":")
 		cols, known := columnSets[page]
 		if !found || !known {
 			continue
 		}
-		if list == noColumns {
+		if list == emptyList {
 			out[page] = []string{}
 			continue
 		}
 		if keep := knownColumns(cols, strings.Split(list, ".")); len(keep) > 0 {
 			out[page] = keep
+		}
+	}
+	return out
+}
+
+// legacyColumns is the vocabulary each listing declared while the cookie
+// recorded the columns shown. It is a frozen historical record, never appended
+// to: a cookie in that form was written against these columns and can have
+// held an opinion about no others, so anything this build declares beyond them
+// is shown to such a browser rather than counted as refused. That is the whole
+// point of the inversion, and applying it to the cookies already in readers'
+// browsers is what keeps the first column added after the change visible to
+// the readers who had customised most.
+var legacyColumns = map[string][]string{
+	"tasks":    {"status", "priority", "tags", "project", "updated", "ref"},
+	"users":    {"name", "role", "state"},
+	"tokens":   {"scopes", "expires"},
+	"sshkeys":  {"label", "added", "used"},
+	"webhooks": {"events", "active"},
+	"domains":  {"verified", "cert"},
+	"projects": {"name", "colour", "state", "screens", "manage"},
+}
+
+// shownToHidden converts entries written in the shown-set form, so a reader's
+// existing choices survive the change to recording what is hidden instead of
+// being inverted by it or thrown away.
+func shownToHidden(entries []string) map[string][]string {
+	out := map[string][]string{}
+	for _, entry := range entries {
+		page, list, found := strings.Cut(entry, ":")
+		cols, known := columnSets[page]
+		vocabulary, dated := legacyColumns[page]
+		if !found || !known || !dated {
+			continue
+		}
+		var shown []string
+		if list != emptyList {
+			if shown = knownColumns(cols, strings.Split(list, ".")); len(shown) == 0 {
+				continue
+			}
+		}
+		out[page] = hiddenColumns(withinVocabulary(cols, vocabulary), shown)
+	}
+	return out
+}
+
+// withinVocabulary keeps the columns a listing declared at a point in its
+// history, in the order it declares them now.
+func withinVocabulary(cols []Column, vocabulary []string) []Column {
+	had := make(map[string]bool, len(vocabulary))
+	for _, key := range vocabulary {
+		had[key] = true
+	}
+	out := make([]Column, 0, len(vocabulary))
+	for _, c := range cols {
+		if had[c.Key] {
+			out = append(out, c)
 		}
 	}
 	return out
@@ -196,18 +291,38 @@ func knownColumns(cols []Column, names []string) []string {
 	return out
 }
 
-// encodeColumns renders the chosen listings back into the cookie's form.
-func encodeColumns(chosen map[string][]string) string {
-	pages := make([]string, 0, len(chosen))
-	for page := range chosen {
+// hiddenColumns is every column the listing declares that the browser did not
+// tick, which is what the cookie stores.
+func hiddenColumns(cols []Column, shown []string) []string {
+	on := make(map[string]bool, len(shown))
+	for _, key := range shown {
+		on[key] = true
+	}
+	out := make([]string, 0, len(cols))
+	for _, c := range cols {
+		if !on[c.Key] {
+			out = append(out, c.Key)
+		}
+	}
+	return out
+}
+
+// encodeColumns renders the hidden columns back into the cookie's form.
+func encodeColumns(hidden map[string][]string) string {
+	pages := make([]string, 0, len(hidden))
+	for page := range hidden {
 		pages = append(pages, page)
 	}
+	if len(pages) == 0 {
+		return ""
+	}
 	sort.Strings(pages)
-	parts := make([]string, 0, len(pages))
+	parts := make([]string, 0, len(pages)+1)
+	parts = append(parts, columnsVersion)
 	for _, page := range pages {
-		list := noColumns
-		if len(chosen[page]) > 0 {
-			list = strings.Join(chosen[page], ".")
+		list := emptyList
+		if len(hidden[page]) > 0 {
+			list = strings.Join(hidden[page], ".")
 		}
 		parts = append(parts, page+":"+list)
 	}
@@ -223,7 +338,10 @@ func cookieValue(r *http.Request, name string) string {
 	return c.Value
 }
 
-// setColumns records which columns one listing shows for this browser. It is a
+// setColumns records which columns one listing leaves out for this browser.
+// The form submits the columns to show and what is stored is everything else,
+// so a column added after the choice was made is shown without being ticked.
+// It is a
 // display choice, so it lives in a cookie beside the theme rather than in the
 // tenant's data: two people sharing an account read a list differently, and
 // hiding a column withholds nothing, since every value stays on the record's
@@ -234,13 +352,13 @@ func (h *handler) setColumns(w http.ResponseWriter, r *http.Request) error {
 	if !ok {
 		return core.Invalid("no listing named %q has columns to choose", page)
 	}
-	chosen := parseColumns(cookieValue(r, ColumnsCookie))
+	hidden := parseColumns(cookieValue(r, ColumnsCookie))
 	if checked(r, "reset") {
-		delete(chosen, page)
+		delete(hidden, page)
 	} else {
-		chosen[page] = knownColumns(cols, r.PostForm["column"])
+		hidden[page] = hiddenColumns(cols, knownColumns(cols, r.PostForm["column"]))
 	}
-	value := encodeColumns(chosen)
+	value := encodeColumns(hidden)
 	age := cookieYear
 	if value == "" {
 		age = -1

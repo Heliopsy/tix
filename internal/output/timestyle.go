@@ -106,12 +106,19 @@ func (s TimeStyle) FormatPtr(t *time.Time) string {
 	return s.Format(*t)
 }
 
-// Absolute renders t in the ISO layout whatever the configured format, for the
-// title of a relative timestamp. A reader who hovers "3 hours ago" wants the
-// instant, and a second relative string would tell them nothing new.
+// Absolute renders t as an instant, for the title of a relative timestamp.
+//
+// "relative" is the one format it escapes, falling back to ISO, because a
+// second relative string would tell a reader who hovers "3 hours ago" nothing
+// new. Every other format is the reader's own choice and is honoured: forcing
+// ISO on all of them, as this used to, left a reader who asked for US dates
+// reading them everywhere on a page except in this one tooltip.
 func (s TimeStyle) Absolute(t time.Time) string {
 	if t.IsZero() {
 		return ""
+	}
+	if s.format != TimeRelative {
+		return s.Format(t)
 	}
 	loc := s.loc
 	if loc == nil {

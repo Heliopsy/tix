@@ -31,17 +31,17 @@ func (h *handler) projectRoutes() []route {
 // second copy of that form. Workflows and Colors are still needed here for
 // the "New project" form below the table.
 type projectsView struct {
-	Projects   []core.Project
-	Workflows  []core.Workflow
-	Colors     []core.ProjectColor
-	NextCursor string
+	Projects  []core.Project
+	Workflows []core.Workflow
+	Colors    []core.ProjectColor
+	Pager     pager
 }
 
 // showProjects renders the project list and the creation form.
 func (h *handler) showProjects(w http.ResponseWriter, r *http.Request) error {
 	filter := core.ProjectFilter{
 		IncludeArchived: true,
-		Page:            core.Page{Cursor: r.URL.Query().Get("cursor")},
+		Page:            core.Page{Cursor: r.URL.Query().Get(CursorParam)},
 	}
 	projects, next, err := h.svc.ListProjects(r.Context(), filter)
 	if err != nil {
@@ -53,7 +53,8 @@ func (h *handler) showProjects(w http.ResponseWriter, r *http.Request) error {
 	}
 	return h.render(w, r, "projects.html", "Projects",
 		projectsView{Projects: projects, Workflows: workflows,
-			Colors: core.ProjectColors(), NextCursor: next})
+			Colors: core.ProjectColors(),
+			Pager:  newPager(r, RouteProjects, next, len(projects), "projects")})
 }
 
 // createProject creates a project from the list screen's form.

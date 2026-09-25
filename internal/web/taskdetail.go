@@ -42,6 +42,38 @@ type fieldValue struct {
 	Value string
 }
 
+// depRow is one task this task waits for, named the way people name a task.
+//
+// The listing showed the raw identifier the dependency record carries, so a
+// reader saw "01M3C5T2XS0HA98WP9SSTY4604" directly above a field placeholdered
+// "infra-2", and the screen contradicted itself about what identifies a task.
+// ID stays on the row's title and in the remove form, since that is what the
+// service takes back.
+type depRow struct {
+	ID     string
+	Ref    string
+	Title  string
+	Status string
+}
+
+// Label is what the row shows: the reference, or the bare identifier for a
+// task this reader may not read, so a dependency they cannot open is still
+// visible as one rather than vanishing from the list.
+func (d depRow) Label() string {
+	if d.Ref != "" {
+		return d.Ref
+	}
+	return shortID(d.ID)
+}
+
+// Href is where the row links, empty when the task could not be resolved.
+func (d depRow) Href() string {
+	if d.Ref == "" {
+		return ""
+	}
+	return RouteTasks + "/" + d.Ref
+}
+
 // historyRow is one audit entry with the fields it changed.
 type historyRow struct {
 	Entry   core.AuditEntry
@@ -54,7 +86,7 @@ type taskView struct {
 	ProjectKey    string
 	Fields        []fieldValue
 	Subtasks      []core.Task
-	Dependencies  []core.Dependency
+	Dependencies  []depRow
 	Comments      []core.Comment
 	Artifacts     []core.Artifact
 	History       []historyGroup
@@ -92,7 +124,8 @@ func backTo(r *http.Request) string {
 // actorIDs lists every actor the screen names, so one pass over the directory
 // covers the whole page rather than one lookup per element.
 func (v taskView) actorIDs() []string {
-	out := []string{v.Task.CreatorActorID, v.Task.AssigneeActorID}
+	out := []string{v.Task.CreatorActorID, v.Task.AssigneeActorID,
+		v.Task.ClaimedByActorID, v.Task.LeaseExpiredByActorID}
 	for _, c := range v.Comments {
 		out = append(out, c.AuthorActorID)
 	}
@@ -156,14 +189,32 @@ func (h *handler) attachRelations(r *http.Request, ref core.TaskRef, data *taskV
 			data.Subtasks = append(data.Subtasks, t)
 		}
 	}
-	if data.Dependencies, err = h.svc.ListDependencies(r.Context(), ref); err != nil {
+	deps, err := h.svc.ListDependencies(r.Context(), ref)
+	if err != nil {
 		return err
 	}
+	data.Dependencies = h.namedDependencies(r, deps)
 	if data.Comments, err = h.svc.ListComments(r.Context(), ref); err != nil {
 		return err
 	}
 	data.Artifacts, err = h.svc.ListArtifacts(r.Context(), ref)
 	return err
+}
+
+// namedDependencies resolves each dependency to the reference and title a
+// reader recognises. One lookup per dependency, not per row of any listing: a
+// task waits on a handful of others, and the alternative is showing a ULID.
+// A task the reader may not read keeps its identifier and gains no link.
+func (h *handler) namedDependencies(r *http.Request, deps []core.Dependency) []depRow {
+	out := make([]depRow, 0, len(deps))
+	for _, d := range deps {
+		row := depRow{ID: d.DependsOn}
+		if task, err := h.svc.GetTask(r.Context(), core.TaskRef{ID: d.DependsOn}); err == nil && task != nil {
+			row.Ref, row.Title, row.Status = task.Ref, task.Title, task.Status
+		}
+		out = append(out, row)
+	}
+	return out
 }
 
 // attachProject loads the workflow targets and the custom field definitions.

@@ -163,6 +163,8 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"percent":         barPercent,
 		"age":             humanDuration,
 		"claim":           claimState,
+		"expiredAgo":      expiredAgo,
+		"category":        categoryLabel,
 		"moves":           targetsFrom,
 	}
 }
@@ -280,15 +282,77 @@ func here(r *http.Request) string {
 	return r.URL.Path + "?" + query.Encode()
 }
 
-// AdvancedCookie remembers whether this browser wants the administrative
-// screens. The simple view is the default: most people are here to work
-// through a list, not to configure domains and tokens.
+// AdvancedCookie remembers what this browser has said about the configuration
+// and data screens. It has three states, not two: "1" shown, "0" hidden, and
+// absent, which leaves the answer to who is reading.
 const AdvancedCookie = "tix_advanced"
 
-// advancedMode reports whether this browser asked for the full interface.
-func advancedMode(r *http.Request) bool {
+// advancedChoice is what a browser has said about the configuration screens.
+type advancedChoice int
+
+const (
+	advancedUnset advancedChoice = iota
+	advancedOn
+	advancedOff
+)
+
+// advancedChoiceOf reads the preference this browser has recorded.
+func advancedChoiceOf(r *http.Request) advancedChoice {
 	c, err := r.Cookie(AdvancedCookie)
-	return err == nil && c.Value == "1"
+	if err != nil {
+		return advancedUnset
+	}
+	switch c.Value {
+	case "1":
+		return advancedOn
+	case "0":
+		return advancedOff
+	}
+	return advancedUnset
+}
+
+// advancedPaths are the screens the Configure and Data groups lead to. Being
+// on one of them expands its group whatever the preference says, so a reader
+// is never on a page the navigation beside them denies exists.
+var advancedPaths = []string{
+	RouteWorkflows, RouteTransfer, RouteBundles, RouteSync, "/admin/",
+}
+
+// onAdvancedPath reports whether this request is for one of those screens.
+func onAdvancedPath(path string) bool {
+	for _, prefix := range advancedPaths {
+		if path == prefix || strings.HasPrefix(path, strings.TrimSuffix(prefix, "/")+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// advancedMode reports whether this page shows the configuration and data
+// groups in its navigation.
+//
+// The default follows the reader rather than being off for everybody. A
+// tenant administrator arriving for the first time could not find the tenant
+// screen at all: it was reachable by typing its URL and by no other means,
+// because the only entry to it lived behind a preference on a settings page
+// they had no reason to open. Anybody else keeps the simple view, since every
+// screen in those groups refuses them, and an entry that leads to a refusal is
+// worse than no entry.
+//
+// The preference still decides whenever it has been set, in either direction,
+// so an administrator who wants the shorter navigation gets it and keeps it.
+func advancedMode(r *http.Request) bool {
+	if onAdvancedPath(r.URL.Path) {
+		return true
+	}
+	switch advancedChoiceOf(r) {
+	case advancedOn:
+		return true
+	case advancedOff:
+		return false
+	}
+	actor, ok := core.ActorFrom(r.Context())
+	return ok && actor != nil && actor.HasScope(core.ScopeTenantAdmin)
 }
 
 // DragMoveCookie remembers whether this browser wants drag-and-drop on the
@@ -440,6 +504,12 @@ func (h *handler) templatesFor(r *http.Request) map[string]*template.Template {
 	}
 	style, err := output.NewTimeStyle(key.format, key.zone)
 	if err != nil {
+		// Both halves of the key were validated on the way in, so reaching
+		// here means the host's zone database moved under a running process.
+		// The fallback keeps the screen up, but it serves a zone nobody chose,
+		// which is the kind of wrong that has to be visible to an operator.
+		h.logger.Error("rendering in the deployment default", "format", key.format,
+			"zone", key.zone, "error", err)
 		return h.templates
 	}
 	set, _ := styleTemplates.LoadOrStore(key, parseTemplates(style))
@@ -623,21 +693,64 @@ func barPercent(v, max int) int {
 // Two units at most, largest first, because "15d 8h" answers the question and
 // "15d 8h 36m 42s" makes the reader do the rounding themselves.
 // claimState reports how a task's lease reads on a listing: held while it is
-// live, expired once it has run out, and empty when nobody holds it.
+// live, expired once a claim has run out, and empty when nobody has held it
+// recently.
 //
-// Expiry is lazy everywhere else in the product: a lease past its time is
-// treated as unclaimed without anything having swept it. A list that showed
-// nothing therefore hid both facts, and the one that matters most to whoever
-// is looking for work -- a task some agent took and never finished -- looked
-// exactly like a task nobody had touched.
+// Expired used to be read off the lease columns still being populated past
+// their time, which made the badge all but unreachable: the sweeper clears
+// those columns within a minute of the lease lapsing, and from then on the
+// task looked exactly like one nobody had ever touched. The durable evidence
+// the sweeper now leaves behind (core.Task.LeaseExpiredAt, and
+// core.Task.ClaimExpiredRecently over core.LeaseExpiryEvidenceWindow) is what
+// this reads instead, so a claim that lapsed overnight is still visible in
+// the morning whether or not anything has swept it.
 func claimState(t core.Task) string {
-	if t.ClaimedByActorID == "" {
-		return ""
-	}
-	if t.LeaseExpiresAt == nil || t.LeaseExpiresAt.After(time.Now()) {
+	now := time.Now()
+	// A claim with no lease at all is held until something releases it: there
+	// is no time at which it lapses, so it can never become evidence.
+	if t.ClaimedByActorID != "" && t.LeaseExpiresAt == nil {
 		return "held"
 	}
-	return "expired"
+	if t.ClaimedAtTime(now) {
+		return "held"
+	}
+	if t.ClaimExpiredRecently(now) {
+		return "expired"
+	}
+	return ""
+}
+
+// expiredAgo renders how long ago a task's last claim lapsed, for the detail
+// beside the badge. Empty when nothing has lapsed, so a template can ask
+// without checking first.
+func expiredAgo(t core.Task) string {
+	if t.LeaseExpiredAt == nil {
+		return ""
+	}
+	return humanDuration(core.Duration(time.Since(*t.LeaseExpiredAt)))
+}
+
+// categoryLabels names each workflow state category in words.
+//
+// The value is the contract: core.CategoryInProgress is "in_progress" on the
+// wire, in the store and in every filter, and renaming it would break all
+// three. What a statistics screen showed, though, was that identifier, so
+// "Where the work is" answered with a Go constant. The label belongs here,
+// at the point of presentation, and nowhere nearer the data.
+var categoryLabels = map[core.StateCategory]string{
+	core.CategoryTodo:       "To do",
+	core.CategoryInProgress: "In progress",
+	core.CategoryDone:       "Done",
+}
+
+// categoryLabel renders one state category for a reader, falling back to the
+// raw value so a category this build does not know is visible rather than
+// blank.
+func categoryLabel(c core.StateCategory) string {
+	if label, ok := categoryLabels[c]; ok {
+		return label
+	}
+	return string(c)
 }
 
 // humanDuration defers to the type, which is where the rendering lives so the

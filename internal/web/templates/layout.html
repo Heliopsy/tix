@@ -30,17 +30,23 @@
 {{if .Actor}}
 <script id="tix-shortcuts-data" type="application/json">{{.ShortcutsJSON}}</script>
 <div class="shell">
+  {{/* The aside paints the sidebar's background and is left to the grid,
+       which stretches it to whatever the content beside it needs. Only its
+       contents stick, so a page taller than the window keeps a sidebar all
+       the way down instead of one that stops at the fold. */}}
   <aside class="side">
-    <a class="brand" href="/"><img class="logo" src="/assets/tix.svg" alt="" width="28" height="28">{{.Brand.Title}}</a>
-    <p class="who">{{.Actor.Handle}}</p>
-    {{template "nav" .}}
-    <div class="side-foot">
-      <a href="/settings" {{if eq .Path "/settings"}}aria-current="page"{{end}}>Settings</a>
+    <div class="side-inner">
+      <a class="brand" href="/"><img class="logo" src="/assets/tix.svg" alt="" width="28" height="28">{{.Brand.Title}}</a>
+      <p class="who">{{.Actor.Handle}}</p>
+      {{template "nav" .}}
+      <div class="side-foot">
+        <a href="/settings" {{if eq .Path "/settings"}}aria-current="page"{{end}}>Settings</a>
+      </div>
+      <form method="post" action="/logout" class="actions">
+        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+        <button class="secondary" type="submit">Sign out</button>
+      </form>
     </div>
-    <form method="post" action="/logout" class="actions">
-      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-      <button class="secondary" type="submit">Sign out</button>
-    </form>
   </aside>
   <main class="wrap">
     {{if .Flash}}<p class="flash">{{.Flash}}</p>{{end}}

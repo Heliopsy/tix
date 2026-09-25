@@ -134,14 +134,17 @@ func TestTaskListExplainsAMalformedFilter(t *testing.T) {
 
 	resp := b.get("/tasks?q=" + url.QueryEscape("nosuchkey:value"))
 	page := body(t, resp)
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want the listing the reader was on", resp.StatusCode)
 	}
 	if strings.Contains(page, "should not be listed") {
 		t.Fatalf("a malformed filter silently returned every task")
 	}
 	if !strings.Contains(page, "nosuchkey") {
 		t.Fatalf("the parse error does not name the offending term:\n%s", page)
+	}
+	if !strings.Contains(page, `class="filterfault"`) {
+		t.Fatalf("the parse error is not reported on the filter bar:\n%s", page)
 	}
 }
 
@@ -217,5 +220,78 @@ func TestFilterBarUnderstandsTheWholeLanguage(t *testing.T) {
 					tc.expr, got.Query)
 			}
 		})
+	}
+}
+
+// A filter naming somebody this tenant does not have is a typo in a box. It
+// used to be answered with the full-page error screen, which took the reader
+// off the listing and threw away the expression they would have to correct.
+func TestARefusedFilterReportsOnTheBarAndKeepsTheListing(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	b.createTask("infra", "still reachable")
+
+	resp := b.get("/tasks?q=" + url.QueryEscape("assignee:nobody-here"))
+	defer func() { _ = resp.Body.Close() }()
+	wantStatus(t, resp, http.StatusOK)
+	page := readAll(t, resp)
+
+	if !strings.Contains(page, `class="filterfault"`) {
+		t.Fatalf("a refused filter did not report on the filter bar:\n%s", page)
+	}
+	if strings.Contains(page, `<p class="flash error">`) {
+		t.Errorf("a refused filter still renders the full error screen:\n%s", page)
+	}
+	if !strings.Contains(page, `name="q" value="assignee:nobody-here"`) {
+		t.Errorf("the expression was thrown away, so it cannot be corrected:\n%s",
+			between(t, page, `class="filterbar"`, "</form>"))
+	}
+	if !strings.Contains(page, `action="/tasks" class="filterbar"`) {
+		t.Errorf("the reader was taken off the listing")
+	}
+	if strings.Contains(page, "Nothing on the list<") {
+		t.Errorf("the empty listing claims there is no work rather than no answer")
+	}
+}
+
+// Every way a filter term can be refused reports the same way, so the next
+// term that learns to refuse does not need its own case here.
+func TestEveryRefusedFilterTermReportsOnTheBar(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	b.createTask("infra", "still reachable")
+
+	for _, expression := range []string{"assignee:nobody-here", "project:no-such-project",
+		"priority:enormous", "due:yesterdayish", "|"} {
+		resp := b.get("/tasks?q=" + url.QueryEscape(expression))
+		page := readAll(t, resp)
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("%q answered %d, so a boosted browser swaps nothing", expression, resp.StatusCode)
+			continue
+		}
+		if strings.Contains(page, `<p class="flash error">`) {
+			t.Errorf("%q still renders the full error screen:\n%s", expression, page)
+		}
+		if !strings.Contains(page, `class="filterbar"`) {
+			t.Errorf("%q took the reader off the listing", expression)
+		}
+		if !strings.Contains(page, `name="q" value="`+expression+`"`) {
+			t.Errorf("%q was thrown away rather than left in the box", expression)
+		}
+	}
+}
+
+// A failure that is not the expression's fault still fails the page, so a
+// filter box cannot swallow a real error.
+func TestAnErrorThatIsNotTheFiltersFaultStillFailsThePage(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	resp := f.as("").get("/tasks?q=" + url.QueryEscape("status:todo"))
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode == http.StatusOK {
+		t.Fatalf("an unauthenticated listing answered 200 with a filter in the box")
 	}
 }

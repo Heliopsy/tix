@@ -121,19 +121,32 @@ func TestSettingsPageRendersInEveryScheme(t *testing.T) {
 }
 
 // The advanced toggle moved onto the settings page, and still does what it
-// did, off by default.
+// did in both directions. What changed is where it starts: the default now
+// follows the reader rather than being off for everybody, because an
+// administrator could not otherwise find the screens at all. See
+// TestAnAdministratorFindsTheConfigurationScreensWithoutBeingTold.
 func TestSettingsPageStillTogglesTheAdvancedScreens(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
-	b := f.as("alice")
 
-	if strings.Contains(b.page("/tasks"), `href="/admin/tokens"`) {
-		t.Fatal("the advanced screens are on by default")
+	member := f.as("viewer")
+	if strings.Contains(member.page("/tasks"), `href="/admin/tokens"`) {
+		t.Fatal("the advanced screens are on for somebody every one of them refuses")
 	}
-	resp := b.post("/advanced", url.Values{"next": {"/tasks"}})
+	resp := member.post("/advanced", url.Values{"next": {"/tasks"}})
 	_ = resp.Body.Close()
-	if !strings.Contains(b.page("/tasks"), `href="/admin/tokens"`) {
+	if !strings.Contains(member.page("/tasks"), `href="/admin/tokens"`) {
 		t.Fatal("showing the advanced screens from the settings page had no effect")
+	}
+
+	admin := f.as("alice")
+	if !strings.Contains(admin.page("/tasks"), `href="/admin/tokens"`) {
+		t.Fatal("an administrator has to go looking for the screens that are theirs")
+	}
+	resp = admin.post("/advanced", url.Values{"next": {"/tasks"}})
+	_ = resp.Body.Close()
+	if strings.Contains(admin.page("/tasks"), `href="/admin/tokens"`) {
+		t.Fatal("hiding the advanced screens from the settings page had no effect")
 	}
 }
 

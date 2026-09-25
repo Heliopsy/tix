@@ -13,6 +13,17 @@
   <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span>
   <span class="prio p-{{prio $t.Priority}}" title="Priority: {{prio $t.Priority}}"><span class="caret" aria-hidden="true"></span>{{prio $t.Priority}}</span>
   {{if $t.Blocked}}<span class="pill status blocked">blocked</span>{{end}}
+  {{/* The lease, and what is left of the last one. The sweeper clears the
+       lease columns within a minute of a claim lapsing, so without the
+       evidence it leaves behind a task an agent took and abandoned looked
+       exactly like one nobody had ever touched. The claim count sits here
+       rather than on the listing, where it would be a number with nothing to
+       compare it to: beside an expiry it is the difference between an agent
+       that died once and one that keeps dying. */}}
+  {{$held := claim $t}}
+  {{if eq $held "held"}}<span class="lease held" title="Until {{compact $t.LeaseExpiresAt}}">held &middot; {{$.Data.Names.Label $t.ClaimedByActorID}}</span>
+  {{else if eq $held "expired"}}<span class="lease expired" title="At {{compact $t.LeaseExpiredAt}}">claim expired &middot; {{$.Data.Names.Label $t.LeaseExpiredByActorID}} &middot; {{expiredAgo $t}} ago</span>{{end}}
+  {{if $t.ClaimCount}}<span class="muted" title="How many times this task has been claimed">claimed {{$t.ClaimCount}} time{{if ne $t.ClaimCount 1}}s{{end}}</span>{{end}}
   <span class="muted">version {{$t.Version}}</span>
 </p>
 
@@ -90,13 +101,19 @@
 
     <h3>Dependencies</h3>
     <ul class="plain">
+      {{/* A dependency is named the way the field below asks for one. It read
+           back a raw identifier while the input directly under it was
+           placeholdered "infra-2", so the screen disagreed with itself about
+           what identifies a task. */}}
       {{range .Data.Dependencies}}
-      <li>
-        <span class="mono">{{.DependsOn}}</span>
+      <li title="{{.ID}}">
+        {{if .Href}}<a class="mono" href="{{.Href}}">{{.Label}}</a>{{else}}<span class="mono">{{.Label}}</span>{{end}}
+        {{if .Title}}{{.Title}}{{end}}
+        {{if .Status}}<span class="pill status {{slug .Status}}">{{.Status}}</span>{{end}}
         {{if $.Data.CanWrite}}
         <form method="post" action="/tasks/{{$t.Ref}}/deps/remove" style="display:inline">
           {{template "csrf" $.CSRF}}
-          <input type="hidden" name="depends_on" value="{{.DependsOn}}">
+          <input type="hidden" name="depends_on" value="{{.ID}}">
           <button class="link" type="submit">remove</button>
         </form>
         {{end}}

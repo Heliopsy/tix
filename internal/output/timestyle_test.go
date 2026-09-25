@@ -98,14 +98,23 @@ func TestFormatZeroTimeIsEmpty(t *testing.T) {
 	}
 }
 
-func TestAbsoluteIsAlwaysISORegardlessOfConfiguredFormat(t *testing.T) {
-	for _, format := range []string{TimeISO, TimeRFC3339, TimeShort, TimeUS, TimeRelative} {
+// A tooltip is the reader's own layout, except for "relative", where a second
+// relative string would say nothing the visible one does not already say.
+func TestAbsoluteKeepsTheChosenLayoutAndEscapesOnlyRelative(t *testing.T) {
+	cases := map[string]string{
+		TimeISO:      "2026-09-21 14:05",
+		TimeRFC3339:  "2026-09-21T14:05:09Z",
+		TimeShort:    "21 Sep 14:05",
+		TimeUS:       "09/21/2026 2:05 PM",
+		TimeRelative: "2026-09-21 14:05",
+	}
+	for format, want := range cases {
 		style, err := NewTimeStyle(format, "utc")
 		if err != nil {
 			t.Fatalf("%s: NewTimeStyle: %v", format, err)
 		}
-		if got := style.Absolute(instant); got != "2026-09-21 14:05" {
-			t.Errorf("%s: Absolute = %q, want the fixed iso layout", format, got)
+		if got := style.Absolute(instant); got != want {
+			t.Errorf("%s: Absolute = %q, want %q", format, got, want)
 		}
 	}
 }

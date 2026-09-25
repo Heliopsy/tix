@@ -140,7 +140,7 @@ type activityView struct {
 	Groups     []activityGroup
 	Names      actorNames
 	Cursor     string
-	NextCursor string
+	Pager      pager
 	Query      activityQuery
 	ActorLabel string
 	Kinds      []activityChoice
@@ -180,7 +180,7 @@ var activitySources = []core.Source{
 
 // showActivity renders recent tenant activity, newest first.
 func (h *handler) showActivity(w http.ResponseWriter, r *http.Request) error {
-	data, err := h.buildActivityView(r, r.URL.Query().Get("cursor"))
+	data, err := h.buildActivityView(r, r.URL.Query().Get(CursorParam))
 	if err != nil {
 		return err
 	}
@@ -276,7 +276,9 @@ func (h *handler) buildActivityView(r *http.Request, cursor string) (activityVie
 	tasks := taskCache{}
 
 	data := activityView{
-		Groups: make([]activityGroup, len(groups)), Cursor: cursor, NextCursor: next,
+		Groups: make([]activityGroup, len(groups)), Cursor: cursor,
+		Pager: newPager(r, RouteActivity, next, len(groups), "entries",
+			"q", "kind", "actor", "source"),
 		Names: names, Query: query, Kinds: activityKinds, Sources: activitySources,
 		Scanned: scanned,
 	}

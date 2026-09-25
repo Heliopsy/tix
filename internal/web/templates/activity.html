@@ -40,5 +40,5 @@
     {{template "activity-rows" .}}
   </ul>
 </div>
-{{if $v.NextCursor}}<p><a href="{{$v.Query.Href $v.NextCursor}}">Older</a></p>{{end}}
+{{template "pager" $v.Pager}}
 {{end}}

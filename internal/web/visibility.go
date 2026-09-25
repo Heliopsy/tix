@@ -16,9 +16,9 @@ import (
 // tix_columns. The column preference is checked against a vocabulary this
 // build declares, and discards anything it does not recognise; project keys
 // are tenant data, unknown when the binary is built, so they could not survive
-// that check. It also records the projects that are HIDDEN rather than the
-// ones shown, which is what makes a project created tomorrow appear on its
-// own instead of waiting for somebody to tick it.
+// that check. Like tix_columns it records what is HIDDEN rather than what is
+// shown, which is what makes a project created tomorrow appear on its own
+// instead of waiting for somebody to tick it.
 const HiddenProjectsCookie = "tix_hidden_projects"
 
 // maxVisibilityValue bounds the cookie this package will read, so a value

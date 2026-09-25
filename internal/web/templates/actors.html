@@ -19,5 +19,5 @@
   {{end}}
   </tbody>
 </table>
-{{if .Data.NextCursor}}<p><a href="/actors?cursor={{.Data.NextCursor}}">Next page</a></p>{{end}}
+{{template "pager" .Data.Pager}}
 {{end}}

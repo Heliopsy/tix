@@ -28,7 +28,7 @@
 <form method="post" action="/advanced" hx-boost="false">
   {{template "csrf" .CSRF}}
   <input type="hidden" name="next" value="{{.Here}}">
-  <p class="muted" id="advanced-help">Adds the configuration and data screens to the sidebar: workflows, tenant, domains, users, tokens, webhooks, bundles, transfer and sync. Off by default, because most visits are to a list of tasks, not to administration.</p>
+  <p class="muted" id="advanced-help">Adds the configuration and data screens to the sidebar: workflows, tenant, domains, users, tokens, webhooks, bundles, transfer and sync. On by default for a tenant administrator, who has to be able to find them, and off for everybody else, whom every one of those screens refuses.</p>
   <p>The advanced screens are currently {{if .Advanced}}<strong>shown</strong>{{else}}<strong>hidden</strong>{{end}}.</p>
   <div class="actions">
     <button class="secondary" type="submit" aria-describedby="advanced-help">{{if .Advanced}}Hide advanced{{else}}Show advanced{{end}}</button>

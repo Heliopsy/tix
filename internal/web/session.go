@@ -120,9 +120,12 @@ func (h *handler) doLogout(w http.ResponseWriter, r *http.Request) error {
 // It is a per-browser preference, so it lives in a cookie rather than in the
 // tenant record: two people sharing a tenant want different amounts of it.
 func (h *handler) toggleAdvanced(w http.ResponseWriter, r *http.Request) error {
+	// The cookie records a decision either way, because the default now
+	// depends on who is reading: an empty value would put an administrator
+	// who hid the groups straight back to having them.
 	value := "1"
 	if advancedMode(r) {
-		value = ""
+		value = "0"
 	}
 	// #nosec G124 -- a display preference, readable by no script; Secure
 	// tracks TLS like every other cookie here.

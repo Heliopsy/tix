@@ -33,7 +33,7 @@ type tasksView struct {
 	SortFields []string
 	Query      string
 	Sort       string
-	NextCursor string
+	Pager      pager
 
 	// Self is this screen's own URL, query string and all, so a row action
 	// can return to the list the reader was actually looking at.
@@ -65,10 +65,36 @@ type tasksView struct {
 	// it rather than only that somebody does.
 	Names actorNames
 
+	// FilterError is what the filter bar says when the expression in the box
+	// cannot be answered. It is rendered beside the box rather than instead
+	// of the page, because a typo in a filter is not a missing page, and the
+	// reader has to be able to see the query to correct it.
+	//
+	// The screen is still served as a success: the listing asked for is what
+	// rendered, and a boosted browser swaps nothing from a response that is
+	// not one, so an error status would leave the old page on screen with no
+	// message on it at all.
+	FilterError string
+
 	Visibility []projectChoice
 	Hidden     int
 	Filtered   bool
 	Empty      bool
+}
+
+// filterFault reports whether an error is the filter expression's fault.
+//
+// The expression names things the reader typed -- a status, a project key, a
+// tag, a handle -- and every one of them is refused by the service as invalid
+// or not found. Kind is what is matched rather than the individual failures,
+// because the set of things a filter term can name grows, and a rule per term
+// would go stale the next time it does.
+func filterFault(err error) bool {
+	switch core.KindOf(err) {
+	case core.KindInvalid, core.KindNotFound:
+		return true
+	}
+	return false
 }
 
 // projectAccent is how one project marks its rows apart from another's.
@@ -135,12 +161,17 @@ func summarise(tasks []core.Task, complete map[string]string, now time.Time) tas
 // showTasks renders the filterable task list.
 func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	query := r.URL.Query()
-	filter, err := ParseFilter(query.Get("q"))
+	expression := query.Get("q")
+	var refused string
+	filter, err := ParseFilter(expression)
 	if err != nil {
-		return err
+		if expression == "" || !filterFault(err) {
+			return err
+		}
+		refused, filter = safeMessage(err, core.KindOf(err)), core.TaskFilter{}
 	}
 	filter.Page = core.Page{
-		Cursor:    query.Get("cursor"),
+		Cursor:    query.Get(CursorParam),
 		Sort:      query.Get("sort"),
 		Direction: core.Ascending,
 	}
@@ -160,9 +191,12 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 		filter.ProjectKeys = shownKeys(visibility)
 	}
 	var page core.TaskPage
-	if len(filter.ProjectKeys) > 0 || hidden == 0 || len(projects) == 0 {
+	if refused == "" && (len(filter.ProjectKeys) > 0 || hidden == 0 || len(projects) == 0) {
 		if page, err = h.svc.ListTasks(r.Context(), filter); err != nil {
-			return err
+			if expression == "" || !filterFault(err) {
+				return err
+			}
+			refused, page = safeMessage(err, core.KindOf(err)), core.TaskPage{}
 		}
 	}
 	tags, err := h.svc.ListTags(r.Context())
@@ -185,12 +219,13 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 		SortFields:    core.TaskSortFields,
 		Query:         query.Get("q"),
 		Sort:          filter.Page.Sort,
-		NextCursor:    page.NextCursor,
+		Pager:         newPager(r, RouteTasks, page.NextCursor, len(page.Tasks), "tasks", "q", "sort"),
 		Self:          selfURL(r),
 		CompleteState: complete,
 		Accent:        projectAccents(projects),
 		Summary:       summarise(page.Tasks, complete, time.Now()),
-		Names:         h.resolveActors(r, holders(page.Tasks)...),
+		FilterError:   refused,
+		Names:         h.resolveActors(r, rowActors(page.Tasks)...),
 		Moves:         moves,
 		Visibility:    visibility,
 		Hidden:        hidden,
@@ -199,14 +234,16 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	})
 }
 
-// holders lists the actors holding a lease on any row, so one pass over the
-// directory covers the listing rather than one lookup per row.
-func holders(tasks []core.Task) []string {
-	var out []string
+// rowActors lists every actor the listing names: whoever holds a lease on a
+// row, whoever it is assigned to, and whoever let a claim lapse on it. They
+// are gathered before the page renders so one pass over the directory covers
+// the whole listing, rather than a lookup per row. resolveActors then folds
+// the repeats, so a list of fifty rows held by three agents costs three
+// lookups.
+func rowActors(tasks []core.Task) []string {
+	out := make([]string, 0, len(tasks))
 	for _, t := range tasks {
-		if t.ClaimedByActorID != "" {
-			out = append(out, t.ClaimedByActorID)
-		}
+		out = append(out, t.ClaimedByActorID, t.AssigneeActorID, t.LeaseExpiredByActorID)
 	}
 	return out
 }

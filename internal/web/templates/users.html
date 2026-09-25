@@ -81,7 +81,7 @@
 {{end}}
 </ul>
 
-{{if $v.NextCursor}}<p><a href="/admin/users?cursor={{$v.NextCursor}}">Next page</a></p>{{end}}
+{{template "pager" $v.Pager}}
 
 <details class="panel">
   <summary>Create a user</summary>

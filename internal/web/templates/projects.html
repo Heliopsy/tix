@@ -19,7 +19,7 @@
   {{end}}
   </tbody>
 </table>
-{{if .Data.NextCursor}}<p><a href="/projects?cursor={{.Data.NextCursor}}">Next page</a></p>{{end}}
+{{template "pager" .Data.Pager}}
 
 <h2>New project</h2>
 <form method="post" action="/projects">

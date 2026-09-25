@@ -57,7 +57,7 @@ and what it did when it got there.</p>
   {{end}}
   </tbody>
 </table>
-{{if $v.NextCursor}}<p><a href="/sync/runs?cursor={{$v.NextCursor}}">Older</a></p>{{end}}
+{{template "pager" $v.Pager}}
 
 <h2>Where each source stands</h2>
 <p>The current state of every configured source, which is the only place a run

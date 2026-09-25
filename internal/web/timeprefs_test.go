@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/output"
+	"github.com/heliopsy/tix/internal/web"
 )
 
 // The date format and the timezone are per-browser preferences, the same way
@@ -139,12 +140,18 @@ func TestConcurrentBrowsersNeverSeeAnotherZone(t *testing.T) {
 	seeder := f.as("alice")
 	created, ref := seedTimedTask(t, f, seeder)
 
+	// The last reader chose nothing, so it reads the deployment default,
+	// which here is whatever zone the host runs in. The zones the other two
+	// read in are therefore picked against that rather than named outright:
+	// hardcoding them made this suite go red on a machine set to one of them,
+	// which says nothing about the product.
+	zones := zonesDistinctFromTheHost(t, created, 2)
 	readers := []struct {
 		zone   string
 		format string
 	}{
-		{"Asia/Tokyo", ""},
-		{"America/Los_Angeles", ""},
+		{zones[0], ""},
+		{zones[1], ""},
 		{"UTC", "us"},
 		{"", ""},
 	}
@@ -208,6 +215,33 @@ func seedTimedTask(t *testing.T, f *fixture, b *browser) (time.Time, string) {
 	t.Helper()
 	created := f.clock.Now()
 	return created, b.createTask("infra", "timezone subject")
+}
+
+// zonesDistinctFromTheHost picks n offered zones that read differently
+// from each other and from the host's own zone, so every reader in the test
+// above carries a stamp no other reader can also be holding.
+func zonesDistinctFromTheHost(t *testing.T, at time.Time, n int) []string {
+	t.Helper()
+	seen := map[string]bool{formatIn(t, "", "", at): true}
+	out := make([]string, 0, n)
+	for _, zone := range web.Timezones {
+		if zone == "" {
+			continue
+		}
+		if _, err := time.LoadLocation(zone); err != nil {
+			continue
+		}
+		stamp := formatIn(t, "", zone, at)
+		if seen[stamp] {
+			continue
+		}
+		seen[stamp] = true
+		if out = append(out, zone); len(out) == n {
+			return out
+		}
+	}
+	t.Fatalf("this host offers fewer than %d zones that read differently from its own", n)
+	return nil
 }
 
 // formatIn renders an instant the way a browser holding those preferences

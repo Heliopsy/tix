@@ -300,11 +300,11 @@ func (u userRow) Disabled() bool { return u.User.DisabledAt != nil }
 
 // usersView is what the user administration screen renders.
 type usersView struct {
-	Users      []userRow
-	Roles      []core.Role
-	NextCursor string
-	Active     int
-	Off        int
+	Users  []userRow
+	Roles  []core.Role
+	Pager  pager
+	Active int
+	Off    int
 }
 
 // showUsers renders the tenant's users, each with the role its membership
@@ -312,13 +312,14 @@ type usersView struct {
 // role empty rather than failing the screen, and the edit control then says
 // so instead of quietly proposing a role nobody chose.
 func (h *handler) showUsers(w http.ResponseWriter, r *http.Request) error {
-	users, next, err := h.svc.ListUsers(r.Context(), core.Page{Cursor: r.URL.Query().Get("cursor")})
+	users, next, err := h.svc.ListUsers(r.Context(), core.Page{Cursor: r.URL.Query().Get(CursorParam)})
 	if err != nil {
 		return err
 	}
 	roles := h.memberRoles(r)
 	actor, _ := core.ActorFrom(r.Context())
-	data := usersView{Users: make([]userRow, 0, len(users)), Roles: core.Roles, NextCursor: next}
+	data := usersView{Users: make([]userRow, 0, len(users)), Roles: core.Roles,
+		Pager: newPager(r, RouteUsers, next, len(users), "users")}
 	for _, u := range users {
 		row := userRow{User: u, Role: roles[u.ID]}
 		if actor != nil && actor.ID == u.ID {

@@ -248,6 +248,63 @@ func TestPickerReturnsToTheFilteredListing(t *testing.T) {
 	}
 }
 
+// The bug this cookie form exists to fix: a browser that had opened the
+// picker before a column was declared read the new column as one it had
+// refused, so the readers who customise most were the only ones who never saw
+// it. A cookie in the old, shown-set form keeps every choice it recorded and
+// shows the column it could not have had an opinion about.
+func TestAShownFormCookieKeepsItsChoicesAndShowsALaterColumn(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	b.createTask("infra", "written before assignee existed")
+	// Every column the old form could name except "updated", which this
+	// reader deliberately put away.
+	b.setCookie(web.ColumnsCookie, "tasks:status.priority.tags.project.ref")
+
+	page := b.page("/tasks")
+	if !strings.Contains(page, `class="who-ref`) {
+		t.Errorf("the assignee column is hidden from a browser whose cookie predates it:\n%s", page)
+	}
+	if strings.Contains(page, `class="when-label">updated`) {
+		t.Errorf("the column the reader did put away came back")
+	}
+	if !strings.Contains(page, `<span class="pill status todo">todo</span>`) ||
+		!strings.Contains(page, `<span class="ref mono">`) {
+		t.Errorf("a column the reader kept was lost:\n%s", page)
+	}
+	if !strings.Contains(page, `value="assignee" checked`) {
+		t.Errorf("the picker does not offer the later column as shown")
+	}
+	if strings.Contains(page, `value="updated" checked`) {
+		t.Errorf("the picker shows a column the reader put away as shown")
+	}
+}
+
+// Hiding nothing is not the same state as having chosen nothing: it shows the
+// column this build declares off by default, which an untouched install does
+// not.
+func TestTickingEveryBoxShowsTheColumnThatIsOffByDefault(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	b.createTask("infra", "every column")
+	if strings.Contains(b.page("/tasks"), `class="when-label">updated`) {
+		t.Fatalf("an untouched install already shows the off-by-default column")
+	}
+
+	resp := b.post("/columns", url.Values{"page": {"tasks"},
+		"column": {"status", "priority", "tags", "assignee", "project", "updated", "ref"},
+		"next":   {"/tasks"}})
+	_ = resp.Body.Close()
+	wantStatus(t, resp, http.StatusSeeOther)
+
+	page := b.page("/tasks")
+	if !strings.Contains(page, `class="when-label">updated`) {
+		t.Fatalf("ticking every box did not show the off-by-default column:\n%s", page)
+	}
+}
+
 // setCookie plants a value in the browser's jar, as a stale install or another
 // program on the same host could leave behind.
 func (b *browser) setCookie(name, value string) {
