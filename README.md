@@ -165,6 +165,7 @@ from a `.env` file, with precedence `flags > env > .env > config > defaults`.
 | `tix tenant` | Manage tenants |
 | `tix theme` | Inspect the palettes a tenant may use |
 | `tix token` | Manage API tokens |
+| `tix update` | Replace this binary with a published release |
 | `tix user` | Manage users |
 | `tix webhook` | Manage outgoing webhooks |
 | `tix workflow` | Manage workflow state machines |

@@ -29,6 +29,27 @@ marker-block machinery would have been code nobody reaches. Writing into a file 
 not name is also the part that is hard to undo, and this way `--uninstall` removes exactly one
 file it wrote.
 
+### Self-update from the CLI
+
+`tix update` replaces this binary with a release built for its platform, verifying the
+archive against the checksum published beside it and renaming the replacement over the
+target so an interrupted download cannot leave a truncated binary on PATH. `--check`
+reports without writing, and `--version` installs a named release, including an older one.
+
+**What differs from the plan above:** the refusals are decided by the recorded VCS revision
+rather than by the module version. A `go build` from a tagged tree records a module version
+indistinguishable from an installed one, so version alone refused a locally built binary as
+"installed with the Go toolchain"; only `go install pkg@version` has no checkout and
+therefore no revision. That was found by running the command against a real release, not by
+the unit test that had been fed plausible-looking values.
+
+Restarting a running server is still not part of it, for the reason the plan gave.
+
+See [docs/upgrading.md](docs/upgrading.md), which is explicit that the checksum proves the
+download matches what was published and not that the release is authentic; the cosign
+signatures are the stronger guarantee and verifying them needs a verifier this binary does
+not carry.
+
 ## v2
 
 ### Bidirectional sync with Jira and OpenProject
@@ -68,31 +89,6 @@ certificate. v1 supports supplied certificate files; ACME becomes another mode.
 **Seam in v1:** search is behind a store method with a PostgreSQL `tsvector` implementation
 and a SQLite `LIKE` implementation. FTS5 becomes a third implementation of the same method.
 The asymmetry is documented in `docs/scaling.md`.
-
-### Self-update from the CLI
-
-`tix update` detects how this binary was installed, fetches the matching build, verifies it
-and replaces itself, restarting a server that is running from the same path.
-
-Detection has to be honest about what it cannot do. A binary under a package manager's prefix,
-or one built from source, should refuse and say which command to run instead, rather than
-overwriting something another tool owns. The cases worth handling are the release archive
-(replace in place) and `go install` (re-run it).
-
-Replacement is the part that bites. The running binary cannot be overwritten on Windows at
-all, and on Unix it must be written beside the target and renamed, so the swap is atomic and a
-failed download never leaves a truncated binary on `PATH`. If the target directory is not
-writable, say so before downloading rather than after.
-
-Restarting a server is a separate decision from updating, and it belongs behind a flag rather
-than happening because an open file handle was found. A tracker that restarts itself while
-someone is mid-transition is worse than one that says a restart is pending.
-
-**Seam in v1:** `internal/version` already carries the version, commit and build date from
-ldflags, so a build can identify itself. GoReleaser already publishes `checksums.txt` alongside
-the archives and signs them, so verification needs no new release machinery, and
-`install.sh` already does the platform detection and checksum verification that `tix update`
-would repeat. `tix serve` already shuts down gracefully, so a restart has something to wait on.
 
 ### Automatic enrichment
 
