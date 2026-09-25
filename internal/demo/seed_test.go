@@ -4,6 +4,7 @@ package demo
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -805,4 +806,102 @@ func TestSeedRefusesAnAbandonedEntryItCannotReplay(t *testing.T) {
 			}
 		})
 	}
+}
+
+// statsWindowDays are the windows the statistics screen offers. The chart is
+// only as honest as the narrowest of them, so every property of the spread is
+// asserted at each one rather than over the whole seeded window.
+var statsWindowDays = []int{7, 14, 30, 90}
+
+// TestSeedCompletionsAreUneven guards the property the chart needs and the
+// seed once failed: not that completions exist, but that their per-day counts
+// differ. One completion on every day draws a panel of identical full-length
+// bars, because every value is also the maximum the template scales against.
+func TestSeedCompletionsAreUneven(t *testing.T) {
+	tg := newTarget(t)
+	tg.seed(t, DefaultDays)
+
+	for _, days := range statsWindowDays {
+		t.Run(fmt.Sprintf("%d days", days), func(t *testing.T) {
+			stats := tg.stats(t, seedEnd.Add(-time.Duration(days)*dayDur))
+			counts := map[int]int{}
+			tallest, total := 0, 0
+			for _, d := range stats.PerDay {
+				counts[d.Completed]++
+				total += d.Completed
+				if d.Completed > tallest {
+					tallest = d.Completed
+				}
+			}
+			if len(stats.PerDay) < 3 {
+				t.Fatalf("%d completions land on %d days, which is too few bars to read as a chart",
+					total, len(stats.PerDay))
+			}
+			if len(counts) < 2 {
+				t.Errorf("all %d days carry %d completion(s), so every bar is drawn at full length",
+					len(stats.PerDay), tallest)
+			}
+			if tallest < 2 {
+				t.Errorf("the busiest day of the window carries %d completion, so nothing stands out",
+					tallest)
+			}
+		})
+	}
+}
+
+// TestFixtureKeepsABurstOnOneDay guards what makes the bursts survive the
+// clock. A fixture day is offset from the instant the seed ran, so it spans
+// two UTC dates; the chart counts UTC dates. Completions sharing a fixture day
+// therefore share an hour, or the hour somebody happened to run the seed at
+// decides whether a burst of three renders as three or as two and one.
+func TestFixtureKeepsABurstOnOneDay(t *testing.T) {
+	hours := map[int]int{}
+	for _, seed := range tasks {
+		if seed.end != outcomeDone {
+			continue
+		}
+		if hour, seen := hours[seed.done]; seen && hour != seed.doneHour {
+			t.Errorf("day %d completes at both %02d:00 and %02d:00, so the burst splits across "+
+				"two UTC dates whenever the seed runs late enough in the day",
+				seed.done, hour, seed.doneHour)
+			continue
+		}
+		hours[seed.done] = seed.doneHour
+	}
+}
+
+// TestSeedPutsADroppedClaimOnTheFirstPage covers the screenshot the demo could
+// not take: the expired-claim badge and the pager on the same page. Both
+// dropped claims used to sit on low-priority work, so the default urgency
+// ordering left them past row fifty, on the last page, where there is no Next
+// to show beside them.
+func TestSeedPutsADroppedClaimOnTheFirstPage(t *testing.T) {
+	tg := newTarget(t)
+	summary := tg.seed(t, DefaultDays)
+
+	page, err := tg.svc.ListTasks(tg.ctx, core.TaskFilter{Page: core.Page{Limit: core.DefaultPageLimit}})
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	if len(page.Tasks) != core.DefaultPageLimit {
+		t.Fatalf("the first page holds %d of the %d seeded tasks, want a full page of %d",
+			len(page.Tasks), summary.Tasks, core.DefaultPageLimit)
+	}
+	if page.NextCursor == "" {
+		t.Error("the first page is the whole listing, so no pager renders beside the badge")
+	}
+
+	at := -1
+	for i, task := range page.Tasks {
+		if task.ClaimExpiredRecently(seedEnd) {
+			at = i + 1
+			break
+		}
+	}
+	if at < 0 {
+		t.Fatalf("none of the first %d rows of the default ordering carries an expired claim, "+
+			"so the headline listing shows the pager or the badge but never both",
+			core.DefaultPageLimit)
+	}
+	t.Logf("first dropped claim sits at row %d of %d", at, core.DefaultPageLimit)
 }

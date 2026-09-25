@@ -183,6 +183,13 @@ type abandonedSeed struct {
 // abandoned is deliberately short. Two dropped claims in a backlog of this
 // size is what a fleet that mostly works looks like; a screen full of them
 // would describe a different product.
+//
+// agents-audit carries the highest priority, so the default urgency ordering
+// puts it on the first page of the task list. Both dropped claims used to sit
+// on low-priority work, which left them past row fifty: the badge and the
+// pager could not be seen at once, on any page. Work that matters is also
+// what a fleet keeps picking up, so the urgent one is where a repeatedly
+// dying holder belongs.
 var abandoned = []abandonedSeed{
 	{key: "agents-audit", holder: "scout", claims: 4, ago: 3 * time.Hour},
 	{key: "agents-docsbot", holder: "mint", claims: 1, ago: 9 * time.Hour},

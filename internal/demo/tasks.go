@@ -6,6 +6,22 @@ import "github.com/heliopsy/tix/internal/core"
 
 // tasks is the backlog the demo tenant is shown with: what was asked for, who
 // picked it up, what they said about it and when it landed.
+//
+// The completions cluster. Every day used to carry exactly one, which made
+// every bar of the throughput chart the same length and read as a rendering
+// fault rather than as a backlog: no window the statistics screen offers
+// rescued a series whose every value equalled its maximum. They now sit in
+// bursts of two and three separated by quiet stretches of four to eight days,
+// with a burndown in the last fortnight that clears a few stale tickets, so
+// the chart varies at the seven, fourteen, thirty and ninety day windows
+// alike. The days are fixed in this table rather than drawn from a generator,
+// so two seeds of the same window write the same history.
+//
+// Completions that share a day share an hour. The window is anchored on the
+// wall clock, so a fixture day begins at whatever time of day the seed ran at
+// and straddles two UTC dates; the chart counts UTC dates, and a burst whose
+// members sat on either side of that boundary would be split by nothing more
+// than the hour somebody typed the command.
 var tasks = []taskSeed{
 	{
 		key: "infra-ha", project: "infra",
@@ -15,7 +31,7 @@ var tasks = []taskSeed{
 		tags: []string{"database", "reliability"}, priority: core.PriorityHighest,
 		assignee: "tom", creator: "nadia", created: 0, hour: 9, due: 4,
 		fields: map[string]any{"environment": "production", "change_window": "Saturday 02:00-04:00 UTC"},
-		end:    outcomeDone, started: 0, done: 2, doneHour: 16, doneBy: "tom",
+		end:    outcomeDone, started: 0, done: 3, doneHour: 16, doneBy: "tom",
 		comments: []commentSeed{
 			{day: 1, hour: 10, by: "nadia", body: "Promotion rehearsal went through in 40 seconds. Good enough to call this done once the runbook is written up."},
 			{day: 2, hour: 15, by: "tom", body: "Replica is streaming with under a second of lag. Failover tested twice, both clean."},
@@ -29,7 +45,7 @@ var tasks = []taskSeed{
 		tags: []string{"tls", "automation"}, priority: core.PriorityHigh,
 		assignee: "lena", creator: "nadia", created: 5, hour: 8, due: 8,
 		fields: map[string]any{"environment": "production"},
-		end:    outcomeDone, started: 5, done: 5, doneHour: 15, doneBy: "lena",
+		end:    outcomeDone, started: 5, done: 5, doneHour: 16, doneBy: "lena",
 		comments: []commentSeed{
 			{day: 5, hour: 12, by: "lena", body: "DNS-01 is working against the staging issuer. Switching the production issuer over tomorrow morning."},
 		},
@@ -42,7 +58,7 @@ var tasks = []taskSeed{
 		tags: []string{"backup", "reliability"}, priority: core.PriorityHigh,
 		assignee: "atlas", creator: "tom", created: 2, hour: 8, due: 12,
 		fields: map[string]any{"environment": "staging"},
-		end:    outcomeDone, started: 3, done: 9, doneHour: 7, doneBy: "atlas",
+		end:    outcomeDone, started: 3, done: 13, doneHour: 7, doneBy: "atlas",
 		comments: []commentSeed{
 			{day: 6, hour: 13, by: "atlas", body: "First restore failed on a missing extension. Added it to the scratch image and the second run passed."},
 		},
@@ -55,7 +71,7 @@ var tasks = []taskSeed{
 		tags: []string{"ci", "cost"}, priority: core.PriorityNormal,
 		assignee: "raj", creator: "tom", created: 6, hour: 10, due: 16,
 		fields: map[string]any{"environment": "production"},
-		end:    outcomeDone, started: 8, done: 13, doneHour: 15, doneBy: "raj",
+		end:    outcomeDone, started: 8, done: 21, doneHour: 15, doneBy: "raj",
 		comments: []commentSeed{
 			{day: 9, hour: 11, by: "tom", body: "Queue time is under four minutes on the morning peak now, and the overnight pool is empty. Spend is down about a third."},
 		},
@@ -68,7 +84,7 @@ var tasks = []taskSeed{
 		tags: []string{"security"}, priority: core.PriorityHigh,
 		assignee: "nadia", creator: "lena", created: 10, hour: 9, due: 21,
 		fields: map[string]any{"environment": "production", "change_window": "any weekday evening"},
-		end:    outcomeDone, started: 12, done: 19, doneHour: 11, doneBy: "nadia",
+		end:    outcomeDone, started: 12, done: 26, doneHour: 15, doneBy: "nadia",
 		comments: []commentSeed{
 			{day: 15, hour: 16, by: "nadia", body: "Found a fourth key in the image build pipeline that nobody had written down. Rotated it too."},
 		},
@@ -81,7 +97,7 @@ var tasks = []taskSeed{
 		tags: []string{"security", "kubernetes"}, priority: core.PriorityHighest,
 		assignee: "tom", creator: "nadia", created: 20, hour: 8, due: 30,
 		fields: map[string]any{"environment": "production", "change_window": "rolling, business hours"},
-		end:    outcomeDone, started: 21, done: 28, doneHour: 12, doneBy: "tom",
+		end:    outcomeDone, started: 21, done: 33, doneHour: 12, doneBy: "tom",
 		comments: []commentSeed{
 			{day: 24, hour: 15, by: "nadia", body: "Two nodes came back with the old kernel because the image tag was cached. Pinning the digest instead."},
 		},
@@ -108,7 +124,7 @@ var tasks = []taskSeed{
 		assignee: "atlas", creator: "lena", created: 31, hour: 10, due: 42,
 		parent: "infra-observability",
 		fields: map[string]any{"environment": "production"},
-		end:    outcomeDone, started: 32, done: 37, doneHour: 9, doneBy: "atlas",
+		end:    outcomeDone, started: 32, done: 46, doneHour: 15, doneBy: "atlas",
 	},
 	{
 		key: "infra-logs", project: "infra",
@@ -129,7 +145,7 @@ var tasks = []taskSeed{
 		tags: []string{"cost", "reporting"}, priority: core.PriorityLow,
 		assignee: "scout", creator: "raj", created: 12, hour: 13, due: 50,
 		fields: map[string]any{"environment": "development"},
-		end:    outcomeDone, started: 41, done: 46, doneHour: 10, doneBy: "scout",
+		end:    outcomeDone, started: 84, done: 86, doneHour: 16, doneBy: "scout",
 	},
 	{
 		key: "infra-dns", project: "infra",
@@ -185,7 +201,7 @@ var tasks = []taskSeed{
 			"Build one shell with the navigation, the project switcher and the theme toggle, and mount the pages inside it.",
 		tags: []string{"ui", "foundation"}, priority: core.PriorityHighest,
 		assignee: "nadia", creator: "nadia", created: 0, hour: 10, due: 6,
-		end: outcomeDone, started: 1, done: 3, doneHour: 17, doneBy: "nadia",
+		end: outcomeDone, started: 1, done: 5, doneHour: 16, doneBy: "nadia",
 		comments: []commentSeed{
 			{day: 2, hour: 9, by: "lena", body: "The project switcher needs to remember the last project per person, otherwise everyone lands on the same list every morning."},
 		},
@@ -197,7 +213,7 @@ var tasks = []taskSeed{
 			"Render one column per workflow state and move a task by dropping it, writing the transition through the API.",
 		tags: []string{"ui", "board"}, priority: core.PriorityHigh,
 		assignee: "lena", creator: "nadia", created: 2, hour: 9, due: 10,
-		end: outcomeDone, started: 3, done: 7, doneHour: 16, doneBy: "lena",
+		end: outcomeDone, started: 3, done: 11, doneHour: 15, doneBy: "lena",
 		comments: []commentSeed{
 			{day: 5, hour: 14, by: "lena", body: "Drop target maths was off by the scroll offset on long columns. Fixed, and added a test for the scrolled case."},
 		},
@@ -218,7 +234,7 @@ var tasks = []taskSeed{
 			"Let a filter be named and saved, and put the saved ones in the sidebar under the project.",
 		tags: []string{"ui", "filters"}, priority: core.PriorityNormal,
 		assignee: "raj", creator: "tom", created: 11, hour: 10, due: 20,
-		end: outcomeDone, started: 12, done: 17, doneHour: 15, doneBy: "raj",
+		end: outcomeDone, started: 12, done: 26, doneHour: 15, doneBy: "raj",
 		comments: []commentSeed{
 			{day: 14, hour: 16, by: "tom", body: "Saving a filter that includes a free text query is surprising when the query goes stale. Let us save the structured part only for now."},
 		},
@@ -229,8 +245,8 @@ var tasks = []taskSeed{
 		body: "Triaging fifty tasks with a mouse is slow enough that people do it in the CLI instead. " +
 			"Add j/k navigation, a shortcut to assign and one to transition, and a help overlay listing them.",
 		tags: []string{"ui", "keyboard"}, priority: core.PriorityNormal,
-		assignee: "tom", creator: "lena", created: 17, hour: 9, due: 26,
-		end: outcomeDone, started: 18, done: 23, doneHour: 12, doneBy: "tom",
+		assignee: "nadia", creator: "lena", created: 17, hour: 9, due: 26,
+		end: outcomeDone, started: 18, done: 26, doneHour: 15, doneBy: "nadia",
 		comments: []commentSeed{
 			{day: 20, hour: 15, by: "nadia", body: "Please keep the shortcuts off single letters that conflict with the browser's own find-as-you-type."},
 		},
@@ -242,7 +258,7 @@ var tasks = []taskSeed{
 			"Draw completions per day, the lead time distribution and the leaderboard, with a note saying what the leaderboard counts.",
 		tags: []string{"ui", "stats"}, priority: core.PriorityHigh,
 		assignee: "nadia", creator: "nadia", created: 22, hour: 10, due: 33,
-		end: outcomeDone, started: 24, done: 30, doneHour: 16, doneBy: "nadia",
+		end: outcomeDone, started: 24, done: 37, doneHour: 16, doneBy: "nadia",
 		comments: []commentSeed{
 			{day: 27, hour: 11, by: "tom", body: "Careful with the empty state here. A leaderboard with one row and no caption reads like a ranking."},
 		},
@@ -253,8 +269,8 @@ var tasks = []taskSeed{
 		body: "The detail page overflows horizontally below about 420 pixels and the comment box is unreachable. " +
 			"Reflow the metadata into a stacked layout and keep the composer pinned.",
 		tags: []string{"ui", "responsive"}, priority: core.PriorityNormal,
-		assignee: "lena", creator: "raj", created: 33, hour: 13, due: 44,
-		end: outcomeDone, started: 35, done: 40, doneHour: 14, doneBy: "lena",
+		assignee: "nadia", creator: "raj", created: 33, hour: 13, due: 44,
+		end: outcomeDone, started: 35, done: 48, doneHour: 14, doneBy: "nadia",
 		comments: []commentSeed{
 			{day: 36, hour: 11, by: "raj", body: "Tested on a small phone and the composer is reachable, but the status chips still wrap awkwardly at the narrowest width."},
 		},
@@ -266,7 +282,7 @@ var tasks = []taskSeed{
 			"Give the board real roles, a focus order and live-region announcements when a card moves.",
 		tags: []string{"ui", "accessibility"}, priority: core.PriorityHigh,
 		assignee: "scout", creator: "nadia", created: 20, hour: 9, due: 56,
-		end: outcomeDone, started: 46, done: 52, doneHour: 11, doneBy: "scout",
+		end: outcomeDone, started: 46, done: 53, doneHour: 11, doneBy: "scout",
 	},
 	{
 		key: "web-search", project: "web",
@@ -324,7 +340,7 @@ var tasks = []taskSeed{
 			"Give a claim a lease and a token, renew on a heartbeat and release automatically when the lease expires.",
 		tags: []string{"protocol", "reliability"}, priority: core.PriorityHighest,
 		assignee: "atlas", creator: "nadia", created: 8, hour: 9, due: 18,
-		end: outcomeDone, started: 9, done: 15, doneHour: 10, doneBy: "atlas",
+		end: outcomeDone, started: 9, done: 23, doneHour: 10, doneBy: "atlas",
 		comments: []commentSeed{
 			{day: 12, hour: 16, by: "atlas", body: "Lease renewal is in. Sweeping expired leases every thirty seconds, which reverts the task to todo rather than leaving it stuck in doing."},
 		},
@@ -346,7 +362,7 @@ var tasks = []taskSeed{
 		tags: []string{"reliability", "observability"}, priority: core.PriorityHigh,
 		assignee: "mint", creator: "atlas", created: 20, hour: 11, due: 30,
 		dependsOn: []string{"agents-claim"},
-		end:       outcomeDone, started: 21, done: 26, doneHour: 9, doneBy: "mint",
+		end:       outcomeDone, started: 21, done: 31, doneHour: 9, doneBy: "mint",
 	},
 	{
 		key: "agents-budget", project: "agents",
@@ -355,7 +371,7 @@ var tasks = []taskSeed{
 			"Attach a budget to each run, refuse to start without one and stop cleanly when it is exhausted.",
 		tags: []string{"cost", "safety"}, priority: core.PriorityHighest,
 		assignee: "atlas", creator: "nadia", created: 28, hour: 9, due: 38,
-		end: outcomeDone, started: 29, done: 35, doneHour: 15, doneBy: "atlas",
+		end: outcomeDone, started: 29, done: 46, doneHour: 15, doneBy: "atlas",
 		comments: []commentSeed{
 			{day: 31, hour: 14, by: "nadia", body: "Budget should be per run and per day. A run that respects its own budget can still loop a hundred times."},
 		},
@@ -368,7 +384,7 @@ var tasks = []taskSeed{
 		tags: []string{"protocol", "ux"}, priority: core.PriorityHigh,
 		assignee: "raj", creator: "lena", created: 40, hour: 10, due: 52,
 		dependsOn: []string{"agents-claim"},
-		end:       outcomeDone, started: 42, done: 49, doneHour: 12, doneBy: "raj",
+		end:       outcomeDone, started: 42, done: 55, doneHour: 12, doneBy: "raj",
 	},
 	{
 		key: "agents-sandbox", project: "agents",
@@ -377,7 +393,7 @@ var tasks = []taskSeed{
 			"Start each run in a clean container and inject only the scoped token for the task it claimed.",
 		tags: []string{"security", "safety"}, priority: core.PriorityHighest,
 		assignee: "scout", creator: "nadia", created: 32, hour: 9, due: 66,
-		end: outcomeDone, started: 56, done: 64, doneHour: 16, doneBy: "scout",
+		end: outcomeDone, started: 56, done: 84, doneHour: 15, doneBy: "scout",
 		comments: []commentSeed{
 			{day: 59, hour: 11, by: "scout", body: "Sandbox is up. Two agents broke immediately because they were reading credentials from the environment, which is rather the point."},
 		},
@@ -420,7 +436,7 @@ var tasks = []taskSeed{
 		title: "Make every agent action attributable in the audit log",
 		body: "An agent acting through a shared token is indistinguishable from any other holder of it. " +
 			"Mint one token per agent and record the token identity on every entry it writes.",
-		tags: []string{"security", "audit"}, priority: core.PriorityNormal,
+		tags: []string{"security", "audit"}, priority: core.PriorityHighest,
 		assignee: "scout", creator: "nadia", created: 82, hour: 10, due: 98,
 		end: outcomeTodo,
 	},
@@ -441,7 +457,7 @@ var tasks = []taskSeed{
 			"Rewrite it as install, first project, first task, and move the architecture to its own page.",
 		tags: []string{"guide"}, priority: core.PriorityHigh,
 		assignee: "mint", creator: "nadia", created: 24, hour: 10, due: 36,
-		end: outcomeDone, started: 26, done: 33, doneHour: 14, doneBy: "mint",
+		end: outcomeDone, started: 26, done: 43, doneHour: 16, doneBy: "mint",
 		comments: []commentSeed{
 			{day: 29, hour: 9, by: "nadia", body: "Tried the draft on somebody who had never seen the tool. They were stuck at the database path, so make that step explicit."},
 		},
@@ -471,7 +487,7 @@ var tasks = []taskSeed{
 			"Generate it in CI and fail the build when the checked-in copy differs.",
 		tags: []string{"reference", "ci"}, priority: core.PriorityNormal,
 		assignee: "mint", creator: "lena", created: 60, hour: 10, due: 74,
-		end: outcomeDone, started: 62, done: 70, doneHour: 11, doneBy: "mint",
+		end: outcomeDone, started: 62, done: 83, doneHour: 11, doneBy: "mint",
 		comments: []commentSeed{
 			{day: 65, hour: 13, by: "lena", body: "Generation works. The diff check needs to ignore the version line or every release will fail the build for no reason."},
 		},
@@ -534,7 +550,7 @@ var tasks = []taskSeed{
 		tags: []string{"oncall", "runbook"}, priority: core.PriorityHigh,
 		assignee: "tom", creator: "nadia", created: 44, hour: 9, due: 58,
 		fields: map[string]any{"severity": "sev2", "paged": true},
-		end:    outcomeDone, started: 46, done: 55, doneHour: 13, doneBy: "tom",
+		end:    outcomeDone, started: 46, done: 58, doneHour: 15, doneBy: "tom",
 		comments: []commentSeed{
 			{day: 50, hour: 9, by: "tom", body: "Wrote it from the last incident rather than from memory, which turned up two queries nobody had written down."},
 		},
@@ -547,7 +563,7 @@ var tasks = []taskSeed{
 		tags: []string{"oncall", "noise"}, priority: core.PriorityHigh,
 		assignee: "raj", creator: "tom", created: 28, hour: 10, due: 64,
 		fields: map[string]any{"severity": "sev3", "paged": false},
-		end:    outcomeDone, started: 52, done: 61, doneHour: 16, doneBy: "raj",
+		end:    outcomeDone, started: 52, done: 63, doneHour: 16, doneBy: "raj",
 		comments: []commentSeed{
 			{day: 56, hour: 11, by: "tom", body: "Went from 31 to 9 pages a week on the sample I replayed. The disk one alone was a third of them."},
 		},
@@ -570,7 +586,7 @@ var tasks = []taskSeed{
 		tags: []string{"incident", "postmortem"}, priority: core.PriorityHighest,
 		assignee: "tom", creator: "nadia", created: 72, hour: 9, due: 78,
 		fields: map[string]any{"severity": "sev1", "paged": true},
-		end:    outcomeDone, started: 72, done: 76, doneHour: 15, doneBy: "tom",
+		end:    outcomeDone, started: 72, done: 84, doneHour: 15, doneBy: "tom",
 		comments: []commentSeed{
 			{day: 74, hour: 10, by: "nadia", body: "Keep the timeline in UTC and include the moment we noticed as well as the moment it started. The gap is the interesting part."},
 			{day: 76, hour: 14, by: "tom", body: "Two actions out of it: a staged rollout for config, and an alert on readiness failures that fires before the rollout completes."},
@@ -638,7 +654,7 @@ var tasks = []taskSeed{
 		tags: []string{"warehouse", "foundation"}, priority: core.PriorityHigh,
 		assignee: "raj", creator: "nadia", created: 30, hour: 9, due: 70,
 		fields: map[string]any{"dataset": "core"},
-		end:    outcomeDone, started: 56, done: 67, doneHour: 12, doneBy: "raj",
+		end:    outcomeDone, started: 56, done: 66, doneHour: 12, doneBy: "raj",
 	},
 	{
 		key: "data-etl", project: "data",
@@ -663,7 +679,7 @@ var tasks = []taskSeed{
 		assignee: "nadia", creator: "raj", created: 71, hour: 11, due: 85,
 		fields:    map[string]any{"dataset": "reporting"},
 		dependsOn: []string{"data-warehouse"},
-		end:       outcomeDone, started: 73, done: 82, doneHour: 14, doneBy: "nadia",
+		end:       outcomeDone, started: 73, done: 88, doneHour: 16, doneBy: "nadia",
 		comments: []commentSeed{
 			{day: 77, hour: 10, by: "raj", body: "Uniqueness test on the customer key failed immediately, which is exactly the disagreement the two reports were built on."},
 		},
@@ -676,7 +692,7 @@ var tasks = []taskSeed{
 		tags: []string{"pipeline", "quality"}, priority: core.PriorityHigh,
 		assignee: "lena", creator: "raj", created: 76, hour: 9, due: 88,
 		fields: map[string]any{"dataset": "orders"},
-		end:    outcomeDone, started: 78, done: 84, doneHour: 10, doneBy: "lena",
+		end:    outcomeDone, started: 78, done: 86, doneHour: 16, doneBy: "lena",
 		comments: []commentSeed{
 			{day: 81, hour: 16, by: "lena", body: "Freshness checks are live on the three big loads. Row count assertions need a baseline first, so those land tomorrow."},
 		},
@@ -689,7 +705,7 @@ var tasks = []taskSeed{
 		tags: []string{"modelling"}, priority: core.PriorityNormal,
 		assignee: "scout", creator: "nadia", created: 80, hour: 10, due: 90,
 		fields: map[string]any{"dataset": "reporting"},
-		end:    outcomeDone, started: 81, done: 86, doneHour: 13, doneBy: "scout",
+		end:    outcomeDone, started: 81, done: 86, doneHour: 16, doneBy: "scout",
 	},
 	{
 		key: "data-export", project: "data",
