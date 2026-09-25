@@ -76,20 +76,23 @@
   <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{if $acc.Color}} is-accented proj-{{$acc.Color}}{{end}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Ref}}">
     {{$done := index $v.CompleteState .ProjectID}}
     {{if $done}}
-    {{/* Stays boosted, so ticking swaps the list in place instead of
-         reloading the page and flashing it white.
+    {{/* Only this row is swapped, never the page.
 
-         show:none is the whole fix. A boosted swap scrolls to the top by
-         default, which is what threw the reader out of their place; told not
-         to scroll, htmx leaves the viewport exactly where it was, which is
-         better than jumping to the row because it does not move at all.
+         Ticking used to replace the whole body: that repainted every row, so
+         it read as a blink, and htmx scrolled the new body into view, so the
+         reader lost their place. Correcting the scroll afterwards only traded
+         the jump for a visible frame at the wrong offset.
 
-         htmx follows the redirect itself and drops its fragment, so the
-         "#t-ref" the handler returns only matters without JavaScript, where a
-         native submit follows the Location header whole and lands on the row.
-         Both paths end up in the same place. */}}
+         hx-select pulls this one row out of the response and puts it where
+         the old one was, so nothing else on the page is touched, there is
+         nothing to repaint and nothing to scroll. The action and method stay
+         for a browser with no JavaScript, which submits normally and follows
+         the Location header, fragment and all. */}}
     <form method="post" action="/tasks/{{.Ref}}/complete" class="tick"
-          hx-swap="innerHTML show:none">
+          hx-post="/tasks/{{.Ref}}/complete"
+          hx-target="#t-{{.Ref}}"
+          hx-select="#t-{{.Ref}}"
+          hx-swap="outerHTML">
       {{template "csrf" $.CSRF}}
       {{/* Where to come back to. Without it the handler redirected to a bare
            /tasks, so ticking a row threw away the filter, the search and the

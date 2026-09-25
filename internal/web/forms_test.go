@@ -624,11 +624,22 @@ func TestTickingStaysOnThePageAndDoesNotScroll(t *testing.T) {
 	b.createTask("infra", "tick me")
 	page := b.page("/tasks")
 
-	if strings.Contains(page, `class="tick" hx-boost="false"`) {
-		t.Error("the tick form opts out of boost, which reloads the page and flashes it")
+	// The row, not the page. Swapping the whole body repainted every row,
+	// which reads as a blink, and then had to be scrolled back, which leaves
+	// a visible frame at the wrong offset. hx-select takes the one row out of
+	// the response so nothing else is touched.
+	for _, want := range []string{
+		`hx-target="#t-`,
+		`hx-select="#t-`,
+		`hx-swap="outerHTML"`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the tick form is missing %s, so it swaps more than its own row", want)
+		}
 	}
-	if !strings.Contains(page, `hx-swap="innerHTML show:none"`) {
-		t.Error("the tick form does not suppress the scroll, so a swap jumps to the top")
+	// And it still works without JavaScript.
+	if !strings.Contains(page, `method="post" action="/tasks/`) {
+		t.Error("the tick form has no plain submit, so it needs JavaScript to work")
 	}
 }
 
