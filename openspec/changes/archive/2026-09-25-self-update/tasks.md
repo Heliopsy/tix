@@ -9,4 +9,4 @@
 - [x] Failure tests: bad checksum, unlisted archive, truncated body, unwritable directory
 - [x] `docs/upgrading.md`, linked from the index, honest about what the checksum proves
 - [x] `ROADMAP.md`: move self-update into what shipped
-- [ ] `just ci` green, archive the change
+- [x] `just ci` green, archive the change
