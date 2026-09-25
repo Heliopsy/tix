@@ -106,9 +106,67 @@
     return r.top >= 64 && r.bottom <= height;
   }
 
+  // Point every row's entrance at the row that was acted on: the ones above
+  // it come down, the ones below come up, and it stays still. The direction is
+  // a custom property because the animation itself belongs in the stylesheet;
+  // this only says which way each row should travel.
+  //
+  // The anchor is the fragment target when there is one, and otherwise the
+  // first row already marked. With no anchor every row keeps the default, so a
+  // plain page load still settles the way it always did.
+  function aimSettle() {
+    var rows = document.querySelectorAll("ul.tasklist li.task");
+    if (!rows.length) {
+      return;
+    }
+    var anchor = -1;
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].classList.contains("is-target")) {
+        anchor = i;
+        break;
+      }
+    }
+    if (anchor < 0) {
+      return;
+    }
+    for (var j = 0; j < rows.length; j++) {
+      var dir = 0;
+      if (j < anchor) {
+        dir = -1;
+      } else if (j > anchor) {
+        dir = 1;
+      }
+      rows[j].style.setProperty("--settle-from", String(dir));
+    }
+  }
+
   revealTarget();
-  window.addEventListener("hashchange", revealTarget);
-  document.addEventListener("htmx:load", revealTarget);
+  aimSettle();
+  window.addEventListener("hashchange", function () {
+    revealTarget();
+    aimSettle();
+  });
+  document.addEventListener("htmx:load", function () {
+    revealTarget();
+    aimSettle();
+  });
+
+  // A ticked row swaps on its own, so no other row re-renders and there is
+  // nothing to converge on it. Mark it instead: it lights briefly where it
+  // stands, which is the feedback the movement used to give without moving
+  // anything. The converging entrance is for a list that really did
+  // re-render, after a filter or on arrival.
+  document.addEventListener("htmx:afterSwap", function (event) {
+    var row = event.target;
+    if (!row || !row.classList || !row.classList.contains("task")) {
+      return;
+    }
+    var marked = document.querySelectorAll("li.task.is-target");
+    for (var i = 0; i < marked.length; i++) {
+      marked[i].classList.remove("is-target");
+    }
+    row.classList.add("is-target");
+  });
 
   // A boosted swap replaces the markup, so a <details> the reader had opened
   // comes back closed. Applying a column filter therefore shut the panel the

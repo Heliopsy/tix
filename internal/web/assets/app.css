@@ -877,10 +877,39 @@ button.check.is-done svg {
 
 span.check.placeholder { border-style: dashed; cursor: default; }
 
-li.task { animation: settle 200ms ease both; }
+/* Rows settle towards whichever one was just acted on, rather than every row
+   falling from above.
+ *
+ * With one direction for the whole list, a tick read as the page dropping on
+ * you: eighteen rows all sliding down together, with nothing pointing at the
+ * one that had changed. Converging says where to look, because the movement
+ * ends at the row you touched.
+ *
+ * --settle-from is set per row by copy.js: -1 for rows above the anchor, 1 for
+ * rows below, 0 for the anchor itself, which does not move. Without
+ * JavaScript, or on a list with no anchor, it falls back to the old uniform
+ * drop rather than to no animation at all. */
+li.task {
+  --settle-from: -1;
+  animation: settle 200ms ease both;
+}
 
 @keyframes settle {
-  from { opacity: 0; transform: translateY(-3px); }
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--settle-from) * 3px));
+  }
+}
+
+/* The row that was acted on stays put and is lit instead, so the eye lands on
+   it rather than on something that moved. */
+li.task.is-target {
+  --settle-from: 0;
+  animation: settle-target 320ms ease both;
+}
+
+@keyframes settle-target {
+  from { background-color: var(--accent-soft); }
 }
 
 /* Voice: the line under the heading, and the empty state. */
@@ -892,7 +921,10 @@ ul.tasklist li.empty { padding: 40px 16px; text-align: center; }
 ul.tasklist li.empty p { margin: 0; }
 
 @media (prefers-reduced-motion: reduce) {
-  button.check, button.check svg, li.task, a.task-title { animation: none; transition: none; }
+  button.check, button.check svg, li.task, li.task.is-target, a.task-title {
+    animation: none;
+    transition: none;
+  }
   button.check:hover, button.check:active { transform: none; }
   button.check.is-done svg { stroke-dashoffset: 0; }
 }
