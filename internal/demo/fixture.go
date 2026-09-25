@@ -2,7 +2,11 @@
 
 package demo
 
-import "github.com/heliopsy/tix/internal/core"
+import (
+	"time"
+
+	"github.com/heliopsy/tix/internal/core"
+)
 
 // fixtureDays is the span the tables below are written against. A seed asked
 // for a different window scales the offsets onto it.
@@ -68,11 +72,21 @@ type personSeed struct {
 	email  string
 	role   core.Role
 	agent  bool
+	// signIn gives this person a password, so the demo can be opened in a
+	// browser as them. Only people get one: an agent authenticates with the
+	// token minted beside it, and a password on it would describe a way of
+	// running a fleet that the product does not have.
+	signIn bool
 }
 
+// The two accounts that can sign in are an admin and a member, because the
+// screens differ by role and a demo showing only the administrator's view
+// hides half of what the product does. No viewer is given a password: a viewer
+// may not create or move work, so an eighth identity would be needed to hold
+// the role, and it would author nothing anywhere in the seeded history.
 var people = []personSeed{
-	{handle: "nadia", name: "Nadia Petrova", email: "nadia@demo.invalid", role: core.RoleAdmin},
-	{handle: "tom", name: "Tom Okafor", email: "tom@demo.invalid", role: core.RoleMember},
+	{handle: "nadia", name: "Nadia Petrova", email: "nadia@demo.invalid", role: core.RoleAdmin, signIn: true},
+	{handle: "tom", name: "Tom Okafor", email: "tom@demo.invalid", role: core.RoleMember, signIn: true},
 	{handle: "lena", name: "Lena Fischer", email: "lena@demo.invalid", role: core.RoleMember},
 	{handle: "raj", name: "Raj Mehta", email: "raj@demo.invalid", role: core.RoleMember},
 	{handle: "atlas", name: "Atlas (build agent)", email: "atlas@demo.invalid", role: core.RoleMember, agent: true},
@@ -136,4 +150,40 @@ type taskSeed struct {
 	doneBy   string
 
 	comments []commentSeed
+}
+
+// abandonTTL is the lease each seeded agent takes before it stops answering.
+const abandonTTL = 15 * time.Minute
+
+// abandonSweepDelay is how long after a lease lapses the sweeper gets to it.
+const abandonSweepDelay = time.Minute
+
+// abandonRetryGap is the wait between one claim lapsing and the next attempt
+// on the same task, so a repeatedly dying holder reads as a series of tries
+// rather than as one long outage.
+const abandonRetryGap = 40 * time.Minute
+
+// abandonedSeed is a task an agent claimed and never gave back: the worker
+// stopped answering, the lease ran out and the sweeper cleared it, leaving the
+// evidence the list renders as "claim expired".
+type abandonedSeed struct {
+	key    string
+	holder string
+	// claims is how many times the task was picked up and dropped. Above one
+	// is the signal the state exists for: a holder that keeps dying on the
+	// same work.
+	claims int
+	// ago is how long before the end of the window the last claim lapsed. It
+	// is measured from the end rather than from a fixture day because the
+	// evidence only reads as recent for core.LeaseExpiryEvidenceWindow, and
+	// the fixture days are backdated by months.
+	ago time.Duration
+}
+
+// abandoned is deliberately short. Two dropped claims in a backlog of this
+// size is what a fleet that mostly works looks like; a screen full of them
+// would describe a different product.
+var abandoned = []abandonedSeed{
+	{key: "agents-audit", holder: "scout", claims: 4, ago: 3 * time.Hour},
+	{key: "agents-docsbot", holder: "mint", claims: 1, ago: 9 * time.Hour},
 }

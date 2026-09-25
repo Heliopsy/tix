@@ -58,6 +58,16 @@ func (tg *target) seed(t *testing.T, days int) *Summary {
 	return out
 }
 
+// signIn exchanges one of the seeded credentials for a session on the
+// unauthenticated, tenant-pinned context a browser sign-in arrives on. It is
+// the login the web interface performs, not a lookup of the row behind it: a
+// users row with no usable password reads the same either way, which is how a
+// demo nobody could open passed for a seeded one.
+func (tg *target) signIn(email, password string) (*core.Session, error) {
+	ctx := core.WithTenant(context.Background(), core.TenantScope{TenantID: tg.admin.TenantID})
+	return tg.svc.Login(ctx, email, password)
+}
+
 // stats reads the figures over the whole seeded window.
 func (tg *target) stats(t *testing.T, since time.Time) *core.Stats {
 	t.Helper()
@@ -369,18 +379,230 @@ func TestResetClearsTheTargetForAnotherSeed(t *testing.T) {
 	if err := Reset(tg.ctx, tg.svc); err != nil {
 		t.Fatalf("Reset: %v", err)
 	}
-	populated, err := HasData(tg.ctx, tg.svc)
+	page, err := tg.svc.ListTasks(tg.ctx, core.TaskFilter{
+		IncludeDeleted: true, Page: core.Page{Limit: core.MaxPageLimit},
+	})
 	if err != nil {
-		t.Fatalf("HasData: %v", err)
+		t.Fatalf("ListTasks: %v", err)
 	}
-	if populated {
-		t.Fatal("reset left work behind")
+	if len(page.Tasks) != 0 {
+		t.Fatalf("reset left %d tasks behind", len(page.Tasks))
+	}
+	projects, _, err := tg.svc.ListProjects(tg.ctx, core.ProjectFilter{
+		IncludeArchived: true, Page: core.Page{Limit: core.MaxPageLimit},
+	})
+	if err != nil {
+		t.Fatalf("ListProjects: %v", err)
+	}
+	if len(projects) != 0 {
+		t.Fatalf("reset left %d projects behind", len(projects))
 	}
 
 	second := tg.seed(t, DefaultDays)
 	if second.Tasks != first.Tasks || second.Projects != first.Projects {
 		t.Errorf("second seed wrote %d tasks in %d projects, want %d in %d",
 			second.Tasks, second.Projects, first.Tasks, first.Projects)
+	}
+}
+
+// TestResetKeepsTheAccountsItCannotRecreate is why Reset stops at the work.
+// A deleted user leaves the actor row that owns its handle, and no call
+// deletes an actor, so a reset that removed the accounts left handles nothing
+// could ever be credentialed under again.
+func TestResetKeepsTheAccountsItCannotRecreate(t *testing.T) {
+	tg := newTarget(t)
+	tg.seed(t, DefaultDays)
+
+	if err := Reset(tg.ctx, tg.svc); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+	users, _, err := tg.svc.ListUsers(tg.ctx, core.Page{Limit: core.MaxPageLimit})
+	if err != nil {
+		t.Fatalf("ListUsers: %v", err)
+	}
+	if len(users) != len(people) {
+		t.Fatalf("reset left %d accounts, want the %d the fixture wrote", len(users), len(people))
+	}
+}
+
+// TestSeedLeavesCredentialsThatSignIn is the point of the whole fixture: the
+// demonstration it writes can be opened. It signs in rather than reading the
+// users table, because a users row with no password is exactly what the table
+// showed while the browser answered every page with a redirect to the login.
+func TestSeedLeavesCredentialsThatSignIn(t *testing.T) {
+	tg := newTarget(t)
+	summary := tg.seed(t, DefaultDays)
+
+	if len(summary.Credentials) < 2 {
+		t.Fatalf("seed reported %d sign-ins, want an admin and one other role",
+			len(summary.Credentials))
+	}
+	roles := map[core.Role]bool{}
+	for _, c := range summary.Credentials {
+		roles[c.Role] = true
+		session, err := tg.signIn(c.Email, c.Password)
+		if err != nil {
+			t.Fatalf("signing in as %s: %v", c.Email, err)
+		}
+		if session.Token == "" {
+			t.Fatalf("sign-in as %s issued no session token", c.Email)
+		}
+		if _, err := tg.signIn(c.Email, c.Password+"-wrong"); err == nil {
+			t.Fatalf("sign-in as %s accepted a password that is not the seeded one", c.Email)
+		}
+	}
+	if !roles[core.RoleAdmin] {
+		t.Error("no seeded account is an administrator, so the settings screens cannot be shown")
+	}
+	if len(roles) < 2 {
+		t.Error("every seeded account holds the same role, so the demo shows one view of the product")
+	}
+}
+
+// TestResetThenSeedLeavesAWorkingLogin covers the path that produced a demo
+// nobody could open: a reseed over an existing demo.
+func TestResetThenSeedLeavesAWorkingLogin(t *testing.T) {
+	tg := newTarget(t)
+	tg.seed(t, DefaultDays)
+	if err := Reset(tg.ctx, tg.svc); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+	summary := tg.seed(t, DefaultDays)
+
+	if len(summary.Credentials) == 0 {
+		t.Fatal("the reseed reported no sign-in at all")
+	}
+	for _, c := range summary.Credentials {
+		if _, err := tg.signIn(c.Email, c.Password); err != nil {
+			t.Fatalf("signing in as %s after a reseed: %v", c.Email, err)
+		}
+	}
+}
+
+// TestSeedPutsItsOwnPasswordOnAnAdoptedAccount checks that the credentials the
+// summary reports are the ones the database holds, rather than whatever the
+// previous seed left on the same handles.
+func TestSeedPutsItsOwnPasswordOnAnAdoptedAccount(t *testing.T) {
+	const second = "another-demo-password"
+	tg := newTarget(t)
+	first := tg.seed(t, DefaultDays)
+	if err := Reset(tg.ctx, tg.svc); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+	summary, err := Seed(tg.ctx, tg.svc, tg.clk, tg.admin,
+		Options{Days: DefaultDays, Now: seedEnd, Password: second})
+	if err != nil {
+		t.Fatalf("Seed: %v", err)
+	}
+
+	for _, c := range summary.Credentials {
+		if c.Password != second {
+			t.Errorf("summary reports %q for %s, want the password the seed was given", c.Password, c.Email)
+		}
+		if _, err := tg.signIn(c.Email, second); err != nil {
+			t.Fatalf("signing in as %s with the new password: %v", c.Email, err)
+		}
+	}
+	if _, err := tg.signIn(first.Credentials[0].Email, DefaultPassword); err == nil {
+		t.Error("the password the first seed set still signs in after it was replaced")
+	}
+}
+
+// TestSeedRefusesAFixtureWithNoWayIn guards the invariant the whole change
+// exists for: a seed that leaves no account anybody can sign in as is a
+// failure, not a demonstration.
+func TestSeedRefusesAFixtureWithNoWayIn(t *testing.T) {
+	restore := people
+	stripped := append([]personSeed(nil), people...)
+	for i := range stripped {
+		stripped[i].signIn = false
+	}
+	people = stripped
+	t.Cleanup(func() { people = restore })
+
+	tg := newTarget(t)
+	_, err := Seed(tg.ctx, tg.svc, tg.clk, tg.admin, Options{Days: DefaultDays, Now: seedEnd})
+	if !core.IsKind(err, core.KindInvalid) {
+		t.Fatalf("Seed = %v, want an invalid-argument error", err)
+	}
+}
+
+// TestSeedGivesAgentsNoPassword keeps the fleet authenticating the way the
+// product says it does: an agent carries a token, and a password on one would
+// demonstrate a route that does not exist.
+func TestSeedGivesAgentsNoPassword(t *testing.T) {
+	tg := newTarget(t)
+	summary := tg.seed(t, DefaultDays)
+
+	credentialed := map[string]bool{}
+	for _, c := range summary.Credentials {
+		credentialed[c.Handle] = true
+	}
+	for _, p := range people {
+		if !p.agent {
+			continue
+		}
+		if credentialed[p.handle] {
+			t.Errorf("agent %q is reported as a sign-in", p.handle)
+		}
+		if _, err := tg.signIn(p.email, DefaultPassword); err == nil {
+			t.Errorf("agent %q signs in with the demo password", p.handle)
+		}
+	}
+}
+
+// TestSeedRejectsAPasswordTheServiceWouldRefuse keeps the failure at the
+// options rather than halfway through a replay. The service rejects a short
+// password too, so the assertion that matters is where it stops: the projects
+// are written before the first account, and a seed that got that far has
+// already changed the database it was told to refuse.
+func TestSeedRejectsAPasswordTheServiceWouldRefuse(t *testing.T) {
+	tg := newTarget(t)
+	_, err := Seed(tg.ctx, tg.svc, tg.clk, tg.admin,
+		Options{Days: DefaultDays, Now: seedEnd, Password: "short"})
+	if !core.IsKind(err, core.KindInvalid) {
+		t.Fatalf("Seed = %v, want an invalid-argument error", err)
+	}
+	listed, _, err := tg.svc.ListProjects(tg.ctx, core.ProjectFilter{
+		IncludeArchived: true, Page: core.Page{Limit: core.MaxPageLimit},
+	})
+	if err != nil {
+		t.Fatalf("ListProjects: %v", err)
+	}
+	seeded := map[string]bool{}
+	for _, p := range projects {
+		seeded[p.key] = true
+	}
+	for _, p := range listed {
+		if seeded[p.Key] {
+			t.Fatalf("project %q was written before the password was refused", p.Key)
+		}
+	}
+}
+
+// TestSeedRefusesAHandleHeldByAnAccountlessActor covers a database left by the
+// reset this change removed: the handle is taken by an actor no account can be
+// created under, and seeding on regardless would write a history whose authors
+// nobody can sign in as.
+func TestSeedRefusesAHandleHeldByAnAccountlessActor(t *testing.T) {
+	tg := newTarget(t)
+	tg.seed(t, DefaultDays)
+	users, _, err := tg.svc.ListUsers(tg.ctx, core.Page{Limit: core.MaxPageLimit})
+	if err != nil {
+		t.Fatalf("ListUsers: %v", err)
+	}
+	for _, u := range users {
+		if err := tg.svc.DeleteUser(tg.ctx, u.ID); err != nil {
+			t.Fatalf("DeleteUser: %v", err)
+		}
+	}
+	if err := Reset(tg.ctx, tg.svc); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+
+	_, err = Seed(tg.ctx, tg.svc, tg.clk, tg.admin, Options{Days: DefaultDays, Now: seedEnd})
+	if !core.IsKind(err, core.KindConflict) {
+		t.Fatalf("Seed = %v, want a conflict naming the handle it cannot credential", err)
 	}
 }
 
@@ -447,6 +669,139 @@ func TestSeederRefusesAFixtureItCannotResolve(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if err := tc.call(); !core.IsKind(err, core.KindInvalid) {
 				t.Fatalf("got %v, want an invalid-argument error", err)
+			}
+		})
+	}
+}
+
+// TestSeedLeavesAClaimThatRecentlyExpired covers the state the demo could not
+// show before: an agent took a task, stopped answering, and the sweeper left
+// the evidence behind. Everything is judged against seedEnd, the instant the
+// seeder was told the window ends at, so the assertion does not depend on how
+// long the test itself takes to run.
+func TestSeedLeavesAClaimThatRecentlyExpired(t *testing.T) {
+	tg := newTarget(t)
+	summary := tg.seed(t, DefaultDays)
+
+	page, err := tg.svc.ListTasks(tg.ctx, core.TaskFilter{Page: core.Page{Limit: core.MaxPageLimit}})
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	projects, _, err := tg.svc.ListProjects(tg.ctx, core.ProjectFilter{Page: core.Page{Limit: core.MaxPageLimit}})
+	if err != nil {
+		t.Fatalf("ListProjects: %v", err)
+	}
+	keys := map[string]string{}
+	for _, p := range projects {
+		keys[p.ID] = p.Key
+	}
+
+	var expired, repeated int
+	var worst core.Task
+	for _, task := range page.Tasks {
+		if !task.ClaimExpiredRecently(seedEnd) {
+			continue
+		}
+		expired++
+		if task.ClaimCount > worst.ClaimCount {
+			worst = task
+		}
+		if task.ClaimCount > 1 {
+			repeated++
+		}
+		if task.LeaseExpiredByActorID == "" {
+			t.Errorf("task %s reports an expiry with no holder, so the detail page names nobody", task.Ref)
+		}
+		if keys[task.ProjectID] != "agents" {
+			t.Errorf("task %s is in project %q, want the dropped claims in the agent fleet",
+				task.Ref, keys[task.ProjectID])
+		}
+	}
+
+	if expired != summary.Abandoned {
+		t.Errorf("%d tasks read as recently expired, want the %d the seed reported", expired, summary.Abandoned)
+	}
+	if expired < 1 {
+		t.Fatal("no task reads as a recently expired claim, so the badge cannot be seen in the demo")
+	}
+	if repeated < 1 {
+		t.Fatal("no expired claim was taken more than once, so the claim count beside the badge never renders")
+	}
+	if expired > summary.Tasks/10 {
+		t.Errorf("%d of %d tasks have a dropped claim, which reads as a broken fleet rather than a backlog",
+			expired, summary.Tasks)
+	}
+	if worst.ClaimedAtTime(seedEnd) {
+		t.Errorf("task %s still holds a live lease, so it renders as held rather than expired", worst.Ref)
+	}
+	if worst.LeaseExpiredAt.After(seedEnd) {
+		t.Errorf("task %s expired at %s, after the end of the window", worst.Ref, worst.LeaseExpiredAt)
+	}
+
+	entries, _, err := tg.svc.ListAudit(tg.ctx, core.AuditFilter{
+		SubjectType: "task", SubjectID: worst.ID, Page: core.Page{Limit: core.MaxPageLimit},
+	})
+	if err != nil {
+		t.Fatalf("ListAudit: %v", err)
+	}
+	actions := map[string]int{}
+	for _, e := range entries {
+		actions[e.Action]++
+	}
+	if actions["task.claim"] != worst.ClaimCount || actions["task.lease_expire"] != worst.ClaimCount {
+		t.Errorf("task %s counts %d claims but its history holds %d claims and %d expiries; "+
+			"the row and the trail disagree",
+			worst.Ref, worst.ClaimCount, actions["task.claim"], actions["task.lease_expire"])
+	}
+}
+
+// TestSeedDropsTheStarterListsItDidNotWrite keeps the Projects screen, the
+// project filter and the tenant tree to the lists the fixture works out of.
+func TestSeedDropsTheStarterListsItDidNotWrite(t *testing.T) {
+	tg := newTarget(t)
+	summary := tg.seed(t, DefaultDays)
+
+	listed, _, err := tg.svc.ListProjects(tg.ctx, core.ProjectFilter{
+		IncludeArchived: true, Page: core.Page{Limit: core.MaxPageLimit},
+	})
+	if err != nil {
+		t.Fatalf("ListProjects: %v", err)
+	}
+	if len(listed) != summary.Projects {
+		t.Errorf("tenant holds %d projects, want the %d the fixture wrote", len(listed), summary.Projects)
+	}
+	seeded := map[string]bool{}
+	for _, p := range projects {
+		seeded[p.key] = true
+	}
+	for _, p := range listed {
+		if !seeded[p.Key] {
+			t.Errorf("project %q is not part of the fixture, so the demo shows an empty list", p.Key)
+		}
+	}
+}
+
+// TestSeedRefusesAnAbandonedEntryItCannotReplay keeps the guard on the one
+// field of the abandoned table that has no sensible reading: a task dropped
+// fewer than once.
+func TestSeedRefusesAnAbandonedEntryItCannotReplay(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		entry abandonedSeed
+	}{
+		{"never claimed", abandonedSeed{key: "agents-audit", holder: "scout", claims: 0, ago: time.Hour}},
+		{"unknown holder", abandonedSeed{key: "agents-audit", holder: "nobody", claims: 1, ago: time.Hour}},
+		{"unknown task", abandonedSeed{key: "nothing", holder: "scout", claims: 1, ago: time.Hour}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			restore := abandoned
+			abandoned = []abandonedSeed{tc.entry}
+			t.Cleanup(func() { abandoned = restore })
+
+			tg := newTarget(t)
+			_, err := Seed(tg.ctx, tg.svc, tg.clk, tg.admin, Options{Days: DefaultDays, Now: seedEnd})
+			if !core.IsKind(err, core.KindInvalid) {
+				t.Fatalf("Seed = %v, want an invalid-argument error", err)
 			}
 		})
 	}
