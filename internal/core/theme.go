@@ -4,7 +4,6 @@ package core
 
 import (
 	"fmt"
-	"hash/fnv"
 	"sort"
 	"strings"
 )
@@ -70,13 +69,6 @@ var builtInThemes = []Theme{
 	{Name: "slate", Accent: "#334155", AccentSoft: "#eef2f6",
 		AccentDark: "#a8b6c8", AccentSoftDark: "#242c36", BuiltIn: true},
 }
-
-// derivedAccents is the set an unthemed tenant's colour is drawn from.
-//
-// It is the built-in list minus the default, and the order is fixed, because
-// the choice is a hash of the tenant's own identity: reordering this slice
-// repaints every unthemed tenant in every deployment that upgrades.
-var derivedAccents = builtInThemes[1:7]
 
 // ThemeRegistry resolves theme names. Configuration themes are merged over the
 // built-ins, so an operator can redefine a shipped name without a patched
@@ -189,13 +181,18 @@ func (r *ThemeRegistry) List() []Theme {
 
 // Resolve returns the theme a tenant presents itself with.
 //
-// The three cases are deliberately different. A named theme that resolves is
-// used. A tenant that names nothing gets a colour derived from its own
-// identity, which is what it had before any theme could be named, so an
-// upgrade does not repaint every deployment. A name that no longer resolves
-// falls back to the default rather than failing, because a configuration file
-// that stopped defining a theme must not take the board down; the write path
-// is where a typo is refused, since that is the moment someone can fix it.
+// A tenant that names nothing gets the default, which is the product's own
+// green. It used to get a colour hashed from its key and id, on the reasoning
+// that an upgrade should not repaint a deployment. That was the wrong trade:
+// it meant a fresh install opened in whatever colour the hash landed on,
+// usually not the one in the logo, and nobody could tell whether that was a
+// choice or a bug. A stable, recognisable default is worth more than not
+// repainting tenants nobody had themed on purpose.
+//
+// A name that no longer resolves also falls back to the default rather than
+// failing, because a configuration file that stopped defining a theme must not
+// take the board down. The write path is where a typo is refused, since that
+// is the moment someone can fix it.
 func (r *ThemeRegistry) Resolve(t *Tenant) Theme {
 	if r == nil {
 		return builtInThemes[0]
@@ -207,24 +204,8 @@ func (r *ThemeRegistry) Resolve(t *Tenant) Theme {
 		if found, ok := r.Lookup(name); ok {
 			return found
 		}
-		return r.Default()
 	}
-	return DerivedTheme(t)
-}
-
-// DerivedTheme is the accent an unthemed tenant carries, hashed from its own
-// identity so it is stable for the life of the tenant.
-func DerivedTheme(t *Tenant) Theme {
-	if t == nil || strings.TrimSpace(t.Name) == "" {
-		return builtInThemes[0]
-	}
-	sum := fnv.New32a()
-	_, _ = sum.Write([]byte(t.Key + t.ID))
-	picked := derivedAccents[int(sum.Sum32())%len(derivedAccents)]
-	// Named for the tenant rather than for the palette entry: nobody chose
-	// this, so reporting it as "indigo" would imply somebody did.
-	return Theme{Name: "", Accent: picked.Accent, AccentSoft: picked.AccentSoft,
-		AccentDark: picked.AccentDark, AccentSoftDark: picked.AccentSoftDark, BuiltIn: true}
+	return r.Default()
 }
 
 // ThemeNames lists the built-in theme names, for shell completion.

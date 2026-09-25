@@ -38,7 +38,12 @@ func (h *handler) adminRoutes() []route {
 
 // tenantView is what the tenant administration screen renders.
 type tenantView struct {
-	Tenant    core.Tenant
+	Tenant core.Tenant
+	// Themes are the palettes this deployment resolves, for the picker. The
+	// command line could set one from the start and the browser could not,
+	// which made a tenant-wide setting reachable only by whoever had shell
+	// access to the server.
+	Themes    []core.Theme
 	Tenants   []core.Tenant
 	Members   []core.Membership
 	Retention core.RetentionPolicy
@@ -97,7 +102,7 @@ func (h *handler) showTenant(w http.ResponseWriter, r *http.Request) error {
 		actors = append(actors, m.ActorID)
 	}
 	return h.render(w, r, "tenant.html", "Tenant", tenantView{
-		Tenant: *tenant, Tenants: tenants, Members: members,
+		Tenant: *tenant, Tenants: tenants, Members: members, Themes: h.themes.List(),
 		Retention: *retention, Roles: core.Roles, Shape: shape,
 		Names: h.resolveActors(r, actors...)})
 }
@@ -137,10 +142,14 @@ func (h *handler) tenantShape(r *http.Request, members int) ([]shapeNode, error)
 	}, nil
 }
 
-// updateTenant saves the tenant's display name.
+// updateTenant saves the tenant's display name and theme.
 func (h *handler) updateTenant(w http.ResponseWriter, r *http.Request) error {
 	name := field(r, "name")
-	if _, err := h.svc.UpdateTenant(r.Context(), "", core.UpdateTenantInput{Name: &name}); err != nil {
+	// The empty option clears the theme, so the field is always sent and
+	// always applied: treating "" as unset would make the picker one-way.
+	theme := field(r, "theme")
+	in := core.UpdateTenantInput{Name: &name, Theme: &theme}
+	if _, err := h.svc.UpdateTenant(r.Context(), "", in); err != nil {
 		return err
 	}
 	redirect(w, r, RouteTenant, "tenant saved")

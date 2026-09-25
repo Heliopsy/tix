@@ -35,11 +35,11 @@
     <p class="caption">created</p>
   </div>
   <div class="card">
-    <p class="figure">{{.Data.Stats.MedianLeadTime}}</p>
+    <p class="figure">{{age .Data.Stats.MedianLeadTime}}</p>
     <p class="caption">median lead time</p>
   </div>
   <div class="card">
-    <p class="figure">{{.Data.Stats.SlowestLeadTime}}</p>
+    <p class="figure">{{age .Data.Stats.SlowestLeadTime}}</p>
     <p class="caption">slowest</p>
   </div>
 </section>
@@ -111,7 +111,7 @@
       <td><a href="/tasks/{{.Ref}}">{{.Ref}}</a></td>
       <td>{{.Title}}</td>
       <td>{{.Status}}</td>
-      <td class="num">{{.Age}}</td>
+      <td class="num">{{age .Age}}</td>
     </tr>
     {{end}}
   </tbody>

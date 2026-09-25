@@ -84,9 +84,26 @@
       marked[i].classList.remove("is-target");
     }
     row.classList.add("is-target");
-    if (typeof row.scrollIntoView === "function") {
+    // Only when the row is not already on screen. Centring it unconditionally
+    // moved the page every time a fragment appeared, and after a tick the row
+    // is right where the reader left it: ticking the topmost item scrolled
+    // the list *down* to put that row in the middle, which is the opposite of
+    // staying put. A deep link from somewhere else still scrolls, because
+    // then the row genuinely is not visible.
+    if (typeof row.scrollIntoView === "function" && !inViewport(row)) {
       row.scrollIntoView({ block: "center" });
     }
+  }
+
+  // inViewport reports whether the whole row is already visible, leaving a
+  // little room for the sticky header at the top.
+  function inViewport(el) {
+    if (typeof el.getBoundingClientRect !== "function") {
+      return false;
+    }
+    var r = el.getBoundingClientRect();
+    var height = window.innerHeight || document.documentElement.clientHeight;
+    return r.top >= 64 && r.bottom <= height;
   }
 
   revealTarget();

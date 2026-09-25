@@ -35,6 +35,10 @@ type tasksView struct {
 	Sort       string
 	NextCursor string
 
+	// Self is this screen's own URL, query string and all, so a row action
+	// can return to the list the reader was actually looking at.
+	Self string
+
 	// Summary is the one line under the heading. A tracker that only ever
 	// shows rows tells you nothing about the shape of your day.
 	Summary taskSummary
@@ -169,6 +173,7 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 		Query:         query.Get("q"),
 		Sort:          filter.Page.Sort,
 		NextCursor:    page.NextCursor,
+		Self:          selfURL(r),
 		CompleteState: complete,
 		Accent:        projectAccents(projects),
 		Summary:       summarise(page.Tasks, complete, time.Now()),
@@ -285,7 +290,17 @@ func (h *handler) completeTask(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 	}
-	redirect(w, r, RouteTasks, done+task.Ref)
+	// Back to the list the reader was on, at the row they ticked. safeNext
+	// refuses anything that is not a relative path, so a crafted next cannot
+	// turn this into an open redirect.
+	back := safeNext(field(r, "next"))
+	if back == RouteProjects {
+		// safeNext's fallback is the projects screen, which is the wrong
+		// place to land from a task list; an absent or rejected next means
+		// the plain list.
+		back = RouteTasks
+	}
+	redirectTo(w, r, back, "t-"+task.Ref, done+task.Ref)
 	return nil
 }
 
@@ -344,4 +359,18 @@ func walkBack(prev map[string]string, from, to string) []string {
 		out[i], out[j] = out[j], out[i]
 	}
 	return out
+}
+
+// selfURL is this request's own path and query, without the flash.
+//
+// The flash is a message about the action just taken, not part of the view,
+// and carrying it into the return URL made every tick append another: three
+// clicks left the reader on "?flash=...&flash=...&flash=..." and the string
+// grew for as long as they kept working down the list.
+func selfURL(r *http.Request) string {
+	u := *r.URL
+	q := u.Query()
+	q.Del("flash")
+	u.RawQuery = q.Encode()
+	return u.RequestURI()
 }

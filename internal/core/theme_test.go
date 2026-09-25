@@ -124,35 +124,35 @@ func TestThemeListNamesItsSources(t *testing.T) {
 	}
 }
 
-// TestUnnamedTenantKeepsItsDerivedColour is the compatibility guarantee. An
-// upgrade must not repaint a deployment, so an empty theme resolves to the
-// same hash-derived accent the web interface used before themes existed.
-func TestUnnamedTenantKeepsItsDerivedColour(t *testing.T) {
+// TestUnnamedTenantGetsTheProductDefault pins the choice made after a fresh
+// install opened in a colour nobody picked.
+//
+// An unthemed tenant used to get an accent hashed from its key and id, so two
+// installs of the same software looked unrelated and neither matched the logo.
+// It gets the default now, and the test asserts the default is the product's
+// own green rather than merely "some colour", because the whole point is that
+// it is recognisable.
+func TestUnnamedTenantGetsTheProductDefault(t *testing.T) {
 	t.Parallel()
 	r, err := core.NewThemeRegistry(nil)
 	if err != nil {
 		t.Fatalf("NewThemeRegistry: %v", err)
 	}
-	tenant := &core.Tenant{ID: "01ABC", Key: "acme", Name: "Acme"}
-
-	first := r.Resolve(tenant)
-	second := r.Resolve(tenant)
-	if first != second {
-		t.Errorf("resolving twice gave %+v then %+v, want a stable colour", first, second)
+	for _, tenant := range []*core.Tenant{
+		{ID: "01ABC", Key: "acme", Name: "Acme"},
+		{ID: "01XYZ", Key: "globex", Name: "Globex"},
+		{ID: "01QRS", Key: "initech", Name: "Initech", Theme: "   "},
+	} {
+		got := r.Resolve(tenant)
+		if got.Accent != r.Default().Accent {
+			t.Errorf("tenant %q resolved to %q, want the default %q",
+				tenant.Key, got.Accent, r.Default().Accent)
+		}
 	}
-	if first.Accent == "" {
-		t.Error("an unthemed tenant resolved to no accent")
-	}
-	if first.Name != "" {
-		t.Errorf("derived theme reported name %q, want empty: nobody chose it", first.Name)
-	}
-
-	other := &core.Tenant{ID: "01XYZ", Key: "globex", Name: "Globex"}
-	if r.Resolve(other).Accent == first.Accent {
-		// Not a correctness failure, but the whole point of deriving is that
-		// two tenants usually look different; a palette this small collides
-		// eventually, so this only guards the obvious bug of ignoring input.
-		t.Log("two tenants derived the same accent; check the hash actually reads the key and id")
+	// The logo's own green. If this changes, the sign-in screen and the
+	// stylesheet's :root default have to change with it.
+	if got := r.Default().Accent; got != "#0f766e" {
+		t.Errorf("default accent = %q, want the product green #0f766e", got)
 	}
 }
 

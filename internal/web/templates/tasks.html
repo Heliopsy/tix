@@ -12,7 +12,12 @@
 
 <form method="post" action="/tasks" class="quickadd">
   {{template "csrf" .CSRF}}
-  <input name="title" placeholder="Add a task and press Enter" aria-label="New task" data-shortcut-target="new" required autofocus>
+  {{/* Focused on arrival so typing a task needs no click, but not when the
+       URL names a row. Completing a task returns to the row it was on, and
+       autofocus pulled the page straight back to the top of the list: the
+       reader ticked one item and lost their place, every time. A fragment
+       means the reader was sent somewhere specific, and that wins. */}}
+  <input name="title" placeholder="Add a task and press Enter" aria-label="New task" data-shortcut-target="new" required{{if not $.Flash}} autofocus{{end}}>
   <select name="project_ref" aria-label="Project">
     {{range $v.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
   </select>
@@ -65,11 +70,31 @@
 <ul class="tasklist">
 {{range $v.Tasks}}
   {{$acc := index $v.Accent .ProjectID}}
-  <li class="task{{if .Blocked}} is-blocked{{end}}{{if $acc.Color}} is-accented proj-{{$acc.Color}}{{end}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Ref}}">
+  {{/* The row carries its ref as an id so completing it can send the browser
+       back to this row rather than to the top of the list. */}}
+  <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{if $acc.Color}} is-accented proj-{{$acc.Color}}{{end}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Ref}}">
     {{$done := index $v.CompleteState .ProjectID}}
     {{if $done}}
-    <form method="post" action="/tasks/{{.Ref}}/complete" class="tick">
+    {{/* Stays boosted, so ticking swaps the list in place instead of
+         reloading the page and flashing it white.
+
+         show:none is the whole fix. A boosted swap scrolls to the top by
+         default, which is what threw the reader out of their place; told not
+         to scroll, htmx leaves the viewport exactly where it was, which is
+         better than jumping to the row because it does not move at all.
+
+         htmx follows the redirect itself and drops its fragment, so the
+         "#t-ref" the handler returns only matters without JavaScript, where a
+         native submit follows the Location header whole and lands on the row.
+         Both paths end up in the same place. */}}
+    <form method="post" action="/tasks/{{.Ref}}/complete" class="tick"
+          hx-swap="innerHTML show:none">
       {{template "csrf" $.CSRF}}
+      {{/* Where to come back to. Without it the handler redirected to a bare
+           /tasks, so ticking a row threw away the filter, the search and the
+           sort as well as the scroll position: the list you were working
+           through was replaced by an unfiltered one, scrolled to the top. */}}
+      <input type="hidden" name="next" value="{{$v.Self}}">
       <button type="submit" class="check{{if eq .Status $done}} is-done{{end}}" {{if eq .Status $done}}aria-label="Reopen {{.Ref}}" title="Reopen"{{else}}aria-label="Complete {{.Ref}}" title="Complete"{{end}}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5 10.2 16.7 18 8.4"/></svg>
       </button>

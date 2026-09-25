@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
@@ -159,6 +160,7 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"sentence":        sentenceFor,
 		"sentenceSubject": sentenceForSubject,
 		"percent":         barPercent,
+		"age":             humanDuration,
 	}
 }
 
@@ -436,6 +438,28 @@ func headingFor(kind core.Kind) string {
 }
 
 // redirect answers a mutation with a see-other and a message for the next page.
+// redirectTo is redirect with a fragment, so the browser restores the reader's
+// place instead of dropping them at the top of the page.
+//
+// A fragment rather than a scroll script: it needs no JavaScript, it survives
+// the back button, and the browser already knows how to do it.
+func redirectTo(w http.ResponseWriter, r *http.Request, path, fragment, flash string) {
+	target := path
+	if flash != "" {
+		sep := "?"
+		if strings.Contains(target, "?") {
+			sep = "&"
+		}
+		target += sep + "flash=" + url.QueryEscape(flash)
+	}
+	if fragment != "" {
+		target += "#" + url.PathEscape(fragment)
+	}
+	// #nosec G710 -- path has been through safeNext, the flash is
+	// query-escaped and the fragment is path-escaped.
+	http.Redirect(w, r, target, http.StatusSeeOther)
+}
+
 func redirect(w http.ResponseWriter, r *http.Request, path, flash string) {
 	target := path
 	if flash != "" {
@@ -466,4 +490,39 @@ func barPercent(v, max int) int {
 		return 2
 	}
 	return p
+}
+
+// humanDuration renders a span the way someone reading a board says it.
+//
+// core.Duration prints Go's own syntax, which carries every digit it has:
+// a lead time came out as "936h11m23.133303457s", which overflowed its card
+// and collided with the next one. Nobody reading "how long did this take"
+// wants nanoseconds, and a figure that does not fit its box is worse than a
+// rounder one.
+//
+// Two units at most, largest first, because "15d 8h" answers the question and
+// "15d 8h 36m 42s" makes the reader do the rounding themselves.
+func humanDuration(d core.Duration) string {
+	t := d.D()
+	if t < 0 {
+		t = -t
+	}
+	switch {
+	case t < time.Minute:
+		return fmt.Sprintf("%ds", int(t.Seconds()))
+	case t < time.Hour:
+		return fmt.Sprintf("%dm", int(t.Minutes()))
+	case t < 24*time.Hour:
+		h := int(t.Hours())
+		if m := int(t.Minutes()) % 60; m > 0 {
+			return fmt.Sprintf("%dh %dm", h, m)
+		}
+		return fmt.Sprintf("%dh", h)
+	default:
+		days := int(t.Hours()) / 24
+		if h := int(t.Hours()) % 24; h > 0 {
+			return fmt.Sprintf("%dd %dh", days, h)
+		}
+		return fmt.Sprintf("%dd", days)
+	}
 }

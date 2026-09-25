@@ -555,3 +555,124 @@ func TestUntickingAFinishedTaskReopensIt(t *testing.T) {
 		t.Fatalf("the reopened task is not back in the starting state")
 	}
 }
+
+// TestCompletingATaskReturnsToTheListYouWereOn pins two things that made the
+// tick box unpleasant to use on a list of any length.
+//
+// The handler redirected to a bare /tasks, so a click threw away the filter,
+// the search and the sort: you ticked one row of a narrowed list and got the
+// whole unfiltered list back. And with no fragment the browser landed at the
+// top, so working down a list meant scrolling back to your place after every
+// tick.
+func TestCompletingATaskReturnsToTheListYouWereOn(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "finish me")
+
+	from := "/tasks?q=finish&sort=priority"
+	resp := b.post("/tasks/"+ref+"/complete", url.Values{
+		"csrf_token": {b.csrf()}, "next": {from},
+	})
+	defer func() { _ = resp.Body.Close() }()
+
+	loc := resp.Header.Get("Location")
+	if !strings.HasPrefix(loc, from) {
+		t.Errorf("redirected to %q, want it to keep the filter and sort from %q", loc, from)
+	}
+	if !strings.HasSuffix(loc, "#t-"+ref) {
+		t.Errorf("redirected to %q, want it to end at the row that was ticked", loc)
+	}
+}
+
+// An absent or hostile next must not become an open redirect, and must not
+// land somewhere unrelated either.
+func TestCompletingATaskRefusesAnOffsiteReturn(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "finish me")
+
+	for _, next := range []string{"", "//evil.example.com", "https://evil.example.com/x", "/\\evil.example.com"} {
+		resp := b.post("/tasks/"+ref+"/complete", url.Values{
+			"csrf_token": {b.csrf()}, "next": {next},
+		})
+		loc := resp.Header.Get("Location")
+		_ = resp.Body.Close()
+		if !strings.HasPrefix(loc, "/tasks") {
+			t.Errorf("next %q redirected to %q, want the task list", next, loc)
+		}
+		// Reopen it so the next iteration has something to complete again.
+		again := b.post("/tasks/"+ref+"/complete", url.Values{"csrf_token": {b.csrf()}})
+		_ = again.Body.Close()
+	}
+}
+
+// TestTickingStaysOnThePageAndDoesNotScroll pins the markup that decides both
+// halves of how a tick feels.
+//
+// The form stays boosted, so htmx swaps the list in place instead of reloading
+// and flashing the page white. Opting out of boost fixed the scroll and
+// introduced the flash, which was not a trade worth making.
+//
+// show:none is what stops the jump: a boosted swap scrolls to the top by
+// default, which is what threw the reader out of their place on a long list.
+func TestTickingStaysOnThePageAndDoesNotScroll(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	b.createTask("infra", "tick me")
+	page := b.page("/tasks")
+
+	if strings.Contains(page, `class="tick" hx-boost="false"`) {
+		t.Error("the tick form opts out of boost, which reloads the page and flashes it")
+	}
+	if !strings.Contains(page, `hx-swap="innerHTML show:none"`) {
+		t.Error("the tick form does not suppress the scroll, so a swap jumps to the top")
+	}
+}
+
+// TestTheNewTaskBoxDoesNotStealTheScrollAfterATick is the second half of the
+// tick-scrolls bug, and the half that made the first half invisible.
+//
+// The list autofocuses its new-task box so typing needs no click. autofocus
+// scrolls the focused element into view, so after completing a row the
+// browser applied the returning fragment, jumped to the row, and was then
+// yanked straight back to the top by the focus. The server was already
+// sending the right Location; the page threw it away on arrival.
+//
+// A flash only exists on the response to an action, which is exactly when the
+// reader was sent somewhere specific and must not be moved.
+func TestTheNewTaskBoxDoesNotStealTheScrollAfterATick(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+
+	if fresh := b.page("/tasks"); !strings.Contains(fresh, "autofocus") {
+		t.Error("arriving at the list does not focus the new-task box; typing needs a click")
+	}
+	if after := b.page("/tasks?flash=completed+infra-1"); strings.Contains(after, "autofocus") {
+		t.Error("the new-task box is focused after an action, which pulls the page back to the top")
+	}
+}
+
+// TestTheFlashDoesNotAccumulateInTheReturnURL pins a small thing that got
+// visibly worse the longer someone used the list.
+//
+// The return URL was the request's own URI, flash and all, so each tick
+// appended another copy: working down a list left the reader on
+// "?flash=...&flash=...&flash=..." with the string still growing.
+func TestTheFlashDoesNotAccumulateInTheReturnURL(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	b.createTask("infra", "tick me twice")
+
+	page := b.page("/tasks?flash=completed+infra-1&q=tick")
+	if strings.Contains(page, `name="next" value="/tasks?flash=`) {
+		t.Error("the return URL carries the flash, so the next action appends another")
+	}
+	if !strings.Contains(page, `name="next" value="/tasks?q=tick"`) {
+		t.Errorf("the return URL dropped the filter with the flash:\n%s", page)
+	}
+}

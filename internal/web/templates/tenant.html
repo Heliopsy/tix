@@ -30,6 +30,22 @@
   {{template "csrf" .CSRF}}
   <label for="name">Display name</label>
   <input id="name" name="name" value="{{.Data.Tenant.Name}}" required>
+
+  {{/* The accent every surface renders this tenant with, the browser and the
+       terminal interface alike. Until this existed the setting could only be
+       changed by someone with shell access to the server, which made a
+       tenant-wide choice an operator errand. */}}
+  <label for="theme">Theme</label>
+  <select id="theme" name="theme">
+    <option value="" {{if not .Data.Tenant.Theme}}selected{{end}}>Default</option>
+    {{$current := .Data.Tenant.Theme}}
+    {{range .Data.Themes}}
+    <option value="{{.Name}}" {{if eq .Name $current}}selected{{end}}>
+      {{.Name}}{{if not .BuiltIn}} (configured){{end}}
+    </option>
+    {{end}}
+  </select>
+  <p class="note">Applies to this tenant everywhere: the browser and the terminal interface both read it.</p>
   <p class="meta">Key {{.Data.Tenant.Key}}</p>
   <p><button type="submit">Save</button></p>
 </form>
