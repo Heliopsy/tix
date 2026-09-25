@@ -9,7 +9,7 @@ agent, a shell script, a CI job or a language model with a `bash` tool.
 #!/bin/sh
 set -eu
 
-claim=$(tix claim next -p infra -o json -q) || exit 0   # exit 3 means the queue is empty
+claim=$(tix claim next -p infra -o json -q) || exit 0   # exit 3: empty queue, or a filter naming nothing
 ref=$(printf '%s' "$claim" | jq -r .task.ref)
 token=$(printf '%s' "$claim" | jq -r .lease_token)
 
@@ -42,6 +42,14 @@ and not already in a terminal state (`done`, `cancelled`). A queue whose tasks a
 empty-queue result as a queue with nothing in it: exit 3, `no_task_available`. A worker that should only pick up
 work in a specific non-terminal status still should say so, e.g. `tix claim next -s todo`, since a task sitting in
 `blocked` is non-terminal and would otherwise be handed out.
+
+A queue filter that names nothing is a different answer from an empty queue, and the codes say which is which.
+`-p` naming no project, and `-s` naming a status no workflow of this tenant defines, both fail with exit 3 and
+`not_found` before the queue is looked at. The status check matters most: the same code path used to report a
+typo as `no_task_available`, and a worker told to read that as "nothing to do right now" would idle for ever on a
+misspelling. Both are checked without regard to case, so `-p INFRA -s TODO` claims what `-p infra -s todo`
+claims. A tag is deliberately not checked, for the reason [filtering.md](filtering.md#a-term-that-names-nothing)
+gives: a tag exists by being applied, so an unused tag and an unknown one are the same state.
 
 `tix claim task REF` claims one named task instead of taking the next. It fails with exit 4 when the task is
 already held.
@@ -96,6 +104,12 @@ definition sets `revert_on_lease_expiry`, sends the task back to its `revert_to`
 marks `doing` that way, reverting to `todo`. A server started with `tix serve` runs the sweeper on a ticker
 (`--sweep-interval`, default `1m`); on a machine with no server, run `tix claim sweep` from cron or before each
 poll. `--dry-run` reports what would be swept without writing.
+
+Sweeping clears the claim fields and records, on the task itself, the instant the claim expired and the actor
+that held it: `lease_expired_at` and `lease_expired_by_actor_id`, both cleared again by the next claim. They are
+what lets a reader tell a task nobody ever took from a task somebody took and stopped answering for, once the
+lease columns are gone; the lease-expired event and its audit entry remain the full record. Surfaces treat the
+evidence as current for 24 hours and then stop reporting it, without clearing the fields.
 
 No supervisor is involved in any of this. A worker that is SIGKILLed, loses power or is scheduled away simply
 stops renewing, and its task returns to the queue.
@@ -168,14 +182,31 @@ Every command uses the same table, which `tix --help` also prints.
 | 0 | success |
 | 1 | error |
 | 2 | usage, including an invalid flag or a dependency cycle |
-| 3 | not found, including an empty queue |
+| 3 | not found, including an empty queue and a filter term that names nothing |
 | 4 | conflict, including a held task, a lost lease and a version clash |
 | 5 | permission denied |
 | 6 | precondition failed, such as an illegal transition or a task with subtasks |
 | 7 | a system tix imports from could not be read, such as an unreachable Jira |
 
-An empty queue is exit 3 with a `no_task_available` error on stderr, not exit 0 with an empty result. A polling
-worker should treat 3 as "sleep and try again" and anything above it as a real failure.
+An empty queue is exit 3 with a `no_task_available` error on stderr, not exit 0 with an empty result.
+
+Exit 3 carries two different answers, so a polling worker should read the error code and not only the number.
+`no_task_available` is "sleep and try again". `not_found` is a filter term naming something this tenant does not
+have, which sleeping will not fix: the queue is not empty, the question was wrong. Anything above 3 is a real
+failure either way.
+
+```sh
+if ! claim=$(tix claim next -p infra -s todo -o json -q 2>err); then
+  case $? in
+    3) grep -q no_task_available err && exit 0 || { cat err >&2; exit 1; } ;;
+    *) cat err >&2; exit 1 ;;
+  esac
+fi
+```
+
+A listing that fails writes nothing to standard output, so a pipeline reading only stdout cannot mistake a
+failure for an empty answer. Where records were already streamed, a bracketed document is left unterminated
+rather than closed. See [scripting.md](scripting.md#exit-codes).
 
 Exit 7 is the one failure worth retrying rather than alerting on. It means a system tix imports from could
 not be read, which is an outage somewhere else and usually over by the next run; a scheduled `tix sync run`

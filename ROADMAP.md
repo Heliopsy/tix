@@ -9,9 +9,17 @@ the seam in v1 that makes each one additive rather than a rewrite.
 
 A tenant names a theme and both the browser and the terminal interface render its accent.
 Several palettes are built in, configuration defines more under `themes:`, and a tenant that
-names none keeps the colour derived from its own identity, so upgrading repaints nothing.
+names none gets the product default.
 
-**What differs from the plan below:** the palette is two colours rather than a scheme per
+That default changed after the fact. Themes shipped keeping an older behaviour, where an
+unnamed tenant's accent was derived by hashing its key and id, so that an upgrade repainted
+nobody. In practice it meant a fresh install opened in a colour nobody had chosen, two installs
+of the same software looked unrelated, and neither matched the logo, so not repainting bought
+less than it cost. A theme also grew an optional dark pair, because an accent picked to read on
+white is a smear on near-black and the browser follows the system, which for most people is
+dark.
+
+**What differs from the plan below:** the palette is an accent pair rather than a scheme per
 surface. The web interface already has light, dark and dim for everything structural, and a
 terminal cannot honour a browser's palette, so the themeable thing is the accent. State and
 priority colours are deliberately excluded: they carry meaning, and a tenant that themes itself
@@ -91,6 +99,110 @@ the fetch boundary only. And a finished import printed its own Go struct, becaus
 `Kinds`, and the taxonomy the tests iterate is `Kinds` itself rather than a hand-kept copy
 that called itself complete while nothing checked it. `just docs-check` now covers
 `screenshots/` as well as `docs/`, after the screenshot index drifted from its own directory.
+
+### A backlog worth looking at, and durations a person can read
+
+`tix demo seed` fills a database with a window of history: projects, people, agents, custom
+field definitions, and tasks carrying descriptions, tags, priorities, assignees, due dates and
+comments, with completions spread across the window by several actors. Every screenshot until
+then showed titles and nothing else, which is the opposite of what the screens are for.
+
+The history is replayed through the ordinary service calls against a clock the command
+advances rather than written behind them. That is forced rather than tasteful: statistics
+attribute a completion by matching the transition entry written in the same instant, so a
+snapshot import would have left every leaderboard and lead-time figure empty.
+`connect.Overrides` grew a `Clock` for this and nothing else uses it. The command refuses a
+database that already holds tasks or users unless `--reset` is passed, because nobody should
+meet this command by finding invented tasks in their real tracker.
+
+Seeding it immediately showed the statistics screens printing `384h50m23.606839092s`
+everywhere except the browser, which had a humaniser of its own the other two surfaces could
+not reach. The rendering belongs to `core.Duration` now and all three call it; `String` stays
+Go's own, because the snapshot formats are built from it and have to keep the precision the
+human form throws away. A guard asserts the statistics table prints no machine-rendered
+duration.
+
+### The list, and an interface that stops lying about state
+
+An afternoon in front of the seeded demo produced the same shape of defect again, on the
+screen people spend the most time on.
+
+The status pill is a control now, offering the moves the row's own workflow allows, including
+states reachable only through another state. The whole route is spelled out before it is
+applied and each hop is an ordinary transition, so the audit trail carries one entry per step:
+a task that passed through a state really did pass through it. That control was unusable at
+first, and the reason is worth recording. It was a panel positioned inside the task list,
+which hides its overflow, so on a lower row the choices were clipped out of the scrollable
+area entirely, took no pointer events, and could not be reached at any scroll position.
+Clicking a choice did nothing, forever, which reads as a frozen page. It is a popover in the
+top layer now, and `popovertarget` brings light dismissal, Escape and one-at-a-time with no
+script.
+
+Static assets carried no cache validator and their urls never change between releases, so a
+browser could serve the previous release's stylesheet against this release's markup with
+nothing to say so. That happened during review: a reader saw new markup styled by an old sheet
+and reported the interface as broken. Each asset now carries an `ETag` derived from its own
+bytes and answers conditional requests.
+
+Dates are the reader's business, not the deployment's. Format and timezone are per-browser
+preferences with the configured values as the default. The obstacle was that the time style
+was bound into the templates at parse time and shared by every request; template sets are
+cached per resolved style now, and a test drives concurrent readers to prove none is served
+another's zone.
+
+`ListActors` runs the full length of the contract, service to CLI to HTTP to a `/actors`
+screen, and feeds the assignee field, which suggests handles rather than asking for an
+identifier from memory. It suggests without constraining, because an actor from another tenant
+is deliberately assignable and a control that only accepted what it listed would remove that
+silently.
+
+The rest was the list telling the truth about itself: lease badges for held and claim-expired,
+so an abandoned claim stops looking like untouched work; a date that says it is the last
+update; Columns and Projects merged into one View panel, because they are one decision; a
+Clear control on the filter, since a project chip writes one in a click and getting out should
+cost a click too; and a way back to the listing a task was opened from.
+
+See [docs/web-ui.md](docs/web-ui.md).
+
+### A filter that says when it does not understand, and a list you can walk back
+
+Using the seeded demo for a second afternoon turned up the same shape once more, this time in the
+answers rather than the screens. `tix task ls -p nosuchproject` returned `[]` and exited 0, which is
+the one answer that cannot be told apart from a correct one: it reads as "that project has no work"
+rather than "there is no such project", and a person or an agent acts on it. Every
+reference-shaped term of a filter is resolved before the listing is queried now, and one that names
+nothing fails as `not_found`. Project keys and statuses are matched without regard to case, because
+`-p INFRA` selecting nothing was the same silence by another route.
+
+Two of those decisions are worth recording because a later tidying would get them wrong. A tag is
+never checked: a tag comes into being by being applied, so "no such tag" and "a tag with no tasks"
+are the same state, and refusing the first would refuse the second. A status is checked against the
+union of every workflow in the tenant rather than the workflow of the project in scope, because
+workflows need not agree and a cross-project listing may reasonably name a status only one of them
+defines.
+
+`tix claim next -s <typo>` was the sharpest edge. It answered `no_task_available`, and the published
+skill tells an agent to read that as "nothing to do right now", so a misspelled status would have had
+a worker idling for ever against a queue that was never empty. It is `not_found` now. A failed
+listing also stopped writing a document to standard output, where a closing `[]` beside an error on
+standard error let a pipeline reading only stdout believe an empty answer.
+
+The listings gained one shared position control. Six of them had one each before, none of which said
+where the reader was and none of which offered a way back. Previous is the interesting half: keyset
+pagination only goes forward, so the page carries the cursors it walked through in its own URL and
+pops the last one off, which keeps the whole position shareable and asks nothing of the store. The
+trail arrives from the address bar, so it is validated and bounded and discarded whole rather than
+repaired.
+
+The rest was the same lesson in smaller places. The column cookie recorded the columns shown, which
+cannot tell a column the reader turned off from one that did not exist when they chose, so every
+column added later read as refused by exactly the readers who had customised most; it records what is
+hidden now, behind a version marker, and converts what it finds in the old form. A refused filter
+reports on the filter bar with the expression still in the box rather than on the full-page error
+screen. A tenant administrator gets the configuration navigation by default, since the tenant screen
+was otherwise reachable only by typing its URL. Durations became one vocabulary, Go's syntax plus a
+day, so anything the product prints can be typed back, and the binary embeds `time/tzdata` so a
+reader's zone does not depend on the base image.
 
 ## v2
 

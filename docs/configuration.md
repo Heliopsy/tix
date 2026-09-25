@@ -82,7 +82,8 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `ssh.max_sessions` | `TIX_SSH_MAX_SESSIONS` | `100` |
 | `tui.keymap` | `TIX_TUI_KEYMAP` | `default` |
 
-List values are comma-separated. Durations use Go syntax (`15m`, `24h`, `720h`).
+List values are comma-separated. Durations use Go syntax (`15m`, `24h`, `720h`) plus a day unit
+(`30d`, `1d 12h`), so anything the product prints can be typed back.
 
 `tui.keymap` picks the terminal interface's keybinding scheme: `default`, `vim`, `emacs`, `nano` or
 `helix`. `tix tui --keys` takes the same names for a single run, and the TUI's settings view lists them
@@ -239,6 +240,10 @@ the fixed `iso` layout regardless of the configured format, so a reader can alwa
 - `local` (the default) uses the machine's own zone: the CLI's host, or the `tix serve` process for the web.
 - `utc` fixes it to UTC regardless of the machine.
 - Any IANA zone name (`Asia/Tokyo`, `America/New_York`, `Europe/Sofia`, ...) fixes it to that zone.
+
+The binary embeds the zone database, so a name resolves the same on a distroless or scratch image as on a
+machine carrying `/usr/share/zoneinfo`. A deployment does not have to install `tzdata` to honour a zone a
+reader or an operator named.
 
 **Machine-readable output is not affected.** `-o json`, `-o yaml` and `-o ndjson` always carry timestamps as RFC
 3339 in UTC, whatever `output.time_format` and `output.timezone` are set to, because a script or another program

@@ -12,6 +12,12 @@ tix stats -o json                # every figure the screen shows
 
 The browser has the same numbers at `/stats`, and the terminal interface opens them with `S`.
 
+`--window` takes Go's duration syntax plus a day of exactly 24 hours, so `30d`, `720h` and `16d 1h` all read,
+and `--since` takes RFC 3339 or `YYYY-MM-DD`. Passing both is a usage error, since they contradict each other.
+That is the same vocabulary everywhere the product accepts a duration, and it includes everything the product
+prints: a lead time shown as `3d 22h` can be typed back. There is no week unit, because nothing renders one.
+The machine formats keep Go's own rendering (`"94h0m0s"`), because a snapshot has to round-trip through it.
+
 ## What each figure means
 
 | Figure | Definition |

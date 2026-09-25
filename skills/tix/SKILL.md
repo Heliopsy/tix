@@ -1,8 +1,8 @@
 ---
 name: tix
-description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. There is no MCP server; this CLI is the only interface. Covers the claim/lease/release loop, `tix claim exec`, machine-readable output, exit codes, filtering, `tix watch`, comments/artifacts, dependencies, `tix ssh`, and multi-target config.
-version: 3
-verified-against: tix fecbb93 (2026-09-22)
+description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. There is no MCP server; this CLI is the only interface. Covers the claim/lease/release loop, `tix claim exec`, machine-readable output, exit codes, filtering, `tix watch`, comments/artifacts, dependencies, the actor directory, `tix stats`, `tix ssh`, and multi-target config.
+version: 5
+verified-against: tix 25d0995 (2026-09-25)
 ---
 
 # tix
@@ -37,8 +37,20 @@ tix claim release "$ref" --token "$token" --status done \
   matters.
 - Empty queue (or nothing eligible) is exit `3` with code `no_task_available`,
   not an empty success. Treat it as "nothing to do right now", not an error.
-  An unknown project key is also exit `3`, with code `not_found` — read the
-  code, not just the number.
+- **Exit `3` is two different answers. Read the code, not just the number.** A
+  queue filter naming something this tenant does not have is exit `3` with
+  code `not_found`, and sleeping will not fix it: the queue is not empty, the
+  question was wrong. `-p nosuchproject` and `-s nosuchstatus` both fail that
+  way, before the queue is looked at.
+- `-s <typo>` used to answer `no_task_available`, so following the rule above
+  literally would have had you idle for ever against a queue full of work.
+  It is `not_found` now, checked against the states of every workflow in the
+  tenant. If you get `not_found`, fix the filter or stop; do not poll.
+- Project keys and statuses are matched without regard to case, so
+  `-p INFRA -s TODO` claims what `-p infra -s todo` claims.
+- A tag is deliberately **not** checked. A tag exists by being applied, so an
+  unknown tag and a tag with no tasks are the same state: `-l nosuchtag` is an
+  ordinary empty queue, `no_task_available`, not `not_found`.
 - `tix claim task REF` claims one named task instead of the next eligible
   one. Exit `4` if it's already held. Unlike `claim next` it does **not**
   screen for `blocked`: it will hand you a task with an unfinished
@@ -174,7 +186,7 @@ subcommand's `--help` names the codes that command can return; the root
 | 0 | success |
 | 1 | error |
 | 2 | usage — invalid flag, bad value, illegal input |
-| 3 | not found — includes an empty/no-match queue |
+| 3 | not found: a filter term naming nothing, or an empty/no-match queue |
 | 4 | conflict — held task, lost lease, version clash |
 | 5 | permission denied |
 | 6 | precondition failed — illegal transition, task has subtasks |
@@ -188,6 +200,40 @@ name, self-dependency, a cycle).
 Never ignore exit `4`. It means your write did not happen and the state you
 think you're in is not the state that's actually there.
 
+Exit `3` carries two codes and they mean opposite things for what you do
+next. `no_task_available` is "sleep and try again". `not_found` is "the
+question was wrong": a project, status, parent, assignee, creator or
+claimed-by term naming something this tenant does not have. Both filtering and
+claiming fail that way rather than answering empty, because an empty result
+with a zero status cannot be told apart from a correct one. Verified:
+`tix task ls -p nosuchproject` is `not_found`, exit `3`, where it used to be
+`[]` and exit `0`.
+
+Two deliberate exceptions, so don't "fix" them:
+
+- A **tag** never fails a listing. A tag exists only by being applied, so "no
+  such tag" and "a tag with no tasks" are the same state.
+  `tix task ls -l nosuchtag` is `[]` and exit `0`.
+- A **custom field key** still answers empty.
+  `tix task ls --filter 'field.nosuchfield:high'` is `[]` and exit `0`, not an
+  error. Don't read that as "no task has that value".
+
+A **status** is checked against the union of every workflow in the tenant,
+not the workflow of the project you scoped to. So a status one workflow
+defines and another does not is a legitimate filter that may return an empty
+page; only a status no workflow defines is `not_found`.
+
+Project keys and statuses are matched without regard to case: `-p INFRA` and
+`--status TODO` work.
+
+**A failed listing writes nothing to stdout.** It used to close the document
+on the way out, so a failed `-o json` printed `[]` beside its error and a
+pipeline reading only stdout read a valid empty answer. If it fails part way
+through, the JSON array is left *unterminated* on purpose, so a consumer gets
+a syntax error rather than a short listing it would believe. NDJSON and YAML
+lines already written stand. Check the exit status; do not infer success from
+parseable output.
+
 ## Filtering and querying
 
 `task ls` and `claim next` share filter flags; each is a repeatable flag
@@ -198,9 +244,22 @@ within a flag, AND'd across flags:
 tix task ls -p infra -p ops -s todo -s doing -l ci --unclaimed
 tix task ls --query "flaky test"        # substring match over title + body
 tix task ls --blocked                   # only tasks blocked by a dependency
-tix task ls --assignee alice --sort priority --desc
+tix task ls --sort priority --desc
 tix task ls -p infra --all              # follow cursors, read every page
+tix project ls -o json                  # the project keys, if you do not know them
 ```
+
+One `--filter` expression does the same job in a single string, with
+negation and weak matching the flags cannot express:
+
+```sh
+tix task ls --filter 'status:todo -tag:ops title~deploy'
+```
+
+Its keys are `project`, `status`, `tag`, `assignee`, `creator`,
+`claimed-by`, `priority`, `due-before`, `due-after`, `parent`, `is`, `sort`,
+`limit`, `text`, `title`, `body`, `claimed`, `blocked`, `deleted`. An
+unknown key is exit `2` and the error names the whole set.
 
 Default `--sort` is `urgency`: priority first, then soonest `due_at`, undated tasks
 last within a priority band. `--sort created_at|updated_at|priority|due_at|title`
@@ -211,6 +270,73 @@ still work; an unknown value is exit `2`.
 descendants. A fresh database seeds four projects — `default`, `work`,
 `homelab`, `house` — so `task ls` with no `-p` spans all of them, while
 `task add` with no `-p` lands in `default`.
+
+## Who is who
+
+`--assignee` takes an actor **handle or id**, on `task add`, `task edit` and
+`task ls` alike, and so do the `creator:` and `claimed-by:` filter terms. A
+handle that names nobody is `not_found`, exit `3`, not an empty list, so a
+typo says so instead of reading as "this actor has no work":
+
+```sh
+tix actor ls -o json                    # this tenant's directory, agents included
+tix actor show raj -o json              # handle or id in, the record out
+tix task ls --assignee raj
+tix task ls --assignee 01M0Z9JH9Y80C13N5TJ8GQK206
+```
+
+The reference is classified by shape, not by asking the directory: a value of
+exactly the length and alphabet of a generated id is treated as an id and
+passed through with no lookup, so an actor from **another tenant** stays
+assignable. Anything else is a handle and must resolve in this tenant.
+
+`actor ls` returns `id`, `kind`, `handle` and `display_name` per row and
+`--limit` (default 50) caps it. Agents are listed beside people, so this is
+how you find the id behind a handle a human gave you, and who else is
+working the queue. An unknown handle or id on `actor show` is exit `3`.
+
+## Statistics
+
+`tix stats` reports a window ending now: what was completed and created, how
+long work took, where the backlog is sitting, and who closed what. Use it to
+report progress instead of counting `task ls` rows yourself.
+
+```sh
+tix stats -o json                       # whole tenant, last 14 days
+tix stats --window 720h -p infra        # one project, last 30 days
+tix stats --since 2026-09-01 --top 10 --oldest 20 -o json
+```
+
+- The default window is 14 days. `--window` takes a duration (`30d`, `720h`,
+  `16d 1h`), `--since` an RFC3339 timestamp or `YYYY-MM-DD`. Passing both is
+  exit `2`; they contradict each other. A window over `87600h` is exit `2`
+  too. That duration vocabulary is Go's syntax plus a day of exactly 24
+  hours, and it is the same everywhere the CLI, the API or the config file
+  takes a duration, so anything the product prints for a reader can be typed
+  back. There is no week unit: `4w` is exit `2`.
+- `--top` (default 5) sizes the leaderboard and `--oldest` (default 5) the
+  list of tasks not yet in a terminal state. Both cap at 100, above which is
+  exit `2`.
+- `-p` scopes to one project key; an unknown key is exit `3`.
+- The leaderboard counts tasks moved to a **terminal state**, nothing else,
+  and the JSON carries `leaderboard_measure` saying so. It is not a measure
+  of effort, and quoting it as one is a lie about your colleagues.
+
+JSON keys: `since`, `until`, `completed`, `created`, `per_day`,
+`median_lead_time`, `slowest_lead_time`, `by_category`, `top_actors`,
+`leaderboard_measure`, `oldest`. Durations in the machine formats stay Go's
+own syntax (`"94h0m0s"`), so snapshots round-trip; the table renders the same
+value as `3d 22h`, which `--window` will read back.
+
+```console
+$ tix --db /tmp/scratch.db stats --window 720h
+WINDOW             2026-08-26 .. 2026-09-25  (whole tenant)
+COMPLETED          36
+CREATED            66
+MEDIAN LEAD TIME   2d 15h
+SLOWEST LEAD TIME  12d 3h
+...
+```
 
 ## Watching instead of polling
 

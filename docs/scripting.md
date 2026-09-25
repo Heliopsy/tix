@@ -175,7 +175,7 @@ and `tix task add --body -` composable with anything that writes to a pipe.
 | 0 | success |
 | 1 | error |
 | 2 | usage, invalid input, dependency cycle |
-| 3 | not found, empty queue |
+| 3 | not found, empty queue, a filter term naming nothing |
 | 4 | conflict, held lease, version clash |
 | 5 | permission denied |
 | 6 | precondition failed, illegal transition |
@@ -193,8 +193,21 @@ if ! claim=$(tix claim next -o json -q); then
 fi
 ```
 
+That reading of 3 holds for a claim with no filter. Once a filter is passed, 3 also covers a term naming
+something this tenant does not have, which is `not_found` on stderr rather than `no_task_available`, and which
+retrying will not fix. Read the code when the command carries `-p`, `-s` or an actor term. See
+[filtering.md](filtering.md#a-term-that-names-nothing).
+
 Diagnostics go to standard error, data to standard output, always. That is why `tix export > file` and
 `tix bundle export | tix bundle import` cannot be polluted by a progress line.
+
+A listing that fails writes no document at all. It used to close the stream on the way out, so a failed
+`tix task ls -o json` put `[]` on standard output beside its error on standard error, and a pipeline reading
+only stdout, which is the usual shape of one, read a valid empty array and concluded there were no tasks. A
+listing that fails before it writes leaves stdout empty; one that fails part way through cannot unsend what it
+already wrote, so a bracketed document is left unterminated on purpose and a consumer parsing it gets a syntax
+error rather than a short listing it would believe. NDJSON and YAML are record-oriented and have no terminator
+to withhold: every line already written is true on its own, and the exit status carries the rest.
 
 ## Dry runs
 

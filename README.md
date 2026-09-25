@@ -104,6 +104,58 @@ by a test that fails the build when an operation lacks a binding.
 | WebSocket | Subscribe to events, resume from a cursor after a reconnect |
 | Web UI | Server-rendered, no JavaScript build step, works without JavaScript |
 
+## Also in the binary
+
+Capabilities that are easy to miss from the command table above.
+
+**Statistics.** `tix stats`, `/stats` in the browser and `S` in the terminal interface, over one
+window and optionally one project: completions per day, median and slowest lead time, where the work
+is sitting, who moved it, what has waited longest. The leaderboard prints what it counts every time
+it is shown, because a count of tasks moved to a terminal state is not a measure of work done and a
+number presented without that sentence gets read as one. [docs/statistics.md](docs/statistics.md).
+
+**Theming.** A tenant names an accent and both the browser and the terminal render it. Palettes are
+configuration rather than rows, so an operator writes one for the whole deployment. Light, dark and a
+low-contrast scheme are a separate axis, chosen per browser, because that is a property of the person
+reading. State and priority colours are deliberately not themeable: blocked is red whatever a tenant
+brands itself. [docs/theming.md](docs/theming.md).
+
+**A directory of actors.** `tix actor ls` on the command line, `/actors` in the browser, and the same
+listing behind the assignee field, which suggests handles instead of asking for an identifier from
+memory. It suggests without constraining: an actor from another tenant is still assignable by
+identifier. Agents are in the directory alongside people, because work is assigned to them as often.
+
+**A status control that can move more than one step.** The status pill on a row offers the states
+that row's own workflow can reach, including ones reachable only through another state. The whole
+route is spelled out before it is applied, and each hop is an ordinary transition, so a task that
+passed through a state really did pass through it and the audit trail says so.
+
+**Per-browser dates and times.** Format and timezone are chosen in the settings screen and stored in
+a cookie, not on the tenant. Two people sharing a tenant are frequently in different zones.
+
+**Lease badges.** A task list says which rows an agent is holding and which ones were claimed by
+somebody who never came back, how long ago that claim lapsed and how many times the task has been
+picked up. The second of those is read from evidence the sweeper leaves on the task rather than from
+the lease columns it clears, which is what makes an abandoned claim visible at all rather than for
+the minute before the next sweep. [docs/web-ui.md](docs/web-ui.md) covers these and the rest of the
+browser interface.
+
+**Shell completion.** `tix completion install` detects the shell, writes the script where that shell
+looks for it and never edits a startup file. It completes task references, project keys, tags and the
+states your workflows actually define, not only flag names.
+[docs/shell-completion.md](docs/shell-completion.md).
+
+**Self-update.** `tix update` replaces this binary with a release built for its platform, checked
+against the checksum published beside it, and refuses a binary the Go toolchain or a package manager
+owns. `--check` reports without writing. [docs/upgrading.md](docs/upgrading.md).
+
+**Demonstration data.** `tix demo seed --db /tmp/demo.db` writes a backlog with history: projects,
+people, agents, custom fields, tasks with bodies, tags, due dates and comments, and completions
+spread across the window by several actors. It is replayed through the ordinary service calls on a
+clock the command advances, so the statistics have real audit entries to attribute against, including
+two claims an agent took and never gave back so that state can be seen without arranging it by hand.
+It refuses a database that already holds work unless `--reset` is passed.
+
 ## Screenshots
 
 The same store, three ways in. More in [screenshots/](screenshots/README.md).
@@ -177,11 +229,13 @@ from a `.env` file, with precedence `flags > env > .env > config > defaults`.
 | `tix completion` | Generate a shell completion script |
 | `tix config` | Inspect the resolved configuration |
 | `tix ctx` | Manage named connection contexts |
+| `tix demo` | Fill a database with demonstration data |
 | `tix docs` | Emit the command tree as Markdown |
 | `tix doctor` | Diagnose the local installation |
 | `tix login` | Exchange a password for a session |
 | `tix logout` | End a session |
 | `tix version` | Print version information |
+<!-- END COMMANDS -->
 
 ## Install
 
@@ -215,11 +269,16 @@ code there. Nothing else changes: the commands, the output and the exit codes ar
 | [proposal.md](openspec/changes/tix-v1/proposal.md) | Why tix exists and what it does |
 | [design.md](openspec/changes/tix-v1/design.md) | Technical decisions and their trade-offs |
 | [tasks.md](openspec/changes/tix-v1/tasks.md) | Implementation checklist by work package |
-| [specs/](openspec/changes/tix-v1/specs/) | 23 capabilities, 308 requirements, 949 scenarios |
+| [specs/](openspec/changes/tix-v1/specs/) | 23 capabilities, 355 requirements, 1171 scenarios |
 | [docs/](docs/) | User and operator guides, indexed in [docs/README.md](docs/README.md) |
 | [docs/agents.md](docs/agents.md) | Leases, lease tokens, `tix claim exec`, scopes and exit codes for agents |
 | [docs/api.md](docs/api.md) | HTTP API and the WebSocket event stream |
 | [docs/deployment.md](docs/deployment.md) | Running `tix serve`, TLS, proxies and the bind guard |
+| [docs/web-ui.md](docs/web-ui.md) | The browser interface, and the preferences each reader keeps |
+| [docs/statistics.md](docs/statistics.md) | What each figure means, and what the leaderboard counts |
+| [docs/theming.md](docs/theming.md) | Tenant accents, defining a palette, what is not themed |
+| [docs/shell-completion.md](docs/shell-completion.md) | Installing completions, and what they complete |
+| [docs/upgrading.md](docs/upgrading.md) | `tix update`, the checksum, and what it will not replace |
 | [AGENTS.md](AGENTS.md) | Coding standards and architecture invariants |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Build, test and pull request process, and what supporting tix actually means |
 | [ROADMAP.md](ROADMAP.md) | What comes after v1, and the v1 seams that enable it |
@@ -227,7 +286,8 @@ code there. Nothing else changes: the commands, the output and the exit codes ar
 
 ### Capabilities
 
-Each links to its normative specification.
+Each links to its normative specification. The first table is the v1 contract; the second is what has
+been specified since, which lives with the change that introduced it.
 
 <!-- markdownlint-disable MD013 -->
 | | | |
@@ -240,6 +300,11 @@ Each links to its normative specification.
 | [audit-log](openspec/changes/tix-v1/specs/audit-log/spec.md) | [retention](openspec/changes/tix-v1/specs/retention/spec.md) | [import-export](openspec/changes/tix-v1/specs/import-export/spec.md) |
 | [external-sync](openspec/changes/tix-v1/specs/external-sync/spec.md) | [web-ui](openspec/changes/tix-v1/specs/web-ui/spec.md) | [tui](openspec/changes/tix-v1/specs/tui/spec.md) |
 | [server](openspec/changes/tix-v1/specs/server/spec.md) | [component-sharing](openspec/changes/tix-v1/specs/component-sharing/spec.md) | |
+
+| | | |
+| --- | --- | --- |
+| [theming](openspec/changes/archive/2026-09-24-themes-and-completion/specs/theming/spec.md) | [stats](openspec/changes/archive/2026-09-24-themes-and-completion/specs/stats/spec.md) | [ssh-access](openspec/changes/archive/2026-09-22-ssh-terminal-access/specs/ssh-access/spec.md) |
+| [live-connections](openspec/changes/live-connections/specs/live-connections/spec.md) | [v0-5-0-polish](openspec/changes/v0-5-0-polish/specs/) | |
 <!-- markdownlint-enable MD013 -->
 
 ## Development

@@ -192,8 +192,9 @@ have already cut the candidate set:
 tix task ls -p rv -s todo -l urgent
 ```
 
-`tix task ls` has no flag for custom field values. The HTTP API is where a custom field filter is expressed:
-`GET /api/v1/tasks?field.severity=high`. See [api.md](api.md).
+`tix task ls` has no flag for custom field values, but the filter expression carries them:
+`tix task ls --filter 'field.severity:high'` on the command line, `GET /api/v1/tasks?field.severity=high` over
+HTTP. See [filtering.md](filtering.md#every-term) and [api.md](api.md).
 
 ## Sharing a workflow between installations
 

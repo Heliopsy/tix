@@ -6,15 +6,23 @@ own, and what deliberately is not themeable.
 
 ## What a theme is
 
-Two colours.
+An accent and the tint it sits on, once for the light scheme and once for the dark ones.
 
 | Field | Meaning |
 | --- | --- |
 | `accent` | The brand colour: headings, the selected row, the focused column's border |
 | `accent_soft` | The tint it sits on in the browser |
+| `accent_dark` | The accent for the dark and dim schemes. Optional |
+| `accent_soft_dark` | The tint for those schemes. Optional |
+
+The dark pair exists because an accent picked to read on white is usually too dark to read on
+near-black, and the browser follows the system, which for most people is dark. A theme that names only
+the light pair used to render as a barely visible smear on the scheme most people actually see. The
+dark fields are optional and fall back to the light pair, so a theme written before they existed still
+applies everywhere rather than being dropped on half the schemes.
 
 Not a colour per element. The web interface already has light, dark and a low-contrast scheme for
-everything structural, chosen per browser from the sidebar, and a 256-colour terminal cannot honour a
+everything structural, chosen per browser in Settings, and a 256-colour terminal cannot honour a
 browser's palette anyway. What a tenant actually wants to set is the accent.
 
 ## Choosing one
@@ -41,6 +49,8 @@ themes:
   acme:
     accent: "#7c3aed"
     accent_soft: "#f3eeff"
+    accent_dark: "#c4b5fd"
+    accent_soft_dark: "#2a2145"
 ```
 
 Then `tix tenant edit acme --theme acme`.
@@ -51,7 +61,7 @@ trail to express the same thing. The tenant record stores only the name.
 
 A configured name overrides a built-in one, so you can redefine `default` without patching the binary.
 
-Both colours must be `#rrggbb`. Anything else is refused when configuration loads, not when a page renders:
+Every colour must be `#rrggbb`. Anything else is refused when configuration loads, not when a page renders:
 the value ends up inside a stylesheet where escaping is suppressed, so this is the boundary that keeps a
 configuration file out of the CSS. Three-digit hex, `rgb()` and colour names are all rejected, and hex is
 required because the terminal interface parses the same value.
@@ -83,7 +93,8 @@ board down, but the moment someone types a name is the moment to tell them it is
 get a board where nothing stands out. These carry meaning rather than identity.
 
 **Light, dark and dim.** A separate axis, chosen per browser rather than per tenant, because it is a
-property of the person reading rather than of the organisation.
+property of the person reading rather than of the organisation. See
+[web-ui.md](web-ui.md) for that and the other preferences a browser keeps.
 
 **`NO_COLOR`.** Setting `NO_COLOR` or `TIX_NO_COLOR` suppresses every escape in the terminal interface
 whatever theme resolves. A theme is not a reason to start colouring output for someone who asked for none.

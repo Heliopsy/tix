@@ -17,6 +17,7 @@ with the thing.
 | [api.md](api.md) | The HTTP API, the WebSocket event stream, and resuming with `since_seq` |
 | [filtering.md](filtering.md) | The filter expression language: negation, weak matching, and what each engine does |
 | [scripting.md](scripting.md) | NDJSON everywhere, output formats, piping, exit codes |
+| [web-ui.md](web-ui.md) | The browser interface: lease badges, multi-step moves, the directory, per-browser preferences |
 | [deployment.md](deployment.md) | Running `tix serve`, TLS, reverse proxies, the non-loopback bind guard |
 | [scaling.md](scaling.md) | SQLite versus PostgreSQL, keyset pagination, partitioning, when to move |
 | [migrating.md](migrating.md) | Importing from Jira and OpenProject, mapping files, snapshots, bundles |
@@ -34,6 +35,7 @@ with the thing.
   [deployment.md](deployment.md).
 - Coming from another tracker: [migrating.md](migrating.md).
 - Building a client: [api.md](api.md).
+- Showing tix to somebody: `tix demo seed` and [web-ui.md](web-ui.md).
 - Changing the code: [AGENTS.md](../AGENTS.md), then [testing.md](testing.md).
 
 ## Elsewhere

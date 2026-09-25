@@ -42,3 +42,15 @@ at a line height tight enough for the box characters to join up.
 
 The browser images are Chrome at a device pixel ratio of 2 against a running
 `tix serve`, signed in as a seeded user.
+
+Two more things learned the second time round.
+
+`termshot --raw-read` takes a file of raw terminal output instead of running
+the command itself, which is the easier way past the panic: capture the output
+under `script`, strip the queries and the replies from the file, and hand the
+cleaned file to `termshot`. Nothing then races the pty.
+
+A `capture-pane` frame is as tall as the pane, not as tall as the interface, so
+the blank rows below the board arrive with it and become empty window inside
+the image. Trim the trailing blank lines from the capture before `aha` sees
+them, and size the pane so the columns are full rather than padded.
