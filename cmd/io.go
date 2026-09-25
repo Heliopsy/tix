@@ -310,8 +310,17 @@ func (l *listWriter[T]) Close() error {
 	return l.g.render(l.cmd, l.rows)
 }
 
-// fail closes the listing and returns the original error.
-func (l *listWriter[T]) fail(err error) error {
-	_ = l.Close()
-	return err
-}
+// fail abandons the listing and returns the original error.
+//
+// It deliberately does not close the stream. Closing finishes the document,
+// and a finished document is an answer: a failed `task ls -o json` used to put
+// "[]" on standard output beside its error on standard error, so a pipeline
+// reading only stdout, which is the usual shape of one, read a valid empty
+// array and concluded there were no tasks.
+//
+// A listing that fails part way through cannot unsend what it already wrote.
+// The JSON array is left unterminated on purpose, so a consumer parsing stdout
+// gets a syntax error rather than a short array it would believe. NDJSON and
+// YAML are record-oriented and have no terminator to withhold; every line
+// already written is true on its own, and the exit status carries the rest.
+func (*listWriter[T]) fail(err error) error { return err }

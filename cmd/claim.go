@@ -114,7 +114,7 @@ func claimNextCmd(g *globals) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "next",
 		Short:   "Claim the next eligible task",
-		Long:    "Claim the highest-priority unblocked task matching the filter.\n\nExit codes: 3 no eligible task, 5 permission denied.",
+		Long:    "Claim the highest-priority unblocked task matching the filter.\n\nExit codes: 3 no eligible task or unknown project or status, 5 permission denied.",
 		Example: "  tix claim next\n  tix claim next -p infra --tag ops --ttl 30m",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {

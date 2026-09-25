@@ -94,6 +94,18 @@ func TestStatsJSONCarriesEveryFigureTheScreenShows(t *testing.T) {
 	}
 }
 
+// TestStatsAcceptsAWindowInDays is the other half of TestStatsPrintsNoRawGoDurations:
+// the screen renders "30d" and the flag used to reject it.
+func TestStatsAcceptsAWindowInDays(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("project", "create", "infra", "Infrastructure")
+	for _, window := range []string{"30d", "16d 1h", "720h"} {
+		if got := c.run("stats", "--window", window, "-o", "json"); got.code != core.ExitOK {
+			t.Errorf("stats --window %q exited %d: %s", window, got.code, got.err)
+		}
+	}
+}
+
 func TestStatsFlagRejections(t *testing.T) {
 	c := newCLI(t)
 	c.mustRun("project", "create", "infra", "Infrastructure")
@@ -106,6 +118,7 @@ func TestStatsFlagRejections(t *testing.T) {
 		{"since and window together", []string{"stats", "--since", "2026-01-01", "--window", "24h"},
 			core.KindInvalid.ExitCode()},
 		{"unparseable window", []string{"stats", "--window", "soon"}, core.KindInvalid.ExitCode()},
+		{"a week, which nothing renders", []string{"stats", "--window", "4w"}, core.KindInvalid.ExitCode()},
 		{"unparseable since", []string{"stats", "--since", "yesterday"}, core.KindInvalid.ExitCode()},
 		{"unknown project", []string{"stats", "-p", "nosuchproject"}, core.KindNotFound.ExitCode()},
 		{"positional argument", []string{"stats", "extra"}, core.KindInvalid.ExitCode()},

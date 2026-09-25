@@ -58,7 +58,7 @@ func taskAddCmd(g *globals) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "add TITLE...",
 		Short:   "Create a task",
-		Long:    "Create a task. Only a title is required; the default project and workflow are used.\n\nExit codes: 2 invalid input, 3 unknown project or parent, 5 permission denied.",
+		Long:    "Create a task. Only a title is required; the default project and workflow are used.\n\nExit codes: 2 invalid input, 3 unknown project, parent or assignee, 5 permission denied.",
 		Example: "  tix task add \"buy milk\"\n  tix task add \"ship release\" -p infra --priority high --tag ops",
 		Args:    minArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -122,7 +122,7 @@ func taskAddCmd(g *globals) *cobra.Command {
 	f.StringVar(&bodyFlag, "body", "", "task body, or - to read standard input")
 	f.StringVar(&status, "status", "", "initial status")
 	f.StringVar(&priority, "priority", "", "priority name or number")
-	f.StringVar(&assignee, "assignee", "", "actor id the task is assigned to")
+	f.StringVar(&assignee, "assignee", "", "actor handle or id the task is assigned to")
 	f.StringVar(&parent, "parent", "", "parent task reference")
 	f.StringVar(&due, "due", "", "due date")
 	f.StringSliceVarP(&tags, "tag", "l", nil, "tag to attach, repeatable")
@@ -150,7 +150,7 @@ func taskLsCmd(g *globals) *cobra.Command {
 			"space separated key:value terms, ANDed. A leading - excludes (-tag:ops, -status:done), " +
 			"and ~ in place of : matches weakly, anywhere inside the field (title~api, text~deploy). " +
 			"The other flags add to whatever --filter selected.\n\n" +
-			"Exit codes: 2 invalid filter, 5 permission denied.",
+			"Exit codes: 2 invalid filter, 3 unknown project, status, parent or actor, 5 permission denied.",
 		Example: "  tix task ls\n  tix task ls --status todo -o ndjson\n" +
 			"  tix task ls -p infra --tag ops --all\n" +
 			"  tix task ls --filter 'status:todo -tag:ops title~deploy'",
@@ -234,7 +234,7 @@ func taskLsCmd(g *globals) *cobra.Command {
 	f.StringSliceVarP(&projects, "project", "p", nil, "restrict to project keys")
 	f.StringSliceVarP(&statuses, "status", "s", nil, "restrict to statuses")
 	f.StringSliceVarP(&tags, "tag", "l", nil, "restrict to tags")
-	f.StringSliceVar(&assignees, "assignee", nil, "restrict to assignees")
+	f.StringSliceVar(&assignees, "assignee", nil, "restrict to assignee handles or ids, repeatable")
 	f.StringVar(&text, "query", "", "match title and body text")
 	f.StringVar(&expr, "filter", "", "filter expression, such as 'status:todo -tag:ops title~deploy'")
 	f.StringVar(&cursor, "cursor", "", "continue from a previous page")
@@ -288,7 +288,7 @@ func taskEditCmd(g *globals) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "edit REF",
 		Short:   "Change a task",
-		Long:    "Change a task's attributes. Only the flags you pass are applied.\n\nExit codes: 3 unknown reference, 4 version conflict, 5 permission denied.",
+		Long:    "Change a task's attributes. Only the flags you pass are applied.\n\nExit codes: 3 unknown reference or assignee, 4 version conflict, 5 permission denied.",
 		Example: "  tix task edit default-1 --title \"buy oat milk\"\n  tix task edit default-1 --priority high --dry-run",
 		Args:    exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -358,7 +358,7 @@ func taskEditCmd(g *globals) *cobra.Command {
 	f.StringVar(&title, "title", "", "new title")
 	f.StringVar(&bodyFlag, "body", "", "new body, or - to read standard input")
 	f.StringVar(&priority, "priority", "", "new priority")
-	f.StringVar(&assignee, "assignee", "", "new assignee actor id")
+	f.StringVar(&assignee, "assignee", "", "new assignee, actor handle or id")
 	f.StringVar(&parent, "parent", "", "new parent reference")
 	f.StringVar(&due, "due", "", "new due date")
 	f.StringSliceVarP(&tags, "tag", "l", nil, "replace the tag set")

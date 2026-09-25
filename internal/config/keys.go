@@ -206,9 +206,9 @@ func (k Key) Set(cfg *Config, raw string) error {
 		}
 		v.SetInt(parsed)
 	case kindDuration:
-		parsed, err := time.ParseDuration(strings.TrimSpace(raw))
+		parsed, err := core.ParseDuration(raw)
 		if err != nil {
-			return core.Invalid("key %q got %q, expected a duration such as 15m or 24h", k.Path, raw)
+			return core.Invalid("key %q got %q, expected a duration such as 15m, 24h or 30d", k.Path, raw)
 		}
 		v.SetInt(int64(parsed))
 	case kindStrings:

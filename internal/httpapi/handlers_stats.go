@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/wire"
@@ -34,11 +33,11 @@ func statsInputFrom(r *http.Request) (core.StatsInput, error) {
 		in.Since = *since
 	}
 	if raw := strings.TrimSpace(q.Get("window")); raw != "" {
-		d, err := time.ParseDuration(raw)
+		d, err := core.ParseDuration(raw)
 		if err != nil {
-			return core.StatsInput{}, core.Invalid("window %q is not a duration such as 168h", raw)
+			return core.StatsInput{}, core.Invalid("window %q is not a duration such as 7d, 30d or 168h", raw)
 		}
-		in.Window = core.Duration(d)
+		in.Window = d
 	}
 	if in.TopActors, err = intParam(q.Get("top"), "top"); err != nil {
 		return core.StatsInput{}, err

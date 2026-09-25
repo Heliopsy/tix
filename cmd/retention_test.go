@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 )
@@ -74,7 +75,8 @@ func TestRetentionSetRejectsBadWindows(t *testing.T) {
 		{name: "no window at all", args: nil, wantErr: "at least one of"},
 		{name: "zero window", args: []string{"--events", "0s"}, wantErr: "must be positive"},
 		{name: "negative window", args: []string{"--events", "-1h"}, wantErr: "must not be negative"},
-		{name: "not a duration", args: []string{"--audit", "forever"}, wantErr: "go duration"},
+		{name: "not a duration", args: []string{"--audit", "forever"}, wantErr: "must be a duration"},
+		{name: "a week, which nothing renders", args: []string{"--audit", "4w"}, wantErr: "must be a duration"},
 	}
 
 	for _, tc := range tests {
@@ -92,6 +94,27 @@ func TestRetentionSetRejectsBadWindows(t *testing.T) {
 				t.Fatalf("policy = %+v, want it unchanged", after)
 			}
 		})
+	}
+}
+
+// TestRetentionSetTakesTheWindowAsItIsShown is the command-line end of the
+// vocabulary fix: the retention windows are read in days on every screen, and
+// "30d" had to be typed as "720h".
+func TestRetentionSetTakesTheWindowAsItIsShown(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("retention", "set", "--events", "30d", "--audit", "365d", "--webhook-deliveries", "7d")
+	policy := retentionOf(t, c)
+	if policy.Events.D() != 720*time.Hour {
+		t.Errorf("events = %v, want 720h", policy.Events.D())
+	}
+	if policy.AuditEntries.D() != 8760*time.Hour {
+		t.Errorf("audit = %v, want 8760h", policy.AuditEntries.D())
+	}
+	if policy.WebhookDeliveries.D() != 168*time.Hour {
+		t.Errorf("webhook deliveries = %v, want 168h", policy.WebhookDeliveries.D())
+	}
+	if got := policy.Events.Human(); got != "30d" {
+		t.Errorf("Human() = %q, want the form it was typed in", got)
 	}
 }
 

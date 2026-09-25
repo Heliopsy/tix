@@ -5,6 +5,8 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -22,15 +24,15 @@ func (d Duration) MarshalJSON() ([]byte, error) {
 	return json.Marshal(time.Duration(d).String())
 }
 
-// UnmarshalJSON accepts a duration string such as "15m", or nanoseconds.
+// UnmarshalJSON accepts a duration string such as "15m" or "30d", or nanoseconds.
 func (d *Duration) UnmarshalJSON(b []byte) error {
 	var s string
 	if err := json.Unmarshal(b, &s); err == nil {
-		parsed, err := time.ParseDuration(s)
+		parsed, err := ParseDuration(s)
 		if err != nil {
-			return Invalid("parsing duration %q: %v", s, err)
+			return err
 		}
-		*d = Duration(parsed)
+		*d = parsed
 		return nil
 	}
 
@@ -45,13 +47,13 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 // MarshalYAML renders the duration as a string.
 func (d Duration) MarshalYAML() (any, error) { return time.Duration(d).String(), nil }
 
-// UnmarshalYAML accepts a duration string such as "15m", or nanoseconds.
+// UnmarshalYAML accepts a duration string such as "15m" or "30d", or nanoseconds.
 func (d *Duration) UnmarshalYAML(unmarshal func(any) error) error {
 	var s string
 	if err := unmarshal(&s); err == nil {
-		parsed, perr := time.ParseDuration(s)
+		parsed, perr := ParseDuration(s)
 		if perr == nil {
-			*d = Duration(parsed)
+			*d = parsed
 			return nil
 		}
 		var n int64
@@ -59,7 +61,7 @@ func (d *Duration) UnmarshalYAML(unmarshal func(any) error) error {
 			*d = Duration(n)
 			return nil
 		}
-		return Invalid("parsing duration %q: %v", s, perr)
+		return perr
 	}
 
 	var n int64
@@ -106,3 +108,99 @@ func (d Duration) Human() string {
 		return fmt.Sprintf("%dd", days)
 	}
 }
+
+// ParseDuration reads the vocabulary the product prints. It accepts everything
+// time.ParseDuration accepts, and additionally a "d" unit and whitespace
+// between terms, so that Human output such as "16d 1h" is valid input.
+//
+// The day exists because Human renders one and the command line used to reject
+// it: a retention window shown as "30d" that had to be typed as "720h" is the
+// product contradicting itself. There is no week unit, because nothing renders
+// one, and a unit the product accepts but never prints is the same asymmetry
+// facing the other way.
+//
+// A day here is exactly 24 hours. Nothing in this type does calendar
+// arithmetic, so no value of it can straddle a daylight saving transition.
+func ParseDuration(s string) (Duration, error) {
+	trimmed := strings.TrimSpace(s)
+	if d, err := time.ParseDuration(trimmed); err == nil {
+		return Duration(d), nil
+	}
+	d, ok := parseTerms(trimmed)
+	if !ok {
+		return 0, Invalid("duration %q must be a duration such as 15m, 2h30m or 30d", s)
+	}
+	return Duration(d), nil
+}
+
+// parseTerms reads a whitespace-separated or adjacent run of number-unit terms.
+func parseTerms(s string) (time.Duration, bool) {
+	neg := false
+	if s != "" && (s[0] == '+' || s[0] == '-') {
+		neg = s[0] == '-'
+		s = s[1:]
+	}
+	var total time.Duration
+	terms := 0
+	for i := 0; i < len(s); {
+		if s[i] == ' ' || s[i] == '\t' {
+			i++
+			continue
+		}
+		start := i
+		for i < len(s) && (s[i] >= '0' && s[i] <= '9' || s[i] == '.') {
+			i++
+		}
+		number := s[start:i]
+		start = i
+		for i < len(s) && (s[i] < '0' || s[i] > '9') && s[i] != '.' && s[i] != ' ' && s[i] != '\t' {
+			i++
+		}
+		unit := s[start:i]
+		term, ok := parseTerm(number, unit)
+		if !ok {
+			return 0, false
+		}
+		if total+term < total {
+			return 0, false
+		}
+		total += term
+		terms++
+	}
+	if terms == 0 {
+		return 0, false
+	}
+	if neg {
+		total = -total
+	}
+	return total, true
+}
+
+// parseTerm converts one number and unit, handling the day Go does not know.
+func parseTerm(number, unit string) (time.Duration, bool) {
+	if number == "" || unit == "" {
+		return 0, false
+	}
+	if unit != "d" {
+		term, err := time.ParseDuration(number + unit)
+		if err != nil || term < 0 {
+			return 0, false
+		}
+		return term, true
+	}
+	if !strings.Contains(number, ".") {
+		days, err := strconv.ParseInt(number, 10, 64)
+		if err != nil || days > maxDurationDays {
+			return 0, false
+		}
+		return time.Duration(days) * 24 * time.Hour, true
+	}
+	days, err := strconv.ParseFloat(number, 64)
+	if err != nil || days < 0 || days > float64(maxDurationDays) {
+		return 0, false
+	}
+	return time.Duration(days * 24 * float64(time.Hour)), true
+}
+
+// maxDurationDays is the largest whole day count a time.Duration can hold.
+const maxDurationDays = int64(1<<63-1) / (24 * int64(time.Hour))

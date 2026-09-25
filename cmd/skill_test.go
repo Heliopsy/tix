@@ -157,7 +157,7 @@ func inlineCode(line string) []string {
 func checkInvocation(t *testing.T, root *cobra.Command, line string) {
 	t.Helper()
 
-	words := strings.Fields(line)
+	words := strings.Fields(stripQuoted(line))
 	for i, w := range words {
 		if cleanWord(w) != "tix" {
 			continue
@@ -179,6 +179,30 @@ func checkInvocation(t *testing.T, root *cobra.Command, line string) {
 			}
 		}
 	}
+}
+
+// stripQuoted replaces every quoted span with a placeholder word. A quoted
+// argument is opaque to the shell's own word splitting, so a filter expression
+// such as '-tag:ops' is an argument and not a flag. Without this a leading dash
+// inside quotes reaches pflag's shorthand lookup, which panics on a name longer
+// than one character.
+func stripQuoted(line string) string {
+	var b strings.Builder
+	var quote rune
+	for _, r := range line {
+		switch {
+		case quote != 0:
+			if r == quote {
+				quote = 0
+			}
+		case r == '\'' || r == '"':
+			quote = r
+			b.WriteString("ARG")
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // cleanWord strips the shell and Markdown punctuation around a word, leaving
@@ -236,6 +260,9 @@ func hasFlag(cmd *cobra.Command, name string) bool {
 		return cmd.Flags().Lookup(long) != nil || cmd.InheritedFlags().Lookup(long) != nil
 	}
 	short := strings.TrimPrefix(name, "-")
+	if len(short) != 1 {
+		return false
+	}
 	return cmd.Flags().ShorthandLookup(short) != nil || cmd.InheritedFlags().ShorthandLookup(short) != nil
 }
 
@@ -251,6 +278,9 @@ func takesValue(cmd *cobra.Command, name string) bool {
 		return false
 	}
 	short := strings.TrimPrefix(name, "-")
+	if len(short) != 1 {
+		return false
+	}
 	if f := cmd.Flags().ShorthandLookup(short); f != nil {
 		return f.NoOptDefVal == ""
 	}
@@ -258,4 +288,46 @@ func takesValue(cmd *cobra.Command, name string) bool {
 		return f.NoOptDefVal == ""
 	}
 	return false
+}
+
+// skillOmits names the "work" group commands the skill deliberately does not
+// cover, each with the reason. An entry here is a decision; a command that is
+// neither documented nor listed is the accident this guard exists to catch.
+var skillOmits = map[string]string{
+	"tag": "agents attach tags with task add -l and filter with task ls -l; tag add/rm/ls is tenant upkeep a person does",
+}
+
+// TestSkillCoversEveryWorkCommand fails when a command an agent is meant to
+// drive lands without reaching the skill. The existing guards prove the skill
+// tells no lies; this one is the only guard that notices an omission, which is
+// how tix stats, tix actor and a rewritten task filter shipped unmentioned
+// while every test stayed green.
+func TestSkillCoversEveryWorkCommand(t *testing.T) {
+	root, _ := newRoot([]string{"HOME=" + t.TempDir()}, t.TempDir())
+	skill := readSkill(t)
+
+	var covered int
+	for _, cmd := range root.Commands() {
+		if cmd.GroupID != "work" || !cmd.IsAvailableCommand() {
+			continue
+		}
+		name := cmd.Name()
+		if why, omitted := skillOmits[name]; omitted {
+			if why == "" {
+				t.Errorf("skillOmits[%q] carries no reason", name)
+			}
+			if strings.Contains(skill, "tix "+name) {
+				t.Errorf("skillOmits lists %q but the skill covers it; drop the entry", name)
+			}
+			continue
+		}
+		if !strings.Contains(skill, "tix "+name) {
+			t.Errorf("the skill never names %q, a command in the work group; "+
+				"document it, or add it to skillOmits with the reason", "tix "+name)
+		}
+		covered++
+	}
+	if covered < 5 {
+		t.Fatalf("checked only %d work commands, want the group lookup to still work", covered)
+	}
 }

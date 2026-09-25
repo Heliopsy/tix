@@ -54,8 +54,8 @@ func retentionSetCmd(g *globals) *cobra.Command {
 		Long: "Change one or more retention windows. A window left unset keeps its current value.\n\n" +
 			fmt.Sprintf("Exit codes: %d invalid window, %d permission denied.",
 				core.KindInvalid.ExitCode(), core.KindForbidden.ExitCode()),
-		Example: "  tix retention set --events 720h\n" +
-			"  tix retention set --audit 8760h --webhook-deliveries 168h",
+		Example: "  tix retention set --events 30d\n" +
+			"  tix retention set --audit 365d --webhook-deliveries 7d",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			policy, err := retentionPolicy(cmd, events, audit, deliveries)
@@ -81,7 +81,7 @@ func retentionSetCmd(g *globals) *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&events, "events", "", "how long events are kept, as a duration such as 720h")
+	f.StringVar(&events, "events", "", "how long events are kept, as a duration such as 30d or 720h")
 	f.StringVar(&audit, "audit", "", "how long audit entries are kept")
 	f.StringVar(&deliveries, "webhook-deliveries", "", "how long webhook deliveries are kept")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would change without writing")

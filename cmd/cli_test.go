@@ -386,7 +386,41 @@ func TestTaskLifecycle(t *testing.T) {
 	c.mustRun("task", "rm", "infra-2")
 	c.mustRun("task", "restore", "infra-2")
 	c.mustRun("task", "ls", "--all", "--unclaimed", "--sort", "priority", "--desc", "--limit", "1")
-	c.mustRun("task", "ls", "--include-deleted", "--query", "renamed", "--assignee", "nobody")
+	c.mustRun("task", "ls", "--include-deleted", "--query", "renamed")
+	c.assertAssigneeAcceptsAHandle()
+	c.assertAnUnknownFilterReferenceIsNotAnEmptyList()
+}
+
+// assertAssigneeAcceptsAHandle is the command-line half of the defect the
+// published skill demonstrated: `task ls --assignee alice` answered with an
+// empty listing and a zero exit status, which reads as "alice has no tasks"
+// rather than "that is a handle and the filter wanted an identifier". This
+// suite used to assert the broken behaviour, passing "nobody" and expecting
+// success.
+func (c *cli) assertAssigneeAcceptsAHandle() {
+	c.t.Helper()
+	c.mustRun("user", "create", "bob@example.com", "--handle", "bob")
+	c.mustRun("task", "add", "-p", "infra", "bob's task", "--assignee", "bob")
+
+	listed := c.mustRun("task", "ls", "-p", "infra", "--assignee", "bob", "-o", "json")
+	if !strings.Contains(listed.out, "bob's task") {
+		c.t.Fatalf("listing by handle = %q, want the task assigned to bob", listed.out)
+	}
+
+	for _, args := range [][]string{
+		{"task", "ls", "--assignee", "nobody"},
+		{"task", "add", "-p", "infra", "orphan", "--assignee", "nobody"},
+		{"task", "edit", "infra-1", "--assignee", "nobody"},
+	} {
+		got := c.run(args...)
+		if got.code != core.KindNotFound.ExitCode() {
+			c.t.Fatalf("tix %s exited %d, want %d for an unresolvable assignee\nstdout: %s\nstderr: %s",
+				strings.Join(args, " "), got.code, core.KindNotFound.ExitCode(), got.out, got.err)
+		}
+		if !strings.Contains(got.err, "nobody") {
+			c.t.Fatalf("tix %s did not name the unresolved assignee: %s", strings.Join(args, " "), got.err)
+		}
+	}
 }
 
 func TestProjectWorkflowAndFieldCommands(t *testing.T) {
@@ -946,4 +980,40 @@ func TestMutuallyExclusiveListFilters(t *testing.T) {
 	c.mustRun("task", "add", "alpha")
 	c.mustRun("task", "ls", "--claimed")
 	c.mustRun("task", "ls", "--blocked")
+}
+
+// assertAnUnknownFilterReferenceIsNotAnEmptyList is the command-line half of
+// the rest of the family: `task ls -p nosuchproject -o json` printed "[]" and
+// exited zero, and a reader, or an agent, takes that for "the project is
+// empty". The two terms that are deliberately not errors are asserted here
+// too, because the value of the rule is that it refuses only what names
+// nothing at all.
+func (c *cli) assertAnUnknownFilterReferenceIsNotAnEmptyList() {
+	c.t.Helper()
+	for _, args := range [][]string{
+		{"task", "ls", "-p", "nosuchproject", "-o", "json"},
+		{"task", "ls", "--status", "nosuchstatus", "-o", "json"},
+		{"task", "ls", "--filter", "parent:infra-9999", "-o", "json"},
+		{"task", "ls", "--filter", "creator:nobody", "-o", "json"},
+	} {
+		got := c.run(args...)
+		if got.code != core.KindNotFound.ExitCode() {
+			c.t.Fatalf("tix %s exited %d, want %d for a reference that names nothing\nstdout: %s\nstderr: %s",
+				strings.Join(args, " "), got.code, core.KindNotFound.ExitCode(), got.out, got.err)
+		}
+		if strings.Contains(got.out, "[") {
+			c.t.Fatalf("tix %s wrote a document beside its error: %q", strings.Join(args, " "), got.out)
+		}
+	}
+
+	// A tag nobody has applied is a tag with no tasks, not a typo, and an
+	// upper-case key or status names something that plainly exists.
+	for _, args := range [][]string{
+		{"task", "ls", "--tag", "nosuchtag", "-o", "json"},
+		{"task", "ls", "--filter", "-tag:nosuchtag", "-o", "json"},
+		{"task", "ls", "-p", "INFRA", "-o", "json"},
+		{"task", "ls", "-p", "infra", "--status", "TODO", "-o", "json"},
+	} {
+		c.mustRun(args...)
+	}
 }

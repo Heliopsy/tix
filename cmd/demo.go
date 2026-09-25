@@ -34,6 +34,7 @@ func newDemoCmd(g *globals) *cobra.Command {
 func demoSeedCmd(g *globals) *cobra.Command {
 	var days int
 	var reset bool
+	var password string
 	cmd := &cobra.Command{
 		Use:   "seed",
 		Short: "Seed backdated projects, people and tasks",
@@ -42,13 +43,15 @@ func demoSeedCmd(g *globals) *cobra.Command {
 			"by different actors, so the statistics and the boards have something to show.\n\n" +
 			"The history is replayed through the ordinary write path against a clock that is advanced, " +
 			"so it carries the audit trail the statistics are derived from.\n\n" +
+			"The seed leaves accounts that can sign in to the browser interface, and reports their " +
+			"credentials, so the demonstration it wrote can be opened rather than only queried.\n\n" +
 			fmt.Sprintf("Exit codes: %d invalid window, %d the database already holds data.",
 				core.KindInvalid.ExitCode(), core.KindConflict.ExitCode()),
 		Example: "  tix demo seed --db /tmp/demo.db\n  tix demo seed --db /tmp/demo.db --days 30 --reset",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			now := time.Now().UTC()
-			opts := demo.Options{Days: days, Now: now}
+			opts := demo.Options{Days: days, Now: now, Password: password}
 			resolved, err := g.resolve()
 			if err != nil {
 				return err
@@ -89,7 +92,9 @@ func demoSeedCmd(g *globals) *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.IntVar(&days, "days", demo.DefaultDays, "how many days of history to write")
-	f.BoolVar(&reset, "reset", false, "delete the tasks, projects and users already there first")
+	f.BoolVar(&reset, "reset", false, "delete the tasks and projects already there first")
+	f.StringVar(&password, "password", "",
+		"password for the seeded sign-in accounts, defaulting to "+demo.DefaultPassword)
 	return cmd
 }
 
@@ -113,8 +118,17 @@ func writeDemoSummary(w io.Writer, s *demo.Summary) error {
 		{"COMPLETED", s.Completed},
 		{"COMMENTS", s.Comments},
 		{"DEPENDENCIES", s.Dependencies},
+		{"ABANDONED CLAIMS", s.Abandoned},
 	} {
 		_, _ = fmt.Fprintf(tw, "%s\t%d\t\n", row.label, row.n)
 	}
-	return tw.Flush()
+	for _, c := range s.Credentials {
+		_, _ = fmt.Fprintf(tw, "SIGN IN\t%s\t%s\t%s\n", c.Email, c.Password, c.Role)
+	}
+	if err := tw.Flush(); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintln(w, "\nSign in to the browser interface with either account above; "+
+		"tix serve prints the address.")
+	return err
 }

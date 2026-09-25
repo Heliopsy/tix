@@ -27,7 +27,7 @@ func newStatsCmd(g *globals) *cobra.Command {
 			"where it is sitting, and who moved the most tasks to a terminal state.\n\n" +
 			fmt.Sprintf("Exit codes: %d invalid window, %d unknown project, %d permission denied.",
 				core.KindInvalid.ExitCode(), core.KindNotFound.ExitCode(), core.KindForbidden.ExitCode()),
-		Example: "  tix stats\n  tix stats --window 720h -p infra\n  tix stats --since 2026-01-01 -o json",
+		Example: "  tix stats\n  tix stats --window 30d -p infra\n  tix stats --since 2026-01-01 -o json",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			in := core.StatsInput{ProjectRef: project, TopActors: top, Oldest: oldest}
@@ -64,7 +64,7 @@ func newStatsCmd(g *globals) *cobra.Command {
 	f := cmd.Flags()
 	f.StringVarP(&project, "project", "p", "", "project key to report on, instead of the whole tenant")
 	f.StringVar(&since, "since", "", "start of the window, as RFC3339 or YYYY-MM-DD")
-	f.StringVar(&window, "window", "", "how far back the window reaches, as a duration such as 720h")
+	f.StringVar(&window, "window", "", "how far back the window reaches, as a duration such as 14d, 30d or 720h")
 	f.IntVar(&top, "top", 0, "how many actors the leaderboard names")
 	f.IntVar(&oldest, "oldest", 0, "how many ageing tasks to report")
 	registerCompletions(g, cmd, "project")

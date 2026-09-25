@@ -58,20 +58,20 @@ func parseTime(value string) (*time.Time, error) {
 	return nil, core.Invalid("time %q must be RFC3339 or YYYY-MM-DD", value)
 }
 
-// parseDuration accepts a Go duration such as "15m".
+// parseDuration accepts a duration such as "15m", "2h30m" or "30d".
 func parseDuration(value string) (core.Duration, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
 		return 0, nil
 	}
-	d, err := time.ParseDuration(trimmed)
+	d, err := core.ParseDuration(trimmed)
 	if err != nil {
-		return 0, core.Invalid("duration %q must be a Go duration such as 15m", value)
+		return 0, err
 	}
 	if d < 0 {
 		return 0, core.Invalid("duration %q must not be negative", value)
 	}
-	return core.Duration(d), nil
+	return d, nil
 }
 
 // parseFields turns repeated key=value flags into custom field values, decoding
