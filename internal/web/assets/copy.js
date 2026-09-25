@@ -110,6 +110,60 @@
   window.addEventListener("hashchange", revealTarget);
   document.addEventListener("htmx:load", revealTarget);
 
+  // A boosted swap replaces the markup, so a <details> the reader had opened
+  // comes back closed. Applying a column filter therefore shut the panel the
+  // reader was working in, on every single click, and they had to reopen it
+  // to change the next thing.
+  //
+  // Keyed by class rather than by index, because the panels a page shows
+  // depend on the page and a positional key reopens the wrong one.
+  var openPanels = [];
+  var keptScroll = null;
+  var keptPath = null;
+
+  function rememberPlace() {
+    openPanels = [];
+    var panels = document.querySelectorAll("details.panel[open]");
+    for (var i = 0; i < panels.length; i++) {
+      openPanels.push(panels[i].className);
+    }
+    // Where the reader is, and on what. Restored only if the swap lands back
+    // on the same path: a form that re-renders its own page should leave the
+    // view alone, while following a link to somewhere else should start at
+    // the top the way a page load does.
+    keptScroll = window.scrollY;
+    keptPath = window.location.pathname;
+  }
+
+  function restorePlace() {
+    for (var i = 0; i < openPanels.length; i++) {
+      var match = document.querySelector("details." + openPanels[i].trim().split(/\s+/).join("."));
+      if (match) {
+        match.setAttribute("open", "");
+      }
+    }
+    openPanels = [];
+
+    // htmx scrolls a boosted request into view of its own accord
+    // (scrollIntoViewOnBoost), which hx-swap="show:none" does not cover, so
+    // ticking a task or applying a column filter threw the reader back to the
+    // top of a list they were part way down.
+    if (keptScroll !== null && keptPath === window.location.pathname) {
+      var wanted = keptScroll;
+      // After the swap the document may be shorter than it was, so clamp
+      // rather than asking for an offset that no longer exists.
+      window.requestAnimationFrame(function () {
+        var max = document.documentElement.scrollHeight - window.innerHeight;
+        window.scrollTo(0, Math.max(0, Math.min(wanted, max)));
+      });
+    }
+    keptScroll = null;
+    keptPath = null;
+  }
+
+  document.addEventListener("htmx:beforeSwap", rememberPlace);
+  document.addEventListener("htmx:load", restorePlace);
+
   // A styled file field (.file-field, app.css) hides the browser's own
   // "Choose file / No file chosen" text, so the one thing that native widget
   // told you for free -- which file, if any, is selected -- has to be read

@@ -103,7 +103,11 @@
 <details class="panel columns">
   <summary>Columns</summary>
   <div class="body">
-    <form method="post" action="/columns" class="columnform">
+    {{/* show:none for the same reason the tick has it: a boosted swap scrolls
+         to the top by default, and applying a column should not move the
+         reader off whatever they were looking at. */}}
+    <form method="post" action="/columns" class="columnform"
+          hx-swap="innerHTML show:none">
       {{template "csrf" .CSRF}}
       <input type="hidden" name="page" value="{{.ColumnPage}}">
       <input type="hidden" name="next" value="{{.Here}}">

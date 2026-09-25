@@ -37,7 +37,8 @@
   <details class="panel visibility">
     <summary>Projects{{if $v.Hidden}} &middot; {{$v.Hidden}} hidden{{end}}</summary>
     <div class="body">
-      <form method="post" action="/visibility" class="visibilityform">
+      <form method="post" action="/visibility" class="visibilityform"
+            hx-swap="innerHTML show:none">
         {{template "csrf" .CSRF}}
         <input type="hidden" name="next" value="{{.Here}}">
         <div class="choices">
