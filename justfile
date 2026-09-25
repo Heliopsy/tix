@@ -305,17 +305,28 @@ trivy-sarif: (tool "trivy" "fs" "--format" "sarif" "--output" "trivy.sarif" "--s
 spec:
     OPENSPEC_TELEMETRY=0 just tool openspec validate tix-v1 --strict
 
-# Every file in docs/ must be linked from docs/README.md.
+# Every file in docs/ must be linked from docs/README.md, and every screenshot
+# from screenshots/README.md. Both indexes have drifted from their own
+# directory before: a page nobody links is a page nobody reads, and an image
+# nobody lists is one nobody knows to regenerate when it goes stale.
 docs-check:
     #!/usr/bin/env bash
     set -euo pipefail
-    [ -d docs ] || { echo "no docs/ yet, skipping"; exit 0; }
     rc=0
-    for f in docs/*.md; do
-      base=$(basename "$f")
-      [ "$base" = "README.md" ] && continue
-      grep -q "$base" docs/README.md || { echo "docs/README.md does not link $base"; rc=1; }
-    done
+    if [ -d docs ]; then
+      for f in docs/*.md; do
+        base=$(basename "$f")
+        [ "$base" = "README.md" ] && continue
+        grep -q "$base" docs/README.md || { echo "docs/README.md does not link $base"; rc=1; }
+      done
+    fi
+    if [ -d screenshots ]; then
+      for f in screenshots/*.png; do
+        [ -e "$f" ] || continue
+        base=$(basename "$f")
+        grep -q "$base" screenshots/README.md || { echo "screenshots/README.md does not list $base"; rc=1; }
+      done
+    fi
     exit $rc
 
 # Capability registry parity: every operation reachable from CLI, HTTP and web.

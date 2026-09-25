@@ -50,6 +50,48 @@ download matches what was published and not that the release is authentic; the c
 signatures are the stronger guarantee and verifying them needs a verifier this binary does
 not carry.
 
+### Statistics
+
+`tix stats`, a statistics screen in the browser and a page in the terminal, over one window
+and one optional project: completions per day, median and slowest lead time, where the work
+sits, who moved it, and what has been waiting longest.
+
+The leaderboard prints what it counts every time it is shown. A count of tasks moved to a
+terminal state is not a measure of how much anybody did, and a number presented without that
+sentence gets read as one. The wording lives in `core` so the command line and the browser
+cannot drift apart on it.
+
+**What differs from the plan above:** attributing a completion to an actor needed the audit
+trail. The tasks table records when a task reached a terminal state and never by whom, so the
+query matches the transition entry written in the same instant. A completion whose transition
+has aged out of retention reports no actor rather than the wrong one.
+
+See [docs/statistics.md](docs/statistics.md).
+
+### One tick, and sync that keeps its own state
+
+A release spent on defects that shared a shape: each was covered by a test asserting the code
+returned the right value, and none asserted what a person experiences.
+
+The completion animation was attached to the completed state rather than to the act of
+completing, so every render replayed it on every already-ticked checkbox and opening a list
+sent a wave of ticks down the page.
+
+External sync lost and misreported its own state four ways. A full refresh blanked the run's
+watermark so the source would be read from the beginning, but that watermark is what gets
+persisted, so a refresh failing on its first request erased the position every previous run
+had earned. The result's watermark was assigned after the audit entry embedding it had been
+written, so every entry claimed the run reached nothing. An unreachable source and a bug in
+tix were both reported as internal errors, so neither the exit code nor the message told a
+scheduled job which had happened; there is a `KindUpstream` now, 502 and exit 7, applied at
+the fetch boundary only. And a finished import printed its own Go struct, because
+`SyncResult` had no case in the renderer.
+
+**What this changed about the tests:** two mapping tables in `core` are now exhaustive over
+`Kinds`, and the taxonomy the tests iterate is `Kinds` itself rather than a hand-kept copy
+that called itself complete while nothing checked it. `just docs-check` now covers
+`screenshots/` as well as `docs/`, after the screenshot index drifted from its own directory.
+
 ## v2
 
 ### Bidirectional sync with Jira and OpenProject
