@@ -303,7 +303,18 @@ trivy-sarif: (tool "trivy" "fs" "--format" "sarif" "--output" "trivy.sarif" "--s
 # without being told. It is disabled everywhere now, not only where somebody
 # happened to remember.
 spec:
-    OPENSPEC_TELEMETRY=0 just tool openspec validate tix-v1 --strict
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Every change under openspec/changes/, not just tix-v1. The gate named one
+    # change by hand, so v0-5-0-polish collected a release worth of deltas that
+    # nothing validated: the recipe was watching the change that was already
+    # finished rather than the one being written.
+    for dir in openspec/changes/*/; do
+        name=$(basename "$dir")
+        [ "$name" = "archive" ] && continue
+        echo "validating $name"
+        OPENSPEC_TELEMETRY=0 just tool openspec validate "$name" --strict
+    done
 
 # Every file in docs/ must be linked from docs/README.md, and every screenshot
 # from screenshots/README.md. Both indexes have drifted from their own

@@ -32,3 +32,31 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.release.outputs.tag_name }}
         run: gh workflow run release.yaml --repo "$GITHUB_REPOSITORY" --ref main -f ref="$TAG"
+
+      # The step above only runs when release-please reports success. It can
+      # create the release and then fail afterwards: v0.4.0 was tagged and
+      # published, then the action died posting its comment to a locked pull
+      # request, so the build was never asked for and the release sat with
+      # nothing to download. Nothing was watching, and the published install
+      # command fails outright in that state, because it resolves the latest
+      # release and finds no archive.
+      #
+      # So do not trust the output, ask GitHub what the latest release
+      # actually has. A release with no assets is either seconds old and
+      # waiting for the build this step asks for, or it is the failure above.
+      # Both want the same dispatch. The job still reports the original
+      # failure, which is the signal that something needs a look.
+      - name: Build any release left without binaries
+        if: always() && !steps.release.outputs.release_created
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2>/dev/null) || exit 0
+          [ -n "$tag" ] || exit 0
+          count=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets | length')
+          if [ "$count" -gt 0 ]; then
+            echo "$tag already has $count assets"
+            exit 0
+          fi
+          echo "$tag has no assets; asking for the build"
+          gh workflow run release.yaml --repo "$GITHUB_REPOSITORY" --ref main -f ref="$tag"
