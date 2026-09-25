@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.5.0](https://github.com/Heliopsy/tix/compare/v0.4.0...v0.5.0) (2026-09-25)
+
+
+### Features
+
+* **demo:** seed a demo that can be signed in to, and an abandoned claim worth showing ([62c4eed](https://github.com/Heliopsy/tix/commit/62c4eed14a9ffd6c5ef2ef3edb4731ad4b226c24))
+* seed a backlog worth looking at, and render durations for a reader ([457d1f0](https://github.com/Heliopsy/tix/commit/457d1f0f6ce70cd43ac5f13b2d1428bcb38c06c7))
+* **web:** make the list usable, and stop the interface lying about state ([25d0995](https://github.com/Heliopsy/tix/commit/25d0995e4e7245c9f92a56ca94ab4ee822e7f2fd))
+* **web:** rows settle towards the row that was acted on ([d325749](https://github.com/Heliopsy/tix/commit/d3257494e05bc4f3e41054ca989f70f77da759cf))
+
+
+### Bug Fixes
+
+* animate one tick, and stop sync losing its own state ([978801e](https://github.com/Heliopsy/tix/commit/978801e5be8aba452b1a0c66ebd58d8479fe2f3f))
+* **cli:** one duration vocabulary, and a failed listing that writes nothing ([7e5a238](https://github.com/Heliopsy/tix/commit/7e5a23828edb73d93f55cb71ed0c78f5d80c2fa9))
+* **demo:** spread completions the way work actually lands ([177ba42](https://github.com/Heliopsy/tix/commit/177ba420ed2c08cc7651505c5a3670b11069119c))
+* **service:** refuse a filter term that names nothing ([25f4d5f](https://github.com/Heliopsy/tix/commit/25f4d5ff0bdf9d3b759c5337b09d795aa2b49172))
+* **store:** record that a claim expired, and translate ALTER TABLE on postgres ([d4a6e43](https://github.com/Heliopsy/tix/commit/d4a6e43bef306351b170bc86e61390a987bfe696))
+* **web:** a real pager, a column cookie that survives a new column, and a badge you can see ([10151cc](https://github.com/Heliopsy/tix/commit/10151ccadd9f85b6bf41f8de82f796c9983b4f33))
+* **web:** keep the reader's place when a form re-renders its own page ([e4634b3](https://github.com/Heliopsy/tix/commit/e4634b3cc8e9d0df27472496e287048a5e373880))
+* **web:** make a tenant's accent survive the dark scheme ([b0163e0](https://github.com/Heliopsy/tix/commit/b0163e07eb8e0fa3ba521e9c79ff9699a2a32a96))
+* **web:** make the statistics filter a row, not two full-width dropdowns ([cb28b85](https://github.com/Heliopsy/tix/commit/cb28b85b819bfccf5a358d79f9263b83712bf604))
+* **web:** name the listing for what it shows, and write durations the way they are read ([348d249](https://github.com/Heliopsy/tix/commit/348d24926f570ab6eefa6a13e89603550b5c46e4))
+* **web:** swap only the ticked row, not the whole page ([cda1902](https://github.com/Heliopsy/tix/commit/cda1902d105c78fdc5366b774d1cb523324faefd))
+* **web:** ticking a task no longer moves the page ([fdfa1d9](https://github.com/Heliopsy/tix/commit/fdfa1d995c8db14ec08d58463ac97ad7664ed1a1))
+
 ## [0.4.0](https://github.com/Heliopsy/tix/compare/v0.3.0...v0.4.0) (2026-09-25)
 
 
