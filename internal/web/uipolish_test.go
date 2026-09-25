@@ -435,3 +435,26 @@ func tail(page string) string {
 	}
 	return "..." + page[len(page)-2000:]
 }
+
+// The listing shows every actor's work, so the heading over it and the entry
+// leading to it must not claim it is the reader's own. Both are read where
+// they live: the heading out of the h1, and the entry out of the navigation,
+// because the first attempt at this read the whole page and passed while the
+// sidebar still said otherwise.
+func TestTheTaskListDoesNotCallEverybodysWorkMine(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	b.createTask("infra", "somebody else's row")
+
+	page := b.page("/tasks")
+	heading := between(t, page, "<h1>", "</h1>")
+	if heading != "Tasks" {
+		t.Errorf("the task list is headed %q, want %q", heading, "Tasks")
+	}
+
+	entry := between(t, nav(t, page), `href="/tasks"`, "</a>")
+	if !strings.Contains(entry, ">Tasks") || strings.Contains(entry, "My tasks") {
+		t.Errorf("the navigation entry for the task list reads %q, want it to say Tasks", entry)
+	}
+}

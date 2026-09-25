@@ -95,17 +95,137 @@ func TestWebhookDeleteAndRedelivery(t *testing.T) {
 	}
 }
 
+// The field takes the wider grammar now, so the cases here have to be values
+// that grammar still refuses: "720h" and "30d" are both accepted, and a test
+// written against either would pass whatever the handler did.
 func TestRetentionRejectsAMalformedWindow(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
-	resp := f.as("alice").post("/admin/tenant/retention", url.Values{"events": {"forever"}})
-	page := body(t, resp)
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400", resp.StatusCode)
+	for _, raw := range []string{"forever", "4w", "-30d", "30 days"} {
+		t.Run(raw, func(t *testing.T) {
+			resp := f.as("alice").post("/admin/tenant/retention", url.Values{"events": {raw}})
+			page := body(t, resp)
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Fatalf("saving %q = %d, want 400", raw, resp.StatusCode)
+			}
+			if !strings.Contains(page, "duration") {
+				t.Fatalf("the refusal of %q does not explain itself:\n%s", raw, page)
+			}
+		})
 	}
-	if !strings.Contains(page, "duration") {
-		t.Fatalf("the refusal does not explain itself:\n%s", page)
+}
+
+// A window shown one way and read another is a form that refuses its own
+// value. The screen printed "720h0m0s" and the handler parsed with Go's own
+// syntax, so the day the rest of the product speaks in was unsayable here.
+func TestRetentionSavesTheVocabularyItDisplays(t *testing.T) {
+	t.Parallel()
+	b := newFixture(t).as("alice")
+	want := map[string]string{"events": "30d", "audit_entries": "365d", "webhook_deliveries": "12h"}
+
+	first := url.Values{}
+	for name, value := range want {
+		first.Set(name, value)
 	}
+	saved := b.post("/admin/tenant/retention", first)
+	if text := body(t, saved); saved.StatusCode != http.StatusSeeOther {
+		t.Fatalf("saving the vocabulary the product prints = %d, want 303: %s", saved.StatusCode, text)
+	}
+
+	page := b.page("/admin/tenant")
+	again := url.Values{}
+	for name, value := range want {
+		shown := inputValue(t, page, name)
+		if shown != value {
+			t.Errorf("the %s field shows %q, want %q", name, shown, value)
+		}
+		again.Set(name, shown)
+	}
+
+	resaved := b.post("/admin/tenant/retention", again)
+	if text := body(t, resaved); resaved.StatusCode != http.StatusSeeOther {
+		t.Fatalf("saving what the screen rendered = %d, want 303: %s", resaved.StatusCode, text)
+	}
+}
+
+// The tree carries five live figures, so a row with none reads as a count that
+// broke rather than one nobody makes. Each row is read on its own: the page
+// carries other rows' numbers, and an assertion over the whole page would be
+// satisfied by any of them.
+func TestEveryShapeRowCarriesAFigureOrSaysWhyItHasNone(t *testing.T) {
+	t.Parallel()
+	page := newFixture(t).as("alice").page("/admin/tenant")
+
+	for _, name := range []string{"Members", "Domains", "API tokens", "Workflows", "Projects"} {
+		row := shapeRow(t, page, name)
+		if !strings.Contains(row, `<span class="count">`) {
+			t.Errorf("the %s row carries no figure:\n%s", name, row)
+		}
+	}
+	for _, name := range []string{"Tasks", "Field definitions"} {
+		row := shapeRow(t, page, name)
+		if !strings.Contains(row, `<span class="count uncounted">`) {
+			t.Errorf("the %s row leaves the figure blank instead of saying why it has none:\n%s", name, row)
+		}
+	}
+}
+
+// The "i" is a disclosure whose text is behind it, so an "i" with nothing
+// beside it reads as an icon whose label failed to render. Every other one on
+// this screen sits in a field-label row with the control it explains, and the
+// assertion reads the prune form alone: the retention form above it has three
+// correctly placed ones that would satisfy a page-wide check.
+func TestThePruneNoticeSitsBesideTheControlItExplains(t *testing.T) {
+	t.Parallel()
+	page := newFixture(t).as("alice").page("/admin/tenant")
+	form := formAt(t, page, "/admin/tenant/prune")
+
+	if !strings.Contains(form, `class="field-info"`) {
+		t.Fatalf("the prune form carries no notice at all:\n%s", form)
+	}
+	label := between(t, form, `<div class="field-label">`, "</div>")
+	if !strings.Contains(label, "Dry run") || !strings.Contains(label, `class="field-info"`) {
+		t.Errorf("the prune notice is not on the line of the control it explains:\n%s", form)
+	}
+}
+
+// inputValue reads one named input's value attribute. A retention window is
+// three characters long and occurs in the notice text beside the field, so a
+// test about what the field holds has to read the field.
+func inputValue(t *testing.T, page, id string) string {
+	t.Helper()
+	tag := between(t, page, `<input id="`+id+`"`, ">")
+	if tag == "" {
+		t.Fatalf("the page has no input named %q", id)
+	}
+	return between(t, tag+">", `value="`, `"`)
+}
+
+// shapeRow returns the one list item of the tenant tree that names a kind.
+func shapeRow(t *testing.T, page, name string) string {
+	t.Helper()
+	tree := between(t, page, `<ul class="shape">`, "</ul>")
+	if tree == "" {
+		t.Fatalf("the page renders no tenant tree")
+	}
+	for _, row := range strings.Split(tree, "<li ") {
+		if strings.Contains(row, ">"+name+"<") {
+			return row
+		}
+	}
+	t.Fatalf("the tenant tree has no %s row:\n%s", name, tree)
+	return ""
+}
+
+// formAt returns the body of the form posting to one action, so an assertion
+// about one form on a screen of forms reads that form.
+func formAt(t *testing.T, page, action string) string {
+	t.Helper()
+	form := between(t, page, `action="`+action+`">`, "</form>")
+	if form == "" {
+		t.Fatalf("the page has no form posting to %s", action)
+	}
+	return form
 }
 
 func TestCommentEditingAndRemoval(t *testing.T) {

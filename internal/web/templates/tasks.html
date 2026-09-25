@@ -1,6 +1,12 @@
 {{define "content"}}
 {{$v := .Data}}
-<h1>My tasks</h1>
+{{/* The listing is the tenant's queue, not the reader's inbox: it carries
+     everyone's rows, people and agents alike, and the summary under it counts
+     the projects they span and the ones an agent is holding. "My tasks" over
+     lena's, tom's and scout's work was the page misnaming its own contents.
+     "Mine" is already sayable, and precisely, through the filter the assignee
+     column's handle writes in one click. */}}
+<h1>Tasks</h1>
 {{if not $v.FilterError}}{{with $v.Summary}}
 <p class="lede summary">
   {{if eq .Total 0}}Nothing on the list.

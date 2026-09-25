@@ -5,7 +5,6 @@ package web
 import (
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 )
@@ -67,7 +66,13 @@ type tenantView struct {
 type shapeNode struct {
 	Depth int
 	Name  string
+	// Count is the live figure, negative where the row has none.
 	Count int
+	// Uncounted takes the figure's place where there is none, so the row says
+	// why rather than leaving a gap. A blank beside five numbers reads as a
+	// count that broke, and a count that really did break read exactly like
+	// one nobody attempted.
+	Uncounted string
 	// Href links to where that kind is managed, empty when there is nowhere
 	// to go.
 	Href string
@@ -130,17 +135,33 @@ func (h *handler) tenantShape(r *http.Request, members int) ([]shapeNode, error)
 	domains, dErr := h.svc.ListDomains(ctx)
 	tokens, tErr := h.svc.ListTokens(ctx, "")
 
+	// Neither Tasks nor Field definitions is a tenant-wide figure the service
+	// can produce: a task listing is keyset-paginated and carries no total,
+	// and a field definition is declared on one project at a time. Each names
+	// where its number actually lives instead of showing a gap.
 	return []shapeNode{
-		{Depth: 0, Name: "Tenant", Count: -1, Note: "everything below belongs to it and is invisible from any other"},
-		{Depth: 1, Name: "Members", Count: members, Href: RouteUsers, Note: "people, each with a role here"},
-		{Depth: 1, Name: "Domains", Count: count(len(domains), dErr), Href: RouteDomains, Note: "hostnames that resolve to this tenant"},
-		{Depth: 1, Name: "API tokens", Count: count(len(tokens), tErr), Href: RouteTokens, Note: "what an agent authenticates with"},
-		{Depth: 1, Name: "Workflows", Count: count(len(workflows), wErr), Href: RouteWorkflows, Note: "the states a task moves between"},
-		{Depth: 1, Name: "Projects", Count: len(projects), Href: RouteProjects, Note: "each one picks a workflow"},
-		{Depth: 2, Name: "Tasks", Count: -1, Note: "the work, and its comments, artifacts and dependencies"},
-		{Depth: 2, Name: "Field definitions", Count: -1, Note: "the custom fields a task in that project carries"},
+		{Depth: 0, Name: "Tenant", Count: -1,
+			Note: "everything below belongs to it and is invisible from any other"},
+		{Depth: 1, Name: "Members", Count: members, Href: RouteUsers,
+			Note: "people, each with a role here"},
+		{Depth: 1, Name: "Domains", Count: count(len(domains), dErr), Href: RouteDomains, Uncounted: countFailed,
+			Note: "hostnames that resolve to this tenant"},
+		{Depth: 1, Name: "API tokens", Count: count(len(tokens), tErr), Href: RouteTokens, Uncounted: countFailed,
+			Note: "what an agent authenticates with"},
+		{Depth: 1, Name: "Workflows", Count: count(len(workflows), wErr), Href: RouteWorkflows, Uncounted: countFailed,
+			Note: "the states a task moves between"},
+		{Depth: 1, Name: "Projects", Count: len(projects), Href: RouteProjects,
+			Note: "each one picks a workflow"},
+		{Depth: 2, Name: "Tasks", Count: -1, Uncounted: "on the task list", Href: RouteTasks,
+			Note: "the work, and its comments, artifacts and dependencies"},
+		{Depth: 2, Name: "Field definitions", Count: -1, Uncounted: "per project", Href: RouteProjects,
+			Note: "the custom fields a task in that project carries"},
 	}, nil
 }
+
+// countFailed is what a row shows where its listing errored, which is not the
+// same thing as a row that carries no figure by design.
+const countFailed = "unavailable"
 
 // updateTenant saves the tenant's display name and theme.
 func (h *handler) updateTenant(w http.ResponseWriter, r *http.Request) error {
@@ -195,17 +216,19 @@ func (h *handler) putRetention(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// durationField reads a retention window expressed as a Go duration.
+// durationField reads a retention window through the same grammar the screen
+// prints it in. time.ParseDuration knows no day, so the field rejected the
+// "30d" it had just rendered into itself.
 func durationField(r *http.Request, name string) (core.Duration, error) {
 	raw := field(r, name)
 	if raw == "" {
 		return 0, nil
 	}
-	parsed, err := time.ParseDuration(raw)
+	parsed, err := core.ParseDuration(raw)
 	if err != nil || parsed < 0 {
-		return 0, core.Invalid("%s %q must be a duration such as 720h", name, raw)
+		return 0, core.Invalid("%s %q must be a duration such as 30d, 12h or 2h30m", name, raw)
 	}
-	return core.Duration(parsed), nil
+	return parsed, nil
 }
 
 // prune removes records past their retention window.

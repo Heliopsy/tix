@@ -13,7 +13,11 @@
 
      The counts are live. A drawing of the empty model answers a question
      nobody has; "you have no domains" is how somebody finds out why their
-     hostname does not resolve. */}}
+     hostname does not resolve.
+
+     A row that carries no number says so in the number's place. Five figures
+     with two blanks beside them reads as a count that broke, not as one
+     deliberately not made. */}}
 <h2>What sits under this tenant</h2>
 <ul class="shape">
   {{range .Data.Shape}}
@@ -21,7 +25,7 @@
     <span class="name">
       {{if .Href}}<a href="{{.Href}}">{{.Name}}</a>{{else}}{{.Name}}{{end}}
     </span>
-    {{if ge .Count 0}}<span class="count">{{.Count}}</span>{{end}}
+    {{if ge .Count 0}}<span class="count">{{.Count}}</span>{{else if .Uncounted}}<span class="count uncounted">{{.Uncounted}}</span>{{end}}
     <span class="note">{{.Note}}</span>
   </li>
   {{end}}
@@ -82,31 +86,37 @@
     <div>
       <div class="field-label">
         <label for="events">Events</label>
-        {{template "field-info" "How long to keep the domain event stream before Prune deletes the old rows, written as a Go duration: 720h for 30 days, 8760h for a year. Blank keeps events forever, which grows the store without bound."}}
+        {{template "field-info" "How long to keep the domain event stream before Prune deletes the old rows, written the way it is shown: 30d, 12h, 90d, or 2h30m. Blank keeps events forever, which grows the store without bound."}}
       </div>
-      <input id="events" name="events" value="{{.Data.Retention.Events}}">
+      <input id="events" name="events" value="{{.Data.Retention.Events.Human}}">
     </div>
     <div>
       <div class="field-label">
         <label for="audit_entries">Audit entries</label>
-        {{template "field-info" "How long to keep the audit log before Prune deletes the old rows, in the same Go duration format as Events (for example 2160h for 90 days). This is the history a Raw disclosure and the Activity feed both read, so pruning it early means older changes stop showing up there too."}}
+        {{template "field-info" "How long to keep the audit log before Prune deletes the old rows, in the same form as Events (for example 90d). This is the history a Raw disclosure and the Activity feed both read, so pruning it early means older changes stop showing up there too."}}
       </div>
-      <input id="audit_entries" name="audit_entries" value="{{.Data.Retention.AuditEntries}}">
+      <input id="audit_entries" name="audit_entries" value="{{.Data.Retention.AuditEntries.Human}}">
     </div>
     <div>
       <div class="field-label">
         <label for="webhook_deliveries">Webhook deliveries</label>
-        {{template "field-info" "How long to keep webhook delivery attempts before Prune deletes the old rows, in the same Go duration format as Events. Usually the shortest of the three: a delivery log is for debugging a recent failure, not a long-term record."}}
+        {{template "field-info" "How long to keep webhook delivery attempts before Prune deletes the old rows, in the same form as Events. Usually the shortest of the three: a delivery log is for debugging a recent failure, not a long-term record."}}
       </div>
-      <input id="webhook_deliveries" name="webhook_deliveries" value="{{.Data.Retention.WebhookDeliveries}}">
+      <input id="webhook_deliveries" name="webhook_deliveries" value="{{.Data.Retention.WebhookDeliveries.Human}}">
     </div>
   </div>
   <p><button type="submit">Save retention</button></p>
 </form>
 <form method="post" action="/admin/tenant/prune">
   {{template "csrf" .CSRF}}
-  <label for="prune-dry"><input id="prune-dry" type="checkbox" name="dry_run" value="1" checked> Dry run</label>
-  {{template "field-info" "Prune permanently deletes whatever is older than the retention durations saved above, for all three kinds at once. Dry run reports what it would delete without deleting anything; uncheck it only once you have checked that report."}}
+  {{/* The "i" belongs on the control's own line, the way every other one on
+       this screen does. Left outside a field-label row it wrapped onto a line
+       of its own between the checkbox and the button, where it read as an
+       icon whose text had failed to render. */}}
+  <div class="field-label">
+    <label for="prune-dry"><input id="prune-dry" type="checkbox" name="dry_run" value="1" checked> Dry run</label>
+    {{template "field-info" "Prune permanently deletes whatever is older than the retention durations saved above, for all three kinds at once. Dry run reports what it would delete without deleting anything; uncheck it only once you have checked that report."}}
+  </div>
   <p><button class="secondary" type="submit">Prune now</button></p>
 </form>
 

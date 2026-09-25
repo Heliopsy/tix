@@ -311,8 +311,10 @@ func TestAdministrationScreensAcceptSubmissions(t *testing.T) {
 	}{
 		{"tenant", "/admin/tenant", url.Values{"name": {"Acme Renamed"}},
 			"/admin/tenant", "Acme Renamed"},
+		// Submitted in Go's syntax and read back in the product's own, which
+		// is the pair the screen has to keep working in both directions.
 		{"retention", "/admin/tenant/retention", url.Values{"events": {"48h"},
-			"audit_entries": {"240h"}, "webhook_deliveries": {"24h"}}, "/admin/tenant", "48h"},
+			"audit_entries": {"240h"}, "webhook_deliveries": {"24h"}}, "/admin/tenant", "2d"},
 		{"prune", "/admin/tenant/prune", url.Values{"dry_run": {"1"}}, "/admin/tenant", "Tenant"},
 		{"domain", "/admin/domains", url.Values{"hostname": {"acme.example"},
 			"cert_mode": {"none"}}, "/admin/domains", "acme.example"},

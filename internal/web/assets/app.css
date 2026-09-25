@@ -1946,7 +1946,10 @@ details.note p { margin: 0.5rem 0 0; color: var(--muted); max-width: 60ch; }
 /* The tenant shape. A list drawn as a tree: the indent carries the nesting
    that the markup already states, so nothing here is load bearing for meaning
    and a reader with styles off still gets the hierarchy. */
-ul.shape { list-style: none; margin: 0 0 2rem; padding: 0; max-width: 60ch; }
+/* Wide enough that the two rows carrying a phrase where the others carry a
+   figure still fit on one line. At 60ch they wrapped, and a row twice the
+   height of the six above it reads as a fault in the row. */
+ul.shape { list-style: none; margin: 0 0 2rem; padding: 0; max-width: 76ch; }
 ul.shape li {
   display: flex;
   align-items: baseline;
@@ -1968,6 +1971,11 @@ ul.shape .count {
   color: var(--muted);
   font-size: 0.85rem;
 }
+/* A row with no figure says so in the figure's place. It is prose, not a
+   number, so it is set as prose. The list is widened above rather than held
+   on one line here: the stylesheet reflows at every width by policy, and
+   TestStylesheetEmitsNoHorizontalScrollLayout enforces it. */
+ul.shape .count.uncounted { font-variant-numeric: normal; font-style: italic; }
 ul.shape .note { color: var(--muted); font-size: 0.85rem; margin-left: auto; text-align: right; }
 
 /* An environment variable name is one token to a reader, and td's
