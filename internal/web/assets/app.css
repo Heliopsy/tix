@@ -854,13 +854,28 @@ button.check:active { transform: scale(0.92); }
 button.check.is-done {
   background: var(--ok);
   border-color: var(--ok);
-  animation: pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 button.check.is-done svg {
   stroke: var(--on-ok);
   stroke-dashoffset: 0;
   opacity: 1;
+}
+
+/* The tick only animates on the row that was just acted on.
+ *
+ * These rules used to sit on .is-done itself, which meant every already-ticked
+ * checkbox replayed pop and draw on every render: a load, a filter change or a
+ * column switch sent a wave of ticks down the list, and none of them
+ * corresponded to anything the reader had done. The row carrying .is-target is
+ * the one the swap or the fragment pointed at, so scoping to it leaves exactly
+ * one tick animating. Everything static about the done state stays above, so a
+ * page with no JavaScript still paints ticks correctly, just without motion. */
+li.task.is-target button.check.is-done {
+  animation: pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+li.task.is-target button.check.is-done svg {
   animation: draw 260ms ease-out both;
 }
 

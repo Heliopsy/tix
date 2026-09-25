@@ -267,9 +267,6 @@ func (l *Local) RunSync(ctx context.Context, in core.RunSyncInput) (*core.SyncRe
 			Source: source.Name,
 		},
 	}
-	if in.Full {
-		run.cursor = ""
-	}
 	if err := run.prepare(ctx, actor); err != nil {
 		return nil, err
 	}
@@ -281,7 +278,6 @@ func (l *Local) RunSync(ctx context.Context, in core.RunSyncInput) (*core.SyncRe
 	if err := run.pull(ctx, importer); err != nil {
 		return nil, err
 	}
-	run.result.Cursor = run.cursor
 	return run.result, nil
 }
 
@@ -400,21 +396,35 @@ func mappingCustomOrder(m *extsync.Mapping) []string {
 // pull walks every page the source offers, committing each page and its cursor
 // together so an interrupted run resumes instead of restarting.
 func (r *syncRun) pull(ctx context.Context, importer extsync.Importer) error {
+	// A full refresh starts the source from the beginning, so the option
+	// carries no watermark. r.cursor is deliberately left alone: it is what
+	// gets persisted, and a full refresh that fails before committing a page
+	// must leave the stored watermark where the previous run left it. Blanking
+	// the run's own cursor here is what used to turn one network error during
+	// a refresh into a full re-import on every later incremental run.
 	opt := extsync.Options{Cursor: r.cursor, Full: r.full}
+	if r.full {
+		opt.Cursor = ""
+	}
 	for page := 0; page < maxSyncPages; page++ {
 		batch, err := importer.Fetch(ctx, opt)
 		if err != nil {
-			return r.fail(ctx, err)
+			// Anything the adapter could not read is the external system
+			// failing, whatever shape the error arrived in.
+			return r.fail(ctx, core.KindUpstream, err)
 		}
 		if err := r.consume(ctx, batch); err != nil {
-			return r.fail(ctx, err)
+			// Applying a page is tix's own work: a write that fails is
+			// internal and must not be dressed up as someone else's outage.
+			return r.fail(ctx, core.KindOf(err), err)
 		}
 		if batch.Page == "" {
 			return r.finish(ctx)
 		}
 		opt.Page = batch.Page
 	}
-	return r.fail(ctx, core.Internal("source %q offered more than %d pages", r.source.Name, maxSyncPages))
+	return r.fail(ctx, core.KindUpstream,
+		core.Upstream("source %q offered more than %d pages", r.source.Name, maxSyncPages))
 }
 
 // consume applies one page, in one transaction, together with its cursor.
@@ -453,6 +463,10 @@ func (r *syncRun) advance(ctx context.Context, m *mutation, cursor, status strin
 	if cursor != "" {
 		r.cursor = cursor
 	}
+	// The result is the payload finish() records in the audit entry, and that
+	// entry is the durable account of the run. Setting the watermark only after
+	// pull() returned left every audit entry claiming the run reached nothing.
+	r.result.Cursor = r.cursor
 	now := m.now
 	src := core.SyncSource{
 		ID: r.source.ID, System: r.source.System, Name: r.source.Name,
@@ -482,13 +496,13 @@ func (r *syncRun) finish(ctx context.Context) error {
 
 // fail reports how far the run got without disclosing anything the adapter was
 // configured with.
-func (r *syncRun) fail(ctx context.Context, cause error) error {
+func (r *syncRun) fail(ctx context.Context, kind core.Kind, cause error) error {
 	if !r.dryRun && r.system != nil {
 		_ = r.local.write(systemContext(ctx), r.system, func(m *mutation) error {
 			return r.advance(ctx, m, "", "failed")
 		})
 	}
-	return core.Internal("import from %q stopped after %d records: %s",
+	return core.Errorf(kind, "import from %q stopped after %d records: %s",
 		r.source.Name, r.processed, messageOf(cause)).Wrap(cause)
 }
 

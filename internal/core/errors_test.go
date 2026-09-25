@@ -8,11 +8,11 @@ import (
 	"testing"
 )
 
-// allKinds is the complete taxonomy.
-var allKinds = []Kind{
-	KindInvalid, KindNotFound, KindConflict, KindUnauthenticated, KindForbidden,
-	KindLeaseExpired, KindNoTaskAvailable, KindPrecondition, KindInternal,
-}
+// allKinds is the complete taxonomy. It is Kinds itself rather than a second
+// list of the same names: a hand-kept copy that calls itself complete stops
+// being complete the first time a kind is added, and does it silently, because
+// every test over it still passes.
+var allKinds = Kinds
 
 func TestKindOf(t *testing.T) {
 	tests := []struct {
@@ -107,6 +107,7 @@ func TestHTTPStatusMapping(t *testing.T) {
 		KindConflict:        409,
 		KindLeaseExpired:    409,
 		KindPrecondition:    422,
+		KindUpstream:        502,
 		KindInternal:        500,
 	}
 	for kind, want := range tests {
@@ -114,6 +115,7 @@ func TestHTTPStatusMapping(t *testing.T) {
 			t.Errorf("Kind(%q).HTTPStatus() = %d, want %d", kind, got, want)
 		}
 	}
+	assertEveryKindIsMapped(t, tests, "an HTTP status")
 }
 
 func TestExitCodeMapping(t *testing.T) {
@@ -127,11 +129,26 @@ func TestExitCodeMapping(t *testing.T) {
 		KindUnauthenticated: ExitPermission,
 		KindForbidden:       ExitPermission,
 		KindPrecondition:    ExitPrecondtion,
+		KindUpstream:        ExitUpstream,
 		KindInternal:        ExitError,
 	}
 	for kind, want := range tests {
 		if got := kind.ExitCode(); got != want {
 			t.Errorf("Kind(%q).ExitCode() = %d, want %d", kind, got, want)
+		}
+	}
+	assertEveryKindIsMapped(t, tests, "an exit code")
+}
+
+// assertEveryKindIsMapped fails when the taxonomy has grown past a table that
+// checks it. A map lookup passes for the kinds it lists and says nothing about
+// the ones it does not, so without this the table quietly stops covering the
+// thing it exists to cover.
+func assertEveryKindIsMapped[V any](t *testing.T, table map[Kind]V, what string) {
+	t.Helper()
+	for _, k := range Kinds {
+		if _, ok := table[k]; !ok {
+			t.Errorf("kind %q has no case asserting %s", k, what)
 		}
 	}
 }

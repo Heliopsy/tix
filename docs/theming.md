@@ -21,8 +21,8 @@ browser's palette anyway. What a tenant actually wants to set is the accent.
 
 ```sh
 tix theme ls                          # what resolves, built in and configured
-tix tenant set acme --theme ocean     # name it
-tix tenant set acme --theme ""        # back to the derived colour
+tix tenant edit acme --theme ocean     # name it
+tix tenant edit acme --theme ""        # back to the default
 ```
 
 The name must resolve when you set it. A typo is refused at that moment, because that is when you can fix
@@ -43,7 +43,7 @@ themes:
     accent_soft: "#f3eeff"
 ```
 
-Then `tix tenant set acme --theme acme`.
+Then `tix tenant edit acme --theme acme`.
 
 Themes are configuration rather than rows in the database. A palette is something an operator writes once
 for a whole deployment; a per-tenant table of colours would need its own commands, authorization and audit
@@ -58,12 +58,16 @@ required because the terminal interface parses the same value.
 
 ## A tenant that names nothing
 
-It keeps the colour it already had. Before themes existed, a tenant's accent was derived by hashing its key
-and id into a small fixed palette, and that is still what an unnamed theme resolves to.
+It gets the `default` theme, which is the product's own green.
 
-This is deliberate. Every tenant has had its accent since it was created, and defaulting them all to one
-concrete theme on upgrade would visibly repaint every deployment. Empty means "nobody chose", and the
-derived colour is a better answer to that than picking for them.
+Themes first shipped keeping an older behaviour, where an unnamed tenant's accent was derived by hashing
+its key and id into a small fixed palette. The reasoning was that nobody's deployment should be repainted
+by an upgrade. In practice it meant a fresh install opened in a colour nobody had chosen, two installs of
+the same software looked unrelated, and neither matched the logo, so "we did not repaint you" bought less
+than it cost. Empty now means "use the product default", and the default is recognisably tix.
+
+If you were relying on a derived colour, name a theme: `tix theme ls` prints every palette, and setting
+the one closest to what you had makes the choice explicit rather than emergent.
 
 ## When a theme stops existing
 

@@ -146,7 +146,19 @@ tix sync run "$ID" --dry-run
 It reports every creation, update and skip, with the reason for each skip, and writes nothing. Iterate on the
 mapping until the plan is what you expect, then drop the flag.
 
-Exit codes: 2 an unusable mapping or configuration, 3 an unknown source, 5 permission denied.
+Exit codes: 2 an unusable mapping or configuration, 3 an unknown source, 5 permission denied, 7 the
+external system could not be read. Only 7 is worth retrying on a schedule: it is an outage on their side,
+where the others need a person.
+
+### When a run fails partway
+
+The watermark moves only with the records it covers, in the same transaction, so a run that stops halfway
+leaves the watermark at the last page it committed and the next run resumes from there. Nothing is
+imported twice: records already seen are matched by their external reference and skipped.
+
+A `--full` refresh reads the source from the beginning but does not touch the stored watermark until it
+commits pages of its own, so a refresh that fails on its first request leaves the source exactly as it
+found it. `tix sync source ls` shows each source's watermark and the status of its last run.
 
 ## Moving a whole tenant
 

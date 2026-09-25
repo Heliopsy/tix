@@ -179,6 +179,7 @@ and `tix task add --body -` composable with anything that writes to a pipe.
 | 4 | conflict, held lease, version clash |
 | 5 | permission denied |
 | 6 | precondition failed, illegal transition |
+| 7 | a system tix imports from could not be read |
 
 `tix tui` additionally uses 130 for an interrupt, and `tix claim exec` passes the child's exit status through.
 See [agents.md](agents.md).

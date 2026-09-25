@@ -178,7 +178,7 @@ func newRoot(environ []string, dir string) (*cobra.Command, *globals) {
 			"via CLI, TUI, HTTP API, WebSocket, and web UI.",
 		Example: "  tix task add \"buy milk\"\n  tix task ls -o json\n  tix claim next",
 		Annotations: map[string]string{
-			"exitCodes": "0 success, 1 error, 2 usage, 3 not found, 4 conflict, 5 permission, 6 precondition",
+			"exitCodes": "0 success, 1 error, 2 usage, 3 not found, 4 conflict, 5 permission, 6 precondition, 7 upstream",
 		},
 		SilenceErrors:     true,
 		SilenceUsage:      true,

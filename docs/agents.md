@@ -172,9 +172,14 @@ Every command uses the same table, which `tix --help` also prints.
 | 4 | conflict, including a held task, a lost lease and a version clash |
 | 5 | permission denied |
 | 6 | precondition failed, such as an illegal transition or a task with subtasks |
+| 7 | a system tix imports from could not be read, such as an unreachable Jira |
 
 An empty queue is exit 3 with a `no_task_available` error on stderr, not exit 0 with an empty result. A polling
 worker should treat 3 as "sleep and try again" and anything above it as a real failure.
+
+Exit 7 is the one failure worth retrying rather than alerting on. It means a system tix imports from could
+not be read, which is an outage somewhere else and usually over by the next run; a scheduled `tix sync run`
+can back off on 7 and page someone on 1.
 
 ## Tokens and scopes
 

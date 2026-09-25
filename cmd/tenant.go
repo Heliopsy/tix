@@ -199,7 +199,7 @@ func tenantEditCmd(g *globals) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "new name")
-	cmd.Flags().StringVar(&theme, "theme", "", "theme name, or \"\" to use the derived colour")
+	cmd.Flags().StringVar(&theme, "theme", "", "theme name, or \"\" to use the default theme")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	_ = cmd.RegisterFlagCompletionFunc("theme", fixedCompletion(core.ThemeNames()))
 	return cmd

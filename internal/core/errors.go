@@ -21,13 +21,19 @@ const (
 	KindLeaseExpired    Kind = "lease_expired"
 	KindNoTaskAvailable Kind = "no_task_available"
 	KindPrecondition    Kind = "precondition_failed"
-	KindInternal        Kind = "internal"
+	// KindUpstream is a system tix talks to failing, as distinct from tix
+	// failing. An unreachable import source is not an internal fault: it is
+	// the operator's to act on, so its message survives to the caller where
+	// an internal one is replaced, and it carries its own exit code so a
+	// scheduled sync can retry an outage without retrying a bug.
+	KindUpstream Kind = "upstream"
+	KindInternal Kind = "internal"
 )
 
 // Kinds lists every error kind, in the order the exit code table reads.
 var Kinds = []Kind{
 	KindInvalid, KindNotFound, KindConflict, KindUnauthenticated, KindForbidden,
-	KindLeaseExpired, KindNoTaskAvailable, KindPrecondition, KindInternal,
+	KindLeaseExpired, KindNoTaskAvailable, KindPrecondition, KindUpstream, KindInternal,
 }
 
 // Error is a domain error with a Kind, a message and optional details.
@@ -88,6 +94,14 @@ func Precondition(format string, args ...any) *Error {
 // Internal reports an unexpected failure.
 func Internal(format string, args ...any) *Error { return newf(KindInternal, format, args...) }
 
+// Upstream reports a system tix depends on failing, rather than tix itself.
+func Upstream(format string, args ...any) *Error { return newf(KindUpstream, format, args...) }
+
+// Errorf builds an error of a kind chosen at run time. Prefer the named
+// constructors; this exists for the few places that classify a failure from
+// something they were handed rather than from where they are.
+func Errorf(kind Kind, format string, args ...any) *Error { return newf(kind, format, args...) }
+
 // WithDetail attaches a machine-readable detail. Never use it for secrets.
 func (e *Error) WithDetail(key string, value any) *Error {
 	if e.Details == nil {
@@ -133,6 +147,8 @@ func (k Kind) HTTPStatus() int {
 		return 409
 	case KindPrecondition:
 		return 422
+	case KindUpstream:
+		return 502
 	case KindInternal:
 		return 500
 	default:
@@ -149,6 +165,7 @@ const (
 	ExitConflict    = 4
 	ExitPermission  = 5
 	ExitPrecondtion = 6
+	ExitUpstream    = 7
 )
 
 // ExitCode maps a Kind to the process exit code the CLI uses.
@@ -166,6 +183,8 @@ func (k Kind) ExitCode() int {
 		return ExitPermission
 	case KindPrecondition:
 		return ExitPrecondtion
+	case KindUpstream:
+		return ExitUpstream
 	default:
 		return ExitError
 	}

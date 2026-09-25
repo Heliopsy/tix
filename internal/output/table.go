@@ -8,6 +8,7 @@ import (
 
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -129,29 +130,34 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, themeHeader, v, themeRow)
 	case core.Theme:
 		return renderRows(w, p, themeHeader, []core.Theme{v}, themeRow)
+	case *core.SyncResult:
+		return renderSyncResult(w, p, v)
+	case core.SyncResult:
+		return renderSyncResult(w, p, &v)
 	}
 	return renderReflected(w, p, data)
 }
 
 var (
-	taskHeader     = table.Row{"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "UPDATED", "BLOCKED"}
-	projectHeader  = table.Row{"KEY", "NAME", "WORKFLOW", "COLOR", "ICON", "ARCHIVED", "CREATED", "UPDATED"}
-	workflowHeader = table.Row{"KEY", "NAME", "INITIAL", "STATES", "TRANSITIONS", "BUILTIN", "UPDATED"}
-	commentHeader  = table.Row{"ID", "TASK", "AUTHOR", "BODY", "CREATED"}
-	tokenHeader    = table.Row{"ID", "NAME", "ACTOR", "SCOPES", "PROJECT", "CREATED", "EXPIRES", "LAST USED", "REVOKED"}
-	sshKeyHeader   = table.Row{"ID", "ACTOR", "LABEL", "FINGERPRINT", "CREATED", "LAST USED", "REVOKED"}
-	auditHeader    = table.Row{"SEQ", "ACTION", "SUBJECT", "ACTOR", "SOURCE", "OCCURRED"}
-	endpointHeader = table.Row{"ID", "URL", "EVENTS", "ACTIVE", "CREATED"}
-	tenantHeader   = table.Row{"ID", "KEY", "NAME", "THEME", "CREATED", "DELETED"}
-	themeHeader    = table.Row{"NAME", "ACCENT", "SOFT", "SOURCE"}
-	userHeader     = table.Row{"ID", "EMAIL", "NAME", "CREATED", "DISABLED"}
-	issuedHeader   = table.Row{"ID", "NAME", "SCOPES", "TOKEN", "EXPIRES"}
-	claimHeader    = table.Row{"REF", "TITLE", "STATUS", "LEASE EXPIRES", "TOKEN"}
-	fieldHeader    = table.Row{"KEY", "LABEL", "TYPE", "REQUIRED", "INDEXED", "OPTIONS"}
-	depHeader      = table.Row{"TASK", "DEPENDS ON", "CREATED"}
-	deliveryHeader = table.Row{"ID", "ENDPOINT", "EVENT", "STATUS", "ATTEMPTS", "NEXT ATTEMPT", "CODE"}
-	tagHeader      = table.Row{"ID", "NAME", "PROJECT", "COLOR"}
-	syncHeader     = table.Row{"ID", "SYSTEM", "NAME", "CURSOR", "LAST RUN", "LAST STATUS"}
+	taskHeader       = table.Row{"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "UPDATED", "BLOCKED"}
+	projectHeader    = table.Row{"KEY", "NAME", "WORKFLOW", "COLOR", "ICON", "ARCHIVED", "CREATED", "UPDATED"}
+	workflowHeader   = table.Row{"KEY", "NAME", "INITIAL", "STATES", "TRANSITIONS", "BUILTIN", "UPDATED"}
+	commentHeader    = table.Row{"ID", "TASK", "AUTHOR", "BODY", "CREATED"}
+	tokenHeader      = table.Row{"ID", "NAME", "ACTOR", "SCOPES", "PROJECT", "CREATED", "EXPIRES", "LAST USED", "REVOKED"}
+	sshKeyHeader     = table.Row{"ID", "ACTOR", "LABEL", "FINGERPRINT", "CREATED", "LAST USED", "REVOKED"}
+	auditHeader      = table.Row{"SEQ", "ACTION", "SUBJECT", "ACTOR", "SOURCE", "OCCURRED"}
+	endpointHeader   = table.Row{"ID", "URL", "EVENTS", "ACTIVE", "CREATED"}
+	tenantHeader     = table.Row{"ID", "KEY", "NAME", "THEME", "CREATED", "DELETED"}
+	syncResultHeader = table.Row{"ENTITY", "CREATED", "UPDATED", "SKIPPED", "DELETED"}
+	themeHeader      = table.Row{"NAME", "ACCENT", "SOFT", "SOURCE"}
+	userHeader       = table.Row{"ID", "EMAIL", "NAME", "CREATED", "DISABLED"}
+	issuedHeader     = table.Row{"ID", "NAME", "SCOPES", "TOKEN", "EXPIRES"}
+	claimHeader      = table.Row{"REF", "TITLE", "STATUS", "LEASE EXPIRES", "TOKEN"}
+	fieldHeader      = table.Row{"KEY", "LABEL", "TYPE", "REQUIRED", "INDEXED", "OPTIONS"}
+	depHeader        = table.Row{"TASK", "DEPENDS ON", "CREATED"}
+	deliveryHeader   = table.Row{"ID", "ENDPOINT", "EVENT", "STATUS", "ATTEMPTS", "NEXT ATTEMPT", "CODE"}
+	tagHeader        = table.Row{"ID", "NAME", "PROJECT", "COLOR"}
+	syncHeader       = table.Row{"ID", "SYSTEM", "NAME", "CURSOR", "LAST RUN", "LAST STATUS"}
 
 	connectionHeader = table.Row{"ID", "SURFACE", "ACTOR", "FROM", "SINCE", "KEY"}
 )
@@ -166,6 +172,61 @@ func (p Painter) connectionRow(c core.Connection) table.Row {
 
 // renderConnectionList names the server that answered before the connections
 // it holds, because the view is one process's and reads as whole otherwise.
+// renderSyncResult presents an import run. Without a case here the run fell
+// through to the reflected renderer, which printed the Go struct: an operator
+// finishing a sync saw &{map[task:3] map[] map[] ...} and had to read it.
+//
+// The counts are keyed by entity, so the table has one row per entity that the
+// run touched rather than a fixed set of columns that would be empty for every
+// adapter that imports only tasks.
+func renderSyncResult(w io.Writer, p Painter, r *core.SyncResult) error {
+	lead := fmt.Sprintf("Imported from %s source %q", r.System, r.Source)
+	if r.DryRun {
+		lead = fmt.Sprintf("Dry run against %s source %q: nothing was written", r.System, r.Source)
+	}
+	if _, err := fmt.Fprintln(w, lead+"."); err != nil {
+		return err
+	}
+
+	entities := map[string]bool{}
+	for _, m := range []map[string]int{r.Created, r.Updated, r.Skipped, r.Deleted} {
+		for k := range m {
+			entities[k] = true
+		}
+	}
+	names := make([]string, 0, len(entities))
+	for k := range entities {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+
+	if len(names) == 0 {
+		if _, err := fmt.Fprintln(w, "Nothing to import."); err != nil {
+			return err
+		}
+	} else {
+		rows := make([]table.Row, 0, len(names))
+		for _, n := range names {
+			rows = append(rows, table.Row{n, r.Created[n], r.Updated[n], r.Skipped[n], r.Deleted[n]})
+		}
+		if err := renderRows(w, p, syncResultHeader, rows, func(row table.Row) table.Row { return row }); err != nil {
+			return err
+		}
+	}
+
+	if r.Cursor != "" {
+		if _, err := fmt.Fprintf(w, "Watermark: %s\n", r.Cursor); err != nil {
+			return err
+		}
+	}
+	for _, warning := range r.Warnings {
+		if _, err := fmt.Fprintf(w, "Warning: %s\n", warning); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func renderConnectionList(w io.Writer, p Painter, list core.ConnectionList) error {
 	if _, err := fmt.Fprintf(w, "Server %s, holding %d connections in total.\n",
 		list.ServerID, list.Counts.Process); err != nil {
