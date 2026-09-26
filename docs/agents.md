@@ -258,14 +258,20 @@ A useful agent token is `task:read`, `task:claim`, `task:transition` and, if the
 
 ### Public keys
 
-A public key is the third kind of credential, beside a password and a token. `tix ssh` accepts any key and
-treats the fingerprint as the identity, which is what lets the demo listener hand every visitor their own
-sandbox with no signup. See [deployment.md](deployment.md#the-terminal-interface-over-ssh).
+A public key is the third kind of credential, beside a password and a token. `tix ssh` and `tix serve
+--ssh-listen` accept only the keys somebody enrolled, and a session holds exactly the authority its key's actor
+holds in that tenant: the key itself grants nothing, so the authority is read from the membership on every
+connection. Enrol one with `tix user key add --file ~/.ssh/id_ed25519.pub --actor <handle>`, or over the API at
+`/api/v1/ssh-keys`, or in the browser at `/admin/ssh-keys`. The SSH username selects the tenant rather than an
+account: `ssh tix@host` for a key enrolled in exactly one, `ssh acme@host` to name the tenant when a key is
+enrolled in several. See [deployment.md](deployment.md#the-terminal-interface-over-ssh).
 
-Enrolling a key against an existing user, so that a real account can be reached over SSH rather than a
-throwaway sandbox, is not built yet. The credential is already the right shape for it: resolution is
-fingerprint to actor behind one interface, and enrolment replaces the lookup without touching anything above it.
-An agent today should still use a token.
+`tix ssh --demo` makes the opposite trade and is off by default. There any key is accepted, the fingerprint is
+the whole identity, and each new one is handed a seeded ephemeral tenant that is deleted after `--tenant-ttl`
+without a visit. That listener faces strangers, so it refuses to share a database with real work.
+
+An agent should still use a token. An enrolled key buys a terminal session and nothing else: the SSH listener
+serves the interactive interface, not the command tree, so there is no way to drive `tix claim` through it.
 
 ## Reporting results
 
