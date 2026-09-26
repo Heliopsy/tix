@@ -26,7 +26,9 @@ service code, so a direct write is visible to a subscriber on the server immedia
 | `--no-retention-pruner` | off | disable the pruner |
 | `--no-webhook-dispatcher` | off | disable the dispatcher, leaving queued deliveries for another drainer |
 
-`--listen` also reads from `server.listen` / `TIX_SERVER_LISTEN`.
+`--listen` also reads from `server.listen` / `TIX_SERVER_LISTEN`. A flag nobody typed is not a layer: it
+leaves the configured address alone even though the flag declares `127.0.0.1:8080` of its own, so a
+deployment that only has an environment to configure needs no command line for the bind address.
 
 The four `--ssh-*` flags belong to the same command and are listed with the listener they turn on, under
 [Both listeners in one process](#both-listeners-in-one-process). Together the two tables are every flag
@@ -274,8 +276,13 @@ just image
 podman run --rm -p 127.0.0.1:8080:8080 \
   -v tix-data:/var/lib/tix \
   -e TIX_DATABASE_DSN=sqlite:///var/lib/tix/tix.db \
-  localhost/tix:latest serve --listen 0.0.0.0:8080 --insecure-no-tls
+  -e TIX_SERVER_LISTEN=0.0.0.0:8080 \
+  localhost/tix:latest serve --insecure-no-tls
 ```
+
+The address comes from the environment because that is the layer a container has; `--listen 0.0.0.0:8080`
+on the command line says the same thing. `--insecure-no-tls` has no configuration key, so a non-loopback bind
+still carries that one flag: it is the acknowledgement that this process is facing a network in clear text.
 
 Binding `0.0.0.0` inside the container is what makes the published port reachable, which is why the opt-out is
 there. Publish it on `127.0.0.1` and terminate TLS outside, or mount a certificate and drop the opt-out.

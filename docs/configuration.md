@@ -151,6 +151,16 @@ record while an event is a transport buffer and a delivery is a receipt. A negat
 `0` does not mean "keep forever": it means "unset", and the shipped default for that class applies. Say `87600h`
 rather than `0` if you mean ten years.
 
+`server.listen` is the address `tix serve` binds. `--listen` is its flag layer, and a flag nobody typed is not
+a layer: it leaves the configured address alone even though it declares `127.0.0.1:8080` of its own. That is
+what lets a container be pointed at an address with `TIX_SERVER_LISTEN` and no command line. It says nothing
+about any other command; nothing else binds a port from it.
+
+`server.token` is the credential a command presents. `--token` and `TIX_TOKEN` are its flag layer, so an
+explicit one still wins, and below them come `TIX_SERVER_TOKEN`, a `.env` entry, the `token` of the current
+context and a `server.token` in the configuration file, in that order. It is redacted wherever a value is
+displayed.
+
 `server.trusted_proxies` lists the reverse proxies, as IPs or CIDR blocks, whose `X-Forwarded-Proto` and
 `X-Forwarded-For` are believed. Any client can send those headers, so an empty list, the default, believes
 neither from anybody, and a request is attributed to the address that opened the connection. When the immediate
@@ -272,7 +282,7 @@ of once when the server starts.
 
 | Variable | Effect |
 | --- | --- |
-| `TIX_TOKEN` | the personal access token a command authenticates with, equivalent to `--token` |
+| `TIX_TOKEN` | the personal access token a command authenticates with, equivalent to `--token`, and the flag layer of `server.token` |
 | `NO_COLOR` | set and non-empty, suppresses colour, per [no-color.org](https://no-color.org) |
 | `TIX_NO_COLOR` | the tix-scoped spelling of the same thing |
 

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/server"
@@ -38,6 +39,20 @@ type serveOptions struct {
 	sshHostKey     string
 	sshAllowPublic bool
 	sshIdleTimeout time.Duration
+}
+
+// fromConfig lays the resolved configuration under the flags: server.listen is
+// a key, and a flag is the layer above every other one. A flag nobody gave
+// carries its declared default, which would otherwise silently outrank every
+// other layer, so only a flag the operator actually typed is read.
+//
+// The four SSH flags are deliberately absent. `tix serve` turns its listener
+// on with --ssh-listen alone, so no lower layer may open that port here.
+func (o serveOptions) fromConfig(cmd *cobra.Command, cfg config.Server) serveOptions {
+	if !cmd.Flags().Changed("listen") {
+		o.listen = cfg.Listen
+	}
+	return o
 }
 
 // newServeCmd builds the command that serves the HTTP API.
@@ -105,6 +120,7 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 	if err != nil {
 		return err
 	}
+	o = o.fromConfig(cmd, resolved.Config.Server)
 	log, err := g.logger(cmd)
 	if err != nil {
 		return err

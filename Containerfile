@@ -54,15 +54,21 @@ EXPOSE 8080
 ENV TIX_DATABASE_DSN=/data/tix.db
 VOLUME ["/data"]
 ENTRYPOINT ["/usr/local/bin/tix"]
-# The listen address is on the command line, not in ENV, because serve reads it
-# from its flag and never from the resolved configuration, so TIX_SERVER_LISTEN
-# sets a value nothing consults. Without an address here the image binds
-# loopback inside its own network namespace: it starts, logs "listening", and
-# resets every connection to the port EXPOSE declares.
+# The address is an environment default so an operator can change it the way a
+# container is normally configured, by setting TIX_SERVER_LISTEN, rather than
+# having to replace the whole command. That only became possible once serve
+# started reading server.listen: it used to take the flag and nothing else, so
+# the address had to be argued on the command line and the variable set a value
+# nothing consulted.
 #
-# 0.0.0.0 is the container's namespace; the boundary is what the operator
-# publishes with -p or a Service. The bind-safety opt-out has to come with it
-# because serve refuses a non-loopback address without a certificate, and TLS in
-# front of a container belongs to the ingress or proxy. Override the whole
-# command to bind loopback instead, or to supply a certificate and key.
-CMD ["serve", "--listen", "0.0.0.0:8080", "--insecure-no-tls"]
+# Without an address the image binds loopback inside its own network namespace:
+# it starts, logs "listening", and resets every connection to the port EXPOSE
+# declares. 0.0.0.0 is the container's namespace; the boundary is what the
+# operator publishes with -p or a Service.
+#
+# The bind-safety opt-out stays on the command line because it has no
+# configuration key, so there is nothing to set. serve refuses a non-loopback
+# address without a certificate, and TLS in front of a container belongs to the
+# ingress or proxy. Override the command to supply a certificate and key.
+ENV TIX_SERVER_LISTEN=0.0.0.0:8080
+CMD ["serve", "--insecure-no-tls"]

@@ -371,7 +371,8 @@ func (g *globals) colorMode() output.Mode {
 	return output.ModeAuto
 }
 
-// bearer returns the token supplied by flag or by the environment.
+// bearer returns the token supplied by flag or by the environment. It is the
+// flag layer of server.token, not the effective credential: credential() is.
 func (g *globals) bearer() string {
 	if strings.TrimSpace(g.token) != "" {
 		return g.token
@@ -379,12 +380,26 @@ func (g *globals) bearer() string {
 	return lookupEnv(g.environ, EnvToken)
 }
 
+// credential returns the token this invocation authenticates with, read from
+// the resolved configuration so server.token, TIX_SERVER_TOKEN, a .env entry
+// and a context's token reach the wire rather than only --token and TIX_TOKEN.
+// resolve() has already laid those two on top as the flag layer, so reading
+// the resolved value keeps the documented precedence instead of inverting it.
+func (g *globals) credential() string {
+	if g.resolved != nil {
+		if token := strings.TrimSpace(g.resolved.Config.Server.Token); token != "" {
+			return token
+		}
+	}
+	return g.bearer()
+}
+
 // overrides builds the raw selectors handed to the resolver.
 func (g *globals) overrides() connect.Overrides {
 	return connect.Overrides{
 		DB:             g.db,
 		Server:         g.server,
-		Token:          g.bearer(),
+		Token:          g.credential(),
 		Home:           lookupEnv(g.environ, "HOME"),
 		Environ:        g.environ,
 		DrainMode:      g.drainMode,
