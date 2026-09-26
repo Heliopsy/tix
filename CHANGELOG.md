@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.6.0](https://github.com/Heliopsy/tix/compare/v0.5.0...v0.6.0) (2026-09-26)
+
+
+### Features
+
+* **ci:** publish a container image, and stop shipping a release nobody can download ([b14332b](https://github.com/Heliopsy/tix/commit/b14332b19d2fe5b4fac7c59daba2baf908015f06))
+* **tui:** a project screen, and the definitions a project runs on ([00a014b](https://github.com/Heliopsy/tix/commit/00a014b9e99618b07b70b067273a884adf5c6341))
+* **tui:** confirm before destroying, and answer a form instead of guessing ([9ce30a7](https://github.com/Heliopsy/tix/commit/9ce30a7b6518da03d487b978ecc441ce636678cb))
+* **tui:** make the settings screen worth opening ([6fd7de6](https://github.com/Heliopsy/tix/commit/6fd7de610b711d7d7d9eaca73723a3b0f4d60c25))
+* **tui:** offer a reader the views their permissions reach ([924d4a3](https://github.com/Heliopsy/tix/commit/924d4a3e618644587488579b60476530d3efe1c2))
+
+
+### Bug Fixes
+
+* **config:** honour the keys the documentation promises ([17e534c](https://github.com/Heliopsy/tix/commit/17e534cbe41bba04c8b9507415662b6da3b713be))
+* **deps:** declare pflag, which a test now imports directly ([27735b7](https://github.com/Heliopsy/tix/commit/27735b7eee24bd64f142e4852e323895591a2d6b))
+* **server:** take the live cursor before the connection is acknowledged ([6b7c445](https://github.com/Heliopsy/tix/commit/6b7c4453817a9f293f88dd1efc288213ead629f8))
+* **web:** label the value a reader has to copy, and give the history its width ([bfe386d](https://github.com/Heliopsy/tix/commit/bfe386d1595d6927430d638427f6aff7d152c892))
+
 ## [0.5.0](https://github.com/Heliopsy/tix/compare/v0.4.0...v0.5.0) (2026-09-25)
 
 
