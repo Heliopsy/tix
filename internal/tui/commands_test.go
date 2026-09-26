@@ -53,7 +53,7 @@ func TestDetailForResolvesEveryActorTheDetailViewNames(t *testing.T) {
 		"holder":   {Handle: "carol"},
 		"author":   {Handle: "dana"},
 	}
-	m := New(Config{Service: svc})
+	m := New(Config{Access: fullAccess(), Service: svc})
 	cmd := m.detailFor(core.TaskRef{ID: "t1"})
 	msg, ok := cmd().(detailMsg)
 	if !ok {
@@ -109,7 +109,7 @@ func TestUpdateSentenceFallsBackWhenNothingChanged(t *testing.T) {
 // by the generic path (actionFailure uses kind.Label(), not the sentence).
 func TestUpdateTaskCommandCarriesTheSentence(t *testing.T) {
 	svc := newFakeService()
-	m := New(Config{Service: svc})
+	m := New(Config{Access: fullAccess(), Service: svc})
 	title := "a better title"
 	cmd := m.updateTask(core.Task{ID: "t1", Ref: "infra-3"}, core.UpdateTaskInput{Title: &title})
 	msg, ok := cmd().(actionMsg)

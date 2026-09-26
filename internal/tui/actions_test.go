@@ -153,7 +153,7 @@ func TestAPromptThatNeedsATaskRefusesWithoutOne(t *testing.T) {
 }
 
 func TestNewTaskRefusesWithNoProjectOpen(t *testing.T) {
-	m := New(Config{})
+	m := New(Config{Access: fullAccess()})
 	m.svc = newFakeService()
 	m.view = viewBoard
 	next, _ := m.reduce(pressKey("n"))

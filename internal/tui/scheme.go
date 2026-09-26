@@ -327,6 +327,8 @@ func viewName(v viewKind) string {
 		return "activity"
 	case viewTenant:
 		return "tenant"
+	case viewStats:
+		return "stats"
 	default:
 		return "help"
 	}

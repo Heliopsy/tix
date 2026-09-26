@@ -21,6 +21,10 @@ const ExitInterrupt = 130
 type Options struct {
 	Service core.Service
 	Actor   *core.Actor
+	// Access is which views this reader may enter, from capability.TUIAccess.
+	// Leaving it out offers only the views that need no authority, because the
+	// safe default for a permission the caller did not state is none.
+	Access  ViewAccess
 	Context context.Context
 	Project string
 	Filter  string
@@ -66,7 +70,7 @@ func Run(o Options) int {
 		errw = os.Stderr
 	}
 	model := New(Config{
-		Service: o.Service, Context: ctx, Actor: o.Actor,
+		Service: o.Service, Context: ctx, Actor: o.Actor, Access: o.Access,
 		Environ: o.Environ, Out: o.Out, Color: o.Color, Project: o.Project, Filter: o.Filter,
 		Scheme: o.Scheme, Overrides: o.Overrides, TimeStyle: o.TimeStyle, Brand: o.Brand,
 		Tenant: o.Tenant, Dial: o.Dial,

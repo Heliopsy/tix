@@ -37,7 +37,7 @@ func pressKey(s string) tea.KeyMsg {
 // boardModel returns a model already showing a three task board.
 func boardModel(t *testing.T) Model {
 	t.Helper()
-	m := New(Config{Environ: []string{"NO_COLOR=1"}, Now: func() time.Time {
+	m := New(Config{Access: fullAccess(), Environ: []string{"NO_COLOR=1"}, Now: func() time.Time {
 		return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	}})
 	m.width, m.height = 120, 40
@@ -54,7 +54,7 @@ func boardModel(t *testing.T) Model {
 }
 
 func TestReduceWindowSize(t *testing.T) {
-	m := New(Config{})
+	m := New(Config{Access: fullAccess()})
 	m, cmd := m.reduce(tea.WindowSizeMsg{Width: 200, Height: 50})
 	if m.width != 200 || m.height != 50 {
 		t.Fatalf("size = %dx%d", m.width, m.height)
@@ -71,21 +71,21 @@ func TestReduceWindowSize(t *testing.T) {
 
 func TestReduceProjects(t *testing.T) {
 	t.Run("installs the listing", func(t *testing.T) {
-		m := New(Config{})
+		m := New(Config{Access: fullAccess()})
 		m, _ = m.reduce(projectsMsg{projects: []core.Project{{Key: "infra"}, {Key: "web"}}})
 		if len(m.projects) != 2 || m.view != viewProjects {
 			t.Fatalf("projects = %+v view = %v", m.projects, m.view)
 		}
 	})
 	t.Run("empty listing is not an error", func(t *testing.T) {
-		m := New(Config{})
+		m := New(Config{Access: fullAccess()})
 		m, _ = m.reduce(projectsMsg{})
 		if m.err != "" || m.fatal != nil {
 			t.Fatalf("an empty listing produced err=%q fatal=%v", m.err, m.fatal)
 		}
 	})
 	t.Run("opens the requested project", func(t *testing.T) {
-		m := New(Config{Project: "web", Service: newFakeService()})
+		m := New(Config{Access: fullAccess(), Project: "web", Service: newFakeService()})
 		m, cmd := m.reduce(projectsMsg{projects: []core.Project{{Key: "infra"}, {Key: "web"}}})
 		if m.projectSel != 1 || cmd == nil {
 			t.Fatalf("sel = %d cmd = %v", m.projectSel, cmd)
@@ -95,7 +95,7 @@ func TestReduceProjects(t *testing.T) {
 		}
 	})
 	t.Run("reports an unreachable project", func(t *testing.T) {
-		m := New(Config{Project: "gone"})
+		m := New(Config{Access: fullAccess(), Project: "gone"})
 		m, _ = m.reduce(projectsMsg{projects: []core.Project{{Key: "infra"}}})
 		if !strings.Contains(m.err, "gone") {
 			t.Fatalf("err = %q", m.err)
@@ -184,7 +184,7 @@ func TestReduceEvent(t *testing.T) {
 
 func TestReduceStream(t *testing.T) {
 	t.Run("connected starts reading", func(t *testing.T) {
-		m := New(Config{})
+		m := New(Config{Access: fullAccess()})
 		events := make(chan core.Event, 1)
 		next, cmd := m.reduce(streamMsg{connected: true, events: events})
 		if !next.connected || cmd == nil {
@@ -192,7 +192,7 @@ func TestReduceStream(t *testing.T) {
 		}
 	})
 	t.Run("a drop is reported and retried", func(t *testing.T) {
-		m := New(Config{})
+		m := New(Config{Access: fullAccess()})
 		m.connected = true
 		next, cmd := m.reduce(streamMsg{err: errors.New("connection reset")})
 		if next.connected {
@@ -204,7 +204,7 @@ func TestReduceStream(t *testing.T) {
 	})
 	t.Run("resubscribing resumes from the last sequence", func(t *testing.T) {
 		svc := newFakeService()
-		m := New(Config{Service: svc})
+		m := New(Config{Access: fullAccess(), Service: svc})
 		m.lastSeq = 42
 		next, _ := m.reduce(reconnectMsg{})
 		if next.lastSeq != 42 {
@@ -316,7 +316,7 @@ func TestHelpToggle(t *testing.T) {
 		if opened.view != viewHelp || opened.underView() != view {
 			t.Fatalf("help did not open from view %v: %+v", view, opened.view)
 		}
-		if len(opened.keys.ViewHelp(opened.underView())) == 0 || len(opened.keys.GlobalHelp()) == 0 {
+		if len(opened.keys.ViewHelp(opened.underView())) == 0 || len(opened.keys.GlobalHelp(allViews)) == 0 {
 			t.Fatal("help listed no bindings")
 		}
 
@@ -581,7 +581,7 @@ func TestDetailViewRoundTrip(t *testing.T) {
 func TestProjectPickerKeysOpenABoard(t *testing.T) {
 	svc := newFakeService()
 	svc.projects = []core.Project{{ID: "p1", Key: "infra"}, {ID: "p2", Key: "web"}}
-	m := New(Config{Service: svc})
+	m := New(Config{Access: fullAccess(), Service: svc})
 	m, _ = m.reduce(projectsMsg{projects: svc.projects})
 
 	m, _ = m.reduce(pressKey("j"))
@@ -601,7 +601,7 @@ func TestProjectPickerKeysOpenABoard(t *testing.T) {
 
 func TestRefreshLoadsWhateverIsOpen(t *testing.T) {
 	svc := newFakeService()
-	m := New(Config{Service: svc})
+	m := New(Config{Access: fullAccess(), Service: svc})
 	if m.refresh() == nil {
 		t.Fatal("refresh did nothing without a project")
 	}

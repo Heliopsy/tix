@@ -100,12 +100,47 @@ func entry(b key.Binding) HelpEntry {
 	return HelpEntry{Keys: b.Help().Key, Desc: b.Help().Desc}
 }
 
-// GlobalHelp lists the bindings that work in every view.
-func (k KeyMap) GlobalHelp() []HelpEntry {
-	return []HelpEntry{
-		entry(k.Help), entry(k.Refresh), entry(k.Projects), entry(k.Settings), entry(k.Activity),
-		entry(k.Tenant), entry(k.Quit), entry(k.Interrupt),
+// globalKey is one cross-view binding and the view it opens. A binding that
+// opens no view, such as refresh, carries none and is always offered.
+type globalKey struct {
+	binding key.Binding
+	opens   viewKind
+	always  bool
+}
+
+// globalKeys pairs each cross-view binding with the view it opens, so the help
+// overlay and the key that opens the view cannot disagree about which views a
+// reader has.
+func (k KeyMap) globalKeys() []globalKey {
+	return []globalKey{
+		{binding: k.Help, always: true},
+		{binding: k.Refresh, always: true},
+		{binding: k.Projects, opens: viewProjects},
+		{binding: k.Settings, opens: viewSettings},
+		{binding: k.Activity, opens: viewActivity},
+		{binding: k.Stats, opens: viewStats},
+		{binding: k.Tenant, opens: viewTenant},
+		{binding: k.Quit, always: true},
+		{binding: k.Interrupt, always: true},
 	}
+}
+
+// GlobalHelp lists the bindings that work in every view, leaving out the ones
+// that open a view this reader is not offered. A key documented in the overlay
+// is a promise that pressing it does something, and the overlay used to render
+// every binding regardless of who was reading it.
+//
+// A nil predicate offers none of the views, the same closed default the
+// interface itself takes.
+func (k KeyMap) GlobalHelp(offered func(viewKind) bool) []HelpEntry {
+	out := make([]HelpEntry, 0, len(k.globalKeys()))
+	for _, g := range k.globalKeys() {
+		if !g.always && (offered == nil || !offered(g.opens)) {
+			continue
+		}
+		out = append(out, entry(g.binding))
+	}
+	return out
 }
 
 // taskActions are the bindings that act on the selected task, offered wherever

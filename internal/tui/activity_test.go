@@ -53,7 +53,7 @@ func TestActivityRecordsEveryEventRegardlessOfTheOpenView(t *testing.T) {
 // The activity ring is capped so a long session cannot grow it without limit,
 // and it keeps the newest events rather than the oldest.
 func TestActivityIsCappedToTheNewestEvents(t *testing.T) {
-	m := New(Config{})
+	m := New(Config{Access: fullAccess()})
 	for i := int64(1); i <= activityCap+10; i++ {
 		m, _ = m.reduce(eventMsg{event: activityEvent(i, "alice")})
 	}

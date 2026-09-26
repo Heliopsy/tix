@@ -52,6 +52,8 @@ func Exemptions() []Exemption {
 		{"SweepLeases", "lease sweeping is a background maintenance loop, not an operator action"},
 		{"Subscribe", "the browser consumes the event stream over the WebSocket route rather than calling the method directly"},
 		{"Close", "closing the service is process lifecycle, not an operation"},
+		{"WhoAmI", "the root route calls it to bounce a visitor who is not signed in and discards the identity it answers with, so no screen states who the reader is"},
+		{"GetActor", "the screens call it to label an identifier, keeping the handle and discarding the rest, and there is no actor screen to open"},
 	}
 }
 

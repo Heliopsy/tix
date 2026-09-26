@@ -179,7 +179,7 @@ func TestTheSettingsViewNamesTheActiveScheme(t *testing.T) {
 }
 
 func TestAConfiguredSchemeIsInstalledAtStartup(t *testing.T) {
-	m := New(Config{Scheme: "vim"})
+	m := New(Config{Access: fullAccess(), Scheme: "vim"})
 	if m.scheme != SchemeVim {
 		t.Fatalf("scheme = %q", m.scheme)
 	}
@@ -190,7 +190,7 @@ func TestAConfiguredSchemeIsInstalledAtStartup(t *testing.T) {
 }
 
 func TestABadConfiguredSchemeIsReportedRatherThanIgnored(t *testing.T) {
-	m := New(Config{Scheme: "kakoune"})
+	m := New(Config{Access: fullAccess(), Scheme: "kakoune"})
 	if m.scheme != SchemeDefault {
 		t.Fatalf("scheme = %q", m.scheme)
 	}
@@ -200,7 +200,7 @@ func TestABadConfiguredSchemeIsReportedRatherThanIgnored(t *testing.T) {
 }
 
 func TestABadConfiguredOverrideIsReportedRatherThanIgnored(t *testing.T) {
-	m := New(Config{Overrides: map[string]string{"New": "c"}})
+	m := New(Config{Access: fullAccess(), Overrides: map[string]string{"New": "c"}})
 	if !strings.Contains(m.err, "keybindings") {
 		t.Fatalf("a colliding override started in silence: %q", m.err)
 	}

@@ -92,7 +92,7 @@ func projectListModel(t *testing.T, n, width, height int) Model {
 			Color: core.ProjectColors()[i%len(core.ProjectColors())],
 		})
 	}
-	m := New(Config{Environ: []string{"NO_COLOR=1"}})
+	m := New(Config{Access: fullAccess(), Environ: []string{"NO_COLOR=1"}})
 	m.width, m.height = width, height
 	m, _ = m.reduce(projectsMsg{projects: projects})
 	return m
@@ -171,7 +171,7 @@ func TestABoardColumnScrollsWithItsSelection(t *testing.T) {
 	for i := range 40 {
 		tasks = append(tasks, task(fmt.Sprintf("t%d", i), "todo", int64(i+1), core.PriorityNormal))
 	}
-	m := New(Config{Environ: []string{"NO_COLOR=1"}})
+	m := New(Config{Access: fullAccess(), Environ: []string{"NO_COLOR=1"}})
 	m.width, m.height = 130, 14
 	m, _ = m.reduce(boardMsg{
 		project:  core.Project{ID: "p1", Key: "infra"},

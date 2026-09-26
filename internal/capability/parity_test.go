@@ -101,6 +101,24 @@ func TestOperationsAreWellFormed(t *testing.T) {
 		if op.HTTP.Template != "" {
 			t.Errorf("%s: an http route renders no template", op.Name)
 		}
+		if op.Web.Method == http.MethodGet && op.Web.Template == "" {
+			t.Errorf("%s: a browser screen names no template", op.Name)
+		}
+		if op.Web.Query != "" {
+			t.Errorf("%s: a browser route is picked by its path, not by %q", op.Name, op.Web.Query)
+		}
+		for _, l := range op.Limits {
+			if !op.Binds(l.Surface) {
+				t.Errorf("%s: a %s limitation sits on a binding the operation does not declare",
+					op.Name, l.Surface)
+			}
+			if strings.TrimSpace(l.Reason) == "" {
+				t.Errorf("%s: the %s limitation says nothing", op.Name, l.Surface)
+			}
+			if _, exempted := op.ExemptionFor(l.Surface); exempted {
+				t.Errorf("%s: %s is both exempted and limited", op.Name, l.Surface)
+			}
+		}
 		for _, e := range op.Exempt {
 			if e.Gap && !strings.HasPrefix(e.Reason, "GAP:") {
 				t.Errorf("%s: gap on %s is not marked in its reason", op.Name, e.Surface)
@@ -169,7 +187,7 @@ func TestEveryHTTPBindingResolvesAgainstTheServedMux(t *testing.T) {
 		if op.HTTP.Zero() {
 			continue
 		}
-		status := probe(router, op.HTTP.Method, concretePath(op.HTTP.Pattern))
+		status := probe(router, op.HTTP.Method, concretePath(op.HTTP.Path()))
 		switch status {
 		case http.StatusNotFound:
 			t.Errorf("%s: http binding %s %s is served by no route", op.Name, op.HTTP.Method, op.HTTP.Pattern)
@@ -180,6 +198,37 @@ func TestEveryHTTPBindingResolvesAgainstTheServedMux(t *testing.T) {
 	}
 	if status := probe(router, http.MethodGet, "/api/v1/nowhere"); status != http.StatusNotFound {
 		t.Fatalf("an unregistered path answered %d, so routing is not being checked", status)
+	}
+}
+
+// TestNoTwoOperationsShareOneAPIAddress is the guard the registry lacked while
+// project.archive and project.delete both claimed DELETE on a project. One
+// address for two operations means the registry cannot say which of them a
+// reader reaches, and the branch a caller gets by default there is the
+// destructive one, so the collision has to fail the build rather than read as
+// two honest entries.
+func TestNoTwoOperationsShareOneAPIAddress(t *testing.T) {
+	t.Parallel()
+	owner := map[string]string{}
+	for _, op := range capability.Operations() {
+		if op.HTTP.Zero() {
+			continue
+		}
+		addr := op.HTTP.Address()
+		if first, taken := owner[addr]; taken {
+			t.Errorf("%s and %s are both declared at %s; one of them is unreachable",
+				first, op.Name, addr)
+			continue
+		}
+		owner[addr] = op.Name
+	}
+	archive, _ := capability.ByMethod("ArchiveProject")
+	remove, _ := capability.ByMethod("DeleteProject")
+	if archive.HTTP.Address() == remove.HTTP.Address() {
+		t.Fatalf("archiving and deleting a project share %s again", archive.HTTP.Address())
+	}
+	if archive.HTTP.Query == "" {
+		t.Fatal("archiving a project names no query discriminator, so it is the delete route")
 	}
 }
 
@@ -314,6 +363,47 @@ var tuiViews = map[string]bool{
 	"stats": true,
 }
 
+// TestEveryTUIViewCarriesAnOperation is the other half of the previous guard.
+// A view the registry names but binds nothing to is a screen with no declared
+// capability, and a view with capability but no attribution was how the
+// activity screen shipped unrecorded.
+func TestEveryTUIViewCarriesAnOperation(t *testing.T) {
+	t.Parallel()
+	bound := map[string]bool{}
+	for _, view := range capability.TUIViews() {
+		bound[view] = true
+	}
+	for view := range tuiViews {
+		if !bound[view] {
+			t.Errorf("the interface has a %q view and the registry binds nothing to it", view)
+		}
+	}
+	for view := range bound {
+		if !tuiViews[view] {
+			t.Errorf("the registry binds an operation to view %q, which the interface does not have", view)
+		}
+	}
+}
+
+// TestEveryTUIViewHasAReadToOfferIt guards the gating rule: a view is offered
+// when the reader may perform one of its reads. A view bound only to writes
+// would be permanently hidden from everyone, which is a navigation the reader
+// can never reach rather than one the policy refused.
+func TestEveryTUIViewHasAReadToOfferIt(t *testing.T) {
+	t.Parallel()
+	reads := map[string]int{}
+	for _, op := range capability.Operations() {
+		if op.TUI != "" && op.Reads() {
+			reads[op.TUI]++
+		}
+	}
+	for _, view := range capability.TUIViews() {
+		if reads[view] == 0 {
+			t.Errorf("view %q binds no read, so no reader can ever be offered it", view)
+		}
+	}
+}
+
 func TestEveryTUIBindingNamesAKnownView(t *testing.T) {
 	t.Parallel()
 	for _, op := range capability.Operations() {
@@ -361,23 +451,77 @@ func TestNoCLIGapRemains(t *testing.T) {
 	}
 }
 
-// TestRemainingGapsAreOnlyTheTUIOnes states where parity actually stands, so
-// the number cannot grow quietly and cannot be mistaken for zero.
-func TestRemainingGapsAreOnlyTheTUIOnes(t *testing.T) {
+// TestGapsStandWhereTheyAreRecorded states where parity actually stands, so
+// the number cannot grow quietly and cannot be mistaken for zero. The browser
+// count is two rather than none: the root route calls WhoAmI for its error and
+// throws the identity away, and the screens call GetActor only to turn an
+// identifier into a label, so neither operation reaches a browser reader.
+func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 	t.Parallel()
-	const knownTUIGaps = 59
-	count := 0
+	want := map[capability.Surface]int{
+		capability.SurfaceTUI: 58,
+		capability.SurfaceWeb: 2,
+	}
+	got := map[capability.Surface]int{}
 	for _, absence := range capability.Gaps() {
-		if absence.Surface != capability.SurfaceTUI {
-			t.Errorf("%s: an unexpected gap on %s", absence.Method, absence.Surface)
+		got[absence.Surface]++
+	}
+	for surface, count := range got {
+		if _, expected := want[surface]; !expected {
+			t.Errorf("%d unexpected gaps on %s", count, surface)
+		}
+	}
+	for surface, expected := range want {
+		switch {
+		case got[surface] > expected:
+			t.Errorf("%s gaps grew to %d, from %d", surface, got[surface], expected)
+		case got[surface] < expected:
+			t.Errorf("%s gaps fell to %d from %d; lower the constant so the gate keeps holding",
+				surface, got[surface], expected)
+		}
+	}
+}
+
+// recordedShortfalls are the bindings that exist and reach less far than the
+// same operation reaches elsewhere. Naming them rather than counting them is
+// what stops one being deleted along with the surface behaviour it described,
+// which a count of "more than none" would not notice.
+var recordedShortfalls = map[string]capability.Surface{
+	"TaskTree":    capability.SurfaceWeb,
+	"ListTokens":  capability.SurfaceWeb,
+	"ListSSHKeys": capability.SurfaceWeb,
+}
+
+// TestEveryLimitationIsJustified keeps the recorded shortfalls attributable,
+// and keeps each of them recorded.
+func TestEveryLimitationIsJustified(t *testing.T) {
+	t.Parallel()
+	held := map[string]capability.Surface{}
+	for _, s := range capability.Limitations() {
+		held[s.Method] = s.Surface
+	}
+	for method, surface := range recordedShortfalls {
+		switch got, ok := held[method]; {
+		case !ok:
+			t.Errorf("%s no longer records that its %s binding reaches less far", method, surface)
+		case got != surface:
+			t.Errorf("%s records a shortfall on %s, not on %s", method, got, surface)
+		}
+	}
+	for method := range held {
+		if _, expected := recordedShortfalls[method]; !expected {
+			t.Errorf("%s records a shortfall nobody reviewed", method)
+		}
+	}
+	for _, s := range capability.Limitations() {
+		op, ok := capability.ByMethod(s.Method)
+		if !ok {
+			t.Errorf("a limitation names %q, which the registry does not declare", s.Method)
 			continue
 		}
-		count++
-	}
-	if count > knownTUIGaps {
-		t.Errorf("tui gaps grew to %d, from %d", count, knownTUIGaps)
-	}
-	if count < knownTUIGaps {
-		t.Errorf("tui gaps fell to %d from %d; lower the constant so the gate keeps holding", count, knownTUIGaps)
+		if _, found := op.LimitationFor(s.Surface); !found {
+			t.Errorf("%s: the %s limitation is not readable back off the operation",
+				op.Name, s.Surface)
+		}
 	}
 }

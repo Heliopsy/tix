@@ -72,7 +72,7 @@ func TestViewNeverPanics(t *testing.T) {
 }
 
 func TestViewWithoutColorEmitsNoEscapeSequences(t *testing.T) {
-	m := New(Config{Environ: []string{"NO_COLOR=1"}, Now: func() time.Time { return time.Time{} }})
+	m := New(Config{Access: fullAccess(), Environ: []string{"NO_COLOR=1"}, Now: func() time.Time { return time.Time{} }})
 	m.width, m.height = 120, 40
 	m, _ = m.reduce(boardMsg{
 		project:  core.Project{ID: "p1", Key: "infra", Name: "Infrastructure"},
@@ -95,8 +95,9 @@ func TestRunStartsAndQuitsCleanly(t *testing.T) {
 
 	var out, errw bytes.Buffer
 	code := Run(Options{
-		Service: svc, Context: ctx, Environ: []string{"NO_COLOR=1", "TERM=dumb"},
-		In: strings.NewReader("q"), Out: &out, Err: &errw,
+		Service: svc, Context: ctx, Access: fullAccess(),
+		Environ: []string{"NO_COLOR=1", "TERM=dumb"},
+		In:      strings.NewReader("q"), Out: &out, Err: &errw,
 	})
 	if code != core.ExitOK {
 		t.Fatalf("exit code = %d, stderr = %q", code, errw.String())

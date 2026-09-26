@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/ssh"
 	bm "github.com/charmbracelet/wish/bubbletea"
 	"github.com/heliopsy/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/capability"
 	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/tui"
@@ -88,9 +89,13 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 	act := &activity{}
 	act.touch(s.opts.Clock.Now())
 	model := tui.New(tui.Config{
-		Service:   capped{Service: s.opts.Service, limit: s.opts.MaxTasks},
-		Context:   ctx,
-		Actor:     actor,
+		Service: capped{Service: s.opts.Service, limit: s.opts.MaxTasks},
+		Context: ctx,
+		Actor:   actor,
+		// What this session is offered is its actor's authority and nothing
+		// else. A sandbox visitor and an enrolled member reach this line the
+		// same way, so the set is resolved here rather than per surface.
+		Access:    capability.TUIAccess(actor),
 		Environ:   environ,
 		Color:     &color,
 		Renderer:  tui.NewRenderer(environ, sess),

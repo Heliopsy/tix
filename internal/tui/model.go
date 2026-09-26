@@ -23,9 +23,12 @@ type Model struct {
 	svc   core.Service
 	ctx   context.Context
 	actor *core.Actor
-	keys  KeyMap
-	theme Theme
-	now   func() time.Time
+	// access is which views this reader is offered, resolved once from the
+	// actor's authority. Nothing recomputes it per keystroke.
+	access ViewAccess
+	keys   KeyMap
+	theme  Theme
+	now    func() time.Time
 	// timeStyle renders every timestamp the interface draws. The zero value
 	// is a working default, so a Model built without one still renders.
 	timeStyle output.TimeStyle
@@ -128,6 +131,9 @@ type Config struct {
 	Service core.Service
 	Context context.Context
 	Actor   *core.Actor
+	// Access is which views this reader may enter, from capability.TUIAccess.
+	// Leaving it out offers only the views that need no authority.
+	Access  ViewAccess
 	Environ []string
 	Out     io.Writer
 	// Color overrides the environment probe. A caller whose destination is not
@@ -192,7 +198,7 @@ func New(cfg Config) Model {
 		prefs.Keymap = cfg.Scheme
 	}
 	m := Model{
-		svc: cfg.Service, ctx: ctx, actor: cfg.Actor,
+		svc: cfg.Service, ctx: ctx, actor: cfg.Actor, access: cfg.Access,
 		keys: DefaultKeyMap(), theme: NewTheme(cfg.Renderer, auto, cfg.Brand), now: now,
 		timeStyle: cfg.TimeStyle,
 		view:      viewProjects, input: in, leases: map[string]string{},
@@ -475,6 +481,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Activity):
 		return m.openActivity(), nil
 	case key.Matches(msg, m.keys.Stats):
+		if !m.canReach(viewStats) {
+			return m, nil
+		}
 		return m.openStats()
 	case key.Matches(msg, m.keys.Tenant):
 		return m.openTenant(), nil
@@ -516,8 +525,12 @@ func (m Model) handleHelpKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 // enterView moves one level deeper, remembering where it came from. Entering
 // the view already open is a refresh rather than a step, so a reload never
 // makes the way back one press longer.
+//
+// A view this reader is not offered is not entered. This is the only door into
+// a view, so the refusal cannot be walked around by a new call site, and a
+// sandbox visitor and an enrolled administrator run the same code here.
 func (m Model) enterView(v viewKind) Model {
-	if m.view == v {
+	if m.view == v || !m.canReach(v) {
 		return m
 	}
 	m.stack = append(append([]viewKind{}, m.stack...), m.view)

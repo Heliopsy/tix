@@ -6,6 +6,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/heliopsy/tix/internal/capability"
 	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/tui"
@@ -93,6 +94,7 @@ func newTUICmd(g *globals) *cobra.Command {
 				Dial:      g.tenantDialer(cmd),
 				Service:   conn.Service,
 				Actor:     conn.Actor,
+				Access:    capability.TUIAccess(conn.Actor),
 				Context:   ctx,
 				Project:   project,
 				Filter:    filter,

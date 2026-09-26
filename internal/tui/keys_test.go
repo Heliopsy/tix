@@ -12,7 +12,7 @@ import (
 func TestEveryBindingIsDocumented(t *testing.T) {
 	k := DefaultKeyMap()
 	for _, v := range []viewKind{viewProjects, viewBoard, viewDetail, viewHelp} {
-		for _, e := range append(k.ViewHelp(v), k.GlobalHelp()...) {
+		for _, e := range append(k.ViewHelp(v), k.GlobalHelp(allViews)...) {
 			if e.Keys == "" || e.Desc == "" {
 				t.Fatalf("view %v advertises an undocumented binding %+v", v, e)
 			}
@@ -54,7 +54,7 @@ func TestViewBindingsDoNotCollide(t *testing.T) {
 }
 
 func TestTaskFilterAlwaysScopesToAProject(t *testing.T) {
-	m := New(Config{})
+	m := New(Config{Access: fullAccess()})
 	if got := m.taskFilter("infra"); len(got.ProjectKeys) != 1 || got.ProjectKeys[0] != "infra" {
 		t.Fatalf("taskFilter = %+v", got.ProjectKeys)
 	}

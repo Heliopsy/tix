@@ -77,7 +77,7 @@ func TestEmptyStateRendersAsReadableLines(t *testing.T) {
 // TestAnEmptyBoardSaysSoOnScreen is the defect this replaced: five columns
 // reading "(0)" over blank space is indistinguishable from a failure.
 func TestAnEmptyBoardSaysSoOnScreen(t *testing.T) {
-	m := New(Config{Environ: []string{"NO_COLOR=1"}})
+	m := New(Config{Access: fullAccess(), Environ: []string{"NO_COLOR=1"}})
 	m.width, m.height = 130, 24
 	m, _ = m.reduce(boardMsg{
 		project:  core.Project{ID: "p1", Key: "infra", Name: "Infrastructure"},
@@ -93,7 +93,7 @@ func TestAnEmptyBoardSaysSoOnScreen(t *testing.T) {
 }
 
 func TestAnEmptyProjectListSaysSoOnScreen(t *testing.T) {
-	m := New(Config{Environ: []string{"NO_COLOR=1"}})
+	m := New(Config{Access: fullAccess(), Environ: []string{"NO_COLOR=1"}})
 	m.width, m.height = 130, 24
 	m, _ = m.reduce(projectsMsg{})
 	frame := m.View()

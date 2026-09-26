@@ -40,7 +40,7 @@ func TestBackPopsOneLevelAtATime(t *testing.T) {
 }
 
 func TestBackAtTheTopLevelDoesNothing(t *testing.T) {
-	m := New(Config{})
+	m := New(Config{Access: fullAccess()})
 	m, _ = m.reduce(projectsMsg{projects: []core.Project{{ID: "p1", Key: "infra"}}})
 	next, cmd := m.reduce(pressKey("esc"))
 	if next.view != viewProjects || cmd != nil {

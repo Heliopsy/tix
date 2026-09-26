@@ -3,12 +3,14 @@
 package integration
 
 import (
+	"context"
 	"io"
 	"reflect"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/heliopsy/tix/internal/capability"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/tui"
 )
@@ -128,10 +130,13 @@ func runTUIScenario(t *testing.T, tg target, sc tuiScenario) (view, want string)
 	t.Helper()
 	_, want = sc.seed(t, tg)
 
+	driver := &core.Actor{ID: "tui-driver", TenantID: "n/a", Kind: core.ActorUser,
+		Handle: "tui", Role: core.RoleAdmin}
 	model := tui.New(tui.Config{
 		Service: tg.svc, Context: tg.ctx,
-		Actor: &core.Actor{ID: "tui-driver", TenantID: "n/a", Kind: core.ActorUser, Handle: "tui", Role: core.RoleAdmin},
-		Out:   io.Discard,
+		Actor:  driver,
+		Access: capability.TUIAccess(driver),
+		Out:    io.Discard,
 	})
 	var m tea.Model = model
 	m = driveTUI(t, m, m.Init())
@@ -177,4 +182,69 @@ func TestTUITransportEquivalence(t *testing.T) {
 
 func containsText(haystack, needle string) bool {
 	return needle != "" && strings.Contains(haystack, needle)
+}
+
+// pressRune feeds one character through Update the way pressKey feeds a named
+// key, so a test can press the cross-view keys a reader actually presses.
+func pressRune(t *testing.T, m tea.Model, r rune) tea.Model {
+	t.Helper()
+	m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	return driveTUI(t, m, cmd)
+}
+
+// TestTheRealInterfaceNavigatesByTheReadersScopes drives the whole interface,
+// not the model's gating predicate, as two readers of the same tenant: one who
+// may subscribe to events and one who may not. It is the end of the chain the
+// unit guards cover in pieces, and it is the one that would catch a caller
+// wiring the authority set to the wrong actor.
+func TestTheRealInterfaceNavigatesByTheReadersScopes(t *testing.T) {
+	t.Parallel()
+	h := newMatrixHarness(t)
+	tg := h.localTarget()
+	project := h.newProject(t, tg)
+	if _, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{
+		ProjectRef: project.Key, Title: "visible to both readers",
+	}); err != nil {
+		t.Fatalf("seeding a task: %v", err)
+	}
+
+	reader := func(scopes ...core.Scope) tea.Model {
+		actor := &core.Actor{ID: h.adminActor.ID, TenantID: h.tenantID,
+			Kind: core.ActorUser, Handle: "reader", Scopes: scopes}
+		svc, ctx := h.local, core.WithSource(core.WithActor(context.Background(), actor), core.SourceTUI)
+		m := tui.New(tui.Config{
+			Service: svc, Context: ctx, Actor: actor,
+			Access: capability.TUIAccess(actor), Out: io.Discard,
+			Environ: []string{"NO_COLOR=1"},
+		})
+		var model tea.Model = m
+		return driveTUI(t, model, model.Init())
+	}
+
+	base := []core.Scope{core.ScopeTaskRead, core.ScopeProjectRead, core.ScopeWorkflowRead}
+
+	watcher := pressRune(t, reader(append(base, core.ScopeEventSubscribe)...), 'v')
+	if !strings.Contains(watcher.View(), "activity") {
+		t.Errorf("a reader who may subscribe did not reach the activity view:\n%s", watcher.View())
+	}
+
+	confined := reader(base...)
+	before := confined.View()
+	after := pressRune(t, confined, 'v')
+	if strings.Contains(after.View(), "activity") {
+		t.Errorf("a reader who may not subscribe reached the activity view:\n%s", after.View())
+	}
+	if after.View() != before {
+		t.Errorf("pressing a refused key changed the screen:\n%s\n---\n%s", before, after.View())
+	}
+	if stats := pressRune(t, confined, 'S'); !strings.Contains(stats.View(), "statistics") {
+		t.Errorf("the same reader was refused the statistics view, which they may read:\n%s", stats.View())
+	}
+	overlay := pressRune(t, confined, '?').View()
+	if strings.Contains(overlay, "v            activity") {
+		t.Errorf("the overlay documented the activity key for a reader refused it:\n%s", overlay)
+	}
+	if !strings.Contains(overlay, "statistics") {
+		t.Errorf("the overlay dropped a key the reader may use:\n%s", overlay)
+	}
 }

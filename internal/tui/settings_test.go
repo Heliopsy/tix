@@ -55,7 +55,7 @@ func sessionLine(t *testing.T, m Model, label string) string {
 // own zone or configuration.
 func settingsModel(t *testing.T, save PreferenceWriter) Model {
 	t.Helper()
-	m := New(Config{
+	m := New(Config{Access: fullAccess(),
 		Environ: []string{"NO_COLOR=1"},
 		Now:     func() time.Time { return time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC) },
 		Prefs: Preferences{

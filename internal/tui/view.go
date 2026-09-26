@@ -535,7 +535,7 @@ func (m Model) helpLines(layout Layout) []string {
 		lines = append(lines, "  "+pad(e.Keys, 12)+e.Desc)
 	}
 	lines = append(lines, "", "everywhere:")
-	for _, e := range m.keys.GlobalHelp() {
+	for _, e := range m.keys.GlobalHelp(m.offersView()) {
 		lines = append(lines, "  "+pad(e.Keys, 12)+e.Desc)
 	}
 	lines = append(lines, "", "card markers: "+strings.Join(CardLegend, ", "))
@@ -556,7 +556,6 @@ func (m Model) helpLines(layout Layout) []string {
 	return out
 }
 
-// CardLegend explains the markers a card carries.
 // CardLegend explains the markers a card carries. It renders as one line, so
 // the entries stay short enough that the whole legend fits a narrow terminal
 // rather than being truncated into uselessness.
