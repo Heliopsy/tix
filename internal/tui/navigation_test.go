@@ -140,7 +140,7 @@ func TestEveryViewAdvertisesTheWayBackOrTheWayOut(t *testing.T) {
 	k := DefaultKeyMap()
 	for _, v := range []viewKind{viewProjects, viewBoard, viewDetail, viewHelp} {
 		var advertised []string
-		for _, e := range k.ShortHelp(v, ActionContext{HasProject: true, HasTask: true, CanTransition: true}) {
+		for _, e := range k.ShortHelp(v, ActionContext{May: permitAll, HasProject: true, HasTask: true, CanTransition: true}) {
 			advertised = append(advertised, e.Keys)
 		}
 		joined := strings.Join(advertised, " ")

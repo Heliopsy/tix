@@ -114,7 +114,7 @@ func TestMultipleOverridesApplyTogether(t *testing.T) {
 // TestTheFooterRendersTheActiveSchemesKeys is the rule that help text and the
 // real bindings can never disagree: the footer is built from the key map.
 func TestTheFooterRendersTheActiveSchemesKeys(t *testing.T) {
-	ctx := ActionContext{HasProject: true, HasTask: true, CanTransition: true}
+	ctx := ActionContext{May: permitAll, HasProject: true, HasTask: true, CanTransition: true}
 	def := DefaultKeyMap()
 	vim := KeyMapFor(SchemeVim)
 

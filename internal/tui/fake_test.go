@@ -35,6 +35,19 @@ type fakeService struct {
 	untagged []string
 	deps     []core.TaskRef
 
+	// what the destructive and corrective calls recorded, and what the reads
+	// the forms offer from are scripted to answer with.
+	deleted        []core.DeleteTaskInput
+	deletedRefs    []core.TaskRef
+	depsRemoved    []core.TaskRef
+	commentsEdited [][2]string
+	commentsGone   []string
+	thread         []core.Comment
+	dependencies   []core.Dependency
+	tags           []core.Tag
+	deleteErr      error
+	tagsErr        error
+
 	createErr error
 	updateErr error
 
@@ -201,8 +214,12 @@ func (f *fakeService) UpdateTask(_ context.Context, _ core.TaskRef, in core.Upda
 	}
 	return &core.Task{}, nil
 }
-func (f *fakeService) DeleteTask(context.Context, core.TaskRef, core.DeleteTaskInput) error {
-	return nil
+func (f *fakeService) DeleteTask(_ context.Context, ref core.TaskRef, in core.DeleteTaskInput) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.deletedRefs = append(f.deletedRefs, ref)
+	f.deleted = append(f.deleted, in)
+	return f.deleteErr
 }
 func (f *fakeService) RestoreTask(context.Context, core.TaskRef) (*core.Task, error) { return nil, nil }
 func (f *fakeService) TaskTree(context.Context, core.TaskRef, int) ([]core.Task, error) {
@@ -215,9 +232,16 @@ func (f *fakeService) AddDependency(_ context.Context, _ core.TaskRef, on core.T
 	return nil
 }
 
-func (f *fakeService) RemoveDependency(context.Context, core.TaskRef, core.TaskRef) error { return nil }
+func (f *fakeService) RemoveDependency(_ context.Context, _ core.TaskRef, on core.TaskRef) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.depsRemoved = append(f.depsRemoved, on)
+	return nil
+}
 func (f *fakeService) ListDependencies(context.Context, core.TaskRef) ([]core.Dependency, error) {
-	return nil, nil
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.dependencies, nil
 }
 func (f *fakeService) AddTag(_ context.Context, _ core.TaskRef, tag string) error {
 	f.mu.Lock()
@@ -232,7 +256,11 @@ func (f *fakeService) RemoveTag(_ context.Context, _ core.TaskRef, tag string) e
 	f.untagged = append(f.untagged, tag)
 	return nil
 }
-func (f *fakeService) ListTags(context.Context) ([]core.Tag, error) { return nil, nil }
+func (f *fakeService) ListTags(context.Context) ([]core.Tag, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.tags, f.tagsErr
+}
 func (f *fakeService) AddComment(_ context.Context, _ core.TaskRef, body string) (*core.Comment, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -240,12 +268,22 @@ func (f *fakeService) AddComment(_ context.Context, _ core.TaskRef, body string)
 	return &core.Comment{Body: body}, nil
 }
 func (f *fakeService) ListComments(context.Context, core.TaskRef) ([]core.Comment, error) {
-	return nil, nil
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.thread, nil
 }
-func (f *fakeService) EditComment(context.Context, string, string) (*core.Comment, error) {
-	return nil, nil
+func (f *fakeService) EditComment(_ context.Context, id, body string) (*core.Comment, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.commentsEdited = append(f.commentsEdited, [2]string{id, body})
+	return &core.Comment{ID: id, Body: body}, nil
 }
-func (f *fakeService) DeleteComment(context.Context, string) error { return nil }
+func (f *fakeService) DeleteComment(_ context.Context, id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.commentsGone = append(f.commentsGone, id)
+	return nil
+}
 func (f *fakeService) PutArtifact(context.Context, core.TaskRef, core.ArtifactInput) (*core.Artifact, error) {
 	return nil, nil
 }

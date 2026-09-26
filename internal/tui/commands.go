@@ -422,3 +422,95 @@ func (m Model) createProject(key, name string) tea.Cmd {
 		return actionMsg{kind: actionNewProject, label: project.Key}
 	}
 }
+
+// deleteTask removes the task the reader agreed to remove, as far as they said
+// it should reach.
+func (m Model) deleteTask(c Confirm) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, ref, label := m.svc, m.ctx, c.ref, c.label
+	in := core.DeleteTaskInput{Hard: c.hard, Cascade: c.cascade}
+	sentence := "deleted " + label
+	if note := DeleteNote(c.hard, c.cascade); note != "" {
+		sentence += " " + note
+	}
+	return func() tea.Msg {
+		err := svc.DeleteTask(ctx, ref, in)
+		return actionMsg{kind: actionDelete, ref: ref, label: label, sentence: sentence, err: err}
+	}
+}
+
+// deleteComment removes one comment from the open task's thread.
+func (m Model) deleteComment(c Confirm) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, ref, label, id := m.svc, m.ctx, c.ref, c.label, c.commentID
+	return func() tea.Msg {
+		return actionMsg{kind: actionDeleteComment, ref: ref, label: label,
+			err: svc.DeleteComment(ctx, id)}
+	}
+}
+
+// editComment rewrites the selected comment.
+func (m Model) editComment(body string) tea.Cmd {
+	comment, ok := m.selectedComment()
+	if !ok || m.svc == nil {
+		return nil
+	}
+	task, _ := m.selectedTask()
+	svc, ctx, ref, label, id := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref, comment.ID
+	return func() tea.Msg {
+		_, err := svc.EditComment(ctx, id, body)
+		return actionMsg{kind: actionEditComment, ref: ref, label: label, err: err}
+	}
+}
+
+// undepend drops one of the tasks a task waits on, named the way the detail
+// view lists it.
+func (m Model) undepend(task core.Task, on string) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	target, err := core.ParseTaskRef(on)
+	if err != nil {
+		return func() tea.Msg { return actionMsg{kind: actionUndepend, ref: ref, label: label, err: err} }
+	}
+	sentence := "removed the dependency on " + on + " from " + label
+	return func() tea.Msg {
+		return actionMsg{kind: actionUndepend, ref: ref, label: label, sentence: sentence,
+			err: svc.RemoveDependency(ctx, ref, target)}
+	}
+}
+
+// loadTags lists the tags the tenant has, for the tag form to offer.
+func (m Model) loadTags() tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx := m.svc, m.ctx
+	return func() tea.Msg {
+		tags, err := svc.ListTags(ctx)
+		return tagsMsg{tags: tags, err: err}
+	}
+}
+
+// tagNames is the tag listing as the names a form offers.
+func tagNames(tags []core.Tag) []string {
+	out := make([]string, 0, len(tags))
+	for _, t := range tags {
+		out = append(out, t.Name)
+	}
+	return out
+}
+
+// dependencyRefs are the tasks a task waits on, as the form offers them.
+func dependencyRefs(deps []core.Dependency) []string {
+	out := make([]string, 0, len(deps))
+	for _, d := range deps {
+		out = append(out, d.DependsOn)
+	}
+	return out
+}

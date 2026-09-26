@@ -88,6 +88,18 @@ type Model struct {
 	choice  choiceKind
 	choices []Choice
 
+	// form is the open multi-field input and confirm the destructive action
+	// waiting for agreement. Only one of them is ever open: a form that ends in
+	// a destructive call hands over to the confirmation and closes.
+	form    Form
+	confirm Confirm
+	// commentSel indexes the open task's comment thread, which is what the
+	// comment actions act on.
+	commentSel int
+	// allowed is which operations this reader may perform, resolved once from
+	// the actor. Nothing recomputes it per keystroke.
+	allowed ActionAccess
+
 	leases    map[string]string
 	lastSeq   int64
 	connected bool
@@ -208,6 +220,7 @@ func New(cfg Config) Model {
 		prefs: prefs, prefSources: cfg.Sources, savePrefs: cfg.SavePrefs,
 		session:   cfg.Session,
 		autoColor: auto, renderer: cfg.Renderer, brand: cfg.Brand,
+		allowed: resolveActions(cfg.Actor),
 	}
 	// The probe decides only when no colour mode was configured, so a reader
 	// who asked for colour over a pipe still gets it.
@@ -256,6 +269,8 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 		return m.onTenant(msg)
 	case statsMsg:
 		return m.applyStats(msg), nil
+	case tagsMsg:
+		return m.onTags(msg)
 	case projectsMsg:
 		return m.onProjects(msg)
 	case boardMsg:
@@ -264,6 +279,7 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 		return m.onTasks(msg)
 	case detailMsg:
 		m.detail, m.detailOff = &msg, 0
+		m.commentSel = clamp(m.commentSel, 0, len(msg.comments)-1)
 		return m.enterView(viewDetail), nil
 	case eventMsg:
 		return m.onEvent(msg)
@@ -414,6 +430,13 @@ func (m Model) onAction(msg actionMsg) (Model, tea.Cmd) {
 	if msg.kind == actionNewProject {
 		return m, m.loadProjects()
 	}
+	// A deleted task has no detail view to go back to, so the interface leaves
+	// it rather than fetching a task the service has just removed and reporting
+	// the "not found" as a failure of its own.
+	if msg.kind == actionDelete && m.view == viewDetail {
+		m, _ = m.popView()
+		m.detail, m.commentSel = nil, 0
+	}
 	if m.project.ID == "" {
 		return m, nil
 	}
@@ -459,6 +482,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Interrupt):
 		m.interrupted = true
 		return m, tea.Quit
+	case m.confirm.Open():
+		return m.handleConfirmKey(msg)
+	case m.form.Open():
+		return m.handleFormKey(msg)
 	case m.prompt != promptNone:
 		return m.handlePromptKey(msg)
 	case m.choice != choiceNone:
@@ -768,6 +795,10 @@ func (m Model) handleDetailKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Back):
 		return m.leave(nil)
+	case key.Matches(msg, m.keys.Left):
+		m.commentSel = m.moveComment(-1)
+	case key.Matches(msg, m.keys.Right):
+		m.commentSel = m.moveComment(1)
 	case key.Matches(msg, m.keys.Up):
 		m.detailOff = max(0, m.detailOff-1)
 	case key.Matches(msg, m.keys.Down):
@@ -781,6 +812,9 @@ func (m Model) handleDetailKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 // handleTaskKey runs the actions that act on the selected task, so the board
 // and the detail view offer exactly the same set.
 func (m Model) handleTaskKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	if !m.mayPress(msg) {
+		return m, nil
+	}
 	switch {
 	case key.Matches(msg, m.keys.Claim):
 		return m, m.claim()
@@ -804,8 +838,16 @@ func (m Model) handleTaskKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.openPrompt(promptTag)
 	case key.Matches(msg, m.keys.Untag):
 		return m.openPrompt(promptUntag)
+	case key.Matches(msg, m.keys.CommentEdit):
+		return m.openPrompt(promptCommentEdit)
+	case key.Matches(msg, m.keys.Tags):
+		return m.openTagForm()
 	case key.Matches(msg, m.keys.Depend):
 		return m.openPrompt(promptDependency)
+	case key.Matches(msg, m.keys.Undepend):
+		return m.openDependencyForm()
+	case key.Matches(msg, m.keys.Delete):
+		return m.openDeleteForm()
 	case key.Matches(msg, m.keys.ClaimNext):
 		return m, m.claimNext()
 	case key.Matches(msg, m.keys.Renew):
@@ -877,6 +919,8 @@ func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 		return m.updateTask(task, core.UpdateTaskInput{AssigneeActorID: &text})
 	case promptComment:
 		return m.comment(task, text)
+	case promptCommentEdit:
+		return m.editComment(text)
 	case promptTag:
 		return m.tag(task, text)
 	case promptUntag:
@@ -901,6 +945,12 @@ func (m Model) openPrompt(kind promptKind) (Model, tea.Cmd) {
 		m.err = "open a project before adding a task"
 		return m, nil
 	}
+	if kind == promptCommentEdit {
+		if _, ok := m.selectedComment(); !ok {
+			m.err = m.noCommentReason()
+			return m, nil
+		}
+	}
 	return m.startPrompt(kind, m.promptSeed(kind)), textinput.Blink
 }
 
@@ -911,6 +961,12 @@ func (m Model) promptSeed(kind promptKind) string {
 		return m.filterText
 	case promptActivityFilter:
 		return m.activityFilterText
+	case promptCommentEdit:
+		comment, ok := m.selectedComment()
+		if !ok {
+			return ""
+		}
+		return strings.ReplaceAll(comment.Body, "\n", " ")
 	}
 	task, ok := m.selectedTask()
 	if !ok {
@@ -1049,7 +1105,8 @@ func (m Model) release() (Model, tea.Cmd) {
 // actionContext describes the selected task so the footer only offers keys
 // that will work on it.
 func (m Model) actionContext() ActionContext {
-	ctx := ActionContext{HasProject: m.project.Key != ""}
+	ctx := ActionContext{HasProject: m.project.Key != "", May: m.permits(),
+		HasComment: m.view == viewDetail && m.detail != nil && len(m.detail.comments) > 0}
 	task, ok := m.selectedTask()
 	if !ok {
 		return ctx
@@ -1122,4 +1179,234 @@ func (m Model) actorID() string {
 		return ""
 	}
 	return m.actor.ID
+}
+
+// mayPress reports whether this reader holds the authority the pressed key
+// acts through. Gating the keystroke as well as the footer is what keeps the two
+// from disagreeing: a reader who finds the key by reading the source, or by
+// pressing it out of habit from another session, is refused here rather than by
+// the service.
+func (m Model) mayPress(msg tea.KeyMsg) bool {
+	for _, a := range m.keys.taskBindings() {
+		if key.Matches(msg, a.binding) {
+			return a.permitted(m.permits())
+		}
+	}
+	return true
+}
+
+// moveComment steps the cursor through the open task's thread.
+func (m Model) moveComment(delta int) int {
+	if m.detail == nil {
+		return 0
+	}
+	return clamp(m.commentSel+delta, 0, len(m.detail.comments)-1)
+}
+
+// selectedComment is the comment the comment actions act on. Only the detail
+// view has a thread, so only the detail view has one selected.
+func (m Model) selectedComment() (core.Comment, bool) {
+	if m.view != viewDetail || m.detail == nil {
+		return core.Comment{}, false
+	}
+	if m.commentSel < 0 || m.commentSel >= len(m.detail.comments) {
+		return core.Comment{}, false
+	}
+	return m.detail.comments[m.commentSel], true
+}
+
+// noCommentReason says why there is no comment to act on, which is a different
+// answer on the board than on a task with an empty thread.
+func (m Model) noCommentReason() string {
+	switch {
+	case m.view != viewDetail || m.detail == nil:
+		return "open the task to work on its comments"
+	case len(m.detail.comments) == 0:
+		return "this task has no comments"
+	default:
+		return "no comment is selected"
+	}
+}
+
+// commentTarget names the selected comment the way the reader sees it in the
+// thread, which is what a confirmation has to say out loud.
+func (m Model) commentTarget() string {
+	comment, ok := m.selectedComment()
+	if !ok {
+		return ""
+	}
+	return CommentTarget(comment, m.detail.actors, m.timeStyle)
+}
+
+// openDeleteForm asks what to delete and how far the deletion should reach,
+// offering only the subjects this reader may remove.
+func (m Model) openDeleteForm() (Model, tea.Cmd) {
+	task, ok := m.selectedTask()
+	if !ok {
+		m.err = "no task is selected"
+		return m, nil
+	}
+	form := DeleteForm(task.Ref, m.commentTarget(),
+		m.mayPerform("DeleteTask"), m.mayPerform("DeleteComment"))
+	if !form.Open() {
+		m.err = "nothing here can be deleted"
+		return m, nil
+	}
+	m.form, m.err = form, ""
+	return m, nil
+}
+
+// openDependencyForm offers the dependencies the open task waits on. The board
+// knows a task has some and not which, so the form is offered where they are
+// listed rather than where the marker is.
+func (m Model) openDependencyForm() (Model, tea.Cmd) {
+	if m.view != viewDetail || m.detail == nil {
+		m.err = "open the task to see what it waits on"
+		return m, nil
+	}
+	form := DependencyForm(dependencyRefs(m.detail.deps))
+	if !form.Open() {
+		m.err = "this task waits on nothing"
+		return m, nil
+	}
+	m.form, m.err = form, ""
+	return m, nil
+}
+
+// openTagForm fetches the tags the tenant has so the reader can pick one rather
+// than remember one.
+func (m Model) openTagForm() (Model, tea.Cmd) {
+	if _, ok := m.selectedTask(); !ok {
+		m.err = "no task is selected"
+		return m, nil
+	}
+	return m, m.loadTags()
+}
+
+// onTags opens the tag form on a listing, or says the tenant has no tags yet
+// rather than offering a picker with nothing to pick.
+func (m Model) onTags(msg tagsMsg) (Model, tea.Cmd) {
+	if msg.err != nil {
+		m.err = "listing tags: " + msg.err.Error()
+		return m, nil
+	}
+	task, ok := m.selectedTask()
+	if !ok {
+		return m, nil
+	}
+	form := TagForm(tagNames(msg.tags), task.Tags, m.mayPerform("AddTag"), m.mayPerform("RemoveTag"))
+	if !form.Open() {
+		m.err = "no tags exist yet; " + m.keys.Tag.Help().Key + " adds one by name"
+		return m, nil
+	}
+	m.form, m.err = form, ""
+	return m, nil
+}
+
+// handleFormKey moves through the open form and submits it. It reuses the keys
+// the settings screen moves and cycles with, so a form needs no bindings of its
+// own and works under every scheme.
+func (m Model) handleFormKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.Cancel):
+		return m.closeForm(), nil
+	case key.Matches(msg, m.keys.Accept):
+		return m.submitForm()
+	case key.Matches(msg, m.keys.Up):
+		m.form = m.form.Move(-1)
+	case key.Matches(msg, m.keys.Down):
+		m.form = m.form.Move(1)
+	case key.Matches(msg, m.keys.Left):
+		m.form = m.form.Cycle(-1)
+	case key.Matches(msg, m.keys.Right):
+		m.form = m.form.Cycle(1)
+	}
+	return m, nil
+}
+
+// closeForm dismisses the open form.
+func (m Model) closeForm() Model {
+	m.form = Form{}
+	return m
+}
+
+// submitForm performs what the answered form asked for, which for a destructive
+// form is to ask the question rather than to make the call.
+func (m Model) submitForm() (Model, tea.Cmd) {
+	form := m.form
+	task, ok := m.selectedTask()
+	if !ok {
+		return m.closeForm(), nil
+	}
+	next := m.closeForm()
+	switch form.Kind {
+	case formDelete:
+		return next.openConfirm(form, task)
+	case formTag:
+		if form.Value("action") == "detach" {
+			return next, next.untag(task, form.Value("tag"))
+		}
+		return next, next.tag(task, form.Value("tag"))
+	case formDependency:
+		return next, next.undepend(task, form.Value("dependency"))
+	}
+	return next, nil
+}
+
+// openConfirm states what the delete form asked for and waits for agreement. A
+// confirmation that cannot name its subject is not opened at all, because the
+// naming is the whole of its value.
+func (m Model) openConfirm(form Form, task core.Task) (Model, tea.Cmd) {
+	confirm := Confirm{ref: core.TaskRef{ID: task.ID}, label: task.Ref}
+	if form.Value("what") == "comment" {
+		comment, ok := m.selectedComment()
+		if !ok {
+			m.err = m.noCommentReason()
+			return m, nil
+		}
+		confirm.Kind, confirm.Target, confirm.commentID = confirmDeleteComment, m.commentTarget(), comment.ID
+	} else {
+		confirm.Kind, confirm.Target = confirmDeleteTask, task.Ref
+		confirm.hard, confirm.cascade = form.Yes("hard"), form.Yes("cascade")
+		confirm.Note = DeleteNote(confirm.hard, confirm.cascade)
+	}
+	if confirm.Question() == "" {
+		m.err = "there is nothing named to delete"
+		return m, nil
+	}
+	m.confirm, m.err = confirm, ""
+	return m, nil
+}
+
+// handleConfirmKey answers the open confirmation. Every key that is not the
+// agreement leaves it standing, so a stray press neither runs the action nor
+// dismisses the question.
+func (m Model) handleConfirmKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.Cancel):
+		return m.closeConfirm(), nil
+	case key.Matches(msg, m.keys.Agree):
+		confirm := m.confirm
+		next := m.closeConfirm()
+		return next, next.runConfirm(confirm)
+	}
+	return m, nil
+}
+
+// closeConfirm withdraws the question without running anything.
+func (m Model) closeConfirm() Model {
+	m.confirm = Confirm{}
+	return m
+}
+
+// runConfirm makes the call the reader agreed to.
+func (m Model) runConfirm(c Confirm) tea.Cmd {
+	switch c.Kind {
+	case confirmDeleteTask:
+		return m.deleteTask(c)
+	case confirmDeleteComment:
+		return m.deleteComment(c)
+	default:
+		return nil
+	}
 }

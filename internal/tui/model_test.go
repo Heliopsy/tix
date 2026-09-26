@@ -37,7 +37,7 @@ func pressKey(s string) tea.KeyMsg {
 // boardModel returns a model already showing a three task board.
 func boardModel(t *testing.T) Model {
 	t.Helper()
-	m := New(Config{Access: fullAccess(), Environ: []string{"NO_COLOR=1"}, Now: func() time.Time {
+	m := New(Config{Access: fullAccess(), Actor: fullActor(), Environ: []string{"NO_COLOR=1"}, Now: func() time.Time {
 		return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	}})
 	m.width, m.height = 120, 40
@@ -316,7 +316,7 @@ func TestHelpToggle(t *testing.T) {
 		if opened.view != viewHelp || opened.underView() != view {
 			t.Fatalf("help did not open from view %v: %+v", view, opened.view)
 		}
-		if len(opened.keys.ViewHelp(opened.underView())) == 0 || len(opened.keys.GlobalHelp(allViews)) == 0 {
+		if len(opened.keys.ViewHelp(opened.underView(), permitAll)) == 0 || len(opened.keys.GlobalHelp(allViews)) == 0 {
 			t.Fatal("help listed no bindings")
 		}
 

@@ -23,6 +23,7 @@ const (
 	promptBody
 	promptAssignee
 	promptComment
+	promptCommentEdit
 	promptTag
 	promptUntag
 	promptDependency
@@ -40,16 +41,17 @@ type PromptSpec struct {
 
 // promptSpecs describes every input. An input that is not listed is not open.
 var promptSpecs = map[promptKind]PromptSpec{
-	promptFilter:     {"filter: ", "status:todo is:unclaimed text", 512},
-	promptNewTask:    {"new task: ", "title of the task to create", core.MaxTitleLength},
-	promptTitle:      {"title: ", "new title", core.MaxTitleLength},
-	promptBody:       {"body: ", "new body", 4096},
-	promptAssignee:   {"assignee: ", "actor id to assign to", 128},
-	promptComment:    {"comment: ", "what you want to record", 4096},
-	promptTag:        {"add tag: ", "tag to attach", 128},
-	promptUntag:      {"remove tag: ", "tag to detach", 128},
-	promptDependency: {"depends on: ", "task ref, such as infra-42", 128},
-	promptNewProject: {"new project: ", "key and name, such as: infra Infrastructure", 256},
+	promptFilter:      {"filter: ", "status:todo is:unclaimed text", 512},
+	promptNewTask:     {"new task: ", "title of the task to create", core.MaxTitleLength},
+	promptTitle:       {"title: ", "new title", core.MaxTitleLength},
+	promptBody:        {"body: ", "new body", 4096},
+	promptAssignee:    {"assignee: ", "actor id to assign to", 128},
+	promptComment:     {"comment: ", "what you want to record", 4096},
+	promptCommentEdit: {"edit comment: ", "what the comment should say", 4096},
+	promptTag:         {"add tag: ", "tag to attach", 128},
+	promptUntag:       {"remove tag: ", "tag to detach", 128},
+	promptDependency:  {"depends on: ", "task ref, such as infra-42", 128},
+	promptNewProject:  {"new project: ", "key and name, such as: infra Infrastructure", 256},
 
 	// The activity bar takes the audit filter's own grammar rather than the
 	// task filter's: an event has a kind and an actor, and no status, tag or

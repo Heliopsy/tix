@@ -37,6 +37,10 @@ const (
 	actionTag
 	actionUntag
 	actionDepend
+	actionUndepend
+	actionEditComment
+	actionDeleteComment
+	actionDelete
 	actionRenew
 	actionNewProject
 )
@@ -44,17 +48,21 @@ const (
 // actionLabels name each action in the present tense, for a refusal, and in
 // the past tense, for the status bar.
 var actionLabels = map[actionKind][2]string{
-	actionClaim:      {"claim", "claimed"},
-	actionRelease:    {"release", "released"},
-	actionTransition: {"transition", "transitioned"},
-	actionCreate:     {"create the task", "created"},
-	actionUpdate:     {"edit the task", "edited"},
-	actionComment:    {"comment", "commented on"},
-	actionTag:        {"tag", "tagged"},
-	actionUntag:      {"untag", "untagged"},
-	actionDepend:     {"add the dependency", "added a dependency to"},
-	actionRenew:      {"renew the lease", "renewed the lease on"},
-	actionNewProject: {"create the project", "created"},
+	actionClaim:         {"claim", "claimed"},
+	actionRelease:       {"release", "released"},
+	actionTransition:    {"transition", "transitioned"},
+	actionCreate:        {"create the task", "created"},
+	actionUpdate:        {"edit the task", "edited"},
+	actionComment:       {"comment", "commented on"},
+	actionTag:           {"tag", "tagged"},
+	actionUntag:         {"untag", "untagged"},
+	actionDepend:        {"add the dependency", "added a dependency to"},
+	actionUndepend:      {"remove the dependency", "removed a dependency from"},
+	actionEditComment:   {"edit the comment", "edited a comment on"},
+	actionDeleteComment: {"delete the comment", "deleted a comment on"},
+	actionDelete:        {"delete the task", "deleted"},
+	actionRenew:         {"renew the lease", "renewed the lease on"},
+	actionNewProject:    {"create the project", "created"},
 }
 
 // Label renders an action for a message.
@@ -178,4 +186,10 @@ type errMsg struct {
 type statsMsg struct {
 	stats *core.Stats
 	err   error
+}
+
+// tagsMsg carries the tenant's tags, which the tag form offers to pick from.
+type tagsMsg struct {
+	tags []core.Tag
+	err  error
 }

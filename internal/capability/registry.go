@@ -381,9 +381,7 @@ var registry = []Operation{
 		CLI:   "tix task rm",
 		HTTP:  apiDelete(wire.RouteTask),
 		Web:   webPost(web.RouteTaskDelete),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; deleting a task needs a confirmation step the interface does not have yet"),
-		},
+		TUI:   "board",
 	},
 	{
 		Name: "task.restore", Method: "RestoreTask",
@@ -419,9 +417,7 @@ var registry = []Operation{
 		CLI:   "tix dep rm",
 		HTTP:  apiDelete(wire.RouteTaskDep),
 		Web:   webPost(web.RouteTaskDepDel),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; the detail view lists dependencies and can add one but cannot remove one"),
-		},
+		TUI:   "detail",
 	},
 	{
 		Name: "dependency.list", Method: "ListDependencies",
@@ -453,9 +449,7 @@ var registry = []Operation{
 		CLI:   "tix tag ls",
 		HTTP:  apiGet(wire.RouteLabels),
 		Web:   webGet(web.RouteTasks, tplTasks),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; tags are added and removed by name; the interface offers no tag listing to choose from"),
-		},
+		TUI:   "detail",
 	},
 	{
 		Name: "comment.add", Method: "AddComment",
@@ -479,9 +473,7 @@ var registry = []Operation{
 		CLI:   "tix comment edit",
 		HTTP:  apiPatch(wire.RouteComment),
 		Web:   webPost(web.RouteCommentEdit),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; comments are shown as a thread with no way to select one to edit"),
-		},
+		TUI:   "detail",
 	},
 	{
 		Name: "comment.delete", Method: "DeleteComment",
@@ -489,9 +481,7 @@ var registry = []Operation{
 		CLI:   "tix comment rm",
 		HTTP:  apiDelete(wire.RouteComment),
 		Web:   webPost(web.RouteCommentDel),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; comments are shown as a thread with no way to select one to delete"),
-		},
+		TUI:   "detail",
 	},
 	{
 		Name: "artifact.put", Method: "PutArtifact",

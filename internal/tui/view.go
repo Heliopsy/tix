@@ -338,7 +338,7 @@ func (m Model) detailLines(layout Layout) []string {
 
 	body := bodyLines(t.Body)
 	fields := customFieldLines(t, d.fieldDefs)
-	comments := commentLines(d.comments, d.actors, m.timeStyle)
+	comments := commentLines(d.comments, d.actors, m.timeStyle, m.commentSel)
 	if len(body) == 0 && len(fields) == 0 && len(d.subtasks) == 0 && len(d.deps) == 0 && len(d.artifacts) == 0 && len(d.comments) == 0 {
 		lines = append(lines, m.theme.Empty.Render("  nothing else recorded on this task."))
 	} else {
@@ -516,10 +516,15 @@ func artifactLines(artifacts []core.Artifact) []string {
 // commentLines renders the comment thread, its timestamps through the
 // configured style and its authors resolved to handles where the detail view
 // could resolve them.
-func commentLines(comments []core.Comment, actors map[string]string, style output.TimeStyle) []string {
+//
+// selected marks the comment the comment actions act on, with the same marker a
+// selected card carries, because a thread whose entries cannot be told apart is
+// a thread whose entries cannot be edited or removed.
+func commentLines(comments []core.Comment, actors map[string]string, style output.TimeStyle, selected int) []string {
 	out := make([]string, 0, len(comments)*2)
-	for _, c := range comments {
-		out = append(out, "  "+style.Format(c.CreatedAt)+"  "+actorLabel(c.AuthorActorID, actors)+":")
+	for i, c := range comments {
+		out = append(out, SelectionMarker(i == selected)+
+			style.Format(c.CreatedAt)+"  "+actorLabel(c.AuthorActorID, actors)+":")
 		for _, l := range strings.Split(c.Body, "\n") {
 			out = append(out, "    "+l)
 		}
@@ -527,11 +532,24 @@ func commentLines(comments []core.Comment, actors map[string]string, style outpu
 	return out
 }
 
+// CommentTarget names one comment the way the thread shows it, which is what a
+// confirmation has to say before it removes one: a thread of four comments from
+// the same author on the same day is told apart by its timestamp, so the name
+// carries both.
+func CommentTarget(c core.Comment, actors map[string]string, style output.TimeStyle) string {
+	when := style.Format(c.CreatedAt)
+	who := actorLabel(c.AuthorActorID, actors)
+	if when == "" {
+		return "the comment by " + who
+	}
+	return "the comment by " + who + " from " + when
+}
+
 // helpLines renders the bindings of the view help was opened from.
 func (m Model) helpLines(layout Layout) []string {
 	lines := []string{m.theme.Header.Render("help"), ""}
 	lines = append(lines, "this view:")
-	for _, e := range m.keys.ViewHelp(m.underView()) {
+	for _, e := range m.keys.ViewHelp(m.underView(), m.permits()) {
 		lines = append(lines, "  "+pad(e.Keys, 12)+e.Desc)
 	}
 	lines = append(lines, "", "everywhere:")
@@ -572,6 +590,10 @@ func (m Model) footerLines() string {
 	case m.choice != choiceNone:
 		lines = append(lines, m.fit(m.theme.Header.Render(m.choice.Prompt())+
 			strings.Join(ChoiceLabels(m.choices), "  ")+m.theme.Dim.Render("   (esc cancels)")))
+	case m.confirm.Open():
+		lines = append(lines, m.confirmLines()...)
+	case m.form.Open():
+		lines = append(lines, m.formLines()...)
 	}
 	if bar := m.statusBar(); bar != "" {
 		lines = append(lines, bar)
@@ -629,4 +651,38 @@ func pad(s string, width int) string {
 		return s + strings.Repeat(" ", n)
 	}
 	return s
+}
+
+// confirmLines draws the pending question. It is the one line of the frame that
+// has to be read rather than glanced at, so the question is in the error style
+// the status bar uses for a refusal and the keys that answer it are named.
+func (m Model) confirmLines() []string {
+	return []string{m.fit(m.theme.Error.Render(m.confirm.Question()) + " " +
+		m.theme.Dim.Render(ConfirmHelp(m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)))}
+}
+
+// formLines draws the open form: its title, one row per visible field with the
+// values that field could hold instead, and the keys that move and answer it.
+func (m Model) formLines() []string {
+	out := []string{m.fit(m.theme.Header.Render(m.form.Title + ":"))}
+	if m.form.Note != "" {
+		out = append(out, m.fit(m.theme.Dim.Render("  "+m.form.Note)))
+	}
+	for _, l := range m.form.Lines() {
+		row := "  " + pad(l.Label, 14) + l.Value
+		if l.Selected {
+			out = append(out, m.fit(m.theme.Selected.Render(row)+
+				m.theme.Dim.Render("   "+l.Hint)))
+			continue
+		}
+		out = append(out, m.fit(m.theme.Dim.Render(row)))
+	}
+	return append(out, m.fit(m.theme.Dim.Render("  "+m.formHelp())))
+}
+
+// formHelp names the keys that drive a form, under whichever scheme is loaded.
+func (m Model) formHelp() string {
+	return m.keys.Up.Help().Key + " " + m.keys.Down.Help().Key + " field   " +
+		m.keys.Left.Help().Key + " " + m.keys.Right.Help().Key + " value   " +
+		m.keys.Accept.Help().Key + " apply   " + m.keys.Cancel.Help().Key + " cancel"
 }

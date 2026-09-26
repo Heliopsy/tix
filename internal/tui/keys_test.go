@@ -12,12 +12,12 @@ import (
 func TestEveryBindingIsDocumented(t *testing.T) {
 	k := DefaultKeyMap()
 	for _, v := range []viewKind{viewProjects, viewBoard, viewDetail, viewHelp} {
-		for _, e := range append(k.ViewHelp(v), k.GlobalHelp(allViews)...) {
+		for _, e := range append(k.ViewHelp(v, permitAll), k.GlobalHelp(allViews)...) {
 			if e.Keys == "" || e.Desc == "" {
 				t.Fatalf("view %v advertises an undocumented binding %+v", v, e)
 			}
 		}
-		if len(k.ShortHelp(v, ActionContext{HasProject: true, HasTask: true, CanTransition: true})) == 0 {
+		if len(k.ShortHelp(v, ActionContext{HasProject: true, HasTask: true, CanTransition: true, May: permitAll})) == 0 {
 			t.Fatalf("view %v advertises no bindings at all", v)
 		}
 	}
@@ -30,13 +30,13 @@ func TestViewBindingsDoNotCollide(t *testing.T) {
 		viewBoard: {
 			k.Up, k.Down, k.Left, k.Right, k.Top, k.Bottom, k.Enter, k.Filter,
 			k.ClearFltr, k.Claim, k.Release, k.Transition, k.New, k.EditTitle,
-			k.EditBody, k.Priority, k.Assign, k.Comment, k.Tag, k.Untag,
-			k.Depend, k.ClaimNext, k.Renew, k.Back,
+			k.EditBody, k.Priority, k.Assign, k.Comment, k.CommentEdit, k.Tag, k.Untag,
+			k.Tags, k.Depend, k.Undepend, k.Delete, k.ClaimNext, k.Renew, k.Back,
 		},
 		viewDetail: {
 			k.Up, k.Down, k.Claim, k.Release, k.Transition, k.New, k.EditTitle,
-			k.EditBody, k.Priority, k.Assign, k.Comment, k.Tag, k.Untag,
-			k.Depend, k.Renew, k.Back,
+			k.EditBody, k.Priority, k.Assign, k.Comment, k.CommentEdit, k.Tag, k.Untag,
+			k.Tags, k.Depend, k.Undepend, k.Delete, k.Renew, k.Back,
 		},
 	}
 	global := []key.Binding{k.Help, k.Refresh, k.Projects, k.Quit, k.Interrupt}
@@ -84,31 +84,31 @@ func TestTheFooterOnlyPromisesKeysThatWillWork(t *testing.T) {
 	}{
 		{
 			name:    "unclaimed and claimable",
-			ctx:     ActionContext{HasProject: true, HasTask: true, CanTransition: true},
+			ctx:     ActionContext{May: permitAll, HasProject: true, HasTask: true, CanTransition: true},
 			present: []string{claim, transition},
 			absent:  []string{release, renew},
 		},
 		{
 			name:    "held by this session",
-			ctx:     ActionContext{HasProject: true, HasTask: true, HeldHere: true, CanTransition: true},
+			ctx:     ActionContext{May: permitAll, HasProject: true, HasTask: true, HeldHere: true, CanTransition: true},
 			present: []string{release, renew},
 			absent:  []string{claim},
 		},
 		{
 			name:    "held by another worker",
-			ctx:     ActionContext{HasProject: true, HasTask: true, HeldElsewhere: true, CanTransition: true},
+			ctx:     ActionContext{May: permitAll, HasProject: true, HasTask: true, HeldElsewhere: true, CanTransition: true},
 			present: []string{transition},
 			absent:  []string{claim, release, renew},
 		},
 		{
 			name:    "a terminal state offers no transition",
-			ctx:     ActionContext{HasProject: true, HasTask: true},
+			ctx:     ActionContext{May: permitAll, HasProject: true, HasTask: true},
 			present: []string{claim},
 			absent:  []string{transition},
 		},
 		{
 			name:    "no task selected",
-			ctx:     ActionContext{HasProject: true},
+			ctx:     ActionContext{May: permitAll, HasProject: true},
 			present: nil,
 			absent:  []string{claim, release, renew, transition},
 		},
@@ -140,7 +140,7 @@ func TestTheHelpViewStillDocumentsEveryBindingRegardlessOfContext(t *testing.T) 
 	k := DefaultKeyMap()
 	for _, v := range []viewKind{viewBoard, viewDetail} {
 		var keys []string
-		for _, e := range k.ViewHelp(v) {
+		for _, e := range k.ViewHelp(v, permitAll) {
 			keys = append(keys, e.Keys)
 		}
 		joined := strings.Join(keys, " ")

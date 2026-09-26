@@ -2,6 +2,11 @@
 
 package tui
 
+import (
+	"github.com/heliopsy/tix/internal/capability"
+	"github.com/heliopsy/tix/internal/core"
+)
+
 // ViewAccess reports which of the terminal interface's views a reader may
 // enter, keyed by the view name the capability registry binds operations to.
 //
@@ -40,3 +45,36 @@ func (m Model) canReach(v viewKind) bool {
 
 // offersView is canReach as the predicate the help overlay filters with.
 func (m Model) offersView() func(viewKind) bool { return m.canReach }
+
+// ActionAccess is which operations a reader may perform, keyed by the
+// core.Service method the capability registry names them by.
+//
+// It is derived from the registry rather than from a table here, for the reason
+// ViewAccess is: the scope an operation needs is recorded once, beside the
+// operation, and a second copy in this package would be a second opinion about
+// permission. Unlike ViewAccess it is resolved here rather than supplied,
+// because the answer is a pure function of the actor the session already holds
+// and the registry it is asked of, so there is nothing for a caller to get
+// wrong by forgetting it.
+type ActionAccess map[string]bool
+
+// resolveActions asks the registry what this actor may do. A session with no
+// actor may do nothing, which is the same closed default a missing ViewAccess
+// takes.
+func resolveActions(actor *core.Actor) ActionAccess {
+	out := make(ActionAccess, len(capability.Operations()))
+	for _, op := range capability.Operations() {
+		out[op.Method] = op.Permits(actor)
+	}
+	return out
+}
+
+// mayPerform reports whether this reader holds the authority an operation
+// needs. It is the one question an affordance asks before it offers itself: an
+// interface that shows a key and then reports the service's refusal has told
+// the reader the refusal was their mistake.
+func (m Model) mayPerform(method string) bool { return m.allowed[method] }
+
+// permits is mayPerform as the predicate the footer and the help overlay filter
+// with.
+func (m Model) permits() func(string) bool { return m.mayPerform }

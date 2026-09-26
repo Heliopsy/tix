@@ -456,10 +456,14 @@ func TestNoCLIGapRemains(t *testing.T) {
 // count is two rather than none: the root route calls WhoAmI for its error and
 // throws the identity away, and the screens call GetActor only to turn an
 // identifier into a label, so neither operation reaches a browser reader.
+//
+// The terminal count came down from 58 when the confirmation and the form landed
+// with the five operations that needed them: task.delete, dependency.remove,
+// tag.list, comment.edit and comment.delete.
 func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 	t.Parallel()
 	want := map[capability.Surface]int{
-		capability.SurfaceTUI: 58,
+		capability.SurfaceTUI: 53,
 		capability.SurfaceWeb: 2,
 	}
 	got := map[capability.Surface]int{}

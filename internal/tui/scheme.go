@@ -103,10 +103,9 @@ var schemeKeys = map[Scheme]map[string][]string{
 	},
 	// nano's keys are its own footer, from the GNU nano manual: ^W searches
 	// ("Where Is"), ^G shows help, ^X exits, ^O writes out, ^L redraws, and
-	// ^P/^N/^B/^F/^A/^E move. ^K, which cuts a line, is deliberately left
-	// alone: tix has no action that removes the selected task, and Release
-	// gives up a lease rather than deleting anything, so binding it would be
-	// inventing a meaning nano does not have. ^C is left alone too, because
+	// ^P/^N/^B/^F/^A/^E move. ^K cuts a line, which had nothing to mean while
+	// the interface could not remove anything; now that it deletes, ^K carries
+	// its own meaning rather than an invented one. ^C is left alone, because
 	// Interrupt already owns it.
 	SchemeNano: {
 		"Up":      {"up", "ctrl+p"},
@@ -120,6 +119,7 @@ var schemeKeys = map[Scheme]map[string][]string{
 		"Quit":    {"ctrl+x", "q"},
 		"Refresh": {"ctrl+l", "r"},
 		"Accept":  {"ctrl+o", "enter"},
+		"Delete":  {"ctrl+k", "X"},
 	},
 	// helix is modal but selection first, so its keys are not vim's: from the
 	// helix keymap, x selects the line under the cursor, d deletes the
@@ -215,12 +215,14 @@ func viewActions(v viewKind) []string {
 		return append([]string{
 			"Up", "Down", "Left", "Right", "Top", "Bottom", "Enter", "Filter", "ClearFltr",
 			"Claim", "Release", "Transition", "New", "EditTitle", "EditBody", "Priority",
-			"Assign", "Comment", "Tag", "Untag", "Depend", "ClaimNext", "Renew", "Settings", "Back",
+			"Assign", "Comment", "CommentEdit", "Tag", "Untag", "Tags", "Depend", "Undepend",
+			"Delete", "ClaimNext", "Renew", "Settings", "Back",
 		}, global...)
 	case viewDetail:
 		return append([]string{
-			"Up", "Down", "Claim", "Release", "Transition", "New", "EditTitle", "EditBody",
-			"Priority", "Assign", "Comment", "Tag", "Untag", "Depend", "Renew", "Settings", "Back",
+			"Up", "Down", "Left", "Right", "Claim", "Release", "Transition", "New", "EditTitle",
+			"EditBody", "Priority", "Assign", "Comment", "CommentEdit", "Tag", "Untag", "Tags",
+			"Depend", "Undepend", "Delete", "ClaimNext", "Renew", "Settings", "Back",
 		}, global...)
 	case viewSettings:
 		return append([]string{"Up", "Down", "Left", "Right", "Top", "Bottom", "Enter", "Back"}, global...)

@@ -35,6 +35,24 @@ func fullAccess() ViewAccess {
 // allViews is fullAccess as the predicate the help overlay filters with.
 func allViews(viewKind) bool { return true }
 
+// fullActor is a reader who may perform every operation, which is what a test
+// about anything other than permission wants: an action missing from the frame
+// then means the interface left it out, not that the reader was refused it.
+func fullActor() *core.Actor {
+	return &core.Actor{ID: "u-full", TenantID: "t", Kind: core.ActorUser, Role: core.RoleAdmin}
+}
+
+// permitAll is the authority of a reader who may perform every operation, which
+// is what the tests about layout and wording want so that a missing entry is
+// never explained by permission.
+func permitAll(string) bool { return true }
+
+// permitOnly is the authority of a reader who may perform exactly these
+// operations, named by the service method the registry knows them by.
+func permitOnly(methods ...string) func(string) bool {
+	return func(method string) bool { return slices.Contains(methods, method) }
+}
+
 // TestEveryGatedViewResolvesToARegistryName is the half of the gating
 // requirement that running the interface cannot reach. canReach looks a view up
 // by the name viewName gives it, so a view whose name does not appear in the
