@@ -28,24 +28,50 @@ type noticeKey struct{}
 // only correct place to give the registration back.
 type handleKey struct{}
 
+// actorKey carries the actor resolved before the session took its slot to the
+// program handler, which runs the interface as it.
+type actorKey struct{}
+
 // handle serves one connection: the wish middleware owns the terminal, the
-// program handler owns the identity.
+// program handler owns the interface.
 //
-// The cap on live sessions is taken here, before anything has been looked up,
-// so a full listener refuses every key the same way and a refusal says nothing
-// about whether this one had been seen before.
+// The order here is what keeps two properties at once. The listener's capacity
+// is checked before the key is looked up, so a full listener refuses every key
+// with one message and a refusal says nothing about whether this key had been
+// seen before. The slot itself is taken after the lookup, so a key nobody
+// enrolled never occupies capacity an enrolled key then cannot get.
 func (s *Server) handle(sess ssh.Session) {
-	if key := sess.PublicKey(); key != nil {
-		fingerprint := auth.Fingerprint(key)
-		if err := s.live.acquire(fingerprint); err != nil {
-			s.log.Warn("refusing an ssh session over the concurrency cap",
-				"source", sourceOf(sess.RemoteAddr()), "error", err.Error())
-			fatalf(sess, "%s", message(err))
-			return
-		}
-		defer s.live.release(fingerprint)
+	key := sess.PublicKey()
+	if key == nil {
+		fatalf(sess, "tix needs a public key to know who you are; ssh with a key, not a password")
+		return
 	}
-	// The registration is made once the actor is known, inside program, and
+	fingerprint := auth.Fingerprint(key)
+	if err := s.live.reserve(fingerprint); err != nil {
+		s.log.Warn("refusing an ssh session over the concurrency cap",
+			"source", sourceOf(sess.RemoteAddr()), "error", err.Error())
+		fatalf(sess, "%s", message(err))
+		return
+	}
+	actor, err := s.verifier.Verify(sess.Context(), key)
+	if err != nil {
+		s.live.cancel(fingerprint)
+		s.log.Warn("refusing an ssh session",
+			"fingerprint", fingerprint,
+			"source", sourceOf(sess.RemoteAddr()),
+			"error", err.Error())
+		fatalf(sess, "%s", message(err))
+		return
+	}
+	if err := s.live.acquire(fingerprint); err != nil {
+		s.log.Warn("refusing an ssh session over the concurrency cap",
+			"source", sourceOf(sess.RemoteAddr()), "error", err.Error())
+		fatalf(sess, "%s", message(err))
+		return
+	}
+	defer s.live.release(fingerprint)
+	sess.Context().SetValue(actorKey{}, actor)
+	// The registration is made once the session is running, inside program, and
 	// given back here: this defer runs when the session is genuinely over,
 	// however it ended.
 	defer func() {
@@ -60,26 +86,17 @@ func (s *Server) handle(sess ssh.Session) {
 	bm.MiddlewareWithProgramHandler(s.program, termenv.Ascii)(s.farewell)(sess)
 }
 
-// program resolves the connecting key into the actor it belongs to and
-// returns the interface bound to that session's streams.
+// program returns the interface bound to this session's streams, running as
+// the actor handle resolved before the slot was taken.
 //
-// Every value it builds is per connection: the actor, the context carrying it,
-// the capped service and the model. Nothing is shared between sessions but the
+// Every value it builds is per connection: the context carrying the actor, the
+// capped service and the model. Nothing is shared between sessions but the
 // service and the store beneath them, and both take their tenant from the
 // context they are handed, so two sessions cannot reach each other's data.
 func (s *Server) program(sess ssh.Session) *tea.Program {
-	key := sess.PublicKey()
-	if key == nil {
-		fatalf(sess, "tix needs a public key to know who you are; ssh with a key, not a password")
-		return nil
-	}
-	actor, err := s.verifier.Verify(sess.Context(), key)
-	if err != nil {
-		s.log.Warn("refusing an ssh session",
-			"fingerprint", auth.Fingerprint(key),
-			"source", sourceOf(sess.RemoteAddr()),
-			"error", err.Error())
-		fatalf(sess, "%s", message(err))
+	actor, ok := sess.Context().Value(actorKey{}).(*core.Actor)
+	if !ok || actor == nil {
+		fatalf(sess, "tix could not open a session for you; try again shortly")
 		return nil
 	}
 
@@ -115,7 +132,7 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 		ActorID:     actor.ID,
 		ActorHandle: actor.Handle,
 		Remote:      sourceOf(sess.RemoteAddr()),
-		Fingerprint: auth.Fingerprint(key),
+		Fingerprint: auth.Fingerprint(sess.PublicKey()),
 	}, func(reason string) error {
 		if reason != "" {
 			_, _ = io.WriteString(sess.Stderr(), "\r\n"+reason+"\r\n")
