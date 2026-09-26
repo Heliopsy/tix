@@ -3,13 +3,16 @@
 package integration
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -32,10 +35,18 @@ import (
 // Waits are bounded generously rather than tuned: the tenant reader polls the
 // outbox on eventPoll, so anything slower than these bounds is a real failure,
 // not a slow machine.
+//
+// eventWait and deliveryWait are failure timeouts, not latency budgets. A wait
+// returns the instant its event arrives, so the ceiling costs nothing when the
+// system works; its only job is to decide when to call a broken system broken.
+// Latency is asserted by the benchmark job against a seeded fixture, and that
+// is where a performance regression belongs. Do not tighten these to make them
+// do the benchmark's work: on a contended runner that only manufactures false
+// failures.
 const (
 	eventPoll    = 25 * time.Millisecond
-	eventWait    = 15 * time.Second
-	deliveryWait = 15 * time.Second
+	eventWait    = 60 * time.Second
+	deliveryWait = 60 * time.Second
 	dialWait     = 10 * time.Second
 )
 
@@ -47,6 +58,7 @@ type harness struct {
 	t *testing.T
 
 	tenantID string
+	logs     *serverLog
 	baseURL  string
 	token    string
 	scope    core.TenantScope
@@ -86,6 +98,7 @@ func newHarness(t *testing.T, opts ...harnessOption) *harness {
 	}
 	ctx := context.Background()
 	clk := clock.New()
+	logs := &serverLog{}
 	path := filepath.Join(t.TempDir(), "tix.db")
 
 	serverStore := openStore(t, path, clk)
@@ -116,7 +129,7 @@ func newHarness(t *testing.T, opts ...harnessOption) *harness {
 		Service:           serverSvc,
 		Store:             serverStore,
 		Clock:             clk,
-		Logger:            slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Logger:            slog.New(slog.NewTextHandler(logs, nil)),
 		TenantID:          tenant.ID,
 		WebHandler:        web.Handler(serverSvc),
 		Addr:              "127.0.0.1:0",
@@ -158,6 +171,7 @@ func newHarness(t *testing.T, opts ...harnessOption) *harness {
 	return &harness{
 		t:        t,
 		tenantID: tenant.ID,
+		logs:     logs,
 		server:   serverSvc,
 		baseURL:  "http://" + srv.Addr(),
 		token:    issued.Token,
@@ -217,9 +231,69 @@ func (h *harness) latestEvent() core.Event {
 	return out[0]
 }
 
+// serverLog collects the server's own log for a failing test to print. The
+// three lines that name a tenant reader which did not start, failed, or ended
+// are written nowhere else, so discarding them left a delivery timeout with no
+// cause attached to it.
+type serverLog struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+// Write records one log line.
+func (l *serverLog) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.buf.Write(p)
+}
+
+// String returns everything logged so far.
+func (l *serverLog) String() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.buf.String()
+}
+
+// diagnose renders what an undelivered event needs to be explained: whether it
+// reached the outbox at all, and whether the tenant reader said anything. A
+// bare timeout cannot tell a write that never committed from one the reader
+// skipped, and those have opposite causes.
+func (h *harness) diagnose() string {
+	var b strings.Builder
+	b.WriteString("\ncommitted outbox tail:")
+	ctx := context.Background()
+	var out []core.Event
+	err := h.cliStore.View(ctx, h.scope, func(tx store.Tx) error {
+		latest, err := tx.LatestEventSeq(ctx)
+		if err != nil {
+			return err
+		}
+		from := max(latest-10, 0)
+		out, err = tx.ReadEvents(ctx, from, 10)
+		return err
+	})
+	switch {
+	case err != nil:
+		fmt.Fprintf(&b, " unreadable: %v", err)
+	case len(out) == 0:
+		b.WriteString(" empty")
+	default:
+		for _, e := range out {
+			fmt.Fprintf(&b, "\n  seq=%d type=%s subject=%s", e.Seq, e.Type, e.SubjectID)
+		}
+	}
+	if logged := h.logs.String(); logged != "" {
+		fmt.Fprintf(&b, "\nserver log:\n%s", logged)
+	} else {
+		b.WriteString("\nserver log: silent, so the tenant reader reported no failure")
+	}
+	return b.String()
+}
+
 // wsClient is a real WebSocket client on the server's event route.
 type wsClient struct {
 	t    *testing.T
+	h    *harness
 	conn *websocket.Conn
 }
 
@@ -239,7 +313,7 @@ func (h *harness) dial() *wsClient {
 	if err != nil {
 		h.t.Fatalf("dialling the event stream: %v", err)
 	}
-	c := &wsClient{t: h.t, conn: conn}
+	c := &wsClient{t: h.t, h: h, conn: conn}
 	h.t.Cleanup(c.close)
 	return c
 }
@@ -275,7 +349,7 @@ func (c *wsClient) read(within time.Duration) httpapi.ServerMessage {
 
 	typ, raw, err := c.conn.Read(ctx)
 	if err != nil {
-		c.t.Fatalf("reading from the event stream within %s: %v", within, err)
+		c.t.Fatalf("reading from the event stream within %s: %v%s", within, err, c.h.diagnose())
 	}
 	if typ != websocket.MessageText {
 		c.t.Fatalf("event stream sent a %v frame, want text", typ)
@@ -296,7 +370,8 @@ func (c *wsClient) awaitEvent(subjectID string, within time.Duration) core.Event
 		remaining := time.Until(deadline)
 		if remaining <= 0 {
 			c.t.Fatalf("no event for subject %q arrived within %s; "+
-				"a direct-database write must reach a server reading the same outbox", subjectID, within)
+				"a direct-database write must reach a server reading the same outbox%s",
+				subjectID, within, c.h.diagnose())
 		}
 		m := c.read(remaining)
 		switch {

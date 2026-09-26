@@ -69,9 +69,11 @@ one poll interval); `since_seq` reconnect is gap-free because history is durable
 survives process death. The cost is a table that grows with every mutation, which is why `retention`
 is a v1 capability rather than an afterthought.
 
-Tailer wake-up is `PRAGMA data_version` polling at 250ms on SQLite and `LISTEN/NOTIFY` on PostgreSQL.
-A direct-database `Subscribe` therefore has up to 250ms latency and sees only committed events, which
-is correct and sufficient for a TUI refresh.
+Tailer wake-up on SQLite is a plain re-read: the tailer re-runs its `seq > cursor` query on a 250ms
+ticker and sleeps again when nothing came back. There is no change notification involved on that engine.
+PostgreSQL adds `LISTEN/NOTIFY`, where a committing transaction announces on a channel the tailer holds a
+dedicated connection for. A direct-database `Subscribe` therefore has up to 250ms latency on SQLite and
+sees only committed events, which is correct and sufficient for a TUI refresh.
 
 ### Webhook delivery outside a server
 

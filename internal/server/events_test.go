@@ -5,15 +5,20 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/heliopsy/tix/internal/outbox"
+	"github.com/heliopsy/tix/internal/wire"
 
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/store"
@@ -229,4 +234,212 @@ func (b *lockedBuffer) String() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.buf.String()
+}
+
+// A tenant's live cursor must exist before start returns. The caller is the
+// hub, which registers, acknowledges and replays the connection afterwards, so
+// a cursor taken later can sit above an event replay has already passed. The
+// tailer never reads below the cursor it opened with, so such an event is lost
+// rather than late.
+//
+// The guard is written from the subscriber's side deliberately: it commits an
+// event in that window and requires the client to receive it. An assertion
+// about which goroutine calls Latest would still pass a refactor that reopened
+// the gap by another route.
+func TestPumpTakesItsLiveCursorBeforeStartReturns(t *testing.T) {
+	st := testStore(t)
+	const tenantID = "cursor-window"
+	makeTenant(t, st, tenantID)
+	before := appendTaskEvent(t, st, tenantID, "before-anyone-listened")
+
+	hub := httpapi.NewHub()
+	p := newPumps(context.Background(), hub, eventLog{store: st}, time.Millisecond, nil)
+	defer p.shutdown()
+
+	held := &heldReader{
+		inner:   tenantReader{log: eventLog{store: st}, tenantID: tenantID},
+		entered: make(chan struct{}),
+		proceed: make(chan struct{}),
+	}
+	p.reader = func(string) outbox.Reader { return held }
+
+	// Closed once the hub's first-connection hook has handed back, which is the
+	// moment the connection becomes servable.
+	startReturned := make(chan struct{})
+	var startedOnce sync.Once
+	hub.SetTenantHooks(func(id string) {
+		p.start(id)
+		startedOnce.Do(func() { close(startReturned) })
+	}, p.stop)
+
+	stream := httpapi.NewEventStream(hub, eventLog{store: st})
+	actor := &core.Actor{ID: "actor", TenantID: tenantID, Scopes: core.AllScopes}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		stream.ServeHTTP(w, r.WithContext(core.WithActor(r.Context(), actor)))
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	conn := dialEvents(t, ctx, srv.URL)
+	defer func() { _ = conn.CloseNow() }()
+
+	<-held.entered
+
+	seen := make(map[int64]bool)
+	settled := false
+	select {
+	case <-startReturned:
+		// The hook handed back before the cursor existed, so the connection is
+		// already being served: drive the subscription past its replay, which
+		// is where the undelivered event sat.
+		settleSubscription(t, ctx, conn, before, seen)
+		settled = true
+	default:
+		// The cursor is being taken inside start, so the hub has not finished
+		// registering and there is nothing for the client to settle yet.
+	}
+
+	live := appendTaskEvent(t, st, tenantID, "committed-in-the-window")
+	close(held.proceed)
+
+	if !settled {
+		settleSubscription(t, ctx, conn, before, seen)
+	}
+	if seen[live] {
+		return
+	}
+
+	readCtx, readCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer readCancel()
+	for {
+		m, err := readMessage(readCtx, conn)
+		if err != nil {
+			t.Fatalf("event %d, committed once the connection was registered, never arrived: %v", live, err)
+		}
+		if m.Type == httpapi.MsgEvent && m.Event != nil && m.Event.Seq == live {
+			return
+		}
+	}
+}
+
+// heldReader is a tenant's real reader whose cursor read can be held, standing
+// in for a pump goroutine the scheduler has not run.
+type heldReader struct {
+	inner   outbox.Reader
+	once    sync.Once
+	entered chan struct{}
+	proceed chan struct{}
+}
+
+func (r *heldReader) Latest(ctx context.Context) (int64, error) {
+	r.once.Do(func() { close(r.entered) })
+	<-r.proceed
+	return r.inner.Latest(ctx)
+}
+
+func (r *heldReader) ReadSince(ctx context.Context, sinceSeq int64, limit int) ([]core.Event, error) {
+	return r.inner.ReadSince(ctx, sinceSeq, limit)
+}
+
+func makeTenant(t *testing.T, st store.Store, id string) {
+	t.Helper()
+	ctx := context.Background()
+	err := st.Unscoped(ctx, func(tx store.UnscopedTx) error {
+		return tx.CreateTenant(ctx, &core.Tenant{ID: id, Key: id, Name: id})
+	})
+	if err != nil {
+		t.Fatalf("creating tenant %q: %v", id, err)
+	}
+}
+
+func appendTaskEvent(t *testing.T, st store.Store, tenantID, subject string) int64 {
+	t.Helper()
+	ctx := context.Background()
+	var seq int64
+	err := st.Update(ctx, core.TenantScope{TenantID: tenantID}, func(tx store.Tx) error {
+		e := &core.Event{
+			Type:        core.EventTaskCreated,
+			SubjectType: "task",
+			SubjectID:   subject,
+			OccurredAt:  time.Now().UTC(),
+		}
+		if err := tx.AppendEvent(ctx, e); err != nil {
+			return err
+		}
+		seq = e.Seq
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("appending event %q: %v", subject, err)
+	}
+	return seq
+}
+
+func dialEvents(t *testing.T, ctx context.Context, baseURL string) *websocket.Conn {
+	t.Helper()
+	url := "ws" + strings.TrimPrefix(baseURL, "http") + wire.RouteEvents
+	conn, resp, err := websocket.Dial(ctx, url, nil)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
+	if err != nil {
+		t.Fatalf("dialling the event stream: %v", err)
+	}
+	return conn
+}
+
+func readMessage(ctx context.Context, conn *websocket.Conn) (httpapi.ServerMessage, error) {
+	var m httpapi.ServerMessage
+	_, raw, err := conn.Read(ctx)
+	if err != nil {
+		return m, err
+	}
+	return m, json.Unmarshal(raw, &m)
+}
+
+// settleSubscription subscribes from sinceSeq and returns only once the server
+// has finished replaying and gone live. The pong answers on the same loop that
+// handles subscribe, so receiving it proves replay is behind us rather than
+// merely acknowledged.
+func settleSubscription(t *testing.T, ctx context.Context, conn *websocket.Conn, sinceSeq int64, seen map[int64]bool) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	write(t, ctx, conn, httpapi.ClientMessage{Type: httpapi.MsgSubscribe, ID: "s1", SinceSeq: &sinceSeq})
+	awaitMessage(t, ctx, conn, httpapi.MsgSubscribed, seen)
+	write(t, ctx, conn, httpapi.ClientMessage{Type: httpapi.MsgPing, ID: "p1"})
+	awaitMessage(t, ctx, conn, httpapi.MsgPong, seen)
+}
+
+func write(t *testing.T, ctx context.Context, conn *websocket.Conn, m httpapi.ClientMessage) {
+	t.Helper()
+	raw, err := json.Marshal(m)
+	if err != nil {
+		t.Fatalf("marshalling %s: %v", m.Type, err)
+	}
+	if err := conn.Write(ctx, websocket.MessageText, raw); err != nil {
+		t.Fatalf("writing %s: %v", m.Type, err)
+	}
+}
+
+func awaitMessage(t *testing.T, ctx context.Context, conn *websocket.Conn, want string, seen map[int64]bool) {
+	t.Helper()
+	for {
+		m, err := readMessage(ctx, conn)
+		if err != nil {
+			t.Fatalf("waiting for %s: %v", want, err)
+		}
+		if m.Type == httpapi.MsgEvent && m.Event != nil {
+			seen[m.Event.Seq] = true
+		}
+		if m.Type == httpapi.MsgError {
+			t.Fatalf("the event stream answered %s with an error: %+v", want, m.Error)
+		}
+		if m.Type == want {
+			return
+		}
+	}
 }

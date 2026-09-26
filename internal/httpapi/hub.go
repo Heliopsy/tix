@@ -25,6 +25,11 @@ type Hub struct {
 	// never deliver their hooks in the opposite order to their counts. The
 	// hooks themselves run outside mu: they are caller-supplied, they may
 	// block, and a hook that read the hub back under mu would deadlock.
+	//
+	// A hook is not bookkeeping. The server's first-connection hook reads the
+	// tenant's event cursor from the database before it returns, so every
+	// connect and disconnect in the process queues behind that query. Anyone
+	// tuning connection throughput starts here.
 	hookMu sync.Mutex
 
 	mu      sync.RWMutex

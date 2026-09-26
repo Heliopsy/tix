@@ -139,11 +139,32 @@ func (p *pumps) start(tenantID string) {
 	cur := &pump{cancel: cancel}
 	p.running[tenantID] = cur
 
+	reader := p.reader(tenantID)
+
+	// The live cursor is taken here, before this call returns, rather than in
+	// the goroutine below. The caller registers a connection whose replay runs
+	// afterwards, so a cursor taken later can land above an event that replay
+	// has already passed: neither path then delivers it, and nothing reports a
+	// gap. See TestPumpTakesItsLiveCursorBeforeStartReturns.
+	//
+	// The caller is the hub's first-connection hook, which runs under the lock
+	// that orders those hooks, so this query serialises every connect and
+	// disconnect in the process for as long as it takes. That cost is accepted:
+	// a slower connect is throughput, a missed event is correctness. Moving the
+	// wait onto the per-connection subscribe path would remove it.
+	cursor, err := reader.Latest(ctx)
+	if err != nil {
+		p.logger.Error("tenant event reader could not take its cursor", "tenant", tenantID, "error", err.Error())
+		delete(p.running, tenantID)
+		cancel()
+		return
+	}
+
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
 		defer p.finish(tenantID, cur)
-		p.run(ctx, tenantID)
+		p.run(ctx, tenantID, reader, cursor)
 	}()
 }
 
@@ -169,14 +190,14 @@ func (p *pumps) finish(tenantID string, cur *pump) {
 	}
 }
 
-func (p *pumps) run(ctx context.Context, tenantID string) {
-	tailer := outbox.NewTailer(p.reader(tenantID), p.poll, 256,
+func (p *pumps) run(ctx context.Context, tenantID string, reader outbox.Reader, cursor int64) {
+	tailer := outbox.NewTailer(reader, p.poll, 256,
 		outbox.WithRetry(p.retryBackoff, p.retryMax, p.retryLimit),
 		outbox.WithErrorHandler(func(err error) {
 			p.logger.Error("tenant event reader failed", "tenant", tenantID, "error", err.Error())
 		}),
 	)
-	events, err := tailer.Subscribe(ctx, core.EventFilter{})
+	events, err := tailer.Subscribe(ctx, core.EventFilter{SinceSeq: cursor})
 	if err != nil {
 		p.logger.Error("tenant event reader did not start", "tenant", tenantID, "error", err.Error())
 		return
