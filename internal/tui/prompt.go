@@ -30,6 +30,10 @@ const (
 	promptNewProject
 	promptActivityFilter
 	promptTenant
+	promptProjectName
+	promptProjectDesc
+	promptProjectIcon
+	promptNewField
 )
 
 // PromptSpec is how one input introduces itself.
@@ -58,6 +62,13 @@ var promptSpecs = map[promptKind]PromptSpec{
 	// due date to ask about.
 	promptActivityFilter: {"activity: ", "kind:task actor:ada -action:task.updated word", 512},
 	promptTenant:         {"tenant: ", "tenant key, such as acme", 128},
+
+	// The project screen's own inputs. Each is seeded with the value it would
+	// replace, so an edit starts from what is there rather than from blank.
+	promptProjectName: {"project name: ", "what this project is called", 256},
+	promptProjectDesc: {"description: ", "what this project is for", 1024},
+	promptProjectIcon: {"icon: ", "one or two characters, such as \u25b2", core.MaxProjectIconRunes},
+	promptNewField:    {"new field: ", "key and label, such as: severity Severity", 256},
 }
 
 // Spec describes an input, reporting whether the kind names one at all.
@@ -70,7 +81,8 @@ func (k promptKind) Spec() (PromptSpec, bool) {
 // the board as a whole.
 func (k promptKind) NeedsTask() bool {
 	switch k {
-	case promptNone, promptFilter, promptActivityFilter, promptTenant, promptNewTask, promptNewProject:
+	case promptNone, promptFilter, promptActivityFilter, promptTenant, promptNewTask, promptNewProject,
+		promptProjectName, promptProjectDesc, promptProjectIcon, promptNewField:
 		return false
 	default:
 		return true

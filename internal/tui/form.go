@@ -20,6 +20,10 @@ const (
 	formDelete
 	formTag
 	formDependency
+	formProject
+	formProjectRemove
+	formFieldPick
+	formFieldDef
 )
 
 // FieldCondition keeps a field off screen until another field holds a value.

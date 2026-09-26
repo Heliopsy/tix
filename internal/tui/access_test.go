@@ -18,7 +18,7 @@ import (
 // resolve a name for.
 var everyView = []viewKind{
 	viewProjects, viewBoard, viewDetail, viewHelp, viewSettings,
-	viewActivity, viewTenant, viewStats,
+	viewActivity, viewTenant, viewStats, viewProject,
 }
 
 // fullAccess offers every view, which is what an administrator's authority
@@ -158,17 +158,17 @@ func TestAccessFollowsTheActorsScopes(t *testing.T) {
 		{
 			name:   "sandbox visitor",
 			actor:  &core.Actor{ID: "v", TenantID: "sandbox", Scopes: visitor},
-			offers: []viewKind{viewBoard, viewDetail, viewActivity, viewStats, viewTenant},
+			offers: []viewKind{viewBoard, viewDetail, viewActivity, viewStats, viewTenant, viewProject},
 		},
 		{
 			name:   "enrolled admin",
 			actor:  &core.Actor{ID: "a", TenantID: "t", Role: core.RoleAdmin},
-			offers: []viewKind{viewBoard, viewDetail, viewActivity, viewStats, viewTenant},
+			offers: []viewKind{viewBoard, viewDetail, viewActivity, viewStats, viewTenant, viewProject},
 		},
 		{
 			name:   "enrolled viewer",
 			actor:  &core.Actor{ID: "r", TenantID: "t", Role: core.RoleViewer},
-			offers: []viewKind{viewBoard, viewDetail, viewActivity, viewStats, viewTenant},
+			offers: []viewKind{viewBoard, viewDetail, viewActivity, viewStats, viewTenant, viewProject},
 		},
 		{
 			name: "token that may only read projects",
@@ -176,14 +176,16 @@ func TestAccessFollowsTheActorsScopes(t *testing.T) {
 				Scopes: []core.Scope{core.ScopeProjectRead}},
 			// The detail view is offered because resolving an identifier to a
 			// handle needs no scope; the board is not, so there is no way in.
-			offers: []viewKind{viewDetail, viewTenant},
+			// The project screen is, because reading one project is what it is
+			// for, and it says the workflow is not shown rather than nothing.
+			offers: []viewKind{viewDetail, viewTenant, viewProject},
 			denies: []viewKind{viewBoard, viewActivity, viewStats},
 		},
 		{
 			name: "token that may not watch events",
 			actor: &core.Actor{ID: "p", TenantID: "t", Kind: core.ActorAgent,
 				Scopes: []core.Scope{core.ScopeTaskRead, core.ScopeProjectRead}},
-			offers: []viewKind{viewBoard, viewDetail, viewStats},
+			offers: []viewKind{viewBoard, viewDetail, viewStats, viewProject},
 			denies: []viewKind{viewActivity},
 		},
 	}
@@ -218,7 +220,8 @@ func TestTheHelpOverlayNamesOnlyOfferedViews(t *testing.T) {
 	}
 
 	full := desc(keys.GlobalHelp(allViews))
-	for _, want := range []string{"activity", "statistics", "tenant", "projects", "settings"} {
+	for _, want := range []string{"activity", "statistics", "tenant", "projects", "settings",
+		"project setup"} {
 		if !slices.Contains(full, want) {
 			t.Errorf("a reader offered every view is not told about %q", want)
 		}

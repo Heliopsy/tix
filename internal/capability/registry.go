@@ -225,9 +225,12 @@ var registry = []Operation{
 		CLI:   "tix project show",
 		HTTP:  apiGet(wire.RouteProject),
 		Web:   webGet(web.RouteProject, tplBoard),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; the project list opens a board from the listing it already holds and never fetches one project"),
-		},
+		// The project screen fetches the project it renders rather than reusing
+		// the row the listing held. It is the read that answers "this project,
+		// now", which a screen that edits and archives one has to show: an
+		// archive returns nothing, so the listing's copy would be stale the
+		// moment the screen acted on it.
+		TUI: "project",
 	},
 	{
 		Name: "project.list", Method: "ListProjects",
@@ -243,9 +246,10 @@ var registry = []Operation{
 		CLI:   "tix project edit",
 		HTTP:  apiPatch(wire.RouteProject),
 		Web:   webPost(web.RouteProjectEdit),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; the project list creates and opens projects but cannot edit one"),
-		},
+		// Every attribute the input accepts: the colour and the workflow from
+		// the form's own lists, the name, the description and the icon from the
+		// single-line prompt the form hands over to.
+		TUI: "project",
 	},
 	{
 		Name: "project.archive", Method: "ArchiveProject",
@@ -253,9 +257,7 @@ var registry = []Operation{
 		CLI:   "tix project archive",
 		HTTP:  apiDeleteWhen(wire.RouteProject, "archive=true"),
 		Web:   webPost(web.RouteProjectArch),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; the project list creates and opens projects but cannot archive one"),
-		},
+		TUI:   "project",
 	},
 	{
 		Name: "project.delete", Method: "DeleteProject",
@@ -263,9 +265,7 @@ var registry = []Operation{
 		CLI:   "tix project rm",
 		HTTP:  apiDelete(wire.RouteProject),
 		Web:   webPost(web.RouteProjectDel),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; the project list creates and opens projects but cannot delete one"),
-		},
+		TUI:   "project",
 	},
 	{
 		Name: "field.put", Method: "PutFieldDef",
@@ -273,9 +273,7 @@ var registry = []Operation{
 		CLI:   "tix field put",
 		HTTP:  apiPut(wire.RouteProjectFields),
 		Web:   webPost(web.RouteFields),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; the detail view shows custom field values but there is no field definition editor"),
-		},
+		TUI:   "project",
 	},
 	{
 		Name: "field.list", Method: "ListFieldDefs",
@@ -291,9 +289,7 @@ var registry = []Operation{
 		CLI:   "tix field rm",
 		HTTP:  apiDelete(wire.RouteProjectField),
 		Web:   webPost(web.RouteFieldDelete),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; the detail view shows custom field values but there is no field definition editor"),
-		},
+		TUI:   "project",
 	},
 
 	{
@@ -303,7 +299,7 @@ var registry = []Operation{
 		HTTP:  apiPut(wire.RouteWorkflows),
 		Web:   webPost(web.RouteWorkflows),
 		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; the board renders a workflow but there is no workflow editor"),
+			off(SurfaceTUI, "a workflow is a state machine: states with categories and terminal flags, the edges between them, what each edge requires, a default lease, and a migration for the tasks already in a state that is going away. The terminal reads one on the project screen and does not edit one, because the only inputs a terminal has are a single line of free text and a form whose every field picks from a fixed list, and neither can gather a graph. A form over an arbitrary state machine would be a worse editor than the file tix workflow put already takes, so the project screen names that command instead"),
 		},
 	},
 	{
@@ -312,9 +308,11 @@ var registry = []Operation{
 		CLI:   "tix workflow get",
 		HTTP:  apiGet(wire.RouteWorkflow),
 		Web:   webGet(web.RouteWorkflow, tplWorkflow),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; the board resolves its workflow from the listing and never fetches one by key"),
-		},
+		// The project screen fetches the workflow by the identifier the project
+		// carries, which this operation accepts as readily as a key, so the
+		// state machine it renders costs one read rather than a listing of every
+		// workflow the tenant has.
+		TUI: "project",
 	},
 	{
 		Name: "workflow.list", Method: "ListWorkflows",
@@ -331,7 +329,7 @@ var registry = []Operation{
 		HTTP:  apiDelete(wire.RouteWorkflow),
 		Web:   webPost(web.RouteWorkflowDel),
 		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; the board renders a workflow but there is no workflow editor"),
+			off(SurfaceTUI, "the only workflow the terminal names is the one the open project runs on, and the service refuses to delete a workflow a project is still assigned to. The one place a terminal could offer this is the one place it would always be refused, and an entry leading to a refusal is worse than no entry. Deleting a workflow needs a listing of every workflow with none of its projects, which is tix workflow ls and tix workflow rm"),
 		},
 	},
 

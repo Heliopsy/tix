@@ -360,7 +360,7 @@ func contains(values []string, want string) bool {
 // from a view that does not exist.
 var tuiViews = map[string]bool{
 	"projects": true, "board": true, "detail": true, "activity": true, "tenant": true,
-	"stats": true,
+	"stats": true, "project": true,
 }
 
 // TestEveryTUIViewCarriesAnOperation is the other half of the previous guard.
@@ -460,10 +460,16 @@ func TestNoCLIGapRemains(t *testing.T) {
 // The terminal count came down from 58 when the confirmation and the form landed
 // with the five operations that needed them: task.delete, dependency.remove,
 // tag.list, comment.edit and comment.delete.
+//
+// It came down from 53 with the project screen, which closed seven: project.show,
+// project.update, project.archive, project.delete, workflow.get, field.put and
+// field.delete. Two more left the count without a binding, because a terminal
+// cannot serve them rather than has not yet: workflow.put edits a state machine,
+// and workflow.delete would only ever be offered where the service refuses it.
 func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 	t.Parallel()
 	want := map[capability.Surface]int{
-		capability.SurfaceTUI: 53,
+		capability.SurfaceTUI: 44,
 		capability.SurfaceWeb: 2,
 	}
 	got := map[capability.Surface]int{}

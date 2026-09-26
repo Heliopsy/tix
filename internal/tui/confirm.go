@@ -12,13 +12,19 @@ const (
 	confirmNone confirmKind = iota
 	confirmDeleteTask
 	confirmDeleteComment
+	confirmArchiveProject
+	confirmDeleteProject
+	confirmDeleteField
 )
 
 // confirmVerbs are what each confirmation says it will do, in the words the
 // question asks it in.
 var confirmVerbs = map[confirmKind]string{
-	confirmDeleteTask:    "delete task",
-	confirmDeleteComment: "delete",
+	confirmDeleteTask:     "delete task",
+	confirmDeleteComment:  "delete",
+	confirmArchiveProject: "archive project",
+	confirmDeleteProject:  "delete project",
+	confirmDeleteField:    "delete custom field",
 }
 
 // Confirm is one destructive action held back until the reader agrees to it.
@@ -42,6 +48,10 @@ type Confirm struct {
 	commentID string
 	hard      bool
 	cascade   bool
+	// projectRef and fieldKey address the subjects that are not a task: the
+	// project a removal acts on, and the custom field a deletion names.
+	projectRef string
+	fieldKey   string
 }
 
 // Open reports whether a confirmation is waiting for an answer.

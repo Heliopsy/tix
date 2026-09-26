@@ -60,6 +60,21 @@ type fakeService struct {
 
 	whoAmI    *core.Actor
 	whoAmIErr error
+
+	// what the project screen reads, and what its actions recorded. The
+	// workflow is looked up by whatever reference it was asked for, so a test
+	// can prove the screen asked by identifier rather than by key.
+	project        *core.Project
+	projectErr     error
+	fieldDefs      []core.FieldDef
+	workflowAsked  []string
+	workflowErr    error
+	projectsEdited []core.UpdateProjectInput
+	projectsGone   []string
+	archived       []string
+	fieldsPut      []core.FieldDefInput
+	fieldsGone     [][2]string
+	fieldErr       error
 }
 
 func newFakeService() *fakeService {
@@ -165,25 +180,81 @@ func (f *fakeService) CreateProject(_ context.Context, in core.CreateProjectInpu
 	f.projectsMade = append(f.projectsMade, in)
 	return &core.Project{Key: in.Key, Name: in.Name}, nil
 }
-func (f *fakeService) GetProject(context.Context, string) (*core.Project, error) { return nil, nil }
-func (f *fakeService) UpdateProject(context.Context, string, core.UpdateProjectInput) (*core.Project, error) {
-	return nil, nil
+func (f *fakeService) GetProject(_ context.Context, ref string) (*core.Project, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.projectErr != nil {
+		return nil, f.projectErr
+	}
+	if f.project != nil {
+		return f.project, nil
+	}
+	for _, p := range f.projects {
+		if p.Key == ref || p.ID == ref {
+			found := p
+			return &found, nil
+		}
+	}
+	return nil, core.NotFound("project %q", ref)
 }
-func (f *fakeService) ArchiveProject(context.Context, string) error { return nil }
-func (f *fakeService) DeleteProject(context.Context, string) error  { return nil }
-func (f *fakeService) PutFieldDef(context.Context, string, core.FieldDefInput) (*core.FieldDef, error) {
-	return nil, nil
+func (f *fakeService) UpdateProject(_ context.Context, _ string, in core.UpdateProjectInput) (*core.Project, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.projectsEdited = append(f.projectsEdited, in)
+	return &core.Project{}, nil
+}
+func (f *fakeService) ArchiveProject(_ context.Context, ref string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.archived = append(f.archived, ref)
+	return nil
+}
+func (f *fakeService) DeleteProject(_ context.Context, ref string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.projectsGone = append(f.projectsGone, ref)
+	return nil
+}
+func (f *fakeService) PutFieldDef(_ context.Context, _ string, in core.FieldDefInput) (*core.FieldDef, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.fieldsPut = append(f.fieldsPut, in)
+	if f.fieldErr != nil {
+		return nil, f.fieldErr
+	}
+	return &core.FieldDef{Key: in.Key}, nil
 }
 func (f *fakeService) ListFieldDefs(context.Context, string) ([]core.FieldDef, error) {
-	return nil, nil
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.fieldDefs, nil
 }
-func (f *fakeService) DeleteFieldDef(context.Context, string, string) error { return nil }
+func (f *fakeService) DeleteFieldDef(_ context.Context, ref, key string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.fieldsGone = append(f.fieldsGone, [2]string{ref, key})
+	return f.fieldErr
+}
 
 func (f *fakeService) PutWorkflow(context.Context, core.WorkflowInput) (*core.Workflow, error) {
 	return nil, nil
 }
-func (f *fakeService) GetWorkflow(context.Context, string) (*core.Workflow, error) { return nil, nil }
-func (f *fakeService) DeleteWorkflow(context.Context, string) error                { return nil }
+func (f *fakeService) GetWorkflow(_ context.Context, ref string) (*core.Workflow, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.workflowAsked = append(f.workflowAsked, ref)
+	if f.workflowErr != nil {
+		return nil, f.workflowErr
+	}
+	for _, w := range f.workflows {
+		if w.Key == ref || w.ID == ref {
+			found := w
+			return &found, nil
+		}
+	}
+	return nil, core.NotFound("workflow %q", ref)
+}
+func (f *fakeService) DeleteWorkflow(context.Context, string) error { return nil }
 
 func (f *fakeService) CreateTask(_ context.Context, in core.CreateTaskInput) (*core.Task, error) {
 	f.mu.Lock()

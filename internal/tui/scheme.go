@@ -207,7 +207,7 @@ func KeyMapFor(scheme Scheme) KeyMap {
 // collision has to be looked for within: the same key may mean two things in
 // two views, and often should.
 func viewActions(v viewKind) []string {
-	global := []string{"Help", "Refresh", "Projects", "Activity", "Tenant", "Quit", "Interrupt"}
+	global := []string{"Help", "Refresh", "Projects", "Project", "Activity", "Tenant", "Quit", "Interrupt"}
 	switch v {
 	case viewProjects:
 		return append([]string{"Up", "Down", "Top", "Bottom", "Enter", "NewProject", "Back"}, global...)
@@ -230,6 +230,14 @@ func viewActions(v viewKind) []string {
 		return append([]string{"Up", "Down", "Top", "Bottom", "Filter", "ClearFltr", "Back"}, global...)
 	case viewTenant:
 		return append([]string{"Enter", "Back"}, global...)
+	case viewProject:
+		// Left and Right are listed although the screen itself has nothing
+		// horizontal: they cycle a form's answers, and a scheme that put one of
+		// them on a key this screen already uses would break the forms only.
+		return append([]string{
+			"Up", "Down", "Left", "Right", "Top", "Bottom", "EditTitle", "Delete",
+			"New", "Fields", "Settings", "Back",
+		}, global...)
 	default:
 		return append([]string{"Up", "Down", "Top", "Back"}, global...)
 	}
@@ -255,7 +263,8 @@ func (c Collision) Error() string {
 func (k KeyMap) Validate() []Collision {
 	var out []Collision
 	for _, v := range []viewKind{
-		viewProjects, viewBoard, viewDetail, viewSettings, viewActivity, viewTenant, viewHelp,
+		viewProjects, viewBoard, viewDetail, viewSettings, viewActivity, viewTenant,
+		viewProject, viewHelp,
 	} {
 		owners := map[string][]string{}
 		for _, action := range viewActions(v) {
@@ -331,6 +340,8 @@ func viewName(v viewKind) string {
 		return "tenant"
 	case viewStats:
 		return "stats"
+	case viewProject:
+		return "project"
 	default:
 		return "help"
 	}

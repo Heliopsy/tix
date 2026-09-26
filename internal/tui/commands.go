@@ -4,6 +4,7 @@ package tui
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -513,4 +514,127 @@ func dependencyRefs(deps []core.Dependency) []string {
 		out = append(out, d.DependsOn)
 	}
 	return out
+}
+
+// loadProject reads one project, the workflow its tasks move through and the
+// custom fields they carry.
+//
+// The project is fetched rather than taken from the listing the screen was
+// opened from: it is the only read that answers "this project, now", which is
+// what a screen that edits and archives one has to show. The workflow is fetched
+// by the identifier the project carries, which GetWorkflow accepts as readily as
+// a key, so the state machine costs one read rather than a listing of every
+// workflow the tenant has.
+//
+// Only the project itself is fatal. The workflow, the field definitions and the
+// alternatives an edit could move to each need an authority the project does not,
+// so a reader refused one of them gets the rest of the screen and a line saying
+// what is missing.
+func (m Model) loadProject(ref string) tea.Cmd {
+	if m.svc == nil || ref == "" {
+		return nil
+	}
+	svc, ctx := m.svc, m.ctx
+	return func() tea.Msg {
+		project, err := svc.GetProject(ctx, ref)
+		if err != nil {
+			return errMsg{err: err}
+		}
+		if project == nil {
+			return errMsg{err: core.NotFound("project %q", ref)}
+		}
+		out := projectMsg{project: *project}
+		if flow, err := svc.GetWorkflow(ctx, project.WorkflowID); err == nil && flow != nil {
+			out.workflow = flow
+		} else if err != nil {
+			out.workflowErr = err.Error()
+		}
+		out.fields, _ = svc.ListFieldDefs(ctx, project.Key)
+		out.workflows = workflowKeys(svc, ctx)
+		return out
+	}
+}
+
+// workflowKeys are the workflows an edit could move a project to. A reader who
+// may not list them is offered no workflow row rather than an empty one.
+func workflowKeys(svc core.Service, ctx context.Context) []string {
+	flows, err := svc.ListWorkflows(ctx)
+	if err != nil {
+		return nil
+	}
+	out := make([]string, 0, len(flows))
+	for _, w := range flows {
+		out = append(out, w.Key)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// updateProject changes one attribute of the project the setup screen is on.
+func (m Model) updateProject(in core.UpdateProjectInput, attribute string) tea.Cmd {
+	ref := m.setupRef()
+	if m.svc == nil || ref == "" {
+		return nil
+	}
+	svc, ctx := m.svc, m.ctx
+	sentence := "set the " + attribute + " of project " + ref
+	return func() tea.Msg {
+		_, err := svc.UpdateProject(ctx, ref, in)
+		return actionMsg{kind: actionEditProject, label: ref, sentence: sentence, err: err}
+	}
+}
+
+// archiveProject hides the project the reader agreed to hide.
+func (m Model) archiveProject(ref string) tea.Cmd {
+	if m.svc == nil || ref == "" {
+		return nil
+	}
+	svc, ctx := m.svc, m.ctx
+	return func() tea.Msg {
+		return actionMsg{kind: actionArchiveProject, label: ref,
+			sentence: "archived project " + ref, err: svc.ArchiveProject(ctx, ref)}
+	}
+}
+
+// deleteProject destroys the project the reader agreed to destroy.
+func (m Model) deleteProject(ref string) tea.Cmd {
+	if m.svc == nil || ref == "" {
+		return nil
+	}
+	svc, ctx := m.svc, m.ctx
+	return func() tea.Msg {
+		return actionMsg{kind: actionDeleteProject, label: ref,
+			sentence: "deleted project " + ref + " " + ProjectDeleteNote,
+			err:      svc.DeleteProject(ctx, ref)}
+	}
+}
+
+// putFieldDef writes a custom field definition on the open project.
+func (m Model) putFieldDef(in core.FieldDefInput) tea.Cmd {
+	ref := m.setupRef()
+	if m.svc == nil || ref == "" {
+		return nil
+	}
+	svc, ctx := m.svc, m.ctx
+	sentence := "defined field " + in.Key + " on " + ref + " as " + string(in.Type)
+	if in.Required {
+		sentence += ", required"
+	}
+	return func() tea.Msg {
+		_, err := svc.PutFieldDef(ctx, ref, in)
+		return actionMsg{kind: actionPutField, label: in.Key, sentence: sentence, err: err}
+	}
+}
+
+// deleteFieldDef removes the custom field definition the reader agreed to remove.
+func (m Model) deleteFieldDef(ref, fieldKey string) tea.Cmd {
+	if m.svc == nil || ref == "" || fieldKey == "" {
+		return nil
+	}
+	svc, ctx := m.svc, m.ctx
+	return func() tea.Msg {
+		return actionMsg{kind: actionDeleteField, label: fieldKey,
+			sentence: "deleted field " + fieldKey + " from " + ref,
+			err:      svc.DeleteFieldDef(ctx, ref, fieldKey)}
+	}
 }

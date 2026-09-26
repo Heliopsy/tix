@@ -72,6 +72,8 @@ func (m Model) viewName() string {
 		return "statistics"
 	case viewSettings:
 		return "settings"
+	case viewProject:
+		return "project"
 	case viewHelp:
 		return "help"
 	}
@@ -120,6 +122,8 @@ func (m Model) bodyLines(layout Layout) []string {
 		return m.tenantLines(layout)
 	case viewStats:
 		return m.statsLines(layout)
+	case viewProject:
+		return m.setupLines(layout)
 	default:
 		return m.boardLines(layout)
 	}
@@ -160,6 +164,37 @@ func (m Model) settingsLines(layout Layout) []string {
 		out = append(out, m.theme.Dim.Render("  "+hint))
 	}
 	return out
+}
+
+// setupLines renders the project screen, scrolled so a workflow with more states
+// than the terminal has rows is still reachable and says that it has more.
+func (m Model) setupLines(layout Layout) []string {
+	if m.setup == nil {
+		return []string{"  no project open"}
+	}
+	raw := ProjectView(m.setupState())
+	rows := VisibleRows(layout.BodyHeight, len(raw))
+	offset := ScrollWindow(m.setupOff, m.setupOff, rows, len(raw))
+	out := make([]string, 0, rows+1)
+	for i := offset; i < len(raw) && i < offset+rows; i++ {
+		out = append(out, m.fit(m.setupStyle(raw[i])))
+	}
+	if hint := ScrollHint(offset, rows, len(raw)); hint != "" {
+		out = append(out, m.theme.Dim.Render("  "+hint))
+	}
+	return out
+}
+
+// setupStyle draws one project line by what it is.
+func (m Model) setupStyle(l ProjectLine) string {
+	switch {
+	case l.Heading:
+		return m.theme.Header.Render(l.Text)
+	case l.Dim:
+		return m.theme.Dim.Render(l.Text)
+	default:
+		return l.Text
+	}
 }
 
 // settingsStyle draws one settings line by what it is.

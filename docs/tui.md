@@ -11,16 +11,17 @@ same `KeyMap` the program is actually dispatching, so it cannot describe keys yo
 exists for the part `?` cannot cover: what is here before you connect. Over SSH that is the whole
 problem, because you connect first and find out afterwards.
 
-## The eight views
+## The nine views
 
 The title bar names the open one, between the project and the connection state, because projects, the
-board, the task, activity, the tenant screen, statistics and settings all render into the same frame and
-recognising the body was the only way to tell where you were.
+board, the task, the project screen, activity, the tenant screen, statistics and settings all render into
+the same frame and recognising the body was the only way to tell where you were.
 
 | View | Opened by | Shows |
 | --- | --- | --- |
 | projects | `p`, and every session starts here | every project this tenant has, with its colour and icon |
 | board | `enter` on a project | one project's tasks in columns, one column per workflow state |
+| project | `w` | one project's attributes, the workflow it runs on, and its custom field definitions |
 | detail | `enter` on a card | one task in full: body, custom fields, subtasks, dependencies, artifacts, comments |
 | activity | `v` | the live event tail, filtered by the audit grammar |
 | statistics | `S` | the same figures as `tix stats`, for the open project or the whole tenant |
@@ -105,6 +106,8 @@ impossible for a scheme to leave an action unbound.
 | `m` | comment | board, detail |
 | `#`, `U` | add tag, remove tag | board, detail |
 | `D` | add a dependency, by reference | board, detail |
+| `w` | project setup | everywhere |
+| `f` | custom field definitions | project |
 | `p`, `,`, `v`, `S`, `T` | projects, settings, activity, statistics, tenant | everywhere |
 | `r` | refresh | everywhere |
 | `?` | help | everywhere |
@@ -310,7 +313,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 53 such gaps against 88
+a reason as a gap when the binding ought to exist. As of this writing there are 44 such gaps against 88
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:
@@ -324,9 +327,9 @@ The gaps have a shape worth knowing before you try. Roughly:
 
 - **Administration.** Tenants, domains, memberships, users, tokens, credentials, webhooks, retention and
   the server itself have no terminal screen at all. This is most of the count.
-- **Definitions rather than instances.** The board renders a workflow and the detail view shows custom
-  field values, but neither has an editor. Projects can be created and opened, not edited, archived or
-  deleted.
+- **Definitions rather than instances.** The project screen edits a project, defines and removes custom
+  fields, and renders the workflow it runs on, but a workflow's own states and transitions are edited
+  with `tix workflow put` or in the browser: a graph is not something a single-column form gathers.
 - **Bulk and data movement.** Import, export, bundles and external sync are command line and API only.
 - **Edges of what a single-line input can gather.** An operation needing structured input, several fields
   at once, or a confirmation step reaches the terminal later than it reaches the other surfaces.
@@ -334,7 +337,7 @@ The gaps have a shape worth knowing before you try. Roughly:
   task's history, the actor directory and the deleted tasks a restore would come from are the recurring
   shape here.
 
-Five absences are not gaps and will not close. Closing the service is process lifecycle; hostname
+Seven absences are not gaps and will not close. Closing the service is process lifecycle; hostname
 resolution runs in the server request path; lease sweeping is a background loop; and signing in and out
 bracket the program rather than happening inside it, since the interface opens on a session that already
 exists and ending it would revoke the credential the running program is using.

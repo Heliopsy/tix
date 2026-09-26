@@ -96,6 +96,13 @@ type Model struct {
 	// commentSel indexes the open task's comment thread, which is what the
 	// comment actions act on.
 	commentSel int
+	// setup is the project screen's subject, which is not always the project the
+	// board has open: the listing offers the screen for the row under the
+	// cursor. setupOff scrolls it, and pending carries a custom field between
+	// the prompt that names it and the form that defines it.
+	setup    *projectMsg
+	setupOff int
+	pending  pendingField
 	// allowed is which operations this reader may perform, resolved once from
 	// the actor. Nothing recomputes it per keystroke.
 	allowed ActionAccess
@@ -271,6 +278,9 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 		return m.applyStats(msg), nil
 	case tagsMsg:
 		return m.onTags(msg)
+	case projectMsg:
+		m.setup, m.setupOff = &msg, 0
+		return m.enterView(viewProject), nil
 	case projectsMsg:
 		return m.onProjects(msg)
 	case boardMsg:
@@ -377,6 +387,12 @@ func (m Model) onEvent(msg eventMsg) (Model, tea.Cmd) {
 
 // reloadFor reloads only what an event can have changed.
 func (m Model) reloadFor(e core.Event) tea.Cmd {
+	// The project screen's subject is not always the board's project, so it is
+	// asked about before the board's own filter narrows the event away.
+	if m.view == viewProject && m.setup != nil &&
+		(e.ProjectID == "" || e.ProjectID == m.setup.project.ID) {
+		return m.loadProject(m.setup.project.Key)
+	}
 	if m.project.ID != "" && e.ProjectID != "" && e.ProjectID != m.project.ID {
 		return nil
 	}
@@ -436,6 +452,16 @@ func (m Model) onAction(msg actionMsg) (Model, tea.Cmd) {
 	if msg.kind == actionDelete && m.view == viewDetail {
 		m, _ = m.popView()
 		m.detail, m.commentSel = nil, 0
+	}
+	// A deleted project has no setup screen to go back to, so the interface
+	// leaves it rather than fetching a project the service has just removed.
+	if msg.kind == actionDeleteProject {
+		next := m.rootView()
+		next.setup = nil
+		return next, next.loadProjects()
+	}
+	if msg.kind.ChangesSetup() && m.setupRef() != "" {
+		return m, tea.Batch(m.loadProject(m.setupRef()), m.loadProjects())
 	}
 	if m.project.ID == "" {
 		return m, nil
@@ -514,6 +540,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.openStats()
 	case key.Matches(msg, m.keys.Tenant):
 		return m.openTenant(), nil
+	case key.Matches(msg, m.keys.Project):
+		return m.openProjectSetup()
 	}
 	switch m.view {
 	case viewProjects:
@@ -528,6 +556,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.handleTenantKey(msg)
 	case viewStats:
 		return m.handleStatsKey(msg)
+	case viewProject:
+		return m.handleProjectKey(msg)
 	}
 	return m, nil
 }
@@ -894,6 +924,9 @@ func (m Model) submitPrompt(text string) (Model, tea.Cmd) {
 	}
 	kind := m.prompt
 	next := m.closePrompt()
+	if kind == promptNewField {
+		return next.openFieldDefForm(text)
+	}
 	return next, next.runPrompt(kind, text)
 }
 
@@ -905,6 +938,12 @@ func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 	case promptNewProject:
 		key, name := SplitProjectEntry(text)
 		return m.createProject(key, name)
+	case promptProjectName:
+		return m.updateProject(core.UpdateProjectInput{Name: &text}, attrName)
+	case promptProjectDesc:
+		return m.updateProject(core.UpdateProjectInput{Description: &text}, attrDescription)
+	case promptProjectIcon:
+		return m.updateProject(core.UpdateProjectInput{Icon: &text}, attrIcon)
 	}
 	task, ok := m.selectedTask()
 	if !ok {
@@ -1106,7 +1145,8 @@ func (m Model) release() (Model, tea.Cmd) {
 // that will work on it.
 func (m Model) actionContext() ActionContext {
 	ctx := ActionContext{HasProject: m.project.Key != "", May: m.permits(),
-		HasComment: m.view == viewDetail && m.detail != nil && len(m.detail.comments) > 0}
+		HasComment: m.view == viewDetail && m.detail != nil && len(m.detail.comments) > 0,
+		HasFields:  m.setup != nil && len(m.setup.fields) > 0}
 	task, ok := m.selectedTask()
 	if !ok {
 		return ctx
@@ -1144,6 +1184,9 @@ func (m Model) selectedTask() (core.Task, bool) {
 
 // refresh reloads whatever the current view shows.
 func (m Model) refresh() tea.Cmd {
+	if m.view == viewProject && m.setup != nil {
+		return m.loadProject(m.setup.project.Key)
+	}
 	if m.project.ID == "" {
 		return m.loadProjects()
 	}
@@ -1334,6 +1377,16 @@ func (m Model) closeForm() Model {
 // form is to ask the question rather than to make the call.
 func (m Model) submitForm() (Model, tea.Cmd) {
 	form := m.form
+	switch form.Kind {
+	case formProject:
+		return m.closeForm().applyProjectEdit(form)
+	case formProjectRemove:
+		return m.closeForm().confirmProjectRemoval(form)
+	case formFieldPick:
+		return m.closeForm().applyFieldPick(form)
+	case formFieldDef:
+		return m.closeForm().applyFieldDef(form)
+	}
 	task, ok := m.selectedTask()
 	if !ok {
 		return m.closeForm(), nil
@@ -1406,7 +1459,278 @@ func (m Model) runConfirm(c Confirm) tea.Cmd {
 		return m.deleteTask(c)
 	case confirmDeleteComment:
 		return m.deleteComment(c)
+	case confirmArchiveProject:
+		return m.archiveProject(c.projectRef)
+	case confirmDeleteProject:
+		return m.deleteProject(c.projectRef)
+	case confirmDeleteField:
+		return m.deleteFieldDef(c.projectRef, c.fieldKey)
 	default:
 		return nil
 	}
+}
+
+// pendingField carries a custom field between the prompt that names it and the
+// form that defines it. The key and the label are free text, which a form has no
+// field kind for, so they are gathered first and held here.
+type pendingField struct {
+	key   string
+	label string
+	base  core.FieldDef
+}
+
+// openProjectSetup opens the screen that states how one project is set up: its
+// own attributes, the workflow its tasks move through and the custom fields they
+// carry. The subject is the row under the cursor on the listing and the open
+// project anywhere else, so the key means the same thing wherever it is pressed.
+func (m Model) openProjectSetup() (Model, tea.Cmd) {
+	if !m.canReach(viewProject) {
+		return m, nil
+	}
+	ref := m.setupTarget()
+	if ref == "" {
+		m.err = "open or select a project to see how it is set up"
+		return m, nil
+	}
+	return m, m.loadProject(ref)
+}
+
+// setupTarget names the project the screen would open. Pressing the key on the
+// screen itself is a refresh of its own subject rather than a jump to the
+// board's, which may be another project entirely.
+func (m Model) setupTarget() string {
+	if m.view == viewProject && m.setup != nil {
+		return m.setup.project.Key
+	}
+	if m.view == viewProjects && m.projectSel < len(m.projects) {
+		return m.projects[m.projectSel].Key
+	}
+	return m.project.Key
+}
+
+// setupRef is the project the open setup screen acts on.
+func (m Model) setupRef() string {
+	if m.setup == nil {
+		return ""
+	}
+	return m.setup.project.Key
+}
+
+// handleProjectKey scrolls the project screen and runs the actions that
+// configure the container tasks live in.
+func (m Model) handleProjectKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.Back):
+		return m.leave(nil)
+	case key.Matches(msg, m.keys.Up):
+		m.setupOff = max(0, m.setupOff-1)
+	case key.Matches(msg, m.keys.Down):
+		m.setupOff++
+	case key.Matches(msg, m.keys.Top):
+		m.setupOff = 0
+	case key.Matches(msg, m.keys.Bottom):
+		lines, rows := m.setupBody()
+		m.setupOff = max(0, len(lines)-rows)
+	default:
+		return m.handleSetupKey(msg)
+	}
+	return m, nil
+}
+
+// setupBody is the project screen's lines and how many of them fit.
+func (m Model) setupBody() ([]ProjectLine, int) {
+	lines := ProjectView(m.setupState())
+	height := LayoutFor(m.width, m.height, len(m.columns)).BodyHeight
+	return lines, VisibleRows(height, len(lines))
+}
+
+// setupState is what the project screen renders from.
+func (m Model) setupState() ProjectState {
+	if m.setup == nil {
+		return ProjectState{TimeStyle: m.timeStyle}
+	}
+	return ProjectState{
+		Project: m.setup.project, Workflow: m.setup.workflow, Fields: m.setup.fields,
+		WorkflowErr: m.setup.workflowErr, TimeStyle: m.timeStyle,
+	}
+}
+
+// handleSetupKey runs the project screen's actions, refusing a key this reader's
+// authority does not reach rather than letting the service refuse it.
+func (m Model) handleSetupKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	if !m.maySetupPress(msg) {
+		return m, nil
+	}
+	switch {
+	case key.Matches(msg, m.keys.EditTitle):
+		return m.openProjectForm()
+	case key.Matches(msg, m.keys.Delete):
+		return m.openProjectRemoveForm()
+	case key.Matches(msg, m.keys.New):
+		return m.openPrompt(promptNewField)
+	case key.Matches(msg, m.keys.Fields):
+		return m.openFieldForm()
+	}
+	return m, nil
+}
+
+// maySetupPress reports whether this reader holds the authority the pressed key
+// acts through, asked of the same list the footer and the help overlay filter
+// with so the three cannot disagree.
+func (m Model) maySetupPress(msg tea.KeyMsg) bool {
+	for _, a := range m.keys.projectBindings() {
+		if key.Matches(msg, a.binding) {
+			return a.permitted(m.permits())
+		}
+	}
+	return true
+}
+
+// openProjectForm offers the attributes an edit can change.
+func (m Model) openProjectForm() (Model, tea.Cmd) {
+	if m.setup == nil {
+		m.err = "no project is open"
+		return m, nil
+	}
+	m.form, m.err = ProjectEditForm(m.setup.project, m.setup.workflows), ""
+	return m, nil
+}
+
+// openProjectRemoveForm asks whether the project should be hidden or destroyed,
+// offering only what this reader may do and what the project's own state allows.
+func (m Model) openProjectRemoveForm() (Model, tea.Cmd) {
+	if m.setup == nil {
+		m.err = "no project is open"
+		return m, nil
+	}
+	form := ProjectRemoveForm(m.setup.project,
+		m.mayPerform("ArchiveProject"), m.mayPerform("DeleteProject"))
+	if !form.Open() {
+		m.err = "this project is already archived and cannot be deleted from here"
+		return m, nil
+	}
+	m.form, m.err = form, ""
+	return m, nil
+}
+
+// openFieldForm offers the custom fields the project defines, which is what a
+// reader who does not know their keys needs before changing one.
+func (m Model) openFieldForm() (Model, tea.Cmd) {
+	if m.setup == nil {
+		m.err = "no project is open"
+		return m, nil
+	}
+	form := FieldPickForm(m.setup.fields,
+		m.mayPerform("PutFieldDef"), m.mayPerform("DeleteFieldDef"))
+	if !form.Open() {
+		m.err = "this project defines no custom fields; " + m.keys.New.Help().Key + " defines one"
+		return m, nil
+	}
+	m.form, m.err = form, ""
+	return m, nil
+}
+
+// openFieldDefForm names a new custom field and asks what its values look like.
+// A key the project already defines is redefined, seeded from what it holds, so
+// the prompt is a way to reach a field as well as a way to add one.
+func (m Model) openFieldDefForm(text string) (Model, tea.Cmd) {
+	fieldKey, label := SplitFieldEntry(text)
+	if fieldKey == "" {
+		return m, nil
+	}
+	if m.setup == nil {
+		m.err = "no project is open"
+		return m, nil
+	}
+	base, _ := FieldDefFor(m.setup.fields, fieldKey)
+	if label == "" {
+		label = base.Label
+	}
+	m.pending = pendingField{key: fieldKey, label: label, base: base}
+	m.form, m.err = FieldDefForm(fieldKey, base), ""
+	return m, nil
+}
+
+// applyProjectEdit performs what the edit form asked for. The two attributes
+// drawn from fixed sets are answered by the form; the three that are free text
+// hand over to the single-line prompt, seeded with the value they would replace.
+func (m Model) applyProjectEdit(form Form) (Model, tea.Cmd) {
+	if m.setup == nil {
+		return m, nil
+	}
+	p := m.setup.project
+	switch form.Value("attribute") {
+	case attrColour:
+		colour := ColourValue(form.Value(attrColour))
+		return m, m.updateProject(core.UpdateProjectInput{Color: &colour}, attrColour)
+	case attrWorkflow:
+		flow := form.Value(attrWorkflow)
+		return m, m.updateProject(core.UpdateProjectInput{WorkflowKey: &flow}, attrWorkflow)
+	case attrName:
+		return m.startPrompt(promptProjectName, p.Name), textinput.Blink
+	case attrDescription:
+		return m.startPrompt(promptProjectDesc, p.Description), textinput.Blink
+	case attrIcon:
+		return m.startPrompt(promptProjectIcon, p.Icon), textinput.Blink
+	}
+	return m, nil
+}
+
+// confirmProjectRemoval states what the removal form asked for and waits for
+// agreement, because both branches take a project off the board.
+func (m Model) confirmProjectRemoval(form Form) (Model, tea.Cmd) {
+	if m.setup == nil {
+		return m, nil
+	}
+	p := m.setup.project
+	confirm := Confirm{Target: p.Key, label: p.Key, projectRef: p.Key, Kind: confirmArchiveProject}
+	if form.Value("action") == "delete" {
+		confirm.Kind, confirm.Note = confirmDeleteProject, ProjectDeleteNote
+	}
+	return m.askConfirm(confirm, "there is no project named to remove")
+}
+
+// applyFieldPick sends a picked field to the change it was picked for: a removal
+// to the confirmation, and a redefinition to a second form seeded from what the
+// definition already holds.
+func (m Model) applyFieldPick(form Form) (Model, tea.Cmd) {
+	if m.setup == nil {
+		return m, nil
+	}
+	fieldKey := form.Value("field")
+	base, ok := FieldDefFor(m.setup.fields, fieldKey)
+	if !ok {
+		m.err = "this project no longer defines " + fieldKey
+		return m, nil
+	}
+	if form.Value("action") == "remove" {
+		return m.askConfirm(Confirm{Kind: confirmDeleteField, Target: fieldKey,
+			projectRef: m.setup.project.Key, fieldKey: fieldKey},
+			"there is no custom field named to delete")
+	}
+	m.pending = pendingField{key: fieldKey, label: base.Label, base: base}
+	m.form, m.err = FieldDefForm(fieldKey, base), ""
+	return m, nil
+}
+
+// applyFieldDef writes the definition the form gathered, over everything the
+// existing one held, because a put replaces the whole definition.
+func (m Model) applyFieldDef(form Form) (Model, tea.Cmd) {
+	if m.setup == nil || m.pending.key == "" {
+		return m, nil
+	}
+	in := FieldDefUpdate(m.pending.key, m.pending.label, m.pending.base,
+		core.FieldType(form.Value("type")), form.Yes("required"))
+	return m, m.putFieldDef(in)
+}
+
+// askConfirm opens a confirmation, refusing one that cannot name its subject
+// because the naming is the whole of its value.
+func (m Model) askConfirm(confirm Confirm, unnamed string) (Model, tea.Cmd) {
+	if confirm.Question() == "" {
+		m.err = unnamed
+		return m, nil
+	}
+	m.confirm, m.err = confirm, ""
+	return m, nil
 }

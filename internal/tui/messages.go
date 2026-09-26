@@ -21,6 +21,7 @@ const (
 	viewActivity
 	viewTenant
 	viewStats
+	viewProject
 )
 
 // actionKind names a board action whose result is reported back.
@@ -43,6 +44,11 @@ const (
 	actionDelete
 	actionRenew
 	actionNewProject
+	actionEditProject
+	actionArchiveProject
+	actionDeleteProject
+	actionPutField
+	actionDeleteField
 )
 
 // actionLabels name each action in the present tense, for a refusal, and in
@@ -63,6 +69,15 @@ var actionLabels = map[actionKind][2]string{
 	actionDelete:        {"delete the task", "deleted"},
 	actionRenew:         {"renew the lease", "renewed the lease on"},
 	actionNewProject:    {"create the project", "created"},
+
+	// The project screen's own actions. Their subject is a project or a field
+	// definition rather than a task, so each carries its own sentence and the
+	// generic name is only a fallback.
+	actionEditProject:    {"edit the project", "edited"},
+	actionArchiveProject: {"archive the project", "archived"},
+	actionDeleteProject:  {"delete the project", "deleted"},
+	actionPutField:       {"define the field", "defined"},
+	actionDeleteField:    {"delete the field", "deleted"},
 }
 
 // Label renders an action for a message.
@@ -79,6 +94,17 @@ func (a actionKind) Mutates() bool {
 		return false
 	default:
 		return true
+	}
+}
+
+// ChangesSetup reports whether an action changes what the project screen shows,
+// so the screen is read again rather than left stating what it used to be.
+func (a actionKind) ChangesSetup() bool {
+	switch a {
+	case actionEditProject, actionArchiveProject, actionPutField, actionDeleteField:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -111,6 +137,20 @@ type detailMsg struct {
 	// task or its comments name, so the detail view never has to show a raw
 	// identifier for a lookup it already made.
 	actors map[string]string
+}
+
+// projectMsg carries one project, the workflow it runs on, the custom fields
+// its tasks carry and the workflows an edit could move it to. The workflow is
+// separate from its error because a reader refused workflows still gets the rest
+// of the screen.
+type projectMsg struct {
+	project   core.Project
+	workflow  *core.Workflow
+	fields    []core.FieldDef
+	workflows []string
+	// workflowErr is why the workflow is missing, which the screen says rather
+	// than drawing a project that runs on nothing.
+	workflowErr string
 }
 
 // eventMsg carries one event from the subscription. gen names the connection

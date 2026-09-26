@@ -298,7 +298,8 @@ func TestKeyMapForRefusesAnActionThatDoesNotExist(t *testing.T) {
 // viewActions would stop that action being checked for collisions at all.
 func TestEveryViewListsOnlyRealActions(t *testing.T) {
 	k := DefaultKeyMap()
-	for _, v := range []viewKind{viewProjects, viewBoard, viewDetail, viewSettings, viewActivity, viewHelp} {
+	for _, v := range []viewKind{viewProjects, viewBoard, viewDetail, viewSettings, viewActivity,
+		viewProject, viewHelp} {
 		for _, action := range viewActions(v) {
 			if _, ok := k.Binding(action); !ok {
 				t.Errorf("the %s view lists %q, which carries no binding", viewName(v), action)

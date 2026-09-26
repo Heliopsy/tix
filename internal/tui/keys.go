@@ -36,6 +36,8 @@ type KeyMap struct {
 	ClaimNext   key.Binding
 	Renew       key.Binding
 	Projects    key.Binding
+	Project     key.Binding
+	Fields      key.Binding
 	Settings    key.Binding
 	Activity    key.Binding
 	Stats       key.Binding
@@ -84,8 +86,13 @@ func DefaultKeyMap() KeyMap {
 		ClaimNext:   key.NewBinding(key.WithKeys("N"), key.WithHelp("N", "claim next")),
 		Renew:       key.NewBinding(key.WithKeys("R"), key.WithHelp("R", "renew lease")),
 		Projects:    key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "projects")),
-		Settings:    key.NewBinding(key.WithKeys(","), key.WithHelp(",", "settings")),
-		Activity:    key.NewBinding(key.WithKeys("v"), key.WithHelp("v", "activity")),
+		// w, for the workflow, which is the largest thing the screen shows. The
+		// obvious letters are spoken for: p lists projects and , opens the
+		// session's own preferences, which are a different kind of setting.
+		Project:  key.NewBinding(key.WithKeys("w"), key.WithHelp("w", "project setup")),
+		Fields:   key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "custom fields")),
+		Settings: key.NewBinding(key.WithKeys(","), key.WithHelp(",", "settings")),
+		Activity: key.NewBinding(key.WithKeys("v"), key.WithHelp("v", "activity")),
 		// S, not s: lowercase s is taken on the board, and a capital is what
 		// the other cross-view keys already use when their letter is spoken
 		// for.
@@ -131,6 +138,7 @@ func (k KeyMap) globalKeys() []globalKey {
 		{binding: k.Help, always: true},
 		{binding: k.Refresh, always: true},
 		{binding: k.Projects, opens: viewProjects},
+		{binding: k.Project, opens: viewProject},
 		{binding: k.Settings, opens: viewSettings},
 		{binding: k.Activity, opens: viewActivity},
 		{binding: k.Stats, opens: viewStats},
@@ -265,9 +273,56 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 		}
 	case viewTenant:
 		return []HelpEntry{entry(k.Enter), entry(k.Back)}
+	case viewProject:
+		return append([]HelpEntry{entry(k.Up), entry(k.Down)},
+			append(k.projectActions(may), entry(k.Back))...)
 	default:
 		return []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
 	}
+}
+
+// projectAction is one of the project screen's bindings: the key it borrows from
+// the board, the authority it needs, and what it does here. The description is
+// its own because "edit title" on a screen holding no task describes the board.
+type projectAction struct {
+	gatedAction
+	desc string
+}
+
+// projectBindings are the actions the project screen offers, each against the
+// operation it calls. One list, so the footer, the help overlay and the
+// keystroke cannot disagree about who may press a key.
+//
+// The keys are the board's own, which is what keeps every scheme working here
+// without rebinding anything: a reader who moved EditTitle onto i edits a
+// project with i too.
+func (k KeyMap) projectBindings() []projectAction {
+	return []projectAction{
+		{gatedAction{binding: k.EditTitle, methods: []string{"UpdateProject"}}, "edit project"},
+		{gatedAction{binding: k.Delete,
+			methods: []string{"ArchiveProject", "DeleteProject"}}, "archive or delete"},
+		{gatedAction{binding: k.New, methods: []string{"PutFieldDef"}}, "new field"},
+		{gatedAction{binding: k.Fields, methods: []string{"PutFieldDef", "DeleteFieldDef"},
+			needs: []string{"ListFieldDefs"}}, "custom fields"},
+	}
+}
+
+// entry renders a project action as a help line, under the description the
+// project screen gives it.
+func (a projectAction) entry() HelpEntry {
+	return HelpEntry{Keys: a.binding.Help().Key, Desc: a.desc}
+}
+
+// projectActions are the project screen's bindings, as far as this reader's
+// authority reaches.
+func (k KeyMap) projectActions(may func(string) bool) []HelpEntry {
+	out := make([]HelpEntry, 0, len(k.projectBindings()))
+	for _, a := range k.projectBindings() {
+		if a.permitted(may) {
+			out = append(out, a.entry())
+		}
+	}
+	return out
 }
 
 // commentHelp relabels the column keys for the detail view, where they step
@@ -302,6 +357,9 @@ type ActionContext struct {
 	// HasComment reports whether the open task has a thread to step through,
 	// so the detail view does not advertise a cursor over nothing.
 	HasComment bool
+	// HasFields reports whether the open project defines custom fields, so the
+	// project screen does not advertise a picker with nothing to pick.
+	HasFields bool
 	// May reports whether this reader holds the authority one operation needs,
 	// asked of the capability registry. Nil offers none of the gated actions.
 	May func(string) bool
@@ -337,10 +395,29 @@ func (k KeyMap) ShortHelp(v viewKind, ctx ActionContext) []HelpEntry {
 		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Filter), entry(k.Back)}
 	case viewTenant:
 		short = []HelpEntry{entry(k.Enter), entry(k.Back)}
+	case viewProject:
+		short = append(k.projectShort(ctx), entry(k.Back))
 	default:
 		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
 	}
 	return append(short, entry(k.Help), entry(k.Quit))
+}
+
+// projectShort offers the project screen's keys, dropping the field picker when
+// the project defines no fields: a picker with nothing in it is an entry leading
+// nowhere.
+func (k KeyMap) projectShort(ctx ActionContext) []HelpEntry {
+	out := make([]HelpEntry, 0, len(k.projectBindings()))
+	for _, a := range k.projectBindings() {
+		if !a.permitted(ctx.May) {
+			continue
+		}
+		if a.desc == "custom fields" && !ctx.HasFields {
+			continue
+		}
+		out = append(out, a.entry())
+	}
+	return out
 }
 
 // claimHelp offers only the lease actions the selected task can accept: claim
