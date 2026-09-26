@@ -207,7 +207,7 @@ func KeyMapFor(scheme Scheme) KeyMap {
 // collision has to be looked for within: the same key may mean two things in
 // two views, and often should.
 func viewActions(v viewKind) []string {
-	global := []string{"Help", "Refresh", "Projects", "Project", "Activity", "Tenant", "Quit", "Interrupt"}
+	global := []string{"Help", "Refresh", "Projects", "Project", "Activity", "History", "Tenant", "Quit", "Interrupt"}
 	switch v {
 	case viewProjects:
 		return append([]string{"Up", "Down", "Top", "Bottom", "Enter", "NewProject", "Back"}, global...)
@@ -216,13 +216,14 @@ func viewActions(v viewKind) []string {
 			"Up", "Down", "Left", "Right", "Top", "Bottom", "Enter", "Filter", "ClearFltr",
 			"Claim", "Release", "Transition", "New", "EditTitle", "EditBody", "Priority",
 			"Assign", "Comment", "CommentEdit", "Tag", "Untag", "Tags", "Depend", "Undepend",
-			"Delete", "ClaimNext", "Renew", "Settings", "Back",
+			"Delete", "Restore", "Artifact", "ClaimNext", "Renew", "Settings", "Back",
 		}, global...)
 	case viewDetail:
 		return append([]string{
 			"Up", "Down", "Left", "Right", "Claim", "Release", "Transition", "New", "EditTitle",
 			"EditBody", "Priority", "Assign", "Comment", "CommentEdit", "Tag", "Untag", "Tags",
-			"Depend", "Undepend", "Delete", "ClaimNext", "Renew", "Settings", "Back",
+			"Depend", "Undepend", "Delete", "Restore", "Artifact", "ClaimNext", "Renew",
+			"Settings", "Back",
 		}, global...)
 	case viewSettings:
 		return append([]string{"Up", "Down", "Left", "Right", "Top", "Bottom", "Enter", "Back"}, global...)
@@ -230,6 +231,8 @@ func viewActions(v viewKind) []string {
 		return append([]string{"Up", "Down", "Top", "Bottom", "Filter", "ClearFltr", "Back"}, global...)
 	case viewTenant:
 		return append([]string{"Enter", "Back"}, global...)
+	case viewHistory:
+		return append([]string{"Up", "Down", "Top", "Bottom", "Back"}, global...)
 	case viewProject:
 		// Left and Right are listed although the screen itself has nothing
 		// horizontal: they cycle a form's answers, and a scheme that put one of
@@ -241,6 +244,14 @@ func viewActions(v viewKind) []string {
 	default:
 		return append([]string{"Up", "Down", "Top", "Back"}, global...)
 	}
+}
+
+// collisionViews are the views a rebinding is checked within. A view left out
+// is a view whose keys nothing checks, so the list is named rather than written
+// inline where a view added later would quietly miss it.
+var collisionViews = []viewKind{
+	viewProjects, viewBoard, viewDetail, viewSettings, viewActivity, viewTenant,
+	viewProject, viewHistory, viewHelp,
 }
 
 // Collision is one key bound to two actions in the same view.
@@ -262,10 +273,7 @@ func (c Collision) Error() string {
 // that quietly stops doing what its owner expects.
 func (k KeyMap) Validate() []Collision {
 	var out []Collision
-	for _, v := range []viewKind{
-		viewProjects, viewBoard, viewDetail, viewSettings, viewActivity, viewTenant,
-		viewProject, viewHelp,
-	} {
+	for _, v := range collisionViews {
 		owners := map[string][]string{}
 		for _, action := range viewActions(v) {
 			b, ok := k.Binding(action)
@@ -342,6 +350,8 @@ func viewName(v viewKind) string {
 		return "stats"
 	case viewProject:
 		return "project"
+	case viewHistory:
+		return "history"
 	default:
 		return "help"
 	}

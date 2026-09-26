@@ -387,9 +387,10 @@ var registry = []Operation{
 		CLI:   "tix task restore",
 		HTTP:  apiPost(wire.RouteTaskRestore),
 		Web:   webPost(web.RouteTaskRestore),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no view of deleted tasks to restore one from"),
-		},
+		// The board's own filter reveals the deleted tasks, through the same
+		// is:deleted term `tix task ls --filter` takes, and a deleted card is
+		// marked. The restore key is offered on that card and nowhere else.
+		TUI: "board",
 	},
 	{
 		Name: "task.tree", Method: "TaskTree",
@@ -487,9 +488,9 @@ var registry = []Operation{
 		CLI:   "tix artifact put",
 		HTTP:  apiPut(wire.RouteTaskArtifacts),
 		Web:   webPost(web.RouteTaskArts),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; the detail view lists artifacts but recording one needs structured input the single-line prompt cannot gather"),
-		},
+		TUI:   "detail",
+		Limits: []Limitation{{SurfaceTUI,
+			"the prompt gathers a name and the form gathers a kind, which is all the service requires; a payload, a content type and an inline blob are structured input no terminal control gathers, so `tix artifact put` and the api record those"}},
 	},
 	{
 		Name: "artifact.list", Method: "ListArtifacts",
@@ -566,9 +567,12 @@ var registry = []Operation{
 		CLI:   "tix audit ls",
 		HTTP:  apiGet(wire.RouteAudit),
 		Web:   webGet(web.RouteActivity, tplActivity),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no history view on a task or a project"),
-		},
+		// The history view, which is the stored log rather than the live tail
+		// the activity view draws. The two are separate screens because they
+		// answer different questions from different sources, and because this
+		// one is offered on audit:read where that one is offered on
+		// event:subscribe.
+		TUI: "history",
 	},
 	{
 		Name: "event.subscribe", Method: "Subscribe",
@@ -618,9 +622,11 @@ var registry = []Operation{
 		CLI:  "tix actor ls",
 		HTTP: apiGet(wire.RouteActors),
 		Web:  webGet(web.RouteActors, tplActors),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; the interface has no directory view"),
-		},
+		// The assignee picker offers the directory this lists. It is bound to
+		// the detail view rather than the board because the listing needs no
+		// scope, and binding a scopeless read to the board would offer a board
+		// to a reader who may read no task on it.
+		TUI: "detail",
 	},
 	{
 		Name: "actor.show", Method: "GetActor",

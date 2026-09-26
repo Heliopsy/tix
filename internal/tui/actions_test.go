@@ -47,11 +47,6 @@ func TestPromptsReachTheService(t *testing.T) {
 				t.Fatalf("updated = %+v", f.updated)
 			}
 		}},
-		{"set assignee", "A", "u-42", func(t *testing.T, f *fakeService) {
-			if len(f.updated) != 1 || f.updated[0].AssigneeActorID == nil || *f.updated[0].AssigneeActorID != "u-42" {
-				t.Fatalf("updated = %+v", f.updated)
-			}
-		}},
 		{"comment", "m", "this is blocked on the migration", func(t *testing.T, f *fakeService) {
 			if len(f.comments) != 1 || f.comments[0] != "this is blocked on the migration" {
 				t.Fatalf("comments = %+v", f.comments)
@@ -92,7 +87,7 @@ func TestPromptsReachTheService(t *testing.T) {
 }
 
 func TestEveryPromptIsAlsoReachableFromTheDetailView(t *testing.T) {
-	for _, key := range []string{"e", "E", "A", "m", "#", "U", "D"} {
+	for _, key := range []string{"e", "E", "m", "#", "U", "D"} {
 		t.Run(key, func(t *testing.T) {
 			m := boardModel(t)
 			m.svc = newFakeService()
@@ -163,7 +158,7 @@ func TestNewTaskRefusesWithNoProjectOpen(t *testing.T) {
 }
 
 func TestEscapeCancelsEveryPrompt(t *testing.T) {
-	for _, key := range []string{"n", "e", "E", "A", "m", "#", "U", "D", "/"} {
+	for _, key := range []string{"n", "e", "E", "m", "#", "U", "D", "/"} {
 		t.Run(key, func(t *testing.T) {
 			m := boardModel(t)
 			m.svc = newFakeService()
@@ -454,4 +449,51 @@ func TestEveryActionThatNamesATaskCarriesItsRef(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestTheNewTaskActionsReachTheDetailViewToo keeps the board and the detail
+// view running one set of task actions. Each is asserted by what it actually
+// did rather than by "something changed": the assignee key asks for the
+// directory, the artifact key asks for a name, and the restore key refuses a
+// task that was never deleted, which is the key having been dispatched.
+func TestTheNewTaskActionsReachTheDetailViewToo(t *testing.T) {
+	open := func(t *testing.T) Model {
+		t.Helper()
+		m := boardModel(t)
+		m.svc = newFakeService()
+		task, _ := TaskAt(m.columns, m.sel)
+		m, _ = m.reduce(detailMsg{task: task})
+		if m.view != viewDetail {
+			t.Fatal("the detail view did not open")
+		}
+		return m
+	}
+
+	t.Run("A asks for the directory", func(t *testing.T) {
+		m := open(t)
+		next, cmd := m.reduce(pressKey("A"))
+		if cmd == nil {
+			t.Fatalf("A asked for nothing in the detail view; err = %q", next.err)
+		}
+		if _, ok := run(t, cmd).(actorsMsg); !ok {
+			t.Fatal("A asked for something other than the directory")
+		}
+	})
+	t.Run("O asks for a name", func(t *testing.T) {
+		m := open(t)
+		next, _ := m.reduce(pressKey("O"))
+		if next.prompt != promptArtifact {
+			t.Fatalf("O opened prompt %v in the detail view", next.prompt)
+		}
+	})
+	t.Run("u refuses a live task", func(t *testing.T) {
+		m := open(t)
+		next, cmd := m.reduce(pressKey("u"))
+		if cmd != nil {
+			t.Fatal("u sent a restore for a task that was never deleted")
+		}
+		if !strings.Contains(next.err, "is:deleted") {
+			t.Fatalf("u did nothing at all in the detail view; err = %q", next.err)
+		}
+	})
 }

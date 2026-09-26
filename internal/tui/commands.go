@@ -638,3 +638,77 @@ func (m Model) deleteFieldDef(ref, fieldKey string) tea.Cmd {
 			err:      svc.DeleteFieldDef(ctx, ref, fieldKey)}
 	}
 }
+
+// loadActors lists the tenant's directory, for the assignee form to offer. It
+// is one page: a picker cycled one press at a time is unusable well before the
+// page limit, and the page is the newest end of a directory that rarely fills
+// one.
+func (m Model) loadActors() tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx := m.svc, m.ctx
+	return func() tea.Msg {
+		actors, _, err := svc.ListActors(ctx, core.Page{Limit: core.DefaultPageLimit})
+		return actorsMsg{actors: actors, err: err}
+	}
+}
+
+// restore brings a deleted task back.
+func (m Model) restore(task core.Task) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	return func() tea.Msg {
+		_, err := svc.RestoreTask(ctx, ref)
+		return actionMsg{kind: actionRestore, ref: ref, label: label, err: err}
+	}
+}
+
+// putArtifact records structured output on a task.
+func (m Model) putArtifact(task core.Task, in core.ArtifactInput) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	sentence := "recorded " + string(in.Kind) + " artifact " + in.Name + " on " + label
+	return func() tea.Msg {
+		_, err := svc.PutArtifact(ctx, ref, in)
+		return actionMsg{kind: actionArtifact, ref: ref, label: label, sentence: sentence, err: err}
+	}
+}
+
+// loadHistory reads one page of the durable log for a subject, resolving the
+// actors it names to handles the way the detail view does, so a history line
+// says who rather than which identifier.
+func (m Model) loadHistory(subject HistorySubject) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx := m.svc, m.ctx
+	return func() tea.Msg {
+		entries, next, err := svc.ListAudit(ctx, subject.Filter())
+		if err != nil {
+			return historyMsg{subject: subject, err: err}
+		}
+		return historyMsg{
+			subject: subject, entries: entries, more: next != "",
+			actors: resolveActors(ctx, svc, auditActorIDs(entries)),
+		}
+	}
+}
+
+// auditActorIDs collects the distinct, non-empty actors a history page names.
+func auditActorIDs(entries []core.AuditEntry) []string {
+	seen := map[string]bool{}
+	var ids []string
+	for _, e := range entries {
+		if e.ActorID == "" || seen[e.ActorID] {
+			continue
+		}
+		seen[e.ActorID] = true
+		ids = append(ids, e.ActorID)
+	}
+	return ids
+}

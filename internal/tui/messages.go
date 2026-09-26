@@ -22,6 +22,7 @@ const (
 	viewTenant
 	viewStats
 	viewProject
+	viewHistory
 )
 
 // actionKind names a board action whose result is reported back.
@@ -49,6 +50,8 @@ const (
 	actionDeleteProject
 	actionPutField
 	actionDeleteField
+	actionRestore
+	actionArtifact
 )
 
 // actionLabels name each action in the present tense, for a refusal, and in
@@ -78,6 +81,9 @@ var actionLabels = map[actionKind][2]string{
 	actionDeleteProject:  {"delete the project", "deleted"},
 	actionPutField:       {"define the field", "defined"},
 	actionDeleteField:    {"delete the field", "deleted"},
+
+	actionRestore:  {"restore the task", "restored"},
+	actionArtifact: {"record the artifact", "recorded an artifact on"},
 }
 
 // Label renders an action for a message.
@@ -232,4 +238,23 @@ type statsMsg struct {
 type tagsMsg struct {
 	tags []core.Tag
 	err  error
+}
+
+// actorsMsg carries the tenant's directory, which the assignee form offers to
+// pick from. The actors are carried whole rather than as labels, because the
+// form offers a handle and the service takes an identifier.
+type actorsMsg struct {
+	actors []core.Actor
+	err    error
+}
+
+// historyMsg carries one page of the durable log, the subject it was read for
+// and the handles its actors resolved to. more reports that the log runs past
+// the page, so a bounded listing is never drawn as the whole of one.
+type historyMsg struct {
+	subject HistorySubject
+	entries []core.AuditEntry
+	actors  map[string]string
+	more    bool
+	err     error
 }

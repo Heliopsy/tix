@@ -74,6 +74,8 @@ func (m Model) viewName() string {
 		return "settings"
 	case viewProject:
 		return "project"
+	case viewHistory:
+		return "history"
 	case viewHelp:
 		return "help"
 	}
@@ -124,6 +126,8 @@ func (m Model) bodyLines(layout Layout) []string {
 		return m.statsLines(layout)
 	case viewProject:
 		return m.setupLines(layout)
+	case viewHistory:
+		return m.historyLines(layout)
 	default:
 		return m.boardLines(layout)
 	}
@@ -311,6 +315,9 @@ func (m Model) cardLine(t core.Task, width int, selected bool) string {
 		m.theme.Blocked.Render(flags) + " " + title
 }
 
+// DeletedMarker is what a card carries once the task behind it is deleted.
+const DeletedMarker = "†"
+
 // CardFlags renders a card's state markers compactly, so a narrow column still
 // says what is true of a task. The help view carries the legend.
 //
@@ -336,6 +343,11 @@ func CardFlags(t core.Task, now time.Time, mine string) string {
 	}
 	if t.DueAt != nil {
 		b.WriteString("*")
+	}
+	// A deleted task is drawn only where a filter asked for one, and an
+	// unmarked card there is indistinguishable from live work.
+	if t.DeletedAt != nil {
+		b.WriteString(DeletedMarker)
 	}
 	return b.String()
 }
@@ -614,6 +626,7 @@ func (m Model) helpLines(layout Layout) []string {
 // rather than being truncated into uselessness.
 var CardLegend = []string{
 	"@ claimed", "@me claimed by you", "! blocked", "+ dependencies", "* due date",
+	DeletedMarker + " deleted",
 }
 
 // footerLines renders the prompt, the status bar and the advertised bindings.
@@ -660,6 +673,9 @@ func (m Model) statusBar() string {
 	}
 	if m.view == viewActivity {
 		segments = append(segments, m.theme.Dim.Render(m.activityCount()))
+	}
+	if m.view == viewHistory {
+		segments = append(segments, m.theme.Dim.Render(HistoryCount(len(m.history), m.historyMore)))
 	}
 	switch {
 	case m.activityFilterErr != "":

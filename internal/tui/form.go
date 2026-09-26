@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // formKind names the multi-field input the interface has open, if any. The
@@ -24,6 +26,8 @@ const (
 	formProjectRemove
 	formFieldPick
 	formFieldDef
+	formAssignee
+	formArtifact
 )
 
 // FieldCondition keeps a field off screen until another field holds a value.
@@ -302,4 +306,99 @@ func uniqueSorted(values []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// unassignedOption is what the assignee picker calls having nobody. The service
+// takes an empty identifier, which no list of alternatives can show.
+const unassignedOption = "unassigned"
+
+// ActorLabel names one actor the way a picker offers it: the handle a reader
+// recognises, or a short identifier for an actor that carries none.
+func ActorLabel(a core.Actor) string {
+	if a.Handle != "" {
+		return a.Handle
+	}
+	return shortID(a.ID)
+}
+
+// ActorOptions are the tenant's directory as a picker offers it, with
+// "unassigned" first so clearing an assignment is a choice on the same list
+// rather than a state with no way back.
+func ActorOptions(actors []core.Actor) []string {
+	out := []string{unassignedOption}
+	for _, a := range actors {
+		if label := ActorLabel(a); label != "" && !slices.Contains(out, label) {
+			out = append(out, label)
+		}
+	}
+	return out
+}
+
+// ActorIDFor resolves a picked option back to the identifier the service takes.
+// The word for nobody resolves to the empty identifier, which is how an
+// assignment is cleared.
+func ActorIDFor(actors []core.Actor, option string) string {
+	if option == unassignedOption {
+		return ""
+	}
+	for _, a := range actors {
+		if ActorLabel(a) == option {
+			return a.ID
+		}
+	}
+	return ""
+}
+
+// AssigneeForm offers the people and agents this tenant holds. It replaces a
+// prompt that took an actor identifier, which is a question nobody at a
+// terminal can answer: a reader knows a colleague by handle and has never seen
+// the identifier the service stores.
+//
+// The form opens on whoever holds the task now, so the list states the current
+// answer rather than making the reader find it.
+func AssigneeForm(actors []core.Actor, current string) Form {
+	options := ActorOptions(actors)
+	if len(actors) == 0 {
+		return Form{}
+	}
+	value := unassignedOption
+	for _, a := range actors {
+		if a.ID == current {
+			value = ActorLabel(a)
+		}
+	}
+	return Form{
+		Kind: formAssignee, Title: "assign",
+		Fields: []FormField{
+			{Key: "assignee", Label: "assignee", Options: options, Value: value},
+		},
+	}
+}
+
+// ArtifactKindOptions are the kinds an artifact may be recorded under, taken
+// from core.ArtifactKinds so the terminal cannot offer one the service refuses.
+func ArtifactKindOptions() []string {
+	out := make([]string, 0, len(core.ArtifactKinds))
+	for _, k := range core.ArtifactKinds {
+		out = append(out, string(k))
+	}
+	return out
+}
+
+// ArtifactNote says what a terminal does not record, so a reader who needs a
+// payload learns it here rather than by finding the artifact empty afterwards.
+const ArtifactNote = "the payload, content type and inline blob are recorded with tix artifact put"
+
+// ArtifactForm classifies a named artifact. The name is free text and arrives
+// from the prompt; the kind is the one answer drawn from a fixed set, and it is
+// the only field the service requires.
+func ArtifactForm(name string) Form {
+	return Form{
+		Kind: formArtifact, Title: "artifact " + name,
+		Note: ArtifactNote,
+		Fields: []FormField{
+			{Key: "kind", Label: "kind", Options: ArtifactKindOptions(),
+				Value: string(core.ArtifactResult)},
+		},
+	}
 }

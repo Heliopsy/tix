@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -298,12 +299,37 @@ func TestKeyMapForRefusesAnActionThatDoesNotExist(t *testing.T) {
 // viewActions would stop that action being checked for collisions at all.
 func TestEveryViewListsOnlyRealActions(t *testing.T) {
 	k := DefaultKeyMap()
-	for _, v := range []viewKind{viewProjects, viewBoard, viewDetail, viewSettings, viewActivity,
-		viewProject, viewHelp} {
+	// Every view the interface has, rather than a list written out here: the
+	// list left two views out, so a typo in either was checked by nothing.
+	for _, v := range everyView {
 		for _, action := range viewActions(v) {
 			if _, ok := k.Binding(action); !ok {
 				t.Errorf("the %s view lists %q, which carries no binding", viewName(v), action)
 			}
+		}
+	}
+}
+
+// TestEveryViewIsCheckedForCollisions keeps the collision guard covering the
+// screens the interface actually has. A view missing from the list is a view
+// where a rebinding can make one key mean two things with nothing refusing it.
+//
+// The statistics view is the one absence and is named here rather than left to
+// be discovered. It has no case of its own in viewActions, so it would be
+// checked for the default action set rather than for the keys it listens to,
+// and giving it one is a change to a screen this guard is not about.
+func TestEveryViewIsCheckedForCollisions(t *testing.T) {
+	for _, v := range everyView {
+		if v == viewStats {
+			continue
+		}
+		if !slices.Contains(collisionViews, v) {
+			t.Errorf("the %s view is not checked for key collisions", viewName(v))
+		}
+	}
+	for _, v := range collisionViews {
+		if !slices.Contains(everyView, v) {
+			t.Errorf("collisions are checked in view %q, which the interface does not have", viewName(v))
 		}
 	}
 }

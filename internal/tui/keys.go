@@ -33,6 +33,8 @@ type KeyMap struct {
 	Undepend    key.Binding
 	CommentEdit key.Binding
 	Delete      key.Binding
+	Restore     key.Binding
+	Artifact    key.Binding
 	ClaimNext   key.Binding
 	Renew       key.Binding
 	Projects    key.Binding
@@ -40,6 +42,7 @@ type KeyMap struct {
 	Fields      key.Binding
 	Settings    key.Binding
 	Activity    key.Binding
+	History     key.Binding
 	Stats       key.Binding
 	Tenant      key.Binding
 	Refresh     key.Binding
@@ -83,9 +86,15 @@ func DefaultKeyMap() KeyMap {
 		Undepend:    key.NewBinding(key.WithKeys("-"), key.WithHelp("-", "remove dependency")),
 		CommentEdit: key.NewBinding(key.WithKeys("M"), key.WithHelp("M", "edit comment")),
 		Delete:      key.NewBinding(key.WithKeys("X"), key.WithHelp("X", "delete")),
-		ClaimNext:   key.NewBinding(key.WithKeys("N"), key.WithHelp("N", "claim next")),
-		Renew:       key.NewBinding(key.WithKeys("R"), key.WithHelp("R", "renew lease")),
-		Projects:    key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "projects")),
+		// u, for undoing the deletion. It is the one key on a deleted card, and
+		// vim's own undo, which is the reflex a reader arrives with.
+		Restore: key.NewBinding(key.WithKeys("u"), key.WithHelp("u", "restore")),
+		// O, for the output a worker records. Lowercase o opens a new task under
+		// vim and helix, so the capital is what the other taken letters use.
+		Artifact:  key.NewBinding(key.WithKeys("O"), key.WithHelp("O", "record artifact")),
+		ClaimNext: key.NewBinding(key.WithKeys("N"), key.WithHelp("N", "claim next")),
+		Renew:     key.NewBinding(key.WithKeys("R"), key.WithHelp("R", "renew lease")),
+		Projects:  key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "projects")),
 		// w, for the workflow, which is the largest thing the screen shows. The
 		// obvious letters are spoken for: p lists projects and , opens the
 		// session's own preferences, which are a different kind of setting.
@@ -93,6 +102,9 @@ func DefaultKeyMap() KeyMap {
 		Fields:   key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "custom fields")),
 		Settings: key.NewBinding(key.WithKeys(","), key.WithHelp(",", "settings")),
 		Activity: key.NewBinding(key.WithKeys("v"), key.WithHelp("v", "activity")),
+		// H, for the stored history, beside v for the live tail. Lowercase h
+		// moves a column, so the capital is what the taken letters already use.
+		History: key.NewBinding(key.WithKeys("H"), key.WithHelp("H", "history")),
 		// S, not s: lowercase s is taken on the board, and a capital is what
 		// the other cross-view keys already use when their letter is spoken
 		// for.
@@ -141,6 +153,7 @@ func (k KeyMap) globalKeys() []globalKey {
 		{binding: k.Project, opens: viewProject},
 		{binding: k.Settings, opens: viewSettings},
 		{binding: k.Activity, opens: viewActivity},
+		{binding: k.History, opens: viewHistory},
 		{binding: k.Stats, opens: viewStats},
 		{binding: k.Tenant, opens: viewTenant},
 		{binding: k.Quit, always: true},
@@ -219,7 +232,7 @@ func (k KeyMap) taskBindings() []gatedAction {
 		{binding: k.EditTitle, methods: []string{"UpdateTask"}},
 		{binding: k.EditBody, methods: []string{"UpdateTask"}},
 		{binding: k.Priority, methods: []string{"UpdateTask"}},
-		{binding: k.Assign, methods: []string{"UpdateTask"}},
+		{k.Assign, []string{"UpdateTask"}, []string{"ListActors"}},
 		{binding: k.Comment, methods: []string{"AddComment"}},
 		{binding: k.CommentEdit, methods: []string{"EditComment"}},
 		{binding: k.Tag, methods: []string{"AddTag"}},
@@ -228,6 +241,8 @@ func (k KeyMap) taskBindings() []gatedAction {
 		{binding: k.Depend, methods: []string{"AddDependency"}},
 		{binding: k.Undepend, methods: []string{"RemoveDependency"}},
 		{binding: k.Delete, methods: []string{"DeleteTask", "DeleteComment"}},
+		{binding: k.Restore, methods: []string{"RestoreTask"}},
+		{binding: k.Artifact, methods: []string{"PutArtifact"}},
 		{binding: k.Renew, methods: []string{"RenewLease"}},
 	}
 }
@@ -273,6 +288,10 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 		}
 	case viewTenant:
 		return []HelpEntry{entry(k.Enter), entry(k.Back)}
+	case viewHistory:
+		return []HelpEntry{
+			entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom), entry(k.Back),
+		}
 	case viewProject:
 		return append([]HelpEntry{entry(k.Up), entry(k.Down)},
 			append(k.projectActions(may), entry(k.Back))...)
@@ -360,6 +379,10 @@ type ActionContext struct {
 	// HasFields reports whether the open project defines custom fields, so the
 	// project screen does not advertise a picker with nothing to pick.
 	HasFields bool
+	// IsDeleted reports whether the selected card is one of the deleted tasks a
+	// filter revealed. A deleted task accepts one action, so the footer offers
+	// that one and none of the editing keys the service would refuse.
+	IsDeleted bool
 	// May reports whether this reader holds the authority one operation needs,
 	// asked of the capability registry. Nil offers none of the gated actions.
 	May func(string) bool
@@ -395,6 +418,8 @@ func (k KeyMap) ShortHelp(v viewKind, ctx ActionContext) []HelpEntry {
 		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Filter), entry(k.Back)}
 	case viewTenant:
 		short = []HelpEntry{entry(k.Enter), entry(k.Back)}
+	case viewHistory:
+		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
 	case viewProject:
 		short = append(k.projectShort(ctx), entry(k.Back))
 	default:
@@ -425,7 +450,7 @@ func (k KeyMap) projectShort(ctx ActionContext) []HelpEntry {
 // while another worker does.
 func (k KeyMap) claimHelp(ctx ActionContext) []HelpEntry {
 	switch {
-	case !ctx.HasTask:
+	case !ctx.HasTask, ctx.IsDeleted:
 		return nil
 	case ctx.HeldHere:
 		return k.offer(ctx, gatedAction{binding: k.Release, methods: []string{"ReleaseLease"}},
@@ -442,6 +467,9 @@ func (k KeyMap) claimHelp(ctx ActionContext) []HelpEntry {
 func (k KeyMap) editHelp(ctx ActionContext) []HelpEntry {
 	if !ctx.HasTask {
 		return nil
+	}
+	if ctx.IsDeleted {
+		return k.offer(ctx, gatedAction{binding: k.Restore, methods: []string{"RestoreTask"}})
 	}
 	out := k.offer(ctx, gatedAction{binding: k.EditTitle, methods: []string{"UpdateTask"}},
 		gatedAction{binding: k.Comment, methods: []string{"AddComment"}})

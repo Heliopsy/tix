@@ -57,6 +57,21 @@ type fakeService struct {
 
 	actors        map[string]*core.Actor
 	actorsQueried []string
+	// directory is what the assignee picker reads, and directoryErr refuses it.
+	directory    []core.Actor
+	directoryErr error
+
+	// audit is the durable log the history view reads, with the cursor a page
+	// that runs on reports and the refusal a reader without audit:read gets.
+	audit       []core.AuditEntry
+	auditFilter []core.AuditFilter
+	auditCursor string
+	auditErr    error
+
+	// what the corrective and recording calls took.
+	restored    []core.TaskRef
+	artifacts   []core.ArtifactInput
+	artifactErr error
 
 	whoAmI    *core.Actor
 	whoAmIErr error
@@ -292,7 +307,12 @@ func (f *fakeService) DeleteTask(_ context.Context, ref core.TaskRef, in core.De
 	f.deleted = append(f.deleted, in)
 	return f.deleteErr
 }
-func (f *fakeService) RestoreTask(context.Context, core.TaskRef) (*core.Task, error) { return nil, nil }
+func (f *fakeService) RestoreTask(_ context.Context, ref core.TaskRef) (*core.Task, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.restored = append(f.restored, ref)
+	return &core.Task{ID: ref.ID}, nil
+}
 func (f *fakeService) TaskTree(context.Context, core.TaskRef, int) ([]core.Task, error) {
 	return nil, nil
 }
@@ -355,8 +375,14 @@ func (f *fakeService) DeleteComment(_ context.Context, id string) error {
 	f.commentsGone = append(f.commentsGone, id)
 	return nil
 }
-func (f *fakeService) PutArtifact(context.Context, core.TaskRef, core.ArtifactInput) (*core.Artifact, error) {
-	return nil, nil
+func (f *fakeService) PutArtifact(_ context.Context, _ core.TaskRef, in core.ArtifactInput) (*core.Artifact, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.artifacts = append(f.artifacts, in)
+	if f.artifactErr != nil {
+		return nil, f.artifactErr
+	}
+	return &core.Artifact{Kind: in.Kind, Name: in.Name}, nil
 }
 func (f *fakeService) ListArtifacts(context.Context, core.TaskRef) ([]core.Artifact, error) {
 	return nil, nil
@@ -378,8 +404,14 @@ func (f *fakeService) RenewLease(context.Context, core.TaskRef, string, core.Dur
 
 func (f *fakeService) SweepLeases(context.Context, int) (int, error) { return 0, nil }
 
-func (f *fakeService) ListAudit(context.Context, core.AuditFilter) ([]core.AuditEntry, string, error) {
-	return nil, "", nil
+func (f *fakeService) ListAudit(_ context.Context, filter core.AuditFilter) ([]core.AuditEntry, string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.auditFilter = append(f.auditFilter, filter)
+	if f.auditErr != nil {
+		return nil, "", f.auditErr
+	}
+	return f.audit, f.auditCursor, nil
 }
 func (f *fakeService) Prune(context.Context, core.PruneInput) (*core.PruneResult, error) {
 	return nil, nil
@@ -402,7 +434,9 @@ func (f *fakeService) GetActor(_ context.Context, id string) (*core.Actor, error
 	return nil, core.NotFound("actor %q", id)
 }
 func (f *fakeService) ListActors(context.Context, core.Page) ([]core.Actor, string, error) {
-	return nil, "", nil
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.directory, "", f.directoryErr
 }
 func (f *fakeService) GetUser(context.Context, string) (*core.User, error) { return nil, nil }
 func (f *fakeService) ListUsers(context.Context, core.Page) ([]core.User, string, error) {

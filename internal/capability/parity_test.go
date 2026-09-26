@@ -360,7 +360,7 @@ func contains(values []string, want string) bool {
 // from a view that does not exist.
 var tuiViews = map[string]bool{
 	"projects": true, "board": true, "detail": true, "activity": true, "tenant": true,
-	"stats": true, "project": true,
+	"stats": true, "project": true, "history": true,
 }
 
 // TestEveryTUIViewCarriesAnOperation is the other half of the previous guard.
@@ -428,6 +428,7 @@ func TestTheOperationsAPersonWorksWithDailyReachTheTUI(t *testing.T) {
 		"AddDependency", "ListDependencies",
 		"ClaimTask", "ClaimNext", "RenewLease", "ReleaseLease",
 		"Subscribe", "TaskTree", "ListFieldDefs", "ListArtifacts", "ListWorkflows",
+		"ListAudit", "ListActors", "PutArtifact", "RestoreTask",
 	}
 	for _, method := range daily {
 		op, ok := capability.ByMethod(method)
@@ -466,10 +467,15 @@ func TestNoCLIGapRemains(t *testing.T) {
 // field.delete. Two more left the count without a binding, because a terminal
 // cannot serve them rather than has not yet: workflow.put edits a state machine,
 // and workflow.delete would only ever be offered where the service refuses it.
+//
+// It came down from 44 with the four remaining pieces of daily work: audit.list
+// on a history view of its own, artifact.put on a prompt and a form, task.restore
+// on the deleted cards the board's own is:deleted filter reveals, and actor.list
+// behind the assignee picker that replaced a prompt for an actor identifier.
 func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 	t.Parallel()
 	want := map[capability.Surface]int{
-		capability.SurfaceTUI: 44,
+		capability.SurfaceTUI: 40,
 		capability.SurfaceWeb: 2,
 	}
 	got := map[capability.Surface]int{}
@@ -497,6 +503,7 @@ func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 // what stops one being deleted along with the surface behaviour it described,
 // which a count of "more than none" would not notice.
 var recordedShortfalls = map[string]capability.Surface{
+	"PutArtifact": capability.SurfaceTUI,
 	"TaskTree":    capability.SurfaceWeb,
 	"ListTokens":  capability.SurfaceWeb,
 	"ListSSHKeys": capability.SurfaceWeb,

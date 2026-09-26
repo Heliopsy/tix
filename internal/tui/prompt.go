@@ -21,7 +21,6 @@ const (
 	promptNewTask
 	promptTitle
 	promptBody
-	promptAssignee
 	promptComment
 	promptCommentEdit
 	promptTag
@@ -34,6 +33,7 @@ const (
 	promptProjectDesc
 	promptProjectIcon
 	promptNewField
+	promptArtifact
 )
 
 // PromptSpec is how one input introduces itself.
@@ -49,7 +49,6 @@ var promptSpecs = map[promptKind]PromptSpec{
 	promptNewTask:     {"new task: ", "title of the task to create", core.MaxTitleLength},
 	promptTitle:       {"title: ", "new title", core.MaxTitleLength},
 	promptBody:        {"body: ", "new body", 4096},
-	promptAssignee:    {"assignee: ", "actor id to assign to", 128},
 	promptComment:     {"comment: ", "what you want to record", 4096},
 	promptCommentEdit: {"edit comment: ", "what the comment should say", 4096},
 	promptTag:         {"add tag: ", "tag to attach", 128},
@@ -69,6 +68,10 @@ var promptSpecs = map[promptKind]PromptSpec{
 	promptProjectDesc: {"description: ", "what this project is for", 1024},
 	promptProjectIcon: {"icon: ", "one or two characters, such as \u25b2", core.MaxProjectIconRunes},
 	promptNewField:    {"new field: ", "key and label, such as: severity Severity", 256},
+
+	// The artifact's name. Its kind is the one answer drawn from a fixed set,
+	// so the form asks that and this asks the part no fixed list can hold.
+	promptArtifact: {"artifact name: ", "what this output is called", 256},
 }
 
 // Spec describes an input, reporting whether the kind names one at all.

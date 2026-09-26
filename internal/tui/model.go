@@ -131,6 +131,26 @@ type Model struct {
 	activitySel int
 	activityOff int
 
+	// history is the page of the durable log the history view draws, with the
+	// subject it was read for, the handles its actors resolved to, and whether
+	// the log runs past the page. It is separate from activity because the two
+	// answer different questions from different sources under different scopes.
+	history       []core.AuditEntry
+	historySubj   HistorySubject
+	historyActors map[string]string
+	historyMore   bool
+	historySel    int
+	historyOff    int
+
+	// directory is the tenant's actors, as the assignee picker last read them.
+	// A handle is what a reader picks and an identifier is what the service
+	// takes, so the listing is kept rather than reduced to labels.
+	directory []core.Actor
+
+	// pendingArtifact is the name gathered by the prompt, held between it and
+	// the form that classifies the artifact.
+	pendingArtifact string
+
 	// activityFilter narrows the live tail. It is the audit filter the CLI
 	// takes, parsed by the same grammar, minus the terms an event cannot
 	// answer.
@@ -278,6 +298,10 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 		return m.applyStats(msg), nil
 	case tagsMsg:
 		return m.onTags(msg)
+	case actorsMsg:
+		return m.onActors(msg)
+	case historyMsg:
+		return m.onHistory(msg)
 	case projectMsg:
 		m.setup, m.setupOff = &msg, 0
 		return m.enterView(viewProject), nil
@@ -533,6 +557,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.openSettings(), nil
 	case key.Matches(msg, m.keys.Activity):
 		return m.openActivity(), nil
+	case key.Matches(msg, m.keys.History):
+		return m.openHistory()
 	case key.Matches(msg, m.keys.Stats):
 		if !m.canReach(viewStats) {
 			return m, nil
@@ -558,6 +584,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.handleStatsKey(msg)
 	case viewProject:
 		return m.handleProjectKey(msg)
+	case viewHistory:
+		return m.handleHistoryKey(msg)
 	}
 	return m, nil
 }
@@ -861,7 +889,7 @@ func (m Model) handleTaskKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.EditBody):
 		return m.openPrompt(promptBody)
 	case key.Matches(msg, m.keys.Assign):
-		return m.openPrompt(promptAssignee)
+		return m.openAssigneeForm()
 	case key.Matches(msg, m.keys.Comment):
 		return m.openPrompt(promptComment)
 	case key.Matches(msg, m.keys.Tag):
@@ -878,6 +906,10 @@ func (m Model) handleTaskKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.openDependencyForm()
 	case key.Matches(msg, m.keys.Delete):
 		return m.openDeleteForm()
+	case key.Matches(msg, m.keys.Restore):
+		return m.restoreTask()
+	case key.Matches(msg, m.keys.Artifact):
+		return m.openPrompt(promptArtifact)
 	case key.Matches(msg, m.keys.ClaimNext):
 		return m, m.claimNext()
 	case key.Matches(msg, m.keys.Renew):
@@ -927,6 +959,9 @@ func (m Model) submitPrompt(text string) (Model, tea.Cmd) {
 	if kind == promptNewField {
 		return next.openFieldDefForm(text)
 	}
+	if kind == promptArtifact {
+		return next.openArtifactForm(text)
+	}
 	return next, next.runPrompt(kind, text)
 }
 
@@ -954,8 +989,6 @@ func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 		return m.updateTask(task, core.UpdateTaskInput{Title: &text})
 	case promptBody:
 		return m.updateTask(task, core.UpdateTaskInput{Body: &text})
-	case promptAssignee:
-		return m.updateTask(task, core.UpdateTaskInput{AssigneeActorID: &text})
 	case promptComment:
 		return m.comment(task, text)
 	case promptCommentEdit:
@@ -1016,8 +1049,6 @@ func (m Model) promptSeed(kind promptKind) string {
 		return task.Title
 	case promptBody:
 		return strings.ReplaceAll(task.Body, "\n", " ")
-	case promptAssignee:
-		return task.AssigneeActorID
 	default:
 		return ""
 	}
@@ -1152,6 +1183,7 @@ func (m Model) actionContext() ActionContext {
 		return ctx
 	}
 	ctx.HasTask = true
+	ctx.IsDeleted = task.DeletedAt != nil
 	ctx.CanTransition = len(TransitionChoices(m.workflow, task.Status)) > 0
 	if !task.ClaimedAtTime(m.now()) {
 		return ctx
@@ -1186,6 +1218,11 @@ func (m Model) selectedTask() (core.Task, bool) {
 func (m Model) refresh() tea.Cmd {
 	if m.view == viewProject && m.setup != nil {
 		return m.loadProject(m.setup.project.Key)
+	}
+	// The history is read once when the view opens, so refreshing anything else
+	// from here would reload a screen the reader is not looking at.
+	if m.view == viewHistory {
+		return m.loadHistory(m.historySubj)
 	}
 	if m.project.ID == "" {
 		return m.loadProjects()
@@ -1346,6 +1383,66 @@ func (m Model) onTags(msg tagsMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// openAssigneeForm reads the tenant's directory so the reader can pick a
+// colleague rather than remember an identifier. The listing is fetched on the
+// keystroke rather than held for the session, because who a tenant has changes
+// while a board is open and a stale directory offers somebody who has left.
+func (m Model) openAssigneeForm() (Model, tea.Cmd) {
+	if _, ok := m.selectedTask(); !ok {
+		m.err = "no task is selected"
+		return m, nil
+	}
+	return m, m.loadActors()
+}
+
+// onActors opens the assignee form on a directory, or says the tenant has
+// nobody to assign to rather than offering a picker with nothing in it.
+func (m Model) onActors(msg actorsMsg) (Model, tea.Cmd) {
+	if msg.err != nil {
+		m.err = "listing actors: " + msg.err.Error()
+		return m, nil
+	}
+	task, ok := m.selectedTask()
+	if !ok {
+		return m, nil
+	}
+	m.directory = msg.actors
+	form := AssigneeForm(msg.actors, task.AssigneeActorID)
+	if !form.Open() {
+		m.err = "this tenant has nobody to assign to"
+		return m, nil
+	}
+	m.form, m.err = form, ""
+	return m, nil
+}
+
+// openArtifactForm classifies the artifact the prompt named.
+func (m Model) openArtifactForm(name string) (Model, tea.Cmd) {
+	if _, ok := m.selectedTask(); !ok {
+		m.err = "no task is selected"
+		return m, nil
+	}
+	m.pendingArtifact = name
+	m.form, m.err = ArtifactForm(name), ""
+	return m, nil
+}
+
+// restoreTask brings back a task a deletion took off the board, refusing a task
+// that was never deleted rather than sending a call the service will refuse and
+// saying where the deleted ones are.
+func (m Model) restoreTask() (Model, tea.Cmd) {
+	task, ok := m.selectedTask()
+	if !ok {
+		m.err = "no task is selected"
+		return m, nil
+	}
+	if task.DeletedAt == nil {
+		m.err = "only a deleted task can be restored; filter the board with is:deleted to see them"
+		return m, nil
+	}
+	return m, m.restore(task)
+}
+
 // handleFormKey moves through the open form and submits it. It reuses the keys
 // the settings screen moves and cycles with, so a form needs no bindings of its
 // own and works under every scheme.
@@ -1387,6 +1484,15 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 	case formFieldDef:
 		return m.closeForm().applyFieldDef(form)
 	}
+	if form.Kind == formAssignee {
+		next := m.closeForm()
+		task, ok := next.selectedTask()
+		if !ok {
+			return next, nil
+		}
+		id := ActorIDFor(next.directory, form.Value("assignee"))
+		return next, next.updateTask(task, core.UpdateTaskInput{AssigneeActorID: &id})
+	}
 	task, ok := m.selectedTask()
 	if !ok {
 		return m.closeForm(), nil
@@ -1402,6 +1508,10 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 		return next, next.tag(task, form.Value("tag"))
 	case formDependency:
 		return next, next.undepend(task, form.Value("dependency"))
+	case formArtifact:
+		return next, next.putArtifact(task, core.ArtifactInput{
+			Kind: core.ArtifactKind(form.Value("kind")), Name: next.pendingArtifact,
+		})
 	}
 	return next, nil
 }
