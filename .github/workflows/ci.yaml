@@ -202,6 +202,41 @@ jobs:
         with:
           sarif_file: trivy.sarif
 
+  # The image was never a CI gate, so the one this project shipped instructions
+  # for bound its server to loopback inside its own network namespace: it built,
+  # it started, and it reset every connection. A build that succeeds proves
+  # nothing, so this job runs the container and asks it for things.
+  image:
+    name: Container image
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    env:
+      # The manifest list is assembled from local storage, which needs podman:
+      # `docker manifest create` resolves its arguments in a registry and cannot
+      # see a locally built image. The runner has both.
+      CONTAINER_ENGINE: podman
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # The image stamps its version with `git describe`, and the gate asserts
+          # the stamp it gets back from /healthz is this build's.
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
+      - uses: ./.github/actions/toolbox
+        with:
+          tools: trivy
+
+      # Builds both published architectures, runs the native one and asks it for
+      # /healthz, /readyz, the web UI and its assets, checks the server's uid, and
+      # proves a database on /data outlives the container. Then trivy against the
+      # layers rather than the source tree.
+      - name: Build, run and scan the image
+        run: just image-gate
+
   crosscompile:
     name: Cross-compile (CGO_ENABLED=0)
     runs-on: ubuntu-24.04

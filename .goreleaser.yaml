@@ -54,5 +54,23 @@ changelog:
     exclude: ['^docs:', '^test:', '^ci:']
 
 release:
+  # GoReleaser always holds a release as a draft while it uploads and undrafts it
+  # at the end, so `draft` stays false here: setting it true would stop that
+  # final publish and leave every release invisible.
+  #
+  # use_existing_draft is what makes that sequence reach release-please's
+  # release. release-please now creates a draft, and the endpoint GoReleaser
+  # normally looks a release up by, /releases/tags/{tag}, does not return drafts:
+  # without this GoReleaser would create a SECOND release for the same tag,
+  # upload into it, and leave release-please's draft empty forever. With it,
+  # findDraftRelease matches the draft by release name, which is "v0.5.0" from
+  # release-please and "{{.Tag}}" here, so they agree.
+  #
+  # replace_existing_draft is deliberately left off: it deletes the draft it
+  # finds, which would throw away the notes release-please wrote.
+  use_existing_draft: true
+  # Stated rather than relied on, because this is the moment the release becomes
+  # the one `curl install.sh` and `tix update` resolve.
+  make_latest: "true"
   footer: |
     **Full changelog**: See [CHANGELOG.md](https://github.com/heliopsy/tix/blob/main/CHANGELOG.md)

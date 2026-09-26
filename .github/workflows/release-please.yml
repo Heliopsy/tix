@@ -14,18 +14,60 @@ jobs:
       pull-requests: write
       actions: write
     steps:
+      # The manifest is read below to find out which release should exist, so the
+      # repository has to be here.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
       - id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7  # v5.0.0
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+      # A draft release does not create its tag: GitHub only writes the ref when
+      # the release is published, and publishing is the last thing that happens
+      # here, after the binaries are attached. So the tag is created explicitly,
+      # because everything downstream needs something to check out and something
+      # for `git describe` to find.
+      #
+      # The commit is the one release-please released from, read back from the
+      # draft rather than assumed to be this push's head.
+      - name: Create the tag for the draft release
+        if: steps.release.outputs.release_created
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          # The releases list rather than the by-tag lookup, because
+          # /releases/tags/{tag} answers 404 for a draft. The list returns drafts
+          # to a token that may see them, and this one may.
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+                  | jq -r --arg t "$TAG" 'map(select(.tag_name == $t)) | first | .target_commitish // empty')
+          if [ -z "$sha" ]; then
+            echo "no draft for $TAG names a commit to tag" >&2
+            exit 1
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "$TAG is already tagged"
+            exit 0
+          fi
+          gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f "ref=refs/tags/$TAG" -f "sha=$sha" >/dev/null
+          echo "tagged $TAG at $sha"
+
       # The tag this job just created cannot start the Release workflow on its
-      # own: GitHub does not raise a push event for a tag pushed with
-      # GITHUB_TOKEN, which is why v0.1.0 was published with nothing to
-      # download and nothing failed to say so. workflow_dispatch through the
-      # API is the one trigger GITHUB_TOKEN is allowed to fire, so ask for the
-      # build explicitly rather than hoping for a cascade.
+      # own: GitHub does not raise a push event for a ref written with
+      # GITHUB_TOKEN, which is why v0.1.0 was published with nothing to download
+      # and nothing failed to say so. workflow_dispatch through the API is the
+      # one trigger GITHUB_TOKEN is allowed to fire, so ask for the build
+      # explicitly rather than hoping for a cascade.
+      #
+      # The release stays a draft until that build has uploaded to it. GoReleaser
+      # publishes it as its own last step, so the release becomes "latest" and
+      # gains its archives in one move: there is no moment when `install.sh`
+      # resolves a release it cannot download from, which is what made v0.5.0
+      # uninstallable for four minutes.
       - name: Build the release
         if: steps.release.outputs.release_created
         env:
@@ -33,30 +75,72 @@ jobs:
           TAG: ${{ steps.release.outputs.tag_name }}
         run: gh workflow run release.yaml --repo "$GITHUB_REPOSITORY" --ref main -f ref="$TAG"
 
-      # The step above only runs when release-please reports success. It can
+      # The steps above only run when release-please reports success. It can
       # create the release and then fail afterwards: v0.4.0 was tagged and
       # published, then the action died posting its comment to a locked pull
       # request, so the build was never asked for and the release sat with
-      # nothing to download. Nothing was watching, and the published install
-      # command fails outright in that state, because it resolves the latest
-      # release and finds no archive.
+      # nothing to download. Nothing was watching.
       #
-      # So do not trust the output, ask GitHub what the latest release
-      # actually has. A release with no assets is either seconds old and
-      # waiting for the build this step asks for, or it is the failure above.
-      # Both want the same dispatch. The job still reports the original
-      # failure, which is the signal that something needs a look.
-      - name: Build any release left without binaries
+      # So do not trust the output, ask GitHub what the release the manifest
+      # names actually looks like. It is asked for by tag and not by "latest",
+      # because a draft is exactly what the latest-release endpoint hides, which
+      # is the point of drafting it: the old version of this step looked up the
+      # latest release and would now find the previous one, see its assets, and
+      # report everything fine while the new release sat unbuilt.
+      #
+      # A draft is either seconds old and waiting for the build the step above
+      # asked for, or it is the failure described here. Both want the same
+      # dispatch, and a duplicate is harmless: GoReleaser uploads into the same
+      # draft. The job still reports the original failure, which is the signal
+      # that something needs a look.
+      - name: Finish any release left unbuilt
         if: always() && !steps.release.outputs.release_created
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2>/dev/null) || exit 0
-          [ -n "$tag" ] || exit 0
-          count=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets | length')
-          if [ "$count" -gt 0 ]; then
-            echo "$tag already has $count assets"
+          set -euo pipefail
+          version=$(jq -r '."."' .release-please-manifest.json)
+          tag="v$version"
+
+          # The releases list rather than the by-tag lookup: /releases/tags/{tag}
+          # answers 404 for a draft, which is exactly the release this step is
+          # looking for.
+          state=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+                    | jq -c --arg t "$tag" 'map(select(.tag_name == $t)) | first // empty')
+          if [ -z "$state" ]; then
+            echo "no release exists for $tag yet"
             exit 0
           fi
-          echo "$tag has no assets; asking for the build"
+          draft=$(jq -r '.draft' <<<"$state")
+          assets=$(jq '.assets | length' <<<"$state")
+          if [ "$draft" != "true" ]; then
+            echo "$tag is published with $assets assets"
+            exit 0
+          fi
+
+          # A build already in flight will publish this draft on its own, and a
+          # second dispatch for the same tag would race it to the same asset
+          # names.
+          busy=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yaml \
+                   --limit 20 --json status \
+                   -q '[.[] | select(.status == "in_progress" or .status == "queued")] | length')
+          if [ "$busy" != "0" ]; then
+            echo "$tag is a draft with $assets assets and $busy release runs are in flight"
+            exit 0
+          fi
+
+          # The tag step above may be what died, and a draft carries no ref, so
+          # there would be nothing for the build to check out.
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
+            sha=$(jq -r '.target_commitish // empty' <<<"$state")
+            if [ -z "$sha" ]; then
+              echo "$tag is an untagged draft naming no commit; it needs a person" >&2
+              exit 1
+            fi
+            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f "ref=refs/tags/$tag" -f "sha=$sha" >/dev/null
+            echo "tagged $tag at $sha"
+          fi
+
+          echo "$tag is an unpublished draft with $assets assets; asking for the build"
           gh workflow run release.yaml --repo "$GITHUB_REPOSITORY" --ref main -f ref="$tag"

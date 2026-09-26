@@ -141,6 +141,66 @@ func TestFetchReportsAMissingPlatformArchive(t *testing.T) {
 	}
 }
 
+// TestFetchDoesNotReportAMissingArchiveAsAURL is what somebody running
+// `tix update` against a release whose build has not attached its archives yet
+// actually reads. They used to be handed the archive URL and its 404, which
+// reads as a broken machine and tells them nothing about what to do.
+func TestFetchDoesNotReportAMissingArchiveAsAURL(t *testing.T) {
+	t.Parallel()
+	// A release that exists with nothing attached to it, which is what the
+	// download host answers between a release being created and its build
+	// uploading: 404 on the archive, not an empty body.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	c := selfupdate.Client{BaseAPI: srv.URL, BaseDownload: srv.URL}
+
+	_, err := c.Fetch(context.Background(), "v9.9.9")
+	if err == nil {
+		t.Fatal("Fetch succeeded with no archive published")
+	}
+	got := err.Error()
+	// Each of these is a separate claim about the sentence, so a failure names
+	// which part of it went missing rather than that it changed.
+	if strings.Contains(got, "http://") || strings.Contains(got, "https://") {
+		t.Errorf("error = %q, want no download URL in it", got)
+	}
+	if strings.Contains(got, "404") {
+		t.Errorf("error = %q, want no HTTP status in it", got)
+	}
+	if !strings.Contains(got, "v9.9.9") {
+		t.Errorf("error = %q, want it to name the release", got)
+	}
+	if !strings.Contains(got, "retry shortly") {
+		t.Errorf("error = %q, want it to say the archives may still be uploading", got)
+	}
+}
+
+// TestLatestSaysNothingIsPublished covers the other half: with releases held as
+// drafts until their binaries are attached, the latest-release endpoint answers
+// 404 for a repository whose only release is still building.
+func TestLatestSaysNothingIsPublished(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+		_ = w
+	}))
+	t.Cleanup(srv.Close)
+	c := selfupdate.Client{BaseAPI: srv.URL, BaseDownload: srv.URL}
+
+	_, err := c.Latest(context.Background())
+	if err == nil {
+		t.Fatal("Latest succeeded against a repository with no published release")
+	}
+	if !strings.Contains(err.Error(), "no published release") {
+		t.Errorf("error = %q, want it to say there is no published release", err)
+	}
+	if strings.Contains(err.Error(), "404") {
+		t.Errorf("error = %q, want no HTTP status in it", err)
+	}
+}
+
 // TestReplaceIsAtomic writes over a file and checks the result, then checks
 // that a failure leaves nothing behind: a half-written binary on PATH is the
 // failure mode this whole approach exists to prevent.

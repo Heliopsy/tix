@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -136,6 +137,13 @@ func isModuleVersion(v string) bool {
 	return !pseudoVersion.MatchString(v)
 }
 
+// ErrNoAsset reports that the host does not have the file asked for.
+//
+// Separate from the other refusals because it is the one that says something
+// about the release rather than about the network, and the caller turns it into
+// a different sentence.
+var ErrNoAsset = errors.New("the release does not publish that file")
+
 // Release is one published release.
 type Release struct {
 	Tag string
@@ -176,6 +184,11 @@ func (c Client) Latest(ctx context.Context) (Release, error) {
 	url := fmt.Sprintf("%s/repos/%s/releases/latest", c.api(), Repo)
 	body, err := c.get(ctx, url)
 	if err != nil {
+		// This endpoint hides drafts and prereleases, so 404 here means there is
+		// nothing published to update to, not that anything is broken.
+		if errors.Is(err, ErrNoAsset) {
+			return Release{}, fmt.Errorf("%s has no published release to update to", Repo)
+		}
 		return Release{}, err
 	}
 	var out struct {
@@ -214,6 +227,9 @@ func (c Client) get(ctx context.Context, url string) ([]byte, error) {
 	if resp.StatusCode == http.StatusForbidden && bytes.Contains(body, []byte("rate limit")) {
 		return nil, fmt.Errorf("the release API rate limit was reached from this address; retry later or name a version")
 	}
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("fetching %s: %w", url, ErrNoAsset)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("fetching %s: %s", url, resp.Status)
 	}
@@ -239,6 +255,18 @@ func (c Client) Fetch(ctx context.Context, version string) ([]byte, error) {
 
 	archive, err := c.get(ctx, base+"/"+name)
 	if err != nil {
+		// A missing archive is reported as a fact about the release rather than
+		// as the URL that answered 404. Somebody who ran `tix update` and was
+		// handed a download link they had not asked for has to work out for
+		// themselves that nothing is broken on their machine, and both reasons
+		// this happens are worth naming: a release whose build has not finished
+		// attaching its archives yet, and a platform the release does not build.
+		if errors.Is(err, ErrNoAsset) {
+			return nil, fmt.Errorf("release %s publishes no build for %s/%s: "+
+				"if it was published moments ago its archives may still be uploading, so retry shortly; "+
+				"otherwise this platform is not one it builds",
+				version, runtime.GOOS, runtime.GOARCH)
+		}
 		return nil, fmt.Errorf("no release archive for %s/%s at %s: %w",
 			runtime.GOOS, runtime.GOARCH, version, err)
 	}

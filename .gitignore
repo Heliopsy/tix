@@ -16,3 +16,5 @@ trivy.sarif
 # cmd tests write these while exercising the event stream
 watch_stdout*.log
 watch_stderr*.log
+tix-image.tar
+image-digest.txt
