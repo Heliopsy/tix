@@ -18,7 +18,7 @@ with the thing.
 | [filtering.md](filtering.md) | The filter expression language: negation, weak matching, and what each engine does |
 | [scripting.md](scripting.md) | NDJSON everywhere, output formats, piping, exit codes |
 | [web-ui.md](web-ui.md) | The browser interface: lease badges, multi-step moves, the directory, per-browser preferences |
-| [tui.md](tui.md) | The terminal interface: the eight views, five keybinding schemes, the settings screen, what it does not do |
+| [tui.md](tui.md) | The terminal interface: the ten views, five keybinding schemes, the settings screen, what it does not do |
 | [deployment.md](deployment.md) | Running `tix serve`, TLS, reverse proxies, the non-loopback bind guard |
 | [deployment.md](deployment.md#the-terminal-interface-over-ssh) | Serving the terminal interface over SSH: enrolling keys, the username as tenant, enrolled and demo modes |
 | [scaling.md](scaling.md) | SQLite versus PostgreSQL, keyset pagination, partitioning, when to move |
