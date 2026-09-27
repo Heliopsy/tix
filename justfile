@@ -81,7 +81,14 @@ test:
     set -euo pipefail
     export TIX_TEST_ENV_LOG=$(mktemp); trap 'rm -f "$TIX_TEST_ENV_LOG"' EXIT
     set +e
-    go test ./... -race -shuffle=on
+    # Go's default is 10 minutes per package, which this suite fits comfortably
+    # on an idle machine and does not fit on a busy one: under a load average
+    # around 80, cmd took 742s, internal/demo 950s and internal/service 1339s,
+    # and `just check` failed three packages that were only slow. A gate whose
+    # answer depends on what else the machine is doing is worse than a slow
+    # one, so the limit is raised to something no healthy run approaches while
+    # still ending a genuine deadlock.
+    go test ./... -race -shuffle=on -timeout 40m
     rc=$?
     set -e
     just _env-summary "$TIX_TEST_ENV_LOG"
