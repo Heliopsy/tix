@@ -83,6 +83,7 @@ func TestEverySettingNamesTheConfigurationKeyItIsWrittenTo(t *testing.T) {
 		SettingTimeFormat: KeyOutputTimeFormat,
 		SettingTimezone:   KeyOutputTimezone,
 		SettingColor:      KeyOutputColor,
+		SettingMotion:     KeyTUIMotion,
 	}
 	for i, set := range settings {
 		if set.Key != want[i] {

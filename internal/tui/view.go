@@ -207,7 +207,7 @@ func (m Model) settingsStyle(l SettingsLine) string {
 	case l.Heading:
 		return m.theme.Header.Render(l.Text)
 	case l.Row == m.settingSel && !l.Dim:
-		return m.theme.Selected.Render(l.Text)
+		return m.selection().Render(l.Text)
 	case l.Dim:
 		return m.theme.Dim.Render(l.Text)
 	default:
@@ -223,7 +223,7 @@ func (m Model) projectRow(p core.Project, selected bool) string {
 	}
 	label = Truncate(label, m.width)
 	if selected {
-		return m.theme.Selected.Render(label)
+		return m.selection().Render(label)
 	}
 	return m.theme.Project(p.Color).Render(label)
 }
@@ -308,7 +308,7 @@ func (m Model) cardLine(t core.Task, width int, selected bool) string {
 	head := marker + ref + " " + badge + flags + " "
 	title := Truncate(t.Title, max(1, width-len([]rune(head))))
 	if selected {
-		return m.theme.Selected.Render(Truncate(head+title, width))
+		return m.selection().Render(Truncate(head+title, width))
 	}
 	return m.theme.Ref.Render(marker+ref) + " " +
 		m.theme.Priority(t.Priority).Render(badge) +
@@ -722,7 +722,7 @@ func (m Model) formLines() []string {
 	for _, l := range m.form.Lines() {
 		row := "  " + pad(l.Label, 14) + l.Value
 		if l.Selected {
-			out = append(out, m.fit(m.theme.Selected.Render(row)+
+			out = append(out, m.fit(m.selection().Render(row)+
 				m.theme.Dim.Render("   "+l.Hint)))
 			continue
 		}

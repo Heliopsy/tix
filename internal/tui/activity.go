@@ -127,7 +127,7 @@ func (m Model) eventLine(e core.Event, selected bool) string {
 	head := marker + when + "  " + actor + "  " + verb + "  " + ref + "  "
 	detail := Truncate(output.EventDetail(e), max(0, m.width-len([]rune(head))))
 	if selected {
-		return m.theme.Selected.Render(Truncate(head+detail, m.width))
+		return m.selection().Render(Truncate(head+detail, m.width))
 	}
 	return m.theme.Dim.Render(marker+when) + "  " + actor + "  " + verb + "  " +
 		m.theme.Ref.Render(ref) + "  " + detail

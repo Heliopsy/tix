@@ -85,6 +85,14 @@ type Model struct {
 	renderer  *lipgloss.Renderer
 	brand     core.Theme
 
+	// pulseQuiet is the low phase of the selected row's pulse, pulsing reports
+	// whether a phase is in flight, and lastInput is when a key last arrived,
+	// which is what the idle pause measures. Nothing else schedules a repaint
+	// on a timer, so a session that stops pulsing sends nothing at all.
+	pulseQuiet bool
+	pulsing    bool
+	lastInput  time.Time
+
 	choice  choiceKind
 	choices []Choice
 
@@ -253,6 +261,8 @@ func New(cfg Config) Model {
 	// who asked for colour over a pipe still gets it.
 	m.theme = NewTheme(cfg.Renderer, ColorFor(prefs.Color, auto), cfg.Brand)
 	m = m.installScheme(prefs.Keymap)
+	m.lastInput = now()
+	m.pulsing = MotionEnabled(prefs.Motion, m.theme.Color)
 	if cfg.Filter != "" {
 		m = m.applyFilterText(cfg.Filter)
 	}
@@ -277,9 +287,14 @@ func (m Model) installScheme(name string) Model {
 	return m
 }
 
-// Init starts the project listing and the event subscription.
+// Init starts the project listing, the event subscription and, when this
+// session animates at all, the first phase of the selection's pulse.
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.loadProjects(), m.subscribe(m.lastSeq))
+	cmds := []tea.Cmd{m.loadProjects(), m.subscribe(m.lastSeq)}
+	if m.pulsing {
+		cmds = append(cmds, pulse())
+	}
+	return tea.Batch(cmds...)
 }
 
 // Update folds one message into the model.
@@ -291,7 +306,10 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		return m.onResize(msg), nil
 	case tea.KeyMsg:
-		return m.handleKey(msg)
+		next, cmd := m.handleKey(msg)
+		return next.afterInput(cmd)
+	case pulseMsg:
+		return m.onPulse()
 	case tenantMsg:
 		return m.onTenant(msg)
 	case statsMsg:
@@ -330,6 +348,37 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 		return m.onError(msg)
 	}
 	return m, nil
+}
+
+// afterInput records the keystroke the idle pause is measured from, and arms
+// the pulse again when the pause had stopped it or when this keystroke is the
+// one that turned the motion on.
+func (m Model) afterInput(cmd tea.Cmd) (Model, tea.Cmd) {
+	m.lastInput = m.now()
+	if m.pulsing || !MotionEnabled(m.prefs.Motion, m.theme.Color) {
+		return m, cmd
+	}
+	m.pulsing = true
+	return m, tea.Batch(cmd, pulse())
+}
+
+// onPulse changes the selected row's emphasis and asks for the next phase,
+// unless the reader has gone idle or turned the motion off. Returning no
+// command ends the chain, and with it every frame this session would have
+// sent while nobody was there.
+func (m Model) onPulse() (Model, tea.Cmd) {
+	if !PulseRunning(m.prefs.Motion, m.theme.Color, m.now().Sub(m.lastInput)) {
+		m.pulsing, m.pulseQuiet = false, false
+		return m, nil
+	}
+	m.pulseQuiet = !m.pulseQuiet
+	return m, pulse()
+}
+
+// selection is the style this frame draws the selected row in. The marker is
+// not part of it: the pulse varies emphasis and never removes the cue.
+func (m Model) selection() lipgloss.Style {
+	return m.theme.Selection(!m.pulseQuiet)
 }
 
 // onResize adopts a new terminal size, ignoring a size the terminal cannot report.

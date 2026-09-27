@@ -81,12 +81,7 @@ func newTUICmd(g *globals) *cobra.Command {
 			code := tui.Run(tui.Options{
 				Brand:     brand,
 				TimeStyle: g.timeStyle(),
-				Prefs: tui.Preferences{
-					Keymap:     scheme,
-					TimeFormat: resolved.Config.Output.TimeFormat,
-					Timezone:   resolved.Config.Output.Timezone,
-					Color:      resolved.Config.Output.Color,
-				},
+				Prefs:     tuiPreferences(resolved, scheme),
 				Sources:   preferenceSources(resolved),
 				SavePrefs: g.savePreferences(),
 				Session:   g.sessionInfo(resolved),
@@ -162,6 +157,19 @@ func mergeOverrides(configured, flags map[string]string) map[string]string {
 	return out
 }
 
+// tuiPreferences is the display preferences this run opens with. scheme has
+// already had the flag layered over the configured value, which is the one
+// preference a flag can win; the rest are whatever the five layers resolved.
+func tuiPreferences(resolved *config.Resolved, scheme string) tui.Preferences {
+	return tui.Preferences{
+		Keymap:     scheme,
+		TimeFormat: resolved.Config.Output.TimeFormat,
+		Timezone:   resolved.Config.Output.Timezone,
+		Color:      resolved.Config.Output.Color,
+		Motion:     resolved.Config.TUI.Motion,
+	}
+}
+
 // preferenceSources names the configuration layer each display preference
 // arrived from, so the settings screen can warn that writing one down will not
 // change what this run is using.
@@ -171,6 +179,7 @@ func preferenceSources(resolved *config.Resolved) tui.Preferences {
 		TimeFormat: string(resolved.Source(tui.KeyOutputTimeFormat)),
 		Timezone:   string(resolved.Source(tui.KeyOutputTimezone)),
 		Color:      string(resolved.Source(tui.KeyOutputColor)),
+		Motion:     string(resolved.Source(tui.KeyTUIMotion)),
 	}
 }
 
@@ -233,6 +242,7 @@ func (g *globals) savePreferences() tui.PreferenceWriter {
 		cfg.Output.TimeFormat = p.TimeFormat
 		cfg.Output.Timezone = p.Timezone
 		cfg.Output.Color = p.Color
+		cfg.TUI.Motion = p.Motion
 		if err := config.SaveChanges(path, existing, &before, cfg); err != nil {
 			return core.Internal("saving configuration").Wrap(err)
 		}

@@ -203,7 +203,7 @@ func (m Model) historyLines(layout Layout) []string {
 func (m Model) historyLine(e core.AuditEntry, selected bool) string {
 	row := "  " + SelectionMarker(selected) + HistoryRow(e, m.timeStyle, m.historyActors)
 	if selected {
-		return m.theme.Selected.Render(Truncate(row, m.width))
+		return m.selection().Render(Truncate(row, m.width))
 	}
 	return m.theme.Dim.Render(row)
 }

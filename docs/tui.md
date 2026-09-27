@@ -171,7 +171,7 @@ swallowed. `tix tui --keys nonsense` refuses before a terminal is opened at all,
 
 ## The settings screen
 
-`,` opens four preferences and a statement of what this session is connected to. `↑`/`↓` move between
+`,` opens five preferences and a statement of what this session is connected to. `↑`/`↓` move between
 them and then scroll the body, because on a short terminal the session facts below the settings were
 otherwise unreachable: four settings meant four presses and nothing moved after the fourth. `←`/`→`, or
 `enter`, step the selected value, wrapping at both ends.
@@ -182,6 +182,7 @@ otherwise unreachable: four settings meant four presses and nothing moved after 
 | time format | `output.time_format` | `iso`, `rfc3339`, `short`, `us`, `relative` |
 | timezone | `output.timezone` | `local`, `UTC`, and a selection of named zones |
 | colour | `output.color` | `auto`, `always`, `never` |
+| motion | `tui.motion` | `on`, `off` |
 
 These are the command line's own keys, not a second store. Somebody at a terminal already has a
 configuration file, and a separate place to write a time zone down would be a second place to disagree

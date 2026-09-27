@@ -43,16 +43,20 @@ type Theme struct {
 	Title    lipgloss.Style
 	Header   lipgloss.Style
 	Selected lipgloss.Style
-	Claimed  lipgloss.Style
-	Dim      lipgloss.Style
-	Error    lipgloss.Style
-	Status   lipgloss.Style
-	Ref      lipgloss.Style
-	Blocked  lipgloss.Style
-	Empty    lipgloss.Style
-	Bar      lipgloss.Style
-	Column   lipgloss.Style
-	Focused  lipgloss.Style
+	// SelectedQuiet is the selected row at the low phase of the pulse. It
+	// keeps the selection's colour and drops only its weight, so a reader who
+	// looks mid-cycle still sees which row is selected.
+	SelectedQuiet lipgloss.Style
+	Claimed       lipgloss.Style
+	Dim           lipgloss.Style
+	Error         lipgloss.Style
+	Status        lipgloss.Style
+	Ref           lipgloss.Style
+	Blocked       lipgloss.Style
+	Empty         lipgloss.Style
+	Bar           lipgloss.Style
+	Column        lipgloss.Style
+	Focused       lipgloss.Style
 }
 
 // ColorEnabled reports whether colour may be written for this environment and
@@ -131,8 +135,9 @@ func NewTheme(r *lipgloss.Renderer, color bool, brand core.Theme) Theme {
 		border := r.NewStyle().Border(lipgloss.NormalBorder())
 		return Theme{
 			renderer: r,
-			Title:    plain, Header: plain, Selected: plain, Claimed: plain,
-			Dim: plain, Error: plain, Status: plain, Ref: plain,
+			Title:    plain, Header: plain, Selected: plain,
+			SelectedQuiet: plain, Claimed: plain, Dim: plain,
+			Error: plain, Status: plain, Ref: plain,
 			Blocked: plain, Empty: plain, Bar: plain,
 			Column: border, Focused: border,
 		}
@@ -146,22 +151,33 @@ func NewTheme(r *lipgloss.Renderer, color bool, brand core.Theme) Theme {
 		header = accent
 	}
 	return Theme{
-		Color:    true,
-		renderer: r,
-		Title:    r.NewStyle().Bold(true).Foreground(colorTitle),
-		Header:   r.NewStyle().Bold(true).Foreground(header),
-		Selected: r.NewStyle().Bold(true).Foreground(accent),
-		Claimed:  r.NewStyle().Foreground(lipgloss.Color("11")),
-		Dim:      r.NewStyle().Foreground(colorMuted),
-		Error:    r.NewStyle().Bold(true).Foreground(colorUrgent),
-		Status:   r.NewStyle().Foreground(colorOK),
-		Ref:      r.NewStyle().Foreground(colorRef),
-		Blocked:  r.NewStyle().Foreground(colorUrgent),
-		Empty:    r.NewStyle().Foreground(colorMuted).Italic(true),
-		Bar:      r.NewStyle().Foreground(colorMuted),
-		Column:   r.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(colorMuted),
-		Focused:  r.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(accent),
+		Color:         true,
+		renderer:      r,
+		Title:         r.NewStyle().Bold(true).Foreground(colorTitle),
+		Header:        r.NewStyle().Bold(true).Foreground(header),
+		Selected:      r.NewStyle().Bold(true).Foreground(accent),
+		SelectedQuiet: r.NewStyle().Foreground(accent),
+		Claimed:       r.NewStyle().Foreground(lipgloss.Color("11")),
+		Dim:           r.NewStyle().Foreground(colorMuted),
+		Error:         r.NewStyle().Bold(true).Foreground(colorUrgent),
+		Status:        r.NewStyle().Foreground(colorOK),
+		Ref:           r.NewStyle().Foreground(colorRef),
+		Blocked:       r.NewStyle().Foreground(colorUrgent),
+		Empty:         r.NewStyle().Foreground(colorMuted).Italic(true),
+		Bar:           r.NewStyle().Foreground(colorMuted),
+		Column:        r.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(colorMuted),
+		Focused:       r.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(accent),
 	}
+}
+
+// Selection styles the selected row at one phase of the pulse. The emphasised
+// phase is what a static selection also draws, so a reader who turned the
+// motion off and a reader whose session has gone idle see the same row.
+func (t Theme) Selection(emphasis bool) lipgloss.Style {
+	if emphasis {
+		return t.Selected
+	}
+	return t.SelectedQuiet
 }
 
 // Style starts a style bound to this theme's renderer, so a style built after

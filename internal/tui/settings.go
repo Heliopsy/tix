@@ -20,6 +20,10 @@ type Preferences struct {
 	TimeFormat string
 	Timezone   string
 	Color      string
+	// Motion decides whether the selected row pulses. Empty is the shipped
+	// value, which is on: a session given no preferences at all, such as the
+	// hosted SSH sandbox, animates like every other one.
+	Motion string
 }
 
 // PreferenceWriter persists a whole set of preferences. It is supplied by the
@@ -47,6 +51,7 @@ const (
 	KeyOutputTimeFormat = "output.time_format"
 	KeyOutputTimezone   = "output.timezone"
 	KeyOutputColor      = "output.color"
+	KeyTUIMotion        = "tui.motion"
 )
 
 // Setting is one preference the screen can change.
@@ -62,6 +67,7 @@ const (
 	SettingTimeFormat
 	SettingTimezone
 	SettingColor
+	SettingMotion
 	SettingCount
 )
 
@@ -91,6 +97,7 @@ func SettingsFor(p Preferences) []Setting {
 		{Label: "time format", Key: KeyOutputTimeFormat, Options: withCurrent(output.TimeFormats, p.TimeFormat, output.TimeISO)},
 		{Label: "timezone", Key: KeyOutputTimezone, Options: withCurrent(Timezones, p.Timezone, "local")},
 		{Label: "colour", Key: KeyOutputColor, Options: withCurrent(output.ColorModes, p.Color, output.ColorAuto)},
+		{Label: "motion", Key: KeyTUIMotion, Options: withCurrent(MotionModes, p.Motion, MotionOn)},
 	}
 }
 
@@ -133,6 +140,8 @@ func (p Preferences) Value(i int) string {
 		return orDefault(p.Timezone, "local")
 	case SettingColor:
 		return orDefault(p.Color, output.ColorAuto)
+	case SettingMotion:
+		return orDefault(p.Motion, MotionOn)
 	default:
 		return ""
 	}
@@ -149,6 +158,8 @@ func (p Preferences) With(i int, value string) Preferences {
 		p.Timezone = value
 	case SettingColor:
 		p.Color = value
+	case SettingMotion:
+		p.Motion = value
 	}
 	return p
 }
@@ -198,6 +209,10 @@ func OptionDescription(i int, value string, p Preferences, now time.Time, colorA
 		return timeExample(p.TimeFormat, value, now)
 	case SettingColor:
 		return colorDescription(value, colorAuto)
+	case SettingMotion:
+		// Resolved against the colour this run actually draws in, not against
+		// the probe, so the row answers for the frame beside it.
+		return MotionDescription(value, ColorFor(p.Color, colorAuto))
 	default:
 		return ""
 	}
@@ -297,6 +312,8 @@ func (s SettingsState) sourceOf(i int) string {
 		return s.Sources.Timezone
 	case SettingColor:
 		return s.Sources.Color
+	case SettingMotion:
+		return s.Sources.Motion
 	default:
 		return ""
 	}

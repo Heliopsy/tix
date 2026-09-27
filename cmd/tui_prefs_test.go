@@ -5,6 +5,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -148,5 +149,111 @@ func TestTheSettingsScreenNamesThisBuildWithoutOverflowingItsRow(t *testing.T) {
 	}
 	if len(got) > 48 {
 		t.Errorf("version line is %d characters, which runs off a settings row: %q", len(got), got)
+	}
+}
+
+// TestTheMotionPreferenceReachesTheInterface is the probe the shadow table
+// stands for: tui.motion is resolved, and the value the command hands the
+// terminal interface is read off the preferences struct rather than off the
+// configuration behind it. A key nothing carries through resolves fine and
+// changes nothing, which is how two keys in this repo did nothing at all.
+func TestTheMotionPreferenceReachesTheInterface(t *testing.T) {
+	cases := []struct {
+		name    string
+		file    string
+		environ []string
+		want    string
+	}{
+		// The shipped value spelled out rather than read back from the
+		// constant, which would pass whatever the constant said.
+		{"nothing configured", "", nil, tui.MotionOn},
+		{"the file layer", "tui:\n  motion: off\n", nil, tui.MotionOff},
+		{"the environment beats the file", "tui:\n  motion: on\n",
+			[]string{"TIX_TUI_MOTION=off"}, tui.MotionOff},
+		{"the dotenv layer beats the file", "tui:\n  motion: on\n", nil, tui.MotionOff},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newCLI(t)
+			if tc.file != "" {
+				writeUserConfig(t, c, tc.file)
+			}
+			if tc.name == "the dotenv layer beats the file" {
+				path := filepath.Join(c.home, ".env")
+				if err := os.WriteFile(path, []byte("TIX_TUI_MOTION=off\n"), 0o600); err != nil {
+					t.Fatalf("writing %s: %v", path, err)
+				}
+			}
+			g := &globals{environ: append(c.environ(), tc.environ...), dir: c.home}
+			resolved, err := g.resolve()
+			if err != nil {
+				t.Fatalf("resolving: %v", err)
+			}
+			if got := tuiPreferences(resolved, "default").Motion; got != tc.want {
+				t.Errorf("the interface is handed motion = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestTheSettingsScreenWritesTheMotionPreferenceDown(t *testing.T) {
+	g, path := prefsGlobals(t)
+	if err := g.savePreferences()(tui.Preferences{
+		Keymap: "default", TimeFormat: output.TimeISO, Timezone: "UTC",
+		Color: output.ColorAuto, Motion: tui.MotionOff,
+	}); err != nil {
+		t.Fatalf("saving preferences: %v", err)
+	}
+	file, err := config.LoadFile(path)
+	if err != nil {
+		t.Fatalf("loading the written file: %v", err)
+	}
+	if got := file.Values["tui.motion"]; got != tui.MotionOff {
+		t.Errorf("tui.motion = %q in the written file, want %q", got, tui.MotionOff)
+	}
+}
+
+// TestTheSettingsScreenIsToldWhichLayerSuppliedTheMotionPreference keeps the
+// fifth row working like the other four: a value the environment supplies
+// carries the note saying so.
+func TestTheSettingsScreenIsToldWhichLayerSuppliedTheMotionPreference(t *testing.T) {
+	c := newCLI(t)
+	g := &globals{environ: append(c.environ(), "TIX_TUI_MOTION=off"), dir: c.home}
+	resolved, err := g.resolve()
+	if err != nil {
+		t.Fatalf("resolving: %v", err)
+	}
+	if got := preferenceSources(resolved).Motion; got != string(config.LayerEnv) {
+		t.Errorf("motion source = %q, want %q", got, config.LayerEnv)
+	}
+}
+
+// TestTheMotionValuesAreSpelledTheSameOnBothSides holds the two copies of the
+// enumeration against each other. internal/config cannot import internal/tui,
+// so the strings are written down twice and only this layer sees both.
+func TestTheMotionValuesAreSpelledTheSameOnBothSides(t *testing.T) {
+	want := []string{tui.MotionOn, tui.MotionOff}
+	if got := config.TUIMotions; !slices.Equal(got, want) {
+		t.Errorf("config accepts %v for tui.motion, the interface offers %v", got, want)
+	}
+	if config.DefaultTUIMotion != tui.MotionOn {
+		t.Errorf("the shipped tui.motion is %q, want the interface's %q",
+			config.DefaultTUIMotion, tui.MotionOn)
+	}
+}
+
+// TestAnUnknownMotionValueIsRefusedAtStartup keeps the key from accepting
+// anything that is not one of its two values. An enumeration nothing validates
+// takes "yes" and then quietly behaves as though it were on.
+func TestAnUnknownMotionValueIsRefusedAtStartup(t *testing.T) {
+	c := newCLI(t)
+	writeUserConfig(t, c, "tui:\n  motion: sometimes\n")
+	g := &globals{environ: c.environ(), dir: c.home}
+	_, err := g.resolve()
+	if err == nil {
+		t.Fatal("tui.motion accepted a value that is not one it offers")
+	}
+	if !strings.Contains(err.Error(), "tui.motion") {
+		t.Errorf("the refusal does not name the key: %v", err)
 	}
 }
