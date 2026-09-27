@@ -150,7 +150,7 @@ func (m Model) adminState() TenantAdminState {
 // adminRows are the domains and the members the cursor runs over.
 func (m Model) adminRows() []TenantRow { return TenantRows(m.adminState()) }
 
-// selectedRow is the domain or the membership the removal key acts on.
+// selectedAdminRow is the domain or the membership the removal key acts on.
 func (m Model) selectedAdminRow() (TenantRow, bool) {
 	rows := m.adminRows()
 	if m.adminSel < 0 || m.adminSel >= len(rows) {
