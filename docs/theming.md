@@ -99,6 +99,18 @@ property of the person reading rather than of the organisation. See
 **`NO_COLOR`.** Setting `NO_COLOR` or `TIX_NO_COLOR` suppresses every escape in the terminal interface
 whatever theme resolves. A theme is not a reason to start colouring output for someone who asked for none.
 
+## Colour depth
+
+The depth is read from the terminal type rather than measured, and it is resolved once per connection: a
+server drawing several SSH sessions at once gives each client its own, so a truecolour client cannot leave
+a 16-colour one being sent escapes it will print as rubbish.
+
+An unset `TERM`, or `TERM=dumb`, means no colour at all. Anything else gets at least the 16 ANSI colours.
+Since 0.8.0 that includes terminal types outside the old recognised list, such as `vt100`, plain `screen`,
+`rxvt` and `sun`, which previously got none: the detection now falls through to ANSI rather than to no
+colour. If one of those is genuinely monochrome, `NO_COLOR` is the setting that says so, and it is honoured
+above everything here.
+
 ## See also
 
 - [tenancy.md](tenancy.md) for what else a tenant owns
