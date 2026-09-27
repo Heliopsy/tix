@@ -2,7 +2,10 @@
 
 package core
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseTaskRefHumanForm(t *testing.T) {
 	tests := []struct {
@@ -163,11 +166,11 @@ func TestValidateProjectKey(t *testing.T) {
 			t.Errorf("ValidateProjectKey(%q) = nil, want an error", bad)
 		}
 	}
-	long := make([]byte, 65)
-	for i := range long {
-		long[i] = 'a'
+	// The length limit is a ceiling, not an exclusive bound: 64 is usable.
+	if err := ValidateProjectKey(strings.Repeat("a", 64)); err != nil {
+		t.Errorf("a 64-character project key must be accepted: %v", err)
 	}
-	if err := ValidateProjectKey(string(long)); err == nil {
+	if err := ValidateProjectKey(strings.Repeat("a", 65)); err == nil {
 		t.Error("an over-long project key must be rejected")
 	}
 }

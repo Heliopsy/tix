@@ -65,6 +65,7 @@ func TestEventDetailTaskUpdated(t *testing.T) {
 		{"plain field edit carries nothing today", map[string]any{"ref": "homelab-3", "version": 2}, ""},
 		{"fields key, once the service ships one", map[string]any{"fields": []string{"title", "priority"}}, "the title and priority"},
 		{"fields key as []any, JSON's own decoded shape", map[string]any{"fields": []any{"title"}}, "the title"},
+		{"an empty fields list is not a summary", map[string]any{"fields": []any{}, "restored": true}, "restored"},
 		{"restore", map[string]any{"restored": true}, "restored"},
 		{"comment delete", map[string]any{"deleted": true}, "comment deleted"},
 		{"lease renew", map[string]any{"lease_expires_at": "2026-01-01T00:00:00Z"}, "lease renewed"},
@@ -109,11 +110,29 @@ func TestSummariseFields(t *testing.T) {
 }
 
 func TestEventActor(t *testing.T) {
-	if got := EventActor(core.Event{ActorID: "alice"}); got != "alice" {
-		t.Fatalf("EventActor = %q", got)
+	tests := []struct {
+		name  string
+		event core.Event
+		want  string
+	}{
+		{"the identifier when that is all there is", core.Event{ActorID: "alice"}, "alice"},
+		{"a placeholder for no actor at all", core.Event{}, "-"},
+		{"the payload handle in preference to the identifier", core.Event{
+			ActorID: "act_1", Payload: map[string]any{"actor_handle": "alice"},
+		}, "alice"},
+		{"an empty handle falls back to the identifier", core.Event{
+			ActorID: "act_1", Payload: map[string]any{"actor_handle": ""},
+		}, "act_1"},
+		{"a handle of the wrong type falls back to the identifier", core.Event{
+			ActorID: "act_1", Payload: map[string]any{"actor_handle": 7},
+		}, "act_1"},
 	}
-	if got := EventActor(core.Event{}); got != "-" {
-		t.Fatalf("EventActor = %q, want a placeholder for no actor", got)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := EventActor(tc.event); got != tc.want {
+				t.Errorf("EventActor = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 
@@ -197,9 +216,34 @@ func TestEventDetailNamesWhatActuallyChanged(t *testing.T) {
 			Type:    core.EventTaskLeaseExpired,
 			Payload: map[string]any{"previous_holder": "a2"},
 		}, "held by a2"},
+		{"a transition that names only where it came from still reads", core.Event{
+			Type: core.EventTaskTransitioned, Payload: map[string]any{"from": "todo"},
+		}, "todo → "},
+		{"a transition that names only where it went still reads", core.Event{
+			Type: core.EventTaskTransitioned, Payload: map[string]any{"to": "doing"},
+		}, " → doing"},
+		{"a transition that names neither end says nothing", core.Event{
+			Type: core.EventTaskTransitioned, Payload: map[string]any{"ref": "homelab-3"},
+		}, ""},
 		{"a release names the status it left the task in", core.Event{
 			Type: core.EventTaskReleased, Payload: map[string]any{"final_status": "done", "status": "done"},
 		}, "→ done"},
+		{"a release carrying only final_status reads from it", core.Event{
+			Type: core.EventTaskReleased, Payload: map[string]any{"final_status": "done"},
+		}, "→ done"},
+		{"a release carrying only status falls back to it", core.Event{
+			Type: core.EventTaskReleased, Payload: map[string]any{"status": "todo"},
+		}, "→ todo"},
+		{"a release naming no status says nothing", core.Event{
+			Type: core.EventTaskReleased, Payload: map[string]any{"ref": "homelab-3"},
+		}, ""},
+		{"a lease that expires the instant it was granted is no lease", core.Event{
+			Type: core.EventTaskClaimed, ActorID: "alice", OccurredAt: occurred,
+			Payload: map[string]any{
+				"actor_handle": "alice", "claimed_by": "alice",
+				"lease_expires_at": occurred,
+			},
+		}, ""},
 		{"a timestamp that survived a JSON round trip still reads", core.Event{
 			Type: core.EventTaskClaimed, ActorID: "alice", OccurredAt: occurred,
 			Payload: map[string]any{

@@ -38,6 +38,13 @@ func TestParseDurationAcceptsTheVocabularyTheProductPrints(t *testing.T) {
 		{"negative", "-30d", -720 * time.Hour},
 		{"explicit plus", "+2d", 48 * time.Hour},
 		{"day zero", "0d", 0},
+		// The ceiling itself, from both parse paths. "0s" alone never reaches
+		// parseTerm because time.ParseDuration takes it first, so the zero term
+		// has to arrive beside another one.
+		{"the largest whole day count a Duration holds", "106751d", 2562024 * time.Hour},
+		{"the same ceiling down the fractional path", "106751.0d", 2562024 * time.Hour},
+		{"a zero term beside a non-zero one", "1h 0s", time.Hour},
+		{"a zero day term beside a non-zero one", "0s 30d", 720 * time.Hour},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -69,6 +76,8 @@ func TestParseDurationRejectsWhatIsNotADuration(t *testing.T) {
 		{"unit with no number", "d"},
 		{"embedded sign", "1h-30m"},
 		{"overflow", "999999999d"},
+		{"one day past the ceiling", "106752d"},
+		{"one day past the ceiling, fractionally", "106752.0d"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

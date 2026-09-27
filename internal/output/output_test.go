@@ -401,14 +401,26 @@ func TestPriorityLabels(t *testing.T) {
 }
 
 func TestTruncate(t *testing.T) {
-	if got := truncate("abcdef", 3); got != "ab…" {
-		t.Errorf("truncate = %q", got)
+	cases := []struct {
+		name string
+		in   string
+		max  int
+		want string
+	}{
+		{"longer than the width loses its tail to an ellipsis", "abcdef", 3, "ab…"},
+		{"shorter than the width is left alone", "ab", 5, "ab"},
+		{"exactly the width is left alone", "abcde", 5, "abcde"},
+		{"one over the width is cut", "abcdef", 5, "abcd…"},
+		{"exactly the width counting runes, not bytes", "ünïcødé", 7, "ünïcødé"},
+		{"whitespace is collapsed first", "a\nb\tc", 10, "a b c"},
+		{"collapsing decides whether it fits", "ab   cd", 5, "ab cd"},
 	}
-	if got := truncate("ab", 5); got != "ab" {
-		t.Errorf("truncate short = %q", got)
-	}
-	if got := truncate("a\nb\tc", 10); got != "a b c" {
-		t.Errorf("truncate whitespace = %q", got)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := truncate(c.in, c.max); got != c.want {
+				t.Errorf("truncate(%q, %d) = %q, want %q", c.in, c.max, got, c.want)
+			}
+		})
 	}
 }
 
@@ -485,5 +497,158 @@ func TestSSHKeyTableShowsARevocation(t *testing.T) {
 	}
 	if !strings.Contains(got, refTime2.UTC().Format("2006-01-02")) {
 		t.Errorf("no revocation date in the row:\n%s", got)
+	}
+}
+
+// tableRows splits a rendered light-box table into its rows of trimmed cells,
+// header first, so a test can name the one cell it means. Asserting against a
+// whole rendered table passes while the cell it was written for is blank.
+func tableRows(t *testing.T, rendered string) [][]string {
+	t.Helper()
+	var rows [][]string
+	for _, line := range strings.Split(rendered, "\n") {
+		if !strings.HasPrefix(line, "│") {
+			continue
+		}
+		parts := strings.Split(strings.Trim(line, "│"), "│")
+		cells := make([]string, len(parts))
+		for i, part := range parts {
+			cells[i] = strings.TrimSpace(part)
+		}
+		rows = append(rows, cells)
+	}
+	return rows
+}
+
+// cellAt reads the named column of one data row, counting rows from zero
+// below the header.
+func cellAt(t *testing.T, rendered, column string, row int) string {
+	t.Helper()
+	rows := tableRows(t, rendered)
+	if len(rows) < 2 {
+		t.Fatalf("no data rows in:\n%s", rendered)
+	}
+	col := -1
+	for i, name := range rows[0] {
+		if name == column {
+			col = i
+			break
+		}
+	}
+	if col < 0 {
+		t.Fatalf("no column %q in header %v", column, rows[0])
+	}
+	if row+1 >= len(rows) {
+		t.Fatalf("no data row %d in:\n%s", row, rendered)
+	}
+	return rows[row+1][col]
+}
+
+// TestClaimRowNamesTheTaskItLeased pins the cells a claim's row carries. The
+// lease token alone is not the answer to "what did I just claim": the ref,
+// title and status come from the claimed task behind the lease, and a row that
+// renders them blank still renders a table.
+func TestClaimRowNamesTheTaskItLeased(t *testing.T) {
+	out := render(t, FormatTable, core.Claim{
+		Task: ptrTask(sampleTask()), LeaseExpiresAt: refTime2, LeaseToken: "lease_1",
+	})
+	cases := []struct{ column, want string }{
+		{"REF", "ENG-7"},
+		{"TITLE", "Wire the output package"},
+		{"STATUS", "in_progress"},
+		{"LEASE EXPIRES", "2026-04-05 06:07"},
+		{"TOKEN", "lease_1"},
+	}
+	for _, c := range cases {
+		if got := cellAt(t, out, c.column, 0); got != c.want {
+			t.Errorf("%s = %q, want %q\n%s", c.column, got, c.want, out)
+		}
+	}
+}
+
+// TestClaimRowWithoutATaskLeavesTheTaskCellsBlank covers the other half of the
+// same guard: nothing to name is an empty cell, not a crash.
+func TestClaimRowWithoutATaskLeavesTheTaskCellsBlank(t *testing.T) {
+	out := render(t, FormatTable, core.Claim{LeaseExpiresAt: refTime2, LeaseToken: "lease_1"})
+	for _, column := range []string{"REF", "TITLE", "STATUS"} {
+		if got := cellAt(t, out, column, 0); got != "" {
+			t.Errorf("%s = %q, want an empty cell\n%s", column, got, out)
+		}
+	}
+	if got := cellAt(t, out, "TOKEN", 0); got != "lease_1" {
+		t.Errorf("TOKEN = %q, want lease_1", got)
+	}
+}
+
+// TestAuditRowComposesTheSubject pins the one cell the audit row builds rather
+// than copies: type and identifier joined, and the bare type when the entry
+// names no identifier.
+func TestAuditRowComposesTheSubject(t *testing.T) {
+	entry := sampleAudit()
+	cases := []struct {
+		name      string
+		subjectID string
+		want      string
+	}{
+		{"an entry with an identifier names both", "tsk_1", "task/tsk_1"},
+		{"an entry without one names the type alone", "", "task"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			e := entry
+			e.SubjectID = c.subjectID
+			out := render(t, FormatTable, []core.AuditEntry{e})
+			if got := cellAt(t, out, "SUBJECT", 0); got != c.want {
+				t.Errorf("SUBJECT = %q, want %q\n%s", got, c.want, out)
+			}
+		})
+	}
+}
+
+// TestTenantRowNamesTheThemeOrSaysItIsDerived pins the fallback: a tenant that
+// picked nothing still has an accent, so the cell says so rather than reading
+// as "no colour".
+func TestTenantRowNamesTheThemeOrSaysItIsDerived(t *testing.T) {
+	cases := []struct {
+		name  string
+		theme string
+		want  string
+	}{
+		{"a chosen theme is named", "solar", "solar"},
+		{"no chosen theme reads as derived", "", "(derived)"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			tenant := sampleTenant()
+			tenant.Theme = c.theme
+			out := render(t, FormatTable, []core.Tenant{tenant})
+			if got := cellAt(t, out, "THEME", 0); got != c.want {
+				t.Errorf("THEME = %q, want %q\n%s", got, c.want, out)
+			}
+		})
+	}
+}
+
+// TestNonStructSlicesPrintTheirElements covers the reflected fallback's
+// scalar-slice path, where there are no columns to build: each element on its
+// own line, and an empty one saying there was nothing rather than printing
+// nothing at all.
+func TestNonStructSlicesPrintTheirElements(t *testing.T) {
+	cases := []struct {
+		name string
+		in   any
+		want string
+	}{
+		{"an empty scalar slice says so", []string{}, "No results.\n"},
+		{"a nil scalar slice says so", []string(nil), "No results.\n"},
+		{"each element gets its own line", []string{"a", "b"}, "a\nb\n"},
+		{"non-strings print the same way", []int{7, 8}, "7\n8\n"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := render(t, FormatTable, c.in); got != c.want {
+				t.Errorf("render = %q, want %q", got, c.want)
+			}
+		})
 	}
 }

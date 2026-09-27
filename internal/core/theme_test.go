@@ -3,6 +3,7 @@
 package core_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -94,33 +95,44 @@ func TestConfigurationRedefinesABuiltIn(t *testing.T) {
 func TestThemeListNamesItsSources(t *testing.T) {
 	t.Parallel()
 	r, err := core.NewThemeRegistry([]core.Theme{
+		{Name: "zulu", Accent: "#7c3aed", AccentSoft: "#f3eeff"},
 		{Name: "acme", Accent: "#7c3aed", AccentSoft: "#f3eeff"},
 	})
 	if err != nil {
 		t.Fatalf("NewThemeRegistry: %v", err)
 	}
 	list := r.List()
-	if len(list) < 2 {
-		t.Fatalf("List() returned %d themes, want the built-ins and the configured one", len(list))
+	if len(list) < 4 {
+		t.Fatalf("List() returned %d themes, want the built-ins and the two configured ones", len(list))
 	}
-	var sawBuiltIn, sawCustom bool
-	for _, th := range list {
+
+	// Two custom themes, so the configured group's comparator is actually
+	// called, and each group's order is read as a group rather than inferred
+	// from whichever entry happens to be last.
+	var builtNames, customNames []string
+	firstCustom := -1
+	for i, th := range list {
 		if th.BuiltIn {
-			sawBuiltIn = true
+			if firstCustom >= 0 {
+				t.Errorf("built-in %q at index %d sorts after configured theme %q",
+					th.Name, i, list[firstCustom].Name)
+			}
+			builtNames = append(builtNames, th.Name)
 			continue
 		}
-		sawCustom = true
-		if th.Name != "acme" {
-			t.Errorf("unexpected configured theme %q", th.Name)
+		if firstCustom < 0 {
+			firstCustom = i
 		}
+		customNames = append(customNames, th.Name)
 	}
-	if !sawBuiltIn || !sawCustom {
-		t.Errorf("List() = %v, want both sources represented", list)
+	if len(builtNames) < 2 {
+		t.Fatalf("List() named %d built-ins, want the whole set: %v", len(builtNames), builtNames)
 	}
-	// Built-ins first, then configured, each sorted: map iteration order must
-	// not reach a listing someone reads.
-	if list[len(list)-1].BuiltIn {
-		t.Error("a built-in theme sorted after a configured one")
+	if !slices.IsSorted(builtNames) {
+		t.Errorf("built-in group is not ordered by name: %v", builtNames)
+	}
+	if !slices.Equal(customNames, []string{"acme", "zulu"}) {
+		t.Errorf("configured group = %v, want [acme zulu] in that order", customNames)
 	}
 }
 

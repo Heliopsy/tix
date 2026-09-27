@@ -190,3 +190,41 @@ func TestRelativeNeverSaysZero(t *testing.T) {
 		}
 	}
 }
+
+// TestRelativeCoarsensThroughEveryUnit pins the whole ladder, in both
+// directions, from a fixed clock. The month and year buckets divide the hours
+// they were handed, and neither divisor was asserted: a wrong one still
+// produced a plausible-looking "N months ago".
+func TestRelativeCoarsensThroughEveryUnit(t *testing.T) {
+	now := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
+	style := TimeStyle{format: TimeRelative, loc: time.UTC, now: func() time.Time { return now }}
+
+	const day = 24 * time.Hour
+	cases := []struct {
+		name   string
+		gap    time.Duration
+		past   string
+		future string
+	}{
+		{"inside the just-now cutoff", 30 * time.Second, "just now", "in a moment"},
+		{"minutes", 18 * time.Minute, "18 minutes ago", "in 18 minutes"},
+		{"hours", 5 * time.Hour, "5 hours ago", "in 5 hours"},
+		{"days", 3 * day, "3 days ago", "in 3 days"},
+		{"the last day before months", 29 * day, "29 days ago", "in 29 days"},
+		{"the first month", 30 * day, "1 month ago", "in 1 month"},
+		{"months", 95 * day, "3 months ago", "in 3 months"},
+		{"the last month before years", 364 * day, "12 months ago", "in 12 months"},
+		{"the first year", 365 * day, "1 year ago", "in 1 year"},
+		{"years", 800 * day, "2 years ago", "in 2 years"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := style.Relative(now.Add(-c.gap)); got != c.past {
+				t.Errorf("Relative(-%s) = %q, want %q", c.gap, got, c.past)
+			}
+			if got := style.Relative(now.Add(c.gap)); got != c.future {
+				t.Errorf("Relative(+%s) = %q, want %q", c.gap, got, c.future)
+			}
+		})
+	}
+}

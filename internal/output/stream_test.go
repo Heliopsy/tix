@@ -217,3 +217,70 @@ func TestStreamDoesNotLeakSecrets(t *testing.T) {
 		}
 	}
 }
+
+// tableBodyLines returns the rendered table's data rows, header excluded.
+func tableBodyLines(rendered string) []string {
+	var body []string
+	for _, line := range strings.Split(rendered, "\n") {
+		if strings.HasPrefix(line, "│") {
+			body = append(body, line)
+		}
+	}
+	if len(body) == 0 {
+		return nil
+	}
+	return body[1:]
+}
+
+// TestBufferedStreamRendersEveryRecordItWasGiven is the round trip the
+// buffered path never had. A Write that dropped its record silently still
+// produced a table, headers and rules and all, so every existing assertion
+// about the table stream passed over an empty one.
+func TestBufferedStreamRendersEveryRecordItWasGiven(t *testing.T) {
+	records := []core.Task{
+		{Ref: "ENG-1", Title: "first", Status: "todo"},
+		{Ref: "ENG-2", Title: "second", Status: "doing"},
+		{Ref: "ENG-3", Title: "third", Status: "done"},
+	}
+	// The unknown format falls back to the same buffered renderer, so both
+	// paths have to carry the records through.
+	for _, format := range []string{output.FormatTable, "nonsense"} {
+		t.Run(format, func(t *testing.T) {
+			var buf bytes.Buffer
+			s := output.NewStreamWithMode(format, &buf, output.ModeNever)
+			for _, record := range records {
+				if err := s.Write(record); err != nil {
+					t.Fatalf("Write(%s): %v", record.Ref, err)
+				}
+			}
+			if err := s.Close(); err != nil {
+				t.Fatalf("Close: %v", err)
+			}
+
+			body := tableBodyLines(buf.String())
+			if len(body) != len(records) {
+				t.Fatalf("rendered %d data rows, want %d:\n%s", len(body), len(records), buf.String())
+			}
+			for i, record := range records {
+				for _, want := range []string{record.Ref, record.Title, record.Status} {
+					if !strings.Contains(body[i], want) {
+						t.Errorf("row %d = %q, missing %q", i, body[i], want)
+					}
+				}
+			}
+		})
+	}
+}
+
+// A buffered stream given nothing renders the header and no data rows, which
+// is what makes the row count above evidence that the records arrived.
+func TestBufferedStreamWithNoRecordsHasNoDataRows(t *testing.T) {
+	var buf bytes.Buffer
+	s := output.NewStreamWithMode(output.FormatTable, &buf, output.ModeNever)
+	if err := s.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if body := tableBodyLines(buf.String()); len(body) != 0 {
+		t.Errorf("an empty stream rendered %d data rows:\n%s", len(body), buf.String())
+	}
+}

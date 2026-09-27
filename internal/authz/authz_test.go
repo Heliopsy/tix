@@ -282,6 +282,38 @@ func TestDenialDetailsNameActionAndScope(t *testing.T) {
 	if domain.Details["owner_id"] != "u9" {
 		t.Errorf("missing owner detail: %v", domain.Details)
 	}
+	if domain.Details["project_id"] != projA {
+		t.Errorf("project detail = %v, want %q: %v", domain.Details["project_id"], projA, domain.Details)
+	}
+}
+
+// A detail is carried when it says something. A project-less resource must not
+// grow an empty project_id, which a consumer would read as "project unknown"
+// rather than "not scoped to a project".
+func TestDenialOmitsDetailsTheResourceDoesNotCarry(t *testing.T) {
+	p := New()
+	err := p.Can(scopeActor(), ActionTaskDelete, Resource{TenantID: tenantA, OwnerID: "u9"})
+	var domain *core.Error
+	if !errors.As(err, &domain) {
+		t.Fatalf("want *core.Error, got %T", err)
+	}
+	if got, ok := domain.Details["project_id"]; ok {
+		t.Errorf("project_id detail = %v on a project-less resource, want it absent: %v", got, domain.Details)
+	}
+	if domain.Details["owner_id"] != "u9" {
+		t.Errorf("owner detail dropped alongside: %v", domain.Details)
+	}
+
+	err = p.Can(scopeActor(), ActionTaskDelete, Resource{TenantID: tenantA, ProjectID: projB})
+	if !errors.As(err, &domain) {
+		t.Fatalf("want *core.Error, got %T", err)
+	}
+	if domain.Details["project_id"] != projB {
+		t.Errorf("project detail = %v, want %q: %v", domain.Details["project_id"], projB, domain.Details)
+	}
+	if got, ok := domain.Details["owner_id"]; ok {
+		t.Errorf("owner_id detail = %v on an owner-less resource, want it absent: %v", got, domain.Details)
+	}
 }
 
 func TestAllowedMirrorsCan(t *testing.T) {

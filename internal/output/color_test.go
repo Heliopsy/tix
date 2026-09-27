@@ -29,7 +29,11 @@ func charDevice(t *testing.T) *os.File {
 		})
 	}
 	t.Cleanup(func() { _ = f.Close() })
-	if !isTerminal(f) {
+	// The gate reads the file mode itself rather than calling isTerminal.
+	// Gating on the function under test turns every failure of it into a
+	// skip, which reads exactly like a pass.
+	info, statErr := f.Stat()
+	if statErr != nil || info.Mode()&os.ModeCharDevice == 0 {
 		testenv.Skip(t, testenv.Capability{
 			Name: "character-device",
 			Why:  "the null device is not a character device here, so auto colour cannot be exercised",
@@ -37,6 +41,35 @@ func charDevice(t *testing.T) *os.File {
 		})
 	}
 	return f
+}
+
+// TestIsTerminalRecognisesACharacterDevice guards automatic colour detection
+// at its source. isTerminal answering false for a real character device turns
+// auto mode off everywhere without any other symptom, and the writers that
+// are not terminals answer false for their own reasons, so only the positive
+// case pins it.
+func TestIsTerminalRecognisesACharacterDevice(t *testing.T) {
+	device := charDevice(t)
+	if !isTerminal(device) {
+		t.Fatal("isTerminal said no to a character device: auto colour is off everywhere")
+	}
+	t.Setenv(EnvNoColor, "")
+	t.Setenv(EnvTixNoColor, "")
+	if !colorAllowed(ModeAuto, device) {
+		t.Fatal("auto mode refused colour on a character device")
+	}
+
+	regular, err := os.CreateTemp(t.TempDir(), "out")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = regular.Close() })
+	if isTerminal(regular) {
+		t.Error("isTerminal said yes to a regular file")
+	}
+	if isTerminal(new(bytes.Buffer)) {
+		t.Error("isTerminal said yes to a writer that is not a file at all")
+	}
 }
 
 func colourfulTasks() []core.Task {

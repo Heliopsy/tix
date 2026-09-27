@@ -239,6 +239,35 @@ func TestCreateProjectInputValidate(t *testing.T) {
 	if err := (CreateProjectInput{Key: "infra"}).Validate(); err == nil {
 		t.Error("a project with no name must be rejected")
 	}
+
+	// Colour and icon end up inside a stylesheet and a rendered row, so
+	// Validate must refuse each on its own. Each case below leaves the other
+	// field valid, so a single early return cannot satisfy both.
+	if err := (CreateProjectInput{Key: "infra", Name: "Infrastructure", Color: "blue", Icon: "IN"}).Validate(); err != nil {
+		t.Errorf("a palette colour and a two-rune icon must be accepted: %v", err)
+	}
+
+	err := (CreateProjectInput{Key: "infra", Name: "Infrastructure", Color: "burgundy", Icon: "IN"}).Validate()
+	if err == nil {
+		t.Fatal("a colour outside the palette must be rejected")
+	}
+	if KindOf(err) != KindInvalid {
+		t.Errorf("colour rejection kind = %v, want %v", KindOf(err), KindInvalid)
+	}
+	if !strings.Contains(err.Error(), "burgundy") || !strings.Contains(err.Error(), "palette") {
+		t.Errorf("colour rejection = %q, want it to name the colour and the palette", err)
+	}
+
+	err = (CreateProjectInput{Key: "infra", Name: "Infrastructure", Color: "blue", Icon: "toolong"}).Validate()
+	if err == nil {
+		t.Fatal("an over-long project icon must be rejected")
+	}
+	if KindOf(err) != KindInvalid {
+		t.Errorf("icon rejection kind = %v, want %v", KindOf(err), KindInvalid)
+	}
+	if !strings.Contains(err.Error(), "toolong") || !strings.Contains(err.Error(), "icon") {
+		t.Errorf("icon rejection = %q, want it to name the icon", err)
+	}
 }
 
 func TestCreateTenantInputValidate(t *testing.T) {
