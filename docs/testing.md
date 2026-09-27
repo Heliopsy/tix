@@ -96,6 +96,117 @@ it is now covered like every other package, and excluding it only hid a covered 
 number. Its current figure comes from `go tool cover`, like any other package, so no count is
 repeated here to go stale.
 
+## Mutation testing
+
+[AGENTS.md](../AGENTS.md) asks you to break the behaviour a guard protects and watch the guard fail.
+`just mutate` does that mechanically: [gremlins](https://github.com/go-gremlins/gremlins) changes one
+operator at a time, reruns the package's tests, and reports every change the tests did not notice.
+Fourteen guards in this repository have passed over broken behaviour, and none of them was found by
+review or by coverage. This is the tool shaped like the thing that did find them.
+
+| Command | What it does |
+| --- | --- |
+| `just mutate internal/sshd` | Every mutant in one package |
+| `just mutate internal/web '<regexp>'` | The same, with the files matching the regexp left out |
+| `just mutate-sweep` | Every package in `mutate_packages`, each reported on its own |
+
+The first run installs the pinned gremlins into `bin/`, which takes a few seconds.
+
+The second argument to `just mutate` is a Go regexp matched against each file's name *inside* the
+package directory, and it names what to leave out. RE2 has no negative lookahead, so narrowing a
+package down to one file means listing the rest:
+
+```sh
+# every mutant in internal/output/stream.go and nothing else
+just mutate internal/output '^(?:color|event|json|output|table|time|timestyle|yaml)\.go$'
+```
+
+For `internal/web` and `internal/service` this is the only practical way in.
+
+There is no recipe for "only the lines I changed", although gremlins has a `--diff` flag for exactly
+that, because the flag does not work when it is pointed at a package: it keys the changed lines by
+their path from the repository root and keys mutants by their path inside the directory it was given,
+so the two never line up. 119 changed lines under `internal/tui` produced 1227 mutants out of scope
+and none tested. From the module root the paths do agree, but then the coverage step is a run of the
+entire suite and the run never finished inside half an hour on a busy machine, so it is not offered
+here. Name the files instead.
+
+### Reading the output
+
+```text
+internal/authz: 5 killed, 1 survived, 2 uncovered, 0 out of scope, 0 timed out
+  survived  internal/authz/policy.go:57:19  CONDITIONALS_NEGATION
+```
+
+*Killed* means a test failed when the code changed, which is the outcome you want. *Uncovered* means
+no test reaches that line at all, which coverage already tells you. *Survived* is the interesting
+one: the code changed and every test still passed.
+
+A survivor is a question, not a defect, and there are three answers. Work out which one you have
+before writing anything.
+
+1. **A real gap.** The behaviour differs and nothing asserts it. Write the guard, and watch it fail
+   the way AGENTS.md describes. Most of these fit the shape the fourteen shared: the assertion reads
+   something wider than the thing it names.
+2. **An equivalent mutant.** The change cannot be observed from outside. `if p.Limit > MaxPageLimit
+   { p.Limit = MaxPageLimit }` behaves identically as `>=`, and a capacity hint in `make(map[k]v,
+   len(a)+len(b))` behaves identically as `-`. There is nothing to assert. Leave it.
+3. **Killed somewhere else.** gremlins runs only the mutated package's own tests, so a guard living
+   in another package does not count as a kill. Reversing `core.DefaultRetention`'s event window
+   survives `internal/core`'s tests and is killed immediately by `internal/config` and
+   `internal/retention`. Check the wider suite before believing a survivor:
+
+   ```sh
+   # edit the line by hand, then
+   go test ./internal/core ./internal/config ./internal/retention -count=1
+   ```
+
+   Of 50 survivors checked against the wider suite this way, 7 were already killed elsewhere. Add
+   the equivalent mutants and something over a third of a survivor list is not a finding, which is
+   why this is a list to read rather than a number to defend.
+
+### What it costs, and where it runs
+
+A mutant is one run of the package's tests, so the cost is the mutant count times that run, divided
+by the six workers. Measured on a twenty-core machine at `269bd9a`; the last column is that
+arithmetic rather than a stopwatch for the two that were never run to the end.
+
+| Package | Runnable mutants | Its tests | Whole package |
+| --- | --- | --- | --- |
+| `internal/authz` | 6 | 0.01s | seconds |
+| `internal/capability` | 14 | 1.6s | ~1 minute |
+| `internal/output` | 153 | 0.04s | ~30 seconds |
+| `internal/core` | 244 | 0.04s | ~1 minute |
+| `internal/sshd` | 186 | 2.2s | ~7 minutes |
+| `internal/tui` | 1075 | 0.9s | ~20 minutes |
+| `internal/web` | 675 | 25s | ~45 minutes |
+| `internal/service` | 1336 | 185s | ~11 hours |
+
+So it is not in `just check` and not in `just ci`. A gate that doubles CI time gets turned off, and
+this one would do considerably worse than double. It runs two ways instead: `just mutate` aimed at
+the package or the files you just changed, and a weekly
+[scheduled workflow](../.github/workflows/mutation.yaml) over `mutate_packages` that posts the
+survivor list to its job summary. `internal/web` and `internal/service` are deliberately out of the
+sweep, which keeps it inside about half an hour; reach them a file at a time.
+
+### Two ways the tool lies, and the guards against them
+
+Both are configured in [`.gremlins.yaml`](../.gremlins.yaml), which explains them at the point of
+the setting. Neither is hypothetical; both happened while this was being set up.
+
+- **Every mutant times out and the run reports perfect efficacy.** The per-mutant timeout is derived
+  from how long the coverage run took, so on a package whose tests finish in milliseconds it is
+  shorter than the compile. `internal/core` reported 240 timeouts, 4 kills, `Test efficacy: 100.00%`
+  and exit status 0. `just mutate` refuses any run with a timeout in it.
+- **The run dies half a second in.** gremlins copies the whole module once per worker and never
+  closes the files it copies, so at its default of one worker per CPU it exceeds the file descriptor
+  limit and panics with `error, this is temporary`. Workers are pinned rather than left to the
+  machine.
+
+One thing neither guard covers: those copies live in `/tmp/gremlins-*`, about a gigabyte each, and
+gremlins only removes them when it exits normally. Interrupt a run and they stay. `rm -rf
+/tmp/gremlins-*` after a Ctrl-C.
+
 ## PostgreSQL
 
 ```sh

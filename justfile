@@ -376,6 +376,133 @@ leak: pg-up
     TIX_TEST_POSTGRES_DSN='{{pg_dsn}}' go test ./... -count=1 -v \
       -run 'TestTenantIsolation|TestRowLevelSecurity|TestPoliciesExistForEveryScopedTable|TestPruningStaysInsideTheTenant|TestTenantSettingDoesNotLeakOntoTheNextTransaction|TestProjectAppearanceStaysInsideTheTenant'
 
+# ---------------------------------------------------------------- mutation
+
+# gremlins, pinned, installed into bin/ rather than added to the toolbox image.
+#
+# Every other tool in this file is a linter or a scanner: it reads the tree once
+# and the container costs nothing. This one re-runs `go test` once per mutant,
+# so it lives or dies on a warm build cache. Through `just tool` internal/output
+# took 99 seconds against 30 on the host, and the CI runner has no container
+# engine at all, so the containerised path would never be the one CI ran.
+gremlins_version := "v0.6.0"
+
+# The packages the sweep covers. These are where a guard has already passed over
+# broken behaviour, minus the two whose suites are too slow to mutate whole:
+# internal/service takes about 185 seconds a run and internal/web about 25, and
+# a mutant is one run. Aim `just mutate` at a file of those instead; the
+# arithmetic is in docs/testing.md.
+mutate_packages := "internal/sshd internal/tui internal/capability internal/core internal/output internal/authz"
+
+# gremlins reports its own version as "dev" whatever it was built from, so the
+# pin is recorded beside the binary. Without the stamp a bin/gremlins left by an
+# older pin is reused silently for good.
+_gremlins:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    want='{{gremlins_version}}'
+    if [ "$(cat bin/.gremlins-version 2>/dev/null)" != "$want" ] || [ ! -x bin/gremlins ]; then
+      mkdir -p bin
+      GOBIN="$PWD/bin" go install "github.com/go-gremlins/gremlins/cmd/gremlins@$want"
+      echo "$want" > bin/.gremlins-version
+    fi
+
+# EXCLUDE is a Go regexp, matched against each file's name inside the package
+# directory, not its path from the repository root. It names what to leave out
+# rather than what to keep, because RE2 has no negative lookahead, so cutting a
+# package down to one file means listing the others:
+#
+#     just mutate internal/web '^(?:activity|actors|admin|assets)\.go$'
+#
+# --config is explicit because gremlins searches /etc/gremlins and $HOME before
+# the module root, so a file on the machine would otherwise win over this
+# repository's and nothing would say so.
+#
+# Break one thing at a time in PKG and report every break its tests missed.
+mutate PKG EXCLUDE="": _gremlins
+    #!/usr/bin/env bash
+    set -euo pipefail
+    report=$(mktemp); trap 'rm -f "$report"' EXIT
+    args=(unleash './{{PKG}}' --config .gremlins.yaml -o "$report")
+    if [ -n '{{EXCLUDE}}' ]; then args+=(--exclude-files '{{EXCLUDE}}'); fi
+    bin/gremlins "${args[@]}"
+    just _mutate-report "$report" '{{PKG}}'
+
+# Not part of `just check` or `just ci`: it takes tens of minutes and it produces
+# a list to read rather than a pass or a fail. The scheduled workflow runs this.
+#
+# Mutate every package in mutate_packages, reporting each on its own.
+mutate-sweep:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rc=0
+    for pkg in {{mutate_packages}}; do
+      echo ""
+      echo "=============================== $pkg"
+      just mutate "$pkg" || rc=1
+    done
+    exit $rc
+
+# The failure conditions here are operational, not qualitative. A surviving
+# mutant is a question for a person, so it does not fail the recipe. A timeout
+# or an empty run does, because gremlins is happy to report "Test efficacy:
+# 100.00%" and exit 0 over a run where every mutant timed out and nothing was
+# tested at all: at its default timeout, which is derived from how long the
+# coverage run took, internal/core reported 240 timeouts, 4 kills and perfect
+# efficacy. That is the exact shape of the four silent skips this repository has
+# already been bitten by, so it is refused here rather than read as evidence.
+#
+# Read one gremlins report and name what survived.
+_mutate-report FILE PKG:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    python3 - '{{FILE}}' '{{PKG}}' <<'EOF'
+    import collections, json, sys
+
+    report, pkg = sys.argv[1], sys.argv[2]
+    with open(report) as fh:
+        data = json.load(fh)
+    counts = collections.Counter(
+        m["status"] for f in data["files"] for m in f["mutations"]
+    )
+    def at(status):
+        return [
+            (f["file_name"], m["line"], m["column"], m["type"])
+            for f in data["files"]
+            for m in f["mutations"]
+            if m["status"] == status
+        ]
+
+    lived, timed_out = at("LIVED"), at("TIMED OUT")
+    tested = counts["KILLED"] + counts["LIVED"]
+    print(f"{pkg}: {counts['KILLED']} killed, {counts['LIVED']} survived, "
+          f"{counts['NOT COVERED']} uncovered, {counts['SKIPPED']} out of scope, "
+          f"{counts['TIMED OUT']} timed out")
+    # Pointed at the root, gremlins already reports paths from the root.
+    where = "" if pkg == "." else pkg + "/"
+    for name, line, col, kind in sorted(lived):
+        print(f"  survived  {where}{name}:{line}:{col}  {kind}")
+    # A handful of timeouts are mutants that hang, usually an inverted loop
+    # condition, and a hang is a change the suite would notice. A large share of
+    # them is the other thing entirely: a timeout budget too small to compile in,
+    # which reports every mutant as neither killed nor survived and still prints
+    # perfect efficacy. Five percent separates the two in practice.
+    for name, line, col, kind in sorted(timed_out):
+        print(f"  timed out {where}{name}:{line}:{col}  {kind}")
+    if len(timed_out) * 20 > tested:
+        sys.exit(f"{len(timed_out)} of {tested + len(timed_out)} mutants timed "
+                 f"out, which is too many to be hangs: the timeout budget is "
+                 f"too small, so this run proves far less than it reports. "
+                 f"Raise unleash.timeout-coefficient in .gremlins.yaml.")
+    # Under --diff a run with nothing to do is the answer, not a fault: the
+    # changed lines carried no mutant. With no filter in play it is a fault.
+    if tested == 0 and counts["SKIPPED"] == 0:
+        sys.exit("no mutant was tested: the package matched nothing, or its "
+                 "tests do not run.")
+    if tested == 0:
+        print("nothing in scope carried a mutant.")
+    EOF
+
 # ---------------------------------------------------------------- postgres
 
 pg-up:

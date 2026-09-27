@@ -70,6 +70,13 @@ Two traps, both real:
   view opening, while the read it should have prevented still went out. Assert
   both halves: the affordance is absent *and* the call was never made.
 
+`just mutate internal/tui` does this mechanically to a whole package, one
+operator at a time, and names every change the tests sat through. It is not a
+substitute for doing it by hand on the behaviour you actually care about: it
+breaks operators, not intent, and a good share of what it reports is either
+unobservable or already caught by another package's tests. Read
+[docs/testing.md](docs/testing.md#mutation-testing) before acting on a survivor.
+
 ### Documentation a test can decide
 
 Prose explaining why a thing is the way it is does not rot. Tables that

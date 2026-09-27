@@ -1,0 +1,40 @@
+# gremlins configuration. Passed explicitly with --config by `just mutate`,
+# because gremlins searches /etc/gremlins and $HOME before the module root and
+# would otherwise read a file on the machine instead of this one without saying
+# so.
+
+unleash:
+  # One worker per CPU is the default and it does not work here. gremlins copies
+  # the whole module into a scratch directory once per worker and never closes
+  # the files it copies, so on a 20-core machine it opens twenty times this
+  # repository's 6335 files, passes the descriptor limit and dies with "panic:
+  # error, this is temporary" after half a second. Six is measured to be safe
+  # with a 65535 limit and a full .git; it is the concurrency, not a preference.
+  workers: 6
+
+  # The per-mutant timeout is this multiple of however long the coverage run
+  # took. For a package whose tests finish in 113ms the default of 3 is shorter
+  # than the compile, so every mutant times out and gremlins still reports
+  # "Test efficacy: 100.00%" and exits 0. 100 is roomy rather than tuned: a high
+  # coefficient only costs time on a mutant that really does hang, and
+  # `just mutate` refuses a run where timeouts are more than a few percent.
+  timeout-coefficient: 100
+
+mutants:
+  # These are off upstream too. They are written out rather than left implicit
+  # because "which mutants does this run" is the first question a survivor list
+  # raises, and an upstream default is not an answer anyone can read here. Each
+  # mutates a construct this codebase either does not use or uses only where the
+  # result is unobservable, so it would cost triage and teach nothing.
+  invert-assignments:
+    enabled: false
+  invert-bitwise:
+    enabled: false
+  invert-bwassign:
+    enabled: false
+  invert-logical:
+    enabled: false
+  invert-loopctrl:
+    enabled: false
+  remove-self-assignments:
+    enabled: false

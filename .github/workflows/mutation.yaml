@@ -1,0 +1,72 @@
+name: Mutation
+
+# Weekly rather than per-push. A mutant is one run of a package's test suite, so
+# the sweep costs tens of minutes: see docs/testing.md for the arithmetic. It is
+# also not a pass-or-fail signal. It produces a list of guards that did not
+# notice a change, and every entry needs a person to decide whether it is a real
+# gap, a mutant with no observable effect, or one that another package's tests
+# would have caught. Gating on that would train people to override it.
+on:
+  schedule:
+    - cron: '41 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'One package to mutate instead of the whole sweep, e.g. internal/sshd'
+        required: false
+        type: string
+
+permissions: read-all
+
+jobs:
+  mutate:
+    name: Mutation testing
+    runs-on: ubuntu-24.04
+    # The sweep is minutes per package and the default six hours would let a
+    # hung mutant burn the afternoon before anyone noticed.
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
+
+      # tee, so the survivors reach both the log and the summary. The summary is
+      # the point: a report nobody opens is the same as no report, and nobody
+      # opens a scheduled job that only says it passed.
+      - name: Mutate
+        id: mutate
+        run: |
+          if [ -n "${PACKAGE}" ]; then
+            just mutate "${PACKAGE}" | tee mutation.txt
+          else
+            just mutate-sweep | tee mutation.txt
+          fi
+        env:
+          PACKAGE: ${{ inputs.package }}
+
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            echo '## Surviving mutants'
+            echo ''
+            echo 'A survivor is a change to the code that every test still passed over.'
+            echo 'How to tell a real gap from noise: docs/testing.md, "Mutation testing".'
+            echo ''
+            echo '```text'
+            grep -E '^(internal/|  survived )' mutation.txt || echo 'no report was produced'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        if: always()
+        with:
+          name: mutation-report
+          path: mutation.txt
+          retention-days: 30
