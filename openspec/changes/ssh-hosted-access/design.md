@@ -146,6 +146,12 @@ guarantee true if a colour outside ANSI-16 is ever used.
 terminal path keeps today's behaviour by passing the default renderer. This is carried from `ssh-terminal-access`
 task 7.4, which deferred it.
 
+> Since this was written, lipgloss v2 removed `Renderer` entirely. The requirement above is unchanged and
+> still holds: the depth is now a `colorprofile.Profile` on `tui.Config`, resolved once per session and given
+> to both the theme and the bubbletea program so the styles a frame is built from and the writer it leaves
+> through agree. `termenv` is gone, so the sentence about it passing ANSI colours through unchanged describes
+> the old mechanism rather than the current one. See `internal/tui/profile.go`.
+
 ## Rejected alternatives
 
 - **`authorized_keys` file.** No tenant, no actor, no revocation trail, no API, and it would have to be parsed
