@@ -1,8 +1,8 @@
 ---
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. There is no MCP server; this CLI is the only interface. Covers the claim/lease/release loop, `tix claim exec`, machine-readable output, exit codes, filtering, `tix watch`, comments/artifacts, dependencies, the actor directory, `tix stats`, `tix ssh`, and multi-target config.
-version: 7
-verified-against: tix 8b4780c (2026-09-27)
+version: 8
+verified-against: tix 74072ee (2026-09-27)
 ---
 
 # tix
@@ -190,6 +190,7 @@ subcommand's `--help` names the codes that command can return; the root
 | 4 | conflict — held task, lost lease, version clash |
 | 5 | permission denied |
 | 6 | precondition failed — illegal transition, task has subtasks |
+| 7 | upstream failed — a system tix called, such as a sync source, answered badly |
 
 A dependency cycle is exit `2` (`invalid`), not `6` — verified with `dep add`
 closing a loop. Exit `6` is for things a

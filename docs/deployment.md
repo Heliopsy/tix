@@ -272,7 +272,7 @@ build:
 
 ```sh
 podman volume create tix-data
-podman run -d --name tix -p 127.0.0.1:8080:8080 -v tix-data:/data ghcr.io/heliopsy/tix:0.6.0
+podman run -d --name tix -p 127.0.0.1:8080:8080 -v tix-data:/data ghcr.io/heliopsy/tix:0.8.0
 ```
 
 That is the whole command. The image already carries the database path, the bind address and the subcommand,
@@ -283,8 +283,8 @@ what they are.
 
 | Tag | Moves |
 | --- | --- |
-| `ghcr.io/heliopsy/tix:0.6.0` | never: one release, one digest |
-| `ghcr.io/heliopsy/tix:0.6` | forward over every patch in the 0.6 series |
+| `ghcr.io/heliopsy/tix:0.8.0` | never: one release, one digest |
+| `ghcr.io/heliopsy/tix:0.8` | forward over every patch in the 0.8 series |
 | `ghcr.io/heliopsy/tix:latest` | forward over every release, including across a breaking change |
 
 There is deliberately no `:0`. release-please runs `bump-minor-pre-major` here, so before 1.0 a breaking change
@@ -334,7 +334,7 @@ If you mount a host directory, chown it to the image's user first:
 
 ```sh
 chown 65532:65532 /srv/tix-data      # rootless podman: podman unshare chown 65532:65532 /srv/tix-data
-podman run -d --name tix -p 127.0.0.1:8080:8080 -v /srv/tix-data:/data ghcr.io/heliopsy/tix:0.6.0
+podman run -d --name tix -p 127.0.0.1:8080:8080 -v /srv/tix-data:/data ghcr.io/heliopsy/tix:0.8.0
 ```
 
 Prefer a named volume unless you have a reason to want the files where you can see them. In Kubernetes the
@@ -361,7 +361,7 @@ say what you expect that to be, or you have checked nothing:
 cosign verify \
   --certificate-identity 'https://github.com/Heliopsy/tix/.github/workflows/release.yaml@refs/heads/main' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  ghcr.io/heliopsy/tix:0.6.0
+  ghcr.io/heliopsy/tix:0.8.0
 ```
 
 Three details in that identity are easy to get wrong:
@@ -383,7 +383,7 @@ pulling on arm64 can verify the child they actually run, which a signature over 
 them do:
 
 ```sh
-digest=$(podman manifest inspect ghcr.io/heliopsy/tix:0.6.0 \
+digest=$(podman manifest inspect ghcr.io/heliopsy/tix:0.8.0 \
   | jq -r '.manifests[] | select(.platform.architecture == "arm64") | .digest')
 cosign verify \
   --certificate-identity 'https://github.com/Heliopsy/tix/.github/workflows/release.yaml@refs/heads/main' \
@@ -393,10 +393,15 @@ cosign verify \
 
 **v0.6.0 carries no SBOM and no build provenance.** The release workflow attempts both, and for v0.6.0 both
 failed: the attestations addressed a child digest the registry had not stored under that name, because podman
-re-encodes manifests on push. A `cosign verify-attestation` against this release will report that no
-attestation matched the predicate type, which is an accurate report of what is published rather than a problem
-at your end. The fix is in the workflow and lands with the next release. Until then the image is signed, not
-attested.
+re-encodes manifests on push. A `cosign verify-attestation` against that release reports that no attestation
+matched the predicate type, which is an accurate report of what is published rather than a problem at your
+end. It is signed, not attested, and it stays that way: a published digest is not rebuilt.
+
+v0.7.0 and later carry both. Two separate faults had to be fixed to get there. The first was the digest above.
+The second was that the attestation addressed the git tag, `v0.7.0`, while the registry holds `0.7.0`: the
+image tags drop the leading `v`, so every lookup asked for something that was never pushed and failed as a
+bare `manifest unknown`. The workflow now verifies what it published, against the registry, as its own last
+step, so a release that signs but does not attest fails rather than being found later.
 
 Release archives are signed too, and `tix update` checks a checksum rather than a signature. See
 [upgrading.md](upgrading.md).
@@ -443,7 +448,7 @@ spec:
         fsGroup: 65532
       containers:
         - name: tix
-          image: ghcr.io/heliopsy/tix:0.6.0
+          image: ghcr.io/heliopsy/tix:0.8.0
           ports:
             - containerPort: 8080
           volumeMounts:

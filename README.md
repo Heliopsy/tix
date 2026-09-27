@@ -150,7 +150,7 @@ For a server, the container image is the shorter path: it carries the database p
 subcommand, so there is nothing to configure to get a working one.
 
 ```sh
-podman run -d -p 127.0.0.1:8080:8080 -v tix-data:/data ghcr.io/heliopsy/tix:0.6.0
+podman run -d -p 127.0.0.1:8080:8080 -v tix-data:/data ghcr.io/heliopsy/tix:0.8.0
 ```
 
 `linux/amd64` and `linux/arm64` in one manifest list, on distroless as uid 65532 with no shell, and signed
