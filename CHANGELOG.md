@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.8.0](https://github.com/Heliopsy/tix/compare/v0.7.0...v0.8.0) (2026-09-27)
+
+
+### Bug Fixes
+
+* **ci:** attest the image tag that was actually pushed ([8295907](https://github.com/Heliopsy/tix/commit/8295907fc2077221ee42d344a392faa87f16353c))
+* **ci:** drop the child-digest check that refused every correct digest ([295494c](https://github.com/Heliopsy/tix/commit/295494cb09c7ee9ee05f79485942639d8792ca21))
+* **ci:** stop the CLA bot locking the release pull request ([06de58a](https://github.com/Heliopsy/tix/commit/06de58ae01aaf1eba0415bbad4bfac6a9fc7c9a0))
+
+
+### Dependencies
+
+* **deps:** move the charm stack to v2 ([59c4481](https://github.com/Heliopsy/tix/commit/59c44819f4d76f4aa0d6f9a1c5341cbb406367a3))
+
+
+### Documentation
+
+* **theming:** say how colour depth is resolved, and what changed ([e1ac251](https://github.com/Heliopsy/tix/commit/e1ac2516b1c432643bde8cdb1a18dcbca4e4a2a1))
+
 ## [0.7.0](https://github.com/Heliopsy/tix/compare/v0.6.0...v0.7.0) (2026-09-27)
 
 
