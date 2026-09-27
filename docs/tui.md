@@ -17,6 +17,7 @@ The title bar names the open one, between the project and the connection state, 
 board, the task, the project screen, activity, history, the tenant screen, statistics and settings all
 render into the same frame and recognising the body was the only way to tell where you were.
 
+<!-- Rows asserted against the view list by TestDocsViewsTableListsEveryView in internal/tui. -->
 | View | Opened by | Shows |
 | --- | --- | --- |
 | projects | `p`, and every session starts here | every project this tenant has, with its colour and icon |
@@ -40,6 +41,7 @@ step, so reloading never makes the way back one press longer.
 **Cards.** A column draws one line per task: the reference, a priority badge, then markers. The legend is
 in `?` and is short on purpose, so it still fits a narrow terminal:
 
+<!-- Rows asserted against CardLegend by TestDocsMarkerTableMatchesTheLegend in internal/tui. -->
 | Marker | Means |
 | --- | --- |
 | `@` | claimed, by somebody |
@@ -91,6 +93,7 @@ impossible for a scheme to leave an action unbound.
 
 ### The default bindings
 
+<!-- Keys asserted against DefaultKeyMap by TestDocsBindingsTableNamesEveryAction in internal/tui. -->
 | Keys | Action | Where |
 | --- | --- | --- |
 | `↑`/`k`, `↓`/`j` | move the selection | everywhere |

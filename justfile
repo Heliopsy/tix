@@ -320,6 +320,12 @@ spec:
 # from screenshots/README.md. Both indexes have drifted from their own
 # directory before: a page nobody links is a page nobody reads, and an image
 # nobody lists is one nobody knows to regenerate when it goes stale.
+#
+# The tables inside the pages are checked by `just test` instead, because what
+# they have to agree with is Go: the bindings table against DefaultKeyMap and
+# the views table against the view list (internal/tui/docs_test.go), the gap
+# figure against the registry (internal/capability/docs_test.go), and README's
+# command block against the Cobra tree (cmd/docs_readme_test.go).
 docs-check:
     #!/usr/bin/env bash
     set -euo pipefail
