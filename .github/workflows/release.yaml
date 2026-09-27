@@ -23,11 +23,23 @@ on:
         description: The tag to build.
         required: true
         type: string
+      # The archives and the image fail independently, and rebuilding the
+      # archives to fix the image is not free: `replace_existing_draft` is off,
+      # so a second upload of the same assets is refused, and the only way
+      # through would be deleting a release people can already download. v0.7.0
+      # published its archives, pushed and signed its image, and then failed to
+      # attest it, which is exactly this case.
+      image_only:
+        description: Rebuild and re-attest the container image, leaving a published release alone.
+        required: false
+        default: false
+        type: boolean
 
 permissions: read-all
 
 jobs:
   goreleaser:
+    if: ${{ !inputs.image_only }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -92,6 +104,11 @@ jobs:
   image:
     name: Container image
     needs: goreleaser
+    # Skipped is the goreleaser job declining to run under image_only, which is
+    # the one case where a missing release build is not a reason to stop.
+    if: >-
+      ${{ always() && (needs.goreleaser.result == 'success' ||
+      (needs.goreleaser.result == 'skipped' && inputs.image_only)) }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -131,8 +148,16 @@ jobs:
           tag="${REF:-${GITHUB_REF_NAME}}"
           # A registry reference must be lowercase, and an owner name need not be.
           repo=$(printf '%s' "ghcr.io/$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "repo=$repo" >> "$GITHUB_OUTPUT"
+          # The image tags drop the leading v: `just image-tags` publishes
+          # 0.7.0, 0.7 and latest, never v0.7.0. Anything addressing the
+          # registry has to use this, and only the git ref uses the tag. v0.7.0
+          # attested nothing because that distinction was missed here, and the
+          # failure surfaced as a bare "manifest unknown" three steps later.
+          {
+            echo "tag=$tag"
+            echo "version=${tag#v}"
+            echo "repo=$repo"
+          } >> "$GITHUB_OUTPUT"
 
       # Both architectures, the running container, and trivy against the layers.
       # The same recipe a developer runs, so this cannot drift from `just ci`.
@@ -178,7 +203,7 @@ jobs:
       - name: Attest an SBOM for each architecture
         env:
           REPO: ${{ steps.names.outputs.repo }}
-          TAG: ${{ steps.names.outputs.tag }}
+          TAG: ${{ steps.names.outputs.version }}
         run: |
           set -euo pipefail
           # The digests are read back from the registry, not from the local
@@ -232,7 +257,7 @@ jobs:
       - name: Verify what was published
         env:
           REPO: ${{ steps.names.outputs.repo }}
-          TAG: ${{ steps.names.outputs.tag }}
+          TAG: ${{ steps.names.outputs.version }}
           IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/release.yaml@${{ github.ref }}
         run: |
           set -euo pipefail
