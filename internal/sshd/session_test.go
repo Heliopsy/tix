@@ -40,6 +40,60 @@ func TestColorForReadsWhatTheClientSaid(t *testing.T) {
 	}
 }
 
+// TestTheTerminalTypeReachesTheInterface guards the one fact colour over SSH
+// rests on: the terminal type a client asked for in its pty-req is in the
+// environment the interface reads. The ssh package does not put it there, so
+// nothing else would notice it going missing, and a session with no TERM is
+// drawn without colour at all.
+func TestTheTerminalTypeReachesTheInterface(t *testing.T) {
+	tests := []struct {
+		name    string
+		environ []string
+		term    string
+		pty     bool
+		want    []string
+	}{
+		{
+			name: "a pseudo-terminal's type is appended",
+			term: "xterm-256color", pty: true,
+			want: []string{"TERM=xterm-256color"},
+		},
+		{
+			name:    "and it wins over one the client set with an env request",
+			environ: []string{"TERM=dumb", "LANG=C"},
+			term:    "xterm-256color", pty: true,
+			want: []string{"TERM=dumb", "LANG=C", "TERM=xterm-256color"},
+		},
+		{
+			name:    "a session with no pseudo-terminal names no terminal",
+			environ: []string{"LANG=C"},
+			term:    "xterm-256color", pty: false,
+			want: []string{"LANG=C"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := withTerm(tc.environ, tc.term, tc.pty)
+			if len(got) != len(tc.want) {
+				t.Fatalf("withTerm(%q, %q, %v) = %q, want %q", tc.environ, tc.term, tc.pty, got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Fatalf("withTerm(%q, %q, %v) = %q, want %q", tc.environ, tc.term, tc.pty, got, tc.want)
+				}
+			}
+			if !tc.pty {
+				return
+			}
+			// The environment is read last wins, so the appended type is the
+			// one the colour decision and the profile both see.
+			if !colorFor(got) {
+				t.Fatalf("a %s session was drawn without colour from %q", tc.term, got)
+			}
+		})
+	}
+}
+
 func TestASessionLandsWhereItsModeHasABoard(t *testing.T) {
 	tests := []struct {
 		name string
