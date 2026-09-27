@@ -42,6 +42,42 @@ Coding standards for tix. Terse by design. Read before writing code.
 - A test that skips on a missing capability skips through `internal/testenv`, so the run reports it.
 - New behaviour ships with its test in the same change.
 
+### Watch the guard fail
+
+A test you have not watched fail is not evidence. Before a guard counts as
+written: copy the file, break the behaviour it protects, run it, read the
+failure, restore, and confirm the restore is byte-exact with `sha256sum`.
+
+This is not ceremony. Fourteen guards in this repo have passed while the code
+they protected was broken, and every one was found this way rather than by
+review, by coverage, or by the guard itself.
+
+They nearly all failed the same way: **the assertion read something wider than
+the thing it names.** A frame instead of the footer, a page instead of the nav,
+a stylesheet instead of one rule, a document instead of one table. The token was
+somewhere else on the page, so the test passed while the feature was gone.
+Helpers exist for this and are worth copying rather than reinventing:
+`formAt`, `formBlock`, `formRow`, `confirmLine`, `nav`, `shapeRow`,
+`inputValue`, `declarations`, `setupSection` and `internal/docsmd`.
+
+Two traps, both real:
+
+- **A mutation that does not mutate looks like a working guard.** Check the
+  edit landed before trusting the run. One agent's first three mutations passed
+  because its pattern missed a hard-wrapped line.
+- **A second check can mask the one you are testing.** Removing a keystroke
+  gate changed nothing observable, because a later refusal also stopped the
+  view opening, while the read it should have prevented still went out. Assert
+  both halves: the affordance is absent *and* the call was never made.
+
+### Documentation a test can decide
+
+Prose explaining why a thing is the way it is does not rot. Tables that
+transcribe an enumerable list out of the code do, and did, twice in two days.
+A list the code already holds is asserted rather than maintained: see
+`internal/tui/docs_test.go`, `internal/capability/docs_test.go` and
+`cmd/docs_readme_test.go`. Judgement stays prose and stays reviewed.
+
 ## Never touch a real store
 
 - Tests, hand verification and demos use an isolated database, always. Pass
