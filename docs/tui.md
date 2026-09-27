@@ -304,11 +304,12 @@ rather than held for the session, with one of the three roles beside it.
 
 ### Switching tenant
 
-The same screen takes a key to switch this session to another tenant. There is no list to
-pick from, and that is not an omission: an actor belongs to one tenant, and both listing tenants and
-reading one are scoped to the caller's own, so from inside `default` a tenant named `acme` and a tenant
-that was never created are the same answer. The key is checked the way `tix tenant use` checks it, by
-opening a connection pinned to it and asking who you are there.
+The same screen takes a key to switch this session to another tenant. There is no list of other tenants to
+pick from, and that is not an omission: the listing above it is the tenants this session can see, which is
+its own, because an actor belongs to one tenant and both listing tenants and reading one are scoped to it.
+From inside `default` a tenant named `acme` and a tenant that was never created are the same answer. The
+key is checked the way `tix tenant use` checks it, by opening a connection pinned to it and asking who you
+are there.
 
 A key that cannot be reached leaves the session exactly as it was, naming the key in the refusal. The key
 the session is already on is refused before anything is dialled. A switch that lands replaces everything
