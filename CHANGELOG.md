@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.9.0](https://github.com/Heliopsy/tix/compare/v0.8.0...v0.9.0) (2026-09-27)
+
+
+### Features
+
+* **tui:** administer the tenant from the terminal ([d0d6dc7](https://github.com/Heliopsy/tix/commit/d0d6dc74b91165de5d53584b8cc058bc226b7c42))
+
+
+### Bug Fixes
+
+* **test:** stop the build cache sizing the mutation timeout ([74072ee](https://github.com/Heliopsy/tix/commit/74072ee11289bd05da7caa6d141db3994b9d73ce))
+
+
+### Dependencies
+
+* **deps:** bump codeql-action to v4.38.2 and pflag to v1.0.10 ([2870ee5](https://github.com/Heliopsy/tix/commit/2870ee574fc1943fc15a6948eab235edff4ccf9e))
+
 ## [0.8.0](https://github.com/Heliopsy/tix/compare/v0.7.0...v0.8.0) (2026-09-27)
 
 
