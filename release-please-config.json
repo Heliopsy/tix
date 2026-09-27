@@ -1,17 +1,56 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "changelog-sections": [
-    {"type": "feat", "section": "Features"},
-    {"type": "fix", "section": "Bug Fixes"},
-    {"type": "perf", "section": "Performance"},
-    {"type": "revert", "section": "Reverts"},
-    {"type": "build", "section": "Dependencies"},
-    {"type": "ci", "section": "CI/CD", "hidden": true},
-    {"type": "docs", "section": "Documentation", "hidden": true},
-    {"type": "style", "section": "Styles", "hidden": true},
-    {"type": "chore", "section": "Miscellaneous", "hidden": true},
-    {"type": "refactor", "section": "Code Refactoring", "hidden": true},
-    {"type": "test", "section": "Tests", "hidden": true}
+    {
+      "type": "feat",
+      "section": "Features"
+    },
+    {
+      "type": "fix",
+      "section": "Bug Fixes"
+    },
+    {
+      "type": "perf",
+      "section": "Performance"
+    },
+    {
+      "type": "revert",
+      "section": "Reverts"
+    },
+    {
+      "type": "build",
+      "section": "Dependencies"
+    },
+    {
+      "type": "ci",
+      "section": "CI/CD",
+      "hidden": true
+    },
+    {
+      "type": "docs",
+      "section": "Documentation",
+      "hidden": true
+    },
+    {
+      "type": "style",
+      "section": "Styles",
+      "hidden": true
+    },
+    {
+      "type": "chore",
+      "section": "Miscellaneous",
+      "hidden": true
+    },
+    {
+      "type": "refactor",
+      "section": "Code Refactoring",
+      "hidden": true
+    },
+    {
+      "type": "test",
+      "section": "Tests",
+      "hidden": true
+    }
   ],
   "packages": {
     ".": {
@@ -21,5 +60,15 @@
       "bump-patch-for-minor-pre-major": false,
       "draft": true
     }
-  }
+  },
+  "_comment_last_release_sha": [
+    "The v0.9.0 release commit. Nothing before it is scanned for conventional",
+    "commits, which stops a Release-As footer being honoured a second time.",
+    "e1ac251 carries 'Release-As: 0.8.0' and that footer is permanent in the",
+    "history, so release-please proposed 0.8.0 again after 0.9.0 had shipped:",
+    "a pull request whose own compare link read v0.9.0...v0.8.0 and which",
+    "would have downgraded the manifest if anybody had merged it.",
+    "Move this to each new release commit only if the same thing recurs."
+  ],
+  "last-release-sha": "88cacf6ae4ff21c30dd7bbfc61ba9c8b96c65b8f"
 }
