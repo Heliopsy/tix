@@ -18,3 +18,7 @@ watch_stdout*.log
 watch_stderr*.log
 tix-image.tar
 image-digest.txt
+
+# Agent worktrees. Created inside the repo by the harness, so they would
+# otherwise show up as untracked alongside real work.
+.claude/worktrees/
