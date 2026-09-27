@@ -246,7 +246,9 @@ func TestSSHAuthSettingIsRaisedInOnePlace(t *testing.T) {
 			return err
 		}
 		if d.IsDir() {
-			if d.Name() == ".git" || d.Name() == "node_modules" {
+			// Any dot-directory, not just .git: a nested checkout under
+			// .claude/worktrees/ holds a second copy of every file counted here.
+			if (path != root && strings.HasPrefix(d.Name(), ".")) || d.Name() == "node_modules" {
 				return filepath.SkipDir
 			}
 			return nil

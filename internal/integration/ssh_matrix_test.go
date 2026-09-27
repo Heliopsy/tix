@@ -652,7 +652,12 @@ func filesNamingIdentifier(t *testing.T, identifier string) []string {
 		}
 		if d.IsDir() {
 			switch d.Name() {
-			case ".git", "node_modules", "dist", "bin", "openspec", "docs":
+			case "node_modules", "dist", "bin", "openspec", "docs":
+				return filepath.SkipDir
+			}
+			// Any dot-directory, not just .git: a nested checkout under
+			// .claude/worktrees/ holds a second copy of every file counted here.
+			if path != root && strings.HasPrefix(d.Name(), ".") {
 				return filepath.SkipDir
 			}
 			return nil

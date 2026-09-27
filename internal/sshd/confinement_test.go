@@ -109,8 +109,15 @@ func filesNaming(t *testing.T, identifier string) []string {
 			return err
 		}
 		if d.IsDir() {
+			// Any dot-directory, not just .git: the harness puts agent
+			// worktrees under .claude/worktrees/, and a nested checkout of this
+			// repository holds a second copy of every file these assertions
+			// count, so each one failed naming both copies.
+			if path != root && strings.HasPrefix(d.Name(), ".") {
+				return filepath.SkipDir
+			}
 			switch d.Name() {
-			case ".git", "node_modules", "dist", "bin":
+			case "node_modules", "dist", "bin":
 				return filepath.SkipDir
 			}
 			return nil
