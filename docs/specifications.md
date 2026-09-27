@@ -32,5 +32,5 @@ been specified since, which lives with the change that introduced it.
 | | | |
 | --- | --- | --- |
 | [theming](../openspec/changes/archive/2026-09-24-themes-and-completion/specs/theming/spec.md) | [stats](../openspec/changes/archive/2026-09-24-themes-and-completion/specs/stats/spec.md) | [ssh-access](../openspec/changes/archive/2026-09-22-ssh-terminal-access/specs/ssh-access/spec.md) |
-| [live-connections](../openspec/changes/live-connections/specs/live-connections/spec.md) | [v0-5-0-polish](../openspec/changes/v0-5-0-polish/specs/) | |
+| [live-connections](../openspec/changes/archive/2026-09-27-live-connections/specs/live-connections/spec.md) | [v0-5-0-polish](../openspec/changes/v0-5-0-polish/specs/) | |
 <!-- markdownlint-enable MD013 -->
