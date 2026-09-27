@@ -17,11 +17,22 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
+      # The release PR is opened by our own automation against our own
+      # repository, so there is no contributor and nothing to sign. It is
+      # excluded because this action locks a pull request once it merges, and
+      # release-please posts its completion comment to that pull request
+      # immediately afterwards: the lock landed 8 seconds after the merge and
+      # the comment 4 seconds after that, so every release since v0.4.0 has
+      # ended with the action reporting failure and nothing watching the
+      # release it had already created. The lock is kept for real
+      # contributions, where it is what stops a signature comment being
+      # revoked after the fact.
       - name: CLA assistant
         if: >-
-          github.event_name == 'pull_request_target' ||
+          github.head_ref != 'release-please--branches--main' &&
+          (github.event_name == 'pull_request_target' ||
           github.event.comment.body == 'recheck' ||
-          github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA'
+          github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA')
         uses: contributor-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08  # v2.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
