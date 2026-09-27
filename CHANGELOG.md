@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.0](https://github.com/Heliopsy/tix/compare/v0.6.0...v0.7.0) (2026-09-27)
+
+
+### Features
+
+* **config:** make page size configurable per surface ([2bb66dd](https://github.com/Heliopsy/tix/commit/2bb66dd1ae854080856a5e90c97925dd85ceefa4))
+* **tui:** add an optional selection pulse ([e0c1b9b](https://github.com/Heliopsy/tix/commit/e0c1b9bdc8e5a48819a908446bc3a6e73a9885e5))
+
+
+### Bug Fixes
+
+* **ci:** attest the digests the registry actually holds ([9092718](https://github.com/Heliopsy/tix/commit/90927182e45bbf194c3c25403017158d59f154ad))
+* **ci:** stop rebuilding a release that is already published ([8b4780c](https://github.com/Heliopsy/tix/commit/8b4780c0d4dc465e65dff1b8c8063299f98c9f77))
+
 ## [0.6.0](https://github.com/Heliopsy/tix/compare/v0.5.0...v0.6.0) (2026-09-26)
 
 
