@@ -60,7 +60,7 @@ Helpers exist for this and are worth copying rather than reinventing:
 `formAt`, `formBlock`, `formRow`, `confirmLine`, `nav`, `shapeRow`,
 `inputValue`, `declarations`, `setupSection` and `internal/docsmd`.
 
-Two traps, both real:
+Four traps, all real:
 
 - **A mutation that does not mutate looks like a working guard.** Check the
   edit landed before trusting the run. One agent's first three mutations passed
@@ -69,6 +69,18 @@ Two traps, both real:
   gate changed nothing observable, because a later refusal also stopped the
   view opening, while the read it should have prevented still went out. Assert
   both halves: the affordance is absent *and* the call was never made.
+- **Restore against git, not against your backup.** `sha256sum` proves you
+  restored the bytes you copied, not the bytes that belong there. A backup
+  taken before a commit landed restored cleanly over the commit and silently
+  reverted the feature, and the check passed. Finish with `git diff -- <file>`
+  empty.
+- **A shared scratch directory is a shared file.** Parallel agents pointed at
+  one temp path overwrote each other's harness mid-run, which recorded a kill
+  with no mutation applied. Scratch goes somewhere named for the one agent
+  using it.
+
+Each of these produces something indistinguishable from a passing guard, which
+is why they are written down rather than remembered.
 
 `just mutate internal/tui` does this mechanically to a whole package, one
 operator at a time, and names every change the tests sat through. It is not a
