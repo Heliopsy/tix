@@ -178,13 +178,27 @@ jobs:
       - name: Attest an SBOM for each architecture
         env:
           REPO: ${{ steps.names.outputs.repo }}
+          TAG: ${{ steps.names.outputs.tag }}
         run: |
           set -euo pipefail
+          # The digests are read back from the registry, not from the local
+          # list. podman re-encodes manifests on push, so a child's local digest
+          # is not necessarily the one the registry stored, and attesting the
+          # local one asks cosign to sign a manifest that is not there. v0.6.0
+          # failed exactly that way: the list pushed as 4040d2b4 while the
+          # attestation addressed a child digest the registry answered 404 for.
           for arch in amd64 arm64; do
-            digest=$(podman manifest inspect localhost/tix:multiarch \
+            digest=$(podman manifest inspect "$REPO:$TAG" \
               | jq -r --arg a "$arch" '.manifests[] | select(.platform.architecture == $a) | .digest')
-            if [ -z "$digest" ]; then
-              echo "the manifest list carries no $arch entry to attest" >&2
+            if [ -z "$digest" ] || [ "$digest" = "null" ]; then
+              echo "the pushed manifest list carries no $arch entry to attest" >&2
+              exit 1
+            fi
+            # Prove the digest is resolvable before signing it, so a failure
+            # names the missing manifest rather than surfacing as a 404 from
+            # deep inside cosign.
+            if ! podman manifest inspect "$REPO@$digest" >/dev/null 2>&1; then
+              echo "the registry does not hold $arch at $digest" >&2
               exit 1
             fi
             podman save --format docker-archive -o "image-$arch.tar" "localhost/tix:latest-$arch"
