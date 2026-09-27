@@ -98,7 +98,7 @@ func newDocsCmd(_ *globals) *cobra.Command {
 		Use:   "docs",
 		Short: "Emit the command tree as Markdown",
 		Long: "Emit reference documentation for every command as Markdown.\n\n" +
-			"--table emits the command summary table README.md carries, grouped the way " +
+			"--table emits the command summary table docs/commands.md carries, grouped the way " +
 			"the root help groups commands.\n\n" +
 			"Exit codes: 1 the output directory could not be written, 2 an unusable flag combination.",
 		Example: "  tix docs > docs/cli.md\n  tix docs --dir docs/cli\n  tix docs --table --depth 2",

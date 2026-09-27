@@ -10,6 +10,8 @@ with the thing.
 
 | Guide | Covers |
 | --- | --- |
+| [commands.md](commands.md) | Every command, grouped: tasks, administration, configuration and tooling |
+| [features.md](features.md) | Statistics, theming, the actor directory, lease badges, completion, self-update, demo data |
 | [agents.md](agents.md) | Claiming work, leases and lease tokens, `tix claim exec`, token scopes, exit codes, why a zombie cannot write |
 | [workflows.md](workflows.md) | Custom state machines, transitions, terminal states, custom fields, indexed versus scanned filters |
 | [configuration.md](configuration.md) | Contexts, the five layers, `TIX_*` variables, per-directory discovery |
@@ -29,6 +31,8 @@ with the thing.
 | [theming.md](theming.md) | Tenant accents, built-in and custom themes, what is deliberately not themed |
 | [statistics.md](statistics.md) | Throughput, lead time, ageing, and what the leaderboard actually counts |
 | [testing.md](testing.md) | Running the suite, what a partial run announces, the coverage floors |
+| [development.md](development.md) | Every `just` recipe, and what runs in a container |
+| [specifications.md](specifications.md) | The normative OpenSpec contract, capability by capability |
 
 ## Where to start
 
