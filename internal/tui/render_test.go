@@ -298,3 +298,36 @@ func TestActorHandlesReplaceRawIdentifiers(t *testing.T) {
 		t.Fatalf("the raw creator id leaked onto the screen:\n%s", frame)
 	}
 }
+
+// TestOnlyAnEmptyColumnSaysItIsEmpty asserts both halves of the placeholder:
+// a column with no tasks says so, and a column that has tasks does not. The
+// assertion reads one column's own block rather than the whole board, so it
+// cannot pass on the word appearing in a neighbouring column.
+func TestOnlyAnEmptyColumnSaysItIsEmpty(t *testing.T) {
+	m := boardModel(t)
+	layout := LayoutFor(m.width, m.height, len(m.columns))
+	counts := map[string]int{}
+	for i, col := range m.columns {
+		counts[col.Key] = len(col.Tasks)
+		block := stripANSI(m.columnBlock(i, layout, false))
+		said := strings.Contains(block, "empty")
+		if want := len(col.Tasks) == 0; said != want {
+			t.Errorf("column %q holds %d tasks and %s empty:\n%s",
+				col.Key, len(col.Tasks), map[bool]string{true: "says it is", false: "does not say it is"}[said], block)
+		}
+	}
+	if counts["todo"] == 0 || counts["review"] != 0 {
+		t.Fatalf("the board under test no longer has both a filled and an empty column: %v", counts)
+	}
+}
+
+// TestAnEmptyColumnStillShowsItsHeading guards the other half: the placeholder
+// is added to the heading rather than replacing it.
+func TestAnEmptyColumnStillShowsItsHeading(t *testing.T) {
+	m := boardModel(t)
+	layout := LayoutFor(m.width, m.height, len(m.columns))
+	block := stripANSI(m.columnBlock(2, layout, false))
+	if !strings.Contains(block, "Review (0)") {
+		t.Fatalf("an empty column lost its heading:\n%s", block)
+	}
+}

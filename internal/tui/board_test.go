@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -166,4 +167,76 @@ func TestTaskBadgesDescribeStateInText(t *testing.T) {
 			t.Fatalf("badges %v", got)
 		}
 	})
+}
+
+// TestSortTasksOrdersByPriorityThenSequence asserts both keys the doc comment
+// names, and the identifier that settles a tie in both. The column is shuffled
+// so that priority order, sequence order and identifier order all disagree:
+// an implementation that dropped either key would produce a different slice.
+func TestSortTasksOrdersByPriorityThenSequence(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []core.Task
+		want []string
+	}{
+		{
+			name: "priority wins over sequence",
+			in: []core.Task{
+				task("d", "todo", 9, core.PriorityNormal),
+				task("a", "todo", 40, core.PriorityHighest),
+				task("c", "todo", 2, core.PriorityNormal),
+				task("b", "todo", 7, core.PriorityHigh),
+			},
+			want: []string{"a", "b", "c", "d"},
+		},
+		{
+			name: "sequence orders one priority",
+			in: []core.Task{
+				task("a", "todo", 30, core.PriorityNormal),
+				task("b", "todo", 10, core.PriorityNormal),
+				task("c", "todo", 20, core.PriorityNormal),
+			},
+			want: []string{"b", "c", "a"},
+		},
+		{
+			name: "identifier settles an equal sequence",
+			in: []core.Task{
+				task("y", "todo", 5, core.PriorityNormal),
+				task("x", "todo", 5, core.PriorityNormal),
+			},
+			want: []string{"x", "y"},
+		},
+		{
+			name: "sequence is read before the identifier",
+			in: []core.Task{
+				task("a", "todo", 9, core.PriorityNormal),
+				task("b", "todo", 2, core.PriorityNormal),
+			},
+			want: []string{"b", "a"},
+		},
+		{
+			name: "priority is read before the sequence for every pair",
+			in: []core.Task{
+				task("a", "todo", 1, core.PriorityLowest),
+				task("b", "todo", 2, core.PriorityLow),
+				task("c", "todo", 3, core.PriorityNormal),
+				task("d", "todo", 4, core.PriorityHigh),
+				task("e", "todo", 5, core.PriorityHighest),
+			},
+			want: []string{"e", "d", "c", "b", "a"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := append([]core.Task(nil), tc.in...)
+			sortTasks(got)
+			ids := make([]string, len(got))
+			for i, tk := range got {
+				ids[i] = tk.ID
+			}
+			if strings.Join(ids, ",") != strings.Join(tc.want, ",") {
+				t.Fatalf("sortTasks = %v, want %v", ids, tc.want)
+			}
+		})
+	}
 }

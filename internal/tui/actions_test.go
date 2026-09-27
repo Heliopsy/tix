@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -496,4 +497,49 @@ func TestTheNewTaskActionsReachTheDetailViewToo(t *testing.T) {
 			t.Fatalf("u did nothing at all in the detail view; err = %q", next.err)
 		}
 	})
+}
+
+// TestDigitAcceptsEveryColumnKeyAndNothingElse pins the character class the
+// numbered keys are read through, at both ends. "9" is a key the interface
+// offers, so a class that stops one short of it silently drops an option.
+func TestDigitAcceptsEveryColumnKeyAndNothingElse(t *testing.T) {
+	tests := []struct {
+		press string
+		want  int
+	}{
+		{"1", 1}, {"2", 2}, {"3", 3}, {"4", 4}, {"5", 5},
+		{"6", 6}, {"7", 7}, {"8", 8}, {"9", 9},
+		{"0", 0}, {":", 0}, {"/", 0}, {"a", 0}, {"", 0}, {"10", 0}, {" ", 0},
+	}
+	for _, tc := range tests {
+		t.Run("press "+tc.press, func(t *testing.T) {
+			if got := digit(tc.press); got != tc.want {
+				t.Fatalf("digit(%q) = %d, want %d", tc.press, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestChoiceAtResolvesTheNinthOption walks a numbered prompt end to end, so
+// the boundary digit is asserted where a user actually presses it.
+func TestChoiceAtResolvesTheNinthOption(t *testing.T) {
+	choices := make([]Choice, 0, 9)
+	for i := 1; i <= 9; i++ {
+		choices = append(choices, Choice{Label: fmt.Sprintf("option %d", i), Value: fmt.Sprintf("v%d", i)})
+	}
+	for i, press := range []string{"1", "2", "3", "4", "5", "6", "7", "8", "9"} {
+		got, ok := ChoiceAt(choices, press)
+		if !ok {
+			t.Fatalf("pressing %q picked nothing", press)
+		}
+		if got.Value != choices[i].Value {
+			t.Fatalf("pressing %q picked %q, want %q", press, got.Value, choices[i].Value)
+		}
+	}
+	if _, ok := ChoiceAt(choices, "0"); ok {
+		t.Fatal("pressing 0 picked an option")
+	}
+	if _, ok := ChoiceAt(choices[:8], "9"); ok {
+		t.Fatal("pressing 9 picked a ninth option from a list of eight")
+	}
 }

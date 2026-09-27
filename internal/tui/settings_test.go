@@ -445,3 +445,66 @@ func TestMoveSettingsScrollsOnlyOnceTheCursorHasNowhereToGo(t *testing.T) {
 		t.Fatalf("a screen that already fits scrolled to %d", off)
 	}
 }
+
+// TestSettingsLineIndexFindsTheFirstLineOfTheSelectedSetting asserts the
+// mapping from a setting to the rendered line the cursor sits on. A setting
+// with an override note renders two lines carrying the same row, and the
+// cursor belongs on the first of them; the lines between settings carry the
+// -1 sentinel and are never the answer.
+func TestSettingsLineIndexFindsTheFirstLineOfTheSelectedSetting(t *testing.T) {
+	lines := []SettingsLine{
+		{Text: "display", Row: -1, Heading: true},
+		{Text: "", Row: -1},
+		{Text: "keymap", Row: 0},
+		{Text: "note", Row: 0, Dim: true},
+		{Text: "time format", Row: 1},
+		{Text: "timezone", Row: 2},
+		{Text: "note", Row: 2, Dim: true},
+		{Text: "colour", Row: 3},
+		{Text: "", Row: -1},
+	}
+	tests := []struct {
+		name string
+		row  int
+		want int
+	}{
+		{"the first setting", 0, 2},
+		{"a setting after one that has a note", 1, 4},
+		{"a setting with a note of its own", 2, 5},
+		{"the last setting", 3, 7},
+		{"the sentinel finds the first unselectable line", -1, 0},
+		{"a row nothing renders falls back to the top", 99, 0},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := SettingsLineIndex(lines, tc.row)
+			if got != tc.want {
+				t.Fatalf("SettingsLineIndex(row %d) = %d, want %d", tc.row, got, tc.want)
+			}
+			if got < len(lines) && lines[got].Row != tc.row && tc.row >= 0 && tc.row < 4 {
+				t.Fatalf("line %d carries row %d, not the selected row %d", got, lines[got].Row, tc.row)
+			}
+		})
+	}
+}
+
+// TestSettingsLineIndexPointsAtTheRenderedCursor closes the loop on the real
+// screen: the line the index names is the one carrying the cursor marker, and
+// no earlier line carries it.
+func TestSettingsLineIndexPointsAtTheRenderedCursor(t *testing.T) {
+	for row := range SettingCount {
+		lines := SettingsView(SettingsState{Prefs: Preferences{}, Selected: row, Now: time.Unix(0, 0).UTC()})
+		at := SettingsLineIndex(lines, row)
+		if at >= len(lines) {
+			t.Fatalf("row %d indexed line %d of %d", row, at, len(lines))
+		}
+		if !strings.Contains(lines[at].Text, SelectionMarker(true)) {
+			t.Fatalf("row %d: line %d %q does not carry the cursor", row, at, lines[at].Text)
+		}
+		for i := range at {
+			if strings.Contains(lines[i].Text, SelectionMarker(true)) {
+				t.Fatalf("row %d: line %d %q carries the cursor before line %d", row, i, lines[i].Text, at)
+			}
+		}
+	}
+}
