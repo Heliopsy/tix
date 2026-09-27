@@ -67,27 +67,27 @@ func selectedHeader(t *testing.T, frame string) int {
 
 func TestTheThreadMarksTheCommentTheActionsWillActOn(t *testing.T) {
 	m, _ := threadModel(t)
-	if got := selectedHeader(t, m.View()); got != 0 {
+	if got := selectedHeader(t, m.Frame()); got != 0 {
 		t.Fatalf("the thread opens with comment %d marked", got)
 	}
-	if !strings.Contains(threadHeaders(t, m.View())[0], "ada") {
-		t.Fatalf("the first header names the wrong author: %q", threadHeaders(t, m.View())[0])
+	if !strings.Contains(threadHeaders(t, m.Frame())[0], "ada") {
+		t.Fatalf("the first header names the wrong author: %q", threadHeaders(t, m.Frame())[0])
 	}
 }
 
 func TestTheColumnKeysStepThroughTheThreadInTheDetailView(t *testing.T) {
 	m, _ := threadModel(t)
 	m, _ = m.reduce(pressKey("right"))
-	if got := selectedHeader(t, m.View()); got != 1 {
+	if got := selectedHeader(t, m.Frame()); got != 1 {
 		t.Fatalf("stepping forward marked comment %d", got)
 	}
 	m, _ = m.reduce(pressKey("right"))
-	if got := selectedHeader(t, m.View()); got != 1 {
+	if got := selectedHeader(t, m.Frame()); got != 1 {
 		t.Fatalf("stepping past the last comment marked %d", got)
 	}
 	m, _ = m.reduce(pressKey("left"))
 	m, _ = m.reduce(pressKey("left"))
-	if got := selectedHeader(t, m.View()); got != 0 {
+	if got := selectedHeader(t, m.Frame()); got != 0 {
 		t.Fatalf("stepping back past the first comment marked %d", got)
 	}
 }
@@ -195,7 +195,7 @@ func TestTheNewActionsAreOfferedOnlyToAReaderWhoMayUseThem(t *testing.T) {
 			}
 			m, svc := threadModel(t)
 			m.allowed = ActionAccess{}
-			before := m.View()
+			before := m.Frame()
 			next, cmd := m.reduce(pressKey(tc.binding))
 			if cmd != nil {
 				cmd()
@@ -203,8 +203,8 @@ func TestTheNewActionsAreOfferedOnlyToAReaderWhoMayUseThem(t *testing.T) {
 			if next.form.Open() || next.prompt != promptNone || next.confirm.Open() {
 				t.Fatalf("%q offered an affordance to a reader refused %s", tc.binding, tc.method)
 			}
-			if next.View() != before {
-				t.Fatalf("a refused key changed the screen:\n%s\n---\n%s", before, next.View())
+			if next.Frame() != before {
+				t.Fatalf("a refused key changed the screen:\n%s\n---\n%s", before, next.Frame())
 			}
 			if len(svc.deleted)+len(svc.depsRemoved)+len(svc.commentsEdited) != 0 {
 				t.Fatalf("a refused key reached the service")

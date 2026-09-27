@@ -7,15 +7,15 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/heliopsy/tix/internal/core"
 )
 
 // keyMsgFor builds the message a terminal sends for a key a scheme names,
 // including the control chords three of the schemes rebind onto.
-func keyMsgFor(name string) tea.KeyMsg {
+func keyMsgFor(name string) tea.KeyPressMsg {
 	if strings.HasPrefix(name, "ctrl+") && len(name) == len("ctrl+")+1 {
-		return tea.KeyMsg{Type: tea.KeyType(name[len("ctrl+")] - 'a' + 1)}
+		return tea.KeyPressMsg{Code: rune(name[len("ctrl+")]), Mod: tea.ModCtrl}
 	}
 	return pressKey(name)
 }
@@ -308,11 +308,11 @@ func TestRemovingADependencyReachesTheServiceWithTheChosenTask(t *testing.T) {
 	if !m.form.Open() {
 		t.Fatalf("- opened no form: %q", m.err)
 	}
-	if got := formRow(t, m.View(), "remove dependency", "depends on"); !strings.Contains(got, "infra-7") {
+	if got := formRow(t, m.Frame(), "remove dependency", "depends on"); !strings.Contains(got, "infra-7") {
 		t.Fatalf("the dependency row reads %q", got)
 	}
 	m, _ = m.reduce(pressKey("right"))
-	if got := formRow(t, m.View(), "remove dependency", "depends on"); !strings.Contains(got, "infra-9") {
+	if got := formRow(t, m.Frame(), "remove dependency", "depends on"); !strings.Contains(got, "infra-9") {
 		t.Fatalf("cycling the dependency row left it reading %q", got)
 	}
 	m, cmd := m.reduce(pressKey("enter"))
@@ -349,7 +349,7 @@ func TestADependencyFormOnATaskThatWaitsOnNothingSaysSo(t *testing.T) {
 func TestTheFormRowDrawsItsOwnFieldAndTheValuesItCouldHold(t *testing.T) {
 	m, _ := threadModel(t)
 	m, _ = m.reduce(pressKey("X"))
-	frame := m.View()
+	frame := m.Frame()
 	what := formRow(t, frame, "delete", "what")
 	if !strings.Contains(what, "task") {
 		t.Fatalf("the subject row reads %q", what)
@@ -363,7 +363,7 @@ func TestTheFormRowDrawsItsOwnFieldAndTheValuesItCouldHold(t *testing.T) {
 	// Cycling the subject to a comment must take the reach rows off the screen,
 	// not merely stop reading them.
 	m, _ = m.reduce(pressKey("right"))
-	if n := formRows(t, m.View(), "delete", "permanently"); n != 0 {
+	if n := formRows(t, m.Frame(), "delete", "permanently"); n != 0 {
 		t.Fatalf("deleting a comment still draws %d reach rows", n)
 	}
 }
@@ -433,12 +433,12 @@ func TestTheFormAndTheConfirmationDocumentTheKeysOfTheLoadedScheme(t *testing.T)
 	m, _ := threadModel(t)
 	m = m.installScheme(string(SchemeNano))
 	m, _ = m.reduce(keyMsgFor(m.keys.Delete.Keys()[0]))
-	block := formBlock(t, m.View(), "delete")
+	block := formBlock(t, m.Frame(), "delete")
 	if !strings.Contains(block, "ctrl+o apply") {
 		t.Fatalf("the form promises a key nano does not bind:\n%s", block)
 	}
 	m, _ = m.reduce(pressKey("enter"))
-	line := confirmLine(t, m.View(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
+	line := confirmLine(t, m.Frame(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
 	if !strings.Contains(line, "y confirms") {
 		t.Fatalf("the question does not name the key that answers it: %q", line)
 	}

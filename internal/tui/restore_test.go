@@ -78,7 +78,7 @@ func TestTheBoardsOwnFilterIsHowDeletedTasksAreSeen(t *testing.T) {
 
 func TestADeletedCardIsMarkedAndOffersOnlyRestore(t *testing.T) {
 	m, _ := deletedBoard(t)
-	frame := m.View()
+	frame := m.Frame()
 	deleted, _ := TaskAt(m.columns, m.sel)
 	if deleted.DeletedAt == nil {
 		t.Fatal("the selected card is not the deleted one")
@@ -105,12 +105,12 @@ func TestADeletedCardIsMarkedAndOffersOnlyRestore(t *testing.T) {
 
 func TestALiveCardOffersNoRestore(t *testing.T) {
 	m := boardModel(t)
-	footer := footerLine(t, m.View())
+	footer := footerLine(t, m.Frame())
 	if strings.Contains(footer, "restore") {
 		t.Errorf("the footer of a live card offers a restore: %q", footer)
 	}
 	live, _ := TaskAt(m.columns, m.sel)
-	if line := cardLineFor(t, m.View(), live.Ref); strings.Contains(line, DeletedMarker) {
+	if line := cardLineFor(t, m.Frame(), live.Ref); strings.Contains(line, DeletedMarker) {
 		t.Errorf("a live card is marked deleted: %q", line)
 	}
 }
@@ -161,7 +161,7 @@ func TestRestoreIsNeitherOfferedNorSentWithoutTaskDelete(t *testing.T) {
 	if m.mayPerform("RestoreTask") {
 		t.Fatal("a viewer holds task:delete, so this test proves nothing")
 	}
-	if footer := footerLine(t, m.View()); strings.Contains(footer, "restore") {
+	if footer := footerLine(t, m.Frame()); strings.Contains(footer, "restore") {
 		t.Errorf("a reader who may not restore is offered the key: %q", footer)
 	}
 	next, cmd := m.reduce(pressKey("u"))

@@ -9,7 +9,7 @@ import (
 	"io"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
 )
@@ -82,7 +82,7 @@ func Run(o Options) int {
 
 // programOptions builds the bubbletea options for a run.
 func programOptions(ctx context.Context, o Options) []tea.ProgramOption {
-	opts := []tea.ProgramOption{tea.WithAltScreen(), tea.WithContext(ctx)}
+	opts := []tea.ProgramOption{tea.WithContext(ctx)}
 	if customInput(o.In) {
 		opts = append(opts, tea.WithInput(o.In))
 	}

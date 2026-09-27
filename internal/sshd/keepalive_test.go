@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/store"
@@ -28,7 +28,7 @@ type stub struct{}
 
 func (stub) Init() tea.Cmd                       { return nil }
 func (stub) Update(tea.Msg) (tea.Model, tea.Cmd) { return stub{}, nil }
-func (stub) View() string                        { return "" }
+func (stub) View() tea.View                      { return tea.NewView("") }
 
 // TestIdlenessIsMeasuredFromInputNotFromTraffic is the property that keeps the
 // keepalive from defeating the idle timeout: a keepalive and its reply are
@@ -57,7 +57,7 @@ func TestIdlenessIsMeasuredFromInputNotFromTraffic(t *testing.T) {
 	}
 
 	clk.Advance(time.Minute)
-	if _, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}); act.idleFor(clk.Now()) != 0 {
+	if _, _ = model.Update(tea.KeyPressMsg{Code: 'j', Text: "j"}); act.idleFor(clk.Now()) != 0 {
 		t.Fatalf("idle = %v after a keystroke, want it reset", act.idleFor(clk.Now()))
 	}
 }

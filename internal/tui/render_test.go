@@ -47,7 +47,7 @@ func TestTheDetailPaneNeverEatsTheFirstColumn(t *testing.T) {
 	labels := []string{"status:", "priority:", "claim:", "people:", "time:", "body:"}
 	for _, width := range []int{60, 80, 100, 120, 200} {
 		t.Run(fmt.Sprintf("width %d", width), func(t *testing.T) {
-			frame := detailModel(t, width, 40).View()
+			frame := detailModel(t, width, 40).Frame()
 			for _, label := range labels {
 				if !strings.Contains(frame, label) {
 					t.Errorf("width %d: %q is missing from the detail pane:\n%s", width, label, frame)
@@ -72,7 +72,7 @@ func TestSectionHeadingsSurviveEveryWidth(t *testing.T) {
 	for _, width := range []int{60, 80, 120} {
 		m := detailModel(t, width, 40)
 		m.detailOff = 6
-		frame := m.View()
+		frame := m.Frame()
 		for _, heading := range []string{"custom fields", "subtasks", "dependencies", "comments", "artifacts"} {
 			if strings.Contains(frame, heading[1:]+":") && !strings.Contains(frame, heading+":") {
 				t.Fatalf("width %d: %q lost its first character", width, heading)
@@ -91,7 +91,7 @@ func TestEveryViewRendersItsFullWidthWithoutOverflowing(t *testing.T) {
 			func(t *testing.T, w, h int) Model { return projectListModel(t, 13, w, h) },
 		} {
 			m := build(t, width, 24)
-			for i, line := range strings.Split(m.View(), "\n") {
+			for i, line := range strings.Split(m.Frame(), "\n") {
 				if got := lineWidth(line); got > width {
 					t.Fatalf("width %d: line %d is %d cells wide: %q", width, i, got, line)
 				}
@@ -106,7 +106,7 @@ func TestAnErrorLineKeepsItsFirstCharacter(t *testing.T) {
 	for _, width := range []int{60, 80, 120} {
 		m := detailModel(t, width, 40)
 		m.err = "cannot release: this session does not hold a lease on infra-3"
-		frame := m.View()
+		frame := m.Frame()
 		if !strings.Contains(frame, "cannot release") {
 			t.Fatalf("width %d: the error is missing entirely:\n%s", width, frame)
 		}
@@ -142,7 +142,7 @@ func TestColumnHeadingsAreNotNumbered(t *testing.T) {
 	for _, width := range []int{40, 60, 80, 200} {
 		m := boardModel(t)
 		m.width, m.height = width, 24
-		frame := m.View()
+		frame := m.Frame()
 		if numbered := regexp.MustCompile(`\[\d+/\d+\]`); numbered.MatchString(frame) {
 			t.Fatalf("width %d: a column heading is still numbered:\n%s", width, frame)
 		}
@@ -158,12 +158,12 @@ func TestANarrowBoardSaysWhichColumnsAreOnScreen(t *testing.T) {
 	if visible >= len(m.columns) {
 		t.Skipf("board of %d columns fits in %d cells, nothing is hidden", len(m.columns), m.width)
 	}
-	if frame := m.View(); !strings.Contains(frame, "showing ") {
+	if frame := m.Frame(); !strings.Contains(frame, "showing ") {
 		t.Fatalf("a board showing %d of %d columns does not say so:\n%s", visible, len(m.columns), frame)
 	}
 	wide := boardModel(t)
 	wide.width, wide.height = 200, 24
-	if frame := wide.View(); strings.Contains(frame, "showing ") {
+	if frame := wide.Frame(); strings.Contains(frame, "showing ") {
 		t.Fatalf("a board that fits should not narrate its window:\n%s", frame)
 	}
 }
@@ -257,7 +257,7 @@ func TestAnEmptyTaskIsShort(t *testing.T) {
 	m := boardModel(t)
 	task, _ := TaskAt(m.columns, m.sel)
 	m, _ = m.reduce(detailMsg{task: task})
-	frame := m.View()
+	frame := m.Frame()
 	if !strings.Contains(frame, "nothing else recorded on this task") {
 		t.Fatalf("an empty task does not say it has nothing else:\n%s", frame)
 	}
@@ -272,7 +272,7 @@ func TestAnEmptyTaskIsShort(t *testing.T) {
 // content in any section never shows the empty-task line, and does show the
 // sections it has content for.
 func TestABusyTaskDoesNotSayNothingIsRecorded(t *testing.T) {
-	frame := detailModel(t, 100, 40).View()
+	frame := detailModel(t, 100, 40).Frame()
 	if strings.Contains(frame, "nothing else recorded") {
 		t.Fatalf("a busy task claims to have nothing recorded:\n%s", frame)
 	}
@@ -290,7 +290,7 @@ func TestActorHandlesReplaceRawIdentifiers(t *testing.T) {
 	task, _ := TaskAt(m.columns, m.sel)
 	task.CreatorActorID = "01M30NTSR60XBDNHE387GAX5JZ"
 	m, _ = m.reduce(detailMsg{task: task, actors: map[string]string{task.CreatorActorID: "root"}})
-	frame := m.View()
+	frame := m.Frame()
 	if !strings.Contains(frame, "@root") {
 		t.Fatalf("a resolved creator handle is missing:\n%s", frame)
 	}

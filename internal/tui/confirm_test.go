@@ -91,7 +91,7 @@ func TestTheConfirmationLineNamesTheTaskItWillDelete(t *testing.T) {
 	if !m.confirm.Open() {
 		t.Fatalf("accepting the delete form asked no question: %q", m.err)
 	}
-	line := confirmLine(t, m.View(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
+	line := confirmLine(t, m.Frame(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
 	if !strings.Contains(line, task.Ref) {
 		t.Fatalf("the question does not name the task it will delete: %q", line)
 	}
@@ -128,7 +128,7 @@ func TestAgreeingDeletesTheTaskAsFarAsTheFormSaid(t *testing.T) {
 	m, _ = m.reduce(pressKey("right"))
 	m, _ = m.reduce(pressKey("down"))
 	m, _ = m.reduce(pressKey("right"))
-	line := formRow(t, m.View(), "delete", "with subtasks")
+	line := formRow(t, m.Frame(), "delete", "with subtasks")
 	if !strings.Contains(line, yesValue) {
 		t.Fatalf("the subtask row reads %q", line)
 	}
@@ -169,11 +169,11 @@ func TestDeletingTheSelectedCommentNamesItAndRemovesIt(t *testing.T) {
 	m, _ = m.reduce(pressKey("right"))
 	m, _ = m.reduce(pressKey("X"))
 	m, _ = m.reduce(pressKey("right"))
-	if got := formRow(t, m.View(), "delete", "what"); !strings.Contains(got, "comment") {
+	if got := formRow(t, m.Frame(), "delete", "what"); !strings.Contains(got, "comment") {
 		t.Fatalf("the subject row reads %q", got)
 	}
 	m, _ = m.reduce(pressKey("enter"))
-	line := confirmLine(t, m.View(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
+	line := confirmLine(t, m.Frame(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
 	if !strings.Contains(line, "grace") {
 		t.Fatalf("the question does not name the comment's author: %q", line)
 	}
@@ -197,7 +197,7 @@ func TestTheDeleteKeyOffersNoSubjectTheReaderMayNotRemove(t *testing.T) {
 	if !m.form.Open() {
 		t.Fatalf("a reader who may delete a comment was offered nothing: %q", m.err)
 	}
-	if got := formRow(t, m.View(), "delete", "what"); strings.Contains(got, "task") {
+	if got := formRow(t, m.Frame(), "delete", "what"); strings.Contains(got, "task") {
 		t.Fatalf("a reader who may not delete a task was offered one: %q", got)
 	}
 

@@ -94,7 +94,7 @@ func TestActivityViewRendersAReadableLinePerEvent(t *testing.T) {
 	m := boardModel(t)
 	m, _ = m.reduce(eventMsg{event: activityEvent(5, "alice")})
 	m, _ = m.reduce(pressKey("v"))
-	frame := m.View()
+	frame := m.Frame()
 	for _, want := range []string{"alice", "claimed", "infra-5"} {
 		if !strings.Contains(frame, want) {
 			t.Fatalf("frame does not contain %q:\n%s", want, frame)
@@ -131,11 +131,11 @@ func TestActivityViewShowsDisconnectHonestly(t *testing.T) {
 	m := boardModel(t)
 	m, _ = m.reduce(eventMsg{event: activityEvent(1, "alice")})
 	m, _ = m.reduce(pressKey("v"))
-	if !strings.Contains(m.View(), "live") {
-		t.Fatalf("connected frame does not say live:\n%s", m.View())
+	if !strings.Contains(m.Frame(), "live") {
+		t.Fatalf("connected frame does not say live:\n%s", m.Frame())
 	}
 	m, _ = m.reduce(streamMsg{})
-	frame := m.View()
+	frame := m.Frame()
 	if !strings.Contains(frame, "disconnected") {
 		t.Fatalf("frame does not report the dropped stream:\n%s", frame)
 	}
@@ -245,7 +245,7 @@ func TestActivityFilterRefusesTermsAnEventCannotAnswer(t *testing.T) {
 	if len(m.shownActivity()) != 1 {
 		t.Fatal("a refused filter still narrowed the tail")
 	}
-	if !strings.Contains(m.View(), "activity filter error") {
+	if !strings.Contains(m.Frame(), "activity filter error") {
 		t.Fatal("the refusal is not shown on the status bar")
 	}
 }
@@ -286,7 +286,7 @@ func TestTheActivityBarSaysHowMuchItIsHiding(t *testing.T) {
 	if got := m.activityCount(); !strings.Contains(got, "2 events kept") {
 		t.Fatalf("unfiltered status = %q, want the plain count", got)
 	}
-	if !strings.Contains(m.View(), "2 events kept") {
+	if !strings.Contains(m.Frame(), "2 events kept") {
 		t.Fatal("the status bar does not carry the count")
 	}
 }
@@ -313,7 +313,7 @@ func TestActivitySelectionStaysInsideTheFilteredTail(t *testing.T) {
 	if m.activitySel != 0 {
 		t.Fatalf("selection = %d after everything was filtered out, want 0", m.activitySel)
 	}
-	if !strings.Contains(m.View(), "No event matches the filter") {
+	if !strings.Contains(m.Frame(), "No event matches the filter") {
 		t.Fatal("a tail with nothing left does not blame the filter")
 	}
 }
@@ -321,7 +321,7 @@ func TestActivitySelectionStaysInsideTheFilteredTail(t *testing.T) {
 func TestActivityHelpNamesTheFilterKeys(t *testing.T) {
 	m := openFilteredActivity(t, "kind:task", taskEvent(1, "alice"))
 	m, _ = m.reduce(pressKey("?"))
-	frame := m.View()
+	frame := m.Frame()
 	for _, want := range []string{"activity filter accepts", "kind", "actor", "source"} {
 		if !strings.Contains(frame, want) {
 			t.Errorf("help does not name %q", want)

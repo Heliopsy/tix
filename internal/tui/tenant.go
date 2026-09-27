@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 	"github.com/heliopsy/tix/internal/core"
 )
 
@@ -109,7 +109,7 @@ func orUnknown(value string) string {
 func (m Model) openTenant() Model { return m.enterView(viewTenant) }
 
 // handleTenantKey opens the input the tenant view gathers a key with.
-func (m Model) handleTenantKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleTenantKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Back):
 		return m.leave(nil)

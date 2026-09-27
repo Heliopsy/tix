@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/charmbracelet/ssh"
+	"charm.land/ssh"
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"

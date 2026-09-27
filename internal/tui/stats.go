@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
+	"charm.land/bubbles/v2/key"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/heliopsy/tix/internal/core"
 )
 
@@ -179,7 +179,7 @@ func maxCompleted(days []core.StatsDay) int {
 }
 
 // handleStatsKey scrolls the view and cycles the window.
-func (m Model) handleStatsKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleStatsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Down):
 		m.statsOff++

@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
 )
@@ -150,7 +150,7 @@ func (m Model) onHistory(msg historyMsg) (Model, tea.Cmd) {
 
 // handleHistoryKey scrolls the listing and returns to where it was opened from,
 // the same back-navigation every other view follows.
-func (m Model) handleHistoryKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleHistoryKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Back):
 		return m.leave(nil)

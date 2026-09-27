@@ -8,15 +8,14 @@ import (
 	"io"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/ssh"
-	bm "github.com/charmbracelet/wish/bubbletea"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/ssh"
+	bm "charm.land/wish/v2/bubbletea"
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/capability"
 	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/tui"
-	"github.com/muesli/termenv"
 )
 
 // noticeKey carries the farewell line from the program handler to the handler
@@ -79,11 +78,7 @@ func (s *Server) handle(sess ssh.Session) {
 			h.Unregister()
 		}
 	}()
-	// No floor is forced on the client's profile: the interface builds its own
-	// renderer per session, from what that client said its terminal is, and a
-	// floor here would raise a 16-colour or a colourless client to a depth it
-	// never claimed.
-	bm.MiddlewareWithProgramHandler(s.program, termenv.Ascii)(s.farewell)(sess)
+	bm.MiddlewareWithProgramHandler(s.program)(s.farewell)(sess)
 }
 
 // program returns the interface bound to this session's streams, running as
@@ -101,8 +96,10 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 	}
 
 	ctx := core.WithSource(core.WithActor(sess.Context(), actor), core.SourceTUI)
-	environ := sess.Environ()
+	pty, _, hasPty := sess.Pty()
+	environ := withTerm(sess.Environ(), pty.Term, hasPty)
 	color := colorFor(environ)
+	profile := tui.NewProfile(environ)
 	act := &activity{}
 	act.touch(s.opts.Clock.Now())
 	model := tui.New(tui.Config{
@@ -115,7 +112,7 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 		Access:    capability.TUIAccess(actor),
 		Environ:   environ,
 		Color:     &color,
-		Renderer:  tui.NewRenderer(environ, sess),
+		Profile:   profile,
 		Project:   s.openProject(),
 		TimeStyle: s.opts.TimeStyle,
 		Now:       s.opts.Clock.Now,
@@ -140,10 +137,14 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 		return sess.Close()
 	}))
 
+	// The profile is the one this session's own terminal declared, and it is
+	// handed to bubbletea as well as to the interface so the styles a frame is
+	// built from and the writer it leaves through agree. No floor is forced on
+	// it: a floor would raise a 16-colour or a colourless client to a depth it
+	// never claimed.
 	opts := append([]tea.ProgramOption{
-		tea.WithAltScreen(),
 		tea.WithContext(sess.Context()),
-	}, bm.MakeOptions(sess)...)
+	}, append(bm.MakeOptions(sess), tea.WithColorProfile(profile))...)
 	program := tea.NewProgram(watched{Model: model, act: act, clk: s.opts.Clock}, opts...)
 	go s.watch(sess, program, act)
 	return program
@@ -207,6 +208,19 @@ func message(err error) string {
 		return e.Message
 	}
 	return "tix could not open a session for you; try again shortly"
+}
+
+// withTerm adds the terminal type a pseudo-terminal request carried.
+//
+// The ssh package leaves it out of the session environment, so it is appended
+// here, last, which is where a pseudo-terminal request has always put it and
+// what makes it win over a terminal type the client set with an env request.
+// A session that allocated no pseudo-terminal named no terminal.
+func withTerm(environ []string, term string, pty bool) []string {
+	if !pty {
+		return environ
+	}
+	return append(environ, "TERM="+term)
 }
 
 // colorFor decides whether a session is drawn in colour, from what the client

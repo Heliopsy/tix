@@ -4,6 +4,7 @@ package tui
 
 import (
 	"bytes"
+	"image/color"
 	"io"
 	"os"
 	"regexp"
@@ -11,7 +12,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/colorprofile"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
 )
@@ -58,7 +61,7 @@ func TestColorEnabled(t *testing.T) {
 }
 
 func TestThemeWithoutColorEmitsNoEscapes(t *testing.T) {
-	theme := NewTheme(nil, false, core.Theme{})
+	theme := NewTheme(colorprofile.Unknown, false, core.Theme{})
 	if theme.Color {
 		t.Fatal("a colourless theme reports colour")
 	}
@@ -79,7 +82,7 @@ func TestThemeWithoutColorEmitsNoEscapes(t *testing.T) {
 }
 
 func TestColourlessThemeStillStylesNothingByMeaning(t *testing.T) {
-	theme := NewTheme(nil, false, core.Theme{})
+	theme := NewTheme(colorprofile.Unknown, false, core.Theme{})
 	for _, got := range []string{
 		theme.Category(core.CategoryInProgress).Render("doing"),
 		theme.Priority(core.PriorityHighest).Render("P1"),
@@ -119,15 +122,24 @@ func sgrParams(s string) []string {
 // renderANSI states the select graphic rendition parameter a terminal writes
 // for an ANSI colour, which is how a terminal renders it whatever profile the
 // test process happens to have been started under.
-func renderANSI(color lipgloss.Color) []string {
-	n, err := strconv.Atoi(string(color))
-	if err != nil || n < 0 || n > 15 {
+func renderANSI(c color.Color) []string {
+	n, ok := basicIndex(c)
+	if !ok {
 		return nil
 	}
 	if n < 8 {
 		return []string{strconv.Itoa(30 + n)}
 	}
 	return []string{strconv.Itoa(90 + n - 8)}
+}
+
+// basicIndex returns the 0..15 index of an ANSI colour, and whether it is one.
+func basicIndex(c color.Color) (int, bool) {
+	basic, ok := c.(ansi.BasicColor)
+	if !ok {
+		return 0, false
+	}
+	return int(basic), true
 }
 
 func TestStateCategoryColourMatchesTheCLI(t *testing.T) {
@@ -142,12 +154,12 @@ func TestStateCategoryColourMatchesTheCLI(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(string(tc.category), func(t *testing.T) {
-			color, ok := CategoryColor(tc.category)
+			fg, ok := CategoryColor(tc.category)
 			if !ok {
 				t.Fatalf("category %q has no colour", tc.category)
 			}
 			want := sgrParams(painter.StatusIn(tc.category, tc.status))
-			if got := renderANSI(color); !equalParams(got, want) {
+			if got := renderANSI(fg); !equalParams(got, want) {
 				t.Fatalf("category %q renders %v, the cli renders %v", tc.category, got, want)
 			}
 		})
@@ -163,7 +175,7 @@ func TestPriorityColourMatchesTheCLI(t *testing.T) {
 		core.PriorityHighest, core.PriorityHigh, core.PriorityNormal,
 		core.PriorityLow, core.PriorityLowest,
 	} {
-		color, bold, ok := PriorityColor(p)
+		fg, bold, ok := PriorityColor(p)
 		want := sgrParams(painter.Priority(p, "x"))
 		if !ok {
 			if len(want) != 0 {
@@ -171,7 +183,7 @@ func TestPriorityColourMatchesTheCLI(t *testing.T) {
 			}
 			continue
 		}
-		got := renderANSI(color)
+		got := renderANSI(fg)
 		if bold {
 			got = append([]string{"1"}, got...)
 		}

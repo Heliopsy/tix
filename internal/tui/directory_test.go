@@ -77,7 +77,7 @@ func assigneeForm(t *testing.T) (Model, *fakeService) {
 
 func TestTheAssigneePickerOffersThePeopleTheTenantHas(t *testing.T) {
 	m, _ := assigneeForm(t)
-	row := formRow(t, m.View(), "assign", "assignee")
+	row := formRow(t, m.Frame(), "assign", "assignee")
 	if !strings.Contains(row, unassignedOption) {
 		t.Errorf("the picker opens on %q rather than on the task's current assignee", row)
 	}

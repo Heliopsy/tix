@@ -8,14 +8,24 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
 	"github.com/heliopsy/tix/internal/query"
 )
 
-// View renders the current frame.
-func (m Model) View() string {
+// View renders the current frame onto the alternate screen, which is where the
+// interface has always drawn: bubbletea takes the screen from the view rather
+// than from a program option.
+func (m Model) View() tea.View {
+	view := tea.NewView(m.Frame())
+	view.AltScreen = true
+	return view
+}
+
+// Frame renders the current frame.
+func (m Model) Frame() string {
 	layout := LayoutFor(m.width, m.height, len(m.columns))
 	if layout.Mode == LayoutTooSmall {
 		return fmt.Sprintf("terminal is %dx%d; tix tui needs at least %dx%d\n", m.width, m.height, MinWidth, MinHeight)
@@ -294,7 +304,7 @@ func (m Model) columnBlock(index int, layout Layout, gap bool) string {
 // said once in the status bar rather than repeated in every heading.
 func (m Model) columnHeading(col Column, width int) string {
 	head := col.Label + " (" + fmt.Sprint(len(col.Tasks)) + ")"
-	return m.theme.Category(col.Category).Bold(true).Render(Truncate(head, width))
+	return m.theme.Category(col.Category).Bold(m.theme.Color).Render(Truncate(head, width))
 }
 
 // cardLine renders one task as a single line of a column. A selected card is
@@ -420,7 +430,7 @@ func stateLine(theme Theme, status string, category core.StateCategory, priority
 	if claimed {
 		claimStyle = theme.Claimed
 	}
-	return theme.Dim.Render("status: ") + theme.Category(category).Bold(true).Render(status) +
+	return theme.Dim.Render("status: ") + theme.Category(category).Bold(theme.Color).Render(status) +
 		theme.Dim.Render("   priority: ") + theme.Priority(priority).Render("P"+priorityDigit(priority)) +
 		theme.Dim.Render("   claim: ") + claimStyle.Render(claim)
 }

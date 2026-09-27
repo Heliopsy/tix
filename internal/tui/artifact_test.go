@@ -50,7 +50,7 @@ func artifactForm(t *testing.T, name string) (Model, *fakeService) {
 
 func TestRecordingAnArtifactGathersANameAndAKind(t *testing.T) {
 	m, svc := artifactForm(t, "run.log")
-	frame := m.View()
+	frame := m.Frame()
 
 	block := formBlock(t, frame, "artifact run.log")
 	if !strings.Contains(block, ArtifactNote) {
@@ -63,7 +63,7 @@ func TestRecordingAnArtifactGathersANameAndAKind(t *testing.T) {
 	// One step to the second kind the service declares, which is what proves
 	// the row is a question rather than a fixed label.
 	m, _ = m.reduce(pressKey("right"))
-	if row := formRow(t, m.View(), "artifact run.log", "kind"); !strings.Contains(row, string(core.ArtifactLog)) {
+	if row := formRow(t, m.Frame(), "artifact run.log", "kind"); !strings.Contains(row, string(core.ArtifactLog)) {
 		t.Fatalf("cycling the kind left it on %q", row)
 	}
 

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/heliopsy/tix/internal/core"
 )
 
@@ -64,7 +64,7 @@ func TestViewNeverPanics(t *testing.T) {
 			m.view = v
 			m.err, m.status, m.filterErr = "boom", "ok", "bad filter"
 			m.prompt, m.choice, m.choices = promptFilter, choiceTransition, TransitionChoices(testWorkflow(), "todo")
-			if m.View() == "" && size.w > 0 {
+			if m.Frame() == "" && size.w > 0 {
 				t.Fatalf("view %v at %dx%d rendered nothing", v, size.w, size.h)
 			}
 		}
@@ -80,7 +80,7 @@ func TestViewWithoutColorEmitsNoEscapeSequences(t *testing.T) {
 		tasks:    []core.Task{task("a", "todo", 1, core.PriorityNormal)},
 	})
 	m.err = "something failed"
-	if strings.Contains(m.View(), "\x1b") {
+	if strings.Contains(m.Frame(), "\x1b") {
 		t.Fatal("NO_COLOR was set and the frame still carried escape sequences")
 	}
 }

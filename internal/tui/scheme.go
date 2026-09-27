@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
+	"charm.land/bubbles/v2/key"
 	"github.com/heliopsy/tix/internal/core"
 )
 

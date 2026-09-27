@@ -6,7 +6,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/charmbracelet/ssh"
+	"charm.land/ssh"
 
 	"github.com/heliopsy/tix/internal/core"
 )

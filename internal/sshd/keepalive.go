@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/ssh"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/ssh"
 	"github.com/heliopsy/tix/internal/clock"
 	gossh "golang.org/x/crypto/ssh"
 )

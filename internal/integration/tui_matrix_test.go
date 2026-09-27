@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/heliopsy/tix/internal/capability"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/tui"
@@ -66,11 +66,15 @@ func driveTUI(t *testing.T, m tea.Model, initial tea.Cmd) tea.Model {
 
 // pressKey feeds one key press through Update and drains the commands it
 // produces the same way driveTUI does.
-func pressKey(t *testing.T, m tea.Model, key tea.KeyType) tea.Model {
+func pressKey(t *testing.T, m tea.Model, key rune) tea.Model {
 	t.Helper()
-	m, cmd := m.Update(tea.KeyMsg{Type: key})
+	m, cmd := m.Update(tea.KeyPressMsg{Code: key})
 	return driveTUI(t, m, cmd)
 }
+
+// frameOf is the screen a model draws, which is what every assertion below
+// reads. Bubble Tea's view carries the terminal state beside the content.
+func frameOf(m tea.Model) string { return m.View().Content }
 
 // tuiScenario is one row of the terminal-interface transport-equivalence
 // table: seed data through tg.svc directly, then drive the real Model's
@@ -147,7 +151,7 @@ func runTUIScenario(t *testing.T, tg target, sc tuiScenario) (view, want string)
 		m = pressKey(t, m, tea.KeyDown)
 		m = pressKey(t, m, tea.KeyEnter)
 	}
-	return m.View(), want
+	return frameOf(m), want
 }
 
 func TestTUITransportEquivalence(t *testing.T) {
@@ -188,7 +192,7 @@ func containsText(haystack, needle string) bool {
 // key, so a test can press the cross-view keys a reader actually presses.
 func pressRune(t *testing.T, m tea.Model, r rune) tea.Model {
 	t.Helper()
-	m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	m, cmd := m.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
 	return driveTUI(t, m, cmd)
 }
 
@@ -224,23 +228,23 @@ func TestTheRealInterfaceNavigatesByTheReadersScopes(t *testing.T) {
 	base := []core.Scope{core.ScopeTaskRead, core.ScopeProjectRead, core.ScopeWorkflowRead}
 
 	watcher := pressRune(t, reader(append(base, core.ScopeEventSubscribe)...), 'v')
-	if !strings.Contains(watcher.View(), "activity") {
-		t.Errorf("a reader who may subscribe did not reach the activity view:\n%s", watcher.View())
+	if !strings.Contains(frameOf(watcher), "activity") {
+		t.Errorf("a reader who may subscribe did not reach the activity view:\n%s", frameOf(watcher))
 	}
 
 	confined := reader(base...)
-	before := confined.View()
+	before := frameOf(confined)
 	after := pressRune(t, confined, 'v')
-	if strings.Contains(after.View(), "activity") {
-		t.Errorf("a reader who may not subscribe reached the activity view:\n%s", after.View())
+	if strings.Contains(frameOf(after), "activity") {
+		t.Errorf("a reader who may not subscribe reached the activity view:\n%s", frameOf(after))
 	}
-	if after.View() != before {
-		t.Errorf("pressing a refused key changed the screen:\n%s\n---\n%s", before, after.View())
+	if frameOf(after) != before {
+		t.Errorf("pressing a refused key changed the screen:\n%s\n---\n%s", before, frameOf(after))
 	}
-	if stats := pressRune(t, confined, 'S'); !strings.Contains(stats.View(), "statistics") {
-		t.Errorf("the same reader was refused the statistics view, which they may read:\n%s", stats.View())
+	if stats := pressRune(t, confined, 'S'); !strings.Contains(frameOf(stats), "statistics") {
+		t.Errorf("the same reader was refused the statistics view, which they may read:\n%s", frameOf(stats))
 	}
-	overlay := pressRune(t, confined, '?').View()
+	overlay := frameOf(pressRune(t, confined, '?'))
 	if strings.Contains(overlay, "v            activity") {
 		t.Errorf("the overlay documented the activity key for a reader refused it:\n%s", overlay)
 	}

@@ -2,7 +2,7 @@
 
 package tui
 
-import "github.com/charmbracelet/bubbles/key"
+import "charm.land/bubbles/v2/key"
 
 // KeyMap holds every binding the interface offers.
 type KeyMap struct {

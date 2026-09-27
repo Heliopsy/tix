@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/heliopsy/tix/internal/core"
 )
 
@@ -118,7 +118,7 @@ func TestTenantViewOpensAndPopsBack(t *testing.T) {
 	if m.view != viewTenant {
 		t.Fatalf("view = %v, want viewTenant", m.view)
 	}
-	if !strings.Contains(m.View(), "tenant") {
+	if !strings.Contains(m.Frame(), "tenant") {
 		t.Fatal("the tenant view does not name itself")
 	}
 	m, _ = m.reduce(pressKey("esc"))
@@ -178,7 +178,7 @@ func TestSwitchingTenantReplacesTheWholeSession(t *testing.T) {
 	if !strings.Contains(m.status, "acme") || !strings.Contains(m.status, "lease") {
 		t.Fatalf("status = %q, want the tenant and the dropped lease named", m.status)
 	}
-	if !strings.Contains(m.View(), "@acme") {
+	if !strings.Contains(m.Frame(), "@acme") {
 		t.Fatal("the title bar does not name the tenant in force")
 	}
 }

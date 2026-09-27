@@ -110,7 +110,7 @@ func setupModel(t *testing.T) (Model, *fakeService) {
 
 func TestTheProjectScreenStatesTheProjectItFetched(t *testing.T) {
 	m, svc := setupModel(t)
-	frame := m.View()
+	frame := m.Frame()
 
 	if got := setupRow(t, frame, "project:", "key"); !strings.Contains(got, "infra") {
 		t.Errorf("the project's key row says %q", got)
@@ -133,7 +133,7 @@ func TestTheProjectScreenStatesTheProjectItFetched(t *testing.T) {
 
 func TestTheProjectScreenDrawsTheStateMachineItCannotEdit(t *testing.T) {
 	m, _ := setupModel(t)
-	frame := m.View()
+	frame := m.Frame()
 	section := setupSection(t, frame, "workflow:")
 
 	if !strings.Contains(section, "Standard") {
@@ -167,20 +167,20 @@ func TestTheProjectScreenSaysWhyAWorkflowIsMissing(t *testing.T) {
 	m, cmd := m.reduce(pressKey("w"))
 	m, _ = m.reduce(run(t, cmd))
 
-	section := setupSection(t, m.View(), "workflow:")
+	section := setupSection(t, m.Frame(), "workflow:")
 	if !strings.Contains(section, "not shown") || !strings.Contains(section, "not permitted") {
 		t.Errorf("a refused workflow is not explained:\n%s", section)
 	}
 	// The rest of the screen still arrives, which is the point of not failing
 	// the whole read over one refusal.
-	if got := setupRow(t, m.View(), "project:", "key"); !strings.Contains(got, "infra") {
+	if got := setupRow(t, m.Frame(), "project:", "key"); !strings.Contains(got, "infra") {
 		t.Errorf("a refused workflow lost the project rows: %q", got)
 	}
 }
 
 func TestTheProjectScreenListsItsFieldDefinitions(t *testing.T) {
 	m, _ := setupModel(t)
-	frame := m.View()
+	frame := m.Frame()
 
 	if got := setupRow(t, frame, "custom fields (", "severity"); !strings.Contains(got, "enum") ||
 		!strings.Contains(got, "required") || !strings.Contains(got, "low / high") {
@@ -361,7 +361,7 @@ func TestTheFieldPickerIsNotOfferedWithNothingToPick(t *testing.T) {
 func TestEditingAProjectAttributeDrawnFromAListSendsIt(t *testing.T) {
 	m, svc := setupModel(t)
 	m, _ = m.reduce(pressKey("e"))
-	frame := m.View()
+	frame := m.Frame()
 	if got := formRow(t, frame, "edit project infra", "attribute"); !strings.Contains(got, attrName) {
 		t.Errorf("the form opens on %q", got)
 	}
@@ -370,12 +370,12 @@ func TestEditingAProjectAttributeDrawnFromAListSendsIt(t *testing.T) {
 	for range 3 {
 		m, _ = m.reduce(pressKey("right"))
 	}
-	if got := formRow(t, m.View(), "edit project infra", "attribute"); !strings.Contains(got, attrColour) {
+	if got := formRow(t, m.Frame(), "edit project infra", "attribute"); !strings.Contains(got, attrColour) {
 		t.Fatalf("the attribute row says %q", got)
 	}
 	m, _ = m.reduce(pressKey("down"))
 	m, _ = m.reduce(pressKey("right"))
-	chosen := formRow(t, m.View(), "edit project infra", "colour")
+	chosen := formRow(t, m.Frame(), "edit project infra", "colour")
 
 	m, cmd := m.reduce(pressKey("enter"))
 	_, _ = m.reduce(run(t, cmd))
@@ -421,12 +421,12 @@ func TestEditingAFreeTextAttributeOpensThePromptSeededWithIt(t *testing.T) {
 func TestArchivingAProjectNamesItBeforeItHappens(t *testing.T) {
 	m, svc := setupModel(t)
 	m, _ = m.reduce(pressKey("X"))
-	if got := formRow(t, m.View(), "remove project infra", "action"); !strings.Contains(got, "archive") {
+	if got := formRow(t, m.Frame(), "remove project infra", "action"); !strings.Contains(got, "archive") {
 		t.Fatalf("the removal form opens on %q", got)
 	}
 	m, _ = m.reduce(pressKey("enter"))
 
-	line := confirmLine(t, m.View(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
+	line := confirmLine(t, m.Frame(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
 	if !strings.Contains(line, "archive project infra") {
 		t.Errorf("the confirmation asks %q", line)
 	}
@@ -448,12 +448,12 @@ func TestDeletingAProjectStatesHowFarItReachesAndLeavesTheScreen(t *testing.T) {
 	m, svc := setupModel(t)
 	m, _ = m.reduce(pressKey("X"))
 	m, _ = m.reduce(pressKey("right"))
-	if got := formRow(t, m.View(), "remove project infra", "action"); !strings.Contains(got, "delete") {
+	if got := formRow(t, m.Frame(), "remove project infra", "action"); !strings.Contains(got, "delete") {
 		t.Fatalf("the action row says %q", got)
 	}
 	m, _ = m.reduce(pressKey("enter"))
 
-	line := confirmLine(t, m.View(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
+	line := confirmLine(t, m.Frame(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
 	if !strings.Contains(line, "delete project infra") || !strings.Contains(line, ProjectDeleteNote) {
 		t.Errorf("the confirmation asks %q", line)
 	}
@@ -497,13 +497,13 @@ func TestDefiningANewFieldGathersItsKeyThenItsShape(t *testing.T) {
 	m.input.SetValue("impact How much it matters")
 	m, _ = m.reduce(pressKey("enter"))
 
-	if got := formRow(t, m.View(), "field impact", "type"); !strings.Contains(got, "string") {
+	if got := formRow(t, m.Frame(), "field impact", "type"); !strings.Contains(got, "string") {
 		t.Fatalf("a new field opens on type %q", got)
 	}
 	m, _ = m.reduce(pressKey("right"))
 	m, _ = m.reduce(pressKey("down"))
 	m, _ = m.reduce(pressKey("right"))
-	if got := formRow(t, m.View(), "field impact", "required"); !strings.Contains(got, yesValue) {
+	if got := formRow(t, m.Frame(), "field impact", "required"); !strings.Contains(got, yesValue) {
 		t.Fatalf("the required row says %q", got)
 	}
 
@@ -527,21 +527,21 @@ func TestDefiningANewFieldGathersItsKeyThenItsShape(t *testing.T) {
 func TestRedefiningAFieldStartsFromTheOneThatWasPicked(t *testing.T) {
 	m, svc := setupModel(t)
 	m, _ = m.reduce(pressKey("f"))
-	if got := formRow(t, m.View(), "custom fields", "field"); !strings.Contains(got, "severity") {
+	if got := formRow(t, m.Frame(), "custom fields", "field"); !strings.Contains(got, "severity") {
 		t.Fatalf("the picker opens on %q", got)
 	}
 	// Move to the second definition, so the form that follows has to be seeded
 	// from it rather than from the first.
 	m, _ = m.reduce(pressKey("right"))
-	if got := formRow(t, m.View(), "custom fields", "field"); !strings.Contains(got, "owner") {
+	if got := formRow(t, m.Frame(), "custom fields", "field"); !strings.Contains(got, "owner") {
 		t.Fatalf("the picker moved to %q", got)
 	}
 	m, _ = m.reduce(pressKey("enter"))
 
-	if got := formRow(t, m.View(), "field owner", "type"); !strings.Contains(got, "string") {
+	if got := formRow(t, m.Frame(), "field owner", "type"); !strings.Contains(got, "string") {
 		t.Errorf("the second field's form was seeded from another field: %q", got)
 	}
-	if got := formRow(t, m.View(), "field owner", "required"); !strings.Contains(got, noValue) {
+	if got := formRow(t, m.Frame(), "field owner", "required"); !strings.Contains(got, noValue) {
 		t.Errorf("an optional field opens as %q", got)
 	}
 	m, cmd := m.reduce(pressKey("enter"))
@@ -556,12 +556,12 @@ func TestRemovingAFieldDefinitionNamesTheFieldItRemoves(t *testing.T) {
 	m, _ = m.reduce(pressKey("f"))
 	m, _ = m.reduce(pressKey("down"))
 	m, _ = m.reduce(pressKey("right"))
-	if got := formRow(t, m.View(), "custom fields", "action"); !strings.Contains(got, "remove") {
+	if got := formRow(t, m.Frame(), "custom fields", "action"); !strings.Contains(got, "remove") {
 		t.Fatalf("the action row says %q", got)
 	}
 	m, _ = m.reduce(pressKey("enter"))
 
-	line := confirmLine(t, m.View(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
+	line := confirmLine(t, m.Frame(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
 	if !strings.Contains(line, "delete custom field severity") {
 		t.Errorf("the confirmation asks %q", line)
 	}
@@ -603,7 +603,7 @@ func TestTheProjectScreenOpensOnTheRowTheListingSelected(t *testing.T) {
 	m, cmd := m.reduce(pressKey("w"))
 	m, _ = m.reduce(run(t, cmd))
 
-	if got := setupRow(t, m.View(), "project:", "key"); !strings.Contains(got, "web") {
+	if got := setupRow(t, m.Frame(), "project:", "key"); !strings.Contains(got, "web") {
 		t.Errorf("the screen opened on %q rather than the selected row", got)
 	}
 }
@@ -622,7 +622,7 @@ func TestAReaderWhoMayNotConfigureAProjectIsOfferedNothingToConfigureWith(t *tes
 		t.Fatalf("a reader who may read a project cannot open its screen: %v", m.view)
 	}
 
-	footer := lastLine(m.View())
+	footer := lastLine(m.Frame())
 	for _, key := range []string{"edit project", "archive or delete", "new field", "custom fields"} {
 		if strings.Contains(footer, key) {
 			t.Errorf("the footer offers %q to a reader who may not do it: %q", key, footer)
@@ -756,7 +756,7 @@ func TestEverySchemeDrivesTheProjectScreen(t *testing.T) {
 			// The form moves and cycles on the keys the scheme carries, with no
 			// bindings of its own.
 			m, _ = m.reduce(keyMsgFor(keys.Right.Help().Key))
-			if got := formRow(t, m.View(), "remove project infra", "action"); !strings.Contains(got, "delete") {
+			if got := formRow(t, m.Frame(), "remove project infra", "action"); !strings.Contains(got, "delete") {
 				t.Errorf("%q did not cycle the answer: %q", keys.Right.Help().Key, got)
 			}
 			m, _ = m.reduce(keyMsgFor(keys.Accept.Help().Key))

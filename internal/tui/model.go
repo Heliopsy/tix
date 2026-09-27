@@ -9,10 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/colorprofile"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
 	"github.com/heliopsy/tix/internal/query"
@@ -79,10 +80,10 @@ type Model struct {
 	settingSel  int
 	settingsOff int
 	// autoColor is what the colour probe decided for this run, which the auto
-	// mode resolves to. renderer and brand rebuild the theme when the colour
+	// mode resolves to. profile and brand rebuild the theme when the colour
 	// preference changes.
 	autoColor bool
-	renderer  *lipgloss.Renderer
+	profile   colorprofile.Profile
 	brand     core.Theme
 
 	// pulseQuiet is the low phase of the selected row's pulse, pulsing reports
@@ -188,11 +189,12 @@ type Config struct {
 	// the writer is a character device, but it still knows whether the client
 	// wants colour. Nil leaves the decision to ColorEnabled.
 	Color *bool
-	// Renderer draws this run's styles. lipgloss resolves a colour depth once
-	// per renderer, so a caller serving several terminals at once gives each
-	// one its own and no client can set another client's depth. Nil takes the
-	// process-wide default, which is what a single local terminal wants.
-	Renderer *lipgloss.Renderer
+	// Profile is the colour depth this run's styles are flattened to. A caller
+	// serving several terminals at once gives each one its own, so no client
+	// can set another client's depth. The zero value keeps every colour at
+	// full fidelity and leaves the flattening to the output layer, which is
+	// what a single local terminal wants.
+	Profile colorprofile.Profile
 	// Brand is the tenant's resolved accent, from core's theme registry, so
 	// a tenant presents one colour here and in a browser. The zero value
 	// keeps the built-in accent, which is what an unthemed tenant gets.
@@ -246,7 +248,7 @@ func New(cfg Config) Model {
 	}
 	m := Model{
 		svc: cfg.Service, ctx: ctx, actor: cfg.Actor, access: cfg.Access,
-		keys: DefaultKeyMap(), theme: NewTheme(cfg.Renderer, auto, cfg.Brand), now: now,
+		keys: DefaultKeyMap(), theme: NewTheme(cfg.Profile, auto, cfg.Brand), now: now,
 		timeStyle: cfg.TimeStyle,
 		view:      viewProjects, input: in, leases: map[string]string{},
 		openProject: cfg.Project, width: 80, height: 24,
@@ -254,12 +256,12 @@ func New(cfg Config) Model {
 		tenantKey: cfg.Tenant, dialTenant: cfg.Dial,
 		prefs: prefs, prefSources: cfg.Sources, savePrefs: cfg.SavePrefs,
 		session:   cfg.Session,
-		autoColor: auto, renderer: cfg.Renderer, brand: cfg.Brand,
+		autoColor: auto, profile: cfg.Profile, brand: cfg.Brand,
 		allowed: resolveActions(cfg.Actor),
 	}
 	// The probe decides only when no colour mode was configured, so a reader
 	// who asked for colour over a pipe still gets it.
-	m.theme = NewTheme(cfg.Renderer, ColorFor(prefs.Color, auto), cfg.Brand)
+	m.theme = NewTheme(cfg.Profile, ColorFor(prefs.Color, auto), cfg.Brand)
 	m = m.installScheme(prefs.Keymap)
 	m.lastInput = now()
 	m.pulsing = MotionEnabled(prefs.Motion, m.theme.Color)
@@ -305,7 +307,7 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		return m.onResize(msg), nil
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		next, cmd := m.handleKey(msg)
 		return next.afterInput(cmd)
 	case pulseMsg:
@@ -576,7 +578,7 @@ func (m Model) onError(msg errMsg) (Model, tea.Cmd) {
 }
 
 // handleKey routes a key to the mode that owns it.
-func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Interrupt):
 		m.interrupted = true
@@ -641,7 +643,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // handleHelpKey scrolls the help view and dismisses it back to where it was
 // opened from.
-func (m Model) handleHelpKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleHelpKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Back, m.keys.Help, m.keys.Quit):
 		m.helpOff = 0
@@ -742,7 +744,7 @@ func (m Model) sessionInfo() SessionInfo {
 // handleSettingsKey moves between the settings and cycles the selected one.
 // A change applies to the frame it is read in and is written down at once,
 // because a preference that lasts until the next restart is worse than none.
-func (m Model) handleSettingsKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleSettingsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Back, m.keys.Quit):
 		m, _ = m.popView()
@@ -798,7 +800,7 @@ func (m Model) usePreferences(next Preferences, set Setting, value string) Model
 	}
 	scheme, _ := ParseScheme(next.Keymap)
 	m.prefs, m.keys, m.timeStyle, m.scheme = next, keys, style, scheme
-	m.theme = NewTheme(m.renderer, ColorFor(next.Color, m.autoColor), m.brand)
+	m.theme = NewTheme(m.profile, ColorFor(next.Color, m.autoColor), m.brand)
 	m.err = ""
 	var saveErr error
 	if m.savePrefs != nil {
@@ -817,7 +819,7 @@ func (m Model) useScheme(scheme Scheme) Model {
 }
 
 // handleProjectsKey moves through the project listing and opens a board.
-func (m Model) handleProjectsKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleProjectsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Up):
 		m.projectSel = clamp(m.projectSel-1, 0, len(m.projects)-1)
@@ -855,7 +857,7 @@ func (m Model) projectRows() int {
 const projectHeaderLines = 2
 
 // handleBoardKey moves the board selection and runs the board actions.
-func (m Model) handleBoardKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleBoardKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Left):
 		m.sel = MoveSelection(m.columns, m.sel, -1, 0)
@@ -898,7 +900,7 @@ func (m Model) columnLength(col int) int {
 }
 
 // handleDetailKey scrolls the detail view and returns to the board.
-func (m Model) handleDetailKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleDetailKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Back):
 		return m.leave(nil)
@@ -918,7 +920,7 @@ func (m Model) handleDetailKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // handleTaskKey runs the actions that act on the selected task, so the board
 // and the detail view offer exactly the same set.
-func (m Model) handleTaskKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleTaskKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if !m.mayPress(msg) {
 		return m, nil
 	}
@@ -968,7 +970,7 @@ func (m Model) handleTaskKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 }
 
 // handlePromptKey edits the open input and acts on it when it is accepted.
-func (m Model) handlePromptKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handlePromptKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Cancel):
 		return m.closePrompt(), nil
@@ -1126,7 +1128,7 @@ func (m Model) closePrompt() Model {
 }
 
 // handleChoiceKey picks a numbered option.
-func (m Model) handleChoiceKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleChoiceKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if key.Matches(msg, m.keys.Cancel) {
 		m.choice, m.choices = choiceNone, nil
 		return m, nil
@@ -1315,7 +1317,7 @@ func (m Model) actorID() string {
 // from disagreeing: a reader who finds the key by reading the source, or by
 // pressing it out of habit from another session, is refused here rather than by
 // the service.
-func (m Model) mayPress(msg tea.KeyMsg) bool {
+func (m Model) mayPress(msg tea.KeyPressMsg) bool {
 	for _, a := range m.keys.taskBindings() {
 		if key.Matches(msg, a.binding) {
 			return a.permitted(m.permits())
@@ -1495,7 +1497,7 @@ func (m Model) restoreTask() (Model, tea.Cmd) {
 // handleFormKey moves through the open form and submits it. It reuses the keys
 // the settings screen moves and cycles with, so a form needs no bindings of its
 // own and works under every scheme.
-func (m Model) handleFormKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleFormKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Cancel):
 		return m.closeForm(), nil
@@ -1593,7 +1595,7 @@ func (m Model) openConfirm(form Form, task core.Task) (Model, tea.Cmd) {
 // handleConfirmKey answers the open confirmation. Every key that is not the
 // agreement leaves it standing, so a stray press neither runs the action nor
 // dismisses the question.
-func (m Model) handleConfirmKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleConfirmKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Cancel):
 		return m.closeConfirm(), nil
@@ -1677,7 +1679,7 @@ func (m Model) setupRef() string {
 
 // handleProjectKey scrolls the project screen and runs the actions that
 // configure the container tasks live in.
-func (m Model) handleProjectKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleProjectKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Back):
 		return m.leave(nil)
@@ -1716,7 +1718,7 @@ func (m Model) setupState() ProjectState {
 
 // handleSetupKey runs the project screen's actions, refusing a key this reader's
 // authority does not reach rather than letting the service refuse it.
-func (m Model) handleSetupKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleSetupKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if !m.maySetupPress(msg) {
 		return m, nil
 	}
@@ -1736,7 +1738,7 @@ func (m Model) handleSetupKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 // maySetupPress reports whether this reader holds the authority the pressed key
 // acts through, asked of the same list the footer and the help overlay filter
 // with so the three cannot disagree.
-func (m Model) maySetupPress(msg tea.KeyMsg) bool {
+func (m Model) maySetupPress(msg tea.KeyPressMsg) bool {
 	for _, a := range m.keys.projectBindings() {
 		if key.Matches(msg, a.binding) {
 			return a.permitted(m.permits())

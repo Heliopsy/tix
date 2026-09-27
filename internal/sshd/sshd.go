@@ -11,7 +11,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/charmbracelet/ssh"
+	"charm.land/ssh"
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/connections"

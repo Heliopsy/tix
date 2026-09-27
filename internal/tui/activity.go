@@ -5,9 +5,9 @@ package tui
 import (
 	"fmt"
 
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
 )
@@ -70,7 +70,7 @@ func (m Model) applyActivityFilterText(text string) Model {
 
 // handleActivityKey scrolls the event tail and returns to where it was opened
 // from, the same back-navigation every other view follows.
-func (m Model) handleActivityKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleActivityKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	shown := len(m.shownActivity())
 	switch {
 	case key.Matches(msg, m.keys.Back):

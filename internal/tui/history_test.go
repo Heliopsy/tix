@@ -111,7 +111,7 @@ func TestTheHistoryViewReadsTheStoredLogForWhatIsSelected(t *testing.T) {
 		t.Errorf("the history read asked for %d entries, not the page it draws", got.Page.Limit)
 	}
 
-	frame := m.View()
+	frame := m.Frame()
 	if head := historyBlock(t, frame); !strings.Contains(head, task.Ref) {
 		t.Errorf("the history does not name whose history it is:\n%s", head)
 	}
@@ -134,7 +134,7 @@ func TestTheStoredHistoryIsNotTheLiveTail(t *testing.T) {
 
 	m, cmd := m.reduce(pressKey("H"))
 	m, _ = m.reduce(run(t, cmd))
-	stored := historyBlock(t, m.View())
+	stored := historyBlock(t, m.Frame())
 	if !strings.Contains(stored, "task.transitioned") {
 		t.Errorf("the history view does not draw the stored log:\n%s", stored)
 	}
@@ -146,7 +146,7 @@ func TestTheStoredHistoryIsNotTheLiveTail(t *testing.T) {
 	if m.view != viewActivity {
 		t.Fatalf("v did not open the activity view; view = %v", m.view)
 	}
-	tail := m.View()
+	tail := m.Frame()
 	if !strings.Contains(tail, "created") {
 		t.Errorf("the activity view does not draw the live event:\n%s", tail)
 	}
@@ -270,7 +270,7 @@ func TestAnEmptyHistorySaysSoRatherThanDrawingNothing(t *testing.T) {
 	m, cmd := m.reduce(pressKey("H"))
 	m, _ = m.reduce(run(t, cmd))
 
-	block := historyBlock(t, m.View())
+	block := historyBlock(t, m.Frame())
 	task, _ := TaskAt(m.columns, m.sel)
 	if !strings.Contains(block, "Nothing is recorded against "+task.Ref) {
 		t.Errorf("an empty history draws no explanation:\n%s", block)

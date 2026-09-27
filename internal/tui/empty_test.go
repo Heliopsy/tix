@@ -83,7 +83,7 @@ func TestAnEmptyBoardSaysSoOnScreen(t *testing.T) {
 		project:  core.Project{ID: "p1", Key: "infra", Name: "Infrastructure"},
 		workflow: testWorkflow(),
 	})
-	frame := m.View()
+	frame := m.Frame()
 	if !strings.Contains(frame, "This board is empty.") {
 		t.Fatalf("an empty board drew no empty state:\n%s", frame)
 	}
@@ -96,7 +96,7 @@ func TestAnEmptyProjectListSaysSoOnScreen(t *testing.T) {
 	m := New(Config{Access: fullAccess(), Environ: []string{"NO_COLOR=1"}})
 	m.width, m.height = 130, 24
 	m, _ = m.reduce(projectsMsg{})
-	frame := m.View()
+	frame := m.Frame()
 	if !strings.Contains(frame, "No projects yet.") {
 		t.Fatalf("an empty project list drew no empty state:\n%s", frame)
 	}
@@ -106,7 +106,7 @@ func TestAFilteredOutBoardBlamesTheFilterRatherThanLookingBroken(t *testing.T) {
 	m := boardModel(t)
 	m.svc = newFakeService()
 	m = m.applyFilterText("status:nothing-matches-this")
-	frame := m.View()
+	frame := m.Frame()
 	if !strings.Contains(frame, "No task matches the filter.") {
 		t.Fatalf("a filtered-out board gave no reason:\n%s", frame)
 	}

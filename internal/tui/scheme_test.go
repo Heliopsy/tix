@@ -156,7 +156,7 @@ func TestSwitchingSchemeInTheSettingsViewTakesEffectAtOnce(t *testing.T) {
 	if m.view != viewBoard {
 		t.Fatalf("leaving settings landed on %v", m.view)
 	}
-	frame := m.View()
+	frame := m.Frame()
 	if !strings.Contains(frame, "o new task") {
 		t.Fatalf("the footer did not follow the scheme:\n%s", frame)
 	}

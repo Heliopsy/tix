@@ -3,13 +3,12 @@
 package tui
 
 import (
-	"io"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
@@ -22,10 +21,10 @@ func animatedModel(t *testing.T) (Model, *clock.Fake) {
 	clk := clock.NewFakeAt()
 	m := New(Config{
 		Access: fullAccess(), Actor: fullActor(),
-		Environ:  []string{"TERM=xterm-256color"},
-		Renderer: NewRenderer([]string{"TERM=xterm-256color"}, io.Discard),
-		Color:    boolPtr(true),
-		Now:      clk.Now,
+		Environ: []string{"TERM=xterm-256color"},
+		Profile: NewProfile([]string{"TERM=xterm-256color"}),
+		Color:   boolPtr(true),
+		Now:     clk.Now,
 	})
 	m.width, m.height = 120, 40
 	m, _ = m.reduce(boardMsg{
@@ -57,7 +56,7 @@ func frames(m Model, limit int) (Model, []string) {
 		m.now = advanced(m.now, PulseInterval)
 		next, cmd := m.reduce(pulseMsg{})
 		m = next
-		out = append(out, m.View())
+		out = append(out, m.Frame())
 		if cmd == nil {
 			return m, out
 		}
@@ -159,12 +158,12 @@ func TestAnIdleSessionStopsProducingFrames(t *testing.T) {
 		t.Errorf("the pulse ran for %s over %d frames, want it to stop within one %s phase of %s",
 			stopped, len(produced), PulseInterval, MotionIdleAfter)
 	}
-	settled := m.View()
+	settled := m.Frame()
 	next, cmd := m.reduce(pulseMsg{})
 	if cmd != nil {
 		t.Error("a phase arriving after the idle pause asked for another one")
 	}
-	if next.View() != settled {
+	if next.Frame() != settled {
 		t.Error("a phase arriving after the idle pause changed the frame, so bytes went out")
 	}
 }
@@ -189,8 +188,8 @@ func TestThePulseRestsAtFullEmphasis(t *testing.T) {
 	}
 	still := New(Config{
 		Access: fullAccess(), Environ: []string{"TERM=xterm-256color"},
-		Renderer: NewRenderer([]string{"TERM=xterm-256color"}, io.Discard),
-		Color:    boolPtr(true), Prefs: Preferences{Motion: MotionOff},
+		Profile: NewProfile([]string{"TERM=xterm-256color"}),
+		Color:   boolPtr(true), Prefs: Preferences{Motion: MotionOff},
 	})
 	if got, want := m.selection().Render("row"), still.selection().Render("row"); got != want {
 		t.Errorf("a rested pulse draws the selected row as %q, a session with motion off draws %q", got, want)
@@ -201,7 +200,7 @@ func TestThePulseResumesOnTheNextKeystroke(t *testing.T) {
 	t.Parallel()
 	m, _ := animatedModel(t)
 	m, _ = frames(m, int(MotionIdleAfter/PulseInterval)*4)
-	m, cmd := m.reduce(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	m, cmd := m.reduce(tea.KeyPressMsg{Code: 'j', Text: "j"})
 	if !hasPulse(cmd) {
 		t.Fatal("a keystroke after the idle pause did not start the pulse again")
 	}
