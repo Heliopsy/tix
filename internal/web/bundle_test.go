@@ -162,6 +162,10 @@ func TestBundleImportWithoutAFileOrPasteIsRefused(t *testing.T) {
 	}
 }
 
+// workflowsHeading anchors on the heading rather than the word, which also
+// appears in the sidebar link on every page.
+const workflowsHeading = "<h1>Workflows</h1>"
+
 func TestBundlePreviewShowsThePlanAndWritesNothing(t *testing.T) {
 	f := newFixture(t)
 	b := f.as("alice")
@@ -178,8 +182,13 @@ func TestBundlePreviewShowsThePlanAndWritesNothing(t *testing.T) {
 	if !strings.Contains(page, string(core.ComponentWorkflow)) {
 		t.Errorf("preview does not name the component kind: %s", page)
 	}
-	if after := b.page(web.RouteWorkflows); after != before {
-		t.Error("a preview changed the workflow list")
+	// The workflow table, not the whole page. The layout carries a CSRF token,
+	// so comparing renders compared that too, and the test failed in CI once
+	// on a token that had been reissued between the two reads: an assertion
+	// that named the workflow list and read everything around it as well.
+	after := b.page(web.RouteWorkflows)
+	if got, want := section(t, after, workflowsHeading), section(t, before, workflowsHeading); got != want {
+		t.Errorf("a preview changed the workflow list:\n got %s\nwant %s", got, want)
 	}
 }
 
