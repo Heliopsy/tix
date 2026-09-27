@@ -217,3 +217,37 @@ jobs:
           subject-name: ${{ steps.names.outputs.repo }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
+
+      # Ask the registry what it ended up holding, rather than trusting the
+      # steps that put it there. v0.6.0 published an image that was signed and
+      # carried no attestation, because the attest step addressed a digest the
+      # registry did not have: every step before it reported success and the
+      # release was only found wanting when somebody went looking. This is the
+      # same lesson the empty-release guard already learned, so it is checked
+      # the same way, against what is published.
+      #
+      # The tag is resolved fresh here instead of reusing the pushed digest,
+      # because a reader pulls a tag and this must fail if the tag points
+      # somewhere unsigned.
+      - name: Verify what was published
+        env:
+          REPO: ${{ steps.names.outputs.repo }}
+          TAG: ${{ steps.names.outputs.tag }}
+          IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/release.yaml@${{ github.ref }}
+        run: |
+          set -euo pipefail
+          cosign verify \
+            --certificate-identity "$IDENTITY" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "$REPO:$TAG" >/dev/null
+          echo "signature verified for $REPO:$TAG"
+
+          for arch in amd64 arm64; do
+            child=$(podman manifest inspect "$REPO:$TAG" \
+              | jq -r --arg a "$arch" '.manifests[] | select(.platform.architecture == $a) | .digest')
+            cosign verify-attestation --type spdxjson \
+              --certificate-identity "$IDENTITY" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+              "$REPO@$child" >/dev/null
+            echo "sbom attestation verified for $arch at $child"
+          done
