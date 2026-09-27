@@ -190,3 +190,104 @@ func waitForLiveSessions(t *testing.T, srv *Server, want int) {
 		time.Sleep(2 * time.Millisecond)
 	}
 }
+
+// TestReservationsAreBoundedByTheKeyAndSpendNoListenerCapacity states the
+// invariant reserve's doc comment claims: the capacity strangers can occupy is
+// bounded by their own key rather than shared with the sessions enrolled keys
+// hold. A reservation is therefore refused by the per-key cap at exactly the
+// cap, and until it is acquired it shows up in neither count.
+func TestReservationsAreBoundedByTheKeyAndSpendNoListenerCapacity(t *testing.T) {
+	g := newGate(2, 8)
+	for i := 1; i <= 2; i++ {
+		if err := g.reserve("a"); err != nil {
+			t.Fatalf("reservation %d of 2: %v", i, err)
+		}
+	}
+	err := g.reserve("a")
+	if err == nil {
+		t.Fatal("the per-key cap of 2 admitted a third reservation")
+	}
+	if !strings.Contains(err.Error(), "limit of 2 concurrent sessions") {
+		t.Fatalf("refusal = %q, want it to name the per-key limit", err)
+	}
+	// Reservations are what a key is holding, not what the listener has spent.
+	if perKey, live := g.counts("a"); perKey != 0 || live != 0 {
+		t.Fatalf("counts = %d/%d after two reservations and no acquire, want 0/0", perKey, live)
+	}
+	if err := g.reserve("b"); err != nil {
+		t.Fatalf("another key was refused while only a's reservations were outstanding: %v", err)
+	}
+	// And a cancelled reservation gives the key its room back.
+	g.cancel("a")
+	if err := g.reserve("a"); err != nil {
+		t.Fatalf("a cancelled reservation was not given back: %v", err)
+	}
+}
+
+// TestAFullListenerRefusesAReservationBeforeAnyLookup pins the other refusal
+// reserve can give: the listener itself is full, which is decided from the
+// live count alone and so is the same answer every key gets.
+func TestAFullListenerRefusesAReservationBeforeAnyLookup(t *testing.T) {
+	g := newGate(4, 1)
+	if err := g.acquire("a"); err != nil {
+		t.Fatalf("acquire: %v", err)
+	}
+	err := g.reserve("b")
+	if err == nil {
+		t.Fatal("a full listener reserved a slot it cannot serve")
+	}
+	if !strings.Contains(err.Error(), "limit of 1 sessions") {
+		t.Fatalf("refusal = %q, want it to name the listener's limit", err)
+	}
+	if same := g.reserve("a"); same == nil || same.Error() != err.Error() {
+		t.Fatalf("a key the listener has seen was told %v, want the same %q", same, err)
+	}
+}
+
+// TestReleaseUnwindsTheAccountingExactly walks a key from two sessions down to
+// none and reads the counters at every step, including the one counts cannot
+// show: the map entry itself is deleted rather than left behind at zero.
+func TestReleaseUnwindsTheAccountingExactly(t *testing.T) {
+	g := newGate(2, 4)
+	for i := 1; i <= 2; i++ {
+		if err := g.acquire("a"); err != nil {
+			t.Fatalf("acquire %d of 2: %v", i, err)
+		}
+	}
+	if perKey, live := g.counts("a"); perKey != 2 || live != 2 {
+		t.Fatalf("counts = %d/%d after two sessions, want 2/2", perKey, live)
+	}
+
+	g.release("a")
+	if perKey, live := g.counts("a"); perKey != 1 || live != 1 {
+		t.Fatalf("counts = %d/%d after one release of two, want 1/1", perKey, live)
+	}
+	if err := g.acquire("a"); err != nil {
+		t.Fatalf("the released slot was not given back: %v", err)
+	}
+	g.release("a")
+	g.release("a")
+	if perKey, live := g.counts("a"); perKey != 0 || live != 0 {
+		t.Fatalf("counts = %d/%d after every session ended, want 0/0", perKey, live)
+	}
+	if _, ok := g.perKey["a"]; ok {
+		t.Fatal("the key is still in the map at zero, so a listener leaks an entry per key ever seen")
+	}
+}
+
+// TestReleaseWithoutAcquireLeavesTheListenerAtZero guards the floor under the
+// live count. A release that never had a slot behind it must not lend the
+// listener capacity it does not have.
+func TestReleaseWithoutAcquireLeavesTheListenerAtZero(t *testing.T) {
+	g := newGate(1, 1)
+	g.release("ghost")
+	if perKey, live := g.counts("ghost"); perKey != 0 || live != 0 {
+		t.Fatalf("counts = %d/%d after releasing a slot nobody held, want 0/0", perKey, live)
+	}
+	if err := g.acquire("a"); err != nil {
+		t.Fatalf("acquire: %v", err)
+	}
+	if err := g.acquire("b"); err == nil {
+		t.Fatal("the listener admitted a second session, so the stray release bought it one")
+	}
+}

@@ -361,13 +361,168 @@ func TestMessageHidesAnInternalFailureFromAStranger(t *testing.T) {
 	}
 }
 
-func TestOptionsFillEveryUnsetLimit(t *testing.T) {
+// numericOption is one of withDefaults' numbered limits, named once so the
+// table below covers the whole list rather than the fields somebody happened
+// to write down. Durations travel as their nanosecond count, which is what
+// lets one table hold both.
+type numericOption struct {
+	name     string
+	fallback int64
+	// configured is a value nothing else in the table would produce, so a
+	// default overwriting it is visible.
+	configured int64
+	get        func(Options) int64
+	set        func(*Options, int64)
+}
+
+// numericOptions is every limit withDefaults fills. A field missing here is a
+// field whose default nothing checks, which is the gap this table exists to
+// close: add the option, add the row.
+func numericOptions() []numericOption {
+	return []numericOption{
+		{
+			"TenantTTL", int64(DefaultTenantTTL), int64(90 * time.Minute),
+			func(o Options) int64 { return int64(o.TenantTTL) },
+			func(o *Options, v int64) { o.TenantTTL = time.Duration(v) },
+		},
+		{
+			"ReapInterval", int64(DefaultReapInterval), int64(7 * time.Minute),
+			func(o Options) int64 { return int64(o.ReapInterval) },
+			func(o *Options, v int64) { o.ReapInterval = time.Duration(v) },
+		},
+		{
+			"MaxTenants", int64(DefaultMaxTenants), 11,
+			func(o Options) int64 { return int64(o.MaxTenants) },
+			func(o *Options, v int64) { o.MaxTenants = int(v) },
+		},
+		{
+			"MaxTasks", int64(DefaultMaxTasks), 13,
+			func(o Options) int64 { return int64(o.MaxTasks) },
+			func(o *Options, v int64) { o.MaxTasks = int(v) },
+		},
+		{
+			"LeaseTTL", int64(DefaultLeaseTTL), int64(17 * time.Second),
+			func(o Options) int64 { return int64(o.LeaseTTL) },
+			func(o *Options, v int64) { o.LeaseTTL = time.Duration(v) },
+		},
+		{
+			"RatePerHour", int64(DefaultRatePerHour), 19,
+			func(o Options) int64 { return int64(o.RatePerHour) },
+			func(o *Options, v int64) { o.RatePerHour = int(v) },
+		},
+		{
+			"RateBurst", int64(DefaultRateBurst), 23,
+			func(o Options) int64 { return int64(o.RateBurst) },
+			func(o *Options, v int64) { o.RateBurst = int(v) },
+		},
+		{
+			"IdleTimeout", int64(DefaultIdleTimeout), int64(29 * time.Minute),
+			func(o Options) int64 { return int64(o.IdleTimeout) },
+			func(o *Options, v int64) { o.IdleTimeout = time.Duration(v) },
+		},
+		{
+			"KeepaliveInterval", int64(DefaultKeepaliveInterval), int64(31 * time.Second),
+			func(o Options) int64 { return int64(o.KeepaliveInterval) },
+			func(o *Options, v int64) { o.KeepaliveInterval = time.Duration(v) },
+		},
+		{
+			"KeepaliveMaxMissed", int64(DefaultKeepaliveMaxMissed), 7,
+			func(o Options) int64 { return int64(o.KeepaliveMaxMissed) },
+			func(o *Options, v int64) { o.KeepaliveMaxMissed = int(v) },
+		},
+		{
+			"MaxSessions", int64(DefaultMaxSessions), 41,
+			func(o Options) int64 { return int64(o.MaxSessions) },
+			func(o *Options, v int64) { o.MaxSessions = int(v) },
+		},
+		{
+			"MaxSessionsPerKey", int64(DefaultMaxSessionsPerKey), 9,
+			func(o Options) int64 { return int64(o.MaxSessionsPerKey) },
+			func(o *Options, v int64) { o.MaxSessionsPerKey = int(v) },
+		},
+	}
+}
+
+// TestEveryNumberedLimitDefaultsAndIsKeptWhenConfigured runs the whole list of
+// limits through withDefaults three ways each: unset takes the default, a
+// nonsense value takes the default, and a configured value is left alone.
+//
+// One table over every field rather than a test per field, because the failure
+// this guards against is a field nobody added: a defaults test that covers
+// some of the list and reads as though it covered the list.
+func TestEveryNumberedLimitDefaultsAndIsKeptWhenConfigured(t *testing.T) {
+	for _, tc := range numericOptions() {
+		t.Run(tc.name+"/unset takes the default", func(t *testing.T) {
+			if got := tc.get(Options{}.withDefaults()); got != tc.fallback {
+				t.Fatalf("%s = %d when unset, want the default %d", tc.name, got, tc.fallback)
+			}
+		})
+		t.Run(tc.name+"/a negative value takes the default", func(t *testing.T) {
+			var o Options
+			tc.set(&o, -1)
+			if got := tc.get(o.withDefaults()); got != tc.fallback {
+				t.Fatalf("%s = %d when set to -1, want the default %d", tc.name, got, tc.fallback)
+			}
+		})
+		t.Run(tc.name+"/a configured value is kept", func(t *testing.T) {
+			var o Options
+			tc.set(&o, tc.configured)
+			if got := tc.get(o.withDefaults()); got != tc.configured {
+				t.Fatalf("%s = %d, want the configured %d: a default overwrote it",
+					tc.name, got, tc.configured)
+			}
+		})
+	}
+}
+
+// TestEveryUnsetDependencyIsFilled covers what withDefaults supplies that is
+// not a number: the collaborators a listener cannot run without, and the
+// address it binds.
+func TestEveryUnsetDependencyIsFilled(t *testing.T) {
 	o := Options{}.withDefaults()
-	if o.Addr != DefaultAddr || o.TenantTTL != DefaultTenantTTL || o.MaxTenants != DefaultMaxTenants ||
-		o.MaxTasks != DefaultMaxTasks || o.LeaseTTL != DefaultLeaseTTL || o.RatePerHour != DefaultRatePerHour ||
-		o.RateBurst != DefaultRateBurst || o.ReapInterval != DefaultReapInterval ||
-		o.IdleTimeout != DefaultIdleTimeout || o.Clock == nil || o.Logger == nil {
-		t.Fatalf("withDefaults left something unset: %+v", o)
+	if o.Clock == nil {
+		t.Error("Clock is nil, so every timer in the listener panics")
+	}
+	if o.Logger == nil {
+		t.Error("Logger is nil")
+	}
+	if o.Connections == nil {
+		t.Error("Connections is nil, so no session is visible to an administrator")
+	}
+	if o.Addr != DefaultAddr {
+		t.Errorf("Addr = %q when unset, want %q", o.Addr, DefaultAddr)
+	}
+	configured := Options{Addr: "127.0.0.1:2323"}.withDefaults()
+	if configured.Addr != "127.0.0.1:2323" {
+		t.Errorf("Addr = %q, want the configured address", configured.Addr)
+	}
+}
+
+// TestThePerKeyCapNeverExceedsTheListenerCap guards the one limit that is
+// decided from another: a key may not be entitled to more sessions than the
+// listener has.
+func TestThePerKeyCapNeverExceedsTheListenerCap(t *testing.T) {
+	tests := []struct {
+		name       string
+		perKey     int
+		max        int
+		wantPerKey int
+	}{
+		{"a per-key cap above the listener's is clamped to it", 9, 2, 2},
+		{"an unset per-key cap is clamped too", 0, 2, 2},
+		{"a per-key cap equal to the listener's stands", 4, 4, 4},
+		{"a per-key cap below the listener's is untouched", 2, 4, 2},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			o := Options{MaxSessionsPerKey: tc.perKey, MaxSessions: tc.max}.withDefaults()
+			if o.MaxSessionsPerKey != tc.wantPerKey {
+				t.Fatalf("MaxSessionsPerKey = %d, want %d", o.MaxSessionsPerKey, tc.wantPerKey)
+			}
+			if o.MaxSessions != tc.max {
+				t.Fatalf("MaxSessions = %d, want the configured %d", o.MaxSessions, tc.max)
+			}
+		})
 	}
 }
 

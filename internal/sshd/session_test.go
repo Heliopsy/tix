@@ -74,3 +74,44 @@ func TestOnlyASandboxSaysAnythingOnTheWayOut(t *testing.T) {
 		t.Fatalf("a hosted session left %q behind, want nothing", hosted)
 	}
 }
+
+// TestASandboxSessionIsHandedItsNoticeOnTheWayOut takes the farewell the whole
+// way: notice() producing a line is not the same as the line reaching a
+// client, and the step between them is the one that decides whether a session
+// carries a notice at all.
+//
+// The assertion is on the client's own output after the interface has given
+// the terminal back, which is where a person would read it.
+func TestASandboxSessionIsHandedItsNoticeOnTheWayOut(t *testing.T) {
+	srv, _ := newPacedServer(t, func(o *Options) { o.TenantTTL = 6 * time.Hour })
+	session := dialCollected(t, srv.Addr())
+	waitForLiveSessions(t, srv, 1)
+	session.quit(t)
+	<-session.ended
+
+	got := session.stdout.String()
+	for _, want := range []string{"demo sandbox", "6h"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the sandbox session ended without mentioning %q; it printed %q", want, got)
+		}
+	}
+}
+
+// TestAHostedSessionIsHandedNoNotice is the other half. A notice withheld in
+// the wrong direction tells somebody their real board is a sandbox on a timer,
+// which is both false and alarming.
+func TestAHostedSessionIsHandedNoNotice(t *testing.T) {
+	addr, st := newEnrolledListener(t)
+	signer, fingerprint := newSigner(t)
+	enrolSigner(t, st, "acme", "alice", fingerprint)
+
+	session := dialCollectedAs(t, addr, "acme", signer)
+	session.quit(t)
+	<-session.ended
+
+	for _, unwanted := range []string{"demo sandbox", "deleted after"} {
+		if strings.Contains(session.stdout.String(), unwanted) {
+			t.Errorf("a hosted session was told %q on the way out", unwanted)
+		}
+	}
+}

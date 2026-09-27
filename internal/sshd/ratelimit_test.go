@@ -64,3 +64,85 @@ func TestRateIntervalIsTheGapBetweenRefills(t *testing.T) {
 		}
 	}
 }
+
+// TestEvictDropsRefilledSourcesAndKeepsSpendingOnes states evict's policy in
+// the direction it matters: the source still spending its allowance is the one
+// whose bucket carries information, and it is the one that must survive.
+//
+// The two buckets are arranged so that at the moment of the eviction one has
+// refilled to exactly its burst and the other has not, and so that the
+// still-spending one is also the older of the two: a policy that kept the full
+// bucket instead would then fall through to dropping the oldest and reach the
+// same map by the wrong route.
+func TestEvictDropsRefilledSourcesAndKeepsSpendingOnes(t *testing.T) {
+	clk := clock.NewFakeAt()
+	l := newLimiter(clk, time.Minute, 2, 2)
+
+	// spender empties its bucket at t0 and is still 0.5 tokens short at t90.
+	// Both calls must happen: emptying the bucket is the point, so this cannot
+	// be folded into one short-circuiting condition.
+	for i := range 2 {
+		if !l.allow("spender") {
+			t.Fatalf("the burst of 2 refused connection %d", i+1)
+		}
+	}
+	clk.Advance(30 * time.Second)
+	// quiet spends one at t30, so it is back to exactly 2 at t90.
+	if !l.allow("quiet") {
+		t.Fatal("a fresh source was refused")
+	}
+	clk.Advance(time.Minute)
+
+	if !l.allow("newcomer") {
+		t.Fatal("a fresh source was refused")
+	}
+	if _, ok := l.buckets["quiet"]; ok {
+		t.Error("a source whose allowance had refilled in full was kept, so the map grows on idle sources")
+	}
+	if _, ok := l.buckets["spender"]; !ok {
+		t.Error("a source still spending its allowance was evicted, which hands it a fresh burst")
+	}
+	if _, ok := l.buckets["newcomer"]; !ok {
+		t.Error("the source the eviction made room for is not in the map")
+	}
+	// The kept source kept its debt: 1.5 tokens is one connection and no more.
+	if !l.allow("spender") {
+		t.Error("the kept source was refused the token it had refilled")
+	}
+	if l.allow("spender") {
+		t.Error("the kept source got a second token, so its bucket was reset to a full burst")
+	}
+	// The evicted one paid nothing for being forgotten.
+	if !l.allow("quiet") {
+		t.Error("the forgotten source was refused, so forgetting it was not free")
+	}
+}
+
+// TestEvictWithNoRefillFallsBackToTheOldest covers a limiter whose interval
+// refills nothing: no bucket can reach its burst, so the map is bounded by the
+// oldest-out rule alone and every other source stays.
+func TestEvictWithNoRefillFallsBackToTheOldest(t *testing.T) {
+	clk := clock.NewFakeAt()
+	l := newLimiter(clk, 0, 1, 2)
+	if !l.allow("a") {
+		t.Fatal("the first connection was refused")
+	}
+	clk.Advance(time.Hour)
+	if !l.allow("b") {
+		t.Fatal("a fresh source was refused")
+	}
+	clk.Advance(time.Hour)
+	if !l.allow("c") {
+		t.Fatal("a fresh source was refused")
+	}
+	if len(l.buckets) != 2 {
+		t.Fatalf("the limiter holds %d sources, want exactly 2: with no refill only the oldest goes",
+			len(l.buckets))
+	}
+	if _, ok := l.buckets["a"]; ok {
+		t.Error("the oldest source survived the eviction")
+	}
+	if _, ok := l.buckets["c"]; !ok {
+		t.Error("the source the eviction made room for is not in the map")
+	}
+}
