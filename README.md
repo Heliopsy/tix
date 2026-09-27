@@ -243,7 +243,20 @@ from a `.env` file, with precedence `flags > env > .env > config > defaults`.
 go install github.com/heliopsy/tix@latest
 ```
 
-Binaries and container images are published per release.
+Binaries are published per release, signed with cosign.
+
+For a server, the container image is the shorter path: it carries the database path, the bind address and the
+subcommand, so there is nothing to configure to get a working one.
+
+```sh
+podman run -d -p 127.0.0.1:8080:8080 -v tix-data:/data ghcr.io/heliopsy/tix:0.6.0
+```
+
+`linux/amd64` and `linux/arm64` in one manifest list, on distroless as uid 65532 with no shell, and signed
+keyless with cosign. Tags are the patch, the minor series and `latest`; there is deliberately no bare `:0`,
+because before 1.0 a minor bump is where a break lands. [docs/deployment.md](docs/deployment.md#containers)
+has the `cosign verify` invocation, the volume ownership trap a bind mount walks into, and a Kubernetes
+manifest.
 
 ## Storage
 
@@ -273,7 +286,7 @@ code there. Nothing else changes: the commands, the output and the exit codes ar
 | [docs/](docs/) | User and operator guides, indexed in [docs/README.md](docs/README.md) |
 | [docs/agents.md](docs/agents.md) | Leases, lease tokens, `tix claim exec`, scopes and exit codes for agents |
 | [docs/api.md](docs/api.md) | HTTP API and the WebSocket event stream |
-| [docs/deployment.md](docs/deployment.md) | Running `tix serve`, TLS, proxies and the bind guard |
+| [docs/deployment.md](docs/deployment.md) | Running `tix serve`, the published container image, Kubernetes, TLS, proxies and the bind guard |
 | [docs/web-ui.md](docs/web-ui.md) | The browser interface, and the preferences each reader keeps |
 | [docs/statistics.md](docs/statistics.md) | What each figure means, and what the leaderboard counts |
 | [docs/theming.md](docs/theming.md) | Tenant accents, defining a palette, what is not themed |

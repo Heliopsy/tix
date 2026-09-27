@@ -61,9 +61,14 @@
 
 ## Left for the repository owner
 
-- [ ] Publish: nothing here has been pushed, tagged or released
-- [ ] `docs/` and `README.md`: how to pull and run the image, the tag policy, how to verify the signature and the
-      attestations
-- [ ] `cmd/serve.go` reads its listen address from the flag and ignores `server.listen`, so the configuration key
-      and its environment variable do nothing. Out of this change's scope; the image works around it on the
+- [x] Publish: v0.6.0 pushed `ghcr.io/heliopsy/tix` as `0.6.0`, `0.6` and `latest`, signed with cosign
+      keyless. The SBOM and provenance attestations did not land: the attest step addressed a digest read from
+      the local manifest list rather than the pushed one, fixed in a later commit, so the image is signed and
+      not attested until the next release
+- [x] `docs/` and `README.md`: how to pull and run the image, the tag policy, how to verify the signature.
+      The attestations are documented as absent rather than as verifiable, because a command that always
+      fails is worse than a sentence saying why
+- [x] `cmd/serve.go` reads its listen address from the flag and ignores `server.listen`, so the configuration key
+      and its environment variable do nothing. Fixed separately: serve now falls back through the documented
+      precedence, and the image sets the address with `TIX_SERVER_LISTEN` rather than arguing it on the
       command line

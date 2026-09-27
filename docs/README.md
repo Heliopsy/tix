@@ -20,6 +20,7 @@ with the thing.
 | [web-ui.md](web-ui.md) | The browser interface: lease badges, multi-step moves, the directory, per-browser preferences |
 | [tui.md](tui.md) | The terminal interface: the ten views, five keybinding schemes, the settings screen, what it does not do |
 | [deployment.md](deployment.md) | Running `tix serve`, TLS, reverse proxies, the non-loopback bind guard |
+| [deployment.md](deployment.md#containers) | The published container image: tags, what the image already decides, verifying the signature, Kubernetes |
 | [deployment.md](deployment.md#the-terminal-interface-over-ssh) | Serving the terminal interface over SSH: enrolling keys, the username as tenant, enrolled and demo modes |
 | [scaling.md](scaling.md) | SQLite versus PostgreSQL, keyset pagination, partitioning, when to move |
 | [migrating.md](migrating.md) | Importing from Jira and OpenProject, mapping files, snapshots, bundles |
@@ -35,6 +36,7 @@ with the thing.
 - Building a queue view to replace a Jira filter: [filtering.md](filtering.md).
 - Setting up a team: [configuration.md](configuration.md), [workflows.md](workflows.md),
   [deployment.md](deployment.md).
+- Running the published image, in a container or on Kubernetes: [deployment.md](deployment.md#containers).
 - Coming from another tracker: [migrating.md](migrating.md).
 - Building a client: [api.md](api.md).
 - Working in a terminal, or putting a team on a board over SSH: [tui.md](tui.md).

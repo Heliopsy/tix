@@ -267,35 +267,238 @@ above it.
 
 ## Containers
 
-`Containerfile` at the repository root builds a runtime image, and `just image` produces it as
-`localhost/tix:latest`. Builds are `CGO_ENABLED=0` with a pure-Go SQLite driver, so the image needs no libc.
+Every release publishes a runtime image to GitHub Container Registry, so running tix in a container needs no
+build:
 
 ```sh
-just image
-
-podman run --rm -p 127.0.0.1:8080:8080 \
-  -v tix-data:/var/lib/tix \
-  -e TIX_DATABASE_DSN=sqlite:///var/lib/tix/tix.db \
-  -e TIX_SERVER_LISTEN=0.0.0.0:8080 \
-  localhost/tix:latest serve --insecure-no-tls
+podman volume create tix-data
+podman run -d --name tix -p 127.0.0.1:8080:8080 -v tix-data:/data ghcr.io/heliopsy/tix:0.6.0
 ```
 
-The address comes from the environment because that is the layer a container has; `--listen 0.0.0.0:8080`
-on the command line says the same thing. `--insecure-no-tls` has no configuration key, so a non-loopback bind
-still carries that one flag: it is the acknowledgement that this process is facing a network in clear text.
+That is the whole command. The image already carries the database path, the bind address and the subcommand,
+which is why nothing here sets them; [What the image decides for you](#what-the-image-decides-for-you) lists
+what they are.
 
-Binding `0.0.0.0` inside the container is what makes the published port reachable, which is why the opt-out is
-there. Publish it on `127.0.0.1` and terminate TLS outside, or mount a certificate and drop the opt-out.
+### Tags
 
-Back the `/var/lib/tix` volume with local storage. A named volume on the container host is fine; an NFS- or
-SMB-backed volume, or a network block device mounted from another host, is not: `tix` refuses to open a SQLite
-database it detects on one, for the reasons in [scaling.md](scaling.md#sqlite). Run PostgreSQL instead if the
-deployment needs its database on shared storage.
+| Tag | Moves |
+| --- | --- |
+| `ghcr.io/heliopsy/tix:0.6.0` | never: one release, one digest |
+| `ghcr.io/heliopsy/tix:0.6` | forward over every patch in the 0.6 series |
+| `ghcr.io/heliopsy/tix:latest` | forward over every release, including across a breaking change |
+
+There is deliberately no `:0`. release-please runs `bump-minor-pre-major` here, so before 1.0 a breaking change
+arrives as a minor bump: a `:0` tag would carry a deployment from 0.6.x to 0.7.x across exactly the break the
+version scheme exists to announce, and nobody would have typed a version to find out. The widest tag that can
+carry a compatibility promise is therefore the minor series. The policy is asserted rather than described, in
+`just image-tags-check`.
+
+Pin the patch tag for anything you depend on, `:0.6` if you want patches, `:latest` only to try the project out.
+
+One manifest list covers `linux/amd64` and `linux/arm64`, so the same reference works on both and the engine
+picks the child for the host it is on.
+
+### What the image decides for you
+
+| | Value | Why it is in the image rather than in your command |
+| --- | --- | --- |
+| Base | `gcr.io/distroless/static-debian12:nonroot` | Builds are `CGO_ENABLED=0` with a pure-Go SQLite driver, so there is no libc to ship. There is also no shell: `kubectl exec` or `podman exec` has to name `/usr/local/bin/tix`, not `sh` |
+| User | uid `65532`, distroless nonroot | Numeric, so a host or a Kubernetes `runAsNonRoot` check can resolve it without reading the image's passwd file |
+| `TIX_DATABASE_DSN` | `/data/tix.db` | The one path a volume has to cover, so an operator mounts one directory and is done |
+| `VOLUME ["/data"]` | | Declares it, so an engine that is given no volume at least does not write the database into the container layer |
+| `TIX_SERVER_LISTEN` | `0.0.0.0:8080` | Without an address the server binds loopback inside its own network namespace: it starts, logs `listening`, and resets every connection to the port it exposes. `0.0.0.0` here is the container's namespace, not your network; the boundary is what you publish with `-p` or a Service |
+| `EXPOSE` | `8080` | |
+| `CMD` | `serve --insecure-no-tls` | `--insecure-no-tls` has no configuration key, so there is nothing to set: the flag is the acknowledgement that this process faces a network in clear text. It is on the command line so that overriding the command is what it takes to drop it |
+
+**This image terminates no TLS.** Publish the port on `127.0.0.1` and terminate outside it, or override the
+command to pass `--tls-cert` and `--tls-key` over a mounted certificate. See
+[Behind a reverse proxy](#behind-a-reverse-proxy).
+
+The address can still be argued on the command line: `--listen 0.0.0.0:8080` says the same thing as the
+variable. The variable is the default because that is the layer a container has.
+
+### A bind mount needs chowning, a named volume does not
+
+A named volume works because the engine initialises an empty one with the ownership the image declares, so uid
+65532 owns `/data` and can create the database. A bind mount does not: it keeps whatever the host directory
+already had, and the non-root process cannot write there. The failure is a startup error and an exit, not a
+degraded server:
+
+```text
+error: internal: reading journal mode for "/data/tix.db": unable to open database file (14)
+```
+
+Error 14 is SQLite's `SQLITE_CANTOPEN`, which covers a path that is not there and a path the process may not
+write alike, so the message cannot tell you which one you have. On a fresh mount it is almost always ownership.
+If you mount a host directory, chown it to the image's user first:
+
+```sh
+chown 65532:65532 /srv/tix-data      # rootless podman: podman unshare chown 65532:65532 /srv/tix-data
+podman run -d --name tix -p 127.0.0.1:8080:8080 -v /srv/tix-data:/data ghcr.io/heliopsy/tix:0.6.0
+```
+
+Prefer a named volume unless you have a reason to want the files where you can see them. In Kubernetes the
+equivalent is `fsGroup`, which the manifest below sets.
+
+Back `/data` with local storage either way. A named volume on the container host is fine; an NFS- or SMB-backed
+volume, or a network block device mounted from another host, is not: `tix` refuses to open a SQLite database it
+detects on one, for the reasons in [scaling.md](scaling.md#sqlite). Run PostgreSQL instead if the deployment
+needs its database on shared storage.
 
 Against PostgreSQL in the same compose file or pod, raise `TIX_DATABASE_CONNECT_TIMEOUT` above its `15s`
 default. The database is often still starting when this process first reaches it, and the startup check
 refuses to serve rather than waiting past its timeout, so a database that is merely slow to accept the first
 connection reads as an unreachable one. See [configuration.md](configuration.md).
+
+### Verifying the image
+
+The image is signed with cosign in keyless mode, which means there is no public key to fetch and distribute:
+the signature is backed by a short-lived certificate Sigstore issued to the release workflow's OIDC identity.
+Verification is therefore a claim about *which workflow in which repository* produced the bytes, and you have to
+say what you expect that to be, or you have checked nothing:
+
+```sh
+cosign verify \
+  --certificate-identity 'https://github.com/Heliopsy/tix/.github/workflows/release.yaml@refs/heads/main' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/heliopsy/tix:0.6.0
+```
+
+Three details in that identity are easy to get wrong:
+
+- **The owner is capitalised.** A registry reference must be lowercase, so the image is `ghcr.io/heliopsy/tix`
+  while the certificate names the repository as GitHub spells it, `Heliopsy/tix`. The two differ in the same
+  command and both are right.
+- **The ref is `refs/heads/main`, not the tag.** The release workflow is reached by a `workflow_dispatch` API
+  call from the release-please workflow, because GitHub will not let a workflow's own token start another
+  workflow by pushing a tag. A dispatched run's identity carries the branch it was dispatched on. If a release
+  is ever built by pushing a tag by hand, that run's signature will read `refs/tags/vX.Y.Z` instead. Use
+  `--certificate-identity-regexp` if you need to accept both.
+- **It names `release.yaml`.** The identity is the workflow file, so it stops being satisfied if signing moves
+  to another workflow. That is the point: it is what distinguishes this project's release job from anything
+  else that can get a token from the same issuer.
+
+The signature is made `--recursive`, so the two architecture manifests are signed as well as the list. Somebody
+pulling on arm64 can verify the child they actually run, which a signature over the list alone would not let
+them do:
+
+```sh
+digest=$(podman manifest inspect ghcr.io/heliopsy/tix:0.6.0 \
+  | jq -r '.manifests[] | select(.platform.architecture == "arm64") | .digest')
+cosign verify \
+  --certificate-identity 'https://github.com/Heliopsy/tix/.github/workflows/release.yaml@refs/heads/main' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  "ghcr.io/heliopsy/tix@$digest"
+```
+
+**v0.6.0 carries no SBOM and no build provenance.** The release workflow attempts both, and for v0.6.0 both
+failed: the attestations addressed a child digest the registry had not stored under that name, because podman
+re-encodes manifests on push. A `cosign verify-attestation` against this release will report that no
+attestation matched the predicate type, which is an accurate report of what is published rather than a problem
+at your end. The fix is in the workflow and lands with the next release. Until then the image is signed, not
+attested.
+
+Release archives are signed too, and `tix update` checks a checksum rather than a signature. See
+[upgrading.md](upgrading.md).
+
+### Kubernetes
+
+One process, one database. The server runs the lease sweeper and the retention pruner as tickers, and exactly
+one process may have them enabled against a given database, so this is a single replica with
+`strategy: Recreate` rather than a Deployment you scale. A second replica would sweep the same leases twice and,
+on SQLite, would be a second writer on a volume that only one node can mount. To run more than one, move to
+PostgreSQL and disable the workers on all but one process with `--no-lease-sweeper` and `--no-retention-pruner`.
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tix-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tix
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: { app: tix }
+  template:
+    metadata:
+      labels: { app: tix }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        # The volume arrives owned by root otherwise, and the non-root process
+        # cannot create the database on it.
+        fsGroup: 65532
+      containers:
+        - name: tix
+          image: ghcr.io/heliopsy/tix:0.6.0
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - { name: data, mountPath: /data }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8080 }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: tix-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tix
+spec:
+  selector: { app: tix }
+  ports:
+    - { port: 80, targetPort: 8080 }
+```
+
+`readOnlyRootFilesystem: true` is safe because everything this process writes is under `/data`: serving, adding
+a task and running the migrations all work with the rest of the filesystem read-only, which is worth keeping
+because a static binary on distroless has nothing else it legitimately needs to write. TLS belongs to the
+Ingress or the mesh in front of this; the container serves clear text, which is what `--insecure-no-tls` in the
+image's command is acknowledging.
+
+Probe both routes rather than one. `/healthz` says the process is up and `/readyz` says the database answers and
+its migrations are applied, so a pod still opening its database, or waiting on a PostgreSQL that has not
+finished starting, stays out of the Service rather than taking traffic it cannot serve. Neither needs a credential. See
+[Health checks](#health-checks).
+
+Keep `terminationGracePeriodSeconds` above `--shutdown-timeout` for the same reason systemd needs
+`TimeoutStopSec` above it.
+
+### Building your own
+
+The published image is not the only route, and building remains a first-class one: it is how you get an
+unreleased commit, a patched dependency, or a base image your organisation requires. `Containerfile` at the
+repository root is exactly what the release builds, and `just image` produces it as `localhost/tix:latest`:
+
+```sh
+just image
+just image-verify    # runs it and proves it serves, rather than only that it built
+just image-scan      # trivy against the layers, not the source tree
+```
+
+`just image-multiarch` builds both architectures and assembles the manifest list. `just image-gate` is all of
+it, and is what CI runs before a push.
 
 ## Backup
 

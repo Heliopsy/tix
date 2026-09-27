@@ -30,8 +30,17 @@ not check them, because verifying a sigstore bundle needs a verifier this binary
 need that assurance, verify the signature yourself:
 
 ```sh
-cosign verify-blob --bundle checksums.txt.bundle checksums.txt
+cosign verify-blob --bundle checksums.txt.bundle \
+  --certificate-identity 'https://github.com/Heliopsy/tix/.github/workflows/release.yaml@refs/heads/main' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  checksums.txt
 ```
+
+The signing is keyless, so there is no key to fetch: the identity flags are what you are checking against, and
+cosign refuses to verify without them rather than telling you a signature is fine when you never said whose you
+expected. The container image is signed by the same workflow, and
+[deployment.md](deployment.md#verifying-the-image) explains each part of that identity, including why the ref is
+a branch and not the tag.
 
 This page says so rather than letting "checksum verified" in the output read as more than it is.
 
