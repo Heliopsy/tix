@@ -105,17 +105,32 @@ jobs:
           # The releases list rather than the by-tag lookup: /releases/tags/{tag}
           # answers 404 for a draft, which is exactly the release this step is
           # looking for.
-          state=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-                    | jq -c --arg t "$tag" 'map(select(.tag_name == $t)) | first // empty')
-          if [ -z "$state" ]; then
+          all=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+                  | jq -c --arg t "$tag" '[.[] | select(.tag_name == $t)]')
+          if [ "$(jq 'length' <<<"$all")" = "0" ]; then
             echo "no release exists for $tag yet"
             exit 0
           fi
-          draft=$(jq -r '.draft' <<<"$state")
-          assets=$(jq '.assets | length' <<<"$state")
-          if [ "$draft" != "true" ]; then
-            echo "$tag is published with $assets assets"
+
+          # A published release for this tag ends it, whatever else carries the
+          # same tag. More than one release can: a dispatched build uploads into
+          # a draft and then fails to publish it, because GitHub refuses a
+          # second release owning one tag. Taking the first match rather than
+          # asking whether any is published turned that into a loop, where every
+          # push read a leftover draft as an unbuilt release and asked for
+          # another build that left another draft.
+          published=$(jq -c '[.[] | select(.draft == false)] | first // empty' <<<"$all")
+          if [ -n "$published" ]; then
+            echo "$tag is published with $(jq '.assets | length' <<<"$published") assets"
             exit 0
+          fi
+
+          # Only drafts remain. Prefer one that already carries assets, so a
+          # retry finishes the build that got furthest rather than starting over.
+          state=$(jq -c 'sort_by(.assets | length) | reverse | first' <<<"$all")
+          assets=$(jq '.assets | length' <<<"$state")
+          if [ "$(jq 'length' <<<"$all")" -gt 1 ]; then
+            echo "warning: $tag has $(jq 'length' <<<"$all") releases and none is published" >&2
           fi
 
           # A build already in flight will publish this draft on its own, and a
