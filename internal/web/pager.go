@@ -5,6 +5,7 @@ package web
 import (
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -23,6 +24,32 @@ const (
 	CursorParam = "cursor"
 	TrailParam  = "trail"
 )
+
+// SizeParam is how a reader asks for a page size other than the configured
+// one, for the length of that link. Configuration decides what every page
+// carries by default; this decides what this page carries, which is what a
+// reader who wants the whole board on one screen, or five rows on a phone,
+// actually needs.
+const SizeParam = "limit"
+
+// rowsPerPage is how many rows this request's page carries: the SizeParam it
+// asks for, and the configured page size otherwise.
+//
+// A value that is not a number, or is outside what the contract accepts, falls
+// back to the configured size rather than failing the screen. The parameter
+// arrives from the address bar, so it is whatever anybody cares to type, and
+// the worst an unreadable one can cost is the page size they asked for.
+func (h *handler) rowsPerPage(r *http.Request) int {
+	raw := r.URL.Query().Get(SizeParam)
+	if raw == "" {
+		return h.pageSize
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || n < 1 || n > core.MaxPageLimit {
+		return h.pageSize
+	}
+	return n
+}
 
 // trailSeparator joins the cursors of a trail. A cursor is base64 in the
 // URL-safe alphabet (core.Cursor.Encode), so a full stop never occurs inside

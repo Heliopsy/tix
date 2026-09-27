@@ -64,6 +64,8 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `output.color` | `TIX_OUTPUT_COLOR` | `auto` (`auto`, `always`, `never`) |
 | `output.time_format` | `TIX_OUTPUT_TIME_FORMAT` | `iso` (`iso`, `rfc3339`, `short`, `us`, `relative`) |
 | `output.timezone` | `TIX_OUTPUT_TIMEZONE` | `local` (`local`, `utc`, or an IANA name) |
+| `cli.page_size` | `TIX_CLI_PAGE_SIZE` | `25` |
+| `web.page_size` | `TIX_WEB_PAGE_SIZE` | `25` |
 | `ssh.listen` | `TIX_SSH_LISTEN` | `127.0.0.1:2222` |
 | `ssh.host_key` | `TIX_SSH_HOST_KEY` | (unset: beside the database) |
 | `ssh.allow_public` | `TIX_SSH_ALLOW_PUBLIC` | `false` |
@@ -81,6 +83,7 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `ssh.max_sessions_per_key` | `TIX_SSH_MAX_SESSIONS_PER_KEY` | `3` |
 | `ssh.max_sessions` | `TIX_SSH_MAX_SESSIONS` | `100` |
 | `tui.keymap` | `TIX_TUI_KEYMAP` | `default` |
+| `tui.motion` | `TIX_TUI_MOTION` | `on` (`on`, `off`) |
 
 List values are comma-separated. Durations use Go syntax (`15m`, `24h`, `720h`) plus a day unit
 (`30d`, `1d 12h`), so anything the product prints can be typed back.
@@ -91,6 +94,32 @@ with what each one rebinds. A scheme only moves the actions it names; everything
 keys, so no scheme can leave an action unreachable. There is no `mac` scheme: a terminal never receives
 the command key, and the ctrl chords macOS applies to every text field are the emacs ones, so `emacs`
 is the mac scheme.
+
+`tui.motion` decides whether the terminal interface pulses the selected row. It is `on` or `off`
+rather than a boolean so a value nobody set reads as unset rather than as off. The pulse changes
+emphasis once every 800ms and stops after 45 seconds with no keystroke, resuming on the next one, so
+an idle session sends nothing down an SSH connection. A session drawing without colour never pulses
+at all: there is no second style it could alternate with.
+
+`cli.page_size` and `web.page_size` are how many rows one page of a listing carries. There are two of them,
+not one, because how many rows are worth showing is a property of the thing showing them: a browser window
+and a terminal do not hold the same number of lines, and a terminal writing into a pipe is a third case.
+Both default to 25.
+
+`cli.page_size` is the default of `--limit` on every listing command (`tix task ls`, `project ls`, `actor ls`,
+`user ls`, `tenant ls`, `audit ls`, `webhook deliveries`). Typing `--limit` wins, as the layer order says;
+without it the configured value is used, so `TIX_CLI_PAGE_SIZE=100 tix task ls` prints a hundred rows.
+
+`web.page_size` is what a browser listing shows, and `tix serve` reads it. A reader can ask one page for a
+different number with the `limit` query parameter, `/tasks?limit=100`, which the Previous and Next links
+carry forward for the rest of that walk; a `limit` that is not a usable number is ignored rather than
+failing the screen.
+
+Both must be between 1 and 500, which is `core.MaxPageLimit`, the most any listing will return. An
+out-of-range value is refused at startup with the key and the layer named, not clamped: a zero reads as
+"show nothing", and silently turning it into a screenful would leave the operator believing the key does
+something it does not. There is no `tui.page_size`: the terminal interface does not page, it reads the
+listing and scrolls it.
 
 `database.connect_timeout` bounds the reachability check a PostgreSQL target makes before the process will
 serve anything. The default, `15s`, is what the engine waited before the wait was configurable, so an

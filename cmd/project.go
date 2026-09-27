@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/spf13/cobra"
 )
@@ -91,13 +92,17 @@ func projectLsCmd(g *globals) *cobra.Command {
 		Example: "  tix project ls\n  tix project ls --include-archived -o json",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			size, err := g.pageSize(cmd, limit)
+			if err != nil {
+				return err
+			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
 			}
 			projects, next, err := conn.Service.ListProjects(ctx, core.ProjectFilter{
 				IncludeArchived: archived,
-				Page:            core.Page{Limit: limit},
+				Page:            core.Page{Limit: size},
 			})
 			if err != nil {
 				return err
@@ -115,7 +120,7 @@ func projectLsCmd(g *globals) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&archived, "include-archived", false, "include archived projects")
-	cmd.Flags().IntVar(&limit, "limit", core.DefaultPageLimit, "maximum records to return")
+	cmd.Flags().IntVar(&limit, "limit", config.DefaultPageSize, "maximum records to return")
 	return cmd
 }
 

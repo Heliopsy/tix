@@ -139,9 +139,10 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 	}
 
 	srv, err := server.Assemble(server.Options{
-		Logger:                     log,
-		Service:                    conn.Service,
-		WebHandler:                 web.Handler(conn.Service, web.WithSecureCookies(o.certFile != ""), web.WithTimeStyle(g.timeStyle()), web.WithTargetDescribe(conn.Info.Target.Describe()), web.WithThemes(themes)),
+		Logger:  log,
+		Service: conn.Service,
+		WebHandler: web.Handler(conn.Service, web.WithSecureCookies(o.certFile != ""), web.WithTimeStyle(g.timeStyle()), web.WithTargetDescribe(conn.Info.Target.Describe()), web.WithThemes(themes),
+			web.WithPageSize(resolved.Config.Web.PageSize)),
 		Store:                      conn.Store,
 		Clock:                      clock.New(),
 		TenantID:                   conn.Info.TenantID,

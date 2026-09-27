@@ -5,6 +5,7 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
 )
 
@@ -18,11 +19,15 @@ func actorLsCmd(g *globals) *cobra.Command {
 		Example: "  tix actor ls -o json",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			size, err := g.pageSize(cmd, limit)
+			if err != nil {
+				return err
+			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
 			}
-			actors, next, err := conn.Service.ListActors(ctx, core.Page{Limit: limit})
+			actors, next, err := conn.Service.ListActors(ctx, core.Page{Limit: size})
 			if err != nil {
 				return err
 			}
@@ -32,6 +37,6 @@ func actorLsCmd(g *globals) *cobra.Command {
 			return g.render(cmd, actors)
 		},
 	}
-	cmd.Flags().IntVar(&limit, "limit", core.DefaultPageLimit, "maximum records to return")
+	cmd.Flags().IntVar(&limit, "limit", config.DefaultPageSize, "maximum records to return")
 	return cmd
 }

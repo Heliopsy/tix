@@ -41,7 +41,7 @@ type projectsView struct {
 func (h *handler) showProjects(w http.ResponseWriter, r *http.Request) error {
 	filter := core.ProjectFilter{
 		IncludeArchived: true,
-		Page:            core.Page{Cursor: r.URL.Query().Get(CursorParam)},
+		Page:            core.Page{Cursor: r.URL.Query().Get(CursorParam), Limit: h.rowsPerPage(r)},
 	}
 	projects, next, err := h.svc.ListProjects(r.Context(), filter)
 	if err != nil {
@@ -54,7 +54,7 @@ func (h *handler) showProjects(w http.ResponseWriter, r *http.Request) error {
 	return h.render(w, r, "projects.html", "Projects",
 		projectsView{Projects: projects, Workflows: workflows,
 			Colors: core.ProjectColors(),
-			Pager:  newPager(r, RouteProjects, next, len(projects), "projects")})
+			Pager:  newPager(r, RouteProjects, next, len(projects), "projects", SizeParam)})
 }
 
 // createProject creates a project from the list screen's form.

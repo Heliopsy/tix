@@ -36,7 +36,7 @@ func (h *handler) showWebhooks(w http.ResponseWriter, r *http.Request) error {
 		endpoints[i].Secret = ""
 	}
 	deliveries, next, err := h.svc.ListDeliveries(r.Context(), core.DeliveryFilter{
-		Page: core.Page{Cursor: r.URL.Query().Get("cursor")}})
+		Page: core.Page{Cursor: r.URL.Query().Get(CursorParam), Limit: h.rowsPerPage(r)}})
 	if err != nil {
 		return err
 	}

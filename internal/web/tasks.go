@@ -174,6 +174,7 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 		Cursor:    query.Get(CursorParam),
 		Sort:      query.Get("sort"),
 		Direction: core.Ascending,
+		Limit:     h.rowsPerPage(r),
 	}
 	if filter.Page.Sort == "" {
 		filter.Page.Sort = core.SortUrgency
@@ -219,7 +220,7 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 		SortFields:    core.TaskSortFields,
 		Query:         query.Get("q"),
 		Sort:          filter.Page.Sort,
-		Pager:         newPager(r, RouteTasks, page.NextCursor, len(page.Tasks), "tasks", "q", "sort"),
+		Pager:         newPager(r, RouteTasks, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", SizeParam),
 		Self:          selfURL(r),
 		CompleteState: complete,
 		Accent:        projectAccents(projects),

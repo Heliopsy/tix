@@ -27,12 +27,14 @@ type actorsView struct {
 
 // showActors renders this tenant's directory.
 func (h *handler) showActors(w http.ResponseWriter, r *http.Request) error {
-	actors, next, err := h.svc.ListActors(r.Context(), core.Page{Cursor: r.URL.Query().Get(CursorParam)})
+	actors, next, err := h.svc.ListActors(r.Context(), core.Page{
+		Cursor: r.URL.Query().Get(CursorParam), Limit: h.rowsPerPage(r),
+	})
 	if err != nil {
 		return err
 	}
 	return h.render(w, r, "actors.html", "Directory", actorsView{
-		Actors: actors, Pager: newPager(r, RouteActors, next, len(actors), "actors")})
+		Actors: actors, Pager: newPager(r, RouteActors, next, len(actors), "actors", SizeParam)})
 }
 
 // actorNames labels the actor identifiers one screen shows. A handle is used

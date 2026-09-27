@@ -35,6 +35,7 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		{"output.format", cfg.Output.Format, OutputFormats, nil},
 		{"output.color", cfg.Output.Color, OutputColors, nil},
 		{"output.time_format", cfg.Output.TimeFormat, OutputTimeFormats, nil},
+		{"tui.motion", cfg.TUI.Motion, TUIMotions, nil},
 		{"server.cookie_security", cfg.Server.CookieSecurity, CookieSecurities, nil},
 	}
 	for _, check := range checks {
@@ -142,6 +143,23 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		return invalidKey("ssh.max_sessions_per_key", sources).
 			WithDetail("value", strconv.Itoa(cfg.SSH.MaxSessionsPerKey)).
 			WithDetail("reason", "one key may not be allowed more sessions than the whole listener")
+	}
+	// A page size is refused rather than clamped. Clamping would accept a
+	// zero, which reads as "no rows", and quietly turn it into a screenful,
+	// so the operator who typed it would never learn the key does not mean
+	// what they thought. core.Page.Normalize still clamps at the contract
+	// boundary, where the caller is a client rather than a person.
+	for _, size := range []struct {
+		key string
+		n   int
+	}{
+		{"cli.page_size", cfg.CLI.PageSize},
+		{"web.page_size", cfg.Web.PageSize},
+	} {
+		if size.n < 1 || size.n > core.MaxPageLimit {
+			return invalidKey(size.key, sources).WithDetail("value", strconv.Itoa(size.n)).
+				WithDetail("reason", "a page size must be between 1 and "+strconv.Itoa(core.MaxPageLimit))
+		}
 	}
 	for name, ctx := range cfg.Contexts {
 		if err := ctx.validate(name); err != nil {

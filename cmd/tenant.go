@@ -45,11 +45,15 @@ func tenantLsCmd(g *globals) *cobra.Command {
 		Example: "  tix tenant ls",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			size, err := g.pageSize(cmd, limit)
+			if err != nil {
+				return err
+			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
 			}
-			tenants, next, err := conn.Service.ListTenants(ctx, core.Page{Limit: limit})
+			tenants, next, err := conn.Service.ListTenants(ctx, core.Page{Limit: size})
 			if err != nil {
 				return err
 			}
@@ -59,7 +63,7 @@ func tenantLsCmd(g *globals) *cobra.Command {
 			return g.render(cmd, tenants)
 		},
 	}
-	cmd.Flags().IntVar(&limit, "limit", core.DefaultPageLimit, "maximum records to return")
+	cmd.Flags().IntVar(&limit, "limit", config.DefaultPageSize, "maximum records to return")
 	return cmd
 }
 

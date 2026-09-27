@@ -31,6 +31,8 @@ type Config struct {
 	Retention      Retention          `yaml:"retention"`
 	Log            Log                `yaml:"log"`
 	Output         Output             `yaml:"output"`
+	CLI            CLI                `yaml:"cli"`
+	Web            Web                `yaml:"web"`
 	TUI            TUI                `yaml:"tui"`
 	// Themes are custom palettes, by name, that a tenant may then name.
 	//
@@ -207,11 +209,16 @@ func (r Retention) Policy(tenantID string) core.RetentionPolicy {
 // validated here: the schemes live in internal/tui, which must not be imported
 // from configuration, so `tix tui` refuses an unknown name at startup.
 //
+// Motion decides whether the selected row pulses. It is an enumeration rather
+// than a boolean so a value nobody chose reads as unset instead of as off, and
+// it is validated here because its two values are spelled in this package.
+//
 // Keys is a map, which the key walker does not enumerate, so it is settable
 // from a configuration file rather than from a flag or an environment
 // variable. One override per variable is not a shape an env var carries well.
 type TUI struct {
 	Keymap string            `yaml:"keymap"`
+	Motion string            `yaml:"motion"`
 	Keys   map[string]string `yaml:"keys,omitempty"`
 }
 
@@ -267,6 +274,22 @@ type Output struct {
 	Timezone   string `yaml:"timezone"`
 }
 
+// CLI holds the settings of the command line's own listings. PageSize is how
+// many rows a listing prints when --limit is not typed.
+//
+// It is per surface rather than one number for the whole install because the
+// right row count is a property of the thing doing the showing: a terminal
+// window, a browser window and a pipe do not hold the same number of lines.
+type CLI struct {
+	PageSize int `yaml:"page_size"`
+}
+
+// Web holds the settings of the browser interface. PageSize is how many rows
+// one page of a listing carries when the request asks for no other number.
+type Web struct {
+	PageSize int `yaml:"page_size"`
+}
+
 // Context is a named bundle of connection and identity settings.
 type Context struct {
 	Database string `yaml:"database,omitempty"`
@@ -320,8 +343,16 @@ const (
 	DefaultRetentionEvent = "720h"
 	// DefaultRetentionDelivery matches the shipped webhook delivery window.
 	DefaultRetentionDelivery = "720h"
+	// DefaultPageSize is how many rows a listing shows when nothing says
+	// otherwise. Fifty filled more than three screens of a browser window,
+	// which is more rows than anybody reads before paging.
+	DefaultPageSize = core.DefaultDisplayLimit
 	// DefaultTUIKeymap names the keybinding scheme every install starts on.
 	DefaultTUIKeymap = "default"
+	// DefaultTUIMotion pulses the selected row. The animation is one frame
+	// every fraction of a second and stops once a session goes idle, so the
+	// shipped value costs an abandoned session nothing.
+	DefaultTUIMotion = TUIMotionOn
 	// DefaultOutputTimeFormat is short and unambiguous: a date nobody reads
 	// backwards and a time without a meridiem.
 	DefaultOutputTimeFormat = "iso"
@@ -395,6 +426,16 @@ var (
 	OutputColors = output.ColorModes
 	// OutputTimeFormats mirrors the named time layouts the renderer implements.
 	OutputTimeFormats = output.TimeFormats
+	// TUIMotions lists the values tui.motion takes. The terminal interface
+	// reads the same two strings, but it must not be imported from here, so
+	// its own constants are held against these by a test.
+	TUIMotions = []string{TUIMotionOn, TUIMotionOff}
+)
+
+// The values tui.motion takes.
+const (
+	TUIMotionOn  = "on"
+	TUIMotionOff = "off"
 )
 
 // Defaults returns the built-in configuration.
@@ -446,7 +487,9 @@ func Defaults() Config {
 			TimeFormat: DefaultOutputTimeFormat,
 			Timezone:   DefaultOutputTimezone,
 		},
-		TUI: TUI{Keymap: DefaultTUIKeymap},
+		CLI: CLI{PageSize: DefaultPageSize},
+		Web: Web{PageSize: DefaultPageSize},
+		TUI: TUI{Keymap: DefaultTUIKeymap, Motion: DefaultTUIMotion},
 	}
 }
 

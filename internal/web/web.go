@@ -123,6 +123,22 @@ func WithTimeStyle(style output.TimeStyle) Option {
 	return func(h *handler) { h.style = style }
 }
 
+// WithPageSize sets how many rows one page of a listing carries. A value
+// outside 1..core.MaxPageLimit is ignored, leaving the shipped default: this
+// option is reached from configuration, which refuses such a value with the
+// key named, and a handler is not the place to report it a second time.
+//
+// The number is the browser's own rather than one shared with the CLI and the
+// terminal, because how many rows fit is a property of the window doing the
+// showing.
+func WithPageSize(rows int) Option {
+	return func(h *handler) {
+		if rows >= 1 && rows <= core.MaxPageLimit {
+			h.pageSize = rows
+		}
+	}
+}
+
 // handler serves every browser screen over the service.
 type handler struct {
 	svc            core.Service
@@ -137,6 +153,7 @@ type handler struct {
 	style          output.TimeStyle
 	releases       *releaseWatch
 	themes         *core.ThemeRegistry
+	pageSize       int
 }
 
 // Handler returns an http.Handler serving the browser interface.
@@ -147,6 +164,7 @@ func Handler(svc core.Service, opts ...Option) http.Handler {
 		mux:        http.NewServeMux(),
 		logger:     slog.New(slog.NewTextHandler(discard{}, nil)),
 		eventsPath: DefaultEventsPath,
+		pageSize:   core.DefaultDisplayLimit,
 	}
 	for _, opt := range opts {
 		opt(h)

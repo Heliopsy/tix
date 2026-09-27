@@ -163,7 +163,8 @@ tix task ls --all -o ndjson -s todo | jq -r .project_id | sort | uniq -c
 git log -1 --format=%B | tix comment add infra-42 -
 ```
 
-`--all` follows cursors until every page is read. Without it, a listing returns one page of 50.
+`--all` follows cursors until every page is read. Without it, a listing returns one page of `cli.page_size`
+rows, 25 by default.
 
 `--body -` and a bare `-` where a body is expected read standard input, which is what makes `tix comment add`
 and `tix task add --body -` composable with anything that writes to a pipe.

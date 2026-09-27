@@ -706,6 +706,13 @@ func TestValidationErrors(t *testing.T) {
 		{"invalid output format", "", map[string]string{"TIX_OUTPUT_FORMAT": "xml"}, "output.format"},
 		{"empty tenant", "", map[string]string{"TIX_TENANT": " "}, "tenant"},
 		{"malformed yaml", "tenant: [unclosed\n", nil, "parsing config"},
+		// A page size is refused rather than clamped, so each of the three
+		// ways of writing an unusable one names its own key.
+		{"zero cli page size", "", map[string]string{"TIX_CLI_PAGE_SIZE": "0"}, "cli.page_size"},
+		{"negative cli page size", "", map[string]string{"TIX_CLI_PAGE_SIZE": "-5"}, "cli.page_size"},
+		{"zero web page size", "", map[string]string{"TIX_WEB_PAGE_SIZE": "0"}, "web.page_size"},
+		{"negative web page size", "", map[string]string{"TIX_WEB_PAGE_SIZE": "-5"}, "web.page_size"},
+		{"absurd web page size", "", map[string]string{"TIX_WEB_PAGE_SIZE": "100000"}, "web.page_size"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

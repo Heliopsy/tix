@@ -90,6 +90,12 @@ type Page struct {
 const (
 	DefaultPageLimit = 50
 	MaxPageLimit     = 500
+
+	// DefaultDisplayLimit is how many rows a surface shows a person when
+	// nothing configures its page size. It is smaller than DefaultPageLimit,
+	// which stays the fallback for a caller that names no limit at all: a
+	// reader looks at a screen, an API client follows a cursor.
+	DefaultDisplayLimit = 25
 )
 
 // Normalize clamps the page to usable values.

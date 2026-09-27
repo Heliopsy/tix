@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/query"
@@ -255,16 +256,20 @@ func auditLsCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			size, err := g.pageSize(cmd, limit)
+			if err != nil {
+				return err
+			}
 			filter := activity.AuditFilter(core.AuditFilter{
 				SubjectType: subjectType, SubjectID: subjectID,
 				ActorIDs: actors, Actions: actions, Since: from, Until: to,
-				Page: core.Page{Limit: limit, Cursor: cursor},
+				Page: core.Page{Limit: size, Cursor: cursor},
 			})
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
 			}
-			return g.streamAudit(ctx, cmd, conn.Service.ListAudit, filter, activity, limit)
+			return g.streamAudit(ctx, cmd, conn.Service.ListAudit, filter, activity, size)
 		},
 	}
 	f := cmd.Flags()
@@ -276,7 +281,7 @@ func auditLsCmd(g *globals) *cobra.Command {
 	f.StringVar(&until, "until", "", "only entries at or before this time")
 	f.StringVar(&expr, "filter", "", "activity filter expression, such as \"kind:task source:web\"")
 	f.StringVar(&cursor, "cursor", "", "continue from a previous page")
-	f.IntVar(&limit, "limit", core.DefaultPageLimit, "maximum records to return")
+	f.IntVar(&limit, "limit", config.DefaultPageSize, "maximum records to return")
 	_ = cmd.RegisterFlagCompletionFunc("subject-type", fixedCompletion(auditKinds))
 	return cmd
 }
@@ -486,10 +491,14 @@ func webhookDeliveriesCmd(g *globals) *cobra.Command {
 		Example: "  tix webhook deliveries --status failed",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			size, err := g.pageSize(cmd, limit)
+			if err != nil {
+				return err
+			}
 			filter := core.DeliveryFilter{
 				EndpointID: endpoint,
 				Statuses:   deliveryStatuses(statuses),
-				Page:       core.Page{Limit: limit},
+				Page:       core.Page{Limit: size},
 			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
@@ -507,7 +516,7 @@ func webhookDeliveriesCmd(g *globals) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&endpoint, "endpoint", "", "restrict to one endpoint")
 	cmd.Flags().StringSliceVar(&statuses, "status", nil, "restrict to delivery statuses")
-	cmd.Flags().IntVar(&limit, "limit", core.DefaultPageLimit, "maximum records to return")
+	cmd.Flags().IntVar(&limit, "limit", config.DefaultPageSize, "maximum records to return")
 	return cmd
 }
 

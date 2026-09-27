@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/heliopsy/tix/internal/client"
+	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/service"
 	"github.com/spf13/cobra"
@@ -108,11 +109,15 @@ func userLsCmd(g *globals) *cobra.Command {
 		Example: "  tix user ls -o json",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			size, err := g.pageSize(cmd, limit)
+			if err != nil {
+				return err
+			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
 			}
-			users, next, err := conn.Service.ListUsers(ctx, core.Page{Limit: limit})
+			users, next, err := conn.Service.ListUsers(ctx, core.Page{Limit: size})
 			if err != nil {
 				return err
 			}
@@ -122,7 +127,7 @@ func userLsCmd(g *globals) *cobra.Command {
 			return g.render(cmd, users)
 		},
 	}
-	cmd.Flags().IntVar(&limit, "limit", core.DefaultPageLimit, "maximum records to return")
+	cmd.Flags().IntVar(&limit, "limit", config.DefaultPageSize, "maximum records to return")
 	return cmd
 }
 

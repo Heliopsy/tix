@@ -335,6 +335,23 @@ func (g *globals) logger(cmd *cobra.Command) (*slog.Logger, error) {
 	return log, nil
 }
 
+// pageSize is how many rows one page of a listing carries: the --limit flag
+// when the operator typed it, and the configured cli.page_size otherwise.
+//
+// The flag is gated on Changed rather than compared against its declared
+// default, because a default that looks like a typed value outranks every
+// other layer. That is what left server.listen configurable but ignored.
+func (g *globals) pageSize(cmd *cobra.Command, typed int) (int, error) {
+	if cmd.Flags().Changed("limit") {
+		return typed, nil
+	}
+	resolved, err := g.resolve()
+	if err != nil {
+		return 0, err
+	}
+	return resolved.Config.CLI.PageSize, nil
+}
+
 // colorFlag returns the colour mode requested on the command line, if any.
 func (g *globals) colorFlag() string {
 	switch {

@@ -3,8 +3,10 @@
 package cmd
 
 import (
+	"strconv"
 	"strings"
 
+	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/query"
 	"github.com/spf13/cobra"
@@ -156,7 +158,21 @@ func taskLsCmd(g *globals) *cobra.Command {
 			"  tix task ls --filter 'status:todo -tag:ops title~deploy'",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			filter, err := query.Parse(expr)
+			// The configured page size joins the expression as its first
+			// term, so a limit: written later in the expression still wins
+			// and --limit wins over both. Reading the parsed filter instead
+			// cannot tell those apart: Parse ends in Validate, which has
+			// already replaced an unset limit with the contract's default,
+			// so "asked for nothing" and "asked for fifty" arrive identical.
+			expression := expr
+			if !cmd.Flags().Changed("limit") {
+				size, err := g.pageSize(cmd, limit)
+				if err != nil {
+					return err
+				}
+				expression = "limit:" + strconv.Itoa(size) + " " + expr
+			}
+			filter, err := query.Parse(expression)
 			if err != nil {
 				return err
 			}
@@ -182,7 +198,7 @@ func taskLsCmd(g *globals) *cobra.Command {
 			}
 			filter.Page.Cursor = cursor
 			filter.Page.Direction = core.Ascending
-			if cmd.Flags().Changed("limit") || filter.Page.Limit == 0 {
+			if cmd.Flags().Changed("limit") {
 				filter.Page.Limit = limit
 			}
 			if cmd.Flags().Changed("sort") || filter.Page.Sort == "" {
@@ -239,7 +255,7 @@ func taskLsCmd(g *globals) *cobra.Command {
 	f.StringVar(&expr, "filter", "", "filter expression, such as 'status:todo -tag:ops title~deploy'")
 	f.StringVar(&cursor, "cursor", "", "continue from a previous page")
 	f.StringVar(&sort, "sort", core.SortUrgency, "sort field")
-	f.IntVar(&limit, "limit", core.DefaultPageLimit, "maximum records per page")
+	f.IntVar(&limit, "limit", config.DefaultPageSize, "maximum records per page")
 	f.BoolVar(&desc, "desc", false, "sort descending")
 	f.BoolVar(&all, "all", false, "follow cursors until every page is read")
 	f.BoolVar(&deleted, "include-deleted", false, "include soft-deleted tasks")

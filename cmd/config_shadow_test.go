@@ -53,6 +53,7 @@ var shadowedKeys = []shadowed{
 	{"ssh.rate_burst", "ssh", "rate-burst", sshField},
 	{"ssh.max_sessions_per_key", "ssh", "max-sessions-per-key", sshField},
 	{"ssh.max_sessions", "ssh", "max-sessions", sshField},
+	{"cli.page_size", "task ls", "limit", limitWithoutFlags},
 }
 
 // unshadowedKeys is every remaining key, with the consumer that reads it. A
@@ -90,6 +91,8 @@ var unshadowedKeys = map[string]string{
 	"output.time_format":             "globals.timeStyle",
 	"output.timezone":                "globals.timeStyle",
 	"tui.keymap":                     "newTUICmd; --keymap only wins when non-empty",
+	"tui.motion":                     "tuiPreferences, into tui.Options.Prefs; tix tui has no flag for it",
+	"web.page_size":                  "runServe, into web.WithPageSize; tix serve has no flag for it",
 }
 
 // TestEveryConfigKeyIsClassified stops the suite on a new configuration key
@@ -175,6 +178,15 @@ func TestShadowedKeysStillObeyTheirFlag(t *testing.T) {
 // typedFlagValue reports the value a command uses once its flag is typed.
 func typedFlagValue(t *testing.T, s shadowed, key config.Key, typed string, cfg config.Config) string {
 	t.Helper()
+	if key.Path == "cli.page_size" {
+		cmd := commandNamed(t, s.command)
+		setFlag(t, cmd, s.flag, typed)
+		n, err := strconv.Atoi(typed)
+		if err != nil {
+			t.Fatalf("a page size of %q is not a number", typed)
+		}
+		return limitUsed(t, cmd, cfg, n)
+	}
 	if s.command == "serve" {
 		cmd := serveProbe(t)
 		o := serveOptions{listen: server.DefaultAddr}
@@ -194,6 +206,28 @@ func serveWithoutFlags(t *testing.T, cfg config.Config) string {
 	t.Helper()
 	o := serveOptions{listen: server.DefaultAddr}
 	return o.fromConfig(serveProbe(t), cfg.Server).listen
+}
+
+// limitWithoutFlags reports the page size a listing command would ask the
+// store for with --limit untyped. The flag's own variable carries its declared
+// default, which is what an invocation that types nothing hands in, so that is
+// what the probe passes.
+func limitWithoutFlags(t *testing.T, cfg config.Config) string {
+	t.Helper()
+	return limitUsed(t, commandNamed(t, "task ls"), cfg, config.DefaultPageSize)
+}
+
+// limitUsed runs the resolution the command itself runs, so the probe reports
+// the number that reaches core.Page.Limit rather than the configuration behind
+// it. Reading cfg.CLI.PageSize here would pass while the command threw it away.
+func limitUsed(t *testing.T, cmd *cobra.Command, cfg config.Config, typed int) string {
+	t.Helper()
+	g := &globals{resolved: &config.Resolved{Config: cfg}}
+	n, err := g.pageSize(cmd, typed)
+	if err != nil {
+		t.Fatalf("resolving the page size: %v", err)
+	}
+	return strconv.Itoa(n)
 }
 
 // sshField reports what tix ssh would use for one key with nothing typed. The
@@ -358,17 +392,30 @@ func yamlFor(key, value string) string {
 	return out.String()
 }
 
-// commandNamed returns one subcommand off a freshly built root.
-func commandNamed(t *testing.T, name string) *cobra.Command {
+// commandNamed returns one command off a freshly built root, named by its
+// path: "serve", or "task ls" for a flag a subcommand carries rather than a
+// top-level one. The real command is walked to, not rebuilt, so what Changed
+// reports is what a real invocation reports.
+func commandNamed(t *testing.T, path string) *cobra.Command {
 	t.Helper()
 	root, _ := newRoot([]string{"HOME=" + t.TempDir()}, t.TempDir())
-	for _, sub := range root.Commands() {
-		if sub.Name() == name {
-			return sub
+	cmd := root
+	for _, name := range strings.Fields(path) {
+		found := false
+		for _, sub := range cmd.Commands() {
+			if sub.Name() == name {
+				cmd, found = sub, true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("tix %s has no %s subcommand", cmd.CommandPath(), name)
 		}
 	}
-	t.Fatalf("the root command has no %s subcommand", name)
-	return nil
+	if cmd == root {
+		t.Fatalf("commandNamed was given no command path")
+	}
+	return cmd
 }
 
 // assertFlagExists keeps the table honest about which flag does the shadowing.

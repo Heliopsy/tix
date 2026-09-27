@@ -1,8 +1,8 @@
 ---
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. There is no MCP server; this CLI is the only interface. Covers the claim/lease/release loop, `tix claim exec`, machine-readable output, exit codes, filtering, `tix watch`, comments/artifacts, dependencies, the actor directory, `tix stats`, `tix ssh`, and multi-target config.
-version: 6
-verified-against: tix 6fd7de6 (2026-09-26)
+version: 7
+verified-against: tix 8b4780c (2026-09-27)
 ---
 
 # tix
@@ -265,7 +265,7 @@ Default `--sort` is `urgency`: priority first, then soonest `due_at`, undated ta
 last within a priority band. `--sort created_at|updated_at|priority|due_at|title`
 still work; an unknown value is exit `2`.
 
-`--cursor`/`--limit` (default 50) page manually; `--all` does it for you.
+`--cursor`/`--limit` (default 25) page manually; `--all` does it for you.
 `task show REF -o json` for one task; `task tree REF` for a task and its
 descendants. A fresh database seeds four projects — `default`, `work`,
 `homelab`, `house` — so `task ls` with no `-p` spans all of them, while
@@ -291,7 +291,7 @@ passed through with no lookup, so an actor from **another tenant** stays
 assignable. Anything else is a handle and must resolve in this tenant.
 
 `actor ls` returns `id`, `kind`, `handle` and `display_name` per row and
-`--limit` (default 50) caps it. Agents are listed beside people, so this is
+`--limit` (default 25) caps it. Agents are listed beside people, so this is
 how you find the id behind a handle a human gave you, and who else is
 working the queue. An unknown handle or id on `actor show` is exit `3`.
 
