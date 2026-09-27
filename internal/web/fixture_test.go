@@ -42,6 +42,8 @@ type webService struct {
 	// (*Local).RunSync records: action "sync.run", subject "sync_source",
 	// and the whole core.SyncResult as the after image.
 	syncRuns []core.AuditEntry
+	// logoutSucceeds makes the stand-in accept a sign-out. See Logout below.
+	logoutSucceeds bool
 }
 
 var _ core.Service = (*webService)(nil)
@@ -50,6 +52,18 @@ var _ core.Service = (*webService)(nil)
 func newWebService(l *service.Local, clk *clock.Fake) *webService {
 	return &webService{Local: l, clock: clk, sources: map[string]*core.SyncSource{},
 		exported: `{"kind":"header","header":{"version":1,"tenant_key":"acme"}}` + "\n"}
+}
+
+// Logout accepts the sign-out when the test asked it to. The real service
+// ends the session the API middleware resolved from a cookie, and this
+// fixture authenticates by header, so every sign-out it sees would otherwise
+// fail as unauthenticated and no test here could reach the path a sign-out
+// that worked takes through the handler.
+func (s *webService) Logout(ctx context.Context) error {
+	if s.logoutSucceeds {
+		return nil
+	}
+	return s.Local.Logout(ctx)
 }
 
 func (s *webService) ExportTo(ctx context.Context, _ core.ExportInput, w io.Writer) error {
@@ -256,9 +270,22 @@ func (f *fixture) actorFor(name string) *core.Actor {
 	case "viewer":
 		return copyActor(f.actorA, core.RoleViewer.Scopes(), core.RoleViewer)
 	default:
+		// "actor:<id>" speaks for an identifier the test made rather than one
+		// the fixture seeded, which is how a request can come from an account
+		// the screens themselves created. A user account and its actor share
+		// an identifier, so this is what "the reader is one of the rows" looks
+		// like on the user administration screen.
+		if id, ok := strings.CutPrefix(name, "actor:"); ok {
+			as := f.actorA
+			as.ID = id
+			return copyActor(as, []core.Scope{core.ScopeAll}, core.RoleAdmin)
+		}
 		return nil
 	}
 }
+
+// asActor returns a browser speaking for one actor identifier.
+func (f *fixture) asActor(id string) *browser { return f.as("actor:" + id) }
 
 // copyActor builds a request actor with the given authority.
 func copyActor(a core.Actor, scopes []core.Scope, role core.Role) *core.Actor {

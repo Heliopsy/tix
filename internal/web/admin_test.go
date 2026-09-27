@@ -115,6 +115,23 @@ func TestRetentionRejectsAMalformedWindow(t *testing.T) {
 	}
 }
 
+// Zero is not malformed. It is how a window says "leave this one to the
+// shipped default" (retention.Effective), so the refusal of a negative
+// window has to stop short of it: the test above only proves the line
+// refuses something, and refusing one value more would read the same there.
+func TestRetentionAcceptsAZeroWindow(t *testing.T) {
+	t.Parallel()
+	b := newFixture(t).as("alice")
+	for _, raw := range []string{"0s", "0h"} {
+		t.Run(raw, func(t *testing.T) {
+			resp := b.post("/admin/tenant/retention", url.Values{"events": {raw}})
+			if text := body(t, resp); resp.StatusCode != http.StatusSeeOther {
+				t.Fatalf("saving %q = %d, want 303: %s", raw, resp.StatusCode, text)
+			}
+		})
+	}
+}
+
 // A window shown one way and read another is a form that refuses its own
 // value. The screen printed "720h0m0s" and the handler parsed with Go's own
 // syntax, so the day the rest of the product speaks in was unsayable here.

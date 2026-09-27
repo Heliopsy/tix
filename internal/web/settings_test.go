@@ -167,6 +167,31 @@ func TestSettingsPageGathersDragMoveAndKeyScheme(t *testing.T) {
 	}
 }
 
+// The toggle has to reach the board, and its polarity is the whole point:
+// dragging defaults on, and only the one value the control writes turns it
+// off, so a cookie left behind by something else leaves the board alone.
+func TestTheDragToggleDecidesWhatTheBoardOffers(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+
+	if !strings.Contains(b.page("/projects/infra"), `data-drag="1"`) {
+		t.Fatalf("an untouched browser is not offered dragging")
+	}
+
+	off := b.post("/dragmove", url.Values{"drag_move": {"0"}, "next": {"/projects/infra"}})
+	_ = off.Body.Close()
+	wantStatus(t, off, http.StatusSeeOther)
+	if !strings.Contains(b.page("/projects/infra"), `data-drag="0"`) {
+		t.Errorf("turning dragging off did not reach the board")
+	}
+
+	b.setCookie(web.DragMoveCookie, "something else")
+	if !strings.Contains(b.page("/projects/infra"), `data-drag="1"`) {
+		t.Errorf("a value the control never writes turned dragging off")
+	}
+}
+
 // The keyboard shortcuts reference is rendered from shortcuts.go's own action
 // and binding tables, never a hand-written list, so it cannot list a key the
 // scripted help overlay does not also know about.

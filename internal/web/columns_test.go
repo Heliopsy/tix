@@ -305,6 +305,57 @@ func TestTickingEveryBoxShowsTheColumnThatIsOffByDefault(t *testing.T) {
 	}
 }
 
+// headings counts the header cells one table actually rendered.
+func headings(t *testing.T, page string) int {
+	t.Helper()
+	head := between(t, page, "<thead>", "</thead>")
+	if head == "" {
+		t.Fatalf("the page renders no table head:\n%s", page)
+	}
+	return strings.Count(head, "<th")
+}
+
+// emptyColspan reads how far the "nothing here" row is told to reach.
+func emptyColspan(t *testing.T, page string) int {
+	t.Helper()
+	raw := between(t, page, `<tr><td colspan="`, `"`)
+	if raw == "" {
+		t.Fatalf("the empty listing renders no spanning row:\n%s", page)
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		t.Fatalf("colspan %q is not a number", raw)
+	}
+	return n
+}
+
+// The row a listing shows when it holds nothing has to reach across the
+// columns that listing actually rendered, and the number is derived from the
+// choice rather than written into the template. A colspan read on its own
+// says nothing: it has to be compared with the headings beside it.
+func TestTheEmptyRowSpansExactlyTheColumnsOnScreen(t *testing.T) {
+	t.Parallel()
+	b := newFixture(t).as("alice")
+
+	full := b.page("/admin/tokens")
+	if got, want := emptyColspan(t, full), headings(t, full); got != want {
+		t.Errorf("the empty token row spans %d of %d columns", got, want)
+	}
+
+	narrowed := b.post("/columns", url.Values{
+		"page": {"tokens"}, "column": {"scopes"}, "next": {"/admin/tokens"}})
+	_ = narrowed.Body.Close()
+	wantStatus(t, narrowed, http.StatusSeeOther)
+
+	fewer := b.page("/admin/tokens")
+	if headings(t, fewer) >= headings(t, full) {
+		t.Fatalf("hiding a column did not narrow the table")
+	}
+	if got, want := emptyColspan(t, fewer), headings(t, fewer); got != want {
+		t.Errorf("the narrowed empty token row spans %d of %d columns", got, want)
+	}
+}
+
 // setCookie plants a value in the browser's jar, as a stale install or another
 // program on the same host could leave behind.
 func (b *browser) setCookie(name, value string) {

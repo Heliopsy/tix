@@ -129,6 +129,28 @@ func TestTimezonePreferenceRendersItsOwnZone(t *testing.T) {
 	}
 }
 
+// A format chosen on its own has to reach the screens too. The preference
+// test above reads the control back off the settings page, which the screen
+// fills straight from the cookie, so it holds whether or not anything renders
+// through the chosen layout; and the zone test above always sets a zone,
+// which is the other half of the key the template set is cached under.
+func TestADateFormatChosenWithoutAZoneReachesTheScreens(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	chooser := f.as("alice")
+	created, ref := seedTimedTask(t, f, chooser)
+
+	resp := chooser.post("/timeformat", url.Values{"time_format": {"us"}, "next": {"/tasks"}})
+	_ = resp.Body.Close()
+	wantStatus(t, resp, http.StatusSeeOther)
+
+	page := chooser.page("/tasks/" + ref)
+	want := formatIn(t, "us", "", created)
+	if !strings.Contains(page, want) {
+		t.Errorf("the chosen format did not reach the task screen, want %q:\n%s", want, page)
+	}
+}
+
 // The failure this whole design guards against: the formatting helpers are
 // bound into a template at parse time, so a style shared between requests
 // would serve one browser the zone another one chose. Two browsers hammer the
@@ -242,6 +264,35 @@ func zonesDistinctFromTheHost(t *testing.T, at time.Time, n int) []string {
 	}
 	t.Fatalf("this host offers fewer than %d zones that read differently from its own", n)
 	return nil
+}
+
+// optionLabel is the words one option of a named select carries.
+func optionLabel(t *testing.T, page, selectID, value string) string {
+	t.Helper()
+	control := between(t, page, `<select id="`+selectID+`"`, "</select>")
+	if control == "" {
+		t.Fatalf("the page has no %q control:\n%s", selectID, page)
+	}
+	return between(t, control, `<option value="`+value+`"`, "</option>")
+}
+
+// Every date format is offered with an example of itself. An absolute layout
+// is demonstrated with one fixed instant, so the reader compares the layouts
+// rather than the moment; the relative one has to be demonstrated with a
+// moment that is actually relative, and in the past, or the example reads as
+// a date in the future.
+func TestEachDateFormatIsOfferedWithAnExampleOfItself(t *testing.T) {
+	t.Parallel()
+	page := newFixture(t).as("alice").page("/settings")
+
+	iso := optionLabel(t, page, "time_format", output.TimeISO)
+	if !strings.Contains(iso, "2026-09-21") {
+		t.Errorf("the ISO option is not demonstrated with the fixed example: %q", iso)
+	}
+	relative := optionLabel(t, page, "time_format", output.TimeRelative)
+	if !strings.Contains(relative, "18 minutes ago") {
+		t.Errorf("the relative option does not read as a moment in the past: %q", relative)
+	}
 }
 
 // formatIn renders an instant the way a browser holding those preferences

@@ -28,6 +28,14 @@ func (b *browser) downloadBundle(form url.Values) *http.Response {
 // uploadBundle submits the import form with the bundle as an uploaded file.
 func (b *browser) uploadBundle(fields map[string]string, content string) *http.Response {
 	b.t.Helper()
+	return b.submitBundleForm(fields, "tix-bundle.ndjson", content)
+}
+
+// submitBundleForm submits the import form the way a browser does, as
+// multipart. An empty filename leaves the file part out altogether, which is
+// what a form carrying a file picker sends when nobody chose a file.
+func (b *browser) submitBundleForm(fields map[string]string, filename, content string) *http.Response {
+	b.t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 	fields["csrf_token"] = b.csrf()
@@ -36,7 +44,13 @@ func (b *browser) uploadBundle(fields map[string]string, content string) *http.R
 			b.t.Fatalf("writing field %q: %v", name, err)
 		}
 	}
-	part, err := writer.CreateFormFile("bundle", "tix-bundle.ndjson")
+	if filename == "" {
+		if err := writer.Close(); err != nil {
+			b.t.Fatalf("closing multipart writer: %v", err)
+		}
+		return b.sendBundleForm(&body, writer.FormDataContentType())
+	}
+	part, err := writer.CreateFormFile("bundle", filename)
 	if err != nil {
 		b.t.Fatalf("creating file part: %v", err)
 	}
@@ -46,11 +60,17 @@ func (b *browser) uploadBundle(fields map[string]string, content string) *http.R
 	if err := writer.Close(); err != nil {
 		b.t.Fatalf("closing multipart writer: %v", err)
 	}
-	req, err := http.NewRequest(http.MethodPost, b.fix.server.URL+web.RouteBundleImport, &body)
+	return b.sendBundleForm(&body, writer.FormDataContentType())
+}
+
+// sendBundleForm posts one prepared multipart body at the import route.
+func (b *browser) sendBundleForm(body *bytes.Buffer, contentType string) *http.Response {
+	b.t.Helper()
+	req, err := http.NewRequest(http.MethodPost, b.fix.server.URL+web.RouteBundleImport, body)
 	if err != nil {
 		b.t.Fatalf("building request: %v", err)
 	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Content-Type", contentType)
 	b.stamp(req)
 	resp, err := b.client.Do(req)
 	if err != nil {
@@ -241,6 +261,26 @@ func TestBundlePasteIsAcceptedWithoutAFilePicker(t *testing.T) {
 	wantStatus(t, resp, http.StatusOK)
 	if !strings.Contains(page, "nothing was written") {
 		t.Errorf("pasted preview did not render: %s", page)
+	}
+}
+
+// The real form carries a file picker, so a browser pasting a bundle still
+// submits multipart with an empty file part. The paste test above posts url
+// encoded, which never reaches the branch that looks for an upload at all.
+func TestAPastedBundleIsReadWhenTheFilePickerIsLeftEmpty(t *testing.T) {
+	f := newFixture(t)
+	b := f.as("alice")
+	bundle := exportedBundle(t, b, "starter")
+
+	resp := b.submitBundleForm(map[string]string{
+		"bundle_text":  bundle,
+		"on_collision": string(core.CollisionSkip),
+		"preview":      "1",
+	}, "", "")
+	page := body(t, resp)
+	wantStatus(t, resp, http.StatusOK)
+	if !strings.Contains(page, "nothing was written") {
+		t.Errorf("a pasted bundle was not read when no file was chosen: %s", page)
 	}
 }
 

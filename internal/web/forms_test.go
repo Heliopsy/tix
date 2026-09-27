@@ -437,6 +437,28 @@ func TestImportAcceptsPastedSnapshotAndRefusesAnEmptyOne(t *testing.T) {
 	}
 }
 
+// The real form carries a file picker, so a browser pasting a snapshot still
+// submits multipart with no file part. The paste above posts url encoded,
+// which never reaches the branch that looks for an upload at all.
+func TestAPastedSnapshotIsReadWhenTheFilePickerIsLeftEmpty(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+
+	resp := b.postMultipart("/transfer/import", map[string]string{
+		"mode": "merge", "dry_run": "1",
+		"snapshot_text": `{"kind":"header","header":{"version":1,"tenant_key":"acme"}}`,
+	}, "", "")
+	status := resp.StatusCode
+	page := body(t, resp)
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", status, page)
+	}
+	if !strings.Contains(page, "dry run") {
+		t.Errorf("a pasted snapshot was not read when no file was chosen:\n%s", page)
+	}
+}
+
 func TestExportDownloadsASnapshot(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
@@ -490,6 +512,26 @@ func TestSignOutClearsTheSessionCookie(t *testing.T) {
 	}
 	if !strings.Contains(resp.Header.Get("Set-Cookie"), "tix_session=") {
 		t.Fatalf("the session cookie was not cleared")
+	}
+}
+
+// The sign-out above is one the service refuses, because this fixture holds
+// no session for it to end, and a handler that returned early on the refusal
+// would clear the cookie and redirect anyway. The sign-out that worked is the
+// case the screen exists for, and it took the same two steps.
+func TestAnAcceptedSignOutStillClearsTheCookieAndRedirects(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	f.svc.logoutSucceeds = true
+
+	resp := f.as("alice").post("/logout", url.Values{})
+	defer func() { _ = resp.Body.Close() }()
+	wantStatus(t, resp, http.StatusSeeOther)
+	if got := resp.Header.Get("Location"); got != "/login" {
+		t.Fatalf("location = %q, want /login", got)
+	}
+	if !strings.Contains(resp.Header.Get("Set-Cookie"), "tix_session=") {
+		t.Fatalf("an accepted sign-out did not clear the session cookie")
 	}
 }
 

@@ -150,3 +150,100 @@ func TestTheUserListingShowsWhoEachAccountIs(t *testing.T) {
 		t.Errorf("a user row carries no anchor for a link to land on")
 	}
 }
+
+// personRow is the one list item of the user listing belonging to an account,
+// so an assertion about what marks one row reads that row. Every row carries
+// the same words, and the chip naming the reader is one span among them.
+func personRow(t *testing.T, page, userID string) string {
+	t.Helper()
+	row := between(t, page, `id="user-`+userID+`"`, "</li>")
+	if row == "" {
+		t.Fatalf("the listing has no row for %q:\n%s", userID, page)
+	}
+	return row
+}
+
+// The chip marking the reader's own account belongs on exactly one row. Read
+// across the whole page it is indistinguishable from marking every row, which
+// is what leaving the identity comparison out does.
+func TestOnlyTheReadersOwnAccountIsMarkedAsTheirs(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	admin := f.as("alice")
+	for _, email := range []string{"mine@example.test", "theirs@example.test"} {
+		created := admin.post("/admin/users", url.Values{"email": {email},
+			"password": {"correct-horse-battery"}, "role": {"admin"}})
+		_ = created.Body.Close()
+		wantStatus(t, created, http.StatusSeeOther)
+	}
+	listing := admin.page("/admin/users")
+	mine := userIDFor(t, listing, "mine@example.test")
+	theirs := userIDFor(t, listing, "theirs@example.test")
+
+	page := f.asActor(mine).page("/admin/users")
+	if !strings.Contains(personRow(t, page, mine), `class="chip you"`) {
+		t.Errorf("the reader's own account is not marked as theirs:\n%s",
+			personRow(t, page, mine))
+	}
+	if strings.Contains(personRow(t, page, theirs), `class="chip you"`) {
+		t.Errorf("somebody else's account is marked as the reader's:\n%s",
+			personRow(t, page, theirs))
+	}
+}
+
+// The listing's first line is a count of accounts by state, and it is the
+// only place the screen says how many there are.
+func TestTheUserListingCountsActiveAndDisabledAccounts(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	for _, email := range []string{"one@example.test", "two@example.test", "three@example.test"} {
+		created := b.post("/admin/users", url.Values{"email": {email},
+			"password": {"correct-horse-battery"}, "role": {"member"}})
+		_ = created.Body.Close()
+		wantStatus(t, created, http.StatusSeeOther)
+	}
+	listing := b.page("/admin/users")
+	off := userIDFor(t, listing, "three@example.test")
+	disabled := b.post("/admin/users/update", url.Values{
+		"id": {off}, "role": {"member"}, "disabled": {"1"}})
+	_ = disabled.Body.Close()
+	wantStatus(t, disabled, http.StatusSeeOther)
+
+	summary := between(t, b.page("/admin/users"), `<p class="lede summary">`, "</p>")
+	if !strings.Contains(summary, "<strong>2</strong> active") {
+		t.Errorf("the listing does not count the accounts still in use:\n%s", summary)
+	}
+	// Read the whole figure, not its last digit: a count of -1 renders, and
+	// contains the "1 disabled" a laxer assertion would accept.
+	if !strings.Contains(summary, `class="held">1 disabled<`) {
+		t.Errorf("the listing does not count the accounts turned off:\n%s", summary)
+	}
+}
+
+// Changing a role has to change it. The guard that this screen does not
+// change a role by accident is satisfied by a screen that cannot change one
+// at all, so the deliberate case needs its own.
+func TestChangingAUsersRoleTakesEffect(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	created := b.post("/admin/users", url.Values{"email": {"promoted@example.test"},
+		"password": {"correct-horse-battery"}, "role": {"member"}})
+	_ = created.Body.Close()
+	wantStatus(t, created, http.StatusSeeOther)
+
+	page := b.page("/admin/users")
+	id := userIDFor(t, page, "promoted@example.test")
+	saved := b.post("/admin/users/update", url.Values{"id": {id}, "role": {"admin"}})
+	_ = saved.Body.Close()
+	wantStatus(t, saved, http.StatusSeeOther)
+
+	after := b.page("/admin/users")
+	if got := selectedRole(t, after, id); got != string(core.RoleAdmin) {
+		t.Errorf("the role control still opens on %q after the role was changed to admin", got)
+	}
+	if !strings.Contains(personRow(t, after, id), `class="role role-admin">admin<`) {
+		t.Errorf("the row does not show the role that was chosen:\n%s", personRow(t, after, id))
+	}
+}

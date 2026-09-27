@@ -69,6 +69,52 @@ func TestUnknownPathIsNotFound(t *testing.T) {
 	wantStatus(t, resp, http.StatusNotFound)
 }
 
+// A refused mutation offers its way back to the screen it was submitted from,
+// and a refused page offers the dashboard: there is nowhere else a GET could
+// return to, and sending it back to its own failing path would loop.
+func TestTheErrorPageLeadsBackToWhereTheRequestCameFrom(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+
+	refused := b.post("/workflows", url.Values{"key": {"broken"}, "name": {"Broken"},
+		"initial": {"nowhere"}, "states": {"open|Open|open"}, "transitions": {""}})
+	page := body(t, refused)
+	wantStatus(t, refused, http.StatusBadRequest)
+	if !strings.Contains(page, `<a href="/workflows">Back to where you were</a>`) {
+		t.Errorf("a refused submission does not lead back to the screen it came from:\n%s", page)
+	}
+	// The error page is the whole answer. A second write after it renders
+	// appends its own words to the bottom of the document.
+	if strings.Contains(page, "internal error") {
+		t.Errorf("the error page carries a second answer after it:\n%s", page)
+	}
+
+	missing := body(t, f.as("alice").get("/nowhere"))
+	if !strings.Contains(missing, `<a href="/">Back to where you were</a>`) {
+		t.Errorf("a page that does not exist does not lead back to the dashboard:\n%s", missing)
+	}
+}
+
+// Every mutation answers with a message for the screen it returns to, and
+// the message travels in the redirect target.
+func TestAMutationCarriesItsMessageToTheNextScreen(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+
+	saved := b.post("/workflows", url.Values{
+		"key": {"review"}, "name": {"Review"}, "initial": {"open"},
+		"states":      {"open|Open|open\nclosed|Closed|terminal"},
+		"transitions": {"open>closed"},
+	})
+	_ = saved.Body.Close()
+	wantStatus(t, saved, http.StatusSeeOther)
+	if got := saved.Header.Get("Location"); got != "/workflows/review?flash=workflow+saved" {
+		t.Errorf("location = %q, want the listing carrying the message", got)
+	}
+}
+
 func TestUnauthenticatedRequestRedirectsToLogin(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)

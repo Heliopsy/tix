@@ -220,6 +220,43 @@ func TestStatisticsNamesItsCategoriesInWords(t *testing.T) {
 	}
 }
 
+// statFigure is the number on the card carrying one caption, so a reading of
+// "how many completed" is not satisfied by the count beside it.
+func statFigure(t *testing.T, page, caption string) string {
+	t.Helper()
+	for _, card := range strings.Split(page, `<div class="card">`)[1:] {
+		if !strings.Contains(card, `class="caption">`+caption+`<`) {
+			continue
+		}
+		return between(t, card, `<p class="figure">`, "</p>")
+	}
+	t.Fatalf("the statistics screen has no %q card:\n%s", caption, page)
+	return ""
+}
+
+// The window control has to choose the window. The screen shows the chosen
+// number back in its own select, which it fills from the same value whether
+// or not anything was measured over it, so the figures are the only place the
+// choice can be seen to have been made.
+func TestTheStatisticsWindowChoosesWhatIsCounted(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "finished long ago")
+	done := b.post("/tasks/"+ref+"/complete", url.Values{})
+	_ = done.Body.Close()
+	wantStatus(t, done, http.StatusSeeOther)
+
+	f.clock.Advance(10 * 24 * time.Hour)
+
+	if got := statFigure(t, b.page("/stats?days=30"), "completed"); got != "1" {
+		t.Errorf("a task completed ten days ago is not counted in a thirty day window: %q", got)
+	}
+	if got := statFigure(t, b.page("/stats?days=7"), "completed"); got != "0" {
+		t.Errorf("a task completed ten days ago is counted in a seven day window: %q", got)
+	}
+}
+
 // A lease that ran out is the one entry in a history nobody performed, and
 // the only one that says work was dropped rather than done.
 func TestALeaseExpiryIsMarkedApartFromEveryOtherChange(t *testing.T) {

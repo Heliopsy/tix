@@ -3,9 +3,13 @@
 package web_test
 
 import (
+	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // Every row of the feed used to be a dead end: the actor was plain text and a
@@ -209,6 +213,51 @@ func TestATaskRowDistinguishesItsMarkingsByShape(t *testing.T) {
 	}
 }
 
+// The summary is the only place the list says how much work is on it, and
+// every figure in it is counted rather than rendered from a row. The project
+// count below is one of five and says nothing about the other four.
+func TestTheTaskListSummaryCountsWhatIsLeftAndWhatIsDone(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	for i := range 3 {
+		b.createTask("infra", fmt.Sprintf("still open %d", i))
+	}
+	finished := b.createTask("infra", "already finished")
+	done := b.post("/tasks/"+finished+"/complete", url.Values{})
+	_ = done.Body.Close()
+	wantStatus(t, done, http.StatusSeeOther)
+
+	summary := between(t, b.page("/tasks"), `class="lede summary"`, "</p>")
+	if !strings.Contains(summary, "<strong>3</strong> to go") {
+		t.Errorf("the summary does not count what is left:\n%s", summary)
+	}
+	if !strings.Contains(summary, ", 1 done") {
+		t.Errorf("the summary does not count what is finished:\n%s", summary)
+	}
+	if strings.Contains(summary, "All clear") {
+		t.Errorf("a list with open work reads as finished:\n%s", summary)
+	}
+}
+
+// The other end of the same count: a list holding nothing but finished work
+// says so instead of reading "0 to go", and it takes the Total and the Done
+// agreeing to get there.
+func TestATaskListWithNothingLeftReadsAsFinished(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "the only one")
+	done := b.post("/tasks/"+ref+"/complete", url.Values{})
+	_ = done.Body.Close()
+	wantStatus(t, done, http.StatusSeeOther)
+
+	summary := between(t, b.page("/tasks"), `class="lede summary"`, "</p>")
+	if !strings.Contains(summary, "All clear") {
+		t.Errorf("a list with nothing left does not say so:\n%s", summary)
+	}
+}
+
 // A list that only ever shows rows says nothing about the shape of the work.
 func TestTheTaskListSaysHowManyProjectsItSpans(t *testing.T) {
 	t.Parallel()
@@ -230,5 +279,161 @@ func TestTheTaskListSaysHowManyProjectsItSpans(t *testing.T) {
 	if !strings.Contains(both, "across 2 projects") {
 		t.Errorf("the summary does not count both projects:\n%s",
 			between(t, both, `class="lede summary"`, "</p>"))
+	}
+}
+
+// activeChips is the row of removable filter chips, so an assertion about
+// what a filter shows back to the reader reads that row rather than finding
+// the same words in the filter form above it.
+func activeChips(t *testing.T, page string) string {
+	t.Helper()
+	chips := between(t, page, `<p class="activechips">`, "</p>")
+	if chips == "" {
+		t.Fatalf("the feed shows no active filter at all:\n%s", page)
+	}
+	return chips
+}
+
+// activityQuery.Active gates the whole chip row, including the only control
+// that clears the filter. It was only ever exercised with a free-text
+// search, so a feed narrowed by kind or by source could render no chips and
+// no way back to everything while the narrowing tests still passed: they
+// read the rows, which were narrowed correctly either way.
+func TestEveryActivityFilterTermIsShownBackToTheReader(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	b.createTask("infra", "filtered by every term")
+
+	for _, tc := range []struct{ name, query, chip string }{
+		{"text", "q=filtered", "matching"},
+		{"kind", "kind=task", "task"},
+		{"source", "source=web", "from web"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			chips := activeChips(t, b.page("/activity?"+tc.query))
+			if !strings.Contains(chips, tc.chip) {
+				t.Errorf("the %s filter has no chip of its own:\n%s", tc.name, chips)
+			}
+			if !strings.Contains(chips, `href="/activity"`) {
+				t.Errorf("the %s filter offers no way to clear it:\n%s", tc.name, chips)
+			}
+		})
+	}
+}
+
+// The actor chip names the person, not the identifier the address bar
+// carries. That name is a lookup of its own, because an actor with nothing
+// on the page is named by no row of it, and a filter matching nothing is
+// exactly when the reader most needs telling whose trail they are on.
+func TestTheActorChipNamesAnActorWithNoActivity(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	quiet := seedActor(t, f.store, f.tenantA.ID, "quiet", core.RoleMember)
+	b := f.as("alice")
+	b.createTask("infra", "by somebody else")
+
+	chips := activeChips(t, b.page("/activity?actor="+url.QueryEscape(quiet.ID)))
+	if !strings.Contains(chips, "by quiet") {
+		t.Errorf("the actor chip does not name the actor it filters by:\n%s", chips)
+	}
+	if strings.Contains(chips, quiet.ID) {
+		t.Errorf("the actor chip shows the raw identifier:\n%s", chips)
+	}
+}
+
+// The live fragment was asserted only on what it must not contain, and an
+// empty body satisfies that. It has to carry the rows, and carry each of
+// them once: the scan loop re-reads store pages until it holds a screenful,
+// and a loop that stops on the wrong condition reads the same page again.
+func TestTheActivityFragmentCarriesEachRowExactlyOnce(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "shown live")
+
+	fragment := b.page("/activity/feed")
+	if !strings.Contains(fragment, ref) {
+		t.Fatalf("the live fragment carries no rows at all:\n%s", fragment)
+	}
+	if n := strings.Count(fragment, ">"+ref+"<"); n != 1 {
+		t.Errorf("the live fragment names %s %d times, want once:\n%s", ref, n, fragment)
+	}
+}
+
+// A full page of the feed has to offer the one behind it. The scan loop
+// stops as soon as it holds a screenful, and stopping a page late throws
+// away the cursor it should have stopped on, which leaves the oldest records
+// unreachable rather than merely mispaged.
+func TestAFullActivityPageOffersTheOneBehindIt(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	// One audit entry per task, one more than a single page holds.
+	var oldest string
+	for i := range 51 {
+		ref := b.createTask("infra", fmt.Sprintf("entry %d", i))
+		if i == 0 {
+			oldest = ref
+		}
+	}
+
+	first := b.page("/activity")
+	if strings.Contains(first, ">"+oldest+"<") {
+		t.Fatalf("the oldest entry is already on the first page")
+	}
+	next := hrefWithClass(t, first, "pager-next")
+	if next == "" {
+		t.Fatalf("a full page of the feed offers no way to the one behind it:\n%s",
+			between(t, first, `<nav class="pager"`, "</nav>"))
+	}
+	if !strings.Contains(b.page(next), ">"+oldest+"<") {
+		t.Errorf("the page behind the first one does not carry the oldest entry %s", oldest)
+	}
+}
+
+// A feed of nothing but workflow rows still has to name the workflows. They
+// are resolved in one call made only when a row needs one, so whether any
+// row does is what the naming hangs on, and a page of them all is the case
+// that answer gets wrong.
+func TestAWorkflowOnlyFeedStillNamesTheWorkflow(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	saved := b.post("/workflows", url.Values{
+		"key": {"review"}, "name": {"Review"}, "initial": {"open"},
+		"states":      {"open|Open|open\nclosed|Closed|terminal"},
+		"transitions": {"open>closed"},
+	})
+	_ = saved.Body.Close()
+	wantStatus(t, saved, http.StatusSeeOther)
+
+	rows := between(t, b.page("/activity?kind=workflow"), `id="live-feed"`, "</ul>")
+	if !strings.Contains(rows, "the workflow Review") {
+		t.Errorf("a workflow row does not name the workflow:\n%s", rows)
+	}
+	if !strings.Contains(rows, `href="/workflows/review"`) {
+		t.Errorf("a workflow row does not link to the workflow:\n%s", rows)
+	}
+}
+
+// A membership row is the one whose subject is an actor somebody else acted
+// on, so that identifier is resolved alongside the actor who performed the
+// row rather than only through it. Unresolved it falls back to a generated
+// name, which reads like a person's name and is nobody's.
+func TestAMembershipRowNamesTheMemberNotAGeneratedName(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	quiet := seedActor(t, f.store, f.tenantA.ID, "quiet", core.RoleMember)
+	b := f.as("alice")
+
+	added := b.post("/admin/tenant/members", url.Values{
+		"actor_id": {quiet.ID}, "role": {"member"}})
+	_ = added.Body.Close()
+	wantStatus(t, added, http.StatusSeeOther)
+
+	rows := between(t, b.page("/activity?kind=membership"), `id="live-feed"`, "</ul>")
+	if !strings.Contains(rows, ">quiet</a> to the tenant") {
+		t.Errorf("a membership row does not name the member it is about:\n%s", rows)
 	}
 }

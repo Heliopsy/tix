@@ -111,3 +111,21 @@ func TestProjectScreenRefusesAColourOutsideThePalette(t *testing.T) {
 		t.Errorf("the refused colour reached a page:\n%s", page)
 	}
 }
+
+// A theme names two accents, one for light schemes and a lighter one for the
+// dark ones, and the second exists because the first is unreadable on a dark
+// background. Both rules are emitted from the same struct, so a page carrying
+// the accent somewhere says nothing about which rule got which colour.
+func TestTheDarkSchemeGetsTheThemesOwnDarkAccent(t *testing.T) {
+	t.Parallel()
+	page := newFixture(t).as("alice").page("/projects")
+
+	light := between(t, page, "\n:root { --accent: ", ";")
+	dark := between(t, page, `:root[data-theme="dark"], :root[data-theme="dim"] { --accent: `, ";")
+	if light == "" || dark == "" {
+		t.Fatalf("the page emits no accent rules:\n%s", between(t, page, "<style>", "</style>"))
+	}
+	if light == dark {
+		t.Errorf("the dark scheme is given the light accent %q, which is what it exists to replace", dark)
+	}
+}

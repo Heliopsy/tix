@@ -101,3 +101,85 @@ func TestProjectManageColumnCanBeHidden(t *testing.T) {
 		t.Error("the row no longer names the project it stands for")
 	}
 }
+
+// boardColumn is one column of the board, so an assertion about where a card
+// sits reads that column. Every card on the board carries the same markup,
+// and the whole page holds every state at once.
+func boardColumn(t *testing.T, page, state string) string {
+	t.Helper()
+	col := between(t, page, `data-state="`+state+`"`, "</section>")
+	if col == "" {
+		t.Fatalf("the board has no %q column:\n%s", state, page)
+	}
+	return col
+}
+
+// moveTargets are the states one card's move control offers, in the order it
+// offers them.
+func moveTargets(t *testing.T, page, ref string) []string {
+	t.Helper()
+	control := between(t, page, `<select id="to-`+ref+`"`, "</select>")
+	if control == "" {
+		t.Fatalf("the card for %s offers no move control:\n%s", ref, page)
+	}
+	var out []string
+	for _, part := range strings.Split(control, `<option value="`)[1:] {
+		value, _, ok := strings.Cut(part, `"`)
+		if !ok {
+			t.Fatalf("an option of %s's move control is not closed: %q", ref, part)
+		}
+		out = append(out, value)
+	}
+	return out
+}
+
+// A card belongs in the column of the state it is in, and nowhere else. The
+// board renders every state on one page, so a test reading the page rather
+// than the column cannot tell a card in its place from a card in all of them.
+func TestABoardCardSitsOnlyInItsOwnColumn(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	waiting := b.createTask("infra", "still to do")
+	started := b.createTask("infra", "under way")
+
+	moved := b.post("/tasks/"+started+"/transition", url.Values{"to": {"doing"}})
+	_ = moved.Body.Close()
+	wantStatus(t, moved, http.StatusSeeOther)
+
+	page := b.page("/projects/infra")
+	todo, doing := boardColumn(t, page, "todo"), boardColumn(t, page, "doing")
+	if !strings.Contains(todo, waiting) || strings.Contains(todo, started) {
+		t.Errorf("the todo column does not hold exactly the todo card:\n%s", todo)
+	}
+	if !strings.Contains(doing, started) || strings.Contains(doing, waiting) {
+		t.Errorf("the doing column does not hold exactly the doing card:\n%s", doing)
+	}
+	for _, state := range []string{"blocked", "done", "cancelled"} {
+		if col := boardColumn(t, page, state); !strings.Contains(col, "No tasks.") {
+			t.Errorf("the %s column holds a card nothing was moved into it:\n%s", state, col)
+		}
+	}
+}
+
+// The move control offers the states this one is actually wired to. Read
+// across the board every state appears somewhere, so the offer has to be read
+// on the card that makes it.
+func TestACardOffersOnlyTheMovesItsOwnStateAllows(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "waiting to move")
+
+	page := b.page("/projects/infra")
+	got := moveTargets(t, page, ref)
+	want := []string{"doing", "blocked", "cancelled"}
+	if len(got) != len(want) {
+		t.Fatalf("a todo card offers %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("a todo card offers %v, want %v", got, want)
+		}
+	}
+}

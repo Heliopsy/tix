@@ -137,6 +137,52 @@ func TestAnUnusableRequestedSizeFallsBackToTheConfiguredOne(t *testing.T) {
 	}
 }
 
+// The range the parameter accepts is 1..MaxPageLimit, and the test above only
+// names values outside it. Both ends have to be inside: refusing one more
+// value at either end reads exactly the same there, and costs a reader the
+// single-row page a phone asks for.
+func TestTheEndsOfTheAcceptedPageSizeAreAccepted(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	for i := range 3 {
+		b.createTask("infra", "row "+strconv.Itoa(i))
+	}
+	handler := web.Handler(f.svc, web.WithPageSize(2))
+
+	if got := taskRows(t, f.pageThrough(t, handler, "/tasks?limit=1")); got != 1 {
+		t.Errorf("/tasks?limit=1 rendered %d rows, want 1", got)
+	}
+	widest := strconv.Itoa(core.MaxPageLimit)
+	if got := taskRows(t, f.pageThrough(t, handler, "/tasks?limit="+widest)); got != 3 {
+		t.Errorf("/tasks?limit=%s rendered %d rows, want all 3", widest, got)
+	}
+}
+
+// WithPageSize accepts the same range, and the test for the values it refuses
+// names only values outside it. Both ends have to be kept, or configuring the
+// range's own endpoint silently leaves the shipped default in place.
+func TestTheEndsOfTheConfigurablePageSizeAreKept(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	// More rows than the shipped default carries, so refusing the widest
+	// value is visible rather than hidden behind a default wide enough.
+	rows := core.DefaultDisplayLimit + 1
+	for i := range rows {
+		b.createTask("infra", "row "+strconv.Itoa(i))
+	}
+
+	one := web.Handler(f.svc, web.WithPageSize(1))
+	if got := taskRows(t, f.pageThrough(t, one, "/tasks")); got != 1 {
+		t.Errorf("a handler configured for 1 row rendered %d", got)
+	}
+	widest := web.Handler(f.svc, web.WithPageSize(core.MaxPageLimit))
+	if got := taskRows(t, f.pageThrough(t, widest, "/tasks")); got != rows {
+		t.Errorf("a handler configured for the widest page rendered %d of %d rows", got, rows)
+	}
+}
+
 // TestAnUnusableConfiguredSizeLeavesTheShippedDefault keeps WithPageSize from
 // putting a number the contract refuses into every query.
 func TestAnUnusableConfiguredSizeLeavesTheShippedDefault(t *testing.T) {

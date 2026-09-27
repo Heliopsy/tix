@@ -3,6 +3,7 @@
 package web_test
 
 import (
+	"crypto/tls"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -36,6 +37,43 @@ func TestSecureCookiesOption(t *testing.T) {
 		if !strings.Contains(cookie, "HttpOnly") {
 			t.Fatalf("the csrf cookie is not marked HttpOnly: %s", cookie)
 		}
+	}
+}
+
+// csrfCookie is the CSRF cookie one response set, so an assertion about the
+// flags it carries reads that cookie rather than whichever one came first.
+func csrfCookie(t *testing.T, header http.Header) string {
+	t.Helper()
+	for _, cookie := range header.Values("Set-Cookie") {
+		if strings.Contains(cookie, web.CSRFCookieName) {
+			return cookie
+		}
+	}
+	t.Fatalf("no csrf cookie was issued: %v", header.Values("Set-Cookie"))
+	return ""
+}
+
+// The option above is a floor, not the whole rule. Without it the flag is
+// derived per request, so a server holding its own certificate marks the
+// cookie and a plain HTTP one does not: a Secure cookie on plain HTTP never
+// comes back, and a bare one on TLS is the bug the flag exists to prevent.
+func TestTheCookieFlagFollowsTheRequestWhenTheOptionIsOff(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	handler := web.Handler(f.svc)
+
+	plain := httptest.NewRecorder()
+	handler.ServeHTTP(plain, httptest.NewRequest(http.MethodGet, "/login", nil))
+	if got := csrfCookie(t, plain.Result().Header); strings.Contains(got, "Secure") {
+		t.Errorf("a plain HTTP request was given a Secure cookie it can never send back: %s", got)
+	}
+
+	overTLS := httptest.NewRequest(http.MethodGet, "/login", nil)
+	overTLS.TLS = &tls.ConnectionState{}
+	served := httptest.NewRecorder()
+	handler.ServeHTTP(served, overTLS)
+	if got := csrfCookie(t, served.Result().Header); !strings.Contains(got, "Secure") {
+		t.Errorf("a request this server terminated TLS for was given a bare cookie: %s", got)
 	}
 }
 
