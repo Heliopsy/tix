@@ -230,7 +230,13 @@ func viewActions(v viewKind) []string {
 	case viewActivity:
 		return append([]string{"Up", "Down", "Top", "Bottom", "Filter", "ClearFltr", "Back"}, global...)
 	case viewTenant:
-		return append([]string{"Enter", "Back"}, global...)
+		// Left and Right are listed although the screen itself has nothing
+		// horizontal: they cycle a form's answers, and a scheme that put one of
+		// them on a key this screen already uses would break the forms only.
+		return append([]string{
+			"Up", "Down", "Left", "Right", "Top", "Bottom", "Enter",
+			"EditTitle", "New", "Delete", "Back",
+		}, global...)
 	case viewHistory:
 		return append([]string{"Up", "Down", "Top", "Bottom", "Back"}, global...)
 	case viewProject:

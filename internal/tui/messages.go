@@ -52,6 +52,11 @@ const (
 	actionDeleteField
 	actionRestore
 	actionArtifact
+	actionEditTenant
+	actionAddDomain
+	actionRemoveDomain
+	actionAddMember
+	actionRemoveMember
 )
 
 // actionLabels name each action in the present tense, for a refusal, and in
@@ -84,6 +89,15 @@ var actionLabels = map[actionKind][2]string{
 
 	actionRestore:  {"restore the task", "restored"},
 	actionArtifact: {"record the artifact", "recorded an artifact on"},
+
+	// The tenant screen's own actions. Their subject is the tenant, a hostname
+	// or a membership rather than a task, so each carries its own sentence and
+	// the generic name is only a fallback.
+	actionEditTenant:   {"edit the tenant", "edited"},
+	actionAddDomain:    {"add the domain", "added domain"},
+	actionRemoveDomain: {"remove the domain", "removed domain"},
+	actionAddMember:    {"add the member", "added member"},
+	actionRemoveMember: {"remove the member", "removed member"},
 }
 
 // Label renders an action for a message.
@@ -100,6 +114,18 @@ func (a actionKind) Mutates() bool {
 		return false
 	default:
 		return true
+	}
+}
+
+// ChangesTenant reports whether an action changes what the tenant screen
+// shows, so the screen is read again rather than left stating what it used to
+// be.
+func (a actionKind) ChangesTenant() bool {
+	switch a {
+	case actionEditTenant, actionAddDomain, actionRemoveDomain, actionAddMember, actionRemoveMember:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -157,6 +183,23 @@ type projectMsg struct {
 	// workflowErr is why the workflow is missing, which the screen says rather
 	// than drawing a project that runs on nothing.
 	workflowErr string
+}
+
+// tenantInfoMsg carries what the tenant screen states: the tenant itself, the
+// tenants this session can see, the hostnames that resolve to it and the actors
+// who belong to it. Each listing carries its own refusal, because the reads
+// need three authorities and a reader refused one still gets the rest.
+type tenantInfoMsg struct {
+	tenant  *core.Tenant
+	tenants []core.Tenant
+	domains []core.Domain
+	members []core.Membership
+	handles map[string]string
+
+	tenantErr  string
+	tenantsErr string
+	domainErr  string
+	memberErr  string
 }
 
 // eventMsg carries one event from the subscription. gen names the connection

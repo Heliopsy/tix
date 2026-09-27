@@ -34,6 +34,8 @@ const (
 	promptProjectIcon
 	promptNewField
 	promptArtifact
+	promptTenantName
+	promptDomain
 )
 
 // PromptSpec is how one input introduces itself.
@@ -72,6 +74,12 @@ var promptSpecs = map[promptKind]PromptSpec{
 	// The artifact's name. Its kind is the one answer drawn from a fixed set,
 	// so the form asks that and this asks the part no fixed list can hold.
 	promptArtifact: {"artifact name: ", "what this output is called", 256},
+
+	// The tenant screen's own inputs. A tenant's name is seeded with the name
+	// it would replace; a hostname is new every time and is seeded with
+	// nothing.
+	promptTenantName: {"tenant name: ", "what this tenant is called", 256},
+	promptDomain:     {"hostname: ", "hostname that resolves here, such as acme.example", 253},
 }
 
 // Spec describes an input, reporting whether the kind names one at all.
@@ -85,7 +93,8 @@ func (k promptKind) Spec() (PromptSpec, bool) {
 func (k promptKind) NeedsTask() bool {
 	switch k {
 	case promptNone, promptFilter, promptActivityFilter, promptTenant, promptNewTask, promptNewProject,
-		promptProjectName, promptProjectDesc, promptProjectIcon, promptNewField:
+		promptProjectName, promptProjectDesc, promptProjectIcon, promptNewField,
+		promptTenantName, promptDomain:
 		return false
 	default:
 		return true

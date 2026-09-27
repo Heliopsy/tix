@@ -472,10 +472,17 @@ func TestNoCLIGapRemains(t *testing.T) {
 // on a history view of its own, artifact.put on a prompt and a form, task.restore
 // on the deleted cards the board's own is:deleted filter reveals, and actor.list
 // behind the assignee picker that replaced a prompt for an actor identifier.
+//
+// It came down from 40 when the tenant screen stopped being a statement of which
+// tenant a session was pinned to and became the administration view for it,
+// closing nine: tenant.show, tenant.list, tenant.update, domain.add, domain.list,
+// domain.remove, member.add, member.list and member.remove. tenant.create and
+// tenant.delete stay recorded, because a session pinned to one tenant is neither
+// where another is made nor where the one in use is destroyed.
 func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 	t.Parallel()
 	want := map[capability.Surface]int{
-		capability.SurfaceTUI: 40,
+		capability.SurfaceTUI: 31,
 		capability.SurfaceWeb: 2,
 	}
 	got := map[capability.Surface]int{}
@@ -504,6 +511,7 @@ func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 // which a count of "more than none" would not notice.
 var recordedShortfalls = map[string]capability.Surface{
 	"PutArtifact": capability.SurfaceTUI,
+	"AddDomain":   capability.SurfaceTUI,
 	"TaskTree":    capability.SurfaceWeb,
 	"ListTokens":  capability.SurfaceWeb,
 	"ListSSHKeys": capability.SurfaceWeb,

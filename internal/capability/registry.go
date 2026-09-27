@@ -98,7 +98,7 @@ var registry = []Operation{
 		HTTP:  apiPost(wire.RouteTenants),
 		Exempt: []Exemption{
 			off(SurfaceWeb, "a browser session is pinned to one tenant, so creating another is an installation-level operation reserved for the CLI"),
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no tenant administration view"),
+			gap(SurfaceTUI, "GAP: no tui binding yet; the tenant view administers the tenant in force, and a session pinned to one tenant has no installation-level entry for creating another"),
 		},
 	},
 	{
@@ -107,9 +107,7 @@ var registry = []Operation{
 		CLI:   "tix tenant show",
 		HTTP:  apiGet(wire.RouteTenant),
 		Web:   webGet(web.RouteTenant, tplTenant),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no tenant administration view"),
-		},
+		TUI:   "tenant",
 	},
 	{
 		Name: "tenant.list", Method: "ListTenants",
@@ -117,9 +115,7 @@ var registry = []Operation{
 		CLI:   "tix tenant ls",
 		HTTP:  apiGet(wire.RouteTenants),
 		Web:   webGet(web.RouteTenant, tplTenant),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no tenant administration view"),
-		},
+		TUI:   "tenant",
 	},
 	{
 		Name: "tenant.update", Method: "UpdateTenant",
@@ -127,9 +123,7 @@ var registry = []Operation{
 		CLI:   "tix tenant edit",
 		HTTP:  apiPatch(wire.RouteTenant),
 		Web:   webPost(web.RouteTenant),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no tenant administration view"),
-		},
+		TUI:   "tenant",
 	},
 	{
 		Name: "tenant.delete", Method: "DeleteTenant",
@@ -138,7 +132,7 @@ var registry = []Operation{
 		HTTP:  apiDelete(wire.RouteTenant),
 		Exempt: []Exemption{
 			off(SurfaceWeb, "deleting the tenant the session belongs to would destroy the operator's own access, so it is reserved for the CLI"),
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no tenant administration view"),
+			gap(SurfaceTUI, "GAP: no tui binding yet; destroying the tenant a running session is pinned to would revoke the interface's own access mid-session"),
 		},
 	},
 	{
@@ -147,8 +141,9 @@ var registry = []Operation{
 		CLI:   "tix domain add",
 		HTTP:  apiPost(wire.RouteDomains),
 		Web:   webPost(web.RouteDomains),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no domain administration view"),
+		TUI:   "tenant",
+		Limits: []Limitation{
+			{SurfaceTUI, "the tenant screen adds a hostname carrying no certificate of its own; a file certificate is a pair of paths on the server, which tix domain add and the API take"},
 		},
 	},
 	{
@@ -157,9 +152,7 @@ var registry = []Operation{
 		CLI:   "tix domain ls",
 		HTTP:  apiGet(wire.RouteDomains),
 		Web:   webGet(web.RouteDomains, tplDomains),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no domain administration view"),
-		},
+		TUI:   "tenant",
 	},
 	{
 		Name: "domain.remove", Method: "RemoveDomain",
@@ -167,9 +160,7 @@ var registry = []Operation{
 		CLI:   "tix domain rm",
 		HTTP:  apiDelete(wire.RouteDomain),
 		Web:   webPost(web.RouteDomainRemove),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no domain administration view"),
-		},
+		TUI:   "tenant",
 	},
 	{
 		Name: "domain.resolve", Method: "ResolveDomain",
@@ -186,9 +177,7 @@ var registry = []Operation{
 		CLI:   "tix member add",
 		HTTP:  apiPost(wire.RouteMembers),
 		Web:   webPost(web.RouteMembers),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no membership administration view"),
-		},
+		TUI:   "tenant",
 	},
 	{
 		Name: "member.list", Method: "ListMembers",
@@ -196,9 +185,7 @@ var registry = []Operation{
 		CLI:   "tix member ls",
 		HTTP:  apiGet(wire.RouteMembers),
 		Web:   webGet(web.RouteTenant, tplTenant),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no membership administration view"),
-		},
+		TUI:   "tenant",
 	},
 	{
 		Name: "member.remove", Method: "RemoveMember",
@@ -206,9 +193,7 @@ var registry = []Operation{
 		CLI:   "tix member rm",
 		HTTP:  apiDelete(wire.RouteMember),
 		Web:   webPost(web.RouteMemberRemove),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no membership administration view"),
-		},
+		TUI:   "tenant",
 	},
 
 	{

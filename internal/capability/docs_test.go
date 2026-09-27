@@ -117,6 +117,7 @@ var words = map[string]int{
 	"zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
 	"six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
 	"thirty-two": 32, "thirty-one": 31, "thirty-three": 33,
+	"twenty-two": 22, "twenty-three": 23, "twenty-four": 24,
 }
 
 // spelled patterns are the section's written-out counts, each with what it is

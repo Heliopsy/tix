@@ -28,6 +28,9 @@ const (
 	formFieldDef
 	formAssignee
 	formArtifact
+	formTenant
+	formTenantAdd
+	formMember
 )
 
 // FieldCondition keeps a field off screen until another field holds a value.

@@ -27,7 +27,7 @@ render into the same frame and recognising the body was the only way to tell whe
 | activity | `v` | the live event tail, filtered by the audit grammar |
 | history | `H` | the stored audit log for the selected task, the open project or the tenant |
 | statistics | `S` | the same figures as `tix stats`, for the open project or the whole tenant |
-| tenant | `T` | the tenant in force, and a key to switch this session to another |
+| tenant | `T` | the tenant in force, its domains and its members, and a key to switch this session |
 | settings | `,` | display preferences, and what this session is connected to |
 | help | `?` | the bindings of the view underneath, and the legends |
 
@@ -108,8 +108,8 @@ impossible for a scheme to leave an action unbound.
 | `R` | renew the lease | board, detail |
 | `N` | claim next from the queue | board, detail |
 | `t` | transition | board, detail |
-| `n` | new task, or new project on the project list | board, detail, projects |
-| `e`, `E` | edit title, edit body | board, detail |
+| `n` | new task, new project on the project list, new field or domain or member | board, detail, projects, project, tenant |
+| `e`, `E` | edit title, edit body; `e` also edits the project or the tenant | board, detail, project, tenant |
 | `P` | set priority | board, detail |
 | `A` | assign, from the tenant's directory | board, detail |
 | `m` | comment | board, detail |
@@ -120,7 +120,7 @@ impossible for a scheme to leave an action unbound.
 | `-` | remove one of the dependencies the task waits on | detail |
 | `O` | record an artifact | board, detail |
 | `u` | restore a deleted task | board, detail |
-| `X` | delete the task, or the selected comment | board, detail |
+| `X` | delete the task or the selected comment; removes the selected domain or member | board, detail, project, tenant |
 | `y` | agree to a confirmation | wherever one is open |
 | `w` | project setup | everywhere |
 | `f` | custom field definitions | project |
@@ -284,9 +284,27 @@ points at `tix audit ls` for the older entries. A subject with nothing recorded 
 words, since a heading over blank space reads as a read that failed, and a read that did fail opens no
 view at all. `r` re-reads the same subject, rather than refreshing a screen you are not looking at.
 
-## Switching tenant
+## The tenant screen
 
-`T` states the tenant in force and takes a key to switch this session to another. There is no list to
+`T` reads the tenant this session is pinned to and states it: its key, its name, the theme it presents
+itself with, the tenants this session can see, the hostnames that resolve to it and the actors who belong
+to it. Each of those is a separate read under a separate authority, so a reader refused one gets the rest
+of the screen and a line saying what is missing, rather than a screen that fails to open over a listing
+they were never going to see.
+
+One cursor runs over the domains and the members together, because `X` removes either and a removal needs
+a named subject rather than a typed identifier. The confirmation says the hostname or the handle out loud.
+
+`e` edits the tenant: the theme from the palettes the build carries, including the word for having none,
+and the name from the single-line input seeded with the name it would replace. `n` asks whether a domain
+or a member is being added. A domain takes its hostname at the prompt and is added carrying no certificate
+of its own, because a certificate is a pair of paths on the server that no control here can gather;
+`tix domain add` takes them. A member is picked from the tenant's own directory, read at the keystroke
+rather than held for the session, with one of the three roles beside it.
+
+### Switching tenant
+
+The same screen takes a key to switch this session to another tenant. There is no list to
 pick from, and that is not an omission: an actor belongs to one tenant, and both listing tenants and
 reading one are scoped to the caller's own, so from inside `default` a tenant named `acme` and a tenant
 that was never created are the same answer. The key is checked the way `tix tenant use` checks it, by
@@ -359,7 +377,7 @@ session belonging to a listener rather than to a shell:
 
 - **Settings do not persist.** There is no configuration file to write, so the screen says the choices
   last until you quit.
-- **The tenant view is read only.** Which database or server a key resolves against is configuration, and
+- **The tenant switch is read only.** Which database or server a key resolves against is configuration, and
   the listener hands the session no way to dial another, so the view says so and names `tix tenant use`.
 - **The session facts are mostly unstated.** The target, the version and the configuration file are
   things the command layer supplies, and a listener does not; each says it was not named by this session
@@ -374,7 +392,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 40 such gaps against 88
+a reason as a gap when the binding ought to exist. As of this writing there are 31 such gaps against 88
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:
@@ -384,15 +402,15 @@ grep 'gap(SurfaceTUI' internal/capability/registry.go
 go test ./internal/capability/...
 ```
 
-Every one of the 40 now has one of two shapes, which is worth knowing before you try:
+Every one of the 31 now has one of two shapes, which is worth knowing before you try:
 
-- **Administration.** Tenants, domains, memberships, users, tokens, credentials, webhooks and their
-  deliveries, retention and the server itself have no terminal screen at all. That is thirty-two of the
-  count.
+- **Administration.** Users, tokens, credentials, webhooks and their deliveries, retention and the server
+  itself have no terminal screen at all, and creating or destroying a tenant is not something a session
+  pinned to one tenant can do. That is twenty-three of the count.
 - **Bulk and data movement.** Import, export, bundles and external sync are command line and API only.
   That is the other eight.
 
-Three shapes that were on this list have closed, and how they closed is the part worth keeping. Working
+Four shapes that were on this list have closed, and how they closed is the part worth keeping. Working
 on definitions rather than instances: the project screen edits a project, defines and removes custom
 fields, and renders the workflow it runs on. Input a single line of text cannot gather: a prompt now hands
 over to a form whose every field picks from the values the operation accepts, which is how the assignee
@@ -400,7 +418,9 @@ and the artifact arrived, and what the terminal still cannot gather is recorded 
 binding rather than as a gap, so `artifact.put` is bound and says in the same breath that a payload, a
 content type and an inline blob belong to `tix artifact put` and the API. Listings needing a selectable
 sub-item: the comment thread, the tag list, the dependency list, the actor directory and the deleted cards
-`is:deleted` reveals all have a cursor over them now.
+`is:deleted` reveals all have a cursor over them now. And the tenant itself: the screen that stated only
+which tenant a session was pinned to now reads the tenant, the tenants the session can see, its domains
+and its memberships, and edits all three, which closed nine.
 
 Seven absences are not gaps and will not close. Closing the service is process lifecycle; hostname
 resolution runs in the server request path; lease sweeping is a background loop; signing in and out

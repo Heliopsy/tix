@@ -15,6 +15,8 @@ const (
 	confirmArchiveProject
 	confirmDeleteProject
 	confirmDeleteField
+	confirmRemoveDomain
+	confirmRemoveMember
 )
 
 // confirmVerbs are what each confirmation says it will do, in the words the
@@ -25,6 +27,8 @@ var confirmVerbs = map[confirmKind]string{
 	confirmArchiveProject: "archive project",
 	confirmDeleteProject:  "delete project",
 	confirmDeleteField:    "delete custom field",
+	confirmRemoveDomain:   "remove domain",
+	confirmRemoveMember:   "remove member",
 }
 
 // Confirm is one destructive action held back until the reader agrees to it.
@@ -52,6 +56,10 @@ type Confirm struct {
 	// project a removal acts on, and the custom field a deletion names.
 	projectRef string
 	fieldKey   string
+	// hostname and actorID address the tenant screen's two removals, which act
+	// on a domain and on a membership rather than on anything a task has.
+	hostname string
+	actorID  string
 }
 
 // Open reports whether a confirmation is waiting for an answer.

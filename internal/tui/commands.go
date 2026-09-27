@@ -699,6 +699,124 @@ func (m Model) loadHistory(subject HistorySubject) tea.Cmd {
 	}
 }
 
+// loadTenantInfo reads everything the tenant screen states, in one command.
+//
+// None of the four reads is fatal. They need three authorities between them, so
+// a reader refused one gets the other three and a line saying what is missing,
+// rather than a screen that fails to open over a listing they were never going
+// to see.
+func (m Model) loadTenantInfo() tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, key := m.svc, m.ctx, m.tenantKey
+	return func() tea.Msg {
+		out := tenantInfoMsg{}
+		if tenant, err := svc.GetTenant(ctx, key); err != nil {
+			out.tenantErr = err.Error()
+		} else {
+			out.tenant = tenant
+		}
+		if tenants, _, err := svc.ListTenants(ctx, core.Page{Limit: core.DefaultPageLimit}); err != nil {
+			out.tenantsErr = err.Error()
+		} else {
+			out.tenants = tenants
+		}
+		if domains, err := svc.ListDomains(ctx); err != nil {
+			out.domainErr = err.Error()
+		} else {
+			out.domains = domains
+		}
+		if members, err := svc.ListMembers(ctx); err != nil {
+			out.memberErr = err.Error()
+		} else {
+			out.members = members
+			out.handles = resolveActors(ctx, svc, memberActorIDs(members))
+		}
+		return out
+	}
+}
+
+// memberActorIDs collects the distinct, non-empty actors a membership listing
+// names.
+func memberActorIDs(members []core.Membership) []string {
+	seen := map[string]bool{}
+	var ids []string
+	for _, m := range members {
+		if m.ActorID == "" || seen[m.ActorID] {
+			continue
+		}
+		seen[m.ActorID] = true
+		ids = append(ids, m.ActorID)
+	}
+	return ids
+}
+
+// updateTenant changes one attribute of the tenant this session is pinned to.
+func (m Model) updateTenant(in core.UpdateTenantInput, attribute string) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, key := m.svc, m.ctx, m.tenantKey
+	sentence := "set the " + attribute + " of tenant " + key
+	return func() tea.Msg {
+		_, err := svc.UpdateTenant(ctx, key, in)
+		return actionMsg{kind: actionEditTenant, label: key, sentence: sentence, err: err}
+	}
+}
+
+// addDomain maps a hostname to this tenant. The domain carries no certificate
+// of its own: a certificate is a pair of paths on the server, which no control
+// here can gather, and DomainNote says where they are set instead.
+func (m Model) addDomain(hostname string) tea.Cmd {
+	if m.svc == nil || hostname == "" {
+		return nil
+	}
+	svc, ctx := m.svc, m.ctx
+	return func() tea.Msg {
+		_, err := svc.AddDomain(ctx, core.AddDomainInput{Hostname: hostname, CertMode: core.CertNone})
+		return actionMsg{kind: actionAddDomain, label: hostname,
+			sentence: "added domain " + hostname + "; " + DomainNote, err: err}
+	}
+}
+
+// removeDomain unmaps the hostname the reader agreed to unmap.
+func (m Model) removeDomain(hostname string) tea.Cmd {
+	if m.svc == nil || hostname == "" {
+		return nil
+	}
+	svc, ctx := m.svc, m.ctx
+	return func() tea.Msg {
+		return actionMsg{kind: actionRemoveDomain, label: hostname,
+			sentence: "removed domain " + hostname, err: svc.RemoveDomain(ctx, hostname)}
+	}
+}
+
+// addMember gives an actor a membership of this tenant.
+func (m Model) addMember(actorID, label string, role core.Role) tea.Cmd {
+	if m.svc == nil || actorID == "" {
+		return nil
+	}
+	svc, ctx := m.svc, m.ctx
+	return func() tea.Msg {
+		_, err := svc.AddMember(ctx, actorID, role)
+		return actionMsg{kind: actionAddMember, label: label,
+			sentence: "added member " + label + " as " + string(role), err: err}
+	}
+}
+
+// removeMember takes away the membership the reader agreed to take away.
+func (m Model) removeMember(actorID, label string) tea.Cmd {
+	if m.svc == nil || actorID == "" {
+		return nil
+	}
+	svc, ctx := m.svc, m.ctx
+	return func() tea.Msg {
+		return actionMsg{kind: actionRemoveMember, label: label,
+			sentence: "removed member " + label, err: svc.RemoveMember(ctx, actorID)}
+	}
+}
+
 // auditActorIDs collects the distinct, non-empty actors a history page names.
 func auditActorIDs(entries []core.AuditEntry) []string {
 	seen := map[string]bool{}

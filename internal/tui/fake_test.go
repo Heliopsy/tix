@@ -90,6 +90,25 @@ type fakeService struct {
 	fieldsPut      []core.FieldDefInput
 	fieldsGone     [][2]string
 	fieldErr       error
+
+	// what the tenant screen reads, what each of its reads can be refused
+	// with, and what its actions recorded. adminErr refuses every write, so a
+	// failure path is scripted once rather than per call.
+	tenant        *core.Tenant
+	tenants       []core.Tenant
+	domains       []core.Domain
+	members       []core.Membership
+	tenantAsked   []string
+	tenantErr     error
+	tenantsErr    error
+	domainErr     error
+	memberErr     error
+	adminErr      error
+	tenantsEdited []core.UpdateTenantInput
+	domainsAdded  []core.AddDomainInput
+	domainsGone   []string
+	membersAdded  [][2]string
+	membersGone   []string
 }
 
 func newFakeService() *fakeService {
@@ -166,28 +185,80 @@ func (f *fakeService) Close() error { return nil }
 func (f *fakeService) CreateTenant(context.Context, core.CreateTenantInput) (*core.Tenant, error) {
 	return nil, nil
 }
-func (f *fakeService) GetTenant(context.Context, string) (*core.Tenant, error) { return nil, nil }
+func (f *fakeService) GetTenant(_ context.Context, ref string) (*core.Tenant, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.tenantAsked = append(f.tenantAsked, ref)
+	if f.tenantErr != nil {
+		return nil, f.tenantErr
+	}
+	return f.tenant, nil
+}
 func (f *fakeService) ListTenants(context.Context, core.Page) ([]core.Tenant, string, error) {
-	return nil, "", nil
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.tenantsErr != nil {
+		return nil, "", f.tenantsErr
+	}
+	return f.tenants, "", nil
 }
 func (f *fakeService) Stats(context.Context, core.StatsInput) (*core.Stats, error) {
 	return &core.Stats{}, nil
 }
-func (f *fakeService) UpdateTenant(context.Context, string, core.UpdateTenantInput) (*core.Tenant, error) {
-	return nil, nil
+func (f *fakeService) UpdateTenant(_ context.Context, _ string, in core.UpdateTenantInput) (*core.Tenant, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.tenantsEdited = append(f.tenantsEdited, in)
+	return f.tenant, f.adminErr
 }
 func (f *fakeService) DeleteTenant(context.Context, string) error { return nil }
-func (f *fakeService) AddDomain(context.Context, core.AddDomainInput) (*core.Domain, error) {
-	return nil, nil
+func (f *fakeService) AddDomain(_ context.Context, in core.AddDomainInput) (*core.Domain, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.domainsAdded = append(f.domainsAdded, in)
+	if f.adminErr != nil {
+		return nil, f.adminErr
+	}
+	return &core.Domain{Hostname: in.Hostname, CertMode: in.CertMode}, nil
 }
-func (f *fakeService) ListDomains(context.Context) ([]core.Domain, error)          { return nil, nil }
-func (f *fakeService) RemoveDomain(context.Context, string) error                  { return nil }
+func (f *fakeService) ListDomains(context.Context) ([]core.Domain, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.domainErr != nil {
+		return nil, f.domainErr
+	}
+	return f.domains, nil
+}
+func (f *fakeService) RemoveDomain(_ context.Context, hostname string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.domainsGone = append(f.domainsGone, hostname)
+	return f.adminErr
+}
 func (f *fakeService) ResolveDomain(context.Context, string) (*core.Tenant, error) { return nil, nil }
-func (f *fakeService) AddMember(context.Context, string, core.Role) (*core.Membership, error) {
-	return nil, nil
+func (f *fakeService) AddMember(_ context.Context, actorID string, role core.Role) (*core.Membership, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.membersAdded = append(f.membersAdded, [2]string{actorID, string(role)})
+	if f.adminErr != nil {
+		return nil, f.adminErr
+	}
+	return &core.Membership{ActorID: actorID, Role: role}, nil
 }
-func (f *fakeService) ListMembers(context.Context) ([]core.Membership, error) { return nil, nil }
-func (f *fakeService) RemoveMember(context.Context, string) error             { return nil }
+func (f *fakeService) ListMembers(context.Context) ([]core.Membership, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.memberErr != nil {
+		return nil, f.memberErr
+	}
+	return f.members, nil
+}
+func (f *fakeService) RemoveMember(_ context.Context, actorID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.membersGone = append(f.membersGone, actorID)
+	return f.adminErr
+}
 
 func (f *fakeService) CreateProject(_ context.Context, in core.CreateProjectInput) (*core.Project, error) {
 	f.mu.Lock()

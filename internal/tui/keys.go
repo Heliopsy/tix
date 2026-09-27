@@ -287,7 +287,9 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 			entry(k.Filter), entry(k.ClearFltr), entry(k.Back),
 		}
 	case viewTenant:
-		return []HelpEntry{entry(k.Enter), entry(k.Back)}
+		return append([]HelpEntry{
+			entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom), entry(k.Enter),
+		}, append(k.tenantActions(may), entry(k.Back))...)
 	case viewHistory:
 		return []HelpEntry{
 			entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom), entry(k.Back),
@@ -300,10 +302,11 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 	}
 }
 
-// projectAction is one of the project screen's bindings: the key it borrows from
-// the board, the authority it needs, and what it does here. The description is
-// its own because "edit title" on a screen holding no task describes the board.
-type projectAction struct {
+// viewAction is one of a configuration screen's bindings: the key it borrows
+// from the board, the authority it needs, and what it does here. The description
+// is its own because "edit title" on a screen holding no task describes the
+// board.
+type viewAction struct {
 	gatedAction
 	desc string
 }
@@ -315,8 +318,8 @@ type projectAction struct {
 // The keys are the board's own, which is what keeps every scheme working here
 // without rebinding anything: a reader who moved EditTitle onto i edits a
 // project with i too.
-func (k KeyMap) projectBindings() []projectAction {
-	return []projectAction{
+func (k KeyMap) projectBindings() []viewAction {
+	return []viewAction{
 		{gatedAction{binding: k.EditTitle, methods: []string{"UpdateProject"}}, "edit project"},
 		{gatedAction{binding: k.Delete,
 			methods: []string{"ArchiveProject", "DeleteProject"}}, "archive or delete"},
@@ -328,7 +331,7 @@ func (k KeyMap) projectBindings() []projectAction {
 
 // entry renders a project action as a help line, under the description the
 // project screen gives it.
-func (a projectAction) entry() HelpEntry {
+func (a viewAction) entry() HelpEntry {
 	return HelpEntry{Keys: a.binding.Help().Key, Desc: a.desc}
 }
 
@@ -340,6 +343,51 @@ func (k KeyMap) projectActions(may func(string) bool) []HelpEntry {
 		if a.permitted(may) {
 			out = append(out, a.entry())
 		}
+	}
+	return out
+}
+
+// tenantBindings are the actions the tenant screen offers, each against the
+// operation it calls. One list, so the footer, the help overlay and the
+// keystroke cannot disagree about who may press a key.
+//
+// The keys are the board's own, which is what keeps every scheme working here
+// without rebinding anything: a reader who moved New onto o adds a domain with
+// o too.
+func (k KeyMap) tenantBindings() []viewAction {
+	return []viewAction{
+		{gatedAction{binding: k.EditTitle, methods: []string{"UpdateTenant"}}, "edit tenant"},
+		{gatedAction{binding: k.New, methods: []string{"AddDomain", "AddMember"}}, "add domain or member"},
+		{gatedAction{binding: k.Delete,
+			methods: []string{"RemoveDomain", "RemoveMember"}}, "remove the selected row"},
+	}
+}
+
+// tenantActions are the tenant screen's bindings, as far as this reader's
+// authority reaches.
+func (k KeyMap) tenantActions(may func(string) bool) []HelpEntry {
+	out := make([]HelpEntry, 0, len(k.tenantBindings()))
+	for _, a := range k.tenantBindings() {
+		if a.permitted(may) {
+			out = append(out, a.entry())
+		}
+	}
+	return out
+}
+
+// tenantShort offers the tenant screen's keys, dropping the removal when the
+// screen holds no domain and no member: a key that can only report having
+// nothing to act on is a promise the footer should not make.
+func (k KeyMap) tenantShort(ctx ActionContext) []HelpEntry {
+	out := make([]HelpEntry, 0, len(k.tenantBindings()))
+	for _, a := range k.tenantBindings() {
+		if !a.permitted(ctx.May) {
+			continue
+		}
+		if a.desc == "remove the selected row" && !ctx.HasRows {
+			continue
+		}
+		out = append(out, a.entry())
 	}
 	return out
 }
@@ -379,6 +427,9 @@ type ActionContext struct {
 	// HasFields reports whether the open project defines custom fields, so the
 	// project screen does not advertise a picker with nothing to pick.
 	HasFields bool
+	// HasRows reports whether the tenant screen holds a domain or a member, so
+	// it does not advertise a removal with nothing under the cursor.
+	HasRows bool
 	// IsDeleted reports whether the selected card is one of the deleted tasks a
 	// filter revealed. A deleted task accepts one action, so the footer offers
 	// that one and none of the editing keys the service would refuse.
@@ -417,7 +468,8 @@ func (k KeyMap) ShortHelp(v viewKind, ctx ActionContext) []HelpEntry {
 	case viewActivity:
 		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Filter), entry(k.Back)}
 	case viewTenant:
-		short = []HelpEntry{entry(k.Enter), entry(k.Back)}
+		short = append([]HelpEntry{entry(k.Up), entry(k.Down), entry(k.Enter)},
+			append(k.tenantShort(ctx), entry(k.Back))...)
 	case viewHistory:
 		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
 	case viewProject:

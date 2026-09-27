@@ -131,6 +131,11 @@ type Model struct {
 	// switch that cannot happen.
 	tenantKey  string
 	dialTenant TenantDialer
+	// admin is what the tenant screen states, adminSel indexes the domains and
+	// the members as one list, and adminOff scrolls the screen.
+	admin    *tenantInfoMsg
+	adminSel int
+	adminOff int
 	// ownConn is the connection this session opened for itself by switching.
 	// The connection it started with belongs to the caller, so it is never
 	// closed here.
@@ -319,7 +324,15 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 	case tagsMsg:
 		return m.onTags(msg)
 	case actorsMsg:
+		// One read serves two pickers. The tenant screen asks for the same
+		// directory the assignee picker does, and which of them is waiting is
+		// decided by the view that asked rather than by a second message type.
+		if m.view == viewTenant {
+			return m.onMemberDirectory(msg)
+		}
 		return m.onActors(msg)
+	case tenantInfoMsg:
+		return m.onTenantInfo(msg)
 	case historyMsg:
 		return m.onHistory(msg)
 	case projectMsg:
@@ -535,6 +548,9 @@ func (m Model) onAction(msg actionMsg) (Model, tea.Cmd) {
 		next.setup = nil
 		return next, next.loadProjects()
 	}
+	if msg.kind.ChangesTenant() {
+		return m, m.loadTenantInfo()
+	}
 	if msg.kind.ChangesSetup() && m.setupRef() != "" {
 		return m, tea.Batch(m.loadProject(m.setupRef()), m.loadProjects())
 	}
@@ -616,7 +632,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		}
 		return m.openStats()
 	case key.Matches(msg, m.keys.Tenant):
-		return m.openTenant(), nil
+		return m.openTenant()
 	case key.Matches(msg, m.keys.Project):
 		return m.openProjectSetup()
 	}
@@ -1030,6 +1046,10 @@ func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 		return m.updateProject(core.UpdateProjectInput{Description: &text}, attrDescription)
 	case promptProjectIcon:
 		return m.updateProject(core.UpdateProjectInput{Icon: &text}, attrIcon)
+	case promptTenantName:
+		return m.updateTenant(core.UpdateTenantInput{Name: &text}, attrName)
+	case promptDomain:
+		return m.addDomain(text)
 	}
 	task, ok := m.selectedTask()
 	if !ok {
@@ -1228,7 +1248,8 @@ func (m Model) release() (Model, tea.Cmd) {
 func (m Model) actionContext() ActionContext {
 	ctx := ActionContext{HasProject: m.project.Key != "", May: m.permits(),
 		HasComment: m.view == viewDetail && m.detail != nil && len(m.detail.comments) > 0,
-		HasFields:  m.setup != nil && len(m.setup.fields) > 0}
+		HasFields:  m.setup != nil && len(m.setup.fields) > 0,
+		HasRows:    m.view == viewTenant && len(m.adminRows()) > 0}
 	task, ok := m.selectedTask()
 	if !ok {
 		return ctx
@@ -1274,6 +1295,11 @@ func (m Model) refresh() tea.Cmd {
 	// from here would reload a screen the reader is not looking at.
 	if m.view == viewHistory {
 		return m.loadHistory(m.historySubj)
+	}
+	// The tenant screen is read once when the view opens, so refreshing
+	// anything else from here would reload a screen the reader is not on.
+	if m.view == viewTenant {
+		return m.loadTenantInfo()
 	}
 	if m.project.ID == "" {
 		return m.loadProjects()
@@ -1534,6 +1560,12 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 		return m.closeForm().applyFieldPick(form)
 	case formFieldDef:
 		return m.closeForm().applyFieldDef(form)
+	case formTenant:
+		return m.closeForm().applyTenantEdit(form)
+	case formTenantAdd:
+		return m.closeForm().applyTenantAdd(form)
+	case formMember:
+		return m.closeForm().applyMember(form)
 	}
 	if form.Kind == formAssignee {
 		next := m.closeForm()
@@ -1626,6 +1658,10 @@ func (m Model) runConfirm(c Confirm) tea.Cmd {
 		return m.deleteProject(c.projectRef)
 	case confirmDeleteField:
 		return m.deleteFieldDef(c.projectRef, c.fieldKey)
+	case confirmRemoveDomain:
+		return m.removeDomain(c.hostname)
+	case confirmRemoveMember:
+		return m.removeMember(c.actorID, c.Target)
 	default:
 		return nil
 	}
