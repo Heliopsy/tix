@@ -219,13 +219,13 @@ jobs:
               echo "the pushed manifest list carries no $arch entry to attest" >&2
               exit 1
             fi
-            # Prove the digest is resolvable before signing it, so a failure
-            # names the missing manifest rather than surfacing as a 404 from
-            # deep inside cosign.
-            if ! podman manifest inspect "$REPO@$digest" >/dev/null 2>&1; then
-              echo "the registry does not hold $arch at $digest" >&2
-              exit 1
-            fi
+            # There is deliberately no existence check on the child here. The
+            # obvious one, `podman manifest inspect "$REPO@$digest"`, refuses
+            # every correct digest: it reads manifest LISTS, and a child is a
+            # plain image manifest, so it failed v0.7.0 twice while the
+            # registry held exactly what was asked for. It would also be
+            # tautological, because the digest is read out of the registry's
+            # own list on the line above.
             podman save --format docker-archive -o "image-$arch.tar" "localhost/tix:latest-$arch"
             syft "docker-archive:image-$arch.tar" -o spdx-json > "sbom-$arch.spdx.json"
             cosign attest --yes --type spdxjson \
