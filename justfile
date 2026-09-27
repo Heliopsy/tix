@@ -430,6 +430,14 @@ mutate PKG EXCLUDE="": _gremlins
     #!/usr/bin/env bash
     set -euo pipefail
     report=$(mktemp); trap 'rm -f "$report"' EXIT
+    # gremlins sizes every mutant's budget from how long its own coverage run
+    # took, and that run is an ordinary `go test` which Go will serve from the
+    # build cache. A cached coverage run of internal/web took 237ms against
+    # 5.9s cold, so the budget came out at 23.7s rather than 590s and mutants
+    # expired before they finished building: 17 of the first 22 "timed out" on
+    # plain `if err != nil` lines. The coefficient was never the problem, and
+    # raising it would not have helped. Defeat the cache instead.
+    export GOFLAGS="${GOFLAGS:-} -count=1"
     args=(unleash './{{PKG}}' --config .gremlins.yaml -o "$report")
     if [ -n '{{EXCLUDE}}' ]; then args+=(--exclude-files '{{EXCLUDE}}'); fi
     bin/gremlins "${args[@]}"

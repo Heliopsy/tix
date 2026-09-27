@@ -18,6 +18,12 @@ unleash:
   # "Test efficacy: 100.00%" and exits 0. 100 is roomy rather than tuned: a high
   # coefficient only costs time on a mutant that really does hang, and
   # `just mutate` refuses a run where timeouts are more than a few percent.
+  #
+  # Raising this is NOT the fix when a run times out wholesale. The coverage
+  # run is an ordinary `go test` and Go serves it from the build cache, so the
+  # multiplier is applied to a cached 237ms rather than a real 5.9s. `just
+  # mutate` exports GOFLAGS=-count=1 for exactly this reason; internal/web went
+  # from a wall of timeouts to 0 of 685 without touching this number.
   timeout-coefficient: 100
 
 mutants:
