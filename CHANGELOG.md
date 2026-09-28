@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.10.0](https://github.com/Heliopsy/tix/compare/v0.9.0...v0.10.0) (2026-09-28)
+
+
+### Features
+
+* **cli:** add tix status across the command line, the api and the browser ([d1a9136](https://github.com/Heliopsy/tix/commit/d1a913619d02cf0953edb6686c1aef828f725edf))
+* **service:** report the installation, its servers and its work ([c1ca1ff](https://github.com/Heliopsy/tix/commit/c1ca1ff9ff9547dc093033ab4ec4e8ef1dad9b48))
+* **store:** register server processes in an installation-scoped table ([fb12f2b](https://github.com/Heliopsy/tix/commit/fb12f2b8d6ba7229c1b93a80a3ca3498cc05e410))
+
+
+### Bug Fixes
+
+* **ci:** stop release-please re-proposing a version already shipped ([184c113](https://github.com/Heliopsy/tix/commit/184c113b3d81e6e6b16e058bd40267951f8393d5))
+* **status:** keep trying to register a server the database was too busy for ([6821562](https://github.com/Heliopsy/tix/commit/68215622f9b71a21f1fdebf4ed59d6d7dbc883b0))
+* **status:** stop a dead server's uptime climbing, and count in words ([c641d72](https://github.com/Heliopsy/tix/commit/c641d720cca87662b56ecc3277a48a07e54a3807))
+
 ## [0.9.0](https://github.com/Heliopsy/tix/compare/v0.8.0...v0.9.0) (2026-09-27)
 
 
