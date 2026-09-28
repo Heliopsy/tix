@@ -269,15 +269,15 @@ func TestTheSelectionIsIdentifiableAtBothPhasesOfThePulse(t *testing.T) {
 	t.Parallel()
 	m, _ := animatedModel(t)
 	card := task("a", "todo", 1, core.PriorityNormal)
-	marker := strings.TrimSpace(SelectionMarker(true))
+	marker := CardBarSelected
 	phases := map[bool]string{}
 	for _, quiet := range []bool{false, true} {
 		m.pulseQuiet = quiet
-		selected := m.cardLine(card, 40, true)
+		selected := strings.Join(m.cardLines(card, core.CategoryTodo, 40, true), "\n")
 		if !strings.Contains(selected, marker) {
 			t.Errorf("%s dropped the selection marker: %q", phaseName(quiet), selected)
 		}
-		if selected == m.cardLine(card, 40, false) {
+		if selected == strings.Join(m.cardLines(card, core.CategoryTodo, 40, false), "\n") {
 			t.Errorf("%s draws the selected card exactly like an unselected one: %q",
 				phaseName(quiet), selected)
 		}

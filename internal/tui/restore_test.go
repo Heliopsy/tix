@@ -14,12 +14,13 @@ import (
 
 // cardLineFor returns the one card the board drew for a reference, so an
 // assertion about a card's markers cannot be satisfied by the title bar, the
-// status bar or another column's card carrying the same text.
+// status bar or another column's card carrying the same text. It is the card's
+// meta line: the reference and the markers live there, under the title.
 func cardLineFor(t *testing.T, frame, ref string) string {
 	t.Helper()
 	var found []string
 	for _, l := range strings.Split(frame, "\n") {
-		if strings.Contains(l, ref+" P") {
+		if strings.Contains(l, ref+CardSeparator+"P") {
 			found = append(found, l)
 		}
 	}

@@ -259,33 +259,46 @@ func (m Model) boardLines(layout Layout) []string {
 		return m.emptyLines(empty)
 	}
 	start, end := VisibleRange(len(m.columns), layout.VisibleColumns, m.sel.Col)
+	widths := m.columnWidths(layout, start, end)
 	blocks := make([]string, 0, end-start)
 	for i := start; i < end; i++ {
-		blocks = append(blocks, m.columnBlock(i, layout, i < end-1))
+		sized := layout
+		sized.ColumnWidth = widths[i-start]
+		blocks = append(blocks, m.columnBlock(i, sized, i < end-1))
 	}
 	return strings.Split(lipgloss.JoinHorizontal(lipgloss.Top, blocks...), "\n")
 }
 
-// columnBlock renders one column inside its own border.
+// columnWidths shares the board's width among the columns on screen by what
+// each has to show. An equal split spent as many cells on a column holding the
+// word "empty" as on the column holding the work.
+func (m Model) columnWidths(layout Layout, start, end int) []int {
+	n := end - start
+	if n <= 0 {
+		return nil
+	}
+	demands, floors := make([]int, n), make([]int, n)
+	for i := start; i < end; i++ {
+		head := ColumnHeadingText(m.columns[i])
+		demands[i-start] = ColumnDemand(head, m.columns[i].Tasks)
+		floors[i-start] = ColumnFloor(head, m.columns[i].Tasks)
+	}
+	return DistributeWidth(layout.Width-(n-1)*CardGap, demands, floors)
+}
+
+// columnBlock renders one column inside its own border. It is drawn to the
+// height of what it holds rather than to the height of the terminal, so an
+// empty column is a short box instead of a screenful of blank frame.
 func (m Model) columnBlock(index int, layout Layout, gap bool) string {
 	col := m.columns[index]
 	focused := index == m.sel.Col
-	inner := layout.InnerWidth()
-	rows := VisibleRows(layout.CardRows(), len(col.Tasks))
-
-	offset := 0
-	if focused {
-		offset = ScrollWindow(m.rowOff, m.sel.Row, rows, len(col.Tasks))
-	}
-	lines := []string{m.columnHeading(col, inner)}
-	for i := offset; i < len(col.Tasks) && len(lines) <= rows; i++ {
-		lines = append(lines, m.cardLine(col.Tasks[i], inner, focused && i == m.sel.Row))
-	}
-	if hint := ScrollHint(offset, rows, len(col.Tasks)); hint != "" {
-		lines = append(lines, m.theme.Dim.Render(Truncate(hint, inner)))
-	}
-	if len(col.Tasks) == 0 {
-		lines = append(lines, m.theme.Empty.Render(Truncate("  empty", inner)))
+	inner := max(1, layout.InnerWidth()-ColumnGutter)
+	body := max(1, layout.BodyHeight-BorderHeight)
+	lines := append([]string{m.columnHeading(col, inner)}, m.cardBlock(col, focused, inner, max(1, body-1))...)
+	// A cell of air between the column's border and the card's own bar, so the
+	// two vertical strokes are not drawn against each other.
+	for i := range lines {
+		lines[i] = strings.Repeat(" ", ColumnGutter) + lines[i]
 	}
 
 	style := m.theme.Column
@@ -293,9 +306,46 @@ func (m Model) columnBlock(index int, layout Layout, gap bool) string {
 		style = m.theme.Focused
 	}
 	if gap {
-		style = style.MarginRight(1)
+		style = style.MarginRight(CardGap)
 	}
-	return style.Width(inner).Height(max(1, layout.BodyHeight-BorderHeight)).Render(strings.Join(lines, "\n"))
+	// Width and Height are the outside of the box, border included, so the
+	// column is given its whole share rather than its share less the frame.
+	return style.Width(layout.ColumnWidth).
+		Height(clamp(len(lines)+BorderHeight, 1+BorderHeight, layout.BodyHeight)).
+		Render(strings.Join(lines, "\n"))
+}
+
+// cardBlock renders the cards of one column into a line budget, separated by a
+// blank line, with the scroll hint a window that hides cards owes the reader.
+func (m Model) cardBlock(col Column, focused bool, width, rows int) []string {
+	if len(col.Tasks) == 0 {
+		return []string{m.quiet(m.theme.Empty).Render(Truncate("empty", width))}
+	}
+	heights := CardHeights(col.Tasks, width, m.now(), m.actorID())
+	offset, selected := 0, 0
+	if focused {
+		offset, selected = m.rowOff, m.sel.Row
+	}
+	start, count := CardWindow(heights, offset, selected, rows)
+	if start > 0 || start+count < len(col.Tasks) {
+		start, count = CardWindow(heights, offset, selected, max(1, rows-1))
+	}
+	out := make([]string, 0, rows)
+	for i := start; i < start+count && i < len(col.Tasks); i++ {
+		if i > start {
+			out = append(out, "")
+		}
+		out = append(out, m.cardLines(col.Tasks[i], col.Category, width, focused && i == m.sel.Row)...)
+	}
+	if hint := ScrollHint(start, count, len(col.Tasks)); hint != "" {
+		out = append(out, m.quiet(m.theme.Dim).Render(Truncate(hint, width)))
+	}
+	return out
+}
+
+// ColumnHeadingText names a column and counts it.
+func ColumnHeadingText(col Column) string {
+	return col.Label + " (" + fmt.Sprint(len(col.Tasks)) + ")"
 }
 
 // columnHeading names a column and counts it, coloured by the category its
@@ -303,26 +353,48 @@ func (m Model) columnBlock(index int, layout Layout, gap bool) string {
 // It does not number the column: which slice of a wide board is on screen is
 // said once in the status bar rather than repeated in every heading.
 func (m Model) columnHeading(col Column, width int) string {
-	head := col.Label + " (" + fmt.Sprint(len(col.Tasks)) + ")"
-	return m.theme.Category(col.Category).Bold(m.theme.Color).Render(Truncate(head, width))
+	return m.quiet(m.theme.Category(col.Category).Bold(m.theme.Color)).
+		Render(Truncate(ColumnHeadingText(col), width))
 }
 
-// cardLine renders one task as a single line of a column. A selected card is
-// drawn in one colour throughout so it cannot be missed, and an unselected one
-// carries the CLI's meanings: the ref, then the priority, then its markers.
-func (m Model) cardLine(t core.Task, width int, selected bool) string {
-	marker := SelectionMarker(selected)
-	ref := t.Ref
-	badge := "P" + priorityDigit(t.Priority)
-	flags := CardFlags(t, m.now(), m.actorID())
-	head := marker + ref + " " + badge + flags + " "
-	title := Truncate(t.Title, max(1, width-len([]rune(head))))
+// cardLines renders one task as the board draws it: a bar down the left edge
+// carrying the state, the title in full width beside it, and the identifiers
+// dim beneath. The title leads because the title is what a person scans for,
+// and it wraps onto a second line indented to the same column rather than into
+// the unindented fragment it used to leave.
+//
+// Selection is a heavier bar as well as a brighter colour, so a reader whose
+// terminal is getting no escapes at all can still see which card is selected.
+func (m Model) cardLines(t core.Task, category core.StateCategory, width int, selected bool) []string {
+	card := CardOf(t, width, m.now(), m.actorID())
+	bar := CardBar(selected)
+	barStyle := m.quiet(m.theme.Category(category))
+	titleStyle := m.quiet(m.theme.Style())
 	if selected {
-		return m.selection().Render(Truncate(head+title, width))
+		barStyle, titleStyle = m.quiet(m.selection()), m.quiet(m.selection())
 	}
-	return m.theme.Ref.Render(marker+ref) + " " +
-		m.theme.Priority(t.Priority).Render(badge) +
-		m.theme.Blocked.Render(flags) + " " + title
+	out := make([]string, 0, len(card.Title)+1)
+	for _, line := range card.Title {
+		out = append(out, barStyle.Render(bar)+" "+titleStyle.Render(line))
+	}
+	return append(out, barStyle.Render(bar)+" "+m.quiet(m.theme.Dim).Render(card.Meta))
+}
+
+// quiet drops a style to the dim one while an input mode owns the screen, so
+// the board behind a prompt reads as the background it has become. It is never
+// the only signal that input is being captured: the panel and the key legend
+// below it say so on a terminal with no colour at all.
+func (m Model) quiet(style lipgloss.Style) lipgloss.Style {
+	if m.inputOpen() {
+		return m.theme.Dim
+	}
+	return style
+}
+
+// inputOpen reports whether a prompt, a picker, a confirmation or a form is
+// gathering an answer.
+func (m Model) inputOpen() bool {
+	return m.prompt != promptNone || m.choice != choiceNone || m.confirm.Open() || m.form.Open()
 }
 
 // DeletedMarker is what a card carries once the task behind it is deleted.
