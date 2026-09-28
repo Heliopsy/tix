@@ -38,8 +38,23 @@ step, so reloading never makes the way back one press longer.
 
 `p` is different from `esc`. It discards the whole stack and returns to the project list.
 
-**Cards.** A column draws one line per task: the reference, a priority badge, then markers. The legend is
-in `?` and is short on purpose, so it still fits a narrow terminal:
+**Cards.** A card leads with the title, because the title is what a person scans a board for, and it gets
+the column's whole width. A title too long for one line wraps onto a second, indented to the same column,
+and only the last line shown is cut. Under it, dim, sit the identifiers: the reference, the priority, then
+whichever markers are true of the task, separated so that a priority and a marker never read as one token.
+
+```text
+┃ Default-deny network      │ Bring the platform
+┃ policies in staging       │ onto one observ…
+┃ infra-13 · P2 · *         │ infra-8 · P2
+```
+
+The bar down the left edge carries the workflow category as a colour and the selection as a shape: the
+selected card's bar is heavier. That is deliberate rather than decorative, since a terminal getting no
+colour has nothing else left to say which card the keys will act on.
+
+The priority is `P1` through `P5`, highest to lowest, the same digits `tix task list` prints. The rest of
+the line is markers. The legend is in `?` and is short on purpose, so it still fits a narrow terminal:
 
 <!-- Rows asserted against CardLegend by TestDocsMarkerTableMatchesTheLegend in internal/tui. -->
 | Marker | Means |
@@ -56,6 +71,11 @@ shared board, and a single marker left it answerable only by opening the task.
 
 Columns follow the workflow's declared order and are coloured by the category a state belongs to, not by
 its name, since workflow states are user defined. Nothing is conveyed by colour alone.
+
+A column is as wide as it needs to be and as tall as what it holds. The width is shared out by what each
+column has to show, so the column holding eight tasks with long titles is wider than the one whose entire
+content is the word `empty`, and a column with nothing in it is a short box rather than a screenful of
+blank frame. Every column keeps a floor wide enough for its own heading.
 
 **The footer is a promise.** It advertises only the keys the selected task can accept: `c` while the task
 is free, `x` and `R` while this session holds the lease, neither while another worker does, and `t` only
@@ -138,7 +158,14 @@ run the same set rather than drifting apart. Two of them need a sub-item only th
 over, the comment thread and the dependency list, so `M` and `-` pressed on the board say to open the task
 rather than acting on a guess.
 
-What a key opens depends on what the operation can accept, and there are three controls to open. A
+Whatever a key opens, it opens in the same panel: a rule the width of the terminal, the name of what is
+being asked, one labelled row per answer, and the keys that end it. A single-value prompt is a form with
+one field rather than a different control with its own shape, so a reader who has used the delete form
+has used all of them. While a panel is open the board behind it is dimmed and the view's own bindings are
+not advertised at all, because a legend offering `n new task` under a text field is describing a
+keystroke that will type the letter n.
+
+What a key gathers depends on what the operation can accept, and there are three things to gather. A
 single-line input gathers free text: a title, a body, a comment, a tag name, a reference. It is seeded
 with the value it would replace where there is one, and an empty input cancels, so a stray keystroke never
 sends a blank edit. Transition and priority open a numbered picker, and transition offers only the states
@@ -444,7 +471,8 @@ where you configure the thing you are working in. Every gap names a reason, and 
 ## Narrow terminals, and colour
 
 The board draws as many columns as fit at twenty characters each, keeping the selected column in view,
-and the status bar says which slice is on screen only when the board is wider than the terminal. Below two
+and the status bar says which slice is on screen only when the board is wider than the terminal. The width
+those columns then share is weighted by what each has to show rather than split evenly. Below two
 columns' worth of width it draws one column. Below 24 by 8 it stops drawing and says what size it needs
 and what it has, rather than rendering something unreadable:
 
@@ -457,7 +485,11 @@ runs off the screen is never mistaken for the whole list, and a list that fits c
 
 `NO_COLOR` or `TIX_NO_COLOR` suppresses every escape, as does `output.color = never` and `--no-color`. A
 destination that is not a terminal gets none by default. State is never carried by colour alone: every
-marker, badge and category is also a word or a character. The tenant's accent is resolved the same way
+marker, badge and category is also a word or a character. The selected card is drawn with a heavier bar,
+not only a brighter one, and an open input panel is separated from the board by a rule, so neither the
+selection nor where the keyboard is being captured depends on an escape sequence. A run with no colour
+also loses the text cursor inside an input, which is drawn in reverse video: the panel's own rule and its
+legend say where the typing is going. The tenant's accent is resolved the same way
 the browser resolves it, so one tenant is one colour on both surfaces, and a tenant whose branding cannot
 be read keeps the built-in accent rather than failing to open a board. See [theming.md](theming.md).
 
