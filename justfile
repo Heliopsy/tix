@@ -399,7 +399,10 @@ gremlins_version := "v0.6.0"
 # internal/service takes about 185 seconds a run and internal/web about 25, and
 # a mutant is one run. Aim `just mutate` at a file of those instead; the
 # arithmetic is in docs/testing.md.
-mutate_packages := "internal/sshd internal/tui internal/capability internal/core internal/output internal/authz"
+# The packages the weekly sweep covers. internal/tui, internal/web and
+# internal/service are deliberately absent: they are too large for one
+# scheduled job, not clean. See docs/testing.md.
+mutate_packages := "internal/sshd internal/capability internal/core internal/output internal/authz"
 
 # gremlins reports its own version as "dev" whatever it was built from, so the
 # pin is recorded beside the binary. Without the stamp a bin/gremlins left by an

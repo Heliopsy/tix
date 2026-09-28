@@ -192,8 +192,19 @@ So it is not in `just check` and not in `just ci`. A gate that doubles CI time g
 this one would do considerably worse than double. It runs two ways instead: `just mutate` aimed at
 the package or the files you just changed, and a weekly
 [scheduled workflow](../.github/workflows/mutation.yaml) over `mutate_packages` that posts the
-survivor list to its job summary. `internal/web` and `internal/service` are deliberately out of the
-sweep; reach them a file at a time.
+survivor list to its job summary. `internal/web`, `internal/service` and `internal/tui` are
+deliberately out of the sweep; reach them a file at a time.
+
+**`internal/tui` is excluded for runner time, not because it is clean.** It had 207 survivors in the
+first sweep, more than any other package, so it is the first one to reach for by hand. It is out
+because a hosted runner is far smaller than a developer machine and the difference is the whole
+story: `internal/sshd` takes 6m19s locally and 45 minutes on a runner, for a byte-identical result
+(180 killed, 10 survived, 39 uncovered, 1 timed out, both times). `internal/tui` has five times the
+mutants, which does not fit one scheduled job, and a job that cannot pass should not be scheduled: a
+permanently red weekly run teaches everyone that red means nothing.
+
+Reach it with `just mutate internal/tui` locally, or dispatch the workflow with `internal/tui` as its
+package input when you want a runner to do it.
 
 The scheduled workflow runs one job per package rather than one job for the sweep. A single slow
 package used to starve the rest: `internal/sshd` spent 45 minutes and the job was killed part way

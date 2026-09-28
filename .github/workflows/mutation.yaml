@@ -31,8 +31,8 @@ jobs:
       matrix:
         package: >-
           ${{ fromJSON(inputs.package && format('["{0}"]', inputs.package)
-          || '["internal/sshd","internal/tui","internal/capability",
-          "internal/core","internal/output","internal/authz"]') }}
+          || '["internal/sshd","internal/capability","internal/core",
+          "internal/output","internal/authz"]') }}
     name: Mutation testing (${{ matrix.package }})
     runs-on: ubuntu-24.04
     # Per package now, not for the whole sweep. The default six hours would let
