@@ -465,9 +465,9 @@ func (m Model) detailLines(layout Layout) []string {
 	}
 	lines = append(lines, "")
 
-	body := bodyLines(t.Body)
+	body := bodyLines(t.Body, max(1, m.width-DetailIndent))
 	fields := customFieldLines(t, d.fieldDefs)
-	comments := commentLines(d.comments, d.actors, m.timeStyle, m.commentSel)
+	comments := commentLines(d.comments, d.actors, m.timeStyle, m.commentSel, max(1, m.width-CommentIndent))
 	if len(body) == 0 && len(fields) == 0 && len(d.subtasks) == 0 && len(d.deps) == 0 && len(d.artifacts) == 0 && len(d.comments) == 0 {
 		lines = append(lines, m.theme.Empty.Render("  nothing else recorded on this task."))
 	} else {
@@ -575,16 +575,26 @@ func actorLabel(id string, actors map[string]string) string {
 	return shortID(id)
 }
 
-// bodyLines splits a task body into indented display lines, matching the
+// The columns a task's prose is indented to. A section's content sits at
+// DetailIndent, and a comment's body one step further in under its author.
+const (
+	DetailIndent  = 2
+	CommentIndent = 4
+)
+
+// bodyLines wraps a task body into indented display lines, matching the
 // indentation every other section's content carries.
-func bodyLines(body string) []string {
+//
+// It wraps rather than clipping. A body cut at the right edge ends mid-word
+// with no mark saying so, which reads as a task somebody failed to finish
+// writing rather than as a pane too narrow to hold it.
+func bodyLines(body string, width int) []string {
 	if strings.TrimSpace(body) == "" {
 		return nil
 	}
-	raw := strings.Split(body, "\n")
-	out := make([]string, len(raw))
-	for i, l := range raw {
-		out[i] = "  " + l
+	var out []string
+	for _, l := range Wrap(body, width) {
+		out = append(out, strings.Repeat(" ", DetailIndent)+l)
 	}
 	return out
 }
@@ -649,13 +659,13 @@ func artifactLines(artifacts []core.Artifact) []string {
 // selected marks the comment the comment actions act on, with the same marker a
 // selected card carries, because a thread whose entries cannot be told apart is
 // a thread whose entries cannot be edited or removed.
-func commentLines(comments []core.Comment, actors map[string]string, style output.TimeStyle, selected int) []string {
+func commentLines(comments []core.Comment, actors map[string]string, style output.TimeStyle, selected, width int) []string {
 	out := make([]string, 0, len(comments)*2)
 	for i, c := range comments {
 		out = append(out, SelectionMarker(i == selected)+
 			style.Format(c.CreatedAt)+"  "+actorLabel(c.AuthorActorID, actors)+":")
-		for _, l := range strings.Split(c.Body, "\n") {
-			out = append(out, "    "+l)
+		for _, l := range Wrap(c.Body, width) {
+			out = append(out, strings.Repeat(" ", CommentIndent)+l)
 		}
 	}
 	return out
