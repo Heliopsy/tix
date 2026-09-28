@@ -93,12 +93,21 @@ func (s Server) Attached(now time.Time) bool {
 	return now.Sub(s.LastSeenAt) <= ServerStaleAfter
 }
 
-// UptimeAt reports how long the server has been running as of now.
+// UptimeAt reports how long the server was up as of now.
+//
+// For a server that stopped heartbeating it measures to the last beat, not to
+// now. A process that died ten minutes ago has not been running for ten more
+// minutes, and a figure called uptime that keeps climbing for a dead server is
+// the kind of number somebody puts on a dashboard and then believes.
 func (s Server) UptimeAt(now time.Time) Duration {
-	if s.StartedAt.IsZero() || now.Before(s.StartedAt) {
+	until := now
+	if !s.Attached(now) {
+		until = s.LastSeenAt
+	}
+	if s.StartedAt.IsZero() || until.Before(s.StartedAt) {
 		return 0
 	}
-	return Duration(now.Sub(s.StartedAt))
+	return Duration(until.Sub(s.StartedAt))
 }
 
 // StatusAt renders the row as a reader receives it, judged against one instant.

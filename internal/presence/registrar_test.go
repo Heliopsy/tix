@@ -153,6 +153,36 @@ func TestStalenessNeedsNoSweeper(t *testing.T) {
 	}
 }
 
+// TestUptimeStopsWhenTheServerDid is a hand-verification finding turned into a
+// guard. A dead server's uptime was measured to now, so the figure climbed for
+// a process that had not run for a minute and a half.
+func TestUptimeStopsWhenTheServerDid(t *testing.T) {
+	started := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	srv := core.Server{StartedAt: started, LastSeenAt: started.Add(time.Hour)}
+
+	tests := []struct {
+		name string
+		at   time.Time
+		want time.Duration
+	}{
+		// While the reader still counts it attached, uptime runs to now: as far
+		// as anybody knows the process is up and the beat is merely in flight.
+		{"at the last beat", started.Add(time.Hour), time.Hour},
+		{"one beat behind, still attached", started.Add(time.Hour + core.ServerHeartbeatInterval),
+			time.Hour + core.ServerHeartbeatInterval},
+		// Once it reads as gone, uptime stops at the last beat and stays there.
+		{"just past the threshold", started.Add(time.Hour + core.ServerStaleAfter + time.Second), time.Hour},
+		{"long dead", started.Add(72 * time.Hour), time.Hour},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := time.Duration(srv.UptimeAt(tt.at)); got != tt.want {
+				t.Errorf("UptimeAt = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestDeregisterRemovesTheRow(t *testing.T) {
 	f := newFixture(t)
 	r := f.registrar("127.0.0.1:1")

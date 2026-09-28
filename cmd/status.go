@@ -87,9 +87,9 @@ func writeStatusTable(w io.Writer, r *core.StatusReport, style output.TimeStyle)
 
 	work := r.Work
 	if _, err := fmt.Fprintf(tw,
-		"\nWORK\n  %d tenants\t%d projects\t%d tasks\n  %d claimed\t%d leases expired and unswept\n"+
+		"\nWORK\n  %s\t%s\t%s\n  %d claimed\t%d leases expired and unswept\n"+
 			"  webhooks: %d pending, %d failed\n",
-		work.Tenants, work.Projects, work.Tasks,
+		plural(work.Tenants, "tenant"), plural(work.Projects, "project"), plural(work.Tasks, "task"),
 		work.Claimed, work.LeasesExpiredUnswept,
 		work.WebhooksPending, work.WebhooksFailed); err != nil {
 		return err
@@ -143,6 +143,15 @@ func connectionDetail(n *int) string {
 		return "- connections (only the server answering knows its own)"
 	}
 	return fmt.Sprintf("%d connections", *n)
+}
+
+// plural counts a thing in words a person would use. "1 tenants" is the sort
+// of line that makes a reader wonder whether the number is real.
+func plural(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return fmt.Sprintf("%d %ss", n, noun)
 }
 
 // dashIfEmpty renders an absent value as a dash rather than as a blank column.
