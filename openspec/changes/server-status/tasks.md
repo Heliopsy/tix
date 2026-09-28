@@ -19,8 +19,9 @@
 - [x] 2.1 `internal/core/status.go`: `Server`, `StatusReport`, `StatusService`, the staleness threshold and
       the pure `Attached(now)` judgement. Stdlib only
 - [x] 2.2 `internal/core/service.go` and `contract_test.go`: embed the new part and name it in `serviceParts`
-- [x] 2.3 `internal/core/status_test.go`: a row carries no tenant-identifying field, asserted by reflection
-      over the struct rather than by reading the migration
+- [x] 2.3 A row carries no tenant-identifying field, asserted by reflection over the struct rather than by
+      reading the migration. It sits in `internal/presence/confinement_test.go`, beside the other half of the
+      same claim, because `internal/core` has no test that may import the store
 
 ## 3. Registrar
 

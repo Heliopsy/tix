@@ -713,6 +713,7 @@ var skillFlagOmits = map[string]string{
 	"tix serve --no-lease-sweeper":      "as above: the skill says the sweeper runs inside tix serve, not how to turn it off",
 	"tix serve --no-retention-pruner":   "as above: operator tuning, not agent behaviour",
 	"tix serve --no-webhook-dispatcher": "as above: operator tuning, not agent behaviour",
+	"tix serve --no-registry":           "as above: whether a server counts itself in `tix status` is operator tuning, and an agent reads work rather than inventory",
 }
 
 // TestSkillNamesEveryModeSwitch fails when a command the skill documents grows
