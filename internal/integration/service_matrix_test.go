@@ -1104,6 +1104,43 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "report what the installation holds and what is running",
+		covers: []string{"Status"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			report, err := tg.svc.Status(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			// The schema version, the engine and the server list are
+			// properties of the store both transports share, so they compare
+			// directly. The version string and the observed instant are not:
+			// one is a build variable and the other is read at the moment of
+			// the call.
+			return sig{
+				"schema":    report.Installation.SchemaVersion,
+				"engine":    report.Installation.Engine,
+				"servers":   len(report.Servers),
+				"attached":  report.AttachedCount(),
+				"tenants":   report.Work.Tenants,
+				"projects":  report.Work.Projects,
+				"tasks":     report.Work.Tasks,
+				"claimed":   report.Work.Claimed,
+				"unswept":   report.Work.LeasesExpiredUnswept,
+				"wh_queued": report.Work.WebhooksPending,
+				"wh_failed": report.Work.WebhooksFailed,
+			}, nil
+		},
+	},
+	{
+		name:   "a viewer is forbidden from reading the installation",
+		covers: []string{"Status"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			svc, ctx := h.scoped(tg, core.ScopeTaskRead)
+			_, err := svc.Status(ctx)
+			return nil, err
+		},
+	},
+	{
 		name:   "ending an unknown connection",
 		covers: []string{"EndConnection"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

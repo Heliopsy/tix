@@ -164,6 +164,7 @@ func (rt *Router) register() {
 	rt.registerClaimRoutes()
 	rt.registerHistoryRoutes()
 	rt.registerStatsRoutes()
+	rt.registerStatusRoutes()
 	rt.registerWebhookRoutes()
 	rt.registerTransferRoutes()
 	rt.registerBundleRoutes()

@@ -1,0 +1,59 @@
+{{define "content"}}
+{{$v := .Data}}
+{{$r := $v.Report}}
+<h1>Status</h1>
+<p class="lede">What this installation holds and what is running in it. Every server that registers itself
+appears here, not only the one answering this page.</p>
+
+<h2>Installation</h2>
+<div class="statrow">
+  <div class="stat"><span class="stat-n">{{$r.Installation.Version}}</span><span class="stat-l">version</span></div>
+  <div class="stat"><span class="stat-n">{{$r.Installation.SchemaVersion}}</span><span class="stat-l">schema</span></div>
+  <div class="stat"><span class="stat-n">{{$r.Installation.Engine}}</span><span class="stat-l">engine</span></div>
+</div>
+{{if $v.Target}}<p class="meta">Store <code>{{$v.Target}}</code>.</p>{{end}}
+
+<h2>Servers</h2>
+<p class="meta">{{$v.Attached}} attached{{if $v.Stale}}, {{$v.Stale}} not heartbeating{{end}}. A server
+removes its own row when it shuts down cleanly, so a row nobody is refreshing is a process that died.</p>
+
+<ul class="serverlist">
+{{range $r.Servers}}
+  <li class="server{{if not .Attached}} is-stale{{end}}">
+    <span class="server-id"><code>{{.ID}}</code></span>
+    <span class="server-addr">{{.Address}}</span>
+    <span class="server-ver">{{.Version}}</span>
+    {{if .Attached}}
+      <span class="server-state up">up {{.Uptime}}</span>
+    {{else}}
+      <span class="server-state stale">not heartbeating</span>
+    {{end}}
+    <span class="server-seen muted">last seen {{compact .LastSeenAt}}</span>
+    <span class="server-surfaces">{{range .Surfaces}}<span class="surface s-{{slug .}}">{{.}}</span> {{end}}</span>
+    {{if .Connections}}
+      <span class="server-conns">{{.Connections}} connections</span>
+    {{else}}
+      <span class="server-conns muted">connections known only to the server answering</span>
+    {{end}}
+  </li>
+{{else}}
+  <li class="empty">
+    <p class="empty-title">No servers attached</p>
+    <p>Nothing has registered against this store. That is the normal answer when tix is used straight
+    against a database rather than through <code>tix serve</code>.</p>
+  </li>
+{{end}}
+</ul>
+
+<h2>Work</h2>
+<p class="meta">Your tenant, except the tenant count, which is the tenants you can see.</p>
+<div class="statrow">
+  <div class="stat"><span class="stat-n">{{$r.Work.Tenants}}</span><span class="stat-l">tenants</span></div>
+  <div class="stat"><span class="stat-n">{{$r.Work.Projects}}</span><span class="stat-l">projects</span></div>
+  <div class="stat"><span class="stat-n">{{$r.Work.Tasks}}</span><span class="stat-l">tasks</span></div>
+  <div class="stat"><span class="stat-n">{{$r.Work.Claimed}}</span><span class="stat-l">claimed</span></div>
+  <div class="stat"><span class="stat-n">{{$r.Work.LeasesExpiredUnswept}}</span><span class="stat-l">leases unswept</span></div>
+  <div class="stat"><span class="stat-n">{{$r.Work.WebhooksPending}}</span><span class="stat-l">webhooks pending</span></div>
+  <div class="stat"><span class="stat-n">{{$r.Work.WebhooksFailed}}</span><span class="stat-l">webhooks failed</span></div>
+</div>
+{{end}}

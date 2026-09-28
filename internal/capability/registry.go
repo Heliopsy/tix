@@ -63,6 +63,7 @@ const (
 	tplWebhooks  = "webhooks.html"
 	tplSync      = "sync.html"
 	tplConns     = "connections.html"
+	tplStatus    = "status.html"
 )
 
 // registry declares every operation the product offers. Every exported method
@@ -893,6 +894,17 @@ var registry = []Operation{
 		},
 	},
 
+	{
+		Name: "status.read", Method: "Status",
+		Scope: core.ScopeTenantAdmin,
+		CLI:   "tix status",
+		HTTP:  apiGet(wire.RouteStatus),
+		Web:   webGet(web.RouteStatus, tplStatus),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no server administration view, which is "+
+				"the same absence the live connection screen records"),
+		},
+	},
 	{
 		Name: "connection.list", Method: "ListConnections",
 		Scope: core.ScopeTenantAdmin,

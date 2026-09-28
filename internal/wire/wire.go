@@ -75,6 +75,7 @@ const (
 	RouteDeliveries        = APIPrefix + "/webhooks/deliveries"
 	RouteDeliveryRedeliver = APIPrefix + "/webhooks/deliveries/{id}/redeliver"
 
+	RouteStatus    = APIPrefix + "/status"
 	RouteStats     = APIPrefix + "/stats"
 	RouteAudit     = APIPrefix + "/audit"
 	RouteRetention = APIPrefix + "/retention"

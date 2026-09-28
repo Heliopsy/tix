@@ -63,6 +63,7 @@ func (h *handler) routes() []route {
 	out = append(out, h.sessionRoutes()...)
 	out = append(out, h.activityRoutes()...)
 	out = append(out, h.statsRoutes()...)
+	out = append(out, h.statusRoutes()...)
 	out = append(out, h.projectRoutes()...)
 	out = append(out, h.workflowRoutes()...)
 	out = append(out, h.taskRoutes()...)
@@ -148,6 +149,7 @@ const (
 	RouteUserDelete    = "/admin/users/delete"
 	RouteTokens        = "/admin/tokens"
 	RouteTokenRevoke   = "/admin/tokens/revoke" // #nosec G101 -- a url path, not a credential
+	RouteStatus        = "/admin/status"
 	RouteConnections   = "/admin/connections"
 	RouteConnectionEnd = "/admin/connections/end"
 	RouteSSHKeys       = "/admin/ssh-keys"

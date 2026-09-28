@@ -532,6 +532,8 @@ func (f *fakeService) ListConnections(context.Context) (*core.ConnectionList, er
 }
 func (f *fakeService) EndConnection(context.Context, string) error { return nil }
 
+func (f *fakeService) Status(context.Context) (*core.StatusReport, error) { return nil, nil }
+
 func (f *fakeService) EnrolSSHKey(context.Context, core.EnrolSSHKeyInput) (*core.SSHKey, error) {
 	return nil, nil
 }
