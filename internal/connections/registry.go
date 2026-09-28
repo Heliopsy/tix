@@ -105,7 +105,29 @@ func defaultServerID() string {
 }
 
 // ServerID names the process answering.
-func (r *Registry) ServerID() string { return r.serverID }
+func (r *Registry) ServerID() string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.serverID
+}
+
+// SetServerID renames the process answering, so it matches the identifier the
+// same process registered against the store.
+//
+// Without this the two names never meet: this registry knew the process as a
+// hostname and four random bytes, which tells a reader which process answered
+// but cannot be joined to anything, and a status report could not say which
+// listed server the connection count it holds belongs to.
+//
+// It is called once, at startup, before any connection is accepted.
+func (r *Registry) SetServerID(name string) {
+	if name == "" {
+		return
+	}
+	r.mu.Lock()
+	r.serverID = name
+	r.mu.Unlock()
+}
 
 // Register records a live connection and returns the handle its feeder holds
 // for as long as it lasts. close is called at most once, by End.

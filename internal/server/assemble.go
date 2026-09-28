@@ -10,12 +10,15 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/httpapi"
 	"github.com/heliopsy/tix/internal/lease"
+	"github.com/heliopsy/tix/internal/presence"
 	"github.com/heliopsy/tix/internal/retention"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/migrations"
+	"github.com/heliopsy/tix/internal/version"
 	"github.com/heliopsy/tix/internal/webhook"
 )
 
@@ -68,6 +71,15 @@ type Options struct {
 	DisableSweep     bool
 	DisablePrune     bool
 	DisableDispatch  bool
+
+	// HeartbeatInterval is how often this process refreshes its registration.
+	// Zero uses the interval the staleness threshold is derived from, so the
+	// two cannot drift apart by accident.
+	HeartbeatInterval time.Duration
+	// DisableRegistry stops this process registering itself at all, which
+	// makes it invisible to `tix status`. It exists for tests and for a
+	// process an operator deliberately does not want counted.
+	DisableRegistry bool
 }
 
 // Assemble builds the router over the service and returns a server with its
@@ -117,7 +129,24 @@ func Assemble(opts Options) (*Server, error) {
 		return nil, err
 	}
 
-	return New(Config{
+	var srv *Server
+	workers := workersFor(opts)
+	if registrar := newRegistrar(opts, func() string {
+		if srv != nil {
+			if addr := srv.Addr(); addr != "" {
+				return addr
+			}
+		}
+		return opts.Addr
+	}); registrar != nil {
+		// The connection registry answers under the identifier this process
+		// registered, so a status report can say which listed server the
+		// connection count it holds belongs to. Nothing has connected yet.
+		connections.Default.SetServerID(registrar.ServerID())
+		workers = append(workers, RegistrarWorker(registrar))
+	}
+
+	srv, err = New(Config{
 		Addr:            opts.Addr,
 		Handler:         router,
 		Logger:          opts.Logger,
@@ -126,8 +155,51 @@ func Assemble(opts Options) (*Server, error) {
 		AllowInsecure:   opts.AllowInsecure,
 		ShutdownTimeout: opts.ShutdownTimeout,
 		SSH:             opts.SSH,
-		Workers:         append(workersFor(opts), EventPumpWorker(pump)),
+		Workers:         append(workers, EventPumpWorker(pump)),
 	})
+	return srv, err
+}
+
+// newRegistrar builds the worker that keeps this process's row in the server
+// registry fresh, or nothing when registration is off.
+//
+// The address is a function rather than a value because a server told to listen
+// on port zero does not know its own address until the listener is open, and
+// registering the address it was asked for would advertise a port nothing is
+// on.
+func newRegistrar(opts Options, addr func() string) *presence.Registrar {
+	if opts.DisableRegistry {
+		return nil
+	}
+	return presence.New(
+		presence.Config{
+			Store:    opts.Store,
+			Address:  addr,
+			Version:  version.Version,
+			Surfaces: surfacesOf(opts),
+		},
+		presence.WithClock(opts.Clock),
+		presence.WithInterval(opts.HeartbeatInterval),
+		presence.WithErrorHandler(func(err error) {
+			if errors.Is(err, context.Canceled) {
+				return
+			}
+			opts.Logger.Error("server registration failed", "error", err.Error())
+		}),
+	)
+}
+
+// surfacesOf names what this process actually serves, which is decided by how
+// it was configured rather than by what the build can do.
+func surfacesOf(opts Options) []core.ServerSurface {
+	out := []core.ServerSurface{core.ServerSurfaceAPI, core.ServerSurfaceWS}
+	if opts.WebHandler != nil {
+		out = append(out, core.ServerSurfaceWeb)
+	}
+	if opts.SSH != nil {
+		out = append(out, core.ServerSurfaceSSH)
+	}
+	return out
 }
 
 // workersFor builds the enabled background workers.

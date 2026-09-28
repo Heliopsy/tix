@@ -36,6 +36,11 @@ const (
 	ActionTenantAdmin  Action = "tenant.admin"
 	ActionSyncAdmin    Action = "sync.admin"
 
+	// ActionServerRead reads the installation: which servers are registered,
+	// what the store is, and how big the tenant's work is. It is not confinable
+	// to a project, because a server serves every project there is.
+	ActionServerRead Action = "server.read"
+
 	ActionExport         Action = "export"
 	ActionImport         Action = "import"
 	ActionRetentionWrite Action = "retention.write"
@@ -72,6 +77,10 @@ var actionScopes = map[Action]core.Scope{
 	ActionExport:         core.ScopeExport,
 	ActionImport:         core.ScopeImport,
 	ActionRetentionWrite: core.ScopeTenantAdmin,
+	// Reading the installation is administration of the installation, which is
+	// what tenant:admin already means here. A scope of its own would be a
+	// second name for the same authority and one more thing to grant.
+	ActionServerRead: core.ScopeTenantAdmin,
 }
 
 // projectConfinable enumerates the actions a project-pinned API token may
@@ -120,6 +129,7 @@ var allActions = []Action{
 	ActionEventSubscribe, ActionAuditRead,
 	ActionUserAdmin, ActionTokenAdmin, ActionWebhookAdmin, ActionTenantAdmin, ActionSyncAdmin,
 	ActionExport, ActionImport, ActionRetentionWrite,
+	ActionServerRead,
 }
 
 // Actions returns every known action in a stable order.

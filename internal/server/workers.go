@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/lease"
+	"github.com/heliopsy/tix/internal/presence"
 	"github.com/heliopsy/tix/internal/retention"
 	"github.com/heliopsy/tix/internal/webhook"
 )
@@ -45,6 +46,13 @@ func PrunerWorker(p *retention.Pruner) Worker {
 // DispatcherWorker runs the webhook dispatcher.
 func DispatcherWorker(d *webhook.Dispatcher) Worker {
 	return FuncWorker{WorkerName: "webhook-dispatcher", Fn: d.Run}
+}
+
+// RegistrarWorker keeps this process's row in the server registry fresh, and
+// removes it on the way out. A crash skips the removal, which is exactly why a
+// reader judges staleness for itself rather than trusting the row's presence.
+func RegistrarWorker(r *presence.Registrar) Worker {
+	return FuncWorker{WorkerName: "server-registrar", Fn: r.Run}
 }
 
 // EventPumpWorker ties the per-tenant event readers to the server lifecycle,

@@ -26,6 +26,7 @@ type Service interface {
 	BundleService
 	ConnectionService
 	StatsService
+	StatusService
 
 	Close() error
 }
