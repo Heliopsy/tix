@@ -93,10 +93,14 @@ func TestRunIsIdempotent(t *testing.T) {
 // unscopedTables are the only tables allowed to hold no tenant_id. Every other
 // table is tenant data, so the scoping check derives its subject from the
 // schema instead of from a list somebody has to remember to extend.
+// servers is installation state, not tenant data: one process serves every
+// tenant, so there is no value a tenant_id column could hold that is not a
+// falsehood.
 var unscopedTables = map[string]bool{
 	"tenants":           true,
 	"users":             true,
 	"schema_migrations": true,
+	"servers":           true,
 }
 
 func TestEveryTableIsTenantScoped(t *testing.T) {

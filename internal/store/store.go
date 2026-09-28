@@ -73,6 +73,34 @@ type UnscopedTx interface {
 	// this is the one lookup that cannot be scoped; the caller narrows to a
 	// single tenant, or refuses, before anything else happens.
 	FindSSHKeysByFingerprint(ctx context.Context, fingerprint string) ([]core.SSHKey, error)
+
+	// The five server methods reach the installation's own registry of running
+	// processes. A server serves every tenant, so its row belongs to none of
+	// them and there is no scope to build with; this is the same door
+	// FindSSHKeysByFingerprint goes through, for the neighbouring reason.
+	//
+	// internal/presence/confinement_test.go names the files that may call
+	// them and fails the build anywhere else.
+
+	// RegisterServer records a running process, replacing any earlier row with
+	// the same identifier.
+	RegisterServer(ctx context.Context, s *core.Server) error
+	// HeartbeatServer refreshes a server's last seen instant. A row that is no
+	// longer there is not an error: the process is being told it has been
+	// forgotten, and it will register again.
+	HeartbeatServer(ctx context.Context, serverID string, at time.Time) error
+	// DeregisterServer removes a server's row, for a graceful shutdown. A
+	// process that ends any other way leaves it, which is what a reader judging
+	// staleness exists for.
+	DeregisterServer(ctx context.Context, serverID string) error
+	// ListServers returns registered servers, keyset-paged like every other
+	// listing.
+	ListServers(ctx context.Context, page core.Page) ([]core.Server, error)
+	// ForgetServersBefore deletes rows unseen since the cutoff, so an
+	// installation cycling through identifiers does not accumulate them.
+	// Nothing a reader sees depends on it having run.
+	ForgetServersBefore(ctx context.Context, cutoff time.Time) (int, error)
+
 	Commit() error
 	Rollback() error
 }
@@ -281,6 +309,28 @@ type StatsTx interface {
 	// TaskStats answers one statistics read with the smallest set of rows the
 	// figures can be derived from.
 	TaskStats(ctx context.Context, q StatsQuery) (*StatsRows, error)
+	// WorkCounts totals what this tenant holds, as counts rather than rows. A
+	// status report wants the size of the thing, and listing a tenant's tasks
+	// to learn how many there are would make the cheapest question in the
+	// product the most expensive.
+	//
+	// now decides which claims are still claims: a lease past its expiry reads
+	// as unclaimed whether or not the sweeper has been, which is the same
+	// judgement Task.ClaimedAtTime makes on a single row.
+	WorkCounts(ctx context.Context, now time.Time) (WorkCounts, error)
+}
+
+// WorkCounts totals one tenant's work.
+type WorkCounts struct {
+	Projects int
+	Tasks    int
+	Claimed  int
+	// LeasesExpiredUnswept are claims past their expiry that the sweeper has
+	// not cleared yet. They already read as unclaimed; the figure says how far
+	// behind the sweeper is.
+	LeasesExpiredUnswept int
+	WebhooksPending      int
+	WebhooksFailed       int
 }
 
 // StatsQuery bounds one statistics read. Statuses is supplied by the caller

@@ -29,6 +29,10 @@ var unscoped = map[string]bool{
 	"tenant_domains":    true,
 	"users":             true,
 	"schema_migrations": true,
+	// A server process serves every tenant, so its row belongs to none of
+	// them. It stays out of ScopedTables too, which is what keeps PostgreSQL
+	// from emitting an isolation policy over a column that does not exist.
+	"servers": true,
 }
 
 // Builder composes a statement for one tenant. There is no constructor that

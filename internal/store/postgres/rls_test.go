@@ -125,3 +125,44 @@ func TestPoliciesExistForEveryScopedTable(t *testing.T) {
 		}
 	}
 }
+
+// TestTheServerRegistryHasNoIsolationPolicy is the mirror of the guard above,
+// and it is not pedantry.
+//
+// A server serves every tenant, so `servers` has no tenant column and there is
+// no predicate an isolation policy could be written over. Somebody adding it to
+// ScopedTables() in good faith would get FORCE ROW LEVEL SECURITY with a policy
+// comparing a column that does not exist, or none at all, and a forced table
+// with no policy is readable by nobody: the registrar could not write its own
+// row and the status report would list none. That failure appears on PostgreSQL
+// only, so SQLite would keep passing while the deployment went blind.
+func TestTheServerRegistryHasNoIsolationPolicy(t *testing.T) {
+	ctx := context.Background()
+	s, _ := newStore(t)
+
+	var enabled, forced bool
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname = 'servers'`,
+	).Scan(&enabled, &forced); err != nil {
+		t.Fatalf("reading the security flags of servers: %v", err)
+	}
+	if enabled || forced {
+		t.Fatalf("servers has row-level security enabled=%v forced=%v; it is installation state "+
+			"with no tenant column, so a policy over it cannot be written", enabled, forced)
+	}
+
+	var policies int
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM pg_policies WHERE tablename = 'servers'`).Scan(&policies); err != nil {
+		t.Fatalf("reading the policies of servers: %v", err)
+	}
+	if policies != 0 {
+		t.Fatalf("servers carries %d policies, want none", policies)
+	}
+
+	for _, table := range sqlb.ScopedTables() {
+		if table == "servers" {
+			t.Fatal("servers is listed as tenant-scoped; it has no tenant column to scope by")
+		}
+	}
+}
