@@ -20,11 +20,24 @@ permissions: read-all
 
 jobs:
   mutate:
-    name: Mutation testing
+    # One job per package rather than one job for the sweep. A single slow
+    # package used to starve the rest: internal/sshd spent 45 minutes, and the
+    # job was killed part way through internal/tui with four packages never
+    # reached, so a week's report was one package and a signal. Split, each
+    # package gets its own budget and its own summary, and one overrunning
+    # package costs only itself.
+    strategy:
+      fail-fast: false
+      matrix:
+        package: >-
+          ${{ fromJSON(inputs.package && format('["{0}"]', inputs.package)
+          || '["internal/sshd","internal/tui","internal/capability",
+          "internal/core","internal/output","internal/authz"]') }}
+    name: Mutation testing (${{ matrix.package }})
     runs-on: ubuntu-24.04
-    # The sweep is minutes per package and the default six hours would let a
-    # hung mutant burn the afternoon before anyone noticed.
-    timeout-minutes: 90
+    # Per package now, not for the whole sweep. The default six hours would let
+    # a hung mutant burn the afternoon before anyone noticed.
+    timeout-minutes: 60
     permissions:
       contents: read
     steps:
@@ -41,20 +54,15 @@ jobs:
       # opens a scheduled job that only says it passed.
       - name: Mutate
         id: mutate
-        run: |
-          if [ -n "${PACKAGE}" ]; then
-            just mutate "${PACKAGE}" | tee mutation.txt
-          else
-            just mutate-sweep | tee mutation.txt
-          fi
+        run: just mutate "${PACKAGE}" | tee mutation.txt
         env:
-          PACKAGE: ${{ inputs.package }}
+          PACKAGE: ${{ matrix.package }}
 
       - name: Summarise
         if: always()
         run: |
           {
-            echo '## Surviving mutants'
+            echo "## Surviving mutants in ${PACKAGE}"
             echo ''
             echo 'A survivor is a change to the code that every test still passed over.'
             echo 'How to tell a real gap from noise: docs/testing.md, "Mutation testing".'
@@ -63,10 +71,12 @@ jobs:
             grep -E '^(internal/|  survived )' mutation.txt || echo 'no report was produced'
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          PACKAGE: ${{ matrix.package }}
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         if: always()
         with:
-          name: mutation-report
+          name: mutation-report-${{ strategy.job-index }}
           path: mutation.txt
           retention-days: 30

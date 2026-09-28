@@ -171,6 +171,12 @@ A mutant is one run of the package's tests, so the cost is the mutant count time
 by the six workers. Measured on a twenty-core machine at `269bd9a`; the last column is that
 arithmetic rather than a stopwatch for the two that were never run to the end.
 
+**These figures understate it, and the reason is worth knowing.** They were taken while the coverage
+run was still being served from Go's build cache, which gave every mutant a budget of a couple of
+dozen seconds. Mutants were being cut short rather than finishing, so the sweep looked fast because
+it was doing less. With the cache defeated the budgets are honest and the runs are longer:
+`internal/sshd` took 45 minutes on a scheduled run, against the 7 below.
+
 | Package | Runnable mutants | Its tests | Whole package |
 | --- | --- | --- | --- |
 | `internal/authz` | 6 | 0.01s | seconds |
@@ -187,7 +193,12 @@ this one would do considerably worse than double. It runs two ways instead: `jus
 the package or the files you just changed, and a weekly
 [scheduled workflow](../.github/workflows/mutation.yaml) over `mutate_packages` that posts the
 survivor list to its job summary. `internal/web` and `internal/service` are deliberately out of the
-sweep, which keeps it inside about half an hour; reach them a file at a time.
+sweep; reach them a file at a time.
+
+The scheduled workflow runs one job per package rather than one job for the sweep. A single slow
+package used to starve the rest: `internal/sshd` spent 45 minutes and the job was killed part way
+through `internal/tui`, so four packages were never reached and the week's report was one package
+and a signal. Split, each package has its own budget and its own summary.
 
 ### Two ways the tool lies, and the guards against them
 

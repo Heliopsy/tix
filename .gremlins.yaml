@@ -24,7 +24,15 @@ unleash:
   # multiplier is applied to a cached 237ms rather than a real 5.9s. `just
   # mutate` exports GOFLAGS=-count=1 for exactly this reason; internal/web went
   # from a wall of timeouts to 0 of 685 without touching this number.
-  timeout-coefficient: 100
+  #
+  # 100 was chosen while the coverage run was still cached, which is the only
+  # reason it looked reasonable: 100 x 237ms is 24 seconds. Against an honest
+  # measurement it is 100 x ~6s, so a mutant that genuinely hangs burns ten
+  # minutes before anything stops it, and the weekly sweep was killed part way
+  # through internal/tui having spent 45 minutes on internal/sshd. 20 keeps a
+  # wide margin over a healthy mutant, which finishes in about the time the
+  # coverage run took, and bounds a hang to a couple of minutes.
+  timeout-coefficient: 20
 
 mutants:
   # These are off upstream too. They are written out rather than left implicit
