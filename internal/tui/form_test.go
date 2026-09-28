@@ -438,8 +438,8 @@ func TestTheFormAndTheConfirmationDocumentTheKeysOfTheLoadedScheme(t *testing.T)
 		t.Fatalf("the form promises a key nano does not bind:\n%s", block)
 	}
 	m, _ = m.reduce(pressKey("enter"))
-	line := confirmLine(t, m.Frame(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
+	line := confirmKeysLine(t, m.Frame(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
 	if !strings.Contains(line, "y confirms") {
-		t.Fatalf("the question does not name the key that answers it: %q", line)
+		t.Fatalf("the confirmation does not name the key that answers it: %q", line)
 	}
 }

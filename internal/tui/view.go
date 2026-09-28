@@ -30,10 +30,15 @@ func (m Model) Frame() string {
 	if layout.Mode == LayoutTooSmall {
 		return fmt.Sprintf("terminal is %dx%d; tix tui needs at least %dx%d\n", m.width, m.height, MinWidth, MinHeight)
 	}
+	// An input panel is taller than the one line the chrome budget assumes, and
+	// a body drawn to the budget pushed the panel's own legend off the bottom
+	// of the terminal, which is where the keys that answer it live.
+	footer := m.footerLines()
+	layout.BodyHeight = max(1, layout.BodyHeight-max(0, strings.Count(footer, "\n")+1-FooterLines))
 	return strings.Join([]string{
 		m.titleBar(),
 		strings.Join(m.bodyLines(layout), "\n"),
-		m.footerLines(),
+		footer,
 	}, "\n")
 }
 
@@ -721,22 +726,20 @@ var CardLegend = []string{
 	DeletedMarker + " deleted",
 }
 
-// footerLines renders the prompt, the status bar and the advertised bindings.
+// footerLines renders the status bar and then either the open input mode or
+// the bindings of the view.
+//
+// While an input mode is open the view's bindings are not drawn at all. A
+// legend advertising "n new task" under a text field is a lie the interface
+// tells constantly: pressing n there types the letter n. The panel carries its
+// own legend instead, so whatever is on the last line is what will work.
 func (m Model) footerLines() string {
 	var lines []string
-	switch {
-	case m.prompt != promptNone:
-		lines = append(lines, m.input.View())
-	case m.choice != choiceNone:
-		lines = append(lines, m.fit(m.theme.Header.Render(m.choice.Prompt())+
-			strings.Join(ChoiceLabels(m.choices), "  ")+m.theme.Dim.Render("   (esc cancels)")))
-	case m.confirm.Open():
-		lines = append(lines, m.confirmLines()...)
-	case m.form.Open():
-		lines = append(lines, m.formLines()...)
-	}
 	if bar := m.statusBar(); bar != "" {
 		lines = append(lines, bar)
+	}
+	if panel := m.inputPanel(); len(panel) > 0 {
+		return strings.Join(append(lines, panel...), "\n")
 	}
 	keys := make([]string, 0, 8)
 	for _, e := range m.keys.ShortHelp(m.view, m.actionContext()) {
@@ -746,11 +749,129 @@ func (m Model) footerLines() string {
 	return strings.Join(lines, "\n")
 }
 
+// InputRule is the line an input panel is separated from the body by. It runs
+// the width of the terminal, so a reader on a terminal with no colour at all
+// can see that the screen below it has taken the keyboard.
+const InputRule = "─"
+
+// FooterLines is the footer the chrome budget allows for: the status bar and
+// the line of bindings. Anything taller comes out of the body.
+const FooterLines = 2
+
+// inputPanel draws whichever input mode is open, or nothing. Every mode is the
+// same shape: a rule, a title, the rows it gathers, and the keys that answer
+// it, so a reader who has used one has used all of them.
+func (m Model) inputPanel() []string {
+	switch {
+	case m.prompt != promptNone:
+		return m.panel(m.promptPanel())
+	case m.choice != choiceNone:
+		return m.panel(m.choicePanel())
+	case m.confirm.Open():
+		return m.panel(m.confirmPanel())
+	case m.form.Open():
+		return m.panel(m.formPanel())
+	}
+	return nil
+}
+
+// Panel is one input mode's contents: what it is called, what a reader needs
+// to know to answer it, its rows, and the keys that answer it.
+type Panel struct {
+	Title string
+	Note  string
+	Rows  []string
+	Keys  string
+}
+
+// panel frames an input mode, rule first and legend last.
+func (m Model) panel(p Panel) []string {
+	width := max(1, m.width)
+	out := []string{m.theme.Bar.Render(strings.Repeat(InputRule, width)),
+		m.fit(m.theme.Header.Render(p.Title + ":"))}
+	if p.Note != "" {
+		out = append(out, m.fit(m.theme.Dim.Render("  "+p.Note)))
+	}
+	out = append(out, p.Rows...)
+	return append(out, m.fit(m.theme.Dim.Render("  "+p.Keys)))
+}
+
+// promptPanel renders a single-value input as a form with one field, which is
+// what it always was. The board behind it is dimmed by quiet, and the legend
+// names the two keys that end it.
+func (m Model) promptPanel() Panel {
+	spec, _ := m.prompt.Spec()
+	row := "  " + pad(spec.Field, FormLabelWidth) + m.input.View()
+	return Panel{
+		Title: spec.Title(),
+		Note:  spec.Placeholder,
+		Rows:  []string{m.fit(row)},
+		Keys:  m.acceptHelp("apply"),
+	}
+}
+
+// choicePanel renders the numbered picker. The options keep their digits,
+// because a single keystroke is why the picker exists and nothing here is
+// worth making a reader press twice.
+func (m Model) choicePanel() Panel {
+	row := "  " + pad(m.choice.Field(), FormLabelWidth) + strings.Join(ChoiceLabels(m.choices), "   ")
+	return Panel{
+		Title: strings.TrimSuffix(strings.TrimSpace(m.choice.Prompt()), ":"),
+		Rows:  []string{m.fit(m.theme.Style().Render(row))},
+		Keys:  ChoiceHelp(len(m.choices)) + "   " + m.keys.Cancel.Help().Key + " cancel",
+	}
+}
+
+// confirmPanel renders the pending question. It is the one panel that has to be
+// read rather than glanced at, so the question is in the error style the status
+// bar uses for a refusal.
+func (m Model) confirmPanel() Panel {
+	return Panel{
+		Title: "confirm",
+		Rows:  []string{m.fit("  " + m.theme.Error.Render(m.confirm.Question()))},
+		Keys:  ConfirmHelp(m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key),
+	}
+}
+
+// formPanel renders the open form: one row per visible field with the values
+// that field could hold instead.
+func (m Model) formPanel() Panel {
+	rows := make([]string, 0, len(m.form.Fields))
+	for _, l := range m.form.Lines() {
+		row := "  " + pad(l.Label, FormLabelWidth) + l.Value
+		if l.Selected {
+			rows = append(rows, m.fit(m.selection().Render(row)+m.theme.Dim.Render("   "+l.Hint)))
+			continue
+		}
+		rows = append(rows, m.fit(m.theme.Dim.Render(row)))
+	}
+	return Panel{Title: m.form.Title, Note: m.form.Note, Rows: rows, Keys: m.formHelp()}
+}
+
+// FormLabelWidth is the column the values of every input mode line up at.
+const FormLabelWidth = 14
+
+// ChoiceHelp names the digits a picker takes.
+func ChoiceHelp(n int) string {
+	if n <= 1 {
+		return "1 choose"
+	}
+	return "1-" + fmt.Sprint(n) + " choose"
+}
+
+// acceptHelp names the two keys that end a single-value input.
+func (m Model) acceptHelp(verb string) string {
+	return m.keys.Accept.Help().Key + " " + verb + "   " + m.keys.Cancel.Help().Key + " cancel"
+}
+
 // statusBar states what the board holds and what just happened, so the line is
 // never blank and never carries only one of the two.
 func (m Model) statusBar() string {
 	var segments []string
-	if m.view == viewBoard || m.view == viewDetail {
+	// Only on the board. The count of columns and what slice of them is on
+	// screen says nothing about one task, and it sat under the task detail as
+	// though it did.
+	if m.view == viewBoard {
 		count := fmt.Sprintf("%d tasks in %d columns", countTasks(m.columns), len(m.columns))
 		// Only when the board is wider than the terminal does which slice is
 		// on screen matter, so the quiet case stays quiet.
@@ -794,33 +915,6 @@ func pad(s string, width int) string {
 		return s + strings.Repeat(" ", n)
 	}
 	return s
-}
-
-// confirmLines draws the pending question. It is the one line of the frame that
-// has to be read rather than glanced at, so the question is in the error style
-// the status bar uses for a refusal and the keys that answer it are named.
-func (m Model) confirmLines() []string {
-	return []string{m.fit(m.theme.Error.Render(m.confirm.Question()) + " " +
-		m.theme.Dim.Render(ConfirmHelp(m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)))}
-}
-
-// formLines draws the open form: its title, one row per visible field with the
-// values that field could hold instead, and the keys that move and answer it.
-func (m Model) formLines() []string {
-	out := []string{m.fit(m.theme.Header.Render(m.form.Title + ":"))}
-	if m.form.Note != "" {
-		out = append(out, m.fit(m.theme.Dim.Render("  "+m.form.Note)))
-	}
-	for _, l := range m.form.Lines() {
-		row := "  " + pad(l.Label, 14) + l.Value
-		if l.Selected {
-			out = append(out, m.fit(m.selection().Render(row)+
-				m.theme.Dim.Render("   "+l.Hint)))
-			continue
-		}
-		out = append(out, m.fit(m.theme.Dim.Render(row)))
-	}
-	return append(out, m.fit(m.theme.Dim.Render("  "+m.formHelp())))
 }
 
 // formHelp names the keys that drive a form, under whichever scheme is loaded.

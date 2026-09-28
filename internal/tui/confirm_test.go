@@ -14,6 +14,30 @@ import (
 func confirmLine(t *testing.T, frame, agree, cancel string) string {
 	t.Helper()
 	want := ConfirmHelp(agree, cancel)
+	lines := strings.Split(frame, "\n")
+	var at []int
+	for i, l := range lines {
+		if strings.Contains(l, want) {
+			at = append(at, i)
+		}
+	}
+	if len(at) != 1 {
+		t.Fatalf("the frame carries %d confirmation panels, want exactly one:\n%s", len(at), frame)
+	}
+	// The question sits on the row above the panel's legend. Reading that one
+	// row rather than the frame is what keeps "the question names the task"
+	// from passing on a card elsewhere on the board carrying the same ref.
+	if at[0] == 0 {
+		t.Fatalf("the confirmation panel has no question above its legend:\n%s", frame)
+	}
+	return lines[at[0]-1]
+}
+
+// confirmKeysLine returns the one row of the confirmation panel that names the
+// keys, which is the row a test about the loaded scheme's keys has to read.
+func confirmKeysLine(t *testing.T, frame, agree, cancel string) string {
+	t.Helper()
+	want := ConfirmHelp(agree, cancel)
 	var found []string
 	for _, l := range strings.Split(frame, "\n") {
 		if strings.Contains(l, want) {
@@ -21,7 +45,7 @@ func confirmLine(t *testing.T, frame, agree, cancel string) string {
 		}
 	}
 	if len(found) != 1 {
-		t.Fatalf("the frame carries %d confirmation lines, want exactly one:\n%s", len(found), frame)
+		t.Fatalf("the frame carries %d confirmation legends, want exactly one:\n%s", len(found), frame)
 	}
 	return found[0]
 }

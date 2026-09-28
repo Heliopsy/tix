@@ -267,12 +267,31 @@ func New(cfg Config) Model {
 	// The probe decides only when no colour mode was configured, so a reader
 	// who asked for colour over a pipe still gets it.
 	m.theme = NewTheme(cfg.Profile, ColorFor(prefs.Color, auto), cfg.Brand)
-	m = m.installScheme(prefs.Keymap)
+	m = m.styleInput().installScheme(prefs.Keymap)
 	m.lastInput = now()
 	m.pulsing = MotionEnabled(prefs.Motion, m.theme.Color)
 	if cfg.Filter != "" {
 		m = m.applyFilterText(cfg.Filter)
 	}
+	return m
+}
+
+// styleInput draws the single-line input the way the rest of the frame is
+// drawn. The bubble ships its own colours and its own reverse-video cursor,
+// which a colourless run must not inherit: "NO_COLOR writes no escape
+// anywhere" was true of everything this interface renders except the one
+// widget it does not render itself.
+func (m Model) styleInput() Model {
+	if m.theme.Color {
+		return m
+	}
+	plain := lipgloss.NewStyle()
+	state := textinput.StyleState{Text: plain, Placeholder: plain, Suggestion: plain, Prompt: plain}
+	m.input.SetStyles(textinput.Styles{Focused: state, Blurred: state})
+	// The bubble's own caret is drawn in reverse video, which is an escape
+	// like any other. Where the frame carries none, the panel's rule and its
+	// legend are what say the keyboard has been taken.
+	m.input.SetVirtualCursor(false)
 	return m
 }
 
@@ -817,6 +836,7 @@ func (m Model) usePreferences(next Preferences, set Setting, value string) Model
 	scheme, _ := ParseScheme(next.Keymap)
 	m.prefs, m.keys, m.timeStyle, m.scheme = next, keys, style, scheme
 	m.theme = NewTheme(m.profile, ColorFor(next.Color, m.autoColor), m.brand)
+	m = m.styleInput()
 	m.err = ""
 	var saveErr error
 	if m.savePrefs != nil {
@@ -1132,7 +1152,9 @@ func (m Model) startPrompt(kind promptKind, initial string) Model {
 		return m
 	}
 	m.prompt, m.err = kind, ""
-	m.input.Prompt, m.input.Placeholder, m.input.CharLimit = spec.Prompt, spec.Placeholder, spec.Limit
+	// The panel names the input; the field carries only the value. A prompt
+	// string here would repeat the panel's own title one line below it.
+	m.input.Prompt, m.input.Placeholder, m.input.CharLimit = "", spec.Placeholder, spec.Limit
 	m.input.SetValue(initial)
 	m.input.CursorEnd()
 	m.input.Focus()

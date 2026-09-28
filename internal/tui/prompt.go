@@ -39,47 +39,55 @@ const (
 )
 
 // PromptSpec is how one input introduces itself.
+//
+// Field is what the one answer is called, so a single-value prompt renders as
+// a form with one field rather than as a second idiom the reader has to learn
+// separately. Title names the panel, and is the Prompt without its colon.
 type PromptSpec struct {
 	Prompt      string
 	Placeholder string
 	Limit       int
+	Field       string
 }
+
+// Title names the panel an input opens in.
+func (s PromptSpec) Title() string { return strings.TrimSuffix(strings.TrimSpace(s.Prompt), ":") }
 
 // promptSpecs describes every input. An input that is not listed is not open.
 var promptSpecs = map[promptKind]PromptSpec{
-	promptFilter:      {"filter: ", "status:todo is:unclaimed text", 512},
-	promptNewTask:     {"new task: ", "title of the task to create", core.MaxTitleLength},
-	promptTitle:       {"title: ", "new title", core.MaxTitleLength},
-	promptBody:        {"body: ", "new body", 4096},
-	promptComment:     {"comment: ", "what you want to record", 4096},
-	promptCommentEdit: {"edit comment: ", "what the comment should say", 4096},
-	promptTag:         {"add tag: ", "tag to attach", 128},
-	promptUntag:       {"remove tag: ", "tag to detach", 128},
-	promptDependency:  {"depends on: ", "task ref, such as infra-42", 128},
-	promptNewProject:  {"new project: ", "key and name, such as: infra Infrastructure", 256},
+	promptFilter:      {"filter: ", "status:todo is:unclaimed text", 512, "expression"},
+	promptNewTask:     {"new task: ", "title of the task to create", core.MaxTitleLength, "title"},
+	promptTitle:       {"title: ", "new title", core.MaxTitleLength, "title"},
+	promptBody:        {"body: ", "new body", 4096, "body"},
+	promptComment:     {"comment: ", "what you want to record", 4096, "comment"},
+	promptCommentEdit: {"edit comment: ", "what the comment should say", 4096, "comment"},
+	promptTag:         {"add tag: ", "tag to attach", 128, "tag"},
+	promptUntag:       {"remove tag: ", "tag to detach", 128, "tag"},
+	promptDependency:  {"depends on: ", "task ref, such as infra-42", 128, "task ref"},
+	promptNewProject:  {"new project: ", "key and name, such as: infra Infrastructure", 256, "key and name"},
 
 	// The activity bar takes the audit filter's own grammar rather than the
 	// task filter's: an event has a kind and an actor, and no status, tag or
 	// due date to ask about.
-	promptActivityFilter: {"activity: ", "kind:task actor:ada -action:task.updated word", 512},
-	promptTenant:         {"tenant: ", "tenant key, such as acme", 128},
+	promptActivityFilter: {"activity: ", "kind:task actor:ada -action:task.updated word", 512, "expression"},
+	promptTenant:         {"tenant: ", "tenant key, such as acme", 128, "tenant key"},
 
 	// The project screen's own inputs. Each is seeded with the value it would
 	// replace, so an edit starts from what is there rather than from blank.
-	promptProjectName: {"project name: ", "what this project is called", 256},
-	promptProjectDesc: {"description: ", "what this project is for", 1024},
-	promptProjectIcon: {"icon: ", "one or two characters, such as \u25b2", core.MaxProjectIconRunes},
-	promptNewField:    {"new field: ", "key and label, such as: severity Severity", 256},
+	promptProjectName: {"project name: ", "what this project is called", 256, "name"},
+	promptProjectDesc: {"description: ", "what this project is for", 1024, "description"},
+	promptProjectIcon: {"icon: ", "one or two characters, such as \u25b2", core.MaxProjectIconRunes, "icon"},
+	promptNewField:    {"new field: ", "key and label, such as: severity Severity", 256, "key and label"},
 
 	// The artifact's name. Its kind is the one answer drawn from a fixed set,
 	// so the form asks that and this asks the part no fixed list can hold.
-	promptArtifact: {"artifact name: ", "what this output is called", 256},
+	promptArtifact: {"artifact name: ", "what this output is called", 256, "name"},
 
 	// The tenant screen's own inputs. A tenant's name is seeded with the name
 	// it would replace; a hostname is new every time and is seeded with
 	// nothing.
-	promptTenantName: {"tenant name: ", "what this tenant is called", 256},
-	promptDomain:     {"hostname: ", "hostname that resolves here, such as acme.example", 253},
+	promptTenantName: {"tenant name: ", "what this tenant is called", 256, "name"},
+	promptDomain:     {"hostname: ", "hostname that resolves here, such as acme.example", 253, "hostname"},
 }
 
 // Spec describes an input, reporting whether the kind names one at all.
@@ -120,6 +128,19 @@ func (k choiceKind) Prompt() string {
 		return "set priority: "
 	default:
 		return ""
+	}
+}
+
+// Field is what a picker's one answer is called, so the numbered picker reads
+// as the same label-and-value shape every other input mode uses.
+func (k choiceKind) Field() string {
+	switch k {
+	case choiceTransition:
+		return "state"
+	case choicePriority:
+		return "priority"
+	default:
+		return "value"
 	}
 }
 
