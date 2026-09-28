@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -322,4 +323,61 @@ func waitFor(t *testing.T, ok func() bool) {
 		time.Sleep(time.Millisecond)
 	}
 	t.Fatal("condition was never met")
+}
+
+// busyOnce refuses the first unscoped write, which is what a database busy
+// with another server's transaction looks like from in here. Two servers on
+// one SQLite file meet exactly this on the way in.
+type busyOnce struct {
+	store.Store
+	mu   sync.Mutex
+	left int
+}
+
+func (s *busyOnce) Unscoped(ctx context.Context, fn func(store.UnscopedTx) error) error {
+	s.mu.Lock()
+	if s.left > 0 {
+		s.left--
+		s.mu.Unlock()
+		return core.Conflict("database is busy")
+	}
+	s.mu.Unlock()
+	return s.Store.Unscoped(ctx, fn)
+}
+
+// TestARegistrationRefusedAsBusyIsRetried holds the registrar to the one
+// promise a status command depends on: a server that is running is listed.
+//
+// Returning the error instead ended the worker for the life of the process,
+// so the server ran correctly and never appeared in `tix status`, which reads
+// as the server being down. Found by running two servers against one SQLite
+// file, where the second one's first write is refused as busy.
+func TestARegistrationRefusedAsBusyIsRetried(t *testing.T) {
+	f := newFixture(t)
+	r := presence.New(presence.Config{
+		Store:    &busyOnce{Store: f.store, left: 1},
+		Address:  func() string { return "127.0.0.1:18299" },
+		Version:  "9.9.9",
+		Surfaces: []core.ServerSurface{core.ServerSurfaceAPI},
+	}, presence.WithClock(f.clk))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stopped := make(chan struct{})
+	go func() { _ = r.Run(ctx); close(stopped) }()
+
+	waitFor(t, func() bool { return f.clk.Tickers() > 0 })
+	if got := f.servers(t); len(got) != 0 {
+		t.Fatalf("a refused registration still wrote a row: %+v", got)
+	}
+
+	f.clk.Advance(core.ServerHeartbeatInterval)
+	waitFor(t, func() bool { return len(f.servers(t)) == 1 })
+
+	got := f.servers(t)
+	if got[0].Address != "127.0.0.1:18299" {
+		t.Errorf("address = %q, want the configured one", got[0].Address)
+	}
+	cancel()
+	<-stopped
 }

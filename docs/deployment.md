@@ -981,7 +981,7 @@ capacity information an operator needs and says nothing about who anybody else i
 ```console
 $ tix connection ls --server https://tix.example.com --token "$TIX_TOKEN" -o json
 {
-  "server_id": "AMGUL-e67c6b0a",
+  "server_id": "01M3KW3X9Y85G1W4W1ZPBHSAN2",
   "connections": [ ... ],
   "counts": {"events": 0, "ssh": 1, "tenant": 1, "process": 2}
 }
@@ -989,6 +989,10 @@ $ tix connection ls --server https://tix.example.com --token "$TIX_TOKEN" -o jso
 
 A connection belonging to another tenant is absent from the list and from the tenant counts, and its
 identifier is reported as not found rather than as forbidden.
+
+`server_id` is the identifier that server registered under, so it is the same one `tix status` lists and
+the two views join on it. A command that opened the database directly has no registration to inherit and
+reports a host-derived name instead, which is correct: there is no server for it to be part of.
 
 ### Ending is not revocation
 

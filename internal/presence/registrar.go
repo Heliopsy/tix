@@ -124,7 +124,13 @@ func (r *Registrar) Interval() time.Duration { return r.interval }
 // needs it.
 func (r *Registrar) Register(ctx context.Context) error {
 	now := r.clock.Now()
-	r.server.StartedAt = now
+	// The first attempt fixes the start. A registration that had to be retried
+	// still belongs to a process that started when it started, and reporting
+	// the retry instead would understate every uptime that followed a busy
+	// database.
+	if r.server.StartedAt.IsZero() {
+		r.server.StartedAt = now
+	}
 	r.server.LastSeenAt = now
 	if r.address != nil {
 		r.server.Address = r.address()
@@ -160,8 +166,20 @@ func (r *Registrar) Deregister(ctx context.Context) error {
 // Run registers, heartbeats until the context ends, and removes the row on the
 // way out.
 func (r *Registrar) Run(ctx context.Context) error {
-	if err := r.Register(ctx); err != nil {
-		return err
+	// A registration that cannot be written is not fatal, and returning here
+	// was. The database being busy is the ordinary contended case rather than
+	// a fault: two servers on one SQLite file serialize their writes, and one
+	// of them meets SQLITE_BUSY on the way in. Giving up left a server running
+	// correctly and absent from `tix status` for as long as it lived, with no
+	// further attempt, which is the one failure a status command must not
+	// have: under-reporting what is running reads as "that server is down".
+	//
+	// So it retries on the same ticker the heartbeat uses. Beat only updates a
+	// row, so it cannot stand in for the registration that never landed.
+	err := r.Register(ctx)
+	registered := err == nil
+	if !registered && r.onError != nil {
+		r.onError(err)
 	}
 	defer r.removeOnStop()
 
@@ -173,6 +191,16 @@ func (r *Registrar) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C():
+			if !registered {
+				if err := r.Register(ctx); err != nil {
+					if r.onError != nil {
+						r.onError(err)
+					}
+					continue
+				}
+				registered = true
+				continue
+			}
 			if err := r.Beat(ctx); err != nil && r.onError != nil {
 				r.onError(err)
 			}
