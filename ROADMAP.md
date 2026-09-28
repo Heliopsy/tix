@@ -204,6 +204,36 @@ was otherwise reachable only by typing its URL. Durations became one vocabulary,
 day, so anything the product prints can be typed back, and the binary embeds `time/tzdata` so a
 reader's zone does not depend on the base image.
 
+### The terminal interface over SSH
+
+`ssh tix.example.com` lands in the terminal interface, with no client to install and nothing to
+configure. The same board, driven by the same keys, reached by a protocol every machine already
+has.
+
+`charmbracelet/wish` serves a bubbletea program over SSH, forwards window resizes as the
+resize message the program already handles, and resolves the colour profile from the client's
+`TERM`. The rendering side is close to free.
+
+The work is authentication. Today a credential is a password or an opaque token; this needs a
+public key bound to a user, and a way to enrol one. That is a small, well understood mechanism,
+but it is a new one, and it has to reach the same authorization decisions everything else goes
+through rather than growing a second path.
+
+The rest is the usual cost of a network listener: a persisted host key, connection rate
+limiting, and the same refusal to bind a non-loopback address without an explicit choice that
+`tix serve` already makes. Session isolation needs proving rather than assuming, because a
+shared map behind an SSH handler would be a cross-tenant leak, and that is the one failure this
+project treats as unrecoverable.
+
+A public read-only demo tenant is the obvious second use: `ssh tix.red` showing seeded tasks in
+the real interface, rather than a video of it.
+
+**Seam in v1:** `tui.Options` already takes `In io.Reader` and `Out io.Writer` and passes them
+to bubbletea's `WithInput` and `WithOutput`, so the interface is not bound to `/dev/tty` and a
+session's streams can be handed to it directly. `internal/connect` already resolves a target per
+invocation, so a per-session target needs no new concept. `golang.org/x/crypto` is already a
+direct dependency.
+
 ## v2
 
 ### Bidirectional sync with Jira and OpenProject
@@ -303,35 +333,32 @@ owns and a direct-database CLI drains opportunistically. Every mutation already 
 audit and event in one transaction, so enrichment inherits the audit trail rather than needing
 its own. Custom fields already hold whatever a model produces that has no typed column.
 
-### The terminal interface over SSH
+### Read-only view links
 
-`ssh tix.example.com` lands in the terminal interface, with no client to install and nothing to
-configure. The same board, driven by the same keys, reached by a protocol every machine already
-has.
+A link that carries a whole view: a board or a list, its filter, its sort, and the columns
+worth showing. Open it on a wall display, a kiosk tab or a Home Assistant dashboard and it
+renders without signing in, refreshes itself, and offers no way to change anything.
 
-`charmbracelet/wish` serves a bubbletea program over SSH, forwards window resizes as the
-resize message the program already handles, and resolves the colour profile from the client's
-`TERM`. The rendering side is close to free.
+**Seam in v1:** the view is already addressable. Filters, sort keys and column selection are
+already query parameters on the web routes, so the URL for a board filtered the way somebody
+wants already exists; what is missing is a way to open it without a session. `api_tokens`
+already carries scopes, so a read-only view is a token whose scopes permit reads and nothing
+else, revoked the same way as any other. The event stream already exists, so a display can
+update when something commits rather than polling on a timer. The web interface already
+renders server-side with no build step, which is what makes a cheap browser on a fridge door
+a reasonable target.
 
-The work is authentication. Today a credential is a password or an opaque token; this needs a
-public key bound to a user, and a way to enrol one. That is a small, well understood mechanism,
-but it is a new one, and it has to reach the same authorization decisions everything else goes
-through rather than growing a second path.
+Two things have to be decided before any of that matters.
 
-The rest is the usual cost of a network listener: a persisted host key, connection rate
-limiting, and the same refusal to bind a non-loopback address without an explicit choice that
-`tix serve` already makes. Session isolation needs proving rather than assuming, because a
-shared map behind an SSH handler would be a cross-tenant leak, and that is the one failure this
-project treats as unrecoverable.
+The first is how the link authenticates. A long unguessable URL is the shape people expect,
+and it is also the shape that leaks: it lands in browser history, in proxy logs and in a
+`Referer` header on every outbound click. A token in a header is safe and cannot be typed
+into a television. Whatever is chosen should be scoped to one view rather than one tenant,
+and revocable on its own, so a display in a corridor does not become a key to the backlog.
 
-A public read-only demo tenant is the obvious second use: `ssh tix.red` showing seeded tasks in
-the real interface, rather than a video of it.
-
-**Seam in v1:** `tui.Options` already takes `In io.Reader` and `Out io.Writer` and passes them
-to bubbletea's `WithInput` and `WithOutput`, so the interface is not bound to `/dev/tty` and a
-session's streams can be handed to it directly. `internal/connect` already resolves a target per
-invocation, so a per-session target needs no new concept. `golang.org/x/crypto` is already a
-direct dependency.
+The second is the preferences. Scheme, date format and timezone live in a cookie today
+because they belong to the person reading rather than the tenant. A kiosk has nobody to set
+them, so for these links they have to travel in the link itself.
 
 ### Scheduled backups to S3 or a directory
 
