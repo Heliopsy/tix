@@ -94,7 +94,15 @@ subject to the same isolation.
 The tenant count is the one figure that crosses the line, and it is defined as *the number of tenants this
 reader can already see through `ListTenants`*, not the number of rows in `tenants`. That keeps it exactly as
 disclosive as a capability the reader already has, and no more. An installation-wide count would tell an
-administrator of one tenant that six others exist, which nothing else in the product tells them.
+administrator of one tenant that six others exist, which nothing else in the product tells them, and it
+would do it from a report they ran to count their own tasks.
+
+This is not theoretical. The first implementation read the count through the unscoped face of the
+transaction, because the table it is counting has no tenant column to scope by and the unscoped read was
+right there. `ListTenants` turns out to return the session's own tenant and nothing else, so on a store
+holding two tenants the report said two where the reader could list one. The test asserting the two agree
+is what found it, which is the argument for pinning a figure to an existing capability rather than to a
+table.
 
 The server rows themselves disclose nothing about tenants by construction, which is what the "a row carries
 no tenant-identifying data" requirement is for: it is what allows the server list to be shown to a

@@ -34,6 +34,8 @@ type serveOptions struct {
 	disableSweep    bool
 	disableDispatch bool
 	disablePrune    bool
+	disableRegistry bool
+	heartbeat       time.Duration
 
 	sshListen      string
 	sshHostKey     string
@@ -93,6 +95,10 @@ func newServeCmd(g *globals) *cobra.Command {
 	f.BoolVar(&o.disableSweep, "no-lease-sweeper", false, "disable the lease sweeper")
 	f.BoolVar(&o.disableDispatch, "no-webhook-dispatcher", false, "disable the webhook dispatcher")
 	f.BoolVar(&o.disablePrune, "no-retention-pruner", false, "disable the retention pruner")
+	f.BoolVar(&o.disableRegistry, "no-registry", false,
+		"do not register this process, which hides it from tix status")
+	f.DurationVar(&o.heartbeat, "heartbeat-interval", core.ServerHeartbeatInterval,
+		"how often this process refreshes its registration")
 	f.StringVar(&o.sshListen, "ssh-listen", "",
 		"address to serve the terminal interface over ssh on (default: no ssh listener)")
 	f.StringVar(&o.sshHostKey, "ssh-host-key", "",
@@ -161,6 +167,8 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 		DisableSweep:               o.disableSweep,
 		DisableDispatch:            o.disableDispatch,
 		DisablePrune:               o.disablePrune,
+		DisableRegistry:            o.disableRegistry,
+		HeartbeatInterval:          o.heartbeat,
 		SSH:                        sshListener,
 	})
 	if err != nil {

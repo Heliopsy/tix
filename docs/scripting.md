@@ -246,6 +246,65 @@ why. Check both: a non-zero exit does not mean nothing happened.
 `--cascade` on `tix task rm` also deletes the task's subtasks. `--hard` deletes permanently instead of soft
 deleting; a soft delete is reversible with `tix task restore` and visible with `tix task ls --include-deleted`.
 
+## Asking what is running
+
+`tix status -o json` is the machine-readable answer to "what does this installation hold, and how many
+servers are up". Its shape is a contract:
+
+```console
+$ tix status -o json
+{
+  "installation": {
+    "version": "0.9.0",
+    "schema_version": 8,
+    "store": "postgres://tix@db.example.com/tix",
+    "engine": "postgres",
+    "observed_at": "2026-09-28T10:00:00Z"
+  },
+  "servers": [
+    {
+      "id": "01M34EAF2S6B0AGD9JRW3C2A4N",
+      "address": "10.0.0.4:8080",
+      "version": "0.9.0",
+      "surfaces": ["api", "ws", "web", "ssh"],
+      "started_at": "2026-09-22T08:00:00Z",
+      "last_seen_at": "2026-09-28T09:59:57Z",
+      "uptime": "6d1h59m57s",
+      "attached": true,
+      "connections": 14
+    }
+  ],
+  "work": {
+    "tenants": 1, "projects": 12, "tasks": 8412, "claimed": 6,
+    "leases_expired_unswept": 2, "webhooks_pending": 0, "webhooks_failed": 1
+  }
+}
+```
+
+Four things about that document are worth relying on:
+
+- **`attached` is the answer, not the ingredients.** It is the reader's own judgement about whether the
+  server is still heartbeating, so you do not have to know the threshold or re-derive it. `last_seen_at` is
+  there anyway if you want a finer one, but two consumers deriving `attached` differently is how two
+  dashboards come to disagree about how many servers are up.
+- **`connections` is absent, never zero, when it is unknown.** A connection lives in one process's memory,
+  so only the server holding it can count it. A count appears against the server that produced the report
+  and against no other; reading against a database directly, no server carries one. A zero would be a claim
+  about somebody else's sockets.
+- **`servers` is `[]`, never `null`.** Iterate it without checking.
+- **`work` is your tenant**, except `tenants`, which is the number of tenants you could already list.
+
+The exit code is zero whenever the report was produced. A server that stopped heartbeating is information,
+not a failure: use `tix doctor` when you want a check that fails.
+
+```sh
+# how many servers are up
+tix status -o json | jq '[.servers[] | select(.attached)] | length'
+
+# name the ones that stopped answering
+tix status -o json | jq -r '.servers[] | select(.attached | not) | "\(.id) \(.address) last seen \(.last_seen_at)"'
+```
+
 ## Optimistic locking
 
 `tix task edit --version N` refuses the edit with exit 4 if the task has changed since version N was read. Read

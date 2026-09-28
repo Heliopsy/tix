@@ -25,6 +25,8 @@ service code, so a direct write is visible to a subscriber on the server immedia
 | `--prune-interval` | `1h` | how often retention pruning runs |
 | `--no-retention-pruner` | off | disable the pruner |
 | `--no-webhook-dispatcher` | off | disable the dispatcher, leaving queued deliveries for another drainer |
+| `--no-registry` | off | do not register this process, which hides it from `tix status` |
+| `--heartbeat-interval` | `30s` | how often this process refreshes its registration |
 
 `--listen` also reads from `server.listen` / `TIX_SERVER_LISTEN`. A flag nobody typed is not a layer: it
 leaves the configured address alone even though the flag declares `127.0.0.1:8080` of its own, so a
@@ -179,8 +181,13 @@ Neither needs a credential.
 
 ## Background workers
 
-The server runs two tickers:
+The server runs three tickers:
 
+- the **server registrar**, which writes this process's row in the installation's server registry when it
+  starts and refreshes it every 30 seconds while it runs. That registration is what `tix status` counts, so a
+  server with `--no-registry` is up and invisible. It is cheap by design: a heartbeat moves one column and
+  writes no audit entry and no event, because process liveness belongs to no tenant and there is no tenant's
+  history to put it in.
 - the **lease sweeper**, which expires leases past their deadline and reverts their tasks where the workflow says
   to. Without it, a task held by a dead worker stays held. Disable it only if something else runs
   `tix claim sweep`.
@@ -189,7 +196,22 @@ The server runs two tickers:
   tenant that has set no policy of its own; `tix retention set` overrides them per tenant. Disable the worker
   only if something else runs `tix prune`.
 
-Run exactly one process with these enabled against a given database.
+Run exactly one process with the sweeper and the pruner enabled against a given database. The registrar is
+the exception and is meant to run in every process: that is the whole point of it.
+
+### What a stop leaves behind
+
+A shutdown the server runs itself removes its own row, so a planned stop leaves nothing. Anything else leaves
+the row: a crash, a `SIGKILL`, a power cut, a partitioned network.
+
+That asymmetry is deliberate. A reader decides for itself whether a server is heartbeating, by comparing
+`last_seen` to its own clock, and calls it gone after three missed beats. No cleanup job has to have run for
+that to be right, which is the same rule lease expiry follows. So a server that died is reported as
+`NOT HEARTBEATING` rather than quietly dropping out of a list that just got shorter, and an operator looking
+for the second server is told it is gone.
+
+Rows nobody has seen for a week are deleted by the next server to register, so an installation that restarts
+often does not accumulate them. Nothing you read depends on that having happened.
 
 ## Webhook delivery targets
 
@@ -911,6 +933,9 @@ tix connection kill 01JB2K3M4N5P6Q7R8S9T
 
 Both need `tenant.admin`. The same two operations are on the API at `GET /api/v1/connections` and `DELETE
 /api/v1/connections/{id}`, and in the web interface at `/admin/connections`.
+
+For how many servers there are rather than what one of them is holding, see `tix status`, which reads the
+registry in the database and so answers for every server rather than for the one you asked.
 
 ### The view is one server's, not the database's
 
