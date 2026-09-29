@@ -160,8 +160,9 @@ func (m Model) projectLines() []string {
 	rows := m.projectRows()
 	offset := ScrollWindow(m.projectOff, m.projectSel, rows, len(m.projects))
 	lines := make([]string, 0, rows+1)
+	keyCol := ProjectKeyColumn(m.projects)
 	for i := offset; i < len(m.projects) && len(lines) < rows; i++ {
-		lines = append(lines, m.projectRow(m.projects[i], i == m.projectSel))
+		lines = append(lines, m.projectRow(m.projects[i], keyCol, i == m.projectSel))
 	}
 	if hint := ScrollHint(offset, rows, len(m.projects)); hint != "" {
 		lines = append(lines, m.theme.Dim.Render("  "+hint))
@@ -230,9 +231,44 @@ func (m Model) settingsStyle(l SettingsLine) string {
 	}
 }
 
+// ProjectIcon renders a project's glyph in a fixed two cells, followed by one
+// space.
+//
+// The glyph cannot be assumed to be one cell. Half the seeded icons are Wide
+// by Unicode's east-asian width and half are Neutral: U+1F916 and U+1F4DA
+// take two cells, U+1F5A5 and U+1F6E0 take one, and a terminal may render a
+// text-default emoji either way. Appending a single space to whatever it is
+// left the list ragged, with "web" touching its icon while "agents" had a gap.
+// Measuring and padding is the only thing that lines up in every font.
+func ProjectIcon(p core.Project) string {
+	glyph := ProjectGlyph(p)
+	w := lipgloss.Width(glyph)
+	if w >= ProjectIconCells {
+		return glyph + " "
+	}
+	return glyph + strings.Repeat(" ", ProjectIconCells-w) + " "
+}
+
+// ProjectIconCells is the width every project glyph is drawn in, so the keys
+// after them start in one column.
+const ProjectIconCells = 2
+
+// ProjectKeyColumn is the width the key column needs for these projects, so
+// every name starts in the same place. Two literal spaces used to separate a
+// key from its name, which put the names wherever each key happened to end.
+func ProjectKeyColumn(projects []core.Project) int {
+	widest := 0
+	for _, p := range projects {
+		if w := lipgloss.Width(p.Key); w > widest {
+			widest = w
+		}
+	}
+	return widest
+}
+
 // projectRow renders one project of the picker.
-func (m Model) projectRow(p core.Project, selected bool) string {
-	label := SelectionMarker(selected) + ProjectGlyph(p) + " " + p.Key + "  " + p.Name
+func (m Model) projectRow(p core.Project, keyCol int, selected bool) string {
+	label := SelectionMarker(selected) + ProjectIcon(p) + pad(p.Key, keyCol) + "  " + p.Name
 	if p.Archived() {
 		label += "  (archived)"
 	}
@@ -950,9 +986,14 @@ func (m Model) statusBar() string {
 	return m.fit(strings.Join(segments, m.theme.Bar.Render(" │ ")))
 }
 
-// pad right-pads s to width.
+// pad right-pads s to width, measuring what a terminal draws rather than
+// counting runes.
+//
+// A rune is not a cell. An emoji is commonly two, so a column padded by rune
+// count comes out ragged the moment anything in it carries one, which is what
+// the project list did.
 func pad(s string, width int) string {
-	if n := width - len([]rune(s)); n > 0 {
+	if n := width - lipgloss.Width(s); n > 0 {
 		return s + strings.Repeat(" ", n)
 	}
 	return s

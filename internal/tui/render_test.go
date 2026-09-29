@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
 )
@@ -329,5 +330,74 @@ func TestAnEmptyColumnStillShowsItsHeading(t *testing.T) {
 	block := stripANSI(m.columnBlock(2, layout, false))
 	if !strings.Contains(block, "Review (0)") {
 		t.Fatalf("an empty column lost its heading:\n%s", block)
+	}
+}
+
+// TestTheProjectListLinesUpWhateverTheIconIs pins a reported defect: the list
+// read as if some projects were indented and others were not.
+//
+// Two causes. A project's key was followed by two literal spaces, so every
+// name started wherever its own key happened to end. And the glyph was
+// followed by one space whatever it was, while half the seeded icons are Wide
+// by Unicode's east-asian width and half are Neutral, so the column the key
+// started in moved with the icon.
+func TestTheProjectListLinesUpWhateverTheIconIs(t *testing.T) {
+	wide := core.Project{Key: "agents", Name: "Agent Fleet", Icon: "\U0001F916"} // 2 cells
+	narrow := core.Project{Key: "web", Name: "Web UI", Icon: "\U0001F5A5"}       // 1 cell
+	plain := core.Project{Key: "docs", Name: "Documentation"}
+
+	projects := []core.Project{wide, narrow, plain}
+	keyCol := ProjectKeyColumn(projects)
+	if keyCol != len("agents") {
+		t.Fatalf("key column = %d, want the widest key %d", keyCol, len("agents"))
+	}
+
+	m := boardModel(t)
+	m.width = 80
+	var nameAt []int
+	for _, p := range projects {
+		row := stripANSI(m.projectRow(p, keyCol, false))
+		idx := strings.Index(row, p.Name)
+		if idx < 0 {
+			t.Fatalf("the row for %q does not carry its name: %q", p.Key, row)
+		}
+		nameAt = append(nameAt, lipgloss.Width(row[:idx]))
+	}
+	for i, got := range nameAt {
+		if got != nameAt[0] {
+			t.Errorf("%q starts its name at cell %d, %q at %d; the list is ragged",
+				projects[i].Key, got, projects[0].Key, nameAt[0])
+		}
+	}
+}
+
+// TestAnIconIsDrawnInTheSameCellsWhateverItsWidth holds the narrower half of
+// the same defect on its own, so a change to key padding cannot hide it.
+func TestAnIconIsDrawnInTheSameCellsWhateverItsWidth(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		p    core.Project
+	}{
+		{"wide glyph", core.Project{Key: "a", Icon: "\U0001F916"}},
+		{"narrow glyph", core.Project{Key: "a", Icon: "\U0001F5A5"}},
+		{"no glyph", core.Project{Key: "a"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := lipgloss.Width(ProjectIcon(tc.p)); got != ProjectIconCells+1 {
+				t.Errorf("icon occupies %d cells, want %d", got, ProjectIconCells+1)
+			}
+		})
+	}
+}
+
+// TestPadMeasuresCellsNotRunes guards the helper on its own. The project list
+// test cannot: its keys are ASCII, where a rune and a cell are the same thing,
+// so it passed over a pad that counted runes. Anything padded by rune count
+// comes out ragged the moment a value carries an emoji, which form rows do.
+func TestPadMeasuresCellsNotRunes(t *testing.T) {
+	const wide = "\U0001F916" // one rune, two cells
+	got := pad(wide, 4)
+	if w := lipgloss.Width(got); w != 4 {
+		t.Errorf("pad(%q, 4) is %d cells wide, want 4; it is counting runes", wide, w)
 	}
 }
