@@ -389,15 +389,20 @@ func taskMvCmd(g *globals) *cobra.Command {
 	var (
 		comment, leaseToken string
 		fields              []string
-		dryRun              bool
+		dryRun, hops        bool
 	)
 	cmd := &cobra.Command{
 		Use:     "mv REF... STATUS",
 		Aliases: []string{"transition"},
 		Short:   "Move tasks to a status",
-		Long:    "Move one or more tasks to a status. Pass - as a reference to read references from standard input.\n\nExit codes: 3 unknown reference, 4 lease expired, 6 illegal transition.",
-		Example: "  tix task mv default-1 doing\n  tix task ls -o ndjson | jq -r .ref | tix task mv - done",
-		Args:    minArgs(2),
+		Long: "Move one or more tasks to a status. Pass - as a reference to read references from standard input.\n\n" +
+			"With --hops the status may be one the workflow only reaches through another state: the route is found, " +
+			"printed, and then applied one ordinary transition at a time, so the audit trail records every state the " +
+			"task passed through. Name the route yourself as doing>done when two routes are equally short.\n\n" +
+			"Exit codes: 3 unknown reference, 4 lease expired, 6 illegal transition.",
+		Example: "  tix task mv default-1 doing\n  tix task mv default-1 done --hops\n" +
+			"  tix task ls -o ndjson | jq -r .ref | tix task mv - done",
+		Args: minArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			status := args[len(args)-1]
 			refs, err := readRefs(cmd, args[:len(args)-1])
@@ -408,12 +413,16 @@ func taskMvCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			in := core.TransitionInput{To: status, Comment: comment, LeaseToken: leaseToken, CustomFields: custom}
-			if err := in.Validate(); err != nil {
-				return err
-			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
+				return err
+			}
+			if hops {
+				return g.moveByRoute(cmd, conn, ctx, refs, status,
+					core.RouteInput{Comment: comment, LeaseToken: leaseToken, CustomFields: custom}, dryRun)
+			}
+			in := core.TransitionInput{To: status, Comment: comment, LeaseToken: leaseToken, CustomFields: custom}
+			if err := in.Validate(); err != nil {
 				return err
 			}
 			if dryRun {
@@ -431,6 +440,7 @@ func taskMvCmd(g *globals) *cobra.Command {
 	f.StringVar(&comment, "comment", "", "comment recorded with the transition")
 	f.StringVar(&leaseToken, "lease-token", "", "lease token held on the task")
 	f.StringSliceVar(&fields, "field", nil, "custom field as key=value, repeatable")
+	f.BoolVar(&hops, "hops", false, "reach the status through other states, one transition per hop")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	registerCompletions(g, cmd, "status")
 	return cmd

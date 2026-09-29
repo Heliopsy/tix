@@ -69,6 +69,12 @@ touches the task:
 - `tix claim release REF --token T [--status S]`
 - `tix task mv REF STATUS --lease-token T` — required whenever the task is
   currently claimed.
+- `tix task mv REF STATUS --hops` — reaches a status the workflow only gets to
+  through another state. The route is printed first and then applied one
+  ordinary transition per hop, so the audit trail records every state the task
+  passed through. With `--dry-run` it prints the route and writes nothing. When
+  two routes are equally short it refuses and asks you to name one, written
+  `doing>done`.
 
 On `claim renew` and `claim release`, `--token` is the *lease* token and
 shadows the global API `--token`. Elsewhere `--token` is the API token.

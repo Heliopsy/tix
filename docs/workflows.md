@@ -106,6 +106,35 @@ error: invalid: moving from "working" to "shipped" requires a comment
 $ tix task mv rv-1 shipped --comment "reviewed by ops"
 ```
 
+### Reaching a state through another
+
+A transition is a single edge, but a workflow often reaches a state only by passing through another.
+`--hops` finds that route, prints it, and then applies it one ordinary transition per hop, so the task's
+history records every state it went through rather than a jump that never happened:
+
+```console
+$ tix task mv rv-1 shipped --hops
+rv-1: triage -> working -> shipped (2 steps)
+```
+
+`--dry-run` prints the same route and writes nothing. The terminal's `t` picker and the browser's task
+list, task screen and board offer the same routes, each naming the states it passes through before it is
+chosen, and `POST /api/v1/tasks/{ref}/route` is the same thing over the wire.
+
+When two routes of the same length reach the state, none is chosen for you:
+
+```console
+$ tix task mv rv-1 shipped --hops
+error: invalid: two routes of 2 steps lead from "triage" to "shipped", working>shipped and
+review>shipped; name the route you want instead of the state
+
+$ tix task mv rv-1 review>shipped --hops
+rv-1: triage -> review -> shipped (2 steps)
+```
+
+A route that is refused part way through leaves the task where the last successful hop put it, and says
+so rather than reporting only a failure.
+
 ### Terminal states and dependencies
 
 `tix dep add A B` records that A waits for B. A is blocked until B reaches a terminal state. `tix task ls
