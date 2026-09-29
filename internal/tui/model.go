@@ -1077,7 +1077,7 @@ func (m Model) handlePromptKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.closePrompt(), nil
 	case key.Matches(msg, m.keys.Commit):
 		return m.submitPrompt(strings.TrimSpace(m.promptValue()))
-	case key.Matches(msg, m.keys.Accept) && !(prose && msg.String() == "enter"):
+	case m.accepts(msg, prose):
 		return m.submitPrompt(strings.TrimSpace(m.promptValue()))
 	}
 	var cmd tea.Cmd
@@ -1087,6 +1087,17 @@ func (m Model) handlePromptKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 	m.input, cmd = m.input.Update(msg)
 	return m, cmd
+}
+
+// accepts reports whether a press ends a free-text input. Enter inside a
+// multi-line field inserts a newline, which is the whole point of the field, so
+// it is the one press that does not accept; a scheme that puts accept on a
+// chord as well keeps that chord working there.
+func (m Model) accepts(msg tea.KeyPressMsg, prose bool) bool {
+	if prose && msg.String() == "enter" {
+		return false
+	}
+	return key.Matches(msg, m.keys.Accept)
 }
 
 // promptMultiline reports whether the open input gathers prose.
@@ -1746,7 +1757,7 @@ func (m Model) handleFormKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.moveField(1)
 	case key.Matches(msg, m.keys.PrevField):
 		return m.moveField(-1)
-	case key.Matches(msg, m.keys.Accept) && !(prose && msg.String() == "enter"):
+	case m.accepts(msg, prose):
 		return m.stashField().submitForm()
 	}
 	if typing {
