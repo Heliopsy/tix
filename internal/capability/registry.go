@@ -356,6 +356,19 @@ var registry = []Operation{
 		Scope: core.ScopeTaskTransition,
 		CLI:   "tix task mv",
 		HTTP:  apiPost(wire.RouteTaskTransition),
+		Web:   webPost(web.RouteTaskComplete),
+		TUI:   "board",
+	},
+	// Multi-hop is its own operation rather than a flag on the one above,
+	// which is what stopped the registry noticing that exactly one control in
+	// the product offered routes while three bound TransitionTask and offered
+	// none. An operation the registry names is an operation every surface has
+	// to bind or exempt in writing.
+	{
+		Name: "task.route", Method: "TransitionRoute",
+		Scope: core.ScopeTaskTransition,
+		CLI:   "tix task mv",
+		HTTP:  apiPost(wire.RouteTaskRoute),
 		Web:   webPost(web.RouteTaskMove),
 		TUI:   "board",
 	},

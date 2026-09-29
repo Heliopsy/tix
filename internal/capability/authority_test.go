@@ -31,13 +31,14 @@ var scopeVariesByInput = map[string]string{
 // for the methods that check their arguments before they ask the policy. The
 // probe has to reach the authorization to read the scope off its refusal.
 var validArgs = map[string][]any{
-	"AddComment":     {core.TaskRef{ID: "t"}, "body"},
-	"EditComment":    {"c1", "body"},
-	"AddTag":         {core.TaskRef{ID: "t"}, "urgent"},
-	"RemoveTag":      {core.TaskRef{ID: "t"}, "urgent"},
-	"CreateTask":     {core.CreateTaskInput{Title: "a title"}},
-	"TransitionTask": {core.TaskRef{ID: "t"}, core.TransitionInput{To: "done"}},
-	"PutArtifact":    {core.TaskRef{ID: "t"}, core.ArtifactInput{Kind: core.ArtifactKind("log")}},
+	"AddComment":      {core.TaskRef{ID: "t"}, "body"},
+	"EditComment":     {"c1", "body"},
+	"AddTag":          {core.TaskRef{ID: "t"}, "urgent"},
+	"RemoveTag":       {core.TaskRef{ID: "t"}, "urgent"},
+	"CreateTask":      {core.CreateTaskInput{Title: "a title"}},
+	"TransitionTask":  {core.TaskRef{ID: "t"}, core.TransitionInput{To: "done"}},
+	"TransitionRoute": {core.TaskRef{ID: "t"}, core.RouteInput{Route: []string{"done"}}},
+	"PutArtifact":     {core.TaskRef{ID: "t"}, core.ArtifactInput{Kind: core.ArtifactKind("log")}},
 }
 
 // TestEveryDeclaredScopeIsTheScopeTheServiceEnforces is why the registry may
