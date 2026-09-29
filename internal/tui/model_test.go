@@ -487,7 +487,7 @@ func TestTransitionChooser(t *testing.T) {
 		svc := newFakeService()
 		m.svc = svc
 		m, _ = m.reduce(pressKey("t"))
-		m, cmd := m.reduce(pressKey("3"))
+		_, cmd := m.reduce(pressKey("3"))
 		if cmd == nil {
 			t.Fatal("picking a route did nothing")
 		}

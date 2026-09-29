@@ -133,7 +133,7 @@ func TestThePickerAppliesARouteOneHopAtATime(t *testing.T) {
 		t.Errorf("the route is offered as %q, which does not show its hops", route.Label)
 	}
 
-	m, cmd := m.reduce(pressKey("4"))
+	_, cmd := m.reduce(pressKey("4"))
 	if cmd == nil {
 		t.Fatal("picking a route did nothing")
 	}
@@ -147,7 +147,6 @@ func TestThePickerAppliesARouteOneHopAtATime(t *testing.T) {
 	if got := b.trail(t); strings.Join(got, ",") != "todo>doing,doing>done" {
 		t.Fatalf("the picker wrote %v, want one entry per hop", got)
 	}
-	_ = m
 }
 
 // TestThePickerKeepsASingleHopOneKeystroke is the cost the routes may not add
@@ -156,7 +155,7 @@ func TestThePickerAppliesARouteOneHopAtATime(t *testing.T) {
 func TestThePickerKeepsASingleHopOneKeystroke(t *testing.T) {
 	b := newLiveBoard(t)
 	m, _ := b.model.reduce(pressKey("t"))
-	m, cmd := m.reduce(pressKey("1"))
+	_, cmd := m.reduce(pressKey("1"))
 	if cmd == nil {
 		t.Fatal("the first choice did nothing")
 	}
@@ -166,5 +165,4 @@ func TestThePickerKeepsASingleHopOneKeystroke(t *testing.T) {
 	if got := b.trail(t); strings.Join(got, ",") != "todo>doing" {
 		t.Fatalf("t then 1 wrote %v, want exactly one hop", got)
 	}
-	_ = m
 }
