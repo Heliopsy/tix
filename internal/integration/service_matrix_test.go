@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"slices"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -87,6 +88,42 @@ var serviceScenarios = []svcScenario{
 				return nil, err
 			}
 			return sig{"status": out.Status}, nil
+		},
+	},
+	{
+		name:   "a route through another state",
+		covers: []string{"CreateProject", "CreateTask", "TransitionRoute"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			// The builtin workflow reaches done only through doing, so this is
+			// two hops, and both transports must report both of them.
+			out, err := tg.svc.TransitionRoute(tg.ctx, core.TaskRef{ID: task.ID}, core.RouteInput{To: "done"})
+			if err != nil {
+				return nil, err
+			}
+			return sig{"status": out.Status(), "applied": strings.Join(out.Applied, ">"),
+				"hops": out.Hops(), "partial": out.Partial()}, nil
+		},
+	},
+	{
+		name:   "a route that stops part way",
+		covers: []string{"CreateProject", "CreateTask", "TransitionRoute"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			// done is only left for todo, so the third hop is refused after the
+			// first two have been written. Neither transport may call that an
+			// error, and both must name where it stopped.
+			out, err := tg.svc.TransitionRoute(tg.ctx, core.TaskRef{ID: task.ID},
+				core.RouteInput{Route: []string{"doing", "done", "blocked"}})
+			if err != nil {
+				return nil, err
+			}
+			return sig{"status": out.Status(), "applied": strings.Join(out.Applied, ">"),
+				"stopped": out.Stopped, "partial": out.Partial()}, nil
 		},
 	},
 	{
