@@ -51,6 +51,7 @@ const (
 	RouteTasks          = APIPrefix + "/tasks"
 	RouteTask           = APIPrefix + "/tasks/{ref}"
 	RouteTaskTransition = APIPrefix + "/tasks/{ref}/transition"
+	RouteTaskRoute      = APIPrefix + "/tasks/{ref}/route"
 	RouteTaskRestore    = APIPrefix + "/tasks/{ref}/restore"
 	RouteTaskTree       = APIPrefix + "/tasks/{ref}/tree"
 	RouteTaskDeps       = APIPrefix + "/tasks/{ref}/deps"

@@ -37,6 +37,7 @@ func (rt *Router) registerTaskRoutes() {
 	rt.mux.HandleFunc("PATCH "+wire.RouteTask, rt.handleUpdateTask)
 	rt.mux.HandleFunc("DELETE "+wire.RouteTask, rt.handleDeleteTask)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskTransition, rt.handleTransitionTask)
+	rt.mux.HandleFunc("POST "+wire.RouteTaskRoute, rt.handleTransitionRoute)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskRestore, rt.handleRestoreTask)
 	rt.mux.HandleFunc("GET "+wire.RouteTaskTree, rt.handleTaskTree)
 
@@ -357,6 +358,30 @@ func (rt *Router) handleTransitionTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, http.StatusOK, task)
+}
+
+// handleTransitionRoute walks a task through a route of states, one ordinary
+// transition per hop.
+//
+// A route that stops halfway is 200 with the result saying where it stopped,
+// not an error envelope: the hops that landed are real, and reporting only the
+// failure would leave the caller with a task in a state nobody chose.
+func (rt *Router) handleTransitionRoute(w http.ResponseWriter, r *http.Request) {
+	ref, err := taskRef(r)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	var in core.RouteInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	result, err := rt.cfg.Service.TransitionRoute(r.Context(), ref, in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, result)
 }
 
 // handleRestoreTask undeletes a task.

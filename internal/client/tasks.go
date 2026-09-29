@@ -41,6 +41,11 @@ func (c *Client) TransitionTask(ctx context.Context, ref core.TaskRef, in core.T
 	return call[core.Task](ctx, c, http.MethodPost, taskPath(wire.RouteTaskTransition, ref), nil, in)
 }
 
+// TransitionRoute walks a task through a route of states.
+func (c *Client) TransitionRoute(ctx context.Context, ref core.TaskRef, in core.RouteInput) (*core.RouteResult, error) {
+	return call[core.RouteResult](ctx, c, http.MethodPost, taskPath(wire.RouteTaskRoute, ref), nil, in)
+}
+
 // DeleteTask removes a task, soft by default.
 func (c *Client) DeleteTask(ctx context.Context, ref core.TaskRef, in core.DeleteTaskInput) error {
 	q := url.Values{}
