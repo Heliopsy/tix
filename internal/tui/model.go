@@ -592,7 +592,13 @@ func (m Model) reloadAfter(msg actionMsg) tea.Cmd {
 func actionFailure(msg actionMsg) string {
 	switch core.KindOf(msg.err) {
 	case core.KindConflict:
-		return "cannot " + msg.kind.Label() + ": the task is already claimed by another worker: " + msg.err.Error()
+		// No guess at which conflict it was. KindConflict covers a held
+		// claim, a version clash and a task already in a terminal state, and
+		// naming one of them produced a sentence that argued with itself:
+		// "cannot claim: the task is already claimed by another worker:
+		// conflict: task ops-1 is already finished in status done". The
+		// service already says which conflict it is.
+		return "cannot " + msg.kind.Label() + ": " + msg.err.Error()
 	case core.KindPrecondition:
 		return "cannot " + msg.kind.Label() + ": " + msg.err.Error()
 	case core.KindLeaseExpired:
@@ -706,6 +712,11 @@ func (m Model) enterView(v viewKind) Model {
 	}
 	m.stack = append(append([]viewKind{}, m.stack...), m.view)
 	m.view = v
+	// A refusal belongs to the screen that earned it. It used to survive every
+	// move, so "cannot claim: ..." from the board was still on the statistics
+	// screen and the settings screen, describing an action taken somewhere
+	// else entirely.
+	m.err = ""
 	return m
 }
 
@@ -716,6 +727,7 @@ func (m Model) popView() (Model, bool) {
 	}
 	m.view = m.stack[len(m.stack)-1]
 	m.stack = m.stack[:len(m.stack)-1]
+	m.err = ""
 	if m.view != viewDetail {
 		m.detail = nil
 	}

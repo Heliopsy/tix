@@ -543,3 +543,57 @@ func TestChoiceAtResolvesTheNinthOption(t *testing.T) {
 		t.Fatal("pressing 9 picked a ninth option from a list of eight")
 	}
 }
+
+// TestAConflictIsNotExplainedAsAHeldClaim pins the reported defect: every
+// KindConflict was reported as "the task is already claimed by another
+// worker", with the real reason appended after it, so a task refused for
+// being finished produced a sentence arguing with itself:
+//
+//	cannot claim: the task is already claimed by another worker:
+//	conflict: task "ops-1" is already finished in status "done"
+func TestAConflictIsNotExplainedAsAHeldClaim(t *testing.T) {
+	m := boardModel(t)
+	m.project = core.Project{ID: "p1", Key: "ops"}
+	next, _ := m.reduce(actionMsg{
+		kind: actionClaim,
+		ref:  core.TaskRef{ID: "a"},
+		err:  core.Conflict("task %q is already finished in status %q", "ops-1", "done"),
+	})
+	if !strings.Contains(next.err, "already finished in status") {
+		t.Fatalf("the refusal lost the service's reason: %q", next.err)
+	}
+	if strings.Contains(next.err, "claimed by another worker") {
+		t.Fatalf("the refusal guessed a reason the service did not give: %q", next.err)
+	}
+}
+
+// TestARefusalDoesNotFollowTheReaderToAnotherView pins the other half of the
+// same report: the message stayed on screen through every move, so a refusal
+// earned on the board was still being shown on statistics and on settings,
+// describing an action taken somewhere else.
+func TestARefusalDoesNotFollowTheReaderToAnotherView(t *testing.T) {
+	m := boardModel(t)
+	m.project = core.Project{ID: "p1", Key: "ops"}
+	failed, _ := m.reduce(actionMsg{
+		kind: actionClaim,
+		ref:  core.TaskRef{ID: "a"},
+		err:  core.Conflict("task %q is already finished in status %q", "ops-1", "done"),
+	})
+	if failed.err == "" {
+		t.Fatal("the refusal was never shown, so this guard proves nothing")
+	}
+	moved := failed.enterView(viewStats)
+	if moved.view != viewStats {
+		t.Skip("this reader may not reach statistics")
+	}
+	if moved.err != "" {
+		t.Errorf("the refusal followed the reader to %v: %q", moved.view, moved.err)
+	}
+	back, ok := moved.popView()
+	if !ok {
+		t.Fatal("popView found nothing to return to")
+	}
+	if back.err != "" {
+		t.Errorf("the refusal came back on the way out: %q", back.err)
+	}
+}
