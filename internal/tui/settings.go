@@ -373,7 +373,7 @@ func keyPreview(scheme string) []SettingsLine {
 	parsed, _ := ParseScheme(scheme)
 	out := []SettingsLine{{Text: "  the " + string(parsed) + " keys bind:", Row: -1, Dim: true}}
 	preview := KeyMapFor(parsed)
-	for _, action := range []string{"Up", "Down", "New", "EditTitle", "Comment", "Filter", "Back"} {
+	for _, action := range []string{"Up", "Down", "New", "Edit", "Comment", "Filter", "Back"} {
 		b, ok := preview.Binding(action)
 		if !ok {
 			continue

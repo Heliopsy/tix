@@ -76,7 +76,7 @@ func TestEveryInputModeOwnsTheFooter(t *testing.T) {
 			}
 			// The board's own keys are gone. Each of these is typed as text or
 			// swallowed while the mode is open, so advertising it is a lie.
-			for _, gone := range []string{"new task", "edit title", "transition", "filter"} {
+			for _, gone := range []string{"new task", "edit task", "transition", "filter"} {
 				if strings.Contains(legend, gone) {
 					t.Fatalf("the legend still advertises the board's %q: %q", gone, legend)
 				}

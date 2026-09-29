@@ -42,11 +42,6 @@ func TestPromptsReachTheService(t *testing.T) {
 				t.Fatalf("a task was created outside the open project: %+v", f.created[0])
 			}
 		}},
-		{"edit title", "e", "a better title", func(t *testing.T, f *fakeService) {
-			if len(f.updated) != 1 || f.updated[0].Title == nil || *f.updated[0].Title != "a better title" {
-				t.Fatalf("updated = %+v", f.updated)
-			}
-		}},
 		{"comment", "m", "this is blocked on the migration", func(t *testing.T, f *fakeService) {
 			if len(f.comments) != 1 || f.comments[0] != "this is blocked on the migration" {
 				t.Fatalf("comments = %+v", f.comments)
@@ -87,7 +82,7 @@ func TestPromptsReachTheService(t *testing.T) {
 }
 
 func TestEveryPromptIsAlsoReachableFromTheDetailView(t *testing.T) {
-	for _, key := range []string{"e", "m", "#", "U", "D"} {
+	for _, key := range []string{"m", "#", "U", "D"} {
 		t.Run(key, func(t *testing.T) {
 			m := boardModel(t)
 			m.svc = newFakeService()
@@ -123,10 +118,10 @@ func TestAnEmptyPromptCancelsRatherThanSendingABlankEdit(t *testing.T) {
 func TestPromptsSeedThemselvesWithWhatTheyWouldReplace(t *testing.T) {
 	m := boardModel(t)
 	m.svc = newFakeService()
-	next, _ := m.reduce(pressKey("e"))
-	task, _ := TaskAt(m.columns, m.sel)
-	if next.input.Value() != task.Title {
-		t.Fatalf("the title prompt opened on %q, not on %q", next.input.Value(), task.Title)
+	m.filterText = "status:todo"
+	next, _ := m.reduce(pressKey("/"))
+	if next.input.Value() != m.filterText {
+		t.Fatalf("the filter bar opened on %q, not on %q", next.input.Value(), m.filterText)
 	}
 	next, _ = m.reduce(pressKey("m"))
 	if next.input.Value() != "" {
@@ -158,7 +153,7 @@ func TestNewTaskRefusesWithNoProjectOpen(t *testing.T) {
 }
 
 func TestEscapeCancelsEveryPrompt(t *testing.T) {
-	for _, key := range []string{"n", "e", "E", "m", "#", "U", "D", "/"} {
+	for _, key := range []string{"n", "m", "#", "U", "D", "/"} {
 		t.Run(key, func(t *testing.T) {
 			m := boardModel(t)
 			m.svc = newFakeService()
@@ -439,7 +434,6 @@ func TestEveryActionThatNamesATaskCarriesItsRef(t *testing.T) {
 		{"comment", "m", "note"},
 		{"tag", "#", "urgent"},
 		{"untag", "U", "urgent"},
-		{"title", "e", "renamed"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, cmd := typeInto(t, m, tc.key, tc.text)

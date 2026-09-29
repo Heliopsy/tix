@@ -20,7 +20,7 @@ render into the same frame and recognising the body was the only way to tell whe
 <!-- Rows asserted against the view list by TestDocsViewsTableListsEveryView in internal/tui. -->
 | View | Opened by | Shows |
 | --- | --- | --- |
-| projects | `p`, and every session starts here | every project this tenant has, with its colour and icon |
+| projects | `W`, and every session starts here | every project this tenant has, with its colour and icon |
 | board | `enter` on a project | one project's tasks in columns, one column per workflow state |
 | project | `w` | one project's attributes, the workflow it runs on, and its custom field definitions |
 | detail | `enter` on a card | one task in full: body, custom fields, subtasks, dependencies, artifacts, comments |
@@ -36,7 +36,9 @@ nested view would lose a place a reflex press only meant to step out of, so `q` 
 the top. `ctrl+c` always ends it, exiting 130. Entering the view already open is a refresh rather than a
 step, so reloading never makes the way back one press longer.
 
-`p` is different from `esc`. It discards the whole stack and returns to the project list.
+`W` is different from `esc`. It discards the whole stack and returns to the project list. It is a capital
+because `p` cycles the selected task's priority and `P` picks one outright, so neither case of the letter
+the project list is named after was free.
 
 **Cards.** A card leads with the title, because the title is what a person scans a board for, and it gets
 the column's whole width. A title too long for one line wraps onto a second, indented to the same column,
@@ -93,7 +95,7 @@ screen.
 | Scheme | What it changes |
 | --- | --- |
 | `default` | the shipped bindings below |
-| `vim` | `o` new, `i` edit title, `I` edit the task, `a` comment, `:` also filters, `e` refreshes |
+| `vim` | `o` new, `i` edits the task, `a` comment, `:` also filters, `e` refreshes |
 | `emacs` | `ctrl+p`/`ctrl+n`/`ctrl+b`/`ctrl+f` move, `ctrl+a`/`ctrl+e` ends, `ctrl+g` backs out, `ctrl+s` filters, `ctrl+t` edits, `ctrl+l` redraws |
 | `nano` | `ctrl+w` searches, `ctrl+g` helps, `ctrl+x` quits, `ctrl+o` applies, `ctrl+l` redraws, `ctrl+k` deletes |
 | `helix` | `x` opens the row, `d` releases, `o` new, `i` edit, `a` comment, space opens settings |
@@ -130,8 +132,9 @@ impossible for a scheme to leave an action unbound.
 | `N` | claim next from the queue | board, detail |
 | `t` | transition | board, detail |
 | `n` | new task, new project on the project list, new field or domain or member | board, detail, projects, project, tenant |
-| `e`, `E` | edit title, edit the whole task on one form; `e` also edits the project or the tenant | board, detail, project, tenant |
-| `P` | set priority | board, detail |
+| `e` | edit the whole task on one form; edits the project or the tenant on their own screens | board, detail, project, tenant |
+| `P` | set priority, from the five | board, detail |
+| `p` | cycle priority one place down, wrapping from `P5` back to `P1` | board, detail |
 | `A` | assign, from the tenant's directory | board, detail |
 | `m` | comment | board, detail |
 | `M` | edit the selected comment | detail |
@@ -145,7 +148,7 @@ impossible for a scheme to leave an action unbound.
 | `y` | agree to a confirmation | wherever one is open |
 | `w` | project setup | everywhere |
 | `f` | custom field definitions | project |
-| `p`, `,`, `v`, `H`, `S`, `T` | projects, settings, activity, history, statistics, tenant | everywhere |
+| `W`, `,`, `v`, `H`, `S`, `T` | projects, settings, activity, history, statistics, tenant | everywhere |
 | `r` | refresh | everywhere |
 | `?` | help | everywhere |
 | `q` | back, or quit at the top level | everywhere |
@@ -191,7 +194,7 @@ process on your box.
 
 ### Editing a whole task
 
-`E` opens one form over the selected task: title, body, priority and, when the tenant has a directory to
+`e` opens one form over the selected task: title, body, priority and, when the tenant has a directory to
 read, assignee. Every field shows what it holds before anything is sent, and `esc` leaves having written
 nothing. Only the fields you changed are sent, so a trip that touched the body records an edit to the body
 and not to the title.
@@ -202,10 +205,21 @@ column with `tab` on the board, where `←`/`h` and `→`/`l` still do. The pane
 whichever field the cursor is on, because a reader who cannot leave the body field is stuck in a way that
 reads as a hang.
 
-The single-key actions are all still there and unchanged: `e` for the title alone, `P` for priority, `A`
-for the assignee, `#` and `U` for tags, `D` for a dependency. `E` is the trip that changes several things
-at once. Custom fields are not on the form: they are per project and typed, and `tix task edit --field`
+There is no second key for the title alone. The form already holds it, and a title-only prompt was a
+slower way to do part of what `e` does. The single-key actions that change something the form does not
+gather are untouched: `P` for priority, `A` for the assignee, `#` and `U` for tags, `D` for a dependency.
+Custom fields are not on the form either: they are per project and typed, and `tix task edit --field`
 takes them with the validation this screen cannot.
+
+### Cycling a priority
+
+`p` moves the selected task one place down the scale and sends it at once, with nothing to pick: `P1` to
+`P2`, and `P5` back round to `P1`. It wraps rather than stopping at the bottom, because a cycle that
+stopped would leave a reader who overshot unable to climb back with the key they overshot on.
+
+`P` still opens the picker, which is the shorter trip when the priority is already decided: one press and
+a digit, rather than up to four presses of `p`. There is no key that cycles the other way, because the
+shifted `p` is the picker, and wrapping means four presses reach anywhere the reverse would.
 
 `X` opens a form for what the delete removes and how far it reaches, and then a confirmation naming the
 subject. `y` answers that, not `enter`: a question answered by the key every other input is accepted with

@@ -744,9 +744,9 @@ func TestEverySchemeDrivesTheProjectScreen(t *testing.T) {
 			if m.view != viewProject {
 				t.Fatalf("%q did not open the project screen", keys.Project.Help().Key)
 			}
-			m, _ = m.reduce(keyMsgFor(keys.EditTitle.Help().Key))
+			m, _ = m.reduce(keyMsgFor(keys.Edit.Help().Key))
 			if !m.form.Open() || m.form.Kind != formProject {
-				t.Fatalf("%q did not open the edit form", keys.EditTitle.Help().Key)
+				t.Fatalf("%q did not open the edit form", keys.Edit.Help().Key)
 			}
 			m, _ = m.reduce(keyMsgFor(keys.Cancel.Help().Key))
 			m, _ = m.reduce(keyMsgFor(keys.Delete.Help().Key))

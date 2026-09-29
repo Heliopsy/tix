@@ -6,55 +6,55 @@ import "charm.land/bubbles/v2/key"
 
 // KeyMap holds every binding the interface offers.
 type KeyMap struct {
-	Up          key.Binding
-	Down        key.Binding
-	Left        key.Binding
-	Right       key.Binding
-	Top         key.Binding
-	Bottom      key.Binding
-	Enter       key.Binding
-	Back        key.Binding
-	Filter      key.Binding
-	ClearFltr   key.Binding
-	Claim       key.Binding
-	Release     key.Binding
-	Transition  key.Binding
-	New         key.Binding
-	NewProject  key.Binding
-	EditTitle   key.Binding
-	EditTask    key.Binding
-	Priority    key.Binding
-	Assign      key.Binding
-	Comment     key.Binding
-	Tag         key.Binding
-	Untag       key.Binding
-	Tags        key.Binding
-	Depend      key.Binding
-	Undepend    key.Binding
-	CommentEdit key.Binding
-	Delete      key.Binding
-	Restore     key.Binding
-	Artifact    key.Binding
-	ClaimNext   key.Binding
-	Renew       key.Binding
-	Projects    key.Binding
-	Project     key.Binding
-	Fields      key.Binding
-	Settings    key.Binding
-	Activity    key.Binding
-	History     key.Binding
-	Stats       key.Binding
-	Tenant      key.Binding
-	Refresh     key.Binding
-	Help        key.Binding
-	Quit        key.Binding
-	Interrupt   key.Binding
-	Accept      key.Binding
-	Commit      key.Binding
-	Cancel      key.Binding
-	Agree       key.Binding
-	NextField   key.Binding
-	PrevField   key.Binding
+	Up            key.Binding
+	Down          key.Binding
+	Left          key.Binding
+	Right         key.Binding
+	Top           key.Binding
+	Bottom        key.Binding
+	Enter         key.Binding
+	Back          key.Binding
+	Filter        key.Binding
+	ClearFltr     key.Binding
+	Claim         key.Binding
+	Release       key.Binding
+	Transition    key.Binding
+	New           key.Binding
+	NewProject    key.Binding
+	Edit          key.Binding
+	Priority      key.Binding
+	CyclePriority key.Binding
+	Assign        key.Binding
+	Comment       key.Binding
+	Tag           key.Binding
+	Untag         key.Binding
+	Tags          key.Binding
+	Depend        key.Binding
+	Undepend      key.Binding
+	CommentEdit   key.Binding
+	Delete        key.Binding
+	Restore       key.Binding
+	Artifact      key.Binding
+	ClaimNext     key.Binding
+	Renew         key.Binding
+	Projects      key.Binding
+	Project       key.Binding
+	Fields        key.Binding
+	Settings      key.Binding
+	Activity      key.Binding
+	History       key.Binding
+	Stats         key.Binding
+	Tenant        key.Binding
+	Refresh       key.Binding
+	Help          key.Binding
+	Quit          key.Binding
+	Interrupt     key.Binding
+	Accept        key.Binding
+	Commit        key.Binding
+	Cancel        key.Binding
+	Agree         key.Binding
+	NextField     key.Binding
+	PrevField     key.Binding
 }
 
 // DefaultKeyMap returns the shipped bindings.
@@ -75,13 +75,20 @@ func DefaultKeyMap() KeyMap {
 		Transition: key.NewBinding(key.WithKeys("t"), key.WithHelp("t", "transition")),
 		New:        key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "new task")),
 		NewProject: key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "new project")),
-		EditTitle:  key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit title")),
-		EditTask:   key.NewBinding(key.WithKeys("E"), key.WithHelp("E", "edit task")),
-		Priority:   key.NewBinding(key.WithKeys("P"), key.WithHelp("P", "set priority")),
-		Assign:     key.NewBinding(key.WithKeys("A"), key.WithHelp("A", "set assignee")),
-		Comment:    key.NewBinding(key.WithKeys("m"), key.WithHelp("m", "comment")),
-		Tag:        key.NewBinding(key.WithKeys("#"), key.WithHelp("#", "add tag")),
-		Untag:      key.NewBinding(key.WithKeys("U"), key.WithHelp("U", "remove tag")),
+		// One edit key, not one per field. The form it opens already holds the
+		// title, so a second binding for the title alone was a slower way to
+		// do part of what this does.
+		Edit:     key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit task")),
+		Priority: key.NewBinding(key.WithKeys("P"), key.WithHelp("P", "set priority")),
+		// p steps one place down the scale and wraps at the bottom, so every
+		// priority is reachable without leaving the board. P still picks one
+		// outright, which is the shorter trip when the reader knows where they
+		// are going.
+		CyclePriority: key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "cycle priority")),
+		Assign:        key.NewBinding(key.WithKeys("A"), key.WithHelp("A", "set assignee")),
+		Comment:       key.NewBinding(key.WithKeys("m"), key.WithHelp("m", "comment")),
+		Tag:           key.NewBinding(key.WithKeys("#"), key.WithHelp("#", "add tag")),
+		Untag:         key.NewBinding(key.WithKeys("U"), key.WithHelp("U", "remove tag")),
 		// # and U take a name the reader already knows. L shows the names the
 		// tenant has, which is what a reader who does not know them needs.
 		Tags:        key.NewBinding(key.WithKeys("L"), key.WithHelp("L", "pick a tag")),
@@ -97,7 +104,11 @@ func DefaultKeyMap() KeyMap {
 		Artifact:  key.NewBinding(key.WithKeys("O"), key.WithHelp("O", "record artifact")),
 		ClaimNext: key.NewBinding(key.WithKeys("N"), key.WithHelp("N", "claim next")),
 		Renew:     key.NewBinding(key.WithKeys("R"), key.WithHelp("R", "renew lease")),
-		Projects:  key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "projects")),
+		// W, not p: p cycles the selected task's priority, and P is the picker
+		// that sets one outright, so the project list takes the capital of the
+		// project screen's own key rather than a third letter unrelated to
+		// either.
+		Projects: key.NewBinding(key.WithKeys("W"), key.WithHelp("W", "projects")),
 		// w, for the workflow, which is the largest thing the screen shows. The
 		// obvious letters are spoken for: p lists projects and , opens the
 		// session's own preferences, which are a different kind of setting.
@@ -241,9 +252,9 @@ func (k KeyMap) taskBindings() []gatedAction {
 		{binding: k.Claim, methods: []string{"ClaimTask"}},
 		{binding: k.Release, methods: []string{"ReleaseLease"}},
 		{binding: k.Transition, methods: []string{"TransitionTask"}},
-		{binding: k.EditTitle, methods: []string{"UpdateTask"}},
-		{binding: k.EditTask, methods: []string{"UpdateTask"}},
+		{binding: k.Edit, methods: []string{"UpdateTask"}},
 		{binding: k.Priority, methods: []string{"UpdateTask"}},
+		{binding: k.CyclePriority, methods: []string{"UpdateTask"}},
 		{k.Assign, []string{"UpdateTask"}, []string{"ListActors"}},
 		{binding: k.Comment, methods: []string{"AddComment"}},
 		{binding: k.CommentEdit, methods: []string{"EditComment"}},
@@ -328,11 +339,11 @@ type viewAction struct {
 // keystroke cannot disagree about who may press a key.
 //
 // The keys are the board's own, which is what keeps every scheme working here
-// without rebinding anything: a reader who moved EditTitle onto i edits a
+// without rebinding anything: a reader who moved Edit onto i edits a
 // project with i too.
 func (k KeyMap) projectBindings() []viewAction {
 	return []viewAction{
-		{gatedAction{binding: k.EditTitle, methods: []string{"UpdateProject"}}, "edit project"},
+		{gatedAction{binding: k.Edit, methods: []string{"UpdateProject"}}, "edit project"},
 		{gatedAction{binding: k.Delete,
 			methods: []string{"ArchiveProject", "DeleteProject"}}, "archive or delete"},
 		{gatedAction{binding: k.New, methods: []string{"PutFieldDef"}}, "new field"},
@@ -368,7 +379,7 @@ func (k KeyMap) projectActions(may func(string) bool) []HelpEntry {
 // o too.
 func (k KeyMap) tenantBindings() []viewAction {
 	return []viewAction{
-		{gatedAction{binding: k.EditTitle, methods: []string{"UpdateTenant"}}, "edit tenant"},
+		{gatedAction{binding: k.Edit, methods: []string{"UpdateTenant"}}, "edit tenant"},
 		{gatedAction{binding: k.New, methods: []string{"AddDomain", "AddMember"}}, "add domain or member"},
 		{gatedAction{binding: k.Delete,
 			methods: []string{"RemoveDomain", "RemoveMember"}}, "remove the selected row"},
@@ -535,8 +546,8 @@ func (k KeyMap) editHelp(ctx ActionContext) []HelpEntry {
 	if ctx.IsDeleted {
 		return k.offer(ctx, gatedAction{binding: k.Restore, methods: []string{"RestoreTask"}})
 	}
-	out := k.offer(ctx, gatedAction{binding: k.EditTitle, methods: []string{"UpdateTask"}},
-		gatedAction{binding: k.EditTask, methods: []string{"UpdateTask"}},
+	out := k.offer(ctx, gatedAction{binding: k.Edit, methods: []string{"UpdateTask"}},
+		gatedAction{binding: k.CyclePriority, methods: []string{"UpdateTask"}},
 		gatedAction{binding: k.Comment, methods: []string{"AddComment"}})
 	if ctx.CanTransition {
 		out = append(out, k.offer(ctx, gatedAction{binding: k.Transition, methods: []string{"TransitionTask"}})...)

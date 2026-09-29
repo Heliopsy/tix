@@ -96,7 +96,7 @@ func TestADeletedCardIsMarkedAndOffersOnlyRestore(t *testing.T) {
 	if !strings.Contains(footer, "restore") {
 		t.Errorf("the footer of a deleted card does not offer a restore: %q", footer)
 	}
-	for _, refused := range []string{"claim", "edit title", "delete"} {
+	for _, refused := range []string{"claim", "edit task", "cycle priority", "delete"} {
 		if strings.Contains(footer, refused) {
 			t.Errorf("the footer of a deleted card offers %q, which the service refuses: %q",
 				refused, footer)

@@ -195,7 +195,7 @@ func (m Model) handleAdminKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 	switch {
-	case key.Matches(msg, m.keys.EditTitle):
+	case key.Matches(msg, m.keys.Edit):
 		return m.openTenantForm()
 	case key.Matches(msg, m.keys.New):
 		return m.openTenantAddForm()

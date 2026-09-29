@@ -25,10 +25,10 @@ func taskEditModel(t *testing.T) (Model, *fakeService) {
 	svc := newFakeService()
 	svc.directory = []core.Actor{{ID: "a-ada", Handle: "ada"}, {ID: "a-grace", Handle: "grace"}}
 	m.svc = svc
-	m, cmd := m.reduce(pressKey("E"))
+	m, cmd := m.reduce(pressKey("e"))
 	m, _ = m.reduce(run(t, cmd))
 	if !m.form.Open() {
-		t.Fatalf("E opened no form: %q", m.err)
+		t.Fatalf("e opened no form: %q", m.err)
 	}
 	return m, svc
 }
@@ -344,7 +344,6 @@ func TestTheSingleKeyEditsStillWork(t *testing.T) {
 		key  string
 		want func(Model) bool
 	}{
-		{"e", func(m Model) bool { return m.prompt == promptTitle }},
 		{"P", func(m Model) bool { return m.choice == choicePriority }},
 		{"#", func(m Model) bool { return m.prompt == promptTag }},
 		{"U", func(m Model) bool { return m.prompt == promptUntag }},

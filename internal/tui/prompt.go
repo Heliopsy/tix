@@ -20,7 +20,6 @@ const (
 	promptNone promptKind = iota
 	promptFilter
 	promptNewTask
-	promptTitle
 	promptComment
 	promptCommentEdit
 	promptTag
@@ -62,7 +61,6 @@ func (s PromptSpec) Title() string { return strings.TrimSuffix(strings.TrimSpace
 var promptSpecs = map[promptKind]PromptSpec{
 	promptFilter:  {Prompt: "filter: ", Placeholder: "status:todo is:unclaimed text", Limit: 512, Field: "expression"},
 	promptNewTask: {Prompt: "new task: ", Placeholder: "title of the task to create", Limit: core.MaxTitleLength, Field: "title"},
-	promptTitle:   {Prompt: "title: ", Placeholder: "new title", Limit: core.MaxTitleLength, Field: "title"},
 
 	// A comment is prose and often runs to paragraphs, so it takes the tall
 	// field rather than one clipped line.
@@ -181,6 +179,16 @@ func PriorityChoices() []Choice {
 		out = append(out, Choice{Label: PriorityLabel(p), Value: strconv.Itoa(int(p))})
 	}
 	return out
+}
+
+// NextPriority is the priority one place down the scale, wrapping from the
+// lowest back to the highest. A cycle that stopped at the bottom would leave a
+// reader who overshot unable to climb back without the picker.
+func NextPriority(p core.Priority) core.Priority {
+	if p < core.PriorityHighest || p >= core.PriorityLowest {
+		return core.PriorityHighest
+	}
+	return p + 1
 }
 
 // ChoiceLabels numbers the options on offer.

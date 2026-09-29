@@ -65,7 +65,7 @@ func TestQuitPopsFromANestedViewAndQuitsAtTheTop(t *testing.T) {
 }
 
 func TestAnOpenPromptSwallowsBackRatherThanPoppingTheView(t *testing.T) {
-	for _, key := range []string{"e", "m", "#"} {
+	for _, key := range []string{"m", "#"} {
 		t.Run(key, func(t *testing.T) {
 			m := drillIn(t)
 			m, _ = m.reduce(pressKey(key))
@@ -119,9 +119,10 @@ func TestReopeningTheSameViewIsARefreshRatherThanAStepDeeper(t *testing.T) {
 
 func TestTheProjectsKeyReturnsToTheRootInOnePress(t *testing.T) {
 	m := drillIn(t)
-	m, _ = m.reduce(pressKey("p"))
+	m, _ = m.reduce(pressKey(m.keys.Projects.Help().Key))
 	if m.view != viewProjects || len(m.stack) != 0 {
-		t.Fatalf("p left view %v with %d levels below it", m.view, len(m.stack))
+		t.Fatalf("%s left view %v with %d levels below it",
+			m.keys.Projects.Help().Key, m.view, len(m.stack))
 	}
 	if m.detail != nil {
 		t.Fatal("returning to the root kept an open task")

@@ -82,24 +82,23 @@ var schemeKeys = map[Scheme]map[string][]string{
 	SchemeVim: {
 		"New":        {"o"},
 		"NewProject": {"o"},
-		"EditTitle":  {"i"},
-		"EditTask":   {"I"},
+		"Edit":       {"i"},
 		"Filter":     {"/", ":"},
 		"Comment":    {"a"},
 		"Refresh":    {"e"},
 	},
 	SchemeEmacs: {
-		"Up":        {"up", "ctrl+p"},
-		"Down":      {"down", "ctrl+n"},
-		"Left":      {"left", "ctrl+b"},
-		"Right":     {"right", "ctrl+f"},
-		"Top":       {"home", "ctrl+a"},
-		"Bottom":    {"end", "ctrl+e"},
-		"Back":      {"esc", "ctrl+g"},
-		"Cancel":    {"esc", "ctrl+g"},
-		"Filter":    {"ctrl+s"},
-		"Refresh":   {"ctrl+l"},
-		"EditTitle": {"ctrl+t"},
+		"Up":      {"up", "ctrl+p"},
+		"Down":    {"down", "ctrl+n"},
+		"Left":    {"left", "ctrl+b"},
+		"Right":   {"right", "ctrl+f"},
+		"Top":     {"home", "ctrl+a"},
+		"Bottom":  {"end", "ctrl+e"},
+		"Back":    {"esc", "ctrl+g"},
+		"Cancel":  {"esc", "ctrl+g"},
+		"Filter":  {"ctrl+s"},
+		"Refresh": {"ctrl+l"},
+		"Edit":    {"ctrl+t"},
 	},
 	// nano's keys are its own footer, from the GNU nano manual: ^W searches
 	// ("Where Is"), ^G shows help, ^X exits, ^O writes out, ^L redraws, and
@@ -134,8 +133,7 @@ var schemeKeys = map[Scheme]map[string][]string{
 		"Release":    {"d"},
 		"New":        {"o"},
 		"NewProject": {"o"},
-		"EditTitle":  {"i"},
-		"EditTask":   {"I"},
+		"Edit":       {"i"},
 		"Comment":    {"a"},
 		"Filter":     {"/", ":"},
 		"Settings":   {",", " "},
@@ -214,14 +212,14 @@ func viewActions(v viewKind) []string {
 	case viewBoard:
 		return append([]string{
 			"Up", "Down", "Left", "Right", "Top", "Bottom", "Enter", "Filter", "ClearFltr",
-			"Claim", "Release", "Transition", "New", "EditTitle", "EditTask", "Priority",
+			"Claim", "Release", "Transition", "New", "Edit", "Priority", "CyclePriority",
 			"Assign", "Comment", "CommentEdit", "Tag", "Untag", "Tags", "Depend", "Undepend",
 			"Delete", "Restore", "Artifact", "ClaimNext", "Renew", "Settings", "Back",
 		}, global...)
 	case viewDetail:
 		return append([]string{
-			"Up", "Down", "Left", "Right", "Claim", "Release", "Transition", "New", "EditTitle",
-			"EditTask", "Priority", "Assign", "Comment", "CommentEdit", "Tag", "Untag", "Tags",
+			"Up", "Down", "Left", "Right", "Claim", "Release", "Transition", "New", "Edit",
+			"Priority", "CyclePriority", "Assign", "Comment", "CommentEdit", "Tag", "Untag", "Tags",
 			"Depend", "Undepend", "Delete", "Restore", "Artifact", "ClaimNext", "Renew",
 			"Settings", "Back",
 		}, global...)
@@ -235,7 +233,7 @@ func viewActions(v viewKind) []string {
 		// them on a key this screen already uses would break the forms only.
 		return append([]string{
 			"Up", "Down", "Left", "Right", "Top", "Bottom", "Enter",
-			"EditTitle", "New", "Delete", "Back",
+			"Edit", "New", "Delete", "Back",
 		}, global...)
 	case viewHistory:
 		return append([]string{"Up", "Down", "Top", "Bottom", "Back"}, global...)
@@ -244,7 +242,7 @@ func viewActions(v viewKind) []string {
 		// horizontal: they cycle a form's answers, and a scheme that put one of
 		// them on a key this screen already uses would break the forms only.
 		return append([]string{
-			"Up", "Down", "Left", "Right", "Top", "Bottom", "EditTitle", "Delete",
+			"Up", "Down", "Left", "Right", "Top", "Bottom", "Edit", "Delete",
 			"New", "Fields", "Settings", "Back",
 		}, global...)
 	default:

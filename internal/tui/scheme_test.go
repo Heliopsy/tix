@@ -184,7 +184,7 @@ func TestAConfiguredSchemeIsInstalledAtStartup(t *testing.T) {
 	if m.scheme != SchemeVim {
 		t.Fatalf("scheme = %q", m.scheme)
 	}
-	b, _ := m.keys.Binding("EditTitle")
+	b, _ := m.keys.Binding("Edit")
 	if b.Keys()[0] != "i" {
 		t.Fatalf("keys = %v", b.Keys())
 	}
@@ -403,7 +403,7 @@ func TestNanoAndHelixCarryTheKeysTheirEditorsUse(t *testing.T) {
 		{SchemeHelix, "Enter", "x"},
 		{SchemeHelix, "Release", "d"},
 		{SchemeHelix, "New", "o"},
-		{SchemeHelix, "EditTitle", "i"},
+		{SchemeHelix, "Edit", "i"},
 		{SchemeHelix, "Comment", "a"},
 		{SchemeHelix, "Filter", ":"},
 		{SchemeHelix, "Settings", " "},

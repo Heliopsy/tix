@@ -1031,10 +1031,10 @@ func (m Model) handleTaskKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.startChoosing(choicePriority), nil
 	case key.Matches(msg, m.keys.New):
 		return m.openPrompt(promptNewTask)
-	case key.Matches(msg, m.keys.EditTitle):
-		return m.openPrompt(promptTitle)
-	case key.Matches(msg, m.keys.EditTask):
+	case key.Matches(msg, m.keys.Edit):
 		return m.openTaskEditForm()
+	case key.Matches(msg, m.keys.CyclePriority):
+		return m.cyclePriority()
 	case key.Matches(msg, m.keys.Assign):
 		return m.openAssigneeForm()
 	case key.Matches(msg, m.keys.Comment):
@@ -1173,8 +1173,6 @@ func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 		return nil
 	}
 	switch kind {
-	case promptTitle:
-		return m.updateTask(task, core.UpdateTaskInput{Title: &text})
 	case promptComment:
 		return m.comment(task, text)
 	case promptCommentEdit:
@@ -1227,13 +1225,6 @@ func (m Model) promptSeed(kind promptKind) string {
 		// Not flattened. The field holds the newlines the comment was written
 		// with, which is the whole reason it is more than one line.
 		return comment.Body
-	}
-	task, ok := m.selectedTask()
-	if !ok {
-		return ""
-	}
-	if kind == promptTitle {
-		return task.Title
 	}
 	return ""
 }
@@ -1301,6 +1292,21 @@ func (m Model) runChoice(kind choiceKind, picked Choice) tea.Cmd {
 	}
 	priority := core.Priority(value)
 	return m.updateTask(task, core.UpdateTaskInput{Priority: &priority})
+}
+
+// cyclePriority moves the selected task one place down the priority scale and
+// sends it, with nothing to pick. It wraps at the bottom, so every priority is
+// reachable from this one key; the picker on P is still the shorter trip to a
+// priority the reader has already decided on.
+func (m Model) cyclePriority() (Model, tea.Cmd) {
+	task, ok := m.selectedTask()
+	if !ok {
+		m.err = "no task is selected"
+		return m, nil
+	}
+	next := NextPriority(task.Priority)
+	m.err = ""
+	return m, m.updateTask(task, core.UpdateTaskInput{Priority: &next})
 }
 
 // startEditing focuses the filter bar on the current expression.
@@ -2017,7 +2023,7 @@ func (m Model) handleSetupKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 	switch {
-	case key.Matches(msg, m.keys.EditTitle):
+	case key.Matches(msg, m.keys.Edit):
 		return m.openProjectForm()
 	case key.Matches(msg, m.keys.Delete):
 		return m.openProjectRemoveForm()
