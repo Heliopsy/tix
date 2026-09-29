@@ -17,7 +17,7 @@ func (h *handler) projectRoutes() []route {
 		post(RouteProjectEdit, h.updateProject, "UpdateProject"),
 		post(RouteProjectArch, h.archiveProject, "ArchiveProject"),
 		post(RouteProjectDel, h.deleteProject, "DeleteProject"),
-		post(RouteBoardMove, h.moveCard, "TransitionTask"),
+		post(RouteBoardMove, h.moveCard, "TransitionRoute"),
 		get(RouteFields, "fields.html", h.showFields, "ListFieldDefs"),
 		post(RouteFields, h.putField, "PutFieldDef"),
 		post(RouteFieldDelete, h.deleteField, "DeleteFieldDef"),
@@ -110,10 +110,11 @@ func (h *handler) deleteProject(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// card is one task on the board with the states it may move to.
+// card is one task on the board with the routes it may take, adjacent states
+// and the ones reachable through them.
 type card struct {
-	Task    core.Task
-	Targets []core.State
+	Task   core.Task
+	Routes []flowRoute
 }
 
 // column is one workflow state and the tasks sitting in it.
@@ -184,7 +185,7 @@ func buildColumns(def core.WorkflowDefinition, tasks []core.Task) []column {
 		col := column{State: state}
 		for _, task := range tasks {
 			if task.Status == state.Key {
-				col.Tasks = append(col.Tasks, card{Task: task, Targets: targetsFrom(def, task.Status)})
+				col.Tasks = append(col.Tasks, card{Task: task, Routes: flowRoutes(def, task.Status)})
 			}
 		}
 		columns = append(columns, col)
@@ -192,31 +193,22 @@ func buildColumns(def core.WorkflowDefinition, tasks []core.Task) []column {
 	return columns
 }
 
-// targetsFrom lists the states a task in the given state may move to.
-func targetsFrom(def core.WorkflowDefinition, from string) []core.State {
-	var out []core.State
-	for _, t := range def.Transitions {
-		if t.From != from {
-			continue
-		}
-		if state, ok := def.State(t.To); ok {
-			out = append(out, state)
-		}
-	}
-	return out
-}
-
-// moveCard applies a board move, which is an ordinary transition.
+// moveCard applies a board move, which is a route of one hop or of several.
 func (h *handler) moveCard(w http.ResponseWriter, r *http.Request) error {
 	ref, err := core.ParseTaskRef(field(r, "ref"))
 	if err != nil {
 		return err
 	}
-	in := core.TransitionInput{To: field(r, "to"), Comment: field(r, "comment")}
-	if _, err := h.svc.TransitionTask(r.Context(), ref, in); err != nil {
+	steps, err := transitionSteps(r)
+	if err != nil {
 		return err
 	}
-	redirect(w, r, RouteProjects+"/"+r.PathValue("key"), "task "+ref.String()+" moved")
+	in := core.RouteInput{Route: steps, Comment: field(r, "comment")}
+	result, err := h.svc.TransitionRoute(r.Context(), ref, in)
+	if err != nil {
+		return err
+	}
+	redirect(w, r, RouteProjects+"/"+r.PathValue("key"), "task "+ref.String()+" "+result.Sentence())
 	return nil
 }
 

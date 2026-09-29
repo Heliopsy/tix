@@ -118,11 +118,17 @@
   // disclosure's options, which is the list the server already computed for
   // that card. A prototype-free object so a state named like an Object member
   // cannot pass canDrop by accident.
+  //
+  // Only the one-hop options count. The menu also offers routes through other
+  // states, written "doing>done", and a drop names a column and nothing else:
+  // lighting a far column up would walk the task through states the reader
+  // never saw, and every one of those is an audit entry and an event. A route
+  // is chosen from the menu, where its path is written out, or not at all.
   tix.legalStates = function (options) {
     var out = Object.create(null);
     for (var i = 0; options && i < options.length; i++) {
       var value = options[i] && options[i].value;
-      if (typeof value === "string" && value !== "") {
+      if (typeof value === "string" && value !== "" && value.indexOf(">") < 0) {
         out[value] = true;
       }
     }

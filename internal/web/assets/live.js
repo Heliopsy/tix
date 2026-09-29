@@ -170,7 +170,7 @@
 
   // The set of states the dragged card may legally move to, read from its
   // own Move disclosure's <select> -- the same list the server already
-  // computed for that card (projects.go targetsFrom) -- so a column outside
+  // computed for that card (projects.go flowRoutes) -- so a column outside
   // it never lights up as a drop target and a drop on one is refused before
   // any request is made, not just after the server says no.
   var dragged = null;
@@ -182,7 +182,7 @@
       return;
     }
     var card = event.target.closest(".card");
-    var select = card && card.querySelector("form select[name=to]");
+    var select = card && card.querySelector("form select[name=route]");
     if (!card || !select) {
       if (event.dataTransfer) {
         event.dataTransfer.effectAllowed = "none";
@@ -243,7 +243,7 @@
     clearDropTargets(board);
 
     var form = card.querySelector("form");
-    var select = form && form.querySelector("select[name=to]");
+    var select = form && form.querySelector("select[name=route]");
     if (!form || !select) {
       return;
     }

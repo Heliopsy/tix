@@ -116,6 +116,66 @@ func TestAMultiHopMoveThatStopsPartWaySaysSo(t *testing.T) {
 	}
 }
 
+// TestTheDetailScreenOffersRoutesToo is the parity the change exists for: the
+// list's row menu had routes and the task screen beside it did not, so the
+// same task offered different moves depending on which screen you were on.
+func TestTheDetailScreenOffersRoutesToo(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "detail routes")
+
+	control := between(t, b.page("/tasks/"+ref), `<select id="to"`, "</select>")
+	if control == "" {
+		t.Fatal("the task screen offers no move control")
+	}
+	if !strings.Contains(control, `name="route"`) {
+		t.Errorf("the move control submits a single state, not a route:\n%s", control)
+	}
+	if !strings.Contains(control, `value="doing&gt;done"`) {
+		t.Errorf("the task screen offers no route through another state:\n%s", control)
+	}
+	if !strings.Contains(control, "via Doing") {
+		t.Errorf("a route is offered without naming what it passes through:\n%s", control)
+	}
+	if !strings.Contains(control, `value="doing"`) {
+		t.Errorf("the adjacent state is no longer offered on its own:\n%s", control)
+	}
+}
+
+// TestTheDetailScreenAppliesARouteOneHopAtATime drives the screen's own form,
+// because offering a route the handler then collapses would look like a
+// working feature on the page and be a lie in the trail.
+func TestTheDetailScreenAppliesARouteOneHopAtATime(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "detail route applied")
+
+	resp := b.post("/tasks/"+ref+"/transition", url.Values{"route": {"doing>done"}})
+	defer func() { _ = resp.Body.Close() }()
+	wantStatus(t, resp, http.StatusSeeOther)
+	if got := transitionHops(t, f, ref); strings.Join(got, ",") != "todo>doing,doing>done" {
+		t.Fatalf("the task screen wrote %v, want one entry per hop", got)
+	}
+}
+
+// TestTheBoardAppliesARouteOneHopAtATime is the same for the card's move
+// control, which posts to the board's own endpoint rather than the task's.
+func TestTheBoardAppliesARouteOneHopAtATime(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "board route applied")
+
+	resp := b.post("/projects/infra/move", url.Values{"ref": {ref}, "route": {"doing>done"}})
+	defer func() { _ = resp.Body.Close() }()
+	wantStatus(t, resp, http.StatusSeeOther)
+	if got := transitionHops(t, f, ref); strings.Join(got, ",") != "todo>doing,doing>done" {
+		t.Fatalf("the board wrote %v, want one entry per hop", got)
+	}
+}
+
 // transitionHops lists a task's state changes, oldest first, as "from>to".
 func transitionHops(t *testing.T, f *fixture, ref string) []string {
 	t.Helper()

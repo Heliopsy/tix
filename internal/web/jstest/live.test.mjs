@@ -15,7 +15,7 @@ import { newContext, run, fakeDocument, domNode } from "./harness.mjs";
 // a board with a data-drag gate, columns naming their state, and one card
 // whose Move disclosure names the states that card may move to.
 function board({ drag = "1", from = "todo", targets = ["doing"] } = {}) {
-  const select = domNode(["form select[name=to]", "select[name=to]"], {
+  const select = domNode(["form select[name=route]", "select[name=route]"], {
     options: targets.map((t) => ({ value: t })),
   });
   const form = domNode(["form"], { action: "/projects/infra/move", fields: { ref: "infra-1" } }, [select]);

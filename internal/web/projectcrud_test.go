@@ -162,9 +162,10 @@ func TestABoardCardSitsOnlyInItsOwnColumn(t *testing.T) {
 	}
 }
 
-// The move control offers the states this one is actually wired to. Read
-// across the board every state appears somewhere, so the offer has to be read
-// on the card that makes it.
+// The move control offers the routes this state is actually wired to: the
+// adjacent states first, then the ones reachable through them, each named as
+// the whole route it takes. Read across the board every state appears
+// somewhere, so the offer has to be read on the card that makes it.
 func TestACardOffersOnlyTheMovesItsOwnStateAllows(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
@@ -173,7 +174,7 @@ func TestACardOffersOnlyTheMovesItsOwnStateAllows(t *testing.T) {
 
 	page := b.page("/projects/infra")
 	got := moveTargets(t, page, ref)
-	want := []string{"doing", "blocked", "cancelled"}
+	want := []string{"doing", "blocked", "cancelled", "doing&gt;done"}
 	if len(got) != len(want) {
 		t.Fatalf("a todo card offers %v, want %v", got, want)
 	}

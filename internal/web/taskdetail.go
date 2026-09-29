@@ -21,7 +21,7 @@ func (h *handler) taskRoutes() []route {
 		get(RouteTask, "task.html", h.showTask, "GetTask", "TaskTree",
 			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor"),
 		post(RouteTask, h.updateTask, "UpdateTask"),
-		post(RouteTaskMove, h.transitionTask, "TransitionTask"),
+		post(RouteTaskMove, h.transitionTask, "TransitionRoute"),
 		post(RouteTaskComplete, h.completeTask, "TransitionTask"),
 		post(RouteTaskDelete, h.deleteTask, "DeleteTask"),
 		post(RouteTaskRestore, h.restoreTask, "RestoreTask"),
@@ -91,7 +91,7 @@ type taskView struct {
 	Artifacts     []core.Artifact
 	History       []historyGroup
 	Names         actorNames
-	Targets       []core.State
+	Routes        []flowRoute
 	Priorities    []priorityChoice
 	ArtifactKinds []core.ArtifactKind
 	CanWrite      bool
@@ -232,7 +232,7 @@ func (h *handler) attachProject(r *http.Request, ref core.TaskRef, data *taskVie
 	if err != nil {
 		return err
 	}
-	data.Targets = targetsFrom(workflow.Definition, data.Task.Status)
+	data.Routes = flowRoutes(workflow.Definition, data.Task.Status)
 
 	defs, err := h.svc.ListFieldDefs(r.Context(), project.Key)
 	if err != nil {
@@ -462,49 +462,27 @@ func (h *handler) transitionTask(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	comment := field(r, "comment")
-	var done []string
-	for _, to := range steps {
-		// Every hop is an ordinary service call, so a route through three
-		// states writes three audit entries and emits three events, exactly
-		// as making those moves one at a time would.
-		if _, err := h.svc.TransitionTask(r.Context(), ref, core.TransitionInput{To: to, Comment: comment}); err != nil {
-			if len(done) == 0 {
-				return err
-			}
-			// Part of the route did happen. Saying only that it failed would
-			// leave the reader with a task in a state nobody chose.
-			flash := "task moved to " + done[len(done)-1] + ", then stopped: could not move to " + to
-			h.afterTransition(w, r, ref, flash)
-			return nil
-		}
-		done = append(done, to)
+	in := core.RouteInput{Route: steps, Comment: field(r, "comment")}
+	result, err := h.svc.TransitionRoute(r.Context(), ref, in)
+	if err != nil {
+		return err
 	}
-	h.afterTransition(w, r, ref, transitionFlash(done))
+	h.afterTransition(w, r, ref, result.Sentence())
 	return nil
 }
 
-// transitionSteps reads the states this submission asks for, in order. A row
-// menu submits a whole route; the detail screen and the board submit one
-// state, and both go through the same loop.
+// transitionSteps reads the states this submission asks for, in order. Every
+// menu submits a whole route; a form that carries one state, such as the
+// board's drag target, submits it as a route of one.
 func transitionSteps(r *http.Request) ([]string, error) {
 	if route := field(r, "route"); route != "" {
-		return parseFlowRoute(route)
+		return core.ParseRoute(route)
 	}
 	to := field(r, "to")
 	if to == "" {
 		return nil, core.Invalid("no state to move to")
 	}
 	return []string{to}, nil
-}
-
-// transitionFlash says where the task ended up, and through what if it took
-// more than one hop.
-func transitionFlash(done []string) string {
-	if len(done) < 2 {
-		return "task moved to " + done[len(done)-1]
-	}
-	return "task moved " + strings.Join(done, " \u2192 ") + ", one step at a time"
 }
 
 // afterTransition returns the reader where they were working. A move made from

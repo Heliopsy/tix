@@ -20,15 +20,15 @@
           {{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}
         </div>
         {{end}}
-        {{if .Targets}}
+        {{if .Routes}}
         <details class="card-move">
           <summary aria-label="Move {{.Task.Ref}}">Move</summary>
           <div class="body">
             <form method="post" action="/projects/{{$.Data.Project.Key}}/move">
               {{template "csrf" $.CSRF}}
               <input type="hidden" name="ref" value="{{.Task.Ref}}">
-              <select id="to-{{.Task.Ref}}" name="to" aria-label="Move {{.Task.Ref}} to">
-                {{range .Targets}}<option value="{{.Key}}">{{.Label}}</option>{{end}}
+              <select id="to-{{.Task.Ref}}" name="route" aria-label="Move {{.Task.Ref}} to">
+                {{range .Routes}}<option value="{{.Value}}">{{.Option}}</option>{{end}}
               </select>
               <button type="submit">Move</button>
             </form>

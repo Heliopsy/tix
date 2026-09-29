@@ -222,8 +222,8 @@
     <form method="post" action="/tasks/{{$t.Ref}}/transition">
       {{template "csrf" .CSRF}}
       <label for="to">Target state</label>
-      <select id="to" name="to" data-shortcut-target="transition">
-        {{range .Data.Targets}}<option value="{{.Key}}">{{.Label}}</option>{{end}}
+      <select id="to" name="route" data-shortcut-target="transition">
+        {{range .Data.Routes}}<option value="{{.Value}}">{{.Option}}</option>{{end}}
       </select>
       <label for="transition-comment">Comment</label>
       <input id="transition-comment" name="comment">
