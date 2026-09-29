@@ -83,7 +83,7 @@ var schemeKeys = map[Scheme]map[string][]string{
 		"New":        {"o"},
 		"NewProject": {"o"},
 		"EditTitle":  {"i"},
-		"EditBody":   {"I"},
+		"EditTask":   {"I"},
 		"Filter":     {"/", ":"},
 		"Comment":    {"a"},
 		"Refresh":    {"e"},
@@ -91,8 +91,8 @@ var schemeKeys = map[Scheme]map[string][]string{
 	SchemeEmacs: {
 		"Up":        {"up", "ctrl+p"},
 		"Down":      {"down", "ctrl+n"},
-		"Left":      {"left", "ctrl+b", "shift+tab"},
-		"Right":     {"right", "ctrl+f", "tab"},
+		"Left":      {"left", "ctrl+b"},
+		"Right":     {"right", "ctrl+f"},
 		"Top":       {"home", "ctrl+a"},
 		"Bottom":    {"end", "ctrl+e"},
 		"Back":      {"esc", "ctrl+g"},
@@ -110,8 +110,8 @@ var schemeKeys = map[Scheme]map[string][]string{
 	SchemeNano: {
 		"Up":      {"up", "ctrl+p"},
 		"Down":    {"down", "ctrl+n"},
-		"Left":    {"left", "ctrl+b", "shift+tab"},
-		"Right":   {"right", "ctrl+f", "tab"},
+		"Left":    {"left", "ctrl+b"},
+		"Right":   {"right", "ctrl+f"},
 		"Top":     {"home", "ctrl+a"},
 		"Bottom":  {"end", "ctrl+e"},
 		"Filter":  {"ctrl+w", "/"},
@@ -135,7 +135,7 @@ var schemeKeys = map[Scheme]map[string][]string{
 		"New":        {"o"},
 		"NewProject": {"o"},
 		"EditTitle":  {"i"},
-		"EditBody":   {"I"},
+		"EditTask":   {"I"},
 		"Comment":    {"a"},
 		"Filter":     {"/", ":"},
 		"Settings":   {",", " "},
@@ -214,14 +214,14 @@ func viewActions(v viewKind) []string {
 	case viewBoard:
 		return append([]string{
 			"Up", "Down", "Left", "Right", "Top", "Bottom", "Enter", "Filter", "ClearFltr",
-			"Claim", "Release", "Transition", "New", "EditTitle", "EditBody", "Priority",
+			"Claim", "Release", "Transition", "New", "EditTitle", "EditTask", "Priority",
 			"Assign", "Comment", "CommentEdit", "Tag", "Untag", "Tags", "Depend", "Undepend",
 			"Delete", "Restore", "Artifact", "ClaimNext", "Renew", "Settings", "Back",
 		}, global...)
 	case viewDetail:
 		return append([]string{
 			"Up", "Down", "Left", "Right", "Claim", "Release", "Transition", "New", "EditTitle",
-			"EditBody", "Priority", "Assign", "Comment", "CommentEdit", "Tag", "Untag", "Tags",
+			"EditTask", "Priority", "Assign", "Comment", "CommentEdit", "Tag", "Untag", "Tags",
 			"Depend", "Undepend", "Delete", "Restore", "Artifact", "ClaimNext", "Renew",
 			"Settings", "Back",
 		}, global...)

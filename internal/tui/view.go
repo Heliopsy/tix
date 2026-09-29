@@ -802,6 +802,14 @@ func (m Model) panel(p Panel) []string {
 // names the two keys that end it.
 func (m Model) promptPanel() Panel {
 	spec, _ := m.prompt.Spec()
+	if spec.Multiline {
+		return Panel{
+			Title: spec.Title(),
+			Note:  spec.Placeholder,
+			Rows:  m.proseRows(spec.Field),
+			Keys:  m.proseHelp(),
+		}
+	}
 	row := "  " + pad(spec.Field, FormLabelWidth) + m.input.View()
 	return Panel{
 		Title: spec.Title(),
@@ -809,6 +817,30 @@ func (m Model) promptPanel() Panel {
 		Rows:  []string{m.fit(row)},
 		Keys:  m.acceptHelp("apply"),
 	}
+}
+
+// proseRows draws the multi-line field into the same two columns every other
+// input mode uses: the label once, and the text beside it, every line of it
+// lined up under the first.
+func (m Model) proseRows(label string) []string {
+	lines := strings.Split(strings.TrimRight(m.area.View(), "\n"), "\n")
+	out := make([]string, 0, len(lines))
+	for i, l := range lines {
+		head := pad("", FormLabelWidth)
+		if i == 0 {
+			head = pad(label, FormLabelWidth)
+		}
+		out = append(out, m.fit(strings.Repeat(" ", DetailIndent)+head+l))
+	}
+	return out
+}
+
+// proseHelp names the keys a multi-line field answers to. Enter is listed as
+// the newline it now inserts, because a reader who cannot discover how to save
+// a field is worse off than with the one line it replaced.
+func (m Model) proseHelp() string {
+	return m.keys.Accept.Help().Key + " newline   " +
+		m.keys.Commit.Help().Key + " apply   " + m.keys.Cancel.Help().Key + " cancel"
 }
 
 // choicePanel renders the numbered picker. The options keep their digits,
@@ -839,7 +871,15 @@ func (m Model) confirmPanel() Panel {
 func (m Model) formPanel() Panel {
 	rows := make([]string, 0, len(m.form.Fields))
 	for _, l := range m.form.Lines() {
-		row := "  " + pad(l.Label, FormLabelWidth) + l.Value
+		if l.Selected && l.Kind == FieldProse {
+			rows = append(rows, m.proseRows(l.Label)...)
+			continue
+		}
+		value := l.Value
+		if l.Selected && l.Kind == FieldText {
+			value = m.input.View()
+		}
+		row := "  " + pad(l.Label, FormLabelWidth) + value
 		if l.Selected {
 			rows = append(rows, m.fit(m.selection().Render(row)+m.theme.Dim.Render("   "+l.Hint)))
 			continue
@@ -918,9 +958,19 @@ func pad(s string, width int) string {
 	return s
 }
 
-// formHelp names the keys that drive a form, under whichever scheme is loaded.
+// formHelp names the keys that drive a form, under whichever scheme is loaded
+// and for whichever field the cursor is on. A field the reader types into owns
+// the arrows, so the legend stops offering them as the way between fields the
+// moment they stop being it.
 func (m Model) formHelp() string {
-	return m.keys.Up.Help().Key + " " + m.keys.Down.Help().Key + " field   " +
-		m.keys.Left.Help().Key + " " + m.keys.Right.Help().Key + " value   " +
-		m.keys.Accept.Help().Key + " apply   " + m.keys.Cancel.Help().Key + " cancel"
+	fields := m.keys.NextField.Help().Key + " " + m.keys.PrevField.Help().Key + " field   "
+	switch {
+	case m.form.Prose():
+		return fields + m.proseHelp()
+	case m.form.Typing():
+		return fields + m.acceptHelp("apply")
+	default:
+		return fields + m.keys.Left.Help().Key + " " + m.keys.Right.Help().Key + " value   " +
+			m.acceptHelp("apply")
+	}
 }

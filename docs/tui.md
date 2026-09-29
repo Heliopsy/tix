@@ -93,7 +93,7 @@ screen.
 | Scheme | What it changes |
 | --- | --- |
 | `default` | the shipped bindings below |
-| `vim` | `o` new, `i` edit title, `I` edit body, `a` comment, `:` also filters, `e` refreshes |
+| `vim` | `o` new, `i` edit title, `I` edit the task, `a` comment, `:` also filters, `e` refreshes |
 | `emacs` | `ctrl+p`/`ctrl+n`/`ctrl+b`/`ctrl+f` move, `ctrl+a`/`ctrl+e` ends, `ctrl+g` backs out, `ctrl+s` filters, `ctrl+t` edits, `ctrl+l` redraws |
 | `nano` | `ctrl+w` searches, `ctrl+g` helps, `ctrl+x` quits, `ctrl+o` applies, `ctrl+l` redraws, `ctrl+k` deletes |
 | `helix` | `x` opens the row, `d` releases, `o` new, `i` edit, `a` comment, space opens settings |
@@ -116,9 +116,11 @@ impossible for a scheme to leave an action unbound.
 | Keys | Action | Where |
 | --- | --- | --- |
 | `↑`/`k`, `↓`/`j` | move the selection | everywhere |
-| `←`/`h`/`shift+tab`, `→`/`l`/`tab` | previous, next column | board; steps a value on settings |
+| `←`/`h`, `→`/`l` | previous, next column | board; steps a value on settings, moves the cursor inside a text field |
+| `tab`, `shift+tab` | next, previous field | wherever a form is open |
 | `g`/`home`, `G`/`end` | first, last | lists |
-| `enter` | open, or apply an input | everywhere |
+| `enter` | open, or apply an input; inserts a newline inside a multi-line field | everywhere |
+| `ctrl+s` | apply an input, including from a multi-line field | wherever one is open |
 | `esc`/`backspace` | back one level | everywhere |
 | `/` | filter | board, activity; cycles the window on statistics |
 | `C` | clear the filter | board, activity |
@@ -128,7 +130,7 @@ impossible for a scheme to leave an action unbound.
 | `N` | claim next from the queue | board, detail |
 | `t` | transition | board, detail |
 | `n` | new task, new project on the project list, new field or domain or member | board, detail, projects, project, tenant |
-| `e`, `E` | edit title, edit body; `e` also edits the project or the tenant | board, detail, project, tenant |
+| `e`, `E` | edit title, edit the whole task on one form; `e` also edits the project or the tenant | board, detail, project, tenant |
 | `P` | set priority | board, detail |
 | `A` | assign, from the tenant's directory | board, detail |
 | `m` | comment | board, detail |
@@ -165,14 +167,45 @@ not advertised at all, because a legend offering `n new task` under a text field
 keystroke that will type the letter n.
 
 What a key gathers depends on what the operation can accept, and there are three things to gather. A
-single-line input gathers free text: a title, a body, a comment, a tag name, a reference. It is seeded
-with the value it would replace where there is one, and an empty input cancels, so a stray keystroke never
-sends a blank edit. Transition and priority open a numbered picker, and transition offers only the states
-the task's own workflow permits from where it is. The assignee and an artifact's kind open a form whose
-every field picks from the values the operation accepts, because neither is free text: a reader knows a
+single-line input gathers a value: a title, a tag name, a reference, a hostname. It is seeded with the
+value it would replace where there is one, and an empty input cancels, so a stray keystroke never sends a
+blank edit. Transition and priority open a numbered picker, and transition offers only the states the
+task's own workflow permits from where it is. The assignee and an artifact's kind open a form whose every
+field picks from the values the operation accepts, because neither is free text: a reader knows a
 colleague by handle and has never seen the identifier the service stores, and an artifact kind is one of a
 fixed set. `O` gathers the artifact's name at the prompt first and classifies it in the form afterwards,
 which is the one place the two controls run in sequence.
+
+### Prose fields
+
+A task body, a comment and a project description are prose, and prose is not a value. They open a field
+several lines tall inside the same panel, seeded with what is there, newlines and all. It grows with what
+you type, between three lines and a third of the terminal, so a one-line note does not reserve half the
+screen and a long one is not read through a two-line slot.
+
+`enter` inserts a newline there, which is the whole point of the field, so it cannot also apply. `ctrl+s`
+applies, and the panel's own legend says so on screen the whole time the field is open. Nothing here shells
+out to `$EDITOR`: `tix ssh` serves this interface over SSH, so an editor spawned from a keystroke would run
+on the server rather than on the reader's machine, which is useless to them and hands a remote reader a
+process on your box.
+
+### Editing a whole task
+
+`E` opens one form over the selected task: title, body, priority and, when the tenant has a directory to
+read, assignee. Every field shows what it holds before anything is sent, and `esc` leaves having written
+nothing. Only the fields you changed are sent, so a trip that touched the body records an edit to the body
+and not to the title.
+
+`tab` and `shift+tab` move between the fields. The arrows cannot: inside the title and the body they move
+the cursor through the text, which is what the field needs them for. That is why they no longer step a
+column with `tab` on the board, where `←`/`h` and `→`/`l` still do. The panel's legend names the keys for
+whichever field the cursor is on, because a reader who cannot leave the body field is stuck in a way that
+reads as a hang.
+
+The single-key actions are all still there and unchanged: `e` for the title alone, `P` for priority, `A`
+for the assignee, `#` and `U` for tags, `D` for a dependency. `E` is the trip that changes several things
+at once. Custom fields are not on the form: they are per project and typed, and `tix task edit --field`
+takes them with the validation this screen cannot.
 
 `X` opens a form for what the delete removes and how far it reaches, and then a confirmation naming the
 subject. `y` answers that, not `enter`: a question answered by the key every other input is accepted with
@@ -487,8 +520,9 @@ destination that is not a terminal gets none by default. State is never carried 
 marker, badge and category is also a word or a character. The selected card is drawn with a heavier bar,
 not only a brighter one, and an open input panel is separated from the board by a rule, so neither the
 selection nor where the keyboard is being captured depends on an escape sequence. A run with no colour
-also loses the text cursor inside an input, which is drawn in reverse video: the panel's own rule and its
-legend say where the typing is going. The tenant's accent is resolved the same way
+also loses the text cursor inside an input and inside a prose field, both drawn in reverse video, along with
+the prose field's line numbers and its own prompt character: the panel's own rule and its legend say where
+the typing is going. The tenant's accent is resolved the same way
 the browser resolves it, so one tenant is one colour on both surfaces, and a tenant whose branding cannot
 be read keeps the built-in accent rather than failing to open a board. See [theming.md](theming.md).
 

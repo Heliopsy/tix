@@ -9,18 +9,18 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 )
 
-// promptKind names the single-line input the interface has open, if any. The
-// filter bar was the first of these; every later action that needs one line of
-// text reuses the same input rather than growing a second mechanism.
+// promptKind names the free-text input the interface has open, if any. The
+// filter bar was the first of these; every later action that needs text reuses
+// the same input rather than growing a second mechanism. A prompt whose spec
+// is multi-line draws a taller field inside the same panel.
 type promptKind int
 
-// The single-line inputs.
+// The free-text inputs.
 const (
 	promptNone promptKind = iota
 	promptFilter
 	promptNewTask
 	promptTitle
-	promptBody
 	promptComment
 	promptCommentEdit
 	promptTag
@@ -43,11 +43,16 @@ const (
 // Field is what the one answer is called, so a single-value prompt renders as
 // a form with one field rather than as a second idiom the reader has to learn
 // separately. Title names the panel, and is the Prompt without its colon.
+//
+// Multiline marks a field holding prose rather than a value. Enter inserts a
+// newline there instead of applying, so the panel's legend names the key that
+// does apply.
 type PromptSpec struct {
 	Prompt      string
 	Placeholder string
 	Limit       int
 	Field       string
+	Multiline   bool
 }
 
 // Title names the panel an input opens in.
@@ -55,39 +60,44 @@ func (s PromptSpec) Title() string { return strings.TrimSuffix(strings.TrimSpace
 
 // promptSpecs describes every input. An input that is not listed is not open.
 var promptSpecs = map[promptKind]PromptSpec{
-	promptFilter:      {"filter: ", "status:todo is:unclaimed text", 512, "expression"},
-	promptNewTask:     {"new task: ", "title of the task to create", core.MaxTitleLength, "title"},
-	promptTitle:       {"title: ", "new title", core.MaxTitleLength, "title"},
-	promptBody:        {"body: ", "new body", 4096, "body"},
-	promptComment:     {"comment: ", "what you want to record", 4096, "comment"},
-	promptCommentEdit: {"edit comment: ", "what the comment should say", 4096, "comment"},
-	promptTag:         {"add tag: ", "tag to attach", 128, "tag"},
-	promptUntag:       {"remove tag: ", "tag to detach", 128, "tag"},
-	promptDependency:  {"depends on: ", "task ref, such as infra-42", 128, "task ref"},
-	promptNewProject:  {"new project: ", "key and name, such as: infra Infrastructure", 256, "key and name"},
+	promptFilter:  {Prompt: "filter: ", Placeholder: "status:todo is:unclaimed text", Limit: 512, Field: "expression"},
+	promptNewTask: {Prompt: "new task: ", Placeholder: "title of the task to create", Limit: core.MaxTitleLength, Field: "title"},
+	promptTitle:   {Prompt: "title: ", Placeholder: "new title", Limit: core.MaxTitleLength, Field: "title"},
+
+	// A comment is prose and often runs to paragraphs, so it takes the tall
+	// field rather than one clipped line.
+	promptComment:     {Prompt: "comment: ", Placeholder: "what you want to record", Limit: 4096, Field: "comment", Multiline: true},
+	promptCommentEdit: {Prompt: "edit comment: ", Placeholder: "what the comment should say", Limit: 4096, Field: "comment", Multiline: true},
+
+	promptTag:        {Prompt: "add tag: ", Placeholder: "tag to attach", Limit: 128, Field: "tag"},
+	promptUntag:      {Prompt: "remove tag: ", Placeholder: "tag to detach", Limit: 128, Field: "tag"},
+	promptDependency: {Prompt: "depends on: ", Placeholder: "task ref, such as infra-42", Limit: 128, Field: "task ref"},
+	promptNewProject: {Prompt: "new project: ", Placeholder: "key and name, such as: infra Infrastructure", Limit: 256, Field: "key and name"},
 
 	// The activity bar takes the audit filter's own grammar rather than the
 	// task filter's: an event has a kind and an actor, and no status, tag or
 	// due date to ask about.
-	promptActivityFilter: {"activity: ", "kind:task actor:ada -action:task.updated word", 512, "expression"},
-	promptTenant:         {"tenant: ", "tenant key, such as acme", 128, "tenant key"},
+	promptActivityFilter: {Prompt: "activity: ", Placeholder: "kind:task actor:ada -action:task.updated word", Limit: 512, Field: "expression"},
+	promptTenant:         {Prompt: "tenant: ", Placeholder: "tenant key, such as acme", Limit: 128, Field: "tenant key"},
 
 	// The project screen's own inputs. Each is seeded with the value it would
 	// replace, so an edit starts from what is there rather than from blank.
-	promptProjectName: {"project name: ", "what this project is called", 256, "name"},
-	promptProjectDesc: {"description: ", "what this project is for", 1024, "description"},
-	promptProjectIcon: {"icon: ", "one or two characters, such as \u25b2", core.MaxProjectIconRunes, "icon"},
-	promptNewField:    {"new field: ", "key and label, such as: severity Severity", 256, "key and label"},
+	promptProjectName: {Prompt: "project name: ", Placeholder: "what this project is called", Limit: 256, Field: "name"},
+	// A project's description is prose too, and the one prose field that screen
+	// has.
+	promptProjectDesc: {Prompt: "description: ", Placeholder: "what this project is for", Limit: 1024, Field: "description", Multiline: true},
+	promptProjectIcon: {Prompt: "icon: ", Placeholder: "one or two characters, such as \u25b2", Limit: core.MaxProjectIconRunes, Field: "icon"},
+	promptNewField:    {Prompt: "new field: ", Placeholder: "key and label, such as: severity Severity", Limit: 256, Field: "key and label"},
 
 	// The artifact's name. Its kind is the one answer drawn from a fixed set,
 	// so the form asks that and this asks the part no fixed list can hold.
-	promptArtifact: {"artifact name: ", "what this output is called", 256, "name"},
+	promptArtifact: {Prompt: "artifact name: ", Placeholder: "what this output is called", Limit: 256, Field: "name"},
 
 	// The tenant screen's own inputs. A tenant's name is seeded with the name
 	// it would replace; a hostname is new every time and is seeded with
 	// nothing.
-	promptTenantName: {"tenant name: ", "what this tenant is called", 256, "name"},
-	promptDomain:     {"hostname: ", "hostname that resolves here, such as acme.example", 253, "hostname"},
+	promptTenantName: {Prompt: "tenant name: ", Placeholder: "what this tenant is called", Limit: 256, Field: "name"},
+	promptDomain:     {Prompt: "hostname: ", Placeholder: "hostname that resolves here, such as acme.example", Limit: 253, Field: "hostname"},
 }
 
 // Spec describes an input, reporting whether the kind names one at all.

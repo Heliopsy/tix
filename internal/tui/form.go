@@ -31,6 +31,21 @@ const (
 	formTenant
 	formTenantAdd
 	formMember
+	formTaskEdit
+)
+
+// FieldKind says what a form field gathers. A field drawn from a fixed set is
+// cycled; the other two are typed into, and the widget that gathers them owns
+// the arrows while it has the cursor.
+type FieldKind int
+
+// The field kinds.
+const (
+	// FieldChoice is the zero value, so every field written before free text
+	// existed keeps cycling its options.
+	FieldChoice FieldKind = iota
+	FieldText
+	FieldProse
 )
 
 // FieldCondition keeps a field off screen until another field holds a value.
@@ -46,20 +61,22 @@ func (c FieldCondition) Met(f Form) bool {
 	return c.Key == "" || f.value(c.Key) == c.Value
 }
 
-// FormField is one answer a form gathers, drawn from a fixed set of values.
+// FormField is one answer a form gathers: a value cycled out of a fixed set, a
+// line of text, or prose.
 //
-// There is deliberately no free-text field kind. None of the operations this
-// form was built for wants one: a delete chooses among its own switches, and
-// picking a tag or a dependency chooses among the ones that exist. Free text
-// already has the single-line prompt, and a field kind with no caller would be
-// a guess about the operations that come next.
+// Limit caps a typed field, and is ignored by a field with options.
 type FormField struct {
 	Key     string
 	Label   string
 	Options []string
 	Value   string
 	Needs   FieldCondition
+	Kind    FieldKind
+	Limit   int
 }
+
+// Typed reports whether a field is gathered by typing rather than by cycling.
+func (f FormField) Typed() bool { return f.Kind == FieldText || f.Kind == FieldProse }
 
 // Form is a set of answers gathered on one screen. It is moved through and
 // cycled with the bindings the settings screen already uses, so every
@@ -112,6 +129,34 @@ func (f Form) Value(key string) string {
 	return ""
 }
 
+// Typing reports whether the selected field is one the reader types into, which
+// is what decides who owns the arrows and whether enter applies the form.
+func (f Form) Typing() bool {
+	selected, ok := f.Selected()
+	return ok && selected.Typed()
+}
+
+// Prose reports whether the selected field is the multi-line one, where enter
+// inserts a newline rather than applying the form.
+func (f Form) Prose() bool {
+	selected, ok := f.Selected()
+	return ok && selected.Kind == FieldProse
+}
+
+// SetValue records an answer against a field, which is how a typed field's
+// widget writes what the reader typed back into the form.
+func (f Form) SetValue(key, value string) Form {
+	fields := make([]FormField, len(f.Fields))
+	copy(fields, f.Fields)
+	for i := range fields {
+		if fields[i].Key == key {
+			fields[i].Value = value
+		}
+	}
+	f.Fields = fields
+	return f
+}
+
 // Yes reports whether a switch is set.
 func (f Form) Yes(key string) bool { return f.Value(key) == yesValue }
 
@@ -143,9 +188,10 @@ func (f Form) Move(delta int) Form {
 
 // Cycle steps the selected field's answer through its values, wrapping, and
 // clamps the cursor afterwards because an answer can hide the field below it.
+// A typed field cycles nothing: its arrows move the cursor through the text.
 func (f Form) Cycle(delta int) Form {
 	selected, ok := f.Selected()
-	if !ok || len(selected.Options) == 0 {
+	if !ok || selected.Typed() || len(selected.Options) == 0 {
 		return f
 	}
 	next := CycleValue(selected.Options, selected.Value, delta)
@@ -167,6 +213,7 @@ type FormLine struct {
 	Value    string
 	Hint     string
 	Selected bool
+	Kind     FieldKind
 }
 
 // Lines renders the visible fields, each with the values it could hold instead,
@@ -177,11 +224,26 @@ func (f Form) Lines() []FormLine {
 	out := make([]FormLine, 0, len(visible))
 	for i, field := range visible {
 		out = append(out, FormLine{
-			Label: field.Label, Value: field.Value,
-			Hint: FieldHint(field), Selected: i == f.Sel,
+			Label: field.Label, Value: FieldSummary(field),
+			Hint: FieldHint(field), Selected: i == f.Sel, Kind: field.Kind,
 		})
 	}
 	return out
+}
+
+// FieldSummary is what a field shows while the cursor is elsewhere. Prose is
+// summarised to its first line and a count of the rest, because a form row is
+// one line and several paragraphs drawn into it is the defect this field
+// exists to fix.
+func FieldSummary(field FormField) string {
+	if field.Kind != FieldProse {
+		return field.Value
+	}
+	lines := strings.Split(field.Value, "\n")
+	if len(lines) == 1 {
+		return field.Value
+	}
+	return lines[0] + " (+" + strconv.Itoa(len(lines)-1) + " more lines)"
 }
 
 // hintWidth is how much room the alternatives get before a field states its
@@ -191,6 +253,9 @@ const hintWidth = 44
 // FieldHint says what else a field could hold: the whole list while it is short
 // enough to read, and where in the list this answer sits once it is not.
 func FieldHint(field FormField) string {
+	if field.Typed() {
+		return ""
+	}
 	if len(field.Options) < 2 {
 		return ""
 	}
@@ -404,4 +469,59 @@ func ArtifactForm(name string) Form {
 				Value: string(core.ArtifactResult)},
 		},
 	}
+}
+
+// TaskEditNote says which keys move between the fields, because a reader who
+// cannot leave the body field is stuck in a way that reads as a hang.
+const TaskEditNote = "tab and shift+tab move between fields; the arrows belong to the field you are in"
+
+// TaskEditForm gathers everything one update can change about a task on one
+// screen. Editing a task cost six separate keys and six round trips, each
+// asking one question and applying it before the next could be asked.
+//
+// The single-key actions are all still there. This is the trip that changes
+// several things at once, and the only place the body is more than one line.
+//
+// Custom fields are deliberately absent: they are per project and typed, and a
+// form that gathers a typed value it cannot validate here would be a worse
+// answer than tix task edit --field, which already exists.
+func TaskEditForm(t core.Task, actors []core.Actor) Form {
+	fields := []FormField{
+		{Key: "title", Label: "title", Value: t.Title, Kind: FieldText, Limit: core.MaxTitleLength},
+		{Key: "body", Label: "body", Value: t.Body, Kind: FieldProse, Limit: 4096},
+		{Key: "priority", Label: "priority", Options: PriorityOptions(),
+			Value: PriorityLabel(t.Priority)},
+	}
+	if len(actors) > 0 {
+		value := unassignedOption
+		for _, a := range actors {
+			if a.ID == t.AssigneeActorID {
+				value = ActorLabel(a)
+			}
+		}
+		fields = append(fields, FormField{Key: "assignee", Label: "assignee",
+			Options: ActorOptions(actors), Value: value})
+	}
+	return Form{Kind: formTaskEdit, Title: "edit " + t.Ref, Note: TaskEditNote, Fields: fields}
+}
+
+// PriorityOptions names every priority the way the rest of the interface names
+// them, highest first, which is the order the numbered picker offers.
+func PriorityOptions() []string {
+	out := make([]string, 0, 5)
+	for _, c := range PriorityChoices() {
+		out = append(out, c.Label)
+	}
+	return out
+}
+
+// PriorityFor resolves a named priority back to the value the service takes,
+// reporting a label no priority carries rather than guessing at one.
+func PriorityFor(label string) (core.Priority, bool) {
+	for p := core.PriorityHighest; p <= core.PriorityLowest; p++ {
+		if PriorityLabel(p) == label {
+			return p, true
+		}
+	}
+	return core.PriorityNormal, false
 }

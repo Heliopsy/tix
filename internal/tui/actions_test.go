@@ -19,6 +19,10 @@ func typeInto(t *testing.T, m Model, open, text string) (Model, tea.Cmd) {
 	if m.prompt == promptNone {
 		t.Fatalf("key %q opened no prompt", open)
 	}
+	if m.promptMultiline() {
+		m.area.SetValue(text)
+		return m.reduce(keyMsgFor("ctrl+s"))
+	}
 	m.input.SetValue(text)
 	return m.reduce(pressKey("enter"))
 }
@@ -40,11 +44,6 @@ func TestPromptsReachTheService(t *testing.T) {
 		}},
 		{"edit title", "e", "a better title", func(t *testing.T, f *fakeService) {
 			if len(f.updated) != 1 || f.updated[0].Title == nil || *f.updated[0].Title != "a better title" {
-				t.Fatalf("updated = %+v", f.updated)
-			}
-		}},
-		{"edit body", "E", "what actually happened", func(t *testing.T, f *fakeService) {
-			if len(f.updated) != 1 || f.updated[0].Body == nil || *f.updated[0].Body != "what actually happened" {
 				t.Fatalf("updated = %+v", f.updated)
 			}
 		}},
@@ -88,7 +87,7 @@ func TestPromptsReachTheService(t *testing.T) {
 }
 
 func TestEveryPromptIsAlsoReachableFromTheDetailView(t *testing.T) {
-	for _, key := range []string{"e", "E", "m", "#", "U", "D"} {
+	for _, key := range []string{"e", "m", "#", "U", "D"} {
 		t.Run(key, func(t *testing.T) {
 			m := boardModel(t)
 			m.svc = newFakeService()

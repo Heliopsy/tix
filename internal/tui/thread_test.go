@@ -125,11 +125,11 @@ func TestEditingTheSelectedCommentOpensOnItsOwnBody(t *testing.T) {
 	if m.prompt != promptCommentEdit {
 		t.Fatalf("M opened prompt %v: %q", m.prompt, m.err)
 	}
-	if got := m.input.Value(); got != "the migration landed" {
+	if got := m.area.Value(); got != "the migration landed" {
 		t.Fatalf("the edit opened on %q rather than on the selected comment", got)
 	}
-	m.input.SetValue("the migration landed on Tuesday")
-	m, cmd := m.reduce(pressKey("enter"))
+	m.area.SetValue("the migration landed on Tuesday")
+	m, cmd := m.reduce(keyMsgFor("ctrl+s"))
 	if m.prompt != promptNone {
 		t.Fatal("the prompt stayed open")
 	}

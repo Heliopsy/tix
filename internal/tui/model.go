@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -61,7 +62,11 @@ type Model struct {
 	filter     core.TaskFilter
 	filterErr  string
 	input      textinput.Model
-	prompt     promptKind
+	// area is the multi-line field. A body and a comment are prose, and prose
+	// crammed into one line is clipped at the terminal edge with no way to see
+	// the end of it and no way to type a newline.
+	area   textarea.Model
+	prompt promptKind
 
 	detail    *detailMsg
 	detailOff int
@@ -156,6 +161,9 @@ type Model struct {
 	historySel    int
 	historyOff    int
 
+	// actorsFor names the form a directory read was started for, because one
+	// read serves the assignee picker and the whole-task edit.
+	actorsFor formKind
 	// directory is the tenant's actors, as the assignee picker last read them.
 	// A handle is what a reader picks and an identifier is what the service
 	// takes, so the listing is kept rather than reduced to labels.
@@ -238,6 +246,7 @@ func New(cfg Config) Model {
 	in.Prompt = "filter: "
 	in.Placeholder = "status:todo is:unclaimed text"
 	in.CharLimit = 512
+	area := textarea.New()
 	now := cfg.Now
 	if now == nil {
 		now = time.Now
@@ -255,7 +264,7 @@ func New(cfg Config) Model {
 		svc: cfg.Service, ctx: ctx, actor: cfg.Actor, access: cfg.Access,
 		keys: DefaultKeyMap(), theme: NewTheme(cfg.Profile, auto, cfg.Brand), now: now,
 		timeStyle: cfg.TimeStyle,
-		view:      viewProjects, input: in, leases: map[string]string{},
+		view:      viewProjects, input: in, area: area, leases: map[string]string{},
 		openProject: cfg.Project, width: 80, height: 24,
 		scheme: SchemeDefault, overrides: cfg.Overrides,
 		tenantKey: cfg.Tenant, dialTenant: cfg.Dial,
@@ -276,12 +285,19 @@ func New(cfg Config) Model {
 	return m
 }
 
-// styleInput draws the single-line input the way the rest of the frame is
-// drawn. The bubble ships its own colours and its own reverse-video cursor,
+// styleInput draws the two text fields the way the rest of the frame is drawn.
+// Both bubbles ship their own colours and their own reverse-video cursor,
 // which a colourless run must not inherit: "NO_COLOR writes no escape
-// anywhere" was true of everything this interface renders except the one
-// widget it does not render itself.
+// anywhere" was true of everything this interface renders except the widgets
+// it does not render itself.
+//
+// The multi-line field also arrives with a border character for a prompt, line
+// numbers down its left edge and a blinking cursor, none of which belong in a
+// panel that already says what is being asked.
 func (m Model) styleInput() Model {
+	m.area.Prompt = ""
+	m.area.ShowLineNumbers = false
+	m.area.EndOfBufferCharacter = ' '
 	if m.theme.Color {
 		return m
 	}
@@ -292,8 +308,40 @@ func (m Model) styleInput() Model {
 	// like any other. Where the frame carries none, the panel's rule and its
 	// legend are what say the keyboard has been taken.
 	m.input.SetVirtualCursor(false)
+	area := textarea.StyleState{Base: plain, Text: plain, LineNumber: plain,
+		CursorLineNumber: plain, CursorLine: plain, EndOfBuffer: plain,
+		Placeholder: plain, Prompt: plain, Selection: plain}
+	m.area.SetStyles(textarea.Styles{Focused: area, Blurred: area})
+	m.area.SetVirtualCursor(false)
 	return m
 }
+
+// The range a multi-line field is allowed to take. A short body reserving half
+// the terminal is as wrong as a long one drawn into two lines.
+const (
+	MinProseLines = 3
+	MaxProseLines = 10
+)
+
+// ProseHeight sizes a multi-line field: tall enough for what is in it, never
+// taller than a third of the terminal, so the panel's legend stays the last
+// line on screen.
+func ProseHeight(lines, terminal int) int {
+	return clamp(lines, MinProseLines, clamp(terminal/3, MinProseLines, MaxProseLines))
+}
+
+// fitArea sizes the multi-line field to what it holds and what the terminal
+// has. It runs wherever the field's content or the terminal changes, because
+// the widget draws its own height and cannot ask the frame for one.
+func (m Model) fitArea() Model {
+	m.area.SetWidth(max(MinProseWidth, m.width-DetailIndent-FormLabelWidth))
+	m.area.SetHeight(ProseHeight(m.area.LineCount(), m.height))
+	return m
+}
+
+// MinProseWidth is the narrowest a multi-line field is drawn, below which the
+// terminal is already too small for the board.
+const MinProseWidth = 16
 
 // installScheme adopts the configured keys, reporting a scheme or an override
 // it cannot use rather than falling back to the defaults in silence.
@@ -421,7 +469,7 @@ func (m Model) onResize(msg tea.WindowSizeMsg) Model {
 		return m
 	}
 	m.width, m.height = msg.Width, msg.Height
-	return m
+	return m.fitArea()
 }
 
 // onProjects installs a project listing and opens a board when one was asked for.
@@ -985,8 +1033,8 @@ func (m Model) handleTaskKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.openPrompt(promptNewTask)
 	case key.Matches(msg, m.keys.EditTitle):
 		return m.openPrompt(promptTitle)
-	case key.Matches(msg, m.keys.EditBody):
-		return m.openPrompt(promptBody)
+	case key.Matches(msg, m.keys.EditTask):
+		return m.openTaskEditForm()
 	case key.Matches(msg, m.keys.Assign):
 		return m.openAssigneeForm()
 	case key.Matches(msg, m.keys.Comment):
@@ -1018,30 +1066,56 @@ func (m Model) handleTaskKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 }
 
 // handlePromptKey edits the open input and acts on it when it is accepted.
+//
+// Enter does not accept a multi-line field. Inserting a newline is what the
+// field is for, so the commit key is the one that ends it and the panel's
+// legend names that key rather than leaving the reader to find it.
 func (m Model) handlePromptKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	prose := m.promptMultiline()
 	switch {
 	case key.Matches(msg, m.keys.Cancel):
 		return m.closePrompt(), nil
-	case key.Matches(msg, m.keys.Accept):
-		return m.submitPrompt(strings.TrimSpace(m.input.Value()))
+	case key.Matches(msg, m.keys.Commit):
+		return m.submitPrompt(strings.TrimSpace(m.promptValue()))
+	case key.Matches(msg, m.keys.Accept) && !(prose && msg.String() == "enter"):
+		return m.submitPrompt(strings.TrimSpace(m.promptValue()))
 	}
 	var cmd tea.Cmd
+	if prose {
+		m.area, cmd = m.area.Update(msg)
+		return m.fitArea(), cmd
+	}
 	m.input, cmd = m.input.Update(msg)
 	return m, cmd
+}
+
+// promptMultiline reports whether the open input gathers prose.
+func (m Model) promptMultiline() bool {
+	spec, ok := m.prompt.Spec()
+	return ok && spec.Multiline
+}
+
+// promptValue is what the open input holds, from whichever of the two fields
+// is gathering it.
+func (m Model) promptValue() string {
+	if m.promptMultiline() {
+		return m.area.Value()
+	}
+	return m.input.Value()
 }
 
 // submitPrompt performs the action the open input was gathering text for. An
 // empty input cancels, so a stray keystroke never sends a blank edit.
 func (m Model) submitPrompt(text string) (Model, tea.Cmd) {
 	if m.prompt == promptFilter {
-		next := m.applyFilterText(m.input.Value())
+		next := m.applyFilterText(m.promptValue())
 		if next.filterErr != "" {
 			return next, nil
 		}
 		return next.closePrompt(), next.loadTasks()
 	}
 	if m.prompt == promptActivityFilter {
-		next := m.applyActivityFilterText(m.input.Value())
+		next := m.applyActivityFilterText(m.promptValue())
 		if next.activityFilterErr != "" {
 			return next, nil
 		}
@@ -1090,8 +1164,6 @@ func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 	switch kind {
 	case promptTitle:
 		return m.updateTask(task, core.UpdateTaskInput{Title: &text})
-	case promptBody:
-		return m.updateTask(task, core.UpdateTaskInput{Body: &text})
 	case promptComment:
 		return m.comment(task, text)
 	case promptCommentEdit:
@@ -1141,20 +1213,18 @@ func (m Model) promptSeed(kind promptKind) string {
 		if !ok {
 			return ""
 		}
-		return strings.ReplaceAll(comment.Body, "\n", " ")
+		// Not flattened. The field holds the newlines the comment was written
+		// with, which is the whole reason it is more than one line.
+		return comment.Body
 	}
 	task, ok := m.selectedTask()
 	if !ok {
 		return ""
 	}
-	switch kind {
-	case promptTitle:
+	if kind == promptTitle {
 		return task.Title
-	case promptBody:
-		return strings.ReplaceAll(task.Body, "\n", " ")
-	default:
-		return ""
 	}
+	return ""
 }
 
 // startPrompt focuses an input introduced by its own spec.
@@ -1164,6 +1234,13 @@ func (m Model) startPrompt(kind promptKind, initial string) Model {
 		return m
 	}
 	m.prompt, m.err = kind, ""
+	if spec.Multiline {
+		m.area.Placeholder, m.area.CharLimit = spec.Placeholder, spec.Limit
+		m.area.SetValue(initial)
+		m.area.MoveToEnd()
+		m.area.Focus()
+		return m.fitArea()
+	}
 	// The panel names the input; the field carries only the value. A prompt
 	// string here would repeat the panel's own title one line below it.
 	m.input.Prompt, m.input.Placeholder, m.input.CharLimit = "", spec.Placeholder, spec.Limit
@@ -1178,6 +1255,8 @@ func (m Model) closePrompt() Model {
 	m.prompt, m.filterErr, m.activityFilterErr = promptNone, "", ""
 	m.input.SetValue("")
 	m.input.Blur()
+	m.area.SetValue("")
+	m.area.Blur()
 	return m
 }
 
@@ -1494,6 +1573,43 @@ func (m Model) onTags(msg tagsMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// applyTaskEdit sends only what the reader changed. A form that resends every
+// field it drew would record an edit to the title on a trip that touched the
+// body, and the audit log is read.
+func (m Model) applyTaskEdit(task core.Task, form Form) tea.Cmd {
+	var in core.UpdateTaskInput
+	if title := strings.TrimSpace(form.Value("title")); title != task.Title {
+		in.Title = &title
+	}
+	if body := form.Value("body"); body != task.Body {
+		in.Body = &body
+	}
+	if p, ok := PriorityFor(form.Value("priority")); ok && p != task.Priority {
+		in.Priority = &p
+	}
+	if id := ActorIDFor(m.directory, form.Value("assignee")); form.Value("assignee") != "" &&
+		id != task.AssigneeActorID {
+		in.AssigneeActorID = &id
+	}
+	if len(updatedFields(in)) == 0 {
+		return nil
+	}
+	return m.updateTask(task, in)
+}
+
+// openTaskEditForm gathers everything one update can change about a task on
+// one screen, rather than asking for each of them in a separate trip. The
+// directory is read first so the assignee is a colleague's handle rather than
+// the identifier the service stores.
+func (m Model) openTaskEditForm() (Model, tea.Cmd) {
+	if _, ok := m.selectedTask(); !ok {
+		m.err = "no task is selected"
+		return m, nil
+	}
+	m.actorsFor = formTaskEdit
+	return m, m.loadActors()
+}
+
 // openAssigneeForm reads the tenant's directory so the reader can pick a
 // colleague rather than remember an identifier. The listing is fetched on the
 // keystroke rather than held for the session, because who a tenant has changes
@@ -1503,6 +1619,7 @@ func (m Model) openAssigneeForm() (Model, tea.Cmd) {
 		m.err = "no task is selected"
 		return m, nil
 	}
+	m.actorsFor = formAssignee
 	return m, m.loadActors()
 }
 
@@ -1518,6 +1635,9 @@ func (m Model) onActors(msg actorsMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 	m.directory = msg.actors
+	if m.actorsFor == formTaskEdit {
+		return m.openForm(TaskEditForm(task, msg.actors))
+	}
 	form := AssigneeForm(msg.actors, task.AssigneeActorID)
 	if !form.Open() {
 		m.err = "this tenant has nobody to assign to"
@@ -1525,6 +1645,59 @@ func (m Model) onActors(msg actorsMsg) (Model, tea.Cmd) {
 	}
 	m.form, m.err = form, ""
 	return m, nil
+}
+
+// openForm installs a form and hands the keyboard to its first field, so a form
+// opening on a text field is typed into straight away.
+func (m Model) openForm(form Form) (Model, tea.Cmd) {
+	m.form, m.err = form, ""
+	return m.focusField(), textinput.Blink
+}
+
+// focusField seeds whichever widget the selected field is gathered by, and
+// blurs the other. A field that is cycled gathers nothing here.
+func (m Model) focusField() Model {
+	field, ok := m.form.Selected()
+	m.input.Blur()
+	m.area.Blur()
+	if !ok || !field.Typed() {
+		return m
+	}
+	if field.Kind == FieldProse {
+		m.area.Placeholder, m.area.CharLimit = "", field.Limit
+		m.area.SetValue(field.Value)
+		m.area.MoveToEnd()
+		m.area.Focus()
+		return m.fitArea()
+	}
+	m.input.Prompt, m.input.Placeholder, m.input.CharLimit = "", "", field.Limit
+	m.input.SetValue(field.Value)
+	m.input.CursorEnd()
+	m.input.Focus()
+	return m
+}
+
+// stashField writes what the reader typed back into the form, so moving off a
+// field keeps the answer and cancelling the form discards every one of them.
+func (m Model) stashField() Model {
+	field, ok := m.form.Selected()
+	if !ok || !field.Typed() {
+		return m
+	}
+	if field.Kind == FieldProse {
+		m.form = m.form.SetValue(field.Key, m.area.Value())
+		return m
+	}
+	m.form = m.form.SetValue(field.Key, m.input.Value())
+	return m
+}
+
+// moveField carries the answer off the field being left and hands the keyboard
+// to the one being arrived at.
+func (m Model) moveField(delta int) (Model, tea.Cmd) {
+	next := m.stashField()
+	next.form = next.form.Move(delta)
+	return next.focusField(), nil
 }
 
 // openArtifactForm classifies the artifact the prompt named.
@@ -1557,16 +1730,33 @@ func (m Model) restoreTask() (Model, tea.Cmd) {
 // handleFormKey moves through the open form and submits it. It reuses the keys
 // the settings screen moves and cycles with, so a form needs no bindings of its
 // own and works under every scheme.
+//
+// A field the reader types into owns the arrows, because they move the cursor
+// through the text, so tab and shift+tab are what move between fields. Enter
+// applies the form everywhere except inside the multi-line field, where it
+// inserts a newline and the commit key applies instead.
 func (m Model) handleFormKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	typing, prose := m.form.Typing(), m.form.Prose()
 	switch {
 	case key.Matches(msg, m.keys.Cancel):
 		return m.closeForm(), nil
-	case key.Matches(msg, m.keys.Accept):
-		return m.submitForm()
+	case key.Matches(msg, m.keys.Commit):
+		return m.stashField().submitForm()
+	case key.Matches(msg, m.keys.NextField):
+		return m.moveField(1)
+	case key.Matches(msg, m.keys.PrevField):
+		return m.moveField(-1)
+	case key.Matches(msg, m.keys.Accept) && !(prose && msg.String() == "enter"):
+		return m.stashField().submitForm()
+	}
+	if typing {
+		return m.editField(msg)
+	}
+	switch {
 	case key.Matches(msg, m.keys.Up):
-		m.form = m.form.Move(-1)
+		return m.moveField(-1)
 	case key.Matches(msg, m.keys.Down):
-		m.form = m.form.Move(1)
+		return m.moveField(1)
 	case key.Matches(msg, m.keys.Left):
 		m.form = m.form.Cycle(-1)
 	case key.Matches(msg, m.keys.Right):
@@ -1575,9 +1765,24 @@ func (m Model) handleFormKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// editField hands a keystroke to the widget the selected field is gathered by.
+func (m Model) editField(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	var cmd tea.Cmd
+	if m.form.Prose() {
+		m.area, cmd = m.area.Update(msg)
+		return m.fitArea().stashField(), cmd
+	}
+	m.input, cmd = m.input.Update(msg)
+	return m.stashField(), cmd
+}
+
 // closeForm dismisses the open form.
 func (m Model) closeForm() Model {
 	m.form = Form{}
+	m.input.SetValue("")
+	m.input.Blur()
+	m.area.SetValue("")
+	m.area.Blur()
 	return m
 }
 
@@ -1600,6 +1805,14 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 		return m.closeForm().applyTenantAdd(form)
 	case formMember:
 		return m.closeForm().applyMember(form)
+	}
+	if form.Kind == formTaskEdit {
+		next := m.closeForm()
+		task, ok := next.selectedTask()
+		if !ok {
+			return next, nil
+		}
+		return next, next.applyTaskEdit(task, form)
 	}
 	if form.Kind == formAssignee {
 		next := m.closeForm()

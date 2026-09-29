@@ -30,12 +30,12 @@ func TestViewBindingsDoNotCollide(t *testing.T) {
 		viewBoard: {
 			k.Up, k.Down, k.Left, k.Right, k.Top, k.Bottom, k.Enter, k.Filter,
 			k.ClearFltr, k.Claim, k.Release, k.Transition, k.New, k.EditTitle,
-			k.EditBody, k.Priority, k.Assign, k.Comment, k.CommentEdit, k.Tag, k.Untag,
+			k.EditTask, k.Priority, k.Assign, k.Comment, k.CommentEdit, k.Tag, k.Untag,
 			k.Tags, k.Depend, k.Undepend, k.Delete, k.ClaimNext, k.Renew, k.Back,
 		},
 		viewDetail: {
 			k.Up, k.Down, k.Claim, k.Release, k.Transition, k.New, k.EditTitle,
-			k.EditBody, k.Priority, k.Assign, k.Comment, k.CommentEdit, k.Tag, k.Untag,
+			k.EditTask, k.Priority, k.Assign, k.Comment, k.CommentEdit, k.Tag, k.Untag,
 			k.Tags, k.Depend, k.Undepend, k.Delete, k.Renew, k.Back,
 		},
 	}

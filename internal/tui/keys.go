@@ -22,7 +22,7 @@ type KeyMap struct {
 	New         key.Binding
 	NewProject  key.Binding
 	EditTitle   key.Binding
-	EditBody    key.Binding
+	EditTask    key.Binding
 	Priority    key.Binding
 	Assign      key.Binding
 	Comment     key.Binding
@@ -50,8 +50,11 @@ type KeyMap struct {
 	Quit        key.Binding
 	Interrupt   key.Binding
 	Accept      key.Binding
+	Commit      key.Binding
 	Cancel      key.Binding
 	Agree       key.Binding
+	NextField   key.Binding
+	PrevField   key.Binding
 }
 
 // DefaultKeyMap returns the shipped bindings.
@@ -59,8 +62,8 @@ func DefaultKeyMap() KeyMap {
 	return KeyMap{
 		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
 		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
-		Left:       key.NewBinding(key.WithKeys("left", "h", "shift+tab"), key.WithHelp("←/h", "column left")),
-		Right:      key.NewBinding(key.WithKeys("right", "l", "tab"), key.WithHelp("→/l", "column right")),
+		Left:       key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "column left")),
+		Right:      key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "column right")),
 		Top:        key.NewBinding(key.WithKeys("g", "home"), key.WithHelp("g", "first")),
 		Bottom:     key.NewBinding(key.WithKeys("G", "end"), key.WithHelp("G", "last")),
 		Enter:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open")),
@@ -73,7 +76,7 @@ func DefaultKeyMap() KeyMap {
 		New:        key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "new task")),
 		NewProject: key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "new project")),
 		EditTitle:  key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit title")),
-		EditBody:   key.NewBinding(key.WithKeys("E"), key.WithHelp("E", "edit body")),
+		EditTask:   key.NewBinding(key.WithKeys("E"), key.WithHelp("E", "edit task")),
 		Priority:   key.NewBinding(key.WithKeys("P"), key.WithHelp("P", "set priority")),
 		Assign:     key.NewBinding(key.WithKeys("A"), key.WithHelp("A", "set assignee")),
 		Comment:    key.NewBinding(key.WithKeys("m"), key.WithHelp("m", "comment")),
@@ -115,11 +118,20 @@ func DefaultKeyMap() KeyMap {
 		Quit:      key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
 		Interrupt: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "interrupt")),
 		Accept:    key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "apply")),
-		Cancel:    key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel")),
+		// A second way to apply, for the fields enter cannot end. Inside a
+		// multi-line field enter is a newline, which is the whole point of the
+		// field, so the form needs a key that never means anything else.
+		Commit: key.NewBinding(key.WithKeys("ctrl+s"), key.WithHelp("ctrl+s", "apply")),
+		Cancel: key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel")),
 		// Not enter. A confirmation answered by the key every other input is
 		// accepted with is answered by reflex, which is the habit a destructive
 		// confirmation exists to interrupt.
 		Agree: key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "confirm")),
+		// tab and shift+tab, taken off column movement. A form holding a text
+		// field cannot spend the arrows on moving between fields, because the
+		// field the reader is typing in needs them.
+		NextField: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "next field")),
+		PrevField: key.NewBinding(key.WithKeys("shift+tab"), key.WithHelp("shift+tab", "previous field")),
 	}
 }
 
@@ -230,7 +242,7 @@ func (k KeyMap) taskBindings() []gatedAction {
 		{binding: k.Release, methods: []string{"ReleaseLease"}},
 		{binding: k.Transition, methods: []string{"TransitionTask"}},
 		{binding: k.EditTitle, methods: []string{"UpdateTask"}},
-		{binding: k.EditBody, methods: []string{"UpdateTask"}},
+		{binding: k.EditTask, methods: []string{"UpdateTask"}},
 		{binding: k.Priority, methods: []string{"UpdateTask"}},
 		{k.Assign, []string{"UpdateTask"}, []string{"ListActors"}},
 		{binding: k.Comment, methods: []string{"AddComment"}},
@@ -524,6 +536,7 @@ func (k KeyMap) editHelp(ctx ActionContext) []HelpEntry {
 		return k.offer(ctx, gatedAction{binding: k.Restore, methods: []string{"RestoreTask"}})
 	}
 	out := k.offer(ctx, gatedAction{binding: k.EditTitle, methods: []string{"UpdateTask"}},
+		gatedAction{binding: k.EditTask, methods: []string{"UpdateTask"}},
 		gatedAction{binding: k.Comment, methods: []string{"AddComment"}})
 	if ctx.CanTransition {
 		out = append(out, k.offer(ctx, gatedAction{binding: k.Transition, methods: []string{"TransitionTask"}})...)
