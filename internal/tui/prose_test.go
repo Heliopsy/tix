@@ -3,9 +3,12 @@
 package tui
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
+	"charm.land/bubbles/v2/textarea"
+	"charm.land/lipgloss/v2"
 	"github.com/heliopsy/tix/internal/core"
 )
 
@@ -105,11 +108,13 @@ func TestTheCommitKeyAppliesTheFormAndIsOnScreen(t *testing.T) {
 	}
 }
 
-// TestAProseFieldWritesNoEscapeWithoutColour keeps docs/tui.md's promise. The
-// widget ships its own colours, its own line numbers, its own prompt character
-// and a reverse-video caret, and a dumb terminal over tix ssh gets none of it.
-func TestAProseFieldWritesNoEscapeWithoutColour(t *testing.T) {
-	for _, tc := range []struct {
+// proseModels are the two places a prose field opens, so each assertion about
+// one runs against both rather than against whichever was written first.
+func proseModels() []struct {
+	name string
+	open func(*testing.T) Model
+} {
+	return []struct {
 		name string
 		open func(*testing.T) Model
 	}{
@@ -123,7 +128,36 @@ func TestAProseFieldWritesNoEscapeWithoutColour(t *testing.T) {
 			m, _ = m.reduce(pressKey("m"))
 			return m
 		}},
-	} {
+	}
+}
+
+// plainStyles reports the first style state field carrying a colour or reverse
+// video, which is what a colourless run must not inherit from the widget.
+//
+// It reads the styles the widget will draw with rather than the frame: a test
+// binary renders through a profile that drops colour anyway, so a frame with no
+// escape in it proves only that the harness has no colour, not that the widget
+// was stripped.
+func styledField(state textarea.StyleState) string {
+	v := reflect.ValueOf(state)
+	for i := range v.NumField() {
+		style, ok := v.Field(i).Interface().(lipgloss.Style)
+		if !ok {
+			continue
+		}
+		none := lipgloss.NoColor{}
+		if style.GetForeground() != none || style.GetBackground() != none || style.GetReverse() {
+			return v.Type().Field(i).Name
+		}
+	}
+	return ""
+}
+
+// TestAProseFieldWritesNoEscapeWithoutColour keeps docs/tui.md's promise. The
+// widget ships its own palette and a reverse-video caret, and a dumb terminal
+// over tix ssh gets neither.
+func TestAProseFieldWritesNoEscapeWithoutColour(t *testing.T) {
+	for _, tc := range proseModels() {
 		t.Run(tc.name, func(t *testing.T) {
 			m := tc.open(t)
 			if m.theme.Color {
@@ -134,12 +168,47 @@ func TestAProseFieldWritesNoEscapeWithoutColour(t *testing.T) {
 			if strings.Contains(block, "\x1b") {
 				t.Fatalf("a colourless prose field emitted an escape sequence:\n%q", block)
 			}
-			if strings.Contains(block, "1 ") && strings.Contains(block, "2 ") {
-				t.Fatalf("the prose field is drawing line numbers:\n%s", block)
+			styles := m.area.Styles()
+			if got := styledField(styles.Focused); got != "" {
+				t.Errorf("the focused prose field still carries the widget's own %s style", got)
+			}
+			if got := styledField(styles.Blurred); got != "" {
+				t.Errorf("the blurred prose field still carries the widget's own %s style", got)
+			}
+			if m.area.VirtualCursor() {
+				t.Error("the prose field still draws the bubble's reverse-video caret")
 			}
 			for _, want := range strings.Split(twoParagraphs, "\n") {
 				if !strings.Contains(block, want) {
 					t.Fatalf("the panel does not carry %q:\n%s", want, block)
+				}
+			}
+		})
+	}
+}
+
+// TestAProseFieldDrawsNothingOfItsOwnChrome is the structural half. The widget
+// arrives with line numbers down its left edge and a border character for a
+// prompt, and the panel already has a label column saying what the field is.
+func TestAProseFieldDrawsNothingOfItsOwnChrome(t *testing.T) {
+	for _, tc := range proseModels() {
+		t.Run(tc.name, func(t *testing.T) {
+			m := tc.open(t)
+			m.area.SetValue(twoParagraphs)
+			m = m.fitArea()
+			rows := m.proseRows("body")
+			if len(rows) < 2 {
+				t.Fatalf("the field drew %d rows for two lines of prose", len(rows))
+			}
+			for i, row := range rows[:2] {
+				rest := strings.TrimPrefix(stripANSI(row), strings.Repeat(" ", DetailIndent))
+				if i == 0 {
+					rest = strings.TrimPrefix(rest, "body")
+				}
+				value := strings.TrimLeft(rest, " ")
+				if got := strings.Split(twoParagraphs, "\n")[i]; !strings.HasPrefix(value, got) {
+					t.Fatalf("row %d begins %q, not with the line itself; the widget drew its own chrome",
+						i, value[:min(24, len(value))])
 				}
 			}
 		})
