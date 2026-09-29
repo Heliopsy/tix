@@ -428,9 +428,6 @@ func CardFlags(t core.Task, now time.Time, mine string) string {
 	if len(t.DependsOn) > 0 {
 		b.WriteString("+")
 	}
-	if t.DueAt != nil {
-		b.WriteString("*")
-	}
 	// A deleted task is drawn only where a filter asked for one, and an
 	// unmarked card there is indistinguishable from live work.
 	if t.DeletedAt != nil {
@@ -722,7 +719,11 @@ func (m Model) helpLines(layout Layout) []string {
 // the entries stay short enough that the whole legend fits a narrow terminal
 // rather than being truncated into uselessness.
 var CardLegend = []string{
-	"@ claimed", "@me claimed by you", "! blocked", "+ dependencies", "* due date",
+	// No due-date marker. Most tasks in a real backlog have a due date, so it
+	// appeared on nearly every card and a marker every card carries tells a
+	// reader nothing while still costing them a glance. The date is on the
+	// task, and urgency reaches the board through priority and ordering.
+	"@ claimed", "@me claimed by you", "! blocked", "+ dependencies",
 	DeletedMarker + " deleted",
 }
 

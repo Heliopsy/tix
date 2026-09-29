@@ -46,7 +46,7 @@ whichever markers are true of the task, separated so that a priority and a marke
 ```text
 ┃ Default-deny network      │ Bring the platform
 ┃ policies in staging       │ onto one observ…
-┃ infra-13 · P2 · *         │ infra-8 · P2
+┃ infra-13 · P2 · @me       │ infra-8 · P2
 ```
 
 The bar down the left edge carries the workflow category as a colour and the selection as a shape: the
@@ -63,7 +63,6 @@ the line is markers. The legend is in `?` and is short on purpose, so it still f
 | `@me` | claimed by you |
 | `!` | blocked |
 | `+` | has dependencies |
-| `*` | has a due date |
 | `†` | deleted, revealed by `is:deleted` |
 
 `@me` is separate from `@` because "is that me" is the first question anybody asks of a claimed card on a

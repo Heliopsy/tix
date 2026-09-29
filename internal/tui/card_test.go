@@ -3,6 +3,9 @@
 package tui
 
 import (
+	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -107,9 +110,12 @@ func TestTheCardMetaSeparatesThePriorityFromItsMarkers(t *testing.T) {
 		want string
 	}{
 		{"no markers", core.Task{Ref: "infra-1", Priority: core.PriorityNormal}, "infra-1 · P3"},
-		{"a due date", core.Task{Ref: "infra-1", Priority: core.PriorityHigh, DueAt: &due}, "infra-1 · P2 · *"},
-		{"blocked and due", core.Task{Ref: "infra-1", Priority: core.PriorityHigh, Blocked: true, DueAt: &due},
-			"infra-1 · P2 · !*"},
+		// A due date draws nothing. Nearly every task in a real backlog has
+		// one, so the marker was on nearly every card, and a marker every card
+		// carries tells a reader nothing.
+		{"a due date", core.Task{Ref: "infra-1", Priority: core.PriorityHigh, DueAt: &due}, "infra-1 · P2"},
+		{"blocked, due date ignored", core.Task{Ref: "infra-1", Priority: core.PriorityHigh, Blocked: true, DueAt: &due},
+			"infra-1 · P2 · !"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -245,5 +251,56 @@ func TestAnEmptyColumnIsDrawnShort(t *testing.T) {
 	}
 	if body := LayoutFor(m.width, m.height, len(m.columns)).BodyHeight; short >= body {
 		t.Fatalf("the empty column still fills the body: %d lines of %d", short, body)
+	}
+}
+
+// TestEveryMarkerACardDrawsIsInTheLegend closes the gap between the legend and
+// the code that draws it.
+//
+// TestDocsMarkerTableMatchesTheLegend holds docs/tui.md against CardLegend, in
+// both directions, and never consults CardFlags. So CardLegend is a claim about
+// the code that nothing checked: renaming the dependency marker to "*" left the
+// code drawing a marker no legend lists and not drawing one every legend does,
+// and the whole suite stayed green. The legend is what `?` shows a reader, so a
+// legend that disagrees with the board is an interface lying at the one moment
+// somebody asked it for help.
+func TestEveryMarkerACardDrawsIsInTheLegend(t *testing.T) {
+	src, err := os.ReadFile("view.go")
+	if err != nil {
+		t.Fatalf("reading view.go: %v", err)
+	}
+	body := string(src)
+	start := strings.Index(body, "func CardFlags(")
+	if start < 0 {
+		t.Fatal("view.go no longer defines CardFlags")
+	}
+	end := strings.Index(body[start:], "\n}")
+	if end < 0 {
+		t.Fatal("CardFlags is never closed")
+	}
+	drawn := regexp.MustCompile(`b\.WriteString\(([^)]+)\)`).
+		FindAllStringSubmatch(body[start:start+end], -1)
+	if len(drawn) == 0 {
+		t.Fatal("found no markers in CardFlags; this guard is reading the wrong thing")
+	}
+
+	legend := make(map[string]bool, len(CardLegend))
+	for _, e := range CardLegend {
+		m, _, _ := strings.Cut(e, " ")
+		legend[m] = true
+	}
+	for _, m := range drawn {
+		lit := strings.TrimSpace(m[1])
+		// A constant rather than a literal: resolve the ones this file owns.
+		if lit == "DeletedMarker" {
+			lit = `"` + DeletedMarker + `"`
+		}
+		marker, err := strconv.Unquote(lit)
+		if err != nil {
+			t.Fatalf("CardFlags writes %s, which this guard cannot resolve; teach it or use a literal", lit)
+		}
+		if !legend[marker] {
+			t.Errorf("a card can draw %q and CardLegend does not list it, so `?` will not explain it", marker)
+		}
 	}
 }
