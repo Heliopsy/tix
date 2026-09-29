@@ -471,6 +471,74 @@ func (l *Local) TransitionTask(ctx context.Context, ref core.TaskRef, in core.Tr
 	return out, nil
 }
 
+// TransitionRoute walks a task through a route of states, one ordinary
+// transition per hop.
+//
+// Each hop is its own TransitionTask call and therefore its own transaction,
+// its own audit entry and its own event: a task that the trail says passed
+// through a state really did pass through it, and a subscriber sees the same
+// journey the reader consented to. Collapsing a route into one write would be
+// faster and would be a lie.
+//
+// A route that stops halfway is not an error. The hops that landed are real
+// and the task is somewhere, so the result names where it stopped and why, and
+// only a route whose very first hop is refused comes back as a failure.
+func (l *Local) TransitionRoute(ctx context.Context, ref core.TaskRef, in core.RouteInput) (*core.RouteResult, error) {
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
+	actor, err := l.authorize(ctx, authz.ActionTaskTransition, authz.Resource{})
+	if err != nil {
+		return nil, err
+	}
+	var task *core.Task
+	var def core.WorkflowDefinition
+	if err := l.read(ctx, actor, func(tx store.Tx) error {
+		found, err := liveTask(ctx, tx, ref)
+		if err != nil {
+			return err
+		}
+		if err := l.authorizeTask(ctx, authz.ActionTaskTransition, found); err != nil {
+			return err
+		}
+		task = found
+		def, err = workflowForTask(ctx, tx, found)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	steps := in.Route
+	if len(steps) == 0 {
+		route, err := core.FindRoute(def, task.Status, in.To)
+		if err != nil {
+			return nil, err
+		}
+		steps = route.Keys()
+	}
+
+	out := &core.RouteResult{From: task.Status, Route: steps, Task: task}
+	for i, to := range steps {
+		hop := core.TransitionInput{To: to, Comment: in.Comment, LeaseToken: in.LeaseToken}
+		if i == 0 {
+			hop.Version = in.Version
+		}
+		if i == len(steps)-1 {
+			hop.CustomFields = in.CustomFields
+		}
+		moved, err := l.TransitionTask(ctx, core.TaskRef{ID: task.ID}, hop)
+		if err != nil {
+			if i == 0 {
+				return nil, err
+			}
+			out.Stopped, out.Reason = to, err.Error()
+			return out, nil
+		}
+		out.Applied = append(out.Applied, to)
+		out.Task = moved
+	}
+	return out, nil
+}
+
 // DeleteTask soft deletes a task, or removes it permanently when Hard is set.
 // A task with children is refused unless Cascade is set, in which case the
 // whole subtree goes in the same transaction, deepest first.
