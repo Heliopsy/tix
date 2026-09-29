@@ -5,6 +5,7 @@ package tui
 import (
 	"context"
 	"sort"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -196,18 +197,47 @@ func (m Model) releaseCmd(task core.Task) tea.Cmd {
 	}
 }
 
-// transition moves the selected task to another workflow state.
-func (m Model) transition(to string) tea.Cmd {
+// transition moves the selected task along a route, which is one state or
+// several separated by core.RouteSep.
+//
+// The sentence comes back off the result rather than being written here,
+// because a route can stop part way: saying what was asked for would report a
+// journey the task never finished.
+func (m Model) transition(route string) tea.Cmd {
 	task, ok := m.selectedTask()
 	if !ok || m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
-	in := core.TransitionInput{To: to, LeaseToken: m.leases[task.ID]}
-	sentence := "moved " + label + " from " + task.Status + " to " + to
+	steps, err := core.ParseRoute(route)
+	if err != nil {
+		return func() tea.Msg { return actionMsg{kind: actionTransition, label: task.Ref, err: err} }
+	}
+	svc, ctx, ref, label, from := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref, task.Status
+	in := core.RouteInput{Route: steps, LeaseToken: m.leases[task.ID]}
 	return func() tea.Msg {
-		_, err := svc.TransitionTask(ctx, ref, in)
-		return actionMsg{kind: actionTransition, ref: ref, label: label, sentence: sentence, err: err}
+		result, err := svc.TransitionRoute(ctx, ref, in)
+		msg := actionMsg{kind: actionTransition, ref: ref, label: label, err: err}
+		if err == nil {
+			msg.sentence = routeSentence(label, from, result)
+		}
+		return msg
+	}
+}
+
+// routeSentence says what the move actually did. A single hop reads the way it
+// always read; a route names the states it went through, and one that stopped
+// part way says where it got to rather than where it was asked to go.
+func routeSentence(label, from string, r *core.RouteResult) string {
+	journey := strings.Join(append([]string{from}, r.Applied...), " \u2192 ")
+	switch {
+	case len(r.Applied) == 0:
+		return "did not move " + label + ": could not move to " + r.Stopped
+	case r.Partial():
+		return "moved " + label + " " + journey + ", then stopped: could not move to " + r.Stopped
+	case len(r.Applied) == 1:
+		return "moved " + label + " from " + from + " to " + r.Applied[0]
+	default:
+		return "moved " + label + " " + journey + ", one step at a time"
 	}
 }
 

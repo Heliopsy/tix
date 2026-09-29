@@ -158,18 +158,35 @@ type Choice struct {
 	Value string
 }
 
-// TransitionChoices offers the states a workflow permits from here.
+// TransitionChoices offers every state a workflow reaches from here, the
+// adjacent ones and the ones reachable through them.
+//
+// The adjacent states come first, because the walk is breadth first, so a
+// single hop still costs the one digit it always cost and a route is a digit
+// further down the same list. A route names the journey in its own label, so
+// the states it passes through are read before the key is pressed rather than
+// found in the trail afterwards.
 func TransitionChoices(def *core.WorkflowDefinition, from string) []Choice {
-	states := NextStates(def, from)
-	out := make([]Choice, 0, len(states))
-	for _, s := range states {
-		label := s.Label
-		if label == "" {
-			label = s.Key
-		}
-		out = append(out, Choice{Label: label, Value: s.Key})
+	if def == nil {
+		return nil
+	}
+	routes := core.Routes(*def, from)
+	out := make([]Choice, 0, len(routes))
+	for _, r := range routes {
+		out = append(out, Choice{Label: routeLabel(r), Value: r.Value()})
 	}
 	return out
+}
+
+// routeLabel names a route on one line of the picker: the destination, and for
+// a route through another state the whole path and how many moves it is.
+func routeLabel(r core.Route) string {
+	label := core.StateLabel(r.To)
+	if !r.MultiHop() {
+		return label
+	}
+	return label + " via " + strings.Join(r.Labels()[:len(r.Via)], " \u2192 ") +
+		" (" + strconv.Itoa(r.Hops()) + " steps)"
 }
 
 // PriorityChoices offers every priority, named the way the CLI names them.

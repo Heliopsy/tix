@@ -40,6 +40,8 @@ type fakeService struct {
 	deleted        []core.DeleteTaskInput
 	deletedRefs    []core.TaskRef
 	depsRemoved    []core.TaskRef
+	routes         []core.RouteInput
+	routeFrom      string
 	commentsEdited [][2]string
 	commentsGone   []string
 	thread         []core.Comment
@@ -161,6 +163,22 @@ func (f *fakeService) TransitionTask(_ context.Context, _ core.TaskRef, in core.
 		return nil, f.transitionErr
 	}
 	return &core.Task{}, nil
+}
+
+// TransitionRoute records the route and reports one hop per step, so a test
+// can see what the picker submitted. The per-hop audit guarantee is proved
+// against the real service, not here.
+func (f *fakeService) TransitionRoute(_ context.Context, _ core.TaskRef, in core.RouteInput) (*core.RouteResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.routes = append(f.routes, in)
+	if f.transitionErr != nil {
+		return nil, f.transitionErr
+	}
+	for _, step := range in.Route {
+		f.transitions = append(f.transitions, core.TransitionInput{To: step, LeaseToken: in.LeaseToken})
+	}
+	return &core.RouteResult{From: f.routeFrom, Route: in.Route, Applied: in.Route, Task: &core.Task{}}, nil
 }
 
 func (f *fakeService) Subscribe(context.Context, core.EventFilter) (<-chan core.Event, error) {

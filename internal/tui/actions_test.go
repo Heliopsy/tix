@@ -279,14 +279,26 @@ func TestChoiceKindsIntroduceThemselves(t *testing.T) {
 	}
 }
 
-func TestTransitionChoicesNameEveryPermittedState(t *testing.T) {
+func TestTransitionChoicesNameEveryReachableState(t *testing.T) {
 	choices := TransitionChoices(testWorkflow(), "todo")
-	if len(choices) != 1 || choices[0].Value != "doing" {
+	want := []string{"doing", "doing>review", "doing>review>done"}
+	if len(choices) != len(want) {
 		t.Fatalf("choices = %+v", choices)
 	}
-	if choices[0].Label == "" {
-		t.Fatal("a state was offered without a label")
+	for i, value := range want {
+		if choices[i].Value != value {
+			t.Fatalf("choice %d = %q, want %q", i+1, choices[i].Value, value)
+		}
+		if choices[i].Label == "" {
+			t.Fatalf("choice %d was offered without a label", i+1)
+		}
 	}
+	// The one-digit cost of a direct move is the thing a route may not take
+	// away, so the adjacent state has to stay first.
+	if choices[0].Value != "doing" || strings.Contains(choices[0].Label, "via") {
+		t.Fatalf("the direct move is no longer the first choice: %+v", choices[0])
+	}
+	choices = choices[:1]
 	if got := TransitionChoices(nil, "todo"); len(got) != 0 {
 		t.Fatalf("a nil workflow offered %+v", got)
 	}

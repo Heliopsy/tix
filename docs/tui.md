@@ -172,8 +172,11 @@ keystroke that will type the letter n.
 What a key gathers depends on what the operation can accept, and there are three things to gather. A
 single-line input gathers a value: a title, a tag name, a reference, a hostname. It is seeded with the
 value it would replace where there is one, and an empty input cancels, so a stray keystroke never sends a
-blank edit. Transition and priority open a numbered picker, and transition offers only the states the
-task's own workflow permits from where it is. The assignee and an artifact's kind open a form whose every
+blank edit. Transition and priority open a numbered picker. Transition offers the states the
+task's own workflow reaches: the ones it permits directly first, so a single move still costs one digit,
+then the ones reachable only through another state, each named with the path it takes and how many moves
+that is. Picking a route applies it one ordinary transition per hop, so the task's history records every
+state it passed through. The assignee and an artifact's kind open a form whose every
 field picks from the values the operation accepts, because neither is free text: a reader knows a
 colleague by handle and has never seen the identifier the service stores, and an artifact kind is one of a
 fixed set. `O` gathers the artifact's name at the prompt first and classifies it in the form afterwards,
@@ -466,7 +469,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 32 such gaps against 89
+a reason as a gap when the binding ought to exist. As of this writing there are 32 such gaps against 90
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:

@@ -457,12 +457,46 @@ func TestFilterBar(t *testing.T) {
 }
 
 func TestTransitionChooser(t *testing.T) {
+	// The adjacent state is first, so a single hop is still one digit; the
+	// routes through it follow, each naming the states it passes through.
 	t.Run("offers what the workflow permits", func(t *testing.T) {
 		m := boardModel(t)
 		m.svc = newFakeService()
 		next, _ := m.reduce(pressKey("t"))
-		if next.choice != choiceTransition || len(next.choices) != 1 || next.choices[0].Value != "doing" {
+		want := []string{"doing", "doing>review", "doing>review>done"}
+		if next.choice != choiceTransition || len(next.choices) != len(want) {
 			t.Fatalf("choices = %+v", next.choices)
+		}
+		for i, value := range want {
+			if next.choices[i].Value != value {
+				t.Fatalf("choice %d = %q, want %q", i+1, next.choices[i].Value, value)
+			}
+		}
+		if !strings.Contains(next.choices[1].Label, "via Doing") {
+			t.Errorf("a route is offered without naming what it passes through: %q", next.choices[1].Label)
+		}
+		if strings.Contains(next.choices[0].Label, "via") {
+			t.Errorf("a direct move claims to pass through something: %q", next.choices[0].Label)
+		}
+	})
+
+	// A route submitted from the picker reaches the service as the route it
+	// was offered as, not as a jump to its last state.
+	t.Run("a number picks a whole route", func(t *testing.T) {
+		m := boardModel(t)
+		svc := newFakeService()
+		m.svc = svc
+		m, _ = m.reduce(pressKey("t"))
+		m, cmd := m.reduce(pressKey("3"))
+		if cmd == nil {
+			t.Fatal("picking a route did nothing")
+		}
+		cmd()
+		if len(svc.routes) != 1 || strings.Join(svc.routes[0].Route, ">") != "doing>review>done" {
+			t.Fatalf("routes = %+v", svc.routes)
+		}
+		if len(svc.transitions) != 3 {
+			t.Fatalf("a three step route made %d transitions, want 3", len(svc.transitions))
 		}
 	})
 	t.Run("a number picks a target", func(t *testing.T) {
