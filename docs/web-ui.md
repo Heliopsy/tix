@@ -21,9 +21,12 @@ click, so there is a Clear control to get back out in one click. Clear keeps the
 is not a filter.
 
 **Deadlines.** The control beside the sort narrows the list to a deadline window: overdue, today, this
-week, this month. It writes a `due:` term into the same box rather than setting a bound of its own, so
-what it asked is visible, correctable and shareable as a link, and a window the language does not have
-is refused under the box like any other bad term. A row whose deadline has passed carries an `overdue`
+week, this month. What it selects is answered as a `due:` term by the same parser the box uses, rather
+than as a bound of its own, so the same window is sayable by hand in the box, the selection travels in
+the URL like the rest of the query, and a window the language does not have is refused under the box like
+any other bad term. Whatever is in the box is ANDed with it, and a `due:` term typed there wins.
+
+A row whose deadline has passed carries an `overdue`
 badge, one falling due within the week a `due this week` badge, and a row whose deadline is further out
 or absent carries nothing -- a badge on every dated row marks nearly every row in a real backlog. The
 badge is a word as well as a colour and links to the listing it belongs to. The task screen says the

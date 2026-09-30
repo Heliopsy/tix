@@ -37,10 +37,11 @@
   <input name="q" value="{{$v.Query}}" placeholder="Filter, for example status:todo tag:ops" aria-label="Filter" data-shortcut-target="filter">
   {{/* The deadline control. "What is overdue" was answerable over the API and
        nowhere a reader could click, so the one question a due date exists to
-       answer needed a filter expression typed by hand. The control writes a
-       due: term into the same expression the box holds, rather than setting a
-       bound of its own, so what it asks is sayable, shareable and correctable
-       in the box beside it. */}}
+       answer needed a filter expression typed by hand. What it selects is
+       answered as a due: term by the shared parser rather than as a bound of
+       its own, so it is sayable in the box beside it, shareable as a link, and
+       refused with the same message when it names something the language does
+       not have. */}}
   <select name="due" aria-label="Due">
     <option value="">any deadline</option>
     {{range $v.DueWindows}}<option value="{{.}}" {{if eq . $v.Due}}selected{{end}}>{{.}}</option>{{end}}

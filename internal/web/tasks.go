@@ -177,9 +177,13 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	query := r.URL.Query()
 	expression := query.Get("q")
 	// The deadline control is folded into the expression rather than set on
-	// the filter directly, so a bad value is refused by the one parser with
-	// the one message, and so the reader can see in the box what was asked.
-	// It leads the expression, which lets a due: term typed by hand win.
+	// the parsed filter, so it is answered by the one parser the box, the
+	// board and the command line share, and a value the language does not
+	// have is refused with that parser's message rather than silently
+	// answering a different question. The control's own state stays in the
+	// control and in the URL; it is not written into the box, which would put
+	// the same term in two places for the reader to keep in step. The term
+	// leads the expression, so a due: term typed by hand wins.
 	due := strings.TrimSpace(query.Get(DueParam))
 	if due != "" {
 		expression = strings.TrimSpace("due:" + due + " " + expression)
