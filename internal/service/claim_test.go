@@ -807,45 +807,64 @@ func TestReleaseRequiresATokenAndAKnownTask(t *testing.T) {
 	}
 }
 
-// The lease guard is what a transition gates on, so it is exercised directly
-// rather than through the task service.
+// TestLeaseTokenGuard drives the lease guard through TransitionTask, which is
+// the only path production reaches it by. It used to call the guard function
+// directly, and that function had no other caller anywhere: it guarded a
+// second, near-identical implementation that production did not use and that
+// disagreed with this one about the case below that matters most.
+//
+// A lease that has run out reads as unclaimed, so a caller with no token may
+// proceed. A caller still offering the token that lease minted may not: it
+// believes it holds work that is free again, and the answer it needs is to
+// claim the task afresh rather than to write to it.
 func TestLeaseTokenGuard(t *testing.T) {
-	f := newClaimFixture(t, 0)
-	task := f.seedTask(t, "guarded", "doing", core.PriorityNormal)
-	claimed := mustClaim(t, f, task)
-
-	guard := func(token string) error {
-		ctx := context.Background()
-		var out error
-		if err := f.local.store.Update(ctx, f.scope, func(tx store.Tx) error {
-			loaded, err := tx.GetTask(ctx, ref(task))
-			if err != nil {
-				return err
+	tests := []struct {
+		name    string
+		expire  bool
+		token   func(*core.Claim) string
+		refused bool
+	}{
+		{"the current token is accepted", false,
+			func(c *core.Claim) string { return c.LeaseToken }, false},
+		{"a claimed task refuses a caller carrying no token", false,
+			func(*core.Claim) string { return "" }, true},
+		{"a claimed task refuses somebody else's token", false,
+			func(*core.Claim) string { return "someone-elses-token" }, true},
+		{"an expired lease refuses the token it minted", true,
+			func(c *core.Claim) string { return c.LeaseToken }, true},
+		{"an expired lease demands no token", true,
+			func(*core.Claim) string { return "" }, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// A fresh queue per case, so a transition that lands does not
+			// change what the next case is asserting against.
+			f := newClaimFixture(t, 0)
+			task := f.seedTask(t, "guarded", "doing", core.PriorityNormal)
+			claimed := mustClaim(t, f, task)
+			if tt.expire {
+				f.clock.Advance(lease.DefaultTTL + time.Minute)
 			}
-			out = requireLeaseToken(ctx, tx, loaded, token, f.clock.Now())
-			return nil
-		}); err != nil {
-			t.Fatalf("guard transaction: %v", err)
-		}
-		return out
-	}
 
-	if err := guard(claimed.LeaseToken); err != nil {
-		t.Errorf("the current token was rejected: %v", err)
-	}
-	if err := guard(""); !core.IsKind(err, core.KindInvalid) {
-		t.Errorf("a missing token on a claimed task = %v, want invalid", err)
-	}
-	if err := guard("someone-elses-token"); !core.IsKind(err, core.KindLeaseExpired) {
-		t.Errorf("a wrong token = %v, want lease expired", err)
-	}
-
-	f.clock.Advance(lease.DefaultTTL + time.Minute)
-	if err := guard(claimed.LeaseToken); !core.IsKind(err, core.KindLeaseExpired) {
-		t.Errorf("a token whose lease passed = %v, want lease expired", err)
-	}
-	if err := guard(""); err != nil {
-		t.Errorf("an expired lease still demands a token: %v", err)
+			_, err := f.local.TransitionTask(f.ctx, ref(task),
+				core.TransitionInput{To: "todo", LeaseToken: tt.token(claimed)})
+			after := f.reload(t, task)
+			if tt.refused {
+				if !core.IsKind(err, core.KindLeaseExpired) {
+					t.Fatalf("TransitionTask = %v, want lease expired", err)
+				}
+				if after.Status != "doing" {
+					t.Errorf("a refused transition still moved the task to %q", after.Status)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("TransitionTask = %v, want success", err)
+			}
+			if after.Status != "todo" {
+				t.Errorf("status = %q, want todo", after.Status)
+			}
+		})
 	}
 }
 

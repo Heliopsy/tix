@@ -259,7 +259,7 @@ $ tix status -o json
 {
   "installation": {
     "version": "0.9.0",
-    "schema_version": 8,
+    "schema_version": 9,
     "store": "postgres://tix@db.example.com/tix",
     "engine": "postgres",
     "observed_at": "2026-09-28T10:00:00Z"
@@ -272,6 +272,7 @@ $ tix status -o json
       "surfaces": ["api", "ws", "web", "ssh"],
       "started_at": "2026-09-22T08:00:00Z",
       "last_seen_at": "2026-09-28T09:59:57Z",
+      "heartbeat_interval": "30s",
       "uptime": "6d1h59m57s",
       "attached": true,
       "connections": 14
@@ -287,9 +288,11 @@ $ tix status -o json
 Four things about that document are worth relying on:
 
 - **`attached` is the answer, not the ingredients.** It is the reader's own judgement about whether the
-  server is still heartbeating, so you do not have to know the threshold or re-derive it. `last_seen_at` is
-  there anyway if you want a finer one, but two consumers deriving `attached` differently is how two
-  dashboards come to disagree about how many servers are up.
+  server is still heartbeating, so you do not have to know the threshold or re-derive it. `last_seen_at` and
+  `heartbeat_interval` are there anyway if you want a finer one -- the threshold is three of that interval,
+  which is the cadence this particular server beats at rather than a product-wide constant -- but two
+  consumers deriving `attached` differently is how two dashboards come to disagree about how many servers
+  are up.
 - **`connections` is absent, never zero, when it is unknown.** A connection lives in one process's memory,
   so only the server holding it can count it. A count appears against the server that produced the report
   and against no other; reading against a database directly, no server carries one. A zero would be a claim

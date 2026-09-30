@@ -422,7 +422,7 @@ func (l *Local) TransitionTask(ctx context.Context, ref core.TaskRef, in core.Tr
 			return core.Forbidden("moving from %q to %q requires scope %q",
 				task.Status, in.To, edge.RequiresScope).WithDetail("scope", string(edge.RequiresScope))
 		}
-		if err := checkLease(ctx, m.tx, task, in.LeaseToken, m.now); err != nil {
+		if err := requireLeaseToken(ctx, m.tx, task, in.LeaseToken, m.now); err != nil {
 			return err
 		}
 
@@ -811,24 +811,6 @@ func checkVersion(task *core.Task, version int) error {
 	}
 	return core.Conflict("task %q has moved on since version %d", task.Ref, version).
 		WithDetail("current_version", task.Version)
-}
-
-// checkLease rejects a change to a task held under someone else's live lease.
-func checkLease(ctx context.Context, tx store.Tx, task *core.Task, token string, now time.Time) error {
-	if !task.ClaimedAtTime(now) {
-		return nil
-	}
-	if token == "" {
-		return core.LeaseExpired("task %q is claimed; supply the lease token", task.Ref)
-	}
-	ok, err := tx.RenewLease(ctx, task.ID, token, *task.LeaseExpiresAt)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return core.LeaseExpired("the lease on task %q is not held by this token", task.Ref)
-	}
-	return nil
 }
 
 // resolveParent validates a new parent reference, refusing to close a cycle.

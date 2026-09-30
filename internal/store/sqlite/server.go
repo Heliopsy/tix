@@ -12,7 +12,7 @@ import (
 	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
-var serverColumns = []string{"id", "address", "version", "surfaces", "started_at", "last_seen_at"}
+var serverColumns = []string{"id", "address", "version", "surfaces", "started_at", "last_seen_at", "heartbeat_interval_ms"}
 
 func scanServer(s scanner) (core.Server, error) {
 	var (
@@ -20,8 +20,9 @@ func scanServer(s scanner) (core.Server, error) {
 		surfaces string
 		started  sql.NullString
 		lastSeen sql.NullString
+		interval sql.NullInt64
 	)
-	if err := s.Scan(&srv.ID, &srv.Address, &srv.Version, &surfaces, &started, &lastSeen); err != nil {
+	if err := s.Scan(&srv.ID, &srv.Address, &srv.Version, &surfaces, &started, &lastSeen, &interval); err != nil {
 		return core.Server{}, mapErr(err, "scanning server")
 	}
 	var err error
@@ -32,6 +33,7 @@ func scanServer(s scanner) (core.Server, error) {
 		return core.Server{}, err
 	}
 	srv.Surfaces = sqlb.ParseServerSurfaces(surfaces)
+	srv.HeartbeatInterval = core.Duration(time.Duration(interval.Int64) * time.Millisecond)
 	return srv, nil
 }
 
@@ -58,16 +60,26 @@ func (t *tx) RegisterServer(ctx context.Context, s *core.Server) error {
 		Set("version", s.Version).
 		Set("surfaces", sqlb.JoinServerSurfaces(s.Surfaces)).
 		Set("started_at", sqlb.TimeText(s.StartedAt)).
-		Set("last_seen_at", sqlb.TimeText(s.LastSeenAt))
+		Set("last_seen_at", sqlb.TimeText(s.LastSeenAt)).
+		Set("heartbeat_interval_ms", time.Duration(s.HeartbeatInterval).Milliseconds())
 	_, err := t.execInsert(ctx, ins, "registering server %q", s.ID)
 	return err
 }
 
-// HeartbeatServer refreshes a server's last seen instant.
+// HeartbeatServer refreshes a server's last seen instant, and reports a row
+// that is no longer there. A beat that matched nothing is a registration that
+// has been deleted underneath a process that is still running, which the
+// caller answers by registering again rather than by beating into the void.
 func (t *tx) HeartbeatServer(ctx context.Context, serverID string, at time.Time) error {
 	b := t.builder("servers").Where("id = ?", serverID).Set("last_seen_at", sqlb.TimeText(at))
-	_, err := t.execUpdate(ctx, b, "heartbeating server %q", serverID)
-	return err
+	n, err := t.execUpdate(ctx, b, "heartbeating server %q", serverID)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return core.NotFound("server %q", serverID)
+	}
+	return nil
 }
 
 // DeregisterServer removes a server's row.

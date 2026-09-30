@@ -191,3 +191,54 @@ func TestForgetServersBefore(t *testing.T) {
 		t.Fatalf("survivors = %v, want only %q", got, ids[2])
 	}
 }
+
+// TestServerCadenceRoundTripsAndABeatReportsAMissingRow covers the two things
+// a reader of this table now depends on that it did not before: the cadence
+// the writer declared survives the round trip, and a beat that matched no row
+// says so instead of reporting success into nothing.
+func TestServerCadenceRoundTripsAndABeatReportsAMissingRow(t *testing.T) {
+	s, clk := newStore(t)
+	ctx := context.Background()
+	const cadence = 5 * time.Minute
+	srv := core.Server{
+		ID: "srvcadence00000000000000000", Address: "10.0.0.7:8080", Version: "9.9.9",
+		Surfaces:          []core.ServerSurface{core.ServerSurfaceAPI},
+		StartedAt:         clk.Now(),
+		LastSeenAt:        clk.Now(),
+		HeartbeatInterval: core.Duration(cadence),
+	}
+	if err := s.Unscoped(ctx, func(u store.UnscopedTx) error {
+		return u.RegisterServer(ctx, &srv)
+	}); err != nil {
+		t.Fatalf("registering: %v", err)
+	}
+
+	got := listServers(t, s, core.Page{Limit: 10})
+	if len(got) != 1 {
+		t.Fatalf("listed %d servers, want 1", len(got))
+	}
+	if stored := time.Duration(got[0].HeartbeatInterval); stored != cadence {
+		t.Errorf("heartbeat interval = %v, want %v", stored, cadence)
+	}
+	// And it is what the reader's own threshold is three of.
+	if want := 3 * cadence; got[0].StaleAfter() != want {
+		t.Errorf("StaleAfter = %v, want %v", got[0].StaleAfter(), want)
+	}
+
+	if err := s.Unscoped(ctx, func(u store.UnscopedTx) error {
+		return u.HeartbeatServer(ctx, srv.ID, clk.Now().Add(time.Minute))
+	}); err != nil {
+		t.Fatalf("beating against a live row: %v", err)
+	}
+	if err := s.Unscoped(ctx, func(u store.UnscopedTx) error {
+		return u.DeregisterServer(ctx, srv.ID)
+	}); err != nil {
+		t.Fatalf("deregistering: %v", err)
+	}
+	err := s.Unscoped(ctx, func(u store.UnscopedTx) error {
+		return u.HeartbeatServer(ctx, srv.ID, clk.Now().Add(2*time.Minute))
+	})
+	if !core.IsKind(err, core.KindNotFound) {
+		t.Fatalf("beating against a deleted row = %v, want not found", err)
+	}
+}

@@ -381,3 +381,134 @@ func TestARegistrationRefusedAsBusyIsRetried(t *testing.T) {
 	cancel()
 	<-stopped
 }
+
+// TestStalenessFollowsTheServerSOwnInterval is the defect --heartbeat-interval
+// had: the threshold was a compile-time three times the default cadence, so
+// the flag moved the writing and nothing moved the reading. It was wrong in
+// both directions and both are asserted here, because a fix that only widened
+// the window would pass a test that checked one of them.
+func TestStalenessFollowsTheServerSOwnInterval(t *testing.T) {
+	const (
+		slow = 5 * time.Minute
+		fast = time.Second
+	)
+	last := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name     string
+		interval time.Duration
+		since    time.Duration
+		attached bool
+	}{
+		// A server beating every five minutes is one beat behind here, and the
+		// fixed threshold called it down at two and a half.
+		{"a slow beater is not called down between its beats", slow, 6 * time.Minute, true},
+		{"a slow beater is called down after three of its beats", slow, 15*time.Minute + time.Second, false},
+		// A server that beat every second was called up for ninety after it
+		// stopped, which is the direction an operator notices least.
+		{"a fast beater is still up inside three of its beats", fast, 2 * time.Second, true},
+		{"a fast beater is called down promptly", fast, 4 * time.Second, false},
+		// A row written before the cadence was recorded keeps the meaning it
+		// had: judged against the default interval.
+		{"a row that declares no cadence is judged against the default", 0, core.ServerStaleAfter, true},
+		{"a row that declares no cadence goes stale at the default", 0, core.ServerStaleAfter + time.Second, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := core.Server{LastSeenAt: last, HeartbeatInterval: core.Duration(tt.interval)}
+			if got := srv.Attached(last.Add(tt.since)); got != tt.attached {
+				t.Errorf("Attached(%v after last seen, beating every %v) = %v, want %v",
+					tt.since, tt.interval, got, tt.attached)
+			}
+		})
+	}
+}
+
+// TestTheRegistrarRecordsItsOwnCadence closes the other half: a reader can
+// only judge against the writer's interval if the writer stored it.
+func TestTheRegistrarRecordsItsOwnCadence(t *testing.T) {
+	const interval = 5 * time.Minute
+	f := newFixture(t)
+	r := presence.New(presence.Config{
+		Store:   f.store,
+		Address: func() string { return "127.0.0.1:1" },
+		Version: "9.9.9",
+	}, presence.WithClock(f.clk), presence.WithInterval(interval))
+
+	if err := r.Register(context.Background()); err != nil {
+		t.Fatalf("registering: %v", err)
+	}
+	row := f.servers(t)[0]
+	if got := time.Duration(row.HeartbeatInterval); got != interval {
+		t.Fatalf("stored heartbeat interval = %v, want %v", got, interval)
+	}
+	// And the row a reader loads is judged against it, not against the default.
+	if !row.Attached(row.LastSeenAt.Add(core.ServerStaleAfter + time.Minute)) {
+		t.Error("a server beating every 5m read as down inside one of its own beats")
+	}
+}
+
+// TestABeatAgainstAMissingRowRegistersAgain is the symmetric half of
+// TestARegistrationRefusedAsBusyIsRetried. A registration that landed and was
+// then deleted underneath the process left the loop beating against nothing
+// for the rest of that process's life, and the store discarded the row count
+// that would have said so.
+func TestABeatAgainstAMissingRowRegistersAgain(t *testing.T) {
+	f := newFixture(t)
+	r := f.registrar("127.0.0.1:19001", core.ServerSurfaceAPI)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stopped := make(chan struct{})
+	go func() { _ = r.Run(ctx); close(stopped) }()
+
+	waitFor(t, func() bool { return len(f.servers(t)) == 1 })
+	waitFor(t, func() bool { return f.clk.Tickers() > 0 })
+
+	// Somebody removes the row: an operator, another server's purge, a
+	// database restored from a backup taken before this process started.
+	if err := f.store.Unscoped(ctx, func(u store.UnscopedTx) error {
+		return u.DeregisterServer(ctx, r.ServerID())
+	}); err != nil {
+		t.Fatalf("deleting the row: %v", err)
+	}
+	if got := f.servers(t); len(got) != 0 {
+		t.Fatalf("the row survived its own deletion: %+v", got)
+	}
+
+	// The next beat finds nothing, and the one after it registers again.
+	f.clk.Advance(core.ServerHeartbeatInterval)
+	f.clk.Advance(core.ServerHeartbeatInterval)
+	waitFor(t, func() bool { return len(f.servers(t)) == 1 })
+
+	got := f.servers(t)[0]
+	if got.ID != r.ServerID() {
+		t.Errorf("the restored row is %q, want this process's %q", got.ID, r.ServerID())
+	}
+	if got.Address != "127.0.0.1:19001" {
+		t.Errorf("address = %q, want the configured one", got.Address)
+	}
+	cancel()
+	<-stopped
+}
+
+// TestABeatReportsAMissingRow states the store contract the loop above rests
+// on, so a change that goes back to discarding the row count fails here too
+// rather than only in a goroutine.
+func TestABeatReportsAMissingRow(t *testing.T) {
+	f := newFixture(t)
+	r := f.registrar("127.0.0.1:19002")
+	ctx := context.Background()
+	if err := r.Register(ctx); err != nil {
+		t.Fatalf("registering: %v", err)
+	}
+	if err := r.Beat(ctx); err != nil {
+		t.Fatalf("beating against a live row: %v", err)
+	}
+	if err := r.Deregister(ctx); err != nil {
+		t.Fatalf("deregistering: %v", err)
+	}
+	if err := r.Beat(ctx); !core.IsKind(err, core.KindNotFound) {
+		t.Fatalf("beating against a deleted row = %v, want not found", err)
+	}
+}

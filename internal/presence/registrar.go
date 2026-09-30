@@ -132,6 +132,7 @@ func (r *Registrar) Register(ctx context.Context) error {
 		r.server.StartedAt = now
 	}
 	r.server.LastSeenAt = now
+	r.server.HeartbeatInterval = core.Duration(r.interval)
 	if r.address != nil {
 		r.server.Address = r.address()
 	}
@@ -143,7 +144,8 @@ func (r *Registrar) Register(ctx context.Context) error {
 	})
 }
 
-// Beat refreshes the row's last seen instant.
+// Beat refreshes the row's last seen instant. It reports core.KindNotFound
+// when the row is gone, which Run answers by registering again.
 func (r *Registrar) Beat(ctx context.Context) error {
 	at := r.clock.Now()
 	return r.store.Unscoped(ctx, func(tx store.UnscopedTx) error {
@@ -176,6 +178,14 @@ func (r *Registrar) Run(ctx context.Context) error {
 	//
 	// So it retries on the same ticker the heartbeat uses. Beat only updates a
 	// row, so it cannot stand in for the registration that never landed.
+	//
+	// The same reasoning covers a registration that landed and then vanished.
+	// A row removed underneath a running process -- by an operator, by another
+	// server's purge, by a database restored from backup -- left this loop
+	// beating against nothing for the rest of the process's life, which
+	// under-reports what is running exactly as giving up at startup did. Beat
+	// now says when it matched no row, and that puts the loop back into the
+	// state it was in before the first registration landed.
 	err := r.Register(ctx)
 	registered := err == nil
 	if !registered && r.onError != nil {
@@ -201,8 +211,13 @@ func (r *Registrar) Run(ctx context.Context) error {
 				registered = true
 				continue
 			}
-			if err := r.Beat(ctx); err != nil && r.onError != nil {
-				r.onError(err)
+			if err := r.Beat(ctx); err != nil {
+				if core.IsKind(err, core.KindNotFound) {
+					registered = false
+				}
+				if r.onError != nil {
+					r.onError(err)
+				}
 			}
 		}
 	}

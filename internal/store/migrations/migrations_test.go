@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -518,4 +519,93 @@ func TestProjectAppearanceBackfillsExistingRows(t *testing.T) {
 	if created != "2026-01-01T00:00:00Z" || updated != "2026-01-02T00:00:00Z" {
 		t.Errorf("migration disturbed the timestamps: %q %q", created, updated)
 	}
+}
+
+// serverHeartbeatIntervalVersion is the migration that records the cadence a
+// server beats at.
+const serverHeartbeatIntervalVersion = 9
+
+// TestServerHeartbeatIntervalUpgradeMatchesAFreshDatabase holds the one
+// property a forward-only migration owes: an installation that upgrades ends
+// up with the schema an installation created today has. The two are compared
+// column by column rather than by eye, because a type or a default that
+// differs only on the upgraded side is invisible until somebody writes a row.
+func TestServerHeartbeatIntervalUpgradeMatchesAFreshDatabase(t *testing.T) {
+	ctx := context.Background()
+
+	upgraded := open(t)
+	runThrough(ctx, t, upgraded, serverHeartbeatIntervalVersion-1)
+	if _, err := upgraded.ExecContext(ctx,
+		`INSERT INTO servers (id, address, version, surfaces, started_at, last_seen_at)
+		 VALUES ('s1', '10.0.0.1:8080', '0.1.0', 'api,web',
+		         '2026-01-01T00:00:00Z', '2026-01-01T00:01:00Z')`,
+	); err != nil {
+		t.Fatalf("seeding the old schema: %v", err)
+	}
+	if _, err := Run(ctx, upgraded); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	fresh := open(t)
+	if _, err := Run(ctx, fresh); err != nil {
+		t.Fatalf("Run() on a fresh database error = %v", err)
+	}
+
+	if got, want := serversShape(ctx, t, upgraded), serversShape(ctx, t, fresh); got != want {
+		t.Errorf("upgraded servers table:\n%s\nfresh:\n%s", got, want)
+	}
+
+	// The row that was already there keeps everything it said, and says the
+	// one new thing as "did not say", which a reader resolves to the default.
+	var (
+		address, surfaces, started, lastSeen string
+		interval                             int64
+	)
+	if err := upgraded.QueryRowContext(ctx,
+		`SELECT address, surfaces, started_at, last_seen_at, heartbeat_interval_ms
+		 FROM servers WHERE id = 's1'`,
+	).Scan(&address, &surfaces, &started, &lastSeen, &interval); err != nil {
+		t.Fatalf("reading the migrated server: %v", err)
+	}
+	if address != "10.0.0.1:8080" || surfaces != "api,web" {
+		t.Errorf("migration disturbed the row: %q %q", address, surfaces)
+	}
+	if started != "2026-01-01T00:00:00Z" || lastSeen != "2026-01-01T00:01:00Z" {
+		t.Errorf("migration disturbed the instants: %q %q", started, lastSeen)
+	}
+	if interval != 0 {
+		t.Errorf("heartbeat_interval_ms = %d on a row that predates it, want 0", interval)
+	}
+}
+
+// serversShape renders the servers table's columns, types, nullability and
+// defaults as one comparable string.
+func serversShape(ctx context.Context, t *testing.T, db *sql.DB) string {
+	t.Helper()
+	rows, err := db.QueryContext(ctx, `SELECT name, type, "notnull", dflt_value FROM pragma_table_info('servers') ORDER BY name`)
+	if err != nil {
+		t.Fatalf("reading the servers table: %v", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var b strings.Builder
+	for rows.Next() {
+		var (
+			name, typ string
+			notNull   int
+			dflt      sql.NullString
+		)
+		if err := rows.Scan(&name, &typ, &notNull, &dflt); err != nil {
+			t.Fatalf("scanning the servers table: %v", err)
+		}
+		b.WriteString(name + " " + typ + " notnull=" + strconv.Itoa(notNull) +
+			" default=" + dflt.String + "\n")
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("reading the servers table: %v", err)
+	}
+	if b.Len() == 0 {
+		t.Fatal("the servers table has no columns")
+	}
+	return b.String()
 }

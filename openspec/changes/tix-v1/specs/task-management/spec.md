@@ -249,6 +249,12 @@ Task lists SHALL be filterable by project, status, assignee, tag, priority, due 
 - **WHEN** tasks are listed with a free-text query
 - **THEN** tasks whose title or body matches the query are returned
 
+#### Scenario: Text query holding a wildcard character
+
+- **WHEN** tasks are listed with a free-text query containing `%` or `_`
+- **THEN** that character is matched as itself rather than as a pattern operator
+- **AND** tasks matched only by reading it as a wildcard are not returned
+
 #### Scenario: Unknown filter field
 
 - **WHEN** tasks are listed with a filter naming a field that does not exist
