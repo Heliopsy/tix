@@ -402,6 +402,7 @@ func (l *Local) sweepOne(ctx context.Context, m *mutation, before core.Task, wor
 	if holder, err := lookupActor(ctx, m.tx, before.ClaimedByActorID); err == nil {
 		payload["previous_holder_handle"] = holder.Handle
 	}
+	revertedFrom := ""
 	if state, found := wf.Definition.State(current.Status); found && state.RevertOnLeaseExpiry {
 		to := state.RevertTo
 		if to == "" {
@@ -415,6 +416,7 @@ func (l *Local) sweepOne(ctx context.Context, m *mutation, before core.Task, wor
 				return false, err
 			}
 			payload["reverted_to"] = to
+			revertedFrom = current.Status
 		}
 	}
 
@@ -422,8 +424,26 @@ func (l *Local) sweepOne(ctx context.Context, m *mutation, before core.Task, wor
 	if err != nil {
 		return false, err
 	}
-	return true, m.Record("task.lease_expire", core.EventTaskLeaseExpired, "task", before.ID, before.ProjectID,
-		before, after, payload)
+	if err := m.Record("task.lease_expire", core.EventTaskLeaseExpired, "task", before.ID, before.ProjectID,
+		before, after, payload); err != nil {
+		return false, err
+	}
+	if revertedFrom == "" {
+		return true, nil
+	}
+	// A consumer rebuilding task state from the stream reads status changes from
+	// task.transitioned and nothing else, so a revert that only said
+	// reverted_to inside another event's payload was invisible to it: the task
+	// went on being "doing" in every mirror of this installation.
+	//
+	// The event goes out without an audit entry of its own, which is why this
+	// does not go through Record. The expiry entry already carries both
+	// snapshots of this one change, and a second entry would read as a second
+	// operator action -- the history view groups consecutive task.transition
+	// entries into one route -- for something no operator did.
+	m.Event(core.EventTaskTransitioned, "task", before.ID, before.ProjectID,
+		withRef(map[string]any{"from": revertedFrom, "to": after.Status, "reason": "lease_expiry"}, before, after))
+	return true, nil
 }
 
 // requireLeaseToken rejects an operation on a claimed task whose token is not

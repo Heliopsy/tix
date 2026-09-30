@@ -127,13 +127,18 @@ func (l *Local) RemoveDomain(ctx context.Context, hostname string) error {
 
 // ResolveDomain maps a hostname to its tenant. It runs before authentication,
 // so it takes no actor and reads across tenants.
+//
+// It reads through ViewUnscoped rather than Unscoped because this runs on every
+// request: on SQLite an unscoped write transaction holds the one writer
+// connection, so host resolution behind an open write blocked until the
+// request's own deadline.
 func (l *Local) ResolveDomain(ctx context.Context, hostname string) (*core.Tenant, error) {
 	host, err := normalizeHostname(hostname)
 	if err != nil {
 		return nil, err
 	}
 	var out *core.Tenant
-	if err := l.store.Unscoped(ctx, func(u store.UnscopedTx) error {
+	if err := l.store.ViewUnscoped(ctx, func(u store.UnscopedTx) error {
 		t, err := u.ResolveDomain(ctx, host)
 		out = t
 		return err

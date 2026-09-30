@@ -91,9 +91,20 @@ func validProjectKey(s string) bool {
 }
 
 // ValidateProjectKey returns an error describing why s is not a usable project key.
-func ValidateProjectKey(s string) error {
+func ValidateProjectKey(s string) error { return validateKey("project key", s) }
+
+// ValidateWorkflowKey returns an error describing why s is not a usable workflow
+// key. A workflow key is held to the same shape a project key is because it is
+// spent the same way: every surface puts it in a URL path segment, and a key
+// carrying a slash, a query or a fragment produced a location that was no longer
+// the route it was built from.
+func ValidateWorkflowKey(s string) error { return validateKey("workflow key", s) }
+
+// validateKey is the one shape a key addressable from a URL holds, named by
+// whichever kind of key is being rejected.
+func validateKey(what, s string) error {
 	if !validProjectKey(s) {
-		return Invalid("project key %q must start with a letter, end with a letter or digit, and contain only letters, digits, hyphens and underscores", s)
+		return Invalid("%s %q must start with a letter, end with a letter or digit, and contain only letters, digits, hyphens and underscores", what, s)
 	}
 	return nil
 }

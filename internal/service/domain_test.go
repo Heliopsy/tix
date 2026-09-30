@@ -5,9 +5,46 @@ package service
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 )
+
+// heldWriteWait bounds a resolution that a writer-blocked door would hold until
+// the test binary's own deadline.
+const heldWriteWait = 3 * time.Second
+
+// TestResolveDomainReadsWhileAWriteIsOpen is the request path, not the store:
+// every HTTP request resolves its Host header through here, and resolving it in
+// an unscoped write transaction made one open write stall every request on the
+// server until its own deadline. The read must land with a write in flight.
+func TestResolveDomainReadsWhileAWriteIsOpen(t *testing.T) {
+	l, _, scope, actor := newLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+	if _, err := l.AddDomain(ctx, core.AddDomainInput{Hostname: "acme.example.com"}); err != nil {
+		t.Fatalf("AddDomain: %v", err)
+	}
+
+	held, err := l.store.Begin(context.Background(), scope)
+	if err != nil {
+		t.Fatalf("opening the write transaction to hold: %v", err)
+	}
+	defer func() { _ = held.Rollback() }()
+	holder := core.Actor{Kind: core.ActorAgent, Handle: "holder"}
+	if err := held.CreateActor(context.Background(), &holder); err != nil {
+		t.Fatalf("writing inside the held transaction: %v", err)
+	}
+
+	bounded, cancel := context.WithTimeout(context.Background(), heldWriteWait)
+	defer cancel()
+	got, err := l.ResolveDomain(bounded, "acme.example.com")
+	if err != nil {
+		t.Fatalf("ResolveDomain while a write is open: %v", err)
+	}
+	if got == nil || got.ID != scope.TenantID {
+		t.Fatalf("resolved acme.example.com to %+v, want tenant %q", got, scope.TenantID)
+	}
+}
 
 func TestNormalizeHostname(t *testing.T) {
 	tests := []struct {

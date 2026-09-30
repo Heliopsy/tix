@@ -288,6 +288,37 @@ func TestHostResolutionSurvivesRowLevelSecurity(t *testing.T) {
 	}
 }
 
+// TestHostResolutionSurvivesAReadOnlyTransaction is the same guard for the door
+// the request path now uses. Raising the lookup flag is a set_config call, and a
+// read-only transaction is the one place it could be refused as a write; if it
+// were, host resolution would stop on PostgreSQL while every SQLite test kept
+// passing.
+func TestHostResolutionSurvivesAReadOnlyTransaction(t *testing.T) {
+	ctx := context.Background()
+	s, clk := newStore(t)
+	requireAppRole(t, s)
+
+	one := seed(t, s, clk, "readonly")
+	host := "readonly-" + one.scope.TenantID + ".example"
+	if err := s.Update(ctx, one.scope, func(txn store.Tx) error {
+		return txn.AddDomain(ctx, &core.Domain{Hostname: host})
+	}); err != nil {
+		t.Fatalf("adding the domain: %v", err)
+	}
+
+	var got *core.Tenant
+	if err := s.ViewUnscoped(ctx, func(txn store.UnscopedTx) error {
+		v, err := txn.ResolveDomain(ctx, host)
+		got = v
+		return err
+	}); err != nil {
+		t.Fatalf("resolving %q in a read-only transaction: %v", host, err)
+	}
+	if got == nil || got.ID != one.scope.TenantID {
+		t.Fatalf("resolved %q to %+v, want tenant %q", host, got, one.scope.TenantID)
+	}
+}
+
 // TestDomainLookupPolicyIsReadOnlyAndLowered holds the escape hatch to its
 // stated shape: it admits a SELECT and nothing else, and it is not left raised
 // for the rest of the transaction.

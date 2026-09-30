@@ -912,6 +912,84 @@ func TestSweepMaterializesExpiryAndReverts(t *testing.T) {
 	}
 }
 
+// TestSweepLetsAStreamConsumerTrackTheRevert drives the sweeper and then reads
+// the stream the way a consumer does. A webhook, a mirror or an external sync
+// rebuilds task status from task.transitioned and from nothing else; the revert
+// used to announce itself only as reverted_to inside the expiry event's payload,
+// so every one of them went on believing the task was still in progress.
+func TestSweepLetsAStreamConsumerTrackTheRevert(t *testing.T) {
+	f := newClaimFixture(t, 0)
+	reverting := f.seedTask(t, "reverts", "doing", core.PriorityNormal)
+	plain := f.seedTask(t, "stays", "review", core.PriorityNormal)
+
+	mustClaim(t, f, reverting)
+	mustClaim(t, f, plain)
+	f.clock.Advance(lease.DefaultTTL + time.Minute)
+	if _, err := f.local.SweepLeases(f.ctx, 100); err != nil {
+		t.Fatalf("SweepLeases: %v", err)
+	}
+
+	// Exactly one event type is consulted, which is the point: a consumer that
+	// has to look inside task.lease_expired to notice a status change is a
+	// consumer that has to be told the revert exists.
+	status := map[string]string{}
+	for _, e := range f.events(t, core.EventTaskTransitioned) {
+		to, _ := e.Payload["to"].(string)
+		if to == "" {
+			t.Fatalf("a transition event carried no destination: %+v", e.Payload)
+		}
+		status[e.SubjectID] = to
+	}
+	if got := status[reverting.ID]; got != "todo" {
+		t.Errorf("a consumer following task.transitioned holds %q in %q, want todo", reverting.Ref, got)
+	}
+	if got, ok := status[plain.ID]; ok {
+		t.Errorf("an expiry that reverted nothing announced a transition to %q for %q", got, plain.Ref)
+	}
+
+	// The status change is one change, so it leaves one audit entry. A second
+	// entry would read as a second operator action and the history view groups
+	// consecutive task.transition entries into a single route.
+	if got := f.reclaimEntries(t, "task.transition"); len(got) != 0 {
+		t.Errorf("the sweeper wrote %d task.transition audit entries, want none", len(got))
+	}
+	if got := f.reclaimEntries(t, "task.lease_expire"); len(got) != 2 {
+		t.Errorf("the sweeper wrote %d task.lease_expire audit entries, want 2", len(got))
+	}
+}
+
+// TestSweepAnnouncesTheRevertWithBothEndsOfIt pins the payload a consumer reads
+// the change out of, so the transition event cannot degrade into a bare
+// notification that something happened.
+func TestSweepAnnouncesTheRevertWithBothEndsOfIt(t *testing.T) {
+	f := newClaimFixture(t, 0)
+	task := f.seedTask(t, "reverts", "doing", core.PriorityNormal)
+	mustClaim(t, f, task)
+	f.clock.Advance(lease.DefaultTTL + time.Minute)
+	if _, err := f.local.SweepLeases(f.ctx, 100); err != nil {
+		t.Fatalf("SweepLeases: %v", err)
+	}
+
+	events := f.events(t, core.EventTaskTransitioned)
+	if len(events) != 1 {
+		t.Fatalf("transition events = %d, want the one the revert emitted", len(events))
+	}
+	got := events[0]
+	if got.SubjectID != task.ID {
+		t.Errorf("the transition names subject %q, want the task %q", got.SubjectID, task.ID)
+	}
+	for field, want := range map[string]string{
+		"from":   "doing",
+		"to":     "todo",
+		"reason": "lease_expiry",
+		"ref":    task.Ref,
+	} {
+		if v, _ := got.Payload[field].(string); v != want {
+			t.Errorf("payload %q = %q, want %q", field, v, want)
+		}
+	}
+}
+
 func TestSweepRevertsToTheWorkflowInitialState(t *testing.T) {
 	f := newClaimFixture(t, 0)
 	task := f.seedTask(t, "no revert target", "stuck", core.PriorityNormal)
