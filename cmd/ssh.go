@@ -4,9 +4,8 @@ package cmd
 
 import (
 	"fmt"
-	"os/signal"
+	"io"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"github.com/heliopsy/tix/internal/clock"
@@ -262,15 +261,9 @@ func runSSH(cmd *cobra.Command, g *globals, o sshOptions) error {
 	if err != nil {
 		return err
 	}
-	if err := srv.Listen(); err != nil {
-		return err
-	}
-
-	ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "tix ssh listening on %s\n", srv.Addr())
-	return srv.Serve(ctx)
+	return serveUntilSignal(cmd, srv, func(w io.Writer) {
+		_, _ = fmt.Fprintf(w, "tix ssh listening on %s\n", srv.Addr())
+	})
 }
 
 // resolveHostKey places a generated host key beside the database it serves, so
