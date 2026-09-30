@@ -122,6 +122,14 @@ A list the code already holds is asserted rather than maintained: see
 - Conventional Commits: `feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert`.
 - Never add `Co-Authored-By` trailers.
 - Keep messages concise and human. No template filler.
+- Merge an agent branch with `--ff-only`, so its commits land on `main` where
+  release-please can read them. release-please walks merge commits on `main`
+  and considers only the merge commit's own subject; the conventional commits
+  inside a `--no-ff` merge are invisible to it. `fix(cmd): install the
+  interrupt handler before the listener binds` shipped that way and reached no
+  changelog.
+- When a merge commit is unavoidable, give it a conventional subject naming
+  what it delivers, never `merge: ...`.
 
 ## Before you push
 
