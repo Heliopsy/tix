@@ -483,9 +483,14 @@ func TestAnUnreadableTerminalFieldIsRefused(t *testing.T) {
 	f := newFixture(t)
 	b := f.as("alice")
 
+	// "closed" carries the terminal state the definition needs, so the only
+	// thing left for the save to object to is the word under test. Without it
+	// this guard passes on "a workflow requires at least one terminal state",
+	// which is a refusal for a different reason entirely.
 	resp := b.post("/workflows", url.Values{
 		"key": {"maybe"}, "name": {"Maybe"}, "initial": {"open"},
-		"states": {"open|Open|open\ndone|Done|maybe"}, "transitions": {"open>done"}, "migrate": {""},
+		"states":      {"open|Open|open\ndone|Done|maybe\nclosed|Closed|terminal"},
+		"transitions": {"open>done\nopen>closed"}, "migrate": {""},
 	})
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusBadRequest {
