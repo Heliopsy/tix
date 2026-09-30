@@ -15,8 +15,10 @@ import (
 )
 
 // lineWidth counts the cells a rendered line occupies, ignoring its styling.
+// A rune is not a cell: measuring this by rune count made every width guard
+// in this file blind to the one content that can overflow a frame.
 func lineWidth(line string) int {
-	return len([]rune(stripANSI(line)))
+	return lipgloss.Width(stripANSI(line))
 }
 
 // detailModel opens a task with something in every section, at one size.

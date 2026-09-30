@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/lipgloss/v2"
+
 	"github.com/heliopsy/tix/internal/core"
 )
 
@@ -82,9 +84,9 @@ func CardHeights(tasks []core.Task, width int, now time.Time, mine string) []int
 // and enough for its widest title, capped so one long title cannot take the
 // whole board. A column with nothing in it asks only for its heading.
 func ColumnDemand(heading string, tasks []core.Task) int {
-	want := len([]rune(heading))
+	want := lipgloss.Width(heading)
 	for _, t := range tasks {
-		if n := len([]rune(t.Title)); n > want {
+		if n := lipgloss.Width(t.Title); n > want {
 			want = n
 		}
 	}
@@ -98,5 +100,5 @@ func ColumnFloor(heading string, tasks []core.Task) int {
 	if len(tasks) > 0 {
 		return MinColumnWidth
 	}
-	return max(MinEmptyColumnWidth, min(MinColumnWidth, len([]rune(heading))+BorderWidth+ColumnGutter))
+	return max(MinEmptyColumnWidth, min(MinColumnWidth, lipgloss.Width(heading)+BorderWidth+ColumnGutter))
 }

@@ -8,6 +8,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
 )
@@ -125,7 +126,7 @@ func (m Model) eventLine(e core.Event, selected bool) string {
 	verb := output.EventVerb(e.Type)
 	ref := output.EventRef(e)
 	head := marker + when + "  " + actor + "  " + verb + "  " + ref + "  "
-	detail := Truncate(output.EventDetail(e), max(0, m.width-len([]rune(head))))
+	detail := Truncate(output.EventDetail(e), max(0, m.width-lipgloss.Width(head)))
 	if selected {
 		return m.selection().Render(Truncate(head+detail, m.width))
 	}

@@ -5,6 +5,8 @@ package tui
 import (
 	"fmt"
 	"strings"
+
+	"charm.land/lipgloss/v2"
 )
 
 // LayoutMode names how much of the board fits on the terminal.
@@ -131,17 +133,30 @@ func ScrollOffset(offset, selected, height int) int {
 
 // Truncate shortens s to width, marking the cut with an ellipsis.
 func Truncate(s string, width int) string {
-	r := []rune(s)
 	if width <= 0 {
 		return ""
 	}
-	if len(r) <= width {
+	if lipgloss.Width(s) <= width {
 		return s
 	}
+	budget := width - 1
 	if width == 1 {
-		return string(r[:1])
+		budget = 1
 	}
-	return string(r[:width-1]) + "…"
+	var b strings.Builder
+	used := 0
+	for _, r := range s {
+		w := lipgloss.Width(string(r))
+		if used+w > budget {
+			break
+		}
+		used += w
+		b.WriteRune(r)
+	}
+	if width == 1 {
+		return b.String()
+	}
+	return b.String() + "…"
 }
 
 // ScrollWindow keeps a selected row inside a window of the given height and,
@@ -242,19 +257,36 @@ func wrapLine(s string, width int) []string {
 		switch {
 		case line == "":
 			line = w
-		case len([]rune(line))+1+len([]rune(w)) <= width:
+		case lipgloss.Width(line)+1+lipgloss.Width(w) <= width:
 			line += " " + w
 		default:
 			out = append(out, line)
 			line = w
 		}
-		for len([]rune(line)) > width {
-			r := []rune(line)
-			out = append(out, string(r[:width]))
-			line = string(r[width:])
+		for lipgloss.Width(line) > width {
+			head, rest := cutCells(line, width)
+			out = append(out, head)
+			line = rest
 		}
 	}
 	return append(out, line)
+}
+
+// cutCells splits s at the last rune that still fits in width cells.
+func cutCells(s string, width int) (string, string) {
+	used := 0
+	for i, r := range s {
+		w := lipgloss.Width(string(r))
+		if used+w > width && i > 0 {
+			return s[:i], s[i:]
+		}
+		if used+w > width {
+			n := len(string(r))
+			return s[:n], s[n:]
+		}
+		used += w
+	}
+	return s, ""
 }
 
 // WrapTitle wraps a title into at most lines lines, truncating only the last
