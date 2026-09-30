@@ -214,10 +214,10 @@ command that produced them, `server` leaves them for `tix serve`, and `off` queu
 
 The `ssh.*` keys configure `tix ssh`, which serves the terminal interface over SSH. Every one of them except
 `ssh.trusted_proxies` is also a flag on the command, and the flag wins wherever one was given, so
-`TIX_SSH_MAX_TENANTS=50 tix ssh --max-tenants 10` admits ten. A flag nobody typed does not count as a layer: it leaves the configured value alone even though the
-flag has a default of its own. The deployment most likely to run this listener is a container, where a command
-line is the hardest layer to reach and an environment variable the easiest, which is why none of this is
-flag-only. See [deployment.md](deployment.md) for what each setting protects.
+`TIX_SSH_MAX_TENANTS=50 tix ssh --max-tenants 10` admits ten. A flag nobody typed does not count as a layer: it
+leaves the configured value alone even though the flag has a default of its own. The deployment most likely to
+run this listener is a container, where a command line is the hardest layer to reach and an environment variable
+the easiest, which is why none of this is flag-only. See [deployment.md](deployment.md) for what each setting protects.
 
 `ssh.demo` picks the mode. It is `false`, so the listener serves only the keys enrolled with `tix user key add`
 and refuses everything else. Setting it to `true` is `--demo`: any key is accepted and handed a seeded

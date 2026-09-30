@@ -104,7 +104,7 @@ func (p *proxyConn) resolve(timeout time.Duration, log *slog.Logger) {
 		// though it were working.
 		log.Warn("ssh: no valid proxy protocol header from a trusted proxy",
 			"proxy", sourceOf(p.remote), "error", err)
-		_ = p.Conn.Close()
+		_ = p.Close()
 		return
 	}
 	if header.Local {
