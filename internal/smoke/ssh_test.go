@@ -89,7 +89,19 @@ func TestSSHDemoServesASeededBoardToAnyKey(t *testing.T) {
 	// Every one of these is asynchronous: the board arrives from loadProjects
 	// and "live" from the event subscription. Asserting before both have
 	// landed reads as an empty board on a dead stream, which is not a bug.
-	screen := term.waitForScreen("Demo board", "live", "connected")
+	//
+	// The task ref is in the wait as well as in the assertion, because it is
+	// the only one of these tokens that names the board. "Demo board" is the
+	// project's name and is drawn by the projects list, which the interface
+	// opens on before the board loads, and the connection label is drawn on
+	// every screen; a wait built from those alone was satisfied by the projects
+	// list and this assertion then failed with the projects list in its
+	// message. Nothing on the projects list carries a task ref.
+	//
+	// "connected" is gone rather than kept: the disconnected label reads
+	// "○ disconnected, retrying", so that token was satisfied whether the
+	// stream was up or not. "live" appears only in "● live".
+	screen := term.waitForScreen("Demo board", "demo-", "live")
 	if !strings.Contains(screen, "demo-") {
 		t.Fatalf("the demo board carried no seeded tasks:\n%s", screen)
 	}
@@ -120,7 +132,11 @@ func TestSSHServesEnrolledKeysAndRefusesTheRest(t *testing.T) {
 
 	t.Run("an enrolled key lands on its own board", func(t *testing.T) {
 		term := dialSSH(t, s, addr, enrolled)
-		screen := term.waitForScreen("as smoke", "live", "connected", "mine")
+		// The project key and its name sit on the same row of the projects
+		// list, which is the screen this asserts about, so the wait and the
+		// assertion name the same thing. "connected" is gone for the reason
+		// given above: "○ disconnected, retrying" satisfied it too.
+		screen := term.waitForScreen("as smoke", "live", "mine")
 		if !strings.Contains(screen, "Mine") {
 			t.Fatalf("the board did not show the actor's own projects:\n%s", screen)
 		}
