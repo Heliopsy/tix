@@ -321,3 +321,263 @@ func setStatus(t *testing.T, s *Store, f fixture, taskID, status string) {
 func terminalOf(workflowID string, states ...string) []store.WorkflowTerminal {
 	return []store.WorkflowTerminal{{WorkflowID: workflowID, States: states}}
 }
+
+// TestSweepDoesNotClearALeaseTakenWhileItWasReading runs the interleave the
+// sweeper actually meets: transaction S reads an expired lease, worker B takes
+// a fresh lease on the same task and commits, and only then does S clear.
+// Transactions here begin READ COMMITTED and ExpiredLeases takes no row locks,
+// so S's clear re-reads B's committed row; a clear keyed only on the task id
+// applies to it and hands one task to two workers.
+//
+// The ordering is two real transactions in two goroutines joined by channels.
+// The fake clock supplies the instants but decides nothing about the schedule:
+// what is under test is the interleaving, and a clock cannot order that.
+func TestSweepDoesNotClearALeaseTakenWhileItWasReading(t *testing.T) {
+	ctx := context.Background()
+	s, clk := newStore(t)
+	f := seed(t, s, clk, "acme")
+	task := f.newTask(t, "contended", core.PriorityNormal)
+
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+		ok, err := tx.ClaimTask(ctx, store.ClaimRow{TaskID: task.ID, ActorID: f.actor.ID,
+			Now: clk.Now(), Until: clk.Now().Add(time.Minute), LeaseToken: "worker-a"})
+		if err != nil {
+			return err
+		}
+		if !ok {
+			t.Fatal("the first claim should succeed")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("worker A claiming: %v", err)
+	}
+	clk.Advance(2 * time.Minute)
+
+	var (
+		read    = make(chan struct{})
+		taken   = make(chan struct{})
+		done    = make(chan error, 1)
+		cleared bool
+	)
+	go func() {
+		done <- s.Update(ctx, f.scope, func(tx store.Tx) error {
+			expired, err := tx.ExpiredLeases(ctx, clk.Now(), 10)
+			if err != nil {
+				return err
+			}
+			if len(expired) != 1 || expired[0].ID != task.ID {
+				return core.Internal("expired leases = %+v", expired)
+			}
+			close(read)
+			<-taken
+			ok, err := tx.ClearClaim(ctx, store.ExpireClaimRow{
+				TaskID: task.ID, HolderID: expired[0].ClaimedByActorID, At: clk.Now()})
+			cleared = ok
+			return err
+		})
+	}()
+
+	<-read
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+		ok, err := tx.ClaimTask(ctx, store.ClaimRow{TaskID: task.ID, ActorID: f.actor.ID,
+			Now: clk.Now(), Until: clk.Now().Add(time.Hour), LeaseToken: "worker-b"})
+		if err != nil {
+			return err
+		}
+		if !ok {
+			t.Error("worker B should be able to claim a lapsed lease")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("worker B claiming: %v", err)
+	}
+	close(taken)
+	if err := <-done; err != nil {
+		t.Fatalf("sweeping: %v", err)
+	}
+
+	if cleared {
+		t.Error("the sweep reported clearing a lease it no longer owned")
+	}
+	if err := s.View(ctx, f.scope, func(tx store.Tx) error {
+		got, err := tx.GetTask(ctx, core.TaskRef{ID: task.ID})
+		if err != nil {
+			return err
+		}
+		if got.ClaimedByActorID == "" || !got.ClaimedAtTime(clk.Now()) {
+			t.Fatalf("worker B's lease was destroyed by the sweep: %+v", got)
+		}
+		if got.LeaseExpiredAt != nil {
+			t.Fatalf("the sweep recorded an expiry over a live lease: %v", got.LeaseExpiredAt)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("reading the contended task: %v", err)
+	}
+
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+		ok, err := tx.RenewLease(ctx, task.ID, "worker-b", clk.Now().Add(2*time.Hour))
+		if err != nil {
+			return err
+		}
+		if !ok {
+			t.Fatal("worker B's token was invalidated by the sweep")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("renewing worker B's lease: %v", err)
+	}
+}
+
+// TestClearClaimRefusesALiveLease is the predicate on its own, without the
+// interleave: a lease that has not lapsed is not the sweeper's to clear, and
+// saying so is distinct from saying the task is not there.
+func TestClearClaimRefusesALiveLease(t *testing.T) {
+	ctx := context.Background()
+	s, clk := newStore(t)
+	f := seed(t, s, clk, "acme")
+	task := f.newTask(t, "held", core.PriorityNormal)
+
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+		_, err := tx.ClaimTask(ctx, store.ClaimRow{TaskID: task.ID, ActorID: f.actor.ID,
+			Now: clk.Now(), Until: clk.Now().Add(time.Hour), LeaseToken: "live"})
+		return err
+	}); err != nil {
+		t.Fatalf("claiming: %v", err)
+	}
+
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+		cleared, err := tx.ClearClaim(ctx, store.ExpireClaimRow{
+			TaskID: task.ID, HolderID: f.actor.ID, At: clk.Now()})
+		if err != nil {
+			return err
+		}
+		if cleared {
+			t.Fatal("a live lease must not be cleared")
+		}
+		if _, err := tx.ClearClaim(ctx, store.ExpireClaimRow{
+			TaskID: "01J0000000000000000000000X", At: clk.Now()}); !core.IsKind(err, core.KindNotFound) {
+			t.Fatalf("clearing a claim on a task that is not there = %v, want not found", err)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("clearing a live claim: %v", err)
+	}
+
+	if err := s.View(ctx, f.scope, func(tx store.Tx) error {
+		got, err := tx.GetTask(ctx, core.TaskRef{ID: task.ID})
+		if err != nil {
+			return err
+		}
+		if got.ClaimedByActorID != f.actor.ID || got.LeaseExpiredAt != nil {
+			t.Fatalf("a refused clear changed the task: %+v", got)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("reading the held task: %v", err)
+	}
+}
+
+// TestClaimNextJudgesTerminalPerWorkflow keeps the engines honest about the
+// shape of the predicate: one query carries two workflows that disagree about
+// "done", and each row is judged by the workflow its own project names.
+func TestClaimNextJudgesTerminalPerWorkflow(t *testing.T) {
+	ctx := context.Background()
+	s, clk := newStore(t)
+	f := seed(t, s, clk, "acme")
+	ops := f.secondProject(t, "ops", "shipped")
+
+	agentsDone := f.newTask(t, "finished under agents", core.PriorityHighest)
+	setStatus(t, s, f, agentsDone.ID, "done")
+	opsDone := f.newTaskIn(t, ops, "still going under ops", core.PriorityHigh)
+	setStatus(t, s, f, opsDone.ID, "done")
+
+	terminal := []store.WorkflowTerminal{
+		{WorkflowID: f.workflow.ID, States: []string{"done"}},
+		{WorkflowID: ops.WorkflowID, States: []string{"shipped"}},
+	}
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+		id, ok, err := tx.ClaimNextTask(ctx, store.ClaimNextRow{
+			ActorID: f.actor.ID, Now: clk.Now(), Until: clk.Now().Add(time.Hour),
+			LeaseToken: "t1", Terminal: terminal,
+		})
+		if err != nil {
+			return err
+		}
+		if !ok || id != opsDone.ID {
+			t.Fatalf("claimed %q ok=%v, want %q, whose own workflow does not call \"done\" finished",
+				id, ok, opsDone.ID)
+		}
+		_, ok, err = tx.ClaimNextTask(ctx, store.ClaimNextRow{
+			ActorID: f.actor.ID, Now: clk.Now(), Until: clk.Now().Add(time.Hour),
+			LeaseToken: "t2", Terminal: terminal,
+		})
+		if err != nil {
+			return err
+		}
+		if ok {
+			t.Fatal("a task terminal under its own workflow was handed out")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("claiming across two workflows: %v", err)
+	}
+}
+
+// TestClaimNextBlocksOnADependencyUnfinishedInItsOwnWorkflow does the same for
+// the dependency gate, where the row judged is in a different project from the
+// task waiting on it.
+func TestClaimNextBlocksOnADependencyUnfinishedInItsOwnWorkflow(t *testing.T) {
+	ctx := context.Background()
+	s, clk := newStore(t)
+	f := seed(t, s, clk, "acme")
+	ops := f.secondProject(t, "ops", "shipped")
+
+	blocker := f.newTaskIn(t, ops, "upstream", core.PriorityNormal)
+	setStatus(t, s, f, blocker.ID, "done")
+	blocked := f.newTask(t, "downstream", core.PriorityHighest)
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+		return tx.AddDependency(ctx, &core.Dependency{TaskID: blocked.ID, DependsOn: blocker.ID})
+	}); err != nil {
+		t.Fatalf("seeding the dependency: %v", err)
+	}
+
+	terminal := []store.WorkflowTerminal{
+		{WorkflowID: f.workflow.ID, States: []string{"done"}},
+		{WorkflowID: ops.WorkflowID, States: []string{"shipped"}},
+	}
+	row := func(token string) store.ClaimNextRow {
+		return store.ClaimNextRow{
+			ActorID: f.actor.ID, Now: clk.Now(), Until: clk.Now().Add(time.Hour),
+			LeaseToken: token, Terminal: terminal, ProjectIDs: []string{f.project.ID},
+		}
+	}
+
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+		id, ok, err := tx.ClaimNextTask(ctx, row("t1"))
+		if err != nil {
+			return err
+		}
+		if ok {
+			t.Fatalf("claimed %q, whose dependency is unfinished under the dependency's own workflow", id)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("claiming over an unfinished dependency: %v", err)
+	}
+
+	setStatus(t, s, f, blocker.ID, "shipped")
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+		id, ok, err := tx.ClaimNextTask(ctx, row("t2"))
+		if err != nil {
+			return err
+		}
+		if !ok || id != blocked.ID {
+			t.Fatalf("claimed %q ok=%v, want %q once its dependency reached its own workflow's terminal state",
+				id, ok, blocked.ID)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("claiming once the dependency finished: %v", err)
+	}
+}
