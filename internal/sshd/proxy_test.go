@@ -5,11 +5,13 @@ package sshd
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net"
 	"net/netip"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -228,17 +230,13 @@ func TestATrustedProxyWithNoValidHeaderIsClosed(t *testing.T) {
 				!strings.Contains(err.Error(), "closed") {
 				t.Fatalf("deadline: %v", err)
 			}
-			if n, err := served.Read(make([]byte, 64)); err == nil {
-				t.Fatalf("the transport read %d bytes, want the connection already closed", n)
-			}
+			assertClosed(t, served, "the listener's side of the connection")
 			// And the client sees it go, rather than sitting on a connection
 			// the listener has quietly stopped serving.
 			if err := conn.SetReadDeadline(time.Now().Add(parseBudget)); err != nil {
 				t.Fatalf("client deadline: %v", err)
 			}
-			if _, err := conn.Read(make([]byte, 1)); err == nil {
-				t.Fatal("the client's connection is still open, want it closed")
-			}
+			assertClosed(t, conn, "the client's connection")
 		})
 	}
 }
@@ -279,9 +277,7 @@ func TestAStalledTrustedProxyIsClosedAndDelaysNobody(t *testing.T) {
 	if err := stalled.SetReadDeadline(time.Now().Add(4 * parseBudget)); err != nil {
 		t.Fatalf("client deadline: %v", err)
 	}
-	if _, err := stalled.Read(make([]byte, 1)); err == nil {
-		t.Fatal("the stalled connection is still open, want it closed on the deadline")
-	}
+	assertClosed(t, stalled, "the stalled connection")
 	if waited := time.Since(start); waited < parseBudget/2 {
 		t.Errorf("the stalled connection was closed after %v, want it to have had its deadline", waited)
 	}
@@ -415,6 +411,21 @@ func TestTheRateLimiterBucketsByTheResolvedAddress(t *testing.T) {
 	want := []string{"198.51.100.9", "203.0.113.7"}
 	if strings.Join(sources, ",") != strings.Join(want, ",") {
 		t.Fatalf("the limiter counted %q, want one allowance per client %q", sources, want)
+	}
+}
+
+// assertClosed fails unless conn has been closed by the other end. A read that
+// merely hit its own deadline is not evidence of a close: the difference is the
+// whole distinction between refusing a connection and leaving it open, and a
+// bare "Read returned an error" passes over both.
+func assertClosed(t *testing.T, conn net.Conn, what string) {
+	t.Helper()
+	n, err := conn.Read(make([]byte, 64))
+	switch {
+	case err == nil:
+		t.Fatalf("%s read %d bytes, want it closed", what, n)
+	case errors.Is(err, os.ErrDeadlineExceeded):
+		t.Fatalf("%s timed out rather than being closed: %v", what, err)
 	}
 }
 
