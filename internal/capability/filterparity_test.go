@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/http/httptest"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -202,15 +203,50 @@ func TestTheTerminalAndTheBrowserRunTheOneParser(t *testing.T) {
 	}
 }
 
+// registeredFlag matches the long name in one line of pflag's usage listing.
+var registeredFlag = regexp.MustCompile(`(?m)^\s+(?:-\w, )?(--[a-z0-9-]+)`)
+
+// registeredFlags returns the flags a command actually registers, read out of
+// the "Flags:" block of its help and nothing else.
+//
+// Searching the whole help for the flag's name is what this guard did first,
+// and it passed with the flag deleted: the long description names --overdue in
+// a sentence, so the assertion was reading prose rather than the flag list. It
+// is the failure AGENTS.md describes -- an assertion reading something wider
+// than the thing it names -- and it is why the block is cut out first.
+func registeredFlags(t *testing.T, path string) map[string]bool {
+	t.Helper()
+	_, help := runCLI(t, path)
+	_, block, ok := strings.Cut(help, "\nFlags:\n")
+	if !ok {
+		t.Fatalf("the help for %q has no Flags: block, so this guard reads nothing:\n%s", path, help)
+	}
+	if end := strings.Index(block, "\n\n"); end >= 0 {
+		block = block[:end]
+	}
+	out := map[string]bool{}
+	for _, m := range registeredFlag.FindAllStringSubmatch(block, -1) {
+		out[m[1]] = true
+	}
+	return out
+}
+
 // TestTheCommandLineOffersAFlagForEveryFilterItShould is the check that would
 // have caught the reported gap. --filter reaches every field by construction,
 // so a guard written against it passes whatever the flag list holds; this one
 // reads the flags `tix task ls` actually registers.
 func TestTheCommandLineOffersAFlagForEveryFilterItShould(t *testing.T) {
 	t.Parallel()
-	_, help := runCLI(t, "tix task ls")
-	if !strings.Contains(help, "--filter") {
-		t.Fatalf("the help for `tix task ls` names no flags at all, so this guard reads nothing:\n%s", help)
+	flags := registeredFlags(t, "tix task ls")
+	// The block has to hold flags this guard is not about, or it is reading
+	// the wrong thing: a parse that found nothing would excuse every field.
+	for _, known := range []string{"--filter", "--limit", "--sort"} {
+		if !flags[known] {
+			t.Fatalf("the parsed flag list does not hold %s, so it is not the flag list: %v", known, flags)
+		}
+	}
+	if flags["--no-such-flag"] {
+		t.Fatal("the parsed flag list holds a flag nothing registers")
 	}
 	for name, reach := range filterFields {
 		reason, exempt := cliFlagExempt[name]
@@ -218,7 +254,7 @@ func TestTheCommandLineOffersAFlagForEveryFilterItShould(t *testing.T) {
 		case reach.CLI != "" && exempt:
 			t.Errorf("%s: a flag is declared and the absence of one is excused", name)
 		case reach.CLI != "":
-			if !strings.Contains(help, reach.CLI+" ") && !strings.Contains(help, reach.CLI+"\n") {
+			if !flags[reach.CLI] {
 				t.Errorf("%s: `tix task ls` registers no %s, so the command line cannot ask for it "+
 					"without an expression", name, reach.CLI)
 			}
