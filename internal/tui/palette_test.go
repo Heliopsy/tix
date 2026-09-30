@@ -285,7 +285,7 @@ func TestEveryActionResolvesFromItsOwnKey(t *testing.T) {
 	if len(all) < 20 {
 		t.Fatalf("the action list holds %d entries; the walk is broken", len(all))
 	}
-	for _, a := range all {
+	for i, a := range all {
 		first := a.binding.Keys()[0]
 		got, ok := ResolveAction(pressFor(first), all)
 		if !ok {
@@ -293,7 +293,12 @@ func TestEveryActionResolvesFromItsOwnKey(t *testing.T) {
 			continue
 		}
 		if got.id != a.id {
-			t.Errorf("%q is the first key of %q and resolves to %q", first, a.Name(), got.Name())
+			// The position is in the message because two actions sharing a key
+			// can also share a name, and "tenant resolves to tenant" reads as a
+			// passing test rather than as two entries fighting over one key.
+			t.Errorf("%q, the first key of the action at position %d (%q), resolves to the "+
+				"action at position %d (%q) instead", first, i, a.Name(),
+				slices.IndexFunc(all, func(x Action) bool { return x.id == got.id }), got.Name())
 		}
 	}
 }
