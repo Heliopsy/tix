@@ -528,6 +528,50 @@ func TestTheFooterNamesThePaletteKeyInEveryView(t *testing.T) {
 	}
 }
 
+// TestThePaletteOpensFromEveryViewThatAdvertisesIt is the other half of the
+// footer's promise. The settings screen and the help overlay take every other
+// key for themselves, so the key they advertise has to be answered before they
+// get the chance: the footer named it on both while pressing it did nothing.
+func TestThePaletteOpensFromEveryViewThatAdvertisesIt(t *testing.T) {
+	for _, v := range everyView {
+		t.Run(viewName(v), func(t *testing.T) {
+			m := boardModel(t)
+			m.view = v
+			if !strings.Contains(m.footerLines(), m.keys.Palette.Help().Key) {
+				t.Skipf("the %s footer does not advertise the palette", viewName(v))
+			}
+			next, _ := m.reduce(paletteKey())
+			if !next.paletteOpen {
+				t.Errorf("the %s footer advertises the palette key and pressing it did nothing",
+					viewName(v))
+			}
+			if next.view != v {
+				t.Errorf("opening the palette moved the view from %s to %s",
+					viewName(v), viewName(next.view))
+			}
+		})
+	}
+}
+
+// TestAnOpenPanelSwallowsThePaletteKey is the exception, stated rather than
+// discovered: while a prompt holds the keyboard the footer is that panel's own
+// legend, it promises nothing about the palette, and ctrl+k there is text.
+func TestAnOpenPanelSwallowsThePaletteKey(t *testing.T) {
+	m := boardModel(t)
+	m.svc = newFakeService()
+	m, _ = m.reduce(pressKey("m"))
+	if m.prompt != promptComment {
+		t.Fatal("the comment prompt did not open")
+	}
+	if strings.Contains(m.footerLines(), m.keys.Palette.Help().Key) {
+		t.Fatal("an open panel still advertises the palette key")
+	}
+	next, _ := m.reduce(paletteKey())
+	if next.paletteOpen {
+		t.Fatal("the palette opened over an input that was holding the keyboard")
+	}
+}
+
 // TestTheFooterHintSurvivesTheNarrowestTerminalAndIsDroppedBelowIt is the
 // boundary. The hint is placed first so truncation eats the view's own keys, and
 // below the width its own text needs it is dropped whole: "ctrl+k comm…" names a

@@ -689,6 +689,13 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.handleChoiceKey(msg)
 	case m.paletteOpen:
 		return m.handlePaletteKey(msg)
+	// Before the two views that own every other key, because their footers
+	// advertise this one and a key in the footer is a promise. The modes above
+	// are the exception rather than an oversight: while one of them holds the
+	// keyboard the footer is the panel's own legend and promises nothing.
+	case key.Matches(msg, m.keys.Palette):
+		next, cmd, _ := m.performAction(doPalette)
+		return next, cmd
 	case m.view == viewHelp:
 		return m.handleHelpKey(msg)
 	case m.view == viewSettings:
