@@ -102,6 +102,13 @@ type Model struct {
 	choice  choiceKind
 	choices []Choice
 
+	// paletteOpen is the command palette, which takes the keyboard the way a
+	// prompt does. paletteSel indexes the entries the query leaves and
+	// paletteOff scrolls them; the query itself is the model's own input field.
+	paletteOpen bool
+	paletteSel  int
+	paletteOff  int
+
 	// form is the open multi-field input and confirm the destructive action
 	// waiting for agreement. Only one of them is ever open: a form that ends in
 	// a destructive call hands over to the confirmation and closes.
@@ -680,34 +687,28 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.handlePromptKey(msg)
 	case m.choice != choiceNone:
 		return m.handleChoiceKey(msg)
+	case m.paletteOpen:
+		return m.handlePaletteKey(msg)
+	// Before the two views that own every other key, because their footers
+	// advertise this one and a key in the footer is a promise. The modes above
+	// are the exception rather than an oversight: while one of them holds the
+	// keyboard the footer is the panel's own legend and promises nothing.
+	case key.Matches(msg, m.keys.Palette):
+		next, cmd, _ := m.performAction(doPalette)
+		return next, cmd
 	case m.view == viewHelp:
 		return m.handleHelpKey(msg)
 	case m.view == viewSettings:
 		return m.handleSettingsKey(msg)
-	case key.Matches(msg, m.keys.Help):
-		m.helpOff = 0
-		return m.enterView(viewHelp), nil
-	case key.Matches(msg, m.keys.Quit):
-		return m.leave(tea.Quit)
-	case key.Matches(msg, m.keys.Refresh):
-		return m, m.refresh()
-	case key.Matches(msg, m.keys.Projects):
-		return m.rootView(), nil
-	case key.Matches(msg, m.keys.Settings):
-		return m.openSettings(), nil
-	case key.Matches(msg, m.keys.Activity):
-		return m.openActivity(), nil
-	case key.Matches(msg, m.keys.History):
-		return m.openHistory()
-	case key.Matches(msg, m.keys.Stats):
-		if !m.canReach(viewStats) {
-			return m, nil
+	}
+	// The cross-view keys resolve through the one action list rather than
+	// through a switch of their own. A key with a case here and no entry there
+	// would be a key the palette could not offer, and an entry with no case
+	// would be a palette row that did nothing.
+	if a, ok := ResolveAction(msg, m.keys.globalKeys()); ok {
+		if next, cmd, handled := m.performAction(a.id); handled {
+			return next, cmd
 		}
-		return m.openStats()
-	case key.Matches(msg, m.keys.Tenant):
-		return m.openTenant()
-	case key.Matches(msg, m.keys.Project):
-		return m.openProjectSetup()
 	}
 	switch m.view {
 	case viewProjects:
@@ -1017,52 +1018,130 @@ func (m Model) handleDetailKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // handleTaskKey runs the actions that act on the selected task, so the board
 // and the detail view offer exactly the same set.
 func (m Model) handleTaskKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	if !m.mayPress(msg) {
+	a, ok := ResolveAction(msg, m.keys.taskBindings())
+	if !ok {
 		return m, nil
 	}
-	switch {
-	case key.Matches(msg, m.keys.Claim):
-		return m, m.claim()
-	case key.Matches(msg, m.keys.Release):
-		return m.release()
-	case key.Matches(msg, m.keys.Transition):
-		return m.startChoosing(choiceTransition), nil
-	case key.Matches(msg, m.keys.Priority):
-		return m.startChoosing(choicePriority), nil
-	case key.Matches(msg, m.keys.New):
-		return m.openPrompt(promptNewTask)
-	case key.Matches(msg, m.keys.Edit):
-		return m.openTaskEditForm()
-	case key.Matches(msg, m.keys.CyclePriority):
-		return m.cyclePriority()
-	case key.Matches(msg, m.keys.Assign):
-		return m.openAssigneeForm()
-	case key.Matches(msg, m.keys.Comment):
-		return m.openPrompt(promptComment)
-	case key.Matches(msg, m.keys.Tag):
-		return m.openPrompt(promptTag)
-	case key.Matches(msg, m.keys.Untag):
-		return m.openPrompt(promptUntag)
-	case key.Matches(msg, m.keys.CommentEdit):
-		return m.openPrompt(promptCommentEdit)
-	case key.Matches(msg, m.keys.Tags):
-		return m.openTagForm()
-	case key.Matches(msg, m.keys.Depend):
-		return m.openPrompt(promptDependency)
-	case key.Matches(msg, m.keys.Undepend):
-		return m.openDependencyForm()
-	case key.Matches(msg, m.keys.Delete):
-		return m.openDeleteForm()
-	case key.Matches(msg, m.keys.Restore):
-		return m.restoreTask()
-	case key.Matches(msg, m.keys.Artifact):
-		return m.openPrompt(promptArtifact)
-	case key.Matches(msg, m.keys.ClaimNext):
-		return m, m.claimNext()
-	case key.Matches(msg, m.keys.Renew):
-		return m.renewLease()
+	// The gate is asked here as well as by the footer, which is what keeps the
+	// two from disagreeing: a reader who finds the key by reading the source,
+	// or by pressing it out of habit from another session, is refused here
+	// rather than by the service.
+	if !a.gate.permitted(m.permits()) {
+		return m, nil
 	}
-	return m, nil
+	next, cmd, _ := m.performAction(a.id)
+	return next, cmd
+}
+
+// performAction is the one implementation of every action the interface has. The
+// key press reaches it by resolving the press to an action, and the palette
+// reaches it with the entry the reader chose, so an action cannot be performed
+// two slightly different ways.
+//
+// The returned bool reports that the id was wired to something, which is what
+// TestEveryActionIsPerformed asks of every action in the list.
+func (m Model) performAction(id actionID) (Model, tea.Cmd, bool) {
+	switch id {
+	case doPalette:
+		return m.openPalette(), textinput.Blink, true
+	case doHelp:
+		m.helpOff = 0
+		return m.enterView(viewHelp), nil, true
+	case doRefresh:
+		return m, m.refresh(), true
+	case doProjects:
+		return m.rootView(), nil, true
+	case doProject:
+		next, cmd := m.openProjectSetup()
+		return next, cmd, true
+	case doSettings:
+		return m.openSettings(), nil, true
+	case doActivity:
+		return m.openActivity(), nil, true
+	case doHistory:
+		next, cmd := m.openHistory()
+		return next, cmd, true
+	case doStats:
+		if !m.canReach(viewStats) {
+			return m, nil, true
+		}
+		next, cmd := m.openStats()
+		return next, cmd, true
+	case doTenant:
+		next, cmd := m.openTenant()
+		return next, cmd, true
+	case doQuit:
+		next, cmd := m.leave(tea.Quit)
+		return next, cmd, true
+	case doInterrupt:
+		m.interrupted = true
+		return m, tea.Quit, true
+	}
+	return m.performTaskAction(id)
+}
+
+// performTaskAction is the half of performAction that acts on the selection,
+// split out because one switch over thirty cases is past what a reader holds.
+func (m Model) performTaskAction(id actionID) (Model, tea.Cmd, bool) {
+	switch id {
+	case doNewTask:
+		next, cmd := m.openPrompt(promptNewTask)
+		return next, cmd, true
+	case doClaimNext:
+		return m, m.claimNext(), true
+	case doClaim:
+		return m, m.claim(), true
+	case doRelease:
+		next, cmd := m.release()
+		return next, cmd, true
+	case doTransition:
+		return m.startChoosing(choiceTransition), nil, true
+	case doEdit:
+		next, cmd := m.openTaskEditForm()
+		return next, cmd, true
+	case doPriority:
+		return m.startChoosing(choicePriority), nil, true
+	case doCyclePriority:
+		next, cmd := m.cyclePriority()
+		return next, cmd, true
+	case doAssign:
+		next, cmd := m.openAssigneeForm()
+		return next, cmd, true
+	case doComment:
+		next, cmd := m.openPrompt(promptComment)
+		return next, cmd, true
+	case doCommentEdit:
+		next, cmd := m.openPrompt(promptCommentEdit)
+		return next, cmd, true
+	case doTag:
+		next, cmd := m.openPrompt(promptTag)
+		return next, cmd, true
+	case doUntag:
+		next, cmd := m.openPrompt(promptUntag)
+		return next, cmd, true
+	case doTags:
+		next, cmd := m.openTagForm()
+		return next, cmd, true
+	case doDepend:
+		next, cmd := m.openPrompt(promptDependency)
+		return next, cmd, true
+	case doUndepend:
+		next, cmd := m.openDependencyForm()
+		return next, cmd, true
+	case doDelete:
+		next, cmd := m.openDeleteForm()
+		return next, cmd, true
+	case doRestore:
+		next, cmd := m.restoreTask()
+		return next, cmd, true
+	case doArtifact:
+		next, cmd := m.openPrompt(promptArtifact)
+		return next, cmd, true
+	case doRenew:
+		next, cmd := m.renewLease()
+		return next, cmd, true
+	}
+	return m, nil, false
 }
 
 // handlePromptKey edits the open input and acts on it when it is accepted.
@@ -1466,20 +1545,6 @@ func (m Model) actorID() string {
 		return ""
 	}
 	return m.actor.ID
-}
-
-// mayPress reports whether this reader holds the authority the pressed key
-// acts through. Gating the keystroke as well as the footer is what keeps the two
-// from disagreeing: a reader who finds the key by reading the source, or by
-// pressing it out of habit from another session, is refused here rather than by
-// the service.
-func (m Model) mayPress(msg tea.KeyPressMsg) bool {
-	for _, a := range m.keys.taskBindings() {
-		if key.Matches(msg, a.binding) {
-			return a.permitted(m.permits())
-		}
-	}
-	return true
 }
 
 // moveComment steps the cursor through the open task's thread.

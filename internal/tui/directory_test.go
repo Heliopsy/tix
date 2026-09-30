@@ -158,19 +158,19 @@ func TestAnEmptyDirectorySaysSoRatherThanOpeningAnEmptyPicker(t *testing.T) {
 // offered nothing rather than a picker that cannot be filled.
 func TestTheAssigneeKeyNeedsTheDirectoryItListsFrom(t *testing.T) {
 	keys := DefaultKeyMap()
-	var assign gatedAction
+	var assign Action
 	for _, a := range keys.taskBindings() {
 		if a.binding.Help().Key == keys.Assign.Help().Key {
 			assign = a
 		}
 	}
-	if !slices.Contains(assign.needs, "ListActors") {
+	if !slices.Contains(assign.gate.needs, "ListActors") {
 		t.Fatalf("the assignee key does not declare the listing it opens on: %+v", assign)
 	}
-	if assign.permitted(permitOnly("UpdateTask")) {
+	if assign.gate.permitted(permitOnly("UpdateTask")) {
 		t.Fatal("a reader who may not list actors is offered the picker")
 	}
-	if !assign.permitted(permitOnly("UpdateTask", "ListActors")) {
+	if !assign.gate.permitted(permitOnly("UpdateTask", "ListActors")) {
 		t.Fatal("a reader holding both is refused the picker")
 	}
 }

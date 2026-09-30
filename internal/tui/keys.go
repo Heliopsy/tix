@@ -2,7 +2,11 @@
 
 package tui
 
-import "charm.land/bubbles/v2/key"
+import (
+	"fmt"
+
+	"charm.land/bubbles/v2/key"
+)
 
 // KeyMap holds every binding the interface offers.
 type KeyMap struct {
@@ -46,6 +50,7 @@ type KeyMap struct {
 	Stats         key.Binding
 	Tenant        key.Binding
 	Refresh       key.Binding
+	Palette       key.Binding
 	Help          key.Binding
 	Quit          key.Binding
 	Interrupt     key.Binding
@@ -122,9 +127,13 @@ func DefaultKeyMap() KeyMap {
 		// S, not s: lowercase s is taken on the board, and a capital is what
 		// the other cross-view keys already use when their letter is spoken
 		// for.
-		Stats:     key.NewBinding(key.WithKeys("S"), key.WithHelp("S", "statistics")),
-		Tenant:    key.NewBinding(key.WithKeys("T"), key.WithHelp("T", "tenant")),
-		Refresh:   key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh")),
+		Stats:   key.NewBinding(key.WithKeys("S"), key.WithHelp("S", "statistics")),
+		Tenant:  key.NewBinding(key.WithKeys("T"), key.WithHelp("T", "tenant")),
+		Refresh: key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh")),
+		// ctrl+k and :, the two keys nothing else was on. Not g: Top is bound
+		// to it, and gg-style motion is muscle memory for exactly the readers
+		// who would reach for a list of actions.
+		Palette:   key.NewBinding(key.WithKeys("ctrl+k", ":"), key.WithHelp("ctrl+k", "commands")),
 		Help:      key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
 		Quit:      key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
 		Interrupt: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "interrupt")),
@@ -157,31 +166,130 @@ func entry(b key.Binding) HelpEntry {
 	return HelpEntry{Keys: b.Help().Key, Desc: b.Help().Desc}
 }
 
-// globalKey is one cross-view binding and the view it opens. A binding that
-// opens no view, such as refresh, carries none and is always offered.
-type globalKey struct {
+// actionID names one action the interface performs. The name exists so that the
+// binding, the human name and the behaviour can sit in three places that a
+// compiler holds together: the action's row in the table below, its case in
+// Model.performAction, and nothing else.
+type actionID int
+
+// The actions. Cross-view first, then the ones that act on the selected task,
+// in the order the help overlay lists them.
+const (
+	doPalette actionID = iota
+	doHelp
+	doRefresh
+	doProjects
+	doProject
+	doSettings
+	doActivity
+	doHistory
+	doStats
+	doTenant
+	doQuit
+	doInterrupt
+
+	doNewTask
+	doClaimNext
+	doClaim
+	doRelease
+	doTransition
+	doEdit
+	doPriority
+	doCyclePriority
+	doAssign
+	doComment
+	doCommentEdit
+	doTag
+	doUntag
+	doTags
+	doDepend
+	doUndepend
+	doDelete
+	doRestore
+	doArtifact
+	doRenew
+)
+
+// Action is one thing the interface can be asked to do: what performs it, what
+// presses it, and what it needs before it may be offered. Its human name is the
+// binding's own help text, so no second name can drift from the one the footer
+// prints.
+//
+// It is the one list. The help overlay renders from it, the palette renders from
+// it, and a key press resolves through it into the single switch that performs
+// it, so none of the three can offer an action another does not have.
+type Action struct {
+	id      actionID
 	binding key.Binding
-	opens   viewKind
-	always  bool
+	// opens is the view this action enters, and always marks an action that
+	// needs no authority at all, such as refresh.
+	opens  viewKind
+	always bool
+	// gate is the registry operations this action's authority is asked of.
+	gate gatedAction
+	// needsTask and needsProject are the context an action cannot run without,
+	// so an entry offered with nothing selected is never a refusal waiting to
+	// happen.
+	needsTask    bool
+	needsProject bool
+	// hidden keeps an action out of the palette while leaving it in the help
+	// overlay. Only the palette's own key is hidden: an entry for the door the
+	// reader is already standing in is a row that teaches nothing.
+	hidden bool
+}
+
+// Name is what the action is called on screen.
+func (a Action) Name() string { return a.binding.Help().Desc }
+
+// Keys is the key the action is reached by, as the footer prints it.
+func (a Action) Keys() string { return a.binding.Help().Key }
+
+// opensView reports whether the only thing this action needs is that the reader
+// be offered the view it enters. It is what separates the navigation keys from
+// the ones that act on something, since both live in the same list.
+func (a Action) opensView() bool {
+	return !a.always && !a.hidden && !a.needsTask && !a.needsProject &&
+		len(a.gate.methods) == 0 && len(a.gate.needs) == 0
 }
 
 // globalKeys pairs each cross-view binding with the view it opens, so the help
 // overlay and the key that opens the view cannot disagree about which views a
 // reader has.
-func (k KeyMap) globalKeys() []globalKey {
-	return []globalKey{
-		{binding: k.Help, always: true},
-		{binding: k.Refresh, always: true},
-		{binding: k.Projects, opens: viewProjects},
-		{binding: k.Project, opens: viewProject},
-		{binding: k.Settings, opens: viewSettings},
-		{binding: k.Activity, opens: viewActivity},
-		{binding: k.History, opens: viewHistory},
-		{binding: k.Stats, opens: viewStats},
-		{binding: k.Tenant, opens: viewTenant},
-		{binding: k.Quit, always: true},
-		{binding: k.Interrupt, always: true},
+func (k KeyMap) globalKeys() []Action {
+	return []Action{
+		{id: doPalette, binding: k.Palette, always: true, hidden: true},
+		{id: doHelp, binding: k.Help, always: true},
+		{id: doRefresh, binding: k.Refresh, always: true},
+		{id: doProjects, binding: k.Projects, opens: viewProjects},
+		{id: doProject, binding: k.Project, opens: viewProject},
+		{id: doSettings, binding: k.Settings, opens: viewSettings},
+		{id: doActivity, binding: k.Activity, opens: viewActivity},
+		{id: doHistory, binding: k.History, opens: viewHistory},
+		{id: doStats, binding: k.Stats, opens: viewStats},
+		{id: doTenant, binding: k.Tenant, opens: viewTenant},
+		{id: doQuit, binding: k.Quit, always: true},
+		{id: doInterrupt, binding: k.Interrupt, always: true},
 	}
+}
+
+// Actions is every action the interface performs: the cross-view ones, then the
+// ones that act on the selected task. The order is the order the help overlay
+// already prints, which is what keeps the palette reading the same way down the
+// page as the overlay a reader may have learnt it from.
+func (k KeyMap) Actions() []Action {
+	return append(k.globalKeys(), k.taskBindings()...)
+}
+
+// ResolveAction finds the action a key press performs. It is how the keystroke
+// path reaches the same list the palette lists from, so a key cannot do
+// something the palette does not offer, or offer something the key does not do.
+func ResolveAction[K fmt.Stringer](pressed K, among []Action) (Action, bool) {
+	for _, a := range among {
+		if key.Matches(pressed, a.binding) {
+			return a, true
+		}
+	}
+	return Action{}, false
 }
 
 // GlobalHelp lists the bindings that work in every view, leaving out the ones
@@ -245,28 +353,51 @@ func (g gatedAction) permitted(may func(string) bool) bool {
 // taskBindings are the actions that act on the selected task, each against the
 // operation it calls. One list, so the footer, the help overlay and the
 // keystroke cannot disagree about who may press a key.
-func (k KeyMap) taskBindings() []gatedAction {
-	return []gatedAction{
-		{binding: k.New, methods: []string{"CreateTask"}},
-		{binding: k.ClaimNext, methods: []string{"ClaimNext"}},
-		{binding: k.Claim, methods: []string{"ClaimTask"}},
-		{binding: k.Release, methods: []string{"ReleaseLease"}},
-		{binding: k.Transition, methods: []string{"TransitionTask"}},
-		{binding: k.Edit, methods: []string{"UpdateTask"}},
-		{binding: k.Priority, methods: []string{"UpdateTask"}},
-		{binding: k.CyclePriority, methods: []string{"UpdateTask"}},
-		{k.Assign, []string{"UpdateTask"}, []string{"ListActors"}},
-		{binding: k.Comment, methods: []string{"AddComment"}},
-		{binding: k.CommentEdit, methods: []string{"EditComment"}},
-		{binding: k.Tag, methods: []string{"AddTag"}},
-		{binding: k.Untag, methods: []string{"RemoveTag"}},
-		{k.Tags, []string{"AddTag", "RemoveTag"}, []string{"ListTags"}},
-		{binding: k.Depend, methods: []string{"AddDependency"}},
-		{binding: k.Undepend, methods: []string{"RemoveDependency"}},
-		{binding: k.Delete, methods: []string{"DeleteTask", "DeleteComment"}},
-		{binding: k.Restore, methods: []string{"RestoreTask"}},
-		{binding: k.Artifact, methods: []string{"PutArtifact"}},
-		{binding: k.Renew, methods: []string{"RenewLease"}},
+// Creating a task and claiming the next one are listed here because they are
+// dispatched with the rest, but neither acts on the selection: one needs an open
+// project and the other takes whatever the queue hands out.
+func (k KeyMap) taskBindings() []Action {
+	return []Action{
+		{id: doNewTask, binding: k.New, needsProject: true,
+			gate: gatedAction{methods: []string{"CreateTask"}}},
+		{id: doClaimNext, binding: k.ClaimNext,
+			gate: gatedAction{methods: []string{"ClaimNext"}}},
+		{id: doClaim, binding: k.Claim, needsTask: true,
+			gate: gatedAction{methods: []string{"ClaimTask"}}},
+		{id: doRelease, binding: k.Release, needsTask: true,
+			gate: gatedAction{methods: []string{"ReleaseLease"}}},
+		{id: doTransition, binding: k.Transition, needsTask: true,
+			gate: gatedAction{methods: []string{"TransitionTask"}}},
+		{id: doEdit, binding: k.Edit, needsTask: true,
+			gate: gatedAction{methods: []string{"UpdateTask"}}},
+		{id: doPriority, binding: k.Priority, needsTask: true,
+			gate: gatedAction{methods: []string{"UpdateTask"}}},
+		{id: doCyclePriority, binding: k.CyclePriority, needsTask: true,
+			gate: gatedAction{methods: []string{"UpdateTask"}}},
+		{id: doAssign, binding: k.Assign, needsTask: true,
+			gate: gatedAction{methods: []string{"UpdateTask"}, needs: []string{"ListActors"}}},
+		{id: doComment, binding: k.Comment, needsTask: true,
+			gate: gatedAction{methods: []string{"AddComment"}}},
+		{id: doCommentEdit, binding: k.CommentEdit, needsTask: true,
+			gate: gatedAction{methods: []string{"EditComment"}}},
+		{id: doTag, binding: k.Tag, needsTask: true,
+			gate: gatedAction{methods: []string{"AddTag"}}},
+		{id: doUntag, binding: k.Untag, needsTask: true,
+			gate: gatedAction{methods: []string{"RemoveTag"}}},
+		{id: doTags, binding: k.Tags, needsTask: true,
+			gate: gatedAction{methods: []string{"AddTag", "RemoveTag"}, needs: []string{"ListTags"}}},
+		{id: doDepend, binding: k.Depend, needsTask: true,
+			gate: gatedAction{methods: []string{"AddDependency"}}},
+		{id: doUndepend, binding: k.Undepend, needsTask: true,
+			gate: gatedAction{methods: []string{"RemoveDependency"}}},
+		{id: doDelete, binding: k.Delete, needsTask: true,
+			gate: gatedAction{methods: []string{"DeleteTask", "DeleteComment"}}},
+		{id: doRestore, binding: k.Restore, needsTask: true,
+			gate: gatedAction{methods: []string{"RestoreTask"}}},
+		{id: doArtifact, binding: k.Artifact, needsTask: true,
+			gate: gatedAction{methods: []string{"PutArtifact"}}},
+		{id: doRenew, binding: k.Renew, needsTask: true,
+			gate: gatedAction{methods: []string{"RenewLease"}}},
 	}
 }
 
@@ -277,7 +408,7 @@ func (k KeyMap) taskBindings() []gatedAction {
 func (k KeyMap) taskActions(may func(string) bool) []HelpEntry {
 	out := make([]HelpEntry, 0, len(k.taskBindings()))
 	for _, a := range k.taskBindings() {
-		if a.permitted(may) {
+		if a.gate.permitted(may) {
 			out = append(out, entry(a.binding))
 		}
 	}

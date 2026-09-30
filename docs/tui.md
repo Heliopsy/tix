@@ -5,11 +5,13 @@ call. That is enforced rather than asserted: `internal/capability` lists `tui` a
 operation must reach, and the parity test fails the build when a new operation names no terminal view or
 records no reason for not having one.
 
-The interface documents itself while it runs. `?` opens an overlay listing the bindings of the view you
-came from, the bindings that work everywhere, the card markers and both filter grammars, built from the
-same `KeyMap` the program is actually dispatching, so it cannot describe keys you do not have. This page
-exists for the part `?` cannot cover: what is here before you connect. Over SSH that is the whole
-problem, because you connect first and find out afterwards.
+The interface documents itself while it runs. `ctrl+k` opens a searchable list of every action, each named
+in words and each showing its own key, and the footer names that key in every view so you do not have to
+know it first. `?` opens an overlay listing the bindings of the view you came from, the bindings that work
+everywhere, the card markers and both filter grammars. Both are built from the same `KeyMap` the program is
+actually dispatching, so neither can describe keys you do not have. This page exists for the part they
+cannot cover: what is here before you connect. Over SSH that is the whole problem, because you connect
+first and find out afterwards.
 
 ## The ten views
 
@@ -86,6 +88,11 @@ comment or a transition, and bringing it back is the one thing left to do with i
 says who holds it in the status bar instead. `?` still documents every binding the view has, so hiding a
 key from the footer never hides it from the help.
 
+The footer always leads with `ctrl+k commands`, before the view's own keys. A terminal too narrow for the
+whole line is truncated from the right, so what it loses is the view's bindings rather than the one key that
+reaches all of them. Below the width that hint's own text needs it is dropped whole, because `ctrl+k comm…`
+names a key nobody can press.
+
 ## Keys
 
 Five schemes ship, for people arriving with muscle memory from somewhere else. The scheme is
@@ -95,10 +102,10 @@ screen.
 | Scheme | What it changes |
 | --- | --- |
 | `default` | the shipped bindings below |
-| `vim` | `o` new, `i` edits the task, `a` comment, `:` also filters, `e` refreshes |
+| `vim` | `o` new, `i` edits the task, `a` comment, `:` also filters, `e` refreshes, `ctrl+k` the palette |
 | `emacs` | `ctrl+p`/`ctrl+n`/`ctrl+b`/`ctrl+f` move, `ctrl+a`/`ctrl+e` ends, `ctrl+g` backs out, `ctrl+s` filters, `ctrl+t` edits, `ctrl+l` redraws |
-| `nano` | `ctrl+w` searches, `ctrl+g` helps, `ctrl+x` quits, `ctrl+o` applies, `ctrl+l` redraws, `ctrl+k` deletes |
-| `helix` | `x` opens the row, `d` releases, `o` new, `i` edit, `a` comment, space opens settings |
+| `nano` | `ctrl+w` searches, `ctrl+g` helps, `ctrl+x` quits, `ctrl+o` applies, `ctrl+l` redraws, `ctrl+k` deletes, `:` the palette |
+| `helix` | `x` opens the row, `d` releases, `o` new, `i` edit, `a` comment, space opens settings, `ctrl+k` the palette |
 
 There is deliberately no `mac` scheme. A terminal never sees the command key, and the chords macOS
 applies to every text field are Cocoa's emacs bindings, so a mac scheme would be `emacs` under a second
@@ -149,6 +156,7 @@ impossible for a scheme to leave an action unbound.
 | `w` | project setup | everywhere |
 | `f` | custom field definitions | project |
 | `W`, `,`, `v`, `H`, `S`, `T` | projects, settings, activity, history, statistics, tenant | everywhere |
+| `ctrl+k`, `:` | the command palette: every action by name | everywhere |
 | `r` | refresh | everywhere |
 | `?` | help | everywhere |
 | `q` | back, or quit at the top level | everywhere |
@@ -156,6 +164,115 @@ impossible for a scheme to leave an action unbound.
 
 `S` is capital because lowercase `s` is spoken for on the board, and a capital is what the other
 cross-view keys already use when their letter is taken.
+
+### The command palette
+
+Forty-nine bindings is more than anyone holds in their head, and the letters ran out: `W` lists projects
+while `w` opens project setup, `H` reads history while `v` draws the live tail, `L` picks a tag, `O` records
+an artifact, `N` claims the next task. The capitals were handed out by elimination rather than by meaning.
+
+`ctrl+k` opens every action by name. The footer says so in every view, which is the point: the keys were
+always there and nothing advertised them.
+
+```text
+tix │ as local │ @default │ projects │ ● live
+  6 projects
+
+▸ 🏗  infra   Infrastructure
+  🖥  web     Web UI
+  🤖 agents  Agent Fleet
+  📚 docs    Documentation
+  🛠  ops     Operations
+  📊 data    Data Platform
+6 projects │ ✓ connected
+ctrl+k commands  ↑/k up  ↓/j down  enter open  n new project  ? help  q quit
+```
+
+Pressing it opens the same panel every other input mode uses, with the actions in it:
+
+```text
+6 projects │ ✓ connected
+────────────────────────────────────────────────────────────────────────────────
+commands:
+  type to narrow; every entry shows the key that does the same thing
+  match
+  ?             help
+  r             refresh
+  W             projects · here
+  w             project setup
+  ,             settings
+  v             activity
+  H             history
+  ↓ 5 more
+  enter run   ↑/↓ move   esc cancel
+```
+
+**Every entry shows its own key.** That is what makes the palette a way out of itself: a reader who reaches
+for `ctrl+k` and then `statistics` has read `S` beside it, and eventually stops needing the trip. The open
+view is marked `· here`, in a word rather than a colour, so a list whose whole purpose is going somewhere
+else still says where you are.
+
+Typing narrows it. Every whitespace-separated word of the query has to appear in the action's name,
+ignoring case, and the words may come in any order, so `task new` finds `new task`:
+
+```text
+commands:
+  type to narrow; every entry shows the key that does the same thing
+  match         stat
+  S             statistics
+  enter run   ↑/↓ move   esc cancel
+```
+
+`enter` runs the highlighted entry, `esc` leaves with nothing changed, and `↑`/`↓` move. The arrows only:
+`k` and `j` also move the selection everywhere else, and inside this field they are the letters k and j.
+A query that matches nothing says so rather than drawing an empty box:
+
+```text
+  match         zzz
+  no action matches "zzz"
+```
+
+**The entries are the actions, not a menu beside them.** Selecting one makes the same call the key press
+makes, through one switch that both reach, so a palette entry cannot do something slightly different from
+the key it is teaching. On the board, with a card selected, that includes everything that acts on the task:
+
+```text
+14 tasks in 5 columns, showing 1-4 │ ✓ connected
+────────────────────────────────────────────────────────────────────────────────
+commands:
+  type to narrow; every entry shows the key that does the same thing
+  match         artifact
+  O             record artifact
+  enter run   ↑/↓ move   esc cancel
+```
+
+`enter` there opens exactly what `O` opens:
+
+```text
+artifact name:
+  what this output is called
+  name
+  enter apply   esc cancel
+```
+
+**Nothing is listed that would be refused.** The entries are filtered by the same authority the `?` overlay
+is filtered by, so a reader who may not subscribe to events is not offered `v`, and a reader who may not
+claim is not offered `c`. An action that acts on the selected task is left out while nothing is selected,
+and a new task is left out while no project is open, rather than listed in a form that cannot be pressed.
+
+The order is fixed: the cross-view keys in the order `?` prints them, then the actions on the selection.
+Narrowing never reorders what is left, because a row that moves as the query grows is a row that is not
+under `enter` where the reader left it.
+
+Two things are deliberately not filtered. Lease state is one: the palette offers `x` on a task this session
+does not hold, because the `?` overlay documents every binding a view has regardless of the lease, and the
+palette's list and the overlay's list are held equal by a test. The palette itself is the other: `?`
+documents `ctrl+k`, and the palette does not offer the door it is already standing in.
+
+`ctrl+k` and `:` both open it. Two schemes have already spent one of the two, so `vim` and `helix` keep `:`
+for the filter, which is what their own `:` opens onto, and `nano` keeps `ctrl+k` for the cut and takes `:`.
+`g` was not available: it is bound to "first", and `gg` is muscle memory for exactly the readers who would
+reach for a list like this.
 
 Every action that acts on a task is offered wherever a task is selected, so the board and the detail view
 run the same set rather than drifting apart. Two of them need a sub-item only the detail view has a cursor
@@ -527,6 +644,22 @@ and what it has, rather than rendering something unreadable:
 
 ```text
 terminal is 20x6; tix tui needs at least 24x8
+```
+
+At the floor itself the footer keeps the palette hint and loses the view's own keys, which is the trade it is
+ordered for:
+
+```text
+tix │ as local │ @defaul
+  6 projects
+
+▸ 🏗  infra   Infrastruc…
+  🖥  web     Web UI
+  🤖 agents  Agent Fleet
+  📚 docs    Documentati
+  ↓ 2 more
+6 projects │ ✓ connected
+ctrl+k commands  ↑/k up
 ```
 
 Every scrolling list gives up one row to a hint counting what is hidden above and below, so a list that
