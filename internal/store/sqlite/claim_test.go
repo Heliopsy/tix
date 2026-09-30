@@ -153,11 +153,23 @@ func TestClearClaim(t *testing.T) {
 	task := f.newTask(t, "swept", core.PriorityNormal)
 
 	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
-		if _, err := tx.ClaimTask(ctx, store.ClaimRow{TaskID: task.ID, ActorID: f.actor.ID,
-			Now: clk.Now(), Until: clk.Now().Add(time.Minute), LeaseToken: "token"}); err != nil {
+		_, err := tx.ClaimTask(ctx, store.ClaimRow{TaskID: task.ID, ActorID: f.actor.ID,
+			Now: clk.Now(), Until: clk.Now().Add(time.Minute), LeaseToken: "token"})
+		return err
+	}); err != nil {
+		t.Fatalf("claiming: %v", err)
+	}
+
+	clk.Advance(2 * time.Minute)
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+		cleared, err := tx.ClearClaim(ctx, store.ExpireClaimRow{TaskID: task.ID, HolderID: f.actor.ID, At: clk.Now()})
+		if err != nil {
 			return err
 		}
-		return tx.ClearClaim(ctx, store.ExpireClaimRow{TaskID: task.ID, HolderID: f.actor.ID, At: clk.Now()})
+		if !cleared {
+			t.Fatal("a lapsed lease should be cleared")
+		}
+		return nil
 	}); err != nil {
 		t.Fatalf("clearing a claim: %v", err)
 	}
@@ -213,7 +225,7 @@ func TestClaimNextTaskRespectsDependenciesAndPriority(t *testing.T) {
 	row := func(token string) store.ClaimNextRow {
 		return store.ClaimNextRow{
 			ActorID: f.actor.ID, Now: clk.Now(), Until: clk.Now().Add(time.Minute),
-			LeaseToken: token, TerminalStates: []string{"done"}, Statuses: []string{"todo"},
+			LeaseToken: token, Terminal: terminalOf(f.workflow.ID, "done"), Statuses: []string{"todo"},
 			ProjectIDs: []string{f.project.ID},
 		}
 	}
@@ -297,7 +309,7 @@ func TestClaimNextTaskFilters(t *testing.T) {
 	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
 		_, ok, err := tx.ClaimNextTask(ctx, store.ClaimNextRow{
 			ActorID: f.actor.ID, Now: clk.Now(), Until: clk.Now().Add(time.Minute),
-			LeaseToken: "l1", Tags: []string{"absent"}, TerminalStates: []string{"done"},
+			LeaseToken: "l1", Tags: []string{"absent"}, Terminal: terminalOf(f.workflow.ID, "done"),
 		})
 		if err != nil {
 			return err
@@ -307,7 +319,7 @@ func TestClaimNextTaskFilters(t *testing.T) {
 		}
 		id, ok, err := tx.ClaimNextTask(ctx, store.ClaimNextRow{
 			ActorID: f.actor.ID, Now: clk.Now(), Until: clk.Now().Add(time.Minute),
-			LeaseToken: "l2", Tags: []string{"queue"}, TerminalStates: []string{"done"},
+			LeaseToken: "l2", Tags: []string{"queue"}, Terminal: terminalOf(f.workflow.ID, "done"),
 		})
 		if err != nil {
 			return err
@@ -343,7 +355,7 @@ func TestClaimNextSkipsTasksInATerminalState(t *testing.T) {
 			row := func(token string) store.ClaimNextRow {
 				return store.ClaimNextRow{
 					ActorID: f.actor.ID, Now: clk.Now(), Until: clk.Now().Add(time.Minute),
-					LeaseToken: token, TerminalStates: tc.terminal,
+					LeaseToken: token, Terminal: terminalOf(f.workflow.ID, tc.terminal...),
 					ProjectIDs: []string{f.project.ID},
 				}
 			}
@@ -404,4 +416,10 @@ func setStatus(t *testing.T, s *Store, f fixture, taskID, status string) {
 	}); err != nil {
 		t.Fatalf("setting status %q: %v", status, err)
 	}
+}
+
+// terminalOf names one workflow's terminal states the way the claim queries
+// take them: terminal is a property of a workflow, never of a state name.
+func terminalOf(workflowID string, states ...string) []store.WorkflowTerminal {
+	return []store.WorkflowTerminal{{WorkflowID: workflowID, States: states}}
 }

@@ -168,7 +168,7 @@ func TestConcurrentClaimNextTaskNeverDoubleClaims(t *testing.T) {
 			err := s.Update(ctx, f.scope, func(tx store.Tx) error {
 				id, ok, err := tx.ClaimNextTask(ctx, store.ClaimNextRow{
 					ActorID: f.actor.ID, Now: clk.Now(), Until: clk.Now().Add(time.Hour),
-					LeaseToken: fmt.Sprintf("worker-%d", n), TerminalStates: []string{"done"},
+					LeaseToken: fmt.Sprintf("worker-%d", n), Terminal: terminalOf(f.workflow.ID, "done"),
 				})
 				if err != nil {
 					return err

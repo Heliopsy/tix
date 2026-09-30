@@ -381,7 +381,7 @@ func TestTenantIsolationOnWrites(t *testing.T) {
 		if err := tx.RemoveMember(ctx, b.actor.ID); !core.IsKind(err, core.KindNotFound) {
 			t.Fatalf("RemoveMember across tenants = %v, want not found", err)
 		}
-		if err := tx.ClearClaim(ctx, store.ExpireClaimRow{TaskID: b.task.ID, At: clk.Now()}); !core.IsKind(err, core.KindNotFound) {
+		if _, err := tx.ClearClaim(ctx, store.ExpireClaimRow{TaskID: b.task.ID, At: clk.Now()}); !core.IsKind(err, core.KindNotFound) {
 			t.Fatalf("ClearClaim across tenants = %v, want not found", err)
 		}
 		claimed, err := tx.ClaimTask(ctx, store.ClaimRow{
@@ -435,7 +435,7 @@ func TestClaimNextTaskStaysInsideTheTenant(t *testing.T) {
 		id, ok, err := tx.ClaimNextTask(ctx, store.ClaimNextRow{
 			ProjectIDs: []string{b.project.ID}, ActorID: a.actor.ID,
 			Now: clk.Now(), Until: clk.Now().Add(time.Minute), LeaseToken: "t1",
-			TerminalStates: []string{"done"},
+			Terminal: terminalOf(a.workflow.ID, "done"),
 		})
 		if err != nil {
 			return err
@@ -445,7 +445,7 @@ func TestClaimNextTaskStaysInsideTheTenant(t *testing.T) {
 		}
 		id, ok, err = tx.ClaimNextTask(ctx, store.ClaimNextRow{
 			ActorID: a.actor.ID, Now: clk.Now(), Until: clk.Now().Add(time.Minute),
-			LeaseToken: "t2", TerminalStates: []string{"done"},
+			LeaseToken: "t2", Terminal: terminalOf(a.workflow.ID, "done"),
 		})
 		if err != nil {
 			return err

@@ -169,7 +169,7 @@ func TestClaimNextTaskRespectsOrderFiltersAndDependencies(t *testing.T) {
 	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
 		id, ok, err := tx.ClaimNextTask(ctx, store.ClaimNextRow{
 			ActorID: f.actor.ID, Now: clk.Now(), Until: clk.Now().Add(time.Hour),
-			LeaseToken: "t1", TerminalStates: []string{"done"},
+			LeaseToken: "t1", Terminal: terminalOf(f.workflow.ID, "done"),
 			ProjectIDs: []string{f.project.ID}, Statuses: []string{"todo"},
 		})
 		if err != nil {
@@ -180,7 +180,7 @@ func TestClaimNextTaskRespectsOrderFiltersAndDependencies(t *testing.T) {
 		}
 		id, ok, err = tx.ClaimNextTask(ctx, store.ClaimNextRow{
 			ActorID: f.actor.ID, Now: clk.Now(), Until: clk.Now().Add(time.Hour),
-			LeaseToken: "t2", TerminalStates: []string{"done"}, Tags: []string{"queue"},
+			LeaseToken: "t2", Terminal: terminalOf(f.workflow.ID, "done"), Tags: []string{"queue"},
 		})
 		if err != nil {
 			return err
@@ -190,7 +190,7 @@ func TestClaimNextTaskRespectsOrderFiltersAndDependencies(t *testing.T) {
 		}
 		_, ok, err = tx.ClaimNextTask(ctx, store.ClaimNextRow{
 			ActorID: f.actor.ID, Now: clk.Now(), Until: clk.Now().Add(time.Hour),
-			LeaseToken: "t3", TerminalStates: []string{"done"},
+			LeaseToken: "t3", Terminal: terminalOf(f.workflow.ID, "done"),
 		})
 		if err != nil {
 			return err
@@ -203,9 +203,14 @@ func TestClaimNextTaskRespectsOrderFiltersAndDependencies(t *testing.T) {
 		t.Fatalf("claiming in order: %v", err)
 	}
 
+	clk.Advance(2 * time.Hour)
 	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
-		if err := tx.ClearClaim(ctx, store.ExpireClaimRow{TaskID: high.ID, HolderID: f.actor.ID, At: clk.Now()}); err != nil {
+		cleared, err := tx.ClearClaim(ctx, store.ExpireClaimRow{TaskID: high.ID, HolderID: f.actor.ID, At: clk.Now()})
+		if err != nil {
 			return err
+		}
+		if !cleared {
+			t.Fatal("a lapsed lease should be cleared")
 		}
 		got, err := tx.GetTask(ctx, core.TaskRef{ID: high.ID})
 		if err != nil {
@@ -248,7 +253,7 @@ func TestClaimNextSkipsTasksInATerminalState(t *testing.T) {
 			row := func(token string) store.ClaimNextRow {
 				return store.ClaimNextRow{
 					ActorID: f.actor.ID, Now: clk.Now(), Until: clk.Now().Add(time.Minute),
-					LeaseToken: token, TerminalStates: tc.terminal,
+					LeaseToken: token, Terminal: terminalOf(f.workflow.ID, tc.terminal...),
 					ProjectIDs: []string{f.project.ID},
 				}
 			}
@@ -309,4 +314,10 @@ func setStatus(t *testing.T, s *Store, f fixture, taskID, status string) {
 	}); err != nil {
 		t.Fatalf("setting status %q: %v", status, err)
 	}
+}
+
+// terminalOf names one workflow's terminal states the way the claim queries
+// take them: terminal is a property of a workflow, never of a state name.
+func terminalOf(workflowID string, states ...string) []store.WorkflowTerminal {
+	return []store.WorkflowTerminal{{WorkflowID: workflowID, States: states}}
 }
