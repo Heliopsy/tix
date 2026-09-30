@@ -12,11 +12,9 @@ import (
 	"github.com/heliopsy/tix/internal/store"
 )
 
-// statsCategoryOrder is the order the state categories are reported in: where
-// work waits, where it is moving, and where it has landed.
-var statsCategoryOrder = []core.StateCategory{
-	core.CategoryTodo, core.CategoryInProgress, core.CategoryDone,
-}
+// statsCategoryOrder is the order the state categories are reported in, which
+// is the vocabulary's own order: the way work moves through it.
+var statsCategoryOrder = core.StateCategories()
 
 // Stats reports throughput, ageing and who closed what over a window ending
 // now, for this tenant and optionally one of its projects.
@@ -218,8 +216,8 @@ func statsLeadTimes(completed []store.CompletedTask) (median, slowest core.Durat
 	return core.Duration((leads[mid-1] + leads[mid]) / 2), slowest
 }
 
-// statsByCategory folds the per-status counts into the three categories, always
-// reporting all three: a board with nothing in progress is a fact worth showing,
+// statsByCategory folds the per-status counts into the categories, always
+// reporting every one: a board with nothing in progress is a fact worth showing,
 // and a category that disappeared when it emptied would read as a missing figure.
 func statsByCategory(counts map[string]int, categories map[string]core.StateCategory) []core.StatsCategory {
 	totals := map[core.StateCategory]int{}

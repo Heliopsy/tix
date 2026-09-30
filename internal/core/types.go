@@ -5,6 +5,7 @@ package core
 import (
 	"encoding/json"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -114,14 +115,64 @@ type Project struct {
 func (p Project) Archived() bool { return p.ArchivedAt != nil }
 
 // StateCategory groups workflow states for display and reporting.
+//
+// The vocabulary is fixed rather than open, and a state carries a category
+// rather than a colour of its own, so that a colour means the same thing in
+// every deployment: one tenant's red cannot be another tenant's green, and a
+// terminal that renders no colour at all still has a word to fall back on.
 type StateCategory string
 
 // State categories.
 const (
 	CategoryTodo       StateCategory = "todo"
 	CategoryInProgress StateCategory = "in_progress"
+	CategoryBlocked    StateCategory = "blocked"
+	CategoryWaiting    StateCategory = "waiting"
 	CategoryDone       StateCategory = "done"
+	CategoryCancelled  StateCategory = "cancelled"
 )
+
+// stateCategories is the whole vocabulary, in the order work moves through it:
+// what has not started, what is moving, what has stalled here, what is stalled
+// elsewhere, what finished, and what will not be done.
+var stateCategories = []StateCategory{
+	CategoryTodo, CategoryInProgress, CategoryBlocked,
+	CategoryWaiting, CategoryDone, CategoryCancelled,
+}
+
+// StateCategories returns the vocabulary a state category may be chosen from.
+func StateCategories() []StateCategory {
+	out := make([]StateCategory, len(stateCategories))
+	copy(out, stateCategories)
+	return out
+}
+
+// Valid reports whether c is the empty category or a member of the vocabulary.
+// The empty category is valid because it is how a state declines to say, and
+// the surface reading it derives one from what else the state carries.
+func (c StateCategory) Valid() bool {
+	if c == "" {
+		return true
+	}
+	for _, known := range stateCategories {
+		if c == known {
+			return true
+		}
+	}
+	return false
+}
+
+// String renders the category token.
+func (c StateCategory) String() string { return string(c) }
+
+// JoinStateCategories renders the vocabulary for an error message.
+func JoinStateCategories() string {
+	parts := make([]string, 0, len(stateCategories))
+	for _, c := range stateCategories {
+		parts = append(parts, string(c))
+	}
+	return strings.Join(parts, ", ")
+}
 
 // State is one node of a workflow's state machine.
 type State struct {

@@ -55,14 +55,20 @@ so a task completed and then reopened inside the window is not counted, and only
 completion counts.
 
 This is the same field the board reads, so "where the work is" and "completed" can never disagree about
-whether a given task is done.
+whether a given task has left the working set.
+
+They can disagree about whether it was *finished*, and deliberately so. `completed` counts every task
+that reached a terminal state, which includes a cancelled one; "where the work is" reports `done` and
+`cancelled` as separate rows, because abandoned work read as completed work is the thing that
+breakdown exists to tell apart. If you want throughput with the abandonments excluded, read the
+`cancelled` row and subtract it.
 
 ## An empty window
 
 Every count is zero, every list is empty, and the call succeeds. A window in which nothing happened is an
 answer, not an error.
 
-`where the work is` still reports each category, including the zeroes: a board that hides "0 in progress"
+`where the work is` still reports each of the six categories, including the zeroes: a board that hides "0 in progress"
 reads as a missing figure rather than an empty one.
 
 ## What is deliberately not here

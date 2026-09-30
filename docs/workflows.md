@@ -43,7 +43,7 @@ definition:
       terminal: true
     - key: dropped
       label: Dropped
-      category: done
+      category: cancelled
       terminal: true
   transitions:
     - from: triage
@@ -75,12 +75,36 @@ cat review.yaml | tix workflow put -f -
 | `key` | the identifier used in `tix task mv` and in filters |
 | `label` | what humans see |
 | `terminal` | the task is finished; dependents waiting on it become unblocked |
-| `category` | `todo`, `in_progress` or `done`; groups states for boards and reporting |
+| `category` | one of the six below; groups states for boards, colour and reporting |
 | `revert_on_lease_expiry` | when a lease expires in this state, move the task back |
 | `revert_to` | the state to revert to |
 
 `terminal` and `category: done` are independent. `category` is presentation and grouping; `terminal` is the one
 that decides whether a dependency is satisfied and whether the task is out of the working set.
+
+### Categories
+
+| Category | Means |
+| --- | --- |
+| `todo` | not started |
+| `in_progress` | someone is working on it |
+| `blocked` | stalled on something inside this board |
+| `waiting` | stalled on something outside it |
+| `done` | finished |
+| `cancelled` | will not be done |
+
+A state may also name no category at all, which is how a workflow written before categories existed
+still reports somewhere: a terminal state is read as `done`, the initial state as `todo`, and anything
+else as `in_progress`. Naming a word that is not on this list is refused, and the refusal lists the six.
+
+The vocabulary is fixed, and a state carries a category rather than a colour of its own. That is on
+purpose: a category is what every surface derives colour from, so `blocked` is the same hue in one
+tenant's terminal as in another's browser, and a terminal that renders no colour still has the word.
+
+`cancelled` is not `done`, and this matters beyond the hue. The statistics screen's *where the work is*
+breakdown counts them in separate rows, so abandoned work no longer inflates the completed column of
+that table. The `completed` figure itself, the lead times and the leaderboard are unchanged: they read
+`completed_at`, which follows `terminal`, and a cancelled task is still terminal.
 
 ### Transitions
 
