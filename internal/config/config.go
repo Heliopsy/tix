@@ -124,6 +124,12 @@ type SSH struct {
 	// AllowPublic permits binding a non-loopback address, which is the same
 	// explicit choice `tix serve` demands before it faces a network.
 	AllowPublic bool `yaml:"allow_public"`
+	// TrustedProxies lists the L4 proxies, as IPs or CIDR blocks, whose PROXY
+	// protocol header names the real client. Any peer can send such a header,
+	// so an empty list, the default, reads none from anybody. It is its own
+	// key: `server.trusted_proxies` covers the HTTP reverse proxy and neither
+	// implies nor is consulted by this listener.
+	TrustedProxies []string `yaml:"trusted_proxies,omitempty"`
 	// Demo opts in to sandbox provisioning, where any key is accepted and
 	// given an ephemeral tenant. It is off by default: a listener that hands
 	// a tenant to any stranger is a deliberate choice, not an inherited one.

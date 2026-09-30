@@ -69,6 +69,14 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 			WithDetail("value", strings.Join(cfg.Server.TrustedProxies, ",")).
 			WithDetail("reason", err.Error())
 	}
+	// The SSH listener's list is validated separately because it is a separate
+	// key: the HTTP reverse proxy and the L4 SSH proxy need not be the same
+	// host, so neither list stands in for the other.
+	if _, err := auth.NewProxyPolicy(cfg.SSH.TrustedProxies); err != nil {
+		return invalidKey("ssh.trusted_proxies", sources).
+			WithDetail("value", strings.Join(cfg.SSH.TrustedProxies, ",")).
+			WithDetail("reason", err.Error())
+	}
 	if cfg.Server.URL != "" {
 		if _, err := url.Parse(cfg.Server.URL); err != nil {
 			return invalidKey("server.url", sources).WithDetail("value", cfg.Server.URL)

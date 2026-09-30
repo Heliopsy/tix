@@ -744,6 +744,64 @@ TIX_SSH_LISTEN=0.0.0.0:2222 TIX_SSH_ALLOW_PUBLIC=true TIX_SSH_DEMO=true TIX_SSH_
   tix ssh --db /var/lib/tix/demo.db
 ```
 
+### Behind an L4 proxy
+
+An SSH stream carries no headers, so a proxy that terminates TCP in front of the listener, HAProxy, an AWS NLB
+or an nginx `stream` block, cannot say who the client is the way a reverse proxy does over HTTP. Without being
+told, tix sees every connection as coming from the proxy. That is not only a cosmetic problem in the logs and in
+`tix connection ls`: `--rate-per-hour` is an allowance **per source address**, so one bucket for the whole
+internet throttles all of your users together while handing a single attacker the allowance meant for everybody.
+
+The answer is the PROXY protocol, which the proxy prepends to the connection before any SSH byte. Name the proxy
+in `ssh.trusted_proxies` and the listener reads it:
+
+```yaml
+ssh:
+  listen: 0.0.0.0:2222
+  allow_public: true
+  trusted_proxies: [10.0.0.7, "10.1.0.0/16"]
+```
+
+```sh
+TIX_SSH_TRUSTED_PROXIES=10.0.0.7,10.1.0.0/16 tix ssh --db /var/lib/tix/tix.db
+```
+
+The matching HAProxy front end sends a version 2 header:
+
+```haproxy
+listen tix-ssh
+    bind 0.0.0.0:22
+    mode tcp
+    timeout connect 5s
+    timeout client  1h
+    timeout server  1h
+    server tix 10.2.0.4:2222 send-proxy-v2
+```
+
+`send-proxy-v2` is what matters; `send-proxy` emits the version 1 text line and is accepted too. The address in
+`ssh.trusted_proxies` is the one HAProxy connects **from**, which on a multi-homed proxy is not always the one it
+listens on. Check it against the listener's own logs before trusting a guess.
+
+Four things to know:
+
+- **It is default-deny, and it has to be.** Any client can prepend a PROXY header. If the listener believed one
+  from anybody, forging a source address would be trivial, and the rate limit this exists to fix would be the
+  first thing to go. With `ssh.trusted_proxies` empty, the default, no header is read from anyone and nothing is
+  consumed from any stream. Trust is decided on the address the kernel reports for the peer, never on anything
+  the connection carries.
+- **`server.trusted_proxies` does not grant it.** That key is the HTTP reverse proxy's. The two need not be the
+  same host, so the SSH listener consults its own list and nothing else.
+- **A listed peer that sends no valid header is closed.** Accepting it as the proxy would bring back the single
+  bucket for whichever connection went wrong, and make a half-configured proxy look as though it were working.
+  So a misconfiguration is loud: connections through the proxy stop, rather than quietly sharing one allowance.
+  A peer that connects and sends nothing is closed once the idle timeout passes, and delays no other connection
+  while it stalls.
+- **Direct clients still work.** A peer that is not on the list is served exactly as before, header or no header,
+  so a listener reachable both through the proxy and directly needs no second port.
+
+Once it is on, `tix connection ls`, the session records and every log line naming a source carry the client's
+address rather than the proxy's, and the rate limit counts each client separately.
+
 ### Both listeners in one process
 
 `tix serve --ssh-listen <addr>` runs the SSH listener beside the HTTP server, over one database, under one
@@ -770,7 +828,8 @@ Four flags, and no demo mode: this process serves real work.
 Three things to know:
 
 - **Only the flag turns it on.** `--ssh-listen` is empty by default, and unlike `tix ssh` these four read no
-  configuration key: `TIX_SSH_LISTEN` in the environment of a `tix serve` binds nothing.
+  configuration key: `TIX_SSH_LISTEN` in the environment of a `tix serve` binds nothing. `ssh.trusted_proxies`
+  is the one `ssh.*` key this listener does read, because no flag on either command sets it.
 - **Set `--ssh-host-key` on anything but SQLite.** The default is `ssh_host_ed25519_key` beside the database
   file, generated on first run at mode 0600, so a PostgreSQL target has no default and the process refuses to
   start:

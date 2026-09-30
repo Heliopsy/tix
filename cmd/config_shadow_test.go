@@ -69,6 +69,7 @@ var unshadowedKeys = map[string]string{
 	"server.url":                     "connect.Resolve; --server only wins when non-empty",
 	"server.token":                   "globals.credential, into connect.Overrides.Token",
 	"server.trusted_proxies":         "runServe, into server.Options",
+	"ssh.trusted_proxies":            "runSSH and buildServeSSH, into sshd.Options; neither command has a flag for it",
 	"server.cookie_security":         "runServe, into server.Options",
 	"auth.mode":                      "config.Validate only; this build implements one mode",
 	"hooks.mode":                     "config.Validate only; this build implements one mode",
