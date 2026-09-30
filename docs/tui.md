@@ -50,7 +50,7 @@ whichever markers are true of the task, separated so that a priority and a marke
 ```text
 ┃ Default-deny network      │ Bring the platform
 ┃ policies in staging       │ onto one observ…
-┃ infra-13 · P2 · @me       │ infra-8 · P2
+┃ infra-13 · P2 · due! · @me│ infra-8 · P2
 ```
 
 The bar down the left edge carries the workflow category as a colour and the selection as a shape: the
@@ -58,7 +58,8 @@ selected card's bar is heavier. That is deliberate rather than decorative, since
 colour has nothing else left to say which card the keys will act on.
 
 The priority is `P1` through `P5`, highest to lowest, the same digits `tix task list` prints. The rest of
-the line is markers. The legend is in `?` and is short on purpose, so it still fits a narrow terminal:
+the line is markers. The legend is in `?`, wrapped to the terminal so a narrow one shows all of it rather
+than the first half of it:
 
 <!-- Rows asserted against CardLegend by TestDocsMarkerTableMatchesTheLegend in internal/tui. -->
 | Marker | Means |
