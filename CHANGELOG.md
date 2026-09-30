@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.12.0](https://github.com/Heliopsy/tix/compare/v0.11.0...v0.12.0) (2026-09-30)
+
+
+### Features
+
+* **cli,tui,web:** make due dates reachable and legible on every surface ([1283e9a](https://github.com/Heliopsy/tix/commit/1283e9afcc724921cd16744479ee21d0f46fd969))
+* **cli,tui,web:** make due dates reachable and legible on every surface ([96e451f](https://github.com/Heliopsy/tix/commit/96e451fdb8a364d03277ebbbfade634664661fe1))
+
+
+### Bug Fixes
+
+* **claim:** judge terminal per workflow and guard the sweeper's clear ([af52a5f](https://github.com/Heliopsy/tix/commit/af52a5fb01886d00fc0c82c655913da53652ff3a))
+* **service,store:** judge terminal states per workflow and stop the sweeper clearing a live lease ([fd55c35](https://github.com/Heliopsy/tix/commit/fd55c35e4057790703467f1e78b36c006439fa6f))
+* **store:** scope tenant_domains and derive the isolation guards from the schema ([d68688b](https://github.com/Heliopsy/tix/commit/d68688b977b048eed53439c3c9d74828a92a9d10))
+* **store:** scope tenant_domains and derive the isolation guards from the schema ([1b10318](https://github.com/Heliopsy/tix/commit/1b10318c9c98a67b9b0547e6b50d76da5d018091))
+* **tui,output:** measure text in terminal cells, not runes ([c4b28f2](https://github.com/Heliopsy/tix/commit/c4b28f282e45716d27f91407b17f93abc1e5f62d))
+* **tui,output:** measure text in terminal cells, not runes ([7422a84](https://github.com/Heliopsy/tix/commit/7422a84d4339e7f42eaabcbd3f7ad2a642fc984b))
+* **tui:** the due legend entry read "due due within a week" ([e0449f5](https://github.com/Heliopsy/tix/commit/e0449f52055685484f9b1b9b1d720287477a56a8))
+* **web:** keep the workflow fields the editor does not render ([e1acbff](https://github.com/Heliopsy/tix/commit/e1acbfffa3e66e2a3ef9dab2bbe3f47277284f2e))
+* **web:** refuse an unreadable terminal field, and spec the merge ([c15a5c2](https://github.com/Heliopsy/tix/commit/c15a5c2b5de553257467480eef1da320709f22ff))
+* **web:** the workflow editor keeps the fields it does not show ([5880bfd](https://github.com/Heliopsy/tix/commit/5880bfd212fd501d0d1d85133426e31a1741f71e))
+
+
+### Dependencies
+
+* give test-postgres the timeout test already has ([4bef3a6](https://github.com/Heliopsy/tix/commit/4bef3a66130ff96b03785720f68b518a22a50b52))
+* give test-postgres the timeout test already has ([54b333a](https://github.com/Heliopsy/tix/commit/54b333a87cdce5acaea5c45422bfda90bce70877))
+* give test-postgres the timeout test already has ([9f0118a](https://github.com/Heliopsy/tix/commit/9f0118ad4056f6dee854d3e581cb6f90aa741922))
+
 ## [0.11.0](https://github.com/Heliopsy/tix/compare/v0.10.0...v0.11.0) (2026-09-30)
 
 
