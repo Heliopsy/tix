@@ -34,10 +34,15 @@ func refsOf(t *testing.T, out string) []string {
 		if line == "" {
 			continue
 		}
-		if at := strings.Index(line, `"title":"`); at >= 0 {
-			rest := line[at+len(`"title":"`):]
-			refs = append(refs, rest[:strings.Index(rest, `"`)])
+		_, rest, ok := strings.Cut(line, `"title":"`)
+		if !ok {
+			continue
 		}
+		title, _, ok := strings.Cut(rest, `"`)
+		if !ok {
+			t.Fatalf("a title is never closed in %q", line)
+		}
+		refs = append(refs, title)
 	}
 	return refs
 }

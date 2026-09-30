@@ -793,7 +793,7 @@ func (m Model) helpLines(layout Layout) []string {
 var CardLegend = []string{
 	"@ claimed", "@me claimed by you", "! blocked", "+ dependencies",
 	DeletedMarker + " deleted",
-	DueSoonMarker + " due within a week", DueOverdueMarker + " overdue",
+	DueSoonMarker + " within the week", DueOverdueMarker + " overdue",
 }
 
 // footerLines renders the status bar and then either the open input mode or
