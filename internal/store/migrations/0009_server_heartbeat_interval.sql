@@ -1,0 +1,23 @@
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+
+-- The cadence a server promised to beat at.
+--
+-- Staleness was a compile-time constant, three times the default interval, and
+-- `tix serve --heartbeat-interval` moved only the writing. A reader therefore
+-- judged every server against a cadence it might not keep, and was wrong in
+-- both directions: a live server beating every five minutes read as down two
+-- and a half minutes after its last beat, and a dead server that had beaten
+-- every second still read as up for ninety.
+--
+-- The threshold is still three missed beats. It is now three of the beats the
+-- row itself declares, which only the writer knows and so only the writer can
+-- record.
+--
+-- Milliseconds, as an integer, because an interval is a count rather than an
+-- instant and neither engine's interval type is worth a second scanner for it.
+--
+-- Zero means the row predates this column, written by a server that did not
+-- say. A reader judges those against the default interval, which is what it
+-- did for every row before this migration: an old row keeps exactly the
+-- meaning it had, and the first beat the upgraded server writes replaces it.
+ALTER TABLE servers ADD COLUMN heartbeat_interval_ms INTEGER NOT NULL DEFAULT 0;

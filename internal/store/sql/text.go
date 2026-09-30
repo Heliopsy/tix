@@ -51,8 +51,8 @@ func textPredicate(term core.TextTerm, titleCol, bodyCol string) (string, []any)
 	args := make([]any, 0, len(cols))
 	for _, col := range cols {
 		if term.Mode == core.MatchContains {
-			parts = append(parts, "LOWER("+col+") LIKE LOWER(?) ESCAPE '"+likeEscape+"'")
-			args = append(args, "%"+escapeLike(term.Value)+"%")
+			parts = append(parts, "LOWER("+col+") LIKE LOWER(?)"+LikeEscape)
+			args = append(args, ContainsPattern(term.Value))
 			continue
 		}
 		parts = append(parts, "LOWER("+col+") = LOWER(?)")
@@ -60,6 +60,14 @@ func textPredicate(term core.TextTerm, titleCol, bodyCol string) (string, []any)
 	}
 	return "(" + strings.Join(parts, " OR ") + ")", args
 }
+
+// LikeEscape is the ESCAPE clause a LIKE predicate built from ContainsPattern
+// must carry, so the escape character is declared where the pattern is used.
+const LikeEscape = " ESCAPE '" + likeEscape + "'"
+
+// ContainsPattern renders v as a LIKE pattern matching it as a literal
+// substring. The predicate it is bound to must carry LikeEscape.
+func ContainsPattern(v string) string { return "%" + escapeLike(v) + "%" }
 
 // escapeLike neutralises the wildcards inside a user-supplied value.
 func escapeLike(v string) string {

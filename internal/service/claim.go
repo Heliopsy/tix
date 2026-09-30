@@ -427,8 +427,16 @@ func (l *Local) sweepOne(ctx context.Context, m *mutation, before core.Task, wor
 }
 
 // requireLeaseToken rejects an operation on a claimed task whose token is not
-// the current one. A task whose lease has expired reads as unclaimed and needs
-// no token, which is what makes lazy expiry authoritative.
+// the current one, and an operation offering a token for a lease that is no
+// longer live. A task whose lease has expired reads as unclaimed and needs no
+// token, which is what makes lazy expiry authoritative.
+//
+// The offered-token case is the one worth stating. A worker whose lease ran
+// out believes it still holds the task; accepting its token silently would let
+// it go on writing to work that is free again and may already be somebody
+// else's. Every outcome here is the same fact -- this caller does not hold
+// this lease -- so every one of them is a lease expiry, which a worker answers
+// by claiming again rather than by retrying.
 func requireLeaseToken(ctx context.Context, tx store.Tx, task *core.Task, token string, now time.Time) error {
 	if !task.ClaimedAtTime(now) {
 		if token != "" {
@@ -437,14 +445,14 @@ func requireLeaseToken(ctx context.Context, tx store.Tx, task *core.Task, token 
 		return nil
 	}
 	if token == "" {
-		return core.Invalid("task %q is claimed; supply its lease token", task.Ref)
+		return core.LeaseExpired("task %q is claimed; supply the lease token", task.Ref)
 	}
 	ok, err := tx.RenewLease(ctx, task.ID, token, *task.LeaseExpiresAt)
 	if err != nil {
 		return err
 	}
 	if !ok {
-		return staleLease(task)
+		return core.LeaseExpired("the lease on task %q is not held by this token", task.Ref)
 	}
 	return nil
 }

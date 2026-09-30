@@ -343,8 +343,8 @@ func (t *tx) applyTaskFilter(b *sqlb.Builder, f core.TaskFilter) error {
 	case core.Either:
 	}
 	if q := strings.TrimSpace(f.Query); q != "" {
-		like := "%" + q + "%"
-		b.Where("(tasks.title LIKE ? OR tasks.body LIKE ?)", like, like)
+		like := sqlb.ContainsPattern(q)
+		b.Where("(tasks.title LIKE ?"+sqlb.LikeEscape+" OR tasks.body LIKE ?"+sqlb.LikeEscape+")", like, like)
 	}
 	applyTaskExclude(b, f.Exclude)
 	if err := sqlb.ApplyTextTerms(b, f.Text, "tasks.title", "tasks.body"); err != nil {

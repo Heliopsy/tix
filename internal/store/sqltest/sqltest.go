@@ -84,6 +84,15 @@ func Cases() []Case {
 			[]string{"100% uptime_goal"}},
 		{"an underscore is a character, not a wildcard", core.TaskFilter{Text: []core.TextTerm{contains(core.TextTitle, "uptime_goal", false)}},
 			[]string{"100% uptime_goal"}},
+		// core.TaskFilter.Query is answered natively per engine -- a substring
+		// LIKE on SQLite, a lexeme match on PostgreSQL -- so only values both
+		// engines agree on belong here. These two do, and they are the ones
+		// that matter: whatever the matching model, a wildcard character the
+		// user typed is a character to search for, not an operator.
+		{"a query's percent sign is a character, not a wildcard",
+			core.TaskFilter{Query: "100%"}, []string{"100% uptime_goal"}},
+		{"a query's underscore is a character, not a wildcard",
+			core.TaskFilter{Query: "uptime_goal"}, []string{"100% uptime_goal"}},
 		{"two weak terms are ANDed", core.TaskFilter{Text: []core.TextTerm{
 			contains(core.TextAny, "api", false), contains(core.TextAny, "runbook", false)}},
 			[]string{"write runbook"}},

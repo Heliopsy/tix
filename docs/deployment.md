@@ -28,6 +28,11 @@ service code, so a direct write is visible to a subscriber on the server immedia
 | `--no-registry` | off | do not register this process, which hides it from `tix status` |
 | `--heartbeat-interval` | `30s` | how often this process refreshes its registration |
 
+`--heartbeat-interval` moves the reading as well as the writing. The process records the cadence on its
+own row, and a reader calls a server gone after three of *that* interval, so a slower beat widens the
+window rather than putting the server permanently in doubt. A row written by a server from before this
+was recorded is judged against the 30-second default.
+
 `--listen` also reads from `server.listen` / `TIX_SERVER_LISTEN`. A flag nobody typed is not a layer: it
 leaves the configured address alone even though the flag declares `127.0.0.1:8080` of its own, so a
 deployment that only has an environment to configure needs no command line for the bind address.

@@ -17,16 +17,21 @@ const (
 	// ServerHeartbeatInterval is how often a running server refreshes its row.
 	ServerHeartbeatInterval = 30 * time.Second
 
-	// ServerStaleAfter is how long a server may go unseen before a reader
-	// calls it gone. It is three heartbeats: one missed beat is a busy machine
-	// or a slow write, three is a process that has stopped.
+	// ServerStaleBeats is how many missed heartbeats make a server gone. One
+	// missed beat is a busy machine or a slow write, three is a process that
+	// has stopped.
 	//
 	// The judgement is the reader's and needs no sweeper to have run, exactly
 	// as a lease expiry is authoritative the moment it passes. That matters
 	// because the case this table exists for is the one where nothing tidied
 	// up: a graceful shutdown deletes its own row, so every row a reader has to
 	// judge belongs to a process that crashed, was killed, or is unreachable.
-	ServerStaleAfter = 3 * ServerHeartbeatInterval
+	ServerStaleBeats = 3
+
+	// ServerStaleAfter is how long a server beating at the default interval may
+	// go unseen before a reader calls it gone. A server that beats at some
+	// other cadence is judged against its own: see Server.StaleAfter.
+	ServerStaleAfter = ServerStaleBeats * ServerHeartbeatInterval
 
 	// ServerForgetAfter is how long an unseen row is kept before a registering
 	// server deletes it. This is hygiene, not correctness: a row that outlives
@@ -82,6 +87,26 @@ type Server struct {
 	StartedAt time.Time `json:"started_at" yaml:"started_at"`
 	// LastSeenAt is the last heartbeat. Attached is derived from it.
 	LastSeenAt time.Time `json:"last_seen_at" yaml:"last_seen_at"`
+	// HeartbeatInterval is the cadence this process promised to beat at, which
+	// is what its own staleness threshold is three of. A zero is a row written
+	// before the cadence was recorded and reads as the default.
+	HeartbeatInterval Duration `json:"heartbeat_interval" yaml:"heartbeat_interval"`
+}
+
+// StaleAfter is how long this server may go unseen before a reader calls it
+// gone: three of the beats the row itself declares.
+//
+// It is derived per server rather than fixed, because the writer is the only
+// party that knows its own cadence. A threshold taken from the default instead
+// is wrong in both directions for anybody who set --heartbeat-interval: too
+// short for a slow beater, which reads a live server as down, and too long for
+// a fast one, which reads a dead server as up.
+func (s Server) StaleAfter() time.Duration {
+	interval := time.Duration(s.HeartbeatInterval)
+	if interval <= 0 {
+		interval = ServerHeartbeatInterval
+	}
+	return ServerStaleBeats * interval
 }
 
 // Attached reports whether the server was heartbeating as of now.
@@ -90,7 +115,7 @@ type Server struct {
 // is stdlib only and because a judgement a caller can pin is a judgement a test
 // can make without waiting.
 func (s Server) Attached(now time.Time) bool {
-	return now.Sub(s.LastSeenAt) <= ServerStaleAfter
+	return now.Sub(s.LastSeenAt) <= s.StaleAfter()
 }
 
 // UptimeAt reports how long the server was up as of now.
@@ -113,14 +138,15 @@ func (s Server) UptimeAt(now time.Time) Duration {
 // StatusAt renders the row as a reader receives it, judged against one instant.
 func (s Server) StatusAt(now time.Time) ServerStatus {
 	return ServerStatus{
-		ID:         s.ID,
-		Address:    s.Address,
-		Version:    s.Version,
-		Surfaces:   s.Surfaces,
-		StartedAt:  s.StartedAt,
-		LastSeenAt: s.LastSeenAt,
-		Uptime:     s.UptimeAt(now),
-		Attached:   s.Attached(now),
+		ID:                s.ID,
+		Address:           s.Address,
+		Version:           s.Version,
+		Surfaces:          s.Surfaces,
+		StartedAt:         s.StartedAt,
+		LastSeenAt:        s.LastSeenAt,
+		HeartbeatInterval: Duration(s.StaleAfter() / ServerStaleBeats),
+		Uptime:            s.UptimeAt(now),
+		Attached:          s.Attached(now),
 	}
 }
 
@@ -138,6 +164,12 @@ type ServerStatus struct {
 	Surfaces   []ServerSurface `json:"surfaces" yaml:"surfaces"`
 	StartedAt  time.Time       `json:"started_at" yaml:"started_at"`
 	LastSeenAt time.Time       `json:"last_seen_at" yaml:"last_seen_at"`
+
+	// HeartbeatInterval is the cadence this server beats at, resolved to the
+	// default for a row that predates the column. Attached is judged against
+	// three of it, so a consumer that wants a finer judgement than the boolean
+	// has the threshold rather than having to assume one.
+	HeartbeatInterval Duration `json:"heartbeat_interval" yaml:"heartbeat_interval"`
 
 	// Uptime is how long the process had been running when the report was
 	// taken, so a reader need not subtract two instants to learn it.

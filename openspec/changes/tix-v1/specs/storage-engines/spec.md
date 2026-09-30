@@ -327,6 +327,12 @@ Text search results SHALL differ between engines: PostgreSQL SHALL provide token
 search and SQLite SHALL provide substring matching. The system SHALL report which search mode is
 active and SHALL NOT claim parity between them.
 
+The matching model is the only difference either engine is permitted. A search value SHALL be
+matched as literal text on both: no character the caller typed SHALL act as a pattern operator.
+On SQLite specifically, where the substring match is a `LIKE`, `%` and `_` SHALL be escaped and the
+predicate SHALL declare its escape character, exactly as the explicit title and body terms already
+do.
+
 #### Scenario: Substring matching on SQLite
 
 - **WHEN** a text search runs on SQLite
@@ -336,6 +342,12 @@ active and SHALL NOT claim parity between them.
 
 - **WHEN** the same text search runs on PostgreSQL
 - **THEN** results are matched by tokens and may include matches that substring matching would miss
+
+#### Scenario: A wildcard character in the search value is literal
+
+- **WHEN** a text search runs for a value containing `%` or `_`
+- **THEN** only tasks whose text holds that character are returned, on either engine
+- **AND** tasks that a pattern operator would have matched are not returned
 
 #### Scenario: Mode reported
 

@@ -120,8 +120,15 @@ waited for it would be wrong for up to a sweep interval.
 So: a reader computes `now.Sub(last_seen_at) > core.ServerStaleAfter` and calls the server not
 heartbeating. No sweeper is consulted and none is required for the answer to be correct.
 
-`ServerStaleAfter` is three heartbeat intervals. One missed beat is a busy machine or a slow write; three is
+Staleness is three heartbeat intervals. One missed beat is a busy machine or a slow write; three is
 a process that has stopped. At the default 30-second interval that is 90 seconds.
+
+The three are three of *that server's* interval, read from its own row, not three of the default.
+`--heartbeat-interval` moves the writing, so a threshold taken from the default is wrong for anybody who
+sets it: too short for a server beating every five minutes, which reads a live process as down two and a
+half minutes after its last beat, and too long for one beating every second, which reads a dead process as
+up for ninety. A row written before the cadence was recorded declares none, and is judged against the
+default, which is exactly what it was judged against before.
 
 A graceful shutdown deletes the row, so a planned stop leaves nothing behind. A crash, a `SIGKILL`, a power
 cut and a partitioned network all leave the row, and the reader judges it stale. That asymmetry is the
@@ -218,6 +225,7 @@ semantics, and merging them would force one of the two to lose its own.
       "surfaces": ["api", "ws", "web", "ssh"],
       "started_at": "2026-09-22T08:00:00Z",
       "last_seen_at": "2026-09-28T09:59:57Z",
+      "heartbeat_interval": "30s",
       "attached": true,
       "connections": 14
     }
@@ -239,7 +247,8 @@ Decisions inside that shape:
 - `attached` is a boolean the *reader* computed, not a column. A consumer must not have to know the
   threshold or re-derive it from `last_seen_at`, and two consumers deriving it differently is how two
   dashboards disagree.
-- `last_seen_at` is present anyway, so a consumer that wants a finer judgement can make one.
+- `last_seen_at` and `heartbeat_interval` are present anyway, so a consumer that wants a finer judgement
+  can make one against the cadence the server actually keeps.
 - `connections` is **omitted**, not null and not zero, for a server whose count is unknown. `omitempty` on
   a pointer says "not known"; a zero would say "none".
 - `surfaces` is an array here even though the column is a joined string. The storage shape is not the
