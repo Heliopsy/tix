@@ -159,6 +159,9 @@ tix task ls -o ndjson --query "flaky" \
 # Count open tasks per project
 tix task ls --all -o ndjson -s todo | jq -r .project_id | sort | uniq -c
 
+# What has run out of time, oldest deadline first
+tix task ls --all -o ndjson --overdue --sort due_at | jq -r '[.ref, .due_at, .title] | @tsv'
+
 # Feed a body in from another process
 git log -1 --format=%B | tix comment add infra-42 -
 ```

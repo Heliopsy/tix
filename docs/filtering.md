@@ -39,7 +39,7 @@ tix task ls --filter '-assignee:01M3... -priority:low' # not theirs, not low pri
 Negatable: `project`, `status`, `tag`, `assignee`, `creator`, `claimed-by`, `priority`, `is:`, `title`, `body`,
 `text`, and a bare word.
 
-Not negatable: `sort`, `limit`, `parent`, `due-before`, `due-after`. Those name a shape of the listing rather
+Not negatable: `sort`, `limit`, `parent`, `due`, `due-before`, `due-after`. Those name a shape of the listing rather
 than a set of tasks, so "not sorted by title" is not a question with an answer; asking is a usage error, not a
 silently ignored term.
 
@@ -110,6 +110,8 @@ is what makes a large PostgreSQL install fast. If you need an answer that does n
 | `title:VALUE` | whole title | yes | `title~` |
 | `body:VALUE` | whole body | yes | `body~` |
 | `text:VALUE`, `q:VALUE` | title or body | yes | `text~` |
+| `due:WINDOW` | `overdue` (or `late`), `today`, `week`, `month` | no | no |
+| `due:<DATE`, `due:>DATE` | the same bounds, spelled with the comparison | no | no |
 | `due-before:DATE`, `due-after:DATE` | due bounds | no | no |
 | `parent:REF`, `parent:none` | subtasks of, or roots | no | no |
 | `is:claimed`, `is:unclaimed`, `is:blocked`, `is:unblocked`, `is:deleted`, `is:root` | state predicates | yes (except `is:root`) | no |
@@ -117,6 +119,29 @@ is what makes a large PostgreSQL install fast. If you need an answer that does n
 | bare word | free text, engine-native | yes (becomes a weak match) | n/a |
 
 Dates take `YYYY-MM-DD`, `YYYY-MM-DD HH:MM`, or RFC 3339.
+
+## Deadlines
+
+`due:` is the term for the question people actually ask. The named windows are relative to the moment the
+filter is answered, so `due:overdue` means "the deadline has passed" wherever it is typed:
+
+```sh
+tix task ls --overdue                            # the shorthand, on the command line
+tix task ls --filter 'due:overdue -status:done'  # the same bound, in the expression
+tix task ls --filter 'due:week'                  # falling due in the next seven days
+tix task ls --filter 'due:>2026-01-01 due:<2026-02-01'   # a bounded window
+tix task ls --due-after 2026-01-01               # one end of it, as a flag
+```
+
+`due:<DATE` and `due:>DATE` are `due-before:` and `due-after:` under a shorter name; the older spellings
+still work and mean exactly the same thing. Both bounds are inclusive, and both drop a task carrying no
+deadline at all, because a task with no deadline does not fall inside one.
+
+`--overdue`, `--due-before` and `--due-after` are the flag forms on `tix task ls`. A flag wins over the same
+bound named in an expression, the way `--limit` and `--sort` already do, and `--overdue` beside an explicit
+`--due-before` is refused rather than silently overriding it. The browser's deadline control and the
+terminal's filter bar write the same `due:` term rather than a bound of their own, so the four surfaces
+cannot drift.
 
 A custom field is `field.NAME:VALUE`, which the whole expression language carries, so `--filter
 'field.severity:sev1'` works on the command line as well as over HTTP. The value is read as JSON when

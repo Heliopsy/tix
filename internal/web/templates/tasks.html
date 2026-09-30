@@ -35,6 +35,17 @@
 
 <form method="get" action="/tasks" class="filterbar">
   <input name="q" value="{{$v.Query}}" placeholder="Filter, for example status:todo tag:ops" aria-label="Filter" data-shortcut-target="filter">
+  {{/* The deadline control. "What is overdue" was answerable over the API and
+       nowhere a reader could click, so the one question a due date exists to
+       answer needed a filter expression typed by hand. What it selects is
+       answered as a due: term by the shared parser rather than as a bound of
+       its own, so it is sayable in the box beside it, shareable as a link, and
+       refused with the same message when it names something the language does
+       not have. */}}
+  <select name="due" aria-label="Due">
+    <option value="">any deadline</option>
+    {{range $v.DueWindows}}<option value="{{.}}" {{if eq . $v.Due}}selected{{end}}>{{.}}</option>{{end}}
+  </select>
   <select name="sort" aria-label="Sort">
     {{range $v.SortFields}}<option value="{{.}}" {{if eq . $v.Sort}}selected{{end}}>{{.}}</option>{{end}}
   </select>
@@ -43,7 +54,7 @@
        was to select the text in the box and delete it. A project chip on a row
        writes a filter into that box in one click, so getting out of it should
        cost one click too. The sort is kept, because a sort is not a filter. */}}
-  {{if $v.Query}}<a class="secondary clear" href="/tasks{{if $v.Sort}}?sort={{$v.Sort}}{{end}}">Clear</a>{{end}}
+  {{if or $v.Query $v.Due}}<a class="secondary clear" href="/tasks{{if $v.Sort}}?sort={{$v.Sort}}{{end}}">Clear</a>{{end}}
 </form>
 {{/* A filter that names something this tenant does not have is a typo in a
      box, not a missing page. It used to be answered with the full-page error
@@ -230,6 +241,12 @@
       {{else if eq $held "expired"}}<span class="lease expired" title="{{$.Data.Names.Label .LeaseExpiredByActorID}} let the claim run out {{expiredAgo .}} ago, at {{compact .LeaseExpiredAt}}; the task is claimable again">claim expired &middot; {{expiredAgo .}} ago{{if gt .ClaimCount 1}} <span class="lease-count">&middot; {{.ClaimCount}} claims</span>{{end}}</span>{{end}}
       {{/* The date carried no label, so it was a number nobody could name.
            It is the last time the row changed, and saying so costs one word. */}}
+      {{/* The deadline, and only while it is one. A badge on every dated row
+           marks nearly every row in a real backlog, which is why the board's
+           own due marker was removed once; this is drawn for a deadline past
+           or within the week and for nothing else. The word carries the
+           meaning and the colour only reinforces it. */}}
+      {{if $.Columns.Show "tasks" "due"}}{{$due := due .}}{{if $due}}<a class="duemark is-{{$due}}" href="/tasks?due={{if eq $due "overdue"}}overdue{{else}}week{{end}}" title="Due {{stamp .DueAt}}">{{if eq $due "overdue"}}overdue{{else}}due this week{{end}}</a>{{end}}{{end}}
       {{if $.Columns.Show "tasks" "updated"}}<span class="when" title="Last updated {{compact .UpdatedAt}}"><span class="when-label">updated</span> {{compact .UpdatedAt}}</span>{{end}}
       {{if $.Columns.Show "tasks" "ref"}}<span class="ref mono">{{.Ref}}</span>{{end}}
     </span>

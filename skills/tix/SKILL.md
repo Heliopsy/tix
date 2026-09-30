@@ -2,7 +2,7 @@
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. There is no MCP server; this CLI is the only interface. Covers the claim/lease/release loop, `tix claim exec`, machine-readable output, exit codes, filtering, `tix watch`, comments/artifacts, dependencies, the actor directory, `tix stats`, `tix ssh`, and multi-target config.
 version: 8
-verified-against: tix 74072ee (2026-09-27)
+verified-against: tix e0449f5 (2026-09-30)
 ---
 
 # tix
@@ -264,9 +264,28 @@ tix task ls --filter 'status:todo -tag:ops title~deploy'
 ```
 
 Its keys are `project`, `status`, `tag`, `assignee`, `creator`,
-`claimed-by`, `priority`, `due-before`, `due-after`, `parent`, `is`, `sort`,
-`limit`, `text`, `title`, `body`, `claimed`, `blocked`, `deleted`. An
+`claimed-by`, `priority`, `due`, `due-before`, `due-after`, `parent`, `is`,
+`sort`, `limit`, `text`, `title`, `body`, `claimed`, `blocked`, `deleted`. An
 unknown key is exit `2` and the error names the whole set.
+
+## Deadlines
+
+`--overdue` is the shorthand; `--due-before` and `--due-after` take a date.
+`due:` says the same thing in an expression, either as a named window —
+`overdue`, `today`, `week`, `month` — or bounded with `due:<DATE` and
+`due:>DATE`:
+
+```sh
+tix task ls --overdue                            # the deadline has passed
+tix task ls --filter 'due:overdue -status:done'  # the same, minus finished work
+tix task ls --filter 'due:week'                  # falling due in the next seven days
+tix task ls --due-after 2026-01-01 -o json       # one end of a window, as a flag
+```
+
+Both bounds are inclusive, and both drop a task with no deadline: `--overdue`
+never returns an undated task. `--overdue` beside `--due-before` is exit `2`,
+because the two name one bound. An unknown window is exit `2` and the error
+names the four.
 
 Default `--sort` is `urgency`: priority first, then soonest `due_at`, undated tasks
 last within a priority band. `--sort created_at|updated_at|priority|due_at|title`

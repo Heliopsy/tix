@@ -181,11 +181,16 @@ func TestTheHelpViewScrollsRatherThanLosingItsTop(t *testing.T) {
 	if !strings.Contains(strings.Join(first, "\n"), "more") {
 		t.Fatal("help longer than the terminal gave no sign of it")
 	}
-	seen := map[string]bool{}
+	// One window at a time, its lines rejoined, because the legend wraps: the
+	// sentence is reachable when some single screenful holds all of it, and a
+	// set of lines gathered across scroll positions cannot say that.
+	var windows []string
 	for range 40 {
+		var w []string
 		for _, line := range m.helpLines(layout) {
-			seen[strings.TrimSpace(line)] = true
+			w = append(w, strings.TrimSpace(line))
 		}
+		windows = append(windows, strings.Join(w, " "))
 		m, _ = m.reduce(pressKey("j"))
 	}
 	// Built from CardLegend rather than spelled out, so adding a marker does
@@ -193,8 +198,8 @@ func TestTheHelpViewScrollsRatherThanLosingItsTop(t *testing.T) {
 	// one is stale from a failure.
 	for _, want := range []string{"card markers: " + strings.Join(CardLegend, ", ")} {
 		found := false
-		for line := range seen {
-			if strings.Contains(line, want) {
+		for _, w := range windows {
+			if strings.Contains(w, want) {
 				found = true
 			}
 		}

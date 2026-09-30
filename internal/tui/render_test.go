@@ -236,9 +236,15 @@ func TestTimeTextDropsARepeatedUpdatedStamp(t *testing.T) {
 	later := stamp.Add(2 * time.Hour)
 	due := stamp.Add(48 * time.Hour)
 	edited := core.Task{CreatedAt: stamp, UpdatedAt: later, DueAt: &due}
-	want := "time: created 2026-09-21 08:59   updated 2026-09-21 10:59   due 2026-09-23 08:59"
+	want := "time: created 2026-09-21 08:59   updated 2026-09-21 10:59"
 	if got := timeText(edited, style); got != want {
-		t.Fatalf("timeText with an edit and a due date = %q, want %q", got, want)
+		t.Fatalf("timeText with an edit = %q, want %q", got, want)
+	}
+	// The deadline is dueText's, not this line's: it is the one date whose
+	// meaning depends on the day it is read, so it is drawn in the style that
+	// says how it stands rather than dim beside two dates that are history.
+	if strings.Contains(timeText(edited, style), "due") {
+		t.Fatalf("timeText still carries the deadline: %q", timeText(edited, style))
 	}
 }
 

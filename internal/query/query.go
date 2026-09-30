@@ -25,7 +25,7 @@ const CustomFieldPrefix = "field."
 // Keys are the term prefixes the filter language accepts.
 var Keys = []string{
 	"project", "status", "tag", "assignee", "creator", "claimed-by",
-	"priority", "due-before", "due-after", "parent", "is", "sort", "limit",
+	"priority", "due", "due-before", "due-after", "parent", "is", "sort", "limit",
 	"text", "title", "body", "claimed", "blocked", "deleted",
 }
 
@@ -59,8 +59,14 @@ type token struct {
 	quoted bool
 }
 
-// Parse turns a filter expression into the filter the service takes.
-func Parse(expr string) (core.TaskFilter, error) {
+// Parse turns a filter expression into the filter the service takes, reading
+// the relative due terms against the wall clock.
+func Parse(expr string) (core.TaskFilter, error) { return ParseAt(expr, time.Now().UTC()) }
+
+// ParseAt is Parse against a stated present. "due:overdue" is a question about
+// now, so the moment it is answered at is an input to the parse rather than
+// something the parser reaches for on its own.
+func ParseAt(expr string, now time.Time) (core.TaskFilter, error) {
 	var f core.TaskFilter
 	tokens, err := tokenize(expr)
 	if err != nil {
@@ -91,7 +97,7 @@ func Parse(expr string) (core.TaskFilter, error) {
 			}
 			continue
 		}
-		if err := applyTerm(&f, strings.ToLower(trimmed), value, op, negate); err != nil {
+		if err := applyTerm(&f, strings.ToLower(trimmed), value, op, negate, now); err != nil {
 			return core.TaskFilter{}, err
 		}
 	}
@@ -157,7 +163,7 @@ func tokenize(expr string) ([]token, error) {
 }
 
 // applyTerm folds one term into the filter.
-func applyTerm(f *core.TaskFilter, key, value, op string, negate bool) error {
+func applyTerm(f *core.TaskFilter, key, value, op string, negate bool, now time.Time) error {
 	value = strings.TrimSpace(strings.Trim(value, `"`))
 	if value == "" {
 		return core.Invalid("filter term %q has no value", key)
@@ -185,6 +191,8 @@ func applyTerm(f *core.TaskFilter, key, value, op string, negate bool) error {
 		appendTo(&f.ClaimedBy, &f.Exclude.ClaimedBy, value, negate)
 	case "priority", "prio":
 		return applyPriority(f, value, negate)
+	case "due":
+		return applyDueWindow(f, value, now)
 	case "due-before":
 		return applyDue(&f.DueBefore, value)
 	case "due-after":
@@ -295,7 +303,7 @@ func textKey(key string) bool {
 // excluding one is not a question the store can answer.
 func negatable(key string) bool {
 	switch key {
-	case "sort", "limit", "due-before", "due-after", "parent":
+	case "sort", "limit", "due", "due-before", "due-after", "parent":
 		return false
 	default:
 		return true
@@ -343,6 +351,46 @@ func applyPriority(f *core.TaskFilter, value string, negate bool) error {
 		return nil
 	}
 	f.Priorities = append(f.Priorities, p)
+	return nil
+}
+
+// DueWindows are the named windows the due: term accepts, each the far end of
+// a bound that starts now. They are spelled out rather than derived so the
+// help, the docs and the error message can all read the same list.
+var DueWindows = []string{"overdue", "today", "week", "month"}
+
+// applyDueWindow folds a due: term into the filter. It takes either one of the
+// named windows, which are questions about now, or a bounded form spelled with
+// the comparison it means: "due:<2026-02-01" is everything falling due before
+// that date, "due:>2026-02-01" everything after it.
+//
+// It is a second spelling of due-before: and due-after: rather than a new
+// capability, because "what is overdue" is the question people actually ask
+// and answering it with a date they have to work out themselves is why the
+// bounds went unused.
+func applyDueWindow(f *core.TaskFilter, value string, now time.Time) error {
+	if rest, ok := strings.CutPrefix(value, "<"); ok {
+		return applyDue(&f.DueBefore, rest)
+	}
+	if rest, ok := strings.CutPrefix(value, ">"); ok {
+		return applyDue(&f.DueAfter, rest)
+	}
+	switch strings.ToLower(value) {
+	case "overdue", "late":
+		f.DueBefore = &now
+	case "today":
+		end := now.Truncate(24*time.Hour).AddDate(0, 0, 1)
+		f.DueBefore = &end
+	case "week":
+		end := now.AddDate(0, 0, 7)
+		f.DueBefore = &end
+	case "month":
+		end := now.AddDate(0, 1, 0)
+		f.DueBefore = &end
+	default:
+		return core.Invalid("unknown due: value %q; try one of %s, or a bound such as due:<2026-02-01",
+			value, strings.Join(DueWindows, ", "))
+	}
 	return nil
 }
 

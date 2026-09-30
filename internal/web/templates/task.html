@@ -209,7 +209,10 @@
       <dt>Project</dt><dd><a href="/projects/{{.Data.ProjectKey}}">{{.Data.ProjectKey}}</a></dd>
       <dt>Assignee</dt><dd>{{if $t.AssigneeActorID}}<span class="who-name" title="{{$t.AssigneeActorID}}">{{$.Data.Names.Label $t.AssigneeActorID}}</span>{{else}}<span class="muted">unassigned</span>{{end}}</dd>
       <dt>Creator</dt><dd class="who-name" title="{{$t.CreatorActorID}}">{{$.Data.Names.Label $t.CreatorActorID}}</dd>
-      <dt>Due</dt><dd>{{if $t.DueAt}}{{stamp $t.DueAt}}{{else}}<span class="muted">&mdash;</span>{{end}}</dd>
+      {{/* The date alone left the reader comparing it with a calendar. The
+           state is what they were working it out for, so it is said, in the
+           same words the listing and the board use. */}}
+      <dt>Due</dt><dd>{{if $t.DueAt}}{{stamp $t.DueAt}}{{$due := due $t}}{{if $due}} <span class="duemark is-{{$due}}">{{if eq $due "overdue"}}overdue{{else}}this week{{end}}</span>{{end}}{{else}}<span class="muted">&mdash;</span>{{end}}</dd>
       <dt>Id</dt><dd class="mono id">{{$t.ID}}</dd>
       <dt>Created</dt><dd class="muted">{{compact $t.CreatedAt}}</dd>
       <dt>Updated</dt><dd class="muted">{{compact $t.UpdatedAt}}</dd>

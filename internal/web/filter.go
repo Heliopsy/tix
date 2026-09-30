@@ -27,5 +27,9 @@ var FilterKeys = query.Keys
 // FilterSyntaxHint names the operators a key list alone does not reveal.
 var FilterSyntaxHint = query.SyntaxHint()
 
+// FilterDueWindows are the named deadline windows the due: term accepts, and
+// so the vocabulary the deadline control offers.
+var FilterDueWindows = query.DueWindows
+
 // ParseFilter turns a filter expression into the TaskFilter the CLI builds.
 func ParseFilter(expression string) (core.TaskFilter, error) { return query.Parse(expression) }

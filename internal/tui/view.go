@@ -418,7 +418,19 @@ func (m Model) cardLines(t core.Task, category core.StateCategory, width int, se
 	for _, line := range card.Title {
 		out = append(out, barStyle.Render(bar)+" "+titleStyle.Render(line))
 	}
-	return append(out, barStyle.Render(bar)+" "+m.quiet(m.theme.Dim).Render(card.Meta))
+	return append(out, barStyle.Render(bar)+" "+m.metaLine(card.Meta))
+}
+
+// metaLine renders a card's identifiers, each run in the style its own meaning
+// asks for: dim throughout, except the deadline marker, which the theme
+// colours by how late it is. The marker is a word either way, so a terminal
+// getting no escapes loses the colour and keeps the meaning.
+func (m Model) metaLine(segs []MetaSegment) string {
+	var b strings.Builder
+	for _, s := range segs {
+		b.WriteString(m.quiet(m.theme.Due(s.Due).Inherit(m.theme.Dim)).Render(s.Text))
+	}
+	return b.String()
 }
 
 // quiet drops a style to the dim one while an input mode owns the screen, so
@@ -497,7 +509,7 @@ func (m Model) detailLines(layout Layout) []string {
 		m.theme.Ref.Render(t.Ref) + "  " + m.theme.Title.Render(t.Title),
 		stateLine(m.theme, t.Status, category, t.Priority, claim, claimed),
 		m.theme.Dim.Render(peopleText(t, d.actors)),
-		m.theme.Dim.Render(timeText(t, m.timeStyle)),
+		m.theme.Dim.Render(timeText(t, m.timeStyle)) + m.dueText(t, now),
 	}
 	if tags := tagsText(t.Tags); tags != "" {
 		lines = append(lines, m.theme.Dim.Render(tags))
@@ -577,19 +589,36 @@ func peopleText(t core.Task, actors map[string]string) string {
 	return who + "   assigned to " + actorLabel(t.AssigneeActorID, actors)
 }
 
-// timeText renders a task's dates through the configured style, dropping
-// "updated" when it renders the same as "created" so a task edited the day
-// it was made does not repeat itself.
+// timeText renders the dates a task simply has, through the configured style,
+// dropping "updated" when it renders the same as "created" so a task edited
+// the day it was made does not repeat itself.
+//
+// The due date is not among them. It is the one date that means something
+// different depending on what day it is read, so it is drawn by dueText in the
+// style that says so rather than dim beside two dates that are only history.
 func timeText(t core.Task, style output.TimeStyle) string {
 	created := style.Format(t.CreatedAt)
 	parts := []string{"time: created " + created}
 	if updated := style.Format(t.UpdatedAt); updated != "" && updated != created {
 		parts = append(parts, "updated "+updated)
 	}
-	if due := style.FormatPtr(t.DueAt); due != "" {
-		parts = append(parts, "due "+due)
-	}
 	return strings.Join(parts, "   ")
+}
+
+// dueText renders the deadline beside the other dates, named by how it stands
+// against today. A bare date left the reader comparing it with a calendar; the
+// state is what they were working out, so the detail view says it.
+func (m Model) dueText(t core.Task, now time.Time) string {
+	due := m.timeStyle.FormatPtr(t.DueAt)
+	if due == "" {
+		return ""
+	}
+	state := t.DueState(now)
+	text := "due " + due
+	if state.Notable() {
+		text += " (" + state.String() + ")"
+	}
+	return "   " + m.theme.Due(state).Inherit(m.theme.Dim).Render(text)
 }
 
 // tagsText renders a task's tags, or the empty string when it has none, so
@@ -734,7 +763,11 @@ func (m Model) helpLines(layout Layout) []string {
 	for _, e := range m.keys.GlobalHelp(m.offersView()) {
 		lines = append(lines, "  "+pad(e.Keys, 12)+e.Desc)
 	}
-	lines = append(lines, "", "card markers: "+strings.Join(CardLegend, ", "))
+	// Wrapped, not cut. The legend used to be one line on the promise that its
+	// entries would stay short enough to fit, which a narrow terminal has never
+	// kept: a legend truncated mid-entry explains a marker by half its words.
+	lines = append(lines, "")
+	lines = append(lines, Wrap("card markers: "+strings.Join(CardLegend, ", "), max(1, layout.Width))...)
 	lines = append(lines, "", "filter bar accepts: "+strings.Join(FilterKeys, ", "))
 	lines = append(lines, "  "+query.SyntaxHint())
 	lines = append(lines, "", "activity filter accepts: "+strings.Join(ActivityFilterKeys, ", "))
@@ -752,16 +785,15 @@ func (m Model) helpLines(layout Layout) []string {
 	return out
 }
 
-// CardLegend explains the markers a card carries. It renders as one line, so
-// the entries stay short enough that the whole legend fits a narrow terminal
-// rather than being truncated into uselessness.
+// CardLegend explains the markers a card carries. The help wraps it, so an
+// entry is short for readability rather than to fit one line.
+// The due markers are drawn only where a deadline is pressing. A marker for
+// any due date at all was removed once for appearing on nearly every card,
+// which is why "due" here means this week and not "has a date".
 var CardLegend = []string{
-	// No due-date marker. Most tasks in a real backlog have a due date, so it
-	// appeared on nearly every card and a marker every card carries tells a
-	// reader nothing while still costing them a glance. The date is on the
-	// task, and urgency reaches the board through priority and ordering.
 	"@ claimed", "@me claimed by you", "! blocked", "+ dependencies",
 	DeletedMarker + " deleted",
+	DueSoonMarker + " within the week", DueOverdueMarker + " overdue",
 }
 
 // footerLines renders the status bar and then either the open input mode or

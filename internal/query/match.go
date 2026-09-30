@@ -97,7 +97,11 @@ func matchPriorities(wanted []core.Priority, p core.Priority) bool {
 	return false
 }
 
-// matchDue reports whether the task falls inside the due bounds.
+// matchDue reports whether the task falls inside the due bounds. Both ends are
+// inclusive, which is what the stores answer ("due_at <= ?" and "due_at >= ?").
+// They were exclusive here, so a task falling due at the exact instant a bound
+// names was returned by the store and then dropped by the board filtering the
+// page it had just been handed.
 func matchDue(f core.TaskFilter, t core.Task) bool {
 	if f.DueBefore == nil && f.DueAfter == nil {
 		return true
@@ -105,10 +109,10 @@ func matchDue(f core.TaskFilter, t core.Task) bool {
 	if t.DueAt == nil {
 		return false
 	}
-	if f.DueBefore != nil && !t.DueAt.Before(*f.DueBefore) {
+	if f.DueBefore != nil && t.DueAt.After(*f.DueBefore) {
 		return false
 	}
-	return f.DueAfter == nil || t.DueAt.After(*f.DueAfter)
+	return f.DueAfter == nil || !t.DueAt.Before(*f.DueAfter)
 }
 
 // matchParent reports whether the task satisfies the parent terms.
