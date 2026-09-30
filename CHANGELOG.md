@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.11.0](https://github.com/Heliopsy/tix/compare/v0.10.0...v0.11.0) (2026-09-30)
+
+
+### Features
+
+* **api:** accept a route on a task ([ea4b3d4](https://github.com/Heliopsy/tix/commit/ea4b3d43be530c7118ee3d801d3d0abfe8923413))
+* **capability:** register applying a route as its own operation ([1372588](https://github.com/Heliopsy/tix/commit/137258837c1c9c69731602e4ea9201fedc99c640))
+* **cli:** tix task mv --hops finds the route and prints it first ([10313d9](https://github.com/Heliopsy/tix/commit/10313d902cae0c596147f546a6885e51bea7881f))
+* **core:** reachability over a workflow, shared by every surface ([6f6dd9b](https://github.com/Heliopsy/tix/commit/6f6dd9b357037b4e8479d382eb281c86820629ba))
+* **service:** apply a route one ordinary transition per hop ([3d96c59](https://github.com/Heliopsy/tix/commit/3d96c59f36e35667ed423e7c6739bec77d347800))
+* **tui:** a command palette, from the one list the help overlay already read ([5cbf7b1](https://github.com/Heliopsy/tix/commit/5cbf7b1cfa9e075503ee7628d26e452e411102b9))
+* **tui:** edit a task body as prose, and the whole task on one form ([25f8806](https://github.com/Heliopsy/tix/commit/25f88068902d6477ede49a7e4f6621939094e15a))
+* **tui:** give every input mode one panel ([b5d57fb](https://github.com/Heliopsy/tix/commit/b5d57fb7789095e66b2bd10b60b212853ffe4666))
+* **tui:** one edit key, and p cycles a task's priority ([12f95d1](https://github.com/Heliopsy/tix/commit/12f95d110426c64e1ccc02340477e005ac6ecfcd))
+* **tui:** redraw the board around title-led cards ([2a86fec](https://github.com/Heliopsy/tix/commit/2a86fec5428b17cc62dd3d0cc41a68f3ca4313d0))
+* **tui:** the transition picker offers routes ([e388057](https://github.com/Heliopsy/tix/commit/e388057bb4268b343cad7150da1bc02f608cc4a5))
+* **web:** routes on the task screen and the board ([c722b39](https://github.com/Heliopsy/tix/commit/c722b3950c683c9856ae2beb0aa009e0690c6542))
+
+
+### Bug Fixes
+
+* **tui:** answer the palette key on the settings and help screens too ([3191b3e](https://github.com/Heliopsy/tix/commit/3191b3e721824f16291927d72bec6e1ad695f8ba))
+* **tui:** line the project list up whatever icon a project carries ([7a724bd](https://github.com/Heliopsy/tix/commit/7a724bd5170d70c5ab298f82914c94cc99da956e))
+* **tui:** stop guessing why a conflict happened, and clear it on the way out ([7c05ed4](https://github.com/Heliopsy/tix/commit/7c05ed47b33778320ad1934202c63ca0ba4ecb7f))
+* **tui:** stop marking a due date on every card ([6fccee5](https://github.com/Heliopsy/tix/commit/6fccee5bf49fe031c77749d82d76c3d498d2242e))
+* **tui:** wrap the task body instead of clipping it ([2a186d8](https://github.com/Heliopsy/tix/commit/2a186d8a0ac205d89288c834c2abf488a7e2174b))
+
 ## [0.10.0](https://github.com/Heliopsy/tix/compare/v0.9.0...v0.10.0) (2026-09-28)
 
 
