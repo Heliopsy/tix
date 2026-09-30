@@ -4,10 +4,10 @@ package core
 
 import "time"
 
-// DueState classifies a deadline against the present. Every surface asks this
-// question — a card marker, a row badge, a filter shorthand — and each one
-// comparing timestamps for itself is how "overdue" came to mean three
-// different things in three places.
+// DueState classifies a deadline against the present. A card marker, a row
+// badge and the due: filter shorthand all ask the same question, and each one
+// comparing timestamps for itself is four places for "overdue" to start
+// meaning four things.
 type DueState uint8
 
 // The due states. DueNone is the zero value because most of the interface has
