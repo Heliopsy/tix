@@ -18,7 +18,8 @@ type Store interface {
 	View(ctx context.Context, scope core.TenantScope, fn func(Tx) error) error
 	// Update runs fn in a read-write transaction, committing on success.
 	Update(ctx context.Context, scope core.TenantScope, fn func(Tx) error) error
-	// Unscoped runs fn without a tenant, for host resolution and migrations only.
+	// Unscoped runs fn without a tenant in a read-write transaction, for
+	// administering tenants and the installation's own rows.
 	Unscoped(ctx context.Context, fn func(UnscopedTx) error) error
 	// ViewUnscoped runs fn without a tenant in a read-only transaction. A
 	// cross-tenant read that writes nothing belongs here rather than in
