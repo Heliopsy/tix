@@ -61,7 +61,8 @@ The listener SHALL accept version 1 and version 2 headers, distinguishing them b
 
 #### Scenario: The proxy speaks for itself
 
-- **WHEN** a trusted proxy sends a v1 `UNKNOWN` header or a v2 `LOCAL` command
+- **WHEN** a trusted proxy sends a v1 `UNKNOWN` header, a v2 `LOCAL` command, or a v2 `PROXY` command whose
+  address family names no IP, such as `AF_UNSPEC` or `AF_UNIX`
 - **THEN** the reported client address is the proxy's own transport address
 
 ### Requirement: A trusted proxy that sends no valid header is refused
