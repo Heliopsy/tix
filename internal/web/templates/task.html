@@ -329,7 +329,7 @@
   <details class="panel danger wide" id="reclaim">
     <summary>Reclaim the lease</summary>
     <div class="body">
-      <p class="muted">{{$.Data.Names.Label $t.ClaimedByActorID}} holds this task until {{compact $t.LeaseExpiresAt}}. Reclaiming ends their lease at once and leaves the task in {{$t.Status}}.</p>
+      <p class="muted">{{$.Data.Names.Label $t.ClaimedByActorID}} holds this task{{if $t.LeaseExpiresAt}} until {{compact $t.LeaseExpiresAt}}{{end}}. Reclaiming ends their lease at once and leaves the task in {{$t.Status}}.</p>
       <form method="post" action="/tasks/{{$t.Ref}}/reclaim">
         {{template "csrf" .CSRF}}
         <label for="reason">Reason</label>
