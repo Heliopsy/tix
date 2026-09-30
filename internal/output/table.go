@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jedib0t/go-pretty/v6/text"
 
 	"github.com/heliopsy/tix/internal/core"
 )
@@ -574,10 +575,19 @@ func yesNo(b bool) string {
 
 func truncate(s string, max int) string {
 	s = strings.Join(strings.Fields(s), " ")
-	if len([]rune(s)) <= max {
+	if text.StringWidth(s) <= max {
 		return s
 	}
-	return string([]rune(s)[:max-1]) + "…"
+	used, out := 0, strings.Builder{}
+	for _, r := range s {
+		w := text.StringWidth(string(r))
+		if used+w > max-1 {
+			break
+		}
+		used += w
+		out.WriteRune(r)
+	}
+	return out.String() + "…"
 }
 
 // skipField reports whether the reflection fallback must leave a field out.

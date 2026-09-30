@@ -124,7 +124,7 @@ func (m Model) statsLines(layout Layout) []string {
 		if who == "" {
 			who = a.ActorID
 		}
-		lines = append(lines, fmt.Sprintf("  %-24s %d", Truncate(who, 24), a.Moved))
+		lines = append(lines, "  "+pad(Truncate(who, 24), 24)+" "+fmt.Sprint(a.Moved))
 	}
 	lines = append(lines, "")
 
@@ -133,8 +133,8 @@ func (m Model) statsLines(layout Layout) []string {
 		lines = append(lines, m.theme.Empty.Render("  nothing is waiting"))
 	}
 	for _, o := range s.Oldest {
-		lines = append(lines, fmt.Sprintf("  %s  %-*s %s",
-			m.theme.Ref.Render(o.Ref), 34, Truncate(o.Title, 34), o.Age.Human()))
+		lines = append(lines, "  "+m.theme.Ref.Render(o.Ref)+"  "+
+			pad(Truncate(o.Title, 34), 34)+" "+o.Age.Human())
 	}
 
 	rows := VisibleRows(layout.BodyHeight, len(lines))
