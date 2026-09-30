@@ -68,6 +68,7 @@ const (
 	RouteTaskClaim        = APIPrefix + "/tasks/{ref}/claim"
 	RouteTaskClaimRenew   = APIPrefix + "/tasks/{ref}/claim/renew"
 	RouteTaskClaimRelease = APIPrefix + "/tasks/{ref}/claim/release"
+	RouteTaskClaimReclaim = APIPrefix + "/tasks/{ref}/claim/reclaim"
 	RouteClaimNext        = APIPrefix + "/claims/next"
 	RouteClaimSweep       = APIPrefix + "/claims/sweep"
 

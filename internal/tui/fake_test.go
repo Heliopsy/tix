@@ -21,11 +21,13 @@ type fakeService struct {
 
 	claimErr      error
 	releaseErr    error
+	reclaimErr    error
 	transitionErr error
 	listErr       error
 
 	claimed     []core.TaskRef
 	released    []core.TaskRef
+	reclaimed   []core.TaskRef
 	transitions []core.TransitionInput
 
 	created  []core.CreateTaskInput
@@ -153,6 +155,16 @@ func (f *fakeService) ReleaseLease(_ context.Context, ref core.TaskRef, _ string
 	defer f.mu.Unlock()
 	f.released = append(f.released, ref)
 	return f.releaseErr
+}
+
+func (f *fakeService) ForceReclaim(_ context.Context, ref core.TaskRef, _ core.ForceReclaimInput) (*core.Task, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.reclaimed = append(f.reclaimed, ref)
+	if f.reclaimErr != nil {
+		return nil, f.reclaimErr
+	}
+	return &core.Task{ID: ref.ID}, nil
 }
 
 func (f *fakeService) TransitionTask(_ context.Context, _ core.TaskRef, in core.TransitionInput) (*core.Task, error) {

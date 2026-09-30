@@ -70,7 +70,7 @@ func newClaimCmd(g *globals) *cobra.Command {
 		RunE:    helpRunner,
 	}
 	cmd.AddCommand(claimTaskCmd(g), claimNextCmd(g), claimRenewCmd(g),
-		claimReleaseCmd(g), claimSweepCmd(g), claimExecCmd(g))
+		claimReleaseCmd(g), claimReclaimCmd(g), claimSweepCmd(g), claimExecCmd(g))
 	return cmd
 }
 
@@ -208,6 +208,46 @@ func claimReleaseCmd(g *globals) *cobra.Command {
 	cmd.Flags().StringSliceVar(&fields, "result", nil, "result value as key=value, repeatable")
 	_ = cmd.MarkFlagRequired("token")
 	registerCompletions(g, cmd, "status")
+	return cmd
+}
+
+func claimReclaimCmd(g *globals) *cobra.Command {
+	var reason string
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "reclaim REF",
+		Short: "Take a lease away from the worker holding it",
+		Long: "End the lease another worker holds, without its token, so the task can be claimed again. " +
+			"The task keeps its status: a finished task stays finished, and reopening one is a transition " +
+			"to make separately.\n\nRequires the task:reclaim scope.\n\n" +
+			"Exit codes: 3 unknown reference, 4 the lease is no longer the one you read, 5 permission denied.",
+		Example: "  tix claim reclaim default-1 --reason 'agent host died'",
+		Args:    exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ref, err := parseRef(args[0])
+			if err != nil {
+				return err
+			}
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			if dryRun {
+				return g.render(cmd, newPlan("task.reclaim", ref.String(), map[string]any{"reason": reason}))
+			}
+			task, err := conn.Service.ForceReclaim(ctx, ref, core.ForceReclaimInput{Reason: reason})
+			if err != nil {
+				return err
+			}
+			if g.formatName() != output.FormatTable {
+				return g.render(cmd, task)
+			}
+			return g.render(cmd, outcome{Ref: task.Ref, Status: statusOK})
+		},
+		ValidArgsFunction: g.completeTaskRefs,
+	}
+	cmd.Flags().StringVar(&reason, "reason", "", "why the lease is being taken, recorded on the audit entry")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be reclaimed without writing")
 	return cmd
 }
 

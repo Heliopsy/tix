@@ -541,6 +541,14 @@ var registry = []Operation{
 		},
 	},
 	{
+		Name: "claim.reclaim", Method: "ForceReclaim",
+		Scope: core.ScopeTaskReclaim,
+		CLI:   "tix claim reclaim",
+		HTTP:  apiPost(wire.RouteTaskClaimReclaim),
+		Web:   webPost(web.RouteTaskReclaim),
+		TUI:   "board",
+	},
+	{
 		Name: "claim.sweep", Method: "SweepLeases",
 		Scope: core.ScopeTaskWrite,
 		CLI:   "tix claim sweep",

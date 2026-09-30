@@ -16,6 +16,7 @@ const (
 	ActionTaskTransition Action = "task.transition"
 	ActionTaskClaim      Action = "task.claim"
 	ActionTaskDelete     Action = "task.delete"
+	ActionTaskReclaim    Action = "task.reclaim"
 
 	ActionProjectRead  Action = "project.read"
 	ActionProjectWrite Action = "project.write"
@@ -54,6 +55,7 @@ var actionScopes = map[Action]core.Scope{
 	ActionTaskTransition: core.ScopeTaskTransition,
 	ActionTaskClaim:      core.ScopeTaskClaim,
 	ActionTaskDelete:     core.ScopeTaskDelete,
+	ActionTaskReclaim:    core.ScopeTaskReclaim,
 
 	ActionProjectRead:  core.ScopeProjectRead,
 	ActionProjectWrite: core.ScopeProjectWrite,
@@ -104,6 +106,10 @@ var projectConfinable = map[Action]bool{
 	ActionTaskTransition: true,
 	ActionTaskClaim:      true,
 	ActionTaskDelete:     true,
+	// A forced reclaim reaches one task, so a token pinned to a project can
+	// be trusted with it the way it is trusted with claiming: the policy
+	// holds it inside its own project on the way through.
+	ActionTaskReclaim: true,
 
 	ActionProjectRead:  true,
 	ActionProjectWrite: true,
@@ -122,7 +128,7 @@ func (a Action) ProjectConfinable() bool { return projectConfinable[a] }
 // allActions is the action vocabulary in a stable order.
 var allActions = []Action{
 	ActionTaskRead, ActionTaskCreate, ActionTaskUpdate, ActionTaskTransition,
-	ActionTaskClaim, ActionTaskDelete,
+	ActionTaskClaim, ActionTaskDelete, ActionTaskReclaim,
 	ActionProjectRead, ActionProjectWrite,
 	ActionWorkflowRead, ActionWorkflowWrite,
 	ActionFieldWrite, ActionCommentWrite, ActionArtifactWrite,

@@ -41,6 +41,7 @@ type KeyMap struct {
 	Artifact      key.Binding
 	ClaimNext     key.Binding
 	Renew         key.Binding
+	Reclaim       key.Binding
 	Projects      key.Binding
 	Project       key.Binding
 	Fields        key.Binding
@@ -109,6 +110,9 @@ func DefaultKeyMap() KeyMap {
 		Artifact:  key.NewBinding(key.WithKeys("O"), key.WithHelp("O", "record artifact")),
 		ClaimNext: key.NewBinding(key.WithKeys("N"), key.WithHelp("N", "claim next")),
 		Renew:     key.NewBinding(key.WithKeys("R"), key.WithHelp("R", "renew lease")),
+		// F, for force. It is the one key offered over a task somebody else
+		// holds, where c, x and R all have nothing to act on.
+		Reclaim: key.NewBinding(key.WithKeys("F"), key.WithHelp("F", "reclaim lease")),
 		// W, not p: p cycles the selected task's priority, and P is the picker
 		// that sets one outright, so the project list takes the capital of the
 		// project screen's own key rather than a third letter unrelated to
@@ -208,6 +212,7 @@ const (
 	doRestore
 	doArtifact
 	doRenew
+	doReclaim
 )
 
 // Action is one thing the interface can be asked to do: what performs it, what
@@ -398,6 +403,8 @@ func (k KeyMap) taskBindings() []Action {
 			gate: gatedAction{methods: []string{"PutArtifact"}}},
 		{id: doRenew, binding: k.Renew, needsTask: true,
 			gate: gatedAction{methods: []string{"RenewLease"}}},
+		{id: doReclaim, binding: k.Reclaim, needsTask: true,
+			gate: gatedAction{methods: []string{"ForceReclaim"}}},
 	}
 }
 
@@ -652,8 +659,8 @@ func (k KeyMap) projectShort(ctx ActionContext) []HelpEntry {
 }
 
 // claimHelp offers only the lease actions the selected task can accept: claim
-// while it is free, release and renew while this session holds it, and neither
-// while another worker does.
+// while it is free, release and renew while this session holds it, and, while
+// another worker holds it, the forced reclaim if this reader may force one.
 func (k KeyMap) claimHelp(ctx ActionContext) []HelpEntry {
 	switch {
 	case !ctx.HasTask, ctx.IsDeleted:
@@ -662,7 +669,7 @@ func (k KeyMap) claimHelp(ctx ActionContext) []HelpEntry {
 		return k.offer(ctx, gatedAction{binding: k.Release, methods: []string{"ReleaseLease"}},
 			gatedAction{binding: k.Renew, methods: []string{"RenewLease"}})
 	case ctx.HeldElsewhere:
-		return nil
+		return k.offer(ctx, gatedAction{binding: k.Reclaim, methods: []string{"ForceReclaim"}})
 	default:
 		return k.offer(ctx, gatedAction{binding: k.Claim, methods: []string{"ClaimTask"}})
 	}

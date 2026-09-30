@@ -421,7 +421,12 @@ const (
 	EventTaskClaimed      EventType = "task.claimed"
 	EventTaskReleased     EventType = "task.released"
 	EventTaskLeaseExpired EventType = "task.lease_expired"
-	EventTaskDeleted      EventType = "task.deleted"
+	// EventTaskReclaimed says an administrator ended somebody else's lease.
+	// It is not EventTaskLeaseExpired: a lapse is a worker that stopped
+	// answering and a reclaim is a person who decided, and a subscriber that
+	// cannot tell them apart will read every override as an agent failure.
+	EventTaskReclaimed EventType = "task.reclaimed"
+	EventTaskDeleted   EventType = "task.deleted"
 
 	EventCommentAdded    EventType = "comment.added"
 	EventArtifactAdded   EventType = "artifact.added"
@@ -441,6 +446,7 @@ const (
 var eventTypes = []EventType{
 	EventTaskCreated, EventTaskUpdated, EventTaskTransitioned,
 	EventTaskClaimed, EventTaskReleased, EventTaskLeaseExpired,
+	EventTaskReclaimed,
 	EventTaskDeleted, EventCommentAdded, EventArtifactAdded,
 	EventDependencyAdded, EventLabelAdded, EventProjectCreated,
 	EventProjectUpdated, EventWorkflowUpdated, EventFieldUpdated,

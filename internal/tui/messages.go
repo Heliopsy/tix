@@ -44,6 +44,7 @@ const (
 	actionDeleteComment
 	actionDelete
 	actionRenew
+	actionReclaim
 	actionNewProject
 	actionEditProject
 	actionArchiveProject
@@ -76,6 +77,7 @@ var actionLabels = map[actionKind][2]string{
 	actionDeleteComment: {"delete the comment", "deleted a comment on"},
 	actionDelete:        {"delete the task", "deleted"},
 	actionRenew:         {"renew the lease", "renewed the lease on"},
+	actionReclaim:       {"reclaim the lease", "reclaimed the lease on"},
 	actionNewProject:    {"create the project", "created"},
 
 	// The project screen's own actions. Their subject is a project or a field

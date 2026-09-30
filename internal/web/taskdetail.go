@@ -25,6 +25,7 @@ func (h *handler) taskRoutes() []route {
 		post(RouteTaskComplete, h.completeTask, "TransitionTask"),
 		post(RouteTaskDelete, h.deleteTask, "DeleteTask"),
 		post(RouteTaskRestore, h.restoreTask, "RestoreTask"),
+		post(RouteTaskReclaim, h.reclaimTask, "ForceReclaim"),
 		post(RouteTaskDeps, h.addDependency, "AddDependency"),
 		post(RouteTaskDepDel, h.removeDependency, "RemoveDependency"),
 		post(RouteTaskTags, h.addTag, "AddTag"),
@@ -98,6 +99,10 @@ type taskView struct {
 	CanComment    bool
 	CanDelete     bool
 	CanAudit      bool
+	// CanReclaim is the reader's authority to end somebody else's lease. The
+	// control is drawn only when a lease is live, so the field alone does not
+	// decide whether it appears.
+	CanReclaim bool
 
 	// Back is the listing the reader came from, carried in the link they
 	// followed. A task opened from a filtered list used to strand them: the
@@ -160,6 +165,7 @@ func (h *handler) showTask(w http.ResponseWriter, r *http.Request) error {
 		CanWrite:      actor.HasScope(core.ScopeTaskWrite),
 		CanComment:    actor.HasScope(core.ScopeCommentWrite),
 		CanDelete:     actor.HasScope(core.ScopeTaskDelete),
+		CanReclaim:    actor.HasScope(core.ScopeTaskReclaim),
 		CanAudit:      actor.HasScope(core.ScopeAuditRead),
 		Back:          backTo(r),
 	}
@@ -527,6 +533,22 @@ func (h *handler) restoreTask(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	redirect(w, r, taskPath(r), "task restored")
+	return nil
+}
+
+// reclaimTask ends the lease another worker holds. The screen offers it only
+// beside a live lease, and only to a reader holding task:reclaim, but the
+// service decides both again: an affordance the template hides is not a check.
+func (h *handler) reclaimTask(w http.ResponseWriter, r *http.Request) error {
+	ref, err := taskRefOf(r)
+	if err != nil {
+		return err
+	}
+	in := core.ForceReclaimInput{Reason: field(r, "reason")}
+	if _, err := h.svc.ForceReclaim(r.Context(), ref, in); err != nil {
+		return err
+	}
+	redirect(w, r, taskPath(r), "lease reclaimed")
 	return nil
 }
 

@@ -75,6 +75,7 @@ func TestTheFooterOnlyPromisesKeysThatWillWork(t *testing.T) {
 	k := DefaultKeyMap()
 	claim, release, renew, transition := k.Claim.Help().Key, k.Release.Help().Key,
 		k.Renew.Help().Key, k.Transition.Help().Key
+	reclaim := k.Reclaim.Help().Key
 
 	tests := []struct {
 		name    string
@@ -86,18 +87,21 @@ func TestTheFooterOnlyPromisesKeysThatWillWork(t *testing.T) {
 			name:    "unclaimed and claimable",
 			ctx:     ActionContext{May: permitAll, HasProject: true, HasTask: true, CanTransition: true},
 			present: []string{claim, transition},
-			absent:  []string{release, renew},
+			absent:  []string{release, renew, reclaim},
 		},
 		{
 			name:    "held by this session",
 			ctx:     ActionContext{May: permitAll, HasProject: true, HasTask: true, HeldHere: true, CanTransition: true},
 			present: []string{release, renew},
-			absent:  []string{claim},
+			absent:  []string{claim, reclaim},
 		},
 		{
-			name:    "held by another worker",
-			ctx:     ActionContext{May: permitAll, HasProject: true, HasTask: true, HeldElsewhere: true, CanTransition: true},
-			present: []string{transition},
+			name: "held by another worker",
+			ctx:  ActionContext{May: permitAll, HasProject: true, HasTask: true, HeldElsewhere: true, CanTransition: true},
+			// The one key a task somebody else holds can accept: claim,
+			// release and renew all have nothing to act on there, and the
+			// reclaim is the whole reason the footer is not empty.
+			present: []string{transition, reclaim},
 			absent:  []string{claim, release, renew},
 		},
 		{
@@ -110,7 +114,7 @@ func TestTheFooterOnlyPromisesKeysThatWillWork(t *testing.T) {
 			name:    "no task selected",
 			ctx:     ActionContext{May: permitAll, HasProject: true},
 			present: nil,
-			absent:  []string{claim, release, renew, transition},
+			absent:  []string{claim, release, renew, reclaim, transition},
 		},
 	}
 	for _, tc := range tests {

@@ -192,6 +192,23 @@ type ClaimTx interface {
 	// asked to clear, which is a task another worker has legitimately taken
 	// since, not a missing task.
 	ClearClaim(ctx context.Context, in ExpireClaimRow) (bool, error)
+	// ForceReclaim ends a live lease without its token, for an administrator
+	// overriding the holder. It reports false, having written nothing, when
+	// the row no longer carries the live lease the caller read: the holder it
+	// names has changed, or the lease has gone. Only the lease columns move,
+	// so a forced reclaim can never change a task's status.
+	ForceReclaim(ctx context.Context, in ForceReclaimRow) (bool, error)
+}
+
+// ForceReclaimRow is the input to an administrative reclaim. HolderID is the
+// holder the caller read, and is re-asserted inside the statement: without it
+// the update is keyed on the row identifier alone and two administrators
+// forcing at once, or one forcing a lease that was released and taken again
+// in between, would both be told they had taken the lease the caller saw.
+type ForceReclaimRow struct {
+	TaskID   string
+	HolderID string
+	At       time.Time
 }
 
 // ExpireClaimRow is the input to clearing a lapsed claim. The holder and the

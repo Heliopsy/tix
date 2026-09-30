@@ -208,6 +208,38 @@ func (t *tx) ClearClaim(ctx context.Context, in store.ExpireClaimRow) (bool, err
 	return false, t.claimStillThere(ctx, in.TaskID)
 }
 
+// ForceReclaim ends a live lease without its token. The holder the caller read
+// is re-asserted in the statement, so an administrator can only take the lease
+// they were looking at: a second administrator forcing the same task, and a
+// holder that released and was replaced in between, both match nothing and are
+// told so rather than being handed a success over somebody else's claim.
+//
+// It sets no expiry evidence. lease_expired_at and lease_expired_by say "the
+// holder stopped answering", which is how a repeatedly dying agent is spotted,
+// and an operator's decision written into those columns would read as exactly
+// the failure it is not. What happened lives in the audit entry and the event.
+func (t *tx) ForceReclaim(ctx context.Context, in store.ForceReclaimRow) (bool, error) {
+	b := t.builder("tasks").
+		Where("tasks.id = ?", in.TaskID).
+		Where("tasks.deleted_at IS NULL").
+		Where("tasks.claimed_by_actor_id = ?", in.HolderID).
+		Where("tasks.lease_expires_at IS NOT NULL").
+		Where("tasks.lease_expires_at > ?", timeArg(in.At)).
+		Set("claimed_by_actor_id", nil).
+		Set("claimed_at", nil).
+		Set("lease_expires_at", nil).
+		Set("lease_token", nil).
+		Set("updated_at", t.now())
+	n, err := t.execUpdate(ctx, b, "reclaiming the lease on task %q", in.TaskID)
+	if err != nil {
+		return false, err
+	}
+	if n > 0 {
+		return true, nil
+	}
+	return false, t.claimStillThere(ctx, in.TaskID)
+}
+
 // claimStillThere separates the two ways the conditional clear matches nothing:
 // a task this tenant does not have, and a task whose lease is no longer the
 // lapsed one the sweeper read.
