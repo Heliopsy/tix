@@ -308,7 +308,7 @@ func TestEveryPortableTableExistsAfterMigration(t *testing.T) {
 	ctx := context.Background()
 	s, _ := newStore(t)
 
-	for _, table := range append(sqlb.ScopedTables(), "tenants", "tenant_domains", "users") {
+	for _, table := range append(sqlb.ScopedTables(), "tenants", "users") {
 		var n int
 		if err := s.db.QueryRowContext(ctx,
 			`SELECT COUNT(*) FROM information_schema.tables WHERE table_name = $1`, table).Scan(&n); err != nil {

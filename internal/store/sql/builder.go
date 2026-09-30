@@ -23,16 +23,25 @@ const (
 // TenantColumn is the column every tenant-owned table carries.
 const TenantColumn = "tenant_id"
 
-// unscoped lists the tables that legitimately have no tenant column.
-var unscoped = map[string]bool{
-	"tenants":           true,
-	"tenant_domains":    true,
-	"users":             true,
-	"schema_migrations": true,
-	// A server process serves every tenant, so its row belongs to none of
-	// them. It stays out of ScopedTables too, which is what keeps PostgreSQL
-	// from emitting an isolation policy over a column that does not exist.
-	"servers": true,
+// unscoped names the tables that legitimately have no tenant column, each with
+// the reason it has none. It is the only exemption from tenant scoping, and the
+// schema guards read it as an allow-list rather than as the definition of what
+// is scoped: a table carrying tenant_id and named here is a bug they fail on.
+var unscoped = map[string]string{
+	"tenants":           "a tenant row is the tenant, so it cannot belong to one",
+	"users":             "a user is one global identity that memberships attach to tenants",
+	"schema_migrations": "schema state belongs to the deployment, not to a tenant",
+	"servers":           "a server process serves every tenant, so its row belongs to none of them",
+}
+
+// UnscopedTables returns the exemption list with its reasons, for the guards
+// that enumerate the live schema and need to know what may hold no tenant_id.
+func UnscopedTables() map[string]string {
+	out := make(map[string]string, len(unscoped))
+	for k, v := range unscoped {
+		out[k] = v
+	}
+	return out
 }
 
 // Builder composes a statement for one tenant. There is no constructor that
@@ -44,20 +53,26 @@ type Builder struct {
 
 	columns []string
 	wheres  []string
-	args    []any
 	order   []string
 	limit   int
 	joins   []string
 	sets    []string
+
+	// A statement renders joins, then assignments, then predicates, and each
+	// run of arguments is kept where it is bound rather than recovered from
+	// one slice by counting placeholders.
+	joinArgs []any
+	setArgs  []any
+	args     []any
 }
 
 // New starts a statement against table, scoped to one tenant.
 func New(d Dialect, scope core.TenantScope, table string) (*Builder, error) {
-	if !scope.Valid() && !unscoped[table] {
+	if !scope.Valid() && IsScoped(table) {
 		return nil, core.Invalid("refusing to build a query on %q without a tenant scope", table)
 	}
 	b := &Builder{dialect: d, scope: scope, table: table}
-	if !unscoped[table] {
+	if IsScoped(table) {
 		b.wheres = append(b.wheres, qualify(table, TenantColumn)+" = ?")
 		b.args = append(b.args, scope.TenantID)
 	}
@@ -82,7 +97,7 @@ func (b *Builder) Select(cols ...string) *Builder {
 // Join adds a join clause. The caller supplies the ON condition.
 func (b *Builder) Join(clause string, args ...any) *Builder {
 	b.joins = append(b.joins, clause)
-	b.args = append(b.args, args...)
+	b.joinArgs = append(b.joinArgs, args...)
 	return b
 }
 
@@ -129,14 +144,14 @@ func (b *Builder) WhereNotIn(col string, values []string) *Builder {
 // Set adds an assignment for an update.
 func (b *Builder) Set(col string, value any) *Builder {
 	b.sets = append(b.sets, col+" = ?")
-	b.args = append(b.args, value)
+	b.setArgs = append(b.setArgs, value)
 	return b
 }
 
 // SetExpr adds an assignment whose value is an expression.
 func (b *Builder) SetExpr(col, expr string, args ...any) *Builder {
 	b.sets = append(b.sets, col+" = "+expr)
-	b.args = append(b.args, args...)
+	b.setArgs = append(b.setArgs, args...)
 	return b
 }
 
@@ -207,7 +222,7 @@ func (b *Builder) SelectQuery() (string, []any) {
 	if b.limit > 0 {
 		sb.WriteString(" LIMIT " + strconv.Itoa(b.limit))
 	}
-	return b.rebind(sb.String()), b.args
+	return b.rebind(sb.String()), concat(b.joinArgs, b.args)
 }
 
 // UpdateQuery renders the UPDATE and its arguments.
@@ -218,7 +233,7 @@ func (b *Builder) UpdateQuery() (string, []any, error) {
 	var sb strings.Builder
 	sb.WriteString("UPDATE " + b.table + " SET " + strings.Join(b.sets, ", "))
 	b.writeWhere(&sb)
-	return b.rebind(sb.String()), b.orderedUpdateArgs(), nil
+	return b.rebind(sb.String()), concat(b.setArgs, b.args), nil
 }
 
 // DeleteQuery renders the DELETE and its arguments.
@@ -237,7 +252,7 @@ func (b *Builder) CountQuery() (string, []any) {
 		sb.WriteString(" " + j)
 	}
 	b.writeWhere(&sb)
-	return b.rebind(sb.String()), b.args
+	return b.rebind(sb.String()), concat(b.joinArgs, b.args)
 }
 
 func (b *Builder) writeWhere(sb *strings.Builder) {
@@ -246,20 +261,11 @@ func (b *Builder) writeWhere(sb *strings.Builder) {
 	}
 }
 
-// orderedUpdateArgs puts SET arguments before WHERE arguments. The tenant
-// predicate is added at construction, so its argument leads b.args and must be
-// moved behind the assignments.
-func (b *Builder) orderedUpdateArgs() []any {
-	setCount := 0
-	for _, s := range b.sets {
-		setCount += strings.Count(s, "?")
-	}
-	if setCount == 0 || len(b.args) < setCount {
-		return b.args
-	}
-	whereArgs := b.args[:len(b.args)-setCount]
-	setArgs := b.args[len(b.args)-setCount:]
-	return append(append([]any{}, setArgs...), whereArgs...)
+// concat joins two argument runs into a fresh slice, so neither is aliased.
+func concat(first, second []any) []any {
+	out := make([]any, 0, len(first)+len(second))
+	out = append(out, first...)
+	return append(out, second...)
 }
 
 // rebind converts ? placeholders to $n for Postgres.
@@ -292,11 +298,11 @@ type Insert struct {
 
 // NewInsert starts an insert, setting the tenant column automatically.
 func NewInsert(d Dialect, scope core.TenantScope, table string) (*Insert, error) {
-	if !scope.Valid() && !unscoped[table] {
+	if !scope.Valid() && IsScoped(table) {
 		return nil, core.Invalid("refusing to insert into %q without a tenant scope", table)
 	}
 	in := &Insert{dialect: d, table: table}
-	if !unscoped[table] {
+	if IsScoped(table) {
 		in.Set(TenantColumn, scope.TenantID)
 	}
 	return in, nil
@@ -328,7 +334,10 @@ func (i *Insert) Query() (string, []any, error) {
 }
 
 // IsScoped reports whether table carries a tenant column.
-func IsScoped(table string) bool { return !unscoped[table] }
+func IsScoped(table string) bool {
+	_, exempt := unscoped[table]
+	return !exempt
+}
 
 // ScopedTables returns the tables that must carry a tenant predicate.
 func ScopedTables() []string {
@@ -337,7 +346,7 @@ func ScopedTables() []string {
 		"tasks", "task_deps", "tags", "task_tags", "comments", "artifacts",
 		"events", "audit_entries", "webhook_endpoints", "webhook_deliveries",
 		"retention_policies", "external_refs", "sync_sources", "tenant_members",
-		"ssh_keys",
+		"ssh_keys", "tenant_domains",
 	}
 	return all
 }

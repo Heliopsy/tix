@@ -12,6 +12,8 @@ import (
 	"testing/fstest"
 
 	_ "modernc.org/sqlite"
+
+	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
 func open(t *testing.T) *sql.DB {
@@ -87,52 +89,75 @@ func TestRunIsIdempotent(t *testing.T) {
 	}
 }
 
-// Every table the query builder treats as tenant-scoped must actually have the
-// column, or the builder would generate SQL referencing a column that does not
-// exist.
-// unscopedTables are the only tables allowed to hold no tenant_id. Every other
-// table is tenant data, so the scoping check derives its subject from the
-// schema instead of from a list somebody has to remember to extend.
-// servers is installation state, not tenant data: one process serves every
-// tenant, so there is no value a tenant_id column could hold that is not a
-// falsehood.
-var unscopedTables = map[string]bool{
-	"tenants":           true,
-	"users":             true,
-	"schema_migrations": true,
-	"servers":           true,
-}
-
-func TestEveryTableIsTenantScoped(t *testing.T) {
+// TestEveryTenantTableIsGuarded takes its subject from the live schema, not
+// from any list the builder keeps, because a list cannot fail to mention a
+// table it was never told about. Every table the migrations create is read out
+// of sqlite_master, its columns out of pragma_table_info, and the builder's two
+// lists are then checked against what the schema actually says in both
+// directions: a table carrying tenant_id must be scoped and listed, and a table
+// without one must be named in the exemption allow-list with its reason.
+//
+// tenant_domains reached production exempt from every structural layer because
+// the guards of the day all iterated ScopedTables(), which is the same list
+// that emits the PostgreSQL policies: a table missing from it lost its policy
+// and its assertion together, silently.
+func TestEveryTenantTableIsGuarded(t *testing.T) {
 	db := open(t)
 	ctx := context.Background()
 	if _, err := Run(ctx, db); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 
-	present := tablesIn(t, db)
-	for _, table := range present {
-		if unscopedTables[table] {
-			continue
-		}
+	exempt := sqlb.UnscopedTables()
+	listed := map[string]bool{}
+	for _, table := range sqlb.ScopedTables() {
+		listed[table] = true
+	}
+
+	present := map[string]bool{}
+	for _, table := range tablesIn(t, db) {
+		present[table] = true
+
 		var n int
 		if err := db.QueryRowContext(ctx,
-			`SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = 'tenant_id'`, table,
+			`SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?`,
+			table, sqlb.TenantColumn,
 		).Scan(&n); err != nil {
 			t.Fatalf("inspecting %q: %v", table, err)
 		}
-		if n != 1 {
-			t.Errorf("table %q has no tenant_id column and is not named in unscopedTables", table)
+		hasColumn := n == 1
+		reason, isExempt := exempt[table]
+
+		if hasColumn && isExempt {
+			t.Errorf("table %q carries a %s column but is exempted from tenant scoping, with the reason %q",
+				table, sqlb.TenantColumn, reason)
+		}
+		if !hasColumn && !isExempt {
+			t.Errorf("table %q has no %s column and no entry in the unscoped allow-list",
+				table, sqlb.TenantColumn)
+		}
+		if hasColumn != sqlb.IsScoped(table) {
+			t.Errorf("table %q has a %s column = %v but IsScoped says %v",
+				table, sqlb.TenantColumn, hasColumn, sqlb.IsScoped(table))
+		}
+		if hasColumn && !listed[table] {
+			t.Errorf("table %q carries a %s column but is absent from ScopedTables(), so PostgreSQL emits no isolation policy for it",
+				table, sqlb.TenantColumn)
+		}
+		if !hasColumn && listed[table] {
+			t.Errorf("table %q is in ScopedTables() but has no %s column to write a policy over",
+				table, sqlb.TenantColumn)
 		}
 	}
 
-	have := map[string]bool{}
-	for _, table := range present {
-		have[table] = true
+	for table, reason := range exempt {
+		if !present[table] {
+			t.Errorf("the unscoped allow-list exempts %q (%s), which no migration creates", table, reason)
+		}
 	}
-	for table := range unscopedTables {
-		if !have[table] {
-			t.Errorf("unscopedTables exempts %q, which no migration creates", table)
+	for table := range listed {
+		if !present[table] {
+			t.Errorf("ScopedTables() names %q, which no migration creates", table)
 		}
 	}
 }
