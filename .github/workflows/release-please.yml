@@ -18,9 +18,73 @@ jobs:
       # repository has to be here.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
+      # The release pull request has to be authored by something other than
+      # GITHUB_TOKEN or its checks never run. GitHub does create them, as
+      # `action_required`, and holds them for a person to press a button: a
+      # `pull_request` run started by GITHUB_TOKEN is deliberately gated so
+      # automation cannot drive its own CI. An unapproved check suite publishes
+      # no check runs at all, so the pull request shows an empty check list and
+      # reads as merely slow rather than blocked. Three releases were approved
+      # by hand before this was written down.
+      #
+      # Dispatching CI at the release branch does not fix it, and that was
+      # measured rather than assumed. A `workflow_dispatch` run on the pull
+      # request's own head branch does produce a check run on the head commit,
+      # and GitHub does list the pull request in the run's `pull_requests`, but
+      # the commit's status check rollup stays empty and `gh pr checks` answers
+      # "no checks reported". GitHub documents the rule under "Checks from some
+      # workflow jobs are not evaluated": only `push`, `pull_request`,
+      # `pull_request_review`, `pull_request_target`, `deployment` and
+      # `deployment_status` produce checks a pull request will show or a ruleset
+      # will accept. So the workflow_dispatch call that gets the release built
+      # cannot get the release pull request checked, and adding one here would
+      # have looked like a fix while changing nothing.
+      #
+      # An App installation token is authored by the App, so the branch push and
+      # the pull request trigger workflows the ordinary way. Without the
+      # credentials this falls back to GITHUB_TOKEN and behaves as it always
+      # has, which is why the secrets are optional rather than required.
+      - name: Decide which token release-please gets
+        id: creds
+        env:
+          CLIENT_ID: ${{ secrets.RELEASE_APP_CLIENT_ID }}
+          PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -n "$CLIENT_ID" ] && [ -n "$PRIVATE_KEY" ]; then
+            echo 'app=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'app=false' >> "$GITHUB_OUTPUT"
+            echo "::notice::No release App credentials; this pull request needs its checks approved by hand."
+          fi
+
+      # continue-on-error, because a rotated key or an uninstalled App should
+      # cost the release its automatic checks and nothing else. Failing here
+      # would take the whole release with it, and a release that does not happen
+      # is worse than one that needs a button pressed.
+      - name: Mint an App token
+        id: app-token
+        if: steps.creds.outputs.app == 'true'
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      # The fallback is silent otherwise, and a silent fallback to the behaviour
+      # this change exists to remove is how it would go unnoticed for months.
+      - name: Say so if the App token could not be minted
+        if: steps.creds.outputs.app == 'true' && steps.app-token.outputs.token == ''
+        run: |
+          echo "::warning::App credentials set but no token minted; used GITHUB_TOKEN, so checks need approving."
+
+      # `token` is empty when the step above was skipped or failed, and an empty
+      # string is falsy here, so the `||` resolves to GITHUB_TOKEN: exactly
+      # today's behaviour.
       - id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7  # v5.0.0
         with:
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
@@ -56,6 +120,14 @@ jobs:
             -f "ref=refs/tags/$TAG" -f "sha=$sha" >/dev/null
           echo "tagged $TAG at $sha"
 
+      # Deliberately still GITHUB_TOKEN, both here and in the tag step above,
+      # even when an App token exists. A tag written by the App would raise a
+      # push event, `release.yaml` listens for `v*`, and the release would then
+      # be built twice: once by the push and once by the dispatch below, racing
+      # each other to upload the same asset names into the same draft. The App
+      # token exists to get the release pull request its checks, and nothing
+      # else.
+      #
       # The tag this job just created cannot start the Release workflow on its
       # own: GitHub does not raise a push event for a ref written with
       # GITHUB_TOKEN, which is why v0.1.0 was published with nothing to download
