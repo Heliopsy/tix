@@ -358,7 +358,9 @@ func (l *Local) SweepLeases(ctx context.Context, limit int) (int, error) {
 }
 
 // sweepOne clears one expired claim, leaves the evidence that it expired, and
-// reverts the status when the workflow's state asks for it.
+// reverts the status when the workflow's state asks for it. It reports false,
+// having written nothing, for a row whose lease is no longer the lapsed one the
+// listing read: another worker holds that task now.
 //
 // The evidence is what survives the clearing. Once the lease columns are null
 // the row is indistinguishable from one nobody ever claimed, and the fact worth
