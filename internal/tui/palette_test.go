@@ -313,24 +313,38 @@ func pressFor(name string) tea.KeyPressMsg {
 }
 
 // TestChoosingAnEntryTakesTheKeysOwnPath is the rule that a palette entry is not
-// a second implementation of its action. The palette and the key press are
-// driven through a real Model and the resulting states are compared.
+// a second implementation of its action. The palette and the key press are each
+// driven through a real Model from the same starting state, and the whole frame
+// is compared as well as the state the action was for.
+//
+// The frame is what makes this a guard rather than a gesture. Checking only
+// "the settings view opened" passed while the palette entered the view directly
+// instead of through openSettings, because a fresh model's cursor is on row zero
+// either way; checking only "the comment prompt opened" passed while the palette
+// seeded that prompt with its own query. Both show up in the frame.
 func TestChoosingAnEntryTakesTheKeysOwnPath(t *testing.T) {
 	tests := []struct {
 		name  string
 		query string
 		press string
-		check func(t *testing.T, viaKey, viaPalette Model)
+		// prepare puts the model into a state where the action's own work is
+		// observable, so a shortcut that skips it cannot look identical.
+		prepare func(Model) Model
+		check   func(t *testing.T, viaKey, viaPalette Model)
 	}{
 		{
 			name: "opening a view", query: "settings", press: ",",
+			// The cursor is left down the list, because opening the settings
+			// screen puts it back at the top and entering the view does not.
+			prepare: func(m Model) Model { m.settingSel, m.settingsOff = 3, 2; return m },
 			check: func(t *testing.T, viaKey, viaPalette Model) {
 				t.Helper()
 				if viaKey.view != viewSettings || viaPalette.view != viewSettings {
 					t.Fatalf("key landed on %v, palette on %v", viaKey.view, viaPalette.view)
 				}
-				if viaKey.settingSel != viaPalette.settingSel {
-					t.Errorf("selection differs: %d and %d", viaKey.settingSel, viaPalette.settingSel)
+				if viaKey.settingSel != viaPalette.settingSel || viaKey.settingsOff != viaPalette.settingsOff {
+					t.Errorf("the cursor is at %d/%d via the key and %d/%d via the palette",
+						viaKey.settingSel, viaKey.settingsOff, viaPalette.settingSel, viaPalette.settingsOff)
 				}
 			},
 		},
@@ -340,6 +354,10 @@ func TestChoosingAnEntryTakesTheKeysOwnPath(t *testing.T) {
 				t.Helper()
 				if viaKey.prompt != promptComment || viaPalette.prompt != promptComment {
 					t.Fatalf("key opened %v, palette opened %v", viaKey.prompt, viaPalette.prompt)
+				}
+				if viaPalette.area.Value() != viaKey.area.Value() {
+					t.Errorf("the field holds %q via the palette and %q via the key",
+						viaPalette.area.Value(), viaKey.area.Value())
 				}
 			},
 		},
@@ -383,11 +401,23 @@ func TestChoosingAnEntryTakesTheKeysOwnPath(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "cycling a priority, which sends at once", query: "cycle", press: "p",
+			check: func(t *testing.T, viaKey, viaPalette Model) {
+				t.Helper()
+				if viaKey.err != "" || viaPalette.err != "" {
+					t.Fatalf("key reported %q, palette reported %q", viaKey.err, viaPalette.err)
+				}
+			},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			base := boardModel(t)
 			base.svc = newFakeService()
+			if tc.prepare != nil {
+				base = tc.prepare(base)
+			}
 
 			viaKey, _ := base.reduce(pressKey(tc.press))
 
@@ -400,6 +430,13 @@ func TestChoosingAnEntryTakesTheKeysOwnPath(t *testing.T) {
 				t.Fatal("running an entry left the palette open")
 			}
 			tc.check(t, viaKey, viaPalette)
+			// The frame, last and widest: an action reached two ways that draws
+			// two screens has been implemented twice, whatever the fields above
+			// happen to agree about.
+			if key, palette := viaKey.Frame(), viaPalette.Frame(); key != palette {
+				t.Errorf("the key and the palette draw different frames.\nvia the key:\n%s\nvia the palette:\n%s",
+					key, palette)
+			}
 		})
 	}
 }
