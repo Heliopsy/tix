@@ -313,9 +313,19 @@ func (u userRow) Monogram() string {
 	}
 	fields := strings.Fields(label)
 	if len(fields) > 1 {
-		return strings.ToUpper(fields[0][:1] + fields[1][:1])
+		return strings.ToUpper(firstRune(fields[0]) + firstRune(fields[1]))
 	}
-	return strings.ToUpper(label[:1])
+	return strings.ToUpper(firstRune(label))
+}
+
+// firstRune is a string's first character, which is not its first byte: a
+// name outside ASCII sliced at one byte leaves a fragment of a character,
+// and what reaches the page is a replacement glyph rather than an initial.
+func firstRune(s string) string {
+	for _, r := range s {
+		return string(r)
+	}
+	return ""
 }
 
 // Disabled reports whether the account has been switched off.

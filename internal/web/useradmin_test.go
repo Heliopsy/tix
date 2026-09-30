@@ -247,3 +247,82 @@ func TestChangingAUsersRoleTakesEffect(t *testing.T) {
 		t.Errorf("the row does not show the role that was chosen:\n%s", personRow(t, after, id))
 	}
 }
+
+// A display name the form can set, the form has to be able to remove. The
+// input is rendered with the current name in it, so emptying it and saving is
+// the only gesture the screen offers for "this account has no display name",
+// and the service clears the name for any DisplayName the input carries,
+// including an empty one.
+func TestEmptyingTheDisplayNameRemovesIt(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+
+	created := b.post("/admin/users", url.Values{"email": {"named@example.test"},
+		"display_name": {"Named Person"}, "password": {"correct-horse-battery"}, "role": {"member"}})
+	_ = created.Body.Close()
+	wantStatus(t, created, http.StatusSeeOther)
+
+	page := b.page("/admin/users")
+	id := userIDFor(t, page, "named@example.test")
+	if got := inputValue(t, personRow(t, page, id), "name-"+id); got != "Named Person" {
+		t.Fatalf("the name input holds %q before it is emptied", got)
+	}
+
+	saved := b.post("/admin/users/update", url.Values{"id": {id},
+		"display_name": {""}, "role": {"member"}})
+	_ = saved.Body.Close()
+	wantStatus(t, saved, http.StatusSeeOther)
+
+	after := b.page("/admin/users")
+	if got := inputValue(t, personRow(t, after, id), "name-"+id); got != "" {
+		t.Errorf("emptying the display name left %q on the account", got)
+	}
+}
+
+// The avatar's initials are characters, not bytes. Every name the guards above
+// use is ASCII, where the two are the same thing; a name that is not leaves a
+// fragment of a character in the response, which is invalid UTF-8 and renders
+// as a replacement glyph rather than as the reader's own initial.
+func TestTheUserAvatarTakesWholeCharacters(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+
+	created := b.post("/admin/users", url.Values{"email": {"emile@example.test"},
+		"display_name": {"Émile Zola"}, "password": {"correct-horse-battery"}, "role": {"member"}})
+	_ = created.Body.Close()
+	wantStatus(t, created, http.StatusSeeOther)
+
+	page := b.page("/admin/users")
+	id := userIDFor(t, page, "emile@example.test")
+	row := personRow(t, page, id)
+	if !strings.Contains(row, `class="avatar" aria-hidden="true">ÉZ<`) {
+		t.Errorf("the avatar does not read ÉZ:\n%s", row)
+	}
+	if strings.Contains(row, "\uFFFD") {
+		t.Errorf("the row carries a replacement character where a name should be:\n%s", row)
+	}
+}
+
+// The same property for a name of a single word, which takes the other branch.
+func TestTheUserAvatarTakesAWholeCharacterFromAOneWordName(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+
+	created := b.post("/admin/users", url.Values{"email": {"otzi@example.test"},
+		"display_name": {"Ötzi"}, "password": {"correct-horse-battery"}, "role": {"member"}})
+	_ = created.Body.Close()
+	wantStatus(t, created, http.StatusSeeOther)
+
+	page := b.page("/admin/users")
+	id := userIDFor(t, page, "otzi@example.test")
+	row := personRow(t, page, id)
+	if !strings.Contains(row, `class="avatar" aria-hidden="true">Ö<`) {
+		t.Errorf("the avatar does not read Ö:\n%s", row)
+	}
+	if strings.Contains(row, "\uFFFD") {
+		t.Errorf("the row carries a replacement character where a name should be:\n%s", row)
+	}
+}

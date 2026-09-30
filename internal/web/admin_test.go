@@ -345,8 +345,44 @@ func TestCustomFieldValuesRoundTrip(t *testing.T) {
 	_ = saved.Body.Close()
 
 	page := b.page("/tasks/" + ref)
-	if !strings.Contains(page, "8") {
-		t.Fatalf("the custom field value is not shown:\n%s", page)
+	// The field, not the page: a task screen carries identifiers, counts and
+	// timestamps, so "the page contains 8" is true of a screen that saved
+	// nothing at all.
+	if got := inputValue(t, page, "field-points"); got != "8" {
+		t.Fatalf("the custom field input holds %q, want the value that was saved:\n%s", got, page)
+	}
+}
+
+// A custom field that can be filled in has to be emptiable. The service
+// clears a field whose key arrives with a nil value (mergeTaskFields deletes
+// every key the update names before re-adding the ones that carry a value),
+// so a blanked input has to reach it as a key rather than as nothing.
+func TestBlankingACustomFieldClearsIt(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+
+	created := b.post("/projects/infra/fields", url.Values{"key": {"owner"},
+		"label": {"Owner"}, "type": {"text"}, "position": {"1"}})
+	_ = created.Body.Close()
+	wantStatus(t, created, http.StatusSeeOther)
+
+	ref := b.createTask("infra", "assigned")
+	saved := b.post("/tasks/"+ref, url.Values{"title": {"assigned"},
+		"body": {""}, "field.owner": {"alice"}})
+	_ = saved.Body.Close()
+	wantStatus(t, saved, http.StatusSeeOther)
+	if got := inputValue(t, b.page("/tasks/"+ref), "field-owner"); got != "alice" {
+		t.Fatalf("the field input holds %q before it is blanked, want \"alice\"", got)
+	}
+
+	cleared := b.post("/tasks/"+ref, url.Values{"title": {"assigned"},
+		"body": {""}, "field.owner": {""}})
+	_ = cleared.Body.Close()
+	wantStatus(t, cleared, http.StatusSeeOther)
+
+	if got := inputValue(t, b.page("/tasks/"+ref), "field-owner"); got != "" {
+		t.Errorf("blanking the field left %q on the task", got)
 	}
 }
 

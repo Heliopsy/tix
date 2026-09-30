@@ -178,6 +178,18 @@ func TestTenantParameterIsRefusedRatherThanHonoured(t *testing.T) {
 	if postResp.StatusCode != http.StatusForbidden {
 		t.Fatalf("form status = %d, want 403", postResp.StatusCode)
 	}
+
+	// The refusal reads r.PostForm, which a url-encoded body fills and a
+	// multipart one fills by a different route. The upload screens are the
+	// only multipart posts here, so this is the shape the check is least
+	// exercised against.
+	multi := alice.postMultipart("/transfer/import",
+		map[string]string{"tenant_id": f.tenantB.ID},
+		"snapshot.jsonl", `{"kind":"header","header":{"version":1,"tenant_key":"other"}}`+"\n")
+	defer func() { _ = multi.Body.Close() }()
+	if multi.StatusCode != http.StatusForbidden {
+		t.Fatalf("multipart status = %d, want 403", multi.StatusCode)
+	}
 }
 
 func TestListingsAreScopedToTheSessionTenant(t *testing.T) {
