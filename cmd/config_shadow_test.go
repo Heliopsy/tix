@@ -565,6 +565,26 @@ func answers(t *testing.T, url string) bool {
 }
 
 // stopAndRead interrupts a running command and returns what it printed.
+//
+// The signal goes to the whole process and signal.Notify broadcasts, so it
+// reaches every handler registered at that moment rather than one command's.
+// That is safe as these tests are written, and the reasons are invariants
+// rather than facts, so they are written down:
+//
+//   - No test that starts a server calls t.Parallel, and -shuffle=on reorders
+//     tests without overlapping sequential ones, so at most one command
+//     holding a handler is running when this fires. The package's only two
+//     parallel tests start nothing and register nothing.
+//   - Every start site waits for its command to exit before returning, so the
+//     handler is gone before the next test signals.
+//   - Broadcast adds recipients; it never takes the signal away from the
+//     intended one. Every extra recipient a mistake could add here is a server
+//     whose only answer is the graceful shutdown being asserted, so an extra
+//     recipient cannot turn a failure into a pass.
+//
+// Giving a server-starting test t.Parallel breaks the first point, and one
+// test's SIGINT would then shut another's listener down early. Hand that
+// command a cancellable context instead of signalling the process.
 func stopAndRead(t *testing.T, done <-chan result) string {
 	t.Helper()
 	if err := syscall.Kill(os.Getpid(), syscall.SIGINT); err != nil {
@@ -590,7 +610,8 @@ func writeUserConfig(t *testing.T, c *cli, body string) {
 	}
 }
 
-// stopServe interrupts the running serve command and waits for its exit.
+// stopServe interrupts the running serve command and waits for its exit. The
+// process-wide signal is safe for the reasons stopAndRead sets out.
 func stopServe(t *testing.T, done <-chan result) {
 	t.Helper()
 	if err := syscall.Kill(os.Getpid(), syscall.SIGINT); err != nil {

@@ -4,10 +4,9 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"log/slog"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/heliopsy/tix/internal/clock"
@@ -174,18 +173,12 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 	if err != nil {
 		return err
 	}
-	if err := srv.Listen(); err != nil {
-		return err
-	}
-
-	ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "tix listening on %s\n", srv.Addr())
-	if addr := srv.SSHAddr(); addr != "" {
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "tix ssh listening on %s\n", addr)
-	}
-	return srv.Serve(ctx)
+	return serveUntilSignal(cmd, srv, func(w io.Writer) {
+		_, _ = fmt.Fprintf(w, "tix listening on %s\n", srv.Addr())
+		if addr := srv.SSHAddr(); addr != "" {
+			_, _ = fmt.Fprintf(w, "tix ssh listening on %s\n", addr)
+		}
+	})
 }
 
 // buildServeSSH constructs the SSH listener the serve command runs beside the
