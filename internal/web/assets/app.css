@@ -849,6 +849,25 @@ a.secondary.clear:hover { filter: brightness(1.08); }
 .lease.held { color: var(--accent); border-color: var(--accent); }
 .lease.expired { color: var(--warn); border-color: var(--warn); }
 
+/* The deadline badge, on a listing row and in the detail rail. Outlined like
+   a lease rather than filled, for the same reason: the row's one filled thing
+   is its status. Overdue is danger and this week is warn, which is the same
+   ranking the terminal draws, and neither is only a colour -- the badge is a
+   word, so it survives a monochrome print and a reader who cannot tell the
+   two hues apart. */
+.duemark {
+  display: inline-block;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.duemark.is-overdue { color: var(--danger); border-color: var(--danger); }
+.duemark.is-soon { color: var(--warn); border-color: var(--warn); }
+
 /* How many times the task has been claimed, shown only beside an expiry,
    where it is the difference between one agent that died once and one that
    keeps dying. Quieter than the badge it hangs off, because the badge is the

@@ -232,6 +232,36 @@ func PriorityColor(p core.Priority) (color.Color, bool, bool) {
 	}
 }
 
+// DueColor returns the colour a due state is drawn in, whether it is drawn
+// bold, and whether the state is distinguished at all. A deadline still some
+// way off carries no colour, the same way a normal priority does: what is
+// marked is what is running out of time.
+//
+// Overdue borrows the colour "blocked" already uses, because both say the same
+// thing to a reader scanning a board — this one is not going to move on its
+// own — and a sixth hue on a card would be a distinction without a difference.
+func DueColor(d core.DueState) (color.Color, bool, bool) {
+	switch d {
+	case core.DueOverdue:
+		return colorUrgent, true, true
+	case core.DueSoon:
+		return colorTodo, false, true
+	default:
+		return nil, false, false
+	}
+}
+
+// Due styles text by how near its deadline is. Like every other style here it
+// answers the uncoloured theme with a plain style, so the marker the board
+// draws is carried by its own text on a terminal getting no escapes at all.
+func (t Theme) Due(d core.DueState) lipgloss.Style {
+	fg, bold, ok := DueColor(d)
+	if !ok || !t.Color {
+		return t.Style()
+	}
+	return t.Foreground(fg).Bold(bold)
+}
+
 // PriorityLabel names a priority in the CLI's words.
 func PriorityLabel(p core.Priority) string {
 	switch p {

@@ -20,6 +20,16 @@ here selects the same set from a shell. A project chip on a row writes a filter 
 click, so there is a Clear control to get back out in one click. Clear keeps the sort, because a sort
 is not a filter.
 
+**Deadlines.** The control beside the sort narrows the list to a deadline window: overdue, today, this
+week, this month. It writes a `due:` term into the same box rather than setting a bound of its own, so
+what it asked is visible, correctable and shareable as a link, and a window the language does not have
+is refused under the box like any other bad term. A row whose deadline has passed carries an `overdue`
+badge, one falling due within the week a `due this week` badge, and a row whose deadline is further out
+or absent carries nothing -- a badge on every dated row marks nearly every row in a real backlog. The
+badge is a word as well as a colour and links to the listing it belongs to. The task screen says the
+same thing beside the date in the Details rail. The `Due` column can be turned off in View, like any
+other optional column.
+
 An expression the listing cannot answer is reported under the box, with the expression still in the
 box. A filter naming a project, status or handle this tenant does not have is a typo in a control,
 not a missing page, and the full-page error screen threw the query away and made the reader retype it

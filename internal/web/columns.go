@@ -64,6 +64,7 @@ var columnSets = map[string][]Column{
 		{Key: "tags", Label: "Tags", Default: true},
 		{Key: "assignee", Label: "Assignee", Default: true},
 		{Key: "project", Label: "Project", Default: true},
+		{Key: "due", Label: "Due", Default: true},
 		{Key: "updated", Label: "Updated"},
 		{Key: "ref", Label: "Reference", Default: true},
 	},

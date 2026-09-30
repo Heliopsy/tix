@@ -4,10 +4,16 @@ package web
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 )
+
+// DueParam is the query parameter the deadline control submits. Its values are
+// the filter language's own due: windows, so a link a reader shares and a
+// filter they type say the same thing.
+const DueParam = "due"
 
 // priorityChoice is one option of the priority control.
 type priorityChoice struct {
@@ -33,7 +39,15 @@ type tasksView struct {
 	SortFields []string
 	Query      string
 	Sort       string
-	Pager      pager
+
+	// Due is the deadline window the control has selected, and DueWindows the
+	// vocabulary it offers. The control writes a due: term into the same
+	// expression the box holds, so the browser, the board and the command line
+	// answer one question with one parser.
+	Due        string
+	DueWindows []string
+
+	Pager pager
 
 	// Self is this screen's own URL, query string and all, so a row action
 	// can return to the list the reader was actually looking at.
@@ -162,6 +176,14 @@ func summarise(tasks []core.Task, complete map[string]string, now time.Time) tas
 func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	query := r.URL.Query()
 	expression := query.Get("q")
+	// The deadline control is folded into the expression rather than set on
+	// the filter directly, so a bad value is refused by the one parser with
+	// the one message, and so the reader can see in the box what was asked.
+	// It leads the expression, which lets a due: term typed by hand win.
+	due := strings.TrimSpace(query.Get(DueParam))
+	if due != "" {
+		expression = strings.TrimSpace("due:" + due + " " + expression)
+	}
 	var refused string
 	filter, err := ParseFilter(expression)
 	if err != nil {
@@ -220,7 +242,9 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 		SortFields:    core.TaskSortFields,
 		Query:         query.Get("q"),
 		Sort:          filter.Page.Sort,
-		Pager:         newPager(r, RouteTasks, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", SizeParam),
+		Due:           due,
+		DueWindows:    FilterDueWindows,
+		Pager:         newPager(r, RouteTasks, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, SizeParam),
 		Self:          selfURL(r),
 		CompleteState: complete,
 		Accent:        projectAccents(projects),

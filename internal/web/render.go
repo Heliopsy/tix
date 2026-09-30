@@ -163,6 +163,7 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"percent":         barPercent,
 		"age":             humanDuration,
 		"claim":           claimState,
+		"due":             dueState,
 		"expiredAgo":      expiredAgo,
 		"category":        categoryLabel,
 	}
@@ -717,6 +718,22 @@ func claimState(t core.Task) string {
 		return "expired"
 	}
 	return ""
+}
+
+// dueState names how a task's deadline stands against now, as the one word the
+// row and the detail badge are keyed on. It is core.DueState's own answer, so
+// the browser marks exactly the tasks `tix task ls --overdue` lists and the
+// board draws "due!" on. Empty where there is nothing to say -- no deadline,
+// or one far enough out to be a plan rather than a deadline.
+func dueState(t core.Task) string {
+	state := t.DueState(time.Now())
+	if !state.Notable() {
+		return ""
+	}
+	if state == core.DueOverdue {
+		return "overdue"
+	}
+	return "soon"
 }
 
 // expiredAgo renders how long ago a task's last claim lapsed, for the detail

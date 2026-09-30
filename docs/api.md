@@ -90,6 +90,11 @@ curl -H "Authorization: Bearer $TIX_TOKEN" \
 ```
 
 Pass `next_cursor` back as `cursor` for the following page. An empty or absent `next_cursor` means the last page.
+`due_before` and `due_after` narrow a task listing to a deadline window. Both take `YYYY-MM-DD`, `YYYY-MM-DD
+HH:MM` or RFC 3339, both ends are inclusive, and both drop a task carrying no deadline. There is no
+`overdue` parameter: a caller holds a clock, so "overdue" is `due_before` set to now. The filter expression's
+`due:overdue` is that bound, worked out where the expression is parsed.
+
 Sort fields for tasks are `urgency` (the default), `created_at`, `updated_at`, `priority`, `due_at`, `seq` and
 `title`. `urgency` is a compound ordering: priority first, most urgent priority leading, then due date within a
 shared priority, soonest deadline leading. A task with no due date sorts after every dated task at the same

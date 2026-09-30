@@ -68,9 +68,21 @@ the line is markers. The legend is in `?` and is short on purpose, so it still f
 | `!` | blocked |
 | `+` | has dependencies |
 | `†` | deleted, revealed by `is:deleted` |
+| `due` | falls due within a week |
+| `due!` | overdue |
 
 `@me` is separate from `@` because "is that me" is the first question anybody asks of a claimed card on a
 shared board, and a single marker left it answerable only by opening the task.
+
+The two due markers are drawn only while a deadline is pressing. A card carrying a date further out, and a
+card carrying no date at all, both draw nothing: an earlier marker was drawn for any due date whatsoever,
+which put it on nearly every card in a real backlog, so it distinguished nothing and was removed. `due!`
+is drawn in the colour the theme gives an overdue deadline and `due` in the colour it gives a near one, but
+neither is only a colour -- the marker is a word, so a terminal getting no escapes keeps the meaning. The
+detail view names the state in full beside the date, as `due 2026-02-01 (overdue)`.
+
+`tix task ls --overdue`, and `due:overdue` in any of the three filter bars, list exactly the cards carrying
+`due!`.
 
 Columns follow the workflow's declared order and are coloured by the category a state belongs to, not by
 its name, since workflow states are user defined. Nothing is conveyed by colour alone.

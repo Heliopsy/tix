@@ -5,6 +5,7 @@ package cmd
 import (
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
@@ -139,9 +140,11 @@ func taskLsCmd(g *globals) *cobra.Command {
 	var (
 		projects, statuses, tags, assignees []string
 		text, cursor, sort, expr            string
+		dueBefore, dueAfter                 string
 		limit                               int
 		desc, all, deleted                  bool
 		claimed, unclaimed, blocked         bool
+		overdue                             bool
 	)
 	cmd := &cobra.Command{
 		Use:     "ls",
@@ -152,10 +155,13 @@ func taskLsCmd(g *globals) *cobra.Command {
 			"space separated key:value terms, ANDed. A leading - excludes (-tag:ops, -status:done), " +
 			"and ~ in place of : matches weakly, anywhere inside the field (title~api, text~deploy). " +
 			"The other flags add to whatever --filter selected.\n\n" +
+			"--overdue, --due-before and --due-after select by deadline; the expression spells " +
+			"the same thing as due:overdue, due:<DATE and due:>DATE.\n\n" +
 			"Exit codes: 2 invalid filter, 3 unknown project, status, parent or actor, 5 permission denied.",
 		Example: "  tix task ls\n  tix task ls --status todo -o ndjson\n" +
 			"  tix task ls -p infra --tag ops --all\n" +
-			"  tix task ls --filter 'status:todo -tag:ops title~deploy'",
+			"  tix task ls --filter 'status:todo -tag:ops title~deploy'\n" +
+			"  tix task ls --overdue\n  tix task ls --filter 'due:overdue -status:done'",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			// The configured page size joins the expression as its first
@@ -218,6 +224,9 @@ func taskLsCmd(g *globals) *cobra.Command {
 			if blocked {
 				filter.Blocked = core.Yes
 			}
+			if err := applyDueFlags(cmd, &filter, overdue, dueBefore, dueAfter); err != nil {
+				return err
+			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
@@ -262,9 +271,45 @@ func taskLsCmd(g *globals) *cobra.Command {
 	f.BoolVar(&claimed, "claimed", false, "only tasks currently claimed")
 	f.BoolVar(&unclaimed, "unclaimed", false, "only tasks not currently claimed")
 	f.BoolVar(&blocked, "blocked", false, "only tasks blocked by a dependency")
+	f.BoolVar(&overdue, "overdue", false, "only tasks whose due date has passed")
+	f.StringVar(&dueBefore, "due-before", "", "only tasks due on or before a date")
+	f.StringVar(&dueAfter, "due-after", "", "only tasks due on or after a date")
 	_ = cmd.RegisterFlagCompletionFunc("sort", fixedCompletion(core.TaskSortFields))
 	registerCompletions(g, cmd, "project", "status", "tag")
 	return cmd
+}
+
+// applyDueFlags folds the deadline flags into a filter the expression may
+// already have bounded. A flag wins over the expression, the way --limit and
+// --sort already do, because the flag is the later and more specific word.
+//
+// --overdue is --due-before now, spelled the way the question is asked. It is
+// refused beside an explicit --due-before rather than silently overriding it,
+// since the two name the same bound and a reader who gave both meant one.
+func applyDueFlags(cmd *cobra.Command, filter *core.TaskFilter, overdue bool, before, after string) error {
+	if overdue && cmd.Flags().Changed("due-before") {
+		return usagef(cmd, "--overdue and --due-before are mutually exclusive")
+	}
+	if overdue {
+		now := time.Now().UTC()
+		filter.DueBefore = &now
+	}
+	if cmd.Flags().Changed("due-before") {
+		at, err := parseTime(before)
+		if err != nil {
+			return err
+		}
+		filter.DueBefore = at
+	}
+	if cmd.Flags().Changed("due-after") {
+		at, err := parseTime(after)
+		if err != nil {
+			return err
+		}
+		filter.DueAfter = at
+	}
+	_, err := filter.Validate()
+	return err
 }
 
 func taskShowCmd(g *globals) *cobra.Command {
