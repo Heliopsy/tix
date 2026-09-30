@@ -500,3 +500,51 @@ func TestAnUnreadableTerminalFieldIsRefused(t *testing.T) {
 		t.Errorf("the refused save stored a workflow anyway: %v", err)
 	}
 }
+
+// TestWorkflowEditorRefusesAKeyThatWouldLeaveItsRoute holds the redirect this
+// handler builds to what its annotation claims. The saved key becomes the last
+// segment of RouteWorkflows + "/" + key, and http.Redirect runs path.Clean over
+// a relative location, so a key of "../admin" answered with Location /admin:
+// the same origin, and no longer the route the handler named. A key carrying
+// "?" or "#" instead swallowed the flash into a query or a fragment. Refusing
+// the key is what makes the prefix survive.
+func TestWorkflowEditorRefusesAKeyThatWouldLeaveItsRoute(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+
+	post := func(key string) *http.Response {
+		return b.post("/workflows", url.Values{
+			"key": {key}, "name": {"Escape"}, "initial": {"open"},
+			"states":      {"open|Open|open\nclosed|Closed|terminal"},
+			"transitions": {"open>closed"},
+		})
+	}
+
+	for _, key := range []string{
+		"../admin", "../../evil.com", "..//evil.com", "a/b",
+		"a?next=b", "a#frag", "/evil.com", "http://evil.com", "-lean", "lean-",
+	} {
+		resp := post(key)
+		loc := resp.Header.Get("Location")
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("key %q: status = %d, want 400", key, resp.StatusCode)
+		}
+		if loc != "" {
+			t.Errorf("key %q: refused the save but still answered with Location %q", key, loc)
+		}
+	}
+
+	// The guard has to leave a usable key usable, or it proves only that the
+	// handler rejects everything.
+	resp := post("lean")
+	loc := resp.Header.Get("Location")
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("saving a usable key: status = %d, want 303", resp.StatusCode)
+	}
+	if !strings.HasPrefix(loc, "/workflows/lean?") {
+		t.Fatalf("Location = %q, want the workflow's own route", loc)
+	}
+}

@@ -155,6 +155,40 @@ func TestMustParseTaskRef(t *testing.T) {
 	MustParseTaskRef("")
 }
 
+// TestValidateWorkflowKey names the values that made the browser surface build
+// a location out of its own route. A workflow key is spent as a URL path
+// segment, so anything carrying a path separator, a query or a fragment left
+// the route it was appended to, and the error has to say which kind of key it
+// is rejecting.
+func TestValidateWorkflowKey(t *testing.T) {
+	for _, ok := range []string{"default", "lean", "review_2", "a", "A1"} {
+		if err := ValidateWorkflowKey(ok); err != nil {
+			t.Errorf("ValidateWorkflowKey(%q) = %v, want nil", ok, err)
+		}
+	}
+	for _, bad := range []string{
+		"", " ", "..", "../admin", "a/b", "a?next=b", "a#frag",
+		"/evil.com", "http://evil.com", "9lean", "-lean", "lean-",
+	} {
+		err := ValidateWorkflowKey(bad)
+		if err == nil {
+			t.Errorf("ValidateWorkflowKey(%q) = nil, want an error", bad)
+			continue
+		}
+		if !strings.Contains(err.Error(), "workflow key") {
+			t.Errorf("ValidateWorkflowKey(%q) = %v, want it to name the workflow key", bad, err)
+		}
+	}
+	// The contract, not only the helper: PutWorkflow is reached through this.
+	def := WorkflowDefinition{
+		Initial: "todo",
+		States:  []State{{Key: "todo", Category: CategoryTodo}, {Key: "done", Category: CategoryDone, Terminal: true}},
+	}
+	if err := (WorkflowInput{Key: "../admin", Definition: def}).Validate(); err == nil {
+		t.Error("WorkflowInput.Validate accepted a key that escapes its route")
+	}
+}
+
 func TestValidateProjectKey(t *testing.T) {
 	for _, ok := range []string{"infra", "web-api", "my_proj", "a", "A1"} {
 		if err := ValidateProjectKey(ok); err != nil {

@@ -122,6 +122,9 @@ func (in WorkflowInput) Validate() error {
 	if in.Key == "" {
 		return Invalid("workflow key is required")
 	}
+	if err := ValidateWorkflowKey(in.Key); err != nil {
+		return err
+	}
 	d := in.Definition
 	if len(d.States) == 0 {
 		return Invalid("a workflow requires at least one state")

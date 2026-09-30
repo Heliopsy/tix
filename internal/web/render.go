@@ -656,8 +656,14 @@ func redirect(w http.ResponseWriter, r *http.Request, path, flash string) {
 	if flash != "" {
 		target += "?flash=" + url.QueryEscape(flash)
 	}
-	// #nosec G710 -- path is a route constant chosen by the handler, and the
-	// flash text is query-escaped; neither is a caller-supplied destination.
+	// #nosec G710 -- path is a route constant with at most one caller-derived
+	// segment spliced into it: a project or workflow key the contract has
+	// narrowed to letters, digits, hyphens and underscores, a task ref of that
+	// same shape, or a pattern value the router matched as a single segment.
+	// None of those can carry a path separator, which is what keeps the route:
+	// http.Redirect runs path.Clean over a relative location, so
+	// "/workflows/" + "../admin" would answer with /admin. The flash is
+	// query-escaped.
 	http.Redirect(w, r, target, http.StatusSeeOther)
 }
 
