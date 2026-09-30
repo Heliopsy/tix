@@ -321,6 +321,25 @@
     </div>
   </details>
 
+  {{/* Offered only beside a live lease and only to a reader who holds
+       task:reclaim. It ends the lease and nothing else: the status pill above
+       reads the same afterwards, and reopening finished work is the move
+       control's job, not this one. */}}
+  {{if and .Data.CanReclaim (eq $held "held")}}
+  <details class="panel danger wide" id="reclaim">
+    <summary>Reclaim the lease</summary>
+    <div class="body">
+      <p class="muted">{{$.Data.Names.Label $t.ClaimedByActorID}} holds this task until {{compact $t.LeaseExpiresAt}}. Reclaiming ends their lease at once and leaves the task in {{$t.Status}}.</p>
+      <form method="post" action="/tasks/{{$t.Ref}}/reclaim">
+        {{template "csrf" .CSRF}}
+        <label for="reason">Reason</label>
+        <input id="reason" name="reason" placeholder="Why the lease is being taken">
+        <div class="actions"><button class="danger" type="submit">Reclaim lease</button></div>
+      </form>
+    </div>
+  </details>
+  {{end}}
+
   {{if .Data.CanDelete}}
   <details class="panel danger wide">
     <summary>Danger zone</summary>

@@ -43,6 +43,14 @@ const (
 	ScopeTaskClaim      Scope = "task:claim"
 	ScopeTaskDelete     Scope = "task:delete"
 
+	// ScopeTaskReclaim takes a live lease away from whoever holds it. It is
+	// separate from task:claim because every worker holds that one, and a
+	// worker that can end another worker's lease can end work it knows
+	// nothing about. It is separate from tenant:admin because the authority
+	// it grants reaches one task at a time and nothing else the tenant owns,
+	// so an on-call operator can be given it without being given the tenant.
+	ScopeTaskReclaim Scope = "task:reclaim"
+
 	ScopeProjectRead  Scope = "project:read"
 	ScopeProjectWrite Scope = "project:write"
 
@@ -68,6 +76,7 @@ const (
 // AllScopes is the complete vocabulary, excluding ScopeAll.
 var AllScopes = []Scope{
 	ScopeTaskRead, ScopeTaskWrite, ScopeTaskTransition, ScopeTaskClaim, ScopeTaskDelete,
+	ScopeTaskReclaim,
 	ScopeProjectRead, ScopeProjectWrite,
 	ScopeWorkflowRead, ScopeWorkflowWrite,
 	ScopeCommentWrite, ScopeArtifactWrite,

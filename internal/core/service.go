@@ -106,6 +106,7 @@ type ClaimService interface {
 	ClaimNext(ctx context.Context, in ClaimNextInput) (*Claim, error)
 	RenewLease(ctx context.Context, ref TaskRef, token string, ttl Duration) (*Claim, error)
 	ReleaseLease(ctx context.Context, ref TaskRef, token string, in ReleaseInput) error
+	ForceReclaim(ctx context.Context, ref TaskRef, in ForceReclaimInput) (*Task, error)
 	SweepLeases(ctx context.Context, limit int) (int, error)
 }
 

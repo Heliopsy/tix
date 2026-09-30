@@ -184,7 +184,7 @@ one connection. `{"type":"unsubscribe","id":"s1"}` ends one.
 
 Event types are matched as glob patterns, so `task.*` selects every task event. The vocabulary is closed:
 `task.created`, `task.updated`, `task.transitioned`, `task.claimed`, `task.released`, `task.lease_expired`,
-`task.deleted`, `comment.added`, `artifact.added`, `dependency.added`, `tag.added`, `project.created`,
+`task.reclaimed`, `task.deleted`, `comment.added`, `artifact.added`, `dependency.added`, `tag.added`, `project.created`,
 `project.updated`, `workflow.updated`, `field.updated`, `webhook.delivered`, `import.completed`. A type outside it
 is an error rather than a filter that silently matches nothing.
 

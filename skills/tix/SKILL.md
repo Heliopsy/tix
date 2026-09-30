@@ -86,9 +86,24 @@ reverts `doing` → `todo`. A worker that renews on schedule never sees this;
 one that stalls, crashes, or is killed just stops renewing and the task
 becomes claimable again with no cleanup step.
 
-**If your token goes stale — because you didn't renew in time and someone
-else claimed the task — every write with that token fails with exit `4`
-and error code `lease_expired`:**
+An operator holding `task:reclaim` can end a live lease without its token,
+for a worker that died without releasing:
+
+```sh
+tix claim reclaim REF --reason 'agent host died'
+```
+
+That frees the task immediately and leaves its status alone — a finished task
+stays finished, and `revert_on_lease_expiry` is not applied, because reopening
+work is `tix task mv`, made as its own decision. The reclaim is recorded under
+the audit action `task.reclaim` and the `task.reclaimed` event, which is a
+different fact from `task.lease_expired`: an administrator took this, rather
+than a worker stopping answering. `task:reclaim` is a scope of its own and is
+not implied by `task:claim`.
+
+**If your token goes stale — because you didn't renew in time, or someone
+reclaimed the task, or someone else claimed it — every write with that token
+fails with exit `4` and error code `lease_expired`:**
 
 ```console
 $ tix claim renew default-1 --token stale-token --ttl 15m

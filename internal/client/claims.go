@@ -38,6 +38,11 @@ func (c *Client) ReleaseLease(ctx context.Context, ref core.TaskRef, token strin
 	return callVoid(ctx, c, http.MethodPost, taskPath(wire.RouteTaskClaimRelease, ref), nil, body)
 }
 
+// ForceReclaim ends the lease another actor holds.
+func (c *Client) ForceReclaim(ctx context.Context, ref core.TaskRef, in core.ForceReclaimInput) (*core.Task, error) {
+	return call[core.Task](ctx, c, http.MethodPost, taskPath(wire.RouteTaskClaimReclaim, ref), nil, in)
+}
+
 // SweepLeases expires stale leases and reports how many it touched.
 func (c *Client) SweepLeases(ctx context.Context, limit int) (int, error) {
 	body := struct {

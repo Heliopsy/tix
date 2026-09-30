@@ -1140,6 +1140,9 @@ func (m Model) performTaskAction(id actionID) (Model, tea.Cmd, bool) {
 	case doRenew:
 		next, cmd := m.renewLease()
 		return next, cmd, true
+	case doReclaim:
+		next, cmd := m.reclaimLease()
+		return next, cmd, true
 	}
 	return m, nil, false
 }
@@ -1437,6 +1440,22 @@ func (m Model) renewLease() (Model, tea.Cmd) {
 		return m, nil
 	}
 	return m, m.renew(task)
+}
+
+// reclaimLease ends the lease another worker holds on the selected task. It
+// refuses over a task this session holds: the holder releases its own lease,
+// and forcing one away from yourself would put an administrative override in
+// the trail where an ordinary release belongs.
+func (m Model) reclaimLease() (Model, tea.Cmd) {
+	task, ok := m.selectedTask()
+	if !ok {
+		return m, nil
+	}
+	if m.leases[task.ID] != "" {
+		m.err = "cannot reclaim: this session holds the lease on " + task.Ref + "; release it instead"
+		return m, nil
+	}
+	return m, m.reclaim(task)
 }
 
 // release refuses when this session does not hold the task's lease.

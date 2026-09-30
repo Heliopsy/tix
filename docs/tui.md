@@ -149,6 +149,7 @@ impossible for a scheme to leave an action unbound.
 | `c` | claim | board, detail |
 | `x` | release | board, detail |
 | `R` | renew the lease | board, detail |
+| `F` | reclaim the lease another worker holds, leaving the task where it is | board, detail |
 | `N` | claim next from the queue | board, detail |
 | `t` | transition | board, detail |
 | `n` | new task, new project on the project list, new field or domain or member | board, detail, projects, project, tenant |
@@ -599,7 +600,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 32 such gaps against 90
+a reason as a gap when the binding ought to exist. As of this writing there are 32 such gaps against 91
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:

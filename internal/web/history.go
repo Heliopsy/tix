@@ -224,6 +224,8 @@ func sentenceForSubject(actorLabel, actorHref, subjectText, subjectHref string, 
 		return template.HTML(actor + " released the claim on " + subject) // #nosec G203
 	case last.Entry.Action == "task.lease_renew":
 		return template.HTML(actor + " renewed the claim on " + subject) // #nosec G203
+	case last.Entry.Action == "task.reclaim":
+		return template.HTML(actor + " reclaimed the lease on " + subject) // #nosec G203
 	case last.Entry.Action == "task.lease_expire":
 		return template.HTML("The claim on " + subject + " expired") // #nosec G203
 	case last.Entry.Action == "user.login":

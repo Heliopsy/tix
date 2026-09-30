@@ -278,6 +278,22 @@ type ClaimNextInput struct {
 	ActorID     string   `json:"actor_id,omitempty" yaml:"actor_id,omitempty"`
 }
 
+// ForceReclaimInput carries the administrator's reason for taking a lease.
+// The reason is optional and is recorded on the audit entry, because the
+// question asked of a forced reclaim afterwards is never whether it happened,
+// which the entry says, but why somebody else's work was taken.
+type ForceReclaimInput struct {
+	Reason string `json:"reason,omitempty" yaml:"reason,omitempty"`
+}
+
+// Validate checks the input.
+func (in ForceReclaimInput) Validate() error {
+	if len(in.Reason) > MaxTitleLength {
+		return Invalid("reclaim reason must be at most %d characters", MaxTitleLength)
+	}
+	return nil
+}
+
 // ReleaseInput gives up a lease.
 type ReleaseInput struct {
 	Status  string         `json:"status,omitempty" yaml:"status,omitempty"`

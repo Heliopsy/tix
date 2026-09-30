@@ -26,6 +26,7 @@ func (rt *Router) registerClaimRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteTaskClaim, rt.handleClaimTask)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskClaimRenew, rt.handleRenewLease)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskClaimRelease, rt.handleReleaseLease)
+	rt.mux.HandleFunc("POST "+wire.RouteTaskClaimReclaim, rt.handleForceReclaim)
 	rt.mux.HandleFunc("POST "+wire.RouteClaimNext, rt.handleClaimNext)
 	rt.mux.HandleFunc("POST "+wire.RouteClaimSweep, rt.handleSweepLeases)
 }
@@ -98,6 +99,25 @@ func (rt *Router) handleReleaseLease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeNoContent(w)
+}
+
+// handleForceReclaim ends the lease another actor holds.
+func (rt *Router) handleForceReclaim(w http.ResponseWriter, r *http.Request) {
+	ref, err := taskRef(r)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	var in core.ForceReclaimInput
+	if !readOptionalJSON(w, r, &in) {
+		return
+	}
+	task, err := rt.cfg.Service.ForceReclaim(r.Context(), ref, in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, task)
 }
 
 // handleSweepLeases materializes expired leases on demand.

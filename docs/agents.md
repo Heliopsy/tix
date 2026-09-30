@@ -114,6 +114,31 @@ evidence as current for 24 hours and then stop reporting it, without clearing th
 No supervisor is involved in any of this. A worker that is SIGKILLed, loses power or is scheduled away simply
 stops renewing, and its task returns to the queue.
 
+## Taking a lease back before it runs out
+
+Waiting is the ordinary answer, and on a workflow with a long `default_lease` it is an expensive one. An actor
+holding `task:reclaim` can end a live lease without its token:
+
+```sh
+tix claim reclaim infra-42 --reason 'agent host died'
+```
+
+The task is free at once: the previous holder's token stops working exactly as it would after an expiry, and
+the next `tix claim next` can pick the task up.
+
+A reclaim moves the lease and nothing else. The task keeps its status, a finished task stays finished, and
+`revert_on_lease_expiry` is not consulted -- that rule belongs to a lease that lapsed, not to a person who
+decided. Reopening finished work is `tix task mv`, made separately so the trail says who chose it.
+
+A reclaim writes no `lease_expired_at` / `lease_expired_by_actor_id`. Those columns mean "the holder stopped
+answering", which is how a repeatedly dying agent is spotted, and an operator's decision recorded there would
+read as exactly the failure it is not. What happened is in the audit entry, under the action `task.reclaim`,
+and in the `task.reclaimed` event, which carries the previous holder, the status the task kept and the reason
+if one was given.
+
+`task:reclaim` is not part of `task:claim`. Every worker holds that one, and a worker able to end another
+worker's lease can end work it knows nothing about. The `admin` role holds it through `*`; `member` does not.
+
 ## Why a zombie cannot write
 
 A worker whose lease expired while it was blocked on something has no way to notice on its own. tix makes that
@@ -232,6 +257,7 @@ environment variable, or a named context.
 | `task:write` | create and edit tasks |
 | `task:transition` | move a task between states |
 | `task:claim` | claim, renew, release |
+| `task:reclaim` | end the lease another worker holds |
 | `task:delete` | delete and restore tasks |
 | `project:read` / `project:write` | read and change projects |
 | `workflow:read` / `workflow:write` | read and change workflows |

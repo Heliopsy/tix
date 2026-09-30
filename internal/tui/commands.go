@@ -438,6 +438,18 @@ func (m Model) renew(task core.Task) tea.Cmd {
 	}
 }
 
+// reclaim ends the lease another worker holds on a task.
+func (m Model) reclaim(task core.Task) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	return func() tea.Msg {
+		_, err := svc.ForceReclaim(ctx, ref, core.ForceReclaimInput{})
+		return actionMsg{kind: actionReclaim, ref: ref, label: label, err: err}
+	}
+}
+
 // createProject adds a project from the project list.
 func (m Model) createProject(key, name string) tea.Cmd {
 	if m.svc == nil {

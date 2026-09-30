@@ -128,6 +128,7 @@ const (
 	RouteTaskComplete = "/tasks/{ref}/complete"
 	RouteTaskDelete   = "/tasks/{ref}/delete"
 	RouteTaskRestore  = "/tasks/{ref}/restore"
+	RouteTaskReclaim  = "/tasks/{ref}/reclaim"
 	RouteTaskDeps     = "/tasks/{ref}/deps"
 	RouteTaskDepDel   = "/tasks/{ref}/deps/remove"
 	RouteTaskTags     = "/tasks/{ref}/tags"

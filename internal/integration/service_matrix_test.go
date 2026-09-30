@@ -248,6 +248,26 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "a forced reclaim frees the lease and leaves the status alone",
+		covers: []string{"CreateProject", "CreateTask", "ClaimTask", "ForceReclaim", "GetTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			claim, err := tg.svc.ClaimTask(tg.ctx, core.TaskRef{ID: task.ID}, core.ClaimInput{})
+			mustf(t, tg, err, "claiming the task")
+			if _, err := tg.svc.ForceReclaim(tg.ctx, core.TaskRef{ID: task.ID},
+				core.ForceReclaimInput{Reason: "the holder went away"}); err != nil {
+				return nil, err
+			}
+			after, err := tg.svc.GetTask(tg.ctx, core.TaskRef{ID: task.ID})
+			mustf(t, tg, err, "reading the task back")
+			_, err = tg.svc.RenewLease(tg.ctx, core.TaskRef{ID: task.ID}, claim.LeaseToken, core.Duration(time.Hour))
+			return sig{"claimed_by": after.ClaimedByActorID, "status": after.Status,
+				"stale_token": core.KindOf(err)}, nil
+		},
+	},
+	{
 		name:   "an expired lease token cannot renew",
 		covers: []string{"CreateProject", "CreateTask", "ClaimTask", "RenewLease"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
