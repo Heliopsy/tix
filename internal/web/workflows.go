@@ -3,6 +3,7 @@
 package web
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -75,17 +76,31 @@ func renderTransitions(transitions []core.Transition) string {
 	return strings.Join(out, "\n")
 }
 
-// putWorkflow saves the edited state machine.
+// putWorkflow saves the edited state machine, keeping every stored field the
+// editor does not render.
 func (h *handler) putWorkflow(w http.ResponseWriter, r *http.Request) error {
+	states, err := parseStates(field(r, "states"))
+	if err != nil {
+		return err
+	}
+	key := strings.ToLower(field(r, "key"))
+	migrate := parseMigrations(field(r, "migrate"))
 	in := core.WorkflowInput{
-		Key:  field(r, "key"),
+		Key:  key,
 		Name: field(r, "name"),
 		Definition: core.WorkflowDefinition{
 			Initial:     field(r, "initial"),
-			States:      parseStates(field(r, "states")),
+			States:      states,
 			Transitions: parseTransitions(field(r, "transitions")),
 		},
-		Migrate: parseMigrations(field(r, "migrate")),
+		Migrate: migrate,
+	}
+	stored, err := h.storedDefinition(r, key)
+	if err != nil {
+		return err
+	}
+	if stored != nil {
+		in.Definition = mergeDefinition(*stored, in.Definition, migrate)
 	}
 	wf, err := h.svc.PutWorkflow(r.Context(), in)
 	if err != nil {
@@ -95,8 +110,86 @@ func (h *handler) putWorkflow(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// storedDefinition returns the definition already held under the key, or nil
+// when the editor is defining a workflow that does not exist yet.
+func (h *handler) storedDefinition(r *http.Request, key string) (*core.WorkflowDefinition, error) {
+	if key == "" {
+		return nil, nil
+	}
+	wf, err := h.svc.GetWorkflow(r.Context(), key)
+	if err != nil {
+		if core.IsKind(err, core.KindNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &wf.Definition, nil
+}
+
+// mergeDefinition keeps what the editor does not show. The form edits state
+// keys, labels and terminality, the list of edges and the initial state;
+// every other field a state, a transition or the definition carries is read
+// back from what is stored rather than defaulted away. A key the form renamed
+// is followed through the migration lines, the only place the form says that
+// a new key is an old one under another name; a state or a transition the
+// form genuinely dropped is genuinely dropped.
+func mergeDefinition(stored, edited core.WorkflowDefinition, migrate map[string]string) core.WorkflowDefinition {
+	out := edited
+	out.DefaultLease = stored.DefaultLease
+	renamed := renamedFrom(migrate)
+	for i, s := range out.States {
+		old, ok := stored.State(s.Key)
+		if !ok {
+			old, ok = stored.State(renamed[s.Key])
+		}
+		if !ok {
+			continue
+		}
+		old.Key, old.Label, old.Terminal = s.Key, s.Label, s.Terminal
+		if to, moved := migrate[old.RevertTo]; moved {
+			old.RevertTo = to
+		}
+		out.States[i] = old
+	}
+	for i, t := range out.Transitions {
+		old, ok := stored.CanTransition(t.From, t.To)
+		if !ok {
+			old, ok = stored.CanTransition(formerKey(renamed, t.From), formerKey(renamed, t.To))
+		}
+		if !ok {
+			continue
+		}
+		old.From, old.To = t.From, t.To
+		out.Transitions[i] = old
+	}
+	return out
+}
+
+// renamedFrom inverts the migration lines, so a key in the form can be traced
+// back to the stored key it replaces. Two old keys collapsing onto one new key
+// leave no single predecessor, so that key carries nothing over.
+func renamedFrom(migrate map[string]string) map[string]string {
+	out := make(map[string]string, len(migrate))
+	for from, to := range migrate {
+		if _, clash := out[to]; clash {
+			out[to] = ""
+			continue
+		}
+		out[to] = from
+	}
+	return out
+}
+
+// formerKey returns the stored key a form key replaces, or the key itself.
+func formerKey(renamed map[string]string, key string) string {
+	if was := renamed[key]; was != "" {
+		return was
+	}
+	return key
+}
+
 // parseStates reads the editor's state lines.
-func parseStates(raw string) []core.State {
+func parseStates(raw string) ([]core.State, error) {
 	var out []core.State
 	for _, line := range lines(raw) {
 		parts := strings.Split(line, "|")
@@ -105,12 +198,32 @@ func parseStates(raw string) []core.State {
 		if len(parts) > 1 && strings.TrimSpace(parts[1]) != "" {
 			state.Label = strings.TrimSpace(parts[1])
 		}
-		if len(parts) > 2 && strings.EqualFold(strings.TrimSpace(parts[2]), "terminal") {
-			state.Terminal = true
+		if len(parts) > 2 {
+			terminal, err := parseTerminal(strings.TrimSpace(parts[2]))
+			if err != nil {
+				return nil, core.Invalid("state %q: %s", state.Key, err)
+			}
+			state.Terminal = terminal
 		}
 		out = append(out, state)
 	}
-	return out
+	return out, nil
+}
+
+// parseTerminal reads the third field of a state line. An empty field leaves
+// the state open; a word naming neither answer is refused rather than read as
+// "open", because the reader who wrote it meant something by it.
+func parseTerminal(raw string) (bool, error) {
+	switch strings.ToLower(raw) {
+	case "":
+		return false, nil
+	case "true", "1", "on", "yes", "terminal":
+		return true, nil
+	case "false", "0", "off", "no", "open":
+		return false, nil
+	default:
+		return false, fmt.Errorf("%q is neither true nor false", raw)
+	}
 }
 
 // parseTransitions reads the editor's transition lines.

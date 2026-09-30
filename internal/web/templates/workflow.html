@@ -9,12 +9,12 @@
   <input id="initial" name="initial" value="{{.Data.Workflow.Definition.Initial}}" required>
   <div class="field-label">
     <label for="states">States, one per line as key|label|terminal</label>
-    {{template "field-info" "Each line defines one state a task can sit in: a short key used in data, the label shown on screen, and whether reaching it ends the task's life (true) or leaves it in play (false). Every transition and the initial state below must name a key defined here."}}
+    {{template "field-info" "Each line defines one state a task can sit in: a short key used in data, the label shown on screen, and whether reaching it ends the task's life. Write terminal or true to end it, open or false to leave the task in play; leaving the third field empty means open, and any other word is refused rather than guessed at. Every transition and the initial state below must name a key defined here. Anything else a state carries that is not shown here, such as its reporting category or its lease-expiry revert, is kept as it was."}}
   </div>
   <textarea id="states" name="states" required>{{.Data.States}}</textarea>
   <div class="field-label">
     <label for="transitions">Transitions, one per line as from&gt;to</label>
-    {{template "field-info" "Each line allows moving a task from one state to another by that exact path. A move not listed here is refused. Leave it empty only if you want every task frozen in its initial state."}}
+    {{template "field-info" "Each line allows moving a task from one state to another by that exact path. A move not listed here is refused. Leave it empty only if you want every task frozen in its initial state. A scope or a comment an existing move requires is kept as it was: removing the line removes the move, editing the rest of this form does not relax it."}}
   </div>
   <textarea id="transitions" name="transitions">{{.Data.Transitions}}</textarea>
   <div class="field-label">
