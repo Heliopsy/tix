@@ -249,11 +249,18 @@ func TestAStalledTrustedProxyIsClosedAndDelaysNobody(t *testing.T) {
 	ln, dial := proxied(t, "127.0.0.1")
 
 	stalled := dial(t)
+	accepted := time.Now()
 	stalledConn, err := ln.Accept()
 	if err != nil {
 		t.Fatalf("Accept: %v", err)
 	}
 	t.Cleanup(func() { _ = stalledConn.Close() })
+	// Accept must stay a syscall. Reading the header inside it would hold the
+	// listener here for the whole deadline, and no other pending connection
+	// would be accepted at all until this one gave up.
+	if waited := time.Since(accepted); waited > parseBudget/2 {
+		t.Errorf("Accept blocked for %v on a peer that sent nothing, want it to return at once", waited)
+	}
 
 	speaking := dial(t)
 	if _, err := speaking.Write(v1("TCP4", "203.0.113.7", "198.51.100.1", 4242, 2222)); err != nil {
