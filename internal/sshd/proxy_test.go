@@ -290,6 +290,46 @@ func TestAStalledTrustedProxyIsClosedAndDelaysNobody(t *testing.T) {
 	}
 }
 
+// TestRemoteAddrWaitsForTheHeaderRatherThanAnsweringEarly is the ordering the
+// whole design turns on. The connection callback applies the per-source rate
+// limit before the SSH transport exchanges any application byte, so a reader
+// that answered before the header had arrived would hand that callback the
+// proxy's address: the one reader that fails unsafely would be the one still
+// getting the wrong answer.
+//
+// The header is withheld until the read is already in flight, because a proxy
+// that sends it promptly lets a wrapper that never waits look correct by
+// winning a race it does not have to win.
+func TestRemoteAddrWaitsForTheHeaderRatherThanAnsweringEarly(t *testing.T) {
+	ln, dial := proxied(t, "127.0.0.1")
+	conn := dial(t)
+	served, err := ln.Accept()
+	if err != nil {
+		t.Fatalf("Accept: %v", err)
+	}
+	t.Cleanup(func() { _ = served.Close() })
+
+	answered := make(chan string, 1)
+	go func() { answered <- served.RemoteAddr().String() }()
+	select {
+	case got := <-answered:
+		t.Fatalf("RemoteAddr answered %q before any header arrived, want it to wait", got)
+	case <-time.After(parseBudget / 4):
+	}
+
+	if _, err := conn.Write(v1("TCP4", "203.0.113.7", "198.51.100.1", 4242, 2222)); err != nil {
+		t.Fatalf("writing: %v", err)
+	}
+	select {
+	case got := <-answered:
+		if got != "203.0.113.7:4242" {
+			t.Fatalf("RemoteAddr = %q, want the address the header named", got)
+		}
+	case <-time.After(parseBudget):
+		t.Fatal("RemoteAddr never answered after the header arrived")
+	}
+}
+
 // TestNothingWrapsTheListenerWithoutATrustedProxy is the default: no policy, no
 // wrapper, so no byte is read from a connection before the SSH transport sees
 // it.
