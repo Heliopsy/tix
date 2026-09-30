@@ -198,6 +198,19 @@ func (s *Store) Unscoped(ctx context.Context, fn func(store.UnscopedTx) error) e
 	return t.Commit()
 }
 
+// ViewUnscoped runs fn in a read-only transaction that reaches across tenants.
+func (s *Store) ViewUnscoped(ctx context.Context, fn func(store.UnscopedTx) error) error {
+	t, err := s.begin(ctx, core.TenantScope{}, true)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = t.Rollback() }()
+	if err := fn(t); err != nil {
+		return err
+	}
+	return t.Commit()
+}
+
 // redact removes the password from a DSN so it is safe to put in an error.
 func redact(dsn string) string {
 	u, err := url.Parse(dsn)
