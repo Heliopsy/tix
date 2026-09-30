@@ -57,6 +57,42 @@ func (h *handler) showProjects(w http.ResponseWriter, r *http.Request) error {
 			Pager:  newPager(r, RouteProjects, next, len(projects), "projects", SizeParam)})
 }
 
+// projectScanPages bounds how many pages allProjects will walk. At
+// core.MaxPageLimit a page it covers far more projects than a tenant has, and
+// it is what stops a request walking an unbounded table; a caller that hits it
+// is told the set is short rather than being handed a truncated one it
+// believes is whole.
+const projectScanPages = 40
+
+// allProjects is every project in the tenant, walked to the end of the
+// listing, and whether the walk finished.
+//
+// The task screen's visibility control, the accent map, the workflow lookup
+// and the tenant diagram's count all need the whole set: each of them is
+// wrong, silently, on a page of it. One page was what they had, because a
+// ProjectFilter carrying no Limit is capped at core.DefaultPageLimit and its
+// cursor was dropped on the floor. Raising the limit only moves where that
+// starts to hurt, so the cursor is walked instead.
+func (h *handler) allProjects(r *http.Request, includeArchived bool) ([]core.Project, bool, error) {
+	filter := core.ProjectFilter{
+		IncludeArchived: includeArchived,
+		Page:            core.Page{Limit: core.MaxPageLimit},
+	}
+	var out []core.Project
+	for range projectScanPages {
+		found, next, err := h.svc.ListProjects(r.Context(), filter)
+		if err != nil {
+			return nil, false, err
+		}
+		out = append(out, found...)
+		if next == "" {
+			return out, true, nil
+		}
+		filter.Page.Cursor = next
+	}
+	return out, false, nil
+}
+
 // createProject creates a project from the list screen's form.
 func (h *handler) createProject(w http.ResponseWriter, r *http.Request) error {
 	in := core.CreateProjectInput{

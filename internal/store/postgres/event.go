@@ -192,6 +192,10 @@ func (t *tx) ListAudit(ctx context.Context, f core.AuditFilter) ([]core.AuditEnt
 	if f.Until != nil {
 		b.Where("occurred_at <= ?", timeArg(*f.Until))
 	}
+	// The snapshots are JSONB here and TEXT on SQLite, so they are cast
+	// before they reach the same predicate both engines share.
+	sqlb.ApplyContains(b, f.Text,
+		"action", "subject_type", "source", "before_state::text", "after_state::text")
 	rows, err := t.query(ctx, spec.apply(b, "seq"), "listing audit entries")
 	if err != nil {
 		return nil, err

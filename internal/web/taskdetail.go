@@ -373,6 +373,13 @@ func (h *handler) updateTask(w http.ResponseWriter, r *http.Request) error {
 
 // typedCustomFields reads the custom field inputs and converts each one to the
 // type its definition declares, because a form submits only text.
+//
+// A key the form did not submit is left out, and the service leaves the stored
+// value alone; a key it submitted blank is carried through as nil, which is
+// how mergeTaskFields is asked to clear a field. The editor renders an input
+// for every definition the project has, so a browser submitting that form
+// names every field and the two cases cannot be confused; a caller naming a
+// subset changes only the subset it named.
 func (h *handler) typedCustomFields(r *http.Request, ref core.TaskRef) (map[string]any, error) {
 	submitted := customFieldsFrom(r)
 	if len(submitted) == 0 || ref.ProjectKey == "" {
@@ -392,14 +399,13 @@ func (h *handler) typedCustomFields(r *http.Request, ref core.TaskRef) (map[stri
 		if err != nil {
 			return nil, err
 		}
-		if value != nil {
-			out[def.Key] = value
-		}
+		out[def.Key] = value
 	}
 	return out, nil
 }
 
-// coerceField converts one submitted text value to its declared type.
+// coerceField converts one submitted text value to its declared type. A blank
+// value is nil, which clears the field rather than storing an empty one.
 func coerceField(def core.FieldDef, raw string) (any, error) {
 	if strings.TrimSpace(raw) == "" {
 		return nil, nil

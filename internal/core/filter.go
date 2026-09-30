@@ -314,7 +314,18 @@ type AuditFilter struct {
 	Sources     []Source   `json:"sources,omitempty" yaml:"sources,omitempty"`
 	Since       *time.Time `json:"since,omitempty" yaml:"since,omitempty"`
 	Until       *time.Time `json:"until,omitempty" yaml:"until,omitempty"`
-	Page        Page       `json:"page,omitempty" yaml:"page,omitempty"`
+
+	// Text is a weak, case-insensitive substring match over what an entry
+	// records: its action, the kind of record it touched, the surface it
+	// arrived from, and the before and after snapshots. It belongs to the
+	// filter rather than to a caller's own loop because a page answered in
+	// part by the store and in part by the caller cannot report a cursor: the
+	// cursor the store returns names the end of the store page, not the last
+	// row the caller kept, so every match the caller cut off was skipped
+	// rather than deferred.
+	Text string `json:"text,omitempty" yaml:"text,omitempty"`
+
+	Page Page `json:"page,omitempty" yaml:"page,omitempty"`
 }
 
 // ProjectFilter selects projects.

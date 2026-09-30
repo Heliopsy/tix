@@ -23,7 +23,11 @@ func (h *handler) webhookRoutes() []route {
 type webhooksView struct {
 	Endpoints  []core.WebhookEndpoint
 	Deliveries []core.WebhookDelivery
-	NextCursor string
+
+	// Pager is the delivery log's position control. The endpoint table above
+	// it is not paginated -- ListWebhooks returns the tenant's endpoints
+	// whole -- so the one control on this screen belongs to the log.
+	Pager pager
 }
 
 // showWebhooks renders the endpoints and the delivery log.
@@ -41,7 +45,8 @@ func (h *handler) showWebhooks(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	return h.render(w, r, "webhooks.html", "Webhooks",
-		webhooksView{Endpoints: endpoints, Deliveries: deliveries, NextCursor: next})
+		webhooksView{Endpoints: endpoints, Deliveries: deliveries,
+			Pager: newPager(r, RouteWebhooks, next, len(deliveries), "deliveries", SizeParam)})
 }
 
 // putWebhook registers or updates a delivery endpoint.

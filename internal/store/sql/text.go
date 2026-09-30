@@ -61,6 +61,24 @@ func textPredicate(term core.TextTerm, titleCol, bodyCol string) (string, []any)
 	return "(" + strings.Join(parts, " OR ") + ")", args
 }
 
+// ApplyContains narrows a statement to the rows where any of cols holds
+// value, case-insensitively. cols are column expressions rather than names, so
+// an engine storing one of them as a type LOWER does not accept passes the
+// cast it needs; the case folding carries the same ASCII-only residue
+// ApplyTextTerms documents.
+func ApplyContains(b *Builder, value string, cols ...string) {
+	if value == "" || len(cols) == 0 {
+		return
+	}
+	parts := make([]string, 0, len(cols))
+	args := make([]any, 0, len(cols))
+	for _, col := range cols {
+		parts = append(parts, "LOWER("+col+") LIKE LOWER(?) ESCAPE '"+likeEscape+"'")
+		args = append(args, "%"+escapeLike(value)+"%")
+	}
+	b.Where("("+strings.Join(parts, " OR ")+")", args...)
+}
+
 // escapeLike neutralises the wildcards inside a user-supplied value.
 func escapeLike(v string) string {
 	r := strings.NewReplacer(
