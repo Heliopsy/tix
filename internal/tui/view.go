@@ -435,7 +435,8 @@ func (m Model) quiet(style lipgloss.Style) lipgloss.Style {
 // inputOpen reports whether a prompt, a picker, a confirmation or a form is
 // gathering an answer.
 func (m Model) inputOpen() bool {
-	return m.prompt != promptNone || m.choice != choiceNone || m.confirm.Open() || m.form.Open()
+	return m.paletteOpen || m.prompt != promptNone || m.choice != choiceNone ||
+		m.confirm.Open() || m.form.Open()
 }
 
 // DeletedMarker is what a card carries once the task behind it is deleted.
@@ -779,6 +780,13 @@ func (m Model) footerLines() string {
 		return strings.Join(append(lines, panel...), "\n")
 	}
 	keys := make([]string, 0, 8)
+	// The palette first. fit truncates from the right, so a terminal too narrow
+	// for the whole line drops the view's own bindings before it drops the one
+	// key that reaches all of them, which is the complaint this hint answers.
+	if hint := FooterHint(m.keys, m.width); hint != "" {
+		name, desc, _ := strings.Cut(hint, " ")
+		keys = append(keys, m.theme.Selected.Render(name)+m.theme.Dim.Render(" "+desc))
+	}
 	for _, e := range m.keys.ShortHelp(m.view, m.actionContext()) {
 		keys = append(keys, m.theme.Selected.Render(e.Keys)+m.theme.Dim.Render(" "+e.Desc))
 	}
@@ -800,6 +808,8 @@ const FooterLines = 2
 // it, so a reader who has used one has used all of them.
 func (m Model) inputPanel() []string {
 	switch {
+	case m.paletteOpen:
+		return m.panel(m.palettePanel())
 	case m.prompt != promptNone:
 		return m.panel(m.promptPanel())
 	case m.choice != choiceNone:

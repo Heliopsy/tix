@@ -244,7 +244,7 @@ func TestEveryOperationThisChangeBoundHasAKeyThatReachesIt(t *testing.T) {
 	for _, method := range bound {
 		found := false
 		for _, action := range k.taskBindings() {
-			if slices.Contains(action.methods, method) || slices.Contains(action.needs, method) {
+			if slices.Contains(action.gate.methods, method) || slices.Contains(action.gate.needs, method) {
 				found = true
 			}
 		}

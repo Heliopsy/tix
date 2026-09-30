@@ -41,11 +41,11 @@ func Schemes() []Scheme {
 func SchemeDescription(s Scheme) string {
 	switch s {
 	case SchemeVim:
-		return "vim reflexes: o opens a new task, i edits, : opens the filter"
+		return "vim reflexes: o opens a new task, i edits, : opens the filter, ctrl-k the commands"
 	case SchemeEmacs:
 		return "emacs and mac reflexes: ctrl-n, ctrl-p, ctrl-a, ctrl-e, ctrl-g"
 	case SchemeNano:
-		return "nano reflexes: ctrl-w searches, ctrl-g helps, ctrl-x quits, ctrl-o applies"
+		return "nano reflexes: ctrl-w searches, ctrl-g helps, ctrl-x quits, ctrl-o applies, : the commands"
 	case SchemeHelix:
 		return "helix reflexes: x opens the row, o adds, i edits, d releases, space opens settings"
 	default:
@@ -79,6 +79,8 @@ func schemeNames() string {
 // schemeKeys are the actions each scheme rebinds away from the default. Every
 // other action keeps its default keys, so no scheme can leave one unbound.
 var schemeKeys = map[Scheme]map[string][]string{
+	// Palette drops : here, because the scheme already spends it on the filter,
+	// which is what vim's own : opens onto. ctrl+k is left.
 	SchemeVim: {
 		"New":        {"o"},
 		"NewProject": {"o"},
@@ -86,6 +88,7 @@ var schemeKeys = map[Scheme]map[string][]string{
 		"Filter":     {"/", ":"},
 		"Comment":    {"a"},
 		"Refresh":    {"e"},
+		"Palette":    {"ctrl+k"},
 	},
 	SchemeEmacs: {
 		"Up":      {"up", "ctrl+p"},
@@ -119,6 +122,9 @@ var schemeKeys = map[Scheme]map[string][]string{
 		"Refresh": {"ctrl+l", "r"},
 		"Accept":  {"ctrl+o", "enter"},
 		"Delete":  {"ctrl+k", "X"},
+		// ctrl+k is nano's cut, taken above, so the palette keeps the other of
+		// its two default keys rather than inventing a third chord.
+		"Palette": {":"},
 	},
 	// helix is modal but selection first, so its keys are not vim's: from the
 	// helix keymap, x selects the line under the cursor, d deletes the
@@ -137,6 +143,7 @@ var schemeKeys = map[Scheme]map[string][]string{
 		"Comment":    {"a"},
 		"Filter":     {"/", ":"},
 		"Settings":   {",", " "},
+		"Palette":    {"ctrl+k"},
 	},
 }
 
@@ -205,7 +212,8 @@ func KeyMapFor(scheme Scheme) KeyMap {
 // collision has to be looked for within: the same key may mean two things in
 // two views, and often should.
 func viewActions(v viewKind) []string {
-	global := []string{"Help", "Refresh", "Projects", "Project", "Activity", "History", "Tenant", "Quit", "Interrupt"}
+	global := []string{"Palette", "Help", "Refresh", "Projects", "Project", "Activity", "History",
+		"Tenant", "Quit", "Interrupt"}
 	switch v {
 	case viewProjects:
 		return append([]string{"Up", "Down", "Top", "Bottom", "Enter", "NewProject", "Back"}, global...)
