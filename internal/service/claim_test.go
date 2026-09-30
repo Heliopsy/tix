@@ -1375,3 +1375,63 @@ func TestSweepSkipsATaskReclaimedWhileItWasReading(t *testing.T) {
 		t.Errorf("lease-expired events = %d, want none", len(events))
 	}
 }
+
+// staleListingStore hands the sweeper the row as it stood when the listing ran
+// rather than as it stands now. That is what a PostgreSQL sweeper reads:
+// ExpiredLeases takes no row locks, so an edit can commit between the listing
+// and the write. SQLite cannot produce the interleave, so the staleness is
+// injected here; everything the sweeper then writes goes to the real database.
+type staleListingStore struct {
+	store.Store
+	title string
+}
+
+func (s staleListingStore) Update(ctx context.Context, scope core.TenantScope, fn func(store.Tx) error) error {
+	return s.Store.Update(ctx, scope, func(tx store.Tx) error {
+		return fn(staleListingTx{Tx: tx, title: s.title})
+	})
+}
+
+type staleListingTx struct {
+	store.Tx
+	title string
+}
+
+func (t staleListingTx) ExpiredLeases(ctx context.Context, now time.Time, limit int) ([]core.Task, error) {
+	out, err := t.Tx.ExpiredLeases(ctx, now, limit)
+	for i := range out {
+		out[i].Title = t.title
+	}
+	return out, err
+}
+
+// TestSweepDoesNotWriteBackItsOwnStaleSnapshot holds the revert to the row as
+// it is, not as the listing saw it. The revert rewrites title, body, status,
+// priority, assignee and the timestamps in one statement with no version
+// predicate, so building it from the listing's snapshot silently undoes every
+// edit committed since.
+func TestSweepDoesNotWriteBackItsOwnStaleSnapshot(t *testing.T) {
+	f := newClaimFixture(t, 0)
+	task := f.seedTask(t, "edited title", "doing", core.PriorityNormal)
+	mustClaim(t, f, task)
+	f.clock.Advance(lease.DefaultTTL + time.Minute)
+
+	f.local.store = staleListingStore{Store: f.local.store, title: "title as the listing saw it"}
+	swept, err := f.local.SweepLeases(f.ctx, 10)
+	if err != nil {
+		t.Fatalf("sweeping: %v", err)
+	}
+	if swept != 1 {
+		t.Fatalf("sweep counted %d tasks, want one", swept)
+	}
+	got := f.reload(t, task)
+	if got.Title != "edited title" {
+		t.Errorf("title = %q, want the sweep to have left an edit it never saw alone", got.Title)
+	}
+	if got.Status != "todo" {
+		t.Errorf("status = %q, want the workflow's revert still applied", got.Status)
+	}
+	if got.ClaimedByActorID != "" {
+		t.Errorf("claim was not cleared: %+v", got)
+	}
+}
