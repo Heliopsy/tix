@@ -145,7 +145,6 @@ type activityView struct {
 	ActorLabel string
 	Kinds      []activityChoice
 	Sources    []core.Source
-	Scanned    int
 }
 
 // activityChoice is one option of the subject-kind control: the value the
@@ -209,15 +208,6 @@ func (h *handler) showActivityFeed(w http.ResponseWriter, r *http.Request) error
 // activityPageSize is how many audit entries one screen of the feed shows.
 const activityPageSize = 50
 
-// activityScanPages bounds how many store pages one screen may read looking
-// for matches. A structured filter (actor, kind, source) is answered by the
-// store itself, so it needs one page; only the free-text box can leave a
-// store page with nothing on it, and this is what stops a search term that
-// matches nothing from walking the whole audit table in one request. A screen
-// that hits the bound still offers its Older link, so the reader can keep
-// going rather than being told the search is over.
-const activityScanPages = 8
-
 // buildActivityView loads a page of tenant audit entries and folds them into
 // the same grouped, sentence-rendered rows history.go builds for one task's
 // history, generalised across every subject the entries name. See
@@ -232,13 +222,11 @@ const activityScanPages = 8
 // way, that tasks.go hands the task list for its own accent stripes.
 func (h *handler) buildActivityView(r *http.Request, cursor string) (activityView, error) {
 	query := activityQueryFrom(r)
-	entries, next, scanned, err := h.scanAudit(r, query, cursor)
+	entries, next, err := h.scanAudit(r, query, cursor)
 	if err != nil {
 		return activityView{}, err
 	}
-	projects, _, err := h.svc.ListProjects(r.Context(), core.ProjectFilter{
-		IncludeArchived: true, Page: core.Page{Limit: core.MaxPageLimit},
-	})
+	projects, _, err := h.allProjects(r, true)
 	if err != nil {
 		return activityView{}, err
 	}
@@ -280,7 +268,6 @@ func (h *handler) buildActivityView(r *http.Request, cursor string) (activityVie
 		Pager: newPager(r, RouteActivity, next, len(groups), "entries",
 			"q", "kind", "actor", "source"),
 		Names: names, Query: query, Kinds: activityKinds, Sources: activitySources,
-		Scanned: scanned,
 	}
 	if query.Actor != "" {
 		data.ActorLabel = names.Label(query.Actor)
@@ -296,14 +283,18 @@ func (h *handler) buildActivityView(r *http.Request, cursor string) (activityVie
 	return data, nil
 }
 
-// scanAudit reads audit entries newest first until it has a screenful that
-// the filter accepts, and reports the cursor to resume from. The structured
-// parts of the filter are handed to the store, which is the only place that
-// can apply them without reading rows it then throws away; the free-text box
-// is applied here, over entries the store already returned, which is why this
-// loops at all and why activityScanPages bounds it.
-func (h *handler) scanAudit(r *http.Request, query activityQuery, cursor string) ([]core.AuditEntry, string, int, error) {
-	filter := core.AuditFilter{Page: core.Page{
+// scanAudit reads one page of audit entries and reports the cursor to resume
+// from.
+//
+// Every part of the filter, the free-text box included, is handed to the
+// store. It used to apply the box here, over entries the store had already
+// returned, looping across store pages until it had a screenful; the cursor
+// it carried forward then named the end of the last store page it read rather
+// than the last entry it showed, so every match beyond the screenful was
+// skipped by Next instead of waiting there. A page the store answers whole is
+// a page whose cursor is the store's own.
+func (h *handler) scanAudit(r *http.Request, query activityQuery, cursor string) ([]core.AuditEntry, string, error) {
+	filter := core.AuditFilter{Text: query.Text, Page: core.Page{
 		Cursor: cursor, Sort: "seq", Direction: core.Descending, Limit: activityPageSize,
 	}}
 	if query.Actor != "" {
@@ -315,30 +306,11 @@ func (h *handler) scanAudit(r *http.Request, query activityQuery, cursor string)
 	if query.Source != "" {
 		filter.Sources = []core.Source{core.Source(query.Source)}
 	}
-
-	out := make([]core.AuditEntry, 0, activityPageSize)
-	scanned, next := 0, cursor
-	for range activityScanPages {
-		filter.Page.Cursor = next
-		entries, after, err := h.svc.ListAudit(r.Context(), filter)
-		if err != nil {
-			return nil, "", 0, err
-		}
-		scanned += len(entries)
-		for _, entry := range entries {
-			if matchesText(entry, query.Text) {
-				out = append(out, entry)
-			}
-		}
-		next = after
-		if next == "" || len(out) >= activityPageSize {
-			break
-		}
+	entries, next, err := h.svc.ListAudit(r.Context(), filter)
+	if err != nil {
+		return nil, "", err
 	}
-	if len(out) > activityPageSize {
-		out = out[:activityPageSize]
-	}
-	return out, next, scanned, nil
+	return entries, next, nil
 }
 
 // matchesText reports whether one entry answers a free-text search. The text

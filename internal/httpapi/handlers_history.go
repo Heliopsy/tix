@@ -29,6 +29,7 @@ func auditFilterFrom(r *http.Request) (core.AuditFilter, error) {
 		SubjectID:   q.Get("subject_id"),
 		ActorIDs:    q["actor_id"],
 		Actions:     q["action"],
+		Text:        q.Get("text"),
 		Page:        page,
 	}
 	for _, s := range q["source"] {

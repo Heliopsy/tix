@@ -72,14 +72,26 @@ func TestNilReleaseWatchStillRenders(t *testing.T) {
 
 // stubRelease answers the release endpoint without a network, and counts what
 // it was asked.
+//
+// entered and release are how a test observes a refresh rather than guessing
+// at it: entered is closed as the first call arrives, and a non-nil release
+// parks the call there until the test says otherwise, which pins the
+// goroutine somewhere the test chose instead of racing it.
 type stubRelease struct {
-	calls  atomic.Int32
-	status int
-	body   string
+	calls   atomic.Int32
+	status  int
+	body    string
+	entered chan struct{}
+	release chan struct{}
 }
 
 func (s *stubRelease) RoundTrip(*http.Request) (*http.Response, error) {
-	s.calls.Add(1)
+	if s.calls.Add(1) == 1 && s.entered != nil {
+		close(s.entered)
+	}
+	if s.release != nil {
+		<-s.release
+	}
 	return &http.Response{
 		StatusCode: s.status,
 		Body:       io.NopCloser(strings.NewReader(s.body)),
@@ -93,30 +105,55 @@ func watchServedBy(status int, body string) (*releaseWatch, *stubRelease) {
 	return &releaseWatch{client: &http.Client{Transport: stub}}, stub
 }
 
+// gatedWatch is a watch whose refresh, once started, stops inside the
+// transport and stays there until the test ends. That is what makes both
+// halves of the decision observable without waiting on a goroutine: a refresh
+// that started announces itself on entered and can never finish, so it can
+// neither be missed nor mistaken for one that never ran.
+func gatedWatch(t *testing.T, status int, body string) (*releaseWatch, *stubRelease) {
+	t.Helper()
+	w, stub := watchServedBy(status, body)
+	stub.entered = make(chan struct{})
+	stub.release = make(chan struct{})
+	t.Cleanup(func() { close(stub.release) })
+	return w, stub
+}
+
 // The cache decides whether a render triggers a call at all, and the decision
-// is made from how long ago the last one was. state() marks the refresh in
-// flight before it starts one, so the flag it leaves behind says which way
-// the decision went without waiting on the goroutine.
+// is made from how long ago the last one was.
+//
+// The evidence is the call, not the in-flight flag. That flag is set by
+// state() and cleared by the refresh goroutine, so reading it back proved
+// nothing either way: it stayed true when the goroutine was deleted outright,
+// and went false under an ordinary race while the refresh was working
+// perfectly. A gated transport moves both halves onto the request itself.
 func TestOnlyAStaleReleaseCheckStartsARefresh(t *testing.T) {
 	t.Parallel()
 
-	fresh, _ := watchServedBy(http.StatusOK, `{"tag_name":"v9.9.9"}`)
+	fresh, freshStub := gatedWatch(t, http.StatusOK, `{"tag_name":"v9.9.9"}`)
 	fresh.checked = time.Now()
 	_ = fresh.state()
+	// A refresh marks itself in flight before it starts, and the gate means
+	// nothing can clear that mark, so an unset flag here is proof no refresh
+	// was started rather than a snapshot of one that already finished.
 	fresh.mu.Lock()
 	started := fresh.inFlight
 	fresh.mu.Unlock()
 	if started {
 		t.Error("a check made just now was refreshed again")
 	}
+	select {
+	case <-freshStub.entered:
+		t.Error("a check made just now still called the release endpoint")
+	default:
+	}
 
-	stale, _ := watchServedBy(http.StatusOK, `{"tag_name":"v9.9.9"}`)
+	stale, staleStub := gatedWatch(t, http.StatusOK, `{"tag_name":"v9.9.9"}`)
 	stale.checked = time.Now().Add(-2 * releaseCheckEvery)
 	_ = stale.state()
-	stale.mu.Lock()
-	started = stale.inFlight
-	stale.mu.Unlock()
-	if !started {
+	select {
+	case <-staleStub.entered:
+	case <-time.After(releaseCheckTimeout):
 		t.Error("a check older than the interval was not refreshed")
 	}
 }

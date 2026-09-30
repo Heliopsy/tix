@@ -210,6 +210,8 @@ func (t *tx) ListAudit(ctx context.Context, f core.AuditFilter) ([]core.AuditEnt
 	if f.Until != nil {
 		b.Where("occurred_at <= ?", sqlb.TimeText(*f.Until))
 	}
+	sqlb.ApplyContains(b, f.Text,
+		"action", "subject_type", "source", "before_state", "after_state")
 	rows, err := t.query(ctx, spec.apply(b, "seq"), "listing audit entries")
 	if err != nil {
 		return nil, err

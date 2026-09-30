@@ -70,7 +70,7 @@ func brandFor(t *core.Tenant, themes *core.ThemeRegistry) branding {
 	theme := themes.Resolve(t)
 	return branding{
 		Title:    t.Name,
-		Monogram: strings.ToUpper(t.Name[:1]),
+		Monogram: strings.ToUpper(firstRune(t.Name)),
 		// Every value core resolves has passed its hex validation, which is
 		// the boundary that keeps a configuration file out of the stylesheet;
 		// no caller can place a value here.

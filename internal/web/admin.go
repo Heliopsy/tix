@@ -127,9 +127,14 @@ func (h *handler) tenantShape(r *http.Request, members int) ([]shapeNode, error)
 		return n
 	}
 
-	projects, _, err := h.svc.ListProjects(ctx, core.ProjectFilter{})
+	projects, whole, err := h.allProjects(r, true)
 	if err != nil {
 		return nil, err
+	}
+	projectCount := len(projects)
+	projectsUncounted := ""
+	if !whole {
+		projectCount, projectsUncounted = -1, countFailed
 	}
 	workflows, wErr := h.svc.ListWorkflows(ctx)
 	domains, dErr := h.svc.ListDomains(ctx)
@@ -150,7 +155,7 @@ func (h *handler) tenantShape(r *http.Request, members int) ([]shapeNode, error)
 			Note: "what an agent authenticates with"},
 		{Depth: 1, Name: "Workflows", Count: count(len(workflows), wErr), Href: RouteWorkflows, Uncounted: countFailed,
 			Note: "the states a task moves between"},
-		{Depth: 1, Name: "Projects", Count: len(projects), Href: RouteProjects,
+		{Depth: 1, Name: "Projects", Count: projectCount, Href: RouteProjects, Uncounted: projectsUncounted,
 			Note: "each one picks a workflow"},
 		{Depth: 2, Name: "Tasks", Count: -1, Uncounted: "on the task list", Href: RouteTasks,
 			Note: "the work, and its comments, artifacts and dependencies"},
@@ -313,9 +318,19 @@ func (u userRow) Monogram() string {
 	}
 	fields := strings.Fields(label)
 	if len(fields) > 1 {
-		return strings.ToUpper(fields[0][:1] + fields[1][:1])
+		return strings.ToUpper(firstRune(fields[0]) + firstRune(fields[1]))
 	}
-	return strings.ToUpper(label[:1])
+	return strings.ToUpper(firstRune(label))
+}
+
+// firstRune is a string's first character, which is not its first byte: a
+// name outside ASCII sliced at one byte leaves a fragment of a character,
+// and what reaches the page is a replacement glyph rather than an initial.
+func firstRune(s string) string {
+	for _, r := range s {
+		return string(r)
+	}
+	return ""
 }
 
 // Disabled reports whether the account has been switched off.
@@ -392,7 +407,12 @@ func (h *handler) createUser(w http.ResponseWriter, r *http.Request) error {
 // updateUser changes a user's name, role or disabled state.
 func (h *handler) updateUser(w http.ResponseWriter, r *http.Request) error {
 	in := core.UpdateUserInput{}
-	if name := field(r, "display_name"); name != "" {
+	// Presence, not value: the input is rendered with the current name in it,
+	// so emptying it and saving is the only gesture the screen offers for
+	// "this account has no display name". A caller that omits the key
+	// entirely is asking for no change, which is why the key is tested rather
+	// than what it holds.
+	if name, ok := sent(r, "display_name"); ok {
 		in.DisplayName = &name
 	}
 	if role := field(r, "role"); role != "" {

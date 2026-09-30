@@ -94,14 +94,17 @@ func projectChoices(projects []core.Project, hidden map[string]bool) []projectCh
 	return out
 }
 
-// shownKeys names the projects the task list may draw from.
-func shownKeys(choices []projectChoice) []string {
-	out := make([]string, 0, len(choices))
-	for _, c := range choices {
-		if c.Shown {
-			out = append(out, c.Key)
+// hiddenKeys names the projects put away, sorted, which is what the task
+// listing excludes. It is read from the cookie rather than from a listing, so
+// it is complete whatever the listing reached.
+func hiddenKeys(hidden map[string]bool) []string {
+	out := make([]string, 0, len(hidden))
+	for key := range hidden {
+		if hidden[key] {
+			out = append(out, key)
 		}
 	}
+	sort.Strings(out)
 	return out
 }
 
@@ -122,7 +125,7 @@ func hiddenCount(choices []projectChoice) int {
 // everything else, so a project created after the choice was made is visible
 // without being ticked.
 func (h *handler) setVisibility(w http.ResponseWriter, r *http.Request) error {
-	projects, _, err := h.svc.ListProjects(r.Context(), core.ProjectFilter{})
+	projects, _, err := h.allProjects(r, false)
 	if err != nil {
 		return err
 	}

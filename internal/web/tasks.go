@@ -205,20 +205,25 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	if filter.Page.Sort == "" {
 		filter.Page.Sort = core.SortUrgency
 	}
-	projects, _, err := h.svc.ListProjects(r.Context(), core.ProjectFilter{})
+	projects, _, err := h.allProjects(r, false)
 	if err != nil {
 		return err
 	}
-	visibility := projectChoices(projects, hiddenProjects(r))
+	away := hiddenProjects(r)
+	visibility := projectChoices(projects, away)
 	filtered := len(filter.ProjectKeys) > 0
 	hidden := hiddenCount(visibility)
-	// An explicit project: filter is the reader asking for that project by
-	// name, so it wins over what the visibility control put away.
-	if !filtered && hidden > 0 {
-		filter.ProjectKeys = shownKeys(visibility)
+	// Put away is an exclusion, never an inclusion. Naming the projects to
+	// show would make the listing depend on the reader's screen having been
+	// able to name all of them, and would grow one term per project in a
+	// tenant that has thousands; naming the few that are hidden is the same
+	// answer at any size. An explicit project: filter is the reader asking
+	// for that project by name, so it wins over what the control put away.
+	if !filtered && len(away) > 0 {
+		filter.Exclude.ProjectKeys = append(filter.Exclude.ProjectKeys, hiddenKeys(away)...)
 	}
 	var page core.TaskPage
-	if refused == "" && (len(filter.ProjectKeys) > 0 || hidden == 0 || len(projects) == 0) {
+	if refused == "" {
 		if page, err = h.svc.ListTasks(r.Context(), filter); err != nil {
 			if expression == "" || !filterFault(err) {
 				return err
@@ -421,7 +426,7 @@ func (h *handler) completeTask(w http.ResponseWriter, r *http.Request) error {
 // projectByID finds a project by identifier. The service addresses a project
 // by key, while a task carries the identifier.
 func (h *handler) projectByID(r *http.Request, id string) (*core.Project, error) {
-	projects, _, err := h.svc.ListProjects(r.Context(), core.ProjectFilter{})
+	projects, _, err := h.allProjects(r, true)
 	if err != nil {
 		return nil, err
 	}

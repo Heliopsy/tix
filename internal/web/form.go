@@ -39,6 +39,19 @@ func field(r *http.Request, name string) string {
 	return strings.TrimSpace(r.PostFormValue(name))
 }
 
+// sent returns one trimmed form value and whether the form carried the key at
+// all. An absent key and an empty one are different requests: a form that
+// names a field is asking for the value it submitted, empty included, while a
+// form that never mentions it is asking for no change.
+func sent(r *http.Request, name string) (string, bool) {
+	_ = r.PostFormValue(name)
+	values, ok := r.PostForm[name]
+	if !ok || len(values) == 0 {
+		return "", false
+	}
+	return strings.TrimSpace(values[0]), true
+}
+
 // checked reports whether a checkbox was ticked.
 func checked(r *http.Request, name string) bool {
 	switch strings.ToLower(field(r, name)) {

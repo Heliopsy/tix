@@ -69,6 +69,28 @@ const LikeEscape = " ESCAPE '" + likeEscape + "'"
 // substring. The predicate it is bound to must carry LikeEscape.
 func ContainsPattern(v string) string { return "%" + escapeLike(v) + "%" }
 
+// ApplyContains narrows a statement to the rows where any of cols holds
+// value, case-insensitively. cols are column expressions rather than names, so
+// an engine storing one of them as a type LOWER does not accept passes the
+// cast it needs; the case folding carries the same ASCII-only residue
+// ApplyTextTerms documents.
+//
+// It builds its pattern with ContainsPattern rather than by hand, so the
+// package has one spelling of "match this as literal text" and an escaping
+// fix cannot reach one caller and miss another.
+func ApplyContains(b *Builder, value string, cols ...string) {
+	if value == "" || len(cols) == 0 {
+		return
+	}
+	parts := make([]string, 0, len(cols))
+	args := make([]any, 0, len(cols))
+	for _, col := range cols {
+		parts = append(parts, "LOWER("+col+") LIKE LOWER(?)"+LikeEscape)
+		args = append(args, ContainsPattern(value))
+	}
+	b.Where("("+strings.Join(parts, " OR ")+")", args...)
+}
+
 // escapeLike neutralises the wildcards inside a user-supplied value.
 func escapeLike(v string) string {
 	r := strings.NewReplacer(

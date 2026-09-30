@@ -19,6 +19,9 @@ func (c *Client) ListAudit(ctx context.Context, f core.AuditFilter) ([]core.Audi
 	if f.SubjectID != "" {
 		q.Set("subject_id", f.SubjectID)
 	}
+	if f.Text != "" {
+		q.Set("text", f.Text)
+	}
 	setStrings(q, "actor_id", f.ActorIDs)
 	setStrings(q, "action", f.Actions)
 	for _, s := range f.Sources {
