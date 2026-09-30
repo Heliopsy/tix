@@ -50,12 +50,17 @@ connects directly to a listener that also serves a proxy is unaffected.
 2. **A trusted peer that sends no valid header is refused, not accepted.** The alternative is accepting it
    with the proxy's address, which reintroduces the bug for whichever connection was malformed and makes a
    misconfigured proxy look like it is working. Refusing makes it loud.
-3. **`LOCAL` (v2 command 0x0) keeps the transport address.** That is what the protocol says it means: the
+3. **A v2 `PROXY` command whose family names no IP keeps the transport address too.** `AF_UNSPEC` and
+   `AF_UNIX` carry no client address the receiver could prefer, which is what the protocol says to do with
+   them, so they are treated as the proxy speaking for itself rather than as a malformed header.
+4. **`LOCAL` (v2 command 0x0) keeps the transport address.** That is what the protocol says it means: the
    proxy is speaking for itself, such as a health check, not relaying a client.
-4. **`UNKNOWN` (v1) likewise keeps the transport address**, because the proxy has said it does not know.
-5. **Hand-rolled rather than `go-proxyproto`.** Consistent with the repository's stated refusal of
+5. **`UNKNOWN` (v1) likewise keeps the transport address**, because the proxy has said it does not know.
+6. **Hand-rolled rather than `go-proxyproto`.** Consistent with the repository's stated refusal of
    dependencies for small, stable formats, and the reason is stronger than usual here: this parser sits on
    a security boundary and is short enough to read in full. The format is frozen and has not changed since
    2014.
-6. **A deadline is mandatory.** A trusted proxy that opens a connection and stalls would otherwise hold a
-   slot indefinitely. The deadline is the SSH listener's existing handshake budget rather than a new knob.
+7. **A deadline is mandatory.** A trusted proxy that opens a connection and stalls would otherwise hold a
+   slot indefinitely. The deadline is the SSH listener's existing budget for a connection that has not
+   opened a session, `Options.IdleTimeout`, rather than a new knob. `ssh.Server.HandshakeTimeout` is not set
+   by this codebase, so that is the only existing budget there is to reuse.

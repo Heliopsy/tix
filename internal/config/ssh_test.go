@@ -3,6 +3,7 @@
 package config
 
 import (
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -16,6 +17,7 @@ func TestSSHKeysAreRegisteredWithTheirVariables(t *testing.T) {
 		"ssh.listen":               "TIX_SSH_LISTEN",
 		"ssh.host_key":             "TIX_SSH_HOST_KEY",
 		"ssh.allow_public":         "TIX_SSH_ALLOW_PUBLIC",
+		"ssh.trusted_proxies":      "TIX_SSH_TRUSTED_PROXIES",
 		"ssh.demo":                 "TIX_SSH_DEMO",
 		"ssh.tenant_ttl":           "TIX_SSH_TENANT_TTL",
 		"ssh.reap_interval":        "TIX_SSH_REAP_INTERVAL",
@@ -116,6 +118,12 @@ func TestSSHValidationRefusesValuesThatCannotBeUsed(t *testing.T) {
 		{"an unreachable per-key cap", func(c *Config) {
 			c.SSH.MaxSessions, c.SSH.MaxSessionsPerKey = 4, 5
 		}, "ssh.max_sessions_per_key"},
+		{"a trusted proxy that is not an address", func(c *Config) {
+			c.SSH.TrustedProxies = []string{"192.0.2.1", "not-an-ip"}
+		}, "ssh.trusted_proxies"},
+		{"a trusted proxy block that is not a block", func(c *Config) {
+			c.SSH.TrustedProxies = []string{"10.0.0.0/64"}
+		}, "ssh.trusted_proxies"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -129,6 +137,47 @@ func TestSSHValidationRefusesValuesThatCannotBeUsed(t *testing.T) {
 				t.Fatalf("error = %q, want it to name %q", err, tc.key)
 			}
 		})
+	}
+}
+
+// TestAMalformedSSHProxyNamesItsValue keeps the refusal actionable: an
+// operator reading it must be told which entry of the list is the bad one.
+func TestAMalformedSSHProxyNamesItsValue(t *testing.T) {
+	cfg := Defaults()
+	cfg.SSH.TrustedProxies = []string{"192.0.2.1", "not-an-ip"}
+	err := Validate(&cfg, map[string]Layer{"ssh.trusted_proxies": LayerFile})
+	if err == nil {
+		t.Fatal("Validate accepted a trusted proxy that is not an address")
+	}
+	var invalid *core.Error
+	if !errors.As(err, &invalid) {
+		t.Fatalf("error = %v, want a core error carrying the offending value", err)
+	}
+	if value, _ := invalid.Details["value"].(string); !strings.Contains(value, "not-an-ip") {
+		t.Fatalf("details = %v, want the value detail to name the offending entry", invalid.Details)
+	}
+	if reason, _ := invalid.Details["reason"].(string); !strings.Contains(reason, "not-an-ip") {
+		t.Fatalf("details = %v, want the reason to name the offending entry", invalid.Details)
+	}
+}
+
+// TestTheHTTPProxyListIsNotTheSSHOne holds the two keys apart at the layer
+// that reads them, so neither list can come to stand in for the other.
+func TestTheHTTPProxyListIsNotTheSSHOne(t *testing.T) {
+	cfg := Defaults()
+	cfg.Server.TrustedProxies = []string{"127.0.0.1"}
+	if err := Validate(&cfg, nil); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	if len(cfg.SSH.TrustedProxies) != 0 {
+		t.Fatalf("ssh.trusted_proxies = %v, want the http list to leave it empty",
+			cfg.SSH.TrustedProxies)
+	}
+	// And a malformed HTTP list is refused under its own name, not the SSH one.
+	cfg.Server.TrustedProxies = []string{"not-an-ip"}
+	err := Validate(&cfg, map[string]Layer{"server.trusted_proxies": LayerFile})
+	if err == nil || strings.Contains(err.Error(), "ssh.trusted_proxies") {
+		t.Fatalf("error = %v, want the http key refused under server.trusted_proxies", err)
 	}
 }
 

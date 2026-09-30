@@ -69,6 +69,7 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `ssh.listen` | `TIX_SSH_LISTEN` | `127.0.0.1:2222` |
 | `ssh.host_key` | `TIX_SSH_HOST_KEY` | (unset: beside the database) |
 | `ssh.allow_public` | `TIX_SSH_ALLOW_PUBLIC` | `false` |
+| `ssh.trusted_proxies` | `TIX_SSH_TRUSTED_PROXIES` | (unset) |
 | `ssh.demo` | `TIX_SSH_DEMO` | `false` |
 | `ssh.tenant_ttl` | `TIX_SSH_TENANT_TTL` | `6h` |
 | `ssh.reap_interval` | `TIX_SSH_REAP_INTERVAL` | `10m` |
@@ -211,12 +212,12 @@ command that produced them, `server` leaves them for `tix serve`, and `off` queu
 
 ### The SSH listener
 
-The `ssh.*` keys configure `tix ssh`, which serves the terminal interface over SSH. Every one of them is also a
-flag on the command, and the flag wins wherever one was given, so `TIX_SSH_MAX_TENANTS=50 tix ssh --max-tenants 10`
-admits ten. A flag nobody typed does not count as a layer: it leaves the configured value alone even though the
-flag has a default of its own. The deployment most likely to run this listener is a container, where a command
-line is the hardest layer to reach and an environment variable the easiest, which is why none of this is
-flag-only. See [deployment.md](deployment.md) for what each setting protects.
+The `ssh.*` keys configure `tix ssh`, which serves the terminal interface over SSH. Every one of them except
+`ssh.trusted_proxies` is also a flag on the command, and the flag wins wherever one was given, so
+`TIX_SSH_MAX_TENANTS=50 tix ssh --max-tenants 10` admits ten. A flag nobody typed does not count as a layer: it
+leaves the configured value alone even though the flag has a default of its own. The deployment most likely to
+run this listener is a container, where a command line is the hardest layer to reach and an environment variable
+the easiest, which is why none of this is flag-only. See [deployment.md](deployment.md) for what each setting protects.
 
 `ssh.demo` picks the mode. It is `false`, so the listener serves only the keys enrolled with `tix user key add`
 and refuses everything else. Setting it to `true` is `--demo`: any key is accepted and handed a seeded
@@ -225,9 +226,26 @@ This default flipped: the sandbox used to be unconditional. `ssh.tenant_ttl`, `s
 `ssh.max_tenants`, `ssh.max_tasks` and `ssh.lease_ttl` shape that sandbox and do nothing while `ssh.demo` is
 false.
 
-None of these keys reach `tix serve`. Its four SSH flags (`--ssh-listen`, `--ssh-host-key`,
-`--ssh-allow-public`, `--ssh-idle-timeout`) are flags only, so `TIX_SSH_LISTEN` in a `tix serve` environment
-binds nothing, and `tix serve` has no demo mode at all.
+`ssh.trusted_proxies` lists the L4 proxies, as IPs or CIDR blocks, whose PROXY protocol header the listener
+believes. There are no headers in an SSH stream, so a proxy that terminates TCP in front of this listener can
+only name the real client that way, and without it every connection appears to come from the proxy: one rate
+limit bucket for the whole internet, one address in every session record and every log line. Any peer can
+prepend such a header, so the list is default-deny. Empty, which is the default, means no header is read from
+anybody, nothing is consumed from any stream, and the client address is the one the transport reports, exactly
+as before this key existed. When the peer that opened the connection is on the list, its header is read and the
+address it names becomes the client address every reader sees, including the rate limiter. A listed peer that
+does not begin with a valid header is closed rather than accepted as itself, and so is one that sends nothing
+before the listener's idle timeout; a `PROXY UNKNOWN` line or a v2 `LOCAL` command keeps the transport address,
+because the proxy has said it is speaking for itself. Both protocol versions are accepted. An entry that is
+neither an IP nor a CIDR block is refused at startup.
+
+This is a different key from `server.trusted_proxies` and neither implies the other. The HTTP reverse proxy and
+the L4 SSH proxy need not be the same host, and a list written for one surface must not arm the other. See
+[deployment.md](deployment.md) for a worked HAProxy example.
+
+Of these keys only `ssh.trusted_proxies` reaches `tix serve`, which has no flag for it either. Its four SSH
+flags (`--ssh-listen`, `--ssh-host-key`, `--ssh-allow-public`, `--ssh-idle-timeout`) are flags only, so
+`TIX_SSH_LISTEN` in a `tix serve` environment binds nothing, and `tix serve` has no demo mode at all.
 
 `ssh.idle_timeout` closes a session nobody is typing at, measured from the last key the interface saw.
 `ssh.keepalive_interval` and `ssh.keepalive_max_missed` are a different question: whether the client is still

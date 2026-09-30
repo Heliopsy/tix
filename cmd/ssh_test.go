@@ -3,6 +3,8 @@
 package cmd
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -15,6 +17,7 @@ import (
 	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/spf13/cobra"
+	gossh "golang.org/x/crypto/ssh"
 )
 
 func TestSSHRefusesTheZeroConfigurationStore(t *testing.T) {
@@ -258,4 +261,108 @@ func TestSSHTakesItsListenAddressFromAConfigurationFile(t *testing.T) {
 	if !strings.Contains(got.err, "0.0.0.0:2222") {
 		t.Fatalf("stderr = %q, want the bind guard to name the configured address", got.err)
 	}
+}
+
+// TestTheHTTPTrustedProxyListDoesNotGrantSSHTrust pins the two keys apart. The
+// HTTP reverse proxy and the L4 SSH proxy need not be the same host, so a list
+// written for one must not silently arm the other.
+//
+// Both directions are asserted, because the first alone passes over a listener
+// that reads no header from anybody: the same dial is refused once
+// ssh.trusted_proxies names the peer, which is what proves the discriminator
+// means anything.
+func TestTheHTTPTrustedProxyListDoesNotGrantSSHTrust(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  string
+		refused bool
+	}{
+		{
+			name:   "server.trusted_proxies alone",
+			config: "server:\n  trusted_proxies: [127.0.0.1]\n",
+		},
+		{
+			name:    "ssh.trusted_proxies names the peer",
+			config:  "ssh:\n  trusted_proxies: [127.0.0.1]\n",
+			refused: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newCLI(t)
+			db := filepath.Join(t.TempDir(), "tix.db")
+			addr := freePort(t)
+			writeFile(t, filepath.Join(c.home, "conf", "tix", "config.yaml"), tc.config)
+
+			done := make(chan result, 1)
+			go func() { done <- c.run("--db", db, "ssh", "--listen", addr) }()
+			waitForHostKey(t, filepath.Join(filepath.Dir(db), hostKeyName))
+
+			// A plain SSH client sends no PROXY header. A listener that trusts
+			// this peer closes it before the version exchange; one that does
+			// not serves it like any other client.
+			err := dialSSH(t, addr)
+			switch {
+			case tc.refused && err == nil:
+				t.Error("the dial was served, so no proxy header was demanded of a listed peer")
+			case tc.refused && strings.Contains(err.Error(), "unable to authenticate"):
+				t.Errorf("the dial reached authentication, so no proxy header was demanded of a "+
+					"listed peer: %v", err)
+			case !tc.refused && err != nil:
+				t.Errorf("the dial was refused, so a proxy header was demanded of a peer only "+
+					"server.trusted_proxies names: %v", err)
+			}
+
+			if err := syscall.Kill(os.Getpid(), syscall.SIGINT); err != nil {
+				t.Fatalf("signalling: %v", err)
+			}
+			select {
+			case got := <-done:
+				if got.code != core.ExitOK {
+					t.Fatalf("ssh exited %d: %s", got.code, got.err)
+				}
+			case <-time.After(30 * time.Second):
+				t.Fatal("the listener did not shut down")
+			}
+		})
+	}
+}
+
+// waitForHostKey blocks until the listener has written its host key, which it
+// does before it serves.
+func waitForHostKey(t *testing.T, path string) {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		if _, err := os.Stat(path); err == nil {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the listener never wrote its host key")
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// dialSSH authenticates against addr with a key nobody enrolled.
+func dialSSH(t *testing.T, addr string) error {
+	t.Helper()
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generating a key: %v", err)
+	}
+	signer, err := gossh.NewSignerFromKey(priv)
+	if err != nil {
+		t.Fatalf("signer: %v", err)
+	}
+	client, err := gossh.Dial("tcp", addr, &gossh.ClientConfig{
+		User:            "tix",
+		Auth:            []gossh.AuthMethod{gossh.PublicKeys(signer)},
+		HostKeyCallback: gossh.InsecureIgnoreHostKey(), // #nosec G106 -- the test generated this host key
+		Timeout:         30 * time.Second,
+	})
+	if err != nil {
+		return err
+	}
+	return client.Close()
 }

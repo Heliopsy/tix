@@ -76,6 +76,12 @@ type Options struct {
 	// explicit choice tix serve demands before it faces a network.
 	AllowInsecure bool
 
+	// TrustedProxies lists the L4 proxies, as IPs or CIDR blocks, whose PROXY
+	// protocol header names the real client. Any peer can send such a header,
+	// so an empty list, the default, reads none from anybody and every address
+	// this listener reports is the one the transport gives it.
+	TrustedProxies []string
+
 	// Demo opts in to sandbox provisioning: any key is accepted and given an
 	// ephemeral tenant of its own. Without it the listener serves enrolled
 	// keys only, because handing a tenant to a stranger is a choice somebody
@@ -127,6 +133,7 @@ type Server struct {
 	limiter  *limiter
 	live     *gate
 	verifier *auth.PublicKeyVerifier
+	proxies  *auth.ProxyPolicy
 	log      *slog.Logger
 }
 
@@ -147,12 +154,17 @@ func New(o Options) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	proxies, err := auth.NewProxyPolicy(o.TrustedProxies)
+	if err != nil {
+		return nil, err
+	}
 
 	s := &Server{
 		opts:    o,
 		log:     o.Logger,
 		limiter: newLimiter(o.Clock, rateInterval(o.RatePerHour), o.RateBurst, o.MaxTenants*4),
 		live:    newGate(o.MaxSessionsPerKey, o.MaxSessions),
+		proxies: proxies,
 	}
 	s.verifier = auth.NewPublicKeyVerifier(s.lookup())
 	s.ssh = &ssh.Server{
@@ -267,6 +279,17 @@ func (s *Server) Listen() error {
 		return core.Internal("listening on %q: %v", s.opts.Addr, err)
 	}
 	s.listener = ln
+	// Wrapping only when a proxy is configured is what keeps the default
+	// byte-for-byte what it was: with no trusted proxy nothing is read from a
+	// connection before the SSH transport gets it.
+	if !s.proxies.Empty() {
+		s.listener = &proxyListener{
+			Listener: ln,
+			policy:   s.proxies,
+			timeout:  s.opts.IdleTimeout,
+			log:      s.log,
+		}
+	}
 	return nil
 }
 
