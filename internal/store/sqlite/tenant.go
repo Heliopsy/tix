@@ -148,19 +148,11 @@ func (t *tx) DeleteTenant(ctx context.Context, tenantID string) error {
 	return nil
 }
 
-// ResolveDomain maps a hostname to the tenant that owns it.
+// ResolveDomain maps a hostname to the tenant that owns it. It runs before a
+// tenant is known, so it goes through the one deliberately cross-tenant
+// statement over tenant_domains rather than the scoped builder.
 func (t *tx) ResolveDomain(ctx context.Context, hostname string) (*core.Tenant, error) {
-	cols := make([]string, len(tenantColumns))
-	for i, c := range tenantColumns {
-		cols[i] = "tenants." + c
-	}
-	b := t.builder("tenant_domains").
-		Select(cols...).
-		Join("JOIN tenants ON tenants.id = tenant_domains.tenant_id").
-		Where("tenant_domains.hostname = ?", hostname).
-		Where("tenants.deleted_at IS NULL").
-		Limit(1)
-	q, args := b.SelectQuery()
+	q, args := sqlb.DomainByHostnameQuery(dialect, tenantColumns, hostname)
 	out, err := scanTenant(t.ex.QueryRowContext(ctx, q, args...))
 	if err != nil {
 		if core.IsKind(err, core.KindNotFound) {
@@ -209,7 +201,6 @@ func (t *tx) AddDomain(ctx context.Context, d *core.Domain) error {
 	}
 	ins := t.insert("tenant_domains").
 		Set("id", d.ID).
-		Set("tenant_id", d.TenantID).
 		Set("hostname", d.Hostname).
 		Set("verified_at", sqlb.NullTimeText(d.VerifiedAt)).
 		Set("cert_mode", string(d.CertMode)).
@@ -224,7 +215,6 @@ func (t *tx) AddDomain(ctx context.Context, d *core.Domain) error {
 func (t *tx) ListDomains(ctx context.Context) ([]core.Domain, error) {
 	b := t.builder("tenant_domains").
 		Select(domainColumns...).
-		Where("tenant_id = ?", t.scope.TenantID).
 		OrderBy("hostname", core.Ascending)
 	rows, err := t.query(ctx, b, "listing domains")
 	if err != nil {
@@ -246,7 +236,6 @@ func (t *tx) ListDomains(ctx context.Context) ([]core.Domain, error) {
 // RemoveDomain detaches a hostname from this tenant.
 func (t *tx) RemoveDomain(ctx context.Context, hostname string) error {
 	b := t.builder("tenant_domains").
-		Where("tenant_id = ?", t.scope.TenantID).
 		Where("hostname = ?", hostname)
 	n, err := t.execDelete(ctx, b, "removing domain %q", hostname)
 	if err != nil {

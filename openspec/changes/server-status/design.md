@@ -65,14 +65,17 @@ outlive the transaction. The policies are emitted by `rowLevelSecurity(version)`
   own `SELECT`-only policy precisely because `ssh_keys` *is* scoped and forced, so an unscoped read there
   returns zero rows rather than failing loudly. `servers` has no policy to get past, so it reads the same on
   both engines with the same statement, which is one fewer engine difference rather than one more.
-- **`tenants`, `tenant_domains` and `users` already sit in this category.** This is not a new class of
-  table; it is a fourth member of an existing one.
+- **`tenants` and `users` already sit in this category.** This is not a new class of table; it is a third
+  member of an existing one. `tenant_domains` was named here too when this was written, and that was
+  wrong: it carries `tenant_id NOT NULL REFERENCES tenants(id)` and has since migration 1. It is now
+  scoped, forced and policied like any other tenant-owned table, and its one cross-tenant read goes
+  through an escape hatch of the `ssh_keys` shape.
 - **The `tix_app` role still applies.** `grantAppRole` runs after the migrations at store open and grants
   on `ALL TABLES IN SCHEMA public`, so a table created by migration 8 is grantable by the time a
   transaction enters the role.
 
-The guard for this is the mirror of the existing `TestPoliciesExistForEveryScopedTable`: a test asserting
-`servers` has row-level security *disabled* and carries no isolation policy. Without it, somebody adding
+The guard for this is the mirror of `TestEveryTenantTableIsIsolated`: a test asserting `servers` has
+row-level security *disabled* and carries no isolation policy. Without it, somebody adding
 `servers` to `ScopedTables()` in good faith would produce a table nothing can read, and the failure would
 appear on PostgreSQL only.
 

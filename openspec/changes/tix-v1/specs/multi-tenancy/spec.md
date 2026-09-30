@@ -73,6 +73,28 @@ tables and SHALL assert that each one carries a `tenant_id` predicate or, for in
 - **WHEN** a change introduces a statement over a tenant-owned table with no tenant predicate
 - **THEN** the test fails and identifies the offending statement
 
+### Requirement: Isolation guards derive their subject from the schema
+
+Every automated assertion that a tenant-owned table is scoped, policied, or isolated SHALL enumerate the
+tables from the live database schema and SHALL NOT take its subject from a list maintained in code. Where
+a table is exempt from tenant scoping, the exemption SHALL be an explicit allow-list entry naming the
+table and recording why it holds no tenant column.
+
+#### Scenario: A table dropped from the scoped list
+
+- **WHEN** a tenant-owned table is removed from the list the isolation policies are generated from
+- **THEN** the guard fails and names the table, because it enumerated the schema rather than that list
+
+#### Scenario: A tenant-owned table exempted
+
+- **WHEN** a table carrying a `tenant_id` column is named in the exemption allow-list
+- **THEN** the guard fails and reports the reason the exemption gave
+
+#### Scenario: Exemption without a reason
+
+- **WHEN** a table is exempted from tenant scoping with no recorded reason
+- **THEN** the guard fails
+
 ### Requirement: Database-enforced isolation on PostgreSQL
 
 On PostgreSQL the system SHALL enable row-level security on every tenant-owned table and SHALL set
@@ -93,6 +115,11 @@ filter out rows belonging to any other tenant even when the application layer is
 
 - **WHEN** an insert supplies a `tenant_id` other than the transaction's tenant
 - **THEN** the database rejects the write
+
+#### Scenario: A read that precedes the tenant
+
+- **WHEN** a lookup must read a tenant-owned table before any tenant is known, such as mapping a hostname or an SSH key fingerprint to its tenant
+- **THEN** it is admitted by a narrow `SELECT`-only policy gated on a transaction-local flag that the lookup raises and lowers, and never by exempting the table from scoping
 
 #### Scenario: SQLite lacks this layer
 

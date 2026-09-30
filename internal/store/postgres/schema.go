@@ -36,6 +36,16 @@ const (
 	sshAuthPolicy  = "tix_ssh_auth_lookup"
 )
 
+// domainAuthSetting is the per-transaction flag that admits the other
+// cross-tenant read: mapping a request's hostname to the tenant serving it,
+// which necessarily runs before any tenant is known. domainAuthPolicy grants it
+// on tenant_domains alone, for SELECT alone, on the same terms as the SSH one.
+const (
+	domainAuthSetting = "tix.domain_auth"
+	domainAuthOn      = "on"
+	domainAuthPolicy  = "tix_domain_resolve_lookup"
+)
+
 // partitionMonthsBack and partitionMonthsAhead bound the partitions created up
 // front, so writes never wait on partition creation.
 const (
@@ -354,7 +364,8 @@ func adjustmentsFor(version int, now time.Time) []string {
 		)
 	}
 	out = append(out, rowLevelSecurity(version)...)
-	return append(out, sshAuthLookup(version)...)
+	out = append(out, sshAuthLookup(version)...)
+	return append(out, domainResolveLookup(version)...)
 }
 
 // sshAuthLookup returns the policy that lets the authentication path read
@@ -371,6 +382,23 @@ func sshAuthLookup(version int) []string {
 	return []string{
 		fmt.Sprintf("CREATE POLICY %s ON ssh_keys FOR SELECT USING (current_setting('%s', true) = '%s')",
 			sshAuthPolicy, sshAuthSetting, sshAuthOn),
+	}
+}
+
+// domainResolveLookup returns the policy that lets host-based tenant resolution
+// read tenant_domains across tenants in one statement.
+//
+// tenant_domains is tenant-owned and therefore forced, so without this the
+// resolution read returns zero rows here while SQLite keeps working: a failure
+// visible on one engine only. Like the SSH policy it is permissive and
+// SELECT-only, so it can widen a read and can never become a write path.
+func domainResolveLookup(version int) []string {
+	if introducedIn("tenant_domains") != version {
+		return nil
+	}
+	return []string{
+		fmt.Sprintf("CREATE POLICY %s ON tenant_domains FOR SELECT USING (current_setting('%s', true) = '%s')",
+			domainAuthPolicy, domainAuthSetting, domainAuthOn),
 	}
 }
 

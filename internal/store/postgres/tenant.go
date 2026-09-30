@@ -8,6 +8,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/id"
+	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
 var tenantColumns = []string{"id", "key", "name", "created_at", "updated_at", "deleted_at"}
@@ -140,18 +141,19 @@ func (t *tx) DeleteTenant(ctx context.Context, tenantID string) error {
 }
 
 // ResolveDomain maps a hostname to the tenant that owns it.
+//
+// It runs before a tenant is known, and tenant_domains carries FORCE ROW LEVEL
+// SECURITY with a policy admitting only the transaction's tenant, so an
+// unscoped read would return no rows rather than failing loudly. Raising the
+// domain auth flag adds the SELECT-only policy that admits this one read, and
+// it is lowered again before the caller regains control.
 func (t *tx) ResolveDomain(ctx context.Context, hostname string) (*core.Tenant, error) {
-	cols := make([]string, len(tenantColumns))
-	for i, c := range tenantColumns {
-		cols[i] = "tenants." + c
+	if err := t.domainAuthLookup(ctx, true); err != nil {
+		return nil, err
 	}
-	b := t.builder("tenant_domains").
-		Select(cols...).
-		Join("JOIN tenants ON tenants.id = tenant_domains.tenant_id").
-		Where("tenant_domains.hostname = ?", hostname).
-		Where("tenants.deleted_at IS NULL").
-		Limit(1)
-	q, args := b.SelectQuery()
+	defer func() { _ = t.domainAuthLookup(ctx, false) }()
+
+	q, args := sqlb.DomainByHostnameQuery(dialect, tenantColumns, hostname)
 	out, err := scanTenant(t.ex.QueryRowContext(ctx, q, args...))
 	if err != nil {
 		if core.IsKind(err, core.KindNotFound) {
@@ -160,6 +162,21 @@ func (t *tx) ResolveDomain(ctx context.Context, hostname string) (*core.Tenant, 
 		return nil, err
 	}
 	return &out, nil
+}
+
+// domainAuthLookup raises or lowers the flag domainAuthPolicy reads. It is
+// transaction-local, so it cannot outlive the lookup that raised it, and this
+// is deliberately the only place in the tree that writes it.
+func (t *tx) domainAuthLookup(ctx context.Context, on bool) error {
+	value := ""
+	if on {
+		value = domainAuthOn
+	}
+	if _, err := t.ex.ExecContext(ctx,
+		`SELECT set_config($1, $2, true)`, domainAuthSetting, value); err != nil {
+		return mapErr(err, "admitting the hostname lookup")
+	}
+	return nil
 }
 
 var domainColumns = []string{
@@ -195,7 +212,6 @@ func (t *tx) AddDomain(ctx context.Context, d *core.Domain) error {
 	}
 	ins := t.insert("tenant_domains").
 		Set("id", d.ID).
-		Set("tenant_id", d.TenantID).
 		Set("hostname", d.Hostname).
 		Set("verified_at", nullTimeArg(d.VerifiedAt)).
 		Set("cert_mode", string(d.CertMode)).
@@ -210,7 +226,6 @@ func (t *tx) AddDomain(ctx context.Context, d *core.Domain) error {
 func (t *tx) ListDomains(ctx context.Context) ([]core.Domain, error) {
 	b := t.builder("tenant_domains").
 		Select(domainColumns...).
-		Where("tenant_id = ?", t.scope.TenantID).
 		OrderBy("hostname", core.Ascending)
 	rows, err := t.query(ctx, b, "listing domains")
 	if err != nil {
@@ -232,7 +247,6 @@ func (t *tx) ListDomains(ctx context.Context) ([]core.Domain, error) {
 // RemoveDomain detaches a hostname from this tenant.
 func (t *tx) RemoveDomain(ctx context.Context, hostname string) error {
 	b := t.builder("tenant_domains").
-		Where("tenant_id = ?", t.scope.TenantID).
 		Where("hostname = ?", hostname)
 	n, err := t.execDelete(ctx, b, "removing domain %q", hostname)
 	if err != nil {

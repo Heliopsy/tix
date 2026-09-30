@@ -59,7 +59,7 @@ func TestEveryScopedInsertSetsTenant(t *testing.T) {
 }
 
 func TestUnscopedTablesAreAllowedWithoutTenant(t *testing.T) {
-	for _, table := range []string{"tenants", "tenant_domains", "users", "schema_migrations"} {
+	for table := range UnscopedTables() {
 		if IsScoped(table) {
 			t.Errorf("%q should not be tenant scoped", table)
 		}
@@ -74,12 +74,111 @@ func TestUnscopedTablesAreAllowedWithoutTenant(t *testing.T) {
 	}
 }
 
-func TestScopedTablesListIsComplete(t *testing.T) {
+// TestTheTwoListsAgreeAndDoNotOverlap checks the direction the old test of this
+// name did not: that nothing is both listed and exempted, and that every
+// exemption carries a reason. Whether either list matches the schema is not
+// decidable here, and is asserted against the live catalogue by
+// TestEveryTenantTableIsGuarded and TestEveryTenantTableIsIsolated.
+func TestTheTwoListsAgreeAndDoNotOverlap(t *testing.T) {
+	exempt := UnscopedTables()
 	for _, table := range ScopedTables() {
 		if !IsScoped(table) {
 			t.Errorf("%q is listed as scoped but IsScoped says otherwise", table)
 		}
+		if reason, ok := exempt[table]; ok {
+			t.Errorf("%q is both in ScopedTables() and exempted with the reason %q", table, reason)
+		}
 	}
+	for table, reason := range exempt {
+		if IsScoped(table) {
+			t.Errorf("%q is exempted but IsScoped says it is scoped", table)
+		}
+		if strings.TrimSpace(reason) == "" {
+			t.Errorf("%q is exempted with no reason", table)
+		}
+	}
+}
+
+// TestJoinArgumentsBindInTheJoinsPosition holds the argument order a statement
+// is rendered in. A join is written before the WHERE, but its arguments used to
+// be appended after the tenant argument the constructor had already bound, so
+// every placeholder in a join carrying one was off by one and the tenant
+// predicate received the join's value. Every current call site joins on
+// constants, which is the only reason it was latent rather than live.
+func TestJoinArgumentsBindInTheJoinsPosition(t *testing.T) {
+	b := MustNew(SQLite, scope, "tasks").
+		Select("tasks.id").
+		Join("JOIN projects ON projects.id = tasks.project_id AND projects.key = ?", "eng").
+		Where("tasks.id = ?", "x")
+
+	q, args := b.SelectQuery()
+	if want := []any{"eng", "t1", "x"}; !equalArgs(args, want) {
+		t.Fatalf("SELECT args = %v, want %v for %s", args, want, q)
+	}
+
+	cq, cargs := MustNew(SQLite, scope, "tasks").
+		Join("JOIN projects ON projects.id = tasks.project_id AND projects.key = ?", "eng").
+		Where("tasks.id = ?", "x").
+		CountQuery()
+	if want := []any{"eng", "t1", "x"}; !equalArgs(cargs, want) {
+		t.Fatalf("COUNT args = %v, want %v for %s", cargs, want, cq)
+	}
+}
+
+// TestUpdateArgumentsSurviveAnySetAndWhereOrder holds the other half. The
+// update argument order used to be recovered by counting placeholders and
+// taking the last n entries as the assignments, which is only correct when
+// every Where precedes every Set. A chain written the other way round swapped
+// the values silently.
+func TestUpdateArgumentsSurviveAnySetAndWhereOrder(t *testing.T) {
+	tests := []struct {
+		name string
+		want []any
+		b    *Builder
+	}{
+		{
+			name: "where before set",
+			want: []any{"new", "t1", "x"},
+			b:    MustNew(SQLite, scope, "tasks").Where("id = ?", "x").Set("title", "new"),
+		},
+		{
+			name: "set before where",
+			want: []any{"new", "t1", "x"},
+			b:    MustNew(SQLite, scope, "tasks").Set("title", "new").Where("id = ?", "x"),
+		},
+		{
+			name: "interleaved",
+			want: []any{"new", "2", "t1", "x", "old"},
+			b: MustNew(SQLite, scope, "tasks").
+				Set("title", "new").
+				Where("id = ?", "x").
+				SetExpr("version", "? + 1", "2").
+				Where("title = ?", "old"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			q, args, err := tt.b.UpdateQuery()
+			if err != nil {
+				t.Fatalf("UpdateQuery() error = %v", err)
+			}
+			if !equalArgs(args, tt.want) {
+				t.Fatalf("UPDATE args = %v, want %v for %s", args, tt.want, q)
+			}
+		})
+	}
+}
+
+func equalArgs(got, want []any) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestDeleteAndUpdateCarryTenant(t *testing.T) {
