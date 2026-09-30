@@ -177,7 +177,7 @@
     </details>
   </li>
 {{else}}
-  <li class="empty">{{if .Data.Query.Active}}Nothing here matches that filter{{if .Data.Scanned}}, out of the {{.Data.Scanned}} most recent records searched{{end}}. <a href="/activity">Clear it</a> to see everything.{{else}}No recorded activity.{{end}}</li>
+  <li class="empty">{{if .Data.Query.Active}}Nothing here matches that filter, anywhere in this tenant's history. <a href="/activity">Clear it</a> to see everything.{{else}}No recorded activity.{{end}}</li>
 {{end}}
 {{end}}
 

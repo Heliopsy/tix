@@ -145,7 +145,6 @@ type activityView struct {
 	ActorLabel string
 	Kinds      []activityChoice
 	Sources    []core.Source
-	Scanned    int
 }
 
 // activityChoice is one option of the subject-kind control: the value the
@@ -223,7 +222,7 @@ const activityPageSize = 50
 // way, that tasks.go hands the task list for its own accent stripes.
 func (h *handler) buildActivityView(r *http.Request, cursor string) (activityView, error) {
 	query := activityQueryFrom(r)
-	entries, next, scanned, err := h.scanAudit(r, query, cursor)
+	entries, next, err := h.scanAudit(r, query, cursor)
 	if err != nil {
 		return activityView{}, err
 	}
@@ -269,7 +268,6 @@ func (h *handler) buildActivityView(r *http.Request, cursor string) (activityVie
 		Pager: newPager(r, RouteActivity, next, len(groups), "entries",
 			"q", "kind", "actor", "source"),
 		Names: names, Query: query, Kinds: activityKinds, Sources: activitySources,
-		Scanned: scanned,
 	}
 	if query.Actor != "" {
 		data.ActorLabel = names.Label(query.Actor)
@@ -295,7 +293,7 @@ func (h *handler) buildActivityView(r *http.Request, cursor string) (activityVie
 // than the last entry it showed, so every match beyond the screenful was
 // skipped by Next instead of waiting there. A page the store answers whole is
 // a page whose cursor is the store's own.
-func (h *handler) scanAudit(r *http.Request, query activityQuery, cursor string) ([]core.AuditEntry, string, int, error) {
+func (h *handler) scanAudit(r *http.Request, query activityQuery, cursor string) ([]core.AuditEntry, string, error) {
 	filter := core.AuditFilter{Text: query.Text, Page: core.Page{
 		Cursor: cursor, Sort: "seq", Direction: core.Descending, Limit: activityPageSize,
 	}}
@@ -310,9 +308,9 @@ func (h *handler) scanAudit(r *http.Request, query activityQuery, cursor string)
 	}
 	entries, next, err := h.svc.ListAudit(r.Context(), filter)
 	if err != nil {
-		return nil, "", 0, err
+		return nil, "", err
 	}
-	return entries, next, len(entries), nil
+	return entries, next, nil
 }
 
 // matchesText reports whether one entry answers a free-text search. The text

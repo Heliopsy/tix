@@ -74,6 +74,114 @@ func TestListAuditPagesByCursorExactlyOnce(t *testing.T) {
 	}
 }
 
+// seedAuditWords writes n entries whose after image carries word for the
+// first matching of them and something else for the rest, newest last.
+func seedAuditWords(t *testing.T, l *Local, scope core.TenantScope, n, matching int, word string) {
+	t.Helper()
+	ctx := context.Background()
+	if err := l.store.Update(ctx, scope, func(tx store.Tx) error {
+		for i := range n {
+			title := "other"
+			if i < matching {
+				title = word
+			}
+			e := core.AuditEntry{
+				Action:      "task.create",
+				SubjectType: "task",
+				SubjectID:   fmt.Sprintf("t%03d", i),
+				Source:      core.SourceWeb,
+				After:       []byte(fmt.Sprintf(`{"title":%q}`, title)),
+			}
+			if err := tx.AppendAudit(ctx, &e); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("seeding audit entries: %v", err)
+	}
+}
+
+// A free-text filter the store answers is a filter whose page fits exactly,
+// and that is the whole point of it living here.
+//
+// It used to be applied by the caller, over pages the store had already
+// returned. A caller cannot report a cursor for a page it assembled itself:
+// the only cursor it holds names the end of the last store page it read, so
+// every match it trimmed off the end of a screenful was stepped over by the
+// next request rather than shown on it. Walking the listing to its end is the
+// property that catches that, because a skipped entry appears on no page.
+func TestAuditTextFilterWalksEveryMatch(t *testing.T) {
+	l, _, scope, actor := newLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+	const word = "zebra"
+	seedAuditWords(t, l, scope, 120, 55, word)
+
+	seen := map[string]int{}
+	cursor := ""
+	for pages := 0; ; pages++ {
+		if pages > 20 {
+			t.Fatal("paging did not terminate")
+		}
+		entries, next, err := l.ListAudit(ctx, core.AuditFilter{
+			Text: word, Page: core.Page{Limit: 10, Cursor: cursor, Sort: "seq"},
+		})
+		if err != nil {
+			t.Fatalf("listing audit: %v", err)
+		}
+		for _, e := range entries {
+			if !strings.Contains(string(e.After), word) {
+				t.Errorf("entry %s does not match %q but was returned", e.SubjectID, word)
+			}
+			seen[e.SubjectID]++
+		}
+		if next == "" {
+			break
+		}
+		cursor = next
+	}
+	if len(seen) != 55 {
+		t.Errorf("walking the filtered listing to its end found %d matches, want 55", len(seen))
+	}
+	for id, n := range seen {
+		if n != 1 {
+			t.Errorf("entry %s was returned %d times", id, n)
+		}
+	}
+}
+
+// The box searches what an entry records, not one column of it. A term that
+// occurs only in the action, or only in the snapshot, has to find its entry
+// either way, because that is what the screen offering the box promises.
+func TestAuditTextFilterReadsActionAndSnapshot(t *testing.T) {
+	l, _, scope, actor := newLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+	seedAuditWords(t, l, scope, 4, 2, "zebra")
+
+	for _, tc := range []struct {
+		name, text string
+		want       int
+	}{
+		{"snapshot", "zebra", 2},
+		{"action", "task.create", 4},
+		{"source", "web", 4},
+		{"no match", "narwhal", 0},
+		{"wildcards are literal", "%", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			entries, _, err := l.ListAudit(ctx, core.AuditFilter{
+				Text: tc.text, Page: core.Page{Limit: 50},
+			})
+			if err != nil {
+				t.Fatalf("listing audit: %v", err)
+			}
+			if len(entries) != tc.want {
+				t.Errorf("searching for %q returned %d entries, want %d", tc.text, len(entries), tc.want)
+			}
+		})
+	}
+}
+
 func TestListAuditFiltersBySubject(t *testing.T) {
 	l, _, scope, actor := newLocal(t)
 	ctx := core.WithActor(context.Background(), actor)

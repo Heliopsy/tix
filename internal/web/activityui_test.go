@@ -137,8 +137,15 @@ func TestActivityFilterTermsNarrowIndependently(t *testing.T) {
 	if !strings.Contains(nothing, "matches that filter") {
 		t.Errorf("a search matching nothing reads as an empty tenant:\n%s", nothing)
 	}
-	if !strings.Contains(nothing, "records searched") {
-		t.Errorf("a search matching nothing does not say how much it looked at:\n%s", nothing)
+	// The box is answered by the store over the whole log, so the screen no
+	// longer qualifies an empty result with the window it managed to read.
+	// Saying "out of the N most recent records searched" now would be a
+	// caveat about a limit that is not there.
+	if strings.Contains(nothing, "most recent records searched") {
+		t.Errorf("an empty search still claims it only looked at a window:\n%s", nothing)
+	}
+	if !strings.Contains(nothing, "anywhere in this tenant's history") {
+		t.Errorf("an empty search does not say it searched the whole log:\n%s", nothing)
 	}
 }
 
