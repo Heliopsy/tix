@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.13.0](https://github.com/Heliopsy/tix/compare/v0.12.0...v0.13.0) (2026-09-30)
+
+
+### Features
+
+* **core,service,tui,web:** give blocked, waiting and cancelled work their own category ([114f3d3](https://github.com/Heliopsy/tix/commit/114f3d36459ccd7fe393e4a27fedddeb9bf21664))
+* **core,tui,web:** widen the state category vocabulary so colour follows meaning ([95bbb17](https://github.com/Heliopsy/tix/commit/95bbb17c35d378bc7e1ad8d4224f7f215cdbc360))
+* **service,cli,web,tui:** let an administrator take a held lease ([253536b](https://github.com/Heliopsy/tix/commit/253536b49084c8d909c6e469838b03c12634504a))
+* **service,cli,web,tui:** let an administrator take a held lease ([6e92373](https://github.com/Heliopsy/tix/commit/6e92373c2713151d3260a6a966c38b97294c3588))
+* **sshd:** learn the real client address behind an L4 proxy ([2e57244](https://github.com/Heliopsy/tix/commit/2e572444f83e9cb712f6153443dd441b5edc4854))
+* **sshd:** read the client address from a trusted proxy's PROXY header ([7b53546](https://github.com/Heliopsy/tix/commit/7b5354692a89a53d05fb43261353a2edfc3fad18))
+
+
+### Bug Fixes
+
+* **core,web:** hold a workflow key to a shape a URL can carry ([9c8ad91](https://github.com/Heliopsy/tix/commit/9c8ad91a5d802da2df20b1e18eef3a86ab4ecd83))
+* **service:** announce the transition a lease expiry reverts ([0aa02a8](https://github.com/Heliopsy/tix/commit/0aa02a81c00f23a49c1ca64ae1d35d0545320add))
+* **store,presence,service:** escape query wildcards, honour the heartbeat cadence, and keep one lease guard ([ddcfaa9](https://github.com/Heliopsy/tix/commit/ddcfaa950cf35ff39d7a38cc990c0d0ccd240ac1))
+* **store,presence,service:** escape query wildcards, judge staleness per server, and keep one lease guard ([8b9b1d5](https://github.com/Heliopsy/tix/commit/8b9b1d5d2eb668e110c84164a3eac95d7d139d10))
+* **store,service,core:** read hosts from the reader pool, announce reverted transitions, and hold workflow keys to a url-safe shape ([29807db](https://github.com/Heliopsy/tix/commit/29807dbfb61db089b09df38475b31936dd5e3e0e))
+* **web,service:** clear blanked fields, stop hidden projects hiding tasks, page the feed and the delivery log ([b6c444e](https://github.com/Heliopsy/tix/commit/b6c444e166e88e7cc9f4c1a095bfa83e5de3a9bf))
+* **web:** clear a blanked field, keep hidden projects from hiding tasks, page the feed and the delivery log ([b131058](https://github.com/Heliopsy/tix/commit/b13105853fd005051b6703060701178269336821))
+
+
+### Performance
+
+* **store,service:** resolve a host through the reader pool ([51b161f](https://github.com/Heliopsy/tix/commit/51b161fb3a4e8682396bc750234f6583d2923024))
+
 ## [0.12.0](https://github.com/Heliopsy/tix/compare/v0.11.0...v0.12.0) (2026-09-30)
 
 
