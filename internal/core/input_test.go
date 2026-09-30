@@ -313,3 +313,105 @@ func TestUpdateTaskInputDistinguishesUnsetFromZero(t *testing.T) {
 		t.Error("an explicitly empty title must be distinguishable from unset")
 	}
 }
+
+// TestAWorkflowNamingAnUnknownCategoryIsRefused holds the closed vocabulary.
+// A state carries a category rather than a colour, which only buys a shared
+// meaning if the set is fixed: a typo that validated would give that state no
+// colour anywhere and put its tasks in no row of the statistics breakdown,
+// both of them silently.
+//
+// The refusal has to name the state, the word it refused and the whole
+// accepted set, because a reader who mistyped a category has no other way to
+// find out what the six are.
+func TestAWorkflowNamingAnUnknownCategoryIsRefused(t *testing.T) {
+	in := WorkflowInput{Key: "k", Definition: WorkflowDefinition{
+		Initial: "todo",
+		States: []State{
+			{Key: "todo", Category: CategoryTodo},
+			{Key: "stuck", Category: StateCategory("blocke")},
+			{Key: "done", Terminal: true, Category: CategoryDone},
+		},
+	}}
+	err := in.Validate()
+	if err == nil {
+		t.Fatal("a state naming a category outside the vocabulary was accepted")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "stuck") || !strings.Contains(msg, "blocke") {
+		t.Errorf("the refusal does not say which state or which word: %q", msg)
+	}
+	for _, want := range StateCategories() {
+		if !strings.Contains(msg, string(want)) {
+			t.Errorf("the refusal does not list %q as an accepted category: %q", want, msg)
+		}
+	}
+}
+
+// TestEveryCategoryInTheVocabularyIsAccepted is the other half: the refusal
+// above is only worth having if each of the six actually validates, and a
+// state may still decline to name one at all.
+func TestEveryCategoryInTheVocabularyIsAccepted(t *testing.T) {
+	for _, c := range append(StateCategories(), StateCategory("")) {
+		in := WorkflowInput{Key: "k", Definition: WorkflowDefinition{
+			Initial: "todo",
+			States: []State{
+				{Key: "todo", Category: c},
+				{Key: "done", Terminal: true},
+			},
+		}}
+		if err := in.Validate(); err != nil {
+			t.Errorf("category %q was refused: %v", c, err)
+		}
+	}
+}
+
+// TestStateCategoriesIsTheWholeVocabularyAndCannotBeMutated keeps the list and
+// the constants from drifting: every constant has to be in the list, and the
+// list has to be a copy so a caller ranging over it cannot edit the vocabulary
+// for every other caller in the process.
+func TestStateCategoriesIsTheWholeVocabularyAndCannotBeMutated(t *testing.T) {
+	want := []StateCategory{
+		CategoryTodo, CategoryInProgress, CategoryBlocked,
+		CategoryWaiting, CategoryDone, CategoryCancelled,
+	}
+	got := StateCategories()
+	if len(got) != len(want) {
+		t.Fatalf("StateCategories() = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("StateCategories() = %v, want %v", got, want)
+		}
+		if !want[i].Valid() {
+			t.Errorf("%q is a constant the vocabulary rejects", want[i])
+		}
+	}
+	got[0] = "tampered"
+	if StateCategories()[0] != CategoryTodo {
+		t.Fatal("StateCategories returns the vocabulary itself, so any caller can edit it")
+	}
+	if StateCategory("finished").Valid() {
+		t.Error("a word outside the vocabulary validated")
+	}
+}
+
+// TestCancelledIsItsOwnCategoryAndNotASpellingOfDone is the one substantive
+// constraint of the whole vocabulary, pinned where the values live. Cancelled
+// work is not completed work, and the two must not collapse onto one token
+// however the constants are later edited.
+func TestCancelledIsItsOwnCategoryAndNotASpellingOfDone(t *testing.T) {
+	if CategoryCancelled == CategoryDone {
+		t.Fatal("cancelled and done are the same category")
+	}
+	if CategoryBlocked == CategoryTodo || CategoryBlocked == CategoryWaiting {
+		t.Fatal("blocked collapsed onto another category")
+	}
+	// The three that predate this change are the wire, store and filter
+	// contract and cannot move.
+	if CategoryTodo != "todo" || CategoryInProgress != "in_progress" || CategoryDone != "done" {
+		t.Fatal("an existing category value moved; it is the stored contract, not a label")
+	}
+	if CategoryBlocked != "blocked" || CategoryWaiting != "waiting" || CategoryCancelled != "cancelled" {
+		t.Fatal("a new category value is not the word documented for it")
+	}
+}

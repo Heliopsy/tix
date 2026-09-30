@@ -45,6 +45,12 @@
   --proj-blue: #2563eb;
   --proj-violet: #7c3aed;
   --proj-pink: #be185d;
+
+  /* The one category hue the semantic tokens do not already carry. It is
+     declared once and resolves against whichever --proj-violet the winning
+     theme scope sets, so every scheme gets its own tuned violet without a
+     fifth copy of this line. */
+  --cat-waiting: var(--proj-violet);
 }
 
 /* Low contrast: the same layout with the extremes taken out. Text stops being
@@ -1598,6 +1604,24 @@ dl.raw-fields dd { margin: 0; overflow-wrap: anywhere; }
 .pill.status.blocked { background: var(--warn); color: var(--surface); }
 .pill.status.done { background: var(--ok); color: var(--surface); }
 .pill.status.cancelled { background: var(--bg); color: var(--muted); border-color: var(--line); }
+
+/* A workflow state category, which is what the statistics table groups by.
+   The rules key off the category rather than off the state, because a tenant
+   names its own states and only the category is a fixed vocabulary, so this is
+   the one place a colour can be given a meaning that holds everywhere.
+
+   The hues answer the terminal's: todo warns, in progress is the accent,
+   blocked is danger, waiting is its own hue, done is ok, and cancelled is
+   muted rather than green. Cancelled work is not completed work, and reading
+   it in the colour of completion is what this vocabulary exists to stop.
+   The label beside each swatch is a word, so none of it depends on the hue. */
+.cat { font-weight: 600; }
+.cat.cat-todo { color: var(--warn); }
+.cat.cat-in-progress { color: var(--accent); }
+.cat.cat-blocked { color: var(--danger); }
+.cat.cat-waiting { color: var(--cat-waiting); }
+.cat.cat-done { color: var(--ok); }
+.cat.cat-cancelled { color: var(--muted); }
 
 /* Priority: no pill at all, a caret and a word. The caret points up for the
    two priorities above normal and down for the two below, so the direction

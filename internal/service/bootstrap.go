@@ -29,9 +29,9 @@ func BuiltinWorkflow() core.WorkflowDefinition {
 			{Key: "todo", Label: "To do", Category: core.CategoryTodo},
 			{Key: "doing", Label: "Doing", Category: core.CategoryInProgress,
 				RevertOnLeaseExpiry: true, RevertTo: "todo"},
-			{Key: "blocked", Label: "Blocked", Category: core.CategoryTodo},
+			{Key: "blocked", Label: "Blocked", Category: core.CategoryBlocked},
 			{Key: "done", Label: "Done", Category: core.CategoryDone, Terminal: true},
-			{Key: "cancelled", Label: "Cancelled", Category: core.CategoryDone, Terminal: true},
+			{Key: "cancelled", Label: "Cancelled", Category: core.CategoryCancelled, Terminal: true},
 		},
 		Transitions: []core.Transition{
 			{From: "todo", To: "doing"},

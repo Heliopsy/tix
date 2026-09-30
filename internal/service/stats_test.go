@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -452,5 +453,205 @@ func TestStatsRequiresAuthentication(t *testing.T) {
 	f := newStatsFixture(t)
 	if _, err := f.local.Stats(context.Background(), core.StatsInput{}); !core.IsKind(err, core.KindUnauthenticated) {
 		t.Errorf("Stats without an actor = %v, want unauthenticated", err)
+	}
+}
+
+// seedBuiltinProject seeds a project on the shipped workflow, which is the one
+// that carries the widened categories. The rest of the statistics fixture runs
+// on taskWorkflow, which predates them and is deliberately left alone: a
+// tenant's hand-authored workflow is not rewritten by this change, and
+// TestAHandAuthoredWorkflowKeepsTheCategoriesItDeclared holds that.
+func seedBuiltinProject(t *testing.T, f *statsFixture, key string) *core.Project {
+	t.Helper()
+	ctx := context.Background()
+	wf := core.Workflow{Key: "builtin-" + key, Name: "Builtin " + key, Definition: BuiltinWorkflow()}
+	project := core.Project{Key: key, Name: strings.ToUpper(key)}
+	if err := f.local.store.Update(ctx, f.scope, func(tx store.Tx) error {
+		if err := tx.PutWorkflow(ctx, &wf); err != nil {
+			return err
+		}
+		project.WorkflowID = wf.ID
+		return tx.CreateProject(ctx, &project)
+	}); err != nil {
+		t.Fatalf("seeding project %q: %v", key, err)
+	}
+	return &project
+}
+
+// addTo creates a task in a named project at the clock's current instant.
+func (f *statsFixture) addTo(t *testing.T, project *core.Project, title string) *core.Task {
+	t.Helper()
+	task, err := f.local.CreateTask(f.ctx, core.CreateTaskInput{
+		ProjectRef: project.Key, Title: title,
+	})
+	if err != nil {
+		t.Fatalf("creating %q: %v", title, err)
+	}
+	return task
+}
+
+// moveTo walks a task through the given states, failing on the first refusal.
+func (f *statsFixture) moveTo(t *testing.T, task *core.Task, states ...string) *core.Task {
+	t.Helper()
+	out := task
+	for _, to := range states {
+		moved, err := f.local.TransitionTask(f.ctx, core.TaskRef{ID: task.ID},
+			core.TransitionInput{To: to})
+		if err != nil {
+			t.Fatalf("moving %q to %q: %v", task.Title, to, err)
+		}
+		out = moved
+	}
+	return out
+}
+
+// statsFor reads the statistics narrowed to one project, so a guard about one
+// workflow's categories is not answered by another workflow's tasks.
+func (f *statsFixture) statsFor(t *testing.T, project *core.Project) *core.Stats {
+	t.Helper()
+	return f.stats(t, core.StatsInput{ProjectRef: project.Key})
+}
+
+// TestCancelledWorkIsNotCountedAsDone is the substantive half of widening the
+// category vocabulary. Cancelled work used to be categorised `done` in the
+// shipped workflow, so "where the work is" reported abandoned tasks in the
+// same row as finished ones, and an operator reading that row was reading a
+// number with two meanings in it.
+//
+// The guard asserts both halves, because either alone passes while the defect
+// is present: the cancelled task is in the cancelled row, AND the done row
+// counts only what was actually finished.
+func TestCancelledWorkIsNotCountedAsDone(t *testing.T) {
+	f := newStatsFixture(t)
+	p := seedBuiltinProject(t, f, "shipped")
+	done := f.addTo(t, p, "finished")
+	dropped := f.addTo(t, p, "abandoned")
+	f.addTo(t, p, "still open")
+
+	f.clock.Advance(24 * time.Hour)
+	f.moveTo(t, done, "doing", "done")
+	f.moveTo(t, dropped, "cancelled")
+	got := f.statsFor(t, p)
+
+	if n := categoryCount(t, got, core.CategoryDone); n != 1 {
+		t.Errorf("the done row counts %d, want only the one task that finished", n)
+	}
+	if n := categoryCount(t, got, core.CategoryCancelled); n != 1 {
+		t.Errorf("the cancelled row counts %d, want the one abandoned task", n)
+	}
+	if n := categoryCount(t, got, core.CategoryTodo); n != 1 {
+		t.Errorf("the todo row counts %d, want the one untouched task", n)
+	}
+	// Throughput is not category-driven and must not have moved: it reads
+	// completed_at, which follows the Terminal flag, and a cancelled task is
+	// still terminal. Recategorising it must not silently change the number an
+	// operator has been reading as the completed count.
+	if got.Completed != 2 {
+		t.Errorf("completed = %d, want both terminal moves; recategorising changed throughput", got.Completed)
+	}
+}
+
+// TestBlockedWorkIsReportedApartFromWorkMerelyWaitingToStart is the other
+// recategorisation. Blocked was `todo`, so a stalled task read as ordinary
+// work sitting in the queue.
+func TestBlockedWorkIsReportedApartFromWorkMerelyWaitingToStart(t *testing.T) {
+	f := newStatsFixture(t)
+	p := seedBuiltinProject(t, f, "stalls")
+	stuck := f.addTo(t, p, "stuck")
+	f.addTo(t, p, "queued")
+
+	f.moveTo(t, stuck, "blocked")
+	got := f.statsFor(t, p)
+
+	if n := categoryCount(t, got, core.CategoryBlocked); n != 1 {
+		t.Errorf("the blocked row counts %d, want the one stalled task", n)
+	}
+	if n := categoryCount(t, got, core.CategoryTodo); n != 1 {
+		t.Errorf("the todo row counts %d, want only the task nobody has started", n)
+	}
+}
+
+// TestAHandAuthoredWorkflowKeepsTheCategoriesItDeclared is the migration
+// decision, asserted rather than described. Stored workflows are not rewritten:
+// a tenant whose workflow says `category: done` on its cancelled state keeps
+// reporting that state under done, because the tenant said so and the widened
+// vocabulary only changes what tix itself ships. taskWorkflow is exactly such a
+// workflow, written before these categories existed.
+func TestAHandAuthoredWorkflowKeepsTheCategoriesItDeclared(t *testing.T) {
+	if st, _ := taskWorkflow().State("cancelled"); st.Category != core.CategoryDone {
+		t.Fatalf("the legacy fixture no longer declares the old category: %q", st.Category)
+	}
+	f := newStatsFixture(t)
+	dropped := f.add(t, "abandoned")
+	f.moveTo(t, dropped, "cancelled")
+	got := f.statsFor(t, f.project)
+
+	if n := categoryCount(t, got, core.CategoryDone); n != 1 {
+		t.Errorf("the done row counts %d; the tenant's declared category was not honoured", n)
+	}
+	if n := categoryCount(t, got, core.CategoryCancelled); n != 0 {
+		t.Errorf("the cancelled row counts %d; a stored workflow was recategorised behind the tenant's back", n)
+	}
+}
+
+// TestEveryCategoryIsReportedEvenWhenEmpty keeps the widened vocabulary from
+// becoming a set of rows that appear only once something lands in them. The
+// order used to be a three-element literal; a category added to core and not
+// to that literal would be counted into nothing and reported nowhere, losing
+// tasks from the breakdown in silence.
+func TestEveryCategoryIsReportedEvenWhenEmpty(t *testing.T) {
+	f := newStatsFixture(t)
+	f.add(t, "only one")
+	got := f.stats(t, core.StatsInput{})
+
+	if len(got.ByCategory) != len(core.StateCategories()) {
+		t.Fatalf("the breakdown has %d rows for %d categories: %+v",
+			len(got.ByCategory), len(core.StateCategories()), got.ByCategory)
+	}
+	for i, want := range core.StateCategories() {
+		if got.ByCategory[i].Category != want {
+			t.Errorf("row %d is %q, want %q", i, got.ByCategory[i].Category, want)
+		}
+	}
+}
+
+// TestCategoryDoesNotDecideTerminalness is the claim-path guard. Terminal-ness
+// comes from the Terminal flag and nothing else, so moving `cancelled` out of
+// the done category must leave every judgement that asks "is this finished"
+// exactly where it was.
+func TestCategoryDoesNotDecideTerminalness(t *testing.T) {
+	def := BuiltinWorkflow()
+	if st, _ := def.State("cancelled"); st.Category == core.CategoryDone {
+		t.Fatal("the shipped workflow still categorises cancelled work as done")
+	}
+	if st, _ := def.State("blocked"); st.Category != core.CategoryBlocked {
+		t.Fatalf("the shipped workflow categorises blocked work as %q", st.Category)
+	}
+	for _, key := range []string{"done", "cancelled"} {
+		st, ok := def.State(key)
+		if !ok {
+			t.Fatalf("the shipped workflow has no %q state", key)
+		}
+		if !st.Terminal || !def.IsTerminal(key) {
+			t.Fatalf("%q stopped being terminal when its category moved", key)
+		}
+		if !slices.Contains(def.TerminalStates(), key) {
+			t.Errorf("TerminalStates() = %v, which omits %q", def.TerminalStates(), key)
+		}
+	}
+}
+
+// TestACancelledTaskStillCarriesACompletionTimestamp is the same rule read
+// through the store rather than off the definition. completed_at is what the
+// throughput figures, the lead times, the leaderboard and the dependency
+// release all read, and it follows Terminal, not category.
+func TestACancelledTaskStillCarriesACompletionTimestamp(t *testing.T) {
+	f := newStatsFixture(t)
+	p := seedBuiltinProject(t, f, "timestamps")
+	task := f.addTo(t, p, "abandoned")
+	f.clock.Advance(time.Hour)
+	moved := f.moveTo(t, task, "cancelled")
+	if moved.CompletedAt == nil {
+		t.Fatal("a cancelled task carries no completion timestamp, so it left the working set silently")
 	}
 }

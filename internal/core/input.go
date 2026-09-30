@@ -145,6 +145,10 @@ func (in WorkflowInput) Validate() error {
 		if s.RevertTo != "" && !d.HasState(s.RevertTo) {
 			return Invalid("state %q reverts to undefined state %q", s.Key, s.RevertTo)
 		}
+		if !s.Category.Valid() {
+			return Invalid("state %q names category %q, which is not one of %s",
+				s.Key, s.Category, JoinStateCategories())
+		}
 	}
 
 	for _, t := range d.Transitions {

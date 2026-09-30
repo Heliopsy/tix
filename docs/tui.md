@@ -88,6 +88,13 @@ detail view names the state in full beside the date, as `due 2026-02-01 (overdue
 Columns follow the workflow's declared order and are coloured by the category a state belongs to, not by
 its name, since workflow states are user defined. Nothing is conveyed by colour alone.
 
+There are six categories: `todo`, `in_progress`, `blocked`, `waiting`, `done` and `cancelled`. Each draws
+in its own hue, and the two that are easy to mistake for something else are the point of having six.
+`blocked` draws in the colour that already means urgent rather than in the yellow of ordinary waiting
+work, and `cancelled` draws muted rather than in the green of `done`, so an abandoned task does not read
+as a finished one. A column whose state names no category, or a category this build does not know, draws
+plainly. See [workflows](workflows.md#categories).
+
 A column is as wide as it needs to be and as tall as what it holds. The width is shared out by what each
 column has to show, so the column holding eight tasks with long titles is wider than the one whose entire
 content is the word `empty`, and a column with nothing in it is a short box rather than a screenful of

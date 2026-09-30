@@ -29,6 +29,7 @@ var (
 	colorMuted      = lipgloss.Color("8")  // cli 90
 	colorTodo       = lipgloss.Color("3")  // cli 33
 	colorInProgress = lipgloss.Color("12") // cli 94
+	colorWaiting    = lipgloss.Color("5")  // cli 35
 	colorDone       = lipgloss.Color("2")  // cli 32
 	colorUrgent     = lipgloss.Color("1")  // cli 31, bold for the highest
 	colorAccent     = lipgloss.Color("14")
@@ -203,14 +204,25 @@ func (t Theme) flatten(c color.Color) color.Color {
 // CategoryColor returns the colour a workflow state category is drawn in.
 // An unknown category has no colour, because workflows are user defined and a
 // guessed category would be a lie, which is the rule the CLI follows too.
+//
+// Blocked borrows the urgent colour and cancelled borrows the muted one, for
+// the reason DueColor borrows urgent for overdue: both say the thing a reader
+// scanning a board needs, and a hue per category beyond what a reader can name
+// is a distinction without a difference.
 func CategoryColor(c core.StateCategory) (color.Color, bool) {
 	switch c {
 	case core.CategoryTodo:
 		return colorTodo, true
 	case core.CategoryInProgress:
 		return colorInProgress, true
+	case core.CategoryBlocked:
+		return colorUrgent, true
+	case core.CategoryWaiting:
+		return colorWaiting, true
 	case core.CategoryDone:
 		return colorDone, true
+	case core.CategoryCancelled:
+		return colorMuted, true
 	default:
 		return nil, false
 	}

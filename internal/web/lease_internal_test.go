@@ -75,7 +75,10 @@ func TestCategoryLabelsNameTheCategoryWithoutRenamingIt(t *testing.T) {
 	cases := map[core.StateCategory]string{
 		core.CategoryTodo:                   "To do",
 		core.CategoryInProgress:             "In progress",
+		core.CategoryBlocked:                "Blocked",
+		core.CategoryWaiting:                "Waiting",
 		core.CategoryDone:                   "Done",
+		core.CategoryCancelled:              "Cancelled",
 		core.StateCategory("something_new"): "something_new",
 	}
 	for category, want := range cases {
@@ -103,5 +106,33 @@ func TestLeaseExpiryIsItsOwnKindOfHistoryEntry(t *testing.T) {
 		if got := actionVerb(action); got != want {
 			t.Errorf("actionVerb(%q) = %q, want %q", action, got, want)
 		}
+	}
+}
+
+// TestAnUnknownCategoryIsRenderedPlainlyRatherThanGuessedAt keeps the browser
+// following the same rule as the terminal and the command line: a category
+// this build does not know carries no class, so its cell renders in the
+// ordinary text colour instead of borrowing another category's meaning.
+func TestAnUnknownCategoryIsRenderedPlainlyRatherThanGuessedAt(t *testing.T) {
+	t.Parallel()
+	if got := categoryClass(core.StateCategory("invented")); got != "" {
+		t.Errorf("an unknown category was given the class %q", got)
+	}
+	if got := categoryClass(core.CategoryCancelled); got != "cat-cancelled" {
+		t.Errorf("categoryClass(cancelled) = %q", got)
+	}
+	if categoryClass(core.CategoryInProgress) == categoryClass(core.CategoryTodo) {
+		t.Error("two categories slug to one class")
+	}
+	seen := map[string]bool{}
+	for _, c := range core.StateCategories() {
+		class := categoryClass(c)
+		if class == "" {
+			t.Errorf("category %q carries no class, so the browser draws it plainly", c)
+		}
+		if seen[class] {
+			t.Errorf("class %q is shared by two categories", class)
+		}
+		seen[class] = true
 	}
 }

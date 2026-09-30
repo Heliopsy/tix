@@ -74,7 +74,9 @@ const (
 	styleMuted      sgr = "90"
 	styleTodo       sgr = "33"
 	styleInProgress sgr = "94"
+	styleWaiting    sgr = "35"
 	styleDone       sgr = "32"
+	styleCancelled  sgr = "90"
 	styleHighest    sgr = "1;31"
 	styleHigh       sgr = "31"
 	styleLow        sgr = "90"
@@ -170,8 +172,14 @@ func (p Painter) StatusIn(category core.StateCategory, text string) string {
 		return p.apply(styleTodo, text)
 	case core.CategoryInProgress:
 		return p.apply(styleInProgress, text)
+	case core.CategoryBlocked:
+		return p.apply(styleBlocked, text)
+	case core.CategoryWaiting:
+		return p.apply(styleWaiting, text)
 	case core.CategoryDone:
 		return p.apply(styleDone, text)
+	case core.CategoryCancelled:
+		return p.apply(styleCancelled, text)
 	default:
 		return text
 	}
@@ -208,7 +216,10 @@ var knownCategories = map[string]core.StateCategory{
 	"backlog":     core.CategoryTodo,
 	"open":        core.CategoryTodo,
 	"new":         core.CategoryTodo,
-	"blocked":     core.CategoryTodo,
+	"blocked":     core.CategoryBlocked,
+	"waiting":     core.CategoryWaiting,
+	"on_hold":     core.CategoryWaiting,
+	"on-hold":     core.CategoryWaiting,
 	"doing":       core.CategoryInProgress,
 	"in_progress": core.CategoryInProgress,
 	"in-progress": core.CategoryInProgress,
@@ -220,8 +231,8 @@ var knownCategories = map[string]core.StateCategory{
 	"complete":    core.CategoryDone,
 	"completed":   core.CategoryDone,
 	"resolved":    core.CategoryDone,
-	"cancelled":   core.CategoryDone,
-	"canceled":    core.CategoryDone,
+	"cancelled":   core.CategoryCancelled,
+	"canceled":    core.CategoryCancelled,
 }
 
 // StateCategoryOf returns the category a state key belongs to, or the empty

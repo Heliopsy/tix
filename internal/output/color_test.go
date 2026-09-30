@@ -256,10 +256,12 @@ func TestParseMode(t *testing.T) {
 func TestStateCategoryOf(t *testing.T) {
 	cases := map[string]core.StateCategory{
 		"todo":        core.CategoryTodo,
-		"BLOCKED":     core.CategoryTodo,
+		"BLOCKED":     core.CategoryBlocked,
 		"in_progress": core.CategoryInProgress,
 		"doing\t":     core.CategoryInProgress,
-		"cancelled":   core.CategoryDone,
+		"on_hold":     core.CategoryWaiting,
+		"cancelled":   core.CategoryCancelled,
+		"done":        core.CategoryDone,
 		"waiting_ops": "",
 	}
 	for status, want := range cases {
@@ -358,6 +360,72 @@ func TestSwatchCoversThePalette(t *testing.T) {
 		got := on.Swatch(c)
 		if !strings.HasPrefix(got, "\x1b[") || strip(got) != swatchGlyph+string(c) {
 			t.Errorf("colour on rendered %q for %s", got, c)
+		}
+	}
+}
+
+// TestEveryCategoryIsPaintedDistinctlyAndDegrades is the command line's half
+// of the collision guard the board carries. The widened vocabulary is worth
+// having only if a reader can tell the six apart, and the pair that mattered
+// is cancelled against done: painted alike, abandoned work reads as finished.
+//
+// It asserts through the painter rather than looking for a colour, so a style
+// constant edited to another category's parameter fails here.
+func TestEveryCategoryIsPaintedDistinctlyAndDegrades(t *testing.T) {
+	on := Painter{on: true}
+	painted := map[string]core.StateCategory{}
+	for _, c := range core.StateCategories() {
+		got := on.StatusIn(c, "x")
+		if got == "x" {
+			t.Errorf("category %q is painted plainly, so it carries no meaning", c)
+		}
+		if other, clash := painted[got]; clash {
+			t.Errorf("categories %q and %q are painted identically as %q", other, c, got)
+		}
+		painted[got] = c
+	}
+	if len(painted) != len(core.StateCategories()) {
+		t.Fatalf("%d categories paint %d distinct styles", len(core.StateCategories()), len(painted))
+	}
+	// A category this build does not know is painted plainly rather than
+	// guessed at, which is the rule a user-defined workflow depends on.
+	if got := on.StatusIn(core.StateCategory("invented"), "x"); got != "x" {
+		t.Errorf("an unknown category was painted %q", got)
+	}
+	// With colour off, every category writes the text and nothing else.
+	off := Painter{}
+	for _, c := range core.StateCategories() {
+		if got := off.StatusIn(c, "x"); got != "x" {
+			t.Errorf("category %q wrote %q with colour off", c, got)
+		}
+	}
+}
+
+// TestTheTerminalAndTheBoardAgreeOnEveryCategorysParameter is the parity the
+// comment over the board's colour table claims and nothing asserted. Those
+// colours are written as the parameters below minus the 30/90 offset, so the
+// two surfaces can only drift while this goes unchecked.
+func TestTheTerminalAndTheBoardAgreeOnEveryCategorysParameter(t *testing.T) {
+	want := map[core.StateCategory]string{
+		core.CategoryTodo:       "33",
+		core.CategoryInProgress: "94",
+		core.CategoryBlocked:    "31",
+		core.CategoryWaiting:    "35",
+		core.CategoryDone:       "32",
+		core.CategoryCancelled:  "90",
+	}
+	if len(want) != len(core.StateCategories()) {
+		t.Fatalf("the table names %d categories for a vocabulary of %d",
+			len(want), len(core.StateCategories()))
+	}
+	on := Painter{on: true}
+	for _, c := range core.StateCategories() {
+		param, ok := want[c]
+		if !ok {
+			t.Fatalf("category %q has no parameter pinned", c)
+		}
+		if got := on.StatusIn(c, "x"); got != "\x1b["+param+"mx\x1b[0m" {
+			t.Errorf("category %q paints %q, want parameter %s", c, got, param)
 		}
 	}
 }

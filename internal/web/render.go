@@ -166,6 +166,7 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"due":             dueState,
 		"expiredAgo":      expiredAgo,
 		"category":        categoryLabel,
+		"categoryClass":   categoryClass,
 	}
 }
 
@@ -756,7 +757,10 @@ func expiredAgo(t core.Task) string {
 var categoryLabels = map[core.StateCategory]string{
 	core.CategoryTodo:       "To do",
 	core.CategoryInProgress: "In progress",
+	core.CategoryBlocked:    "Blocked",
+	core.CategoryWaiting:    "Waiting",
 	core.CategoryDone:       "Done",
+	core.CategoryCancelled:  "Cancelled",
 }
 
 // categoryLabel renders one state category for a reader, falling back to the
@@ -767,6 +771,17 @@ func categoryLabel(c core.StateCategory) string {
 		return label
 	}
 	return string(c)
+}
+
+// categoryClass renders one state category as a css class suffix, so the
+// browser colours a category the same way the terminal does. A category this
+// build does not know carries no suffix and so renders in the ordinary text
+// colour, which is the rule every other surface follows.
+func categoryClass(c core.StateCategory) string {
+	if _, ok := categoryLabels[c]; !ok {
+		return ""
+	}
+	return "cat-" + slug(string(c))
 }
 
 // humanDuration defers to the type, which is where the rendering lives so the
