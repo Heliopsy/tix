@@ -187,8 +187,11 @@ type ClaimTx interface {
 	ReleaseLease(ctx context.Context, taskID, token string) (bool, error)
 	// ExpiredLeases returns tasks whose lease has passed, for the sweeper.
 	ExpiredLeases(ctx context.Context, now time.Time, limit int) ([]core.Task, error)
-	// ClearClaim drops an expired claim and records that it expired.
-	ClearClaim(ctx context.Context, in ExpireClaimRow) error
+	// ClearClaim drops an expired claim and records that it expired. It
+	// reports false when the row no longer carries the lapsed lease it was
+	// asked to clear, which is a task another worker has legitimately taken
+	// since, not a missing task.
+	ClearClaim(ctx context.Context, in ExpireClaimRow) (bool, error)
 }
 
 // ExpireClaimRow is the input to clearing a lapsed claim. The holder and the
@@ -211,14 +214,26 @@ type ClaimRow struct {
 
 // ClaimNextRow selects which task to claim.
 type ClaimNextRow struct {
-	ProjectIDs     []string
-	Tags           []string
-	Statuses       []string
-	TerminalStates []string
-	ActorID        string
-	Now            time.Time
-	Until          time.Time
-	LeaseToken     string
+	ProjectIDs []string
+	Tags       []string
+	Statuses   []string
+	// Terminal names the finished states of every workflow a judged row may
+	// belong to. A dependency may live in any project under any workflow, so
+	// the query resolves each row's own workflow rather than matching a state
+	// name against a union.
+	Terminal   []WorkflowTerminal
+	ActorID    string
+	Now        time.Time
+	Until      time.Time
+	LeaseToken string
+}
+
+// WorkflowTerminal pairs a workflow with the states that finish work under it.
+// Terminal is a property of a workflow, not of a state name: the same name may
+// finish work in one workflow and be a waypoint in another.
+type WorkflowTerminal struct {
+	WorkflowID string
+	States     []string
 }
 
 // AuthTx covers actors, users, sessions and tokens.

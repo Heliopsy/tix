@@ -43,11 +43,11 @@ func (t *tx) ClaimNextTask(ctx context.Context, in store.ClaimNextRow) (string, 
 	inner := t.builder("tasks").
 		Select("tasks.id").
 		Where("tasks.deleted_at IS NULL").
-		Where(unclaimedPredicate, now).
-		Where("NOT EXISTS "+blockedByDependency(in.TerminalStates), terminalArgs(in.TerminalStates)...)
-	if len(in.TerminalStates) > 0 {
-		inner.Where(notTerminalPredicate(in.TerminalStates), terminalArgs(in.TerminalStates)...)
-	}
+		Where(unclaimedPredicate, now)
+	blocked, blockedArgs := blockedByDependency(in.Terminal)
+	inner.Where("NOT EXISTS "+blocked, blockedArgs...)
+	finished, finishedArgs := terminalPredicate("tasks.status", "tasks.project_id", in.Terminal)
+	inner.Where("NOT "+finished, finishedArgs...)
 	if len(in.ProjectIDs) > 0 {
 		inner.WhereIn("tasks.project_id", in.ProjectIDs)
 	}
@@ -103,33 +103,39 @@ func (t *tx) ClaimNextTask(ctx context.Context, in store.ClaimNextRow) (string, 
 	return taskID, true, nil
 }
 
-func terminalArgs(terminal []string) []any {
-	out := make([]any, 0, len(terminal))
-	for _, s := range terminal {
-		out = append(out, s)
+// terminalPredicate renders "this row's status finishes work under the workflow
+// that governs its project". The workflow is resolved from the row rather than
+// assumed, because a state name that is terminal in one workflow is a waypoint
+// in the next, and the rows this judges span every project in the tenant.
+func terminalPredicate(status, projectID string, terminal []store.WorkflowTerminal) (string, []any) {
+	parts := make([]string, 0, len(terminal))
+	args := make([]any, 0, len(terminal)*2)
+	for _, wf := range terminal {
+		if len(wf.States) == 0 {
+			continue
+		}
+		marks := strings.TrimSuffix(strings.Repeat("?, ", len(wf.States)), ", ")
+		parts = append(parts, "(wp.workflow_id = ? AND "+status+" IN ("+marks+"))")
+		args = append(args, wf.WorkflowID)
+		for _, state := range wf.States {
+			args = append(args, state)
+		}
 	}
-	return out
-}
-
-// notTerminalPredicate renders the predicate excluding a task that is already
-// in one of the workflow's terminal states. Finished work is not queue work.
-func notTerminalPredicate(terminal []string) string {
-	marks := strings.TrimSuffix(strings.Repeat("?, ", len(terminal)), ", ")
-	return "tasks.status NOT IN (" + marks + ")"
+	if len(parts) == 0 {
+		return "(1 = 0)", nil
+	}
+	return "(EXISTS (SELECT 1 FROM projects wp WHERE wp.id = " + projectID +
+		" AND wp.tenant_id = tasks.tenant_id AND (" + strings.Join(parts, " OR ") + ")))", args
 }
 
 // blockedByDependency renders the predicate matching an unfinished dependency.
 // With no terminal states named, every dependency counts as unfinished.
-func blockedByDependency(terminal []string) string {
-	cond := "dep.deleted_at IS NULL"
-	if len(terminal) > 0 {
-		marks := strings.TrimSuffix(strings.Repeat("?, ", len(terminal)), ", ")
-		cond += " AND dep.status NOT IN (" + marks + ")"
-	}
+func blockedByDependency(terminal []store.WorkflowTerminal) (string, []any) {
+	cond, args := terminalPredicate("dep.status", "dep.project_id", terminal)
 	return `(SELECT 1 FROM task_deps d JOIN tasks dep
    ON dep.id = d.depends_on AND dep.tenant_id = d.tenant_id
  WHERE d.tenant_id = tasks.tenant_id AND d.task_id = tasks.id
-   AND ` + cond + `)`
+   AND dep.deleted_at IS NULL AND NOT ` + cond + `)`, args
 }
 
 // RenewLease extends a lease only while the caller's token is the current one.
@@ -174,12 +180,15 @@ func (t *tx) ReleaseLease(ctx context.Context, taskID, token string) (bool, erro
 	return n > 0, nil
 }
 
-// ClearClaim drops a claim regardless of its token, for the sweeper, and
+// ClearClaim drops a lapsed claim regardless of its token, for the sweeper, and
 // records who held it and when it lapsed in the same statement so the evidence
-// cannot disagree with the lease it describes.
-func (t *tx) ClearClaim(ctx context.Context, in store.ExpireClaimRow) error {
+// cannot disagree with the lease it describes. The lapse is re-asserted inside
+// the statement, so a lease taken while the sweeper was reading survives.
+func (t *tx) ClearClaim(ctx context.Context, in store.ExpireClaimRow) (bool, error) {
 	b := t.builder("tasks").
 		Where("tasks.id = ?", in.TaskID).
+		Where("tasks.lease_expires_at IS NOT NULL").
+		Where("tasks.lease_expires_at <= ?", sqlb.TimeText(in.At)).
 		Set("claimed_by_actor_id", nil).
 		Set("claimed_at", nil).
 		Set("lease_expires_at", nil).
@@ -189,10 +198,25 @@ func (t *tx) ClearClaim(ctx context.Context, in store.ExpireClaimRow) error {
 		Set("updated_at", t.now())
 	n, err := t.execUpdate(ctx, b, "clearing the claim on task %q", in.TaskID)
 	if err != nil {
+		return false, err
+	}
+	if n > 0 {
+		return true, nil
+	}
+	return false, t.claimStillThere(ctx, in.TaskID)
+}
+
+// claimStillThere separates the two ways the conditional clear matches nothing:
+// a task this tenant does not have, and a task whose lease is no longer the
+// lapsed one the sweeper read.
+func (t *tx) claimStillThere(ctx context.Context, taskID string) error {
+	b := t.builder("tasks").Where("tasks.id = ?", taskID)
+	n, err := t.count(ctx, b, "checking the claim on task %q", taskID)
+	if err != nil {
 		return err
 	}
 	if n == 0 {
-		return core.NotFound("task %q", in.TaskID)
+		return core.NotFound("task %q", taskID)
 	}
 	return nil
 }

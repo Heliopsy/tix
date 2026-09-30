@@ -356,3 +356,56 @@ func TestTenantSettingDoesNotLeakOntoTheNextTransaction(t *testing.T) {
 		t.Fatalf("tenant setting survived the transaction: %q", leaked.String)
 	}
 }
+
+// secondProject adds a project under a workflow of its own, whose terminal
+// state is the one named. Its "done" is deliberately a waypoint: a fixture
+// with one workflow cannot tell "terminal under this row's workflow" apart
+// from "terminal under some workflow", which is how the claim queue came to
+// judge a state name instead of a workflow.
+func (f fixture) secondProject(t *testing.T, key, terminal string) core.Project {
+	t.Helper()
+	ctx := context.Background()
+	wf := core.Workflow{
+		Key:  key,
+		Name: key,
+		Definition: core.WorkflowDefinition{
+			Initial: "todo",
+			States: []core.State{
+				{Key: "todo", Label: "To do"},
+				{Key: "done", Label: "Done"},
+				{Key: terminal, Label: terminal, Terminal: true},
+			},
+			Transitions: []core.Transition{{From: "todo", To: "done"}, {From: "done", To: terminal}},
+		},
+	}
+	project := core.Project{Key: key, Name: key}
+	if err := f.store.Update(ctx, f.scope, func(tx store.Tx) error {
+		if err := tx.PutWorkflow(ctx, &wf); err != nil {
+			return err
+		}
+		project.WorkflowID = wf.ID
+		return tx.CreateProject(ctx, &project)
+	}); err != nil {
+		t.Fatalf("seeding project %q: %v", key, err)
+	}
+	return project
+}
+
+// newTaskIn seeds a task in a named project rather than the fixture's own.
+func (f fixture) newTaskIn(t *testing.T, project core.Project, title string, priority core.Priority) core.Task {
+	t.Helper()
+	ctx := context.Background()
+	task := core.Task{
+		ProjectID:      project.ID,
+		Title:          title,
+		Status:         "todo",
+		Priority:       priority,
+		CreatorActorID: f.actor.ID,
+	}
+	if err := f.store.Update(ctx, f.scope, func(tx store.Tx) error {
+		return tx.CreateTask(ctx, &task)
+	}); err != nil {
+		t.Fatalf("creating task %q: %v", title, err)
+	}
+	return task
+}

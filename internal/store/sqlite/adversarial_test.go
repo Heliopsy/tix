@@ -210,8 +210,8 @@ func TestClaimNextNeverDoubleClaimsAcrossStores(t *testing.T) {
 			_ = s.Update(ctx, f.scope, func(tx store.Tx) error {
 				id, ok, err := tx.ClaimNextTask(ctx, store.ClaimNextRow{
 					ActorID: f.actor.ID, Now: now, Until: now.Add(15 * time.Minute),
-					LeaseToken:     fmt.Sprintf("tok-%d", i),
-					TerminalStates: []string{"done"},
+					LeaseToken: fmt.Sprintf("tok-%d", i),
+					Terminal:   terminalOf(f.workflow.ID, "done"),
 				})
 				if err != nil {
 					return err

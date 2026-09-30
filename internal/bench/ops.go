@@ -100,12 +100,12 @@ func (f *Fixture) ClaimNext(ctx context.Context, token string) (bool, error) {
 	claimed := false
 	err := f.Store.Update(ctx, t.Scope, func(tx store.Tx) error {
 		id, ok, err := tx.ClaimNextTask(ctx, store.ClaimNextRow{
-			Statuses:       []string{"todo"},
-			TerminalStates: TerminalStatuses,
-			ActorID:        t.Actor.ID,
-			Now:            now,
-			Until:          now.Add(time.Minute),
-			LeaseToken:     token,
+			Statuses:   []string{"todo"},
+			Terminal:   []store.WorkflowTerminal{{WorkflowID: t.Workflow.ID, States: TerminalStatuses}},
+			ActorID:    t.Actor.ID,
+			Now:        now,
+			Until:      now.Add(time.Minute),
+			LeaseToken: token,
 		})
 		if err != nil {
 			return err

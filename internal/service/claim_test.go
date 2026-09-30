@@ -1185,3 +1185,253 @@ func TestClaimNextRejectsAStatusNoWorkflowDefines(t *testing.T) {
 		t.Fatal("no claim, want the one claimable task")
 	}
 }
+
+// opsWorkflowDefinition disagrees with the agents workflow about what a state
+// name means: here "done" is a waypoint on the way to "shipped", and only
+// "shipped" finishes work. Every guard below needs two workflows that disagree,
+// because a fixture with one workflow cannot tell "terminal in this row's
+// workflow" apart from "terminal in some workflow".
+func opsWorkflowDefinition() core.WorkflowDefinition {
+	return core.WorkflowDefinition{
+		Initial: "todo",
+		States: []core.State{
+			{Key: "todo"},
+			{Key: "doing"},
+			{Key: "done"},
+			{Key: "shipped", Terminal: true},
+		},
+		Transitions: []core.Transition{
+			{From: "todo", To: "doing"},
+			{From: "doing", To: "done"},
+			{From: "done", To: "shipped"},
+		},
+	}
+}
+
+// secondProject adds a project under a workflow of its own.
+func (f *claimFixture) secondProject(t *testing.T) *core.Project {
+	t.Helper()
+	ctx := context.Background()
+	wf := core.Workflow{Key: "ops", Name: "Ops", Definition: opsWorkflowDefinition()}
+	project := core.Project{Key: "ops", Name: "Ops"}
+	if err := f.local.store.Update(ctx, f.scope, func(tx store.Tx) error {
+		if err := tx.PutWorkflow(ctx, &wf); err != nil {
+			return err
+		}
+		project.WorkflowID = wf.ID
+		return tx.CreateProject(ctx, &project)
+	}); err != nil {
+		t.Fatalf("seeding the second project: %v", err)
+	}
+	return &project
+}
+
+// seedTaskIn seeds a task in a named project rather than the fixture's own.
+func (f *claimFixture) seedTaskIn(t *testing.T, project *core.Project, title, status string, priority core.Priority) *core.Task {
+	t.Helper()
+	ctx := context.Background()
+	task := core.Task{
+		ProjectID:      project.ID,
+		Title:          title,
+		Status:         status,
+		Priority:       priority,
+		CreatorActorID: f.actor.ID,
+	}
+	if err := f.local.store.Update(ctx, f.scope, func(tx store.Tx) error {
+		return tx.CreateTask(ctx, &task)
+	}); err != nil {
+		t.Fatalf("seeding task %q: %v", title, err)
+	}
+	return &task
+}
+
+// TestClaimNextJudgesADependencyByItsOwnWorkflow pins the dependency gate to the
+// workflow governing the dependency, not the one governing the task waiting on
+// it. "done" finishes work in the agents workflow and does not in the ops
+// workflow, so a union of state names answers both cases wrongly: it hands out
+// work whose input is unfinished, and it withholds work whose input is done.
+func TestClaimNextJudgesADependencyByItsOwnWorkflow(t *testing.T) {
+	cases := []struct {
+		name         string
+		depStatus    string
+		wantClaimble bool
+	}{
+		{"waypoint in the dependency's own workflow", "done", false},
+		{"terminal in the dependency's own workflow", "shipped", true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newClaimFixture(t, 0)
+			ops := f.secondProject(t)
+			blocker := f.seedTaskIn(t, ops, "upstream", tc.depStatus, core.PriorityNormal)
+			blocked := f.seedTask(t, "downstream", "todo", core.PriorityHighest)
+			f.dependOn(t, blocked, blocker)
+
+			claimed, err := f.local.ClaimNext(f.ctx, core.ClaimNextInput{ProjectRefs: []string{f.project.Key}})
+			if !tc.wantClaimble {
+				if !core.IsKind(err, core.KindNoTaskAvailable) {
+					t.Fatalf("claim next over a task whose dependency sits in %q = %v, want no task available",
+						tc.depStatus, err)
+				}
+				if got := f.reload(t, blocked); got.ClaimedByActorID != "" {
+					t.Fatalf("a task blocked by unfinished work was handed out: %+v", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("claim next over a task whose dependency is finished: %v", err)
+			}
+			if claimed.Task.ID != blocked.ID {
+				t.Fatalf("claim next returned %q, want the unblocked task", claimed.Task.Title)
+			}
+		})
+	}
+}
+
+// TestClaimNextOffersATaskTerminalOnlyInAnotherWorkflow covers the unscoped
+// queue, which is the one an agent actually runs. Judging the task's own status
+// against every workflow's terminal names hides a ready task whose status is
+// terminal somewhere else in the tenant, and hides it only when no project
+// narrows the queue.
+func TestClaimNextOffersATaskTerminalOnlyInAnotherWorkflow(t *testing.T) {
+	f := newClaimFixture(t, 0)
+	ops := f.secondProject(t)
+	ready := f.seedTaskIn(t, ops, "ready in ops", "done", core.PriorityNormal)
+
+	claimed, err := f.local.ClaimNext(f.ctx, core.ClaimNextInput{})
+	if err != nil {
+		t.Fatalf("unscoped claim next: %v", err)
+	}
+	if claimed.Task.ID != ready.ID {
+		t.Fatalf("claim next returned %q, want the task whose status only another workflow calls finished",
+			claimed.Task.Title)
+	}
+}
+
+// TestClaimNextStillSkipsATaskTerminalInItsOwnWorkflow is the other half: the
+// same state name, in the project whose workflow does call it finished, stays
+// out of the queue. Without it a fix that simply stopped excluding anything
+// would pass the guard above.
+func TestClaimNextStillSkipsATaskTerminalInItsOwnWorkflow(t *testing.T) {
+	f := newClaimFixture(t, 0)
+	ops := f.secondProject(t)
+	finished := f.seedTask(t, "finished in infra", "done", core.PriorityHighest)
+	shipped := f.seedTaskIn(t, ops, "shipped in ops", "shipped", core.PriorityHighest)
+
+	if _, err := f.local.ClaimNext(f.ctx, core.ClaimNextInput{}); !core.IsKind(err, core.KindNoTaskAvailable) {
+		t.Fatalf("claim next over two finished tasks = %v, want no task available", err)
+	}
+	if got := f.reload(t, finished); got.ClaimedByActorID != "" {
+		t.Fatalf("a task terminal in its own workflow was handed out: %+v", got)
+	}
+	if got := f.reload(t, shipped); got.ClaimedByActorID != "" {
+		t.Fatalf("a task terminal in its own workflow was handed out: %+v", got)
+	}
+}
+
+// reclaimedStore is a real store whose ClearClaim reports that the row no
+// longer carries the lapsed lease the sweeper read. That is what a PostgreSQL
+// sweeper meets when a worker claims the task between the listing and the
+// clear; SQLite takes the writer lock up front, so the interleave cannot be
+// produced here and the branch would otherwise go unexercised. The database
+// underneath is the test's own SQLite file, not a mock.
+type reclaimedStore struct{ store.Store }
+
+func (s reclaimedStore) Update(ctx context.Context, scope core.TenantScope, fn func(store.Tx) error) error {
+	return s.Store.Update(ctx, scope, func(tx store.Tx) error { return fn(reclaimedTx{tx}) })
+}
+
+type reclaimedTx struct{ store.Tx }
+
+func (reclaimedTx) ClearClaim(context.Context, store.ExpireClaimRow) (bool, error) { return false, nil }
+
+// TestSweepSkipsATaskReclaimedWhileItWasReading holds the sweeper to the one
+// thing it may do to a row it no longer owns: nothing. It must not count the
+// task as swept, must not write the expiry evidence, and must not write back
+// the snapshot it listed.
+func TestSweepSkipsATaskReclaimedWhileItWasReading(t *testing.T) {
+	f := newClaimFixture(t, 0)
+	task := f.seedTask(t, "contended", "doing", core.PriorityNormal)
+	mustClaim(t, f, task)
+	f.clock.Advance(lease.DefaultTTL + time.Minute)
+
+	f.local.store = reclaimedStore{f.local.store}
+	swept, err := f.local.SweepLeases(f.ctx, 10)
+	if err != nil {
+		t.Fatalf("sweeping: %v", err)
+	}
+	if swept != 0 {
+		t.Fatalf("sweep counted %d tasks, want none: the row was not its to clear", swept)
+	}
+	got := f.reload(t, task)
+	if got.Status != "doing" {
+		t.Errorf("status = %q, want the sweep to have left it alone", got.Status)
+	}
+	if got.LeaseExpiredAt != nil {
+		t.Errorf("expiry evidence = %v, want none written for a row the sweep did not clear", got.LeaseExpiredAt)
+	}
+	if events := f.events(t, core.EventTaskLeaseExpired); len(events) != 0 {
+		t.Errorf("lease-expired events = %d, want none", len(events))
+	}
+}
+
+// staleListingStore hands the sweeper the row as it stood when the listing ran
+// rather than as it stands now. That is what a PostgreSQL sweeper reads:
+// ExpiredLeases takes no row locks, so an edit can commit between the listing
+// and the write. SQLite cannot produce the interleave, so the staleness is
+// injected here; everything the sweeper then writes goes to the real database.
+type staleListingStore struct {
+	store.Store
+	title string
+}
+
+func (s staleListingStore) Update(ctx context.Context, scope core.TenantScope, fn func(store.Tx) error) error {
+	return s.Store.Update(ctx, scope, func(tx store.Tx) error {
+		return fn(staleListingTx{Tx: tx, title: s.title})
+	})
+}
+
+type staleListingTx struct {
+	store.Tx
+	title string
+}
+
+func (t staleListingTx) ExpiredLeases(ctx context.Context, now time.Time, limit int) ([]core.Task, error) {
+	out, err := t.Tx.ExpiredLeases(ctx, now, limit)
+	for i := range out {
+		out[i].Title = t.title
+	}
+	return out, err
+}
+
+// TestSweepDoesNotWriteBackItsOwnStaleSnapshot holds the revert to the row as
+// it is, not as the listing saw it. The revert rewrites title, body, status,
+// priority, assignee and the timestamps in one statement with no version
+// predicate, so building it from the listing's snapshot silently undoes every
+// edit committed since.
+func TestSweepDoesNotWriteBackItsOwnStaleSnapshot(t *testing.T) {
+	f := newClaimFixture(t, 0)
+	task := f.seedTask(t, "edited title", "doing", core.PriorityNormal)
+	mustClaim(t, f, task)
+	f.clock.Advance(lease.DefaultTTL + time.Minute)
+
+	f.local.store = staleListingStore{Store: f.local.store, title: "title as the listing saw it"}
+	swept, err := f.local.SweepLeases(f.ctx, 10)
+	if err != nil {
+		t.Fatalf("sweeping: %v", err)
+	}
+	if swept != 1 {
+		t.Fatalf("sweep counted %d tasks, want one", swept)
+	}
+	got := f.reload(t, task)
+	if got.Title != "edited title" {
+		t.Errorf("title = %q, want the sweep to have left an edit it never saw alone", got.Title)
+	}
+	if got.Status != "todo" {
+		t.Errorf("status = %q, want the workflow's revert still applied", got.Status)
+	}
+	if got.ClaimedByActorID != "" {
+		t.Errorf("claim was not cleared: %+v", got)
+	}
+}

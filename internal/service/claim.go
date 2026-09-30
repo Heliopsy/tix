@@ -111,7 +111,7 @@ func (l *Local) claimNextOnce(ctx context.Context, m *mutation, actor *core.Acto
 	if err != nil {
 		return nil, err
 	}
-	terminal, err := claimTerminalStates(ctx, m.tx, projectIDs)
+	terminal, err := claimTerminal(ctx, m.tx)
 	if err != nil {
 		return nil, err
 	}
@@ -130,14 +130,14 @@ func (l *Local) claimNextOnce(ctx context.Context, m *mutation, actor *core.Acto
 
 	until := m.now.Add(ttl)
 	taskID, ok, err := m.tx.ClaimNextTask(ctx, store.ClaimNextRow{
-		ProjectIDs:     projectIDs,
-		Tags:           in.Tags,
-		Statuses:       statuses,
-		TerminalStates: terminal,
-		ActorID:        holder,
-		Now:            m.now,
-		Until:          until,
-		LeaseToken:     token,
+		ProjectIDs: projectIDs,
+		Tags:       in.Tags,
+		Statuses:   statuses,
+		Terminal:   terminal,
+		ActorID:    holder,
+		Now:        m.now,
+		Until:      until,
+		LeaseToken: token,
 	})
 	if err != nil || !ok {
 		return nil, err
@@ -341,10 +341,13 @@ func (l *Local) SweepLeases(ctx context.Context, limit int) (int, error) {
 		}
 		workflows := make(map[string]*core.Workflow, 2)
 		for i := range expired {
-			if err := l.sweepOne(ctx, m, expired[i], workflows); err != nil {
+			cleared, err := l.sweepOne(ctx, m, expired[i], workflows)
+			if err != nil {
 				return err
 			}
-			swept++
+			if cleared {
+				swept++
+			}
 		}
 		return nil
 	})
@@ -355,28 +358,43 @@ func (l *Local) SweepLeases(ctx context.Context, limit int) (int, error) {
 }
 
 // sweepOne clears one expired claim, leaves the evidence that it expired, and
-// reverts the status when the workflow's state asks for it.
+// reverts the status when the workflow's state asks for it. It reports false,
+// having written nothing, for a row whose lease is no longer the lapsed one the
+// listing read: another worker holds that task now.
 //
 // The evidence is what survives the clearing. Once the lease columns are null
 // the row is indistinguishable from one nobody ever claimed, and the fact worth
 // keeping is precisely the opposite: somebody took this task and stopped
 // answering. That is how a repeatedly dying holder is spotted.
-func (l *Local) sweepOne(ctx context.Context, m *mutation, before core.Task, workflows map[string]*core.Workflow) error {
-	if err := m.tx.ClearClaim(ctx, store.ExpireClaimRow{
+func (l *Local) sweepOne(ctx context.Context, m *mutation, before core.Task, workflows map[string]*core.Workflow) (bool, error) {
+	cleared, err := m.tx.ClearClaim(ctx, store.ExpireClaimRow{
 		TaskID:   before.ID,
 		HolderID: before.ClaimedByActorID,
 		At:       m.now,
-	}); err != nil {
-		return err
+	})
+	if err != nil {
+		return false, err
+	}
+	if !cleared {
+		return false, nil
 	}
 
-	wf, ok := workflows[before.ProjectID]
+	// The conditional clear leaves this transaction holding the row's write
+	// lock, so what is read back here is current and stays current until the
+	// commit. Reverting from the listing's snapshot instead would write back
+	// every field as it stood before any edit committed since.
+	current, err := m.tx.GetTask(ctx, core.TaskRef{ID: before.ID})
+	if err != nil {
+		return false, err
+	}
+
+	wf, ok := workflows[current.ProjectID]
 	if !ok {
-		loaded, err := claimWorkflow(ctx, m.tx, before.ProjectID)
+		loaded, err := claimWorkflow(ctx, m.tx, current.ProjectID)
 		if err != nil {
-			return err
+			return false, err
 		}
-		workflows[before.ProjectID] = loaded
+		workflows[current.ProjectID] = loaded
 		wf = loaded
 	}
 
@@ -384,17 +402,17 @@ func (l *Local) sweepOne(ctx context.Context, m *mutation, before core.Task, wor
 	if holder, err := lookupActor(ctx, m.tx, before.ClaimedByActorID); err == nil {
 		payload["previous_holder_handle"] = holder.Handle
 	}
-	if state, found := wf.Definition.State(before.Status); found && state.RevertOnLeaseExpiry {
+	if state, found := wf.Definition.State(current.Status); found && state.RevertOnLeaseExpiry {
 		to := state.RevertTo
 		if to == "" {
 			to = wf.Definition.Initial
 		}
-		if to != before.Status && wf.Definition.HasState(to) {
-			reverted := before
+		if to != current.Status && wf.Definition.HasState(to) {
+			reverted := *current
 			reverted.Status = to
 			reverted.StartedAt = nil
 			if err := m.tx.UpdateTask(ctx, &reverted); err != nil {
-				return err
+				return false, err
 			}
 			payload["reverted_to"] = to
 		}
@@ -402,9 +420,9 @@ func (l *Local) sweepOne(ctx context.Context, m *mutation, before core.Task, wor
 
 	after, err := m.tx.GetTask(ctx, core.TaskRef{ID: before.ID})
 	if err != nil {
-		return err
+		return false, err
 	}
-	return m.Record("task.lease_expire", core.EventTaskLeaseExpired, "task", before.ID, before.ProjectID,
+	return true, m.Record("task.lease_expire", core.EventTaskLeaseExpired, "task", before.ID, before.ProjectID,
 		before, after, payload)
 }
 
@@ -458,6 +476,12 @@ func (l *Local) claimTarget(ctx context.Context, tx store.Tx, ref core.TaskRef) 
 func (l *Local) claimScope(ctx context.Context, tx store.Tx, actor *core.Actor, refs []string) ([]string, error) {
 	if len(refs) == 0 {
 		if actor.ScopedToProject() {
+			// A scope naming a project that is not there is a not-found, not
+			// an empty queue: the queue is empty for a reason the caller can
+			// do nothing about, and saying so is how a bad binding is found.
+			if _, err := tx.GetProject(ctx, actor.ProjectID); err != nil {
+				return nil, err
+			}
 			return []string{actor.ProjectID}, nil
 		}
 		return nil, nil
@@ -480,40 +504,25 @@ func (l *Local) claimScope(ctx context.Context, tx store.Tx, actor *core.Actor, 
 	return ids, nil
 }
 
-// claimTerminalStates returns the states that satisfy a dependency across every
-// workflow a queue claim can reach.
-func claimTerminalStates(ctx context.Context, tx store.Tx, projectIDs []string) ([]string, error) {
-	workflows, err := claimWorkflows(ctx, tx, projectIDs)
+// claimTerminal names, per workflow, the states that finish work under it.
+//
+// Every workflow in the tenant is listed rather than only those the filter
+// reaches, because terminal is a property of a workflow and not of a state
+// name: the queue judges a task by its own project's workflow, and a
+// dependency by the workflow of whatever project the dependency lives in,
+// which the filter does not constrain.
+func claimTerminal(ctx context.Context, tx store.Tx) ([]store.WorkflowTerminal, error) {
+	workflows, err := tx.ListWorkflows(ctx)
 	if err != nil {
 		return nil, err
 	}
-	seen := make(map[string]bool, 4)
-	out := make([]string, 0, 4)
+	out := make([]store.WorkflowTerminal, 0, len(workflows))
 	for _, wf := range workflows {
-		for _, state := range wf.Definition.TerminalStates() {
-			if seen[state] {
-				continue
-			}
-			seen[state] = true
-			out = append(out, state)
+		states := wf.Definition.TerminalStates()
+		if len(states) == 0 {
+			continue
 		}
-	}
-	return out, nil
-}
-
-// claimWorkflows returns the workflows behind the named projects, or every
-// workflow in the tenant when no project narrows the queue.
-func claimWorkflows(ctx context.Context, tx store.Tx, projectIDs []string) ([]core.Workflow, error) {
-	if len(projectIDs) == 0 {
-		return tx.ListWorkflows(ctx)
-	}
-	out := make([]core.Workflow, 0, len(projectIDs))
-	for _, id := range projectIDs {
-		wf, err := claimWorkflow(ctx, tx, id)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, *wf)
+		out = append(out, store.WorkflowTerminal{WorkflowID: wf.ID, States: states})
 	}
 	return out, nil
 }
