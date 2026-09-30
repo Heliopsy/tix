@@ -555,7 +555,10 @@ test-postgres: pg-up
     set -euo pipefail
     export TIX_TEST_ENV_LOG=$(mktemp); trap 'rm -f "$TIX_TEST_ENV_LOG"' EXIT
     set +e
-    TIX_TEST_POSTGRES_DSN='{{pg_dsn}}' go test ./... -race -shuffle=on
+    # -timeout 40m for the same reason `just test` carries it: under load
+    # internal/service, cmd and internal/demo each run past go test's 10 minute
+    # default and the gate reports a panic that says nothing about the code.
+    TIX_TEST_POSTGRES_DSN='{{pg_dsn}}' go test ./... -race -shuffle=on -timeout 40m
     rc=$?
     set -e
     just _env-summary "$TIX_TEST_ENV_LOG"
