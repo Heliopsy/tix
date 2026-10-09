@@ -134,3 +134,53 @@ func intField(r *http.Request, name string) (int, error) {
 	}
 	return n, nil
 }
+
+// fieldErrors names, control by control, why a submission was refused, so a
+// screen can re-render itself with each message beside the field it is about
+// instead of replacing the page with an error screen that loses everything the
+// reader typed. A refusal naming no field is recorded under the empty key and
+// belongs above the form.
+//
+// The attribution comes from the refusal itself (core.FieldOf), not from
+// matching message text here, so the rule and the message stay in one place:
+// internal/service and internal/core.
+type fieldErrors map[string]string
+
+// On returns one control's refusal as the "field-error" partial renders it,
+// and nil when that control was not what the refusal was about. The empty name
+// is the submission as a whole.
+func (e fieldErrors) On(name string) *fieldError {
+	message, ok := e[name]
+	if !ok {
+		return nil
+	}
+	return &fieldError{Field: name, Message: message}
+}
+
+// fieldError is one refusal as a template renders it.
+type fieldError struct {
+	Field   string
+	Message string
+}
+
+// ID is what the control's aria-describedby points at.
+func (f fieldError) ID() string { return f.Field + "-error" }
+
+// refusal records err against the field it names.
+func refusal(err error) fieldErrors {
+	return fieldErrors{core.FieldOf(err): safeMessage(err, core.KindOf(err))}
+}
+
+// correctable reports whether a refusal is one the reader can act on by
+// changing what they submitted. Those are re-rendered in place; anything else
+// -- a lost session, a scope they do not hold, a store that failed -- is not
+// about the form and goes to the error screen, which is the only thing that
+// can explain it.
+func correctable(err error) bool {
+	switch core.KindOf(err) {
+	case core.KindInvalid, core.KindConflict, core.KindPrecondition:
+		return true
+	default:
+		return false
+	}
+}

@@ -102,6 +102,21 @@ func Upstream(format string, args ...any) *Error { return newf(KindUpstream, for
 // something they were handed rather than from where they are.
 func Errorf(kind Kind, format string, args ...any) *Error { return newf(kind, format, args...) }
 
+// DetailField is the detail key naming the submitted field a refusal is about,
+// so a form can render the message beside the control rather than on an error
+// page that loses everything else the reader typed.
+const DetailField = "field"
+
+// FieldOf reports which field a refusal names, empty when it names none.
+func FieldOf(err error) string {
+	var domain *Error
+	if !errors.As(err, &domain) {
+		return ""
+	}
+	name, _ := domain.Details[DetailField].(string)
+	return name
+}
+
 // WithDetail attaches a machine-readable detail. Never use it for secrets.
 func (e *Error) WithDetail(key string, value any) *Error {
 	if e.Details == nil {

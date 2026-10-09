@@ -389,6 +389,19 @@ func (t *tx) ListTokens(ctx context.Context, actorID string) ([]core.APIToken, e
 	return out, mapRowsErr(rows, "listing api tokens")
 }
 
+// TokenNameInUse reports whether an unrevoked token of this tenant already
+// carries the given name.
+func (t *tx) TokenNameInUse(ctx context.Context, name string) (bool, error) {
+	b := t.builder("api_tokens").
+		Where("name = ?", name).
+		Where("revoked_at IS NULL")
+	n, err := t.count(ctx, b, "checking the name of api token %q", name)
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
 // RevokeToken marks a token unusable from the given instant.
 func (t *tx) RevokeToken(ctx context.Context, tokenID string, at time.Time) error {
 	b := t.builder("api_tokens").

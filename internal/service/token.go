@@ -79,6 +79,9 @@ func (l *Local) CreateToken(ctx context.Context, in core.CreateTokenInput) (*cor
 			in.ProjectID = project.ID
 		}
 		in.ActorID = target.ID
+		if err := checkTokenName(ctx, m.tx, in.Name); err != nil {
+			return err
+		}
 
 		minted, err := auth.MintAPIToken(l.clock, actor.TenantID, in)
 		if err != nil {
@@ -97,6 +100,24 @@ func (l *Local) CreateToken(ctx context.Context, in core.CreateTokenInput) (*cor
 		return nil, err
 	}
 	return out, nil
+}
+
+// checkTokenName refuses a name a live token of this tenant already carries.
+//
+// The rule lives here rather than in the browser so the command line and the
+// HTTP API are held to it too. The check is inside the same transaction as the
+// insert, and a unique index backs it, because two creations racing under read
+// committed would both see the name free.
+func checkTokenName(ctx context.Context, tx store.Tx, name string) error {
+	taken, err := tx.TokenNameInUse(ctx, name)
+	if err != nil {
+		return err
+	}
+	if !taken {
+		return nil
+	}
+	return core.Conflict("a token named %q already exists; revoke it or choose another name", name).
+		WithDetail(core.DetailField, "name")
 }
 
 // scopeStrings renders scopes for an event payload.

@@ -4,7 +4,9 @@ package web
 
 import (
 	"net/http"
+	"slices"
 	"strings"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 )
@@ -441,11 +443,105 @@ func (h *handler) deleteUser(w http.ResponseWriter, r *http.Request) error {
 type tokensView struct {
 	Tokens []core.APIToken
 	Scopes []core.Scope
+	Expiry []tokenExpiry
 	Issued string
+	Form   tokenForm
+	Errors fieldErrors
+}
+
+// tokenExpiry is one option of the form's expiry control.
+//
+// Whole days rather than an instant, because "90 days" is the decision an
+// operator is making and a datetime field makes them do the arithmetic, in a
+// zone neither side has agreed on. The command line already takes an absolute
+// date (tix token create --expires), so both grammars exist and neither
+// surface has to parse the other's.
+type tokenExpiry struct {
+	Key   string
+	Label string
+	// Days is how long the token lasts; zero means it never expires.
+	Days int
+}
+
+// tokenExpiryChoices are the expiries the form offers, and the only values it
+// accepts: a key that is not one of these is refused rather than quietly read
+// as no expiry.
+var tokenExpiryChoices = []tokenExpiry{
+	{Key: "7d", Label: "7 days", Days: 7},
+	{Key: "30d", Label: "30 days", Days: 30},
+	{Key: "90d", Label: "90 days", Days: 90},
+	{Key: "365d", Label: "1 year", Days: 365},
+	{Key: "never", Label: "Never expires", Days: 0},
+}
+
+// defaultTokenExpiry is what the form proposes before anybody chooses.
+//
+// An expiry, not "never". A token is normally handed to something outside the
+// operator's control, and until this control existed every token the browser
+// minted was immortal by omission rather than by anybody's decision, so there
+// is no choice being overridden here. "Never expires" is still one option away
+// for a credential that genuinely needs it.
+const defaultTokenExpiry = "90d"
+
+// tokenForm is what the issue-a-token form holds, so a refused submission
+// comes back with everything the reader entered still in it.
+type tokenForm struct {
+	Name   string
+	Scopes []core.Scope
+	Expiry string
+}
+
+// newTokenForm is the empty form, carrying the proposed expiry.
+func newTokenForm() tokenForm { return tokenForm{Expiry: defaultTokenExpiry} }
+
+// tokenFormOf reads the submission back out of the request.
+func tokenFormOf(r *http.Request) tokenForm {
+	out := tokenForm{Name: field(r, "name"), Expiry: field(r, "expires")}
+	for _, raw := range r.PostForm["scopes"] {
+		if trimmed := strings.TrimSpace(raw); trimmed != "" {
+			out.Scopes = append(out.Scopes, core.Scope(trimmed))
+		}
+	}
+	return out
+}
+
+// Chose reports whether one scope is selected, so a re-rendered control comes
+// back with the same scopes ticked.
+func (f tokenForm) Chose(s core.Scope) bool { return slices.Contains(f.Scopes, s) }
+
+// ChoseExpiry reports whether one expiry option is the selected one.
+func (f tokenForm) ChoseExpiry(key string) bool { return f.Expiry == key }
+
+// expiresAt resolves the chosen expiry against now, returning nil for a token
+// that never expires.
+func (f tokenForm) expiresAt(now time.Time) (*time.Time, error) {
+	key := f.Expiry
+	if key == "" {
+		key = defaultTokenExpiry
+	}
+	for _, choice := range tokenExpiryChoices {
+		if choice.Key != key {
+			continue
+		}
+		if choice.Days == 0 {
+			return nil, nil
+		}
+		at := now.UTC().AddDate(0, 0, choice.Days)
+		return &at, nil
+	}
+	return nil, core.Invalid("%q is not one of the expiry choices", f.Expiry).
+		WithDetail(core.DetailField, "expires")
 }
 
 // showTokens renders the caller's API tokens, and a newly issued value once.
 func (h *handler) showTokens(w http.ResponseWriter, r *http.Request) error {
+	return h.renderTokens(w, r, http.StatusOK, newTokenForm(), nil, issuedToken(w, r))
+}
+
+// renderTokens draws the screen, whether it is being read or being read again
+// after a refusal.
+func (h *handler) renderTokens(w http.ResponseWriter, r *http.Request, status int,
+	form tokenForm, errs fieldErrors, issued string) error {
 	actor, err := core.RequireActor(r.Context())
 	if err != nil {
 		return err
@@ -454,8 +550,23 @@ func (h *handler) showTokens(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return h.render(w, r, "tokens.html", "Tokens", tokensView{
-		Tokens: tokens, Scopes: core.AllScopes, Issued: issuedToken(w, r)})
+	return h.renderStatus(w, r, status, "tokens.html", "Tokens", tokensView{
+		Tokens: tokens, Scopes: core.AllScopes, Expiry: tokenExpiryChoices,
+		Issued: issued, Form: form, Errors: errs})
+}
+
+// refuseToken answers a submission the reader can fix by drawing the screen
+// again, with the message beside the control it is about and every value they
+// entered still in place.
+//
+// No script is involved: this is the response to the ordinary form POST, so it
+// is what a browser with scripting off gets as well. The status is the
+// refusal's own, which htmx swaps in because live.js already makes it do so.
+func (h *handler) refuseToken(w http.ResponseWriter, r *http.Request, form tokenForm, err error) error {
+	if !correctable(err) {
+		return err
+	}
+	return h.renderTokens(w, r, core.KindOf(err).HTTPStatus(), form, refusal(err), "")
 }
 
 // issuedTokenCookie carries a freshly minted token to the screen that shows it
@@ -477,14 +588,15 @@ func issuedToken(w http.ResponseWriter, r *http.Request) string {
 
 // createToken mints an API token and shows its value exactly once.
 func (h *handler) createToken(w http.ResponseWriter, r *http.Request) error {
-	scopes := make([]core.Scope, 0, len(r.PostForm["scopes"]))
-	for _, raw := range r.PostForm["scopes"] {
-		scopes = append(scopes, core.Scope(raw))
+	form := tokenFormOf(r)
+	expiresAt, err := form.expiresAt(time.Now())
+	if err != nil {
+		return h.refuseToken(w, r, form, err)
 	}
 	issued, err := h.svc.CreateToken(r.Context(), core.CreateTokenInput{
-		Name: field(r, "name"), Scopes: scopes})
+		Name: form.Name, Scopes: form.Scopes, ExpiresAt: expiresAt})
 	if err != nil {
-		return err
+		return h.refuseToken(w, r, form, err)
 	}
 	http.SetCookie(w, &http.Cookie{ // #nosec G124 -- one-time value, HttpOnly, cleared by the screen that shows it
 		Name: issuedTokenCookie, Value: issued.Token, Path: RouteTokens,

@@ -355,7 +355,7 @@ func TestTokenValueIsShownOnceOnly(t *testing.T) {
 	if !strings.Contains(first, "shown once") {
 		t.Fatalf("the issued token was not shown:\n%s", first)
 	}
-	secret := between(t, first, "<pre>", "</pre>")
+	secret := between(t, first, `<code id="issued-token">`, "</code>")
 	if secret == "" {
 		t.Fatalf("no token value was rendered")
 	}

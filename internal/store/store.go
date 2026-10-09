@@ -284,6 +284,10 @@ type AuthTx interface {
 	CreateToken(ctx context.Context, t *core.APIToken, tokenHash string) error
 	GetTokenByHash(ctx context.Context, tokenHash string) (*core.APIToken, error)
 	ListTokens(ctx context.Context, actorID string) ([]core.APIToken, error)
+	// TokenNameInUse reports whether an unrevoked token of this tenant already
+	// carries the given name, whichever actor holds it. Revoked names are free
+	// again, which is the same window the unique index enforces.
+	TokenNameInUse(ctx context.Context, name string) (bool, error)
 	RevokeToken(ctx context.Context, id string, at time.Time) error
 	// RevokeActorTokens revokes every token an actor holds.
 	RevokeActorTokens(ctx context.Context, actorID string, at time.Time) (int64, error)
