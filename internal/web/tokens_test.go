@@ -5,6 +5,7 @@ package web_test
 import (
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -40,16 +41,62 @@ func tokenRows(t *testing.T, page string) string {
 	return body
 }
 
-// tokenCell returns one cell of the first token row, counting from zero.
-func tokenCell(t *testing.T, page string, index int) string {
+// tokenHeaders returns the token table's column headings in order.
+func tokenHeaders(t *testing.T, page string) []string {
 	t.Helper()
-	row := tokenRows(t, page)
-	cells := strings.Split(row, "<td>")
-	if len(cells) <= index+1 {
-		t.Fatalf("the first token row has no cell %d:\n%s", index, row)
+	head := between(t, page, "<thead>", "</thead>")
+	if head == "" {
+		t.Fatalf("the token screen renders no table head")
 	}
-	cell, _, _ := strings.Cut(cells[index+1], "</td>")
-	return strings.TrimSpace(cell)
+	var out []string
+	for _, part := range strings.Split(head, "<th>")[1:] {
+		cell, _, _ := strings.Cut(part, "</th>")
+		out = append(out, strings.TrimSpace(cell))
+	}
+	return out
+}
+
+// cellsOf returns the cells of one table row, whatever attributes each cell
+// carries. Splitting on the literal "<td>" skipped any cell with an
+// attribute, which silently excused the owner column from every assertion
+// counting positions: the indices kept working because the cell nobody was
+// reading was also the cell nobody was counting.
+func cellsOf(row string) []string {
+	var out []string
+	rest := row
+	for {
+		open := strings.Index(rest, "<td")
+		if open < 0 {
+			return out
+		}
+		rest = rest[open+len("<td"):]
+		gt := strings.Index(rest, ">")
+		if gt < 0 {
+			return out
+		}
+		rest = rest[gt+1:]
+		cell, _, _ := strings.Cut(rest, "</td>")
+		out = append(out, strings.TrimSpace(cell))
+	}
+}
+
+// tokenCellUnder returns the first token row's cell beneath one column
+// heading, located by that heading rather than by a position, so a column
+// added to the table cannot quietly move what an assertion reads.
+func tokenCellUnder(t *testing.T, page, header string) string {
+	t.Helper()
+	headers := tokenHeaders(t, page)
+	index := slices.Index(headers, header)
+	if index < 0 {
+		t.Fatalf("the token table has no %q column, it has %v", header, headers)
+	}
+	first, _, _ := strings.Cut(tokenRows(t, page), "</tr>")
+	cells := cellsOf(first)
+	if len(cells) <= index {
+		t.Fatalf("the first token row has %d cells, want one under %q at %d:\n%s",
+			len(cells), header, index, first)
+	}
+	return cells[index]
 }
 
 // issueForm returns the issue-a-token form alone.
@@ -231,7 +278,7 @@ func TestTokenListingShowsWhenATokenWasCreated(t *testing.T) {
 	}
 	// The second cell: Name, Scopes, Created, with every column shown.
 	want := style.Format(f.clock.Now())
-	if got := tokenCell(t, page, 2); got != want {
+	if got := tokenCellUnder(t, page, "Created"); got != want {
 		t.Errorf("the created cell reads %q, want the token's own creation time %q", got, want)
 	}
 }
@@ -247,7 +294,7 @@ func TestExpiryChosenOnTheFormReachesTheToken(t *testing.T) {
 	wantStatus(t, resp, http.StatusSeeOther)
 
 	page := b.page("/admin/tokens")
-	cell := tokenCell(t, page, 3)
+	cell := tokenCellUnder(t, page, "Expires")
 	if cell == "" || strings.Contains(cell, "Never") {
 		t.Fatalf("the expires cell reads %q, want a stored expiry", cell)
 	}
@@ -270,7 +317,7 @@ func TestATokenWithNoExpirySaysSo(t *testing.T) {
 	_ = resp.Body.Close()
 	wantStatus(t, resp, http.StatusSeeOther)
 
-	if got := tokenCell(t, b.page("/admin/tokens"), 3); !strings.Contains(got, "Never") {
+	if got := tokenCellUnder(t, b.page("/admin/tokens"), "Expires"); !strings.Contains(got, "Never") {
 		t.Errorf("a token with no expiry renders its expires cell as %q, want it to say so", got)
 	}
 }
