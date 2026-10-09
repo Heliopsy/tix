@@ -273,10 +273,41 @@ noticed, and an agent's credential is by definition held somewhere you do not wa
 tix token create ci --expires 2027-01-01 --scope task:read --scope task:claim
 ```
 
-`--expires` takes a date or an RFC 3339 timestamp. Omitting it mints a token that never expires, which is a
-deliberate choice rather than a default worth taking; `tix token ls` shows which of your tokens made it. In
-the browser, `/admin/tokens` offers the expiry as a set of durations and proposes ninety days, so a token
-issued there expires unless somebody chose otherwise.
+**`tix token create` defaults to a 90-day expiry.** This is a breaking change: until it landed, omitting
+`--expires` minted a token that never expired, so a script that said nothing got an immortal credential and
+now gets one that stops working after ninety days. `--expires never` is the only way to mint a
+non-expiring token, and it is still there for the credential that genuinely needs one.
+
+```sh
+tix token create ci --expires never --scope task:read   # never expires
+tix token create ci --expires 30d   --scope task:read   # a duration from now
+tix token create ci --expires 2027-01-01 --scope task:read
+```
+
+`--expires` takes a duration such as `90d`, a date, an RFC 3339 timestamp, or `never`. The browser form at
+`/admin/tokens` proposes ninety days too, which is the point: one product should not hand out an immortal
+credential on one surface and a bounded one on the other. `tix token ls` shows which of your tokens expire
+and when.
+
+The HTTP API has no default of its own and is left that way. `POST /api/v1/tokens` takes the `expires_at` the
+caller sends and mints a non-expiring token when the field is absent, because an API client composes the
+value rather than typing it, and a transport that quietly rewrites a field nobody set is worse than one that
+does what it was told. The ninety days belong to the two surfaces a person drives.
+
+### Revoking somebody else's token
+
+`token:admin` reaches every token of the tenant, not only your own, on every surface: `tix token ls --actor
+carol` lists hers and `tix token rm ID` ends it.
+
+In the browser, `/admin/tokens` lists the whole tenant's tokens to a reader holding `tenant:admin`, with an
+Owner column saying whose each one is, and offers the same confirming disclosure to revoke them. A reader
+without `tenant:admin` sees their own and no others, which is all the screen ever showed. That narrower view
+was deliberate once and was decided before anybody considered incident response: the case the browser has to
+serve is somebody else's token leaking and needing to be dead now, and in that case the screen was useless.
+
+Revoking a token that is not yours is recorded in the audit trail as `token.revoke_other` rather than
+`token.revoke`, against the actor who performed it, so an operator reading the trail afterwards can tell the
+two apart by filtering on the action. The entry names the token and the actor it belonged to.
 
 | Scope | Grants |
 | --- | --- |

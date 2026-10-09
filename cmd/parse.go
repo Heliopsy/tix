@@ -58,6 +58,45 @@ func parseTime(value string) (*time.Time, error) {
 	return nil, core.Invalid("time %q must be RFC3339 or YYYY-MM-DD", value)
 }
 
+// ExpiryNever is the --expires value that mints a token with no expiry. It is
+// the only way to get one: an omitted flag, and an empty one, both take the
+// default below.
+const ExpiryNever = "never"
+
+// DefaultTokenExpiry is how long a token lasts when --expires is not given.
+//
+// It matches the browser form's proposal, which is the point: one product
+// should not hand out an immortal credential on one surface and a 90-day one
+// on another. This is a breaking change for a script that relied on the
+// omission -- it used to mean "never" -- and such a script now mints a token
+// that stops working after ninety days unless it says ExpiryNever.
+const DefaultTokenExpiry = "90d"
+
+// parseExpiry resolves a token expiry: a duration counted from now such as
+// "90d", an absolute date or RFC 3339 timestamp, or "never".
+func parseExpiry(value string, now time.Time) (*time.Time, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		trimmed = DefaultTokenExpiry
+	}
+	if strings.EqualFold(trimmed, ExpiryNever) {
+		return nil, nil
+	}
+	if d, err := core.ParseDuration(trimmed); err == nil {
+		if d <= 0 {
+			return nil, core.Invalid("expiry %q must be a future instant", value)
+		}
+		at := now.UTC().Add(time.Duration(d))
+		return &at, nil
+	}
+	at, err := parseTime(trimmed)
+	if err != nil {
+		return nil, core.Invalid(
+			"expiry %q must be a duration such as 90d, a date, an RFC3339 timestamp, or %q", value, ExpiryNever)
+	}
+	return at, nil
+}
+
 // parseDuration accepts a duration such as "15m", "2h30m" or "30d".
 func parseDuration(value string) (core.Duration, error) {
 	trimmed := strings.TrimSpace(value)

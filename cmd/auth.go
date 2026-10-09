@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"strings"
+	"time"
 
 	"github.com/heliopsy/tix/internal/client"
 	"github.com/heliopsy/tix/internal/config"
@@ -244,13 +245,17 @@ func tokenCreateCmd(g *globals) *cobra.Command {
 	var scopes []string
 	var dryRun bool
 	cmd := &cobra.Command{
-		Use:     "create NAME",
-		Short:   "Mint an API token",
-		Long:    "Mint a token whose secret is shown exactly once.\n\nExit codes: 2 unknown scope, 3 unknown project or actor, 5 permission denied.",
+		Use:   "create NAME",
+		Short: "Mint an API token",
+		Long: "Mint a token whose secret is shown exactly once.\n\n" +
+			"The token expires after " + DefaultTokenExpiry + " unless --expires says otherwise, " +
+			"matching the browser form. Pass --expires never for a token that does not expire; " +
+			"nothing else produces one.\n\n" +
+			"Exit codes: 2 unknown scope or unreadable expiry, 3 unknown project or actor, 5 permission denied.",
 		Example: "  tix token create agent --scope task:read --scope task:claim",
 		Args:    exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			expiry, err := parseTime(expires)
+			expiry, err := parseExpiry(expires, time.Now())
 			if err != nil {
 				return err
 			}
@@ -280,7 +285,9 @@ func tokenCreateCmd(g *globals) *cobra.Command {
 	f.StringSliceVar(&scopes, "scope", nil, "scope to grant, repeatable")
 	f.StringVar(&actor, "actor", "", "actor the token acts as, by handle or identifier")
 	f.StringVar(&project, "project", "", "restrict the token to one project, by key or identifier")
-	f.StringVar(&expires, "expires", "", "expiry date")
+	f.StringVar(&expires, "expires", DefaultTokenExpiry,
+		"when the token stops working: a duration such as 90d, a date, an RFC3339 timestamp, "+
+			"or never for a token that does not expire")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would be created without writing")
 	_ = cmd.RegisterFlagCompletionFunc("scope", fixedCompletion(scopeNames()))
 	return cmd
