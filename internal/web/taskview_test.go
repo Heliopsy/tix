@@ -58,6 +58,22 @@ func (b *browser) chooseBoard(next string) string {
 	return resp.Header.Get("Location")
 }
 
+// viewSwitch is the switch's own form and nothing else, so an assertion about
+// the control cannot pass on a button belonging to another form on the page.
+func viewSwitch(t *testing.T, page string) string {
+	t.Helper()
+	start := strings.Index(page, `class="viewswitch"`)
+	if start < 0 {
+		t.Fatalf("the task screen carries no view switch:\n%s", page)
+	}
+	block := page[start:]
+	end := strings.Index(block, "</form>")
+	if end < 0 {
+		t.Fatal("the view switch is not a closed form")
+	}
+	return block[:end]
+}
+
 // columnStates names the board's columns, in the order the page draws them,
 // and nothing else on the page: the attribute belongs to a board column and
 // to no other element.
@@ -118,8 +134,20 @@ func TestTaskViewSwitchPersistsAcrossRequests(t *testing.T) {
 	b := f.as("alice")
 	b.createTask("infra", "infra work")
 
-	if states := columnStates(b.page("/tasks")); len(states) != 0 {
+	list := b.page("/tasks")
+	if states := columnStates(list); len(states) != 0 {
 		t.Fatalf("an untouched task screen drew a board: %v", states)
+	}
+	// The control itself, on the screen it switches. A preference reachable
+	// only by posting to its route is a preference nobody has.
+	switchForm := viewSwitch(t, list)
+	for _, want := range []string{`name="view" value="list"`, `name="view" value="board"`} {
+		if !strings.Contains(switchForm, want) {
+			t.Errorf("the view switch offers no %q:\n%s", want, switchForm)
+		}
+	}
+	if !strings.Contains(switchForm, `segment is-on`) || !strings.Contains(switchForm, `aria-current="true"`) {
+		t.Errorf("the switch does not say which view is current:\n%s", switchForm)
 	}
 	b.chooseBoard("/tasks")
 
@@ -202,8 +230,15 @@ func TestSwitchingToTheBoardKeepsHiddenProjects(t *testing.T) {
 	if !strings.Contains(page, `data-task="`+shown+`"`) {
 		t.Errorf("the board dropped the visible project's task:\n%s", page)
 	}
-	if strings.Contains(page, `data-task="`+away+`"`) {
-		t.Errorf("the board shows a task of a project that was put away:\n%s", page)
+	// Anywhere on the page, not only as a card. A board built from a listing
+	// the visibility choice was never applied to put the hidden project's
+	// task in the unplaced notice instead, which an assertion about cards
+	// alone read as a pass.
+	if strings.Contains(page, away) {
+		t.Errorf("the board screen shows %s, a task of a project that was put away:\n%s", away, page)
+	}
+	if strings.Contains(page, `class="boardstray"`) {
+		t.Errorf("the board could not place a task it was given:\n%s", page)
 	}
 }
 
@@ -271,10 +306,22 @@ func TestWorkflowsThatDisagreeRefuseTheBoardAndNameThem(t *testing.T) {
 	if end := strings.Index(fault, "</div>"); end >= 0 {
 		fault = fault[:end]
 	}
-	for _, want := range []string{"infra", "ops", "web", "Default"} {
-		if !strings.Contains(fault, want) {
-			t.Errorf("the refusal does not name %q:\n%s", want, fault)
-		}
+	// The grouping itself, not merely that something was refused. One of the
+	// three projects runs a workflow that shares its name with another's and
+	// is a different machine, so a refusal that grouped by name would still
+	// refuse -- with the wrong projects in the wrong groups.
+	entries := groupEntries(fault)
+	if len(entries) != 2 {
+		t.Fatalf("the refusal names %d workflow groups, want 2: %v", len(entries), entries)
+	}
+	if !strings.Contains(entries[0], "infra, ops") {
+		t.Errorf("the agreeing projects are not grouped together: %q", entries[0])
+	}
+	if !strings.Contains(entries[1], "web") || strings.Contains(entries[1], "infra") {
+		t.Errorf("the disagreeing project is not a group of its own: %q", entries[1])
+	}
+	if !strings.Contains(fault, "Default") {
+		t.Errorf("the refusal does not name the workflows:\n%s", fault)
 	}
 	if !strings.Contains(page, `<ul class="tasklist">`) {
 		t.Errorf("the refusal did not fall back to the list:\n%s", page)
@@ -293,6 +340,19 @@ func TestWorkflowsThatDisagreeRefuseTheBoardAndNameThem(t *testing.T) {
 	if !strings.Contains(narrowed, `data-task="`+second+`"`) {
 		t.Error("the narrowed board lost one of the agreeing projects")
 	}
+}
+
+// groupEntries are the workflow groups a refusal lists, one string each, read
+// out of the refusal block alone so a project named anywhere else on the page
+// cannot stand in for one named here.
+var groupPattern = regexp.MustCompile(`(?s)<li>(.*?)</li>`)
+
+func groupEntries(fault string) []string {
+	out := []string{}
+	for _, m := range groupPattern.FindAllStringSubmatch(fault, -1) {
+		out = append(out, strings.Join(strings.Fields(m[1]), " "))
+	}
+	return out
 }
 
 // The guard that matters: the control a card offers is its own workflow's, so
