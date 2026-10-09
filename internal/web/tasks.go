@@ -254,14 +254,15 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	// The board is resolved from the same filter the list was answered with,
-	// so the two views cover one selection of tasks. Resolved whichever view
-	// is current, because the switch itself has to say what the board would
-	// be: a control offering a board that then refuses to draw is worse than
-	// one that says why before it is pressed.
+	// so the two views cover one selection of tasks. Only when it is the view
+	// being drawn: a reader on the list pays nothing for a board they are not
+	// looking at, and what the board would have said is on the board.
 	view := taskViewOf(r)
-	board, err := h.taskBoardFor(r, projects, filter, page.Tasks, moves)
-	if err != nil {
-		return err
+	var board taskBoard
+	if view == TaskViewBoard {
+		if board, err = h.taskBoardFor(r, projects, filter, page.Tasks, moves); err != nil {
+			return err
+		}
 	}
 	return h.render(w, r, "tasks.html", "Tasks", tasksView{
 		Tasks:         page.Tasks,
