@@ -131,6 +131,9 @@ func TestTenantIsolationOnEveryRead(t *testing.T) {
 		if _, err := tx.GetTokenByHash(ctx, "hash-two"); !core.IsKind(err, core.KindNotFound) {
 			t.Fatalf("reading another tenant's token = %v, want not found", err)
 		}
+		if _, err := tx.GetToken(ctx, two.token.ID); !core.IsKind(err, core.KindNotFound) {
+			t.Fatalf("reading another tenant's token by identifier = %v, want not found", err)
+		}
 		if _, err := tx.GetSyncSource(ctx, two.source.ID); !core.IsKind(err, core.KindNotFound) {
 			t.Fatalf("reading another tenant's sync source = %v, want not found", err)
 		}

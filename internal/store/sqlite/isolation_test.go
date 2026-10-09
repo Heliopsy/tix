@@ -323,6 +323,7 @@ func TestTenantIsolationOnPointReads(t *testing.T) {
 			{"GetSyncSource", errOf(func() error { _, e := tx.GetSyncSource(ctx, b.source.ID); return e })},
 			{"GetMember", errOf(func() error { _, e := tx.GetMember(ctx, b.actor.ID); return e })},
 			{"GetTokenByHash", errOf(func() error { _, e := tx.GetTokenByHash(ctx, "hash-globex"); return e })},
+			{"GetToken", errOf(func() error { _, e := tx.GetToken(ctx, b.token.ID); return e })},
 			{"GetSessionByHash", errOf(func() error { _, _, e := tx.GetSessionByHash(ctx, "session-globex"); return e })},
 		}
 		for _, c := range cases {
