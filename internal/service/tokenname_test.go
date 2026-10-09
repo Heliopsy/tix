@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -29,8 +30,15 @@ func TestTokenNamesAreUniqueWithinATenant(t *testing.T) {
 	if !core.IsKind(err, core.KindConflict) {
 		t.Fatalf("a second token named ci = %v, want a conflict", err)
 	}
+	// The field and the wording, not the kind alone: the unique index refuses
+	// this too, with a conflict carrying a constraint name nobody can read and
+	// no field for a form to place it against, so asserting the kind on its own
+	// would pass with the service rule gone.
 	if got := core.FieldOf(err); got != "name" {
 		t.Errorf("the refusal names field %q, want name, so a form cannot place it", got)
+	}
+	if !strings.Contains(err.Error(), "already exists") {
+		t.Errorf("the refusal reads %q, which does not say the name is taken", err)
 	}
 	tokens, err := l.ListTokens(ctx, "")
 	if err != nil {
