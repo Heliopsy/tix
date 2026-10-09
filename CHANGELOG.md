@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.13.1](https://github.com/Heliopsy/tix/compare/v0.13.0...v0.13.1) (2026-10-09)
+
+
+### Dependencies
+
+* **deps:** bump modernc.org/sqlite from 1.59.0 to 1.60.1 ([#30](https://github.com/Heliopsy/tix/issues/30)) ([6eede8f](https://github.com/Heliopsy/tix/commit/6eede8faee133ce64c6ecb96288fc3e8ae72876f))
+* golangci-lint 2.14.0, which can read go 1.27.2 export data ([64876c4](https://github.com/Heliopsy/tix/commit/64876c45bc0e6c5873ecacda99721f3ab53efa81))
+* move to go 1.27.2 for the standard library security fixes ([aa098a6](https://github.com/Heliopsy/tix/commit/aa098a6751356355992dff862f94ea5e4bad5213))
+* pin gosec to the commit that can read go 1.27.2 export data ([e5d0855](https://github.com/Heliopsy/tix/commit/e5d0855d1edb6db8da41e5bfecb1dc62e60e7149))
+
 ## [0.13.0](https://github.com/Heliopsy/tix/compare/v0.12.0...v0.13.0) (2026-09-30)
 
 
