@@ -54,7 +54,9 @@ and which projects it includes. They were two separate disclosures and deciding 
 cost two openings and two page loads. Both are per browser, stored in cookies, and both record what
 is *hidden* rather than what is shown, so a project created tomorrow, or a column a later release
 adds, appears on its own instead of waiting for somebody to tick it. A filter that names a project
-explicitly overrides the hiding, and the page says so rather than quietly returning nothing.
+explicitly overrides the hiding, and the page says so rather than quietly returning nothing. Both are
+also on Settings, where the same two forms are rendered over the same stored values rather than
+copied, so the panel here and the screen there cannot come to disagree.
 
 **Lease badges.** A lease is the one thing on a row that changes by itself, so the row says which
 state it is in:
