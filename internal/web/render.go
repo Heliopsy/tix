@@ -165,6 +165,7 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"claim":           claimState,
 		"due":             dueState,
 		"expiredAgo":      expiredAgo,
+		"stateLabel":      core.StateLabel,
 		"category":        categoryLabel,
 		"categoryClass":   categoryClass,
 	}

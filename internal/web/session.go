@@ -29,6 +29,7 @@ func (h *handler) sessionRoutes() []route {
 		post(RouteTimezone, h.setTimezone, "Logout"),
 		post(RouteColumns, h.setColumns, "Logout"),
 		post(RouteVisibility, h.setVisibility, "Logout"),
+		post(RouteTaskView, h.setTaskView, "Logout"),
 		post(RouteDragMove, h.toggleDragMove, "Logout"),
 	}
 }

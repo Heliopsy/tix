@@ -106,6 +106,7 @@ const (
 	RouteKeyScheme    = "/keyscheme"
 	RouteColumns      = "/columns"
 	RouteVisibility   = "/visibility"
+	RouteTaskView     = "/taskview"
 	RouteDragMove     = "/dragmove"
 	RouteStats        = "/stats"
 	RouteActivity     = "/activity"

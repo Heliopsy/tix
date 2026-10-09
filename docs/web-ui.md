@@ -90,6 +90,72 @@ the queue. See [agents.md](agents.md) for what a lease is and why the token matt
 act of completing, not to the completed state, so opening a list of finished tasks animates nothing.
 Fifteen checkboxes popping in sequence on load says fifteen things just happened when nothing did.
 
+## List or board
+
+The switch beside the filter bar draws the same tasks either as rows or as columns, and remembers
+which per browser (`tix_task_view`). The list is what an untouched install shows.
+
+It is one selection drawn two ways. The filter, the deadline window, the sort, the page size, the
+page position and the project visibility choice are resolved once and apply to both, so switching
+changes the drawing and never which tasks are on screen, and one pager walks both. That is the whole
+point of putting the board on this screen rather than sending the reader to a different one: the
+project board at `/projects/{key}` answers a different question -- one project, no filter -- and it
+stays as it is, with the project's settings and danger zone on it.
+
+**Columns come from a workflow, and the list mixes projects.** So a board over several projects is
+only drawable when those projects agree about their states, and agreement is decided structurally,
+not by name. A name is not an identity: two projects can each run a workflow called `default` whose
+states differ, and the state-category vocabulary now has six words where it had three, so two
+same-named workflows can differ in ways that decide where a task may go. What is compared is
+everything a board draws or a move depends on:
+
+| Compared | Why |
+| --- | --- |
+| The states, in declared order | Declared order is the column order |
+| Each state's key | What a task's status is matched against, and what a drop submits |
+| Each state's label | The column heading. A heading misnaming a state for half its cards is dishonest |
+| Each state's `terminal` flag | What completing means, and what satisfies a dependency |
+| Each state's `category` | What colour and grouping are derived from everywhere |
+| The transitions, in declared order | The edges the route finder walks, in the order it enumerates them |
+| Each transition's `from` and `to` | Whether a move is legal at all |
+| `requires_scope`, `requires_comment` | A move legal here and refused there is not one control |
+
+Not compared, because none of them can change a column or a move: `initial`, `default_lease`, and the
+per-state `revert_on_lease_expiry` and `revert_to`. Not compared either, and deliberately: the
+workflow's name, key and identifier. Two projects pointing at one stored workflow agree trivially;
+two pointing at separately stored workflows that describe the same machine agree too, which is the
+ordinary case in a tenant that made a project before it had a shared workflow.
+
+The asymmetry of cost is what decides the borderline cases. Being too strict costs a refusal that
+explains itself and is one click from a board that draws. Being too loose costs a card that looks
+draggable to a column it can never reach, with the refusal arriving from the service after the reader
+has already dropped it. So anything not demonstrably harmless is compared.
+
+**Every card's moves come from its own project's workflow**, resolved per card, never from the
+definition the columns were drawn from. On a board whose workflows agreed those are the same answer;
+asking the card's own project anyway is what keeps it impossible for a change to the merge rule to
+start offering a foreign move. Drag-and-drop reads the card's own move control to decide which
+columns light up, so a column outside that list is refused before any request is made.
+
+**When the projects do not agree the board is refused and the list is drawn**, with a notice naming
+each distinct workflow and the projects running it. Each group links to the same screen narrowed to
+exactly its own projects, filter and sort intact, so a board is one click away. Drawing whichever
+workflow came first would show a subset of the selected tasks without saying so, which is the failure
+this screen exists to avoid; the same reason a task whose status is in none of the columns is named
+in a notice rather than dropped. The preference is not touched by a refusal, so narrowing draws the
+board with no second press of the switch.
+
+Which projects decide the columns is the set the listing may draw from -- the keys an explicit
+`project:` filter names, or every project not put away -- rather than the projects the current page
+happens to carry. A page is a page: deciding on its contents would merge on page one and refuse on
+page three, and creating the first task in a disagreeing project would turn a working board into a
+refusal with no visible cause.
+
+A merged board carries more columns than one project's does, so the grid wraps onto further rows of
+columns rather than scrolling the page sideways, and at phone width the columns stack. Cards carry
+their project's key, icon and accent only on a merged board, where a column holds more than one
+project's work.
+
 ## Moving a task through its workflow
 
 The status pill on a row is a control. Opening it lists the states that row's own workflow can reach
@@ -205,6 +271,7 @@ frequently in different timezones for the same reason they may want different ke
 | Drag to move | `tix_drag_move` | whether a board card can be dragged between columns |
 | Columns | `tix_columns` | which optional columns each listing leaves out |
 | Hidden projects | `tix_hidden_projects` | which projects a listing leaves out |
+| Task view | `tix_task_view` | `board` draws the task screen as columns; anything else, including no cookie, is the list |
 
 `tix_advanced` has three states rather than two: shown, hidden, and absent, which leaves the answer
 to who is reading. A tenant administrator who has never chosen gets the Configure and Data groups,

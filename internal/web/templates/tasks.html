@@ -65,6 +65,30 @@
 <p class="filterfault" role="alert">{{$v.FilterError}}</p>
 {{end}}
 
+{{/* The view switch. One screen, two drawings of the same tasks: the filter,
+     the deadline window, the sort, the page and the project visibility choice
+     are all answered once and then either listed or laid out in columns, so
+     pressing this changes how the page looks and never which tasks are on it.
+     It sits beside the filter bar rather than inside the View panel because a
+     reader looking for the board should not have to open a disclosure to find
+     out it exists; the panel below decides what is on screen, this decides
+     how it is drawn.
+
+     Not boosted: the choice is a cookie the next render reads, and a boosted
+     swap of the body is a second request either way. */}}
+<form method="post" action="/taskview" class="viewswitch" hx-boost="false"
+      aria-label="How to draw the tasks">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="next" value="{{.Here}}">
+  <span class="viewswitch-label" id="viewswitch-label">View as</span>
+  <div class="segmented" role="group" aria-labelledby="viewswitch-label">
+    {{range $v.Views}}
+    <button type="submit" name="view" value="{{.Value}}" class="segment{{if .Selected}} is-on{{end}}"
+            {{if .Selected}}aria-current="true"{{end}}>{{.Label}}</button>
+    {{end}}
+  </div>
+</form>
+
 {{/* One panel, not two. Columns and Projects were separate disclosures sitting
      side by side, so deciding what the list shows meant opening one, applying,
      then opening the other: two clicks and two page loads for one decision.
@@ -115,6 +139,102 @@
 <p class="lede">{{$v.Hidden}} project{{if ne $v.Hidden 1}}s are{{else}} is{{end}} hidden. Use Projects above to change that.</p>
 {{end}}
 
+{{if and (eq $v.View "board") $v.Board.Agreed}}
+{{/* The board draws this same page of tasks into the columns of the one
+     workflow every selected project runs. Columns may only be merged when
+     the workflows are genuinely the same state machine -- the same states in
+     the same order with the same labels, and the same transitions -- because
+     a name is not an identity: two projects can each run a "default" that
+     disagrees about where a task may go, and a column drawn over both would
+     offer a move one of them forbids.
+
+     Every card's own moves come from its own project's workflow, resolved per
+     card, never from the definition the columns were drawn from. On a board
+     that agreed those are the same answer; asking the card's project anyway
+     is what keeps it impossible to offer a transition the task cannot make.
+
+     A screen reader user learns a drag-and-drop move happened here, since
+     nothing else narrates it: the move patches the DOM in place
+     (assets/live.js) rather than navigating. Visually hidden, never removed. */}}
+<p class="meta boardmeta">
+  Workflow {{$v.Board.Workflow}} &middot; {{len $v.Board.Columns}} column{{if ne (len $v.Board.Columns) 1}}s{{end}}
+  {{- with index $v.Board.Groups 0}} &middot; {{len .Projects}} project{{if ne (len .Projects) 1}}s{{end}} sharing it: {{join .Keys}}{{end}}
+</p>
+<p class="sr-only" aria-live="polite" id="board-status"></p>
+<div class="board{{if $v.Board.Merged}} is-merged{{end}}" data-drag="{{if .DragMove}}1{{else}}0{{end}}">
+{{range $v.Board.Columns}}
+  <section class="column" data-state="{{.State.Key}}">
+    <h2>{{stateLabel .State}} <span class="meta">({{len .Tasks}})</span></h2>
+    {{range .Tasks}}
+      {{$acc := index $v.Accent .Task.ProjectID}}
+      <article class="card{{if $acc.Color}} is-accented proj-{{$acc.Color}}{{end}}" draggable="{{if $.DragMove}}true{{else}}false{{end}}" data-task="{{.Task.Ref}}" data-project="{{$acc.Key}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
+        <div class="ref">{{.Task.Ref}}</div>
+        <div><a href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}">{{.Task.Title}}</a></div>
+        {{/* A merged board mixes projects in one column, so each card says
+             which list it belongs to. A board of one project does not: the
+             heading already said it, and repeating it on every card is noise. */}}
+        {{if or $v.Board.Merged (ne (prio .Task.Priority) "normal") .Task.Tags}}
+        <div class="card-meta">
+          {{if $v.Board.Merged}}<a class="projref{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" href="/tasks?q=project:{{$acc.Key}}" title="Only tasks in {{$acc.Name}}">{{if $acc.Icon}}<span class="proj-icon" aria-hidden="true">{{$acc.Icon}}</span>{{end}}{{$acc.Key}}</a>{{end}}
+          {{if ne (prio .Task.Priority) "normal"}}<span class="prio p-{{prio .Task.Priority}}" title="Priority: {{prio .Task.Priority}}"><span class="caret" aria-hidden="true"></span>{{prio .Task.Priority}}</span>{{end}}
+          {{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}
+        </div>
+        {{end}}
+        {{if .Routes}}
+        <details class="card-move">
+          <summary aria-label="Move {{.Task.Ref}}">Move</summary>
+          <div class="body">
+            <form method="post" action="/tasks/{{.Task.Ref}}/transition">
+              {{template "csrf" $.CSRF}}
+              <input type="hidden" name="ref" value="{{.Task.Ref}}">
+              <input type="hidden" name="next" value="{{$v.Self}}">
+              <select id="to-{{.Task.Ref}}" name="route" aria-label="Move {{.Task.Ref}} to">
+                {{range .Routes}}<option value="{{.Value}}">{{.Option}}</option>{{end}}
+              </select>
+              <button type="submit">Move</button>
+            </form>
+          </div>
+        </details>
+        {{end}}
+      </article>
+    {{else}}
+      <p class="meta column-empty">No tasks.</p>
+    {{end}}
+  </section>
+{{end}}
+</div>
+{{if $v.Board.Stray}}
+{{/* A task whose status is in none of these columns would simply be absent
+     from the board, which is the one thing this screen must never do
+     quietly. It can only happen if a state left the workflow under a task
+     that was in it. */}}
+<p class="boardstray" role="alert">
+  {{len $v.Board.Stray}} task{{if ne (len $v.Board.Stray) 1}}s are{{else}} is{{end}} in a state this workflow no longer has, so {{if ne (len $v.Board.Stray) 1}}they have{{else}}it has{{end}} no column:
+  {{range $v.Board.Stray}}<a href="/tasks/{{.Ref}}">{{.Ref}}</a> ({{.Status}}) {{end}}
+</p>
+{{end}}
+{{else}}
+{{if eq $v.View "board"}}
+{{/* The reader asked for a board and is getting the list, so the screen says
+     which projects disagree and about what. The alternative -- drawing a
+     board of whichever workflow happened to come first -- would show a subset
+     of the selected tasks with no statement that it had, and offer cards of
+     the other projects columns they can never reach. Each group is one click
+     from a board of its own, with this reader's filter and sort intact. */}}
+<div class="boardfault" role="alert">
+  {{if $v.Board.Groups}}
+  <p><strong>These projects do not share a workflow, so one board cannot show them all honestly.</strong>
+     The list is shown instead. Pick a set that agrees, or put the others away under View.</p>
+  <ul class="boardgroups">
+    {{range $v.Board.Groups}}
+    <li><a href="{{.Href}}">{{.Name}}</a>: {{join .Keys}}</li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p>There is no project to draw a board from, so the list is shown instead.</p>
+  {{end}}
+</div>
+{{end}}
 <ul class="tasklist">
 {{range $v.Tasks}}
   {{$acc := index $v.Accent .ProjectID}}
@@ -263,7 +383,11 @@
   </li>
 {{end}}
 </ul>
+{{end}}
 
+{{/* One pager for either drawing, because both answer the same page of the
+     same listing: a board that paged differently from the list would be a
+     different selection wearing the same filter. */}}
 {{template "pager" $v.Pager}}
 
 {{if .Advanced}}
