@@ -280,6 +280,12 @@ Deliveries carry `X-Tix-Event`, `X-Tix-Delivery`, `X-Tix-Timestamp` and `X-Tix-S
 `sha256=` followed by the hex HMAC of the timestamp and body under the endpoint's secret. Verify it before
 trusting a delivery.
 
+A signing secret is stored write-only: no read of an endpoint ever returns it. Register one without a secret
+and tix generates one, returned in the response to that registration alone — in the browser, `/admin/webhooks`
+renders it once, in the same one-time secret region the token screen uses for a freshly minted token, and
+never again. Supply your own and nothing is shown back to you, since you already hold it. Saving an existing
+endpoint with the secret field blank keeps the secret it already has rather than rotating it.
+
 ## Related
 
 - [agents.md](agents.md) for claiming and leases
