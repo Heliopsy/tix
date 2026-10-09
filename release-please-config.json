@@ -68,7 +68,15 @@
     "history, so release-please proposed 0.8.0 again after 0.9.0 had shipped:",
     "a pull request whose own compare link read v0.9.0...v0.8.0 and which",
     "would have downgraded the manifest if anybody had merged it.",
-    "Move this to each new release commit only if the same thing recurs."
+    "Move this to each new release commit only if the same thing recurs.",
+    "",
+    "This read 88cacf6ae4ff21c30dd7bbfc61ba9c8b96c65b8f for five releases and",
+    "no such commit exists: the GitHub API answers 422 for it, and so does",
+    "`git cat-file`. Only the short prefix was right. A sha that matches no",
+    "commit never stops the scan, so the bound did nothing and 0.8.0 was",
+    "proposed four more times, in #24, #26, #29 and #32. The real v0.9.0",
+    "release commit is below; check a replacement with `git cat-file -e`",
+    "before committing it."
   ],
-  "last-release-sha": "88cacf6ae4ff21c30dd7bbfc61ba9c8b96c65b8f"
+  "last-release-sha": "88cacf62c40500061250ec995b73aeff4c46a2bc"
 }

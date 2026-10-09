@@ -81,12 +81,48 @@ jobs:
       # `token` is empty when the step above was skipped or failed, and an empty
       # string is falsy here, so the `||` resolves to GITHUB_TOKEN: exactly
       # today's behaviour.
-      - id: release
+      # Two invocations, deliberately, with the tag written between them.
+      #
+      # release-please does two independent things: it turns a merged release
+      # pull request into a release, and it computes the next version and opens
+      # the pull request for it. Run as one step they share a moment this
+      # repository cannot survive. Measured on the v0.13.1 cycle, in run
+      # 37946021060:
+      #
+      #   14:41:18  "Creating 1 releases for pull #31" -- the DRAFT is created
+      #   14:41:22  "Building pull requests" ... "Expected 1 releases, only
+      #             found 0", then "looking for tagName: v0.13.1" and nothing
+      #             found, so "Set(0) {}" and a walk of 310 commits
+      #   14:43:18  pull request #32 opened, proposing 0.8.0
+      #   14:43:22  the step below writes refs/tags/v0.13.1
+      #
+      # The version pass cannot see the release the release pass just made,
+      # because GitHub's releases API does not return a draft as a release, and
+      # it cannot fall back to the tag either, because this workflow is what
+      # writes the tag and it had not run yet. With neither, release-please
+      # bootstraps: it walks to its commit search depth, reaches e1ac251, reads
+      # the permanent "Release-As: 0.8.0" footer there and proposes 0.8.0
+      # against a manifest reading 0.13.1. Six such pull requests exist --
+      # #20, #22, #24, #26, #29, #32 -- and merging one would set
+      # .release-please-manifest.json backwards and rewrite CHANGELOG.md from
+      # the first commit. None merged only because somebody noticed each time.
+      #
+      # Splitting the passes puts the tag in between, and the tag is enough:
+      # release-please falls back to the tag the manifest names when the
+      # release lookup comes back empty, and a found tag gives it the commit to
+      # stop its walk at. The draft stays invisible and stops mattering.
+      #
+      # Nothing else about either pass changes. Each one loads the manifest
+      # from the repository itself, so two steps do what one step already did,
+      # in the same order, with the tag written in the gap.
+      - name: Turn a merged release pull request into a draft release
+        id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7  # v5.0.0
         with:
           token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+          skip-github-pull-request: true
 
       # A draft release does not create its tag: GitHub only writes the ref when
       # the release is published, and publishing is the last thing that happens
@@ -146,6 +182,64 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.release.outputs.tag_name }}
         run: gh workflow run release.yaml --repo "$GITHUB_REPOSITORY" --ref main -f ref="$TAG"
+
+      # The build above is asked for before this pass rather than after it, so
+      # it starts while this pass runs instead of two minutes later. The build
+      # is what publishes the draft, and every minute the draft is unpublished
+      # is a minute `install.sh` resolves the previous release.
+      #
+      # The version pass below is held off in the one state where it would bootstrap
+      # again: a release for the manifest's version that is still a draft AND
+      # carries no tag. After the steps above that cannot be this run's own
+      # release, so it means the tag step never got there -- the v0.4.0
+      # failure, where release-please created the release and then died.
+      #
+      # This cannot wedge the next release behind a stuck draft, which is the
+      # obvious way to get it wrong: what holds the pass is the missing TAG and
+      # not the unpublished draft, and "Finish any release left unbuilt" below
+      # writes that tag in this same run. A draft whose build keeps failing is
+      # tagged, so the pass runs and the next version is computed from it as
+      # normal.
+      - name: Check release-please can see where it last released
+        id: gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="v$(jq -r '."."' .release-please-manifest.json)"
+
+          # The releases list rather than /releases/tags/{tag}, which answers
+          # 404 for a draft: the release this is looking for.
+          all=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+                  | jq -c --arg t "$tag" '[.[] | select(.tag_name == $t)]')
+          published=$(jq -c '[.[] | select(.draft == false)] | first // empty' <<<"$all")
+
+          if [ "$(jq 'length' <<<"$all")" = "0" ] || [ -n "$published" ]; then
+            echo "$tag is published or not released yet; nothing is hiding the last release"
+            echo 'held=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
+            echo "$tag is an unpublished draft, but it is tagged and the tag is what gets read"
+            echo 'held=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo 'held=true' >> "$GITHUB_OUTPUT"
+          echo "the step at the end of this job writes the tag, so the next push computes normally"
+          echo "::warning::$tag is an untagged draft; skipping the version pass so it cannot go backwards"
+
+      # `if` on the step rather than anything cleverer: a skipped step leaves
+      # its outputs empty, and nothing downstream reads this one's.
+      - name: Compute the next version and open its pull request
+        id: release-pr
+        if: steps.gate.outputs.held != 'true'
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7  # v5.0.0
+        with:
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          skip-github-release: true
 
       # The steps above only run when release-please reports success. It can
       # create the release and then fail afterwards: v0.4.0 was tagged and
