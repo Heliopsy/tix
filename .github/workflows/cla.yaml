@@ -17,6 +17,12 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
+      # This check is advisory today: the repository carries no branch
+      # protection and no rulesets, so a red `cla` does not stop a merge. That
+      # is why it went unnoticed that the signature store did not exist at all
+      # and no contributor could have signed. Requiring it is a repository
+      # settings change and deliberately not made here.
+      #
       # The release PR is opened by our own automation against our own
       # repository, so there is no contributor and nothing to sign. It is
       # excluded because this action locks a pull request once it merges, and
@@ -40,4 +46,19 @@ jobs:
           path-to-signatures: 'signatures/version1/cla.json'
           path-to-document: 'https://github.com/heliopsy/tix/blob/main/CLA.md'
           branch: 'cla-signatures'
-          allowlist: 'thereisnotime,dependabot[bot]'
+          # The allowlist rather than another `if:` on the author, because the
+          # action matches these against the login of every commit author on
+          # the pull request, which nobody can change by renaming a branch.
+          # The head_ref condition above can be dodged exactly that way, and
+          # it is kept only because an allowlist entry cannot replace it: the
+          # merge-time lock runs before the allowlist is ever consulted, so
+          # the release pull request has to be excluded by condition or not at
+          # all.
+          #
+          # Neither bot can sign a CLA, and a dependency bump carries no
+          # copyright to assign. github-actions[bot] is also dropped by the
+          # action itself, which filters its user id by hand, but only when
+          # the commit resolves to that account: a commit whose author is not
+          # linked to a user arrives with no id and is kept, and then only the
+          # name matches. So it is named here too.
+          allowlist: 'thereisnotime,dependabot[bot],github-actions[bot]'
