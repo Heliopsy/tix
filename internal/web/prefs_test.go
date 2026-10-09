@@ -112,10 +112,10 @@ func TestAPreferenceChangedOnSettingsReachesTheScreenThatUsesIt(t *testing.T) {
 		if !strings.Contains(tasks, "project is hidden") {
 			t.Errorf("the task screen does not account for the hidden project:\n%s", tasks)
 		}
-		if !checkedIn(t, projectChoices(t, tasks), "ops") {
+		if !checkedValue(projectChoices(t, tasks), "ops") {
 			t.Error("the task screen's own control lost the project that was kept")
 		}
-		if checkedIn(t, projectChoices(t, tasks), "infra") {
+		if checkedValue(projectChoices(t, tasks), "infra") {
 			t.Error("the task screen's own control still shows the project settings hid")
 		}
 	})
@@ -167,10 +167,10 @@ func TestAPreferenceChangedInContextIsReflectedOnSettings(t *testing.T) {
 		b.page("/tasks")
 		apply(t, b, "/visibility", url.Values{"project": {"infra"}, "next": {"/tasks"}})
 		choices := projectChoices(t, b.page("/settings"))
-		if checkedIn(t, choices, "ops") {
+		if checkedValue(choices, "ops") {
 			t.Errorf("settings still shows a project the task screen hid:\n%s", choices)
 		}
-		if !checkedIn(t, choices, "infra") {
+		if !checkedValue(choices, "infra") {
 			t.Errorf("settings hides a project the task screen kept:\n%s", choices)
 		}
 	})
@@ -215,7 +215,7 @@ func TestAHiddenKeyForADeletedProjectIsNamedAndForgotten(t *testing.T) {
 	}
 	// The screen is still a screen: the listing it governs still renders and
 	// still excludes the project that does exist.
-	if !checkedIn(t, projectChoices(t, b.page("/tasks")), "ops") {
+	if !checkedValue(projectChoices(t, b.page("/tasks")), "ops") {
 		t.Error("a stale key cost the task screen its live projects")
 	}
 
@@ -338,32 +338,25 @@ func prefForm(t *testing.T, page, action string) string {
 	return page[start : i+end]
 }
 
-// checkedIn reports whether the visibility form shows one project as shown.
-func checkedIn(t *testing.T, form, key string) bool {
-	t.Helper()
-	return checkedValue(form, key)
-}
-
-// checkedValue reports whether a checkbox carrying one value is ticked. It
-// reads the one input element rather than the block around it, since every
-// other checkbox in the block carries the same attribute.
+// checkedValue reports whether the checkbox carrying one value is ticked.
+//
+// It reads that one input element, from its own "<input" to its own ">",
+// rather than searching the block around it: every checkbox in a picker
+// carries the word "checked" somewhere nearby, so a block-wide search answers
+// "is anything ticked" and would pass whatever this one's state is.
 func checkedValue(block, value string) bool {
-	for _, attr := range []string{`value="` + value + `"`} {
-		i := strings.Index(block, attr)
-		for i >= 0 {
-			start := strings.LastIndex(block[:i], "<input")
-			end := strings.Index(block[i:], ">")
-			if start >= 0 && end >= 0 {
-				if strings.Contains(block[start:i+end], "checked") {
-					return true
-				}
-			}
-			next := strings.Index(block[i+len(attr):], attr)
-			if next < 0 {
-				break
-			}
-			i += len(attr) + next
+	attr := `value="` + value + `"`
+	for i := strings.Index(block, attr); i >= 0; {
+		start := strings.LastIndex(block[:i], "<input")
+		end := strings.Index(block[i:], ">")
+		if start >= 0 && end >= 0 && strings.Contains(block[start:i+end], "checked") {
+			return true
 		}
+		next := strings.Index(block[i+len(attr):], attr)
+		if next < 0 {
+			return false
+		}
+		i += len(attr) + next
 	}
 	return false
 }
