@@ -149,6 +149,7 @@ func TestMigrationResumesAboveExistingTasks(t *testing.T) {
 		"ALTER TABLE tasks DROP COLUMN lease_expired_at",
 		"ALTER TABLE tasks DROP COLUMN lease_expired_by",
 		"DROP TABLE servers",
+		"DROP INDEX idx_tokens_name_live",
 		"DELETE FROM schema_migrations WHERE version > 1",
 	} {
 		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
