@@ -139,7 +139,9 @@ columns light up, so a column outside that list is refused before any request is
 
 **When the projects do not agree the board is refused and the list is drawn**, with a notice naming
 each distinct workflow and the projects running it. Each group links to the same screen narrowed to
-exactly its own projects, filter and sort intact, so a board is one click away. Drawing whichever
+exactly its own projects, filter and sort intact, so a board is one click away. Where two of those
+workflows carry the same name, which is precisely the case the merge rule exists for, the entry adds
+the workflow's key: two lines both reading `Default` would be the refusal explaining nothing. Drawing whichever
 workflow came first would show a subset of the selected tasks without saying so, which is the failure
 this screen exists to avoid; the same reason a task whose status is in none of the columns is named
 in a notice rather than dropped. The preference is not touched by a refusal, so narrowing draws the

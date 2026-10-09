@@ -227,7 +227,7 @@
      The list is shown instead. Pick a set that agrees, or put the others away under View.</p>
   <ul class="boardgroups">
     {{range $v.Board.Groups}}
-    <li><a href="{{.Href}}">{{.Name}}</a>: {{join .Keys}}</li>
+    <li><a href="{{.Href}}">{{.Label}}</a>: {{join .Keys}}</li>
     {{end}}
   </ul>
   {{else}}

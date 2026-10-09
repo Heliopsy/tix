@@ -19,9 +19,12 @@
       project whose workflow cannot be resolved visible in its own group rather than dropping it
 - [x] 2.4 `internal/web/taskboard.go`: `buildBoard`, resolving each card's routes from the card's own
       project's workflow, and collecting any task no column could hold
-- [x] 2.5 `internal/web/taskboard.go`: `narrowHref`, the one-click route to a drawable board, keeping
+- [x] 2.5 `internal/web/taskboard.go`: `labelled`, naming two groups apart where their workflows
+      share a name, which is the case the merge rule exists for and the one hand verification found
+      reading as two identical entries
+- [x] 2.6 `internal/web/taskboard.go`: `narrowHref`, the one-click route to a drawable board, keeping
       the filter and sort and dropping the cursor and its trail
-- [x] 2.6 `internal/web/tasks.go`: `workflowsByID` shared by `completeStates`, `workflowsByProject`
+- [x] 2.7 `internal/web/tasks.go`: `workflowsByID` shared by `completeStates`, `workflowsByProject`
       and the board, so the screen lists workflows once rather than three times
 
 ## 3. The screen

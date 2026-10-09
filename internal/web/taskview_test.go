@@ -302,10 +302,7 @@ func TestWorkflowsThatDisagreeRefuseTheBoardAndNameThem(t *testing.T) {
 	if !strings.Contains(page, "do not share a workflow") {
 		t.Errorf("the refusal is not explained:\n%s", page)
 	}
-	fault := page[strings.Index(page, `class="boardfault"`):]
-	if end := strings.Index(fault, "</div>"); end >= 0 {
-		fault = fault[:end]
-	}
+	fault := refusalBlock(t, page)
 	// The grouping itself, not merely that something was refused. One of the
 	// three projects runs a workflow that shares its name with another's and
 	// is a different machine, so a refusal that grouped by name would still
@@ -319,6 +316,11 @@ func TestWorkflowsThatDisagreeRefuseTheBoardAndNameThem(t *testing.T) {
 	}
 	if !strings.Contains(entries[1], "web") || strings.Contains(entries[1], "infra") {
 		t.Errorf("the disagreeing project is not a group of its own: %q", entries[1])
+	}
+	// Both of these workflows are called "Default", which is the whole trap:
+	// two entries reading the same word name nothing a reader can act on.
+	if strings.Count(fault, ">Default<") > 1 || entries[0] == entries[1] {
+		t.Errorf("the refusal names two workflows indistinguishably:\n%s", fault)
 	}
 	if !strings.Contains(fault, "Default") {
 		t.Errorf("the refusal does not name the workflows:\n%s", fault)
@@ -340,6 +342,21 @@ func TestWorkflowsThatDisagreeRefuseTheBoardAndNameThem(t *testing.T) {
 	if !strings.Contains(narrowed, `data-task="`+second+`"`) {
 		t.Error("the narrowed board lost one of the agreeing projects")
 	}
+}
+
+// refusalBlock is the refusal and nothing else, so what it names is read from
+// the notice rather than from anywhere else on the page.
+func refusalBlock(t *testing.T, page string) string {
+	t.Helper()
+	start := strings.Index(page, `class="boardfault"`)
+	if start < 0 {
+		t.Fatalf("the screen carries no refusal:\n%s", page)
+	}
+	block := page[start:]
+	if end := strings.Index(block, "</div>"); end >= 0 {
+		block = block[:end]
+	}
+	return block
 }
 
 // groupEntries are the workflow groups a refusal lists, one string each, read

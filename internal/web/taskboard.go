@@ -70,6 +70,12 @@ type boardGroup struct {
 	// reader's filter and sort intact, so a refused board is one click from
 	// a drawable one rather than a dead end.
 	Href string
+	// Label is how the refusal names this group's workflow. It is the name,
+	// except where another group's workflow carries the same name, which is
+	// the case the merge rule exists for: two workflows called "default" that
+	// are different machines. Two entries reading "Default" tell a reader
+	// nothing, so the key disambiguates them.
+	Label string
 	// Known is false for a group of projects whose workflow this request
 	// could not resolve at all. Such a project is named in the refusal
 	// rather than dropped from it: a board missing a project it was asked
@@ -198,7 +204,23 @@ func groupByWorkflow(projects []core.Project, workflows map[string]core.Workflow
 		}
 		return strings.Join(out[i].Keys(), ",") < strings.Join(out[j].Keys(), ",")
 	})
-	return out
+	return labelled(out)
+}
+
+// labelled names each group, adding the workflow's key wherever the name alone
+// would not tell two groups apart.
+func labelled(groups []boardGroup) []boardGroup {
+	shared := map[string]int{}
+	for _, g := range groups {
+		shared[g.Name()]++
+	}
+	for i := range groups {
+		groups[i].Label = groups[i].Name()
+		if shared[groups[i].Name()] > 1 && groups[i].Workflow.Key != "" {
+			groups[i].Label += " (" + groups[i].Workflow.Key + ")"
+		}
+	}
+	return groups
 }
 
 // workflowOrder is how two workflows describing one machine are ranked, so

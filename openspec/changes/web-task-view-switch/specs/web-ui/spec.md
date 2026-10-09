@@ -119,6 +119,9 @@ carrying the reader's filter, deadline window and sort.
 The reader's view preference SHALL be left as it is by the refusal, so that narrowing the selection
 draws the board without the switch being pressed again.
 
+Where two named groups run workflows carrying the same name, the refusal SHALL distinguish them, so
+that two entries reading alike cannot be the whole explanation.
+
 A task on the page whose status matches none of the drawn columns SHALL be reported on the screen
 rather than omitted from it.
 
@@ -136,6 +139,12 @@ rather than omitted from it.
 - **WHEN** the reader follows the entry for one group
 - **THEN** the board of that group's shared workflow is drawn
 - **AND** the switch did not have to be pressed again
+
+#### Scenario: Two workflows of the same name are named apart
+
+- **GIVEN** a refusal naming two groups whose workflows are both called `Default`
+- **WHEN** the notice is drawn
+- **THEN** the two entries are distinguishable from one another
 
 #### Scenario: A task in a state the workflow no longer has is reported
 
