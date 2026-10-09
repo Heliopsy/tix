@@ -48,6 +48,11 @@ func TestTokenNameInUseOnPostgres(t *testing.T) {
 	mine := seed(t, s, clk, "acme")
 	theirs := seed(t, s, clk, "beta")
 
+	// Worth knowing what this half proves on this engine and what it does not.
+	// Replacing the tenant-scoped builder with a hand-written query leaves it
+	// passing, because row-level security filters the read anyway; the SQLite
+	// suite is where dropping the scope is observable. Here it says the two
+	// engines agree on the answer, not that the predicate carries the tenant.
 	putToken(t, s, theirs.scope, theirs.actor.ID, "01PGAAAAAAAAAAAAAAAAAAAAAA", "ci")
 	if nameInUse(t, s, mine.scope, "ci") {
 		t.Error("another tenant's token name reads as taken here")

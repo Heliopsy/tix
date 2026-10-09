@@ -74,6 +74,20 @@ has had it since the schema's second migration. Fixing it properly means giving 
 to run a data statement with the policy lifted, which is a change to the migration runner rather than to
 this screen.
 
+## What the two engines' guards each prove
+
+The uniqueness check is one portable predicate, so both engines run a guard on
+it. They do not prove the same thing, and the difference is worth recording.
+
+On SQLite, replacing the tenant-scoped builder with a hand-written query makes
+the cross-tenant assertion fail, so that guard really does defend the tenant
+scope. On PostgreSQL the same mutation leaves it passing, because row-level
+security filters the read whatever the predicate says. The Postgres guard
+therefore says the two engines agree on the answer, and that the partial unique
+index survived translation; it does not say the query carries its tenant. That
+one is SQLite's to defend, which is also where a query written without a scope
+would actually leak.
+
 ## Why the expiry control offers durations rather than a date
 
 "90 days" is the decision an operator is making. A datetime field makes them do the arithmetic, in a zone

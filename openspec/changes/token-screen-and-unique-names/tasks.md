@@ -30,7 +30,9 @@
 - [x] 3.5 `internal/store/sqlite/seq_test.go`: the hand-rewind list learns about the new index
 - [x] 3.6 `internal/store/sqlite/tokenname_test.go`: the upgrade path with duplicates already present, the
       tenant scoping of the check, and that a revoked name does not block the index
-- [x] 3.7 `internal/service/tokenname_test.go`: refused as a conflict naming the field, freed by revoking,
+- [x] 3.7 `internal/store/postgres/seq_test.go`, `internal/store/postgres/tokenname_test.go`: the other
+      engine's rewind list and its own guard on the predicate and the index
+- [x] 3.8 `internal/service/tokenname_test.go`: refused as a conflict naming the field, freed by revoking,
       and per tenant rather than globally
 
 ## 4. The listing says what it has
