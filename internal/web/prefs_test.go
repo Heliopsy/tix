@@ -13,8 +13,10 @@ import (
 )
 
 // The settings screen owns every per-browser preference, which is what the
-// reader asked for: four of the nine were on it, three were set only from the
-// screen that used them, and two had a control nowhere a reader would look.
+// reader asked for: six of the nine were on it, and the three that were not
+// were the three that are not switches -- the column picker of each listing,
+// the project visibility choice and the list-or-board view -- each editable
+// only from the screen it affects.
 //
 // Driven off web.Preferences rather than a list written here, so a preference
 // added to the package with no control on this screen fails rather than
