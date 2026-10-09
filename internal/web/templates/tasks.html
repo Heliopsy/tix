@@ -167,7 +167,7 @@
     <h2>{{stateLabel .State}} <span class="meta">({{len .Tasks}})</span></h2>
     {{range .Tasks}}
       {{$acc := index $v.Accent .Task.ProjectID}}
-      <article class="card{{if $acc.Color}} is-accented proj-{{$acc.Color}}{{end}}" draggable="{{if $.DragMove}}true{{else}}false{{end}}" data-task="{{.Task.Ref}}" data-project="{{$acc.Key}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
+      <article id="t-{{.Task.Ref}}" class="card{{if $acc.Color}} is-accented proj-{{$acc.Color}}{{end}}" draggable="{{if $.DragMove}}true{{else}}false{{end}}" data-task="{{.Task.Ref}}" data-project="{{$acc.Key}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
         <div class="ref">{{.Task.Ref}}</div>
         <div><a href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}">{{.Task.Title}}</a></div>
         {{/* A merged board mixes projects in one column, so each card says

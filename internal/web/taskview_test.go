@@ -201,6 +201,11 @@ func TestSwitchingToTheBoardKeepsTheFilter(t *testing.T) {
 	if !strings.Contains(page, `data-task="`+kept+`"`) {
 		t.Errorf("the board dropped the task the filter selected:\n%s", page)
 	}
+	// A move made without JavaScript comes back to the card it was made on,
+	// which needs the card to carry the anchor the redirect names.
+	if !strings.Contains(cardBlock(t, page, kept), `id="t-`+kept+`"`) {
+		t.Errorf("a card carries no anchor, so a move returns to the top of the board")
+	}
 	if strings.Contains(page, `data-task="`+dropped+`"`) {
 		t.Errorf("the board shows a task the filter excluded:\n%s", page)
 	}
