@@ -352,12 +352,16 @@ type CreateTokenInput struct {
 }
 
 // Validate checks the input.
+//
+// Each refusal names the field it is about, so a surface rendering a form can
+// put the message beside the control that caused it rather than on a page of
+// its own.
 func (in CreateTokenInput) Validate() error {
 	if in.Name == "" {
-		return Invalid("token name is required")
+		return Invalid("token name is required").WithDetail(DetailField, "name")
 	}
 	if len(in.Scopes) == 0 {
-		return Invalid("a token requires at least one scope")
+		return Invalid("a token requires at least one scope").WithDetail(DetailField, "scopes")
 	}
 	return nil
 }

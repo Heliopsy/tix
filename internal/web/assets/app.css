@@ -1513,6 +1513,61 @@ kbd {
 
 .copyline button { flex: 0 0 auto; padding: 6px 10px; font-size: 0.85em; }
 
+/* A one-time secret: the value of a freshly issued API token
+   (templates/tokens.html). Deliberately not a .flash -- that is the transient
+   toast fixed to the corner of the page, sized for "task saved", and a value
+   that can never be retrieved again must not be transient, must not be
+   cropped, and must not read as a confirmation that something went well.
+   Warn, not accent, for that last reason: this is a thing to act on now. The
+   value itself sits in a .copyline, which already wraps instead of
+   overflowing and already carries the generic copy button. */
+.secret {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--warn);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: var(--warn-soft);
+}
+
+.secret h2 { margin: 0 0 4px; font-size: 1rem; color: var(--warn); }
+.secret p { margin: 0; font-size: 0.9rem; }
+.secret .copyline { margin-bottom: 0; }
+
+/* Larger and more strongly bordered than a command hint. This is the one
+   string on the page nobody can fetch again, so it gets the room it needs;
+   user-select: all makes a single click take the whole value, since half a
+   token is never what anybody wanted. */
+.secret .copyline code {
+  padding: 9px 10px;
+  font-size: 0.95em;
+  border-color: var(--warn);
+  user-select: all;
+}
+
+/* Why one control's value was refused, on the line under that control. Not a
+   .flash: a message about a field has to be beside the field, and a toast in
+   the corner of the page cannot say which of eight controls it means. */
+.field-error {
+  margin: 2px 0 10px;
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
+/* A control the server refused, so the eye finds it without reading. */
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+/* An API token's state (templates/tokens.html). Active is the quiet case; the
+   two that explain why a credential stopped working are the ones that have to
+   be visible from across the table. */
+.badge.tok-active { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.badge.tok-expired { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.badge.tok-revoked { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+
 /* The per-row "raw detail" disclosure: on the task history table
    (templates/task.html) and on the tenant-wide activity feed
    (templates/partials.html, "activity-rows"). A bordered, shadowed panel

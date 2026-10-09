@@ -354,11 +354,7 @@ func (s *seeder) createActors(ctx context.Context) error {
 			Role:        p.role,
 		}
 		if p.agent {
-			token, err := s.svc.CreateToken(admin, core.CreateTokenInput{
-				Name:    p.handle + "-runner",
-				ActorID: id,
-				Scopes:  agentScopes,
-			})
+			token, err := s.mintAgentToken(admin, p.handle+"-runner", id)
 			if err != nil {
 				return err
 			}
@@ -382,6 +378,39 @@ func (s *seeder) createActors(ctx context.Context) error {
 // createPerson returns the identifier of the account behind one seeded person,
 // creating it through the same call tix user create makes so that a seeded
 // account and a hand-made one are the same kind of record.
+// mintAgentToken gives the agent its credential, replacing the one a previous
+// seed left behind.
+//
+// A token name identifies one live token within a tenant, so re-seeding cannot
+// simply create it again, and it cannot reuse the old one either: the value was
+// shown once and the fixture has to report a value that works. Revoking the
+// previous one and minting a fresh token is therefore what adoption means here,
+// the same shape as adoptPerson putting this seed's password on an account it
+// found.
+func (s *seeder) mintAgentToken(ctx context.Context, name, actorID string) (*core.IssuedToken, error) {
+	in := core.CreateTokenInput{Name: name, ActorID: actorID, Scopes: agentScopes}
+	token, err := s.svc.CreateToken(ctx, in)
+	switch {
+	case err == nil:
+		return token, nil
+	case !core.IsKind(err, core.KindConflict):
+		return nil, err
+	}
+	existing, err := s.svc.ListTokens(ctx, actorID)
+	if err != nil {
+		return nil, err
+	}
+	for _, t := range existing {
+		if t.Name != name || t.RevokedAt != nil {
+			continue
+		}
+		if err := s.svc.RevokeToken(ctx, t.ID); err != nil {
+			return nil, err
+		}
+	}
+	return s.svc.CreateToken(ctx, in)
+}
+
 func (s *seeder) createPerson(ctx context.Context, p personSeed) (string, error) {
 	in := core.CreateUserInput{
 		Email:       p.email,

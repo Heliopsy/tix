@@ -2,45 +2,91 @@
 <h1>API tokens</h1>
 {{template "column-picker" .}}
 {{if .Data.Issued}}
-<div class="flash">
-  <p>Copy this token now. It is shown once and cannot be retrieved again.</p>
-  <pre>{{.Data.Issued}}</pre>
-</div>
+{{/* Not a .flash. A flash is the fixed, 420px-wide toast in the corner of the
+     page that says "task saved" and is gone by the time you look back at it;
+     a value that cannot be retrieved again has to stay put, be readable in
+     full, and be selectable. The value itself goes in a .copyline, which is
+     the same affordance the sign-in help uses for a command: it wraps rather
+     than overflowing, and its Copy button is the one generic
+     data-copy-target handler in assets/copy.js, so with scripting off the
+     value is still there in full to select by hand. */}}
+<section class="secret" aria-labelledby="issued-token-heading">
+  <h2 id="issued-token-heading">Copy this token now</h2>
+  <p>It is shown once and cannot be retrieved again. If you lose it, revoke the token and issue another.</p>
+  <div class="copyline">
+    <code id="issued-token">{{.Data.Issued}}</code>
+    <button type="button" class="secondary" data-copy-target="issued-token">Copy</button>
+  </div>
+</section>
 {{end}}
 <table>
-  <thead><tr><th>Name</th>{{if .Columns.Show "tokens" "scopes"}}<th>Scopes</th>{{end}}{{if .Columns.Show "tokens" "expires"}}<th>Expires</th>{{end}}<th></th></tr></thead>
+  <thead><tr><th>Name</th>{{if .Columns.Show "tokens" "scopes"}}<th>Scopes</th>{{end}}{{if .Columns.Show "tokens" "created"}}<th>Created</th>{{end}}{{if .Columns.Show "tokens" "expires"}}<th>Expires</th>{{end}}<th>State</th><th></th></tr></thead>
   <tbody>
   {{range .Data.Tokens}}
     <tr>
       <td>{{.Name}}</td>
       {{if $.Columns.Show "tokens" "scopes"}}<td>{{scopes .Scopes}}</td>{{end}}
-      {{if $.Columns.Show "tokens" "expires"}}<td>{{stamp .ExpiresAt}}</td>{{end}}
+      {{if $.Columns.Show "tokens" "created"}}<td>{{compact .CreatedAt}}</td>{{end}}
+      {{/* A token with no expiry says so. An empty cell under a heading
+           reading "Expires" is indistinguishable from an expiry the screen
+           failed to render, which is exactly what this column was before the
+           form could set one. */}}
+      {{if $.Columns.Show "tokens" "expires"}}<td>{{if .ExpiresAt}}{{stamp .ExpiresAt}}{{else}}<span class="muted">Never</span>{{end}}</td>{{end}}
+      <td><span class="badge tok-{{tokenState .}}">{{tokenState .}}</span>{{if .RevokedAt}} <span class="muted">{{stamp .RevokedAt}}</span>{{end}}</td>
       <td>
-        <form method="post" action="/admin/tokens/revoke">
-          {{template "csrf" $.CSRF}}
-          <input type="hidden" name="id" value="{{.ID}}">
-          <button class="secondary" type="submit">Revoke</button>
-        </form>
+        {{if not .RevokedAt}}
+        {{/* Behind a disclosure, like every other irreversible control in this
+             interface (a project, a task, an account): the button that ends a
+             credential should not be one stray click away, and the words
+             explaining what it ends have nowhere else to go. */}}
+        <details class="panel danger">
+          <summary>Revoke</summary>
+          <div class="body">
+            <form method="post" action="/admin/tokens/revoke">
+              {{template "csrf" $.CSRF}}
+              <input type="hidden" name="id" value="{{.ID}}">
+              <p class="muted">Whatever holds this token stops authenticating at once. It cannot be undone, and the value cannot be recovered, so anything still using it needs a new token.</p>
+              <div class="actions"><button class="danger" type="submit">Revoke {{.Name}}</button></div>
+            </form>
+          </div>
+        </details>
+        {{end}}
       </td>
     </tr>
   {{else}}
-    <tr><td colspan="{{$.Columns.Span "tokens" 2}}">No tokens.</td></tr>
+    <tr><td colspan="{{$.Columns.Span "tokens" 3}}">No tokens.</td></tr>
   {{end}}
   </tbody>
 </table>
 
 <h2>Issue a token</h2>
+{{/* A refused submission re-renders this form rather than answering with the
+     error screen, so the message arrives beside the control it is about and
+     nothing the reader typed is lost. It is the response to the ordinary POST,
+     so it works the same with scripting off; the required attributes below are
+     a convenience on top of it, never the thing doing the checking. */}}
 <form method="post" action="/admin/tokens">
   {{template "csrf" .CSRF}}
+  {{with .Data.Errors.On ""}}{{template "field-error" .}}{{end}}
   <label for="name">Name</label>
-  <input id="name" name="name" required>
+  <input id="name" name="name" value="{{.Data.Form.Name}}" required{{with .Data.Errors.On "name"}} aria-invalid="true" aria-describedby="{{.ID}}"{{end}}>
+  {{with .Data.Errors.On "name"}}{{template "field-error" .}}{{end}}
   <div class="field-label">
     <label for="scopes">Scopes</label>
     {{template "field-info" "Exactly what this token may do; the CLI or agent holding it can do nothing outside this list, and at least one scope is required. Select every scope its work needs, for example task:write and task:transition for an agent that moves its own tasks, and no more than that -- a token is usually held outside your own control."}}
   </div>
-  <select id="scopes" name="scopes" multiple size="8">
-    {{range .Data.Scopes}}<option value="{{.}}">{{.}}</option>{{end}}
+  <select id="scopes" name="scopes" multiple size="8" required{{with .Data.Errors.On "scopes"}} aria-invalid="true" aria-describedby="{{.ID}}"{{end}}>
+    {{range .Data.Scopes}}<option value="{{.}}" {{if $.Data.Form.Chose .}}selected{{end}}>{{.}}</option>{{end}}
   </select>
+  {{with .Data.Errors.On "scopes"}}{{template "field-error" .}}{{end}}
+  <div class="field-label">
+    <label for="expires">Expires</label>
+    {{template "field-info" "When this token stops working, counted from now. An expiry is the one control that limits the damage of a token that leaks without anybody noticing, so prefer the shortest window the work fits in and issue a new one when it runs out. Never expires is for a credential you are certain nothing outside your control will ever hold."}}
+  </div>
+  <select id="expires" name="expires"{{with .Data.Errors.On "expires"}} aria-invalid="true" aria-describedby="{{.ID}}"{{end}}>
+    {{range .Data.Expiry}}<option value="{{.Key}}" {{if $.Data.Form.ChoseExpiry .Key}}selected{{end}}>{{.Label}}</option>{{end}}
+  </select>
+  {{with .Data.Errors.On "expires"}}{{template "field-error" .}}{{end}}
   <p><button type="submit">Issue token</button></p>
 </form>
 {{end}}

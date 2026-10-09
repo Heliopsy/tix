@@ -474,6 +474,16 @@ on `token create` takes either the project's key or its id, same as
 or id is a clean `not_found`, exit `3`, and an unknown scope is `invalid`,
 exit `2`.
 
+Two live tokens of one tenant cannot share a name, since the name is what
+you pick by when you revoke; a second `ci-agent` is `conflict`, exit `4`.
+Revoking frees the name, so rotation is `tix token rm ID` then the same
+`token create` again. Give it an expiry with `--expires` (a date or an
+RFC 3339 timestamp); omitted, the token never expires.
+
+```sh
+tix token create ci-agent --expires 2027-01-01 --scope task:read
+```
+
 ## `tix ssh`: the terminal interface over SSH
 
 `tix ssh` serves the terminal interface (the same thing as `tix tui`) over

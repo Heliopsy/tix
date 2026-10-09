@@ -75,6 +75,7 @@ var columnSets = map[string][]Column{
 	},
 	"tokens": {
 		{Key: "scopes", Label: "Scopes", Default: true},
+		{Key: "created", Label: "Created", Default: true},
 		{Key: "expires", Label: "Expires", Default: true},
 	},
 	"sshkeys": {

@@ -251,6 +251,33 @@ tix token create ci --scope task:read --scope task:claim --scope task:transition
 The token value is printed once and cannot be retrieved again. Supply it with `--token`, or the `TIX_TOKEN`
 environment variable, or a named context.
 
+`tix token ls` lists what a tenant holds, with the name, scopes, creation time, expiry and last use of each;
+`tix token rm ID` revokes one, and a revoked token stops authenticating immediately.
+
+### Names and expiry
+
+A token's name has to identify one token, because the name is what you choose by when you revoke: two
+credentials called `ci` make "revoke the one that leaked" a guess. Within a tenant, no two tokens that are
+still live may share a name, on every surface — the command line, the API and the browser. A revoked token
+keeps its name in the listing and releases it, so rotation is the obvious thing:
+
+```sh
+tix token rm 01J000000000000000000A
+tix token create ci --scope task:read --scope task:claim --scope task:transition
+```
+
+Give a token an expiry. It is the only control that bounds what a leaked token can do while nobody has
+noticed, and an agent's credential is by definition held somewhere you do not watch.
+
+```sh
+tix token create ci --expires 2027-01-01 --scope task:read --scope task:claim
+```
+
+`--expires` takes a date or an RFC 3339 timestamp. Omitting it mints a token that never expires, which is a
+deliberate choice rather than a default worth taking; `tix token ls` shows which of your tokens made it. In
+the browser, `/admin/tokens` offers the expiry as a set of durations and proposes ninety days, so a token
+issued there expires unless somebody chose otherwise.
+
 | Scope | Grants |
 | --- | --- |
 | `task:read` | read tasks |

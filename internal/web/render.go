@@ -167,7 +167,27 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"expiredAgo":      expiredAgo,
 		"category":        categoryLabel,
 		"categoryClass":   categoryClass,
+		"tokenState":      tokenState,
 	}
+}
+
+// tokenState names whether a token still authenticates, as the one word its
+// row is keyed on: revoked, expired, or active.
+//
+// The listing returns revoked and expired tokens as well as live ones, and
+// said nothing about either: a revoked token was a row identical to a working
+// one, under a Revoke button that would do nothing, which is the worst of the
+// three to get wrong. core.APIToken.Active is the same answer the
+// authentication path reaches, so the badge cannot disagree with whether the
+// credential works.
+func tokenState(t core.APIToken) string {
+	if t.RevokedAt != nil {
+		return "revoked"
+	}
+	if !t.Active(time.Now()) {
+		return "expired"
+	}
+	return "active"
 }
 
 // priorityName renders a priority as the word the CLI and the forms use, so a

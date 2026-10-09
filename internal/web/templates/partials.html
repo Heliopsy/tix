@@ -82,6 +82,14 @@
 </details>
 {{end}}
 
+{{/* field-error is why one control's value was refused, rendered on the line
+     under that control by the screen that re-rendered itself rather than
+     answering with an error page. role="alert" so a screen reader is told
+     without the reader having to go looking; the id is what the control's
+     aria-describedby points at. A refusal naming no single control carries no
+     id and sits at the top of the form. */}}
+{{define "field-error"}}<p class="field-error"{{if .Field}} id="{{.ID}}"{{end}} role="alert">{{.Message}}</p>{{end}}
+
 {{/* The dl content is filled entirely by assets/shortcuts.js from the same
      JSON blob the keydown handler reads, so this markup is a shell: nothing
      here names a key or an action, which is what keeps the overlay from
