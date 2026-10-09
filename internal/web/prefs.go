@@ -124,6 +124,19 @@ var columnPages = []columnPageName{
 	{Page: "domains", Label: "Domains"},
 }
 
+// columnLabel is the word a listing is offered under, falling back to its own
+// name so a listing declared in columnSets and not yet named here reads as
+// its key rather than as nothing. TestSettingsOffersEveryListingsColumns is
+// what stops that state persisting.
+func columnLabel(page string) string {
+	for _, p := range columnPages {
+		if p.Page == page {
+			return p.Label
+		}
+	}
+	return page
+}
+
 // newColumnForm builds one listing's picker. Every column picker in this
 // interface comes through here -- the one beside a listing and the one on
 // settings alike -- so neither can resolve the cookie differently from the
