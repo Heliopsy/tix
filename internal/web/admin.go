@@ -495,8 +495,17 @@ type tokenForm struct {
 func newTokenForm() tokenForm { return tokenForm{Expiry: defaultTokenExpiry} }
 
 // tokenFormOf reads the submission back out of the request.
+//
+// A submission that names no expiry is read as the proposed one, in this one
+// place, so the control a refused form comes back carrying is the same choice
+// the handler would have applied. Normalising it only inside expiresAt left
+// the re-rendered select with nothing selected, which showed the reader the
+// first option while the handler meant the default.
 func tokenFormOf(r *http.Request) tokenForm {
 	out := tokenForm{Name: field(r, "name"), Expiry: field(r, "expires")}
+	if out.Expiry == "" {
+		out.Expiry = defaultTokenExpiry
+	}
 	for _, raw := range r.PostForm["scopes"] {
 		if trimmed := strings.TrimSpace(raw); trimmed != "" {
 			out.Scopes = append(out.Scopes, core.Scope(trimmed))
@@ -515,12 +524,8 @@ func (f tokenForm) ChoseExpiry(key string) bool { return f.Expiry == key }
 // expiresAt resolves the chosen expiry against now, returning nil for a token
 // that never expires.
 func (f tokenForm) expiresAt(now time.Time) (*time.Time, error) {
-	key := f.Expiry
-	if key == "" {
-		key = defaultTokenExpiry
-	}
 	for _, choice := range tokenExpiryChoices {
-		if choice.Key != key {
+		if choice.Key != f.Expiry {
 			continue
 		}
 		if choice.Days == 0 {

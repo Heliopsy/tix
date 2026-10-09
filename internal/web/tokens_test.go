@@ -135,6 +135,39 @@ func TestEmptyScopeSelectionRedrawsTheFormAndKeepsTheName(t *testing.T) {
 	}
 }
 
+// TestARefusedFormKeepsTheExpiryChoice covers the third value on this form,
+// and the one whose loss a reader cannot see: a select with nothing selected
+// shows its first option, so a form that came back without the choice marked
+// said "7 days" while the handler meant ninety. The proposed default itself is
+// pinned by TestTheFormProposesAnExpiry.
+func TestARefusedFormKeepsTheExpiryChoice(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+
+	for _, tc := range []struct{ sent, want string }{
+		{"365d", "365d"},
+		{"never", "never"},
+		{"", "90d"},
+	} {
+		t.Run("sent "+tc.sent, func(t *testing.T) {
+			form := url.Values{"name": {"half-typed"}}
+			if tc.sent != "" {
+				form.Set("expires", tc.sent)
+			}
+			resp := issueToken(t, b, form)
+			page := body(t, resp)
+			if resp.StatusCode == http.StatusSeeOther {
+				t.Fatalf("a submission with no scope was accepted")
+			}
+			control := between(t, issueForm(t, page), `<select id="expires"`, "</select>")
+			if !strings.Contains(control, `<option value="`+tc.want+`" selected>`) {
+				t.Errorf("the expiry control came back without %q selected:\n%s", tc.want, control)
+			}
+		})
+	}
+}
+
 func TestTwoTokensCannotShareAName(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
