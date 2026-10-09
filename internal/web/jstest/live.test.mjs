@@ -34,13 +34,13 @@ function board({ drag = "1", from = "todo", targets = ["doing"] } = {}) {
 
 // context loads decide.js and live.js against a document that has no board on
 // it, which is the situation the file is always in when the browser runs it.
-function context() {
+function context({ pathname = "/projects/infra", search = "" } = {}) {
   const fetches = [];
   const doc = fakeDocument();
   const ctx = newContext({
     document: doc,
     matchMedia: () => ({ matches: true }),
-    location: { protocol: "http:", host: "localhost", pathname: "/projects/infra" },
+    location: { protocol: "http:", host: "localhost", pathname, search },
     WebSocket: function () { throw new Error("no feed on this page"); },
     DOMParser: function () { return { parseFromString: () => ({ querySelector: () => null }) }; },
     FormData: function (form) { return form.fields; },
@@ -93,6 +93,25 @@ test("a board that appears after the script ran still moves a card", async () =>
   assert.equal(fetches[0].url, "/projects/infra/move");
   assert.match(fetches[0].body, /ref=infra-1/);
   assert.equal(b.select.value, "doing", "the move form was not pointed at the drop column");
+});
+
+// The task screen draws a board of a filtered, sorted, paged listing, so the
+// query string is part of which tasks are on it. Re-fetching the path alone
+// answered a different question: the reader's filter was dropped and the board
+// came back holding the first page of everything.
+test("a move refreshes the board it is on, query string included", async () => {
+  const { doc, fetches } = context({ pathname: "/tasks", search: "?q=tag%3Aops&sort=urgency" });
+  const b = board({ targets: ["doing"] });
+  drag(doc, { card: b.card, column: b.columns[1] });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const refresh = fetches[fetches.length - 1];
+  assert.equal(fetches.length, 2, "the move did not refresh the board afterwards");
+  assert.equal(
+    refresh.url,
+    "/tasks?q=tag%3Aops&sort=urgency",
+    "the refresh dropped the query, so a filtered board came back unfiltered"
+  );
 });
 
 test("a column the card may not move to is refused before any request", () => {

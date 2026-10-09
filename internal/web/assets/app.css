@@ -274,6 +274,14 @@ a { color: var(--accent); }
   margin-bottom: 8px;
 }
 
+/* A merged board carries one column per state of the workflow its projects
+   share, and is read at the widths a single project's board was designed for.
+   The track minimum is narrower so more columns fit a row before the grid
+   wraps, and auto-fit wraps rather than overflowing: nine columns become two
+   rows of columns, never a page that scrolls sideways. The phone-width rule
+   below stacks them, merged or not. */
+.board.is-merged { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
 .column {
   min-width: 0;
   background: var(--bg);
@@ -808,6 +816,91 @@ ul.plain > li:last-child { border-bottom: 0; }
    margin, so the message sits against it rather than floating between the bar
    and the listing. */
 .filterbar:has(+ .filterfault) { margin-bottom: 8px; }
+
+/* The list-or-board switch. It belongs to the strip of controls above the
+   listing, so it borrows the bar's own arrangement and wraps onto its own
+   line on a narrow screen rather than squeezing the segments. */
+.viewswitch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.viewswitch-label {
+  font-size: 0.72rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+/* Two buttons reading as one control, so which view is current is part of the
+   control rather than a sentence beside it. The pressed segment is the only
+   filled one; a second filled thing would compete with the status pills in
+   the listing underneath. */
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.segmented .segment {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 7px 14px;
+  font-size: 0.85rem;
+  font-weight: 550;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.segmented .segment + .segment { border-left: 1px solid var(--line-strong); }
+.segmented .segment:hover { filter: brightness(1.08); }
+
+.segmented .segment.is-on {
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: default;
+}
+
+/* The board's own line: which workflow it was drawn from and which projects
+   share it. A merged board is read differently from a single project's, and
+   the reader has to be able to see which one they are looking at. */
+.boardmeta { margin: 0 0 10px; }
+
+/* The reader asked for a board and is being given the list, because the
+   projects on screen do not agree about their states. Warned rather than
+   accented: this is a refusal, and it names what to do about it. */
+.boardfault {
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  border: 1px solid var(--warn);
+  border-radius: 8px;
+  background: var(--warn-soft, var(--bg));
+  font-size: 0.88rem;
+}
+
+.boardfault p { margin: 0; }
+
+.boardgroups { margin: 8px 0 0; padding-left: 20px; }
+.boardgroups li { margin: 2px 0; }
+
+/* A task the board could not place. Danger, not warning: a board missing a
+   task it was asked for is the failure this screen exists to avoid. */
+.boardstray {
+  margin: 0 0 18px;
+  padding: 8px 12px;
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 0.85rem;
+}
 
 .filterfault {
   margin: 0 0 18px;

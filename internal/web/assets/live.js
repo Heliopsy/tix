@@ -290,12 +290,19 @@
   // board's own contents, not the whole page. The listeners above are on the
   // document, so a freshly rendered card -- with its own now-current Move
   // options -- is live whatever this replaces.
+  //
+  // The search string is part of the page. The task screen draws a board of
+  // the same filtered, sorted, paged listing the list shows, so re-fetching
+  // the path alone answered a different question than the one on screen: the
+  // reader's filter was dropped and the board came back holding every task on
+  // the first page. A project's own board has no query to lose and is
+  // unaffected.
   var refreshing = null;
   function refreshBoard(board, announceText) {
     if (refreshing) {
       return refreshing;
     }
-    refreshing = fetch(window.location.pathname, { credentials: "same-origin" })
+    refreshing = fetch(window.location.pathname + window.location.search, { credentials: "same-origin" })
       .then(function (resp) { return resp.ok ? resp.text() : null; })
       .then(function (html) {
         refreshing = null;

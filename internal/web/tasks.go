@@ -75,6 +75,16 @@ type tasksView struct {
 	// and a state that is legal in one is not necessarily legal in another.
 	Moves map[string]core.WorkflowDefinition
 
+	// View is how this reader draws the screen, and Views the switch that
+	// changes it. Both views answer one filter, one page and one visibility
+	// choice, so switching changes the drawing and never the selection.
+	View  string
+	Views []taskViewChoice
+
+	// Board is the board the switch draws, or the workflows that stop it
+	// being drawable.
+	Board taskBoard
+
 	// Names labels the actors holding a lease, so a held row can say who has
 	// it rather than only that somebody does.
 	Names actorNames
@@ -243,6 +253,17 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	// The board is resolved from the same filter the list was answered with,
+	// so the two views cover one selection of tasks. Only when it is the view
+	// being drawn: a reader on the list pays nothing for a board they are not
+	// looking at, and what the board would have said is on the board.
+	view := taskViewOf(r)
+	var board taskBoard
+	if view == TaskViewBoard {
+		if board, err = h.taskBoardFor(r, projects, filter, page.Tasks, moves); err != nil {
+			return err
+		}
+	}
 	return h.render(w, r, "tasks.html", "Tasks", tasksView{
 		Tasks:         page.Tasks,
 		Projects:      projects,
@@ -261,6 +282,9 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 		FilterError:   refused,
 		Names:         h.resolveActors(r, rowActors(page.Tasks)...),
 		Moves:         moves,
+		View:          view,
+		Views:         taskViewChoices(view),
+		Board:         board,
 		Visibility:    visibility,
 		Hidden:        hidden,
 		Filtered:      filtered && hidden > 0,
@@ -286,13 +310,9 @@ func rowActors(tasks []core.Task) []string {
 // it to: the first terminal state in the done category, or failing that the
 // first terminal state at all.
 func (h *handler) completeStates(r *http.Request, projects []core.Project) (map[string]string, error) {
-	workflows, err := h.svc.ListWorkflows(r.Context())
+	byID, err := h.workflowsByID(r)
 	if err != nil {
 		return nil, err
-	}
-	byID := make(map[string]core.Workflow, len(workflows))
-	for _, w := range workflows {
-		byID[w.ID] = w
 	}
 	out := make(map[string]string, len(projects))
 	for _, p := range projects {
@@ -311,13 +331,9 @@ func (h *handler) completeStates(r *http.Request, projects []core.Project) (map[
 // listing can offer a row the moves its own workflow allows rather than a
 // fixed set that happens to suit one project.
 func (h *handler) workflowsByProject(r *http.Request, projects []core.Project) (map[string]core.WorkflowDefinition, error) {
-	workflows, err := h.svc.ListWorkflows(r.Context())
+	byID, err := h.workflowsByID(r)
 	if err != nil {
 		return nil, err
-	}
-	byID := make(map[string]core.Workflow, len(workflows))
-	for _, w := range workflows {
-		byID[w.ID] = w
 	}
 	out := make(map[string]core.WorkflowDefinition, len(projects))
 	for _, p := range projects {
