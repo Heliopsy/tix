@@ -108,6 +108,31 @@ func hiddenKeys(hidden map[string]bool) []string {
 	return out
 }
 
+// liveHiddenKeys names the projects put away that this listing still has a
+// project for.
+//
+// A key naming a project deleted since the choice was made cannot be sent to
+// the service. An unknown project key in a filter is a typo there and is
+// refused as not found, deliberately, so a cookie holding one answered the
+// task screen with a not-found page: a reader whose project had been deleted
+// lost the whole screen, and the only way back was to clear the cookie by
+// hand, which the screen that was gone was the only place to do. What no
+// longer exists excludes nothing, so it is dropped here, and the visibility
+// control names it instead rather than leaving a shorter list unexplained.
+func liveHiddenKeys(projects []core.Project, hidden map[string]bool) []string {
+	live := make(map[string]bool, len(projects))
+	for _, p := range projects {
+		live[p.Key] = true
+	}
+	out := make([]string, 0, len(hidden))
+	for _, key := range hiddenKeys(hidden) {
+		if live[key] {
+			out = append(out, key)
+		}
+	}
+	return out
+}
+
 // hiddenCount is how many projects are put away, which is what the screen
 // says rather than leaving a shorter task list unexplained.
 func hiddenCount(choices []projectChoice) int {

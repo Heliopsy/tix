@@ -1511,6 +1511,29 @@ details.panel.columns { margin-bottom: 18px; }
   margin: 0;
 }
 
+/* The name wraps and the key does not: a project's key is the short, exact
+   half of the pair, and a key broken over two lines is unreadable. The name
+   is allowed to shrink so a long one cannot push the key out of the cell. */
+.visibilityform .projectchoice-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.visibilityform .projectchoice code {
+  font-size: 0.78rem;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+/* The sentence naming hidden keys no project answers to. Full width under the
+   grid rather than a cell in it: it is about the choice as a whole, not about
+   any one checkbox, and it has to be allowed to run to several lines. */
+.visibilityform .stale-projects {
+  margin: 10px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
 .visibilityform .actions { margin-top: 12px; }
 
 /* Keyboard shortcut help overlay (assets/shortcuts.js). Hidden by the native

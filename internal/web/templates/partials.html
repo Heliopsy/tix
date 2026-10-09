@@ -108,8 +108,15 @@
 {{end}}
 
 {{/* The columns form on its own, so a screen that has nothing else to put
-     beside it can wrap it in its own disclosure (column-picker, below) while
-     the task list can sit it next to the project filter inside one. */}}
+     beside it can wrap it in its own disclosure (column-picker, below), the
+     task list can sit it next to the project filter inside one, and the
+     settings screen can render one per listing.
+
+     It takes a columnFormView rather than the page's view, and every caller
+     gets one from newColumnForm: the picker beside a listing and the picker
+     on settings are then the same form over the same resolved value, which is
+     what stops the two coming to disagree about a preference they both edit.
+     See prefs.go. */}}
 {{define "column-choices"}}
 {{/* show:none for the same reason the tick has it: a boosted swap scrolls
      to the top by default, and applying a column should not move the reader
@@ -120,7 +127,7 @@
   <input type="hidden" name="page" value="{{.ColumnPage}}">
   <input type="hidden" name="next" value="{{.Here}}">
   <div class="choices">
-    {{range .Columns.Options .ColumnPage}}
+    {{range .Options}}
     <label><input type="checkbox" name="column" value="{{.Key}}" {{if .Shown}}checked{{end}}> {{.Label}}</label>
     {{end}}
   </div>
@@ -138,10 +145,66 @@
 <details class="panel columns">
   <summary>Columns</summary>
   <div class="body">
-    {{template "column-choices" .}}
+    {{template "column-choices" .ColumnForm}}
   </div>
 </details>
 {{end}}
+{{end}}
+
+{{/* The project visibility form, rendered both beside the task list and on
+     settings from one visibilityFormView. Each project is named as well as
+     keyed: on the task screen the key alone was readable because the rows
+     under it carried the names, and on settings there is no list in front of
+     the reader to decode a key against.
+
+     Stale names the hidden keys no project on this listing answers to -- a
+     project deleted or archived after the choice was made. They go on being
+     excluded and have no checkbox to untick, so the only thing that can
+     account for them is a sentence. Submitting the form forgets them. */}}
+{{define "project-choices"}}
+<form method="post" action="/visibility" class="visibilityform"
+      hx-swap="innerHTML show:none">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="next" value="{{.Here}}">
+  <div class="choices">
+    {{range .Choices}}
+    <label class="projectchoice{{if .Color}} proj-{{.Color}}{{end}}">
+      <input type="checkbox" name="project" value="{{.Key}}" {{if .Shown}}checked{{end}}>
+      {{if .Color}}<span class="swatch proj-{{.Color}}" aria-hidden="true"></span>{{end}}
+      {{if .Icon}}<span class="proj-icon" role="img" aria-label="{{.Name}}">{{.Icon}}</span>{{end}}
+      <span class="projectchoice-name">{{.Name}}</span> <code>{{.Key}}</code>
+    </label>
+    {{else}}<span class="muted">No projects yet.</span>{{end}}
+  </div>
+  {{if .Stale}}
+  <p class="muted stale-projects">Still hidden, and no project on this list answers to {{if eq (len .Stale) 1}}it{{else}}them{{end}}: {{range $i, $key := .Stale}}{{if $i}}, {{end}}<code>{{$key}}</code>{{end}}. Kept from an earlier choice; applying this form forgets {{if eq (len .Stale) 1}}it{{else}}them{{end}}.</p>
+  {{end}}
+  <div class="actions">
+    <button type="submit">Apply projects</button>
+    <button class="secondary" type="submit" name="reset" value="1">Show all</button>
+  </div>
+</form>
+{{end}}
+
+{{/* The view switch, rendered both beside the task filter bar and on settings
+     from one taskViewFormView. Two positions, never three: the list is what
+     an absent cookie means, so there is no "unset" to offer.
+
+     Not boosted: the choice is a cookie the next render reads, and a boosted
+     swap of the body is a second request either way. */}}
+{{define "taskview-switch"}}
+<form method="post" action="/taskview" class="viewswitch" hx-boost="false"
+      aria-label="How to draw the tasks">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="next" value="{{.Here}}">
+  <span class="viewswitch-label" id="viewswitch-label">View as</span>
+  <div class="segmented" role="group" aria-labelledby="viewswitch-label">
+    {{range .Choices}}
+    <button type="submit" name="view" value="{{.Value}}" class="segment{{if .Selected}} is-on{{end}}"
+            {{if .Selected}}aria-current="true"{{end}}>{{.Label}}</button>
+    {{end}}
+  </div>
+</form>
 {{end}}
 
 {{/* activity-rows renders the tenant-wide activity feed's row list, and

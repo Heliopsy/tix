@@ -121,6 +121,13 @@ type view struct {
 	Data          any
 }
 
+// ColumnForm is this screen's own column picker, built by the same
+// constructor the settings screen's pickers come from, so a listing's picker
+// and the one on settings are one form over one resolved value.
+func (v view) ColumnForm() columnFormView {
+	return newColumnForm(v.CSRF, v.Here, v.ColumnPage, v.ColumnPage, v.Columns)
+}
+
 // parseTemplates builds one template set per screen, so that two screens can
 // define the same block without colliding. Every timestamp a template renders
 // goes through style, so the browser and the CLI table cannot disagree about

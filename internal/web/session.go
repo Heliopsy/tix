@@ -89,6 +89,19 @@ type settingsView struct {
 	Timezone       string
 	TimeFormats    []timeChoice
 	Timezones      []timeChoice
+
+	// Prefs holds the three preferences whose controls also sit on the screen
+	// that uses them: the column picker of every listing, the project
+	// visibility choice and the view switch. They are rendered here from the
+	// same constructor and the same partials those screens use, which is what
+	// makes it impossible for this screen and that one to show different
+	// answers for one cookie. See prefs.go.
+	Prefs prefsView
+
+	// ProjectScan is false when the tenant has more projects than the
+	// visibility control walked, so the screen can say the list is short
+	// rather than presenting a partial set as the whole tenant.
+	ProjectScan bool
 }
 
 // showSettings renders the settings screen: every per-browser display
@@ -97,6 +110,13 @@ type settingsView struct {
 // sidebar now only links here.
 func (h *handler) showSettings(w http.ResponseWriter, r *http.Request) error {
 	zone := timezoneOf(r)
+	// The same walk the task screen's visibility control is built from, so
+	// the two controls are offered one set of projects rather than one a page
+	// deep and one whole.
+	projects, whole, err := h.allProjects(r, false)
+	if err != nil {
+		return err
+	}
 	return h.render(w, r, "settings.html", "Settings", settingsView{
 		TargetDescribe: h.targetDescribe,
 		Shortcuts:      buildShortcutTable(),
@@ -104,6 +124,8 @@ func (h *handler) showSettings(w http.ResponseWriter, r *http.Request) error {
 		Timezone:       zone,
 		TimeFormats:    timeFormatChoices(zone),
 		Timezones:      timezoneChoices(),
+		Prefs:          h.prefsFor(r, projects),
+		ProjectScan:    whole,
 	})
 }
 

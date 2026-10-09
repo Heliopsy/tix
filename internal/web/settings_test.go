@@ -233,9 +233,26 @@ func TestSettingsPageShowsTheConfiguredDatabaseDescription(t *testing.T) {
 
 	without := web.Handler(f.svc)
 	bare := f.settingsPage(t, without)
-	if strings.Contains(bare, "<code>") {
-		t.Errorf("the settings page shows a database target with nothing configured:\n%s", bare)
+	// Read from the Database heading to the end of the page rather than over
+	// the whole document: the preference sections above it legitimately set a
+	// project key and a filter term in <code>, and a search over the document
+	// cannot tell those from a target. What this is about is whether the
+	// Database section names one.
+	if section := databaseSection(t, bare); strings.Contains(section, "<code>") {
+		t.Errorf("the settings page shows a database target with nothing configured:\n%s", section)
 	}
+}
+
+// databaseSection is the markup from the Database heading to the end of the
+// page, which is where a configured target is named and the only place one
+// may appear.
+func databaseSection(t *testing.T, page string) string {
+	t.Helper()
+	i := strings.Index(page, "<h2>Database</h2>")
+	if i < 0 {
+		t.Fatalf("the settings page has no Database section:\n%s", page)
+	}
+	return page[i:]
 }
 
 // settingsPage renders the settings page through a handler built with custom
