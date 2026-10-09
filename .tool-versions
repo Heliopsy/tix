@@ -1,6 +1,6 @@
 golang 1.27.2
 just 1.58.0
-golangci-lint 2.13.2
+golangci-lint 2.14.0
 actionlint 1.7.12
 goreleaser 2.18.2
 trivy 0.74.0
