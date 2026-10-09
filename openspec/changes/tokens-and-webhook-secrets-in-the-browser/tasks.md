@@ -23,6 +23,8 @@
       positional helper silently skipped any cell carrying an attribute
 - [x] 1.11 `openspec/changes/archive/2026-09-27-scope-aware-tui-navigation`: the scenario and the design
       note recording the old narrowing as deliberate, amended in place
+- [x] 1.12 `internal/store/sqlite/isolation_test.go`, `internal/store/postgres/isolation_test.go`:
+      `GetToken` stays inside its tenant on both engines
 
 ## 2. `tix token create` defaults to a 90-day expiry
 
