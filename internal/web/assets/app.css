@@ -1511,17 +1511,18 @@ details.panel.columns { margin-bottom: 18px; }
   margin: 0;
 }
 
-/* The name wraps and the key does not: a project's key is the short, exact
-   half of the pair, and a key broken over two lines is unreadable. The name
-   is allowed to shrink so a long one cannot push the key out of the cell. */
-.visibilityform .projectchoice-name {
+/* Both halves of the pair are allowed to break. A key is short in practice,
+   but nothing bounds it to the width of a grid cell, and the sheet forbids
+   nowrap outright (TestStylesheetEmitsNoHorizontalScrollLayout): one
+   unbreakable run is what puts a horizontal scrollbar on a phone. */
+.visibilityform .projectchoice-name,
+.visibilityform .projectchoice code {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 .visibilityform .projectchoice code {
   font-size: 0.78rem;
-  white-space: nowrap;
   color: var(--muted);
 }
 
