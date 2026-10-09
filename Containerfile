@@ -4,7 +4,7 @@
 #
 # `just image` builds this for the host. `just image-multiarch` builds it for
 # linux/amd64 and linux/arm64 and assembles a manifest list.
-ARG GO_VERSION=1.27.1
+ARG GO_VERSION=1.27.2
 
 # --platform=${BUILDPLATFORM} keeps the compiler on the host architecture and
 # lets Go cross-compile to TARGETARCH. Without it the builder stage would be

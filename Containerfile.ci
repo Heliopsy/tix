@@ -1,7 +1,7 @@
 # Toolbox image holding every linter and scanner at the versions CI uses.
 # Built once and cached; `just ci` runs every gate inside it so local and CI
 # results cannot diverge.
-ARG GO_VERSION=1.27.1
+ARG GO_VERSION=1.27.2
 FROM docker.io/library/golang:${GO_VERSION}-alpine
 
 # Tool versions are pinned here and nowhere else.
