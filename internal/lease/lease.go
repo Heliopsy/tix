@@ -78,6 +78,22 @@ func RenewInterval(ttl time.Duration) time.Duration {
 	return ttl
 }
 
+// Precision is the resolution a lease expiry is materialized at, and is the
+// coarsest any shipped storage engine keeps: PostgreSQL's TIMESTAMPTZ holds
+// microseconds and truncates rather than rounds.
+//
+// Expiry is therefore cut to it before it is stored, so the instant handed to
+// the engine is the instant the row holds and the instant the holder is told.
+// Left at nanoseconds the two engines recorded different expiries for one
+// claim, and on PostgreSQL the sweeper could free a lease up to 999ns before
+// the moment its holder was given.
+const Precision = time.Microsecond
+
+// Until is when a lease taken at now for ttl expires, at Precision.
+func Until(now time.Time, ttl time.Duration) time.Time {
+	return now.Add(ttl).Truncate(Precision)
+}
+
 // NewToken mints an opaque lease token from crypto/rand.
 func NewToken() (string, error) {
 	b := make([]byte, TokenBytes)

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/lease"
 	"github.com/heliopsy/tix/internal/store"
 )
 
@@ -579,5 +580,80 @@ func TestClaimNextBlocksOnADependencyUnfinishedInItsOwnWorkflow(t *testing.T) {
 		return nil
 	}); err != nil {
 		t.Fatalf("claiming once the dependency finished: %v", err)
+	}
+}
+
+// This is the engine the lease expiry's precision exists for. TIMESTAMPTZ
+// holds microseconds and truncates rather than rounds, so an expiry carrying
+// nanoseconds comes back earlier than it went in: the row frees the lease up
+// to 999ns before the instant the holder was told, and SQLite, which keeps the
+// nanoseconds, records a different instant for the same claim.
+//
+// The first half of the table is the defect; the second is the fix. Both are
+// asserted so the guard fails if lease.Until stops truncating AND if this
+// engine ever starts keeping nanoseconds, either of which would make the
+// truncation in internal/lease unexplainable to the next reader.
+func TestALeaseExpiryAtLeasePrecisionSurvivesTheRow(t *testing.T) {
+	ctx := context.Background()
+	s, clk := newStore(t)
+	f := seed(t, s, clk, "precise")
+
+	odd := time.Date(2026, 5, 6, 7, 8, 9, 123456789, time.UTC)
+	cut := lease.Until(odd, 0)
+	if cut.Equal(odd) {
+		t.Fatalf("the fixture cannot tell truncation from a round instant: %s", odd.Format(time.RFC3339Nano))
+	}
+
+	for _, c := range []struct {
+		name  string
+		until time.Time
+		kept  bool
+	}{
+		{"nanoseconds", odd, false},
+		{"cut to lease.Precision", cut, true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			task := f.newTask(t, c.name, core.PriorityNormal)
+			if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+				ok, err := tx.ClaimTask(ctx, store.ClaimRow{TaskID: task.ID, ActorID: f.actor.ID,
+					Now: clk.Now(), Until: c.until, LeaseToken: "token-" + c.name})
+				if err != nil {
+					return err
+				}
+				if !ok {
+					t.Fatal("the claim was refused")
+				}
+				return nil
+			}); err != nil {
+				t.Fatalf("claiming: %v", err)
+			}
+
+			var stored time.Time
+			if err := s.View(ctx, f.scope, func(tx store.Tx) error {
+				got, err := tx.GetTask(ctx, core.TaskRef{ID: task.ID})
+				if err != nil {
+					return err
+				}
+				if got.LeaseExpiresAt == nil {
+					t.Fatal("the claimed row holds no expiry")
+				}
+				stored = *got.LeaseExpiresAt
+				return nil
+			}); err != nil {
+				t.Fatalf("reading the claim: %v", err)
+			}
+
+			switch {
+			case c.kept && !stored.Equal(c.until):
+				t.Fatalf("stored %s for an expiry of %s: an expiry at lease.Precision must survive the column",
+					stored.Format(time.RFC3339Nano), c.until.Format(time.RFC3339Nano))
+			case !c.kept && stored.Equal(c.until):
+				t.Fatalf("TIMESTAMPTZ kept %s whole; lease.Precision exists because it does not",
+					c.until.Format(time.RFC3339Nano))
+			case !c.kept && !stored.Before(c.until):
+				t.Fatalf("stored %s for an expiry of %s, want it truncated earlier",
+					stored.Format(time.RFC3339Nano), c.until.Format(time.RFC3339Nano))
+			}
+		})
 	}
 }

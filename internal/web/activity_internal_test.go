@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -40,6 +41,31 @@ func (a *auditPages) ListAudit(_ context.Context, f core.AuditFilter) ([]core.Au
 		}
 	}
 	return nil, "", nil
+}
+
+// matchesText is the text filter this screen used to apply itself, before it
+// moved into the store. It stays here, out of the shipped package, as the
+// independent oracle the scan test counts its expectation with: a fixture
+// counted by the code under test proves only that the code agrees with itself.
+//
+// It matches what the entry records -- its action, the kind of record it
+// touched, the surface it arrived from, and the before and after snapshots --
+// rather than the sentence the row reads as, because the snapshot is where the
+// words a reader searches for live.
+func matchesText(entry core.AuditEntry, text string) bool {
+	if text == "" {
+		return true
+	}
+	needle := strings.ToLower(text)
+	for _, hay := range []string{
+		entry.Action, entry.SubjectType, string(entry.Source),
+		string(entry.Before), string(entry.After),
+	} {
+		if strings.Contains(strings.ToLower(hay), needle) {
+			return true
+		}
+	}
+	return false
 }
 
 // auditEntry builds one entry whose snapshot carries the given word, which is

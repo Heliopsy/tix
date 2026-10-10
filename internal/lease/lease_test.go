@@ -236,3 +236,27 @@ func tick[T any](t *testing.T, clk *clock.Fake, d time.Duration, ch chan T) chan
 		}
 	}
 }
+
+// A lease expiry is written to a row and handed back to its holder as a field
+// of its own, so the two have to be the same instant on every engine. Left at
+// the nanosecond the clock reports, PostgreSQL's TIMESTAMPTZ truncated what it
+// stored while the holder was told the untruncated value, and SQLite kept the
+// nanoseconds -- one claim, two expiries, differing by engine.
+func TestUntilIsCutToWhatEveryEngineKeeps(t *testing.T) {
+	now := time.Date(2026, 3, 4, 5, 6, 7, 123456789, time.UTC)
+	exact := now.Add(15 * time.Minute)
+	got := Until(now, 15*time.Minute)
+
+	if rem := time.Duration(got.Nanosecond()) % Precision; rem != 0 {
+		t.Fatalf("Until(%s, 15m) = %s, which carries %s past %s",
+			now.Format(time.RFC3339Nano), got.Format(time.RFC3339Nano), rem, Precision)
+	}
+	// Truncation, never rounding: an expiry moved later than the instant it was
+	// computed for would outlive what the holder was told, which is the same
+	// defect in the other direction.
+	if cut := exact.Sub(got); cut < 0 || cut >= Precision {
+		t.Fatalf("Until(%s, 15m) = %s, %s off the exact %s: want a cut under %s and never negative",
+			now.Format(time.RFC3339Nano), got.Format(time.RFC3339Nano), cut,
+			exact.Format(time.RFC3339Nano), Precision)
+	}
+}

@@ -91,6 +91,13 @@ var constraintKeywords = map[string]bool{
 // runMigrations applies every migration above the current version, translating
 // the portable schema to PostgreSQL types and adding the engine-specific
 // partitioning, search vector and row-level security within the same step.
+//
+// It runs as the login role with no tix.tenant_id set, so a step that mutates
+// tenant-scoped rows is subject to the forced policies it has itself created
+// and sees no rows at all on a role without BYPASSRLS. No shipped migration is
+// harmed by that; the next one that mutates data could be. README.md, "Migrations
+// run outside the policies they create", has the reproduction and why the fix
+// belongs here rather than in the SQL.
 func runMigrations(ctx context.Context, db *sql.DB, clk clock.Clock) error {
 	current, err := migrations.Current(ctx, db)
 	if err != nil {

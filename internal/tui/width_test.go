@@ -54,6 +54,60 @@ func TestTruncateLeavesAFittingStringWhole(t *testing.T) {
 	}
 }
 
+// An escape sequence draws nothing. Truncate counted its bytes as content, so
+// a string that was already styled was cut inside the sequence: at six cells
+// "\x1b[31mhello\x1b[0m" came back as "\x1b[31m…" -- the whole visible word
+// destroyed at a width it fits in twice over, and the terminal left holding an
+// unterminated colour.
+//
+// No caller hands it styled text today; every one styles afterwards. The
+// assertions are written against the measured width and the visible text
+// rather than against byte equality, so they hold for any escape-aware cut
+// rather than for one implementation of it.
+func TestTruncateMeasuresStyledTextByWhatItDraws(t *testing.T) {
+	const red, reset = "\x1b[31m", "\x1b[0m"
+	tests := []struct {
+		name    string
+		in      string
+		width   int
+		visible string
+	}{
+		{"fits with room to spare", red + "hello" + reset, 6, "hello"},
+		{"fits exactly", red + "hello" + reset, 5, "hello"},
+		{"cut", red + "hello there" + reset, 6, "hello…"},
+		{"styled in the middle", "a" + red + "bcdefgh" + reset + "i", 4, "abc…"},
+		{"wide and styled", red + "日本語テスト" + reset, 5, "日本…"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := Truncate(tc.in, tc.width)
+			if n := lipgloss.Width(got); n > tc.width {
+				t.Fatalf("Truncate(%q, %d) = %q which draws %d cells, %d too many",
+					tc.in, tc.width, got, n, n-tc.width)
+			}
+			if plain := stripANSI(got); plain != tc.visible {
+				t.Fatalf("Truncate(%q, %d) = %q: it draws %q, want %q",
+					tc.in, tc.width, got, plain, tc.visible)
+			}
+		})
+	}
+}
+
+// One cell has no room for both a character and the mark, so there the
+// character wins -- styled or not. This is the edge the ellipsis branch does
+// not cover, and the only width at which Truncate returns a cut with no mark.
+func TestTruncateToOneCellKeepsTheCharacterNotTheMark(t *testing.T) {
+	for _, in := range []string{"hello", "\x1b[31mhello\x1b[0m"} {
+		got := Truncate(in, 1)
+		if n := lipgloss.Width(got); n > 1 {
+			t.Fatalf("Truncate(%q, 1) = %q which draws %d cells", in, got, n)
+		}
+		if plain := stripANSI(got); plain != "h" {
+			t.Fatalf("Truncate(%q, 1) = %q: it draws %q, want %q", in, got, plain, "h")
+		}
+	}
+}
+
 // TestWrapBreaksAtCellsNotRunes guards the wrapping helper. A line wider than
 // its column is re-wrapped by lipgloss inside the column's border, which
 // detaches a card's bar from its own title and makes the column taller than

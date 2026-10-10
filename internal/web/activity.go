@@ -313,28 +313,6 @@ func (h *handler) scanAudit(r *http.Request, query activityQuery, cursor string)
 	return entries, next, nil
 }
 
-// matchesText reports whether one entry answers a free-text search. The text
-// is matched against what the entry itself records -- its action, the kind of
-// record it touched, the surface it arrived from, and the before and after
-// snapshots -- rather than against the sentence the row will eventually read
-// as, because the snapshot is where the words a reader actually searches for
-// live: a task's reference and title, a project's key, a comment's body.
-func matchesText(entry core.AuditEntry, text string) bool {
-	if text == "" {
-		return true
-	}
-	needle := strings.ToLower(text)
-	for _, hay := range []string{
-		entry.Action, entry.SubjectType, string(entry.Source),
-		string(entry.Before), string(entry.After),
-	} {
-		if strings.Contains(strings.ToLower(hay), needle) {
-			return true
-		}
-	}
-	return false
-}
-
 // subjectKindNouns names the subject types the feed cannot look a specific
 // record up for as cheaply as a task, a project or a workflow: naming one of
 // these would take a query per row rather than one list call for the whole

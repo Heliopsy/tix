@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // LayoutMode names how much of the board fits on the terminal.
@@ -131,32 +132,20 @@ func ScrollOffset(offset, selected, height int) int {
 	return offset
 }
 
-// Truncate shortens s to width, marking the cut with an ellipsis.
+// Truncate shortens s to width terminal cells, marking the cut with an
+// ellipsis. A string already carrying ANSI escapes keeps them and is measured
+// by the cells it occupies, not the bytes it takes: a hand-rolled cut counted
+// the escape bytes as content and returned a style sequence with the word
+// gone. One cell has no room for both a character and the mark, so there the
+// character wins.
 func Truncate(s string, width int) string {
 	if width <= 0 {
 		return ""
 	}
-	if lipgloss.Width(s) <= width {
-		return s
-	}
-	budget := width - 1
 	if width == 1 {
-		budget = 1
+		return ansi.Truncate(s, 1, "")
 	}
-	var b strings.Builder
-	used := 0
-	for _, r := range s {
-		w := lipgloss.Width(string(r))
-		if used+w > budget {
-			break
-		}
-		used += w
-		b.WriteRune(r)
-	}
-	if width == 1 {
-		return b.String()
-	}
-	return b.String() + "…"
+	return ansi.Truncate(s, width, "…")
 }
 
 // ScrollWindow keeps a selected row inside a window of the given height and,

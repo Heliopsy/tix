@@ -43,7 +43,7 @@ type workflowView struct {
 
 // showWorkflow renders one workflow's states and transitions for editing.
 func (h *handler) showWorkflow(w http.ResponseWriter, r *http.Request) error {
-	wf, err := h.svc.GetWorkflow(r.Context(), r.PathValue("key"))
+	wf, err := held(h.svc.GetWorkflow(r.Context(), r.PathValue("key")))
 	if err != nil {
 		return err
 	}

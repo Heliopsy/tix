@@ -21,10 +21,28 @@ import (
 // layoutFiles are parsed into every screen.
 var layoutFiles = []string{"templates/layout.html", "templates/partials.html"}
 
+// held passes a service read through, turning the one answer core.Service says
+// it never gives -- no record and no error -- into the fault it is.
+//
+// Every screen that reads a single record dereferences it, often inside a
+// template or through a value receiver where the panic lands nowhere near the
+// read. Both shipped implementations return non-nil on success, so this
+// defends the contract rather than today's code: the obligation is stated once
+// on core.Service and enforced once here, instead of four handlers each
+// growing a nil check for a case none of them can produce.
+func held[T any](v *T, err error) (*T, error) {
+	if err != nil {
+		return nil, err
+	}
+	if v == nil {
+		return nil, core.Internal("the service answered with no %T and no error", v)
+	}
+	return v, nil
+}
+
 // branding is the per-tenant identity applied to a page.
 type branding struct {
 	Title      string
-	Monogram   string
 	Accent     template.CSS
 	AccentSoft template.CSS
 	// The same pair for the dark and dim schemes. See layout.html: the scheme
@@ -50,7 +68,7 @@ const (
 func defaultBranding() branding {
 	// #nosec G203 -- fixed constants above, never a caller.
 	d := builtInDefault()
-	return branding{Title: "tix", Monogram: "t",
+	return branding{Title: "tix",
 		Accent: template.CSS(defaultAccent), AccentSoft: template.CSS(defaultAccentSoft), // #nosec G203
 		AccentDark: template.CSS(d.AccentDark), AccentSoftDark: template.CSS(d.AccentSoftDark)} // #nosec G203
 }
@@ -69,8 +87,7 @@ func brandFor(t *core.Tenant, themes *core.ThemeRegistry) branding {
 	}
 	theme := themes.Resolve(t)
 	return branding{
-		Title:    t.Name,
-		Monogram: strings.ToUpper(firstRune(t.Name)),
+		Title: t.Name,
 		// Every value core resolves has passed its hex validation, which is
 		// the boundary that keeps a configuration file out of the stylesheet;
 		// no caller can place a value here.

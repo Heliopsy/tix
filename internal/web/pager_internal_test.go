@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -151,6 +152,100 @@ func TestTheTrailStopsGrowingAtTheCap(t *testing.T) {
 	}
 	if got[len(got)-1] != token("here") {
 		t.Error("the page being left was not pushed onto the trail")
+	}
+}
+
+// The position indicator stalled past the trail's bound. Page() was
+// len(Trail)+2 and the trail stops growing at maxTrailDepth, so page 42 and
+// every page after it reported "Page 42": the one number on the control that
+// says where the reader is froze while they kept walking.
+//
+// The walk is driven through the pager's own links rather than from
+// constructed URLs, because the defect was that the links stopped carrying
+// enough to count with. A test that built each page's query itself could not
+// have seen it.
+func TestThePageNumberKeepsCountingPastTheTrailsBound(t *testing.T) {
+	t.Parallel()
+
+	// Start on page 2, the first page with a cursor, and walk forward.
+	target := RouteTasks + "?" + url.Values{CursorParam: {token("c2")}}.Encode()
+	var at pager
+	for n := 2; n <= maxTrailDepth+13; n++ {
+		at = newPager(request(target), RouteTasks, token("c"+strconv.Itoa(n+1)), 50, "tasks")
+		if got := at.Page(); got != n {
+			t.Fatalf("walking forward reached page %d but the control says %d", n, got)
+		}
+		target = at.NextHref()
+	}
+
+	// And back down, which is the half a trimmed trail cannot answer on its
+	// own: the oldest cursors were dropped, so only the carried number knows
+	// where the walk is. target now addresses the page after the last one
+	// walked forward to.
+	//
+	// Previous is followed until it runs out, which it does once the trail is
+	// empty: the oldest cursors were trimmed away, so the walk back ends on
+	// the cursorless first page rather than on page 2. That is the trimming's
+	// own cost and is not what this guards; the number counting down by
+	// exactly one for every page it does reach is.
+	page := at.Page()
+	if page != maxTrailDepth+13 {
+		t.Fatalf("the forward walk ended on page %d, want %d", page, maxTrailDepth+13)
+	}
+	steps := 0
+	for at.HasPrev() {
+		back := newPager(request(at.PrevHref()), RouteTasks, token("onward"), 50, "tasks")
+		want := page - 1
+		if back.Page() == 1 && !back.HasPrev() {
+			break
+		}
+		if got := back.Page(); got != want {
+			t.Fatalf("Previous from page %d reached a control that says %d, want %d", page, got, want)
+		}
+		at, page = back, want
+		steps++
+	}
+	if steps < maxTrailDepth-1 {
+		t.Fatalf("Previous only walked back %d pages, want the %d the trail remembers", steps, maxTrailDepth-1)
+	}
+	home := newPager(request(at.PrevHref()), RouteTasks, token("onward"), 50, "tasks")
+	if got := home.Page(); got != 1 || home.HasPrev() {
+		t.Fatalf("the trail ran out and Previous landed on page %d, want the cursorless first page", got)
+	}
+}
+
+// No page short of the bound grows a parameter for a number its trail already
+// proves, and a number a reader typed in cannot drop the count below what the
+// trail holds.
+func TestThePageNumberIsWrittenOnlyWhereTheTrailCannotCount(t *testing.T) {
+	t.Parallel()
+
+	early := newPager(request(RouteTasks+"?"+url.Values{
+		CursorParam: {token("c2")},
+	}.Encode()), RouteTasks, token("c3"), 50, "tasks")
+	for _, href := range []string{early.NextHref(), early.PrevHref()} {
+		parsed, err := url.Parse(href)
+		if err != nil {
+			t.Fatalf("parsing %q: %v", href, err)
+		}
+		if got := parsed.Query().Get(PageParam); got != "" {
+			t.Errorf("%q carries a page number (%q) its trail already counts", href, got)
+		}
+	}
+
+	full := make([]string, maxTrailDepth)
+	for i := range full {
+		full[i] = token("x")
+	}
+	trail := strings.Join(full, trailSeparator)
+	for _, typed := range []string{"", "1", "7", "-3", "not a number", strconv.Itoa(maxPage + 1)} {
+		at := newPager(request(RouteTasks+"?"+url.Values{
+			CursorParam: {token("here")}, TrailParam: {trail}, PageParam: {typed},
+		}.Encode()), RouteTasks, token("next"), 50, "tasks")
+		if got := at.Page(); got != maxTrailDepth+2 {
+			t.Errorf("page=%q gave Page() = %d, want the trail's own count of %d",
+				typed, got, maxTrailDepth+2)
+		}
 	}
 }
 
