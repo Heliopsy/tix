@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.15.0](https://github.com/Heliopsy/tix/compare/v0.14.0...v0.15.0) (2026-10-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cmd:** `tix token create` now mints a token that stops working after ninety days. A script that relied on an omitted --expires meaning "never" will keep working for ninety days and then fail with invalid_credentials, exit 5. `--expires never` is the only way to mint a token that does not expire; an empty --expires takes the default. The HTTP API keeps no default and is unchanged.
+
+### Features
+
+* **cmd:** tix token create defaults to a 90-day expiry ([af561da](https://github.com/Heliopsy/tix/commit/af561da52d94767102eafd72ae2d4ac6fd82d94b))
+* **web,service,cmd:** admin token revocation, a 90-day cli expiry default, and the webhook secret ([365811e](https://github.com/Heliopsy/tix/commit/365811eb463b7ea8cb1c397336ac1c2c3b90b53f))
+* **web:** settings owns every session preference ([780cb9b](https://github.com/Heliopsy/tix/commit/780cb9bccb863d2d13d6d383c786658860c558cd))
+
+
+### Bug Fixes
+
+* **web,service:** annotate three gosec findings that are names, not secrets ([3ea637e](https://github.com/Heliopsy/tix/commit/3ea637e52df191b3bafb1b051cad855537866e9c))
+
 ## [0.14.0](https://github.com/Heliopsy/tix/compare/v0.13.1...v0.14.0) (2026-10-09)
 
 
