@@ -60,6 +60,7 @@ func (h *handler) showWebhooks(w http.ResponseWriter, r *http.Request) error {
 // generatedWebhookSecretCookie carries a generated signing secret to the
 // screen that shows it once, so the value never appears in a URL or in the
 // audit trail.
+// #nosec G101 -- the name of a cookie, not a credential.
 const generatedWebhookSecretCookie = "tix_webhook_secret"
 
 // generatedSecret reads and clears the one-time signing secret cookie.

@@ -58,6 +58,10 @@ func generatedWebhookSecret(value string) *oneTimeSecret {
 // oneTimeCookie carries a one-time secret to the screen that shows it, so the
 // value never appears in a URL or in the audit trail. Each screen uses its own
 // name and its own path, so one screen's value cannot be read by another.
+//
+// #nosec G124 -- HttpOnly and SameSite=Strict are set; secure tracks TLS the
+// way h.secureCookie does for the session and CSRF cookies, because a server
+// on plain HTTP behind a proxy would have the cookie dropped by the browser.
 func oneTimeCookie(name, path, value string, secure bool) *http.Cookie {
 	return &http.Cookie{Name: name, Value: value, Path: path,
 		HttpOnly: true, Secure: secure, SameSite: http.SameSiteStrictMode, MaxAge: 60}

@@ -26,6 +26,7 @@ const (
 // killed the token and whether it was theirs to kill, and that has to be
 // answerable from the action, because the trail is filtered by action and not
 // by a payload field.
+// #nosec G101 -- audit action names, not credentials.
 const (
 	auditTokenCreate      = "token.create"
 	auditTokenRevoke      = "token.revoke"
