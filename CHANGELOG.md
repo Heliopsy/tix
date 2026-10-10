@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.15.1](https://github.com/Heliopsy/tix/compare/v0.15.0...v0.15.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* clear six defects a review parked as low severity ([8327a87](https://github.com/Heliopsy/tix/commit/8327a87d1923e906267f4f71e240e318bb0064d5))
+* **tui,web,service,store:** clear six parked defects ([3f1f719](https://github.com/Heliopsy/tix/commit/3f1f719fea63351f50dfc5065fdb00148e9d21fa))
+* **web:** a listing that read part of itself says so ([bd06fbe](https://github.com/Heliopsy/tix/commit/bd06fbeec6587a7227f7efb038cc00a53cb53eb8))
+* **web:** a listing that read part of itself says so ([cd7c576](https://github.com/Heliopsy/tix/commit/cd7c57642f4b37c5d7844400061f4b538647f437))
+
+
+### Dependencies
+
+* give cover the timeout the other full-suite runs have ([755ee57](https://github.com/Heliopsy/tix/commit/755ee57c227062be11f44d8f15e2b2be855d219f))
+* make just spec check the baseline, not only the pending changes ([c8c4385](https://github.com/Heliopsy/tix/commit/c8c4385aead29bafd4c26a3d9d77ca6b99e58741))
+
 ## [0.15.0](https://github.com/Heliopsy/tix/compare/v0.14.0...v0.15.0) (2026-10-10)
 
 
