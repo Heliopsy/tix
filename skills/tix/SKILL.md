@@ -2,7 +2,7 @@
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. There is no MCP server; this CLI is the only interface. Covers the claim/lease/release loop, `tix claim exec`, machine-readable output, exit codes, filtering, `tix watch`, comments/artifacts, dependencies, the actor directory, `tix stats`, `tix ssh`, and multi-target config.
 version: 8
-verified-against: tix e0449f5 (2026-09-30)
+verified-against: tix 58980ef (2026-10-10)
 ---
 
 # tix
@@ -477,12 +477,25 @@ exit `2`.
 Two live tokens of one tenant cannot share a name, since the name is what
 you pick by when you revoke; a second `ci-agent` is `conflict`, exit `4`.
 Revoking frees the name, so rotation is `tix token rm ID` then the same
-`token create` again. Give it an expiry with `--expires` (a date or an
-RFC 3339 timestamp); omitted, the token never expires.
+`token create` again.
+
+`--expires` (default 90d) bounds the token: a duration such as `90d`, a date,
+an RFC 3339 timestamp, or `never`. **A token you mint without saying anything
+expires in ninety days.** That changed: omitting the flag used to mean "never",
+so a script written against the old behaviour now produces a credential that
+stops working, with `invalid_credentials` and exit `5` on the first call after
+it lapses. `--expires never` is the only way to get a token that does not
+expire, and the browser form proposes the same ninety days.
 
 ```sh
 tix token create ci-agent --expires 2027-01-01 --scope task:read
+tix token create ci-agent --expires never --scope task:read
 ```
+
+`token:admin` reaches the whole tenant's tokens, not only yours:
+`tix token ls --actor carol` lists hers, and `tix token rm ID` revokes any of
+them. Revoking a token that is not yours is recorded as `token.revoke_other`
+in the audit trail, so it can be told apart from somebody rotating their own.
 
 ## `tix ssh`: the terminal interface over SSH
 

@@ -1,30 +1,21 @@
 {{define "content"}}
 <h1>API tokens</h1>
 {{template "column-picker" .}}
-{{if .Data.Issued}}
-{{/* Not a .flash. A flash is the fixed, 420px-wide toast in the corner of the
-     page that says "task saved" and is gone by the time you look back at it;
-     a value that cannot be retrieved again has to stay put, be readable in
-     full, and be selectable. The value itself goes in a .copyline, which is
-     the same affordance the sign-in help uses for a command: it wraps rather
-     than overflowing, and its Copy button is the one generic
-     data-copy-target handler in assets/copy.js, so with scripting off the
-     value is still there in full to select by hand. */}}
-<section class="secret" aria-labelledby="issued-token-heading">
-  <h2 id="issued-token-heading">Copy this token now</h2>
-  <p>It is shown once and cannot be retrieved again. If you lose it, revoke the token and issue another.</p>
-  <div class="copyline">
-    <code id="issued-token">{{.Data.Issued}}</code>
-    <button type="button" class="secondary" data-copy-target="issued-token">Copy</button>
-  </div>
-</section>
+{{with .Data.Secret}}{{template "secret" .}}{{end}}
+{{if .Data.Owners}}
+{{/* Said once, above the table, because the reader needs to know that the
+     rows are not all theirs before they read any of them. */}}
+<p class="meta">You hold tenant:admin, so this lists every token of the tenant and whose it is. Revoking somebody else's is recorded as such.</p>
 {{end}}
 <table>
-  <thead><tr><th>Name</th>{{if .Columns.Show "tokens" "scopes"}}<th>Scopes</th>{{end}}{{if .Columns.Show "tokens" "created"}}<th>Created</th>{{end}}{{if .Columns.Show "tokens" "expires"}}<th>Expires</th>{{end}}<th>State</th><th></th></tr></thead>
+  <thead><tr><th>Name</th>{{if .Data.Owners}}<th>Owner</th>{{end}}{{if .Columns.Show "tokens" "scopes"}}<th>Scopes</th>{{end}}{{if .Columns.Show "tokens" "created"}}<th>Created</th>{{end}}{{if .Columns.Show "tokens" "expires"}}<th>Expires</th>{{end}}<th>State</th><th></th></tr></thead>
   <tbody>
   {{range .Data.Tokens}}
     <tr>
       <td>{{.Name}}</td>
+      {{/* Whose credential this is. A list of other people's tokens with no
+           owner column cannot be acted on: every row looks like your own. */}}
+      {{if $.Data.Owners}}<td title="{{.ActorID}}">{{.Owner}}{{if .Mine}} <span class="muted">(you)</span>{{end}}</td>{{end}}
       {{if $.Columns.Show "tokens" "scopes"}}<td>{{scopes .Scopes}}</td>{{end}}
       {{if $.Columns.Show "tokens" "created"}}<td>{{compact .CreatedAt}}</td>{{end}}
       {{/* A token with no expiry says so. An empty cell under a heading
@@ -32,7 +23,7 @@
            failed to render, which is exactly what this column was before the
            form could set one. */}}
       {{if $.Columns.Show "tokens" "expires"}}<td>{{if .ExpiresAt}}{{stamp .ExpiresAt}}{{else}}<span class="muted">Never</span>{{end}}</td>{{end}}
-      <td><span class="badge tok-{{tokenState .}}">{{tokenState .}}</span>{{if .RevokedAt}} <span class="muted">{{stamp .RevokedAt}}</span>{{end}}</td>
+      <td><span class="badge tok-{{tokenState .APIToken}}">{{tokenState .APIToken}}</span>{{if .RevokedAt}} <span class="muted">{{stamp .RevokedAt}}</span>{{end}}</td>
       <td>
         {{if not .RevokedAt}}
         {{/* Behind a disclosure, like every other irreversible control in this
@@ -45,8 +36,8 @@
             <form method="post" action="/admin/tokens/revoke">
               {{template "csrf" $.CSRF}}
               <input type="hidden" name="id" value="{{.ID}}">
-              <p class="muted">Whatever holds this token stops authenticating at once. It cannot be undone, and the value cannot be recovered, so anything still using it needs a new token.</p>
-              <div class="actions"><button class="danger" type="submit">Revoke {{.Name}}</button></div>
+              <p class="muted">Whatever holds this token stops authenticating at once. It cannot be undone, and the value cannot be recovered, so anything still using it needs a new token.{{if and $.Data.Owners (not .Mine)}} This token is {{.Owner}}'s, not yours, and the trail will record that you ended somebody else's.{{end}}</p>
+              <div class="actions"><button class="danger" type="submit">Revoke {{.Name}}{{if and $.Data.Owners (not .Mine)}} ({{.Owner}}){{end}}</button></div>
             </form>
           </div>
         </details>
@@ -54,7 +45,7 @@
       </td>
     </tr>
   {{else}}
-    <tr><td colspan="{{$.Columns.Span "tokens" 3}}">No tokens.</td></tr>
+    <tr><td colspan="{{$.Columns.Span "tokens" $.Data.Fixed}}">No tokens.</td></tr>
   {{end}}
   </tbody>
 </table>

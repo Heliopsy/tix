@@ -55,7 +55,16 @@ binds, and SHALL NOT be recorded against a surface the operation is exempted fro
 #### Scenario: The browser's self-scoped credential lists are recorded
 
 - **WHEN** the registry is read
-- **THEN** the token list and the ssh key list record that the browser lists the signed-in actor's own only
+- **THEN** the ssh key list records that the browser lists the signed-in actor's own only
+- **AND** the token list records that the browser reaches another actor's tokens only for a reader holding
+  `tenant:admin`, where the command line and the API reach them on `token:admin` alone
+
+> Amended by `tokens-and-webhook-secrets-in-the-browser`. As first written this scenario said the token list
+> records that the browser lists the signed-in actor's own only, and the design note below called that a
+> deliberate narrowing. It was decided before anybody considered incident response: the one case the browser
+> has to serve is somebody else's token leaking and needing to be dead now, and in that case the screen was
+> useless. The shortfall is still recorded, because it is still real for a reader who holds `token:admin` and
+> not `tenant:admin`, but it is a different shortfall and this scenario no longer describes the old one.
 
 ### Requirement: Every terminal view the interface has carries an operation, and every view carries a read
 

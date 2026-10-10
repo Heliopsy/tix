@@ -82,6 +82,34 @@
 </details>
 {{end}}
 
+{{/* secret is a value the server will never show again: a freshly minted API
+     token, or a signing secret tix generated because the operator left the
+     field blank.
+
+     Not a .flash. A flash is the fixed, 420px-wide toast in the corner of the
+     page that says "task saved" and is gone by the time you look back at it;
+     a value that cannot be retrieved again has to stay put, be readable in
+     full, and be selectable. The value itself goes in a .copyline, which is
+     the same affordance the sign-in help uses for a command: it wraps rather
+     than overflowing, and its Copy button is the one generic
+     data-copy-target handler in assets/copy.js, so with scripting off the
+     value is still there in full to select by hand.
+
+     One partial, because the token screen and the webhook screen owe their
+     reader exactly the same thing. The webhook screen's field-info promised
+     a generated secret "shown once, right after you save" for a while with
+     nothing rendering it at all. */}}
+{{define "secret"}}
+<section class="secret" aria-labelledby="{{.ID}}-heading">
+  <h2 id="{{.ID}}-heading">{{.Heading}}</h2>
+  <p>{{.Note}}</p>
+  <div class="copyline">
+    <code id="{{.ID}}">{{.Value}}</code>
+    <button type="button" class="secondary" data-copy-target="{{.ID}}">Copy</button>
+  </div>
+</section>
+{{end}}
+
 {{/* field-error is why one control's value was refused, rendered on the line
      under that control by the screen that re-rendered itself rather than
      answering with an error page. role="alert" so a screen reader is told

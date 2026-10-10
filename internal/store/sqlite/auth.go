@@ -391,6 +391,20 @@ func (t *tx) GetTokenByHash(ctx context.Context, tokenHash string) (*core.APITok
 	return &tk, nil
 }
 
+// GetToken returns one token of this tenant by identifier.
+func (t *tx) GetToken(ctx context.Context, id string) (*core.APIToken, error) {
+	b := t.builder("api_tokens").Select(tokenColumns...).Where("id = ?", id).Limit(1)
+	q, args := b.SelectQuery()
+	tk, err := scanToken(t.ex.QueryRowContext(ctx, q, args...))
+	if err != nil {
+		if core.IsKind(err, core.KindNotFound) {
+			return nil, core.NotFound("api token %q", id)
+		}
+		return nil, err
+	}
+	return &tk, nil
+}
+
 // ListTokens returns an actor's tokens.
 func (t *tx) ListTokens(ctx context.Context, actorID string) ([]core.APIToken, error) {
 	b := t.builder("api_tokens").

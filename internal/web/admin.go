@@ -28,7 +28,7 @@ func (h *handler) adminRoutes() []route {
 		post(RouteUsers, h.createUser, "CreateUser"),
 		post(RouteUserUpdate, h.updateUser, "UpdateUser"),
 		post(RouteUserDelete, h.deleteUser, "DeleteUser"),
-		get(RouteTokens, "tokens.html", h.showTokens, "ListTokens"),
+		get(RouteTokens, "tokens.html", h.showTokens, "ListTokens", "ListActors"),
 		post(RouteTokens, h.createToken, "CreateToken"),
 		post(RouteTokenRevoke, h.revokeToken, "RevokeToken"),
 		get(RouteSSHKeys, "sshkeys.html", h.showSSHKeys, "ListSSHKeys"),
@@ -439,14 +439,38 @@ func (h *handler) deleteUser(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// tokenRow is one row of the token listing: a token and whose it is.
+type tokenRow struct {
+	core.APIToken
+	// Owner is the handle, or the generated name, of the actor the token acts
+	// as. A listing that spans more than one actor is unreadable without it:
+	// the credential an operator came here to kill is identified by whose it
+	// is at least as often as by what it is called.
+	Owner string
+	// Mine reports whether the token belongs to the reader, so a row that is
+	// somebody else's reads as somebody else's.
+	Mine bool
+}
+
 // tokensView is what the token administration screen renders.
 type tokensView struct {
-	Tokens []core.APIToken
+	Tokens []tokenRow
 	Scopes []core.Scope
 	Expiry []tokenExpiry
-	Issued string
+	Secret *oneTimeSecret
 	Form   tokenForm
 	Errors fieldErrors
+	// Owners reports whether this listing spans actors other than the reader,
+	// which is what puts the owner column on the table.
+	Owners bool
+}
+
+// Fixed is the number of always-present columns, for the empty row's span.
+func (v tokensView) Fixed() int {
+	if v.Owners {
+		return 4
+	}
+	return 3
 }
 
 // tokenExpiry is one option of the form's expiry control.
@@ -538,9 +562,75 @@ func (f tokenForm) expiresAt(now time.Time) (*time.Time, error) {
 		WithDetail(core.DetailField, "expires")
 }
 
-// showTokens renders the caller's API tokens, and a newly issued value once.
+// showTokens renders the API tokens this reader may see, and a newly issued
+// value once.
 func (h *handler) showTokens(w http.ResponseWriter, r *http.Request) error {
 	return h.renderTokens(w, r, http.StatusOK, newTokenForm(), nil, issuedToken(w, r))
+}
+
+// tokenListing returns the tokens this reader may see, labelled with whose
+// each one is, and whether the listing reaches past the reader's own.
+//
+// A reader holding tenant:admin sees the tenant's tokens, because the
+// credential that has to stop working now is usually somebody else's: it is
+// the one that leaked. Anybody else sees their own, which is all this screen
+// ever showed. The command line has taken another actor's identifier all
+// along, so the browser was the one surface useless in an incident.
+//
+// Reaching the tenant's tokens is ListActors plus a listing per actor rather
+// than one query, because the service's contract is per-actor on every
+// surface. The directory is the size of a tenant's staff and agents, and this
+// screen is read by an administrator during an incident, not in a loop.
+func (h *handler) tokenListing(r *http.Request, actor *core.Actor) ([]tokenRow, bool, error) {
+	if !actor.HasScope(core.ScopeTenantAdmin) {
+		tokens, err := h.svc.ListTokens(r.Context(), actor.ID)
+		if err != nil {
+			return nil, false, err
+		}
+		return h.labelTokens(r, actor, tokens), false, nil
+	}
+	actors, _, err := h.svc.ListActors(r.Context(), core.Page{Limit: core.MaxPageLimit})
+	if err != nil {
+		return nil, false, err
+	}
+	ids := make([]string, 0, len(actors)+1)
+	for _, a := range actors {
+		ids = append(ids, a.ID)
+	}
+	if !slices.Contains(ids, actor.ID) {
+		ids = append(ids, actor.ID)
+	}
+	var all []core.APIToken
+	for _, id := range ids {
+		tokens, err := h.svc.ListTokens(r.Context(), id)
+		if err != nil {
+			return nil, false, err
+		}
+		all = append(all, tokens...)
+	}
+	return h.labelTokens(r, actor, all), true, nil
+}
+
+// labelTokens names the owner of every row and orders the listing by owner,
+// so one actor's credentials sit together rather than interleaved by age.
+func (h *handler) labelTokens(r *http.Request, actor *core.Actor, tokens []core.APIToken) []tokenRow {
+	ids := make([]string, 0, len(tokens))
+	for _, t := range tokens {
+		ids = append(ids, t.ActorID)
+	}
+	names := h.resolveActors(r, ids...)
+	out := make([]tokenRow, 0, len(tokens))
+	for _, t := range tokens {
+		out = append(out, tokenRow{APIToken: t,
+			Owner: names.Label(t.ActorID), Mine: t.ActorID == actor.ID})
+	}
+	slices.SortStableFunc(out, func(a, b tokenRow) int {
+		if n := strings.Compare(a.Owner, b.Owner); n != 0 {
+			return n
+		}
+		return a.CreatedAt.Compare(b.CreatedAt)
+	})
+	return out
 }
 
 // renderTokens draws the screen, whether it is being read or being read again
@@ -551,13 +641,13 @@ func (h *handler) renderTokens(w http.ResponseWriter, r *http.Request, status in
 	if err != nil {
 		return err
 	}
-	tokens, err := h.svc.ListTokens(r.Context(), actor.ID)
+	tokens, owners, err := h.tokenListing(r, actor)
 	if err != nil {
 		return err
 	}
 	return h.renderStatus(w, r, status, "tokens.html", "Tokens", tokensView{
 		Tokens: tokens, Scopes: core.AllScopes, Expiry: tokenExpiryChoices,
-		Issued: issued, Form: form, Errors: errs})
+		Secret: issuedTokenSecret(issued), Form: form, Errors: errs, Owners: owners})
 }
 
 // refuseToken answers a submission the reader can fix by drawing the screen
@@ -580,15 +670,7 @@ const issuedTokenCookie = "tix_issued_token"
 
 // issuedToken reads and clears the one-time token cookie.
 func issuedToken(w http.ResponseWriter, r *http.Request) string {
-	cookie, err := r.Cookie(issuedTokenCookie)
-	if err != nil || cookie.Value == "" {
-		return ""
-	}
-	// #nosec G124 -- this clears the cookie (MaxAge -1). HttpOnly and SameSite
-	// are set; Secure follows the deployment and is applied where it is issued.
-	http.SetCookie(w, &http.Cookie{Name: issuedTokenCookie, Path: RouteTokens,
-		MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode})
-	return cookie.Value
+	return readOneTimeCookie(w, r, issuedTokenCookie, RouteTokens)
 }
 
 // createToken mints an API token and shows its value exactly once.
@@ -603,10 +685,8 @@ func (h *handler) createToken(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return h.refuseToken(w, r, form, err)
 	}
-	http.SetCookie(w, &http.Cookie{ // #nosec G124 -- one-time value, HttpOnly, cleared by the screen that shows it
-		Name: issuedTokenCookie, Value: issued.Token, Path: RouteTokens,
-		HttpOnly: true, Secure: h.secureCookie(r), SameSite: http.SameSiteStrictMode, MaxAge: 60,
-	})
+	// #nosec G124 -- one-time value, HttpOnly, cleared by the screen that shows it
+	http.SetCookie(w, oneTimeCookie(issuedTokenCookie, RouteTokens, issued.Token, h.secureCookie(r)))
 	redirect(w, r, RouteTokens, "token issued")
 	return nil
 }

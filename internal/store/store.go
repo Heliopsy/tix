@@ -283,6 +283,9 @@ type AuthTx interface {
 
 	CreateToken(ctx context.Context, t *core.APIToken, tokenHash string) error
 	GetTokenByHash(ctx context.Context, tokenHash string) (*core.APIToken, error)
+	// GetToken returns one token of this tenant by identifier, so a caller
+	// that is about to change it can record whose it was.
+	GetToken(ctx context.Context, id string) (*core.APIToken, error)
 	ListTokens(ctx context.Context, actorID string) ([]core.APIToken, error)
 	// TokenNameInUse reports whether an unrevoked token of this tenant already
 	// carries the given name, whichever actor holds it. Revoked names are free

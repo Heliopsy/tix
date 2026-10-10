@@ -20,9 +20,16 @@ const (
 )
 
 // Audit actions recorded for API tokens.
+//
+// Revoking somebody else's credential is its own action rather than a field
+// inside token.revoke. An operator reading the trail after a leak asks who
+// killed the token and whether it was theirs to kill, and that has to be
+// answerable from the action, because the trail is filtered by action and not
+// by a payload field.
 const (
-	auditTokenCreate = "token.create"
-	auditTokenRevoke = "token.revoke"
+	auditTokenCreate      = "token.create"
+	auditTokenRevoke      = "token.revoke"
+	auditTokenRevokeOther = "token.revoke_other"
 )
 
 // checkScopeGrant refuses a token carrying a scope its creator does not hold,
@@ -165,10 +172,19 @@ func (l *Local) RevokeToken(ctx context.Context, id string) error {
 		return core.Invalid("token identifier is required")
 	}
 	return l.write(ctx, actor, func(m *mutation) error {
+		existing, err := m.tx.GetToken(ctx, id)
+		if err != nil {
+			return err
+		}
 		if err := m.tx.RevokeToken(ctx, id, m.now); err != nil {
 			return err
 		}
-		return m.Record(auditTokenRevoke, eventTokenRevoked, "api_token", id, "", nil,
-			map[string]any{"id": id, "revoked_at": m.now}, map[string]any{"token_id": id})
+		action := auditTokenRevoke
+		if existing.ActorID != actor.ID {
+			action = auditTokenRevokeOther
+		}
+		return m.Record(action, eventTokenRevoked, "api_token", id, "", nil,
+			map[string]any{"id": id, "revoked_at": m.now},
+			map[string]any{"token_id": id, "token_actor_id": existing.ActorID, "name": existing.Name})
 	})
 }

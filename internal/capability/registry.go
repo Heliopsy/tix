@@ -731,7 +731,8 @@ var registry = []Operation{
 		HTTP:  apiGet(wire.RouteTokens),
 		Web:   webGet(web.RouteTokens, tplTokens),
 		Limits: []Limitation{{SurfaceWeb,
-			"the screen lists the signed-in actor's own tokens only, where the cli and the api take another actor's identifier"}},
+			"the screen lists the tenant's tokens to a reader holding tenant:admin and the reader's own to anybody else, " +
+				"where the cli and the api take another actor's identifier on token:admin alone"}},
 		Exempt: []Exemption{
 			gap(SurfaceTUI, "GAP: no tui binding yet; there is no token administration view"),
 		},

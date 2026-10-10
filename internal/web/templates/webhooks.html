@@ -1,6 +1,7 @@
 {{define "content"}}
 <h1>Webhooks</h1>
 {{template "column-picker" .}}
+{{with .Data.Secret}}{{template "secret" .}}{{end}}
 <table>
   <thead><tr><th>URL</th>{{if .Columns.Show "webhooks" "events"}}<th>Events</th>{{end}}{{if .Columns.Show "webhooks" "active"}}<th>Active</th>{{end}}<th></th></tr></thead>
   <tbody>
@@ -22,7 +23,7 @@
   {{end}}
   </tbody>
 </table>
-<p class="meta">Signing secrets are write-only and are never displayed.</p>
+<p class="meta">A stored signing secret is never displayed. One tix generates is shown once, on this screen, immediately after you save; one you supply is not shown at all, because you already have it.</p>
 
 <h2>Register an endpoint</h2>
 <form method="post" action="/admin/webhooks">
@@ -31,7 +32,7 @@
   <input id="url" name="url" type="url" required>
   <div class="field-label">
     <label for="secret">Signing secret</label>
-    {{template "field-info" "Every delivery to this endpoint carries an X-Tix-Signature header: an HMAC-SHA256 of the request body, keyed by this secret, that your receiver checks to confirm the delivery really came from tix. Leave it blank and tix generates one, shown once, right after you save."}}
+    {{template "field-info" "Every delivery to this endpoint carries an X-Tix-Signature header: an HMAC-SHA256 of the request body, keyed by this secret, that your receiver checks to confirm the delivery really came from tix. Leave it blank and tix generates one, shown once on this screen right after you save and never again. Supply your own and nothing is shown, since you already hold it. Saving an existing endpoint with this field blank keeps the secret it already has."}}
   </div>
   <input id="secret" name="secret" type="password" autocomplete="new-password">
   <div class="field-label">

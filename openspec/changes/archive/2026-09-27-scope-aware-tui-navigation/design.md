@@ -84,3 +84,9 @@ the API walk any depth, and the browser's token and key lists are pinned to the 
 CLI and the API take another actor's identifier. Recording those as exemptions would collide with the
 binding being declared, so `Limitation` carries them, and a guard requires each to name a surface the
 operation actually binds.
+
+Amended by `tokens-and-webhook-secrets-in-the-browser`: the token list is no longer pinned to the signed-in
+actor. A reader holding `tenant:admin` sees the tenant's tokens, because the credential that has to stop
+working now is the one that leaked and it is usually not theirs. The shortfall recorded against the browser
+is the narrower one that remains — a reader with `token:admin` and without `tenant:admin` reaches another
+actor's tokens from the CLI and not from the browser. The key list is unchanged.

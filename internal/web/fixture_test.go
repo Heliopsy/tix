@@ -269,6 +269,13 @@ func (f *fixture) actorFor(name string) *core.Actor {
 		return copyActor(f.actorB, []core.Scope{core.ScopeAll}, core.RoleAdmin)
 	case "viewer":
 		return copyActor(f.actorA, core.RoleViewer.Scopes(), core.RoleViewer)
+	case "tokenkeeper":
+		// token:admin, and task:read so it can mint a token of its own
+		// (a creator cannot grant a scope it does not hold). Short of the
+		// tenant:admin that lets the screen show somebody else's
+		// credentials. No role, so the role grants nothing on top.
+		return copyActor(f.actorA,
+			[]core.Scope{core.ScopeTokenAdmin, core.ScopeTaskRead}, core.Role(""))
 	default:
 		// "actor:<id>" speaks for an identifier the test made rather than one
 		// the fixture seeded, which is how a request can come from an account
