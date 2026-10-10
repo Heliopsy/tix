@@ -88,9 +88,6 @@
 <p class="muted" id="visibility-help">Which projects <a href="/tasks">Tasks</a> includes. Unticking one leaves its tasks out of the listing and off the board; it hides nothing from anybody else and withholds no record, since every task stays on its own screen and a <code>project:</code> filter naming it explicitly still finds it. A project created after you choose is shown without being ticked.</p>
 <div aria-describedby="visibility-help">
 {{template "project-choices" .Data.Prefs.Projects}}
-{{if not .Data.ProjectScan}}
-<p class="muted">This tenant has more projects than this control walked, so the list above is not the whole set.</p>
-{{end}}
 </div>
 
 <h3>Columns</h3>

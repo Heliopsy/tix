@@ -136,11 +136,10 @@ func (h *handler) tenantShape(r *http.Request, members int) ([]shapeNode, error)
 	projectCount := len(projects)
 	projectsUncounted := ""
 	if !whole {
-		projectCount, projectsUncounted = -1, countFailed
+		projectCount, projectsUncounted = -1, countShort
 	}
 	workflows, wErr := h.svc.ListWorkflows(ctx)
 	domains, dErr := h.svc.ListDomains(ctx)
-	tokens, tErr := h.svc.ListTokens(ctx, "")
 
 	// Neither Tasks nor Field definitions is a tenant-wide figure the service
 	// can produce: a task listing is keyset-paginated and carries no total,
@@ -153,8 +152,7 @@ func (h *handler) tenantShape(r *http.Request, members int) ([]shapeNode, error)
 			Note: "people, each with a role here"},
 		{Depth: 1, Name: "Domains", Count: count(len(domains), dErr), Href: RouteDomains, Uncounted: countFailed,
 			Note: "hostnames that resolve to this tenant"},
-		{Depth: 1, Name: "API tokens", Count: count(len(tokens), tErr), Href: RouteTokens, Uncounted: countFailed,
-			Note: "what an agent authenticates with"},
+		h.tokenShapeRow(r),
 		{Depth: 1, Name: "Workflows", Count: count(len(workflows), wErr), Href: RouteWorkflows, Uncounted: countFailed,
 			Note: "the states a task moves between"},
 		{Depth: 1, Name: "Projects", Count: projectCount, Href: RouteProjects, Uncounted: projectsUncounted,
@@ -169,6 +167,43 @@ func (h *handler) tenantShape(r *http.Request, members int) ([]shapeNode, error)
 // countFailed is what a row shows where its listing errored, which is not the
 // same thing as a row that carries no figure by design.
 const countFailed = "unavailable"
+
+// countShort is what a row shows where the walk behind its figure stopped at
+// its bound, which is neither a count nor a failure: the figure would have
+// been a floor presented as a total.
+const countShort = "incomplete"
+
+// tokenShapeRow is the API tokens row of the diagram.
+//
+// It counts the listing the token screen renders rather than ListTokens with
+// an empty actor, which has always meant the caller's own: beside Members,
+// Domains and Workflows, all tenant-wide, a reader's personal figure linking
+// to a screen showing every token of the tenant disagreed with the screen it
+// sits next to. Counting the same listing is what makes the two agree by
+// construction rather than by both being maintained.
+//
+// The listing is always the tenant's here: this screen's own GetTenant needs
+// authz.ActionTenantAdmin, which resolves to the scope tokenListing tests, so
+// a reader who can read this row holds it. A reader holding it without
+// token:admin cannot list tokens at all, and the row says so.
+func (h *handler) tokenShapeRow(r *http.Request) shapeNode {
+	row := shapeNode{Depth: 1, Name: "API tokens", Count: -1, Href: RouteTokens,
+		Uncounted: countFailed, Note: "what an agent authenticates with"}
+	actor, err := core.RequireActor(r.Context())
+	if err != nil {
+		return row
+	}
+	list, err := h.tokenListing(r, actor)
+	if err != nil {
+		return row
+	}
+	if !list.Whole {
+		row.Uncounted = countShort
+		return row
+	}
+	row.Count = len(list.Rows)
+	return row
+}
 
 // updateTenant saves the tenant's display name and theme.
 func (h *handler) updateTenant(w http.ResponseWriter, r *http.Request) error {
@@ -463,6 +498,10 @@ type tokensView struct {
 	// Owners reports whether this listing spans actors other than the reader,
 	// which is what puts the owner column on the table.
 	Owners bool
+	// Whole is false when the listing could not reach every actor's tokens, so
+	// the screen says the table is short rather than presenting it as every
+	// token of the tenant.
+	Whole bool
 }
 
 // Fixed is the number of always-present columns, for the empty row's span.
@@ -581,17 +620,17 @@ func (h *handler) showTokens(w http.ResponseWriter, r *http.Request) error {
 // than one query, because the service's contract is per-actor on every
 // surface. The directory is the size of a tenant's staff and agents, and this
 // screen is read by an administrator during an incident, not in a loop.
-func (h *handler) tokenListing(r *http.Request, actor *core.Actor) ([]tokenRow, bool, error) {
+func (h *handler) tokenListing(r *http.Request, actor *core.Actor) (tokenList, error) {
 	if !actor.HasScope(core.ScopeTenantAdmin) {
 		tokens, err := h.svc.ListTokens(r.Context(), actor.ID)
 		if err != nil {
-			return nil, false, err
+			return tokenList{}, err
 		}
-		return h.labelTokens(r, actor, tokens), false, nil
+		return tokenList{Rows: h.labelTokens(r, actor, tokens), Whole: true}, nil
 	}
-	actors, _, err := h.svc.ListActors(r.Context(), core.Page{Limit: core.MaxPageLimit})
+	actors, whole, err := h.allActors(r)
 	if err != nil {
-		return nil, false, err
+		return tokenList{}, err
 	}
 	ids := make([]string, 0, len(actors)+1)
 	for _, a := range actors {
@@ -604,11 +643,55 @@ func (h *handler) tokenListing(r *http.Request, actor *core.Actor) ([]tokenRow, 
 	for _, id := range ids {
 		tokens, err := h.svc.ListTokens(r.Context(), id)
 		if err != nil {
-			return nil, false, err
+			return tokenList{}, err
 		}
 		all = append(all, tokens...)
 	}
-	return h.labelTokens(r, actor, all), true, nil
+	return tokenList{Rows: h.labelTokens(r, actor, all), Owners: true, Whole: whole}, nil
+}
+
+// tokenList is the token table one reader may see: the rows, whether it
+// reaches past the reader's own, and whether it is the whole of what it
+// claims.
+type tokenList struct {
+	Rows   []tokenRow
+	Owners bool
+	// Whole is false when the actor directory is longer than allActors walked,
+	// so some actor's tokens are missing from Rows. The listing says so rather
+	// than reading as every token of the tenant.
+	Whole bool
+}
+
+// actorScanPages bounds how many pages allActors will walk, for the reason
+// projectScanPages bounds the project walk: an unbounded walk inside a request
+// handler is how a request stops returning. At core.MaxPageLimit a page it
+// covers more actors than a tenant has staff and agents, and a caller that
+// reaches it is told the directory is short rather than handed a truncated one
+// it reads as whole.
+const actorScanPages = 40
+
+// allActors is this tenant's actor directory, walked to the end of the
+// listing, and whether the walk finished.
+//
+// One page of core.MaxPageLimit was what the token listing had, with the
+// cursor discarded, so a tenant past 500 actors lost the tail of its
+// credentials off a screen read during an incident. Raising the limit only
+// moves where that starts to hurt, so the cursor is walked instead.
+func (h *handler) allActors(r *http.Request) ([]core.Actor, bool, error) {
+	page := core.Page{Limit: core.MaxPageLimit}
+	var out []core.Actor
+	for range actorScanPages {
+		found, next, err := h.svc.ListActors(r.Context(), page)
+		if err != nil {
+			return nil, false, err
+		}
+		out = append(out, found...)
+		if next == "" {
+			return out, true, nil
+		}
+		page.Cursor = next
+	}
+	return out, false, nil
 }
 
 // labelTokens names the owner of every row and orders the listing by owner,
@@ -641,13 +724,14 @@ func (h *handler) renderTokens(w http.ResponseWriter, r *http.Request, status in
 	if err != nil {
 		return err
 	}
-	tokens, owners, err := h.tokenListing(r, actor)
+	list, err := h.tokenListing(r, actor)
 	if err != nil {
 		return err
 	}
 	return h.renderStatus(w, r, status, "tokens.html", "Tokens", tokensView{
-		Tokens: tokens, Scopes: core.AllScopes, Expiry: tokenExpiryChoices,
-		Secret: issuedTokenSecret(issued), Form: form, Errors: errs, Owners: owners})
+		Tokens: list.Rows, Scopes: core.AllScopes, Expiry: tokenExpiryChoices,
+		Secret: issuedTokenSecret(issued), Form: form, Errors: errs,
+		Owners: list.Owners, Whole: list.Whole})
 }
 
 // refuseToken answers a submission the reader can fix by drawing the screen

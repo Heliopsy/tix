@@ -221,11 +221,11 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	if filter.Page.Sort == "" {
 		filter.Page.Sort = core.SortUrgency
 	}
-	projects, _, err := h.allProjects(r, false)
+	projects, whole, err := h.allProjects(r, false)
 	if err != nil {
 		return err
 	}
-	prefs := h.prefsFor(r, projects)
+	prefs := h.prefsFor(r, projects, whole)
 	away := hiddenProjects(r)
 	filtered := len(filter.ProjectKeys) > 0
 	hidden := prefs.Projects.Hidden

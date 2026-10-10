@@ -33,6 +33,15 @@
   <button class="secondary" type="submit">Apply</button>
 </form>
 
+{{if not .Data.ProjectsWhole}}
+{{/* A picker that does not offer every project says so, beside itself. The
+     figures above are still the whole tenant's -- "Every project" means
+     every project -- but a project missing from the control cannot be chosen,
+     and without this line its absence reads as a project with no statistics
+     rather than one this screen could not list. */}}
+<p class="muted short-projects">This picker does not list every project in this tenant, so a project missing from it cannot be chosen here. The figures below are unaffected.</p>
+{{end}}
+
 <section class="cards">
   <div class="card">
     <p class="figure">{{.Data.Stats.Completed}}</p>

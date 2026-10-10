@@ -61,6 +61,11 @@ type visibilityFormView struct {
 	Choices []projectChoice
 	Stale   []string
 	Hidden  int
+	// Whole is false when the tenant has more projects than the walk behind
+	// Choices covered. It lives on the control rather than on either screen,
+	// because the task screen and settings render the same control and a
+	// caveat held by one of them is a caveat the other silently drops.
+	Whole bool
 }
 
 // taskViewFormView is the list-or-board switch. Current is what the reader
@@ -147,7 +152,7 @@ func newColumnForm(csrf, back, page, label string, cols columnPrefs) columnFormV
 
 // prefsFor builds every shared preference control for one request, from the
 // projects the calling screen has already listed.
-func (h *handler) prefsFor(r *http.Request, projects []core.Project) prefsView {
+func (h *handler) prefsFor(r *http.Request, projects []core.Project, whole bool) prefsView {
 	csrf, back := csrfFrom(r), here(r)
 	cols := columnsOf(r)
 	pages := make([]columnFormView, 0, len(columnPages))
@@ -160,7 +165,7 @@ func (h *handler) prefsFor(r *http.Request, projects []core.Project) prefsView {
 	return prefsView{
 		Columns: pages,
 		Projects: visibilityFormView{
-			CSRF: csrf, Here: back, Choices: choices,
+			CSRF: csrf, Here: back, Choices: choices, Whole: whole,
 			Stale: staleHiddenProjects(projects, away), Hidden: hiddenCount(choices),
 		},
 		TaskView: taskViewFormView{

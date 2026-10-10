@@ -44,6 +44,14 @@ type webService struct {
 	syncRuns []core.AuditEntry
 	// logoutSucceeds makes the stand-in accept a sign-out. See Logout below.
 	logoutSucceeds bool
+	// actorPagesNeverEnd and projectPagesNeverEnd answer every page with a
+	// cursor for another one, which is what a directory longer than a bounded
+	// walk looks like to a handler. Reaching that case for real needs 20,000
+	// actors or projects seeded, which no test can afford, and the behaviour
+	// under test is what the screen says when the walk stops short rather than
+	// the store's ability to hold them.
+	actorPagesNeverEnd   bool
+	projectPagesNeverEnd bool
 }
 
 var _ core.Service = (*webService)(nil)
@@ -64,6 +72,28 @@ func (s *webService) Logout(ctx context.Context) error {
 		return nil
 	}
 	return s.Local.Logout(ctx)
+}
+
+// ListActors answers with another cursor forever when the fixture asked it to,
+// so a walk of the directory stops at its bound rather than at the end.
+func (s *webService) ListActors(ctx context.Context, page core.Page) ([]core.Actor, string, error) {
+	if !s.actorPagesNeverEnd {
+		return s.Local.ListActors(ctx, page)
+	}
+	page.Cursor = ""
+	found, _, err := s.Local.ListActors(ctx, page)
+	return found, "there-is-always-another-page", err
+}
+
+// ListProjects answers with another cursor forever when the fixture asked it
+// to, the same way ListActors above does.
+func (s *webService) ListProjects(ctx context.Context, filter core.ProjectFilter) ([]core.Project, string, error) {
+	if !s.projectPagesNeverEnd {
+		return s.Local.ListProjects(ctx, filter)
+	}
+	filter.Page.Cursor = ""
+	found, _, err := s.Local.ListProjects(ctx, filter)
+	return found, "there-is-always-another-page", err
 }
 
 func (s *webService) ExportTo(ctx context.Context, _ core.ExportInput, w io.Writer) error {

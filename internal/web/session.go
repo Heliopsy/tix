@@ -95,13 +95,9 @@ type settingsView struct {
 	// visibility choice and the view switch. They are rendered here from the
 	// same constructor and the same partials those screens use, which is what
 	// makes it impossible for this screen and that one to show different
-	// answers for one cookie. See prefs.go.
+	// answers for one cookie, including whether the project set behind the
+	// visibility control is the whole tenant. See prefs.go.
 	Prefs prefsView
-
-	// ProjectScan is false when the tenant has more projects than the
-	// visibility control walked, so the screen can say the list is short
-	// rather than presenting a partial set as the whole tenant.
-	ProjectScan bool
 }
 
 // showSettings renders the settings screen: every per-browser display
@@ -124,8 +120,7 @@ func (h *handler) showSettings(w http.ResponseWriter, r *http.Request) error {
 		Timezone:       zone,
 		TimeFormats:    timeFormatChoices(zone),
 		Timezones:      timezoneChoices(),
-		Prefs:          h.prefsFor(r, projects),
-		ProjectScan:    whole,
+		Prefs:          h.prefsFor(r, projects, whole),
 	})
 }
 
