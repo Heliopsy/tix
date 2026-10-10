@@ -33,7 +33,7 @@ type statusView struct {
 
 // showStatus renders the installation, the servers and the work.
 func (h *handler) showStatus(w http.ResponseWriter, r *http.Request) error {
-	report, err := h.svc.Status(r.Context())
+	report, err := held(h.svc.Status(r.Context()))
 	if err != nil {
 		return err
 	}

@@ -27,6 +27,15 @@ migration step, so both engines record the same migration identifiers:
 | `INTEGER` | `BIGINT` |
 | `LIKE '%term%'` search | `tsvector` with a GIN index |
 
+`TIMESTAMPTZ` holds microseconds, so every instant written here is truncated
+to one; SQLite's RFC3339 text keeps nanoseconds. Nothing tix stores is authored
+finer than that on purpose, and the one instant that used to be -- a lease
+expiry, which is handed back to its holder as a field of its own as well as
+written to a row -- is now cut to `lease.Precision` before either happens, so
+the two engines record the same instant for one claim. Any new value with
+sub-microsecond meaning has to do the same or the engines will disagree about
+it.
+
 The same step then applies what only this engine has: monthly partitions on
 `events` and `audit_entries`, the generated `tasks.search_tsv` column, and
 row-level security.
@@ -48,6 +57,46 @@ Give the application a plain login role rather than a superuser:
 
     CREATE ROLE tix LOGIN PASSWORD '...';
     CREATE DATABASE tix OWNER tix;
+
+### Migrations run outside the policies they create
+
+A migration runs on the pool connection as the login role, before any
+transaction has entered `tix_app` and with no `tix.tenant_id` set. On a
+superuser or `BYPASSRLS` connection -- which is what the test container and
+most development setups give -- the policies do not apply and a migration sees
+every row. On the plain owner role recommended above they do apply, because RLS
+is forced, and `current_setting('tix.tenant_id', true)` is NULL, so the
+predicate is never true and **a data step sees no rows at all**.
+
+Reproduced on PostgreSQL 18: as a `NOSUPERUSER NOBYPASSRLS` owner of a table
+carrying the forced policy, `UPDATE projects SET seq_counter = ...` reports
+`UPDATE 0` against a table holding one row.
+
+What that costs today, migration by migration:
+
+- `0002_project_seq` would leave every existing project's `seq_counter` at
+  zero, which reissues task numbers. It is unreachable: 0002 shipped in v0.1.0
+  alongside 0001, so no released database has ever had a `projects` row at the
+  moment 0002 applies, and an empty table makes the step a no-op anyway.
+- `0010_token_name_unique` is reachable, on an upgrade from v0.13.x or earlier,
+  and fails loudly rather than silently. The rename it would have applied
+  affects no rows, and the `CREATE UNIQUE INDEX` in the same transaction then
+  cannot be built -- an index build reads the heap and ignores RLS, so it still
+  sees the duplicates: `ERROR: could not create unique index ... Duplicate keys
+  exist.` The transaction rolls back and the upgrade refuses, which is the
+  behaviour wanted even if the message points at the wrong cause.
+
+So nothing ships broken. What is not safe is **the next data migration**: one
+whose effect no DDL in the same transaction depends on would apply to zero rows
+and report success. A migration that mutates tenant-scoped rows therefore
+cannot be reviewed as portable SQL alone until the runner is fixed.
+
+The fix belongs in the runner, not in the SQL: `applyMigration` would have to
+put the policies out of the way for the data step it is applying, and every
+route to that (lifting `FORCE ROW LEVEL SECURITY` for the transaction, entering
+a bypassing role, or driving the step once per tenant) changes the security
+posture this section rests on and needs guards of its own. It is deliberately
+not done here.
 
 ## Partitioning and retention
 

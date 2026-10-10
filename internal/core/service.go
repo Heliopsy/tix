@@ -10,6 +10,12 @@ import (
 )
 
 // Service is the complete tix product surface.
+//
+// A method declared (*T, error) returns a non-nil pointer whenever it returns
+// a nil error. There is no third answer: an absent record is an error, and a
+// read that succeeded has something to hand back. Callers therefore branch on
+// the error alone, and an implementation that returned a nil pair would panic
+// them one dereference later rather than report its own fault.
 type Service interface {
 	WhoAmI(ctx context.Context) (*Actor, error)
 

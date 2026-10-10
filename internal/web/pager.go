@@ -25,6 +25,17 @@ const (
 	TrailParam  = "trail"
 )
 
+// PageParam carries the page number for the stretch of a walk the trail can no
+// longer count.
+//
+// The trail is bounded at maxTrailDepth, so from the page that first trims it
+// the number of cursors behind a page stops growing and a count derived from
+// the trail alone stalls: every page past the bound reported the same one. The
+// number is therefore written into the link beside the trail, where the trail
+// is the floor and this is the position. It reaches no query, exactly like the
+// trail, so the worst a hand-edited value costs is a wrong label.
+const PageParam = "page"
+
 // SizeParam is how a reader asks for a page size other than the configured
 // one, for the length of that link. Configuration decides what every page
 // carries by default; this decides what this page carries, which is what a
@@ -87,6 +98,11 @@ type pager struct {
 	// first, excluding the first page (which has no cursor) and this one.
 	Trail []string
 
+	// Number is the page number the link carried, zero when it carried none.
+	// Page reads it as a position and the trail as a floor, so a page under
+	// the trail's bound counts itself and needs no number in its URL.
+	Number int
+
 	// Count and Unit are the position indicator's second half: how many rows
 	// this page actually carries, and what they are called.
 	Count int
@@ -105,10 +121,32 @@ func newPager(r *http.Request, base, next string, count int, unit string, keep .
 			params.Set(name, v)
 		}
 	}
+	trail := trailFrom(r)
 	return pager{
 		Base: base, Params: params, Count: count, Unit: unit,
-		Cursor: query.Get(CursorParam), Next: next, Trail: trailFrom(r),
+		Cursor: query.Get(CursorParam), Next: next, Trail: trail,
+		Number: pageFrom(r, trail),
 	}
+}
+
+// maxPage bounds the page number read from the address bar. Forty pages of
+// trail plus this many is further than any keyset walk goes, and a bound keeps
+// a typed value from rendering as a position nobody could reach.
+const maxPage = 1 << 20
+
+// pageFrom reads the page number a request carries, zero for a request that
+// carries none this build will believe. A number below what the trail already
+// proves is dropped rather than shown: the trail is the floor.
+func pageFrom(r *http.Request, trail []string) int {
+	raw := r.URL.Query().Get(PageParam)
+	if raw == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || n < len(trail)+2 || n > maxPage {
+		return 0
+	}
+	return n
 }
 
 // trailFrom reads the cursor trail a request carries, and returns nothing at
@@ -154,15 +192,15 @@ func (p pager) HasPrev() bool { return p.Cursor != "" }
 // HasNext reports whether the listing returned a cursor to carry on from.
 func (p pager) HasNext() bool { return p.Next != "" }
 
-// Page is which page of the walk this is, counting from one. It is derived
-// from the trail, so it is right for any URL this control produced; a link
-// edited by hand to drop the trail loses the count along with the history it
-// was recording.
+// Page is which page of the walk this is, counting from one. The trail counts
+// it up to the trail's own bound and the link's number carries it past that,
+// so it is right for any URL this control produced; a link edited by hand to
+// drop either loses the count along with the history it was recording.
 func (p pager) Page() int {
 	if p.Cursor == "" {
 		return 1
 	}
-	return len(p.Trail) + 2
+	return max(p.Number, len(p.Trail)+2)
 }
 
 // PrevHref is the page before this one: the last cursor of the trail, with
@@ -170,10 +208,10 @@ func (p pager) Page() int {
 // empty.
 func (p pager) PrevHref() string {
 	if len(p.Trail) == 0 {
-		return p.href("", nil)
+		return p.href("", nil, 1)
 	}
 	last := len(p.Trail) - 1
-	return p.href(p.Trail[last], p.Trail[:last])
+	return p.href(p.Trail[last], p.Trail[:last], p.Page()-1)
 }
 
 // NextHref is the following page, with this page's cursor pushed onto the
@@ -189,11 +227,13 @@ func (p pager) NextHref() string {
 			trail = trail[len(trail)-maxTrailDepth:]
 		}
 	}
-	return p.href(p.Next, trail)
+	return p.href(p.Next, trail, p.Page()+1)
 }
 
-// href renders one position as a link to this listing.
-func (p pager) href(cursor string, trail []string) string {
+// href renders one position as a link to this listing. The page number is
+// written only where the destination's trail no longer proves it, so no URL
+// short of the trail's bound grows a parameter.
+func (p pager) href(cursor string, trail []string, page int) string {
 	values := url.Values{}
 	for name, vs := range p.Params {
 		for _, v := range vs {
@@ -205,6 +245,9 @@ func (p pager) href(cursor string, trail []string) string {
 	}
 	if len(trail) > 0 {
 		values.Set(TrailParam, strings.Join(trail, trailSeparator))
+	}
+	if cursor != "" && page > len(trail)+2 {
+		values.Set(PageParam, strconv.Itoa(page))
 	}
 	if len(values) == 0 {
 		return p.Base

@@ -1532,3 +1532,52 @@ func TestSweepDoesNotWriteBackItsOwnStaleSnapshot(t *testing.T) {
 		t.Errorf("claim was not cleared: %+v", got)
 	}
 }
+
+// Every expiry the service hands out is cut to lease.Precision, because the
+// one it reports and the one the row holds have to be the same instant. The
+// clock here is deliberately set off a microsecond boundary: at a round
+// instant the truncation is invisible and this would pass over the defect.
+//
+// What this cannot see is the row: SQLite keeps nanoseconds, so it agrees with
+// an untruncated value too. The engine half is proved in
+// internal/store/postgres, against the TIMESTAMPTZ that does the truncating.
+func TestALeaseExpiryIsCutToWhatEveryEngineStores(t *testing.T) {
+	f := newClaimFixture(t, 0)
+	f.clock.Set(time.Date(2026, 5, 6, 7, 8, 9, 123456789, time.UTC))
+
+	claimed := f.seedTask(t, "precise", "todo", core.PriorityNormal)
+	claim, err := f.local.ClaimTask(f.ctx, core.TaskRef{ID: claimed.ID}, core.ClaimInput{})
+	if err != nil {
+		t.Fatalf("claiming: %v", err)
+	}
+	renewed, err := f.local.RenewLease(f.ctx, core.TaskRef{ID: claimed.ID}, claim.LeaseToken, 0)
+	if err != nil {
+		t.Fatalf("renewing: %v", err)
+	}
+
+	queued := f.seedTask(t, "queued", "todo", core.PriorityNormal)
+	next, err := f.local.ClaimNext(f.ctx, core.ClaimNextInput{})
+	if err != nil || next == nil {
+		t.Fatalf("claiming from the queue: %v", err)
+	}
+	if next.Task.ID != queued.ID {
+		t.Fatalf("the queue handed back %q, want %q", next.Task.ID, queued.ID)
+	}
+
+	for name, got := range map[string]*core.Claim{
+		"ClaimTask": claim, "RenewLease": renewed, "ClaimNext": next,
+	} {
+		if rem := time.Duration(got.LeaseExpiresAt.Nanosecond()) % lease.Precision; rem != 0 {
+			t.Errorf("%s reported an expiry of %s, %s finer than %s: PostgreSQL stores a coarser instant than the one the holder was given",
+				name, got.LeaseExpiresAt.Format(time.RFC3339Nano), rem, lease.Precision)
+		}
+		if got.Task.LeaseExpiresAt == nil {
+			t.Fatalf("%s returned a claim whose task holds no expiry", name)
+		}
+		if !got.Task.LeaseExpiresAt.Equal(got.LeaseExpiresAt) {
+			t.Errorf("%s reported %s but its task row holds %s", name,
+				got.LeaseExpiresAt.Format(time.RFC3339Nano),
+				got.Task.LeaseExpiresAt.Format(time.RFC3339Nano))
+		}
+	}
+}

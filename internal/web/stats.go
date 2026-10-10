@@ -75,7 +75,7 @@ func (h *handler) showStats(w http.ResponseWriter, r *http.Request) error {
 		ProjectRef: q.Get("project"),
 		Window:     core.Duration(time.Duration(days) * 24 * time.Hour),
 	}
-	stats, err := h.svc.Stats(r.Context(), in)
+	stats, err := held(h.svc.Stats(r.Context(), in))
 	if err != nil {
 		return err
 	}

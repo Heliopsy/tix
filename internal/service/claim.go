@@ -50,7 +50,7 @@ func (l *Local) ClaimTask(ctx context.Context, ref core.TaskRef, in core.ClaimIn
 			return err
 		}
 
-		until := m.now.Add(ttl)
+		until := lease.Until(m.now, ttl)
 		ok, err := m.tx.ClaimTask(ctx, store.ClaimRow{
 			TaskID:     task.ID,
 			ActorID:    holder,
@@ -128,7 +128,7 @@ func (l *Local) claimNextOnce(ctx context.Context, m *mutation, actor *core.Acto
 		return nil, err
 	}
 
-	until := m.now.Add(ttl)
+	until := lease.Until(m.now, ttl)
 	taskID, ok, err := m.tx.ClaimNextTask(ctx, store.ClaimNextRow{
 		ProjectIDs: projectIDs,
 		Tags:       in.Tags,
@@ -171,7 +171,7 @@ func (l *Local) applyWorkflowTTL(ctx context.Context, m *mutation, task *core.Ta
 	if err != nil {
 		return until, err
 	}
-	revised := m.now.Add(ttl)
+	revised := lease.Until(m.now, ttl)
 	if _, err := m.tx.RenewLease(ctx, task.ID, token, revised); err != nil {
 		return until, err
 	}
@@ -203,7 +203,7 @@ func (l *Local) RenewLease(ctx context.Context, ref core.TaskRef, token string, 
 			return err
 		}
 
-		until := m.now.Add(resolved)
+		until := lease.Until(m.now, resolved)
 		ok, err := m.tx.RenewLease(ctx, task.ID, token, until)
 		if err != nil {
 			return err

@@ -34,7 +34,7 @@ type connectionsView struct {
 
 // showConnections renders what this server is holding for the tenant.
 func (h *handler) showConnections(w http.ResponseWriter, r *http.Request) error {
-	list, err := h.svc.ListConnections(r.Context())
+	list, err := held(h.svc.ListConnections(r.Context()))
 	if err != nil {
 		return err
 	}
