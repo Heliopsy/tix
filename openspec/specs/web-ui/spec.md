@@ -133,15 +133,51 @@ The web UI SHALL provide a task detail screen showing the task's built-in fields
 
 The web UI SHALL provide an editor for per-project workflows, including states and allowed transitions, and an editor for typed custom field definitions.
 
+Editing part of a workflow SHALL preserve the rest. A save from the workflow editor SHALL change only what its form edits -- the initial state, the state keys with their labels and terminality, the permitted transitions, and the state migrations -- and SHALL carry every other field of a state, a transition or the definition through from what is stored. A state or transition the form no longer names SHALL be removed.
+
+A state key the form renames SHALL keep the fields the editor does not show when the save declares the rename in its migration lines. A rename the save does not declare SHALL be treated as removing one state and adding another, which the service refuses outright while any task still sits in the removed state.
+
+The third field of a state line SHALL accept `terminal` or `open` and `true` or `false`, SHALL read an empty field as open, and SHALL refuse a value that names neither rather than reading it as open. The help text beside the field SHALL name the values it accepts.
+
 #### Scenario: Workflow is edited
 
 - **WHEN** an authorized user adds a state and a transition to a project's workflow
 - **THEN** the board shows the new column and the new transition is permitted
 
+#### Scenario: Saving without changing anything changes nothing
+
+- **WHEN** an authorized user opens the workflow editor and saves it with no edits
+- **THEN** every state keeps its reporting category and its lease-expiry revert, every transition keeps the scope and the comment it requires, and the workflow keeps its default lease
+
+#### Scenario: A restricted transition stays restricted
+
+- **WHEN** a transition requires a scope and the workflow is saved from the editor with no edits
+- **THEN** an actor holding the plain transition scope but not the required one is still refused that move, and an actor holding the required scope may still make it
+
+#### Scenario: A renamed state keeps what the editor does not show
+
+- **WHEN** an authorized user changes a state's key and gives the rename as a migration line
+- **THEN** the state under its new key keeps the category and the lease-expiry revert the old key carried
+
+#### Scenario: A removed state is removed
+
+- **WHEN** an authorized user deletes a state line and the transitions naming it
+- **THEN** that state and those transitions are gone from the stored workflow
+
 #### Scenario: Invalid workflow is refused
 
 - **WHEN** a workflow edit would leave tasks in a state the workflow no longer defines
 - **THEN** the change is refused with an explanation and the workflow is unchanged
+
+#### Scenario: The documented terminal words are read as written
+
+- **WHEN** a state line ends in `true`, having followed the help text beside the field
+- **THEN** the state is stored as terminal
+
+#### Scenario: An unreadable terminal field is refused
+
+- **WHEN** a state line ends in a word that is neither a yes nor a no
+- **THEN** the save is refused with an explanation and no workflow is stored
 
 #### Scenario: Field definition is created
 
@@ -796,3 +832,114 @@ leave a second connection or a second handler behind.
 
 - **WHEN** a reader navigates between two screens repeatedly
 - **THEN** no more than one event-stream connection is held at a time
+
+### Requirement: An emptied form field clears the value it holds
+
+A browser form field that a reader empties and saves SHALL clear the stored value. A field the submission
+does not name at all SHALL leave the stored value unchanged.
+
+The distinction SHALL be drawn on whether the submission carries the field's key, not on whether the value
+it carries is empty, so that a submission naming some of a record's fields changes only the fields it
+names.
+
+This SHALL hold for a task's custom fields and for an account's display name, which are the two values the
+browser could previously set and never remove.
+
+Where clearing a value would leave a required field empty, the save SHALL be refused with a validation
+error and the stored value SHALL be left as it was. A refused save SHALL NOT report success.
+
+#### Scenario: Emptying a custom field clears it
+
+- **GIVEN** a task whose custom field holds a value
+- **WHEN** the reader empties that field's input and saves
+- **THEN** the field is shown empty on the task afterwards
+
+#### Scenario: A save naming one field leaves the others alone
+
+- **GIVEN** a task carrying values in two custom fields
+- **WHEN** a submission names only the first of them
+- **THEN** the first holds the submitted value and the second is unchanged
+
+#### Scenario: A save carrying no custom field inputs changes none of them
+
+- **GIVEN** a task whose custom field holds a value
+- **WHEN** the reader saves the task's title from a form carrying no custom field input
+- **THEN** the custom field still holds its value
+
+#### Scenario: Emptying a required field is refused
+
+- **GIVEN** a task whose required custom field holds a value
+- **WHEN** the reader empties that field's input and saves
+- **THEN** the save is refused as invalid
+- **AND** the stored value is unchanged
+
+#### Scenario: Emptying a display name removes it
+
+- **GIVEN** an account with a display name
+- **WHEN** an administrator empties the name input and saves
+- **THEN** the account has no display name afterwards
+
+#### Scenario: A save naming no display name leaves it alone
+
+- **GIVEN** an account with a display name
+- **WHEN** a submission changes the account's role and names no display name
+- **THEN** the account keeps its display name
+
+### Requirement: Putting a project away removes that project and nothing else
+
+The task listing's visibility control SHALL remove from the listing exactly the projects the reader has
+put away, whatever the number of projects in the tenant.
+
+The listing SHALL be narrowed by excluding the projects put away, rather than by naming the projects to
+show, so that the rows shown do not depend on any listing of projects having been complete.
+
+The control SHALL offer a box for every project in the tenant, so that a project can be put away and
+brought back whatever its position in the project listing.
+
+#### Scenario: Hiding one project of many keeps the rest
+
+- **GIVEN** a tenant with more projects than one page of the project listing returns
+- **AND** a task in a project past that first page
+- **WHEN** the reader puts a single other project away
+- **THEN** that task is still listed
+
+#### Scenario: The control names every project
+
+- **GIVEN** a tenant with more projects than one page of the project listing returns
+- **WHEN** the task listing is rendered
+- **THEN** the visibility control offers a box for every project in the tenant
+
+### Requirement: A browser screen reporting a whole-tenant figure counts the whole tenant
+
+Where a browser screen presents a count as the number of records of a kind in the tenant, that count SHALL
+be taken over all of them rather than over one page of a listing.
+
+Where the count cannot be established, the screen SHALL say so in place of the figure rather than show a
+number that is short.
+
+A browser screen that resolves a record by identifier out of a listing SHALL find any record in the
+tenant, not only one on the listing's first page.
+
+#### Scenario: The tenant diagram counts every project
+
+- **GIVEN** a tenant with more projects than one page of the project listing returns
+- **WHEN** the tenant diagram is rendered
+- **THEN** its project row shows the number of projects in the tenant
+
+#### Scenario: A task in a distant project can be finished
+
+- **GIVEN** a task in a project past the first page of the project listing
+- **WHEN** the reader ticks it done
+- **THEN** the task is finished
+
+### Requirement: The delivery log offers its next page
+
+The webhook delivery log SHALL render the position control every keyset listing on this surface renders,
+offering the following page whenever one exists.
+
+#### Scenario: An older delivery is reachable
+
+- **GIVEN** more deliveries than one page of the log shows
+- **WHEN** the log is rendered
+- **THEN** it offers a link to the next page
+- **AND** that page shows deliveries the first page did not
