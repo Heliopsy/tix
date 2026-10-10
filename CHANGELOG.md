@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.14.0](https://github.com/Heliopsy/tix/compare/v0.13.1...v0.14.0) (2026-10-09)
+
+
+### Features
+
+* **web:** switch the task screen between a list and a merged board ([e6b902c](https://github.com/Heliopsy/tix/commit/e6b902c78cdbb65fba0c45b3eb121929a1db667e))
+* **web:** switch the task screen between a list and a merged board ([3224869](https://github.com/Heliopsy/tix/commit/3224869eebb409eae755d6f98d4a34ed8d57cc01))
+
+
+### Bug Fixes
+
+* **ci:** give the CLA action a signature branch, and exclude bots ([533e069](https://github.com/Heliopsy/tix/commit/533e0694b43e16dbc72848a874a83688574348f1))
+* **ci:** stop release-please proposing a version behind the manifest ([8c8b378](https://github.com/Heliopsy/tix/commit/8c8b378349591a55c4781126004079e791b7e11f))
+* **demo:** re-seeding replaces the agent token it left behind ([409e6c0](https://github.com/Heliopsy/tix/commit/409e6c07f3b800d3bc5c105d82f722caa7b5d773))
+* **web,service:** present an issued token as a secret, redraw refused forms, and hold token names unique ([2777433](https://github.com/Heliopsy/tix/commit/277743356155a62635e030f0844c4353c4932ecd))
+* **web:** a refused token form comes back with its expiry choice selected ([58466fa](https://github.com/Heliopsy/tix/commit/58466faab55a90b68d494bb86a5e1ad5086cb6ba))
+* **web:** make the API token screen usable and its names unambiguous ([281dcb2](https://github.com/Heliopsy/tix/commit/281dcb2df54e2ee834a343bbe52d0f52f93593de))
+* **web:** name two same-named workflows apart when a board is refused ([df076a8](https://github.com/Heliopsy/tix/commit/df076a802686a3828d61ea1d19c7d8c1cac89c39))
+* **web:** return a board move to the card it was made on ([ba79f8d](https://github.com/Heliopsy/tix/commit/ba79f8daff21c10a255849d856c80767cfb4b87c))
+* **web:** say which refusal it is when only one workflow group is listed ([fda1dc7](https://github.com/Heliopsy/tix/commit/fda1dc7dd48754a87d1093d98bc3657c8c7bdd1f))
+
+
+### Performance
+
+* **web:** build the board only for the reader looking at one ([3bca85e](https://github.com/Heliopsy/tix/commit/3bca85ea1cca8af23dac5172b6bc8c8b2597449f))
+
 ## [0.13.1](https://github.com/Heliopsy/tix/compare/v0.13.0...v0.13.1) (2026-10-09)
 
 
