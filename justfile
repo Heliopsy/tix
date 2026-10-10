@@ -322,6 +322,23 @@ spec:
         echo "validating $name"
         OPENSPEC_TELEMETRY=0 just tool openspec validate "$name" --strict
     done
+    # The loop above passes when openspec/changes/ holds nothing but archive/,
+    # which is the state a finished backlog is in. On its own it is a gate that
+    # reports success having validated nothing, so the baseline is checked too
+    # and its absence is a failure rather than a skip. openspec/specs/ went
+    # missing for fifteen archives because --skip-specs never wrote it and
+    # nothing noticed.
+    if [ ! -d openspec/specs ] || [ -z "$(ls -A openspec/specs 2>/dev/null)" ]; then
+      echo "openspec/specs/ is missing or empty: archive without --skip-specs" >&2
+      exit 1
+    fi
+    echo "validating the baseline specs"
+    OPENSPEC_TELEMETRY=0 just tool openspec validate --specs --strict
+    # A change is only archivable once its tasks are ticked. Checking it here
+    # means the rule is enforced rather than remembered: an archive carrying
+    # unfinished tasks fails the gate that let it through.
+    echo "validating archived changes are complete"
+    OPENSPEC_TELEMETRY=0 just tool openspec validate --archived
 
 # Every file in docs/ must be linked from docs/README.md, and every screenshot
 # from screenshots/README.md. Both indexes have drifted from their own
