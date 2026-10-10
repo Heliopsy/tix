@@ -1,0 +1,556 @@
+# cli Specification
+
+## Purpose
+
+Defines the command-line surface: its output formats, its streaming behaviour on large results, and the scripting contract callers depend on.
+
+## Requirements
+
+### Requirement: Streaming output for large results
+
+The CLI SHALL provide an `ndjson` output format that emits one JSON object per line and writes each record as it is produced. A listing or an export SHALL NOT be held in memory in its entirety before the first byte is written.
+
+#### Scenario: One object per line
+
+- **WHEN** a listing is requested with `-o ndjson`
+- **THEN** each record is a complete JSON object on its own line, parseable independently of the others
+
+#### Scenario: Records are written as they are produced
+
+- **WHEN** a large listing is streamed
+- **THEN** output begins before the final record has been read, and memory use does not grow with the number of records
+
+#### Scenario: Export streams
+
+- **WHEN** a tenant is exported
+- **THEN** the snapshot is written record by record rather than assembled first, so export is bounded by output size and not by available memory
+
+#### Scenario: Import streams
+
+- **WHEN** a snapshot is imported
+- **THEN** it is read record by record, so importing does not require holding the whole snapshot in memory
+
+### Requirement: Separation of data and diagnostics
+
+The CLI SHALL write command data to standard output and SHALL write all diagnostics, progress, warnings, and errors to standard error, so that standard output can be piped without contamination.
+
+#### Scenario: Piping data
+
+- **WHEN** a list command is piped into another program while emitting warnings
+- **THEN** only the data reaches the pipe and the warnings appear on the terminal
+
+#### Scenario: Errors on standard error
+
+- **WHEN** a command fails
+- **THEN** the error message appears on standard error and standard output carries no error text
+
+#### Scenario: Quiet mode
+
+- **WHEN** `--quiet` is passed
+- **THEN** non-essential diagnostics are suppressed while data output and the exit code are unchanged
+
+### Requirement: Standard input for bodies and lists
+
+Commands that accept a body or a list of references SHALL read from standard input when input is piped or when `-` is given as the argument.
+
+#### Scenario: Body from stdin
+
+- **WHEN** a comment body is piped into the comment command
+- **THEN** the piped content is used as the body
+
+#### Scenario: Refs from stdin
+
+- **WHEN** a list of task references is piped into a command that accepts refs
+- **THEN** the command operates on every reference read from standard input
+
+#### Scenario: Explicit dash
+
+- **WHEN** `-` is passed where a file or body is expected
+- **THEN** the content is read from standard input
+
+#### Scenario: Bulk pipeline
+
+- **WHEN** the output of a list command is filtered and piped into a mutating command that accepts refs
+- **THEN** each referenced task is processed and a per-reference result is reported
+
+### Requirement: Output format selection
+
+Every command that emits data SHALL support `-o table|json|yaml`. The default SHALL be a human-readable table and the JSON and YAML forms SHALL be stable and machine-parseable.
+
+#### Scenario: JSON output
+
+- **WHEN** `-o json` is passed to any data-emitting command
+- **THEN** standard output is a single valid JSON document containing the full result
+
+#### Scenario: YAML output
+
+- **WHEN** `-o yaml` is passed
+- **THEN** standard output is a valid YAML document containing the same fields as the JSON form
+
+#### Scenario: Empty result
+
+- **WHEN** a list command matches nothing and `-o json` is passed
+- **THEN** an empty collection is emitted and the exit code is success
+
+#### Scenario: Unknown format
+
+- **WHEN** an unsupported value is passed to `-o`
+- **THEN** the command fails with a usage error listing the supported formats
+
+### Requirement: Stable machine-readable output
+
+Field names and value encodings in the JSON and YAML forms SHALL be stable across releases, and SHALL NOT be reordered or renamed without a documented change.
+
+#### Scenario: Field names unchanged
+
+- **WHEN** the same command is run against a later release
+- **THEN** existing field names and their value types are unchanged
+
+#### Scenario: Timestamps in a fixed format
+
+- **WHEN** a result contains a timestamp
+- **THEN** it is emitted in a single documented format regardless of locale or terminal settings
+
+#### Scenario: No decoration in machine formats
+
+- **WHEN** `-o json` is used
+- **THEN** the output contains no colour codes, headers, or padding
+
+### Requirement: Colour and terminal awareness
+
+The CLI SHALL disable colour when `NO_COLOR` is set, when output is not a terminal, or when colour is explicitly disabled, and SHALL never emit colour codes in machine-readable formats.
+
+#### Scenario: NO_COLOR honoured
+
+- **WHEN** `NO_COLOR` is set in the environment
+- **THEN** output contains no ANSI colour sequences
+
+#### Scenario: Redirected output
+
+- **WHEN** standard output is redirected to a file
+- **THEN** output contains no ANSI colour sequences
+
+#### Scenario: Forced colour
+
+- **WHEN** colour is explicitly forced while output is redirected
+- **THEN** colour sequences are emitted as requested
+
+### Requirement: Documented exit codes
+
+The CLI SHALL use exit code 0 for success, 1 for a generic error, 2 for a usage error, 3 for not found or no task available, 4 for conflict or lease expired, 5 for an authentication or authorization failure, and 6 for a failed precondition. These codes SHALL be documented in help output.
+
+#### Scenario: Success
+
+- **WHEN** a command completes normally
+- **THEN** it exits 0
+
+#### Scenario: Usage error
+
+- **WHEN** a command is invoked with an unknown flag or a missing required argument
+- **THEN** it exits 2 and prints usage to standard error
+
+#### Scenario: Failed precondition
+
+- **WHEN** a command is refused because the data is in a state the operation forbids, such as a transition the workflow does not allow or deleting a task that still has subtasks
+- **THEN** it exits 6 rather than the generic error code
+
+#### Scenario: Empty queue
+
+- **WHEN** a claim-next command finds no eligible task
+- **THEN** it exits 3
+
+#### Scenario: Lease expired
+
+- **WHEN** a command presents an expired lease token
+- **THEN** it exits 4
+
+#### Scenario: Permission denied
+
+- **WHEN** the actor is not permitted to perform the operation
+- **THEN** it exits 5
+
+### Requirement: Exit codes derive from the service error taxonomy
+
+Exit codes SHALL be produced by mapping the service error kind, and the same error kind SHALL always yield the same exit code regardless of which command produced it or which transport was used.
+
+#### Scenario: Consistent mapping across commands
+
+- **WHEN** a not-found error arises from two different commands
+- **THEN** both exit with the same code
+
+#### Scenario: Consistent mapping across transports
+
+- **WHEN** the same failing operation is run against a local database and against a remote server
+- **THEN** both invocations exit with the same code
+
+### Requirement: Dry run for mutating commands
+
+Every command that mutates state SHALL accept `--dry-run`, which reports exactly what would change and SHALL NOT write anything.
+
+#### Scenario: Nothing written
+
+- **WHEN** a mutating command is run with `--dry-run`
+- **THEN** no domain row, audit entry, or event is created
+
+#### Scenario: Planned changes reported
+
+- **WHEN** a bulk mutation is run with `--dry-run`
+- **THEN** the output lists each entity that would be created, updated, or skipped
+
+#### Scenario: Machine-readable plan
+
+- **WHEN** `--dry-run -o json` is used
+- **THEN** the planned changes are emitted as structured data
+
+#### Scenario: Validation still applies
+
+- **WHEN** a dry run is given invalid input
+- **THEN** the command fails with the same error it would produce without the flag
+
+### Requirement: Command surface
+
+The CLI SHALL provide the command groups `task`, `project`, `workflow`, `field`, `claim`, `comment`, `dep`, `tag`, `user`, `token`, `ctx`, `config`, `tenant`, `watch`, `doctor`, `serve`, `tui`, `export`, `import`, `bundle`, `sync`, `webhook`, `prune`, `docs`, `completion`, and `version`.
+
+#### Scenario: Every group is reachable
+
+- **WHEN** the root help is displayed
+- **THEN** each of the listed command groups appears
+
+#### Scenario: Unknown command
+
+- **WHEN** an unrecognized command is invoked
+- **THEN** the CLI exits 2 and suggests the closest matching command
+
+#### Scenario: Version output
+
+- **WHEN** `tix version` is run
+- **THEN** the version is printed, and `-o json` yields it as structured data along with build metadata
+
+### Requirement: Filter expression on the command line
+
+The task listing command SHALL accept the same filter expression language the terminal interface's filter bar accepts, so an expression selects the same tasks from either surface. The expression SHALL be a conjunction of space-separated terms, SHALL support negating a term with a leading `-`, and SHALL support a weak match written with `~` in place of `:`. Flags given alongside the expression SHALL add to it rather than replace it. An expression the parser cannot read SHALL be a usage error, not an empty listing.
+
+#### Scenario: Negated term
+
+- **WHEN** tasks are listed with the expression `-tag:ops`
+- **THEN** only tasks lacking that tag are returned
+
+#### Scenario: Weak match
+
+- **WHEN** tasks are listed with the expression `title~api`
+- **THEN** only tasks whose title contains that value are returned, whatever its case
+
+#### Scenario: Expression and flags combine
+
+- **WHEN** tasks are listed with both an expression and a filter flag
+- **THEN** only tasks satisfying both are returned
+
+#### Scenario: Unreadable expression
+
+- **WHEN** tasks are listed with an expression naming an unknown key, or applying the weak operator to a term that has no text
+- **THEN** the command exits with a usage error rather than returning an empty listing
+
+### Requirement: Event stream command exposes its resume cursor
+
+The command that follows the event stream SHALL print each event's sequence number in every output format, SHALL accept a sequence number to resume after, and SHALL document its delivery guarantee as at-least-once with a cursor.
+
+#### Scenario: Cursor on the default line
+
+- **WHEN** the stream is followed in the default format
+- **THEN** each line leads with the sequence number the consumer would resume from
+
+#### Scenario: Structured output carries the whole event
+
+- **WHEN** the stream is followed with a structured output format
+- **THEN** each record carries the sequence number, actor, subject type and identifier, timestamp and full payload
+
+#### Scenario: Resume after a sequence number
+
+- **WHEN** the stream is followed resuming after a recorded sequence number
+- **THEN** every matching event committed after that number is delivered, in order, before live delivery begins
+
+### Requirement: Shell completion
+
+The CLI SHALL generate completion scripts for bash, zsh, and fish, and those completions SHALL include dynamic completion of task references, project keys, tags, and statuses.
+
+#### Scenario: Script generation
+
+- **WHEN** `tix completion bash` is run
+- **THEN** a valid bash completion script is written to standard output
+
+#### Scenario: Dynamic task refs
+
+- **WHEN** completion is requested for an argument that takes a task reference
+- **THEN** existing task references are offered
+
+#### Scenario: Dynamic statuses respect the workflow
+
+- **WHEN** completion is requested for a status argument in a project with a custom workflow
+- **THEN** the statuses offered are those defined by that project's workflow
+
+#### Scenario: Completion never blocks the shell
+
+- **WHEN** the configured target is unreachable while completing
+- **THEN** completion returns no dynamic candidates promptly rather than hanging
+
+### Requirement: Help with runnable examples
+
+Every command's `--help` SHALL include at least one example that can be copied and run as shown, and SHALL describe the exit codes the command can produce.
+
+#### Scenario: Example present
+
+- **WHEN** `--help` is shown for any leaf command
+- **THEN** at least one concrete example invocation is displayed
+
+#### Scenario: Examples are valid
+
+- **WHEN** the examples in help output are checked
+- **THEN** each parses as a valid invocation of that command
+
+#### Scenario: Exit codes documented
+
+- **WHEN** help is shown for a command that can report not found or conflict
+- **THEN** the corresponding exit codes are described
+
+### Requirement: Generated command documentation
+
+`tix docs` SHALL emit the full command tree as Markdown so that reference documentation is generated rather than maintained by hand.
+
+#### Scenario: Full tree emitted
+
+- **WHEN** `tix docs` is run
+- **THEN** every command and subcommand, with its flags and examples, appears in the generated Markdown
+
+#### Scenario: Output destination
+
+- **WHEN** an output directory is supplied
+- **THEN** the Markdown files are written there, and otherwise the documentation is written to standard output
+
+#### Scenario: Documentation stays current
+
+- **WHEN** a command or flag is added and the generated documentation in the repository is compared with freshly generated output
+- **THEN** any difference is detected so stale documentation is caught
+
+### Requirement: Global flags available on every command
+
+Global flags including context selection, target overrides, output format, quiet, and discovery control SHALL be accepted on every command and SHALL behave identically wherever they appear in the argument order.
+
+#### Scenario: Flag before the subcommand
+
+- **WHEN** a global flag is placed before the subcommand
+- **THEN** it takes effect
+
+#### Scenario: Flag after the subcommand
+
+- **WHEN** the same global flag is placed after the subcommand
+- **THEN** it takes effect identically
+
+### Requirement: Predictable and scriptable references
+
+Commands that accept an entity SHALL accept a stable human-typed reference, and every command that creates an entity SHALL emit that entity's reference in a form usable as input to other commands.
+
+#### Scenario: Created ref is reusable
+
+- **WHEN** a task is created and its reference is captured from the output
+- **THEN** that reference can be passed directly to another command
+
+#### Scenario: Reference in machine output
+
+- **WHEN** a create command is run with `-o json`
+- **THEN** the reference appears as a discrete field rather than only inside a formatted message
+
+#### Scenario: Unknown reference
+
+- **WHEN** a command is given a reference that does not resolve
+- **THEN** it exits 3 with a message naming the unresolved reference
+
+### Requirement: Partial failure reporting in bulk operations
+
+When a command operates on multiple references, it SHALL report a per-reference outcome and SHALL exit non-zero if any reference failed.
+
+#### Scenario: Mixed results
+
+- **WHEN** a bulk operation succeeds for some references and fails for others
+- **THEN** each reference's outcome is reported and the command exits non-zero
+
+#### Scenario: Machine-readable outcomes
+
+- **WHEN** a bulk operation is run with `-o json`
+- **THEN** the output contains one entry per reference with its outcome and, on failure, the error code
+
+#### Scenario: All succeed
+
+- **WHEN** every reference in a bulk operation succeeds
+- **THEN** the command exits 0
+
+### Requirement: Activity filter expression on the command line
+
+The audit listing command SHALL accept a filter expression over the activity vocabulary, spelled the way the task filter expression is spelled, and SHALL accept the same expression the terminal interface's activity filter accepts. The expression SHALL select on actor, subject kind, action, source and free text, SHALL support negating any of those with a leading `-`, and SHALL add to the command's own flags rather than replace them. An expression the parser cannot read, or one naming a source that is not recorded, SHALL be a usage error rather than an empty listing.
+
+#### Scenario: Select by kind
+
+- **WHEN** audit entries are listed with the expression `kind:project`
+- **THEN** only entries whose subject is a project are returned
+
+#### Scenario: Select by source
+
+- **WHEN** audit entries are listed with the expression `source:web`
+- **THEN** only entries recorded as arriving through the browser are returned
+
+#### Scenario: Free text searches what the entry recorded
+
+- **WHEN** audit entries are listed with a bare word
+- **THEN** only entries whose action, kind, source or before and after snapshots contain that word are returned
+
+#### Scenario: Negated term
+
+- **WHEN** audit entries are listed with the expression `-kind:task`
+- **THEN** entries about tasks are excluded
+
+#### Scenario: Expression and flags combine
+
+- **WHEN** audit entries are listed with both an expression and a filter flag that contradict each other
+- **THEN** nothing is returned, because a filter narrows what the flags selected and never widens it
+
+#### Scenario: Unreadable expression
+
+- **WHEN** audit entries are listed with an expression naming a key the activity vocabulary does not have, or a source that is not recorded
+- **THEN** the command exits with a usage error rather than returning an empty listing
+
+#### Scenario: Free text does not stop at the first page
+
+- **WHEN** a free-text expression discards every entry on the first page read
+- **THEN** further pages are read, up to a bound, and the command reports on its diagnostic stream how much was discarded and the cursor to resume from
+
+### Requirement: Completion installs itself where the shell looks
+
+The command line SHALL install a completion script to the location the named shell loads completions from,
+for bash, zsh and fish, and SHALL report the path it wrote.
+
+The shell SHALL be taken from the environment when it is not given explicitly, and an explicit choice SHALL
+override it. An unsupported shell SHALL be refused.
+
+Installation SHALL write only under the invoking user's own directories, and SHALL NOT modify shell startup
+files. Where a shell needs something further before completion works, the command SHALL say so.
+
+Installing twice SHALL succeed and leave the same result.
+
+#### Scenario: Installing for the running shell
+
+- **WHEN** completion is installed with no shell named and the environment names a supported shell
+- **THEN** the script is written to that shell's completion directory and the path is reported
+
+#### Scenario: An explicit shell overrides the environment
+
+- **WHEN** completion is installed with a shell named explicitly
+- **THEN** that shell's script is written, whatever the environment says
+
+#### Scenario: A dry run writes nothing
+
+- **WHEN** completion is installed as a dry run
+- **THEN** the path that would be written is reported and no file is created or changed
+
+#### Scenario: Installing twice is not an error
+
+- **WHEN** completion is installed and then installed again
+- **THEN** the second run succeeds and the file matches the first
+
+#### Scenario: Uninstalling removes what was written
+
+- **WHEN** completion is uninstalled
+- **THEN** the file this command writes is removed, and removing it when absent is reported rather than failed
+
+#### Scenario: An unsupported shell is refused
+
+- **WHEN** completion is installed for a shell that is not supported
+- **THEN** the command fails with the exit code for unusable input and names the shells that are supported
+
+### Requirement: The binary can replace itself with a published release
+
+The command line SHALL replace the running binary with a release built for its own operating system and
+architecture, and SHALL report the version it moved from and to.
+
+It SHALL verify the downloaded archive against the checksum published with that release, and SHALL refuse
+to install an archive whose checksum does not match or that the checksum file does not list.
+
+The replacement SHALL be atomic: the new binary SHALL be written beside the target and moved into place,
+so that an interrupted or failed update never leaves a partially written file where the binary was.
+
+#### Scenario: Updating to the current release
+
+- **WHEN** a newer release exists for this platform and the binary is one this command may replace
+- **THEN** the archive for this platform is downloaded, its checksum verified, and the binary replaced,
+  and the output names the version before and after
+
+#### Scenario: A checksum that does not match is refused
+
+- **WHEN** the downloaded archive's checksum differs from the one published for it
+- **THEN** nothing is installed, the existing binary is untouched, and the failure says the checksum did
+  not match
+
+#### Scenario: An archive the checksum file does not list is refused
+
+- **WHEN** the published checksum file carries no entry for the archive that was downloaded
+- **THEN** nothing is installed and the failure says the archive was not listed
+
+#### Scenario: An interrupted download leaves the binary alone
+
+- **WHEN** the download or extraction fails part way through
+- **THEN** the binary that was already there still runs and no partial file is left in its place
+
+#### Scenario: Already current
+
+- **WHEN** the running version is the newest release
+- **THEN** the command reports that it is current, writes nothing, and succeeds
+
+### Requirement: It refuses what is not its to replace
+
+The command SHALL determine how the running binary was installed, and SHALL refuse rather than overwrite a
+binary owned by another tool, naming the command that would do the upgrade instead.
+
+A target that cannot be written SHALL be reported before anything is downloaded.
+
+#### Scenario: A binary installed with the Go toolchain
+
+- **WHEN** the running binary was installed by the Go module toolchain
+- **THEN** the command refuses and names the `go install` command that would upgrade it
+
+#### Scenario: A binary a package manager owns
+
+- **WHEN** the running binary resolves inside a path a package manager controls
+- **THEN** the command refuses and says the binary is managed elsewhere
+
+#### Scenario: An unwritable destination is reported first
+
+- **WHEN** the directory holding the binary cannot be written by this user
+- **THEN** the command fails before downloading anything and says the destination is not writable
+
+### Requirement: Checking does not install
+
+The command SHALL offer a mode that reports whether a newer release exists and exits without downloading
+or writing anything, and SHALL report the absence of a newer release as success rather than as an error.
+
+#### Scenario: Checking when a newer release exists
+
+- **WHEN** the check mode runs and a newer release exists
+- **THEN** it names that version and no file is created, downloaded or replaced
+
+#### Scenario: Checking when current
+
+- **WHEN** the check mode runs and this binary is the newest release
+- **THEN** it says so and succeeds
+
+### Requirement: A specific version may be named
+
+The command SHALL accept a release to install instead of the newest, including one older than the running
+binary, and SHALL refuse a version that has no release for this platform.
+
+#### Scenario: Installing a named release
+
+- **WHEN** a version is named and a release exists for it on this platform
+- **THEN** that release is installed, whether it is newer or older than the running binary
+
+#### Scenario: A version with no release for this platform
+
+- **WHEN** a version is named that publishes nothing for this operating system and architecture
+- **THEN** nothing is installed and the failure names the platform it looked for

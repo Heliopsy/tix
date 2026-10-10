@@ -1,0 +1,346 @@
+# event-stream Specification
+
+## Purpose
+
+Appends a durable event for every mutation in the mutation's own transaction, and lets a consumer resume from a cursor without gaps or duplicates.
+
+## Requirements
+
+### Requirement: Transactional event append
+
+Every mutation SHALL append an event row in the same database transaction as the domain rows it changes. If the transaction rolls back, no event SHALL exist for it, and if the transaction commits, the event SHALL be durable.
+
+#### Scenario: Commit produces an event
+
+- **WHEN** a task is created successfully
+- **THEN** exactly one task created event exists in the durable log for that task
+
+#### Scenario: Rollback produces no event
+
+- **WHEN** a mutation fails and its transaction rolls back
+- **THEN** no event for that mutation exists in the durable log
+
+#### Scenario: Events exist without a server
+
+- **WHEN** a mutation is performed by a process writing directly to the database with no server running
+- **THEN** the event is present in the log and is delivered to subscribers once a server is started
+
+#### Scenario: Events survive process death
+
+- **WHEN** the writing process exits immediately after a commit
+- **THEN** the event remains in the log and is readable afterwards
+
+### Requirement: Monotonic sequence cursor
+
+Each event SHALL carry a sequence number that increases monotonically within a database and never repeats. The sequence number SHALL be the cursor used by every consumer to record its position.
+
+#### Scenario: Ordering
+
+- **WHEN** two mutations commit one after the other
+- **THEN** the second event carries a strictly greater sequence number than the first
+
+#### Scenario: Cursor resume
+
+- **WHEN** a consumer records the sequence number of the last event it processed and later resumes from it
+- **THEN** it receives every event with a greater sequence number and none it already processed
+
+### Requirement: Event taxonomy
+
+The system SHALL define a closed set of event types covering task created, task updated, task transitioned, task claimed, task released, task lease expired, task deleted, comment created, artifact created, dependency changed, tag changed, project changed, workflow changed, field definition changed, webhook delivery outcome, webhook redelivery, and import completed. Each mutation SHALL emit the event type that describes it, and every type a mutation can emit SHALL be nameable in a subscription filter.
+
+#### Scenario: Transition emits its own type
+
+- **WHEN** a task moves from one workflow state to another
+- **THEN** a task transitioned event is emitted rather than a generic task updated event
+
+#### Scenario: Lease expiry
+
+- **WHEN** a held lease is materialized as expired
+- **THEN** a task lease expired event is emitted for that task
+
+#### Scenario: Redelivery is its own type
+
+- **WHEN** an operator replays a webhook delivery
+- **THEN** a webhook redelivery event is emitted rather than a second webhook delivery event
+
+#### Scenario: Closed set
+
+- **WHEN** a consumer subscribes with a filter naming an event type outside the defined set
+- **THEN** the server responds with an error identifying the unknown event type
+
+#### Scenario: Every emitted type is subscribable by name
+
+- **WHEN** a consumer subscribes with a filter naming any type in the defined set, including webhook redelivery
+- **THEN** the subscription is accepted and receives events of that type
+
+### Requirement: Event payload shape
+
+Every event SHALL carry a stable shape containing an event identifier, an event type, an occurrence timestamp, the tenant, the project where applicable, the subject type and subject identifier, the actor, and a type-specific payload.
+
+#### Scenario: Required fields present
+
+- **WHEN** any event is delivered to a subscriber
+- **THEN** it contains an event identifier, type, occurrence timestamp, tenant, subject type, subject identifier, and actor
+
+#### Scenario: Actor attribution
+
+- **WHEN** an event results from an import
+- **THEN** the actor is recorded as the system importer rather than the operator who started the import
+
+#### Scenario: Shape stability
+
+- **WHEN** the same event type is emitted from two different operations
+- **THEN** both events carry the identical set of envelope fields
+
+### Requirement: WebSocket endpoint
+
+The server SHALL expose a WebSocket endpoint over which clients receive events. The client SHALL be able to send subscribe, unsubscribe, and ping messages, and the server SHALL be able to send subscribed, event, pong, and error messages.
+
+#### Scenario: Subscribe acknowledged
+
+- **WHEN** a client sends a subscribe message with a valid filter
+- **THEN** the server replies with a subscribed message identifying the subscription before sending any event
+
+#### Scenario: Unsubscribe
+
+- **WHEN** a client sends an unsubscribe message for an active subscription
+- **THEN** the server stops delivering events for that subscription while the connection remains open
+
+#### Scenario: Ping and pong
+
+- **WHEN** a client sends a ping message
+- **THEN** the server replies with a pong message
+
+#### Scenario: Malformed message
+
+- **WHEN** a client sends a message that cannot be parsed or names an unknown message type
+- **THEN** the server replies with an error message and keeps the connection open
+
+### Requirement: Gap-free resume
+
+A subscribe message MAY include a since sequence number. When present, the server SHALL replay every matching event with a greater sequence number from the durable log before delivering live events, in sequence order and without duplicates or gaps.
+
+#### Scenario: Reconnect after disconnection
+
+- **WHEN** a client reconnects and subscribes with the sequence number of the last event it received
+- **THEN** it receives every matching event that occurred while it was disconnected, in order, before any newer live event
+
+#### Scenario: Ordering across replay boundary
+
+- **WHEN** a replay completes and live delivery begins
+- **THEN** no event is delivered twice and no sequence number in the matching set is skipped
+
+#### Scenario: Pruned history
+
+- **WHEN** a client subscribes with a sequence number older than the oldest retained event
+- **THEN** the server sends an error indicating the cursor is no longer available rather than silently skipping events
+
+### Requirement: Subscription filters
+
+A subscription SHALL support filtering by project and by event type, including subscribing to all projects or all event types. Only events matching the filter SHALL be delivered on that subscription.
+
+#### Scenario: Project filter
+
+- **WHEN** a client subscribes filtered to a single project
+- **THEN** events for tasks in other projects of the same tenant are not delivered on that subscription
+
+#### Scenario: Type filter
+
+- **WHEN** a client subscribes filtered to task transitioned events only
+- **THEN** task created events are not delivered on that subscription
+
+#### Scenario: Multiple subscriptions on one connection
+
+- **WHEN** a client holds two subscriptions with different filters on the same connection
+- **THEN** each delivered event identifies the subscription it matched
+
+### Requirement: Entitled fan-out
+
+Events SHALL be delivered only to subscribers entitled to the event's tenant and holding the event subscribe scope. A subscriber SHALL NOT receive any event belonging to a tenant it is not entitled to.
+
+An event whose subject is an administrative object SHALL additionally require the scope that reads that object over the API. Administrative subjects are users, memberships, sessions, API tokens, SSH keys, tenants, domains, connections, webhook endpoints, webhook deliveries, and sync sources. Events describing ordinary work SHALL require the event subscribe scope alone.
+
+#### Scenario: Cross-tenant isolation
+
+- **WHEN** a mutation occurs in tenant A while a subscriber is connected for tenant B
+- **THEN** that subscriber receives no event for the mutation
+
+#### Scenario: Missing scope
+
+- **WHEN** a client whose credential lacks the event subscribe scope sends a subscribe message
+- **THEN** the server replies with an authorization error and delivers no events
+
+#### Scenario: Administrative subject without its scope
+
+- **WHEN** a credential holding only the event subscribe scope is connected and a user is created
+- **THEN** that subscriber receives no event for the creation, because the same credential is refused the user over the API
+
+#### Scenario: Ordinary work needs no further scope
+
+- **WHEN** a credential holding only the event subscribe scope is connected and a task is created
+- **THEN** that subscriber receives the event
+
+#### Scenario: Project-restricted credential
+
+- **WHEN** a client authenticated with a project-restricted token subscribes to all projects
+- **THEN** only events for the permitted project are delivered
+
+### Requirement: Connection lifecycle
+
+The server SHALL send periodic pings to detect dead connections, SHALL close a connection that fails to respond within a configured timeout, and SHALL release the subscription state of a closed connection.
+
+#### Scenario: Server ping
+
+- **WHEN** a connection has been idle for the configured ping interval
+- **THEN** the server sends a ping to that connection
+
+#### Scenario: Unresponsive client
+
+- **WHEN** a client does not respond to a server ping within the configured timeout
+- **THEN** the server closes the connection and discards its subscriptions
+
+#### Scenario: Slow consumer
+
+- **WHEN** a client cannot keep up with the rate of matching events
+- **THEN** the server closes that connection with an error rather than buffering without bound, and the client can resume from its last sequence number
+
+### Requirement: Authentication at upgrade
+
+The server SHALL resolve the tenant from the Host header and authenticate the caller at WebSocket upgrade time using the same checks the REST API applies. An unauthenticated or cross-tenant upgrade SHALL be refused before the connection is established.
+
+#### Scenario: Unauthenticated upgrade
+
+- **WHEN** an upgrade request arrives without a valid credential while authentication is required
+- **THEN** the upgrade is refused with an unauthenticated error and no WebSocket connection is established
+
+#### Scenario: Cross-tenant credential
+
+- **WHEN** an upgrade request presents a token for a tenant other than the one resolved from the Host header
+- **THEN** the upgrade is refused
+
+#### Scenario: Same checks as REST
+
+- **WHEN** a credential that is rejected by the REST API is presented at upgrade
+- **THEN** the upgrade is rejected with the same error code
+
+### Requirement: Direct database subscription
+
+A subscriber that reads the event log over a direct database connection with no server SHALL observe only committed events and SHALL observe each one within a bounded latency after its commit.
+
+#### Scenario: Only committed events
+
+- **WHEN** a transaction is open and uncommitted
+- **THEN** a direct database subscriber observes none of its events until the transaction commits
+
+#### Scenario: Bounded latency
+
+- **WHEN** a mutation commits while a direct database subscriber is running
+- **THEN** the subscriber observes the event within the configured maximum wake-up interval
+
+#### Scenario: Another process writes
+
+- **WHEN** a separate process commits a mutation to the same database
+- **THEN** the direct database subscriber observes that event without any coordination between the two processes
+
+#### Scenario: Resume is gap-free on the direct path too
+
+- **WHEN** a direct database subscriber resumes from the sequence number of the last event it handled, after events were committed while it was not subscribed
+- **THEN** it receives every matching event committed in between, in order and once each, exactly as the served path delivers them
+
+#### Scenario: Pruned cursor on the direct path
+
+- **WHEN** a direct database subscriber subscribes with a sequence number older than the oldest retained event
+- **THEN** it is given an error indicating the cursor is no longer available, rather than being handed the oldest surviving event as though nothing were missing
+
+### Requirement: Event stream delivery guarantee is stated
+
+The delivery guarantee SHALL be documented as at-least-once with a cursor, not exactly-once, on every surface that exposes the stream. Each delivered event SHALL carry the sequence number a consumer records to resume, and the surface SHALL accept that number as a resume point.
+
+#### Scenario: The cursor is readable from every output
+
+- **WHEN** an event is rendered in the human-readable stream format or in a structured format
+- **THEN** its sequence number is present in the output, so a consumer can record its position without a second request
+
+#### Scenario: Structured output is self-sufficient
+
+- **WHEN** an event is rendered in a structured format
+- **THEN** it carries its sequence number, identifier, tenant, type, actor, subject type and identifier, timestamp and full payload, so a consumer never has to query for what the event already knows
+
+#### Scenario: Duplicates are possible and documented
+
+- **WHEN** a consumer resumes from a cursor at or before an event it already handled
+- **THEN** that event is delivered again, and the documented guarantee says so rather than implying exactly-once delivery
+
+### Requirement: Live coverage exists before a connection is acknowledged
+
+A server SHALL establish the live coverage floor for a tenant's event stream before it acknowledges the
+connection that caused that stream to start. An event committed after the connection is registered SHALL be
+delivered to that connection, either by the replay of the durable log or by the live stream, and SHALL NOT
+fall between them.
+
+#### Scenario: An event committed in the handover still arrives
+
+- **WHEN** an event is committed after a tenant's first connection has been registered but before its
+  reader has begun reading
+- **THEN** the subscriber receives that event
+
+#### Scenario: Replay and live delivery meet without a gap
+
+- **WHEN** a subscriber resumes from a cursor and events are committed continuously across the handover
+  from replay to live delivery
+- **THEN** it receives every event above its cursor, in sequence order, with none missing
+
+#### Scenario: A reader that cannot take its cursor does not hold the tenant
+
+- **WHEN** the coverage floor for a tenant cannot be read because the database is unavailable
+- **THEN** the failure is logged, no reader is recorded as running for that tenant, and the next connection
+  starts a fresh one
+
+### Requirement: A lease expiry that reverts a status announces the transition
+
+When a lease expiry reverts a task's status because the workflow state it was in carries
+`revert_on_lease_expiry`, the system SHALL emit a task transitioned event for that move in addition to the
+task lease expired event, in the same transaction as the row it describes.
+
+The task transitioned event SHALL carry the state the task left, the state it reached and the task's human
+reference, in the same payload shape every other transition uses, so a consumer already handling
+transitions needs no case of its own for this one. It SHALL additionally name the lease expiry as the
+reason, so a consumer that wants to tell a sweep apart from a person's transition can.
+
+An expiry that reverts nothing SHALL emit the task lease expired event alone. A task whose state carries
+no revert rule did not move, and a transition event naming the state it is already in would have to be
+filtered by every consumer.
+
+A consumer that rebuilds task status from task transitioned events alone SHALL arrive at the status the
+task actually holds after a sweep. Announcing the change only as a field inside another event type's
+payload does not satisfy this: a consumer that does not read that field cannot be told by the stream that
+it has missed a status change.
+
+The expiry event SHALL keep naming the state the task was reverted to, so consumers already reading it
+are not broken.
+
+#### Scenario: A reverting expiry is visible to a transition consumer
+
+- **WHEN** a held lease expires on a task in a state that reverts on lease expiry, and the sweeper clears it
+- **THEN** a task transitioned event is emitted for that task alongside the task lease expired event
+- **AND** a consumer applying only task transitioned events holds the task in the state it was reverted to
+
+#### Scenario: The transition says where the task went and why
+
+- **WHEN** a reverting expiry is swept
+- **THEN** the task transitioned event names the state left, the state reached, the task's reference, and the lease expiry as the reason
+
+#### Scenario: An expiry that moves nothing announces no transition
+
+- **WHEN** a held lease expires on a task in a state that does not revert on lease expiry
+- **THEN** a task lease expired event is emitted and no task transitioned event is
+
+#### Scenario: The expiry event is unchanged for its existing readers
+
+- **WHEN** a reverting expiry is swept
+- **THEN** the task lease expired event still names the state the task was reverted to
+
+#### Scenario: One action leaves one audit entry
+
+- **WHEN** a reverting expiry is swept
+- **THEN** the audit log holds one entry for that task under the lease expiry action and none under the transition action
