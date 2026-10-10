@@ -186,7 +186,25 @@ The third field of a state line SHALL accept `terminal` or `open` and `true` or 
 
 ### Requirement: Tenant, domain, user, and token administration
 
-The web UI SHALL provide administration screens for tenants and their memberships, for domain mappings, for users, and for API tokens and their scopes, restricted to callers holding the corresponding administrative scopes.
+The web UI SHALL provide administration screens for tenants and their memberships, for domain mappings, for
+users, and for API tokens, restricted to callers holding the corresponding administrative scopes.
+
+The token screen's issue form SHALL be able to set every property of a token the service accepts and the
+listing displays, which SHALL include its scopes and its expiry. The expiry control SHALL offer a set of
+durations and an explicit "never expires" choice, and SHALL propose an expiry rather than proposing no
+expiry. A value the control does not offer SHALL be refused rather than read as no expiry.
+
+The token listing SHALL show, as optional columns behaving like every other optional column, when each
+token was created and when it expires, and SHALL show whether each token still authenticates: active,
+expired, or revoked with the time it was revoked.
+
+A revoked token SHALL NOT offer a revocation control. Revocation, being irreversible and ending a
+credential something may be holding, SHALL be behind a confirming disclosure that names the token it ends
+and says what revoking does.
+
+A newly issued token's value SHALL be presented in a region of its own, distinct from the interface's
+transient confirmation message, readable in full without being cropped, selectable, and accompanied by a
+copy control. The value SHALL remain readable in full when no scripting is available.
 
 #### Scenario: Administrative screens require scope
 
@@ -197,6 +215,42 @@ The web UI SHALL provide administration screens for tenants and their membership
 
 - **WHEN** an authorized administrator creates an API token
 - **THEN** the token value is displayed once at creation and is not retrievable afterwards
+
+#### Scenario: The issued value is not presented as a confirmation message
+
+- **WHEN** a token has just been issued
+- **THEN** its value is in its own region rather than in the transient confirmation message
+- **AND** a copy control points at it
+
+#### Scenario: An expiry set on the form reaches the token
+
+- **WHEN** an administrator issues a token choosing an expiry of seven days
+- **THEN** the token's stored expiry is seven days ahead
+- **AND** the listing's expires column shows it
+
+#### Scenario: A token issued with no expiry says so
+
+- **WHEN** an administrator issues a token choosing never expires
+- **THEN** the listing's expires column says the token does not expire
+
+#### Scenario: The listing says when a token was created
+
+- **WHEN** the token listing is read
+- **THEN** each row shows when that token was created
+
+#### Scenario: A revoked token is shown as revoked and offers no revocation
+
+- **GIVEN** a revoked token
+- **WHEN** the token listing is read
+- **THEN** the row is marked revoked
+- **AND** the row offers no control to revoke it
+
+#### Scenario: Revocation is confirmed before it happens
+
+- **GIVEN** a live token
+- **WHEN** the token listing is read
+- **THEN** reaching the revoke control requires opening a disclosure that names the token and says that
+  whatever holds it stops authenticating
 
 #### Scenario: Domain mapping is manageable
 
@@ -943,3 +997,487 @@ offering the following page whenever one exists.
 - **WHEN** the log is rendered
 - **THEN** it offers a link to the next page
 - **AND** that page shows deliveries the first page did not
+
+### Requirement: The task screen draws one selection as a list or as a board
+
+The task screen SHALL offer a control that switches between a list of rows and a board of columns,
+and SHALL remember the choice per browser so that it survives subsequent requests.
+
+The choice SHALL change only how the selected tasks are drawn. The filter expression, the deadline
+window, the sort, the page size, the page position and the project visibility choice SHALL be
+resolved once and SHALL apply identically to both views, so that switching never changes which tasks
+are on screen. Both views SHALL be walked by the same pager.
+
+The list SHALL be the view an installation shows before any choice is made, and a stored value that
+this build does not recognise SHALL read as the list rather than failing the screen.
+
+#### Scenario: The choice survives the next request
+
+- **GIVEN** a reader on the task screen
+- **WHEN** they switch the view to the board
+- **AND** they request the task screen again
+- **THEN** the board is drawn without the switch being pressed a second time
+
+#### Scenario: Switching keeps the filter
+
+- **GIVEN** a task screen filtered to one tag
+- **WHEN** the reader switches to the board
+- **THEN** the board holds exactly the tasks the filtered list held
+- **AND** the filter expression is still in the filter box
+
+#### Scenario: Switching keeps the project visibility choice
+
+- **GIVEN** a reader who has put one project away
+- **WHEN** they switch to the board
+- **THEN** no task of the project they put away appears on the board
+
+#### Scenario: An untouched installation shows the list
+
+- **GIVEN** a browser that has never used the switch
+- **WHEN** it opens the task screen
+- **THEN** the list is drawn
+
+#### Scenario: An unrecognised stored choice shows the list
+
+- **GIVEN** a browser carrying a view preference this build does not implement
+- **WHEN** it opens the task screen
+- **THEN** the list is drawn rather than an error
+
+### Requirement: Board columns merge only across workflows that are the same state machine
+
+The task board SHALL draw one set of columns from the workflow the selected projects share, and SHALL
+treat two projects' workflows as the same workflow only when their definitions agree on every element
+a board draws or a move depends on: the states in their declared order, including each state's key,
+label, terminal flag and category, and the transitions in their declared order, including each
+transition's source, target, required scope and whether it requires a comment.
+
+Agreement SHALL NOT be decided by the workflow's name, key or stored identifier. Two projects whose
+workflows are stored separately but agree structurally SHALL merge into one set of columns. Two
+projects whose workflows share a name but differ in any compared element SHALL NOT merge.
+
+#### Scenario: Two projects with identical workflows share one board
+
+- **GIVEN** two projects whose workflows are stored separately and describe the same states and transitions
+- **WHEN** the reader draws the board over both
+- **THEN** one set of columns is drawn, one column per state of the shared workflow
+- **AND** the tasks of both projects appear in the column matching their own status
+
+#### Scenario: Two same-named workflows that differ do not merge
+
+- **GIVEN** two projects each running a workflow named `default`, one of which has a state the other does not
+- **WHEN** the reader draws the board over both
+- **THEN** no merged board is drawn
+
+#### Scenario: A differing state category prevents a merge
+
+- **GIVEN** two projects whose workflows declare the same state keys and transitions but give one state a different category
+- **WHEN** the reader draws the board over both
+- **THEN** no merged board is drawn
+
+### Requirement: A board card is never offered a move its own project's workflow forbids
+
+Every move a board card offers SHALL be derived from the workflow of that card's own project, never
+from the definition the columns were drawn from.
+
+A control for a transition the card's own workflow does not allow SHALL NOT be rendered, so that the
+reader is refused before acting rather than by the service after acting. The service refusing such a
+move SHALL remain the fallback and SHALL NOT be the only protection.
+
+A drop onto a column SHALL apply a single transition, since a drop names a destination and nothing
+else. A route passing through other states SHALL be offered only by a control that names the states
+it passes through before it is applied.
+
+#### Scenario: An unreachable state is not offered
+
+- **GIVEN** a card whose project's workflow permits no move from its current state to a given state
+- **WHEN** the board is drawn
+- **THEN** the card's move control offers no option for that state
+
+#### Scenario: A card offers only its own project's routes
+
+- **GIVEN** a merged board holding cards from two projects
+- **WHEN** the board is drawn
+- **THEN** each card's move control lists exactly the routes its own project's workflow allows from that card's state
+
+#### Scenario: A multi-hop route names its intermediate states
+
+- **GIVEN** a card whose workflow reaches a state only through another state
+- **WHEN** that route is offered
+- **THEN** the option names the states passed through and how many steps it takes
+
+### Requirement: A board that cannot be drawn honestly is refused with its reason
+
+When the projects the listing selects do not share one workflow, the task screen SHALL NOT draw a
+board of a subset of them. It SHALL draw the list instead, and SHALL state that the board was
+refused, naming each distinct workflow and the projects running it.
+
+Each named group SHALL be reachable in one action as a listing narrowed to exactly its own projects,
+carrying the reader's filter, deadline window and sort.
+
+The reader's view preference SHALL be left as it is by the refusal, so that narrowing the selection
+draws the board without the switch being pressed again.
+
+Where two named groups run workflows carrying the same name, the refusal SHALL distinguish them, so
+that two entries reading alike cannot be the whole explanation.
+
+A task on the page whose status matches none of the drawn columns SHALL be reported on the screen
+rather than omitted from it.
+
+#### Scenario: Disagreeing workflows refuse the board and say which projects disagree
+
+- **GIVEN** three selected projects, two sharing a workflow and one differing
+- **WHEN** the reader asks for the board
+- **THEN** the list is drawn
+- **AND** the screen states that the projects do not share a workflow
+- **AND** each distinct workflow is named with the projects that run it
+
+#### Scenario: Narrowing to one group draws its board
+
+- **GIVEN** a refused board naming two groups of projects
+- **WHEN** the reader follows the entry for one group
+- **THEN** the board of that group's shared workflow is drawn
+- **AND** the switch did not have to be pressed again
+
+#### Scenario: Two workflows of the same name are named apart
+
+- **GIVEN** a refusal naming two groups whose workflows are both called `Default`
+- **WHEN** the notice is drawn
+- **THEN** the two entries are distinguishable from one another
+
+#### Scenario: A task in a state the workflow no longer has is reported
+
+- **GIVEN** a board whose page holds a task whose status is in none of the drawn columns
+- **WHEN** the board is drawn
+- **THEN** the screen names that task as unplaced rather than leaving it off the board silently
+
+### Requirement: A board of many projects degrades at narrow widths
+
+The task board SHALL remain readable as the number of columns grows with the projects merged into it,
+and SHALL NOT make the page scroll sideways. At phone width the columns SHALL be stacked one above
+another.
+
+A card on a board covering more than one project SHALL name the project it belongs to.
+
+#### Scenario: Many columns wrap rather than overflow
+
+- **GIVEN** a merged board with more columns than fit the viewport's width
+- **WHEN** it is drawn
+- **THEN** the columns wrap onto further rows of columns and the page does not scroll horizontally
+
+#### Scenario: Columns stack at phone width
+
+- **GIVEN** a viewport of phone width
+- **WHEN** the board is drawn
+- **THEN** each column takes the full width, one above another
+
+#### Scenario: A merged card names its project
+
+- **GIVEN** a board merging two projects
+- **WHEN** a card is drawn
+- **THEN** the card carries its own project's key
+
+### Requirement: A refused submission is answered by the form, not by an error page
+
+Where a browser submission is refused for a reason the reader can act on by changing what they submitted —
+a missing or invalid value, or a conflict with something that already exists — the screen SHALL re-render
+the form it came from, carrying every value the submission held and the refusal's message beside the
+control it concerns.
+
+This SHALL be the response to the ordinary form submission, so that it holds with scripting turned off. A
+client-side validation attribute on a control MAY be present as a convenience, and SHALL NOT be the thing
+performing the check.
+
+A refusal the reader cannot act on by editing the submission — an authentication or authorization failure,
+or an internal fault — SHALL continue to be answered by the error screen, which is the only surface that
+can explain it.
+
+The message SHALL be associated with its control for assistive technology, and the control SHALL be marked
+as invalid.
+
+#### Scenario: A submission with a missing required value comes back
+
+- **GIVEN** the API token screen's issue form
+- **WHEN** a submission naming a token name but selecting no scope is sent
+- **THEN** the token screen is rendered again rather than the error screen
+- **AND** the name input still holds the submitted name
+- **AND** the message explaining the refusal appears with the scope control
+
+#### Scenario: A conflicting submission comes back
+
+- **GIVEN** a tenant already holding a live token named `ci`
+- **WHEN** a submission naming `ci` is sent
+- **THEN** the token screen is rendered again with the name still in its input
+- **AND** the message says the name already exists
+
+#### Scenario: An unauthorized submission still reaches the error screen
+
+- **WHEN** a submission is refused because the caller lacks the required scope
+- **THEN** the error screen is rendered
+
+### Requirement: A tenant administrator can see and revoke another actor's token in the browser
+
+The API token screen SHALL list every token of the tenant to a reader holding the tenant administration
+scope, and SHALL list only the reader's own tokens to any other reader.
+
+Where the listing spans more than the reader's own tokens, each row SHALL say which actor holds it, by that
+actor's handle where the directory holds one. A row that is the reader's own SHALL be distinguishable from
+a row that is not.
+
+A revocation control SHALL be offered only for a token the reader is shown, and the control for a token
+held by another actor SHALL say whose it is before it is used. No control SHALL be offered for a token the
+reader may not see.
+
+#### Scenario: A reader without the administration scope sees only their own
+
+- **GIVEN** a reader holding the token administration scope and not the tenant administration scope
+- **AND** a token held by another actor of the same tenant
+- **WHEN** the token screen is read
+- **THEN** the other actor's token is not listed
+- **AND** no revocation control on the screen names that token
+- **AND** the listing carries no owner column
+
+#### Scenario: An administrator sees the tenant's tokens with the owner named
+
+- **GIVEN** a reader holding the tenant administration scope
+- **AND** a token held by another actor of the same tenant
+- **WHEN** the token screen is read
+- **THEN** that token is listed
+- **AND** its row names the actor holding it
+- **AND** a revocation control is offered for it
+
+#### Scenario: The control for somebody else's token says whose it is
+
+- **GIVEN** an administrator reading a token held by another actor
+- **WHEN** the revocation disclosure for that row is opened
+- **THEN** it says the token is not the reader's own
+- **AND** the button naming the token also names its owner
+
+#### Scenario: An administrator revokes another actor's token from the browser
+
+- **GIVEN** an administrator and a live token held by another actor
+- **WHEN** the administrator submits that row's revocation
+- **THEN** the token is revoked
+- **AND** the row comes back marked revoked and offering no revocation control
+
+### Requirement: A generated webhook signing secret is shown once
+
+Where tix generates a signing secret for a delivery endpoint, because the operator registered one without
+supplying a secret, the webhook screen SHALL present that value once, immediately after the registration,
+and SHALL NOT present it on any later render.
+
+It SHALL be presented in the same one-time secret region the token screen uses for a freshly issued token:
+a region of its own rather than the interface's transient confirmation message, readable in full without
+being cropped, selectable, and accompanied by a copy control. The value SHALL remain readable in full when
+no scripting is available.
+
+A secret the operator supplied SHALL NOT be presented back to them.
+
+The field's own help SHALL state what happens in each case: when tix generates a secret, when the operator
+supplies one, and when an existing endpoint is saved with the field left blank.
+
+#### Scenario: A generated secret appears once
+
+- **WHEN** an endpoint is registered with the signing secret field left blank
+- **THEN** the webhook screen presents the generated secret in its one-time secret region
+- **AND** a copy control points at it
+
+#### Scenario: A generated secret is gone on the next render
+
+- **GIVEN** a generated secret that has been presented once
+- **WHEN** the webhook screen is read again
+- **THEN** no secret region is rendered
+- **AND** the value does not appear on the page
+
+#### Scenario: A supplied secret is not echoed back
+
+- **WHEN** an endpoint is registered with a signing secret the operator supplied
+- **THEN** no secret region is rendered
+- **AND** the supplied value does not appear on the page
+- **AND** the endpoint is listed
+
+#### Scenario: The field's help is true in both cases
+
+- **WHEN** the signing secret field's help is read
+- **THEN** it says a generated secret is shown once
+- **AND** it says a secret the operator supplies is not shown
+
+### Requirement: One presentation for a value the server will not disclose again
+
+A value the server will never disclose again SHALL be presented through one shared region, used by every
+screen that has such a value, rather than through markup copied per screen.
+
+The region SHALL be distinct from the interface's transient confirmation message, SHALL be readable in full
+without being cropped, SHALL be selectable, and SHALL carry a copy control driven by the interface's one
+generic copy affordance. It SHALL remain readable in full when no scripting is available.
+
+A freshly issued API token and a generated webhook signing secret SHALL both be presented through it.
+
+#### Scenario: The issued value is not presented as a confirmation message
+
+- **WHEN** a token has just been issued
+- **THEN** its value is in its own region rather than in the transient confirmation message
+- **AND** a copy control points at it
+
+#### Scenario: Both screens use one region
+
+- **WHEN** the token screen and the webhook screen each present a one-time secret
+- **THEN** both are rendered by the same shared region
+
+### Requirement: The settings screen owns every per-browser display preference
+
+The settings screen SHALL carry a control for every per-browser display preference this interface
+keeps, with no preference editable only from elsewhere.
+
+Every such control SHALL be a form the browser submits on its own, with a method, an action and a
+submit button, and SHALL carry no scripted handler, so that it stores its value with scripting
+turned off.
+
+Every such control SHALL be accompanied by a description of what the preference does, associated
+with the control so that assistive technology announces it, and written so that a reader who does not
+already know the preference's name can tell what it changes.
+
+The set of preferences SHALL be declared in the code, and both the settings screen's coverage of it
+and the documentation table that names it SHALL be decided against that declaration rather than
+maintained by hand.
+
+#### Scenario: Every preference has a control on the settings screen
+
+- **GIVEN** the set of per-browser preferences this build declares
+- **WHEN** a signed-in reader opens the settings screen
+- **THEN** the screen carries a posting form for each one
+
+#### Scenario: A preference added without a control fails
+
+- **GIVEN** a per-browser preference declared in the code
+- **WHEN** the settings screen carries no control that submits to its route
+- **THEN** the guard over the declared set fails
+
+#### Scenario: Every preference is documented
+
+- **GIVEN** the set of per-browser preferences this build declares
+- **WHEN** the preferences table in the web interface documentation is read
+- **THEN** every declared preference has a row, and every row names a declared preference
+
+#### Scenario: Saving a preference needs no scripting
+
+- **GIVEN** a browser with scripting unavailable
+- **WHEN** it submits any preference form on the settings screen as a plain form post
+- **THEN** the value is stored
+- **AND** the browser is returned to the screen the form was submitted from
+
+### Requirement: A preference editable in two places is one control over one value
+
+A preference whose control appears both on the settings screen and on the screen that uses it SHALL
+be rendered from one template against state built by one constructor, and SHALL be resolved by one
+reader and stored by one handler.
+
+Changing such a preference on either screen SHALL be reflected in the control on the other, as that
+control renders, and not merely in the stored value.
+
+#### Scenario: A change made on settings reaches the screen that uses it
+
+- **GIVEN** a reader who switches the task view to the board on the settings screen
+- **WHEN** they open the task screen
+- **THEN** the board is drawn
+- **AND** the task screen's own switch shows the board as the current position
+
+#### Scenario: A change made in context is shown on settings
+
+- **GIVEN** a reader who puts one project away using the control on the task screen
+- **WHEN** they open the settings screen
+- **THEN** that project's checkbox in the settings control is unticked
+- **AND** every project they kept is ticked
+
+#### Scenario: A column change made on a listing is shown on settings
+
+- **GIVEN** a reader who hides one optional column using the picker beside a listing
+- **WHEN** they open the settings screen
+- **THEN** that column's checkbox in that listing's section is unticked
+
+#### Scenario: A column change made on settings reaches the listing
+
+- **GIVEN** a reader who hides one optional column of a listing from the settings screen
+- **WHEN** they open that listing
+- **THEN** the hidden column is absent from the table's header row
+- **AND** every column they kept is present
+
+### Requirement: Column preferences are offered per listing
+
+The settings screen SHALL offer a column picker for every listing whose columns can be chosen, and
+for no listing that has none, each picker naming the listing it governs.
+
+Each picker SHALL offer the same columns, in the same order, with the same current state, as the
+picker that listing carries beside itself, and SHALL offer a reset that returns that listing to its
+declared defaults.
+
+#### Scenario: Each configurable listing has its own section
+
+- **GIVEN** the listings this build declares columns for
+- **WHEN** a reader opens the settings screen
+- **THEN** each listing has exactly one picker, named after that listing
+
+#### Scenario: A listing with no configurable columns is not offered one
+
+- **GIVEN** a screen that declares no optional columns
+- **WHEN** a reader opens the settings screen
+- **THEN** no picker names it
+
+### Requirement: The project visibility control names its projects and accounts for keys that name none
+
+The project visibility control SHALL name each project as well as identify it by key, so that it can
+be used on a screen that carries no project listing.
+
+Where the stored preference holds a key that no project on the control's own listing answers to, the
+control SHALL name that key and SHALL say that no project answers to it, and SHALL not offer a
+checkbox for it. Submitting the control SHALL discard such keys.
+
+A stored key that names no project SHALL exclude nothing from the task listing, and SHALL not prevent
+any screen from rendering.
+
+#### Scenario: A project is named, not only keyed
+
+- **GIVEN** a tenant with a project whose key and name differ
+- **WHEN** a reader opens the visibility control on either screen
+- **THEN** the project's name and its key are both shown
+
+#### Scenario: A key naming a deleted project does not break the screen
+
+- **GIVEN** a browser whose stored preference hides a key no project answers to
+- **WHEN** the reader opens the task screen or the settings screen
+- **THEN** the screen renders
+- **AND** the key is named as one no project answers to
+- **AND** no checkbox is offered for it
+
+#### Scenario: A key naming a deleted project is forgotten on the next submission
+
+- **GIVEN** a browser whose stored preference hides a key no project answers to
+- **WHEN** the reader applies the visibility control
+- **THEN** the key is no longer held
+- **AND** the choice they applied is
+
+#### Scenario: A key naming a deleted project excludes nothing
+
+- **GIVEN** a browser whose stored preference hides a key no project answers to
+- **WHEN** the task listing is answered
+- **THEN** every task of every project the reader kept is on it
+
+### Requirement: The task view preference has two states
+
+The task view preference SHALL have exactly two positions on every control that offers it: the list
+and the board. No control SHALL offer a third position meaning that no choice has been made.
+
+The list SHALL be what an absent, empty or unrecognised stored value means, and choosing the list
+SHALL store nothing.
+
+#### Scenario: The switch on settings has the same two positions
+
+- **GIVEN** a reader on the settings screen
+- **WHEN** they read the view switch
+- **THEN** it offers the list and the board and nothing else
+- **AND** exactly one of them is marked as current
+
+#### Scenario: An untouched browser reads as the list on both screens
+
+- **GIVEN** a browser that has never used either switch
+- **WHEN** the reader opens the settings screen and the task screen
+- **THEN** both show the list as the current position

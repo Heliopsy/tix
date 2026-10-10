@@ -112,9 +112,25 @@ An API token's secret value SHALL be displayed exactly once, at creation time, a
 
 ### Requirement: API token scoping
 
-Every API token SHALL be bound to exactly one tenant, MAY be further restricted to a single project, and MAY carry an expiry. A token SHALL grant no more than its declared scopes, and a token restricted to a project SHALL NOT authorize operations on resources outside that project.
+Every API token SHALL be bound to exactly one tenant, MAY be further restricted to a single project, and
+MAY carry an expiry. A token SHALL grant no more than its declared scopes, and a token restricted to a
+project SHALL NOT authorize operations on resources outside that project.
 
-Confinement SHALL be the default rather than a property of the operation being asked for. The authorization policy SHALL name the operations a project-restricted token may perform, being those whose subject belongs to a single project, and SHALL refuse a project-restricted token every other operation outright. An operation that reads or writes state belonging to the tenant rather than to one project — exporting, importing, reading the audit log, subscribing to the tenant event stream, administering tenants, users, tokens, webhooks, sync sources or retention, and rewriting workflow definitions — SHALL therefore be refused to a project-restricted token, whether or not the call names a project.
+An expiry SHALL be expressible on every surface that can mint a token, since an expiry is the only control
+that bounds the damage of a token that leaks unnoticed, and a surface that cannot set one can only mint
+credentials that never expire.
+
+A token carrying no expiry SHALL authenticate until it is revoked, and every surface that displays a
+token's expiry SHALL say that it has none rather than leaving the value blank, so that "no expiry" is
+distinguishable from an expiry the display failed to render.
+
+Confinement SHALL be the default rather than a property of the operation being asked for. The authorization
+policy SHALL name the operations a project-restricted token may perform, being those whose subject belongs
+to a single project, and SHALL refuse a project-restricted token every other operation outright. An
+operation that reads or writes state belonging to the tenant rather than to one project — exporting,
+importing, reading the audit log, subscribing to the tenant event stream, administering tenants, users,
+tokens, webhooks, sync sources or retention, and rewriting workflow definitions — SHALL therefore be
+refused to a project-restricted token, whether or not the call names a project.
 
 #### Scenario: Project-restricted token
 
@@ -140,6 +156,17 @@ Confinement SHALL be the default rather than a property of the operation being a
 
 - **WHEN** a token is presented after its expiry
 - **THEN** the request is rejected as unauthenticated
+
+#### Scenario: An expiry can be set wherever a token can be minted
+
+- **WHEN** a token is minted from the command line, the HTTP API or the browser
+- **THEN** an expiry can be given as part of that request
+
+#### Scenario: A token with no expiry is shown as having none
+
+- **GIVEN** a token carrying no expiry
+- **WHEN** its expiry is displayed
+- **THEN** the display says the token does not expire
 
 #### Scenario: Scope not granted
 
@@ -249,3 +276,150 @@ The system SHALL resolve credentials through an ordered chain of authenticators 
 
 - **WHEN** a user record is inspected
 - **THEN** it carries fields for an external identity provider and subject that are unset in this version
+
+### Requirement: A live API token's name identifies exactly one token
+
+Within one tenant, no two API tokens that are neither revoked nor deleted SHALL carry the same name. A
+creation naming a name a live token of that tenant already holds SHALL be refused as a conflict, and no
+token SHALL be created.
+
+The rule SHALL be enforced in the service layer, so every surface that mints a token — the command line,
+the HTTP API and the browser — is held to it, and SHALL additionally be enforced by the store, so two
+creations that race cannot both pass the check and both insert.
+
+A revoked token SHALL keep its name, so a listing can still say which credential stopped working, and
+SHALL release it, so that revoking a token and issuing its replacement under the same name is permitted.
+This is the ordinary way a credential is rotated.
+
+Uniqueness SHALL be scoped to the tenant and no wider. One tenant SHALL NOT be able to learn, or
+constrain, what another has named its credentials.
+
+The refusal SHALL name the submitted field it concerns, so a surface rendering a form can present it
+against the control that caused it.
+
+#### Scenario: A second live token cannot take a name
+
+- **GIVEN** a tenant holding a live token named `ci`
+- **WHEN** a second token named `ci` is created in that tenant
+- **THEN** the creation is refused as a conflict
+- **AND** the tenant still holds exactly one token named `ci`
+
+#### Scenario: Revoking a token frees its name
+
+- **GIVEN** a tenant holding a live token named `ci`
+- **WHEN** that token is revoked and a new token named `ci` is created
+- **THEN** the new token is created
+- **AND** it is a different token from the revoked one
+
+#### Scenario: Two tenants may each name a token the same
+
+- **GIVEN** a tenant holding a live token named `ci`
+- **WHEN** a token named `ci` is created in a different tenant
+- **THEN** the creation succeeds
+
+#### Scenario: Upgrading a database that already holds duplicates
+
+- **GIVEN** a database holding two live tokens of one tenant both named `ci`
+- **WHEN** the schema is migrated to the version that requires uniqueness
+- **THEN** both tokens still authenticate
+- **AND** the two names differ
+- **AND** the older of the two still carries the name `ci`
+
+#### Scenario: The refusal names the field
+
+- **WHEN** a creation is refused because the name is taken
+- **THEN** the refusal names the `name` field
+
+### Requirement: A refused token creation names the field it refused
+
+A validation failure on token creation SHALL name the submitted field it concerns: the name where no name
+was given, and the scope list where no scope was given.
+
+This exists so that the attribution lives with the rule rather than being reconstructed by matching
+message text at a presentation layer.
+
+#### Scenario: A creation with no name
+
+- **WHEN** a token is created with no name
+- **THEN** the refusal is a validation error naming the `name` field
+
+#### Scenario: A creation with no scope
+
+- **WHEN** a token is created with no scope
+- **THEN** the refusal is a validation error naming the `scopes` field
+
+### Requirement: A token minted without a stated expiry expires
+
+Where a surface is driven by a person composing a command or a form, minting an API token without stating
+an expiry SHALL produce a token that expires, and the window SHALL be the same on every such surface.
+
+The command line SHALL default to ninety days, which SHALL be the window the browser form proposes. The
+command line SHALL accept an explicit instruction to mint a non-expiring token, and that instruction SHALL
+be the only way to obtain one: an omitted value and an empty value SHALL both take the default.
+
+The default SHALL be stated in the command's own flag help, so that a reader is told what typing nothing
+does without consulting a changelog.
+
+The HTTP API SHALL mint a non-expiring token when the request carries no expiry, because an API client
+composes that field rather than typing it, and SHALL NOT substitute a default of its own.
+
+#### Scenario: A token minted with no stated expiry expires in ninety days
+
+- **WHEN** a token is minted from the command line with no expiry given
+- **THEN** the stored token expires ninety days from the invocation
+
+#### Scenario: A non-expiring token must be asked for
+
+- **WHEN** a token is minted from the command line with the expiry given as `never`
+- **THEN** the stored token has no expiry
+
+#### Scenario: An empty expiry is not a request for a non-expiring token
+
+- **WHEN** a token is minted from the command line with the expiry given as an empty value
+- **THEN** the stored token expires ninety days from the invocation
+
+#### Scenario: An absolute expiry is still accepted
+
+- **WHEN** a token is minted from the command line with the expiry given as a date
+- **THEN** the stored token expires on that date
+
+#### Scenario: The flag help states the default
+
+- **WHEN** the help for the token creation command is read
+- **THEN** the expiry flag's own entry states that it defaults to ninety days
+- **AND** names the value that mints a non-expiring token
+
+#### Scenario: The API mints a non-expiring token when none is requested
+
+- **WHEN** a token creation request carries no expiry
+- **THEN** the minted token has no expiry
+
+### Requirement: Revoking another actor's token is recorded as a different act
+
+Revoking an API token SHALL be recorded in the audit trail against the actor who performed it, and a
+revocation of a token held by another actor SHALL be recorded under a different action from a revocation of
+the performer's own.
+
+The distinction SHALL be carried by the action, so that it is reachable by the filters the trail is read
+through, and SHALL NOT be carried only by a field of the entry's payload.
+
+The entry SHALL name the token and the actor the token was held by.
+
+#### Scenario: Revoking your own token is recorded as your own
+
+- **GIVEN** an actor holding a token of their own
+- **WHEN** they revoke it
+- **THEN** the trail records the ordinary revocation action against them
+
+#### Scenario: Revoking another actor's token is recorded distinguishably
+
+- **GIVEN** an administrator and a token held by another actor of the same tenant
+- **WHEN** the administrator revokes it
+- **THEN** the trail records an action different from the one a self-revocation records
+- **AND** the entry names the administrator as the actor who performed it
+- **AND** the entry names the actor the token was held by
+
+#### Scenario: The distinction can be filtered for
+
+- **WHEN** the trail is filtered by the action recording another actor's revocation
+- **THEN** only those revocations are returned
