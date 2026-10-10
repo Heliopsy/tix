@@ -58,8 +58,15 @@ jobs:
       - name: Build
         run: go build ./...
 
+      # -timeout 40m, the same as `just cover`. This step inlined the command
+      # without it, so the justfile gaining the flag did nothing here: a
+      # coverage run carries an atomic counter on every block, and under load
+      # internal/service passes go test's 10 minute default and reports a panic
+      # that says nothing about the code. The step is inlined rather than
+      # calling `just cover` because that recipe also writes an HTML report and
+      # an env summary this job does not want; the flag is what has to match.
       - name: Test with coverage
-        run: go test ./... -race -shuffle=on -coverprofile=coverage.out -covermode=atomic
+        run: go test ./... -race -shuffle=on -timeout 40m -coverprofile=coverage.out -covermode=atomic
 
       - name: Check coverage threshold
         run: just cover-check
@@ -121,8 +128,14 @@ jobs:
       - name: Install OpenSpec
         run: npm install -g @fission-ai/openspec@1.13.1
 
+      # `just spec`, not a hardcoded change name. This step read
+      # `openspec validate tix-v1 --strict` until tix-v1 was archived, at which
+      # point CI failed with "Unknown item 'tix-v1'" while `just ci` passed,
+      # because the recipe walks the directory and the step named one change.
+      # AGENTS.md and the project plan both say every CI job invokes a just
+      # recipe so the two cannot diverge; this step was the exception.
       - name: Validate specs
-        run: openspec validate tix-v1 --strict
+        run: just spec
         env:
           OPENSPEC_TELEMETRY: "0"
 
