@@ -59,28 +59,39 @@ Archive a completed change in the experimental workflow.
    - Determine what changes would be applied (adds, modifications, removals, renames)
    - Show a combined summary before prompting
 
-   **Prompt options:**
-   - If changes needed: "Sync now (recommended)", "Archive without syncing"
-   - If already synced: "Archive now", "Sync anyway", "Cancel"
-
-   If user chooses sync, use Task tool (subagent_type: "general-purpose", prompt: "Use Skill tool to invoke openspec-sync-specs for change '<name>'. Delta spec analysis: <include the analyzed delta spec summary>"). Proceed to archive regardless of choice.
+   There is no "archive without syncing" option. A delta that is not folded
+   into `openspec/specs/` is a delta that was written and then discarded, and
+   the next `MODIFIED` against that capability has nothing to modify. This
+   repository ran that way for fifteen archives and ended up with no baseline
+   at all, so every `MODIFIED` delta reported "target spec does not exist" and
+   agents began rewriting deltas as `ADDED` to silence it.
 
 5. **Perform the archive**
 
-   Create the archive directory if it doesn't exist:
-   ```bash
-   mkdir -p openspec/changes/archive
-   ```
-
-   Generate target name using current date: `YYYY-MM-DD-<change-name>`
-
-   **Check if target already exists:**
-   - If yes: Fail with error, suggest renaming existing archive or using different date
-   - If no: Move the change directory to archive
+   One command. It moves the change under `openspec/changes/archive/` with
+   today's date *and* folds its deltas into `openspec/specs/`, in that one
+   step:
 
    ```bash
-   mv openspec/changes/<name> openspec/changes/archive/YYYY-MM-DD-<name>
+   OPENSPEC_TELEMETRY=0 openspec archive <name> -y
    ```
+
+   Never pass `--skip-specs`, and never do the move by hand with `mv`. Both
+   skip the fold. `--skip-specs` is for a change that genuinely has no delta
+   specs, and such a change has nothing to skip anyway.
+
+   If the fold is refused, read the refusal rather than working around it. A
+   `MODIFIED` block replaces its whole requirement, so archive refuses to drop
+   a scenario the current spec still has: carry it forward, or say explicitly
+   that the requirement is superseded. Converting the delta to `ADDED` to make
+   the message go away loses the amendment.
+
+   **Then write the Purpose.** A capability created by this archive gets
+   `TBD - created by archiving change ...`, which fails both markdownlint
+   MD022 and `openspec validate --specs --strict`. Replace it with a sentence
+   saying what the capability is for, editing `openspec/specs/<capability>/spec.md`
+   directly: a `## Purpose` in a delta is read only when the capability is
+   created.
 
 6. **Display summary**
 
