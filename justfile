@@ -146,7 +146,12 @@ cover:
     # Absolute: a test binary runs with its own package directory as cwd.
     export TIX_TEST_ENV_LOG="$PWD/{{env_log}}"
     set +e
-    go test ./... -race -shuffle=on -coverprofile=coverage.out -covermode=atomic
+    # -timeout 40m for the same reason `test` and `test-postgres` carry it: a
+    # coverage run is slower than a plain one (atomic counters on every block),
+    # so internal/service passes go test's 10 minute default under load and the
+    # gate reports a panic that says nothing about the code. This recipe was the
+    # last full-suite run still on the default.
+    go test ./... -race -shuffle=on -timeout 40m -coverprofile=coverage.out -covermode=atomic
     rc=$?
     set -e
     [ $rc -eq 0 ] || exit $rc
