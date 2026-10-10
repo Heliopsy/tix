@@ -54,7 +54,9 @@ and which projects it includes. They were two separate disclosures and deciding 
 cost two openings and two page loads. Both are per browser, stored in cookies, and both record what
 is *hidden* rather than what is shown, so a project created tomorrow, or a column a later release
 adds, appears on its own instead of waiting for somebody to tick it. A filter that names a project
-explicitly overrides the hiding, and the page says so rather than quietly returning nothing.
+explicitly overrides the hiding, and the page says so rather than quietly returning nothing. Both are
+also on Settings, where the same two forms are rendered over the same stored values rather than
+copied, so the panel here and the screen there cannot come to disagree.
 
 **Lease badges.** A lease is the one thing on a row that changes by itself, so the row says which
 state it is in:
@@ -93,7 +95,9 @@ Fifteen checkboxes popping in sequence on load says fifteen things just happened
 ## List or board
 
 The switch beside the filter bar draws the same tasks either as rows or as columns, and remembers
-which per browser (`tix_task_view`). The list is what an untouched install shows.
+which per browser (`tix_task_view`). The list is what an untouched install shows. The same switch is
+on Settings, and it is the same control: both render one partial over one resolved value, so neither
+can show a position the other denies.
 
 It is one selection drawn two ways. The filter, the deadline window, the sort, the page size, the
 page position and the project visibility choice are resolved once and apply to both, so switching
@@ -263,6 +267,15 @@ Everything under Settings is a property of the person reading, not of the tenant
 stored in a cookie on that browser and reaches no other reader. Two people sharing a tenant are
 frequently in different timezones for the same reason they may want different keyboard shortcuts.
 
+Settings carries every one of them. Three are also editable from the screen they affect, because that
+is where the decision is actually made: whether a column reads better absent is answerable only by
+looking at the listing, and ticking projects off a task list is something you do while watching the
+list redraw. Those three are **one control rendered in two places, not two controls** -- one
+constructor builds the state, one template renders the form, one function reads the cookie and one
+handler writes it -- so changing a preference on either screen is what the other shows. A preference
+with two editors has two defaults, two validations and two readings of one value, and the drift that
+follows is not noticed until a reader is looking at two screens that disagree.
+
 | Preference | Cookie | Values |
 | --- | --- | --- |
 | Colour scheme | `tix_theme` | empty follows the system, else `light`, `dark`, `dim` |
@@ -284,6 +297,27 @@ refusal is worse than no entry. Being on one of those screens expands its group 
 preference says, so a reader is never on a page the navigation beside them denies exists. Once the
 preference is set, in either direction, it decides.
 
+`tix_columns` is per listing, so Settings offers one picker per listing rather than one global
+control: the listings share no column vocabulary, and the columns worth keeping on Tasks are not the
+ones worth keeping on API tokens. Each picker is the same form that listing carries beside itself.
+Every listing keeps the column naming its rows whatever is chosen, so no choice can put a record out
+of reach, and hiding a column withholds nothing, since every value stays on the record's own screen.
+Reset returns a listing to its declared defaults, which is not the same as unticking everything: a
+column declared off by default is shown by the first and not the second.
+
+`tix_hidden_projects` names each project as well as keying it, because on Settings there is no task
+list in front of the reader to decode a key against. A key naming a project that no longer exists --
+deleted, or archived since the choice was made -- has no checkbox, since the project it names is
+gone, so the control names it in a sentence instead and the next submission of the form forgets it.
+Such a key excludes nothing: an unknown project key in a filter is refused as not found by the
+service, deliberately, so sending one would answer the task screen with a not-found page and leave
+the cookie unreachable from the only screen that could clear it.
+
+`tix_task_view` has two states and no third. The board is the one stored value; absent, empty, stale
+or anything another program left behind is the list, which is what an untouched install shows.
+Choosing the list stores nothing and expires the cookie, so both switches offer two positions and
+neither has an "unset" to show.
+
 `tix_columns` carries a version marker, `v2~`, and names the columns each listing *hides*. Recording
 the columns shown cannot tell a column the reader turned off from a column that did not exist when
 the reader chose, so every column added afterwards read as one that reader had refused, and the
@@ -302,6 +336,27 @@ The binary embeds the zone database (`time/tzdata`) rather than trusting the hos
 the zones on offer are the same on a distroless image as on a developer's laptop, and a reader's
 chosen zone is not quietly replaced by the deployment default on a base image with no `tzdata`. The
 fallback stays regardless: a value that does not resolve must not take a page down.
+
+### The terminal and the command line keep their own
+
+A browser preference is a cookie on that browser. The terminal interface's settings screen writes the
+CLI's own configuration keys instead, because somebody at a terminal already has a configuration file
+and a second place to write a timezone down would be a second place to disagree with the command
+line. The two surfaces therefore do **not** share a store, and setting a preference in one does not
+change the other:
+
+| Preference | Browser | Terminal and CLI |
+| --- | --- | --- |
+| Date format | `tix_time_format` | `output.time_format` |
+| Timezone | `tix_timezone` | `output.timezone` |
+| Keyboard scheme | `tix_keyscheme` | `tui.keymap` |
+| Colour | `tix_theme`, which palette | `output.color`, whether colour at all |
+| Advanced screens, drag to move, columns, hidden projects, task view | cookie | no equivalent |
+| Selected-row pulse | no equivalent | `tui.motion` |
+
+So a timezone chosen in the browser does not change what `tix task ls` prints, and one chosen in the
+terminal is what `tix task ls` prints and not what a browser renders. See [tui.md](tui.md) for the
+terminal screen and [configuration.md](configuration.md) for the keys.
 
 The zone list is a selection rather than every name the system carries. A `select` of six hundred
 entries is not a control anybody can use, and a fixed list also bounds how many template sets one

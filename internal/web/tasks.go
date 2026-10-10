@@ -66,20 +66,24 @@ type tasksView struct {
 	// mixed list can be read one project at a time.
 	Accent map[string]projectAccent
 
-	// Visibility is the visibility control, and Hidden how many projects are
-	// put away. Filtered is set when an explicit project: filter overrode
-	// that choice, so a reader is never shown a shorter task list without
-	// being told which rule produced it.
 	// Moves lists, per project, the workflow that project runs, so a row can
 	// offer the states its own task may move to. A listing mixes projects,
 	// and a state that is legal in one is not necessarily legal in another.
 	Moves map[string]core.WorkflowDefinition
 
-	// View is how this reader draws the screen, and Views the switch that
-	// changes it. Both views answer one filter, one page and one visibility
-	// choice, so switching changes the drawing and never the selection.
-	View  string
-	Views []taskViewChoice
+	// Prefs holds the shared preference controls this screen renders -- the
+	// view switch, the column picker and the project visibility choice --
+	// each one the same form the settings screen renders, from the same
+	// constructor, so neither screen can show a different answer for a
+	// preference they both edit. See prefs.go.
+	Prefs prefsView
+
+	// View is how this reader draws the screen. Both views answer one
+	// filter, one page and one visibility choice, so switching changes the
+	// drawing and never the selection. It is read off Prefs rather than
+	// resolved again, so the board the screen builds and the position the
+	// switch shows come from one answer.
+	View string
 
 	// Board is the board the switch draws, or the workflows that stop it
 	// being drawable.
@@ -100,10 +104,12 @@ type tasksView struct {
 	// message on it at all.
 	FilterError string
 
-	Visibility []projectChoice
-	Hidden     int
-	Filtered   bool
-	Empty      bool
+	// Hidden is how many projects are put away, and Filtered is set when an
+	// explicit project: filter overrode that choice, so a reader is never
+	// shown a shorter task list without being told which rule produced it.
+	Hidden   int
+	Filtered bool
+	Empty    bool
 }
 
 // filterFault reports whether an error is the filter expression's fault.
@@ -219,18 +225,18 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	prefs := h.prefsFor(r, projects)
 	away := hiddenProjects(r)
-	visibility := projectChoices(projects, away)
 	filtered := len(filter.ProjectKeys) > 0
-	hidden := hiddenCount(visibility)
+	hidden := prefs.Projects.Hidden
 	// Put away is an exclusion, never an inclusion. Naming the projects to
 	// show would make the listing depend on the reader's screen having been
 	// able to name all of them, and would grow one term per project in a
 	// tenant that has thousands; naming the few that are hidden is the same
 	// answer at any size. An explicit project: filter is the reader asking
 	// for that project by name, so it wins over what the control put away.
-	if !filtered && len(away) > 0 {
-		filter.Exclude.ProjectKeys = append(filter.Exclude.ProjectKeys, hiddenKeys(away)...)
+	if live := liveHiddenKeys(projects, away); !filtered && len(live) > 0 {
+		filter.Exclude.ProjectKeys = append(filter.Exclude.ProjectKeys, live...)
 	}
 	var page core.TaskPage
 	if refused == "" {
@@ -257,7 +263,7 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	// so the two views cover one selection of tasks. Only when it is the view
 	// being drawn: a reader on the list pays nothing for a board they are not
 	// looking at, and what the board would have said is on the board.
-	view := taskViewOf(r)
+	view := prefs.TaskView.Current
 	var board taskBoard
 	if view == TaskViewBoard {
 		if board, err = h.taskBoardFor(r, projects, filter, page.Tasks, moves); err != nil {
@@ -282,13 +288,12 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 		FilterError:   refused,
 		Names:         h.resolveActors(r, rowActors(page.Tasks)...),
 		Moves:         moves,
+		Prefs:         prefs,
 		View:          view,
-		Views:         taskViewChoices(view),
 		Board:         board,
-		Visibility:    visibility,
 		Hidden:        hidden,
 		Filtered:      filtered && hidden > 0,
-		Empty:         hidden > 0 && hidden == len(visibility),
+		Empty:         hidden > 0 && hidden == len(prefs.Projects.Choices),
 	})
 }
 

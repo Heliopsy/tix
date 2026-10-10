@@ -100,6 +100,18 @@ var columnSets = map[string][]Column{
 	},
 }
 
+// ColumnListings names every listing whose columns can be chosen, sorted. It
+// is read off columnSets rather than written down again, so a test can hold
+// the settings screen to offering a picker for each of them.
+func ColumnListings() []string {
+	out := make([]string, 0, len(columnSets))
+	for page := range columnSets {
+		out = append(out, page)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // columnPrefs is the resolved choice for every listing, with the declared
 // default filled in wherever the browser has not chosen.
 //

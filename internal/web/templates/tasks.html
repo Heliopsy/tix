@@ -74,20 +74,9 @@
      out it exists; the panel below decides what is on screen, this decides
      how it is drawn.
 
-     Not boosted: the choice is a cookie the next render reads, and a boosted
-     swap of the body is a second request either way. */}}
-<form method="post" action="/taskview" class="viewswitch" hx-boost="false"
-      aria-label="How to draw the tasks">
-  {{template "csrf" .CSRF}}
-  <input type="hidden" name="next" value="{{.Here}}">
-  <span class="viewswitch-label" id="viewswitch-label">View as</span>
-  <div class="segmented" role="group" aria-labelledby="viewswitch-label">
-    {{range $v.Views}}
-    <button type="submit" name="view" value="{{.Value}}" class="segment{{if .Selected}} is-on{{end}}"
-            {{if .Selected}}aria-current="true"{{end}}>{{.Label}}</button>
-    {{end}}
-  </div>
-</form>
+     The switch itself is the shared partial the settings screen renders, so
+     the two cannot disagree about which position the reader is in. */}}
+{{template "taskview-switch" $v.Prefs.TaskView}}
 
 {{/* One panel, not two. Columns and Projects were separate disclosures sitting
      side by side, so deciding what the list shows meant opening one, applying,
@@ -99,33 +88,15 @@
   <details class="panel viewprefs">
     <summary>View{{if $v.Hidden}} &middot; {{$v.Hidden}} project{{if ne $v.Hidden 1}}s{{end}} hidden{{end}}</summary>
     <div class="body viewgrid">
-      {{if .Columns.Configurable .ColumnPage}}
+      {{if .ColumnForm.Configurable}}
       <section>
         <h3>Columns</h3>
-        {{template "column-choices" .}}
+        {{template "column-choices" .ColumnForm}}
       </section>
       {{end}}
       <section>
         <h3>Projects</h3>
-        <form method="post" action="/visibility" class="visibilityform"
-              hx-swap="innerHTML show:none">
-          {{template "csrf" .CSRF}}
-          <input type="hidden" name="next" value="{{.Here}}">
-          <div class="choices">
-            {{range $v.Visibility}}
-            <label class="projectchoice{{if .Color}} proj-{{.Color}}{{end}}">
-              <input type="checkbox" name="project" value="{{.Key}}" {{if .Shown}}checked{{end}}>
-              {{if .Color}}<span class="swatch proj-{{.Color}}" aria-hidden="true"></span>{{end}}
-              {{if .Icon}}<span class="proj-icon" role="img" aria-label="{{.Name}}">{{.Icon}}</span>{{end}}
-              {{.Key}}
-            </label>
-            {{else}}<span class="muted">No projects yet.</span>{{end}}
-          </div>
-          <div class="actions">
-            <button type="submit">Apply projects</button>
-            <button class="secondary" type="submit" name="reset" value="1">Show all</button>
-          </div>
-        </form>
+        {{template "project-choices" $v.Prefs.Projects}}
       </section>
     </div>
   </details>

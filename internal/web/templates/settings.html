@@ -77,7 +77,34 @@
 </table>
 </div>
 
-<p class="muted">Which columns a listing shows is chosen on the listing itself, not here.</p>
+<h2>Listings</h2>
+<p class="muted">What the task screen draws and what every listing puts on screen. Each control here is the same form that sits on the screen it affects &mdash; one form over one stored value, not a copy of it &mdash; so changing it in either place shows the same answer in both.</p>
+
+<h3>Task view</h3>
+<p class="muted" id="taskview-help">Whether <a href="/tasks">Tasks</a> draws its tasks as a list of rows or as a board of columns. It is the same tasks either way: the filter, the deadline window, the sort, the page and the project choice below are answered once and then drawn one way or the other. The board needs the selected projects to run the same workflow, and says so when they do not.</p>
+<div aria-describedby="taskview-help">{{template "taskview-switch" .Data.Prefs.TaskView}}</div>
+
+<h3>Projects on the task screen</h3>
+<p class="muted" id="visibility-help">Which projects <a href="/tasks">Tasks</a> includes. Unticking one leaves its tasks out of the listing and off the board; it hides nothing from anybody else and withholds no record, since every task stays on its own screen and a <code>project:</code> filter naming it explicitly still finds it. A project created after you choose is shown without being ticked.</p>
+<div aria-describedby="visibility-help">
+{{template "project-choices" .Data.Prefs.Projects}}
+{{if not .Data.ProjectScan}}
+<p class="muted">This tenant has more projects than this control walked, so the list above is not the whole set.</p>
+{{end}}
+</div>
+
+<h3>Columns</h3>
+<p class="muted">Which optional columns each listing puts on screen, listing by listing, because they are a separate choice per listing: the columns worth keeping on Tasks are not the ones worth keeping on API tokens. Each listing also offers this picker beside itself; it is the same form, so either place shows what the other stored. Every listing keeps the column naming its rows whatever you choose, so no record can be put out of reach, and hiding a column withholds nothing &mdash; every value stays on the record's own screen. Reset returns a listing to its shipped defaults, which is not the same as unticking everything.</p>
+{{range .Data.Prefs.Columns}}
+{{if .Configurable}}
+<details class="panel columns">
+  <summary>{{.Label}}</summary>
+  <div class="body">
+    {{template "column-choices" .}}
+  </div>
+</details>
+{{end}}
+{{end}}
 
 <h2>Dates and times</h2>
 <p class="muted">How every timestamp on every screen is written and which zone it is written in. Stored in this browser, like the preferences above, so people sharing a tenant from different places each read their own clock.</p>

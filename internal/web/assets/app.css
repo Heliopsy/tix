@@ -1511,6 +1511,30 @@ details.panel.columns { margin-bottom: 18px; }
   margin: 0;
 }
 
+/* Both halves of the pair are allowed to break. A key is short in practice,
+   but nothing bounds it to the width of a grid cell, and the sheet forbids
+   nowrap outright (TestStylesheetEmitsNoHorizontalScrollLayout): one
+   unbreakable run is what puts a horizontal scrollbar on a phone. */
+.visibilityform .projectchoice-name,
+.visibilityform .projectchoice code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.visibilityform .projectchoice code {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+/* The sentence naming hidden keys no project answers to. Full width under the
+   grid rather than a cell in it: it is about the choice as a whole, not about
+   any one checkbox, and it has to be allowed to run to several lines. */
+.visibilityform .stale-projects {
+  margin: 10px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
 .visibilityform .actions { margin-top: 12px; }
 
 /* Keyboard shortcut help overlay (assets/shortcuts.js). Hidden by the native
