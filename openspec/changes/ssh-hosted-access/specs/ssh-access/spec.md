@@ -9,7 +9,7 @@ In demo mode the listener SHALL accept any key without it having been registered
 listener SHALL accept only a fingerprint enrolled against an actor and not revoked, and SHALL refuse any
 other key.
 
-#### Scenario: An unknown key is accepted in demo mode
+#### Scenario: An unknown key is accepted
 
 - **WHEN** the listener runs in demo mode and a client connects with a public key it has never seen
 - **THEN** the connection is authenticated and a session begins
@@ -43,7 +43,7 @@ other command, because serving the real store is the purpose.
 - **WHEN** a non-loopback listen address is configured without the explicit opt-out
 - **THEN** the listener refuses to start and explains that the choice must be explicit
 
-#### Scenario: Demo mode against the zero-configuration store
+#### Scenario: No database named
 
 - **WHEN** the listener is started in demo mode without a database or server being named anywhere
 - **THEN** it refuses to start, explaining that the zero-configuration store holds real work and that demo

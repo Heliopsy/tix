@@ -288,3 +288,138 @@ Invalid configuration SHALL be rejected with an error identifying the offending 
 
 - **WHEN** `TIX_HOOKS_MODE` is set to a value outside the allowed set
 - **THEN** the command fails with an error naming the variable and listing the allowed values
+
+### Requirement: A flag nobody typed is not a layer
+
+A command flag that also names a configuration key SHALL contribute to resolution only when the operator
+typed it. A flag left unset SHALL leave the value the environment, the `.env` file, the configuration file or
+the built-in default supplied, even when the flag declares a default of its own.
+
+#### Scenario: The configuration file decides the serve address
+
+- **WHEN** `server.listen` names an address in a configuration file and `tix serve` runs with no `--listen`
+- **THEN** the server binds that address, and a request to it is answered
+
+#### Scenario: A typed flag still wins
+
+- **WHEN** `server.listen` names one address in a configuration file and `tix serve --listen` names another
+- **THEN** the server binds the address the flag names
+
+#### Scenario: The environment decides the address
+
+- **WHEN** `TIX_SERVER_LISTEN` names an address and `tix serve` runs with no `--listen`
+- **THEN** the server binds that address, so a container can be pointed at one without a command line
+
+### Requirement: The configured token is the credential
+
+The token a command authenticates with SHALL be resolved through the documented layers. `--token` and
+`TIX_TOKEN` SHALL be its flag layer, and `server.token`, a `TIX_SERVER_TOKEN`, a `.env` entry and the token a
+named context carries SHALL each be presented when no layer above them supplies one.
+
+#### Scenario: A configuration file supplies the token
+
+- **WHEN** a configuration file names a server URL and a `server.token`, and a command runs with no `--token`
+  and no `TIX_TOKEN`
+- **THEN** that token is presented and the command is authenticated
+
+#### Scenario: A flag overrides the configured token
+
+- **WHEN** a configuration file names a `server.token` and `--token` names another
+- **THEN** the token the flag names is presented
+
+### Requirement: Every configuration key has a named consumer
+
+Every key `internal/config` defines SHALL be recorded either as read by a named consumer or as shadowed by a
+named flag on a named command. A key in neither state SHALL fail the test suite rather than ship as a
+setting that does nothing.
+
+#### Scenario: A new key with nothing reading it
+
+- **WHEN** a field is added to the configuration structure and nothing is recorded about which consumer
+  reads it
+- **THEN** the suite fails, naming the key and its generated environment variable
+
+#### Scenario: A shadowed key loses its fallback
+
+- **WHEN** a key that a flag shadows stops being copied from the resolved configuration
+- **THEN** the suite fails, naming the key, the flag and the value the command used instead
+
+### Requirement: The number of rows a listing shows is configured per surface
+
+Each surface that renders a listing SHALL take its page size from its own configuration key: `cli.page_size`
+for the command line and `web.page_size` for the browser. Both SHALL default to 25 rows, and both SHALL be
+resolved through the documented layers, where a flag beats the environment, which beats a `.env` entry, which
+beats a configuration file, which beats the built-in default.
+
+#### Scenario: A configuration file decides how many rows a listing prints
+
+- **WHEN** `cli.page_size` names a number in a configuration file and a listing command runs with no `--limit`
+- **THEN** the listing prints that many rows, and reports that a further page is available
+
+#### Scenario: The environment decides how many rows a listing prints
+
+- **WHEN** `TIX_CLI_PAGE_SIZE` names a number and a listing command runs with no `--limit`
+- **THEN** the listing prints that many rows
+
+#### Scenario: A typed limit still wins
+
+- **WHEN** `cli.page_size` names one number and `--limit` names another
+- **THEN** the listing prints the number the flag names
+
+#### Scenario: A limit inside a filter expression still wins
+
+- **WHEN** `cli.page_size` names one number and `--filter` carries a `limit:` term naming another
+- **THEN** the listing prints the number the expression names
+
+#### Scenario: The browser shows the configured number of rows
+
+- **WHEN** `web.page_size` names a number and a browser listing is opened
+- **THEN** that page carries that many rows
+
+#### Scenario: Nothing configured shows twenty-five rows
+
+- **WHEN** no layer sets a page size and a browser listing is opened
+- **THEN** that page carries 25 rows
+
+### Requirement: A page size outside the contract's range is refused
+
+A configured page size below 1 or above the maximum a listing may return SHALL be refused when configuration
+is resolved, naming the key and the layer that supplied it. It SHALL NOT be clamped or replaced by a default.
+
+#### Scenario: A page size of zero is refused
+
+- **WHEN** a layer sets `cli.page_size` to `0`
+- **THEN** the command fails, names `cli.page_size`, and prints no rows
+
+#### Scenario: A negative page size is refused
+
+- **WHEN** a layer sets `web.page_size` to a negative number
+- **THEN** configuration is refused, naming `web.page_size`
+
+#### Scenario: An absurd page size is refused
+
+- **WHEN** a layer sets a page size above the maximum a listing may return
+- **THEN** configuration is refused, naming that key
+
+### Requirement: A reader can ask one browser page for a different size
+
+A browser listing SHALL accept a `limit` query parameter naming how many rows that page carries, overriding
+the configured size for that request. The listing's own paging controls SHALL carry the requested size, so a
+walk keeps the size it was asked for. A `limit` that is not a usable number SHALL leave the configured size
+in place rather than failing the screen.
+
+#### Scenario: A request asks for more rows than the configured size
+
+- **WHEN** a browser listing is opened with a `limit` naming a number inside the accepted range
+- **THEN** that page carries that many rows
+
+#### Scenario: Paging keeps the requested size
+
+- **WHEN** a reader opens a listing with a `limit` and follows the next-page control
+- **THEN** the following page carries the same number of rows
+
+#### Scenario: An unusable requested size is ignored
+
+- **WHEN** a browser listing is opened with a `limit` that is not a number, is zero, is negative, or is above
+  the maximum a listing may return
+- **THEN** the page renders with the configured size

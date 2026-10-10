@@ -87,8 +87,6 @@ supplies one, and when an existing endpoint is saved with the field left blank.
 - **THEN** it says a generated secret is shown once
 - **AND** it says a secret the operator supplies is not shown
 
-## MODIFIED Requirements
-
 ### Requirement: One presentation for a value the server will not disclose again
 
 A value the server will never disclose again SHALL be presented through one shared region, used by every

@@ -606,3 +606,814 @@ The TUI SHALL offer a filter over its activity view, SHALL accept the same expre
 
 - **WHEN** the clear-filter key is pressed in the activity view
 - **THEN** the whole tail is drawn again
+
+### Requirement: The terminal interface offers only the views a reader's authority reaches
+
+The terminal interface SHALL offer a reader the views their scopes permit and SHALL NOT offer an entry to a
+view whose every read the service would refuse. A view SHALL be considered reachable when the reader may
+perform at least one of the read operations the capability registry binds to it.
+
+The interface SHALL NOT hold its own table of the scopes a view requires. The set of reachable views SHALL
+be supplied to it, resolved from the same scopes the registry records and the service enforces, and SHALL be
+resolved once for the session rather than per keystroke.
+
+A session supplied with no set of reachable views SHALL be offered only the views that read nothing from the
+service.
+
+#### Scenario: A reader who may not subscribe to events is not offered the activity view
+
+- **WHEN** a session's actor holds the task and project read scopes but not the event subscribe scope
+- **THEN** the activity view is not offered
+- **AND** the board view is offered
+
+#### Scenario: A demo visitor and an enrolled administrator are offered the same views
+
+- **WHEN** one session's actor holds the sandbox visitor's scopes and another's holds the administrator role
+- **THEN** both are offered the board, the detail, the activity, the statistics and the tenant views
+
+#### Scenario: A reader who may only read projects is not offered the board
+
+- **WHEN** a session's actor holds the project read scope alone
+- **THEN** the board, the activity and the statistics views are not offered
+
+#### Scenario: Pressing the key for a view that is not offered enters nothing
+
+- **WHEN** a reader not offered a view presses the key that opens it
+- **THEN** the open view does not change
+
+#### Scenario: A session with no authority supplied reaches only the local views
+
+- **WHEN** a session is built without a set of reachable views
+- **THEN** only the project list, the settings screen and the help overlay are reachable
+
+### Requirement: The help overlay agrees with what the interface offers
+
+The help overlay SHALL list a cross-view binding only when the view it opens is offered to this reader, so
+every key the overlay documents does what it says. Bindings that open no view SHALL always be listed.
+
+#### Scenario: A refused view's key is absent from the overlay
+
+- **WHEN** the overlay is opened by a reader not offered the activity view
+- **THEN** the activity binding is not listed
+- **AND** the help, quit, projects and statistics bindings are listed
+
+#### Scenario: Every offered view's key is documented
+
+- **WHEN** the overlay is opened by a reader offered every view
+- **THEN** the projects, settings, activity, statistics and tenant bindings are all listed
+
+### Requirement: The project list, the settings screen and the help overlay need no authority
+
+The project list SHALL remain reachable to every session, because it is where a session starts and where
+going back ends, and a reader who may not list projects SHALL be told so by the list's own empty state
+rather than by having nowhere to go. The settings screen and the help overlay SHALL likewise need no
+authority, because they read nothing from the service.
+
+#### Scenario: A session holding nothing still reaches the project list
+
+- **WHEN** a session's actor holds no scope at all
+- **THEN** the project list, the settings screen and the help overlay are reachable
+
+### Requirement: A destructive action in the terminal interface is confirmed against a named subject
+
+The terminal interface SHALL ask for confirmation before performing a destructive action, and the question
+SHALL name the subject the action will affect as the reader sees it on screen. A confirmation that cannot name
+its subject SHALL NOT be presented.
+
+The question SHALL also state what the action will do beyond its subject where the subject alone cannot say
+it, such as a deletion that is permanent or that takes the subtasks with it.
+
+The confirmation SHALL be answered by a key of its own and SHALL NOT be answered by the key that accepts the
+interface's other inputs. A key that is neither the agreement nor the cancellation SHALL leave the question
+standing rather than answering or dismissing it.
+
+#### Scenario: Deleting a task names the task
+
+- **WHEN** a reader asks to delete the selected task
+- **THEN** the confirmation names that task's reference
+- **AND** says that it will delete a task
+
+#### Scenario: Deleting a comment names the comment
+
+- **WHEN** a reader asks to delete the selected comment
+- **THEN** the confirmation names the comment's author
+- **AND** agreeing removes that comment and not the task
+
+#### Scenario: A deletion that reaches further says so
+
+- **WHEN** a reader asks for a deletion that is permanent and takes the subtasks with it
+- **THEN** the confirmation says both before it is agreed to
+
+#### Scenario: The key that accepts other inputs does not confirm
+
+- **WHEN** a confirmation is open and the reader presses the accept key
+- **THEN** the question is still open
+- **AND** nothing has been deleted
+
+#### Scenario: Cancelling a confirmation performs nothing
+
+- **WHEN** a confirmation is open and the reader cancels it
+- **THEN** the question is withdrawn
+- **AND** nothing has been deleted
+
+### Requirement: The terminal interface gathers structured input in a form
+
+The terminal interface SHALL offer a form of several fields, each answered from the values the operation
+accepts, for input the single-line prompt cannot gather. A field SHALL be hidden when another field's answer
+makes it irrelevant, and a hidden field SHALL contribute no answer.
+
+Each field SHALL show the values it could hold instead of its current answer, or where its current answer sits
+in that list when the list is too long to show.
+
+A form SHALL be moved through and answered with the bindings the interface already defines for moving and
+accepting, so that every shipped keybinding scheme drives it, and SHALL name the keys of the loaded scheme
+rather than fixed keys.
+
+#### Scenario: A form's own answer takes a field off the screen
+
+- **WHEN** the delete form's subject is changed from the task to a comment
+- **THEN** the switches that control how far a task deletion reaches are no longer shown
+- **AND** they contribute nothing to the action
+
+#### Scenario: A form is driven under every scheme
+
+- **WHEN** a reader under any of the shipped keybinding schemes opens a form, moves to a field, changes its
+  answer and accepts it
+- **THEN** the answer reaches the service
+
+#### Scenario: A form names the keys that drive it
+
+- **WHEN** a form is open under a scheme that binds accepting to another key
+- **THEN** the form's own instruction names that scheme's key
+
+#### Scenario: A long list of values says where the answer sits
+
+- **WHEN** a field offers more values than its row has room to list
+- **THEN** the row states the answer's position in the list instead of listing them
+
+### Requirement: The terminal interface can remove a task
+
+The terminal interface SHALL let a reader delete the selected task, asking first whether the deletion is
+permanent and whether it takes the subtasks with it, and SHALL confirm it against the task's own reference.
+
+Once the open task has been deleted the interface SHALL leave its detail view rather than displaying a task the
+service no longer holds.
+
+#### Scenario: A deleted task's detail view is left
+
+- **WHEN** the reader deletes the task whose detail view is open
+- **THEN** the detail view is no longer open
+- **AND** no task is held open
+
+### Requirement: The terminal interface can select a comment in a thread
+
+The terminal interface SHALL let a reader select one comment of the open task's thread, SHALL mark the selected
+comment, and SHALL act on that comment when a comment action is performed. The cursor SHALL be offered only
+where a thread exists and only in the view that draws one.
+
+#### Scenario: The thread marks the comment the actions will act on
+
+- **WHEN** a task with comments is opened
+- **THEN** exactly one comment is marked
+
+#### Scenario: The cursor stays inside the thread
+
+- **WHEN** the reader steps past either end of the thread
+- **THEN** the selection stays on the comment at that end
+
+#### Scenario: A task with no comments advertises no cursor
+
+- **WHEN** the open task has no comments
+- **THEN** the interface does not advertise a key for stepping the thread
+
+### Requirement: The terminal interface can edit and remove a comment
+
+The terminal interface SHALL let a reader rewrite the selected comment, opening on that comment's own text, and
+SHALL let a reader remove it after confirming against a description of that comment. Where there is no comment
+to act on the interface SHALL say why rather than opening an input.
+
+#### Scenario: Editing opens on the selected comment's own body
+
+- **WHEN** the reader asks to edit the second comment of a thread
+- **THEN** the input opens on that comment's text
+- **AND** accepting it rewrites that comment
+
+#### Scenario: A board offers no comment edit
+
+- **WHEN** the reader asks to edit a comment with no task open
+- **THEN** no input opens
+- **AND** the interface says the task has to be opened
+
+### Requirement: The terminal interface can remove a dependency
+
+The terminal interface SHALL let a reader remove one of the dependencies the open task waits on, choosing from
+all of them rather than from a fixed number, and SHALL say so rather than offering a choice when the task waits
+on nothing or when no task is open.
+
+#### Scenario: Every dependency is offered
+
+- **WHEN** a task waits on more dependencies than a single-digit choice could number
+- **THEN** all of them are offered
+
+#### Scenario: A task that waits on nothing says so
+
+- **WHEN** the reader asks to remove a dependency from a task that waits on nothing
+- **THEN** no choice is offered and the interface says the task waits on nothing
+
+### Requirement: The terminal interface offers the tags the tenant has
+
+The terminal interface SHALL offer the tenant's existing tags for a reader to attach to or detach from the
+selected task, and SHALL name the tags the task already carries. Where the tenant has no tags the interface
+SHALL say so rather than offering an empty choice.
+
+#### Scenario: The picker offers each tag once and names the ones on the task
+
+- **WHEN** a reader opens the tag picker on a task carrying one of the tenant's tags
+- **THEN** each of the tenant's tags is offered once
+- **AND** the tag the task already carries is named as such
+
+#### Scenario: A tenant with no tags is told so
+
+- **WHEN** a reader opens the tag picker in a tenant with no tags
+- **THEN** no picker opens and the interface says no tags exist yet
+
+### Requirement: The terminal interface offers only the actions a reader's authority reaches
+
+The terminal interface SHALL offer an action on the selected task only where the reader holds the authority the
+operation needs, in the footer, in the help overlay and on the keystroke alike. A key the reader's scopes do not
+reach SHALL change nothing when pressed.
+
+Where one key can act on more than one subject, the interface SHALL offer only the subjects the reader may act
+on.
+
+#### Scenario: A refused action is absent from the footer and the overlay
+
+- **WHEN** a reader may not remove a dependency, edit a comment, list tags or delete
+- **THEN** none of those keys is advertised in the view's help
+- **AND** pressing one changes nothing on screen
+
+#### Scenario: Only the subjects a reader may delete are offered
+
+- **WHEN** a reader may delete a comment but not a task
+- **THEN** the delete form offers the comment and not the task
+
+#### Scenario: A reader who may delete nothing is offered no delete
+
+- **WHEN** a reader may delete neither a task nor a comment
+- **THEN** pressing the delete key opens nothing
+
+### Requirement: The terminal interface shows the stored history of what the reader is looking at
+
+The terminal interface SHALL offer a view of the durable audit log, scoped to the task the reader has
+selected, the project whose screen is open, or the tenant when neither is named.
+
+The view SHALL be distinct from the live event tail. The tail renders the subscription this session holds;
+the history renders what the store recorded, including what it recorded before this session opened. Neither
+SHALL draw the other's records.
+
+The view SHALL name the subject whose history it is drawing, SHALL resolve the actor of each entry to the
+handle a reader recognises where that lookup succeeds, and SHALL say when the log runs past the page it
+drew, naming the command that reads the rest.
+
+A reader who may not read the audit log SHALL NOT be offered the view, SHALL NOT be told about its key, and
+pressing that key SHALL issue no read.
+
+#### Scenario: The history of the selected task
+
+- **WHEN** a reader with audit authority asks for the history from a board with a task selected
+- **THEN** the log is read for that task
+- **AND** the view names the task whose history it is
+
+#### Scenario: The live tail and the stored log stay apart
+
+- **WHEN** a session has seen a live event and the store holds an older entry
+- **THEN** the history view draws the stored entry and not the live event
+- **AND** the activity view draws the live event and not the stored entry
+
+#### Scenario: A subject with no history says so
+
+- **WHEN** the log holds nothing for the subject
+- **THEN** the view says so in words and names the subject it found nothing for
+
+#### Scenario: A reader without audit authority reaches nothing
+
+- **WHEN** a reader who may not read the audit log presses the history key
+- **THEN** no view opens
+- **AND** no audit read is issued
+
+### Requirement: The terminal interface records an artifact on a task
+
+The terminal interface SHALL record structured output on the selected task, gathering a name and a kind. The
+kinds offered SHALL be exactly the kinds the service accepts, so the interface can neither omit one nor
+offer one that would be refused.
+
+The interface SHALL state, where the artifact is gathered, which parts of an artifact it does not record.
+
+An artifact with no name SHALL NOT be recorded, so a stray keystroke never attaches an empty artifact.
+
+A reader who may not write artifacts SHALL NOT be told about the key, and pressing it SHALL record nothing.
+
+#### Scenario: A named artifact of a chosen kind
+
+- **WHEN** a reader names an artifact and chooses a kind
+- **THEN** the artifact is recorded on the selected task under that name and that kind
+
+#### Scenario: Every kind the service accepts is reachable
+
+- **WHEN** the kind is chosen
+- **THEN** every artifact kind the service declares is among the alternatives
+
+#### Scenario: What the terminal does not record is said out loud
+
+- **WHEN** the artifact form is open
+- **THEN** it says that the payload, the content type and the inline blob are recorded elsewhere
+
+### Requirement: The terminal interface restores a deleted task from the board that reveals it
+
+The board's filter SHALL be the way deleted tasks are seen, through the same expression the command line
+takes, and a deleted card SHALL carry a marker distinguishing it from live work, explained in the legend.
+
+The interface SHALL restore the selected task where that task is deleted. Where it is not, the interface
+SHALL refuse without calling the service and SHALL name the filter that reveals the deleted tasks.
+
+The footer of a deleted card SHALL offer the restore and SHALL NOT offer the actions the service refuses on
+a deleted task.
+
+A reader who may not restore SHALL NOT be offered the key, and pressing it SHALL issue no call.
+
+#### Scenario: A deleted card is told apart from a live one
+
+- **WHEN** the board's filter includes deleted tasks
+- **THEN** a deleted card carries the deleted marker and a live card does not
+
+#### Scenario: Restoring the selected deleted task
+
+- **WHEN** a reader restores a deleted card
+- **THEN** that task is restored and the status bar names it
+
+#### Scenario: A task that was never deleted is not restored
+
+- **WHEN** a reader presses the restore key on a live task
+- **THEN** nothing is sent to the service
+- **AND** the refusal names the filter that reveals the deleted tasks
+
+### Requirement: The terminal interface assigns a task from the tenant's directory
+
+The terminal interface SHALL offer the tenant's actors when a task is assigned, named by the handle a reader
+recognises rather than by the identifier the service stores, and SHALL resolve the chosen name back to that
+identifier.
+
+The offer SHALL include a way to leave the task assigned to nobody, so clearing an assignment is a choice on
+the same list.
+
+The picker SHALL open on whoever holds the task now. An assignee the directory no longer holds SHALL open on
+nobody rather than on another actor.
+
+A reader who may not read the directory SHALL NOT be offered the picker, whatever else they may change about
+a task, and a tenant with no actors SHALL say so rather than opening a picker with nothing to pick.
+
+#### Scenario: Assigning by handle
+
+- **WHEN** a reader picks an actor by handle
+- **THEN** the task is assigned to that actor's identifier
+
+#### Scenario: Clearing an assignment
+
+- **WHEN** a reader chooses nobody
+- **THEN** the task is left with no assignee
+
+#### Scenario: A reader who cannot read the directory is offered no picker
+
+- **WHEN** a reader may change a task and may not list actors
+- **THEN** the assignee key is not offered
+
+### Requirement: Display preferences in the terminal interface
+
+The terminal interface SHALL offer a settings view carrying the display preferences a reader owns: the
+keybinding scheme, the time format, the timezone and the colour mode. Each SHALL name the configuration
+key it is written to, and SHALL show what choosing a value would mean, rendered by the renderer that will
+render it, so an example can never claim a layout or a zone the interface does not produce.
+
+A value the build does not ship, arriving from a configuration file written elsewhere, SHALL remain on
+offer rather than being dropped, so stepping through the values cannot silently discard it.
+
+#### Scenario: Every preference names its key
+
+- **WHEN** the settings view is open
+- **THEN** each preference row names the configuration key its value is written to
+
+#### Scenario: An example is rendered in the chosen zone
+
+- **WHEN** the timezone row is stepped from one zone to another
+- **THEN** the example beside it renders the same instant in the newly chosen zone
+
+#### Scenario: An example is rendered in the chosen layout
+
+- **WHEN** the time format row is stepped from one layout to another
+- **THEN** the example beside it renders in the newly chosen layout
+
+#### Scenario: Stepping wraps rather than stopping
+
+- **WHEN** a preference is stepped past either end of its values
+- **THEN** it continues from the other end
+
+#### Scenario: A configured value this build does not ship is kept
+
+- **WHEN** a preference holds a value that is not one this build offers
+- **THEN** that value is still among the values the row steps through
+
+### Requirement: A display preference chosen in the terminal interface persists
+
+A preference changed in the settings view SHALL take effect in the frame it is read in and SHALL be
+written to the reader's configuration file in the same act, with no separate save. The interface SHALL
+state where the change was written.
+
+The write SHALL edit the configuration file in place, carrying forward the keys it already held and
+writing only the keys that changed, so choosing a display preference never pins a value another layer was
+supplying.
+
+A session with no configuration file to write SHALL say that its choices last only for the session,
+rather than offering a choice it cannot keep. A write that fails SHALL be reported, naming the failure.
+
+#### Scenario: A change is written down at once
+
+- **WHEN** a preference is stepped to a new value
+- **THEN** the interface adopts it, writes it to the configuration file, and says which file it wrote
+
+#### Scenario: The choice survives a restart
+
+- **WHEN** the interface is closed and opened again
+- **THEN** the preference chosen in the previous run is the one in force
+
+#### Scenario: Writing one preference pins nothing else
+
+- **WHEN** a display preference is written to a configuration file
+- **THEN** no key that the file did not already carry, and that the change did not alter, is written to it
+
+#### Scenario: A session that cannot write says so
+
+- **WHEN** the session was opened with no way to write a configuration file
+- **THEN** the screen states that the choices last until the interface is quit, and a change says the same
+
+#### Scenario: A failed write is reported
+
+- **WHEN** writing the configuration file fails
+- **THEN** the interface says the change was not saved and names the failure
+
+#### Scenario: A value the build cannot render is refused
+
+- **WHEN** a preference would be set to a value this build cannot resolve
+- **THEN** the value is not adopted and the refusal names it
+
+### Requirement: The settings view states which layer supplies each preference
+
+Where a preference's value arrives from a configuration layer above the file, the settings view SHALL say
+so on that preference's own row, and SHALL state that the layer still decides after a restart. A value
+arriving from the file or from the built-in defaults SHALL carry no such warning.
+
+#### Scenario: An environment variable is announced
+
+- **WHEN** a preference's value is supplied by an environment variable
+- **THEN** that preference's row says the environment layer supplies it and still wins after a restart
+
+#### Scenario: A file value carries no warning
+
+- **WHEN** a preference's value comes from the configuration file or from the defaults
+- **THEN** that preference's row carries no warning about another layer
+
+### Requirement: The settings view states what the session is connected to
+
+The settings view SHALL state the target this run resolved, the tenant, the actor, the build and the
+configuration file. The target SHALL be stated with its secrets redacted, so a connection string carrying
+a password is never drawn on a screen. A fact the session was not told SHALL say so rather than rendering
+blank, which reads as a value that failed to load.
+
+The tenant and the actor SHALL be the ones in force, so a session that has switched tenant reports the
+tenant it switched to.
+
+The view SHALL name the command that answers the same question across every configuration key, and SHALL
+NOT offer to change the target, the credentials or any other deployment setting: a session is already
+connected through the target it resolved and could not act on a new one.
+
+#### Scenario: The connection is named
+
+- **WHEN** the settings view is open
+- **THEN** it states the target, the tenant, the actor, the build and the configuration file
+
+#### Scenario: A secret in the target is redacted
+
+- **WHEN** the resolved target is a connection string carrying a password
+- **THEN** the password does not appear on the screen
+
+#### Scenario: The tenant follows a switch
+
+- **WHEN** the session has switched to another tenant
+- **THEN** the settings view names the tenant the session switched to
+
+#### Scenario: A fact the session was not told
+
+- **WHEN** a fact was never supplied to the session
+- **THEN** the row says so rather than rendering empty
+
+#### Scenario: The rest of the configuration is pointed at, not duplicated
+
+- **WHEN** the settings view is open
+- **THEN** it names `tix config show --sources` and offers no control over the target or the credentials
+
+### Requirement: The whole settings view is reachable on a short terminal
+
+The settings view SHALL be navigable to its last line on a terminal too short to show it at once, and
+SHALL never draw more lines than the frame has. The keys that step a preference's values SHALL be
+described as doing that, rather than by the meaning they carry on the board.
+
+#### Scenario: The bottom of the screen is reachable
+
+- **WHEN** the terminal is too short to show the whole settings view and the reader walks down
+- **THEN** the last line of the view comes into the window
+
+#### Scenario: The body never overflows the frame
+
+- **WHEN** the settings view is drawn into a frame shorter than the view
+- **THEN** it draws no more lines than the frame holds and says how many are off screen
+
+#### Scenario: The footer describes the settings view
+
+- **WHEN** the settings view is open
+- **THEN** its footer describes the value keys as stepping a setting's values, not as moving between columns
+
+### Requirement: The terminal interface states how a project is configured
+
+The terminal interface SHALL offer a screen that states, for one project, the project's own attributes, the
+workflow its tasks move through and the custom field definitions those tasks carry.
+
+The screen SHALL read the project it shows rather than reusing a row from a listing, so that what it states is
+true after an action it performed.
+
+The workflow SHALL be shown as its state machine: the initial state, every state with the category it reports
+under and whether it is terminal, every permitted edge with what that edge requires, and the lease a claim
+takes by default.
+
+An attribute that is not set SHALL be shown as unset rather than as an empty row, so a blank cannot be
+mistaken for a row that failed to draw.
+
+A part of the screen the reader's authority does not reach SHALL say why it is not shown, and SHALL NOT cost
+the reader the rest of the screen.
+
+#### Scenario: The screen names the project it read
+
+- **WHEN** a reader opens the project screen
+- **THEN** it states that project's key, name, description, colour, icon and whether it is archived
+- **AND** the project was read rather than taken from the listing
+
+#### Scenario: The workflow is shown as a state machine
+
+- **WHEN** the project screen is open
+- **THEN** it names the workflow, its initial state, each of its states and each permitted edge
+- **AND** marks a state a task stops in as terminal
+
+#### Scenario: An archived project says when it was archived
+
+- **WHEN** the project screen shows an archived project
+- **THEN** it states that it is archived and when
+
+#### Scenario: A refused workflow costs nothing else
+
+- **WHEN** the reader may read the project but not its workflow
+- **THEN** the screen says why the workflow is not shown
+- **AND** still states the project's own attributes
+
+#### Scenario: The screen opens on the project the reader chose
+
+- **WHEN** a reader presses the key from the project listing
+- **THEN** the screen opens on the row under the cursor
+- **AND** pressing it from a board opens the project the board has open
+
+### Requirement: A workflow is read in the terminal and changed elsewhere
+
+The terminal interface SHALL NOT offer an editor for a workflow definition, and the screen that renders a
+workflow SHALL name where a workflow is changed instead.
+
+#### Scenario: The screen points at the command that edits a workflow
+
+- **WHEN** the project screen renders a workflow
+- **THEN** it names the command that changes one
+
+### Requirement: The terminal interface edits every attribute a project accepts
+
+The terminal interface SHALL offer, from the project screen, a change to each attribute the project update
+accepts. An attribute whose values are a fixed set SHALL be answered from that set; an attribute that is free
+text SHALL be answered by the single-line prompt, seeded with the value it would replace.
+
+An attribute with no alternative to offer SHALL NOT be offered, and a change SHALL send only the attribute it
+was asked for.
+
+#### Scenario: A colour is chosen from the palette
+
+- **WHEN** a reader chooses the colour attribute and steps its value
+- **THEN** the value on screen is the value sent
+- **AND** no other attribute is sent with it
+
+#### Scenario: A name is typed into the prompt it opens
+
+- **WHEN** a reader chooses the name attribute
+- **THEN** the prompt opens seeded with the project's current name
+- **AND** accepting it sends only the name
+
+#### Scenario: One workflow is no choice
+
+- **WHEN** the tenant has a single workflow
+- **THEN** the project screen offers no workflow to move to
+
+### Requirement: Archiving and deleting a project are confirmed against the named project
+
+The terminal interface SHALL ask, before hiding or destroying a project, which of the two is meant, and SHALL
+then confirm it against the project named as the reader sees it.
+
+The confirmation for a deletion SHALL state how far the deletion reaches. The confirmation for an archive
+SHALL NOT claim a deletion's reach.
+
+An archive SHALL NOT be offered for a project that is already archived, because the service refuses it.
+
+Once a project is deleted the interface SHALL leave the screen that showed it rather than reading a project
+the service has removed.
+
+#### Scenario: An archive names the project and nothing more
+
+- **WHEN** a reader asks to archive the open project
+- **THEN** the confirmation names that project and says it will archive it
+- **AND** agreeing archives it and deletes nothing
+
+#### Scenario: A deletion states its reach
+
+- **WHEN** a reader asks to delete the open project
+- **THEN** the confirmation names the project and states what goes with it
+- **AND** agreeing deletes it and returns the reader to the project listing
+
+#### Scenario: An archived project is not offered archiving
+
+- **WHEN** the project screen shows an archived project
+- **THEN** archiving is not among the actions offered
+
+#### Scenario: Cancelling leaves the project alone
+
+- **WHEN** a confirmation about a project is cancelled
+- **THEN** the project is neither archived nor deleted
+
+### Requirement: The terminal interface defines and removes a project's custom fields
+
+The terminal interface SHALL define a custom field from the project screen, gathering its key and label as
+text and the answers drawn from fixed sets in a form.
+
+A redefinition SHALL be seeded from the definition it replaces, and SHALL carry through every part of that
+definition the form did not ask about, because the operation replaces the whole definition.
+
+A field type whose values the form cannot gather SHALL be offered only to a definition that already holds it.
+
+Removing a definition SHALL be confirmed against the field named as the screen shows it.
+
+A picker SHALL NOT be offered where there is nothing to pick.
+
+#### Scenario: A new field is named and then shaped
+
+- **WHEN** a reader defines a new custom field
+- **THEN** the key and the label are taken as text
+- **AND** the type and whether it is required are answered from their own lists
+- **AND** the definition sent is one the operation accepts
+
+#### Scenario: A redefinition starts from the field that was picked
+
+- **WHEN** a reader picks the second of two definitions to redefine
+- **THEN** the form opens on that definition's own type and requirement
+- **AND** the parts the form did not ask about are sent unchanged
+
+#### Scenario: An enumerated type is not offered to a field that cannot carry it
+
+- **WHEN** a reader defines a new field
+- **THEN** the type list omits the type whose values the form cannot gather
+- **AND** a definition that already holds that type keeps it
+
+#### Scenario: Removing a definition names it
+
+- **WHEN** a reader asks to remove a custom field definition
+- **THEN** the confirmation names that field
+- **AND** agreeing removes that definition and no other
+
+#### Scenario: A project with no definitions offers no picker
+
+- **WHEN** the project defines no custom fields
+- **THEN** the picker is not advertised
+- **AND** the key that defines a new one still is
+
+### Requirement: Every project affordance is gated by the authority it needs
+
+The terminal interface SHALL offer each action on the project screen only to a reader who holds the authority
+the operation it calls requires, and SHALL refuse the keystroke on the same question the footer and the help
+overlay are filtered by.
+
+An action the screen borrows a key for SHALL be described by what it does on that screen.
+
+#### Scenario: A reader who may only read is offered nothing to change
+
+- **WHEN** a reader who may read a project but not write one opens the screen
+- **THEN** no action key is advertised
+- **AND** pressing one opens no input and reaches no service call
+
+#### Scenario: The overlay narrows to the reader
+
+- **WHEN** a reader may edit a project and nothing else on the screen
+- **THEN** the overlay names the edit and none of the others
+
+#### Scenario: A borrowed key is described by what it does here
+
+- **WHEN** the overlay describes the project screen
+- **THEN** the edit key is described as editing a project
+
+### Requirement: The selected row pulses
+
+The terminal interface SHALL animate the selected row by alternating the emphasis it is drawn with, rather
+than by using the terminal's blink attribute, so that every terminal able to draw colour draws the same
+animation. No other element of the interface SHALL animate.
+
+The selection SHALL remain unambiguous at every point in the cycle: the selection marker and the
+selection's colour SHALL be drawn in every frame, and only the emphasis SHALL vary. A reader looking at
+the screen at any moment SHALL be able to tell which row is selected.
+
+#### Scenario: The selected row changes emphasis
+
+- **WHEN** consecutive phases of the pulse are drawn
+- **THEN** the selected row is rendered differently in each
+
+#### Scenario: The marker survives both phases
+
+- **WHEN** the selected row is drawn at either phase of the pulse
+- **THEN** it carries the selection marker and is rendered differently from an unselected row
+
+#### Scenario: Nothing else moves
+
+- **WHEN** the interface is idle at the keyboard but connected
+- **THEN** only the selected row's emphasis changes, and no other element animates
+
+### Requirement: An idle session animates nothing
+
+The interface SHALL stop the pulse after a bounded period with no input, and SHALL produce no further
+frames until input arrives. It SHALL start the pulse again on the next keystroke.
+
+A stopped pulse SHALL rest on the emphasised phase, which is the same rendering a session with motion
+turned off draws, so a session that has gone quiet cannot be mistaken for one that has stopped responding.
+
+#### Scenario: The frames stop
+
+- **WHEN** the idle period passes with no keystroke
+- **THEN** the interface produces no further frames until a key arrives
+
+#### Scenario: A phase arriving after the pause changes nothing
+
+- **WHEN** a phase of the pulse is delivered after the idle pause has taken effect
+- **THEN** the frame is unchanged and no further phase is scheduled
+
+#### Scenario: A keystroke starts it again
+
+- **WHEN** a key arrives after the idle pause has stopped the pulse
+- **THEN** the pulse resumes
+
+### Requirement: A terminal that cannot show the pulse gets a static selection
+
+The interface SHALL animate only when it is drawing in colour. A session whose colour is suppressed, by
+`NO_COLOR`, by `TIX_NO_COLOR`, by `output.color = never` or by a destination that is not a terminal, SHALL
+draw a static selection and SHALL produce no animation frames at all.
+
+#### Scenario: A colourless session never pulses
+
+- **WHEN** a session is drawing without colour
+- **THEN** no phase of the pulse is ever scheduled and the selected row is drawn the same in every frame
+
+### Requirement: Motion is a display preference on the settings screen
+
+The settings screen SHALL offer motion as a display preference alongside the keybinding scheme, the time
+format, the timezone and the colour mode. It SHALL be on unless it is turned off, including in a session
+given no preferences at all.
+
+The row SHALL name the configuration key it is written to, SHALL say what the chosen value means on this
+terminal, SHALL apply the change to the frame it is read in, SHALL write the change down at once, and SHALL
+report the configuration layer supplying the value when a layer above the file supplies it. A session with
+nowhere to write SHALL keep the row usable and say the choice lasts only for the session.
+
+#### Scenario: Motion is on by default
+
+- **WHEN** a session is opened with nothing configured
+- **THEN** the selected row pulses
+
+#### Scenario: The row is written down when it is stepped
+
+- **WHEN** the motion row is stepped to another value
+- **THEN** the interface adopts it for the open frame and writes it to the configuration file
+
+#### Scenario: Turning motion off stops the animation
+
+- **WHEN** the motion row is stepped to off
+- **THEN** no further phase of the pulse is scheduled
+
+#### Scenario: The row says what it means on this terminal
+
+- **WHEN** the motion row is read on a session that is drawing without colour
+- **THEN** it says that nothing will pulse, rather than that motion is running

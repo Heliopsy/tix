@@ -15,7 +15,7 @@ stating the former narrowing as deliberate SHALL be corrected, including an arch
 - **WHEN** the registry is read
 - **THEN** the task tree operation records that the browser asks for one level of depth
 
-#### Scenario: The browser's key list is recorded as self-scoped
+#### Scenario: The browser's self-scoped credential lists are recorded
 
 - **WHEN** the registry is read
 - **THEN** the ssh key list records that the browser lists the signed-in actor's own only
