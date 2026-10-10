@@ -204,6 +204,12 @@
     </label>
     {{else}}<span class="muted">No projects yet.</span>{{end}}
   </div>
+  {{if not .Whole}}
+  {{/* The walk behind these checkboxes stopped at its bound, so the set is a
+       part of the tenant's projects. Said here rather than on each screen,
+       because both screens render this one control. */}}
+  <p class="muted short-projects">This tenant has more projects than this control walked, so the list above is not the whole set.</p>
+  {{end}}
   {{if .Stale}}
   <p class="muted stale-projects">Still hidden, and no project on this list answers to {{if eq (len .Stale) 1}}it{{else}}them{{end}}: {{range $i, $key := .Stale}}{{if $i}}, {{end}}<code>{{$key}}</code>{{end}}. Kept from an earlier choice; applying this form forgets {{if eq (len .Stale) 1}}it{{else}}them{{end}}.</p>
   {{end}}

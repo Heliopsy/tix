@@ -43,6 +43,11 @@ type statsView struct {
 		Days  int
 		Label string
 	}
+	// ProjectsWhole is false when the picker does not offer every project of
+	// the tenant, whether the walk was short or the listing failed, so the
+	// screen says the control is incomplete rather than letting a reader
+	// conclude a project they cannot see has no statistics.
+	ProjectsWhole bool
 	// MaxDay is the tallest bar in the series, so every other bar can be drawn
 	// as a percentage of it. Zero when nothing completed, which the template
 	// checks before dividing.
@@ -76,8 +81,14 @@ func (h *handler) showStats(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// The project list is the filter control. A failure to read it leaves the
-	// screen without a picker rather than without numbers.
-	projects, _, _ := h.svc.ListProjects(r.Context(), core.ProjectFilter{Page: core.Page{Limit: core.DefaultPageLimit}})
+	// screen without a picker rather than without numbers, and either a
+	// failure or a walk that stopped at its bound is said on the screen: one
+	// page of it meant a tenant past core.DefaultPageLimit projects could not
+	// filter by its fifty-first.
+	projects, whole, err := h.allProjects(r, false)
+	if err != nil {
+		projects, whole = nil, false
+	}
 
 	max := 0
 	for _, d := range stats.PerDay {
@@ -87,12 +98,13 @@ func (h *handler) showStats(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	return h.render(w, r, "stats.html", "Statistics", statsView{
-		Stats:    stats,
-		Projects: projects,
-		Project:  q.Get("project"),
-		Days:     days,
-		Windows:  statsWindows,
-		MaxDay:   max,
-		Measure:  core.StatsLeaderboardMeasure,
+		Stats:         stats,
+		Projects:      projects,
+		Project:       q.Get("project"),
+		Days:          days,
+		Windows:       statsWindows,
+		ProjectsWhole: whole,
+		MaxDay:        max,
+		Measure:       core.StatsLeaderboardMeasure,
 	})
 }

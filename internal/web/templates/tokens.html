@@ -7,6 +7,12 @@
      rows are not all theirs before they read any of them. */}}
 <p class="meta">You hold tenant:admin, so this lists every token of the tenant and whose it is. Revoking somebody else's is recorded as such.</p>
 {{end}}
+{{if not .Data.Whole}}
+{{/* Above the table, beside the claim it qualifies: this tenant has more
+     actors than the listing walked, so the rows are a part of the tenant's
+     tokens and the reader has to know that before acting on an absence. */}}
+<p class="meta">This tenant has more actors than this listing walked, so the rows below are not every token of the tenant. A credential you cannot find here may belong to an actor past the walk.</p>
+{{end}}
 <table>
   <thead><tr><th>Name</th>{{if .Data.Owners}}<th>Owner</th>{{end}}{{if .Columns.Show "tokens" "scopes"}}<th>Scopes</th>{{end}}{{if .Columns.Show "tokens" "created"}}<th>Created</th>{{end}}{{if .Columns.Show "tokens" "expires"}}<th>Expires</th>{{end}}<th>State</th><th></th></tr></thead>
   <tbody>
