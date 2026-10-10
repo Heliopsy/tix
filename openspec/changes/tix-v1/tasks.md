@@ -174,7 +174,7 @@ ticked, and coverage is at or above 80% (excluding `internal/tui`).
 - [x] 7.8 WP-52 `internal/bench`: seeded fixture and benchmarks with p95 budgets
 - [x] 7.9 WP-52 Cross-transport integration test: direct-database write observed over WebSocket and webhook. Both halves run the production path in `internal/integration/outbox_test.go`: the writer is a second service on the same database with no handle on the server, and the webhook is dispatched by the running server's own `server.Assemble` dispatcher worker (the writer runs in server hook mode, so it never delivers). Unwiring `DispatcherWorker` fails the test.
 - [x] 7.10 WP-52 Coverage at or above 80% and the full gate set green
-- [ ] 7.11 WP-52 Repository made public and v0.1.0 tagged
+- [x] 7.11 WP-52 Repository made public and v0.1.0 tagged
 
 ## 8. Wave 8 — Readable identities and a workspace that shows its controls
 
@@ -212,7 +212,7 @@ ticked, and coverage is at or above 80% (excluding `internal/tui`).
 - [x] 9.11 WP-72 `tix tenant use`, verifying the key by opening the target tenant, because an actor cannot list another one
 - [x] 9.12 WP-72 `config.SaveChanges`: editing one configuration key stops pinning every other key's resolved value
 - [x] 9.13 WP-72 Terminal interface: an in-session tenant switcher taking a typed key, because an actor cannot list another tenant, and the filter bar's help naming the two new operators
-- [ ] 9.14 WP-70 Browser: `internal/web`'s own filter parser taught the same negation and weak-match syntax
+- [x] 9.14 WP-70 Browser: `internal/web`'s own filter parser taught the same negation and weak-match syntax
 - [x] 9.15 WP-70 `internal/query`: the activity filter the audit listing and the terminal interface's event tail share, with `tix audit ls --filter` and an activity filter bar over it
 
 ## 10. Wave 10 — Screens that say what they do
