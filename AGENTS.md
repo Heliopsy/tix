@@ -131,6 +131,16 @@ A list the code already holds is asserted rather than maintained: see
 - When a merge commit is unavoidable, give it a conventional subject naming
   what it delivers, never `merge: ...`.
 
+## Release pull requests
+
+- Approve only the runs whose head is the current one. Approving a run that is
+  `action_required` replays it with the workflow file it was created against,
+  so a stale run resurrects a workflow bug already fixed on `main` and reports
+  it as a failure on the release.
+- release-please does not rebase its branch when the release content has not
+  changed, so a pull request cut before a workflow fix keeps failing on it.
+  Close it and let the next push to `main` regenerate one on the fixed base.
+
 ## Before you push
 
     just check
