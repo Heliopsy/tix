@@ -6,8 +6,10 @@ import (
 	"bytes"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/lease"
 )
 
 func TestArtifactsAreStoredAndListed(t *testing.T) {
@@ -92,5 +94,110 @@ func TestArtifactInputIsValidated(t *testing.T) {
 	}
 	if _, err := l.ListArtifacts(t.Context(), ref); !core.IsKind(err, core.KindUnauthenticated) {
 		t.Errorf("ListArtifacts unauthenticated = %v", err)
+	}
+}
+
+// TestArtifactWriteIsLeaseBound covers the matrix requireLeaseToken decides,
+// through the artifact write rather than through a transition. The case that
+// matters is the live lease with no token: a zombie runs `artifact put` with no
+// token at all, so a guard that only refused an offered token would catch
+// nothing.
+func TestArtifactWriteIsLeaseBound(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		lapse   bool
+		token   func(held string) string
+		wantErr bool
+	}{
+		{name: "the holder writes under its token", token: func(held string) string { return held }},
+		{name: "a live lease refuses a tokenless write", token: func(string) string { return "" }, wantErr: true},
+		{name: "a live lease refuses another token", token: func(string) string { return "not-the-held-one" }, wantErr: true},
+		{name: "a lapsed lease accepts no token", lapse: true, token: func(string) string { return "" }},
+		{name: "a lapsed lease refuses an offered token", lapse: true, token: func(held string) string { return held }, wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newClaimFixture(t, 0)
+			task := f.seedTask(t, "under a lease", "doing", core.PriorityNormal)
+			claim := mustClaim(t, f, task)
+			if tc.lapse {
+				f.clock.Advance(lease.DefaultTTL + time.Second)
+			}
+
+			_, err := f.local.PutArtifact(f.ctx, ref(task), core.ArtifactInput{
+				Kind: core.ArtifactResult, Name: "summary", LeaseToken: tc.token(claim.LeaseToken),
+			})
+			if tc.wantErr {
+				if !core.IsKind(err, core.KindLeaseExpired) {
+					t.Fatalf("PutArtifact = %v, want lease expired", err)
+				}
+				if got := f.artifacts(t, task); len(got) != 0 {
+					t.Errorf("a refused write left %d artifacts, want the list untouched", len(got))
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("PutArtifact: %v", err)
+			}
+			if got := f.artifacts(t, task); len(got) != 1 {
+				t.Fatalf("artifacts = %d, want the one just written", len(got))
+			}
+		})
+	}
+}
+
+// TestZombieCannotWriteOverTheNewHolder is the reported defect: the predecessor
+// writes a result that every later reader takes for the current holder's.
+func TestZombieCannotWriteOverTheNewHolder(t *testing.T) {
+	f := newClaimFixture(t, 0)
+	task := f.seedTask(t, "handed on", "doing", core.PriorityNormal)
+	zombie := mustClaim(t, f, task)
+	f.clock.Advance(lease.DefaultTTL + time.Second)
+
+	live, err := f.local.ClaimTask(f.asOther(), ref(task), core.ClaimInput{})
+	if err != nil {
+		t.Fatalf("re-claiming as the new holder: %v", err)
+	}
+	if _, err := f.local.PutArtifact(f.asOther(), ref(task), core.ArtifactInput{
+		Kind: core.ArtifactResult, Name: "summary",
+		Payload: map[string]any{"by": "live"}, LeaseToken: live.LeaseToken,
+	}); err != nil {
+		t.Fatalf("the new holder writing its result: %v", err)
+	}
+
+	for _, token := range []string{zombie.LeaseToken, ""} {
+		if _, err := f.local.PutArtifact(f.ctx, ref(task), core.ArtifactInput{
+			Kind: core.ArtifactResult, Name: "summary",
+			Payload: map[string]any{"by": "zombie"}, LeaseToken: token,
+		}); !core.IsKind(err, core.KindLeaseExpired) {
+			t.Errorf("the zombie's write with token %q = %v, want lease expired", token, err)
+		}
+	}
+
+	got := f.artifacts(t, task)
+	if len(got) != 1 {
+		t.Fatalf("artifacts = %d, want only the live holder's", len(got))
+	}
+	if got[0].Payload["by"] != "live" || got[0].ActorID != f.other.ID {
+		t.Errorf("surviving artifact = %+v, want the live holder's", got[0])
+	}
+}
+
+// TestCommentingAndEditingStayOpenOnAClaimedTask is the other half of the
+// design: tix is one queue shared by humans and agents, so the writes by which
+// somebody else participates in held work take no token.
+func TestCommentingAndEditingStayOpenOnAClaimedTask(t *testing.T) {
+	f := newClaimFixture(t, 0)
+	task := f.seedTask(t, "held while discussed", "doing", core.PriorityNormal)
+	mustClaim(t, f, task)
+
+	if _, err := f.local.AddComment(f.asOther(), ref(task), "is this the race in TestRetry?"); err != nil {
+		t.Errorf("commenting on a task somebody holds: %v", err)
+	}
+	high := core.PriorityHigh
+	if _, err := f.local.UpdateTask(f.asOther(), ref(task), core.UpdateTaskInput{Priority: &high}); err != nil {
+		t.Errorf("re-prioritising a task somebody holds: %v", err)
+	}
+	if got := f.reload(t, task); got.Priority != core.PriorityHigh || got.ClaimedByActorID != f.actor.ID {
+		t.Errorf("task = %+v, want it re-prioritised and still held", got)
 	}
 }

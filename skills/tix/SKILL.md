@@ -61,14 +61,27 @@ tix claim release "$ref" --token "$token" --status done \
 ## Leases — read this part
 
 A claim mints a `lease_token` and an absolute `lease_expires_at` (UTC, not a
-duration — no clock-drift math). That token is required on every write that
-touches the task:
+duration — no clock-drift math). While the task is claimed, that token is
+required on every write to its **status or its results** — which is what stops a
+worker whose lease lapsed from writing over whoever holds the task now:
 
 - `tix claim renew REF --token T --ttl 15m` — resets the deadline to
   now+ttl (not "extend by").
 - `tix claim release REF --token T [--status S]`
 - `tix task mv REF STATUS --lease-token T` — required whenever the task is
   currently claimed.
+- `tix artifact put REF --lease-token T` — required whenever the task is
+  currently claimed. `claim release --result` and `claim exec` carry results
+  under the token already, so this is the fallback for attaching something
+  mid-run, not the usual route.
+
+**Keep the token in a variable for the whole run.** Two writes need it, and
+`claim` is the only thing that ever tells you what it is.
+
+Two writes deliberately need **no** token, on a claimed task or any other, so
+do not pass one and do not expect a refusal: `tix comment add` (append-only
+discussion, and how a human talks to you about work you hold) and `tix task
+edit` (shared triage — use `--version` if you care about a concurrent edit).
 - `tix task mv REF STATUS --hops` — reaches a status the workflow only gets to
   through another state. The route is printed first and then applied one
   ordinary transition per hop, so the audit trail records every state the task
@@ -111,7 +124,24 @@ error: lease_expired: the lease on task "default-1" is no longer held under that
 
 $ tix task mv default-1 doing --lease-token stale-token
 error: lease_expired: the lease on task "default-1" is not held by this token
+
+$ tix artifact put default-1 --payload '{"passed":true}' --lease-token stale-token
+error: lease_expired: the lease on task "default-1" is not held by this token
 ```
+
+Dropping the token does not get you past it. On a task that is still claimed,
+omitting it is refused too, so there is no tokenless back door to the result
+list:
+
+```console
+$ tix artifact put default-1 --payload '{"passed":true}'
+error: lease_expired: task "default-1" is claimed; supply the lease token
+```
+
+Going the other way, a task whose lease has lapsed and that nobody has
+re-claimed reads as *unclaimed*, so these writes take **no** token — and
+offering one anyway is itself `lease_expired`. Either way the answer is the
+same: re-claim, don't guess.
 
 `task mv`'s `lease_expired` only fires when the target status is otherwise a
 legal transition from the task's current state. If the transition itself
@@ -410,15 +440,23 @@ Leave a trail a human can read without re-running your work:
 
 ```sh
 tix comment add default-1 "reproduced: race in TestRetry, fixed with a mutex"
-tix artifact put default-1 --kind result --payload '{"tests_run":42,"fixed":true}'
-tix artifact put default-1 --kind log --file build.log --content-type text/plain
+tix artifact put default-1 --kind result --payload '{"tests_run":42,"fixed":true}' --lease-token "$token"
+tix artifact put default-1 --kind log --file build.log --content-type text/plain --lease-token "$token"
 ```
 
 `artifact put --kind` is `result|log|file|metric` (default `result`), and
 `--name` labels it on the task. `--payload -` / `--file -` read stdin.
+
+**`artifact put` needs `--lease-token` while you hold the task; `comment add`
+never does.** An artifact is your work product, so the lease guards it — that is
+what keeps a dead predecessor from writing a `result` that later readers take
+for yours. A comment is discussion, which is why a human can leave one on a task
+you are holding. Drop `--lease-token` only when the task is genuinely unclaimed;
+on a claimed one it is exit `4`.
+
 `claim release --comment "..."` and `--result key=value` (repeatable) are
 the fast path when you're closing the task anyway — no separate
-`comment add` needed.
+`comment add` needed, and no token to pass by hand.
 
 ## Dependencies and subtasks
 
@@ -647,7 +685,7 @@ $ token=$(jq -r .lease_token <<<"$claim")
 $ tix --db /tmp/scratch.db task mv "$ref" doing --lease-token "$token" -q
 
 $ tix --db /tmp/scratch.db comment add "$ref" "reproduced: race in TestRetry, fixed with a mutex" -q
-$ tix --db /tmp/scratch.db artifact put "$ref" --kind result --payload '{"tests_run":42,"fixed":true}' -q
+$ tix --db /tmp/scratch.db artifact put "$ref" --kind result --payload '{"tests_run":42,"fixed":true}' --lease-token "$token" -q
 
 $ tix --db /tmp/scratch.db claim release "$ref" --token "$token" --status done \
     --result exit_code=0 --comment "patched and merged" -o json

@@ -250,13 +250,15 @@ func (in TransitionInput) Validate() error {
 	return nil
 }
 
-// ArtifactInput records structured output on a task.
+// ArtifactInput records structured output on a task. An artifact is the
+// holder's work product, so a task carrying a live lease requires its token.
 type ArtifactInput struct {
 	Kind        ArtifactKind   `json:"kind" yaml:"kind"`
 	Name        string         `json:"name,omitempty" yaml:"name,omitempty"`
 	Payload     map[string]any `json:"payload,omitempty" yaml:"payload,omitempty"`
 	ContentType string         `json:"content_type,omitempty" yaml:"content_type,omitempty"`
 	Blob        []byte         `json:"blob,omitempty" yaml:"blob,omitempty"`
+	LeaseToken  string         `json:"lease_token,omitempty" yaml:"lease_token,omitempty"`
 }
 
 // Validate checks the input.

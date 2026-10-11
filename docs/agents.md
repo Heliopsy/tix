@@ -142,11 +142,13 @@ worker's lease can end work it knows nothing about. The `admin` role holds it th
 ## Why a zombie cannot write
 
 A worker whose lease expired while it was blocked on something has no way to notice on its own. tix makes that
-harmless: the lease token is required on every write that touches a claimed task.
+harmless: while a task holds a live lease, its **status and its results** can only be written under that lease's
+token.
 
 - `tix claim renew` needs `--token`
 - `tix claim release` needs `--token`
 - `tix task mv` needs `--lease-token` when the task is claimed
+- `tix artifact put` needs `--lease-token` when the task is claimed
 
 A token that is not the one currently held fails with exit 4 and a `lease_expired` error:
 
@@ -156,11 +158,41 @@ error: lease_expired: the lease on task "default-1" is no longer held under that
 
 $ tix task mv default-1 done
 error: lease_expired: task "default-1" is claimed; supply the lease token
+
+$ tix artifact put default-1 --payload '{"passed":true}'
+error: lease_expired: task "default-1" is claimed; supply the lease token
 ```
 
 When the lease expired and another worker re-claimed the task, the store minted a new token. The old one no
-longer matches, so the zombie's write is rejected rather than overwriting the new holder's work. The zombie does
-not need to cooperate, and the new holder does not need to defend itself.
+longer matches, so the zombie's write is rejected rather than overwriting the new holder's work. A zombie
+presenting no token at all is rejected the same way, which is the part that matters: the zombie does not need to
+cooperate, and the new holder does not need to defend itself.
+
+The guard runs against the lease rather than against the token's text — the store is asked to renew under the
+offered token, so holding the lease is what passes. A task whose lease has lapsed and that nobody has re-claimed
+reads as unclaimed and takes these writes with **no** token; offering one for a lease that is no longer live is
+itself a `lease_expired`, because a caller that believes it still holds the task should find that out rather than
+write.
+
+### What the lease deliberately does not cover
+
+tix is one queue shared by humans and agents, so two writes are left open on purpose. These are not gaps:
+
+- **Comments.** `tix comment add` never needs a token, on a claimed task or any other. A person commenting on a
+  task an agent is working is the ordinary case, and comments are append-only — nothing replaces another, so
+  there is no work for a token to defend. This is also the channel that always works from the browser, which
+  holds no lease.
+- **Field edits.** `tix task edit` never needs a token. Re-prioritising, re-assigning or re-titling live work is
+  what a human operator is for. The control for two editors colliding on a field is `--version`, which refuses an
+  edit built on a stale read in either direction; a lease would answer a different question and would answer it
+  wrongly for the common case.
+
+Custom fields are the part of an edit closest to being work product, and the lease-bound way to write them
+already exists: pass them to the transition the holder makes anyway, which carries the token.
+
+Because the browser and terminal interfaces cannot mint a lease token, neither can move a claimed task or attach
+an artifact to one; both can always comment on it and edit its fields. Ending a live lease without its token is a
+separate authority, `task:reclaim`, described above.
 
 ## tix claim exec
 
