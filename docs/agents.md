@@ -150,7 +150,8 @@ token.
 - `tix task mv` needs `--lease-token` when the task is claimed
 - `tix artifact put` needs `--lease-token` when the task is claimed
 
-A token that is not the one currently held fails with exit 4 and a `lease_expired` error:
+A token that is not the one currently held, and no token at all, both fail with exit 4 and a `lease_expired`
+error:
 
 ```console
 $ tix claim renew default-1 --token stale
