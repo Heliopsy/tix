@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.15.2](https://github.com/Heliopsy/tix/compare/v0.15.1...v0.15.2) (2026-10-11)
+
+
+### Bug Fixes
+
+* **service,cmd:** the lease guards the work product ([8cea5c0](https://github.com/Heliopsy/tix/commit/8cea5c055db9c708f3133decdbabf149edb1d406))
+* **service,cmd:** the lease guards the work product ([4665330](https://github.com/Heliopsy/tix/commit/466533015ccb0b27c91a5c64d216b4953d32345e))
+* **service,cmd:** the lease guards the work product ([71570f1](https://github.com/Heliopsy/tix/commit/71570f14ee2e6f413912b2944f35ac5ff5d49deb))
+
 ## [0.15.1](https://github.com/Heliopsy/tix/compare/v0.15.0...v0.15.1) (2026-10-10)
 
 
