@@ -2,7 +2,7 @@
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. There is no MCP server; this CLI is the only interface. Covers the claim/lease/release loop, `tix claim exec`, machine-readable output, exit codes, filtering, `tix watch`, comments/artifacts, dependencies, the actor directory, `tix stats`, `tix ssh`, and multi-target config.
 version: 8
-verified-against: tix 58980ef (2026-10-10)
+verified-against: tix 71570f1 (2026-10-11)
 ---
 
 # tix
@@ -74,20 +74,21 @@ worker whose lease lapsed from writing over whoever holds the task now:
   currently claimed. `claim release --result` and `claim exec` carry results
   under the token already, so this is the fallback for attaching something
   mid-run, not the usual route.
-
-**Keep the token in a variable for the whole run.** Two writes need it, and
-`claim` is the only thing that ever tells you what it is.
-
-Two writes deliberately need **no** token, on a claimed task or any other, so
-do not pass one and do not expect a refusal: `tix comment add` (append-only
-discussion, and how a human talks to you about work you hold) and `tix task
-edit` (shared triage — use `--version` if you care about a concurrent edit).
 - `tix task mv REF STATUS --hops` — reaches a status the workflow only gets to
   through another state. The route is printed first and then applied one
   ordinary transition per hop, so the audit trail records every state the task
   passed through. With `--dry-run` it prints the route and writes nothing. When
   two routes are equally short it refuses and asks you to name one, written
   `doing>done`.
+
+**Keep the token in a variable for the whole run.** Both `task mv` and
+`artifact put` need it, and `claim` is the only thing that ever tells you what
+it is.
+
+Two writes deliberately need **no** token, on a claimed task or any other, so
+do not pass one and do not expect a refusal: `tix comment add` (append-only
+discussion, and how a human talks to you about work you hold) and `tix task
+edit` (shared triage — use `--version` if you care about a concurrent edit).
 
 On `claim renew` and `claim release`, `--token` is the *lease* token and
 shadows the global API `--token`. Elsewhere `--token` is the API token.

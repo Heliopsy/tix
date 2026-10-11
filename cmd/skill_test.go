@@ -255,7 +255,13 @@ func resolveInvocation(root *cobra.Command, words []string) (*cobra.Command, []s
 		if cmd == root {
 			return nil, nil, true
 		}
-		break
+		// A positional argument is not the end of the invocation. Stopping here
+		// meant every flag written after the reference went unchecked, which is
+		// most of them: `tix task mv default-1 doing --lease-token T` names the
+		// flag after two positionals, and so does every `artifact put`. The
+		// command is already resolved by the time a positional appears, so
+		// scanning on costs nothing and is the only way those flags are read.
+		continue
 	}
 	return cmd, flags, true
 }
