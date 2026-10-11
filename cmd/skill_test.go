@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -23,9 +24,20 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// skillFile is the agent skill, which documents this command tree and records
-// the commit it was checked against.
-const skillFile = "../skills/tix/SKILL.md"
+// skillDir is the agent skill. SKILL.md is what an agent loads; the reference
+// files beside it are what it reads when it needs them, and every guard below
+// reads the whole directory.
+//
+// It was one file, and every guard named that file. Splitting it without
+// widening them would have left the references unchecked, which is the shape of
+// failure this file exists to catch: a guard reading something narrower than
+// the thing it names. A flag that stopped existing, a quoted error the binary
+// cannot print and a stated default that drifted would all have gone invisible
+// the moment they moved out of SKILL.md.
+const (
+	skillDir  = "../skills/tix"
+	skillFile = skillDir + "/SKILL.md"
+)
 
 // verifiedAgainst matches the one version marker the skill is allowed to carry.
 var verifiedAgainst = regexp.MustCompile(`(?m)^verified-against: tix ([0-9a-f]{7,40}) \([0-9]{4}-[0-9]{2}-[0-9]{2}\)$`)
@@ -34,20 +46,111 @@ var verifiedAgainst = regexp.MustCompile(`(?m)^verified-against: tix ([0-9a-f]{7
 // process or to the shell.
 var terminators = map[string]bool{"|": true, "||": true, "&&": true, ";": true, ">": true, ">>": true, "<": true, "#": true}
 
-func readSkill(t *testing.T) string {
+// skillSources returns every Markdown file the skill ships, keyed by its path
+// relative to the skill directory.
+//
+// Each file is kept apart rather than joined, because a fence opened in one
+// file would otherwise swallow the next file's prose and hide every command in
+// it from the extractors.
+func skillSources(t *testing.T) map[string]string {
 	t.Helper()
-	b, err := os.ReadFile(skillFile)
+
+	out := map[string]string{}
+	err := filepath.WalkDir(skillDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".md") {
+			return nil
+		}
+		b, rerr := os.ReadFile(path)
+		if rerr != nil {
+			return rerr
+		}
+		rel, rerr := filepath.Rel(skillDir, path)
+		if rerr != nil {
+			return rerr
+		}
+		out[filepath.ToSlash(rel)] = string(b)
+		return nil
+	})
 	if err != nil {
 		t.Fatalf("reading the skill: %v", err)
 	}
-	return string(b)
+	if _, ok := out["SKILL.md"]; !ok {
+		t.Fatalf("%s holds no SKILL.md; the skill changed shape", skillDir)
+	}
+	return out
+}
+
+// readSkill returns every file the skill ships, joined, for the guards that ask
+// whether the skill says a thing anywhere.
+func readSkill(t *testing.T) string {
+	t.Helper()
+
+	sources := skillSources(t)
+	names := make([]string, 0, len(sources))
+	for name := range sources {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	var b strings.Builder
+	for _, name := range names {
+		b.WriteString(sources[name])
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+// readSkillFile returns one file the skill ships.
+func readSkillFile(t *testing.T, name string) string {
+	t.Helper()
+
+	sources := skillSources(t)
+	body, ok := sources[name]
+	if !ok {
+		t.Fatalf("the skill ships no %s", name)
+	}
+	return body
+}
+
+// skillLink matches a Markdown link to a file beside SKILL.md.
+var skillLink = regexp.MustCompile(`\]\(([A-Za-z0-9_./-]+\.md)[^)]*\)`)
+
+// TestSkillReferencesEveryFileItShips fails when a reference file is not
+// reachable from SKILL.md.
+//
+// SKILL.md is the only file an agent is given. A reference it does not link to
+// is a file nobody opens, so its content is not deeper material but dead
+// material: it goes stale unread while the guards above go on checking it and
+// reporting that the skill is sound. Progressive disclosure only discloses what
+// something points at.
+func TestSkillReferencesEveryFileItShips(t *testing.T) {
+	sources := skillSources(t)
+	index := sources["SKILL.md"]
+
+	linked := map[string]bool{}
+	for _, m := range skillLink.FindAllStringSubmatch(index, -1) {
+		linked[strings.TrimPrefix(filepath.ToSlash(filepath.Clean(m[1])), "./")] = true
+	}
+	for name := range sources {
+		if name == "SKILL.md" || linked[name] {
+			continue
+		}
+		t.Errorf("the skill ships %s but SKILL.md links to no such file, so no agent ever opens it; "+
+			"link it from SKILL.md or delete it", name)
+	}
 }
 
 func TestSkillRecordsOneVersionMarker(t *testing.T) {
 	skill := readSkill(t)
 
 	if n := len(verifiedAgainst.FindAllString(skill, -1)); n != 1 {
-		t.Fatalf("verified-against matched %d times, want exactly 1", n)
+		t.Fatalf("verified-against matched %d times across the skill, want exactly 1", n)
+	}
+	if !verifiedAgainst.MatchString(readSkillFile(t, "SKILL.md")) {
+		t.Error("the one verified-against marker is not in SKILL.md; a reference file cannot date the skill")
 	}
 	if n := strings.Count(skill, "verified-against:"); n != 1 {
 		t.Errorf("verified-against: appears %d times, want 1; a second marker drifts", n)
@@ -100,12 +203,16 @@ func TestSkillVerifiedAgainstIsAnAncestorOfHead(t *testing.T) {
 func TestSkillNamesOnlyRealCommandsAndFlags(t *testing.T) {
 	root, _ := newRoot([]string{"HOME=" + t.TempDir()}, t.TempDir())
 
-	lines := skillInvocations(readSkill(t))
-	if len(lines) < 20 {
-		t.Fatalf("found %d tix invocations in the skill, want the extractor to still work", len(lines))
+	var total int
+	for name, body := range skillSources(t) {
+		lines := skillInvocations(body)
+		total += len(lines)
+		for _, line := range lines {
+			checkInvocation(t, root, name, line)
+		}
 	}
-	for _, line := range lines {
-		checkInvocation(t, root, line)
+	if total < 20 {
+		t.Fatalf("found %d tix invocations in the skill, want the extractor to still work", total)
 	}
 }
 
@@ -163,8 +270,9 @@ func inlineCode(line string) []string {
 }
 
 // checkInvocation resolves every tix command on one line against the real
-// command tree and asserts each flag it passes exists there.
-func checkInvocation(t *testing.T, root *cobra.Command, line string) {
+// command tree and asserts each flag it passes exists there. where names the
+// file the line came from, so a failure says which one to fix.
+func checkInvocation(t *testing.T, root *cobra.Command, where, line string) {
 	t.Helper()
 
 	words := strings.Fields(stripQuoted(line))
@@ -172,20 +280,41 @@ func checkInvocation(t *testing.T, root *cobra.Command, line string) {
 		if cleanWord(w) != "tix" {
 			continue
 		}
-		cmd, flags, known := resolveInvocation(root, words[i+1:])
+		cmd, flags, args, known := resolveInvocation(root, words[i+1:])
 		if !known {
 			continue
 		}
 		if cmd == nil {
-			t.Errorf("skill names a command tix does not have: %s", line)
+			t.Errorf("%s names a command tix does not have: %s", where, line)
 			continue
 		}
 		if cmd == root {
 			continue
 		}
+		// Resolution stops at the last word the tree recognised and the rest
+		// are positional arguments, so a misspelled subcommand reads as an
+		// argument to its parent. `tix claim ls` passed this file for exactly
+		// that reason: `claim` is real, `ls` was dropped, and nothing asked
+		// whether `claim` accepts a positional word. It does not, and its own
+		// Args validator is what says so.
+		//
+		// Only a word that is present is judged. An argument the skill leaves
+		// out cannot be checked here, because prose names a command beside a
+		// flag to talk about the flag -- `tix task add --due`, `tix claim
+		// exec` -- and words after -- belong to a child process, so exec's
+		// required argument is never in this list. Asserting on an empty args
+		// list failed all of those and none of them is wrong. `tix sync run`
+		// without its source id reached the skill through that gap and was
+		// caught by running the command instead.
+		if len(args) > 0 && cmd.Args != nil {
+			if err := cmd.Args(cmd, args); err != nil {
+				t.Errorf("%s: %s does not accept %v: %v: %s", where, cmd.CommandPath(), args, err, line)
+				continue
+			}
+		}
 		for _, flag := range flags {
 			if !hasFlag(cmd, flag) {
-				t.Errorf("%s has no flag %s: %s", cmd.CommandPath(), flag, line)
+				t.Errorf("%s: %s has no flag %s: %s", where, cmd.CommandPath(), flag, line)
 			}
 		}
 	}
@@ -222,12 +351,13 @@ func cleanWord(w string) string {
 }
 
 // resolveInvocation walks words down the command tree and reports the command
-// reached with the flags passed to it. A nil command with known set means the
-// first word names nothing in the tree; a placeholder such as <command> is not
-// an invocation at all, and words after -- belong to a child process.
-func resolveInvocation(root *cobra.Command, words []string) (*cobra.Command, []string, bool) {
-	cmd := root
-	var flags []string
+// reached, the flags passed to it, and the positional words left over. A nil
+// command with known set means the first word names nothing in the tree; a
+// placeholder such as <command> is not an invocation at all, and words after
+// -- belong to a child process.
+func resolveInvocation(root *cobra.Command, words []string) (cmd *cobra.Command, flags, args []string, known bool) {
+	cmd = root
+	descending := true
 
 	for i := 0; i < len(words); i++ {
 		w := cleanWord(words[i])
@@ -238,7 +368,7 @@ func resolveInvocation(root *cobra.Command, words []string) (*cobra.Command, []s
 			break
 		}
 		if strings.HasPrefix(w, "<") {
-			return nil, nil, false
+			return nil, nil, nil, false
 		}
 		if strings.HasPrefix(w, "-") && w != "-" {
 			name, _, inline := strings.Cut(w, "=")
@@ -248,16 +378,19 @@ func resolveInvocation(root *cobra.Command, words []string) (*cobra.Command, []s
 			}
 			continue
 		}
-		if next, _, err := cmd.Find([]string{w}); err == nil && next != cmd {
-			cmd = next
-			continue
+		if descending {
+			if next, _, err := cmd.Find([]string{w}); err == nil && next != cmd {
+				cmd = next
+				continue
+			}
+			if cmd == root {
+				return nil, nil, nil, true
+			}
+			descending = false
 		}
-		if cmd == root {
-			return nil, nil, true
-		}
-		break
+		args = append(args, w)
 	}
-	return cmd, flags, true
+	return cmd, flags, args, true
 }
 
 // hasFlag reports whether a command defines a flag, by long name or shorthand,
@@ -392,20 +525,24 @@ func TestSkillQuotedFailuresAreOnesTheBinaryCanPrint(t *testing.T) {
 		kinds[string(k)] = true
 	}
 
-	quoted := skillQuotedFailures(readSkill(t))
-	if len(quoted) < 4 {
-		t.Fatalf("found %d quoted failures in the skill, want the extractor to still work", len(quoted))
+	var total int
+	for name, body := range skillSources(t) {
+		quoted := skillQuotedFailures(body)
+		total += len(quoted)
+		for _, line := range quoted {
+			m := skillFailureLine.FindStringSubmatch(line)
+			text := m[2] + m[3]
+			if kind := m[1]; kind != "" && !kinds[kind] {
+				t.Errorf("%s quotes error kind %q, which core.Kinds does not list: %s", name, kind, line)
+			}
+			if !producible(messages, text) {
+				t.Errorf("%s quotes a failure no message in the source can produce:\n  %s\n"+
+					"requote it from a real run, or drop it if the case no longer exists", name, line)
+			}
+		}
 	}
-	for _, line := range quoted {
-		m := skillFailureLine.FindStringSubmatch(line)
-		text := m[2] + m[3]
-		if kind := m[1]; kind != "" && !kinds[kind] {
-			t.Errorf("the skill quotes error kind %q, which core.Kinds does not list: %s", kind, line)
-		}
-		if !producible(messages, text) {
-			t.Errorf("the skill quotes a failure no message in the source can produce:\n  %s\n"+
-				"requote it from a real run, or drop it if the case no longer exists", line)
-		}
+	if total < 4 {
+		t.Fatalf("found %d quoted failures in the skill, want the extractor to still work", total)
 	}
 }
 

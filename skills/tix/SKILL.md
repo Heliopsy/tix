@@ -1,26 +1,89 @@
 ---
 name: tix
-description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. There is no MCP server; this CLI is the only interface. Covers the claim/lease/release loop, `tix claim exec`, machine-readable output, exit codes, filtering, `tix watch`, comments/artifacts, dependencies, the actor directory, `tix stats`, `tix ssh`, and multi-target config.
-version: 8
-verified-against: tix 58980ef (2026-10-10)
+description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. There is no MCP server; this CLI is the only interface. Covers writing your own plan down as tasks before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
+version: 9
+verified-against: tix 14f9d69 (2026-10-11)
 ---
 
 # tix
 
-One queue, shared by people and agents. Read this once; you should not need
-`tix --help` after.
+One queue, shared by people and agents. This file is the whole hot path: the
+loop you run constantly. Four reference files sit beside it for the things you
+need once in a while:
+
+- [reference/queries.md](reference/queries.md) — the filter language, deadlines,
+  sorting and paging, the actor directory, `tix stats`, `tix watch`.
+- [reference/setup.md](reference/setup.md) — targets and contexts, API tokens
+  and scopes, `tix serve`, workflows and custom fields, the audit log,
+  import/export, sync, webhooks, bundles, retention.
+- [reference/ssh.md](reference/ssh.md) — serving the terminal interface over
+  SSH, and enrolling keys.
+- [reference/recovery.md](reference/recovery.md) — the worked crash transcript
+  this skill's claims were verified against.
 
 The commit this file was checked against is the `verified-against` field above,
 and nowhere else. `cmd/skill_test.go` reads that field and fails if it names a
-commit that is not an ancestor of HEAD, or if this file names a command or flag
-the CLI does not have. Run `tix version` against the build you are driving; if
-it is much newer than that commit, trust `tix <command> --help` where the two
-disagree.
+commit that is not an ancestor of HEAD, or if any file in this skill names a
+command or flag the CLI does not have. Run `tix version` against the build you
+are driving; if it is much newer than that commit, trust `tix <command> --help`
+where the two disagree.
 
-## The agent loop
+## Write your plan down before you start
+
+This is the point of using tix as an agent, and it is the step you are most
+likely to skip.
+
+If you are handed an assignment, **decompose it into tix tasks first, then
+work them one at a time.** A plan that lives only in your context is lost
+completely when your process dies. A plan recorded as tasks costs you one
+task's work, because every other task is still sitting in the queue where you
+or another agent can pick it up.
 
 ```sh
-claim=$(tix claim next -p infra -s todo -o json -q) || exit $?
+# 1. the assignment, as one parent task
+tix task add "ship the retry fix" -p default --priority high -q -o json
+
+# 2. the steps, as subtasks of it, with the ordering written down
+tix task add "reproduce the flake" --parent default-1 -q
+tix task add "patch and test" --parent default-1 --depends-on default-2 -q
+tix task add "update the changelog" --parent default-1 --depends-on default-3 -q
+
+# 3. read back what you committed to
+tix task tree default-1
+```
+
+**Subtasks and dependencies are deliberately different things, and you want
+both.**
+
+- `--parent` is **containment**: this work belongs to that work. It groups the
+  plan so a reader (or your replacement) sees the shape of it, and it stops the
+  parent being deleted out from under the children — `task rm` on a task with
+  subtasks is exit `6` unless you pass `--cascade`.
+- `--depends-on` is **ordering**: this cannot start until that is finished. It
+  is what the queue enforces. A task with an unfinished dependency reports
+  `"blocked": true` and `tix claim next` will not hand it out at all.
+
+So `--parent` is for whoever reads the plan; `--depends-on` is for whoever
+works it. A plan with only parents lets you claim step three before step one.
+
+Write the steps at the granularity you are willing to lose. One task per unit
+of work you could redo from its description alone.
+
+Then take them one at a time, leaving a trail as you go:
+
+```sh
+tix comment add default-2 "reproduced on the third run; it is a race in TestRetry"
+tix artifact put default-2 --kind log --file ./test-output.txt --content-type text/plain
+```
+
+When you discover work you did not plan for, add it as a task rather than
+doing it silently. That is the same durability argument: an unrecorded detour
+is lost with your context.
+
+## The loop
+
+```sh
+claim=$(tix claim next -p default -s todo -o json -q) || exit $?
 ref=$(jq -r .task.ref <<<"$claim")
 token=$(jq -r .lease_token <<<"$claim")
 
@@ -34,83 +97,54 @@ tix claim release "$ref" --token "$token" --status done \
   **non-terminal** task matching the filter and claims it atomically. No
   filter still excludes `done`/`cancelled` tasks; it does not exclude other
   non-terminal statuses like `blocked`, so scope with `-s todo` if that
-  matters.
+  matters — but read the trap under "Crash recovery" before you rely on
+  `-s todo` to drain a queue.
 - Empty queue (or nothing eligible) is exit `3` with code `no_task_available`,
   not an empty success. Treat it as "nothing to do right now", not an error.
 - **Exit `3` is two different answers. Read the code, not just the number.** A
   queue filter naming something this tenant does not have is exit `3` with
   code `not_found`, and sleeping will not fix it: the queue is not empty, the
   question was wrong. `-p nosuchproject` and `-s nosuchstatus` both fail that
-  way, before the queue is looked at.
-- `-s <typo>` used to answer `no_task_available`, so following the rule above
-  literally would have had you idle for ever against a queue full of work.
-  It is `not_found` now, checked against the states of every workflow in the
-  tenant. If you get `not_found`, fix the filter or stop; do not poll.
-- Project keys and statuses are matched without regard to case, so
-  `-p INFRA -s TODO` claims what `-p infra -s todo` claims.
-- A tag is deliberately **not** checked. A tag exists by being applied, so an
-  unknown tag and a tag with no tasks are the same state: `-l nosuchtag` is an
-  ordinary empty queue, `no_task_available`, not `not_found`.
+  way, before the queue is looked at. If you get `not_found`, fix the filter
+  or stop; do not poll. A tag is the one exception: `-l nosuchtag` is an
+  ordinary empty queue, not `not_found`.
+  [reference/queries.md](reference/queries.md) has the rest, including which
+  terms are matched without regard to case.
 - `tix claim task REF` claims one named task instead of the next eligible
   one. Exit `4` if it's already held. Unlike `claim next` it does **not**
   screen for `blocked`: it will hand you a task with an unfinished
   dependency. Check `"blocked"` yourself if you claimed by ref.
 - Claiming does **not** transition the task. Move it yourself (`task mv`) or
   use `--on-start` with `claim exec`.
+- There is no `tix claim` subcommand that lists leases. To see what is
+  currently held — which is how you tell whether another agent is already on
+  the queue — ask the task listing: `tix task ls --filter 'claimed:yes'`.
 
-## Leases — read this part
+## Leases
 
 A claim mints a `lease_token` and an absolute `lease_expires_at` (UTC, not a
-duration — no clock-drift math). That token is required on every write that
-touches the task:
+duration — no clock-drift math). That token is required on every **transition**
+of the task:
 
 - `tix claim renew REF --token T --ttl 15m` — resets the deadline to
   now+ttl (not "extend by").
 - `tix claim release REF --token T [--status S]`
 - `tix task mv REF STATUS --lease-token T` — required whenever the task is
   currently claimed.
-- `tix task mv REF STATUS --hops` — reaches a status the workflow only gets to
-  through another state. The route is printed first and then applied one
-  ordinary transition per hop, so the audit trail records every state the task
-  passed through. With `--dry-run` it prints the route and writes nothing. When
-  two routes are equally short it refuses and asks you to name one, written
-  `doing>done`.
 
 On `claim renew` and `claim release`, `--token` is the *lease* token and
 shadows the global API `--token`. Elsewhere `--token` is the API token.
 
-If you don't renew in time, the lease expires. `tix claim sweep` (run from
-cron, or automatically on a ticker inside `tix serve`) reverts any state
-whose workflow marks `revert_on_lease_expiry` — the built-in workflow
-reverts `doing` → `todo`. A worker that renews on schedule never sees this;
-one that stalls, crashes, or is killed just stops renewing and the task
-becomes claimable again with no cleanup step.
-
-An operator holding `task:reclaim` can end a live lease without its token,
-for a worker that died without releasing:
-
-```sh
-tix claim reclaim REF --reason 'agent host died'
-```
-
-That frees the task immediately and leaves its status alone — a finished task
-stays finished, and `revert_on_lease_expiry` is not applied, because reopening
-work is `tix task mv`, made as its own decision. The reclaim is recorded under
-the audit action `task.reclaim` and the `task.reclaimed` event, which is a
-different fact from `task.lease_expired`: an administrator took this, rather
-than a worker stopping answering. `task:reclaim` is a scope of its own and is
-not implied by `task:claim`.
-
 **If your token goes stale — because you didn't renew in time, or someone
-reclaimed the task, or someone else claimed it — every write with that token
-fails with exit `4` and error code `lease_expired`:**
+reclaimed the task, or someone else claimed it — every transition with that
+token fails with exit `4` and error code `lease_expired`:**
 
 ```console
 $ tix claim renew default-1 --token stale-token --ttl 15m
 error: lease_expired: the lease on task "default-1" is no longer held under that token; claim it again
 
-$ tix task mv default-1 doing --lease-token stale-token
-error: lease_expired: the lease on task "default-1" is not held by this token
+$ tix task mv default-2 done --lease-token agent-a-stale-token
+error: lease_expired: the lease on task "default-2" is not held by this token
 ```
 
 `task mv`'s `lease_expired` only fires when the target status is otherwise a
@@ -123,15 +157,88 @@ it.** The right response to exit `4` is: stop, re-`claim next` or `claim
 task`, and re-evaluate — the new holder may already be doing the work, or
 the task may need to be re-picked up from scratch.
 
-## `tix claim exec` — the single most useful primitive
+### What the lease does not protect
 
-Claims, runs a child process while renewing the lease on a ticker, then
-releases with the child's exit status recorded as the result. One command
-instead of the whole loop above:
+**The lease guards transitions and nothing else.** Comments and artifacts take
+no token and are never checked against one. An agent whose lease has expired,
+whose task has been re-claimed by somebody else, and which has not noticed,
+can still do this and get exit `0`:
 
 ```sh
-tix claim exec --ref infra-42 --on-start doing -- make test
-tix claim exec -p infra -s todo --on-start doing --on-failure blocked -- ./worker.sh
+tix comment add default-2 "conclusions from work that is no longer mine"
+tix artifact put default-2 --kind result --payload '{"stale":true}'
+```
+
+Verified: both succeed for a non-holder with no token at all. So a zombie
+agent cannot move your task, but it **can** write a result over the live
+holder's. For a queue of agents that is the wrong way round, and it is the one
+place where you have to defend yourself rather than letting the lease do it:
+
+- Before writing a comment or an artifact after any long or interruptible
+  step, confirm you still hold the lease. `tix claim renew REF --token T
+  --ttl 15m` is the cheap check: exit `0` means the task is still yours, exit
+  `4` means stop writing.
+- Prefer `claim release --comment` and `--result key=value` over a separate
+  `comment add`/`artifact put` when you are closing the task anyway. The
+  release is lease-guarded, so the comment and the results go through the same
+  check the transition does, and a stale agent's whole closing write is
+  refused together.
+- Treat a comment or an artifact as evidence, never as a lock. Nothing stops
+  two agents writing contradictory results on one task.
+
+## Crash recovery — why this is safe
+
+Expiry is lazy. There is no sweeper in the path and nothing has to be running:
+once `lease_expires_at` has passed, the queue reads the row as unclaimed, so a
+crashed agent's task becomes claimable again on its own. Kill `-9` an agent
+mid-work and another `claim next` picks the task up, with no cleanup step.
+
+That is the whole durability argument, and it is why the unit of loss is one
+task rather than a plan. [reference/recovery.md](reference/recovery.md) has
+the transcript.
+
+**The trap: a crashed task is claimable again but its status has not moved.**
+The row stays in `doing`. So a worker draining the queue with
+`claim next -s todo` will **never see it again** — it answers
+`no_task_available`, exit `3`, while the task sits there claimable in `doing`.
+Verified against a killed agent.
+
+`tix claim sweep` is what puts the status back: it reverts any state whose
+workflow marks `revert_on_lease_expiry`, and the built-in workflow reverts
+`doing` → `todo`. It runs from cron, or on a ticker inside `tix serve`. So:
+
+- If something runs the sweep, `-s todo` is a safe filter.
+- If nothing does, do not scope by status at all, or sweep yourself first:
+  `tix claim sweep --dry-run` reports what it would revert, `tix claim sweep`
+  does it, and `--limit` caps one run.
+- `tix status` tells you which world you are in: it reports how many servers
+  are attached and how many **leases have expired and are unswept**. A nonzero
+  count there with no server attached means nothing is sweeping.
+
+An operator holding `task:reclaim` can end a *live* lease without its token,
+for a worker that died without releasing:
+
+```sh
+tix claim reclaim REF --reason 'agent host died'
+```
+
+That frees the lease and leaves the status alone: it does not apply
+`revert_on_lease_expiry` and it does not reopen anything, because reopening
+work is `tix task mv`, made as its own decision. A task holding no live lease
+is `conflict`, exit `4` — a finished task cannot be reclaimed, and neither can
+one whose lease already lapsed, since there is nothing left to take.
+`task:reclaim` is a scope of its own and is not implied by `task:claim`.
+
+## `tix claim exec` — the loop in one command
+
+Claims, runs a child process while renewing the lease on a ticker, then
+releases with the child's exit status recorded as the result. Prefer it
+whenever the work is a command, because the renewal is handled for you and a
+kill takes the renewal with it:
+
+```sh
+tix claim exec --ref default-2 --on-start doing -- make test
+tix claim exec -p default -s todo --on-start doing --on-failure blocked -- ./worker.sh
 ```
 
 | Flag | Effect |
@@ -145,18 +252,31 @@ tix claim exec -p infra -s todo --on-start doing --on-failure blocked -- ./worke
 It prints `claimed REF until <deadline>` to stderr before starting the
 child; `-q` suppresses that.
 
-The release status must be reachable from the *current* status. The
-built-in workflow has no `todo`→`done` edge, so skipping `--on-start doing`
-means the release fails **after the child already ran** — verified: the
-child's side effects land, then
+Both the start and the release status must be reachable from the status the
+task is in at the time. The built-in workflow has no `todo`→`done` edge, so
+skipping `--on-start doing` means the release fails **after the child already
+ran** — the child's side effects land, then
 
 ```console
 error: invalid: workflow "default" has no transition from "todo" to "done"
 ```
 
 and the process exits `2`, not the child's status. The task is left claimed
-under a lease nobody is renewing, so it comes back through `claim sweep`.
+under a lease nobody is renewing, so it comes back when the lease lapses.
 Always set `--on-start` unless you know the workflow allows a direct edge.
+
+Equally, do not point `--on-start` at the status the task is already in. That
+is an illegal self-transition, and exec claims the task, fails the move and
+stops **before** the child runs:
+
+```console
+$ tix claim exec --ref default-2 --on-start doing -- true
+claimed default-2 until 2026-10-11T13:40:40Z
+error: precondition_failed: cannot move task "default-2" from "doing" to "doing"; allowed targets are todo, blocked, done, cancelled
+```
+
+That is exit `6`, which is not in exec's table below, so a child exiting `6`
+and a refused `--on-start` look alike — read the message.
 
 Exec's exit codes are not the normal table, because the child's own exit
 status is threaded through:
@@ -175,26 +295,33 @@ whether the child produced its expected output.
 If `claim exec` itself is killed, renewal stops with it and the lease just
 expires on schedule — no cleanup step needed.
 
-## Machine-readable output
+## Statuses, categories and terminal states
 
-`-o json`, `-o yaml`, `-o ndjson` (default is `table`). `tix task ls`
-streams so large listings never buffer. Machine formats **never** carry
-colour escapes, even with `--color` forced — verified: `-o json --color`
-produces plain bytes, no ANSI. `-q` suppresses diagnostics (not errors —
-those still go to stderr with a nonzero exit), and it does not suppress the
-command's own result table.
+Do not hard-code the five built-in statuses. A tenant can define any workflow,
+so **read the states before you move a task**:
 
-```console
-$ tix claim next -p default -s todo -o json -q
-{
-  "task": {"ref": "default-1", "status": "todo", "priority": 2, ...},
-  "lease_token": "M3eGR7ubYpHzHaUJ3nl-weTlTY1DL2q577Nqk2aHp8M",
-  "lease_expires_at": "2026-09-22T10:23:38.942529676Z"
-}
+```sh
+tix workflow get default -o json      # states, transitions, and default_lease
 ```
 
-`priority` is numeric: 1 highest … 5 lowest, 3 is `normal`. `--priority
-high` on `task add` maps to `2`.
+Every state carries a `category`, and there are six: `todo`, `in_progress`,
+`blocked`, `waiting`, `done`, `cancelled`. The category is how you reason
+about a status you have never seen — a state in `waiting` is parked on
+something outside the queue, so it is not work you can push forward by
+claiming it, and a state in `done` or `cancelled` is `terminal`, which is what
+releases a dependency.
+
+The built-in workflow's terminal states are `done` and `cancelled`. **Use
+`cancelled` when you abandon work**, rather than leaving the task in `doing`
+or marking it `done`: it is terminal, so dependants unblock, and it records
+that the work did not happen.
+
+`tix task mv REF STATUS --hops` reaches a status the workflow only gets to
+through another state: it prints the route, then applies one ordinary
+transition per hop, so the audit trail records every state the task passed
+through. With `--dry-run` it prints the route and writes nothing. When two
+routes are equally short it refuses rather than guessing, and asks you to name
+one, written `doing>done`.
 
 ## Exit codes
 
@@ -208,203 +335,64 @@ subcommand's `--help` names the codes that command can return; the root
 | 1 | error |
 | 2 | usage — invalid flag, bad value, illegal input |
 | 3 | not found: a filter term naming nothing, or an empty/no-match queue |
-| 4 | conflict — held task, lost lease, version clash |
+| 4 | conflict — held task, lost lease, version clash, duplicate name |
 | 5 | permission denied |
 | 6 | precondition failed — illegal transition, task has subtasks |
 | 7 | upstream failed — a system tix called, such as a sync source, answered badly |
 
-A dependency cycle is exit `2` (`invalid`), not `6` — verified with `dep add`
-closing a loop. Exit `6` is for things a
-legal *value* still can't do right now (no edge from the current status, subtasks
-blocking a delete), exit `2` is for the value itself being wrong (unknown status
-name, self-dependency, a cycle).
+Exit `6` is for things a legal *value* still can't do right now (no edge from
+the current status, subtasks blocking a delete); exit `2` is for the value
+itself being wrong (unknown status name, self-dependency, a cycle). A
+dependency cycle is exit `2` (`invalid`), not `6`.
 
 Never ignore exit `4`. It means your write did not happen and the state you
 think you're in is not the state that's actually there.
 
-Exit `3` carries two codes and they mean opposite things for what you do
-next. `no_task_available` is "sleep and try again". `not_found` is "the
-question was wrong": a project, status, parent, assignee, creator or
-claimed-by term naming something this tenant does not have. Both filtering and
-claiming fail that way rather than answering empty, because an empty result
-with a zero status cannot be told apart from a correct one. Verified:
-`tix task ls -p nosuchproject` is `not_found`, exit `3`, where it used to be
-`[]` and exit `0`.
+## Machine-readable output
 
-Two deliberate exceptions, so don't "fix" them:
-
-- A **tag** never fails a listing. A tag exists only by being applied, so "no
-  such tag" and "a tag with no tasks" are the same state.
-  `tix task ls -l nosuchtag` is `[]` and exit `0`.
-- A **custom field key** still answers empty.
-  `tix task ls --filter 'field.nosuchfield:high'` is `[]` and exit `0`, not an
-  error. Don't read that as "no task has that value".
-
-A **status** is checked against the union of every workflow in the tenant,
-not the workflow of the project you scoped to. So a status one workflow
-defines and another does not is a legitimate filter that may return an empty
-page; only a status no workflow defines is `not_found`.
-
-Project keys and statuses are matched without regard to case: `-p INFRA` and
-`--status TODO` work.
-
-**A failed listing writes nothing to stdout.** It used to close the document
-on the way out, so a failed `-o json` printed `[]` beside its error and a
-pipeline reading only stdout read a valid empty answer. If it fails part way
-through, the JSON array is left *unterminated* on purpose, so a consumer gets
-a syntax error rather than a short listing it would believe. NDJSON and YAML
-lines already written stand. Check the exit status; do not infer success from
-parseable output.
-
-## Filtering and querying
-
-`task ls` and `claim next` share filter flags; each is a repeatable flag
-(pass it more than once, or comma-separate one instance — both work), OR'd
-within a flag, AND'd across flags:
-
-```sh
-tix task ls -p infra -p ops -s todo -s doing -l ci --unclaimed
-tix task ls --query "flaky test"        # substring match over title + body
-tix task ls --blocked                   # only tasks blocked by a dependency
-tix task ls --sort priority --desc
-tix task ls -p infra --all              # follow cursors, read every page
-tix project ls -o json                  # the project keys, if you do not know them
-```
-
-One `--filter` expression does the same job in a single string, with
-negation and weak matching the flags cannot express:
-
-```sh
-tix task ls --filter 'status:todo -tag:ops title~deploy'
-```
-
-Its keys are `project`, `status`, `tag`, `assignee`, `creator`,
-`claimed-by`, `priority`, `due`, `due-before`, `due-after`, `parent`, `is`,
-`sort`, `limit`, `text`, `title`, `body`, `claimed`, `blocked`, `deleted`. An
-unknown key is exit `2` and the error names the whole set.
-
-## Deadlines
-
-`--overdue` is the shorthand; `--due-before` and `--due-after` take a date.
-`due:` says the same thing in an expression, either as a named window —
-`overdue`, `today`, `week`, `month` — or bounded with `due:<DATE` and
-`due:>DATE`:
-
-```sh
-tix task ls --overdue                            # the deadline has passed
-tix task ls --filter 'due:overdue -status:done'  # the same, minus finished work
-tix task ls --filter 'due:week'                  # falling due in the next seven days
-tix task ls --due-after 2026-01-01 -o json       # one end of a window, as a flag
-```
-
-Both bounds are inclusive, and both drop a task with no deadline: `--overdue`
-never returns an undated task. `--overdue` beside `--due-before` is exit `2`,
-because the two name one bound. An unknown window is exit `2` and the error
-names the four.
-
-Default `--sort` is `urgency`: priority first, then soonest `due_at`, undated tasks
-last within a priority band. `--sort created_at|updated_at|priority|due_at|title`
-still work; an unknown value is exit `2`.
-
-`--cursor`/`--limit` (default 25) page manually; `--all` does it for you.
-`task show REF -o json` for one task; `task tree REF` for a task and its
-descendants. A fresh database seeds four projects — `default`, `work`,
-`homelab`, `house` — so `task ls` with no `-p` spans all of them, while
-`task add` with no `-p` lands in `default`.
-
-## Who is who
-
-`--assignee` takes an actor **handle or id**, on `task add`, `task edit` and
-`task ls` alike, and so do the `creator:` and `claimed-by:` filter terms. A
-handle that names nobody is `not_found`, exit `3`, not an empty list, so a
-typo says so instead of reading as "this actor has no work":
-
-```sh
-tix actor ls -o json                    # this tenant's directory, agents included
-tix actor show raj -o json              # handle or id in, the record out
-tix task ls --assignee raj
-tix task ls --assignee 01M0Z9JH9Y80C13N5TJ8GQK206
-```
-
-The reference is classified by shape, not by asking the directory: a value of
-exactly the length and alphabet of a generated id is treated as an id and
-passed through with no lookup, so an actor from **another tenant** stays
-assignable. Anything else is a handle and must resolve in this tenant.
-
-`actor ls` returns `id`, `kind`, `handle` and `display_name` per row and
-`--limit` (default 25) caps it. Agents are listed beside people, so this is
-how you find the id behind a handle a human gave you, and who else is
-working the queue. An unknown handle or id on `actor show` is exit `3`.
-
-## Statistics
-
-`tix stats` reports a window ending now: what was completed and created, how
-long work took, where the backlog is sitting, and who closed what. Use it to
-report progress instead of counting `task ls` rows yourself.
-
-```sh
-tix stats -o json                       # whole tenant, last 14 days
-tix stats --window 720h -p infra        # one project, last 30 days
-tix stats --since 2026-09-01 --top 10 --oldest 20 -o json
-```
-
-- The default window is 14 days. `--window` takes a duration (`30d`, `720h`,
-  `16d 1h`), `--since` an RFC3339 timestamp or `YYYY-MM-DD`. Passing both is
-  exit `2`; they contradict each other. A window over `87600h` is exit `2`
-  too. That duration vocabulary is Go's syntax plus a day of exactly 24
-  hours, and it is the same everywhere the CLI, the API or the config file
-  takes a duration, so anything the product prints for a reader can be typed
-  back. There is no week unit: `4w` is exit `2`.
-- `--top` (default 5) sizes the leaderboard and `--oldest` (default 5) the
-  list of tasks not yet in a terminal state. Both cap at 100, above which is
-  exit `2`.
-- `-p` scopes to one project key; an unknown key is exit `3`.
-- The leaderboard counts tasks moved to a **terminal state**, nothing else,
-  and the JSON carries `leaderboard_measure` saying so. It is not a measure
-  of effort, and quoting it as one is a lie about your colleagues.
-
-JSON keys: `since`, `until`, `completed`, `created`, `per_day`,
-`median_lead_time`, `slowest_lead_time`, `by_category`, `top_actors`,
-`leaderboard_measure`, `oldest`. Durations in the machine formats stay Go's
-own syntax (`"94h0m0s"`), so snapshots round-trip; the table renders the same
-value as `3d 22h`, which `--window` will read back.
+`-o json`, `-o yaml`, `-o ndjson` (default is `table`). `tix task ls`
+streams so large listings never buffer. Machine formats **never** carry
+colour escapes, even with `--color` forced. `-q` suppresses diagnostics (not
+errors — those still go to stderr with a nonzero exit), and it does not
+suppress the command's own result table.
 
 ```console
-$ tix --db /tmp/scratch.db stats --window 720h
-WINDOW             2026-08-26 .. 2026-09-25  (whole tenant)
-COMPLETED          36
-CREATED            66
-MEDIAN LEAD TIME   2d 15h
-SLOWEST LEAD TIME  12d 3h
-...
+$ tix claim next -p default -s todo -o json -q
+{
+  "task": {"ref": "default-1", "status": "todo", "priority": 2, ...},
+  "lease_token": "M3eGR7ubYpHzHaUJ3nl-weTlTY1DL2q577Nqk2aHp8M",
+  "lease_expires_at": "2026-09-22T10:23:38.942529676Z"
+}
 ```
 
-## Watching instead of polling
+`priority` is numeric: 1 highest … 5 lowest, 3 is `normal`. `--priority
+high` on `task add` maps to `2`.
 
-**Do not poll `task ls` in a loop.** Subscribe instead:
+**A failed listing writes nothing usable to stdout:** a listing that fails
+part way through leaves its JSON array *unterminated* on purpose, so a
+consumer gets a syntax error rather than a short listing it would believe.
+Check the exit status; never infer success from parseable output.
+
+Reading one task or a few:
 
 ```sh
-tix watch --type task.created --type task.released -o ndjson --since "$last_seq"
+tix task show default-1 -o json      # one task
+tix task tree default-1              # a task and its descendants
+tix task ls -s todo --unclaimed -o json
+tix task ls --blocked                # only tasks blocked by a dependency
+tix project ls -o json               # the project keys, if you do not know them
 ```
 
-Prints one JSON event per line as it happens (`--since` resumes without a
-gap, `--limit N` stops after N events, `0` follows forever; with no
-`--since` the stream starts at the *next* event, it does not replay
-history). On connect it prints one banner line to **stderr** — `watching
-local <db> (from flag); ctrl-c to stop` — never stdout, so a piped `-o
-ndjson` stays clean; `-q` suppresses it like every other diagnostic.
-Default output (no `-o`) is one human-readable line per event, e.g.
-`13:53:02  local  created  default-7  watch me` or, for an edit,
-`12:54:45  local  updated  default-1  the title and priority` — the payload
-names the changed field(s). Filter with `--actor`, `--project`, `--type`
-(trailing `*` is a prefix match). Event types are past tense and are not
-the audit action names: `task.created`, `task.claimed`,
-`task.transitioned`, `task.released`, `project.created`,
-`workflow.updated`. A server started with `tix serve` also exposes the same
-event stream over WebSocket — see the project's `api.md` if you're
-integrating outside the CLI.
+A fresh database seeds four projects — `default`, `work`, `homelab`, `house` —
+so `task ls` with no `-p` spans all of them, while `task add` with no `-p`
+lands in `default`. `--limit` (default 25) sizes a page, `--cursor` continues
+one, `--all` follows them for you. The whole filter language, deadlines and
+sorting are in [reference/queries.md](reference/queries.md).
 
-## Comments and artifacts
+**Do not poll `tix task ls` in a loop.** `tix watch` subscribes to the event
+stream instead; see [reference/queries.md](reference/queries.md).
+
+## Comments, artifacts and results
 
 Leave a trail a human can read without re-running your work:
 
@@ -416,246 +404,79 @@ tix artifact put default-1 --kind log --file build.log --content-type text/plain
 
 `artifact put --kind` is `result|log|file|metric` (default `result`), and
 `--name` labels it on the task. `--payload -` / `--file -` read stdin.
-`claim release --comment "..."` and `--result key=value` (repeatable) are
-the fast path when you're closing the task anyway — no separate
-`comment add` needed.
+`claim release --comment "..."` and `--result key=value` (repeatable) are the
+fast path when you're closing the task anyway — and, per "What the lease does
+not protect" above, the safer one.
 
-## Dependencies and subtasks
+Every mutating command takes `--dry-run`, which reports what it would do and
+writes nothing. Use it when you are unsure a transition or a delete is legal.
+
+## Dependencies
 
 ```sh
-tix dep add default-2 default-1     # default-2 waits for default-1 to reach a terminal state
-tix task add "child" --parent default-1
+tix dep add default-3 default-2     # default-3 waits for default-2 to finish
+tix dep ls default-3
+tix dep rm default-3 default-2
 ```
 
-A task with an unfinished dependency shows `"blocked": true` in its JSON
-and `claim next` will not hand it out (`claim task` still will). `dep add`
-fails exit `2` on a self-edge or a cycle (`invalid`, not
-`precondition_failed`). `task rm` on a task with subtasks fails exit `6`
-unless you pass `--cascade`.
+A dependency is released when the task it points at reaches a **terminal**
+state — `done` or `cancelled` in the built-in workflow, not merely "moved on".
+`dep add` fails exit `2` on a self-edge or a cycle (`invalid`, not
+`precondition_failed`).
 
 `dep add` needs `task:write` (not just `task:claim`/`task:transition`) and
-checks authority over *both* ends of the edge: a project-scoped token can
-only link two tasks it can both reach, and a cross-project link with such a
-token fails exit `5`, not a database error.
+checks authority over *both* ends of the edge: a project-scoped token can only
+link two tasks it can both reach, and a cross-project link with such a token
+fails exit `5`, not a database error. `task add --depends-on` is the same
+edge, recorded as the task is created, which is what the planning section
+uses.
 
-## Targets and contexts
-
-Everything resolves the same way whether it's a flag, an env var, or a
-named context — so the same script works locally, in CI, and in a
-container with no code change:
-
-| Flag | Env var | |
-| --- | --- | --- |
-| `--db` | `TIX_DATABASE_DSN` | local sqlite path |
-| `--server` | `TIX_SERVER_URL` | remote API |
-| `--token` | `TIX_TOKEN` (or `TIX_SERVER_TOKEN`) | API token |
-| `--tenant` | `TIX_TENANT` | tenant key |
-| — | `TIX_PROJECT` | default project |
-| `--ctx` | `TIX_CURRENT_CONTEXT` | named context (see `tix ctx --help`) |
-| `-o` | `TIX_OUTPUT_FORMAT` | output format |
-
-Precedence, highest first: flag > env var > `.env`/discovered context file >
-config file > default. `tix config show -v` prints what actually resolved
-and why. `tix doctor` sanity-checks the target before you trust it, and
-names the resolved database and where it came from.
-
-Give an agent a scoped token, not a user session:
+## Know which store you are writing to
 
 ```sh
-tix token create ci-agent --scope task:read --scope task:claim \
-  --scope task:transition --scope comment:write
+tix status                 # what this installation holds, and what is serving it
+tix doctor                 # whether the target is sound, before you trust it
+tix config show -v         # what resolved, and why
 ```
 
-The value prints once. `task:read`, `task:claim`, `task:transition`,
-`comment:write` is normally all an agent needs; add `task:write` if it
-will call `dep add`, `artifact:write` if it records artifacts. `--project`
-on `token create` takes either the project's key or its id, same as
-`-p`/`--project` everywhere else (`--project infra` works); an unknown key
-or id is a clean `not_found`, exit `3`, and an unknown scope is `invalid`,
-exit `2`.
+A command with no `--db` and no configured server resolves to the
+zero-configuration store at `$XDG_DATA_HOME/tix/tix.db`, **which is somebody's
+real work.** The absence of the flag is the bug. For anything experimental,
+pass `--db` at a scratch path, and prefer a fresh tenant over reusing
+`default`.
 
-Two live tokens of one tenant cannot share a name, since the name is what
-you pick by when you revoke; a second `ci-agent` is `conflict`, exit `4`.
-Revoking frees the name, so rotation is `tix token rm ID` then the same
-`token create` again.
-
-`--expires` (default 90d) bounds the token: a duration such as `90d`, a date,
-an RFC 3339 timestamp, or `never`. **A token you mint without saying anything
-expires in ninety days.** That changed: omitting the flag used to mean "never",
-so a script written against the old behaviour now produces a credential that
-stops working, with `invalid_credentials` and exit `5` on the first call after
-it lapses. `--expires never` is the only way to get a token that does not
-expire, and the browser form proposes the same ninety days.
-
-```sh
-tix token create ci-agent --expires 2027-01-01 --scope task:read
-tix token create ci-agent --expires never --scope task:read
-```
-
-`token:admin` reaches the whole tenant's tokens, not only yours:
-`tix token ls --actor carol` lists hers, and `tix token rm ID` revokes any of
-them. Revoking a token that is not yours is recorded as `token.revoke_other`
-in the audit trail, so it can be told apart from somebody rotating their own.
-
-## `tix ssh`: the terminal interface over SSH
-
-`tix ssh` serves the terminal interface (the same thing as `tix tui`) over
-SSH. tix is the SSH server itself: no sshd, no system account, no password. A
-public key is the only credential, and declaring a public-key handler and no
-other is what refuses a password, a keyboard-interactive exchange and an
-authentication offering nothing.
-
-**By default only enrolled keys are accepted.** A key nobody enrolled is
-refused. A key is enrolled against one actor in one tenant, and the session
-holds exactly the authority that actor's membership grants; the key itself
-grants nothing of its own, so a demotion lands on the next connection.
-
-```sh
-tix user key add --file ~/.ssh/id_ed25519.pub --actor ada --label laptop
-ssh-add -L | head -1 | tix user key add --file - --actor ada
-tix user key ls --actor ada
-tix user key rm 01JB2K3M4N5P6Q7R8S9T
-```
-
-`--actor` takes a handle or an id and defaults to *you*, so enrolling somebody
-else's key means naming them. `--file -` reads stdin, `--dry-run` reports what
-would be enrolled without writing. The CLI is not the only route: the same
-three operations are on the API at `/api/v1/ssh-keys` (`GET`, `POST`, `DELETE
-/api/v1/ssh-keys/{id}`) and in the browser at `/admin/ssh-keys`. `user key rm`
-stops a key authenticating at once but does not cut the sessions it already
-holds; those end on `--idle-timeout`.
-
-Authority comes from the tenant membership, not from the key, so enrolling
-against the implicit `local` actor a zero-configuration CLI runs as
-authenticates and then holds **no scopes at all**: it has no membership row.
-Pass `--actor` naming a real user.
-
-**The username is the tenant selector, not a login name.** A fingerprint
-identifies the actor, and SSH offers the server only one other field, so the
-username carries the tenant. A key enrolled in exactly one tenant connects as
-the neutral user `tix`; a key enrolled in several names the tenant key:
-
-```sh
-ssh -p 2222 tix@localhost                 # the one tenant this key is enrolled in
-ssh -p 2222 acme@localhost                # this key's enrolment in tenant acme
-```
-
-Every failure leaves by the same door, so a stranger cannot use the listener to
-learn which tenants exist. An unenrolled key, a username naming a tenant that
-does not exist and a username naming one that holds no enrolment of this key
-are one sentence:
-
-```console
-$ ssh -p 2222 tix@localhost
-tix: this key is not enrolled here: ask an operator to enrol it with `tix user key add`
-```
-
-An ambiguous fingerprint is refused rather than guessed, and naming the
-candidates discloses nothing because each one already admits this key:
-
-```console
-$ ssh -p 2222 tix@localhost
-tix: this key is enrolled in more than one tenant: connect as one of acme, default, for example `ssh acme@host`
-```
-
-**`--demo` is the sandbox, and it is off by default.** With it, any key is
-accepted and handed a seeded ephemeral tenant of its own. The fingerprint is
-the identity, so there is no signup: a new fingerprint gets tenant
-`sandbox-<32 hex>` named `Demo sandbox SHA256:…`, seeded with one `demo` board
-and an actor called `visitor`; the same key coming back gets that tenant
-again; and a sandbox nobody visits for `--tenant-ttl` (default 6h) is deleted
-with everything in it. The username is ignored in this mode.
-
-```sh
-tix ssh --demo --db /var/lib/tix/demo.db
-```
-
-A visitor holds an explicit scope set rather than a role: task read, write,
-transition, claim and delete, project and workflow read and write,
-`comment:write`, `artifact:write`, `event:subscribe`, `audit:read` and
-`export`. Held back is what would reach outside the sandbox or break it:
-administering the tenant, minting credentials, creating users, registering
-webhooks (which would make the listener issue outbound requests) and bulk
-import. An enrolled session is not scoped this way at all.
-
-Only `--demo` refuses the zero-configuration store, because a listener that
-provisions a tenant for any stranger must not share a database with real work:
-
-```console
-$ tix ssh --demo
-error: invalid: ssh --demo refuses the database tix keeps your own work in: give the demo a database of its own with --db
-```
-
-The enrolled listener has no such refusal; serving the configured target is
-the point of it, so `tix ssh --db /var/lib/tix/tix.db` is the intended case.
-That means `tix ssh` with no `--db` serves the zero-configuration store, which
-is somebody's real work. Name a database unless that is what you meant.
-
-Exit `2` for invalid configuration, `1` for a fatal error. It binds
-`127.0.0.1:2222` by default and refuses a non-loopback `--listen` unless you
-also pass `--allow-public`. A host key is generated beside the database on
-first run unless `--host-key` says otherwise, and a non-SQLite target has no
-such place, so `--host-key` is required there. The rest is capacity and
-hygiene: `--max-sessions` (100), `--max-sessions-per-key` (3),
-`--idle-timeout` (30m), `--keepalive-interval` (30s),
-`--keepalive-max-missed` (3), `--rate-per-hour` (60) and `--rate-burst` (5)
-per source address. These shape a sandbox and do nothing without `--demo`:
-`--max-tenants` (200), `--max-tasks` (200), `--lease-ttl` (2m),
-`--reap-interval` (10m). Every one is also a `TIX_SSH_*` environment variable.
-
-The rate limit is refused in the handshake, before any lookup, so exhausting
-it looks like `Permission denied (publickey)` from the client and not like a
-tix message. Verified: reconnecting past `--rate-burst` from one address.
-
-`tix serve --ssh-listen <addr>` runs the same enrolled listener beside the
-HTTP server, over one database and under one shutdown. Sandbox mode is not
-available there, because that process serves real work. Its flags are spelled
-`--ssh-host-key`, `--ssh-allow-public` and `--ssh-idle-timeout`, and unlike
-`tix ssh` they read no configuration key: `TIX_SSH_LISTEN` in the environment
-of a `tix serve` binds nothing.
+Targets, contexts, tokens and scopes are in
+[reference/setup.md](reference/setup.md).
 
 ## Do not
 
+- Do not start work before recording the plan. A crash then costs the plan,
+  not one task.
+- Do not trust a comment or an artifact as proof that you still hold a task.
+  They are not lease-guarded. Renew, or close through `claim release`.
+- Do not drain a queue with `claim next -s todo` unless something is running
+  `claim sweep`. A crashed task stays in `doing` and that filter will never
+  show it again.
 - Do not poll `task ls` in a loop. Use `tix watch`.
 - Do not ignore exit `4`. Re-claim; don't retry the write.
-- Do not write to somebody's default store while testing or demoing —
-  always pass `--db` (or `TIX_DATABASE_DSN`) at a scratch path. A command
-  with no `--db` resolves to the real zero-config store.
+- Do not sleep on exit `3` without reading the code. `no_task_available` means
+  wait; `not_found` means your filter is wrong and waiting is forever.
+- Do not write to somebody's default store while testing or demoing — always
+  pass `--db` (or `TIX_DATABASE_DSN`) at a scratch path.
 - Do not assume a ref (`default-1`) is stable across databases or tenants —
   it's a per-project sequence, not a global ID. If you need a durable
   identifier, use the task's `id`.
 - Do not skip `--on-start` on `claim exec` when the workflow has no direct
-  edge from the current status to your `--on-success`/`--on-failure`
-  target — the release fails after the child already ran.
+  edge from the current status to your `--on-success`/`--on-failure` target —
+  the release fails after the child already ran.
 - Do not assume `claim task REF` screened the task for you. It hands out
   blocked tasks; `claim next` does not.
+- Do not leave abandoned work in `doing`. Move it to `cancelled`, which is
+  terminal, so whatever depends on it stops waiting.
 
-## Worked example
+## A full transcript
 
-```console
-$ tix --db /tmp/scratch.db task add "flaky test in ci job 412" -p default --priority high --tag ci -q
-┌───────────┬──────────────────────────┬────────┬──────────┬──────────┬──────┬─────┬──────────────────┬─────────┐
-│ REF       │ TITLE                    │ STATUS │ PRIORITY │ ASSIGNEE │ TAGS │ DUE │ UPDATED          │ BLOCKED │
-├───────────┼──────────────────────────┼────────┼──────────┼──────────┼──────┼─────┼──────────────────┼─────────┤
-│ default-1 │ flaky test in ci job 412 │ todo   │ high     │          │ ci   │     │ 2026-09-22 12:53 │ no      │
-└───────────┴──────────────────────────┴────────┴──────────┴──────────┴──────┴─────┴──────────────────┴─────────┘
-
-$ claim=$(tix --db /tmp/scratch.db claim next -p default -s todo -o json -q)
-$ ref=$(jq -r .task.ref <<<"$claim")        # default-1
-$ token=$(jq -r .lease_token <<<"$claim")
-
-$ tix --db /tmp/scratch.db task mv "$ref" doing --lease-token "$token" -q
-
-$ tix --db /tmp/scratch.db comment add "$ref" "reproduced: race in TestRetry, fixed with a mutex" -q
-$ tix --db /tmp/scratch.db artifact put "$ref" --kind result --payload '{"tests_run":42,"fixed":true}' -q
-
-$ tix --db /tmp/scratch.db claim release "$ref" --token "$token" --status done \
-    --result exit_code=0 --comment "patched and merged" -o json
-{
-  "ref": "default-1",
-  "status": "ok"
-}
-```
-
-Every command above was run against a scratch SQLite database while writing
-this skill; output shown is real, trimmed only where noted.
+[reference/recovery.md](reference/recovery.md) walks one assignment from plan
+to finish, through a crash and a second agent, with real output throughout.
+Every command in this skill was run against a scratch SQLite database while
+writing it.
