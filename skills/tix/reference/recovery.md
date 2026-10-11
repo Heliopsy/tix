@@ -147,27 +147,28 @@ exit `4`.
 
 ## 5. where the safety stops
 
-Agent A, if it were still running, could not move the task. It **can** still
-write to it, with no token at all:
+Agent A, if it were still running, can neither move the task nor write a result
+over agent B's. Both are refused, with its dead token and with no token at all:
 
 ```console
-$ tix comment add default-2 "agent A, still running, overwriting B's conclusions"
-  "body": "agent A, still running, overwriting B's conclusions",
-   [exit 0]
+$ tix artifact put default-2 --kind result --payload '{"zombie":true}' --lease-token agent-a-stale-token
+error: lease_expired: the lease on task "default-2" is not held by this token
 
-$ tix artifact put default-2 --kind result --payload '{"zombie":true}' -q -o json
-  "kind": "result",
-  "payload": {
-    "zombie": true
-  },
+$ tix artifact put default-2 --kind result --payload '{"zombie":true}'
+error: lease_expired: task "default-2" is claimed; supply the lease token
+```
+
+exit `4` both times. What agent A can still do is comment:
+
+```console
+$ tix comment add default-2 "agent A, still running, with thoughts on B's work"
+  "body": "agent A, still running, with thoughts on B's work",
    [exit 0]
 ```
 
-Both exit `0`. The lease token lives on the transition input alone, so it
-guards transitions and nothing else. Comments and artifacts are not checked
-against it, which means a zombie agent can write a result over the live
-holder's work. See "What the lease does not protect" in SKILL.md for what to
-do about it.
+That is deliberate, not a hole: a comment replaces nothing, and the same
+openness is what lets a human talk to an agent about a task it is holding. See
+"What the lease covers, and what it deliberately does not" in SKILL.md.
 
 ## 6. the plan carries on
 

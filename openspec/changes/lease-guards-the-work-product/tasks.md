@@ -36,11 +36,14 @@
       SIGKILLed worker's artifact write refused after re-claim, with and without its token; a human's
       browser comment and field edit landing on the same held task; and the HTTP API refusing and
       accepting the same three ways
-- [x] 4.3 `just check` exit 0, `just test-postgres` exit 0 with both engines, `just ci` exit 0
+- [x] 4.3 `just check` exit 0 and `just test-postgres` exit 0 with both engines, against this code on
+      the earlier branch point; `just check` re-run on the rebased tree. `just ci` was started and
+      stopped when the branch was rebased, so the gosec and image gates have NOT been run here
 
-## 5. Guard gap found while watching one fail
+## 5. Superseded spec text
 
-- [x] 5.1 `cmd/skill_test.go`: `resolveInvocation` stopped collecting flags at the first positional,
-      so no flag written after a task reference was ever checked. Removing `--lease-token` from
-      `artifact put` left the skill guard green while the skill named the flag five times. Widened,
-      which reported no pre-existing drift and now names all five lines
+- [x] 5.1 `openspec/changes/agent-skill-plans-its-own-work/specs/claim-lease/spec.md`: that change,
+      still unarchived, required the artifact write to take no lease token and to be checked against
+      none, which is the behaviour this change reverses. Its artifact clause and its "An artifact is
+      not a lease-bound operation" scenario are withdrawn with the supersession noted; its comment
+      clause stands, because this change keeps comments open deliberately
