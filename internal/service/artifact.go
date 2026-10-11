@@ -12,6 +12,10 @@ import (
 )
 
 // PutArtifact attaches structured worker output to a task.
+//
+// Lease-bound, where AddComment and UpdateTask deliberately are not: an
+// artifact is the holder's output, and one written by a worker that no longer
+// holds the task displaces the current holder's result for every later reader.
 func (l *Local) PutArtifact(ctx context.Context, ref core.TaskRef, in core.ArtifactInput) (*core.Artifact, error) {
 	if err := in.Validate(); err != nil {
 		return nil, err
@@ -31,6 +35,9 @@ func (l *Local) PutArtifact(ctx context.Context, ref core.TaskRef, in core.Artif
 			return err
 		}
 		if err := l.authorizeTask(ctx, authz.ActionArtifactWrite, task); err != nil {
+			return err
+		}
+		if err := requireLeaseToken(ctx, m.tx, task, in.LeaseToken, m.now); err != nil {
 			return err
 		}
 		a := &core.Artifact{

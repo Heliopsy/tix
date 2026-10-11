@@ -1,7 +1,7 @@
 ---
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. There is no MCP server; this CLI is the only interface. Covers writing your own plan down as tasks before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 9
+version: 10
 verified-against: tix 14f9d69 (2026-10-11)
 ---
 
@@ -157,34 +157,39 @@ it.** The right response to exit `4` is: stop, re-`claim next` or `claim
 task`, and re-evaluate — the new holder may already be doing the work, or
 the task may need to be re-picked up from scratch.
 
-### What the lease does not protect
+### What the lease does and does not cover
 
-**The lease guards transitions and nothing else.** Comments and artifacts take
-no token and are never checked against one. An agent whose lease has expired,
-whose task has been re-claimed by somebody else, and which has not noticed,
-can still do this and get exit `0`:
+**The lease guards the status and the results of a claimed task.** A transition
+needs `--lease-token`, and so does `tix artifact put` while the task is
+claimed. An agent whose lease lapsed and whose task was re-claimed is refused
+both, with exit `4`:
 
-```sh
-tix comment add default-2 "conclusions from work that is no longer mine"
-tix artifact put default-2 --kind result --payload '{"stale":true}'
+```console
+$ tix task mv default-2 done --lease-token stale-token
+error: lease_expired: the lease on task "default-2" is not held by this token
+
+$ tix artifact put default-2 --kind result --payload '{"stale":true}' --lease-token stale-token
+error: lease_expired: the lease on task "default-2" is not held by this token
 ```
 
-Verified: both succeed for a non-holder with no token at all. So a zombie
-agent cannot move your task, but it **can** write a result over the live
-holder's. For a queue of agents that is the wrong way round, and it is the one
-place where you have to defend yourself rather than letting the lease do it:
+`claim release --result key=value` and `claim exec` carry results under the
+token already, so a bare `artifact put` is the fallback for attaching something
+mid-run rather than the usual route.
 
-- Before writing a comment or an artifact after any long or interruptible
-  step, confirm you still hold the lease. `tix claim renew REF --token T
-  --ttl 15m` is the cheap check: exit `0` means the task is still yours, exit
-  `4` means stop writing.
-- Prefer `claim release --comment` and `--result key=value` over a separate
-  `comment add`/`artifact put` when you are closing the task anyway. The
-  release is lease-guarded, so the comment and the results go through the same
-  check the transition does, and a stale agent's whole closing write is
-  refused together.
-- Treat a comment or an artifact as evidence, never as a lock. Nothing stops
-  two agents writing contradictory results on one task.
+**Two writes stay open on purpose, and they are not gaps.** tix is one queue
+shared by people and agents:
+
+- **Comments** never need a token. A person commenting on a task an agent is
+  working is the ordinary case, and comments are append-only — nothing
+  replaces anything, so there is no work for a token to defend. It is also the
+  channel that always works from the browser, which holds no lease.
+- **Field edits** (`tix task edit`) never need a token. Re-prioritising or
+  re-assigning live work is what an operator is for. Two editors colliding on a
+  field is what `--version` is for: it refuses an edit built on a stale read.
+
+So treat a comment as evidence rather than a lock, and put anything that is
+genuinely your work product in an artifact or in the transition itself, where
+the lease defends it.
 
 ## Crash recovery — why this is safe
 

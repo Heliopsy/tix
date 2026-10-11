@@ -183,3 +183,42 @@ func TestArtifactListInEveryFormat(t *testing.T) {
 		})
 	}
 }
+
+// An artifact is the holder's work product, so attaching one to a claimed task
+// takes the lease token the holder was given. Without it the write is refused
+// as lease expiry, which is what stops a worker whose lease lapsed writing over
+// whoever holds the task now.
+func TestArtifactPutOnAClaimedTaskNeedsTheLeaseToken(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("task", "add", "ship it")
+
+	var claim core.Claim
+	out := c.mustRun("claim", "task", "default-1", "--ttl", "5m", "-o", "json").out
+	if err := json.Unmarshal([]byte(out), &claim); err != nil {
+		t.Fatalf("claim is not json: %v\n%s", err, out)
+	}
+	if claim.LeaseToken == "" {
+		t.Fatal("the claim minted no lease token")
+	}
+
+	refused := c.run("artifact", "put", "default-1", "--payload", `{"by":"zombie"}`)
+	if refused.code != core.ExitConflict {
+		t.Fatalf("exit = %d, want %d\n%s", refused.code, core.ExitConflict, refused.err)
+	}
+	if !strings.Contains(refused.err, "lease_expired") {
+		t.Errorf("stderr = %q, want it to name lease_expired", refused.err)
+	}
+	if len(artifactsOf(t, c, "default-1")) != 0 {
+		t.Fatal("a tokenless write on a claimed task attached an artifact anyway")
+	}
+
+	c.mustRun("artifact", "put", "default-1", "--payload", `{"by":"holder"}`,
+		"--lease-token", claim.LeaseToken)
+	artifacts := artifactsOf(t, c, "default-1")
+	if len(artifacts) != 1 {
+		t.Fatalf("artifacts = %d, want the holder's one", len(artifacts))
+	}
+	if artifacts[0].Payload["by"] != "holder" {
+		t.Errorf("artifact payload = %v, want the holder's", artifacts[0].Payload)
+	}
+}
