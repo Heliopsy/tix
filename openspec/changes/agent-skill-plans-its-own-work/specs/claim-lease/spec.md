@@ -8,14 +8,16 @@ omits the token or supplies one that is not current SHALL be rejected.
 Every refusal on this path SHALL be reported as lease expiry, because all of them state the same fact:
 the caller does not hold this lease, and the action it can take is to claim the task again.
 
-The lease-bound operations are exactly those three. The lease token is carried on the transition input
-and nowhere else, so a comment written on a task and an artifact put on a task SHALL NOT require a
-lease token and SHALL NOT be checked against one. A caller holding no lease, or holding a lapsed one,
-SHALL therefore be able to write a comment or an artifact to a task another worker holds.
+A comment written on a task SHALL NOT require a lease token and SHALL NOT be checked against one. A
+caller holding no lease, or holding a lapsed one, SHALL therefore be able to comment on a task another
+worker holds.
 
-That consequence SHALL be stated wherever the lease is explained to an agent, rather than left to be
-inferred from the absence of a flag. A reader told that the lease guards every write to a claimed task
-will trust a result that a worker which no longer holds the task was free to overwrite.
+Which writes the lease covers SHALL be stated wherever the lease is explained to an agent, rather than
+left to be inferred from the presence or absence of a flag.
+
+> Superseded in part by the change `lease-guards-the-work-product`, which makes the artifact write
+> lease-bound. This requirement said artifacts took no token and were never checked against one, which
+> was true of the code at the time and was the defect that change fixes. The comment clause stands.
 
 #### Scenario: Correct token accepted
 
@@ -37,12 +39,6 @@ will trust a result that a worker which no longer holds the task was free to ove
 - **GIVEN** a task held under a live lease by one worker
 - **WHEN** another caller, holding no lease on it, adds a comment
 - **THEN** the comment is written and the request succeeds
-
-#### Scenario: An artifact is not a lease-bound operation
-
-- **GIVEN** a task held under a live lease by one worker
-- **WHEN** another caller, holding no lease on it, puts an artifact
-- **THEN** the artifact is written and the request succeeds
 
 #### Scenario: A result recorded through a release is lease-bound
 

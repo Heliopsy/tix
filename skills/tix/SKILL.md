@@ -2,7 +2,7 @@
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. There is no MCP server; this CLI is the only interface. Covers writing your own plan down as tasks before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
 version: 9
-verified-against: tix 14f9d69 (2026-10-11)
+verified-against: tix 4665330 (2026-10-11)
 ---
 
 # tix
@@ -75,6 +75,9 @@ Then take them one at a time, leaving a trail as you go:
 tix comment add default-2 "reproduced on the third run; it is a race in TestRetry"
 tix artifact put default-2 --kind log --file ./test-output.txt --content-type text/plain
 ```
+
+(Once you have *claimed* default-2, `artifact put` also needs
+`--lease-token "$token"` — see "Leases" below. `comment add` never does.)
 
 When you discover work you did not plan for, add it as a task rather than
 doing it silently. That is the same durability argument: an unrecorded detour
