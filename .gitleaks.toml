@@ -22,7 +22,7 @@ lease token pasted into source would still be reported.
 """
 paths = [
   '''^docs/agents\.md$''',
-  '''^skills/tix/SKILL\.md$''',
+  '''^skills/tix/.*\.md$''',
 ]
 matchCondition = "AND"
 regexTarget = "line"

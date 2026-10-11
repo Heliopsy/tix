@@ -112,7 +112,13 @@ lease columns are gone; the lease-expired event and its audit entry remain the f
 evidence as current for 24 hours and then stop reporting it, without clearing the fields.
 
 No supervisor is involved in any of this. A worker that is SIGKILLed, loses power or is scheduled away simply
-stops renewing, and its task returns to the queue.
+stops renewing, and its task returns to the queue. Expiry is lazy: a lapsed lease reads as unclaimed at the
+next query, so the task is claimable again with nothing running at all.
+
+The status is the part that is not lazy. Until a sweep runs the task sits in whatever state it was left in, so
+a worker draining the queue with `tix claim next -s todo` will not see a crashed `doing` task again --
+`no_task_available`, exit 3, while the task is claimable. Either sweep, or do not scope the claim by status.
+`tix status` reports how many leases have expired and are unswept, which says whether anything is sweeping.
 
 ## Taking a lease back before it runs out
 
@@ -139,10 +145,10 @@ if one was given.
 `task:reclaim` is not part of `task:claim`. Every worker holds that one, and a worker able to end another
 worker's lease can end work it knows nothing about. The `admin` role holds it through `*`; `member` does not.
 
-## Why a zombie cannot write
+## What a zombie cannot do, and what it still can
 
-A worker whose lease expired while it was blocked on something has no way to notice on its own. tix makes that
-harmless: the lease token is required on every write that touches a claimed task.
+A worker whose lease expired while it was blocked on something has no way to notice on its own. The lease token
+makes that mostly harmless: it is required on every **transition** of a claimed task.
 
 - `tix claim renew` needs `--token`
 - `tix claim release` needs `--token`
@@ -159,8 +165,25 @@ error: lease_expired: task "default-1" is claimed; supply the lease token
 ```
 
 When the lease expired and another worker re-claimed the task, the store minted a new token. The old one no
-longer matches, so the zombie's write is rejected rather than overwriting the new holder's work. The zombie does
-not need to cooperate, and the new holder does not need to defend itself.
+longer matches, so the zombie cannot move the task out from under the new holder. The zombie does not need to
+cooperate for that much to hold.
+
+**The lease stops there, and the new holder does have to defend itself.** `LeaseToken` is a field on
+`TransitionInput` alone, so exactly one code path checks it. Comments and artifacts carry no token and are never
+checked against one, which means a zombie's *result* is accepted over the live holder's:
+
+```console
+$ tix comment add default-2 "conclusions from work that is no longer mine"
+  [exit 0]
+
+$ tix artifact put default-2 --kind result --payload '{"stale":true}'
+  [exit 0]
+```
+
+Both succeed for a worker holding no lease at all. For a queue of agents that is the wrong way round, so a
+worker that cares should renew before recording a result -- `tix claim renew REF --token T` is exit 4 when the
+task is no longer its own -- or record the result through `tix claim release --comment/--result`, which goes
+through the transition's check. A comment or an artifact is evidence, never a lock.
 
 ## tix claim exec
 

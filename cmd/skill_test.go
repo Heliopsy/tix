@@ -280,7 +280,7 @@ func checkInvocation(t *testing.T, root *cobra.Command, where, line string) {
 		if cleanWord(w) != "tix" {
 			continue
 		}
-		cmd, flags, known := resolveInvocation(root, words[i+1:])
+		cmd, flags, args, known := resolveInvocation(root, words[i+1:])
 		if !known {
 			continue
 		}
@@ -290,6 +290,27 @@ func checkInvocation(t *testing.T, root *cobra.Command, where, line string) {
 		}
 		if cmd == root {
 			continue
+		}
+		// Resolution stops at the last word the tree recognised and the rest
+		// are positional arguments, so a misspelled subcommand reads as an
+		// argument to its parent. `tix claim ls` passed this file for exactly
+		// that reason: `claim` is real, `ls` was dropped, and nothing asked
+		// whether `claim` accepts a positional word. It does not, and its own
+		// Args validator is what says so.
+		//
+		// Only a word that is present is judged. An argument the skill leaves
+		// out cannot be checked here, because prose names a command beside a
+		// flag to talk about the flag -- `tix task add --due`, `tix claim
+		// exec` -- and words after -- belong to a child process, so exec's
+		// required argument is never in this list. Asserting on an empty args
+		// list failed all of those and none of them is wrong. `tix sync run`
+		// without its source id reached the skill through that gap and was
+		// caught by running the command instead.
+		if len(args) > 0 && cmd.Args != nil {
+			if err := cmd.Args(cmd, args); err != nil {
+				t.Errorf("%s: %s does not accept %v: %v: %s", where, cmd.CommandPath(), args, err, line)
+				continue
+			}
 		}
 		for _, flag := range flags {
 			if !hasFlag(cmd, flag) {
@@ -330,12 +351,13 @@ func cleanWord(w string) string {
 }
 
 // resolveInvocation walks words down the command tree and reports the command
-// reached with the flags passed to it. A nil command with known set means the
-// first word names nothing in the tree; a placeholder such as <command> is not
-// an invocation at all, and words after -- belong to a child process.
-func resolveInvocation(root *cobra.Command, words []string) (*cobra.Command, []string, bool) {
-	cmd := root
-	var flags []string
+// reached, the flags passed to it, and the positional words left over. A nil
+// command with known set means the first word names nothing in the tree; a
+// placeholder such as <command> is not an invocation at all, and words after
+// -- belong to a child process.
+func resolveInvocation(root *cobra.Command, words []string) (cmd *cobra.Command, flags, args []string, known bool) {
+	cmd = root
+	descending := true
 
 	for i := 0; i < len(words); i++ {
 		w := cleanWord(words[i])
@@ -346,7 +368,7 @@ func resolveInvocation(root *cobra.Command, words []string) (*cobra.Command, []s
 			break
 		}
 		if strings.HasPrefix(w, "<") {
-			return nil, nil, false
+			return nil, nil, nil, false
 		}
 		if strings.HasPrefix(w, "-") && w != "-" {
 			name, _, inline := strings.Cut(w, "=")
@@ -356,16 +378,19 @@ func resolveInvocation(root *cobra.Command, words []string) (*cobra.Command, []s
 			}
 			continue
 		}
-		if next, _, err := cmd.Find([]string{w}); err == nil && next != cmd {
-			cmd = next
-			continue
+		if descending {
+			if next, _, err := cmd.Find([]string{w}); err == nil && next != cmd {
+				cmd = next
+				continue
+			}
+			if cmd == root {
+				return nil, nil, nil, true
+			}
+			descending = false
 		}
-		if cmd == root {
-			return nil, nil, true
-		}
-		break
+		args = append(args, w)
 	}
-	return cmd, flags, true
+	return cmd, flags, args, true
 }
 
 // hasFlag reports whether a command defines a flag, by long name or shorthand,
