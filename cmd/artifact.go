@@ -30,7 +30,7 @@ func newArtifactCmd(g *globals) *cobra.Command {
 }
 
 func artifactPutCmd(g *globals) *cobra.Command {
-	var kind, name, contentType, payload, file string
+	var kind, name, contentType, payload, file, leaseToken string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "put REF",
@@ -38,10 +38,14 @@ func artifactPutCmd(g *globals) *cobra.Command {
 		Long: "Attach an artifact to a task.\n" +
 			"The payload is a JSON object given with --payload, or - to read standard input.\n" +
 			"--file attaches the bytes of a file as the artifact blob, or - to read standard input.\n\n" +
-			fmt.Sprintf("Exit codes: %d invalid input, %d unknown reference, %d permission denied.",
-				core.KindInvalid.ExitCode(), core.KindNotFound.ExitCode(), core.KindForbidden.ExitCode()),
+			"An artifact is the holder's work product, so a task holding a live lease needs that lease's " +
+			"token in --lease-token. A task nobody holds needs none, and refuses one that is offered.\n\n" +
+			fmt.Sprintf("Exit codes: %d invalid input, %d unknown reference, %d lease expired, %d permission denied.",
+				core.KindInvalid.ExitCode(), core.KindNotFound.ExitCode(),
+				core.KindLeaseExpired.ExitCode(), core.KindForbidden.ExitCode()),
 		Example: "  tix artifact put default-1 --payload '{\"passed\":true}'\n" +
 			"  tix artifact put default-1 --kind log --file build.log --content-type text/plain\n" +
+			"  tix artifact put default-1 --payload '{\"passed\":true}' --lease-token \"$token\"\n" +
 			"  cat report.json | tix artifact put default-1 --name report --payload -",
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -51,7 +55,7 @@ func artifactPutCmd(g *globals) *cobra.Command {
 			}
 			in, err := artifactInput(cmd, artifactFlags{
 				kind: kind, name: name, contentType: contentType,
-				payload: payload, file: file,
+				payload: payload, file: file, leaseToken: leaseToken,
 			})
 			if err != nil {
 				return err
@@ -81,6 +85,7 @@ func artifactPutCmd(g *globals) *cobra.Command {
 	f.StringVar(&contentType, "content-type", "", "media type of the attached blob")
 	f.StringVar(&payload, "payload", "", "json object to record, or - to read standard input")
 	f.StringVar(&file, "file", "", "file whose bytes are attached as the blob, or - to read standard input")
+	f.StringVar(&leaseToken, "lease-token", "", "lease token held on the task")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would be attached without writing")
 	_ = cmd.RegisterFlagCompletionFunc("kind", fixedCompletion(artifactKinds))
 	return cmd
@@ -128,6 +133,7 @@ type artifactFlags struct {
 	contentType string
 	payload     string
 	file        string
+	leaseToken  string
 }
 
 // artifactInput builds the input the service takes, reading the payload and
@@ -137,6 +143,7 @@ func artifactInput(cmd *cobra.Command, f artifactFlags) (core.ArtifactInput, err
 		Kind:        core.ArtifactKind(strings.TrimSpace(f.kind)),
 		Name:        f.name,
 		ContentType: f.contentType,
+		LeaseToken:  f.leaseToken,
 	}
 	if f.payload == StdinMarker && f.file == StdinMarker {
 		return in, core.Invalid("only one of --payload and --file may read standard input")

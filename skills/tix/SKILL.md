@@ -123,20 +123,28 @@ tix claim release "$ref" --token "$token" --status done \
 ## Leases
 
 A claim mints a `lease_token` and an absolute `lease_expires_at` (UTC, not a
-duration — no clock-drift math). That token is required on every **transition**
-of the task:
+duration — no clock-drift math). That token is required on every write to the
+task's **status or its results**:
 
 - `tix claim renew REF --token T --ttl 15m` — resets the deadline to
   now+ttl (not "extend by").
 - `tix claim release REF --token T [--status S]`
 - `tix task mv REF STATUS --lease-token T` — required whenever the task is
   currently claimed.
+- `tix artifact put REF --lease-token T` — required whenever the task is
+  currently claimed. `claim release --result` and `claim exec` already carry
+  results under the token, so reach for this one when you are recording
+  something mid-run rather than at the end.
+
+**Keep the token in a variable for the whole run.** Both `task mv` and
+`artifact put` need it, and `claim` is the only thing that ever tells you what
+it is.
 
 On `claim renew` and `claim release`, `--token` is the *lease* token and
 shadows the global API `--token`. Elsewhere `--token` is the API token.
 
 **If your token goes stale — because you didn't renew in time, or someone
-reclaimed the task, or someone else claimed it — every transition with that
+reclaimed the task, or someone else claimed it — every such write with that
 token fails with exit `4` and error code `lease_expired`:**
 
 ```console
@@ -145,6 +153,18 @@ error: lease_expired: the lease on task "default-1" is no longer held under that
 
 $ tix task mv default-2 done --lease-token agent-a-stale-token
 error: lease_expired: the lease on task "default-2" is not held by this token
+
+$ tix artifact put default-2 --kind result --payload '{"stale":true}' --lease-token agent-a-stale-token
+error: lease_expired: the lease on task "default-2" is not held by this token
+```
+
+Dropping the token is not a way round it. On a task that is still claimed,
+omitting it is refused too, so there is no tokenless back door to the result
+list:
+
+```console
+$ tix artifact put default-2 --kind result --payload '{"stale":true}'
+error: lease_expired: task "default-2" is claimed; supply the lease token
 ```
 
 `task mv`'s `lease_expired` only fires when the target status is otherwise a
@@ -157,34 +177,34 @@ it.** The right response to exit `4` is: stop, re-`claim next` or `claim
 task`, and re-evaluate — the new holder may already be doing the work, or
 the task may need to be re-picked up from scratch.
 
-### What the lease does not protect
+### What the lease covers, and what it deliberately does not
 
-**The lease guards transitions and nothing else.** Comments and artifacts take
-no token and are never checked against one. An agent whose lease has expired,
-whose task has been re-claimed by somebody else, and which has not noticed,
-can still do this and get exit `0`:
+Your **results are yours while you hold the task.** A zombie agent — lease
+expired, task re-claimed by somebody else, hasn't noticed — can neither move
+your task nor write an artifact over your result. It is refused whether it
+presents its dead token or no token at all, so it does not have to cooperate
+and you do not have to defend yourself.
 
-```sh
-tix comment add default-2 "conclusions from work that is no longer mine"
-tix artifact put default-2 --kind result --payload '{"stale":true}'
-```
+Two writes deliberately take **no** token, on a claimed task or any other. Do
+not pass one and do not expect a refusal:
 
-Verified: both succeed for a non-holder with no token at all. So a zombie
-agent cannot move your task, but it **can** write a result over the live
-holder's. For a queue of agents that is the wrong way round, and it is the one
-place where you have to defend yourself rather than letting the lease do it:
+- **`tix comment add`.** Comments are discussion, and append-only — nothing
+  replaces another. This is how a human talks to you about work you are
+  holding, so it has to keep working; it is also the only channel someone in
+  the browser has on a task you hold, since a browser session holds no lease.
+- **`tix task edit`.** Field edits are shared triage: a human re-prioritising
+  or re-assigning live work is the queue doing its job. If you care about a
+  concurrent edit, that is what `--version` is for, not the lease.
 
-- Before writing a comment or an artifact after any long or interruptible
-  step, confirm you still hold the lease. `tix claim renew REF --token T
-  --ttl 15m` is the cheap check: exit `0` means the task is still yours, exit
-  `4` means stop writing.
-- Prefer `claim release --comment` and `--result key=value` over a separate
-  `comment add`/`artifact put` when you are closing the task anyway. The
-  release is lease-guarded, so the comment and the results go through the same
-  check the transition does, and a stale agent's whole closing write is
-  refused together.
-- Treat a comment or an artifact as evidence, never as a lock. Nothing stops
-  two agents writing contradictory results on one task.
+So: treat a **comment** as evidence, never as a lock — two agents can write
+contradictory comments on one task, and a stale comment from a predecessor is
+noise in a thread rather than a result anybody will mistake for yours. Treat an
+**artifact** as the thing the lease protects, and keep your token to hand so
+you can write one.
+
+Still prefer `claim release --comment` and `--result key=value` when you are
+closing the task anyway: one lease-guarded write instead of three, and no token
+to pass by hand.
 
 ## Crash recovery — why this is safe
 
@@ -398,15 +418,18 @@ Leave a trail a human can read without re-running your work:
 
 ```sh
 tix comment add default-1 "reproduced: race in TestRetry, fixed with a mutex"
-tix artifact put default-1 --kind result --payload '{"tests_run":42,"fixed":true}'
-tix artifact put default-1 --kind log --file build.log --content-type text/plain
+tix artifact put default-1 --kind result --payload '{"tests_run":42,"fixed":true}' --lease-token "$token"
+tix artifact put default-1 --kind log --file build.log --content-type text/plain --lease-token "$token"
 ```
 
 `artifact put --kind` is `result|log|file|metric` (default `result`), and
 `--name` labels it on the task. `--payload -` / `--file -` read stdin.
+
+**`artifact put` needs `--lease-token` while you hold the task; `comment add`
+never does** — see "What the lease covers" above. Drop `--lease-token` only
+when the task is genuinely unclaimed; on a claimed one it is exit `4`.
 `claim release --comment "..."` and `--result key=value` (repeatable) are the
-fast path when you're closing the task anyway — and, per "What the lease does
-not protect" above, the safer one.
+fast path when you're closing the task anyway, and need no token of their own.
 
 Every mutating command takes `--dry-run`, which reports what it would do and
 writes nothing. Use it when you are unsure a transition or a delete is legal.
