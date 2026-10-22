@@ -7,14 +7,7 @@
      "Mine" is already sayable, and precisely, through the filter the assignee
      column's handle writes in one click. */}}
 <h1>Tasks</h1>
-{{if not $v.FilterError}}{{with $v.Summary}}
-<p class="lede summary">
-  {{if eq .Total 0}}Nothing on the list.
-  {{else if .AllDone}}All clear. Everything here is done.
-  {{else}}<strong>{{.Open}}</strong> to go{{if .Done}}, {{.Done}} done{{end}}{{if .Projects}} &middot; across {{.Projects}} project{{if ne .Projects 1}}s{{end}}{{end}}{{if .Held}} &middot; <span class="held">{{.Held}} held by an agent</span>{{end}}{{if .Blocked}} &middot; {{.Blocked}} blocked{{end}}
-  {{end}}
-</p>
-{{end}}{{end}}
+<div id="tasks-summary">{{template "tasks-summary" .}}</div>
 
 <form method="post" action="/tasks" class="quickadd">
   {{template "csrf" .CSRF}}
@@ -110,6 +103,71 @@
 <p class="lede">{{$v.Hidden}} project{{if ne $v.Hidden 1}}s are{{else}} is{{end}} hidden. Use Projects above to change that.</p>
 {{end}}
 
+<div id="tasks-listing">{{template "tasks-listing" .}}</div>
+
+{{if .Advanced}}
+<details class="panel">
+  <summary>Add with details</summary>
+  <div class="body">
+    <form method="post" action="/tasks">
+      {{template "csrf" .CSRF}}
+      <div class="row">
+        <div>
+          <label for="project_ref2">Project</label>
+          <select id="project_ref2" name="project_ref">
+            {{range $v.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
+          </select>
+        </div>
+        <div>
+          <label for="priority">Priority</label>
+          <select id="priority" name="priority">
+            <option value="">default</option>
+            {{range $v.Priorities}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
+          </select>
+        </div>
+      </div>
+      <label for="title2">Title</label>
+      <input id="title2" name="title" required>
+      <label for="body">Notes</label>
+      <textarea id="body" name="body"></textarea>
+      <label for="tags">Tags, comma separated</label>
+      <input id="tags" name="tags" list="known-tags">
+      <datalist id="known-tags">
+        {{range $v.Tags}}<option value="{{.Name}}"></option>{{end}}
+      </datalist>
+      <div class="actions"><button type="submit">Create task</button></div>
+    </form>
+  </div>
+</details>
+{{end}}
+{{template "live-screen" $v.Live}}
+{{end}}
+
+{{/* The summary and the listing are what a live update replaces, and they are
+     the same blocks the page above renders, so a row that arrives live is
+     drawn by exactly what drew the ones already on screen. Everything else --
+     the quick-add box, the filter bar, the view switch, the View panel -- is
+     left alone: those are what the reader types into, and replacing them
+     would be the refresh taking the screen away from them. */}}
+{{define "tasks-live"}}
+<div id="tasks-summary">{{template "tasks-summary" .}}</div>
+<div id="tasks-listing">{{template "tasks-listing" .}}</div>
+{{end}}
+
+{{define "tasks-summary"}}
+{{$v := .Data}}
+{{if not $v.FilterError}}{{with $v.Summary}}
+<p class="lede summary">
+  {{if eq .Total 0}}Nothing on the list.
+  {{else if .AllDone}}All clear. Everything here is done.
+  {{else}}<strong>{{.Open}}</strong> to go{{if .Done}}, {{.Done}} done{{end}}{{if .Projects}} &middot; across {{.Projects}} project{{if ne .Projects 1}}s{{end}}{{end}}{{if .Held}} &middot; <span class="held">{{.Held}} held by an agent</span>{{end}}{{if .Blocked}} &middot; {{.Blocked}} blocked{{end}}
+  {{end}}
+</p>
+{{end}}{{end}}
+{{end}}
+
+{{define "tasks-listing"}}
+{{$v := .Data}}
 {{if and (eq $v.View "board") $v.Board.Agreed}}
 {{/* The board draws this same page of tasks into the columns of the one
      workflow every selected project runs. Columns may only be merged when
@@ -368,40 +426,4 @@
      same listing: a board that paged differently from the list would be a
      different selection wearing the same filter. */}}
 {{template "pager" $v.Pager}}
-
-{{if .Advanced}}
-<details class="panel">
-  <summary>Add with details</summary>
-  <div class="body">
-    <form method="post" action="/tasks">
-      {{template "csrf" .CSRF}}
-      <div class="row">
-        <div>
-          <label for="project_ref2">Project</label>
-          <select id="project_ref2" name="project_ref">
-            {{range $v.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
-          </select>
-        </div>
-        <div>
-          <label for="priority">Priority</label>
-          <select id="priority" name="priority">
-            <option value="">default</option>
-            {{range $v.Priorities}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
-          </select>
-        </div>
-      </div>
-      <label for="title2">Title</label>
-      <input id="title2" name="title" required>
-      <label for="body">Notes</label>
-      <textarea id="body" name="body"></textarea>
-      <label for="tags">Tags, comma separated</label>
-      <input id="tags" name="tags" list="known-tags">
-      <datalist id="known-tags">
-        {{range $v.Tags}}<option value="{{.Name}}"></option>{{end}}
-      </datalist>
-      <div class="actions"><button type="submit">Create task</button></div>
-    </form>
-  </div>
-</details>
-{{end}}
 {{end}}

@@ -57,23 +57,98 @@
     return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
   };
 
-  // debouncer returns a trigger that runs at most once per quiet period. A
-  // multi-hop transition writes its hops as separate events a few
-  // milliseconds apart; waiting for them all to land is what lets the feed
-  // group them the way a page load would. The timer API is a parameter so a
-  // test drives it by hand rather than by waiting.
-  tix.debouncer = function (ms, run, timers) {
+  // coalescer returns a trigger that runs at once and then at most once more
+  // per window. It is what every live update on every screen goes through.
+  //
+  // Leading edge first, because the first event is almost always the only
+  // one: a single status change had nothing to coalesce and the quiet period
+  // was pure added latency in front of the one thing the reader was waiting
+  // to see. Trailing run after it, because a multi-hop transition writes its
+  // hops as separate events milliseconds apart and the screen should settle
+  // on the last of them, not flicker through each.
+  //
+  // maxWait bounds the trailing run. A pure quiet-period timer restarts on
+  // every arrival, so a steady stream from several agents pushed the render
+  // further away with each event and could starve it indefinitely. With the
+  // bound, a screen under continuous change still redraws on a fixed beat.
+  //
+  // After a trailing run the window reopens with nothing queued, so two
+  // renders never land back to back: the floor between any two is ms. The
+  // timer API is a parameter so a test drives it by hand rather than by
+  // waiting.
+  tix.coalescer = function (ms, run, timers, maxWait) {
     var api = timers || global;
-    var timer = null;
-    return function () {
-      if (timer !== null) {
-        api.clearTimeout(timer);
+    var limit = maxWait > 0 ? maxWait : ms * 4;
+    var quiet = null;
+    var cap = null;
+    var queued = false;
+
+    function settle() {
+      if (cap !== null) {
+        api.clearTimeout(cap);
+        cap = null;
       }
-      timer = api.setTimeout(function () {
-        timer = null;
+      if (quiet !== null) {
+        api.clearTimeout(quiet);
+        quiet = null;
+      }
+      if (!queued) {
+        return;
+      }
+      queued = false;
+      run();
+      quiet = api.setTimeout(settle, ms);
+    }
+
+    return function () {
+      if (quiet === null) {
         run();
-      }, ms);
+        quiet = api.setTimeout(settle, ms);
+        return;
+      }
+      queued = true;
+      api.clearTimeout(quiet);
+      quiet = api.setTimeout(settle, ms);
+      if (cap === null) {
+        cap = api.setTimeout(settle, limit);
+      }
     };
+  };
+
+  // backoffDelay is how long to wait before the next attempt at a connection
+  // that keeps failing: doubling from base, capped, and jittered over the
+  // lower half of the interval so a server coming back up is not met by every
+  // open browser at the same instant. random is a parameter for the same
+  // reason the timers are.
+  tix.backoffDelay = function (attempt, base, cap, random) {
+    var start = base > 0 ? base : 500;
+    var ceiling = cap > 0 ? cap : 30000;
+    var n = attempt > 0 ? attempt : 0;
+    var span = Math.min(ceiling, start * Math.pow(2, n));
+    var roll = typeof random === "function" ? random() : Math.random();
+    return Math.round(span / 2 + span / 2 * roll);
+  };
+
+  // staleNotice is what the indicator says while a screen is not receiving
+  // events. It names the consequence rather than the plumbing: a reader does
+  // not care that a socket closed, only that what they are looking at may
+  // have moved on without them.
+  tix.staleNotice = function (polling) {
+    if (polling) {
+      return "Not live. This view may be out of date; checking every 15 seconds.";
+    }
+    return "Not live. This view may be out of date; reconnecting.";
+  };
+
+  // resumeRefused reports whether a subscription was refused because the
+  // cursor it resumed from has been retained out of the log. There is no
+  // honest way to replay the gap at that point, so the screen stops trying to
+  // and re-fetches its fragment whole instead.
+  tix.resumeRefused = function (body) {
+    if (!body || typeof body.message !== "string") {
+      return false;
+    }
+    return body.message.indexOf("cursor") >= 0 && body.message.indexOf("no longer available") >= 0;
   };
 
   // targetKind reads the kind of record a URL fragment names, which is the
@@ -101,6 +176,74 @@
   // would open a second socket for every visit.
   tix.shouldRebind = function (next, bound) {
     return (next || null) !== (bound || null);
+  };
+
+  // wantsEvent reports whether one event is about what a screen is showing.
+  // The subscription filter on the socket already narrows by project and by
+  // event type, which is everything the server can decide; a screen about one
+  // record narrows further here, because the stream carries no filter for
+  // "this task" and a comment on a neighbouring task would otherwise rebuild
+  // the page. An event naming no subject the screen knows is not for it.
+  tix.wantsEvent = function (subject, event) {
+    if (!event) {
+      return false;
+    }
+    if (!subject) {
+      return true;
+    }
+    if (event.subject_id === subject) {
+      return true;
+    }
+    var payload = event.payload || {};
+    return payload.task_id === subject;
+  };
+
+  // fieldDirty reports whether a form control has been changed away from what
+  // the server rendered into it. The comparison is against the control's own
+  // default, not against a copy taken at load, so it stays right for a
+  // control that was itself swapped in by an earlier refresh.
+  tix.fieldDirty = function (el) {
+    if (!el) {
+      return false;
+    }
+    if (el.type === "checkbox" || el.type === "radio") {
+      return !!el.checked !== !!el.defaultChecked;
+    }
+    if (el.tagName === "SELECT") {
+      var options = el.options || [];
+      for (var i = 0; i < options.length; i++) {
+        if (!!options[i].selected !== !!options[i].defaultSelected) {
+          return true;
+        }
+      }
+      return false;
+    }
+    return typeof el.defaultValue === "string" && el.value !== el.defaultValue;
+  };
+
+  // regionBusy reports whether a live region holds work in progress, which is
+  // the one thing a refresh must never discard. Three ways it can: a card is
+  // mid-drag, the caret is in a field inside the region, or a field in it has
+  // been typed into and not yet submitted.
+  tix.regionBusy = function (region, active, dragging) {
+    if (dragging) {
+      return true;
+    }
+    if (!region) {
+      return false;
+    }
+    if (active && typeof region.contains === "function" && region.contains(active) &&
+        tix.isTypingTarget(active)) {
+      return true;
+    }
+    var fields = typeof region.querySelectorAll === "function"
+      ? region.querySelectorAll("input, textarea, select") : [];
+    for (var i = 0; i < fields.length; i++) {
+      if (tix.fieldDirty(fields[i])) {
+        return true;
+      }
+    }
+    return false;
   };
 
   // dragEnabled reports whether the board should attach drag handlers at all.

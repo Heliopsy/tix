@@ -14,6 +14,9 @@ func (h *handler) projectRoutes() []route {
 		get(RouteProjects, "projects.html", h.showProjects, "ListProjects", "ListWorkflows"),
 		post(RouteProjects, h.createProject, "CreateProject"),
 		get(RouteProject, "board.html", h.showBoard, "GetProject"),
+		// The board's live fragment renders through the same template set,
+		// and the same block, the full board does. See showBoardLive.
+		get(RouteBoardLive, "board.html", h.showBoardLive, "GetProject"),
 		post(RouteProjectEdit, h.updateProject, "UpdateProject"),
 		post(RouteProjectArch, h.archiveProject, "ArchiveProject"),
 		post(RouteProjectDel, h.deleteProject, "DeleteProject"),
@@ -166,33 +169,60 @@ type boardView struct {
 	Workflows []core.Workflow
 	Colors    []core.ProjectColor
 	Columns   []column
+
+	// Live is what keeps the columns current while the board is open. See
+	// live.go.
+	Live liveScreen
 }
 
 // showBoard renders one column per workflow state.
 func (h *handler) showBoard(w http.ResponseWriter, r *http.Request) error {
+	data, err := h.buildBoardView(r)
+	if err != nil {
+		return err
+	}
+	return h.render(w, r, "board.html", data.Project.Name, data)
+}
+
+// showBoardLive renders only the columns, from the same block the whole
+// board is drawn by, so a card that arrives live carries the moves its own
+// workflow allows rather than a set this file would have to guess at.
+func (h *handler) showBoardLive(w http.ResponseWriter, r *http.Request) error {
+	data, err := h.buildBoardView(r)
+	if err != nil {
+		return err
+	}
+	return h.renderFragment(w, r, "board.html", "board-live", data.Project.Name, data)
+}
+
+// buildBoardView answers one request for a project board, for the page and
+// for its live fragment alike.
+func (h *handler) buildBoardView(r *http.Request) (boardView, error) {
 	key := r.PathValue("key")
 	project, err := h.svc.GetProject(r.Context(), key)
 	if err != nil {
-		return err
+		return boardView{}, err
 	}
 	workflows, err := h.svc.ListWorkflows(r.Context())
 	if err != nil {
-		return err
+		return boardView{}, err
 	}
 	workflow, err := workflowFor(project, workflows)
 	if err != nil {
-		return err
+		return boardView{}, err
 	}
 	page, err := h.svc.ListTasks(r.Context(), core.TaskFilter{
 		ProjectKeys: []string{project.Key},
 		Page:        core.Page{Limit: core.MaxPageLimit},
 	})
 	if err != nil {
-		return err
+		return boardView{}, err
 	}
-	return h.render(w, r, "board.html", project.Name,
-		boardView{Project: *project, Workflow: *workflow, Workflows: workflows, Colors: core.ProjectColors(),
-			Columns: buildColumns(workflow.Definition, page.Tasks)})
+	return boardView{Project: *project, Workflow: *workflow, Workflows: workflows,
+		Colors:  core.ProjectColors(),
+		Columns: buildColumns(workflow.Definition, page.Tasks),
+		Live:    h.liveBoard(*project),
+	}, nil
 }
 
 // workflowOf resolves the workflow a project is assigned.

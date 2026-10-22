@@ -303,3 +303,26 @@
 </nav>
 {{end}}
 {{end}}
+
+{{/* What a screen hands assets/live.js so it keeps itself current: where to
+     re-fetch its own fragment from, which events are worth re-rendering for,
+     and which regions of the page the answer replaces. It carries no content
+     of its own, and a screen that renders no binding simply never connects.
+
+     data-live holds the screen's state, written by the server from the
+     request that drew the page, so a refresh re-renders the listing the
+     reader narrowed rather than widening it back out. */}}
+{{define "live-screen"}}
+{{- if .Href}}<div id="live-screen" hidden data-events="{{.Events}}" data-live="{{.Href}}" data-live-filter="{{.Filter}}" data-live-regions="{{.Regions}}" data-live-window="{{.Window}}"{{if .Subject}} data-live-subject="{{.Subject}}"{{end}}></div>
+{{template "live-stale"}}{{end}}
+{{- end}}
+
+{{/* What the screen says when it is not receiving events: the socket is down
+     and being retried, or it could never be opened and the page is falling
+     back to a slow poll. A screen that has quietly stopped updating while
+     looking exactly like one that is up to date is the defect this whole
+     mechanism exists to remove, so it is never reintroduced one layer up by
+     failing silently. Hidden whenever the stream is live, which is almost
+     always, and polite rather than assertive: it is a statement about the
+     page, not an error the reader has to act on. */}}
+{{define "live-stale"}}<p id="live-stale" class="livestale" role="status" aria-live="polite" hidden></p>{{end}}

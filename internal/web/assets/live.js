@@ -20,82 +20,420 @@
     return;
   }
 
-  // A notification refreshes the row list by asking the server to render it
-  // again, the same way it did on load (activity.go's showActivityFeed runs
-  // the identical template block templates/activity.html uses). That is the
-  // whole rendering: there is no second, JavaScript-side copy of the
-  // grouping rule or the sentence wording to keep in sync with history.go.
-  var feed = null;
-  var socket = null;
-  var pending = null;
+  // One live connection, four screens.
+  //
+  // A notification refreshes what is on screen by asking the server to render
+  // it again, the same way it did on load: the activity feed re-runs the
+  // block templates/activity.html used (activity.go showActivityFeed), and
+  // the task list, the board and one task's screen re-run theirs
+  // (live.go renderFragment). That is the whole rendering. There is no
+  // second, JavaScript-side copy of a row, a card, a status pill or the
+  // grouping rule, and no client-side model of what a task is: the frames on
+  // the socket say only that something changed, never what it now looks like.
+  //
+  // Everything below is one mechanism with four descriptors, because four
+  // copies of a reconnect is four chances to get it wrong. What differs
+  // between them is where to re-fetch from, which events to ask for, and what
+  // the answer replaces; what they share is the connection: resume, backoff,
+  // the fallback poll and the indicator that says when none of it is working.
 
-  function refresh() {
-    if (pending || !feed) {
+  // pollInterval is how often a screen that could not open a socket at all
+  // asks the server anyway. Deliberately far slower than the socket path:
+  // it exists so that a reader behind an intermediary that eats WebSockets
+  // still sees changes within a quarter of a minute, not so that it becomes
+  // the normal way this works.
+  var pollInterval = 15000;
+
+  // The reconnect curve: 0.5s, 1, 2, 4, 8, 16, 30, 30... each jittered over
+  // the lower half of its interval so a server coming back up is not met by
+  // every open browser at once. Reset the moment a connection opens.
+  var backoffBase = 500;
+  var backoffCap = 30000;
+
+  // How long a refresh waits before looking again at a region the reader is
+  // working in. Short enough that the screen catches up as soon as they stop,
+  // and free: it is one comparison, not a request.
+  var busyRetry = 500;
+
+  function setStale(text) {
+    var notice = document.getElementById("live-stale");
+    if (!notice) {
       return;
     }
-    var target = feed;
-    var feedURL = target.getAttribute("data-feed");
-    pending = fetch(feedURL, { credentials: "same-origin" })
-      .then(function (resp) { return resp.ok ? resp.text() : null; })
-      .then(function (html) {
-        pending = null;
-        if (html !== null && feed === target) {
-          target.innerHTML = html;
-        }
-      })
-      .catch(function () {
-        pending = null;
-      });
+    if (text) {
+      notice.textContent = text;
+      notice.removeAttribute("hidden");
+      return;
+    }
+    notice.setAttribute("hidden", "hidden");
   }
 
-  // A multi-hop transition writes its hops as separate events a few
-  // milliseconds apart. Waiting a moment for them all to land before
-  // rebuilding the row list is what lets the feed group them the way a page
-  // load would, rather than briefly showing the first hop on its own.
-  var scheduleRefresh = tix.debouncer(300, refresh);
+  // liveStream is one screen's connection to the event stream. spec says how
+  // to find the binding element, where its fragment lives, what it subscribes
+  // to, whether the reader is busy in it, and what the fragment replaces.
+  function liveStream(spec) {
+    var bound = null;
+    var socket = null;
+    var pending = null;
+    var trigger = null;
+    var attempt = 0;
+    var seq = 0;
+    var retry = null;
+    var poll = null;
+    var deferred = null;
+    var live = false;
 
-  // connectFeed binds whatever feed element the current page carries. It is
-  // safe to call on every swap: a page with no feed drops the socket, and a
-  // page whose feed is already the bound one is left alone, so clicking
-  // between two pages never opens a second socket.
-  function connectFeed() {
-    var next = document.getElementById("live-feed");
-    if (next && !(next.getAttribute("data-events") && next.getAttribute("data-feed"))) {
-      next = null;
+    function refresh() {
+      if (pending || !bound) {
+        return;
+      }
+      if (spec.busy(bound)) {
+        // Deferred, never dropped: see the note on busy() below. The wait is
+        // its own timer rather than the coalescer's, which runs on its
+        // leading edge and would call straight back into here.
+        defer();
+        return;
+      }
+      var target = bound;
+      pending = fetch(spec.href(target), { credentials: "same-origin" })
+        .then(function (resp) { return resp.ok ? resp.text() : null; })
+        .then(function (html) {
+          pending = null;
+          if (html === null || bound !== target) {
+            return;
+          }
+          if (spec.busy(target)) {
+            defer();
+            return;
+          }
+          spec.apply(target, html);
+        })
+        .catch(function () {
+          pending = null;
+        });
     }
-    if (!tix.shouldRebind(next, feed)) {
-      return;
+
+    function schedule() {
+      if (trigger) {
+        trigger();
+      }
     }
-    if (socket) {
-      socket.close();
+
+    // defer re-checks shortly, for as long as the reader is busy. It costs no
+    // request and no render: the update lands the moment they stop.
+    function defer() {
+      if (deferred !== null) {
+        return;
+      }
+      deferred = window.setTimeout(function () {
+        deferred = null;
+        refresh();
+      }, busyRetry);
+    }
+
+    function stopRetry() {
+      if (retry !== null) {
+        window.clearTimeout(retry);
+        retry = null;
+      }
+    }
+
+    function stopPolling() {
+      if (poll !== null) {
+        window.clearInterval(poll);
+        poll = null;
+      }
+    }
+
+    // startPolling is the fallback for a socket that cannot be established at
+    // all. It stops the moment one opens, so a connection that works never
+    // pays for it.
+    function startPolling() {
+      if (poll !== null || !window.setInterval) {
+        return;
+      }
+      poll = window.setInterval(function () {
+        if (!document.hidden) {
+          refresh();
+        }
+      }, pollInterval);
+    }
+
+    function announce() {
+      setStale(live ? "" : tix.staleNotice(poll !== null));
+    }
+
+    // A hidden page is not reconnected: a laptop that slept wakes with every
+    // open tab retrying at once, and a background tab nobody is looking at
+    // has nothing to keep current. Coming back to the page connects at once
+    // and re-fetches, which is the sleep case and by far the common one.
+    function later() {
+      stopRetry();
+      if (document.hidden) {
+        return;
+      }
+      var wait = tix.backoffDelay(attempt, backoffBase, backoffCap);
+      attempt++;
+      startPolling();
+      announce();
+      retry = window.setTimeout(connect, wait);
+    }
+
+    function closed() {
+      if (socket === null) {
+        return;
+      }
       socket = null;
+      live = false;
+      later();
     }
-    feed = next;
-    if (!feed || !window.WebSocket || !window.fetch) {
-      return;
+
+    function connect() {
+      stopRetry();
+      if (!bound || !window.WebSocket || !window.fetch || document.hidden) {
+        return;
+      }
+      var scheme = window.location.protocol === "https:" ? "wss://" : "ws://";
+      var opening;
+      try {
+        opening = new WebSocket(scheme + window.location.host + bound.getAttribute("data-events"));
+      } catch (err) {
+        later();
+        return;
+      }
+      socket = opening;
+      opening.addEventListener("open", function () {
+        if (socket !== opening) {
+          return;
+        }
+        attempt = 0;
+        live = true;
+        stopPolling();
+        announce();
+        subscribe(opening);
+      });
+      opening.addEventListener("message", function (message) {
+        if (socket !== opening) {
+          return;
+        }
+        received(opening, message);
+      });
+      opening.addEventListener("close", function () {
+        if (socket === opening) {
+          closed();
+        }
+      });
+      opening.addEventListener("error", function () {
+        if (socket === opening) {
+          closed();
+        }
+      });
     }
-    var path = feed.getAttribute("data-events");
-    var scheme = window.location.protocol === "https:" ? "wss://" : "ws://";
-    socket = new WebSocket(scheme + window.location.host + path);
-    socket.addEventListener("open", function () {
-      socket.send(JSON.stringify({ type: "subscribe", id: "feed" }));
-    });
-    socket.addEventListener("message", function (message) {
+
+    // subscribe asks for exactly what this screen can draw, and for the gap
+    // since the last event it saw. The server replays the log from there, so
+    // a connection that dropped loses nothing; without since_seq every change
+    // made during the gap was simply never shown.
+    function subscribe(open) {
+      var message = { type: "subscribe", id: spec.id };
+      var filter = spec.filter(bound);
+      if (filter) {
+        message.filter = filter;
+      }
+      if (seq > 0) {
+        message.since_seq = seq;
+      }
+      open.send(JSON.stringify(message));
+    }
+
+    function received(open, message) {
       var parsed;
       try {
         parsed = JSON.parse(message.data);
       } catch (err) {
         return;
       }
-      if (!parsed || parsed.type !== "event") {
+      if (!parsed) {
         return;
       }
-      scheduleRefresh();
-    });
+      // A cursor the server no longer holds cannot be replayed, and
+      // pretending otherwise would leave a gap nothing ever fills. Drop the
+      // cursor, subscribe from now, and re-fetch the fragment whole: the
+      // server's rendering is the answer, so a refresh is always correct
+      // however much was missed.
+      if (parsed.type === "error" && tix.resumeRefused(parsed.error)) {
+        seq = 0;
+        subscribe(open);
+        schedule();
+        return;
+      }
+      if (parsed.type !== "event" || !parsed.event) {
+        return;
+      }
+      if (parsed.event.seq > seq) {
+        seq = parsed.event.seq;
+      }
+      if (!spec.wants(bound, parsed.event)) {
+        return;
+      }
+      schedule();
+    }
+
+    // rebind moves the stream to whatever binding the current page carries.
+    // The layout boosts every internal navigation, so the element this
+    // connected to is replaced without the script running again; it is safe
+    // to call on every swap, because a page whose binding is the one already
+    // held is left alone and a page with none drops the socket.
+    function rebind() {
+      var next = spec.find();
+      if (!tix.shouldRebind(next, bound)) {
+        return;
+      }
+      stopRetry();
+      stopPolling();
+      if (deferred !== null) {
+        window.clearTimeout(deferred);
+        deferred = null;
+      }
+      if (socket) {
+        var going = socket;
+        socket = null;
+        going.close();
+      }
+      live = false;
+      bound = next;
+      seq = 0;
+      attempt = 0;
+      trigger = bound ? tix.coalescer(spec.window(bound), refresh, null, spec.cap) : null;
+      setStale("");
+      connect();
+    }
+
+    function woken() {
+      if (document.hidden || !bound) {
+        return;
+      }
+      if (!live) {
+        attempt = 0;
+        connect();
+      }
+      // Whatever happened while the page was away is in the fragment, so ask
+      // for it rather than reasoning about what was missed.
+      schedule();
+    }
+
+    return { rebind: rebind, woken: woken };
   }
 
-  connectFeed();
-  document.addEventListener("htmx:load", connectFeed);
+  // The activity feed. Its fragment is the row list itself, so the response
+  // is the region: see activity.go showActivityFeed.
+  var feed = liveStream({
+    id: "feed",
+    find: function () {
+      var el = document.getElementById("live-feed");
+      return el && el.getAttribute("data-events") && el.getAttribute("data-feed") ? el : null;
+    },
+    href: function (el) { return el.getAttribute("data-feed"); },
+    filter: function () { return null; },
+    wants: function () { return true; },
+    busy: function () { return false; },
+    apply: function (el, html) { el.innerHTML = html; },
+    window: function () { return 300; },
+    cap: 1000
+  });
+
+  // The task list, the board and one task's own screen, through one element
+  // the page renders (partials.html "live-screen") carrying where to
+  // re-fetch from, which events to ask for, and which regions the answer
+  // replaces.
+  //
+  // data-live carries the screen's whole state -- the filter, the deadline
+  // window, the sort, the cursor, the project or the task in view -- because
+  // the server wrote it into the attribute from the request that drew the
+  // page. The list/board switch, the column picker and the project
+  // visibility choice are cookies, which the fetch sends. So a refresh
+  // answers the same question the page was already answering, rather than
+  // widening it back out to the first page of everything.
+  var screen = liveStream({
+    id: "screen",
+    find: function () {
+      var el = document.getElementById("live-screen");
+      return el && el.getAttribute("data-events") && el.getAttribute("data-live") ? el : null;
+    },
+    href: function (el) { return el.getAttribute("data-live"); },
+    filter: function (el) {
+      try {
+        return JSON.parse(el.getAttribute("data-live-filter") || "null");
+      } catch (err) {
+        return null;
+      }
+    },
+    wants: function (el, event) {
+      return tix.wantsEvent(el.getAttribute("data-live-subject") || "", event);
+    },
+    busy: busyScreen,
+    apply: applyRegions,
+    window: function (el) {
+      var ms = parseInt(el.getAttribute("data-live-window"), 10);
+      return ms > 0 ? ms : 300;
+    },
+    cap: 1000
+  });
+
+  function regionIDs(el) {
+    var listed = el ? el.getAttribute("data-live-regions") : "";
+    return listed ? listed.split(/\s+/) : [];
+  }
+
+  // busyScreen reports whether the reader is in the middle of something a
+  // refresh would throw away: a card held in a drag, or a field inside a
+  // replaced region that has been typed into or has the caret in it.
+  //
+  // The rule is to defer, never to drop. A refresh that lands mid-drag or
+  // over a half-written comment destroys work the reader cannot get back,
+  // while one that waits costs only the seconds until they stop: the trigger
+  // is re-armed, so the screen converges as soon as the region is idle. The
+  // alternative -- refreshing everything except the busy region -- would
+  // leave a status pill disagreeing with the form under it, which is the
+  // same staleness this exists to remove, in a harder place to notice.
+  //
+  // Only the regions actually replaced are consulted. The quick-add box, the
+  // filter bar and the task screen's own edit forms sit outside them, so
+  // typing in those never holds an update back.
+  function busyScreen(el) {
+    var dragging = !!document.querySelector(".is-dragging");
+    var ids = regionIDs(el);
+    for (var i = 0; i < ids.length; i++) {
+      if (tix.regionBusy(document.getElementById(ids[i]), document.activeElement, dragging)) {
+        return true;
+      }
+    }
+    return dragging;
+  }
+
+  function applyRegions(el, html) {
+    var doc = new DOMParser().parseFromString(html, "text/html");
+    var ids = regionIDs(el);
+    for (var i = 0; i < ids.length; i++) {
+      var fresh = doc.getElementById(ids[i]);
+      var here = document.getElementById(ids[i]);
+      if (fresh && here) {
+        here.innerHTML = fresh.innerHTML;
+      }
+    }
+  }
+
+  function rebindAll() {
+    feed.rebind();
+    screen.rebind();
+  }
+
+  rebindAll();
+  document.addEventListener("htmx:load", rebindAll);
+  document.addEventListener("visibilitychange", function () {
+    feed.woken();
+    screen.woken();
+  });
 })();
 
 // htmx does not swap a non-2xx response, so a refused form used to change

@@ -9,23 +9,8 @@
   <span class="ref">{{$t.Ref}}</span>
   <h1>{{$t.Title}}</h1>
 </div>
-<p>
-  <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span>
-  <span class="prio p-{{prio $t.Priority}}" title="Priority: {{prio $t.Priority}}"><span class="caret" aria-hidden="true"></span>{{prio $t.Priority}}</span>
-  {{if $t.Blocked}}<span class="pill status blocked">blocked</span>{{end}}
-  {{/* The lease, and what is left of the last one. The sweeper clears the
-       lease columns within a minute of a claim lapsing, so without the
-       evidence it leaves behind a task an agent took and abandoned looked
-       exactly like one nobody had ever touched. The claim count sits here
-       rather than on the listing, where it would be a number with nothing to
-       compare it to: beside an expiry it is the difference between an agent
-       that died once and one that keeps dying. */}}
-  {{$held := claim $t}}
-  {{if eq $held "held"}}<span class="lease held" title="Until {{compact $t.LeaseExpiresAt}}">held &middot; {{$.Data.Names.Label $t.ClaimedByActorID}}</span>
-  {{else if eq $held "expired"}}<span class="lease expired" title="At {{compact $t.LeaseExpiredAt}}">claim expired &middot; {{$.Data.Names.Label $t.LeaseExpiredByActorID}} &middot; {{expiredAgo $t}} ago</span>{{end}}
-  {{if $t.ClaimCount}}<span class="muted" title="How many times this task has been claimed">claimed {{$t.ClaimCount}} time{{if ne $t.ClaimCount 1}}s{{end}}</span>{{end}}
-  <span class="muted">version {{$t.Version}}</span>
-</p>
+{{$held := claim $t}}
+<p id="task-pills">{{template "task-pills" .}}</p>
 
 <div class="detail">
 <div class="main">
@@ -134,33 +119,7 @@
 
   <div class="card">
     <h2>Comments</h2>
-    <ul class="plain">
-      {{range .Data.Comments}}
-      <li class="comment" id="comment-{{.ID}}">
-        <p class="byline"><span class="who-name" title="{{.AuthorActorID}}">{{$.Data.Names.Label .AuthorActorID}}</span> &middot; {{compact .CreatedAt}}</p>
-        <div>{{.Body}}</div>
-        {{if $.Data.CanComment}}
-        <details class="panel">
-          <summary>Edit</summary>
-          <div class="body">
-            <form method="post" action="/tasks/{{$t.Ref}}/comments/edit">
-              {{template "csrf" $.CSRF}}
-              <input type="hidden" name="id" value="{{.ID}}">
-              <label for="edit-{{.ID}}">Rewrite</label>
-              <input id="edit-{{.ID}}" name="body" value="{{.Body}}">
-              <div class="actions"><button type="submit">Save</button></div>
-            </form>
-            <form method="post" action="/tasks/{{$t.Ref}}/comments/delete">
-              {{template "csrf" $.CSRF}}
-              <input type="hidden" name="id" value="{{.ID}}">
-              <div class="actions"><button class="secondary" type="submit">Delete comment</button></div>
-            </form>
-          </div>
-        </details>
-        {{end}}
-      </li>
-      {{else}}<li class="empty">No comments yet.</li>{{end}}
-    </ul>
+    <ul class="plain" id="task-comments">{{template "task-comments" .}}</ul>
     {{if .Data.CanComment}}
     <form method="post" action="/tasks/{{$t.Ref}}/comments">
       {{template "csrf" .CSRF}}
@@ -276,7 +235,111 @@
        of it rendered in the narrower track. */}}
   <details class="panel wide">
     <summary>History</summary>
+    <div class="body" id="task-history">{{template "task-history" .}}</div>
+
+  </details>
+
+  {{/* Offered only beside a live lease and only to a reader who holds
+       task:reclaim. It ends the lease and nothing else: the status pill above
+       reads the same afterwards, and reopening finished work is the move
+       control's job, not this one. */}}
+  {{if and .Data.CanReclaim (eq $held "held")}}
+  <details class="panel danger wide" id="reclaim">
+    <summary>Reclaim the lease</summary>
     <div class="body">
+      <p class="muted">{{$.Data.Names.Label $t.ClaimedByActorID}} holds this task{{if $t.LeaseExpiresAt}} until {{compact $t.LeaseExpiresAt}}{{end}}. Reclaiming ends their lease at once and leaves the task in {{$t.Status}}.</p>
+      <form method="post" action="/tasks/{{$t.Ref}}/reclaim">
+        {{template "csrf" .CSRF}}
+        <label for="reason">Reason</label>
+        <input id="reason" name="reason" placeholder="Why the lease is being taken">
+        <div class="actions"><button class="danger" type="submit">Reclaim lease</button></div>
+      </form>
+    </div>
+  </details>
+  {{end}}
+
+  {{if .Data.CanDelete}}
+  <details class="panel danger wide">
+    <summary>Danger zone</summary>
+    <div class="body">
+      <form method="post" action="/tasks/{{$t.Ref}}/delete">
+        {{template "csrf" .CSRF}}
+        <label for="hard"><input id="hard" type="checkbox" name="hard" value="1"> Delete permanently</label>
+        <label for="cascade"><input id="cascade" type="checkbox" name="cascade" value="1"> Also delete subtasks</label>
+        <div class="actions"><button class="danger" type="submit">Delete task</button></div>
+      </form>
+      <form method="post" action="/tasks/{{$t.Ref}}/restore">
+        {{template "csrf" .CSRF}}
+        <div class="actions"><button class="secondary" type="submit">Restore task</button></div>
+      </form>
+    </div>
+  </details>
+  {{end}}
+
+</div>
+{{template "live-screen" .Data.Live}}
+{{end}}
+
+{{/* The three regions a live update replaces: what the task is, what has been
+     said about it, and what has been done to it. The edit forms, the move
+     control and the comment box are deliberately not among them -- see
+     showTaskLive for why a form is never swapped under the reader. */}}
+{{define "task-live"}}
+<p id="task-pills">{{template "task-pills" .}}</p>
+<ul class="plain" id="task-comments">{{template "task-comments" .}}</ul>
+<div class="body" id="task-history">{{template "task-history" .}}</div>
+{{end}}
+
+{{define "task-pills"}}
+{{$t := .Data.Task}}
+  <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span>
+  <span class="prio p-{{prio $t.Priority}}" title="Priority: {{prio $t.Priority}}"><span class="caret" aria-hidden="true"></span>{{prio $t.Priority}}</span>
+  {{if $t.Blocked}}<span class="pill status blocked">blocked</span>{{end}}
+  {{/* The lease, and what is left of the last one. The sweeper clears the
+       lease columns within a minute of a claim lapsing, so without the
+       evidence it leaves behind a task an agent took and abandoned looked
+       exactly like one nobody had ever touched. The claim count sits here
+       rather than on the listing, where it would be a number with nothing to
+       compare it to: beside an expiry it is the difference between an agent
+       that died once and one that keeps dying. */}}
+  {{$held := claim $t}}
+  {{if eq $held "held"}}<span class="lease held" title="Until {{compact $t.LeaseExpiresAt}}">held &middot; {{$.Data.Names.Label $t.ClaimedByActorID}}</span>
+  {{else if eq $held "expired"}}<span class="lease expired" title="At {{compact $t.LeaseExpiredAt}}">claim expired &middot; {{$.Data.Names.Label $t.LeaseExpiredByActorID}} &middot; {{expiredAgo $t}} ago</span>{{end}}
+  {{if $t.ClaimCount}}<span class="muted" title="How many times this task has been claimed">claimed {{$t.ClaimCount}} time{{if ne $t.ClaimCount 1}}s{{end}}</span>{{end}}
+  <span class="muted">version {{$t.Version}}</span>
+{{end}}
+
+{{define "task-comments"}}
+{{$t := .Data.Task}}
+
+      {{range .Data.Comments}}
+      <li class="comment" id="comment-{{.ID}}">
+        <p class="byline"><span class="who-name" title="{{.AuthorActorID}}">{{$.Data.Names.Label .AuthorActorID}}</span> &middot; {{compact .CreatedAt}}</p>
+        <div>{{.Body}}</div>
+        {{if $.Data.CanComment}}
+        <details class="panel">
+          <summary>Edit</summary>
+          <div class="body">
+            <form method="post" action="/tasks/{{$t.Ref}}/comments/edit">
+              {{template "csrf" $.CSRF}}
+              <input type="hidden" name="id" value="{{.ID}}">
+              <label for="edit-{{.ID}}">Rewrite</label>
+              <input id="edit-{{.ID}}" name="body" value="{{.Body}}">
+              <div class="actions"><button type="submit">Save</button></div>
+            </form>
+            <form method="post" action="/tasks/{{$t.Ref}}/comments/delete">
+              {{template "csrf" $.CSRF}}
+              <input type="hidden" name="id" value="{{.ID}}">
+              <div class="actions"><button class="secondary" type="submit">Delete comment</button></div>
+            </form>
+          </div>
+        </details>
+        {{end}}
+      </li>
+      {{else}}<li class="empty">No comments yet.</li>{{end}}
+    {{end}}
+
+{{define "task-history"}}
       {{if .Data.CanAudit}}
       <div class="table-wrap">
         <table>
@@ -318,45 +381,4 @@
         </table>
       </div>
       {{else}}<p class="empty">You do not hold the audit read scope.</p>{{end}}
-    </div>
-  </details>
-
-  {{/* Offered only beside a live lease and only to a reader who holds
-       task:reclaim. It ends the lease and nothing else: the status pill above
-       reads the same afterwards, and reopening finished work is the move
-       control's job, not this one. */}}
-  {{if and .Data.CanReclaim (eq $held "held")}}
-  <details class="panel danger wide" id="reclaim">
-    <summary>Reclaim the lease</summary>
-    <div class="body">
-      <p class="muted">{{$.Data.Names.Label $t.ClaimedByActorID}} holds this task{{if $t.LeaseExpiresAt}} until {{compact $t.LeaseExpiresAt}}{{end}}. Reclaiming ends their lease at once and leaves the task in {{$t.Status}}.</p>
-      <form method="post" action="/tasks/{{$t.Ref}}/reclaim">
-        {{template "csrf" .CSRF}}
-        <label for="reason">Reason</label>
-        <input id="reason" name="reason" placeholder="Why the lease is being taken">
-        <div class="actions"><button class="danger" type="submit">Reclaim lease</button></div>
-      </form>
-    </div>
-  </details>
-  {{end}}
-
-  {{if .Data.CanDelete}}
-  <details class="panel danger wide">
-    <summary>Danger zone</summary>
-    <div class="body">
-      <form method="post" action="/tasks/{{$t.Ref}}/delete">
-        {{template "csrf" .CSRF}}
-        <label for="hard"><input id="hard" type="checkbox" name="hard" value="1"> Delete permanently</label>
-        <label for="cascade"><input id="cascade" type="checkbox" name="cascade" value="1"> Also delete subtasks</label>
-        <div class="actions"><button class="danger" type="submit">Delete task</button></div>
-      </form>
-      <form method="post" action="/tasks/{{$t.Ref}}/restore">
-        {{template "csrf" .CSRF}}
-        <div class="actions"><button class="secondary" type="submit">Restore task</button></div>
-      </form>
-    </div>
-  </details>
-  {{end}}
-
-</div>
 {{end}}

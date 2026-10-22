@@ -2319,3 +2319,25 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   font-size: 0.85rem;
   margin: 0;
 }
+
+/* ---------------------------------------------------------------------------
+   Live updates. Added as one block at the end so an edit here cannot collide
+   with work anywhere else in this file.
+   --------------------------------------------------------------------------- */
+
+/* The notice a screen shows while it is not receiving events. Quiet by
+   design: it says the view may have moved on, which is worth knowing and is
+   not an error, so it reads as a line of small print rather than as an alert
+   competing with the page. It carries the warning colour because "you may be
+   looking at something stale" is exactly what that colour is for here. */
+.livestale {
+  background: var(--warn-soft);
+  border: 1px solid var(--warn);
+  border-radius: 6px;
+  color: var(--warn);
+  font-size: 0.85rem;
+  margin: 12px 0;
+  padding: 6px 10px;
+}
+
+.livestale[hidden] { display: none; }
