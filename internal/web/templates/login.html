@@ -1,6 +1,7 @@
 {{define "content"}}
+<a class="authbrand" href="/"><img class="logo" src="/assets/tix.svg" alt="" width="40" height="40"><span>{{.Brand.Title}}</span></a>
+<div class="card authcard">
 <h1>Sign in</h1>
-<div class="card">
 <form method="post" action="/login">
   {{template "csrf" .CSRF}}
   <label for="email">Email</label>
