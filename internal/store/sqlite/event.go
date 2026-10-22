@@ -42,7 +42,8 @@ func scanEvent(s scanner) (core.Event, error) {
 	return e, nil
 }
 
-// AppendEvent writes to the outbox in the caller's transaction.
+// AppendEvent writes to the outbox in the caller's transaction and arms the
+// in-process wake this transaction sends on commit.
 func (t *tx) AppendEvent(ctx context.Context, e *core.Event) error {
 	if e.ID == "" {
 		e.ID = id.New()
@@ -73,6 +74,7 @@ func (t *tx) AppendEvent(ctx context.Context, e *core.Event) error {
 		return mapErr(err, "reading the sequence of event %q", e.ID)
 	}
 	e.Seq = seq
+	t.notify = true
 	return nil
 }
 

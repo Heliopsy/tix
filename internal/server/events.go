@@ -191,12 +191,16 @@ func (p *pumps) finish(tenantID string, cur *pump) {
 }
 
 func (p *pumps) run(ctx context.Context, tenantID string, reader outbox.Reader, cursor int64) {
-	tailer := outbox.NewTailer(reader, p.poll, 256,
+	opts := []outbox.TailerOption{
 		outbox.WithRetry(p.retryBackoff, p.retryMax, p.retryLimit),
 		outbox.WithErrorHandler(func(err error) {
 			p.logger.Error("tenant event reader failed", "tenant", tenantID, "error", err.Error())
 		}),
-	)
+	}
+	if ch := p.wake(ctx, tenantID); ch != nil {
+		opts = append(opts, outbox.WithWake(ch))
+	}
+	tailer := outbox.NewTailer(reader, p.poll, 256, opts...)
 	events, err := tailer.Subscribe(ctx, core.EventFilter{SinceSeq: cursor})
 	if err != nil {
 		p.logger.Error("tenant event reader did not start", "tenant", tenantID, "error", err.Error())
@@ -208,6 +212,23 @@ func (p *pumps) run(ctx context.Context, tenantID string, reader outbox.Reader, 
 	if ctx.Err() == nil {
 		p.logger.Warn("tenant event reader ended; it restarts on the next connection", "tenant", tenantID)
 	}
+}
+
+// wake asks the store to signal this tenant's commits, so the reader acts on a
+// commit rather than on its next tick. An engine that cannot, or a store that
+// refuses, leaves the reader on its ticker alone.
+func (p *pumps) wake(ctx context.Context, tenantID string) <-chan struct{} {
+	w, ok := p.log.store.(store.CommitWaker)
+	if !ok {
+		return nil
+	}
+	ch, err := w.WakeOnCommit(ctx, tenantID)
+	if err != nil {
+		p.logger.Warn("tenant event reader is polling without a commit signal",
+			"tenant", tenantID, "error", err.Error())
+		return nil
+	}
+	return ch
 }
 
 // serve ties the readers to the caller's lifecycle, stopping every one of them

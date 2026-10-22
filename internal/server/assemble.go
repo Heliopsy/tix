@@ -48,8 +48,9 @@ type Options struct {
 	CertFile string
 	KeyFile  string
 
-	// EventPollInterval is how often a tenant's reader checks for new events.
-	// Zero uses a sensible default.
+	// EventPollInterval is the floor under a tenant's reader: a commit wakes it
+	// directly, and this is how long it waits when no wake arrives. Zero uses a
+	// sensible default.
 	EventPollInterval time.Duration
 
 	// WebHandler serves the browser interface. Leaving it nil serves the API only.

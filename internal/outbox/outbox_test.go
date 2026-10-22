@@ -416,3 +416,111 @@ func TestSubscribeStopsQuietlyWhenCancelled(t *testing.T) {
 		t.Fatal("cancelling the context did not end the stream")
 	}
 }
+
+// wakeBound only separates a wake from a tick; it does not measure one. The
+// tailer below polls every thirty seconds, so anything arriving inside two
+// seconds came from the wake, and two seconds is far more than a loaded
+// machine needs to hand one value down a channel.
+const (
+	wakePoll  = 30 * time.Second
+	wakeBound = 2 * time.Second
+)
+
+// readyReader reports every read, so a wake test can wait until the tailer is
+// idle rather than racing its first pass. Without it the tailer reads after the
+// event is added and the test passes with no wake at all.
+type readyReader struct {
+	*fakeReader
+	reads chan struct{}
+}
+
+func (r *readyReader) ReadSince(ctx context.Context, since int64, limit int) ([]core.Event, error) {
+	out, err := r.fakeReader.ReadSince(ctx, since, limit)
+	select {
+	case r.reads <- struct{}{}:
+	default:
+	}
+	return out, err
+}
+
+func TestWakeDeliversWithoutWaitingForTheTicker(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	r := &readyReader{fakeReader: &fakeReader{}, reads: make(chan struct{}, 1)}
+	wake := make(chan struct{}, 1)
+	ch, err := NewTailer(r, wakePoll, 10, WithWake(wake)).Subscribe(ctx, core.EventFilter{})
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+
+	select {
+	case <-r.reads:
+	case <-time.After(wakeBound):
+		t.Fatal("the tailer never took its first read")
+	}
+	r.add(core.Event{Type: core.EventTaskCreated, SubjectType: "task", SubjectID: "t1"})
+	wake <- struct{}{}
+
+	select {
+	case e, ok := <-ch:
+		if !ok {
+			t.Fatal("the stream closed instead of delivering the event")
+		}
+		if e.SubjectID != "t1" {
+			t.Fatalf("subject = %q, want %q", e.SubjectID, "t1")
+		}
+	case <-time.After(wakeBound):
+		t.Fatalf("the wake did not deliver within %s, so the tailer is still waiting on its %s ticker", wakeBound, wakePoll)
+	}
+}
+
+// The ticker is the safety net the wake is allowed to miss. A tailer holding a
+// wake channel that never fires must still deliver, or a dropped notification
+// would cost an event rather than latency.
+func TestTheTickerStillDeliversWhenNoWakeArrives(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	r := &fakeReader{}
+	silent := make(chan struct{})
+	ch, err := NewTailer(r, time.Millisecond, 10, WithWake(silent)).Subscribe(ctx, core.EventFilter{})
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+
+	r.add(core.Event{Type: core.EventTaskCreated, SubjectType: "task", SubjectID: "t1"})
+
+	select {
+	case e, ok := <-ch:
+		if !ok {
+			t.Fatal("the stream closed instead of delivering the event")
+		}
+		if e.SubjectID != "t1" {
+			t.Fatalf("subject = %q, want %q", e.SubjectID, "t1")
+		}
+	case <-time.After(wakeBound):
+		t.Fatal("the ticker delivered nothing, so a missed wake now costs an event")
+	}
+}
+
+func TestATailerWithoutAWakeChannelStillDelivers(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	r := &fakeReader{}
+	ch, err := NewTailer(r, time.Millisecond, 10, WithWake(nil)).Subscribe(ctx, core.EventFilter{})
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	r.add(core.Event{Type: core.EventTaskCreated, SubjectType: "task", SubjectID: "t1"})
+
+	select {
+	case _, ok := <-ch:
+		if !ok {
+			t.Fatal("the stream closed instead of delivering the event")
+		}
+	case <-time.After(wakeBound):
+		t.Fatal("a nil wake channel stopped the tailer reading")
+	}
+}

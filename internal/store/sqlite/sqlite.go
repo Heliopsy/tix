@@ -33,6 +33,12 @@ type Store struct {
 	writer *sql.DB
 	clock  clock.Clock
 	path   string
+
+	// wakers carries a commit to the readers in this process. SQLite has no
+	// cross-process notification, so this covers the single-binary case and
+	// only that case: a separate tix invocation writing the same file is seen
+	// by the ticker, late rather than never. See WakeOnCommit.
+	wakers *store.Wakers
 }
 
 // openConfig holds the options Open accepts.
@@ -98,7 +104,7 @@ func Open(path string, c clock.Clock, opts ...Option) (*Store, error) {
 	reader.SetMaxOpenConns(readerConns())
 	reader.SetMaxIdleConns(readerConns())
 
-	s := &Store{reader: reader, writer: writer, clock: c, path: path}
+	s := &Store{reader: reader, writer: writer, clock: c, path: path, wakers: store.NewWakers()}
 	if err := s.verifyJournalMode(context.Background()); err != nil {
 		_ = s.Close()
 		return nil, err
@@ -263,3 +269,15 @@ func (s *Store) ViewUnscoped(ctx context.Context, fn func(store.UnscopedTx) erro
 }
 
 var _ store.Store = (*Store)(nil)
+
+// WakeOnCommit returns a channel signalled when a transaction appending events
+// to tenantID commits in this process. SQLite offers no cross-process
+// notification, and adding one would mean a second channel outside the
+// database; a tix command run against the same file from another process is
+// therefore seen by the subscriber's ticker rather than by this signal. That is
+// deliberate and costs latency, never an event. The common deployment, a single
+// binary serving HTTP, SSH and the terminal interface from one process, is
+// fully covered.
+func (s *Store) WakeOnCommit(ctx context.Context, tenantID string) (<-chan struct{}, error) {
+	return s.wakers.Add(ctx, tenantID), nil
+}

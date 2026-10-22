@@ -4,11 +4,17 @@ package postgres
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/heliopsy/tix/internal/core"
 )
+
+// relistenDelay is how long the fan-out waits before taking a new listener
+// connection after the previous one failed or dropped. Readers are polling
+// their ticker meanwhile, so this delay costs latency and no event.
+const relistenDelay = time.Second
 
 // eventsChannel is the NOTIFY channel a committing transaction announces on.
 const eventsChannel = "tix_events"
@@ -75,4 +81,38 @@ func waitForNotification(ctx context.Context, conn rawConn) (string, error) {
 // rawConn is the part of *sql.Conn the listener needs.
 type rawConn interface {
 	Raw(f func(driverConn any) error) error
+}
+
+// WakeOnCommit returns a channel signalled when a transaction appending events
+// to tenantID commits, anywhere, including from another process. It is fed by
+// one LISTEN connection shared by every reader in this process, started on the
+// first call and kept alive until the store is closed.
+func (s *Store) WakeOnCommit(ctx context.Context, tenantID string) (<-chan struct{}, error) {
+	s.listenMu.Lock()
+	if !s.listening {
+		listenCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+		s.listening, s.stopListen = true, cancel
+		go s.fanOut(listenCtx)
+	}
+	s.listenMu.Unlock()
+	return s.wakers.Add(ctx, tenantID), nil
+}
+
+// fanOut relays notifications to the readers until the store closes, retaking
+// the listener connection whenever it fails. A gap here is a gap in wake-ups
+// and not in the log, so it is ridden out rather than reported upwards.
+func (s *Store) fanOut(ctx context.Context) {
+	for ctx.Err() == nil {
+		notifications, err := s.Listen(ctx)
+		if err == nil {
+			for n := range notifications {
+				s.wakers.Wake(n.TenantID)
+			}
+		}
+		select {
+		case <-time.After(relistenDelay):
+		case <-ctx.Done():
+			return
+		}
+	}
 }

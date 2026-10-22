@@ -469,3 +469,54 @@ func oldestEventSeq(t *testing.T, l *Local, scope core.TenantScope) int64 {
 	}
 	return seq
 }
+
+// directWakeRounds and directWakeBudget measure the latency property rather
+// than the mechanism. Ten commits delivered by the tailer's 250ms ticker alone
+// average two and a half seconds; an in-process wake costs microseconds. A one
+// second budget therefore fails a regression to polling by a wide margin while
+// leaving a loaded CI machine two orders of magnitude of slack per round trip.
+const (
+	directWakeRounds = 10
+	directWakeBudget = time.Second
+)
+
+func appendOneEvent(t *testing.T, l *Local, scope core.TenantScope, subject string) {
+	t.Helper()
+	ctx := context.Background()
+	if err := l.store.Update(ctx, scope, func(tx store.Tx) error {
+		e := core.Event{Type: core.EventTaskCreated, SubjectType: "task", SubjectID: subject}
+		return tx.AppendEvent(ctx, &e)
+	}); err != nil {
+		t.Fatalf("appending an event: %v", err)
+	}
+}
+
+func TestACommitReachesADirectSubscriberWithoutWaitingForThePoll(t *testing.T) {
+	l, _, scope, actor := newLocal(t)
+	ctx, cancel := context.WithCancel(core.WithActor(context.Background(), actor))
+	defer cancel()
+
+	events, err := l.Subscribe(ctx, core.EventFilter{})
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+
+	start := time.Now()
+	for i := range directWakeRounds {
+		appendOneEvent(t, l, scope, fmt.Sprintf("task-%d", i))
+		select {
+		case _, ok := <-events:
+			if !ok {
+				t.Fatal("the subscription closed before the event arrived")
+			}
+		case <-time.After(30 * time.Second):
+			t.Fatalf("event %d never arrived", i)
+		}
+	}
+	elapsed := time.Since(start)
+	t.Logf("%d commits reached the subscriber in %s", directWakeRounds, elapsed)
+	if elapsed > directWakeBudget {
+		t.Fatalf("%d commits took %s to reach the subscriber, over the %s budget: the tailer is waiting on its ticker rather than on the commit",
+			directWakeRounds, elapsed, directWakeBudget)
+	}
+}

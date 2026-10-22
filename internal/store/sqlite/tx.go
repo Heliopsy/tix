@@ -28,13 +28,14 @@ type executor interface {
 // single-connection writer pool and drives BEGIN IMMEDIATE by hand, so the write
 // lock is taken up front rather than upgraded mid-transaction.
 type tx struct {
-	store *Store
-	scope core.TenantScope
-	conn  *sql.Conn
-	inner *sql.Tx
-	ex    executor
-	write bool
-	done  bool
+	store  *Store
+	scope  core.TenantScope
+	conn   *sql.Conn
+	inner  *sql.Tx
+	ex     executor
+	write  bool
+	done   bool
+	notify bool
 }
 
 func (s *Store) beginWrite(ctx context.Context, scope core.TenantScope) (*tx, error) {
@@ -72,17 +73,18 @@ func (t *tx) Commit() error {
 		}
 		return nil
 	}
-	_, err := t.conn.ExecContext(context.Background(), "COMMIT")
-	if err != nil {
+	if _, err := t.conn.ExecContext(context.Background(), "COMMIT"); err != nil {
 		// A COMMIT can fail with the transaction still open, a violated
 		// deferred constraint being the usual cause. Handing that connection
 		// back to the single-slot writer pool leaves every later BEGIN
 		// IMMEDIATE facing a transaction that is already running.
 		_, _ = t.conn.ExecContext(context.Background(), "ROLLBACK")
+		_ = t.conn.Close()
+		return mapErr(err, "committing transaction")
 	}
 	closeErr := t.conn.Close()
-	if err != nil {
-		return mapErr(err, "committing transaction")
+	if t.notify {
+		t.store.wakers.Wake(t.scope.TenantID)
 	}
 	if closeErr != nil {
 		return mapErr(closeErr, "releasing writer connection")
