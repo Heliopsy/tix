@@ -575,6 +575,28 @@ func (h *handler) brand(r *http.Request) branding {
 	return brandFor(tenant, h.themes)
 }
 
+// screenCacheControl is what every rendered screen carries.
+//
+// Screens used to set only a content type, so a response holding one tenant's
+// tasks named no freshness lifetime at all. That is two faults in one gap.
+// Staleness: a browser may cache heuristically when a response carries neither
+// a lifetime nor a validator, so a reader could be handed a task list that was
+// already wrong, on a screen whose whole job is to say what the state is now.
+// Disclosure: an authenticated board with nothing forbidding storage is one any
+// shared cache may keep and any later user of the machine may pull out of the
+// browser's own, after a logout that cleared the session but not the pages the
+// session rendered.
+//
+// no-store rather than no-cache, because the objection is to the response
+// being written down at all, not merely to it being reused without asking. It
+// costs the back-forward cache on a restore, which is a real loss and the
+// correct trade for a page carrying another tenant's work.
+//
+// Assets are the opposite case and are handled in assets.go: their URLs never
+// change between releases, so they carry a strong ETag and a short max-age
+// instead. Nothing here applies to them.
+const screenCacheControl = "no-store"
+
 // render writes one screen.
 func (h *handler) render(w http.ResponseWriter, r *http.Request, name, title string, data any) error {
 	return h.renderStatus(w, r, http.StatusOK, name, title, data)
@@ -589,6 +611,7 @@ func (h *handler) renderStatus(w http.ResponseWriter, r *http.Request, status in
 	v := h.newView(r, name, title, data)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", screenCacheControl)
 	w.WriteHeader(status)
 	return tmpl.Execute(w, v)
 }
