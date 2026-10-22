@@ -23,6 +23,8 @@
       existing `Listen`, one listener connection per process, retaken a second after it fails
 - [x] 3.2 `internal/store/postgres/postgres.go`: `Store.wakers` and the listener cancel, stopped by
       `Close` before the pool goes
+- [x] 3.3 `internal/store/postgres/wake_test.go`: a commit wakes the tenant's reader and does not wake
+      another tenant's, run against a real PostgreSQL 18
 
 ## 4. SQLite wakes in process
 
@@ -50,9 +52,13 @@
 
 ## 6. Gates
 
-- [x] 6.1 Measured before and after on the same test: 2.25s for ten commits on the ticker, 1.36ms to
-      3.10ms over five runs after, around 0.23ms per event
-- [x] 6.2 Watched the guard fail: the wake case removed from the tailer's select, the SQLite
-      `Commit` signal removed, and `AppendEvent`'s flag removed. Restored with `git checkout --`,
-      `git diff` empty after each
+- [x] 6.1 Measured before and after on the same test, SQLite direct path: 2.25s for ten commits on the
+      ticker, 1.36ms to 3.10ms over five runs after, around 0.23ms per event. PostgreSQL, ten
+      commit-to-wake round trips against a container: 96ms, 9.6ms each, nearly all of it the commit
+- [x] 6.2 Watched five mutations fail, each restored with `git checkout --` and `git diff` empty
+      after: the wake case removed from the tailer's select; the wake removed from SQLite's `Commit`;
+      `AppendEvent`'s flag removed; the service path's `CommitWaker` assertion disabled; the
+      PostgreSQL fan-out stopped relaying. The first mutation initially survived, because the outbox
+      test added its event before the tailer had taken its first read and so passed with no wake at
+      all; `readyReader` now waits for that read, and the mutation kills it
 - [x] 6.3 `just check` exit 0. The security and vulnerability gates in `just ci` were not run here
