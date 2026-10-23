@@ -40,7 +40,7 @@
   {{with $v.Errors.On "code"}}{{template "field-error" .}}{{end}}
   <div class="actions">
     <button type="submit">{{if $v.Enrol}}Confirm{{else}}Sign in{{end}}</button>
-    {{if $v.Cancel}}<a class="button secondary" href="{{$v.Cancel}}">{{if $v.Ticket}}Start again{{else}}Cancel{{end}}</a>{{end}}
+    {{if $v.Cancel}}<a href="{{$v.Cancel}}">{{if $v.Ticket}}Start again{{else}}Cancel{{end}}</a>{{end}}
   </div>
 </form>
 </div>
