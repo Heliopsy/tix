@@ -367,6 +367,14 @@ podman run -d --name tix -p 127.0.0.1:8080:8080 -v /srv/tix-data:/data ghcr.io/h
 Prefer a named volume unless you have a reason to want the files where you can see them. In Kubernetes the
 equivalent is `fsGroup`, which the manifest below sets.
 
+`fsGroup` interacts with the SSH host key. Kubernetes defaults `fsGroupChangePolicy` to `Always`, which
+recursively adds group-rw to every file on the volume at mount time, so the mode 0600 that `tix` writes the
+host key with comes back as 0660 on the next mount. `tix` narrows it back to 0600 at startup and logs a
+warning that it did. Versions before 0.17.0 refused to start instead, which showed up as a pod that installed
+and ran fine and then crashlooped at its first restart, usually a rollout, so it read as the upgrade having
+broken it. Setting `fsGroupChangePolicy: OnRootMismatch` avoids the rewrite entirely and is worth doing
+anyway on a large volume, because it skips the recursive pass once the volume root already matches.
+
 Back `/data` with local storage either way. A named volume on the container host is fine; an NFS- or SMB-backed
 volume, or a network block device mounted from another host, is not: `tix` refuses to open a SQLite database it
 detects on one, for the reasons in [scaling.md](scaling.md#sqlite). Run PostgreSQL instead if the deployment
