@@ -51,6 +51,7 @@ RUN npm install -g playwright-core@${PLAYWRIGHT_VERSION} \
 
 RUN useradd --create-home --home-dir /home/demo --shell /bin/bash --uid 1000 demo \
     && mkdir -p /home/demo/.cache /home/demo/.ssh \
+    && ln -s /usr/local/lib/node_modules /home/demo/node_modules \
     && chown -R demo:demo /home/demo \
     && chmod 700 /home/demo/.ssh
 

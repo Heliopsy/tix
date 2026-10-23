@@ -37,10 +37,16 @@ pointed at the right database, so you never need --db.
 
 Work the backlog of project "$PROJECT", $TASKS tasks, like this:
 
-1. \`tix claim next -p $PROJECT -o json\` to take one task.
+1. \`tix claim next -p $PROJECT -s todo -o json\` to take one task. The answer carries
+   the task and a \`lease_token\`. Keep that token: a claimed task cannot be
+   transitioned without it, which is what stops a worker that lost its lease
+   writing over work that was handed to somebody else.
 2. Read what it asks for. Say in one short line what you are doing.
 3. Do the smallest honest version of it in /home/demo/work.
-4. \`tix task mv <ref> done --comment "<one line on what you did>"\`.
+4. \`tix task mv <ref> doing --lease-token <lease_token>\` before you start, then
+   \`tix claim release <ref> --token <lease_token> --status done --comment "<one line>"\`
+   when you are finished. The workflow has no transition straight from todo to
+   done, so a release that tries it is refused.
 5. Repeat until you have completed $TASKS tasks.
 
 Keep your narration to one or two lines per task. Do not print long file

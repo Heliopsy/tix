@@ -949,8 +949,12 @@ demo-record ENVFILE:
     rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log
     # --env-file rather than --env so the credential never enters the shell
     # that starts the container, and so it is not in anybody's process table.
+    # --userns=keep-id maps the in-container uid to the host user, so the take
+    # lands in demo/out owned by whoever ran this rather than by a subuid
+    # nobody can delete without podman unshare.
     {{engine}} run --rm \
       --env-file "{{ENVFILE}}" \
+      --userns=keep-id:uid=1000,gid=1000 \
       --hostname tix-demo \
       --shm-size 512m \
       -v "$PWD/{{demo_out}}:/out:Z" \

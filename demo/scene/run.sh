@@ -15,16 +15,23 @@
 
 set -euo pipefail
 
+# Exported, not just defaulted. The agent and the board run in an xterm the
+# scene starts, and anything not exported does not reach them: the first take
+# with a project of its own had the agent working the fixture's backlog
+# instead, because the default in its own script was still `web`.
+export SCENE_PROJECT SCENE_TASKS DB
+
 : "${SCENE_WIDTH:=1600}"
 : "${SCENE_HEIGHT:=900}"
 : "${SCENE_FPS:=12}"
-: "${SCENE_PROJECT:=web}"
+: "${SCENE_PROJECT:=toolbelt}"
 : "${SCENE_TASKS:=4}"
 : "${SCENE_BEAT_TIMEOUT:=180}"
 
 OUT=/out
 DB_DIR=/home/demo/data
 DB="$DB_DIR/demo.db"
+export DB
 SCENE=/home/demo/scene
 LOG=$OUT/scene.log
 
@@ -42,15 +49,36 @@ die() { say "FAILED: $*"; echo "scene failed: $*" >&2; exit 1; }
 # replacement for every sleep in this file. A timeout is a failed take, not a
 # shorter one, because a take that silently skipped a beat looks like the
 # product not working.
-wait_event() {
-  local type=$1 count=${2:-1} secs=${3:-$SCENE_BEAT_TIMEOUT}
-  say "waiting for ${count}x ${type} (<= ${secs}s)"
-  if timeout "$secs" tix --db "$DB" --no-discovery \
-      watch --type "$type" --limit "$count" -o ndjson >> "$LOG" 2>&1; then
-    say "got ${count}x ${type}"
-  else
-    die "timed out waiting for ${count}x ${type}"
-  fi
+# The work tap. `tix watch` delivers events from the moment it subscribes, so a
+# watcher started in beat 5 cannot see what the agent finished during beat 4,
+# and the scene would sit waiting for completions that already happened. One
+# subscriber is therefore opened before the agent starts and left running; the
+# beats read its file rather than opening a subscription each.
+tap_start() {
+  TAP=$OUT/events.ndjson
+  : > "$TAP"
+  tix --db "$DB" --no-discovery watch \
+    --type task.claimed --type task.released --type task.transitioned \
+    -o ndjson >> "$TAP" 2>>"$LOG" &
+  TAP_PID=$!
+  sleep 1
+  say "event tap open"
+}
+
+# tap_wait blocks until COUNT events of the given kinds have appeared in the
+# tap, or gives up. A timeout is a failed take rather than a shorter one: a
+# take that quietly skipped a beat looks like the product not working.
+tap_wait() {
+  local pattern=$1 count=${2:-1} secs=${3:-$SCENE_BEAT_TIMEOUT}
+  local waited=0 seen=0
+  say "waiting for ${count}x ${pattern} (<= ${secs}s)"
+  while [ "$waited" -lt "$secs" ]; do
+    seen=$(grep -cE "\"type\":\"(${pattern})\"" "$TAP" 2>/dev/null || true)
+    [ "${seen:-0}" -ge "$count" ] && { say "got ${seen}x ${pattern}"; return 0; }
+    sleep 1
+    waited=$((waited + 1))
+  done
+  die "timed out with ${seen:-0}/${count} ${pattern}"
 }
 
 # hold is the one legitimate sleep: dwell time on a frame a viewer needs to
@@ -71,6 +99,7 @@ sleep 1
 
 cleanup() {
   say "cleanup"
+  [ -n "${TAP_PID:-}" ] && kill "$TAP_PID" 2>/dev/null || true
   [ -n "${FFMPEG_PID:-}" ] && kill -INT "$FFMPEG_PID" 2>/dev/null || true
   [ -n "${FFMPEG_PID:-}" ] && wait "$FFMPEG_PID" 2>/dev/null || true
   [ -n "${SERVE_PID:-}" ] && kill "$SERVE_PID" 2>/dev/null || true
@@ -124,10 +153,30 @@ sleep 1
 # ── beat 1: the browser ──────────────────────────────────────────────────────
 
 say "beat 1: browser"
+# The command-line flags did not stop the "Save password?" bubble, which opened
+# over the board in two takes. The profile preference does. It has to exist
+# before chromium first reads the profile, so it is written here.
+mkdir -p /home/demo/chrome/Default
+cat > /home/demo/chrome/Default/Preferences <<'PREFS'
+{"credentials_enable_service":false,
+ "profile":{"password_manager_enabled":false,
+            "password_manager_leak_detection":false,
+            "default_content_setting_values":{"notifications":2}}}
+PREFS
+
+# --test-type is what actually removes the "unsupported command-line flag"
+# infobar; --disable-infobars has not covered it for several versions, and that
+# yellow strip sat across the top of the first take.
+#
+# The password manager is disabled three ways because one is not enough: a
+# "Save password?" bubble opened over the board in the first take, right at the
+# moment the board was the thing to look at.
 chromium \
   --no-sandbox --disable-gpu --disable-dev-shm-usage \
-  --no-first-run --no-default-browser-check --disable-infobars \
-  --disable-features=TranslateUI,AutofillServerCommunication \
+  --no-first-run --no-default-browser-check --disable-infobars --test-type \
+  --disable-features=TranslateUI,AutofillServerCommunication,PasswordManagerEnableAccountStore,PasswordLeakDetection \
+  --password-store=basic --disable-save-password-bubble \
+  --force-dark-mode \
   --remote-debugging-port=9222 \
   --user-data-dir=/home/demo/chrome \
   --window-position=0,0 \
@@ -148,12 +197,23 @@ SCENE_PROJECT="$SCENE_PROJECT" SCENE_TASKS="$SCENE_TASKS" \
 
 # ── beat 3: the agent ────────────────────────────────────────────────────────
 
+tap_start
+
 say "beat 3: agent"
+# SCENE_AGENT exists so the scene can be debugged without paying for an agent
+# run. agent-stub.sh drives the same tix commands on a timer, so every beat
+# after this one is exercised exactly as it would be with the real thing.
+AGENT=${SCENE_AGENT:-$SCENE/agent.sh}
 xterm -geometry 100x44+$((SCENE_WIDTH * 2 / 3))+0 -e \
-  "tmux new-session -s demo -n work '$SCENE/agent.sh; bash'" \
+  "tmux -f /home/demo/scene/tmux.conf new-session -s demo -n work '$AGENT; bash'" \
   >> "$LOG" 2>&1 &
-hold 3
-wait_event 'task.claimed' 1
+hold 1
+# i3 splits evenly, which left the board in half a frame with three columns too
+# narrow to read. The browser is the thing being watched, so it gets the room.
+i3-msg '[class="Chromium"] focus' >> "$LOG" 2>&1 || true
+i3-msg 'resize grow width 120 px' >> "$LOG" 2>&1 || true
+hold 2
+tap_wait 'task\.claimed' 1
 
 # ── beat 4: a second surface on the same tenant ──────────────────────────────
 
@@ -165,7 +225,7 @@ hold 6
 # ── beat 5: watch the work land ──────────────────────────────────────────────
 
 say "beat 5: work"
-wait_event 'task.updated' "$SCENE_TASKS" $((SCENE_BEAT_TIMEOUT * 3))
+tap_wait 'task\.released|task\.transitioned' "$SCENE_TASKS" $((SCENE_BEAT_TIMEOUT * 3))
 hold 6
 
 # ── beat 6: the frame the poster comes from ──────────────────────────────────

@@ -16,19 +16,25 @@ import { chromium } from "playwright-core";
 const CDP = "http://127.0.0.1:9222";
 const BASE = "http://127.0.0.1:8080";
 
-const PROJECT = process.env.SCENE_PROJECT || "web";
 const COUNT = Number(process.env.SCENE_TASKS || 4);
 
-// The backlog a person would write before handing it to an agent: small,
-// concrete, and obviously finishable, so the recording shows work being
-// cleared rather than an agent reading an epic.
+// The project the demo builds, and the backlog for it.
+//
+// It is a real, self-contained piece of work the agent can genuinely finish
+// offline in a container: a small command line tool, written from nothing, in
+// four steps that each change something visible. The seeded fixture's own
+// projects are left alone and stay in the sidebar, so the installation looks
+// like somebody's real one rather than an empty demo, but none of the work
+// happens in them. That separation is what makes the recording honest: every
+// task the agent closes is a task the viewer just watched being written.
+const PROJECT_KEY = process.env.SCENE_PROJECT || "toolbelt";
+const PROJECT_NAME = process.env.SCENE_PROJECT_NAME || "Toolbelt";
+
 const PLAN = [
-  "Add a --json flag to the status command",
-  "Write the quickstart section of the README",
-  "Cache the project lookup in the board handler",
-  "Add a test for the empty backlog case",
-  "Tidy the error message when a ref is unknown",
-  "Document the exit codes in one table",
+  "Write a wordcount script that counts the words in a file",
+  "Give wordcount a --json flag for machine readable output",
+  "Handle an empty file without dividing by zero",
+  "Write a README with two worked examples",
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -37,6 +43,14 @@ async function main() {
   const browser = await chromium.connectOverCDP(CDP);
   const context = browser.contexts()[0];
   const page = context.pages()[0] ?? (await context.newPage());
+
+  // The terminal beside this is dark, and in the first take the board came up
+  // light: one product, two schemes, side by side. The scheme is a cookie the
+  // server reads, so it is set here rather than left to the browser's own
+  // preference, which chromium reports inconsistently under Xvfb.
+  await context.addCookies([
+    { name: "tix_theme", value: "dark", url: BASE },
+  ]);
 
   await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
   await sleep(800);
@@ -52,33 +66,54 @@ async function main() {
   await page.waitForLoadState("domcontentloaded");
   await sleep(1200);
 
-  await page.goto(`${BASE}/tasks`, { waitUntil: "domcontentloaded" });
-  await sleep(1000);
+  // The project is made on camera. It is three fields, it takes four seconds,
+  // and it establishes that the work about to be done did not come with the
+  // fixture: it was created just now, by the person watching.
+  await page.goto(`${BASE}/projects`, { waitUntil: "domcontentloaded" });
+  await sleep(900);
+  const newProject = page.locator('form[action="/projects"]').first();
+  await newProject.locator("input[name=key]").pressSequentially(PROJECT_KEY, { delay: 60 });
+  await sleep(250);
+  await newProject.locator("input[name=name]").pressSequentially(PROJECT_NAME, { delay: 55 });
+  await sleep(500);
+  await newProject.locator("button[type=submit]").first().click();
+  await page.waitForLoadState("domcontentloaded");
+  await sleep(1200);
 
-  const form = page.locator("form.quickadd");
-  await form.locator("select[name=project_ref]").selectOption(PROJECT).catch(() => {});
-  await sleep(400);
-
+  // Quick-add answers with the new task's own page, so the form is gone by the
+  // time the next title would be typed. Each pass therefore starts from the
+  // list again. That is also better to watch: the viewer sees the task that was
+  // just created before the next one is written.
   for (const title of PLAN.slice(0, COUNT)) {
+    await page.goto(`${BASE}/tasks`, { waitUntil: "domcontentloaded" });
+    const form = page.locator("form.quickadd");
+    await form.locator("select[name=project_ref]").selectOption(PROJECT_KEY).catch(() => {});
+    await sleep(250);
+
     const field = form.locator("input[name=title]");
     await field.click();
     await field.pressSequentially(title, { delay: 38 });
     await sleep(350);
     await field.press("Enter");
-    // The list is boosted, so the new row arrives without a navigation. Waiting
-    // for the text rather than for a load event is what makes that visible and
-    // is also the only reliable signal here.
-    await page.getByText(title, { exact: false }).first().waitFor({ timeout: 15000 });
-    await sleep(500);
+    await page.waitForLoadState("domcontentloaded");
+    await sleep(900);
   }
 
   // Land on the board, because the board is what the viewer watches repaint
   // while the agent works.
   await sleep(600);
-  await page.goto(`${BASE}/projects/${PROJECT}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/projects/${PROJECT_KEY}`, { waitUntil: "domcontentloaded" });
   await sleep(1500);
 
-  await browser.close();
+  // Deliberately not browser.close(). Over CDP that closes the browser it
+  // attached to, and in the first take it did: the board rendered, the socket
+  // opened, and then every request stopped. The window kept showing its last
+  // paint while the agent worked, so the recording showed a board that never
+  // moved, which is the opposite of the thing being demonstrated.
+  //
+  // Letting the process exit drops the CDP socket and leaves chromium running
+  // with its page live, which is what the rest of the scene is filming.
+  process.exit(0);
 }
 
 main().catch((err) => {
