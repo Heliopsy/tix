@@ -919,3 +919,125 @@ bench-budgets:
 bench-full ENGINE="postgres": pg-up
     TIX_BENCH_SIZE=full TIX_BENCH_ENGINE={{ENGINE}} TIX_TEST_POSTGRES_DSN='{{pg_dsn}}' \
       go test ./internal/bench/ -v -run 'Test' -count=1 -timeout 3h
+
+# ── Demo recording ────────────────────────────────────────────────────────────
+#
+# A re-runnable product demo: a person plans work in the browser, a real Claude
+# Code agent takes it from the CLI, a terminal board joins over SSH, and both
+# surfaces repaint as the work lands. See demo/README.md.
+#
+# The agent is real, so no two takes match. Record a few, watch them, keep one.
+
+demo_image := "localhost/tix-demo:latest"
+demo_out   := "demo/out"
+
+# Build the recording environment. Separate from `image`: that one is
+# distroless and cannot host a terminal demo.
+demo-image:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just build
+    {{engine}} build -f demo/Containerfile.demo -t {{demo_image}} .
+
+# Record one take. Needs a credential for the agent in an env file; see
+# demo/README.md for what goes in it and why it is not in the repo.
+demo-record ENVFILE:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -f "{{ENVFILE}}" ] || { echo "no env file at {{ENVFILE}}" >&2; exit 1; }
+    mkdir -p {{demo_out}}
+    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log
+    # --env-file rather than --env so the credential never enters the shell
+    # that starts the container, and so it is not in anybody's process table.
+    # --userns=keep-id maps the in-container uid to the host user, so the take
+    # lands in demo/out owned by whoever ran this rather than by a subuid
+    # nobody can delete without podman unshare.
+    {{engine}} run --rm \
+      --env-file "{{ENVFILE}}" \
+      --userns=keep-id:uid=1000,gid=1000 \
+      --hostname tix-demo \
+      --shm-size 512m \
+      -v "$PWD/{{demo_out}}:/out:Z" \
+      {{demo_image}}
+    echo
+    echo "take: {{demo_out}}/raw.mkv"
+    echo "log:  {{demo_out}}/scene.log"
+
+# Record a take using this machine's own Claude Code sign-in, rather than a
+# token in an env file.
+#
+# The credentials are COPIED into a scratch directory and that copy is what the
+# container gets, never the real ~/.claude. Claude Code writes to its config as
+# it runs, and a container should not be able to touch the sign-in of the person
+# running it: a corrupted file would log you out of your own terminal.
+#
+# The copy still contains a live session, so it is made with umask 077, kept in
+# the session scratchpad, and removed when the take ends.
+demo-record-here:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -f "$HOME/.claude/.credentials.json" ] || { echo "no Claude Code sign-in found; run: claude login" >&2; exit 1; }
+    work=$(mktemp -d)
+    trap 'rm -rf "$work"' EXIT
+    ( umask 077
+      mkdir -p "$work/.claude"
+      cp "$HOME/.claude/.credentials.json" "$work/.claude/.credentials.json"
+      [ -f "$HOME/.claude.json" ] && cp "$HOME/.claude.json" "$work/.claude.json" || true
+    )
+    mkdir -p {{demo_out}}
+    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log
+    {{engine}} run --rm \
+      --userns=keep-id:uid=1000,gid=1000 \
+      --hostname tix-demo \
+      --shm-size 512m \
+      -v "$work/.claude:/home/demo/.claude:Z" \
+      -v "$work/.claude.json:/home/demo/.claude.json:Z" \
+      -v "$PWD/{{demo_out}}:/out:Z" \
+      {{demo_image}}
+    echo
+    echo "take: {{demo_out}}/raw.mkv"
+
+# Record a take you can watch while it runs, on a vnc port.
+#
+# The container keeps its own display either way. Sharing the host X socket
+# would put these windows on your desktop, which is worse in both directions:
+# the host window manager would place them, and a capture of the display would
+# be a capture of your screen.
+demo-watch ENVFILE:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -f "{{ENVFILE}}" ] || { echo "no env file at {{ENVFILE}}" >&2; exit 1; }
+    mkdir -p {{demo_out}}
+    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log
+    echo "connect a vnc viewer to 127.0.0.1:5900 once this starts"
+    {{engine}} run --rm \
+      --env-file "{{ENVFILE}}" --env SCENE_VNC=1 \
+      --userns=keep-id:uid=1000,gid=1000 \
+      --hostname tix-demo \
+      --shm-size 512m \
+      -p 127.0.0.1:5900:5900 \
+      -v "$PWD/{{demo_out}}:/out:Z" \
+      {{demo_image}}
+
+# Every second of the take as one tiled image.
+#
+# This is the leak check, and it is not optional. A container cannot be
+# inspected after the fact for what it drew on screen, so the only honest way
+# to know a take carries nothing identifying is for a person to look at every
+# frame of it before it is published.
+demo-contact-sheet:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -f {{demo_out}}/raw.mkv ] || { echo "no take yet" >&2; exit 1; }
+    ffmpeg -nostdin -loglevel error -y -i {{demo_out}}/raw.mkv \
+      -vf "fps=1,scale=480:-1,tile=6x8" {{demo_out}}/contact-%02d.png
+    echo "review every frame before publishing:"
+    ls -1 {{demo_out}}/contact-*.png
+
+# Turn the take into mp4, webm, gif and a poster.
+demo-encode:
+    ./demo/encode.sh {{demo_out}}
+
+# Everything, in order, stopping before anything is published.
+demo: demo-image
+    @echo "now: just demo-record <envfile>, then demo-contact-sheet, then demo-encode"

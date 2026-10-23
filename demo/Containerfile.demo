@@ -1,0 +1,83 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# The recording environment for `just demo-record`.
+#
+# This is not the shipped runtime image. Containerfile builds that one, and it
+# is distroless: no shell, no tmux, no fonts, so a scripted multi-pane terminal
+# demo cannot run inside it. This image exists only to be filmed.
+#
+# It is also the leak-proofing. Everything the recording can show comes from
+# here: the hostname, the user, the home directory, the prompt, the timezone,
+# the fonts and the seeded data. None of it has ever seen the machine that runs
+# the build, so there is no redaction step afterwards that somebody can forget.
+
+FROM docker.io/library/debian:13-slim
+
+# A fixed, boring identity. Every one of these is visible on camera at some
+# point: the prompt, a window title, a date in the board, a path in a shell.
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC \
+    HOME=/home/demo \
+    USER=demo \
+    LANG=C.UTF-8 \
+    DISPLAY=:99 \
+    XDG_CACHE_HOME=/home/demo/.cache \
+    NODE_PATH=/usr/local/lib/node_modules
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl git jq openssh-client procps tzdata \
+      xvfb x11-utils x11-xserver-utils xdotool wmctrl i3 \
+      xterm tmux \
+      fonts-dejavu-core fonts-noto-color-emoji fonts-noto-mono \
+      ffmpeg \
+      x11vnc \
+      chromium \
+      nodejs npm \
+    && rm -rf /var/lib/apt/lists/*
+
+# Claude Code, because the agent in the recording is a real one. The version is
+# pinned so a take recorded today can be recorded again tomorrow against the
+# same agent, which is the only part of "reproducible" available here: the
+# agent's output varies per run, its behaviour should not vary per release.
+ARG CLAUDE_VERSION=2.1.309
+RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_VERSION} \
+    && npm cache clean --force
+
+# Playwright drives the browser rather than xdotool. It attaches to the real
+# headful chromium on the Xvfb display over CDP, so the clicks are scripted and
+# repeatable while what is filmed is a genuine browser, not a headless render.
+ARG PLAYWRIGHT_VERSION=1.56.1
+RUN npm install -g playwright-core@${PLAYWRIGHT_VERSION} \
+    && npm cache clean --force
+
+RUN useradd --create-home --home-dir /home/demo --shell /bin/bash --uid 1000 demo \
+    && mkdir -p /home/demo/.cache /home/demo/.ssh \
+    && ln -s /usr/local/lib/node_modules /home/demo/node_modules \
+    && chown -R demo:demo /home/demo \
+    && chmod 700 /home/demo/.ssh
+
+# Build the font cache as the user that will read it. Without a writable cache
+# fontconfig re-scans on every process and complains on stderr each time, which
+# is noise in a terminal that is being filmed.
+USER demo
+RUN fc-cache -f >/dev/null 2>&1 || true
+USER root
+
+# The binary under test is copied in, never downloaded. A demo of a release
+# that is not the tree you are standing in is a demo of something else.
+COPY --chown=root:root bin/tix /usr/local/bin/tix
+
+COPY --chown=demo:demo demo/i3.config /home/demo/.config/i3/config
+COPY --chown=demo:demo demo/xterm.ad /home/demo/.Xresources
+COPY --chown=demo:demo demo/scene /home/demo/scene
+
+# A prompt with no hostname, no user and no path. The default Debian prompt
+# would put `demo@<container-id>:~$` on screen, and the container id changes
+# every run, which makes every take differ for no reason anybody watching
+# cares about.
+RUN printf '%s\n' "PS1='$ '" "export PS1" >> /home/demo/.bashrc \
+    && chown demo:demo /home/demo/.bashrc
+
+USER demo
+WORKDIR /home/demo
+ENTRYPOINT ["/home/demo/scene/run.sh"]

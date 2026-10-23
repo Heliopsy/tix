@@ -346,6 +346,46 @@ through. With `--dry-run` it prints the route and writes nothing. When two
 routes are equally short it refuses rather than guessing, and asks you to name
 one, written `doing>done`.
 
+## When the work needs a decision you are not entitled to make
+
+Some tasks cannot be finished by trying harder. The requirement is genuinely
+ambiguous, or the choice belongs to somebody with authority you do not have:
+what the retention period should be, which of two behaviours is wanted, whether
+an external service may be called at all.
+
+**Do not guess, and do not stall.** Guessing produces work that has to be
+redone and a `done` that is not true. Stalling holds a lease on a task nobody
+else can take, until it expires and another agent repeats your confusion.
+
+Park it, ask, and release it:
+
+```sh
+tix comment add REF "Blocked: should an expired link return 404 or 410? \
+I can implement either, and the choice changes the client contract."
+tix claim release REF --token "$LEASE" --status blocked
+```
+
+The comment is the question and belongs on the task, where whoever answers is
+already looking. The status change is what takes the task out of the queue, so
+`claim next` stops offering it and no other agent spends a second on it.
+
+Three things make this the right move rather than a failure:
+
+- The question is durable. It outlives your process, so it is still there when
+  somebody reads the board tomorrow.
+- The task is visible as blocked, which is a count on the board rather than
+  silence.
+- Answering is one comment and one `tix task mv REF todo`, and the work is back
+  in the queue for whoever is free, not for you specifically.
+
+Use a state in the `blocked` category for a decision you are waiting on, and
+one in `waiting` for something outside the queue that will arrive on its own,
+such as a build or a third party. Both keep the task out of `claim next`; they
+say different things to the person reading the board.
+
+If the whole task turns out to be wrong rather than merely undecided, use
+`cancelled` with a comment saying why. It is terminal, so dependants unblock.
+
 ## Exit codes
 
 Same table for every command except `claim exec` (see above). Each
