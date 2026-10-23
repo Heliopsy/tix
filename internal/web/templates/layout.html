@@ -41,6 +41,7 @@
       {{template "nav" .}}
       <div class="side-foot">
         <a href="/settings" {{if eq .Path "/settings"}}aria-current="page"{{end}}>Settings</a>
+        {{template "themeswitch" .ThemeToggle}}
       </div>
       <form method="post" action="/logout" class="actions">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">

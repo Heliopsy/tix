@@ -1427,6 +1427,44 @@ li.task.is-blocked a.task-title { color: var(--muted); }
   font-weight: 600;
 }
 
+/* The colour scheme switch sits on the Settings link's own row rather than
+   under it. The foot is the only strip of the sidebar present on every
+   screen, and a second full-width block there reads as another navigation
+   entry rather than as a control. */
+/* It wraps because the row is 196px wide and the two widest states --
+   "Low contrast" beside a Settings link carrying the current-page weight --
+   do not fit on it. Overflowing put a scrollbar under the sidebar and cut
+   the chip off; a second line costs 30px on one screen. */
+.side-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.side-foot a { flex: 1 1 auto; min-width: 0; }
+.themer { flex: 0 0 auto; margin: 0; }
+
+/* Recessed rather than accented: --bg is a shade under --surface in all
+   three schemes, so the chip reads as sidebar furniture in each, while the
+   accent is reserved for the current page. */
+.theme-switch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  background: var(--bg);
+  border-color: var(--line);
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+/* filter: none because the shared button:hover brightens the accent, which
+   on this one does nothing visible in light and washes it out in dim. */
+.theme-switch:hover {
+  filter: none;
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.theme-ico { display: block; flex: 0 0 auto; }
+
 /* Flashes */
 /* A confirmation used to sit in the flow and shove the page down as it
    appeared, so the row you just ticked moved out from under the pointer. It
