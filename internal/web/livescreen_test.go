@@ -133,7 +133,9 @@ func sameRows(fragment, page string) bool {
 func rowIDs(html string) []string {
 	var out []string
 	for _, part := range strings.Split(html, `<li id="t-`)[1:] {
-		out = append(out, part[:strings.Index(part, `"`)])
+		if id, _, ok := strings.Cut(part, `"`); ok {
+			out = append(out, id)
+		}
 	}
 	return out
 }

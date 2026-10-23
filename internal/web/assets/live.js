@@ -234,7 +234,7 @@
     // since the last event it saw. The server replays the log from there, so
     // a connection that dropped loses nothing; without since_seq every change
     // made during the gap was simply never shown.
-    function subscribe(open) {
+    function subscribe(conn) {
       var message = { type: "subscribe", id: spec.id };
       var filter = spec.filter(bound);
       if (filter) {
@@ -243,10 +243,10 @@
       if (seq > 0) {
         message.since_seq = seq;
       }
-      open.send(JSON.stringify(message));
+      conn.send(JSON.stringify(message));
     }
 
-    function received(open, message) {
+    function received(conn, message) {
       var parsed;
       try {
         parsed = JSON.parse(message.data);
@@ -263,7 +263,7 @@
       // however much was missed.
       if (parsed.type === "error" && tix.resumeRefused(parsed.error)) {
         seq = 0;
-        subscribe(open);
+        subscribe(conn);
         schedule();
         return;
       }
