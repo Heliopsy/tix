@@ -54,12 +54,6 @@ func Exemptions() []Exemption {
 		{"Close", "closing the service is process lifecycle, not an operation"},
 		{"WhoAmI", "the root route calls it to bounce a visitor who is not signed in and discards the identity it answers with, so no screen states who the reader is"},
 		{"GetActor", "the screens call it to label an identifier, keeping the handle and discarding the rest, and there is no actor screen to open"},
-		{"TOTPStatus", "the security section of the settings screen is not written yet; the api and the forthcoming tix user totp reach it"},
-		{"BeginTOTPEnrolment", "the browser enrolment screen is not written yet; the api reaches it"},
-		{"ConfirmTOTPEnrolment", "the browser enrolment screen is not written yet; the api reaches it"},
-		{"RemoveTOTP", "the security section of the settings screen is not written yet; the api reaches it"},
-		{"RegenerateRecoveryCodes", "the security section of the settings screen is not written yet; the api reaches it"},
-		{"ClearUserTOTP", "the enrolment column of the user administration list is not written yet; the api reaches it"},
 	}
 }
 
@@ -67,6 +61,7 @@ func Exemptions() []Exemption {
 func (h *handler) routes() []route {
 	var out []route
 	out = append(out, h.sessionRoutes()...)
+	out = append(out, h.totpRoutes()...)
 	out = append(out, h.activityRoutes()...)
 	out = append(out, h.statsRoutes()...)
 	out = append(out, h.statusRoutes()...)

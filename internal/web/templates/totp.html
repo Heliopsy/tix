@@ -1,0 +1,47 @@
+{{/*
+  The code form, for the second step of a sign-in and for enrolment started
+  from settings. It is a plain form on purpose: the sign-in path has to work
+  with scripting off, and this is the step that stands between a reader and
+  every other screen. The code to scan is SVG drawn on the server, so nothing
+  here needs a script and the secret never reaches one.
+*/}}
+{{define "content"}}
+{{$v := .Data}}
+<h1>{{$v.Heading}}</h1>
+<p class="lede">{{$v.Lede}}</p>
+
+{{if $v.Enrol}}
+<div class="card totp-enrol">
+  {{if $v.QR}}{{$v.QR}}{{end}}
+  {{if $v.Key}}
+  <p class="muted">Cannot scan it? Type this key into the app instead.</p>
+  <div class="copyline">
+    <code id="totp-key">{{$v.Key}}</code>
+    <button type="button" class="secondary" data-copy-target="totp-key">Copy</button>
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+<div class="card">
+<form method="post" action="{{$v.Action}}" hx-boost="false" autocomplete="off">
+  {{template "csrf" .CSRF}}
+  {{if $v.Ticket}}<input type="hidden" name="ticket" value="{{$v.Ticket}}">{{end}}
+  {{if $v.Next}}<input type="hidden" name="next" value="{{$v.Next}}">{{end}}
+  {{if $v.URI}}<input type="hidden" name="uri" value="{{$v.URI}}">{{end}}
+  <label for="code">{{if $v.Recovery}}Code{{else}}Code from the app{{end}}</label>
+  {{if $v.Recovery}}
+  <p class="muted" id="code-help">Six digits from your authenticator app, or one of your recovery codes if you cannot reach it.</p>
+  {{else}}
+  <p class="muted" id="code-help">Six digits, from the app you just added the key to.</p>
+  {{end}}
+  <input id="code" name="code" inputmode="text" autocomplete="one-time-code"
+         spellcheck="false" autofocus required aria-describedby="code-help{{if $v.Errors.On "code"}} code-error{{end}}">
+  {{with $v.Errors.On "code"}}{{template "field-error" .}}{{end}}
+  <div class="actions">
+    <button type="submit">{{if $v.Enrol}}Confirm{{else}}Sign in{{end}}</button>
+    {{if $v.Cancel}}<a class="button secondary" href="{{$v.Cancel}}">{{if $v.Ticket}}Start again{{else}}Cancel{{end}}</a>{{end}}
+  </div>
+</form>
+</div>
+{{end}}

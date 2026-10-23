@@ -3,6 +3,10 @@
 <div class="card">
 <form method="post" action="/login">
   {{template "csrf" .CSRF}}
+  {{/* Where the visitor was going before they were bounced here. It rides
+       through the password step and the second factor step alike, so a deep
+       link still lands after both. */}}
+  <input type="hidden" name="next" value="{{.Data.Next}}">
   <label for="email">Email</label>
   <input id="email" name="email" type="email" autocomplete="username" required>
   <label for="password">Password</label>

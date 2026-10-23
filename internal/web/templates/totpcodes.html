@@ -1,0 +1,19 @@
+{{/*
+  Recovery codes, shown in exactly one response and never again: they are
+  stored hashed, so nothing can produce them a second time. The block carries
+  every code as text, so a reader with scripting off selects them by hand and
+  the Copy button is an extra rather than the only way out.
+*/}}
+{{define "content"}}
+{{$v := .Data}}
+<h1>Recovery codes</h1>
+<p class="lede">{{$v.Lede}}</p>
+<section class="secret" aria-labelledby="recovery-codes-heading">
+  <h2 id="recovery-codes-heading">Ten codes, each good once</h2>
+  <div class="copyline">
+    <pre id="recovery-codes"><code>{{$v.Joined}}</code></pre>
+    <button type="button" class="secondary" data-copy-target="recovery-codes">Copy</button>
+  </div>
+</section>
+<p><a class="button" href="{{$v.Continue}}">I have kept them, continue</a></p>
+{{end}}

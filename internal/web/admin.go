@@ -380,6 +380,10 @@ type usersView struct {
 	Pager  pager
 	Active int
 	Off    int
+	// CanClearTOTP is whether the reader holds the scope for returning
+	// somebody else to an unenrolled state. A member does not, so the control
+	// is drawn only where it would work.
+	CanClearTOTP bool
 }
 
 // showUsers renders the tenant's users, each with the role its membership
@@ -396,7 +400,8 @@ func (h *handler) showUsers(w http.ResponseWriter, r *http.Request) error {
 	roles := h.memberRoles(r)
 	actor, _ := core.ActorFrom(r.Context())
 	data := usersView{Users: make([]userRow, 0, len(users)), Roles: core.Roles,
-		Pager: newPager(r, RouteUsers, next, len(users), "users", SizeParam)}
+		Pager:        newPager(r, RouteUsers, next, len(users), "users", SizeParam),
+		CanClearTOTP: actor.HasScope(core.ScopeTOTPAdmin)}
 	for _, u := range users {
 		row := userRow{User: u, Role: roles[u.ID]}
 		if actor != nil && actor.ID == u.ID {
