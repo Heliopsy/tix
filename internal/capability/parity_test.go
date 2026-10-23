@@ -442,12 +442,39 @@ func TestTheOperationsAPersonWorksWithDailyReachTheTUI(t *testing.T) {
 	}
 }
 
-// TestNoCLIGapRemains holds the line on the six commands that were missing.
+// recordedCLIGaps are the operations with no command, named rather than
+// counted so that one more cannot arrive unnoticed and so that deleting one
+// from here without writing the command fails rather than passes.
+//
+// The line this test used to hold was zero. The second factor reopened it: the
+// service, the policy and the API landed ahead of tix user totp, which is the
+// next piece of that work. Every entry here is that one command tree.
+var recordedCLIGaps = map[string]bool{
+	"TOTPStatus":              true,
+	"BeginTOTPEnrolment":      true,
+	"ConfirmTOTPEnrolment":    true,
+	"RemoveTOTP":              true,
+	"RegenerateRecoveryCodes": true,
+	"ClearUserTOTP":           true,
+}
+
+// TestNoCLIGapRemains holds the line on the six commands that were missing,
+// and on the six recorded above not quietly becoming seven.
 func TestNoCLIGapRemains(t *testing.T) {
 	t.Parallel()
+	seen := map[string]bool{}
 	for _, absence := range capability.Gaps() {
-		if absence.Surface == capability.SurfaceCLI {
+		if absence.Surface != capability.SurfaceCLI {
+			continue
+		}
+		if !recordedCLIGaps[absence.Method] {
 			t.Errorf("%s: the cli gap on %s is back", absence.Method, absence.Surface)
+		}
+		seen[absence.Method] = true
+	}
+	for method := range recordedCLIGaps {
+		if !seen[method] {
+			t.Errorf("%s: the cli gap is recorded and gone; drop it from recordedCLIGaps", method)
 		}
 	}
 }
@@ -482,8 +509,9 @@ func TestNoCLIGapRemains(t *testing.T) {
 func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 	t.Parallel()
 	want := map[capability.Surface]int{
-		capability.SurfaceTUI: 32,
-		capability.SurfaceWeb: 2,
+		capability.SurfaceTUI: 38,
+		capability.SurfaceWeb: 8,
+		capability.SurfaceCLI: len(recordedCLIGaps),
 	}
 	got := map[capability.Surface]int{}
 	for _, absence := range capability.Gaps() {

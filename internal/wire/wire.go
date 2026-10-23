@@ -30,6 +30,13 @@ const (
 	RouteTokens = APIPrefix + "/tokens"
 	RouteToken  = APIPrefix + "/tokens/{id}"
 
+	// The second factor of the caller's own account, and the one route that
+	// reaches another user's: an administrative clear.
+	RouteTOTP        = APIPrefix + "/auth/totp"
+	RouteTOTPConfirm = APIPrefix + "/auth/totp/confirm"
+	RouteTOTPCodes   = APIPrefix + "/auth/totp/recovery-codes"
+	RouteUserTOTP    = APIPrefix + "/users/{id}/totp"
+
 	RouteSSHKeys = APIPrefix + "/ssh-keys"
 	RouteSSHKey  = APIPrefix + "/ssh-keys/{id}"
 

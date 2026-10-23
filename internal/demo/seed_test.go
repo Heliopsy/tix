@@ -66,7 +66,13 @@ func (tg *target) seed(t *testing.T, days int) *Summary {
 // demo nobody could open passed for a seeded one.
 func (tg *target) signIn(email, password string) (*core.Session, error) {
 	ctx := core.WithTenant(context.Background(), core.TenantScope{TenantID: tg.admin.TenantID})
-	return tg.svc.Login(ctx, email, password)
+	result, err := tg.svc.Login(ctx, core.LoginInput{
+		Email: email, Password: password, Surface: core.SurfaceWeb,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.Session, nil
 }
 
 // stats reads the figures over the whole seeded window.

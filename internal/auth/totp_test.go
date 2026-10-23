@@ -168,11 +168,15 @@ func TestVerificationLocksAfterRepeatedFailure(t *testing.T) {
 	clk := clock.NewFake(time.Unix(1_700_000_000, 0).UTC())
 	var a auth.Attempt
 
+	// One attempt per iteration. Calling Verify twice here to read the error
+	// a second time counted two failures per pass, so the lock arrived on the
+	// third iteration and the test failed on its own extra attempts.
 	for i := range auth.TOTPMaxFailures {
-		if err := a.Verify(rfcSecret, "000000", clk.Now()); err == nil {
+		err := a.Verify(rfcSecret, "000000", clk.Now())
+		if err == nil {
 			t.Fatalf("attempt %d: a wrong code was accepted", i+1)
 		}
-		if core.IsTOTPLocked(a.Verify(rfcSecret, "000000", clk.Now())) && i < auth.TOTPMaxFailures-1 {
+		if core.IsTOTPLocked(err) && i < auth.TOTPMaxFailures-1 {
 			t.Fatalf("locked after %d failures, want %d", i+1, auth.TOTPMaxFailures)
 		}
 	}

@@ -33,6 +33,10 @@ import (
 // whole point of the transport-equivalence suite: a divergence here is a
 // divergence between service.Local and client.Client, not between two
 // installations.
+// matrixTOTPKey seals the second factors the enrolment scenarios create. It
+// is fixed so a failure is reproducible.
+const matrixTOTPKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+
 type matrixHarness struct {
 	t *testing.T
 
@@ -77,7 +81,10 @@ func newMatrixHarness(t *testing.T) *matrixHarness {
 		// to a scenario table that creates its own project per run, and to
 		// the terminal-interface scenarios, which navigate the project
 		// picker by position.
-		service.WithoutStarterProjects())
+		service.WithoutStarterProjects(),
+		// A sealing key, so the second-factor scenarios exercise enrolment
+		// rather than the refusal an installation without one gets.
+		service.WithTOTPKey(matrixTOTPKey))
 
 	tenant, err := svc.EnsureDefaults(ctx)
 	if err != nil {

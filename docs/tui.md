@@ -607,7 +607,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 32 such gaps against 91
+a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 97
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:
@@ -617,12 +617,14 @@ grep 'gap(SurfaceTUI' internal/capability/registry.go
 go test ./internal/capability/...
 ```
 
-Every one of the 32 now has one of two shapes, which is worth knowing before you try:
+Every one of the 38 now has one of two shapes, which is worth knowing before you try:
 
 - **Administration.** Users, tokens, credentials, webhooks and their deliveries, retention and the server
   itself have no terminal screen at all, and neither the live connections a server holds nor the servers
   registered against the store can be listed here, and creating or destroying a tenant is not something a
-  session pinned to one tenant can do. That is twenty-four of the count.
+  session pinned to one tenant can do. The second factor is here too: enrolling one, confirming it,
+  removing it, replacing the recovery codes, reading the state of either and clearing somebody else's are
+  six operations with no screen. That is thirty of the count.
 - **Bulk and data movement.** Import, export, bundles and external sync are command line and API only.
   That is the other eight.
 

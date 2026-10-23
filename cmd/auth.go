@@ -368,11 +368,20 @@ func newLoginCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			session, err := conn.Service.Login(ctx, email, secret)
+			result, err := conn.Service.Login(ctx, core.LoginInput{
+				Email: email, Password: secret, Surface: core.SurfaceCLI,
+			})
 			if err != nil {
 				return err
 			}
-			return g.render(cmd, session)
+			// The prompt for the second step is phase 4 of the second factor
+			// work. Until it exists this refuses rather than printing a
+			// session that was never minted.
+			if result.Session == nil {
+				return core.Precondition(
+					"this tenant requires a second factor on the command line, which this build cannot prompt for yet")
+			}
+			return g.render(cmd, result.Session)
 		},
 	}
 	cmd.Flags().StringVar(&email, "email", "", "account email address")

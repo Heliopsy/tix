@@ -396,3 +396,37 @@ func TestEveryActionIsClassifiedForConfinement(t *testing.T) {
 		}
 	}
 }
+
+// TestClearingAnotherUsersSecondFactorIsAdminOnly names the one authority the
+// second factor adds. It is covered by the role matrix above as one row among
+// many; it is stated separately because the property it asserts is the whole
+// reason the scope exists, and a row of a generated matrix is not somewhere a
+// reader looks for that.
+func TestClearingAnotherUsersSecondFactorIsAdminOnly(t *testing.T) {
+	p := New()
+	cases := []struct {
+		role core.Role
+		want bool
+	}{
+		{core.RoleViewer, false},
+		{core.RoleMember, false},
+		{core.RoleAdmin, true},
+	}
+	for _, tc := range cases {
+		t.Run(string(tc.role), func(t *testing.T) {
+			err := p.Can(roleActor(tc.role), ActionTOTPAdmin, resource())
+			if (err == nil) != tc.want {
+				t.Fatalf("role %q clearing a second factor: allowed=%v want=%v (err=%v)",
+					tc.role, err == nil, tc.want, err)
+			}
+			if !tc.want && !core.IsKind(err, core.KindForbidden) {
+				t.Fatalf("role %q was refused with %v, want a forbidden error", tc.role, err)
+			}
+		})
+	}
+	// A project-pinned token reaches tenant-wide state here, so it is refused
+	// outright rather than held inside its own project.
+	if ActionTOTPAdmin.ProjectConfinable() {
+		t.Fatal("clearing a second factor is confinable to a project, which it does not belong to")
+	}
+}

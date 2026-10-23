@@ -144,8 +144,38 @@ type AuthService interface {
 	UpdateUser(ctx context.Context, id string, in UpdateUserInput) (*User, error)
 	DeleteUser(ctx context.Context, id string) error
 
-	Login(ctx context.Context, email, password string) (*Session, error)
+	// Login is one step of an interactive sign-in. It answers with a session
+	// when nothing further is needed, and with a challenge when the tenant
+	// requires a second factor on the surface the caller named. The second
+	// call presents the challenge's ticket and the code.
+	//
+	// It is two steps rather than one call taking a code beside the password,
+	// because a surface that could pass both at once is a surface that could
+	// take the code from a flag or an environment variable, which puts a live
+	// second factor in shell history and in the process table.
+	Login(ctx context.Context, in LoginInput) (*LoginResult, error)
 	Logout(ctx context.Context) error
+
+	// TOTPStatus reports the caller's own enrolment and what their tenant
+	// requires of them. It discloses nothing that could produce a code.
+	TOTPStatus(ctx context.Context) (*TOTPStatus, error)
+	// BeginTOTPEnrolment generates a secret for the caller and hands back the
+	// forms an authenticator takes. It takes effect only once a code produced
+	// from it is confirmed, and is refused outright when no sealing key is
+	// configured rather than storing a secret in the clear.
+	BeginTOTPEnrolment(ctx context.Context) (*TOTPEnrolment, error)
+	// ConfirmTOTPEnrolment proves possession and issues the recovery codes,
+	// which are returned exactly once and cannot be asked for again.
+	ConfirmTOTPEnrolment(ctx context.Context, code string) (*TOTPRecoveryCodes, error)
+	// RemoveTOTP drops the caller's own enrolment and every code beside it.
+	RemoveTOTP(ctx context.Context) error
+	// RegenerateRecoveryCodes replaces the caller's codes, spent or not, and
+	// returns the new set once.
+	RegenerateRecoveryCodes(ctx context.Context) (*TOTPRecoveryCodes, error)
+	// ClearUserTOTP returns another user to an unenrolled state. It is the
+	// escape from a lost device with no codes left, and it is the authority
+	// an administrator holds that a member does not.
+	ClearUserTOTP(ctx context.Context, userID string) error
 
 	CreateToken(ctx context.Context, in CreateTokenInput) (*IssuedToken, error)
 	ListTokens(ctx context.Context, actorID string) ([]APIToken, error)

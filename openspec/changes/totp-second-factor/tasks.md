@@ -2,38 +2,38 @@
 
 ## 1. Schema and configuration
 
-- [ ] 1.1 Migration: `user_totp` (user_id PK referencing `users`, sealed secret, nonce,
+- [x] 1.1 Migration: `user_totp` (user_id PK referencing `users`, sealed secret, nonce,
       `confirmed_at`, `last_step`, `failures`, `locked_until`, timestamps) and
       `user_recovery_codes` (user_id, code_hash, `used_at`)
-- [ ] 1.2 Migration: `tenants` gains `require_totp_web`, `require_totp_cli`, `require_totp_ssh`,
+- [x] 1.2 Migration: `tenants` gains `require_totp_web`, `require_totp_cli`, `require_totp_ssh`,
       all defaulting to false, so no existing deployment changes behaviour
-- [ ] 1.3 `internal/config`: `auth.totp_key` with its `TIX_AUTH_TOTP_KEY` mapping, 32 bytes base64,
+- [x] 1.3 `internal/config`: `auth.totp_key` with its `TIX_AUTH_TOTP_KEY` mapping, 32 bytes base64,
       validated at load so a malformed key fails at startup rather than at first enrolment
 
 ## 2. The verifier
 
-- [ ] 2.1 `internal/auth/totp.go`: RFC 6238 over HMAC-SHA1, six digits, thirty second step,
+- [x] 2.1 `internal/auth/totp.go`: RFC 6238 over HMAC-SHA1, six digits, thirty second step,
       accepting one step either side. Table tests against the RFC's published vectors
-- [ ] 2.2 `internal/auth/totp.go`: the accepted-step high-water mark, so a code is single use.
+- [x] 2.2 `internal/auth/totp.go`: the accepted-step high-water mark, so a code is single use.
       `FakeClock`-driven test replaying one code inside the window
-- [ ] 2.3 `internal/auth/seal.go`: AES-256-GCM over the secret, random nonce, user id as AAD.
+- [x] 2.3 `internal/auth/seal.go`: AES-256-GCM over the secret, random nonce, user id as AAD.
       Test that a ciphertext moved to another user's row fails to open
-- [ ] 2.4 `internal/auth/recovery.go`: ten 128-bit codes, SHA-256 hashes, constant-time compare,
+- [x] 2.4 `internal/auth/recovery.go`: ten 128-bit codes, SHA-256 hashes, constant-time compare,
       single use. The design records why this one is not argon2id
-- [ ] 2.5 `internal/auth/totp.go`: five failures then a fifteen minute lock, counted on the
+- [x] 2.5 `internal/auth/totp.go`: five failures then a fifteen minute lock, counted on the
       enrolment, cleared by success, reported as its own error kind
 
 ## 3. Service and policy
 
-- [ ] 3.1 `internal/service/totp.go`: begin, confirm, remove, regenerate codes, administrative clear.
+- [x] 3.1 `internal/service/totp.go`: begin, confirm, remove, regenerate codes, administrative clear.
       Enrolment refused outright when no key is configured
-- [ ] 3.2 `internal/service/session.go`: the requirement is evaluated at session mint against the
+- [x] 3.2 `internal/service/session.go`: the requirement is evaluated at session mint against the
       tenant and the surface, never per request
-- [ ] 3.3 `internal/service/totp.go`: an unenrolled user on a requiring surface enters enrolment and
+- [x] 3.3 `internal/service/totp.go`: an unenrolled user on a requiring surface enters enrolment and
       completes sign-in on success. Test that enabling the flag cannot lock out the tenant
-- [ ] 3.4 `internal/authz`: the scope for clearing another user's enrolment, held by admin and not
+- [x] 3.4 `internal/authz`: the scope for clearing another user's enrolment, held by admin and not
       by member. Matrix test
-- [ ] 3.5 Audit entries for enrol, confirm, remove, administrative clear, and recovery code spent,
+- [x] 3.5 Audit entries for enrol, confirm, remove, administrative clear, and recovery code spent,
       naming which code
 
 ## 4. The three surfaces

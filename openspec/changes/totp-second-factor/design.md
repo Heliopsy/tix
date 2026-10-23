@@ -112,7 +112,7 @@ What differs per surface is only *where the prompt is drawn* and *which flag
 decides whether it is drawn at all*:
 
 | Surface | Flag | Prompt |
-|---|---|---|
+| --- | --- | --- |
 | Browser | `require_totp_web` | A second page after the password form |
 | `tix login` | `require_totp_cli` | A terminal prompt, never an argument |
 | `tix ssh` | `require_totp_ssh` | After the key is accepted, before the board |

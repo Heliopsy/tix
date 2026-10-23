@@ -25,6 +25,14 @@ type Local struct {
 	hooks  HookMode
 	hasher *auth.Hasher
 
+	// totpKey seals enrolled second factors and signs the ticket that
+	// carries a sign-in from its first step to its second. It is held in its
+	// encoded form as well as its opened one because the ticket helpers take
+	// the configured value, and a service built without one refuses enrolment
+	// rather than storing a secret in the clear.
+	totpKey    string
+	totpSealer *auth.Sealer
+
 	// conns is the live connections this process is holding. It is memory
 	// only, and a connection lives in exactly one process, so a server lists
 	// and ends its own and no other's.
@@ -102,6 +110,23 @@ func WithRetentionDefaults(p core.RetentionPolicy) Option {
 // WithHasher sets the password hasher. Tests use cheaper parameters; production
 // must not.
 func WithHasher(h *auth.Hasher) Option { return func(l *Local) { l.hasher = h } }
+
+// WithTOTPKey supplies the key second factors are sealed under, in the base64
+// form configuration carries. An unparseable key leaves the service with none,
+// which refuses enrolment; config validation rejects one at start-up so this
+// path is reached only by a caller building a service by hand.
+func WithTOTPKey(encoded string) Option {
+	return func(l *Local) {
+		l.totpKey = encoded
+		l.totpSealer = nil
+		if encoded == "" {
+			return
+		}
+		if sealer, err := auth.NewSealer(encoded); err == nil {
+			l.totpSealer = sealer
+		}
+	}
+}
 
 // WithThemes supplies the registry a tenant's theme name is validated against.
 //

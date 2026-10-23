@@ -119,21 +119,49 @@ func (s *apiService) DeleteUser(_ context.Context, id string) error {
 	return nil
 }
 
-func (s *apiService) Login(_ context.Context, email, password string) (*core.Session, error) {
-	if email == "" || password == "" {
+func (s *apiService) Login(_ context.Context, in core.LoginInput) (*core.LoginResult, error) {
+	if in.Email == "" || in.Password == "" {
 		return nil, core.Invalid("email and password are required")
 	}
-	if password != "correct-horse-battery" {
+	if in.Password != "correct-horse-battery" {
 		return nil, core.Unauthenticated("invalid credentials")
 	}
 	sess := &core.Session{
 		Token:     "session-secret",
-		ActorID:   "actor-" + email,
+		ActorID:   "actor-" + in.Email,
 		TenantID:  "tenant",
 		ExpiresAt: time.Now().Add(time.Hour),
 	}
 	s.sessions[sess.Token] = sess
-	return sess, nil
+	return &core.LoginResult{Session: sess}, nil
+}
+
+func (s *apiService) TOTPStatus(context.Context) (*core.TOTPStatus, error) {
+	return &core.TOTPStatus{}, nil
+}
+
+func (s *apiService) BeginTOTPEnrolment(context.Context) (*core.TOTPEnrolment, error) {
+	return &core.TOTPEnrolment{Secret: "SECRET", URI: "otpauth://totp/tix:ada", Issuer: "tix", Account: "ada"}, nil
+}
+
+func (s *apiService) ConfirmTOTPEnrolment(_ context.Context, code string) (*core.TOTPRecoveryCodes, error) {
+	if code == "" {
+		return nil, core.Invalid("a code is required")
+	}
+	return &core.TOTPRecoveryCodes{Codes: []string{"AAAA-BBBB"}}, nil
+}
+
+func (s *apiService) RemoveTOTP(context.Context) error { return nil }
+
+func (s *apiService) RegenerateRecoveryCodes(context.Context) (*core.TOTPRecoveryCodes, error) {
+	return &core.TOTPRecoveryCodes{Codes: []string{"CCCC-DDDD"}}, nil
+}
+
+func (s *apiService) ClearUserTOTP(_ context.Context, userID string) error {
+	if userID == "" {
+		return core.Invalid("a user identifier is required")
+	}
+	return nil
 }
 
 func (s *apiService) Logout(ctx context.Context) error {

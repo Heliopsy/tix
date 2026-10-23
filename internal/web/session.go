@@ -64,11 +64,25 @@ func (h *handler) showLogin(w http.ResponseWriter, r *http.Request) error {
 }
 
 // doLogin exchanges an email and password for a browser session.
+//
+// A tenant requiring a second factor in the browser answers with a challenge
+// rather than a session, and the screen that draws the second step is not
+// built yet: until it is, the sign-in is refused here rather than silently
+// completed without the factor the tenant asked for.
 func (h *handler) doLogin(w http.ResponseWriter, r *http.Request) error {
-	session, err := h.svc.Login(r.Context(), field(r, "email"), r.PostFormValue("password"))
+	result, err := h.svc.Login(r.Context(), core.LoginInput{
+		Email:    field(r, "email"),
+		Password: r.PostFormValue("password"),
+		Surface:  core.SurfaceWeb,
+	})
 	if err != nil {
 		return err
 	}
+	if result.Session == nil {
+		return core.Precondition("this tenant requires a second factor in the browser, " +
+			"and the browser cannot ask for one yet; sign in with tix login")
+	}
+	session := result.Session
 	http.SetCookie(w, auth.NewSessionCookie(session.Token, session.ExpiresAt, h.secureCookie(r)))
 	// #nosec G710 -- safeNext rejects anything that is not a relative path on
 	// this origin, including protocol-relative, backslash and control forms.

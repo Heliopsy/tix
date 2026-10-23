@@ -182,8 +182,25 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 		{"list actors", func(c *Client) error { _, _, err := c.ListActors(ctx, core.Page{}); return err }, http.MethodGet, wire.RouteActors},
 		{"update user", func(c *Client) error { _, err := c.UpdateUser(ctx, "u1", core.UpdateUserInput{}); return err }, http.MethodPatch, "/api/v1/users/u1"},
 		{"delete user", func(c *Client) error { return c.DeleteUser(ctx, "u1") }, http.MethodDelete, "/api/v1/users/u1"},
-		{"login", func(c *Client) error { _, err := c.Login(ctx, "a@b.c", "pw"); return err }, http.MethodPost, wire.RouteLogin},
+		{"login", func(c *Client) error {
+			_, err := c.Login(ctx, core.LoginInput{Email: "a@b.c", Password: "pw"})
+			return err
+		}, http.MethodPost, wire.RouteLogin},
 		{"logout", func(c *Client) error { return c.Logout(ctx) }, http.MethodPost, wire.RouteLogout},
+		{"totp status", func(c *Client) error { _, err := c.TOTPStatus(ctx); return err }, http.MethodGet, wire.RouteTOTP},
+		{"begin totp", func(c *Client) error { _, err := c.BeginTOTPEnrolment(ctx); return err }, http.MethodPost, wire.RouteTOTP},
+		{"confirm totp", func(c *Client) error {
+			_, err := c.ConfirmTOTPEnrolment(ctx, "123456")
+			return err
+		}, http.MethodPost, wire.RouteTOTPConfirm},
+		{"remove totp", func(c *Client) error { return c.RemoveTOTP(ctx) }, http.MethodDelete, wire.RouteTOTP},
+		{"regenerate recovery codes", func(c *Client) error {
+			_, err := c.RegenerateRecoveryCodes(ctx)
+			return err
+		}, http.MethodPost, wire.RouteTOTPCodes},
+		{"clear another user's totp", func(c *Client) error {
+			return c.ClearUserTOTP(ctx, "u1")
+		}, http.MethodDelete, "/api/v1/users/u1/totp"},
 		{"create token", func(c *Client) error {
 			_, err := c.CreateToken(ctx, core.CreateTokenInput{Name: "agent"})
 			return err
