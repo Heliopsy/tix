@@ -34,6 +34,11 @@ carries, or the retry behaviour of a subscriber whose reads are failing.
 - **WHEN** a transaction that changed domain rows but appended no event commits
 - **THEN** no subscriber is woken by it
 
+#### Scenario: A subscription is ready before it is returned
+
+- **WHEN** a caller subscribes and commits an event immediately afterwards, with no wait in between
+- **THEN** that commit wakes the subscriber, because the subscription was already established when the subscribe call returned
+
 #### Scenario: An announcement does not cross tenants
 
 - **WHEN** an event is committed for one tenant while a subscriber is watching another
