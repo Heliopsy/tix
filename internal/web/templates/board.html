@@ -97,7 +97,7 @@
               {{template "csrf" $.CSRF}}
               <input type="hidden" name="ref" value="{{.Task.Ref}}">
               <select id="to-{{.Task.Ref}}" name="route" aria-label="Move {{.Task.Ref}} to">
-                {{range .Routes}}<option value="{{.Value}}">{{.Option}}</option>{{end}}
+                {{range $i, $r := .Routes}}<option value="{{$r.Value}}"{{if eq $i 0}} selected{{end}}>{{$r.Option}}</option>{{end}}
               </select>
               <button type="submit">Move</button>
             </form>

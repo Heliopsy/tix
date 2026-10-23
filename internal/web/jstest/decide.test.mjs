@@ -173,6 +173,48 @@ test("fieldDirty reads a control against what the server rendered into it", () =
   assert.equal(tix.fieldDirty(null), false);
 });
 
+// A select whose markup names no selected option is the board's Move control,
+// and reading the browser's own pick as the reader's froze every board for as
+// long as it was open: the region never stopped being busy, so the refresh
+// deferred forever and the board sat on its first paint.
+test("fieldDirty does not read the browser's own pick as the reader's", () => {
+  const untouched = {
+    tagName: "SELECT",
+    selectedIndex: 0,
+    options: [
+      { selected: true, defaultSelected: false },
+      { selected: false, defaultSelected: false },
+    ],
+  };
+  assert.equal(tix.fieldDirty(untouched), false,
+    "an untouched select with no declared default was reported dirty");
+
+  const chosen = {
+    tagName: "SELECT",
+    selectedIndex: 1,
+    options: [
+      { selected: false, defaultSelected: false },
+      { selected: true, defaultSelected: false },
+    ],
+  };
+  assert.equal(tix.fieldDirty(chosen), true,
+    "a select the reader moved off the first option was reported clean");
+
+  // A declared default is still the thing a choice is read against, so a
+  // select sitting on an option that is not its default is dirty even though
+  // it is the first one.
+  const declared = {
+    tagName: "SELECT",
+    selectedIndex: 0,
+    options: [
+      { selected: true, defaultSelected: false },
+      { selected: false, defaultSelected: true },
+    ],
+  };
+  assert.equal(tix.fieldDirty(declared), true,
+    "a select with a declared default was not read against it");
+});
+
 test("dragEnabled needs both the setting and a fine pointer", () => {
   const fine = () => ({ matches: true });
   const coarse = () => ({ matches: false });

@@ -211,8 +211,21 @@
     }
     if (el.tagName === "SELECT") {
       var options = el.options || [];
+      var declared = false;
       for (var i = 0; i < options.length; i++) {
-        if (!!options[i].selected !== !!options[i].defaultSelected) {
+        if (options[i].defaultSelected) {
+          declared = true;
+          break;
+        }
+      }
+      // Markup that names no selected option still arrives with the first one
+      // selected, because the browser picks it. That is not a reader's choice,
+      // and reading it as one reports the region busy forever.
+      if (!declared) {
+        return el.selectedIndex > 0;
+      }
+      for (var j = 0; j < options.length; j++) {
+        if (!!options[j].selected !== !!options[j].defaultSelected) {
           return true;
         }
       }
