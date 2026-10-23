@@ -963,6 +963,28 @@ demo-record ENVFILE:
     echo "take: {{demo_out}}/raw.mkv"
     echo "log:  {{demo_out}}/scene.log"
 
+# Record a take you can watch while it runs, on a vnc port.
+#
+# The container keeps its own display either way. Sharing the host X socket
+# would put these windows on your desktop, which is worse in both directions:
+# the host window manager would place them, and a capture of the display would
+# be a capture of your screen.
+demo-watch ENVFILE:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -f "{{ENVFILE}}" ] || { echo "no env file at {{ENVFILE}}" >&2; exit 1; }
+    mkdir -p {{demo_out}}
+    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log
+    echo "connect a vnc viewer to 127.0.0.1:5900 once this starts"
+    {{engine}} run --rm \
+      --env-file "{{ENVFILE}}" --env SCENE_VNC=1 \
+      --userns=keep-id:uid=1000,gid=1000 \
+      --hostname tix-demo \
+      --shm-size 512m \
+      -p 127.0.0.1:5900:5900 \
+      -v "$PWD/{{demo_out}}:/out:Z" \
+      {{demo_image}}
+
 # Every second of the take as one tiled image.
 #
 # This is the leak check, and it is not optional. A container cannot be

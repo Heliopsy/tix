@@ -157,6 +157,44 @@ test("wantsEvent keeps a one-record screen off its neighbours' changes", () => {
   assert.equal(tix.wantsEvent("task-1", null), false);
 });
 
+// A select that names no default is the shape every card on the board carried.
+// The browser selects the first option by itself, so comparing selected against
+// defaultSelected called it dirty, the live region holding it read as mid-edit,
+// and the board deferred every refresh for as long as it was open. It did not
+// update once.
+test("fieldDirty does not call an untouched select dirty just because the browser chose for it", () => {
+  const untouched = {
+    tagName: "SELECT",
+    selectedIndex: 0,
+    options: [
+      { selected: true, defaultSelected: false },
+      { selected: false, defaultSelected: false },
+    ],
+  };
+  assert.equal(tix.fieldDirty(untouched), false);
+
+  const chosen = {
+    tagName: "SELECT",
+    selectedIndex: 1,
+    options: [
+      { selected: false, defaultSelected: false },
+      { selected: true, defaultSelected: false },
+    ],
+  };
+  assert.equal(tix.fieldDirty(chosen), true);
+
+  // A select that does name a default is still read against that default.
+  const declared = {
+    tagName: "SELECT",
+    selectedIndex: 1,
+    options: [
+      { selected: false, defaultSelected: true },
+      { selected: true, defaultSelected: false },
+    ],
+  };
+  assert.equal(tix.fieldDirty(declared), true);
+});
+
 test("fieldDirty reads a control against what the server rendered into it", () => {
   assert.equal(tix.fieldDirty({ tagName: "INPUT", value: "same", defaultValue: "same" }), false);
   assert.equal(tix.fieldDirty({ tagName: "INPUT", value: "typed", defaultValue: "" }), true);

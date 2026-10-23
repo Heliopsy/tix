@@ -26,10 +26,11 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl git jq openssh-client procps tzdata \
-      xvfb x11-utils xdotool wmctrl i3 \
+      xvfb x11-utils x11-xserver-utils xdotool wmctrl i3 \
       xterm tmux \
       fonts-dejavu-core fonts-noto-color-emoji fonts-noto-mono \
       ffmpeg \
+      x11vnc \
       chromium \
       nodejs npm \
     && rm -rf /var/lib/apt/lists/*

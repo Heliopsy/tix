@@ -21,12 +21,16 @@ set -euo pipefail
 # instead, because the default in its own script was still `web`.
 export SCENE_PROJECT SCENE_TASKS DB
 
-: "${SCENE_WIDTH:=1600}"
-: "${SCENE_HEIGHT:=900}"
+: "${SCENE_WIDTH:=1920}"
+: "${SCENE_HEIGHT:=1080}"
 : "${SCENE_FPS:=12}"
 : "${SCENE_PROJECT:=toolbelt}"
-: "${SCENE_TASKS:=4}"
+: "${SCENE_TASKS:=6}"
 : "${SCENE_BEAT_TIMEOUT:=180}"
+: "${DEMO_PASSWORD:=tix-demo-password}"
+: "${SCENE_AGENTS:=atlas scout}"
+export SCENE_AGENTS
+export DEMO_PASSWORD
 
 OUT=/out
 DB_DIR=/home/demo/data
@@ -93,12 +97,25 @@ XVFB_PID=$!
 for _ in $(seq 50); do xdpyinfo -display :99 >/dev/null 2>&1 && break; sleep 0.2; done
 xdpyinfo -display :99 >/dev/null 2>&1 || die "Xvfb never came up"
 
-xrdb -merge /home/demo/.Xresources 2>/dev/null || true
+# Not optional, and not silenced. The first takes had a white terminal beside
+# a dark board because xrdb was missing from the image and the failure was
+# swallowed by a `|| true`.
+xrdb -merge /home/demo/.Xresources >> "$LOG" 2>&1 || die "xrdb could not load the terminal colours"
+
+# SCENE_VNC turns on a viewer for the display being filmed, so a take can be
+# watched while it runs instead of only after it is encoded. It is off by
+# default: the recording environment should expose nothing it does not need,
+# and a rehearsal that nobody is watching has no reason to open a port.
+if [ -n "${SCENE_VNC:-}" ]; then
+  x11vnc -display :99 -forever -shared -nopw -quiet -rfbport 5900 >> "$LOG" 2>&1 &
+  say "vnc on 5900"
+fi
 i3 >> "$LOG" 2>&1 &
 sleep 1
 
 cleanup() {
   say "cleanup"
+  [ -n "${BROWSER_PID:-}" ] && kill "$BROWSER_PID" 2>/dev/null || true
   [ -n "${TAP_PID:-}" ] && kill "$TAP_PID" 2>/dev/null || true
   [ -n "${FFMPEG_PID:-}" ] && kill -INT "$FFMPEG_PID" 2>/dev/null || true
   [ -n "${FFMPEG_PID:-}" ] && wait "$FFMPEG_PID" 2>/dev/null || true
@@ -109,9 +126,37 @@ trap cleanup EXIT
 
 # ── the product ──────────────────────────────────────────────────────────────
 
-say "seeding"
-tix --db "$DB" --no-discovery demo seed --days 30 >> "$LOG" 2>&1 \
-  || die "demo seed"
+# A fresh installation, not a seeded one.
+#
+# `tix demo seed` writes six projects and sixty-six tasks of history. That is
+# the right fixture for exploring the product and the wrong one for this
+# recording: the scene says "here is a new installation, watch us set it up",
+# and a backlog that predates the installation contradicts the first sentence.
+# It also buried the four tasks the demo is about among sixty-six it is not.
+#
+# What remains is what a real `tix` creates for itself on first run.
+say "creating the first account"
+tix --db "$DB" --no-discovery user create nadia@demo.invalid \
+  --handle nadia --display-name "Nadia Petrova" \
+  --password "$DEMO_PASSWORD" --role admin >> "$LOG" 2>&1 \
+  || die "creating the first account"
+
+# An account and a scoped token per agent.
+#
+# Two agents, not one, because one agent working a list demonstrates nothing a
+# shell loop could not do. Two agents on one backlog is the claim: the claim is
+# a compare-and-swap, so they cannot take the same task, and nothing coordinates
+# them. Each gets its own identity so the board shows who holds what.
+#
+# They run against the server with a token rather than against the database
+# file, which is how an agent is actually deployed, and it exercises the token
+# scopes at the same time.
+for agent in $SCENE_AGENTS; do
+  tix --db "$DB" --no-discovery user create "$agent@demo.invalid" \
+    --handle "$agent" --display-name "$agent" \
+    --password "$DEMO_PASSWORD" --role member >> "$LOG" 2>&1 \
+    || die "creating the account for $agent"
+done
 
 # An SSH key for the pane that appears in beat 4. Generated here and thrown
 # away with the container, so the recording never involves a key that exists
@@ -139,20 +184,18 @@ curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1 || die "server never bec
 
 # ── camera ───────────────────────────────────────────────────────────────────
 
-say "recording to $OUT/raw.mkv"
-# Lossless-ish capture. Every encode decision belongs in encode.sh against a
-# finished take, not here against a take that cannot be redone without paying
-# for the agent again.
-ffmpeg -nostdin -loglevel error -y \
-  -f x11grab -framerate "$SCENE_FPS" -video_size "${SCENE_WIDTH}x${SCENE_HEIGHT}" -i :99 \
-  -c:v libx264 -preset ultrafast -qp 0 -pix_fmt yuv444p \
-  "$OUT/raw.mkv" &
-FFMPEG_PID=$!
-sleep 1
 
 # ── beat 1: the browser ──────────────────────────────────────────────────────
 
 say "beat 1: browser"
+# The three backgrounding flags are the reason the board updates at all. When
+# the terminal window takes focus, chromium treats the occluded window as
+# backgrounded and throttles its renderer: the socket stays open, the events
+# arrive, and nothing is drawn. In the first takes the board sat on its
+# first paint for the whole run while the agent emptied the backlog beside it,
+# which made the one thing this recording exists to show the one thing it did
+# not show.
+#
 # The command-line flags did not stop the "Save password?" bubble, which opened
 # over the board in two takes. The profile preference does. It has to exist
 # before chromium first reads the profile, so it is written here.
@@ -176,6 +219,9 @@ chromium \
   --no-first-run --no-default-browser-check --disable-infobars --test-type \
   --disable-features=TranslateUI,AutofillServerCommunication,PasswordManagerEnableAccountStore,PasswordLeakDetection \
   --password-store=basic --disable-save-password-bubble \
+  --disable-backgrounding-occluded-windows \
+  --disable-renderer-backgrounding \
+  --disable-background-timer-throttling \
   --force-dark-mode \
   --remote-debugging-port=9222 \
   --user-data-dir=/home/demo/chrome \
@@ -192,20 +238,89 @@ hold 2
 # ── beat 2: plan the work in the browser ─────────────────────────────────────
 
 say "beat 2: planning"
-SCENE_PROJECT="$SCENE_PROJECT" SCENE_TASKS="$SCENE_TASKS" \
-  node "$SCENE/browser.mjs" plan >> "$LOG" 2>&1 || die "browser planning"
+# Started in the background and left running. It holds the CDP connection for
+# the rest of the scene, because dropping it stops the page: see the note at
+# the end of browser.mjs. It reports that the planning beat is finished by
+# touching PLAN_DONE rather than by exiting.
+PLAN_DONE=/tmp/plan.done
+READY=/tmp/signed-in
+GO=/tmp/rolling
+rm -f "$PLAN_DONE" "$READY" "$GO"
+SCENE_PLAN_DONE="$PLAN_DONE" SCENE_READY="$READY" SCENE_GO="$GO" \
+  node "$SCENE/browser.mjs" plan >> "$LOG" 2>&1 &
+BROWSER_PID=$!
+
+# Wait until it is signed in and parked, then roll, then release it. The
+# recording therefore opens on the product rather than on somebody typing a
+# password, which is not a feature and not worth eight seconds.
+for _ in $(seq "$SCENE_BEAT_TIMEOUT"); do
+  [ -f "$READY" ] && break
+  kill -0 "$BROWSER_PID" 2>/dev/null || die "the browser died before signing in; see the log"
+  sleep 1
+done
+[ -f "$READY" ] || die "the browser never signed in"
+
+say "recording to $OUT/raw.mkv"
+# Lossless-ish capture. Every encode decision belongs in encode.sh against a
+# finished take, not here against a take that cannot be redone without paying
+# for the agents again.
+ffmpeg -nostdin -loglevel error -y \
+  -f x11grab -framerate "$SCENE_FPS" -video_size "${SCENE_WIDTH}x${SCENE_HEIGHT}" -i :99 \
+  -c:v libx264 -preset ultrafast -qp 0 -pix_fmt yuv444p \
+  "$OUT/raw.mkv" &
+FFMPEG_PID=$!
+sleep 2
+touch "$GO"
+for _ in $(seq $((SCENE_BEAT_TIMEOUT * 2))); do
+  [ -f "$PLAN_DONE" ] && break
+  kill -0 "$BROWSER_PID" 2>/dev/null || die "the planning beat died; see the log"
+  sleep 1
+done
+[ -f "$PLAN_DONE" ] || die "the planning beat never finished"
+say "planning done"
 
 # ── beat 3: the agent ────────────────────────────────────────────────────────
 
+# One scoped token each, written to a file the pane reads. The secret is shown
+# exactly once by design, so it is captured here rather than re-derived.
+for agent in $SCENE_AGENTS; do
+  tix --db "$DB" --no-discovery token create "$agent-runner" --actor "$agent" \
+      --expires never -o json \
+      --scope task:read --scope task:write --scope task:transition \
+      --scope task:claim --scope comment:write --scope project:read \
+      --scope workflow:read --scope event:subscribe \
+    > "/home/demo/.$agent.token.json" 2>>"$LOG" || die "minting a token for $agent"
+done
+
 tap_start
 
-say "beat 3: agent"
+say "beat 3: agents"
 # SCENE_AGENT exists so the scene can be debugged without paying for an agent
 # run. agent-stub.sh drives the same tix commands on a timer, so every beat
 # after this one is exercised exactly as it would be with the real thing.
 AGENT=${SCENE_AGENT:-$SCENE/agent.sh}
-xterm -geometry 100x44+$((SCENE_WIDTH * 2 / 3))+0 -e \
-  "tmux -f /home/demo/scene/tmux.conf new-session -s demo -n work '$AGENT; bash'" \
+set -- $SCENE_AGENTS
+FIRST=$1
+SECOND=${2:-}
+# Colours on the command line, not from .Xresources. xrdb loads cleanly and
+# xterm still came up white against a dark board, so the resource path is not
+# worth another take to debug: -bg/-fg/-fa are unambiguous, and the sixteen
+# palette entries come through -xrm, which is the same mechanism without the
+# dependency on the resource database being consulted.
+xterm \
+  -bg '#0b0f14' -fg '#d7dce3' -cr '#2dd4bf' \
+  -fa 'DejaVu Sans Mono' -fs 11 -b 10 +sb -bc \
+  -xrm 'XTerm*color0:  #11161d' -xrm 'XTerm*color8:  #39414d' \
+  -xrm 'XTerm*color1:  #f87171' -xrm 'XTerm*color9:  #fca5a5' \
+  -xrm 'XTerm*color2:  #34d399' -xrm 'XTerm*color10: #6ee7b7' \
+  -xrm 'XTerm*color3:  #fbbf24' -xrm 'XTerm*color11: #fcd34d' \
+  -xrm 'XTerm*color4:  #60a5fa' -xrm 'XTerm*color12: #93c5fd' \
+  -xrm 'XTerm*color5:  #a78bfa' -xrm 'XTerm*color13: #c4b5fd' \
+  -xrm 'XTerm*color6:  #2dd4bf' -xrm 'XTerm*color14: #5eead4' \
+  -xrm 'XTerm*color7:  #d7dce3' -xrm 'XTerm*color15: #f3f5f8' \
+  -geometry 110x62+$((SCENE_WIDTH * 55 / 100))+0 \
+  -T 'terminal' \
+  -e "tmux -f /home/demo/scene/tmux.conf new-session -s demo -n work 'TIX_AGENT=$FIRST $AGENT; bash'" \
   >> "$LOG" 2>&1 &
 hold 1
 # i3 splits evenly, which left the board in half a frame with three columns too
@@ -217,10 +332,35 @@ tap_wait 'task\.claimed' 1
 
 # ── beat 4: a second surface on the same tenant ──────────────────────────────
 
-say "beat 4: ssh pane"
-hold 4
-tmux split-window -t demo:work -v "$SCENE/board.sh" >> "$LOG" 2>&1 || die "splitting the pane"
-hold 6
+say "beat 4: the second agent"
+# The second agent arrives after the first has already taken something, so the
+# recording shows a backlog being shared rather than two processes starting
+# together and racing once.
+hold 3
+if [ -n "$SECOND" ]; then
+  tmux split-window -t demo:work -v "TIX_AGENT=$SECOND $AGENT; bash" >> "$LOG" 2>&1 \
+    || die "splitting for the second agent"
+  hold 4
+fi
+
+say "beat 4b: the event stream"
+# Everything else in the frame is downstream of this. Showing the log itself is
+# what turns "the screens update" into "there is one event log and every
+# surface reads it".
+tmux split-window -t demo:work -v "$SCENE/watch.sh" >> "$LOG" 2>&1 || die "splitting for the stream"
+hold 3
+
+say "beat 4c: the board over ssh"
+tmux split-window -t demo:work -v "$SCENE/board.sh" >> "$LOG" 2>&1 || die "splitting for the board"
+tmux select-layout -t demo:work even-vertical >> "$LOG" 2>&1 || true
+
+# Label every pane. Four unlabelled terminals stacked is four terminals; named,
+# it is two agents, the event log and a board.
+tmux select-pane -t demo:work.0 -T "agent: $FIRST" >> "$LOG" 2>&1 || true
+[ -n "$SECOND" ] && tmux select-pane -t demo:work.1 -T "agent: $SECOND" >> "$LOG" 2>&1 || true
+tmux select-pane -t demo:work.2 -T "tix watch  (the event log)" >> "$LOG" 2>&1 || true
+tmux select-pane -t demo:work.3 -T "ssh tix@demo  (the board)" >> "$LOG" 2>&1 || true
+hold 5
 
 # ── beat 5: watch the work land ──────────────────────────────────────────────
 

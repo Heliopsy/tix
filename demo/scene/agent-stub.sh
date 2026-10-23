@@ -15,18 +15,23 @@
 
 set -uo pipefail
 
-export TIX_DATABASE_DSN=${DB:-/home/demo/data/demo.db}
+# Same shape as the real agent: its own identity, its own token, the server
+# rather than the database file.
+AGENT=${TIX_AGENT:?an agent name is required}
+export TIX_SERVER_URL="http://127.0.0.1:8080"
+TIX_TOKEN=$(jq -r '.secret // .token // empty' "/home/demo/.$AGENT.token.json" 2>/dev/null)
+export TIX_TOKEN
 export TIX_OUTPUT_COLOR=always
-PROJECT=${SCENE_PROJECT:-web}
-TASKS=${SCENE_TASKS:-4}
+PROJECT=${SCENE_PROJECT:-toolbelt}
+TASKS=${SCENE_TASKS:-6}
 
 clear
-printf '  a stand-in agent (rehearsal, not a real one)\n\n'
+printf '  %s  (rehearsal stand-in, not a real agent)\n\n' "$AGENT"
 
 for _ in $(seq "$TASKS"); do
   sleep 2
   claimed=$(tix claim next -p "$PROJECT" -s todo -o json 2>/dev/null) || {
-    printf '  nothing left to claim\n'; break; }
+    printf '  %s: nothing left to take\n' "$AGENT"; break; }
 
   ref=$(printf '%s' "$claimed" | jq -r '.task.ref')
   title=$(printf '%s' "$claimed" | jq -r '.task.title')
@@ -40,7 +45,7 @@ for _ in $(seq "$TASKS"); do
   tix task mv "$ref" doing --lease-token "$token" >/dev/null 2>&1
   sleep 3
   if tix claim release "$ref" --token "$token" --status done \
-       --comment "done by the rehearsal stand-in" >/dev/null 2>&1; then
+       --comment "done by $AGENT" >/dev/null 2>&1; then
     printf '  done    %s\n\n' "$ref"
   else
     printf '  could not release %s\n\n' "$ref"

@@ -11,9 +11,14 @@
 // title appear instantly, which reads as a script running rather than as
 // somebody planning work, and the point of this beat is that a person plans.
 
+import { existsSync, writeFileSync } from "node:fs";
 import { chromium } from "playwright-core";
 
 const CDP = "http://127.0.0.1:9222";
+const DONE = process.env.SCENE_PLAN_DONE || "/tmp/plan.done";
+const READY = process.env.SCENE_READY || "/tmp/signed-in";
+const GO = process.env.SCENE_GO || "/tmp/rolling";
+const PASSWORD = process.env.DEMO_PASSWORD || "tix-demo-password";
 const BASE = "http://127.0.0.1:8080";
 
 const COUNT = Number(process.env.SCENE_TASKS || 4);
@@ -31,10 +36,12 @@ const PROJECT_KEY = process.env.SCENE_PROJECT || "toolbelt";
 const PROJECT_NAME = process.env.SCENE_PROJECT_NAME || "Toolbelt";
 
 const PLAN = [
-  "Write a wordcount script that counts the words in a file",
-  "Give wordcount a --json flag for machine readable output",
+  "Write wordcount.py that prints lines, words and characters",
+  "Add a --json flag to wordcount",
   "Handle an empty file without dividing by zero",
-  "Write a README with two worked examples",
+  "Write slugify.py that turns a title into a url slug",
+  "Add a --max-length flag to slugify",
+  "Write a README covering both tools",
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -52,19 +59,25 @@ async function main() {
     { name: "tix_theme", value: "dark", url: BASE },
   ]);
 
+  // Signing in is not a feature anybody needs convincing of, and it is eight
+  // seconds of somebody typing a password. It happens before the camera rolls.
   await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
-  await sleep(800);
-
-  // Signing in on camera rather than starting from a session. It is two
-  // seconds, and it establishes that this is a real multi-user product and
-  // not a local toy.
-  await page.locator("input[name=email]").pressSequentially("nadia@demo.invalid", { delay: 55 });
-  await sleep(250);
-  await page.locator("input[name=password]").pressSequentially("tix-demo-password", { delay: 45 });
+  await page.locator("input[name=email]").fill("nadia@demo.invalid");
+  await page.locator("input[name=password]").fill(PASSWORD);
+  await Promise.all([
+    page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 20000 }),
+    page.locator("button[type=submit]").click(),
+  ]);
+  await page.goto(`${BASE}/projects`, { waitUntil: "domcontentloaded" });
   await sleep(400);
-  await page.locator("button[type=submit]").click();
-  await page.waitForLoadState("domcontentloaded");
-  await sleep(1200);
+
+  // Ready, and nothing on screen yet that the recording should miss.
+  writeFileSync(READY, "signed in\n");
+  for (;;) {
+    if (existsSync(GO)) break;
+    await sleep(200);
+  }
+  await sleep(600);
 
   // The project is made on camera. It is three fields, it takes four seconds,
   // and it establishes that the work about to be done did not come with the
@@ -99,21 +112,70 @@ async function main() {
     await sleep(900);
   }
 
+  // Count what the socket actually delivers, so a board that does not move can
+  // be told apart from a board with nothing to move it.
+  await context.addInitScript(() => {
+    const Native = window.WebSocket;
+    window.__wsMsgs = 0;
+    window.__wsSent = [];
+    function Wrapped(...a) {
+      const ws = new Native(...a);
+      ws.addEventListener("message", () => { window.__wsMsgs++; });
+      const send = ws.send.bind(ws);
+      ws.send = (d) => { window.__wsSent.push(String(d).slice(0, 120)); return send(d); };
+      return ws;
+    }
+    Wrapped.prototype = Native.prototype;
+    window.WebSocket = Wrapped;
+  });
+
   // Land on the board, because the board is what the viewer watches repaint
   // while the agent works.
   await sleep(600);
   await page.goto(`${BASE}/projects/${PROJECT_KEY}`, { waitUntil: "domcontentloaded" });
   await sleep(1500);
 
-  // Deliberately not browser.close(). Over CDP that closes the browser it
-  // attached to, and in the first take it did: the board rendered, the socket
-  // opened, and then every request stopped. The window kept showing its last
-  // paint while the agent worked, so the recording showed a board that never
-  // moved, which is the opposite of the thing being demonstrated.
+  // The connection is held open for the rest of the scene, and this process is
+  // killed by run.sh at the end.
   //
-  // Letting the process exit drops the CDP socket and leaves chromium running
-  // with its page live, which is what the rest of the scene is filming.
-  process.exit(0);
+  // Neither closing nor detaching works. browser.close() over CDP closes the
+  // browser it attached to. Simply exiting drops the CDP transport, and
+  // chromium then stops servicing the page: in three takes the board rendered,
+  // opened its socket, and went silent, so it sat on its first paint while the
+  // agent emptied the backlog beside it. The window still showed a board, which
+  // is why it took three takes to notice that the board was a photograph.
+  //
+  // So the planning beat reports that it is finished by touching a file, and
+  // then does nothing at all, for as long as the scene needs the page alive.
+  writeFileSync(DONE, "planned\n");
+
+  // A heartbeat, not an idle wait. It keeps the CDP connection open, and it
+  // puts the page's own view of itself in the log once a second, which is the
+  // only way to tell a board that is not updating from a board with nothing to
+  // update.
+  for (;;) {
+    await sleep(2000);
+    try {
+      const state = await page.evaluate(() => {
+        const cols = [...document.querySelectorAll("#project-board h2, #project-board h3")]
+          .map((h) => h.textContent.trim()).join(" | ");
+        const el = document.querySelector("#live-screen");
+        return {
+          url: location.pathname,
+          hidden: document.hidden,
+          cols,
+          msgs: window.__wsMsgs ?? "nohook",
+          liveFetches: performance.getEntriesByType("resource")
+            .filter((r) => r.name.includes("/live")).length,
+          err: window.__liveErr ?? "",
+          sent: (window.__wsSent ?? [])[0] ?? "none",
+        };
+      });
+      console.log(`[browser] ${state.url} msgs=${state.msgs} liveFetch=${state.liveFetches} err=${state.err} ${state.cols}`);
+    } catch (err) {
+      console.log(`[browser] page unreachable: ${String(err).slice(0, 120)}`);
+    }
+  }
 }
 
 main().catch((err) => {
