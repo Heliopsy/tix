@@ -319,7 +319,10 @@ func (s *Server) Serve(ctx context.Context) error {
 		return err
 	case <-ctx.Done():
 		_ = s.ssh.Close()
-		<-done
+		// Drained so Serve cannot outlive this call. The error it reports is
+		// ErrServerClosed, caused by the Close above, which is this path
+		// working rather than failing.
+		<-done //nolint:errcheck // the value is the ErrServerClosed the Close above caused
 		return nil
 	}
 }
