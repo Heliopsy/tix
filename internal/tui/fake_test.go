@@ -557,7 +557,8 @@ func (f *fakeService) BeginTOTPEnrolment(context.Context) (*core.TOTPEnrolment, 
 func (f *fakeService) ConfirmTOTPEnrolment(context.Context, string) (*core.TOTPRecoveryCodes, error) {
 	return nil, nil
 }
-func (f *fakeService) RemoveTOTP(context.Context) error { return nil }
+func (f *fakeService) VerifySecondFactor(context.Context, string) error { return nil }
+func (f *fakeService) RemoveTOTP(context.Context) error                 { return nil }
 func (f *fakeService) RegenerateRecoveryCodes(context.Context) (*core.TOTPRecoveryCodes, error) {
 	return nil, nil
 }

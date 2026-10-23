@@ -167,6 +167,12 @@ type AuthService interface {
 	// ConfirmTOTPEnrolment proves possession and issues the recovery codes,
 	// which are returned exactly once and cannot be asked for again.
 	ConfirmTOTPEnrolment(ctx context.Context, code string) (*TOTPRecoveryCodes, error)
+	// VerifySecondFactor proves the caller's existing second factor on its
+	// own, minting nothing. It is what a surface whose first factor is not a
+	// password calls: an SSH session has already proved a key when the code
+	// is asked for, so there is no password step for a ticket to hang off.
+	// A recovery code is accepted here as it is on the sign-in path.
+	VerifySecondFactor(ctx context.Context, code string) error
 	// RemoveTOTP drops the caller's own enrolment and every code beside it.
 	RemoveTOTP(ctx context.Context) error
 	// RegenerateRecoveryCodes replaces the caller's codes, spent or not, and

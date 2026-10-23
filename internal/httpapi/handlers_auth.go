@@ -51,6 +51,7 @@ func (rt *Router) registerAuthRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteTOTP, rt.handleBeginTOTP)
 	rt.mux.HandleFunc("DELETE "+wire.RouteTOTP, rt.handleRemoveTOTP)
 	rt.mux.HandleFunc("POST "+wire.RouteTOTPConfirm, rt.handleConfirmTOTP)
+	rt.mux.HandleFunc("POST "+wire.RouteTOTPVerify, rt.handleVerifySecondFactor)
 	rt.mux.HandleFunc("POST "+wire.RouteTOTPCodes, rt.handleRegenerateRecoveryCodes)
 	rt.mux.HandleFunc("DELETE "+wire.RouteUserTOTP, rt.handleClearUserTOTP)
 
@@ -165,6 +166,19 @@ func (rt *Router) handleConfirmTOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, http.StatusOK, codes)
+}
+
+// handleVerifySecondFactor proves an existing factor and mints nothing.
+func (rt *Router) handleVerifySecondFactor(w http.ResponseWriter, r *http.Request) {
+	var in TOTPCodeRequest
+	if !readJSON(w, r, &in) {
+		return
+	}
+	if err := rt.cfg.Service.VerifySecondFactor(r.Context(), in.Code); err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeNoContent(w)
 }
 
 // handleRemoveTOTP drops the caller's own enrolment.

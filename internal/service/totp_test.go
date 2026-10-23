@@ -667,3 +667,109 @@ func TestAnActorWithNoUserRowHasNoSecondFactor(t *testing.T) {
 		t.Fatalf("an actor with no user row began an enrolment: %v", err)
 	}
 }
+
+// TestVerifySecondFactorProvesAnEnrolmentWithNoSignInBehindIt covers the
+// surface whose first factor is not a password. An SSH session has already
+// proved a key when the code is asked for, so there is no password step for a
+// ticket to hang off and nothing left to mint.
+func TestVerifySecondFactorProvesAnEnrolmentWithNoSignInBehindIt(t *testing.T) {
+	l, clk, scope, admin := newTOTPLocal(t)
+	user := seedUser(t, l, admin, "ada@example.com")
+	actor := userActor(t, l, user, core.RoleMember)
+	ctx := authContext(actor)
+	secret, codes := enrol(t, l, clk, actor)
+
+	clk.Advance(auth.TOTPPeriod)
+	code := codeFor(t, secret, clk)
+	if err := l.VerifySecondFactor(ctx, code); err != nil {
+		t.Fatalf("verifying a current code: %v", err)
+	}
+	// The high-water mark has to move here too, or a code read off a
+	// terminal is usable again for the rest of its window. Both halves are
+	// asserted: the replay is refused, and the mark the refusal rests on was
+	// actually written.
+	if err := l.VerifySecondFactor(ctx, code); err == nil {
+		t.Fatal("the same code verified twice")
+	}
+	if got := storedTOTP(t, l, scope, user.ID).LastStep; got != auth.TOTPStep(clk.Now()) {
+		t.Fatalf("the accepted step is %d, want %d: a verified code left the mark where it was",
+			got, auth.TOTPStep(clk.Now()))
+	}
+
+	if err := l.VerifySecondFactor(ctx, codes[0]); err != nil {
+		t.Fatalf("verifying a recovery code: %v", err)
+	}
+	if err := l.VerifySecondFactor(ctx, codes[0]); err == nil {
+		t.Fatal("a recovery code was spent twice")
+	}
+}
+
+// TestVerifySecondFactorReportsTheLockRatherThanAWrongCode keeps the
+// distinction the design asks for: a surface has to be able to say "wait"
+// instead of "that code is wrong".
+func TestVerifySecondFactorReportsTheLockRatherThanAWrongCode(t *testing.T) {
+	l, clk, _, admin := newTOTPLocal(t)
+	user := seedUser(t, l, admin, "ada@example.com")
+	actor := userActor(t, l, user, core.RoleMember)
+	ctx := authContext(actor)
+	enrol(t, l, clk, actor)
+
+	for i := 0; i < auth.TOTPMaxFailures; i++ {
+		err := l.VerifySecondFactor(ctx, "000000")
+		if err == nil {
+			t.Fatalf("attempt %d: a wrong code was accepted", i+1)
+		}
+		if core.IsTOTPLocked(err) && i < auth.TOTPMaxFailures-1 {
+			t.Fatalf("attempt %d of %d locked early", i+1, auth.TOTPMaxFailures)
+		}
+	}
+	if err := l.VerifySecondFactor(ctx, "000000"); !core.IsTOTPLocked(err) {
+		t.Fatalf("the attempt after %d failures = %v, want the lock", auth.TOTPMaxFailures, err)
+	}
+}
+
+// TestVerifySecondFactorNeedsAConfirmedEnrolment refuses rather than
+// pretending: there is nothing here to prove, and enrolment is a separate step
+// the surface drives.
+func TestVerifySecondFactorNeedsAConfirmedEnrolment(t *testing.T) {
+	tests := []struct {
+		name  string
+		begin bool
+	}{
+		{"never enrolled", false},
+		{"begun and abandoned", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			l, _, _, admin := newTOTPLocal(t)
+			user := seedUser(t, l, admin, "ada@example.com")
+			actor := userActor(t, l, user, core.RoleMember)
+			ctx := authContext(actor)
+			if tc.begin {
+				if _, err := l.BeginTOTPEnrolment(ctx); err != nil {
+					t.Fatalf("beginning enrolment: %v", err)
+				}
+			}
+			if err := l.VerifySecondFactor(ctx, "000000"); !core.IsKind(err, core.KindPrecondition) {
+				t.Fatalf("verifying against %s = %v, want a precondition failure", tc.name, err)
+			}
+		})
+	}
+}
+
+// storedTOTP reads one user's enrolment straight out of the store, which is
+// the only place the replay high-water mark is observable: nothing renders it,
+// on purpose.
+func storedTOTP(t *testing.T, l *Local, scope core.TenantScope, userID string) *core.UserTOTP {
+	t.Helper()
+	ctx := context.Background()
+	var out *core.UserTOTP
+	if err := l.store.View(ctx, scope, func(tx store.Tx) error {
+		var err error
+		out, err = tx.GetUserTOTP(ctx, userID)
+		return err
+	}); err != nil {
+		t.Fatalf("reading the enrolment of %q: %v", userID, err)
+	}
+	return out
+}

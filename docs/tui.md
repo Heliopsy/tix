@@ -607,7 +607,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 97
+a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 98
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:
@@ -640,12 +640,14 @@ sub-item: the comment thread, the tag list, the dependency list, the actor direc
 which tenant a session was pinned to now reads the tenant, the tenants the session can see, its domains
 and its memberships, and edits all three, which closed nine.
 
-Seven absences are not gaps and will not close. Closing the service is process lifecycle; hostname
+Eight absences are not gaps and will not close. Closing the service is process lifecycle; hostname
 resolution runs in the server request path; lease sweeping is a background loop; signing in and out
 bracket the program rather than happening inside it, since the interface opens on a session that already
-exists and ending it would revoke the credential the running program is using; and the two workflow writes
-cannot be served here rather than have not been yet. A workflow is a state machine, which is a graph, and
-neither a line of text nor a form over fixed lists gathers one, so the project screen names
+exists and ending it would revoke the credential the running program is using; proving a second factor
+happens in the ssh listener before the interface starts, which is the point of it, since a view inside the
+board would be drawn after the tenant's data; and the two workflow writes cannot be served here rather
+than have not been yet. A workflow is a state machine, which is a graph, and neither a line of text nor
+a form over fixed lists gathers one, so the project screen names
 `tix workflow put` instead. A deletion would only ever be offered on the workflow the open project runs
 on, which is the one workflow the service refuses to delete, and an entry leading to a refusal is worse
 than no entry.
