@@ -50,3 +50,28 @@ regexes = [
   '''\b01[0-9A-HJKMNP-TV-Z]{24}\b''',
   '''\b01[0-9A-HJKMNP-TV-Z]{14}\b''',
 ]
+
+[[allowlists]]
+description = """
+The sealing keys the second-factor tests enrol against.
+
+internal/config requires auth.totp_key to be 32 bytes base64, so a test that
+exercises enrolment has to carry something of exactly that shape, and the
+generic-api-key rule reads the shape rather than the meaning. Three of these decode to the counting sequence
+"0123456789abcdef0123456789abcdef" and the fourth to a sentence saying what it
+is for. The decoded form is listed too, because the history holds commits where
+the constant carried it before it was base64 encoded, and this gate reads the
+whole history rather than the current tree.
+
+They are matched by their literal values and not by path or by constant name.
+A real key pasted into a test file, under any name, is still reported, because
+it would not be one of these four strings. If a test ever needs a different
+fixture key, this list has to grow by hand, which is the point: each entry is
+a claim someone can check.
+"""
+regexTarget = "secret"
+regexes = [
+  '''^MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=$''',
+  '''^dGl4LXdlYi10ZXN0LXNlY29uZC1mYWN0b3Ita2V5ISE=$''',
+  '''^0123456789abcdef0123456789abcdef$''',
+]
