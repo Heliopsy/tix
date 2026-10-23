@@ -227,7 +227,10 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	err := s.shutdown()
 	workers.Wait()
-	<-served
+	// Drained so the accept goroutine cannot outlive this call. Its error is
+	// the one shutdown just caused by closing the listener underneath it, so
+	// reporting it would replace the real reason with its own consequence.
+	<-served //nolint:errcheck // the value is the error shutdown just caused
 	return err
 }
 
