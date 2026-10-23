@@ -362,6 +362,56 @@ test("a refresh waits for a field the reader has typed into", async () => {
   assert.equal(c.fetches.length, 1, "the refresh never landed once the field was clean");
 });
 
+// The board is the one screen with a <select> inside a live region, and it
+// never updated. Its Move control named no selected option, so the browser
+// picked the first; the DOM then reported a selection nobody made, the region
+// was busy on every pass, and the refresh deferred forever. This is the whole
+// mechanism, end to end: a board that has only been rendered must refresh.
+test("a freshly rendered board is not held busy by its own Move controls", async () => {
+  const c = liveContext({ regions: ["project-board"], fresh: { "project-board": "columns" } });
+  const move = {
+    tagName: "SELECT",
+    selectedIndex: 0,
+    options: [
+      { selected: true, defaultSelected: true },
+      { selected: false, defaultSelected: false },
+    ],
+  };
+  c.nodes["project-board"].querySelectorAll = () => [move];
+  c.sockets[0].emit("open", {});
+  c.sockets[0].event({ seq: 1, subject_id: "task-1" });
+
+  assert.deepEqual(c.fetches, ["/tasks/infra-1/live"],
+    "the board deferred its first refresh, so it never updates at all");
+  await settle();
+  assert.equal(c.nodes["project-board"].innerHTML, "columns", "the board was never replaced");
+});
+
+// The same board once a reader has actually opened a Move menu and chosen a
+// column. That is work a refresh would throw away, so it still waits.
+test("a board whose reader has chosen a move still holds the refresh back", async () => {
+  const c = liveContext({ regions: ["project-board"], fresh: { "project-board": "columns" } });
+  const move = {
+    tagName: "SELECT",
+    selectedIndex: 1,
+    options: [
+      { selected: false, defaultSelected: true },
+      { selected: true, defaultSelected: false },
+    ],
+  };
+  c.nodes["project-board"].querySelectorAll = () => [move];
+  c.sockets[0].emit("open", {});
+  c.sockets[0].event({ seq: 1, subject_id: "task-1" });
+  assert.deepEqual(c.fetches, [], "a refresh discarded the move the reader had picked");
+
+  move.selectedIndex = 0;
+  move.options[0].selected = true;
+  move.options[1].selected = false;
+  c.clock.fire();
+  await settle();
+  assert.equal(c.fetches.length, 1, "the refresh never landed once the menu was back at its default");
+});
+
 test("a dropped connection is reopened on a backing-off timer and resumes from the last event", () => {
   const c = liveContext();
   c.sockets[0].emit("open", {});
