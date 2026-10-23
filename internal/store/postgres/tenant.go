@@ -11,7 +11,14 @@ import (
 	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
-var tenantColumns = []string{"id", "key", "name", "created_at", "updated_at", "deleted_at"}
+// theme is read back here as well as written. It was written and never
+// selected, so every tenant read on this engine answered with no theme while
+// the column held one.
+var tenantColumns = []string{
+	"id", "key", "name", "theme",
+	"require_totp_web", "require_totp_cli", "require_totp_ssh",
+	"created_at", "updated_at", "deleted_at",
+}
 
 func scanTenant(s scanner) (core.Tenant, error) {
 	var (
@@ -20,7 +27,9 @@ func scanTenant(s scanner) (core.Tenant, error) {
 		updated   sql.NullTime
 		deletedAt sql.NullTime
 	)
-	if err := s.Scan(&t.ID, &t.Key, &t.Name, &created, &updated, &deletedAt); err != nil {
+	if err := s.Scan(&t.ID, &t.Key, &t.Name, &t.Theme,
+		&t.RequireTOTPWeb, &t.RequireTOTPCLI, &t.RequireTOTPSSH,
+		&created, &updated, &deletedAt); err != nil {
 		return core.Tenant{}, mapErr(err, "scanning tenant")
 	}
 	t.CreatedAt = scanTime(created)
@@ -100,6 +109,9 @@ func (t *tx) CreateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("key", in.Key).
 		Set("name", in.Name).
 		Set("theme", in.Theme).
+		Set("require_totp_web", in.RequireTOTPWeb).
+		Set("require_totp_cli", in.RequireTOTPCLI).
+		Set("require_totp_ssh", in.RequireTOTPSSH).
 		Set("created_at", timeArg(in.CreatedAt)).
 		Set("updated_at", timeArg(in.UpdatedAt)).
 		Set("deleted_at", nullTimeArg(in.DeletedAt))
@@ -115,6 +127,9 @@ func (t *tx) UpdateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("key", in.Key).
 		Set("name", in.Name).
 		Set("theme", in.Theme).
+		Set("require_totp_web", in.RequireTOTPWeb).
+		Set("require_totp_cli", in.RequireTOTPCLI).
+		Set("require_totp_ssh", in.RequireTOTPSSH).
 		Set("updated_at", timeArg(in.UpdatedAt)).
 		Set("deleted_at", nullTimeArg(in.DeletedAt))
 	n, err := t.execUpdate(ctx, b, "updating tenant %q", in.ID)

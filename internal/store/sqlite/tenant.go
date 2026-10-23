@@ -11,7 +11,11 @@ import (
 	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
-var tenantColumns = []string{"id", "key", "name", "theme", "created_at", "updated_at", "deleted_at"}
+var tenantColumns = []string{
+	"id", "key", "name", "theme",
+	"require_totp_web", "require_totp_cli", "require_totp_ssh",
+	"created_at", "updated_at", "deleted_at",
+}
 
 func scanTenant(s scanner) (core.Tenant, error) {
 	var (
@@ -19,10 +23,18 @@ func scanTenant(s scanner) (core.Tenant, error) {
 		created   sql.NullString
 		updated   sql.NullString
 		deletedAt sql.NullString
+		totpWeb   int64
+		totpCLI   int64
+		totpSSH   int64
 	)
-	if err := s.Scan(&t.ID, &t.Key, &t.Name, &t.Theme, &created, &updated, &deletedAt); err != nil {
+	if err := s.Scan(&t.ID, &t.Key, &t.Name, &t.Theme,
+		&totpWeb, &totpCLI, &totpSSH,
+		&created, &updated, &deletedAt); err != nil {
 		return core.Tenant{}, mapErr(err, "scanning tenant")
 	}
+	t.RequireTOTPWeb = sqlb.Bool(totpWeb)
+	t.RequireTOTPCLI = sqlb.Bool(totpCLI)
+	t.RequireTOTPSSH = sqlb.Bool(totpSSH)
 	var err error
 	if t.CreatedAt, err = sqlb.ScanTime(created); err != nil {
 		return core.Tenant{}, err
@@ -108,6 +120,9 @@ func (t *tx) CreateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("key", in.Key).
 		Set("name", in.Name).
 		Set("theme", in.Theme).
+		Set("require_totp_web", sqlb.BoolInt(in.RequireTOTPWeb)).
+		Set("require_totp_cli", sqlb.BoolInt(in.RequireTOTPCLI)).
+		Set("require_totp_ssh", sqlb.BoolInt(in.RequireTOTPSSH)).
 		Set("created_at", sqlb.TimeText(in.CreatedAt)).
 		Set("updated_at", sqlb.TimeText(in.UpdatedAt)).
 		Set("deleted_at", sqlb.NullTimeText(in.DeletedAt))
@@ -123,6 +138,9 @@ func (t *tx) UpdateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("key", in.Key).
 		Set("name", in.Name).
 		Set("theme", in.Theme).
+		Set("require_totp_web", sqlb.BoolInt(in.RequireTOTPWeb)).
+		Set("require_totp_cli", sqlb.BoolInt(in.RequireTOTPCLI)).
+		Set("require_totp_ssh", sqlb.BoolInt(in.RequireTOTPSSH)).
 		Set("updated_at", sqlb.TimeText(in.UpdatedAt)).
 		Set("deleted_at", sqlb.NullTimeText(in.DeletedAt))
 	n, err := t.execUpdate(ctx, b, "updating tenant %q", in.ID)

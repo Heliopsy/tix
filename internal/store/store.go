@@ -55,6 +55,7 @@ type Tx interface {
 	TaskTx
 	ClaimTx
 	AuthTx
+	TOTPTx
 	EventTx
 	WebhookTx
 	SyncTx
@@ -301,6 +302,52 @@ type AuthTx interface {
 	ListSSHKeys(ctx context.Context, actorID string) ([]core.SSHKey, error)
 	RevokeSSHKey(ctx context.Context, id string, at time.Time) error
 	TouchSSHKey(ctx context.Context, id string, at time.Time) error
+}
+
+// TOTPTx covers the enrolled second factor and its recovery codes.
+//
+// Both tables key on users(id) and carry no tenant column, for the reason
+// internal/store/sql names them in the unscoped allow-list: a second factor is
+// part of a credential set, and tix keeps one credential set per human rather
+// than one per tenant actor. They sit on the tenant-scoped transaction anyway,
+// beside the user rows they hang off, because every caller already holds one
+// and a second door into the store would be a door with no scope on it.
+type TOTPTx interface {
+	// GetUserTOTP returns the enrolment, confirmed or not. An absent
+	// enrolment is a not-found error, like every other single-row read.
+	GetUserTOTP(ctx context.Context, userID string) (*core.UserTOTP, error)
+	// PutUserTOTP writes an enrolment, replacing any the user already holds.
+	// Re-enrolment is a replacement rather than a second row: the primary key
+	// is the user, and the previous secret has to stop being accepted.
+	PutUserTOTP(ctx context.Context, e *core.UserTOTP) error
+	// SaveUserTOTPAttempt writes back the verification state a code attempt
+	// left: the high-water step, the consecutive failure count and the lock.
+	// It is separate from PutUserTOTP because it runs on the failure path,
+	// where nothing else about the enrolment may move.
+	SaveUserTOTPAttempt(ctx context.Context, userID string, a core.UserTOTP) error
+	// ConfirmUserTOTP marks an enrolment proved. Until it runs the enrolment
+	// satisfies no requirement to hold a second factor.
+	ConfirmUserTOTP(ctx context.Context, userID string, at time.Time) error
+	// DeleteUserTOTP removes an enrolment. The recovery codes beside it are
+	// not cascaded, because their foreign key is on users rather than on this
+	// row; a caller clearing an enrolment deletes both.
+	DeleteUserTOTP(ctx context.Context, userID string) error
+	// CountConfirmedTOTP counts confirmed enrolments across the installation,
+	// because the key that opens them is installation-wide.
+	CountConfirmedTOTP(ctx context.Context) (int, error)
+
+	// ReplaceRecoveryCodes drops every code the user holds, spent or not, and
+	// writes the given set. Regeneration invalidates what was issued before.
+	ReplaceRecoveryCodes(ctx context.Context, userID string, codes []core.RecoveryCode) error
+	// ListRecoveryCodes returns the user's codes, spent ones included, oldest
+	// first. A spent code is kept so an audit entry can name which one.
+	ListRecoveryCodes(ctx context.Context, userID string) ([]core.RecoveryCode, error)
+	// SpendRecoveryCode marks one code used. It reports false, having written
+	// nothing, when the code was already spent, so two attempts racing on one
+	// code cannot both be told they spent it.
+	SpendRecoveryCode(ctx context.Context, id string, at time.Time) (bool, error)
+	// DeleteRecoveryCodes removes every code a user holds.
+	DeleteRecoveryCodes(ctx context.Context, userID string) (int64, error)
 }
 
 // EventTx covers the outbox, the audit log and retention.
