@@ -38,8 +38,8 @@
 
 ## 4. The three surfaces
 
-- [ ] 4.1 `internal/web`: the second sign-in step, working without JavaScript, preserving `next`;
-      enrolment and recovery codes on settings; enrolment state on the admin user list
+- [x] 4.1 `internal/web`: the second sign-in step, working without JavaScript, preserving `next`;
+      enrolment and recovery codes on settings; the administrative clear on the admin user list
 - [x] 4.2 `cmd/login.go`: the prompt after the password, never a flag or an environment variable;
       a non-interactive terminal fails naming API tokens
 - [x] 4.3 `cmd/user_totp.go`: enrol, status, remove, admin clear, with `otpauth://` and a scannable
@@ -47,6 +47,10 @@
 - [x] 4.4 `internal/sshd`: the prompt after the key is accepted and before any tenant data is drawn
 - [ ] 4.5 `internal/capability`: registry entries with CLI, HTTP and Web bindings for every new
       operation, since a missing binding fails the parity build
+- [ ] 4.6 `internal/service`: a read of somebody else's enrolment state, so an administrative user
+      list can show who holds a factor. `TOTPStatus` answers for the caller alone and `core.User`
+      carries nothing about it, so the browser list offers the clear without being able to say who
+      needs it. Named separately because it is a new contract method, not a surface
 
 ## 5. Diagnostics and documentation
 

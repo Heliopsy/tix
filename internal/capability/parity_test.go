@@ -478,6 +478,11 @@ func TestNoCLIGapRemains(t *testing.T) {
 // throws the identity away, and the screens call GetActor only to turn an
 // identifier into a label, so neither operation reaches a browser reader.
 //
+// It came down from eight when the second factor reached the browser, closing
+// the six it had been recorded against: the status, enrolment and recovery
+// codes on the settings screen, removal beside them, and the administrative
+// clear on the user list.
+//
 // The terminal count came down from 58 when the confirmation and the form landed
 // with the five operations that needed them: task.delete, dependency.remove,
 // tag.list, comment.edit and comment.delete.
@@ -503,7 +508,7 @@ func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 	t.Parallel()
 	want := map[capability.Surface]int{
 		capability.SurfaceTUI: 38,
-		capability.SurfaceWeb: 8,
+		capability.SurfaceWeb: 2,
 		capability.SurfaceCLI: len(recordedCLIGaps),
 	}
 	got := map[capability.Surface]int{}
