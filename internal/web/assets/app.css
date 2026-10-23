@@ -2351,9 +2351,22 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
    layout also renders error.html, which carries no card: scoping to the card
    keeps the refusal screen's own measure and heading size out of this. */
 
+/* The group is centred in the viewport, biased a little above centre: the
+   uneven block padding is what does the biasing, and it leaves the room a
+   refusal needs without the card moving when one appears.
+
+   min-height, never height: the disclosure open at a 600px-tall window is
+   taller than the viewport, and a fixed height would put the bottom of it
+   somewhere the page cannot scroll to. With min-height the column simply
+   grows past the fold. */
 .auth:has(.authcard) {
-  margin: 10vh auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin: 0 auto;
   max-width: 510px;
+  min-height: 100vh;
+  padding: 40px var(--gutter) 88px;
 }
 
 /* The lockup above the card. The reference leaves roughly 50px between the
@@ -2392,9 +2405,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .auth .authcard::before {
   background: radial-gradient(
     circle,
-    color-mix(in srgb, var(--accent) 95%, transparent) 0%,
-    color-mix(in srgb, var(--accent) 40%, transparent) 50%,
-    transparent 68%
+    color-mix(in srgb, var(--accent) 26%, transparent) 0%,
+    color-mix(in srgb, var(--accent) 12%, transparent) 42%,
+    transparent 64%
   );
   content: "";
   height: var(--auth-glow);
@@ -2511,7 +2524,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 
 @media (max-width: 560px) {
-  .auth:has(.authcard) { margin: 6vh auto; }
+  .auth:has(.authcard) { padding: 24px var(--gutter) 48px; }
   .auth .authcard { padding: 22px; }
   .authbrand { margin-bottom: 34px; }
 }
