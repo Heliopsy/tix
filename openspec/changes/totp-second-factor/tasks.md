@@ -40,9 +40,9 @@
 
 - [ ] 4.1 `internal/web`: the second sign-in step, working without JavaScript, preserving `next`;
       enrolment and recovery codes on settings; enrolment state on the admin user list
-- [ ] 4.2 `cmd/login.go`: the prompt after the password, never a flag or an environment variable;
+- [x] 4.2 `cmd/login.go`: the prompt after the password, never a flag or an environment variable;
       a non-interactive terminal fails naming API tokens
-- [ ] 4.3 `cmd/user_totp.go`: enrol, status, remove, admin clear, with `otpauth://` and a scannable
+- [x] 4.3 `cmd/user_totp.go`: enrol, status, remove, admin clear, with `otpauth://` and a scannable
       code where the terminal supports it
 - [ ] 4.4 `internal/sshd`: the prompt after the key is accepted and before any tenant data is drawn
 - [ ] 4.5 `internal/capability`: registry entries with CLI, HTTP and Web bindings for every new

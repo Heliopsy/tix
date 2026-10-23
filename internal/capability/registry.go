@@ -716,45 +716,45 @@ var registry = []Operation{
 	},
 	{
 		Name: "totp.status", Method: "TOTPStatus",
+		CLI:  "tix user totp status",
 		HTTP: apiGet(wire.RouteTOTP),
 		Exempt: []Exemption{
-			gap(SurfaceCLI, "GAP: no cli binding yet; tix user totp status is not written"),
 			gap(SurfaceWeb, "GAP: no browser binding yet; the security section of the settings screen is not written"),
 			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
 		},
 	},
 	{
 		Name: "totp.enrol", Method: "BeginTOTPEnrolment",
+		CLI:  "tix user totp enrol",
 		HTTP: apiPost(wire.RouteTOTP),
 		Exempt: []Exemption{
-			gap(SurfaceCLI, "GAP: no cli binding yet; tix user totp enrol is not written"),
 			gap(SurfaceWeb, "GAP: no browser binding yet; the enrolment screen is not written"),
 			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
 		},
 	},
 	{
 		Name: "totp.confirm", Method: "ConfirmTOTPEnrolment",
+		CLI:  "tix user totp enrol",
 		HTTP: apiPost(wire.RouteTOTPConfirm),
 		Exempt: []Exemption{
-			gap(SurfaceCLI, "GAP: no cli binding yet; tix user totp enrol does not prompt for the code"),
 			gap(SurfaceWeb, "GAP: no browser binding yet; the enrolment screen is not written"),
 			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
 		},
 	},
 	{
 		Name: "totp.remove", Method: "RemoveTOTP",
+		CLI:  "tix user totp rm",
 		HTTP: apiDelete(wire.RouteTOTP),
 		Exempt: []Exemption{
-			gap(SurfaceCLI, "GAP: no cli binding yet; tix user totp remove is not written"),
 			gap(SurfaceWeb, "GAP: no browser binding yet; the security section of the settings screen is not written"),
 			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
 		},
 	},
 	{
 		Name: "totp.codes", Method: "RegenerateRecoveryCodes",
+		CLI:  "tix user totp codes",
 		HTTP: apiPost(wire.RouteTOTPCodes),
 		Exempt: []Exemption{
-			gap(SurfaceCLI, "GAP: no cli binding yet; tix user totp codes is not written"),
 			gap(SurfaceWeb, "GAP: no browser binding yet; the security section of the settings screen is not written"),
 			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
 		},
@@ -762,9 +762,9 @@ var registry = []Operation{
 	{
 		Name: "totp.clear", Method: "ClearUserTOTP",
 		Scope: core.ScopeTOTPAdmin,
+		CLI:   "tix user totp clear",
 		HTTP:  apiDelete(wire.RouteUserTOTP),
 		Exempt: []Exemption{
-			gap(SurfaceCLI, "GAP: no cli binding yet; tix user totp clear is not written"),
 			gap(SurfaceWeb, "GAP: no browser binding yet; the enrolment column of the user administration list is not written"),
 			gap(SurfaceTUI, "GAP: no tui binding yet; there is no user administration view"),
 		},
