@@ -446,20 +446,13 @@ func TestTheOperationsAPersonWorksWithDailyReachTheTUI(t *testing.T) {
 // counted so that one more cannot arrive unnoticed and so that deleting one
 // from here without writing the command fails rather than passes.
 //
-// The line this test used to hold was zero. The second factor reopened it: the
-// service, the policy and the API landed ahead of tix user totp, which is the
-// next piece of that work. Every entry here is that one command tree.
-var recordedCLIGaps = map[string]bool{
-	"TOTPStatus":              true,
-	"BeginTOTPEnrolment":      true,
-	"ConfirmTOTPEnrolment":    true,
-	"RemoveTOTP":              true,
-	"RegenerateRecoveryCodes": true,
-	"ClearUserTOTP":           true,
-}
+// It is empty, which is the line this test holds. The second factor opened it
+// once, when the service, the policy and the API landed ahead of the commands;
+// `tix user totp` and the prompt in `tix login` closed all six again.
+var recordedCLIGaps = map[string]bool{}
 
-// TestNoCLIGapRemains holds the line on the six commands that were missing,
-// and on the six recorded above not quietly becoming seven.
+// TestNoCLIGapRemains holds the line at no command missing, and on the empty
+// list above not quietly growing an entry.
 func TestNoCLIGapRemains(t *testing.T) {
 	t.Parallel()
 	seen := map[string]bool{}
