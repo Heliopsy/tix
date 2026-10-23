@@ -150,7 +150,7 @@ func New(o Options) (*Server, error) {
 	if err := server.CheckBindSafety(o.Addr, false, o.AllowInsecure); err != nil {
 		return nil, err
 	}
-	signer, err := hostKey(o.HostKeyPath)
+	signer, err := hostKey(o.HostKeyPath, o.Logger)
 	if err != nil {
 		return nil, err
 	}
