@@ -67,3 +67,28 @@ func TestOnlyAPressingDeadlineIsNotable(t *testing.T) {
 		}
 	}
 }
+
+// TestAFinishedTaskHasNoDeadlineLeftToMiss covers the badge that made a list
+// of closed work come up almost entirely red: every done task that had ever
+// been late kept "overdue" for the rest of its life.
+func TestAFinishedTaskHasNoDeadlineLeftToMiss(t *testing.T) {
+	now := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+	late := now.Add(-48 * time.Hour)
+	done := now.Add(-time.Hour)
+
+	open := core.Task{DueAt: &late}
+	if got := open.DueState(now); got != core.DueOverdue {
+		t.Errorf("an open task past its due date = %v, want %v", got, core.DueOverdue)
+	}
+
+	finished := core.Task{DueAt: &late, CompletedAt: &done}
+	if got := finished.DueState(now); got != core.DueNone {
+		t.Errorf("a finished task past its due date = %v, want %v", got, core.DueNone)
+	}
+
+	// Reopening clears CompletedAt, and the deadline matters again.
+	reopened := core.Task{DueAt: &late}
+	if got := reopened.DueState(now); got != core.DueOverdue {
+		t.Errorf("a reopened task = %v, want %v", got, core.DueOverdue)
+	}
+}

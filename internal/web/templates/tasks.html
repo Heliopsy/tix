@@ -158,10 +158,18 @@
 {{$v := .Data}}
 {{if not $v.FilterError}}{{with $v.Summary}}
 <p class="lede summary">
-  {{if eq .Total 0}}Nothing on the list.
+  {{/* An empty narrowed list is not an empty list. With finished work hidden,
+       a project whose every task is done came up as "Nothing on the list",
+       which reads as a project with nothing in it. */}}
+  {{if and (eq .Total 0) $v.OpenOnly}}Nothing open.
+  {{else if eq .Total 0}}Nothing on the list.
   {{else if .AllDone}}All clear. Everything here is done.
   {{else}}<strong>{{.Open}}</strong> to go{{if .Done}}, {{.Done}} done{{end}}{{if .Projects}} &middot; across {{.Projects}} project{{if ne .Projects 1}}s{{end}}{{end}}{{if .Held}} &middot; <span class="held">{{.Held}} held by an agent</span>{{end}}{{if .Blocked}} &middot; {{.Blocked}} blocked{{end}}
   {{end}}
+  {{/* A list that quietly shows a subset is worse than one showing the wrong
+       thing, because the reader cannot tell which they have. So the default
+       says what it did and offers the way off. */}}
+  {{if $v.OpenOnly}} &middot; <span class="muted">open work only</span> &middot; <a href="/tasks?all=1">show finished too</a>{{end}}
 </p>
 {{end}}{{end}}
 {{end}}
