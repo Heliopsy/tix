@@ -9,7 +9,7 @@ require (
 	charm.land/ssh v0.4.3
 	charm.land/wish/v2 v2.0.4
 	github.com/charmbracelet/colorprofile v0.4.3
-	github.com/charmbracelet/x/ansi v0.11.8
+	github.com/charmbracelet/x/ansi v0.11.9
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/coder/websocket v1.8.15
 	github.com/creack/pty v1.1.24
