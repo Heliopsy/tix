@@ -327,7 +327,42 @@ func (l *Local) RemoveTOTP(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// Refused here rather than by hiding the control on each surface. A rule
+	// enforced only by the browser is a rule a crafted POST walks past, and
+	// repeating it per surface is three places to get it wrong; business
+	// rules live in this package.
+	//
+	// The surface is the one the caller is on, not every surface the tenant
+	// requires. Somebody signed in over ssh in a tenant that requires a factor
+	// in the browser alone is not escaping anything by removing it, and
+	// refusing them would make the factor unremovable from the surface they
+	// actually use.
+	if surface, ok := core.SurfaceOf(core.SourceFrom(ctx)); ok {
+		required, err := l.tenantRequires(ctx, actor, surface)
+		if err != nil {
+			return err
+		}
+		if required {
+			return core.Precondition(
+				"this tenant requires a second factor to sign in over %s, so the enrolment cannot be removed here; "+
+					"an administrator can clear it, which asks for a new one at the next sign-in", surface)
+		}
+	}
 	return l.clearEnrolment(ctx, actor, user.ID, auditTOTPRemove, eventTOTPRemoved)
+}
+
+// tenantRequires reports whether this tenant demands a factor on surface.
+func (l *Local) tenantRequires(ctx context.Context, actor *core.Actor, surface core.Surface) (bool, error) {
+	var required bool
+	err := l.read(ctx, actor, func(tx store.Tx) error {
+		tenant, err := tx.GetTenant(ctx)
+		if err != nil {
+			return err
+		}
+		required = tenant.RequiresTOTP(surface)
+		return nil
+	})
+	return required, err
 }
 
 // ClearUserTOTP returns another user to an unenrolled state.

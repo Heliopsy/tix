@@ -84,6 +84,12 @@ type User struct {
 	DisabledAt  *time.Time `json:"disabled_at,omitempty" yaml:"disabled_at,omitempty"`
 	SSOProvider string     `json:"sso_provider,omitempty" yaml:"sso_provider,omitempty"`
 	SSOSubject  string     `json:"sso_subject,omitempty" yaml:"sso_subject,omitempty"`
+	// TOTPEnrolled reports whether this user holds a confirmed second factor.
+	// It is state, not a credential: nothing here can produce a code, and it
+	// is what lets an administrative listing say who holds one rather than
+	// only offering to clear it. Set by the listings and by GetUser; a user
+	// written back from one carries it and nothing reads it as an input.
+	TOTPEnrolled bool `json:"totp_enrolled" yaml:"totp_enrolled"`
 }
 
 // APIToken is a scoped bearer credential, normally held by an agent.

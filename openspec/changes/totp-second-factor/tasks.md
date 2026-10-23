@@ -45,12 +45,18 @@
 - [x] 4.3 `cmd/user_totp.go`: enrol, status, remove, admin clear, with `otpauth://` and a scannable
       code where the terminal supports it
 - [x] 4.4 `internal/sshd`: the prompt after the key is accepted and before any tenant data is drawn
-- [ ] 4.5 `internal/capability`: registry entries with CLI, HTTP and Web bindings for every new
+- [x] 4.5 `internal/capability`: registry entries with CLI, HTTP and Web bindings for every new
       operation, since a missing binding fails the parity build
-- [ ] 4.6 `internal/service`: a read of somebody else's enrolment state, so an administrative user
-      list can show who holds a factor. `TOTPStatus` answers for the caller alone and `core.User`
-      carries nothing about it, so the browser list offers the clear without being able to say who
-      needs it. Named separately because it is a new contract method, not a surface
+- [x] 4.6 `internal/service`: a read of somebody else's enrolment state, so an administrative user
+      list can show who holds a factor. Carried on `core.User` and filled by the existing listing
+      rather than added as a contract method, which keeps the parity rules from demanding a command
+      and a route for a field
+- [x] 4.7 `internal/service`: removal refused where the caller's own surface requires a factor.
+      The rule belongs here and not on a screen, because a hidden control is one a crafted post
+      walks past
+- [x] 4.8 `core.UpdateTenantInput`: the three requirements settable, and refused with no sealing
+      key, since enrolment is refused without one and the requirement would then turn away
+      everybody not already enrolled
 
 ## 5. Diagnostics and documentation
 

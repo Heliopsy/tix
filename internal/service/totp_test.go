@@ -773,3 +773,31 @@ func storedTOTP(t *testing.T, l *Local, scope core.TenantScope, userID string) *
 	}
 	return out
 }
+
+// TestRemovalIsRefusedWhereTheSurfaceRequiresAFactor pins the rule in the
+// service rather than on a screen. The browser hid the control and explained
+// why, which a crafted POST walks straight past.
+func TestRemovalIsRefusedWhereTheSurfaceRequiresAFactor(t *testing.T) {
+	l, clk, _, admin := newTOTPLocal(t)
+	user := seedUser(t, l, admin, "ada@example.com")
+	actor := userActor(t, l, user, core.RoleMember)
+	enrol(t, l, clk, actor)
+
+	on := true
+	if _, err := l.UpdateTenant(authContext(admin), "", core.UpdateTenantInput{RequireTOTPWeb: &on}); err != nil {
+		t.Fatalf("requiring a factor in the browser: %v", err)
+	}
+
+	web := core.WithSource(authContext(actor), core.SourceWeb)
+	if err := l.RemoveTOTP(web); !core.IsKind(err, core.KindPrecondition) {
+		t.Errorf("RemoveTOTP from the browser = %v, want precondition", err)
+	}
+
+	// The requirement is read against the surface the caller is on. A tenant
+	// requiring a factor in the browser alone does not make the enrolment
+	// unremovable from the terminal, where nothing demands it.
+	ssh := core.WithSource(authContext(actor), core.SourceTUI)
+	if err := l.RemoveTOTP(ssh); err != nil {
+		t.Errorf("RemoveTOTP over ssh where only the browser requires one = %v, want it allowed", err)
+	}
+}

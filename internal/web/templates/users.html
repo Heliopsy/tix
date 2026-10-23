@@ -73,7 +73,10 @@
         <form method="post" action="/admin/users/totp/clear">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="id" value="{{.User.ID}}">
-          <p class="muted">Clearing the second factor drops this account's enrolment and its recovery codes. Use it when somebody has lost both.</p>
+          <p class="muted">
+            {{if .User.TOTPEnrolled}}This account holds a second factor.{{else}}This account holds no second factor.{{end}}
+            Clearing it drops the enrolment and its recovery codes. Use it when somebody has lost both.
+          </p>
           <div class="actions"><button class="secondary" type="submit">Clear second factor</button></div>
         </form>
         {{end}}

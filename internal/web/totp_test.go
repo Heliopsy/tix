@@ -530,3 +530,32 @@ func TestClearingAUsersFactorUnenrolsThem(t *testing.T) {
 		t.Errorf("the account still holds an enrolment:\n%s", page)
 	}
 }
+
+// TestTheUserListSaysWhoHoldsASecondFactor closes the half of the
+// administrative view that shipped missing: the clear was offered without the
+// screen being able to say whether there was anything to clear.
+func TestTheUserListSaysWhoHoldsASecondFactor(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+
+	// Two accounts, one enrolled and one not, so the screen has to tell them
+	// apart rather than print the same sentence under every row.
+	enrolled := f.person("enrolled@example.test", "correct-horse-battery")
+	f.person("bare@example.test", "correct-horse-battery")
+	enrol(t, f, f.asActor(enrolled.ID))
+
+	page := f.as("alice").page("/admin/users")
+	if !strings.Contains(page, "holds a second factor") {
+		t.Errorf("the user list never says who holds one:\n%s", page)
+	}
+	if !strings.Contains(page, "holds no second factor") {
+		t.Errorf("the user list never says who holds none:\n%s", page)
+	}
+	// A secret or a recovery code on this screen would be the actual fault the
+	// requirement guards against, so state arriving must not bring either.
+	for _, forbidden := range []string{"otpauth://", "secret="} {
+		if strings.Contains(page, forbidden) {
+			t.Errorf("the user list leaks %q", forbidden)
+		}
+	}
+}
