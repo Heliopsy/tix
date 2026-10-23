@@ -69,6 +69,18 @@ func (s *Server) handle(sess ssh.Session) {
 		return
 	}
 	defer s.live.release(fingerprint)
+	// The second factor is asked for here, after the key is proved and
+	// before anything builds the interface. It cannot move later: the
+	// program handler below paints the tenant's board, and a question asked
+	// after that guards nothing.
+	if err := s.proveSecondFactor(sess, actor); err != nil {
+		s.log.Warn("refusing an ssh session that did not prove its second factor",
+			"fingerprint", fingerprint,
+			"source", sourceOf(sess.RemoteAddr()),
+			"error", err.Error())
+		fatalf(sess, "%s", message(err))
+		return
+	}
 	sess.Context().SetValue(actorKey{}, actor)
 	// The registration is made once the session is running, inside program, and
 	// given back here: this defer runs when the session is genuinely over,

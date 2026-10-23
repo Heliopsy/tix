@@ -75,6 +75,14 @@ func (c *Client) ConfirmTOTPEnrolment(ctx context.Context, code string) (*core.T
 	return call[core.TOTPRecoveryCodes](ctx, c, http.MethodPost, wire.RouteTOTPConfirm, nil, body)
 }
 
+// VerifySecondFactor proves the caller's second factor on its own.
+func (c *Client) VerifySecondFactor(ctx context.Context, code string) error {
+	body := struct {
+		Code string `json:"code"`
+	}{Code: code}
+	return callVoid(ctx, c, http.MethodPost, wire.RouteTOTPVerify, nil, body)
+}
+
 // RemoveTOTP drops the caller's own enrolment.
 func (c *Client) RemoveTOTP(ctx context.Context) error {
 	return callVoid(ctx, c, http.MethodDelete, wire.RouteTOTP, nil, nil)

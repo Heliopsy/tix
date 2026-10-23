@@ -44,7 +44,7 @@
       a non-interactive terminal fails naming API tokens
 - [ ] 4.3 `cmd/user_totp.go`: enrol, status, remove, admin clear, with `otpauth://` and a scannable
       code where the terminal supports it
-- [ ] 4.4 `internal/sshd`: the prompt after the key is accepted and before any tenant data is drawn
+- [x] 4.4 `internal/sshd`: the prompt after the key is accepted and before any tenant data is drawn
 - [ ] 4.5 `internal/capability`: registry entries with CLI, HTTP and Web bindings for every new
       operation, since a missing binding fails the parity build
 

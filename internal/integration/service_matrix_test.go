@@ -1079,6 +1079,41 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "proving a second factor with no sign-in behind it",
+		covers: []string{"VerifySecondFactor"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			enrolment, err := tg.svc.BeginTOTPEnrolment(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			// The enrolment is confirmed with the previous step's code, which
+			// the window accepts and which leaves the current step above the
+			// replay mark. Confirming with the current one would make the
+			// verification below a replay of it.
+			previous, err := auth.TOTPCode(enrolment.Secret, auth.TOTPStep(h.clk.Now())-1)
+			if err != nil {
+				return nil, err
+			}
+			codes, err := tg.svc.ConfirmTOTPEnrolment(tg.ctx, previous)
+			if err != nil {
+				return nil, err
+			}
+			current, err := auth.TOTPCode(enrolment.Secret, auth.TOTPStep(h.clk.Now()))
+			if err != nil {
+				return nil, err
+			}
+			if err := tg.svc.VerifySecondFactor(tg.ctx, current); err != nil {
+				return nil, err
+			}
+			return sig{
+				"replay_refused":    tg.svc.VerifySecondFactor(tg.ctx, current) != nil,
+				"wrong_refused":     tg.svc.VerifySecondFactor(tg.ctx, "000000") != nil,
+				"recovery_accepted": tg.svc.VerifySecondFactor(tg.ctx, codes.Codes[0]) == nil,
+				"recovery_spent":    tg.svc.VerifySecondFactor(tg.ctx, codes.Codes[0]) != nil,
+			}, nil
+		},
+	},
+	{
 		name:   "removing one's own second factor",
 		covers: []string{"RemoveTOTP"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

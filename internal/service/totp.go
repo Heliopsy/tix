@@ -238,6 +238,89 @@ func (l *Local) ConfirmTOTPEnrolment(ctx context.Context, code string) (*core.TO
 	return codes, nil
 }
 
+// VerifySecondFactor proves the caller's existing second factor on its own,
+// minting nothing and changing nothing a reader can see.
+//
+// It is what a surface whose first factor is not a password calls. An SSH
+// session has already proved a key by the time the code is asked for, so
+// there is no password step for a ticket to hang off and no session left to
+// mint: the sign-in is over and the only question is whether the person
+// holding the key also holds the factor.
+//
+// A recovery code is accepted here exactly as it is on the sign-in path, and
+// a rate limited enrolment is refused as rate limited rather than as a wrong
+// code, so the surface can say "wait" instead of "that code is wrong".
+func (l *Local) VerifySecondFactor(ctx context.Context, code string) error {
+	actor, user, err := l.totpSelf(ctx)
+	if err != nil {
+		return err
+	}
+	var enrolment *core.UserTOTP
+	if err := l.read(ctx, actor, func(tx store.Tx) error {
+		var err error
+		enrolment, err = tx.GetUserTOTP(ctx, user.ID)
+		return err
+	}); err != nil {
+		if core.IsKind(err, core.KindNotFound) {
+			return core.Precondition("no second factor is enrolled, so there is nothing to prove")
+		}
+		return err
+	}
+	if !enrolment.Confirmed() {
+		return core.Precondition("this second factor is not confirmed yet")
+	}
+
+	attempt, verifyErr := l.verifyCode(ctx, actor, user, enrolment, code)
+	if verifyErr != nil {
+		if core.IsTOTPLocked(verifyErr) {
+			// A locked enrolment accepts nothing at all, so a recovery
+			// attempt would only cost a round trip and a second refusal.
+			return verifyErr
+		}
+		return l.verifyWithRecoveryCode(ctx, actor, user, code, verifyErr)
+	}
+	// The accepted step is written outside any audit entry, because a code
+	// that verified changes nothing anybody audits: what it moves is the
+	// replay high-water mark. The failure is returned rather than swallowed,
+	// since a mark that did not move leaves the code usable again inside its
+	// window.
+	return l.store.Update(ctx, core.TenantScope{TenantID: actor.TenantID}, func(tx store.Tx) error {
+		return tx.SaveUserTOTPAttempt(ctx, user.ID, attempt)
+	})
+}
+
+// verifyWithRecoveryCode is the fallback when a submitted value is not a TOTP
+// code, for a caller that is proving a factor rather than signing in. It
+// spends the code and names it in the audit trail, and answers the original
+// refusal when nothing matched.
+func (l *Local) verifyWithRecoveryCode(ctx context.Context, actor *core.Actor, user *core.User,
+	submitted string, codeErr error,
+) error {
+	accepted := false
+	if err := l.write(ctx, actor, func(m *mutation) error {
+		id, spent, err := l.spendRecoveryCode(ctx, m, user.ID, submitted, m.now)
+		if err != nil || !spent {
+			return err
+		}
+		accepted = true
+		// A code that worked clears the failure the TOTP attempt just
+		// recorded: the limit exists to stop guessing, and this was not one.
+		if err := m.tx.SaveUserTOTPAttempt(ctx, user.ID, core.UserTOTP{}); err != nil {
+			return err
+		}
+		return m.Record(auditTOTPRecoverySpent, eventTOTPRecoverySpent, subjectTOTP, user.ID, "",
+			map[string]any{"user_id": user.ID, "recovery_code_id": id, "used": false},
+			map[string]any{"user_id": user.ID, "recovery_code_id": id, "used": true},
+			map[string]any{"user_id": user.ID, "recovery_code_id": id})
+	}); err != nil {
+		return err
+	}
+	if !accepted {
+		return codeErr
+	}
+	return nil
+}
+
 // RemoveTOTP drops the caller's own enrolment and every code beside it.
 func (l *Local) RemoveTOTP(ctx context.Context) error {
 	actor, user, err := l.totpSelf(ctx)

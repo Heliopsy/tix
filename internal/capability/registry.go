@@ -742,6 +742,15 @@ var registry = []Operation{
 		},
 	},
 	{
+		Name: "totp.verify", Method: "VerifySecondFactor",
+		HTTP: apiPost(wire.RouteTOTPVerify),
+		Exempt: []Exemption{
+			off(SurfaceCLI, "the command line proves a factor inside tix login, which carries the ticket the password step returned; a command that verified a code outside a sign-in would protect nothing"),
+			off(SurfaceWeb, "the browser proves a factor on the second sign-in page, which posts the same ticket"),
+			off(SurfaceTUI, "the ssh listener asks for the code before the interface starts, which is the point of it; a view inside the board would be drawn after the tenant's data"),
+		},
+	},
+	{
 		Name: "totp.remove", Method: "RemoveTOTP",
 		HTTP: apiDelete(wire.RouteTOTP),
 		Exempt: []Exemption{

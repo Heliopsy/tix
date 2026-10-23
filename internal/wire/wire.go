@@ -34,6 +34,7 @@ const (
 	// reaches another user's: an administrative clear.
 	RouteTOTP        = APIPrefix + "/auth/totp"
 	RouteTOTPConfirm = APIPrefix + "/auth/totp/confirm"
+	RouteTOTPVerify  = APIPrefix + "/auth/totp/verify"
 	RouteTOTPCodes   = APIPrefix + "/auth/totp/recovery-codes"
 	RouteUserTOTP    = APIPrefix + "/users/{id}/totp"
 

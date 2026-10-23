@@ -57,6 +57,7 @@ func Exemptions() []Exemption {
 		{"TOTPStatus", "the security section of the settings screen is not written yet; the api and the forthcoming tix user totp reach it"},
 		{"BeginTOTPEnrolment", "the browser enrolment screen is not written yet; the api reaches it"},
 		{"ConfirmTOTPEnrolment", "the browser enrolment screen is not written yet; the api reaches it"},
+		{"VerifySecondFactor", "the browser proves a factor on the second sign-in page, which posts the ticket the password step returned; a screen that verified a code outside a sign-in would protect nothing"},
 		{"RemoveTOTP", "the security section of the settings screen is not written yet; the api reaches it"},
 		{"RegenerateRecoveryCodes", "the security section of the settings screen is not written yet; the api reaches it"},
 		{"ClearUserTOTP", "the enrolment column of the user administration list is not written yet; the api reaches it"},
