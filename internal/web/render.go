@@ -145,6 +145,13 @@ func (v view) ColumnForm() columnFormView {
 	return newColumnForm(v.CSRF, v.Here, v.ColumnPage, columnLabel(v.ColumnPage), v.Columns)
 }
 
+// ThemeToggle is the sidebar's colour scheme switch, built from the scheme
+// this render already resolved, so the switch cannot name a scheme other than
+// the one the page is drawn in.
+func (v view) ThemeToggle() themeToggleView {
+	return themeToggleView{CSRF: v.CSRF, Here: v.Here, Theme: v.Theme}
+}
+
 // parseTemplates builds one template set per screen, so that two screens can
 // define the same block without colliding. Every timestamp a template renders
 // goes through style, so the browser and the CLI table cannot disagree about
@@ -424,6 +431,42 @@ const ThemeCookie = "tix_theme"
 // "dim" is a low contrast scheme for people who find the default too stark.
 var Themes = []string{"", "light", "dark", "dim"}
 
+// themeLabels names each scheme in the words the reader sees. The empty
+// scheme is what a browser that has never chosen gets, and reads as the
+// system's own preference rather than as a palette of ours.
+var themeLabels = map[string]string{
+	"":      "System",
+	"light": "Light",
+	"dark":  "Dark",
+	"dim":   "Low contrast",
+}
+
+// ThemeLabel names one scheme, falling back to the system wording for a
+// value Themes does not hold. Exported for the same reason ColumnListings
+// is: a test holds the sidebar switch to naming the scheme it is drawn in,
+// and reading the words out of the code is what keeps the two from drifting.
+func ThemeLabel(theme string) string {
+	if label, ok := themeLabels[theme]; ok {
+		return label
+	}
+	return themeLabels[""]
+}
+
+// nextTheme is the scheme one press of the sidebar switch moves to.
+//
+// The switch cycles rather than offering four positions, because without
+// scripting a select needs an Apply button beside it and that is a form, not
+// a button, in a 224px column. Cycling costs a reader at most three presses
+// to reach any scheme and needs one control.
+func nextTheme(current string) string {
+	for i, t := range Themes {
+		if t == current {
+			return Themes[(i+1)%len(Themes)]
+		}
+	}
+	return Themes[0]
+}
+
 // themeOf reports the scheme this browser asked for, or an empty string when
 // it has not asked and the system preference should decide.
 func themeOf(r *http.Request) string {
@@ -575,6 +618,28 @@ func (h *handler) brand(r *http.Request) branding {
 	return brandFor(tenant, h.themes)
 }
 
+// screenCacheControl is what every rendered screen carries.
+//
+// Screens used to set only a content type, so a response holding one tenant's
+// tasks named no freshness lifetime at all. That is two faults in one gap.
+// Staleness: a browser may cache heuristically when a response carries neither
+// a lifetime nor a validator, so a reader could be handed a task list that was
+// already wrong, on a screen whose whole job is to say what the state is now.
+// Disclosure: an authenticated board with nothing forbidding storage is one any
+// shared cache may keep and any later user of the machine may pull out of the
+// browser's own, after a logout that cleared the session but not the pages the
+// session rendered.
+//
+// no-store rather than no-cache, because the objection is to the response
+// being written down at all, not merely to it being reused without asking. It
+// costs the back-forward cache on a restore, which is a real loss and the
+// correct trade for a page carrying another tenant's work.
+//
+// Assets are the opposite case and are handled in assets.go: their URLs never
+// change between releases, so they carry a strong ETag and a short max-age
+// instead. Nothing here applies to them.
+const screenCacheControl = "no-store"
+
 // render writes one screen.
 func (h *handler) render(w http.ResponseWriter, r *http.Request, name, title string, data any) error {
 	return h.renderStatus(w, r, http.StatusOK, name, title, data)
@@ -589,6 +654,7 @@ func (h *handler) renderStatus(w http.ResponseWriter, r *http.Request, status in
 	v := h.newView(r, name, title, data)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", screenCacheControl)
 	w.WriteHeader(status)
 	return tmpl.Execute(w, v)
 }

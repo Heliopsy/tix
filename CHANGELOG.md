@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.16.0](https://github.com/Heliopsy/tix/compare/v0.15.1...v0.16.0) (2026-10-23)
+
+
+### Features
+
+* **web:** the sign-in screen looks finished ([61da56f](https://github.com/Heliopsy/tix/commit/61da56fc1a298a705401441817cea8382260819f))
+* **web:** the task screens update themselves ([2c1485b](https://github.com/Heliopsy/tix/commit/2c1485bb9b43d5b2e051a2a95388d0cf5798bdd3))
+
+
+### Bug Fixes
+
+* **postgres:** listen before the subscription is handed back ([74d245a](https://github.com/Heliopsy/tix/commit/74d245ac0787bebaac5ebc13cf3b4b9647b6c234))
+* **service,cmd:** the lease guards the work product ([8cea5c0](https://github.com/Heliopsy/tix/commit/8cea5c055db9c708f3133decdbabf149edb1d406))
+* **service,cmd:** the lease guards the work product ([4665330](https://github.com/Heliopsy/tix/commit/466533015ccb0b27c91a5c64d216b4953d32345e))
+* **service,cmd:** the lease guards the work product ([71570f1](https://github.com/Heliopsy/tix/commit/71570f14ee2e6f413912b2944f35ac5ff5d49deb))
+* **web:** a rendered screen forbids storage ([8df5381](https://github.com/Heliopsy/tix/commit/8df5381965bc3258f5e49e899101e7a8dcbea50f))
+* **web:** centre the sign-in group, and soften the glow per scheme ([8d168b9](https://github.com/Heliopsy/tix/commit/8d168b9dbe3e605bc003f255475944ae5641f7bf))
+
+
+### Performance
+
+* **outbox,store:** wake the event tailer on a commit instead of a ticker ([f501c0f](https://github.com/Heliopsy/tix/commit/f501c0f640449a21d8e041400944859e3f0808be))
+
+
+### Dependencies
+
+* move to go 1.27.3 for GO-2026-6809 ([31967ae](https://github.com/Heliopsy/tix/commit/31967ae609b9cb640c1feb248e79eff1e483f8dd))
+
 ## [0.15.1](https://github.com/Heliopsy/tix/compare/v0.15.0...v0.15.1) (2026-10-10)
 
 

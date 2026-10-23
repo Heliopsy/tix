@@ -153,3 +153,286 @@ test("shouldRebind tells a replaced element from the one already held", () => {
   assert.equal(rebind(null, a), true, "a page with no feed did not release the old one");
   assert.equal(rebind(null, null), false, "a page with no feed rebound to nothing");
 });
+
+// ---------------------------------------------------------------------------
+// The live connection: one mechanism behind the activity feed, the task list,
+// the board and one task's screen. What is asserted here is everything that
+// used to be absent -- a reconnect, a resume, a fallback and an indicator --
+// plus the rule that a refresh never lands on top of work in progress.
+
+// fakeClock drives setTimeout and setInterval by hand, so a backoff and a
+// poll are asserted rather than waited out.
+function fakeClock() {
+  let next = 1;
+  const timers = new Map();
+  return {
+    setTimeout(fn, ms) {
+      const id = next++;
+      timers.set(id, { fn, ms, repeat: false });
+      return id;
+    },
+    clearTimeout(id) {
+      timers.delete(id);
+    },
+    setInterval(fn, ms) {
+      const id = next++;
+      timers.set(id, { fn, ms, repeat: true });
+      return id;
+    },
+    clearInterval(id) {
+      timers.delete(id);
+    },
+    get count() {
+      return timers.size;
+    },
+    delays() {
+      return [...timers.values()].map((t) => t.ms);
+    },
+    fire() {
+      const due = [...timers.entries()];
+      for (const [id, t] of due) {
+        if (!t.repeat) {
+          timers.delete(id);
+        }
+        t.fn();
+      }
+      return due.length;
+    },
+  };
+}
+
+// region is a swappable part of a screen: live.js reads its innerHTML out of
+// the fetched fragment and writes it here.
+function region(id, { fields = [] } = {}) {
+  const node = domNode([], { id });
+  node.innerHTML = "before";
+  node.contains = () => false;
+  node.querySelectorAll = () => fields;
+  return node;
+}
+
+// liveScreen builds the page a task screen is: a binding element, the regions
+// it names, and the stale notice.
+function liveScreen({ subject = "", regions = ["task-pills"], window: win = 150 } = {}) {
+  const binding = domNode([], {
+    "data-events": "/api/v1/events",
+    "data-live": "/tasks/infra-1/live",
+    "data-live-filter": '{"project_ids":["p1"],"types":["task.*"]}',
+    "data-live-regions": regions.join(" "),
+    "data-live-window": String(win),
+    "data-live-subject": subject,
+  });
+  const notice = domNode([], {});
+  notice.hiddenAttr = true;
+  notice.setAttribute = function (name) { if (name === "hidden") { this.hiddenAttr = true; } };
+  notice.removeAttribute = function (name) { if (name === "hidden") { this.hiddenAttr = false; } };
+  return { binding, notice };
+}
+
+// liveContext loads the assets against a page carrying a screen binding, a
+// controllable clock, and a WebSocket that does nothing until a test says so.
+function liveContext({ subject = "", regions = ["task-pills"], fresh = {} } = {}) {
+  const clock = fakeClock();
+  const sockets = [];
+  const fetches = [];
+  const page = liveScreen({ subject, regions });
+  const nodes = { "live-screen": page.binding, "live-stale": page.notice };
+  for (const id of regions) {
+    nodes[id] = region(id);
+  }
+  const bySelector = {};
+  const doc = fakeDocument({ byId: nodes, bySelector });
+  doc.hidden = false;
+  doc.activeElement = null;
+
+  let fetchBody = "fragment";
+  const ctx = newContext({
+    document: doc,
+    matchMedia: () => ({ matches: true }),
+    location: { protocol: "http:", host: "localhost", pathname: "/tasks/infra-1", search: "" },
+    setTimeout: clock.setTimeout.bind(clock),
+    clearTimeout: clock.clearTimeout.bind(clock),
+    setInterval: clock.setInterval.bind(clock),
+    clearInterval: clock.clearInterval.bind(clock),
+    WebSocket: function (url) {
+      const listeners = new Map();
+      const socket = {
+        url,
+        sent: [],
+        closed: false,
+        addEventListener(type, fn) {
+          if (!listeners.has(type)) {
+            listeners.set(type, []);
+          }
+          listeners.get(type).push(fn);
+        },
+        send(raw) {
+          this.sent.push(JSON.parse(raw));
+        },
+        close() {
+          this.closed = true;
+        },
+        emit(type, event) {
+          for (const fn of listeners.get(type) || []) {
+            fn(event);
+          }
+        },
+        event(payload) {
+          this.emit("message", { data: JSON.stringify({ type: "event", event: payload }) });
+        },
+      };
+      sockets.push(socket);
+      return socket;
+    },
+    DOMParser: function () {
+      return {
+        parseFromString: () => ({
+          getElementById: (id) => (Object.prototype.hasOwnProperty.call(fresh, id)
+            ? { innerHTML: fresh[id] } : null),
+        }),
+      };
+    },
+    FormData: function (form) { return form.fields; },
+    URLSearchParams: function (fields) { this.toString = () => JSON.stringify(fields); },
+    fetch: (url) => {
+      fetches.push(url);
+      return Promise.resolve({ ok: true, text: () => Promise.resolve(fetchBody) });
+    },
+  });
+  run(ctx, "live.js");
+  return { ctx, doc, clock, sockets, fetches, page, nodes, bySelector };
+}
+
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+test("a screen subscribes with its own filter and nothing wider", () => {
+  const { sockets } = liveContext();
+  assert.equal(sockets.length, 1, "the screen opened no connection");
+  sockets[0].emit("open", {});
+  assert.deepEqual(sockets[0].sent, [{
+    type: "subscribe",
+    id: "screen",
+    filter: { project_ids: ["p1"], types: ["task.*"] },
+  }], "the subscription did not carry the screen's filter");
+});
+
+test("the first event is drawn at once and the fragment swapped in by region", async () => {
+  const { sockets, fetches, nodes } = liveContext({ fresh: { "task-pills": "doing" } });
+  sockets[0].emit("open", {});
+  sockets[0].event({ seq: 7, subject_id: "task-1" });
+
+  assert.deepEqual(fetches, ["/tasks/infra-1/live"], "the first event waited for a timer");
+  await settle();
+  assert.equal(nodes["task-pills"].innerHTML, "doing", "the region was not replaced");
+});
+
+test("an event about another record leaves a one-task screen alone", () => {
+  const { sockets, fetches } = liveContext({ subject: "task-1" });
+  sockets[0].emit("open", {});
+  sockets[0].event({ seq: 2, subject_id: "task-2", payload: { task_id: "task-2" } });
+  assert.deepEqual(fetches, [], "a neighbour's change rebuilt the screen");
+  sockets[0].event({ seq: 3, subject_id: "comment-5", payload: { task_id: "task-1" } });
+  assert.equal(fetches.length, 1, "a comment on this task did not reach it");
+});
+
+test("a refresh waits for a drag rather than landing in the middle of one", async () => {
+  const c = liveContext();
+  c.bySelector[".is-dragging"] = domNode([], {});
+  c.sockets[0].emit("open", {});
+  c.sockets[0].event({ seq: 1, subject_id: "task-1" });
+  assert.deepEqual(c.fetches, [], "a refresh landed mid-drag");
+
+  delete c.bySelector[".is-dragging"];
+  c.clock.fire();
+  await settle();
+  assert.equal(c.fetches.length, 1, "the deferred refresh never arrived after the drag");
+});
+
+test("a refresh waits for a field the reader has typed into", async () => {
+  const c = liveContext();
+  const typed = { tagName: "TEXTAREA", value: "half a comment", defaultValue: "" };
+  c.nodes["task-pills"].querySelectorAll = () => [typed];
+  c.sockets[0].emit("open", {});
+  c.sockets[0].event({ seq: 1, subject_id: "task-1" });
+  assert.deepEqual(c.fetches, [], "a refresh discarded what the reader was typing");
+
+  typed.value = "";
+  c.clock.fire();
+  await settle();
+  assert.equal(c.fetches.length, 1, "the refresh never landed once the field was clean");
+});
+
+test("a dropped connection is reopened on a backing-off timer and resumes from the last event", () => {
+  const c = liveContext();
+  c.sockets[0].emit("open", {});
+  c.sockets[0].event({ seq: 41, subject_id: "task-1" });
+  c.sockets[0].emit("close", {});
+
+  assert.equal(c.page.notice.hiddenAttr, false, "a dead connection said nothing on screen");
+  assert.match(c.page.notice.textContent, /out of date/);
+  assert.ok(c.clock.delays().some((ms) => ms >= 250 && ms <= 500), `no reconnect armed: ${c.clock.delays()}`);
+
+  c.clock.fire();
+  assert.equal(c.sockets.length, 2, "the connection was never reopened");
+  c.sockets[1].emit("open", {});
+  assert.deepEqual(c.sockets[1].sent[0], {
+    type: "subscribe",
+    id: "screen",
+    filter: { project_ids: ["p1"], types: ["task.*"] },
+    since_seq: 41,
+  }, "the reconnect lost every change made while it was down");
+  assert.equal(c.page.notice.hiddenAttr, true, "the notice stayed up after the stream came back");
+});
+
+test("a resume the server will not honour falls back to a whole refresh", async () => {
+  const c = liveContext();
+  c.sockets[0].emit("open", {});
+  c.sockets[0].event({ seq: 9, subject_id: "task-1" });
+  await settle();
+  c.fetches.length = 0;
+  c.sockets[0].sent.length = 0;
+  c.sockets[0].emit("message", {
+    data: JSON.stringify({
+      type: "error",
+      id: "screen",
+      error: { code: "invalid", message: "cursor 9 is no longer available; the oldest retained event is 400" },
+    }),
+  });
+
+  assert.equal(c.sockets[0].sent.length, 1, "the screen did not resubscribe");
+  assert.equal(c.sockets[0].sent[0].since_seq, undefined, "it asked again from a cursor the server refused");
+  c.clock.fire();
+  await settle();
+  assert.equal(c.fetches.length, 1, "the gap was left on screen instead of being re-fetched");
+});
+
+test("a screen that cannot open a socket polls instead, and says it is not live", async () => {
+  const c = liveContext();
+  c.sockets[0].emit("error", {});
+  assert.equal(c.page.notice.hiddenAttr, false, "a screen with no connection looked up to date");
+  assert.match(c.page.notice.textContent, /15 seconds/);
+  assert.ok(c.clock.delays().includes(15000), `no fallback poll was started: ${c.clock.delays()}`);
+
+  c.clock.fire();
+  await settle();
+  assert.ok(c.fetches.length >= 1, "the fallback poll never asked the server anything");
+
+  // The socket the backoff reopened succeeds, and the poll stops.
+  c.sockets[1].emit("open", {});
+  assert.equal(c.page.notice.hiddenAttr, true);
+  assert.ok(!c.clock.delays().includes(15000), "the poll kept running after the socket came back");
+});
+
+test("a hidden page does not reconnect, and catches up when it comes back", async () => {
+  const c = liveContext();
+  c.sockets[0].emit("open", {});
+  c.doc.hidden = true;
+  c.sockets[0].emit("close", {});
+  assert.equal(c.sockets.length, 1, "a background tab kept retrying");
+
+  c.doc.hidden = false;
+  c.doc.dispatch("visibilitychange", {});
+  assert.equal(c.sockets.length, 2, "coming back to the page did not reconnect");
+  await settle();
+  assert.ok(c.fetches.length >= 1, "coming back to the page did not re-read what it missed");
+});

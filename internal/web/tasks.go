@@ -104,6 +104,11 @@ type tasksView struct {
 	// message on it at all.
 	FilterError string
 
+	// Live is what keeps this screen current while it is open: the fragment
+	// route carrying this listing's own state, the events worth re-rendering
+	// for, and the regions the answer replaces. See live.go.
+	Live liveScreen
+
 	// Hidden is how many projects are put away, and Filtered is set when an
 	// explicit project: filter overrode that choice, so a reader is never
 	// shown a shorter task list without being told which rule produced it.
@@ -190,6 +195,30 @@ func summarise(tasks []core.Task, complete map[string]string, now time.Time) tas
 
 // showTasks renders the filterable task list.
 func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
+	data, err := h.buildTasksView(r)
+	if err != nil {
+		return err
+	}
+	return h.render(w, r, "tasks.html", "Tasks", data)
+}
+
+// showTasksLive renders only the regions a live update replaces -- the
+// summary line and the listing, whichever way it is drawn -- from the same
+// view the whole screen is built from. It reads the filter, the deadline
+// window, the sort and the cursor out of its own query string, which the
+// page wrote into the element live.js fetches from, so an update never
+// answers a wider question than the screen was already answering.
+func (h *handler) showTasksLive(w http.ResponseWriter, r *http.Request) error {
+	data, err := h.buildTasksView(r)
+	if err != nil {
+		return err
+	}
+	return h.renderFragment(w, r, "tasks.html", "tasks-live", "Tasks", data)
+}
+
+// buildTasksView answers one request for the task screen, for the page and
+// for its live fragment alike.
+func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 	query := r.URL.Query()
 	expression := query.Get("q")
 	// The deadline control is folded into the expression rather than set on
@@ -208,7 +237,7 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	filter, err := ParseFilter(expression)
 	if err != nil {
 		if expression == "" || !filterFault(err) {
-			return err
+			return tasksView{}, err
 		}
 		refused, filter = safeMessage(err, core.KindOf(err)), core.TaskFilter{}
 	}
@@ -223,7 +252,7 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	}
 	projects, whole, err := h.allProjects(r, false)
 	if err != nil {
-		return err
+		return tasksView{}, err
 	}
 	prefs := h.prefsFor(r, projects, whole)
 	away := hiddenProjects(r)
@@ -242,22 +271,22 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	if refused == "" {
 		if page, err = h.svc.ListTasks(r.Context(), filter); err != nil {
 			if expression == "" || !filterFault(err) {
-				return err
+				return tasksView{}, err
 			}
 			refused, page = safeMessage(err, core.KindOf(err)), core.TaskPage{}
 		}
 	}
 	tags, err := h.svc.ListTags(r.Context())
 	if err != nil {
-		return err
+		return tasksView{}, err
 	}
 	complete, err := h.completeStates(r, projects)
 	if err != nil {
-		return err
+		return tasksView{}, err
 	}
 	moves, err := h.workflowsByProject(r, projects)
 	if err != nil {
-		return err
+		return tasksView{}, err
 	}
 	// The board is resolved from the same filter the list was answered with,
 	// so the two views cover one selection of tasks. Only when it is the view
@@ -267,10 +296,10 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	var board taskBoard
 	if view == TaskViewBoard {
 		if board, err = h.taskBoardFor(r, projects, filter, page.Tasks, moves); err != nil {
-			return err
+			return tasksView{}, err
 		}
 	}
-	return h.render(w, r, "tasks.html", "Tasks", tasksView{
+	return tasksView{
 		Tasks:         page.Tasks,
 		Projects:      projects,
 		Tags:          tags,
@@ -281,7 +310,7 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 		Due:           due,
 		DueWindows:    FilterDueWindows,
 		Pager:         newPager(r, RouteTasks, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, SizeParam),
-		Self:          selfURL(r),
+		Self:          screenHref(r, RouteTasks),
 		CompleteState: complete,
 		Accent:        projectAccents(projects),
 		Summary:       summarise(page.Tasks, complete, time.Now()),
@@ -294,7 +323,8 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 		Hidden:        hidden,
 		Filtered:      filtered && hidden > 0,
 		Empty:         hidden > 0 && hidden == len(prefs.Projects.Choices),
-	})
+		Live:          h.liveTasks(r),
+	}, nil
 }
 
 // rowActors lists every actor the listing names: whoever holds a lease on a
@@ -499,18 +529,4 @@ func walkBack(prev map[string]string, from, to string) []string {
 		out[i], out[j] = out[j], out[i]
 	}
 	return out
-}
-
-// selfURL is this request's own path and query, without the flash.
-//
-// The flash is a message about the action just taken, not part of the view,
-// and carrying it into the return URL made every tick append another: three
-// clicks left the reader on "?flash=...&flash=...&flash=..." and the string
-// grew for as long as they kept working down the list.
-func selfURL(r *http.Request) string {
-	u := *r.URL
-	q := u.Query()
-	q.Del("flash")
-	u.RawQuery = q.Encode()
-	return u.RequestURI()
 }

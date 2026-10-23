@@ -103,7 +103,15 @@ func (l *Local) Subscribe(ctx context.Context, f core.EventFilter) (<-chan core.
 	} else if err := reader.checkRetained(ctx, f.SinceSeq); err != nil {
 		return nil, err
 	}
-	src, err := outbox.NewTailer(reader, 0, 0).Subscribe(ctx, f)
+	opts := []outbox.TailerOption{}
+	if w, ok := l.store.(store.CommitWaker); ok {
+		ch, err := w.WakeOnCommit(ctx, actor.TenantID)
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, outbox.WithWake(ch))
+	}
+	src, err := outbox.NewTailer(reader, 0, 0, opts...).Subscribe(ctx, f)
 	if err != nil {
 		return nil, err
 	}

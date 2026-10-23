@@ -63,32 +63,114 @@ test("isTypingTarget lets a shortcut through everywhere else", () => {
   assert.equal(tix.isTypingTarget(undefined), false);
 });
 
-test("debouncer collapses a burst into one run after the quiet period", () => {
+test("coalescer draws the first event at once", () => {
   const timers = fakeTimers();
   let runs = 0;
-  const trigger = tix.debouncer(300, () => runs++, timers);
+  const trigger = tix.coalescer(300, () => runs++, timers);
 
   trigger();
-  trigger();
-  trigger();
-  assert.equal(runs, 0, "it ran before the quiet period elapsed");
-  assert.equal(timers.count, 1, "an earlier timer was left armed");
-  assert.deepEqual(timers.delays(), [300]);
-
-  timers.fire();
-  assert.equal(runs, 1, "a burst of three did not group into one refresh");
+  assert.equal(runs, 1, "a single event waited out the window for nothing to coalesce");
+  assert.equal(timers.count, 1, "the window was not opened after the leading run");
 });
 
-test("debouncer arms again after it has run", () => {
+test("coalescer collapses the rest of a burst into one more run", () => {
   const timers = fakeTimers();
   let runs = 0;
-  const trigger = tix.debouncer(300, () => runs++, timers);
+  const trigger = tix.coalescer(300, () => runs++, timers);
+
+  trigger();
+  trigger();
+  trigger();
+  assert.equal(runs, 1, "a burst rendered more than its leading edge");
+  timers.fire();
+  assert.equal(runs, 2, "the hops after the first were never drawn");
+  timers.fire();
+  assert.equal(runs, 2, "the window ran again with nothing queued");
+});
+
+test("coalescer does not let a steady stream starve the trailing run", () => {
+  const timers = fakeTimers();
+  let runs = 0;
+  const trigger = tix.coalescer(300, () => runs++, timers, 1000);
+
+  trigger();
+  // Every arrival restarts the quiet period, which is exactly how a
+  // trailing-only debounce is pushed off forever under sustained change.
+  for (let i = 0; i < 20; i++) {
+    trigger();
+  }
+  assert.ok(timers.delays().includes(1000), "no maximum wait was armed");
+  timers.fire();
+  assert.equal(runs, 2, "the bounded wait did not force a render");
+});
+
+test("coalescer arms again after the window closes", () => {
+  const timers = fakeTimers();
+  let runs = 0;
+  const trigger = tix.coalescer(300, () => runs++, timers);
 
   trigger();
   timers.fire();
   trigger();
-  timers.fire();
-  assert.equal(runs, 2);
+  assert.equal(runs, 2, "an event after a quiet window waited again");
+});
+
+test("backoffDelay doubles, caps and stays inside its jitter band", () => {
+  const curve = [0, 1, 2, 3, 4, 5, 6, 7].map((n) => tix.backoffDelay(n, 500, 30000, () => 1));
+  assert.deepEqual(curve, [500, 1000, 2000, 4000, 8000, 16000, 30000, 30000]);
+
+  for (const attempt of [0, 1, 2, 3, 9]) {
+    const low = tix.backoffDelay(attempt, 500, 30000, () => 0);
+    const high = tix.backoffDelay(attempt, 500, 30000, () => 1);
+    assert.equal(low, high / 2, "the jitter band is not the lower half of the interval");
+    assert.ok(high <= 30000, "the curve ran past its cap");
+  }
+});
+
+test("resumeRefused tells a retired cursor from any other refusal", () => {
+  assert.equal(
+    tix.resumeRefused({ code: "invalid", message: "cursor 12 is no longer available; the oldest retained event is 90" }),
+    true
+  );
+  assert.equal(tix.resumeRefused({ code: "invalid", message: "unknown event type \"task.*\"" }), false);
+  assert.equal(tix.resumeRefused(null), false);
+  assert.equal(tix.resumeRefused({}), false);
+});
+
+test("staleNotice says the view may be out of date either way", () => {
+  for (const polling of [true, false]) {
+    assert.match(tix.staleNotice(polling), /out of date/);
+  }
+  assert.match(tix.staleNotice(true), /15 seconds/);
+  assert.match(tix.staleNotice(false), /reconnecting/);
+});
+
+test("wantsEvent keeps a one-record screen off its neighbours' changes", () => {
+  const mine = { subject_id: "task-1" };
+  const comment = { subject_id: "comment-9", payload: { task_id: "task-1" } };
+  const other = { subject_id: "task-2", payload: { task_id: "task-2" } };
+
+  assert.equal(tix.wantsEvent("task-1", mine), true);
+  assert.equal(tix.wantsEvent("task-1", comment), true, "a comment on this task was ignored");
+  assert.equal(tix.wantsEvent("task-1", other), false, "another task's change rebuilt the screen");
+  assert.equal(tix.wantsEvent("", other), true, "a listing turned an event away");
+  assert.equal(tix.wantsEvent("task-1", null), false);
+});
+
+test("fieldDirty reads a control against what the server rendered into it", () => {
+  assert.equal(tix.fieldDirty({ tagName: "INPUT", value: "same", defaultValue: "same" }), false);
+  assert.equal(tix.fieldDirty({ tagName: "INPUT", value: "typed", defaultValue: "" }), true);
+  assert.equal(tix.fieldDirty({ tagName: "INPUT", type: "checkbox", checked: true, defaultChecked: false }), true);
+  assert.equal(tix.fieldDirty({ tagName: "INPUT", type: "checkbox", checked: false, defaultChecked: false }), false);
+  assert.equal(tix.fieldDirty({
+    tagName: "SELECT",
+    options: [{ selected: true, defaultSelected: true }, { selected: false, defaultSelected: false }]
+  }), false);
+  assert.equal(tix.fieldDirty({
+    tagName: "SELECT",
+    options: [{ selected: false, defaultSelected: true }, { selected: true, defaultSelected: false }]
+  }), true);
+  assert.equal(tix.fieldDirty(null), false);
 });
 
 test("dragEnabled needs both the setting and a fine pointer", () => {

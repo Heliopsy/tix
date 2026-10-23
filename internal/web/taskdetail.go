@@ -18,7 +18,14 @@ func (h *handler) taskRoutes() []route {
 	return []route{
 		get(RouteTasks, "tasks.html", h.showTasks, "ListTasks", "ListProjects", "ListTags"),
 		post(RouteTasks, h.createTask, "CreateTask"),
+		// The live fragments render through the same template sets, and the
+		// same blocks, the full screens do, so they are bound to the same
+		// template files here even though each executes one named block
+		// rather than the whole page. See showTasksLive and showTaskLive.
+		get(RouteTasksLive, "tasks.html", h.showTasksLive, "ListTasks", "ListProjects", "ListTags"),
 		get(RouteTask, "task.html", h.showTask, "GetTask", "TaskTree",
+			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor"),
+		get(RouteTaskLive, "task.html", h.showTaskLive, "GetTask", "TaskTree",
 			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor"),
 		post(RouteTask, h.updateTask, "UpdateTask"),
 		post(RouteTaskMove, h.transitionTask, "TransitionRoute"),
@@ -104,6 +111,9 @@ type taskView struct {
 	// decide whether it appears.
 	CanReclaim bool
 
+	// Live is what keeps this screen current while it is open. See live.go.
+	Live liveScreen
+
 	// Back is the listing the reader came from, carried in the link they
 	// followed. A task opened from a filtered list used to strand them: the
 	// only ways out were the browser's back button and the sidebar, and the
@@ -144,17 +154,45 @@ func (v taskView) actorIDs() []string {
 
 // showTask renders one task with every section attached to it.
 func (h *handler) showTask(w http.ResponseWriter, r *http.Request) error {
-	ref, err := core.ParseTaskRef(r.PathValue("ref"))
+	data, err := h.buildTaskView(r)
 	if err != nil {
 		return err
+	}
+	return h.render(w, r, "task.html", data.Task.Ref, data)
+}
+
+// showTaskLive renders only the regions a live update replaces -- the status
+// line, the comments and the history -- from the same view and the same
+// blocks the whole screen is built from.
+//
+// The edit forms are not among them. Replacing a form the reader may be
+// halfway through is the one thing this must not do, and the version field
+// those forms carry is the task's optimistic lock: a save made against a
+// version somebody else has moved past is refused by the service, which is
+// the correct answer, not a silent overwrite with a version this page
+// quietly replaced.
+func (h *handler) showTaskLive(w http.ResponseWriter, r *http.Request) error {
+	data, err := h.buildTaskView(r)
+	if err != nil {
+		return err
+	}
+	return h.renderFragment(w, r, "task.html", "task-live", data.Task.Ref, data)
+}
+
+// buildTaskView answers one request for a task screen, for the page and for
+// its live fragment alike.
+func (h *handler) buildTaskView(r *http.Request) (taskView, error) {
+	ref, err := core.ParseTaskRef(r.PathValue("ref"))
+	if err != nil {
+		return taskView{}, err
 	}
 	task, err := h.svc.GetTask(r.Context(), ref)
 	if err != nil {
-		return err
+		return taskView{}, err
 	}
 	actor, err := core.RequireActor(r.Context())
 	if err != nil {
-		return err
+		return taskView{}, err
 	}
 
 	data := taskView{
@@ -170,18 +208,19 @@ func (h *handler) showTask(w http.ResponseWriter, r *http.Request) error {
 		Back:          backTo(r),
 	}
 	if err := h.attachRelations(r, ref, &data); err != nil {
-		return err
+		return taskView{}, err
 	}
 	if err := h.attachProject(r, ref, &data); err != nil {
-		return err
+		return taskView{}, err
 	}
 	if data.CanAudit {
 		if err := h.attachHistory(r, task.ID, &data); err != nil {
-			return err
+			return taskView{}, err
 		}
 	}
 	data.Names = h.resolveActors(r, data.actorIDs()...)
-	return h.render(w, r, "task.html", task.Ref, data)
+	data.Live = h.liveTask(data.Task)
+	return data, nil
 }
 
 // attachRelations loads the subtasks, dependencies, comments and artifacts.

@@ -13,6 +13,7 @@ import (
 	"database/sql"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	// The pgx driver is pure Go, so builds stay CGO_ENABLED=0.
@@ -65,6 +66,14 @@ type Store struct {
 	clock   clock.Clock
 	dsn     string
 	appRole bool
+
+	// wakers carries a LISTEN notification to the readers watching a tenant.
+	// One connection serves every reader in the process, so the cost of the
+	// wake does not grow with the number of tenants being tailed.
+	wakers     *store.Wakers
+	listenMu   sync.Mutex
+	listening  bool
+	stopListen context.CancelFunc
 }
 
 // Open connects to the PostgreSQL database named by dsn. It refuses to return
@@ -98,7 +107,7 @@ func Open(dsn string, c clock.Clock, opts ...Option) (*Store, error) {
 		return nil, core.Internal("postgres at %q is unreachable within %s", redact(dsn), cfg.connectTimeout).Wrap(err)
 	}
 
-	s := &Store{db: db, clock: c, dsn: dsn}
+	s := &Store{db: db, clock: c, dsn: dsn, wakers: store.NewWakers()}
 	s.appRole = s.roleUsable(ctx)
 	return s, nil
 }
@@ -106,8 +115,14 @@ func Open(dsn string, c clock.Clock, opts ...Option) (*Store, error) {
 // Dialect names the engine in use.
 func (s *Store) Dialect() store.Dialect { return store.Postgres }
 
-// Close releases the pool.
+// Close releases the pool and the listener connection beside it.
 func (s *Store) Close() error {
+	s.listenMu.Lock()
+	if s.stopListen != nil {
+		s.stopListen()
+		s.stopListen = nil
+	}
+	s.listenMu.Unlock()
 	if err := s.db.Close(); err != nil {
 		return core.Internal("closing postgres at %q", redact(s.dsn)).Wrap(err)
 	}

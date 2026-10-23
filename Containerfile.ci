@@ -1,13 +1,13 @@
 # Toolbox image holding every linter and scanner at the versions CI uses.
 # Built once and cached; `just ci` runs every gate inside it so local and CI
 # results cannot diverge.
-ARG GO_VERSION=1.27.2
+ARG GO_VERSION=1.27.3
 FROM docker.io/library/golang:${GO_VERSION}-alpine
 
 # Tool versions are pinned here and nowhere else.
 ARG GOLANGCI_LINT_VERSION=v2.14.0
 # Pinned to a master commit, not a tag. v2.29.0 is the newest release and it
-# requires golang.org/x/tools v0.49.0, which cannot decode Go 1.27.2's export
+# requires golang.org/x/tools v0.49.0, which cannot decode Go 1.27.3's export
 # data ("export data version 5 is greater than maximum supported version 4").
 # It still exits 1 and still prints "Issues : 0", so suppressing the failure
 # would turn a scanner that could not type-check 589 imports into a passing

@@ -59,6 +59,7 @@ type Tailer struct {
 	reader Reader
 	poll   time.Duration
 	batch  int
+	wake   <-chan struct{}
 
 	backoff    time.Duration
 	maxBackoff time.Duration
@@ -77,6 +78,16 @@ func WithErrorHandler(fn func(error)) TailerOption {
 			t.onError = fn
 		}
 	}
+}
+
+// WithWake gives the tailer a signal that a transaction carrying events has
+// committed, so it reads on the commit instead of on its next tick. The ticker
+// is not replaced by it and must not be: correctness never depends on a signal
+// arriving. A wake that is dropped, coalesced, or never wired at all costs
+// latency until the next tick and loses no event, which is the property the
+// original poll was chosen for.
+func WithWake(ch <-chan struct{}) TailerOption {
+	return func(t *Tailer) { t.wake = ch }
 }
 
 // WithRetry sets the first backoff, its ceiling, and how many consecutive
@@ -171,7 +182,10 @@ func (t *Tailer) run(ctx context.Context, f core.EventFilter, cursor int64, out 
 		if len(events) == t.batch {
 			continue
 		}
+		// A nil wake channel blocks forever, so a tailer without one falls
+		// through to the ticker exactly as it always did.
 		select {
+		case <-t.wake:
 		case <-ticker.C:
 		case <-ctx.Done():
 			return

@@ -9,19 +9,12 @@
 <p class="lede">Display preferences for this browser. Each one is stored in a cookie, not on the tenant, so two people sharing a tenant can choose differently.</p>
 
 <h2>Appearance</h2>
-<form method="post" action="/theme" hx-boost="false">
-  {{template "csrf" .CSRF}}
-  <input type="hidden" name="next" value="{{.Here}}">
-  <label for="theme">Theme</label>
-  <p class="muted" id="theme-help">Switches between light and dark, or "Low contrast" for a softer dark palette. System follows whatever your browser or operating system prefers.</p>
-  <select id="theme" name="theme" aria-describedby="theme-help">
-    <option value="" {{if eq .Theme ""}}selected{{end}}>System</option>
-    <option value="light" {{if eq .Theme "light"}}selected{{end}}>Light</option>
-    <option value="dark" {{if eq .Theme "dark"}}selected{{end}}>Dark</option>
-    <option value="dim" {{if eq .Theme "dim"}}selected{{end}}>Low contrast</option>
-  </select>
-  <div class="actions"><button type="submit">Apply theme</button></div>
-</form>
+{{/* The scheme is the switch at the foot of the sidebar, and only there. A
+     copy of it here would be a second default, a second validation and a
+     second reading of one cookie, which is the drift the three controls
+     below are built to avoid. See the themeswitch partial. */}}
+<p class="muted">The colour scheme is the switch at the foot of the sidebar, on every screen. One press moves to the next of System, Light, Dark and Low contrast.</p>
+<p>The scheme is currently <strong>{{.ThemeToggle.Label}}</strong>.</p>
 
 <h2>Interface</h2>
 
