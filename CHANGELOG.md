@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.17.0](https://github.com/Heliopsy/tix/compare/v0.16.0...v0.17.0) (2026-10-23)
+
+
+### Features
+
+* second factor (TOTP) across the browser, tix login and ssh ([#51](https://github.com/Heliopsy/tix/issues/51)) ([ec209d1](https://github.com/Heliopsy/tix/commit/ec209d19819ddd8522d59afda95616ab58a2de7e))
+* **web:** move the colour scheme onto a switch in the sidebar ([#48](https://github.com/Heliopsy/tix/issues/48)) ([51d91f4](https://github.com/Heliopsy/tix/commit/51d91f46a83a0ab0106127c47aec37f56a163304))
+
+
+### Bug Fixes
+
+* **sshd:** narrow a wide host key instead of refusing to start ([#50](https://github.com/Heliopsy/tix/issues/50)) ([6c31003](https://github.com/Heliopsy/tix/commit/6c31003bc19175611bb7d76a1dabe5fdadcf8b3f))
+
 ## [0.16.0](https://github.com/Heliopsy/tix/compare/v0.15.1...v0.16.0) (2026-10-23)
 
 
