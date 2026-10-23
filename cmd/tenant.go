@@ -162,18 +162,27 @@ func tenantShowCmd(g *globals) *cobra.Command {
 func tenantEditCmd(g *globals) *cobra.Command {
 	var name string
 	var theme string
+	var totpWeb, totpCLI, totpSSH bool
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "edit REF",
 		Short: "Change a tenant",
-		Long: "Change a tenant's name or the theme it presents itself with.\n\n" +
+		Long: "Change a tenant's name, the theme it presents itself with, or where it\n" +
+			"requires a second factor.\n\n" +
 			"The theme is the accent every surface renders: the browser and the terminal\n" +
 			"interface both read it. --theme \"\" clears it, which returns the tenant to the\n" +
 			"colour derived from its own identity. `tix theme ls` lists what resolves.\n\n" +
-			"Exit codes: 3 unknown tenant or unknown theme.",
+			"The three --require-totp flags are independent, so a tenant can require a code\n" +
+			"in the browser and leave the SSH board on keys alone. Turning one on does not\n" +
+			"lock anybody out: a user subject to it who holds no enrolment is taken through\n" +
+			"enrolment when they next sign in. It does need auth.totp_key set, because\n" +
+			"without somewhere to seal a secret there is no enrolment to take them through.\n\n" +
+			"Exit codes: 3 unknown tenant or unknown theme; 6 no second factor key.",
 		Example: "  tix tenant edit acme --name \"Acme Limited\"\n" +
 			"  tix tenant edit acme --theme ocean\n" +
-			"  tix tenant edit acme --theme \"\"",
+			"  tix tenant edit acme --theme \"\"\n" +
+			"  tix tenant edit acme --require-totp-web\n" +
+			"  tix tenant edit acme --require-totp-ssh=false",
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var in core.UpdateTenantInput
@@ -184,6 +193,22 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			// theme, so it has to reach the service rather than look unset.
 			if cmd.Flags().Changed("theme") {
 				in.Theme = &theme
+			}
+			// Same reason as the theme above: --require-totp-web=false has to
+			// be distinguishable from the flag not being given at all, or
+			// there would be no way to turn a requirement back off.
+			for _, f := range []struct {
+				flag string
+				val  *bool
+				into **bool
+			}{
+				{"require-totp-web", &totpWeb, &in.RequireTOTPWeb},
+				{"require-totp-cli", &totpCLI, &in.RequireTOTPCLI},
+				{"require-totp-ssh", &totpSSH, &in.RequireTOTPSSH},
+			} {
+				if cmd.Flags().Changed(f.flag) {
+					*f.into = f.val
+				}
 			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
@@ -204,6 +229,9 @@ func tenantEditCmd(g *globals) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&name, "name", "", "new name")
 	cmd.Flags().StringVar(&theme, "theme", "", "theme name, or \"\" to use the default theme")
+	cmd.Flags().BoolVar(&totpWeb, "require-totp-web", false, "require a second factor to sign in to the browser interface")
+	cmd.Flags().BoolVar(&totpCLI, "require-totp-cli", false, "require a second factor for tix login")
+	cmd.Flags().BoolVar(&totpSSH, "require-totp-ssh", false, "require a second factor to open the terminal interface over ssh")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	_ = cmd.RegisterFlagCompletionFunc("theme", fixedCompletion(core.ThemeNames()))
 	return cmd

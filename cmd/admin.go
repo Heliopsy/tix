@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -63,6 +64,7 @@ func newDoctorCmd(g *globals) *cobra.Command {
 				return g.reportChecks(cmd, checks)
 			}
 			checks = append(checks, check{Name: "identity", Status: checkOK, Detail: actor.Handle})
+			checks = append(checks, secondFactorChecks(ctx, conn)...)
 			return g.reportChecks(cmd, checks)
 		},
 	}
@@ -553,4 +555,71 @@ func deliveryStatuses(values []string) []core.DeliveryStatus {
 		out = append(out, core.DeliveryStatus(v))
 	}
 	return out
+}
+
+// secondFactorChecks reports the state of TOTP: whether a key is configured,
+// how many enrolments depend on it, and whether this tenant is one restart
+// away from having nobody able to sign in.
+//
+// It reads the status report rather than a diagnostic of its own, so there is
+// one place the facts come from and doctor cannot drift from what `tix status`
+// says.
+func secondFactorChecks(ctx context.Context, conn *connect.Conn) []check {
+	report, err := conn.Service.Status(ctx)
+	if err != nil {
+		// Not a failure of the installation. A reader without server:read
+		// cannot see this, and doctor is useful to them for everything else.
+		return []check{{Name: "second-factor", Status: checkOK, Detail: "not visible to this account: " + err.Error()}}
+	}
+	f := report.SecondFactor
+
+	out := []check{secondFactorKeyCheck(f)}
+	switch {
+	case f.LockedOutRisk():
+		out = append(out, check{Name: "second-factor-lockout", Status: checkWarn, Detail: fmt.Sprintf(
+			"tenant %q requires a second factor on every surface and %s hold one; "+
+				"one lost device and its recovery codes leaves nobody able to sign in",
+			f.TenantKey, plural(f.EnrolledAdmins, "administrator"))})
+	case f.RequiresAnywhere():
+		out = append(out, check{Name: "second-factor-lockout", Status: checkOK, Detail: fmt.Sprintf(
+			"tenant %q requires a second factor on %s; %d of %s enrolled",
+			f.TenantKey, requiredSurfaces(f), f.EnrolledAdmins, plural(f.Admins, "administrator"))})
+	default:
+		out = append(out, check{Name: "second-factor-lockout", Status: checkOK, Detail: fmt.Sprintf(
+			"tenant %q requires a second factor nowhere", f.TenantKey)})
+	}
+	return out
+}
+
+// secondFactorKeyCheck reports the sealing key and what depends on it.
+func secondFactorKeyCheck(f core.TOTPReport) check {
+	switch {
+	case f.Unrecoverable:
+		return check{Name: "second-factor-key", Status: checkFail, Detail: fmt.Sprintf(
+			"no key is configured and %s already enrolled; those secrets cannot be opened, "+
+				"so each one has to be cleared and enrolled again. API tokens are exempt from the second factor",
+			plural(f.Enrolments, "account"))}
+	case !f.KeyConfigured:
+		return check{Name: "second-factor-key", Status: checkOK, Detail: "no key configured, so enrolment is refused; " +
+			"set auth.totp_key (TIX_AUTH_TOTP_KEY) to a 32 byte base64 value to allow it"}
+	default:
+		return check{Name: "second-factor-key", Status: checkOK, Detail: fmt.Sprintf(
+			"key configured; %s enrolled. Losing the key means re-enrolment for every one of them. "+
+				"API tokens are exempt from the second factor", plural(f.Enrolments, "account"))}
+	}
+}
+
+// requiredSurfaces names the surfaces a tenant demands a factor on.
+func requiredSurfaces(f core.TOTPReport) string {
+	var on []string
+	if f.RequireWeb {
+		on = append(on, "the browser")
+	}
+	if f.RequireCLI {
+		on = append(on, "tix login")
+	}
+	if f.RequireSSH {
+		on = append(on, "ssh")
+	}
+	return strings.Join(on, ", ")
 }

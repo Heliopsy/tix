@@ -59,6 +59,9 @@ var boolColumns = map[string]bool{
 	"field_defs.required":      true,
 	"field_defs.indexed":       true,
 	"webhook_endpoints.active": true,
+	"tenants.require_totp_web": true,
+	"tenants.require_totp_cli": true,
+	"tenants.require_totp_ssh": true,
 }
 
 // jsonColumns are stored as TEXT in the portable schema and JSONB here.

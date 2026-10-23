@@ -547,10 +547,23 @@ func (f *fakeService) UpdateUser(context.Context, string, core.UpdateUserInput) 
 	return nil, nil
 }
 func (f *fakeService) DeleteUser(context.Context, string) error { return nil }
-func (f *fakeService) Login(context.Context, string, string) (*core.Session, error) {
+func (f *fakeService) Login(context.Context, core.LoginInput) (*core.LoginResult, error) {
 	return nil, nil
 }
-func (f *fakeService) Logout(context.Context) error { return nil }
+func (f *fakeService) TOTPStatus(context.Context) (*core.TOTPStatus, error) { return nil, nil }
+func (f *fakeService) BeginTOTPEnrolment(context.Context) (*core.TOTPEnrolment, error) {
+	return nil, nil
+}
+func (f *fakeService) ConfirmTOTPEnrolment(context.Context, string) (*core.TOTPRecoveryCodes, error) {
+	return nil, nil
+}
+func (f *fakeService) VerifySecondFactor(context.Context, string) error { return nil }
+func (f *fakeService) RemoveTOTP(context.Context) error                 { return nil }
+func (f *fakeService) RegenerateRecoveryCodes(context.Context) (*core.TOTPRecoveryCodes, error) {
+	return nil, nil
+}
+func (f *fakeService) ClearUserTOTP(context.Context, string) error { return nil }
+func (f *fakeService) Logout(context.Context) error                { return nil }
 func (f *fakeService) CreateToken(context.Context, core.CreateTokenInput) (*core.IssuedToken, error) {
 	return nil, nil
 }

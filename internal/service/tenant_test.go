@@ -358,3 +358,73 @@ func TestTenantThemeNeverCrossesATenant(t *testing.T) {
 		t.Errorf("own theme = %q, want it untouched by the foreign write", own.Theme)
 	}
 }
+
+// TestUpdateTenantSetsTheSecondFactorRequirementPerSurface covers the three
+// flags being independent, and settable back off. Before this the columns
+// existed and nothing but hand-written SQL could write them, so the feature
+// could not be turned on at all.
+func TestUpdateTenantSetsTheSecondFactorRequirementPerSurface(t *testing.T) {
+	l, _, _, actor := newTOTPLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+
+	on, off := true, false
+	got, err := l.UpdateTenant(ctx, "", core.UpdateTenantInput{RequireTOTPWeb: &on, RequireTOTPSSH: &on})
+	if err != nil {
+		t.Fatalf("UpdateTenant: %v", err)
+	}
+	if !got.RequireTOTPWeb || !got.RequireTOTPSSH {
+		t.Errorf("web = %v, ssh = %v, want both required", got.RequireTOTPWeb, got.RequireTOTPSSH)
+	}
+	if got.RequireTOTPCLI {
+		t.Error("the cli requirement was set by a call that never named it")
+	}
+
+	// A name-only edit must leave the requirements alone, which is what makes
+	// the pointer rather than the value the right shape here.
+	name := "Acme Incorporated"
+	got, err = l.UpdateTenant(ctx, "", core.UpdateTenantInput{Name: &name})
+	if err != nil {
+		t.Fatalf("UpdateTenant: %v", err)
+	}
+	if !got.RequireTOTPWeb {
+		t.Error("renaming the tenant cleared the web requirement")
+	}
+
+	got, err = l.UpdateTenant(ctx, "", core.UpdateTenantInput{RequireTOTPWeb: &off})
+	if err != nil {
+		t.Fatalf("UpdateTenant: %v", err)
+	}
+	if got.RequireTOTPWeb {
+		t.Error("the web requirement could not be turned back off")
+	}
+	if !got.RequireTOTPSSH {
+		t.Error("turning the web requirement off also cleared the ssh one")
+	}
+}
+
+// TestRequiringASecondFactorWithNoKeyIsRefused is the lockout guard. Enrolment
+// is refused outright without a sealing key, so a requirement set without one
+// has no escape hatch: every unenrolled user, the administrator included, is
+// turned away at the next sign-in with no way to satisfy the demand.
+func TestRequiringASecondFactorWithNoKeyIsRefused(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+
+	on := true
+	for _, in := range []core.UpdateTenantInput{
+		{RequireTOTPWeb: &on},
+		{RequireTOTPCLI: &on},
+		{RequireTOTPSSH: &on},
+	} {
+		if _, err := l.UpdateTenant(ctx, "", in); !core.IsKind(err, core.KindPrecondition) {
+			t.Errorf("UpdateTenant(%+v) with no key = %v, want precondition", in, err)
+		}
+	}
+
+	// Clearing a requirement needs no key: an installation that lost its key
+	// has to be able to climb back out.
+	off := false
+	if _, err := l.UpdateTenant(ctx, "", core.UpdateTenantInput{RequireTOTPWeb: &off}); err != nil {
+		t.Errorf("clearing a requirement with no key = %v, want it allowed", err)
+	}
+}

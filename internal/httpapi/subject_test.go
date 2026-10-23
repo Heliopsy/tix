@@ -254,7 +254,8 @@ func TestSubjectScopeNamesRealScopes(t *testing.T) {
 func TestAdministrativeEventsNeedTheirScope(t *testing.T) {
 	agent := &wsConn{actor: testActor("t1", core.ScopeTaskRead, core.ScopeEventSubscribe)}
 	admin := &wsConn{actor: testActor("t1", core.ScopeEventSubscribe, core.ScopeUserAdmin,
-		core.ScopeTokenAdmin, core.ScopeTenantAdmin, core.ScopeWebhookAdmin, core.ScopeSyncAdmin)}
+		core.ScopeTokenAdmin, core.ScopeTenantAdmin, core.ScopeWebhookAdmin, core.ScopeSyncAdmin,
+		core.ScopeTOTPAdmin)}
 
 	event := func(subject string) core.Event {
 		return core.Event{TenantID: "t1", SubjectType: subject, SubjectID: "s1"}

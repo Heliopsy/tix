@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -56,7 +57,8 @@ func newUserCmd(g *globals) *cobra.Command {
 		Args:    noArgs,
 		RunE:    helpRunner,
 	}
-	cmd.AddCommand(userCreateCmd(g), userLsCmd(g), userShowCmd(g), userEditCmd(g), userRmCmd(g), newUserKeyCmd(g))
+	cmd.AddCommand(userCreateCmd(g), userLsCmd(g), userShowCmd(g), userEditCmd(g), userRmCmd(g),
+		newUserKeyCmd(g), newUserTOTPCmd(g))
 	return cmd
 }
 
@@ -349,9 +351,14 @@ func tokenRmCmd(g *globals) *cobra.Command {
 func newLoginCmd(g *globals) *cobra.Command {
 	var email, password string
 	cmd := &cobra.Command{
-		Use:     "login",
-		Short:   "Exchange a password for a session",
-		Long:    "Log in and print the session token.\n\nExit codes: 2 missing credentials, 5 invalid credentials.",
+		Use:   "login",
+		Short: "Exchange a password for a session",
+		Long: "Log in and print the session token.\n\n" +
+			"Where a second factor is required, the code is asked for on the terminal after the password. " +
+			"No flag and no environment variable carries it: a live code passed as an argument lands in " +
+			"shell history and in the process table. An unattended caller uses an API token instead, which " +
+			"is exempt from the second factor; see tix token create.\n\n" +
+			"Exit codes: 2 missing credentials, 5 invalid credentials, 6 no terminal to prompt for a code.",
 		Example: "  tix login --email ada@example.com --password -",
 		GroupID: "setup",
 		Args:    noArgs,
@@ -368,16 +375,54 @@ func newLoginCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			session, err := conn.Service.Login(ctx, email, secret)
+			result, err := conn.Service.Login(ctx, core.LoginInput{
+				Email: email, Password: secret, Surface: core.SurfaceCLI,
+			})
 			if err != nil {
 				return err
 			}
-			return g.render(cmd, session)
+			if result.Challenge != nil {
+				if result, err = g.answerChallenge(cmd, conn.Service, ctx, result.Challenge); err != nil {
+					return err
+				}
+			}
+			if result.Session == nil {
+				return core.Internal("the sign-in finished without a session")
+			}
+			showRecoveryCodes(cmd, result.RecoveryCodes)
+			return g.render(cmd, result.Session)
 		},
 	}
 	cmd.Flags().StringVar(&email, "email", "", "account email address")
 	cmd.Flags().StringVar(&password, "password", "", "password, or - to read standard input")
 	return cmd
+}
+
+// answerChallenge completes a sign-in that the password alone did not.
+//
+// It is a prompt and nothing else by design. The code may not arrive as a
+// flag or as an environment variable, so a caller with no terminal is refused
+// here rather than hanging on a question nobody can answer.
+func (g *globals) answerChallenge(cmd *cobra.Command, svc core.Service, ctx context.Context,
+	challenge *core.TOTPChallenge,
+) (*core.LoginResult, error) {
+	if !onATerminal(cmd) {
+		return nil, errNoTerminal("this tenant requires a second factor on the command line, which")
+	}
+	if challenge.Kind == core.ChallengeEnrol {
+		// An unenrolled person on a requiring surface enrols here instead of
+		// being refused, which is what keeps turning the requirement on from
+		// locking out the administrator who turned it on.
+		g.diag(cmd, "this tenant requires a second factor, and you have none yet")
+		g.showEnrolment(cmd, challenge.Enrolment)
+	}
+	code, err := g.ask(cmd, "second factor code: ")
+	if err != nil {
+		return nil, err
+	}
+	return svc.Login(ctx, core.LoginInput{
+		Surface: core.SurfaceCLI, Ticket: challenge.Ticket, Code: code,
+	})
 }
 
 // toScopes converts flag strings to scopes.

@@ -335,6 +335,7 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		service.WithHooks(service.HookModeOf(mode)),
 		service.WithRetentionDefaults(cfg.Config.Retention.Policy("")),
 		service.WithPrivateWebhookTargets(cfg.Config.Webhooks.AllowPrivateTargets),
+		service.WithTOTPKey(cfg.Config.Auth.TOTPKey),
 	)
 	tenant, err := resolveTenant(ctx, st, local, target.Tenant)
 	if err != nil {

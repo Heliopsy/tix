@@ -121,6 +121,45 @@
   <div class="actions"><button type="submit">Apply date format</button></div>
 </form>
 
+<h2>Second factor</h2>
+{{/* The one thing on this screen that is not a browser preference: it belongs
+     to the account and follows it to every browser and to the terminal. */}}
+{{if .Data.TOTP.Available}}
+{{$totp := .Data.TOTP.Status}}
+<p class="muted" id="totp-help">A six digit code from an authenticator application, asked for after your password. Recovery codes stand in for it when the application is out of reach.</p>
+{{if $totp.Enrolled}}
+<p>A second factor is <strong>on</strong> for this account{{if $totp.ConfirmedAt}}, since {{stamp $totp.ConfirmedAt}}{{end}}. <strong>{{$totp.RecoveryCodesLeft}}</strong> of ten recovery codes are unused.</p>
+{{if $totp.VerificationLocked}}<p class="flash error">Too many incorrect codes. Verification is locked until {{stamp $totp.VerificationLockEnd}}.</p>{{end}}
+<form method="post" action="/settings/totp/recovery-codes" hx-boost="false">
+  {{template "csrf" .CSRF}}
+  <p class="muted" id="totp-codes-help">Issues ten new codes and voids every code issued before. The new set is shown once.</p>
+  <div class="actions"><button class="secondary" type="submit" aria-describedby="totp-codes-help">Replace recovery codes</button></div>
+</form>
+{{if .Data.TOTP.Removable}}
+<form method="post" action="/settings/totp/remove" hx-boost="false">
+  {{template "csrf" .CSRF}}
+  <p class="muted" id="totp-remove-help">Drops the enrolment and every recovery code with it. Your password alone signs you in afterwards.</p>
+  <div class="actions"><button class="danger" type="submit" aria-describedby="totp-remove-help">Turn off the second factor</button></div>
+</form>
+{{else}}
+<p class="muted">This tenant requires a second factor in the browser, so it cannot be turned off here. An administrator can clear it from the <a href="/admin/users">user list</a>.</p>
+{{end}}
+{{else}}
+{{if $totp.Pending}}
+<p>An enrolment was started and never confirmed, so it grants nothing yet. Starting again replaces it.</p>
+{{else}}
+<p>This account has <strong>no</strong> second factor.</p>
+{{end}}
+{{if $totp.RequiredWeb}}<p class="muted">This tenant requires one in the browser, so the next sign-in will ask for it.</p>{{end}}
+<form method="post" action="/settings/totp" hx-boost="false">
+  {{template "csrf" .CSRF}}
+  <div class="actions"><button type="submit" aria-describedby="totp-help">{{if $totp.Pending}}Start enrolment again{{else}}Add a second factor{{end}}</button></div>
+</form>
+{{end}}
+{{else}}
+<p class="muted">A second factor belongs to a person, and this session does not speak for one, so there is nothing to manage here.</p>
+{{end}}
+
 <h2>Database</h2>
 {{if .Data.TargetDescribe}}
 <p>This server is talking to <code>{{.Data.TargetDescribe}}</code>.</p>

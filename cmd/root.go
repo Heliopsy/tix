@@ -7,6 +7,7 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -64,6 +65,10 @@ type globals struct {
 
 	environ []string
 	dir     string
+
+	// prompts buffers standard input across every question one invocation
+	// asks, so a second prompt does not find the first one's read-ahead gone.
+	prompts *bufio.Reader
 
 	resolved *config.Resolved
 	conn     *connect.Conn

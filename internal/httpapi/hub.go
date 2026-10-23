@@ -260,6 +260,13 @@ var subjectScope = map[string]core.Scope{
 	"user":       core.ScopeUserAdmin,
 	"membership": core.ScopeUserAdmin,
 	"session":    core.ScopeUserAdmin,
+
+	// A second-factor event names a user and says whether that account holds
+	// one, which is a list of who to attack first. The scope is the one that
+	// clears somebody else's enrolment, since that authority already carries
+	// knowing who has one.
+	"totp": core.ScopeTOTPAdmin,
+
 	"tenant":     core.ScopeTenantAdmin,
 	"domain":     core.ScopeTenantAdmin,
 	"connection": core.ScopeTenantAdmin,

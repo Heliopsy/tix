@@ -221,6 +221,16 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 		}
 	}
 
+	// Requiring a factor is safe only because an unenrolled user enters
+	// enrolment instead of being refused. With no sealing key enrolment is
+	// itself refused, so that escape hatch is shut and the requirement locks
+	// out everybody who has not already enrolled, the administrator setting it
+	// among them. Refused here, where the person who asked is still present,
+	// rather than discovered at the next sign-in.
+	if err := l.totpRequirementIsReachable(in); err != nil {
+		return nil, err
+	}
+
 	var out *core.Tenant
 	err = l.write(ctx, actor, func(m *mutation) error {
 		t, err := ownTenant(ctx, m.tx, actor, ref)
@@ -233,6 +243,15 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 		}
 		if in.Theme != nil {
 			t.Theme = strings.ToLower(strings.TrimSpace(*in.Theme))
+		}
+		if in.RequireTOTPWeb != nil {
+			t.RequireTOTPWeb = *in.RequireTOTPWeb
+		}
+		if in.RequireTOTPCLI != nil {
+			t.RequireTOTPCLI = *in.RequireTOTPCLI
+		}
+		if in.RequireTOTPSSH != nil {
+			t.RequireTOTPSSH = *in.RequireTOTPSSH
 		}
 		u, err := asUnscoped(m.tx)
 		if err != nil {
@@ -368,4 +387,18 @@ func (l *Local) themeRegistry() *core.ThemeRegistry {
 // surfaces that render it.
 func (l *Local) ResolveTheme(t *core.Tenant) core.Theme {
 	return l.themeRegistry().Resolve(t)
+}
+
+// totpRequirementIsReachable refuses a requirement nobody could satisfy. Only
+// turning one on is checked: clearing one, or leaving it alone, needs no key.
+func (l *Local) totpRequirementIsReachable(in core.UpdateTenantInput) error {
+	for _, on := range []*bool{in.RequireTOTPWeb, in.RequireTOTPCLI, in.RequireTOTPSSH} {
+		if on != nil && *on {
+			if _, err := l.sealer(); err != nil {
+				return err
+			}
+			return nil
+		}
+	}
+	return nil
 }

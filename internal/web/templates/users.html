@@ -64,6 +64,22 @@
           {{template "field-info" "A disabled account cannot sign in: its sessions are dropped and its API tokens are revoked the moment you save. Clearing the box lets it sign in again, but does not bring the old tokens back."}}
           <div class="actions"><button type="submit">Save changes</button></div>
         </form>
+        {{if $.Data.CanClearTOTP}}
+        {{/* Clearing is all an administrator can do to somebody else's second
+             factor: no secret and no recovery code is theirs to see. It is
+             the way back in for a person who lost both the device and the
+             codes, and the tenant's requirement, if there is one, then takes
+             them through enrolment at their next sign-in. */}}
+        <form method="post" action="/admin/users/totp/clear">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="id" value="{{.User.ID}}">
+          <p class="muted">
+            {{if .User.TOTPEnrolled}}This account holds a second factor.{{else}}This account holds no second factor.{{end}}
+            Clearing it drops the enrolment and its recovery codes. Use it when somebody has lost both.
+          </p>
+          <div class="actions"><button class="secondary" type="submit">Clear second factor</button></div>
+        </form>
+        {{end}}
         <form method="post" action="/admin/users/delete" class="person-delete">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="id" value="{{.User.ID}}">

@@ -305,6 +305,17 @@ secrets:
       echo "in CI, give the checkout step fetch-depth: 0." >&2
       exit 1
     fi
+    # In a linked worktree .git is a file pointing at the real directory, which
+    # the container cannot follow, so gitleaks found no repository, scanned zero
+    # commits and exited 0. Same failure as the shallow clone above and caught
+    # the same way: this ran green in a worktree while CI, which checks out the
+    # repository proper, failed on four findings.
+    if [ ! -d .git ]; then
+      echo "refusing to scan from a linked worktree: .git is a file here and the" >&2
+      echo "scanner container cannot follow it, so it would see no history." >&2
+      echo "run this from $(git rev-parse --path-format=absolute --git-common-dir | sed 's#/\.git$##')" >&2
+      exit 1
+    fi
     just tool gitleaks git --log-opts=--all --config=.gitleaks.toml --redact .
 
 trivy: (tool "trivy" "fs" "--severity" "CRITICAL,HIGH" "--exit-code" "1" "--ignorefile" ".trivyignore" "--scanners" "vuln,secret" ".")

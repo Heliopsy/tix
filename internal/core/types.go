@@ -17,10 +17,31 @@ type Tenant struct {
 	// Theme names the palette this tenant presents itself with, on every
 	// surface. Empty means nobody chose, and the accent is derived from the
 	// tenant's own identity instead; see ThemeRegistry.Resolve.
-	Theme     string     `json:"theme,omitempty" yaml:"theme,omitempty"`
-	CreatedAt time.Time  `json:"created_at" yaml:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at" yaml:"updated_at"`
-	DeletedAt *time.Time `json:"deleted_at,omitempty" yaml:"deleted_at,omitempty"`
+	Theme string `json:"theme,omitempty" yaml:"theme,omitempty"`
+	// RequireTOTPWeb and its siblings require a second factor on one sign-in
+	// surface each. They are independent and all default false, so a tenant
+	// can require a code in the browser and leave the SSH board on keys alone.
+	RequireTOTPWeb bool       `json:"require_totp_web" yaml:"require_totp_web"`
+	RequireTOTPCLI bool       `json:"require_totp_cli" yaml:"require_totp_cli"`
+	RequireTOTPSSH bool       `json:"require_totp_ssh" yaml:"require_totp_ssh"`
+	CreatedAt      time.Time  `json:"created_at" yaml:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at" yaml:"updated_at"`
+	DeletedAt      *time.Time `json:"deleted_at,omitempty" yaml:"deleted_at,omitempty"`
+}
+
+// RequiresTOTP reports whether this tenant demands a second factor on the
+// given sign-in surface.
+func (t Tenant) RequiresTOTP(s Surface) bool {
+	switch s {
+	case SurfaceWeb:
+		return t.RequireTOTPWeb
+	case SurfaceCLI:
+		return t.RequireTOTPCLI
+	case SurfaceSSH:
+		return t.RequireTOTPSSH
+	default:
+		return false
+	}
 }
 
 // CertMode describes how a domain obtains its TLS certificate.
@@ -63,6 +84,12 @@ type User struct {
 	DisabledAt  *time.Time `json:"disabled_at,omitempty" yaml:"disabled_at,omitempty"`
 	SSOProvider string     `json:"sso_provider,omitempty" yaml:"sso_provider,omitempty"`
 	SSOSubject  string     `json:"sso_subject,omitempty" yaml:"sso_subject,omitempty"`
+	// TOTPEnrolled reports whether this user holds a confirmed second factor.
+	// It is state, not a credential: nothing here can produce a code, and it
+	// is what lets an administrative listing say who holds one rather than
+	// only offering to clear it. Set by the listings and by GetUser; a user
+	// written back from one carries it and nothing reads it as an input.
+	TOTPEnrolled bool `json:"totp_enrolled" yaml:"totp_enrolled"`
 }
 
 // APIToken is a scoped bearer credential, normally held by an agent.

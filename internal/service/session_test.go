@@ -20,6 +20,20 @@ func loginContext(scope core.TenantScope) context.Context {
 	return core.WithTenant(context.Background(), scope)
 }
 
+// signIn performs the password step and hands back the session. A tenant that
+// requires no second factor completes a sign-in in that one step, which is
+// what every test using this helper relies on; one that does not returns a
+// nil session and the caller sees it.
+func signIn(l *Local, scope core.TenantScope, email, password string) (*core.Session, error) {
+	result, err := l.Login(loginContext(scope), core.LoginInput{
+		Email: email, Password: password, Surface: core.SurfaceCLI,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.Session, nil
+}
+
 // seedUser creates a user with a password and returns it.
 func seedUser(t *testing.T, l *Local, admin *core.Actor, email string) *core.User {
 	t.Helper()
@@ -36,7 +50,7 @@ func TestLoginIssuesASessionWhoseHashAloneIsStored(t *testing.T) {
 	l, clk, scope, admin := newLocal(t)
 	user := seedUser(t, l, admin, "ada@example.com")
 
-	session, err := l.Login(loginContext(scope), "Ada@Example.com", testPassword)
+	session, err := signIn(l, scope, "Ada@Example.com", testPassword)
 	if err != nil {
 		t.Fatalf("Login: %v", err)
 	}
@@ -111,7 +125,7 @@ func TestLoginFailuresAreIndistinguishable(t *testing.T) {
 	want := errInvalidCredentials()
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			session, err := l.Login(loginContext(scope), tc.email, tc.password)
+			session, err := signIn(l, scope, tc.email, tc.password)
 			if session != nil {
 				t.Fatal("a failed login returned a session")
 			}
@@ -139,7 +153,7 @@ func TestLoginForAnUnknownEmailStillCostsAHashVerification(t *testing.T) {
 		best := time.Hour
 		for range 3 {
 			start := time.Now()
-			if _, err := l.Login(loginContext(scope), email, "not-the-password"); err == nil {
+			if _, err := signIn(l, scope, email, "not-the-password"); err == nil {
 				t.Fatal("a wrong password logged in")
 			}
 			if d := time.Since(start); d < best {
@@ -160,7 +174,8 @@ func TestLoginForAnUnknownEmailStillCostsAHashVerification(t *testing.T) {
 func TestLoginRequiresATenant(t *testing.T) {
 	l, _, _, _ := newLocal(t)
 
-	if _, err := l.Login(context.Background(), "ada@example.com", testPassword); !core.IsKind(err, core.KindInvalid) {
+	in := core.LoginInput{Email: "ada@example.com", Password: testPassword, Surface: core.SurfaceCLI}
+	if _, err := l.Login(context.Background(), in); !core.IsKind(err, core.KindInvalid) {
 		t.Errorf("Login without a tenant = %v, want invalid", err)
 	}
 }
@@ -188,7 +203,7 @@ func TestLoginUpgradesAWeakHash(t *testing.T) {
 		t.Fatalf("installing the weak hash: %v", err)
 	}
 
-	if _, err := l.Login(loginContext(scope), "ada@example.com", testPassword); err != nil {
+	if _, err := signIn(l, scope, "ada@example.com", testPassword); err != nil {
 		t.Fatalf("Login: %v", err)
 	}
 	upgraded := storedPasswordHash(t, l, "ada@example.com")
@@ -207,7 +222,7 @@ func TestLogoutInvalidatesTheSession(t *testing.T) {
 	l, clk, scope, admin := newLocal(t)
 	user := seedUser(t, l, admin, "ada@example.com")
 
-	session, err := l.Login(loginContext(scope), "ada@example.com", testPassword)
+	session, err := signIn(l, scope, "ada@example.com", testPassword)
 	if err != nil {
 		t.Fatalf("Login: %v", err)
 	}
@@ -253,7 +268,7 @@ func TestNoCredentialReachesHistory(t *testing.T) {
 	ctx := authContext(admin)
 
 	user := seedUser(t, l, admin, "ada@example.com")
-	session, err := l.Login(loginContext(scope), "ada@example.com", testPassword)
+	session, err := signIn(l, scope, "ada@example.com", testPassword)
 	if err != nil {
 		t.Fatalf("Login: %v", err)
 	}

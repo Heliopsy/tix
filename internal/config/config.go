@@ -166,6 +166,14 @@ type SSH struct {
 // Auth holds the authentication settings.
 type Auth struct {
 	Mode string `yaml:"mode"`
+	// TOTPKey seals every enrolled second factor at rest, 32 bytes base64
+	// encoded. It lives here and never in the database, so reading the
+	// database file does not yield working second factors.
+	//
+	// It is as load-bearing as the database: lose it and every enrolled
+	// secret is undecryptable, and each user has to be cleared by an
+	// administrator and enrol again.
+	TOTPKey string `yaml:"totp_key" secret:"opaque"`
 }
 
 // Hooks holds the git hook settings.

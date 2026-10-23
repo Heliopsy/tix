@@ -10,10 +10,20 @@ import (
 	"github.com/heliopsy/tix/internal/wire"
 )
 
-// LoginRequest carries the credentials of a password login.
+// LoginRequest carries one step of an interactive sign-in. The first step
+// sends the address, the password and the surface; the second sends the
+// ticket the challenge answered with and the code.
 type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email    string       `json:"email,omitempty"`
+	Password string       `json:"password,omitempty"`
+	Surface  core.Surface `json:"surface,omitempty"`
+	Ticket   string       `json:"ticket,omitempty"`
+	Code     string       `json:"code,omitempty"`
+}
+
+// TOTPCodeRequest carries the code proving possession of an authenticator.
+type TOTPCodeRequest struct {
+	Code string `json:"code"`
 }
 
 // AddMemberRequest grants an actor a role in the resolved tenant.
@@ -36,6 +46,14 @@ type SweepResult struct {
 func (rt *Router) registerAuthRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteLogin, rt.handleLogin)
 	rt.mux.HandleFunc("POST "+wire.RouteLogout, rt.handleLogout)
+
+	rt.mux.HandleFunc("GET "+wire.RouteTOTP, rt.handleTOTPStatus)
+	rt.mux.HandleFunc("POST "+wire.RouteTOTP, rt.handleBeginTOTP)
+	rt.mux.HandleFunc("DELETE "+wire.RouteTOTP, rt.handleRemoveTOTP)
+	rt.mux.HandleFunc("POST "+wire.RouteTOTPConfirm, rt.handleConfirmTOTP)
+	rt.mux.HandleFunc("POST "+wire.RouteTOTPVerify, rt.handleVerifySecondFactor)
+	rt.mux.HandleFunc("POST "+wire.RouteTOTPCodes, rt.handleRegenerateRecoveryCodes)
+	rt.mux.HandleFunc("DELETE "+wire.RouteUserTOTP, rt.handleClearUserTOTP)
 
 	rt.mux.HandleFunc("GET "+wire.RouteActors, rt.handleListActors)
 	rt.mux.HandleFunc("GET "+wire.RouteActor, rt.handleGetActor)
@@ -90,19 +108,105 @@ func (rt *Router) handleListActors(w http.ResponseWriter, r *http.Request) {
 	writeList(w, r, actors, next)
 }
 
-// handleLogin exchanges an email and password for a session.
+// handleLogin performs one step of a sign-in. A result carrying a challenge
+// is a complete answer with a 200, not an error: the credentials were right
+// and the caller has one more thing to send.
 func (rt *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var in LoginRequest
 	if !readJSON(w, r, &in) {
 		return
 	}
-	session, err := rt.cfg.Service.Login(r.Context(), in.Email, in.Password)
+	result, err := rt.cfg.Service.Login(r.Context(), core.LoginInput{
+		Email:    in.Email,
+		Password: in.Password,
+		Surface:  in.Surface,
+		Ticket:   in.Ticket,
+		Code:     in.Code,
+	})
 	if err != nil {
 		WriteError(w, err)
 		return
 	}
-	http.SetCookie(w, auth.NewSessionCookie(session.Token, session.ExpiresAt, rt.secureCookie(r)))
-	WriteJSON(w, http.StatusOK, session)
+	if result.Session != nil {
+		http.SetCookie(w, auth.NewSessionCookie(
+			result.Session.Token, result.Session.ExpiresAt, rt.secureCookie(r)))
+	}
+	WriteJSON(w, http.StatusOK, result)
+}
+
+// handleTOTPStatus reports the caller's own enrolment.
+func (rt *Router) handleTOTPStatus(w http.ResponseWriter, r *http.Request) {
+	status, err := rt.cfg.Service.TOTPStatus(r.Context())
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, status)
+}
+
+// handleBeginTOTP starts an enrolment, which takes effect only once confirmed.
+func (rt *Router) handleBeginTOTP(w http.ResponseWriter, r *http.Request) {
+	enrolment, err := rt.cfg.Service.BeginTOTPEnrolment(r.Context())
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusCreated, enrolment)
+}
+
+// handleConfirmTOTP proves possession and returns the recovery codes once.
+func (rt *Router) handleConfirmTOTP(w http.ResponseWriter, r *http.Request) {
+	var in TOTPCodeRequest
+	if !readJSON(w, r, &in) {
+		return
+	}
+	codes, err := rt.cfg.Service.ConfirmTOTPEnrolment(r.Context(), in.Code)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, codes)
+}
+
+// handleVerifySecondFactor proves an existing factor and mints nothing.
+func (rt *Router) handleVerifySecondFactor(w http.ResponseWriter, r *http.Request) {
+	var in TOTPCodeRequest
+	if !readJSON(w, r, &in) {
+		return
+	}
+	if err := rt.cfg.Service.VerifySecondFactor(r.Context(), in.Code); err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeNoContent(w)
+}
+
+// handleRemoveTOTP drops the caller's own enrolment.
+func (rt *Router) handleRemoveTOTP(w http.ResponseWriter, r *http.Request) {
+	if err := rt.cfg.Service.RemoveTOTP(r.Context()); err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeNoContent(w)
+}
+
+// handleRegenerateRecoveryCodes replaces the caller's codes.
+func (rt *Router) handleRegenerateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
+	codes, err := rt.cfg.Service.RegenerateRecoveryCodes(r.Context())
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, codes)
+}
+
+// handleClearUserTOTP returns another user to an unenrolled state.
+func (rt *Router) handleClearUserTOTP(w http.ResponseWriter, r *http.Request) {
+	if err := rt.cfg.Service.ClearUserTOTP(r.Context(), r.PathValue("id")); err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeNoContent(w)
 }
 
 // handleLogout ends the current session.

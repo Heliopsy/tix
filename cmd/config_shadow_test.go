@@ -72,6 +72,7 @@ var unshadowedKeys = map[string]string{
 	"ssh.trusted_proxies":            "runSSH and buildServeSSH, into sshd.Options; neither command has a flag for it",
 	"server.cookie_security":         "runServe, into server.Options",
 	"auth.mode":                      "config.Validate only; this build implements one mode",
+	"auth.totp_key":                  "connect.Dial, into service.WithTOTPKey; there is no flag, and a second factor key does not belong on a command line",
 	"hooks.mode":                     "config.Validate only; this build implements one mode",
 	"webhooks.drain_mode":            "connect.drainMode",
 	"webhooks.allow_private_targets": "connect.Dial and runServe",

@@ -21,7 +21,7 @@ func (h *handler) sessionRoutes() []route {
 		public(get(RouteLogin, "login.html", h.showLogin)),
 		public(post(RouteLogin, h.doLogin, "Login")),
 		post(RouteLogout, h.doLogout, "Logout"),
-		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI"),
+		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus"),
 		post(RouteAdvanced, h.toggleAdvanced, "Logout"),
 		post(RouteTheme, h.setTheme, "Logout"),
 		post(RouteKeyScheme, h.setKeyScheme, "Logout"),
@@ -52,6 +52,10 @@ func (h *handler) showRoot(w http.ResponseWriter, r *http.Request) error {
 // was typed into the form above it.
 type loginView struct {
 	TargetHint string
+	// Next is where the visitor was going when they were bounced here. It is
+	// carried in the form so a deep link survives sign-in, second step and
+	// all.
+	Next string
 }
 
 // showLogin renders the sign-in screen.
@@ -60,19 +64,60 @@ func (h *handler) showLogin(w http.ResponseWriter, r *http.Request) error {
 		http.Redirect(w, r, RouteProjects, http.StatusSeeOther)
 		return nil
 	}
-	return h.render(w, r, "login.html", "Sign in", loginView{TargetHint: h.targetHint})
+	return h.render(w, r, "login.html", "Sign in",
+		loginView{TargetHint: h.targetHint, Next: safeNext(r.URL.Query().Get("next"))})
 }
 
-// doLogin exchanges an email and password for a browser session.
+// doLogin is both steps of a browser sign-in: the password, and the second
+// factor when the tenant requires one or the account holds one.
+//
+// One route serves both because the second step is the same screen posting
+// back with the ticket the first step returned. The ticket proves only that
+// the password was accepted a moment ago, so carrying it in a hidden field
+// grants nothing on its own, and no session exists until the code is taken.
 func (h *handler) doLogin(w http.ResponseWriter, r *http.Request) error {
-	session, err := h.svc.Login(r.Context(), field(r, "email"), r.PostFormValue("password"))
-	if err != nil {
-		return err
+	next := safeNext(field(r, "next"))
+	ticket := field(r, "ticket")
+	in := core.LoginInput{Surface: core.SurfaceWeb}
+	if ticket != "" {
+		in.Ticket, in.Code = ticket, field(r, "code")
+	} else {
+		in.Email, in.Password = field(r, "email"), r.PostFormValue("password")
 	}
+
+	result, err := h.svc.Login(r.Context(), in)
+	if err != nil {
+		if ticket == "" {
+			return err
+		}
+		// A refused code redraws the step it was typed on, refusal and all.
+		// The error screen would lose the ticket and send the reader back to
+		// the password, and an expired ticket says so on this screen beside
+		// the way to start again.
+		return h.renderTOTP(w, r, core.KindOf(err).HTTPStatus(),
+			signInChallenge(ticket, next, field(r, "uri"), totpRefusal(err)))
+	}
+	if challenge := result.Challenge; challenge != nil {
+		uri := ""
+		if challenge.Enrolment != nil {
+			uri = challenge.Enrolment.URI
+		}
+		return h.renderTOTP(w, r, http.StatusOK, signInChallenge(challenge.Ticket, next, uri, nil))
+	}
+
+	session := result.Session
 	http.SetCookie(w, auth.NewSessionCookie(session.Token, session.ExpiresAt, h.secureCookie(r)))
+	if len(result.RecoveryCodes) > 0 {
+		// A sign-in that completed by enrolling issues the codes, and nothing
+		// can produce them again, so they are shown before the reader goes on
+		// to where they were headed.
+		return h.renderRecoveryCodes(w, r, result.RecoveryCodes, next,
+			"You are signed in. Keep these codes somewhere safe: each one signs you in "+
+				"once if you lose the authenticator, and they are not shown again.")
+	}
 	// #nosec G710 -- safeNext rejects anything that is not a relative path on
 	// this origin, including protocol-relative, backslash and control forms.
-	http.Redirect(w, r, safeNext(field(r, "next")), http.StatusSeeOther)
+	http.Redirect(w, r, next, http.StatusSeeOther)
 	return nil
 }
 
@@ -98,6 +143,10 @@ type settingsView struct {
 	// answers for one cookie, including whether the project set behind the
 	// visibility control is the whole tenant. See prefs.go.
 	Prefs prefsView
+
+	// TOTP is the reader's own second factor: whether they hold one, how many
+	// recovery codes are left, and whether this tenant requires it here.
+	TOTP totpSection
 }
 
 // showSettings renders the settings screen: every per-browser display
@@ -113,6 +162,10 @@ func (h *handler) showSettings(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	totp, err := h.totpFor(r)
+	if err != nil {
+		return err
+	}
 	return h.render(w, r, "settings.html", "Settings", settingsView{
 		TargetDescribe: h.targetDescribe,
 		Shortcuts:      buildShortcutTable(),
@@ -121,6 +174,7 @@ func (h *handler) showSettings(w http.ResponseWriter, r *http.Request) error {
 		TimeFormats:    timeFormatChoices(zone),
 		Timezones:      timezoneChoices(),
 		Prefs:          h.prefsFor(r, projects, whole),
+		TOTP:           totp,
 	})
 }
 

@@ -33,6 +33,18 @@ type UpdateTenantInput struct {
 	// the empty string clears it, which returns the tenant to the accent
 	// derived from its own identity; nil leaves it alone.
 	Theme *string `json:"theme,omitempty" yaml:"theme,omitempty"`
+	// RequireTOTPWeb and its siblings turn the second-factor requirement on or
+	// off for one sign-in surface each; nil leaves that surface alone. They are
+	// here rather than on a command of their own because the requirement is a
+	// property of the tenant, and a separate path to write it would be a second
+	// place to get the authorization wrong.
+	//
+	// Turning one on cannot lock the tenant out: a user who is subject to it
+	// and holds no enrolment is taken through enrolment at sign-in rather than
+	// refused, the administrator who turned it on first among them.
+	RequireTOTPWeb *bool `json:"require_totp_web,omitempty" yaml:"require_totp_web,omitempty"`
+	RequireTOTPCLI *bool `json:"require_totp_cli,omitempty" yaml:"require_totp_cli,omitempty"`
+	RequireTOTPSSH *bool `json:"require_totp_ssh,omitempty" yaml:"require_totp_ssh,omitempty"`
 }
 
 // AddDomainInput maps a hostname to the current tenant.

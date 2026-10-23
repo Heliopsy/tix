@@ -77,6 +77,14 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 			WithDetail("value", strings.Join(cfg.SSH.TrustedProxies, ",")).
 			WithDetail("reason", err.Error())
 	}
+	// The sealing key is checked here so a malformed value fails at start-up
+	// rather than at the first enrolment, which is months later and is the
+	// moment the operator least wants to learn about it.
+	if cfg.Auth.TOTPKey != "" {
+		if _, err := auth.ParseTOTPKey(cfg.Auth.TOTPKey); err != nil {
+			return invalidKey("auth.totp_key", sources).WithDetail("reason", err.Error())
+		}
+	}
 	if cfg.Server.URL != "" {
 		if _, err := url.Parse(cfg.Server.URL); err != nil {
 			return invalidKey("server.url", sources).WithDetail("value", cfg.Server.URL)

@@ -442,12 +442,32 @@ func TestTheOperationsAPersonWorksWithDailyReachTheTUI(t *testing.T) {
 	}
 }
 
-// TestNoCLIGapRemains holds the line on the six commands that were missing.
+// recordedCLIGaps are the operations with no command, named rather than
+// counted so that one more cannot arrive unnoticed and so that deleting one
+// from here without writing the command fails rather than passes.
+//
+// It is empty, which is the line this test holds. The second factor opened it
+// once, when the service, the policy and the API landed ahead of the commands;
+// `tix user totp` and the prompt in `tix login` closed all six again.
+var recordedCLIGaps = map[string]bool{}
+
+// TestNoCLIGapRemains holds the line at no command missing, and on the empty
+// list above not quietly growing an entry.
 func TestNoCLIGapRemains(t *testing.T) {
 	t.Parallel()
+	seen := map[string]bool{}
 	for _, absence := range capability.Gaps() {
-		if absence.Surface == capability.SurfaceCLI {
+		if absence.Surface != capability.SurfaceCLI {
+			continue
+		}
+		if !recordedCLIGaps[absence.Method] {
 			t.Errorf("%s: the cli gap on %s is back", absence.Method, absence.Surface)
+		}
+		seen[absence.Method] = true
+	}
+	for method := range recordedCLIGaps {
+		if !seen[method] {
+			t.Errorf("%s: the cli gap is recorded and gone; drop it from recordedCLIGaps", method)
 		}
 	}
 }
@@ -457,6 +477,11 @@ func TestNoCLIGapRemains(t *testing.T) {
 // count is two rather than none: the root route calls WhoAmI for its error and
 // throws the identity away, and the screens call GetActor only to turn an
 // identifier into a label, so neither operation reaches a browser reader.
+//
+// It came down from eight when the second factor reached the browser, closing
+// the six it had been recorded against: the status, enrolment and recovery
+// codes on the settings screen, removal beside them, and the administrative
+// clear on the user list.
 //
 // The terminal count came down from 58 when the confirmation and the form landed
 // with the five operations that needed them: task.delete, dependency.remove,
@@ -482,8 +507,9 @@ func TestNoCLIGapRemains(t *testing.T) {
 func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 	t.Parallel()
 	want := map[capability.Surface]int{
-		capability.SurfaceTUI: 32,
+		capability.SurfaceTUI: 38,
 		capability.SurfaceWeb: 2,
+		capability.SurfaceCLI: len(recordedCLIGaps),
 	}
 	got := map[capability.Surface]int{}
 	for _, absence := range capability.Gaps() {

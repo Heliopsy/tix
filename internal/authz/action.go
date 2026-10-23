@@ -32,6 +32,7 @@ const (
 	ActionAuditRead      Action = "audit.read"
 
 	ActionUserAdmin    Action = "user.admin"
+	ActionTOTPAdmin    Action = "totp.admin"
 	ActionTokenAdmin   Action = "token.admin"
 	ActionWebhookAdmin Action = "webhook.admin"
 	ActionTenantAdmin  Action = "tenant.admin"
@@ -71,6 +72,7 @@ var actionScopes = map[Action]core.Scope{
 	ActionAuditRead:      core.ScopeAuditRead,
 
 	ActionUserAdmin:    core.ScopeUserAdmin,
+	ActionTOTPAdmin:    core.ScopeTOTPAdmin,
 	ActionTokenAdmin:   core.ScopeTokenAdmin,
 	ActionWebhookAdmin: core.ScopeWebhookAdmin,
 	ActionTenantAdmin:  core.ScopeTenantAdmin,
@@ -133,7 +135,7 @@ var allActions = []Action{
 	ActionWorkflowRead, ActionWorkflowWrite,
 	ActionFieldWrite, ActionCommentWrite, ActionArtifactWrite,
 	ActionEventSubscribe, ActionAuditRead,
-	ActionUserAdmin, ActionTokenAdmin, ActionWebhookAdmin, ActionTenantAdmin, ActionSyncAdmin,
+	ActionUserAdmin, ActionTOTPAdmin, ActionTokenAdmin, ActionWebhookAdmin, ActionTenantAdmin, ActionSyncAdmin,
 	ActionExport, ActionImport, ActionRetentionWrite,
 	ActionServerRead,
 }

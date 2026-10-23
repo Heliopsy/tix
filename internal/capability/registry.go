@@ -64,6 +64,7 @@ const (
 	tplSync      = "sync.html"
 	tplConns     = "connections.html"
 	tplStatus    = "status.html"
+	tplSettings  = "settings.html"
 )
 
 // registry declares every operation the product offers. Every exported method
@@ -714,6 +715,71 @@ var registry = []Operation{
 			off(SurfaceTUI, "ending the session would revoke the credential the running interface is using; tix logout is the way out"),
 		},
 	},
+	{
+		Name: "totp.status", Method: "TOTPStatus",
+		CLI:  "tix user totp status",
+		HTTP: apiGet(wire.RouteTOTP),
+		Web:  webGet(web.RouteSettings, tplSettings),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
+		},
+	},
+	{
+		Name: "totp.enrol", Method: "BeginTOTPEnrolment",
+		CLI:  "tix user totp enrol",
+		HTTP: apiPost(wire.RouteTOTP),
+		Web:  webPost(web.RouteTOTPSetup),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
+		},
+	},
+	{
+		Name: "totp.confirm", Method: "ConfirmTOTPEnrolment",
+		CLI:  "tix user totp enrol",
+		HTTP: apiPost(wire.RouteTOTPConfirm),
+		Web:  webPost(web.RouteTOTPConfirm),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
+		},
+	},
+	{
+		Name: "totp.verify", Method: "VerifySecondFactor",
+		HTTP: apiPost(wire.RouteTOTPVerify),
+		Exempt: []Exemption{
+			off(SurfaceCLI, "the command line proves a factor inside tix login, which carries the ticket the password step returned; a command that verified a code outside a sign-in would protect nothing"),
+			off(SurfaceWeb, "the browser proves a factor on the second sign-in page, which posts the same ticket"),
+			off(SurfaceTUI, "the ssh listener asks for the code before the interface starts, which is the point of it; a view inside the board would be drawn after the tenant's data"),
+		},
+	},
+	{
+		Name: "totp.remove", Method: "RemoveTOTP",
+		CLI:  "tix user totp rm",
+		HTTP: apiDelete(wire.RouteTOTP),
+		Web:  webPost(web.RouteTOTPRemove),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
+		},
+	},
+	{
+		Name: "totp.codes", Method: "RegenerateRecoveryCodes",
+		CLI:  "tix user totp codes",
+		HTTP: apiPost(wire.RouteTOTPCodes),
+		Web:  webPost(web.RouteTOTPCodes),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
+		},
+	},
+	{
+		Name: "totp.clear", Method: "ClearUserTOTP",
+		Scope: core.ScopeTOTPAdmin,
+		CLI:   "tix user totp clear",
+		HTTP:  apiDelete(wire.RouteUserTOTP),
+		Web:   webPost(web.RouteUserTOTPClear),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no user administration view"),
+		},
+	},
+
 	{
 		Name: "token.create", Method: "CreateToken",
 		Scope: core.ScopeTokenAdmin,

@@ -32,6 +32,12 @@ var unscoped = map[string]string{
 	"users":             "a user is one global identity that memberships attach to tenants",
 	"schema_migrations": "schema state belongs to the deployment, not to a tenant",
 	"servers":           "a server process serves every tenant, so its row belongs to none of them",
+	// The second factor is part of a credential set, and a credential set
+	// belongs to the global user rather than to one tenant's actor: one phone,
+	// one enrolment, every tenant. Both tables key on users(id), so there is
+	// no tenant column to scope by and no isolation policy to write.
+	"user_totp":           "a second factor belongs to the global user it authenticates, like the password beside it",
+	"user_recovery_codes": "a recovery code substitutes for the global user's second factor, so it is scoped the same way",
 }
 
 // UnscopedTables returns the exemption list with its reasons, for the guards

@@ -239,6 +239,10 @@ type fixture struct {
 	live    *connections.Registry
 }
 
+// testTOTPKey seals the second factors these tests enrol. A fixed value
+// rather than a generated one, so a failure is reproducible.
+const testTOTPKey = "dGl4LXdlYi10ZXN0LXNlY29uZC1mYWN0b3Ita2V5ISE="
+
 // contextActor is the actor a test request speaks for, chosen by a header the
 // fixture's stand-in for the API middleware reads.
 const actorHeader = "X-Test-Actor"
@@ -263,7 +267,7 @@ func newFixture(t *testing.T) *fixture {
 	f.tenantB = seedTenant(t, st, "other", "Other Ltd")
 	f.live = connections.New(connections.WithClock(clk), connections.WithServerID("srv-test"))
 	local := service.New(st, service.WithClock(clk), service.WithHooks(service.HookOff),
-		service.WithConnections(f.live))
+		service.WithConnections(f.live), service.WithTOTPKey(testTOTPKey))
 	f.svc = newWebService(local, clk)
 	f.actorA = seedActor(t, st, f.tenantA.ID, "alice", core.RoleAdmin)
 	f.actorB = seedActor(t, st, f.tenantB.ID, "bob", core.RoleAdmin)
@@ -299,6 +303,11 @@ func (f *fixture) actorFor(name string) *core.Actor {
 		return copyActor(f.actorB, []core.Scope{core.ScopeAll}, core.RoleAdmin)
 	case "viewer":
 		return copyActor(f.actorA, core.RoleViewer.Scopes(), core.RoleViewer)
+	case "useradmin":
+		// user:admin and nothing else. It can read the user list and cannot
+		// clear anybody's second factor, which is the pair the enrolment
+		// control on that screen is drawn from.
+		return copyActor(f.actorA, []core.Scope{core.ScopeUserAdmin}, core.Role(""))
 	case "tokenkeeper":
 		// token:admin, and task:read so it can mint a token of its own
 		// (a creator cannot grant a scope it does not hold). Short of the

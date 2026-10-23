@@ -415,7 +415,7 @@ func TestDeleteUserEndsSessionsAndRevokesTokens(t *testing.T) {
 	ctx := adminCtx(admin)
 
 	user := seedUser(t, l, admin, "ada@example.com")
-	session, err := l.Login(loginContext(scope), "ada@example.com", testPassword)
+	session, err := signIn(l, scope, "ada@example.com", testPassword)
 	if err != nil {
 		t.Fatalf("Login: %v", err)
 	}
@@ -443,7 +443,7 @@ func TestDisablingAUserEndsSessionsAndRevokesTokens(t *testing.T) {
 	ctx := adminCtx(admin)
 
 	user := seedUser(t, l, admin, "grace@example.com")
-	session, err := l.Login(loginContext(scope), "grace@example.com", testPassword)
+	session, err := signIn(l, scope, "grace@example.com", testPassword)
 	if err != nil {
 		t.Fatalf("Login: %v", err)
 	}

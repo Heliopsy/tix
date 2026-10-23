@@ -2566,3 +2566,19 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .auth .authcard { padding: 22px; }
   .authbrand { margin-bottom: 34px; }
 }
+
+/* ===== end Sign-in screen redesign ================================== */
+
+/* The enrolment code, drawn as SVG by the server. It keeps its own white
+   field in every scheme: a scanner reads dark modules on a light ground, and
+   a dark palette that inverted it would produce a code nothing can read. */
+.qr {
+  display: block;
+  width: 220px;
+  max-width: 100%;
+  height: auto;
+  margin: 0 0 12px;
+  border-radius: 6px;
+  background: #ffffff;
+}
+.totp-enrol code { word-break: break-all; }

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
 )
 
@@ -980,11 +981,21 @@ var serviceScenarios = []svcScenario{
 				Email: "login@example.test", Handle: "login", Password: "correct horse battery",
 			})
 			mustf(t, tg, err, "creating the user")
-			session, err := tg.svc.Login(tg.ctx, "login@example.test", "correct horse battery")
+			result, err := tg.svc.Login(tg.ctx, core.LoginInput{
+				Email: "login@example.test", Password: "correct horse battery", Surface: core.SurfaceCLI,
+			})
 			if err != nil {
 				return nil, err
 			}
-			return sig{"actor_matches": session.ActorID == user.ID, "has_token": session.Token != ""}, nil
+			// No tenant here requires a second factor, so a session arrives
+			// in one step exactly as it did before the factor existed.
+			if result.Session == nil {
+				return sig{"challenged": true}, nil
+			}
+			return sig{
+				"actor_matches": result.Session.ActorID == user.ID,
+				"has_token":     result.Session.Token != "",
+			}, nil
 		},
 	},
 	{
@@ -995,7 +1006,9 @@ var serviceScenarios = []svcScenario{
 				Email: "wrong@example.test", Handle: "wrong", Password: "correct horse battery",
 			})
 			mustf(t, tg, err, "creating the user")
-			_, err = tg.svc.Login(tg.ctx, "wrong@example.test", "not the password")
+			_, err = tg.svc.Login(tg.ctx, core.LoginInput{
+				Email: "wrong@example.test", Password: "not the password", Surface: core.SurfaceCLI,
+			})
 			return nil, err
 		},
 	},
@@ -1003,8 +1016,145 @@ var serviceScenarios = []svcScenario{
 		name:   "login for an address nobody holds",
 		covers: []string{"Login"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
-			_, err := tg.svc.Login(tg.ctx, "absent@example.test", "correct horse battery")
+			_, err := tg.svc.Login(tg.ctx, core.LoginInput{
+				Email: "absent@example.test", Password: "correct horse battery", Surface: core.SurfaceCLI,
+			})
 			return nil, err
+		},
+	},
+	{
+		name:   "enrolling a second factor",
+		covers: []string{"BeginTOTPEnrolment", "TOTPStatus"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			enrolment, err := tg.svc.BeginTOTPEnrolment(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			status, err := tg.svc.TOTPStatus(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			return sig{
+				"has_secret":   enrolment.Secret != "",
+				"has_uri":      strings.HasPrefix(enrolment.URI, "otpauth://totp/"),
+				"account":      enrolment.Account,
+				"enrolled":     status.Enrolled,
+				"pending":      status.Pending,
+				"codes_left":   status.RecoveryCodesLeft,
+				"required_web": status.RequiredWeb,
+			}, nil
+		},
+	},
+	{
+		name:   "confirming an enrolment and replacing its codes",
+		covers: []string{"ConfirmTOTPEnrolment", "RegenerateRecoveryCodes"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			enrolment, err := tg.svc.BeginTOTPEnrolment(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			code, err := auth.TOTPCode(enrolment.Secret, auth.TOTPStep(h.clk.Now()))
+			if err != nil {
+				return nil, err
+			}
+			first, err := tg.svc.ConfirmTOTPEnrolment(tg.ctx, code)
+			if err != nil {
+				return nil, err
+			}
+			second, err := tg.svc.RegenerateRecoveryCodes(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			status, err := tg.svc.TOTPStatus(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			return sig{
+				"issued":       len(first.Codes),
+				"replaced":     len(second.Codes),
+				"codes_differ": first.Codes[0] != second.Codes[0],
+				"enrolled":     status.Enrolled,
+				"codes_left":   status.RecoveryCodesLeft,
+			}, nil
+		},
+	},
+	{
+		name:   "proving a second factor with no sign-in behind it",
+		covers: []string{"VerifySecondFactor"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			enrolment, err := tg.svc.BeginTOTPEnrolment(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			// The enrolment is confirmed with the previous step's code, which
+			// the window accepts and which leaves the current step above the
+			// replay mark. Confirming with the current one would make the
+			// verification below a replay of it.
+			previous, err := auth.TOTPCode(enrolment.Secret, auth.TOTPStep(h.clk.Now())-1)
+			if err != nil {
+				return nil, err
+			}
+			codes, err := tg.svc.ConfirmTOTPEnrolment(tg.ctx, previous)
+			if err != nil {
+				return nil, err
+			}
+			current, err := auth.TOTPCode(enrolment.Secret, auth.TOTPStep(h.clk.Now()))
+			if err != nil {
+				return nil, err
+			}
+			if err := tg.svc.VerifySecondFactor(tg.ctx, current); err != nil {
+				return nil, err
+			}
+			return sig{
+				"replay_refused":    tg.svc.VerifySecondFactor(tg.ctx, current) != nil,
+				"wrong_refused":     tg.svc.VerifySecondFactor(tg.ctx, "000000") != nil,
+				"recovery_accepted": tg.svc.VerifySecondFactor(tg.ctx, codes.Codes[0]) == nil,
+				"recovery_spent":    tg.svc.VerifySecondFactor(tg.ctx, codes.Codes[0]) != nil,
+			}, nil
+		},
+	},
+	{
+		name:   "removing one's own second factor",
+		covers: []string{"RemoveTOTP"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			if _, err := tg.svc.BeginTOTPEnrolment(tg.ctx); err != nil {
+				return nil, err
+			}
+			if err := tg.svc.RemoveTOTP(tg.ctx); err != nil {
+				return nil, err
+			}
+			status, err := tg.svc.TOTPStatus(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			again := tg.svc.RemoveTOTP(tg.ctx)
+			return sig{
+				"enrolled":               status.Enrolled,
+				"pending":                status.Pending,
+				"second_removal_refused": core.IsKind(again, core.KindNotFound),
+			}, nil
+		},
+	},
+	{
+		name:   "clearing a second factor administratively",
+		covers: []string{"ClearUserTOTP"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			if _, err := tg.svc.BeginTOTPEnrolment(tg.ctx); err != nil {
+				return nil, err
+			}
+			if err := tg.svc.ClearUserTOTP(tg.ctx, h.adminActor.ID); err != nil {
+				return nil, err
+			}
+			status, err := tg.svc.TOTPStatus(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			unknown := tg.svc.ClearUserTOTP(tg.ctx, "nobody")
+			return sig{
+				"enrolled":        status.Enrolled,
+				"pending":         status.Pending,
+				"unknown_refused": core.IsKind(unknown, core.KindNotFound),
+			}, nil
 		},
 	},
 	{

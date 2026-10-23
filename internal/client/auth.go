@@ -51,13 +51,51 @@ func (c *Client) DeleteUser(ctx context.Context, id string) error {
 	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteUser, "id", id), nil, nil)
 }
 
-// Login exchanges credentials for a session.
-func (c *Client) Login(ctx context.Context, email, password string) (*core.Session, error) {
+// Login performs one step of a sign-in. The client marshals and nothing else:
+// which step this is, and what to do with a challenge, belongs to the caller.
+func (c *Client) Login(ctx context.Context, in core.LoginInput) (*core.LoginResult, error) {
+	return call[core.LoginResult](ctx, c, http.MethodPost, wire.RouteLogin, nil, in)
+}
+
+// TOTPStatus reports the caller's own second factor.
+func (c *Client) TOTPStatus(ctx context.Context) (*core.TOTPStatus, error) {
+	return call[core.TOTPStatus](ctx, c, http.MethodGet, wire.RouteTOTP, nil, nil)
+}
+
+// BeginTOTPEnrolment starts an enrolment.
+func (c *Client) BeginTOTPEnrolment(ctx context.Context) (*core.TOTPEnrolment, error) {
+	return call[core.TOTPEnrolment](ctx, c, http.MethodPost, wire.RouteTOTP, nil, nil)
+}
+
+// ConfirmTOTPEnrolment proves possession and returns the recovery codes once.
+func (c *Client) ConfirmTOTPEnrolment(ctx context.Context, code string) (*core.TOTPRecoveryCodes, error) {
 	body := struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}{Email: email, Password: password}
-	return call[core.Session](ctx, c, http.MethodPost, wire.RouteLogin, nil, body)
+		Code string `json:"code"`
+	}{Code: code}
+	return call[core.TOTPRecoveryCodes](ctx, c, http.MethodPost, wire.RouteTOTPConfirm, nil, body)
+}
+
+// VerifySecondFactor proves the caller's second factor on its own.
+func (c *Client) VerifySecondFactor(ctx context.Context, code string) error {
+	body := struct {
+		Code string `json:"code"`
+	}{Code: code}
+	return callVoid(ctx, c, http.MethodPost, wire.RouteTOTPVerify, nil, body)
+}
+
+// RemoveTOTP drops the caller's own enrolment.
+func (c *Client) RemoveTOTP(ctx context.Context) error {
+	return callVoid(ctx, c, http.MethodDelete, wire.RouteTOTP, nil, nil)
+}
+
+// RegenerateRecoveryCodes replaces the caller's codes.
+func (c *Client) RegenerateRecoveryCodes(ctx context.Context) (*core.TOTPRecoveryCodes, error) {
+	return call[core.TOTPRecoveryCodes](ctx, c, http.MethodPost, wire.RouteTOTPCodes, nil, nil)
+}
+
+// ClearUserTOTP returns another user to an unenrolled state.
+func (c *Client) ClearUserTOTP(ctx context.Context, userID string) error {
+	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteUserTOTP, "id", userID), nil, nil)
 }
 
 // Logout ends the current session.

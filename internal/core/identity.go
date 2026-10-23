@@ -62,7 +62,13 @@ const (
 
 	ScopeEventSubscribe Scope = "event:subscribe"
 
-	ScopeUserAdmin    Scope = "user:admin"
+	ScopeUserAdmin Scope = "user:admin"
+	// ScopeTOTPAdmin clears another user's second factor, which returns them
+	// to an unenrolled state. It is separate from user:admin because it is
+	// the one recovery path when a person loses both their device and their
+	// codes, and because granting it does not carry the authority to create,
+	// disable or delete accounts.
+	ScopeTOTPAdmin    Scope = "totp:admin"
 	ScopeTokenAdmin   Scope = "token:admin"
 	ScopeWebhookAdmin Scope = "webhook:admin"
 	ScopeTenantAdmin  Scope = "tenant:admin"
@@ -81,7 +87,7 @@ var AllScopes = []Scope{
 	ScopeWorkflowRead, ScopeWorkflowWrite,
 	ScopeCommentWrite, ScopeArtifactWrite,
 	ScopeEventSubscribe,
-	ScopeUserAdmin, ScopeTokenAdmin, ScopeWebhookAdmin, ScopeTenantAdmin, ScopeSyncAdmin,
+	ScopeUserAdmin, ScopeTOTPAdmin, ScopeTokenAdmin, ScopeWebhookAdmin, ScopeTenantAdmin, ScopeSyncAdmin,
 	ScopeAuditRead, ScopeExport, ScopeImport,
 }
 

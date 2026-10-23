@@ -381,6 +381,34 @@ round trip and is correct.
 The colour scheme is a separate axis from the tenant accent, which is the same everywhere and covered
 in [theming.md](theming.md).
 
+## The second factor
+
+A tenant can require a time-based code in the browser, and any reader can enrol in one without being
+asked to. Either way the sign-in screen grows a second step: the password form answers with a code
+form instead of a session, carrying a signed ticket in a hidden field. The ticket says only that the
+password was accepted in the last five minutes, so it grants nothing on its own, and no session
+exists until the code is taken. The destination a deep link was bounced from rides through both
+steps, so the reader still lands where they were going.
+
+An account the tenant requires a factor from that holds none is taken through enrolment on that same
+step rather than refused. This is what keeps turning the requirement on from locking out the
+administrator who turned it on, and it is why the recovery codes appear there: they exist for exactly
+one response and are shown before the reader goes on.
+
+The code field also takes a recovery code. A verifier that has been locked by repeated failures says
+so and says to wait, because a reader told their code is wrong tries again immediately, which is what
+the lock exists to stop.
+
+Settings carries the rest: enrolment, how many recovery codes are unused, replacing them, and
+removing the factor where the tenant does not require one. The user administration list offers an
+administrator holding `totp:admin` the clear, which is the way back in for somebody who lost both the
+authenticator and the codes. No secret and no recovery code appears on either screen afterwards.
+
+The `otpauth://` code is drawn as inline SVG by the server, by the encoder in `internal/web/qr.go`
+rather than by a client-side library. Every form here is a plain form: a sign-in that needed a script
+would be a sign-in some readers could not complete, and a script that drew the code would need the
+enrolment secret handed to it.
+
 ## Static assets
 
 The stylesheet, the scripts and the icon are compiled into the binary and served from memory with a

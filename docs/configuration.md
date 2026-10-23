@@ -45,6 +45,7 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `server.trusted_proxies` | `TIX_SERVER_TRUSTED_PROXIES` | (unset) |
 | `server.cookie_security` | `TIX_SERVER_COOKIE_SECURITY` | `auto` (`auto`, `always`, `never`) |
 | `auth.mode` | `TIX_AUTH_MODE` | `token` |
+| `auth.totp_key` | `TIX_AUTH_TOTP_KEY` | (unset) |
 | `hooks.mode` | `TIX_HOOKS_MODE` | `off` |
 | `webhooks.drain_mode` | `TIX_WEBHOOKS_DRAIN_MODE` | `inline` (`inline`, `server`, `off`) |
 | `webhooks.allow_private_targets` | `TIX_WEBHOOKS_ALLOW_PRIVATE_TARGETS` | `false` |

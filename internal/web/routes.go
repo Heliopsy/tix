@@ -54,6 +54,7 @@ func Exemptions() []Exemption {
 		{"Close", "closing the service is process lifecycle, not an operation"},
 		{"WhoAmI", "the root route calls it to bounce a visitor who is not signed in and discards the identity it answers with, so no screen states who the reader is"},
 		{"GetActor", "the screens call it to label an identifier, keeping the handle and discarding the rest, and there is no actor screen to open"},
+		{"VerifySecondFactor", "the browser proves a factor on the second sign-in page, which posts the ticket the password step returned; a screen that verified a code outside a sign-in would protect nothing"},
 	}
 }
 
@@ -61,6 +62,7 @@ func Exemptions() []Exemption {
 func (h *handler) routes() []route {
 	var out []route
 	out = append(out, h.sessionRoutes()...)
+	out = append(out, h.totpRoutes()...)
 	out = append(out, h.activityRoutes()...)
 	out = append(out, h.statsRoutes()...)
 	out = append(out, h.statusRoutes()...)

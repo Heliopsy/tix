@@ -238,6 +238,11 @@ func (l *Local) ListUsers(ctx context.Context, page core.Page) ([]core.User, str
 			for _, u := range found {
 				switch _, err := tx.GetActor(ctx, u.ID); {
 				case err == nil:
+					enrolled, err := totpEnrolled(ctx, tx, u.ID)
+					if err != nil {
+						return err
+					}
+					u.TOTPEnrolled = enrolled
 					out = append(out, u)
 					if len(out) == page.Limit {
 						return nil
@@ -362,4 +367,18 @@ func (l *Local) DeleteUser(ctx context.Context, id string) error {
 				"sessions_ended": sessions, "tokens_revoked": tokens,
 			})
 	})
+}
+
+// totpEnrolled reports whether a user holds a confirmed second factor. A user
+// with no enrolment row is the ordinary case, not an error.
+func totpEnrolled(ctx context.Context, tx store.Tx, userID string) (bool, error) {
+	enrolment, err := tx.GetUserTOTP(ctx, userID)
+	switch {
+	case core.IsKind(err, core.KindNotFound):
+		return false, nil
+	case err != nil:
+		return false, err
+	default:
+		return enrolment.Confirmed(), nil
+	}
 }
