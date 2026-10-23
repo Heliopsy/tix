@@ -18,10 +18,10 @@ const CDP = "http://127.0.0.1:9222";
 const DONE = process.env.SCENE_PLAN_DONE || "/tmp/plan.done";
 const READY = process.env.SCENE_READY || "/tmp/signed-in";
 const GO = process.env.SCENE_GO || "/tmp/rolling";
+const EPIC_FILE = process.env.SCENE_EPIC_FILE || "/tmp/epic.ref";
 const PASSWORD = process.env.DEMO_PASSWORD || "tix-demo-password";
 const BASE = "http://127.0.0.1:8080";
 
-const COUNT = Number(process.env.SCENE_TASKS || 4);
 
 // The project the demo builds, and the backlog for it.
 //
@@ -32,17 +32,31 @@ const COUNT = Number(process.env.SCENE_TASKS || 4);
 // like somebody's real one rather than an empty demo, but none of the work
 // happens in them. That separation is what makes the recording honest: every
 // task the agent closes is a task the viewer just watched being written.
-const PROJECT_KEY = process.env.SCENE_PROJECT || "toolbelt";
-const PROJECT_NAME = process.env.SCENE_PROJECT_NAME || "Toolbelt";
+const PROJECT_KEY = process.env.SCENE_PROJECT || "links";
+const PROJECT_NAME = process.env.SCENE_PROJECT_NAME || "Link shortener";
 
-const PLAN = [
-  "Write wordcount.py that prints lines, words and characters",
-  "Add a --json flag to wordcount",
-  "Handle an empty file without dividing by zero",
-  "Write slugify.py that turns a title into a url slug",
-  "Add a --max-length flag to slugify",
-  "Write a README covering both tools",
-];
+// One task, deliberately too big for one sitting.
+//
+// The earlier version of this scene had a person writing six small tasks by
+// hand, which showed agents working a queue but not why the queue exists. The
+// argument for tix over a long agent loop is that a plan written into tasks is
+// rows rather than context: a second agent can start on step three while the
+// first is still on step one, a human can reorder it, and a crash loses
+// nothing, because the work was never inside the process.
+//
+// So the person writes the intent, and an agent breaks it down on camera.
+const EPIC_TITLE = "Build a link shortener service";
+const EPIC_BODY = [
+  "A small HTTP service that mints a short slug for a url and redirects it back.",
+  "",
+  "It needs the two handlers, errors that a client can act on, a health check,",
+  "and enough documentation that somebody else could call it.",
+  "",
+  "Links expire. What a request for an expired link should get back is not",
+  "decided yet, and it changes the client contract either way.",
+  "",
+  "Make no mistake.",
+].join("\n");
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -93,41 +107,39 @@ async function main() {
   await page.waitForLoadState("domcontentloaded");
   await sleep(1200);
 
-  // Quick-add answers with the new task's own page, so the form is gone by the
-  // time the next title would be typed. Each pass therefore starts from the
-  // list again. That is also better to watch: the viewer sees the task that was
-  // just created before the next one is written.
-  for (const title of PLAN.slice(0, COUNT)) {
-    await page.goto(`${BASE}/tasks`, { waitUntil: "domcontentloaded" });
-    const form = page.locator("form.quickadd");
-    await form.locator("select[name=project_ref]").selectOption(PROJECT_KEY).catch(() => {});
-    await sleep(250);
+  // One task, typed by a person, with the intent in its body. Quick-add lives
+  // on the task list, not on the board, and it answers with the new task's own
+  // page, which is where the body is written.
+  await page.goto(`${BASE}/tasks`, { waitUntil: "domcontentloaded" });
+  await sleep(700);
+  const form = page.locator("form.quickadd");
+  await form.locator("select[name=project_ref]").selectOption(PROJECT_KEY).catch(() => {});
+  await sleep(300);
+  const field = form.locator("input[name=title]");
+  await field.click();
+  await field.pressSequentially(EPIC_TITLE, { delay: 42 });
+  await sleep(400);
+  await field.press("Enter");
+  await page.waitForLoadState("domcontentloaded");
+  await sleep(900);
 
-    const field = form.locator("input[name=title]");
-    await field.click();
-    await field.pressSequentially(title, { delay: 38 });
-    await sleep(350);
-    await field.press("Enter");
-    await page.waitForLoadState("domcontentloaded");
+  // The ref is in the url the quick-add landed on, and the scene needs it to
+  // tell the planner which task to break down.
+  const ref = page.url().split("/").filter(Boolean).pop();
+  writeFileSync(EPIC_FILE, `${ref}\n`);
+
+  const body = page.locator("textarea[name=body]").first();
+  if (await body.count()) {
+    await body.click();
+    await body.pressSequentially(EPIC_BODY, { delay: 14 });
+    await sleep(400);
+    const save = page.locator('form:has(textarea[name=body]) button[type=submit]').first();
+    if (await save.count()) {
+      await save.click();
+      await page.waitForLoadState("domcontentloaded");
+    }
     await sleep(900);
   }
-
-  // Count what the socket actually delivers, so a board that does not move can
-  // be told apart from a board with nothing to move it.
-  await context.addInitScript(() => {
-    const Native = window.WebSocket;
-    window.__wsMsgs = 0;
-    window.__wsSent = [];
-    function Wrapped(...a) {
-      const ws = new Native(...a);
-      ws.addEventListener("message", () => { window.__wsMsgs++; });
-      const send = ws.send.bind(ws);
-      ws.send = (d) => { window.__wsSent.push(String(d).slice(0, 120)); return send(d); };
-      return ws;
-    }
-    Wrapped.prototype = Native.prototype;
-    window.WebSocket = Wrapped;
-  });
 
   // Land on the board, because the board is what the viewer watches repaint
   // while the agent works.

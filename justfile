@@ -963,6 +963,40 @@ demo-record ENVFILE:
     echo "take: {{demo_out}}/raw.mkv"
     echo "log:  {{demo_out}}/scene.log"
 
+# Record a take using this machine's own Claude Code sign-in, rather than a
+# token in an env file.
+#
+# The credentials are COPIED into a scratch directory and that copy is what the
+# container gets, never the real ~/.claude. Claude Code writes to its config as
+# it runs, and a container should not be able to touch the sign-in of the person
+# running it: a corrupted file would log you out of your own terminal.
+#
+# The copy still contains a live session, so it is made with umask 077, kept in
+# the session scratchpad, and removed when the take ends.
+demo-record-here:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -f "$HOME/.claude/.credentials.json" ] || { echo "no Claude Code sign-in found; run: claude login" >&2; exit 1; }
+    work=$(mktemp -d)
+    trap 'rm -rf "$work"' EXIT
+    ( umask 077
+      mkdir -p "$work/.claude"
+      cp "$HOME/.claude/.credentials.json" "$work/.claude/.credentials.json"
+      [ -f "$HOME/.claude.json" ] && cp "$HOME/.claude.json" "$work/.claude.json" || true
+    )
+    mkdir -p {{demo_out}}
+    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log
+    {{engine}} run --rm \
+      --userns=keep-id:uid=1000,gid=1000 \
+      --hostname tix-demo \
+      --shm-size 512m \
+      -v "$work/.claude:/home/demo/.claude:Z" \
+      -v "$work/.claude.json:/home/demo/.claude.json:Z" \
+      -v "$PWD/{{demo_out}}:/out:Z" \
+      {{demo_image}}
+    echo
+    echo "take: {{demo_out}}/raw.mkv"
+
 # Record a take you can watch while it runs, on a vnc port.
 #
 # The container keeps its own display either way. Sharing the host X socket

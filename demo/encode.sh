@@ -21,6 +21,17 @@ RAW="$OUT/raw.mkv"
 : "${GIF_SECONDS:=15}"
 : "${GIF_WIDTH:=800}"
 : "${POSTER_AT:=}"
+# SPEED compresses the whole take. Real agents think, and thinking is not
+# interesting to watch; 1.5 to 2 keeps every beat legible while cutting the
+# dead air. It is applied here rather than to the capture, because a take costs
+# an agent run and the recording should stay faithful to what happened.
+: "${SPEED:=1}"
+
+SPEED_FILTER=""
+if [ "$SPEED" != "1" ]; then
+  SPEED_FILTER="setpts=PTS/${SPEED},"
+  echo "speeding up ${SPEED}x"
+fi
 
 DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$RAW" | cut -d. -f1)
 echo "take is ${DUR}s"
@@ -34,22 +45,22 @@ ffmpeg -nostdin -loglevel error -y -ss "$POSTER_AT" -i "$RAW" -frames:v 1 "$OUT/
 
 echo "mp4"
 ffmpeg -nostdin -loglevel error -y -i "$RAW" \
-  -c:v libx264 -preset slow -crf 24 -pix_fmt yuv420p \
+  -vf "${SPEED_FILTER}null" -c:v libx264 -preset slow -crf 24 -pix_fmt yuv420p \
   -movflags +faststart -an "$OUT/demo.mp4"
 
 echo "webm"
 ffmpeg -nostdin -loglevel error -y -i "$RAW" \
-  -c:v libvpx-vp9 -crf 34 -b:v 0 -row-mt 1 -pix_fmt yuv420p -an "$OUT/demo.webm"
+  -vf "${SPEED_FILTER}null" -c:v libvpx-vp9 -crf 34 -b:v 0 -row-mt 1 -pix_fmt yuv420p -an "$OUT/demo.webm"
 
 echo "gif (${GIF_SECONDS}s from ${GIF_START}s, ${GIF_WIDTH}px)"
 # Two passes. One global palette for the whole cut rather than per-frame
 # palettes: a terminal is mostly flat colour, and a per-frame palette makes the
 # background shimmer between frames.
 ffmpeg -nostdin -loglevel error -y -ss "$GIF_START" -t "$GIF_SECONDS" -i "$RAW" \
-  -vf "fps=10,scale=${GIF_WIDTH}:-1:flags=lanczos,palettegen=max_colors=128:stats_mode=diff" \
+  -vf "${SPEED_FILTER}fps=10,scale=${GIF_WIDTH}:-1:flags=lanczos,palettegen=max_colors=128:stats_mode=diff" \
   "$OUT/palette.png"
 ffmpeg -nostdin -loglevel error -y -ss "$GIF_START" -t "$GIF_SECONDS" -i "$RAW" -i "$OUT/palette.png" \
-  -lavfi "fps=10,scale=${GIF_WIDTH}:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=3" \
+  -lavfi "${SPEED_FILTER}fps=10,scale=${GIF_WIDTH}:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=3" \
   "$OUT/demo.gif"
 rm -f "$OUT/palette.png"
 

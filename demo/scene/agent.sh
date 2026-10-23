@@ -19,7 +19,7 @@ set -uo pipefail
 
 AGENT=${TIX_AGENT:?an agent name is required}
 TOKEN_FILE="/home/demo/.$AGENT.token.json"
-PROJECT=${SCENE_PROJECT:-toolbelt}
+PROJECT=${SCENE_PROJECT:-links}
 
 export TIX_SERVER_URL="http://127.0.0.1:8080"
 TIX_TOKEN=$(jq -r '.secret // .token // empty' "$TOKEN_FILE" 2>/dev/null)
@@ -58,6 +58,16 @@ Loop until the backlog is empty:
 3. \`tix task mv <ref> doing --lease-token <lease_token>\`.
 4. Do the smallest honest version of the work, here in this directory.
 5. \`tix claim release <ref> --token <lease_token> --status done --comment "<one line>"\`.
+
+If a task cannot be finished because it needs a decision that is not yours to
+make, do not guess and do not sit on it. Put the question on the task and give
+it back:
+
+    tix comment add <ref> "Blocked: <the question, and why it changes the work>"
+    tix claim release <ref> --token <lease_token> --status blocked
+
+Then carry on with the next task. A guessed answer is work that has to be
+redone; a held lease is a task nobody else can take.
 
 Keep your narration to one or two lines per task. Do not print file contents.
 Do not ask questions; if a task is ambiguous, pick the obvious reading and say

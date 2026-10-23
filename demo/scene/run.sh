@@ -24,8 +24,13 @@ export SCENE_PROJECT SCENE_TASKS DB
 : "${SCENE_WIDTH:=1920}"
 : "${SCENE_HEIGHT:=1080}"
 : "${SCENE_FPS:=12}"
-: "${SCENE_PROJECT:=toolbelt}"
+: "${SCENE_PROJECT:=links}"
 : "${SCENE_TASKS:=6}"
+# How many finished tasks the take waits for. Fewer than the backlog on
+# purpose: a real agent may park one for a decision, and the scene should end
+# on work landing rather than on a timeout waiting for a task nobody can do.
+: "${SCENE_DONE:=4}"
+export SCENE_DONE
 : "${SCENE_BEAT_TIMEOUT:=180}"
 : "${DEMO_PASSWORD:=tix-demo-password}"
 : "${SCENE_AGENTS:=atlas scout}"
@@ -62,7 +67,8 @@ tap_start() {
   TAP=$OUT/events.ndjson
   : > "$TAP"
   tix --db "$DB" --no-discovery watch \
-    --type task.claimed --type task.released --type task.transitioned \
+    --type task.created --type task.claimed --type task.released \
+    --type task.transitioned \
     -o ndjson >> "$TAP" 2>>"$LOG" &
   TAP_PID=$!
   sleep 1
@@ -245,8 +251,10 @@ say "beat 2: planning"
 PLAN_DONE=/tmp/plan.done
 READY=/tmp/signed-in
 GO=/tmp/rolling
-rm -f "$PLAN_DONE" "$READY" "$GO"
+EPIC_FILE=/tmp/epic.ref
+rm -f "$PLAN_DONE" "$READY" "$GO" "$EPIC_FILE"
 SCENE_PLAN_DONE="$PLAN_DONE" SCENE_READY="$READY" SCENE_GO="$GO" \
+SCENE_EPIC_FILE="$EPIC_FILE" \
   node "$SCENE/browser.mjs" plan >> "$LOG" 2>&1 &
 BROWSER_PID=$!
 
@@ -294,7 +302,12 @@ done
 
 tap_start
 
-say "beat 3: agents"
+EPIC=$(cat "$EPIC_FILE" 2>/dev/null || true)
+[ -n "$EPIC" ] || die "the planning beat never reported which task to break down"
+export SCENE_EPIC="$EPIC"
+say "the task to break down is $EPIC"
+
+say "beat 3: the planner"
 # SCENE_AGENT exists so the scene can be debugged without paying for an agent
 # run. agent-stub.sh drives the same tix commands on a timer, so every beat
 # after this one is exercised exactly as it would be with the real thing.
@@ -320,19 +333,23 @@ xterm \
   -xrm 'XTerm*color7:  #d7dce3' -xrm 'XTerm*color15: #f3f5f8' \
   -geometry 110x62+$((SCENE_WIDTH * 55 / 100))+0 \
   -T 'terminal' \
-  -e "tmux -f /home/demo/scene/tmux.conf new-session -s demo -n work 'TIX_AGENT=$FIRST $AGENT; bash'" \
+  -e "tmux -f /home/demo/scene/tmux.conf new-session -s demo -n work 'TIX_AGENT=$FIRST SCENE_EPIC=$EPIC $SCENE/planner.sh; TIX_AGENT=$FIRST $AGENT; bash'" \
   >> "$LOG" 2>&1 &
 hold 1
-# i3 splits evenly, which left the board in half a frame with three columns too
+# i3 splits evenly, which left the board in half a frame with columns too
 # narrow to read. The browser is the thing being watched, so it gets the room.
 i3-msg '[class="Chromium"] focus' >> "$LOG" 2>&1 || true
 i3-msg 'resize grow width 120 px' >> "$LOG" 2>&1 || true
-hold 2
-tap_wait 'task\.claimed' 1
+
+# The planner writes the backlog before anybody works it. Waiting on the
+# subtasks appearing, rather than on a clock, is what keeps the next beat
+# honest: the second agent arrives to a queue that exists.
+tap_wait 'task\.created' 4 $((SCENE_BEAT_TIMEOUT * 2))
+hold 3
 
 # ── beat 4: a second surface on the same tenant ──────────────────────────────
 
-say "beat 4: the second agent"
+say "beat 4: a second agent joins the queue"
 # The second agent arrives after the first has already taken something, so the
 # recording shows a backlog being shared rather than two processes starting
 # together and racing once.
@@ -344,11 +361,24 @@ if [ -n "$SECOND" ]; then
 fi
 
 say "beat 4b: the event stream"
-# Everything else in the frame is downstream of this. Showing the log itself is
-# what turns "the screens update" into "there is one event log and every
-# surface reads it".
-tmux split-window -t demo:work -v "$SCENE/watch.sh" >> "$LOG" 2>&1 || die "splitting for the stream"
+# A window of its own, under the browser, rather than a fourth pane stacked on
+# the right. Four equal strips in one column is a wall of text; two columns of
+# two reads as four things, and the log belongs beside the board it explains.
+#
+# The split is asked for on the browser, so i3 puts the new window below it and
+# leaves the terminal column alone.
+i3-msg '[class="Chromium"] focus' >> "$LOG" 2>&1 || true
+i3-msg 'split v' >> "$LOG" 2>&1 || true
+xterm \
+  -bg '#0b0f14' -fg '#d7dce3' -cr '#2dd4bf' \
+  -fa 'DejaVu Sans Mono' -fs 10 -b 10 +sb -bc \
+  -T 'tix watch  (the event log)' \
+  -e "$SCENE/watch.sh" >> "$LOG" 2>&1 &
 hold 3
+# The log needs a third of the column at most; the board is what is watched.
+i3-msg '[title="tix watch.*"] focus' >> "$LOG" 2>&1 || true
+i3-msg 'resize shrink height 180 px' >> "$LOG" 2>&1 || true
+hold 1
 
 say "beat 4c: the board over ssh"
 tmux split-window -t demo:work -v "$SCENE/board.sh" >> "$LOG" 2>&1 || die "splitting for the board"
@@ -358,14 +388,16 @@ tmux select-layout -t demo:work even-vertical >> "$LOG" 2>&1 || true
 # it is two agents, the event log and a board.
 tmux select-pane -t demo:work.0 -T "agent: $FIRST" >> "$LOG" 2>&1 || true
 [ -n "$SECOND" ] && tmux select-pane -t demo:work.1 -T "agent: $SECOND" >> "$LOG" 2>&1 || true
-tmux select-pane -t demo:work.2 -T "tix watch  (the event log)" >> "$LOG" 2>&1 || true
-tmux select-pane -t demo:work.3 -T "ssh tix@demo  (the board)" >> "$LOG" 2>&1 || true
+tmux select-pane -t demo:work.2 -T "ssh tix@demo  (the board)" >> "$LOG" 2>&1 || true
 hold 5
 
 # ── beat 5: watch the work land ──────────────────────────────────────────────
 
 say "beat 5: work"
-tap_wait 'task\.released|task\.transitioned' "$SCENE_TASKS" $((SCENE_BEAT_TIMEOUT * 3))
+# Completions only. Counting transitions too ended a take after two tasks: a
+# todo-to-doing move is a transition, so every claim inflated the count and the
+# threshold was met before most of the work had happened.
+tap_wait 'task\.released' "$SCENE_DONE" $((SCENE_BEAT_TIMEOUT * 4))
 hold 6
 
 # ── beat 6: the frame the poster comes from ──────────────────────────────────

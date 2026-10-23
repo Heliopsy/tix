@@ -22,7 +22,7 @@ export TIX_SERVER_URL="http://127.0.0.1:8080"
 TIX_TOKEN=$(jq -r '.secret // .token // empty' "/home/demo/.$AGENT.token.json" 2>/dev/null)
 export TIX_TOKEN
 export TIX_OUTPUT_COLOR=always
-PROJECT=${SCENE_PROJECT:-toolbelt}
+PROJECT=${SCENE_PROJECT:-links}
 TASKS=${SCENE_TASKS:-6}
 
 clear
