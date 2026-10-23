@@ -86,7 +86,7 @@ func (l *Local) Status(ctx context.Context) (*core.StatusReport, error) {
 		out.Work.LeasesExpiredUnswept = counts.LeasesExpiredUnswept
 		out.Work.WebhooksPending = counts.WebhooksPending
 		out.Work.WebhooksFailed = counts.WebhooksFailed
-		return nil
+		return l.readSecondFactor(ctx, tx, tenant, &out.SecondFactor)
 	})
 	if err != nil {
 		return nil, err
@@ -139,4 +139,57 @@ func (l *Local) attachConnectionCount(out *core.StatusReport) {
 		out.Servers[i].Connections = &n
 		return
 	}
+}
+
+// readSecondFactor fills the TOTP half of the status report.
+//
+// The enrolment count is installation-wide because the key that opens every
+// sealed secret is installation-wide, and so is the consequence of losing it.
+// The administrator counts are this tenant's, because the configuration worth
+// warning about is this tenant's: a factor required on every surface with
+// fewer than two administrators holding one is how a tenant ends up with
+// nobody able to sign in.
+func (l *Local) readSecondFactor(ctx context.Context, tx store.Tx, tenant *core.Tenant, out *core.TOTPReport) error {
+	out.KeyConfigured = l.totpSealer != nil
+	out.TenantKey = tenant.Key
+	out.RequireWeb = tenant.RequireTOTPWeb
+	out.RequireCLI = tenant.RequireTOTPCLI
+	out.RequireSSH = tenant.RequireTOTPSSH
+
+	enrolments, err := tx.CountConfirmedTOTP(ctx)
+	if err != nil {
+		return err
+	}
+	out.Enrolments = enrolments
+	// Enrolments with no key are undecryptable. Nobody holding one can prove
+	// it, and no administrator can be told to just set the key, because the
+	// key that sealed them is gone. Each one has to be cleared and enrolled
+	// again, which is why this is reported rather than left to be discovered.
+	out.Unrecoverable = enrolments > 0 && !out.KeyConfigured
+
+	members, err := tx.ListMembers(ctx)
+	if err != nil {
+		return err
+	}
+	for _, m := range members {
+		if m.Role != core.RoleAdmin {
+			continue
+		}
+		out.Admins++
+		actor, err := tx.GetActor(ctx, m.ActorID)
+		if err != nil {
+			if core.IsKind(err, core.KindNotFound) {
+				continue
+			}
+			return err
+		}
+		enrolled, err := totpEnrolled(ctx, tx, actor.ID)
+		if err != nil {
+			return err
+		}
+		if enrolled {
+			out.EnrolledAdmins++
+		}
+	}
+	return nil
 }

@@ -16,6 +16,7 @@ with the thing.
 | [workflows.md](workflows.md) | Custom state machines, transitions, terminal states, custom fields, indexed versus scanned filters |
 | [configuration.md](configuration.md) | Contexts, the five layers, `TIX_*` variables, per-directory discovery |
 | [tenancy.md](tenancy.md) | Tenants, domains, roles, and how isolation is enforced |
+| [second-factor.md](second-factor.md) | TOTP per tenant and per surface, enrolment, recovery codes, the sealing key |
 | [api.md](api.md) | The HTTP API, the WebSocket event stream, and resuming with `since_seq` |
 | [filtering.md](filtering.md) | The filter expression language: negation, weak matching, and what each engine does |
 | [scripting.md](scripting.md) | NDJSON everywhere, output formats, piping, exit codes |

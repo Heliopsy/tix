@@ -328,3 +328,84 @@ func (f *statusFixture) otherTenant(t *testing.T) *statusFixture {
 		project: seedTaskProject(t, f.local, scope, f.project.Key),
 	}
 }
+
+// TestStatusReportsTheSecondFactor covers 5.1 and 5.2's facts at the source
+// they are read from. The warning doctor prints is derived from these, so
+// pinning them here pins both.
+func TestStatusReportsTheSecondFactor(t *testing.T) {
+	l, clk, _, root := newTOTPLocal(t)
+	ctx := authContext(root)
+	// A second factor belongs to a person, so the administrator this counts
+	// has to be one: a user row with an admin membership, not the synthesized
+	// local actor the fixture signs in as.
+	user := seedUser(t, l, root, "ada@example.com")
+	adminRole := core.RoleAdmin
+	if _, err := l.UpdateUser(ctx, user.ID, core.UpdateUserInput{Role: &adminRole}); err != nil {
+		t.Fatalf("promoting: %v", err)
+	}
+	admin := userActor(t, l, user, core.RoleAdmin)
+
+	report, err := l.Status(ctx)
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	f := report.SecondFactor
+	if !f.KeyConfigured {
+		t.Error("a configured key reads as absent")
+	}
+	if f.Enrolments != 0 || f.Unrecoverable {
+		t.Errorf("a fresh installation reads as %+v", f)
+	}
+	if f.RequiresAnywhere() {
+		t.Error("a fresh tenant requires a factor somewhere")
+	}
+	if f.Admins == 0 {
+		t.Error("the tenant's own administrator was not counted")
+	}
+
+	enrol(t, l, clk, admin)
+	on := true
+	if _, err := l.UpdateTenant(ctx, "", core.UpdateTenantInput{
+		RequireTOTPWeb: &on, RequireTOTPCLI: &on, RequireTOTPSSH: &on}); err != nil {
+		t.Fatalf("requiring a factor everywhere: %v", err)
+	}
+
+	report, err = l.Status(ctx)
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	f = report.SecondFactor
+	if f.Enrolments != 1 || f.EnrolledAdmins != 1 {
+		t.Errorf("after enrolling the administrator the report reads %+v", f)
+	}
+	// One enrolled administrator and a factor demanded everywhere is the
+	// configuration that ends with nobody able to sign in, which is the whole
+	// reason the report carries the counts.
+	if !f.LockedOutRisk() {
+		t.Error("a single enrolled administrator requiring a factor everywhere is not flagged")
+	}
+}
+
+// TestStatusFlagsEnrolmentsWithNoKey is the unrecoverable case: the secrets
+// are sealed under a key that is gone, so every one has to be cleared.
+func TestStatusFlagsEnrolmentsWithNoKey(t *testing.T) {
+	l, clk, _, root := newTOTPLocal(t)
+	user := seedUser(t, l, root, "ada@example.com")
+	enrol(t, l, clk, userActor(t, l, user, core.RoleMember))
+	admin := root
+
+	// The same store, reopened with no key, is what losing the key looks like.
+	l.totpSealer = nil
+
+	report, err := l.Status(authContext(admin))
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	f := report.SecondFactor
+	if f.KeyConfigured {
+		t.Error("a removed key still reads as configured")
+	}
+	if !f.Unrecoverable {
+		t.Errorf("an enrolment with no key is not flagged unrecoverable: %+v", f)
+	}
+}

@@ -60,9 +60,9 @@
 
 ## 5. Diagnostics and documentation
 
-- [ ] 5.1 `tix doctor`: whether a key is configured, how many enrolments exist, enrolments with no
+- [x] 5.1 `tix doctor`: whether a key is configured, how many enrolments exist, enrolments with no
       key flagged as unrecoverable, and the API token exemption stated
-- [ ] 5.2 `tix doctor`: warn when a tenant requires a factor on all three surfaces and holds fewer
+- [x] 5.2 `tix doctor`: warn when a tenant requires a factor on all three surfaces and holds fewer
       than two enrolled administrators, which is the configuration that locks somebody out
-- [ ] 5.3 `docs/`: the key is as load-bearing as the database, losing it means re-enrolment for
+- [x] 5.3 `docs/`: the key is as load-bearing as the database, losing it means re-enrolment for
       everyone, and API tokens are exempt

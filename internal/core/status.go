@@ -225,6 +225,11 @@ type StatusReport struct {
 	// Servers is never nil, so a consumer iterating it need not nil-check.
 	Servers []ServerStatus `json:"servers" yaml:"servers"`
 	Work    Work           `json:"work" yaml:"work"`
+	// SecondFactor reports the state of TOTP for this installation and this
+	// tenant. It rides the status report rather than a diagnostic method of
+	// its own so that every surface that already shows status shows it, and
+	// so that nothing new has to be bound on three surfaces to report a fact.
+	SecondFactor TOTPReport `json:"second_factor" yaml:"second_factor"`
 }
 
 // AttachedCount reports how many of the listed servers are heartbeating.
