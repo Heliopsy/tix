@@ -61,12 +61,21 @@ func TestSignInRedesignHardCodesNoColour(t *testing.T) {
 	f := newFixture(t)
 	sheet := body(t, f.as("").get("/assets/app.css"))
 
+	// Both ends, not just the start. Reading to the end of the file made this
+	// a ban on hard-coded colour in every rule added after the sign-in block,
+	// wherever in the interface it applied, and the first one to need one was
+	// the white field a qr code has to keep in a dark scheme.
 	const marker = "/* ===== Sign-in screen redesign"
+	const endMarker = "/* ===== end Sign-in screen redesign"
 	at := strings.Index(sheet, marker)
 	if at < 0 {
 		t.Fatalf("the sign-in block is not delimited in the stylesheet")
 	}
-	block := sheet[at:]
+	end := strings.Index(sheet, endMarker)
+	if end < 0 {
+		t.Fatalf("the sign-in block has no end marker, so this guard cannot tell where it stops")
+	}
+	block := sheet[at:end]
 
 	hex := regexp.MustCompile(`#[0-9a-fA-F]{3,8}\b`)
 	for _, line := range strings.Split(block, "\n") {

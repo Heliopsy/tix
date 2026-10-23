@@ -275,3 +275,25 @@ func TestTheQuietZoneIsDrawn(t *testing.T) {
 		}
 	}
 }
+
+// The published worked example in ISO/IEC 18004 for a version 1 level M
+// symbol: these sixteen data codewords produce these ten error correction
+// codewords. It pins the Reed-Solomon arithmetic on its own, because a fault
+// there would otherwise only show as a symbol that scans wrong somewhere no
+// test can see.
+func TestErrorCorrectionMatchesThePublishedVector(t *testing.T) {
+	t.Parallel()
+	data := []byte{0x20, 0x5B, 0x0B, 0x78, 0xD1, 0x72, 0xDC, 0x4D,
+		0x43, 0x40, 0xEC, 0x11, 0xEC, 0x11, 0xEC, 0x11}
+	want := []byte{0xC4, 0x23, 0x27, 0x77, 0xEB, 0xD7, 0xE7, 0xE2, 0x5D, 0x17}
+
+	got := reedSolomon(data, len(want))
+	if len(got) != len(want) {
+		t.Fatalf("got %d error correction codewords, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("codeword %d = %#02x, want %#02x (got %#v)", i, got[i], want[i], got)
+		}
+	}
+}
