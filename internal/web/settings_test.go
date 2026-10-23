@@ -31,26 +31,167 @@ func TestSidebarLinksToTheSettingsPage(t *testing.T) {
 		if strings.Contains(page, `<details class="panel settings">`) {
 			t.Errorf("%s still carries the old settings disclosure alongside the link:\n%s", path, page)
 		}
-		if hasPlainForm(page, "/theme") || hasPlainForm(page, "/advanced") {
+		if hasPlainForm(sidebarOf(t, page), "/advanced") {
 			t.Errorf("%s still carries a preference form outside the settings page:\n%s", path, page)
 		}
 	}
 }
 
-// The settings page gathers the theme and the advanced toggle, replacing what
+// The colour scheme is the one preference that did not move onto the settings
+// page, and later moved back off it: it is a switch at the foot of the
+// sidebar, present on every signed-in screen, because it is the preference a
+// reader changes while looking at the screen that made them want to.
+//
+// Read out of the sidebar rather than out of the page, which is the trap this
+// kind of assertion keeps falling into: the sidebar renders inside the
+// settings page too, so a whole-document search cannot tell the switch from
+// the form it replaced.
+func TestTheSidebarCarriesTheColourSchemeSwitch(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+
+	for _, path := range []string{"/projects", "/tasks", "/activity", "/settings"} {
+		side := sidebarOf(t, b.page(path))
+		if !hasPlainForm(side, "/theme") {
+			t.Errorf("%s has no colour scheme switch in its sidebar:\n%s", path, side)
+		}
+		switcher := themeSwitch(t, side)
+		if !strings.Contains(switcher, `type="submit"`) {
+			t.Errorf("%s's switch has no button, so nothing submits it without a script:\n%s", path, switcher)
+		}
+		if !strings.Contains(switcher, `name="csrf_token"`) {
+			t.Errorf("%s's switch carries no CSRF token:\n%s", path, switcher)
+		}
+		if !strings.Contains(switcher, `hx-boost="false"`) {
+			t.Errorf("%s's switch is boosted, so the swap would leave the old scheme on <html>:\n%s",
+				path, switcher)
+		}
+	}
+}
+
+// The switch says what the scheme is and what pressing it does, in its
+// accessible name rather than in a title attribute, which never reaches a
+// keyboard user who does not hover. One press moves to the next scheme and
+// four presses come back to where they started.
+func TestTheColourSchemeSwitchCyclesAndNamesBothHalves(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+
+	// System, then each press, back to System.
+	want := []struct{ scheme, label, next string }{
+		{"", "System", "Light"},
+		{"light", "Light", "Dark"},
+		{"dark", "Dark", "Low contrast"},
+		{"dim", "Low contrast", "System"},
+		{"", "System", "Light"},
+	}
+	for i, step := range want {
+		page := b.page("/projects")
+		switcher := themeSwitch(t, sidebarOf(t, page))
+
+		if got := htmlTag(t, page); step.scheme == "" {
+			if strings.Contains(got, "data-theme=") {
+				t.Fatalf("press %d: the system scheme pinned a theme: %s", i, got)
+			}
+		} else if !strings.Contains(got, `data-theme="`+step.scheme+`"`) {
+			t.Fatalf("press %d: the html element does not carry the %q scheme: %s", i, step.scheme, got)
+		}
+
+		name := `aria-label="Colour scheme: ` + step.label + `. Switch to ` + step.next + `."`
+		if !strings.Contains(switcher, name) {
+			t.Fatalf("press %d: the switch is not named %s:\n%s", i, name, switcher)
+		}
+		if !strings.Contains(switcher, `<input type="hidden" name="theme" value="`+themeValue(step.next)+`">`) {
+			t.Fatalf("press %d: the switch does not post the next scheme:\n%s", i, switcher)
+		}
+		if !strings.Contains(switcher, ">"+step.label+"</span>") {
+			t.Fatalf("press %d: the switch does not show the scheme in force:\n%s", i, switcher)
+		}
+		if i == len(want)-1 {
+			break
+		}
+
+		apply(t, b, "/theme", url.Values{"theme": {themeValue(step.next)}, "next": {"/projects"}})
+		if got := b.cookie(web.ThemeCookie); got != themeValue(step.next) {
+			t.Fatalf("press %d: the cookie is %q, want %q", i, got, themeValue(step.next))
+		}
+	}
+}
+
+// themeValue is the cookie value behind a scheme's label, so the cycle test
+// names schemes the way the reader sees them.
+func themeValue(label string) string {
+	for _, theme := range web.Themes {
+		if web.ThemeLabel(theme) == label {
+			return theme
+		}
+	}
+	return ""
+}
+
+// themeSwitch returns the colour scheme switch out of a sidebar, from its
+// action through its close. formAt cannot read it: that helper matches a
+// form tag ending at the action, and this one carries hx-boost and a class
+// after it.
+func themeSwitch(t *testing.T, side string) string {
+	t.Helper()
+	form := between(t, side, `action="/theme"`, "</form>")
+	if form == "" {
+		t.Fatalf("the sidebar has no colour scheme switch:\n%s", side)
+	}
+	return form
+}
+
+// sidebarOf returns the sidebar of a rendered page. The sidebar renders on
+// the settings page as well, so an assertion about where a control lives has
+// to read one region or the other and never the document.
+func sidebarOf(t *testing.T, page string) string {
+	t.Helper()
+	side := between(t, page, `<aside class="side">`, "</aside>")
+	if side == "" {
+		t.Fatalf("the page renders no sidebar:\n%s", page)
+	}
+	return side
+}
+
+// contentOf returns the main column of a rendered page, for the same reason.
+func contentOf(t *testing.T, page string) string {
+	t.Helper()
+	main := between(t, page, `<main class="wrap">`, "</main>")
+	if main == "" {
+		t.Fatalf("the page renders no main column:\n%s", page)
+	}
+	return main
+}
+
+// The settings page gathers the advanced toggle, replacing what
 // TestSidebarOffersOneSettingsMenu used to assert about the sidebar
 // disclosure: the controls moved, not disappeared.
-func TestSettingsPageGathersThemeAndAdvanced(t *testing.T) {
+//
+// The colour scheme is the exception and is asserted by
+// TestTheSidebarCarriesTheColourSchemeSwitch. Settings names the scheme in
+// force and points at the switch, so there is one control over one cookie
+// and no second form here to drift from it.
+func TestSettingsPageGathersTheAdvancedToggleAndNamesTheScheme(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	b := f.as("alice")
 	page := b.page("/settings")
+	main := contentOf(t, page)
 
-	if !strings.Contains(page, "<h1>Settings</h1>") {
-		t.Errorf("the settings page carries no heading:\n%s", page)
+	if !strings.Contains(main, "<h1>Settings</h1>") {
+		t.Errorf("the settings page carries no heading:\n%s", main)
 	}
-	if !hasPlainForm(page, "/theme") || !hasPlainForm(page, "/advanced") {
-		t.Errorf("the settings page does not gather the theme and the advanced toggle:\n%s", page)
+	if !hasPlainForm(main, "/advanced") {
+		t.Errorf("the settings page does not gather the advanced toggle:\n%s", main)
+	}
+	if hasPlainForm(main, "/theme") {
+		t.Errorf("the settings page carries a second colour scheme control beside the sidebar switch:\n%s", main)
+	}
+	if !strings.Contains(main, "<strong>System</strong>") {
+		t.Errorf("the settings page does not name the scheme in force:\n%s", main)
 	}
 }
 
@@ -113,8 +254,9 @@ func TestSettingsPageRendersInEveryScheme(t *testing.T) {
 			if !strings.Contains(page, "<h1>Settings</h1>") {
 				t.Errorf("the settings page is missing under the %q scheme", name)
 			}
-			if !strings.Contains(page, `<option value="`+theme+`" selected>`) {
-				t.Errorf("the page does not show %q as the current scheme:\n%s", name, page)
+			switcher := themeSwitch(t, sidebarOf(t, page))
+			if !strings.Contains(switcher, ">"+web.ThemeLabel(theme)+"</span>") {
+				t.Errorf("the page does not show %q as the current scheme:\n%s", name, switcher)
 			}
 		})
 	}

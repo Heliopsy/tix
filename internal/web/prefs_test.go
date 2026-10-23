@@ -18,6 +18,13 @@ import (
 // the project visibility choice and the list-or-board view -- each editable
 // only from the screen it affects.
 //
+// The colour scheme is the one exception, and says so on the preference
+// itself: its control is the sidebar switch, which is on this screen too but
+// is not of it. That distinction is the whole point of reading the main
+// column rather than the document -- the sidebar renders inside the settings
+// page, so a whole-page search would pass for a preference that has no
+// control on the screen at all.
+//
 // Driven off web.Preferences rather than a list written here, so a preference
 // added to the package with no control on this screen fails rather than
 // arriving undiscoverable.
@@ -25,11 +32,20 @@ func TestSettingsOwnsEveryPreference(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	page := f.as("alice").page("/settings")
+	main, side := contentOf(t, page), sidebarOf(t, page)
 
 	for _, p := range web.Preferences {
-		if !hasPlainForm(page, p.Route) {
-			t.Errorf("the settings screen has no control for %s (%s), which posts to %s:\n%s",
-				p.Label, p.Cookie, p.Route, page)
+		where, label := main, "settings screen"
+		if p.Sidebar {
+			where, label = side, "sidebar"
+		}
+		if !hasPlainForm(where, p.Route) {
+			t.Errorf("the %s has no control for %s (%s), which posts to %s:\n%s",
+				label, p.Label, p.Cookie, p.Route, where)
+		}
+		if p.Sidebar && hasPlainForm(main, p.Route) {
+			t.Errorf("%s (%s) has a control on the settings screen as well as in the sidebar, which is two controls over one cookie:\n%s",
+				p.Label, p.Cookie, main)
 		}
 	}
 }

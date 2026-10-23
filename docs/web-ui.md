@@ -267,14 +267,24 @@ Everything under Settings is a property of the person reading, not of the tenant
 stored in a cookie on that browser and reaches no other reader. Two people sharing a tenant are
 frequently in different timezones for the same reason they may want different keyboard shortcuts.
 
-Settings carries every one of them. Three are also editable from the screen they affect, because that
-is where the decision is actually made: whether a column reads better absent is answerable only by
+Settings carries all but one of them. Three are also editable from the screen they affect, because
+that is where the decision is actually made: whether a column reads better absent is answerable only by
 looking at the listing, and ticking projects off a task list is something you do while watching the
 list redraw. Those three are **one control rendered in two places, not two controls** -- one
 constructor builds the state, one template renders the form, one function reads the cookie and one
 handler writes it -- so changing a preference on either screen is what the other shows. A preference
 with two editors has two defaults, two validations and two readings of one value, and the drift that
 follows is not noticed until a reader is looking at two screens that disagree.
+
+The exception is the colour scheme, whose only control is the switch at the foot of the sidebar, on
+every signed-in screen. It is the preference a reader changes while looking at the screen that made
+them want to change it, which is the same argument as the three above, and it is the one that could
+be made small enough to live beside the Settings link. It cycles: one press posts the next of System,
+Light, Dark and Low contrast and returns to the page it was pressed on, so it stays a button rather
+than becoming a select with an Apply beside it, which is what a four-position control costs with
+scripting off. Its accessible name says both the scheme in force and the one a press moves to, since
+the glyph says neither and a `title` never reaches a keyboard user who does not hover. Settings names
+the current scheme and points at the switch rather than carrying a second form.
 
 | Preference | Cookie | Values |
 | --- | --- | --- |
@@ -363,9 +373,10 @@ entries is not a control anybody can use, and a fixed list also bounds how many 
 process can be made to parse: the formatting helpers are bound into a template at parse time, so a
 per-reader zone has to be a separately parsed set rather than a value handed to `Execute`.
 
-The preference forms deliberately opt out of htmx boosting. `data-theme` lives on `<html>` and a
-boosted form swaps only the body, so the cookie changed while the page kept its old scheme, which
-reads as a button that does nothing. A full navigation costs one round trip and is correct.
+The preference forms, the sidebar's scheme switch among them, deliberately opt out of htmx boosting.
+`data-theme` lives on `<html>` and a boosted form swaps only the body, so the cookie changed while
+the page kept its old scheme, which reads as a button that does nothing. A full navigation costs one
+round trip and is correct.
 
 The colour scheme is a separate axis from the tenant accent, which is the same everywhere and covered
 in [theming.md](theming.md).

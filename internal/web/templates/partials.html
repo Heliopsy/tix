@@ -326,3 +326,49 @@
      always, and polite rather than assertive: it is a statement about the
      page, not an error the reader has to act on. */}}
 {{define "live-stale"}}<p id="live-stale" class="livestale" role="status" aria-live="polite" hidden></p>{{end}}
+
+{{define "themeswitch"}}
+{{/* The colour scheme switch, in the sidebar rather than on settings: it is
+     the one preference a reader changes while looking at the screen that
+     made them want to change it.
+
+     It cycles. One press posts the next scheme as a hidden field, which is a
+     button; the alternative that also works with scripting off is a select
+     with an Apply beside it, which is a form and does not belong in a 224px
+     column. See nextTheme.
+
+     hx-boost is off for the reason settings.html gives: data-theme sits on
+     <html> and a boosted swap replaces the body alone, so the cookie would
+     change while the page kept the scheme it was drawn in.
+
+     The accessible name carries both halves, what is in force and what a
+     press does, because the glyph says neither and a title attribute never
+     reaches a keyboard user who does not hover. The visible word is part of
+     that name rather than something else, so speaking the control and
+     reading it agree. */}}
+<form method="post" action="/theme" hx-boost="false" class="themer">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="next" value="{{.Here}}">
+  <input type="hidden" name="theme" value="{{.Next}}">
+  <button type="submit" class="theme-switch" aria-label="Colour scheme: {{.Label}}. Switch to {{.NextLabel}}.">
+    {{template "themeglyph" .Theme}}
+    <span class="theme-name">{{.Label}}</span>
+  </button>
+</form>
+{{end}}
+
+{{define "themeglyph"}}
+{{- /* Drawn rather than lettered: the obvious glyphs for these four schemes
+      are emoji on most platforms and a missing box on some, and neither
+      takes the sidebar's colour. aria-hidden because the button's own name
+      already says the scheme. */ -}}
+{{if eq . "light"}}
+<svg class="theme-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.2v2.1M12 19.7v2.1M4.4 4.4l1.5 1.5M18.1 18.1l1.5 1.5M2.2 12h2.1M19.7 12h2.1M4.4 19.6l1.5-1.5M18.1 5.9l1.5-1.5"/></svg>
+{{else if eq . "dark"}}
+<svg class="theme-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.8A8.6 8.6 0 0 1 9.2 3.5a7.9 7.9 0 1 0 11.3 11.3Z"/></svg>
+{{else if eq . "dim"}}
+<svg class="theme-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8.4"/><path d="M12 3.6a8.4 8.4 0 0 0 0 16.8Z" fill="currentColor" stroke="none"/></svg>
+{{else}}
+<svg class="theme-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.8" y="4.2" width="18.4" height="12.4" rx="2"/><path d="M8.5 20.3h7M12 16.6v3.7"/></svg>
+{{end}}
+{{end}}

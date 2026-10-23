@@ -78,13 +78,39 @@ type taskViewFormView struct {
 	Choices []taskViewChoice
 }
 
+// themeToggleView is the sidebar's colour scheme switch: the scheme this
+// browser reads under, and the one a press moves it to.
+//
+// It is the whole of the colour scheme preference. The settings screen names
+// the current scheme and points at the switch instead of rendering a second
+// control, for the reason prefsView above exists: one cookie behind two
+// controls is two defaults, two validations and two readings of one value.
+// The switch is the one that stayed, because the scheme is the preference a
+// reader changes on whatever screen they are already on.
+type themeToggleView struct {
+	CSRF  string
+	Here  string
+	Theme string
+}
+
+// Label names the scheme in force.
+func (t themeToggleView) Label() string { return ThemeLabel(t.Theme) }
+
+// Next is the scheme one press moves to.
+func (t themeToggleView) Next() string { return nextTheme(t.Theme) }
+
+// NextLabel names the scheme one press moves to.
+func (t themeToggleView) NextLabel() string { return ThemeLabel(t.Next()) }
+
 // Preference is one per-browser display preference: the cookie it is kept
-// in, the route its control submits to, and the words the documentation
-// table names it under.
+// in, the route its control submits to, the words the documentation table
+// names it under, and whether its one control is the sidebar's rather than a
+// form on the settings screen.
 type Preference struct {
-	Cookie string
-	Route  string
-	Label  string
+	Cookie  string
+	Route   string
+	Label   string
+	Sidebar bool
 }
 
 // Preferences is every per-browser display preference this interface has.
@@ -96,8 +122,13 @@ type Preference struct {
 // the CSRF token and the one-shot issued-token cookie are deliberately absent
 // -- they are mechanism, carry no reader's choice, and there is nothing on a
 // settings screen for them to be.
+//
+// Sidebar marks the ones whose control lives in the sidebar instead, which is
+// what keeps that guard honest: the sidebar renders inside the settings page
+// too, so a test reading the whole document would pass on a preference that
+// has no control on the screen at all.
 var Preferences = []Preference{
-	{Cookie: ThemeCookie, Route: RouteTheme, Label: "Colour scheme"},
+	{Cookie: ThemeCookie, Route: RouteTheme, Label: "Colour scheme", Sidebar: true},
 	{Cookie: KeySchemeCookie, Route: RouteKeyScheme, Label: "Keyboard shortcuts"},
 	{Cookie: TimeFormatCookie, Route: RouteTimeFormat, Label: "Date format"},
 	{Cookie: TimezoneCookie, Route: RouteTimezone, Label: "Timezone"},
