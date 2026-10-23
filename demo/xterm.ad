@@ -1,0 +1,40 @@
+! SPDX-License-Identifier: AGPL-3.0-or-later
+!
+! The terminal the recording films. xterm because it is in the base archive,
+! starts instantly and has no chrome of its own to hide.
+!
+! DejaVu Sans Mono is named explicitly for the reason screenshots/README.md
+! records: the board draws box characters and each project carries an emoji,
+! and in the default capture font both came out as tofu.
+
+XTerm*faceName: DejaVu Sans Mono
+XTerm*faceSize: 11
+XTerm*renderFont: true
+XTerm*scrollBar: false
+XTerm*borderWidth: 0
+XTerm*internalBorder: 10
+XTerm*saveLines: 2000
+
+! A dark terminal beside a board that is dark by default. A light terminal
+! would be the brightest thing in the frame and pull the eye off the product.
+XTerm*background: #0b0f14
+XTerm*foreground: #d7dce3
+XTerm*cursorColor: #2dd4bf
+
+! The tix accent, so the terminal and the board look like one product.
+XTerm*color0:  #11161d
+XTerm*color8:  #39414d
+XTerm*color1:  #f87171
+XTerm*color9:  #fca5a5
+XTerm*color2:  #34d399
+XTerm*color10: #6ee7b7
+XTerm*color3:  #fbbf24
+XTerm*color11: #fcd34d
+XTerm*color4:  #60a5fa
+XTerm*color12: #93c5fd
+XTerm*color5:  #a78bfa
+XTerm*color13: #c4b5fd
+XTerm*color6:  #2dd4bf
+XTerm*color14: #5eead4
+XTerm*color7:  #d7dce3
+XTerm*color15: #f3f5f8

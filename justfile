@@ -919,3 +919,65 @@ bench-budgets:
 bench-full ENGINE="postgres": pg-up
     TIX_BENCH_SIZE=full TIX_BENCH_ENGINE={{ENGINE}} TIX_TEST_POSTGRES_DSN='{{pg_dsn}}' \
       go test ./internal/bench/ -v -run 'Test' -count=1 -timeout 3h
+
+# ── Demo recording ────────────────────────────────────────────────────────────
+#
+# A re-runnable product demo: a person plans work in the browser, a real Claude
+# Code agent takes it from the CLI, a terminal board joins over SSH, and both
+# surfaces repaint as the work lands. See demo/README.md.
+#
+# The agent is real, so no two takes match. Record a few, watch them, keep one.
+
+demo_image := "localhost/tix-demo:latest"
+demo_out   := "demo/out"
+
+# Build the recording environment. Separate from `image`: that one is
+# distroless and cannot host a terminal demo.
+demo-image:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just build
+    {{engine}} build -f demo/Containerfile.demo -t {{demo_image}} .
+
+# Record one take. Needs a credential for the agent in an env file; see
+# demo/README.md for what goes in it and why it is not in the repo.
+demo-record ENVFILE:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -f "{{ENVFILE}}" ] || { echo "no env file at {{ENVFILE}}" >&2; exit 1; }
+    mkdir -p {{demo_out}}
+    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log
+    # --env-file rather than --env so the credential never enters the shell
+    # that starts the container, and so it is not in anybody's process table.
+    {{engine}} run --rm \
+      --env-file "{{ENVFILE}}" \
+      --hostname tix-demo \
+      --shm-size 512m \
+      -v "$PWD/{{demo_out}}:/out:Z" \
+      {{demo_image}}
+    echo
+    echo "take: {{demo_out}}/raw.mkv"
+    echo "log:  {{demo_out}}/scene.log"
+
+# Every second of the take as one tiled image.
+#
+# This is the leak check, and it is not optional. A container cannot be
+# inspected after the fact for what it drew on screen, so the only honest way
+# to know a take carries nothing identifying is for a person to look at every
+# frame of it before it is published.
+demo-contact-sheet:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -f {{demo_out}}/raw.mkv ] || { echo "no take yet" >&2; exit 1; }
+    ffmpeg -nostdin -loglevel error -y -i {{demo_out}}/raw.mkv \
+      -vf "fps=1,scale=480:-1,tile=6x8" {{demo_out}}/contact-%02d.png
+    echo "review every frame before publishing:"
+    ls -1 {{demo_out}}/contact-*.png
+
+# Turn the take into mp4, webm, gif and a poster.
+demo-encode:
+    ./demo/encode.sh {{demo_out}}
+
+# Everything, in order, stopping before anything is published.
+demo: demo-image
+    @echo "now: just demo-record <envfile>, then demo-contact-sheet, then demo-encode"
