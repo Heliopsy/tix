@@ -107,6 +107,9 @@ jobs:
       - name: shellcheck
         run: just shellcheck
 
+      - name: stream filter guard
+        run: just streamtest
+
       - name: hadolint
         run: just hadolint
 
