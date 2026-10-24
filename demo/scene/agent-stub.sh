@@ -44,7 +44,7 @@ for _ in $(seq "$TASKS"); do
   # waiting for completions that were never going to arrive.
   tix task mv "$ref" doing --lease-token "$token" >/dev/null 2>&1
   sleep 3
-  if tix claim release "$ref" --token "$token" --status done \
+  if tix claim release "$ref" --token "$token" --status "done" \
        --comment "done by $AGENT" >/dev/null 2>&1; then
     printf '  done    %s\n\n' "$ref"
   else

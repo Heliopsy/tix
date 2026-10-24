@@ -180,9 +180,33 @@ async function main() {
   // puts the page's own view of itself in the log once a second, which is the
   // only way to tell a board that is not updating from a board with nothing to
   // update.
+  // The board wraps rather than scrolling sideways: auto-fit puts as many
+  // columns in a row as fit and drops the rest onto a second row. At the width
+  // the browser has here that is three across, so Done and Cancelled sit below
+  // the fold and the one thing the scene exists to show, work arriving in
+  // Done, happened off screen for every take so far.
+  //
+  // So the page follows the work. While there is anything left to take the
+  // view stays on the backlog, which is where the movement is; once To do and
+  // Doing are empty the board scrolls down to Done and stays there, which is
+  // the end card.
+  let scrolled = false;
+
   for (;;) {
     await sleep(2000);
     try {
+      if (!scrolled) {
+        scrolled = await page.evaluate(() => {
+          const count = (state) =>
+            document.querySelectorAll(`#project-board .column[data-state="${state}"] .card`).length;
+          const done = document.querySelector('#project-board .column[data-state="done"]');
+          if (!done || count("done") === 0) return false;
+          if (count("todo") > 0 || count("doing") > 0) return false;
+          done.scrollIntoView({ behavior: "smooth", block: "center" });
+          return true;
+        });
+        if (scrolled) console.log("[browser] backlog empty, holding on Done");
+      }
       const state = await page.evaluate(() => {
         const cols = [...document.querySelectorAll("#project-board h2, #project-board h3")]
           .map((h) => h.textContent.trim()).join(" | ");

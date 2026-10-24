@@ -262,6 +262,22 @@ tool +ARGS:
 
 lint: (tool "golangci-lint" "run" "./...")
 actionlint: (tool "actionlint")
+# The shell scripts, which until now had no gate at all. bash -n is not one: it
+# parses, and the thing it cannot see is a comment placed between a line ending
+# in a backslash and the line it continues. That splices into the command and
+# ends it, so the pipeline after it becomes a separate command reading from the
+# terminal. It parses cleanly and does the wrong thing, and it shipped once in
+# demo/scene/agent.sh, where the severed pipe was the one redacting lease
+# tokens out of the recording. shellcheck calls it SC2189, an error.
+#
+# --severity=warning because the gate is here for correctness, not style. The
+# scene's cleanup is full of `[ -n "$pid" ] && kill "$pid" || true`, which
+# shellcheck notes at info level as not being if-then-else. It is not meant to
+# be: the trailing `|| true` is there so a cleanup never fails a take. Leaving
+# info on made the gate depend on which shellcheck release the runner had,
+# which is how it failed on a machine where it had just passed. SC2189 is an
+# error and is still caught, verified against the commit that motivated this.
+shellcheck: (tool "shellcheck" "--severity=warning" "demo/scene/agent.sh" "demo/scene/agent-stub.sh" "demo/scene/board.sh" "demo/scene/planner.sh" "demo/scene/run.sh" "demo/scene/watch.sh" "demo/encode.sh")
 hadolint: (tool "hadolint" "Containerfile" "Containerfile.ci")
 yamllint: (tool "yamllint" ".")
 # Two passes: specs are prose and exempt from line length, everything else is not.
@@ -889,7 +905,7 @@ release-dry: (tool "goreleaser" "build" "--snapshot" "--clean")
 # ---------------------------------------------------------------- aggregates
 
 # Fast pre-push gate set. Run this before every commit.
-check: fmt-check vet tidy-check lint mdlint yamllint actionlint test smoke jstest spec docs-check
+check: fmt-check vet tidy-check lint mdlint yamllint actionlint shellcheck test smoke jstest spec docs-check
 
 # The entire CI suite, locally, in containers. Matches what GitHub runs.
 ci: tidy-check fmt-check vet lint build test-postgres cover-check smoke jstest sec vuln secrets trivy actionlint hadolint yamllint mdlint spec docs-check release-dry image-gate

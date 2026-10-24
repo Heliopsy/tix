@@ -69,6 +69,13 @@ it back:
 Then carry on with the next task. A guessed answer is work that has to be
 redone; a held lease is a task nobody else can take.
 
+Use your own tools for files, not the shell: Read to look at one, Write to
+create one, Edit to change one. Do not write a file with cat and a heredoc.
+
+Run one command at a time. Do not join commands with ; or && and do not write
+shell loops. A pane showing one command and its answer can be read; a one-liner
+doing five things cannot.
+
 Keep your narration to one or two lines per task. Do not print file contents.
 Do not ask questions; if a task is ambiguous, pick the obvious reading and say
 which you picked.
@@ -77,16 +84,22 @@ PROMPT_END
 # Streamed, not buffered. See demo/scene/stream.jq for why: `claude -p` holds
 # its narration until the run ends, which leaves the pane blank while the
 # agent works and prints a paragraph after it has stopped.
+# Wrapped at spaces rather than at the column. The pane is about fifty columns
+# once two agents share the width, and letting the terminal hard-wrap split
+# words down the middle: "moving it to d / oing", "a minimal versio / n."
+# fold -s breaks at the last blank instead, and stdbuf keeps it flushing as the
+# text arrives rather than at the end, which is the whole point of streaming it.
+#
+# The comment belongs here and not inside the command below. A comment between
+# a line ending in a backslash and the line it continues splices into the
+# command: `--verbose \` + `# ...` becomes `--verbose # ...`, which ends the
+# command, and `2>/dev/null | jq ...` then starts a new one reading from the
+# terminal. bash -n accepts all of it. That shipped once, and the cost was not
+# the broken pipe but what the pipe was doing: redacting the lease tokens.
 claude -p "$PROMPT" \
-  --allowedTools 'Bash(tix:*)' 'Bash(ls:*)' 'Bash(cat:*)' 'Bash(python3:*)' Write Edit Read \
+  --allowedTools 'Bash(tix:*)' 'Bash(ls:*)' 'Bash(python3:*)' Write Edit Read \
   --permission-mode acceptEdits \
   --output-format stream-json --include-partial-messages --verbose \
-# Wrapped at spaces rather than at the column. The pane is about fifty
-# columns once two agents share the width, and letting the terminal hard-wrap
-# split words down the middle: "moving it to d / oing", "a minimal versio / n."
-# fold -s breaks at the last blank instead, and stdbuf keeps it flushing as the
-# text arrives rather than at the end, which is the whole point of streaming
-# it. COLUMNS is what tmux told this pane it is.
   2>/dev/null | jq -j --unbuffered -f "$(dirname "$0")/stream.jq" \
   | stdbuf -o0 fold -s -w "$(tput cols 2>/dev/null || echo 50)"
 

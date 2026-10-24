@@ -34,10 +34,10 @@ SHELL ["/bin/ash", "-o", "pipefail", "-c"]
 # own built-in test runner. That suite pulls in no npm package, so there is no
 # JavaScript build step and no developer-side dependency: node only has to
 # exist here.
-# shellcheck is here because actionlint shells out to it when present and
-# silently skips that integration when it is not. Without it the containerised
-# gate was quietly weaker than the same command run from PATH, which is the
-# opposite of what pinning the toolbox is for.
+# shellcheck is here for two gates now. actionlint shells out to it when
+# present and silently skips that integration when it is not, which made the
+# containerised gate quietly weaker than the same command run from PATH. It is
+# also `just shellcheck` in its own right, over the demo scene's scripts.
 # hadolint ignore=DL3018
 RUN apk add --no-cache git bash curl tar nodejs npm py3-pip ca-certificates shellcheck
 
