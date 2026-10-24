@@ -113,7 +113,7 @@ claude -p "$PROMPT" \
   --allowedTools 'Bash(tix:*)' 'Bash(ls:*)' 'Bash(python3:*)' Write Edit Read \
   --permission-mode acceptEdits \
   --output-format stream-json --include-partial-messages --verbose \
-  2>/dev/null | jq -j --unbuffered -f "$(dirname "$0")/stream.jq" \
+  2>>"${SCENE_AGENT_ERR:-/out/agent-$AGENT.err}" | jq -j --unbuffered -f "$(dirname "$0")/stream.jq" \
   | stdbuf -o0 fold -s -w 50
 
 printf '\n  %s: nothing left to take\n' "$AGENT"

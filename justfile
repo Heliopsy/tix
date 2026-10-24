@@ -983,7 +983,7 @@ demo-record ENVFILE: demo-image
     set -euo pipefail
     [ -f "{{ENVFILE}}" ] || { echo "no env file at {{ENVFILE}}" >&2; exit 1; }
     mkdir -p {{demo_out}}
-    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log
+    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log {{demo_out}}/agent-*.err
     # --env-file rather than --env so the credential never enters the shell
     # that starts the container, and so it is not in anybody's process table.
     # --userns=keep-id maps the in-container uid to the host user, so the take
@@ -1030,7 +1030,7 @@ demo-record-here: demo-image
       mounts+=(-v "$work/.claude.json:/home/demo/.claude.json:Z")
     fi
     mkdir -p {{demo_out}}
-    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log
+    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log {{demo_out}}/agent-*.err
     {{engine}} run --rm \
       --userns=keep-id:uid=1000,gid=1000 \
       --hostname tix-demo \
@@ -1053,7 +1053,7 @@ demo-watch ENVFILE: demo-image
     set -euo pipefail
     [ -f "{{ENVFILE}}" ] || { echo "no env file at {{ENVFILE}}" >&2; exit 1; }
     mkdir -p {{demo_out}}
-    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log
+    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log {{demo_out}}/agent-*.err
     echo "connect a vnc viewer to 127.0.0.1:5900 once this starts"
     {{engine}} run --rm \
       --env-file "{{ENVFILE}}" --env SCENE_VNC=1 \

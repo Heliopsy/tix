@@ -19,6 +19,11 @@ const DONE = process.env.SCENE_PLAN_DONE || "/tmp/plan.done";
 const READY = process.env.SCENE_READY || "/tmp/signed-in";
 const GO = process.env.SCENE_GO || "/tmp/rolling";
 const EPIC_FILE = process.env.SCENE_EPIC_FILE || "/tmp/epic.ref";
+// The scene's end condition, written by the one piece of code that can see it.
+// The board is the only place that knows whether the backlog has drained, so
+// it is the board that says so: run.sh waits on this file instead of counting
+// releases, and the two can no longer be satisfied by different states.
+const DRAINED = process.env.SCENE_DRAINED || "/tmp/drained";
 const PASSWORD = process.env.DEMO_PASSWORD || "tix-demo-password";
 
 // How fast the person in the recording types, in milliseconds per character.
@@ -191,22 +196,41 @@ async function main() {
   // view stays on the backlog, which is where the movement is; once To do and
   // Doing are empty the board scrolls down to Done and stays there, which is
   // the end card.
+  //
+  // The epic does not count as work. The planner moves it to Doing and nothing
+  // ever finishes it, because it is the container the subtasks hang off rather
+  // than a task anybody takes: a take sat for fifteen minutes on
+  // "To do (0) | Doing (1) | Blocked (1) | Done (5)", where the one in Doing
+  // was the epic and there was nothing left for either agent to do. So it is
+  // excluded here by its own ref, and the board ends with the epic still open
+  // above a column of finished subtasks and one parked on a question, which is
+  // what actually happened.
   let scrolled = false;
 
   for (;;) {
     await sleep(2000);
     try {
       if (!scrolled) {
-        scrolled = await page.evaluate(() => {
+        scrolled = await page.evaluate((epic) => {
           const count = (state) =>
-            document.querySelectorAll(`#project-board .column[data-state="${state}"] .card`).length;
+            document.querySelectorAll(
+              `#project-board .column[data-state="${state}"] .card:not([data-task="${epic}"])`,
+            ).length;
           const done = document.querySelector('#project-board .column[data-state="done"]');
           if (!done || count("done") === 0) return false;
           if (count("todo") > 0 || count("doing") > 0) return false;
-          done.scrollIntoView({ behavior: "smooth", block: "center" });
+          // start, not center. The Done column is taller than the viewport
+          // once it holds six cards, so centring it put the "Done" heading
+          // above the fold and the take ended on an unlabelled column of
+          // cards: the board was showing the payoff without saying what it
+          // was. start pins the heading to the top with the cards under it.
+          done.scrollIntoView({ behavior: "smooth", block: "start" });
           return true;
-        });
-        if (scrolled) console.log("[browser] backlog empty, holding on Done");
+        }, ref);
+        if (scrolled) {
+          console.log("[browser] backlog empty, holding on Done");
+          writeFileSync(DRAINED, "drained\n");
+        }
       }
       const state = await page.evaluate(() => {
         const cols = [...document.querySelectorAll("#project-board h2, #project-board h3")]

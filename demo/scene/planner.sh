@@ -94,11 +94,23 @@ PROMPT_END
 # command, and `2>/dev/null | jq ...` then starts a new one reading from the
 # terminal. bash -n accepts all of it. That shipped once, and the cost was not
 # the broken pipe but what the pipe was doing: redacting the lease tokens.
+#
+# stderr goes to a file, not to /dev/null. It cannot go to the pane, because
+# the pane is the product demo, but dropping it cost a whole take: the OAuth
+# session had expired, claude printed "Failed to authenticate" and exited in
+# under a second, and the scene then waited six minutes for subtasks that
+# could never arrive. The pane showed nothing, the log showed nothing, and the
+# only record of why was in the stream that was being discarded.
+ERRLOG=${SCENE_AGENT_ERR:-/out/agent-$AGENT.err}
 claude -p "$PROMPT" \
   --allowedTools 'Bash(tix:*)' Read \
   --permission-mode acceptEdits \
   --output-format stream-json --include-partial-messages --verbose \
-  2>/dev/null | jq -j --unbuffered -f "$(dirname "$0")/stream.jq" \
+  2>>"$ERRLOG" | jq -j --unbuffered -f "$(dirname "$0")/stream.jq" \
   | stdbuf -o0 fold -s -w 50
+
+# The status of claude, not of fold. The scene waits on this: a planner that
+# died is a failed take now rather than in six minutes.
+printf '%s\n' "${PIPESTATUS[0]}" > "${SCENE_PLANNER_RC:-/tmp/planner.rc}"
 
 printf '\n  %s: the backlog is written; anyone can take it from here\n' "$AGENT"
