@@ -957,7 +957,15 @@ demo-image:
 
 # Record one take. Needs a credential for the agent in an env file; see
 # demo/README.md for what goes in it and why it is not in the repo.
-demo-record ENVFILE:
+#
+# It depends on demo-image, and that is not belt and braces. Containerfile.demo
+# COPYs demo/scene and bin/tix into the image, and only demo/out is mounted, so
+# a take records whatever was baked the last time the image was built. Editing
+# a scene script and running just demo-record films the old one, silently and
+# with a plausible result: two takes were spent that way, one on a tix without
+# the fix being filmed and one on an agent script without it. The build is
+# cached, so this costs nothing when nothing changed.
+demo-record ENVFILE: demo-image
     #!/usr/bin/env bash
     set -euo pipefail
     [ -f "{{ENVFILE}}" ] || { echo "no env file at {{ENVFILE}}" >&2; exit 1; }
@@ -989,7 +997,7 @@ demo-record ENVFILE:
 #
 # The copy still contains a live session, so it is made with umask 077, kept in
 # the session scratchpad, and removed when the take ends.
-demo-record-here:
+demo-record-here: demo-image
     #!/usr/bin/env bash
     set -euo pipefail
     [ -f "$HOME/.claude/.credentials.json" ] || { echo "no Claude Code sign-in found; run: claude login" >&2; exit 1; }

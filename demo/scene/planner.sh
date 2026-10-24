@@ -82,6 +82,12 @@ PROMPT_END
 # fold -s breaks at the last blank instead, and stdbuf keeps it flushing as the
 # text arrives rather than at the end, which is the whole point of streaming it.
 #
+# The width is fixed rather than read from the terminal. tput cols answers for
+# the pane as it is when this starts, and the pane is split in half a moment
+# later, so the folded lines came out wider than the pane and the terminal
+# hard-wrapped them mid-word again: "stora / ge", "wi / th". 50 is what each
+# half of the 110 column window is worth.
+#
 # The comment belongs here and not inside the command below. A comment between
 # a line ending in a backslash and the line it continues splices into the
 # command: `--verbose \` + `# ...` becomes `--verbose # ...`, which ends the
@@ -93,6 +99,6 @@ claude -p "$PROMPT" \
   --permission-mode acceptEdits \
   --output-format stream-json --include-partial-messages --verbose \
   2>/dev/null | jq -j --unbuffered -f "$(dirname "$0")/stream.jq" \
-  | stdbuf -o0 fold -s -w "$(tput cols 2>/dev/null || echo 50)"
+  | stdbuf -o0 fold -s -w 50
 
 printf '\n  %s: the backlog is written; anyone can take it from here\n' "$AGENT"
