@@ -81,6 +81,13 @@ claude -p "$PROMPT" \
   --allowedTools 'Bash(tix:*)' 'Bash(ls:*)' 'Bash(cat:*)' 'Bash(python3:*)' Write Edit Read \
   --permission-mode acceptEdits \
   --output-format stream-json --include-partial-messages --verbose \
-  2>/dev/null | jq -j --unbuffered -f "$(dirname "$0")/stream.jq"
+# Wrapped at spaces rather than at the column. The pane is about fifty
+# columns once two agents share the width, and letting the terminal hard-wrap
+# split words down the middle: "moving it to d / oing", "a minimal versio / n."
+# fold -s breaks at the last blank instead, and stdbuf keeps it flushing as the
+# text arrives rather than at the end, which is the whole point of streaming
+# it. COLUMNS is what tmux told this pane it is.
+  2>/dev/null | jq -j --unbuffered -f "$(dirname "$0")/stream.jq" \
+  | stdbuf -o0 fold -s -w "$(tput cols 2>/dev/null || echo 50)"
 
 printf '\n  %s: nothing left to take\n' "$AGENT"

@@ -108,6 +108,11 @@ xdpyinfo -display :99 >/dev/null 2>&1 || die "Xvfb never came up"
 # swallowed by a `|| true`.
 xrdb -merge /home/demo/.Xresources >> "$LOG" 2>&1 || die "xrdb could not load the terminal colours"
 
+# The root window is what shows through the gaps between windows, and X leaves
+# it a grey stipple. A flat colour a shade darker than the window chrome makes
+# the gaps read as space between panels rather than as a hole in the capture.
+xsetroot -solid '#070a0e' >> "$LOG" 2>&1 || die "could not set the root window colour"
+
 # SCENE_VNC turns on a viewer for the display being filmed, so a take can be
 # watched while it runs instead of only after it is encoded. It is off by
 # default: the recording environment should expose nothing it does not need,
@@ -272,8 +277,13 @@ say "recording to $OUT/raw.mkv"
 # Lossless-ish capture. Every encode decision belongs in encode.sh against a
 # finished take, not here against a take that cannot be redone without paying
 # for the agents again.
+# -draw_mouse 0 because the pointer is not part of the product. Playwright
+# drives chromium over CDP, which synthesises events without moving the X
+# pointer, so it never goes anywhere: it sits where the server left it, in the
+# middle of the screen, and earlier takes have an arrow resting on the board
+# for their whole length.
 ffmpeg -nostdin -loglevel error -y \
-  -f x11grab -framerate "$SCENE_FPS" -video_size "${SCENE_WIDTH}x${SCENE_HEIGHT}" -i :99 \
+  -f x11grab -draw_mouse 0 -framerate "$SCENE_FPS" -video_size "${SCENE_WIDTH}x${SCENE_HEIGHT}" -i :99 \
   -c:v libx264 -preset ultrafast -qp 0 -pix_fmt yuv444p \
   "$OUT/raw.mkv" &
 FFMPEG_PID=$!
@@ -372,7 +382,7 @@ xterm \
   -xrm 'XTerm*color6:  #2dd4bf' -xrm 'XTerm*color14: #5eead4' \
   -xrm 'XTerm*color7:  #d7dce3' -xrm 'XTerm*color15: #f3f5f8' \
   -geometry 110x62+$((SCENE_WIDTH * 55 / 100))+0 \
-  -T 'terminal' \
+  -T 'two agents, and the board over ssh' \
   -e "tmux -f /home/demo/scene/tmux.conf new-session -s demo -n work 'TIX_AGENT=$FIRST SCENE_EPIC=$EPIC $SCENE/planner.sh; TIX_AGENT=$FIRST $AGENT; bash'" \
   >> "$LOG" 2>&1 &
 hold 1
