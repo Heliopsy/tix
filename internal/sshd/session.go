@@ -107,6 +107,12 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 		return nil
 	}
 
+	open, err := s.openProject(sess.Command())
+	if err != nil {
+		fatalf(sess, "%s", err.Error())
+		return nil
+	}
+
 	ctx := core.WithSource(core.WithActor(sess.Context(), actor), core.SourceTUI)
 	pty, _, hasPty := sess.Pty()
 	environ := withTerm(sess.Environ(), pty.Term, hasPty)
@@ -125,7 +131,7 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 		Environ:   environ,
 		Color:     &color,
 		Profile:   profile,
-		Project:   s.openProject(),
+		Project:   open,
 		TimeStyle: s.opts.TimeStyle,
 		Now:       s.opts.Clock.Now,
 	})
@@ -162,18 +168,41 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 	return program
 }
 
-// openProject names the board a session lands on.
+// openProject names the board a session lands on, from what the client asked
+// for and what the listener can offer without guessing.
 //
-// A sandbox holds exactly one seeded board, and opening it is the demo. A
-// hosted tenant's projects are its own, and there is no board this listener
-// could name without inventing one, so the session lands on the project list
-// and its owner chooses, which is what the local interface does with no
-// --project.
-func (s *Server) openProject() string {
-	if s.opts.Demo {
-		return seedProjectKey
+// A session may name a project the way every other ssh service takes a
+// command: `ssh tix@host infra` is what `tix tui -p infra` is locally. Until
+// it was, the argument was read off the wire and dropped, so a client that
+// named a board got the project list and no word about why. The command is
+// the only field ssh offers for it, the username already carrying the tenant,
+// so the local flag had no equivalent here at all.
+//
+// With nothing named, a sandbox opens its seeded board, since it holds exactly
+// one and opening it is the demo. A hosted tenant's projects are its own and
+// there is no board this listener could name without inventing one, so the
+// session lands on the project list and its owner chooses.
+//
+// The key is checked for shape here rather than left to the interface: an
+// unknown-but-plausible key is the interface's to answer, against the projects
+// this actor can actually reach, but a 4KB argument or one carrying control
+// characters is not a board anybody has and would be drawn into an error line
+// on the way to saying so.
+func (s *Server) openProject(command []string) (string, error) {
+	switch len(command) {
+	case 0:
+		if s.opts.Demo {
+			return seedProjectKey, nil
+		}
+		return "", nil
+	case 1:
+		if err := core.ValidateProjectKey(command[0]); err != nil {
+			return "", fmt.Errorf("%w; the only argument tix takes is a project key to open", err)
+		}
+		return command[0], nil
+	default:
+		return "", errors.New("tix is an interface, not a shell: the only argument it takes is a project key to open")
 	}
-	return ""
 }
 
 // notice is the line a session leaves behind, or the empty string for a

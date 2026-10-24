@@ -650,6 +650,32 @@ tix: this key is enrolled in more than one tenant: connect as one of acme, defau
 
 No tenant is picked on your behalf. Guessing would drop somebody into the wrong board.
 
+### The command names the board
+
+A session with no command lands on the project list and you choose. Name a project key as the command to open
+that board directly, which is what `tix tui -p infra` is locally:
+
+```sh
+ssh -p 2222 tix@tix.example.com infra
+```
+
+The username already carries the tenant, so the command is the only field left to say this in. Note that ssh
+allocates a terminal for an interactive session but not for one with a command, and the listener has nothing
+to draw on without one, so pass `-t` when you name a board from a script:
+
+```sh
+ssh -t -p 2222 tix@tix.example.com infra
+```
+
+A key that names a project you cannot reach opens the project list and says so, rather than closing the
+connection. Anything that could not be a project key, or more than one argument, is refused before a session
+is built:
+
+```console
+$ ssh -p 2222 tix@tix.example.com ls -la
+tix: tix is an interface, not a shell: the only argument it takes is a project key to open
+```
+
 A key nobody enrolled gets a refusal that says nothing about what exists:
 
 ```console
