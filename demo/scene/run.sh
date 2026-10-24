@@ -362,6 +362,9 @@ say "beat 3: the planner"
 # run. agent-stub.sh drives the same tix commands on a timer, so every beat
 # after this one is exercised exactly as it would be with the real thing.
 AGENT=${SCENE_AGENT:-$SCENE/agent.sh}
+# Deliberately unquoted: SCENE_AGENTS is a space separated list of agent names
+# and the split into positional parameters is the point.
+# shellcheck disable=SC2086
 set -- $SCENE_AGENTS
 FIRST=$1
 SECOND=${2:-}

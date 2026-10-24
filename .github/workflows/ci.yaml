@@ -104,6 +104,9 @@ jobs:
       - name: actionlint
         run: just actionlint
 
+      - name: shellcheck
+        run: just shellcheck
+
       - name: hadolint
         run: just hadolint
 
