@@ -26,11 +26,11 @@ export SCENE_PROJECT SCENE_TASKS DB
 : "${SCENE_FPS:=12}"
 : "${SCENE_PROJECT:=links}"
 : "${SCENE_TASKS:=6}"
-# How many finished tasks the take waits for. Fewer than the backlog on
-# purpose: a real agent may park one for a decision, and the scene should end
-# on work landing rather than on a timeout waiting for a task nobody can do.
-: "${SCENE_DONE:=4}"
-export SCENE_DONE
+# The lower bound on finished work, not the end condition. The scene ends when
+# the backlog drains (see beat 5); this only guards the opposite failure, a
+# take that reaches an empty board because the agents did nothing.
+: "${SCENE_MIN_DONE:=2}"
+export SCENE_MIN_DONE
 : "${SCENE_BEAT_TIMEOUT:=180}"
 : "${DEMO_PASSWORD:=tix-demo-password}"
 : "${SCENE_AGENTS:=atlas scout}"
@@ -257,9 +257,10 @@ PLAN_DONE=/tmp/plan.done
 READY=/tmp/signed-in
 GO=/tmp/rolling
 EPIC_FILE=/tmp/epic.ref
-rm -f "$PLAN_DONE" "$READY" "$GO" "$EPIC_FILE"
+DRAINED=/tmp/drained
+rm -f "$PLAN_DONE" "$READY" "$GO" "$EPIC_FILE" "$DRAINED"
 SCENE_PLAN_DONE="$PLAN_DONE" SCENE_READY="$READY" SCENE_GO="$GO" \
-SCENE_EPIC_FILE="$EPIC_FILE" \
+SCENE_EPIC_FILE="$EPIC_FILE" SCENE_DRAINED="$DRAINED" \
   node "$SCENE/browser.mjs" plan >> "$LOG" 2>&1 &
 BROWSER_PID=$!
 
@@ -450,11 +451,43 @@ hold 5
 # ── beat 5: watch the work land ──────────────────────────────────────────────
 
 say "beat 5: work"
-# Completions only. Counting transitions too ended a take after two tasks: a
-# todo-to-doing move is a transition, so every claim inflated the count and the
-# threshold was met before most of the work had happened.
-tap_wait 'task\.released' "$SCENE_DONE" $((SCENE_BEAT_TIMEOUT * 4))
-hold 6
+# The scene ends when the backlog drains, not after a fixed number of releases.
+# A count cannot be the end condition here: the planner decides how many tasks
+# to write, so a take that produced six tasks ended after four of them while
+# two were still in Doing, and the board never scrolled to Done because its own
+# condition is that To do and Doing are empty. The end of the scene and the
+# payoff of the scene were two different states, and the scene reported success
+# for a take that never reached the second one.
+#
+# So there is one state now, and the board is what reports it. Blocked tasks do
+# not hold the scene open: a parked task is a thing worth filming, and it is
+# neither To do nor Doing.
+drain_wait() {
+  local secs=$1 waited=0
+  say "waiting for the backlog to drain (<= ${secs}s)"
+  while [ "$waited" -lt "$secs" ]; do
+    if [ -f "$DRAINED" ]; then
+      say "backlog drained after ${waited}s"
+      return 0
+    fi
+    kill -0 "$BROWSER_PID" 2>/dev/null || die "the board died before the backlog drained"
+    sleep 1
+    waited=$((waited + 1))
+  done
+  die "the backlog never drained; see the board heartbeats in this log"
+}
+drain_wait $((SCENE_BEAT_TIMEOUT * 5))
+
+# The opposite failure: an empty backlog that nobody worked. The board scrolls
+# on To do and Doing being empty and at least one card in Done, which one
+# finished task satisfies, so the floor is checked here rather than there.
+released=$(grep -cE '"type":"task\.released"' "$TAP" 2>/dev/null || true)
+[ "${released:-0}" -ge "$SCENE_MIN_DONE" ] \
+  || die "backlog drained with only ${released:-0} releases, under the floor of $SCENE_MIN_DONE"
+
+# The scroll is smooth and the board is still repainting behind it. This is
+# dwell on the end state, not a guess at how long work takes.
+hold 8
 
 # ── beat 6: the frame the poster comes from ──────────────────────────────────
 

@@ -19,6 +19,11 @@ const DONE = process.env.SCENE_PLAN_DONE || "/tmp/plan.done";
 const READY = process.env.SCENE_READY || "/tmp/signed-in";
 const GO = process.env.SCENE_GO || "/tmp/rolling";
 const EPIC_FILE = process.env.SCENE_EPIC_FILE || "/tmp/epic.ref";
+// The scene's end condition, written by the one piece of code that can see it.
+// The board is the only place that knows whether the backlog has drained, so
+// it is the board that says so: run.sh waits on this file instead of counting
+// releases, and the two can no longer be satisfied by different states.
+const DRAINED = process.env.SCENE_DRAINED || "/tmp/drained";
 const PASSWORD = process.env.DEMO_PASSWORD || "tix-demo-password";
 
 // How fast the person in the recording types, in milliseconds per character.
@@ -206,7 +211,10 @@ async function main() {
           done.scrollIntoView({ behavior: "smooth", block: "center" });
           return true;
         });
-        if (scrolled) console.log("[browser] backlog empty, holding on Done");
+        if (scrolled) {
+          console.log("[browser] backlog empty, holding on Done");
+          writeFileSync(DRAINED, "drained\n");
+        }
       }
       const state = await page.evaluate(() => {
         const cols = [...document.querySelectorAll("#project-board h2, #project-board h3")]
