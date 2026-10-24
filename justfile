@@ -269,7 +269,15 @@ actionlint: (tool "actionlint")
 # terminal. It parses cleanly and does the wrong thing, and it shipped once in
 # demo/scene/agent.sh, where the severed pipe was the one redacting lease
 # tokens out of the recording. shellcheck calls it SC2189, an error.
-shellcheck: (tool "shellcheck" "demo/scene/agent.sh" "demo/scene/agent-stub.sh" "demo/scene/board.sh" "demo/scene/planner.sh" "demo/scene/run.sh" "demo/scene/watch.sh" "demo/encode.sh")
+#
+# --severity=warning because the gate is here for correctness, not style. The
+# scene's cleanup is full of `[ -n "$pid" ] && kill "$pid" || true`, which
+# shellcheck notes at info level as not being if-then-else. It is not meant to
+# be: the trailing `|| true` is there so a cleanup never fails a take. Leaving
+# info on made the gate depend on which shellcheck release the runner had,
+# which is how it failed on a machine where it had just passed. SC2189 is an
+# error and is still caught, verified against the commit that motivated this.
+shellcheck: (tool "shellcheck" "--severity=warning" "demo/scene/agent.sh" "demo/scene/agent-stub.sh" "demo/scene/board.sh" "demo/scene/planner.sh" "demo/scene/run.sh" "demo/scene/watch.sh" "demo/encode.sh")
 hadolint: (tool "hadolint" "Containerfile" "Containerfile.ci")
 yamllint: (tool "yamllint" ".")
 # Two passes: specs are prose and exempt from line length, everything else is not.
