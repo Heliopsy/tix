@@ -425,15 +425,26 @@ say "beat 4b: the board over ssh"
 # pane happens to be active, so the board gets the full width under both
 # agents instead of half of one of them.
 tmux split-window -f -v -t demo:work "$SCENE/board.sh" >> "$LOG" 2>&1 || die "splitting for the board"
+# The board is the last pane split, so its index depends on whether the second
+# agent took one. Hardcoding 2 filmed a one-agent take with the board neither
+# sized nor labelled, because both commands addressed a pane that did not
+# exist and both end in || true.
+if [ -n "$SECOND" ]; then
+  BOARD_PANE=2
+else
+  BOARD_PANE=1
+fi
 # The agents get the upper two thirds between them; the board needs less,
 # because it is a list of five projects and not a transcript.
-tmux resize-pane -t demo:work.2 -y 30% >> "$LOG" 2>&1 || true
+tmux resize-pane -t "demo:work.$BOARD_PANE" -y 30% >> "$LOG" 2>&1 || true
 
 # Label every pane. Four unlabelled terminals stacked is four terminals; named,
 # it is two agents, the event log and a board.
 tmux select-pane -t demo:work.0 -T "agent: $FIRST" >> "$LOG" 2>&1 || true
-[ -n "$SECOND" ] && tmux select-pane -t demo:work.1 -T "agent: $SECOND" >> "$LOG" 2>&1 || true
-tmux select-pane -t demo:work.2 -T "ssh tix@demo  (the board)" >> "$LOG" 2>&1 || true
+if [ -n "$SECOND" ]; then
+  tmux select-pane -t demo:work.1 -T "agent: $SECOND" >> "$LOG" 2>&1 || true
+fi
+tmux select-pane -t "demo:work.$BOARD_PANE" -T "ssh tix@demo  (the board)" >> "$LOG" 2>&1 || true
 hold 5
 
 # ── beat 5: watch the work land ──────────────────────────────────────────────
