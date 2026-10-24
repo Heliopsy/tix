@@ -26,10 +26,17 @@ TIX_TOKEN=$(jq -r '.secret // .token // empty' "$TOKEN_FILE" 2>/dev/null)
 export TIX_TOKEN
 export TIX_OUTPUT_COLOR=always
 
-# Its own directory, so two agents working one backlog cannot tread on each
-# other's files and leave the viewer wondering which one broke it.
-mkdir -p "/home/demo/work/$AGENT"
-cd "/home/demo/work/$AGENT" || exit 1
+# One directory, shared. A directory per agent was the first instinct, to stop
+# two of them treading on each other's files, and it was wrong: the backlog the
+# planner writes is deliberately a chain, a storage layer that a POST handler
+# needs and a redirect handler after that. Given its own directory an agent
+# picking up the second link cannot see the first, which is a genuine blocker,
+# so it did the honest thing and parked the task. Half the backlog came back
+# blocked for want of code that existed six inches away on the same screen.
+#
+# Agents sharing one checkout is also what actually happens.
+mkdir -p /home/demo/work
+cd /home/demo/work || exit 1
 
 clear
 printf '  %s  working the shared backlog\n\n' "$AGENT"
@@ -90,6 +97,12 @@ PROMPT_END
 # fold -s breaks at the last blank instead, and stdbuf keeps it flushing as the
 # text arrives rather than at the end, which is the whole point of streaming it.
 #
+# The width is fixed rather than read from the terminal. tput cols answers for
+# the pane as it is when this starts, and the pane is split in half a moment
+# later, so the folded lines came out wider than the pane and the terminal
+# hard-wrapped them mid-word again: "stora / ge", "wi / th". 50 is what each
+# half of the 110 column window is worth.
+#
 # The comment belongs here and not inside the command below. A comment between
 # a line ending in a backslash and the line it continues splices into the
 # command: `--verbose \` + `# ...` becomes `--verbose # ...`, which ends the
@@ -101,6 +114,6 @@ claude -p "$PROMPT" \
   --permission-mode acceptEdits \
   --output-format stream-json --include-partial-messages --verbose \
   2>/dev/null | jq -j --unbuffered -f "$(dirname "$0")/stream.jq" \
-  | stdbuf -o0 fold -s -w "$(tput cols 2>/dev/null || echo 50)"
+  | stdbuf -o0 fold -s -w 50
 
 printf '\n  %s: nothing left to take\n' "$AGENT"
