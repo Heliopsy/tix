@@ -363,6 +363,9 @@ say "beat 3: the planner"
 # run. agent-stub.sh drives the same tix commands on a timer, so every beat
 # after this one is exercised exactly as it would be with the real thing.
 AGENT=${SCENE_AGENT:-$SCENE/agent.sh}
+# The planner writes its exit status here when it stops. See the wait below.
+PLANNER_RC=/tmp/planner.rc
+rm -f "$PLANNER_RC"
 # Deliberately unquoted: SCENE_AGENTS is a space separated list of agent names
 # and the split into positional parameters is the point.
 # shellcheck disable=SC2086
@@ -387,7 +390,7 @@ xterm \
   -xrm 'XTerm*color7:  #d7dce3' -xrm 'XTerm*color15: #f3f5f8' \
   -geometry 110x62+$((SCENE_WIDTH * 55 / 100))+0 \
   -T 'two agents, and the board over ssh' \
-  -e "tmux -f /home/demo/scene/tmux.conf new-session -s demo -n work 'TIX_AGENT=$FIRST SCENE_EPIC=$EPIC $SCENE/planner.sh; TIX_AGENT=$FIRST $AGENT; bash'" \
+  -e "tmux -f /home/demo/scene/tmux.conf new-session -s demo -n work 'TIX_AGENT=$FIRST SCENE_EPIC=$EPIC SCENE_PLANNER_RC=$PLANNER_RC $SCENE/planner.sh; TIX_AGENT=$FIRST $AGENT; bash'" \
   >> "$LOG" 2>&1 &
 hold 1
 # i3 splits evenly, which left the board in half a frame with columns too
@@ -402,7 +405,30 @@ i3-msg 'resize set width 54 ppt' >> "$LOG" 2>&1 || true
 # The planner writes the backlog before anybody works it. Waiting on the
 # subtasks appearing, rather than on a clock, is what keeps the next beat
 # honest: the second agent arrives to a queue that exists.
-tap_wait 'task\.created' 4 $((SCENE_BEAT_TIMEOUT * 2))
+#
+# The planner stopping is also an answer, and the faster one. A take died with
+# an expired OAuth session: claude printed its refusal to a discarded stderr
+# and exited in under a second, and this wait then sat for six minutes for
+# subtasks that nothing was going to write. The planner now records that it
+# stopped, so the scene can fail at the moment the planner failed and say why.
+planner_wait() {
+  local secs=$1 waited=0 seen=0 rc
+  say "waiting for 4x task.created (<= ${secs}s)"
+  while [ "$waited" -lt "$secs" ]; do
+    seen=$(grep -cE '"type":"task\.created"' "$TAP" 2>/dev/null || true)
+    [ "${seen:-0}" -ge 4 ] && { say "got ${seen}x task.created"; return 0; }
+    if [ -f "$PLANNER_RC" ]; then
+      rc=$(cat "$PLANNER_RC" 2>/dev/null || echo "?")
+      [ "$rc" = "0" ] \
+        && die "the planner finished with only ${seen:-0} tasks written"
+      die "the planner exited ${rc} with ${seen:-0} tasks written; see $OUT/agent-*.err"
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+  die "timed out with ${seen:-0}/4 task.created"
+}
+planner_wait $((SCENE_BEAT_TIMEOUT * 2))
 hold 3
 
 # ── beat 4: a second surface on the same tenant ──────────────────────────────
