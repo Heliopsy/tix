@@ -65,3 +65,30 @@ func TestTheAdvancedNavigationFollowsTheScopeNotTheURL(t *testing.T) {
 		t.Error("a tenant administrator lost the advanced navigation away from an admin path")
 	}
 }
+
+// TestAWorkflowReaderKeepsTheNavigationThatLedThere covers the other half of
+// the same invariant. advancedPaths names /workflows, whose capability is
+// gated on workflow:read, and advancedScopes listed only workflow:write: a
+// reader holding workflow:read opened the screen successfully and was handed
+// the navigation that says it does not exist.
+func TestAWorkflowReaderKeepsTheNavigationThatLedThere(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name   string
+		scopes []core.Scope
+		want   bool
+	}{
+		{"a reader who can read workflows", []core.Scope{core.ScopeWorkflowRead}, true},
+		{"a reader who can write them", []core.Scope{core.ScopeWorkflowWrite}, true},
+		{"a reader who can do neither", []core.Scope{core.ScopeTaskRead}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := httptest.NewRequest(http.MethodGet, RouteWorkflows, nil)
+			actor := &core.Actor{ID: "a", Scopes: tc.scopes}
+			r = r.WithContext(core.WithActor(r.Context(), actor))
+			if got := advancedMode(r); got != tc.want {
+				t.Errorf("advancedMode on %s = %v, want %v", RouteWorkflows, got, tc.want)
+			}
+		})
+	}
+}
