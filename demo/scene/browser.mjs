@@ -196,21 +196,32 @@ async function main() {
   // view stays on the backlog, which is where the movement is; once To do and
   // Doing are empty the board scrolls down to Done and stays there, which is
   // the end card.
+  //
+  // The epic does not count as work. The planner moves it to Doing and nothing
+  // ever finishes it, because it is the container the subtasks hang off rather
+  // than a task anybody takes: a take sat for fifteen minutes on
+  // "To do (0) | Doing (1) | Blocked (1) | Done (5)", where the one in Doing
+  // was the epic and there was nothing left for either agent to do. So it is
+  // excluded here by its own ref, and the board ends with the epic still open
+  // above a column of finished subtasks and one parked on a question, which is
+  // what actually happened.
   let scrolled = false;
 
   for (;;) {
     await sleep(2000);
     try {
       if (!scrolled) {
-        scrolled = await page.evaluate(() => {
+        scrolled = await page.evaluate((epic) => {
           const count = (state) =>
-            document.querySelectorAll(`#project-board .column[data-state="${state}"] .card`).length;
+            document.querySelectorAll(
+              `#project-board .column[data-state="${state}"] .card:not([data-task="${epic}"])`,
+            ).length;
           const done = document.querySelector('#project-board .column[data-state="done"]');
           if (!done || count("done") === 0) return false;
           if (count("todo") > 0 || count("doing") > 0) return false;
           done.scrollIntoView({ behavior: "smooth", block: "center" });
           return true;
-        });
+        }, ref);
         if (scrolled) {
           console.log("[browser] backlog empty, holding on Done");
           writeFileSync(DRAINED, "drained\n");
