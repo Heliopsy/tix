@@ -46,8 +46,15 @@ finish on its own, and write each one into tix as a task in project $PROJECT:
 
     tix task add "<title>" -p $PROJECT --parent $EPIC
 
-Say each title in one short line as you add it. Where one subtask genuinely
-cannot start until another is finished, record that:
+Say each title in one short line as you add it.
+
+Most of the subtasks should be independent of each other, so that several
+agents can work on them at the same time. Add a dependency only where one
+subtask truly cannot begin until another is finished, and add at most two in
+total. A chain where everything waits on the first task leaves every agent but
+one with nothing to do.
+
+Where a dependency is genuinely needed, record it:
 
     tix dep add <ref> <the-ref-it-depends-on>
 
@@ -71,6 +78,15 @@ PROMPT_END
 
 claude -p "$PROMPT" \
   --allowedTools 'Bash(tix:*)' Read \
-  --permission-mode acceptEdits
+  --permission-mode acceptEdits \
+  --output-format stream-json --include-partial-messages --verbose \
+# Wrapped at spaces rather than at the column. The pane is about fifty
+# columns once two agents share the width, and letting the terminal hard-wrap
+# split words down the middle: "moving it to d / oing", "a minimal versio / n."
+# fold -s breaks at the last blank instead, and stdbuf keeps it flushing as the
+# text arrives rather than at the end, which is the whole point of streaming
+# it. COLUMNS is what tmux told this pane it is.
+  2>/dev/null | jq -j --unbuffered -f "$(dirname "$0")/stream.jq" \
+  | stdbuf -o0 fold -s -w "$(tput cols 2>/dev/null || echo 50)"
 
 printf '\n  %s: the backlog is written; anyone can take it from here\n' "$AGENT"

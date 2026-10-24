@@ -108,6 +108,11 @@ xdpyinfo -display :99 >/dev/null 2>&1 || die "Xvfb never came up"
 # swallowed by a `|| true`.
 xrdb -merge /home/demo/.Xresources >> "$LOG" 2>&1 || die "xrdb could not load the terminal colours"
 
+# The root window is what shows through the gaps between windows, and X leaves
+# it a grey stipple. A flat colour a shade darker than the window chrome makes
+# the gaps read as space between panels rather than as a hole in the capture.
+xsetroot -solid '#070a0e' >> "$LOG" 2>&1 || die "could not set the root window colour"
+
 # SCENE_VNC turns on a viewer for the display being filmed, so a take can be
 # watched while it runs instead of only after it is encoded. It is off by
 # default: the recording environment should expose nothing it does not need,
@@ -272,8 +277,13 @@ say "recording to $OUT/raw.mkv"
 # Lossless-ish capture. Every encode decision belongs in encode.sh against a
 # finished take, not here against a take that cannot be redone without paying
 # for the agents again.
+# -draw_mouse 0 because the pointer is not part of the product. Playwright
+# drives chromium over CDP, which synthesises events without moving the X
+# pointer, so it never goes anywhere: it sits where the server left it, in the
+# middle of the screen, and earlier takes have an arrow resting on the board
+# for their whole length.
 ffmpeg -nostdin -loglevel error -y \
-  -f x11grab -framerate "$SCENE_FPS" -video_size "${SCENE_WIDTH}x${SCENE_HEIGHT}" -i :99 \
+  -f x11grab -draw_mouse 0 -framerate "$SCENE_FPS" -video_size "${SCENE_WIDTH}x${SCENE_HEIGHT}" -i :99 \
   -c:v libx264 -preset ultrafast -qp 0 -pix_fmt yuv444p \
   "$OUT/raw.mkv" &
 FFMPEG_PID=$!
@@ -307,63 +317,16 @@ EPIC=$(cat "$EPIC_FILE" 2>/dev/null || true)
 export SCENE_EPIC="$EPIC"
 say "the task to break down is $EPIC"
 
-say "beat 3: the planner"
-# SCENE_AGENT exists so the scene can be debugged without paying for an agent
-# run. agent-stub.sh drives the same tix commands on a timer, so every beat
-# after this one is exercised exactly as it would be with the real thing.
-AGENT=${SCENE_AGENT:-$SCENE/agent.sh}
-set -- $SCENE_AGENTS
-FIRST=$1
-SECOND=${2:-}
-# Colours on the command line, not from .Xresources. xrdb loads cleanly and
-# xterm still came up white against a dark board, so the resource path is not
-# worth another take to debug: -bg/-fg/-fa are unambiguous, and the sixteen
-# palette entries come through -xrm, which is the same mechanism without the
-# dependency on the resource database being consulted.
-xterm \
-  -bg '#0b0f14' -fg '#d7dce3' -cr '#2dd4bf' \
-  -fa 'DejaVu Sans Mono' -fs 11 -b 10 +sb -bc \
-  -xrm 'XTerm*color0:  #11161d' -xrm 'XTerm*color8:  #39414d' \
-  -xrm 'XTerm*color1:  #f87171' -xrm 'XTerm*color9:  #fca5a5' \
-  -xrm 'XTerm*color2:  #34d399' -xrm 'XTerm*color10: #6ee7b7' \
-  -xrm 'XTerm*color3:  #fbbf24' -xrm 'XTerm*color11: #fcd34d' \
-  -xrm 'XTerm*color4:  #60a5fa' -xrm 'XTerm*color12: #93c5fd' \
-  -xrm 'XTerm*color5:  #a78bfa' -xrm 'XTerm*color13: #c4b5fd' \
-  -xrm 'XTerm*color6:  #2dd4bf' -xrm 'XTerm*color14: #5eead4' \
-  -xrm 'XTerm*color7:  #d7dce3' -xrm 'XTerm*color15: #f3f5f8' \
-  -geometry 110x62+$((SCENE_WIDTH * 55 / 100))+0 \
-  -T 'terminal' \
-  -e "tmux -f /home/demo/scene/tmux.conf new-session -s demo -n work 'TIX_AGENT=$FIRST SCENE_EPIC=$EPIC $SCENE/planner.sh; TIX_AGENT=$FIRST $AGENT; bash'" \
-  >> "$LOG" 2>&1 &
-hold 1
-# i3 splits evenly, which left the board in half a frame with columns too
-# narrow to read. The browser is the thing being watched, so it gets the room.
-i3-msg '[class="Chromium"] focus' >> "$LOG" 2>&1 || true
-i3-msg 'resize grow width 120 px' >> "$LOG" 2>&1 || true
-
-# The planner writes the backlog before anybody works it. Waiting on the
-# subtasks appearing, rather than on a clock, is what keeps the next beat
-# honest: the second agent arrives to a queue that exists.
-tap_wait 'task\.created' 4 $((SCENE_BEAT_TIMEOUT * 2))
-hold 3
-
-# ── beat 4: a second surface on the same tenant ──────────────────────────────
-
-say "beat 4: a second agent joins the queue"
-# The second agent arrives after the first has already taken something, so the
-# recording shows a backlog being shared rather than two processes starting
-# together and racing once.
-hold 3
-if [ -n "$SECOND" ]; then
-  tmux split-window -t demo:work -v "TIX_AGENT=$SECOND $AGENT; bash" >> "$LOG" 2>&1 \
-    || die "splitting for the second agent"
-  hold 4
-fi
-
-say "beat 4b: the event stream"
-# A window of its own, under the browser, rather than a fourth pane stacked on
-# the right. Four equal strips in one column is a wall of text; two columns of
-# two reads as four things, and the log belongs beside the board it explains.
+say "beat 2b: the event log"
+# A window of its own, under the browser, rather than a pane stacked on the
+# right. Four equal strips in one column is a wall of text; two columns of two
+# reads as four things, and the log belongs beside the board it explains.
+#
+# It opens BEFORE the planner runs. tix watch delivers from the moment it
+# subscribes, so opening it after the breakdown had been written meant the log
+# began at sequence thirty-two and the most interesting thing in the take, six
+# tasks appearing because an agent decided they should, had already scrolled
+# past before the pane existed.
 #
 # The split is asked for on the browser, so i3 puts the new window below it and
 # leaves the terminal column alone.
@@ -380,9 +343,88 @@ i3-msg '[title="tix watch.*"] focus' >> "$LOG" 2>&1 || true
 i3-msg 'resize shrink height 180 px' >> "$LOG" 2>&1 || true
 hold 1
 
-say "beat 4c: the board over ssh"
-tmux split-window -t demo:work -v "$SCENE/board.sh" >> "$LOG" 2>&1 || die "splitting for the board"
-tmux select-layout -t demo:work even-vertical >> "$LOG" 2>&1 || true
+
+# Put the terminal beside the browser-and-log column, not inside it.
+#
+# i3 places a new window against whatever is focused, and the log was focused
+# because it had just been resized. The terminal therefore joined that column
+# and three stacked panes came out four rows tall each, which is below the
+# minimum the board needs to draw at all: it rendered "terminal is 206x4; tix
+# tui needs at least 24x8" instead of a board. Focusing the browser and then
+# its parent selects the column as a whole, so the split that follows puts the
+# terminal next to it.
+i3-msg '[class="Chromium"] focus' >> "$LOG" 2>&1 || true
+i3-msg 'focus parent' >> "$LOG" 2>&1 || true
+i3-msg 'split h' >> "$LOG" 2>&1 || true
+
+say "beat 3: the planner"
+# SCENE_AGENT exists so the scene can be debugged without paying for an agent
+# run. agent-stub.sh drives the same tix commands on a timer, so every beat
+# after this one is exercised exactly as it would be with the real thing.
+AGENT=${SCENE_AGENT:-$SCENE/agent.sh}
+set -- $SCENE_AGENTS
+FIRST=$1
+SECOND=${2:-}
+# Colours on the command line, not from .Xresources. xrdb loads cleanly and
+# xterm still came up white against a dark board, so the resource path is not
+# worth another take to debug: -bg/-fg/-fa are unambiguous, and the sixteen
+# palette entries come through -xrm, which is the same mechanism without the
+# dependency on the resource database being consulted.
+xterm \
+  -bg '#0b0f14' -fg '#d7dce3' -cr '#2dd4bf' \
+  -fa 'DejaVu Sans Mono' -fs 10 -b 8 +sb -bc \
+  -xrm 'XTerm*color0:  #11161d' -xrm 'XTerm*color8:  #39414d' \
+  -xrm 'XTerm*color1:  #f87171' -xrm 'XTerm*color9:  #fca5a5' \
+  -xrm 'XTerm*color2:  #34d399' -xrm 'XTerm*color10: #6ee7b7' \
+  -xrm 'XTerm*color3:  #fbbf24' -xrm 'XTerm*color11: #fcd34d' \
+  -xrm 'XTerm*color4:  #60a5fa' -xrm 'XTerm*color12: #93c5fd' \
+  -xrm 'XTerm*color5:  #a78bfa' -xrm 'XTerm*color13: #c4b5fd' \
+  -xrm 'XTerm*color6:  #2dd4bf' -xrm 'XTerm*color14: #5eead4' \
+  -xrm 'XTerm*color7:  #d7dce3' -xrm 'XTerm*color15: #f3f5f8' \
+  -geometry 110x62+$((SCENE_WIDTH * 55 / 100))+0 \
+  -T 'two agents, and the board over ssh' \
+  -e "tmux -f /home/demo/scene/tmux.conf new-session -s demo -n work 'TIX_AGENT=$FIRST SCENE_EPIC=$EPIC $SCENE/planner.sh; TIX_AGENT=$FIRST $AGENT; bash'" \
+  >> "$LOG" 2>&1 &
+hold 1
+# i3 splits evenly, which left the board in half a frame with columns too
+# narrow to read. The browser is the thing being watched, so it gets the room.
+i3-msg '[class="Chromium"] focus' >> "$LOG" 2>&1 || true
+# Explicit, not relative. Shrinking took the browser under 900px, which is
+# where its own sidebar stacks into a row of wrapping links and spends the top
+# of the frame on navigation. The terminal still gets enough width for two
+# agents side by side.
+i3-msg 'resize set width 54 ppt' >> "$LOG" 2>&1 || true
+
+# The planner writes the backlog before anybody works it. Waiting on the
+# subtasks appearing, rather than on a clock, is what keeps the next beat
+# honest: the second agent arrives to a queue that exists.
+tap_wait 'task\.created' 4 $((SCENE_BEAT_TIMEOUT * 2))
+hold 3
+
+# ── beat 4: a second surface on the same tenant ──────────────────────────────
+
+say "beat 4: a second agent joins the queue"
+# The second agent arrives after the first has already taken something, so the
+# recording shows a backlog being shared rather than two processes starting
+# together and racing once.
+hold 3
+if [ -n "$SECOND" ]; then
+  # Side by side, not stacked. Two agents above one another read as one long
+  # transcript; beside each other they read as two workers, which is the thing
+  # being demonstrated, and each still gets its own labelled border.
+  tmux split-window -t demo:work -h "TIX_AGENT=$SECOND $AGENT; bash" >> "$LOG" 2>&1 \
+    || die "splitting for the second agent"
+  hold 4
+fi
+
+say "beat 4b: the board over ssh"
+# -f makes the new pane span the whole window rather than splitting whichever
+# pane happens to be active, so the board gets the full width under both
+# agents instead of half of one of them.
+tmux split-window -f -v -t demo:work "$SCENE/board.sh" >> "$LOG" 2>&1 || die "splitting for the board"
+# The agents get the upper two thirds between them; the board needs less,
+# because it is a list of five projects and not a transcript.
+tmux resize-pane -t demo:work.2 -y 30% >> "$LOG" 2>&1 || true
 
 # Label every pane. Four unlabelled terminals stacked is four terminals; named,
 # it is two agents, the event log and a board.
