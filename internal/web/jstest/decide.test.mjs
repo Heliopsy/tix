@@ -215,6 +215,49 @@ test("fieldDirty does not read the browser's own pick as the reader's", () => {
     "a select with a declared default was not read against it");
 });
 
+// A <select multiple> declares no default and the browser picks nothing for
+// it, so selectedIndex starts at -1 rather than 0. Under the single-select
+// rule the first option was the browser's pick, so a reader who selected only
+// the first scope on the token form was reported as having changed nothing.
+test("fieldDirty reads the first option of a multiple select as a choice", () => {
+  const empty = {
+    tagName: "SELECT",
+    multiple: true,
+    selectedIndex: -1,
+    options: [
+      { selected: false, defaultSelected: false },
+      { selected: false, defaultSelected: false },
+    ],
+  };
+  assert.equal(tix.fieldDirty(empty), false,
+    "a multiple select nobody has touched was reported dirty");
+
+  const first = {
+    tagName: "SELECT",
+    multiple: true,
+    selectedIndex: 0,
+    options: [
+      { selected: true, defaultSelected: false },
+      { selected: false, defaultSelected: false },
+    ],
+  };
+  assert.equal(tix.fieldDirty(first), true,
+    "picking only the first option of a multiple select was reported clean");
+
+  // A single select with nothing selected at all is still nothing the reader
+  // chose, so the -1 that reaches the same branch is not a choice there.
+  const none = {
+    tagName: "SELECT",
+    selectedIndex: -1,
+    options: [
+      { selected: false, defaultSelected: false },
+      { selected: false, defaultSelected: false },
+    ],
+  };
+  assert.equal(tix.fieldDirty(none), false,
+    "a select with nothing selected was reported dirty");
+});
+
 test("dragEnabled needs both the setting and a fine pointer", () => {
   const fine = () => ({ matches: true });
   const coarse = () => ({ matches: false });

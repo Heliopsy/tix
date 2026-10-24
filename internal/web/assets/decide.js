@@ -221,7 +221,16 @@
       // Markup that names no selected option still arrives with the first one
       // selected, because the browser picks it. That is not a reader's choice,
       // and reading it as one reports the region busy forever.
+      //
+      // A multiple select is the exception: the browser picks nothing for it,
+      // so selectedIndex starts at -1 and any selection at all is the
+      // reader's, the first option included. The scopes control on the token
+      // form is exactly that, and under the single-select rule a reader who
+      // picked only the first scope was reported as having changed nothing.
       if (!declared) {
+        if (el.multiple) {
+          return el.selectedIndex >= 0;
+        }
         return el.selectedIndex > 0;
       }
       for (var j = 0; j < options.length; j++) {
