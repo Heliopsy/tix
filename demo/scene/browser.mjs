@@ -219,7 +219,12 @@ async function main() {
           const done = document.querySelector('#project-board .column[data-state="done"]');
           if (!done || count("done") === 0) return false;
           if (count("todo") > 0 || count("doing") > 0) return false;
-          done.scrollIntoView({ behavior: "smooth", block: "center" });
+          // start, not center. The Done column is taller than the viewport
+          // once it holds six cards, so centring it put the "Done" heading
+          // above the fold and the take ended on an unlabelled column of
+          // cards: the board was showing the payoff without saying what it
+          // was. start pins the heading to the top with the cards under it.
+          done.scrollIntoView({ behavior: "smooth", block: "start" });
           return true;
         }, ref);
         if (scrolled) {
