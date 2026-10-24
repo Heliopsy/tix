@@ -44,6 +44,28 @@ and carried on")"
 want_redacted "tool call, --lease-token" "$(tool_use "tix task mv T-1 doing --lease-token $SECRET")"
 want_redacted "tool call, --token" "$(tool_use "tix claim release T-1 --token $SECRET --status done")"
 
+# A token with no flag in front of it: pasted into a comment, or quoted back in
+# prose. 32 bytes of crypto/rand as raw base64url is 43 characters.
+BARE="lFBpxPkkzeOT5gLpxEjNg0ff_tEI4Zc1aQIO2-sSLj8"
+got=$(printf '%s\n' "$(delta "releasing with $BARE now")" | render)
+if printf '%s' "$got" | grep -qF "$BARE"; then
+  printf 'FAIL bare token in narration: %s\n' "$got" >&2
+  fails=$((fails + 1))
+else
+  printf 'ok   narration, bare token with no flag\n'
+fi
+
+# The rule must not eat the identifiers the scene is made of. A ULID is 26
+# characters and a task ref is shorter still.
+refs="took links-5 01JB2X3Y4Z5A6B7C8D9EFGHJKM today"
+got=$(printf '%s\n' "$(delta "$refs")" | render)
+if [ "$got" = "$refs" ]; then
+  printf 'ok   refs and ULIDs are not redacted\n'
+else
+  printf 'FAIL a ref or ULID was redacted: %s\n' "$got" >&2
+  fails=$((fails + 1))
+fi
+
 # Narration is a delta stream: the pane is fed a few characters at a time and
 # truncating one cuts a word in half. Only the tool call arm is shortened.
 prose="I picked the obvious reading and wrote a small in-memory store with a tiny API, which is more than ninety six characters of perfectly ordinary narration."
@@ -55,7 +77,11 @@ else
   fails=$((fails + 1))
 fi
 
-got=$(printf '%s\n' "$(tool_use "tix task add $(printf 'x%.0s' $(seq 1 120))")" | render)
+# The padding is words, not one long run of a single character: a run like that
+# is now redacted by the bare-token rule before truncation ever sees it, and the
+# fixture would measure nothing.
+long_title="a title made of ordinary words repeated until it is comfortably longer than ninety six characters in total"
+got=$(printf '%s\n' "$(tool_use "tix task add $long_title")" | render)
 if printf '%s' "$got" | grep -qF ' ...'; then
   printf 'ok   tool call is truncated\n'
 else

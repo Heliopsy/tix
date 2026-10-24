@@ -29,8 +29,14 @@
 # sees one delta at a time and holds no state between them. Narrowing the gap
 # further means buffering the stream, which is the thing this file exists not
 # to do.
+#
+# The second rule catches a token with no flag in front of it: pasted into a
+# comment, quoted back in prose, or printed on its own. A lease token is 32
+# bytes of crypto/rand as raw base64url, so 43 characters of that alphabet in a
+# row is a credential and not prose. Task refs and ULIDs are far shorter.
 def redact:
-  gsub("(?<f>--(lease-)?token)[ =]+(?<v>[^\\s]+)"; .f + " ********");
+  gsub("(?<f>--(lease-)?token)[ =]+(?<v>[^\\s]+)"; .f + " ********")
+  | gsub("(?<v>[A-Za-z0-9_-]{43,})"; "********");
 
 if .type == "stream_event"
    and .event.type == "content_block_delta"
