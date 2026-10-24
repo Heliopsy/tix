@@ -128,6 +128,10 @@ type tasksView struct {
 	// list that quietly shows a subset is worse than one that shows the wrong
 	// thing: the reader cannot tell which they are looking at.
 	OpenOnly bool
+
+	// AllHref is where the affordance beside it leads: this same listing with
+	// the default turned off.
+	AllHref string
 }
 
 // filterFault reports whether an error is the filter expression's fault.
@@ -266,9 +270,16 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 	// five built-in names, because terminality is a property of the workflow:
 	// a tenant that renamed done to shipped must not have its listing silently
 	// stop narrowing.
+	//
+	// The board is exempt. Its columns are the workflow, terminal states
+	// included, so narrowing it to the open states empties the columns a card
+	// is moved into: a reader who finished a card watched it leave the board
+	// altogether. The default belongs to the list, which is the screen that
+	// opened on the wrong set.
 	openOnly := false
 	showAll := query.Get(AllParam) != ""
-	if !showAll && strings.TrimSpace(expression) == "" && len(filter.Statuses) == 0 {
+	view := taskViewOf(r)
+	if !showAll && view != TaskViewBoard && strings.TrimSpace(expression) == "" && len(filter.Statuses) == 0 {
 		if open, err := h.unfinishedStatuses(r.Context()); err == nil && len(open) > 0 {
 			filter.Statuses = open
 			openOnly = true
@@ -326,7 +337,6 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 	// so the two views cover one selection of tasks. Only when it is the view
 	// being drawn: a reader on the list pays nothing for a board they are not
 	// looking at, and what the board would have said is on the board.
-	view := prefs.TaskView.Current
 	var board taskBoard
 	if view == TaskViewBoard {
 		if board, err = h.taskBoardFor(r, projects, filter, page.Tasks, moves); err != nil {
@@ -343,7 +353,7 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 		Sort:          filter.Page.Sort,
 		Due:           due,
 		DueWindows:    FilterDueWindows,
-		Pager:         newPager(r, RouteTasks, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, SizeParam),
+		Pager:         newPager(r, RouteTasks, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, SizeParam, AllParam),
 		Self:          screenHref(r, RouteTasks),
 		CompleteState: complete,
 		Accent:        projectAccents(projects),
@@ -357,6 +367,7 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 		Hidden:        hidden,
 		Filtered:      filtered && hidden > 0,
 		OpenOnly:      openOnly,
+		AllHref:       showAllHref(r),
 		Empty:         hidden > 0 && hidden == len(prefs.Projects.Choices),
 		Live:          h.liveTasks(r),
 	}, nil
@@ -586,4 +597,22 @@ func (h *handler) unfinishedStatuses(ctx context.Context) ([]string, error) {
 		}
 	}
 	return out, nil
+}
+
+// showAllHref is this listing with the open-work default turned off, keeping
+// the reader's filter, deadline window, sort and page size.
+//
+// The route is named rather than taken from the request, for screenHref's
+// reason: the request may have arrived at the live fragment. The cursor and
+// its trail go, for narrowHref's reason in reverse: they address positions in
+// the narrowed walk, and carrying one onto the wider set names rows this
+// reader was never on.
+func showAllHref(r *http.Request) string {
+	query := r.URL.Query()
+	query.Del(CursorParam)
+	query.Del(TrailParam)
+	query.Del(PageParam)
+	query.Del("flash")
+	query.Set(AllParam, "1")
+	return RouteTasks + "?" + query.Encode()
 }

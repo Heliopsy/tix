@@ -169,7 +169,10 @@
   {{/* A list that quietly shows a subset is worse than one showing the wrong
        thing, because the reader cannot tell which they have. So the default
        says what it did and offers the way off. */}}
-  {{if $v.OpenOnly}} &middot; <span class="muted">open work only</span> &middot; <a href="/tasks?all=1">show finished too</a>{{end}}
+  {{/* The link is built from the address the reader is on rather than
+       written out, so a sort, a page size or a deadline window survives
+       following it. A hardcoded /tasks?all=1 dropped all three. */}}
+  {{if $v.OpenOnly}} &middot; <span class="muted">open work only</span> &middot; <a href="{{$v.AllHref}}">show finished too</a>{{end}}
 </p>
 {{end}}{{end}}
 {{end}}
