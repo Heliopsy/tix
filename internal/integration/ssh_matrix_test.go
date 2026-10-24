@@ -296,6 +296,31 @@ func (term *terminal) waitFor(want string) {
 		want, sshWait, term.out.String(), term.err.String())
 }
 
+// waitForStderr blocks until the session's error stream carries want. A
+// refusal is written there and the session is then closed, so the assertion
+// cannot wait on the interface the way waitFor does.
+func (term *terminal) waitForStderr(want string) {
+	term.t.Helper()
+	deadline := time.Now().Add(sshWait)
+	for time.Now().Before(deadline) {
+		if strings.Contains(term.err.String(), want) {
+			return
+		}
+		select {
+		case err := <-term.done:
+			if strings.Contains(term.err.String(), want) {
+				return
+			}
+			term.t.Fatalf("the session ended before %q appeared on stderr (%v)\nstdout:\n%s\nstderr:\n%s",
+				want, err, term.out.String(), term.err.String())
+		default:
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	term.t.Fatalf("%q never appeared on stderr within %s\nstdout:\n%s\nstderr:\n%s",
+		want, sshWait, term.out.String(), term.err.String())
+}
+
 // waitEnded blocks until the session is over and returns its error.
 func (term *terminal) waitEnded() error {
 	term.t.Helper()
@@ -339,7 +364,11 @@ func (term *terminal) quit() {
 // surface exposes. Everything the listener does NOT declare is true today by
 // omission, so each omission is asserted here against a real listener.
 func TestSSHOffersTheTerminalInterfaceAndNothingElse(t *testing.T) {
-	t.Run("a command is not executed, the interface opens instead", func(t *testing.T) {
+	// The command a client sends now names a project to open, so the listener
+	// reads it rather than ignoring it. What it must never do is run it, and
+	// that is what these two assert: one for a command that cannot be a
+	// project key, one for a command that can.
+	t.Run("a shell command is not executed, the session is refused", func(t *testing.T) {
 		h := newSSHHarness(t, true)
 		sentinel := filepath.Join(t.TempDir(), "executed")
 		client := dialSSH(t, h.addr, newSigner(t), sshd.NeutralUser)
@@ -348,13 +377,25 @@ func TestSSHOffersTheTerminalInterfaceAndNothingElse(t *testing.T) {
 		// added later would run this through a shell and leave the file
 		// behind, whatever it chose to print.
 		term := openTerminal(t, client, "touch "+sentinel)
-		term.waitFor(demoBoardMarker)
+		term.waitForStderr("not a shell")
 		if _, err := os.Stat(sentinel); !errors.Is(err, fs.ErrNotExist) {
 			t.Fatalf("the command passed to ssh ran: %q exists (%v)", sentinel, err)
 		}
 		if got := term.out.String(); strings.Contains(got, "touch "+sentinel) {
 			t.Errorf("the session echoed the command back:\n%s", got)
 		}
+	})
+
+	t.Run("a command shaped like a project key opens the interface", func(t *testing.T) {
+		h := newSSHHarness(t, true)
+		client := dialSSH(t, h.addr, newSigner(t), sshd.NeutralUser)
+
+		// "ls" is a project key by shape, so it is read as one. No such
+		// project exists, which the interface says; nothing is executed, which
+		// is the point. A client reaching for a shell with a single word gets
+		// the interface rather than a closed connection.
+		term := openTerminal(t, client, "ls")
+		term.waitFor(demoBoardMarker)
 		term.quit()
 	})
 

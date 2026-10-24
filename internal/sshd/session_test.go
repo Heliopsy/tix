@@ -106,8 +106,59 @@ func TestASessionLandsWhereItsModeHasABoard(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			s := &Server{opts: Options{Demo: tc.demo}}
-			if got := s.openProject(); got != tc.want {
-				t.Fatalf("openProject() = %q, want %q", got, tc.want)
+			got, err := s.openProject(nil)
+			if err != nil {
+				t.Fatalf("openProject(nil) = %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("openProject(nil) = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestASessionCanNameTheBoardItWants covers the argument that used to be read
+// off the wire and dropped. A client naming a board got the project list and
+// no word about why, and over ssh there is no flag to pass instead, so this
+// was the only way to say it and it did nothing.
+func TestASessionCanNameTheBoardItWants(t *testing.T) {
+	for _, demo := range []bool{false, true} {
+		s := &Server{opts: Options{Demo: demo}}
+		got, err := s.openProject([]string{"infra"})
+		if err != nil {
+			t.Fatalf("demo=%v: openProject([infra]) = %v", demo, err)
+		}
+		if got != "infra" {
+			t.Errorf("demo=%v: openProject([infra]) = %q, want %q", demo, got, "infra")
+		}
+	}
+}
+
+// TestNamingSomethingThatIsNotABoardIsRefused keeps two different wrong things
+// apart. A key that is merely unknown belongs to the interface, which answers
+// it against the projects this actor can reach; a key that could not name a
+// board at all, or a command line that is reaching for a shell, is refused
+// before a session is built.
+func TestNamingSomethingThatIsNotABoardIsRefused(t *testing.T) {
+	tests := []struct {
+		name    string
+		command []string
+	}{
+		{"an empty argument", []string{""}},
+		{"a path", []string{"../../etc/passwd"}},
+		{"a control character", []string{"infra\r\n"}},
+		{"longer than a key may be", []string{strings.Repeat("a", 65)}},
+		{"reaching for a shell", []string{"ls", "-la"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &Server{opts: Options{}}
+			got, err := s.openProject(tc.command)
+			if err == nil {
+				t.Fatalf("openProject(%q) = %q, want an error", tc.command, got)
+			}
+			if got != "" {
+				t.Errorf("openProject(%q) = %q alongside its error, want no board", tc.command, got)
 			}
 		})
 	}
