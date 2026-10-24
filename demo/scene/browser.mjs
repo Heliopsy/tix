@@ -20,6 +20,16 @@ const READY = process.env.SCENE_READY || "/tmp/signed-in";
 const GO = process.env.SCENE_GO || "/tmp/rolling";
 const EPIC_FILE = process.env.SCENE_EPIC_FILE || "/tmp/epic.ref";
 const PASSWORD = process.env.DEMO_PASSWORD || "tix-demo-password";
+
+// How fast the person in the recording types, in milliseconds per character.
+//
+// The body of the epic was going in at 14ms, which is about 70 characters a
+// second: faster than anybody reads, and the take is then sped up again on
+// encode, so the one thing the viewer most needs to read went past unread.
+// These are deliberately slower than real typing. The recording is not a
+// speed test, and the words are the point of the beat.
+const TYPE = Number(process.env.SCENE_TYPE_DELAY || 55);
+const TYPE_BODY = Number(process.env.SCENE_TYPE_BODY_DELAY || 30);
 const BASE = "http://127.0.0.1:8080";
 
 
@@ -99,9 +109,9 @@ async function main() {
   await page.goto(`${BASE}/projects`, { waitUntil: "domcontentloaded" });
   await sleep(900);
   const newProject = page.locator('form[action="/projects"]').first();
-  await newProject.locator("input[name=key]").pressSequentially(PROJECT_KEY, { delay: 60 });
+  await newProject.locator("input[name=key]").pressSequentially(PROJECT_KEY, { delay: TYPE });
   await sleep(250);
-  await newProject.locator("input[name=name]").pressSequentially(PROJECT_NAME, { delay: 55 });
+  await newProject.locator("input[name=name]").pressSequentially(PROJECT_NAME, { delay: TYPE });
   await sleep(500);
   await newProject.locator("button[type=submit]").first().click();
   await page.waitForLoadState("domcontentloaded");
@@ -117,11 +127,13 @@ async function main() {
   await sleep(300);
   const field = form.locator("input[name=title]");
   await field.click();
-  await field.pressSequentially(EPIC_TITLE, { delay: 42 });
-  await sleep(400);
+  await field.pressSequentially(EPIC_TITLE, { delay: TYPE });
+  // A beat on the finished line before it is submitted, and another after, so
+  // the title can be read rather than glimpsed.
+  await sleep(1400);
   await field.press("Enter");
   await page.waitForLoadState("domcontentloaded");
-  await sleep(900);
+  await sleep(1600);
 
   // The ref is in the url the quick-add landed on, and the scene needs it to
   // tell the planner which task to break down.
@@ -131,14 +143,17 @@ async function main() {
   const body = page.locator("textarea[name=body]").first();
   if (await body.count()) {
     await body.click();
-    await body.pressSequentially(EPIC_BODY, { delay: 14 });
-    await sleep(400);
+    await body.pressSequentially(EPIC_BODY, { delay: TYPE_BODY });
+    // The longest dwell in the scene. This paragraph is the assignment the
+    // agent is about to break down, and everything after it only makes sense
+    // to somebody who read it.
+    await sleep(2600);
     const save = page.locator('form:has(textarea[name=body]) button[type=submit]').first();
     if (await save.count()) {
       await save.click();
       await page.waitForLoadState("domcontentloaded");
     }
-    await sleep(900);
+    await sleep(2200);
   }
 
   // Land on the board, because the board is what the viewer watches repaint

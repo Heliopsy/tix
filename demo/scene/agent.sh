@@ -74,8 +74,13 @@ Do not ask questions; if a task is ambiguous, pick the obvious reading and say
 which you picked.
 PROMPT_END
 
+# Streamed, not buffered. See demo/scene/stream.jq for why: `claude -p` holds
+# its narration until the run ends, which leaves the pane blank while the
+# agent works and prints a paragraph after it has stopped.
 claude -p "$PROMPT" \
   --allowedTools 'Bash(tix:*)' 'Bash(ls:*)' 'Bash(cat:*)' 'Bash(python3:*)' Write Edit Read \
-  --permission-mode acceptEdits
+  --permission-mode acceptEdits \
+  --output-format stream-json --include-partial-messages --verbose \
+  2>/dev/null | jq -j --unbuffered -f "$(dirname "$0")/stream.jq"
 
 printf '\n  %s: nothing left to take\n' "$AGENT"
