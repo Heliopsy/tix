@@ -110,6 +110,9 @@ jobs:
       - name: stream filter guard
         run: just streamtest
 
+      - name: scene syntax
+        run: just scenecheck
+
       - name: hadolint
         run: just hadolint
 

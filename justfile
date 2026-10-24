@@ -287,6 +287,11 @@ hadolint: (tool "hadolint" "Containerfile" "Containerfile.ci")
 # be pointed at an older revision and watched to fail.
 streamtest:
     @bash demo/scene/stream_test.sh
+# The scene's JavaScript half. shellcheck covers its shell scripts and
+# streamtest covers its jq filter, but browser.mjs is baked into the demo image
+# and first parsed mid-take, so a syntax error in it surfaces as a lost
+# recording. jstest covers internal/web/jstest only and never looks here.
+scenecheck: (tool "node" "--check" "demo/scene/browser.mjs")
 yamllint: (tool "yamllint" ".")
 # Two passes: specs are prose and exempt from line length, everything else is not.
 #
@@ -913,10 +918,10 @@ release-dry: (tool "goreleaser" "build" "--snapshot" "--clean")
 # ---------------------------------------------------------------- aggregates
 
 # Fast pre-push gate set. Run this before every commit.
-check: fmt-check vet tidy-check lint mdlint yamllint actionlint shellcheck streamtest test smoke jstest spec docs-check
+check: fmt-check vet tidy-check lint mdlint yamllint actionlint shellcheck streamtest scenecheck test smoke jstest spec docs-check
 
 # The entire CI suite, locally, in containers. Matches what GitHub runs.
-ci: tidy-check fmt-check vet lint build test-postgres cover-check smoke jstest streamtest sec vuln secrets trivy actionlint hadolint yamllint mdlint spec docs-check release-dry image-gate
+ci: tidy-check fmt-check vet lint build test-postgres cover-check smoke jstest streamtest scenecheck sec vuln secrets trivy actionlint hadolint yamllint mdlint spec docs-check release-dry image-gate
     @echo ""
     @echo "all CI gates passed"
 

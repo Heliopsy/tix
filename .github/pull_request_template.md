@@ -5,7 +5,7 @@
 ## Spec
 
 - [ ] Behaviour change is reflected in `openspec/` (or this PR changes no behaviour)
-- [ ] `openspec validate tix-v1 --strict` passes
+- [ ] `just spec` passes
 - [ ] Relevant tasks ticked in `tasks.md`
 
 ## Checks
