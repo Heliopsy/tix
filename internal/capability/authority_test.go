@@ -15,6 +15,7 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/web"
 )
 
 // scopeVariesByInput names the operations whose required scope is decided by
@@ -167,4 +168,27 @@ func scopelessService(t *testing.T) core.Service {
 		t.Fatalf("migrating: %v", err)
 	}
 	return service.New(st, service.WithClock(clk), service.WithHooks(service.HookOff))
+}
+
+// TestEveryAdvancedScreenIsOfferedToWhoeverCanUseIt reads the navigation's own
+// scope list against the registry rather than against a list kept by hand.
+//
+// web.advancedPaths names the screens the Configure and Data groups lead to,
+// and web.advancedScopes decides who is shown those groups. The two have to
+// agree, or the navigation denies a screen its reader is standing on:
+// /workflows is gated on workflow:read, which the scope list did not hold, so
+// a member with that scope and nothing else opened the screen and was served
+// the collapsed navigation.
+func TestEveryAdvancedScreenIsOfferedToWhoeverCanUseIt(t *testing.T) {
+	t.Parallel()
+	for _, c := range capability.Operations() {
+		if c.Web.Zero() || c.Scope == "" || !web.OnAdvancedPath(c.Web.Pattern) {
+			continue
+		}
+		if !web.AdvancedNavigation(c.Scope) {
+			t.Errorf("%s is served at %s, which only the advanced navigation leads to, "+
+				"but holding %s does not show that navigation",
+				c.Name, c.Web.Pattern, c.Scope)
+		}
+	}
 }

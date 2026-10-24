@@ -32,6 +32,36 @@ listing is narrowed and SHALL offer a single control that shows everything.
   the built-in name
 - **THEN** that state is still excluded from the default listing
 
+#### Scenario: Paging through everything
+
+- **WHEN** a reader who has asked for finished work follows the next-page
+  control
+- **THEN** the following page still lists finished work, because the position
+  it addresses was walked over that same set
+
+#### Scenario: Following the control from a listing the reader built
+
+- **WHEN** a reader follows the control from a listing carrying a sort, a page
+  size or a deadline window
+- **THEN** the listing of everything keeps all three
+
+### Requirement: The board is not narrowed to the open states
+
+The board view SHALL draw every state its workflow declares, terminal states
+included, whatever the list view's default is. Its columns are the workflow,
+so a default that empties the terminal ones removes the only place a finished
+card can be drawn.
+
+#### Scenario: Finishing a card
+
+- **WHEN** a reader on the board moves a card into a terminal state
+- **THEN** the card is drawn in that state's column
+
+#### Scenario: The board says nothing about a narrowing that did not happen
+
+- **WHEN** a reader opens the board without asking for a filter
+- **THEN** the screen does not report the listing as open work only
+
 ### Requirement: A finished task carries no deadline
 
 A task in a terminal state SHALL NOT be drawn as overdue or due soon on any
@@ -57,3 +87,9 @@ holding a scope that makes at least one screen in them reachable.
 - **WHEN** a reader without any administration scope requests one of those
   screens and is refused
 - **THEN** the refusal page does not offer the administration navigation
+
+#### Scenario: A reader who can use one of those screens
+
+- **WHEN** a reader holding the scope one of those screens is gated on, and no
+  other administration scope, opens that screen
+- **THEN** the page offers the navigation group the screen belongs to

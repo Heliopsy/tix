@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -371,8 +372,9 @@ var advancedPaths = []string{
 	RouteWorkflows, RouteTransfer, RouteBundles, RouteSync, "/admin/",
 }
 
-// onAdvancedPath reports whether this request is for one of those screens.
-func onAdvancedPath(path string) bool {
+// OnAdvancedPath reports whether a path is one of the screens the Configure
+// and Data navigation groups lead to.
+func OnAdvancedPath(path string) bool {
 	for _, prefix := range advancedPaths {
 		if path == prefix || strings.HasPrefix(path, strings.TrimSuffix(prefix, "/")+"/") {
 			return true
@@ -402,7 +404,7 @@ func advancedMode(r *http.Request) bool {
 	// /admin/users was served the full administration navigation, every entry
 	// of which would refuse them too: nine links to nine refusals, which is
 	// exactly what the paragraph above says is worse than no entry.
-	if onAdvancedPath(r.URL.Path) && holdsAnyAdminScope(actor) {
+	if OnAdvancedPath(r.URL.Path) && holdsAnyAdminScope(actor) {
 		return true
 	}
 	switch advancedChoiceOf(r) {
@@ -417,10 +419,22 @@ func advancedMode(r *http.Request) bool {
 // advancedScopes are the scopes that make at least one screen in the
 // configuration and data groups reachable. Holding none of them means every
 // entry in those groups ends in a refusal.
+//
+// workflow:read is in the list because it is the scope the workflow screens
+// are gated on, and it was not: a reader holding it opened /workflows
+// successfully and was handed the collapsed navigation, which is the
+// invariant above read backwards.
 var advancedScopes = []core.Scope{
 	core.ScopeTenantAdmin, core.ScopeUserAdmin, core.ScopeTokenAdmin,
 	core.ScopeTOTPAdmin, core.ScopeWebhookAdmin, core.ScopeSyncAdmin,
-	core.ScopeWorkflowWrite, core.ScopeAuditRead, core.ScopeExport, core.ScopeImport,
+	core.ScopeWorkflowRead, core.ScopeWorkflowWrite, core.ScopeAuditRead,
+	core.ScopeExport, core.ScopeImport,
+}
+
+// AdvancedNavigation reports whether holding one scope reaches any screen in
+// the configuration and data groups, and so is shown their navigation.
+func AdvancedNavigation(scope core.Scope) bool {
+	return slices.Contains(advancedScopes, scope)
 }
 
 // holdsAnyAdminScope reports whether this reader can reach any of them.

@@ -35,6 +35,21 @@ already written down was not the rule in force:
   they typed.
 - A monogram is made of letters.
 
+A follow-up pass found the default being dropped by three of the listing's own
+links, and the navigation fix stopping one scope short:
+
+- The next-page control did not carry the request for finished work, so page
+  two narrowed itself while still addressing a position in the unnarrowed
+  walk, and the rows between were skipped with nothing on screen saying so.
+- The board was handed the narrowed filter, so its terminal columns could hold
+  no card and finishing one removed it from the board.
+- The way off the default was written out as a fixed address, so following it
+  dropped the reader's sort and page size.
+- /workflows is gated on workflow:read, which the navigation's scope list did
+  not hold, so a reader with that scope opened the screen and was handed the
+  navigation that denies it exists. The list is now read against the
+  capability registry rather than kept by hand.
+
 ## Impact
 
 Affected specs: `web-ui`.
