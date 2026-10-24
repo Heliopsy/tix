@@ -235,12 +235,24 @@ func TestTheTaskListSummaryCountsWhatIsLeftAndWhatIsDone(t *testing.T) {
 	_ = done.Body.Close()
 	wantStatus(t, done, http.StatusSeeOther)
 
+	// By default the list shows open work, so the page genuinely holds no
+	// finished tasks and the summary has none to count. It says so, and
+	// offers the way to see them.
 	summary := between(t, b.page("/tasks"), `class="lede summary"`, "</p>")
 	if !strings.Contains(summary, "<strong>3</strong> to go") {
 		t.Errorf("the summary does not count what is left:\n%s", summary)
 	}
-	if !strings.Contains(summary, ", 1 done") {
-		t.Errorf("the summary does not count what is finished:\n%s", summary)
+	if !strings.Contains(summary, "open work only") || !strings.Contains(summary, "all=1") {
+		t.Errorf("the narrowed list does not say so, or offers no way off:\n%s", summary)
+	}
+
+	// With finished work asked for, the count is of both again.
+	all := between(t, b.page("/tasks?all=1"), `class="lede summary"`, "</p>")
+	if !strings.Contains(all, "<strong>3</strong> to go") {
+		t.Errorf("the summary does not count what is left:\n%s", all)
+	}
+	if !strings.Contains(all, ", 1 done") {
+		t.Errorf("the summary does not count what is finished:\n%s", all)
 	}
 	if strings.Contains(summary, "All clear") {
 		t.Errorf("a list with open work reads as finished:\n%s", summary)
@@ -259,9 +271,20 @@ func TestATaskListWithNothingLeftReadsAsFinished(t *testing.T) {
 	_ = done.Body.Close()
 	wantStatus(t, done, http.StatusSeeOther)
 
+	// The default hides finished work, so this list is empty. "Nothing on the
+	// list" would read as a project with nothing in it, which is not the case.
 	summary := between(t, b.page("/tasks"), `class="lede summary"`, "</p>")
-	if !strings.Contains(summary, "All clear") {
-		t.Errorf("a list with nothing left does not say so:\n%s", summary)
+	if !strings.Contains(summary, "Nothing open") {
+		t.Errorf("a list with nothing left open does not say so:\n%s", summary)
+	}
+	if strings.Contains(summary, "Nothing on the list") {
+		t.Errorf("a project whose work is finished reads as a project with no work:\n%s", summary)
+	}
+
+	// Asked for everything, it is the finished-work message.
+	all := between(t, b.page("/tasks?all=1"), `class="lede summary"`, "</p>")
+	if !strings.Contains(all, "All clear") {
+		t.Errorf("a list with nothing left does not say so:\n%s", all)
 	}
 }
 

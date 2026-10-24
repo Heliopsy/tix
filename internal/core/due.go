@@ -59,4 +59,19 @@ func (d DueState) String() string {
 }
 
 // DueState classifies this task's deadline against now.
-func (t Task) DueState(now time.Time) DueState { return DueStateOf(t.DueAt, now) }
+//
+// A finished task has no deadline left to miss. Without this every done task
+// that was ever late kept a red "overdue" badge for the rest of its life, so a
+// list of closed work came up almost entirely red and the badge stopped
+// meaning "needs attention" anywhere it appeared.
+//
+// CompletedAt is the signal rather than the status string, because terminality
+// is a property of the tenant's workflow and not of the five built-in names:
+// the service sets it on any transition into a terminal state and clears it
+// when a task is reopened.
+func (t Task) DueState(now time.Time) DueState {
+	if t.CompletedAt != nil {
+		return DueNone
+	}
+	return DueStateOf(t.DueAt, now)
+}

@@ -395,7 +395,14 @@ func onAdvancedPath(path string) bool {
 // The preference still decides whenever it has been set, in either direction,
 // so an administrator who wants the shorter navigation gets it and keeps it.
 func advancedMode(r *http.Request) bool {
-	if onAdvancedPath(r.URL.Path) {
+	actor, _ := core.ActorFrom(r.Context())
+
+	// The path shortcut is for somebody who can use these screens, not for
+	// anybody who typed the URL. It used to come first, so a member refused at
+	// /admin/users was served the full administration navigation, every entry
+	// of which would refuse them too: nine links to nine refusals, which is
+	// exactly what the paragraph above says is worse than no entry.
+	if onAdvancedPath(r.URL.Path) && holdsAnyAdminScope(actor) {
 		return true
 	}
 	switch advancedChoiceOf(r) {
@@ -404,8 +411,29 @@ func advancedMode(r *http.Request) bool {
 	case advancedOff:
 		return false
 	}
-	actor, ok := core.ActorFrom(r.Context())
-	return ok && actor != nil && actor.HasScope(core.ScopeTenantAdmin)
+	return actor != nil && actor.HasScope(core.ScopeTenantAdmin)
+}
+
+// advancedScopes are the scopes that make at least one screen in the
+// configuration and data groups reachable. Holding none of them means every
+// entry in those groups ends in a refusal.
+var advancedScopes = []core.Scope{
+	core.ScopeTenantAdmin, core.ScopeUserAdmin, core.ScopeTokenAdmin,
+	core.ScopeTOTPAdmin, core.ScopeWebhookAdmin, core.ScopeSyncAdmin,
+	core.ScopeWorkflowWrite, core.ScopeAuditRead, core.ScopeExport, core.ScopeImport,
+}
+
+// holdsAnyAdminScope reports whether this reader can reach any of them.
+func holdsAnyAdminScope(actor *core.Actor) bool {
+	if actor == nil {
+		return false
+	}
+	for _, scope := range advancedScopes {
+		if actor.HasScope(scope) {
+			return true
+		}
+	}
+	return false
 }
 
 // DragMoveCookie remembers whether this browser wants drag-and-drop on the

@@ -3,6 +3,7 @@
 package web
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"time"
@@ -14,6 +15,12 @@ import (
 // the filter language's own due: windows, so a link a reader shares and a
 // filter they type say the same thing.
 const DueParam = "due"
+
+// AllParam turns off the open-work default, so the listing shows finished
+// tasks too. It is a parameter of its own rather than a filter expression
+// because "everything" is not a term the filter language has, and writing one
+// in to mean it would put a rule in the box that the reader did not type.
+const AllParam = "all"
 
 // priorityChoice is one option of the priority control.
 type priorityChoice struct {
@@ -115,6 +122,12 @@ type tasksView struct {
 	Hidden   int
 	Filtered bool
 	Empty    bool
+
+	// OpenOnly is set when nothing was asked for and the listing was narrowed
+	// to unfinished work. It is surfaced with a way to turn it off, because a
+	// list that quietly shows a subset is worse than one that shows the wrong
+	// thing: the reader cannot tell which they are looking at.
+	OpenOnly bool
 }
 
 // filterFault reports whether an error is the filter expression's fault.
@@ -241,6 +254,27 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 		}
 		refused, filter = safeMessage(err, core.KindOf(err)), core.TaskFilter{}
 	}
+	// With nothing asked for, show work that is still open.
+	//
+	// The default sort is urgency, which is priority then due date and never
+	// looks at status, so a tenant with any history opened this screen on its
+	// finished tasks: in the seeded fixture, twenty-one of the first
+	// twenty-five rows were closed. The first screen of a task tracker should
+	// be the work.
+	//
+	// The statuses come from the tenant's own workflows rather than from the
+	// five built-in names, because terminality is a property of the workflow:
+	// a tenant that renamed done to shipped must not have its listing silently
+	// stop narrowing.
+	openOnly := false
+	showAll := query.Get(AllParam) != ""
+	if !showAll && strings.TrimSpace(expression) == "" && len(filter.Statuses) == 0 {
+		if open, err := h.unfinishedStatuses(r.Context()); err == nil && len(open) > 0 {
+			filter.Statuses = open
+			openOnly = true
+		}
+	}
+
 	filter.Page = core.Page{
 		Cursor:    query.Get(CursorParam),
 		Sort:      query.Get("sort"),
@@ -322,6 +356,7 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 		Board:         board,
 		Hidden:        hidden,
 		Filtered:      filtered && hidden > 0,
+		OpenOnly:      openOnly,
 		Empty:         hidden > 0 && hidden == len(prefs.Projects.Choices),
 		Live:          h.liveTasks(r),
 	}, nil
@@ -529,4 +564,26 @@ func walkBack(prev map[string]string, from, to string) []string {
 		out[i], out[j] = out[j], out[i]
 	}
 	return out
+}
+
+// unfinishedStatuses is every state this tenant's workflows do not treat as
+// terminal. It is the union across workflows, because one listing spans
+// projects that may each run a different one.
+func (h *handler) unfinishedStatuses(ctx context.Context) ([]string, error) {
+	flows, err := h.svc.ListWorkflows(ctx)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, flow := range flows {
+		for _, state := range flow.Definition.States {
+			if state.Terminal || seen[state.Key] {
+				continue
+			}
+			seen[state.Key] = true
+			out = append(out, state.Key)
+		}
+	}
+	return out, nil
 }

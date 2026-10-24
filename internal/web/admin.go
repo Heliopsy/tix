@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/heliopsy/tix/internal/core"
 )
@@ -348,16 +349,31 @@ func (u userRow) Label() string { return userLabel(u.User) }
 
 // Monogram is the one or two letters the avatar shows, taken from whatever
 // the row is called so it changes with the name rather than with the id.
-func (u userRow) Monogram() string {
-	label := strings.TrimSpace(u.Label())
+func (u userRow) Monogram() string { return monogramOf(u.Label()) }
+
+// monogramOf is the rule itself, so a test can read it without rendering a
+// page and seeding a user to carry each shape of name.
+func monogramOf(raw string) string {
+	label := strings.TrimSpace(raw)
 	if label == "" {
 		return "?"
 	}
-	fields := strings.Fields(label)
-	if len(fields) > 1 {
-		return strings.ToUpper(firstRune(fields[0]) + firstRune(fields[1]))
+	// Only letters count toward the pair. The seeded agents are called things
+	// like "Atlas (build agent)", and taking the first rune of the second word
+	// drew the avatar as "A(". A bracket is not an initial.
+	var initials []string
+	for _, field := range strings.Fields(label) {
+		if r := firstLetter(field); r != "" {
+			initials = append(initials, r)
+			if len(initials) == 2 {
+				break
+			}
+		}
 	}
-	return strings.ToUpper(firstRune(label))
+	if len(initials) == 0 {
+		return strings.ToUpper(firstRune(label))
+	}
+	return strings.ToUpper(strings.Join(initials, ""))
 }
 
 // firstRune is a string's first character, which is not its first byte: a
@@ -830,4 +846,15 @@ func (h *handler) revokeSSHKey(w http.ResponseWriter, r *http.Request) error {
 	}
 	redirect(w, r, RouteSSHKeys, "key revoked")
 	return nil
+}
+
+// firstLetter returns the first letter or digit of s, or empty if it holds
+// neither. An email local part counts, so "ada@example.com" still gives "A".
+func firstLetter(s string) string {
+	for _, r := range s {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return string(r)
+		}
+	}
+	return ""
 }
