@@ -136,8 +136,9 @@ async function main() {
   await sleep(1600);
 
   // The ref is in the url the quick-add landed on, and the scene needs it to
-  // tell the planner which task to break down.
-  const ref = page.url().split("/").filter(Boolean).pop();
+  // tell the planner which task to break down. The redirect carries a ?flash=
+  // query string, so the path is parsed rather than the whole url split.
+  const ref = new URL(page.url()).pathname.split("/").filter(Boolean).pop();
   writeFileSync(EPIC_FILE, `${ref}\n`);
 
   const body = page.locator("textarea[name=body]").first();

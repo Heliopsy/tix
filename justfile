@@ -1006,8 +1006,16 @@ demo-record-here: demo-image
     ( umask 077
       mkdir -p "$work/.claude"
       cp "$HOME/.claude/.credentials.json" "$work/.claude/.credentials.json"
-      [ -f "$HOME/.claude.json" ] && cp "$HOME/.claude.json" "$work/.claude.json" || true
+      if [ -f "$HOME/.claude.json" ]; then cp "$HOME/.claude.json" "$work/.claude.json"; fi
     )
+    # ~/.claude.json is optional, and the copy above is conditional on it. An
+    # unconditional -v on a path that was never copied makes podman create the
+    # source as a DIRECTORY and bind-mount it over the file Claude Code reads,
+    # which fails inside the container after the build and the copy have run.
+    mounts=()
+    if [ -f "$work/.claude.json" ]; then
+      mounts+=(-v "$work/.claude.json:/home/demo/.claude.json:Z")
+    fi
     mkdir -p {{demo_out}}
     rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log
     {{engine}} run --rm \
@@ -1015,7 +1023,7 @@ demo-record-here: demo-image
       --hostname tix-demo \
       --shm-size 512m \
       -v "$work/.claude:/home/demo/.claude:Z" \
-      -v "$work/.claude.json:/home/demo/.claude.json:Z" \
+      ${mounts[@]+"${mounts[@]}"} \
       -v "$PWD/{{demo_out}}:/out:Z" \
       {{demo_image}}
     echo
@@ -1027,7 +1035,7 @@ demo-record-here: demo-image
 # would put these windows on your desktop, which is worse in both directions:
 # the host window manager would place them, and a capture of the display would
 # be a capture of your screen.
-demo-watch ENVFILE:
+demo-watch ENVFILE: demo-image
     #!/usr/bin/env bash
     set -euo pipefail
     [ -f "{{ENVFILE}}" ] || { echo "no env file at {{ENVFILE}}" >&2; exit 1; }
