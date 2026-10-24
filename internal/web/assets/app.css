@@ -274,6 +274,21 @@ a { color: var(--accent); }
   margin-bottom: 8px;
 }
 
+/* A board is read sideways, and the 1100px that suits a column of prose fits
+   exactly four of its 230px tracks: a five state workflow wrapped Done and
+   Cancelled onto a second row on a 1920px display, with most of the window
+   left empty beside them. So a screen that holds a board is given the width
+   its states need, and every other screen keeps the measure that makes text
+   readable.
+
+   Keyed off the board itself rather than off a flag on the page, so it cannot
+   drift: there is no list of board routes to keep in step, and a new screen
+   that renders a board is wide the day it is written. Below this width the
+   cap is doing no work anyway, since the viewport is the smaller limit. */
+@media (min-width: 1200px) {
+  .wrap:has(.board) { max-width: 1480px; }
+}
+
 /* A merged board carries one column per state of the workflow its projects
    share, and is read at the widths a single project's board was designed for.
    The track minimum is narrower so more columns fit a row before the grid

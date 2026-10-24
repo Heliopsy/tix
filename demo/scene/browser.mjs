@@ -48,6 +48,8 @@ const BASE = "http://127.0.0.1:8080";
 // happens in them. That separation is what makes the recording honest: every
 // task the agent closes is a task the viewer just watched being written.
 const PROJECT_KEY = process.env.SCENE_PROJECT || "links";
+const PROJECT_COLOR = process.env.SCENE_PROJECT_COLOR || "violet";
+const PROJECT_ICON = process.env.SCENE_PROJECT_ICON || "\u{1F517}";
 const PROJECT_NAME = process.env.SCENE_PROJECT_NAME || "Link shortener";
 
 // One task, deliberately too big for one sitting.
@@ -117,6 +119,14 @@ async function main() {
   await newProject.locator("input[name=key]").pressSequentially(PROJECT_KEY, { delay: TYPE });
   await sleep(250);
   await newProject.locator("input[name=name]").pressSequentially(PROJECT_NAME, { delay: TYPE });
+  await sleep(400);
+  // A colour and an icon, because the fixture's projects have them and a
+  // project made on camera that does not looks like a lesser kind of project.
+  // They also carry through to the terminal board and the project list, which
+  // are otherwise five columns of the same grey.
+  await newProject.locator("select[name=color]").selectOption(PROJECT_COLOR).catch(() => {});
+  await sleep(350);
+  await newProject.locator("input[name=icon]").pressSequentially(PROJECT_ICON, { delay: TYPE }).catch(() => {});
   await sleep(500);
   await newProject.locator("button[type=submit]").first().click();
   await page.waitForLoadState("domcontentloaded");
@@ -205,13 +215,18 @@ async function main() {
   // excluded here by its own ref, and the board ends with the epic still open
   // above a column of finished subtasks and one parked on a question, which is
   // what actually happened.
-  let scrolled = false;
+  // Drained and scrolled are two different things, and the marker belongs to
+  // the first. The board is full width now, so all five columns sit in one row
+  // and Done needs no scrolling to be on camera; if a longer backlog ever
+  // pushes it under the fold again, the scroll still happens, but the scene no
+  // longer waits on it having been necessary.
+  let drained = false;
 
   for (;;) {
     await sleep(2000);
     try {
-      if (!scrolled) {
-        scrolled = await page.evaluate((epic) => {
+      if (!drained) {
+        drained = await page.evaluate((epic) => {
           const count = (state) =>
             document.querySelectorAll(
               `#project-board .column[data-state="${state}"] .card:not([data-task="${epic}"])`,
@@ -221,13 +236,20 @@ async function main() {
           if (count("todo") > 0 || count("doing") > 0) return false;
           // start, not center. The Done column is taller than the viewport
           // once it holds six cards, so centring it put the "Done" heading
-          // above the fold and the take ended on an unlabelled column of
-          // cards: the board was showing the payoff without saying what it
-          // was. start pins the heading to the top with the cards under it.
-          done.scrollIntoView({ behavior: "smooth", block: "start" });
+          // above the fold and a take ended on an unlabelled column of cards:
+          // the board was showing the payoff without saying what it was.
+          // start pins the heading to the top with the cards under it.
+          //
+          // Only when it is actually out of view. On the full width layout it
+          // is not, and scrolling a board that is already showing everything
+          // is movement the viewer has to account for and learns nothing from.
+          const box = done.getBoundingClientRect();
+          if (box.top < 0 || box.top > window.innerHeight * 0.6) {
+            done.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
           return true;
         }, ref);
-        if (scrolled) {
+        if (drained) {
           console.log("[browser] backlog empty, holding on Done");
           writeFileSync(DRAINED, "drained\n");
         }

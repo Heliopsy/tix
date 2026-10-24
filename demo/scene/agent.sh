@@ -100,8 +100,10 @@ PROMPT_END
 # The width is fixed rather than read from the terminal. tput cols answers for
 # the pane as it is when this starts, and the pane is split in half a moment
 # later, so the folded lines came out wider than the pane and the terminal
-# hard-wrapped them mid-word again: "stora / ge", "wi / th". 50 is what each
-# half of the 110 column window is worth.
+# hard-wrapped them mid-word again: "stora / ge", "wi / th". The scene sets
+# SCENE_FOLD from the layout it built, because the number is a property of the
+# pane and not of this script: 50 was half of a 110 column window, and the
+# agents now get a third of a full width one.
 #
 # The comment belongs here and not inside the command below. A comment between
 # a line ending in a backslash and the line it continues splices into the
@@ -114,6 +116,6 @@ claude -p "$PROMPT" \
   --permission-mode acceptEdits \
   --output-format stream-json --include-partial-messages --verbose \
   2>>"${SCENE_AGENT_ERR:-/out/agent-$AGENT.err}" | jq -j --unbuffered -f "$(dirname "$0")/stream.jq" \
-  | stdbuf -o0 fold -s -w 50
+  | stdbuf -o0 fold -s -w "${SCENE_FOLD:-50}"
 
 printf '\n  %s: nothing left to take\n' "$AGENT"
