@@ -181,7 +181,10 @@ func TestTaskDependenciesAreNamedTheWayTheFieldAsksForThem(t *testing.T) {
 	_ = resp.Body.Close()
 
 	page := b.page("/tasks/" + subject)
-	deps := between(t, page, "<h3>Dependencies</h3>", "</ul>")
+	// Its own card, so its own h2: subtasks and dependencies used to share
+	// one card, with Dependencies set as an h3 inside it as though it were
+	// part of them.
+	deps := between(t, page, "<h2>Dependencies</h2>", "</ul>")
 	if deps == "" {
 		t.Fatalf("no dependency list on the task screen:\n%s", tail(page))
 	}
@@ -224,13 +227,16 @@ func TestStatisticsNamesItsCategoriesInWords(t *testing.T) {
 // "how many completed" is not satisfied by the count beside it.
 func statFigure(t *testing.T, page, caption string) string {
 	t.Helper()
-	for _, card := range strings.Split(page, `<div class="card">`)[1:] {
-		if !strings.Contains(card, `class="caption">`+caption+`<`) {
+	// The four figures are one row divided by a rule rather than four
+	// outlined cards: they measure the same window, so they are one group,
+	// and a border round each said the opposite.
+	for _, cell := range strings.Split(page, "<div>")[1:] {
+		if !strings.Contains(cell, `class="caption">`+caption+`<`) {
 			continue
 		}
-		return between(t, card, `<p class="figure">`, "</p>")
+		return between(t, cell, `<p class="figure">`, "</p>")
 	}
-	t.Fatalf("the statistics screen has no %q card:\n%s", caption, page)
+	t.Fatalf("the statistics screen has no %q figure:\n%s", caption, page)
 	return ""
 }
 

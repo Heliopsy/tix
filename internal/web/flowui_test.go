@@ -44,9 +44,15 @@ func TestTheStatusMenuIsNotClippedByTheListItSitsIn(t *testing.T) {
 	}
 	// The clipping ancestor is still there. That is the whole reason the
 	// panel may not be positioned inside it.
+	//
+	// It clips by scrolling now rather than by hiding: the list is a frame
+	// with its own scrollbar, so the rows move under a fixed heading and
+	// pager. A scroll container is a clipping container, so the guard holds
+	// either way, but it has to name both spellings or it silently stops
+	// measuring anything the first time the list is made scrollable.
 	sheet := body(t, f.as("alice").get("/assets/app.css"))
 	list := ruleBlock(t, sheet, "ul.tasklist {")
-	if !strings.Contains(list, "overflow: hidden") {
+	if !strings.Contains(list, "overflow: hidden") && !strings.Contains(list, "overflow-y: auto") {
 		t.Fatal("ul.tasklist no longer clips, so this guard is measuring nothing")
 	}
 	menu := ruleBlock(t, sheet, ".flowmenu {")
@@ -125,7 +131,13 @@ func TestTheDetailScreenOffersRoutesToo(t *testing.T) {
 	b := f.as("alice")
 	ref := b.createTask("infra", "detail routes")
 
-	control := between(t, b.page("/tasks/"+ref), `<select id="to"`, "</select>")
+	// The control is the same popover menu the list row carries, not the
+	// select it used to be: the screens offered the same moves through two
+	// different controls, so a reader learned the row menu and then found an
+	// inert pill and a card called "Move to" over here. What this guards is
+	// the parity, which is the routes, not the widget they arrive in.
+	page := b.page("/tasks/" + ref)
+	control := between(t, page, `id="flow-`+ref+`"`, "</div>")
 	if control == "" {
 		t.Fatal("the task screen offers no move control")
 	}

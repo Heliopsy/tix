@@ -279,7 +279,17 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 	openOnly := false
 	showAll := query.Get(AllParam) != ""
 	view := taskViewOf(r)
-	if !showAll && view != TaskViewBoard && strings.TrimSpace(expression) == "" && len(filter.Statuses) == 0 {
+	//
+	// Any filter that does not name a status gets the same narrowing, not just
+	// the empty one. Keying it on "the reader typed nothing" made every other
+	// filter mean something different from the screen it was reached from:
+	// the overdue badge is drawn only for work that can still miss its
+	// deadline, because a finished task has none, but pressing it asked for
+	// every task with a past due date and answered with twenty-one closed
+	// ones and four open. The badge and the filter used the same word for two
+	// different questions. A deadline, a tag or a priority is a question
+	// about work; "and the finished ones too" is what the All control is for.
+	if !showAll && view != TaskViewBoard && len(filter.Statuses) == 0 {
 		if open, err := h.unfinishedStatuses(r.Context()); err == nil && len(open) > 0 {
 			filter.Statuses = open
 			openOnly = true
@@ -460,6 +470,36 @@ func (h *handler) createTask(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	redirect(w, r, RouteTasks+"/"+task.Ref, "task created")
+	return nil
+}
+
+// setPriority changes one task's priority and nothing else.
+//
+// The listing offered a status menu and no way at all to change a priority:
+// the chip looked like every other attribute and the only route to editing it
+// was the whole task form on the task screen. A priority is a one-word
+// decision made while reading a list, which is where this now is.
+//
+// No version is submitted, so the update carries none and skips the
+// optimistic check. That is deliberate: a row has no version to show, and a
+// priority is not a field two readers race over the way a body is. The
+// transition menu beside it works the same way.
+func (h *handler) setPriority(w http.ResponseWriter, r *http.Request) error {
+	ref, err := taskRefOf(r)
+	if err != nil {
+		return err
+	}
+	priority, err := priorityField(r, "priority")
+	if err != nil {
+		return err
+	}
+	if priority == 0 {
+		return core.Invalid("no priority given")
+	}
+	if _, err := h.svc.UpdateTask(r.Context(), ref, core.UpdateTaskInput{Priority: &priority}); err != nil {
+		return err
+	}
+	h.afterTransition(w, r, ref, "priority is now "+priorityName(priority))
 	return nil
 }
 

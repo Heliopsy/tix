@@ -43,7 +43,6 @@ func TestDefaultColumnsRenderEveryListingUnchanged(t *testing.T) {
 		"/admin/tokens":   {"<th>Name</th>", "<th>Scopes</th>", "<th>Expires</th>"},
 		"/admin/webhooks": {"<th>URL</th>", "<th>Events</th>", "<th>Active</th>"},
 		"/admin/domains":  {"<th>Hostname</th>", "<th>Verified</th>", "<th>Certificate</th>"},
-		"/projects":       {"<th>Key</th>", "<th>Name</th>", "<th>Colour</th>", "<th>State</th>", "<th>Screens</th>"},
 	}
 	for path, wants := range headings {
 		page := b.page(path)
@@ -188,7 +187,9 @@ func TestColumnPickerWorksWithoutScripting(t *testing.T) {
 	f := newFixture(t)
 	b := f.as("alice")
 
-	for _, path := range []string{"/tasks", "/projects", "/admin/users", "/admin/tokens",
+	// /projects is not here: it is a row per project rather than a table, so
+	// it has no columns to choose between and offers no picker.
+	for _, path := range []string{"/tasks", "/admin/users", "/admin/tokens",
 		"/admin/webhooks", "/admin/domains"} {
 		page := b.page(path)
 		if !hasPlainForm(page, "/columns") {
@@ -200,11 +201,11 @@ func TestColumnPickerWorksWithoutScripting(t *testing.T) {
 	}
 
 	raw := b.postRaw("/columns", url.Values{"csrf_token": {b.csrf()},
-		"page": {"projects"}, "column": {"name"}, "next": {"/projects"}})
+		"page": {"tasks"}, "column": {"status"}, "next": {"/tasks"}})
 	defer func() { _ = raw.Body.Close() }()
 	wantStatus(t, raw, http.StatusSeeOther)
-	page := b.page("/projects")
-	if strings.Contains(page, "<th>Colour</th>") {
+	page := b.page("/tasks")
+	if strings.Contains(page, `class="pill status`) {
 		t.Fatalf("a plain form submission did not apply:\n%s", page)
 	}
 }

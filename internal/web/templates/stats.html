@@ -42,23 +42,14 @@
 <p class="muted short-projects">This picker does not list every project in this tenant, so a project missing from it cannot be chosen here. The figures below are unaffected.</p>
 {{end}}
 
-<section class="cards">
-  <div class="card">
-    <p class="figure">{{.Data.Stats.Completed}}</p>
-    <p class="caption">completed</p>
-  </div>
-  <div class="card">
-    <p class="figure">{{.Data.Stats.Created}}</p>
-    <p class="caption">created</p>
-  </div>
-  <div class="card">
-    <p class="figure">{{age .Data.Stats.MedianLeadTime}}</p>
-    <p class="caption">median lead time</p>
-  </div>
-  <div class="card">
-    <p class="figure">{{age .Data.Stats.SlowestLeadTime}}</p>
-    <p class="caption">slowest</p>
-  </div>
+{{/* Four figures on one line, divided by a rule rather than boxed in four
+     outlined rectangles. They are the same measure of the same window, so
+     they are one group, and drawing a border round each said the opposite. */}}
+<section class="figures">
+  <div><p class="figure">{{.Data.Stats.Completed}}</p><p class="caption">completed</p></div>
+  <div><p class="figure">{{.Data.Stats.Created}}</p><p class="caption">created</p></div>
+  <div><p class="figure">{{age .Data.Stats.MedianLeadTime}}</p><p class="caption">median lead time</p></div>
+  <div><p class="figure">{{age .Data.Stats.SlowestLeadTime}}</p><p class="caption">slowest</p></div>
 </section>
 
 <h2>Completed per day</h2>
@@ -66,37 +57,58 @@
 {{/* Bars are div widths. Six numbers do not justify a plotting library, which
      would be the largest dependency in the project and the only one that
      needed a build step. */}}
-<ul class="bars">
+{{/* Columns, left to right, because this is a series over time and time
+     runs across. It was one full width progress bar per day: a thousand
+     pixels of ink to say "one task", stacked six deep, which made the
+     smallest numbers on the page the largest objects on it. */}}
+<ol class="columns" aria-label="Tasks completed per day">
   {{$max := .Data.MaxDay}}
   {{range .Data.Stats.PerDay}}
-  <li>
-    <span class="bar-label">{{.Date}}</span>
-    <span class="bar-track">
-      <span class="bar-fill" style="width: {{percent .Completed $max}}%"></span>
-    </span>
-    <span class="bar-value">{{.Completed}}</span>
+  <li title="{{.Date}}: {{.Completed}} completed">
+    <span class="col-value">{{.Completed}}</span>
+    <span class="col-bar" style="height: {{percent .Completed $max}}%"></span>
+    {{/* The year is the same on every column of a fourteen day window, so
+         it is nine characters that cannot distinguish one bar from another
+         and were wide enough to collide with the bar beside them. The full
+         date stays in the title. */}}
+    <span class="col-label">{{slice .Date 5}}</span>
   </li>
   {{end}}
-</ul>
+</ol>
 {{else}}
 <p class="empty">Nothing was completed in this window.</p>
 {{end}}
 
 <h2>Where the work is</h2>
+{{/* A distribution drawn as one, not as a two column table. "11" beside "To
+     do" and "39" beside "Done" are numbers a reader has to compare in their
+     head; the whole question this section answers is which states the work
+     is piled up in, which is a shape rather than a list of figures.
+     The value stays what core, the store and every filter call it. Only the
+     words change, and only here: the screen read "in_progress" at a reader
+     because a Go constant had been printed straight onto it. */}}
 {{if .Data.Stats.ByCategory}}
-<table>
-  <thead><tr><th>Category</th><th class="num">Tasks</th></tr></thead>
-  <tbody>
-    {{range .Data.Stats.ByCategory}}
-    {{/* The value stays what core, the store and every filter call it. Only
-         the words change, and only here: the screen read "in_progress" at a
-         reader because a Go constant had been printed straight onto it. */}}
-    <tr><td title="{{.Category}}"><span class="cat {{categoryClass .Category}}">{{category .Category}}</span></td><td class="num">{{.Count}}</td></tr>
-    {{end}}
-  </tbody>
-</table>
+{{/* One bar, divided by state, with the counts in the key under it. Six
+     separate bars answered "how big is each" when the question is "how is
+     the work spread", and six rows of a near-full-width track for counts
+     between 0 and 39 was a great deal of ink for six small integers. */}}
+{{$total := .Data.TotalCategory}}
+<div class="split" role="img" aria-label="How the tasks are spread across states">
+  {{range .Data.Stats.ByCategory}}
+  {{if .Count}}<span class="split-part {{categoryClass .Category}}" style="width: {{percent .Count $total}}%" title="{{category .Category}}: {{.Count}}"></span>{{end}}
+  {{end}}
+</div>
+<ul class="legend">
+  {{range .Data.Stats.ByCategory}}
+  <li title="{{.Category}}">
+    <span class="legend-dot {{categoryClass .Category}}"></span>
+    <span class="legend-name">{{category .Category}}</span>
+    <span class="legend-count">{{.Count}}</span>
+  </li>
+  {{end}}
+</ul>
 {{else}}
-<p class="empty">No tasks yet.</p>
+<p class="empty muted">No tasks yet.</p>
 {{end}}
 
 <h2>Most active</h2>
@@ -106,17 +118,16 @@
      CLI's. */}}
 <p class="note">Counting {{.Data.Measure}}.</p>
 {{if .Data.Stats.TopActors}}
-<table>
-  <thead><tr><th>Actor</th><th class="num">Moved</th></tr></thead>
-  <tbody>
-    {{range .Data.Stats.TopActors}}
-    <tr>
-      <td>{{if .Handle}}{{.Handle}}{{else}}{{.ActorID}}{{end}}</td>
-      <td class="num">{{.Moved}}</td>
-    </tr>
-    {{end}}
-  </tbody>
-</table>
+<ul class="dist">
+  {{$busiest := .Data.MaxActor}}
+  {{range .Data.Stats.TopActors}}
+  <li class="dist-row">
+    <span class="dist-name">{{if .Handle}}{{.Handle}}{{else}}{{.ActorID}}{{end}}</span>
+    <span class="dist-count">{{.Moved}}</span>
+    <span class="dist-track"><span class="dist-fill is-actor" style="width: {{percent .Moved $busiest}}%"></span></span>
+  </li>
+  {{end}}
+</ul>
 {{else}}
 <p class="empty">Nobody moved a task to a terminal state in this window.</p>
 {{end}}

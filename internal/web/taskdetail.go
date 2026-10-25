@@ -30,6 +30,7 @@ func (h *handler) taskRoutes() []route {
 		post(RouteTask, h.updateTask, "UpdateTask"),
 		post(RouteTaskMove, h.transitionTask, "TransitionRoute"),
 		post(RouteTaskComplete, h.completeTask, "TransitionTask"),
+		post(RouteTaskPriority, h.setPriority, "UpdateTask"),
 		post(RouteTaskDelete, h.deleteTask, "DeleteTask"),
 		post(RouteTaskRestore, h.restoreTask, "RestoreTask"),
 		post(RouteTaskReclaim, h.reclaimTask, "ForceReclaim"),

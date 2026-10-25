@@ -137,6 +137,7 @@ var Preferences = []Preference{
 	{Cookie: ColumnsCookie, Route: RouteColumns, Label: "Columns"},
 	{Cookie: HiddenProjectsCookie, Route: RouteVisibility, Label: "Hidden projects"},
 	{Cookie: TaskViewCookie, Route: RouteTaskView, Label: "Task view"},
+	{Cookie: TintCookie, Route: RouteTint, Label: "Colour rows by"},
 }
 
 // columnPageName names one listing whose columns can be chosen.
@@ -152,7 +153,6 @@ type columnPageName struct {
 // holds the two together rather than a reviewer remembering to.
 var columnPages = []columnPageName{
 	{Page: "tasks", Label: "Tasks"},
-	{Page: "projects", Label: "Projects"},
 	{Page: "users", Label: "Users"},
 	{Page: "tokens", Label: "API tokens"},
 	{Page: "sshkeys", Label: "SSH keys"},

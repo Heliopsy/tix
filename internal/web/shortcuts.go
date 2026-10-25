@@ -98,7 +98,7 @@ var shortcutActions = []shortcutAction{
 	{"new", "Focus the new task field"},
 	{"editTitle", "Focus the title field"},
 	{"comment", "Focus the comment field"},
-	{"transition", "Focus the move-to field"},
+	{"transition", "Open the move menu"},
 	{"filter", "Focus the filter field"},
 	{"help", "Show this help"},
 }

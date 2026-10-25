@@ -52,6 +52,16 @@ type statsView struct {
 	// as a percentage of it. Zero when nothing completed, which the template
 	// checks before dividing.
 	MaxDay int
+	// MaxCategory and MaxActor are the same idea for the two distributions
+	// below the chart: the largest count in each, so every bar in it can be
+	// drawn as a share of its own series rather than of the page. Zero when
+	// the series is empty, which the template checks before dividing.
+	MaxCategory int
+	MaxActor    int
+	// TotalCategory is every task counted by the breakdown, so one divided
+	// bar can be drawn as shares of the whole rather than as six bars each
+	// drawn against the largest.
+	TotalCategory int
 	// Measure states what the leaderboard counts. It comes from core rather
 	// than the template so the wording cannot drift from the CLI's.
 	Measure string
@@ -97,8 +107,25 @@ func (h *handler) showStats(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
+	topCategory, allCategories := 0, 0
+	for _, c := range stats.ByCategory {
+		allCategories += c.Count
+		if c.Count > topCategory {
+			topCategory = c.Count
+		}
+	}
+	topActor := 0
+	for _, a := range stats.TopActors {
+		if a.Moved > topActor {
+			topActor = a.Moved
+		}
+	}
+
 	return h.render(w, r, "stats.html", "Statistics", statsView{
 		Stats:         stats,
+		MaxCategory:   topCategory,
+		TotalCategory: allCategories,
+		MaxActor:      topActor,
 		Projects:      projects,
 		Project:       q.Get("project"),
 		Days:          days,

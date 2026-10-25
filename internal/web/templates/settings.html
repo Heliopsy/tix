@@ -28,6 +28,22 @@
   </div>
 </form>
 
+{{/* What the stripe down a row, and across the top of a card, is saying.
+     A reader triaging wants priority, one watching a board wants status, one
+     running several projects wants the project, and one who finds it noisy
+     wants none of it. It is a property of the reader, so it lives here with
+     the theme and the shortcuts rather than on the tenant. */}}
+<form method="post" action="/tint" hx-boost="false">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="next" value="{{.Here}}">
+  <label for="tint">Colour rows by</label>
+  <p class="muted" id="tint-help">Picks what the colour on a task row, and along the top of a board card, stands for. It changes nothing about which tasks are shown.</p>
+  <select id="tint" name="tint" aria-describedby="tint-help">
+    {{range .Tints}}<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>{{end}}
+  </select>
+  <div class="actions"><button type="submit">Apply colouring</button></div>
+</form>
+
 <form method="post" action="/dragmove" hx-boost="false">
   {{template "csrf" .CSRF}}
   <input type="hidden" name="next" value="{{.Here}}">

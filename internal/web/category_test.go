@@ -44,18 +44,24 @@ func TestTheStatisticsBreakdownNamesAndColoursEveryCategory(t *testing.T) {
 // the cell rather than the page is the point: the words "Done" and "Blocked"
 // appear all over a statistics screen, so a page-wide search would pass with
 // the breakdown missing entirely.
+// categoryCell returns the key entry the breakdown draws for one category.
+//
+// The breakdown is one divided bar with a key under it rather than a two
+// column table: six near-full-width tracks for six small integers was a great
+// deal of ink to say how the work is spread. What this reads is still the
+// same thing -- the entry carrying that category's own word and class.
 func categoryCell(t *testing.T, page string, c core.StateCategory) string {
 	t.Helper()
-	marker := `<td title="` + string(c) + `">`
+	marker := `<li title="` + string(c) + `">`
 	at := strings.Index(page, marker)
 	if at < 0 {
-		t.Fatalf("the statistics breakdown has no row for category %q", c)
+		t.Fatalf("the statistics breakdown has no entry for category %q", c)
 	}
-	end := strings.Index(page[at:], "</td>")
+	end := strings.Index(page[at:], "</li>")
 	if end < 0 {
-		t.Fatalf("the %q cell never closes", c)
+		t.Fatalf("the %q entry never closes", c)
 	}
-	return page[at : at+end+len("</td>")]
+	return page[at : at+end+len("</li>")]
 }
 
 // TestNoTwoCategoriesShareAColourInTheBrowser is the browser half of the

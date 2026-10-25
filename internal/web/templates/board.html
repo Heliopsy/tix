@@ -80,7 +80,7 @@
   <section class="column" data-state="{{.State.Key}}">
     <h2>{{.State.Label}} <span class="meta">({{len .Tasks}})</span></h2>
     {{range .Tasks}}
-      <article class="card" draggable="{{if $.DragMove}}true{{else}}false{{end}}" data-task="{{.Task.Ref}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
+      <article class="card{{if $.Data.Project.Color}} is-accented proj-{{$.Data.Project.Color}}{{end}}" draggable="{{if $.DragMove}}true{{else}}false{{end}}" data-task="{{.Task.Ref}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
         <div class="ref">{{.Task.Ref}}</div>
         <div><a href="/tasks/{{.Task.Ref}}">{{.Task.Title}}</a></div>
         {{if or (ne (prio .Task.Priority) "normal") .Task.Tags}}
