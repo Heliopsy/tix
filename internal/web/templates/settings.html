@@ -3,183 +3,310 @@
   <html>, and a boosted form swaps only the body, so the cookie changed but the
   page kept its old theme until the next real navigation. That reads as a button
   that does nothing. A full navigation costs one round trip and is correct.
+
+  Every control is a row: what it is on the left, the control itself on the
+  right, one hairline between each. This screen was a column of loose forms
+  each wrapped in its own paragraph of justification, so the eye had to read
+  three sentences to find out there was a dropdown under them. The reasoning
+  did not stop being true, it stopped belonging on screen; it is in these
+  comments now, next to the markup it explains.
 */}}
 {{define "content"}}
 <h1>Settings</h1>
-<p class="lede">Display preferences for this browser. Each one is stored in a cookie, not on the tenant, so two people sharing a tenant can choose differently.</p>
+<p class="lede">Display preferences for this browser, stored in cookies rather than on the tenant, so two people sharing a tenant can choose differently.</p>
 
-<h2>Appearance</h2>
-{{/* The scheme is the switch at the foot of the sidebar, and only there. A
-     copy of it here would be a second default, a second validation and a
-     second reading of one cookie, which is the drift the three controls
-     below are built to avoid. See the themeswitch partial. */}}
-<p class="muted">The colour scheme is the switch at the foot of the sidebar, on every screen. One press moves to the next of System, Light, Dark and Low contrast.</p>
-<p>The scheme is currently <strong>{{.ThemeToggle.Label}}</strong>.</p>
+<section class="setgroup">
+  <h2>Appearance</h2>
+  <div class="setlist">
 
-<h2>Interface</h2>
+    {{/* The scheme is the switch at the foot of the sidebar, and only there. A
+         copy of it here would be a second default, a second validation and a
+         second reading of one cookie, which is the drift the controls below
+         are built to avoid. See the themeswitch partial. */}}
+    <div class="setrow">
+      <div class="setrow-text">
+        <span class="setname">Colour scheme</span>
+        <span class="sethelp">The switch at the foot of the sidebar, on every screen. One press moves to the next of System, Light, Dark and Low contrast.</span>
+      </div>
+      <div class="setrow-ctl"><span class="setvalue"><strong>{{.ThemeToggle.Label}}</strong></span></div>
+    </div>
 
-<form method="post" action="/advanced" hx-boost="false">
-  {{template "csrf" .CSRF}}
-  <input type="hidden" name="next" value="{{.Here}}">
-  <p class="muted" id="advanced-help">Adds the configuration and data screens to the sidebar: workflows, tenant, domains, users, tokens, webhooks, bundles, transfer and sync. On by default for a tenant administrator, who has to be able to find them, and off for everybody else, whom every one of those screens refuses.</p>
-  <p>The advanced screens are currently {{if .Advanced}}<strong>shown</strong>{{else}}<strong>hidden</strong>{{end}}.</p>
-  <div class="actions">
-    <button class="secondary" type="submit" aria-describedby="advanced-help">{{if .Advanced}}Hide advanced{{else}}Show advanced{{end}}</button>
+    {{/* What the stripe down a row, and across the top of a card, is saying.
+         A reader triaging wants priority, one watching a board wants status,
+         one running several projects wants the project, and one who finds it
+         noisy wants none of it. It is a property of the reader, so it lives
+         here with the theme and the shortcuts rather than on the tenant. */}}
+    <form class="setrow" method="post" action="/tint" hx-boost="false" data-apply>
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="next" value="{{.Here}}">
+      <div class="setrow-text">
+        <label class="setname" for="tint">Colour rows by</label>
+        <span class="sethelp" id="tint-help">What the colour on a task row, and along the top of a board card, stands for. Changes nothing about which tasks are shown.</span>
+      </div>
+      <div class="setrow-ctl">
+        <select id="tint" name="tint" aria-describedby="tint-help">
+          {{range .Tints}}<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+        <button class="apply" type="submit">Apply colouring</button>
+      </div>
+    </form>
+
+    <form class="setrow" method="post" action="/advanced" hx-boost="false">
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="next" value="{{.Here}}">
+      <div class="setrow-text">
+        <span class="setname">Advanced screens</span>
+        <span class="sethelp" id="advanced-help">Adds the configuration and data screens to the sidebar: workflows, tenant, domains, users, tokens, webhooks, bundles, transfer and sync. On by default for a tenant administrator, who has to be able to find them, and off for everybody else, whom every one of those screens refuses.</span>
+      </div>
+      <div class="setrow-ctl">
+        <span class="setvalue">{{if .Advanced}}Shown{{else}}Hidden{{end}}</span>
+        <button class="secondary" type="submit" aria-describedby="advanced-help">{{if .Advanced}}Hide{{else}}Show{{end}}</button>
+      </div>
+    </form>
+
+    <form class="setrow" method="post" action="/dragmove" hx-boost="false">
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="next" value="{{.Here}}">
+      <div class="setrow-text">
+        <span class="setname">Drag to move</span>
+        <span class="sethelp" id="dragmove-help">Drag a card between board columns to move it. Each card's own Move menu always works, drag or no drag, so turning this off costs nothing for keyboard or touch use.</span>
+      </div>
+      <div class="setrow-ctl">
+        <span class="setvalue">{{if .DragMove}}On{{else}}Off{{end}}</span>
+        <button class="secondary" type="submit" aria-describedby="dragmove-help">{{if .DragMove}}Turn off{{else}}Turn on{{end}}</button>
+      </div>
+    </form>
+
   </div>
-</form>
+</section>
 
-{{/* What the stripe down a row, and across the top of a card, is saying.
-     A reader triaging wants priority, one watching a board wants status, one
-     running several projects wants the project, and one who finds it noisy
-     wants none of it. It is a property of the reader, so it lives here with
-     the theme and the shortcuts rather than on the tenant. */}}
-<form method="post" action="/tint" hx-boost="false">
-  {{template "csrf" .CSRF}}
-  <input type="hidden" name="next" value="{{.Here}}">
-  <label for="tint">Colour rows by</label>
-  <p class="muted" id="tint-help">Picks what the colour on a task row, and along the top of a board card, stands for. It changes nothing about which tasks are shown.</p>
-  <select id="tint" name="tint" aria-describedby="tint-help">
-    {{range .Tints}}<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>{{end}}
-  </select>
-  <div class="actions"><button type="submit">Apply colouring</button></div>
-</form>
+<section class="setgroup">
+  <h2>Listings</h2>
+  {{/* Each control here is the same form that sits on the screen it affects,
+       one form over one stored value rather than a copy of it, so changing it
+       in either place shows the same answer in both. */}}
+  <div class="setlist">
 
-<form method="post" action="/dragmove" hx-boost="false">
-  {{template "csrf" .CSRF}}
-  <input type="hidden" name="next" value="{{.Here}}">
-  <p class="muted" id="dragmove-help">Lets you drag a card between board columns to move it. Each card's own Move disclosure always works, drag or no drag, so turning this off costs nothing for keyboard or touch use.</p>
-  <p>Drag to move is currently {{if .DragMove}}<strong>on</strong>{{else}}<strong>off</strong>{{end}}.</p>
-  <div class="actions">
-    <button class="secondary" type="submit" aria-describedby="dragmove-help">{{if .DragMove}}Turn off drag to move{{else}}Turn on drag to move{{end}}</button>
+    <div class="setrow">
+      <div class="setrow-text">
+        <span class="setname">Task view</span>
+        <span class="sethelp" id="taskview-help">Whether <a href="/tasks">Tasks</a> draws rows or a board. Same tasks either way: the filter, the deadline window, the sort, the page and the project choice are answered once and then drawn one way or the other.</span>
+      </div>
+      <div class="setrow-ctl" aria-describedby="taskview-help">{{template "taskview-switch" .Data.Prefs.TaskView}}</div>
+    </div>
+
+    <div class="setrow stacked">
+      <div class="setrow-text">
+        <span class="setname">Projects on the task screen</span>
+        <span class="sethelp" id="visibility-help">Which projects <a href="/tasks">Tasks</a> includes. Unticking one leaves its tasks out of the listing and off the board; it hides nothing from anybody else, since every task stays on its own screen and a <code>project:</code> filter naming it explicitly still finds it. A project created after you choose is shown without being ticked.</span>
+      </div>
+      <div class="setrow-ctl" aria-describedby="visibility-help">
+        {{template "project-choices" .Data.Prefs.Projects}}
+      </div>
+    </div>
+
+    <div class="setrow stacked">
+      <div class="setrow-text">
+        <span class="setname">Columns</span>
+        <span class="sethelp">Which optional columns each listing puts on screen, listing by listing: the columns worth keeping on Tasks are not the ones worth keeping on API tokens. Every listing keeps the column naming its rows whatever you choose, and hiding a column withholds nothing, since every value stays on the record's own screen. Reset returns a listing to its shipped defaults, which is not the same as unticking everything.</span>
+      </div>
+      <div class="setrow-ctl">
+        {{/* One menu per listing, the same control the listing itself carries
+             in its page header, rather than six stacked disclosures that each
+             grew the page by their own height when opened. */}}
+        <div class="pickers">
+        {{range .Data.Prefs.Columns}}
+        {{if .Configurable}}
+        {{$id := printf "setcols-%s" .ColumnPage}}
+        <div class="colmenu">
+          <button type="button" class="secondary colmenu-open" popovertarget="{{$id}}">
+            <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#columns"/></svg>
+            {{.Label}}
+          </button>
+          <div id="{{$id}}" class="flowmenu colpop" popover>
+            <p class="flowhead">Columns on {{.Label}}</p>
+            {{template "column-choices" .}}
+            <button type="button" class="flowclose" popovertarget="{{$id}}" popovertargetaction="hide">Close</button>
+          </div>
+        </div>
+        {{end}}
+        {{end}}
+        </div>
+      </div>
+    </div>
+
   </div>
-</form>
+</section>
 
-<form method="post" action="/keyscheme" hx-boost="false">
-  {{template "csrf" .CSRF}}
-  <input type="hidden" name="next" value="{{.Here}}">
-  <label for="keyscheme">Keyboard shortcuts</label>
-  <p class="muted" id="keyscheme-help">Picks which keys drive the actions below. Press <kbd>?</kbd> on any screen to see the scheme currently active.</p>
-  <select id="keyscheme" name="keyscheme" aria-describedby="keyscheme-help">
-    {{range .Schemes}}<option value="{{.}}" {{if eq $.KeyScheme (print .)}}selected{{end}}>{{schemeLabel .}}</option>{{end}}
-  </select>
-  <div class="actions"><button type="submit">Apply shortcuts</button></div>
-</form>
+<section class="setgroup">
+  <h2>Keyboard</h2>
+  <div class="setlist">
 
-<h3>Compare the schemes</h3>
-<p class="muted">What each key does under every shipped scheme, so you can see what changes before switching.</p>
-<div class="table-wrap">
-<table>
-  <thead>
-    <tr>
-      <th scope="col">Action</th>
-      {{range .Data.Shortcuts.Schemes}}<th scope="col">{{.Label}}</th>{{end}}
-    </tr>
-  </thead>
-  <tbody>
-    {{range .Data.Shortcuts.Rows}}
-    <tr>
-      <td data-label="Action">{{.Label}}</td>
-      {{range $i, $keys := .Cells}}<td data-label="{{(index $.Data.Shortcuts.Schemes $i).Label}}">{{range $j, $key := $keys}}{{if $j}} or {{end}}<kbd>{{$key}}</kbd>{{end}}</td>{{end}}
-    </tr>
+    <form class="setrow" method="post" action="/keyscheme" hx-boost="false" data-apply>
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="next" value="{{.Here}}">
+      <div class="setrow-text">
+        <label class="setname" for="keyscheme">Shortcuts</label>
+        <span class="sethelp" id="keyscheme-help">Which keys drive the actions below. Press <kbd>?</kbd> on any screen to see the scheme currently active.</span>
+      </div>
+      <div class="setrow-ctl">
+        <select id="keyscheme" name="keyscheme" aria-describedby="keyscheme-help">
+          {{range .Schemes}}<option value="{{.}}" {{if eq $.KeyScheme (print .)}}selected{{end}}>{{schemeLabel .}}</option>{{end}}
+        </select>
+        <button class="apply" type="submit">Apply shortcuts</button>
+      </div>
+    </form>
+
+    {{/* Folded. It is a fourteen row table of key names, and it answers one
+         question, asked once: what changes if I switch. */}}
+    <div class="setrow stacked">
+      <details class="panel">
+        <summary>Compare the schemes</summary>
+        <div class="body">
+          <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Action</th>
+                {{range .Data.Shortcuts.Schemes}}<th scope="col">{{.Label}}</th>{{end}}
+              </tr>
+            </thead>
+            <tbody>
+              {{range .Data.Shortcuts.Rows}}
+              <tr>
+                <td data-label="Action">{{.Label}}</td>
+                {{range $i, $keys := .Cells}}<td data-label="{{(index $.Data.Shortcuts.Schemes $i).Label}}">{{range $j, $key := $keys}}{{if $j}} or {{end}}<kbd>{{$key}}</kbd>{{end}}</td>{{end}}
+              </tr>
+              {{end}}
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </details>
+    </div>
+
+  </div>
+</section>
+
+<section class="setgroup">
+  <h2>Dates and times</h2>
+  <div class="setlist">
+
+    <form class="setrow" method="post" action="/timezone" hx-boost="false" data-apply>
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="next" value="{{.Here}}">
+      <div class="setrow-text">
+        <label class="setname" for="timezone">Timezone</label>
+        <span class="sethelp" id="timezone-help">The zone every timestamp on every screen is written in. Server default follows the zone this deployment was configured with.</span>
+      </div>
+      <div class="setrow-ctl">
+        <select id="timezone" name="timezone" aria-describedby="timezone-help">
+          {{range .Data.Timezones}}<option value="{{.Value}}" {{if eq $.Data.Timezone .Value}}selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+        <button class="apply" type="submit">Apply timezone</button>
+      </div>
+    </form>
+
+    <form class="setrow" method="post" action="/timeformat" hx-boost="false" data-apply>
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="next" value="{{.Here}}">
+      <div class="setrow-text">
+        <label class="setname" for="time_format">Date format</label>
+        <span class="sethelp" id="time-format-help">How a timestamp is written. Each option shows how it writes the same instant. Server default follows the format this deployment was configured with.</span>
+      </div>
+      <div class="setrow-ctl">
+        <select id="time_format" name="time_format" aria-describedby="time-format-help">
+          {{range .Data.TimeFormats}}<option value="{{.Value}}" {{if eq $.Data.TimeFormat .Value}}selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+        <button class="apply" type="submit">Apply date format</button>
+      </div>
+    </form>
+
+  </div>
+</section>
+
+<section class="setgroup">
+  <h2>Second factor</h2>
+  {{/* The one thing on this screen that is not a browser preference: it belongs
+       to the account and follows it to every browser and to the terminal. */}}
+  <div class="setlist">
+  {{if .Data.TOTP.Available}}
+  {{$totp := .Data.TOTP.Status}}
+
+    {{if $totp.Enrolled}}
+    <div class="setrow">
+      <div class="setrow-text">
+        <span class="setname">Authenticator</span>
+        <span class="sethelp">A second factor is <strong>on</strong> for this account{{if $totp.ConfirmedAt}}, since {{stamp $totp.ConfirmedAt}}{{end}}. <strong>{{$totp.RecoveryCodesLeft}}</strong> of ten recovery codes are unused.</span>
+      </div>
+      <div class="setrow-ctl"><span class="setvalue">On</span></div>
+    </div>
+    {{if $totp.VerificationLocked}}<div class="setrow"><p class="flash error">Too many incorrect codes. Verification is locked until {{stamp $totp.VerificationLockEnd}}.</p></div>{{end}}
+
+    <form class="setrow" method="post" action="/settings/totp/recovery-codes" hx-boost="false">
+      {{template "csrf" .CSRF}}
+      <div class="setrow-text">
+        <span class="setname">Recovery codes</span>
+        <span class="sethelp" id="totp-codes-help">Issues ten new codes and voids every code issued before. The new set is shown once.</span>
+      </div>
+      <div class="setrow-ctl"><button class="secondary" type="submit" aria-describedby="totp-codes-help">Replace</button></div>
+    </form>
+
+    {{if .Data.TOTP.Removable}}
+    <form class="setrow" method="post" action="/settings/totp/remove" hx-boost="false">
+      {{template "csrf" .CSRF}}
+      <div class="setrow-text">
+        <span class="setname">Turn off the second factor</span>
+        <span class="sethelp" id="totp-remove-help">Drops the enrolment and every recovery code with it. Your password alone signs you in afterwards.</span>
+      </div>
+      <div class="setrow-ctl"><button class="danger" type="submit" aria-describedby="totp-remove-help">Turn off</button></div>
+    </form>
+    {{else}}
+    <div class="setrow">
+      <div class="setrow-text">
+        <span class="setname">Turn off the second factor</span>
+        <span class="sethelp">This tenant requires a second factor in the browser, so it cannot be turned off here. An administrator can clear it from the <a href="/admin/users">user list</a>.</span>
+      </div>
+      <div class="setrow-ctl"><span class="setvalue">Required</span></div>
+    </div>
     {{end}}
-  </tbody>
-</table>
-</div>
 
-<h2>Listings</h2>
-<p class="muted">What the task screen draws and what every listing puts on screen. Each control here is the same form that sits on the screen it affects &mdash; one form over one stored value, not a copy of it &mdash; so changing it in either place shows the same answer in both.</p>
+    {{else}}
+    <form class="setrow" method="post" action="/settings/totp" hx-boost="false">
+      {{template "csrf" .CSRF}}
+      <div class="setrow-text">
+        <span class="setname">Authenticator</span>
+        <span class="sethelp" id="totp-help">{{if $totp.Pending}}An enrolment was started and never confirmed, so this account has <strong>no</strong> second factor yet; starting again replaces it.{{else}}This account has <strong>no</strong> second factor.{{end}} A six digit code from an authenticator application, asked for after your password. Recovery codes stand in for it when the application is out of reach.{{if $totp.RequiredWeb}} This tenant requires one in the browser, so the next sign-in will ask for it.{{end}}</span>
+      </div>
+      <div class="setrow-ctl">
+        <span class="setvalue">{{if $totp.Pending}}Unconfirmed{{else}}Off{{end}}</span>
+        <button type="submit" aria-describedby="totp-help">{{if $totp.Pending}}Start again{{else}}Add{{end}}</button>
+      </div>
+    </form>
+    {{end}}
 
-<h3>Task view</h3>
-<p class="muted" id="taskview-help">Whether <a href="/tasks">Tasks</a> draws its tasks as a list of rows or as a board of columns. It is the same tasks either way: the filter, the deadline window, the sort, the page and the project choice below are answered once and then drawn one way or the other. The board needs the selected projects to run the same workflow, and says so when they do not.</p>
-<div aria-describedby="taskview-help">{{template "taskview-switch" .Data.Prefs.TaskView}}</div>
-
-<h3>Projects on the task screen</h3>
-<p class="muted" id="visibility-help">Which projects <a href="/tasks">Tasks</a> includes. Unticking one leaves its tasks out of the listing and off the board; it hides nothing from anybody else and withholds no record, since every task stays on its own screen and a <code>project:</code> filter naming it explicitly still finds it. A project created after you choose is shown without being ticked.</p>
-<div aria-describedby="visibility-help">
-{{template "project-choices" .Data.Prefs.Projects}}
-</div>
-
-<h3>Columns</h3>
-<p class="muted">Which optional columns each listing puts on screen, listing by listing, because they are a separate choice per listing: the columns worth keeping on Tasks are not the ones worth keeping on API tokens. Each listing also offers this picker beside itself; it is the same form, so either place shows what the other stored. Every listing keeps the column naming its rows whatever you choose, so no record can be put out of reach, and hiding a column withholds nothing &mdash; every value stays on the record's own screen. Reset returns a listing to its shipped defaults, which is not the same as unticking everything.</p>
-{{range .Data.Prefs.Columns}}
-{{if .Configurable}}
-<details class="panel columns">
-  <summary>{{.Label}}</summary>
-  <div class="body">
-    {{template "column-choices" .}}
+  {{else}}
+    <div class="setrow">
+      <div class="setrow-text">
+        <span class="setname">Authenticator</span>
+        <span class="sethelp">A second factor belongs to a person, and this session does not speak for one, so there is nothing to manage here.</span>
+      </div>
+      <div class="setrow-ctl"><span class="setvalue">Not applicable</span></div>
+    </div>
+  {{end}}
   </div>
-</details>
-{{end}}
-{{end}}
+</section>
 
-<h2>Dates and times</h2>
-<p class="muted">How every timestamp on every screen is written and which zone it is written in. Stored in this browser, like the preferences above, so people sharing a tenant from different places each read their own clock.</p>
-
-<form method="post" action="/timezone" hx-boost="false">
-  {{template "csrf" .CSRF}}
-  <input type="hidden" name="next" value="{{.Here}}">
-  <label for="timezone">Timezone</label>
-  <p class="muted" id="timezone-help">Server default follows the zone this deployment was configured with.</p>
-  <select id="timezone" name="timezone" aria-describedby="timezone-help">
-    {{range .Data.Timezones}}<option value="{{.Value}}" {{if eq $.Data.Timezone .Value}}selected{{end}}>{{.Label}}</option>{{end}}
-  </select>
-  <div class="actions"><button type="submit">Apply timezone</button></div>
-</form>
-
-<form method="post" action="/timeformat" hx-boost="false">
-  {{template "csrf" .CSRF}}
-  <input type="hidden" name="next" value="{{.Here}}">
-  <label for="time_format">Date format</label>
-  <p class="muted" id="time-format-help">Each option shows how it writes the same instant. Server default follows the format this deployment was configured with.</p>
-  <select id="time_format" name="time_format" aria-describedby="time-format-help">
-    {{range .Data.TimeFormats}}<option value="{{.Value}}" {{if eq $.Data.TimeFormat .Value}}selected{{end}}>{{.Label}}</option>{{end}}
-  </select>
-  <div class="actions"><button type="submit">Apply date format</button></div>
-</form>
-
-<h2>Second factor</h2>
-{{/* The one thing on this screen that is not a browser preference: it belongs
-     to the account and follows it to every browser and to the terminal. */}}
-{{if .Data.TOTP.Available}}
-{{$totp := .Data.TOTP.Status}}
-<p class="muted" id="totp-help">A six digit code from an authenticator application, asked for after your password. Recovery codes stand in for it when the application is out of reach.</p>
-{{if $totp.Enrolled}}
-<p>A second factor is <strong>on</strong> for this account{{if $totp.ConfirmedAt}}, since {{stamp $totp.ConfirmedAt}}{{end}}. <strong>{{$totp.RecoveryCodesLeft}}</strong> of ten recovery codes are unused.</p>
-{{if $totp.VerificationLocked}}<p class="flash error">Too many incorrect codes. Verification is locked until {{stamp $totp.VerificationLockEnd}}.</p>{{end}}
-<form method="post" action="/settings/totp/recovery-codes" hx-boost="false">
-  {{template "csrf" .CSRF}}
-  <p class="muted" id="totp-codes-help">Issues ten new codes and voids every code issued before. The new set is shown once.</p>
-  <div class="actions"><button class="secondary" type="submit" aria-describedby="totp-codes-help">Replace recovery codes</button></div>
-</form>
-{{if .Data.TOTP.Removable}}
-<form method="post" action="/settings/totp/remove" hx-boost="false">
-  {{template "csrf" .CSRF}}
-  <p class="muted" id="totp-remove-help">Drops the enrolment and every recovery code with it. Your password alone signs you in afterwards.</p>
-  <div class="actions"><button class="danger" type="submit" aria-describedby="totp-remove-help">Turn off the second factor</button></div>
-</form>
-{{else}}
-<p class="muted">This tenant requires a second factor in the browser, so it cannot be turned off here. An administrator can clear it from the <a href="/admin/users">user list</a>.</p>
-{{end}}
-{{else}}
-{{if $totp.Pending}}
-<p>An enrolment was started and never confirmed, so it grants nothing yet. Starting again replaces it.</p>
-{{else}}
-<p>This account has <strong>no</strong> second factor.</p>
-{{end}}
-{{if $totp.RequiredWeb}}<p class="muted">This tenant requires one in the browser, so the next sign-in will ask for it.</p>{{end}}
-<form method="post" action="/settings/totp" hx-boost="false">
-  {{template "csrf" .CSRF}}
-  <div class="actions"><button type="submit" aria-describedby="totp-help">{{if $totp.Pending}}Start enrolment again{{else}}Add a second factor{{end}}</button></div>
-</form>
-{{end}}
-{{else}}
-<p class="muted">A second factor belongs to a person, and this session does not speak for one, so there is nothing to manage here.</p>
-{{end}}
-
-<h2>Database</h2>
-{{if .Data.TargetDescribe}}
-<p>This server is talking to <code>{{.Data.TargetDescribe}}</code>.</p>
-{{else}}
-<p class="muted">This server was not started with a database description to show, so its target cannot be shown here.</p>
-{{end}}
+<section class="setgroup">
+  <h2>Database</h2>
+  <div class="setlist">
+    <div class="setrow">
+      <div class="setrow-text">
+        <span class="setname">Target</span>
+        <span class="sethelp">{{if .Data.TargetDescribe}}What this server is talking to.{{else}}This server was not started with a database description to show, so its target cannot be shown here.{{end}}</span>
+      </div>
+      <div class="setrow-ctl">{{if .Data.TargetDescribe}}<code>{{.Data.TargetDescribe}}</code>{{else}}<span class="setvalue">Not shown</span>{{end}}</div>
+    </div>
+  </div>
+</section>
 {{end}}

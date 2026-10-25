@@ -1,39 +1,49 @@
 {{define "content"}}
 {{$v := .Data}}
 {{$r := $v.Report}}
-<h1>Status</h1>
-<p class="lede">What this installation holds and what is running in it. Every server that registers itself
-appears here, not only the one answering this page.</p>
+<div class="pagehead">
+  <div class="pagehead-title">
+    <h1>Status</h1>
+    <p class="lede">What this installation holds and what is running in it. Every server that registers itself appears here, not only the one answering this page.</p>
+  </div>
+</div>
 
-<h2>Installation</h2>
-<div class="statrow">
-  <div class="stat"><span class="stat-n">{{$r.Installation.Version}}</span><span class="stat-l">version</span></div>
-  <div class="stat"><span class="stat-n">{{$r.Installation.SchemaVersion}}</span><span class="stat-l">schema</span></div>
-  <div class="stat"><span class="stat-n">{{$r.Installation.Engine}}</span><span class="stat-l">engine</span></div>
+{{/* The numbers first, in the same figure row the statistics screen uses, so
+     a number means the same thing wherever it is read. This screen used to
+     open with three headings and two rows of bordered boxes in a style
+     nothing else on the tenant used. */}}
+<div class="figures">
+  <div><p class="figure">{{$r.Installation.Version}}</p><p class="caption">version</p></div>
+  <div><p class="figure">{{$r.Installation.SchemaVersion}}</p><p class="caption">schema</p></div>
+  <div><p class="figure">{{$r.Installation.Engine}}</p><p class="caption">engine</p></div>
+  <div><p class="figure">{{$v.Attached}}</p><p class="caption">servers attached</p></div>
+  {{if $v.Stale}}<div><p class="figure warn">{{$v.Stale}}</p><p class="caption">not heartbeating</p></div>{{end}}
 </div>
 {{if $v.Target}}<p class="meta">Store <code>{{$v.Target}}</code>.</p>{{end}}
 
 <h2>Servers</h2>
-<p class="meta">{{$v.Attached}} attached{{if $v.Stale}}, {{$v.Stale}} not heartbeating{{end}}. A server
-removes its own row when it shuts down cleanly, so a row nobody is refreshing is a process that died.</p>
+<p class="meta">A server removes its own row when it shuts down cleanly, so a row nobody is refreshing is a process that died.</p>
 
-<ul class="serverlist">
+<ul class="reclist serverlist">
 {{range $r.Servers}}
-  <li class="server{{if not .Attached}} is-stale{{end}}">
-    <span class="server-id"><code>{{.ID}}</code></span>
-    <span class="server-addr">{{.Address}}</span>
-    <span class="server-ver">{{.Version}}</span>
+  <li class="recrow server{{if not .Attached}} is-stale{{end}}">
+    <span class="recrow-main">
+      <span class="recrow-title">
+        <code>{{.ID}}</code>
+        <span class="server-addr muted">{{.Address}}</span>
+      </span>
+      <span class="recrow-meta">
+        <span class="server-ver">{{.Version}}</span>
+        <span class="muted">&middot; last seen {{compact .LastSeenAt}}</span>
+        {{if .Connections}}<span class="muted">&middot; {{.Connections}} connections</span>
+        {{else}}<span class="muted">&middot; connections known only to the server answering</span>{{end}}
+      </span>
+      <span class="recrow-meta">{{range .Surfaces}}<span class="surface s-{{slug .}}">{{.}}</span>{{end}}</span>
+    </span>
     {{if .Attached}}
-      <span class="server-state up">up {{.Uptime}}</span>
+      <span class="pill status done">up {{.Uptime}}</span>
     {{else}}
-      <span class="server-state stale">not heartbeating</span>
-    {{end}}
-    <span class="server-seen muted">last seen {{compact .LastSeenAt}}</span>
-    <span class="server-surfaces">{{range .Surfaces}}<span class="surface s-{{slug .}}">{{.}}</span> {{end}}</span>
-    {{if .Connections}}
-      <span class="server-conns">{{.Connections}} connections</span>
-    {{else}}
-      <span class="server-conns muted">connections known only to the server answering</span>
+      <span class="pill status blocked">not heartbeating</span>
     {{end}}
   </li>
 {{else}}
@@ -47,13 +57,13 @@ removes its own row when it shuts down cleanly, so a row nobody is refreshing is
 
 <h2>Work</h2>
 <p class="meta">Your tenant, except the tenant count, which is the tenants you can see.</p>
-<div class="statrow">
-  <div class="stat"><span class="stat-n">{{$r.Work.Tenants}}</span><span class="stat-l">tenants</span></div>
-  <div class="stat"><span class="stat-n">{{$r.Work.Projects}}</span><span class="stat-l">projects</span></div>
-  <div class="stat"><span class="stat-n">{{$r.Work.Tasks}}</span><span class="stat-l">tasks</span></div>
-  <div class="stat"><span class="stat-n">{{$r.Work.Claimed}}</span><span class="stat-l">claimed</span></div>
-  <div class="stat"><span class="stat-n">{{$r.Work.LeasesExpiredUnswept}}</span><span class="stat-l">leases unswept</span></div>
-  <div class="stat"><span class="stat-n">{{$r.Work.WebhooksPending}}</span><span class="stat-l">webhooks pending</span></div>
-  <div class="stat"><span class="stat-n">{{$r.Work.WebhooksFailed}}</span><span class="stat-l">webhooks failed</span></div>
+<div class="figures">
+  <div><p class="figure">{{$r.Work.Tenants}}</p><p class="caption">tenants</p></div>
+  <div><p class="figure">{{$r.Work.Projects}}</p><p class="caption">projects</p></div>
+  <div><p class="figure">{{$r.Work.Tasks}}</p><p class="caption">tasks</p></div>
+  <div><p class="figure">{{$r.Work.Claimed}}</p><p class="caption">claimed</p></div>
+  <div><p class="figure{{if $r.Work.LeasesExpiredUnswept}} warn{{end}}">{{$r.Work.LeasesExpiredUnswept}}</p><p class="caption">leases unswept</p></div>
+  <div><p class="figure">{{$r.Work.WebhooksPending}}</p><p class="caption">webhooks pending</p></div>
+  <div><p class="figure{{if $r.Work.WebhooksFailed}} bad{{end}}">{{$r.Work.WebhooksFailed}}</p><p class="caption">webhooks failed</p></div>
 </div>
 {{end}}

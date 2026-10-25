@@ -1,13 +1,19 @@
 {{define "content"}}
 {{$v := .Data}}
-<h1>Connections</h1>
-<p class="lede">The live connections this server is holding for your tenant, on the event stream and over SSH. Another server running against the same database holds its own, which this screen cannot see.</p>
+<div class="pagehead">
+  <div class="pagehead-title">
+    <h1>Connections</h1>
+    <p class="lede">The live connections this server is holding for your tenant, on the event stream and over SSH. Another server running against the same database holds its own, which this screen cannot see.</p>
+  </div>
+</div>
 
-<div class="statrow">
-  <div class="stat"><span class="stat-n">{{$v.Counts.Tenant}}</span><span class="stat-l">yours</span></div>
-  <div class="stat"><span class="stat-n">{{$v.Counts.Events}}</span><span class="stat-l">event stream</span></div>
-  <div class="stat"><span class="stat-n">{{$v.Counts.SSH}}</span><span class="stat-l">over SSH</span></div>
-  <div class="stat"><span class="stat-n">{{$v.Counts.Process}}</span><span class="stat-l">this server, all tenants</span></div>
+{{/* Same figure row as Statistics and Status: one way of writing a number
+     across the tenant, rather than a bordered box per screen. */}}
+<div class="figures">
+  <div><p class="figure">{{$v.Counts.Tenant}}</p><p class="caption">yours</p></div>
+  <div><p class="figure">{{$v.Counts.Events}}</p><p class="caption">event stream</p></div>
+  <div><p class="figure">{{$v.Counts.SSH}}</p><p class="caption">over SSH</p></div>
+  <div><p class="figure">{{$v.Counts.Process}}</p><p class="caption">this server, all tenants</p></div>
 </div>
 <p class="meta">Answered by <code>{{$v.ServerID}}</code>.</p>
 
@@ -41,7 +47,7 @@
 {{end}}
 </ul>
 
-<p class="lede">
+<p class="note">
   <strong>Ending closes the socket; it does not revoke anything.</strong>
   The holder may reconnect immediately with credentials that are still valid.
   To actually stop them, revoke the credential: an

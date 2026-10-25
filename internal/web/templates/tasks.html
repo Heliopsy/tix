@@ -19,9 +19,16 @@
   </div>
   <div class="pagehead-tools">
     {{template "taskview-switch" $v.Prefs.TaskView}}
-    <div class="listprefs">
-      <details class="panel viewprefs">
-        <summary>View{{if $v.Hidden}} &middot; {{$v.Hidden}} project{{if ne $v.Hidden 1}}s{{end}} hidden{{end}}</summary>
+    {{/* A menu, like the columns control on every other listing and like the
+         status and priority menus on a row. It was a disclosure that opened
+         downwards and pushed the whole task list down by its own height, so
+         choosing what the list shows moved the list. */}}
+    <div class="colmenu listprefs">
+      <button type="button" class="secondary colmenu-open" popovertarget="viewprefs">
+        <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#columns"/></svg>
+        View{{if $v.Hidden}} &middot; {{$v.Hidden}} hidden{{end}}
+      </button>
+      <div id="viewprefs" class="flowmenu colpop viewpop" popover>
         <div class="body viewgrid">
           {{if .ColumnForm.Configurable}}
           <section>
@@ -34,7 +41,8 @@
             {{template "project-choices" $v.Prefs.Projects}}
           </section>
         </div>
-      </details>
+        <button type="button" class="flowclose" popovertarget="viewprefs" popovertargetaction="hide">Close</button>
+      </div>
     </div>
   </div>
 </div>

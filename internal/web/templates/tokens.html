@@ -1,6 +1,8 @@
 {{define "content"}}
-<h1>API tokens</h1>
-{{template "column-picker" .}}
+<div class="pagehead">
+  <div class="pagehead-title"><h1>API tokens</h1></div>
+  <div class="pagehead-tools">{{template "column-menu" .}}</div>
+</div>
 {{with .Data.Secret}}{{template "secret" .}}{{end}}
 {{if .Data.Owners}}
 {{/* Said once, above the table, because the reader needs to know that the
@@ -14,7 +16,7 @@
 <p class="meta">This tenant has more actors than this listing walked, so the rows below are not every token of the tenant. A credential you cannot find here may belong to an actor past the walk.</p>
 {{end}}
 <table>
-  <thead><tr><th>Name</th>{{if .Data.Owners}}<th>Owner</th>{{end}}{{if .Columns.Show "tokens" "scopes"}}<th>Scopes</th>{{end}}{{if .Columns.Show "tokens" "created"}}<th>Created</th>{{end}}{{if .Columns.Show "tokens" "expires"}}<th>Expires</th>{{end}}<th>State</th><th></th></tr></thead>
+  <thead><tr><th>Name</th>{{if .Data.Owners}}<th>Owner</th>{{end}}{{if .Columns.Show "tokens" "scopes"}}<th class="scopecell">Scopes</th>{{end}}{{if .Columns.Show "tokens" "created"}}<th>Created</th>{{end}}{{if .Columns.Show "tokens" "expires"}}<th>Expires</th>{{end}}<th>State</th><th class="actioncell"></th></tr></thead>
   <tbody>
   {{range .Data.Tokens}}
     <tr>
@@ -22,7 +24,7 @@
       {{/* Whose credential this is. A list of other people's tokens with no
            owner column cannot be acted on: every row looks like your own. */}}
       {{if $.Data.Owners}}<td title="{{.ActorID}}">{{.Owner}}{{if .Mine}} <span class="muted">(you)</span>{{end}}</td>{{end}}
-      {{if $.Columns.Show "tokens" "scopes"}}<td>{{scopes .Scopes}}</td>{{end}}
+      {{if $.Columns.Show "tokens" "scopes"}}<td class="scopecell">{{range .Scopes}}<code class="evchip">{{.}}</code>{{end}}</td>{{end}}
       {{if $.Columns.Show "tokens" "created"}}<td>{{compact .CreatedAt}}</td>{{end}}
       {{/* A token with no expiry says so. An empty cell under a heading
            reading "Expires" is indistinguishable from an expiry the screen

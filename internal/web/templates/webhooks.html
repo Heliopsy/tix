@@ -1,31 +1,51 @@
 {{define "content"}}
-<h1>Webhooks</h1>
-{{template "column-picker" .}}
+<div class="pagehead">
+  <div class="pagehead-title">
+    <h1>Webhooks</h1>
+    <p class="lede">Where tix posts events as they commit. Each delivery carries an <code>X-Tix-Signature</code> header your receiver checks against the endpoint's signing secret.</p>
+  </div>
+  <div class="pagehead-tools">{{template "column-menu" .}}</div>
+</div>
 {{with .Data.Secret}}{{template "secret" .}}{{end}}
-<table>
-  <thead><tr><th>URL</th>{{if .Columns.Show "webhooks" "events"}}<th>Events</th>{{end}}{{if .Columns.Show "webhooks" "active"}}<th>Active</th>{{end}}<th></th></tr></thead>
-  <tbody>
-  {{range .Data.Endpoints}}
-    <tr>
-      <td>{{.URL}}</td>
-      {{if $.Columns.Show "webhooks" "events"}}<td>{{join .EventTypes}}</td>{{end}}
-      {{if $.Columns.Show "webhooks" "active"}}<td>{{if .Active}}yes{{else}}no{{end}}</td>{{end}}
-      <td>
-        <form method="post" action="/admin/webhooks/delete">
-          {{template "csrf" $.CSRF}}
-          <input type="hidden" name="id" value="{{.ID}}">
-          <button class="secondary" type="submit">Delete</button>
-        </form>
-      </td>
-    </tr>
-  {{else}}
-    <tr><td colspan="{{$.Columns.Span "webhooks" 2}}">No endpoints.</td></tr>
-  {{end}}
-  </tbody>
-</table>
+
+{{/* A list of endpoints, not a table of cells. The table had a URL column
+     that was the only thing anybody reads, an Events column holding a comma
+     joined list that is long or empty, an Active column printing "yes" on
+     every row of a tenant that never deactivated one, and a Delete column
+     whose entire content was the word Delete. A row is the URL, what it is
+     subscribed to and whether it is on, with the one action at its end. */}}
+<ul class="reclist">
+{{range .Data.Endpoints}}
+  <li class="recrow{{if not .Active}} is-off{{end}}">
+    <span class="recrow-main">
+      <span class="recrow-title mono">{{.URL}}</span>
+      {{if $.Columns.Show "webhooks" "events"}}
+      <span class="recrow-meta">
+        {{if .EventTypes}}{{range .EventTypes}}<code class="evchip">{{.}}</code>{{end}}{{else}}<span class="muted">every event type</span>{{end}}
+      </span>
+      {{end}}
+    </span>
+    {{if $.Columns.Show "webhooks" "active"}}
+    <span class="pill status {{if .Active}}done{{else}}cancelled{{end}}">{{if .Active}}active{{else}}off{{end}}</span>
+    {{end}}
+    <form method="post" action="/admin/webhooks/delete" class="recrow-act">
+      {{template "csrf" $.CSRF}}
+      <input type="hidden" name="id" value="{{.ID}}">
+      <button class="secondary" type="submit">Delete</button>
+    </form>
+  </li>
+{{else}}
+  <li class="empty">
+    <p class="empty-title">No endpoints</p>
+    <p>Nothing is subscribed to this tenant's events. Register one below.</p>
+  </li>
+{{end}}
+</ul>
 <p class="meta">A stored signing secret is never displayed. One tix generates is shown once, on this screen, immediately after you save; one you supply is not shown at all, because you already have it.</p>
 
-<h2>Register an endpoint</h2>
+<details class="panel addmore">
+  <summary>Register an endpoint</summary>
+  <div class="body">
 <form method="post" action="/admin/webhooks">
   {{template "csrf" .CSRF}}
   <label for="url">URL</label>
@@ -41,28 +61,41 @@
   </div>
   <input id="event_types" name="event_types" placeholder="task.*">
   <label for="active"><input id="active" type="checkbox" name="active" value="1" checked> Active</label>
-  <p><button type="submit">Save endpoint</button></p>
+  <div class="actions"><button type="submit">Save endpoint</button></div>
 </form>
+  </div>
+</details>
 
+{{/* The delivery log was five columns of identifiers: a delivery id, an
+     endpoint id, a status word, an attempt count and an error, each as wide
+     as the widest value in it. What a reader wants from this screen is which
+     deliveries are failing and why, so the state leads, the error is given
+     room to be read, and the identifiers go where identifiers belong. */}}
 <h2>Delivery log</h2>
-<table>
-  <thead><tr><th>Delivery</th><th>Endpoint</th><th>Status</th><th>Attempts</th><th>Last error</th><th></th></tr></thead>
-  <tbody>
-  {{range .Data.Deliveries}}
-    <tr>
-      <td>{{.ID}}</td><td>{{.EndpointID}}</td><td>{{.Status}}</td><td>{{.Attempts}}</td><td>{{.LastError}}</td>
-      <td>
-        <form method="post" action="/admin/webhooks/deliveries/redeliver">
-          {{template "csrf" $.CSRF}}
-          <input type="hidden" name="id" value="{{.ID}}">
-          <button class="secondary" type="submit">Redeliver</button>
-        </form>
-      </td>
-    </tr>
-  {{else}}
-    <tr><td colspan="6">No deliveries recorded.</td></tr>
-  {{end}}
-  </tbody>
-</table>
+<ul class="reclist">
+{{range .Data.Deliveries}}
+  <li class="recrow delivery">
+    <span class="pill status {{if eq .Status "delivered"}}done{{else if eq .Status "failed"}}blocked{{else}}todo{{end}}">{{.Status}}</span>
+    <span class="recrow-main">
+      <span class="recrow-title">{{if .LastError}}{{.LastError}}{{else}}<span class="muted">No error recorded</span>{{end}}</span>
+      <span class="recrow-meta">
+        <code>{{.ID}}</code>
+        <span class="muted">to</span> <code>{{.EndpointID}}</code>
+        <span class="muted">&middot; {{.Attempts}} attempt{{if ne .Attempts 1}}s{{end}}</span>
+      </span>
+    </span>
+    <form method="post" action="/admin/webhooks/deliveries/redeliver" class="recrow-act">
+      {{template "csrf" $.CSRF}}
+      <input type="hidden" name="id" value="{{.ID}}">
+      <button class="secondary" type="submit">Redeliver</button>
+    </form>
+  </li>
+{{else}}
+  <li class="empty">
+    <p class="empty-title">No deliveries recorded</p>
+    <p>Nothing has been sent yet, or the retention pruner has already swept what was.</p>
+  </li>
+{{end}}
+</ul>
 {{template "pager" .Data.Pager}}
 {{end}}

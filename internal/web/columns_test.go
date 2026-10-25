@@ -30,6 +30,11 @@ func TestDefaultColumnsRenderEveryListingUnchanged(t *testing.T) {
 	b := f.as("alice")
 	b.createTask("infra", "default columns")
 	b.createUser("default-columns@example.test")
+	// Webhooks is a list of rows rather than a table, so its optional columns
+	// only render where there is a row to render them on.
+	hook := b.post("/admin/webhooks", url.Values{"url": {"https://hooks.example/columns"},
+		"event_types": {"task.created"}, "active": {"1"}})
+	_ = hook.Body.Close()
 
 	tasks := b.page("/tasks")
 	for _, want := range []string{`<span class="pill status todo">todo</span>`, `<span class="ref mono">`} {
@@ -40,8 +45,8 @@ func TestDefaultColumnsRenderEveryListingUnchanged(t *testing.T) {
 
 	headings := map[string][]string{
 		"/admin/users":    {`class="person-mail`, `class="person-name"`, `class="role `, `class="state `},
-		"/admin/tokens":   {"<th>Name</th>", "<th>Scopes</th>", "<th>Expires</th>"},
-		"/admin/webhooks": {"<th>URL</th>", "<th>Events</th>", "<th>Active</th>"},
+		"/admin/tokens":   {"<th>Name</th>", ">Scopes</th>", "<th>Expires</th>"},
+		"/admin/webhooks": {"hooks.example/columns", `class="evchip">task.created<`, `class="pill status done">active<`},
 		"/admin/domains":  {"<th>Hostname</th>", "<th>Verified</th>", "<th>Certificate</th>"},
 	}
 	for path, wants := range headings {

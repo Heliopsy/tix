@@ -168,14 +168,32 @@
 </form>
 {{end}}
 
-{{define "column-picker"}}
+{{/* The columns control, as a menu rather than a panel.
+
+     This was a full width disclosure sitting between the heading and the
+     listing: a strip of chrome that pushed the rows down the page, and that
+     grew the page by its own height when opened, so choosing a column shoved
+     the thing you were choosing it for out of view. It is a menu. It opens
+     over the page and closes again, like the status and priority menus on a
+     task row, and it costs the listing no height at all when shut.
+
+     Same popover mechanism as those: top layer, so no clipping ancestor cuts
+     it off, driven by popovertarget from plain HTML, with Escape and
+     click-outside dismissal and only one open at a time, no script. */}}
+{{define "column-menu"}}
 {{if .Columns.Configurable .ColumnPage}}
-<details class="panel columns">
-  <summary>Columns</summary>
-  <div class="body">
+{{$id := printf "cols-%s" .ColumnPage}}
+<div class="colmenu">
+  <button type="button" class="secondary colmenu-open" popovertarget="{{$id}}">
+    <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#columns"/></svg>
+    Columns
+  </button>
+  <div id="{{$id}}" class="flowmenu colpop" popover>
+    <p class="flowhead">Columns on this listing</p>
     {{template "column-choices" .ColumnForm}}
+    <button type="button" class="flowclose" popovertarget="{{$id}}" popovertargetaction="hide">Close</button>
   </div>
-</details>
+</div>
 {{end}}
 {{end}}
 

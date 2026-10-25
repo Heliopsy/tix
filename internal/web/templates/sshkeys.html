@@ -1,7 +1,11 @@
 {{define "content"}}
-<h1>SSH keys</h1>
-{{template "column-picker" .}}
-<p class="lede">Keys enrolled against your actor, which let you reach the terminal interface over SSH without a password. A revoked key stays listed so you can see it stopped working.</p>
+<div class="pagehead">
+  <div class="pagehead-title">
+    <h1>SSH keys</h1>
+    <p class="lede">Keys enrolled against your actor, which let you reach the terminal interface over SSH without a password. A revoked key stays listed so you can see it stopped working.</p>
+  </div>
+  <div class="pagehead-tools">{{template "column-menu" .}}</div>
+</div>
 <table>
   <thead><tr><th>Fingerprint</th>{{if .Columns.Show "sshkeys" "label"}}<th>Label</th>{{end}}{{if .Columns.Show "sshkeys" "added"}}<th>Added</th>{{end}}{{if .Columns.Show "sshkeys" "used"}}<th>Last used</th>{{end}}<th>State</th><th></th></tr></thead>
   <tbody>

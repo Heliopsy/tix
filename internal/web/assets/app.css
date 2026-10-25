@@ -296,6 +296,8 @@ nav.main a[aria-current="page"] .nav-icon { color: var(--accent); }
 
 .nav-icon {
   flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
   color: color-mix(in srgb, var(--muted) 80%, transparent);
 }
 nav.main a:hover .nav-icon { color: var(--ink); }
@@ -607,6 +609,23 @@ input[type="checkbox"], input[type="radio"] {
   width: auto;
   margin: 0;
   accent-color: var(--accent);
+  /* The field rule above gives every input a 36px floor, a filled background
+     and an inset hairline. On a checkbox that drew a 13 wide, 36 tall box
+     with the control at the top of it and an empty framed rectangle below,
+     once per row. Same shape as the check circle that came out an ellipse:
+     a glyph wearing a text field's clothes. */
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+input[type="checkbox"]:hover, input[type="radio"]:hover { box-shadow: none; }
+input[type="checkbox"]:focus-visible, input[type="radio"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  background: none;
+  box-shadow: none;
 }
 
 label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) {
@@ -1900,7 +1919,7 @@ details.panel.columns { margin-bottom: 18px; }
 .columnform .choices,
 .visibilityform .choices {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 6px 16px;
   align-items: center;
 }
@@ -2459,8 +2478,13 @@ dl.raw-fields dd { margin: 0; overflow-wrap: anywhere; }
 .figures .figure { margin: 0; font-size: var(--text-2xl); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
 .figures .caption { margin: var(--space-1) 0 0; font-size: var(--text-xs); color: var(--muted); }
 
-/* The series: short columns across, the way time is read. */
-.columns {
+/* The series: short columns across, the way time is read.
+
+   Named daybars, not columns: a .columns class already belonged to the
+   column-picker disclosure, so this rule set was laying a 132px flex frame
+   over every picker on the tenant and leaving an empty box with its summary
+   pushed to the floor. Two things called columns, one sheet. */
+.daybars {
   display: flex;
   align-items: flex-end;
   gap: var(--space-2);
@@ -2473,7 +2497,7 @@ dl.raw-fields dd { margin: 0; overflow-wrap: anywhere; }
   padding: 0;
   list-style: none;
 }
-.columns > li {
+.daybars > li {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -2483,15 +2507,15 @@ dl.raw-fields dd { margin: 0; overflow-wrap: anywhere; }
   min-width: 0;
   height: 100%;
 }
-.col-bar {
+.daybar {
   width: 100%;
   max-width: 40px;
   min-height: 2px;
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   background: var(--accent);
 }
-.col-value { font-size: var(--text-2xs); color: var(--muted); font-variant-numeric: tabular-nums; }
-.col-label {
+.daybar-value { font-size: var(--text-2xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+.daybar-label {
   font-size: var(--text-2xs);
   color: var(--muted);
   overflow: hidden;
@@ -3389,3 +3413,213 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   background: #ffffff;
 }
 .totp-enrol code { word-break: break-all; }
+
+/* ---------------------------------------------------------------------------
+   Settings: one row per preference.
+
+   This screen used to be a stack of bare forms, each under its own paragraph
+   of justification, each with its own Apply button at the end of a line of its
+   own. Nothing grouped them, so twelve unrelated controls read as one long
+   document, and finding the one you came for meant reading all of it.
+
+   A row says three things in fixed places: what it is, what it does, and what
+   it is set to. The reasoning that used to be on screen is in the template's
+   comments, where it is still true and no longer in the way.
+   ------------------------------------------------------------------------ */
+.setgroup { margin: 0 0 var(--space-6); }
+.setgroup > h2 {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 var(--space-2);
+}
+
+.setlist {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.setrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-3) var(--space-5);
+  padding: var(--space-4) var(--space-4);
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+.setrow:first-child { border-top: 0; }
+
+/* A control that is a grid of checkboxes, or a fourteen row table, has no
+   business being squeezed into the right-hand column. It gets the full width
+   under its own description instead. */
+.setrow.stacked { grid-template-columns: minmax(0, 1fr); }
+
+.setrow-text { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.setname { font-size: var(--text-md); font-weight: 600; color: var(--ink); margin: 0; }
+.sethelp { font-size: var(--text-sm); color: var(--muted); line-height: 1.5; max-width: 68ch; }
+.sethelp a { color: var(--accent); }
+
+.setrow-ctl {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+/* Block, not flex: what goes in a stacked row is a grid of checkboxes or a
+   table, and as a flex item each of those shrank to its content and drew
+   itself one column wide in a container with room for three. */
+.setrow.stacked > .setrow-ctl { display: block; }
+.setrow.stacked > .setrow-ctl > form { width: 100%; }
+
+/* What it is set to, stated before the control that changes it, because the
+   answer is what a reader came for and the control is what they do about it. */
+.setvalue {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.setrow select { min-width: 180px; max-width: 320px; }
+
+/* Scripting hides these: the select applies itself on change. Without
+   scripting they are the only way to commit the choice, so they ship visible
+   and are removed by the script that replaces them, never the other way
+   round. */
+
+
+/* buttons are inline-flex, which outranks the user agent's rule for the
+   hidden attribute, so a button the script had hidden stayed on screen. */
+[hidden] { display: none !important; }
+
+.pickers { display: flex; flex-wrap: wrap; gap: var(--space-2); width: 100%; }
+
+@media (max-width: 720px) {
+  .setrow { grid-template-columns: minmax(0, 1fr); }
+  .setrow-ctl { justify-content: flex-start; }
+}
+
+/* ---------------------------------------------------------------------------
+   The columns menu.
+
+   Was a full width disclosure between the heading and the listing: a strip of
+   chrome that pushed every row down, and that grew the page by its own height
+   when opened, so choosing a column shoved the listing you were choosing it
+   for off the screen. It is a menu now, in the page header beside the title,
+   and it costs the listing no height at all when shut.
+   ------------------------------------------------------------------------ */
+.colmenu { display: inline-block; }
+.colmenu-open { gap: var(--space-2); }
+
+.colpop { padding: var(--space-3); }
+.colpop .columnform .choices { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.colpop .columnform .actions { margin-top: var(--space-3); }
+
+/* ---------------------------------------------------------------------------
+   A record list: one row per record, the way the task list and the project
+   list already read.
+
+   These screens were tables whose columns were an identifier, a one word
+   state repeated down the whole column, and a cell whose entire content was
+   the word Delete. A table earns its grid when values line up and get
+   compared down a column; none of that was happening, and the width went to
+   whichever row held the longest identifier.
+   ------------------------------------------------------------------------ */
+ul.reclist {
+  list-style: none;
+  margin: 0 0 var(--space-5);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+li.recrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+}
+li.recrow:first-child { border-top: 0; }
+li.recrow:hover { background: var(--surface); }
+li.recrow.is-off { color: var(--muted); }
+
+.recrow-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.recrow-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-weight: 600;
+  color: var(--ink);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.recrow-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  min-width: 0;
+}
+.recrow-act { flex: 0 0 auto; margin: 0; }
+
+ul.reclist li.empty { padding: var(--space-6) var(--space-4); text-align: center; border-top: 0; }
+
+/* The event types an endpoint is subscribed to. A comma joined run in a table
+   cell was one unbreakable string; each type is its own thing, so each is its
+   own chip. */
+.evchip {
+  padding: 1px var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-2xs);
+  color: var(--muted);
+  background: var(--surface);
+}
+
+li.recrow.server.is-stale .recrow-title code { color: var(--muted); }
+.server-addr { font-weight: 400; font-size: var(--text-sm); }
+
+/* A figure that is reporting something wrong says so where it is read, rather
+   than leaving the reader to notice a number is not zero. */
+.figure.warn { color: var(--warn); }
+.figure.bad { color: var(--danger); }
+
+/* The sentence about what a destructive control does not do. It was set as a
+   lede, which is the style of an introduction, at the foot of the page. */
+.note {
+  margin: 0 0 var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--warn);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  line-height: 1.55;
+}
+.note strong { color: var(--ink); }
+.note a { color: var(--accent); }
+
+/* The scopes cell. A token's scopes are a set of short names, and as a comma
+   joined run they were one long string the table squeezed into a quarter of
+   the width and wrapped to ten lines, making every row 230px tall. */
+th.scopecell { width: 32%; }
+th.actioncell { width: 150px; }
+td.scopecell .evchip { display: inline-block; margin: 1px 2px 1px 0; font-size: var(--text-2xs); }
+
+/* The View menu holds two sections side by side, so it needs more room than a
+   status menu's list of one-line choices. */
+.viewpop { max-width: min(46rem, calc(100vw - 24px)); }
+.viewpop .viewgrid { padding: 0; }

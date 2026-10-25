@@ -99,7 +99,7 @@ func TestTheConnectionScreenIsScopedToTheSessionTenant(t *testing.T) {
 			t.Errorf("the screen discloses %q:\n%s", secret, page)
 		}
 	}
-	if !strings.Contains(page, `<span class="stat-n">1</span><span class="stat-l">this server, all tenants</span>`) {
+	if !strings.Contains(page, `<p class="figure">1</p><p class="caption">this server, all tenants</p>`) {
 		t.Errorf("the process total does not cover the other tenant's connection:\n%s", page)
 	}
 

@@ -1,13 +1,16 @@
 {{define "content"}}
 {{$v := .Data}}
-<h1>Users</h1>
-<p class="lede summary">
-  {{if eq (len $v.Users) 0}}No accounts yet.
-  {{else}}<strong>{{$v.Active}}</strong> active{{if $v.Off}} &middot; <span class="held">{{$v.Off}} disabled</span>{{end}}
-  {{end}}
-</p>
-
-{{template "column-picker" .}}
+<div class="pagehead">
+  <div class="pagehead-title">
+    <h1>Users</h1>
+    <p class="lede summary">
+      {{if eq (len $v.Users) 0}}No accounts yet.
+      {{else}}<strong>{{$v.Active}}</strong> active{{if $v.Off}} &middot; <span class="held">{{$v.Off}} disabled</span>{{end}}
+      {{end}}
+    </p>
+  </div>
+  <div class="pagehead-tools">{{template "column-menu" .}}</div>
+</div>
 
 {{/* A list of records, not a table of cells: every account is one block with
      its own identity, what it may do, and the two controls that change it.
