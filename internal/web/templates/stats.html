@@ -61,17 +61,17 @@
      runs across. It was one full width progress bar per day: a thousand
      pixels of ink to say "one task", stacked six deep, which made the
      smallest numbers on the page the largest objects on it. */}}
-<ol class="columns" aria-label="Tasks completed per day">
+<ol class="daybars" aria-label="Tasks completed per day">
   {{$max := .Data.MaxDay}}
   {{range .Data.Stats.PerDay}}
   <li title="{{.Date}}: {{.Completed}} completed">
-    <span class="col-value">{{.Completed}}</span>
-    <span class="col-bar" style="height: {{percent .Completed $max}}%"></span>
+    <span class="daybar-value">{{.Completed}}</span>
+    <span class="daybar" style="height: {{percent .Completed $max}}%"></span>
     {{/* The year is the same on every column of a fourteen day window, so
          it is nine characters that cannot distinguish one bar from another
          and were wide enough to collide with the bar beside them. The full
          date stays in the title. */}}
-    <span class="col-label">{{slice .Date 5}}</span>
+    <span class="daybar-label">{{slice .Date 5}}</span>
   </li>
   {{end}}
 </ol>

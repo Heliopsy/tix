@@ -49,7 +49,8 @@ func tokenHeaders(t *testing.T, page string) []string {
 		t.Fatalf("the token screen renders no table head")
 	}
 	var out []string
-	for _, part := range strings.Split(head, "<th>")[1:] {
+	for _, part := range strings.Split(head, "<th")[1:] {
+		_, part, _ = strings.Cut(part, ">")
 		cell, _, _ := strings.Cut(part, "</th>")
 		out = append(out, strings.TrimSpace(cell))
 	}

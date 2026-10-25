@@ -1,6 +1,8 @@
 {{define "content"}}
-<h1>Domains</h1>
-{{template "column-picker" .}}
+<div class="pagehead">
+  <div class="pagehead-title"><h1>Domains</h1></div>
+  <div class="pagehead-tools">{{template "column-menu" .}}</div>
+</div>
 <table>
   <thead><tr><th>Hostname</th>{{if .Columns.Show "domains" "verified"}}<th>Verified</th>{{end}}{{if .Columns.Show "domains" "cert"}}<th>Certificate</th>{{end}}<th></th></tr></thead>
   <tbody>

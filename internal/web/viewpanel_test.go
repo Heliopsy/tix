@@ -128,7 +128,7 @@ func TestTheViewPanelChoosesItsOwnTrackCount(t *testing.T) {
 func TestEachViewChoiceNamesWhatItCommits(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
-	panel := between(t, f.as("alice").page("/tasks"), `class="body viewgrid"`, "</details>")
+	panel := between(t, f.as("alice").page("/tasks"), `class="body viewgrid"`, `class="flowclose"`)
 
 	for _, want := range []string{">Apply columns<", ">Apply projects<"} {
 		if !strings.Contains(panel, want) {

@@ -158,3 +158,46 @@
   }
   document.addEventListener("htmx:afterSwap", start);
 })();
+
+// Apply a preference when it is chosen, not when a second button is pressed.
+//
+// A settings row that is one dropdown and one Apply button asks for two
+// actions where the choice was the action. The button is still shipped,
+// because with scripting off it is the only thing that commits the choice,
+// and a control that only works with scripting is a control that sometimes
+// does nothing. So the markup is correct without this file, and this file
+// removes the button it has made redundant.
+//
+// The form still posts: no fetch, no partial swap. The page reloads with the
+// preference applied, which is what these forms already did and what the
+// theme cookie on <html> requires.
+(function () {
+  "use strict";
+
+  function wire(form) {
+    var select = form.querySelector("select");
+    if (!select) return;
+
+    var apply = form.querySelector("button.apply");
+    if (apply) apply.hidden = true;
+
+    select.addEventListener("change", function () {
+      if (typeof form.requestSubmit === "function") {
+        form.requestSubmit(apply || undefined);
+      } else {
+        form.submit();
+      }
+    });
+  }
+
+  function start() {
+    var forms = document.querySelectorAll("form[data-apply]");
+    for (var i = 0; i < forms.length; i++) wire(forms[i]);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", start);
+  } else {
+    start();
+  }
+})();
