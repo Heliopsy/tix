@@ -115,6 +115,19 @@ async function main() {
   // fixture: it was created just now, by the person watching.
   await page.goto(`${BASE}/projects`, { waitUntil: "domcontentloaded" });
   await sleep(900);
+  // The form is folded away until it is asked for, so it is asked for: the
+  // button exists in the DOM while the disclosure is shut, which is not the
+  // same as being clickable, and Playwright waited the full thirty seconds
+  // for a control that was never going to become actionable.
+  //
+  // Opened on camera rather than through the DOM, because a reader is about
+  // to watch a project being made and the first step of making one is this.
+  const unfold = page.locator("details.addmore > summary").first();
+  if (await unfold.count()) {
+    await unfold.click();
+    await sleep(500);
+  }
+
   const newProject = page.locator('form[action="/projects"]').first();
   await newProject.locator("input[name=key]").pressSequentially(PROJECT_KEY, { delay: TYPE });
   await sleep(250);
