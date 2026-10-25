@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.19.0](https://github.com/Heliopsy/tix/compare/v0.18.0...v0.19.0) (2026-10-25)
+
+
+### Features
+
+* **web:** make the columns control a menu and rebuild the settings screen ([#71](https://github.com/Heliopsy/tix/issues/71)) ([8fb4267](https://github.com/Heliopsy/tix/commit/8fb4267aaa4b0fd3b41f38ea5749fe91bdbe9037))
+
+
+### Bug Fixes
+
+* **demo:** open the folded new-project form before submitting ([#69](https://github.com/Heliopsy/tix/issues/69)) ([58e4fa3](https://github.com/Heliopsy/tix/commit/58e4fa3f38311a21c98f4deddcfcab5bd0e93ac9))
+* **status:** name the server answering, and stop claiming nothing serves the store ([#72](https://github.com/Heliopsy/tix/issues/72)) ([d3bb6e2](https://github.com/Heliopsy/tix/commit/d3bb6e2b701b2c15afe24ffc59d5f74199189f73))
+
 ## [0.18.0](https://github.com/Heliopsy/tix/compare/v0.17.0...v0.18.0) (2026-10-25)
 
 
