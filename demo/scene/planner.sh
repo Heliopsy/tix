@@ -44,7 +44,12 @@ in one go. Read it:
 Break it into 5 or 6 subtasks that are each small enough for one agent to
 finish on its own, and write each one into tix as a task in project $PROJECT:
 
-    tix task add "<title>" -p $PROJECT --parent $EPIC
+    tix task add "<title>" -p $PROJECT --parent $EPIC --priority <high|normal|low> --tag <area>
+
+Give every subtask a priority and one tag naming the area it touches, such as
+api, storage, docs or health. They are what the board is read by: a column of
+titles is a list, and the same column with a priority and an area on each card
+is a plan somebody can pick from.
 
 Say each title in one short line as you add it.
 
@@ -85,8 +90,10 @@ PROMPT_END
 # The width is fixed rather than read from the terminal. tput cols answers for
 # the pane as it is when this starts, and the pane is split in half a moment
 # later, so the folded lines came out wider than the pane and the terminal
-# hard-wrapped them mid-word again: "stora / ge", "wi / th". 50 is what each
-# half of the 110 column window is worth.
+# hard-wrapped them mid-word again: "stora / ge", "wi / th". The scene sets
+# SCENE_FOLD from the layout it built, because the number is a property of the
+# pane and not of this script: 50 was half of a 110 column window, and the
+# agents now get a third of a full width one.
 #
 # The comment belongs here and not inside the command below. A comment between
 # a line ending in a backslash and the line it continues splices into the
@@ -94,11 +101,23 @@ PROMPT_END
 # command, and `2>/dev/null | jq ...` then starts a new one reading from the
 # terminal. bash -n accepts all of it. That shipped once, and the cost was not
 # the broken pipe but what the pipe was doing: redacting the lease tokens.
+#
+# stderr goes to a file, not to /dev/null. It cannot go to the pane, because
+# the pane is the product demo, but dropping it cost a whole take: the OAuth
+# session had expired, claude printed "Failed to authenticate" and exited in
+# under a second, and the scene then waited six minutes for subtasks that
+# could never arrive. The pane showed nothing, the log showed nothing, and the
+# only record of why was in the stream that was being discarded.
+ERRLOG=${SCENE_AGENT_ERR:-/out/agent-$AGENT.err}
 claude -p "$PROMPT" \
   --allowedTools 'Bash(tix:*)' Read \
   --permission-mode acceptEdits \
   --output-format stream-json --include-partial-messages --verbose \
-  2>/dev/null | jq -j --unbuffered -f "$(dirname "$0")/stream.jq" \
-  | stdbuf -o0 fold -s -w 50
+  2>>"$ERRLOG" | jq -j --unbuffered -f "$(dirname "$0")/stream.jq" \
+  | stdbuf -o0 fold -s -w "${SCENE_FOLD:-50}"
+
+# The status of claude, not of fold. The scene waits on this: a planner that
+# died is a failed take now rather than in six minutes.
+printf '%s\n' "${PIPESTATUS[0]}" > "${SCENE_PLANNER_RC:-/tmp/planner.rc}"
 
 printf '\n  %s: the backlog is written; anyone can take it from here\n' "$AGENT"

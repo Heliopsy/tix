@@ -277,7 +277,7 @@ actionlint: (tool "actionlint")
 # info on made the gate depend on which shellcheck release the runner had,
 # which is how it failed on a machine where it had just passed. SC2189 is an
 # error and is still caught, verified against the commit that motivated this.
-shellcheck: (tool "shellcheck" "--severity=warning" "demo/scene/agent.sh" "demo/scene/agent-stub.sh" "demo/scene/board.sh" "demo/scene/planner.sh" "demo/scene/run.sh" "demo/scene/stream_test.sh" "demo/scene/watch.sh" "demo/encode.sh")
+shellcheck: (tool "shellcheck" "--severity=warning" "demo/scene/agent.sh" "demo/scene/agent-stub.sh" "demo/scene/board.sh" "demo/scene/planner.sh" "demo/scene/planner-stub.sh" "demo/scene/run.sh" "demo/scene/stream_test.sh" "demo/scene/watch.sh" "demo/encode.sh")
 hadolint: (tool "hadolint" "Containerfile" "Containerfile.ci")
 # The jq filter that renders the agent panes, which is the only thing between a
 # lease token and a published video. shellcheck cannot read it and bash -n
@@ -983,7 +983,7 @@ demo-record ENVFILE: demo-image
     set -euo pipefail
     [ -f "{{ENVFILE}}" ] || { echo "no env file at {{ENVFILE}}" >&2; exit 1; }
     mkdir -p {{demo_out}}
-    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log
+    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log {{demo_out}}/agent-*.err
     # --env-file rather than --env so the credential never enters the shell
     # that starts the container, and so it is not in anybody's process table.
     # --userns=keep-id maps the in-container uid to the host user, so the take
@@ -1030,7 +1030,7 @@ demo-record-here: demo-image
       mounts+=(-v "$work/.claude.json:/home/demo/.claude.json:Z")
     fi
     mkdir -p {{demo_out}}
-    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log
+    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log {{demo_out}}/agent-*.err
     {{engine}} run --rm \
       --userns=keep-id:uid=1000,gid=1000 \
       --hostname tix-demo \
@@ -1041,6 +1041,29 @@ demo-record-here: demo-image
       {{demo_image}}
     echo
     echo "take: {{demo_out}}/raw.mkv"
+
+# Rehearse the scene with no agent and no credentials.
+#
+# Everything is real except the two things that cost money: the stubs drive the
+# same tix commands over the same server, so the layout, the pane widths, the
+# colours and every beat downstream are exactly what a paid take would film.
+# Use it for anything about how the frame looks, and keep the paid takes for
+# what the agents actually say.
+demo-rehearse: demo-image
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p {{demo_out}}
+    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log {{demo_out}}/agent-*.err
+    {{engine}} run --rm \
+      --userns=keep-id:uid=1000,gid=1000 \
+      --hostname tix-demo \
+      --shm-size 512m \
+      -e SCENE_PLANNER=/home/demo/scene/planner-stub.sh \
+      -e SCENE_AGENT=/home/demo/scene/agent-stub.sh \
+      -v "$PWD/{{demo_out}}:/out:Z" \
+      {{demo_image}}
+    echo
+    echo "rehearsal: {{demo_out}}/raw.mkv"
 
 # Record a take you can watch while it runs, on a vnc port.
 #
@@ -1053,7 +1076,7 @@ demo-watch ENVFILE: demo-image
     set -euo pipefail
     [ -f "{{ENVFILE}}" ] || { echo "no env file at {{ENVFILE}}" >&2; exit 1; }
     mkdir -p {{demo_out}}
-    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log
+    rm -f {{demo_out}}/raw.mkv {{demo_out}}/scene.log {{demo_out}}/agent-*.err
     echo "connect a vnc viewer to 127.0.0.1:5900 once this starts"
     {{engine}} run --rm \
       --env-file "{{ENVFILE}}" --env SCENE_VNC=1 \

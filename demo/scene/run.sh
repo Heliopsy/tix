@@ -26,11 +26,11 @@ export SCENE_PROJECT SCENE_TASKS DB
 : "${SCENE_FPS:=12}"
 : "${SCENE_PROJECT:=links}"
 : "${SCENE_TASKS:=6}"
-# How many finished tasks the take waits for. Fewer than the backlog on
-# purpose: a real agent may park one for a decision, and the scene should end
-# on work landing rather than on a timeout waiting for a task nobody can do.
-: "${SCENE_DONE:=4}"
-export SCENE_DONE
+# The lower bound on finished work, not the end condition. The scene ends when
+# the backlog drains (see beat 5); this only guards the opposite failure, a
+# take that reaches an empty board because the agents did nothing.
+: "${SCENE_MIN_DONE:=2}"
+export SCENE_MIN_DONE
 : "${SCENE_BEAT_TIMEOUT:=180}"
 : "${DEMO_PASSWORD:=tix-demo-password}"
 : "${SCENE_AGENTS:=atlas scout}"
@@ -237,7 +237,7 @@ chromium \
   --remote-debugging-port=9222 \
   --user-data-dir=/home/demo/chrome \
   --window-position=0,0 \
-  --window-size=$((SCENE_WIDTH * 2 / 3)),"$SCENE_HEIGHT" \
+  --window-size="$SCENE_WIDTH",$((SCENE_HEIGHT * 54 / 100)) \
   --app=http://127.0.0.1:8080/login \
   >> "$LOG" 2>&1 &
 for _ in $(seq 60); do
@@ -257,9 +257,10 @@ PLAN_DONE=/tmp/plan.done
 READY=/tmp/signed-in
 GO=/tmp/rolling
 EPIC_FILE=/tmp/epic.ref
-rm -f "$PLAN_DONE" "$READY" "$GO" "$EPIC_FILE"
+DRAINED=/tmp/drained
+rm -f "$PLAN_DONE" "$READY" "$GO" "$EPIC_FILE" "$DRAINED"
 SCENE_PLAN_DONE="$PLAN_DONE" SCENE_READY="$READY" SCENE_GO="$GO" \
-SCENE_EPIC_FILE="$EPIC_FILE" \
+SCENE_EPIC_FILE="$EPIC_FILE" SCENE_DRAINED="$DRAINED" \
   node "$SCENE/browser.mjs" plan >> "$LOG" 2>&1 &
 BROWSER_PID=$!
 
@@ -317,62 +318,25 @@ EPIC=$(cat "$EPIC_FILE" 2>/dev/null || true)
 export SCENE_EPIC="$EPIC"
 say "the task to break down is $EPIC"
 
-say "beat 2b: the event log"
-# A window of its own, under the browser, rather than a pane stacked on the
-# right. Four equal strips in one column is a wall of text; two columns of two
-# reads as four things, and the log belongs beside the board it explains.
+say "beat 2b: the terminal"
+# One terminal window under the browser, holding every terminal surface, and
+# the browser across the whole width above it.
 #
-# It opens BEFORE the planner runs. tix watch delivers from the moment it
-# subscribes, so opening it after the breakdown had been written meant the log
-# began at sequence thirty-two and the most interesting thing in the take, six
-# tasks appearing because an agent decided they should, had already scrolled
-# past before the pane existed.
+# The browser used to take a column down the left and the terminals a column
+# down the right, which left the board about a thousand pixels wide. The board
+# grid is auto-fit over a 230px track, so five columns want roughly 1200px of
+# content and three were all that fit: Done and Cancelled wrapped onto a
+# second row below the fold, which is what every scroll fix in this file has
+# been working around. Full width the five columns sit in one row, Done is on
+# camera from the first frame, and the scroll becomes a convenience rather
+# than the thing the take depends on.
 #
-# The split is asked for on the browser, so i3 puts the new window below it and
-# leaves the terminal column alone.
+# The event log is the first pane because it has to subscribe before the
+# planner runs. tix watch delivers from the moment it subscribes, so opening
+# it after the breakdown was written began the log at sequence thirty-two,
+# with the six tasks appearing already scrolled past.
 i3-msg '[class="Chromium"] focus' >> "$LOG" 2>&1 || true
 i3-msg 'split v' >> "$LOG" 2>&1 || true
-xterm \
-  -bg '#0b0f14' -fg '#d7dce3' -cr '#2dd4bf' \
-  -fa 'DejaVu Sans Mono' -fs 10 -b 10 +sb -bc \
-  -T 'tix watch  (the event log)' \
-  -e "$SCENE/watch.sh" >> "$LOG" 2>&1 &
-hold 3
-# The log needs a third of the column at most; the board is what is watched.
-i3-msg '[title="tix watch.*"] focus' >> "$LOG" 2>&1 || true
-i3-msg 'resize shrink height 180 px' >> "$LOG" 2>&1 || true
-hold 1
-
-
-# Put the terminal beside the browser-and-log column, not inside it.
-#
-# i3 places a new window against whatever is focused, and the log was focused
-# because it had just been resized. The terminal therefore joined that column
-# and three stacked panes came out four rows tall each, which is below the
-# minimum the board needs to draw at all: it rendered "terminal is 206x4; tix
-# tui needs at least 24x8" instead of a board. Focusing the browser and then
-# its parent selects the column as a whole, so the split that follows puts the
-# terminal next to it.
-i3-msg '[class="Chromium"] focus' >> "$LOG" 2>&1 || true
-i3-msg 'focus parent' >> "$LOG" 2>&1 || true
-i3-msg 'split h' >> "$LOG" 2>&1 || true
-
-say "beat 3: the planner"
-# SCENE_AGENT exists so the scene can be debugged without paying for an agent
-# run. agent-stub.sh drives the same tix commands on a timer, so every beat
-# after this one is exercised exactly as it would be with the real thing.
-AGENT=${SCENE_AGENT:-$SCENE/agent.sh}
-# Deliberately unquoted: SCENE_AGENTS is a space separated list of agent names
-# and the split into positional parameters is the point.
-# shellcheck disable=SC2086
-set -- $SCENE_AGENTS
-FIRST=$1
-SECOND=${2:-}
-# Colours on the command line, not from .Xresources. xrdb loads cleanly and
-# xterm still came up white against a dark board, so the resource path is not
-# worth another take to debug: -bg/-fg/-fa are unambiguous, and the sixteen
-# palette entries come through -xrm, which is the same mechanism without the
-# dependency on the resource database being consulted.
 xterm \
   -bg '#0b0f14' -fg '#d7dce3' -cr '#2dd4bf' \
   -fa 'DejaVu Sans Mono' -fs 10 -b 8 +sb -bc \
@@ -384,24 +348,85 @@ xterm \
   -xrm 'XTerm*color5:  #a78bfa' -xrm 'XTerm*color13: #c4b5fd' \
   -xrm 'XTerm*color6:  #2dd4bf' -xrm 'XTerm*color14: #5eead4' \
   -xrm 'XTerm*color7:  #d7dce3' -xrm 'XTerm*color15: #f3f5f8' \
-  -geometry 110x62+$((SCENE_WIDTH * 55 / 100))+0 \
-  -T 'two agents, and the board over ssh' \
-  -e "tmux -f /home/demo/scene/tmux.conf new-session -s demo -n work 'TIX_AGENT=$FIRST SCENE_EPIC=$EPIC $SCENE/planner.sh; TIX_AGENT=$FIRST $AGENT; bash'" \
+  -T 'two agents, the board over ssh, and the event log' \
+  -e "tmux -f $SCENE/tmux.conf new-session -s demo -n work '$SCENE/watch.sh; bash'" \
   >> "$LOG" 2>&1 &
+for _ in $(seq 60); do tmux has-session -t demo >/dev/null 2>&1 && break; sleep 0.25; done
+tmux has-session -t demo >/dev/null 2>&1 || die "the terminal session never started"
+
+# Panes are addressed by id from here on, never by index. An index is a
+# position in the layout, so a conditional split renumbers every pane after
+# it, and a take was filmed with the board neither sized nor labelled because
+# two commands addressed a pane that did not exist and both ended in || true.
+EVENTS=$(tmux display-message -p -t demo:work '#{pane_id}')
+tmux select-pane -t "$EVENTS" -T 'tix watch  (the event log)' -P 'fg=#60a5fa' \
+  >> "$LOG" 2>&1 || true
+
+# The browser is what is being watched, so it keeps the larger band.
+i3-msg '[class="XTerm"] focus' >> "$LOG" 2>&1 || true
+i3-msg 'resize set height 46 ppt' >> "$LOG" 2>&1 || true
+hold 2
+
+say "beat 3: the planner"
+# SCENE_AGENT exists so the scene can be debugged without paying for an agent
+# run. agent-stub.sh drives the same tix commands on a timer, so every beat
+# after this one is exercised exactly as it would be with the real thing.
+AGENT=${SCENE_AGENT:-$SCENE/agent.sh}
+# SCENE_PLANNER is the same lever for the beat that writes the backlog. Without
+# it a rehearsal still pays for the planner, which is the one agent run every
+# take needs even when what is being checked is the layout.
+PLANNER=${SCENE_PLANNER:-$SCENE/planner.sh}
+# How wide the agents' narration is folded. Each agent gets a quarter of a full
+# width window now rather than half of a narrow one.
+: "${SCENE_FOLD:=48}"
+export SCENE_FOLD
+# The planner writes its exit status here when it stops. See the wait below.
+PLANNER_RC=/tmp/planner.rc
+rm -f "$PLANNER_RC"
+# Deliberately unquoted: SCENE_AGENTS is a space separated list of agent names
+# and the split into positional parameters is the point.
+# shellcheck disable=SC2086
+set -- $SCENE_AGENTS
+FIRST=$1
+SECOND=${2:-}
+# -f so the agent row spans the whole window rather than half of whatever is
+# focused, and -b so it lands above the event log rather than below it.
+ATLAS=$(tmux split-window -f -b -v -P -F '#{pane_id}' -t "$EVENTS" \
+  "TIX_AGENT=$FIRST SCENE_EPIC=$EPIC SCENE_PLANNER_RC=$PLANNER_RC $PLANNER; TIX_AGENT=$FIRST $AGENT; bash") \
+  || die "splitting for the planner"
+tmux select-pane -t "$ATLAS" -T "agent: $FIRST" -P 'fg=#2dd4bf' >> "$LOG" 2>&1 || true
+# The log is a ticker, not a transcript: it only has to show the last few
+# events arriving, and every row it takes comes off the agents above it.
+tmux resize-pane -t "$EVENTS" -y 8 >> "$LOG" 2>&1 || true
 hold 1
-# i3 splits evenly, which left the board in half a frame with columns too
-# narrow to read. The browser is the thing being watched, so it gets the room.
-i3-msg '[class="Chromium"] focus' >> "$LOG" 2>&1 || true
-# Explicit, not relative. Shrinking took the browser under 900px, which is
-# where its own sidebar stacks into a row of wrapping links and spends the top
-# of the frame on navigation. The terminal still gets enough width for two
-# agents side by side.
-i3-msg 'resize set width 54 ppt' >> "$LOG" 2>&1 || true
 
 # The planner writes the backlog before anybody works it. Waiting on the
 # subtasks appearing, rather than on a clock, is what keeps the next beat
 # honest: the second agent arrives to a queue that exists.
-tap_wait 'task\.created' 4 $((SCENE_BEAT_TIMEOUT * 2))
+#
+# The planner stopping is also an answer, and the faster one. A take died with
+# an expired OAuth session: claude printed its refusal to a discarded stderr
+# and exited in under a second, and this wait then sat for six minutes for
+# subtasks that nothing was going to write. The planner now records that it
+# stopped, so the scene can fail at the moment the planner failed and say why.
+planner_wait() {
+  local secs=$1 waited=0 seen=0 rc
+  say "waiting for 4x task.created (<= ${secs}s)"
+  while [ "$waited" -lt "$secs" ]; do
+    seen=$(grep -cE '"type":"task\.created"' "$TAP" 2>/dev/null || true)
+    [ "${seen:-0}" -ge 4 ] && { say "got ${seen}x task.created"; return 0; }
+    if [ -f "$PLANNER_RC" ]; then
+      rc=$(cat "$PLANNER_RC" 2>/dev/null || echo "?")
+      [ "$rc" = "0" ] \
+        && die "the planner finished with only ${seen:-0} tasks written"
+      die "the planner exited ${rc} with ${seen:-0} tasks written; see $OUT/agent-*.err"
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+  die "timed out with ${seen:-0}/4 task.created"
+}
+planner_wait $((SCENE_BEAT_TIMEOUT * 2))
 hold 3
 
 # ── beat 4: a second surface on the same tenant ──────────────────────────────
@@ -412,49 +437,78 @@ say "beat 4: a second agent joins the queue"
 # together and racing once.
 hold 3
 if [ -n "$SECOND" ]; then
-  # Side by side, not stacked. Two agents above one another read as one long
-  # transcript; beside each other they read as two workers, which is the thing
-  # being demonstrated, and each still gets its own labelled border.
-  tmux split-window -t demo:work -h "TIX_AGENT=$SECOND $AGENT; bash" >> "$LOG" 2>&1 \
+  # Beside the first, not under it. Two agents stacked read as one long
+  # transcript; side by side they read as two workers, which is the thing
+  # being demonstrated.
+  SCOUT=$(tmux split-window -h -P -F '#{pane_id}' -t "$ATLAS" "TIX_AGENT=$SECOND $AGENT; bash") \
     || die "splitting for the second agent"
+  tmux select-pane -t "$SCOUT" -T "agent: $SECOND" -P 'fg=#a78bfa' >> "$LOG" 2>&1 || true
   hold 4
 fi
 
 say "beat 4b: the board over ssh"
-# -f makes the new pane span the whole window rather than splitting whichever
-# pane happens to be active, so the board gets the full width under both
-# agents instead of half of one of them.
-tmux split-window -f -v -t demo:work "$SCENE/board.sh" >> "$LOG" 2>&1 || die "splitting for the board"
-# The board is the last pane split, so its index depends on whether the second
-# agent took one. Hardcoding 2 filmed a one-agent take with the board neither
-# sized nor labelled, because both commands addressed a pane that did not
-# exist and both end in || true.
-if [ -n "$SECOND" ]; then
-  BOARD_PANE=2
-else
-  BOARD_PANE=1
-fi
-# The agents get the upper two thirds between them; the board needs less,
-# because it is a list of five projects and not a transcript.
-tmux resize-pane -t "demo:work.$BOARD_PANE" -y 30% >> "$LOG" 2>&1 || true
+# The board joins the same row as the agents rather than taking a row of its
+# own. It is a board, so it wants width; the agents are narration, and sixty
+# columns is enough to read a sentence in.
+BOARD=$(tmux split-window -h -P -F '#{pane_id}' -t "${SCOUT:-$ATLAS}" "$SCENE/board.sh") \
+  || die "splitting for the board"
+tmux select-pane -t "$BOARD" -T "ssh tix@demo  (the board)" -P 'fg=#fbbf24' >> "$LOG" 2>&1 || true
 
-# Label every pane. Four unlabelled terminals stacked is four terminals; named,
-# it is two agents, the event log and a board.
-tmux select-pane -t demo:work.0 -T "agent: $FIRST" >> "$LOG" 2>&1 || true
-if [ -n "$SECOND" ]; then
-  tmux select-pane -t demo:work.1 -T "agent: $SECOND" >> "$LOG" 2>&1 || true
-fi
-tmux select-pane -t "demo:work.$BOARD_PANE" -T "ssh tix@demo  (the board)" >> "$LOG" 2>&1 || true
+# Thirds, with the remainder going to the board. Splitting halves a pane each
+# time, so without this the first agent keeps half the row and the board ends
+# up in a quarter of it, which is under what the five columns need.
+# A quarter each for the agents, the rest for the board. The board draws five
+# columns of cards and reports what it could not fit: at a third of the row it
+# said "7 tasks in 5 columns, showing 2-5" and dropped To do off the left.
+tmux resize-pane -t "$ATLAS" -x 26% >> "$LOG" 2>&1 || true
+[ -n "${SCOUT:-}" ] && tmux resize-pane -t "$SCOUT" -x 26% >> "$LOG" 2>&1 || true
+
+# Back to the first agent, so the active border is the one pane whose colour
+# matches the active style. Nothing in the scene types into a pane; this is
+# only about which border is lit.
+tmux select-pane -t "$ATLAS" >> "$LOG" 2>&1 || true
 hold 5
 
 # ── beat 5: watch the work land ──────────────────────────────────────────────
 
 say "beat 5: work"
-# Completions only. Counting transitions too ended a take after two tasks: a
-# todo-to-doing move is a transition, so every claim inflated the count and the
-# threshold was met before most of the work had happened.
-tap_wait 'task\.released' "$SCENE_DONE" $((SCENE_BEAT_TIMEOUT * 4))
-hold 6
+# The scene ends when the backlog drains, not after a fixed number of releases.
+# A count cannot be the end condition here: the planner decides how many tasks
+# to write, so a take that produced six tasks ended after four of them while
+# two were still in Doing, and the board never scrolled to Done because its own
+# condition is that To do and Doing are empty. The end of the scene and the
+# payoff of the scene were two different states, and the scene reported success
+# for a take that never reached the second one.
+#
+# So there is one state now, and the board is what reports it. Blocked tasks do
+# not hold the scene open: a parked task is a thing worth filming, and it is
+# neither To do nor Doing.
+drain_wait() {
+  local secs=$1 waited=0
+  say "waiting for the backlog to drain (<= ${secs}s)"
+  while [ "$waited" -lt "$secs" ]; do
+    if [ -f "$DRAINED" ]; then
+      say "backlog drained after ${waited}s"
+      return 0
+    fi
+    kill -0 "$BROWSER_PID" 2>/dev/null || die "the board died before the backlog drained"
+    sleep 1
+    waited=$((waited + 1))
+  done
+  die "the backlog never drained; see the board heartbeats in this log"
+}
+drain_wait $((SCENE_BEAT_TIMEOUT * 5))
+
+# The opposite failure: an empty backlog that nobody worked. The board scrolls
+# on To do and Doing being empty and at least one card in Done, which one
+# finished task satisfies, so the floor is checked here rather than there.
+released=$(grep -cE '"type":"task\.released"' "$TAP" 2>/dev/null || true)
+[ "${released:-0}" -ge "$SCENE_MIN_DONE" ] \
+  || die "backlog drained with only ${released:-0} releases, under the floor of $SCENE_MIN_DONE"
+
+# The scroll is smooth and the board is still repainting behind it. This is
+# dwell on the end state, not a guess at how long work takes.
+hold 8
 
 # ── beat 6: the frame the poster comes from ──────────────────────────────────
 
