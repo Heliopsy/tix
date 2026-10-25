@@ -6,8 +6,38 @@
      lena's, tom's and scout's work was the page misnaming its own contents.
      "Mine" is already sayable, and precisely, through the filter the assignee
      column's handle writes in one click. */}}
-<h1>Tasks</h1>
-<div id="tasks-summary">{{template "tasks-summary" .}}</div>
+{{/* One header line. The screen used to open with a heading, a summary line,
+     a quick-add row, a filter row, a view switch row and a View panel stacked
+     on top of each other: six strips and 350px before the first task, on a
+     screen whose subject is the list. The heading and its summary belong on
+     one line, and the two controls that decide how the page is drawn belong
+     at the end of it rather than in rows of their own. */}}
+<div class="pagehead">
+  <div class="pagehead-title">
+    <h1>Tasks</h1>
+    <div id="tasks-summary">{{template "tasks-summary" .}}</div>
+  </div>
+  <div class="pagehead-tools">
+    {{template "taskview-switch" $v.Prefs.TaskView}}
+    <div class="listprefs">
+      <details class="panel viewprefs">
+        <summary>View{{if $v.Hidden}} &middot; {{$v.Hidden}} project{{if ne $v.Hidden 1}}s{{end}} hidden{{end}}</summary>
+        <div class="body viewgrid">
+          {{if .ColumnForm.Configurable}}
+          <section>
+            <h3>Columns</h3>
+            {{template "column-choices" .ColumnForm}}
+          </section>
+          {{end}}
+          <section>
+            <h3>Projects</h3>
+            {{template "project-choices" $v.Prefs.Projects}}
+          </section>
+        </div>
+      </details>
+    </div>
+  </div>
+</div>
 
 <form method="post" action="/tasks" class="quickadd">
   {{template "csrf" .CSRF}}
@@ -25,6 +55,55 @@
   </select>
   <button type="submit">Add</button>
 </form>
+
+{{/* The same form, where the thing it extends is. It used to sit at the
+     bottom of the page, under every row of the listing: the quick-add box was
+     at the top and its fuller version was a screenful away, so "add a task
+     with a description" meant scrolling past the work to find it. It opens
+     under the box it belongs to now, and closes back into it. */}}
+{{if .Advanced}}
+<details class="panel addmore">
+  <summary>Add with details</summary>
+  <div class="body">
+    <form method="post" action="/tasks">
+      {{template "csrf" .CSRF}}
+      <div class="addgrid">
+        <label class="field">
+          <span>Title</span>
+          <input id="title2" name="title" required>
+        </label>
+        <label class="field">
+          <span>Project</span>
+          <select id="project_ref2" name="project_ref">
+            {{range $v.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
+          </select>
+        </label>
+        <label class="field">
+          <span>Priority</span>
+          <select id="priority" name="priority">
+            <option value="">default</option>
+            {{range $v.Priorities}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
+          </select>
+        </label>
+        <label class="field is-wide">
+          <span>Notes</span>
+          <textarea id="body" name="body" rows="3"></textarea>
+        </label>
+        <label class="field is-wide">
+          <span>Tags, comma separated</span>
+          <input id="tags" name="tags" list="known-tags">
+        </label>
+      </div>
+      <datalist id="known-tags">
+        {{range $v.Tags}}<option value="{{.Name}}"></option>{{end}}
+      </datalist>
+      <div class="actions">
+        <button type="submit">Create task</button>
+      </div>
+    </form>
+  </div>
+</details>
+{{end}}
 
 <form method="get" action="/tasks" class="filterbar">
   <input name="q" value="{{$v.Query}}" placeholder="Filter, for example status:todo tag:ops" aria-label="Filter" data-shortcut-target="filter">
@@ -69,7 +148,6 @@
 
      The switch itself is the shared partial the settings screen renders, so
      the two cannot disagree about which position the reader is in. */}}
-{{template "taskview-switch" $v.Prefs.TaskView}}
 
 {{/* One panel, not two. Columns and Projects were separate disclosures sitting
      side by side, so deciding what the list shows meant opening one, applying,
@@ -77,23 +155,7 @@
      They are the same decision -- what is on screen -- so they share a panel
      and each keeps its own form, because they are applied by different
      handlers and either can be used without the other. */}}
-<div class="listprefs">
-  <details class="panel viewprefs">
-    <summary>View{{if $v.Hidden}} &middot; {{$v.Hidden}} project{{if ne $v.Hidden 1}}s{{end}} hidden{{end}}</summary>
-    <div class="body viewgrid">
-      {{if .ColumnForm.Configurable}}
-      <section>
-        <h3>Columns</h3>
-        {{template "column-choices" .ColumnForm}}
-      </section>
-      {{end}}
-      <section>
-        <h3>Projects</h3>
-        {{template "project-choices" $v.Prefs.Projects}}
-      </section>
-    </div>
-  </details>
-</div>
+
 
 {{if $v.Filtered}}
 <p class="lede">The filter names a project explicitly, so it is shown even though project visibility hides {{$v.Hidden}} of them.</p>
@@ -105,41 +167,6 @@
 
 <div id="tasks-listing">{{template "tasks-listing" .}}</div>
 
-{{if .Advanced}}
-<details class="panel">
-  <summary>Add with details</summary>
-  <div class="body">
-    <form method="post" action="/tasks">
-      {{template "csrf" .CSRF}}
-      <div class="row">
-        <div>
-          <label for="project_ref2">Project</label>
-          <select id="project_ref2" name="project_ref">
-            {{range $v.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
-          </select>
-        </div>
-        <div>
-          <label for="priority">Priority</label>
-          <select id="priority" name="priority">
-            <option value="">default</option>
-            {{range $v.Priorities}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
-          </select>
-        </div>
-      </div>
-      <label for="title2">Title</label>
-      <input id="title2" name="title" required>
-      <label for="body">Notes</label>
-      <textarea id="body" name="body"></textarea>
-      <label for="tags">Tags, comma separated</label>
-      <input id="tags" name="tags" list="known-tags">
-      <datalist id="known-tags">
-        {{range $v.Tags}}<option value="{{.Name}}"></option>{{end}}
-      </datalist>
-      <div class="actions"><button type="submit">Create task</button></div>
-    </form>
-  </div>
-</details>
-{{end}}
 {{template "live-screen" $v.Live}}
 {{end}}
 
@@ -179,6 +206,18 @@
 
 {{define "tasks-listing"}}
 {{$v := .Data}}
+{{/* One pager for either drawing, because both answer the same page of the
+     same listing: a board that paged differently from the list would be a
+     different selection wearing the same filter.
+
+     Above the rows, not below them. The list and the board are each a frame
+     that scrolls its own contents now, so a pager underneath sat in the strip
+     between the frame and the bottom of the window: reachable, but in the one
+     place a row menu opening downwards lands on top of it. Above, it is
+     beside the controls that produced the page, the frame runs to the bottom
+     of the screen, and a menu near the last row flips upwards on its own
+     because there is no longer any room beneath it. */}}
+{{template "pager" $v.Pager}}
 {{if and (eq $v.View "board") $v.Board.Agreed}}
 {{/* The board draws this same page of tasks into the columns of the one
      workflow every selected project runs. Columns may only be merged when
@@ -207,7 +246,11 @@
     <h2>{{stateLabel .State}} <span class="meta">({{len .Tasks}})</span></h2>
     {{range .Tasks}}
       {{$acc := index $v.Accent .Task.ProjectID}}
-      <article id="t-{{.Task.Ref}}" class="card{{if $acc.Color}} is-accented proj-{{$acc.Color}}{{end}}" draggable="{{if $.DragMove}}true{{else}}false{{end}}" data-task="{{.Task.Ref}}" data-project="{{$acc.Key}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
+      {{$mark := ""}}
+      {{if eq $.Tint "project"}}{{if $acc.Color}}{{$mark = printf " is-accented proj-%s" $acc.Color}}{{end}}
+      {{else if eq $.Tint "status"}}{{$mark = printf " is-accented tint-status-%s" (slug .Task.Status)}}
+      {{else if eq $.Tint "priority"}}{{$mark = printf " is-accented tint-prio-%s" (prio .Task.Priority)}}{{end}}
+      <article id="t-{{.Task.Ref}}" class="card{{$mark}}" draggable="{{if $.DragMove}}true{{else}}false{{end}}" data-task="{{.Task.Ref}}" data-project="{{$acc.Key}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
         <div class="ref">{{.Task.Ref}}</div>
         <div><a href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}">{{.Task.Title}}</a></div>
         {{/* A merged board mixes projects in one column, so each card says
@@ -216,7 +259,7 @@
         {{if or $v.Board.Merged (ne (prio .Task.Priority) "normal") .Task.Tags}}
         <div class="card-meta">
           {{if $v.Board.Merged}}<a class="projref{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" href="/tasks?q=project:{{$acc.Key}}" title="Only tasks in {{$acc.Name}}">{{if $acc.Icon}}<span class="proj-icon" aria-hidden="true">{{$acc.Icon}}</span>{{end}}{{$acc.Key}}</a>{{end}}
-          {{if ne (prio .Task.Priority) "normal"}}<span class="prio p-{{prio .Task.Priority}}" title="Priority: {{prio .Task.Priority}}"><span class="caret" aria-hidden="true"></span>{{prio .Task.Priority}}</span>{{end}}
+          {{if ne (prio .Task.Priority) "normal"}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="Only {{prio .Task.Priority}} priority tasks"><span class="caret" aria-hidden="true"></span>{{prio .Task.Priority}}</a>{{end}}
           {{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}
         </div>
         {{end}}
@@ -288,7 +331,15 @@
   {{$acc := index $v.Accent .ProjectID}}
   {{/* The row carries its ref as an id so completing it can send the browser
        back to this row rather than to the top of the list. */}}
-  <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{if $acc.Color}} is-accented proj-{{$acc.Color}}{{end}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Ref}}">
+  {{/* What the stripe is saying is the reader's choice, not the tenant's:
+       see internal/web/tint.go. One mechanism either way -- the class sets
+       --proj and the stripe reads it -- so only the source of the colour
+       changes, never how it is drawn. */}}
+  {{$mark := ""}}
+  {{if eq $.Tint "project"}}{{if $acc.Color}}{{$mark = printf " is-accented proj-%s" $acc.Color}}{{end}}
+  {{else if eq $.Tint "status"}}{{$mark = printf " is-accented tint-status-%s" (slug .Status)}}
+  {{else if eq $.Tint "priority"}}{{$mark = printf " is-accented tint-prio-%s" (prio .Priority)}}{{end}}
+  <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{$mark}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Ref}}">
     {{$done := index $v.CompleteState .ProjectID}}
     {{if $done}}
     {{/* Only this row is swapped, never the page.
@@ -377,13 +428,55 @@
             </button>
             {{end}}
           </form>
+          {{/* The other half of what a reader wants from an attribute. A chip
+               that edits and a chip that filters looked identical on this row,
+               so each press was a guess; the verb belongs in the menu, where
+               it can be read before it is chosen. */}}
+          <a class="flowsee" href="/tasks?q=status:{{.Status}}">Show all <span class="pill status {{slug .Status}}">{{.Status}}</span></a>
           <button type="button" class="flowclose" popovertarget="flow-{{.Ref}}" popovertargetaction="hide">Close</button>
         </div>
       </span>
       {{else}}<span class="pill status {{slug .Status}}">{{.Status}}</span>{{end}}
       {{end}}
-      {{if $.Columns.Show "tasks" "priority"}}{{$p := prio .Priority}}{{if ne $p "normal"}}<span class="prio p-{{$p}}" title="Priority: {{$p}}"><span class="caret" aria-hidden="true"></span>{{$p}}</span>{{end}}{{end}}
-      {{if $.Columns.Show "tasks" "tags"}}{{range .Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}" title="Only tasks tagged {{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
+      {{/* The priority is a control, the same as the status beside it.
+           It was a label, then briefly a filter link, and neither is what a
+           reader reaches for when they look at a priority on a row: they want
+           to change it. Same popover mechanism as the status menu, so the two
+           controls on a row behave identically, and the normal priority gets
+           a chip of its own rather than nothing, because a row you cannot
+           press is a row that cannot be raised. */}}
+      {{if $.Columns.Show "tasks" "priority"}}
+      {{$p := prio .Priority}}
+      <span class="priomenu">
+        <button type="button" class="priobtn" popovertarget="prio-{{.Ref}}"
+                aria-label="Priority {{$p}}; change it for {{.Ref}}" title="Change the priority of {{.Ref}}">
+          <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{$p}}</span>
+        </button>
+        <div id="prio-{{.Ref}}" class="flowmenu priopop" popover>
+          <p class="flowhead">Priority of <span class="mono">{{.Ref}}</span></p>
+          <form method="post" action="/tasks/{{.Ref}}/priority">
+            {{template "csrf" $.CSRF}}
+            <input type="hidden" name="next" value="{{$v.Self}}">
+            {{range $.Data.Priorities}}
+            <button type="submit" name="priority" value="{{.Value}}" class="flowgo{{if eq .Label $p}} is-current{{end}}">
+              <span class="prio p-{{.Label}}"><span class="caret" aria-hidden="true"></span>{{.Label}}</span>
+              {{if eq .Label $p}}<span class="flowhops">current</span>{{end}}
+            </button>
+            {{end}}
+          </form>
+          <a class="flowsee" href="/tasks?q=priority:{{$p}}">Show all <span class="prio p-{{$p}}"><span class="caret" aria-hidden="true"></span>{{$p}}</span></a>
+          <button type="button" class="flowclose" popovertarget="prio-{{.Ref}}" popovertargetaction="hide">Close</button>
+        </div>
+      </span>
+      {{end}}
+      {{/* At most three, then a count.
+           A task carrying ten tags took the whole width of the row for them,
+           and because the attributes never shrink the title was squeezed to
+           one character per line: one row grew to the height of the screen.
+           Three is what fits beside the rest of the attributes; the overflow
+           says how many more and opens the task, which is where all of them
+           are listed. */}}
+      {{if $.Columns.Show "tasks" "tags"}}{{$tags := .Tags}}{{$shown := $tags}}{{if gt (len $tags) 3}}{{$shown = slice $tags 0 3}}{{end}}{{range $shown}}<a class="tagref" href="/tasks?q=tag:{{.}}" title="Only tasks tagged {{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{if gt (len $tags) 3}}<a class="tagmore" href="/tasks/{{.Ref}}" title="{{join $tags}}">+{{len (slice $tags 3)}}</a>{{end}}{{end}}
       {{/* Who the work belongs to. The listing showed everything about a task
            except that, so the one question a reader opens a shared list to
            answer -- whose is this -- could only be answered on the command
@@ -433,8 +526,4 @@
 </ul>
 {{end}}
 
-{{/* One pager for either drawing, because both answer the same page of the
-     same listing: a board that paged differently from the list would be a
-     different selection wearing the same filter. */}}
-{{template "pager" $v.Pager}}
 {{end}}

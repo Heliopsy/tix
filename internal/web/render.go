@@ -118,17 +118,26 @@ func builtInDefault() core.Theme {
 
 // view is what every template is executed against.
 type view struct {
-	Title         string
-	Path          string
-	Flash         string
-	Error         string
-	CSRF          string
-	EventsPath    string
-	Brand         branding
-	Actor         *core.Actor
-	Advanced      bool
-	DragMove      bool
-	Theme         string
+	Title string
+	Path  string
+	Flash string
+	// FlashRef is the task the flash is about, when it is about one. The
+	// toast used to name a ref as plain text ("links-4 moved to doing") on a
+	// screen the reader had just been returned to, so the one thing they
+	// might want next -- opening it -- was a search of the page away.
+	FlashRef   string
+	Error      string
+	CSRF       string
+	EventsPath string
+	Brand      branding
+	Actor      *core.Actor
+	Advanced   bool
+	DragMove   bool
+	Theme      string
+	// Tint is what a row's stripe and a card's edge are saying: the project,
+	// the status, the priority, or nothing. See tint.go.
+	Tint          string
+	Tints         []tintChoice
 	KeyScheme     string
 	Schemes       []KeyScheme
 	ShortcutsJSON template.JS
@@ -311,6 +320,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		ColumnPage:    columnPage(name),
 		Columns:       columnsOf(r),
 		Flash:         r.URL.Query().Get("flash"),
+		FlashRef:      r.URL.Query().Get("flashref"),
 		CSRF:          csrfFrom(r),
 		EventsPath:    h.eventsPath,
 		Brand:         h.brand(r),
@@ -318,6 +328,8 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Advanced:      advancedMode(r),
 		DragMove:      dragMoveMode(r),
 		Theme:         themeOf(r),
+		Tint:          tintOf(r),
+		Tints:         tintChoices(tintOf(r)),
 		KeyScheme:     string(scheme),
 		Schemes:       KeySchemes(),
 		ShortcutsJSON: shortcutsJSON(scheme),
@@ -787,6 +799,19 @@ func headingFor(kind core.Kind) string {
 //
 // A fragment rather than a scroll script: it needs no JavaScript, it survives
 // the back button, and the browser already knows how to do it.
+// flashRef adds the task a flash is about to a redirect target, so the toast
+// can offer it rather than only name it.
+func flashRef(target, ref string) string {
+	if ref == "" {
+		return target
+	}
+	sep := "?"
+	if strings.Contains(target, "?") {
+		sep = "&"
+	}
+	return target + sep + "flashref=" + url.QueryEscape(ref)
+}
+
 func redirectTo(w http.ResponseWriter, r *http.Request, path, fragment, flash string) {
 	target := path
 	if flash != "" {
@@ -796,7 +821,11 @@ func redirectTo(w http.ResponseWriter, r *http.Request, path, fragment, flash st
 		}
 		target += sep + "flash=" + url.QueryEscape(flash)
 	}
+	// The fragment on a listing redirect is the row the action was taken on,
+	// which is also the task the flash is about: one source, so the toast and
+	// the scroll position cannot name different tasks.
 	if fragment != "" {
+		target = flashRef(target, strings.TrimPrefix(fragment, "t-"))
 		target += "#" + url.PathEscape(fragment)
 	}
 	// #nosec G710 -- path has been through safeNext, the flash is

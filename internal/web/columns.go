@@ -91,13 +91,12 @@ var columnSets = map[string][]Column{
 		{Key: "verified", Label: "Verified", Default: true},
 		{Key: "cert", Label: "Certificate", Default: true},
 	},
-	"projects": {
-		{Key: "name", Label: "Name", Default: true},
-		{Key: "colour", Label: "Colour", Default: true},
-		{Key: "state", Label: "State", Default: true},
-		{Key: "screens", Label: "Screens", Default: true},
-		{Key: "manage", Label: "Manage", Default: true},
-	},
+	// The projects listing had five: Name, Colour, State, Screens, Manage.
+	// It is not a table any more -- it is a row per project carrying its
+	// mark, its name, the key it is known by and the line somebody wrote
+	// about it -- so there are no columns to choose between. A picker that
+	// hides fields a screen no longer draws is a control that does nothing,
+	// which is worse than one that is missing.
 }
 
 // ColumnListings names every listing whose columns can be chosen, sorted. It
@@ -248,7 +247,6 @@ var legacyColumns = map[string][]string{
 	"sshkeys":  {"label", "added", "used"},
 	"webhooks": {"events", "active"},
 	"domains":  {"verified", "cert"},
-	"projects": {"name", "colour", "state", "screens", "manage"},
 }
 
 // shownToHidden converts entries written in the shown-set form, so a reader's

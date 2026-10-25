@@ -297,6 +297,7 @@ the current scheme and points at the switch rather than carrying a second form.
 | Columns | `tix_columns` | which optional columns each listing leaves out |
 | Hidden projects | `tix_hidden_projects` | which projects a listing leaves out |
 | Task view | `tix_task_view` | `board` draws the task screen as columns; anything else, including no cookie, is the list |
+| Colour rows by | `tix_tint` | What the stripe down a task row and the edge of a board card stands for: `status`, `priority` or `none`. Anything else, including no cookie, is the project's own colour |
 
 `tix_advanced` has three states rather than two: shown, hidden, and absent, which leaves the answer
 to who is reading. A tenant administrator who has never chosen gets the Configure and Data groups,

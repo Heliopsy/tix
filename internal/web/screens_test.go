@@ -27,7 +27,11 @@ func TestScreensRenderForEntitledActor(t *testing.T) {
 		{"workflow", "/workflows/default", []string{"Workflow default", "Transitions"}},
 		{"tasks", "/tasks", []string{"Tasks", "first task", "New task"}},
 		{"task", "/tasks/" + ref, []string{"first task", "Comments", "Dependencies",
-			"Artifacts", "History", "Subtasks", "Custom fields"}},
+			// "Custom fields" is not here: the card is drawn only when the
+			// project defines some, and a card whose whole content was
+			// "This project defines none." took a slot in the aside to
+			// report the absence of a feature most projects do not use.
+			"Artifacts", "History", "Subtasks"}},
 		{"activity", "/activity", []string{"Activity"}},
 		{"tenant", "/admin/tenant", []string{"Tenant", "Members", "Retention"}},
 		{"domains", "/admin/domains", []string{"Domains", "Map a hostname"}},

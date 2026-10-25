@@ -10,15 +10,67 @@
   <h1>{{$t.Title}}</h1>
 </div>
 {{$held := claim $t}}
-<p id="task-pills">{{template "task-pills" .}}</p>
+{{/* A div, not a p. The status and priority controls carry popover panels,
+     which are divs, and a div inside a paragraph makes the HTML parser close
+     the paragraph before it: the priority ended up outside the row and on a
+     line of its own. */}}
+<div id="task-pills" class="taskpills">{{template "task-pills" .}}</div>
+{{/* The menus live out here, not inside #task-pills.
+     That region is replaced wholesale by a live refresh, and a refresh that
+     lands while a reader has a menu open would swap the form away under the
+     pointer -- which is what livescreen_test.go watches every refreshed
+     region for. A popover is invoked by id rather than by nesting, so the
+     button can sit inside the refreshed marks while the form it opens stays
+     out here, untouched by any swap. */}}
+{{if and .Data.CanWrite .Data.Routes}}
+<div id="flow-{{$t.Ref}}" class="flowmenu" popover>
+  <p class="flowhead">Move <span class="mono">{{$t.Ref}}</span> from <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span></p>
+  <form method="post" action="/tasks/{{$t.Ref}}/transition">
+    {{template "csrf" $.CSRF}}
+    {{range .Data.Routes}}
+    <button type="submit" name="route" value="{{.Value}}" class="flowgo">
+      <span class="flowto">{{.Option}}</span>
+    </button>
+    {{end}}
+  </form>
+  <a class="flowsee" href="/tasks?q=status:{{$t.Status}}">Show all <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span></a>
+  <button type="button" class="flowclose" popovertarget="flow-{{$t.Ref}}" popovertargetaction="hide">Close</button>
+</div>
+{{end}}
+{{if .Data.CanWrite}}
+{{$p := prio $t.Priority}}
+<div id="prio-{{$t.Ref}}" class="flowmenu priopop" popover>
+  <p class="flowhead">Priority of <span class="mono">{{$t.Ref}}</span></p>
+  <form method="post" action="/tasks/{{$t.Ref}}/priority">
+    {{template "csrf" $.CSRF}}
+    {{range $.Data.Priorities}}
+    <button type="submit" name="priority" value="{{.Value}}" class="flowgo{{if eq .Label $p}} is-current{{end}}">
+      <span class="prio p-{{.Label}}"><span class="caret" aria-hidden="true"></span>{{.Label}}</span>
+      {{if eq .Label $p}}<span class="flowhops">current</span>{{end}}
+    </button>
+    {{end}}
+  </form>
+  <a class="flowsee" href="/tasks?q=priority:{{$p}}">Show all <span class="prio p-{{$p}}"><span class="caret" aria-hidden="true"></span>{{$p}}</span></a>
+  <button type="button" class="flowclose" popovertarget="prio-{{$t.Ref}}" popovertargetaction="hide">Close</button>
+</div>
+{{end}}
 
 <div class="detail">
 <div class="main">
 
   {{if .Data.CanWrite}}
   <div class="card">
-    <h2>Details</h2>
-    <form method="post" action="/tasks/{{$t.Ref}}">
+    {{/* "Edit", not "Details". The aside on the right is also headed Details,
+         so the screen said the same word twice for two different things: the
+         form you type into and the facts you cannot. */}}
+    <h2>Edit</h2>
+    {{/* data-dirty-save: assets/busy.js greys the Save until a field actually
+         differs from what the server holds, so the button says whether there
+         is anything to save instead of looking identical either way. The
+         custom fields form below is not marked: it posts hidden copies of
+         the title and body, so "has anything changed" is not a question its
+         own controls can answer. */}}
+    <form method="post" action="/tasks/{{$t.Ref}}" data-dirty-save>
       {{template "csrf" .CSRF}}
       <input type="hidden" name="version" value="{{$t.Version}}">
       <label for="title">Title</label>
@@ -83,8 +135,13 @@
       <li><a class="mono" href="/tasks/{{.Ref}}">{{.Ref}}</a> {{.Title}} <span class="pill status {{slug .Status}}">{{.Status}}</span></li>
       {{else}}<li class="empty">None.</li>{{end}}
     </ul>
+  </div>
 
-    <h3>Dependencies</h3>
+  {{/* Its own card. Subtasks and dependencies shared one, with Dependencies
+       set as an h3 inside it: two unrelated relationships in one box, and a
+       heading level implying one was part of the other. */}}
+  <div class="card">
+    <h2>Dependencies</h2>
     <ul class="plain">
       {{/* A dependency is named the way the field below asks for one. It read
            back a raw identifier while the input directly under it was
@@ -123,8 +180,12 @@
     {{if .Data.CanComment}}
     <form method="post" action="/tasks/{{$t.Ref}}/comments">
       {{template "csrf" .CSRF}}
-      <label for="comment-body">Add a comment</label>
-      <textarea id="comment-body" name="body" data-shortcut-target="comment" required></textarea>
+      {{/* One row, not a label over a four-line box over a button. The
+           composer was the tallest thing in the card and it is the part
+           nobody is reading. It grows when it is typed into. */}}
+      <textarea id="comment-body" name="body" rows="1" class="composer"
+                placeholder="Add a comment" aria-label="Add a comment"
+                data-shortcut-target="comment" required></textarea>
       <div class="actions"><button type="submit">Comment</button></div>
     </form>
     {{end}}
@@ -163,7 +224,7 @@
 
 <aside class="rail">
   <div class="card">
-    <h3>Details</h3>
+    <h3>About</h3>
     <dl class="fields">
       <dt>Project</dt><dd><a href="/projects/{{.Data.ProjectKey}}">{{.Data.ProjectKey}}</a></dd>
       <dt>Assignee</dt><dd>{{if $t.AssigneeActorID}}<span class="who-name" title="{{$t.AssigneeActorID}}">{{$.Data.Names.Label $t.AssigneeActorID}}</span>{{else}}<span class="muted">unassigned</span>{{end}}</dd>
@@ -172,62 +233,66 @@
            state is what they were working it out for, so it is said, in the
            same words the listing and the board use. */}}
       <dt>Due</dt><dd>{{if $t.DueAt}}{{stamp $t.DueAt}}{{$due := due $t}}{{if $due}} <span class="duemark is-{{$due}}">{{if eq $due "overdue"}}overdue{{else}}this week{{end}}</span>{{end}}{{else}}<span class="muted">&mdash;</span>{{end}}</dd>
-      <dt>Id</dt><dd class="mono id">{{$t.ID}}</dd>
+      {{/* A 26 character identifier wrapped onto two lines of the aside and
+           could only be had by selecting it with the mouse, which is how
+           every other secret and identifier in this product is NOT offered:
+           copy.js and .copyline exist for exactly this. */}}
+      <dt>Id</dt><dd class="idline">
+        <code class="mono" id="task-id-{{$t.Ref}}" title="{{$t.ID}}">{{$t.ID}}</code>
+        <button type="button" class="ghost small" data-copy-target="task-id-{{$t.Ref}}" aria-label="Copy the task id">Copy</button>
+      </dd>
+      <dt>Version</dt><dd class="muted">{{$t.Version}}</dd>
       <dt>Created</dt><dd class="muted">{{compact $t.CreatedAt}}</dd>
       <dt>Updated</dt><dd class="muted">{{compact $t.UpdatedAt}}</dd>
     </dl>
   </div>
 
-  {{if .Data.CanWrite}}
-  <div class="card">
-    <h3>Move to</h3>
-    <form method="post" action="/tasks/{{$t.Ref}}/transition">
-      {{template "csrf" .CSRF}}
-      <label for="to">Target state</label>
-      <select id="to" name="route" data-shortcut-target="transition">
-        {{range .Data.Routes}}<option value="{{.Value}}">{{.Option}}</option>{{end}}
-      </select>
-      <label for="transition-comment">Comment</label>
-      <input id="transition-comment" name="comment">
-      <div class="actions"><button type="submit">Apply transition</button></div>
-    </form>
-  </div>
-  {{end}}
+  {{/* "Move to" lived here: a select, a comment box and an Apply button, for
+       a move the status pill in the header now makes in one press. The
+       keyboard shortcut still needs a target, which the pill carries. */}}
 
   <div class="card">
     <h3>Tags</h3>
-    <ul class="plain">
+    {{/* Chips in a row, each carrying its own removal. One tag per line with
+         the word "remove" beside it spent a whole row of the aside on every
+         tag, so four tags pushed everything below them off the screen, and
+         "remove" set as a link read as somewhere to go rather than something
+         to do. */}}
+    <ul class="tagchips">
       {{range $t.Tags}}
       <li>
         <a class="tagref" href="/tasks?q=tag:{{.}}" title="Only tasks tagged {{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>
         {{if $.Data.CanWrite}}
-        <form method="post" action="/tasks/{{$t.Ref}}/tags/remove" style="display:inline">
+        <form method="post" action="/tasks/{{$t.Ref}}/tags/remove">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="tag" value="{{.}}">
-          <button class="link" type="submit">remove</button>
+          <button class="tagdrop" type="submit" aria-label="Remove the tag {{.}}" title="Remove {{.}}">&times;</button>
         </form>
         {{end}}
       </li>
-      {{else}}<li class="empty">None.</li>{{end}}
+      {{else}}<li class="empty muted">None yet.</li>{{end}}
     </ul>
     {{if .Data.CanWrite}}
-    <form method="post" action="/tasks/{{$t.Ref}}/tags">
+    <form method="post" action="/tasks/{{$t.Ref}}/tags" class="tagadd">
       {{template "csrf" .CSRF}}
-      <label for="tag">Add tag</label>
-      <input id="tag" name="tag" required>
-      <div class="actions"><button class="secondary" type="submit">Add</button></div>
+      <input id="tag" name="tag" required placeholder="Add a tag" aria-label="Add a tag">
+      <button class="secondary" type="submit">Add</button>
     </form>
     {{end}}
   </div>
 
+  {{/* Only when the project defines some. A whole card headed "Custom
+       fields" whose entire content was "This project defines none." took a
+       slot in the aside to report the absence of a feature most projects do
+       not use. */}}
+  {{if .Data.Fields}}
   <div class="card">
     <h3>Custom fields</h3>
-    {{if .Data.Fields}}
     <dl class="fields">
       {{range .Data.Fields}}<dt>{{.Def.Label}}</dt><dd>{{.Value}}</dd>{{end}}
     </dl>
-    {{else}}<p class="empty">This project defines none.</p>{{end}}
   </div>
+  {{end}}
 </aside>
 
   {{/* Below both columns and across the whole width. A table of three
@@ -285,15 +350,43 @@
      control and the comment box are deliberately not among them -- see
      showTaskLive for why a form is never swapped under the reader. */}}
 {{define "task-live"}}
-<p id="task-pills">{{template "task-pills" .}}</p>
+{{/* A div, not a p. The status and priority controls carry popover panels,
+     which are divs, and a div inside a paragraph makes the HTML parser close
+     the paragraph before it: the priority ended up outside the row and on a
+     line of its own. */}}
+<div id="task-pills" class="taskpills">{{template "task-pills" .}}</div>
 <ul class="plain" id="task-comments">{{template "task-comments" .}}</ul>
 <div class="body" id="task-history">{{template "task-history" .}}</div>
 {{end}}
 
 {{define "task-pills"}}
 {{$t := .Data.Task}}
-  <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span>
-  <span class="prio p-{{prio $t.Priority}}" title="Priority: {{prio $t.Priority}}"><span class="caret" aria-hidden="true"></span>{{prio $t.Priority}}</span>
+  {{/* The same two controls the listing row carries, in the same shapes, with
+       the same menus. A reader who learned to press the status on a row found
+       it inert here and had to go looking for a card called "Move to" in the
+       aside, fill a select and press Apply: three steps and a different
+       vocabulary for the move they had just made in one. */}}
+  {{if and .Data.CanWrite .Data.Routes}}
+  <span class="statusmenu">
+    {{/* The "t" shortcut focuses this. It used to focus the select inside the
+         Move to card; the control moved, so the target moved with it rather
+         than being left pointing at markup that no longer exists. */}}
+    <button type="button" class="statuspill" popovertarget="flow-{{$t.Ref}}"
+            data-shortcut-target="transition"
+            aria-label="Status {{$t.Status}}; move {{$t.Ref}}" title="Move {{$t.Ref}}">
+      <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span>
+    </button>
+  </span>
+  {{else}}<span class="pill status {{slug $t.Status}}">{{$t.Status}}</span>{{end}}
+  {{$p := prio $t.Priority}}
+  {{if .Data.CanWrite}}
+  <span class="priomenu">
+    <button type="button" class="priobtn" popovertarget="prio-{{$t.Ref}}"
+            aria-label="Priority {{$p}}; change it" title="Change the priority">
+      <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{$p}}</span>
+    </button>
+  </span>
+  {{else}}<span class="prio p-{{$p}}"><span class="caret" aria-hidden="true"></span>{{$p}}</span>{{end}}
   {{if $t.Blocked}}<span class="pill status blocked">blocked</span>{{end}}
   {{/* The lease, and what is left of the last one. The sweeper clears the
        lease columns within a minute of a claim lapsing, so without the
@@ -306,7 +399,6 @@
   {{if eq $held "held"}}<span class="lease held" title="Until {{compact $t.LeaseExpiresAt}}">held &middot; {{$.Data.Names.Label $t.ClaimedByActorID}}</span>
   {{else if eq $held "expired"}}<span class="lease expired" title="At {{compact $t.LeaseExpiredAt}}">claim expired &middot; {{$.Data.Names.Label $t.LeaseExpiredByActorID}} &middot; {{expiredAgo $t}} ago</span>{{end}}
   {{if $t.ClaimCount}}<span class="muted" title="How many times this task has been claimed">claimed {{$t.ClaimCount}} time{{if ne $t.ClaimCount 1}}s{{end}}</span>{{end}}
-  <span class="muted">version {{$t.Version}}</span>
 {{end}}
 
 {{define "task-comments"}}
@@ -314,10 +406,14 @@
 
       {{range .Data.Comments}}
       <li class="comment" id="comment-{{.ID}}">
+        {{/* The author and the time belong on the same line as the controls
+             for the comment, not stacked above a body with an "Edit"
+             disclosure below it: three stacked blocks per comment is why ten
+             comments were a screenful of chrome. */}}
         <p class="byline"><span class="who-name" title="{{.AuthorActorID}}">{{$.Data.Names.Label .AuthorActorID}}</span> &middot; {{compact .CreatedAt}}</p>
-        <div>{{.Body}}</div>
+        <div class="comment-body">{{.Body}}</div>
         {{if $.Data.CanComment}}
-        <details class="panel">
+        <details class="panel comment-edit">
           <summary>Edit</summary>
           <div class="body">
             <form method="post" action="/tasks/{{$t.Ref}}/comments/edit">

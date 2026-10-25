@@ -64,7 +64,7 @@ func TestDecideLoadsBeforeTheScriptsThatNeedIt(t *testing.T) {
 	if decide < 0 {
 		t.Fatal("the layout does not load /assets/decide.js")
 	}
-	for _, script := range []string{"live.js", "shortcuts.js", "copy.js"} {
+	for _, script := range []string{"live.js", "shortcuts.js", "copy.js", "busy.js"} {
 		at := strings.Index(page, `src="/assets/`+script+`"`)
 		if at < 0 {
 			t.Errorf("the layout does not load /assets/%s", script)

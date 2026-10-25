@@ -25,6 +25,7 @@
 <script src="/assets/live.js" defer></script>
 <script src="/assets/shortcuts.js" defer></script>
 <script src="/assets/copy.js" defer></script>
+<script src="/assets/busy.js" defer></script>
 </head>
 <body hx-boost="true">
 {{if .Actor}}
@@ -50,7 +51,7 @@
     </div>
   </aside>
   <main class="wrap">
-    {{if .Flash}}<p class="flash">{{.Flash}}</p>{{end}}
+    {{if .Flash}}<p class="flash">{{.Flash}}{{if .FlashRef}} <a class="flashref" href="/tasks/{{.FlashRef}}">{{.FlashRef}}</a>{{end}}</p>{{end}}
     {{if .Error}}<p class="flash error">{{.Error}}</p>{{end}}
     {{block "content" .}}{{end}}
   </main>

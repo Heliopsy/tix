@@ -70,9 +70,12 @@ func TestProjectScreenSetsAndClearsTheAppearance(t *testing.T) {
 	}); resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("creating a project = %d, want 303: %s", resp.StatusCode, body(t, resp))
 	}
+	// The colour is the project's mark, not a swatch beside the word "teal"
+	// in a Colour column: the listing used to print the name of the colour
+	// as data. What has to hold is that the saved colour reaches the list.
 	list := b.page("/projects")
-	if !strings.Contains(list, `class="swatch proj-teal"`) {
-		t.Errorf("the project list shows no swatch:\n%s", list)
+	if !strings.Contains(list, `class="projrow proj-teal"`) {
+		t.Errorf("the project list does not carry the saved colour:\n%s", list)
 	}
 
 	board := b.page("/projects/ops")

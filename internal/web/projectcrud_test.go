@@ -28,8 +28,10 @@ func TestProjectListingLinksThroughToEveryProjectControl(t *testing.T) {
 			t.Errorf("the projects listing offers no %s:\n%s", want, page)
 		}
 	}
-	if !strings.Contains(page, "<th>Manage</th>") {
-		t.Error("the listing does not name the column carrying the link to a project's controls")
+	// Every project offers its controls. They are links on the row rather
+	// than a Manage column whose every cell held the same word.
+	if !strings.Contains(page, `href="/projects/infra/fields"`) {
+		t.Error("the listing does not reach a project's field definitions")
 	}
 	if strings.Contains(page, "hx-post") || strings.Contains(page, "hx-get") {
 		t.Error("a project control depends on scripting")
@@ -78,27 +80,6 @@ func TestProjectPageSettingsFormCarriesTheWholeRecordAndSavingKeepsIt(t *testing
 	reloaded := b.page("/projects/ops")
 	if !strings.Contains(reloaded, "keeps the lights on") {
 		t.Error("saving blanked a field the form did not change")
-	}
-}
-
-// Hiding the column is a display choice; it must not be the only way to reach
-// the controls, and it must not break the table.
-func TestProjectManageColumnCanBeHidden(t *testing.T) {
-	t.Parallel()
-	f := newFixture(t)
-	b := f.as("alice")
-
-	resp := b.post("/columns", url.Values{"page": {"projects"},
-		"column": {"name"}, "next": {"/projects"}})
-	defer func() { _ = resp.Body.Close() }()
-	wantStatus(t, resp, http.StatusSeeOther)
-
-	page := b.page("/projects")
-	if strings.Contains(page, `data-label="Manage"`) {
-		t.Error("the hidden column still rendered its cell")
-	}
-	if !strings.Contains(page, `href="/projects/infra"`) {
-		t.Error("the row no longer names the project it stands for")
 	}
 }
 

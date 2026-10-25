@@ -27,27 +27,27 @@
 
 {{define "nav"}}
 <nav class="main">
-  <a href="/tasks" {{if eq .Path "/tasks"}}aria-current="page"{{end}}>Tasks</a>
-  <a href="/projects" {{if eq .Path "/projects"}}aria-current="page"{{end}}>Projects</a>
-  <a href="/activity" {{if eq .Path "/activity"}}aria-current="page"{{end}}>Activity</a>
-  <a href="/stats" {{if eq .Path "/stats"}}aria-current="page"{{end}}>Statistics</a>
+  <a href="/tasks" {{if eq .Path "/tasks"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tasks"/></svg><span>Tasks</span></a>
+  <a href="/projects" {{if eq .Path "/projects"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#projects"/></svg><span>Projects</span></a>
+  <a href="/activity" {{if eq .Path "/activity"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#activity"/></svg><span>Activity</span></a>
+  <a href="/stats" {{if eq .Path "/stats"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#stats"/></svg><span>Statistics</span></a>
   {{if .Advanced}}
   <p class="group">Configure</p>
-  <a href="/workflows" {{if eq .Path "/workflows"}}aria-current="page"{{end}}>Workflows</a>
-  <a href="/admin/tenant" {{if eq .Path "/admin/tenant"}}aria-current="page"{{end}}>Tenant</a>
-  <a href="/admin/domains" {{if eq .Path "/admin/domains"}}aria-current="page"{{end}}>Domains</a>
-  <a href="/admin/users" {{if eq .Path "/admin/users"}}aria-current="page"{{end}}>Users</a>
-  <a href="/admin/tokens" {{if eq .Path "/admin/tokens"}}aria-current="page"{{end}}>Tokens</a>
-  <a href="/admin/ssh-keys" {{if eq .Path "/admin/ssh-keys"}}aria-current="page"{{end}}>SSH keys</a>
-  <a href="/admin/status" {{if eq .Path "/admin/status"}}aria-current="page"{{end}}>Status</a>
-  <a href="/admin/connections" {{if eq .Path "/admin/connections"}}aria-current="page"{{end}}>Connections</a>
-  <a href="/admin/webhooks" {{if eq .Path "/admin/webhooks"}}aria-current="page"{{end}}>Webhooks</a>
+  <a href="/workflows" {{if eq .Path "/workflows"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#workflows"/></svg><span>Workflows</span></a>
+  <a href="/admin/tenant" {{if eq .Path "/admin/tenant"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tenant"/></svg><span>Tenant</span></a>
+  <a href="/admin/domains" {{if eq .Path "/admin/domains"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#domains"/></svg><span>Domains</span></a>
+  <a href="/admin/users" {{if eq .Path "/admin/users"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#users"/></svg><span>Users</span></a>
+  <a href="/admin/tokens" {{if eq .Path "/admin/tokens"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tokens"/></svg><span>Tokens</span></a>
+  <a href="/admin/ssh-keys" {{if eq .Path "/admin/ssh-keys"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#keys"/></svg><span>SSH keys</span></a>
+  <a href="/admin/status" {{if eq .Path "/admin/status"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#status"/></svg><span>Status</span></a>
+  <a href="/admin/connections" {{if eq .Path "/admin/connections"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#connections"/></svg><span>Connections</span></a>
+  <a href="/admin/webhooks" {{if eq .Path "/admin/webhooks"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#webhooks"/></svg><span>Webhooks</span></a>
   <p class="group">Data</p>
   {{/* One entry, because they are one screen now. Either tab's URL lights it,
        so landing on Components from a link does not leave the navigation
        looking like you are somewhere else. */}}
-  <a href="/transfer" {{if or (eq .Path "/transfer") (eq .Path "/bundles")}}aria-current="page"{{end}}>Import and export</a>
-  <a href="/sync" {{if or (eq .Path "/sync") (eq .Path "/sync/runs")}}aria-current="page"{{end}}>Sync</a>
+  <a href="/transfer" {{if or (eq .Path "/transfer") (eq .Path "/bundles")}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#transfer"/></svg><span>Import and export</span></a>
+  <a href="/sync" {{if or (eq .Path "/sync") (eq .Path "/sync/runs")}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#sync"/></svg><span>Sync</span></a>
   {{end}}
 
   {{/* The running version, under the last button, and whether anything newer
