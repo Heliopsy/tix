@@ -131,6 +131,11 @@ func (l *Local) attachConnectionCount(out *core.StatusReport) {
 		return
 	}
 	self := l.conns.ServerID()
+	// Recorded whether or not a row matches below. A server that does not
+	// register itself still answered this request, and every surface that
+	// reports "no servers attached" needs to be able to say so without
+	// claiming nothing is serving the store.
+	out.AnsweringServer = self
 	for i := range out.Servers {
 		if out.Servers[i].ID != self {
 			continue

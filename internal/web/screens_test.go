@@ -238,3 +238,24 @@ func TestProgressiveEnhancementIsOptional(t *testing.T) {
 		t.Fatalf("a control depends on scripting rather than on its own action")
 	}
 }
+
+// A server that does not register itself still answers the request, so the
+// screen that reports "no servers" has to say which server told it that.
+// Without this the status screen answered "Nothing has registered against
+// this store. That is the normal answer when tix is used straight against a
+// database rather than through tix serve" on a page tix serve was serving.
+func TestStatusNamesTheServerAnsweringEvenWhenItRegisteredNothing(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	page := f.as("alice").page("/admin/status")
+
+	if !strings.Contains(page, "<code>srv-test</code>") {
+		t.Errorf("the status screen does not name the server that answered it:\n%s", page)
+	}
+	if !strings.Contains(page, "not counting itself") {
+		t.Errorf("the status screen does not say the answering server registered no row:\n%s", page)
+	}
+	if strings.Contains(page, "tix is used straight") {
+		t.Errorf("the status screen still claims nothing is serving the store:\n%s", page)
+	}
+}
