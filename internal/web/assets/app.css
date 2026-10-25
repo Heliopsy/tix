@@ -2475,6 +2475,7 @@ dl.raw-fields dd { margin: 0; overflow-wrap: anywhere; }
   border-bottom: 1px solid var(--line);
   margin-bottom: var(--space-5);
 }
+.figures:last-child { border-bottom: 0; margin-bottom: 0; }
 .figures .figure { margin: 0; font-size: var(--text-2xl); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
 .figures .caption { margin: var(--space-1) 0 0; font-size: var(--text-xs); color: var(--muted); }
 
@@ -3623,3 +3624,12 @@ td.scopecell .evchip { display: inline-block; margin: 1px 2px 1px 0; font-size: 
    status menu's list of one-line choices. */
 .viewpop { max-width: min(46rem, calc(100vw - 24px)); }
 .viewpop .viewgrid { padding: 0; }
+
+/* A count beside the heading it counts, rather than a figure of its own: the
+   number of servers registered is about the list under it. */
+.counthint {
+  margin-left: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--muted);
+}

@@ -230,6 +230,30 @@ type StatusReport struct {
 	// its own so that every surface that already shows status shows it, and
 	// so that nothing new has to be bound on three surfaces to report a fact.
 	SecondFactor TOTPReport `json:"second_factor" yaml:"second_factor"`
+	// AnsweringServer identifies the server that produced this report. It is
+	// known whether or not that server has registered itself, which Servers
+	// is not: a server started with --no-registry serves this request and
+	// appears in no row, so a report without this field says nothing is
+	// attached while something is demonstrably answering. Empty when the
+	// report was produced against a database directly, with no server in the
+	// picture at all, which is the one case where "nothing is serving this
+	// store" is true.
+	AnsweringServer string `json:"answering_server,omitempty" yaml:"answering_server,omitempty"`
+}
+
+// AnsweringRegistered reports whether the server that answered is one of the
+// servers listed. False with a non-empty AnsweringServer means the answering
+// server is not counting itself, which is what --no-registry asks for.
+func (r StatusReport) AnsweringRegistered() bool {
+	if r.AnsweringServer == "" {
+		return false
+	}
+	for _, s := range r.Servers {
+		if s.ID == r.AnsweringServer {
+			return true
+		}
+	}
+	return false
 }
 
 // AttachedCount reports how many of the listed servers are heartbeating.

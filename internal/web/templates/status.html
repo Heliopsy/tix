@@ -8,21 +8,43 @@
   </div>
 </div>
 
-{{/* The numbers first, in the same figure row the statistics screen uses, so
-     a number means the same thing wherever it is read. This screen used to
-     open with three headings and two rows of bordered boxes in a style
-     nothing else on the tenant used. */}}
-<div class="figures">
-  <div><p class="figure">{{$r.Installation.Version}}</p><p class="caption">version</p></div>
-  <div><p class="figure">{{$r.Installation.SchemaVersion}}</p><p class="caption">schema</p></div>
-  <div><p class="figure">{{$r.Installation.Engine}}</p><p class="caption">engine</p></div>
-  <div><p class="figure">{{$v.Attached}}</p><p class="caption">servers attached</p></div>
-  {{if $v.Stale}}<div><p class="figure warn">{{$v.Stale}}</p><p class="caption">not heartbeating</p></div>{{end}}
+{{/* Facts, not quantities. A version string, a schema number and an engine
+     name were set in the figure style the statistics screen uses for counts,
+     so "sqlite" was drawn at the size of a headline and the store was left as
+     an orphaned sentence under a rule. Rows say what each one is; the figure
+     row further down keeps the things that are actually counted. */}}
+<h2>Installation</h2>
+<div class="setlist">
+  <div class="setrow">
+    <div class="setrow-text"><span class="setname">Version</span></div>
+    <div class="setrow-ctl"><span class="setvalue">{{$r.Installation.Version}}</span></div>
+  </div>
+  <div class="setrow">
+    <div class="setrow-text"><span class="setname">Schema</span></div>
+    <div class="setrow-ctl"><span class="setvalue">{{$r.Installation.SchemaVersion}}</span></div>
+  </div>
+  <div class="setrow">
+    <div class="setrow-text"><span class="setname">Engine</span></div>
+    <div class="setrow-ctl"><span class="setvalue">{{$r.Installation.Engine}}</span></div>
+  </div>
+  {{if $v.Target}}
+  <div class="setrow">
+    <div class="setrow-text"><span class="setname">Store</span></div>
+    <div class="setrow-ctl"><code>{{$v.Target}}</code></div>
+  </div>
+  {{end}}
 </div>
-{{if $v.Target}}<p class="meta">Store <code>{{$v.Target}}</code>.</p>{{end}}
 
-<h2>Servers</h2>
+<h2>Servers <span class="counthint">{{$v.Attached}} registered{{if $v.Stale}}, {{$v.Stale}} not heartbeating{{end}}</span></h2>
 <p class="meta">A server removes its own row when it shuts down cleanly, so a row nobody is refreshing is a process that died.</p>
+{{/* The server you are reading this on. It is named whether or not it has a
+     row below, because the row is a registration and this is a fact: a server
+     started with --no-registry serves this page and registers nothing, and
+     this screen used to answer "no servers attached" on a page a server was
+     demonstrably answering. */}}
+{{if $r.AnsweringServer}}
+<p class="meta">This page was answered by <code>{{$r.AnsweringServer}}</code>{{if not $r.AnsweringRegistered}}, which is not counting itself, so it has no row below{{end}}.</p>
+{{end}}
 
 <ul class="reclist serverlist">
 {{range $r.Servers}}
@@ -48,9 +70,14 @@
   </li>
 {{else}}
   <li class="empty">
-    <p class="empty-title">No servers attached</p>
+    <p class="empty-title">No servers registered</p>
+    {{if $r.AnsweringServer}}
+    <p>Nothing has registered against this store, including the server answering this page, which was
+    started with <code>--no-registry</code>. The listing being empty says nothing about what is running.</p>
+    {{else}}
     <p>Nothing has registered against this store. That is the normal answer when tix is used straight
     against a database rather than through <code>tix serve</code>.</p>
+    {{end}}
   </li>
 {{end}}
 </ul>

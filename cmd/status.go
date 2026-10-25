@@ -79,8 +79,23 @@ func writeStatusTable(w io.Writer, r *core.StatusReport, style output.TimeStyle)
 		}
 	}
 	if len(r.Servers) == 0 {
-		if _, err := fmt.Fprint(tw,
-			"  none registered; nothing is serving this store right now\n"); err != nil {
+		// "nothing is serving this store" was a claim this report cannot
+		// make: a server started with --no-registry answers the request and
+		// registers no row, so the listing being empty says nothing about
+		// whether anything is running.
+		line := "  none registered; nothing is serving this store right now\n"
+		if r.AnsweringServer != "" {
+			line = fmt.Sprintf(
+				"  none registered; this report was answered by %s, which is not counting itself\n",
+				r.AnsweringServer)
+		}
+		if _, err := fmt.Fprint(tw, line); err != nil {
+			return err
+		}
+	}
+	if len(r.Servers) > 0 && r.AnsweringServer != "" && !r.AnsweringRegistered() {
+		if _, err := fmt.Fprintf(tw,
+			"  answered by %s, which is not counting itself\n", r.AnsweringServer); err != nil {
 			return err
 		}
 	}
