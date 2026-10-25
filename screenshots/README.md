@@ -2,6 +2,10 @@
 
 Captured against a seeded demo database on the commit that added them.
 
+The five browser images were retaken at v0.18.0, which rebuilt the interface.
+The three terminal images predate that and are unaffected by it: the CLI and
+the TUI did not change.
+
 | File | Surface |
 | --- | --- |
 | [cli-task-list.png](cli-task-list.png) | `tix task ls` |
