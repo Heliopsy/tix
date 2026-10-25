@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.18.0](https://github.com/Heliopsy/tix/compare/v0.17.0...v0.18.0) (2026-10-25)
+
+
+### Features
+
+* **demo:** drop the pointer, wrap at words, and name the windows ([#59](https://github.com/Heliopsy/tix/issues/59)) ([ba01b28](https://github.com/Heliopsy/tix/commit/ba01b28e0ea87d81089572a81b63ecf80eb9d58f))
+* **demo:** record two agents sharing one backlog ([#56](https://github.com/Heliopsy/tix/issues/56)) ([ac2a0cf](https://github.com/Heliopsy/tix/commit/ac2a0cfa37772f7feb2c523da2d892b8cf736693))
+* **ssh:** let a session name the board it opens ([#58](https://github.com/Heliopsy/tix/issues/58)) ([ee7ab0d](https://github.com/Heliopsy/tix/commit/ee7ab0dd3163e1eb2439734c538d8b975feb2133))
+* **web:** rebuild the browser interface ([#68](https://github.com/Heliopsy/tix/issues/68)) ([f58d8b0](https://github.com/Heliopsy/tix/commit/f58d8b03da6a4713b6d532292e349b6a13a9ba53))
+
+
+### Bug Fixes
+
+* **demo:** end the scene when the backlog drains, not after four releases ([#67](https://github.com/Heliopsy/tix/issues/67)) ([4d137f6](https://github.com/Heliopsy/tix/commit/4d137f6a65b0198020f341679a88425638e390b9))
+* **demo:** redact lease tokens in the narration, not only in tool calls ([#62](https://github.com/Heliopsy/tix/issues/62)) ([17dddf9](https://github.com/Heliopsy/tix/commit/17dddf9126e3eb77b3f0eda5309291556eaf2b33))
+* **demo:** redact the event pane too, and gate the scene's JS ([#65](https://github.com/Heliopsy/tix/issues/65)) ([e9efe39](https://github.com/Heliopsy/tix/commit/e9efe396a1569184c2245581c296300f9b5850eb))
+* **demo:** restore the severed stream pipe and gate the scripts with shellcheck ([#60](https://github.com/Heliopsy/tix/issues/60)) ([e653602](https://github.com/Heliopsy/tix/commit/e6536028086289a65ec22559474034ebf0137d4a))
+* **demo:** share one checkout, pin the fold width, and rebuild before filming ([#61](https://github.com/Heliopsy/tix/issues/61)) ([be9832a](https://github.com/Heliopsy/tix/commit/be9832a4ace52e84e68a514bb91ac3ecb6871934))
+* **demo:** strip the flash query from the epic ref and stop the silent misses around it ([#63](https://github.com/Heliopsy/tix/issues/63)) ([22d64e2](https://github.com/Heliopsy/tix/commit/22d64e25b3655a1d9b16608637adb531b039b37c))
+* **web:** keep the open-work default across the task screen's own links ([#64](https://github.com/Heliopsy/tix/issues/64)) ([0782e2d](https://github.com/Heliopsy/tix/commit/0782e2d1b6409e69ee63354a3c69eed811e793ee))
+* **web:** open the task list on the work, not on what is finished ([#57](https://github.com/Heliopsy/tix/issues/57)) ([860708c](https://github.com/Heliopsy/tix/commit/860708cd63239746fb7b2a1a7d63b45a1be41ad1))
+* **web:** refresh the project board instead of deferring forever ([#54](https://github.com/Heliopsy/tix/issues/54)) ([60d9a44](https://github.com/Heliopsy/tix/commit/60d9a44f342c9b13b7d573d92fd3627ca6c75389))
+
 ## [0.17.0](https://github.com/Heliopsy/tix/compare/v0.16.0...v0.17.0) (2026-10-23)
 
 
