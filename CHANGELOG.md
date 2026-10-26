@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.20.0](https://github.com/Heliopsy/tix/compare/v0.19.0...v0.20.0) (2026-10-26)
+
+
+### Features
+
+* **lease:** bound claim leases per tenant and per deployment ([425cd60](https://github.com/Heliopsy/tix/commit/425cd605033cf4382e8a4565a57192623420edf5))
+
+
+### Bug Fixes
+
+* **store:** stop the sqlite planner scanning every task per claim ([8ce300e](https://github.com/Heliopsy/tix/commit/8ce300e5dc2c59dd03078786dc25ca7fa0c28636))
+
 ## [0.19.0](https://github.com/Heliopsy/tix/compare/v0.18.0...v0.19.0) (2026-10-25)
 
 
