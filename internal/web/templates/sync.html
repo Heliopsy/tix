@@ -5,90 +5,6 @@
 <p class="lede">Pull work that already lives in another tracker into tix. Imports
 run one way: tix reads from the source and never writes anything back to it.</p>
 
-<details class="note">
-  <summary>What a source is, and what happens when you run it</summary>
-  <p>A <strong>source</strong> is a name and a system. That is all you supply:
-  the record holds no url, no file path and no credential, only those two and
-  the cursor and status its own runs leave behind. Everything a run needs to
-  reach the other system is read from the server's environment when the run
-  starts, which is why no credential can reach a snapshot, an audit entry, an
-  event or a log line.</p>
-  <p>Running one fetches records from that system, translates each through a
-  <strong>mapping file</strong>, and creates or updates tasks in the project the
-  mapping names. Imported tasks are ordinary tasks: nothing downstream treats
-  them specially. They are attributed to a <strong>System</strong> actor rather
-  than to you.</p>
-  <p>Every task an import touches gets an <strong>external reference</strong>
-  recording the system, the identifier and url at the source, the version it was
-  at, and when it was last synced. That reference is what makes a second run a
-  refresh instead of a second copy.</p>
-</details>
-
-<details class="note">
-  <summary>Which system to choose</summary>
-  <dl class="fields">
-    {{range .Data.Systems}}<dt>{{.Label}}</dt><dd>{{.Note}}</dd>{{end}}
-  </dl>
-  <p>These three are what this build carries. Naming anything else is refused
-  when you save.</p>
-</details>
-
-<details class="note">
-  <summary>Where a source's settings live</summary>
-  <p>In environment variables on the machine running tix, named after the
-  source. The name is upper-cased and every run of other characters becomes a
-  single underscore, so a source called <code>ops export</code> is configured
-  through <code class="envname">{{envName .Data.Prefix "OPS_EXPORT_*"}}</code>. Each saved source below
-  prints its own exact prefix, and the variables that system reads.</p>
-  <p>They are read when a run starts, not when you save, so changing one takes
-  effect on the next run. A variable the server's process cannot see does not
-  exist as far as the import is concerned: setting it in your own shell does
-  nothing unless tix was started from that shell.</p>
-</details>
-
-<details class="note">
-  <summary>What the mapping file does</summary>
-  <p>It is a YAML file, and every source needs one: a run with no mapping is
-  refused before a single record is read. It says which tix project the records
-  land in, which field on each record is its stable identifier, and what each
-  external field becomes here.</p>
-  <p>It maps external statuses onto the states of that project's workflow, and
-  a status it names that the workflow does not define is refused up front,
-  naming the offending entry, with nothing written. External fields you assign
-  to a custom field are created as real field definitions on the project.
-  Fields the mapping does not name are preserved into custom fields rather than
-  dropped, unless the mapping turns that off.</p>
-  <p>The identity section is what makes a re-import safe. Its
-  <code>updated_at</code> field is also how an incremental run knows what is
-  new, and, when you name no explicit version field, doubles as the version a
-  record is compared against.</p>
-</details>
-
-<details class="note">
-  <summary>Dry run, and what a second run does</summary>
-  <p>A <strong>dry run</strong> reads the source and reports exactly what a real
-  run would create, update and skip, with a reason for every skip. It writes
-  nothing at all: no tasks, no custom field definitions, no audit entries, and
-  it does not move the source's cursor. It also does not appear in the run
-  history, because nothing happened.</p>
-  <p>A <strong>second run</strong> is a refresh, not a second import. For each
-  record, a task that already carries an external reference for that system and
-  identifier is updated in place; one whose external version still matches the
-  stored one is skipped as unchanged; anything with no reference yet is created.
-  Titles, bodies and statuses are overwritten from the source, custom field
-  values are merged over what is there, and tags are added but never removed.</p>
-  <p>Each source keeps a <strong>cursor</strong>, the watermark of the last
-  record it committed, so a normal run fetches only what changed since. It moves
-  forward in the same transaction as the records it covers, so a run that fails
-  part way leaves it at the last page that did commit, and re-running picks up
-  from there rather than starting over.</p>
-  <p>Tick <strong>Full</strong> to ignore the cursor and reconsider every record
-  at the source. Note that a Full run starts from no cursor, so one that fails
-  before committing a page leaves the source with no cursor at all: the next
-  run then reads everything, which is slower but loses nothing. The Runs tab
-  shows where each source's cursor stands.</p>
-</details>
-
 <h2>Sources</h2>
 <table>
   <thead><tr><th>Name</th><th>System</th><th>Configured through</th><th>Last run</th><th>Status</th><th></th></tr></thead>
@@ -98,14 +14,25 @@ run one way: tix reads from the source and never writes anything back to it.</p>
       <td>{{.Name}}</td>
       <td>{{.System}}</td>
       <td>
+        {{/* A popover, not a disclosure. Opening a disclosure inside a table
+             cell grew the row and pushed every row below it down the page,
+             which is the worst place in the product to put an expander: the
+             thing you were comparing moves while you read. This opens in the
+             top layer over the table, closes on Escape or a click outside,
+             and needs no script. Same mechanism as the Columns menu. */}}
+        {{$id := printf "env-%s" .ID}}
         <code class="envname">{{envName .EnvPrefix "*"}}</code>
-        <details class="note">
-          <summary>Which variables</summary>
-          <dl class="fields">
-            {{$prefix := .EnvPrefix}}
-            {{range .Settings}}<dt><code class="envname">{{envName $prefix .Name}}</code></dt><dd>{{.Purpose}}{{if .Required}} (required){{end}}</dd>{{end}}
-          </dl>
-        </details>
+        <div class="colmenu">
+          <button type="button" class="link" popovertarget="{{$id}}">Which variables</button>
+          <div id="{{$id}}" class="flowmenu colpop envpop" popover>
+            <p class="flowhead">{{.Name}} reads</p>
+            <dl class="fields">
+              {{$prefix := .EnvPrefix}}
+              {{range .Settings}}<dt><code class="envname">{{envName $prefix .Name}}</code></dt><dd>{{.Purpose}}{{if .Required}} (required){{end}}</dd>{{end}}
+            </dl>
+            <button type="button" class="flowclose" popovertarget="{{$id}}" popovertargetaction="hide">Close</button>
+          </div>
+        </div>
       </td>
       <td>{{stamp .LastRunAt}}</td>
       <td>{{if .LastStatus}}{{.LastStatus}}{{else}}never run{{end}}</td>
@@ -148,10 +75,75 @@ variables on the server: the row above will tell you which ones.</p>
       <select id="system" name="system">
         {{range .Data.Systems}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
       </select>
+      {{/* What each option means, beside the control that chooses it. This
+           was a sixth disclosure headed "Which system to choose", which is a
+           question you are asking at exactly this moment, with the answer
+           folded away one click from the select. Three short lines fit. */}}
+      <dl class="fields choosehelp">
+        {{range .Data.Systems}}<dt>{{.Label}}</dt><dd>{{.Note}}</dd>{{end}}
+      </dl>
+      <p class="meta">These three are what this build carries. Naming anything else is refused when you save.</p>
     </div>
   </div>
   <p><button type="submit">Save source</button></p>
 </form>
+
+{{/* Five disclosures used to sit here, each holding several paragraphs of
+     manual, and together they pushed the Sources table below the fold on a
+     laptop. A reader arriving to run an import had to scroll past five closed
+     grey boxes to reach the thing they came for, and a reader who actually
+     wanted the explanation had to open all five to find which one held it.
+
+     The facts are the same facts. They are rows now: a term and one sentence,
+     readable at a glance without opening anything, in the same shape the
+     status screen uses. The long form of all of this is the migrating guide
+     in docs/, which is where a manual belongs. */}}
+<h2>How a run works</h2>
+<div class="setlist">
+  <div class="setrow">
+    <div class="setrow-text">
+      <span class="setname">A source</span>
+      <span class="sethelp">A name and a system, and nothing else: no url, no file path, no credential.
+      Those live in environment variables on the machine running tix, read when a run starts rather than
+      when you save, so changing one takes effect on the next run and none of them can reach a snapshot,
+      an audit entry or a log line.</span>
+    </div>
+  </div>
+  <div class="setrow">
+    <div class="setrow-text">
+      <span class="setname">A mapping file</span>
+      <span class="sethelp">Required: a run without one is refused before a single record is read. The YAML
+      says which project the records land in, which field identifies them, and what each external field
+      becomes here. A status it names that the project's workflow does not define is refused up front,
+      with nothing written.</span>
+    </div>
+  </div>
+  <div class="setrow">
+    <div class="setrow-text">
+      <span class="setname">What a run writes</span>
+      <span class="sethelp">Tasks in the project the mapping names, attributed to a System actor rather than
+      to you, and ordinary in every other way. Each one carries an external reference recording where it came
+      from and the version it was at, which is what makes a second run a refresh instead of a second copy.</span>
+    </div>
+  </div>
+  <div class="setrow">
+    <div class="setrow-text">
+      <span class="setname">Dry run</span>
+      <span class="sethelp">Reports exactly what a real run would create, update and skip, with a reason for
+      every skip, and writes nothing at all: no tasks, no field definitions, no audit entries, and it leaves
+      the cursor where it was. It does not appear in the run history, because nothing happened.</span>
+    </div>
+  </div>
+  <div class="setrow">
+    <div class="setrow-text">
+      <span class="setname">The cursor, and Full</span>
+      <span class="sethelp">Each source remembers the last record it committed, so an ordinary run fetches
+      only what changed since and a run that fails part way resumes from the last page that committed.
+      Full ignores the cursor and reconsiders every record at the source. The Runs tab shows where each
+      cursor stands.</span>
+    </div>
+  </div>
+</div>
 
 {{if .Data.Result}}
 <h2>Run result{{if .Data.Result.DryRun}}, dry run, nothing was written{{end}}</h2>
