@@ -83,6 +83,47 @@ jobs:
           files: coverage.out
           fail_ci_if_error: false
 
+  # macOS is a published target: every release carries darwin amd64 and arm64,
+  # and until now nothing had ever run them. crosscompile proves the darwin
+  # binaries link, which is not the same claim: a path separator, a /proc read
+  # or a Linux-only syscall compiles on any host and fails on the one it runs
+  # on. This executes the suite where the binary is actually shipped to run.
+  #
+  # No postgres. Service containers are a Linux-runner feature, so this job
+  # exercises the SQLite path alone; the suite notices the missing capability
+  # and announces it rather than passing quietly. The postgres engine is
+  # covered by Build & Test, which is also where the coverage floor is
+  # enforced, so neither is duplicated here.
+  #
+  # macos-15 rather than macos-latest: the label moves when GitHub promotes a
+  # new image, and a runner changing under the project is how a green suite
+  # starts failing on a morning nobody pushed anything.
+  macos:
+    name: Build & Test (macOS)
+    runs-on: macos-15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test ./... -race -shuffle=on -timeout 40m
+
+      # The runner has an SSH client and pseudo-terminals, as the Linux one
+      # does, so the terminal interface is exercised here too rather than
+      # being the one surface nobody checks on a Mac.
+      - name: Smoke the built binary
+        run: just smoke
+
   lint:
     name: Lint
     runs-on: ubuntu-24.04
