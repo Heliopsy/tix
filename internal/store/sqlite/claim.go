@@ -130,9 +130,22 @@ func terminalPredicate(status, projectID string, terminal []store.WorkflowTermin
 
 // blockedByDependency renders the predicate matching an unfinished dependency.
 // With no terminal states named, every dependency counts as unfinished.
+//
+// CROSS JOIN, which in SQLite is not a cartesian product but an instruction to
+// the planner: use the left table as the outer loop and do not reconsider. It
+// is here because the planner gets this one backwards. Left to itself it
+// drives from tasks dep, scanning every task in the tenant to find the few
+// that some dependency row points at, and it does that once per candidate row
+// in the claim query's outer scan. task_deps is the small side and is indexed
+// by task_id, so driving from d turns the whole subquery into two index seeks.
+//
+// Measured on a tenant of 3066 tasks with 6 dependency rows, selecting one
+// task to claim: 2.668s without this keyword, 0.004s with it. The cost grows
+// with the task count, not the dependency count, so it is invisible in a
+// fixture and ruinous in a real backlog.
 func blockedByDependency(terminal []store.WorkflowTerminal) (string, []any) {
 	cond, args := terminalPredicate("dep.status", "dep.project_id", terminal)
-	return `(SELECT 1 FROM task_deps d JOIN tasks dep
+	return `(SELECT 1 FROM task_deps d CROSS JOIN tasks dep
    ON dep.id = d.depends_on AND dep.tenant_id = d.tenant_id
  WHERE d.tenant_id = tasks.tenant_id AND d.task_id = tasks.id
    AND dep.deleted_at IS NULL AND NOT ` + cond + `)`, args
