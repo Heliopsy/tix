@@ -22,6 +22,7 @@ func (h *handler) sessionRoutes() []route {
 		public(post(RouteLogin, h.doLogin, "Login")),
 		post(RouteLogout, h.doLogout, "Logout"),
 		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus"),
+		get(RouteRelease, "release.html", h.showRelease, "WhoAmI"),
 		post(RouteAdvanced, h.toggleAdvanced, "Logout"),
 		post(RouteTheme, h.setTheme, "Logout"),
 		post(RouteKeyScheme, h.setKeyScheme, "Logout"),
@@ -178,6 +179,26 @@ func (h *handler) showSettings(w http.ResponseWriter, r *http.Request) error {
 		TOTP:           totp,
 	})
 }
+
+// showRelease renders what the newest release says about itself.
+//
+// The footer has said "v0.20.0 is available" for a while and left the reader
+// with a version number and nowhere to go: deciding whether to upgrade a task
+// tracker means knowing what changed, and the only way to find out was to
+// leave and search for it. This is that page.
+//
+// The notes are fetched by the same six-hourly check the footer already runs,
+// so opening this waits on nothing and an install with no route out simply
+// finds it empty, which is the same state in which the footer offers no link
+// to it.
+func (h *handler) showRelease(w http.ResponseWriter, r *http.Request) error {
+	return h.render(w, r, "release.html", "Release", releaseView{})
+}
+
+// releaseView carries nothing of its own. Every figure on the screen is in
+// Upgrade, which render attaches to every page for the footer, and a second
+// copy here would be a second thing to keep true.
+type releaseView struct{}
 
 // doLogout ends the session the browser presented.
 func (h *handler) doLogout(w http.ResponseWriter, r *http.Request) error {

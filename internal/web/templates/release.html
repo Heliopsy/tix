@@ -1,0 +1,46 @@
+{{define "content"}}
+{{$u := .Upgrade}}
+<div class="pagehead">
+  <div class="pagehead-title">
+    <h1>Release</h1>
+    <p class="lede">What this installation is running, and what the newest published release says about itself.</p>
+  </div>
+</div>
+
+<h2>Versions</h2>
+<div class="setlist">
+  <div class="setrow">
+    <div class="setrow-text"><span class="setname">Running here</span></div>
+    <div class="setrow-ctl"><span class="setvalue">v{{$u.Running}}</span></div>
+  </div>
+  <div class="setrow">
+    <div class="setrow-text">
+      <span class="setname">Newest published</span>
+      {{/* The check is the footer's, cached and six-hourly, so this says
+           "not known" rather than "up to date" when it has never succeeded.
+           An install with no route out must not be told it is current. */}}
+      <span class="sethelp">Checked against the public release feed at most every six hours, from the server rather than your browser.</span>
+    </div>
+    <div class="setrow-ctl">
+      <span class="setvalue">{{if $u.Latest}}v{{$u.Latest}}{{else}}not known{{end}}</span>
+    </div>
+  </div>
+</div>
+
+{{if $u.Newer}}
+<p class="note">v{{$u.Latest}} is newer than what is running here. Upgrading is the operator's business: this page only reports.</p>
+{{end}}
+
+<h2>What changed</h2>
+{{if $u.Notes}}
+{{/* A <pre>, because these notes are markdown and this product does not
+     render markdown anywhere. Rendering them as HTML would mean running a
+     remote server's text through a renderer, which is the one thing a
+     self-hosted page should not do with a string it fetched. The links were
+     taken out when the notes were cached; see stripLinks. */}}
+<pre class="notes">{{$u.Notes}}</pre>
+<p class="meta">Links have been removed. These notes come from the release feed, so they describe the newest release rather than the one running here.</p>
+{{else}}
+<p class="meta">No release notes are available. Either the check has not run yet, or this installation has no route to the release feed, which is the ordinary case for an isolated network.</p>
+{{end}}
+{{end}}

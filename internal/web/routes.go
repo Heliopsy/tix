@@ -103,6 +103,7 @@ const (
 	RouteLogin        = "/login"
 	RouteLogout       = "/logout"
 	RouteSettings     = "/settings"
+	RouteRelease      = "/release"
 	RouteAdvanced     = "/advanced"
 	RouteTheme        = "/theme"
 	RouteKeyScheme    = "/keyscheme"

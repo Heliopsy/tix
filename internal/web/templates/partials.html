@@ -61,7 +61,12 @@
        alone and says nothing about an upgrade it could not check. */}}
   <p class="version">
     v{{.Upgrade.Running}}
-    {{if .Upgrade.Newer}}<span class="upgrade">v{{.Upgrade.Latest}} is available</span>{{end}}
+    {{/* A link now, to a page this install serves. It stays an internal
+         route: the guard above is about not pasting somebody else's origin
+         into these pages, not about refusing to say what changed, and the
+         notes are fetched server side and stripped of links before they are
+         cached. Only shown when there is something to read. */}}
+    {{if .Upgrade.Newer}}<a class="upgrade" href="/release">v{{.Upgrade.Latest}} is available</a>{{end}}
   </p>
 </nav>
 {{end}}

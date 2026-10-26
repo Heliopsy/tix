@@ -3024,6 +3024,26 @@ nav.main .version .upgrade {
   font-weight: 600;
 }
 
+/* Preformatted text, which had no rule anywhere in this sheet. A <pre> with
+   browser defaults keeps its own monospace size and, more to the point,
+   never wraps: release notes and a read-only task description both became a
+   single line as wide as their longest one, taking the whole page sideways
+   with them. Wrapping is the fix, and the frame makes it read as a quoted
+   block rather than as loose text that lost its styling. */
+pre.notes,
+pre.prose {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* The tab strip on the import and export screen. Each tab is a link to its own
    page, so the only job here is to make two links read as a pair and show
    which one you are on. */
@@ -3522,6 +3542,22 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .colpop { padding: var(--space-3); }
 .colpop .columnform .choices { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 .colpop .columnform .actions { margin-top: var(--space-3); }
+
+/* The variables a sync source reads. Wider than the column picker because
+   the content is a definition list of environment variable names, and a
+   name like TIX_SYNC_NIGHT_SYNC_MAPPING broke mid-word at the picker's
+   width. Capped against the viewport so it still fits a phone. */
+.envpop { max-width: min(34rem, calc(100vw - 24px)); }
+.envpop .fields { margin: 0; }
+.envpop .fields dd { margin: 0 0 var(--space-2); }
+.envpop .fields dd:last-child { margin-bottom: 0; }
+
+/* The three systems, under the select that picks one. Small and quiet: it
+   is reference beside a control, not a section of its own. */
+.choosehelp { margin: var(--space-2) 0 0; font-size: var(--text-sm); }
+.choosehelp dt { font-weight: 600; color: var(--ink); }
+.choosehelp dd { margin: 0 0 var(--space-2); color: var(--muted); line-height: 1.5; }
+.choosehelp dd:last-child { margin-bottom: 0; }
 
 /* ---------------------------------------------------------------------------
    A record list: one row per record, the way the task list and the project

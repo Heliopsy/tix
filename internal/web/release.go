@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +37,10 @@ type upgrade struct {
 	Latest string
 	// Newer reports whether Latest is ahead of Running.
 	Newer bool
+	// Notes is what the newest release says about itself, with every link
+	// taken out. Empty when no check has succeeded, which is also when
+	// Newer is false, so nothing offers to show notes that are not there.
+	Notes string
 }
 
 // releaseWatch caches the newest published release.
@@ -57,6 +62,7 @@ type releaseWatch struct {
 
 	mu       sync.Mutex
 	latest   string
+	notes    string
 	checked  time.Time
 	inFlight bool
 }
@@ -74,7 +80,7 @@ func (w *releaseWatch) state() upgrade {
 	}
 
 	w.mu.Lock()
-	latest, checked, busy := w.latest, w.checked, w.inFlight
+	latest, notes, checked, busy := w.latest, w.notes, w.checked, w.inFlight
 	stale := time.Since(checked) > releaseCheckEvery
 	if stale && !busy {
 		w.inFlight = true
@@ -86,6 +92,7 @@ func (w *releaseWatch) state() upgrade {
 	}
 
 	up.Latest = latest
+	up.Notes = notes
 	up.Newer = newerRelease(running, latest)
 	return up
 }
@@ -117,6 +124,7 @@ func (w *releaseWatch) refresh() {
 
 	var body struct {
 		TagName string `json:"tag_name"`
+		Body    string `json:"body"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return
@@ -127,6 +135,7 @@ func (w *releaseWatch) refresh() {
 	}
 	w.mu.Lock()
 	w.latest = tag
+	w.notes = stripLinks(body.Body)
 	w.mu.Unlock()
 }
 
@@ -183,4 +192,43 @@ func semver(v string) ([3]int, bool) {
 		out[i] = n
 	}
 	return out, true
+}
+
+// markdownLink matches [text](url), which is how release-please writes every
+// reference in a changelog entry: the heading links to a compare view and each
+// line ends with a short sha linking to a commit.
+var markdownLink = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)
+
+// bareURL matches a scheme and everything up to whitespace, for a link written
+// without markdown around it.
+var bareURL = regexp.MustCompile(`https?://\S+`)
+
+// trailingRef matches the " (sha)" left behind once a commit link has been
+// reduced to its text, which is a bare hash saying nothing to somebody reading
+// a release note in a browser.
+var trailingRef = regexp.MustCompile(`\s*\(\s*[0-9a-f]{7,40}\s*\)`)
+
+// stripLinks turns release notes into text that can be rendered on a page this
+// install serves.
+//
+// Two reasons, and the weaker one is the test. TestPagesReferenceNoExternalOrigin
+// greps every screen for "https://" and would fail the moment a changelog
+// carrying commit links was rendered. The stronger reason is what that test
+// defends: these notes come from a remote server, and a self-hosted tracker
+// must not paste whoever controls that server's links into its own pages. The
+// text of a link survives, which is the part that says what changed; the
+// target does not.
+//
+// It runs once per refresh rather than once per render, so the page shows text
+// that was already safe when it was cached.
+func stripLinks(body string) string {
+	out := markdownLink.ReplaceAllString(body, "$1")
+	out = bareURL.ReplaceAllString(out, "")
+	out = trailingRef.ReplaceAllString(out, "")
+	lines := strings.Split(out, "\n")
+	kept := make([]string, 0, len(lines))
+	for _, line := range lines {
+		kept = append(kept, strings.TrimRight(line, " \t"))
+	}
+	return strings.TrimSpace(strings.Join(kept, "\n"))
 }

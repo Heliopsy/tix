@@ -192,7 +192,7 @@ func TestPagesReferenceNoExternalOrigin(t *testing.T) {
 		"/workflows/default", "/tasks", "/tasks/" + ref, "/activity",
 		"/admin/tenant", "/admin/domains", "/admin/users", "/admin/tokens",
 		"/admin/ssh-keys", "/admin/webhooks", "/admin/connections",
-		"/transfer", "/bundles", "/sync", "/sync/runs", "/settings",
+		"/transfer", "/bundles", "/sync", "/sync/runs", "/settings", "/release",
 	} {
 		page := b.page(path)
 		for _, forbidden := range []string{"http://", "https://", "//cdn", "unpkg"} {
