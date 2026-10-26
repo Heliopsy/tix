@@ -45,6 +45,33 @@ type UpdateTenantInput struct {
 	RequireTOTPWeb *bool `json:"require_totp_web,omitempty" yaml:"require_totp_web,omitempty"`
 	RequireTOTPCLI *bool `json:"require_totp_cli,omitempty" yaml:"require_totp_cli,omitempty"`
 	RequireTOTPSSH *bool `json:"require_totp_ssh,omitempty" yaml:"require_totp_ssh,omitempty"`
+	// LeaseDefault and LeaseMax bound how long a claim on this tenant holds.
+	// A pointer to zero clears the setting, returning that bound to the
+	// deployment configuration; nil leaves it alone. Same shape as Theme,
+	// and for the same reason: "unset" and "unchanged" are different answers
+	// and a plain value cannot tell them apart.
+	LeaseDefault *Duration `json:"lease_default,omitempty" yaml:"lease_default,omitempty"`
+	LeaseMax     *Duration `json:"lease_max,omitempty" yaml:"lease_max,omitempty"`
+}
+
+// Validate checks the input.
+func (in UpdateTenantInput) Validate() error {
+	if in.LeaseDefault != nil && *in.LeaseDefault < 0 {
+		return Invalid("lease default must not be negative")
+	}
+	if in.LeaseMax != nil && *in.LeaseMax < 0 {
+		return Invalid("lease maximum must not be negative")
+	}
+	// A default above the tenant's own ceiling is refused here rather than
+	// clamped, because both figures are in front of whoever is setting them:
+	// this is the one moment the contradiction can be pointed at. Resolve
+	// clamps instead, since by then the two may have drifted apart through a
+	// deployment ceiling nobody on this tenant can see.
+	if in.LeaseDefault != nil && in.LeaseMax != nil &&
+		*in.LeaseDefault > 0 && *in.LeaseMax > 0 && *in.LeaseDefault > *in.LeaseMax {
+		return Invalid("lease default %s is longer than the lease maximum %s", *in.LeaseDefault, *in.LeaseMax)
+	}
+	return nil
 }
 
 // AddDomainInput maps a hostname to the current tenant.

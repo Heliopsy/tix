@@ -63,6 +63,29 @@
     {{end}}
   </select>
   <p class="note">Applies to this tenant everywhere: the browser and the terminal interface both read it.</p>
+
+  {{/* The lease bounds. Until these existed the only way to change how long
+       an agent may hold a task was to author a whole workflow document and
+       put it through tix workflow put, because the workflow editor on this
+       site deliberately does not touch default_lease. That made a number an
+       operator wants to tune into a state-machine edit. */}}
+  <div class="field-label">
+    <label for="lease_default">Default lease</label>
+    {{template "field-info" "How long a claim on this tenant's tasks holds when neither the claim nor the project's workflow asks for a particular length. A worker that stops renewing loses the task back to the queue after this long. Empty falls back to the deployment setting, and then to 15m. Written as a duration: 45m, 2h30m, 7d."}}
+  </div>
+  <input id="lease_default" name="lease_default" class="mono"
+         value="{{if .Data.Tenant.LeaseDefault}}{{.Data.Tenant.LeaseDefault}}{{end}}"
+         placeholder="{{.Data.LeaseDefault}}">
+
+  <div class="field-label">
+    <label for="lease_max">Maximum lease</label>
+    {{template "field-info" "The longest lease any claim on this tenant may take, however long it asks for. This is a ceiling, not a default: it only refuses lengths above it. You can set it lower than the deployment ceiling but not higher, so leaving it empty is never the permissive choice."}}
+  </div>
+  <input id="lease_max" name="lease_max" class="mono"
+         value="{{if .Data.Tenant.LeaseMax}}{{.Data.Tenant.LeaseMax}}{{end}}"
+         placeholder="{{.Data.LeaseMax}}">
+  <p class="note">Leave either empty to use the deployment setting, shown greyed. A claim may always ask for less.</p>
+
   <p><button type="submit">Save</button></p>
 </form>
 

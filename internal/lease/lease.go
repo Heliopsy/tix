@@ -12,9 +12,19 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 )
 
-// DefaultTTL is the lease lifetime used when neither the claim nor the
-// workflow supplies one.
-const DefaultTTL = 15 * time.Minute
+// DefaultTTL is the lease lifetime used when nothing more specific supplies
+// one: not the claim, not an authored workflow, not the tenant, not the
+// deployment.
+//
+// Thirty minutes rather than the fifteen this was, because fifteen was never
+// what anybody got. Every tenant is created with the builtin workflow, which
+// carried a 30m default_lease, so that figure governed every claim on every
+// shipped installation and this constant was only ever reached by a custom
+// workflow that named no lease of its own. The builtin's figure no longer
+// counts, to stop a template nobody chose masking the tenant setting, so the
+// number it was supplying moves here and the unconfigured lease stays 30m.
+// Keep this equal to service.DefaultLease, which seeds the same value.
+const DefaultTTL = 30 * time.Minute
 
 // MaxTTL is the longest lease any single claim may take.
 const MaxTTL = 24 * time.Hour
@@ -34,6 +44,29 @@ type Policy struct {
 // DefaultPolicy returns the shipped lease policy.
 func DefaultPolicy() Policy { return Policy{Default: DefaultTTL, Max: MaxTTL} }
 
+// Narrow layers a tenant's own bounds over this one.
+//
+// The default is an override and the maximum is a clamp, which is the
+// difference between the two settings and the reason they are not applied the
+// same way. A tenant choosing a longer default is choosing for work it owns,
+// so it wins outright. A tenant choosing a longer maximum would be choosing
+// for the operator whose machine it runs on, so it cannot: the effective
+// ceiling is the lower of the two, and a tenant may only tighten it.
+//
+// Zero on either side means "nobody chose" and leaves that bound as it was,
+// so a tenant that has never been configured resolves exactly as it did
+// before these columns existed.
+func (p Policy) Narrow(def, max core.Duration) Policy {
+	out := p
+	if def > 0 {
+		out.Default = def.D()
+	}
+	if max > 0 && (out.Max <= 0 || max.D() < out.Max) {
+		out.Max = max.D()
+	}
+	return out
+}
+
 // Resolve picks the most specific lifetime offered: the per-claim value, then
 // the workflow's default, then the policy default.
 func (p Policy) Resolve(perClaim, workflow core.Duration) (time.Duration, error) {
@@ -45,10 +78,10 @@ func (p Policy) Resolve(perClaim, workflow core.Duration) (time.Duration, error)
 		limit = MaxTTL
 	}
 
-	ttl := def
+	ttl, asked := def, false
 	switch {
 	case perClaim != 0:
-		ttl = perClaim.D()
+		ttl, asked = perClaim.D(), true
 	case workflow != 0:
 		ttl = workflow.D()
 	}
@@ -57,7 +90,17 @@ func (p Policy) Resolve(perClaim, workflow core.Duration) (time.Duration, error)
 		return 0, core.Invalid("lease ttl %s must be positive", ttl)
 	}
 	if ttl > limit {
-		return 0, core.Invalid("lease ttl %s exceeds the maximum of %s", ttl, limit)
+		// Only a caller who named the figure is told it is too long. A
+		// default that exceeds the ceiling is clamped to it instead, because
+		// the two cases fail differently: naming 48h is one caller's mistake
+		// and the error is the answer, while a configured default drifting
+		// above a ceiling an operator lowered afterwards would otherwise
+		// refuse every claim on the tenant until somebody noticed. Clamping
+		// shortens leases; erroring stops work.
+		if asked {
+			return 0, core.Invalid("lease ttl %s exceeds the maximum of %s", ttl, limit)
+		}
+		ttl = limit
 	}
 	return ttl, nil
 }

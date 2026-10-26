@@ -230,6 +230,9 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 	if err := l.totpRequirementIsReachable(in); err != nil {
 		return nil, err
 	}
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
 
 	var out *core.Tenant
 	err = l.write(ctx, actor, func(m *mutation) error {
@@ -243,6 +246,21 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 		}
 		if in.Theme != nil {
 			t.Theme = strings.ToLower(strings.TrimSpace(*in.Theme))
+		}
+		if in.LeaseDefault != nil {
+			t.LeaseDefault = *in.LeaseDefault
+		}
+		if in.LeaseMax != nil {
+			t.LeaseMax = *in.LeaseMax
+		}
+		// Checked against what the tenant will hold, not against what this
+		// call carried. Setting only --lease-default has to be judged by the
+		// maximum already stored, or the two could be walked into
+		// contradiction one flag at a time, each call looking fine by itself.
+		if t.LeaseDefault > 0 && t.LeaseMax > 0 && t.LeaseDefault > t.LeaseMax {
+			return core.Invalid(
+				"lease default %s is longer than the lease maximum %s",
+				t.LeaseDefault, t.LeaseMax)
 		}
 		if in.RequireTOTPWeb != nil {
 			t.RequireTOTPWeb = *in.RequireTOTPWeb

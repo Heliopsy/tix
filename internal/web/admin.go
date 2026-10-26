@@ -45,12 +45,17 @@ type tenantView struct {
 	// command line could set one from the start and the browser could not,
 	// which made a tenant-wide setting reachable only by whoever had shell
 	// access to the server.
-	Themes    []core.Theme
-	Tenants   []core.Tenant
-	Members   []core.Membership
-	Retention core.RetentionPolicy
-	Roles     []core.Role
-	Shape     []shapeNode
+	Themes []core.Theme
+	// LeaseDefault and LeaseMax are what this deployment falls back to, shown
+	// as the placeholder in each empty box. Without them an empty field is
+	// ambiguous between "no bound" and "the one you cannot see from here".
+	LeaseDefault core.Duration
+	LeaseMax     core.Duration
+	Tenants      []core.Tenant
+	Members      []core.Membership
+	Retention    core.RetentionPolicy
+	Roles        []core.Role
+	Shape        []shapeNode
 	// Names labels each member by the handle its actor carries, because a
 	// membership row holds an actor identifier and nothing else. Without
 	// this the table read as three 26-character ULIDs under a heading
@@ -111,6 +116,7 @@ func (h *handler) showTenant(w http.ResponseWriter, r *http.Request) error {
 	}
 	return h.render(w, r, "tenant.html", "Tenant", tenantView{
 		Tenant: *tenant, Tenants: tenants, Members: members, Themes: h.themes.List(),
+		LeaseDefault: core.Duration(h.leases.Default), LeaseMax: core.Duration(h.leases.Max),
 		Retention: *retention, Roles: core.Roles, Shape: shape,
 		Names: h.resolveActors(r, actors...)})
 }
@@ -206,13 +212,34 @@ func (h *handler) tokenShapeRow(r *http.Request) shapeNode {
 	return row
 }
 
-// updateTenant saves the tenant's display name and theme.
+// updateTenant saves the tenant's display name, theme and lease bounds.
 func (h *handler) updateTenant(w http.ResponseWriter, r *http.Request) error {
 	name := field(r, "name")
 	// The empty option clears the theme, so the field is always sent and
 	// always applied: treating "" as unset would make the picker one-way.
 	theme := field(r, "theme")
 	in := core.UpdateTenantInput{Name: &name, Theme: &theme}
+	// Same reasoning as the theme: an empty box is how a bound is handed back
+	// to the deployment setting, so both fields are always applied and a
+	// blank one means zero rather than "leave it".
+	for _, f := range []struct {
+		field string
+		what  string
+		into  **core.Duration
+	}{
+		{"lease_default", "default lease", &in.LeaseDefault},
+		{"lease_max", "maximum lease", &in.LeaseMax},
+	} {
+		var d core.Duration
+		if raw := strings.TrimSpace(field(r, f.field)); raw != "" {
+			parsed, err := core.ParseDuration(raw)
+			if err != nil {
+				return core.Invalid("%s: %v", f.what, err)
+			}
+			d = parsed
+		}
+		*f.into = &d
+	}
 	if _, err := h.svc.UpdateTenant(r.Context(), "", in); err != nil {
 		return err
 	}

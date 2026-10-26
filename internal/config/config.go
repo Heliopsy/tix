@@ -11,6 +11,7 @@ import (
 	"github.com/heliopsy/tix/internal/output"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/lease"
 	"github.com/heliopsy/tix/internal/logging"
 	"github.com/heliopsy/tix/internal/webhook"
 )
@@ -28,6 +29,7 @@ type Config struct {
 	Webhooks       Webhooks           `yaml:"webhooks"`
 	SSH            SSH                `yaml:"ssh"`
 	Discovery      Discovery          `yaml:"discovery"`
+	Lease          Lease              `yaml:"lease"`
 	Retention      Retention          `yaml:"retention"`
 	Log            Log                `yaml:"log"`
 	Output         Output             `yaml:"output"`
@@ -197,6 +199,37 @@ type Webhooks struct {
 type Discovery struct {
 	Enabled   bool     `yaml:"enabled"`
 	Filenames []string `yaml:"filenames"`
+}
+
+// Lease bounds how long a claim on a task may hold, for this deployment.
+//
+// These are the floor a tenant that has chosen nothing falls through to, and
+// the ceiling it cannot rise above. Both are zero by default, and zero means
+// the built-in: 15 minutes and 24 hours. Setting them here is how an operator
+// governs an installation without touching a tenant row, which is the only
+// lever available when tenants are created by people other than the operator.
+//
+// The full order a lease lifetime is decided by, most specific first: the ttl
+// on the claim, the project's workflow default_lease, the tenant's own
+// setting, these, and finally the constants. Max is a clamp rather than an
+// override at every level, so a tenant may tighten this ceiling and never
+// raise it. See lease.Policy.Narrow.
+type Lease struct {
+	Default core.Duration `yaml:"default"`
+	Max     core.Duration `yaml:"max"`
+}
+
+// Policy renders the configured bounds as a lease policy. Zero on either side
+// leaves the shipped constant in place.
+func (l Lease) Policy() lease.Policy {
+	p := lease.DefaultPolicy()
+	if l.Default > 0 {
+		p.Default = l.Default.D()
+	}
+	if l.Max > 0 {
+		p.Max = l.Max.D()
+	}
+	return p
 }
 
 // Retention holds how long history is kept. Each class is governed

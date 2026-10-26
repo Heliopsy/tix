@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/lease"
 	"github.com/heliopsy/tix/internal/output"
 )
 
@@ -106,6 +107,13 @@ func WithThemes(r *core.ThemeRegistry) Option {
 	return func(h *handler) { h.themes = r }
 }
 
+// WithLeasePolicy supplies the deployment's lease bounds, so the tenant
+// screen can show what an empty field falls back to rather than leaving the
+// reader to guess whether blank means "none" or "the default".
+func WithLeasePolicy(p lease.Policy) Option {
+	return func(h *handler) { h.leases = p }
+}
+
 // WithTimeStyle sets the TimeStyle every screen renders its timestamps
 // through. Without it a handler uses the zero-value TimeStyle, which reads
 // the machine's local zone in the same layout output.time_format's "iso"
@@ -153,6 +161,7 @@ type handler struct {
 	style          output.TimeStyle
 	releases       *releaseWatch
 	themes         *core.ThemeRegistry
+	leases         lease.Policy
 	pageSize       int
 }
 
@@ -165,6 +174,7 @@ func Handler(svc core.Service, opts ...Option) http.Handler {
 		logger:     slog.New(slog.NewTextHandler(discard{}, nil)),
 		eventsPath: DefaultEventsPath,
 		pageSize:   core.DefaultDisplayLimit,
+		leases:     lease.DefaultPolicy(),
 	}
 	for _, opt := range opts {
 		opt(h)

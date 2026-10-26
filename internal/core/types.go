@@ -21,12 +21,24 @@ type Tenant struct {
 	// RequireTOTPWeb and its siblings require a second factor on one sign-in
 	// surface each. They are independent and all default false, so a tenant
 	// can require a code in the browser and leave the SSH board on keys alone.
-	RequireTOTPWeb bool       `json:"require_totp_web" yaml:"require_totp_web"`
-	RequireTOTPCLI bool       `json:"require_totp_cli" yaml:"require_totp_cli"`
-	RequireTOTPSSH bool       `json:"require_totp_ssh" yaml:"require_totp_ssh"`
-	CreatedAt      time.Time  `json:"created_at" yaml:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at" yaml:"updated_at"`
-	DeletedAt      *time.Time `json:"deleted_at,omitempty" yaml:"deleted_at,omitempty"`
+	RequireTOTPWeb bool `json:"require_totp_web" yaml:"require_totp_web"`
+	RequireTOTPCLI bool `json:"require_totp_cli" yaml:"require_totp_cli"`
+	RequireTOTPSSH bool `json:"require_totp_ssh" yaml:"require_totp_ssh"`
+	// LeaseDefault and LeaseMax bound how long a claim on this tenant's tasks
+	// may hold. Zero on either means nobody chose, and the deployment
+	// configuration decides, then the built-in constant.
+	//
+	// LeaseDefault is an override and LeaseMax a clamp: this tenant may make
+	// its own ceiling lower than the deployment's but never higher, because
+	// raising it would be deciding something on the operator's behalf. The
+	// resolution lives in lease.Policy.Narrow, not here, so every surface
+	// that grants a lease agrees on what these mean.
+	LeaseDefault Duration `json:"lease_default,omitempty" yaml:"lease_default,omitempty"`
+	LeaseMax     Duration `json:"lease_max,omitempty" yaml:"lease_max,omitempty"`
+
+	CreatedAt time.Time  `json:"created_at" yaml:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at" yaml:"updated_at"`
+	DeletedAt *time.Time `json:"deleted_at,omitempty" yaml:"deleted_at,omitempty"`
 }
 
 // RequiresTOTP reports whether this tenant demands a second factor on the

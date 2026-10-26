@@ -155,6 +155,8 @@ func TestMigrationResumesAboveExistingTasks(t *testing.T) {
 		"ALTER TABLE tenants DROP COLUMN require_totp_web",
 		"ALTER TABLE tenants DROP COLUMN require_totp_cli",
 		"ALTER TABLE tenants DROP COLUMN require_totp_ssh",
+		"ALTER TABLE tenants DROP COLUMN lease_default",
+		"ALTER TABLE tenants DROP COLUMN lease_max",
 		"DELETE FROM schema_migrations WHERE version > 1",
 	} {
 		if _, err := s.writer.ExecContext(ctx, stmt); err != nil {

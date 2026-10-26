@@ -92,6 +92,30 @@ func BoolInt(b bool) int64 {
 	return 0
 }
 
+// DurationText renders a duration for an optional duration column. Zero
+// becomes the empty string, which is how such a column spells "nobody chose";
+// a stored "0s" would be a tenant that had chosen zero, which no bound means.
+func DurationText(d core.Duration) string {
+	if d <= 0 {
+		return ""
+	}
+	return d.String()
+}
+
+// ScanDuration reads an optional duration column, where empty means unset and
+// returns zero. It accepts the 'd' suffix, because core.ParseDuration wrote
+// these and that is the syntax it offers.
+func ScanDuration(raw, what string) (core.Duration, error) {
+	if raw == "" {
+		return 0, nil
+	}
+	d, err := core.ParseDuration(raw)
+	if err != nil {
+		return 0, core.Internal("parsing stored %s %q", what, raw).Wrap(err)
+	}
+	return d, nil
+}
+
 // JSONText marshals a value for a JSON column, substituting fallback when empty.
 func JSONText(v any, fallback string) (string, error) {
 	if v == nil {

@@ -51,6 +51,8 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `webhooks.allow_private_targets` | `TIX_WEBHOOKS_ALLOW_PRIVATE_TARGETS` | `false` |
 | `discovery.enabled` | `TIX_DISCOVERY_ENABLED` | `true` |
 | `discovery.filenames` | `TIX_DISCOVERY_FILENAMES` | `.tix.yaml,.tix/config.yaml` |
+| `lease.default` | `TIX_LEASE_DEFAULT` | (unset: `30m`) |
+| `lease.max` | `TIX_LEASE_MAX` | (unset: `24h`) |
 | `retention.audit` | `TIX_RETENTION_AUDIT` | `8760h` |
 | `retention.events` | `TIX_RETENTION_EVENTS` | `720h` |
 | `retention.webhook_deliveries` | `TIX_RETENTION_WEBHOOK_DELIVERIES` | `720h` |
@@ -169,6 +171,42 @@ honours it wherever it runs. The file is opened only by a command that actually 
 The directory is created if it is missing, and the file is written `0600`: a record carries tenant keys and
 request paths. A path tix cannot open is refused at startup rather than at the first record, because a server
 that started and then logged nothing is the failure that is hardest to notice.
+
+### Leases
+
+`lease.default` and `lease.max` bound how long a claim on a task may hold before it expires and the task returns
+to the queue. They are deployment-wide, and both are unset by default, which means the built-in `30m` and `24h`.
+
+A lease lifetime is decided by the first of these that has an opinion:
+
+1. the `ttl` on the claim itself (`tix claim next --ttl 45m`, or `"ttl"` in the API body)
+2. the `default_lease` of the workflow governing the task's project, if somebody authored that workflow
+3. the tenant's own `lease_default` (`tix tenant edit acme --lease-default 45m`)
+4. `lease.default` here
+5. the built-in `30m`
+
+The builtin workflow is the exception in step 2, and it is worth knowing about because every tenant starts with
+one. The shipped `default` workflow carries a 30m `default_lease` that nobody chose, and counting it would mask
+the tenant setting on every project of an ordinary installation: you would set `--lease-default` and watch it do
+nothing. So a workflow speaks for its project only once a person has spoken through it. Editing the builtin with
+`tix workflow put` clears its builtin flag, and from that point its lease is a choice and outranks the tenant's
+again. An unconfigured installation still gets 30m, because that is what `lease.default` falls back to.
+
+The maximum works the other way round. It is a clamp rather than an override, and the effective ceiling is the
+lowest of the tenant's `lease_max`, `lease.max` here, and the built-in `24h`. A tenant can therefore tighten the
+operator's ceiling and never raise it, which is what makes this setting worth having on a deployment where
+tenants are administered by people other than whoever runs the machine.
+
+The two bounds also fail differently when a lifetime exceeds the ceiling. A caller who named the figure is told:
+`tix claim next --ttl 48h` is refused with "lease ttl 48h0m0s exceeds the maximum of 24h0m0s", because the error
+is the useful answer to a request somebody typed. A *default* that exceeds the ceiling is clamped down to it
+instead. That case is not a mistake anyone is making right now: it is what happens when an operator lowers
+`lease.max` below a default some tenant configured months ago, and refusing every claim on that tenant until
+somebody noticed would be a worse answer than shortening its leases.
+
+Setting a tenant's default longer than its own maximum is refused at the point of setting, where both figures
+are in front of you. `tix tenant edit acme --lease-default ""` clears the tenant's setting and returns that
+bound to this file.
 
 ### Retention
 

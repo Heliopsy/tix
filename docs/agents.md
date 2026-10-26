@@ -34,7 +34,7 @@ each get a different task, with no lock, no coordinator and no server process.
 | `-p, --project` | restrict to project keys |
 | `-s, --status` | restrict to statuses |
 | `-l, --tag` | restrict to tags |
-| `--ttl` | lease duration; defaults to the workflow's `default_lease` |
+| `--ttl` | how long the lease holds; falls back to an authored workflow's `default_lease`, then the tenant, then the deployment, then 30m |
 | `--actor` | claim on behalf of another actor |
 
 Claim eligibility covers every task that is not blocked by an unfinished dependency, not held by a live lease,

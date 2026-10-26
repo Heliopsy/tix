@@ -162,6 +162,7 @@ func tenantShowCmd(g *globals) *cobra.Command {
 func tenantEditCmd(g *globals) *cobra.Command {
 	var name string
 	var theme string
+	var leaseDefault, leaseMax string
 	var totpWeb, totpCLI, totpSSH bool
 	var dryRun bool
 	cmd := &cobra.Command{
@@ -177,12 +178,20 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			"lock anybody out: a user subject to it who holds no enrolment is taken through\n" +
 			"enrolment when they next sign in. It does need auth.totp_key set, because\n" +
 			"without somewhere to seal a secret there is no enrolment to take them through.\n\n" +
+			"--lease-default and --lease-max bound how long a claim on this tenant's\n" +
+			"tasks may hold. The default is what a claim gets when neither the claim nor\n" +
+			"the project's workflow names a ttl; the maximum is a ceiling no claim may\n" +
+			"pass. Either as \"\" falls back to the deployment setting (lease.default and\n" +
+			"lease.max, or TIX_LEASE_DEFAULT and TIX_LEASE_MAX) and then to the built-in\n" +
+			"15m and 24h. A tenant may lower the deployment ceiling but never raise it.\n\n" +
 			"Exit codes: 3 unknown tenant or unknown theme; 6 no second factor key.",
 		Example: "  tix tenant edit acme --name \"Acme Limited\"\n" +
 			"  tix tenant edit acme --theme ocean\n" +
 			"  tix tenant edit acme --theme \"\"\n" +
 			"  tix tenant edit acme --require-totp-web\n" +
-			"  tix tenant edit acme --require-totp-ssh=false",
+			"  tix tenant edit acme --require-totp-ssh=false\n" +
+			"  tix tenant edit acme --lease-default 45m --lease-max 4h\n" +
+			"  tix tenant edit acme --lease-max \"\"",
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var in core.UpdateTenantInput
@@ -210,6 +219,29 @@ func tenantEditCmd(g *globals) *cobra.Command {
 					*f.into = f.val
 				}
 			}
+			// Same again: "" clears the bound back to the deployment setting,
+			// so an empty string has to be told apart from an absent flag.
+			for _, f := range []struct {
+				flag string
+				raw  string
+				into **core.Duration
+			}{
+				{"lease-default", leaseDefault, &in.LeaseDefault},
+				{"lease-max", leaseMax, &in.LeaseMax},
+			} {
+				if !cmd.Flags().Changed(f.flag) {
+					continue
+				}
+				var d core.Duration
+				if f.raw != "" {
+					parsed, err := core.ParseDuration(f.raw)
+					if err != nil {
+						return core.Invalid("--%s: %v", f.flag, err)
+					}
+					d = parsed
+				}
+				*f.into = &d
+			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
@@ -232,6 +264,10 @@ func tenantEditCmd(g *globals) *cobra.Command {
 	cmd.Flags().BoolVar(&totpWeb, "require-totp-web", false, "require a second factor to sign in to the browser interface")
 	cmd.Flags().BoolVar(&totpCLI, "require-totp-cli", false, "require a second factor for tix login")
 	cmd.Flags().BoolVar(&totpSSH, "require-totp-ssh", false, "require a second factor to open the terminal interface over ssh")
+	cmd.Flags().StringVar(&leaseDefault, "lease-default", "",
+		"how long a claim holds when nothing else says, or \"\" to use the deployment setting")
+	cmd.Flags().StringVar(&leaseMax, "lease-max", "",
+		"the longest lease any claim may take, or \"\" to use the deployment setting")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	_ = cmd.RegisterFlagCompletionFunc("theme", fixedCompletion(core.ThemeNames()))
 	return cmd

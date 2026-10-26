@@ -13,6 +13,7 @@ import (
 	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/id"
+	"github.com/heliopsy/tix/internal/lease"
 	"github.com/heliopsy/tix/internal/store"
 )
 
@@ -48,6 +49,11 @@ type Local struct {
 	// retentionDefaults are the configured windows a tenant that never moved
 	// off the shipped default is pruned by.
 	retentionDefaults core.RetentionPolicy
+
+	// leaseDefaults are the configured lease bounds for this deployment, laid
+	// under whatever the tenant has chosen for itself. A tenant narrows them;
+	// see lease.Policy.Narrow for which way each bound moves.
+	leaseDefaults lease.Policy
 
 	// allowInsecureWebhooks permits a plaintext delivery target outside
 	// loopback. Deliveries carry task content, so this is opt-in.
@@ -105,6 +111,12 @@ func WithHooks(m HookMode) Option { return func(l *Local) { l.hooks = m } }
 // tenant's stored policy.
 func WithRetentionDefaults(p core.RetentionPolicy) Option {
 	return func(l *Local) { l.retentionDefaults = p }
+}
+
+// WithLeaseDefaults sets the deployment-wide lease bounds that a tenant's own
+// settings are layered over.
+func WithLeaseDefaults(p lease.Policy) Option {
+	return func(l *Local) { l.leaseDefaults = p }
 }
 
 // WithHasher sets the password hasher. Tests use cheaper parameters; production

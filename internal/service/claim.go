@@ -17,6 +17,39 @@ import (
 // before reporting an empty queue. A lost race is not an empty queue.
 const claimNextAttempts = 3
 
+// workflowLease is the default_lease a workflow contributes to a claim.
+//
+// Zero for an untouched builtin workflow, even though the shipped one carries
+// 30m. The precedence is most-specific-wins, so a workflow's figure outranks
+// the tenant's: that is right when somebody authored the workflow, and wrong
+// for the template every tenant is created with, which nobody chose. Counting
+// the template would mask the tenant setting on every project of a normal
+// install, leaving an administrator setting a tenant-wide default and watching
+// it do nothing.
+//
+// So a workflow speaks for the project only once a person has spoken through
+// it. Editing the builtin through `tix workflow put` clears its builtin flag,
+// which is the moment its lease becomes a choice and starts to win again.
+func workflowLease(wf *core.Workflow) core.Duration {
+	if wf == nil || wf.Builtin {
+		return 0
+	}
+	return wf.Definition.DefaultLease
+}
+
+// leasePolicy returns the bounds a claim on this tenant is granted under:
+// the deployment's configured policy with the tenant's own settings laid over
+// it. Read inside the transaction that is granting the lease, so a bound
+// changed a moment ago governs the very next claim rather than the next
+// restart.
+func (l *Local) leasePolicy(ctx context.Context, tx store.Tx) (lease.Policy, error) {
+	t, err := tx.GetTenant(ctx)
+	if err != nil {
+		return lease.Policy{}, err
+	}
+	return l.leaseDefaults.Narrow(t.LeaseDefault, t.LeaseMax), nil
+}
+
 // ClaimTask takes a lease on one task.
 func (l *Local) ClaimTask(ctx context.Context, ref core.TaskRef, in core.ClaimInput) (*core.Claim, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskClaim, authz.Resource{})
@@ -37,7 +70,11 @@ func (l *Local) ClaimTask(ctx context.Context, ref core.TaskRef, in core.ClaimIn
 		if wf.Definition.IsTerminal(task.Status) {
 			return finishedTask(task)
 		}
-		ttl, err := lease.Resolve(in.TTL, wf.Definition.DefaultLease)
+		pol, err := l.leasePolicy(ctx, m.tx)
+		if err != nil {
+			return err
+		}
+		ttl, err := pol.Resolve(in.TTL, workflowLease(wf))
 		if err != nil {
 			return err
 		}
@@ -80,7 +117,11 @@ func (l *Local) ClaimNext(ctx context.Context, in core.ClaimNextInput) (*core.Cl
 	if err != nil {
 		return nil, err
 	}
-	if _, err := lease.Resolve(in.TTL, 0); err != nil {
+	// The deployment bound only: no transaction is open here, so the tenant's
+	// own bound is not in hand yet. This rejects a plainly impossible ttl
+	// before the retry loop spends attempts on it; the resolve inside the
+	// transaction is the one that governs, and it sees both.
+	if _, err := l.leaseDefaults.Resolve(in.TTL, 0); err != nil {
 		return nil, err
 	}
 
@@ -123,7 +164,11 @@ func (l *Local) claimNextOnce(ctx context.Context, m *mutation, actor *core.Acto
 	if err != nil {
 		return nil, err
 	}
-	ttl, err := lease.Resolve(in.TTL, 0)
+	pol, err := l.leasePolicy(ctx, m.tx)
+	if err != nil {
+		return nil, err
+	}
+	ttl, err := pol.Resolve(in.TTL, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -164,10 +209,18 @@ func (l *Local) applyWorkflowTTL(ctx context.Context, m *mutation, task *core.Ta
 	if err != nil {
 		return until, err
 	}
-	if wf.Definition.DefaultLease == 0 {
+	// workflowLease, not the raw field: a builtin workflow contributes
+	// nothing, and the lease already granted above was resolved from the same
+	// tenant and deployment bounds this would re-derive. Returning here saves
+	// a second write that could only arrive at the answer already in place.
+	if workflowLease(wf) == 0 {
 		return until, nil
 	}
-	ttl, err := lease.Resolve(0, wf.Definition.DefaultLease)
+	pol, err := l.leasePolicy(ctx, m.tx)
+	if err != nil {
+		return until, err
+	}
+	ttl, err := pol.Resolve(0, workflowLease(wf))
 	if err != nil {
 		return until, err
 	}
@@ -198,7 +251,11 @@ func (l *Local) RenewLease(ctx context.Context, ref core.TaskRef, token string, 
 		if err != nil {
 			return err
 		}
-		resolved, err := lease.Resolve(ttl, wf.Definition.DefaultLease)
+		pol, err := l.leasePolicy(ctx, m.tx)
+		if err != nil {
+			return err
+		}
+		resolved, err := pol.Resolve(ttl, workflowLease(wf))
 		if err != nil {
 			return err
 		}

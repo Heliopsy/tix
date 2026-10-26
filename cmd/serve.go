@@ -147,7 +147,7 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 		Logger:  log,
 		Service: conn.Service,
 		WebHandler: web.Handler(conn.Service, web.WithSecureCookies(o.certFile != ""), web.WithTimeStyle(g.timeStyle()), web.WithTargetDescribe(conn.Info.Target.Describe()), web.WithThemes(themes),
-			web.WithPageSize(resolved.Config.Web.PageSize)),
+			web.WithPageSize(resolved.Config.Web.PageSize), web.WithLeasePolicy(resolved.Config.Lease.Policy())),
 		Store:                      conn.Store,
 		Clock:                      clock.New(),
 		TenantID:                   conn.Info.TenantID,

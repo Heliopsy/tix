@@ -63,6 +63,8 @@ var unshadowedKeys = map[string]string{
 	"tenant":                         "connect.Resolve; --tenant only joins the flag layer when non-empty",
 	"project":                        "globals.projectFallback; --project only wins when non-empty",
 	"current_context":                "config.activeContextName",
+	"lease.default":                  "connect.dial, into service.WithLeaseDefaults; no flag, a tenant narrows it",
+	"lease.max":                      "connect.dial, into service.WithLeaseDefaults; no flag, a tenant narrows it",
 	"database.dsn":                   "connect.Resolve; --db only wins when non-empty",
 	"database.allow_network_fs":      "connect.dialLocal, ORed with --allow-network-fs",
 	"database.connect_timeout":       "connect.openStore",

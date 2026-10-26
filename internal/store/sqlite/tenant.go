@@ -14,6 +14,7 @@ import (
 var tenantColumns = []string{
 	"id", "key", "name", "theme",
 	"require_totp_web", "require_totp_cli", "require_totp_ssh",
+	"lease_default", "lease_max",
 	"created_at", "updated_at", "deleted_at",
 }
 
@@ -26,9 +27,12 @@ func scanTenant(s scanner) (core.Tenant, error) {
 		totpWeb   int64
 		totpCLI   int64
 		totpSSH   int64
+		leaseDef  sql.NullString
+		leaseMax  sql.NullString
 	)
 	if err := s.Scan(&t.ID, &t.Key, &t.Name, &t.Theme,
 		&totpWeb, &totpCLI, &totpSSH,
+		&leaseDef, &leaseMax,
 		&created, &updated, &deletedAt); err != nil {
 		return core.Tenant{}, mapErr(err, "scanning tenant")
 	}
@@ -36,6 +40,12 @@ func scanTenant(s scanner) (core.Tenant, error) {
 	t.RequireTOTPCLI = sqlb.Bool(totpCLI)
 	t.RequireTOTPSSH = sqlb.Bool(totpSSH)
 	var err error
+	if t.LeaseDefault, err = sqlb.ScanDuration(sqlb.Text(leaseDef), "tenant lease default"); err != nil {
+		return core.Tenant{}, err
+	}
+	if t.LeaseMax, err = sqlb.ScanDuration(sqlb.Text(leaseMax), "tenant lease maximum"); err != nil {
+		return core.Tenant{}, err
+	}
 	if t.CreatedAt, err = sqlb.ScanTime(created); err != nil {
 		return core.Tenant{}, err
 	}
@@ -123,6 +133,8 @@ func (t *tx) CreateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("require_totp_web", sqlb.BoolInt(in.RequireTOTPWeb)).
 		Set("require_totp_cli", sqlb.BoolInt(in.RequireTOTPCLI)).
 		Set("require_totp_ssh", sqlb.BoolInt(in.RequireTOTPSSH)).
+		Set("lease_default", sqlb.DurationText(in.LeaseDefault)).
+		Set("lease_max", sqlb.DurationText(in.LeaseMax)).
 		Set("created_at", sqlb.TimeText(in.CreatedAt)).
 		Set("updated_at", sqlb.TimeText(in.UpdatedAt)).
 		Set("deleted_at", sqlb.NullTimeText(in.DeletedAt))
@@ -141,6 +153,8 @@ func (t *tx) UpdateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("require_totp_web", sqlb.BoolInt(in.RequireTOTPWeb)).
 		Set("require_totp_cli", sqlb.BoolInt(in.RequireTOTPCLI)).
 		Set("require_totp_ssh", sqlb.BoolInt(in.RequireTOTPSSH)).
+		Set("lease_default", sqlb.DurationText(in.LeaseDefault)).
+		Set("lease_max", sqlb.DurationText(in.LeaseMax)).
 		Set("updated_at", sqlb.TimeText(in.UpdatedAt)).
 		Set("deleted_at", sqlb.NullTimeText(in.DeletedAt))
 	n, err := t.execUpdate(ctx, b, "updating tenant %q", in.ID)

@@ -132,7 +132,10 @@ Each state carries a `key`, a `label`, `terminal`, a `category` from the six
 (`todo`, `in_progress`, `blocked`, `waiting`, `done`, `cancelled`) and
 optionally `revert_on_lease_expiry` with `revert_to`, which is what
 `tix claim sweep` acts on. The definition also carries `default_lease`, the
-TTL a claim gets when it does not ask for one — 30m in the built-in workflow.
+TTL a claim gets when it does not ask for one. The built-in workflow ships
+30m there, but that figure is a template nobody chose, so it is ignored in
+favour of the tenant's own `lease_default`; author a workflow of your own and
+its `default_lease` outranks the tenant again.
 
 Custom fields are per-project typed slots on a task:
 
