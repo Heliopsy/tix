@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.22.0](https://github.com/Heliopsy/tix/compare/v0.21.2...v0.22.0) (2026-10-27)
+
+
+### Features
+
+* **web:** let adding a task leave you on the list ([5ad8ece](https://github.com/Heliopsy/tix/commit/5ad8ece7ddbff97bc3892d86f3d1cdfd4334cac4))
+
+
+### Bug Fixes
+
+* **web:** give the tasks screen back its fold on a phone ([c8f8291](https://github.com/Heliopsy/tix/commit/c8f82914f7e205cb8e7829849cb41c3ccd410006))
+* **web:** make the task screen's two menus look like menus, and thin its history ([59b036a](https://github.com/Heliopsy/tix/commit/59b036a62bc1515e608383509d500676b82c6d32))
+
 ## [0.21.2](https://github.com/Heliopsy/tix/compare/v0.21.1...v0.21.2) (2026-10-27)
 
 
