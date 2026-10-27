@@ -60,11 +60,18 @@
               </select>
             </div>
           </div>
-          <label class="check-inline" for="disabled-{{.User.ID}}">
-            <input id="disabled-{{.User.ID}}" type="checkbox" name="disabled" value="1" {{if .Disabled}}checked{{end}}>
-            Disabled
-          </label>
-          {{template "field-info" "A disabled account cannot sign in: its sessions are dropped and its API tokens are revoked the moment you save. Clearing the box lets it sign in again, but does not bring the old tokens back."}}
+          {{/* The info sits on the checkbox's own line, in the .field-label
+               row every other explained field uses. A details element is
+               block level, so left as a sibling it dropped to a line of its
+               own and rendered as an "i" with nothing beside it to say what
+               it was about. */}}
+          <div class="field-label">
+            <label class="check-inline" for="disabled-{{.User.ID}}">
+              <input id="disabled-{{.User.ID}}" type="checkbox" name="disabled" value="1" {{if .Disabled}}checked{{end}}>
+              Disabled
+            </label>
+            {{template "field-info" "A disabled account cannot sign in: its sessions are dropped and its API tokens are revoked the moment you save. Clearing the box lets it sign in again, but does not bring the old tokens back."}}
+          </div>
           <div class="actions"><button type="submit">Save changes</button></div>
         </form>
         {{if $.Data.CanClearTOTP}}
@@ -102,7 +109,11 @@
 
 {{template "pager" $v.Pager}}
 
-<details class="panel">
+{{/* The same disclosure Projects, Webhooks and the task list put their
+     "make one" form behind, rather than a full panel of its own: four
+     screens that each end in a form for adding a record should not end in
+     four differently shaped controls. */}}
+<details class="panel addmore">
   <summary>Create a user</summary>
   <div class="body">
     <form method="post" action="/admin/users">
