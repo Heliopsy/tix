@@ -44,7 +44,20 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
           go-version-file: go.mod
+      # just-version, because without it the action passes an empty version
+      # specifier to setup-crate, which then lists casey/just releases and
+      # picks the newest. That lookup failed once mid-run with "no release for
+      # just matching version specifier", while 1.59.0 sat there published and
+      # not a prerelease, so it was the resolution that blinked rather than
+      # upstream. Every other job in the same run installed just fine.
+      #
+      # This repository pins every action to a commit for reproducibility and
+      # then let the tool one of them installs float, which is the same hole a
+      # layer down. An exact tag is one deterministic request instead of a
+      # list-and-match, and a bump is a one-line change somebody reviews.
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
+        with:
+          just-version: 1.59.0
 
       - name: Verify go.sum is tidy
         run: just tidy-check
@@ -110,7 +123,11 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
           go-version-file: go.mod
+      # Pinned for the reason given in ci.yaml: an unset version makes the
+      # action resolve "latest" on every run, and that resolution can blink.
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
+        with:
+          just-version: 1.59.0
 
       - name: Build
         run: go build ./...
@@ -134,7 +151,11 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
           go-version-file: go.mod
+      # Pinned for the reason given in ci.yaml: an unset version makes the
+      # action resolve "latest" on every run, and that resolution can blink.
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
+        with:
+          just-version: 1.59.0
       - uses: ./.github/actions/toolbox
         with:
           tools: golangci-lint actionlint hadolint yamllint markdownlint
@@ -170,7 +191,11 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # Pinned for the reason given in ci.yaml: an unset version makes the
+      # action resolve "latest" on every run, and that resolution can blink.
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
+        with:
+          just-version: 1.59.0
       - uses: ./.github/actions/toolbox
         with:
           tools: openspec
@@ -236,7 +261,11 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # Pinned for the reason given in ci.yaml: an unset version makes the
+      # action resolve "latest" on every run, and that resolution can blink.
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
+        with:
+          just-version: 1.59.0
       - uses: ./.github/actions/toolbox
         with:
           tools: govulncheck gitleaks trivy
@@ -288,7 +317,11 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
           go-version-file: go.mod
+      # Pinned for the reason given in ci.yaml: an unset version makes the
+      # action resolve "latest" on every run, and that resolution can blink.
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
+        with:
+          just-version: 1.59.0
       - uses: ./.github/actions/toolbox
         with:
           tools: trivy
@@ -310,7 +343,11 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
           go-version-file: go.mod
+      # Pinned for the reason given in ci.yaml: an unset version makes the
+      # action resolve "latest" on every run, and that resolution can blink.
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
+        with:
+          just-version: 1.59.0
       - uses: ./.github/actions/toolbox
         with:
           tools: goreleaser
