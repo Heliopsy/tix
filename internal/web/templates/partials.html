@@ -32,25 +32,6 @@
   <a href="/activity" {{if eq .Path "/activity"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#activity"/></svg><span>Activity</span></a>
   <a href="/stats" {{if eq .Path "/stats"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#stats"/></svg><span>Statistics</span></a>
   {{if .Advanced}}
-  {{/* Everything below the four daily screens goes behind one control on a
-       phone and renders inline on a desktop, from this one list.
-
-       On a 390px screen the navigation was sixteen links flex-wrapped into
-       seven ragged rows, 3-3-3-3-2-1, with Sync alone on a line of its own.
-       The group headings that are its only structure were display:none below
-       900px, so Tasks and SSH keys read as equals, and content did not start
-       until 461px of an 844px screen. More than half the first screen was a
-       menu nobody had asked to see.
-
-       It is a popover, so the primitive is the same one the columns and
-       comment controls use: top layer, Escape, click-outside, no script. On
-       a desktop the button is hidden and display:contents dissolves this
-       wrapper, leaving the links exactly where they were in the sidebar. One
-       list, two shapes, nothing duplicated to drift apart. */}}
-  <button type="button" class="navmore" popovertarget="navextra">
-    <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#columns"/></svg><span>More</span>
-  </button>
-  <div id="navextra" class="navextra" popover>
   <p class="group">Configure</p>
   <a href="/workflows" {{if eq .Path "/workflows"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#workflows"/></svg><span>Workflows</span></a>
   <a href="/admin/tenant" {{if eq .Path "/admin/tenant"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tenant"/></svg><span>Tenant</span></a>
@@ -67,8 +48,6 @@
        looking like you are somewhere else. */}}
   <a href="/transfer" {{if or (eq .Path "/transfer") (eq .Path "/bundles")}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#transfer"/></svg><span>Import and export</span></a>
   <a href="/sync" {{if or (eq .Path "/sync") (eq .Path "/sync/runs")}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#sync"/></svg><span>Sync</span></a>
-  <button type="button" class="flowclose navclose" popovertarget="navextra" popovertargetaction="hide">Close</button>
-  </div>
   {{end}}
 
   {{/* The running version, under the last button, and whether anything newer

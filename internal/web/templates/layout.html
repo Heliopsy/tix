@@ -37,7 +37,25 @@
        the way down instead of one that stops at the fold. */}}
   <aside class="side">
     <div class="side-inner">
-      <a class="brand" href="/"><img class="logo" src="/assets/tix.svg" alt="" width="28" height="28">{{.Brand.Title}}</a>
+      {{/* Brand and, on a phone, the button that opens everything else.
+
+           On a 390px screen this sidebar stacked its whole self above the
+           page: brand, handle, sixteen links wrapped into seven ragged rows,
+           Settings, the theme switch and Sign out, so the content did not
+           begin until past the fold. A phone gets a bar and a menu, which is
+           what a phone has always got.
+
+           The menu is a popover, so it is the same primitive as every other
+           menu here: top layer, Escape, click outside, no script. On a
+           desktop the button is hidden and display:contents dissolves this
+           wrapper, so the sidebar is the column it has always been. */}}
+      <div class="side-head">
+        <a class="brand" href="/"><img class="logo" src="/assets/tix.svg" alt="" width="28" height="28">{{.Brand.Title}}</a>
+        <button type="button" class="burger" popovertarget="sidemenu" aria-label="Menu">
+          <svg class="burger-icon" aria-hidden="true" width="24" height="24"><use href="/assets/icons.svg#menu"/></svg>
+        </button>
+      </div>
+      <div id="sidemenu" class="sidemenu" popover>
       <p class="who">{{.Actor.Handle}}</p>
       {{template "nav" .}}
       <div class="side-foot">
@@ -48,6 +66,8 @@
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
         <button class="secondary" type="submit">Sign out</button>
       </form>
+      <button type="button" class="menuclose" popovertarget="sidemenu" popovertargetaction="hide">Close</button>
+      </div>
     </div>
   </aside>
   <main class="wrap">
