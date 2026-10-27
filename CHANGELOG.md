@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.2](https://github.com/Heliopsy/tix/compare/v0.21.1...v0.21.2) (2026-10-27)
+
+
+### Bug Fixes
+
+* **web:** give a phone a menu button, and make Back to the list a control ([05a75ba](https://github.com/Heliopsy/tix/commit/05a75bafa8b1470d4a6b84015f193f9a15296970))
+
 ## [0.21.1](https://github.com/Heliopsy/tix/compare/v0.21.0...v0.21.1) (2026-10-27)
 
 
