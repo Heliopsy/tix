@@ -322,6 +322,77 @@ nav .group {
 /* Below 900px the admin links are behind one control; above it the button
    goes away and display:contents dissolves the wrapper so the links sit in
    the sidebar exactly as they did before. */
+/* The tasks screen on a phone.
+
+   521px of an 844px screen stood between the top and the first task: a
+   heading and a summary stacked, a quick-add whose second row used 147px of
+   351, a filter form whose second row used 310, and a pager above the list
+   that announced "Page 1 of 25 tasks" before a single task had been seen.
+   Each piece was defensible on a desktop and none of them were together on a
+   phone, where the screen's whole subject is the list.
+
+   The heading and its summary share a line, the filter form moves behind the
+   button beside View, the quick-add field stops being 49px tall when every
+   other control is 36, and the pager goes under the rows it describes. The
+   pager was put above deliberately, because on a wide screen the list is a
+   frame that scrolls its own contents and a pager below it sat in a dead
+   strip; a phone scrolls the page itself, so that reason does not hold here
+   and the cost is 34px of the fold. */
+@media (max-width: 899px) {
+  .pagehead-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+  .pagehead-title .summary {
+    margin: 0;
+    font-size: var(--text-sm);
+    line-height: 1.4;
+  }
+  /* 11px of padding against a 24.8px line box made this 49 tall while every
+     control beside it was 36, so the add row was a step taller than the page
+     for no reason a reader could see. min-height alone could not shrink it;
+     the padding is what sets the height. */
+  form.quickadd input[name="title"] {
+    min-height: var(--control-h);
+    padding-top: var(--space-1);
+    padding-bottom: var(--space-1);
+  }
+  .pagehead { gap: var(--space-2); }
+
+  /* The listing's own box becomes a column so the pager can be ordered under
+     the rows without moving it in the markup, where a wide screen wants it
+     exactly where it is. */
+  #tasks-listing { display: flex; flex-direction: column; }
+  #tasks-listing > nav.pager { order: 2; margin-top: var(--space-3); }
+
+  .filterpop {
+    max-width: min(26rem, calc(100vw - 24px));
+    padding: var(--space-4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--bg);
+    box-shadow: 0 10px 30px rgb(0 0 0 / 0.22);
+  }
+  .filterpop .filterbar { flex-wrap: wrap; }
+  .filterclose { width: 100%; margin-top: var(--space-3); }
+}
+
+@media (min-width: 900px) {
+  .filterbtn,
+  .filterclose { display: none; }
+  /* Not a popover on a wide screen: the form sits inline where it always has. */
+  .filterpop {
+    display: contents;
+    max-width: none;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+}
+
 /* The bar a phone gets: brand on the left, the menu button on the right. */
 .side-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 
@@ -977,6 +1048,14 @@ col.c-tags { width: 150px; }
 col.c-when { width: 142px; }
 col.c-source { width: 116px; }
 
+/* The raw audit entry behind a row of history. Wide enough for a timestamp
+   and a field list without wrapping either, and capped against the viewport
+   so it still fits a phone. */
+.rawpop { max-width: min(32rem, calc(100vw - 24px)); }
+.rawpop .raw-fields { margin: 0 0 var(--space-3); }
+.rawpop .raw-fields:last-of-type { margin-bottom: 0; }
+.rawopen { margin-left: var(--space-2); font-size: var(--text-xs); }
+
 @media (max-width: 639px) { colgroup { display: none; } }
 
 /* Badges */
@@ -1488,6 +1567,52 @@ a.secondary.clear:hover { filter: brightness(1.08); }
 }
 
 .statuspill:hover { filter: none; }
+
+/* Status and priority on the task's own screen.
+
+   Both are buttons that open a menu, and on a listing row they are
+   deliberately bare: thirty rows of framed controls would be a page of
+   chrome, and the row teaches you they are pressable by being a row. The
+   task screen is the opposite case. There is one of each, a reader arrived
+   to change something, and bare meant they rendered identically to the
+   static chips beside them: same colour, same shape, no border, no
+   background, nothing to say the two in the middle do something and the
+   others do not.
+
+   So here they get a frame and a chevron. The chevron is a separate mark
+   from .prio's caret, which points up or down to say which way the priority
+   leans and would say nothing about a menu. */
+.taskpills .statuspill,
+.taskpills .priobtn {
+  align-items: center;
+  gap: var(--space-1);
+  padding: 3px var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.taskpills .statuspill::after,
+.taskpills .priobtn::after {
+  content: "";
+  flex: 0 0 auto;
+  width: 0;
+  height: 0;
+  margin-left: 1px;
+  border-left: 3.5px solid transparent;
+  border-right: 3.5px solid transparent;
+  border-top: 4px solid var(--muted);
+}
+.taskpills .statuspill:hover,
+.taskpills .priobtn:hover {
+  background: var(--bg);
+  border-color: var(--line-strong);
+}
+.taskpills .statuspill:hover::after,
+.taskpills .priobtn:hover::after { border-top-color: var(--ink); }
+/* Normal priority fades on a row until it is hovered. On this screen it is
+   one of two controls somebody came to press, so it stays legible. */
+.taskpills .prio.is-normal { opacity: 1; }
 .statuspill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 999px; }
 
 .flowmenu {
