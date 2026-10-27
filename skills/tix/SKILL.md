@@ -1,8 +1,8 @@
 ---
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. There is no MCP server; this CLI is the only interface. Covers writing your own plan down as tasks before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 11
-verified-against: tix 4665330 (2026-10-11)
+version: 12
+verified-against: tix 425cd60 (2026-10-26)
 ---
 
 # tix
@@ -139,6 +139,18 @@ task's **status or its results**:
   results under the token, so reach for this one when you are recording
   something mid-run rather than at the end.
 
+**Omit `--ttl` unless the work is genuinely long.** Without one the length
+comes from the project's workflow, then the tenant, then the deployment. A ttl
+you do pass is capped at whatever the operator set, 24h at most, and over that
+is refused — exit `2`, nothing renewed, old deadline still running:
+
+```console
+$ tix claim renew infra-8 --token "$token" --ttl 48h
+error: invalid: lease ttl 48h0m0s exceeds the maximum of 24h0m0s
+```
+
+Renew again with a shorter ttl, not the same one.
+
 **Keep the token in a variable for the whole run.** Both `task mv` and
 `artifact put` need it, and `claim` is the only thing that ever tells you what
 it is.
@@ -156,10 +168,9 @@ error: lease_expired: the lease on task "default-1" is no longer held under that
 
 $ tix task mv default-2 done --lease-token agent-a-stale-token
 error: lease_expired: the lease on task "default-2" is not held by this token
-
-$ tix artifact put default-2 --kind result --payload '{"stale":true}' --lease-token agent-a-stale-token
-error: lease_expired: the lease on task "default-2" is not held by this token
 ```
+
+`artifact put` fails the same way with the same message.
 
 Dropping the token is not a way round it. On a task that is still claimed,
 omitting it is refused too, so there is no tokenless back door to the result
@@ -182,11 +193,10 @@ the task may need to be re-picked up from scratch.
 
 ### What the lease covers, and what it deliberately does not
 
-Your **results are yours while you hold the task.** A zombie agent — lease
-expired, task re-claimed by somebody else, hasn't noticed — can neither move
-your task nor write an artifact over your result. It is refused whether it
-presents its dead token or no token at all, so it does not have to cooperate
-and you do not have to defend yourself.
+Your **results are yours while you hold the task.** An agent whose lease
+expired without noticing can neither move your task nor write over your
+result, with its dead token or without one, so you do not have to defend
+against it.
 
 Two writes deliberately take **no** token, on a claimed task or any other. Do
 not pass one and do not expect a refusal:
@@ -199,11 +209,9 @@ not pass one and do not expect a refusal:
   or re-assigning live work is the queue doing its job. If you care about a
   concurrent edit, that is what `--version` is for, not the lease.
 
-So: treat a **comment** as evidence, never as a lock — two agents can write
-contradictory comments on one task, and a stale comment from a predecessor is
-noise in a thread rather than a result anybody will mistake for yours. Treat an
-**artifact** as the thing the lease protects, and keep your token to hand so
-you can write one.
+So treat a **comment** as evidence, never a lock: two agents can write
+contradictory ones. The **artifact** is what the lease protects, so keep your
+token to hand.
 
 Still prefer `claim release --comment` and `--result key=value` when you are
 closing the task anyway: one lease-guarded write instead of three, and no token
