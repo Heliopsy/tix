@@ -461,7 +461,7 @@ func (h *handler) createTask(w http.ResponseWriter, r *http.Request) error {
 	in := core.CreateTaskInput{
 		ProjectRef: field(r, "project_ref"),
 		Title:      field(r, "title"),
-		Body:       field(r, "body"),
+		Body:       prose(r, "body"),
 		Priority:   priority,
 		Tags:       fieldList(r, "tags"),
 	}

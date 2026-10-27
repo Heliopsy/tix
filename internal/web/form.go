@@ -39,6 +39,26 @@ func field(r *http.Request, name string) string {
 	return strings.TrimSpace(r.PostFormValue(name))
 }
 
+// prose returns one trimmed multi-line form value with its line endings
+// normalised to \n.
+//
+// A browser submits a textarea with CRLF line breaks, which the HTML form
+// specification requires, so every save through the browser rewrote the line
+// endings of text the CLI and the API had stored with \n. Nothing displayed
+// differently and nothing failed, which is what made it worth fixing: a no-op
+// save silently changed the bytes, an export round-tripped to a different
+// document, and a diff between two stores showed every multi-line field as
+// modified.
+//
+// Use this for anything a person types more than one line into. field is
+// still right for a name, a key or a select.
+func prose(r *http.Request, name string) string {
+	v := r.PostFormValue(name)
+	v = strings.ReplaceAll(v, "\r\n", "\n")
+	v = strings.ReplaceAll(v, "\r", "\n")
+	return strings.TrimSpace(v)
+}
+
 // sent returns one trimmed form value and whether the form carried the key at
 // all. An absent key and an empty one are different requests: a form that
 // names a field is asking for the value it submitted, empty included, while a

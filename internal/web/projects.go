@@ -101,7 +101,7 @@ func (h *handler) createProject(w http.ResponseWriter, r *http.Request) error {
 	in := core.CreateProjectInput{
 		Key:         field(r, "key"),
 		Name:        field(r, "name"),
-		Description: field(r, "description"),
+		Description: prose(r, "description"),
 		WorkflowKey: field(r, "workflow_key"),
 		Color:       field(r, "color"),
 		Icon:        field(r, "icon"),
@@ -117,7 +117,7 @@ func (h *handler) createProject(w http.ResponseWriter, r *http.Request) error {
 // updateProject changes a project's mutable fields.
 func (h *handler) updateProject(w http.ResponseWriter, r *http.Request) error {
 	key := r.PathValue("key")
-	name, description := field(r, "name"), field(r, "description")
+	name, description := field(r, "name"), prose(r, "description")
 	color, icon := field(r, "color"), field(r, "icon")
 	in := core.UpdateProjectInput{Name: &name, Description: &description,
 		Color: &color, Icon: &icon}

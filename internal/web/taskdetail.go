@@ -398,7 +398,7 @@ func (h *handler) updateTask(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	title, body, assignee := field(r, "title"), field(r, "body"), field(r, "assignee")
+	title, body, assignee := field(r, "title"), prose(r, "body"), field(r, "assignee")
 	in := core.UpdateTaskInput{
 		Title: &title, Body: &body, AssigneeActorID: &assignee, Version: version,
 		CustomFields: custom,
@@ -663,7 +663,7 @@ func (h *handler) addComment(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	if _, err := h.svc.AddComment(r.Context(), ref, field(r, "body")); err != nil {
+	if _, err := h.svc.AddComment(r.Context(), ref, prose(r, "body")); err != nil {
 		return err
 	}
 	redirect(w, r, taskPath(r), "comment added")
@@ -672,7 +672,7 @@ func (h *handler) addComment(w http.ResponseWriter, r *http.Request) error {
 
 // editComment rewrites one comment.
 func (h *handler) editComment(w http.ResponseWriter, r *http.Request) error {
-	if _, err := h.svc.EditComment(r.Context(), field(r, "id"), field(r, "body")); err != nil {
+	if _, err := h.svc.EditComment(r.Context(), field(r, "id"), prose(r, "body")); err != nil {
 		return err
 	}
 	redirect(w, r, taskPath(r), "comment edited")
