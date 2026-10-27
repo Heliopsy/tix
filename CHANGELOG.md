@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.21.1](https://github.com/Heliopsy/tix/compare/v0.21.0...v0.21.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **web:** make the navigation usable on a phone ([24a6b32](https://github.com/Heliopsy/tix/commit/24a6b32588a1119d5e1362be6d8227b5da28a629))
+* **web:** stop the comment editor destroying multi-line comments ([fca54cc](https://github.com/Heliopsy/tix/commit/fca54ccc35aa6940694fe95aa027f52bfc7e3283))
+
 ## [0.21.0](https://github.com/Heliopsy/tix/compare/v0.20.0...v0.21.0) (2026-10-27)
 
 
