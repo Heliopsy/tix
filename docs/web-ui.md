@@ -294,6 +294,7 @@ the current scheme and points at the switch rather than carrying a second form.
 | Timezone | `tix_timezone` | one of the offered zones, empty follows the deployment |
 | Advanced screens | `tix_advanced` | whether the configuration and data screens are in the sidebar |
 | Drag to move | `tix_drag_move` | whether a board card can be dragged between columns |
+| Open a new task | `tix_open_after_add` | `0` stays on the listing after adding; absent or anything else opens the task |
 | Columns | `tix_columns` | which optional columns each listing leaves out |
 | Hidden projects | `tix_hidden_projects` | which projects a listing leaves out |
 | Task view | `tix_task_view` | `board` draws the task screen as columns; anything else, including no cookie, is the list |

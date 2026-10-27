@@ -133,7 +133,9 @@ type view struct {
 	Actor      *core.Actor
 	Advanced   bool
 	DragMove   bool
-	Theme      string
+	// OpenAfterAdd decides whether creating a task leaves the listing for it.
+	OpenAfterAdd bool
+	Theme        string
 	// Tint is what a row's stripe and a card's edge are saying: the project,
 	// the status, the priority, or nothing. See tint.go.
 	Tint          string
@@ -327,6 +329,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Actor:         actor,
 		Advanced:      advancedMode(r),
 		DragMove:      dragMoveMode(r),
+		OpenAfterAdd:  openAfterAdd(r),
 		Theme:         themeOf(r),
 		Tint:          tintOf(r),
 		Tints:         tintChoices(tintOf(r)),
@@ -475,6 +478,25 @@ const DragMoveCookie = "tix_drag_move"
 // board. Unset, or any value other than "0", means on.
 func dragMoveMode(r *http.Request) bool {
 	c, err := r.Cookie(DragMoveCookie)
+	return err != nil || c.Value != "0"
+}
+
+// OpenAfterAddCookie remembers whether creating a task should leave the
+// listing for the task it created.
+const OpenAfterAddCookie = "tix_open_after_add"
+
+// openAfterAdd reports whether a new task's own screen should be opened once
+// it is created.
+//
+// On by default, because that is what the screen has always done and because
+// somebody adding one considered task usually wants to keep writing it. It is
+// the wrong default for the other way of using this box, which is emptying a
+// head onto the list: there each add threw the page away, and getting back to
+// type the next one meant the back button, every time.
+//
+// Absent means on, so a browser that has said nothing behaves as before.
+func openAfterAdd(r *http.Request) bool {
+	c, err := r.Cookie(OpenAfterAddCookie)
 	return err != nil || c.Value != "0"
 }
 
@@ -836,7 +858,18 @@ func redirectTo(w http.ResponseWriter, r *http.Request, path, fragment, flash st
 func redirect(w http.ResponseWriter, r *http.Request, path, flash string) {
 	target := path
 	if flash != "" {
-		target += "?flash=" + url.QueryEscape(flash)
+		// The separator is chosen rather than assumed. Every caller used to
+		// pass a bare route constant, so "?" was always right and the first
+		// caller to pass a path that already carried a query produced
+		// "/tasks?q=tag:ops&sort=urgency?flash=...", where the second ? is an
+		// ordinary character and the sort value silently becomes
+		// "urgency?flash=task+created". redirectTo next door already did this;
+		// the two now agree.
+		sep := "?"
+		if strings.Contains(target, "?") {
+			sep = "&"
+		}
+		target += sep + "flash=" + url.QueryEscape(flash)
 	}
 	// #nosec G710 -- path is a route constant with at most one caller-derived
 	// segment spliced into it: a project or workflow key the contract has

@@ -77,6 +77,19 @@
       </div>
     </form>
 
+    <form class="setrow" method="post" action="/openafteradd" hx-boost="false">
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="next" value="{{.Here}}">
+      <div class="setrow-text">
+        <span class="setname">Open a new task</span>
+        <span class="sethelp" id="openafteradd-help">After adding a task, open it. Turn this off to stay on the listing with the filter, sort and page you were on, which is what you want when you are emptying your head onto the list rather than writing one task out in full. Applies to the one-line box and to Add with details.</span>
+      </div>
+      <div class="setrow-ctl">
+        <span class="setvalue">{{if .OpenAfterAdd}}On{{else}}Off{{end}}</span>
+        <button class="secondary" type="submit" aria-describedby="openafteradd-help">{{if .OpenAfterAdd}}Turn off{{else}}Turn on{{end}}</button>
+      </div>
+    </form>
+
   </div>
 </section>
 

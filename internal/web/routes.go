@@ -112,6 +112,7 @@ const (
 	RouteTaskView     = "/taskview"
 	RouteTint         = "/tint"
 	RouteDragMove     = "/dragmove"
+	RouteOpenAfterAdd = "/openafteradd"
 	RouteStats        = "/stats"
 	RouteActivity     = "/activity"
 	RouteActivityFeed = "/activity/feed"

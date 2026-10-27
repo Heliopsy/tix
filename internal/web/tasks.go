@@ -5,6 +5,7 @@ package web
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -469,8 +470,45 @@ func (h *handler) createTask(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	// Both add paths land here, the one-line box and Add with details, so the
+	// preference governs both rather than one of them. Staying returns to the
+	// listing exactly as it was, filter, sort, page and all, because the
+	// referring URL carries them and typing the next task is the whole reason
+	// somebody turned this off.
+	if !openAfterAdd(r) {
+		redirect(w, r, listingReferer(r), "task created "+task.Ref)
+		return nil
+	}
 	redirect(w, r, RouteTasks+"/"+task.Ref, "task created")
 	return nil
+}
+
+// listingReferer is the listing a create came from, or the plain task list
+// when the request carries nothing this trusts.
+//
+// Allow-listed rather than sanitised. safeNext cannot be used here: it
+// answers a rejection with /projects, which is itself a real listing, so a
+// forged header and a genuine one would be indistinguishable by its return
+// value. Only a path this screen actually posts from is accepted, and the
+// query string comes along because the filter, sort and page are in it and
+// going back to a listing that forgot them is not going back.
+func listingReferer(r *http.Request) string {
+	ref := r.Referer()
+	if ref == "" {
+		return RouteTasks
+	}
+	u, err := url.Parse(ref)
+	if err != nil || u.IsAbs() && u.Host != r.Host {
+		return RouteTasks
+	}
+	path := u.Path
+	if path != RouteTasks && !strings.HasPrefix(path, RouteProjects+"/") {
+		return RouteTasks
+	}
+	if u.RawQuery != "" {
+		return path + "?" + u.RawQuery
+	}
+	return path
 }
 
 // setPriority changes one task's priority and nothing else.

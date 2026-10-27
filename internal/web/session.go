@@ -33,6 +33,7 @@ func (h *handler) sessionRoutes() []route {
 		post(RouteTaskView, h.setTaskView, "Logout"),
 		post(RouteTint, h.setTint, "Logout"),
 		post(RouteDragMove, h.toggleDragMove, "Logout"),
+		post(RouteOpenAfterAdd, h.toggleOpenAfterAdd, "Logout"),
 	}
 }
 
@@ -248,6 +249,28 @@ func (h *handler) toggleDragMove(w http.ResponseWriter, r *http.Request) error {
 	// #nosec G124 -- a display preference, readable by no script.
 	http.SetCookie(w, &http.Cookie{
 		Name: DragMoveCookie, Value: value, Path: "/",
+		HttpOnly: true, Secure: h.secureCookie(r), SameSite: http.SameSiteLaxMode,
+		MaxAge: cookieYear,
+	})
+	// #nosec G710 -- safeNext rejects anything that is not a relative path on
+	// this origin, including protocol-relative, backslash and control forms.
+	http.Redirect(w, r, safeNext(field(r, "next")), http.StatusSeeOther)
+	return nil
+}
+
+// toggleOpenAfterAdd decides whether adding a task leaves the listing.
+//
+// Default on, so an absent cookie behaves the way the screen always has.
+// Same polarity as Drag to move for that reason: "0" is the only value that
+// turns it off.
+func (h *handler) toggleOpenAfterAdd(w http.ResponseWriter, r *http.Request) error {
+	value := "0"
+	if !openAfterAdd(r) {
+		value = ""
+	}
+	// #nosec G124 -- a display preference, readable by no script.
+	http.SetCookie(w, &http.Cookie{
+		Name: OpenAfterAddCookie, Value: value, Path: "/",
 		HttpOnly: true, Secure: h.secureCookie(r), SameSite: http.SameSiteLaxMode,
 		MaxAge: cookieYear,
 	})
