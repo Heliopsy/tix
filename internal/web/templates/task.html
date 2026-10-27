@@ -413,23 +413,38 @@
         <p class="byline"><span class="who-name" title="{{.AuthorActorID}}">{{$.Data.Names.Label .AuthorActorID}}</span> &middot; {{compact .CreatedAt}}</p>
         <div class="comment-body">{{.Body}}</div>
         {{if $.Data.CanComment}}
-        <details class="panel comment-edit">
-          <summary>Edit</summary>
-          <div class="body">
-            <form method="post" action="/tasks/{{$t.Ref}}/comments/edit">
-              {{template "csrf" $.CSRF}}
-              <input type="hidden" name="id" value="{{.ID}}">
-              <label for="edit-{{.ID}}">Rewrite</label>
-              <input id="edit-{{.ID}}" name="body" value="{{.Body}}">
-              <div class="actions"><button type="submit">Save</button></div>
-            </form>
-            <form method="post" action="/tasks/{{$t.Ref}}/comments/delete">
-              {{template "csrf" $.CSRF}}
-              <input type="hidden" name="id" value="{{.ID}}">
-              <div class="actions"><button class="secondary" type="submit">Delete comment</button></div>
-            </form>
-          </div>
-        </details>
+        {{/* A textarea, and the reason is data loss rather than taste. This
+             was an <input>, whose value attribute cannot hold a newline: the
+             browser strips them on parse, so a three-line comment arrived in
+             the box as one run of text with the words jammed together at the
+             joins. Opening Edit and pressing Save without typing anything
+             rewrote "line one\nline two" to "line oneline two" and there was
+             no undo, because an edit records no history.
+
+             A popover rather than a disclosure per comment, for the reason
+             the columns control became one: ten comments meant ten expanders
+             that each pushed the rest of the thread down the page when
+             opened. This opens over the thread and leaves it where it is. */}}
+        {{$eid := printf "cedit-%s" .ID}}
+        <button type="button" class="link comment-editopen" popovertarget="{{$eid}}">Edit</button>
+        <div id="{{$eid}}" class="flowmenu commentpop" popover>
+          <p class="flowhead">Edit comment</p>
+          <form method="post" action="/tasks/{{$t.Ref}}/comments/edit">
+            {{template "csrf" $.CSRF}}
+            <input type="hidden" name="id" value="{{.ID}}">
+            <label for="edit-{{.ID}}">Rewrite</label>
+            <textarea id="edit-{{.ID}}" name="body" rows="5" required>{{.Body}}</textarea>
+            <div class="actions">
+              <button type="submit">Save</button>
+              <button type="button" class="secondary flowclose" popovertarget="{{$eid}}" popovertargetaction="hide">Cancel</button>
+            </div>
+          </form>
+          <form method="post" action="/tasks/{{$t.Ref}}/comments/delete">
+            {{template "csrf" $.CSRF}}
+            <input type="hidden" name="id" value="{{.ID}}">
+            <div class="actions"><button class="danger" type="submit">Delete comment</button></div>
+          </form>
+        </div>
         {{end}}
       </li>
       {{else}}<li class="empty">No comments yet.</li>{{end}}
