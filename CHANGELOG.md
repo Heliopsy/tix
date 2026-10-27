@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/Heliopsy/tix/compare/v0.20.0...v0.21.0) (2026-10-27)
+
+
+### Features
+
+* **web:** say what changed, not just that something did ([6e19d33](https://github.com/Heliopsy/tix/commit/6e19d33a8dae405da07db59d1d0317ea47423004))
+
 ## [0.20.0](https://github.com/Heliopsy/tix/compare/v0.19.0...v0.20.0) (2026-10-26)
 
 
