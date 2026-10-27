@@ -461,30 +461,50 @@
           <colgroup><col class="c-when"><col><col class="c-source"></colgroup>
           <thead><tr><th>When</th><th>What changed</th><th>Source</th></tr></thead>
           <tbody>
-          {{range .Data.History}}
+          {{range $i, $h := .Data.History}}
+            {{with $h}}
             {{$latest := .Latest}}
+            {{$raw := printf "raw-%d" $i}}
             <tr>
               <td data-label="When" class="muted">
                 <time datetime="{{$latest.Entry.OccurredAt.Format "2006-01-02T15:04:05Z07:00"}}" title="{{absolute $latest.Entry.OccurredAt}}">{{relativeAt $latest.Entry.OccurredAt}}</time>
               </td>
+              {{/* The sentence, and nothing saying it twice. Each row used to
+                   open with a verb badge, so "update" sat beside "tom moved
+                   this from doing to done" and "create" beside "nadia created
+                   this": the badge repeated the first word of the sentence it
+                   was introducing, on every row.
+
+                   Not every row, though. create, update and delete are what
+                   the sentence already opens with, so their badge is noise.
+                   Anything else keeps it: an expiry is the one entry nobody
+                   performed and the only one recording work dropped rather
+                   than done, and an action this build has no opinion on gets
+                   a generic sentence that the mark is the only qualifier for.
+
+                   The raw entry is a popover rather than a disclosure per
+                   row. Four changes meant four expanders inside the History
+                   panel, which is itself a disclosure, and opening one pushed
+                   every change below it down the page. */}}
               <td data-label="What changed">
-                <span class="badge act-{{.Verb}}">{{.Verb}}</span>
+                {{if not (or (eq .Verb "create") (eq .Verb "update") (eq .Verb "delete"))}}<span class="badge act-{{.Verb}}">{{.Verb}}</span>{{end}}
                 {{sentence ($.Data.Names.Label $latest.Entry.ActorID) .}}
-                <details class="panel raw">
-                  <summary>{{if gt (len .Hops) 1}}{{len .Hops}} steps{{else}}Raw{{end}}</summary>
-                  <div class="body">
-                    {{range .Hops}}
-                    <dl class="raw-fields">
-                      <div><dt>When</dt><dd class="mono">{{compact .Entry.OccurredAt}}</dd></div>
-                      <div><dt>Action</dt><dd class="mono">{{.Entry.Action}}</dd></div>
-                      {{if .Changed}}<div><dt>Fields</dt><dd class="mono">{{join .Changed}}</dd></div>{{end}}
-                    </dl>
-                    {{end}}
-                  </div>
-                </details>
+                <button type="button" class="link rawopen" popovertarget="{{$raw}}">{{if gt (len .Hops) 1}}{{len .Hops}} steps{{else}}details{{end}}</button>
+                <div id="{{$raw}}" class="flowmenu rawpop" popover>
+                  <p class="flowhead">{{.Verb}} &middot; {{relativeAt $latest.Entry.OccurredAt}}</p>
+                  {{range .Hops}}
+                  <dl class="raw-fields">
+                    <div><dt>When</dt><dd class="mono">{{compact .Entry.OccurredAt}}</dd></div>
+                    <div><dt>Action</dt><dd class="mono">{{.Entry.Action}}</dd></div>
+                    {{if .Changed}}<div><dt>Fields</dt><dd class="mono">{{join .Changed}}</dd></div>{{end}}
+                  </dl>
+                  {{end}}
+                  <button type="button" class="flowclose" popovertarget="{{$raw}}" popovertargetaction="hide">Close</button>
+                </div>
               </td>
               <td data-label="Source"><span class="badge source">{{$latest.Entry.Source}}</span></td>
             </tr>
+            {{end}}
           {{else}}
             <tr><td colspan="3"><p class="empty">No recorded changes.</p></td></tr>
           {{end}}
