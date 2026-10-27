@@ -528,8 +528,6 @@ nav .group {
   .wrap:has(.board),
   .wrap:has(ul.tasklist),
   .wrap:has(ul.peoplelist),
-  .wrap:has(ul.reclist),
-  .wrap:has(ul.connlist),
   .wrap:has(.feed),
   /* A screen whose subject is a table of records wants the width. The
      statistics screen holds a table too, but its subject is a column of
@@ -927,7 +925,19 @@ label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) {
   margin: 8px 0;
 }
 
-textarea { min-height: 92px; resize: vertical; }
+/* A textarea is as tall as what is in it, up to most of the window, and
+   never shorter than four lines. The workflow editor holds a six line state
+   table and an eight line transition table in two 92px boxes, so editing a
+   workflow meant scrolling inside a box to see the thing being edited while
+   two thirds of the page stood empty. field-sizing does it in the browsers
+   that have it; the min-height below is what the others keep, which is what
+   every textarea had before. */
+textarea {
+  field-sizing: content;
+  min-height: 92px;
+  max-height: 60svh;
+  resize: vertical;
+}
 
 /* A value the screen shows but no form can change, such as the tenant key.
    It keeps a field's frame and its label so it reads as part of the form,
@@ -1158,6 +1168,14 @@ button.link {
   text-decoration: underline;
 }
 
+/* A row of fields, aligned on their controls: a labelled select, a bare
+   checkbox and a button sit on one line because their bottoms agree, which
+   is what end alignment buys and why it is kept. The price is that one tall
+   cell drags the short ones down with it, so anything that is about the row
+   rather than about one cell of it -- a glossary, a note -- goes under the
+   row instead of inside a cell. See the sync screen, where a three entry
+   glossary inside the system cell pushed the name box beside it a quarter
+   of a screen down the page. */
 .row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -1918,7 +1936,11 @@ a.secondary.clear:hover { filter: brightness(1.08); }
    because it navigates and must keep middle click, open in new tab and the
    address it points at; only the clothes are a button's. */
 .backlink { margin: 0 0 var(--space-3); }
-.backlink a {
+/* The error screen's two ways out take the same clothes: a link that
+   navigates, wearing a button, defined once here rather than a second time
+   under its own name. */
+.backlink a,
+.failure .actions a {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -1934,8 +1956,25 @@ a.secondary.clear:hover { filter: brightness(1.08); }
   text-decoration: none;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
-.backlink a:hover { background: var(--bg); border-color: var(--ink); color: var(--ink); }
-.backlink a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.backlink a:hover,
+.failure .actions a:hover { background: var(--bg); border-color: var(--ink); color: var(--ink); }
+.backlink a:focus-visible,
+.failure .actions a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The failure screen. A heading, what went wrong, what to do about it and
+   the way back, in that order, set to a measure so the sentence is a
+   sentence rather than a line across a 4K page. */
+.failure { max-width: var(--measure-text); }
+.failure-message {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.failure-hint { margin: 0; color: var(--muted); line-height: 1.55; }
+.failure .actions { gap: var(--space-2); }
 
 
 /* The list itself: one line per task, a tick box on the left. */
@@ -2380,9 +2419,15 @@ li.task.is-blocked a.task-title { color: var(--muted); }
 
 .side-foot a:hover { background: var(--bg); color: var(--ink); }
 
+/* Marked the same way the navigation above it marks the current screen:
+   weight and ink on the sidebar's own surface. It was the one entry in the
+   column that filled itself with accent when current, so landing on Settings
+   made the quietest link in the sidebar the brightest thing in it, and the
+   two halves of the same column disagreed about what "you are here" looks
+   like. */
 .side-foot a[aria-current="page"] {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--surface);
+  color: var(--ink);
   font-weight: 600;
 }
 
@@ -2979,12 +3024,21 @@ details.panel.raw {
      rather than a control. */
   width: fit-content;
   max-width: 100%;
-  border: 1px solid var(--line);
+  /* Transparent until it is wanted. The activity feed draws fifty rows and
+     every one of them carries this control, so a visible outlined chip on
+     each made a vertical band of identical boxes down the right of the page
+     that read as a column of data. The word stays, at full contrast; it is
+     the box round it that waits to be asked for. */
+  border: 1px solid transparent;
   border-radius: 6px;
   box-shadow: none;
-  background: var(--surface);
+  background: transparent;
   align-self: flex-start;
 }
+
+.feed > li:hover details.panel.raw,
+details.panel.raw:focus-within,
+details.panel.raw[open] { border-color: var(--line); background: var(--surface); }
 
 details.panel.raw > summary {
   padding: 3px 9px;
@@ -3184,6 +3238,8 @@ dl.raw-fields dd { margin: 0; overflow-wrap: anywhere; }
    than on a narrow one, which is the one thing a bar chart must not do. The
    name column grows instead, because handles are the part that was being
    cut off at 110px. */
+.choosehelp, .choosemeta { max-width: var(--measure-text); }
+
 .dist { list-style: none; margin: 0 0 var(--space-5); padding: 0; max-width: var(--measure-chart); }
 .dist-row {
   display: grid;
@@ -3722,8 +3778,23 @@ nav.tabs a[aria-current="page"] {
 
 /* The "what this does" notes. Closed by default: somebody who already knows
    should not have to scroll past an explanation every time. */
-details.note { margin: 0 0 1rem; font-size: var(--text-md); }
-details.note > summary { cursor: pointer; color: var(--muted); }
+/* An aside a reader can open, with the same marker every other disclosure in
+   this interface carries. It kept the browser's own triangle, so two
+   disclosures on one screen -- "What goes into the file" and a panel under
+   it -- opened with two different glyphs pointing two different ways. */
+details.note { margin: 0 0 1rem; font-size: var(--text-md); max-width: var(--measure-text); }
+details.note > summary {
+  cursor: pointer;
+  color: var(--muted);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h-sm);
+}
+details.note > summary::-webkit-details-marker { display: none; }
+details.note > summary::before { content: "\25B8"; color: var(--muted); font-size: 0.8em; }
+details.note[open] > summary::before { content: "\25BE"; }
 details.note > summary:hover { color: var(--ink); }
 details.note p { margin: 0.5rem 0 0; color: var(--muted); max-width: 60ch; }
 
@@ -3760,7 +3831,21 @@ ul.shape .count {
    on one line here: the stylesheet reflows at every width by policy, and
    TestStylesheetEmitsNoHorizontalScrollLayout enforces it. */
 ul.shape .count.uncounted { font-variant-numeric: normal; font-style: italic; }
-ul.shape .note { color: var(--muted); font-size: var(--text-sm); margin-left: auto; text-align: right; }
+/* The gloss beside a row of the tenant tree is a phrase, not a note block.
+   It carried the class, so it inherited the bordered, tinted, left-edged box
+   above and the tree became eight outlined rectangles ragged down the page.
+   Here it is what it reads as: a few quiet words at the end of the row. */
+ul.shape .note {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  margin-left: auto;
+  text-align: right;
+  max-width: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
 
 /* An environment variable name is one token to a reader, and td's
    overflow-wrap: anywhere was splitting it mid-word (TIX_SYNC_OPS_EXPO /
@@ -4016,15 +4101,18 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 /* The submit is the page's one strong mark: the ink colour filled, carrying
    the surface colour as its text. Both tokens flip with the scheme, so the
    button stays the inverse of the card it sits in rather than a fixed black. */
+/* The full-width inverse of the card: ink on light, light on ink, so it
+   flips with the scheme. 44px rather than 40, which is the smallest target a
+   thumb hits reliably and this is the one control on the screen. */
 .authcard form .actions button {
   background: var(--ink);
   border-color: var(--ink);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   color: var(--surface);
   font-size: var(--text-base);
   font-weight: 500;
-  height: 40px;
-  padding: 0 14px;
+  height: 44px;
+  padding: 0 var(--space-4);
   width: 100%;
 }
 
@@ -4101,16 +4189,26 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
    comments, where it is still true and no longer in the way.
    ------------------------------------------------------------------------ */
 .setgroup { margin: 0 0 var(--space-6); }
+/* The name of a group of settings, set the way every other quiet label in
+   this interface is set: in its own words, at the sidebar group's size and
+   colour. APPEARANCE in tracked capitals is the loudest kind of type there
+   is, spent on a word whose job is to be skimmed past. */
 .setgroup > h2 {
   font-size: var(--text-xs);
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--muted);
   margin: 0 0 var(--space-2);
 }
 
+/* A setting is a sentence on the left and the control that changes it on the
+   right, and the two have to be read together. Unbounded, the row grew with
+   the window: on a 2560px screen "Version" and "dev" were eleven hundred
+   pixels apart, and on the settings screen the switch for a preference was
+   at the far edge of the page from the text explaining it. */
 .setlist {
+  max-width: 920px;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -4295,7 +4393,13 @@ li.recrow.server.is-stale .recrow-title code { color: var(--muted); }
   max-width: var(--measure-text);
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--line);
-  border-left: 3px solid var(--warn);
+  /* A quiet edge, not an amber one. Every .note in this interface explains
+     something -- what a control applies to, what a count is counting, what a
+     deletion does not touch -- and none of them is a warning. Painted in the
+     warning colour they were the most urgent looking objects on screens with
+     nothing urgent on them. A note that really is a warning says so by
+     living inside a .danger panel, which is already coloured. */
+  border-left: 3px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
   font-size: var(--text-sm);

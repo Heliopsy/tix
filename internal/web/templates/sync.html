@@ -75,16 +75,18 @@ variables on the server: the row above will tell you which ones.</p>
       <select id="system" name="system">
         {{range .Data.Systems}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
       </select>
-      {{/* What each option means, beside the control that chooses it. This
-           was a sixth disclosure headed "Which system to choose", which is a
-           question you are asking at exactly this moment, with the answer
-           folded away one click from the select. Three short lines fit. */}}
-      <dl class="fields choosehelp">
-        {{range .Data.Systems}}<dt>{{.Label}}</dt><dd>{{.Note}}</dd>{{end}}
-      </dl>
-      <p class="meta">These three are what this build carries. Naming anything else is refused when you save.</p>
     </div>
   </div>
+  {{/* What each option means, under the row rather than inside the cell that
+       holds the picker. A glossary three entries long made that cell four
+       times the height of the one beside it, and because a row of fields
+       aligns on its controls, the name box was pushed a quarter of a screen
+       down the page to sit level with the bottom of the glossary. It belongs
+       to the whole choice, not to one cell of the row. */}}
+  <dl class="fields choosehelp">
+    {{range .Data.Systems}}<dt>{{.Label}}</dt><dd>{{.Note}}</dd>{{end}}
+  </dl>
+  <p class="meta choosemeta">These three are what this build carries. Naming anything else is refused when you save.</p>
   <p><button type="submit">Save source</button></p>
 </form>
 
