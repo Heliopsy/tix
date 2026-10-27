@@ -81,6 +81,35 @@
   --scrim: rgba(16, 24, 40, 0.45);
   --gutter: 16px;
 
+  /* How wide the page is allowed to get, and how wide the column of running
+     prose inside it is allowed to get.
+
+     These are two different questions and the file used to answer only the
+     first. A paragraph, a help sentence under a setting, a release note: all
+     of those stop being readable somewhere past 80 characters, and capping
+     the whole page at a prose measure was the only tool available, which is
+     why a 4K screen showed an 1100px ribbon with two thousand pixels of
+     empty page beside it. The page measure is now generous and the prose
+     measure is carried by the text itself (--measure-text, applied to the
+     paragraphs and help lines that need it), so a wide screen can be filled
+     with rows without a sentence running the width of a wall.
+
+     --measure-page is what a screen of forms and panels gets; a screen whose
+     subject is a listing or a board takes --measure-wide instead, because
+     those are read sideways and every extra pixel is another column or
+     another attribute that no longer has to wrap. */
+  --measure-page: 1180px;
+  --measure-wide: 1560px;
+  --measure-text: 76ch;
+  /* The widest a single-line form control should ever be. A tenant name
+     input stretched to 1065px on a 1440px screen: a field whose content is
+     eight characters, drawn a thousand pixels wide, tells the reader nothing
+     about what belongs in it and makes the form a stack of identical bars. */
+  --measure-field: 32rem;
+  /* The sidebar. Wider on a large screen, where 224px was forcing
+     "Import and export" to the edge of its row for no reason. */
+  --side-w: 224px;
+
   /* Project palette. A project stores a token, not a colour, so each scheme
      renders its own shade; every one of these clears 4.4:1 against both the
      surface and the page background. */
@@ -219,10 +248,22 @@ body {
 }
 
 /* Layout: a fixed sidebar beside the content, stacking on narrow screens. */
-.shell { display: grid; grid-template-columns: 1fr; min-height: 100vh; }
+/* minmax(0, 1fr), never a bare 1fr. A grid track sized 1fr takes auto as its
+   minimum, which is the largest min-content width anywhere inside it, so one
+   wide descendant -- a board strip, a long reference, a table -- made the
+   single column of a phone layout wider than the phone and the whole page
+   scrolled sideways under overflow-x: hidden. The desktop rule below has
+   always said minmax(0, 1fr); this one said 1fr, and every narrow-screen
+   overflow in the interface came through it. */
+.shell { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 100vh; }
+
+/* The same guard one level in: the content column may be narrower than the
+   widest thing it contains, and whatever that thing is scrolls or wraps
+   inside it rather than pushing the page out. */
+.wrap, .side { min-width: 0; }
 
 @media (min-width: 900px) {
-  .shell { grid-template-columns: 224px minmax(0, 1fr); }
+  .shell { grid-template-columns: var(--side-w) minmax(0, 1fr); }
 }
 
 .side {
@@ -457,9 +498,18 @@ nav .group {
   }
 }
 
-.wrap { padding: 22px var(--gutter) 64px; max-width: 1100px; width: 100%; }
+/* The content column. Centred in the space the sidebar leaves rather than
+   pinned to its left edge: at 2560px the old rule put an 1100px page against
+   the sidebar and 1200px of bare background down the right, which reads as a
+   window that failed to load rather than as a deliberate measure. */
+.wrap {
+  padding: 22px var(--gutter) 64px;
+  max-width: var(--measure-page);
+  width: 100%;
+  margin-inline: auto;
+}
 
-/* A board, and a listing, are read sideways: both want the window. The 1100px
+/* A board, and a listing, are read sideways: both want the window. The page
    measure above is for prose -- a task body, the docs, the settings screens --
    where a long line is genuinely harder to read. On a listing it left a column
    of empty page down the right at every width over about 1350px.
@@ -471,10 +521,37 @@ nav .group {
 @media (min-width: 1200px) {
   .wrap:has(.board),
   .wrap:has(ul.tasklist),
+  .wrap:has(ul.peoplelist),
+  .wrap:has(ul.reclist),
+  .wrap:has(ul.connlist),
+  .wrap:has(ul.projlist),
+  .wrap:has(.feed),
+  .wrap:has(table),
   /* The task screen is a two column layout, so the measure applies to its
-     prose column rather than to the page: capping the page at 1100px left
-     the aside squeezed and a stripe of empty window beside it. */
-  .wrap:has(.detail) { max-width: 1480px; }
+     prose column rather than to the page: capping the page at the prose
+     measure left the aside squeezed and a stripe of empty window beside it. */
+  .wrap:has(.detail) { max-width: var(--measure-wide); }
+}
+
+/* What a very wide screen does.
+
+   Three things, and all three are decisions rather than the absence of one.
+
+   The gutter grows, so the content is not stuck to a 16px margin on a wall
+   of a monitor. The sidebar grows, because at 224px "Import and export" and
+   "Connections" sit hard against the edge of a column that has room to
+   spare. And the listing measure grows, so the extra width buys more of the
+   thing the reader came for -- a wider title before it wraps, attributes
+   that stop colliding, another board column in view -- rather than a wider
+   nothing. It stops at 2160px: past that the eye has to travel the desk to
+   get from a task's title to its reference, and a 4K screen is better served
+   by a centred page with real margins than by one row three feet long. */
+@media (min-width: 1600px) {
+  :root { --gutter: 32px; --side-w: 252px; --measure-wide: 1800px; }
+}
+
+@media (min-width: 2200px) {
+  :root { --gutter: 48px; --measure-page: 1320px; --measure-wide: 2160px; }
 }
 
 /* Typography */
@@ -542,54 +619,69 @@ a { color: var(--accent); }
  * The height is the viewport minus what sits above the board. svh rather than
  * vh so a phone's collapsing address bar does not leave the last column
  * unreachable under it. */
+/* A strip of columns that scrolls sideways, not a grid that wraps.
+ *
+ * auto-fit wrapped. A five state workflow on a 1440px screen fitted four
+ * tracks and put Cancelled on a second row underneath, where it read as a
+ * separate thing rather than as the end of the same board; the second row
+ * then escaped the fixed height above and, on a phone -- where the whole
+ * grid collapsed to display: block -- the columns ran straight through the
+ * panels below them and drew on top of the project settings.
+ *
+ * A board is one row of columns. If they do not fit, it scrolls, which is
+ * what every board anybody has used does and what makes a nine state
+ * workflow possible at all. The columns share the strip's height, each
+ * scrolls its own cards, and nothing wraps at any width.
+ *
+ * The height is the viewport minus what sits above the board. svh rather
+ * than vh so a phone's collapsing address bar does not leave the last card
+ * unreachable under it. */
 .board {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  display: flex;
   gap: var(--space-3);
   align-items: stretch;
-  /* The row track has to be told it may be shorter than its content, or it
-     sizes to the tallest column and the max-height below simply clips. */
-  grid-template-rows: minmax(0, 1fr);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
   height: calc(100svh - 200px);
   min-height: 320px;
   margin-bottom: var(--space-2);
+  /* Room for the horizontal scrollbar, so it does not sit over the last row
+     of cards on a platform that draws one in the content box. */
+  padding-bottom: var(--space-1);
 }
 
-/* A board is read sideways, and the 1100px that suits a column of prose fits
-   exactly four of its 230px tracks: a five state workflow wrapped Done and
-   Cancelled onto a second row on a 1920px display, with most of the window
-   left empty beside them. So a screen that holds a board is given the width
-   its states need, and every other screen keeps the measure that makes text
-   readable.
-
-   Keyed off the board itself rather than off a flag on the page, so it cannot
-   drift: there is no list of board routes to keep in step, and a new screen
-   that renders a board is wide the day it is written. Below this width the
-   cap is doing no work anyway, since the viewport is the smaller limit. */
-@media (min-width: 1200px) {
-  .wrap:has(.board) { max-width: 1480px; }
-}
-
-/* A merged board carries one column per state of the workflow its projects
-   share, and is read at the widths a single project's board was designed for.
-   The track minimum is narrower so more columns fit a row before the grid
-   wraps, and auto-fit wraps rather than overflowing: nine columns become two
-   rows of columns, never a page that scrolls sideways. The phone-width rule
-   below stacks them, merged or not. */
-.board.is-merged { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-
+/* A column grows to share the strip while there is room and stops at a
+   measure: past about 400px a card's title is a short line in a wide box and
+   the reader's eye has further to travel between columns, so extra width is
+   better spent showing another column than inflating these. Below the basis
+   they hold their width and the strip scrolls. */
 .column {
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  flex: 1 1 240px;
+  min-width: 224px;
+  max-width: 420px;
   min-height: 0;
+  scroll-snap-align: start;
   overflow-y: auto;
   overscroll-behavior: contain;
-  background: var(--bg);
+  /* The column is the recessed thing and the cards sit on top of it. It was
+     the same colour as the page with the same hairline round it as the cards
+     inside, so every card was drawn inside a second identical frame and the
+     board read as a grid of boxes in boxes. Tinting the column and leaving
+     the cards the page's own colour says which is the container in the one
+     way that needs no line at all. */
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: var(--space-3);
 }
+
+/* A merged board carries one column per state of the workflow its projects
+   share, and can therefore have many more of them. They are narrower, so
+   more of the workflow is in view before the strip has to be scrolled. */
+.board.is-merged > .column { flex-basis: 232px; min-width: 232px; max-width: 360px; }
 
 /* Sticky, because the one thing a reader needs while scrolling a column is
    which column it is. The negative margins and matching padding let the
@@ -601,15 +693,36 @@ a { color: var(--accent); }
   z-index: 1;
   margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) var(--space-2);
   padding: var(--space-3) var(--space-3) var(--space-2);
-  background: var(--bg);
-  font-size: var(--text-md);
+  background: var(--surface);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0;
 }
 
 /* A column with more cards than fit says so at its edge rather than simply
    ending: without this the last visible card looks like the last card. */
 .column::after { content: ""; display: block; min-height: var(--space-1); }
-.column .card { margin-bottom: 10px; }
+/* A board card is a glance, not a page: a reference, a title and whatever
+   marks the task carries. It was drawn with the same 16px padding as a
+   settings card and an underlined link for a title, so eight cards filled a
+   column that should have held fifteen and every title on the board was
+   underscored. The whole card is already a link target by way of its title
+   and its keyboard row handler, so the underline was telling the reader
+   something the shape of the card had told them already. */
+.column .card {
+  background: var(--bg);
+  margin-bottom: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+}
 .column .card:last-child { margin-bottom: 0; }
+.column .card a[href^="/tasks/"] {
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 500;
+}
+.column .card a[href^="/tasks/"]:hover { color: var(--accent); text-decoration: underline; }
+.column .card .card-meta { margin-top: var(--space-2); }
 .column .ref { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); font-size: var(--text-xs); }
 
 /* An empty column still names itself, but does not spend a heading's worth
@@ -715,6 +828,34 @@ input, select, textarea {
 }
 input:hover, select:hover, textarea:hover { box-shadow: inset 0 0 0 1px var(--line-strong); }
 textarea { padding: var(--space-3); line-height: 1.5; }
+
+/* A field is as wide as the thing it holds, not as wide as the page.
+
+   Every form on every configuration screen was a stack of identical bars
+   running the full content column: a tenant name, a retention count and a
+   webhook URL were drawn 1065px wide on a 1440px screen and 1770px wide on
+   a 4K one. Width is information -- it is the first thing that says whether
+   a field wants a word, a sentence or a document -- and spending it all on
+   every field says nothing about any of them. A textarea gets the prose
+   measure instead, because what goes in one is prose. */
+input:not([type="checkbox"]):not([type="radio"]),
+select { max-width: var(--measure-field); }
+textarea { max-width: var(--measure-text); }
+
+/* Opt out wherever the control is one cell of a layout that has already
+   decided how wide it should be: a toolbar, a grid of fields, a settings
+   row, the comment composer. Listed here rather than set on each of those
+   rules so the exceptions to the measure are readable as one list. */
+.quickadd > input, .quickadd > select,
+.filterbar > input, .filterbar > select,
+.tagadd input,
+.addgrid input, .addgrid select, .addgrid textarea,
+.setrow input, .setrow select, .setrow textarea,
+.composer textarea,
+.commentpop textarea,
+.copyline input,
+.statsfilter select,
+select[multiple] { max-width: 100%; }
 
 input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: none;
@@ -1250,8 +1391,17 @@ ul.plain > li:last-child { border-bottom: 0; }
   .pager { grid-template-columns: 1fr; justify-items: center; gap: 8px; }
   .pager-prev, .pager-at, .pager-next { grid-column: 1; justify-self: center; }
 
+  /* The board keeps being a board. It used to collapse to display: block at
+     this width, which turned five columns into one 2,800px page nobody could
+     hold the shape of, and -- because the strip keeps a fixed height -- drew
+     the overflowing columns straight over the panels underneath. One column
+     at a time, snapped, swiped sideways: the same gesture the reader already
+     uses to move between screens. */
+  .board { height: calc(100svh - 168px); scroll-snap-type: x mandatory; }
+  .column { flex: 0 0 82vw; min-width: 0; max-width: none; }
+  .board.is-merged > .column { flex: 0 0 82vw; min-width: 0; max-width: none; }
+
   /* A table becomes one card per row: the header cannot help at this width. */
-  .board { display: block; }
   thead { display: none; }
   table, tbody, tr, td { display: block; width: 100%; }
   tr { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
@@ -1760,6 +1910,9 @@ ul.tasklist {
      near the last row has no space beneath it and flips upwards by itself. */
   max-height: calc(100svh - 290px);
   min-height: 220px;
+  /* The row stripes and the frame's rounded corners meet, so the frame has
+     to clip them; see flowui_test.go, which guards that the row menus are
+     popovers precisely because of this. */
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--surface);
@@ -2009,6 +2162,88 @@ a.task-title:hover { color: var(--accent); }
   gap: 6px;
 }
 
+/* One scrollbar, not two.
+ *
+ * The listing is a frame that scrolls its own rows, sized at 100svh minus a
+ * constant standing in for whatever happens to sit above it. The constant
+ * was wrong at every width, because what sits above it is a heading, a
+ * quick-add row and a filter bar that are each a different height at each
+ * width: at 1440x900 the frame finished 77px below the fold, so the page
+ * grew its own scrollbar beside the list's and a reader scrolling the window
+ * moved the frame rather than the rows.
+ *
+ * Measuring it instead of guessing: the task screen fills the viewport and
+ * the listing takes whatever is left after the controls above it, whatever
+ * that turns out to be. Only on a screen tall and wide enough to be worth
+ * pinning -- a phone scrolls the page, which is why the pager is ordered
+ * under the rows there. */
+@media (min-width: 900px) {
+  .wrap:has(#tasks-listing) {
+    display: flex;
+    flex-direction: column;
+    height: 100svh;
+    padding-bottom: var(--space-5);
+  }
+  .wrap:has(#tasks-listing) #tasks-listing {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .wrap:has(#tasks-listing) ul.tasklist {
+    flex: 1 1 auto;
+    max-height: none;
+    min-height: 0;
+  }
+  .wrap:has(#tasks-listing) .board {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+  }
+}
+
+/* A cell holds one kind of attribute. It does nothing at all until there is
+   room for the row to become a table, which is what the rule below decides. */
+.tm { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+
+/* Columns, once the window is wide enough to have them.
+ *
+ * Every attribute on a row was pushed to the right edge, in markup order,
+ * with whatever width it happened to need. Two rows of the same list could
+ * therefore put their status pill 300px apart, and on a 2560px screen the
+ * eye had to cross most of a metre of empty row to get from a title to its
+ * reference and then back to the next title. Twenty-five rows of that is not
+ * a list, it is twenty-five separate readings.
+ *
+ * Fixed cells turn the right-hand half of the list into what it always
+ * was -- a table -- so status reads down one column, priority down the next,
+ * and a row with no deadline leaves a gap where the deadline column is
+ * rather than closing up and shifting everything after it.
+ *
+ * Only above 1700px. The seven cells a default listing draws come to a
+ * little over 900px between them, so below that width the alignment would
+ * be bought with the title's room to be read, which is the wrong trade on
+ * the one column that matters. Under 1700px the row flows as it always has.
+ *
+ * Nothing here truncates. A cell is wide enough for the longest thing it
+ * can hold -- the deadline cell for "claim expired, three hours ago, four
+ * claims", which is the longest statement a row can make about itself -- and
+ * anything longer wraps inside its cell rather than being cut off. A row
+ * that wraps is a taller row; the columns either side of it are still in
+ * the same place, which is the whole point of giving them one. */
+@media (min-width: 1700px) {
+  .task-meta { gap: var(--space-2); }
+  .tm { flex: 0 0 auto; }
+  .tm-status { width: 86px; }
+  .tm-prio { width: 72px; }
+  .tm-tags { width: 230px; }
+  .tm-who { width: 100px; }
+  .tm-proj { width: 88px; }
+  .tm-flags { width: 244px; }
+  .tm-when { width: 144px; }
+  .tm-ref { width: 84px; justify-content: flex-end; }
+}
+
 /* The reference and the date sat at the end of the row in the same muted
    grey at almost the same size, so a reader could not tell which was which
    without reading them. They are different kinds of thing, so they are given
@@ -2030,11 +2265,53 @@ li.task:hover .task-meta .ref { color: var(--ink); }
 .task-meta .tag.project { border-color: var(--line-strong); }
 li.task.is-blocked a.task-title { color: var(--muted); }
 
+/* The same row on a phone.
+ *
+ * Everything a row can say about itself, wrapped onto a 319px line, was
+ * three lines of attributes under a two line title: 138px per row, so four
+ * tasks filled an iPhone and a list of twenty-five was six screens of
+ * scrolling. A phone is where a reader is checking what is open and what is
+ * late, not auditing tags.
+ *
+ * Tags and the updated stamp come off. Both are there in full one tap away
+ * on the task itself, both are the attributes a reader is least likely to be
+ * scanning for on a phone, and between them they are two of the three lines.
+ * What is left -- state, priority, deadline, who holds it and the reference
+ * -- fits one line under the title. */
 @media (max-width: 639px) {
-  li.task { flex-wrap: wrap; }
-  .task-meta { width: 100%; padding-left: 32px; }
+  li.task { flex-wrap: wrap; row-gap: var(--space-1); padding: var(--space-2) var(--space-3); }
+  .task-meta { width: 100%; padding-left: 30px; gap: var(--space-2); }
+  .task-meta .tm-tags,
+  .task-meta .tm-when { display: none; }
+  /* A zero basis, so a long title stays on the row's first line and wraps
+     inside the width it is given. With basis auto its content width was the
+     flex base size, which overran the line, so the title was pushed to a
+     line of its own underneath the tick and the project icon and every row
+     spent a line on two 20px marks. */
+  a.task-title { flex: 1 1 0; line-height: 1.35; }
+
+  /* The add row stays one row. Sending the field to 100% put the project
+     select and the Add button on a second line, 44px of the fold spent on
+     two controls that fit beside the box perfectly well. */
   .quickadd, .filterbar { flex-wrap: wrap; }
-  .quickadd input[name="title"], .filterbar input { flex: 1 1 100%; }
+  .quickadd input[name="title"] { flex: 1 1 140px; min-width: 0; }
+  .filterbar input { flex: 1 1 100%; }
+  .pagehead { margin-bottom: var(--space-3); }
+  .quickadd { margin-bottom: var(--space-2); }
+  /* The four controls that decide how the list is drawn, on one line at the
+     width where they only just fit. They keep their 44px height; it is the
+     horizontal padding that goes, and the icon beside each label is what
+     keeps them legible once it has. */
+  .pagehead-tools > * > button,
+  .pagehead-tools button { padding-inline: var(--space-2); }
+}
+
+/* The narrowest phone. The project is already on the row twice -- as the
+   coloured stripe down its left edge and as the project's own icon beside
+   the title -- so the keyed chip saying it a third time is the first thing
+   to go when there is no room for everything. */
+@media (max-width: 479px) {
+  .task-meta .tm-proj { display: none; }
 }
 
 /* The settings entry is a plain link under the navigation, so the way to
@@ -2362,7 +2639,13 @@ details.panel.addmore .actions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  /* It may wrap, and it may be narrower than its three controls want to be.
+     flex: 0 0 auto held it at its content width, so on a 320px screen the
+     strip was 323px wide and the whole page scrolled sideways by three
+     pixels to accommodate it. */
+  flex-wrap: wrap;
+  min-width: 0;
 }
 /* In the header the panel is a control, not a section: it gets the height of
    the controls beside it and opens over the page instead of pushing it down. */
