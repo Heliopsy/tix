@@ -157,10 +157,12 @@ happens to carry. A page is a page: deciding on its contents would merge on page
 page three, and creating the first task in a disagreeing project would turn a working board into a
 refusal with no visible cause.
 
-A merged board carries more columns than one project's does, so the grid wraps onto further rows of
-columns rather than scrolling the page sideways, and at phone width the columns stack. Cards carry
-their project's key, icon and accent only on a merged board, where a column holds more than one
-project's work.
+A merged board carries more columns than one project's does, so the board is one row of columns
+scrolled sideways inside its own frame rather than scrolling the page sideways. At phone width it
+snaps one column to the screen. It does not wrap onto further rows and does not stack: a column is a
+fixed-height scroller, and either arrangement grows past that height and runs over whatever the page
+draws beneath the board. Cards carry their project's key, icon and accent only on a merged board,
+where a column holds more than one project's work.
 
 ## Moving a task through its workflow
 
