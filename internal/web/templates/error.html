@@ -1,6 +1,20 @@
 {{define "content"}}
-<h1>{{.Data.Heading}}</h1>
-<p class="flash error">{{.Data.Message}}</p>
-{{if .Data.Hint}}<p class="lede">{{.Data.Hint}}</p>{{end}}
-<p><a href="{{.Data.Back}}">Back to where you were</a> &middot; <a href="/">Back to the dashboard</a></p>
+{{/* The message is the screen.
+
+     It used to carry class="flash error", which is the fixed toast in the
+     bottom corner of the window that says "task saved": 213px wide, pinned
+     to the opposite end of the page from the heading it belongs to, and far
+     enough from where the reader is looking to be missed entirely. So this
+     screen showed a heading, two links and no statement anywhere near them
+     of what had actually gone wrong. It is a block, in the flow, under the
+     heading it explains. */}}
+<section class="failure">
+  <h1>{{.Data.Heading}}</h1>
+  <p class="failure-message" role="alert">{{.Data.Message}}</p>
+  {{if .Data.Hint}}<p class="failure-hint">{{.Data.Hint}}</p>{{end}}
+  <div class="actions">
+    <a href="{{.Data.Back}}">Back to where you were</a>
+    <a href="/">Back to the dashboard</a>
+  </div>
+</section>
 {{end}}

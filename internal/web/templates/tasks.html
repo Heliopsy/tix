@@ -38,14 +38,21 @@
       </button>
       <div id="viewprefs" class="flowmenu colpop viewpop" popover>
         <div class="body viewgrid">
+          {{/* A label, not a heading. This panel is a menu that hangs off a
+               button in the page header, so its sections are not sections of
+               the document: rendered as h3 they followed the screen's h1
+               with no h2 between them, which is a reader using headings to
+               move through the page being told a level is missing. The
+               Columns menu's own heading is already a p.flowhead; this is
+               the same thing. */}}
           {{if .ColumnForm.Configurable}}
           <section>
-            <h3>Columns</h3>
+            <p class="viewhead">Columns</p>
             {{template "column-choices" .ColumnForm}}
           </section>
           {{end}}
           <section>
-            <h3>Projects</h3>
+            <p class="viewhead">Projects</p>
             {{template "project-choices" $v.Prefs.Projects}}
           </section>
         </div>
@@ -426,7 +433,7 @@
            light dismissal and Escape for free, and one open at a time. Where
            the attribute is not understood the panel simply stays in the row,
            which is the list of choices it always was. */}}
-      {{if $.Columns.Show "tasks" "status"}}
+      {{if $.Columns.Show "tasks" "status"}}<span class="tm tm-status">
       {{$flow := $v.Flow (index $.Data.Moves .ProjectID) .Status}}
       {{if $flow}}
       <span class="statusmenu">
@@ -456,7 +463,7 @@
         </div>
       </span>
       {{else}}<span class="pill status {{slug .Status}}">{{.Status}}</span>{{end}}
-      {{end}}
+      </span>{{end}}
       {{/* The priority is a control, the same as the status beside it.
            It was a label, then briefly a filter link, and neither is what a
            reader reaches for when they look at a priority on a row: they want
@@ -464,7 +471,7 @@
            controls on a row behave identically, and the normal priority gets
            a chip of its own rather than nothing, because a row you cannot
            press is a row that cannot be raised. */}}
-      {{if $.Columns.Show "tasks" "priority"}}
+      {{if $.Columns.Show "tasks" "priority"}}<span class="tm tm-prio">
       {{$p := prio .Priority}}
       <span class="priomenu">
         <button type="button" class="priobtn" popovertarget="prio-{{.Ref}}"
@@ -487,7 +494,7 @@
           <button type="button" class="flowclose" popovertarget="prio-{{.Ref}}" popovertargetaction="hide">Close</button>
         </div>
       </span>
-      {{end}}
+      </span>{{end}}
       {{/* At most three, then a count.
            A task carrying ten tags took the whole width of the row for them,
            and because the attributes never shrink the title was squeezed to
@@ -495,15 +502,23 @@
            Three is what fits beside the rest of the attributes; the overflow
            says how many more and opens the task, which is where all of them
            are listed. */}}
-      {{if $.Columns.Show "tasks" "tags"}}{{$tags := .Tags}}{{$shown := $tags}}{{if gt (len $tags) 3}}{{$shown = slice $tags 0 3}}{{end}}{{range $shown}}<a class="tagref" href="/tasks?q=tag:{{.}}" title="Only tasks tagged {{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{if gt (len $tags) 3}}<a class="tagmore" href="/tasks/{{.Ref}}" title="{{join $tags}}">+{{len (slice $tags 3)}}</a>{{end}}{{end}}
+      {{/* Each kind of attribute is wrapped in a cell of its own, so a wide
+           screen can line them up into columns down the list rather than
+           leaving every row's attributes to start wherever the title before
+           them happened to end. See .tm-* in app.css: below the width where
+           there is room for columns the cells are inert and the row flows
+           exactly as it did. A cell is emitted even when this row has
+           nothing to put in it, because an empty column still has to hold
+           its place for the rows above and below it to stay aligned. */}}
+      {{if $.Columns.Show "tasks" "tags"}}<span class="tm tm-tags">{{$tags := .Tags}}{{$shown := $tags}}{{if gt (len $tags) 3}}{{$shown = slice $tags 0 3}}{{end}}{{range $shown}}<a class="tagref" href="/tasks?q=tag:{{.}}" title="Only tasks tagged {{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{if gt (len $tags) 3}}<a class="tagmore" href="/tasks/{{.Ref}}" title="{{join $tags}}">+{{len (slice $tags 3)}}</a>{{end}}</span>{{end}}
       {{/* Who the work belongs to. The listing showed everything about a task
            except that, so the one question a reader opens a shared list to
            answer -- whose is this -- could only be answered on the command
            line or by opening every row. The handle comes from the page's own
            directory pass, not a lookup per row, and links to the tasks that
            actor holds, the way a tag and a project already do. */}}
-      {{if $.Columns.Show "tasks" "assignee"}}{{$who := $.Data.Names.Label .AssigneeActorID}}{{if $who}}<a class="who-ref" href="/tasks?q=assignee:{{$who}}" title="Assigned to {{$who}}"><span class="at" aria-hidden="true">@</span>{{$who}}</a>{{else}}<span class="who-ref is-none" title="Nobody is assigned to this">unassigned</span>{{end}}{{end}}
-      {{if $.Columns.Show "tasks" "project"}}<a class="projref{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" href="/tasks?q=project:{{$acc.Key}}" title="Only tasks in {{$acc.Name}}">{{if $acc.Icon}}<span class="proj-icon" aria-hidden="true">{{$acc.Icon}}</span>{{end}}{{$acc.Key}}</a>{{end}}
+      {{if $.Columns.Show "tasks" "assignee"}}<span class="tm tm-who">{{$who := $.Data.Names.Label .AssigneeActorID}}{{if $who}}<a class="who-ref" href="/tasks?q=assignee:{{$who}}" title="Assigned to {{$who}}"><span class="at" aria-hidden="true">@</span>{{$who}}</a>{{else}}<span class="who-ref is-none" title="Nobody is assigned to this">unassigned</span>{{end}}</span>{{end}}
+      {{if $.Columns.Show "tasks" "project"}}<span class="tm tm-proj"><a class="projref{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" href="/tasks?q=project:{{$acc.Key}}" title="Only tasks in {{$acc.Name}}">{{if $acc.Icon}}<span class="proj-icon" aria-hidden="true">{{$acc.Icon}}</span>{{end}}{{$acc.Key}}</a></span>{{end}}
       {{/* A lease is the one thing on a row that is about to change by
            itself. Held says an agent has it; expired says one took it and
            never came back, which is a task looking for an owner rather than
@@ -517,6 +532,7 @@
            the same seven claims with no expiry is ordinary work changing
            hands. */}}
       {{$held := claim .}}
+      <span class="tm tm-flags">
       {{if eq $held "held"}}<span class="lease held" title="Held by {{$.Data.Names.Label .ClaimedByActorID}} until {{compact .LeaseExpiresAt}}">held &middot; {{$.Data.Names.Label .ClaimedByActorID}}</span>
       {{else if eq $held "expired"}}<span class="lease expired" title="{{$.Data.Names.Label .LeaseExpiredByActorID}} let the claim run out {{expiredAgo .}} ago, at {{compact .LeaseExpiredAt}}; the task is claimable again">claim expired &middot; {{expiredAgo .}} ago{{if gt .ClaimCount 1}} <span class="lease-count">&middot; {{.ClaimCount}} claims</span>{{end}}</span>{{end}}
       {{/* The date carried no label, so it was a number nobody could name.
@@ -527,8 +543,9 @@
            or within the week and for nothing else. The word carries the
            meaning and the colour only reinforces it. */}}
       {{if $.Columns.Show "tasks" "due"}}{{$due := due .}}{{if $due}}<a class="duemark is-{{$due}}" href="/tasks?due={{if eq $due "overdue"}}overdue{{else}}week{{end}}" title="Due {{stamp .DueAt}}">{{if eq $due "overdue"}}overdue{{else}}due this week{{end}}</a>{{end}}{{end}}
-      {{if $.Columns.Show "tasks" "updated"}}<span class="when" title="Last updated {{compact .UpdatedAt}}"><span class="when-label">updated</span> {{compact .UpdatedAt}}</span>{{end}}
-      {{if $.Columns.Show "tasks" "ref"}}<span class="ref mono">{{.Ref}}</span>{{end}}
+      </span>
+      {{if $.Columns.Show "tasks" "updated"}}<span class="tm tm-when"><span class="when" title="Last updated {{compact .UpdatedAt}}"><span class="when-label">updated</span> {{compact .UpdatedAt}}</span></span>{{end}}
+      {{if $.Columns.Show "tasks" "ref"}}<span class="tm tm-ref"><span class="ref mono">{{.Ref}}</span></span>{{end}}
     </span>
   </li>
 {{else}}

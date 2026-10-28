@@ -116,7 +116,11 @@
      count that looks like a productivity measure is worse than no
      leaderboard, and the wording comes from core so it cannot drift from the
      CLI's. */}}
-<p class="note">Counting {{.Data.Measure}}.</p>
+{{/* A caption, not a warning. .note is the bordered block with the amber
+     edge that stands under a destructive control; what this says is simply
+     which number the bars below are counting, and drawn as a warning it was
+     the loudest object on a page of quiet grey bars. */}}
+<p class="lede measure-note">Counting {{.Data.Measure}}.</p>
 {{if .Data.Stats.TopActors}}
 <ul class="dist">
   {{$busiest := .Data.MaxActor}}
@@ -134,7 +138,17 @@
 
 <h2>Waiting longest</h2>
 {{if .Data.Stats.Oldest}}
+{{/* table-layout is fixed, so without a colgroup the four columns are a
+     quarter of the width each: a reference and an age were each given as
+     much room as the title, and every title with more than four words
+     wrapped onto a second line. The title is the column worth the width. */}}
 <table>
+  <colgroup>
+    <col class="c-ref">
+    <col>
+    <col class="c-state">
+    <col class="c-age">
+  </colgroup>
   <thead><tr><th>Ref</th><th>Title</th><th>Status</th><th class="num">Age</th></tr></thead>
   <tbody>
     {{range .Data.Stats.Oldest}}

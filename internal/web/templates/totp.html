@@ -7,8 +7,19 @@
 */}}
 {{define "content"}}
 {{$v := .Data}}
+{{/* The code step of a sign-in is the second half of the sign-in screen, and
+     it was the only part of it that never got the sign-in screen's clothes:
+     the first step is a branded card on a tinted field, this was a bare
+     360px column with a heading in it, and the two halves of one task looked
+     like two different products. A ticket is what says this is a sign-in
+     rather than enrolment started from settings, where the screen sits
+     inside the application shell and a brand mark would be the second one on
+     the page. */}}
+{{if $v.Ticket}}<a class="authbrand" href="/"><img class="logo" src="/assets/tix.svg" alt="" width="40" height="40"><span>{{.Brand.Title}}</span></a>{{end}}
+{{if not $v.Ticket}}
 <h1>{{$v.Heading}}</h1>
 <p class="lede">{{$v.Lede}}</p>
+{{end}}
 
 {{if $v.Enrol}}
 <div class="card totp-enrol">
@@ -23,7 +34,8 @@
 </div>
 {{end}}
 
-<div class="card">
+<div class="card{{if $v.Ticket}} authcard{{end}}">
+{{if $v.Ticket}}<h1>{{$v.Heading}}</h1><p class="lede">{{$v.Lede}}</p>{{end}}
 <form method="post" action="{{$v.Action}}" hx-boost="false" autocomplete="off">
   {{template "csrf" .CSRF}}
   {{if $v.Ticket}}<input type="hidden" name="ticket" value="{{$v.Ticket}}">{{end}}

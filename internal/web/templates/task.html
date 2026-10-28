@@ -309,7 +309,11 @@
        reads the same afterwards, and reopening finished work is the move
        control's job, not this one. */}}
   {{if and .Data.CanReclaim (eq $held "held")}}
-  <details class="panel danger wide" id="reclaim">
+  {{/* Not wide. The rule above is for a table that needs both columns; a
+       short form drawn across the full width while the forms above it stop
+       at the content column leaves the page with a ragged right edge for no
+       gain. */}}
+  <details class="panel danger" id="reclaim">
     <summary>Reclaim the lease</summary>
     <div class="body">
       <p class="muted">{{$.Data.Names.Label $t.ClaimedByActorID}} holds this task{{if $t.LeaseExpiresAt}} until {{compact $t.LeaseExpiresAt}}{{end}}. Reclaiming ends their lease at once and leaves the task in {{$t.Status}}.</p>
@@ -324,7 +328,7 @@
   {{end}}
 
   {{if .Data.CanDelete}}
-  <details class="panel danger wide">
+  <details class="panel danger">
     <summary>Danger zone</summary>
     <div class="body">
       <form method="post" action="/tasks/{{$t.Ref}}/delete">

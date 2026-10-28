@@ -75,17 +75,39 @@ func TestNoScreenDeclaresAFixedPixelWidth(t *testing.T) {
 	}
 }
 
-func TestBoardStacksItsColumnsAtPhoneWidth(t *testing.T) {
+// TestBoardStaysOneStripOfColumnsAtPhoneWidth pins the repair of a board that
+// stopped being a board on a phone.
+//
+// The phone rules used to set ".board { display: block; }", which stacked
+// every column vertically. Two things went wrong with that. The board is a
+// strip of a fixed height so its columns can each scroll their own cards, and
+// a stacked block overran that height and drew straight over the project
+// settings and danger zone panels underneath it; and a five state workflow
+// became a 2,800px page with no shape a reader could hold.
+//
+// It is one row of columns at every width, swiped sideways and snapped, one
+// column to a screen. What the phone rules owe the reader is therefore the
+// snap and a column sized to the window, not a stack.
+func TestBoardStaysOneStripOfColumnsAtPhoneWidth(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	resp := f.as("alice").get("/assets/app.css")
 	sheet := body(t, resp)
+
+	if board := declarations(t, sheet, ".board {"); !strings.Contains(board, "display: flex") ||
+		!strings.Contains(board, "overflow-x: auto") {
+		t.Errorf("the board is not a strip that scrolls sideways: %s", board)
+	}
+
 	at := strings.Index(sheet, "@media (max-width: 639px)")
 	if at < 0 {
 		t.Fatal("the stylesheet has no phone-width breakpoint")
 	}
 	narrow := sheet[at:]
-	for _, want := range []string{".board { display: block; }", "thead { display: none; }"} {
+	if strings.Contains(narrow, ".board { display: block; }") {
+		t.Error("the phone rules stack the board's columns again, which overruns its fixed height")
+	}
+	for _, want := range []string{"scroll-snap-type: x mandatory", "thead { display: none; }"} {
 		if !strings.Contains(narrow, want) {
 			t.Errorf("the phone-width rules are missing %q", want)
 		}

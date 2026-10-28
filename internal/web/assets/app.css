@@ -54,7 +54,14 @@
      the reader's attention and the chrome was winning. Lines are structure,
      and structure should be felt rather than read. */
   --ink: #0f1319;
-  --muted: #697586;
+  /* Measured against --surface, not against the page.
+     #697586 cleared 4.68:1 on white and 4.35:1 on the tinted surface, and
+     almost every muted word in the interface is on the tinted surface: a
+     settings help line, a scope chip, an email under a name, a column
+     heading, a tag on a task row. So the light scheme was below the floor
+     nearly everywhere it used this token and above it almost nowhere. This
+     clears 5.0:1 on the surface and 5.4:1 on the page. */
+  --muted: #5f6b7a;
   --line: #ebedf1;
   --line-strong: #d6dae1;
   --danger: #b42318;
@@ -81,10 +88,53 @@
   --scrim: rgba(16, 24, 40, 0.45);
   --gutter: 16px;
 
+  /* How wide the page is allowed to get, and how wide the column of running
+     prose inside it is allowed to get.
+
+     These are two different questions and the file used to answer only the
+     first. A paragraph, a help sentence under a setting, a release note: all
+     of those stop being readable somewhere past 80 characters, and capping
+     the whole page at a prose measure was the only tool available, which is
+     why a 4K screen showed an 1100px ribbon with two thousand pixels of
+     empty page beside it. The page measure is now generous and the prose
+     measure is carried by the text itself (--measure-text, applied to the
+     paragraphs and help lines that need it), so a wide screen can be filled
+     with rows without a sentence running the width of a wall.
+
+     --measure-page is what a screen of forms and panels gets; a screen whose
+     subject is a listing or a board takes --measure-wide instead, because
+     those are read sideways and every extra pixel is another column or
+     another attribute that no longer has to wrap. */
+  --measure-page: 1180px;
+  --measure-wide: 1560px;
+  --measure-text: 76ch;
+  /* The widest a single-line form control should ever be. A tenant name
+     input stretched to 1065px on a 1440px screen: a field whose content is
+     eight characters, drawn a thousand pixels wide, tells the reader nothing
+     about what belongs in it and makes the form a stack of identical bars. */
+  --measure-field: 32rem;
+  /* How wide a form is allowed to get. A form is a column of related
+     controls, and once the row holding Mode, Preview only and Run import is
+     a thousand pixels across, the button is no longer visibly part of the
+     thing it submits. Shared by the field rows and the settings lists. */
+  --measure-form: 920px;
+  /* What a chart is allowed to grow to. A proportion bar and a column chart
+     are read by comparing lengths, and a track that follows the window makes
+     the same two numbers look further apart on a wide screen than on a
+     narrow one. Shared by every drawing on the statistics screen, so they
+     form one column of charts rather than three unrelated widths. */
+  --measure-chart: 760px;
+  /* The sidebar. Wider on a large screen, where 224px was forcing
+     "Import and export" to the edge of its row for no reason. */
+  --side-w: 224px;
+
   /* Project palette. A project stores a token, not a colour, so each scheme
-     renders its own shade; every one of these clears 4.4:1 against both the
-     surface and the page background. */
-  --proj-slate: #64748b;
+     renders its own shade; every one of these clears 4.5:1 against both the
+     surface and the page background. Slate was 4.44 on the surface, which is
+     where a project key is nearly always drawn -- a task row, a board card,
+     a project list entry -- so one of the eight sat under the floor on every
+     screen that used it. */
+  --proj-slate: #5e6e85;
   --proj-red: #dc2626;
   --proj-amber: #b45309;
   --proj-green: #15803d;
@@ -219,10 +269,22 @@ body {
 }
 
 /* Layout: a fixed sidebar beside the content, stacking on narrow screens. */
-.shell { display: grid; grid-template-columns: 1fr; min-height: 100vh; }
+/* minmax(0, 1fr), never a bare 1fr. A grid track sized 1fr takes auto as its
+   minimum, which is the largest min-content width anywhere inside it, so one
+   wide descendant -- a board strip, a long reference, a table -- made the
+   single column of a phone layout wider than the phone and the whole page
+   scrolled sideways under overflow-x: hidden. The desktop rule below has
+   always said minmax(0, 1fr); this one said 1fr, and every narrow-screen
+   overflow in the interface came through it. */
+.shell { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 100vh; }
+
+/* The same guard one level in: the content column may be narrower than the
+   widest thing it contains, and whatever that thing is scrolls or wraps
+   inside it rather than pushing the page out. */
+.wrap, .side { min-width: 0; }
 
 @media (min-width: 900px) {
-  .shell { grid-template-columns: 224px minmax(0, 1fr); }
+  .shell { grid-template-columns: var(--side-w) minmax(0, 1fr); }
 }
 
 .side {
@@ -429,13 +491,23 @@ nav .group {
 .menuclose { width: 100%; margin-top: var(--space-5); }
 
 /* A phone is touched, not clicked. 44px is the smallest target iOS calls
-   reliable, and these were 32. */
+   reliable, and these were 32.
+
+   Everything here is a control that stands on its own, with room around it,
+   so growing its hit area cannot put it on top of the control next to it.
+   The chips inside a dense task row are the exception and are handled
+   separately, under .task-meta: four of them share a 22px line, so a 44px
+   box round each would overlap both its neighbours and the row above. */
 @media (max-width: 899px) {
   nav.main { display: block; }
   nav.main a { min-height: 44px; }
   .sidemenu .side-foot a { min-height: 44px; display: inline-flex; align-items: center; }
   /* The one control on a task screen somebody presses every time. */
   .backlink a { min-height: 44px; }
+
+  /* A checkbox's label is its target, and the components that size
+     themselves are gathered at the foot of this file under "Touch targets",
+     after the rules they have to beat. */
 }
 
 @media (min-width: 900px) {
@@ -457,9 +529,18 @@ nav .group {
   }
 }
 
-.wrap { padding: 22px var(--gutter) 64px; max-width: 1100px; width: 100%; }
+/* The content column. Centred in the space the sidebar leaves rather than
+   pinned to its left edge: at 2560px the old rule put an 1100px page against
+   the sidebar and 1200px of bare background down the right, which reads as a
+   window that failed to load rather than as a deliberate measure. */
+.wrap {
+  padding: 22px var(--gutter) 64px;
+  max-width: var(--measure-page);
+  width: 100%;
+  margin-inline: auto;
+}
 
-/* A board, and a listing, are read sideways: both want the window. The 1100px
+/* A board, and a listing, are read sideways: both want the window. The page
    measure above is for prose -- a task body, the docs, the settings screens --
    where a long line is genuinely harder to read. On a listing it left a column
    of empty page down the right at every width over about 1350px.
@@ -471,10 +552,38 @@ nav .group {
 @media (min-width: 1200px) {
   .wrap:has(.board),
   .wrap:has(ul.tasklist),
+  .wrap:has(ul.peoplelist),
+  .wrap:has(.feed),
+  /* A screen whose subject is a table of records wants the width. The
+     statistics screen holds a table too, but its subject is a column of
+     charts a few hundred pixels wide, and giving it the listing measure
+     left five bar charts adrift in a 2,000px page. */
+  .wrap:has(table):not(:has(.figures)),
   /* The task screen is a two column layout, so the measure applies to its
-     prose column rather than to the page: capping the page at 1100px left
-     the aside squeezed and a stripe of empty window beside it. */
-  .wrap:has(.detail) { max-width: 1480px; }
+     prose column rather than to the page: capping the page at the prose
+     measure left the aside squeezed and a stripe of empty window beside it. */
+  .wrap:has(.detail) { max-width: var(--measure-wide); }
+}
+
+/* What a very wide screen does.
+
+   Three things, and all three are decisions rather than the absence of one.
+
+   The gutter grows, so the content is not stuck to a 16px margin on a wall
+   of a monitor. The sidebar grows, because at 224px "Import and export" and
+   "Connections" sit hard against the edge of a column that has room to
+   spare. And the listing measure grows, so the extra width buys more of the
+   thing the reader came for -- a wider title before it wraps, attributes
+   that stop colliding, another board column in view -- rather than a wider
+   nothing. It stops at 2160px: past that the eye has to travel the desk to
+   get from a task's title to its reference, and a 4K screen is better served
+   by a centred page with real margins than by one row three feet long. */
+@media (min-width: 1600px) {
+  :root { --gutter: 32px; --side-w: 252px; --measure-wide: 1800px; }
+}
+
+@media (min-width: 2200px) {
+  :root { --gutter: 48px; --measure-page: 1320px; --measure-wide: 2160px; }
 }
 
 /* Typography */
@@ -508,7 +617,45 @@ h3 {
 .card > h2:first-child, .card > h3:first-child { margin-top: 0; }
 a { color: var(--accent); }
 .muted { color: var(--muted); }
+/* Running text, set to a measure.
+   The page is allowed to be wide now, so anything that is a sentence has to
+   say how wide it is willing to be or it inherits the page's width: the
+   webhook screen's explanation of its signing secret was one 1,150px line on
+   a laptop and a 2,000px line on a 4K display, which is well past the point
+   where the eye loses the start of the next line. Classless paragraphs are
+   included because that is what most of these screens write prose as; a
+   paragraph that is really a layout wrapper holds a control, and a control
+   is narrower than the measure anyway. */
+.lede,
+.meta,
+.wrap > p:not([class]),
+.card > p:not([class]),
+details.panel > .body > p:not([class]) { max-width: var(--measure-text); }
+
 .lede { color: var(--muted); margin: -8px 0 18px; }
+
+/* The one native element left unstyled. A fieldset's default border is a
+   notched rectangle no other region in this interface draws, and left at its
+   own width it ran the whole content column to hold five checkboxes stacked
+   in a single file down its left edge. It is a group of choices, so it is
+   drawn the way the other groups of choices are: a legend at a label's size
+   and colour, and the choices in the same grid .columnform uses. */
+fieldset {
+  max-width: var(--measure-field);
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+fieldset > legend {
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--muted);
+}
+fieldset > label:has(> input[type="checkbox"]),
+fieldset > label:has(> input[type="radio"]) { margin: var(--space-1) 0; }
 
 /* Cards */
 /* A surface, not a panel.
@@ -542,54 +689,69 @@ a { color: var(--accent); }
  * The height is the viewport minus what sits above the board. svh rather than
  * vh so a phone's collapsing address bar does not leave the last column
  * unreachable under it. */
+/* A strip of columns that scrolls sideways, not a grid that wraps.
+ *
+ * auto-fit wrapped. A five state workflow on a 1440px screen fitted four
+ * tracks and put Cancelled on a second row underneath, where it read as a
+ * separate thing rather than as the end of the same board; the second row
+ * then escaped the fixed height above and, on a phone -- where the whole
+ * grid collapsed to display: block -- the columns ran straight through the
+ * panels below them and drew on top of the project settings.
+ *
+ * A board is one row of columns. If they do not fit, it scrolls, which is
+ * what every board anybody has used does and what makes a nine state
+ * workflow possible at all. The columns share the strip's height, each
+ * scrolls its own cards, and nothing wraps at any width.
+ *
+ * The height is the viewport minus what sits above the board. svh rather
+ * than vh so a phone's collapsing address bar does not leave the last card
+ * unreachable under it. */
 .board {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  display: flex;
   gap: var(--space-3);
   align-items: stretch;
-  /* The row track has to be told it may be shorter than its content, or it
-     sizes to the tallest column and the max-height below simply clips. */
-  grid-template-rows: minmax(0, 1fr);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
   height: calc(100svh - 200px);
   min-height: 320px;
   margin-bottom: var(--space-2);
+  /* Room for the horizontal scrollbar, so it does not sit over the last row
+     of cards on a platform that draws one in the content box. */
+  padding-bottom: var(--space-1);
 }
 
-/* A board is read sideways, and the 1100px that suits a column of prose fits
-   exactly four of its 230px tracks: a five state workflow wrapped Done and
-   Cancelled onto a second row on a 1920px display, with most of the window
-   left empty beside them. So a screen that holds a board is given the width
-   its states need, and every other screen keeps the measure that makes text
-   readable.
-
-   Keyed off the board itself rather than off a flag on the page, so it cannot
-   drift: there is no list of board routes to keep in step, and a new screen
-   that renders a board is wide the day it is written. Below this width the
-   cap is doing no work anyway, since the viewport is the smaller limit. */
-@media (min-width: 1200px) {
-  .wrap:has(.board) { max-width: 1480px; }
-}
-
-/* A merged board carries one column per state of the workflow its projects
-   share, and is read at the widths a single project's board was designed for.
-   The track minimum is narrower so more columns fit a row before the grid
-   wraps, and auto-fit wraps rather than overflowing: nine columns become two
-   rows of columns, never a page that scrolls sideways. The phone-width rule
-   below stacks them, merged or not. */
-.board.is-merged { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-
+/* A column grows to share the strip while there is room and stops at a
+   measure: past about 400px a card's title is a short line in a wide box and
+   the reader's eye has further to travel between columns, so extra width is
+   better spent showing another column than inflating these. Below the basis
+   they hold their width and the strip scrolls. */
 .column {
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  flex: 1 1 240px;
+  min-width: 224px;
+  max-width: 420px;
   min-height: 0;
+  scroll-snap-align: start;
   overflow-y: auto;
   overscroll-behavior: contain;
-  background: var(--bg);
+  /* The column is the recessed thing and the cards sit on top of it. It was
+     the same colour as the page with the same hairline round it as the cards
+     inside, so every card was drawn inside a second identical frame and the
+     board read as a grid of boxes in boxes. Tinting the column and leaving
+     the cards the page's own colour says which is the container in the one
+     way that needs no line at all. */
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: var(--space-3);
 }
+
+/* A merged board carries one column per state of the workflow its projects
+   share, and can therefore have many more of them. They are narrower, so
+   more of the workflow is in view before the strip has to be scrolled. */
+.board.is-merged > .column { flex-basis: 232px; min-width: 232px; max-width: 360px; }
 
 /* Sticky, because the one thing a reader needs while scrolling a column is
    which column it is. The negative margins and matching padding let the
@@ -601,15 +763,36 @@ a { color: var(--accent); }
   z-index: 1;
   margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) var(--space-2);
   padding: var(--space-3) var(--space-3) var(--space-2);
-  background: var(--bg);
-  font-size: var(--text-md);
+  background: var(--surface);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0;
 }
 
 /* A column with more cards than fit says so at its edge rather than simply
    ending: without this the last visible card looks like the last card. */
 .column::after { content: ""; display: block; min-height: var(--space-1); }
-.column .card { margin-bottom: 10px; }
+/* A board card is a glance, not a page: a reference, a title and whatever
+   marks the task carries. It was drawn with the same 16px padding as a
+   settings card and an underlined link for a title, so eight cards filled a
+   column that should have held fifteen and every title on the board was
+   underscored. The whole card is already a link target by way of its title
+   and its keyboard row handler, so the underline was telling the reader
+   something the shape of the card had told them already. */
+.column .card {
+  background: var(--bg);
+  margin-bottom: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+}
 .column .card:last-child { margin-bottom: 0; }
+.column .card a[href^="/tasks/"] {
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 500;
+}
+.column .card a[href^="/tasks/"]:hover { color: var(--accent); text-decoration: underline; }
+.column .card .card-meta { margin-top: var(--space-2); }
 .column .ref { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); font-size: var(--text-xs); }
 
 /* An empty column still names itself, but does not spend a heading's worth
@@ -716,6 +899,33 @@ input, select, textarea {
 input:hover, select:hover, textarea:hover { box-shadow: inset 0 0 0 1px var(--line-strong); }
 textarea { padding: var(--space-3); line-height: 1.5; }
 
+/* A field is as wide as the thing it holds, not as wide as the page.
+
+   Every form on every configuration screen was a stack of identical bars
+   running the full content column: a tenant name, a retention count and a
+   webhook URL were drawn 1065px wide on a 1440px screen and 1770px wide on
+   a 4K one. Width is information -- it is the first thing that says whether
+   a field wants a word, a sentence or a document -- and spending it all on
+   every field says nothing about any of them. A textarea gets the prose
+   measure instead, because what goes in one is prose. */
+input:not([type="checkbox"]):not([type="radio"]),
+select { max-width: var(--measure-field); }
+textarea { max-width: var(--measure-text); }
+
+/* Opt out wherever the control is one cell of a layout that has already
+   decided how wide it should be: a toolbar, a grid of fields, a settings
+   row, the comment composer. Listed here rather than set on each of those
+   rules so the exceptions to the measure are readable as one list. */
+.quickadd > input, .quickadd > select,
+.filterbar > input, .filterbar > select,
+.tagadd input,
+.addgrid input, .addgrid select, .addgrid textarea,
+.setrow input, .setrow select, .setrow textarea,
+.composer textarea,
+.commentpop textarea,
+.copyline input,
+.statsfilter select { max-width: 100%; }
+
 input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: none;
   background: var(--surface);
@@ -761,6 +971,11 @@ input[type="checkbox"], input[type="radio"] {
   background: none;
   box-shadow: none;
 }
+/* 16px rather than whatever the platform draws, which was 13 on this one.
+   A 13px square is below every target-size floor there is and is the hardest
+   control in the interface to hit with a thumb; the label beside it carries
+   the rest of the target (below). */
+input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; flex: 0 0 auto; }
 input[type="checkbox"]:hover, input[type="radio"]:hover { box-shadow: none; }
 input[type="checkbox"]:focus-visible, input[type="radio"]:focus-visible {
   outline: 2px solid var(--accent);
@@ -778,7 +993,19 @@ label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) {
   margin: 8px 0;
 }
 
-textarea { min-height: 92px; resize: vertical; }
+/* A textarea is as tall as what is in it, up to most of the window, and
+   never shorter than four lines. The workflow editor holds a six line state
+   table and an eight line transition table in two 92px boxes, so editing a
+   workflow meant scrolling inside a box to see the thing being edited while
+   two thirds of the page stood empty. field-sizing does it in the browsers
+   that have it; the min-height below is what the others keep, which is what
+   every textarea had before. */
+textarea {
+  field-sizing: content;
+  min-height: 92px;
+  max-height: 60svh;
+  resize: vertical;
+}
 
 /* A value the screen shows but no form can change, such as the tenant key.
    It keeps a field's frame and its label so it reads as part of the form,
@@ -976,7 +1203,7 @@ button.is-busy::after {
   color: var(--on-accent);
   animation: tix-spin 620ms linear infinite;
 }
-button.is-busy.secondary::after, button.is-busy.ghost::after { color: var(--fg); }
+button.is-busy.secondary::after, button.is-busy.ghost::after { color: var(--ink); }
 @keyframes tix-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
   button.is-busy::after { animation: none; border-top-color: currentcolor; opacity: 0.55; }
@@ -988,14 +1215,14 @@ button.secondary {
   color: var(--ink);
   border-color: var(--line-strong);
 }
-button.secondary:hover { background: var(--bg); border-color: var(--fg); color: var(--fg); }
+button.secondary:hover { background: var(--bg); border-color: var(--ink); color: var(--ink); }
 
 button.ghost {
   background: transparent;
   color: var(--muted);
   border-color: transparent;
 }
-button.ghost:hover { background: var(--surface); color: var(--fg); }
+button.ghost:hover { background: var(--surface); color: var(--ink); }
 
 button.danger { background: var(--danger); color: var(--on-accent); }
 button.danger:hover { background: color-mix(in srgb, var(--danger) 86%, white); }
@@ -1008,18 +1235,39 @@ button.link {
   font-weight: 400;
   text-decoration: underline;
 }
+button.link:hover { background: none; color: var(--accent); filter: none; }
 
+/* A row of fields, aligned on their controls: a labelled select, a bare
+   checkbox and a button sit on one line because their bottoms agree, which
+   is what end alignment buys and why it is kept. The price is that one tall
+   cell drags the short ones down with it, so anything that is about the row
+   rather than about one cell of it -- a glossary, a note -- goes under the
+   row instead of inside a cell. See the sync screen, where a three entry
+   glossary inside the system cell pushed the name box beside it a quarter
+   of a screen down the page. */
 .row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 0 12px;
   align-items: end;
+  max-width: var(--measure-form);
 }
 
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 
 /* Tables */
-table { width: 100%; border-collapse: collapse; font-size: var(--text-md); table-layout: fixed; }
+/* Fixed layout divides the width evenly between however many columns a table
+   happens to have, which is the right answer only when somebody has said what
+   the columns are worth. On the token list -- seven columns, one of them a
+   set of nine chips and two of them timestamps -- it gave "Created" 165px, so
+   every date wrapped onto two lines while the chips wrapped onto three, and
+   every row stood 90px tall to hold values that fit on one line each.
+   A table that declares a colgroup has had its columns thought about and
+   keeps fixed layout; one that has not lets the browser size them from what
+   is in them. td carries overflow-wrap: anywhere either way, so nothing can
+   force the table wider than the page. */
+table { width: 100%; border-collapse: collapse; font-size: var(--text-md); table-layout: auto; }
+table:has(colgroup) { table-layout: fixed; }
 
 th {
   text-align: left;
@@ -1028,13 +1276,29 @@ th {
   text-transform: uppercase;
   color: var(--muted);
   font-weight: 600;
-  padding: 0 10px 8px;
+  padding: 0 var(--space-3) var(--space-2);
   border-bottom: 1px solid var(--line);
 }
 
-td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+/* On the 4px grid, and middle aligned. Top alignment is right when a cell
+   holds a paragraph and wrong when it holds a word beside a badge, which is
+   what nearly every cell in this product holds: a one line row read as a
+   row of things sitting at slightly different heights because one cell
+   happened to wrap. */
+td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
 tbody tr:last-child td { border-bottom: 0; }
-tbody tr:hover { background: var(--bg); }
+
+/* A cell may break a long value anywhere, because a ULID or a URL has no
+   break opportunity of its own and would otherwise push the table wider than
+   the page. A badge is a word, and inheriting that rule it came out as
+   "acti / ve" down two lines whenever its column was squeezed. */
+td .badge, td .role, td .pill, td .state, td .evchip { overflow-wrap: normal; }
+tbody tr:hover { background: var(--surface); }
 td a { font-weight: 500; text-decoration: none; }
 td a:hover { text-decoration: underline; }
 
@@ -1047,6 +1311,7 @@ col.c-state { width: 104px; }
 col.c-tags { width: 150px; }
 col.c-when { width: 142px; }
 col.c-source { width: 116px; }
+col.c-age { width: 96px; }
 
 /* The raw audit entry behind a row of history. Wide enough for a timestamp
    and a field list without wrapping either, and capped against the viewport
@@ -1135,13 +1400,23 @@ dl.fields dd { margin: 0 0 8px; }
 }
 
 /* Disclosures keep rarely used forms out of the way. */
+/* A panel is a card that opens. It was the card's shape in a different
+   colour, so a task screen read as a stack of white cards with grey bars
+   between them -- Subtasks, Dependencies and Comments in one family, Edit
+   custom fields, Artifacts, History and Danger zone in another -- when the
+   only difference between them is that four of them are shut. The marker in
+   the summary is what says a panel opens; it does not need a second colour
+   to say it as well. */
 details.panel {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: transparent;
   margin: 0 0 12px;
   box-shadow: var(--shadow);
 }
+/* Open, it is a region with contents, and the tint distinguishes those
+   contents from the page the way a card's never has to. */
+details.panel[open] { background: var(--surface); }
 
 details.panel > summary {
   cursor: pointer;
@@ -1160,6 +1435,33 @@ details.panel[open] > summary::before { content: "\25BE"; }
 details.panel > summary:hover { color: var(--accent); }
 details.panel > .body { padding: 0 16px 16px; }
 details.panel.danger > summary { color: var(--danger); }
+
+/* The same disclosure inside a table cell. A row's one action was drawn as a
+   full panel -- a bordered, shadowed, tinted box the height of three lines --
+   so on the token list the loudest object in every row was the control that
+   ends a credential, and the rows themselves were as tall as the box. In a
+   cell it is a word, and opening it still gives the panel its sentence and
+   its button. */
+td > details.panel {
+  margin: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+td > details.panel > summary { padding: 0; font-size: var(--text-sm); }
+/* Opened, it needs a line a sentence can live on. The actions column is
+   about 150px wide, so the explanation of what revoking does came out one or
+   two words to a line and stood the row 500px tall. The cell widens to hold
+   it -- the table reflows while the panel is open, which is visibly
+   temporary -- and the cap stops it taking the width from the columns that
+   hold the record itself. In flow rather than floated over the page,
+   because a table may sit inside a horizontally scrolling wrapper and
+   anything positioned out of the cell would be clipped by it. */
+td > details.panel > .body {
+  padding: var(--space-3) 0 0;
+  min-width: 16rem;
+  max-width: 22rem;
+}
 
 /* Detail layout: content beside a metadata rail */
 .detail { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
@@ -1199,7 +1501,7 @@ ul.plain > li:last-child { border-bottom: 0; }
   font-size: var(--text-xs);
   color: var(--muted);
 }
-.comment-edit > summary:hover { color: var(--fg); }
+.comment-edit > summary:hover { color: var(--ink); }
 .comment-edit[open] > .body { padding: var(--space-3) 0 0; border: 0; background: none; }
 
 /* The composer is one line until it is used, and field-sizing grows it as the
@@ -1250,8 +1552,17 @@ ul.plain > li:last-child { border-bottom: 0; }
   .pager { grid-template-columns: 1fr; justify-items: center; gap: 8px; }
   .pager-prev, .pager-at, .pager-next { grid-column: 1; justify-self: center; }
 
+  /* The board keeps being a board. It used to collapse to display: block at
+     this width, which turned five columns into one 2,800px page nobody could
+     hold the shape of, and -- because the strip keeps a fixed height -- drew
+     the overflowing columns straight over the panels underneath. One column
+     at a time, snapped, swiped sideways: the same gesture the reader already
+     uses to move between screens. */
+  .board { height: calc(100svh - 168px); scroll-snap-type: x mandatory; }
+  .column { flex: 0 0 82vw; min-width: 0; max-width: none; }
+  .board.is-merged > .column { flex: 0 0 82vw; min-width: 0; max-width: none; }
+
   /* A table becomes one card per row: the header cannot help at this width. */
-  .board { display: block; }
   thead { display: none; }
   table, tbody, tr, td { display: block; width: 100%; }
   tr { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
@@ -1513,12 +1824,14 @@ a.secondary.clear:hover { filter: brightness(1.08); }
   gap: 18px;
 }
 
-.viewgrid h3 {
-  margin: 0 0 8px;
+/* Named in its own words, like the settings group headings and the sidebar
+   group labels. Tracked capitals are the loudest kind of type there is, and
+   these two words exist to be skimmed past on the way to the checkboxes. */
+.viewgrid .viewhead {
+  margin: 0 0 var(--space-2);
   font-size: var(--text-xs);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   color: var(--muted);
 }
 
@@ -1566,7 +1879,13 @@ a.secondary.clear:hover { filter: brightness(1.08); }
   line-height: 1;
 }
 
-.statuspill:hover { filter: none; }
+/* The base button rule paints a filled accent rectangle on hover, and these
+   two are buttons that have declared themselves bare. Resetting only the
+   filter left the background to the rule above, so hovering a status pill on
+   a task row covered it with a solid block of accent and the word inside it
+   disappeared; the same was true of every button.link in the interface.
+   Whatever declares a button transparent has to say so for hover too. */
+.statuspill:hover { background: none; filter: none; }
 
 /* Status and priority on the task's own screen.
 
@@ -1720,7 +2039,11 @@ a.secondary.clear:hover { filter: brightness(1.08); }
    because it navigates and must keep middle click, open in new tab and the
    address it points at; only the clothes are a button's. */
 .backlink { margin: 0 0 var(--space-3); }
-.backlink a {
+/* The error screen's two ways out take the same clothes: a link that
+   navigates, wearing a button, defined once here rather than a second time
+   under its own name. */
+.backlink a,
+.failure .actions a {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -1736,8 +2059,25 @@ a.secondary.clear:hover { filter: brightness(1.08); }
   text-decoration: none;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
-.backlink a:hover { background: var(--bg); border-color: var(--fg); color: var(--fg); }
-.backlink a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.backlink a:hover,
+.failure .actions a:hover { background: var(--bg); border-color: var(--ink); color: var(--ink); }
+.backlink a:focus-visible,
+.failure .actions a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The failure screen. A heading, what went wrong, what to do about it and
+   the way back, in that order, set to a measure so the sentence is a
+   sentence rather than a line across a 4K page. */
+.failure { max-width: var(--measure-text); }
+.failure-message {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.failure-hint { margin: 0; color: var(--muted); line-height: 1.55; }
+.failure .actions { gap: var(--space-2); }
 
 
 /* The list itself: one line per task, a tick box on the left. */
@@ -1760,6 +2100,9 @@ ul.tasklist {
      near the last row has no space beneath it and flips upwards by itself. */
   max-height: calc(100svh - 290px);
   min-height: 220px;
+  /* The row stripes and the frame's rounded corners meet, so the frame has
+     to clip them; see flowui_test.go, which guards that the row menus are
+     popovers precisely because of this. */
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--surface);
@@ -2009,6 +2352,105 @@ a.task-title:hover { color: var(--accent); }
   gap: 6px;
 }
 
+/* One scrollbar, not two.
+ *
+ * The listing is a frame that scrolls its own rows, sized at 100svh minus a
+ * constant standing in for whatever happens to sit above it. The constant
+ * was wrong at every width, because what sits above it is a heading, a
+ * quick-add row and a filter bar that are each a different height at each
+ * width: at 1440x900 the frame finished 77px below the fold, so the page
+ * grew its own scrollbar beside the list's and a reader scrolling the window
+ * moved the frame rather than the rows.
+ *
+ * Measuring it instead of guessing: the task screen fills the viewport and
+ * the listing takes whatever is left after the controls above it, whatever
+ * that turns out to be.
+ *
+ * From 640px up, which takes in a tablet held upright: below that a phone
+ * scrolls the page itself, and pinning the viewport so a 300px frame scrolls
+ * inside it is the wrong shape for a thumb. The listing keeps its 220px
+ * floor, so on a very short window the page scrolls rather than the rows
+ * being squeezed out of existence. */
+@media (min-width: 640px) {
+  /* The shell is the viewport, and the content column takes what is left of
+     it. Setting the height on the content column alone was right on a
+     desktop, where the sidebar is a column beside it, and wrong on a tablet,
+     where the sidebar is a bar above it: the page then stood a bar's height
+     taller than the window and grew the second scrollbar back. */
+  .shell:has(#tasks-listing) { height: 100svh; }
+  .wrap:has(#tasks-listing) {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding-bottom: var(--space-5);
+  }
+  .wrap:has(#tasks-listing) #tasks-listing {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .wrap:has(#tasks-listing) ul.tasklist {
+    flex: 1 1 auto;
+    max-height: none;
+    min-height: 220px;
+  }
+  .wrap:has(#tasks-listing) .board {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+  }
+}
+
+/* Between a phone and a desktop the sidebar is a bar across the top, so the
+   shell is two rows rather than two columns and the content column is the
+   second of them. */
+@media (min-width: 640px) and (max-width: 899px) {
+  .shell:has(#tasks-listing) { grid-template-rows: auto minmax(0, 1fr); }
+}
+
+/* A cell holds one kind of attribute. It does nothing at all until there is
+   room for the row to become a table, which is what the rule below decides. */
+.tm { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+
+/* Columns, once the window is wide enough to have them.
+ *
+ * Every attribute on a row was pushed to the right edge, in markup order,
+ * with whatever width it happened to need. Two rows of the same list could
+ * therefore put their status pill 300px apart, and on a 2560px screen the
+ * eye had to cross most of a metre of empty row to get from a title to its
+ * reference and then back to the next title. Twenty-five rows of that is not
+ * a list, it is twenty-five separate readings.
+ *
+ * Fixed cells turn the right-hand half of the list into what it always
+ * was -- a table -- so status reads down one column, priority down the next,
+ * and a row with no deadline leaves a gap where the deadline column is
+ * rather than closing up and shifting everything after it.
+ *
+ * Only above 1700px. The seven cells a default listing draws come to a
+ * little over 900px between them, so below that width the alignment would
+ * be bought with the title's room to be read, which is the wrong trade on
+ * the one column that matters. Under 1700px the row flows as it always has.
+ *
+ * Nothing here truncates. A cell is wide enough for the longest thing it
+ * can hold -- the deadline cell for "claim expired, three hours ago, four
+ * claims", which is the longest statement a row can make about itself -- and
+ * anything longer wraps inside its cell rather than being cut off. A row
+ * that wraps is a taller row; the columns either side of it are still in
+ * the same place, which is the whole point of giving them one. */
+@media (min-width: 1700px) {
+  .task-meta { gap: var(--space-2); }
+  .tm { flex: 0 0 auto; }
+  .tm-status { width: 86px; }
+  .tm-prio { width: 72px; }
+  .tm-tags { width: 230px; }
+  .tm-who { width: 100px; }
+  .tm-proj { width: 88px; }
+  .tm-flags { width: 244px; }
+  .tm-when { width: 144px; }
+  .tm-ref { width: 84px; justify-content: flex-end; }
+}
+
 /* The reference and the date sat at the end of the row in the same muted
    grey at almost the same size, so a reader could not tell which was which
    without reading them. They are different kinds of thing, so they are given
@@ -2030,11 +2472,53 @@ li.task:hover .task-meta .ref { color: var(--ink); }
 .task-meta .tag.project { border-color: var(--line-strong); }
 li.task.is-blocked a.task-title { color: var(--muted); }
 
+/* The same row on a phone.
+ *
+ * Everything a row can say about itself, wrapped onto a 319px line, was
+ * three lines of attributes under a two line title: 138px per row, so four
+ * tasks filled an iPhone and a list of twenty-five was six screens of
+ * scrolling. A phone is where a reader is checking what is open and what is
+ * late, not auditing tags.
+ *
+ * Tags and the updated stamp come off. Both are there in full one tap away
+ * on the task itself, both are the attributes a reader is least likely to be
+ * scanning for on a phone, and between them they are two of the three lines.
+ * What is left -- state, priority, deadline, who holds it and the reference
+ * -- fits one line under the title. */
 @media (max-width: 639px) {
-  li.task { flex-wrap: wrap; }
-  .task-meta { width: 100%; padding-left: 32px; }
+  li.task { flex-wrap: wrap; row-gap: var(--space-1); padding: var(--space-2) var(--space-3); }
+  .task-meta { width: 100%; padding-left: 30px; gap: var(--space-2); }
+  .task-meta .tm-tags,
+  .task-meta .tm-when { display: none; }
+  /* A zero basis, so a long title stays on the row's first line and wraps
+     inside the width it is given. With basis auto its content width was the
+     flex base size, which overran the line, so the title was pushed to a
+     line of its own underneath the tick and the project icon and every row
+     spent a line on two 20px marks. */
+  a.task-title { flex: 1 1 0; line-height: 1.35; }
+
+  /* The add row stays one row. Sending the field to 100% put the project
+     select and the Add button on a second line, 44px of the fold spent on
+     two controls that fit beside the box perfectly well. */
   .quickadd, .filterbar { flex-wrap: wrap; }
-  .quickadd input[name="title"], .filterbar input { flex: 1 1 100%; }
+  .quickadd input[name="title"] { flex: 1 1 140px; min-width: 0; }
+  .filterbar input { flex: 1 1 100%; }
+  .pagehead { margin-bottom: var(--space-3); }
+  .quickadd { margin-bottom: var(--space-2); }
+  /* The four controls that decide how the list is drawn, on one line at the
+     width where they only just fit. They keep their 44px height; it is the
+     horizontal padding that goes, and the icon beside each label is what
+     keeps them legible once it has. */
+  .pagehead-tools > * > button,
+  .pagehead-tools button { padding-inline: var(--space-2); }
+}
+
+/* The narrowest phone. The project is already on the row twice -- as the
+   coloured stripe down its left edge and as the project's own icon beside
+   the title -- so the keyed chip saying it a third time is the first thing
+   to go when there is no room for everything. */
+@media (max-width: 479px) {
+  .task-meta .tm-proj { display: none; }
 }
 
 /* The settings entry is a plain link under the navigation, so the way to
@@ -2055,9 +2539,15 @@ li.task.is-blocked a.task-title { color: var(--muted); }
 
 .side-foot a:hover { background: var(--bg); color: var(--ink); }
 
+/* Marked the same way the navigation above it marks the current screen:
+   weight and ink on the sidebar's own surface. It was the one entry in the
+   column that filled itself with accent when current, so landing on Settings
+   made the quietest link in the sidebar the brightest thing in it, and the
+   two halves of the same column disagreed about what "you are here" looks
+   like. */
 .side-foot a[aria-current="page"] {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--surface);
+  color: var(--ink);
   font-weight: 600;
 }
 
@@ -2186,17 +2676,32 @@ details.panel.columns { margin-bottom: 18px; }
    priority fit one line between them, and only the prose fields want the
    width. */
 details.panel.addmore { margin: calc(-1 * var(--space-2)) 0 var(--space-3); border: 0; background: none; }
+/* "New project", "Add with details": the way to make the thing the screen is
+   a list of. It was a muted word behind a 9px triangle, set smaller than the
+   rows it sat under, which made the one action on the screen the quietest
+   mark on it. It reads as a control now -- the same height, border and
+   corner as the secondary buttons it stands among -- without becoming a
+   filled accent button, because it opens a form rather than committing
+   anything. */
 details.panel.addmore > summary {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) 0;
+  min-height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
   font-size: var(--text-sm);
-  color: var(--muted);
-  background: none;
-  border: 0;
+  font-weight: 500;
+  color: var(--ink);
 }
-details.panel.addmore > summary:hover { color: var(--fg); }
+details.panel.addmore > summary:hover { border-color: var(--ink); background: var(--bg); }
+/* A plus, not the disclosure triangle every other panel carries. What this
+   one opens is a form for making a new thing, and at 0.8em the triangle read
+   as a bullet in front of the words rather than as a control. */
+details.panel.addmore > summary::before { content: "+"; font-size: var(--text-base); line-height: 1; color: var(--muted); }
+details.panel.addmore[open] > summary::before { content: "\00d7"; }
 details.panel.addmore[open] > .body {
   margin-top: var(--space-2);
   padding: var(--space-4);
@@ -2254,6 +2759,32 @@ details.panel.addmore .actions {
    as tools and only come forward when the row is under the pointer. */
 .projlist { list-style: none; margin: 0 0 var(--space-5); padding: 0; }
 
+/* Projects wrap into columns once a row would be mostly empty.
+ *
+ * A project row is a mark, a name, a key and one line of description: about
+ * 420px of content. Drawn as a full-width row on a 2560px screen that is six
+ * entries each carrying two thousand pixels of nothing, and the reader's eye
+ * travelling the whole width to find a Manage link at the far end of it.
+ *
+ * auto-fill rather than a column count, so the number of columns follows the
+ * window instead of a list of breakpoints, and each row keeps its own border
+ * because a column of entries separated only by a shared underline stops
+ * reading as separate entries once there are two columns of them.
+ *
+ * The screen keeps the prose measure rather than the listing one. Past about
+ * two columns the descriptions -- the one field on this screen a person
+ * wrote -- get clipped to make room for more columns of clipped
+ * descriptions. A short list, centred, is the honest answer to a wall of a
+ * monitor; a short list stretched across one is not. */
+@media (min-width: 1200px) {
+  .projlist {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: var(--space-2);
+  }
+  .projrow { border-color: var(--line); }
+}
+
 .projrow {
   display: flex;
   align-items: center;
@@ -2306,7 +2837,10 @@ details.panel.addmore .actions {
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
-  -webkit-line-clamp: 1;
+  /* Two lines. At one, every description on the demo tenant ended in an
+     ellipsis halfway through its first sentence, so the one field on this
+     screen somebody wrote was the one field nobody could read. */
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 
@@ -2362,7 +2896,13 @@ details.panel.addmore .actions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  /* It may wrap, and it may be narrower than its three controls want to be.
+     flex: 0 0 auto held it at its content width, so on a 320px screen the
+     strip was 323px wide and the whole page scrolled sideways by three
+     pixels to accommodate it. */
+  flex-wrap: wrap;
+  min-width: 0;
 }
 /* In the header the panel is a control, not a section: it gets the height of
    the controls beside it and opens over the page instead of pushing it down. */
@@ -2534,6 +3074,37 @@ kbd {
 
 .copyline button { flex: 0 0 auto; padding: 6px 10px; font-size: 0.85em; }
 
+/* The same affordance holding a block of lines rather than one command: the
+   ten recovery codes, which are shown in exactly one response and never
+   again.
+
+   The row was built for a single line, and the rules above style the <code>
+   inside it. Wrapped round ten lines, that element's padding and border were
+   drawn once per line fragment, so the codes overlapped each other, the box
+   clipped at the height of one line and the one thing on the screen nobody
+   can fetch a second time was unreadable. The <pre> is the box here, and the
+   <code> inside it is left as text. */
+.copyline pre {
+  flex: 1 1 260px;
+  min-width: 0;
+  margin: 0;
+  padding: 9px 10px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  line-height: 1.7;
+}
+.copyline pre > code {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+}
+
 /* A one-time secret: the value of a freshly issued API token
    (templates/tokens.html). Deliberately not a .flash -- that is the transient
    toast fixed to the corner of the page, sized for "task saved", and a value
@@ -2565,6 +3136,9 @@ kbd {
   border-color: var(--warn);
   user-select: all;
 }
+
+.secret .copyline pre { border-color: var(--warn); user-select: all; }
+.secret .copyline pre > code { padding: 0; border: 0; }
 
 /* Why one control's value was refused, on the line under that control. Not a
    .flash: a message about a field has to be beside the field, and a toast in
@@ -2604,12 +3178,21 @@ details.panel.raw {
      rather than a control. */
   width: fit-content;
   max-width: 100%;
-  border: 1px solid var(--line);
+  /* Transparent until it is wanted. The activity feed draws fifty rows and
+     every one of them carries this control, so a visible outlined chip on
+     each made a vertical band of identical boxes down the right of the page
+     that read as a column of data. The word stays, at full contrast; it is
+     the box round it that waits to be asked for. */
+  border: 1px solid transparent;
   border-radius: 6px;
   box-shadow: none;
-  background: var(--surface);
+  background: transparent;
   align-self: flex-start;
 }
+
+.feed > li:hover details.panel.raw,
+details.panel.raw:focus-within,
+details.panel.raw[open] { border-color: var(--line); background: var(--surface); }
 
 details.panel.raw > summary {
   padding: 3px 9px;
@@ -2731,7 +3314,7 @@ dl.raw-fields dd { margin: 0; overflow-wrap: anywhere; }
   /* Bounded. Six columns spread over a thousand pixels are six islands;
      the series has to be read as one shape, which means the bars have to be
      near each other. */
-  max-width: 560px;
+  max-width: var(--measure-chart);
   margin: 0 0 var(--space-5);
   padding: 0;
   list-style: none;
@@ -2746,10 +3329,19 @@ dl.raw-fields dd { margin: 0; overflow-wrap: anywhere; }
   min-width: 0;
   height: 100%;
 }
+/* The bar's height is a percentage of the column, and the column also holds
+   the figure above the bar and the date under it. The tallest bar in the
+   series is 100% of the column, so it took the whole height and pushed the
+   date out of the bottom: on a fourteen day window the busiest day's label
+   was drawn underneath the bar beside it and read as that one's. Capping the
+   bar at the column minus what the two labels and their gaps occupy leaves
+   the date where it belongs without changing what the heights mean relative
+   to each other. */
 .daybar {
   width: 100%;
   max-width: 40px;
   min-height: 2px;
+  max-height: calc(100% - 38px);
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   background: var(--accent);
 }
@@ -2768,6 +3360,7 @@ dl.raw-fields dd { margin: 0; overflow-wrap: anywhere; }
 /* The spread: one bar, divided, with the counts in the key under it. */
 .split {
   display: flex;
+  max-width: var(--measure-chart);
   height: 10px;
   border-radius: var(--radius-pill);
   overflow: hidden;
@@ -2794,10 +3387,17 @@ dl.raw-fields dd { margin: 0; overflow-wrap: anywhere; }
 .legend-name { color: var(--muted); }
 .legend-count { font-weight: 600; font-variant-numeric: tabular-nums; }
 
-.dist { list-style: none; margin: 0 0 var(--space-5); padding: 0; }
+/* The leaderboard is a comparison, so it is bounded: a track that grows with
+   the window makes "three" and "two" look further apart on a wide screen
+   than on a narrow one, which is the one thing a bar chart must not do. The
+   name column grows instead, because handles are the part that was being
+   cut off at 110px. */
+.choosehelp, .choosemeta { max-width: var(--measure-text); }
+
+.dist { list-style: none; margin: 0 0 var(--space-5); padding: 0; max-width: var(--measure-chart); }
 .dist-row {
   display: grid;
-  grid-template-columns: 110px 40px minmax(0, 220px);
+  grid-template-columns: minmax(0, 1fr) 48px 280px;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-1) 0;
@@ -2821,8 +3421,13 @@ dl.raw-fields dd { margin: 0; overflow-wrap: anywhere; }
 .dist-fill.is-actor { background: var(--accent); }
 .dist-count { text-align: right; font-size: var(--text-sm); font-variant-numeric: tabular-nums; font-weight: 600; }
 
+/* The row is a name, a count and a track, in that order in the markup. The
+   phone rule gave the middle column the slack, so on a 320px screen the
+   count sat in 121px of nothing and the track -- the only part of the row
+   that is a measurement -- was squeezed to 40px. The name takes the slack
+   and the track keeps a length worth comparing. */
 @media (max-width: 639px) {
-  .dist-row { grid-template-columns: 96px minmax(0, 1fr) 40px; }
+  .dist-row { grid-template-columns: minmax(0, 1fr) 2.5rem minmax(0, 7rem); }
 }
 
 /* One definition per category: the colour it is written in, and the token
@@ -2853,7 +3458,7 @@ dl.raw-fields dd { margin: 0; overflow-wrap: anywhere; }
   color: var(--muted);
   text-decoration: none;
 }
-.tagmore:hover { color: var(--fg); border-style: solid; }
+.tagmore:hover { color: var(--ink); border-style: solid; }
 
 /* The priority control: a chip that presses, matching the status pill. */
 .priomenu { display: inline-flex; }
@@ -3002,14 +3607,29 @@ ul.peoplelist {
   overflow: hidden;
 }
 
+/* The role and the account's state sit beside the name, not at the far edge
+   of the window. Pinning them right put 900px of nothing between "Tom Okafor"
+   and the word that says what Tom may do, and on a 4K screen a reader had to
+   track across most of a metre of empty row to pair a name with its role.
+   The identity column is capped and the marks follow it; the spare width
+   becomes an empty fourth column rather than a gap inside the row. */
 li.person {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas: "avatar id marks" ". edit edit";
+  grid-template-columns: auto minmax(0, 28rem) auto minmax(0, 1fr);
+  grid-template-areas: "avatar id marks edit";
   align-items: center;
-  gap: 4px 12px;
-  padding: 12px 14px;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--line);
+}
+
+/* Manage sits on the row until it is opened, and takes the full width once
+   it is. Closed, it is one word, and giving it a line of its own cost every
+   person on the list a third line to hold it. Open, it is a form, and a form
+   in a fourth column would be unusable. The same element in two places,
+   decided by whether it is open, with no script and no second control. */
+li.person:has(details.person-edit[open]) {
+  grid-template-areas: "avatar id marks ." "edit edit edit edit";
 }
 
 li.person:last-child { border-bottom: 0; }
@@ -3041,14 +3661,17 @@ li.person.is-off .avatar { background: var(--line); color: var(--muted); }
 
 /* A role is authority, so it reads as a solid badge; a state is a condition,
    so it reads as a dot and a word. Two different kinds of fact, two shapes. */
+/* Lower case, at the weight of the other marks on the row. ADMIN set in
+   700 weight capitals with extra tracking made the least urgent fact about a
+   person the loudest word on their row, and disagreed with every other mark
+   in the interface -- a status pill, a priority, a tag -- which are all set
+   in the words they actually are. */
 .role {
   display: inline-block;
   padding: 2px 9px;
-  border-radius: 4px;
-  font-size: var(--text-2xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 600;
   background: var(--bg);
   color: var(--muted);
   border: 1px solid var(--line-strong);
@@ -3079,24 +3702,31 @@ li.person.is-off .avatar { background: var(--line); color: var(--muted); }
 .state.off { color: var(--muted); }
 .state.off::before { background: transparent; border: 2px solid currentColor; width: 5px; height: 5px; }
 
+/* "you", in the words it is. Set in filled accent capitals it was a brighter
+   mark than anything else on the list, for the one fact the reader already
+   knows. --on-accent rather than --surface, which is a background colour and
+   happened to be light enough to read in one scheme out of four. */
 .chip.you {
   display: inline-block;
-  padding: 0 6px;
-  border-radius: 999px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
   font-size: var(--text-2xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  background: var(--accent);
-  color: var(--surface);
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent);
   vertical-align: 1px;
 }
 
-details.person-edit { grid-area: edit; margin: 8px 0 0; }
+details.person-edit { grid-area: edit; margin: 0; }
 .person-delete { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
 .check-inline { display: inline-flex; align-items: center; gap: 6px; }
 
 @media (max-width: 559px) {
-  li.person { grid-template-areas: "avatar id id" ". marks marks" ". edit edit"; }
+  li.person,
+  li.person:has(details.person-edit[open]) {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "avatar id id" ". marks marks" ". edit edit";
+  }
   .person-marks { margin-top: 4px; }
 }
 
@@ -3298,18 +3928,33 @@ nav.tabs a {
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
 }
-nav.tabs a:hover { color: var(--text); }
+nav.tabs a:hover { color: var(--ink); }
 nav.tabs a[aria-current="page"] {
-  color: var(--text);
+  color: var(--ink);
   font-weight: 600;
   border-bottom-color: var(--accent);
 }
 
 /* The "what this does" notes. Closed by default: somebody who already knows
    should not have to scroll past an explanation every time. */
-details.note { margin: 0 0 1rem; font-size: var(--text-md); }
-details.note > summary { cursor: pointer; color: var(--muted); }
-details.note > summary:hover { color: var(--text); }
+/* An aside a reader can open, with the same marker every other disclosure in
+   this interface carries. It kept the browser's own triangle, so two
+   disclosures on one screen -- "What goes into the file" and a panel under
+   it -- opened with two different glyphs pointing two different ways. */
+details.note { margin: 0 0 1rem; font-size: var(--text-md); max-width: var(--measure-text); }
+details.note > summary {
+  cursor: pointer;
+  color: var(--muted);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h-sm);
+}
+details.note > summary::-webkit-details-marker { display: none; }
+details.note > summary::before { content: "\25B8"; color: var(--muted); font-size: 0.8em; }
+details.note[open] > summary::before { content: "\25BE"; }
+details.note > summary:hover { color: var(--ink); }
 details.note p { margin: 0.5rem 0 0; color: var(--muted); max-width: 60ch; }
 
 /* The tenant shape. A list drawn as a tree: the indent carries the nesting
@@ -3345,7 +3990,21 @@ ul.shape .count {
    on one line here: the stylesheet reflows at every width by policy, and
    TestStylesheetEmitsNoHorizontalScrollLayout enforces it. */
 ul.shape .count.uncounted { font-variant-numeric: normal; font-style: italic; }
-ul.shape .note { color: var(--muted); font-size: var(--text-sm); margin-left: auto; text-align: right; }
+/* The gloss beside a row of the tenant tree is a phrase, not a note block.
+   It carried the class, so it inherited the bordered, tinted, left-edged box
+   above and the tree became eight outlined rectangles ragged down the page.
+   Here it is what it reads as: a few quiet words at the end of the row. */
+ul.shape .note {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  margin-left: auto;
+  text-align: right;
+  max-width: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
 
 /* An environment variable name is one token to a reader, and td's
    overflow-wrap: anywhere was splitting it mid-word (TIX_SYNC_OPS_EXPO /
@@ -3597,19 +4256,23 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 
 .authcard form .actions { display: block; margin-top: 22px; }
+.authcard input#code { margin-inline: auto; }
 
 /* The submit is the page's one strong mark: the ink colour filled, carrying
    the surface colour as its text. Both tokens flip with the scheme, so the
    button stays the inverse of the card it sits in rather than a fixed black. */
+/* The full-width inverse of the card: ink on light, light on ink, so it
+   flips with the scheme. 44px rather than 40, which is the smallest target a
+   thumb hits reliably and this is the one control on the screen. */
 .authcard form .actions button {
   background: var(--ink);
   border-color: var(--ink);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   color: var(--surface);
   font-size: var(--text-base);
   font-weight: 500;
-  height: 40px;
-  padding: 0 14px;
+  height: 44px;
+  padding: 0 var(--space-4);
   width: 100%;
 }
 
@@ -3673,6 +4336,24 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 .totp-enrol code { word-break: break-all; }
 
+/* Six characters, in a box sized for six characters. A field drawn 510px
+   wide for a code that is never longer than a word says nothing about what
+   belongs in it, and on the one screen standing between a reader and
+   everything else the field should look like what it wants. The tracking and
+   the mono face are there so a reader checking what they typed against the
+   phone in their other hand can read it a digit at a time. */
+input#code {
+  display: block;
+  /* Centred on the sign-in card, where everything else is; left where it
+     falls inside the application shell, where the labels above it are. */
+  margin-inline: 0;
+  max-width: 11rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-lg);
+  letter-spacing: 0.22em;
+  text-align: center;
+}
+
 /* ---------------------------------------------------------------------------
    Settings: one row per preference.
 
@@ -3686,16 +4367,26 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
    comments, where it is still true and no longer in the way.
    ------------------------------------------------------------------------ */
 .setgroup { margin: 0 0 var(--space-6); }
+/* The name of a group of settings, set the way every other quiet label in
+   this interface is set: in its own words, at the sidebar group's size and
+   colour. APPEARANCE in tracked capitals is the loudest kind of type there
+   is, spent on a word whose job is to be skimmed past. */
 .setgroup > h2 {
   font-size: var(--text-xs);
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--muted);
   margin: 0 0 var(--space-2);
 }
 
+/* A setting is a sentence on the left and the control that changes it on the
+   right, and the two have to be read together. Unbounded, the row grew with
+   the window: on a 2560px screen "Version" and "dev" were eleven hundred
+   pixels apart, and on the settings screen the switch for a preference was
+   at the far edge of the page from the text explaining it. */
 .setlist {
+  max-width: var(--measure-form);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -3875,9 +4566,18 @@ li.recrow.server.is-stale .recrow-title code { color: var(--muted); }
    lede, which is the style of an introduction, at the foot of the page. */
 .note {
   margin: 0 0 var(--space-5);
+  /* It is a sentence, so it is set to a sentence's measure. Run the width of
+     a 4K page it stops being a sentence and becomes a band of colour. */
+  max-width: var(--measure-text);
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--line);
-  border-left: 3px solid var(--warn);
+  /* A quiet edge, not an amber one. Every .note in this interface explains
+     something -- what a control applies to, what a count is counting, what a
+     deletion does not touch -- and none of them is a warning. Painted in the
+     warning colour they were the most urgent looking objects on screens with
+     nothing urgent on them. A note that really is a warning says so by
+     living inside a .danger panel, which is already coloured. */
+  border-left: 3px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
   font-size: var(--text-sm);
@@ -3890,7 +4590,7 @@ li.recrow.server.is-stale .recrow-title code { color: var(--muted); }
 /* The scopes cell. A token's scopes are a set of short names, and as a comma
    joined run they were one long string the table squeezed into a quarter of
    the width and wrapped to ten lines, making every row 230px tall. */
-th.scopecell { width: 32%; }
+th.scopecell { width: 40%; }
 th.actioncell { width: 150px; }
 td.scopecell .evchip { display: inline-block; margin: 1px 2px 1px 0; font-size: var(--text-2xs); }
 
@@ -3906,4 +4606,91 @@ td.scopecell .evchip { display: inline-block; margin: 1px 2px 1px 0; font-size: 
   font-size: var(--text-sm);
   font-weight: 400;
   color: var(--muted);
+}
+
+
+/* ---------------------------------------------------------------------------
+   Touch targets.
+
+   Last in the file on purpose. Every rule here raises a control that is
+   defined further up, and a media query carries no extra weight: placed
+   beside the breakpoint at the top of the file these lost to the component's
+   own size and silently did nothing.
+
+   Two sizes, and the difference between them is whether the control has room
+   around it. A control standing on its own gets 44px, the smallest target
+   iOS calls reliable. A control sharing a line with three others -- the
+   status and priority chips on a task row, the cross on a tag -- gets 32,
+   because a 44px box round each would reach into its neighbours and into the
+   row above, and a tap that lands on the wrong control is worse than a tap
+   that needs aiming.
+   ------------------------------------------------------------------------ */
+
+@media (max-width: 899px) {
+  /* A checkbox is 16px; the words beside it are the rest of the target, and
+     the label is what the browser already routes the tap to. */
+  label:has(> input[type="checkbox"]),
+  label:has(> input[type="radio"]) { min-height: 44px; }
+
+  /* Disclosures that act as a row's one button: Manage on a person, Revoke
+     on a token, Raw on an activity entry, Move on a board card, and the
+     per-project links on the project list. */
+  details.person-edit > summary,
+  td > details.panel > summary,
+  details.panel.raw > summary,
+  details.note > summary,
+  details.card-move > summary,
+  .ghostlink {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .ghostlink { padding-inline: var(--space-3); }
+
+  /* The "i" beside a label keeps its 16px circle and grows a 44px tap zone
+     around it. Drawn at 44 it would be a bordered square the size of a
+     button, which says it is the field rather than a note about it. */
+  .field-info > summary { position: relative; }
+  .field-info > summary::after { content: ""; position: absolute; inset: -14px; }
+
+  /* Chips that are controls rather than labels: on a task row, under a
+     task's title, and the dismissal on a tag. The tag's chip carries the
+     44px; the cross inside it keeps 28. */
+  .task-meta .statuspill,
+  .task-meta .priobtn,
+  .taskpills .statuspill,
+  .taskpills .priobtn {
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+  }
+  button.check, span.check { width: 32px; height: 32px; }
+  /* The chips that filter rather than edit: a tag, a handle, a project key,
+     a deadline. They are links, and a link inside a line of other text is
+     exempt from the target floors for good reason -- a 44px box round each
+     would double the height of every row in a listing whose whole point is
+     that it shows a lot of rows. 28px is what the line can give without
+     becoming two lines, and it is what they get.
+
+     The title beside them is the row's largest target already: hundreds of
+     pixels wide, and now the height of the line it sits on. */
+  .tagref,
+  .who-ref,
+  .projref,
+  .duemark,
+  .tagmore {
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+  }
+  a.task-title { min-height: 32px; display: flex; align-items: center; }
+
+  .tagchips > li { min-height: 44px; }
+  .tagdrop {
+    min-width: 28px;
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
