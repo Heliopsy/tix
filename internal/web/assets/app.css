@@ -54,7 +54,14 @@
      the reader's attention and the chrome was winning. Lines are structure,
      and structure should be felt rather than read. */
   --ink: #0f1319;
-  --muted: #697586;
+  /* Measured against --surface, not against the page.
+     #697586 cleared 4.68:1 on white and 4.35:1 on the tinted surface, and
+     almost every muted word in the interface is on the tinted surface: a
+     settings help line, a scope chip, an email under a name, a column
+     heading, a tag on a task row. So the light scheme was below the floor
+     nearly everywhere it used this token and above it almost nowhere. This
+     clears 5.0:1 on the surface and 5.4:1 on the page. */
+  --muted: #5f6b7a;
   --line: #ebedf1;
   --line-strong: #d6dae1;
   --danger: #b42318;
@@ -117,9 +124,12 @@
   --side-w: 224px;
 
   /* Project palette. A project stores a token, not a colour, so each scheme
-     renders its own shade; every one of these clears 4.4:1 against both the
-     surface and the page background. */
-  --proj-slate: #64748b;
+     renders its own shade; every one of these clears 4.5:1 against both the
+     surface and the page background. Slate was 4.44 on the surface, which is
+     where a project key is nearly always drawn -- a task row, a board card,
+     a project list entry -- so one of the eight sat under the floor on every
+     screen that used it. */
+  --proj-slate: #5e6e85;
   --proj-red: #dc2626;
   --proj-amber: #b45309;
   --proj-green: #15803d;
@@ -1182,6 +1192,7 @@ button.link {
   font-weight: 400;
   text-decoration: underline;
 }
+button.link:hover { background: none; color: var(--accent); filter: none; }
 
 /* A row of fields, aligned on their controls: a labelled select, a bare
    checkbox and a button sit on one line because their bottoms agree, which
@@ -1797,7 +1808,13 @@ a.secondary.clear:hover { filter: brightness(1.08); }
   line-height: 1;
 }
 
-.statuspill:hover { filter: none; }
+/* The base button rule paints a filled accent rectangle on hover, and these
+   two are buttons that have declared themselves bare. Resetting only the
+   filter left the background to the rule above, so hovering a status pill on
+   a task row covered it with a solid block of accent and the word inside it
+   disappeared; the same was true of every button.link in the interface.
+   Whatever declares a button transparent has to say so for hover too. */
+.statuspill:hover { background: none; filter: none; }
 
 /* Status and priority on the task's own screen.
 
