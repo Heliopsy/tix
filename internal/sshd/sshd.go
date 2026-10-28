@@ -313,6 +313,7 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	select {
 	case err := <-done:
+		s.waitForHeaderParses()
 		if errors.Is(err, ssh.ErrServerClosed) {
 			return nil
 		}
@@ -320,7 +321,26 @@ func (s *Server) Serve(ctx context.Context) error {
 	case <-ctx.Done():
 		_ = s.ssh.Close()
 		<-done
+		s.waitForHeaderParses()
 		return nil
+	}
+}
+
+// waitForHeaderParses blocks until no goroutine started by the proxy protocol
+// listener is still running.
+//
+// Serve owes its caller more than a stopped accept loop. Those goroutines hold
+// the server's logger, and a shutdown is what makes them log: closing the
+// listener breaks the read a parse is blocked on, and the parse logs the
+// refusal as it unwinds. A caller that takes the logger's writer back the
+// moment Serve returns, which any test writing to a buffer does, is then
+// racing a write it has no way to see coming.
+//
+// It is placed after the accept loop has stopped in both paths, which is the
+// only point where waiting is correct: see the listener's wait method.
+func (s *Server) waitForHeaderParses() {
+	if pl, ok := s.listener.(*proxyListener); ok {
+		pl.wait()
 	}
 }
 
