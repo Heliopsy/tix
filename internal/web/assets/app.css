@@ -3032,6 +3032,37 @@ kbd {
 
 .copyline button { flex: 0 0 auto; padding: 6px 10px; font-size: 0.85em; }
 
+/* The same affordance holding a block of lines rather than one command: the
+   ten recovery codes, which are shown in exactly one response and never
+   again.
+
+   The row was built for a single line, and the rules above style the <code>
+   inside it. Wrapped round ten lines, that element's padding and border were
+   drawn once per line fragment, so the codes overlapped each other, the box
+   clipped at the height of one line and the one thing on the screen nobody
+   can fetch a second time was unreadable. The <pre> is the box here, and the
+   <code> inside it is left as text. */
+.copyline pre {
+  flex: 1 1 260px;
+  min-width: 0;
+  margin: 0;
+  padding: 9px 10px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  line-height: 1.7;
+}
+.copyline pre > code {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+}
+
 /* A one-time secret: the value of a freshly issued API token
    (templates/tokens.html). Deliberately not a .flash -- that is the transient
    toast fixed to the corner of the page, sized for "task saved", and a value
@@ -3063,6 +3094,9 @@ kbd {
   border-color: var(--warn);
   user-select: all;
 }
+
+.secret .copyline pre { border-color: var(--warn); user-select: all; }
+.secret .copyline pre > code { padding: 0; border: 0; }
 
 /* Why one control's value was refused, on the line under that control. Not a
    .flash: a message about a field has to be beside the field, and a toast in
@@ -4175,6 +4209,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 
 .authcard form .actions { display: block; margin-top: 22px; }
+.authcard input#code { margin-inline: auto; }
 
 /* The submit is the page's one strong mark: the ink colour filled, carrying
    the surface colour as its text. Both tokens flip with the scheme, so the
@@ -4253,6 +4288,24 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   background: #ffffff;
 }
 .totp-enrol code { word-break: break-all; }
+
+/* Six characters, in a box sized for six characters. A field drawn 510px
+   wide for a code that is never longer than a word says nothing about what
+   belongs in it, and on the one screen standing between a reader and
+   everything else the field should look like what it wants. The tracking and
+   the mono face are there so a reader checking what they typed against the
+   phone in their other hand can read it a digit at a time. */
+input#code {
+  display: block;
+  /* Centred on the sign-in card, where everything else is; left where it
+     falls inside the application shell, where the labels above it are. */
+  margin-inline: 0;
+  max-width: 11rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-lg);
+  letter-spacing: 0.22em;
+  text-align: center;
+}
 
 /* ---------------------------------------------------------------------------
    Settings: one row per preference.
