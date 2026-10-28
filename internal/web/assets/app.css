@@ -113,6 +113,11 @@
      eight characters, drawn a thousand pixels wide, tells the reader nothing
      about what belongs in it and makes the form a stack of identical bars. */
   --measure-field: 32rem;
+  /* How wide a form is allowed to get. A form is a column of related
+     controls, and once the row holding Mode, Preview only and Run import is
+     a thousand pixels across, the button is no longer visibly part of the
+     thing it submits. Shared by the field rows and the settings lists. */
+  --measure-form: 920px;
   /* What a chart is allowed to grow to. A proportion bar and a column chart
      are read by comparing lengths, and a track that follows the window makes
      the same two numbers look further apart on a wide screen than on a
@@ -612,7 +617,45 @@ h3 {
 .card > h2:first-child, .card > h3:first-child { margin-top: 0; }
 a { color: var(--accent); }
 .muted { color: var(--muted); }
+/* Running text, set to a measure.
+   The page is allowed to be wide now, so anything that is a sentence has to
+   say how wide it is willing to be or it inherits the page's width: the
+   webhook screen's explanation of its signing secret was one 1,150px line on
+   a laptop and a 2,000px line on a 4K display, which is well past the point
+   where the eye loses the start of the next line. Classless paragraphs are
+   included because that is what most of these screens write prose as; a
+   paragraph that is really a layout wrapper holds a control, and a control
+   is narrower than the measure anyway. */
+.lede,
+.meta,
+.wrap > p:not([class]),
+.card > p:not([class]),
+details.panel > .body > p:not([class]) { max-width: var(--measure-text); }
+
 .lede { color: var(--muted); margin: -8px 0 18px; }
+
+/* The one native element left unstyled. A fieldset's default border is a
+   notched rectangle no other region in this interface draws, and left at its
+   own width it ran the whole content column to hold five checkboxes stacked
+   in a single file down its left edge. It is a group of choices, so it is
+   drawn the way the other groups of choices are: a legend at a label's size
+   and colour, and the choices in the same grid .columnform uses. */
+fieldset {
+  max-width: var(--measure-field);
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+fieldset > legend {
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--muted);
+}
+fieldset > label:has(> input[type="checkbox"]),
+fieldset > label:has(> input[type="radio"]) { margin: var(--space-1) 0; }
 
 /* Cards */
 /* A surface, not a panel.
@@ -1207,6 +1250,7 @@ button.link:hover { background: none; color: var(--accent); filter: none; }
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 0 12px;
   align-items: end;
+  max-width: var(--measure-form);
 }
 
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
@@ -4240,7 +4284,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
    pixels apart, and on the settings screen the switch for a preference was
    at the far edge of the page from the text explaining it. */
 .setlist {
-  max-width: 920px;
+  max-width: var(--measure-form);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
