@@ -2364,14 +2364,24 @@ a.task-title:hover { color: var(--accent); }
  *
  * Measuring it instead of guessing: the task screen fills the viewport and
  * the listing takes whatever is left after the controls above it, whatever
- * that turns out to be. Only on a screen tall and wide enough to be worth
- * pinning -- a phone scrolls the page, which is why the pager is ordered
- * under the rows there. */
-@media (min-width: 900px) {
+ * that turns out to be.
+ *
+ * From 640px up, which takes in a tablet held upright: below that a phone
+ * scrolls the page itself, and pinning the viewport so a 300px frame scrolls
+ * inside it is the wrong shape for a thumb. The listing keeps its 220px
+ * floor, so on a very short window the page scrolls rather than the rows
+ * being squeezed out of existence. */
+@media (min-width: 640px) {
+  /* The shell is the viewport, and the content column takes what is left of
+     it. Setting the height on the content column alone was right on a
+     desktop, where the sidebar is a column beside it, and wrong on a tablet,
+     where the sidebar is a bar above it: the page then stood a bar's height
+     taller than the window and grew the second scrollbar back. */
+  .shell:has(#tasks-listing) { height: 100svh; }
   .wrap:has(#tasks-listing) {
     display: flex;
     flex-direction: column;
-    height: 100svh;
+    min-height: 0;
     padding-bottom: var(--space-5);
   }
   .wrap:has(#tasks-listing) #tasks-listing {
@@ -2383,13 +2393,20 @@ a.task-title:hover { color: var(--accent); }
   .wrap:has(#tasks-listing) ul.tasklist {
     flex: 1 1 auto;
     max-height: none;
-    min-height: 0;
+    min-height: 220px;
   }
   .wrap:has(#tasks-listing) .board {
     flex: 1 1 auto;
     height: auto;
     min-height: 0;
   }
+}
+
+/* Between a phone and a desktop the sidebar is a bar across the top, so the
+   shell is two rows rather than two columns and the content column is the
+   second of them. */
+@media (min-width: 640px) and (max-width: 899px) {
+  .shell:has(#tasks-listing) { grid-template-rows: auto minmax(0, 1fr); }
 }
 
 /* A cell holds one kind of attribute. It does nothing at all until there is
