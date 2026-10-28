@@ -38,14 +38,21 @@
       </button>
       <div id="viewprefs" class="flowmenu colpop viewpop" popover>
         <div class="body viewgrid">
+          {{/* A label, not a heading. This panel is a menu that hangs off a
+               button in the page header, so its sections are not sections of
+               the document: rendered as h3 they followed the screen's h1
+               with no h2 between them, which is a reader using headings to
+               move through the page being told a level is missing. The
+               Columns menu's own heading is already a p.flowhead; this is
+               the same thing. */}}
           {{if .ColumnForm.Configurable}}
           <section>
-            <h3>Columns</h3>
+            <p class="viewhead">Columns</p>
             {{template "column-choices" .ColumnForm}}
           </section>
           {{end}}
           <section>
-            <h3>Projects</h3>
+            <p class="viewhead">Projects</p>
             {{template "project-choices" $v.Prefs.Projects}}
           </section>
         </div>

@@ -1799,12 +1799,14 @@ a.secondary.clear:hover { filter: brightness(1.08); }
   gap: 18px;
 }
 
-.viewgrid h3 {
-  margin: 0 0 8px;
+/* Named in its own words, like the settings group headings and the sidebar
+   group labels. Tracked capitals are the loudest kind of type there is, and
+   these two words exist to be skimmed past on the way to the checkboxes. */
+.viewgrid .viewhead {
+  margin: 0 0 var(--space-2);
   font-size: var(--text-xs);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   color: var(--muted);
 }
 
