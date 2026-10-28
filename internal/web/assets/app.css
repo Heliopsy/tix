@@ -476,13 +476,23 @@ nav .group {
 .menuclose { width: 100%; margin-top: var(--space-5); }
 
 /* A phone is touched, not clicked. 44px is the smallest target iOS calls
-   reliable, and these were 32. */
+   reliable, and these were 32.
+
+   Everything here is a control that stands on its own, with room around it,
+   so growing its hit area cannot put it on top of the control next to it.
+   The chips inside a dense task row are the exception and are handled
+   separately, under .task-meta: four of them share a 22px line, so a 44px
+   box round each would overlap both its neighbours and the row above. */
 @media (max-width: 899px) {
   nav.main { display: block; }
   nav.main a { min-height: 44px; }
   .sidemenu .side-foot a { min-height: 44px; display: inline-flex; align-items: center; }
   /* The one control on a task screen somebody presses every time. */
   .backlink a { min-height: 44px; }
+
+  /* A checkbox's label is its target, and the components that size
+     themselves are gathered at the foot of this file under "Touch targets",
+     after the rules they have to beat. */
 }
 
 @media (min-width: 900px) {
@@ -908,6 +918,11 @@ input[type="checkbox"], input[type="radio"] {
   background: none;
   box-shadow: none;
 }
+/* 16px rather than whatever the platform draws, which was 13 on this one.
+   A 13px square is below every target-size floor there is and is the hardest
+   control in the interface to hit with a thumb; the label beside it carries
+   the rest of the target (below). */
+input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; flex: 0 0 auto; }
 input[type="checkbox"]:hover, input[type="radio"]:hover { box-shadow: none; }
 input[type="checkbox"]:focus-visible, input[type="radio"]:focus-visible {
   outline: 2px solid var(--accent);
@@ -4428,4 +4443,91 @@ td.scopecell .evchip { display: inline-block; margin: 1px 2px 1px 0; font-size: 
   font-size: var(--text-sm);
   font-weight: 400;
   color: var(--muted);
+}
+
+
+/* ---------------------------------------------------------------------------
+   Touch targets.
+
+   Last in the file on purpose. Every rule here raises a control that is
+   defined further up, and a media query carries no extra weight: placed
+   beside the breakpoint at the top of the file these lost to the component's
+   own size and silently did nothing.
+
+   Two sizes, and the difference between them is whether the control has room
+   around it. A control standing on its own gets 44px, the smallest target
+   iOS calls reliable. A control sharing a line with three others -- the
+   status and priority chips on a task row, the cross on a tag -- gets 32,
+   because a 44px box round each would reach into its neighbours and into the
+   row above, and a tap that lands on the wrong control is worse than a tap
+   that needs aiming.
+   ------------------------------------------------------------------------ */
+
+@media (max-width: 899px) {
+  /* A checkbox is 16px; the words beside it are the rest of the target, and
+     the label is what the browser already routes the tap to. */
+  label:has(> input[type="checkbox"]),
+  label:has(> input[type="radio"]) { min-height: 44px; }
+
+  /* Disclosures that act as a row's one button: Manage on a person, Revoke
+     on a token, Raw on an activity entry, Move on a board card, and the
+     per-project links on the project list. */
+  details.person-edit > summary,
+  td > details.panel > summary,
+  details.panel.raw > summary,
+  details.note > summary,
+  details.card-move > summary,
+  .ghostlink {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .ghostlink { padding-inline: var(--space-3); }
+
+  /* The "i" beside a label keeps its 16px circle and grows a 44px tap zone
+     around it. Drawn at 44 it would be a bordered square the size of a
+     button, which says it is the field rather than a note about it. */
+  .field-info > summary { position: relative; }
+  .field-info > summary::after { content: ""; position: absolute; inset: -14px; }
+
+  /* Chips that are controls rather than labels: on a task row, under a
+     task's title, and the dismissal on a tag. The tag's chip carries the
+     44px; the cross inside it keeps 28. */
+  .task-meta .statuspill,
+  .task-meta .priobtn,
+  .taskpills .statuspill,
+  .taskpills .priobtn {
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+  }
+  button.check, span.check { width: 32px; height: 32px; }
+  /* The chips that filter rather than edit: a tag, a handle, a project key,
+     a deadline. They are links, and a link inside a line of other text is
+     exempt from the target floors for good reason -- a 44px box round each
+     would double the height of every row in a listing whose whole point is
+     that it shows a lot of rows. 28px is what the line can give without
+     becoming two lines, and it is what they get.
+
+     The title beside them is the row's largest target already: hundreds of
+     pixels wide, and now the height of the line it sits on. */
+  .tagref,
+  .who-ref,
+  .projref,
+  .duemark,
+  .tagmore {
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+  }
+  a.task-title { min-height: 32px; display: flex; align-items: center; }
+
+  .tagchips > li { min-height: 44px; }
+  .tagdrop {
+    min-width: 28px;
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
