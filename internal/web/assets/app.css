@@ -1292,6 +1292,12 @@ td {
   overflow-wrap: anywhere;
 }
 tbody tr:last-child td { border-bottom: 0; }
+
+/* A cell may break a long value anywhere, because a ULID or a URL has no
+   break opportunity of its own and would otherwise push the table wider than
+   the page. A badge is a word, and inheriting that rule it came out as
+   "acti / ve" down two lines whenever its column was squeezed. */
+td .badge, td .role, td .pill, td .state, td .evchip { overflow-wrap: normal; }
 tbody tr:hover { background: var(--surface); }
 td a { font-weight: 500; text-decoration: none; }
 td a:hover { text-decoration: underline; }
@@ -1394,13 +1400,23 @@ dl.fields dd { margin: 0 0 8px; }
 }
 
 /* Disclosures keep rarely used forms out of the way. */
+/* A panel is a card that opens. It was the card's shape in a different
+   colour, so a task screen read as a stack of white cards with grey bars
+   between them -- Subtasks, Dependencies and Comments in one family, Edit
+   custom fields, Artifacts, History and Danger zone in another -- when the
+   only difference between them is that four of them are shut. The marker in
+   the summary is what says a panel opens; it does not need a second colour
+   to say it as well. */
 details.panel {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: transparent;
   margin: 0 0 12px;
   box-shadow: var(--shadow);
 }
+/* Open, it is a region with contents, and the tint distinguishes those
+   contents from the page the way a card's never has to. */
+details.panel[open] { background: var(--surface); }
 
 details.panel > summary {
   cursor: pointer;
@@ -1433,9 +1449,18 @@ td > details.panel {
   box-shadow: none;
 }
 td > details.panel > summary { padding: 0; font-size: var(--text-sm); }
+/* Opened, it needs a line a sentence can live on. The actions column is
+   about 150px wide, so the explanation of what revoking does came out one or
+   two words to a line and stood the row 500px tall. The cell widens to hold
+   it -- the table reflows while the panel is open, which is visibly
+   temporary -- and the cap stops it taking the width from the columns that
+   hold the record itself. In flow rather than floated over the page,
+   because a table may sit inside a horizontally scrolling wrapper and
+   anything positioned out of the cell would be clipped by it. */
 td > details.panel > .body {
   padding: var(--space-3) 0 0;
-  max-width: 34rem;
+  min-width: 16rem;
+  max-width: 22rem;
 }
 
 /* Detail layout: content beside a metadata rail */
