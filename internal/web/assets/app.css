@@ -3404,8 +3404,13 @@ dl.raw-fields dd { margin: 0; overflow-wrap: anywhere; }
 .dist-fill.is-actor { background: var(--accent); }
 .dist-count { text-align: right; font-size: var(--text-sm); font-variant-numeric: tabular-nums; font-weight: 600; }
 
+/* The row is a name, a count and a track, in that order in the markup. The
+   phone rule gave the middle column the slack, so on a 320px screen the
+   count sat in 121px of nothing and the track -- the only part of the row
+   that is a measurement -- was squeezed to 40px. The name takes the slack
+   and the track keeps a length worth comparing. */
 @media (max-width: 639px) {
-  .dist-row { grid-template-columns: 96px minmax(0, 1fr) 40px; }
+  .dist-row { grid-template-columns: minmax(0, 1fr) 2.5rem minmax(0, 7rem); }
 }
 
 /* One definition per category: the colour it is written in, and the token
