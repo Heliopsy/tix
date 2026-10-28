@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0](https://github.com/Heliopsy/tix/compare/v0.22.0...v0.23.0) (2026-10-28)
+
+
+### Features
+
+* **web:** a design pass over every browser screen ([#83](https://github.com/Heliopsy/tix/issues/83)) ([239255e](https://github.com/Heliopsy/tix/commit/239255e2e1a824579efbdad559dcd09d9b6a2259))
+
 ## [0.22.0](https://github.com/Heliopsy/tix/compare/v0.21.2...v0.22.0) (2026-10-27)
 
 
