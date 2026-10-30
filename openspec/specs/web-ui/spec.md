@@ -352,6 +352,8 @@ The web UI SHALL provide a view of completed external imports, listing for each 
 
 The web UI SHALL provide an activity feed showing recent events for the tenant, updating as new events arrive when JavaScript is available.
 
+The feed SHALL use the same connection mechanism as every other live screen: the same reconnect, the same resume, the same fallback and the same notice when it is not live.
+
 #### Scenario: Feed shows recent activity
 
 - **WHEN** a user opens the activity feed
@@ -366,6 +368,11 @@ The web UI SHALL provide an activity feed showing recent events for the tenant, 
 
 - **WHEN** the feed is opened with JavaScript disabled
 - **THEN** recent events are still listed, refreshed on page load
+
+#### Scenario: A feed that has stopped receiving says so
+
+- **WHEN** the feed's connection drops and cannot immediately be reopened
+- **THEN** the feed says the view may be out of date, and reconnects
 
 ### Requirement: Served from the single binary with no build step and no CDN
 
@@ -407,7 +414,12 @@ Every form in the web UI SHALL submit and function with JavaScript disabled. Jav
 
 ### Requirement: Usable at phone width
 
-Every web UI screen SHALL be usable on a narrow viewport typical of a phone, with no horizontal page scrolling and with all controls reachable.
+Every web UI screen SHALL be usable on a narrow viewport typical of a phone, with no horizontal page
+scrolling and with all controls reachable.
+
+Decorative elements SHALL be bounded by the viewport. An absolutely positioned decoration that
+overhangs the viewport adds to the page's scrollable width, and a `overflow-x: hidden` on the body
+does not prevent it.
 
 #### Scenario: Board at phone width
 
@@ -418,6 +430,11 @@ Every web UI screen SHALL be usable on a narrow viewport typical of a phone, wit
 
 - **WHEN** a task detail form is viewed at a phone-width viewport
 - **THEN** every field and the submit control are reachable and operable
+
+#### Scenario: A decoration wider than the viewport
+
+- **WHEN** a screen carries a decorative element whose natural size exceeds a phone-width viewport
+- **THEN** the element is bounded by the viewport and the page does not scroll horizontally
 
 ### Requirement: Per-tenant branding
 
@@ -587,24 +604,52 @@ name. Resolving a name SHALL be scoped to the caller's own tenant.
 - **WHEN** the tenant administration screen lists this tenant's members
 - **THEN** each row names the actor rather than showing its bare identifier
 
-### Requirement: Display preferences live in one always-visible settings menu
+### Requirement: Every display preference has exactly one always-reachable control
 
-The browser interface SHALL gather the preferences that apply to every screen -- the colour scheme
-and whether the administrative screens are shown -- into a single settings control that is present
-in the sidebar on every signed-in screen. Every control within it SHALL be a plain form that works
-with scripting disabled, and the menu SHALL render under every colour scheme on offer, including the
-low contrast one. Preferences scoped to one listing, such as which columns it shows, SHALL stay on
-that listing rather than moving into the settings menu.
+The browser interface SHALL gather the preferences that apply to every screen into a settings screen
+reachable from the sidebar on every signed-in screen. Every control within it SHALL be a plain form
+that works with scripting disabled, and the screen SHALL render under every colour scheme on offer,
+including the low contrast one. Preferences scoped to one listing, such as which columns it shows,
+SHALL stay on that listing rather than moving into the settings screen.
+
+The colour scheme SHALL instead be set by a single control in the sidebar, present on every
+signed-in screen, and SHALL NOT also be settable from the settings screen, so that one cookie has
+one control. That control SHALL be a plain form that works with scripting disabled, SHALL move to
+the next scheme on offer each time it is submitted, and SHALL return the reader to the screen they
+submitted it from. It SHALL be reachable by keyboard, and its accessible name SHALL state both the
+scheme in force and the scheme submitting it moves to, rather than leaving either to a hover-only
+attribute. The settings screen SHALL name the scheme in force and say where the control is.
 
 #### Scenario: The menu is on every screen
 
 - **WHEN** any signed-in screen is rendered
-- **THEN** the sidebar carries one settings control gathering the theme and the advanced toggle
+- **THEN** the sidebar carries a link to the settings screen, which gathers the advanced toggle and
+  every other preference not scoped to one listing
+
+#### Scenario: The scheme switch is in the sidebar and nowhere else
+
+- **WHEN** any signed-in screen is rendered, the settings screen among them
+- **THEN** the sidebar carries one control that submits the colour scheme
+- **AND** the settings screen's own content carries no second control for it
+
+#### Scenario: Submitting the switch moves to the next scheme
+
+- **GIVEN** a browser reading under any scheme on offer
+- **WHEN** the sidebar's scheme control is submitted
+- **THEN** the next scheme on offer is recorded and the reader is returned to the screen they
+  submitted it from
+- **AND** submitting it once for each scheme on offer returns the browser to the scheme it started in
+
+#### Scenario: The switch says what it is and what it does
+
+- **WHEN** the sidebar's scheme control is rendered
+- **THEN** its accessible name states the scheme in force and the scheme submitting it moves to
 
 #### Scenario: Every scheme renders it
 
 - **WHEN** the interface is rendered under the system, light, dark, and low contrast schemes
-- **THEN** the settings menu renders in each, showing the current scheme as the chosen one
+- **THEN** the settings screen renders in each, and the sidebar's control names the scheme the page
+  is drawn in
 
 #### Scenario: The menu needs no scripting
 
@@ -1150,32 +1195,6 @@ rather than omitted from it.
 - **WHEN** the board is drawn
 - **THEN** the screen names that task as unplaced rather than leaving it off the board silently
 
-### Requirement: A board of many projects degrades at narrow widths
-
-The task board SHALL remain readable as the number of columns grows with the projects merged into it,
-and SHALL NOT make the page scroll sideways. At phone width the columns SHALL be stacked one above
-another.
-
-A card on a board covering more than one project SHALL name the project it belongs to.
-
-#### Scenario: Many columns wrap rather than overflow
-
-- **GIVEN** a merged board with more columns than fit the viewport's width
-- **WHEN** it is drawn
-- **THEN** the columns wrap onto further rows of columns and the page does not scroll horizontally
-
-#### Scenario: Columns stack at phone width
-
-- **GIVEN** a viewport of phone width
-- **WHEN** the board is drawn
-- **THEN** each column takes the full width, one above another
-
-#### Scenario: A merged card names its project
-
-- **GIVEN** a board merging two projects
-- **WHEN** a card is drawn
-- **THEN** the card carries its own project's key
-
 ### Requirement: A refused submission is answered by the form, not by an error page
 
 Where a browser submission is refused for a reason the reader can act on by changing what they submitted —
@@ -1481,3 +1500,590 @@ SHALL store nothing.
 - **GIVEN** a browser that has never used either switch
 - **WHEN** the reader opens the settings screen and the task screen
 - **THEN** both show the list as the current position
+
+### Requirement: A screen never presents part of a listing as the whole of it
+
+Where the browser interface renders a figure or a control built from a keyset-paginated listing, it
+SHALL either read that listing to its end or state, on the screen, that what it shows is not the
+whole set.
+
+A statement of incompleteness SHALL appear with the control or figure it qualifies, and SHALL be
+written in the register the rest of the interface uses for such notes.
+
+A figure whose listing stopped before the end SHALL NOT be rendered as a number, since the number
+would be a floor presented as a total; the screen SHALL print in its place that the figure is
+incomplete, distinguishably from a listing that failed to be read at all.
+
+#### Scenario: A listing that reached the end says nothing
+
+- **GIVEN** a tenant whose projects and actors are both fewer than the bounded walks cover
+- **WHEN** a signed-in reader opens the task screen, the settings screen, the statistics screen, the
+  token screen or the tenant screen
+- **THEN** no control on those screens claims to be short
+- **AND** every diagram figure whose walk completed is rendered as a number
+
+#### Scenario: A walk that stopped at its bound is said on the screen
+
+- **GIVEN** a tenant with more projects than the project walk covers
+- **WHEN** a reader opens the task screen or the settings screen
+- **THEN** the project visibility control states that the list it offers is not the whole set
+
+#### Scenario: A figure whose walk stopped prints no total
+
+- **GIVEN** a tenant with more projects than the project walk covers
+- **WHEN** a reader opens the tenant screen
+- **THEN** the Projects row of the diagram prints that the count is incomplete, in the figure's place
+
+#### Scenario: One caveat for one control rendered twice
+
+- **GIVEN** the project visibility control, which the task screen and the settings screen both render
+- **WHEN** the walk behind its choices stops before the end
+- **THEN** both screens state it, from the control's own state rather than from either screen's
+
+### Requirement: The tenant diagram's token figure means what the token screen shows
+
+The count on the tenant diagram's API tokens row SHALL be the number of tokens the token screen lists
+for the same reader, and SHALL be produced from the same listing that screen renders.
+
+#### Scenario: An administrator's figure is the tenant's
+
+- **GIVEN** a reader holding `tenant:admin` in a tenant where another actor holds a token
+- **WHEN** they read the API tokens figure on the tenant screen and then open the token screen
+- **THEN** the figure equals the number of rows the token screen lists
+- **AND** the figure is not the count of the reader's own tokens alone
+
+#### Scenario: A reader who cannot list tokens sees no figure
+
+- **GIVEN** a reader who may read the tenant screen but may not list API tokens
+- **WHEN** they read the API tokens row
+- **THEN** the row states that the figure is unavailable rather than printing one
+
+### Requirement: The token listing reaches every actor of the tenant
+
+The token screen shown to a reader holding `tenant:admin` SHALL list the tokens of every actor the
+actor directory holds, walked through the listing's cursor rather than read as a single page.
+
+Where the walk reaches its bound before the end of the directory, the screen SHALL state that the
+rows are not every token of the tenant.
+
+#### Scenario: A token held by an actor past the first directory page
+
+- **GIVEN** a tenant with more actors than one listing page holds, and a token belonging to an actor
+  past that page
+- **WHEN** a reader holding `tenant:admin` opens the token screen
+- **THEN** that token is listed, with a revocation control of its own
+
+#### Scenario: A directory longer than the walk
+
+- **GIVEN** a tenant whose actor directory is longer than the bounded walk covers
+- **WHEN** a reader holding `tenant:admin` opens the token screen
+- **THEN** the screen states that the rows are not every token of the tenant
+
+### Requirement: The statistics project picker offers every project
+
+The project filter on the statistics screen SHALL offer every project of the tenant, read through the
+listing's cursor rather than as a single page.
+
+A failure to read the project listing SHALL leave the screen without a picker rather than without
+figures, and the screen SHALL state that the picker does not list every project whenever it is
+incomplete, whether because the read failed or because the walk stopped at its bound.
+
+#### Scenario: Filtering by a project past the first listing page
+
+- **GIVEN** a tenant with more projects than one default listing page holds
+- **WHEN** a reader opens the statistics screen
+- **THEN** the project picker offers every project of the tenant
+- **AND** choosing one past the first page comes back as the selected option
+
+#### Scenario: A picker that could not be read in full
+
+- **GIVEN** a tenant whose project listing cannot be read to its end
+- **WHEN** a reader opens the statistics screen
+- **THEN** the figures are rendered
+- **AND** the screen states that the picker does not list every project of the tenant
+
+### Requirement: The position control counts the page it is on
+
+The position control a keyset listing renders SHALL state which page of the walk the reader is on,
+counting from one, and that number SHALL keep counting for as long as the walk continues. It SHALL
+NOT stall at the bound of any memory the control keeps in its own links.
+
+The number SHALL be derived from what the control's own links carry. Where that memory is bounded and
+has discarded the earliest of it, the number SHALL be carried alongside rather than recomputed from
+what is left.
+
+A number arriving from the address bar SHALL NOT be believed below what the link's own history
+already proves, SHALL be bounded, and SHALL reach no query. The worst a value a reader typed can cost
+is a wrong label on the control.
+
+A link short of that bound SHALL carry no page number of its own, since its history already counts
+it.
+
+#### Scenario: Walking past the bound of the control's memory
+
+- **GIVEN** a listing with more pages than the control's cursor memory holds
+- **WHEN** a reader follows the control forward past that bound
+- **THEN** each page states a number one higher than the page before it
+
+#### Scenario: Walking back past the bound
+
+- **WHEN** the reader follows the control back from a page past that bound
+- **THEN** each page states a number one lower than the page before it, for every page the control
+  can still reach
+
+#### Scenario: A number below what the history proves is ignored
+
+- **GIVEN** a page whose link carries a history of forty positions
+- **WHEN** the address bar names a page number lower than that history accounts for, or a value that
+  is not a number at all
+- **THEN** the control states the number the history itself counts
+
+#### Scenario: An early page's link carries no page number
+
+- **WHEN** a reader follows the control forward or back from a page within the bound of its memory
+- **THEN** the resulting address carries no page number parameter
+
+### Requirement: Rendered screens forbid storage
+
+Every screen the browser interface renders SHALL carry `Cache-Control: no-store`.
+This SHALL apply to successful renders, to the error screen, and to a form
+redrawn after a refusal, so that no rendered response reaches a browser cache,
+a shared cache, or the back-forward cache.
+
+Static assets are excluded: they carry a strong validator and an explicit
+freshness lifetime instead, because their URLs do not change between releases.
+
+#### Scenario: An authenticated screen
+
+- **WHEN** a signed-in reader loads the task list, a board, a project, the
+  activity screen or any administration screen
+- **THEN** the response carries `Cache-Control: no-store`
+
+#### Scenario: A refused form
+
+- **WHEN** a form is submitted and redrawn with a validation refusal
+- **THEN** the redrawn screen carries `Cache-Control: no-store`, so the values
+  the user typed are not written to a cache
+
+#### Scenario: The error screen
+
+- **WHEN** a request resolves to the error screen
+- **THEN** that response carries `Cache-Control: no-store`
+
+#### Scenario: Assets are not affected
+
+- **WHEN** a stylesheet, script or image under the asset path is served
+- **THEN** it carries its strong ETag and freshness lifetime, and does not
+  carry `no-store`
+
+### Requirement: A second step in the browser sign-in
+
+When a tenant requires a second factor for the browser, the sign-in flow SHALL
+present a second step after the password is accepted, taking a TOTP or recovery
+code, and SHALL establish a session only once the code is accepted.
+
+The second step SHALL work without JavaScript, as every other form in the
+browser interface does, and SHALL preserve the `next` destination across both
+steps so the reader lands where they were going.
+
+#### Scenario: Password then code
+
+- **WHEN** a user signs in to a tenant requiring a factor for the browser
+- **THEN** the password form is followed by a code form, and the session begins only after the code is accepted
+
+#### Scenario: The destination survives both steps
+
+- **WHEN** a user is bounced to sign-in from a deep link and completes both steps
+- **THEN** they arrive at the originally requested page
+
+#### Scenario: An incomplete first step grants nothing
+
+- **WHEN** a user passes the password step and abandons the code step
+- **THEN** no session exists and no tenant data has been rendered
+
+### Requirement: Enrolment and recovery codes in the browser
+
+The settings screen SHALL offer enrolment, showing the `otpauth://` URI and a
+scannable code, and SHALL display the recovery codes exactly once on
+confirmation, with a means of copying them.
+
+It SHALL report remaining recovery codes, offer regeneration, and offer removal
+of one's own enrolment where the tenant does not require a factor.
+
+#### Scenario: Codes are displayed once
+
+- **WHEN** a user confirms enrolment in the browser
+- **THEN** ten recovery codes are shown with a means of copying them, and revisiting settings does not show them again
+
+#### Scenario: Removal is refused where a factor is required
+
+- **WHEN** an enrolled user tries to remove their enrolment in a tenant that requires a factor on the surface they are using
+- **THEN** the removal is refused with an explanation
+
+### Requirement: Administrative view of enrolment
+
+A tenant administrator SHALL be able to see which users hold an enrolment and to
+clear one, and SHALL NOT be shown any secret or any recovery code.
+
+#### Scenario: The administrator sees state, not secrets
+
+- **WHEN** an administrator views the user list
+- **THEN** each user's enrolment state is shown, and no secret or recovery code appears anywhere on the screen
+
+### Requirement: A live screen recovers its connection, and says when it has not
+
+Every screen that updates from the event stream, the activity feed included,
+SHALL share one connection mechanism.
+
+A connection that drops SHALL be reopened, on a delay that grows with each
+failed attempt, is bounded, and is jittered so that a server returning does
+not meet every open browser at once. A successful connection SHALL reset the
+delay. A hidden page SHALL NOT retry; returning to it SHALL reconnect at once
+and re-read what it missed.
+
+A resubscription SHALL carry the sequence of the last event the screen saw, so
+the server replays the gap. Where that cursor is no longer retained, the
+screen SHALL subscribe afresh and re-fetch its fragment whole rather than
+leaving a gap nothing fills.
+
+Where no connection can be established at all, the screen SHALL poll its
+fragment on a slow interval, and SHALL stop polling as soon as a connection
+succeeds.
+
+While a screen is not receiving events it SHALL say so on screen, naming the
+consequence: that what is shown may be out of date.
+
+#### Scenario: A dropped connection is reopened
+
+- **GIVEN** a screen receiving events
+- **WHEN** the connection drops
+- **THEN** it is reopened after a bounded, growing, jittered delay, and updates resume
+
+#### Scenario: Nothing is lost across the gap
+
+- **GIVEN** a screen that has seen events up to a known sequence
+- **WHEN** it reconnects
+- **THEN** it resubscribes from that sequence and the changes made while it was down are shown
+
+#### Scenario: A cursor the server cannot honour
+
+- **GIVEN** a screen resuming from a sequence that has been retained out of the log
+- **WHEN** the server refuses the cursor
+- **THEN** the screen subscribes from the present and re-fetches its fragment, rather than failing silently
+
+#### Scenario: A sleeping laptop does not storm the server
+
+- **GIVEN** a page hidden while its connection is down
+- **WHEN** it is hidden
+- **THEN** it does not retry, and on becoming visible it reconnects at once and re-reads
+
+#### Scenario: No socket available
+
+- **GIVEN** a reader behind an intermediary that will not carry a WebSocket
+- **WHEN** the screen cannot open one
+- **THEN** it polls its fragment on a slow interval and stops as soon as a socket succeeds
+
+#### Scenario: The reader is told the view may be stale
+
+- **WHEN** a screen is not receiving events
+- **THEN** it shows a notice saying the view may be out of date, and removes it when the stream is live again
+
+### Requirement: An update is drawn at once and a burst is grouped
+
+The first event in a quiet period SHALL be rendered without waiting. Further
+events arriving within the screen's coalescing window SHALL be grouped into
+one further render, and SHALL NOT postpone it indefinitely: a bounded maximum
+wait SHALL apply however long the stream keeps arriving.
+
+#### Scenario: A single change is not delayed
+
+- **WHEN** one event arrives on an idle screen
+- **THEN** the screen re-renders immediately rather than after the coalescing window
+
+#### Scenario: A multi-hop transition settles once
+
+- **WHEN** a transition writes several hops milliseconds apart
+- **THEN** the screen renders on the first and once more when they have all landed, not once per hop
+
+#### Scenario: Continuous change still redraws
+
+- **WHEN** events keep arriving faster than the coalescing window
+- **THEN** the screen still redraws within the bounded maximum wait
+
+### Requirement: The sign-in screen presents the tenant in the tenant's colour
+
+The sign-in screen SHALL present the tenant's brand lockup above the sign-in card, and SHALL carry a
+soft accent glow behind that card. Every colour on the screen SHALL resolve a design token rather
+than a literal value, so that a tenant accent configured with `tix theme` and each of the light,
+dark and dim schemes reach it without a further edit.
+
+The glow SHALL be softened by its own gradient stops rather than by a blur filter, and SHALL be
+painted behind the card rather than over it.
+
+#### Scenario: The tenant accent reaches the glow
+
+- **WHEN** a tenant configures a non-default accent and its sign-in screen is served
+- **THEN** the glow behind the card is drawn in that accent
+
+#### Scenario: The screen renders in every scheme
+
+- **WHEN** the sign-in screen is viewed in the light, dark and dim schemes
+- **THEN** each scheme renders its own background, surface, ink and accent, and no element keeps a
+  value belonging to another scheme
+
+#### Scenario: No colour is hard-coded
+
+- **WHEN** the stylesheet rules that paint the sign-in screen are read
+- **THEN** each colour resolves a custom property rather than a literal value
+
+### Requirement: The sign-in screen does not restyle the screens it shares a layout with
+
+The shell-less layout SHALL serve both the sign-in screen and the refusal screen. Styling added for
+the sign-in screen SHALL apply only to the sign-in card, and SHALL NOT change the measure, heading
+size or spacing of any other screen rendered in that layout.
+
+#### Scenario: The refusal screen keeps its own shape
+
+- **WHEN** a refusal is rendered in the shell-less layout
+- **THEN** its heading and measure are unchanged by the sign-in screen's rules
+
+### Requirement: A live region is held open only by work the reader did
+
+A screen that defers its refresh while the reader is mid-edit SHALL decide
+that from what the reader changed, and not from what the browser did on its
+own.
+
+A `<select>` whose rendered markup names no option as selected is presented by
+every browser with its first option selected. That presentation SHALL NOT be
+read as an edit: such a control SHALL be treated as untouched while it sits on
+its first option, and as edited once it sits on any other. A `<select>` whose
+markup does declare a default SHALL continue to be read against that default.
+
+A control rendered inside a live region SHALL declare its own default, so that
+what the reader is shown and what the markup asked for agree. The project
+board's Move control SHALL mark its first route selected.
+
+A live region SHALL NOT be reported as holding work in progress on a page that
+has only been rendered.
+
+#### Scenario: A board that has only been rendered updates
+
+- **GIVEN** an open project board whose cards each offer a Move control
+- **WHEN** a task on it changes anywhere else and the event reaches the screen
+- **THEN** the board re-fetches its fragment and shows the change, rather than deferring
+
+#### Scenario: A move the reader picked is not thrown away
+
+- **GIVEN** a reader who has opened a card's Move menu and chosen a column
+- **WHEN** an event arrives for that board
+- **THEN** the refresh is deferred until the menu is back at its default, and then lands
+
+#### Scenario: The Move control names the option the browser will show
+
+- **WHEN** the board is rendered, as a whole page or as its live fragment
+- **THEN** each Move select carries exactly one selected option, and it is the first route
+
+#### Scenario: A declared default is still what a choice is measured against
+
+- **GIVEN** a select whose markup marks an option other than the first as selected
+- **WHEN** the control sits on the first option instead
+- **THEN** it is reported as edited
+
+### Requirement: The task list opens on unfinished work
+
+With no filter asked for, the task list SHALL show only tasks in states the
+project's workflow does not treat as terminal. It SHALL say on screen that the
+listing is narrowed and SHALL offer a single control that shows everything.
+
+#### Scenario: A list with finished work in it
+
+- **WHEN** a reader opens the task list without asking for a filter, in a
+  tenant holding both open and finished tasks
+- **THEN** only the unfinished tasks are listed, the summary says the listing
+  is open work only, and a link shows the finished work too
+
+#### Scenario: Asking for everything
+
+- **WHEN** that reader follows the link
+- **THEN** finished tasks are listed as well, and the summary counts both
+
+#### Scenario: Everything is finished
+
+- **WHEN** every task in the listing is in a terminal state
+- **THEN** the summary reads as nothing open rather than as nothing on the
+  list, because a project whose work is finished is not a project with no work
+
+#### Scenario: A workflow that renamed its terminal state
+
+- **WHEN** the tenant's workflow calls its terminal state something other than
+  the built-in name
+- **THEN** that state is still excluded from the default listing
+
+#### Scenario: Paging through everything
+
+- **WHEN** a reader who has asked for finished work follows the next-page
+  control
+- **THEN** the following page still lists finished work, because the position
+  it addresses was walked over that same set
+
+#### Scenario: Following the control from a listing the reader built
+
+- **WHEN** a reader follows the control from a listing carrying a sort, a page
+  size or a deadline window
+- **THEN** the listing of everything keeps all three
+
+### Requirement: The board is not narrowed to the open states
+
+The board view SHALL draw every state its workflow declares, terminal states
+included, whatever the list view's default is. Its columns are the workflow,
+so a default that empties the terminal ones removes the only place a finished
+card can be drawn.
+
+#### Scenario: Finishing a card
+
+- **WHEN** a reader on the board moves a card into a terminal state
+- **THEN** the card is drawn in that state's column
+
+#### Scenario: The board says nothing about a narrowing that did not happen
+
+- **WHEN** a reader opens the board without asking for a filter
+- **THEN** the screen does not report the listing as open work only
+
+### Requirement: A finished task carries no deadline
+
+A task in a terminal state SHALL NOT be drawn as overdue or due soon on any
+surface.
+
+#### Scenario: A task finished after its due date
+
+- **WHEN** a task whose due date has passed is moved to a terminal state
+- **THEN** it carries no due badge
+
+#### Scenario: Reopening it
+
+- **WHEN** that task is moved back out of the terminal state
+- **THEN** its deadline is compared to the present again
+
+### Requirement: Navigation offers only what the reader can reach
+
+The configuration and data navigation groups SHALL be shown only to a reader
+holding a scope that makes at least one screen in them reachable.
+
+#### Scenario: A member refused at an administration screen
+
+- **WHEN** a reader without any administration scope requests one of those
+  screens and is refused
+- **THEN** the refusal page does not offer the administration navigation
+
+#### Scenario: A reader who can use one of those screens
+
+- **WHEN** a reader holding the scope one of those screens is gated on, and no
+  other administration scope, opens that screen
+- **THEN** the page offers the navigation group the screen belongs to
+
+### Requirement: The task board is one strip of columns at every width
+
+The task board SHALL remain readable as the number of columns grows with the projects merged into
+it, and SHALL NOT make the page scroll sideways.
+
+The board SHALL be drawn as one row of columns at every viewport width, scrolled horizontally within
+its own frame. Its columns SHALL NOT wrap onto further rows and SHALL NOT be stacked one above
+another, because a board column is a fixed-height scroller and both arrangements grow past that
+height, overrunning whatever the page draws beneath the board.
+
+At phone width the board SHALL snap one column to the viewport, so that a column is read whole
+rather than in parts.
+
+A card on a board covering more than one project SHALL name the project it belongs to.
+
+#### Scenario: Many columns scroll within the board rather than overflowing the page
+
+- **GIVEN** a merged board with more columns than fit the viewport's width
+- **WHEN** it is drawn
+- **THEN** the board scrolls sideways within its own frame
+- **AND** the page itself does not scroll horizontally
+
+#### Scenario: The board stays one strip at phone width
+
+- **GIVEN** a viewport of phone width
+- **WHEN** the board is drawn
+- **THEN** the columns are one row scrolled sideways rather than stacked one above another
+- **AND** the board's height stays within the viewport rather than running past whatever follows it
+
+#### Scenario: A phone settles on one column at a time
+
+- **GIVEN** a viewport of phone width
+- **WHEN** the reader swipes the board sideways
+- **THEN** it comes to rest with a single column filling the viewport
+
+#### Scenario: The board does not draw over what follows it
+
+- **GIVEN** a project board with a settings panel beneath it
+- **WHEN** the board is drawn at phone width
+- **THEN** the settings panel is visible and operable below the board rather than covered by it
+
+#### Scenario: A merged card names its project
+
+- **GIVEN** a board merging two projects
+- **WHEN** a card is drawn
+- **THEN** the card carries its own project's key
+
+### Requirement: A task row sheds its least-identifying attributes as the viewport narrows
+
+A task row SHALL keep its title legible as the viewport narrows, by omitting the attributes that
+identify a task least before the title is compressed.
+
+Below a narrow threshold the row SHALL omit the tags and the last-updated stamp, and below a
+narrower one it SHALL also omit the project. The status, the priority, the assignee, the lease
+state, the deadline mark and the reference SHALL be shown at every width.
+
+An attribute omitted for width SHALL remain available on the task's own screen, which the row
+links to, so that nothing is unreachable rather than merely unshown.
+
+#### Scenario: A phone row keeps its title
+
+- **GIVEN** a task with several tags, an assignee, a project and a deadline
+- **WHEN** its row is drawn at phone width
+- **THEN** the title is drawn without being compressed to make room for the tags
+
+#### Scenario: The shed attributes are on the task screen
+
+- **GIVEN** a row drawn at a width that omits its tags
+- **WHEN** the reader opens the task
+- **THEN** the tags are listed there
+
+#### Scenario: Identifying attributes survive every width
+
+- **GIVEN** any viewport width the interface supports
+- **WHEN** a task row is drawn
+- **THEN** its status, priority, assignee, lease state, deadline mark and reference are present
+
+### Requirement: A failure states itself in the flow of its own screen
+
+When a screen cannot be drawn, the reason SHALL be rendered in the flow of the page, beneath the
+heading that announces the failure, and SHALL be set to a measure that keeps it readable as a
+sentence.
+
+The reason SHALL NOT be rendered as a transient notification, so that it cannot be placed apart from
+the heading it explains, mistaken for an unrelated notice, or drawn outside the reader's view.
+
+The screen SHALL offer the ways out of it as controls carrying the same appearance as the other
+navigation controls in the interface.
+
+#### Scenario: The reason sits under its heading
+
+- **GIVEN** a request that cannot be served
+- **WHEN** the failure screen is drawn
+- **THEN** the reason appears beneath the heading, in the flow of the page
+
+#### Scenario: The reason is not a toast
+
+- **GIVEN** a failure screen
+- **WHEN** it is drawn
+- **THEN** the reason is not rendered as the transient notification the rest of the interface uses for flashes
+
+#### Scenario: The ways out look like the controls they are
+
+- **GIVEN** a failure screen offering a way back
+- **WHEN** it is drawn
+- **THEN** that way back is drawn as a control rather than as bare text

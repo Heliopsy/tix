@@ -8,6 +8,13 @@ token. A request that omits the token or supplies one that is not current SHALL 
 Every refusal on this path SHALL be reported as lease expiry, because all of them state the same fact:
 the caller does not hold this lease, and the action it can take is to claim the task again.
 
+A comment written on a task SHALL NOT require a lease token and SHALL NOT be checked against one. A
+caller holding no lease, or holding a lapsed one, SHALL therefore be able to comment on a task another
+worker holds.
+
+Which writes the lease covers SHALL be stated wherever the lease is explained to an agent, rather than
+left to be inferred from the presence or absence of a flag.
+
 #### Scenario: Correct token accepted
 
 - **WHEN** a lease holder renews, transitions, releases, or attaches an artifact using its current token
@@ -27,6 +34,18 @@ the caller does not hold this lease, and the action it can take is to claim the 
 
 - **WHEN** an artifact write is attempted on a task holding a live lease and no token is supplied
 - **THEN** the request is rejected as lease-expired and no artifact is written
+
+#### Scenario: A comment is not a lease-bound operation
+
+- **GIVEN** a task held under a live lease by one worker
+- **WHEN** another caller, holding no lease on it, adds a comment
+- **THEN** the comment is written and the request succeeds
+
+#### Scenario: A result recorded through a release is lease-bound
+
+- **GIVEN** a worker whose lease has lapsed and whose task has been re-claimed
+- **WHEN** it releases the task with a comment and a result under its old token
+- **THEN** the request is rejected as lease-expired and neither the comment nor the result is written
 
 ### Requirement: Stale token rejection
 
