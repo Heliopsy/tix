@@ -1,13 +1,13 @@
 {{define "content"}}
 <div class="pagehead">
   <div class="pagehead-title">
-    <h1>SSH keys</h1>
-    <p class="lede">Keys enrolled against your actor, which let you reach the terminal interface over SSH without a password. A revoked key stays listed so you can see it stopped working.</p>
+    <div class="headtip"><h1>{{t "SSH keys"}}</h1>{{template "tip" (tip "SSH keys" "With a key enrolled you can open the terminal interface with ssh, as yourself and with your own permissions, wherever the server runs its SSH listener. Revoking a key stops new sessions; one already open stays until you end it on the Connections screen." "docs/deployment.md")}}</div>
+    <p class="lede">{{t "Keys enrolled against your actor, which let you reach the terminal interface over SSH without a password. A revoked key stays listed so you can see it stopped working."}}</p>
   </div>
   <div class="pagehead-tools">{{template "column-menu" .}}</div>
 </div>
 <table>
-  <thead><tr><th>Fingerprint</th>{{if .Columns.Show "sshkeys" "label"}}<th>Label</th>{{end}}{{if .Columns.Show "sshkeys" "added"}}<th>Added</th>{{end}}{{if .Columns.Show "sshkeys" "used"}}<th>Last used</th>{{end}}<th>State</th><th></th></tr></thead>
+  <thead><tr><th>{{t "Fingerprint"}}</th>{{if .Columns.Show "sshkeys" "label"}}<th>{{t "Label"}}</th>{{end}}{{if .Columns.Show "sshkeys" "added"}}<th>{{t "Added"}}</th>{{end}}{{if .Columns.Show "sshkeys" "used"}}<th>{{t "Last used"}}</th>{{end}}<th>{{t "State"}}</th><th></th></tr></thead>
   <tbody>
   {{range .Data.Keys}}
     <tr>
@@ -15,33 +15,33 @@
       {{if $.Columns.Show "sshkeys" "label"}}<td>{{.Label}}</td>{{end}}
       {{if $.Columns.Show "sshkeys" "added"}}<td>{{compact .CreatedAt}}</td>{{end}}
       {{if $.Columns.Show "sshkeys" "used"}}<td>{{stamp .LastUsedAt}}</td>{{end}}
-      <td>{{if .Active}}Active{{else}}Revoked {{stamp .RevokedAt}}{{end}}</td>
+      <td>{{if .Active}}{{t "Active"}}{{else}}{{t "Revoked %s" (stamp .RevokedAt)}}{{end}}</td>
       <td>
         {{if .Active}}
         <form method="post" action="/admin/ssh-keys/revoke">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="id" value="{{.ID}}">
-          <button class="secondary" type="submit">Revoke</button>
+          <button class="secondary" type="submit">{{t "Revoke"}}</button>
         </form>
         {{end}}
       </td>
     </tr>
   {{else}}
-    <tr><td colspan="{{$.Columns.Span "sshkeys" 3}}">No keys.</td></tr>
+    <tr><td colspan="{{$.Columns.Span "sshkeys" 3}}">{{t "No keys."}}</td></tr>
   {{end}}
   </tbody>
 </table>
 
-<h2>Enrol a key</h2>
+<h2>{{t "Enrol a key"}}</h2>
 <form method="post" action="/admin/ssh-keys">
   {{template "csrf" .CSRF}}
   <div class="field-label">
-    <label for="public_key">Public key</label>
+    <label for="public_key">{{t "Public key"}}</label>
     {{template "field-info" "The contents of a .pub file, such as ~/.ssh/id_ed25519.pub -- never the private half. Paste one key. Any authorized_keys options or the trailing comment are discarded: only the key itself is stored."}}
   </div>
-  <textarea id="public_key" name="public_key" rows="4" required placeholder="ssh-ed25519 AAAAC3Nza..."></textarea>
-  <label for="label">Label</label>
-  <input id="label" name="label" placeholder="laptop">
-  <p><button type="submit">Enrol key</button></p>
+  <textarea id="public_key" name="public_key" rows="4" required placeholder="{{"ssh-ed25519 AAAAC3Nza..."}}"></textarea>
+  <label for="label">{{t "Label"}}</label>
+  <input id="label" name="label" placeholder="{{t "laptop"}}">
+  <p><button type="submit">{{t "Enrol key"}}</button></p>
 </form>
 {{end}}

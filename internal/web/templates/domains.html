@@ -1,49 +1,49 @@
 {{define "content"}}
 <div class="pagehead">
-  <div class="pagehead-title"><h1>Domains</h1></div>
+  <div class="pagehead-title"><div class="headtip"><h1>{{t "Domains"}}</h1>{{template "tip" (tip "Domains" "A domain maps a hostname to this tenant: a request whose Host header names it is served this tenant without anyone choosing one. A hostname belongs to one tenant only, and a host mapped to none falls back to the server's default tenant." "docs/tenancy.md")}}</div></div>
   <div class="pagehead-tools">{{template "column-menu" .}}</div>
 </div>
 <table>
-  <thead><tr><th>Hostname</th>{{if .Columns.Show "domains" "verified"}}<th>Verified</th>{{end}}{{if .Columns.Show "domains" "cert"}}<th>Certificate</th>{{end}}<th></th></tr></thead>
+  <thead><tr><th>{{t "Hostname"}}</th>{{if .Columns.Show "domains" "verified"}}<th>{{t "Verified"}}</th>{{end}}{{if .Columns.Show "domains" "cert"}}<th>{{t "Certificate"}}</th>{{end}}<th></th></tr></thead>
   <tbody>
   {{range .Data.Domains}}
     <tr>
       <td>{{.Hostname}}</td>
-      {{if $.Columns.Show "domains" "verified"}}<td>{{if .Verified}}verified {{stamp .VerifiedAt}}{{else}}pending{{end}}</td>{{end}}
+      {{if $.Columns.Show "domains" "verified"}}<td>{{if .Verified}}{{t "verified %s" (stamp .VerifiedAt)}}{{else}}{{t "pending"}}{{end}}</td>{{end}}
       {{if $.Columns.Show "domains" "cert"}}<td>{{.CertMode}}</td>{{end}}
       <td>
         <form method="post" action="/admin/domains/remove">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="hostname" value="{{.Hostname}}">
-          <button class="secondary" type="submit">Remove</button>
+          <button class="secondary" type="submit">{{t "Remove"}}</button>
         </form>
       </td>
     </tr>
   {{else}}
-    <tr><td colspan="{{$.Columns.Span "domains" 2}}">No domains mapped.</td></tr>
+    <tr><td colspan="{{$.Columns.Span "domains" 2}}">{{t "No domains mapped."}}</td></tr>
   {{end}}
   </tbody>
 </table>
 
-<h2>Map a hostname</h2>
+<h2>{{t "Map a hostname"}}</h2>
 <form method="post" action="/admin/domains">
   {{template "csrf" .CSRF}}
   <div class="row">
-    <div><label for="hostname">Hostname</label><input id="hostname" name="hostname" required></div>
+    <div><label for="hostname">{{t "Hostname"}}</label><input id="hostname" name="hostname" required></div>
     <div>
       <div class="field-label">
-        <label for="cert_mode">Certificate mode</label>
+        <label for="cert_mode">{{t "Certificate mode"}}</label>
         {{template "field-info" "Records how this hostname's TLS certificate is meant to be provided. none means something in front of tix, such as a reverse proxy, terminates TLS for it. file means a certificate and key on disk, whose paths you set below when you choose it."}}
       </div>
       <select id="cert_mode" name="cert_mode">
         {{range .Data.CertModes}}<option value="{{.}}">{{.}}</option>{{end}}
       </select>
     </div>
-    <div><button type="submit">Add domain</button></div>
+    <div><button type="submit">{{t "Add domain"}}</button></div>
   </div>
   <div class="row">
-    <div><label for="cert_path">Certificate path</label><input id="cert_path" name="cert_path"></div>
-    <div><label for="key_path">Key path</label><input id="key_path" name="key_path"></div>
+    <div><label for="cert_path">{{t "Certificate path"}}</label><input id="cert_path" name="cert_path"></div>
+    <div><label for="key_path">{{t "Key path"}}</label><input id="key_path" name="key_path"></div>
   </div>
 </form>
 {{end}}
