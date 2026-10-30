@@ -1134,6 +1134,9 @@ func (m Model) performTaskAction(id actionID) (Model, tea.Cmd, bool) {
 	case doRestore:
 		next, cmd := m.restoreTask()
 		return next, cmd, true
+	case doStar:
+		next, cmd := m.starTask()
+		return next, cmd, true
 	case doArtifact:
 		next, cmd := m.openPrompt(promptArtifact)
 		return next, cmd, true
@@ -1810,6 +1813,17 @@ func (m Model) openArtifactForm(name string) (Model, tea.Cmd) {
 	m.pendingArtifact = name
 	m.form, m.err = ArtifactForm(name), ""
 	return m, nil
+}
+
+// starTask toggles the reader's own star on the selected task.
+func (m Model) starTask() (Model, tea.Cmd) {
+	task, ok := m.selectedTask()
+	if !ok {
+		m.err = "no task is selected"
+		return m, nil
+	}
+	m.err = ""
+	return m, m.toggleStar(task)
 }
 
 // restoreTask brings back a task a deletion took off the board, refusing a task

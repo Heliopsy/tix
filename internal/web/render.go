@@ -206,6 +206,7 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"percent":         barPercent,
 		"age":             humanDuration,
 		"claim":           claimState,
+		"star":            newStarControl,
 		"due":             dueState,
 		"expiredAgo":      expiredAgo,
 		"stateLabel":      core.StateLabel,
@@ -338,6 +339,37 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		ShortcutsJSON: shortcutsJSON(scheme),
 		Data:          data,
 	}
+}
+
+// starControl is what the "star" partial draws: one task's toggle, the state
+// it shows, and where pressing it returns the reader to.
+type starControl struct {
+	Ref     string
+	Starred bool
+	Next    string
+	CSRF    string
+}
+
+// Action is the route pressing the toggle posts to: a starred task's button
+// unstars it, any other task's stars it.
+func (s starControl) Action() string {
+	route := RouteTaskStar
+	if s.Starred {
+		route = RouteTaskUnstar
+	}
+	return strings.Replace(route, "{ref}", s.Ref, 1)
+}
+
+// newStarControl builds a star toggle for a template.
+func newStarControl(ref string, starred bool, next, csrf string) starControl {
+	return starControl{Ref: ref, Starred: starred, Next: next, CSRF: csrf}
+}
+
+// CanStar reports whether the reader may star and unstar tasks. A star changes
+// only the reader's own listings, so it asks for the authority reading the
+// task already needs, the same scope the service checks.
+func (v view) CanStar() bool {
+	return v.Actor != nil && v.Actor.HasScope(core.ScopeTaskRead)
 }
 
 // here is the page a preference form returns to, filters and page position

@@ -65,6 +65,12 @@ func resolveTaskPage(p core.Page) (pageSpec, error) {
 const unclaimedPredicate = "(tasks.claimed_by_actor_id IS NULL OR tasks.lease_expires_at IS NULL OR tasks.lease_expires_at <= ?)"
 
 func scanTask(s scanner) (core.Task, error) {
+	return scanTaskWith(s)
+}
+
+// scanTaskWith scans a task row followed by any extra columns the statement
+// selected after the task's own, such as the reader's star.
+func scanTaskWith(s scanner, extra ...any) (core.Task, error) {
 	var (
 		t            core.Task
 		parent       sql.NullString
@@ -84,14 +90,15 @@ func scanTask(s scanner) (core.Task, error) {
 		deleted      sql.NullString
 		projectKey   string
 	)
-	if err := s.Scan(&t.ID, &t.TenantID, &t.ProjectID, &t.Seq, &parent,
+	dests := []any{&t.ID, &t.TenantID, &t.ProjectID, &t.Seq, &parent,
 		&t.Title, &t.Body, &t.Status, &t.Priority,
 		&assignee, &t.CreatorActorID,
 		&due, &started, &completed,
 		&claimedBy, &claimedAt, &leaseExpires, &t.ClaimCount,
 		&expiredAt, &expiredBy,
 		&t.Recurrence, &nextID,
-		&custom, &t.Version, &created, &updated, &deleted, &projectKey); err != nil {
+		&custom, &t.Version, &created, &updated, &deleted, &projectKey}
+	if err := s.Scan(append(dests, extra...)...); err != nil {
 		return core.Task{}, mapErr(err, "scanning task")
 	}
 
@@ -263,6 +270,7 @@ func (t *tx) ListTasks(ctx context.Context, f core.TaskFilter) ([]core.Task, err
 	}
 
 	b := t.builder("tasks").Select(taskColumns...).Join(projectJoin)
+	spec.ranked = sqlb.ApplyStars(b, f)
 	if err := t.applyTaskFilter(b, f); err != nil {
 		return nil, err
 	}
@@ -274,10 +282,16 @@ func (t *tx) ListTasks(ctx context.Context, f core.TaskFilter) ([]core.Task, err
 
 	out := []core.Task{}
 	for rows.Next() {
-		v, err := scanTask(rows)
+		var extra []any
+		var starred bool
+		if spec.ranked {
+			extra = append(extra, &starred)
+		}
+		v, err := scanTaskWith(rows, extra...)
 		if err != nil {
 			return nil, err
 		}
+		v.Starred = starred
 		out = append(out, v)
 	}
 	if err := mapRowsErr(rows, "listing tasks"); err != nil {

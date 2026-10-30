@@ -210,6 +210,82 @@ func (b *Builder) Keyset2(col1, col2, idCol string, c core.Cursor, dir core.Sort
 	return b
 }
 
+// KeysetRanked applies a cursor predicate whose leading key is an integer rank
+// expression, followed by the ordering's own keys and the id tiebreaker, as
+// one row-value comparison. The rank is bound as an integer so both engines
+// compare it as a number, while the ordering's keys keep the text form the
+// other keyset predicates bind.
+func (b *Builder) KeysetRanked(rankExpr string, rank int, cols []string, idCol string, c core.Cursor, dir core.SortDirection) *Builder {
+	if c.Zero() {
+		return b
+	}
+	op := ">"
+	if dir == core.Descending {
+		op = "<"
+	}
+	keys := append([]string{rankExpr}, cols...)
+	keys = append(keys, idCol)
+	marks := strings.TrimSuffix(strings.Repeat("?, ", len(keys)), ", ")
+	b.wheres = append(b.wheres,
+		fmt.Sprintf("(%s) %s (%s)", strings.Join(keys, ", "), op, marks))
+	b.args = append(b.args, rank, c.SortValue)
+	if len(cols) > 1 {
+		b.args = append(b.args, c.SortValue2)
+	}
+	b.args = append(b.args, c.ID)
+	return b
+}
+
+// StarJoin is the join that attaches one reader's star to each task row. It
+// takes the reader as its one argument and leaves an unstarred row's
+// task_stars columns NULL.
+const StarJoin = "LEFT JOIN task_stars ON task_stars.tenant_id = tasks.tenant_id" +
+	" AND task_stars.task_id = tasks.id AND task_stars.actor_id = ?"
+
+// StarredColumn reads the joined star as 1 or 0.
+const StarredColumn = "CASE WHEN task_stars.task_id IS NULL THEN 0 ELSE 1 END"
+
+// ApplyStars joins the reader's stars onto a task listing and applies the
+// starred filter, reporting whether the join was made. With no reader nothing
+// is joined: an unread listing has no stars, so is:starred selects nothing and
+// is:unstarred selects everything.
+func ApplyStars(b *Builder, f core.TaskFilter) bool {
+	if f.StarredBy == "" {
+		if f.Starred == core.Yes {
+			b.Where("1 = 0")
+		}
+		return false
+	}
+	b.Select(StarredColumn).Join(StarJoin, f.StarredBy)
+	switch f.Starred {
+	case core.Yes:
+		b.Where("task_stars.task_id IS NOT NULL")
+	case core.No:
+		b.Where("task_stars.task_id IS NULL")
+	case core.Either:
+	}
+	return true
+}
+
+// StarRank is the leading sort key of a listing read for a reader. It flips
+// with the direction so starred rows lead either way while the whole ordering
+// keeps one direction, which is what lets the keyset stay one row-value
+// comparison.
+func StarRank(dir core.SortDirection) string {
+	if dir == core.Descending {
+		return StarredColumn
+	}
+	return "CASE WHEN task_stars.task_id IS NULL THEN 1 ELSE 0 END"
+}
+
+// StarRankOf is the rank StarRank gives a row with the given starred state.
+func StarRankOf(starred bool, dir core.SortDirection) int {
+	if starred == (dir == core.Descending) {
+		return 1
+	}
+	return 0
+}
+
 // SelectQuery renders the SELECT and its arguments.
 func (b *Builder) SelectQuery() (string, []any) {
 	cols := "*"
@@ -352,7 +428,7 @@ func ScopedTables() []string {
 		"tasks", "task_deps", "tags", "task_tags", "comments", "artifacts",
 		"events", "audit_entries", "webhook_endpoints", "webhook_deliveries",
 		"retention_policies", "external_refs", "sync_sources", "tenant_members",
-		"ssh_keys", "tenant_domains",
+		"ssh_keys", "tenant_domains", "task_stars",
 	}
 	return all
 }

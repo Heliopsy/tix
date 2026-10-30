@@ -26,7 +26,7 @@ const CustomFieldPrefix = "field."
 var Keys = []string{
 	"project", "status", "tag", "assignee", "creator", "claimed-by",
 	"priority", "due", "due-before", "due-after", "parent", "is", "sort", "limit",
-	"text", "title", "body", "claimed", "blocked", "deleted",
+	"text", "title", "body", "claimed", "blocked", "deleted", "starred",
 }
 
 // SyntaxHint is the one line that tells somebody the two operators exist. A
@@ -212,7 +212,7 @@ func applyTerm(f *core.TaskFilter, key, value, op string, negate bool, now time.
 	// The three boolean forms the web filter bar has always accepted. They
 	// say the same thing as is:, and dropping them would break every saved
 	// link and bookmark that spells it the old way for no gain.
-	case "claimed", "blocked", "deleted":
+	case "claimed", "blocked", "deleted", "starred":
 		state, err := boolTerm(key, value)
 		if err != nil {
 			return err
@@ -235,6 +235,8 @@ func boolTerm(key, value string) (string, error) {
 			return "unclaimed", nil
 		case "blocked":
 			return "unblocked", nil
+		case "starred":
+			return "unstarred", nil
 		default:
 			return "", core.Invalid("filter term %q cannot be negated with a value; use -%s", key, key)
 		}
@@ -430,6 +432,10 @@ func applyIs(f *core.TaskFilter, value string, negate bool) error {
 		f.Blocked = yes
 	case "unblocked", "ready":
 		f.Blocked = no
+	case "starred":
+		f.Starred = yes
+	case "unstarred":
+		f.Starred = no
 	case "deleted":
 		f.IncludeDeleted = !negate
 	case "recurring":
@@ -440,7 +446,7 @@ func applyIs(f *core.TaskFilter, value string, negate bool) error {
 		}
 		f.ParentIsNull = true
 	default:
-		return core.Invalid("unknown is: value %q; try claimed, unclaimed, blocked, unblocked, recurring, deleted or root", value)
+		return core.Invalid("unknown is: value %q; try claimed, unclaimed, blocked, unblocked, recurring, starred, unstarred, deleted or root", value)
 	}
 	return nil
 }

@@ -97,6 +97,11 @@ type TaskService interface {
 	RemoveTag(ctx context.Context, ref TaskRef, tag string) error
 	ListTags(ctx context.Context) ([]Tag, error)
 
+	// StarTask and UnstarTask set and clear the caller's own star on a task.
+	// Both are idempotent: a call that changes nothing writes nothing.
+	StarTask(ctx context.Context, ref TaskRef) error
+	UnstarTask(ctx context.Context, ref TaskRef) error
+
 	AddComment(ctx context.Context, ref TaskRef, body string) (*Comment, error)
 	ListComments(ctx context.Context, ref TaskRef) ([]Comment, error)
 	EditComment(ctx context.Context, id, body string) (*Comment, error)

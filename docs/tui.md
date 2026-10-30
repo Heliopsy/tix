@@ -64,6 +64,7 @@ than the first half of it:
 <!-- Rows asserted against CardLegend by TestDocsMarkerTableMatchesTheLegend in internal/tui. -->
 | Marker | Means |
 | --- | --- |
+| `*` | starred by you, which leads the meta line |
 | `@` | claimed, by somebody |
 | `@me` | claimed by you |
 | `!` | blocked |
@@ -76,6 +77,11 @@ than the first half of it:
 `↻` marks a task that comes back when it is finished; the detail view states the rule as
 `repeats: every week`. The terminal interface does not edit due dates and does not edit the rule either:
 set it with `tix task edit --repeat` or in the browser.
+
+`*` marks a task you starred with the `*` key. A star is yours alone: somebody else sharing the board sees
+the same task unstarred and in its usual place, while on your board a starred card leads its column ahead of
+the priority order. It is stored on the server, so the star you set here is the one `tix task ls` and the
+browser show you too, and `is:starred` in the filter narrows the board to them.
 
 `@me` is separate from `@` because "is that me" is the first question anybody asks of a claimed card on a
 shared board, and a single marker left it answerable only by opening the task.
@@ -177,6 +183,7 @@ impossible for a scheme to leave an action unbound.
 | `-` | remove one of the dependencies the task waits on | detail |
 | `O` | record an artifact | board, detail |
 | `u` | restore a deleted task | board, detail |
+| `*` | star the task, or unstar a starred one; starred cards lead their column | board, detail |
 | `X` | delete the task or the selected comment; removes the selected domain or member | board, detail, project, tenant |
 | `y` | agree to a confirmation | wherever one is open |
 | `w` | project setup | everywhere |
@@ -193,7 +200,7 @@ cross-view keys already use when their letter is taken.
 
 ### The command palette
 
-Forty-nine bindings is more than anyone holds in their head, and the letters ran out: `W` lists projects
+Fifty-two bindings is more than anyone holds in their head, and the letters ran out: `W` lists projects
 while `w` opens project setup, `H` reads history while `v` draws the live tail, `L` picks a tag, `O` records
 an artifact, `N` claims the next task. The capitals were handed out by elimination rather than by meaning.
 
@@ -612,7 +619,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 98
+a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 100
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:

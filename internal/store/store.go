@@ -180,6 +180,13 @@ type TaskTx interface {
 
 	PutArtifact(ctx context.Context, a *core.Artifact) error
 	ListArtifacts(ctx context.Context, taskID string) ([]core.Artifact, error)
+
+	// StarTask records an actor's star on a task, reporting whether it was new.
+	StarTask(ctx context.Context, actorID, taskID string) (bool, error)
+	// UnstarTask removes an actor's star, reporting whether there was one.
+	UnstarTask(ctx context.Context, actorID, taskID string) (bool, error)
+	// StarredTasks reports which of the given tasks the actor has starred.
+	StarredTasks(ctx context.Context, actorID string, taskIDs []string) (map[string]bool, error)
 }
 
 // ClaimTx covers the work queue.

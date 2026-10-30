@@ -205,6 +205,28 @@ the head, before the body paints, and sets a class on the root element, so hidde
 in and a live refresh of the lanes does not bring them back. Without JavaScript the toggle is not
 shown and finished cards are.
 
+## Starring a task
+
+Every task the browser draws carries a star: beside the tick on a list row or a lane card, before the
+reference on a board card (the task screen's board and a project's own board alike), and beside the
+title on the task screen. Pressing it stars the task, pressing it again unstars it, and the reader lands back on
+the screen they pressed it from, filters and all, at the row they pressed.
+
+A starred task comes first. The list puts the reader's starred tasks above everything else and keeps
+the chosen sort inside each group, and each board column and each lane does the same, because they
+are the same listing split by state or by project. Paging stays exact across the point where the starred tasks end.
+
+A star is personal. It belongs to the reader who set it, so two people sharing a queue each see their
+own stars first and never reorder each other's screen. It is kept on the server, so it follows the
+reader into the command line and the terminal interface, and starring in one tab refreshes the
+reader's other open task screens through the same live updates any other change uses.
+
+The button is a plain form posting to `/tasks/{ref}/star` or `/tasks/{ref}/star/remove` with the
+CSRF token, so it works with no script. It is a real button, `aria-pressed` says whether the task is
+starred, and its name says what pressing it does: "Star infra-2" or "Unstar infra-2". The icon is an
+outline until pressed and filled after, so the state is a shape and not a colour alone. Starring
+needs only what reading the task needs.
+
 ## Moving a task through its workflow
 
 The status pill on a row is a control. Opening it lists the states that row's own workflow can reach

@@ -76,6 +76,19 @@
 {{define "repeatmark"}}<a class="repeatmark" href="/tasks?q=is:recurring" title="Repeats {{.}}"><span aria-hidden="true">&#x21bb;</span><span class="sr-only">Repeats {{.}}</span></a>{{end}}
 {{define "csrf"}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}
 
+{{/* star is one task's personal star toggle. A plain form and a real button,
+     so it works with no script at all; aria-pressed carries the state, and
+     the name says what pressing it does rather than what it is. The action
+     sits last on the form tag so a test can find this form by its target. */}}
+{{define "star"}}<form method="post" class="starform" action="{{.Action}}">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="next" value="{{.Next}}">
+  <button type="submit" class="star{{if .Starred}} is-starred{{end}}" aria-pressed="{{if .Starred}}true{{else}}false{{end}}"
+          aria-label="{{if .Starred}}Unstar{{else}}Star{{end}} {{.Ref}}" title="{{if .Starred}}Unstar{{else}}Star{{end}}">
+    <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#star"/></svg>
+  </button>
+</form>{{end}}
+
 {{/* field-info is the small "i" affordance a field's label carries when its
      meaning is not obvious from the label text alone: a workflow migration,
      a Go duration string, a comma-separated id list. A native disclosure,

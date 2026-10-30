@@ -443,6 +443,22 @@ var registry = []Operation{
 		TUI:   "detail",
 	},
 	{
+		Name: "task.star", Method: "StarTask",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix task star",
+		HTTP:  apiPut(wire.RouteTaskStar),
+		Web:   webPost(web.RouteTaskStar),
+		TUI:   "board",
+	},
+	{
+		Name: "task.unstar", Method: "UnstarTask",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix task unstar",
+		HTTP:  apiDelete(wire.RouteTaskStar),
+		Web:   webPost(web.RouteTaskUnstar),
+		TUI:   "board",
+	},
+	{
 		Name: "tag.list", Method: "ListTags",
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix tag ls",

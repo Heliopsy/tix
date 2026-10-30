@@ -185,7 +185,7 @@ func TestTheHelpViewScrollsRatherThanLosingItsTop(t *testing.T) {
 	// sentence is reachable when some single screenful holds all of it, and a
 	// set of lines gathered across scroll positions cannot say that.
 	var windows []string
-	for range 40 {
+	for range 60 {
 		var w []string
 		for _, line := range m.helpLines(layout) {
 			w = append(w, strings.TrimSpace(line))

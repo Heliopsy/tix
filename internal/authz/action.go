@@ -17,6 +17,9 @@ const (
 	ActionTaskClaim      Action = "task.claim"
 	ActionTaskDelete     Action = "task.delete"
 	ActionTaskReclaim    Action = "task.reclaim"
+	// ActionTaskStar sets or clears the caller's own star. It changes nothing
+	// anybody else sees in a listing, so reading the task is authority enough.
+	ActionTaskStar Action = "task.star"
 
 	ActionProjectRead  Action = "project.read"
 	ActionProjectWrite Action = "project.write"
@@ -57,6 +60,7 @@ var actionScopes = map[Action]core.Scope{
 	ActionTaskClaim:      core.ScopeTaskClaim,
 	ActionTaskDelete:     core.ScopeTaskDelete,
 	ActionTaskReclaim:    core.ScopeTaskReclaim,
+	ActionTaskStar:       core.ScopeTaskRead,
 
 	ActionProjectRead:  core.ScopeProjectRead,
 	ActionProjectWrite: core.ScopeProjectWrite,
@@ -112,6 +116,7 @@ var projectConfinable = map[Action]bool{
 	// be trusted with it the way it is trusted with claiming: the policy
 	// holds it inside its own project on the way through.
 	ActionTaskReclaim: true,
+	ActionTaskStar:    true,
 
 	ActionProjectRead:  true,
 	ActionProjectWrite: true,
@@ -130,7 +135,7 @@ func (a Action) ProjectConfinable() bool { return projectConfinable[a] }
 // allActions is the action vocabulary in a stable order.
 var allActions = []Action{
 	ActionTaskRead, ActionTaskCreate, ActionTaskUpdate, ActionTaskTransition,
-	ActionTaskClaim, ActionTaskDelete, ActionTaskReclaim,
+	ActionTaskClaim, ActionTaskDelete, ActionTaskReclaim, ActionTaskStar,
 	ActionProjectRead, ActionProjectWrite,
 	ActionWorkflowRead, ActionWorkflowWrite,
 	ActionFieldWrite, ActionCommentWrite, ActionArtifactWrite,

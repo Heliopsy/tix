@@ -156,7 +156,11 @@ func (l *Local) GetTask(ctx context.Context, ref core.TaskRef) (*core.Task, erro
 		if err := l.authorizeTask(ctx, authz.ActionTaskRead, task); err != nil {
 			return err
 		}
-		out = task
+		marked := []core.Task{*task}
+		if err := markStarred(ctx, tx, actor.ID, marked); err != nil {
+			return err
+		}
+		out = &marked[0]
 		return nil
 	})
 	if err != nil {
@@ -178,6 +182,7 @@ func (l *Local) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 	if actor.ScopedToProject() {
 		f.ProjectIDs = []string{actor.ProjectID}
 	}
+	f.StarredBy = actor.ID
 
 	limit := f.Page.Limit
 	probe := f
@@ -210,6 +215,7 @@ func (l *Local) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 		page.NextCursor = core.Cursor{
 			SortValue:  taskSortValue(f.Page.Sort, last),
 			SortValue2: taskSortValue2(f.Page.Sort, last),
+			Starred:    last.Starred,
 			ID:         last.ID,
 			Sort:       f.Page.Sort,
 			Direction:  f.Page.Direction,

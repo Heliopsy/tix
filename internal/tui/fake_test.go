@@ -36,6 +36,8 @@ type fakeService struct {
 	tagged   []string
 	untagged []string
 	deps     []core.TaskRef
+	starred  []core.TaskRef
+	unstars  []core.TaskRef
 
 	// what the destructive and corrective calls recorded, and what the reads
 	// the forms offer from are scripted to answer with.
@@ -448,6 +450,20 @@ func (f *fakeService) RemoveTag(_ context.Context, _ core.TaskRef, tag string) e
 	f.untagged = append(f.untagged, tag)
 	return nil
 }
+func (f *fakeService) StarTask(_ context.Context, ref core.TaskRef) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.starred = append(f.starred, ref)
+	return nil
+}
+
+func (f *fakeService) UnstarTask(_ context.Context, ref core.TaskRef) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.unstars = append(f.unstars, ref)
+	return nil
+}
+
 func (f *fakeService) ListTags(context.Context) ([]core.Tag, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

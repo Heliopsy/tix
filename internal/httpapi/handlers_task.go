@@ -3,6 +3,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -49,6 +50,8 @@ func (rt *Router) registerTaskRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteTaskLabels, rt.handleAddLabel)
 	rt.mux.HandleFunc("DELETE "+wire.RouteTaskLabel, rt.handleRemoveLabel)
 	rt.mux.HandleFunc("GET "+wire.RouteLabels, rt.handleListLabels)
+	rt.mux.HandleFunc("PUT "+wire.RouteTaskStar, rt.handleStar)
+	rt.mux.HandleFunc("DELETE "+wire.RouteTaskStar, rt.handleUnstar)
 
 	rt.mux.HandleFunc("GET "+wire.RouteTaskComments, rt.handleListComments)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskComments, rt.handleAddComment)
@@ -93,6 +96,7 @@ func taskFilterFrom(r *http.Request) (core.TaskFilter, error) {
 		ParentID:       q.Get("parent_id"),
 		ParentIsNull:   boolParam(r, "root_only"),
 		Claimed:        triState(q.Get("claimed")),
+		Starred:        triState(q.Get("starred")),
 		Blocked:        triState(q.Get("blocked")),
 		Recurring:      triState(q.Get("recurring")),
 		Query:          q.Get("q"),
@@ -521,6 +525,29 @@ func (rt *Router) handleRemoveLabel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := rt.cfg.Service.RemoveTag(r.Context(), ref, r.PathValue("name")); err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeNoContent(w)
+}
+
+// handleStar sets the caller's own star on a task.
+func (rt *Router) handleStar(w http.ResponseWriter, r *http.Request) {
+	rt.starAction(w, r, rt.cfg.Service.StarTask)
+}
+
+// handleUnstar clears the caller's own star on a task.
+func (rt *Router) handleUnstar(w http.ResponseWriter, r *http.Request) {
+	rt.starAction(w, r, rt.cfg.Service.UnstarTask)
+}
+
+func (rt *Router) starAction(w http.ResponseWriter, r *http.Request, fn func(context.Context, core.TaskRef) error) {
+	ref, err := taskRef(r)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	if err := fn(r.Context(), ref); err != nil {
 		WriteError(w, err)
 		return
 	}

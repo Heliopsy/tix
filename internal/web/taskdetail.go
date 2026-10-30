@@ -3,6 +3,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -38,6 +39,8 @@ func (h *handler) taskRoutes() []route {
 		post(RouteTaskDepDel, h.removeDependency, "RemoveDependency"),
 		post(RouteTaskTags, h.addTag, "AddTag"),
 		post(RouteTaskTagDel, h.removeTag, "RemoveTag"),
+		post(RouteTaskStar, h.starTask, "StarTask"),
+		post(RouteTaskUnstar, h.unstarTask, "UnstarTask"),
 		post(RouteTaskComments, h.addComment, "AddComment"),
 		post(RouteCommentEdit, h.editComment, "EditComment"),
 		post(RouteCommentDel, h.deleteComment, "DeleteComment"),
@@ -667,6 +670,36 @@ func (h *handler) removeTag(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	redirect(w, r, taskPath(r), "tag removed")
+	return nil
+}
+
+// starTask sets the reader's own star on a task and returns them to the screen
+// the button was on.
+func (h *handler) starTask(w http.ResponseWriter, r *http.Request) error {
+	return h.toggleStar(w, r, h.svc.StarTask, "starred ")
+}
+
+// unstarTask clears the reader's own star on a task.
+func (h *handler) unstarTask(w http.ResponseWriter, r *http.Request) error {
+	return h.toggleStar(w, r, h.svc.UnstarTask, "unstarred ")
+}
+
+// toggleStar applies one star call and sends the reader back where they were,
+// at the row they pressed. safeNext refuses anything but a relative path, and
+// its projects fallback is replaced by the task's own screen.
+func (h *handler) toggleStar(w http.ResponseWriter, r *http.Request, call func(context.Context, core.TaskRef) error, verb string) error {
+	ref, err := taskRefOf(r)
+	if err != nil {
+		return err
+	}
+	if err := call(r.Context(), ref); err != nil {
+		return err
+	}
+	back := safeNext(field(r, "next"))
+	if back == RouteProjects && field(r, "next") != RouteProjects {
+		back = taskPath(r)
+	}
+	redirectTo(w, r, back, "t-"+ref.String(), verb+ref.String())
 	return nil
 }
 

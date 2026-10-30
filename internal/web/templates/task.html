@@ -6,6 +6,7 @@
      that preserved the reader's place. */}}
 <p class="backlink"><a href="{{.Data.Back}}">&larr; Back to the list</a></p>
 <div class="titlebar">
+  {{if .CanStar}}{{template "star" (star $t.Ref $t.Starred (printf "/tasks/%s" $t.Ref) .CSRF)}}{{end}}
   <span class="ref">{{$t.Ref}}</span>
   <h1>{{$t.Title}}</h1>
 </div>

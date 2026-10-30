@@ -292,9 +292,16 @@ func joinScopes(scopes []core.Scope) string {
 	return truncate(strings.Join(out, ", "), 40)
 }
 
+// StarMarker leads the reference of a task the reader has starred.
+const StarMarker = "* "
+
 func (p Painter) taskRow(t core.Task) table.Row {
+	ref := p.Ref(t.Ref)
+	if t.Starred {
+		ref = StarMarker + ref
+	}
 	return table.Row{
-		p.Ref(t.Ref),
+		ref,
 		truncate(t.Title, 60),
 		p.Status(t.Status),
 		p.Priority(t.Priority, priorityLabel(t.Priority)),
