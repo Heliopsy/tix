@@ -140,6 +140,7 @@ var Preferences = []Preference{
 	{Cookie: HiddenProjectsCookie, Route: RouteVisibility, Label: "Hidden projects"},
 	{Cookie: TaskViewCookie, Route: RouteTaskView, Label: "Task view"},
 	{Cookie: TintCookie, Route: RouteTint, Label: "Colour rows by"},
+	{Cookie: LanguageCookie, Route: RouteLanguage, Label: "Language"},
 }
 
 // columnPageName names one listing whose columns can be chosen.

@@ -35,6 +35,7 @@ func (h *handler) sessionRoutes() []route {
 		post(RouteDragMove, h.toggleDragMove, "Logout"),
 		post(RouteOpenAfterAdd, h.toggleOpenAfterAdd, "Logout"),
 		post(RouteHover, h.toggleHover, "Logout"),
+		post(RouteLanguage, h.setLanguage, "Logout"),
 	}
 }
 

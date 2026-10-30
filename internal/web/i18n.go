@@ -6,17 +6,94 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
+	"strings"
 
 	"github.com/heliopsy/tix/internal/i18n"
 )
 
-// langOf is the language a request's page is drawn in, from the browser's own
-// Accept-Language. English when it names nothing this build can draw.
+// LanguageCookie remembers a language this browser chose on settings over
+// the one its Accept-Language asks for. Absent, empty or a language this
+// build does not draw all mean the browser's own.
+const LanguageCookie = "tix_lang"
+
+// langOf is the language a request's page is drawn in: the one chosen on
+// settings, else the browser's own Accept-Language, else English.
 func langOf(r *http.Request) string {
 	if r == nil {
 		return i18n.English
 	}
+	if chosen := cookieValue(r, LanguageCookie); chosen != "" && i18n.Supported(chosen) {
+		return chosen
+	}
 	return i18n.Negotiate(r.Header.Get("Accept-Language"))
+}
+
+// languageNames are the languages as their own readers write them, which is
+// how a language picker names them in every language.
+var languageNames = map[string]string{i18n.English: "English", i18n.Bulgarian: "Български"}
+
+// languageChoice is one option of the language picker. The empty value is
+// the browser's own language.
+type languageChoice struct {
+	Value    string
+	Label    string
+	Selected bool
+}
+
+// languageChoices is the picker, with this browser's choice marked.
+func languageChoices(r *http.Request) []languageChoice {
+	current := cookieValue(r, LanguageCookie)
+	if !i18n.Supported(current) {
+		current = ""
+	}
+	out := []languageChoice{{Value: "", Label: "Browser default", Selected: current == ""}}
+	for _, lang := range i18n.Languages() {
+		out = append(out, languageChoice{Value: lang, Label: languageNames[lang], Selected: lang == current})
+	}
+	return out
+}
+
+// setLanguage records the language this browser chose. The browser default
+// stores nothing, the way the other preferences store nothing for theirs.
+func (h *handler) setLanguage(w http.ResponseWriter, r *http.Request) error {
+	value := field(r, "lang")
+	if !i18n.Supported(value) {
+		value = ""
+	}
+	age := cookieYear
+	if value == "" {
+		age = -1
+	}
+	// #nosec G124 -- a display preference, readable by no script; Secure
+	// tracks TLS like every other cookie here.
+	http.SetCookie(w, &http.Cookie{
+		Name: LanguageCookie, Value: value, Path: "/",
+		HttpOnly: true, Secure: h.secureCookie(r), SameSite: http.SameSiteLaxMode,
+		MaxAge: age,
+	})
+	// #nosec G710 -- safeNext rejects anything that is not a relative path on
+	// this origin, including protocol-relative, backslash and control forms.
+	http.Redirect(w, r, safeNext(field(r, "next")), http.StatusSeeOther)
+	return nil
+}
+
+// flashText is a flash in lang. A settings save says "<what> saved", built
+// by savedNext, so it is translated as its two halves; a listing's columns
+// name the listing inside the what.
+func flashText(lang, flash string) string {
+	if text, ok := i18n.Lookup(lang, flash); ok {
+		return text
+	}
+	what, ok := strings.CutSuffix(flash, " saved")
+	if !ok {
+		return flash
+	}
+	if listing, ok := strings.CutPrefix(what, "Columns on "); ok {
+		what = i18n.T(lang, "Columns on %s", i18n.T(lang, listing))
+	} else {
+		what = i18n.T(lang, what)
+	}
+	return i18n.T(lang, "%s saved", what)
 }
 
 // translators are the template helpers that put a page's words in its
@@ -31,10 +108,11 @@ func translators(lang string) template.FuncMap {
 		"t": func(key string, args ...any) string { return i18n.T(lang, key, args...) },
 		// #nosec G203 -- key is a literal in a template, and every catalog
 		// entry for it is checked to carry the same markup as the key.
-		"th":  func(key string) template.HTML { return template.HTML(i18n.T(lang, key)) },
-		"tn":  func(one, other string, n int, args ...any) string { return i18n.N(lang, one, other, n, args...) },
-		"tc":  func(ctx, text string) string { return i18n.C(lang, ctx, text) },
-		"tip": newTip,
+		"th":    func(key string) template.HTML { return template.HTML(i18n.T(lang, key)) },
+		"tn":    func(one, other string, n int, args ...any) string { return i18n.N(lang, one, other, n, args...) },
+		"tc":    func(ctx, text string) string { return i18n.C(lang, ctx, text) },
+		"tip":   newTip,
+		"flash": func(text string) string { return flashText(lang, text) },
 	}
 }
 

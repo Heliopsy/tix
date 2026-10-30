@@ -416,6 +416,7 @@ the current scheme and points at the switch rather than carrying a second form.
 | Columns | `tix_columns` | which optional columns each listing leaves out |
 | Hidden projects | `tix_hidden_projects` | which projects a listing leaves out |
 | Task view | `tix_task_view` | `board` draws the task screen as columns, `lanes` as one lane per project; anything else, including no cookie, is the list |
+| Language | `tix_lang` | `en` or `bg` draws every screen in that language; anything else, including no cookie, follows the browser's `Accept-Language` |
 | Colour rows by | `tix_tint` | What the stripe down a task row and the edge of a board card stands for: `status`, `priority` or `none`. Anything else, including no cookie, is the project's own colour |
 
 `tix_advanced` has three states rather than two: shown, hidden, and absent, which leaves the answer
@@ -537,7 +538,7 @@ in [theming.md](theming.md).
 Every screen is drawn in the language the browser asks for in `Accept-Language`, and says so in the
 root element's `lang`. English and Bulgarian ship; a header naming neither gets English. Keys are the
 English text (`internal/i18n`), so a word a catalog lacks reads in English rather than as a blank.
-The settings screen is not translated yet.
+Settings can override the browser's choice for this browser (`tix_lang`).
 
 A small (i) beside a heading, a filter or a figure opens a sentence or two on what it means and names
 the page in `docs/` that says more. It is a disclosure, so it works with no script, from the keyboard

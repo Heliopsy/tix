@@ -3,6 +3,8 @@
 package web_test
 
 import (
+	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -68,5 +70,39 @@ func TestABrowserAskingForNothingGetsEnglish(t *testing.T) {
 		if !strings.Contains(tip, `aria-label="About Views"`) {
 			t.Errorf("%q: view tip = %s", lang, tip)
 		}
+	}
+}
+
+// TestALanguageChosenOnSettingsOutranksTheBrowser follows the settings row:
+// choosing Bulgarian draws every screen in it whatever the browser asks for,
+// the saved toast says so in Bulgarian, and choosing the browser default
+// goes back to Accept-Language.
+func TestALanguageChosenOnSettingsOutranksTheBrowser(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	b.lang = "en-US,en"
+
+	form := between(t, b.page("/settings"), `action="/language"`, "</form>")
+	if !strings.Contains(form, `<option value="bg" >Български</option>`) || !strings.Contains(form, `<option value="" selected>Browser default</option>`) {
+		t.Fatalf("the language row does not offer Bulgarian with the browser default chosen:\n%s", form)
+	}
+
+	resp := b.post("/language", url.Values{"lang": {"bg"}, "next": {"/settings?flash=Language+saved#appearance"}})
+	wantStatus(t, resp, http.StatusSeeOther)
+	page := b.page("/settings?flash=Language+saved")
+	if !strings.Contains(page, `<html lang="bg"`) {
+		t.Errorf("a chosen language does not outrank Accept-Language")
+	}
+	if flash := between(t, page, `<p class="flash">`, "</p>"); flash != "Език: запазено" {
+		t.Errorf("saved toast = %q", flash)
+	}
+	if flash := between(t, b.page("/settings?flash=Columns+on+Tasks+saved"), `<p class="flash">`, "</p>"); flash != "Колони в Задачи: запазено" {
+		t.Errorf("columns toast = %q", flash)
+	}
+
+	wantStatus(t, b.post("/language", url.Values{"lang": {"xx"}, "next": {"/tasks"}}), http.StatusSeeOther)
+	if !strings.Contains(b.page("/tasks"), `<html lang="en"`) {
+		t.Errorf("an unknown language did not go back to the browser's own")
 	}
 }

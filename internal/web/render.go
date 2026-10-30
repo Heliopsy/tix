@@ -145,16 +145,18 @@ type view struct {
 	Theme string
 	// Tint is what a row's stripe and a card's edge are saying: the project,
 	// the status, the priority, or nothing. See tint.go.
-	Tint          string
-	Tints         []tintChoice
-	KeyScheme     string
-	Schemes       []KeyScheme
-	ShortcutsJSON template.JS
-	Columns       columnPrefs
-	ColumnPage    string
-	Here          string
-	Upgrade       upgrade
-	Data          any
+	Tint      string
+	Tints     []tintChoice
+	KeyScheme string
+	Schemes   []KeyScheme
+	// LanguageChoices is the settings screen's language picker.
+	LanguageChoices []languageChoice
+	ShortcutsJSON   template.JS
+	Columns         columnPrefs
+	ColumnPage      string
+	Here            string
+	Upgrade         upgrade
+	Data            any
 }
 
 // ColumnForm is this screen's own column picker, built by the same
@@ -332,31 +334,32 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 	actor, _ := core.ActorFrom(r.Context())
 	scheme := keySchemeOf(r)
 	return view{
-		Title:         title,
-		Lang:          langOf(r),
-		JSText:        jsMessagesFor(langOf(r)),
-		Path:          r.URL.Path,
-		Here:          here(r),
-		Upgrade:       h.releases.state(),
-		ColumnPage:    columnPage(name),
-		Columns:       columnsOf(r),
-		Flash:         r.URL.Query().Get("flash"),
-		FlashRef:      r.URL.Query().Get("flashref"),
-		CSRF:          csrfFrom(r),
-		EventsPath:    h.eventsPath,
-		Brand:         h.brand(r),
-		Actor:         actor,
-		Advanced:      advancedMode(r),
-		DragMove:      dragMoveMode(r),
-		OpenAfterAdd:  openAfterAdd(r),
-		Hover:         hoverEffects(r),
-		Theme:         themeOf(r),
-		Tint:          tintOf(r),
-		Tints:         tintChoices(tintOf(r)),
-		KeyScheme:     string(scheme),
-		Schemes:       KeySchemes(),
-		ShortcutsJSON: shortcutsJSON(scheme),
-		Data:          data,
+		Title:           title,
+		Lang:            langOf(r),
+		JSText:          jsMessagesFor(langOf(r)),
+		Path:            r.URL.Path,
+		Here:            here(r),
+		Upgrade:         h.releases.state(),
+		ColumnPage:      columnPage(name),
+		Columns:         columnsOf(r),
+		Flash:           r.URL.Query().Get("flash"),
+		FlashRef:        r.URL.Query().Get("flashref"),
+		CSRF:            csrfFrom(r),
+		EventsPath:      h.eventsPath,
+		Brand:           h.brand(r),
+		Actor:           actor,
+		Advanced:        advancedMode(r),
+		DragMove:        dragMoveMode(r),
+		OpenAfterAdd:    openAfterAdd(r),
+		Hover:           hoverEffects(r),
+		Theme:           themeOf(r),
+		Tint:            tintOf(r),
+		Tints:           tintChoices(tintOf(r)),
+		KeyScheme:       string(scheme),
+		Schemes:         KeySchemes(),
+		LanguageChoices: languageChoices(r),
+		ShortcutsJSON:   shortcutsJSON(scheme, langOf(r)),
+		Data:            data,
 	}
 }
 

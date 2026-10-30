@@ -26,11 +26,7 @@ import (
 // untranslatedExempt are templates the literal check does not read yet, each
 // with the reason. Keep it short: an entry here is a screen a reader in
 // another language sees in English.
-var untranslatedExempt = map[string]string{
-	// The settings screen is being redesigned on its own branch; it joins
-	// the catalog when that lands, rather than this change rewriting it twice.
-	"settings.html": "redesign in flight",
-}
+var untranslatedExempt = map[string]string{}
 
 // literalAttrs are the attributes whose values a reader sees or hears.
 var literalAttrs = regexp.MustCompile(`\s(?:title|placeholder|aria-label|alt|data-rail-name|aria-valuetext|data-confirm)="([^"]*)"`)
@@ -268,7 +264,7 @@ func allKeys(t *testing.T) map[string]string {
 }
 
 // keyArgs is how many leading string arguments of each helper are keys.
-var keyArgs = map[string]int{"t": 1, "th": 1, "tn": 2, "tip": 2}
+var keyArgs = map[string]int{"t": 1, "th": 1, "tn": 2, "tip": 2, "savedNext": 1}
 
 // keyTemplates are partials that translate the string they are handed.
 var keyTemplates = map[string]bool{"field-info": true}
@@ -368,7 +364,8 @@ func goKeys() []string {
 			out = append(out, hint)
 		}
 	}
-	out = append(out, "internal error", "pruning removed records", "dry run: nothing was removed")
+	out = append(out, "internal error", "pruning removed records", "dry run: nothing was removed",
+		"%s saved", "Columns on %s", "Server default", "Browser default")
 	for _, v := range categoryLabels {
 		out = append(out, v)
 	}
@@ -386,6 +383,7 @@ var renderers = map[string][]int{
 	"renderFragment":  {4},
 	"newView":         {2},
 	"newPager":        {4},
+	"savedNext":       {0},
 }
 
 // handlerKeys reads this package's Go source for the literal flashes and
