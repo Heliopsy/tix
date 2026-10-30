@@ -14,7 +14,7 @@
      at the end of it rather than in rows of their own. */}}
 <div class="pagehead">
   <div class="pagehead-title">
-    <h1>Tasks</h1>
+    <h1>{{t "Tasks"}}</h1>
     <div id="tasks-summary">{{template "tasks-summary" .}}</div>
   </div>
   <div class="pagehead-tools">
@@ -29,12 +29,12 @@
          full. It is one button there and unchanged everywhere else. */}}
     <button type="button" class="secondary filterbtn" popovertarget="filterpop">
       <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#columns"/></svg>
-      Filter{{if $v.Query}} &middot; on{{end}}
+      {{t "Filter"}}{{if $v.Query}} &middot; {{t "on"}}{{end}}
     </button>
     <div class="colmenu listprefs">
       <button type="button" class="secondary colmenu-open" popovertarget="viewprefs">
         <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#columns"/></svg>
-        View{{if $v.Hidden}} &middot; {{$v.Hidden}} hidden{{end}}
+        {{t "View"}}{{if $v.Hidden}} &middot; {{t "%d hidden" $v.Hidden}}{{end}}
       </button>
       <div id="viewprefs" class="flowmenu colpop viewpop" popover>
         <div class="body viewgrid">
@@ -47,16 +47,16 @@
                the same thing. */}}
           {{if .ColumnForm.Configurable}}
           <section>
-            <p class="viewhead">Columns</p>
+            <p class="viewhead">{{t "Columns"}}</p>
             {{template "column-choices" .ColumnForm}}
           </section>
           {{end}}
           <section>
-            <p class="viewhead">Projects</p>
+            <div class="headtip"><p class="viewhead">{{t "Projects"}}</p>{{template "tip" (tip "Project visibility" "Untick a project to leave its tasks out of this screen. The choice is kept in this browser only, and a filter that names a project shows it anyway." "docs/web-ui.md")}}</div>
             {{template "project-choices" $v.Prefs.Projects}}
           </section>
         </div>
-        <button type="button" class="flowclose" popovertarget="viewprefs" popovertargetaction="hide">Close</button>
+        <button type="button" class="flowclose" popovertarget="viewprefs" popovertargetaction="hide">{{t "Close"}}</button>
       </div>
     </div>
   </div>
@@ -72,18 +72,18 @@
        rows. The shortcut layer already focuses this field, and says so in
        the "?" overlay, so the cost of reaching it without a click is one
        keystroke rather than a click. */}}
-  <input name="title" placeholder="Add a task and press Enter" aria-label="New task" data-shortcut-target="new" required>
-  <select name="project_ref" aria-label="Project">
+  <input name="title" placeholder="{{t "Add a task and press Enter"}}" aria-label="{{t "New task"}}" data-shortcut-target="new" required>
+  <select name="project_ref" aria-label="{{t "Project"}}">
     {{range $v.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
   </select>
-  <button type="submit">Add</button>
+  <button type="submit">{{t "Add"}}</button>
   {{/* The fuller form opens from the row it extends, at the height of the
        buttons beside it. It was a disclosure on a line of its own under the
        row, a second strip of chrome above the list for one button. */}}
   {{if .Advanced}}
   <button type="button" class="secondary addmore-open" popovertarget="addmore">
     <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#details"/></svg>
-    <span class="addmore-label">Add with details</span>
+    <span class="addmore-label">{{t "Add with details"}}</span>
   </button>
   {{end}}
 </form>
@@ -96,47 +96,47 @@
      down, and is the same popover primitive as the View menu beside it. */}}
 {{if .Advanced}}
 <div id="addmore" class="addpop" popover>
-  <p class="viewhead">Add with details</p>
+  <p class="viewhead">{{t "Add with details"}}</p>
   <div class="body">
     <form method="post" action="/tasks">
       {{template "csrf" .CSRF}}
       <div class="addgrid">
         <label class="field">
-          <span>Title</span>
+          <span>{{t "Title"}}</span>
           <input id="title2" name="title" required>
         </label>
         <label class="field">
-          <span>Project</span>
+          <span>{{t "Project"}}</span>
           <select id="project_ref2" name="project_ref">
             {{range $v.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
           </select>
         </label>
         <label class="field">
-          <span>Priority</span>
+          <span>{{t "Priority"}}</span>
           <select id="priority" name="priority">
-            <option value="">default</option>
-            {{range $v.Priorities}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
+            <option value="">{{t "default"}}</option>
+            {{range $v.Priorities}}<option value="{{.Value}}">{{t .Label}}</option>{{end}}
           </select>
         </label>
         <label class="field is-wide">
-          <span>Notes</span>
+          <span>{{t "Notes"}}</span>
           <textarea id="body" name="body" rows="3"></textarea>
         </label>
         <label class="field is-wide">
-          <span>Tags, comma separated</span>
+          <span>{{t "Tags, comma separated"}}</span>
           <input id="tags" name="tags" list="known-tags">
         </label>
-        <label class="field is-wide">
-          <span>Repeat when done</span>
-          <input id="repeat" name="repeat" placeholder="every week, every month on day 1, 3 days after done">
-        </label>
+        <div class="field is-wide">
+          <div class="field-label"><label for="repeat">{{t "Repeat when done"}}</label>{{template "tip" (tip "Repeating tasks" "Finishing a repeating task creates the next one, with the same title, tags and assignee, due on the next date. Cancelling it ends the series." "docs/features.md")}}</div>
+          <input id="repeat" name="repeat" placeholder="{{t "every week, every month on day 1, 3 days after done"}}">
+        </div>
       </div>
       <datalist id="known-tags">
         {{range $v.Tags}}<option value="{{.Name}}"></option>{{end}}
       </datalist>
       <div class="actions">
-        <button type="button" class="secondary" popovertarget="addmore" popovertargetaction="hide">Cancel</button>
-        <button type="submit">Create task</button>
+        <button type="button" class="secondary" popovertarget="addmore" popovertargetaction="hide">{{t "Cancel"}}</button>
+        <button type="submit">{{t "Create task"}}</button>
       </div>
     </form>
   </div>
@@ -145,7 +145,7 @@
 
 <div id="filterpop" class="filterpop" popover>
 <form method="get" action="/tasks" class="filterbar">
-  <input name="q" value="{{$v.Query}}" placeholder="Filter, for example status:todo tag:ops" aria-label="Filter" data-shortcut-target="filter">
+  <input name="q" value="{{$v.Query}}" placeholder="{{t "Filter, for example status:todo tag:ops"}}" aria-label="{{t "Filter"}}" data-shortcut-target="filter">{{template "tip" (tip "Filter" "Terms are combined: status:todo tag:ops assignee:lena is:starred is:recurring due:overdue. A leading - excludes a term, as in -tag:chore, title~api matches part of a title, and a bare word searches titles and descriptions." "docs/filtering.md")}}
   {{/* The deadline control. "What is overdue" was answerable over the API and
        nowhere a reader could click, so the one question a due date exists to
        answer needed a filter expression typed by hand. What it selects is
@@ -153,21 +153,21 @@
        its own, so it is sayable in the box beside it, shareable as a link, and
        refused with the same message when it names something the language does
        not have. */}}
-  <select name="due" aria-label="Due">
-    <option value="">any deadline</option>
-    {{range $v.DueWindows}}<option value="{{.}}" {{if eq . $v.Due}}selected{{end}}>{{.}}</option>{{end}}
-  </select>
-  <select name="sort" aria-label="Sort">
-    {{range $v.SortFields}}<option value="{{.}}" {{if eq . $v.Sort}}selected{{end}}>{{.}}</option>{{end}}
-  </select>
-  <button class="secondary" type="submit">Apply</button>
+  <select name="due" aria-label="{{t "Due"}}">
+    <option value="">{{t "any deadline"}}</option>
+    {{range $v.DueWindows}}<option value="{{.}}" {{if eq . $v.Due}}selected{{end}}>{{t .}}</option>{{end}}
+  </select>{{template "tip" (tip "Deadline" "Overdue lists tasks whose deadline has passed; today, week and month look ahead from now. Tasks with no deadline are left out." "docs/filtering.md")}}
+  <select name="sort" aria-label="{{t "Sort"}}">
+    {{range $v.SortFields}}<option value="{{.}}" {{if eq . $v.Sort}}selected{{end}}>{{t .}}</option>{{end}}
+  </select>{{template "tip" (tip "Stars" "Your starred tasks always come first, under every sort. A star is yours alone: it never reorders anyone else's list. Filter with is:starred to see only them." "docs/filtering.md")}}
+  <button class="secondary" type="submit">{{t "Apply"}}</button>
   {{/* Clearing a filter had no control: the only way back to the whole list
        was to select the text in the box and delete it. A project chip on a row
        writes a filter into that box in one click, so getting out of it should
        cost one click too. The sort is kept, because a sort is not a filter. */}}
-  {{if or $v.Query $v.Due}}<a class="secondary clear" href="/tasks{{if $v.Sort}}?sort={{$v.Sort}}{{end}}">Clear</a>{{end}}
+  {{if or $v.Query $v.Due}}<a class="secondary clear" href="/tasks{{if $v.Sort}}?sort={{$v.Sort}}{{end}}">{{t "Clear"}}</a>{{end}}
 </form>
-<button type="button" class="flowclose filterclose" popovertarget="filterpop" popovertargetaction="hide">Close</button>
+<button type="button" class="flowclose filterclose" popovertarget="filterpop" popovertargetaction="hide">{{t "Close"}}</button>
 </div>
 {{/* A filter that names something this tenant does not have is a typo in a
      box, not a missing page. It used to be answered with the full-page error
@@ -199,11 +199,11 @@
 
 
 {{if $v.Filtered}}
-<p class="lede">The filter names a project explicitly, so it is shown even though project visibility hides {{$v.Hidden}} of them.</p>
+<p class="lede">{{t "The filter names a project explicitly, so it is shown even though project visibility hides %d of them." $v.Hidden}}</p>
 {{else if $v.Empty}}
-<p class="lede">Every project is hidden, so there is nothing to show. Use Projects above to bring one back.</p>
+<p class="lede">{{t "Every project is hidden, so there is nothing to show. Use Projects above to bring one back."}}</p>
 {{else if $v.Hidden}}
-<p class="lede">{{$v.Hidden}} project{{if ne $v.Hidden 1}}s are{{else}} is{{end}} hidden. Use Projects above to change that.</p>
+<p class="lede">{{tn "%d project is hidden. Use Projects above to change that." "%d projects are hidden. Use Projects above to change that." $v.Hidden}}</p>
 {{end}}
 
 {{if eq $v.View "lanes"}}
@@ -212,7 +212,7 @@
      hidden: with scripting off it could do nothing, and finished cards are
      shown, which is its default anyway. */}}
 <div class="lanesbar">
-  <button type="button" class="secondary lanes-completed" data-lanes-completed aria-pressed="true" hidden>Show completed</button>
+  <button type="button" class="secondary lanes-completed" data-lanes-completed aria-pressed="true" hidden>{{t "Show completed"}}</button>{{template "tip" (tip "Show completed" "Shows or hides finished cards in the lanes. The choice is remembered in this browser only." "docs/web-ui.md")}}
 </div>
 {{end}}
 <div id="tasks-listing">{{template "tasks-listing" .}}</div>
@@ -238,10 +238,10 @@
   {{/* An empty narrowed list is not an empty list. With finished work hidden,
        a project whose every task is done came up as "Nothing on the list",
        which reads as a project with nothing in it. */}}
-  {{if and (eq .Total 0) $v.OpenOnly}}Nothing open.
-  {{else if eq .Total 0}}Nothing on the list.
-  {{else if .AllDone}}All clear. Everything here is done.
-  {{else}}<strong>{{.Open}}</strong> to go{{if .Done}}, {{.Done}} done{{end}}{{if .Projects}} &middot; across {{.Projects}} project{{if ne .Projects 1}}s{{end}}{{end}}{{if .Held}} &middot; <span class="held">{{.Held}} held by an agent</span>{{end}}{{if .Blocked}} &middot; {{.Blocked}} blocked{{end}}
+  {{if and (eq .Total 0) $v.OpenOnly}}{{t "Nothing open."}}
+  {{else if eq .Total 0}}{{t "Nothing on the list."}}
+  {{else if .AllDone}}{{t "All clear. Everything here is done."}}
+  {{else}}<strong>{{.Open}}</strong> {{t "to go"}}{{if .Done}}, {{t "%d done" .Done}}{{end}}{{if .Projects}} &middot; {{tn "across %d project" "across %d projects" .Projects}}{{end}}{{if .Held}} &middot; <span class="held">{{t "%d held by an agent" .Held}}</span>{{end}}{{if .Blocked}} &middot; {{t "%d blocked" .Blocked}}{{end}}
   {{end}}
   {{/* A list that quietly shows a subset is worse than one showing the wrong
        thing, because the reader cannot tell which they have. So the default
@@ -249,7 +249,7 @@
   {{/* The link is built from the address the reader is on rather than
        written out, so a sort, a page size or a deadline window survives
        following it. A hardcoded /tasks?all=1 dropped all three. */}}
-  {{if $v.OpenOnly}} &middot; <span class="muted">open work only</span> &middot; <a href="{{$v.AllHref}}">show finished too</a>{{end}}
+  {{if $v.OpenOnly}} &middot; <span class="muted">{{t "open work only"}}</span> &middot; <a href="{{$v.AllHref}}">{{t "show finished too"}}</a>{{end}}
 </p>
 {{end}}{{end}}
 {{end}}
@@ -286,9 +286,9 @@
      nothing else narrates it: the move patches the DOM in place
      (assets/live.js) rather than navigating. Visually hidden, never removed. */}}
 <p class="meta boardmeta">
-  Workflow {{$v.Board.Workflow}} &middot; {{len $v.Board.Columns}} column{{if ne (len $v.Board.Columns) 1}}s{{end}}
-  {{- with index $v.Board.Groups 0}} &middot; {{len .Projects}} project{{if ne (len .Projects) 1}}s{{end}} sharing it: {{join .Keys}}{{end}}
-</p>
+  {{t "Workflow %s" $v.Board.Workflow}} &middot; {{tn "%d column" "%d columns" (len $v.Board.Columns)}}
+  {{- with index $v.Board.Groups 0}} &middot; {{tn "%d project sharing it: %s" "%d projects sharing it: %s" (len .Projects) (join .Keys)}}{{end}}
+</p>{{template "tip" (tip "Board" "Projects share one board only when their workflows have the same states in the same order and the same moves. Each card still moves only the way its own project allows." "docs/web-ui.md")}}
 <p class="sr-only" aria-live="polite" id="board-status"></p>
 <div class="board{{if $v.Board.Merged}} is-merged{{end}}" data-drag="{{if .DragMove}}1{{else}}0{{end}}">
 {{range $v.Board.Columns}}
@@ -313,31 +313,31 @@
              heading already said it, and repeating it on every card is noise. */}}
         {{if or $v.Board.Merged $showPrio $showTags $showRepeat}}
         <div class="card-meta">
-          {{if $v.Board.Merged}}<a class="projref{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" href="/tasks?q=project:{{$acc.Key}}" title="Only tasks in {{$acc.Name}}">{{if $acc.Icon}}<span class="proj-icon" aria-hidden="true">{{$acc.Icon}}</span>{{end}}{{$acc.Key}}</a>{{end}}
-          {{if $showPrio}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="Only {{prio .Task.Priority}} priority tasks"><span class="caret" aria-hidden="true"></span>{{prio .Task.Priority}}</a>{{end}}
+          {{if $v.Board.Merged}}<a class="projref{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" href="/tasks?q=project:{{$acc.Key}}" title="{{t "Only tasks in %s" $acc.Name}}">{{if $acc.Icon}}<span class="proj-icon" aria-hidden="true">{{$acc.Icon}}</span>{{end}}{{$acc.Key}}</a>{{end}}
+          {{if $showPrio}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="{{t "Only %s priority tasks" (t (prio .Task.Priority))}}"><span class="caret" aria-hidden="true"></span>{{t (prio .Task.Priority)}}</a>{{end}}
           {{if $showRepeat}}{{template "repeatmark" .Task.Recurrence}}{{end}}
           {{if $showTags}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
         </div>
         {{end}}
         {{if .Routes}}
         <details class="card-move">
-          <summary aria-label="Move {{.Task.Ref}}">Move</summary>
+          <summary aria-label="{{t "Move %s" .Task.Ref}}">{{t "Move"}}</summary>
           <div class="body">
             <form method="post" action="/tasks/{{.Task.Ref}}/transition">
               {{template "csrf" $.CSRF}}
               <input type="hidden" name="ref" value="{{.Task.Ref}}">
               <input type="hidden" name="next" value="{{$v.Self}}">
-              <select id="to-{{.Task.Ref}}" name="route" aria-label="Move {{.Task.Ref}} to">
+              <select id="to-{{.Task.Ref}}" name="route" aria-label="{{t "Move %s to" .Task.Ref}}">
                 {{range .Routes}}<option value="{{.Value}}">{{.Option}}</option>{{end}}
               </select>
-              <button type="submit">Move</button>
+              <button type="submit">{{t "Move"}}</button>
             </form>
           </div>
         </details>
         {{end}}
       </article>
     {{else}}
-      <p class="meta column-empty">No tasks.</p>
+      <p class="meta column-empty">{{t "No tasks."}}</p>
     {{end}}
   </section>
 {{end}}
@@ -348,7 +348,7 @@
      quietly. It can only happen if a state left the workflow under a task
      that was in it. */}}
 <p class="boardstray" role="alert">
-  {{len $v.Board.Stray}} task{{if ne (len $v.Board.Stray) 1}}s are{{else}} is{{end}} in a state this workflow no longer has, so {{if ne (len $v.Board.Stray) 1}}they have{{else}}it has{{end}} no column:
+  {{tn "%d task is in a state this workflow no longer has, so it has no column:" "%d tasks are in a state this workflow no longer has, so they have no column:" (len $v.Board.Stray)}}
   {{range $v.Board.Stray}}<a href="/tasks/{{.Ref}}">{{.Ref}}</a> ({{.Status}}) {{end}}
 </p>
 {{end}}
@@ -367,14 +367,14 @@
 {{range $v.Lanes.Lanes}}
   {{$acc := index $v.Accent .Project.ID}}
   <section class="lane{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" id="lane-{{.Project.Key}}" data-lane="{{.Project.Key}}">
-    <h2>{{if $acc.Icon}}<span class="proj-icon" aria-hidden="true">{{$acc.Icon}}</span>{{end}}<a href="/tasks?q=project:{{.Project.Key}}" title="Only tasks in {{.Project.Name}}">{{.Project.Name}}</a> <span class="meta">({{.Open}} open)</span></h2>
+    <h2>{{if $acc.Icon}}<span class="proj-icon" aria-hidden="true">{{$acc.Icon}}</span>{{end}}<a href="/tasks?q=project:{{.Project.Key}}" title="{{t "Only tasks in %s" .Project.Name}}">{{.Project.Name}}</a> <span class="meta">({{t "%d open" .Open}})</span></h2>
     {{range .Cards}}
     {{$mark := ""}}
     {{if eq $.Tint "status"}}{{$mark = printf " is-accented tint-status-%s" (slug .Task.Status)}}
     {{else if eq $.Tint "priority"}}{{$mark = printf " is-accented tint-prio-%s" (prio .Task.Priority)}}{{end}}
     <article id="t-{{.Task.Ref}}" class="card lane-card{{if .Finished}} is-finished{{end}}{{$mark}}{{if eq $.FlashRef .Task.Ref}} is-flashed{{end}}" data-lane-task="{{.Task.Ref}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
       {{if .Finished}}
-      <span class="check is-done" role="img" aria-label="{{.Task.Ref}} is finished" title="Finished"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5 10.2 16.7 18 8.4"/></svg></span>
+      <span class="check is-done" role="img" aria-label="{{t "%s is finished" .Task.Ref}}" title="{{t "Finished"}}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5 10.2 16.7 18 8.4"/></svg></span>
       {{else if .Tickable}}
       {{/* The existing transition route, submitting the one route into done.
            Only this card is swapped, as the list swaps only its row; without
@@ -387,19 +387,19 @@
         {{template "csrf" $.CSRF}}
         <input type="hidden" name="next" value="{{$v.Self}}">
         <input type="hidden" name="route" value="{{.Complete.Value}}">
-        <button type="submit" class="check" aria-label="Complete {{.Task.Ref}}: {{.Journey}}" title="Complete: {{.Journey}}">
+        <button type="submit" class="check" aria-label="{{t "Complete %s: %s" .Task.Ref .Journey}}" title="{{t "Complete: %s" .Journey}}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5 10.2 16.7 18 8.4"/></svg>
         </button>
       </form>
       {{else}}
-      <a class="check is-locked" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}" aria-label="Open {{.Task.Ref}} to finish it: {{.Locked}}" title="Open the task to finish it: {{.Locked}}"></a>
+      <a class="check is-locked" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}" aria-label="{{t "Open %s to finish it: %s" .Task.Ref .Locked}}" title="{{t "Open the task to finish it: %s" .Locked}}"></a>
       {{end}}
       {{if and $.CanStar ($.Columns.Show "tasks" "star")}}{{template "star" (star .Task.Ref .Task.Starred $v.Self $.CSRF)}}{{end}}
       <div class="lane-body">
         <a class="lane-title" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}">{{.Task.Title}}</a>
         <div class="card-meta">
           {{if $.Columns.Show "tasks" "status"}}<span class="pill status lane-state {{categoryClass .Category}}" data-state="{{.Task.Status}}">{{.Label}}</span>{{end}}
-          {{if and ($.Columns.Show "tasks" "priority") (ne (prio .Task.Priority) "normal")}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="Only {{prio .Task.Priority}} priority tasks"><span class="caret" aria-hidden="true"></span>{{prio .Task.Priority}}</a>{{end}}
+          {{if and ($.Columns.Show "tasks" "priority") (ne (prio .Task.Priority) "normal")}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="{{t "Only %s priority tasks" (t (prio .Task.Priority))}}"><span class="caret" aria-hidden="true"></span>{{t (prio .Task.Priority)}}</a>{{end}}
           {{if and ($.Columns.Show "tasks" "repeat") .Task.Recurrence}}{{template "repeatmark" .Task.Recurrence}}{{end}}
           {{if $.Columns.Show "tasks" "tags"}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
           {{if $.Columns.Show "tasks" "ref"}}<span class="ref mono">{{.Task.Ref}}</span>{{end}}
@@ -407,17 +407,17 @@
       </div>
     </article>
     {{else}}
-    <p class="meta lane-empty">No tasks.</p>
+    <p class="meta lane-empty">{{t "No tasks."}}</p>
     {{end}}
-    {{if .AllFinished}}<p class="meta lane-empty lane-allfinished">Everything here is finished.</p>{{end}}
+    {{if .AllFinished}}<p class="meta lane-empty lane-allfinished">{{t "Everything here is finished."}}</p>{{end}}
   </section>
 {{else}}
-  <p class="meta lane-none">Nothing on the list.</p>
+  <p class="meta lane-none">{{t "Nothing on the list."}}</p>
 {{end}}
 </div>
 {{if $v.Lanes.Stray}}
 <p class="boardstray" role="alert">
-  {{len $v.Lanes.Stray}} task{{if ne (len $v.Lanes.Stray) 1}}s belong{{else}} belongs{{end}} to a project this screen does not list, so {{if ne (len $v.Lanes.Stray) 1}}they have{{else}}it has{{end}} no lane:
+  {{tn "%d task belongs to a project this screen does not list, so it has no lane:" "%d tasks belong to a project this screen does not list, so they have no lane:" (len $v.Lanes.Stray)}}
   {{range $v.Lanes.Stray}}<a href="/tasks/{{.Ref}}">{{.Ref}}</a> {{end}}
 </p>
 {{end}}
@@ -432,14 +432,14 @@
 <div class="boardfault" role="alert">
   {{if $v.Board.Groups}}
   {{if gt (len $v.Board.Groups) 1}}
-  <p><strong>These projects do not share a workflow, so one board cannot show them all honestly.</strong>
-     The list is shown instead. Pick a set that agrees, or put the others away under View.</p>
+  <p><strong>{{t "These projects do not share a workflow, so one board cannot show them all honestly."}}</strong>
+     {{t "The list is shown instead. Pick a set that agrees, or put the others away under View."}}</p>
   {{else}}
   {{/* One group and still not drawable: its workflow could not be read at
        all. The project is named rather than left off a board nobody was told
        was short. */}}
-  <p><strong>The workflow behind this listing could not be read, so no columns can be drawn.</strong>
-     The list is shown instead.</p>
+  <p><strong>{{t "The workflow behind this listing could not be read, so no columns can be drawn."}}</strong>
+     {{t "The list is shown instead."}}</p>
   {{end}}
   <ul class="boardgroups">
     {{range $v.Board.Groups}}
@@ -447,7 +447,7 @@
     {{end}}
   </ul>
   {{else}}
-  <p>There is no project to draw a board from, so the list is shown instead.</p>
+  <p>{{t "There is no project to draw a board from, so the list is shown instead."}}</p>
   {{end}}
 </div>
 {{end}}
@@ -493,7 +493,7 @@
            sort as well as the scroll position: the list you were working
            through was replaced by an unfiltered one, scrolled to the top. */}}
       <input type="hidden" name="next" value="{{$v.Self}}">
-      <button type="submit" class="check{{if eq .Status $done}} is-done{{end}}" {{if eq .Status $done}}aria-label="Reopen {{.Ref}}" title="Reopen"{{else}}aria-label="Complete {{.Ref}}" title="Complete"{{end}}>
+      <button type="submit" class="check{{if eq .Status $done}} is-done{{end}}" {{if eq .Status $done}}aria-label="{{t "Reopen %s" .Ref}}" title="{{t "Reopen"}}"{{else}}aria-label="{{t "Complete %s" .Ref}}" title="{{t "Complete"}}"{{end}}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5 10.2 16.7 18 8.4"/></svg>
       </button>
     </form>
@@ -542,19 +542,19 @@
       {{if $flow}}
       <span class="statusmenu">
         <button type="button" class="statuspill" popovertarget="flow-{{.Ref}}"
-                aria-label="Status {{.Status}}; move {{.Ref}}" title="Move {{.Ref}}">
+                aria-label="{{t "Status %s; move %s" .Status .Ref}}" title="{{t "Move %s" .Ref}}">
           <span class="pill status {{slug .Status}}">{{.Status}}</span>
         </button>
         <div id="flow-{{.Ref}}" class="flowmenu" popover>
-          <p class="flowhead">Move <span class="mono">{{.Ref}}</span> from <span class="pill status {{slug .Status}}">{{.Status}}</span></p>
+          <p class="flowhead">{{t "Move"}} <span class="mono">{{.Ref}}</span> {{t "from"}} <span class="pill status {{slug .Status}}">{{.Status}}</span></p>
           <form method="post" action="/tasks/{{.Ref}}/transition">
             {{template "csrf" $.CSRF}}
             <input type="hidden" name="next" value="{{$v.Self}}">
             {{range $flow}}
             <button type="submit" name="route" value="{{.Value}}" class="flowgo{{if .MultiHop}} is-multi{{end}}">
               <span class="flowto">{{.To.Label}}</span>
-              {{if .MultiHop}}<span class="flowvia">{{.Path}}</span><span class="flowhops">{{.Hops}} steps</span>
-              {{else}}<span class="flowhops">1 step</span>{{end}}
+              {{if .MultiHop}}<span class="flowvia">{{.Path}}</span><span class="flowhops">{{tn "%d step" "%d steps" .Hops}}</span>
+              {{else}}<span class="flowhops">{{tn "%d step" "%d steps" 1}}</span>{{end}}
             </button>
             {{end}}
           </form>
@@ -562,8 +562,8 @@
                that edits and a chip that filters looked identical on this row,
                so each press was a guess; the verb belongs in the menu, where
                it can be read before it is chosen. */}}
-          <a class="flowsee" href="/tasks?q=status:{{.Status}}">Show all <span class="pill status {{slug .Status}}">{{.Status}}</span></a>
-          <button type="button" class="flowclose" popovertarget="flow-{{.Ref}}" popovertargetaction="hide">Close</button>
+          <a class="flowsee" href="/tasks?q=status:{{.Status}}">{{t "Show all"}} <span class="pill status {{slug .Status}}">{{.Status}}</span></a>
+          <button type="button" class="flowclose" popovertarget="flow-{{.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
         </div>
       </span>
       {{else}}<span class="pill status {{slug .Status}}">{{.Status}}</span>{{end}}
@@ -579,23 +579,23 @@
       {{$p := prio .Priority}}
       <span class="priomenu">
         <button type="button" class="priobtn" popovertarget="prio-{{.Ref}}"
-                aria-label="Priority {{$p}}; change it for {{.Ref}}" title="Change the priority of {{.Ref}}">
-          <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{$p}}</span>
+                aria-label="{{t "Priority %s; change it for %s" (t $p) .Ref}}" title="{{t "Change the priority of %s" .Ref}}">
+          <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>
         </button>
         <div id="prio-{{.Ref}}" class="flowmenu priopop" popover>
-          <p class="flowhead">Priority of <span class="mono">{{.Ref}}</span></p>
+          <p class="flowhead">{{t "Priority of"}} <span class="mono">{{.Ref}}</span></p>
           <form method="post" action="/tasks/{{.Ref}}/priority">
             {{template "csrf" $.CSRF}}
             <input type="hidden" name="next" value="{{$v.Self}}">
             {{range $.Data.Priorities}}
             <button type="submit" name="priority" value="{{.Value}}" class="flowgo{{if eq .Label $p}} is-current{{end}}">
-              <span class="prio p-{{.Label}}"><span class="caret" aria-hidden="true"></span>{{.Label}}</span>
-              {{if eq .Label $p}}<span class="flowhops">current</span>{{end}}
+              <span class="prio p-{{.Label}}"><span class="caret" aria-hidden="true"></span>{{t .Label}}</span>
+              {{if eq .Label $p}}<span class="flowhops">{{t "current"}}</span>{{end}}
             </button>
             {{end}}
           </form>
-          <a class="flowsee" href="/tasks?q=priority:{{$p}}">Show all <span class="prio p-{{$p}}"><span class="caret" aria-hidden="true"></span>{{$p}}</span></a>
-          <button type="button" class="flowclose" popovertarget="prio-{{.Ref}}" popovertargetaction="hide">Close</button>
+          <a class="flowsee" href="/tasks?q=priority:{{$p}}">{{t "Show all"}} <span class="prio p-{{$p}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span></a>
+          <button type="button" class="flowclose" popovertarget="prio-{{.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
         </div>
       </span>
       </span>{{end}}
@@ -614,15 +614,15 @@
            exactly as it did. A cell is emitted even when this row has
            nothing to put in it, because an empty column still has to hold
            its place for the rows above and below it to stay aligned. */}}
-      {{if $.Columns.Show "tasks" "tags"}}<span class="tm tm-tags">{{$tags := .Tags}}{{$shown := $tags}}{{if gt (len $tags) 3}}{{$shown = slice $tags 0 3}}{{end}}{{range $shown}}<a class="tagref" href="/tasks?q=tag:{{.}}" title="Only tasks tagged {{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{if gt (len $tags) 3}}<a class="tagmore" href="/tasks/{{.Ref}}" title="{{join $tags}}">+{{len (slice $tags 3)}}</a>{{end}}</span>{{end}}
+      {{if $.Columns.Show "tasks" "tags"}}<span class="tm tm-tags">{{$tags := .Tags}}{{$shown := $tags}}{{if gt (len $tags) 3}}{{$shown = slice $tags 0 3}}{{end}}{{range $shown}}<a class="tagref" href="/tasks?q=tag:{{.}}" title="{{t "Only tasks tagged %s" .}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{if gt (len $tags) 3}}<a class="tagmore" href="/tasks/{{.Ref}}" title="{{join $tags}}">+{{len (slice $tags 3)}}</a>{{end}}</span>{{end}}
       {{/* Who the work belongs to. The listing showed everything about a task
            except that, so the one question a reader opens a shared list to
            answer -- whose is this -- could only be answered on the command
            line or by opening every row. The handle comes from the page's own
            directory pass, not a lookup per row, and links to the tasks that
            actor holds, the way a tag and a project already do. */}}
-      {{if $.Columns.Show "tasks" "assignee"}}<span class="tm tm-who">{{$who := $.Data.Names.Label .AssigneeActorID}}{{if $who}}<a class="who-ref" href="/tasks?q=assignee:{{$who}}" title="Assigned to {{$who}}"><span class="at" aria-hidden="true">@</span>{{$who}}</a>{{else}}<span class="who-ref is-none" title="Nobody is assigned to this">unassigned</span>{{end}}</span>{{end}}
-      {{if $.Columns.Show "tasks" "project"}}<span class="tm tm-proj"><a class="projref{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" href="/tasks?q=project:{{$acc.Key}}" title="Only tasks in {{$acc.Name}}">{{if $acc.Icon}}<span class="proj-icon" aria-hidden="true">{{$acc.Icon}}</span>{{end}}{{$acc.Key}}</a></span>{{end}}
+      {{if $.Columns.Show "tasks" "assignee"}}<span class="tm tm-who">{{$who := $.Data.Names.Label .AssigneeActorID}}{{if $who}}<a class="who-ref" href="/tasks?q=assignee:{{$who}}" title="{{t "Assigned to %s" $who}}"><span class="at" aria-hidden="true">@</span>{{$who}}</a>{{else}}<span class="who-ref is-none" title="{{t "Nobody is assigned to this"}}">{{t "unassigned"}}</span>{{end}}</span>{{end}}
+      {{if $.Columns.Show "tasks" "project"}}<span class="tm tm-proj"><a class="projref{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" href="/tasks?q=project:{{$acc.Key}}" title="{{t "Only tasks in %s" $acc.Name}}">{{if $acc.Icon}}<span class="proj-icon" aria-hidden="true">{{$acc.Icon}}</span>{{end}}{{$acc.Key}}</a></span>{{end}}
       {{/* A lease is the one thing on a row that is about to change by
            itself. Held says an agent has it; expired says one took it and
            never came back, which is a task looking for an owner rather than
@@ -637,8 +637,8 @@
            hands. */}}
       {{$held := claim .}}
       <span class="tm tm-flags">
-      {{if eq $held "held"}}<span class="lease held" title="Held by {{$.Data.Names.Label .ClaimedByActorID}} until {{compact .LeaseExpiresAt}}">held &middot; {{$.Data.Names.Label .ClaimedByActorID}}</span>
-      {{else if eq $held "expired"}}<span class="lease expired" title="{{$.Data.Names.Label .LeaseExpiredByActorID}} let the claim run out {{expiredAgo .}} ago, at {{compact .LeaseExpiredAt}}; the task is claimable again">claim expired &middot; {{expiredAgo .}} ago{{if gt .ClaimCount 1}} <span class="lease-count">&middot; {{.ClaimCount}} claims</span>{{end}}</span>{{end}}
+      {{if eq $held "held"}}<span class="lease held" title="{{t "Held by %s until %s" ($.Data.Names.Label .ClaimedByActorID) (compact .LeaseExpiresAt)}}">{{t "held"}} &middot; {{$.Data.Names.Label .ClaimedByActorID}}</span>
+      {{else if eq $held "expired"}}<span class="lease expired" title="{{t "%s let the claim run out %s ago, at %s; the task is claimable again" ($.Data.Names.Label .LeaseExpiredByActorID) (expiredAgo .) (compact .LeaseExpiredAt)}}">{{t "claim expired"}} &middot; {{t "%s ago" (expiredAgo .)}}{{if gt .ClaimCount 1}} <span class="lease-count">&middot; {{t "%d claims" .ClaimCount}}</span>{{end}}</span>{{end}}
       {{/* The date carried no label, so it was a number nobody could name.
            It is the last time the row changed, and saying so costs one word. */}}
       {{/* The deadline, and only while it is one. A badge on every dated row
@@ -646,21 +646,21 @@
            own due marker was removed once; this is drawn for a deadline past
            or within the week and for nothing else. The word carries the
            meaning and the colour only reinforces it. */}}
-      {{if $.Columns.Show "tasks" "due"}}{{$due := due .}}{{if $due}}<a class="duemark is-{{$due}}" href="/tasks?due={{if eq $due "overdue"}}overdue{{else}}week{{end}}" title="Due {{stamp .DueAt}}">{{if eq $due "overdue"}}overdue{{else}}due this week{{end}}</a>{{end}}{{end}}
+      {{if $.Columns.Show "tasks" "due"}}{{$due := due .}}{{if $due}}<a class="duemark is-{{$due}}" href="/tasks?due={{if eq $due "overdue"}}overdue{{else}}week{{end}}" title="{{t "Due %s" (stamp .DueAt)}}">{{if eq $due "overdue"}}{{t "overdue"}}{{else}}{{t "due this week"}}{{end}}</a>{{end}}{{end}}
       {{if and .Recurrence ($.Columns.Show "tasks" "repeat")}}{{template "repeatmark" .Recurrence}}{{end}}
       </span>
-      {{if $.Columns.Show "tasks" "updated"}}<span class="tm tm-when"><span class="when" title="Last updated {{compact .UpdatedAt}}"><span class="when-label">updated</span> {{compact .UpdatedAt}}</span></span>{{end}}
+      {{if $.Columns.Show "tasks" "updated"}}<span class="tm tm-when"><span class="when" title="{{t "Last updated %s" (compact .UpdatedAt)}}"><span class="when-label">{{t "updated"}}</span> {{compact .UpdatedAt}}</span></span>{{end}}
       {{if $.Columns.Show "tasks" "ref"}}<span class="tm tm-ref"><span class="ref mono">{{.Ref}}</span></span>{{end}}
     </span>
   </li>
 {{else}}
   <li class="empty">
     {{if $v.FilterError}}
-    <p class="empty-title">Nothing to show while the filter is refused</p>
-    <p>Correct the filter above, or clear it to see everything.</p>
+    <p class="empty-title">{{t "Nothing to show while the filter is refused"}}</p>
+    <p>{{t "Correct the filter above, or clear it to see everything."}}</p>
     {{else}}
-    <p class="empty-title">Nothing on the list</p>
-    <p>Add the first one above. Agents can add them too, over the API.</p>
+    <p class="empty-title">{{t "Nothing on the list"}}</p>
+    <p>{{t "Add the first one above. Agents can add them too, over the API."}}</p>
     {{end}}
   </li>
 {{end}}
