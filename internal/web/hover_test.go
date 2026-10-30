@@ -63,7 +63,7 @@ func TestSettingsDrawsOnOffPreferencesAsSwitches(t *testing.T) {
 	}{
 		{"/hover", true},
 		{"/dragmove", false},
-		{"/openafteradd", true},
+		{"/openafteradd", false},
 		{"/advanced", true},
 	} {
 		form := prefForm(t, main, c.route)

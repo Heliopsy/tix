@@ -199,12 +199,22 @@ func TestTheOpenANewTaskToggleWritesBothPositions(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	b := f.as("alice")
+	switchReads := func() string {
+		t.Helper()
+		return between(t, prefForm(t, contentOf(t, b.page("/settings")), web.RouteOpenAfterAdd), `aria-checked="`, `"`)
+	}
+	if got := switchReads(); got != "false" {
+		t.Fatalf("settings shows Open a new task as %s for a browser that never chose", got)
+	}
 	for _, want := range []string{"1", "0", "1"} {
 		resp := b.post(web.RouteOpenAfterAdd, url.Values{"next": {"/settings"}})
 		_ = resp.Body.Close()
 		wantStatus(t, resp, http.StatusSeeOther)
 		if got := b.cookie(web.OpenAfterAddCookie); got != want {
 			t.Fatalf("after a press the cookie holds %q, want %q", got, want)
+		}
+		if got := switchReads(); got != map[string]string{"1": "true", "0": "false"}[want] {
+			t.Fatalf("with the cookie at %q settings shows the switch as %s", want, got)
 		}
 	}
 }

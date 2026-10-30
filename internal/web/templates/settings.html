@@ -102,8 +102,8 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Open a new task" "appearance"}}">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname" id="openafteradd-name">Open a new task</span>{{template "field-info" "After adding a task, open it. Turn this off to stay on the listing with the filter, sort and page you were on, which is what you want when you are emptying your head onto the list rather than writing one task out in full. Applies to the one-line box and to Add with details."}}</div>
-        <span class="sethelp" id="openafteradd-help">Open a task straight after adding it.</span>
+        <div class="setname-line"><span class="setname" id="openafteradd-name">Open a new task</span>{{template "field-info" "Off by default: adding a task keeps you on the listing with the filter, sort and page you were on, and the toast links the new task. Turn this on to open each task as soon as it is added, for writing one task out in full. Applies to the one-line box and to Add with details."}}</div>
+        <span class="sethelp" id="openafteradd-help">Open a task straight after adding it, instead of staying on the list.</span>
       </div>
       <div class="setrow-ctl">
         <button class="switch" type="submit" role="switch" aria-checked="{{if .OpenAfterAdd}}true{{else}}false{{end}}" aria-labelledby="openafteradd-name" aria-describedby="openafteradd-help"><span class="switch-track" aria-hidden="true"></span><span class="switch-state">{{if .OpenAfterAdd}}On{{else}}Off{{end}}</span></button>
