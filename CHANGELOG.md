@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.24.0](https://github.com/Heliopsy/tix/compare/v0.23.0...v0.24.0) (2026-10-30)
+
+
+### Features
+
+* star a task so it lists first for you ([#91](https://github.com/Heliopsy/tix/issues/91)) ([88bb88c](https://github.com/Heliopsy/tix/commit/88bb88ccc016d9910634d225ac9b272716395186))
+* tasks that repeat when they are done ([#90](https://github.com/Heliopsy/tix/issues/90)) ([0d85c67](https://github.com/Heliopsy/tix/commit/0d85c67a548046d19b74cc210c2bd0e14b3886aa))
+* **web:** draw the task screen as one lane per project ([#89](https://github.com/Heliopsy/tix/issues/89)) ([2f7a6e6](https://github.com/Heliopsy/tix/commit/2f7a6e673680422e1fa27d9b65dd28f7ff119c7a))
+
+
+### Bug Fixes
+
+* **sshd:** wait for header parses before Serve returns ([#85](https://github.com/Heliopsy/tix/issues/85)) ([3833fd3](https://github.com/Heliopsy/tix/commit/3833fd3dff03009cc2f3c65d13bdc4167f491983))
+
+
+### Dependencies
+
+* **deps:** bump modules, pinned actions and the ci toolbox ([#87](https://github.com/Heliopsy/tix/issues/87)) ([3586da9](https://github.com/Heliopsy/tix/commit/3586da9a4b63d5a10c61e5616d1d41c6eaf5a377))
+
 ## [0.23.0](https://github.com/Heliopsy/tix/compare/v0.22.0...v0.23.0) (2026-10-28)
 
 
