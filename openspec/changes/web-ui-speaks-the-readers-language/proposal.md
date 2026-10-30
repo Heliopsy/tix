@@ -15,8 +15,9 @@ figures say nothing.
 
 - A message catalog keyed by the English text (`internal/i18n`). English needs no entries; every
   other language registers one per key. Bulgarian is the first language shipped.
-- The language is negotiated from the browser's `Accept-Language` header and written on the root
-  element's `lang`. Template sets are parsed per language, the way they already are per time style.
+- The language is negotiated from the browser's `Accept-Language` header, unless the settings
+  screen's Language row chose one for this browser (`tix_lang`), and written on the root element's
+  `lang`. Template sets are parsed per language, the way they already are per time style.
 - Templates translate through `t`, `tn` (singular and plural) and `th` (fixed strings with inline
   markup). Flashes, page titles, error headings and hints, state category labels, column, view and
   scheme labels, and pager units translate at the template edge.
@@ -31,8 +32,6 @@ figures say nothing.
 
 ## Out of scope
 
-- The settings screen, which is being redesigned on its own branch, is exempt from the literal
-  check until that lands. A language picker belongs there and comes with it.
 - Messages composed in Go from parts (the activity feed's sentences, domain error messages from the
   service layer, relative times and durations) stay English: they are shared with the CLI and the
   HTTP API, and translating them needs the catalog to reach `internal/core` and `internal/service`.

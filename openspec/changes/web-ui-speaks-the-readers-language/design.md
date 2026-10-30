@@ -11,11 +11,16 @@ Catalogs are Go maps registered from `init` in one file per area, so the strings
 together and two areas can be edited at once. The same key may be registered twice only with the
 same text; a disagreement panics at start rather than picking one.
 
-## Negotiation, no preference yet
+## Negotiation, then a per-browser choice
 
 `Accept-Language` is the reader's own statement and needs no UI. The highest-weighted language this
 build draws wins; an exact tag first, then its base (`bg-BG` reads as `bg`); English otherwise. A
-per-browser override belongs on the settings screen, which is being redesigned elsewhere.
+browser whose language is not the one its reader wants can choose on settings: a `tix_lang` cookie
+like every other display preference, empty for the browser's own. Languages are named in their own
+words in the picker, so a reader can find theirs from any language.
+
+A settings save returns with a flash of "<what> saved". That is translated as its two halves,
+`%s saved` around the translated what, so each new row needs one key rather than two.
 
 ## Bound at parse time
 

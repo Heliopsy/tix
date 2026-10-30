@@ -19,6 +19,23 @@ The interface SHALL ship English and Bulgarian.
 - **WHEN** a browser sends `Accept-Language: de-DE,fr;q=0.8`
 - **THEN** the screen is drawn in English with `lang="en"`
 
+### Requirement: A browser can choose its language on settings
+
+The settings screen SHALL offer a Language row listing the browser default and every shipped
+language, each named in its own language. A chosen language SHALL be remembered per browser in the
+`tix_lang` cookie and SHALL outrank `Accept-Language`. Choosing the browser default, or a value the
+build does not ship, SHALL remove the cookie. The saved toast SHALL be drawn in the page's language.
+
+#### Scenario: Bulgarian chosen in an English browser
+
+- **WHEN** a browser sending `Accept-Language: en-US` chooses Bulgarian on settings
+- **THEN** the next screen says `lang="bg"` and the toast reads "Език: запазено"
+
+#### Scenario: Back to the browser default
+
+- **WHEN** that browser then submits a language the build does not ship
+- **THEN** the cookie is removed and screens follow `Accept-Language` again
+
 ### Requirement: Text written by scripts follows the page's language
 
 For a language other than English, every screen SHALL carry, in its head, the translations of the
