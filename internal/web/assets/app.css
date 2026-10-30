@@ -1073,6 +1073,16 @@ input[readonly] {
   color: var(--muted);
 }
 
+/* tip is field-info beside a heading or a control rather than a label: the
+   same circle, drawn round an icon instead of a letter, and inline so it sits
+   on its heading's line. The body is a little wider, for a sentence or two. */
+.tip { display: inline-block; vertical-align: middle; margin-inline-start: 6px; font-size: var(--text-sm); }
+.tip > summary svg { display: block; }
+.tip > p { max-width: min(360px, 80vw); line-height: 1.45; text-align: start; text-transform: none; letter-spacing: normal; white-space: normal; }
+.tip-doc { display: block; margin-top: 4px; }
+.headtip { display: flex; align-items: center; gap: 2px; }
+.headtip > h1, .headtip > h2, .headtip > h3 { margin-inline-end: 0; }
+
 /* A single-choice <select> gets the same border, background and padding
    every other field already has from the shared rule above; what is left of
    its own browser chrome is the dropdown arrow, replaced here with one drawn

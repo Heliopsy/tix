@@ -16,6 +16,10 @@
 // from 900px up, where app.css draws the sidebar as a column.
 (function (global) {
   "use strict";
+  // say is text in the page's language; see i18n.js.
+  function say(text) {
+    return global.tix && global.tix.t ? global.tix.t(text) : text;
+  }
   var tix = (global.tix = global.tix || {});
   var WIDTH = "tix.sidebar.width";
   var COLLAPSED = "tix.sidebar.collapsed";
@@ -147,7 +151,7 @@
       handles[i].setAttribute("aria-valuemax", String(MAX));
       handles[i].setAttribute("aria-valuenow", String(collapsed ? MIN : currentWidth(width)));
       if (collapsed) {
-        handles[i].setAttribute("aria-valuetext", "Collapsed");
+        handles[i].setAttribute("aria-valuetext", say("Collapsed"));
       } else {
         handles[i].removeAttribute("aria-valuetext");
       }
@@ -156,8 +160,9 @@
     for (var j = 0; j < toggles.length; j++) {
       toggles[j].hidden = false;
       toggles[j].setAttribute("aria-expanded", collapsed ? "false" : "true");
-      toggles[j].setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
-      toggles[j].setAttribute("title", collapsed ? "Expand sidebar" : "Collapse sidebar");
+      var label = say(collapsed ? "Expand sidebar" : "Collapse sidebar");
+      toggles[j].setAttribute("aria-label", label);
+      toggles[j].setAttribute("title", label);
     }
     var named = doc.querySelectorAll("[data-rail-name]");
     for (var k = 0; k < named.length; k++) {

@@ -101,10 +101,22 @@
      domains.html for the fields judged to need one. */}}
 {{define "field-info"}}
 <details class="field-info">
-  <summary aria-label="What is this field?"><span aria-hidden="true">i</span></summary>
-  <p>{{.}}</p>
+  <summary aria-label="{{t "What is this field?"}}"><span aria-hidden="true">i</span></summary>
+  <p>{{t .}}</p>
 </details>
 {{end}}
+
+{{/* tip is the same "i" disclosure as field-info, for a concept rather than
+     a field: a heading, a filter box, a figure a newcomer would not know how
+     to read. Built with the tip func from a topic, one or two plain
+     sentences, and optionally the page in docs/ that says more. A disclosure
+     for the reasons field-info gives, and named "About <topic>" so a screen
+     reader says what it explains rather than "i". The doc is named rather
+     than linked: docs/ is not served here, and no page may point off-site. */}}
+{{define "tip"}}<details class="field-info tip">
+  <summary aria-label="{{t "About %s" (t .Topic)}}" title="{{t "About %s" (t .Topic)}}"><svg aria-hidden="true" width="12" height="12"><use href="/assets/icons.svg#info"/></svg></summary>
+  <p>{{t .Text}}{{if .Doc}} <span class="tip-doc">{{t "More in"}} <code>{{.Doc}}</code>.</span>{{end}}</p>
+</details>{{end}}
 
 {{/* secret is a value the server will never show again: a freshly minted API
      token, or a signing secret tix generated because the operator left the
