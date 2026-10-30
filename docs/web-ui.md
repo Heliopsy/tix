@@ -92,7 +92,7 @@ the queue. See [agents.md](agents.md) for what a lease is and why the token matt
 act of completing, not to the completed state, so opening a list of finished tasks animates nothing.
 Fifteen checkboxes popping in sequence on load says fifteen things just happened when nothing did.
 
-## List or board
+## List, board or lanes
 
 The switch beside the filter bar draws the same tasks either as rows or as columns, and remembers
 which per browser (`tix_task_view`). The list is what an untouched install shows. The same switch is
@@ -163,6 +163,41 @@ snaps one column to the screen. It does not wrap onto further rows and does not 
 fixed-height scroller, and either arrangement grows past that height and runs over whatever the page
 draws beneath the board. Cards carry their project's key, icon and accent only on a merged board,
 where a column holds more than one project's work.
+
+## Lanes
+
+The third position of the same switch draws the page one lane per project, the way Google Tasks
+draws one column per list. It is the same selection again: one filter, one page, one visibility
+choice and one pager, except that lanes, like the board, are exempt from the list's open-work default,
+because a finished task is drawn in its lane, ticked.
+
+Lanes follow the order the screen lists projects in, and a lane keeps the listing's sort. A project
+gets a lane when a task on this page is in it, or when a `project:` term names it, in which case an
+empty lane says so. No other empty lane is drawn: a tenant with hundreds of projects would otherwise
+draw hundreds of columns of nothing, most of them because their tasks are on another page. A task
+whose project the screen does not list is named under the lanes rather than dropped.
+
+The lane is the project, so the status moves onto the card as a badge: the state's label, coloured by
+its category, which is the one part of a state a tenant cannot rename.
+
+**The tick box is offered only when finishing is one move.** From the task's state, its own
+workflow has to offer exactly one shortest route into a terminal state of the done category, no step
+of it may require a comment, and the reader has to hold the scope to move tasks and every scope a
+step requires. The box posts that route to the task's ordinary transition route, so it is a plain
+form that works without JavaScript, and its label spells out any state it passes through on the way.
+Otherwise the box is a dashed circle that opens the task and says why: two ways to finish is a choice
+for the task's own screen, a comment needs somewhere to type it, and a move the reader may not make
+would only be refused after the click. A finished task is drawn ticked, and unticking is not offered.
+
+**Show completed** hides finished cards in every lane. It is the one preference kept in the browser's
+`localStorage` rather than a cookie, as a single key, `tix.lanes.showCompleted`, which holds `false`
+when finished cards are hidden and is removed when they are shown. Nothing else goes there: no project
+key, no task reference, no count. Screens are served `no-store` so that a page does not outlive the
+session on a shared machine, and browser storage is the same disk with no logout to clear it, so only
+a choice that says nothing about anybody's work may live in it. The script that applies it loads in
+the head, before the body paints, and sets a class on the root element, so hidden cards never flash
+in and a live refresh of the lanes does not bring them back. Without JavaScript the toggle is not
+shown and finished cards are.
 
 ## Moving a task through its workflow
 
@@ -299,7 +334,7 @@ the current scheme and points at the switch rather than carrying a second form.
 | Open a new task | `tix_open_after_add` | `0` stays on the listing after adding; absent or anything else opens the task |
 | Columns | `tix_columns` | which optional columns each listing leaves out |
 | Hidden projects | `tix_hidden_projects` | which projects a listing leaves out |
-| Task view | `tix_task_view` | `board` draws the task screen as columns; anything else, including no cookie, is the list |
+| Task view | `tix_task_view` | `board` draws the task screen as columns, `lanes` as one lane per project; anything else, including no cookie, is the list |
 | Colour rows by | `tix_tint` | What the stripe down a task row and the edge of a board card stands for: `status`, `priority` or `none`. Anything else, including no cookie, is the project's own colour |
 
 `tix_advanced` has three states rather than two: shown, hidden, and absent, which leaves the answer
@@ -327,10 +362,10 @@ Such a key excludes nothing: an unknown project key in a filter is refused as no
 service, deliberately, so sending one would answer the task screen with a not-found page and leave
 the cookie unreachable from the only screen that could clear it.
 
-`tix_task_view` has two states and no third. The board is the one stored value; absent, empty, stale
-or anything another program left behind is the list, which is what an untouched install shows.
-Choosing the list stores nothing and expires the cookie, so both switches offer two positions and
-neither has an "unset" to show.
+`tix_task_view` has three positions and no unset one. The board and lanes are the stored values;
+absent, empty, stale or anything another program left behind is the list, which is what an untouched
+install shows. Choosing the list stores nothing and expires the cookie, so both switches offer three
+positions and neither has an "unset" to show.
 
 `tix_columns` carries a version marker, `v2~`, and names the columns each listing *hides*. Recording
 the columns shown cannot tell a column the reader turned off from a column that did not exist when

@@ -191,6 +191,15 @@
 <p class="lede">{{$v.Hidden}} project{{if ne $v.Hidden 1}}s are{{else}} is{{end}} hidden. Use Projects above to change that.</p>
 {{end}}
 
+{{if eq $v.View "lanes"}}
+{{/* Outside the region a live refresh replaces, so its state is set once
+     per page by assets/lanes.js rather than after every refresh. Rendered
+     hidden: with scripting off it could do nothing, and finished cards are
+     shown, which is its default anyway. */}}
+<div class="lanesbar">
+  <button type="button" class="secondary lanes-completed" data-lanes-completed aria-pressed="true" hidden>Show completed</button>
+</div>
+{{end}}
 <div id="tasks-listing">{{template "tasks-listing" .}}</div>
 
 {{template "live-screen" $v.Live}}
@@ -320,6 +329,73 @@
 <p class="boardstray" role="alert">
   {{len $v.Board.Stray}} task{{if ne (len $v.Board.Stray) 1}}s are{{else}} is{{end}} in a state this workflow no longer has, so {{if ne (len $v.Board.Stray) 1}}they have{{else}}it has{{end}} no column:
   {{range $v.Board.Stray}}<a href="/tasks/{{.Ref}}">{{.Ref}}</a> ({{.Status}}) {{end}}
+</p>
+{{end}}
+{{else if eq $v.View "lanes"}}
+{{/* One lane per project, Google Tasks style, over the same page the list
+     and the board draw. The lane is the project, so the status moves onto
+     the card as a badge coloured by the state's category. A lane is drawn
+     for every project with a task on this page and for every project a
+     project: term names; see tasklanes.go for why no other empty lane is.
+
+     Finished cards carry is-finished, and the stylesheet hides them only
+     under the root class assets/lanes.js sets from the reader's Show
+     completed choice, so the choice survives this block being replaced by a
+     live refresh. */}}
+<div class="lanes">
+{{range $v.Lanes.Lanes}}
+  {{$acc := index $v.Accent .Project.ID}}
+  <section class="lane{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" id="lane-{{.Project.Key}}" data-lane="{{.Project.Key}}">
+    <h2>{{if $acc.Icon}}<span class="proj-icon" aria-hidden="true">{{$acc.Icon}}</span>{{end}}<a href="/tasks?q=project:{{.Project.Key}}" title="Only tasks in {{.Project.Name}}">{{.Project.Name}}</a> <span class="meta">({{.Open}} open)</span></h2>
+    {{range .Cards}}
+    {{$mark := ""}}
+    {{if eq $.Tint "status"}}{{$mark = printf " is-accented tint-status-%s" (slug .Task.Status)}}
+    {{else if eq $.Tint "priority"}}{{$mark = printf " is-accented tint-prio-%s" (prio .Task.Priority)}}{{end}}
+    <article id="t-{{.Task.Ref}}" class="card lane-card{{if .Finished}} is-finished{{end}}{{$mark}}" data-lane-task="{{.Task.Ref}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
+      {{if .Finished}}
+      <span class="check is-done" role="img" aria-label="{{.Task.Ref}} is finished" title="Finished"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5 10.2 16.7 18 8.4"/></svg></span>
+      {{else if .Tickable}}
+      {{/* The existing transition route, submitting the one route into done.
+           Only this card is swapped, as the list swaps only its row; without
+           JavaScript it is an ordinary post that returns to this listing. */}}
+      <form method="post" action="/tasks/{{.Task.Ref}}/transition" class="tick"
+            hx-post="/tasks/{{.Task.Ref}}/transition"
+            hx-target="#t-{{.Task.Ref}}"
+            hx-select="#t-{{.Task.Ref}}"
+            hx-swap="outerHTML">
+        {{template "csrf" $.CSRF}}
+        <input type="hidden" name="next" value="{{$v.Self}}">
+        <input type="hidden" name="route" value="{{.Complete.Value}}">
+        <button type="submit" class="check" aria-label="Complete {{.Task.Ref}}: {{.Journey}}" title="Complete: {{.Journey}}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5 10.2 16.7 18 8.4"/></svg>
+        </button>
+      </form>
+      {{else}}
+      <a class="check is-locked" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}" aria-label="Open {{.Task.Ref}} to finish it: {{.Locked}}" title="Open the task to finish it: {{.Locked}}"></a>
+      {{end}}
+      <div class="lane-body">
+        <a class="lane-title" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}">{{.Task.Title}}</a>
+        <div class="card-meta">
+          <span class="pill status lane-state {{categoryClass .Category}}" data-state="{{.Task.Status}}">{{.Label}}</span>
+          {{if ne (prio .Task.Priority) "normal"}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="Only {{prio .Task.Priority}} priority tasks"><span class="caret" aria-hidden="true"></span>{{prio .Task.Priority}}</a>{{end}}
+          {{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}
+          <span class="ref mono">{{.Task.Ref}}</span>
+        </div>
+      </div>
+    </article>
+    {{else}}
+    <p class="meta lane-empty">No tasks.</p>
+    {{end}}
+    {{if .AllFinished}}<p class="meta lane-empty lane-allfinished">Everything here is finished.</p>{{end}}
+  </section>
+{{else}}
+  <p class="meta lane-none">Nothing on the list.</p>
+{{end}}
+</div>
+{{if $v.Lanes.Stray}}
+<p class="boardstray" role="alert">
+  {{len $v.Lanes.Stray}} task{{if ne (len $v.Lanes.Stray) 1}}s belong{{else}} belongs{{end}} to a project this screen does not list, so {{if ne (len $v.Lanes.Stray) 1}}they have{{else}}it has{{end}} no lane:
+  {{range $v.Lanes.Stray}}<a href="/tasks/{{.Ref}}">{{.Ref}}</a> {{end}}
 </p>
 {{end}}
 {{else}}
