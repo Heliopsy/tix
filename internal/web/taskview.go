@@ -5,26 +5,33 @@ package web
 import "net/http"
 
 // TaskViewCookie remembers whether the task screen draws its tasks as a list
-// of rows or as a board of columns. It is the same set of tasks either way --
-// one filter, one page, one visibility choice -- so this records how they are
-// drawn and never which of them are selected.
+// of rows, a board of columns or one lane per project. It is the same set of
+// tasks every way -- one filter, one page, one visibility choice -- so this
+// records how they are drawn and never which of them are selected.
 //
 // A cookie beside the theme and the column picker, for the reason those are:
 // how somebody reads a shared queue is a property of the reader, not of the
 // tenant, and two people signed into one account want different answers.
 const TaskViewCookie = "tix_task_view"
 
-// The two ways the task screen draws one set of tasks.
+// The ways the task screen draws one set of tasks.
 const (
 	TaskViewList  = "list"
 	TaskViewBoard = "board"
+	TaskViewLanes = "lanes"
 )
 
 // TaskViews are the views the switch offers, in the order it offers them.
-var TaskViews = []string{TaskViewList, TaskViewBoard}
+var TaskViews = []string{TaskViewList, TaskViewBoard, TaskViewLanes}
 
 // taskViewLabels name each view on the control.
-var taskViewLabels = map[string]string{TaskViewList: "List", TaskViewBoard: "Board"}
+var taskViewLabels = map[string]string{TaskViewList: "List", TaskViewBoard: "Board", TaskViewLanes: "Lanes"}
+
+// knownTaskView reports whether this build draws the named view.
+func knownTaskView(v string) bool {
+	_, ok := taskViewLabels[v]
+	return ok
+}
 
 // taskViewChoice is one position of the view switch.
 type taskViewChoice struct {
@@ -42,13 +49,13 @@ func taskViewChoices(current string) []taskViewChoice {
 	return out
 }
 
-// taskViewOf reports which view this browser asked for. Anything other than
-// the board -- no cookie, a stale value, something another program left on
-// the host -- is the list, which is what an untouched install has always
+// taskViewOf reports which view this browser asked for. Anything this build
+// does not draw -- no cookie, a stale value, something another program left
+// on the host -- is the list, which is what an untouched install has always
 // shown.
 func taskViewOf(r *http.Request) string {
-	if cookieValue(r, TaskViewCookie) == TaskViewBoard {
-		return TaskViewBoard
+	if v := cookieValue(r, TaskViewCookie); knownTaskView(v) {
+		return v
 	}
 	return TaskViewList
 }
@@ -60,9 +67,9 @@ func taskViewOf(r *http.Request) string {
 // going back to the default leaves nothing behind, the way "Show all"
 // projects and "Reset" columns do.
 func (h *handler) setTaskView(w http.ResponseWriter, r *http.Request) error {
-	value := ""
-	if field(r, "view") == TaskViewBoard {
-		value = TaskViewBoard
+	value := field(r, "view")
+	if !knownTaskView(value) || value == TaskViewList {
+		value = ""
 	}
 	age := cookieYear
 	if value == "" {

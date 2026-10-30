@@ -10,7 +10,7 @@ import (
 
 // prefsView is every per-browser preference that has more than a switch: the
 // column picker of each listing, the project visibility choice, and the
-// list-or-board view.
+// task view switch.
 //
 // The settings screen and the screen each control used to live on alone now
 // render the same preference, which is two controls over one cookie unless
@@ -32,7 +32,7 @@ type prefsView struct {
 	// Projects is the project visibility control.
 	Projects visibilityFormView
 
-	// TaskView is the list-or-board switch.
+	// TaskView is the list, board or lanes switch.
 	TaskView taskViewFormView
 }
 
@@ -68,9 +68,9 @@ type visibilityFormView struct {
 	Whole bool
 }
 
-// taskViewFormView is the list-or-board switch. Current is what the reader
-// has, which is the list whenever the cookie says anything else, so the
-// switch has two positions and not three.
+// taskViewFormView is the task view switch. Current is what the reader
+// has, which is the list whenever the cookie names no view this build draws,
+// so the switch has one position per view and no unset one.
 type taskViewFormView struct {
 	CSRF    string
 	Here    string

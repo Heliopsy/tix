@@ -97,6 +97,10 @@ type tasksView struct {
 	// being drawable.
 	Board taskBoard
 
+	// Lanes are the same page drawn one lane per project, built only when
+	// that is the view being drawn.
+	Lanes taskLanes
+
 	// Names labels the actors holding a lease, so a held row can say who has
 	// it rather than only that somebody does.
 	Names actorNames
@@ -272,11 +276,12 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 	// a tenant that renamed done to shipped must not have its listing silently
 	// stop narrowing.
 	//
-	// The board is exempt. Its columns are the workflow, terminal states
+	// The board and the lanes are exempt. The board's columns are the workflow, terminal states
 	// included, so narrowing it to the open states empties the columns a card
 	// is moved into: a reader who finished a card watched it leave the board
-	// altogether. The default belongs to the list, which is the screen that
-	// opened on the wrong set.
+	// altogether. Lanes draw a finished task ticked, and their own Show
+	// completed control is what hides one. The default belongs to the list,
+	// which is the screen that opened on the wrong set.
 	openOnly := false
 	showAll := query.Get(AllParam) != ""
 	view := taskViewOf(r)
@@ -290,7 +295,7 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 	// ones and four open. The badge and the filter used the same word for two
 	// different questions. A deadline, a tag or a priority is a question
 	// about work; "and the finished ones too" is what the All control is for.
-	if !showAll && view != TaskViewBoard && len(filter.Statuses) == 0 {
+	if !showAll && view == TaskViewList && len(filter.Statuses) == 0 {
 		if open, err := h.unfinishedStatuses(r.Context()); err == nil && len(open) > 0 {
 			filter.Statuses = open
 			openOnly = true
@@ -354,6 +359,10 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 			return tasksView{}, err
 		}
 	}
+	var lanes taskLanes
+	if view == TaskViewLanes {
+		lanes = buildLanes(projects, filter, page.Tasks, laneMoves{Workflows: moves, HasScope: readerHasScope(r)})
+	}
 	return tasksView{
 		Tasks:         page.Tasks,
 		Projects:      projects,
@@ -375,6 +384,7 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 		Prefs:         prefs,
 		View:          view,
 		Board:         board,
+		Lanes:         lanes,
 		Hidden:        hidden,
 		Filtered:      filtered && hidden > 0,
 		OpenOnly:      openOnly,
@@ -382,6 +392,13 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 		Empty:         hidden > 0 && hidden == len(prefs.Projects.Choices),
 		Live:          h.liveTasks(r),
 	}, nil
+}
+
+// readerHasScope answers whether the signed-in reader holds a scope, so a
+// control the service would refuse is not drawn. The service still checks.
+func readerHasScope(r *http.Request) func(core.Scope) bool {
+	actor, ok := core.ActorFrom(r.Context())
+	return func(s core.Scope) bool { return ok && actor.HasScope(s) }
 }
 
 // rowActors lists every actor the listing names: whoever holds a lease on a

@@ -20,6 +20,9 @@
   :root:not([data-theme="light"]):not([data-theme="dim"]) { --accent: {{.Brand.AccentDark}}; --accent-soft: {{.Brand.AccentSoftDark}}; }
 }
 </style>
+{{/* Not deferred: it sets the Show completed class on the root before the
+     body paints, so hidden lane cards never flash in. See assets/lanes.js. */}}
+<script src="/assets/lanes.js"></script>
 <script src="/assets/decide.js" defer></script>
 <script src="/assets/htmx.min.js" defer></script>
 <script src="/assets/live.js" defer></script>
