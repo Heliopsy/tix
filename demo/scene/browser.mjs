@@ -199,6 +199,9 @@ async function main() {
     if (await save.count()) {
       await save.click();
       await page.waitForLoadState("domcontentloaded");
+      // Off the button for the same reason as after the star below: its
+      // "Nothing has changed yet" title otherwise opens over the description.
+      await page.mouse.move(1700, 30);
     }
     await sleep(2200);
   }
