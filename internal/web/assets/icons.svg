@@ -132,6 +132,13 @@
     <circle cx="9" cy="7" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="8" cy="17" r="2"/>
   </symbol>
 
+  <!-- Add with details: a form's worth of lines, the fuller version of the
+       one-line box beside it. -->
+  <symbol id="details" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/>
+  </symbol>
+
   <!-- The star leaves fill unset, unlike every other icon, so the button that
        uses it can fill it when pressed and leave it an outline otherwise. -->
   <symbol id="star" viewBox="0 0 24 24" stroke="currentColor"
