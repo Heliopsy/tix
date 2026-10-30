@@ -361,7 +361,7 @@ func goKeys() []string {
 			out = append(out, hint)
 		}
 	}
-	out = append(out, "internal error")
+	out = append(out, "internal error", "pruning removed records", "dry run: nothing was removed")
 	for _, v := range categoryLabels {
 		out = append(out, v)
 	}
@@ -369,7 +369,7 @@ func goKeys() []string {
 }
 
 // renderers are the functions whose literal string arguments reach a page:
-// a flash, a page title. The index is the argument that carries it.
+// a flash, a page title, a pager's unit. The index is the argument that carries it.
 var renderers = map[string][]int{
 	"redirect":        {3},
 	"redirectTo":      {4},
@@ -378,6 +378,7 @@ var renderers = map[string][]int{
 	"renderStatus":    {4, 5},
 	"renderFragment":  {4},
 	"newView":         {2},
+	"newPager":        {4},
 }
 
 // handlerKeys reads this package's Go source for the literal flashes and

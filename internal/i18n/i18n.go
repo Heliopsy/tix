@@ -89,13 +89,19 @@ func T(lang, key string, args ...any) string {
 }
 
 // N picks the singular or plural key by n, translates it and formats it with
-// n followed by args. Every language shipped so far splits one from the rest.
+// n followed by args. A form that formats nothing is returned as it is, so a
+// form may leave the count out. Every language shipped so far splits one
+// from the rest.
 func N(lang, one, other string, n int, args ...any) string {
 	key := other
 	if n == 1 {
 		key = one
 	}
-	return T(lang, key, append([]any{n}, args...)...)
+	text, _ := Lookup(lang, key)
+	if !strings.Contains(text, "%") {
+		return text
+	}
+	return fmt.Sprintf(text, append([]any{n}, args...)...)
 }
 
 // Negotiate picks the language for an Accept-Language header: the supported
