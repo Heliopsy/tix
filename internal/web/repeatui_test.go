@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/web"
 )
 
 // aboutRow returns the one definition in the task screen's About card that a
@@ -98,13 +99,16 @@ func TestTheAddFormTakesARepeatRule(t *testing.T) {
 
 func TestRowsAndCardsMarkARecurringTask(t *testing.T) {
 	f := newFixture(t)
+	refs := map[string]string{}
 	for _, in := range []core.CreateTaskInput{
 		{ProjectRef: "infra", Title: "rotate the keys", Recurrence: "every 3 months"},
 		{ProjectRef: "infra", Title: "replace the racks"},
 	} {
-		if _, err := f.svc.CreateTask(f.ctx(), in); err != nil {
+		task, err := f.svc.CreateTask(f.ctx(), in)
+		if err != nil {
 			t.Fatalf("creating %q: %v", in.Title, err)
 		}
+		refs[in.Title] = task.Ref
 	}
 	b := f.as("alice")
 	list := b.page("/tasks")
@@ -123,6 +127,18 @@ func TestRowsAndCardsMarkARecurringTask(t *testing.T) {
 		card := boardCard(t, board, c.title)
 		if strings.Contains(card, "repeatmark") != c.marked {
 			t.Errorf("card %q marked = %v, want %v:\n%s", c.title, !c.marked, c.marked, card)
+		}
+	}
+
+	b.setCookie(web.TaskViewCookie, web.TaskViewLanes)
+	lanes := b.page("/tasks")
+	for _, c := range []struct {
+		title  string
+		marked bool
+	}{{"rotate the keys", true}, {"replace the racks", false}} {
+		card := laneCard(t, lanes, refs[c.title])
+		if strings.Contains(card, "repeatmark") != c.marked {
+			t.Errorf("lane card %q marked = %v, want %v:\n%s", c.title, !c.marked, c.marked, card)
 		}
 	}
 }
