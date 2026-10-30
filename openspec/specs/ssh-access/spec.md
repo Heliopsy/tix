@@ -172,7 +172,8 @@ a configurable rate. The memory it uses for this SHALL be bounded.
 ### Requirement: Persisted host key
 
 The listener SHALL load a host key from a configurable path, generating one on first run with permissions
-readable only by its owner. It SHALL refuse to start on a key file readable by anyone else.
+readable only by its owner. On a key file readable by anyone else it SHALL narrow the mode back to 0600,
+report that it did so, and continue; it SHALL refuse to start only when it cannot establish that mode.
 
 #### Scenario: First run
 
@@ -182,6 +183,12 @@ readable only by its owner. It SHALL refuse to start on a key file readable by a
 #### Scenario: A loose host key
 
 - **WHEN** the host key file is readable by anyone but its owner
+- **THEN** the listener narrows it to 0600, logs a warning naming the mode it found, and starts with the
+  same key
+
+#### Scenario: A host key that cannot be narrowed
+
+- **WHEN** the host key file is readable by anyone but its owner and the mode cannot be changed
 - **THEN** the listener refuses to start and names the file and its mode
 
 ### Requirement: Bind and target safety
@@ -663,3 +670,77 @@ A malformed entry SHALL be refused at configuration load, naming `ssh.trusted_pr
 
 - **WHEN** `ssh.trusted_proxies` contains a value that is neither an IP address nor a CIDR block
 - **THEN** startup fails, naming `ssh.trusted_proxies` and the offending value
+
+### Requirement: A second factor on the SSH surface
+
+When a tenant requires a second factor for SSH, `tix ssh` SHALL request a TOTP
+or recovery code after the public key has been accepted and before any tenant
+data is drawn.
+
+Ordering matters: the key is proved first, so a key nobody enrolled is refused
+without a prompt being drawn and without revealing that an account exists.
+
+A public key is a single factor, not a second one. An SSH session authenticated
+by key alone satisfies no second-factor requirement.
+
+#### Scenario: Key accepted, code requested
+
+- **WHEN** an enrolled user connects over SSH to a tenant requiring a factor for SSH
+- **THEN** the key is verified, a code is requested, and the board is drawn only after the code is accepted
+
+#### Scenario: An unenrolled key is refused before any prompt
+
+- **WHEN** a key nobody has enrolled connects
+- **THEN** the connection is refused without a code prompt being drawn
+
+#### Scenario: SSH not required
+
+- **WHEN** a tenant requires a factor for the browser but not for SSH
+- **THEN** an SSH session with an enrolled key reaches the board with no code requested
+
+#### Scenario: A failed code ends the session
+
+- **WHEN** the code prompt is answered incorrectly beyond the permitted attempts
+- **THEN** the session is closed and no tenant data has been drawn
+
+### Requirement: An SSH session may name the board it opens
+
+The listener SHALL read the session's command as the key of a project to open,
+so that a client can land on a board rather than on the project list. This is
+the SSH equivalent of `--project` on the local interface, which has no other
+channel here because the username already carries the tenant.
+
+The project SHALL be opened as the session's own actor, through the same
+service and the same scopes the project list would have used, so naming a
+project reaches nothing that choosing it from the list would not have reached.
+
+#### Scenario: A client names a board
+
+- **WHEN** an SSH client connects with a public key, requests a pseudo-terminal
+  and sends a project key as the command
+- **THEN** the session opens on that project's board rather than the project list
+
+#### Scenario: A client names nothing
+
+- **WHEN** an SSH client connects without a command
+- **THEN** a hosted session opens the project list and a sandbox session opens
+  its seeded board, as each did before
+
+#### Scenario: A client names a project it cannot reach
+
+- **WHEN** the command is a well formed project key that this actor cannot open
+- **THEN** the session opens on the project list carrying the reason, rather
+  than being refused
+
+#### Scenario: A client sends something that is not a project key
+
+- **WHEN** the command is empty, longer than a project key may be, or carries
+  characters a project key may not carry
+- **THEN** the session is refused before the interface is built, with a message
+  saying the argument is a project key to open
+
+#### Scenario: A client reaches for a shell
+
+- **WHEN** the command is more than one argument
+- **THEN** the session is refused with a message saying the listener serves an
+  interface rather than a shell

@@ -154,15 +154,22 @@ Each successful claim SHALL mint a fresh opaque lease token. A token SHALL NOT b
 
 ### Requirement: Lease token required for lease-bound operations
 
-Renew, transition, and release on a claimed task SHALL require the current lease token. A request that
-omits the token or supplies one that is not current SHALL be rejected.
+Renew, transition, release, and writing an artifact on a claimed task SHALL require the current lease
+token. A request that omits the token or supplies one that is not current SHALL be rejected.
 
 Every refusal on this path SHALL be reported as lease expiry, because all of them state the same fact:
 the caller does not hold this lease, and the action it can take is to claim the task again.
 
+A comment written on a task SHALL NOT require a lease token and SHALL NOT be checked against one. A
+caller holding no lease, or holding a lapsed one, SHALL therefore be able to comment on a task another
+worker holds.
+
+Which writes the lease covers SHALL be stated wherever the lease is explained to an agent, rather than
+left to be inferred from the presence or absence of a flag.
+
 #### Scenario: Correct token accepted
 
-- **WHEN** a lease holder renews, transitions, or releases using its current token
+- **WHEN** a lease holder renews, transitions, releases, or attaches an artifact using its current token
 - **THEN** the operation succeeds
 
 #### Scenario: Missing token
@@ -175,6 +182,23 @@ the caller does not hold this lease, and the action it can take is to claim the 
 - **WHEN** a lease-bound operation supplies a token that was never issued for that task
 - **THEN** the request is rejected as lease-expired and the task is unchanged
 
+#### Scenario: An artifact write on a claimed task without a token
+
+- **WHEN** an artifact write is attempted on a task holding a live lease and no token is supplied
+- **THEN** the request is rejected as lease-expired and no artifact is written
+
+#### Scenario: A comment is not a lease-bound operation
+
+- **GIVEN** a task held under a live lease by one worker
+- **WHEN** another caller, holding no lease on it, adds a comment
+- **THEN** the comment is written and the request succeeds
+
+#### Scenario: A result recorded through a release is lease-bound
+
+- **GIVEN** a worker whose lease has lapsed and whose task has been re-claimed
+- **WHEN** it releases the task with a comment and a result under its old token
+- **THEN** the request is rejected as lease-expired and neither the comment nor the result is written
+
 ### Requirement: Stale token rejection
 
 A request carrying a lease token that is no longer current SHALL be rejected as lease-expired, including
@@ -184,7 +208,9 @@ write a result.
 
 Exactly one guard SHALL implement this judgement, and every lease-bound write SHALL reach it. A second
 implementation is how the two came to disagree: the one production used accepted a token offered against a
-lapsed lease, and the one that refused it had no caller at all.
+lapsed lease, and the one that refused it had no caller at all. The artifact write SHALL reach that guard
+rather than carrying a judgement of its own, and SHALL NOT be the write that reaches none: a lease that
+protects a task's status while leaving its results open protects nothing an agent is working for.
 
 A request carrying no token against a task whose lease has lapsed SHALL still be accepted. That is what
 makes lazy expiry authoritative, and it is a different statement from offering a token that is no longer
@@ -209,6 +235,23 @@ held.
 
 - **WHEN** a worker with a stale token attempts to release the task with a result
 - **THEN** the request is rejected as lease-expired and no result artifact is written
+
+#### Scenario: Zombie worker attaching an artifact over the new holder's work
+
+- **WHEN** a worker whose lease expired and whose task was re-claimed by another worker attempts to attach
+  an artifact, whether with its old token or with none
+- **THEN** the request is rejected as lease-expired and the task's artifact list is unchanged
+
+#### Scenario: An artifact write with no token against a lapsed lease proceeds
+
+- **WHEN** an artifact write is attempted with no lease token on a task whose lease has lapsed and which
+  nobody has claimed since
+- **THEN** the artifact is written, because the task reads as unclaimed
+
+#### Scenario: An artifact write offering a token against a lapsed lease
+
+- **WHEN** an artifact write supplies a lease token on a task that holds no live lease
+- **THEN** the request is rejected as lease-expired and no artifact is written
 
 #### Scenario: Rejection is actionable
 
@@ -286,6 +329,15 @@ A lease holder SHALL be able to release a task. A release MAY carry a final stat
 
 Lease expiry SHALL be evaluated at read and at claim time. Every read SHALL treat a task whose lease expiry has passed as unclaimed, and correctness SHALL NOT depend on any sweeper having run.
 
+A lapsed lease SHALL NOT by itself change the task's status. The stored status SHALL remain whatever the
+departed worker left it as until a sweep applies the workflow's state flags, so freeing the task and
+moving it are separate events with separate triggers.
+
+Because of that, a selection scoped to a status SHALL NOT be presented to an agent as a safe way to drain
+a queue unless a sweep is running: a crashed task sits claimable in the state it was left in, and a claim
+filtered to the workflow's initial state answers that no task is available. Guidance written for agents
+SHALL state this, and SHALL name the command reporting how many leases have expired and remain unswept.
+
 #### Scenario: Read after expiry with no sweeper
 
 - **WHEN** a task whose lease expiry has passed is read and no sweeper has run
@@ -305,6 +357,30 @@ Lease expiry SHALL be evaluated at read and at claim time. Every read SHALL trea
 
 - **WHEN** an installation runs with no server and therefore no ticker-driven sweeper
 - **THEN** claim, read, and queue behaviour remain correct and only the materialization of expiry is deferred
+
+#### Scenario: A killed worker's task is claimable with nothing running
+
+- **GIVEN** a worker holding a lease that has passed its deadline, killed without releasing
+- **WHEN** another worker claims that task by reference, with no sweep having run
+- **THEN** the claim succeeds
+
+#### Scenario: The status is unchanged until a sweep
+
+- **GIVEN** a task left in a non-initial state by a worker whose lease has lapsed
+- **WHEN** the task is read before any sweep has run
+- **THEN** its status is the state the departed worker left it in
+
+#### Scenario: A status-scoped claim does not see the crashed task
+
+- **GIVEN** a task left claimable in a non-initial state by a lapsed lease
+- **WHEN** a worker claims the next task scoped to the workflow's initial state
+- **THEN** no task is available, although the task is claimable
+
+#### Scenario: A sweep moves the status back
+
+- **GIVEN** the same task, in a state the workflow marks for reversion on lease expiry
+- **WHEN** a sweep runs
+- **THEN** the task is returned to the state the workflow names and is found by a status-scoped claim
 
 ### Requirement: Expiry sweeper
 
@@ -546,3 +622,114 @@ holder, so an agent renewing on a timer cannot starve an administrator out of th
 
 - **WHEN** the holder renews its lease and an administrator then reclaims the task
 - **THEN** the reclaim succeeds and the renewed lease is ended
+
+### Requirement: A lease expiry is one instant, whatever the engine
+
+A lease expiry SHALL be materialized at the coarsest resolution any supported storage engine
+preserves, before it is written to a row or reported to a caller.
+
+The expiry a claim or a renewal reports SHALL equal the expiry the task it returns carries, and SHALL
+equal the expiry stored, on every engine.
+
+Materialization SHALL truncate and SHALL NOT round. An expiry moved later than the instant it was
+computed for would outlive what its holder was told, which is the same defect in the other direction.
+
+#### Scenario: The reported expiry is the stored expiry
+
+- **WHEN** a task is claimed, or its lease renewed, at an instant finer than the stored resolution
+- **THEN** the expiry reported with the claim equals the expiry on the task returned with it
+- **AND** both equal what the row holds
+
+#### Scenario: The two engines agree about one claim
+
+- **GIVEN** the same claim taken at the same instant against each supported engine
+- **WHEN** the stored expiry is read back from each
+- **THEN** both engines report the same instant
+
+#### Scenario: Materialization never extends a lease
+
+- **WHEN** an expiry is materialized from an instant that the stored resolution cannot represent
+- **THEN** the materialized expiry is at or before that instant, never after it
+
+### Requirement: The lease guards work product, not discussion or triage
+
+The lease SHALL be required on the writes that produce a holder's output, and SHALL NOT be required on
+the writes by which other people participate in a task somebody is working. tix is one queue shared by
+humans and agents, and a guard that refused a person touching a held task would cost more than the
+overwriting it prevented.
+
+Attaching an artifact to a task SHALL be lease-bound. Artifacts are the holder's work product, and an
+artifact written by a worker that no longer holds the task displaces, for every later reader, the result
+of the worker that does.
+
+Commenting on a task SHALL NOT be lease-bound, and SHALL remain available on a task holding a live lease
+to a caller presenting no token. Comments are append-only discussion: no comment replaces another, so a
+stale comment misleads nobody about who holds the task, and human-to-agent comment on a claimed task is
+the ordinary case rather than an exception to be permitted.
+
+Editing a task's fields SHALL NOT be lease-bound. Field edits are shared triage, and the control for two
+editors colliding on a field is the task's version, which refuses an edit built on a stale read in either
+direction. A lease would answer a different question and would answer it wrongly for the common case of a
+human re-prioritising work an agent is doing.
+
+The surfaces that cannot mint a lease token SHALL retain commenting and field editing on a claimed task,
+and SHALL report a refused artifact write as lease expiry rather than as a failure of the surface.
+
+#### Scenario: A human comments on a task an agent holds
+
+- **WHEN** a caller holding no lease token comments on a task that holds another actor's live lease
+- **THEN** the comment is recorded
+
+#### Scenario: A browser session comments on a claimed task
+
+- **WHEN** a session-authenticated browser reader, which holds no lease token, comments on a task holding
+  a live lease
+- **THEN** the comment is recorded and appears on the task
+
+#### Scenario: A human re-prioritises a task an agent holds
+
+- **WHEN** a caller holding no lease token edits the priority, assignee or title of a task holding another
+  actor's live lease
+- **THEN** the edit is applied
+
+#### Scenario: A field edit built on a stale read is still refused
+
+- **WHEN** a field edit supplies a task version that is no longer current
+- **THEN** the edit is refused as a version conflict, whether or not the task holds a lease
+
+#### Scenario: An artifact write on an unclaimed task needs nothing
+
+- **WHEN** a caller attaches an artifact to a task that holds no lease and supplies no token
+- **THEN** the artifact is written
+
+### Requirement: The lease token travels with the artifact write on every transport
+
+The artifact write SHALL accept the lease token on the command line, over the HTTP API, and wherever the
+operation registry binds it. The token SHALL be carried as a field of the artifact input rather than as a
+new operation, so the service contract is unchanged.
+
+The command-line flag SHALL be named for the lease the way the transition's flag is, because this is a
+task write that requires a lease and not an operation on the lease itself.
+
+The documented loop SHALL NOT require an agent to handle the token by hand for the ordinary case: the exec
+wrapper and release-with-result already carry results under the guard, and SHALL continue to.
+
+#### Scenario: The token is accepted on the command line
+
+- **WHEN** the holder of a live lease attaches an artifact from the command line passing its lease token
+- **THEN** the artifact is written
+
+#### Scenario: The token is accepted over the API
+
+- **WHEN** the holder of a live lease attaches an artifact over the HTTP API with the token in the request body
+- **THEN** the artifact is written
+
+#### Scenario: Releasing with a result needs no separate token handling
+
+- **WHEN** a holder releases a task supplying a structured result under its lease token
+- **THEN** the result artifact is written without a second token being presented
+
+#### Scenario: The exec wrapper is unaffected
+
+- **WHEN** the exec wrapper claims a task, runs a child command, and releases with the exit status as a result
+- **THEN** the result artifact is written and no lease token is handled outside the wrapper
