@@ -290,7 +290,7 @@
       {{else if eq $.Tint "status"}}{{$mark = printf " is-accented tint-status-%s" (slug .Task.Status)}}
       {{else if eq $.Tint "priority"}}{{$mark = printf " is-accented tint-prio-%s" (prio .Task.Priority)}}{{end}}
       <article id="t-{{.Task.Ref}}" class="card{{$mark}}" draggable="{{if $.DragMove}}true{{else}}false{{end}}" data-task="{{.Task.Ref}}" data-project="{{$acc.Key}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
-        <div class="ref">{{.Task.Ref}}</div>
+        <div class="ref">{{if $.CanStar}}{{template "star" (star .Task.Ref .Task.Starred $v.Self $.CSRF)}}{{end}}{{.Task.Ref}}</div>
         <div><a href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}">{{.Task.Title}}</a></div>
         {{/* A merged board mixes projects in one column, so each card says
              which list it belongs to. A board of one project does not: the
@@ -477,6 +477,8 @@
       </button>
     </form>
     {{else}}<span class="check placeholder" aria-hidden="true"></span>{{end}}
+
+    {{if $.CanStar}}{{template "star" (star .Ref .Starred $v.Self $.CSRF)}}{{end}}
 
     {{if $acc.Icon}}<span class="proj-icon" role="img" aria-label="{{$acc.Name}}" title="{{$acc.Name}}">{{$acc.Icon}}</span>{{end}}
 

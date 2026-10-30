@@ -143,6 +143,8 @@ const (
 	RouteTaskDepDel   = "/tasks/{ref}/deps/remove"
 	RouteTaskTags     = "/tasks/{ref}/tags"
 	RouteTaskTagDel   = "/tasks/{ref}/tags/remove"
+	RouteTaskStar     = "/tasks/{ref}/star"
+	RouteTaskUnstar   = "/tasks/{ref}/star/remove"
 	RouteTaskComments = "/tasks/{ref}/comments"
 	RouteCommentEdit  = "/tasks/{ref}/comments/edit"
 	RouteCommentDel   = "/tasks/{ref}/comments/delete"

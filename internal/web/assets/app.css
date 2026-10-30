@@ -4812,3 +4812,25 @@ td.scopecell .evchip { display: inline-block; margin: 1px 2px 1px 0; font-size: 
   .lanes { height: calc(100svh - 168px); scroll-snap-type: x mandatory; }
   .lane { flex: 0 0 82vw; min-width: 0; max-width: none; }
 }
+
+/* The star toggle. An outline when the task is not starred, filled when it
+   is, so the pressed state is a shape and not a colour alone. It sits inline
+   with the ref on a card and the title bar, and beside the tick on a row. */
+.starform { display: inline-flex; flex: 0 0 auto; margin: 0; }
+button.star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+button.star svg { fill: none; }
+button.star:hover { color: var(--accent); }
+button.star.is-starred { color: var(--accent); }
+button.star.is-starred svg { fill: currentColor; }
+.card .ref .starform { vertical-align: middle; margin-right: 4px; }
