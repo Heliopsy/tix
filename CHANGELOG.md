@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.25.0](https://github.com/Heliopsy/tix/compare/v0.24.0...v0.25.0) (2026-10-30)
+
+
+### Features
+
+* **web:** resizable, collapsible sidebar with one content inset ([#96](https://github.com/Heliopsy/tix/issues/96)) ([31c207b](https://github.com/Heliopsy/tix/commit/31c207b3ff7a1141f07ca33ecdd9db084dd3a49c))
+
+
+### Bug Fixes
+
+* **web:** readable placeholders and native controls in dark themes ([#95](https://github.com/Heliopsy/tix/issues/95)) ([0e4b87a](https://github.com/Heliopsy/tix/commit/0e4b87af4b9772a20b032ece37f47a2e3093c40d))
+
+
+### Dependencies
+
+* **deps:** bump bubbletea, two indirect modules and codeql-action ([#93](https://github.com/Heliopsy/tix/issues/93)) ([5c0662b](https://github.com/Heliopsy/tix/commit/5c0662b8862d0355d32e9b5b3e1376e985fba19e))
+
 ## [0.24.0](https://github.com/Heliopsy/tix/compare/v0.23.0...v0.24.0) (2026-10-30)
 
 
