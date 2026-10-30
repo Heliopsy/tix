@@ -3,17 +3,29 @@
 Captured against a seeded demo database on the commit that added them.
 
 The five browser images were retaken at v0.18.0, which rebuilt the interface.
-The three terminal images predate that and are unaffected by it: the CLI and
-the TUI did not change.
+
+v0.24.0 added lanes, tasks that repeat and personal stars, which show up on
+four of them, so those were retaken: the task list (stars, starred rows first,
+the repeat marker), the task detail (the star, the Repeats row and the Repeat
+when done field), the CLI listing (`*` before starred refs and the REPEAT
+column) and the TUI board (the same two markers). The lanes image is new. The
+rest are still the v0.18.0 captures, because nothing on them changed.
+
+The seed for those was `tix demo seed` plus three repeat rules (`infra-14`,
+`ops-9`, `docs-9`) and three stars (`ops-7`, `infra-11`, `infra-14`), set from
+the command line for the terminal images and from the browser for the browser
+ones: a star belongs to whoever set it, so the CLI's local actor and nadia in
+the browser each need their own.
 
 | File | Surface |
 | --- | --- |
-| [cli-task-list.png](cli-task-list.png) | `tix task ls` |
+| [cli-task-list.png](cli-task-list.png) | `tix task ls -s todo,doing,blocked --limit 20` |
 | [cli-task-show.png](cli-task-show.png) | `tix task show -o yaml` |
 | [cli-agent.png](cli-agent.png) | `tix claim next -o json` and NDJSON piped through `jq`, the agent path |
 | [tui-board.png](tui-board.png) | `tix tui`, the workflow board |
 | [web-task-list.png](web-task-list.png) | Browser task list |
 | [web-task-detail.png](web-task-detail.png) | Browser task detail |
+| [web-lanes.png](web-lanes.png) | Browser task screen as lanes, one per project, filtered to open work |
 | [web-bundles-dark.png](web-bundles-dark.png) | Import and export, the snapshot tab |
 | [web-tenant-shape.png](web-tenant-shape.png) | The tenant screen, showing what sits under what |
 | [web-stats.png](web-stats.png) | Statistics: throughput, lead time and what is waiting longest |
@@ -52,7 +64,16 @@ Two more things learned the second time round.
 `termshot --raw-read` takes a file of raw terminal output instead of running
 the command itself, which is the easier way past the panic: capture the output
 under `script`, strip the queries and the replies from the file, and hand the
-cleaned file to `termshot`. Nothing then races the pty.
+cleaned file to `termshot`. Nothing then races the pty. `script` also writes
+its own "Script started" and "Script done" lines into that file, and those have
+to go too or they become the first and last rows of the image.
+
+The lanes image is filtered to open work
+(`-status:done -status:cancelled -project:web -project:docs`). Lanes are exempt
+from the list's open-work default, so the first page of the seed is mostly
+finished tasks and two of the six lanes read "Everything here is finished";
+dropping two projects also keeps four lanes inside the 1440px viewport instead
+of a fifth cut off at the edge.
 
 A `capture-pane` frame is as tall as the pane, not as tall as the interface, so
 the blank rows below the board arrive with it and become empty window inside
