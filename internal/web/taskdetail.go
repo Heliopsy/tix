@@ -115,6 +115,10 @@ type taskView struct {
 	// Live is what keeps this screen current while it is open. See live.go.
 	Live liveScreen
 
+	// Successor is the reference of the occurrence this task spawned when it
+	// was finished, empty when it has none or the reader cannot see it.
+	Successor string
+
 	// Back is the listing the reader came from, carried in the link they
 	// followed. A task opened from a filtered list used to strand them: the
 	// only ways out were the browser's back button and the sidebar, and the
@@ -217,6 +221,11 @@ func (h *handler) buildTaskView(r *http.Request) (taskView, error) {
 	if data.CanAudit {
 		if err := h.attachHistory(r, task.ID, &data); err != nil {
 			return taskView{}, err
+		}
+	}
+	if task.RecurrenceNextID != "" {
+		if next, err := h.svc.GetTask(r.Context(), core.TaskRef{ID: task.RecurrenceNextID}); err == nil {
+			data.Successor = next.Ref
 		}
 	}
 	data.Names = h.resolveActors(r, data.actorIDs()...)
@@ -409,6 +418,10 @@ func (h *handler) updateTask(w http.ResponseWriter, r *http.Request) error {
 	}
 	if priority != 0 {
 		in.Priority = &priority
+	}
+	if _, named := r.PostForm["repeat"]; named {
+		rule := field(r, "repeat")
+		in.Recurrence = &rule
 	}
 	if _, err := h.svc.UpdateTask(r.Context(), ref, in); err != nil {
 		return err

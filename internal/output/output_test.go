@@ -36,6 +36,7 @@ func sampleTask() core.Task {
 		AssigneeActorID: "act_1",
 		CreatorActorID:  "act_2",
 		DueAt:           ptrTime(refTime2),
+		Recurrence:      "every week",
 		CreatedAt:       refTime,
 		UpdatedAt:       refTime,
 		Version:         3,
@@ -193,11 +194,11 @@ func ptrTask(t core.Task) *core.Task { return &t }
 func TestTableTaskGolden(t *testing.T) {
 	got := render(t, FormatTable, []core.Task{sampleTask()})
 	want := "" +
-		"┌───────┬─────────────────────────┬─────────────┬──────────┬──────────┬─────────────┬──────────────────┬──────────────────┬─────────┐\n" +
-		"│ REF   │ TITLE                   │ STATUS      │ PRIORITY │ ASSIGNEE │ TAGS        │ DUE              │ UPDATED          │ BLOCKED │\n" +
-		"├───────┼─────────────────────────┼─────────────┼──────────┼──────────┼─────────────┼──────────────────┼──────────────────┼─────────┤\n" +
-		"│ ENG-7 │ Wire the output package │ in_progress │ high     │ act_1    │ cli, output │ 2026-04-05 06:07 │ 2026-03-04 05:06 │ no      │\n" +
-		"└───────┴─────────────────────────┴─────────────┴──────────┴──────────┴─────────────┴──────────────────┴──────────────────┴─────────┘\n"
+		"┌───────┬─────────────────────────┬─────────────┬──────────┬──────────┬─────────────┬──────────────────┬────────────┬──────────────────┬─────────┐\n" +
+		"│ REF   │ TITLE                   │ STATUS      │ PRIORITY │ ASSIGNEE │ TAGS        │ DUE              │ REPEAT     │ UPDATED          │ BLOCKED │\n" +
+		"├───────┼─────────────────────────┼─────────────┼──────────┼──────────┼─────────────┼──────────────────┼────────────┼──────────────────┼─────────┤\n" +
+		"│ ENG-7 │ Wire the output package │ in_progress │ high     │ act_1    │ cli, output │ 2026-04-05 06:07 │ every week │ 2026-03-04 05:06 │ no      │\n" +
+		"└───────┴─────────────────────────┴─────────────┴──────────┴──────────┴─────────────┴──────────────────┴────────────┴──────────────────┴─────────┘\n"
 	if got != want {
 		t.Errorf("task table mismatch:\ngot:\n%s\nwant:\n%s", got, want)
 	}

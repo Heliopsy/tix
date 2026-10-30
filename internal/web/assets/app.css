@@ -1763,6 +1763,21 @@ a.secondary.clear:hover { filter: brightness(1.08); }
 .duemark.is-overdue { color: var(--danger); }
 .duemark.is-soon { color: var(--warn); }
 
+/* A task that comes back when it is finished. A glyph and nothing else: the
+   rule itself is in the title and the accessible name, and spelling it on
+   every row of a weekly chore list would be the loudest thing on the screen. */
+.repeatmark {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-2xs);
+  color: var(--muted);
+  text-decoration: none;
+}
+.repeatmark:hover { border-color: var(--line); background: var(--bg); }
+
 /* How many times the task has been claimed, shown only beside an expiry,
    where it is the difference between one agent that died once and one that
    keeps dying. Quieter than the badge it hangs off, because the badge is the
@@ -4680,6 +4695,7 @@ td.scopecell .evchip { display: inline-block; margin: 1px 2px 1px 0; font-size: 
   .who-ref,
   .projref,
   .duemark,
+  .repeatmark,
   .tagmore {
     min-height: 28px;
     display: inline-flex;

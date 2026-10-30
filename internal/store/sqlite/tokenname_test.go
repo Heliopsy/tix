@@ -68,6 +68,8 @@ func TestUpgradeKeepsDuplicateTokensWorkingAndTellsThemApart(t *testing.T) {
 		"ALTER TABLE tenants DROP COLUMN require_totp_ssh",
 		"ALTER TABLE tenants DROP COLUMN lease_default",
 		"ALTER TABLE tenants DROP COLUMN lease_max",
+		"ALTER TABLE tasks DROP COLUMN recurrence",
+		"ALTER TABLE tasks DROP COLUMN recurrence_next_id",
 		"DELETE FROM schema_migrations WHERE version > 9",
 	} {
 		if _, err := s.writer.ExecContext(ctx, stmt); err != nil {

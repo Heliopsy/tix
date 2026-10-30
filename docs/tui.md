@@ -68,9 +68,14 @@ than the first half of it:
 | `@me` | claimed by you |
 | `!` | blocked |
 | `+` | has dependencies |
+| `↻` | repeats when done |
 | `†` | deleted, revealed by `is:deleted` |
 | `due` | falls due within a week |
 | `due!` | overdue |
+
+`↻` marks a task that comes back when it is finished; the detail view states the rule as
+`repeats: every week`. The terminal interface does not edit due dates and does not edit the rule either:
+set it with `tix task edit --repeat` or in the browser.
 
 `@me` is separate from `@` because "is that me" is the first question anybody asks of a claimed card on a
 shared board, and a single marker left it answerable only by opening the task.

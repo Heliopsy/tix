@@ -23,6 +23,8 @@ type Task struct {
 	Status   string
 	Priority core.Priority
 	Tags     []string
+	// Recurrence is the canonical rule, empty for a task that does not repeat.
+	Recurrence string
 }
 
 // Corpus is the task set every conformance case selects from. The values are
@@ -34,7 +36,7 @@ func Corpus() []Task {
 		{Title: "Deploy the API gateway", Body: "roll out the edge", Status: "todo",
 			Priority: core.PriorityHigh, Tags: []string{"ops"}},
 		{Title: "rotate API keys", Body: "quarterly rotation", Status: "doing",
-			Priority: core.PriorityNormal, Tags: []string{"sec"}},
+			Priority: core.PriorityNormal, Tags: []string{"sec"}, Recurrence: "every 3 months"},
 		{Title: "write runbook", Body: "document the API gateway rollout", Status: "todo",
 			Priority: core.PriorityLow, Tags: []string{"ops", "docs"}},
 		{Title: "100% uptime_goal", Body: "aspirational", Status: "todo",
@@ -113,6 +115,11 @@ func Cases() []Case {
 			core.TaskFilter{Exclude: core.TaskExclude{AssigneeIDs: []string{"nobody"}}},
 			[]string{"Deploy the API gateway", "rotate API keys", "write runbook", "100% uptime_goal",
 				"uptimeXgoal", "1000 things"}},
+		{"recurring selects the tasks carrying a rule",
+			core.TaskFilter{Recurring: core.Yes}, []string{"rotate API keys"}},
+		{"not recurring keeps every task without a rule",
+			core.TaskFilter{Recurring: core.No},
+			[]string{"Deploy the API gateway", "write runbook", "100% uptime_goal", "uptimeXgoal", "1000 things"}},
 		{"inclusion and exclusion combine",
 			core.TaskFilter{Statuses: []string{"todo"}, Exclude: core.TaskExclude{Tags: []string{"docs"}}},
 			[]string{"Deploy the API gateway", "100% uptime_goal", "uptimeXgoal", "1000 things"}},
@@ -126,6 +133,7 @@ func Seed(ctx context.Context, s store.Store, scope core.TenantScope, projectID,
 			task := core.Task{
 				ProjectID: projectID, Title: want.Title, Body: want.Body,
 				Status: want.Status, Priority: want.Priority, CreatorActorID: actorID,
+				Recurrence: want.Recurrence,
 			}
 			if err := tx.CreateTask(ctx, &task); err != nil {
 				return fmt.Errorf("creating %q: %w", want.Title, err)

@@ -73,6 +73,8 @@ func TestMatchesHonoursTheNonTextTerms(t *testing.T) {
 	base := core.Task{Title: "t", Status: "todo", Priority: core.PriorityNormal, DueAt: &due}
 	gone := base
 	gone.DeletedAt = &deleted
+	repeating := base
+	repeating.Recurrence = "every week"
 
 	tests := []struct {
 		name string
@@ -88,6 +90,10 @@ func TestMatchesHonoursTheNonTextTerms(t *testing.T) {
 		{"a project key that does not", "project:beta", base, false},
 		{"an excluded project key", "-project:alpha", base, false},
 		{"root only, with no parent", "is:root", base, true},
+		{"is:recurring keeps a task carrying a rule", "is:recurring", repeating, true},
+		{"is:recurring drops a task carrying none", "is:recurring", base, false},
+		{"-is:recurring drops a task carrying a rule", "-is:recurring", repeating, false},
+		{"-is:recurring keeps a task carrying none", "-is:recurring", base, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -71,6 +71,9 @@
 </nav>
 {{end}}
 
+{{/* The repeat marker a listing row and a board card share, given the rule.
+     It links to every recurring task, the way a tag links to its tag. */}}
+{{define "repeatmark"}}<a class="repeatmark" href="/tasks?q=is:recurring" title="Repeats {{.}}"><span aria-hidden="true">&#x21bb;</span><span class="sr-only">Repeats {{.}}</span></a>{{end}}
 {{define "csrf"}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}
 
 {{/* field-info is the small "i" affordance a field's label carries when its

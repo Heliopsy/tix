@@ -178,6 +178,9 @@ func TaskBadges(t core.Task, now time.Time) []string {
 	if t.DueAt != nil {
 		badges = append(badges, "due")
 	}
+	if t.Recurrence != "" {
+		badges = append(badges, "repeats")
+	}
 	return badges
 }
 

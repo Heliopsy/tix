@@ -178,6 +178,7 @@ func taskFilterQuery(f core.TaskFilter) url.Values {
 	setBool(q, "root_only", f.ParentIsNull)
 	setTriState(q, "claimed", f.Claimed)
 	setTriState(q, "blocked", f.Blocked)
+	setTriState(q, "recurring", f.Recurring)
 	if f.Query != "" {
 		q.Set("q", f.Query)
 	}

@@ -14,6 +14,7 @@ within a flag, AND'd across flags:
 tix task ls -p infra -p ops -s todo -s doing -l ci --unclaimed
 tix task ls --query "flaky test"        # substring match over title + body
 tix task ls --blocked                   # only tasks blocked by a dependency
+tix task ls --recurring                 # only tasks that come back when finished
 tix task ls --sort priority --desc
 tix task ls -p infra --all              # follow cursors, read every page
 ```
@@ -29,6 +30,7 @@ weakly, anywhere inside the field:
 tix task ls --filter 'status:todo -tag:ops title~deploy'
 tix task ls --filter 'claimed:yes'      # what another agent is holding
 tix task ls --filter 'is:blocked'
+tix task ls --filter 'is:recurring -status:done'
 ```
 
 Its keys are `project`, `status`, `tag`, `assignee`, `creator`,

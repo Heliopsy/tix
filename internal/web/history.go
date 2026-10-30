@@ -31,6 +31,7 @@ var fieldLabels = map[string]string{
 	"assignee_actor_id": "the assignee",
 	"tags":              "the tags",
 	"due_at":            "the due date",
+	"recurrence":        "the repeat rule",
 	"custom_fields":     "a custom field",
 	"depends_on":        "a dependency",
 	"blocked":           "the blocked state",

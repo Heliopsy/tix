@@ -76,6 +76,28 @@ $ curl -s -X POST -H "Authorization: Bearer $TIX_TOKEN" -H 'Content-Type: applic
 or a monogram of at most two characters. Anything else is `400`. The CLI spellings are `--color` and `--icon` on
 `tix project create` and `tix project edit`; an empty string on either clears it.
 
+### Recurring tasks
+
+A task carries an optional `recurrence`, a repeat rule in the syntax [features.md](features.md)
+describes, and `recurrence_next_id`, the identifier of the task it spawned when it was finished. Both are
+omitted when empty. `POST /tasks` accepts `recurrence`; `PATCH /tasks/{ref}` accepts it too, where `""`
+removes the rule and an absent key leaves it alone. The rule comes back in its canonical spelling, so
+`"weekly on thu,mon"` is returned as `"every week on mon,thu"`. A rule that does not parse is `400`.
+`recurrence_next_id` is never accepted as input.
+
+```console
+$ curl -s -X POST -H "Authorization: Bearer $TIX_TOKEN" -H 'Content-Type: application/json' \
+    -d '{"project_ref":"home","title":"Pay rent","due_at":"2026-12-01T00:00:00Z","recurrence":"monthly"}' \
+    http://127.0.0.1:8080/api/v1/tasks
+{"id":"01M6...","ref":"home-4","title":"Pay rent","status":"todo","due_at":"2026-12-01T00:00:00Z",
+ "recurrence":"every month", ...}
+```
+
+Moving a recurring task into a done state, through `/transition`, `/route` or a claim release with a final
+status, creates the next occurrence in the same transaction. The stream carries the move's
+`task.transitioned` event with `next`, the new task's reference, followed by an ordinary `task.created`
+event whose payload names `recurs_from`. Moving into a cancelled state creates nothing.
+
 ## Listing and pagination
 
 Every list is keyset paginated. There is no `OFFSET` anywhere, so a page is stable while rows are being inserted.
@@ -114,7 +136,9 @@ curl -H "Authorization: Bearer $TIX_TOKEN" -H 'Accept: application/x-ndjson' \
 
 ### Filtering tasks
 
-Query parameters narrow `/tasks`: project, status, tag, assignee, claimed and blocked state, and free text.
+Query parameters narrow `/tasks`: project, status, tag, assignee, claimed and blocked state, free text, and
+`recurring=true` or `recurring=false` for tasks that do or do not carry a repeat rule (`is:recurring` in the
+filter expression).
 
 Custom field values are filtered with a `field.` prefixed parameter, one per field:
 

@@ -299,8 +299,11 @@ func TestEveryMarkerACardDrawsIsInTheLegend(t *testing.T) {
 	for _, m := range drawn {
 		lit := strings.TrimSpace(m[1])
 		// A constant rather than a literal: resolve the ones this file owns.
-		if lit == "DeletedMarker" {
+		switch lit {
+		case "DeletedMarker":
 			lit = `"` + DeletedMarker + `"`
+		case "RepeatMarker":
+			lit = `"` + RepeatMarker + `"`
 		}
 		marker, err := strconv.Unquote(lit)
 		if err != nil {

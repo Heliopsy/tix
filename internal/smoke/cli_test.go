@@ -32,7 +32,7 @@ func TestZeroConfigurationPathWorksWithNoConfigAnywhere(t *testing.T) {
 		t.Fatalf("task ls did not list the task:\n%s", listed.out)
 	}
 	assertRendered(t, "task ls", listed.out,
-		"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "UPDATED", "BLOCKED")
+		"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "REPEAT", "UPDATED", "BLOCKED")
 
 	claimed := s.mustRun("claim", "next")
 	if !strings.Contains(claimed.out, "buy milk") {
@@ -69,7 +69,7 @@ func TestListingsRenderForAPerson(t *testing.T) {
 	t.Run("task ls", func(t *testing.T) {
 		out := s.mustRun("--db", db, "task", "ls").out
 		assertRendered(t, "task ls", out,
-			"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "UPDATED", "BLOCKED")
+			"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "REPEAT", "UPDATED", "BLOCKED")
 	})
 
 	t.Run("project ls", func(t *testing.T) {

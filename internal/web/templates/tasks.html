@@ -116,6 +116,10 @@
           <span>Tags, comma separated</span>
           <input id="tags" name="tags" list="known-tags">
         </label>
+        <label class="field is-wide">
+          <span>Repeat when done</span>
+          <input id="repeat" name="repeat" placeholder="every week, every month on day 1, 3 days after done">
+        </label>
       </div>
       <datalist id="known-tags">
         {{range $v.Tags}}<option value="{{.Name}}"></option>{{end}}
@@ -378,6 +382,7 @@
         <div class="card-meta">
           <span class="pill status lane-state {{categoryClass .Category}}" data-state="{{.Task.Status}}">{{.Label}}</span>
           {{if ne (prio .Task.Priority) "normal"}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="Only {{prio .Task.Priority}} priority tasks"><span class="caret" aria-hidden="true"></span>{{prio .Task.Priority}}</a>{{end}}
+          {{if .Task.Recurrence}}{{template "repeatmark" .Task.Recurrence}}{{end}}
           {{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}
           <span class="ref mono">{{.Task.Ref}}</span>
         </div>
@@ -619,6 +624,7 @@
            or within the week and for nothing else. The word carries the
            meaning and the colour only reinforces it. */}}
       {{if $.Columns.Show "tasks" "due"}}{{$due := due .}}{{if $due}}<a class="duemark is-{{$due}}" href="/tasks?due={{if eq $due "overdue"}}overdue{{else}}week{{end}}" title="Due {{stamp .DueAt}}">{{if eq $due "overdue"}}overdue{{else}}due this week{{end}}</a>{{end}}{{end}}
+      {{if .Recurrence}}{{template "repeatmark" .Recurrence}}{{end}}
       </span>
       {{if $.Columns.Show "tasks" "updated"}}<span class="tm tm-when"><span class="when" title="Last updated {{compact .UpdatedAt}}"><span class="when-label">updated</span> {{compact .UpdatedAt}}</span></span>{{end}}
       {{if $.Columns.Show "tasks" "ref"}}<span class="tm tm-ref"><span class="ref mono">{{.Ref}}</span></span>{{end}}

@@ -94,6 +94,7 @@ func taskFilterFrom(r *http.Request) (core.TaskFilter, error) {
 		ParentIsNull:   boolParam(r, "root_only"),
 		Claimed:        triState(q.Get("claimed")),
 		Blocked:        triState(q.Get("blocked")),
+		Recurring:      triState(q.Get("recurring")),
 		Query:          q.Get("q"),
 		IncludeDeleted: boolParam(r, "include_deleted"),
 		Page:           page,

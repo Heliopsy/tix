@@ -83,9 +83,10 @@
       <article class="card{{if $.Data.Project.Color}} is-accented proj-{{$.Data.Project.Color}}{{end}}" draggable="{{if $.DragMove}}true{{else}}false{{end}}" data-task="{{.Task.Ref}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
         <div class="ref">{{.Task.Ref}}</div>
         <div><a href="/tasks/{{.Task.Ref}}">{{.Task.Title}}</a></div>
-        {{if or (ne (prio .Task.Priority) "normal") .Task.Tags}}
+        {{if or (ne (prio .Task.Priority) "normal") .Task.Tags .Task.Recurrence}}
         <div class="card-meta">
           {{if ne (prio .Task.Priority) "normal"}}<span class="prio p-{{prio .Task.Priority}}" title="Priority: {{prio .Task.Priority}}"><span class="caret" aria-hidden="true"></span>{{prio .Task.Priority}}</span>{{end}}
+          {{if .Task.Recurrence}}{{template "repeatmark" .Task.Recurrence}}{{end}}
           {{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}
         </div>
         {{end}}

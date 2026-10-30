@@ -223,6 +223,8 @@ type CreateTaskInput struct {
 	AssigneeActorID string     `json:"assignee_actor_id,omitempty" yaml:"assignee_actor_id,omitempty"`
 	ParentRef       string     `json:"parent_ref,omitempty" yaml:"parent_ref,omitempty"`
 	DueAt           *time.Time `json:"due_at,omitempty" yaml:"due_at,omitempty"`
+	// Recurrence is a repeat rule in the syntax ParseRecurrence reads.
+	Recurrence string `json:"recurrence,omitempty" yaml:"recurrence,omitempty"`
 
 	CustomFields map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
 	DependsOn    []string       `json:"depends_on,omitempty" yaml:"depends_on,omitempty"`
@@ -268,6 +270,9 @@ type UpdateTaskInput struct {
 	DueAt           **time.Time    `json:"due_at,omitempty" yaml:"due_at,omitempty"`
 	CustomFields    map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
 	Tags            *[]string      `json:"tags,omitempty" yaml:"tags,omitempty"`
+	// Recurrence replaces the repeat rule; a pointer to the empty string
+	// removes it and nil leaves it alone.
+	Recurrence *string `json:"recurrence,omitempty" yaml:"recurrence,omitempty"`
 
 	Version int `json:"version,omitempty" yaml:"version,omitempty"`
 }

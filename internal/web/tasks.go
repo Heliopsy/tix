@@ -482,6 +482,7 @@ func (h *handler) createTask(w http.ResponseWriter, r *http.Request) error {
 		Body:       prose(r, "body"),
 		Priority:   priority,
 		Tags:       fieldList(r, "tags"),
+		Recurrence: field(r, "repeat"),
 	}
 	task, err := h.svc.CreateTask(r.Context(), in)
 	if err != nil {

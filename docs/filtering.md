@@ -49,7 +49,8 @@ Rules worth knowing:
   ANDed, and that is the honest result rather than a guess at what you meant.
 - **A missing value is not an excluded value.** `-assignee:alice` returns unassigned tasks. Not being assigned
   to Alice is not the same as being assigned to somebody else, and SQL's `NOT IN` would have dropped them.
-- **`-is:` inverts the sense.** `-is:claimed` means the same as `is:unclaimed`.
+- **`-is:` inverts the sense.** `-is:claimed` means the same as `is:unclaimed`, and `-is:recurring` lists
+  the tasks that carry no repeat rule.
 
 ### Why `-tag:ops` and not `tag:!ops`
 
@@ -114,7 +115,7 @@ is what makes a large PostgreSQL install fast. If you need an answer that does n
 | `due:<DATE`, `due:>DATE` | the same bounds, spelled with the comparison | no | no |
 | `due-before:DATE`, `due-after:DATE` | due bounds | no | no |
 | `parent:REF`, `parent:none` | subtasks of, or roots | no | no |
-| `is:claimed`, `is:unclaimed`, `is:blocked`, `is:unblocked`, `is:deleted`, `is:root` | state predicates | yes (except `is:root`) | no |
+| `is:claimed`, `is:unclaimed`, `is:blocked`, `is:unblocked`, `is:recurring`, `is:deleted`, `is:root` | state predicates | yes (except `is:root`) | no |
 | `sort:FIELD`, `limit:N` | listing shape | no | no |
 | bare word | free text, engine-native | yes (becomes a weak match) | n/a |
 
