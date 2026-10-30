@@ -34,6 +34,11 @@ task's toast into the second. The live refresh's own address keeps `flashref`: a
 publishes an event that refreshes the listing at once, and a refresh that dropped it took the ring
 off the new row a moment after it was drawn.
 
+That event also races the boosted redirect: it can arrive while the old listing is still bound, so
+the refresh asks the old page's address, and the answer can land after the new page is swapped in
+but before `htmx:load` moves the binding. `live.js` now discards an answer whose binding element is
+no longer the one in the document. The new page was rendered after the change, so nothing is lost.
+
 ## Marking the new row
 
 A class, `is-flashed`, on the row or card whose reference is the page's `flashref`, rather than

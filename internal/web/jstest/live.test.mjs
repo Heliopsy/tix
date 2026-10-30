@@ -326,6 +326,17 @@ test("the first event is drawn at once and the fragment swapped in by region", a
   assert.equal(nodes["task-pills"].innerHTML, "doing", "the region was not replaced");
 });
 
+test("an answer for a page already navigated away from is not drawn over the new one", async () => {
+  const { sockets, fetches, nodes } = liveContext({ fresh: { "task-pills": "stale" } });
+  sockets[0].emit("open", {});
+  sockets[0].event({ seq: 7, subject_id: "task-1" });
+  assert.equal(fetches.length, 1, "the event asked for nothing");
+  nodes["live-screen"] = liveScreen({}).binding;
+  nodes["task-pills"].innerHTML = "fresh page";
+  await settle();
+  assert.equal(nodes["task-pills"].innerHTML, "fresh page", "the old page's answer replaced the new page's region");
+});
+
 test("an event about another record leaves a one-task screen alone", () => {
   const { sockets, fetches } = liveContext({ subject: "task-1" });
   sockets[0].emit("open", {});

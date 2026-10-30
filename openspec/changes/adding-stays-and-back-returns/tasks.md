@@ -15,6 +15,8 @@
       toggle writes `1` and `0`
 - [x] 2.2 `internal/web/tasks.go`, `live.go`, `templates/tasks.html`, `assets/app.css`: the create
       redirect carries the toast's link and the row is marked; carried addresses drop the flash
+- [x] 2.3 `internal/web/assets/live.js`: a refresh answer for a page already navigated away from is
+      not drawn over the new one
 
 ## 3. Fields
 
