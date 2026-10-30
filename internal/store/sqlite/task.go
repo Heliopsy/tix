@@ -21,6 +21,7 @@ var taskColumns = []string{
 	"tasks.due_at", "tasks.started_at", "tasks.completed_at",
 	"tasks.claimed_by_actor_id", "tasks.claimed_at", "tasks.lease_expires_at", "tasks.claim_count",
 	"tasks.lease_expired_at", "tasks.lease_expired_by",
+	"tasks.recurrence", "tasks.recurrence_next_id",
 	"tasks.custom_fields", "tasks.version", "tasks.created_at", "tasks.updated_at", "tasks.deleted_at",
 	"projects.key",
 }
@@ -76,6 +77,7 @@ func scanTask(s scanner) (core.Task, error) {
 		leaseExpires sql.NullString
 		expiredAt    sql.NullString
 		expiredBy    sql.NullString
+		nextID       sql.NullString
 		custom       string
 		created      sql.NullString
 		updated      sql.NullString
@@ -88,6 +90,7 @@ func scanTask(s scanner) (core.Task, error) {
 		&due, &started, &completed,
 		&claimedBy, &claimedAt, &leaseExpires, &t.ClaimCount,
 		&expiredAt, &expiredBy,
+		&t.Recurrence, &nextID,
 		&custom, &t.Version, &created, &updated, &deleted, &projectKey); err != nil {
 		return core.Task{}, mapErr(err, "scanning task")
 	}
@@ -96,6 +99,7 @@ func scanTask(s scanner) (core.Task, error) {
 	t.AssigneeActorID = sqlb.Text(assignee)
 	t.ClaimedByActorID = sqlb.Text(claimedBy)
 	t.LeaseExpiredByActorID = sqlb.Text(expiredBy)
+	t.RecurrenceNextID = sqlb.Text(nextID)
 	t.Ref = projectKey + "-" + strconv.FormatInt(t.Seq, 10)
 
 	if err := sqlb.ParseJSON(custom, &t.CustomFields); err != nil {
@@ -182,6 +186,8 @@ func (t *tx) CreateTask(ctx context.Context, task *core.Task) error {
 		Set("lease_expires_at", sqlb.NullTimeText(task.LeaseExpiresAt)).
 		Set("claim_count", task.ClaimCount).
 		Set("custom_fields", custom).
+		Set("recurrence", task.Recurrence).
+		Set("recurrence_next_id", sqlb.NullText(task.RecurrenceNextID)).
 		Set("version", task.Version).
 		Set("created_at", sqlb.TimeText(task.CreatedAt)).
 		Set("updated_at", sqlb.TimeText(task.UpdatedAt)).
@@ -333,6 +339,13 @@ func (t *tx) applyTaskFilter(b *sqlb.Builder, f core.TaskFilter) error {
 		b.Where("NOT "+unclaimedPredicate, t.now())
 	case core.No:
 		b.Where(unclaimedPredicate, t.now())
+	case core.Either:
+	}
+	switch f.Recurring {
+	case core.Yes:
+		b.Where("tasks.recurrence <> ''")
+	case core.No:
+		b.Where("tasks.recurrence = ''")
 	case core.Either:
 	}
 	switch f.Blocked {
@@ -500,6 +513,8 @@ func (t *tx) UpdateTask(ctx context.Context, task *core.Task) error {
 		Set("started_at", sqlb.NullTimeText(task.StartedAt)).
 		Set("completed_at", sqlb.NullTimeText(task.CompletedAt)).
 		Set("custom_fields", custom).
+		Set("recurrence", task.Recurrence).
+		Set("recurrence_next_id", sqlb.NullText(task.RecurrenceNextID)).
 		Set("updated_at", sqlb.TimeText(task.UpdatedAt)).
 		SetExpr("version", "version + 1")
 	n, err := t.execUpdate(ctx, b, "updating task %q", task.ID)
