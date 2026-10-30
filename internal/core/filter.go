@@ -165,6 +165,8 @@ type TaskFilter struct {
 
 	Claimed TriState `json:"claimed,omitempty" yaml:"claimed,omitempty"`
 	Blocked TriState `json:"blocked,omitempty" yaml:"blocked,omitempty"`
+	// Recurring selects tasks by whether they carry a repeat rule.
+	Recurring TriState `json:"recurring,omitempty" yaml:"recurring,omitempty"`
 
 	ClaimedBy []string `json:"claimed_by,omitempty" yaml:"claimed_by,omitempty"`
 

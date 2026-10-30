@@ -272,6 +272,31 @@ func (d WorkflowDefinition) TerminalStates() []string {
 	return out
 }
 
+// CategoryOf returns the category a state belongs to: the one it names, or
+// done for a terminal state that names none, todo for the initial state and
+// in progress for any other.
+func (d WorkflowDefinition) CategoryOf(key string) StateCategory {
+	s, ok := d.State(key)
+	switch {
+	case !ok:
+		return ""
+	case s.Category != "":
+		return s.Category
+	case s.Terminal:
+		return CategoryDone
+	case s.Key == d.Initial:
+		return CategoryTodo
+	default:
+		return CategoryInProgress
+	}
+}
+
+// CompletesWork reports whether reaching the named state finishes the work,
+// as opposed to abandoning it: a terminal state whose category is done.
+func (d WorkflowDefinition) CompletesWork(key string) bool {
+	return d.IsTerminal(key) && d.CategoryOf(key) == CategoryDone
+}
+
 // CanTransition reports whether a move between states is permitted.
 func (d WorkflowDefinition) CanTransition(from, to string) (Transition, bool) {
 	for _, t := range d.Transitions {
@@ -384,6 +409,12 @@ type Task struct {
 	LeaseExpiredByActorID string     `json:"lease_expired_by_actor_id,omitempty" yaml:"lease_expired_by_actor_id,omitempty"`
 
 	CustomFields map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
+
+	// Recurrence is the canonical repeat rule, empty for a task that does not
+	// repeat. RecurrenceNextID names the occurrence this task spawned when it
+	// was finished; once set, the task never spawns again.
+	Recurrence       string `json:"recurrence,omitempty" yaml:"recurrence,omitempty"`
+	RecurrenceNextID string `json:"recurrence_next_id,omitempty" yaml:"recurrence_next_id,omitempty"`
 
 	Version   int        `json:"version" yaml:"version"`
 	CreatedAt time.Time  `json:"created_at" yaml:"created_at"`
