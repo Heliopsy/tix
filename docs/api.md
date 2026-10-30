@@ -50,7 +50,7 @@ Everything below is under `/api/v1`.
 | Projects | `/projects`, `/projects/{ref}`, `/projects/{ref}/fields`, `/projects/{ref}/fields/{key}` |
 | Workflows | `/workflows`, `/workflows/{key}` |
 | Tasks | `/tasks`, `/tasks/{ref}`, `/tasks/{ref}/transition`, `/tasks/{ref}/route`, `/tasks/{ref}/restore`, `/tasks/{ref}/tree` |
-| Task relations | `/tasks/{ref}/deps`, `/tasks/{ref}/deps/{dep}`, `/tasks/{ref}/tags`, `/tasks/{ref}/tags/{name}` |
+| Task relations | `/tasks/{ref}/deps`, `/tasks/{ref}/deps/{dep}`, `/tasks/{ref}/tags`, `/tasks/{ref}/tags/{name}`, `/tasks/{ref}/star` |
 | Comments and artifacts | `/tasks/{ref}/comments`, `/tasks/{ref}/artifacts`, `/comments/{id}`, `/tags` |
 | Claims | `/tasks/{ref}/claim`, `/tasks/{ref}/claim/renew`, `/tasks/{ref}/claim/release`, `/claims/next`, `/claims/sweep` |
 | Webhooks | `/webhooks`, `/webhooks/{id}`, `/webhooks/deliveries`, `/webhooks/deliveries/{id}/redeliver` |
@@ -125,6 +125,21 @@ envelope.
 
 The CLI equivalents are `--cursor`, `--limit`, `--sort`, `--desc`, and `--all` to follow cursors until exhausted.
 
+### Stars
+
+`PUT /tasks/{ref}/star` stars a task for the caller and `DELETE /tasks/{ref}/star` clears it. Both answer
+`204` whether or not anything changed, and only a call that changed something writes an audit entry and
+emits `task.starred` or `task.unstarred`. A star belongs to the actor that set it: a task read carries
+`"starred": true` when the caller starred it and omits the field otherwise, and `starred=true|false`
+narrows a task listing by the caller's own stars.
+
+A task listing puts the caller's starred tasks first, then the rest, each group in the requested sort and
+direction. The grouping is part of the keyset, so the `next_cursor` that ends inside the starred group
+continues into the unstarred one without skipping or repeating a row. A task starred or unstarred while
+somebody pages moves between the groups, like a task whose priority changed under a priority sort: the cursor
+stays valid and the moved task may be seen twice or not at all. A cursor issued before stars existed resumes
+among the unstarred tasks.
+
 ### NDJSON
 
 Send `Accept: application/x-ndjson` and the list streams one object per line with no envelope:
@@ -136,9 +151,9 @@ curl -H "Authorization: Bearer $TIX_TOKEN" -H 'Accept: application/x-ndjson' \
 
 ### Filtering tasks
 
-Query parameters narrow `/tasks`: project, status, tag, assignee, claimed and blocked state, free text, and
-`recurring=true` or `recurring=false` for tasks that do or do not carry a repeat rule (`is:recurring` in the
-filter expression).
+Query parameters narrow `/tasks`: project, status, tag, assignee, claimed, blocked and starred state, free
+text, and `recurring=true` or `recurring=false` for tasks that do or do not carry a repeat rule (`is:recurring` in
+the filter expression).
 
 Custom field values are filtered with a `field.` prefixed parameter, one per field:
 
@@ -208,9 +223,10 @@ one connection. `{"type":"unsubscribe","id":"s1"}` ends one.
 
 Event types are matched as glob patterns, so `task.*` selects every task event. The vocabulary is closed:
 `task.created`, `task.updated`, `task.transitioned`, `task.claimed`, `task.released`, `task.lease_expired`,
-`task.reclaimed`, `task.deleted`, `comment.added`, `artifact.added`, `dependency.added`, `tag.added`, `project.created`,
-`project.updated`, `workflow.updated`, `field.updated`, `webhook.delivered`, `import.completed`. A type outside it
-is an error rather than a filter that silently matches nothing.
+`task.reclaimed`, `task.deleted`, `task.starred`, `task.unstarred`, `comment.added`, `artifact.added`,
+`dependency.added`, `tag.added`, `project.created`, `project.updated`, `workflow.updated`, `field.updated`,
+`webhook.delivered`, `import.completed`. A type outside it is an error rather than a filter that silently matches
+nothing.
 
 A project-scoped token has its subscription narrowed to that project automatically, and naming a different
 project is `forbidden`.

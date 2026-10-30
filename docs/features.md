@@ -67,6 +67,13 @@ the lease columns it clears, which is what makes an abandoned claim visible at a
 the minute before the next sweep. [docs/web-ui.md](web-ui.md) covers these and the rest of the
 browser interface.
 
+**Stars.** Star a task and it lists ahead of the rest for you, on every surface: the star button on a
+row, a card or the task screen in the browser, `*` in the terminal interface, `tix task star` and
+`tix task unstar` on the command line, `PUT` and `DELETE /api/v1/tasks/{ref}/star` over HTTP. A star is
+yours alone, stored with your actor rather than in a cookie, so it follows you between the browser, the
+terminal and the command line and never reorders a colleague's queue. Your starred tasks lead under
+every sort, and `is:starred` narrows a listing to them. [docs/filtering.md](filtering.md#stars).
+
 **Shell completion.** `tix completion install` detects the shell, writes the script where that shell
 looks for it and never edits a startup file. It completes task references, project keys, tags and the
 states your workflows actually define, not only flag names.

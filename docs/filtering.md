@@ -116,10 +116,21 @@ is what makes a large PostgreSQL install fast. If you need an answer that does n
 | `due-before:DATE`, `due-after:DATE` | due bounds | no | no |
 | `parent:REF`, `parent:none` | subtasks of, or roots | no | no |
 | `is:claimed`, `is:unclaimed`, `is:blocked`, `is:unblocked`, `is:recurring`, `is:deleted`, `is:root` | state predicates | yes (except `is:root`) | no |
+| `is:starred`, `is:unstarred`, `starred:true`, `starred:false` | tasks you starred, or did not | yes | no |
 | `sort:FIELD`, `limit:N` | listing shape | no | no |
 | bare word | free text, engine-native | yes (becomes a weak match) | n/a |
 
 Dates take `YYYY-MM-DD`, `YYYY-MM-DD HH:MM`, or RFC 3339.
+
+## Stars
+
+A star is personal: `is:starred` selects the tasks *you* starred, never anybody else's, and `-is:starred`
+(or `is:unstarred`) the rest. There is no way to name another reader's stars, because the filter
+names no reader; the service fills that in from whoever is asking.
+
+Every listing already puts your starred tasks first, under every sort and in either direction, so the
+term is for narrowing rather than ordering. On the command line `--starred` and `--starred=false` say the
+same thing, and over the HTTP API `starred=true` and `starred=false`.
 
 ## Deadlines
 
@@ -239,6 +250,7 @@ $ curl -s -H "Authorization: Bearer $TIX_TOKEN" \
 | --- | --- |
 | `not_project`, `not_status`, `not_tag`, `not_assignee`, `not_creator`, `not_claimed_by` | repeatable exclusions |
 | `not_priority` | repeatable, numeric 1–5 |
+| `starred` | `true` or `false`, against the caller's own stars |
 | `text` | repeatable; `title~api`, `body:exact`, `any~value`, each optionally `-` prefixed |
 
 Everything is keyset-paginated as usual: there is no `OFFSET`, and the `cursor` a page returns is what fetches

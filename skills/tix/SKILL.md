@@ -451,14 +451,18 @@ tix task show default-1 -o json      # one task
 tix task tree default-1              # a task and its descendants
 tix task ls -s todo --unclaimed -o json
 tix task ls --blocked                # only tasks blocked by a dependency
+tix task ls --starred                # only tasks you starred
 tix project ls -o json               # the project keys, if you do not know them
 ```
 
 A fresh database seeds four projects — `default`, `work`, `homelab`, `house` —
 so `task ls` with no `-p` spans all of them, while `task add` with no `-p`
 lands in `default`. `--limit` (default 25) sizes a page, `--cursor` continues
-one, `--all` follows them for you. The whole filter language, deadlines and
-sorting are in [reference/queries.md](reference/queries.md).
+one, `--all` follows them for you. Tasks the caller starred (`tix task star
+REF`) list first under every sort; a star is per actor, so another worker's
+stars never reorder your queue, and a token that stars nothing sees the plain
+order. The whole filter language, deadlines and sorting are in
+[reference/queries.md](reference/queries.md).
 
 **A recurring task makes its own successor.** A task whose JSON carries
 `recurrence` (set with `tix task add --repeat 'every week'`, changed with

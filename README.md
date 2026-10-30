@@ -80,9 +80,10 @@ subscribe and a reconnect resumes from a cursor without gaps.
 
 ### For humans
 
-The same data, with a board, custom workflows, custom fields, dependencies, comments and history. A
-fresh install needs no configuration: one default workflow, no required fields, and `tix task add
-"buy milk"` works on a machine that has never seen tix.
+The same data, with a board, custom workflows, custom fields, dependencies, comments, history, and a
+personal star that keeps the tasks you are watching at the top of your own listings. A fresh install
+needs no configuration: one default workflow, no required fields, and `tix task add "buy milk"` works
+on a machine that has never seen tix.
 
 ### For teams
 
