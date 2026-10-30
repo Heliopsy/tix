@@ -241,10 +241,16 @@ async function main() {
   await sleep(300);
   await chore.locator("input[name=repeat]").pressSequentially(CHORE_REPEAT, { delay: TYPE });
   await sleep(1400);
-  await chore.locator("button[type=submit]").click();
+  // Waiting for the new task's own page, not for a load state. The form posts
+  // from a page that is already loaded, so waitForLoadState returned at once
+  // and the check below read the old /tasks list: a paid take died there with
+  // the redirect to /tasks/work-1 arriving fifteen milliseconds later.
+  await Promise.all([
+    page.waitForURL((u) => /^\/tasks\/[^/]+$/.test(u.pathname), { timeout: 15000 }),
+    chore.locator("button[type=submit]").click(),
+  ]);
   await page.waitForLoadState("domcontentloaded");
-  // Wherever the form lands, the rule has to be visible on it: the task's
-  // Repeats row, or the marker on its row in the list.
+  // The rule has to be visible where the form lands: the task's Repeats row.
   const repeated = (await page.locator(".repeatmark").count())
     + (await page.getByText(CHORE_REPEAT, { exact: true }).count());
   if (!repeated) throw new Error(`the chore landed on ${page.url()} without its repeat rule showing`);
