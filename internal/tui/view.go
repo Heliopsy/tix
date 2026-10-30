@@ -454,6 +454,10 @@ func (m Model) inputOpen() bool {
 // DeletedMarker is what a card carries once the task behind it is deleted.
 const DeletedMarker = "†"
 
+// RepeatMarker is what a card carries when finishing the task creates the
+// next one. The rule itself is in the detail view.
+const RepeatMarker = "↻"
+
 // CardFlags renders a card's state markers compactly, so a narrow column still
 // says what is true of a task. The help view carries the legend.
 //
@@ -476,6 +480,9 @@ func CardFlags(t core.Task, now time.Time, mine string) string {
 	}
 	if len(t.DependsOn) > 0 {
 		b.WriteString("+")
+	}
+	if t.Recurrence != "" {
+		b.WriteString(RepeatMarker)
 	}
 	// A deleted task is drawn only where a filter asked for one, and an
 	// unmarked card there is indistinguishable from live work.
@@ -513,6 +520,9 @@ func (m Model) detailLines(layout Layout) []string {
 	}
 	if tags := tagsText(t.Tags); tags != "" {
 		lines = append(lines, m.theme.Dim.Render(tags))
+	}
+	if repeat := repeatText(t); repeat != "" {
+		lines = append(lines, m.theme.Dim.Render(repeat))
 	}
 	lines = append(lines, "")
 
@@ -619,6 +629,15 @@ func (m Model) dueText(t core.Task, now time.Time) string {
 		text += " (" + state.String() + ")"
 	}
 	return "   " + m.theme.Due(state).Inherit(m.theme.Dim).Render(text)
+}
+
+// repeatText states a task's repeat rule, or the empty string for a task that
+// does not repeat, so the detail view spends no line on a one-off.
+func repeatText(t core.Task) string {
+	if t.Recurrence == "" {
+		return ""
+	}
+	return "repeats: " + t.Recurrence
 }
 
 // tagsText renders a task's tags, or the empty string when it has none, so
@@ -792,6 +811,7 @@ func (m Model) helpLines(layout Layout) []string {
 // which is why "due" here means this week and not "has a date".
 var CardLegend = []string{
 	"@ claimed", "@me claimed by you", "! blocked", "+ dependencies",
+	RepeatMarker + " repeats when done",
 	DeletedMarker + " deleted",
 	DueSoonMarker + " within the week", DueOverdueMarker + " overdue",
 }

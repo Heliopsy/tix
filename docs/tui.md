@@ -68,6 +68,7 @@ than the first half of it:
 | `@me` | claimed by you |
 | `!` | blocked |
 | `+` | has dependencies |
+| `↻` | repeats when done |
 | `†` | deleted, revealed by `is:deleted` |
 | `due` | falls due within a week |
 | `due!` | overdue |
