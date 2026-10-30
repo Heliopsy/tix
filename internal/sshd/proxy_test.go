@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -499,4 +500,111 @@ func handshakeBehind(t *testing.T, addr string, header []byte) error {
 		return err
 	}
 	return gossh.NewClient(client, chans, reqs).Close()
+}
+
+// heldHandler stops the one log record this test cares about and keeps the
+// goroutine that wrote it inside Handle until the test lets it go. Holding a
+// goroutine still is the only way to ask whether something waits for it:
+// a goroutine that finishes quickly cannot tell a server that waits from one
+// that happens to be slower than it.
+//
+// Every other record passes straight through. Blocking on the first record of
+// any kind would stop the server on whatever it logs at startup, which is a
+// deadlock rather than a test.
+type heldHandler struct {
+	entered chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (h *heldHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func (h *heldHandler) Handle(_ context.Context, r slog.Record) error {
+	if !strings.Contains(r.Message, "no valid proxy protocol header") {
+		return nil
+	}
+	h.once.Do(func() { close(h.entered) })
+	<-h.release
+	return nil
+}
+
+func (h *heldHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *heldHandler) WithGroup(string) slog.Handler      { return h }
+
+// TestServeWaitsForAHeaderParseBeforeItReturns pins what Serve owes its
+// caller: that when it returns, nothing it started is still writing to the
+// logger it was handed.
+//
+// The parse of a proxy protocol header runs in a goroutine of the connection's
+// own, started inside Accept, and it logs on the way out when the header never
+// arrives. Nothing tracked those goroutines, so Serve could return while one
+// was mid-write. In production the writer is stderr and the cost is a line
+// after shutdown; under a test that hands the command a bytes.Buffer and reads
+// it the moment the command returns, it is a data race, and that is how this
+// was found -- as an intermittent failure of a test about trusted proxies that
+// had nothing to do with shutdown.
+//
+// The deadline is what releases the parse here rather than the shutdown,
+// because a parse already logging is the state the test needs and waiting for
+// the deadline reaches it without depending on what closing the listener does
+// to a connection that was accepted a moment earlier.
+func TestServeWaitsForAHeaderParseBeforeItReturns(t *testing.T) {
+	p, _, st := newProvisioner(t)
+	held := &heldHandler{entered: make(chan struct{}), release: make(chan struct{})}
+	srv, err := New(Options{
+		Service:        p.service,
+		Store:          st,
+		Clock:          p.clk,
+		Demo:           true,
+		Addr:           "127.0.0.1:0",
+		HostKeyPath:    filepath.Join(t.TempDir(), "host_key"),
+		TrustedProxies: []string{"127.0.0.1"},
+		// Short, because the test waits out this deadline on purpose to get a
+		// parse into its logging path.
+		IdleTimeout:  250 * time.Millisecond,
+		ReapInterval: time.Hour,
+		Logger:       slog.New(held),
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := srv.Listen(); err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	served := make(chan struct{})
+	go func() { _ = srv.Serve(ctx); close(served) }()
+
+	// A trusted peer that sends no header at all, so the parse sits on its
+	// read until the deadline and then logs the refusal.
+	conn, err := net.Dial("tcp", srv.Addr())
+	if err != nil {
+		t.Fatalf("dialling: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	select {
+	case <-held.entered:
+	case <-time.After(10 * time.Second):
+		cancel()
+		t.Fatal("the parse never logged its refusal, so this test never reached what it means to assert")
+	}
+
+	cancel()
+
+	select {
+	case <-served:
+		close(held.release)
+		t.Fatal("Serve returned while a header parse it started was still inside the logger it was given")
+	case <-time.After(250 * time.Millisecond):
+	}
+
+	close(held.release)
+
+	select {
+	case <-served:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Serve never returned once the parse it was waiting for had finished")
+	}
 }

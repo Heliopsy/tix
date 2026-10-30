@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/netip"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
@@ -21,6 +22,19 @@ type proxyListener struct {
 	policy  *auth.ProxyPolicy
 	timeout time.Duration
 	log     *slog.Logger
+
+	// inflight counts the header parses Accept has started and that have not
+	// finished. Each one is a goroutine holding this listener's logger, and
+	// closing the listener is what makes most of them finish: the parse is
+	// blocked reading, the close breaks the read, and the goroutine logs the
+	// refusal on its way out. So the writes most likely to outlive a shutdown
+	// are the ones the shutdown itself causes.
+	//
+	// Without this the listener's owner has no way to know they are still
+	// running. Serve would return, its caller would take the logger's writer
+	// back, and a goroutine from a connection accepted moments earlier would
+	// still write to it. See the listener's wait method.
+	inflight sync.WaitGroup
 }
 
 // Accept returns as soon as the kernel has a connection and leaves the header
@@ -38,8 +52,18 @@ func (l *proxyListener) Accept() (net.Conn, error) {
 	if !l.policy.Trusts(peerAddr(conn.RemoteAddr())) {
 		return conn, nil
 	}
-	return newProxyConn(conn, l.timeout, l.log), nil
+	l.inflight.Add(1)
+	return newProxyConn(conn, l.timeout, l.log, l.inflight.Done), nil
 }
+
+// wait blocks until every parse this listener started has finished.
+//
+// It is safe to call once the accept loop has stopped and only then: Add runs
+// in Accept, so a caller that waits while something is still accepting could
+// see the count reach zero between two connections and return early. The
+// server calls it after the ssh server's Serve has returned, which is the
+// point after which nothing calls Accept again.
+func (l *proxyListener) wait() { l.inflight.Wait() }
 
 // peerAddr reduces a transport address to the IP trust is decided on.
 func peerAddr(addr net.Addr) netip.Addr {
@@ -76,13 +100,21 @@ type proxyConn struct {
 	remote net.Addr
 }
 
-// newProxyConn starts the parse and returns at once.
-func newProxyConn(conn net.Conn, timeout time.Duration, log *slog.Logger) *proxyConn {
+// newProxyConn starts the parse and returns at once. finished is called when
+// the parse goroutine has run to completion, including its logging, so that
+// the listener can be waited on; it may be nil for a connection nobody waits
+// for.
+func newProxyConn(conn net.Conn, timeout time.Duration, log *slog.Logger, finished func()) *proxyConn {
 	p := &proxyConn{Conn: conn, done: make(chan struct{}), remote: conn.RemoteAddr()}
 	if log == nil {
 		log = slog.Default()
 	}
-	go p.resolve(timeout, log)
+	go func() {
+		if finished != nil {
+			defer finished()
+		}
+		p.resolve(timeout, log)
+	}()
 	return p
 }
 
