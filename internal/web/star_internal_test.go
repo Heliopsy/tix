@@ -3,6 +3,8 @@
 package web
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -29,7 +31,8 @@ func TestTheStarButtonIsDrawnOnlyForAReaderWhoMayStar(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			var out strings.Builder
-			v := view{Actor: tc.actor, CSRF: "tok", Data: tasksView{Tasks: []core.Task{task}}}
+			v := view{Actor: tc.actor, CSRF: "tok", Columns: columnsOf(httptest.NewRequest(http.MethodGet, RouteTasks, nil)),
+				Data: tasksView{Tasks: []core.Task{task}}}
 			if err := tmpl.ExecuteTemplate(&out, "tasks-listing", v); err != nil {
 				t.Fatalf("rendering: %v", err)
 			}

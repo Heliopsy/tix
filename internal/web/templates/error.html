@@ -13,8 +13,11 @@
   <p class="failure-message" role="alert">{{.Data.Message}}</p>
   {{if .Data.Hint}}<p class="failure-hint">{{.Data.Hint}}</p>{{end}}
   <div class="actions">
-    <a href="{{.Data.Back}}">Back to where you were</a>
-    <a href="/">Back to the dashboard</a>
+    <a href="{{.Data.Back}}">{{.Data.BackLabel}}</a>
+    {{/* Named for where it goes. It said "Back to the dashboard" and pointed
+         at "/", which has no screen of its own and redirects to the projects
+         list, so it promised one place and delivered another. */}}
+    {{if ne .Data.Back "/tasks"}}<a href="/tasks">Go to tasks</a>{{end}}
   </div>
 </section>
 {{end}}

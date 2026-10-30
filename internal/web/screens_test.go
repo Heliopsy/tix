@@ -74,8 +74,9 @@ func TestUnknownPathIsNotFound(t *testing.T) {
 }
 
 // A refused mutation offers its way back to the screen it was submitted from,
-// and a refused page offers the dashboard: there is nowhere else a GET could
-// return to, and sending it back to its own failing path would loop.
+// and a refused page with no referring screen offers the task list: sending it
+// back to its own failing path would loop, and "/" is no screen at all but a
+// redirect to the projects list, which is where "the dashboard" used to land.
 func TestTheErrorPageLeadsBackToWhereTheRequestCameFrom(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
@@ -95,8 +96,12 @@ func TestTheErrorPageLeadsBackToWhereTheRequestCameFrom(t *testing.T) {
 	}
 
 	missing := body(t, f.as("alice").get("/nowhere"))
-	if !strings.Contains(missing, `<a href="/">Back to where you were</a>`) {
-		t.Errorf("a page that does not exist does not lead back to the dashboard:\n%s", missing)
+	ways := between(t, missing, `<div class="actions">`, `</div>`)
+	if !strings.Contains(ways, `<a href="/tasks">Back to tasks</a>`) {
+		t.Errorf("a page that does not exist does not lead back to the task list:\n%s", ways)
+	}
+	if strings.Contains(ways, `href="/"`) || strings.Contains(ways, "dashboard") {
+		t.Errorf("the error page still offers the root, which lands on projects:\n%s", ways)
 	}
 }
 

@@ -72,8 +72,11 @@
 {{end}}
 
 {{/* The repeat marker a listing row and a board card share, given the rule.
-     It links to every recurring task, the way a tag links to its tag. */}}
-{{define "repeatmark"}}<a class="repeatmark" href="/tasks?q=is:recurring" title="Repeats {{.}}"><span aria-hidden="true">&#x21bb;</span><span class="sr-only">Repeats {{.}}</span></a>{{end}}
+     It links to every recurring task, the way a tag links to its tag. The
+     rule is written out beside the glyph: a bare arrow said that a task
+     repeats and hid how often behind a hover, which a touch screen never
+     gets. Readers who find it loud turn the Repeats field off under View. */}}
+{{define "repeatmark"}}<a class="repeatmark" href="/tasks?q=is:recurring" title="Repeats {{.}}"><span aria-hidden="true">&#x21bb;</span><span class="sr-only">Repeats</span> <span class="repeat-rule">{{.}}</span></a>{{end}}
 {{define "csrf"}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}
 
 {{/* star is one task's personal star toggle. A plain form and a real button,

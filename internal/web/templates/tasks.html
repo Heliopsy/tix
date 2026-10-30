@@ -289,17 +289,23 @@
       {{if eq $.Tint "project"}}{{if $acc.Color}}{{$mark = printf " is-accented proj-%s" $acc.Color}}{{end}}
       {{else if eq $.Tint "status"}}{{$mark = printf " is-accented tint-status-%s" (slug .Task.Status)}}
       {{else if eq $.Tint "priority"}}{{$mark = printf " is-accented tint-prio-%s" (prio .Task.Priority)}}{{end}}
-      <article id="t-{{.Task.Ref}}" class="card{{$mark}}" draggable="{{if $.DragMove}}true{{else}}false{{end}}" data-task="{{.Task.Ref}}" data-project="{{$acc.Key}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
-        <div class="ref">{{if $.CanStar}}{{template "star" (star .Task.Ref .Task.Starred $v.Self $.CSRF)}}{{end}}{{.Task.Ref}}</div>
+      <article id="t-{{.Task.Ref}}" class="card{{$mark}}{{if eq $.FlashRef .Task.Ref}} is-flashed{{end}}" draggable="{{if $.DragMove}}true{{else}}false{{end}}" data-task="{{.Task.Ref}}" data-project="{{$acc.Key}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
+        {{/* The fields under View apply to a card as they do to a row, so
+             hiding tags or the star once hides them in every drawing. */}}
+        {{$showPrio := and ($.Columns.Show "tasks" "priority") (ne (prio .Task.Priority) "normal")}}
+        {{$showTags := and ($.Columns.Show "tasks" "tags") .Task.Tags}}
+        {{$showRepeat := and ($.Columns.Show "tasks" "repeat") .Task.Recurrence}}
+        <div class="ref">{{if and $.CanStar ($.Columns.Show "tasks" "star")}}{{template "star" (star .Task.Ref .Task.Starred $v.Self $.CSRF)}}{{end}}{{if $.Columns.Show "tasks" "ref"}}{{.Task.Ref}}{{end}}</div>
         <div><a href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}">{{.Task.Title}}</a></div>
         {{/* A merged board mixes projects in one column, so each card says
              which list it belongs to. A board of one project does not: the
              heading already said it, and repeating it on every card is noise. */}}
-        {{if or $v.Board.Merged (ne (prio .Task.Priority) "normal") .Task.Tags}}
+        {{if or $v.Board.Merged $showPrio $showTags $showRepeat}}
         <div class="card-meta">
           {{if $v.Board.Merged}}<a class="projref{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" href="/tasks?q=project:{{$acc.Key}}" title="Only tasks in {{$acc.Name}}">{{if $acc.Icon}}<span class="proj-icon" aria-hidden="true">{{$acc.Icon}}</span>{{end}}{{$acc.Key}}</a>{{end}}
-          {{if ne (prio .Task.Priority) "normal"}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="Only {{prio .Task.Priority}} priority tasks"><span class="caret" aria-hidden="true"></span>{{prio .Task.Priority}}</a>{{end}}
-          {{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}
+          {{if $showPrio}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="Only {{prio .Task.Priority}} priority tasks"><span class="caret" aria-hidden="true"></span>{{prio .Task.Priority}}</a>{{end}}
+          {{if $showRepeat}}{{template "repeatmark" .Task.Recurrence}}{{end}}
+          {{if $showTags}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
         </div>
         {{end}}
         {{if .Routes}}
@@ -355,7 +361,7 @@
     {{$mark := ""}}
     {{if eq $.Tint "status"}}{{$mark = printf " is-accented tint-status-%s" (slug .Task.Status)}}
     {{else if eq $.Tint "priority"}}{{$mark = printf " is-accented tint-prio-%s" (prio .Task.Priority)}}{{end}}
-    <article id="t-{{.Task.Ref}}" class="card lane-card{{if .Finished}} is-finished{{end}}{{$mark}}" data-lane-task="{{.Task.Ref}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
+    <article id="t-{{.Task.Ref}}" class="card lane-card{{if .Finished}} is-finished{{end}}{{$mark}}{{if eq $.FlashRef .Task.Ref}} is-flashed{{end}}" data-lane-task="{{.Task.Ref}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
       {{if .Finished}}
       <span class="check is-done" role="img" aria-label="{{.Task.Ref}} is finished" title="Finished"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5 10.2 16.7 18 8.4"/></svg></span>
       {{else if .Tickable}}
@@ -377,15 +383,15 @@
       {{else}}
       <a class="check is-locked" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}" aria-label="Open {{.Task.Ref}} to finish it: {{.Locked}}" title="Open the task to finish it: {{.Locked}}"></a>
       {{end}}
-      {{if $.CanStar}}{{template "star" (star .Task.Ref .Task.Starred $v.Self $.CSRF)}}{{end}}
+      {{if and $.CanStar ($.Columns.Show "tasks" "star")}}{{template "star" (star .Task.Ref .Task.Starred $v.Self $.CSRF)}}{{end}}
       <div class="lane-body">
         <a class="lane-title" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}">{{.Task.Title}}</a>
         <div class="card-meta">
-          <span class="pill status lane-state {{categoryClass .Category}}" data-state="{{.Task.Status}}">{{.Label}}</span>
-          {{if ne (prio .Task.Priority) "normal"}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="Only {{prio .Task.Priority}} priority tasks"><span class="caret" aria-hidden="true"></span>{{prio .Task.Priority}}</a>{{end}}
-          {{if .Task.Recurrence}}{{template "repeatmark" .Task.Recurrence}}{{end}}
-          {{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}
-          <span class="ref mono">{{.Task.Ref}}</span>
+          {{if $.Columns.Show "tasks" "status"}}<span class="pill status lane-state {{categoryClass .Category}}" data-state="{{.Task.Status}}">{{.Label}}</span>{{end}}
+          {{if and ($.Columns.Show "tasks" "priority") (ne (prio .Task.Priority) "normal")}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="Only {{prio .Task.Priority}} priority tasks"><span class="caret" aria-hidden="true"></span>{{prio .Task.Priority}}</a>{{end}}
+          {{if and ($.Columns.Show "tasks" "repeat") .Task.Recurrence}}{{template "repeatmark" .Task.Recurrence}}{{end}}
+          {{if $.Columns.Show "tasks" "tags"}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
+          {{if $.Columns.Show "tasks" "ref"}}<span class="ref mono">{{.Task.Ref}}</span>{{end}}
         </div>
       </div>
     </article>
@@ -438,7 +444,10 @@
 {{range $v.Tasks}}
   {{$acc := index $v.Accent .ProjectID}}
   {{/* The row carries its ref as an id so completing it can send the browser
-       back to this row rather than to the top of the list. */}}
+       back to this row rather than to the top of the list. is-flashed marks
+       the row the toast is about, so a task added without leaving the list
+       is found at a glance; a class rather than :target, because a boosted
+       redirect never reaches the address bar's fragment. */}}
   {{/* What the stripe is saying is the reader's choice, not the tenant's:
        see internal/web/tint.go. One mechanism either way -- the class sets
        --proj and the stripe reads it -- so only the source of the colour
@@ -447,7 +456,7 @@
   {{if eq $.Tint "project"}}{{if $acc.Color}}{{$mark = printf " is-accented proj-%s" $acc.Color}}{{end}}
   {{else if eq $.Tint "status"}}{{$mark = printf " is-accented tint-status-%s" (slug .Status)}}
   {{else if eq $.Tint "priority"}}{{$mark = printf " is-accented tint-prio-%s" (prio .Priority)}}{{end}}
-  <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{$mark}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Ref}}">
+  <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{$mark}}{{if eq $.FlashRef .Ref}} is-flashed{{end}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Ref}}">
     {{$done := index $v.CompleteState .ProjectID}}
     {{if $done}}
     {{/* Only this row is swapped, never the page.
@@ -479,7 +488,7 @@
     </form>
     {{else}}<span class="check placeholder" aria-hidden="true"></span>{{end}}
 
-    {{if $.CanStar}}{{template "star" (star .Ref .Starred $v.Self $.CSRF)}}{{end}}
+    {{if and $.CanStar ($.Columns.Show "tasks" "star")}}{{template "star" (star .Ref .Starred $v.Self $.CSRF)}}{{end}}
 
     {{if $acc.Icon}}<span class="proj-icon" role="img" aria-label="{{$acc.Name}}" title="{{$acc.Name}}">{{$acc.Icon}}</span>{{end}}
 
@@ -627,7 +636,7 @@
            or within the week and for nothing else. The word carries the
            meaning and the colour only reinforces it. */}}
       {{if $.Columns.Show "tasks" "due"}}{{$due := due .}}{{if $due}}<a class="duemark is-{{$due}}" href="/tasks?due={{if eq $due "overdue"}}overdue{{else}}week{{end}}" title="Due {{stamp .DueAt}}">{{if eq $due "overdue"}}overdue{{else}}due this week{{end}}</a>{{end}}{{end}}
-      {{if .Recurrence}}{{template "repeatmark" .Recurrence}}{{end}}
+      {{if and .Recurrence ($.Columns.Show "tasks" "repeat")}}{{template "repeatmark" .Recurrence}}{{end}}
       </span>
       {{if $.Columns.Show "tasks" "updated"}}<span class="tm tm-when"><span class="when" title="Last updated {{compact .UpdatedAt}}"><span class="when-label">updated</span> {{compact .UpdatedAt}}</span></span>{{end}}
       {{if $.Columns.Show "tasks" "ref"}}<span class="tm tm-ref"><span class="ref mono">{{.Ref}}</span></span>{{end}}

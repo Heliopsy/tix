@@ -558,12 +558,27 @@ func (b *browser) createTask(project, title string) string {
 	defer func() { _ = resp.Body.Close() }()
 	wantStatus(b.t, resp, http.StatusSeeOther)
 	location := resp.Header.Get("Location")
-	ref := strings.TrimPrefix(location, "/tasks/")
-	if idx := strings.Index(ref, "?"); idx >= 0 {
-		ref = ref[:idx]
-	}
+	ref := createdRef(location)
 	if ref == "" {
 		b.t.Fatalf("no task reference in %q", location)
+	}
+	return ref
+}
+
+// createdRef reads the new task's reference out of the redirect a create
+// answers with: the toast's flashref when the reader stays on the listing,
+// or the task's own path when the preference opens it.
+func createdRef(location string) string {
+	u, err := url.Parse(location)
+	if err != nil {
+		return ""
+	}
+	if ref := u.Query().Get("flashref"); ref != "" {
+		return ref
+	}
+	ref, ok := strings.CutPrefix(u.Path, "/tasks/")
+	if !ok {
+		return ""
 	}
 	return ref
 }

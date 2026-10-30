@@ -492,9 +492,10 @@ func (h *handler) createTask(w http.ResponseWriter, r *http.Request) error {
 	// preference governs both rather than one of them. Staying returns to the
 	// listing exactly as it was, filter, sort, page and all, because the
 	// referring URL carries them and typing the next task is the whole reason
-	// somebody turned this off.
+	// to stay. The flash links the new task and the fragment marks its row,
+	// so staying never leaves the reader wondering whether it worked.
 	if !openAfterAdd(r) {
-		redirect(w, r, listingReferer(r), "task created "+task.Ref)
+		redirectTo(w, r, listingReferer(r), "t-"+task.Ref, "task created")
 		return nil
 	}
 	redirect(w, r, RouteTasks+"/"+task.Ref, "task created")
@@ -523,10 +524,19 @@ func listingReferer(r *http.Request) string {
 	if path != RouteTasks && !strings.HasPrefix(path, RouteProjects+"/") {
 		return RouteTasks
 	}
-	if u.RawQuery != "" {
-		return path + "?" + u.RawQuery
+	return withoutFlash(path, u.Query())
+}
+
+// withoutFlash is a listing address minus the message a previous redirect
+// left on it. Adding twice in a row would otherwise carry the first task's
+// flash into the second redirect, and the toast would name the wrong task.
+func withoutFlash(path string, query url.Values) string {
+	query.Del("flash")
+	query.Del("flashref")
+	if len(query) == 0 {
+		return path
 	}
-	return path
+	return path + "?" + query.Encode()
 }
 
 // setPriority changes one task's priority and nothing else.

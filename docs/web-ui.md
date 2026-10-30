@@ -46,11 +46,19 @@ here selects the same set from a shell. A project chip on a row writes a filter 
 click, so there is a Clear control to get back out in one click. Clear keeps the sort, because a sort
 is not a filter.
 
+**Adding a task.** The one-line box and Add with details both create the task and leave you on the
+listing, filter, sort, view and page as they were. The toast says `task created` and links the new task,
+and its row or card is ringed. Settings has "Open a new task" for the other way of working, where each add
+is opened to write it out in full. That used to be the default; a browser that never touched the
+preference now stays, and one that turned it on keeps opening.
+
 **Repeating tasks.** The add form's details and the task screen's Edit card carry a Repeat field taking
 a rule such as `every week` or `3 days after done`, emptied to stop the task repeating. The task screen's
-About card states the rule and, once the task is finished, links the occurrence it created. A recurring row
-or board card carries a `↻` marker that lists every recurring task. Completing one from the browser creates
-the next exactly as the command line does; see [features.md](features.md).
+About card states the rule, links the occurrence it created once the task is finished, and before that
+gives the date finishing it now would make the next one due, or says that this is the last occurrence.
+A recurring row or card carries a `↻` marker with the rule beside it, linking every recurring task. The
+Repeats field under View turns it off. Completing one from the browser creates the next exactly as the
+command line does; see [features.md](features.md).
 
 **Deadlines.** The control beside the sort narrows the list to a deadline window: overdue, today, this
 week, this month. What it selects is answered as a `due:` term by the same parser the box uses, rather
@@ -89,6 +97,11 @@ adds, appears on its own instead of waiting for somebody to tick it. A filter th
 explicitly overrides the hiding, and the page says so rather than quietly returning nothing. Both are
 also on Settings, where the same two forms are rendered over the same stored values rather than
 copied, so the panel here and the screen there cannot come to disagree.
+
+The task fields apply to every drawing of the tasks, not only the list: a board or lane card draws its
+star, status (on a lane card), priority, tags, repeat rule and reference only when that field is ticked.
+Star and Repeats are fields like the others, both on by default. Hiding Star removes the toggle and
+nothing else; starred tasks are still listed first, and the task screen keeps its star.
 
 **Lease badges.** A lease is the one thing on a row that changes by itself, so the row says which
 state it is in:
@@ -312,6 +325,19 @@ return to the first page without anything having to clear it.
 
 ## The task screen
 
+The link above the title goes back to the listing the task was opened from, and says which: "Back to
+tasks" for the task list, with its filter, sort and page, or "Back to the infra board" for a project
+board. A list row carries the listing in its link; anything else, a board card, the toast, a subtask, is
+answered from the page that linked here. Every save on the screen returns to it with the listing still
+attached, so the link still goes to the same place after a tag, a comment or an edit, and deleting the
+task returns there too.
+
+The About card says whether you starred the task, in words, links the task it is a subtask of, and shows
+when it started and finished alongside when it was created and last changed.
+
+When a page fails, the error screen offers the page that linked to it and the task list, each named for
+where it goes. It used to offer "the dashboard", which was `/`, a redirect to the projects list.
+
 Dependencies name each task this one waits for by reference, title and status, linked to the task,
 with the full identifier on the row's title. They read back a raw identifier while the field directly
 under them was placeholdered `infra-2`, so the screen disagreed with itself about what identifies a
@@ -385,7 +411,7 @@ the current scheme and points at the switch rather than carrying a second form.
 | Timezone | `tix_timezone` | one of the offered zones, empty follows the deployment |
 | Advanced screens | `tix_advanced` | whether the configuration and data screens are in the sidebar |
 | Drag to move | `tix_drag_move` | whether a board card can be dragged between columns |
-| Open a new task | `tix_open_after_add` | `0` stays on the listing after adding; absent or anything else opens the task |
+| Open a new task | `tix_open_after_add` | `1` opens the new task after adding. Absent or `0` stays on the listing. An empty value, which earlier builds wrote for "on", also opens it |
 | Hover effects | `tix_hover` | `0` turns hover highlights off and puts `data-hover="off"` on `<html>`; absent or anything else leaves them on |
 | Columns | `tix_columns` | which optional columns each listing leaves out |
 | Hidden projects | `tix_hidden_projects` | which projects a listing leaves out |

@@ -164,8 +164,8 @@ async function main() {
   await sleep(1200);
 
   // One task, typed by a person, with the intent in its body. Quick-add lives
-  // on the task list, not on the board, and it answers with the new task's own
-  // page, which is where the body is written.
+  // on the task list, not on the board, and it leaves the person on the list
+  // with a toast linking the new task, which is followed to write the body.
   await page.goto(`${BASE}/tasks`, { waitUntil: "domcontentloaded" });
   await sleep(700);
   const form = page.locator("form.quickadd");
@@ -178,14 +178,21 @@ async function main() {
   // the title can be read rather than glimpsed.
   await sleep(1400);
   await field.press("Enter");
-  await page.waitForLoadState("domcontentloaded");
-  await sleep(1600);
-
-  // The ref is in the url the quick-add landed on, and the scene needs it to
-  // tell the planner which task to break down. The redirect carries a ?flash=
-  // query string, so the path is parsed rather than the whole url split.
-  const ref = new URL(page.url()).pathname.split("/").filter(Boolean).pop();
+  // The ref is the toast's flashref, and the scene needs it to tell the
+  // planner which task to break down. Waiting for the toast's link rather
+  // than a load state: the form posts from a page that is already loaded.
+  const toastLink = page.locator(".flash a.flashref").first();
+  await toastLink.waitFor({ timeout: 15000 });
+  const ref = (await toastLink.textContent()).trim();
+  if (!ref) throw new Error("the quick-add toast names no task");
   writeFileSync(EPIC_FILE, `${ref}\n`);
+  await sleep(1600);
+  await Promise.all([
+    page.waitForURL((u) => u.pathname === `/tasks/${ref}`, { timeout: 15000 }),
+    toastLink.click(),
+  ]);
+  await page.waitForLoadState("domcontentloaded");
+  await sleep(600);
 
   const body = page.locator("textarea[name=body]").first();
   if (await body.count()) {
@@ -244,18 +251,14 @@ async function main() {
   await sleep(300);
   await chore.locator("input[name=repeat]").pressSequentially(CHORE_REPEAT, { delay: TYPE });
   await sleep(1400);
-  // Waiting for the new task's own page, not for a load state. The form posts
-  // from a page that is already loaded, so waitForLoadState returned at once
-  // and the check below read the old /tasks list: a paid take died there with
-  // the redirect to /tasks/work-1 arriving fifteen milliseconds later.
-  await Promise.all([
-    page.waitForURL((u) => /^\/tasks\/[^/]+$/.test(u.pathname), { timeout: 15000 }),
-    chore.locator("button[type=submit]").click(),
-  ]);
-  await page.waitForLoadState("domcontentloaded");
-  // The rule has to be visible where the form lands: the task's Repeats row.
-  const repeated = (await page.locator(".repeatmark").count())
-    + (await page.getByText(CHORE_REPEAT, { exact: true }).count());
+  // Waiting for the toast, not for a load state. The form posts from a page
+  // that is already loaded, so waitForLoadState returned at once and the
+  // check below read the old list: a paid take died there with the redirect
+  // arriving fifteen milliseconds later.
+  await chore.locator("button[type=submit]").click();
+  await page.locator(".flash a.flashref").first().waitFor({ timeout: 15000 });
+  // The rule has to be visible where the form lands: the new, ringed row.
+  const repeated = await page.locator(".is-flashed .repeatmark").count();
   if (!repeated) throw new Error(`the chore landed on ${page.url()} without its repeat rule showing`);
   await sleep(1800);
 

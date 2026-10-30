@@ -4,9 +4,9 @@
      task opened from a filtered list had no way back to it: the sidebar goes
      to the unfiltered list, so the browser's back button was the only thing
      that preserved the reader's place. */}}
-<p class="backlink"><a href="{{.Data.Back}}">&larr; Back to the list</a></p>
+<p class="backlink"><a href="{{.Data.Back}}">&larr; {{.Data.BackLabel}}</a></p>
 <div class="titlebar">
-  {{if .CanStar}}{{template "star" (star $t.Ref $t.Starred (printf "/tasks/%s" $t.Ref) .CSRF)}}{{end}}
+  {{if .CanStar}}{{template "star" (star $t.Ref $t.Starred .Here .CSRF)}}{{end}}
   <span class="ref">{{$t.Ref}}</span>
   <h1>{{$t.Title}}</h1>
 </div>
@@ -238,7 +238,17 @@
       {{/* The date alone left the reader comparing it with a calendar. The
            state is what they were working it out for, so it is said, in the
            same words the listing and the board use. */}}
-      <dt>Repeats</dt><dd>{{if $t.Recurrence}}{{$t.Recurrence}}{{else}}<span class="muted">&mdash;</span>{{end}}{{if .Data.Successor}} &middot; next <a class="mono" href="/tasks/{{.Data.Successor}}">{{.Data.Successor}}</a>{{end}}</dd>
+      {{/* The star is a shape in the title bar; here it is said in words, with
+           what it does, since nobody else sees it. */}}
+      {{if .CanStar}}<dt>Starred</dt><dd class="starstate">{{if $t.Starred}}Yes, listed first for you{{else}}<span class="muted">No</span>{{end}}</dd>{{end}}
+      {{if .Data.Parent}}<dt>Subtask of</dt><dd><a class="mono" href="/tasks/{{.Data.Parent.Ref}}">{{.Data.Parent.Ref}}</a> {{.Data.Parent.Title}}</dd>{{end}}
+      {{/* The rule, and what it will do next. The occurrence already created
+           is linked with its date; one not yet created is the date finishing
+           now would give it, from the same rule the completion applies. */}}
+      <dt>Repeats</dt><dd class="repeatline">{{if $t.Recurrence}}<span aria-hidden="true">&#x21bb;</span> {{$t.Recurrence}}{{else}}<span class="muted">&mdash;</span>{{end}}
+        {{if .Data.Successor}}<br><span class="muted">next</span> <a class="mono" href="/tasks/{{.Data.Successor}}">{{.Data.Successor}}</a>{{if .Data.SuccessorDue}} <span class="muted">due {{stamp .Data.SuccessorDue}}</span>{{end}}
+        {{else if .Data.NextDue}}<br><span class="muted">next due {{stamp .Data.NextDue}} if finished now</span>
+        {{else if .Data.LastOccurrence}}<br><span class="muted">this is the last occurrence</span>{{end}}</dd>
       <dt>Due</dt><dd>{{if $t.DueAt}}{{stamp $t.DueAt}}{{$due := due $t}}{{if $due}} <span class="duemark is-{{$due}}">{{if eq $due "overdue"}}overdue{{else}}this week{{end}}</span>{{end}}{{else}}<span class="muted">&mdash;</span>{{end}}</dd>
       {{/* A 26 character identifier wrapped onto two lines of the aside and
            could only be had by selecting it with the mouse, which is how
@@ -251,6 +261,8 @@
       <dt>Version</dt><dd class="muted">{{$t.Version}}</dd>
       <dt>Created</dt><dd class="muted">{{compact $t.CreatedAt}}</dd>
       <dt>Updated</dt><dd class="muted">{{compact $t.UpdatedAt}}</dd>
+      {{if $t.StartedAt}}<dt>Started</dt><dd class="muted">{{stamp $t.StartedAt}}</dd>{{end}}
+      {{if $t.CompletedAt}}<dt>Finished</dt><dd class="muted">{{stamp $t.CompletedAt}}</dd>{{end}}
     </dl>
   </div>
 
