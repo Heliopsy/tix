@@ -95,6 +95,11 @@ const (
 	DueSoonMarker    = "due"
 )
 
+// StarMarker leads the meta line of a task the reader has starred. It is the
+// key that toggles the star, and it leads rather than trails so a narrow
+// column cuts everything else first.
+const StarMarker = "* "
+
 // DueMarker is the marker a due state carries, empty where it carries none.
 func DueMarker(state core.DueState) string {
 	switch state {
@@ -113,7 +118,11 @@ func DueMarker(state core.DueState) string {
 // that changes by itself, so it is the one that has to survive a narrow
 // column.
 func CardMetaSegments(t core.Task, now time.Time, mine string) []MetaSegment {
-	out := []MetaSegment{{Text: t.Ref + CardSeparator + "P" + priorityDigit(t.Priority)}}
+	lead := ""
+	if t.Starred {
+		lead = StarMarker
+	}
+	out := []MetaSegment{{Text: lead + t.Ref + CardSeparator + "P" + priorityDigit(t.Priority)}}
 	state := t.DueState(now)
 	if marker := DueMarker(state); marker != "" {
 		out = append(out, MetaSegment{Text: CardSeparator}, MetaSegment{Text: marker, Due: state})

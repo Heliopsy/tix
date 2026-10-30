@@ -53,6 +53,8 @@ const (
 	actionDeleteField
 	actionRestore
 	actionArtifact
+	actionStar
+	actionUnstar
 	actionEditTenant
 	actionAddDomain
 	actionRemoveDomain
@@ -91,6 +93,8 @@ var actionLabels = map[actionKind][2]string{
 
 	actionRestore:  {"restore the task", "restored"},
 	actionArtifact: {"record the artifact", "recorded an artifact on"},
+	actionStar:     {"star the task", "starred"},
+	actionUnstar:   {"unstar the task", "unstarred"},
 
 	// The tenant screen's own actions. Their subject is the tenant, a hostname
 	// or a membership rather than a task, so each carries its own sentence and

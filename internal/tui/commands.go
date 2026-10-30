@@ -708,6 +708,22 @@ func (m Model) restore(task core.Task) tea.Cmd {
 	}
 }
 
+// toggleStar sets the reader's own star on a task, or clears it when the task
+// already carries one.
+func (m Model) toggleStar(task core.Task) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	call, kind := svc.StarTask, actionStar
+	if task.Starred {
+		call, kind = svc.UnstarTask, actionUnstar
+	}
+	return func() tea.Msg {
+		return actionMsg{kind: kind, ref: ref, label: label, err: call(ctx, ref)}
+	}
+}
+
 // putArtifact records structured output on a task.
 func (m Model) putArtifact(task core.Task, in core.ArtifactInput) tea.Cmd {
 	if m.svc == nil {

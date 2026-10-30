@@ -60,10 +60,14 @@ func declaredColumns(def *core.WorkflowDefinition) ([]Column, map[string]int) {
 	return cols, index
 }
 
-// sortTasks orders a column deterministically by priority, then sequence.
+// sortTasks orders a column deterministically: the reader's starred tasks
+// first, then by priority, then sequence.
 func sortTasks(tasks []core.Task) {
 	sort.SliceStable(tasks, func(i, j int) bool {
 		a, b := tasks[i], tasks[j]
+		if a.Starred != b.Starred {
+			return a.Starred
+		}
 		if a.Priority != b.Priority {
 			return a.Priority < b.Priority
 		}

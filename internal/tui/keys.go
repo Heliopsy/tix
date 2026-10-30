@@ -38,6 +38,7 @@ type KeyMap struct {
 	CommentEdit   key.Binding
 	Delete        key.Binding
 	Restore       key.Binding
+	Star          key.Binding
 	Artifact      key.Binding
 	ClaimNext     key.Binding
 	Renew         key.Binding
@@ -105,6 +106,9 @@ func DefaultKeyMap() KeyMap {
 		// u, for undoing the deletion. It is the one key on a deleted card, and
 		// vim's own undo, which is the reflex a reader arrives with.
 		Restore: key.NewBinding(key.WithKeys("u"), key.WithHelp("u", "restore")),
+		// *, the glyph the card marks a starred task with. It is the one
+		// toggle on the board: pressed again it takes the star off.
+		Star: key.NewBinding(key.WithKeys("*"), key.WithHelp("*", "star")),
 		// O, for the output a worker records. Lowercase o opens a new task under
 		// vim and helix, so the capital is what the other taken letters use.
 		Artifact:  key.NewBinding(key.WithKeys("O"), key.WithHelp("O", "record artifact")),
@@ -210,6 +214,7 @@ const (
 	doUndepend
 	doDelete
 	doRestore
+	doStar
 	doArtifact
 	doRenew
 	doReclaim
@@ -399,6 +404,8 @@ func (k KeyMap) taskBindings() []Action {
 			gate: gatedAction{methods: []string{"DeleteTask", "DeleteComment"}}},
 		{id: doRestore, binding: k.Restore, needsTask: true,
 			gate: gatedAction{methods: []string{"RestoreTask"}}},
+		{id: doStar, binding: k.Star, needsTask: true,
+			gate: gatedAction{methods: []string{"StarTask"}, needs: []string{"UnstarTask"}}},
 		{id: doArtifact, binding: k.Artifact, needsTask: true,
 			gate: gatedAction{methods: []string{"PutArtifact"}}},
 		{id: doRenew, binding: k.Renew, needsTask: true,
