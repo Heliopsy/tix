@@ -16,8 +16,8 @@ The empty value is the only trace of an explicit "on", so it is honoured: `openA
 for, and it needs no server-side state because the preference never had any. The toggle now writes
 `1` and `0`, so no future reading depends on the empty value.
 
-The settings screen's text is left as it is: it describes what each position does, not which is
-the default, and that screen is being redesigned separately.
+The settings screen's switch reads the same `openAfterAdd`, so it shows Off for a browser that never
+chose. Its help text says the default is to stay on the list and that the toast links the new task.
 
 ## Where back goes
 

@@ -12,7 +12,7 @@
 ## 2. Adding stays on the list
 
 - [x] 2.1 `internal/web/render.go`, `session.go`: absent means stay, an explicit on is honoured, the
-      toggle writes `1` and `0`
+      toggle writes `1` and `0`; the settings switch and its help text say the same
 - [x] 2.2 `internal/web/tasks.go`, `live.go`, `templates/tasks.html`, `assets/app.css`: the create
       redirect carries the toast's link and the row is marked; carried addresses drop the flash
 - [x] 2.3 `internal/web/assets/live.js`: a refresh answer for a page already navigated away from is
