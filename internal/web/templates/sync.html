@@ -1,13 +1,12 @@
 {{define "content"}}
-<h1>External sync</h1>
+<div class="headtip"><h1>{{t "External sync"}}</h1>{{template "tip" (tip "External sync" "A sync copies tasks from another tracker into one project. Each run reads the source, turns every record into a task through your mapping file, and creates or updates the matching tasks. Start with a dry run to see the result first." "docs/migrating.md")}}</div>
 {{template "synctabs" .}}
 
-<p class="lede">Pull work that already lives in another tracker into tix. Imports
-run one way: tix reads from the source and never writes anything back to it.</p>
+<p class="lede">{{t "Pull work that already lives in another tracker into tix. Imports run one way: tix reads from the source and never writes anything back to it."}}</p>
 
-<h2>Sources</h2>
+<h2>{{t "Sources"}}</h2>
 <table>
-  <thead><tr><th>Name</th><th>System</th><th>Configured through</th><th>Last run</th><th>Status</th><th></th></tr></thead>
+  <thead><tr><th>{{t "Name"}}</th><th>{{t "System"}}</th><th>{{t "Configured through"}}</th><th>{{t "Last run"}}</th><th>{{t "Status"}}</th><th></th></tr></thead>
   <tbody>
   {{range .Data.Sources}}
     <tr>
@@ -23,55 +22,54 @@ run one way: tix reads from the source and never writes anything back to it.</p>
         {{$id := printf "env-%s" .ID}}
         <code class="envname">{{envName .EnvPrefix "*"}}</code>
         <div class="colmenu">
-          <button type="button" class="link" popovertarget="{{$id}}">Which variables</button>
+          <button type="button" class="link" popovertarget="{{$id}}">{{t "Which variables"}}</button>
           <div id="{{$id}}" class="flowmenu colpop envpop" popover>
-            <p class="flowhead">{{.Name}} reads</p>
+            <p class="flowhead">{{t "%s reads" .Name}}</p>
             <dl class="fields">
               {{$prefix := .EnvPrefix}}
-              {{range .Settings}}<dt><code class="envname">{{envName $prefix .Name}}</code></dt><dd>{{.Purpose}}{{if .Required}} (required){{end}}</dd>{{end}}
+              {{range .Settings}}<dt><code class="envname">{{envName $prefix .Name}}</code></dt><dd>{{t .Purpose}}{{if .Required}} {{t "(required)"}}{{end}}</dd>{{end}}
             </dl>
-            <button type="button" class="flowclose" popovertarget="{{$id}}" popovertargetaction="hide">Close</button>
+            <button type="button" class="flowclose" popovertarget="{{$id}}" popovertargetaction="hide">{{t "Close"}}</button>
           </div>
         </div>
       </td>
       <td>{{stamp .LastRunAt}}</td>
-      <td>{{if .LastStatus}}{{.LastStatus}}{{else}}never run{{end}}</td>
+      <td>{{if .LastStatus}}{{.LastStatus}}{{else}}{{t "never run"}}{{end}}</td>
       <td>
         <form method="post" action="/sync/run">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="source_id" value="{{.ID}}">
-          <label for="dry-{{.ID}}"><input id="dry-{{.ID}}" type="checkbox" name="dry_run" value="1" checked> Dry run</label>
-          <label for="full-{{.ID}}"><input id="full-{{.ID}}" type="checkbox" name="full" value="1"> Full</label>
-          <button type="submit">Run</button>
+          <label for="dry-{{.ID}}"><input id="dry-{{.ID}}" type="checkbox" name="dry_run" value="1" checked> {{t "Dry run"}}</label>
+          <label for="full-{{.ID}}"><input id="full-{{.ID}}" type="checkbox" name="full" value="1"> {{t "Full"}}</label>
+          <button type="submit">{{t "Run"}}</button>
         </form>
         <form method="post" action="/sync/sources/delete">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="id" value="{{.ID}}">
-          <button class="secondary" type="submit">Delete</button>
+          <button class="secondary" type="submit">{{t "Delete"}}</button>
         </form>
       </td>
     </tr>
   {{else}}
-    <tr><td colspan="6">No sources configured.</td></tr>
+    <tr><td colspan="6">{{t "No sources configured."}}</td></tr>
   {{end}}
   </tbody>
 </table>
 
-<h2>Configure a source</h2>
-<p>A source is just a name and a system. Save it here, then set its environment
-variables on the server: the row above will tell you which ones.</p>
+<h2>{{t "Configure a source"}}</h2>
+<p>{{t "A source is just a name and a system. Save it here, then set its environment variables on the server: the row above will tell you which ones."}}</p>
 <form method="post" action="/sync/sources">
   {{template "csrf" .CSRF}}
   <div class="row">
     <div>
       <div class="field-label">
-        <label for="name">Name</label>
+        <label for="name">{{t "Name"}}</label>
         {{template "field-info" "Your own label for this source, and also what its environment variables are named after. Something short and stable is easiest to live with, because renaming a source renames every variable that configures it."}}
       </div>
       <input id="name" name="name" required>
     </div>
     <div>
-      <label for="system">System</label>
+      <label for="system">{{t "System"}}</label>
       <select id="system" name="system">
         {{range .Data.Systems}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
       </select>
@@ -84,10 +82,10 @@ variables on the server: the row above will tell you which ones.</p>
        down the page to sit level with the bottom of the glossary. It belongs
        to the whole choice, not to one cell of the row. */}}
   <dl class="fields choosehelp">
-    {{range .Data.Systems}}<dt>{{.Label}}</dt><dd>{{.Note}}</dd>{{end}}
+    {{range .Data.Systems}}<dt>{{.Label}}</dt><dd>{{t .Note}}</dd>{{end}}
   </dl>
-  <p class="meta choosemeta">These three are what this build carries. Naming anything else is refused when you save.</p>
-  <p><button type="submit">Save source</button></p>
+  <p class="meta choosemeta">{{t "These three are what this build carries. Naming anything else is refused when you save."}}</p>
+  <p><button type="submit">{{t "Save source"}}</button></p>
 </form>
 
 {{/* Five disclosures used to sit here, each holding several paragraphs of
@@ -100,63 +98,50 @@ variables on the server: the row above will tell you which ones.</p>
      readable at a glance without opening anything, in the same shape the
      status screen uses. The long form of all of this is the migrating guide
      in docs/, which is where a manual belongs. */}}
-<h2>How a run works</h2>
+<h2>{{t "How a run works"}}</h2>
 <div class="setlist">
   <div class="setrow">
     <div class="setrow-text">
-      <span class="setname">A source</span>
-      <span class="sethelp">A name and a system, and nothing else: no url, no file path, no credential.
-      Those live in environment variables on the machine running tix, read when a run starts rather than
-      when you save, so changing one takes effect on the next run and none of them can reach a snapshot,
-      an audit entry or a log line.</span>
+      <span class="setname">{{t "A source"}}</span>
+      <span class="sethelp">{{t "A name and a system, and nothing else: no url, no file path, no credential. Those live in environment variables on the machine running tix, read when a run starts rather than when you save, so changing one takes effect on the next run and none of them can reach a snapshot, an audit entry or a log line."}}</span>
     </div>
   </div>
   <div class="setrow">
     <div class="setrow-text">
-      <span class="setname">A mapping file</span>
-      <span class="sethelp">Required: a run without one is refused before a single record is read. The YAML
-      says which project the records land in, which field identifies them, and what each external field
-      becomes here. A status it names that the project's workflow does not define is refused up front,
-      with nothing written.</span>
+      <span class="setname">{{t "A mapping file"}}</span>
+      <span class="sethelp">{{t "Required: a run without one is refused before a single record is read. The YAML says which project the records land in, which field identifies them, and what each external field becomes here. A status it names that the project's workflow does not define is refused up front, with nothing written."}}</span>
     </div>
   </div>
   <div class="setrow">
     <div class="setrow-text">
-      <span class="setname">What a run writes</span>
-      <span class="sethelp">Tasks in the project the mapping names, attributed to a System actor rather than
-      to you, and ordinary in every other way. Each one carries an external reference recording where it came
-      from and the version it was at, which is what makes a second run a refresh instead of a second copy.</span>
+      <span class="setname">{{t "What a run writes"}}</span>
+      <span class="sethelp">{{t "Tasks in the project the mapping names, attributed to a System actor rather than to you, and ordinary in every other way. Each one carries an external reference recording where it came from and the version it was at, which is what makes a second run a refresh instead of a second copy."}}</span>
     </div>
   </div>
   <div class="setrow">
     <div class="setrow-text">
-      <span class="setname">Dry run</span>
-      <span class="sethelp">Reports exactly what a real run would create, update and skip, with a reason for
-      every skip, and writes nothing at all: no tasks, no field definitions, no audit entries, and it leaves
-      the cursor where it was. It does not appear in the run history, because nothing happened.</span>
+      <span class="setname">{{t "Dry run"}}</span>
+      <span class="sethelp">{{t "Reports exactly what a real run would create, update and skip, with a reason for every skip, and writes nothing at all: no tasks, no field definitions, no audit entries, and it leaves the cursor where it was. It does not appear in the run history, because nothing happened."}}</span>
     </div>
   </div>
   <div class="setrow">
     <div class="setrow-text">
-      <span class="setname">The cursor, and Full</span>
-      <span class="sethelp">Each source remembers the last record it committed, so an ordinary run fetches
-      only what changed since and a run that fails part way resumes from the last page that committed.
-      Full ignores the cursor and reconsiders every record at the source. The Runs tab shows where each
-      cursor stands.</span>
+      <span class="setname">{{t "The cursor, and Full"}}</span>
+      <span class="sethelp">{{t "Each source remembers the last record it committed, so an ordinary run fetches only what changed since and a run that fails part way resumes from the last page that committed. Full ignores the cursor and reconsiders every record at the source. The Runs tab shows where each cursor stands."}}</span>
     </div>
   </div>
 </div>
 
 {{if .Data.Result}}
-<h2>Run result{{if .Data.Result.DryRun}}, dry run, nothing was written{{end}}</h2>
+<h2>{{if .Data.Result.DryRun}}{{t "Run result, dry run, nothing was written"}}{{else}}{{t "Run result"}}{{end}}</h2>
 <dl class="fields">
-  <dt>Source</dt><dd>{{.Data.Result.Source}} ({{.Data.Result.System}})</dd>
-  <dt>Created</dt><dd>{{counts .Data.Result.Created}}</dd>
-  <dt>Updated</dt><dd>{{counts .Data.Result.Updated}}</dd>
-  <dt>Skipped</dt><dd>{{counts .Data.Result.Skipped}}</dd>
-  <dt>Warnings</dt><dd>{{if .Data.Result.Warnings}}{{join .Data.Result.Warnings}}{{else}}none{{end}}</dd>
-  {{if .Data.Result.Cursor}}<dt>Cursor now</dt><dd><code>{{.Data.Result.Cursor}}</code></dd>{{end}}
+  <dt>{{t "Source"}}</dt><dd>{{.Data.Result.Source}} ({{.Data.Result.System}})</dd>
+  <dt>{{t "Created"}}</dt><dd>{{counts .Data.Result.Created}}</dd>
+  <dt>{{t "Updated"}}</dt><dd>{{counts .Data.Result.Updated}}</dd>
+  <dt>{{t "Skipped"}}</dt><dd>{{counts .Data.Result.Skipped}}</dd>
+  <dt>{{t "Warnings"}}</dt><dd>{{if .Data.Result.Warnings}}{{join .Data.Result.Warnings}}{{else}}{{t "none"}}{{end}}</dd>
+  {{if .Data.Result.Cursor}}<dt>{{t "Cursor now"}}</dt><dd><code>{{.Data.Result.Cursor}}</code></dd>{{end}}
 </dl>
-{{if not .Data.Result.DryRun}}<p><a href="/sync/runs">See this run in the history</a></p>{{end}}
+{{if not .Data.Result.DryRun}}<p><a href="/sync/runs">{{t "See this run in the history"}}</a></p>{{end}}
 {{end}}
 {{end}}
