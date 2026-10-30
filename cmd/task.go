@@ -54,16 +54,19 @@ func (g *globals) projectFallback(cmd *cobra.Command) (string, error) {
 
 func taskAddCmd(g *globals) *cobra.Command {
 	var (
-		project, bodyFlag, status, priority, assignee, parent, due string
-		tags, depends, fields                                      []string
-		dryRun                                                     bool
+		project, bodyFlag, status, priority, assignee, parent, due, repeat string
+		tags, depends, fields                                              []string
+		dryRun                                                             bool
 	)
 	cmd := &cobra.Command{
-		Use:     "add TITLE...",
-		Short:   "Create a task",
-		Long:    "Create a task. Only a title is required; the default project and workflow are used.\n\nExit codes: 2 invalid input, 3 unknown project, parent or assignee, 5 permission denied.",
-		Example: "  tix task add \"buy milk\"\n  tix task add \"ship release\" -p infra --priority high --tag ops",
-		Args:    minArgs(1),
+		Use:   "add TITLE...",
+		Short: "Create a task",
+		Long: "Create a task. Only a title is required; the default project and workflow are used.\n\n" +
+			"--repeat makes the task recurring: finishing it creates the next one. " + repeatHelp + "\n\n" +
+			"Exit codes: 2 invalid input, 3 unknown project, parent or assignee, 5 permission denied.",
+		Example: "  tix task add \"buy milk\"\n  tix task add \"ship release\" -p infra --priority high --tag ops\n" +
+			"  tix task add \"pay rent\" --due 2026-12-01 --repeat monthly",
+		Args: minArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fallback, err := g.projectFallback(cmd)
 			if err != nil {
@@ -100,7 +103,7 @@ func taskAddCmd(g *globals) *cobra.Command {
 				ProjectRef: project, Title: strings.TrimSpace(title), Body: text,
 				Status: status, Priority: prio, Tags: tags,
 				AssigneeActorID: assignee, ParentRef: parent, DueAt: dueAt,
-				CustomFields: custom, DependsOn: depends,
+				CustomFields: custom, DependsOn: depends, Recurrence: repeat,
 			}
 			if err := in.Validate(); err != nil {
 				return err
@@ -128,6 +131,7 @@ func taskAddCmd(g *globals) *cobra.Command {
 	f.StringVar(&assignee, "assignee", "", "actor handle or id the task is assigned to")
 	f.StringVar(&parent, "parent", "", "parent task reference")
 	f.StringVar(&due, "due", "", "due date")
+	f.StringVar(&repeat, "repeat", "", "repeat rule, such as 'every week' or '3 days after done'")
 	f.StringSliceVarP(&tags, "tag", "l", nil, "tag to attach, repeatable")
 	f.StringSliceVar(&depends, "depends-on", nil, "task this one depends on, repeatable")
 	f.StringSliceVar(&fields, "field", nil, "custom field as key=value, repeatable")
@@ -144,7 +148,7 @@ func taskLsCmd(g *globals) *cobra.Command {
 		limit                               int
 		desc, all, deleted                  bool
 		claimed, unclaimed, blocked         bool
-		overdue                             bool
+		overdue, recurring                  bool
 	)
 	cmd := &cobra.Command{
 		Use:     "ls",
@@ -224,6 +228,9 @@ func taskLsCmd(g *globals) *cobra.Command {
 			if blocked {
 				filter.Blocked = core.Yes
 			}
+			if recurring {
+				filter.Recurring = core.Yes
+			}
 			if err := applyDueFlags(cmd, &filter, overdue, dueBefore, dueAfter); err != nil {
 				return err
 			}
@@ -271,6 +278,7 @@ func taskLsCmd(g *globals) *cobra.Command {
 	f.BoolVar(&claimed, "claimed", false, "only tasks currently claimed")
 	f.BoolVar(&unclaimed, "unclaimed", false, "only tasks not currently claimed")
 	f.BoolVar(&blocked, "blocked", false, "only tasks blocked by a dependency")
+	f.BoolVar(&recurring, "recurring", false, "only tasks carrying a repeat rule")
 	f.BoolVar(&overdue, "overdue", false, "only tasks whose due date has passed")
 	f.StringVar(&dueBefore, "due-before", "", "only tasks due on or before a date")
 	f.StringVar(&dueAfter, "due-after", "", "only tasks due on or after a date")
@@ -332,7 +340,11 @@ func taskShowCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return g.render(cmd, task)
+			if err := g.render(cmd, task); err != nil {
+				return err
+			}
+			noteSuccessor(ctx, g, cmd, conn.Service, task)
+			return nil
 		},
 		ValidArgsFunction: g.completeTaskRefs,
 	}
@@ -341,17 +353,20 @@ func taskShowCmd(g *globals) *cobra.Command {
 
 func taskEditCmd(g *globals) *cobra.Command {
 	var (
-		title, bodyFlag, priority, assignee, parent, due string
-		tags, fields                                     []string
-		version                                          int
-		dryRun                                           bool
+		title, bodyFlag, priority, assignee, parent, due, repeat string
+		tags, fields                                             []string
+		version                                                  int
+		dryRun, noRepeat                                         bool
 	)
 	cmd := &cobra.Command{
-		Use:     "edit REF",
-		Short:   "Change a task",
-		Long:    "Change a task's attributes. Only the flags you pass are applied.\n\nExit codes: 3 unknown reference or assignee, 4 version conflict, 5 permission denied.",
-		Example: "  tix task edit default-1 --title \"buy oat milk\"\n  tix task edit default-1 --priority high --dry-run",
-		Args:    exactArgs(1),
+		Use:   "edit REF",
+		Short: "Change a task",
+		Long: "Change a task's attributes. Only the flags you pass are applied.\n\n" +
+			"--repeat sets or replaces the repeat rule and --no-repeat removes it. " + repeatHelp + "\n\n" +
+			"Exit codes: 2 invalid input, 3 unknown reference or assignee, 4 version conflict, 5 permission denied.",
+		Example: "  tix task edit default-1 --title \"buy oat milk\"\n  tix task edit default-1 --priority high --dry-run\n" +
+			"  tix task edit default-1 --repeat 'every 2 weeks on mon,thu'\n  tix task edit default-1 --no-repeat",
+		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := parseRef(args[0])
 			if err != nil {
@@ -391,6 +406,15 @@ func taskEditCmd(g *globals) *cobra.Command {
 			if cmd.Flags().Changed("tag") {
 				in.Tags = &tags
 			}
+			switch {
+			case cmd.Flags().Changed("repeat") && noRepeat:
+				return usagef(cmd, "--repeat and --no-repeat are mutually exclusive")
+			case cmd.Flags().Changed("repeat"):
+				in.Recurrence = &repeat
+			case noRepeat:
+				cleared := ""
+				in.Recurrence = &cleared
+			}
 			custom, err := parseFields(fields)
 			if err != nil {
 				return err
@@ -422,6 +446,8 @@ func taskEditCmd(g *globals) *cobra.Command {
 	f.StringVar(&assignee, "assignee", "", "new assignee, actor handle or id")
 	f.StringVar(&parent, "parent", "", "new parent reference")
 	f.StringVar(&due, "due", "", "new due date")
+	f.StringVar(&repeat, "repeat", "", "new repeat rule, such as 'every month on day 1'")
+	f.BoolVar(&noRepeat, "no-repeat", false, "remove the repeat rule")
 	f.StringSliceVarP(&tags, "tag", "l", nil, "replace the tag set")
 	f.StringSliceVar(&fields, "field", nil, "custom field as key=value, repeatable")
 	f.IntVar(&version, "version", 0, "expected version for optimistic locking")

@@ -239,6 +239,7 @@ var updateFieldLabels = map[string]string{
 	"assignee_actor_id": "assignee",
 	"tags":              "tags",
 	"due_at":            "due date",
+	"recurrence":        "repeat rule",
 	"custom_fields":     "custom fields",
 	"parent_ref":        "parent",
 }
