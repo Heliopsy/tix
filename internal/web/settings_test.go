@@ -25,7 +25,7 @@ func TestSidebarLinksToTheSettingsPage(t *testing.T) {
 
 	for _, path := range []string{"/projects", "/tasks", "/activity"} {
 		page := b.page(path)
-		if !strings.Contains(page, `<a href="/settings"`) || !strings.Contains(page, `>Settings</a>`) {
+		if !strings.Contains(page, `<a href="/settings"`) || !strings.Contains(page, `>Settings</span></a>`) {
 			t.Errorf("%s carries no link to the settings page:\n%s", path, page)
 		}
 		if strings.Contains(page, `<details class="panel settings">`) {
@@ -149,7 +149,7 @@ func themeSwitch(t *testing.T, side string) string {
 // to read one region or the other and never the document.
 func sidebarOf(t *testing.T, page string) string {
 	t.Helper()
-	side := between(t, page, `<aside class="side">`, "</aside>")
+	side := between(t, page, `<aside class="side" id="side">`, "</aside>")
 	if side == "" {
 		t.Fatalf("the page renders no sidebar:\n%s", page)
 	}
