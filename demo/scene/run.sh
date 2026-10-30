@@ -258,9 +258,12 @@ READY=/tmp/signed-in
 GO=/tmp/rolling
 EPIC_FILE=/tmp/epic.ref
 DRAINED=/tmp/drained
-rm -f "$PLAN_DONE" "$READY" "$GO" "$EPIC_FILE" "$DRAINED"
+LANES_GO=/tmp/lanes.go
+LANES_SHOWN=/tmp/lanes.shown
+rm -f "$PLAN_DONE" "$READY" "$GO" "$EPIC_FILE" "$DRAINED" "$LANES_GO" "$LANES_SHOWN"
 SCENE_PLAN_DONE="$PLAN_DONE" SCENE_READY="$READY" SCENE_GO="$GO" \
 SCENE_EPIC_FILE="$EPIC_FILE" SCENE_DRAINED="$DRAINED" \
+SCENE_LANES_GO="$LANES_GO" SCENE_LANES_SHOWN="$LANES_SHOWN" \
   node "$SCENE/browser.mjs" plan >> "$LOG" 2>&1 &
 BROWSER_PID=$!
 
@@ -508,7 +511,36 @@ released=$(grep -cE '"type":"task\.released"' "$TAP" 2>/dev/null || true)
 
 # The scroll is smooth and the board is still repainting behind it. This is
 # dwell on the end state, not a guess at how long work takes.
-hold 8
+hold 6
+
+# ── beat 5b: the same work, one lane per project ─────────────────────────────
+
+say "beat 5b: lanes"
+# The agents have stopped, so the terminals give the browser most of the
+# screen. The lanes are a frame sized to the window, and in the 54% band the
+# browser has while the agents work, under the quick-add and the filter row,
+# that frame was about 170 pixels tall: one card per lane, cut in half.
+i3-msg '[class="XTerm"] focus' >> "$LOG" 2>&1 || die "could not focus the terminal to shrink it"
+i3-msg 'resize set height 24 ppt' >> "$LOG" 2>&1 || die "could not give the browser the screen for the lanes"
+hold 1
+# browser.mjs switches the view and answers only once the starred epic leads
+# its lane, a finished card is ticked under it and the chore's lane carries the
+# repeat marker. Waiting on that answer, not on a sleep, is what stops a take
+# from holding twelve seconds on a page that never switched.
+touch "$LANES_GO"
+lanes_wait() {
+  local secs=$1 waited=0
+  say "waiting for the lanes (<= ${secs}s)"
+  while [ "$waited" -lt "$secs" ]; do
+    [ -f "$LANES_SHOWN" ] && { say "lanes on screen after ${waited}s"; return 0; }
+    kill -0 "$BROWSER_PID" 2>/dev/null || die "the browser died switching to the lanes; see the log"
+    sleep 1
+    waited=$((waited + 1))
+  done
+  die "the lanes never came up"
+}
+lanes_wait 45
+hold 6
 
 # ── beat 6: the frame the poster comes from ──────────────────────────────────
 

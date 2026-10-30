@@ -24,6 +24,12 @@ const EPIC_FILE = process.env.SCENE_EPIC_FILE || "/tmp/epic.ref";
 // it is the board that says so: run.sh waits on this file instead of counting
 // releases, and the two can no longer be satisfied by different states.
 const DRAINED = process.env.SCENE_DRAINED || "/tmp/drained";
+// The end card. run.sh touches LANES_GO once it has given the browser the
+// screen, and this answers with LANES_SHOWN only after the lanes it is about
+// to film are actually painted, so the scene cannot hold on a page that never
+// switched.
+const LANES_GO = process.env.SCENE_LANES_GO || "/tmp/lanes.go";
+const LANES_SHOWN = process.env.SCENE_LANES_SHOWN || "/tmp/lanes.shown";
 const PASSWORD = process.env.DEMO_PASSWORD || "tix-demo-password";
 
 // How fast the person in the recording types, in milliseconds per character.
@@ -74,6 +80,18 @@ const EPIC_BODY = [
   "",
   "Make no mistake.",
 ].join("\n");
+
+// A chore that outlives the build, written into one of the starter lists a
+// fresh installation opens with rather than into the agents' project.
+//
+// It is not in PROJECT_KEY on purpose. The agents claim `-p links -s todo`,
+// and a recurring task there would be claimed, finished, and put straight
+// back as the next occurrence: the backlog would never drain and the scene
+// would never end. In its own list nobody claims it, and it gets a lane of its
+// own on the end card with the repeat marker on it.
+const CHORE_PROJECT = process.env.SCENE_CHORE_PROJECT || "work";
+const CHORE_TITLE = "Prune short links nobody has opened in ninety days";
+const CHORE_REPEAT = "every month on day 1";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -185,6 +203,53 @@ async function main() {
     await sleep(2200);
   }
 
+  // The person stars the epic. It is the one task here they will want to find
+  // again, and a star is theirs alone: it lists the epic first on their own
+  // screens and reorders nothing for the agents. It pays off on the end card,
+  // where the starred epic heads its lane above the work it was broken into.
+  //
+  // A miss throws rather than shrugs. The button is looked up by the name it
+  // carries for this ref, so a page that lost it fails the take here, not
+  // twenty minutes later as an end card with no star on it.
+  const star = page.locator(`button.star[aria-label="Star ${ref}"]`).first();
+  if (!(await star.count())) throw new Error(`no star button for ${ref} on its own page`);
+  await sleep(500);
+  await star.click();
+  await page.waitForLoadState("domcontentloaded");
+  await page.locator(`button.star[aria-label="Unstar ${ref}"]`).first().waitFor({ timeout: 10000 });
+  // The pointer Playwright clicked with is still resting on the star when the
+  // page comes back, so the button's "Unstar" title opened as a tooltip, and
+  // chromium under Xvfb drew it in the middle of the description. Moving off
+  // to the empty strip beside the heading closes it.
+  await page.mouse.move(1700, 30);
+  await sleep(1400);
+
+  // Then a chore with a repeat rule, through the fuller add form, because the
+  // Repeat field lives there. See CHORE_PROJECT for why it is not in the
+  // agents' project.
+  await page.goto(`${BASE}/tasks`, { waitUntil: "domcontentloaded" });
+  await sleep(700);
+  const more = page.locator("details.addmore");
+  await more.locator("summary").click();
+  await sleep(500);
+  const chore = more.locator("form");
+  await chore.locator("input[name=title]").pressSequentially(CHORE_TITLE, { delay: TYPE });
+  await sleep(300);
+  // Not caught: a missing starter list would put the chore in whatever the
+  // select defaults to, which could be the agents' own project.
+  await chore.locator("select[name=project_ref]").selectOption(CHORE_PROJECT);
+  await sleep(300);
+  await chore.locator("input[name=repeat]").pressSequentially(CHORE_REPEAT, { delay: TYPE });
+  await sleep(1400);
+  await chore.locator("button[type=submit]").click();
+  await page.waitForLoadState("domcontentloaded");
+  // Wherever the form lands, the rule has to be visible on it: the task's
+  // Repeats row, or the marker on its row in the list.
+  const repeated = (await page.locator(".repeatmark").count())
+    + (await page.getByText(CHORE_REPEAT, { exact: true }).count());
+  if (!repeated) throw new Error(`the chore landed on ${page.url()} without its repeat rule showing`);
+  await sleep(1800);
+
   // Land on the board, because the board is what the viewer watches repaint
   // while the agent works.
   await sleep(600);
@@ -234,9 +299,20 @@ async function main() {
   // pushes it under the fold again, the scroll still happens, but the scene no
   // longer waits on it having been necessary.
   let drained = false;
+  let lanes = false;
 
   for (;;) {
     await sleep(2000);
+    // Outside the heartbeat's try on purpose: that one keeps the loop alive
+    // through a page that is briefly unreachable, and a failed switch to the
+    // end card is not that. It ends this process, run.sh sees the browser die,
+    // and the take fails saying so.
+    if (drained && !lanes && existsSync(LANES_GO)) {
+      await showLanes(page, ref);
+      lanes = true;
+      console.log("[browser] lanes on screen");
+      writeFileSync(LANES_SHOWN, "lanes\n");
+    }
     try {
       if (!drained) {
         drained = await page.evaluate((epic) => {
@@ -268,8 +344,8 @@ async function main() {
         }
       }
       const state = await page.evaluate(() => {
-        const cols = [...document.querySelectorAll("#project-board h2, #project-board h3")]
-          .map((h) => h.textContent.trim()).join(" | ");
+        const cols = [...document.querySelectorAll("#project-board h2, #project-board h3, .lanes .lane h2, .lanes .lane h3")]
+          .map((h) => h.textContent.trim().replace(/\s+/g, " ")).join(" | ");
         const el = document.querySelector("#live-screen");
         return {
           url: location.pathname,
@@ -287,6 +363,40 @@ async function main() {
       console.log(`[browser] page unreachable: ${String(err).slice(0, 120)}`);
     }
   }
+}
+
+// The end card: the same tasks drawn one lane per project.
+//
+// The board says the work is done; the lanes say what the person is left
+// with. The epic leads its lane because it is starred, the finished subtasks
+// sit under it ticked, and the chore has a lane of its own with the repeat
+// marker on it. Switched through the view control on camera, because the
+// switch is the feature, not a url.
+//
+// Everything the card exists to show is checked before LANES_SHOWN is
+// written. The lanes are a frame that scrolls its own contents, so the page is
+// scrolled to put that frame at the top of the window rather than leaving the
+// quick-add and filter rows taking the space.
+async function showLanes(page, epic) {
+  await page.goto(`${BASE}/tasks`, { waitUntil: "domcontentloaded" });
+  await sleep(1200);
+  await page.locator('form.viewswitch button[value="lanes"]').click();
+  await page.waitForLoadState("domcontentloaded");
+  await page.locator(`.lanes #lane-${PROJECT_KEY}`).waitFor({ timeout: 15000 });
+  await sleep(600);
+  await page.locator(".lanes").first().evaluate((el) =>
+    el.scrollIntoView({ behavior: "smooth", block: "start" }));
+  await sleep(900);
+  const seen = await page.evaluate(({ project, chore, epic }) => ({
+    lead: document.querySelector(`#lane-${project} .lane-card`)?.dataset.laneTask ?? "",
+    starred: !!document.querySelector(`#lane-${project} #t-${epic} button.star[aria-pressed="true"]`),
+    ticked: document.querySelectorAll(`#lane-${project} .lane-card.is-finished`).length,
+    repeat: document.querySelectorAll(`#lane-${chore} .repeatmark`).length,
+  }), { project: PROJECT_KEY, chore: CHORE_PROJECT, epic });
+  console.log(`[browser] lanes lead=${seen.lead} starred=${seen.starred} ticked=${seen.ticked} repeat=${seen.repeat}`);
+  if (seen.lead !== epic || !seen.starred) throw new Error(`the starred epic ${epic} does not lead its lane`);
+  if (seen.ticked === 0) throw new Error("no finished card in the lane");
+  if (seen.repeat === 0) throw new Error(`no repeat marker in the ${CHORE_PROJECT} lane`);
 }
 
 main().catch((err) => {
