@@ -9,6 +9,32 @@ The pages are server-rendered Go templates with no build step. htmx swaps fragme
 reload would lose the reader's place, but every form carries a real `method` and `action`, so a
 browser that runs no script submits it normally and follows the redirect.
 
+## The sidebar
+
+On a window 900px or wider the sidebar is a column, and its right edge can be dragged to make it
+anywhere from 180px to 480px wide. The edge is also a keyboard control, a vertical separator in the
+tab order: the arrow keys move it 16px (64px with Shift), Home and End jump to the limits, and Enter
+or a double-click puts it back to the default width.
+
+Dragging it below 120px, pressing the left arrow at the minimum, or pressing the button beside the
+brand collapses it to a 64px rail holding the logo, the navigation icons, the Settings icon, the
+scheme glyph and a sign-out icon. The labels are clipped rather than removed, so every entry keeps its
+accessible name, and each gets a tooltip while the rail is showing. The same button, or the right
+arrow on the edge, expands it to the width it had.
+
+Both are kept in `localStorage`: `tix.sidebar.width` holds a number of pixels and
+`tix.sidebar.collapsed` holds `true`, and each key is removed when it holds the default. Neither says
+anything about anybody's work, which is the rule for what may live there (see Show completed under
+Lanes). `assets/sidebar.js` loads in the head, before the body paints, and applies them to the root
+element, so a reload never draws the default sidebar first. Without JavaScript neither control is
+shown and the sidebar is its default width. Below 900px neither applies: a phone gets the brand bar
+and its menu whatever a desktop chose.
+
+The page content starts the gutter's width from the sidebar on every screen. It used to be centred in
+the space beside the sidebar, under a width cap that differs between a listing and a form, which put
+its left edge somewhere different on almost every screen; it is anchored now, and a screen narrower
+than the window leaves the spare width on its right.
+
 ## The task list
 
 The heading counts what is in front of you: how many are still open, how many are done, how many

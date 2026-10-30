@@ -533,15 +533,23 @@ nav .group {
   }
 }
 
-/* The content column. Centred in the space the sidebar leaves rather than
-   pinned to its left edge: at 2560px the old rule put an 1100px page against
-   the sidebar and 1200px of bare background down the right, which reads as a
-   window that failed to load rather than as a deliberate measure. */
+/* The content column, anchored to the sidebar. Its left inset is the gutter
+   and nothing else, on every screen.
+
+   It used to be centred in the space the sidebar leaves, under a max-width
+   the :has() rules below change per screen. Centring a box whose width
+   depends on the screen put its left edge somewhere different on every screen
+   that picked a different measure: at 1920px the task list started 32px from
+   the sidebar and the projects screen 276px, and even the vertical scrollbar
+   moved it by half its width. Switching screens made the page jump sideways.
+   The measures still cap how wide a screen grows; they no longer move where
+   it starts, so the spare width on a very wide window sits on the right.
+   TestTheContentInsetIsOneRule holds this. */
 .wrap {
   padding: 22px var(--gutter) 64px;
   max-width: var(--measure-page);
   width: 100%;
-  margin-inline: auto;
+  margin: 0;
 }
 
 /* A board, and a listing, are read sideways: both want the window. The page
@@ -4844,3 +4852,112 @@ button.star:hover { color: var(--accent); }
 button.star.is-starred { color: var(--accent); }
 button.star.is-starred svg { fill: currentColor; }
 .card .ref .starform { vertical-align: middle; margin-right: 4px; }
+
+/* The resizable sidebar and its collapsed rail (assets/sidebar.js).
+
+   Only from 900px up, where the sidebar is a column: below that it is the
+   phone bar and its menu, which neither control applies to, so a browser that
+   collapsed the rail on a desktop gets the same phone layout as one that
+   never did. Both controls ship hidden and the script shows them, so without
+   scripting the sidebar is its default width with nothing to drag.
+
+   The width is --side-w, set on the root's inline style by the script, which
+   outranks the wide-screen default above. Collapsing swaps the grid column
+   for --rail-w. */
+:root { --rail-w: 64px; }
+.side-toggle,
+.side-resize,
+.rail-icon { display: none; }
+
+@media (min-width: 900px) {
+  .side { position: relative; }
+
+  .side-toggle {
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: 32px;
+    min-height: 32px;
+    padding: 0;
+    border: 1px solid transparent;
+    background: none;
+    color: var(--muted);
+  }
+  .side-toggle:hover { background: var(--surface); color: var(--ink); }
+
+  /* An 8px hit area straddling the border, drawn as a 2px accent line only
+     while it is hovered, focused or dragged. */
+  .side-resize {
+    display: block;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: -4px;
+    width: 8px;
+    z-index: 5;
+    cursor: col-resize;
+    touch-action: none;
+  }
+  .side-resize::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 3px;
+    width: 2px;
+    background: transparent;
+    transition: background 120ms ease;
+  }
+  .side-resize:hover::after,
+  .side-resize:focus-visible::after,
+  .side-dragging .side-resize::after { background: var(--accent); }
+  .side-resize:focus-visible { outline: none; }
+  .side-dragging,
+  .side-dragging * { cursor: col-resize !important; user-select: none; }
+
+  .side-collapsed .shell { grid-template-columns: var(--rail-w) minmax(0, 1fr); }
+  .side-collapsed .side { padding: 20px 8px; }
+  .side-collapsed .side-inner { overflow-x: hidden; }
+  .side-collapsed .side-head { flex-direction: column; gap: var(--space-2); }
+  .side-collapsed .brand { margin-bottom: 0; }
+
+  /* Labels leave the screen but not the page: the same declarations as
+     .sr-only, so every entry in the rail keeps its accessible name. The
+     script adds a title to each while collapsed for a pointer to hover. */
+  .side-collapsed .brand-name,
+  .side-collapsed .who,
+  .side-collapsed nav.main a > span,
+  .side-collapsed .rail-label,
+  .side-collapsed .theme-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+  }
+  .side-collapsed nav.main .version { display: none; }
+  /* A group heading becomes a hairline. Its text stays for a screen reader,
+     at a size nobody sees. */
+  .side-collapsed nav .group {
+    height: 1px;
+    margin: var(--space-3) var(--space-2);
+    overflow: hidden;
+    font-size: 1px;
+    color: transparent;
+    background: var(--line);
+  }
+  .side-collapsed nav.main a,
+  .side-collapsed .side-foot a,
+  .side-collapsed .theme-switch,
+  .side-collapsed .signout {
+    justify-content: center;
+    padding: var(--space-2);
+  }
+  .side-collapsed .side-foot { flex-direction: column; align-items: stretch; }
+  .side-collapsed .side-foot a { display: flex; }
+  .side-collapsed .theme-switch { width: 100%; }
+  .side-collapsed .actions .signout { width: 100%; }
+  .side-collapsed .rail-icon { display: block; flex: 0 0 auto; width: 16px; height: 16px; }
+}

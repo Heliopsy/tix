@@ -23,6 +23,9 @@
 {{/* Not deferred: it sets the Show completed class on the root before the
      body paints, so hidden lane cards never flash in. See assets/lanes.js. */}}
 <script src="/assets/lanes.js"></script>
+{{/* Not deferred either: the sidebar's stored width and collapsed rail are
+     set on the root before the body paints. See assets/sidebar.js. */}}
+<script src="/assets/sidebar.js"></script>
 <script src="/assets/decide.js" defer></script>
 <script src="/assets/htmx.min.js" defer></script>
 <script src="/assets/live.js" defer></script>
@@ -38,7 +41,7 @@
        which stretches it to whatever the content beside it needs. Only its
        contents stick, so a page taller than the window keeps a sidebar all
        the way down instead of one that stops at the fold. */}}
-  <aside class="side">
+  <aside class="side" id="side">
     <div class="side-inner">
       {{/* Brand and, on a phone, the button that opens everything else.
 
@@ -53,7 +56,12 @@
            desktop the button is hidden and display:contents dissolves this
            wrapper, so the sidebar is the column it has always been. */}}
       <div class="side-head">
-        <a class="brand" href="/"><img class="logo" src="/assets/tix.svg" alt="" width="28" height="28">{{.Brand.Title}}</a>
+        <a class="brand" href="/" data-rail-name="{{.Brand.Title}}"><img class="logo" src="/assets/tix.svg" alt="" width="28" height="28"><span class="brand-name">{{.Brand.Title}}</span></a>
+        {{/* Collapses the desktop column to a rail and back. Hidden until
+             sidebar.js runs, since it does nothing without it. */}}
+        <button type="button" class="side-toggle" data-side-toggle aria-controls="side" aria-expanded="true" aria-label="Collapse sidebar" hidden>
+          <svg aria-hidden="true" width="18" height="18"><use href="/assets/icons.svg#sidebar"/></svg>
+        </button>
         <button type="button" class="burger" popovertarget="sidemenu" aria-label="Menu">
           <svg class="burger-icon" aria-hidden="true" width="24" height="24"><use href="/assets/icons.svg#menu"/></svg>
         </button>
@@ -62,16 +70,20 @@
       <p class="who">{{.Actor.Handle}}</p>
       {{template "nav" .}}
       <div class="side-foot">
-        <a href="/settings" {{if eq .Path "/settings"}}aria-current="page"{{end}}>Settings</a>
+        <a href="/settings" data-rail-name="Settings" {{if eq .Path "/settings"}}aria-current="page"{{end}}><svg class="rail-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#settings"/></svg><span class="rail-label">Settings</span></a>
         {{template "themeswitch" .ThemeToggle}}
       </div>
       <form method="post" action="/logout" class="actions">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-        <button class="secondary" type="submit">Sign out</button>
+        <button class="secondary signout" type="submit" data-rail-name="Sign out"><svg class="rail-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#signout"/></svg><span class="rail-label">Sign out</span></button>
       </form>
       <button type="button" class="menuclose" popovertarget="sidemenu" popovertargetaction="hide">Close</button>
       </div>
     </div>
+    {{/* The drag handle on the sidebar's right edge. A separator, so it is
+         focusable and announced with its width; hidden until sidebar.js
+         runs, which fills in the values. */}}
+    <div class="side-resize" data-side-resize role="separator" aria-orientation="vertical" aria-controls="side" aria-label="Resize sidebar" tabindex="0" hidden></div>
   </aside>
   <main class="wrap">
     {{if .Flash}}<p class="flash">{{.Flash}}{{if .FlashRef}} <a class="flashref" href="/tasks/{{.FlashRef}}">{{.FlashRef}}</a>{{end}}</p>{{end}}
