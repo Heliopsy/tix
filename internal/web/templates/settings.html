@@ -1,47 +1,58 @@
 {{/*
-  The preference forms opt out of hx-boost deliberately. data-theme lives on
-  <html>, and a boosted form swaps only the body, so the cookie changed but the
-  page kept its old theme until the next real navigation. That reads as a button
-  that does nothing. A full navigation costs one round trip and is correct.
+  The preference forms opt out of hx-boost deliberately. data-theme and
+  data-hover live on <html>, and a boosted form swaps only the body, so the
+  cookie changed but the page kept its old look until the next real
+  navigation. That reads as a button that does nothing. A full navigation
+  costs one round trip and is correct.
 
-  Every control is a row: what it is on the left, the control itself on the
-  right, one hairline between each. This screen was a column of loose forms
-  each wrapped in its own paragraph of justification, so the eye had to read
-  three sentences to find out there was a dropdown under them. The reasoning
-  did not stop being true, it stopped belonging on screen; it is in these
-  comments now, next to the markup it explains.
+  Every control is a row: its name and one line saying what it does on the
+  left, the control on the right in a column every row shares, so the selects
+  and switches line up. The longer explanation a row used to print in full is
+  behind the (i) beside its name: it is still on the screen for whoever wants
+  it, and no longer between the reader and the control.
+
+  Each form returns to its own section with a toast naming what was saved
+  (savedNext), so a full-page reload does not drop the reader at the top of
+  the screen wondering whether anything happened.
 */}}
 {{define "content"}}
 <h1>Settings</h1>
 <p class="lede">Display preferences for this browser, stored in cookies rather than on the tenant, so two people sharing a tenant can choose differently.</p>
 
-<section class="setgroup">
+<div class="settings"><div class="settings-grid">
+<nav class="setnav" aria-label="Settings sections">
+  <a href="#appearance">Appearance</a>
+  <a href="#listings">Listings</a>
+  <a href="#keyboard">Keyboard</a>
+  <a href="#dates">Dates and times</a>
+  <a href="#second-factor">Second factor</a>
+  <a href="#database">Database</a>
+</nav>
+
+<div class="setbody">
+<section class="setgroup" id="appearance">
   <h2>Appearance</h2>
   <div class="setlist">
 
     {{/* The scheme is the switch at the foot of the sidebar, and only there. A
          copy of it here would be a second default, a second validation and a
-         second reading of one cookie, which is the drift the controls below
-         are built to avoid. See the themeswitch partial. */}}
+         second reading of one cookie. See the themeswitch partial. */}}
     <div class="setrow">
       <div class="setrow-text">
-        <span class="setname">Colour scheme</span>
-        <span class="sethelp">The switch at the foot of the sidebar, on every screen. One press moves to the next of System, Light, Dark and Low contrast.</span>
+        <div class="setname-line"><span class="setname">Colour scheme</span>{{template "field-info" "Changed with the switch at the foot of the sidebar, on every screen. One press moves to the next of System, Light, Dark and Low contrast. System follows what your device asks for."}}</div>
+        <span class="sethelp">Use the switch at the foot of the sidebar.</span>
       </div>
       <div class="setrow-ctl"><span class="setvalue"><strong>{{.ThemeToggle.Label}}</strong></span></div>
     </div>
 
     {{/* What the stripe down a row, and across the top of a card, is saying.
-         A reader triaging wants priority, one watching a board wants status,
-         one running several projects wants the project, and one who finds it
-         noisy wants none of it. It is a property of the reader, so it lives
-         here with the theme and the shortcuts rather than on the tenant. */}}
+         It is a property of the reader, so it lives here with the theme. */}}
     <form class="setrow" method="post" action="/tint" hx-boost="false" data-apply>
       {{template "csrf" .CSRF}}
-      <input type="hidden" name="next" value="{{.Here}}">
+      <input type="hidden" name="next" value="{{savedNext "Row colouring" "appearance"}}">
       <div class="setrow-text">
-        <label class="setname" for="tint">Colour rows by</label>
-        <span class="sethelp" id="tint-help">What the colour on a task row, and along the top of a board card, stands for. Changes nothing about which tasks are shown.</span>
+        <div class="setname-line"><label class="setname" for="tint">Colour rows by</label>{{template "field-info" "What the colour on a task row, and along the top of a board card, stands for: the project, the status, the priority, or nothing. It changes nothing about which tasks are shown."}}</div>
+        <span class="sethelp" id="tint-help">What the stripe on a row or card stands for.</span>
       </div>
       <div class="setrow-ctl">
         <select id="tint" name="tint" aria-describedby="tint-help">
@@ -51,49 +62,58 @@
       </div>
     </form>
 
-    <form class="setrow" method="post" action="/advanced" hx-boost="false">
+    <form class="setrow" method="post" action="/hover" hx-boost="false">
       {{template "csrf" .CSRF}}
-      <input type="hidden" name="next" value="{{.Here}}">
+      <input type="hidden" name="next" value="{{savedNext "Hover effects" "appearance"}}">
       <div class="setrow-text">
-        <span class="setname">Advanced screens</span>
-        <span class="sethelp" id="advanced-help">Adds the configuration and data screens to the sidebar: workflows, tenant, domains, users, tokens, webhooks, bundles, transfer and sync. On by default for a tenant administrator, who has to be able to find them, and off for everybody else, whom every one of those screens refuses.</span>
+        <div class="setname-line"><span class="setname" id="hover-name">Hover effects</span>{{template "field-info" "Rows, cards, lane cards, sidebar links, buttons and links light up under the pointer. Turn this off if the movement is distracting; focus outlines for the keyboard stay either way. Animation is already left out when your system asks for reduced motion."}}</div>
+        <span class="sethelp" id="hover-help">Highlight what is under the pointer.</span>
       </div>
       <div class="setrow-ctl">
-        <span class="setvalue">{{if .Advanced}}Shown{{else}}Hidden{{end}}</span>
-        <button class="secondary" type="submit" aria-describedby="advanced-help">{{if .Advanced}}Hide{{else}}Show{{end}}</button>
+        <button class="switch" type="submit" role="switch" aria-checked="{{if .Hover}}true{{else}}false{{end}}" aria-labelledby="hover-name" aria-describedby="hover-help"><span class="switch-track" aria-hidden="true"></span><span class="switch-state">{{if .Hover}}On{{else}}Off{{end}}</span></button>
+      </div>
+    </form>
+
+    <form class="setrow" method="post" action="/advanced" hx-boost="false">
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="next" value="{{savedNext "Advanced screens" "appearance"}}">
+      <div class="setrow-text">
+        <div class="setname-line"><span class="setname" id="advanced-name">Advanced screens</span>{{template "field-info" "Adds the configuration and data screens to the sidebar: workflows, tenant, domains, users, tokens, webhooks, bundles, transfer and sync. On by default for a tenant administrator, who has to be able to find them, and off for everybody else, whom every one of those screens refuses."}}</div>
+        <span class="sethelp" id="advanced-help">Show the Configure and Data groups in the sidebar.</span>
+      </div>
+      <div class="setrow-ctl">
+        <button class="switch" type="submit" role="switch" aria-checked="{{if .Advanced}}true{{else}}false{{end}}" aria-labelledby="advanced-name" aria-describedby="advanced-help"><span class="switch-track" aria-hidden="true"></span><span class="switch-state">{{if .Advanced}}Shown{{else}}Hidden{{end}}</span></button>
       </div>
     </form>
 
     <form class="setrow" method="post" action="/dragmove" hx-boost="false">
       {{template "csrf" .CSRF}}
-      <input type="hidden" name="next" value="{{.Here}}">
+      <input type="hidden" name="next" value="{{savedNext "Drag to move" "appearance"}}">
       <div class="setrow-text">
-        <span class="setname">Drag to move</span>
-        <span class="sethelp" id="dragmove-help">Drag a card between board columns to move it. Each card's own Move menu always works, drag or no drag, so turning this off costs nothing for keyboard or touch use.</span>
+        <div class="setname-line"><span class="setname" id="dragmove-name">Drag to move</span>{{template "field-info" "Drag a card between board columns to move it. Each card's own Move menu always works, drag or no drag, so turning this off costs nothing for keyboard or touch use."}}</div>
+        <span class="sethelp" id="dragmove-help">Drag board cards between columns.</span>
       </div>
       <div class="setrow-ctl">
-        <span class="setvalue">{{if .DragMove}}On{{else}}Off{{end}}</span>
-        <button class="secondary" type="submit" aria-describedby="dragmove-help">{{if .DragMove}}Turn off{{else}}Turn on{{end}}</button>
+        <button class="switch" type="submit" role="switch" aria-checked="{{if .DragMove}}true{{else}}false{{end}}" aria-labelledby="dragmove-name" aria-describedby="dragmove-help"><span class="switch-track" aria-hidden="true"></span><span class="switch-state">{{if .DragMove}}On{{else}}Off{{end}}</span></button>
       </div>
     </form>
 
     <form class="setrow" method="post" action="/openafteradd" hx-boost="false">
       {{template "csrf" .CSRF}}
-      <input type="hidden" name="next" value="{{.Here}}">
+      <input type="hidden" name="next" value="{{savedNext "Open a new task" "appearance"}}">
       <div class="setrow-text">
-        <span class="setname">Open a new task</span>
-        <span class="sethelp" id="openafteradd-help">After adding a task, open it. Turn this off to stay on the listing with the filter, sort and page you were on, which is what you want when you are emptying your head onto the list rather than writing one task out in full. Applies to the one-line box and to Add with details.</span>
+        <div class="setname-line"><span class="setname" id="openafteradd-name">Open a new task</span>{{template "field-info" "After adding a task, open it. Turn this off to stay on the listing with the filter, sort and page you were on, which is what you want when you are emptying your head onto the list rather than writing one task out in full. Applies to the one-line box and to Add with details."}}</div>
+        <span class="sethelp" id="openafteradd-help">Open a task straight after adding it.</span>
       </div>
       <div class="setrow-ctl">
-        <span class="setvalue">{{if .OpenAfterAdd}}On{{else}}Off{{end}}</span>
-        <button class="secondary" type="submit" aria-describedby="openafteradd-help">{{if .OpenAfterAdd}}Turn off{{else}}Turn on{{end}}</button>
+        <button class="switch" type="submit" role="switch" aria-checked="{{if .OpenAfterAdd}}true{{else}}false{{end}}" aria-labelledby="openafteradd-name" aria-describedby="openafteradd-help"><span class="switch-track" aria-hidden="true"></span><span class="switch-state">{{if .OpenAfterAdd}}On{{else}}Off{{end}}</span></button>
       </div>
     </form>
 
   </div>
 </section>
 
-<section class="setgroup">
+<section class="setgroup" id="listings">
   <h2>Listings</h2>
   {{/* Each control here is the same form that sits on the screen it affects,
        one form over one stored value rather than a copy of it, so changing it
@@ -102,16 +122,16 @@
 
     <div class="setrow">
       <div class="setrow-text">
-        <span class="setname">Task view</span>
-        <span class="sethelp" id="taskview-help">Whether <a href="/tasks">Tasks</a> draws rows, a board of workflow states, or one lane per project. Same tasks every way: the filter, the deadline window, the sort, the page and the project choice are answered once and then drawn.</span>
+        <div class="setname-line"><span class="setname">Task view</span>{{template "field-info" "Whether Tasks draws rows, a board of workflow states, or one lane per project. Same tasks every way: the filter, the deadline window, the sort, the page and the project choice are answered once and then drawn."}}</div>
+        <span class="sethelp" id="taskview-help">How <a href="/tasks">Tasks</a> is drawn.</span>
       </div>
       <div class="setrow-ctl" aria-describedby="taskview-help">{{template "taskview-switch" .Data.Prefs.TaskView}}</div>
     </div>
 
     <div class="setrow stacked">
       <div class="setrow-text">
-        <span class="setname">Projects on the task screen</span>
-        <span class="sethelp" id="visibility-help">Which projects <a href="/tasks">Tasks</a> includes. Unticking one leaves its tasks out of the listing and off the board; it hides nothing from anybody else, since every task stays on its own screen and a <code>project:</code> filter naming it explicitly still finds it. A project created after you choose is shown without being ticked.</span>
+        <div class="setname-line"><span class="setname">Projects on the task screen</span>{{template "field-info" "Unticking a project leaves its tasks out of the listing and off the board. It hides nothing from anybody else: every task stays on its own screen, and a project: filter naming it explicitly still finds it. A project created after you choose is shown without being ticked."}}</div>
+        <span class="sethelp" id="visibility-help">Which projects <a href="/tasks">Tasks</a> includes.</span>
       </div>
       <div class="setrow-ctl" aria-describedby="visibility-help">
         {{template "project-choices" .Data.Prefs.Projects}}
@@ -120,13 +140,12 @@
 
     <div class="setrow stacked">
       <div class="setrow-text">
-        <span class="setname">Columns</span>
-        <span class="sethelp">Which optional columns each listing puts on screen, listing by listing: the columns worth keeping on Tasks are not the ones worth keeping on API tokens. Every listing keeps the column naming its rows whatever you choose, and hiding a column withholds nothing, since every value stays on the record's own screen. Reset returns a listing to its shipped defaults, which is not the same as unticking everything.</span>
+        <div class="setname-line"><span class="setname">Columns</span>{{template "field-info" "The columns worth keeping on Tasks are not the ones worth keeping on API tokens, so each listing is chosen on its own. Every listing keeps the column naming its rows whatever you choose, and hiding a column withholds nothing, since every value stays on the record's own screen. Reset returns a listing to its shipped defaults, which is not the same as unticking everything."}}</div>
+        <span class="sethelp">Which optional columns each listing shows.</span>
       </div>
       <div class="setrow-ctl">
         {{/* One menu per listing, the same control the listing itself carries
-             in its page header, rather than six stacked disclosures that each
-             grew the page by their own height when opened. */}}
+             in its page header. */}}
         <div class="pickers">
         {{range .Data.Prefs.Columns}}
         {{if .Configurable}}
@@ -151,16 +170,16 @@
   </div>
 </section>
 
-<section class="setgroup">
+<section class="setgroup" id="keyboard">
   <h2>Keyboard</h2>
   <div class="setlist">
 
     <form class="setrow" method="post" action="/keyscheme" hx-boost="false" data-apply>
       {{template "csrf" .CSRF}}
-      <input type="hidden" name="next" value="{{.Here}}">
+      <input type="hidden" name="next" value="{{savedNext "Shortcuts" "keyboard"}}">
       <div class="setrow-text">
-        <label class="setname" for="keyscheme">Shortcuts</label>
-        <span class="sethelp" id="keyscheme-help">Which keys drive the actions below. Press <kbd>?</kbd> on any screen to see the scheme currently active.</span>
+        <div class="setname-line"><label class="setname" for="keyscheme">Shortcuts</label>{{template "field-info" "Which keys drive the actions in the table below. Press ? on any screen to see the scheme currently active."}}</div>
+        <span class="sethelp" id="keyscheme-help">Which keys drive the actions below. Press <kbd>?</kbd> to see them.</span>
       </div>
       <div class="setrow-ctl">
         <select id="keyscheme" name="keyscheme" aria-describedby="keyscheme-help">
@@ -201,16 +220,16 @@
   </div>
 </section>
 
-<section class="setgroup">
+<section class="setgroup" id="dates">
   <h2>Dates and times</h2>
   <div class="setlist">
 
     <form class="setrow" method="post" action="/timezone" hx-boost="false" data-apply>
       {{template "csrf" .CSRF}}
-      <input type="hidden" name="next" value="{{.Here}}">
+      <input type="hidden" name="next" value="{{savedNext "Timezone" "dates"}}">
       <div class="setrow-text">
-        <label class="setname" for="timezone">Timezone</label>
-        <span class="sethelp" id="timezone-help">The zone every timestamp on every screen is written in. Server default follows the zone this deployment was configured with.</span>
+        <div class="setname-line"><label class="setname" for="timezone">Timezone</label>{{template "field-info" "The zone every timestamp on every screen is written in. Server default follows the zone this deployment was configured with. The terminal interface keeps its own setting."}}</div>
+        <span class="sethelp" id="timezone-help">The zone timestamps are written in.</span>
       </div>
       <div class="setrow-ctl">
         <select id="timezone" name="timezone" aria-describedby="timezone-help">
@@ -222,10 +241,10 @@
 
     <form class="setrow" method="post" action="/timeformat" hx-boost="false" data-apply>
       {{template "csrf" .CSRF}}
-      <input type="hidden" name="next" value="{{.Here}}">
+      <input type="hidden" name="next" value="{{savedNext "Date format" "dates"}}">
       <div class="setrow-text">
-        <label class="setname" for="time_format">Date format</label>
-        <span class="sethelp" id="time-format-help">How a timestamp is written. Each option shows how it writes the same instant. Server default follows the format this deployment was configured with.</span>
+        <div class="setname-line"><label class="setname" for="time_format">Date format</label>{{template "field-info" "How a timestamp is written. Each option shows how it writes the same instant. Server default follows the format this deployment was configured with."}}</div>
+        <span class="sethelp" id="time-format-help">How a timestamp is written.</span>
       </div>
       <div class="setrow-ctl">
         <select id="time_format" name="time_format" aria-describedby="time-format-help">
@@ -238,7 +257,7 @@
   </div>
 </section>
 
-<section class="setgroup">
+<section class="setgroup" id="second-factor">
   <h2>Second factor</h2>
   {{/* The one thing on this screen that is not a browser preference: it belongs
        to the account and follows it to every browser and to the terminal. */}}
@@ -249,7 +268,7 @@
     {{if $totp.Enrolled}}
     <div class="setrow">
       <div class="setrow-text">
-        <span class="setname">Authenticator</span>
+        <div class="setname-line"><span class="setname">Authenticator</span>{{template "field-info" "A six digit code from an authenticator application, asked for after your password. It belongs to your account, so it applies in every browser and in the terminal."}}</div>
         <span class="sethelp">A second factor is <strong>on</strong> for this account{{if $totp.ConfirmedAt}}, since {{stamp $totp.ConfirmedAt}}{{end}}. <strong>{{$totp.RecoveryCodesLeft}}</strong> of ten recovery codes are unused.</span>
       </div>
       <div class="setrow-ctl"><span class="setvalue">On</span></div>
@@ -259,8 +278,8 @@
     <form class="setrow" method="post" action="/settings/totp/recovery-codes" hx-boost="false">
       {{template "csrf" .CSRF}}
       <div class="setrow-text">
-        <span class="setname">Recovery codes</span>
-        <span class="sethelp" id="totp-codes-help">Issues ten new codes and voids every code issued before. The new set is shown once.</span>
+        <div class="setname-line"><span class="setname">Recovery codes</span>{{template "field-info" "Recovery codes stand in for the authenticator when it is out of reach. Replacing them voids every code issued before, and the new set is shown once."}}</div>
+        <span class="sethelp" id="totp-codes-help">Issue ten new codes and void the old ones.</span>
       </div>
       <div class="setrow-ctl"><button class="secondary" type="submit" aria-describedby="totp-codes-help">Replace</button></div>
     </form>
@@ -269,8 +288,8 @@
     <form class="setrow" method="post" action="/settings/totp/remove" hx-boost="false">
       {{template "csrf" .CSRF}}
       <div class="setrow-text">
-        <span class="setname">Turn off the second factor</span>
-        <span class="sethelp" id="totp-remove-help">Drops the enrolment and every recovery code with it. Your password alone signs you in afterwards.</span>
+        <div class="setname-line"><span class="setname">Turn off the second factor</span>{{template "field-info" "Drops the enrolment and every recovery code with it. Your password alone signs you in afterwards."}}</div>
+        <span class="sethelp" id="totp-remove-help">Your password alone signs you in afterwards.</span>
       </div>
       <div class="setrow-ctl"><button class="danger" type="submit" aria-describedby="totp-remove-help">Turn off</button></div>
     </form>
@@ -288,8 +307,8 @@
     <form class="setrow" method="post" action="/settings/totp" hx-boost="false">
       {{template "csrf" .CSRF}}
       <div class="setrow-text">
-        <span class="setname">Authenticator</span>
-        <span class="sethelp" id="totp-help">{{if $totp.Pending}}An enrolment was started and never confirmed, so this account has <strong>no</strong> second factor yet; starting again replaces it.{{else}}This account has <strong>no</strong> second factor.{{end}} A six digit code from an authenticator application, asked for after your password. Recovery codes stand in for it when the application is out of reach.{{if $totp.RequiredWeb}} This tenant requires one in the browser, so the next sign-in will ask for it.{{end}}</span>
+        <div class="setname-line"><span class="setname">Authenticator</span>{{template "field-info" "A six digit code from an authenticator application, asked for after your password. Recovery codes stand in for it when the application is out of reach."}}</div>
+        <span class="sethelp" id="totp-help">{{if $totp.Pending}}An enrolment was started and never confirmed, so this account has <strong>no</strong> second factor yet; starting again replaces it.{{else}}This account has <strong>no</strong> second factor.{{end}}{{if $totp.RequiredWeb}} This tenant requires one in the browser, so the next sign-in will ask for it.{{end}}</span>
       </div>
       <div class="setrow-ctl">
         <span class="setvalue">{{if $totp.Pending}}Unconfirmed{{else}}Off{{end}}</span>
@@ -310,16 +329,22 @@
   </div>
 </section>
 
-<section class="setgroup">
+<section class="setgroup" id="database">
   <h2>Database</h2>
+  {{/* Stacked: a target is a path or a redacted DSN, and on the right of a
+       row it took the whole width and squeezed the description beside it
+       into a column one word wide. */}}
   <div class="setlist">
-    <div class="setrow">
+    <div class="setrow stacked">
       <div class="setrow-text">
         <span class="setname">Target</span>
         <span class="sethelp">{{if .Data.TargetDescribe}}What this server is talking to.{{else}}This server was not started with a database description to show, so its target cannot be shown here.{{end}}</span>
       </div>
-      <div class="setrow-ctl">{{if .Data.TargetDescribe}}<code>{{.Data.TargetDescribe}}</code>{{else}}<span class="setvalue">Not shown</span>{{end}}</div>
+      <div class="setrow-ctl">{{if .Data.TargetDescribe}}<code class="settarget">{{.Data.TargetDescribe}}</code>{{else}}<span class="setvalue">Not shown</span>{{end}}</div>
     </div>
   </div>
 </section>
+</div>
+</div>
+</div>
 {{end}}

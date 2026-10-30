@@ -113,6 +113,7 @@ const (
 	RouteTint         = "/tint"
 	RouteDragMove     = "/dragmove"
 	RouteOpenAfterAdd = "/openafteradd"
+	RouteHover        = "/hover"
 	RouteStats        = "/stats"
 	RouteActivity     = "/activity"
 	RouteActivityFeed = "/activity/feed"

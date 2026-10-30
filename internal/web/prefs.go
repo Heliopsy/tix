@@ -135,6 +135,7 @@ var Preferences = []Preference{
 	{Cookie: AdvancedCookie, Route: RouteAdvanced, Label: "Advanced screens"},
 	{Cookie: DragMoveCookie, Route: RouteDragMove, Label: "Drag to move"},
 	{Cookie: OpenAfterAddCookie, Route: RouteOpenAfterAdd, Label: "Open a new task"},
+	{Cookie: HoverCookie, Route: RouteHover, Label: "Hover effects"},
 	{Cookie: ColumnsCookie, Route: RouteColumns, Label: "Columns"},
 	{Cookie: HiddenProjectsCookie, Route: RouteVisibility, Label: "Hidden projects"},
 	{Cookie: TaskViewCookie, Route: RouteTaskView, Label: "Task view"},
