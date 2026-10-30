@@ -3,12 +3,11 @@
 <div class="pagehead">
   <div class="pagehead-title">
     <div class="headtip"><h1>{{t "Users"}}</h1>{{template "tip" (tip "Users" "The accounts that sign in to this tenant, each with a role: viewer reads, member also writes, claims and moves tasks, and admin may do everything. Disabling an account can be undone; deleting it cannot." "docs/tenancy.md")}}</div>
-    {{/* "active%.0s" is not "active": the count beside it wants a plural in
-         languages that inflect, and the state chip below wants the bare
-         adjective, so the two cannot share one key. The verb prints nothing. */}}
+    {{/* In a context: the count wants a plural where the state chip below
+         wants the bare adjective, and both are "active" in English. */}}
     <p class="lede summary">
       {{if eq (len $v.Users) 0}}{{t "No accounts yet."}}
-      {{else}}<strong>{{$v.Active}}</strong> {{t "active%.0s" ""}}{{if $v.Off}} &middot; <span class="held">{{t "%d disabled" $v.Off}}</span>{{end}}
+      {{else}}<strong>{{$v.Active}}</strong> {{tc "count" "active"}}{{if $v.Off}} &middot; <span class="held">{{t "%d disabled" $v.Off}}</span>{{end}}
       {{end}}
     </p>
   </div>

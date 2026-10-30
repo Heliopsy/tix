@@ -112,10 +112,10 @@ func init() {
 
 		// Units a pager counts in.
 		"tasks":      "задачи",
-		"projects":   "проекта",
+		"projects":   "проекти",
 		"users":      "потребители",
 		"actors":     "участници",
-		"entries":    "записа",
+		"entries":    "записи",
 		"deliveries": "доставки",
 		"runs":       "изпълнения",
 

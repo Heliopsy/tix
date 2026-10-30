@@ -134,7 +134,7 @@ func init() {
 		// Projects.
 		"Open a project for its board, or manage its name, workflow, colour, icon and fields.": "Отворете проект за таблото му или управлявайте името, работния процес, цвета, иконата и полетата му.",
 		"archived": "архивиран",
-		"Manage":   "Управлявай",
+		"Manage":   "Управление",
 		"No projects yet. Make the first one below.": "Все още няма проекти. Създайте първия по-долу.",
 		"New project":    "Нов проект",
 		"Create project": "Създай проект",

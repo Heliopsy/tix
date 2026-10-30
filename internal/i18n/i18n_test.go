@@ -94,3 +94,16 @@ func TestRegisterRefusesTwoTranslationsOfOneKey(t *testing.T) {
 	}()
 	register("zz", map[string]string{"a": "2"})
 }
+
+func TestCTranslatesInContextAndFallsBackToTheText(t *testing.T) {
+	t.Parallel()
+	if got := C(Bulgarian, "count", "active"); got != "активни" {
+		t.Errorf("C(bg, count, active) = %q", got)
+	}
+	if got := C(English, "count", "active"); got != "active" {
+		t.Errorf("C(en, count, active) = %q", got)
+	}
+	if got := C(Bulgarian, "nowhere", "active"); got != "active" {
+		t.Errorf("C(bg, nowhere, active) = %q, want the text", got)
+	}
+}

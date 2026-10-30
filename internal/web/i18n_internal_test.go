@@ -325,6 +325,13 @@ func templateKeys(t *testing.T, name, src string) []string {
 			walkPipe(n)
 		case *parse.CommandNode:
 			if id, ok := n.Args[0].(*parse.IdentifierNode); ok {
+				if id.Ident == "tc" && len(n.Args) == 3 {
+					ctx, ok1 := n.Args[1].(*parse.StringNode)
+					text, ok2 := n.Args[2].(*parse.StringNode)
+					if ok1 && ok2 {
+						out = append(out, ctx.Text+i18n.Context+text.Text)
+					}
+				}
 				for i := 1; i <= keyArgs[id.Ident] && i < len(n.Args); i++ {
 					if s, ok := n.Args[i].(*parse.StringNode); ok {
 						out = append(out, s.Text)

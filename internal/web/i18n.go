@@ -33,6 +33,7 @@ func translators(lang string) template.FuncMap {
 		// entry for it is checked to carry the same markup as the key.
 		"th":  func(key string) template.HTML { return template.HTML(i18n.T(lang, key)) },
 		"tn":  func(one, other string, n int, args ...any) string { return i18n.N(lang, one, other, n, args...) },
+		"tc":  func(ctx, text string) string { return i18n.C(lang, ctx, text) },
 		"tip": newTip,
 	}
 }

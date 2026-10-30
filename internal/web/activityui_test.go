@@ -4,6 +4,7 @@ package web_test
 
 import (
 	"fmt"
+	"html"
 	"net/http"
 	"net/url"
 	"strings"
@@ -144,7 +145,9 @@ func TestActivityFilterTermsNarrowIndependently(t *testing.T) {
 	if strings.Contains(nothing, "most recent records searched") {
 		t.Errorf("an empty search still claims it only looked at a window:\n%s", nothing)
 	}
-	if !strings.Contains(nothing, "anywhere in this tenant's history") {
+	// Read as text: a translated string reaches the page escaped, so the
+	// apostrophe arrives as &#39;.
+	if !strings.Contains(html.UnescapeString(nothing), "anywhere in this tenant's history") {
 		t.Errorf("an empty search does not say it searched the whole log:\n%s", nothing)
 	}
 }

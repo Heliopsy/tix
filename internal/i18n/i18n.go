@@ -88,6 +88,19 @@ func T(lang, key string, args ...any) string {
 	return fmt.Sprintf(text, args...)
 }
 
+// Context separates a context from its text in a catalog key, gettext's
+// EOT, for the rare English word two places need translated differently.
+const Context = "\x04"
+
+// C translates text in a named context: the catalog key is ctx, Context and
+// text, and the fallback is text alone.
+func C(lang, ctx, text string) string {
+	if v, ok := Lookup(lang, ctx+Context+text); ok && lang != English {
+		return v
+	}
+	return text
+}
+
 // N picks the singular or plural key by n, translates it and formats it with
 // n followed by args. A form that formats nothing is returned as it is, so a
 // form may leave the count out. Every language shipped so far splits one
