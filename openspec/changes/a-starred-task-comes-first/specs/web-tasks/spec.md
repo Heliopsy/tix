@@ -2,13 +2,14 @@
 
 ### Requirement: A star button on every task the browser draws
 
-The task list rows, the project board cards and the task screen SHALL each offer a star toggle for
+The task list rows, the board cards, the lane cards and the task screen SHALL each offer a star toggle for
 a reader who may star. The toggle SHALL be a real button inside a form posting with the CSRF
 token, SHALL work without JavaScript, SHALL report its state with `aria-pressed`, and SHALL carry
 an accessible name saying what pressing it does. Pressing it SHALL star an unstarred task and
 unstar a starred one and SHALL return the reader to the screen they were on.
 
-Starred tasks SHALL be drawn first in the list and first within each board column.
+Starred tasks SHALL be drawn first in the list, first within each board column and first within each
+lane.
 
 #### Scenario: Starring a row
 
@@ -33,3 +34,9 @@ Starred tasks SHALL be drawn first in the list and first within each board colum
 - **GIVEN** the same reader with the task list open in a second tab
 - **WHEN** they star a task in the first tab
 - **THEN** the second tab refreshes from the starred event and draws the task first
+
+#### Scenario: A starred task leads its lane
+
+- **GIVEN** the lanes view with two tasks in one project, the later one unstarred
+- **WHEN** the reader stars the later one from its lane card
+- **THEN** that card is drawn first in its lane with its button pressed

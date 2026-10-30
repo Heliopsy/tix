@@ -200,7 +200,7 @@ cross-view keys already use when their letter is taken.
 
 ### The command palette
 
-Forty-nine bindings is more than anyone holds in their head, and the letters ran out: `W` lists projects
+Fifty-two bindings is more than anyone holds in their head, and the letters ran out: `W` lists projects
 while `w` opens project setup, `H` reads history while `v` draws the live tail, `L` picks a tag, `O` records
 an artifact, `N` claims the next task. The capitals were handed out by elimination rather than by meaning.
 

@@ -207,14 +207,14 @@ shown and finished cards are.
 
 ## Starring a task
 
-Every task the browser draws carries a star: beside the tick on a list row, before the reference on
-a board card (the task screen's board and a project's own board alike), and beside the title on the
-task screen. Pressing it stars the task, pressing it again unstars it, and the reader lands back on
+Every task the browser draws carries a star: beside the tick on a list row or a lane card, before the
+reference on a board card (the task screen's board and a project's own board alike), and beside the
+title on the task screen. Pressing it stars the task, pressing it again unstars it, and the reader lands back on
 the screen they pressed it from, filters and all, at the row they pressed.
 
 A starred task comes first. The list puts the reader's starred tasks above everything else and keeps
-the chosen sort inside each group, and each board column does the same, because the columns are the
-same listing split by state. Paging stays exact across the point where the starred tasks end.
+the chosen sort inside each group, and each board column and each lane does the same, because they
+are the same listing split by state or by project. Paging stays exact across the point where the starred tasks end.
 
 A star is personal. It belongs to the reader who set it, so two people sharing a queue each see their
 own stars first and never reorder each other's screen. It is kept on the server, so it follows the
