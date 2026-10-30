@@ -198,7 +198,7 @@ func init() {
 		"List":         "Списък",
 		"Board":        "Табло",
 		"Lanes":        "Ленти",
-		"System":       "Системна",
+		"System":       "Система",
 		"Light":        "Светла",
 		"Dark":         "Тъмна",
 		"Low contrast": "Нисък контраст",

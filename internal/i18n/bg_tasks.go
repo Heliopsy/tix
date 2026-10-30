@@ -105,7 +105,7 @@ func init() {
 		"Nobody is assigned to this":    "Няма изпълнител",
 		"unassigned":                    "без изпълнител",
 		"Held by %s until %s":           "Заета от %s до %s",
-		"held":                          "заета",
+		"held":                          "поета",
 		"%s let the claim run out %s ago, at %s; the task is claimable again": "%s остави поемането да изтече преди %s, в %s; задачата отново може да бъде поета",
 		"claim expired":   "поемането изтече",
 		"%s ago":          "преди %s",
