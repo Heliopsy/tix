@@ -34,6 +34,7 @@ func (h *handler) sessionRoutes() []route {
 		post(RouteTint, h.setTint, "Logout"),
 		post(RouteDragMove, h.toggleDragMove, "Logout"),
 		post(RouteOpenAfterAdd, h.toggleOpenAfterAdd, "Logout"),
+		post(RouteHover, h.toggleHover, "Logout"),
 	}
 }
 
@@ -176,9 +177,22 @@ func (h *handler) showSettings(w http.ResponseWriter, r *http.Request) error {
 		Timezone:       zone,
 		TimeFormats:    timeFormatChoices(zone),
 		Timezones:      timezoneChoices(),
-		Prefs:          h.prefsFor(r, projects, whole),
+		Prefs:          settingsPrefs(h.prefsFor(r, projects, whole)),
 		TOTP:           totp,
 	})
+}
+
+// settingsPrefs points the shared preference controls back at the Listings
+// section with a toast, as every other form on the settings screen is. The
+// controls are the ones the task screen renders too; only where they return
+// to differs.
+func settingsPrefs(p prefsView) prefsView {
+	p.TaskView.Here = savedNext("Task view", "listings")
+	p.Projects.Here = savedNext("Project choice", "listings")
+	for i := range p.Columns {
+		p.Columns[i].Here = savedNext("Columns on "+p.Columns[i].Label, "listings")
+	}
+	return p
 }
 
 // showRelease renders what the newest release says about itself.
@@ -271,6 +285,26 @@ func (h *handler) toggleOpenAfterAdd(w http.ResponseWriter, r *http.Request) err
 	// #nosec G124 -- a display preference, readable by no script.
 	http.SetCookie(w, &http.Cookie{
 		Name: OpenAfterAddCookie, Value: value, Path: "/",
+		HttpOnly: true, Secure: h.secureCookie(r), SameSite: http.SameSiteLaxMode,
+		MaxAge: cookieYear,
+	})
+	// #nosec G710 -- safeNext rejects anything that is not a relative path on
+	// this origin, including protocol-relative, backslash and control forms.
+	http.Redirect(w, r, safeNext(field(r, "next")), http.StatusSeeOther)
+	return nil
+}
+
+// toggleHover turns the pointer's hover highlight on or off for this browser.
+// Default on, with the polarity of Drag to move: "0" is the only value that
+// turns it off.
+func (h *handler) toggleHover(w http.ResponseWriter, r *http.Request) error {
+	value := "0"
+	if !hoverEffects(r) {
+		value = ""
+	}
+	// #nosec G124 -- a display preference, readable by no script.
+	http.SetCookie(w, &http.Cookie{
+		Name: HoverCookie, Value: value, Path: "/",
 		HttpOnly: true, Secure: h.secureCookie(r), SameSite: http.SameSiteLaxMode,
 		MaxAge: cookieYear,
 	})

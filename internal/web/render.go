@@ -135,7 +135,9 @@ type view struct {
 	DragMove   bool
 	// OpenAfterAdd decides whether creating a task leaves the listing for it.
 	OpenAfterAdd bool
-	Theme        string
+	// Hover is whether rows, cards and controls respond to the pointer.
+	Hover bool
+	Theme string
 	// Tint is what a row's stripe and a card's edge are saying: the project,
 	// the status, the priority, or nothing. See tint.go.
 	Tint          string
@@ -213,7 +215,16 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"category":        categoryLabel,
 		"categoryClass":   categoryClass,
 		"tokenState":      tokenState,
+		"savedNext":       savedNext,
 	}
+}
+
+// savedNext is where a settings form returns to: the settings screen at the
+// section the preference lives in, with a toast naming what was saved. Built
+// here rather than in the template so the words are query-encoded and the
+// Location header never carries a raw space.
+func savedNext(what, section string) string {
+	return RouteSettings + "?" + url.Values{"flash": {what + " saved"}}.Encode() + "#" + url.PathEscape(section)
 }
 
 // tokenState names whether a token still authenticates, as the one word its
@@ -331,6 +342,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Advanced:      advancedMode(r),
 		DragMove:      dragMoveMode(r),
 		OpenAfterAdd:  openAfterAdd(r),
+		Hover:         hoverEffects(r),
 		Theme:         themeOf(r),
 		Tint:          tintOf(r),
 		Tints:         tintChoices(tintOf(r)),
@@ -529,6 +541,16 @@ const OpenAfterAddCookie = "tix_open_after_add"
 // Absent means on, so a browser that has said nothing behaves as before.
 func openAfterAdd(r *http.Request) bool {
 	c, err := r.Cookie(OpenAfterAddCookie)
+	return err != nil || c.Value != "0"
+}
+
+// HoverCookie remembers whether this browser wants hover effects.
+const HoverCookie = "tix_hover"
+
+// hoverEffects reports whether rows, cards and controls should respond to the
+// pointer. Absent, or any value other than "0", means on.
+func hoverEffects(r *http.Request) bool {
+	c, err := r.Cookie(HoverCookie)
 	return err != nil || c.Value != "0"
 }
 
