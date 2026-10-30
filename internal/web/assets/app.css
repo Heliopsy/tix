@@ -1080,8 +1080,12 @@ input[readonly] {
 .tip > summary svg { display: block; }
 .tip > p { max-width: min(360px, 80vw); line-height: 1.45; text-align: start; text-transform: none; letter-spacing: normal; white-space: normal; }
 .tip-doc { display: block; margin-top: 4px; }
+/* A tip near the page's right edge opens leftwards, so its note stays on
+   screen: the view switch sits at the end of the task screen's header. */
+.viewswitch .tip > p, .pagehead-actions .tip > p { left: auto; right: 0; }
 .headtip { display: flex; align-items: center; gap: 2px; }
 .headtip > h1, .headtip > h2, .headtip > h3 { margin-inline-end: 0; }
+.headtip:first-child > :is(h1, h2, h3) { margin-top: 0; }
 
 /* A single-choice <select> gets the same border, background and padding
    every other field already has from the shared rule above; what is left of

@@ -48,7 +48,6 @@ func init() {
 		"Dependencies":                    "Зависимости",
 		"remove":                          "премахни",
 		"Depends on":                      "Зависи от",
-		"infra-2":                         "infra-2",
 		"Add dependency":                  "Добави зависимост",
 		"Comments":                        "Коментари",
 		"Add a comment":                   "Добави коментар",
