@@ -532,6 +532,20 @@ round trip and is correct.
 The colour scheme is a separate axis from the tenant accent, which is the same everywhere and covered
 in [theming.md](theming.md).
 
+## Language and info tips
+
+Every screen is drawn in the language the browser asks for in `Accept-Language`, and says so in the
+root element's `lang`. English and Bulgarian ship; a header naming neither gets English. Keys are the
+English text (`internal/i18n`), so a word a catalog lacks reads in English rather than as a blank.
+The settings screen is not translated yet.
+
+A small (i) beside a heading, a filter or a figure opens a sentence or two on what it means and names
+the page in `docs/` that says more. It is a disclosure, so it works with no script, from the keyboard
+and on touch.
+
+To add a language, add `internal/i18n/<lang>_*.go` files registering one entry per key. The tests in
+`internal/web/i18n_internal_test.go` name every key it is missing.
+
 ## The second factor
 
 A tenant can require a time-based code in the browser, and any reader can enrol in one without being
