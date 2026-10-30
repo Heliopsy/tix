@@ -184,7 +184,7 @@ func TestLanesGroupTasksByProject(t *testing.T) {
 		t.Errorf("ops's lane holds %v, want %v including the finished task", opsLane, wantOps)
 	}
 	card := laneCard(t, page, finished)
-	if !strings.Contains(card, "is-finished") || !strings.Contains(card, `class="check is-done"`) || strings.Contains(card, "<form") {
+	if !strings.Contains(card, "is-finished") || !strings.Contains(card, `class="check is-done"`) || strings.Contains(card, "/transition\"") {
 		t.Errorf("a finished card is not drawn ticked and inert:\n%s", card)
 	}
 
@@ -302,7 +302,7 @@ func TestALaneCardWithholdsTheBoxWhenCompletingIsNotOneMove(t *testing.T) {
 	}
 	for _, tt := range tests {
 		card := laneCard(t, tt.page, tt.ref)
-		if strings.Contains(card, "<form") || tickRoute(card) != "" {
+		if strings.Contains(card, "/transition\"") || tickRoute(card) != "" {
 			t.Errorf("%s: the card offers a tick box:\n%s", tt.name, card)
 		}
 		if !strings.Contains(card, `class="check is-locked" href="/tasks/`+tt.ref) || !strings.Contains(card, tt.reason) {
@@ -344,5 +344,39 @@ func TestShowCompletedHasWhatItNeeds(t *testing.T) {
 	js := body(t, b.get("/assets/lanes.js"))
 	if !strings.Contains(js, `"lanes-hide-finished"`) || !strings.Contains(js, `"tix.lanes.showCompleted"`) {
 		t.Error("the served lanes.js does not set the class the stylesheet reads")
+	}
+}
+
+// A lane card carries the same star toggle as a list row, and a starred task
+// leads its own lane: the lanes are the listing split by project, so the
+// reader's starred tasks come first in each.
+func TestALaneCardStarsAndAStarredTaskLeadsItsLane(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	first := b.createTask("infra", "first in")
+	second := b.createTask("infra", "second in")
+	b.chooseLanes("/tasks")
+
+	page := b.page("/tasks")
+	card := laneCard(t, page, second)
+	if !strings.Contains(card, `action="/tasks/`+second+`/star"`) || !strings.Contains(card, `aria-pressed="false"`) {
+		t.Fatalf("the lane card offers no unpressed star:\n%s", card)
+	}
+	if got := laneRefs(laneBlock(t, page, "infra")); !slices.Equal(got, []string{first, second}) {
+		t.Fatalf("before starring the lane holds %v, want %v", got, []string{first, second})
+	}
+
+	resp := b.post("/tasks/"+second+"/star", url.Values{"next": {"/tasks"}})
+	wantStatus(t, resp, http.StatusSeeOther)
+	_ = resp.Body.Close()
+
+	page = b.page("/tasks")
+	if got := laneRefs(laneBlock(t, page, "infra")); !slices.Equal(got, []string{second, first}) {
+		t.Errorf("after starring the lane holds %v, want the starred %s first", got, second)
+	}
+	card = laneCard(t, page, second)
+	if !strings.Contains(card, `action="/tasks/`+second+`/star/remove"`) || !strings.Contains(card, `aria-pressed="true"`) {
+		t.Errorf("the starred lane card does not offer a pressed unstar:\n%s", card)
 	}
 }

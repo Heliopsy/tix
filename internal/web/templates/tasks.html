@@ -377,6 +377,7 @@
       {{else}}
       <a class="check is-locked" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}" aria-label="Open {{.Task.Ref}} to finish it: {{.Locked}}" title="Open the task to finish it: {{.Locked}}"></a>
       {{end}}
+      {{if $.CanStar}}{{template "star" (star .Task.Ref .Task.Starred $v.Self $.CSRF)}}{{end}}
       <div class="lane-body">
         <a class="lane-title" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}">{{.Task.Title}}</a>
         <div class="card-meta">
