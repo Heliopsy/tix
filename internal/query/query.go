@@ -432,13 +432,15 @@ func applyIs(f *core.TaskFilter, value string, negate bool) error {
 		f.Blocked = no
 	case "deleted":
 		f.IncludeDeleted = !negate
+	case "recurring":
+		f.Recurring = yes
 	case "root":
 		if negate {
 			return core.Invalid("is:root cannot be negated; name a parent instead")
 		}
 		f.ParentIsNull = true
 	default:
-		return core.Invalid("unknown is: value %q; try claimed, unclaimed, blocked, unblocked, deleted or root", value)
+		return core.Invalid("unknown is: value %q; try claimed, unclaimed, blocked, unblocked, recurring, deleted or root", value)
 	}
 	return nil
 }

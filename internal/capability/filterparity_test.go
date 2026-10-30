@@ -56,6 +56,7 @@ var filterFields = map[string]filterReach{
 	"DueAfter":       {Expr: "due:>2026-01-01", CLI: "--due-after"},
 	"Claimed":        {Expr: "is:claimed", CLI: "--claimed"},
 	"Blocked":        {Expr: "is:blocked", CLI: "--blocked"},
+	"Recurring":      {Expr: "is:recurring", CLI: "--recurring"},
 	"Query":          {Expr: "deploy", CLI: "--query"},
 	"CreatorIDs":     {Expr: "creator:alice", CLI: ""},
 	"ClaimedBy":      {Expr: "claimed-by:scout", CLI: ""},
@@ -302,6 +303,7 @@ func TestEveryTaskFilterFieldSurvivesTheWire(t *testing.T) {
 		ParentID:    "t-1",
 		Claimed:     core.Yes,
 		Blocked:     core.No,
+		Recurring:   core.Yes,
 		Query:       "deploy",
 		Text: []core.TextTerm{
 			{Field: core.TextTitle, Mode: core.MatchContains, Value: "api"},

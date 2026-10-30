@@ -87,6 +87,16 @@ func TestParseNegationAndWeakMatch(t *testing.T) {
 				t.Fatalf("claimed %v, want No", f.Claimed)
 			}
 		}},
+		{"is:recurring selects the tasks carrying a rule", "is:recurring", func(t *testing.T, f core.TaskFilter) {
+			if f.Recurring != core.Yes {
+				t.Fatalf("recurring %v, want Yes", f.Recurring)
+			}
+		}},
+		{"-is:recurring selects the tasks carrying none", "-is:recurring", func(t *testing.T, f core.TaskFilter) {
+			if f.Recurring != core.No {
+				t.Fatalf("recurring %v, want No", f.Recurring)
+			}
+		}},
 		{"negated is:deleted keeps deleted tasks out", "-is:deleted", func(t *testing.T, f core.TaskFilter) {
 			if f.IncludeDeleted {
 				t.Fatal("-is:deleted must not include deleted tasks")
