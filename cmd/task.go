@@ -25,6 +25,7 @@ func newTaskCmd(g *globals) *cobra.Command {
 	cmd.AddCommand(
 		taskAddCmd(g), taskLsCmd(g), taskShowCmd(g), taskEditCmd(g),
 		taskMvCmd(g), taskRmCmd(g), taskRestoreCmd(g), taskTreeCmd(g),
+		taskStarCmd(g, true), taskStarCmd(g, false),
 	)
 	return cmd
 }
@@ -142,13 +143,13 @@ func taskAddCmd(g *globals) *cobra.Command {
 
 func taskLsCmd(g *globals) *cobra.Command {
 	var (
-		projects, statuses, tags, assignees []string
-		text, cursor, sort, expr            string
-		dueBefore, dueAfter                 string
-		limit                               int
-		desc, all, deleted                  bool
-		claimed, unclaimed, blocked         bool
-		overdue, recurring                  bool
+		projects, statuses, tags, assignees  []string
+		text, cursor, sort, expr             string
+		dueBefore, dueAfter                  string
+		limit                                int
+		desc, all, deleted                   bool
+		claimed, unclaimed, blocked, starred bool
+		overdue, recurring                   bool
 	)
 	cmd := &cobra.Command{
 		Use:     "ls",
@@ -161,6 +162,7 @@ func taskLsCmd(g *globals) *cobra.Command {
 			"The other flags add to whatever --filter selected.\n\n" +
 			"--overdue, --due-before and --due-after select by deadline; the expression spells " +
 			"the same thing as due:overdue, due:<DATE and due:>DATE.\n\n" +
+			"Tasks you starred come first, under every sort; is:starred and --starred select them.\n\n" +
 			"Exit codes: 2 invalid filter, 3 unknown project, status, parent or actor, 5 permission denied.",
 		Example: "  tix task ls\n  tix task ls --status todo -o ndjson\n" +
 			"  tix task ls -p infra --tag ops --all\n" +
@@ -231,6 +233,12 @@ func taskLsCmd(g *globals) *cobra.Command {
 			if recurring {
 				filter.Recurring = core.Yes
 			}
+			if cmd.Flags().Changed("starred") {
+				filter.Starred = core.No
+				if starred {
+					filter.Starred = core.Yes
+				}
+			}
 			if err := applyDueFlags(cmd, &filter, overdue, dueBefore, dueAfter); err != nil {
 				return err
 			}
@@ -279,6 +287,7 @@ func taskLsCmd(g *globals) *cobra.Command {
 	f.BoolVar(&unclaimed, "unclaimed", false, "only tasks not currently claimed")
 	f.BoolVar(&blocked, "blocked", false, "only tasks blocked by a dependency")
 	f.BoolVar(&recurring, "recurring", false, "only tasks carrying a repeat rule")
+	f.BoolVar(&starred, "starred", false, "only tasks you starred; --starred=false for the rest")
 	f.BoolVar(&overdue, "overdue", false, "only tasks whose due date has passed")
 	f.StringVar(&dueBefore, "due-before", "", "only tasks due on or before a date")
 	f.StringVar(&dueAfter, "due-after", "", "only tasks due on or after a date")
@@ -579,6 +588,47 @@ func taskRestoreCmd(g *globals) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be restored without writing")
+	return cmd
+}
+
+// taskStarCmd builds `task star` and `task unstar`, which differ only in the
+// call they make and the words they use.
+func taskStarCmd(g *globals, star bool) *cobra.Command {
+	var dryRun bool
+	use, short, action := "unstar", "Clear your star on tasks", "task.unstar"
+	if star {
+		use, short, action = "star", "Star tasks so they list first for you", "task.star"
+	}
+	cmd := &cobra.Command{
+		Use:   use + " REF...",
+		Short: short,
+		Long: short + ". A star is yours alone: it puts the task ahead of the rest in your own " +
+			"listings on every surface and changes nothing anybody else sees. Starring a starred " +
+			"task, or unstarring one that is not, succeeds and changes nothing.\n\n" +
+			"Exit codes: 3 unknown reference, 5 permission denied.",
+		Example: "  tix task " + use + " default-1\n  tix task " + use + " default-1 default-4",
+		Args:    minArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			refs, err := readRefs(cmd, args)
+			if err != nil {
+				return err
+			}
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			if dryRun {
+				return g.render(cmd, newPlan(action, refsString(refs), nil))
+			}
+			call := conn.Service.UnstarTask
+			if star {
+				call = conn.Service.StarTask
+			}
+			return g.bulk(cmd, refs, func(ref core.TaskRef) error { return call(ctx, ref) })
+		},
+		ValidArgsFunction: g.completeTaskRefs,
+	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	return cmd
 }
 

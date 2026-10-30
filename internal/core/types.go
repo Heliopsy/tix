@@ -423,6 +423,11 @@ type Task struct {
 
 	Blocked   bool     `json:"blocked" yaml:"blocked"`
 	DependsOn []string `json:"depends_on,omitempty" yaml:"depends_on,omitempty"`
+
+	// Starred is the reading actor's own star, never anybody else's. Only a
+	// read that knows its reader sets it, so it is omitted rather than false
+	// wherever nobody asked, which keeps it out of audit snapshots and exports.
+	Starred bool `json:"starred,omitempty" yaml:"starred,omitempty"`
 }
 
 // ClaimedAtTime reports whether the task is effectively claimed at time now.
@@ -548,6 +553,10 @@ const (
 	// cannot tell them apart will read every override as an agent failure.
 	EventTaskReclaimed EventType = "task.reclaimed"
 	EventTaskDeleted   EventType = "task.deleted"
+	// EventTaskStarred and EventTaskUnstarred record one actor's personal
+	// star. They are tenant-visible, like the audit entry beside them.
+	EventTaskStarred   EventType = "task.starred"
+	EventTaskUnstarred EventType = "task.unstarred"
 
 	EventCommentAdded    EventType = "comment.added"
 	EventArtifactAdded   EventType = "artifact.added"
@@ -568,7 +577,8 @@ var eventTypes = []EventType{
 	EventTaskCreated, EventTaskUpdated, EventTaskTransitioned,
 	EventTaskClaimed, EventTaskReleased, EventTaskLeaseExpired,
 	EventTaskReclaimed,
-	EventTaskDeleted, EventCommentAdded, EventArtifactAdded,
+	EventTaskDeleted, EventTaskStarred, EventTaskUnstarred,
+	EventCommentAdded, EventArtifactAdded,
 	EventDependencyAdded, EventLabelAdded, EventProjectCreated,
 	EventProjectUpdated, EventWorkflowUpdated, EventFieldUpdated,
 	EventWebhookDelivered, EventImportCompleted,

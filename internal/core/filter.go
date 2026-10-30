@@ -24,10 +24,14 @@ func (d SortDirection) Valid() bool { return d == Ascending || d == Descending }
 // Cursor is an opaque position in a keyset-paginated listing. SortValue2 is
 // additive: it carries the second key of a compound ordering (currently only
 // SortUrgency) and is empty for every single-key ordering, so an older
-// encoded cursor decodes unchanged.
+// encoded cursor decodes unchanged. Starred is the leading group of a task
+// listing read for an actor, and is equally additive: a cursor without it
+// resumes among the unstarred tasks, which is where every cursor issued
+// before stars existed already was.
 type Cursor struct {
 	SortValue  string        `json:"v" yaml:"v"`
 	SortValue2 string        `json:"v2,omitempty" yaml:"v2,omitempty"`
+	Starred    bool          `json:"st,omitempty" yaml:"st,omitempty"`
 	ID         string        `json:"i" yaml:"i"`
 	Sort       string        `json:"s" yaml:"s"`
 	Direction  SortDirection `json:"d" yaml:"d"`
@@ -169,6 +173,14 @@ type TaskFilter struct {
 	Recurring TriState `json:"recurring,omitempty" yaml:"recurring,omitempty"`
 
 	ClaimedBy []string `json:"claimed_by,omitempty" yaml:"claimed_by,omitempty"`
+
+	// Starred selects by the reading actor's own stars.
+	Starred TriState `json:"starred,omitempty" yaml:"starred,omitempty"`
+
+	// StarredBy is the reading actor, set by the service from the caller and
+	// never by the caller, which is why it does not travel on the wire. A
+	// listing with no reader neither groups nor filters by stars.
+	StarredBy string `json:"-" yaml:"-"`
 
 	Query string `json:"query,omitempty" yaml:"query,omitempty"`
 

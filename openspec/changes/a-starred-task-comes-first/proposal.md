@@ -29,7 +29,7 @@ button that keeps a task above the rest.
 
 ## Impact
 
-- New table `task_stars` (migration 0013), new store methods on both engines, a leading key in
+- New table `task_stars` (migration 0014), new store methods on both engines, a leading key in
   the task listing's keyset.
 - `core.Task.Starred`, `core.TaskFilter.Starred`, `core.Cursor.Starred`, two event types, one
   authz action, two `Service` methods with registry entries on every surface.

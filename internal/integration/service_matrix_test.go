@@ -318,6 +318,33 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "star round-trip",
+		covers: []string{"CreateProject", "CreateTask", "StarTask", "UnstarTask", "ListTasks", "GetTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			_, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "first"})
+			mustf(t, tg, err, "creating the first task")
+			second, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "second"})
+			mustf(t, tg, err, "creating the second task")
+			if err := tg.svc.StarTask(tg.ctx, core.TaskRef{ID: second.ID}); err != nil {
+				return nil, err
+			}
+			page, err := tg.svc.ListTasks(tg.ctx, core.TaskFilter{ProjectKeys: []string{p.Key},
+				Page: core.Page{Sort: core.SortSeq}})
+			mustf(t, tg, err, "listing")
+			titles := make([]string, 0, len(page.Tasks))
+			for _, task := range page.Tasks {
+				titles = append(titles, task.Title)
+			}
+			if err := tg.svc.UnstarTask(tg.ctx, core.TaskRef{ID: second.ID}); err != nil {
+				return nil, err
+			}
+			after, err := tg.svc.GetTask(tg.ctx, core.TaskRef{ID: second.ID})
+			mustf(t, tg, err, "reading the task back")
+			return sig{"order": titles, "starred_after_unstar": after.Starred}, nil
+		},
+	},
+	{
 		name:   "dependencies round-trip",
 		covers: []string{"CreateProject", "CreateTask", "AddDependency", "ListDependencies"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

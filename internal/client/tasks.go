@@ -101,6 +101,16 @@ func (c *Client) RemoveTag(ctx context.Context, ref core.TaskRef, tag string) er
 	return callVoid(ctx, c, http.MethodDelete, path, nil, nil)
 }
 
+// StarTask sets the caller's own star on a task.
+func (c *Client) StarTask(ctx context.Context, ref core.TaskRef) error {
+	return callVoid(ctx, c, http.MethodPut, taskPath(wire.RouteTaskStar, ref), nil, nil)
+}
+
+// UnstarTask clears the caller's own star on a task.
+func (c *Client) UnstarTask(ctx context.Context, ref core.TaskRef) error {
+	return callVoid(ctx, c, http.MethodDelete, taskPath(wire.RouteTaskStar, ref), nil, nil)
+}
+
 // ListTags returns the tenant's tags.
 func (c *Client) ListTags(ctx context.Context) ([]core.Tag, error) {
 	return listAll[core.Tag](ctx, c, wire.RouteLabels, nil)
@@ -177,6 +187,7 @@ func taskFilterQuery(f core.TaskFilter) url.Values {
 	}
 	setBool(q, "root_only", f.ParentIsNull)
 	setTriState(q, "claimed", f.Claimed)
+	setTriState(q, "starred", f.Starred)
 	setTriState(q, "blocked", f.Blocked)
 	setTriState(q, "recurring", f.Recurring)
 	if f.Query != "" {

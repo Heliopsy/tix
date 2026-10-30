@@ -23,7 +23,8 @@ func Matches(f core.TaskFilter, t core.Task, projectKey string, now time.Time) b
 	if !matchDue(f, t) || !matchParent(f, t) {
 		return false
 	}
-	if !f.Claimed.Match(t.ClaimedAtTime(now)) || !f.Blocked.Match(t.Blocked) || !f.Recurring.Match(t.Recurrence != "") {
+	if !f.Claimed.Match(t.ClaimedAtTime(now)) || !f.Blocked.Match(t.Blocked) ||
+		!f.Recurring.Match(t.Recurrence != "") || !f.Starred.Match(t.Starred) {
 		return false
 	}
 	for _, term := range f.Text {

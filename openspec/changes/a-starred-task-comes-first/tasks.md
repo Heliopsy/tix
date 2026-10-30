@@ -6,7 +6,7 @@
 
 ## 2. Storage
 
-- [x] 2.1 Migration 0013 `task_stars` (both engines), scoped table list, PostgreSQL policy version
+- [x] 2.1 Migration 0014 `task_stars` (both engines), scoped table list, PostgreSQL policy version
 - [x] 2.2 Store methods `StarTask`, `UnstarTask`, `StarredTasks` on SQLite and PostgreSQL
 - [x] 2.3 Task listing joins the reader's stars, orders by the star rank first, and carries it in the keyset
 - [x] 2.4 `is:starred` predicate in both engines

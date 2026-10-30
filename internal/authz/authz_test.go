@@ -73,7 +73,7 @@ func TestActionsAreUniqueAndNamed(t *testing.T) {
 
 func TestRoleActionMatrix(t *testing.T) {
 	viewer := []Action{
-		ActionTaskRead, ActionProjectRead, ActionWorkflowRead,
+		ActionTaskRead, ActionTaskStar, ActionProjectRead, ActionWorkflowRead,
 		ActionEventSubscribe, ActionAuditRead,
 	}
 	member := append([]Action{

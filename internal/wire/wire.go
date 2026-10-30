@@ -66,6 +66,7 @@ const (
 	RouteTaskDep        = APIPrefix + "/tasks/{ref}/deps/{dep}"
 	RouteTaskLabels     = APIPrefix + "/tasks/{ref}/tags"
 	RouteTaskLabel      = APIPrefix + "/tasks/{ref}/tags/{name}"
+	RouteTaskStar       = APIPrefix + "/tasks/{ref}/star"
 	RouteTaskComments   = APIPrefix + "/tasks/{ref}/comments"
 	RouteTaskArtifacts  = APIPrefix + "/tasks/{ref}/artifacts"
 	RouteTaskAudit      = APIPrefix + "/tasks/{ref}/audit"

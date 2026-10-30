@@ -13,6 +13,7 @@ type pageSpec struct {
 	limit   int
 	column  string
 	column2 string // set only for a compound ordering; empty otherwise
+	ranked  bool   // set when a reader's stars lead the ordering
 	dir     core.SortDirection
 	cursor  core.Cursor
 }
@@ -42,6 +43,9 @@ func resolvePage(p core.Page, defaultSort string, columns map[string]string) (pa
 // keyset predicate, or a page could skip or repeat rows whenever two rows
 // share the first key.
 func (p pageSpec) apply(b *sqlb.Builder, idColumn string) *sqlb.Builder {
+	if p.ranked {
+		return p.applyRanked(b, idColumn)
+	}
 	if p.column2 != "" {
 		b.Keyset2(p.column, p.column2, idColumn, p.cursor, p.dir).
 			OrderBy(p.column, p.dir).
@@ -49,6 +53,23 @@ func (p pageSpec) apply(b *sqlb.Builder, idColumn string) *sqlb.Builder {
 	} else {
 		b.Keyset(p.column, idColumn, p.cursor, p.dir).
 			OrderBy(p.column, p.dir)
+	}
+	return b.OrderBy(idColumn, p.dir).Limit(p.limit)
+}
+
+// applyRanked is apply with the reader's star rank as the leading key, in the
+// ordering and in the keyset predicate alike, so a page boundary that falls
+// where the starred group ends neither skips nor repeats a row.
+func (p pageSpec) applyRanked(b *sqlb.Builder, idColumn string) *sqlb.Builder {
+	rank := sqlb.StarRank(p.dir)
+	cols := []string{p.column}
+	if p.column2 != "" {
+		cols = append(cols, p.column2)
+	}
+	b.KeysetRanked(rank, sqlb.StarRankOf(p.cursor.Starred, p.dir), cols, idColumn, p.cursor, p.dir).
+		OrderBy(rank, p.dir)
+	for _, col := range cols {
+		b.OrderBy(col, p.dir)
 	}
 	return b.OrderBy(idColumn, p.dir).Limit(p.limit)
 }
