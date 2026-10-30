@@ -11,6 +11,7 @@ import (
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
+	extsync "github.com/heliopsy/tix/internal/sync"
 )
 
 type recurFixture struct {
@@ -419,5 +420,42 @@ func TestImportRefusesAnUnparsableRule(t *testing.T) {
 	if _, err := f.l.ImportFrom(target, bytes.NewReader(snapshot), core.ImportInput{Mode: core.ImportMerge}); err == nil ||
 		!bytes.Contains([]byte(err.Error()), []byte("fortnight")) {
 		t.Fatalf("import of an unparsable rule = %v, want a rejection naming it", err)
+	}
+}
+
+func TestASyncThatFinishesARecurringTaskNeitherSpawnsNorTouchesTheRule(t *testing.T) {
+	f := newSyncFixture(t, "ops")
+	useRelationMapping(t, f)
+	first := &fakeImporter{failAt: -1, pages: []extsync.Batch{{
+		Records: []extsync.Record{relationRecord("U-1", "weekly report", "To Do", "2026-01-01T00:00:00Z", nil)},
+		Cursor:  "2026-01-01T00:00:00Z",
+	}}}
+	useImporter(t, func(string, extsync.SourceConfig, *extsync.Mapping) (extsync.Importer, error) {
+		return first, nil
+	})
+	f.run(t, core.RunSyncInput{})
+	tasks := f.tasks(t)
+	if len(tasks) != 1 {
+		t.Fatalf("first sync made %d tasks", len(tasks))
+	}
+	rule := "every week"
+	if _, err := f.local.UpdateTask(f.ctx, core.TaskRef{ID: tasks[0].ID}, core.UpdateTaskInput{Recurrence: &rule}); err != nil {
+		t.Fatalf("setting the rule: %v", err)
+	}
+
+	second := &fakeImporter{failAt: -1, pages: []extsync.Batch{{
+		Records: []extsync.Record{relationRecord("U-1", "weekly report", "Done", "2026-02-01T00:00:00Z", nil)},
+		Cursor:  "2026-02-01T00:00:00Z",
+	}}}
+	useImporter(t, func(string, extsync.SourceConfig, *extsync.Mapping) (extsync.Importer, error) {
+		return second, nil
+	})
+	f.run(t, core.RunSyncInput{})
+	after := f.tasks(t)
+	if len(after) != 1 {
+		t.Fatalf("a sync that finished a recurring task left %d tasks, want 1", len(after))
+	}
+	if after[0].Status != "done" || after[0].Recurrence != "every week" || after[0].RecurrenceNextID != "" {
+		t.Fatalf("after the sync the task is %s carrying %q linked to %q", after[0].Status, after[0].Recurrence, after[0].RecurrenceNextID)
 	}
 }
