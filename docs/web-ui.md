@@ -20,6 +20,12 @@ here selects the same set from a shell. A project chip on a row writes a filter 
 click, so there is a Clear control to get back out in one click. Clear keeps the sort, because a sort
 is not a filter.
 
+**Repeating tasks.** The add form's details and the task screen's Edit card carry a Repeat field taking
+a rule such as `every week` or `3 days after done`, emptied to stop the task repeating. The task screen's
+About card states the rule and, once the task is finished, links the occurrence it created. A recurring row
+or board card carries a `↻` marker that lists every recurring task. Completing one from the browser creates
+the next exactly as the command line does; see [features.md](features.md).
+
 **Deadlines.** The control beside the sort narrows the list to a deadline window: overdue, today, this
 week, this month. What it selects is answered as a `due:` term by the same parser the box uses, rather
 than as a bound of its own, so the same window is sayable by hand in the box, the selection travels in

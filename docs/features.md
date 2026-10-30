@@ -27,6 +27,36 @@ that row's own workflow can reach, including ones reachable only through another
 route is spelled out before it is applied, and each hop is an ordinary transition, so a task that
 passed through a state really did pass through it and the audit trail says so.
 
+**Tasks that repeat.** A task can carry a repeat rule, and finishing it puts the next one on the list, the
+way Google Tasks does it: nothing is generated ahead of time, so there is only ever one open occurrence of
+a series. Set it with `tix task add --repeat`, change it with `tix task edit --repeat`, remove it with
+`--no-repeat`, or use the Repeat field on the browser's add and edit forms. Recurring rows, board cards and
+terminal cards carry a `↻` marker, and `is:recurring` lists them.
+
+| Rule | Next due date |
+| --- | --- |
+| `every day`, `daily`, `every 3 days` | N days on |
+| `every week`, `weekly`, `every 2 weeks on mon,thu` | N weeks on, or the next listed weekday of every Nth week |
+| `every month`, `monthly`, `every month on day 31` | same day of the month, clamped to the month's end |
+| `every year`, `yearly` | same date; 29 February becomes 28 February in a common year |
+| `... after done`, as in `3 days after done` | counted from the day it was finished instead |
+| `... until 2027-06-30` | no occurrence after that date |
+| `... for 5 times` | five occurrences including this one, counting down on each |
+
+Without `after done` the next date is counted from the previous due date, skipping any occurrence that has
+already passed, so a weekly chore finished three weeks late comes back once, next week, rather than three
+times overdue. A task with no due date counts from the day it was finished. The time of day of the due date
+is kept. A plain `every month` from the 31st clamps to the 30th or the 28th and then stays there, because
+each occurrence counts from the last; `every month on day 31` keeps going back to the month's last day.
+
+The next occurrence keeps the title, description, priority, assignee, parent, tags and custom fields, starts
+in the workflow's first state, and carries the rule. It does not copy comments, artifacts, dependencies or a
+lease. It is created only by moving to a state whose category is `done`, never `cancelled`, so cancelling
+ends the series. Each finished task records the one it spawned and never spawns again, however often it is
+reopened and finished. Creating a task already done, importing a snapshot and an external sync never spawn,
+and the rule travels in an export. The parser is strict: anything it cannot read exactly is refused with
+what was wrong, rather than guessed at.
+
 **Per-browser dates and times.** Format and timezone are chosen in the settings screen and stored in
 a cookie, not on the tenant. Two people sharing a tenant are frequently in different zones.
 

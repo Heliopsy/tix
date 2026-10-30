@@ -460,6 +460,13 @@ lands in `default`. `--limit` (default 25) sizes a page, `--cursor` continues
 one, `--all` follows them for you. The whole filter language, deadlines and
 sorting are in [reference/queries.md](reference/queries.md).
 
+**A recurring task makes its own successor.** A task whose JSON carries
+`recurrence` (set with `tix task add --repeat 'every week'`, changed with
+`tix task edit --repeat` or removed with `--no-repeat`) creates the next
+occurrence itself when you move it to a done state, in the same write, and
+records it as `recurrence_next_id`. Do not create the next one yourself, or
+there will be two. Moving it to `cancelled` ends the series instead.
+
 **Do not poll `tix task ls` in a loop.** `tix watch` subscribes to the event
 stream instead; see [reference/queries.md](reference/queries.md).
 
