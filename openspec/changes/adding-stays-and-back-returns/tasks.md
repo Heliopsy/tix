@@ -6,6 +6,8 @@
       for where they go, a failed page returns to its referrer or the task list, nothing links `/`
 - [x] 1.2 `internal/web/taskdetail.go`, `templates/task.html`: the back link falls back to the
       referrer, survives saves through `taskPath`, and is labelled by destination; delete returns to it
+- [x] 1.3 `internal/httpapi/middleware.go`: the not-found envelope replaces only the mux's own plain
+      text answer, so the browser's HTML error screen reaches the reader
 
 ## 2. Adding stays on the list
 

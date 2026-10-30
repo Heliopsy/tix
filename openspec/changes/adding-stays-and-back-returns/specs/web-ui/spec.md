@@ -6,13 +6,21 @@ Every link the error screen offers SHALL be labelled with where it leads, and no
 an address that redirects somewhere other than its label. A failed mutation SHALL offer the screen
 it was submitted from. A failed page SHALL offer the same-origin page that linked to it, and SHALL
 offer the task list when there is none or when that page is the failing one. The task list SHALL
-always be one of the ways out.
+always be one of the ways out. The error screen SHALL reach the browser as the page it is, at its own
+status, under the server that also serves the API, and SHALL NOT be replaced by the API's error
+envelope.
 
 #### Scenario: A missing page with no referrer
 
 - **WHEN** a signed-in reader requests a page that does not exist, with no referring page
 - **THEN** the error screen offers "Back to tasks" leading to the task list
 - **AND** it offers no link to the root address
+
+#### Scenario: A missing task under the full server
+
+- **GIVEN** `tix serve` serving the API and the browser interface together
+- **WHEN** a signed-in reader opens a task reference that does not exist
+- **THEN** they get the HTML error screen with a not found status, not a JSON body
 
 #### Scenario: A missing page reached from a filtered listing
 

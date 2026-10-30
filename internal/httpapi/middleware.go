@@ -54,6 +54,12 @@ func (rec *recorder) Write(b []byte) (int, error) {
 	return rec.ResponseWriter.Write(b)
 }
 
+// isHTMLContentType reports whether a response is a page a handler rendered.
+func isHTMLContentType(ct string) bool {
+	media, _, _ := strings.Cut(ct, ";")
+	return strings.EqualFold(strings.TrimSpace(media), "text/html")
+}
+
 // Unwrap exposes the underlying writer to http.ResponseController.
 func (rec *recorder) Unwrap() http.ResponseWriter { return rec.ResponseWriter }
 
@@ -110,7 +116,10 @@ func (rt *Router) logRequest(next http.Handler) http.Handler {
 }
 
 // muxErrorWriter replaces the plain text body the mux writes for an unmatched
-// route with the standard envelope.
+// route with the standard envelope. A handler that already answered in JSON
+// or in HTML is left alone: the browser interface's own not-found screen is
+// HTML, and replacing it put a JSON body in front of a reader who had
+// followed a link to a task that no longer exists.
 type muxErrorWriter struct {
 	http.ResponseWriter
 	swallow bool
@@ -123,7 +132,7 @@ func (m *muxErrorWriter) WriteHeader(status int) {
 	}
 	m.written = true
 	if status == http.StatusNotFound || status == http.StatusMethodNotAllowed {
-		if !isJSONContentType(m.Header().Get(wire.HeaderContentType)) {
+		if ct := m.Header().Get(wire.HeaderContentType); !isJSONContentType(ct) && !isHTMLContentType(ct) {
 			m.swallow = true
 			m.Header().Set(wire.HeaderContentType, wire.ContentJSON)
 			m.ResponseWriter.WriteHeader(status)

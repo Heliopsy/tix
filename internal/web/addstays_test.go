@@ -3,6 +3,7 @@
 package web_test
 
 import (
+	"html"
 	"net/http"
 	"net/url"
 	"strings"
@@ -111,6 +112,17 @@ func TestTheListingLinksAndMarksTheTaskJustAdded(t *testing.T) {
 	}
 	if row := dueRow(t, page, "already here"); strings.Contains(row, "is-flashed") {
 		t.Errorf("a row other than %s is marked as %s:\n%s", first, added, row)
+	}
+
+	// Adding publishes an event, so the listing refreshes the moment it is
+	// drawn. The refresh has to ask for the same mark, or the ring is gone
+	// before anybody sees it.
+	live := html.UnescapeString(between(t, page, `data-live="`, `"`))
+	if !strings.Contains(live, "flashref="+added) {
+		t.Fatalf("the live refresh drops the mark: %q", live)
+	}
+	if row := dueRow(t, b.page(live), "just added"); !strings.Contains(row, "is-flashed") {
+		t.Errorf("the refreshed listing no longer marks the new row:\n%s", row)
 	}
 }
 

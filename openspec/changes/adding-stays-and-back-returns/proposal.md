@@ -21,6 +21,8 @@ fall due, and the star state was a shape with no words.
 
 ## What Changes
 
+- Under `tix serve` the browser's not-found screen was replaced by the API's JSON envelope, so a
+  missing task showed `{"error":...}`. The envelope now replaces only the mux's own plain-text answer.
 - The error screen's links name where they go. A failed page goes back to the page that linked to it
   when that was one of ours, and otherwise to the task list. Nothing links `/`.
 - The task screen's back link is named after its destination ("Back to tasks", "Back to the infra
@@ -41,4 +43,5 @@ fall due, and the star state was a shape with no words.
 - `internal/web`: `render.go`, `session.go`, `tasks.go`, `taskdetail.go`, `columns.go`, `live.go`,
   templates `tasks.html`, `task.html`, `error.html`, `partials.html`, `app.css`.
 - `docs/web-ui.md`, `demo/scene/browser.mjs` (the scene opened the new task from the redirect).
-- No service, store or API change. No capability added.
+- `internal/httpapi/middleware.go`: the not-found envelope leaves an HTML answer alone. No service,
+  store or API route change. No capability added.

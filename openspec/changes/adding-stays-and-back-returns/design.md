@@ -29,8 +29,10 @@ with, appends the resolved `next`, which is what keeps the link after the second
 first. `next` still goes through `safeNext`.
 
 The flash and the `flashref` a redirect leaves are stripped from every address that is carried
-forward (`here`, `screenHref`, `fragmentHref`, the create referrer), so adding twice in a row cannot
-carry the first task's toast into the second.
+forward (`here`, `screenHref`, the create referrer), so adding twice in a row cannot carry the first
+task's toast into the second. The live refresh's own address keeps `flashref`: adding a task
+publishes an event that refreshes the listing at once, and a refresh that dropped it took the ring
+off the new row a moment after it was drawn.
 
 ## Marking the new row
 
