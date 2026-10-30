@@ -30,6 +30,15 @@
   --space-5: 24px;
   --space-6: 32px;
   --space-7: 48px;
+  /* The page heading's rhythm, the same on every screen. A heading block
+     (an h1, a .pagehead, a task's title bar) ends --head-gap above the first
+     thing under it, and the line that qualifies the heading sits --head-sub
+     under it. Each screen used to get there its own way, an h1 margin here, a
+     negative lede margin there, a header taller than its heading by the
+     button beside it, so the same distance came out as 8, 14, 16, 18, 23, 24,
+     34 or 42px depending on the screen. TestThePageHeadingKeepsOneRhythm. */
+  --head-gap: var(--space-4);
+  --head-sub: var(--space-1);
 
   /* Corners and control heights. The file used seven radii (3, 4, 6, 8, 10,
      50, 999) and every control picked its own: buttons, inputs and selects sat
@@ -102,12 +111,13 @@
      paragraphs and help lines that need it), so a wide screen can be filled
      with rows without a sentence running the width of a wall.
 
-     --measure-page is what a screen of forms and panels gets; a screen whose
-     subject is a listing or a board takes --measure-wide instead, because
-     those are read sideways and every extra pixel is another column or
-     another attribute that no longer has to wrap. */
-  --measure-page: 1180px;
-  --measure-wide: 1560px;
+     --measure-page is how wide any screen's column may grow, and it is one
+     value for every screen. A screen of forms used to get a narrower one than
+     a listing, which left its right edge 36px further in at 1440px and 520px
+     further in at 1920px, so the controls at the end of a header jumped
+     sideways between screens. What is inside the column carries its own
+     measure: prose, fields, forms and charts below. */
+  --measure-page: 1560px;
   --measure-text: 76ch;
   /* The widest a single-line form control should ever be. A tenant name
      input stretched to 1065px on a 1440px screen: a field whose content is
@@ -416,15 +426,6 @@ nav .group {
     font-size: var(--text-sm);
     line-height: 1.4;
   }
-  /* 11px of padding against a 24.8px line box made this 49 tall while every
-     control beside it was 36, so the add row was a step taller than the page
-     for no reason a reader could see. min-height alone could not shrink it;
-     the padding is what sets the height. */
-  form.quickadd input[name="title"] {
-    min-height: var(--control-h);
-    padding-top: var(--space-1);
-    padding-bottom: var(--space-1);
-  }
   .pagehead { gap: var(--space-2); }
 
   /* The listing's own box becomes a column so the pager can be ordered under
@@ -542,40 +543,16 @@ nav .group {
    that picked a different measure: at 1920px the task list started 32px from
    the sidebar and the projects screen 276px, and even the vertical scrollbar
    moved it by half its width. Switching screens made the page jump sideways.
-   The measures still cap how wide a screen grows; they no longer move where
-   it starts, so the spare width on a very wide window sits on the right.
-   TestTheContentInsetIsOneRule holds this. */
+   The measure caps how wide the column grows and it is the same on every
+   screen, so the column ends where it starts: in the same place whichever
+   screen is open. Per-screen :has() rules used to pick a narrower measure for
+   screens of forms, which moved the right edge instead of the left.
+   TestTheContentInsetIsOneRule and TestThePageMeasureIsOneRule hold this. */
 .wrap {
   padding: 22px var(--gutter) 64px;
   max-width: var(--measure-page);
   width: 100%;
   margin: 0;
-}
-
-/* A board, and a listing, are read sideways: both want the window. The page
-   measure above is for prose -- a task body, the docs, the settings screens --
-   where a long line is genuinely harder to read. On a listing it left a column
-   of empty page down the right at every width over about 1350px.
-
-   Keyed off what the screen contains rather than off a list of routes, so a
-   new screen that renders a board or a listing is wide the day it is written
-   and there is nothing to keep in step. Below 1200px the viewport is the
-   smaller limit and this does nothing. */
-@media (min-width: 1200px) {
-  .wrap:has(.board),
-  .wrap:has(.lanes),
-  .wrap:has(ul.tasklist),
-  .wrap:has(ul.peoplelist),
-  .wrap:has(.feed),
-  /* A screen whose subject is a table of records wants the width. The
-     statistics screen holds a table too, but its subject is a column of
-     charts a few hundred pixels wide, and giving it the listing measure
-     left five bar charts adrift in a 2,000px page. */
-  .wrap:has(table):not(:has(.figures)),
-  /* The task screen is a two column layout, so the measure applies to its
-     prose column rather than to the page: capping the page at the prose
-     measure left the aside squeezed and a stripe of empty window beside it. */
-  .wrap:has(.detail) { max-width: var(--measure-wide); }
 }
 
 /* What a very wide screen does.
@@ -585,18 +562,18 @@ nav .group {
    The gutter grows, so the content is not stuck to a 16px margin on a wall
    of a monitor. The sidebar grows, because at 224px "Import and export" and
    "Connections" sit hard against the edge of a column that has room to
-   spare. And the listing measure grows, so the extra width buys more of the
+   spare. And the page measure grows, so the extra width buys more of the
    thing the reader came for -- a wider title before it wraps, attributes
    that stop colliding, another board column in view -- rather than a wider
    nothing. It stops at 2160px: past that the eye has to travel the desk to
    get from a task's title to its reference, and a 4K screen is better served
    by a centred page with real margins than by one row three feet long. */
 @media (min-width: 1600px) {
-  :root { --gutter: 32px; --side-w: 252px; --measure-wide: 1800px; }
+  :root { --gutter: 32px; --side-w: 252px; --measure-page: 1800px; }
 }
 
 @media (min-width: 2200px) {
-  :root { --gutter: 48px; --measure-page: 1320px; --measure-wide: 2160px; }
+  :root { --gutter: 48px; --measure-page: 2160px; }
 }
 
 /* Typography */
@@ -609,7 +586,7 @@ h1 {
   font-weight: 600;
   letter-spacing: -0.021em;
   line-height: 1.2;
-  margin: 0 0 var(--space-4);
+  margin: 0 0 var(--head-gap);
 }
 h2 {
   font-size: var(--text-lg);
@@ -645,7 +622,15 @@ a { color: var(--accent); }
 .card > p:not([class]),
 details.panel > .body > p:not([class]) { max-width: var(--measure-text); }
 
-.lede { color: var(--muted); margin: -8px 0 18px; }
+.lede { color: var(--muted); margin: 0 0 var(--head-gap); }
+
+/* The heading owns the space under it. A line that qualifies the heading is
+   pulled up to --head-sub beneath it, and whatever comes after the heading
+   block starts at --head-gap, whatever its own top margin says: an h2 there
+   collapsed its 24px with the heading's 16 and a screen opening on a section
+   sat lower than one opening on a table. */
+.wrap > h1 + :is(.lede, .meta) { margin-top: calc(var(--head-sub) - var(--head-gap)); margin-bottom: var(--head-gap); }
+.wrap > :is(h1, .pagehead, h1 + .lede, h1 + .meta) + :not(.lede, .meta) { margin-top: 0; }
 
 /* The one native element left unstyled. A fieldset's default border is a
    notched rectangle no other region in this interface draws, and left at its
@@ -795,7 +780,7 @@ fieldset > label:has(> input[type="radio"]) { margin: var(--space-1) 0; }
 .column .card {
   background: var(--bg);
   margin-bottom: var(--space-2);
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
 }
 .column .card:last-child { margin-bottom: 0; }
@@ -805,7 +790,7 @@ fieldset > label:has(> input[type="radio"]) { margin: var(--space-1) 0; }
   font-weight: 500;
 }
 .column .card a[href^="/tasks/"]:hover { color: var(--accent); text-decoration: underline; }
-.column .card .card-meta { margin-top: var(--space-2); }
+.column .card .card-meta { margin-top: var(--space-1); }
 .column .ref { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); font-size: var(--text-xs); }
 
 /* An empty column still names itself, but does not spend a heading's worth
@@ -847,7 +832,7 @@ fieldset > label:has(> input[type="radio"]) { margin: var(--space-1) 0; }
    be on screen for every card at once: a disclosure keeps the board scannable
    while leaving the form itself a plain, scriptless post. */
 details.card-move {
-  margin: 8px 0 0;
+  margin: var(--space-1) 0 0;
   border: 0;
   background: none;
   box-shadow: none;
@@ -1498,7 +1483,10 @@ td > details.panel > .body {
    pixels. In one column this is simply the last thing on the page. */
 .detail > .wide { grid-column: 1 / -1; }
 
-.titlebar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+.titlebar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin-bottom: var(--head-sub); }
+/* A flex item's margin does not collapse, so the heading's own 16px stacked on
+   the bar's and put the status pills 20px under the title they qualify. */
+.titlebar > h1 { margin: 0; }
 .titlebar .ref { font-family: ui-monospace, monospace; color: var(--muted); font-size: var(--text-md); }
 
 /* Lists */
@@ -1560,7 +1548,7 @@ ul.plain > li:last-child { border-bottom: 0; }
 
 /* Narrow viewports: tighter gutters and no side-by-side detail rail. */
 @media (max-width: 639px) {
-  :root { --gutter: 12px; }
+  :root { --gutter: 12px; --head-gap: var(--space-3); }
   .wrap { padding-top: 16px; }
   h1 { font-size: var(--text-xl); }
   .card, details.panel > .body { padding: 12px; }
@@ -1597,18 +1585,23 @@ ul.plain > li:last-child { border-bottom: 0; }
   }
 }
 
-/* Quick add: the first thing on the page and the fastest path in. */
+/* Quick add: the first thing on the page and the fastest path in.
+   Every control in either row is --control-h tall and nothing else. The title
+   box carried 11px of padding against its line and came out 49px beside a
+   36px select and button, the one control in the row that did not line up,
+   and the two rows stood 12 and 18px apart for no reason a reader could see.
+   TestEveryControlInARowSharesOneHeight. */
 .quickadd, .filterbar {
   display: flex;
-  gap: 8px;
-  margin: 0 0 12px;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
   align-items: center;
 }
 
-.quickadd input[name="title"] { flex: 1 1 auto; padding: 11px 14px; font-size: var(--text-base); }
+.quickadd input[name="title"] { flex: 1 1 auto; font-size: var(--text-base); }
 .quickadd select, .filterbar select { flex: 0 0 auto; width: auto; }
 .filterbar input { flex: 1 1 auto; }
-.filterbar { margin-bottom: 18px; }
+.filterbar { margin-bottom: var(--space-3); }
 
 /* A refused filter reports under the box it is about, so the expression that
    caused it is still on screen and still editable. The bar keeps its own
@@ -1717,14 +1710,18 @@ ul.plain > li:last-child { border-bottom: 0; }
    rather than a button next to a stray link. */
 a.secondary.clear {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h);
+  font-size: var(--text-sm);
   font-weight: 500;
-  padding: 8px 14px;
+  padding: 0 var(--space-4);
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--ink);
   text-decoration: none;
-  line-height: 1.2;
+  line-height: 1;
 }
 
 a.secondary.clear:hover { filter: brightness(1.08); }
@@ -1811,7 +1808,7 @@ a.secondary.clear:hover { filter: brightness(1.08); }
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 10px;
-  margin: 16px 0 6px;
+  margin: var(--space-2) 0;
 }
 
 .pager-prev { grid-column: 1; justify-self: start; }
@@ -1830,9 +1827,10 @@ a.secondary.clear:hover { filter: brightness(1.08); }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-3);
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--ink);
   text-decoration: none;
   font-size: var(--text-sm);
@@ -1861,7 +1859,8 @@ a.secondary.clear:hover { filter: brightness(1.08); }
 /* Named in its own words, like the settings group headings and the sidebar
    group labels. Tracked capitals are the loudest kind of type there is, and
    these two words exist to be skimmed past on the way to the checkboxes. */
-.viewgrid .viewhead {
+.viewgrid .viewhead,
+.addpop > .viewhead {
   margin: 0 0 var(--space-2);
   font-size: var(--text-xs);
   font-weight: 600;
@@ -2145,11 +2144,14 @@ ul.tasklist {
   box-shadow: var(--shadow);
 }
 
+/* Rows, cards and lane cards are set tight: the task screen's subject is how
+   many of them fit, and the 28px star is already the tallest thing in a row,
+   so padding past it was the row being taller than anything in it needs. */
 li.task {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-3);
   border-bottom: 1px solid var(--line);
   border-left: 3px solid transparent;
 }
@@ -2538,8 +2540,6 @@ li.task.is-blocked a.task-title { color: var(--muted); }
   .quickadd, .filterbar { flex-wrap: wrap; }
   .quickadd input[name="title"] { flex: 1 1 140px; min-width: 0; }
   .filterbar input { flex: 1 1 100%; }
-  .pagehead { margin-bottom: var(--space-3); }
-  .quickadd { margin-bottom: var(--space-2); }
   /* The four controls that decide how the list is drawn, on one line at the
      width where they only just fit. They keep their 44px height; it is the
      horizontal padding that goes, and the icon beside each label is what
@@ -2710,7 +2710,7 @@ details.panel.columns { margin-bottom: 18px; }
    page, not of a thing you fill in on the way past: title, project and
    priority fit one line between them, and only the prose fields want the
    width. */
-details.panel.addmore { margin: calc(-1 * var(--space-2)) 0 var(--space-3); border: 0; background: none; }
+details.panel.addmore { margin: calc(-1 * var(--space-2)) 0 var(--space-3); border: 0; background: none; box-shadow: none; }
 /* "New project", "Add with details": the way to make the thing the screen is
    a list of. It was a muted word behind a 9px triangle, set smaller than the
    rows it sat under, which made the one action on the screen the quietest
@@ -2749,7 +2749,7 @@ details.panel.addmore[open] > .body {
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-3);
 }
-.addgrid .field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.addgrid .field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; margin: 0; }
 .addgrid .field > span { font-size: var(--text-xs); color: var(--muted); }
 .addgrid .field.is-wide { grid-column: 1 / -1; }
 .addgrid textarea { min-height: 0; }
@@ -2758,8 +2758,39 @@ details.panel.addmore .actions {
   justify-content: flex-end;
   margin-top: var(--space-3);
 }
+
+/* Add with details on the task screen: a secondary button at the end of the
+   quick-add row, and the form it opens hanging under it like the View menu
+   does, rather than a dashed-looking disclosure on a strip of its own. */
+.quickadd .addmore-open { flex: 0 0 auto; }
+.addpop {
+  width: min(46rem, calc(100vw - 24px));
+  padding: var(--space-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.22);
+}
+@supports (position-area: bottom) {
+  .addpop:popover-open {
+    position-area: bottom span-left;
+    position-try-fallbacks: flip-block, flip-inline;
+    margin: 4px 0 0;
+  }
+}
+.addpop .actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
 @media (max-width: 639px) {
   .addgrid { grid-template-columns: minmax(0, 1fr); }
+  /* The icon alone on a phone, so the row stays one row; the words stay the
+     button's name. */
+  .quickadd .addmore-open { padding-inline: var(--space-2); }
+  .addmore-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 }
 
 /* Tags in the aside: chips that wrap, each with its own removal. */
@@ -2769,7 +2800,7 @@ details.panel.addmore .actions {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  margin: 0 0 var(--space-4);
+  margin: 0 0 var(--head-gap);
 }
 
 /* The identifier, with a way to take it. */
@@ -2922,11 +2953,14 @@ details.panel.addmore .actions {
   justify-content: space-between;
   gap: var(--space-4);
   flex-wrap: wrap;
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--head-gap);
 }
+/* The title and its summary are spaced by the gap alone. Their own margins
+   were the h1's and the lede's, written for a page with no header, and inside
+   a flex item they no longer collapse: the summary sat 4px into the heading
+   and the header ended 18px below its last line before its own margin began. */
 .pagehead-title { min-width: 0; }
-.pagehead-title h1 { margin: 0 0 var(--space-1); }
-.pagehead-title #tasks-summary { margin: 0; }
+.pagehead-title > *, .pagehead-title .lede { margin: 0; }
 .pagehead-tools {
   display: flex;
   align-items: center;
@@ -2938,6 +2972,14 @@ details.panel.addmore .actions {
      pixels to accommodate it. */
   flex-wrap: wrap;
   min-width: 0;
+}
+/* The controls are taller than the heading's line, so beside it they made
+   the header 7px deeper on the screens that have them than on the ones that
+   do not. Centred on the heading's line and allowed to overhang it, they no
+   longer decide where the page under them starts. */
+@media (min-width: 900px) {
+  .pagehead-title { display: flex; flex-direction: column; gap: var(--head-sub); }
+  .pagehead-tools { margin-block: calc((1.2 * var(--text-2xl) - var(--control-h)) / 2); }
 }
 /* In the header the panel is a control, not a section: it gets the height of
    the controls beside it and opens over the page instead of pushing it down. */
@@ -4675,6 +4717,7 @@ td.scopecell .evchip { display: inline-block; margin: 1px 2px 1px 0; font-size: 
   details.panel.raw > summary,
   details.note > summary,
   details.card-move > summary,
+  .pager-step,
   .ghostlink {
     min-height: 44px;
     display: inline-flex;
@@ -4785,14 +4828,14 @@ td.scopecell .evchip { display: inline-block; margin: 1px 2px 1px 0; font-size: 
   gap: var(--space-2);
   background: var(--bg);
   margin-bottom: var(--space-2);
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
 }
 .lane .lane-card:last-of-type { margin-bottom: 0; }
 .lane .lane-body { min-width: 0; flex: 1 1 auto; }
 .lane .lane-title { color: var(--ink); text-decoration: none; font-weight: 500; overflow-wrap: anywhere; }
 .lane .lane-title:hover { color: var(--accent); text-decoration: underline; }
-.lane .card-meta { align-items: center; margin-top: var(--space-2); }
+.lane .card-meta { align-items: center; margin-top: var(--space-1); }
 .lane .ref { color: var(--muted); font-size: var(--text-xs); }
 .lane .lane-card.is-finished .lane-title { color: var(--muted); text-decoration: line-through; }
 .lane .tick { margin-top: 1px; }

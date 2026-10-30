@@ -77,16 +77,26 @@
     {{range $v.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
   </select>
   <button type="submit">Add</button>
+  {{/* The fuller form opens from the row it extends, at the height of the
+       buttons beside it. It was a disclosure on a line of its own under the
+       row, a second strip of chrome above the list for one button. */}}
+  {{if .Advanced}}
+  <button type="button" class="secondary addmore-open" popovertarget="addmore">
+    <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#details"/></svg>
+    <span class="addmore-label">Add with details</span>
+  </button>
+  {{end}}
 </form>
 
 {{/* The same form, where the thing it extends is. It used to sit at the
      bottom of the page, under every row of the listing: the quick-add box was
      at the top and its fuller version was a screenful away, so "add a task
      with a description" meant scrolling past the work to find it. It opens
-     under the box it belongs to now, and closes back into it. */}}
+     under the button that asks for it, over the list rather than pushing it
+     down, and is the same popover primitive as the View menu beside it. */}}
 {{if .Advanced}}
-<details class="panel addmore">
-  <summary>Add with details</summary>
+<div id="addmore" class="addpop" popover>
+  <p class="viewhead">Add with details</p>
   <div class="body">
     <form method="post" action="/tasks">
       {{template "csrf" .CSRF}}
@@ -125,11 +135,12 @@
         {{range $v.Tags}}<option value="{{.Name}}"></option>{{end}}
       </datalist>
       <div class="actions">
+        <button type="button" class="secondary" popovertarget="addmore" popovertargetaction="hide">Cancel</button>
         <button type="submit">Create task</button>
       </div>
     </form>
   </div>
-</details>
+</div>
 {{end}}
 
 <div id="filterpop" class="filterpop" popover>
