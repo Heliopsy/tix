@@ -2,6 +2,7 @@
 
 /* Design tokens. Accent is overridden per tenant by the layout. */
 :root {
+  color-scheme: light;
 
   /* Type scale. Nine steps, and nothing between them. app.css declared 26
      distinct font sizes, thirteen under 16px and ten of those within 4px of
@@ -154,6 +155,7 @@
    black on white, borders stop competing with content, and the accent is
    muted, for anyone who finds the default harsh to sit in front of all day. */
 :root[data-theme="dim"] {
+  color-scheme: dark;
   --bg: #1d2126;
   --surface: #23282e;
   --ink: #c7ccd3;
@@ -183,6 +185,7 @@
 }
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --bg: #14171b;
   --surface: #1b1f24;
   --ink: #e7eaee;
@@ -221,6 +224,7 @@
    theme's. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="dim"]) {
+    color-scheme: dark;
     --bg: #14171b;
     --surface: #1b1f24;
     --ink: #e7eaee;
@@ -899,6 +903,12 @@ input, select, textarea {
 }
 input:hover, select:hover, textarea:hover { box-shadow: inset 0 0 0 1px var(--line-strong); }
 textarea { padding: var(--space-3); line-height: 1.5; }
+
+/* Left to the browser, a placeholder is its light-scheme grey whatever the
+   theme, which on the dark and dim surfaces is near-black on near-black. It
+   takes the muted token instead, so it reads as a hint in every scheme. The
+   opacity resets Firefox, which fades placeholders on top of their colour. */
+::placeholder { color: var(--muted); opacity: 1; }
 
 /* A field is as wide as the thing it holds, not as wide as the page.
 
