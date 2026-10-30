@@ -269,6 +269,8 @@ func eachTask(ctx context.Context, tx store.Tx, projectID string, includeDeleted
 
 // exportTask drops the transient claim state and any reference that leaves the
 // exported scope, so a filtered snapshot never names a row it does not carry.
+// The recurrence successor link is the exception and travels as it is: it is
+// the guard against spawning twice rather than a reference to follow.
 func exportTask(ctx context.Context, tx store.Tx, t core.Task, scope map[string]bool) (*core.Task, error) {
 	t.TenantID = ""
 	t.DependsOn = nil
@@ -479,6 +481,7 @@ type importer struct {
 	taskOwner    map[string]string
 	lastFlow     string
 	parents      []parentLink
+	successors   []string
 	problems     []string
 }
 
@@ -515,6 +518,9 @@ func (i *importer) run(ctx context.Context, tx store.Tx, m *mutation) error {
 		}
 	}
 	if err := i.linkParents(ctx, tx); err != nil {
+		return err
+	}
+	if err := i.linkSuccessors(ctx, tx); err != nil {
 		return err
 	}
 	if len(i.problems) > 0 {
@@ -970,7 +976,9 @@ func taskContentEqual(existing, target *core.Task) bool {
 		timePtrEqual(existing.StartedAt, target.StartedAt) &&
 		timePtrEqual(existing.CompletedAt, target.CompletedAt) &&
 		customFieldsEqual(existing.CustomFields, target.CustomFields) &&
-		tagsEqual(existing.Tags, target.Tags)
+		tagsEqual(existing.Tags, target.Tags) &&
+		existing.Recurrence == target.Recurrence &&
+		existing.RecurrenceNextID == target.RecurrenceNextID
 }
 
 // customFieldsEqual compares custom field values by their JSON representation
@@ -1049,12 +1057,17 @@ func (i *importer) buildLiveTaskTarget(ctx context.Context, tx store.Tx, project
 	if err != nil {
 		return nil, false, err
 	}
+	rule, err := core.NormalizeRecurrence(t.Recurrence)
+	if err != nil {
+		return nil, false, i.reject("task %q at line %d: %v", t.Title, line, err)
+	}
 
 	target = &core.Task{
 		ProjectID: projectID, Seq: t.Seq, Title: title, Body: t.Body,
 		Status: status, Priority: t.Priority, AssigneeActorID: assignee, CreatorActorID: creator,
 		DueAt: t.DueAt, StartedAt: t.StartedAt, CompletedAt: t.CompletedAt,
 		CustomFields: fields, CreatedAt: t.CreatedAt, Tags: t.Tags,
+		Recurrence: rule, RecurrenceNextID: t.RecurrenceNextID,
 	}
 	if target.Priority == 0 {
 		target.Priority = core.PriorityNormal
@@ -1146,6 +1159,9 @@ func (i *importer) applyTaskLive(ctx context.Context, tx store.Tx, m *mutation, 
 		if i.dryRun {
 			return nil
 		}
+		if target.RecurrenceNextID != "" {
+			i.successors = append(i.successors, target.ID)
+		}
 		if err := replaceTaskLabels(ctx, tx, target, t.Tags); err != nil {
 			return err
 		}
@@ -1168,6 +1184,9 @@ func (i *importer) applyTaskLive(ctx context.Context, tx store.Tx, m *mutation, 
 
 	target.ID = existing.ID
 	target.Seq = existing.Seq
+	if target.RecurrenceNextID == "" {
+		target.RecurrenceNextID = existing.RecurrenceNextID
+	}
 	resurrecting := existing.Deleted()
 	if !resurrecting && taskContentEqual(existing, target) {
 		i.result.Skipped[string(core.RecordTask)]++
@@ -1185,6 +1204,9 @@ func (i *importer) applyTaskLive(ctx context.Context, tx store.Tx, m *mutation, 
 	}
 	if err := tx.UpdateTask(ctx, target); err != nil {
 		return err
+	}
+	if t.RecurrenceNextID != "" {
+		i.successors = append(i.successors, target.ID)
 	}
 	if err := replaceTaskLabels(ctx, tx, target, t.Tags); err != nil {
 		return err
@@ -1517,6 +1539,31 @@ func (i *importer) linkParents(ctx context.Context, tx store.Tx) error {
 			continue
 		}
 		task.ParentID = link.parentID
+		if err := tx.UpdateTask(ctx, task); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// linkSuccessors points each imported successor link at the identifier its
+// successor was imported under. A link whose successor the snapshot did not
+// carry keeps the snapshot's identifier: it still marks the task as having
+// spawned, which is the guard the link exists for.
+func (i *importer) linkSuccessors(ctx context.Context, tx store.Tx) error {
+	if i.dryRun {
+		return nil
+	}
+	for _, taskID := range i.successors {
+		task, err := tx.GetTask(ctx, core.TaskRef{ID: taskID})
+		if err != nil {
+			return err
+		}
+		mapped, ok := i.ids[task.RecurrenceNextID]
+		if task.RecurrenceNextID == "" || !ok || mapped == task.RecurrenceNextID {
+			continue
+		}
+		task.RecurrenceNextID = mapped
 		if err := tx.UpdateTask(ctx, task); err != nil {
 			return err
 		}

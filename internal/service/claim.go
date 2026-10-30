@@ -376,11 +376,18 @@ func (l *Local) applyRelease(ctx context.Context, m *mutation, task *core.Task, 
 		completed := m.now
 		updated.CompletedAt = &completed
 	}
+	next, err := spawnOccurrence(ctx, m, wf.Definition, &updated, in.Status)
+	if err != nil {
+		return err
+	}
 	if err := m.tx.UpdateTask(ctx, &updated); err != nil {
 		return err
 	}
-	return m.Record("task.transition", core.EventTaskTransitioned, "task", task.ID, task.ProjectID,
-		task, updated, map[string]any{"from": task.Status, "to": in.Status})
+	if err := m.Record("task.transition", core.EventTaskTransitioned, "task", task.ID, task.ProjectID,
+		task, updated, withNext(map[string]any{"from": task.Status, "to": in.Status}, next)); err != nil {
+		return err
+	}
+	return recordOccurrence(m, &updated, next)
 }
 
 // SweepLeases materializes expired leases, reporting how many it cleared.

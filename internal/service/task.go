@@ -25,6 +25,10 @@ func (l *Local) CreateTask(ctx context.Context, in core.CreateTaskInput) (*core.
 	if len(in.Body) > core.MaxBodyLength {
 		return nil, core.Invalid("task body must be at most %d characters", core.MaxBodyLength)
 	}
+	rule, err := core.NormalizeRecurrence(in.Recurrence)
+	if err != nil {
+		return nil, err
+	}
 	actor, err := l.authorize(ctx, authz.ActionTaskCreate, authz.Resource{})
 	if err != nil {
 		return nil, err
@@ -96,6 +100,7 @@ func (l *Local) CreateTask(ctx context.Context, in core.CreateTaskInput) (*core.
 			CreatorActorID:  actor.ID,
 			DueAt:           in.DueAt,
 			CustomFields:    fields,
+			Recurrence:      rule,
 		}
 		if wf.Definition.IsTerminal(status) {
 			completed := m.now
@@ -266,6 +271,13 @@ func (l *Local) UpdateTask(ctx context.Context, ref core.TaskRef, in core.Update
 		if in.DueAt != nil {
 			task.DueAt = *in.DueAt
 		}
+		if in.Recurrence != nil {
+			rule, err := core.NormalizeRecurrence(*in.Recurrence)
+			if err != nil {
+				return err
+			}
+			task.Recurrence = rule
+		}
 		if in.ParentRef != nil {
 			parentID, err := resolveParent(ctx, m.tx, task, *in.ParentRef)
 			if err != nil {
@@ -339,6 +351,9 @@ func updatedFields(in core.UpdateTaskInput) []string {
 	if in.Tags != nil {
 		out = append(out, "tags")
 	}
+	if in.Recurrence != nil {
+		out = append(out, "recurrence")
+	}
 	return out
 }
 
@@ -373,6 +388,9 @@ func changedTaskFields(before, after *core.Task) []string {
 	}
 	if !tagsEqual(before.Tags, after.Tags) {
 		out = append(out, "tags")
+	}
+	if before.Recurrence != after.Recurrence {
+		out = append(out, "recurrence")
 	}
 	return out
 }
@@ -449,6 +467,10 @@ func (l *Local) TransitionTask(ctx context.Context, ref core.TaskRef, in core.Tr
 				task.StartedAt = &now
 			}
 		}
+		next, err := spawnOccurrence(ctx, m, def, task, in.To)
+		if err != nil {
+			return err
+		}
 		if err := m.tx.UpdateTask(ctx, task); err != nil {
 			return err
 		}
@@ -459,7 +481,10 @@ func (l *Local) TransitionTask(ctx context.Context, ref core.TaskRef, in core.Tr
 			}
 		}
 		if err := m.Record("task.transition", core.EventTaskTransitioned, "task", task.ID, task.ProjectID,
-			before, task, map[string]any{"ref": task.Ref, "from": before.Status, "to": task.Status}); err != nil {
+			before, task, withNext(map[string]any{"ref": task.Ref, "from": before.Status, "to": task.Status}, next)); err != nil {
+			return err
+		}
+		if err := recordOccurrence(m, task, next); err != nil {
 			return err
 		}
 		out, err = m.tx.GetTask(ctx, core.TaskRef{ID: task.ID})

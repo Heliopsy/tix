@@ -123,7 +123,7 @@ func statsCategories(ctx context.Context, tx store.Tx, workflowID string) (map[s
 			if _, seen := out[state.Key]; seen {
 				continue
 			}
-			out[state.Key] = statsCategoryOf(def, state)
+			out[state.Key] = def.CategoryOf(state.Key)
 		}
 	}
 	return out, nil
@@ -148,19 +148,6 @@ func statsDefinitions(ctx context.Context, tx store.Tx, workflowID string) ([]co
 		out = append(out, wf.Definition)
 	}
 	return out, nil
-}
-
-func statsCategoryOf(def core.WorkflowDefinition, state core.State) core.StateCategory {
-	switch {
-	case state.Category != "":
-		return state.Category
-	case state.Terminal:
-		return core.CategoryDone
-	case state.Key == def.Initial:
-		return core.CategoryTodo
-	default:
-		return core.CategoryInProgress
-	}
 }
 
 // applyStatsRows derives every reported figure from the rows the store read.
