@@ -120,7 +120,9 @@ The same store, three ways in. More in [screenshots/](screenshots/README.md).
 | --- | --- |
 | [![Task list on the command line](screenshots/cli-task-list.png)](screenshots/cli-task-list.png) | [![Workflow board in the terminal](screenshots/tui-board.png)](screenshots/tui-board.png) |
 
-[![Task detail in the browser](screenshots/web-task-detail.png)](screenshots/web-task-detail.png)
+| Browser, one lane per project | Browser, a task |
+| --- | --- |
+| [![Lanes view in the browser](screenshots/web-lanes.png)](screenshots/web-lanes.png) | [![Task detail in the browser](screenshots/web-task-detail.png)](screenshots/web-task-detail.png) |
 
 ## Quick start
 
