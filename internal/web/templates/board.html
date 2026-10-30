@@ -1,6 +1,6 @@
 {{define "content"}}
-<h1>{{if .Data.Project.Icon}}<span class="proj-icon" role="img" aria-label="{{.Data.Project.Name}}">{{.Data.Project.Icon}}</span> {{end}}{{.Data.Project.Name}} board</h1>
-<p class="meta">Workflow {{.Data.Workflow.Name}} &middot; <a href="/projects/{{.Data.Project.Key}}/fields">Field definitions</a> &middot; <a href="/workflows/{{.Data.Workflow.Key}}">Workflow editor</a></p>
+<div class="headtip"><h1>{{if .Data.Project.Icon}}<span class="proj-icon" role="img" aria-label="{{.Data.Project.Name}}">{{.Data.Project.Icon}}</span> {{end}}{{t "%s board" .Data.Project.Name}}</h1>{{template "tip" (tip "Board" "Each column is one state of this project's workflow, in the workflow's order. Drag a card to another column, or use its Move control: only the moves the workflow allows are offered." "docs/workflows.md")}}</div>
+<p class="meta">{{t "Workflow %s" .Data.Workflow.Name}} &middot; <a href="/projects/{{.Data.Project.Key}}/fields">{{t "Field definitions"}}</a> &middot; <a href="/workflows/{{.Data.Workflow.Key}}">{{t "Workflow editor"}}</a></p>
 {{/* A screen reader user learns a drag-and-drop move happened here, since
      nothing else on the page narrates it: the move itself patches the DOM in
      place (assets/live.js) rather than navigating, which a screen reader
@@ -9,14 +9,14 @@
 <div id="project-board">{{template "project-board" .}}</div>
 
 <details class="panel">
-  <summary>Project settings</summary>
+  <summary>{{t "Project settings"}}</summary>
   <div class="body">
     <form method="post" action="/projects/{{.Data.Project.Key}}/update">
       {{template "csrf" .CSRF}}
       <div class="row">
-        <div><label for="name">Name</label><input id="name" name="name" value="{{.Data.Project.Name}}" required></div>
+        <div><label for="name">{{t "Name"}}</label><input id="name" name="name" value="{{.Data.Project.Name}}" required></div>
         <div>
-          <label for="workflow_key">Workflow</label>
+          <label for="workflow_key">{{t "Workflow"}}</label>{{template "tip" (tip "Workflow" "A project uses exactly one workflow. It sets the states a task can be in, the board's columns and the moves allowed between them. Several projects can share one workflow." "docs/workflows.md")}}
           {{$wf := .Data.Workflow.Key}}
           <select id="workflow_key" name="workflow_key">
             {{range .Data.Workflows}}<option value="{{.Key}}" {{if eq .Key $wf}}selected{{end}}>{{.Name}}</option>{{end}}
@@ -25,16 +25,16 @@
       </div>
       <div class="row">
         <div>
-          <label for="color">Colour</label>
+          <label for="color">{{t "Colour"}}</label>
           <select id="color" name="color">
-            <option value="" {{if not .Data.Project.Color}}selected{{end}}>none</option>
+            <option value="" {{if not .Data.Project.Color}}selected{{end}}>{{t "none"}}</option>
             {{$current := .Data.Project.Color}}
             {{range .Data.Colors}}<option value="{{.}}" {{if eq . $current}}selected{{end}}>{{.}}</option>{{end}}
           </select>
         </div>
         <div>
-          <label for="icon">Icon</label>
-          <input id="icon" name="icon" maxlength="2" value="{{.Data.Project.Icon}}" placeholder="an emoji, or one or two letters" list="icon-suggestions">
+          <label for="icon">{{t "Icon"}}</label>
+          <input id="icon" name="icon" maxlength="2" value="{{.Data.Project.Icon}}" placeholder="{{t "an emoji, or one or two letters"}}" list="icon-suggestions">
           <datalist id="icon-suggestions">
             <option value="&#128230;"><option value="&#128640;"><option value="&#128736;">
             <option value="&#128202;"><option value="&#127968;"><option value="&#128421;">
@@ -42,24 +42,24 @@
           </datalist>
         </div>
       </div>
-      <label for="description">Description</label>
+      <label for="description">{{t "Description"}}</label>
       <textarea id="description" name="description">{{.Data.Project.Description}}</textarea>
-      <div class="actions"><button type="submit">Save project</button></div>
+      <div class="actions"><button type="submit">{{t "Save project"}}</button></div>
     </form>
   </div>
 </details>
 
 <details class="panel danger">
-  <summary>Danger zone</summary>
+  <summary>{{t "Danger zone"}}</summary>
   <div class="body">
-    <p class="muted">Archiving hides {{.Data.Project.Name}} from active lists. Deleting it removes it, and cannot be undone.</p>
+    <p class="muted">{{t "Archiving hides %s from active lists. Deleting it removes it, and cannot be undone." .Data.Project.Name}}</p>
     <form method="post" action="/projects/{{.Data.Project.Key}}/archive">
       {{template "csrf" .CSRF}}
-      <div class="actions"><button class="secondary" type="submit">Archive project</button></div>
+      <div class="actions"><button class="secondary" type="submit">{{t "Archive project"}}</button></div>
     </form>
     <form method="post" action="/projects/{{.Data.Project.Key}}/delete">
       {{template "csrf" .CSRF}}
-      <div class="actions"><button class="danger" type="submit">Delete project</button></div>
+      <div class="actions"><button class="danger" type="submit">{{t "Delete project"}}</button></div>
     </form>
   </div>
 </details>
@@ -85,29 +85,29 @@
         <div><a href="/tasks/{{.Task.Ref}}">{{.Task.Title}}</a></div>
         {{if or (ne (prio .Task.Priority) "normal") .Task.Tags .Task.Recurrence}}
         <div class="card-meta">
-          {{if ne (prio .Task.Priority) "normal"}}<span class="prio p-{{prio .Task.Priority}}" title="Priority: {{prio .Task.Priority}}"><span class="caret" aria-hidden="true"></span>{{prio .Task.Priority}}</span>{{end}}
+          {{if ne (prio .Task.Priority) "normal"}}<span class="prio p-{{prio .Task.Priority}}" title="{{t "Priority: %s" (t (prio .Task.Priority))}}"><span class="caret" aria-hidden="true"></span>{{t (prio .Task.Priority)}}</span>{{end}}
           {{if .Task.Recurrence}}{{template "repeatmark" .Task.Recurrence}}{{end}}
           {{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}
         </div>
         {{end}}
         {{if .Routes}}
         <details class="card-move">
-          <summary aria-label="Move {{.Task.Ref}}">Move</summary>
+          <summary aria-label="{{t "Move %s" .Task.Ref}}">{{t "Move"}}</summary>
           <div class="body">
             <form method="post" action="/projects/{{$.Data.Project.Key}}/move">
               {{template "csrf" $.CSRF}}
               <input type="hidden" name="ref" value="{{.Task.Ref}}">
-              <select id="to-{{.Task.Ref}}" name="route" aria-label="Move {{.Task.Ref}} to">
+              <select id="to-{{.Task.Ref}}" name="route" aria-label="{{t "Move %s to" .Task.Ref}}">
                 {{range $i, $r := .Routes}}<option value="{{$r.Value}}"{{if eq $i 0}} selected{{end}}>{{$r.Option}}</option>{{end}}
               </select>
-              <button type="submit">Move</button>
+              <button type="submit">{{t "Move"}}</button>
             </form>
           </div>
         </details>
         {{end}}
       </article>
     {{else}}
-      <p class="meta column-empty">No tasks.</p>
+      <p class="meta column-empty">{{t "No tasks."}}</p>
     {{end}}
   </section>
 {{end}}

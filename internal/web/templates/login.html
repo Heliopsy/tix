@@ -1,18 +1,18 @@
 {{define "content"}}
 <a class="authbrand" href="/"><img class="logo" src="/assets/tix.svg" alt="" width="40" height="40"><span>{{.Brand.Title}}</span></a>
 <div class="card authcard">
-<h1>Sign in</h1>
+<h1>{{t "Sign in"}}</h1>
 <form method="post" action="/login">
   {{template "csrf" .CSRF}}
   {{/* Where the visitor was going before they were bounced here. It rides
        through the password step and the second factor step alike, so a deep
        link still lands after both. */}}
   <input type="hidden" name="next" value="{{.Data.Next}}">
-  <label for="email">Email</label>
+  <label for="email">{{t "Email"}}</label>
   <input id="email" name="email" type="email" autocomplete="username" required>
-  <label for="password">Password</label>
+  <label for="password">{{t "Password"}}</label>
   <input id="password" name="password" type="password" autocomplete="current-password" required>
-  <div class="actions"><button type="submit">Sign in</button></div>
+  <div class="actions"><button type="submit">{{t "Sign in"}}</button></div>
 </form>
 </div>
 
@@ -21,23 +21,23 @@
      Both commands need shell access to the machine running tix; a browser
      alone cannot create or reset an account. */}}
 <details class="panel login-help">
-  <summary>Can't sign in?</summary>
+  <summary>{{t "Can't sign in?"}}</summary>
   <div class="body">
-    <p class="muted">No account yet on this tenant? Create one from a shell with access to this server:</p>
+    <p class="muted">{{t "No account yet on this tenant? Create one from a shell with access to this server:"}}</p>
     <div class="copyline">
       <code id="hint-create">tix user create you@example.com --role admin --password 'change-me'{{if .Data.TargetHint}} --db {{.Data.TargetHint}}{{end}}</code>
-      <button type="button" class="secondary" data-copy-target="hint-create">Copy</button>
+      <button type="button" class="secondary" data-copy-target="hint-create">{{t "Copy"}}</button>
     </div>
-    <p class="muted">Forgot a password for an existing account? List it to find its id, then reset it:</p>
+    <p class="muted">{{t "Forgot a password for an existing account? List it to find its id, then reset it:"}}</p>
     <div class="copyline">
       <code id="hint-list">tix user ls{{if .Data.TargetHint}} --db {{.Data.TargetHint}}{{end}}</code>
-      <button type="button" class="secondary" data-copy-target="hint-list">Copy</button>
+      <button type="button" class="secondary" data-copy-target="hint-list">{{t "Copy"}}</button>
     </div>
     <div class="copyline">
       <code id="hint-reset">tix user edit &lt;id&gt; --password 'change-me'{{if .Data.TargetHint}} --db {{.Data.TargetHint}}{{end}}</code>
-      <button type="button" class="secondary" data-copy-target="hint-reset">Copy</button>
+      <button type="button" class="secondary" data-copy-target="hint-reset">{{t "Copy"}}</button>
     </div>
-    <p class="muted">Both run on the machine running tix, not in this browser.</p>
+    <p class="muted">{{t "Both run on the machine running tix, not in this browser."}}</p>
   </div>
 </details>
 {{end}}

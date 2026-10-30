@@ -1,5 +1,5 @@
 {{define "content"}}
-<h1>Statistics</h1>
+<div class="headtip"><h1>{{t "Statistics"}}</h1>{{template "tip" (tip "Statistics" "Completed counts tasks that reached a terminal state in the window, cancelled ones included; created counts tasks made in it. Lead time runs from a task's creation to its terminal state; slowest is the longest of those. The window always ends now." "docs/statistics.md")}}</div>
 
 {{/* The window and the project are a GET form, so every view of this screen
      has a URL someone can send. A POST here would make "show me the last 90
@@ -10,19 +10,19 @@
      .field so the two read as one choice. */}}
 <form class="filterbar statsfilter" method="get" action="/stats">
   <span class="field">
-    <label for="stats-days">Window</label>
+    <label for="stats-days">{{t "Window"}}</label>
     <select id="stats-days" name="days">
       {{$days := .Data.Days}}
       {{range .Data.Windows}}
-      <option value="{{.Days}}" {{if eq .Days $days}}selected{{end}}>{{.Label}}</option>
+      <option value="{{.Days}}" {{if eq .Days $days}}selected{{end}}>{{t .Label}}</option>
       {{end}}
     </select>
   </span>
 
   <span class="field">
-    <label for="stats-project">Project</label>
+    <label for="stats-project">{{t "Project"}}</label>
     <select id="stats-project" name="project">
-      <option value="">Every project</option>
+      <option value="">{{t "Every project"}}</option>
       {{$project := .Data.Project}}
       {{range .Data.Projects}}
       <option value="{{.Key}}" {{if eq .Key $project}}selected{{end}}>{{.Name}}</option>
@@ -30,7 +30,7 @@
     </select>
   </span>
 
-  <button class="secondary" type="submit">Apply</button>
+  <button class="secondary" type="submit">{{t "Apply"}}</button>
 </form>
 
 {{if not .Data.ProjectsWhole}}
@@ -39,20 +39,20 @@
      every project -- but a project missing from the control cannot be chosen,
      and without this line its absence reads as a project with no statistics
      rather than one this screen could not list. */}}
-<p class="muted short-projects">This picker does not list every project in this tenant, so a project missing from it cannot be chosen here. The figures below are unaffected.</p>
+<p class="muted short-projects">{{t "This picker does not list every project in this tenant, so a project missing from it cannot be chosen here. The figures below are unaffected."}}</p>
 {{end}}
 
 {{/* Four figures on one line, divided by a rule rather than boxed in four
      outlined rectangles. They are the same measure of the same window, so
      they are one group, and drawing a border round each said the opposite. */}}
 <section class="figures">
-  <div><p class="figure">{{.Data.Stats.Completed}}</p><p class="caption">completed</p></div>
-  <div><p class="figure">{{.Data.Stats.Created}}</p><p class="caption">created</p></div>
-  <div><p class="figure">{{age .Data.Stats.MedianLeadTime}}</p><p class="caption">median lead time</p></div>
-  <div><p class="figure">{{age .Data.Stats.SlowestLeadTime}}</p><p class="caption">slowest</p></div>
+  <div><p class="figure">{{.Data.Stats.Completed}}</p><p class="caption">{{t "completed"}}</p></div>
+  <div><p class="figure">{{.Data.Stats.Created}}</p><p class="caption">{{t "created"}}</p></div>
+  <div><p class="figure">{{age .Data.Stats.MedianLeadTime}}</p><p class="caption">{{t "median lead time"}}</p></div>
+  <div><p class="figure">{{age .Data.Stats.SlowestLeadTime}}</p><p class="caption">{{t "slowest"}}</p></div>
 </section>
 
-<h2>Completed per day</h2>
+<div class="headtip"><h2>{{t "Completed per day"}}</h2>{{template "tip" (tip "Completed per day" "Tasks that reached a terminal state, by the UTC day it happened. A task reopened since then is not counted, and only its latest completion is." "docs/statistics.md")}}</div>
 {{if .Data.MaxDay}}
 {{/* Bars are div widths. Six numbers do not justify a plotting library, which
      would be the largest dependency in the project and the only one that
@@ -61,10 +61,10 @@
      runs across. It was one full width progress bar per day: a thousand
      pixels of ink to say "one task", stacked six deep, which made the
      smallest numbers on the page the largest objects on it. */}}
-<ol class="daybars" aria-label="Tasks completed per day">
+<ol class="daybars" aria-label="{{t "Tasks completed per day"}}">
   {{$max := .Data.MaxDay}}
   {{range .Data.Stats.PerDay}}
-  <li title="{{.Date}}: {{.Completed}} completed">
+  <li title="{{t "%s: %d completed" .Date .Completed}}">
     <span class="daybar-value">{{.Completed}}</span>
     <span class="daybar" style="height: {{percent .Completed $max}}%"></span>
     {{/* The year is the same on every column of a fourteen day window, so
@@ -76,10 +76,10 @@
   {{end}}
 </ol>
 {{else}}
-<p class="empty">Nothing was completed in this window.</p>
+<p class="empty">{{t "Nothing was completed in this window."}}</p>
 {{end}}
 
-<h2>Where the work is</h2>
+<div class="headtip"><h2>{{t "Where the work is"}}</h2>{{template "tip" (tip "Where the work is" "How many tasks sit in each state category right now, whatever the window. Done and cancelled are kept apart, so abandoned work never reads as finished work." "docs/statistics.md")}}</div>
 {{/* A distribution drawn as one, not as a two column table. "11" beside "To
      do" and "39" beside "Done" are numbers a reader has to compare in their
      head; the whole question this section answers is which states the work
@@ -93,25 +93,25 @@
      the work spread", and six rows of a near-full-width track for counts
      between 0 and 39 was a great deal of ink for six small integers. */}}
 {{$total := .Data.TotalCategory}}
-<div class="split" role="img" aria-label="How the tasks are spread across states">
+<div class="split" role="img" aria-label="{{t "How the tasks are spread across states"}}">
   {{range .Data.Stats.ByCategory}}
-  {{if .Count}}<span class="split-part {{categoryClass .Category}}" style="width: {{percent .Count $total}}%" title="{{category .Category}}: {{.Count}}"></span>{{end}}
+  {{if .Count}}<span class="split-part {{categoryClass .Category}}" style="width: {{percent .Count $total}}%" title="{{t (category .Category)}}: {{.Count}}"></span>{{end}}
   {{end}}
 </div>
 <ul class="legend">
   {{range .Data.Stats.ByCategory}}
   <li title="{{.Category}}">
     <span class="legend-dot {{categoryClass .Category}}"></span>
-    <span class="legend-name">{{category .Category}}</span>
+    <span class="legend-name">{{t (category .Category)}}</span>
     <span class="legend-count">{{.Count}}</span>
   </li>
   {{end}}
 </ul>
 {{else}}
-<p class="empty muted">No tasks yet.</p>
+<p class="empty muted">{{t "No tasks yet."}}</p>
 {{end}}
 
-<h2>Most active</h2>
+<div class="headtip"><h2>{{t "Most active"}}</h2>{{template "tip" (tip "Most active" "People and agents ranked by how many tasks they moved to a terminal state, read from the audit log. It is not a measure of effort. A move older than the audit retention window counts for nobody." "docs/statistics.md")}}</div>
 {{/* The measure is printed every time the leaderboard is. A ticket-closing
      count that looks like a productivity measure is worse than no
      leaderboard, and the wording comes from core so it cannot drift from the
@@ -120,7 +120,7 @@
      edge that stands under a destructive control; what this says is simply
      which number the bars below are counting, and drawn as a warning it was
      the loudest object on a page of quiet grey bars. */}}
-<p class="lede measure-note">Counting {{.Data.Measure}}.</p>
+<p class="lede measure-note">{{t "Counting %s." (t .Data.Measure)}}</p>
 {{if .Data.Stats.TopActors}}
 <ul class="dist">
   {{$busiest := .Data.MaxActor}}
@@ -133,10 +133,10 @@
   {{end}}
 </ul>
 {{else}}
-<p class="empty">Nobody moved a task to a terminal state in this window.</p>
+<p class="empty">{{t "Nobody moved a task to a terminal state in this window."}}</p>
 {{end}}
 
-<h2>Waiting longest</h2>
+<div class="headtip"><h2>{{t "Waiting longest"}}</h2>{{template "tip" (tip "Waiting longest" "The oldest tasks that have not reached a terminal state, whatever the window. Age counts from when the task was created." "docs/statistics.md")}}</div>
 {{if .Data.Stats.Oldest}}
 {{/* table-layout is fixed, so without a colgroup the four columns are a
      quarter of the width each: a reference and an age were each given as
@@ -149,7 +149,7 @@
     <col class="c-state">
     <col class="c-age">
   </colgroup>
-  <thead><tr><th>Ref</th><th>Title</th><th>Status</th><th class="num">Age</th></tr></thead>
+  <thead><tr><th>{{t "Ref"}}</th><th>{{t "Title"}}</th><th>{{t "Status"}}</th><th class="num">{{t "Age"}}</th></tr></thead>
   <tbody>
     {{range .Data.Stats.Oldest}}
     <tr>
@@ -162,6 +162,6 @@
   </tbody>
 </table>
 {{else}}
-<p class="empty">Nothing is waiting: every task has reached a terminal state.</p>
+<p class="empty">{{t "Nothing is waiting: every task has reached a terminal state."}}</p>
 {{end}}
 {{end}}

@@ -1,41 +1,41 @@
 {{define "content"}}
-<h1>Field definitions for {{.Data.Project.Key}}</h1>
+<div class="headtip"><h1>{{t "Field definitions for %s" .Data.Project.Key}}</h1>{{template "tip" (tip "Custom fields" "Extra typed values every task in this project can carry, set from the task screen, with tix task edit --field key=value, or through the API. Filter on one with field.KEY:VALUE." "docs/workflows.md")}}</div>
 <table>
-  <thead><tr><th>Key</th><th>Label</th><th>Type</th><th>Required</th><th></th></tr></thead>
+  <thead><tr><th>{{t "Key"}}</th><th>{{t "Label"}}</th><th>{{t "Type"}}</th><th>{{t "Required"}}</th><th></th></tr></thead>
   <tbody>
   {{range .Data.Fields}}
     <tr>
-      <td>{{.Key}}</td><td>{{.Label}}</td><td>{{.Type}}</td><td>{{if .Required}}yes{{else}}no{{end}}</td>
+      <td>{{.Key}}</td><td>{{.Label}}</td><td>{{.Type}}</td><td>{{if .Required}}{{t "yes"}}{{else}}{{t "no"}}{{end}}</td>
       <td>
         <form method="post" action="/projects/{{$.Data.Project.Key}}/fields/delete">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="key" value="{{.Key}}">
-          <button class="secondary" type="submit">Delete</button>
+          <button class="secondary" type="submit">{{t "Delete"}}</button>
         </form>
       </td>
     </tr>
   {{else}}
-    <tr><td colspan="5">No custom fields.</td></tr>
+    <tr><td colspan="5">{{t "No custom fields."}}</td></tr>
   {{end}}
   </tbody>
 </table>
 
-<h2>Define a field</h2>
+<h2>{{t "Define a field"}}</h2>
 <form method="post" action="/projects/{{.Data.Project.Key}}/fields">
   {{template "csrf" .CSRF}}
   <div class="row">
-    <div><label for="key">Key</label><input id="key" name="key" required></div>
-    <div><label for="label">Label</label><input id="label" name="label"></div>
+    <div><label for="key">{{t "Key"}}</label><input id="key" name="key" required></div>
+    <div><label for="label">{{t "Label"}}</label><input id="label" name="label"></div>
     <div>
-      <label for="type">Type</label>
+      <label for="type">{{t "Type"}}</label>{{template "tip" (tip "Type" "What a value must look like: string, text, int, float, bool, date, datetime, enum (one of the options below), actor (a person or agent) or json.")}}
       <select id="type" name="type">
         {{range .Data.Types}}<option value="{{.}}">{{.}}</option>{{end}}
       </select>
     </div>
   </div>
-  <label for="enum_options">Enum options, comma separated</label>
+  <label for="enum_options">{{t "Enum options, comma separated"}}</label>
   <input id="enum_options" name="enum_options">
-  <label for="required"><input id="required" type="checkbox" name="required" value="1"> Required</label>
-  <p><button type="submit">Save field</button></p>
+  <label for="required"><input id="required" type="checkbox" name="required" value="1"> {{t "Required"}}</label>{{template "tip" (tip "Required" "Every task in the project must carry a value for this field. Marking a field required later does not invalidate tasks that already lack one.")}}
+  <p><button type="submit">{{t "Save field"}}</button></p>
 </form>
 {{end}}

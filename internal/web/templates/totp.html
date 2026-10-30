@@ -17,42 +17,42 @@
      the page. */}}
 {{if $v.Ticket}}<a class="authbrand" href="/"><img class="logo" src="/assets/tix.svg" alt="" width="40" height="40"><span>{{.Brand.Title}}</span></a>{{end}}
 {{if not $v.Ticket}}
-<h1>{{$v.Heading}}</h1>
-<p class="lede">{{$v.Lede}}</p>
+<h1>{{t $v.Heading}}</h1>
+<p class="lede">{{t $v.Lede}}</p>
 {{end}}
 
 {{if $v.Enrol}}
 <div class="card totp-enrol">
   {{if $v.QR}}{{$v.QR}}{{end}}
   {{if $v.Key}}
-  <p class="muted">Cannot scan it? Type this key into the app instead.</p>
+  <p class="muted">{{t "Cannot scan it? Type this key into the app instead."}}</p>
   <div class="copyline">
     <code id="totp-key">{{$v.Key}}</code>
-    <button type="button" class="secondary" data-copy-target="totp-key">Copy</button>
+    <button type="button" class="secondary" data-copy-target="totp-key">{{t "Copy"}}</button>
   </div>
   {{end}}
 </div>
 {{end}}
 
 <div class="card{{if $v.Ticket}} authcard{{end}}">
-{{if $v.Ticket}}<h1>{{$v.Heading}}</h1><p class="lede">{{$v.Lede}}</p>{{end}}
+{{if $v.Ticket}}<h1>{{t $v.Heading}}</h1><p class="lede">{{t $v.Lede}}</p>{{end}}
 <form method="post" action="{{$v.Action}}" hx-boost="false" autocomplete="off">
   {{template "csrf" .CSRF}}
   {{if $v.Ticket}}<input type="hidden" name="ticket" value="{{$v.Ticket}}">{{end}}
   {{if $v.Next}}<input type="hidden" name="next" value="{{$v.Next}}">{{end}}
   {{if $v.URI}}<input type="hidden" name="uri" value="{{$v.URI}}">{{end}}
-  <label for="code">{{if $v.Recovery}}Code{{else}}Code from the app{{end}}</label>
+  <div class="field-label"><label for="code">{{if $v.Recovery}}{{t "Code"}}{{else}}{{t "Code from the app"}}{{end}}</label>{{template "tip" (tip "Second factor" "A time-based code (TOTP) from an authenticator app, asked for after your password. It changes every 30 seconds. Recovery codes stand in for it when the app is out of reach." "docs/second-factor.md")}}</div>
   {{if $v.Recovery}}
-  <p class="muted" id="code-help">Six digits from your authenticator app, or one of your recovery codes if you cannot reach it.</p>
+  <p class="muted" id="code-help">{{t "Six digits from your authenticator app, or one of your recovery codes if you cannot reach it."}}</p>
   {{else}}
-  <p class="muted" id="code-help">Six digits, from the app you just added the key to.</p>
+  <p class="muted" id="code-help">{{t "Six digits, from the app you just added the key to."}}</p>
   {{end}}
   <input id="code" name="code" inputmode="text" autocomplete="one-time-code"
          spellcheck="false" autofocus required aria-describedby="code-help{{if $v.Errors.On "code"}} code-error{{end}}">
   {{with $v.Errors.On "code"}}{{template "field-error" .}}{{end}}
   <div class="actions">
-    <button type="submit">{{if $v.Enrol}}Confirm{{else}}Sign in{{end}}</button>
-    {{if $v.Cancel}}<a href="{{$v.Cancel}}">{{if $v.Ticket}}Start again{{else}}Cancel{{end}}</a>{{end}}
+    <button type="submit">{{if $v.Enrol}}{{t "Confirm"}}{{else}}{{t "Sign in"}}{{end}}</button>
+    {{if $v.Cancel}}<a href="{{$v.Cancel}}">{{if $v.Ticket}}{{t "Start again"}}{{else}}{{t "Cancel"}}{{end}}</a>{{end}}
   </div>
 </form>
 </div>
