@@ -39,5 +39,12 @@
 
 ## 7. Gates
 
-- [ ] 7.1 Mutation checks: no double spawn, same transaction, cancel does not spawn, due advance, export round trip
-- [ ] 7.2 `just check`
+- [x] 7.1 Mutation checks watched fail, each restored with `git checkout --` and `git diff` empty: the
+      successor-link guard removed, done widened to any terminal state, the spawn error swallowed, the
+      import dropping the rule and not remapping the link, the release not spawning, the late-finish skip,
+      the month clamp, clamping that accumulates, the count not decremented, both web markers, the web
+      form clearing an unnamed rule and swallowing a refusal, and both terminal markers. Writing the
+      successor in a separate transaction deadlocks the single SQLite writer rather than failing a test,
+      so the rollback test is evidence for error propagation inside one transaction, not for that mutation
+- [x] 7.2 `just check` green once the smoke test's header was updated (smoke, jstest, spec and docs-check
+      re-run after the fix); the PostgreSQL store and connect suites run against a local container
