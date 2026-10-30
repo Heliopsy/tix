@@ -15,6 +15,7 @@
      tokens and the reader has to know that before acting on an absence. */}}
 <p class="meta">This tenant has more actors than this listing walked, so the rows below are not every token of the tenant. A credential you cannot find here may belong to an actor past the walk.</p>
 {{end}}
+<div class="table-wrap">
 <table>
   <thead><tr><th>Name</th>{{if .Data.Owners}}<th>Owner</th>{{end}}{{if .Columns.Show "tokens" "scopes"}}<th class="scopecell">Scopes</th>{{end}}{{if .Columns.Show "tokens" "created"}}<th>Created</th>{{end}}{{if .Columns.Show "tokens" "expires"}}<th>Expires</th>{{end}}<th>State</th><th class="actioncell"></th></tr></thead>
   <tbody>
@@ -57,6 +58,7 @@
   {{end}}
   </tbody>
 </table>
+</div>
 
 <h2>Issue a token</h2>
 {{/* A refused submission re-renders this form rather than answering with the

@@ -386,6 +386,7 @@ the current scheme and points at the switch rather than carrying a second form.
 | Advanced screens | `tix_advanced` | whether the configuration and data screens are in the sidebar |
 | Drag to move | `tix_drag_move` | whether a board card can be dragged between columns |
 | Open a new task | `tix_open_after_add` | `0` stays on the listing after adding; absent or anything else opens the task |
+| Hover effects | `tix_hover` | `0` turns hover highlights off and puts `data-hover="off"` on `<html>`; absent or anything else leaves them on |
 | Columns | `tix_columns` | which optional columns each listing leaves out |
 | Hidden projects | `tix_hidden_projects` | which projects a listing leaves out |
 | Task view | `tix_task_view` | `board` draws the task screen as columns, `lanes` as one lane per project; anything else, including no cookie, is the list |
@@ -440,6 +441,37 @@ the zones on offer are the same on a distroless image as on a developer's laptop
 chosen zone is not quietly replaced by the deployment default on a base image with no `tzdata`. The
 fallback stays regardless: a value that does not resolve must not take a page down.
 
+### The settings screen
+
+Settings is six sections (Appearance, Listings, Keyboard, Dates and times, Second factor, Database)
+with a navigation of plain anchors to each. Where the settings block has room the navigation is a
+column that stays in view beside the sections; where it does not, it is a wrapped row of links above
+them. The choice is a container query on the block rather than a viewport breakpoint, because the
+sidebar is resizable and collapsible and the room beside it is what decides. The section last jumped
+to is marked in the navigation through `:target`, with no script.
+
+Each setting is a row: its name and one line saying what it does on the left, its control on the
+right in a column every row shares, so selects are one width and switches line up. The longer
+explanation is behind the (i) beside the name. At 900px and below each row stacks its control under
+its description. On/off preferences are switches: a submit button with `role="switch"` and
+`aria-checked`, so they still post with scripting off.
+
+Every form on the screen returns to `/settings?flash=...#section`, so after the full-page reload the
+reader is back at the section they changed with a toast naming what was saved. The shared Listings
+controls (task view, projects, columns) are pointed back the same way when rendered on Settings and
+keep returning to their own screen elsewhere.
+
+### Hover effects
+
+Rows, cards, lane cards, sidebar links, buttons and links respond to the pointer: a row tints and
+gains an accent edge, a card lifts and gains a shadow, a link in running text thickens its underline.
+The rules are written once under `:root:not([data-hover="off"])` and inside `@media (hover: hover)`,
+so a touch screen never gets a sticky highlight. Turning the preference off sets `data-hover="off"`
+on `<html>`, which removes them and resets the older hover tints to their resting look; focus rings
+are not hover effects and stay. Movement and transitions are declared only under
+`prefers-reduced-motion: no-preference`, so a reader whose system asks for less motion gets the
+colour without the lift whatever the preference says.
+
 ### The terminal and the command line keep their own
 
 A browser preference is a cookie on that browser. The terminal interface's settings screen writes the
@@ -454,7 +486,7 @@ change the other:
 | Timezone | `tix_timezone` | `output.timezone` |
 | Keyboard scheme | `tix_keyscheme` | `tui.keymap` |
 | Colour | `tix_theme`, which palette | `output.color`, whether colour at all |
-| Advanced screens, drag to move, columns, hidden projects, task view | cookie | no equivalent |
+| Advanced screens, drag to move, hover effects, columns, hidden projects, task view | cookie | no equivalent |
 | Selected-row pulse | no equivalent | `tui.motion` |
 
 So a timezone chosen in the browser does not change what `tix task ls` prints, and one chosen in the

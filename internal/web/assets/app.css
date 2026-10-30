@@ -4443,7 +4443,75 @@ input#code {
    it is set to. The reasoning that used to be on screen is in the template's
    comments, where it is still true and no longer in the way.
    ------------------------------------------------------------------------ */
-.setgroup { margin: 0 0 var(--space-6); }
+/* The settings block is a size container, so whether the section
+   navigation fits beside the sections is decided by the room the block has,
+   not by the window: the sidebar is resizable and collapsible, and a 1440px
+   window with a 480px sidebar has less room than a 1280px one with a rail. */
+.settings { container: settings / inline-size; }
+.settings-grid { display: block; }
+
+/* The section navigation. Above the sections it is a wrapped row of links,
+   never a sideways scroller, so a phone sees every section at once. */
+.setnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-5);
+}
+.setnav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+/* The section last jumped to, or returned to after a save, is marked without
+   a script: the section is the :target, and the link naming it is found
+   from the block that holds both. */
+.settings:has(#appearance:target) .setnav a[href="#appearance"],
+.settings:has(#listings:target) .setnav a[href="#listings"],
+.settings:has(#keyboard:target) .setnav a[href="#keyboard"],
+.settings:has(#dates:target) .setnav a[href="#dates"],
+.settings:has(#second-factor:target) .setnav a[href="#second-factor"],
+.settings:has(#database:target) .setnav a[href="#database"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+@container settings (min-width: 1000px) {
+  .settings-grid {
+    display: grid;
+    grid-template-columns: 10rem minmax(0, var(--measure-form));
+    gap: var(--space-6);
+    align-items: start;
+  }
+  /* A column that stays in view while the sections scroll past it. */
+  .setnav {
+    position: sticky;
+    top: var(--space-5);
+    flex-direction: column;
+    gap: var(--space-1);
+    margin: 0;
+  }
+  .setnav a {
+    border-color: transparent;
+    border-radius: var(--radius-md);
+    background: transparent;
+    min-height: var(--control-h);
+  }
+}
+
+.setgroup { margin: 0 0 var(--space-6); scroll-margin-top: var(--space-5); }
+/* Under the phone bar, a section jumped to would otherwise start behind it. */
+@media (max-width: 899px) { .setgroup { scroll-margin-top: 72px; } }
+
 /* The name of a group of settings, set the way every other quiet label in
    this interface is set: in its own words, at the sidebar group's size and
    colour. APPEARANCE in tracked capitals is the loudest kind of type there
@@ -4467,15 +4535,24 @@ input#code {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  overflow: hidden;
 }
+/* Not clipped: an (i) note opened in the last row hangs below the list, and
+   a clipping list cut it off at its own border. The rows round their own
+   outer corners instead, so a hover tint does not square them off. */
+.setlist > .setrow:first-child { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.setlist > .setrow:last-child { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+.setlist > .setrow:only-child { border-radius: var(--radius-lg); }
 
+/* The control column is one width for every row, so the selects are one
+   width and the switches sit in one vertical line. Sized by the widest thing
+   it holds, the task view's three segments. */
 .setrow {
+  --setctl-w: 17rem;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) var(--setctl-w);
+  align-items: center;
   gap: var(--space-3) var(--space-5);
-  padding: var(--space-4) var(--space-4);
+  padding: var(--space-4);
   margin: 0;
   border-top: 1px solid var(--line);
 }
@@ -4490,6 +4567,13 @@ input#code {
 .setname { font-size: var(--text-md); font-weight: 600; color: var(--ink); margin: 0; }
 .sethelp { font-size: var(--text-sm); color: var(--muted); line-height: 1.5; max-width: 68ch; }
 .sethelp a { color: var(--accent); }
+
+/* The name and its (i). The note is anchored to this line rather than to the
+   icon, and capped at its width, so it opens under the name and can never
+   run past the right edge of the row. */
+.setname-line { position: relative; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.setname-line > .field-info { position: static; }
+.setname-line > .field-info > p { max-width: min(26rem, 100%); }
 
 .setrow-ctl {
   display: flex;
@@ -4514,13 +4598,65 @@ input#code {
   font-variant-numeric: tabular-nums;
 }
 
-.setrow select { min-width: 180px; max-width: 320px; }
+.setrow-ctl > select { width: 100%; height: var(--control-h); }
+.setrow-ctl .viewswitch { justify-content: flex-end; }
+/* "View as" says what the row's own name already says; it stays for the
+   group's accessible name and leaves the screen. */
+.setrow-ctl .viewswitch-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* A path or a redacted DSN, which has no break opportunity of its own. */
+.settarget { display: block; overflow-wrap: anywhere; }
+
+/* An on/off preference. Still a submit button, so it works with no script;
+   role="switch" and aria-checked say what it is and which way it is set.
+   The state word sits before the track so the tracks line up on the right. */
+button.switch {
+  display: inline-flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h);
+  padding: 0 var(--space-1);
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+button.switch:hover { background: none; filter: none; }
+.switch-track {
+  position: relative;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: var(--line-strong);
+}
+.switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow: var(--shadow);
+}
+button.switch[aria-checked="true"] .switch-track { background: var(--accent); }
+button.switch[aria-checked="true"] .switch-track::after { transform: translateX(16px); background: var(--on-accent); }
 
 /* Scripting hides these: the select applies itself on change. Without
    scripting they are the only way to commit the choice, so they ship visible
    and are removed by the script that replaces them, never the other way
    round. */
-
 
 /* buttons are inline-flex, which outranks the user agent's rule for the
    hidden attribute, so a button the script had hidden stayed on screen. */
@@ -4528,9 +4664,13 @@ input#code {
 
 .pickers { display: flex; flex-wrap: wrap; gap: var(--space-2); width: 100%; }
 
-@media (max-width: 720px) {
+/* At 900px and below a row stacks: the control under its description, from
+   the left, and a select as wide as a field rather than as the row. */
+@media (max-width: 900px) {
   .setrow { grid-template-columns: minmax(0, 1fr); }
   .setrow-ctl { justify-content: flex-start; }
+  .setrow-ctl .viewswitch { justify-content: flex-start; }
+  .setrow-ctl > select { max-width: var(--measure-field); }
 }
 
 /* ---------------------------------------------------------------------------
@@ -4685,6 +4825,113 @@ td.scopecell .evchip { display: inline-block; margin: 1px 2px 1px 0; font-size: 
   color: var(--muted);
 }
 
+
+/* ---------------------------------------------------------------------------
+   Configure screens between a phone and a desktop.
+
+   Between 900px and about 1200px the sidebar is a column and the content
+   beside it is narrow, and that is where these screens broke: the token
+   table squeezed its Revoke disclosure to one letter per line and, opened,
+   grew wider than the page; an (i) note hung from its icon and ran off the
+   right edge of any form whose field sat in the last column of a row.
+   ------------------------------------------------------------------------ */
+
+/* A disclosure's label is a word, so it does not inherit the cell's licence
+   to break anywhere. */
+td > details.panel > summary { overflow-wrap: normal; word-break: keep-all; }
+/* Opened in a row, the explanation and its button need a readable measure;
+   the table it widens scrolls inside its own frame, not the page. */
+.table-wrap td > details.panel[open] > .body { min-width: 16rem; }
+.table-wrap > table td:first-child { min-width: 7rem; }
+
+/* The (i) note hangs from the label's line rather than from the icon, and is
+   no wider than that line, so it cannot leave the viewport whichever column
+   the field is in. */
+.field-label { position: relative; }
+.field-label > .field-info { position: static; }
+.field-label > .field-info > p { max-width: min(320px, 100%); }
+
+/* ---------------------------------------------------------------------------
+   Hover effects.
+
+   What is under the pointer says it can be used: a row tints, a card lifts
+   and gains a shadow, a navigation link and a button brighten, a link in
+   running text thickens its underline. All of it is written once, under
+   :root:not([data-hover="off"]), so the Hover effects preference on the
+   settings screen is one attribute on <html> rather than a second set of
+   rules, and inside (hover: hover), so a touch screen, which has no hover
+   and keeps the last tap's as a sticky highlight, never gets any of it.
+
+   Movement is declared only under prefers-reduced-motion: no-preference. A
+   reader who asked the system for less motion gets the colour and the
+   shadow, never the lift or the transition, whatever this preference says.
+   ------------------------------------------------------------------------ */
+:root { --shadow-hover: 0 2px 8px rgba(16, 24, 40, 0.10); }
+:root[data-theme="dark"], :root[data-theme="dim"] { --shadow-hover: 0 2px 10px rgba(0, 0, 0, 0.45); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --shadow-hover: 0 2px 10px rgba(0, 0, 0, 0.45); }
+}
+
+@media (hover: hover) {
+  :root:not([data-hover="off"]) .setrow:hover { background: var(--bg); }
+  :root:not([data-hover="off"]) tbody tr:hover > td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+  :root:not([data-hover="off"]) li.person:hover,
+  :root:not([data-hover="off"]) li.recrow:hover { box-shadow: inset 2px 0 0 var(--accent); }
+
+  :root:not([data-hover="off"]) .column .card:hover,
+  :root:not([data-hover="off"]) .lane .lane-card:hover,
+  :root:not([data-hover="off"]) .projrow:hover {
+    border-color: var(--line-strong);
+    box-shadow: var(--shadow-hover);
+  }
+  :root:not([data-hover="off"]) .lane:hover { border-color: var(--line-strong); }
+
+  :root:not([data-hover="off"]) nav.main a:hover .nav-icon { color: var(--accent); }
+  :root:not([data-hover="off"]) .setnav a:hover { border-color: var(--line-strong); color: var(--ink); background: var(--surface); }
+
+  :root:not([data-hover="off"]) button:not(.link):not(.switch):not(.segment):not(.check):not(.star):not(.statuspill):not(.priobtn):hover { box-shadow: var(--shadow-hover); }
+  :root:not([data-hover="off"]) button.switch:hover .switch-track { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+
+  :root:not([data-hover="off"]) .lede a:hover,
+  :root:not([data-hover="off"]) .sethelp a:hover,
+  :root:not([data-hover="off"]) .note a:hover,
+  :root:not([data-hover="off"]) .wrap p a:hover { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  :root:not([data-hover="off"]) .column .card,
+  :root:not([data-hover="off"]) .lane .lane-card,
+  :root:not([data-hover="off"]) .projrow,
+  :root:not([data-hover="off"]) .setrow,
+  :root:not([data-hover="off"]) .setnav a,
+  :root:not([data-hover="off"]) tbody tr,
+  :root:not([data-hover="off"]) li.task,
+  :root:not([data-hover="off"]) li.person,
+  :root:not([data-hover="off"]) nav.main a,
+  :root:not([data-hover="off"]) .switch-track {
+    transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease, color 140ms ease;
+  }
+  :root:not([data-hover="off"]) .switch-track::after { transition: transform 140ms ease; }
+  :root:not([data-hover="off"]) .column .card:hover,
+  :root:not([data-hover="off"]) .lane .lane-card:hover { transform: translateY(-1px); }
+  :root:not([data-hover="off"]) nav.main a:hover .nav-icon { transform: translateX(1px); }
+}
+
+/* Off. The hover tints that predate the preference are put back to their
+   resting look here, rather than each being rewritten under the attribute,
+   so turning it off means what it says. Focus rings are not hover effects and
+   are untouched. */
+:root[data-hover="off"] tbody tr:hover,
+:root[data-hover="off"] li.task:hover,
+:root[data-hover="off"] li.person:hover,
+:root[data-hover="off"] li.recrow:hover { background: transparent; }
+:root[data-hover="off"] li.task:hover .task-meta .ref { color: inherit; }
+:root[data-hover="off"] .projrow:hover { background: transparent; border-color: transparent; border-bottom-color: var(--line); }
+:root[data-hover="off"] nav.main a:not([aria-current="page"]):hover { background: transparent; color: var(--muted); }
+:root[data-hover="off"] nav.main a:not([aria-current="page"]):hover .nav-icon { color: inherit; }
+:root[data-hover="off"] .side-foot a:hover { background: transparent; color: var(--muted); }
+:root[data-hover="off"] button.check:hover { transform: none; }
+:root[data-hover="off"] .projrow-tools { opacity: 1; }
 
 /* ---------------------------------------------------------------------------
    Touch targets.
