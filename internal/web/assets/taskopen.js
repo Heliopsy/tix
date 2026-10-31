@@ -493,20 +493,24 @@
       return;
     }
     var href = link.getAttribute("href");
-    if (tix.taskRefOf(href, origin)) {
-      event.preventDefault();
-      event.stopPropagation();
-      if (inside) {
-        load(href, "replace");
-      } else {
+    if (!inside) {
+      if (tix.taskRefOf(href, origin)) {
+        event.preventDefault();
+        event.stopPropagation();
         openTask(href, link);
       }
       return;
     }
-    if (inside && href.charAt(0) !== "#") {
-      event.preventDefault();
-      event.stopPropagation();
+    var step = tix.dialogLinkStep(href, origin, link.hasAttribute("data-dialog-load"));
+    if (!step) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    if (step === "leave") {
       leaveTo(href);
+    } else {
+      load(href, "replace");
     }
   }, true);
 

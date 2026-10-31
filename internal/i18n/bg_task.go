@@ -120,7 +120,15 @@ func init() {
 		"Finishing a task that carries a rule creates the next one at once: same title, tags and assignee, a due date moved on by the rule. Cancelling it does not. Add after done to count from the day it was finished; end a rule with until 2027-06-30 or for 5 times.": "Завършването на задача с правило създава веднага следващата: същото заглавие, етикети и изпълнител, а крайният срок се премества според правилото. Отказването не създава нова. Добавете after done, за да се брои от деня на завършване; сложете край с until 2027-06-30 или for 5 times.",
 		"This task waits for the tasks listed here. It counts as blocked, and claim next never hands it out, until each of them reaches a terminal state of its own workflow.":                                                                                              "Тази задача чака изброените тук задачи. Тя се смята за блокирана и claim next не я раздава, докато всяка от тях не стигне крайно състояние в своя работен процес.",
 		"An artifact is a record of work product kept on the task: a result, a log, a file reference or a metric, usually written by an agent. While the task is claimed only the lease holder can attach one.":                                                             "Артефактът е запис на резултат от работата, пазен към задачата: резултат, журнал, препратка към файл или метрика, обикновено записан от агент. Докато задачата е поета, само държателят на резервацията може да прикачи артефакт.",
-		"Reclaim": "Отнемане",
+		"Copy to…":                "Копирай в…",
+		"Copied from":             "Копие на",
+		"Copy to another project": "Копиране в друг проект",
+		"Copying a task":          "Копиране на задача",
+		"The copy is a new task with its own reference. Its title, description, priority, tags, assignee, due date and repeat rule travel with it, and so do the custom fields the target project defines. Stars, claims, history and artifacts stay behind. Comments, subtasks and dependencies come along only when ticked.": "Копието е нова задача със собствен номер. Заглавието, описанието, приоритетът, етикетите, изпълнителят, крайният срок и правилото за повторение се пренасят, както и персонализираните полета, които целевият проект определя. Звездите, поеманията, историята и артефактите остават. Коментарите, подзадачите и зависимостите се пренасят само ако са отметнати.",
+		"Also copy": "Копирай също",
+		"Keep the status %s when the project has it": "Запази статуса %s, ако проектът го има",
+		"Link the copy to this task":                 "Свържи копието с тази задача",
+		"Reclaim":                                    "Отнемане",
 		"Offered only to holders of the task:reclaim scope. The holder's token stops working at once, so its next write is refused as lease expired, and anyone may claim the task again.": "Предлага се само на притежателите на обхвата task:reclaim. Токенът на държателя спира да работи веднага, следващият му запис се отказва като изтекла резервация и всеки може да поеме задачата отново.",
 	})
 }

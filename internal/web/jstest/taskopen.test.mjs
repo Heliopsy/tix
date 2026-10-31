@@ -48,6 +48,25 @@ test("an answer is drawn in the dialog only when it is the dialog's task screen"
   assert.equal(tix.dialogAnswer(0, ""), "refused");
 });
 
+test("a link inside the dialog stays in it only for a task or a screen that asks to", () => {
+  const { tix } = newContext();
+  const cases = [
+    ["/tasks/infra-4", false, "task"],
+    ["/tasks/infra-4", true, "task"],
+    ["/tasks/infra-4/copy", true, "load"],
+    [ORIGIN + "/tasks/infra-4/copy", true, "load"],
+    ["/tasks/infra-4/copy", false, "leave"],
+    ["/projects/infra", false, "leave"],
+    ["//evil.example/tasks/infra-4/copy", true, "leave"],
+    ["https://evil.example/x", true, "leave"],
+    ["#comments", true, ""],
+    ["", true, ""],
+  ];
+  for (const [href, stays, want] of cases) {
+    assert.equal(tix.dialogLinkStep(href, ORIGIN, stays), want, href + " " + stays);
+  }
+});
+
 test("history moves close, reopen or reload the dialog", () => {
   const { tix } = newContext();
   const entry = { tixDialog: true, over: "/tasks?q=tag:ops" };
@@ -406,6 +425,27 @@ test("a refused save keeps the task and says why", () => {
   assert.equal(p.dlg.open, true);
   const note = p.body.querySelector("p");
   assert.ok(note && /version conflict/.test(note.textContent), "the refusal was not shown");
+});
+
+test("a link that asks to stay is drawn in the dialog, any other screen leaves it", () => {
+  const p = page();
+  p.click(p.title);
+  p.answer(200, FRAGMENT);
+  const copy = p.body.appendChild(node("a", { href: "/tasks/infra-1/copy", "data-dialog-load": "" }));
+  const ev = p.click(copy);
+  assert.equal(ev.prevented, 1, "the browser followed the link out of the dialog");
+  assert.equal(p.ajax.length, 2, "the form was not asked for");
+  assert.equal(p.ajax[1].url, "/tasks/infra-1/copy");
+  assert.equal(p.ajax[1].opts.headers["X-Tix-Dialog"], "1");
+  assert.deepEqual(p.nav, [], "the page left for the form");
+  p.answer(200, '<div class="taskdlg-frag" data-task-dialog="infra-1">form');
+  assert.equal(p.pushed.at(-1)[0], "replace", "the form added a history entry of its own");
+  assert.equal(p.pushed.at(-1)[2], "/tasks/infra-1/copy");
+
+  const away = p.body.appendChild(node("a", { href: "/projects/infra" }));
+  p.click(away);
+  assert.equal(p.ajax.length, 2, "a screen that did not ask was drawn in the dialog");
+  assert.deepEqual(p.nav, [["assign", "/projects/infra"]]);
 });
 
 test("a task that cannot be opened is shown as its own page", () => {

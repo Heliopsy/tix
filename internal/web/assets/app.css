@@ -1504,6 +1504,10 @@ td > details.panel > .body {
    the bar's and put the status pills 20px under the title they qualify. */
 .titlebar > h1 { margin: 0; }
 .titlebar .ref { font-family: ui-monospace, monospace; color: var(--muted); font-size: var(--text-md); }
+/* Copy to sits at the far end of the title bar, out of the title's way. */
+.titlebar .copyto { margin-left: auto; align-self: center; }
+.copyopts { border: 0; padding: 0; margin: var(--space-3) 0 0; display: grid; gap: var(--space-2); }
+.copyopts legend { padding: 0; margin-bottom: var(--space-1); font-weight: 600; }
 
 /* Lists */
 ul.plain { list-style: none; padding: 0; margin: 0; }

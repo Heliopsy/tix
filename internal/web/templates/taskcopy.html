@@ -1,0 +1,43 @@
+{{define "content"}}
+{{$t := .Data.Task}}
+{{/* The way back is the task this form copies. In the dialog that link is a
+     task's own screen, so assets/taskopen.js draws it in the dialog too. */}}
+{{if .InDialog}}<p class="backlink"><button type="button" class="ghost dlgclose" data-dialog-close>&larr; {{t "Close"}}</button></p>{{end}}
+<div class="titlebar">
+  <span class="ref">{{$t.Ref}}</span>
+  <h1{{if .InDialog}} id="taskdlg-title"{{end}}>{{t "Copy to another project"}}</h1>
+  {{template "tip" (tip "Copying a task" "The copy is a new task with its own reference. Its title, description, priority, tags, assignee, due date and repeat rule travel with it, and so do the custom fields the target project defines. Stars, claims, history and artifacts stay behind. Comments, subtasks and dependencies come along only when ticked." "docs/web-ui.md")}}
+</div>
+<div class="card copyform">
+  <form method="post" action="/tasks/{{$t.Ref}}/copy">
+    {{template "csrf" .CSRF}}
+    <label for="{{.IDPrefix}}copy-project">{{t "Project"}}</label>
+    <select id="{{.IDPrefix}}copy-project" name="project_ref">
+      {{range .Data.Projects}}<option value="{{.Key}}"{{if eq .Key $.Data.Home}} selected{{end}}>{{.Name}} ({{.Key}})</option>{{end}}
+    </select>
+    <label for="{{.IDPrefix}}copy-title">{{t "Title"}}</label>
+    <input id="{{.IDPrefix}}copy-title" name="title" value="{{$t.Title}}" required>
+    <fieldset class="copyopts">
+      <legend>{{t "Also copy"}}</legend>
+      <label for="{{.IDPrefix}}copy-status"><input id="{{.IDPrefix}}copy-status" type="checkbox" name="keep_status" value="1"> {{t "Keep the status %s when the project has it" $t.Status}}</label>
+      <label for="{{.IDPrefix}}copy-comments"><input id="{{.IDPrefix}}copy-comments" type="checkbox" name="with_comments" value="1"> {{t "Comments"}}</label>
+      <label for="{{.IDPrefix}}copy-subtasks"><input id="{{.IDPrefix}}copy-subtasks" type="checkbox" name="with_subtasks" value="1"> {{t "Subtasks"}}</label>
+      <label for="{{.IDPrefix}}copy-deps"><input id="{{.IDPrefix}}copy-deps" type="checkbox" name="with_dependencies" value="1"> {{t "Dependencies"}}</label>
+      <label for="{{.IDPrefix}}copy-link"><input id="{{.IDPrefix}}copy-link" type="checkbox" name="link" value="1" checked> {{t "Link the copy to this task"}}</label>
+    </fieldset>
+    <div class="actions">
+      <button type="submit">{{t "Copy"}}</button>
+      <a class="ghostlink" href="/tasks/{{$t.Ref}}">{{t "Cancel"}}</a>
+    </div>
+  </form>
+</div>
+{{end}}
+
+{{/* The form drawn for the dialog a task is open in. data-task-dialog is
+     what assets/taskopen.js checks an answer for before drawing it there. */}}
+{{define "task-dialog"}}
+<div class="taskdlg-frag" data-task-dialog="{{.Data.Task.Ref}}">
+{{if .Error}}<p class="flash error">{{.Error}}</p>{{end}}
+{{template "content" .}}
+</div>
+{{end}}
