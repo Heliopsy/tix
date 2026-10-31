@@ -54,6 +54,25 @@ Turning a requirement on does not lock anybody out. A user subject to it who hol
 through enrolment at their next sign-in rather than refused, the administrator who turned it on first among
 them.
 
+## Over HTTP
+
+The same operations are routes under `/api/v1`:
+
+| Command | Route |
+| --- | --- |
+| `tix user totp status` | `GET /auth/totp` |
+| `tix user totp enrol` | `POST /auth/totp`, then `POST /auth/totp/confirm` with the code |
+| `tix user totp codes` | `POST /auth/totp/recovery-codes` |
+| `tix user totp rm` | `DELETE /auth/totp` |
+| `tix user totp clear <user-id>` | `DELETE /users/{id}/totp` |
+
+A sign-in that needs a code takes two calls to `POST /auth/login`. The first carries the email, the password
+and the `surface` (`web`, `cli` or `ssh`, with `cli` assumed when it is left out) and answers with a
+`challenge` holding a `ticket`. The second carries that ticket and the code, and answers with the session.
+`tix login` does exactly this, prompting for the code between the two. `POST /auth/totp/verify` proves a
+code on its own and creates nothing; it exists for a surface whose first factor is a key rather than a
+password. [api.md](api.md#second-factor) has the request and response bodies.
+
 ## The key
 
 Secrets are sealed with AES-256-GCM under a key you configure:

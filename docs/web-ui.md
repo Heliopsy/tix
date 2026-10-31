@@ -291,10 +291,11 @@ lane, scrolls down. It was a frame of fixed height whose lanes scrolled inside i
 for one thumb, and the guessed height cut the last card off below the fold. On a touch screen the
 tick, the badge and the priority each answer a press 40px tall, and the menu rows are 40px.
 
-**Show completed** hides finished cards in every lane. It is the one preference kept in the browser's
-`localStorage` rather than a cookie, as a single key, `tix.lanes.showCompleted`, which holds `false`
-when finished cards are hidden and is removed when they are shown. Nothing else goes there: no project
-key, no task reference, no count. Screens are served `no-store` so that a page does not outlive the
+**Show completed** hides finished cards in every lane. It is kept in the browser's `localStorage`
+rather than a cookie, as a single key, `tix.lanes.showCompleted`, which holds `false` when finished
+cards are hidden and is removed when they are shown. The sidebar's width and collapsed state are the
+only other keys there (see The sidebar). Nothing about work goes there: no project key, no task
+reference, no count. Screens are served `no-store` so that a page does not outlive the
 session on a shared machine, and browser storage is the same disk with no logout to clear it, so only
 a choice that says nothing about anybody's work may live in it. The script that applies it loads in
 the head, before the body paints, and sets a class on the root element, so hidden cards never flash
@@ -425,6 +426,12 @@ priority change, and for a soft delete, which it restores. It is an ordinary for
 scripting off. The redirect carries it as `flashundo`, which every address the screen builds from the
 request drops, as it drops `flash`.
 
+Undo is a browser convenience over ordinary operations, not an operation of its own, so the command line
+and the API undo the same things directly: a move with `tix task mv` (or `--hops` when the way back passes
+through another state), a priority with `tix task edit --priority`, and a soft delete with
+`tix task restore`, `POST /api/v1/tasks/{ref}/restore`. `tix task ls --include-deleted` finds what was
+deleted. A delete with `--hard` has no way back on any surface.
+
 **Live updates** never take the screen from you. A refresh already waited for a request in flight
 or an open menu in the region it replaces, and now also for a row drawn ahead of its answer
 (`is-pending`). When it lands it keeps the scroll position of boxes inside the region: the task list
@@ -480,10 +487,33 @@ identifier.
 window and optionally one project. [statistics.md](statistics.md) covers what each figure means and
 what the leaderboard does and does not measure.
 
+## Activity
+
+`/activity` is the tenant's audit log as a feed, newest first, grouped by record, and it updates as
+events arrive. It is the browser's `tix audit ls` and the terminal's history view. The filter bar is a
+plain `GET` form, so a narrowed feed is a link somebody can send: `q` searches the records (a task
+reference such as `infra-5` works), `kind` picks a kind of record (tasks, comments, artifacts,
+projects, workflows, users, memberships, sign-ins, API tokens, webhooks, the tenant), `source` the
+surface a change came from (`web`, `cli`, `api`, `tui`, `system`), and the actor's name on any row
+narrows to that actor. Each active filter is a chip that removes itself, and the live refresh keeps the
+filter rather than widening back out. On the command line the same narrowing is
+`tix audit ls --filter "kind:task source:web"`; [filtering.md](filtering.md) has the expression.
+
+## Server administration
+
+Three screens in the Configure group answer for the installation rather than the work in it, and each
+is the browser's view of a command. `/admin/status` is `tix status`: what the installation holds and
+which servers are running against it. `/admin/connections` is `tix connection ls` and `kill`: the live
+event streams and SSH sessions this server holds, and ending one. `/admin/ssh-keys` is `tix user key`:
+the public keys the SSH listener accepts, enrolled and revoked. [deployment.md](deployment.md) covers
+the listener and live connections.
+
 ## Display preferences
 
-Everything under Settings is a property of the person reading, not of the tenant, so each one is
-stored in a cookie on that browser and reaches no other reader. Two people sharing a tenant are
+Every display preference under Settings is a property of the person reading, not of the tenant, so
+each one is stored in a cookie on that browser and reaches no other reader. The Second factor and
+Database sections are not preferences: the first is your enrolment, kept by the service and the same
+from every surface, and the second only shows what this server is talking to. Two people sharing a tenant are
 frequently in different timezones for the same reason they may want different keyboard shortcuts.
 
 Settings carries all but one of them. Three are also editable from the screen they affect, because
@@ -518,7 +548,7 @@ going back a page.
 | Date format | `tix_time_format` | one of the layouts this build renders |
 | Timezone | `tix_timezone` | one of the offered zones, empty follows the deployment |
 | Advanced screens | `tix_advanced` | whether the configuration and data screens are in the sidebar |
-| Drag to move | `tix_drag_move` | whether a board card can be dragged between columns |
+| Drag to move | `tix_drag_move` | `0` stops board cards being dragged between columns; absent or anything else lets them |
 | Open a new task | `tix_open_after_add` | `1` opens the new task after adding. Absent or `0` stays on the listing. An empty value, which earlier builds wrote for "on", also opens it |
 | Hover effects | `tix_hover` | `0` turns hover highlights off and puts `data-hover="off"` on `<html>`; absent or anything else leaves them on |
 | Columns | `tix_columns` | which optional columns each listing leaves out |
@@ -663,7 +693,7 @@ change the other:
 | Timezone | `tix_timezone` | `output.timezone` |
 | Keyboard scheme | `tix_keyscheme` | `tui.keymap` |
 | Colour | `tix_theme`, which palette | `output.color`, whether colour at all |
-| Advanced screens, drag to move, hover effects, task opens in, clicking a title, columns, hidden projects, task view | cookie | no equivalent |
+| Advanced screens, drag to move, open a new task, hover effects, task opens in, clicking a title, columns, hidden projects, task view, colour rows by, language | cookie | no equivalent |
 | Selected-row pulse | no equivalent | `tui.motion` |
 
 So a timezone chosen in the browser does not change what `tix task ls` prints, and one chosen in the
