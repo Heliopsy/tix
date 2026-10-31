@@ -130,7 +130,10 @@ type view struct {
 	// toast used to name a ref as plain text ("links-4 moved to doing") on a
 	// screen the reader had just been returned to, so the one thing they
 	// might want next -- opening it -- was a search of the page away.
-	FlashRef   string
+	FlashRef string
+	// FlashUndo is what reverses the action the flash reports: "restore" for
+	// a soft delete, or the route of states that takes a moved task back.
+	FlashUndo  string
 	Error      string
 	CSRF       string
 	EventsPath string
@@ -356,6 +359,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Columns:         columnsOf(r),
 		Flash:           r.URL.Query().Get("flash"),
 		FlashRef:        r.URL.Query().Get("flashref"),
+		FlashUndo:       r.URL.Query().Get(FlashUndoParam),
 		CSRF:            csrfFrom(r),
 		EventsPath:      h.eventsPath,
 		Brand:           h.brand(r),
@@ -375,6 +379,39 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		ShortcutsJSON:   shortcutsJSON(scheme, langOf(r)),
 		Data:            data,
 	}
+}
+
+// undoPriorityPrefix marks an undo that sets a priority back.
+const undoPriorityPrefix = "priority:"
+
+// UndoAction is where the toast's Undo posts: the restore route for a soft
+// delete, the priority route for a priority change, the transition route
+// for a move. Empty when there is nothing to undo.
+func (v view) UndoAction() string {
+	if v.FlashUndo == "" || v.FlashRef == "" {
+		return ""
+	}
+	base := "/tasks/" + url.PathEscape(v.FlashRef)
+	switch {
+	case v.FlashUndo == UndoRestore:
+		return base + "/restore"
+	case strings.HasPrefix(v.FlashUndo, undoPriorityPrefix):
+		return base + "/priority"
+	default:
+		return base + "/transition"
+	}
+}
+
+// UndoField is the one field the Undo form submits besides the token and
+// the page to come back to: the priority or the route, by name and value.
+func (v view) UndoField() [2]string {
+	if p, ok := strings.CutPrefix(v.FlashUndo, undoPriorityPrefix); ok {
+		return [2]string{"priority", p}
+	}
+	if v.FlashUndo == UndoRestore {
+		return [2]string{}
+	}
+	return [2]string{"route", v.FlashUndo}
 }
 
 // starControl is what the "star" partial draws: one task's toggle, the state
@@ -430,6 +467,7 @@ func here(r *http.Request) string {
 	query := r.URL.Query()
 	query.Del("flash")
 	query.Del("flashref")
+	query.Del(FlashUndoParam)
 	if len(query) == 0 {
 		return r.URL.Path
 	}

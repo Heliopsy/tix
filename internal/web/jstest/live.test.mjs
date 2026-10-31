@@ -535,3 +535,27 @@ test("a refresh waits for a request in flight in the region", async () => {
   await settle();
   assert.equal(c.fetches.length, 1, "the refresh never arrived once the request finished");
 });
+
+// The task list scrolls inside its own box. Replacing the region replaced
+// the box, and the reader was put back at the first row on every update.
+test("a refresh keeps the scroll position of a box inside the region", async () => {
+  const { sockets, nodes } = liveContext({ regions: ["tasks-listing"], fresh: { "tasks-listing": "rows" } });
+  const before = { tagName: "UL", className: "tasklist", scrollTop: 320, scrollLeft: 0 };
+  const after = { tagName: "UL", className: "tasklist", scrollTop: 0, scrollLeft: 0 };
+  let calls = 0;
+  nodes["tasks-listing"].querySelectorAll = (sel) => {
+    if (sel !== "*") {
+      return [];
+    }
+    calls++;
+    return calls === 1 ? [before] : [after];
+  };
+  // decide.js's busy check reads the region too; it must not count as a call
+  // that sees the redrawn box.
+  nodes["tasks-listing"].querySelector = () => null;
+  sockets[0].emit("open", {});
+  sockets[0].event({ seq: 9, subject_id: "task-2" });
+  await settle();
+  assert.equal(nodes["tasks-listing"].innerHTML, "rows");
+  assert.equal(after.scrollTop, 320, "the redrawn list was not scrolled back to where the reader was");
+});

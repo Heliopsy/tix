@@ -79,6 +79,7 @@ func liveFilter(projectIDs []string, types []core.EventType) string {
 func fragmentHref(r *http.Request, route string) string {
 	query := r.URL.Query()
 	query.Del("flash")
+	query.Del(FlashUndoParam)
 	if len(query) == 0 {
 		return route
 	}
@@ -104,6 +105,7 @@ func screenHref(r *http.Request, route string) string {
 	query := u.Query()
 	query.Del("flash")
 	query.Del("flashref")
+	query.Del(FlashUndoParam)
 	u.RawQuery = query.Encode()
 	return u.RequestURI()
 }

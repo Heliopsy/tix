@@ -278,6 +278,7 @@ func narrowHref(r *http.Request, keys []string) string {
 	query.Del(CursorParam)
 	query.Del(TrailParam)
 	query.Del("flash")
+	query.Del(FlashUndoParam)
 	terms := make([]string, 0, len(keys))
 	for _, key := range keys {
 		terms = append(terms, "project:"+key)

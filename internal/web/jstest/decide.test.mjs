@@ -391,6 +391,7 @@ test("regionWaiting sees an in-flight request and an open menu", () => {
   assert.equal(tix.regionWaiting(region((s) => s.includes(".htmx-request"))), true, "an in-flight htmx request did not hold the refresh");
   assert.equal(tix.regionWaiting(region((s) => s.includes('aria-busy="true"'))), true, "a submitted form did not hold the refresh");
   assert.equal(tix.regionWaiting(region((s) => s === ":popover-open")), true, "an open menu did not hold the refresh");
+  assert.equal(tix.regionWaiting(region((s) => s.includes(".is-pending"))), true, "an action drawn ahead of its answer did not hold the refresh");
   assert.equal(tix.regionWaiting(region(() => false)), false, "an idle region was held");
   assert.equal(tix.regionWaiting({ querySelector: (s) => { if (s === ":popover-open") throw new Error("unsupported"); return null; } }), false,
     "a browser without popovers threw instead of answering");
@@ -439,4 +440,36 @@ test("pressesNatively leaves Enter and Space to the control that has focus", () 
   assert.equal(tix.pressesNatively({ tagName: "ARTICLE" }, "Enter"), false, "a selected row lost its Enter to open");
   assert.equal(tix.pressesNatively({ tagName: "BUTTON" }, "j"), false);
   assert.equal(tix.pressesNatively(null, "Enter"), false);
+});
+
+test("scrollPlaces and restorePlaces carry a scrolled box into its redrawn copy", () => {
+  const old = [
+    { tagName: "UL", className: "tasklist", scrollTop: 300, scrollLeft: 0 },
+    { tagName: "DIV", className: "lane x", scrollTop: 0, scrollLeft: 0 },
+    { tagName: "DIV", className: "lane", scrollTop: 0, scrollLeft: 40 },
+  ];
+  const places = tix.scrollPlaces(old);
+  const fresh = old.map((el) => ({ ...el, scrollTop: 0, scrollLeft: 0 }));
+  tix.restorePlaces(fresh, places);
+  assert.deepEqual(fresh.map((el) => [el.scrollTop, el.scrollLeft]), [[300, 0], [0, 0], [0, 40]]);
+});
+
+// A choice made in a menu is remembered as the button that opened it: the
+// menu goes with the answer, and the opener is what the reader pressed.
+test("focusMemo remembers a menu choice as the menu's opener", () => {
+  const row = { id: "t-infra-2" };
+  const menu = { id: "flow-infra-2" };
+  const opener = {
+    closest: (sel) => (sel === "[id]" ? row : null),
+    getAttribute: (name) => (name === "data-focus" ? "status" : null),
+  };
+  const choice = {
+    closest: (sel) => (sel === "[popover][id]" ? menu : sel === "[id]" ? menu : null),
+    getAttribute: () => null,
+  };
+  const region = {
+    contains: () => true,
+    querySelector: (sel) => (sel === '[popovertarget="flow-infra-2"]' ? opener : null),
+  };
+  assert.deepEqual(plain(tix.focusMemo(choice, region)), { id: "t-infra-2", control: "status" });
 });

@@ -91,7 +91,7 @@
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
   /* A stronger shadow for content that floats above the page itself (a
      toast, a modal), not just above the background the way a card does. */
-  --shadow-strong: 0 8px 24px rgba(16, 24, 40, 0.18);
+  --shadow-strong: 0 6px 18px rgba(16, 24, 40, 0.12);
   /* The dimming layer behind a modal dialog. Deliberately the same in every
      scope: it dims whatever is behind it, light or dark, rather than being a
      themed surface colour itself. */
@@ -5403,3 +5403,73 @@ li.task:has(> .title-edit-error:not([hidden])),
   font-size: var(--text-sm);
 }
 .title-edit-error[hidden] { display: none; }
+   Acting in place, and the weight of what floats (assets/feel.js).
+
+   A row, or the task screen, with an action on its way. The fade is delayed,
+   so an answer inside 80ms never flickers, and faint, because the optimistic
+   state the script drew already says what is happening.
+   ------------------------------------------------------------------------ */
+.is-pending { opacity: 0.72; cursor: progress; }
+@media (prefers-reduced-motion: no-preference) {
+  .is-pending { transition: opacity 120ms ease 80ms; }
+  button.star svg { transition: transform 140ms ease, fill 140ms ease; }
+  button.star:active svg { transform: scale(0.86); }
+  .flowmenu:popover-open { animation: menu-in 120ms ease-out; }
+  .flash.is-leaving { transition: opacity 180ms ease, transform 180ms ease; }
+}
+@keyframes menu-in {
+  from { opacity: 0; transform: translateY(-3px); }
+}
+
+/* The toast leaves on its own once it has been read (feel.js), and offers to
+   take back what it reports when that can be done. */
+.flash.is-leaving { opacity: 0; transform: translateY(4px); }
+.flash .flashundo {
+  height: auto;
+  min-height: 0;
+  margin-left: var(--space-2);
+  padding: 1px var(--space-2);
+  border: 1px solid currentcolor;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  :root:not([data-hover="off"]) .flash .flashundo:hover { background: currentcolor; color: var(--surface); }
+  :root:not([data-hover="off"]) .kbdhint:hover { color: var(--ink); }
+}
+
+/* Lighter floating surfaces. The menus and the toast cast the deepest
+   shadows on the screen for the smallest things on it; a softer, closer one
+   (here and --shadow-strong) still lifts them off the page without the page
+   going grey around them. */
+.flowmenu { border-color: var(--line); box-shadow: 0 8px 22px rgb(0 0 0 / 0.14); }
+
+/* Screen to screen. A boosted navigation cross-fades where the browser can,
+   briefly; a reader who asked for less motion gets the swap with none. */
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: 150ms; }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
+}
+
+/* The keyboard shortcuts, findable without knowing to press "?". Hidden
+   until shortcuts.js runs, since it is what opens them. */
+.kbdhint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.kbdhint kbd { font-size: var(--text-xs); }

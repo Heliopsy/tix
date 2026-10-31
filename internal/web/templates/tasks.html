@@ -372,7 +372,7 @@
     {{$mark := ""}}
     {{if eq $.Tint "status"}}{{$mark = printf " is-accented tint-status-%s" (slug .Task.Status)}}
     {{else if eq $.Tint "priority"}}{{$mark = printf " is-accented tint-prio-%s" (prio .Task.Priority)}}{{end}}
-    <article id="t-{{.Task.Ref}}" class="card lane-card{{if .Finished}} is-finished{{end}}{{$mark}}{{if eq $.FlashRef .Task.Ref}} is-flashed{{end}}" data-lane-task="{{.Task.Ref}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
+    <article id="t-{{.Task.Ref}}" class="card lane-card{{if .Finished}} is-finished{{end}}{{$mark}}{{if eq $.FlashRef .Task.Ref}} is-flashed{{end}}" data-lane-task="{{.Task.Ref}}" data-inplace tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
       {{/* The tick completes an unfinished task and reopens a finished one,
            along routes tasklanes.go tickRoutes picks. One route is a box;
            several are a menu, because a guess writes a history nobody chose;
@@ -557,7 +557,10 @@
   {{if eq $.Tint "project"}}{{if $acc.Color}}{{$mark = printf " is-accented proj-%s" $acc.Color}}{{end}}
   {{else if eq $.Tint "status"}}{{$mark = printf " is-accented tint-status-%s" (slug .Status)}}
   {{else if eq $.Tint "priority"}}{{$mark = printf " is-accented tint-prio-%s" (prio .Priority)}}{{end}}
-  <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{$mark}}{{if eq $.FlashRef .Ref}} is-flashed{{end}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Ref}}">
+  {{/* data-inplace: the star, status and priority forms in this row swap
+       this row and nothing else, the way the tick does. assets/feel.js
+       reads it; without it they post and redirect like any form. */}}
+  <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{$mark}}{{if eq $.FlashRef .Ref}} is-flashed{{end}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Ref}}" data-inplace>
     {{$done := index $v.CompleteState .ProjectID}}
     {{if $done}}
     {{/* Only this row is swapped, never the page.
@@ -583,7 +586,7 @@
            sort as well as the scroll position: the list you were working
            through was replaced by an unfiltered one, scrolled to the top. */}}
       <input type="hidden" name="next" value="{{$v.Self}}">
-      <button type="submit" class="check{{if eq .Status $done}} is-done{{end}}" {{if eq .Status $done}}aria-label="{{t "Reopen %s" .Ref}}" title="{{t "Reopen"}}"{{else}}aria-label="{{t "Complete %s" .Ref}}" title="{{t "Complete"}}"{{end}}>
+      <button type="submit" class="check{{if eq .Status $done}} is-done{{end}}" data-focus="tick" {{if eq .Status $done}}aria-label="{{t "Reopen %s" .Ref}}" title="{{t "Reopen"}}"{{else}}aria-label="{{t "Complete %s" .Ref}}" title="{{t "Complete"}}"{{end}}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5 10.2 16.7 18 8.4"/></svg>
       </button>
     </form>
@@ -631,7 +634,7 @@
       {{$flow := $v.Flow (index $.Data.Moves .ProjectID) .Status}}
       {{if $flow}}
       <span class="statusmenu">
-        <button type="button" class="statuspill" popovertarget="flow-{{.Ref}}"
+        <button type="button" class="statuspill" data-focus="status" popovertarget="flow-{{.Ref}}"
                 aria-label="{{t "Status %s; move %s" .Status .Ref}}" title="{{t "Move %s" .Ref}}">
           <span class="pill status {{slug .Status}}">{{.Status}}</span>
         </button>
@@ -668,7 +671,7 @@
       {{if $.Columns.Show "tasks" "priority"}}<span class="tm tm-prio">
       {{$p := prio .Priority}}
       <span class="priomenu">
-        <button type="button" class="priobtn" popovertarget="prio-{{.Ref}}"
+        <button type="button" class="priobtn" data-focus="prio" popovertarget="prio-{{.Ref}}"
                 aria-label="{{t "Priority %s; change it for %s" (t $p) .Ref}}" title="{{t "Change the priority of %s" .Ref}}">
           <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>
         </button>

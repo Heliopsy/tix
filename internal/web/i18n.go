@@ -170,6 +170,8 @@ var jsMessages = []string{
 	"The title could not be saved.",
 	"Title of %s",
 	"Not saved:",
+	"That did not work. Nothing was changed.",
+	"Could not reach the server. Nothing was changed.",
 }
 
 // jsMessagesFor is the table the head carries for lang, empty for English,

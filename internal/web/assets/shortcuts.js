@@ -93,10 +93,20 @@
 
   // -- help overlay: proper dialog role, focus trap, focus restored on close --
 
-  var overlay = document.getElementById("shortcuts-help");
-  var overlayList = document.getElementById("shortcuts-help-list");
-  var overlayDialog = overlay && overlay.querySelector(".shortcuts-help-dialog");
+  // Looked up when used, not when this file ran. The overlay is part of the
+  // body, which every boosted navigation replaces, so a reference taken at
+  // load pointed at a detached copy after the first click: "?" opened an
+  // overlay nobody could see.
+  var overlay = null;
+  var overlayList = null;
+  var overlayDialog = null;
   var returnFocus = null;
+
+  function resolveOverlay() {
+    overlay = document.getElementById("shortcuts-help");
+    overlayList = document.getElementById("shortcuts-help-list");
+    overlayDialog = overlay && overlay.querySelector(".shortcuts-help-dialog");
+  }
 
   function renderHelp() {
     if (!overlayList) {
@@ -136,11 +146,12 @@
   }
 
   function helpOpen() {
+    resolveOverlay();
     return !!overlay && !overlay.hasAttribute("hidden");
   }
 
   function openHelp() {
-    if (!overlay || helpOpen()) {
+    if (helpOpen() || !overlay) {
       return;
     }
     renderHelp();
@@ -152,7 +163,7 @@
   }
 
   function closeHelp() {
-    if (!overlay || !helpOpen()) {
+    if (!helpOpen()) {
       return;
     }
     overlay.setAttribute("hidden", "");
@@ -162,30 +173,41 @@
     returnFocus = null;
   }
 
-  if (overlay) {
-    overlay.addEventListener("click", function (event) {
-      if (event.target && event.target.hasAttribute("data-shortcuts-close")) {
-        closeHelp();
+  document.addEventListener("click", function (event) {
+    var el = event.target;
+    if (!el || !el.closest) {
+      return;
+    }
+    if (el.closest("[data-shortcuts-open]")) {
+      event.preventDefault();
+      openHelp();
+      return;
+    }
+    if (el.hasAttribute("data-shortcuts-close") && el.closest("#shortcuts-help")) {
+      closeHelp();
+    }
+  });
+  // The overlay owns its own keydown handling while it is open: Escape
+  // closes it, and Tab is trapped inside it, ahead of the global handler
+  // below which returns early whenever helpOpen() is true.
+  document.addEventListener("keydown", function (event) {
+      if (!helpOpen()) {
+        return;
       }
-    });
-    // The overlay owns its own keydown handling while it is open: Escape
-    // closes it, and Tab is trapped inside it, ahead of the global handler
-    // below which returns early whenever helpOpen() is true.
-    overlay.addEventListener("keydown", function (event) {
       if (event.key === "Escape") {
-        // stopPropagation, not just preventDefault: the event still bubbles
-        // to the document-level listener below otherwise, and by the time it
-        // arrives helpOpen() is already false, so Escape would additionally
+        // stopImmediatePropagation, not just preventDefault: the dispatch
+        // listener below is on the document too, and by the time it ran
+        // helpOpen() would already be false, so Escape would additionally
         // fire "back" and navigate the page out from under the overlay.
         event.preventDefault();
-        event.stopPropagation();
+        event.stopImmediatePropagation();
         closeHelp();
         return;
       }
       if (event.key !== "Tab" || !overlayDialog) {
         return;
       }
-      event.stopPropagation();
+      event.stopImmediatePropagation();
       var focusable = focusableIn(overlayDialog);
       if (!focusable.length) {
         event.preventDefault();
@@ -201,7 +223,15 @@
         first.focus();
       }
     });
+
+  function revealOpeners() {
+    var openers = document.querySelectorAll("[data-shortcuts-open][hidden]");
+    for (var i = 0; i < openers.length; i++) {
+      openers[i].removeAttribute("hidden");
+    }
   }
+  revealOpeners();
+  document.addEventListener("htmx:load", revealOpeners);
 
   // -- dispatch ------------------------------------------------------------
 

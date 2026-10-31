@@ -37,6 +37,7 @@
 <script src="/assets/copy.js" defer></script>
 <script src="/assets/busy.js" defer></script>
 <script src="/assets/taskopen.js" defer></script>
+<script src="/assets/feel.js" defer></script>
 </head>
 <body hx-boost="true">
 {{if .Actor}}
@@ -77,6 +78,9 @@
       <div class="side-foot">
         <a href="/settings" data-rail-name="{{t "Settings"}}" {{if eq .Path "/settings"}}aria-current="page"{{end}}><svg class="rail-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#settings"/></svg><span class="rail-label">{{t "Settings"}}</span></a>
         {{template "themeswitch" .ThemeToggle}}
+        {{/* The "?" overlay, findable by someone who does not know to press
+             "?". Hidden until shortcuts.js runs, which is what opens it. */}}
+        <button type="button" class="kbdhint" data-shortcuts-open data-rail-name="{{t "Keyboard shortcuts"}}" hidden><kbd>?</kbd><span class="rail-label">{{t "Keyboard shortcuts"}}</span></button>
       </div>
       <form method="post" action="/logout" class="actions">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
@@ -91,7 +95,15 @@
     <div class="side-resize" data-side-resize role="separator" aria-orientation="vertical" aria-controls="side" aria-label="{{t "Resize sidebar"}}" tabindex="0" hidden></div>
   </aside>
   <main class="wrap">
-    {{if .Flash}}<p class="flash">{{phrase .Flash}}{{if .FlashRef}} <a class="flashref" href="/tasks/{{.FlashRef}}">{{.FlashRef}}</a>{{end}}</p>{{end}}
+    {{/* #toast is always there, empty or not, so an action swapped in place
+         can bring its toast with it (hx-select-oob, assets/feel.js). Undo is
+         a button bound to a form outside the paragraph, because a form may
+         not sit inside a p; the form is a plain post, so it works with
+         scripting off. */}}
+    <div id="toast">
+    {{- if .Flash}}<p class="flash">{{phrase .Flash}}{{if .FlashRef}} <a class="flashref" href="/tasks/{{.FlashRef}}">{{.FlashRef}}</a>{{end}}{{if .UndoAction}} <button type="submit" form="flash-undo" class="flashundo">{{t "Undo"}}</button>{{end}}</p>
+    {{- if .UndoAction}}<form id="flash-undo" method="post" action="{{.UndoAction}}" hidden>{{template "csrf" .CSRF}}{{with .UndoField}}{{if index . 0}}<input type="hidden" name="{{index . 0}}" value="{{index . 1}}">{{end}}{{end}}<input type="hidden" name="next" value="{{.Here}}"></form>{{end}}{{end -}}
+    </div>
     {{if .Error}}<p class="flash error">{{.Error}}</p>{{end}}
     {{block "content" .}}{{end}}
   </main>

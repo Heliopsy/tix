@@ -128,13 +128,45 @@ test("selection moves over the rows the page has", () => {
 
 test("while the help overlay is open the global shortcuts stand down", () => {
   const overlay = element("DIV", { hidden: "" });
-  const { doc } = page({ overlay });
+  const { doc, history } = page({ overlay });
 
   doc.dispatch("keydown", keydown("?"));
   assert.equal(overlay.hasAttribute("hidden"), false, "the help key did not open the overlay");
 
   const event = doc.dispatch("keydown", keydown("Escape"));
-  assert.equal(event.prevented, 0, "a global shortcut fired underneath the open overlay");
+  assert.equal(overlay.hasAttribute("hidden"), true, "Escape did not close the overlay");
+  assert.equal(history.backs, 0, "Escape also fired the global back shortcut underneath the overlay");
+  assert.equal(event.immediateStopped, true, "the overlay let Escape through to the global dispatch");
+});
+
+// The body, overlay included, is replaced by every boosted navigation. The
+// overlay is looked up when "?" is pressed, so the one on screen is the one
+// that opens, not the copy that was there when the script first ran.
+test("the help key opens the overlay that is on the page now", () => {
+  const first = element("DIV", { hidden: "" });
+  const { doc } = page({ overlay: first });
+  doc.dispatch("keydown", keydown("?"));
+  doc.dispatch("keydown", keydown("Escape"));
+  assert.equal(first.hasAttribute("hidden"), true, "the first overlay did not open and close");
+  const swapped = element("DIV", { hidden: "" });
+  const byId = doc.getElementById;
+  doc.getElementById = (id) => (id === "shortcuts-help" ? swapped : byId(id));
+
+  doc.dispatch("keydown", keydown("?"));
+  assert.equal(swapped.hasAttribute("hidden"), false, "the overlay on the page did not open");
+  assert.equal(first.hasAttribute("hidden"), true, "the detached overlay opened instead");
+});
+
+test("a control marked data-shortcuts-open opens the overlay", () => {
+  const overlay = element("DIV", { hidden: "" });
+  const { doc } = page({ overlay });
+  const button = element("BUTTON", { "data-shortcuts-open": "" });
+  button.closest = (sel) => (sel === "[data-shortcuts-open]" ? button : null);
+  const click = { target: button, prevented: 0, preventDefault() { this.prevented++; } };
+
+  doc.dispatch("click", click);
+  assert.equal(overlay.hasAttribute("hidden"), false, "the button did not open the overlay");
+  assert.equal(click.prevented, 1);
 });
 
 test("a page carrying no shortcut table binds no keys at all", () => {

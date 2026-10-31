@@ -194,6 +194,9 @@ export function fakeDocument({ byId = {}, bySelector = {}, bySelectorAll = {} } 
     dispatch(type, event) {
       for (const fn of listeners.get(type) || []) {
         fn(event);
+        if (event.immediateStopped) {
+          break;
+        }
       }
       return event;
     },
@@ -217,6 +220,10 @@ export function keydown(key, { target = element("DIV"), ctrlKey = false, shiftKe
     },
     stopPropagation() {
       this.stopped++;
+    },
+    stopImmediatePropagation() {
+      this.stopped++;
+      this.immediateStopped = true;
     },
   };
 }

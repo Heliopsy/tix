@@ -8,7 +8,11 @@
      The way out is closing it, which assets/taskopen.js turns into Back. */}}
 {{if .InDialog}}<p class="backlink"><button type="button" class="ghost dlgclose" data-dialog-close>&larr; {{t "Close"}}</button></p>
 {{else}}<p class="backlink"><a href="{{.Data.Back}}">&larr; {{phrase .Data.BackLabel}}</a></p>{{end}}
-<div class="titlebar">
+{{/* data-inplace on the title bar, the two menus and the body: a form in
+     any of them swaps the page's content and leaves the sidebar, the scroll
+     position and the focused field where they were. See assets/feel.js. In
+     the dialog the dialog's own body is what its forms swap already. */}}
+<div class="titlebar"{{if not .InDialog}} data-inplace="main.wrap"{{end}}>
   {{if .CanStar}}{{template "star" (star $t.Ref $t.Starred .Here .CSRF)}}{{end}}
   <span class="ref">{{$t.Ref}}</span>
   <h1{{if .InDialog}} id="taskdlg-title"{{end}}>{{$t.Title}}</h1>
@@ -29,7 +33,7 @@
      button can sit inside the refreshed marks while the form it opens stays
      out here, untouched by any swap. */}}
 {{if and .Data.CanWrite .Data.Routes}}
-<div id="{{$.IDPrefix}}flow-{{$t.Ref}}" class="flowmenu" popover>
+<div id="{{$.IDPrefix}}flow-{{$t.Ref}}" class="flowmenu" popover{{if not .InDialog}} data-inplace="main.wrap"{{end}}>
   <p class="flowhead">{{t "Move"}} <span class="mono">{{$t.Ref}}</span> {{t "from"}} <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span></p>
   {{template "tip" (tip "Moves" "Only the moves the project's workflow allows from this state are offered. A move that passes through other states names each one, and the history records every step." "docs/workflows.md")}}
   <form method="post" action="/tasks/{{$t.Ref}}/transition">
@@ -46,7 +50,7 @@
 {{end}}
 {{if .Data.CanWrite}}
 {{$p := prio $t.Priority}}
-<div id="{{$.IDPrefix}}prio-{{$t.Ref}}" class="flowmenu priopop" popover>
+<div id="{{$.IDPrefix}}prio-{{$t.Ref}}" class="flowmenu priopop" popover{{if not .InDialog}} data-inplace="main.wrap"{{end}}>
   <p class="flowhead">{{t "Priority of"}} <span class="mono">{{$t.Ref}}</span></p>
   <form method="post" action="/tasks/{{$t.Ref}}/priority">
     {{template "csrf" $.CSRF}}
@@ -62,7 +66,7 @@
 </div>
 {{end}}
 
-<div class="detail">
+<div class="detail"{{if not .InDialog}} data-inplace="main.wrap"{{end}}>
 <div class="main">
 
   {{if .Data.CanWrite}}
@@ -416,7 +420,7 @@
     {{/* The "t" shortcut focuses this. It used to focus the select inside the
          Move to card; the control moved, so the target moved with it rather
          than being left pointing at markup that no longer exists. */}}
-    <button type="button" class="statuspill" popovertarget="{{$.IDPrefix}}flow-{{$t.Ref}}"
+    <button type="button" class="statuspill" data-focus="status" popovertarget="{{$.IDPrefix}}flow-{{$t.Ref}}"
             data-shortcut-target="transition"
             aria-label="{{t "Status %s; move %s" $t.Status $t.Ref}}" title="{{t "Move %s" $t.Ref}}">
       <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span>
@@ -426,7 +430,7 @@
   {{$p := prio $t.Priority}}
   {{if .Data.CanWrite}}
   <span class="priomenu">
-    <button type="button" class="priobtn" popovertarget="{{$.IDPrefix}}prio-{{$t.Ref}}"
+    <button type="button" class="priobtn" data-focus="prio" popovertarget="{{$.IDPrefix}}prio-{{$t.Ref}}"
             aria-label="{{t "Priority %s; change it" (t $p)}}" title="{{t "Change the priority"}}">
       <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>
     </button>
