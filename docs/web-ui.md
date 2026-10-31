@@ -629,6 +629,17 @@ the new markup with the previous release's stylesheet. That happened during revi
 as the interface being broken. Each file is fingerprinted independently, so changing one does not
 invalidate the others.
 
+**Compression.** A browser that accepts gzip gets every screen, fragment and asset compressed. The
+task list was about 185KB of HTML per load, swap and live refresh, and is about 17KB on the wire
+now; the stylesheet goes from 200KB to about 56KB. Screens are compressed as they are written, at the
+fastest level; assets once, at startup, at the best level, and each encoding carries the digest of
+its own bytes as its `ETag`. Every response says `Vary: Accept-Encoding`.
+
+Compressing a page that echoes input (the filter box) beside a constant secret leaks the secret to
+anyone who can steer requests and watch their sizes, which is the BREACH attack. So the CSRF value a
+form carries is masked with a fresh one-time pad on every response, and the cookie's own value is
+never on a page. The check accepts the masked value or the plain one.
+
 ## Something to look at
 
 An empty install is a poor demonstration of screens whose whole job is showing work in progress.
