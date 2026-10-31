@@ -3,7 +3,7 @@
 package i18n
 
 func init() {
-	register(Bulgarian, map[string]string{
+	register(Bulgarian, map[string]string{ // #nosec G101 -- interface text keyed by its English, not credentials
 		"Move":                   "Премести",
 		"from":                   "от",
 		"Move %s":                "Премести %s",

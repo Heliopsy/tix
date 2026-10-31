@@ -5,7 +5,7 @@ package i18n
 // The shell every screen shares: the sidebar, the shared partials, the error
 // screen, page titles, flashes, and the labels Go hands the partials.
 func init() {
-	register(Bulgarian, map[string]string{
+	register(Bulgarian, map[string]string{ // #nosec G101 -- interface text keyed by its English, not credentials
 		// Sidebar and navigation.
 		"Tasks":              "Задачи",
 		"Projects":           "Проекти",

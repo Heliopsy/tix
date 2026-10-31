@@ -4,7 +4,7 @@ package i18n
 
 // The settings screen, its saved toasts and the shortcut overlay.
 func init() {
-	register(Bulgarian, map[string]string{
+	register(Bulgarian, map[string]string{ // #nosec G101 -- interface text keyed by its English, not credentials
 		"Display preferences for this browser, stored in cookies rather than on the tenant, so two people sharing a tenant can choose differently.": "Настройки на показването за този браузър. Пазят се в бисквитки, а не в тенанта, така че двама души в един тенант могат да изберат различно.",
 		"Settings sections": "Раздели на настройките",
 		"Appearance":        "Изглед и поведение",

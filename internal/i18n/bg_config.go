@@ -4,7 +4,7 @@ package i18n
 
 // The workflow, import and export, bundle and external sync screens.
 func init() {
-	register(Bulgarian, map[string]string{
+	register(Bulgarian, map[string]string{ // #nosec G101 -- interface text keyed by its English, not credentials
 		"Workflows": "Работни процеси",
 		"A workflow is the set of states a task can be in and the moves allowed between them. Every project uses exactly one, and the built-in default works with no setup.": "Работният процес е наборът от състояния, в които може да е една задача, и позволените преходи между тях. Всеки проект използва точно един, а вграденият процес по подразбиране работи без настройка.",
 		"Key":              "Ключ",
