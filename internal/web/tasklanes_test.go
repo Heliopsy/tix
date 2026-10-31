@@ -645,6 +645,7 @@ func TestLanesFitAPhoneAndAFinger(t *testing.T) {
 		{"@media (pointer: coarse)", ".lane .lanemore-btn", "min-height: 40px"},
 		{"@media (pointer: coarse)", ".lanemore-menu .lanemore-row input", "min-height: 40px"},
 		{"", ".lanemore-menu", "overflow-y: auto"},
+		{phone, ".lanemore-menu:popover-open", "inset: auto 0 0 0"},
 		{"", ".lane .lane-card.htmx-request", "cursor: progress"},
 		{"", ".lane .lane-card.htmx-request *", "pointer-events: none"},
 	}
