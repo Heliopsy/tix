@@ -56,6 +56,11 @@ func findChrome() string {
 func TestBoardCardsDragBetweenColumnsInABrowser(t *testing.T) {
 	chrome := findChrome()
 	if chrome == "" {
+		// GitHub's runners all ship Chrome, so a CI run that cannot find one
+		// has lost this test rather than skipped it.
+		if os.Getenv("GITHUB_ACTIONS") == "true" {
+			t.Fatalf("no Chrome on this CI runner: %s", chromeCapability.Why)
+		}
 		testenv.Skip(t, chromeCapability)
 	}
 
@@ -210,6 +215,7 @@ func (p *cdpPage) startDrag(t *testing.T, x, y float64) any {
 type cdpPage struct {
 	t       *testing.T
 	ctx     context.Context
+	life    context.Context
 	conn    *websocket.Conn
 	session string
 	held    bool
@@ -226,12 +232,19 @@ type cdpReply struct {
 }
 
 // launchChrome starts a headless Chrome on a throwaway profile and returns a
-// page attached to a fresh tab. The browser is killed when the test ends.
+// page attached to a fresh tab. When the test ends the browser is asked to
+// close and waited for before its profile is removed: killing it outright left
+// helper processes on macOS still writing into the profile as it was deleted.
 func launchChrome(ctx context.Context, t *testing.T, chrome string) *cdpPage {
 	t.Helper()
-	profile := t.TempDir()
+	profile, err := os.MkdirTemp("", "tix-chrome-")
+	if err != nil {
+		t.Fatalf("making a Chrome profile: %v", err)
+	}
+	// Not CommandContext: the test's context is cancelled before cleanups
+	// run, and that would kill the browser before it is asked to close.
 	// #nosec G204 -- the browser path is resolved from PATH or the test's own environment.
-	cmd := exec.CommandContext(ctx, chrome,
+	cmd := exec.Command(chrome,
 		"--headless=new", "--remote-debugging-port=0", "--user-data-dir="+profile,
 		"--no-first-run", "--no-default-browser-check", "--disable-gpu",
 		"--disable-extensions", "--disable-background-networking", "--no-sandbox",
@@ -244,9 +257,39 @@ func launchChrome(ctx context.Context, t *testing.T, chrome string) *cdpPage {
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("starting %s: %v", chrome, err)
 	}
-	t.Cleanup(func() {
-		_ = cmd.Process.Kill()
+	exited := make(chan struct{})
+	go func() {
 		_ = cmd.Wait()
+		close(exited)
+	}()
+	var conn *websocket.Conn
+	// The socket lives until the browser is closed, not until the test's own
+	// context ends: websocket closes a connection whose read is cancelled.
+	life, endLife := context.WithCancel(context.Background())
+	t.Cleanup(func() {
+		defer endLife()
+		if conn != nil {
+			closing, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			_ = conn.Write(closing, websocket.MessageText, []byte(`{"id":999999,"method":"Browser.close"}`))
+			cancel()
+		}
+		select {
+		case <-exited:
+		case <-time.After(5 * time.Second):
+			_ = cmd.Process.Kill()
+			<-exited
+		}
+		if conn != nil {
+			_ = conn.CloseNow()
+		}
+		// Helpers can outlive the main process by a moment.
+		for i := 0; i < 20; i++ {
+			if os.RemoveAll(profile) == nil {
+				return
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		t.Logf("could not remove the Chrome profile %s", profile)
 	})
 
 	var endpoint string
@@ -271,17 +314,17 @@ func launchChrome(ctx context.Context, t *testing.T, chrome string) *cdpPage {
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	conn, resp, err := websocket.Dial(ctx, endpoint, nil)
+	dialled, resp, err := websocket.Dial(ctx, endpoint, nil)
 	if resp != nil && resp.Body != nil {
 		_ = resp.Body.Close()
 	}
 	if err != nil {
 		t.Fatalf("connecting to Chrome: %v", err)
 	}
+	conn = dialled
 	conn.SetReadLimit(64 << 20)
-	t.Cleanup(func() { _ = conn.CloseNow() })
 
-	p := &cdpPage{t: t, ctx: ctx, conn: conn,
+	p := &cdpPage{t: t, ctx: ctx, life: life, conn: conn,
 		replies: map[int]chan cdpReply{}, waiting: map[string][]chan json.RawMessage{}}
 	go p.read()
 
@@ -301,7 +344,7 @@ func launchChrome(ctx context.Context, t *testing.T, chrome string) *cdpPage {
 
 func (p *cdpPage) read() {
 	for {
-		_, data, err := p.conn.Read(p.ctx)
+		_, data, err := p.conn.Read(p.life)
 		if err != nil {
 			p.mu.Lock()
 			for id, ch := range p.replies {
