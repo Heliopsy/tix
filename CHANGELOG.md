@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.27.0](https://github.com/Heliopsy/tix/compare/v0.26.0...v0.27.0) (2026-10-31)
+
+
+### Features
+
+* **web:** answer row and task screen actions in place, with undo ([#107](https://github.com/Heliopsy/tix/issues/107)) ([9826153](https://github.com/Heliopsy/tix/commit/9826153b1207ad0a55c31affc5b19e269121ea92))
+* **web:** open a task in a dialog over the list, and rename titles where they are listed ([#103](https://github.com/Heliopsy/tix/issues/103)) ([42eae04](https://github.com/Heliopsy/tix/commit/42eae04680580d63b8193bc5a830d0da40c7d035))
+
+
+### Bug Fixes
+
+* **web:** lane cards untick, change status and priority in place ([#104](https://github.com/Heliopsy/tix/issues/104)) ([ff66d55](https://github.com/Heliopsy/tix/commit/ff66d55f6bcf32752b1615bac20415e6be28c211))
+
+
+### Performance
+
+* index task relations by task, gzip screens and assets ([#106](https://github.com/Heliopsy/tix/issues/106)) ([5cab26c](https://github.com/Heliopsy/tix/commit/5cab26c1a2dd7fd6b5ceec398db548c40506da1d))
+
 ## [0.26.0](https://github.com/Heliopsy/tix/compare/v0.25.0...v0.26.0) (2026-10-31)
 
 
