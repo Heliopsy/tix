@@ -307,7 +307,7 @@
         {{$showTags := and ($.Columns.Show "tasks" "tags") .Task.Tags}}
         {{$showRepeat := and ($.Columns.Show "tasks" "repeat") .Task.Recurrence}}
         <div class="ref">{{if and $.CanStar ($.Columns.Show "tasks" "star")}}{{template "star" (star .Task.Ref .Task.Starred $v.Self $.CSRF)}}{{end}}{{if $.Columns.Show "tasks" "ref"}}{{.Task.Ref}}{{end}}</div>
-        <div><a href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}">{{.Task.Title}}</a></div>
+        <div class="card-title">{{template "tasktitle" (titleLink .Task.Ref .Task.Title .Task.Version (print "/tasks/" .Task.Ref "?next=" ($v.Self | urlquery)) "" $.TitleEdit)}}</div>
         {{/* A merged board mixes projects in one column, so each card says
              which list it belongs to. A board of one project does not: the
              heading already said it, and repeating it on every card is noise. */}}
@@ -396,7 +396,7 @@
       {{end}}
       {{if and $.CanStar ($.Columns.Show "tasks" "star")}}{{template "star" (star .Task.Ref .Task.Starred $v.Self $.CSRF)}}{{end}}
       <div class="lane-body">
-        <a class="lane-title" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}">{{.Task.Title}}</a>
+        {{template "tasktitle" (titleLink .Task.Ref .Task.Title .Task.Version (print "/tasks/" .Task.Ref "?next=" ($v.Self | urlquery)) "lane-title" $.TitleEdit)}}
         <div class="card-meta">
           {{if $.Columns.Show "tasks" "status"}}<span class="pill status lane-state {{categoryClass .Category}}" data-state="{{.Task.Status}}">{{.Label}}</span>{{end}}
           {{if and ($.Columns.Show "tasks" "priority") (ne (prio .Task.Priority) "normal")}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="{{t "Only %s priority tasks" (t (prio .Task.Priority))}}"><span class="caret" aria-hidden="true"></span>{{t (prio .Task.Priority)}}</a>{{end}}
@@ -505,7 +505,7 @@
 
     {{/* next carries this listing, filters and sort included, so the task
          screen can offer a way back to exactly it. */}}
-    <a class="task-title" href="/tasks/{{.Ref}}?next={{$v.Self | urlquery}}">{{.Title}}</a>
+    {{template "tasktitle" (titleLink .Ref .Title .Version (print "/tasks/" .Ref "?next=" ($v.Self | urlquery)) "task-title" $.TitleEdit)}}
 
     {{/* Four kinds of marking used to be four near-identical chips, so a row
          read as a row of indistinguishable pills and nobody could tell a tag

@@ -142,7 +142,18 @@ type view struct {
 	OpenAfterAdd bool
 	// Hover is whether rows, cards and controls respond to the pointer.
 	Hover bool
-	Theme string
+	// TaskDialog is whether this page carries the dialog a task opens in.
+	// Never on the task screen itself, which is what the dialog would show.
+	TaskDialog bool
+	// TitleEdit is whether a click on a listed task's title edits it.
+	TitleEdit bool
+	// InDialog is whether this answer is the task screen drawn for the
+	// dialog rather than as a page. See taskopen.go.
+	InDialog bool
+	// IDPrefix keeps the ids of the task screen drawn in the dialog apart
+	// from the ids of the listing under it.
+	IDPrefix string
+	Theme    string
 	// Tint is what a row's stripe and a card's edge are saying: the project,
 	// the status, the priority, or nothing. See tint.go.
 	Tint      string
@@ -216,6 +227,7 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"age":             humanDuration,
 		"claim":           claimState,
 		"star":            newStarControl,
+		"titleLink":       newTitleLink,
 		"due":             dueState,
 		"expiredAgo":      expiredAgo,
 		"stateLabel":      core.StateLabel,
@@ -352,6 +364,8 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		DragMove:        dragMoveMode(r),
 		OpenAfterAdd:    openAfterAdd(r),
 		Hover:           hoverEffects(r),
+		TaskDialog:      taskDialogMode(r) && name != "task.html",
+		TitleEdit:       titleEditMode(r),
 		Theme:           themeOf(r),
 		Tint:            tintOf(r),
 		Tints:           tintChoices(tintOf(r)),
@@ -385,6 +399,22 @@ func (s starControl) Action() string {
 // newStarControl builds a star toggle for a template.
 func newStarControl(ref string, starred bool, next, csrf string) starControl {
 	return starControl{Ref: ref, Starred: starred, Next: next, CSRF: csrf}
+}
+
+// titleLink is what the "tasktitle" partial draws: one task's title in a
+// listing, where it leads, and whether a click edits it in place.
+type titleLink struct {
+	Ref     string
+	Title   string
+	Href    string
+	Class   string
+	Version int
+	Edit    bool
+}
+
+// newTitleLink builds a listing's title link for a template.
+func newTitleLink(ref, title string, version int, href, class string, edit bool) titleLink {
+	return titleLink{Ref: ref, Title: title, Href: href, Class: class, Version: version, Edit: edit}
 }
 
 // CanStar reports whether the reader may star and unstar tasks. A star changes
@@ -794,6 +824,12 @@ func (h *handler) renderStatus(w http.ResponseWriter, r *http.Request, status in
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", screenCacheControl)
+	w.Header().Add("Vary", DialogHeader)
+	if name == "task.html" && dialogRequest(r) {
+		v.InDialog, v.IDPrefix = true, "dlg-"
+		w.WriteHeader(status)
+		return tmpl.ExecuteTemplate(w, "task-dialog", v)
+	}
 	w.WriteHeader(status)
 	return tmpl.Execute(w, v)
 }

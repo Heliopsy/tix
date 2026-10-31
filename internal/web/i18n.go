@@ -165,6 +165,10 @@ var jsMessages = []string{
 	"Collapsed",
 	"Expand sidebar",
 	"Collapse sidebar",
+	"That change was refused.",
+	"A task needs a title.",
+	"The title could not be saved.",
+	"Title of %s",
 }
 
 // jsMessagesFor is the table the head carries for lang, empty for English,

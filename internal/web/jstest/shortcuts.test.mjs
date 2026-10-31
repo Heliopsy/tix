@@ -159,3 +159,30 @@ test("shortcuts.js stands down entirely without decide.js", () => {
   assert.doesNotThrow(() => run(ctx, "shortcuts.js"));
   assert.equal(doc.listenerCount("keydown"), 0);
 });
+
+// A task open in the dialog owns the keyboard. Escape there is the dialog's
+// own close, which goes Back once; the page's back shortcut firing as well
+// would go Back twice and leave the page the dialog was opened over.
+test("while a task dialog is open the global shortcuts stand down", () => {
+  const p = page();
+  p.doc.querySelector = (sel) => (sel === "dialog[open]" ? {} : null);
+  const event = p.doc.dispatch("keydown", keydown("Escape"));
+  assert.equal(event.prevented, 0, "a shortcut fired underneath the open dialog");
+  assert.equal(p.history.backs, 0, "Escape in the dialog also went Back from the page");
+});
+
+// In Dialog mode the open shortcut hands the row to the dialog first.
+test("open hands the selected row to the dialog when the page has one", () => {
+  const row = element("A", { "data-shortcut-row": "", dataset: { shortcutHref: "/tasks/TIX-1" } });
+  const { ctx, doc, location } = page({ rows: [row] });
+  const asked = [];
+  ctx.tix.openRow = (el) => { asked.push(el); return true; };
+  doc.activeElement = row;
+  doc.dispatch("keydown", keydown("Enter"));
+  assert.deepEqual(asked, [row], "the dialog was not asked");
+  assert.deepEqual(location.assigned, [], "the page navigated as well");
+
+  ctx.tix.openRow = () => false;
+  doc.dispatch("keydown", keydown("Enter"));
+  assert.deepEqual(location.assigned, ["/tasks/TIX-1"], "Page mode no longer opens the row");
+});

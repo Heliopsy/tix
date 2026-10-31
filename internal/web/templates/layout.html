@@ -36,6 +36,7 @@
 <script src="/assets/shortcuts.js" defer></script>
 <script src="/assets/copy.js" defer></script>
 <script src="/assets/busy.js" defer></script>
+<script src="/assets/taskopen.js" defer></script>
 </head>
 <body hx-boost="true">
 {{if .Actor}}
@@ -96,6 +97,7 @@
   </main>
 </div>
 {{template "shortcuts-help" .}}
+{{if .TaskDialog}}{{template "task-dialog-host" .}}{{end}}
 {{else}}
 <main class="auth">
   {{if .Flash}}<p class="flash">{{phrase .Flash}}</p>{{end}}

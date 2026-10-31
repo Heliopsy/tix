@@ -427,3 +427,22 @@
 <svg class="theme-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.8" y="4.2" width="18.4" height="12.4" rx="2"/><path d="M8.5 20.3h7M12 16.6v3.7"/></svg>
 {{end}}
 {{end}}
+
+{{/* The dialog a task opens in, when this browser chose Dialog
+     (taskopen.go). Empty until assets/taskopen.js asks for a task into it.
+     Every request made from inside it targets its body, adds no history entry
+     of its own and carries the header that makes the server answer with the
+     task screen alone, so a save's redirect is drawn in place. */}}
+{{define "task-dialog-host"}}
+<dialog id="taskdlg" class="taskdlg" aria-labelledby="taskdlg-title"
+        hx-target="#taskdlg-body" hx-swap="innerHTML show:none" hx-push-url="false"
+        hx-headers='{"X-Tix-Dialog": "1"}'>
+  <div id="taskdlg-body" class="taskdlg-body"></div>
+</dialog>
+{{end}}
+
+{{/* A task's title in a listing. A link to the task whatever the
+     preference, so it works with scripting off; when a title click edits
+     (taskopen.go), the link carries what assets/taskopen.js needs to edit it
+     in place and a separate open link is drawn beside it. */}}
+{{define "tasktitle"}}<a{{if .Class}} class="{{.Class}}"{{end}} href="{{.Href}}"{{if .Edit}} data-edit-title="{{.Ref}}" data-version="{{.Version}}" title="{{t "Click to rename"}}"{{end}}>{{.Title}}</a>{{if .Edit}}<a class="title-open" href="{{.Href}}" aria-label="{{t "Open %s" .Ref}}" title="{{t "Open the task"}}"><svg aria-hidden="true" width="14" height="14"><use href="/assets/icons.svg#open"/></svg></a>{{end}}{{end}}
