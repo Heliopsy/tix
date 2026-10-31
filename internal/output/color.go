@@ -3,6 +3,7 @@
 package output
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -88,9 +89,10 @@ const (
 // Painter applies ANSI styles when colour is enabled for one writer, and
 // carries the TimeStyle every timestamp it renders is formatted through.
 type Painter struct {
-	on    bool
-	style TimeStyle
-	names map[string]string
+	on        bool
+	truecolor bool
+	style     TimeStyle
+	names     map[string]string
 }
 
 // Actor labels an actor identifier for a reader, falling back to the
@@ -122,7 +124,7 @@ func NewPainter(mode Mode, w io.Writer) Painter {
 // NewPainterWithStyle returns a Painter for writing to w under the given
 // mode, rendering every timestamp through style.
 func NewPainterWithStyle(mode Mode, w io.Writer, style TimeStyle) Painter {
-	return Painter{on: colorAllowed(mode, w), style: style}
+	return Painter{on: colorAllowed(mode, w), truecolor: TruecolorDeclared(os.Getenv), style: style}
 }
 
 // NewPainterWithNames is NewPainterWithStyle plus the actor labels a screen
@@ -253,6 +255,16 @@ func colorAllowed(mode Mode, w io.Writer) bool {
 	}
 }
 
+// TruecolorDeclared reports whether the terminal says it draws 24-bit
+// colour, which COLORTERM is the common way of saying.
+func TruecolorDeclared(lookup func(string) string) bool {
+	switch strings.ToLower(lookup("COLORTERM")) {
+	case "truecolor", "24bit":
+		return true
+	}
+	return false
+}
+
 // isTerminal reports whether w is a character device.
 func isTerminal(w io.Writer) bool {
 	f, ok := w.(*os.File)
@@ -283,10 +295,18 @@ var paletteStyles = map[core.ProjectColor]sgr{
 const swatchGlyph = "● "
 
 // Swatch renders a project colour as a sample in that colour, and as the bare
-// colour name when colour is off. An empty colour renders as nothing.
+// colour name or hex value when colour is off. An empty colour renders as
+// nothing. A custom colour is drawn as itself on a truecolor terminal and as
+// the nearest palette colour on any other.
 func (p Painter) Swatch(c core.ProjectColor) string {
 	if c == core.ColorNone {
 		return ""
+	}
+	if rgb, custom := c.RGB(); custom && p.on {
+		if p.truecolor {
+			return p.apply(sgr(fmt.Sprintf("38;2;%d;%d;%d", rgb.R, rgb.G, rgb.B)), swatchGlyph+string(c))
+		}
+		return p.apply(paletteStyles[core.NearestPaletteColor(rgb)], swatchGlyph+string(c))
 	}
 	style, ok := paletteStyles[c]
 	if !ok || !p.on {

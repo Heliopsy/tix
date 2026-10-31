@@ -228,17 +228,21 @@ const (
 // an empty string, which no list of alternatives can show.
 const noColour = "none"
 
+// customColour is the choice that hands over to a prompt for a #rrggbb.
+const customColour = "custom"
+
 // ColourOptions are the colours a project may be given, the palette plus the
 // word for having none, so clearing a colour is a choice on the same list
-// rather than an attribute with no way back.
+// rather than an attribute with no way back, and custom, which asks for any
+// #rrggbb.
 func ColourOptions() []string {
 	palette := core.ProjectColors()
-	out := make([]string, 0, len(palette)+1)
+	out := make([]string, 0, len(palette)+2)
 	out = append(out, noColour)
 	for _, c := range palette {
 		out = append(out, c.String())
 	}
-	return out
+	return append(out, customColour)
 }
 
 // ColourValue turns a chosen colour back into what the service takes.
@@ -263,8 +267,11 @@ func ProjectEditForm(p core.Project, workflows []string) Form {
 		attributes = append(attributes, attrWorkflow)
 	}
 	colour := p.Color.String()
-	if colour == "" {
+	switch {
+	case colour == "":
 		colour = noColour
+	case p.Color.IsCustom():
+		colour = customColour
 	}
 	fields := []FormField{
 		{Key: "attribute", Label: "attribute", Options: attributes, Value: attributes[0]},

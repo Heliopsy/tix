@@ -429,3 +429,24 @@ func TestTheTerminalAndTheBoardAgreeOnEveryCategorysParameter(t *testing.T) {
 		}
 	}
 }
+
+// A custom colour is drawn as itself where the terminal declared truecolor,
+// as its nearest palette colour elsewhere, and as its hex with colour off.
+func TestSwatchDrawsACustomColour(t *testing.T) {
+	c := core.ProjectColor("#e01b24")
+	if got := (Painter{on: true, truecolor: true}).Swatch(c); got != "\x1b[38;2;224;27;36m"+swatchGlyph+"#e01b24\x1b[0m" {
+		t.Errorf("truecolor swatch = %q", got)
+	}
+	red := Painter{on: true}.Swatch(core.ColorRed)
+	if got := (Painter{on: true}).Swatch(c); got != strings.Replace(red, string(core.ColorRed), string(c), 1) {
+		t.Errorf("16-colour swatch = %q, want the red palette style %q", got, red)
+	}
+	if got := (Painter{}).Swatch(c); got != "#e01b24" {
+		t.Errorf("colour off swatch = %q, want the bare hex", got)
+	}
+	for env, want := range map[string]bool{"truecolor": true, "24BIT": true, "": false, "256": false} {
+		if got := TruecolorDeclared(func(string) string { return env }); got != want {
+			t.Errorf("TruecolorDeclared(%q) = %v, want %v", env, got, want)
+		}
+	}
+}

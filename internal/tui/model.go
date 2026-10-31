@@ -1248,6 +1248,8 @@ func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 		return m.updateProject(core.UpdateProjectInput{Description: &text}, attrDescription)
 	case promptProjectIcon:
 		return m.updateProject(core.UpdateProjectInput{Icon: &text}, attrIcon)
+	case promptProjectColour:
+		return m.updateProject(core.UpdateProjectInput{Color: &text}, attrColour)
 	case promptTenantName:
 		return m.updateTenant(core.UpdateTenantInput{Name: &text}, attrName)
 	case promptDomain:
@@ -2220,6 +2222,13 @@ func (m Model) applyProjectEdit(form Form) (Model, tea.Cmd) {
 	p := m.setup.project
 	switch form.Value("attribute") {
 	case attrColour:
+		if form.Value(attrColour) == customColour {
+			seed := ""
+			if p.Color.IsCustom() {
+				seed = p.Color.String()
+			}
+			return m.startPrompt(promptProjectColour, seed), textinput.Blink
+		}
 		colour := ColourValue(form.Value(attrColour))
 		return m, m.updateProject(core.UpdateProjectInput{Color: &colour}, attrColour)
 	case attrWorkflow:

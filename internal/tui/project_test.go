@@ -232,9 +232,12 @@ func TestColourOptionsOfferTheWholePaletteAndAWayBack(t *testing.T) {
 	if options[0] != noColour {
 		t.Errorf("the colour list does not start with the absence of one: %v", options)
 	}
-	if len(options) != len(core.ProjectColors())+1 {
-		t.Errorf("the colour list holds %d entries for a palette of %d",
+	if len(options) != len(core.ProjectColors())+2 {
+		t.Errorf("the colour list holds %d entries for a palette of %d plus none and custom",
 			len(options), len(core.ProjectColors()))
+	}
+	if options[len(options)-1] != customColour {
+		t.Errorf("the colour list does not end with custom: %v", options)
 	}
 	if ColourValue(noColour) != "" {
 		t.Error("choosing no colour does not clear one")
@@ -805,4 +808,46 @@ func TestSteppingBackLeavesTheProjectScreen(t *testing.T) {
 func lastLine(frame string) string {
 	lines := strings.Split(strings.TrimRight(frame, "\n"), "\n")
 	return lines[len(lines)-1]
+}
+
+// Custom hands over to a prompt for a #rrggbb, seeded with the project's own
+// custom colour, and the answer is what is sent.
+func TestChoosingACustomColourAsksForItAndSendsIt(t *testing.T) {
+	m, svc := setupModel(t)
+	m, _ = m.reduce(pressKey("e"))
+	for range 3 {
+		m, _ = m.reduce(pressKey("right"))
+	}
+	m, _ = m.reduce(pressKey("down"))
+	for range 3 {
+		m, _ = m.reduce(pressKey("right"))
+	}
+	if got := formRow(t, m.Frame(), "edit project infra", "colour"); !strings.Contains(got, customColour) {
+		t.Fatalf("the colour row says %q", got)
+	}
+	m, _ = m.reduce(pressKey("enter"))
+	if m.prompt != promptProjectColour {
+		t.Fatalf("choosing custom opened prompt %v", m.prompt)
+	}
+	if len(svc.projectsEdited) != 0 {
+		t.Fatalf("choosing custom sent %+v before a colour was given", svc.projectsEdited)
+	}
+	m.input.SetValue("#1a7f5a")
+	m, cmd := m.reduce(pressKey("enter"))
+	_, _ = m.reduce(run(t, cmd))
+	if len(svc.projectsEdited) != 1 || svc.projectsEdited[0].Color == nil || *svc.projectsEdited[0].Color != "#1a7f5a" {
+		t.Fatalf("the custom colour sent %+v", svc.projectsEdited)
+	}
+}
+
+func TestAProjectWithACustomColourOpensOnCustom(t *testing.T) {
+	p := setupProject()
+	p.Color = "#1a7f5a"
+	form := ProjectEditForm(p, []string{"standard"})
+	for range 3 {
+		form = form.Cycle(1)
+	}
+	if got := form.Value(attrColour); got != customColour {
+		t.Errorf("the colour row opens on %q for a custom colour", got)
+	}
 }
