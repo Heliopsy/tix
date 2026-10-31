@@ -108,12 +108,12 @@ func movedTo(r *http.Request, from, to string) string {
 	return target
 }
 
-// redirectOldKey answers a GET that named a project by a key it was renamed
+// redirectOldKey answers a screen that named a project by a key it was renamed
 // from with a permanent redirect to the same screen under the current key, and
-// reports whether it did. A post is served where it was sent, so a form left
-// open across a rename still saves.
+// reports whether it did. Only the screens call it: a form post is served where
+// it was sent, so a form left open across a rename still saves.
 func redirectOldKey(w http.ResponseWriter, r *http.Request, asked string, p *core.Project) bool {
-	if r.Method != http.MethodGet || asked == p.ID || strings.EqualFold(asked, p.Key) {
+	if asked == p.ID || strings.EqualFold(asked, p.Key) {
 		return false
 	}
 	http.Redirect(w, r, movedTo(r, asked, p.Key), http.StatusMovedPermanently)
@@ -123,7 +123,7 @@ func redirectOldKey(w http.ResponseWriter, r *http.Request, asked string, p *cor
 // redirectOldRef is redirectOldKey for a task reference.
 func redirectOldRef(w http.ResponseWriter, r *http.Request, asked string, t *core.Task) bool {
 	ref, err := core.ParseTaskRef(asked)
-	if r.Method != http.MethodGet || err != nil || ref.IsID() || strings.EqualFold(asked, t.Ref) {
+	if err != nil || ref.IsID() || strings.EqualFold(asked, t.Ref) {
 		return false
 	}
 	http.Redirect(w, r, movedTo(r, asked, t.Ref), http.StatusMovedPermanently)
