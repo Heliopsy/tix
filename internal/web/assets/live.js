@@ -417,6 +417,19 @@
     return dragging;
   }
 
+  // processed hands markup this file wrote with innerHTML to htmx. htmx only
+  // wires up what it swapped in itself, so every form a refresh drew had no
+  // hx-post and no boost: the next tick or move was a plain post that
+  // reloaded the page and threw the reader back to the top.
+  function processed(el) {
+    if (window.htmx && typeof window.htmx.process === "function") {
+      window.htmx.process(el);
+    }
+  }
+
+  // applyRegions replaces each region and puts focus back where it was: the
+  // refresh that follows a reader's own change lands on the region holding
+  // the control they just pressed, and replacing it dropped focus to the body.
   function applyRegions(el, html) {
     var doc = new DOMParser().parseFromString(html, "text/html");
     var ids = regionIDs(el);
@@ -424,7 +437,10 @@
       var fresh = doc.getElementById(ids[i]);
       var here = document.getElementById(ids[i]);
       if (fresh && here) {
+        var memo = tix.focusMemo(document.activeElement, here);
         here.innerHTML = fresh.innerHTML;
+        processed(here);
+        tix.focusRestore(document, memo);
       }
     }
   }
@@ -623,13 +639,13 @@
   });
 
   // extractError pulls the message a refused move's error page carries
-  // (templates/error.html renders it as .flash.error) out of the raw HTML a
+  // (templates/error.html renders it as .failure-message) out of the raw HTML a
   // failed fetch returned, since that response was never swapped into the
   // page the way htmx would swap a boosted navigation.
   function extractError(html) {
     try {
       var doc = new DOMParser().parseFromString(html, "text/html");
-      var el = doc.querySelector(".flash.error");
+      var el = doc.querySelector(".failure-message, .flash.error");
       return el ? el.textContent.trim() : "";
     } catch (err) {
       return "";
@@ -663,6 +679,9 @@
         var fresh = new DOMParser().parseFromString(html, "text/html").querySelector(".board");
         if (fresh) {
           board.innerHTML = fresh.innerHTML;
+          if (window.htmx && typeof window.htmx.process === "function") {
+            window.htmx.process(board);
+          }
         }
         announce(board, announceText);
       })

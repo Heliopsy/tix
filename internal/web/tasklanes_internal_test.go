@@ -15,9 +15,10 @@ func holds(scopes ...core.Scope) func(core.Scope) bool {
 	return func(s core.Scope) bool { return slices.Contains(scopes, s) }
 }
 
-// A tick box is one unambiguous move into done that this reader can make
-// without typing anything, and nothing else.
-func TestCompletionOffersOnlyOneUnambiguousRoute(t *testing.T) {
+// A tick completes along the shortest routes into done and reopens along the
+// nearest routes to an open state. One candidate is a box, several a menu of
+// the usable ones, none usable a lock with its reason.
+func TestTickRoutesCompleteAndReopen(t *testing.T) {
 	t.Parallel()
 	member := holds(core.ScopeTaskTransition)
 	edit := func(mutate func(d *core.WorkflowDefinition)) core.WorkflowDefinition {
@@ -25,10 +26,10 @@ func TestCompletionOffersOnlyOneUnambiguousRoute(t *testing.T) {
 		mutate(&d)
 		return d
 	}
-	needs := func(field string) core.WorkflowDefinition {
+	needs := func(from, to, field string) core.WorkflowDefinition {
 		return edit(func(d *core.WorkflowDefinition) {
 			for i, tr := range d.Transitions {
-				if tr.From == "doing" && tr.To == "done" {
+				if tr.From == from && tr.To == to {
 					if field == "comment" {
 						d.Transitions[i].RequiresComment = true
 					} else {
@@ -38,49 +39,109 @@ func TestCompletionOffersOnlyOneUnambiguousRoute(t *testing.T) {
 			}
 		})
 	}
+	twoOpen := edit(func(d *core.WorkflowDefinition) {
+		d.Transitions = append(d.Transitions, core.Transition{From: "done", To: "doing"})
+	})
 	tests := []struct {
 		name   string
 		def    core.WorkflowDefinition
 		from   string
 		has    func(core.Scope) bool
-		route  string
-		locked bool
+		reopen bool
+		routes []string
+		choose bool
+		locked string
 	}{
-		{"one hop", service.BuiltinWorkflow(), "doing", member, "done", false},
-		{"through another state", service.BuiltinWorkflow(), "todo", member, "doing>done", false},
-		{"a reader who cannot transition", service.BuiltinWorkflow(), "doing", holds(core.ScopeTaskRead), "", true},
-		{"no reader at all", service.BuiltinWorkflow(), "doing", nil, "", true},
-		{"a step needing a comment", needs("comment"), "doing", member, "", true},
-		{"a step needing a scope the reader lacks", needs("scope"), "doing", member, "", true},
-		{"a step needing a scope the reader holds", needs("scope"), "doing",
-			holds(core.ScopeTaskTransition, core.ScopeTaskReclaim), "done", false},
+		{"one hop", service.BuiltinWorkflow(), "doing", member, false, []string{"done"}, false, ""},
+		{"through another state", service.BuiltinWorkflow(), "todo", member, false, []string{"doing>done"}, false, ""},
+		{"a reader who cannot transition", service.BuiltinWorkflow(), "doing", holds(core.ScopeTaskRead), false, nil, false, "you cannot move tasks"},
+		{"no reader at all", service.BuiltinWorkflow(), "doing", nil, false, nil, false, "you cannot move tasks"},
+		{"a step needing a comment", needs("doing", "done", "comment"), "doing", member, false, nil, false, "finishing it needs a comment"},
+		{"a step needing a scope the reader lacks", needs("doing", "done", "scope"), "doing", member, false, nil, false, "finishing it needs the %s scope"},
+		{"a step needing a scope the reader holds", needs("doing", "done", "scope"), "doing",
+			holds(core.ScopeTaskTransition, core.ScopeTaskReclaim), false, []string{"done"}, false, ""},
 		{"two done states", edit(func(d *core.WorkflowDefinition) {
 			d.States = append(d.States, core.State{Key: "shipped", Category: core.CategoryDone, Terminal: true})
 			d.Transitions = append(d.Transitions, core.Transition{From: "doing", To: "shipped"})
-		}), "doing", member, "", true},
+		}), "doing", member, false, []string{"done", "shipped"}, true, ""},
 		{"two equally short ways into done", edit(func(d *core.WorkflowDefinition) {
 			d.States = append(d.States, core.State{Key: "review", Category: core.CategoryInProgress})
 			d.Transitions = append(d.Transitions,
 				core.Transition{From: "todo", To: "review"}, core.Transition{From: "review", To: "done"})
-		}), "todo", member, "", true},
+		}), "todo", member, false, []string{"doing>done", "review>done"}, true, ""},
+		{"a choice stays a menu when one branch is refused", edit(func(d *core.WorkflowDefinition) {
+			d.States = append(d.States, core.State{Key: "shipped", Category: core.CategoryDone, Terminal: true})
+			d.Transitions = append(d.Transitions, core.Transition{From: "doing", To: "shipped", RequiresComment: true})
+		}), "doing", member, false, []string{"done"}, true, ""},
 		{"a terminal state with no category counts as done", edit(func(d *core.WorkflowDefinition) {
 			d.States[3].Category = ""
-		}), "doing", member, "done", false},
+		}), "doing", member, false, []string{"done"}, false, ""},
 		{"cancelled is not done", edit(func(d *core.WorkflowDefinition) {
 			d.Transitions = slices.DeleteFunc(d.Transitions, func(tr core.Transition) bool { return tr.To == "done" })
-		}), "doing", member, "", true},
+		}), "doing", member, false, nil, false, "no route leads to done from here"},
+
+		{"reopening takes the nearest open state", service.BuiltinWorkflow(), "done", member, true, []string{"todo"}, false, ""},
+		{"reopening a cancelled task", service.BuiltinWorkflow(), "cancelled", member, true, []string{"todo"}, false, ""},
+		{"two equally near open states are a choice", twoOpen, "done", member, true, []string{"todo", "doing"}, true, ""},
+		{"reopening never lands in another terminal state", edit(func(d *core.WorkflowDefinition) {
+			d.Transitions = append(d.Transitions, core.Transition{From: "done", To: "cancelled"})
+		}), "done", member, true, []string{"todo"}, false, ""},
+		{"reopening needs the scope to move", service.BuiltinWorkflow(), "done", holds(core.ScopeTaskRead), true, nil, false, "you cannot move tasks"},
+		{"reopening needing a comment", needs("done", "todo", "comment"), "done", member, true, nil, false, "reopening it needs a comment"},
+		{"reopening needing a scope the reader lacks", needs("done", "todo", "scope"), "done", member, true, nil, false, "reopening it needs the %s scope"},
+		{"a workflow with no way back", edit(func(d *core.WorkflowDefinition) {
+			d.Transitions = slices.DeleteFunc(d.Transitions, func(tr core.Transition) bool { return tr.From == "done" })
+		}), "done", member, true, nil, false, "no route leads back to an open state"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			route, locked := completion(tt.def, tt.from, tt.has)
-			if (locked != "") != tt.locked {
-				t.Fatalf("locked = %q, want locked %v", locked, tt.locked)
+			routes, choose, locked := tickRoutes(tt.def, tt.from, tt.has, tt.reopen)
+			if locked.Key != tt.locked {
+				t.Fatalf("locked = %q, want %q", locked.Key, tt.locked)
 			}
-			if !tt.locked && route.Value() != tt.route {
-				t.Errorf("route = %q, want %q", route.Value(), tt.route)
+			var got []string
+			for _, r := range routes {
+				got = append(got, r.Value())
+			}
+			if !slices.Equal(got, tt.routes) {
+				t.Errorf("routes = %v, want %v", got, tt.routes)
+			}
+			if choose != tt.choose {
+				t.Errorf("choose = %v, want %v", choose, tt.choose)
 			}
 		})
+	}
+}
+
+// The status menu offers every state the workflow reaches, less the routes a
+// reader could not apply from a lane, and nothing to a reader who cannot move
+// tasks.
+func TestStatusMovesLeaveOutWhatTheReaderCannotApply(t *testing.T) {
+	t.Parallel()
+	member := holds(core.ScopeTaskTransition)
+	values := func(rs []flowRoute) []string {
+		var out []string
+		for _, r := range rs {
+			out = append(out, r.Value())
+		}
+		return out
+	}
+	if got, want := values(statusMoves(service.BuiltinWorkflow(), "todo", member)),
+		[]string{"doing", "blocked", "cancelled", "doing>done"}; !slices.Equal(got, want) {
+		t.Errorf("moves from todo = %v, want %v", got, want)
+	}
+	commented := service.BuiltinWorkflow()
+	for i, tr := range commented.Transitions {
+		if tr.To == "blocked" {
+			commented.Transitions[i].RequiresComment = true
+		}
+	}
+	if got := values(statusMoves(commented, "todo", member)); slices.Contains(got, "blocked") {
+		t.Errorf("a move needing a comment is offered: %v", got)
+	}
+	if got := statusMoves(service.BuiltinWorkflow(), "todo", holds(core.ScopeTaskRead)); got != nil {
+		t.Errorf("a reader who cannot move tasks is offered %v", values(got))
 	}
 }
 

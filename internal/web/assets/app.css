@@ -5063,11 +5063,13 @@ td > details.panel > summary { overflow-wrap: normal; word-break: keep-all; }
   margin-bottom: var(--space-2);
   padding-bottom: var(--space-1);
 }
+/* 300px at the least: a card gives the tick and the star 60px of it, and at
+   260 the title was left 160px, a word or two per line. */
 .lane {
   display: flex;
   flex-direction: column;
-  flex: 1 1 280px;
-  min-width: 260px;
+  flex: 1 1 320px;
+  min-width: 300px;
   max-width: 420px;
   min-height: 0;
   scroll-snap-align: start;
@@ -5112,24 +5114,39 @@ td > details.panel > summary { overflow-wrap: normal; word-break: keep-all; }
 .lane .lane-card.is-finished .lane-title { color: var(--muted); text-decoration: line-through; }
 .lane .tick { margin-top: 1px; }
 
-/* A finished card's mark is the ticked circle with nothing to press, and a
-   card that cannot be finished from here is a dashed circle that opens the
-   task, whose label says why. */
-.lane span.check.is-done { background: var(--ok); border-color: var(--ok); cursor: default; }
-.lane span.check.is-done svg {
-  width: 14px; height: 14px; fill: none; stroke: var(--on-ok); stroke-width: 3;
-  stroke-linecap: round; stroke-linejoin: round;
-}
-.lane a.check.is-locked {
+/* The tick is the same circle as a list row's, ticked or not. One that
+   cannot apply a route from here is dashed and opens a panel saying why, so
+   the reason reaches a touch screen and not only a mouse resting on a
+   tooltip; a finished one keeps its fill and gains the dashes. */
+.lane button.check.is-locked { border-style: dashed; }
+.lane button.check.is-locked:not(.is-done) svg { display: none; }
+.lane button.check.is-done.is-locked { border-color: var(--on-ok); }
+.lanepop .flowwhy { margin: 0 0 var(--space-1); padding: var(--space-1) var(--space-3); font-size: var(--text-sm); max-width: 18rem; }
+
+/* The badge and the priority open menus, so each says so with a chevron:
+   the same mark the task screen's pills carry, smaller, inside the chip the
+   card already showed. The chip is the button's whole face; nothing else
+   about the card moves. */
+.lane .lanepill { display: inline-flex; align-items: center; gap: 3px; border-radius: var(--radius-pill); }
+.lane .lanepill::after {
+  content: "";
   flex: 0 0 auto;
-  display: block;
-  width: 22px;
-  height: 22px;
-  margin-top: 1px;
-  border: 2px dashed var(--line-strong);
-  border-radius: 50%;
+  width: 0;
+  height: 0;
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  border-top: 4px solid var(--muted);
 }
-.lane a.check.is-locked:hover { border-color: var(--accent); }
+.lane .priobtn:focus-visible .prio.is-normal,
+.lane .lane-card:focus-within .prio.is-normal { opacity: 1; }
+.lane .prio.is-normal { opacity: 0.55; }
+
+/* While a card's request is out the card says so and takes no second press;
+   the card is what htmx marks (hx-indicator), so the whole card waits rather
+   than one button in it. */
+.lane .lane-card.htmx-request { opacity: 0.6; cursor: progress; }
+.lane .lane-card.htmx-request * { pointer-events: none; }
+.lane .lane-error { margin: var(--space-1) 0 0; font-size: var(--text-xs); color: var(--danger); overflow-wrap: anywhere; }
 .lane-empty { margin: 0; padding: 4px 2px; }
 .lane-none { margin: 0; }
 .lanesbar { display: flex; justify-content: flex-end; margin: 0 0 var(--space-2); }
@@ -5141,9 +5158,34 @@ td > details.panel > summary { overflow-wrap: normal; word-break: keep-all; }
 .lanes-hide-finished .lane .lane-card.is-finished { display: none; }
 .lanes-hide-finished .lane .lane-allfinished { display: block; }
 
+/* A phone scrolls the page, as the list does there (see "One scrollbar, not
+   two" above). The lanes were a frame of fixed height whose lanes scrolled
+   inside it, so a thumb had the page, the row of lanes and the lane under it
+   to choose between, and the frame's guessed height cut the last card off
+   below the fold. Here each lane is as tall as its cards, the row snaps one
+   lane at a time, and the next lane shows its edge so there is something to
+   swipe towards. */
 @media (max-width: 639px) {
-  .lanes { height: calc(100svh - 168px); scroll-snap-type: x mandatory; }
-  .lane { flex: 0 0 82vw; min-width: 0; max-width: none; }
+  .lanes { height: auto; min-height: 0; align-items: flex-start; scroll-snap-type: x mandatory; scroll-padding-inline: var(--space-1); }
+  .lane { flex: 0 0 86vw; min-width: 0; max-width: none; overflow-y: visible; scroll-snap-stop: always; }
+  .lane > h2 { position: static; }
+}
+
+/* A finger needs 40px. The tick, the badge and the priority are the card's
+   three controls, and on a coarse pointer each answers a press 40px tall,
+   the tick 40px wide as well. The box is a transparent pseudo-element, the
+   way the "i" beside a label grows its tap zone, so the circle and the chips
+   keep the size they are drawn at and the card does not become a stack of
+   buttons. The pseudo-element belongs to the button, so a tap on it is a
+   press of the button. */
+@media (pointer: coarse) {
+  .lane button.check,
+  .lane .lanepill { position: relative; }
+  .lane button.check::before { content: ""; position: absolute; inset: -11px; border-radius: 50%; }
+  .lane .lanepill::before { content: ""; position: absolute; inset: -11px -2px; }
+  .lanepop .flowgo,
+  .lanepop .flowsee,
+  .lanepop .flowclose { min-height: 40px; }
 }
 
 /* The star toggle. An outline when the task is not starred, filled when it

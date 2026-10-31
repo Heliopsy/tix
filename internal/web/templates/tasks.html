@@ -373,33 +373,123 @@
     {{if eq $.Tint "status"}}{{$mark = printf " is-accented tint-status-%s" (slug .Task.Status)}}
     {{else if eq $.Tint "priority"}}{{$mark = printf " is-accented tint-prio-%s" (prio .Task.Priority)}}{{end}}
     <article id="t-{{.Task.Ref}}" class="card lane-card{{if .Finished}} is-finished{{end}}{{$mark}}{{if eq $.FlashRef .Task.Ref}} is-flashed{{end}}" data-lane-task="{{.Task.Ref}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
-      {{if .Finished}}
-      <span class="check is-done" role="img" aria-label="{{t "%s is finished" .Task.Ref}}" title="{{t "Finished"}}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5 10.2 16.7 18 8.4"/></svg></span>
-      {{else if .Tickable}}
-      {{/* The existing transition route, submitting the one route into done.
-           Only this card is swapped, as the list swaps only its row; without
-           JavaScript it is an ordinary post that returns to this listing. */}}
+      {{/* The tick completes an unfinished task and reopens a finished one,
+           along routes tasklanes.go tickRoutes picks. One route is a box;
+           several are a menu, because a guess writes a history nobody chose;
+           none is a circle that opens a panel saying why, so a touch screen
+           learns the reason too and not only a mouse hovering a tooltip.
+
+           Every form keeps action and method, so without JavaScript it is an
+           ordinary post that returns to this listing at this card. With htmx
+           only this card is swapped: hx-select pulls it out of the redrawn
+           listing, and the card carries htmx-request while it waits, which
+           is also what holds a live refresh back (decide.js regionBusy).
+           assets/lanes.js puts focus back on the pressed control, and shows a
+           refusal in the card instead of letting the error page replace it. */}}
+      {{$card := printf "#t-%s" .Task.Ref}}
+      {{if .Tickable}}
       <form method="post" action="/tasks/{{.Task.Ref}}/transition" class="tick"
-            hx-post="/tasks/{{.Task.Ref}}/transition"
-            hx-target="#t-{{.Task.Ref}}"
-            hx-select="#t-{{.Task.Ref}}"
-            hx-swap="outerHTML">
+            hx-post="/tasks/{{.Task.Ref}}/transition" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
+            hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="tick">
         {{template "csrf" $.CSRF}}
         <input type="hidden" name="next" value="{{$v.Self}}">
         <input type="hidden" name="route" value="{{.Complete.Value}}">
-        <button type="submit" class="check" aria-label="{{t "Complete %s: %s" .Task.Ref .Journey}}" title="{{t "Complete: %s" .Journey}}">
+        <button type="submit" class="check{{if .Finished}} is-done{{end}}" data-focus="tick"
+                {{if .Finished}}aria-label="{{t "Reopen %s: %s" .Task.Ref .Journey}}" title="{{t "Reopen: %s" .Journey}}"{{else}}aria-label="{{t "Complete %s: %s" .Task.Ref .Journey}}" title="{{t "Complete: %s" .Journey}}"{{end}}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5 10.2 16.7 18 8.4"/></svg>
         </button>
       </form>
       {{else}}
-      <a class="check is-locked" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}" aria-label="{{t "Open %s to finish it: %s" .Task.Ref .Locked}}" title="{{t "Open the task to finish it: %s" .Locked}}"></a>
+      <div class="tick">
+      <button type="button" class="check{{if .Finished}} is-done{{end}}{{if not .Tick}} is-locked{{end}}" popovertarget="ltick-{{.Task.Ref}}" data-focus="tick"
+              {{if .Tick}}{{if .Finished}}aria-label="{{t "Reopen %s: choose how" .Task.Ref}}" title="{{t "Choose how to reopen it"}}"{{else}}aria-label="{{t "Complete %s: choose how" .Task.Ref}}" title="{{t "Choose how to complete it"}}"{{end}}
+              {{else}}aria-label="{{if .Finished}}{{t "%s is finished and cannot be reopened here" .Task.Ref}}{{else}}{{t "%s cannot be completed here" .Task.Ref}}{{end}}" title="{{t "Why this cannot be ticked"}}"{{end}}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5 10.2 16.7 18 8.4"/></svg>
+      </button>
+      <div id="ltick-{{.Task.Ref}}" class="flowmenu lanepop" popover>
+        <p class="flowhead">{{if .Finished}}{{t "Reopen"}}{{else}}{{t "Complete"}}{{end}} <span class="mono">{{.Task.Ref}}</span></p>
+        {{if .Tick}}
+        <form method="post" action="/tasks/{{.Task.Ref}}/transition"
+              hx-post="/tasks/{{.Task.Ref}}/transition" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
+              hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="tick">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="next" value="{{$v.Self}}">
+          {{range .Tick}}
+          <button type="submit" name="route" value="{{.Value}}" class="flowgo{{if .MultiHop}} is-multi{{end}}">
+            <span class="flowto">{{.To.Label}}</span>
+            {{if .MultiHop}}<span class="flowvia">{{.Path}}</span>{{end}}
+            <span class="flowhops">{{tn "%d step" "%d steps" .Hops}}</span>
+          </button>
+          {{end}}
+        </form>
+        {{else}}
+        {{$why := t .Locked.Key}}{{if .Locked.Arg}}{{$why = t .Locked.Key .Locked.Arg}}{{end}}
+        <p class="flowwhy">{{t "Not from the lane: %s." $why}}</p>
+        <a class="flowsee" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}">{{t "Open the task"}}</a>
+        {{end}}
+        <button type="button" class="flowclose" popovertarget="ltick-{{.Task.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
+      </div>
+      </div>
       {{end}}
       {{if and $.CanStar ($.Columns.Show "tasks" "star")}}{{template "star" (star .Task.Ref .Task.Starred $v.Self $.CSRF)}}{{end}}
       <div class="lane-body">
         {{template "tasktitle" (titleLink .Task.Ref .Task.Title .Task.Version (print "/tasks/" .Task.Ref "?next=" ($v.Self | urlquery)) "lane-title" $.TitleEdit)}}
         <div class="card-meta">
-          {{if $.Columns.Show "tasks" "status"}}<span class="pill status lane-state {{categoryClass .Category}}" data-state="{{.Task.Status}}">{{.Label}}</span>{{end}}
-          {{if and ($.Columns.Show "tasks" "priority") (ne (prio .Task.Priority) "normal")}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="{{t "Only %s priority tasks" (t (prio .Task.Priority))}}"><span class="caret" aria-hidden="true"></span>{{t (prio .Task.Priority)}}</a>{{end}}
+          {{/* The badge and the priority are the list row's popover menus,
+               the same forms posting to the same routes, swapped in place
+               like the tick. A reader who may not change one sees a label. */}}
+          {{if $.Columns.Show "tasks" "status"}}{{if .Moves}}
+          <span class="statusmenu">
+            <button type="button" class="statuspill lanepill" popovertarget="lflow-{{.Task.Ref}}" data-focus="status"
+                    aria-label="{{t "Status %s; move %s" .Label .Task.Ref}}" title="{{t "Move %s" .Task.Ref}}">
+              <span class="pill status lane-state {{categoryClass .Category}}" data-state="{{.Task.Status}}">{{.Label}}</span>
+            </button>
+            <div id="lflow-{{.Task.Ref}}" class="flowmenu lanepop" popover>
+              <p class="flowhead">{{t "Move"}} <span class="mono">{{.Task.Ref}}</span> {{t "from"}} <span class="pill status {{categoryClass .Category}}">{{.Label}}</span></p>
+              <form method="post" action="/tasks/{{.Task.Ref}}/transition"
+                    hx-post="/tasks/{{.Task.Ref}}/transition" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
+                    hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="status">
+                {{template "csrf" $.CSRF}}
+                <input type="hidden" name="next" value="{{$v.Self}}">
+                {{range .Moves}}
+                <button type="submit" name="route" value="{{.Value}}" class="flowgo{{if .MultiHop}} is-multi{{end}}">
+                  <span class="flowto">{{.To.Label}}</span>
+                  {{if .MultiHop}}<span class="flowvia">{{.Path}}</span>{{end}}
+                  <span class="flowhops">{{tn "%d step" "%d steps" .Hops}}</span>
+                </button>
+                {{end}}
+              </form>
+              <a class="flowsee" href="/tasks?q=status:{{.Task.Status}}">{{t "Show all"}} <span class="pill status {{categoryClass .Category}}">{{.Label}}</span></a>
+              <button type="button" class="flowclose" popovertarget="lflow-{{.Task.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
+            </div>
+          </span>
+          {{else}}<span class="pill status lane-state {{categoryClass .Category}}" data-state="{{.Task.Status}}">{{.Label}}</span>{{end}}{{end}}
+          {{$p := prio .Task.Priority}}
+          {{if and ($.Columns.Show "tasks" "priority") .Prioritise}}
+          <span class="priomenu">
+            <button type="button" class="priobtn lanepill" popovertarget="lprio-{{.Task.Ref}}" data-focus="prio"
+                    aria-label="{{t "Priority %s; change it for %s" (t $p) .Task.Ref}}" title="{{t "Change the priority of %s" .Task.Ref}}">
+              <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>
+            </button>
+            <div id="lprio-{{.Task.Ref}}" class="flowmenu priopop lanepop" popover>
+              <p class="flowhead">{{t "Priority of"}} <span class="mono">{{.Task.Ref}}</span></p>
+              <form method="post" action="/tasks/{{.Task.Ref}}/priority"
+                    hx-post="/tasks/{{.Task.Ref}}/priority" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
+                    hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="prio">
+                {{template "csrf" $.CSRF}}
+                <input type="hidden" name="next" value="{{$v.Self}}">
+                {{range $.Data.Priorities}}
+                <button type="submit" name="priority" value="{{.Value}}" class="flowgo{{if eq .Label $p}} is-current{{end}}">
+                  <span class="prio p-{{.Label}}"><span class="caret" aria-hidden="true"></span>{{t .Label}}</span>
+                  {{if eq .Label $p}}<span class="flowhops">{{t "current"}}</span>{{end}}
+                </button>
+                {{end}}
+              </form>
+              <a class="flowsee" href="/tasks?q=priority:{{$p}}">{{t "Show all"}} <span class="prio p-{{$p}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span></a>
+              <button type="button" class="flowclose" popovertarget="lprio-{{.Task.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
+            </div>
+          </span>
+          {{else if and ($.Columns.Show "tasks" "priority") (ne $p "normal")}}<a class="prio p-{{$p}}" href="/tasks?q=priority:{{$p}}" title="{{t "Only %s priority tasks" (t $p)}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</a>{{end}}
           {{if and ($.Columns.Show "tasks" "repeat") .Task.Recurrence}}{{template "repeatmark" .Task.Recurrence}}{{end}}
           {{if $.Columns.Show "tasks" "tags"}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
           {{if $.Columns.Show "tasks" "ref"}}<span class="ref mono">{{.Task.Ref}}</span>{{end}}

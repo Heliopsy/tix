@@ -383,3 +383,60 @@ test("fileChoiceLabel reads out what a styled file field holds", () => {
   assert.equal(tix.fileChoiceLabel(null), "No file chosen");
   assert.equal(tix.fileChoiceLabel(undefined), "No file chosen");
 });
+
+// A live refresh waits for a request still in flight and for an open menu,
+// and is not held back by a region with neither.
+test("regionWaiting sees an in-flight request and an open menu", () => {
+  const region = (matches) => ({ querySelector: (sel) => (matches(sel) ? {} : null) });
+  assert.equal(tix.regionWaiting(region((s) => s.includes(".htmx-request"))), true, "an in-flight htmx request did not hold the refresh");
+  assert.equal(tix.regionWaiting(region((s) => s.includes('aria-busy="true"'))), true, "a submitted form did not hold the refresh");
+  assert.equal(tix.regionWaiting(region((s) => s === ":popover-open")), true, "an open menu did not hold the refresh");
+  assert.equal(tix.regionWaiting(region(() => false)), false, "an idle region was held");
+  assert.equal(tix.regionWaiting({ querySelector: (s) => { if (s === ":popover-open") throw new Error("unsupported"); return null; } }), false,
+    "a browser without popovers threw instead of answering");
+  assert.equal(tix.regionWaiting(null), false);
+  assert.equal(tix.regionBusy(region((s) => s === ":popover-open"), null, false), true, "regionBusy does not consult regionWaiting");
+});
+
+// Focus survives a region being redrawn: the memo names the nearest id and
+// the control, and restoring finds the same control in the new markup.
+test("focusMemo and focusRestore put focus back on the same control", () => {
+  const card = { id: "t-infra-1" };
+  const button = {
+    closest: (sel) => (sel === "[id]" ? card : null),
+    getAttribute: (name) => (name === "data-focus" ? "status" : null),
+  };
+  const region = { contains: (el) => el === button };
+  const memo = tix.focusMemo(button, region);
+  assert.deepEqual(plain(memo), { id: "t-infra-1", control: "status" });
+
+  let focused = null;
+  const fresh = { focus(opts) { focused = ["fresh", opts]; } };
+  const freshCard = {
+    querySelector: (sel) => (sel === '[data-focus="status"]' ? fresh : null),
+    focus() { focused = ["card"]; },
+  };
+  const doc = { getElementById: (id) => (id === "t-infra-1" ? freshCard : null) };
+  assert.equal(tix.focusRestore(doc, memo), fresh);
+  assert.deepEqual(plain(focused), ["fresh", { preventScroll: true }], "focus did not go back to the control, unscrolled");
+
+  assert.equal(tix.focusRestore(doc, { id: "t-infra-1", control: "" }), freshCard, "no control should fall back to the holder");
+  assert.equal(tix.focusMemo(button, { contains: () => false }), null, "focus outside the region was remembered");
+  assert.equal(tix.focusMemo({ closest: () => card, getAttribute: () => '"]x' }, region), null);
+  const odd = tix.focusMemo({ closest: () => card, getAttribute: () => '"]x' }, { contains: () => true });
+  assert.equal(odd.control, "", "a data-focus that is not a plain name reached a selector");
+  assert.equal(tix.focusRestore(doc, null), null);
+});
+
+// Enter on a focused button or link presses it; a shortcut bound to Enter
+// must not take the key away from it.
+test("pressesNatively leaves Enter and Space to the control that has focus", () => {
+  assert.equal(tix.pressesNatively({ tagName: "BUTTON" }, "Enter"), true);
+  assert.equal(tix.pressesNatively({ tagName: "BUTTON" }, " "), true);
+  assert.equal(tix.pressesNatively({ tagName: "SUMMARY" }, "Enter"), true);
+  assert.equal(tix.pressesNatively({ tagName: "A" }, "Enter"), true);
+  assert.equal(tix.pressesNatively({ tagName: "A" }, " "), false, "Space on a link scrolls; a shortcut may have it");
+  assert.equal(tix.pressesNatively({ tagName: "ARTICLE" }, "Enter"), false, "a selected row lost its Enter to open");
+  assert.equal(tix.pressesNatively({ tagName: "BUTTON" }, "j"), false);
+  assert.equal(tix.pressesNatively(null, "Enter"), false);
+});

@@ -186,3 +186,30 @@ test("open hands the selected row to the dialog when the page has one", () => {
   doc.dispatch("keydown", keydown("Enter"));
   assert.deepEqual(location.assigned, ["/tasks/TIX-1"], "Page mode no longer opens the row");
 });
+
+// Enter on a focused button presses the button. The open shortcut is bound
+// to Enter, and it used to claim the key from every button on the page, so a
+// tick or a menu could not be pressed from the keyboard at all.
+test("Enter on a focused button or link is left to the control", () => {
+  const { doc } = page();
+  for (const tagName of ["BUTTON", "A", "SUMMARY"]) {
+    const event = doc.dispatch("keydown", keydown("Enter", { target: element(tagName) }));
+    assert.equal(event.prevented, 0, `Enter was taken from a focused ${tagName}`);
+  }
+  const row = doc.dispatch("keydown", keydown("Enter", { target: element("ARTICLE") }));
+  assert.equal(row.prevented, 1, "Enter on a row no longer opens it");
+});
+
+// Escape in an open menu closes the menu and nothing else. The back shortcut
+// took it as well, so dismissing a status menu left the page.
+test("while a menu is open the global shortcuts stand down", () => {
+  const p = page();
+  p.doc.querySelector = (sel) => (sel === ":popover-open" ? {} : null);
+  const event = p.doc.dispatch("keydown", keydown("Escape"));
+  assert.equal(event.prevented, 0, "a shortcut fired underneath the open menu");
+  assert.equal(p.history.backs, 0, "Escape in a menu also went Back from the page");
+
+  const old = page();
+  old.doc.querySelector = (sel) => { if (sel === ":popover-open") throw new Error("unsupported"); return null; };
+  assert.doesNotThrow(() => old.doc.dispatch("keydown", keydown("j")), "a browser without popovers broke the shortcuts");
+});
