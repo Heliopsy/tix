@@ -405,6 +405,37 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "copy round-trip",
+		covers: []string{"CreateProject", "CreateTask", "AddComment", "CopyTask", "TaskTree", "ListComments"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			from := h.newProject(t, tg)
+			to := h.newProject(t, tg)
+			root, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: from.Key, Title: "root", Tags: []string{"x"}})
+			mustf(t, tg, err, "creating the root")
+			_, err = tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: from.Key, Title: "child", ParentRef: root.Ref})
+			mustf(t, tg, err, "creating the child")
+			_, err = tg.svc.AddComment(tg.ctx, core.TaskRef{ID: root.ID}, "note")
+			mustf(t, tg, err, "commenting")
+			cp, err := tg.svc.CopyTask(tg.ctx, core.TaskRef{ID: root.ID}, core.CopyTaskInput{
+				ProjectRef: to.Key, Title: "copy", WithSubtasks: true, WithComments: true, Link: true})
+			if err != nil {
+				return nil, err
+			}
+			tree, err := tg.svc.TaskTree(tg.ctx, core.TaskRef{ID: cp.ID}, 0)
+			mustf(t, tg, err, "reading the copied tree")
+			comments, err := tg.svc.ListComments(tg.ctx, core.TaskRef{ID: cp.ID})
+			mustf(t, tg, err, "reading the copied comments")
+			titles := make([]string, 0, len(tree))
+			for _, task := range tree {
+				titles = append(titles, task.Title)
+			}
+			return sig{
+				"titles": titles, "tags": cp.Tags, "comments": len(comments),
+				"linked": cp.CopiedFromID == root.ID, "moved": cp.ProjectID != root.ProjectID,
+			}, nil
+		},
+	},
+	{
 		name:   "dependencies round-trip",
 		covers: []string{"CreateProject", "CreateTask", "AddDependency", "ListDependencies"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
