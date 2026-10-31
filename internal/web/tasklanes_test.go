@@ -638,6 +638,7 @@ func TestLanesFitAPhoneAndAFinger(t *testing.T) {
 		{"@media (pointer: coarse)", ".lane button.check::before", "inset: -11px"},
 		{"@media (pointer: coarse)", ".lane .lanepill::before", "inset: -11px -2px"},
 		{"@media (pointer: coarse)", ".lane button.check", "position: relative"},
+		{"@media (pointer: coarse)", ".lanepop .flowgo", "min-height: 40px"},
 		{"", ".lane .lane-card.htmx-request", "cursor: progress"},
 		{"", ".lane .lane-card.htmx-request *", "pointer-events: none"},
 	}

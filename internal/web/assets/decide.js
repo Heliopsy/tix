@@ -27,6 +27,21 @@
     return key;
   };
 
+  // pressesNatively reports whether a key is the focused control's own way of
+  // being pressed: Enter or Space on a button, Enter on a link. A shortcut
+  // bound to either key took it first, so Enter on any focused button did
+  // nothing at all and a menu could not be opened from the keyboard.
+  tix.pressesNatively = function (el, combo) {
+    if (!el || (combo !== "Enter" && combo !== " ")) {
+      return false;
+    }
+    var tag = el.tagName;
+    if (tag === "BUTTON" || tag === "SUMMARY") {
+      return true;
+    }
+    return combo === "Enter" && tag === "A";
+  };
+
   // actionsByCombo inverts one scheme's table, since the keydown handler looks
   // a key up but the binding table (and the help overlay) is written the other
   // way around, one or more keys per action.

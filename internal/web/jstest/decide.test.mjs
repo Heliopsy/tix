@@ -427,3 +427,16 @@ test("focusMemo and focusRestore put focus back on the same control", () => {
   assert.equal(odd.control, "", "a data-focus that is not a plain name reached a selector");
   assert.equal(tix.focusRestore(doc, null), null);
 });
+
+// Enter on a focused button or link presses it; a shortcut bound to Enter
+// must not take the key away from it.
+test("pressesNatively leaves Enter and Space to the control that has focus", () => {
+  assert.equal(tix.pressesNatively({ tagName: "BUTTON" }, "Enter"), true);
+  assert.equal(tix.pressesNatively({ tagName: "BUTTON" }, " "), true);
+  assert.equal(tix.pressesNatively({ tagName: "SUMMARY" }, "Enter"), true);
+  assert.equal(tix.pressesNatively({ tagName: "A" }, "Enter"), true);
+  assert.equal(tix.pressesNatively({ tagName: "A" }, " "), false, "Space on a link scrolls; a shortcut may have it");
+  assert.equal(tix.pressesNatively({ tagName: "ARTICLE" }, "Enter"), false, "a selected row lost its Enter to open");
+  assert.equal(tix.pressesNatively({ tagName: "BUTTON" }, "j"), false);
+  assert.equal(tix.pressesNatively(null, "Enter"), false);
+});

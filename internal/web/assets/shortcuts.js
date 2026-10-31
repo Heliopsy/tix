@@ -233,7 +233,11 @@
     if (tix.isTypingTarget(event.target)) {
       return;
     }
-    var action = comboToAction[tix.comboOf(event)];
+    var combo = tix.comboOf(event);
+    if (tix.pressesNatively(event.target, combo)) {
+      return;
+    }
+    var action = comboToAction[combo];
     var handler = action && handlers[action];
     if (!handler) {
       return;

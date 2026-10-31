@@ -186,3 +186,16 @@ test("open hands the selected row to the dialog when the page has one", () => {
   doc.dispatch("keydown", keydown("Enter"));
   assert.deepEqual(location.assigned, ["/tasks/TIX-1"], "Page mode no longer opens the row");
 });
+
+// Enter on a focused button presses the button. The open shortcut is bound
+// to Enter, and it used to claim the key from every button on the page, so a
+// tick or a menu could not be pressed from the keyboard at all.
+test("Enter on a focused button or link is left to the control", () => {
+  const { doc } = page();
+  for (const tagName of ["BUTTON", "A", "SUMMARY"]) {
+    const event = doc.dispatch("keydown", keydown("Enter", { target: element(tagName) }));
+    assert.equal(event.prevented, 0, `Enter was taken from a focused ${tagName}`);
+  }
+  const row = doc.dispatch("keydown", keydown("Enter", { target: element("ARTICLE") }));
+  assert.equal(row.prevented, 1, "Enter on a row no longer opens it");
+});

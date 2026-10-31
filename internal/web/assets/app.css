@@ -5063,11 +5063,13 @@ td > details.panel > summary { overflow-wrap: normal; word-break: keep-all; }
   margin-bottom: var(--space-2);
   padding-bottom: var(--space-1);
 }
+/* 300px at the least: a card gives the tick and the star 60px of it, and at
+   260 the title was left 160px, a word or two per line. */
 .lane {
   display: flex;
   flex-direction: column;
-  flex: 1 1 280px;
-  min-width: 260px;
+  flex: 1 1 320px;
+  min-width: 300px;
   max-width: 420px;
   min-height: 0;
   scroll-snap-align: start;
@@ -5144,7 +5146,7 @@ td > details.panel > summary { overflow-wrap: normal; word-break: keep-all; }
    than one button in it. */
 .lane .lane-card.htmx-request { opacity: 0.6; cursor: progress; }
 .lane .lane-card.htmx-request * { pointer-events: none; }
-.lane .lane-error { margin: var(--space-1) 0 0; font-size: var(--text-xs); color: var(--danger); }
+.lane .lane-error { margin: var(--space-1) 0 0; font-size: var(--text-xs); color: var(--danger); overflow-wrap: anywhere; }
 .lane-empty { margin: 0; padding: 4px 2px; }
 .lane-none { margin: 0; }
 .lanesbar { display: flex; justify-content: flex-end; margin: 0 0 var(--space-2); }
@@ -5181,6 +5183,9 @@ td > details.panel > summary { overflow-wrap: normal; word-break: keep-all; }
   .lane .lanepill { position: relative; }
   .lane button.check::before { content: ""; position: absolute; inset: -11px; border-radius: 50%; }
   .lane .lanepill::before { content: ""; position: absolute; inset: -11px -2px; }
+  .lanepop .flowgo,
+  .lanepop .flowsee,
+  .lanepop .flowclose { min-height: 40px; }
 }
 
 /* The star toggle. An outline when the task is not starred, filled when it

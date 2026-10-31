@@ -106,6 +106,20 @@
     return target;
   };
 
+  // laneSettle undoes busy.js on a card whose answer is not swapped in: the
+  // pressed button stays disabled otherwise, and a form left aria-busy holds
+  // every live refresh back for good (decide.js regionWaiting).
+  tix.laneSettle = function (card) {
+    if (!card || !card.querySelectorAll) return;
+    var busy = card.querySelectorAll(".is-busy");
+    for (var i = 0; i < busy.length; i++) {
+      busy[i].classList.remove("is-busy");
+      busy[i].disabled = false;
+    }
+    var forms = card.querySelectorAll('form[aria-busy="true"]');
+    for (var j = 0; j < forms.length; j++) forms[j].removeAttribute("aria-busy");
+  };
+
   function say(text) {
     return tix.t ? tix.t(text) : text;
   }
@@ -132,12 +146,15 @@
     var old = card.querySelector(".lane-error");
     if (old && old.parentNode) old.parentNode.removeChild(old);
   });
+  // The swap names the card it targets as elt; the form that asked is the
+  // request's own elt.
   doc.addEventListener("htmx:beforeSwap", function (event) {
     var detail = event.detail || {};
-    var control = tix.laneControl(detail.elt);
+    var elt = (detail.requestConfig && detail.requestConfig.elt) || detail.elt;
+    var control = tix.laneControl(elt);
     if (!control || !detail.xhr || detail.xhr.status < 400) return;
     detail.shouldSwap = false;
-    var card = detail.elt.closest(".lane-card");
+    var card = elt.closest(".lane-card");
     var parsed = null;
     try {
       parsed = new global.DOMParser().parseFromString(detail.xhr.responseText || "", "text/html");
@@ -150,6 +167,7 @@
     line.textContent = tix.laneRefusal(parsed, say);
     var body = card.querySelector(".lane-body") || card;
     body.appendChild(line);
+    tix.laneSettle(card);
     try {
       var open = card.querySelectorAll(":popover-open");
       for (var i = 0; i < open.length; i++) {

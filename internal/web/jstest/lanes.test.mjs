@@ -143,8 +143,14 @@ function laneDoc(control = "status") {
       if (sel === ".lane-body") return body;
       return null;
     },
-    querySelectorAll: () => [],
+    querySelectorAll: (sel) => (sel === ".is-busy" ? busyButtons : sel === 'form[aria-busy="true"]' ? busyForms : []),
   };
+  const busyButtons = [{
+    disabled: true,
+    classes: new Set(["check", "is-busy"]),
+    get classList() { const c = this.classes; return { remove: (n) => c.delete(n) }; },
+  }];
+  const busyForms = [{ attrs: { "aria-busy": "true" }, removeAttribute(n) { delete this.attrs[n]; } }];
   const form = {
     getAttribute: (name) => (name === "data-lane-control" ? control : null),
     closest: (sel) => (sel === ".lane-card" ? card : null),
@@ -157,7 +163,7 @@ function laneDoc(control = "status") {
     getElementById: (id) => (id === card.id ? card : null),
     createElement: () => ({ setAttribute(k, v) { this[k] = v; } }),
   };
-  return { document, listeners, focused, appended, button, card };
+  return { document, listeners, focused, appended, button, card, busyButtons, busyForms };
 }
 
 function fire(listeners, type, detail) {
@@ -195,7 +201,7 @@ test("a refused lane action stays on the card and says why", () => {
   });
   run(ctx, "lanes.js");
   fire(d.listeners, "htmx:beforeRequest", { elt: d.button });
-  const detail = { elt: d.button, xhr: { status: 412, responseText: "<html>" }, shouldSwap: true };
+  const detail = { elt: d.card, requestConfig: { elt: d.button }, xhr: { status: 412, responseText: "<html>" }, shouldSwap: true };
   fire(d.listeners, "htmx:beforeSwap", detail);
   assert.equal(detail.shouldSwap, false, "the error page replaced the card");
   assert.equal(d.appended.length, 1, "nothing was said on the card");
@@ -203,8 +209,11 @@ test("a refused lane action stays on the card and says why", () => {
   assert.equal(d.appended[0].role, "alert");
   assert.equal(d.appended[0].textContent, 'Not saved: no route from "done"');
   assert.equal(d.focused.length, 1, "focus was not kept on the pressed control");
+  assert.equal(d.busyButtons[0].disabled, false, "the pressed button stayed disabled after the refusal");
+  assert.equal(d.busyButtons[0].classes.has("is-busy"), false, "the pressed button still says it is busy");
+  assert.deepEqual(Object.keys(d.busyForms[0].attrs), [], "a form left aria-busy would hold every live refresh back");
 
-  const ok = { elt: d.button, xhr: { status: 200 }, shouldSwap: true };
+  const ok = { elt: d.card, requestConfig: { elt: d.button }, xhr: { status: 200 }, shouldSwap: true };
   fire(d.listeners, "htmx:beforeSwap", ok);
   assert.equal(ok.shouldSwap, true, "a successful answer was held back");
   const elsewhere = { elt: { closest: () => null }, xhr: { status: 500 }, shouldSwap: true };

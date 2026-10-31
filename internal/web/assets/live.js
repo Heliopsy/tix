@@ -417,6 +417,16 @@
     return dragging;
   }
 
+  // processed hands markup this file wrote with innerHTML to htmx. htmx only
+  // wires up what it swapped in itself, so every form a refresh drew had no
+  // hx-post and no boost: the next tick or move was a plain post that
+  // reloaded the page and threw the reader back to the top.
+  function processed(el) {
+    if (window.htmx && typeof window.htmx.process === "function") {
+      window.htmx.process(el);
+    }
+  }
+
   // applyRegions replaces each region and puts focus back where it was: the
   // refresh that follows a reader's own change lands on the region holding
   // the control they just pressed, and replacing it dropped focus to the body.
@@ -429,6 +439,7 @@
       if (fresh && here) {
         var memo = tix.focusMemo(document.activeElement, here);
         here.innerHTML = fresh.innerHTML;
+        processed(here);
         tix.focusRestore(document, memo);
       }
     }
@@ -668,6 +679,9 @@
         var fresh = new DOMParser().parseFromString(html, "text/html").querySelector(".board");
         if (fresh) {
           board.innerHTML = fresh.innerHTML;
+          if (window.htmx && typeof window.htmx.process === "function") {
+            window.htmx.process(board);
+          }
         }
         announce(board, announceText);
       })

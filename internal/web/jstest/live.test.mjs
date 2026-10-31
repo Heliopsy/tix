@@ -508,3 +508,30 @@ test("a refresh asked for by the page itself fetches the fragment without any ev
   await settle();
   assert.equal(nodes["task-pills"].innerHTML, "renamed", "the refreshed region was not drawn");
 });
+
+// A region a refresh redraws is handed to htmx, or its forms post as plain
+// forms and the next tick reloads the whole page.
+test("a refreshed region is processed by htmx", async () => {
+  const c = liveContext({ fresh: { "task-pills": "doing" } });
+  const processed = [];
+  c.ctx.htmx = { process: (el) => processed.push(el) };
+  c.sockets[0].emit("open", {});
+  c.sockets[0].event({ seq: 1, subject_id: "task-1" });
+  await settle();
+  assert.equal(c.nodes["task-pills"].innerHTML, "doing");
+  assert.deepEqual(processed, [c.nodes["task-pills"]], "the redrawn region was never given to htmx");
+});
+
+// A refresh holds back while a request from inside the region is in flight.
+test("a refresh waits for a request in flight in the region", async () => {
+  const c = liveContext();
+  let waiting = true;
+  c.nodes["task-pills"].querySelector = (sel) => (waiting && sel.includes(".htmx-request") ? {} : null);
+  c.sockets[0].emit("open", {});
+  c.sockets[0].event({ seq: 1, subject_id: "task-1" });
+  assert.deepEqual(c.fetches, [], "a refresh landed on a card whose request was still out");
+  waiting = false;
+  c.clock.fire();
+  await settle();
+  assert.equal(c.fetches.length, 1, "the refresh never arrived once the request finished");
+});
