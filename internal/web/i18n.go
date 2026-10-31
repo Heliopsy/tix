@@ -169,6 +169,7 @@ var jsMessages = []string{
 	"A task needs a title.",
 	"The title could not be saved.",
 	"Title of %s",
+	"Not saved:",
 }
 
 // jsMessagesFor is the table the head carries for lang, empty for English,

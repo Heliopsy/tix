@@ -8,8 +8,8 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 )
 
-// laneCard is one task as a lane draws it: its state for the badge, and
-// either the one route ticking it applies or the reason there is none.
+// laneCard is one task as a lane draws it: its state for the badge, what its
+// tick does, and the menus its status and priority open.
 type laneCard struct {
 	Task core.Task
 	// State is the task's state in its own project's workflow. Known is
@@ -20,12 +20,47 @@ type laneCard struct {
 	// Finished is set for a task in any terminal state. It renders ticked
 	// and is what Show completed hides.
 	Finished bool
-	// Complete is the route the tick box submits, valid only when Tickable.
-	Complete flowRoute
-	Tickable bool
-	// Locked says why an unfinished task has no tick box, for the link that
-	// stands in its place.
-	Locked string
+	// Tick holds the routes the tick offers. With Choose unset it is one
+	// route the box applies; with Choose set it is a menu of them.
+	Tick   []flowRoute
+	Choose bool
+	// Locked says why the tick offers no route, shown in the panel the
+	// tick opens instead.
+	Locked lockReason
+	// Moves are the routes the status menu offers this reader.
+	Moves []flowRoute
+	// Prioritise is set for a reader who may change the priority.
+	Prioritise bool
+}
+
+// lockReason is why a tick offers nothing: a catalog key and the one value
+// some of them carry, so the page can say it in the reader's language.
+type lockReason struct {
+	Key string
+	Arg string
+}
+
+// lockKeys are every reason a tick can be locked, for the catalog tests.
+var lockKeys = []string{
+	"you cannot move tasks",
+	"its workflow could not be read",
+	"no route leads to done from here",
+	"no route leads back to an open state",
+	"finishing it needs a comment",
+	"reopening it needs a comment",
+	"finishing it needs the %s scope",
+	"reopening it needs the %s scope",
+}
+
+// Tickable reports whether the tick is a box that applies one route.
+func (c laneCard) Tickable() bool { return !c.Choose && len(c.Tick) == 1 }
+
+// Complete is the route the box applies, valid only when Tickable.
+func (c laneCard) Complete() flowRoute {
+	if len(c.Tick) == 0 {
+		return flowRoute{}
+	}
+	return c.Tick[0]
 }
 
 // Category is the category the badge is coloured by.
@@ -47,10 +82,11 @@ func (c laneCard) Label() string {
 // Journey names the states ticking passes through, for the box's accessible
 // name: a route through another state is consented to before it is applied.
 func (c laneCard) Journey() string {
-	if !c.Complete.MultiHop() {
-		return core.StateLabel(c.Complete.To)
+	r := c.Complete()
+	if !r.MultiHop() {
+		return core.StateLabel(r.To)
 	}
-	return c.Complete.Path() + ", " + c.Complete.Steps()
+	return r.Path()
 }
 
 // lane is one project's column of tasks.
@@ -130,9 +166,9 @@ func buildLanes(projects []core.Project, filter core.TaskFilter, tasks []core.Ta
 
 // newLaneCard decides how one task is drawn in its lane.
 func newLaneCard(t core.Task, def core.WorkflowDefinition, haveDef bool, has func(core.Scope) bool) laneCard {
-	c := laneCard{Task: t}
+	c := laneCard{Task: t, Prioritise: has != nil && has(core.ScopeTaskWrite)}
 	if !haveDef {
-		c.Locked = "its workflow could not be read"
+		c.Locked = lockReason{Key: "its workflow could not be read"}
 		return c
 	}
 	if st, ok := def.State(t.Status); ok {
@@ -140,11 +176,8 @@ func newLaneCard(t core.Task, def core.WorkflowDefinition, haveDef bool, has fun
 		c.State.Category = laneCategory(def, st)
 		c.Finished = st.Terminal
 	}
-	if c.Finished {
-		return c
-	}
-	c.Complete, c.Locked = completion(def, t.Status, has)
-	c.Tickable = c.Locked == ""
+	c.Tick, c.Choose, c.Locked = tickRoutes(def, t.Status, has, c.Finished)
+	c.Moves = statusMoves(def, t.Status, has)
 	return c
 }
 
@@ -164,40 +197,97 @@ func laneCategory(def core.WorkflowDefinition, st core.State) core.StateCategory
 	}
 }
 
-// completion is the one route a tick box may apply, or why there is none.
+// tickRoutes is what a tick offers, completing an unfinished task or
+// reopening a finished one, or why it offers nothing.
 //
-// Ticking means finished, and that is only a tick box if it is one move: the
-// single shortest route into a terminal done state. Two such routes, whether
-// to two done states or two ways into one, is a choice the reader has to
-// make on the task's own screen, because guessing writes a history nobody
-// chose. A step needing a comment has nowhere to type one, and a step needing
-// a scope the reader lacks would only be refused after the click.
-func completion(def core.WorkflowDefinition, from string, has func(core.Scope) bool) (flowRoute, string) {
+// Completing considers the shortest route into each terminal done state,
+// because each is a different outcome. Reopening considers the routes to open
+// states with the fewest steps, because any open state means not finished and
+// the nearest is the one meant. One candidate is a box. More than one is a
+// menu of the usable ones and never a box, even when only one is usable,
+// because guessing writes a history nobody chose. A step needing a comment
+// has nowhere to type one, and a step needing a scope the reader lacks would
+// only be refused after the click, so both make a candidate unusable.
+func tickRoutes(def core.WorkflowDefinition, from string, has func(core.Scope) bool, reopen bool) ([]flowRoute, bool, lockReason) {
 	if has == nil || !has(core.ScopeTaskTransition) {
-		return flowRoute{}, "you cannot move tasks"
+		return nil, false, lockReason{Key: "you cannot move tasks"}
 	}
+	found := tickCandidates(def, from, reopen)
+	if len(found) == 0 {
+		if reopen {
+			return nil, false, lockReason{Key: "no route leads back to an open state"}
+		}
+		return nil, false, lockReason{Key: "no route leads to done from here"}
+	}
+	var usable []flowRoute
+	var why lockReason
+	for _, r := range found {
+		reason := routeBlocked(def, r, has, reopen)
+		if reason.Key == "" {
+			usable = append(usable, r)
+		} else if why.Key == "" {
+			why = reason
+		}
+	}
+	if len(usable) == 0 {
+		return nil, false, why
+	}
+	return usable, len(found) > 1, lockReason{}
+}
+
+// tickCandidates are the routes a tick chooses between.
+func tickCandidates(def core.WorkflowDefinition, from string, reopen bool) []flowRoute {
 	var found []flowRoute
+	fewest := 0
 	for _, r := range flowRoutes(def, from) {
-		if r.To.Terminal && laneCategory(def, r.To) == core.CategoryDone {
+		switch {
+		case reopen && !r.To.Terminal:
+			if fewest == 0 || r.Hops() < fewest {
+				fewest, found = r.Hops(), found[:0]
+			}
+			if r.Hops() == fewest {
+				found = append(found, r)
+			}
+		case !reopen && r.To.Terminal && laneCategory(def, r.To) == core.CategoryDone:
 			found = append(found, r)
 		}
 	}
-	if len(found) == 0 {
-		return flowRoute{}, "no route leads to done from here"
+	return found
+}
+
+// routeBlocked is why this reader cannot apply a route from a lane, or the
+// zero reason when they can.
+func routeBlocked(def core.WorkflowDefinition, r flowRoute, has func(core.Scope) bool, reopen bool) lockReason {
+	verb := "finishing"
+	if reopen {
+		verb = "reopening"
 	}
-	if len(found) > 1 {
-		return flowRoute{}, "there is more than one way to finish it"
-	}
-	at := from
-	for _, next := range found[0].Keys() {
+	at := r.From
+	for _, next := range r.Keys() {
 		edge, _ := def.CanTransition(at, next)
 		if edge.RequiresComment {
-			return flowRoute{}, "finishing it needs a comment"
+			return lockReason{Key: verb + " it needs a comment"}
 		}
 		if edge.RequiresScope != "" && !has(edge.RequiresScope) {
-			return flowRoute{}, "finishing it needs the " + string(edge.RequiresScope) + " scope"
+			return lockReason{Key: verb + " it needs the %s scope", Arg: string(edge.RequiresScope)}
 		}
 		at = next
 	}
-	return found[0], ""
+	return lockReason{}
+}
+
+// statusMoves are the routes the status menu offers: every state the
+// workflow reaches from here, less the ones this reader could not apply from
+// a lane.
+func statusMoves(def core.WorkflowDefinition, from string, has func(core.Scope) bool) []flowRoute {
+	if has == nil || !has(core.ScopeTaskTransition) {
+		return nil
+	}
+	var out []flowRoute
+	for _, r := range flowRoutes(def, from) {
+		if routeBlocked(def, r, has, false).Key == "" {
+			out = append(out, r)
+		}
+	}
+	return out
 }

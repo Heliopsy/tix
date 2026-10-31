@@ -27,6 +27,21 @@
     return key;
   };
 
+  // pressesNatively reports whether a key is the focused control's own way of
+  // being pressed: Enter or Space on a button, Enter on a link. A shortcut
+  // bound to either key took it first, so Enter on any focused button did
+  // nothing at all and a menu could not be opened from the keyboard.
+  tix.pressesNatively = function (el, combo) {
+    if (!el || (combo !== "Enter" && combo !== " ")) {
+      return false;
+    }
+    var tag = el.tagName;
+    if (tag === "BUTTON" || tag === "SUMMARY") {
+      return true;
+    }
+    return combo === "Enter" && tag === "A";
+  };
+
   // actionsByCombo inverts one scheme's table, since the keydown handler looks
   // a key up but the binding table (and the help overlay) is written the other
   // way around, one or more keys per action.
@@ -262,6 +277,9 @@
         tix.isTypingTarget(active)) {
       return true;
     }
+    if (tix.regionWaiting(region)) {
+      return true;
+    }
     var fields = typeof region.querySelectorAll === "function"
       ? region.querySelectorAll("input, textarea, select") : [];
     for (var i = 0; i < fields.length; i++) {
@@ -270,6 +288,59 @@
       }
     }
     return false;
+  };
+
+  // regionWaiting reports whether a region holds a request still in flight
+  // (htmx marks its indicator htmx-request, busy.js marks a submitted form
+  // aria-busy) or a menu the reader has open. A refresh landing then would
+  // detach the element the response is meant for, or shut the menu under the
+  // pointer.
+  tix.regionWaiting = function (region) {
+    if (!region || typeof region.querySelector !== "function") {
+      return false;
+    }
+    if (region.querySelector(".htmx-request, form[aria-busy=\"true\"]")) {
+      return true;
+    }
+    try {
+      return !!region.querySelector(":popover-open");
+    } catch (e) {
+      return false;
+    }
+  };
+
+  // focusMemo remembers which element in a region has focus, as the nearest
+  // id around it and its data-focus name, so a refresh can put focus back on
+  // the same control in the newly drawn region.
+  tix.focusMemo = function (active, region) {
+    if (!active || !region || typeof region.contains !== "function" || !region.contains(active) ||
+        typeof active.closest !== "function") {
+      return null;
+    }
+    var holder = active.closest("[id]");
+    if (!holder || !holder.id || holder === region) {
+      return null;
+    }
+    var control = typeof active.getAttribute === "function" ? active.getAttribute("data-focus") || "" : "";
+    return { id: holder.id, control: /^[a-z]+$/.test(control) ? control : "" };
+  };
+
+  // focusRestore focuses what a memo names in the document as it is now,
+  // without scrolling, and returns it.
+  tix.focusRestore = function (doc, memo) {
+    if (!memo || !doc || typeof doc.getElementById !== "function") {
+      return null;
+    }
+    var holder = doc.getElementById(memo.id);
+    if (!holder) {
+      return null;
+    }
+    var target = (memo.control && typeof holder.querySelector === "function" &&
+      holder.querySelector('[data-focus="' + memo.control + '"]')) || holder;
+    if (typeof target.focus === "function") {
+      target.focus({ preventScroll: true });
+    }
+    return target;
   };
 
   // dragEnabled reports whether the board should attach drag handlers at all.

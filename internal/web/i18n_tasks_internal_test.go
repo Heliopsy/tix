@@ -11,6 +11,7 @@ func init() {
 		for _, c := range priorityChoices {
 			out = append(out, c.Label)
 		}
+		out = append(out, lockKeys...)
 		return out
 	})
 }

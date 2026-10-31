@@ -220,6 +220,14 @@
     help: openHelp
   };
 
+  function menuOpen() {
+    try {
+      return !!(document.querySelector && document.querySelector(":popover-open"));
+    } catch (e) {
+      return false;
+    }
+  }
+
   document.addEventListener("keydown", function (event) {
     if (helpOpen()) {
       return;
@@ -230,10 +238,20 @@
     if (document.querySelector && document.querySelector("dialog[open]")) {
       return;
     }
+    // So does an open menu. Escape is the popover's own light dismissal, and
+    // the back shortcut taking it as well closed a status menu and then left
+    // the page.
+    if (menuOpen()) {
+      return;
+    }
     if (tix.isTypingTarget(event.target)) {
       return;
     }
-    var action = comboToAction[tix.comboOf(event)];
+    var combo = tix.comboOf(event);
+    if (tix.pressesNatively(event.target, combo)) {
+      return;
+    }
+    var action = comboToAction[combo];
     var handler = action && handlers[action];
     if (!handler) {
       return;
