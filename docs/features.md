@@ -99,6 +99,12 @@ surface, with recovery codes and an administrator's clear for a lost phone. API 
 for that field is given. It is part of the definition the API's `PUT /projects/{ref}/fields` takes and
 travels in a bundle. [docs/workflows.md](workflows.md#custom-fields).
 
+**Columns and lanes you arrange.** Every column of a board and every lane of the task screen carries a
+three dots menu: hide it, star it so it comes first, collapse it to a strip, or move it. The arrangement
+is yours alone and kept on the server, so it follows you to another browser, to the terminal board
+(through its palette) and to `tix view ls|set|order|reset` and `/api/v1/views` over HTTP.
+[docs/web-ui.md](web-ui.md#arranging-columns-and-lanes), [docs/api.md](api.md#arranging-views).
+
 **Shell completion.** `tix completion install` detects the shell, writes the script where that shell
 looks for it and never edits a startup file. It completes task references, project keys, tags and the
 states your workflows actually define, not only flag names.

@@ -62,6 +62,7 @@ Everything below is under `/api/v1`.
 | Live connections | `GET /connections`, `DELETE /connections/{id}`; see [deployment.md](deployment.md#live-connections) |
 | Transfer | `/export`, `/import`, `/bundles/export`, `/bundles/import` |
 | Sync | `/sync/sources`, `/sync/sources/{id}`, `/sync/run` |
+| Views | `/views/{view}/groups`, `/views/{view}/groups/{group}`, `/views/{view}/order` |
 | Events | `/events` (WebSocket) |
 
 Every route above has a command: `tix doctor`, `tix login`, `tix user totp`, `tix user key`, `tix actor`,
@@ -210,6 +211,29 @@ somebody pages moves between the groups, like a task whose priority changed unde
 stays valid and the moved task may be seen twice or not at all. A cursor issued before stars existed resumes
 among the unstarred tasks.
 
+### Arranging views
+
+Each actor keeps their own arrangement of the groups a view draws: the columns of a board and the lanes of
+the task screen. A view is `board` (the task screen grouped by status, groups are state keys), `lanes` (the
+task screen grouped by project, groups are project keys) or `project:KEY` (one project's board, groups are
+the states of its workflow). Anything else is `invalid`, and so is a group the view cannot hold.
+
+| Route | Does |
+| --- | --- |
+| `GET /views/{view}/groups` | The caller's preferences on the view, one per group they touched |
+| `PATCH /views/{view}/groups/{group}` | Sets any of `hidden`, `collapsed` and `starred`; answers the preference |
+| `PUT /views/{view}/order` | Takes `{"groups": [...]}` and puts them first in that order, positions from 1 |
+| `DELETE /views/{view}/groups` | Forgets the whole view, or only `?group=KEY`; answers `204 No Content` |
+
+```json
+{"view": "board", "group": "done", "hidden": true, "collapsed": false, "starred": false}
+```
+
+A preference changes nothing anybody else sees, and needs only `task:read`; a token pinned to one project
+cannot arrange, because a view spans projects. A change writes an audit entry and emits `view.arranged`
+carrying `view` and `groups`; one that changes nothing writes neither. A project renamed to a new key keeps
+its arrangement.
+
 ### NDJSON
 
 Send `Accept: application/x-ndjson` and the list streams one object per line with no envelope:
@@ -295,8 +319,8 @@ Event types are matched as glob patterns, so `task.*` selects every task event. 
 `task.created`, `task.updated`, `task.transitioned`, `task.claimed`, `task.released`, `task.lease_expired`,
 `task.reclaimed`, `task.deleted`, `task.starred`, `task.unstarred`, `comment.added`, `artifact.added`,
 `dependency.added`, `tag.added`, `project.created`, `project.updated`, `workflow.updated`, `field.updated`,
-`webhook.delivered`, `import.completed`. A type outside it is an error rather than a filter that silently matches
-nothing.
+`webhook.delivered`, `import.completed`, `view.arranged`. A type outside it is an error rather than a filter
+that silently matches nothing.
 
 A project-scoped token has its subscription narrowed to that project automatically, and naming a different
 project is `forbidden`.
