@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.26.0](https://github.com/Heliopsy/tix/compare/v0.25.0...v0.26.0) (2026-10-31)
+
+
+### Features
+
+* **web:** settings in sections with switches, and hover effects you can turn off ([#97](https://github.com/Heliopsy/tix/issues/97)) ([a59dc89](https://github.com/Heliopsy/tix/commit/a59dc89eeb291684e8360ca8d515a5aabd153224))
+* **web:** speak the browser's language and explain the platform's terms ([#100](https://github.com/Heliopsy/tix/issues/100)) ([84e79da](https://github.com/Heliopsy/tix/commit/84e79dad6281cc67aae04657548e6258d52a71aa))
+
+
+### Bug Fixes
+
+* **web:** adding a task stays on the list, back links go back, View shows stars and repeats ([#99](https://github.com/Heliopsy/tix/issues/99)) ([98d763c](https://github.com/Heliopsy/tix/commit/98d763ce90c58b8db08026e48d6f7ea5bfb86d11))
+* **web:** one heading rhythm, one page width and one control height ([#98](https://github.com/Heliopsy/tix/issues/98)) ([0294075](https://github.com/Heliopsy/tix/commit/0294075d9d4653150b1e84dd1879372c33a3457e))
+
 ## [0.25.0](https://github.com/Heliopsy/tix/compare/v0.24.0...v0.25.0) (2026-10-30)
 
 
