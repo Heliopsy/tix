@@ -93,7 +93,6 @@ func init() {
 		"%s cannot be completed here":                "%s не може да бъде завършена оттук",
 		"Why this cannot be ticked":                  "Защо това не може да се отметне",
 		"Not from the lane: %s.":                     "Не и от лентата: %s.",
-		"Open the task":                              "Отвори задачата",
 		"you cannot move tasks":                      "нямате право да местите задачи",
 		"its workflow could not be read":             "работният ѝ процес не може да бъде прочетен",
 		"no route leads to done from here":           "оттук няма път до завършено",
