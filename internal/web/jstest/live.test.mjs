@@ -19,7 +19,9 @@ function board({ drag = "1", from = "todo", targets = ["doing"] } = {}) {
     options: targets.map((t) => ({ value: t })),
   });
   const form = domNode(["form"], { action: "/projects/infra/move", fields: { ref: "infra-1" } }, [select]);
-  const card = domNode([".card"], { "data-task": "infra-1" }, [form]);
+  // Every card draws its star button first, and that is a form too.
+  const star = domNode(["form"], { action: "/tasks/infra-1/star", fields: {} });
+  const card = domNode([".card"], { "data-task": "infra-1" }, [star, form]);
 
   const columns = [];
   const fromColumn = domNode([".column"], { "data-state": from }, [card]);

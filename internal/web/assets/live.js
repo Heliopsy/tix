@@ -612,8 +612,10 @@
     event.preventDefault();
     clearDropTargets(board);
 
-    var form = card.querySelector("form");
-    var select = form && form.querySelector("select[name=route]");
+    // The Move form, not the card's first form: the star button is a form
+    // too and comes first, so taking the first one posted the move to /star.
+    var select = card.querySelector("form select[name=route]");
+    var form = select && select.closest("form");
     if (!form || !select) {
       return;
     }
