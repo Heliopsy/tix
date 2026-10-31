@@ -20,6 +20,12 @@ listing behind the assignee field, which suggests handles instead of asking for 
 memory. It suggests without constraining: an actor from another tenant is still assignable by
 identifier. Agents are in the directory alongside people, because work is assigned to them as often.
 
+**Project keys that can change.** A project's key starts every task reference, and it can be changed with
+`tix project edit --key`, `PATCH /projects/{ref}`, the project's settings in the browser or the terminal's
+project screen. Every reference changes with it, and the old key stays an alias, so old references, filters
+and links keep resolving and the browser is redirected to the new address.
+[docs/workflows.md](workflows.md#changing-a-projects-key).
+
 **A status control that can move more than one step.** The status pill on a row offers the states
 that row's own workflow can reach, including ones reachable only through another state. The whole
 route is spelled out before it is applied, and each hop is an ordinary transition, so a task that

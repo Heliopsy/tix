@@ -459,6 +459,13 @@ tix project ls -o json               # the project keys, if you do not know them
 to them: `--move-tasks-to OTHER` (renumbered there, statuses mapped onto its
 workflow) or `--delete-tasks` (permanent). `--dry-run` shows the mapping first.
 
+A project's key can change (`tix project edit infra --key ops`). Every
+reference changes with it, so `infra-8` becomes `ops-8`, but the old key stays
+an alias: an old reference you hold still resolves, and the JSON you get back
+carries the new `ref`. Store the `id` if you need a handle that never changes,
+and write the `ref` from the latest response rather than the one you started
+with.
+
 A fresh database seeds four projects — `default`, `work`, `homelab`, `house` —
 so `task ls` with no `-p` spans all of them, while `task add` with no `-p`
 lands in `default`. `--limit` (default 25) sizes a page, `--cursor` continues

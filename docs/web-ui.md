@@ -411,6 +411,20 @@ result set, and under a different filter, or a different ordering, they name row
 the reader's screen. The filter form submits neither the cursor nor the trail, so submitting one is a
 return to the first page without anything having to clear it.
 
+## Changing a project's key
+
+The project board's settings carry the key beside the name and the description, with an (i) that says what a
+change does. Saving a different key does not change it straight away: the next screen names the old and the
+new key and shows two of the project's references before and after, such as `infra-1 → ops-1`, and the key
+changes only when that is confirmed. The confirmation carries the rest of the form, so the name or
+description changed in the same save are kept. It needs no script.
+
+The old key stays an alias of the project for as long as the project exists. Opening `/projects/infra`,
+`/projects/infra/fields`, `/tasks/infra-8` or a screen under it answers `301 Moved Permanently` to the same
+screen under the new key, query kept, so bookmarks and pasted links keep working. A form posted to an old
+address is served where it was sent, so a tab left open across the rename still saves. The text of task bodies
+and comments is not rewritten: a reference typed there stays as it was typed, and still resolves.
+
 ## The task screen
 
 The link above the title goes back to the listing the task was opened from, and says which: "Back to
