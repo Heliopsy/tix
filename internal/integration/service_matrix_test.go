@@ -569,6 +569,35 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "a new project key renames references and the old key still resolves",
+		covers: []string{"CreateProject", "CreateTask", "UpdateProject", "GetProject", "GetTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "kept"})
+			mustf(t, tg, err, "creating a task")
+			key := p.Key + "x"
+			updated, err := tg.svc.UpdateProject(tg.ctx, p.Key, core.UpdateProjectInput{Key: &key})
+			if err != nil {
+				return nil, err
+			}
+			byOld, err := tg.svc.GetProject(tg.ctx, p.Key)
+			mustf(t, tg, err, "reading the project by its old key")
+			old, err := tg.svc.GetTask(tg.ctx, core.MustParseTaskRef(task.Ref))
+			mustf(t, tg, err, "reading the task by its old reference")
+			return sig{"key": updated.Key == key, "old_key_resolves": byOld.Key == key,
+				"old_ref_resolves": old.ID == task.ID, "ref_renamed": old.Ref == key+"-1"}, nil
+		},
+	},
+	{
+		name:   "a project key held by another project is a conflict",
+		covers: []string{"CreateProject", "UpdateProject"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			a, b := h.newProject(t, tg), h.newProject(t, tg)
+			_, err := tg.svc.UpdateProject(tg.ctx, b.Key, core.UpdateProjectInput{Key: &a.Key})
+			return nil, err
+		},
+	},
+	{
 		name:   "archiving hides a project from the default listing",
 		covers: []string{"CreateProject", "ArchiveProject", "ListProjects"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

@@ -536,6 +536,13 @@ points at `tix audit ls` for the older entries. A subject with nothing recorded 
 words, since a heading over blank space reads as a read that failed, and a read that did fail opens no
 view at all. `r` re-reads the same subject, rather than refreshing a screen you are not looking at.
 
+## The project screen
+
+`w` opens the project the board is on. `e` edits it: the colour and, when there is another one to move to,
+the workflow from their lists, and the name, the key, the description and the icon from the single-line
+input seeded with the value it would replace. A new key renames every reference on the board at once; the
+old key stays an alias, so a reference written before the change still opens the task.
+
 ## The tenant screen
 
 `T` reads the tenant this session is pinned to and states it: its key, its name, the theme it presents
