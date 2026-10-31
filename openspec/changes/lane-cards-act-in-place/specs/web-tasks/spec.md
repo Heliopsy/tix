@@ -160,10 +160,16 @@ flight or a menu in it is open, and SHALL return focus to the element that held 
 
 A keyboard shortcut SHALL NOT take Enter or Space from a focused button or summary, or Enter from a
 focused link, so that every control on a page can be pressed from the keyboard whatever scheme is
-active.
+active. While a menu is open no shortcut SHALL act, so Escape closes the menu and nothing else.
 
 #### Scenario: Enter presses a focused lane control
 
 - **GIVEN** the default shortcut scheme, which binds Enter to opening the selected row
 - **WHEN** the reader focuses a lane card's status badge and presses Enter
 - **THEN** the status menu opens
+
+#### Scenario: Escape closes a menu and stays on the page
+
+- **GIVEN** a lane card's status menu is open
+- **WHEN** the reader presses Escape
+- **THEN** the menu closes and the page does not go back

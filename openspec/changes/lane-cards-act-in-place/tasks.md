@@ -17,7 +17,7 @@
       shown in the card
 - [x] 2.4 `internal/web/assets/decide.js`, `internal/web/assets/live.js`: a refresh waits for an
       in-flight request or open popover, restores focus, and hands what it drew to htmx
-- [x] 2.6 `internal/web/assets/shortcuts.js`: Enter and Space on a focused button are left to it
+- [x] 2.6 `internal/web/assets/shortcuts.js`: Enter and Space on a focused button are left to it, and no shortcut acts while a menu is open
 - [x] 2.5 `internal/i18n/bg_tasks.go`: Bulgarian for every new string
 
 ## 3. Guards

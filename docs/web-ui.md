@@ -437,7 +437,9 @@ the current scheme and points at the switch rather than carrying a second form.
 
 A shortcut never takes a key from the control it is pressing. Enter on a focused button or link, and
 Space on a focused button, do what they do natively; the `open` shortcut is bound to Enter, and it
-used to claim the key everywhere, so no button on the page could be pressed from the keyboard.
+used to claim the key everywhere, so no button on the page could be pressed from the keyboard. While a
+status or priority menu is open no shortcut acts at all, so Escape closes the menu rather than also
+going back a page.
 
 | Preference | Cookie | Values |
 | --- | --- | --- |
