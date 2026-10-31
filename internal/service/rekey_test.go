@@ -5,6 +5,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -117,8 +118,9 @@ func TestARenameRefusesAKeyHeldByAnotherProject(t *testing.T) {
 	if _, err := l.UpdateProject(ctx, "web", core.UpdateProjectInput{Key: strp("infra"), Name: strp("Changed")}); !core.IsKind(err, core.KindConflict) {
 		t.Errorf("renaming web to the old key infra = %v, want a conflict", err)
 	}
-	if _, err := l.CreateProject(ctx, core.CreateProjectInput{Key: "infra", Name: "Again"}); !core.IsKind(err, core.KindConflict) {
-		t.Errorf("creating a project keyed with an old key = %v, want a conflict", err)
+	_, err := l.CreateProject(ctx, core.CreateProjectInput{Key: "infra", Name: "Again"})
+	if !core.IsKind(err, core.KindConflict) || !strings.Contains(err.Error(), `old key of project "ops"`) {
+		t.Errorf("creating a project keyed with an old key = %v, want a conflict naming ops", err)
 	}
 	if web, err := l.GetProject(ctx, "web"); err != nil || web.Name != "Web" {
 		t.Errorf("a refused rename changed the project: %+v, %v", web, err)

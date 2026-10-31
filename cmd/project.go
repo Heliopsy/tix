@@ -197,19 +197,30 @@ func projectShowCmd(g *globals) *cobra.Command {
 }
 
 func projectEditCmd(g *globals) *cobra.Command {
-	var name, description, workflow, color, icon, iconName, iconFile string
+	var key, name, description, workflow, color, icon, iconName, iconFile string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "edit KEY",
 		Short: "Change a project",
-		Long: "Change a project's name, description, workflow, colour or icon.\n\n" +
+		Long: "Change a project's key, name, description, workflow, colour or icon.\n\n" +
+			"A new key renames every task reference (infra-8 becomes ops-8). The old key stays an alias of the\n" +
+			"project for as long as it exists, so old references, links and filters keep resolving, and no\n" +
+			"other project can take it.\n\n" +
 			"The icon is one of --icon, --icon-name or --icon-file; setting one replaces whichever the project had, " +
-			"and setting any of them empty clears the icon.\n\nExit codes: 2 invalid colour or icon, 3 unknown project.",
-		Example: "  tix project edit infra --name \"Platform\"\n  tix project edit infra --color \"\" --icon \"\"\n" +
+			"and setting any of them empty clears the icon.\n\n" +
+			"Exit codes: 2 invalid key, colour or icon, 3 unknown project, 4 key held by another project.",
+		Example: "  tix project edit infra --name \"Platform\"\n  tix project edit infra --key ops\n" +
+			"  tix project edit infra --color \"\" --icon \"\"\n" +
 			"  tix project edit infra --icon-name rocket\n  tix project edit infra --icon-file logo.png",
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var in core.UpdateProjectInput
+			if cmd.Flags().Changed("key") {
+				if err := core.ValidateProjectKey(strings.TrimSpace(key)); err != nil {
+					return err
+				}
+				in.Key = &key
+			}
 			if cmd.Flags().Changed("name") {
 				in.Name = &name
 			}
@@ -258,6 +269,7 @@ func projectEditCmd(g *globals) *cobra.Command {
 		},
 		ValidArgsFunction: g.completeProjectKeys,
 	}
+	cmd.Flags().StringVar(&key, "key", "", "new key; old task references keep resolving through the old key")
 	cmd.Flags().StringVar(&name, "name", "", "new name")
 	cmd.Flags().StringVar(&description, "description", "", "new description")
 	cmd.Flags().StringVar(&workflow, "workflow", "", "new workflow key or identifier")
