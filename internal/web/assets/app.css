@@ -733,7 +733,6 @@ fieldset > label:has(> input[type="radio"]) { margin: var(--space-1) 0; }
   min-height: 0;
   scroll-snap-align: start;
   overflow-y: auto;
-  overscroll-behavior: contain;
   /* The column is the recessed thing and the cards sit on top of it. It was
      the same colour as the page with the same hairline round it as the cards
      inside, so every card was drawn inside a second identical frame and the
@@ -2160,7 +2159,6 @@ ul.tasklist {
      to clip them; see flowui_test.go, which guards that the row menus are
      popovers precisely because of this. */
   overflow-y: auto;
-  overscroll-behavior: contain;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -5074,7 +5072,6 @@ td > details.panel > summary { overflow-wrap: normal; word-break: keep-all; }
   min-height: 0;
   scroll-snap-align: start;
   overflow-y: auto;
-  overscroll-behavior: contain;
   background: var(--surface);
   border: 1px solid var(--line);
   border-top: 3px solid var(--proj, var(--line));

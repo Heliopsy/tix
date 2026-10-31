@@ -173,3 +173,21 @@ active. While a menu is open no shortcut SHALL act, so Escape closes the menu an
 - **GIVEN** a lane card's status menu is open
 - **WHEN** the reader presses Escape
 - **THEN** the menu closes and the page does not go back
+
+### Requirement: The wheel scrolls the page over boards, lanes and the list
+
+A board column, a lane and the task list SHALL scroll their own content and SHALL hand the mouse wheel
+on to the page once they have nothing left to scroll in that direction, or nothing to scroll at all.
+Only a modal SHALL keep the wheel to itself.
+
+#### Scenario: A column with room to spare
+
+- **GIVEN** a project board whose column is shorter than its frame, on a page taller than the window
+- **WHEN** the reader turns the wheel with the pointer over the column
+- **THEN** the page scrolls
+
+#### Scenario: A long column
+
+- **GIVEN** a column with more cards than fit
+- **WHEN** the reader turns the wheel over it
+- **THEN** the column scrolls to its last card and the page scrolls after that
