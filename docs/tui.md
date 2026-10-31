@@ -521,8 +521,8 @@ they were never going to see.
 One cursor runs over the domains and the members together, because `X` removes either and a removal needs
 a named subject rather than a typed identifier. The confirmation says the hostname or the handle out loud.
 
-`e` edits the tenant: the theme from the palettes the build carries, including the word for having none,
-and the name from the single-line input seeded with the name it would replace. `n` asks whether a domain
+`e` edits the tenant: the theme from the palettes the build carries, including the word for having none
+and `custom`, which asks for a `#rrggbb` accent at the single-line input, and the name from the single-line input seeded with the name it would replace. `n` asks whether a domain
 or a member is being added. A domain takes its hostname at the prompt and is added carrying no certificate
 of its own, because a certificate is a pair of paths on the server that no control here can gather;
 `tix domain add` takes them. A member is picked from the tenant's own directory, read at the keystroke

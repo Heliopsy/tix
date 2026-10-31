@@ -88,7 +88,7 @@ func TestProjectAppearanceRejections(t *testing.T) {
 func TestProjectHelpNamesThePalette(t *testing.T) {
 	c := newCLI(t)
 	help := c.mustRun("project", "create", "--help").out
-	for _, want := range []string{"--color", "--icon", "blue", "violet"} {
+	for _, want := range []string{"--color", "--icon", "blue", "violet", "#rrggbb"} {
 		if !strings.Contains(help, want) {
 			t.Errorf("project create help does not mention %q", want)
 		}

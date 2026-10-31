@@ -81,8 +81,9 @@ $ curl -s -X POST -H "Authorization: Bearer $TIX_TOKEN" -H 'Content-Type: applic
  "color":"amber","icon":"A","created_at":"...","updated_at":"..."}
 ```
 
-`color` is one of `slate`, `red`, `amber`, `green`, `teal`, `blue`, `violet` or `pink`, and `icon` is one emoji
-or a monogram of at most two characters. Anything else is `400`. The CLI spellings are `--color` and `--icon` on
+`color` is one of `slate`, `red`, `amber`, `green`, `teal`, `blue`, `violet` or `pink`, or a custom colour as
+`#rrggbb`, which is stored and returned in lowercase. `icon` is one emoji or a monogram of at most two
+characters. Anything else is `400`. The CLI spellings are `--color` and `--icon` on
 `tix project create` and `tix project edit`; an empty string on either clears it.
 
 The icon can be one of two other kinds instead. `icon_name` picks a built-in symbol (`folder`, `briefcase`,

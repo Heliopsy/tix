@@ -46,10 +46,15 @@ page. `UpdateTenant` accepts a valid hex as well as a name that resolves.
 `colour-field` in `partials.html` takes a field name, the predefined options (value, label, swatch
 CSS), the current value and whether "none" is offered. It renders a radio group of swatches, then a
 "Custom" radio with an `<input type="color">` and a `#rrggbb` text field and a preview chip. The radio
-group posts `name`; the custom radio posts `custom` and the text field posts `name_custom`, which the
-handler folds back with `colourField`. Without scripting the text field alone works. `feel.js` keeps
-the colour input, the text field and the preview in step and ticks the custom radio when either is
-touched; the hex parsing it uses is `tix.hexColour` in `decide.js`, tested in the node suite.
+group posts `name`; the custom radio posts `#custom`, which no palette colour or theme is named, and the
+text field posts `name_custom`, which the handler folds back with `colourField`. Without scripting the
+text field alone works. `feel.js` keeps the colour input, the text field and the preview in step and
+ticks the custom radio when either is touched; its hex parsing is `tix.hexColour`, tested in the node
+suite.
+
+The terminal interface's edit forms offer `custom` after the palette (and after the themes on the
+tenant form), which hands over to the single-line input for a `#rrggbb`, seeded with the current custom
+value.
 
 ## Terminals
 
