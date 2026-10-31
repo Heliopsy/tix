@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
+	"slices"
+
+	"github.com/heliopsy/tix/internal/i18n"
 )
 
 // KeyScheme names a shipped set of web keyboard shortcuts. It mirrors
@@ -260,8 +263,16 @@ func buildShortcutTable() shortcutTable {
 // embeds inside a <script type="application/json"> element. The data is
 // fixed literals plus the resolved cookie value, so marshalling cannot fail
 // in practice; the empty object is a defensive fallback only.
-func shortcutsJSON(active KeyScheme) template.JS {
-	raw, err := json.Marshal(shortcutDataFor(active))
+func shortcutsJSON(active KeyScheme, lang string) template.JS {
+	data := shortcutDataFor(active)
+	data.Actions = slices.Clone(data.Actions)
+	for i := range data.Actions {
+		data.Actions[i].Label = i18n.T(lang, data.Actions[i].Label)
+	}
+	for i := range data.Schemes {
+		data.Schemes[i].Label = i18n.T(lang, data.Schemes[i].Label)
+	}
+	raw, err := json.Marshal(data)
 	if err != nil {
 		return template.JS("{}") // #nosec G203 -- fixed fallback, not caller input
 	}

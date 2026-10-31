@@ -1,17 +1,17 @@
 {{define "content"}}
-<h1>Workflows</h1>
+<div class="headtip"><h1>{{t "Workflows"}}</h1>{{template "tip" (tip "Workflows" "A workflow is the set of states a task can be in and the moves allowed between them. Every project uses exactly one, and the built-in default works with no setup." "docs/workflows.md")}}</div>
 <table>
-  <thead><tr><th>Key</th><th>Name</th><th>States</th><th>Builtin</th></tr></thead>
+  <thead><tr><th>{{t "Key"}}</th><th>{{t "Name"}}</th><th>{{t "States"}}</th><th>{{t "Builtin"}}</th></tr></thead>
   <tbody>
   {{range .Data.Workflows}}
     <tr>
       <td><a href="/workflows/{{.Key}}">{{.Key}}</a></td>
       <td>{{.Name}}</td>
       <td>{{len .Definition.States}}</td>
-      <td>{{if .Builtin}}yes{{else}}no{{end}}</td>
+      <td>{{if .Builtin}}{{t "yes"}}{{else}}{{t "no"}}{{end}}</td>
     </tr>
   {{else}}
-    <tr><td colspan="4">No workflows.</td></tr>
+    <tr><td colspan="4">{{t "No workflows."}}</td></tr>
   {{end}}
   </tbody>
 </table>

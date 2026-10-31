@@ -4,11 +4,12 @@
      task opened from a filtered list had no way back to it: the sidebar goes
      to the unfiltered list, so the browser's back button was the only thing
      that preserved the reader's place. */}}
-<p class="backlink"><a href="{{.Data.Back}}">&larr; {{.Data.BackLabel}}</a></p>
+<p class="backlink"><a href="{{.Data.Back}}">&larr; {{phrase .Data.BackLabel}}</a></p>
 <div class="titlebar">
   {{if .CanStar}}{{template "star" (star $t.Ref $t.Starred .Here .CSRF)}}{{end}}
   <span class="ref">{{$t.Ref}}</span>
   <h1>{{$t.Title}}</h1>
+  {{if .CanStar}}{{template "tip" (tip "Stars" "A star is yours alone: your starred tasks come first in every listing you see, and is:starred finds them. Nobody else's order changes." "docs/filtering.md")}}{{end}}
 </div>
 {{$held := claim $t}}
 {{/* A div, not a p. The status and priority controls carry popover panels,
@@ -16,6 +17,7 @@
      the paragraph before it: the priority ended up outside the row and on a
      line of its own. */}}
 <div id="task-pills" class="taskpills">{{template "task-pills" .}}</div>
+{{if or $held $t.ClaimCount}}{{template "tip" (tip "Claims and leases" "A claim is how a worker, usually an agent, takes a task for itself. It holds a lease that expires unless renewed, and claiming does not change the status. When a lease lapses the task can be claimed again, and the expiry stays shown here for a while." "docs/agents.md")}}{{end}}
 {{/* The menus live out here, not inside #task-pills.
      That region is replaced wholesale by a live refresh, and a refresh that
      lands while a reader has a menu open would swap the form away under the
@@ -25,7 +27,8 @@
      out here, untouched by any swap. */}}
 {{if and .Data.CanWrite .Data.Routes}}
 <div id="flow-{{$t.Ref}}" class="flowmenu" popover>
-  <p class="flowhead">Move <span class="mono">{{$t.Ref}}</span> from <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span></p>
+  <p class="flowhead">{{t "Move"}} <span class="mono">{{$t.Ref}}</span> {{t "from"}} <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span></p>
+  {{template "tip" (tip "Moves" "Only the moves the project's workflow allows from this state are offered. A move that passes through other states names each one, and the history records every step." "docs/workflows.md")}}
   <form method="post" action="/tasks/{{$t.Ref}}/transition">
     {{template "csrf" $.CSRF}}
     {{range .Data.Routes}}
@@ -34,25 +37,25 @@
     </button>
     {{end}}
   </form>
-  <a class="flowsee" href="/tasks?q=status:{{$t.Status}}">Show all <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span></a>
-  <button type="button" class="flowclose" popovertarget="flow-{{$t.Ref}}" popovertargetaction="hide">Close</button>
+  <a class="flowsee" href="/tasks?q=status:{{$t.Status}}">{{t "Show all"}} <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span></a>
+  <button type="button" class="flowclose" popovertarget="flow-{{$t.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
 </div>
 {{end}}
 {{if .Data.CanWrite}}
 {{$p := prio $t.Priority}}
 <div id="prio-{{$t.Ref}}" class="flowmenu priopop" popover>
-  <p class="flowhead">Priority of <span class="mono">{{$t.Ref}}</span></p>
+  <p class="flowhead">{{t "Priority of"}} <span class="mono">{{$t.Ref}}</span></p>
   <form method="post" action="/tasks/{{$t.Ref}}/priority">
     {{template "csrf" $.CSRF}}
     {{range $.Data.Priorities}}
     <button type="submit" name="priority" value="{{.Value}}" class="flowgo{{if eq .Label $p}} is-current{{end}}">
-      <span class="prio p-{{.Label}}"><span class="caret" aria-hidden="true"></span>{{.Label}}</span>
-      {{if eq .Label $p}}<span class="flowhops">current</span>{{end}}
+      <span class="prio p-{{.Label}}"><span class="caret" aria-hidden="true"></span>{{t .Label}}</span>
+      {{if eq .Label $p}}<span class="flowhops">{{t "current"}}</span>{{end}}
     </button>
     {{end}}
   </form>
-  <a class="flowsee" href="/tasks?q=priority:{{$p}}">Show all <span class="prio p-{{$p}}"><span class="caret" aria-hidden="true"></span>{{$p}}</span></a>
-  <button type="button" class="flowclose" popovertarget="prio-{{$t.Ref}}" popovertargetaction="hide">Close</button>
+  <a class="flowsee" href="/tasks?q=priority:{{$p}}">{{t "Show all"}} <span class="prio p-{{$p}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span></a>
+  <button type="button" class="flowclose" popovertarget="prio-{{$t.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
 </div>
 {{end}}
 
@@ -64,7 +67,7 @@
     {{/* "Edit", not "Details". The aside on the right is also headed Details,
          so the screen said the same word twice for two different things: the
          form you type into and the facts you cannot. */}}
-    <h2>Edit</h2>
+    <h2>{{t "Edit"}}</h2>
     {{/* data-dirty-save: assets/busy.js greys the Save until a field actually
          differs from what the server holds, so the button says whether there
          is anything to save instead of looking identical either way. The
@@ -74,15 +77,15 @@
     <form method="post" action="/tasks/{{$t.Ref}}" data-dirty-save>
       {{template "csrf" .CSRF}}
       <input type="hidden" name="version" value="{{$t.Version}}">
-      <label for="title">Title</label>
+      <label for="title">{{t "Title"}}</label>
       <input id="title" name="title" value="{{$t.Title}}" data-shortcut-target="editTitle" required>
-      <label for="body">Description</label>
-      <textarea id="body" name="body" placeholder="Add a description">{{$t.Body}}</textarea>
+      <label for="body">{{t "Description"}}</label>
+      <textarea id="body" name="body" placeholder="{{t "Add a description"}}">{{$t.Body}}</textarea>
       <div class="row">
         <div>
-          <label for="priority">Priority</label>
+          <label for="priority">{{t "Priority"}}</label>
           <select id="priority" name="priority">
-            {{range .Data.Priorities}}<option value="{{.Value}}" {{if eq .Value $t.Priority}}selected{{end}}>{{.Label}}</option>{{end}}
+            {{range .Data.Priorities}}<option value="{{.Value}}" {{if eq .Value $t.Priority}}selected{{end}}>{{t .Label}}</option>{{end}}
           </select>
         </div>
         {{/* The handle, not the identifier. The panel beside this field
@@ -93,22 +96,23 @@
         {{/* A datalist rather than a select: the field stays free text, so an
              actor of another tenant, which the directory cannot list, is
              still assignable by identifier. */}}
-        <div><label for="assignee">Assignee</label><input id="assignee" name="assignee" list="actor-handles" autocomplete="off" value="{{$.Data.Names.Label $t.AssigneeActorID}}">
+        <div><label for="assignee">{{t "Assignee"}}</label><input id="assignee" name="assignee" list="actor-handles" autocomplete="off" value="{{$.Data.Names.Label $t.AssigneeActorID}}">
           <datalist id="actor-handles">{{range $.Data.Names.Handles}}<option value="{{.}}"></option>{{end}}</datalist>
         </div>
       </div>
       {{/* Only this form carries the field. The custom fields form below
            posts without it, and a form that does not name the rule leaves it
            alone, so saving a field value never clears a repeat. */}}
-      <label for="repeat">Repeat when done</label>
-      <input id="repeat" name="repeat" value="{{$t.Recurrence}}" placeholder="every week, every month on day 1, 3 days after done">
-      <div class="actions"><button type="submit">Save</button></div>
+      <div class="field-label"><label for="repeat">{{t "Repeat when done"}}</label>
+        {{template "tip" (tip "Repeat when done" "Finishing a task that carries a rule creates the next one at once: same title, tags and assignee, a due date moved on by the rule. Cancelling it does not. Add after done to count from the day it was finished; end a rule with until 2027-06-30 or for 5 times." "docs/features.md")}}</div>
+      <input id="repeat" name="repeat" value="{{$t.Recurrence}}" placeholder="{{t "every week, every month on day 1, 3 days after done"}}">
+      <div class="actions"><button type="submit">{{t "Save"}}</button></div>
     </form>
   </div>
 
   {{if .Data.Fields}}
   <details class="panel">
-    <summary>Edit custom fields</summary>
+    <summary>{{t "Edit custom fields"}}</summary>
     <div class="body">
       <form method="post" action="/tasks/{{$t.Ref}}">
         {{template "csrf" .CSRF}}
@@ -121,25 +125,25 @@
           <label for="field-{{.Def.Key}}">{{.Def.Label}}</label>
           <input id="field-{{.Def.Key}}" name="field.{{.Def.Key}}" value="{{.Value}}">
         {{end}}
-        <div class="actions"><button type="submit">Save changes</button></div>
+        <div class="actions"><button type="submit">{{t "Save changes"}}</button></div>
       </form>
     </div>
   </details>
   {{end}}
   {{else}}
   <div class="card">
-    <h2>Description</h2>
-    {{if $t.Body}}<pre>{{$t.Body}}</pre>{{else}}<p class="empty">No description.</p>{{end}}
+    <h2>{{t "Description"}}</h2>
+    {{if $t.Body}}<pre>{{$t.Body}}</pre>{{else}}<p class="empty">{{t "No description."}}</p>{{end}}
   </div>
-  <p class="flash">You may read this task but not change it.</p>
+  <p class="flash">{{t "You may read this task but not change it."}}</p>
   {{end}}
 
   <div class="card">
-    <h2>Subtasks</h2>
+    <h2>{{t "Subtasks"}}</h2>
     <ul class="plain">
       {{range .Data.Subtasks}}
       <li><a class="mono" href="/tasks/{{.Ref}}">{{.Ref}}</a> {{.Title}} <span class="pill status {{slug .Status}}">{{.Status}}</span></li>
-      {{else}}<li class="empty">None.</li>{{end}}
+      {{else}}<li class="empty">{{t "None."}}</li>{{end}}
     </ul>
   </div>
 
@@ -147,7 +151,7 @@
        set as an h3 inside it: two unrelated relationships in one box, and a
        heading level implying one was part of the other. */}}
   <div class="card">
-    <h2>Dependencies</h2>
+    <div class="headtip"><h2>{{t "Dependencies"}}</h2>{{template "tip" (tip "Dependencies" "This task waits for the tasks listed here. It counts as blocked, and claim next never hands it out, until each of them reaches a terminal state of its own workflow." "docs/workflows.md")}}</div>
     <ul class="plain">
       {{/* A dependency is named the way the field below asks for one. It read
            back a raw identifier while the input directly under it was
@@ -162,26 +166,26 @@
         <form method="post" action="/tasks/{{$t.Ref}}/deps/remove" style="display:inline">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="depends_on" value="{{.ID}}">
-          <button class="link" type="submit">remove</button>
+          <button class="link" type="submit">{{t "remove"}}</button>
         </form>
         {{end}}
       </li>
-      {{else}}<li class="empty">None.</li>{{end}}
+      {{else}}<li class="empty">{{t "None."}}</li>{{end}}
     </ul>
     {{if .Data.CanWrite}}
     <form method="post" action="/tasks/{{$t.Ref}}/deps">
       {{template "csrf" .CSRF}}
-      <label for="depends_on">Depends on</label>
+      <label for="depends_on">{{t "Depends on"}}</label>
       <div class="row">
-        <div><input id="depends_on" name="depends_on" placeholder="infra-2" required></div>
-        <div class="actions"><button class="secondary" type="submit">Add dependency</button></div>
+        <div><input id="depends_on" name="depends_on" placeholder="{{"infra-2"}}" required></div>
+        <div class="actions"><button class="secondary" type="submit">{{t "Add dependency"}}</button></div>
       </div>
     </form>
     {{end}}
   </div>
 
   <div class="card">
-    <h2>Comments</h2>
+    <h2>{{t "Comments"}}</h2>
     <ul class="plain" id="task-comments">{{template "task-comments" .}}</ul>
     {{if .Data.CanComment}}
     <form method="post" action="/tasks/{{$t.Ref}}/comments">
@@ -190,9 +194,9 @@
            composer was the tallest thing in the card and it is the part
            nobody is reading. It grows when it is typed into. */}}
       <textarea id="comment-body" name="body" rows="1" class="composer"
-                placeholder="Add a comment" aria-label="Add a comment"
+                placeholder="{{t "Add a comment"}}" aria-label="{{t "Add a comment"}}"
                 data-shortcut-target="comment" required></textarea>
-      <div class="actions"><button type="submit">Comment</button></div>
+      <div class="actions"><button type="submit">{{t "Comment"}}</button></div>
     </form>
     {{end}}
   </div>
@@ -201,26 +205,27 @@
        activity feed lands on a visible record rather than inside a closed
        disclosure. */}}
   <details class="panel" id="artifacts" data-open-for="artifact">
-    <summary>Artifacts</summary>
+    <summary>{{t "Artifacts"}}</summary>
     <div class="body">
+      {{template "tip" (tip "Artifacts" "An artifact is a record of work product kept on the task: a result, a log, a file reference or a metric, usually written by an agent. While the task is claimed only the lease holder can attach one." "docs/agents.md")}}
       <ul class="plain">
-        {{range .Data.Artifacts}}<li id="artifact-{{.ID}}">{{.Kind}} {{.Name}} <span class="muted">{{compact .CreatedAt}}</span></li>{{else}}<li class="empty">None.</li>{{end}}
+        {{range .Data.Artifacts}}<li id="artifact-{{.ID}}">{{t (print .Kind)}} {{.Name}} <span class="muted">{{compact .CreatedAt}}</span></li>{{else}}<li class="empty">{{t "None."}}</li>{{end}}
       </ul>
       {{if .Data.CanComment}}
       <form method="post" action="/tasks/{{$t.Ref}}/artifacts">
         {{template "csrf" .CSRF}}
         <div class="row">
           <div>
-            <label for="artifact-kind">Kind</label>
+            <label for="artifact-kind">{{t "Kind"}}</label>
             <select id="artifact-kind" name="kind">
-              {{range .Data.ArtifactKinds}}<option value="{{.}}">{{.}}</option>{{end}}
+              {{range .Data.ArtifactKinds}}<option value="{{.}}">{{t (print .)}}</option>{{end}}
             </select>
           </div>
-          <div><label for="artifact-name">Name</label><input id="artifact-name" name="name"></div>
+          <div><label for="artifact-name">{{t "Name"}}</label><input id="artifact-name" name="name"></div>
         </div>
-        <label for="artifact-payload">Payload, one key=value per line</label>
+        <label for="artifact-payload">{{t "Payload, one key=value per line"}}</label>
         <textarea id="artifact-payload" name="payload"></textarea>
-        <div class="actions"><button class="secondary" type="submit">Attach artifact</button></div>
+        <div class="actions"><button class="secondary" type="submit">{{t "Attach artifact"}}</button></div>
       </form>
       {{end}}
     </div>
@@ -230,39 +235,39 @@
 
 <aside class="rail">
   <div class="card">
-    <h3>About</h3>
+    <h3>{{t "About"}}</h3>
     <dl class="fields">
-      <dt>Project</dt><dd><a href="/projects/{{.Data.ProjectKey}}">{{.Data.ProjectKey}}</a></dd>
-      <dt>Assignee</dt><dd>{{if $t.AssigneeActorID}}<span class="who-name" title="{{$t.AssigneeActorID}}">{{$.Data.Names.Label $t.AssigneeActorID}}</span>{{else}}<span class="muted">unassigned</span>{{end}}</dd>
-      <dt>Creator</dt><dd class="who-name" title="{{$t.CreatorActorID}}">{{$.Data.Names.Label $t.CreatorActorID}}</dd>
+      <dt>{{t "Project"}}</dt><dd><a href="/projects/{{.Data.ProjectKey}}">{{.Data.ProjectKey}}</a></dd>
+      <dt>{{t "Assignee"}}</dt><dd>{{if $t.AssigneeActorID}}<span class="who-name" title="{{$t.AssigneeActorID}}">{{$.Data.Names.Label $t.AssigneeActorID}}</span>{{else}}<span class="muted">{{t "unassigned"}}</span>{{end}}</dd>
+      <dt>{{t "Creator"}}</dt><dd class="who-name" title="{{$t.CreatorActorID}}">{{$.Data.Names.Label $t.CreatorActorID}}</dd>
       {{/* The date alone left the reader comparing it with a calendar. The
            state is what they were working it out for, so it is said, in the
            same words the listing and the board use. */}}
       {{/* The star is a shape in the title bar; here it is said in words, with
            what it does, since nobody else sees it. */}}
-      {{if .CanStar}}<dt>Starred</dt><dd class="starstate">{{if $t.Starred}}Yes, listed first for you{{else}}<span class="muted">No</span>{{end}}</dd>{{end}}
-      {{if .Data.Parent}}<dt>Subtask of</dt><dd><a class="mono" href="/tasks/{{.Data.Parent.Ref}}">{{.Data.Parent.Ref}}</a> {{.Data.Parent.Title}}</dd>{{end}}
+      {{if .CanStar}}<dt>{{t "Starred"}}</dt><dd class="starstate">{{if $t.Starred}}{{t "Yes, listed first for you"}}{{else}}<span class="muted">{{t "No"}}</span>{{end}}</dd>{{end}}
+      {{if .Data.Parent}}<dt>{{t "Subtask of"}}</dt><dd><a class="mono" href="/tasks/{{.Data.Parent.Ref}}">{{.Data.Parent.Ref}}</a> {{.Data.Parent.Title}}</dd>{{end}}
       {{/* The rule, and what it will do next. The occurrence already created
            is linked with its date; one not yet created is the date finishing
            now would give it, from the same rule the completion applies. */}}
-      <dt>Repeats</dt><dd class="repeatline">{{if $t.Recurrence}}<span aria-hidden="true">&#x21bb;</span> {{$t.Recurrence}}{{else}}<span class="muted">&mdash;</span>{{end}}
-        {{if .Data.Successor}}<br><span class="muted">next</span> <a class="mono" href="/tasks/{{.Data.Successor}}">{{.Data.Successor}}</a>{{if .Data.SuccessorDue}} <span class="muted">due {{stamp .Data.SuccessorDue}}</span>{{end}}
-        {{else if .Data.NextDue}}<br><span class="muted">next due {{stamp .Data.NextDue}} if finished now</span>
-        {{else if .Data.LastOccurrence}}<br><span class="muted">this is the last occurrence</span>{{end}}</dd>
-      <dt>Due</dt><dd>{{if $t.DueAt}}{{stamp $t.DueAt}}{{$due := due $t}}{{if $due}} <span class="duemark is-{{$due}}">{{if eq $due "overdue"}}overdue{{else}}this week{{end}}</span>{{end}}{{else}}<span class="muted">&mdash;</span>{{end}}</dd>
+      <dt>{{t "Repeats"}}</dt><dd class="repeatline">{{if $t.Recurrence}}<span aria-hidden="true">&#x21bb;</span> {{$t.Recurrence}}{{else}}<span class="muted">&mdash;</span>{{end}}
+        {{if .Data.Successor}}<br><span class="muted">{{t "next"}}</span> <a class="mono" href="/tasks/{{.Data.Successor}}">{{.Data.Successor}}</a>{{if .Data.SuccessorDue}} <span class="muted">{{t "due %s" (stamp .Data.SuccessorDue)}}</span>{{end}}
+        {{else if .Data.NextDue}}<br><span class="muted">{{t "next due %s if finished now" (stamp .Data.NextDue)}}</span>
+        {{else if .Data.LastOccurrence}}<br><span class="muted">{{t "this is the last occurrence"}}</span>{{end}}</dd>
+      <dt>{{t "Due"}}</dt><dd>{{if $t.DueAt}}{{stamp $t.DueAt}}{{$due := due $t}}{{if $due}} <span class="duemark is-{{$due}}">{{if eq $due "overdue"}}{{t "overdue"}}{{else}}{{t "this week"}}{{end}}</span>{{end}}{{else}}<span class="muted">&mdash;</span>{{end}}</dd>
       {{/* A 26 character identifier wrapped onto two lines of the aside and
            could only be had by selecting it with the mouse, which is how
            every other secret and identifier in this product is NOT offered:
            copy.js and .copyline exist for exactly this. */}}
-      <dt>Id</dt><dd class="idline">
+      <dt>{{t "Id"}}</dt><dd class="idline">
         <code class="mono" id="task-id-{{$t.Ref}}" title="{{$t.ID}}">{{$t.ID}}</code>
-        <button type="button" class="ghost small" data-copy-target="task-id-{{$t.Ref}}" aria-label="Copy the task id">Copy</button>
+        <button type="button" class="ghost small" data-copy-target="task-id-{{$t.Ref}}" aria-label="{{t "Copy the task id"}}">{{t "Copy"}}</button>
       </dd>
-      <dt>Version</dt><dd class="muted">{{$t.Version}}</dd>
-      <dt>Created</dt><dd class="muted">{{compact $t.CreatedAt}}</dd>
-      <dt>Updated</dt><dd class="muted">{{compact $t.UpdatedAt}}</dd>
-      {{if $t.StartedAt}}<dt>Started</dt><dd class="muted">{{stamp $t.StartedAt}}</dd>{{end}}
-      {{if $t.CompletedAt}}<dt>Finished</dt><dd class="muted">{{stamp $t.CompletedAt}}</dd>{{end}}
+      <dt>{{t "Version"}}</dt><dd class="muted">{{$t.Version}}</dd>
+      <dt>{{t "Created"}}</dt><dd class="muted">{{compact $t.CreatedAt}}</dd>
+      <dt>{{t "Updated"}}</dt><dd class="muted">{{compact $t.UpdatedAt}}</dd>
+      {{if $t.StartedAt}}<dt>{{t "Started"}}</dt><dd class="muted">{{stamp $t.StartedAt}}</dd>{{end}}
+      {{if $t.CompletedAt}}<dt>{{t "Finished"}}</dt><dd class="muted">{{stamp $t.CompletedAt}}</dd>{{end}}
     </dl>
   </div>
 
@@ -271,7 +276,7 @@
        keyboard shortcut still needs a target, which the pill carries. */}}
 
   <div class="card">
-    <h3>Tags</h3>
+    <h3>{{t "Tags"}}</h3>
     {{/* Chips in a row, each carrying its own removal. One tag per line with
          the word "remove" beside it spent a whole row of the aside on every
          tag, so four tags pushed everything below them off the screen, and
@@ -280,22 +285,22 @@
     <ul class="tagchips">
       {{range $t.Tags}}
       <li>
-        <a class="tagref" href="/tasks?q=tag:{{.}}" title="Only tasks tagged {{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>
+        <a class="tagref" href="/tasks?q=tag:{{.}}" title="{{t "Only tasks tagged %s" .}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>
         {{if $.Data.CanWrite}}
         <form method="post" action="/tasks/{{$t.Ref}}/tags/remove">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="tag" value="{{.}}">
-          <button class="tagdrop" type="submit" aria-label="Remove the tag {{.}}" title="Remove {{.}}">&times;</button>
+          <button class="tagdrop" type="submit" aria-label="{{t "Remove the tag %s" .}}" title="{{t "Remove %s" .}}">&times;</button>
         </form>
         {{end}}
       </li>
-      {{else}}<li class="empty muted">None yet.</li>{{end}}
+      {{else}}<li class="empty muted">{{t "None yet."}}</li>{{end}}
     </ul>
     {{if .Data.CanWrite}}
     <form method="post" action="/tasks/{{$t.Ref}}/tags" class="tagadd">
       {{template "csrf" .CSRF}}
-      <input id="tag" name="tag" required placeholder="Add a tag" aria-label="Add a tag">
-      <button class="secondary" type="submit">Add</button>
+      <input id="tag" name="tag" required placeholder="{{t "Add a tag"}}" aria-label="{{t "Add a tag"}}">
+      <button class="secondary" type="submit">{{t "Add"}}</button>
     </form>
     {{end}}
   </div>
@@ -306,7 +311,7 @@
        not use. */}}
   {{if .Data.Fields}}
   <div class="card">
-    <h3>Custom fields</h3>
+    <h3>{{t "Custom fields"}}</h3>
     <dl class="fields">
       {{range .Data.Fields}}<dt>{{.Def.Label}}</dt><dd>{{.Value}}</dd>{{end}}
     </dl>
@@ -318,7 +323,7 @@
        columns is the widest thing on this screen, and it was the one piece
        of it rendered in the narrower track. */}}
   <details class="panel wide">
-    <summary>History</summary>
+    <summary>{{t "History"}}</summary>
     <div class="body" id="task-history">{{template "task-history" .}}</div>
 
   </details>
@@ -333,14 +338,15 @@
        at the content column leaves the page with a ragged right edge for no
        gain. */}}
   <details class="panel danger" id="reclaim">
-    <summary>Reclaim the lease</summary>
+    <summary>{{t "Reclaim the lease"}}</summary>
     <div class="body">
-      <p class="muted">{{$.Data.Names.Label $t.ClaimedByActorID}} holds this task{{if $t.LeaseExpiresAt}} until {{compact $t.LeaseExpiresAt}}{{end}}. Reclaiming ends their lease at once and leaves the task in {{$t.Status}}.</p>
+      {{template "tip" (tip "Reclaim" "Offered only to holders of the task:reclaim scope. The holder's token stops working at once, so its next write is refused as lease expired, and anyone may claim the task again." "docs/agents.md")}}
+      <p class="muted">{{if $t.LeaseExpiresAt}}{{t "%s holds this task until %s." ($.Data.Names.Label $t.ClaimedByActorID) (compact $t.LeaseExpiresAt)}}{{else}}{{t "%s holds this task." ($.Data.Names.Label $t.ClaimedByActorID)}}{{end}} {{t "Reclaiming ends their lease at once and leaves the task in %s." $t.Status}}</p>
       <form method="post" action="/tasks/{{$t.Ref}}/reclaim">
         {{template "csrf" .CSRF}}
-        <label for="reason">Reason</label>
-        <input id="reason" name="reason" placeholder="Why the lease is being taken">
-        <div class="actions"><button class="danger" type="submit">Reclaim lease</button></div>
+        <label for="reason">{{t "Reason"}}</label>
+        <input id="reason" name="reason" placeholder="{{t "Why the lease is being taken"}}">
+        <div class="actions"><button class="danger" type="submit">{{t "Reclaim lease"}}</button></div>
       </form>
     </div>
   </details>
@@ -348,17 +354,17 @@
 
   {{if .Data.CanDelete}}
   <details class="panel danger">
-    <summary>Danger zone</summary>
+    <summary>{{t "Danger zone"}}</summary>
     <div class="body">
       <form method="post" action="/tasks/{{$t.Ref}}/delete">
         {{template "csrf" .CSRF}}
-        <label for="hard"><input id="hard" type="checkbox" name="hard" value="1"> Delete permanently</label>
-        <label for="cascade"><input id="cascade" type="checkbox" name="cascade" value="1"> Also delete subtasks</label>
-        <div class="actions"><button class="danger" type="submit">Delete task</button></div>
+        <label for="hard"><input id="hard" type="checkbox" name="hard" value="1"> {{t "Delete permanently"}}</label>
+        <label for="cascade"><input id="cascade" type="checkbox" name="cascade" value="1"> {{t "Also delete subtasks"}}</label>
+        <div class="actions"><button class="danger" type="submit">{{t "Delete task"}}</button></div>
       </form>
       <form method="post" action="/tasks/{{$t.Ref}}/restore">
         {{template "csrf" .CSRF}}
-        <div class="actions"><button class="secondary" type="submit">Restore task</button></div>
+        <div class="actions"><button class="secondary" type="submit">{{t "Restore task"}}</button></div>
       </form>
     </div>
   </details>
@@ -396,7 +402,7 @@
          than being left pointing at markup that no longer exists. */}}
     <button type="button" class="statuspill" popovertarget="flow-{{$t.Ref}}"
             data-shortcut-target="transition"
-            aria-label="Status {{$t.Status}}; move {{$t.Ref}}" title="Move {{$t.Ref}}">
+            aria-label="{{t "Status %s; move %s" $t.Status $t.Ref}}" title="{{t "Move %s" $t.Ref}}">
       <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span>
     </button>
   </span>
@@ -405,12 +411,12 @@
   {{if .Data.CanWrite}}
   <span class="priomenu">
     <button type="button" class="priobtn" popovertarget="prio-{{$t.Ref}}"
-            aria-label="Priority {{$p}}; change it" title="Change the priority">
-      <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{$p}}</span>
+            aria-label="{{t "Priority %s; change it" (t $p)}}" title="{{t "Change the priority"}}">
+      <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>
     </button>
   </span>
-  {{else}}<span class="prio p-{{$p}}"><span class="caret" aria-hidden="true"></span>{{$p}}</span>{{end}}
-  {{if $t.Blocked}}<span class="pill status blocked">blocked</span>{{end}}
+  {{else}}<span class="prio p-{{$p}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>{{end}}
+  {{if $t.Blocked}}<span class="pill status blocked">{{t "blocked"}}</span>{{end}}
   {{/* The lease, and what is left of the last one. The sweeper clears the
        lease columns within a minute of a claim lapsing, so without the
        evidence it leaves behind a task an agent took and abandoned looked
@@ -419,9 +425,9 @@
        compare it to: beside an expiry it is the difference between an agent
        that died once and one that keeps dying. */}}
   {{$held := claim $t}}
-  {{if eq $held "held"}}<span class="lease held" title="Until {{compact $t.LeaseExpiresAt}}">held &middot; {{$.Data.Names.Label $t.ClaimedByActorID}}</span>
-  {{else if eq $held "expired"}}<span class="lease expired" title="At {{compact $t.LeaseExpiredAt}}">claim expired &middot; {{$.Data.Names.Label $t.LeaseExpiredByActorID}} &middot; {{expiredAgo $t}} ago</span>{{end}}
-  {{if $t.ClaimCount}}<span class="muted" title="How many times this task has been claimed">claimed {{$t.ClaimCount}} time{{if ne $t.ClaimCount 1}}s{{end}}</span>{{end}}
+  {{if eq $held "held"}}<span class="lease held" title="{{t "Until %s" (compact $t.LeaseExpiresAt)}}">{{t "held"}} &middot; {{$.Data.Names.Label $t.ClaimedByActorID}}</span>
+  {{else if eq $held "expired"}}<span class="lease expired" title="{{t "At %s" (compact $t.LeaseExpiredAt)}}">{{t "claim expired"}} &middot; {{$.Data.Names.Label $t.LeaseExpiredByActorID}} &middot; {{t "%s ago" (expiredAgo $t)}}</span>{{end}}
+  {{if $t.ClaimCount}}<span class="muted" title="{{t "How many times this task has been claimed"}}">{{tn "claimed %d time" "claimed %d times" $t.ClaimCount}}</span>{{end}}
 {{end}}
 
 {{define "task-comments"}}
@@ -449,28 +455,28 @@
              that each pushed the rest of the thread down the page when
              opened. This opens over the thread and leaves it where it is. */}}
         {{$eid := printf "cedit-%s" .ID}}
-        <button type="button" class="link comment-editopen" popovertarget="{{$eid}}">Edit</button>
+        <button type="button" class="link comment-editopen" popovertarget="{{$eid}}">{{t "Edit"}}</button>
         <div id="{{$eid}}" class="flowmenu commentpop" popover>
-          <p class="flowhead">Edit comment</p>
+          <p class="flowhead">{{t "Edit comment"}}</p>
           <form method="post" action="/tasks/{{$t.Ref}}/comments/edit">
             {{template "csrf" $.CSRF}}
             <input type="hidden" name="id" value="{{.ID}}">
-            <label for="edit-{{.ID}}">Rewrite</label>
+            <label for="edit-{{.ID}}">{{t "Rewrite"}}</label>
             <textarea id="edit-{{.ID}}" name="body" rows="5" required>{{.Body}}</textarea>
             <div class="actions">
-              <button type="submit">Save</button>
-              <button type="button" class="secondary flowclose" popovertarget="{{$eid}}" popovertargetaction="hide">Cancel</button>
+              <button type="submit">{{t "Save"}}</button>
+              <button type="button" class="secondary flowclose" popovertarget="{{$eid}}" popovertargetaction="hide">{{t "Cancel"}}</button>
             </div>
           </form>
           <form method="post" action="/tasks/{{$t.Ref}}/comments/delete">
             {{template "csrf" $.CSRF}}
             <input type="hidden" name="id" value="{{.ID}}">
-            <div class="actions"><button class="danger" type="submit">Delete comment</button></div>
+            <div class="actions"><button class="danger" type="submit">{{t "Delete comment"}}</button></div>
           </form>
         </div>
         {{end}}
       </li>
-      {{else}}<li class="empty">No comments yet.</li>{{end}}
+      {{else}}<li class="empty">{{t "No comments yet."}}</li>{{end}}
     {{end}}
 
 {{define "task-history"}}
@@ -482,14 +488,14 @@
                it: "What changed" wrapped on every row while the two beside it
                sat mostly empty. */}}
           <colgroup><col class="c-when"><col><col class="c-source"></colgroup>
-          <thead><tr><th>When</th><th>What changed</th><th>Source</th></tr></thead>
+          <thead><tr><th>{{t "When"}}</th><th>{{t "What changed"}}</th><th>{{t "Source"}}</th></tr></thead>
           <tbody>
           {{range $i, $h := .Data.History}}
             {{with $h}}
             {{$latest := .Latest}}
             {{$raw := printf "raw-%d" $i}}
             <tr>
-              <td data-label="When" class="muted">
+              <td data-label="{{t "When"}}" class="muted">
                 <time datetime="{{$latest.Entry.OccurredAt.Format "2006-01-02T15:04:05Z07:00"}}" title="{{absolute $latest.Entry.OccurredAt}}">{{relativeAt $latest.Entry.OccurredAt}}</time>
               </td>
               {{/* The sentence, and nothing saying it twice. Each row used to
@@ -509,30 +515,30 @@
                    row. Four changes meant four expanders inside the History
                    panel, which is itself a disclosure, and opening one pushed
                    every change below it down the page. */}}
-              <td data-label="What changed">
+              <td data-label="{{t "What changed"}}">
                 {{if not (or (eq .Verb "create") (eq .Verb "update") (eq .Verb "delete"))}}<span class="badge act-{{.Verb}}">{{.Verb}}</span>{{end}}
                 {{sentence ($.Data.Names.Label $latest.Entry.ActorID) .}}
-                <button type="button" class="link rawopen" popovertarget="{{$raw}}">{{if gt (len .Hops) 1}}{{len .Hops}} steps{{else}}details{{end}}</button>
+                <button type="button" class="link rawopen" popovertarget="{{$raw}}">{{if gt (len .Hops) 1}}{{tn "%d step" "%d steps" (len .Hops)}}{{else}}{{t "details"}}{{end}}</button>
                 <div id="{{$raw}}" class="flowmenu rawpop" popover>
                   <p class="flowhead">{{.Verb}} &middot; {{relativeAt $latest.Entry.OccurredAt}}</p>
                   {{range .Hops}}
                   <dl class="raw-fields">
-                    <div><dt>When</dt><dd class="mono">{{compact .Entry.OccurredAt}}</dd></div>
-                    <div><dt>Action</dt><dd class="mono">{{.Entry.Action}}</dd></div>
-                    {{if .Changed}}<div><dt>Fields</dt><dd class="mono">{{join .Changed}}</dd></div>{{end}}
+                    <div><dt>{{t "When"}}</dt><dd class="mono">{{compact .Entry.OccurredAt}}</dd></div>
+                    <div><dt>{{t "Action"}}</dt><dd class="mono">{{.Entry.Action}}</dd></div>
+                    {{if .Changed}}<div><dt>{{t "Fields"}}</dt><dd class="mono">{{join .Changed}}</dd></div>{{end}}
                   </dl>
                   {{end}}
-                  <button type="button" class="flowclose" popovertarget="{{$raw}}" popovertargetaction="hide">Close</button>
+                  <button type="button" class="flowclose" popovertarget="{{$raw}}" popovertargetaction="hide">{{t "Close"}}</button>
                 </div>
               </td>
-              <td data-label="Source"><span class="badge source">{{$latest.Entry.Source}}</span></td>
+              <td data-label="{{t "Source"}}"><span class="badge source">{{$latest.Entry.Source}}</span></td>
             </tr>
             {{end}}
           {{else}}
-            <tr><td colspan="3"><p class="empty">No recorded changes.</p></td></tr>
+            <tr><td colspan="3"><p class="empty">{{t "No recorded changes."}}</p></td></tr>
           {{end}}
           </tbody>
         </table>
       </div>
-      {{else}}<p class="empty">You do not hold the audit read scope.</p>{{end}}
+      {{else}}<p class="empty">{{t "You do not hold the audit read scope."}}</p>{{end}}
 {{end}}

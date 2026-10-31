@@ -1,35 +1,35 @@
 {{define "content"}}
 {{$v := .Data}}
-<h1>Activity</h1>
-<p class="lede">Recent changes for this tenant, newest first.{{if eq $v.Cursor ""}} With JavaScript the list updates as events arrive.{{end}}</p>
+<div class="headtip"><h1>{{t "Activity"}}</h1>{{template "tip" (tip "Activity" "Every change recorded in this tenant's audit log: what changed, who changed it and from which surface. Entries older than the audit retention window are pruned, and then they are gone from here too." "docs/configuration.md")}}</div>
+<p class="lede">{{t "Recent changes for this tenant, newest first."}}{{if eq $v.Cursor ""}} {{t "With JavaScript the list updates as events arrive."}}{{end}}</p>
 
 {{/* The whole filter lives in the query string, so a narrowed feed is a link
      somebody can send. The form is a plain GET for exactly that reason: it
      writes its state into the address bar with no script involved. */}}
 <form method="get" action="/activity" class="filterbar activityfilter">
-  <input name="q" value="{{$v.Query.Text}}" placeholder="Search records, for example infra-5" aria-label="Search activity" data-shortcut-target="filter">
-  <select name="kind" aria-label="Kind of record">
-    <option value="">Everything</option>
+  <input name="q" value="{{$v.Query.Text}}" placeholder="{{t "Search records, for example infra-5"}}" aria-label="{{t "Search activity"}}" data-shortcut-target="filter">
+  <select name="kind" aria-label="{{t "Kind of record"}}">
+    <option value="">{{t "Everything"}}</option>
     {{$kind := $v.Query.Kind}}
-    {{range $v.Kinds}}<option value="{{.Value}}" {{if eq .Value $kind}}selected{{end}}>{{.Label}}</option>{{end}}
+    {{range $v.Kinds}}<option value="{{.Value}}" {{if eq .Value $kind}}selected{{end}}>{{t .Label}}</option>{{end}}
   </select>
-  <select name="source" aria-label="Where the change came from">
-    <option value="">Any surface</option>
+  <select name="source" aria-label="{{t "Where the change came from"}}">
+    <option value="">{{t "Any surface"}}</option>
     {{$src := $v.Query.Source}}
     {{range $v.Sources}}<option value="{{.}}" {{if eq (printf "%s" .) $src}}selected{{end}}>{{.}}</option>{{end}}
   </select>
   {{if $v.Query.Actor}}<input type="hidden" name="actor" value="{{$v.Query.Actor}}">{{end}}
-  <button class="secondary" type="submit">Filter</button>
+  <button class="secondary" type="submit">{{t "Filter"}}</button>
 </form>
 
 {{if $v.Query.Active}}
 <p class="activechips">
-  <span class="muted">Showing</span>
-  {{if $v.Query.Text}}<a class="chip removable" href="{{$v.Query.Without "q"}}">matching &ldquo;{{$v.Query.Text}}&rdquo;<span aria-hidden="true">&times;</span><span class="sr-only"> (remove this filter)</span></a>{{end}}
-  {{if $v.Query.Actor}}<a class="chip removable" href="{{$v.Query.Without "actor"}}">by {{if $v.ActorLabel}}{{$v.ActorLabel}}{{else}}{{$v.Query.Actor}}{{end}}<span aria-hidden="true">&times;</span><span class="sr-only"> (remove this filter)</span></a>{{end}}
-  {{if $v.Query.Kind}}<a class="chip removable" href="{{$v.Query.Without "kind"}}">{{$v.Query.Kind}}<span aria-hidden="true">&times;</span><span class="sr-only"> (remove this filter)</span></a>{{end}}
-  {{if $v.Query.Source}}<a class="chip removable" href="{{$v.Query.Without "source"}}">from {{$v.Query.Source}}<span aria-hidden="true">&times;</span><span class="sr-only"> (remove this filter)</span></a>{{end}}
-  <a class="clear" href="/activity">Clear all</a>
+  <span class="muted">{{t "Showing"}}</span>
+  {{if $v.Query.Text}}<a class="chip removable" href="{{$v.Query.Without "q"}}">{{t "matching “%s”" $v.Query.Text}}<span aria-hidden="true">&times;</span><span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
+  {{if $v.Query.Actor}}<a class="chip removable" href="{{$v.Query.Without "actor"}}">{{if $v.ActorLabel}}{{t "by %s" $v.ActorLabel}}{{else}}{{t "by %s" $v.Query.Actor}}{{end}}<span aria-hidden="true">&times;</span><span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
+  {{if $v.Query.Kind}}<a class="chip removable" href="{{$v.Query.Without "kind"}}">{{$v.Query.Kind}}<span aria-hidden="true">&times;</span><span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
+  {{if $v.Query.Source}}<a class="chip removable" href="{{$v.Query.Without "source"}}">{{t "from %s" $v.Query.Source}}<span aria-hidden="true">&times;</span><span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
+  <a class="clear" href="/activity">{{t "Clear all"}}</a>
 </p>
 {{end}}
 

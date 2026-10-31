@@ -2,20 +2,20 @@
 {{$v := .Data}}
 <div class="pagehead">
   <div class="pagehead-title">
-    <h1>Connections</h1>
-    <p class="lede">The live connections this server is holding for your tenant, on the event stream and over SSH. Another server running against the same database holds its own, which this screen cannot see.</p>
+    <div class="headtip"><h1>{{t "Connections"}}</h1>{{template "tip" (tip "Connections" "Each row is one live session this server holds: a browser or API client following the event stream, or a terminal session over SSH. End closes it at once, but revokes nothing, so the holder can reconnect." "docs/deployment.md")}}</div>
+    <p class="lede">{{t "The live connections this server is holding for your tenant, on the event stream and over SSH. Another server running against the same database holds its own, which this screen cannot see."}}</p>
   </div>
 </div>
 
 {{/* Same figure row as Statistics and Status: one way of writing a number
      across the tenant, rather than a bordered box per screen. */}}
 <div class="figures">
-  <div><p class="figure">{{$v.Counts.Tenant}}</p><p class="caption">yours</p></div>
-  <div><p class="figure">{{$v.Counts.Events}}</p><p class="caption">event stream</p></div>
-  <div><p class="figure">{{$v.Counts.SSH}}</p><p class="caption">over SSH</p></div>
-  <div><p class="figure">{{$v.Counts.Process}}</p><p class="caption">this server, all tenants</p></div>
+  <div><p class="figure">{{$v.Counts.Tenant}}</p><p class="caption">{{t "yours"}}</p></div>
+  <div><p class="figure">{{$v.Counts.Events}}</p><p class="caption">{{t "event stream"}}</p></div>
+  <div><p class="figure">{{$v.Counts.SSH}}</p><p class="caption">{{t "over SSH"}}</p></div>
+  <div><p class="figure">{{$v.Counts.Process}}</p><p class="caption">{{t "this server, all tenants"}}</p></div>
 </div>
-<p class="meta">Answered by <code>{{$v.ServerID}}</code>.</p>
+<p class="meta">{{t "Answered by"}} <code>{{$v.ServerID}}</code>.</p>
 
 {{/* Ending is the one action this surface has, and it is not revocation, so
      the control says what it does and what it does not do rather than being
@@ -27,32 +27,29 @@
     <span class="surface s-{{slug .Surface}}">{{.Surface}}</span>
     <span class="conn-id">
       <span class="conn-who">
-        <a class="conn-actor" href="/activity?actor={{.ActorID}}" title="Everything this actor has done">{{if .ActorHandle}}{{.ActorHandle}}{{else}}{{.ActorID}}{{end}}</a>
-        {{if .Mine}}<span class="chip you">you</span>{{end}}
+        <a class="conn-actor" href="/activity?actor={{.ActorID}}" title="{{t "Everything this actor has done"}}">{{if .ActorHandle}}{{.ActorHandle}}{{else}}{{.ActorID}}{{end}}</a>
+        {{if .Mine}}<span class="chip you">{{t "you"}}</span>{{end}}
       </span>
       <span class="conn-from mono">{{.Remote}}{{if .Fingerprint}} &middot; {{.Fingerprint}}{{end}}</span>
     </span>
-    <span class="conn-since muted">since {{compact .Since}}</span>
+    <span class="conn-since muted">{{t "since %s" (compact .Since)}}</span>
     <form method="post" action="/admin/connections/end" class="conn-end">
       {{template "csrf" $.CSRF}}
       <input type="hidden" name="id" value="{{.ID}}">
-      <button class="danger" type="submit">End</button>
+      <button class="danger" type="submit">{{t "End"}}</button>
     </form>
   </li>
 {{else}}
   <li class="empty">
-    <p class="empty-title">Nothing connected</p>
-    <p>Nobody on your tenant is holding an event stream or an SSH session on this server right now.</p>
+    <p class="empty-title">{{t "Nothing connected"}}</p>
+    <p>{{t "Nobody on your tenant is holding an event stream or an SSH session on this server right now."}}</p>
   </li>
 {{end}}
 </ul>
 
 <p class="note">
-  <strong>Ending closes the socket; it does not revoke anything.</strong>
-  The holder may reconnect immediately with credentials that are still valid.
-  To actually stop them, revoke the credential: an
-  <a href="/admin/tokens">API token</a>, an <a href="/admin/ssh-keys">SSH key</a>,
-  or the account itself on the <a href="/admin/users">Users</a> screen, where
-  disabling drops every session and revokes every token in one move.
+  <strong>{{t "Ending closes the socket; it does not revoke anything."}}</strong>
+  {{t "The holder may reconnect immediately with credentials that are still valid."}}
+  {{th "To actually stop them, revoke the credential: an <a href=\"/admin/tokens\">API token</a>, an <a href=\"/admin/ssh-keys\">SSH key</a>, or the account itself on the <a href=\"/admin/users\">Users</a> screen, where disabling drops every session and revokes every token in one move."}}
 </p>
 {{end}}

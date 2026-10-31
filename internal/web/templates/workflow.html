@@ -1,33 +1,35 @@
 {{define "content"}}
-<h1>Workflow {{.Data.Workflow.Key}}</h1>
+<div class="headtip"><h1>{{t "Workflow %s" .Data.Workflow.Key}}</h1>{{template "tip" (tip "State categories" "Every state also belongs to one of six fixed categories: to do, in progress, blocked, waiting, done or cancelled. Colours, board grouping, filters and statistics read the category, so workflows stay comparable. Set it with tix workflow put; this form keeps it as it is." "docs/workflows.md")}}</div>
 <form method="post" action="/workflows">
   {{template "csrf" .CSRF}}
   <input type="hidden" name="key" value="{{.Data.Workflow.Key}}">
-  <label for="name">Name</label>
+  <label for="name">{{t "Name"}}</label>
   <input id="name" name="name" value="{{.Data.Workflow.Name}}" required>
-  <label for="initial">Initial state</label>
+  <label for="initial">{{t "Initial state"}}</label>
   <input id="initial" name="initial" value="{{.Data.Workflow.Definition.Initial}}" required>
   <div class="field-label">
-    <label for="states">States, one per line as key|label|terminal</label>
+    <label for="states">{{t "States, one per line as key|label|terminal"}}</label>
+    {{template "tip" (tip "Terminal states" "A terminal state ends the task: it leaves the working set, and tasks that depend on it are unblocked. It is separate from the category, so a cancelled state is terminal too." "docs/workflows.md")}}
     {{template "field-info" "Each line defines one state a task can sit in: a short key used in data, the label shown on screen, and whether reaching it ends the task's life. Write terminal or true to end it, open or false to leave the task in play; leaving the third field empty means open, and any other word is refused rather than guessed at. Every transition and the initial state below must name a key defined here. Anything else a state carries that is not shown here, such as its reporting category or its lease-expiry revert, is kept as it was."}}
   </div>
   <textarea id="states" name="states" required>{{.Data.States}}</textarea>
   <div class="field-label">
-    <label for="transitions">Transitions, one per line as from&gt;to</label>
+    <label for="transitions">{{t "Transitions, one per line as from>to"}}</label>
+    {{template "tip" (tip "Transitions" "A transition is one allowed move between two states. When the state you want is several moves away, the task screen offers a route through the states between and records every step." "docs/workflows.md")}}
     {{template "field-info" "Each line allows moving a task from one state to another by that exact path. A move not listed here is refused. Leave it empty only if you want every task frozen in its initial state. A scope or a comment an existing move requires is kept as it was: removing the line removes the move, editing the rest of this form does not relax it."}}
   </div>
   <textarea id="transitions" name="transitions">{{.Data.Transitions}}</textarea>
   <div class="field-label">
-    <label for="migrate">Migrations, one per line as oldstate=newstate</label>
+    <label for="migrate">{{t "Migrations, one per line as oldstate=newstate"}}</label>
     {{template "field-info" "You need this only when you removed or renamed a state above that still has tasks sitting in it: it moves each of those tasks from oldstate to newstate in the same save. Leave it empty if you only added states or transitions; if you removed a state that still has tasks in it and give no migration for it, the save is refused rather than orphaning them."}}
   </div>
   <textarea id="migrate" name="migrate"></textarea>
-  <p><button type="submit">Save workflow</button></p>
+  <p><button type="submit">{{t "Save workflow"}}</button></p>
 </form>
 {{if not .Data.Workflow.Builtin}}
 <form method="post" action="/workflows/{{.Data.Workflow.Key}}/delete">
   {{template "csrf" .CSRF}}
-  <button class="secondary" type="submit">Delete workflow</button>
+  <button class="secondary" type="submit">{{t "Delete workflow"}}</button>
 </form>
 {{end}}
 {{end}}

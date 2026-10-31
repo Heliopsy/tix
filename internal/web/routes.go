@@ -114,6 +114,7 @@ const (
 	RouteDragMove     = "/dragmove"
 	RouteOpenAfterAdd = "/openafteradd"
 	RouteHover        = "/hover"
+	RouteLanguage     = "/language"
 	RouteStats        = "/stats"
 	RouteActivity     = "/activity"
 	RouteActivityFeed = "/activity/feed"

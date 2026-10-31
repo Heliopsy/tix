@@ -105,6 +105,10 @@
 // an unchanged task.
 (function () {
   "use strict";
+  // say is text in the page's language; see i18n.js.
+  function say(text) {
+    return window.tix && window.tix.t ? window.tix.t(text) : text;
+  }
 
   function fields(form) {
     return Array.prototype.filter.call(form.elements, function (el) {
@@ -132,7 +136,7 @@
       // state keeps it focusable and explains itself.
       save.classList.toggle("is-idle", !dirty);
       save.setAttribute("aria-disabled", dirty ? "false" : "true");
-      save.title = dirty ? "" : "Nothing has changed yet";
+      save.title = dirty ? "" : say("Nothing has changed yet");
     }
 
     form.addEventListener("input", settle);

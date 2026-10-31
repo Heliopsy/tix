@@ -1,11 +1,11 @@
 {{define "content"}}
-<h1>Directory</h1>
+<div class="headtip"><h1>{{t "Directory"}}</h1>{{template "tip" (tip "Directory" "Every person and agent in this tenant that work can be assigned to. Use the handle or the id after assignee: in a filter to find their tasks." "docs/filtering.md")}}</div>
 {{/* Kind is on every row because it is the one thing the identifier does not
      say: work is assigned to agents as often as to people, and a handle
      alone does not tell the two apart. */}}
-<p class="lede summary">{{if eq (len .Data.Actors) 0}}No actors yet.{{else}}Everyone and everything work can be assigned to here.{{end}}</p>
+<p class="lede summary">{{if eq (len .Data.Actors) 0}}{{t "No actors yet."}}{{else}}{{t "Everyone and everything work can be assigned to here."}}{{end}}</p>
 <table>
-  <thead><tr><th>Handle</th><th>Kind</th><th>Name</th><th>Id</th></tr></thead>
+  <thead><tr><th>{{t "Handle"}}</th><th>{{t "Kind"}}</th><th>{{t "Name"}}</th><th>{{t "Id"}}</th></tr></thead>
   <tbody>
   {{range .Data.Actors}}
     <tr id="actor-{{.ID}}">
@@ -15,7 +15,7 @@
       <td class="mono id" title="{{.ID}}">{{.ID}}</td>
     </tr>
   {{else}}
-    <tr><td colspan="4">No actors yet.</td></tr>
+    <tr><td colspan="4">{{t "No actors yet."}}</td></tr>
   {{end}}
   </tbody>
 </table>

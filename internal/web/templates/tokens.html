@@ -1,38 +1,38 @@
 {{define "content"}}
 <div class="pagehead">
-  <div class="pagehead-title"><h1>API tokens</h1></div>
+  <div class="pagehead-title"><div class="headtip"><h1>{{t "API tokens"}}</h1>{{template "tip" (tip "API tokens" "A token is the credential a script, the CLI or an agent presents to the HTTP API instead of signing in. It carries its own list of scopes rather than a role, and its value is shown once, when it is issued." "docs/api.md")}}</div></div>
   <div class="pagehead-tools">{{template "column-menu" .}}</div>
 </div>
 {{with .Data.Secret}}{{template "secret" .}}{{end}}
 {{if .Data.Owners}}
 {{/* Said once, above the table, because the reader needs to know that the
      rows are not all theirs before they read any of them. */}}
-<p class="meta">You hold tenant:admin, so this lists every token of the tenant and whose it is. Revoking somebody else's is recorded as such.</p>
+<p class="meta">{{t "You hold tenant:admin, so this lists every token of the tenant and whose it is. Revoking somebody else's is recorded as such."}}</p>
 {{end}}
 {{if not .Data.Whole}}
 {{/* Above the table, beside the claim it qualifies: this tenant has more
      actors than the listing walked, so the rows are a part of the tenant's
      tokens and the reader has to know that before acting on an absence. */}}
-<p class="meta">This tenant has more actors than this listing walked, so the rows below are not every token of the tenant. A credential you cannot find here may belong to an actor past the walk.</p>
+<p class="meta">{{t "This tenant has more actors than this listing walked, so the rows below are not every token of the tenant. A credential you cannot find here may belong to an actor past the walk."}}</p>
 {{end}}
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Name</th>{{if .Data.Owners}}<th>Owner</th>{{end}}{{if .Columns.Show "tokens" "scopes"}}<th class="scopecell">Scopes</th>{{end}}{{if .Columns.Show "tokens" "created"}}<th>Created</th>{{end}}{{if .Columns.Show "tokens" "expires"}}<th>Expires</th>{{end}}<th>State</th><th class="actioncell"></th></tr></thead>
+  <thead><tr><th>{{t "Name"}}</th>{{if .Data.Owners}}<th>{{t "Owner"}}</th>{{end}}{{if .Columns.Show "tokens" "scopes"}}<th class="scopecell">{{t "Scopes"}}</th>{{end}}{{if .Columns.Show "tokens" "created"}}<th>{{t "Created"}}</th>{{end}}{{if .Columns.Show "tokens" "expires"}}<th>{{t "Expires"}}</th>{{end}}<th>{{t "State"}}</th><th class="actioncell"></th></tr></thead>
   <tbody>
   {{range .Data.Tokens}}
     <tr>
       <td>{{.Name}}</td>
       {{/* Whose credential this is. A list of other people's tokens with no
            owner column cannot be acted on: every row looks like your own. */}}
-      {{if $.Data.Owners}}<td title="{{.ActorID}}">{{.Owner}}{{if .Mine}} <span class="muted">(you)</span>{{end}}</td>{{end}}
+      {{if $.Data.Owners}}<td title="{{.ActorID}}">{{.Owner}}{{if .Mine}} <span class="muted">{{t "(you)"}}</span>{{end}}</td>{{end}}
       {{if $.Columns.Show "tokens" "scopes"}}<td class="scopecell">{{range .Scopes}}<code class="evchip">{{.}}</code>{{end}}</td>{{end}}
       {{if $.Columns.Show "tokens" "created"}}<td>{{compact .CreatedAt}}</td>{{end}}
       {{/* A token with no expiry says so. An empty cell under a heading
            reading "Expires" is indistinguishable from an expiry the screen
            failed to render, which is exactly what this column was before the
            form could set one. */}}
-      {{if $.Columns.Show "tokens" "expires"}}<td>{{if .ExpiresAt}}{{stamp .ExpiresAt}}{{else}}<span class="muted">Never</span>{{end}}</td>{{end}}
-      <td><span class="badge tok-{{tokenState .APIToken}}">{{tokenState .APIToken}}</span>{{if .RevokedAt}} <span class="muted">{{stamp .RevokedAt}}</span>{{end}}</td>
+      {{if $.Columns.Show "tokens" "expires"}}<td>{{if .ExpiresAt}}{{stamp .ExpiresAt}}{{else}}<span class="muted">{{t "Never"}}</span>{{end}}</td>{{end}}
+      <td><span class="badge tok-{{tokenState .APIToken}}">{{t (tokenState .APIToken)}}</span>{{if .RevokedAt}} <span class="muted">{{stamp .RevokedAt}}</span>{{end}}</td>
       <td>
         {{if not .RevokedAt}}
         {{/* Behind a disclosure, like every other irreversible control in this
@@ -40,13 +40,13 @@
              credential should not be one stray click away, and the words
              explaining what it ends have nowhere else to go. */}}
         <details class="panel danger">
-          <summary>Revoke</summary>
+          <summary>{{t "Revoke"}}</summary>
           <div class="body">
             <form method="post" action="/admin/tokens/revoke">
               {{template "csrf" $.CSRF}}
               <input type="hidden" name="id" value="{{.ID}}">
-              <p class="muted">Whatever holds this token stops authenticating at once. It cannot be undone, and the value cannot be recovered, so anything still using it needs a new token.{{if and $.Data.Owners (not .Mine)}} This token is {{.Owner}}'s, not yours, and the trail will record that you ended somebody else's.{{end}}</p>
-              <div class="actions"><button class="danger" type="submit">Revoke {{.Name}}{{if and $.Data.Owners (not .Mine)}} ({{.Owner}}){{end}}</button></div>
+              <p class="muted">{{t "Whatever holds this token stops authenticating at once. It cannot be undone, and the value cannot be recovered, so anything still using it needs a new token."}}{{if and $.Data.Owners (not .Mine)}} {{t "This token is %s's, not yours, and the trail will record that you ended somebody else's." .Owner}}{{end}}</p>
+              <div class="actions"><button class="danger" type="submit">{{t "Revoke %s" .Name}}{{if and $.Data.Owners (not .Mine)}} ({{.Owner}}){{end}}</button></div>
             </form>
           </div>
         </details>
@@ -54,13 +54,13 @@
       </td>
     </tr>
   {{else}}
-    <tr><td colspan="{{$.Columns.Span "tokens" $.Data.Fixed}}">No tokens.</td></tr>
+    <tr><td colspan="{{$.Columns.Span "tokens" $.Data.Fixed}}">{{t "No tokens."}}</td></tr>
   {{end}}
   </tbody>
 </table>
 </div>
 
-<h2>Issue a token</h2>
+<h2>{{t "Issue a token"}}</h2>
 {{/* A refused submission re-renders this form rather than answering with the
      error screen, so the message arrives beside the control it is about and
      nothing the reader typed is lost. It is the response to the ordinary POST,
@@ -69,11 +69,11 @@
 <form method="post" action="/admin/tokens">
   {{template "csrf" .CSRF}}
   {{with .Data.Errors.On ""}}{{template "field-error" .}}{{end}}
-  <label for="name">Name</label>
+  <label for="name">{{t "Name"}}</label>
   <input id="name" name="name" value="{{.Data.Form.Name}}" required{{with .Data.Errors.On "name"}} aria-invalid="true" aria-describedby="{{.ID}}"{{end}}>
   {{with .Data.Errors.On "name"}}{{template "field-error" .}}{{end}}
   <div class="field-label">
-    <label for="scopes">Scopes</label>
+    <label for="scopes">{{t "Scopes"}}</label>
     {{template "field-info" "Exactly what this token may do; the CLI or agent holding it can do nothing outside this list, and at least one scope is required. Select every scope its work needs, for example task:write and task:transition for an agent that moves its own tasks, and no more than that -- a token is usually held outside your own control."}}
   </div>
   <select id="scopes" name="scopes" multiple size="8" required{{with .Data.Errors.On "scopes"}} aria-invalid="true" aria-describedby="{{.ID}}"{{end}}>
@@ -81,13 +81,13 @@
   </select>
   {{with .Data.Errors.On "scopes"}}{{template "field-error" .}}{{end}}
   <div class="field-label">
-    <label for="expires">Expires</label>
+    <label for="expires">{{t "Expires"}}</label>
     {{template "field-info" "When this token stops working, counted from now. An expiry is the one control that limits the damage of a token that leaks without anybody noticing, so prefer the shortest window the work fits in and issue a new one when it runs out. Never expires is for a credential you are certain nothing outside your control will ever hold."}}
   </div>
   <select id="expires" name="expires"{{with .Data.Errors.On "expires"}} aria-invalid="true" aria-describedby="{{.ID}}"{{end}}>
-    {{range .Data.Expiry}}<option value="{{.Key}}" {{if $.Data.Form.ChoseExpiry .Key}}selected{{end}}>{{.Label}}</option>{{end}}
+    {{range .Data.Expiry}}<option value="{{.Key}}" {{if $.Data.Form.ChoseExpiry .Key}}selected{{end}}>{{t .Label}}</option>{{end}}
   </select>
   {{with .Data.Errors.On "expires"}}{{template "field-error" .}}{{end}}
-  <p><button type="submit">Issue token</button></p>
+  <p><button type="submit">{{t "Issue token"}}</button></p>
 </form>
 {{end}}

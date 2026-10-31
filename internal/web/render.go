@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/i18n"
 	"github.com/heliopsy/tix/internal/output"
 )
 
@@ -120,7 +121,11 @@ func builtInDefault() core.Theme {
 type view struct {
 	Title string
 	Path  string
-	Flash string
+	// Lang is the language the page is drawn in, and JSText the translations
+	// its scripts need; see i18n.go.
+	Lang   string
+	JSText template.JS
+	Flash  string
 	// FlashRef is the task the flash is about, when it is about one. The
 	// toast used to name a ref as plain text ("links-4 moved to doing") on a
 	// screen the reader had just been returned to, so the one thing they
@@ -140,16 +145,18 @@ type view struct {
 	Theme string
 	// Tint is what a row's stripe and a card's edge are saying: the project,
 	// the status, the priority, or nothing. See tint.go.
-	Tint          string
-	Tints         []tintChoice
-	KeyScheme     string
-	Schemes       []KeyScheme
-	ShortcutsJSON template.JS
-	Columns       columnPrefs
-	ColumnPage    string
-	Here          string
-	Upgrade       upgrade
-	Data          any
+	Tint      string
+	Tints     []tintChoice
+	KeyScheme string
+	Schemes   []KeyScheme
+	// LanguageChoices is the settings screen's language picker.
+	LanguageChoices []languageChoice
+	ShortcutsJSON   template.JS
+	Columns         columnPrefs
+	ColumnPage      string
+	Here            string
+	Upgrade         upgrade
+	Data            any
 }
 
 // ColumnForm is this screen's own column picker, built by the same
@@ -170,7 +177,7 @@ func (v view) ThemeToggle() themeToggleView {
 // define the same block without colliding. Every timestamp a template renders
 // goes through style, so the browser and the CLI table cannot disagree about
 // what an instant means.
-func parseTemplates(style output.TimeStyle) map[string]*template.Template {
+func parseTemplates(style output.TimeStyle, lang string) map[string]*template.Template {
 	entries, err := fs.ReadDir(templateFS, "templates")
 	if err != nil {
 		panic(err)
@@ -182,7 +189,7 @@ func parseTemplates(style output.TimeStyle) map[string]*template.Template {
 			continue
 		}
 		files := append(append([]string{}, layoutFiles...), "templates/"+name)
-		out[name] = template.Must(template.New("layout.html").Funcs(funcs(style)).ParseFS(templateFS, files...))
+		out[name] = template.Must(template.New("layout.html").Funcs(funcs(style)).Funcs(translators(lang)).ParseFS(templateFS, files...))
 	}
 	return out
 }
@@ -327,29 +334,32 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 	actor, _ := core.ActorFrom(r.Context())
 	scheme := keySchemeOf(r)
 	return view{
-		Title:         title,
-		Path:          r.URL.Path,
-		Here:          here(r),
-		Upgrade:       h.releases.state(),
-		ColumnPage:    columnPage(name),
-		Columns:       columnsOf(r),
-		Flash:         r.URL.Query().Get("flash"),
-		FlashRef:      r.URL.Query().Get("flashref"),
-		CSRF:          csrfFrom(r),
-		EventsPath:    h.eventsPath,
-		Brand:         h.brand(r),
-		Actor:         actor,
-		Advanced:      advancedMode(r),
-		DragMove:      dragMoveMode(r),
-		OpenAfterAdd:  openAfterAdd(r),
-		Hover:         hoverEffects(r),
-		Theme:         themeOf(r),
-		Tint:          tintOf(r),
-		Tints:         tintChoices(tintOf(r)),
-		KeyScheme:     string(scheme),
-		Schemes:       KeySchemes(),
-		ShortcutsJSON: shortcutsJSON(scheme),
-		Data:          data,
+		Title:           title,
+		Lang:            langOf(r),
+		JSText:          jsMessagesFor(langOf(r)),
+		Path:            r.URL.Path,
+		Here:            here(r),
+		Upgrade:         h.releases.state(),
+		ColumnPage:      columnPage(name),
+		Columns:         columnsOf(r),
+		Flash:           r.URL.Query().Get("flash"),
+		FlashRef:        r.URL.Query().Get("flashref"),
+		CSRF:            csrfFrom(r),
+		EventsPath:      h.eventsPath,
+		Brand:           h.brand(r),
+		Actor:           actor,
+		Advanced:        advancedMode(r),
+		DragMove:        dragMoveMode(r),
+		OpenAfterAdd:    openAfterAdd(r),
+		Hover:           hoverEffects(r),
+		Theme:           themeOf(r),
+		Tint:            tintOf(r),
+		Tints:           tintChoices(tintOf(r)),
+		KeyScheme:       string(scheme),
+		Schemes:         KeySchemes(),
+		LanguageChoices: languageChoices(r),
+		ShortcutsJSON:   shortcutsJSON(scheme, langOf(r)),
+		Data:            data,
 	}
 }
 
@@ -687,7 +697,7 @@ func resolvedZone(want string) string {
 }
 
 // styleKey identifies one resolved way of rendering an instant.
-type styleKey struct{ format, zone string }
+type styleKey struct{ format, zone, lang string }
 
 // styleTemplates caches one parsed template set per style a browser has asked
 // for.
@@ -713,8 +723,8 @@ func (h *handler) templatesFor(r *http.Request) map[string]*template.Template {
 	if r == nil {
 		return h.templates
 	}
-	key := styleKey{format: timeFormatOf(r), zone: timezoneOf(r)}
-	if key.format == "" && key.zone == "" {
+	key := styleKey{format: timeFormatOf(r), zone: timezoneOf(r), lang: langOf(r)}
+	if key.format == "" && key.zone == "" && key.lang == i18n.English {
 		return h.templates
 	}
 	if set, ok := styleTemplates.Load(key); ok {
@@ -730,7 +740,7 @@ func (h *handler) templatesFor(r *http.Request) map[string]*template.Template {
 			"zone", key.zone, "error", err)
 		return h.templates
 	}
-	set, _ := styleTemplates.LoadOrStore(key, parseTemplates(style))
+	set, _ := styleTemplates.LoadOrStore(key, parseTemplates(style, key.lang))
 	return set.(map[string]*template.Template)
 }
 

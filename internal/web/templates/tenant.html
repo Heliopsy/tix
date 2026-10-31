@@ -1,5 +1,5 @@
 {{define "content"}}
-<h1>Tenant</h1>
+<div class="headtip"><h1>{{t "Tenant"}}</h1>{{template "tip" (tip "Tenant" "A tenant is a separate workspace. Its projects, tasks, members, tokens and history are invisible from every other tenant on the same installation." "docs/tenancy.md")}}</div>
 
 {{/* What sits under what.
 
@@ -18,21 +18,21 @@
      A row that carries no number says so in the number's place. Five figures
      with two blanks beside them reads as a count that broke, not as one
      deliberately not made. */}}
-<h2>What sits under this tenant</h2>
+<h2>{{t "What sits under this tenant"}}</h2>
 <ul class="shape">
   {{range .Data.Shape}}
   <li class="depth-{{.Depth}}">
     <span class="name">
-      {{if .Href}}<a href="{{.Href}}">{{.Name}}</a>{{else}}{{.Name}}{{end}}
+      {{if .Href}}<a href="{{.Href}}">{{t .Name}}</a>{{else}}{{t .Name}}{{end}}
     </span>
-    {{if ge .Count 0}}<span class="count">{{.Count}}</span>{{else if .Uncounted}}<span class="count uncounted">{{.Uncounted}}</span>{{end}}
-    <span class="note">{{.Note}}</span>
+    {{if ge .Count 0}}<span class="count">{{.Count}}</span>{{else if .Uncounted}}<span class="count uncounted">{{t .Uncounted}}</span>{{end}}
+    <span class="note">{{t .Note}}</span>
   </li>
   {{end}}
 </ul>
 <form method="post" action="/admin/tenant">
   {{template "csrf" .CSRF}}
-  <label for="name">Display name</label>
+  <label for="name">{{t "Display name"}}</label>
   <input id="name" name="name" value="{{.Data.Tenant.Name}}" required>
 
   {{/* The key is fixed when the tenant is created and no input on this form
@@ -43,7 +43,7 @@
        between the theme note and the Save button, which read as debug
        output left behind rather than as the value a shell needs. */}}
   <div class="field-label">
-    <label for="key">Tenant key</label>
+    <label for="key">{{t "Tenant key"}}</label>
     {{template "field-info" "The short name this tenant is addressed by from outside the browser: tix --tenant <key>, the TIX_TENANT variable, and the tenant a saved context selects. It is chosen when the tenant is created and cannot be changed here, because everything already pointed at it would stop resolving."}}
   </div>
   <input id="key" class="mono" value="{{.Data.Tenant.Key}}" readonly>
@@ -52,17 +52,17 @@
        terminal interface alike. Until this existed the setting could only be
        changed by someone with shell access to the server, which made a
        tenant-wide choice an operator errand. */}}
-  <label for="theme">Theme</label>
+  <label for="theme">{{t "Theme"}}</label>
   <select id="theme" name="theme">
-    <option value="" {{if not .Data.Tenant.Theme}}selected{{end}}>Default</option>
+    <option value="" {{if not .Data.Tenant.Theme}}selected{{end}}>{{t "Default"}}</option>
     {{$current := .Data.Tenant.Theme}}
     {{range .Data.Themes}}
     <option value="{{.Name}}" {{if eq .Name $current}}selected{{end}}>
-      {{.Name}}{{if not .BuiltIn}} (configured){{end}}
+      {{.Name}}{{if not .BuiltIn}} {{t "(configured)"}}{{end}}
     </option>
     {{end}}
   </select>
-  <p class="note">Applies to this tenant everywhere: the browser and the terminal interface both read it.</p>
+  <p class="note">{{t "Applies to this tenant everywhere: the browser and the terminal interface both read it."}}</p>
 
   {{/* The lease bounds. Until these existed the only way to change how long
        an agent may hold a task was to author a whole workflow document and
@@ -70,7 +70,7 @@
        site deliberately does not touch default_lease. That made a number an
        operator wants to tune into a state-machine edit. */}}
   <div class="field-label">
-    <label for="lease_default">Default lease</label>
+    <label for="lease_default">{{t "Default lease"}}</label>
     {{template "field-info" "How long a claim on this tenant's tasks holds when neither the claim nor the project's workflow asks for a particular length. A worker that stops renewing loses the task back to the queue after this long. Empty falls back to the deployment setting, and then to 15m. Written as a duration: 45m, 2h30m, 7d."}}
   </div>
   <input id="lease_default" name="lease_default" class="mono"
@@ -78,20 +78,20 @@
          placeholder="{{.Data.LeaseDefault}}">
 
   <div class="field-label">
-    <label for="lease_max">Maximum lease</label>
+    <label for="lease_max">{{t "Maximum lease"}}</label>
     {{template "field-info" "The longest lease any claim on this tenant may take, however long it asks for. This is a ceiling, not a default: it only refuses lengths above it. You can set it lower than the deployment ceiling but not higher, so leaving it empty is never the permissive choice."}}
   </div>
   <input id="lease_max" name="lease_max" class="mono"
          value="{{if .Data.Tenant.LeaseMax}}{{.Data.Tenant.LeaseMax}}{{end}}"
          placeholder="{{.Data.LeaseMax}}">
-  <p class="note">Leave either empty to use the deployment setting, shown greyed. A claim may always ask for less.</p>
+  <p class="note">{{t "Leave either empty to use the deployment setting, shown greyed. A claim may always ask for less."}}</p>
 
-  <p><button type="submit">Save</button></p>
+  <p><button type="submit">{{t "Save"}}</button></p>
 </form>
 
-<h2>Members</h2>
+<div class="headtip"><h2>{{t "Members"}}</h2>{{template "tip" (tip "Members and roles" "A member is a person or agent with a role in this tenant. viewer reads, member also writes, claims and moves tasks, and admin may do everything, this screen included." "docs/tenancy.md")}}</div>
 <table>
-  <thead><tr><th>Member</th><th>Role</th><th></th></tr></thead>
+  <thead><tr><th>{{t "Member"}}</th><th>{{t "Role"}}</th><th></th></tr></thead>
   <tbody>
   {{$names := .Data.Names}}
   {{range .Data.Members}}
@@ -104,43 +104,43 @@
         <form method="post" action="/admin/tenant/members/remove">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="actor_id" value="{{.ActorID}}">
-          <button class="secondary" type="submit">Remove</button>
+          <button class="secondary" type="submit">{{t "Remove"}}</button>
         </form>
       </td>
     </tr>
   {{else}}
-    <tr><td colspan="3">No members.</td></tr>
+    <tr><td colspan="3">{{t "No members."}}</td></tr>
   {{end}}
   </tbody>
 </table>
 
-<h2>Retention</h2>
+<div class="headtip"><h2>{{t "Retention"}}</h2>{{template "tip" (tip "Retention" "How long old history is kept. Prune deletes events, audit entries and webhook deliveries older than these windows; tix serve also runs it on its own, hourly by default. Tasks, projects and comments are never pruned." "docs/configuration.md")}}</div>
 <form method="post" action="/admin/tenant/retention">
   {{template "csrf" .CSRF}}
   <div class="row">
     <div>
       <div class="field-label">
-        <label for="events">Events</label>
+        <label for="events">{{t "Events"}}</label>
         {{template "field-info" "How long to keep the domain event stream before Prune deletes the old rows, written the way it is shown: 30d, 12h, 90d, or 2h30m. Blank keeps events forever, which grows the store without bound."}}
       </div>
       <input id="events" name="events" value="{{.Data.Retention.Events.Human}}">
     </div>
     <div>
       <div class="field-label">
-        <label for="audit_entries">Audit entries</label>
+        <label for="audit_entries">{{t "Audit entries"}}</label>
         {{template "field-info" "How long to keep the audit log before Prune deletes the old rows, in the same form as Events (for example 90d). This is the history a Raw disclosure and the Activity feed both read, so pruning it early means older changes stop showing up there too."}}
       </div>
       <input id="audit_entries" name="audit_entries" value="{{.Data.Retention.AuditEntries.Human}}">
     </div>
     <div>
       <div class="field-label">
-        <label for="webhook_deliveries">Webhook deliveries</label>
+        <label for="webhook_deliveries">{{t "Webhook deliveries"}}</label>
         {{template "field-info" "How long to keep webhook delivery attempts before Prune deletes the old rows, in the same form as Events. Usually the shortest of the three: a delivery log is for debugging a recent failure, not a long-term record."}}
       </div>
       <input id="webhook_deliveries" name="webhook_deliveries" value="{{.Data.Retention.WebhookDeliveries.Human}}">
     </div>
   </div>
-  <p><button type="submit">Save retention</button></p>
+  <p><button type="submit">{{t "Save retention"}}</button></p>
 </form>
 <form method="post" action="/admin/tenant/prune">
   {{template "csrf" .CSRF}}
@@ -149,24 +149,24 @@
        of its own between the checkbox and the button, where it read as an
        icon whose text had failed to render. */}}
   <div class="field-label">
-    <label for="prune-dry"><input id="prune-dry" type="checkbox" name="dry_run" value="1" checked> Dry run</label>
+    <label for="prune-dry"><input id="prune-dry" type="checkbox" name="dry_run" value="1" checked> {{t "Dry run"}}</label>
     {{template "field-info" "Prune permanently deletes whatever is older than the retention durations saved above, for all three kinds at once. Dry run reports what it would delete without deleting anything; uncheck it only once you have checked that report."}}
   </div>
-  <p><button class="secondary" type="submit">Prune now</button></p>
+  <p><button class="secondary" type="submit">{{t "Prune now"}}</button></p>
 </form>
 
-<h2>Add a member</h2>
+<h2>{{t "Add a member"}}</h2>
 <form method="post" action="/admin/tenant/members">
   {{template "csrf" .CSRF}}
   <div class="row">
-    <div><label for="actor_id">Actor identifier</label><input id="actor_id" name="actor_id" required></div>
+    <div><label for="actor_id">{{t "Actor identifier"}}</label><input id="actor_id" name="actor_id" required></div>
     <div>
-      <label for="role">Role</label>
+      <label for="role">{{t "Role"}}</label>
       <select id="role" name="role">
         {{range .Data.Roles}}<option value="{{.}}">{{.}}</option>{{end}}
       </select>
     </div>
-    <div><button type="submit">Add member</button></div>
+    <div><button type="submit">{{t "Add member"}}</button></div>
   </div>
 </form>
 {{end}}

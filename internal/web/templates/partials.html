@@ -8,9 +8,9 @@
      tab is then linkable, survives a reload, works with no script, and needs
      no state kept anywhere. aria-current tells a screen reader which one it
      is on, the same way the main navigation does. */}}
-<nav class="tabs" aria-label="Import and export">
-  <a href="/transfer" {{if eq .Path "/transfer"}}aria-current="page"{{end}}>Snapshot</a>
-  <a href="/bundles" {{if eq .Path "/bundles"}}aria-current="page"{{end}}>Components</a>
+<nav class="tabs" aria-label="{{t "Import and export"}}">
+  <a href="/transfer" {{if eq .Path "/transfer"}}aria-current="page"{{end}}>{{t "Snapshot"}}</a>
+  <a href="/bundles" {{if eq .Path "/bundles"}}aria-current="page"{{end}}>{{t "Components"}}</a>
 </nav>
 {{end}}
 
@@ -19,35 +19,35 @@
      linkable, survives a reload and needs no script. Sources is where you
      configure and run; Runs is what happened. They were one screen that could
      only answer the first question. */}}
-<nav class="tabs" aria-label="External sync">
-  <a href="/sync" {{if eq .Path "/sync"}}aria-current="page"{{end}}>Sources</a>
-  <a href="/sync/runs" {{if eq .Path "/sync/runs"}}aria-current="page"{{end}}>Runs</a>
+<nav class="tabs" aria-label="{{t "External sync"}}">
+  <a href="/sync" {{if eq .Path "/sync"}}aria-current="page"{{end}}>{{t "Sources"}}</a>
+  <a href="/sync/runs" {{if eq .Path "/sync/runs"}}aria-current="page"{{end}}>{{t "Runs"}}</a>
 </nav>
 {{end}}
 
 {{define "nav"}}
 <nav class="main">
-  <a href="/tasks" data-rail-name="Tasks" {{if eq .Path "/tasks"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tasks"/></svg><span>Tasks</span></a>
-  <a href="/projects" data-rail-name="Projects" {{if eq .Path "/projects"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#projects"/></svg><span>Projects</span></a>
-  <a href="/activity" data-rail-name="Activity" {{if eq .Path "/activity"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#activity"/></svg><span>Activity</span></a>
-  <a href="/stats" data-rail-name="Statistics" {{if eq .Path "/stats"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#stats"/></svg><span>Statistics</span></a>
+  <a href="/tasks" data-rail-name="{{t "Tasks"}}" {{if eq .Path "/tasks"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tasks"/></svg><span>{{t "Tasks"}}</span></a>
+  <a href="/projects" data-rail-name="{{t "Projects"}}" {{if eq .Path "/projects"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#projects"/></svg><span>{{t "Projects"}}</span></a>
+  <a href="/activity" data-rail-name="{{t "Activity"}}" {{if eq .Path "/activity"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#activity"/></svg><span>{{t "Activity"}}</span></a>
+  <a href="/stats" data-rail-name="{{t "Statistics"}}" {{if eq .Path "/stats"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#stats"/></svg><span>{{t "Statistics"}}</span></a>
   {{if .Advanced}}
-  <p class="group">Configure</p>
-  <a href="/workflows" data-rail-name="Workflows" {{if eq .Path "/workflows"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#workflows"/></svg><span>Workflows</span></a>
-  <a href="/admin/tenant" data-rail-name="Tenant" {{if eq .Path "/admin/tenant"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tenant"/></svg><span>Tenant</span></a>
-  <a href="/admin/domains" data-rail-name="Domains" {{if eq .Path "/admin/domains"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#domains"/></svg><span>Domains</span></a>
-  <a href="/admin/users" data-rail-name="Users" {{if eq .Path "/admin/users"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#users"/></svg><span>Users</span></a>
-  <a href="/admin/tokens" data-rail-name="Tokens" {{if eq .Path "/admin/tokens"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tokens"/></svg><span>Tokens</span></a>
-  <a href="/admin/ssh-keys" data-rail-name="SSH keys" {{if eq .Path "/admin/ssh-keys"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#keys"/></svg><span>SSH keys</span></a>
-  <a href="/admin/status" data-rail-name="Status" {{if eq .Path "/admin/status"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#status"/></svg><span>Status</span></a>
-  <a href="/admin/connections" data-rail-name="Connections" {{if eq .Path "/admin/connections"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#connections"/></svg><span>Connections</span></a>
-  <a href="/admin/webhooks" data-rail-name="Webhooks" {{if eq .Path "/admin/webhooks"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#webhooks"/></svg><span>Webhooks</span></a>
-  <p class="group">Data</p>
+  <p class="group">{{t "Configure"}}</p>
+  <a href="/workflows" data-rail-name="{{t "Workflows"}}" {{if eq .Path "/workflows"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#workflows"/></svg><span>{{t "Workflows"}}</span></a>
+  <a href="/admin/tenant" data-rail-name="{{t "Tenant"}}" {{if eq .Path "/admin/tenant"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tenant"/></svg><span>{{t "Tenant"}}</span></a>
+  <a href="/admin/domains" data-rail-name="{{t "Domains"}}" {{if eq .Path "/admin/domains"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#domains"/></svg><span>{{t "Domains"}}</span></a>
+  <a href="/admin/users" data-rail-name="{{t "Users"}}" {{if eq .Path "/admin/users"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#users"/></svg><span>{{t "Users"}}</span></a>
+  <a href="/admin/tokens" data-rail-name="{{t "Tokens"}}" {{if eq .Path "/admin/tokens"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tokens"/></svg><span>{{t "Tokens"}}</span></a>
+  <a href="/admin/ssh-keys" data-rail-name="{{t "SSH keys"}}" {{if eq .Path "/admin/ssh-keys"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#keys"/></svg><span>{{t "SSH keys"}}</span></a>
+  <a href="/admin/status" data-rail-name="{{t "Status"}}" {{if eq .Path "/admin/status"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#status"/></svg><span>{{t "Status"}}</span></a>
+  <a href="/admin/connections" data-rail-name="{{t "Connections"}}" {{if eq .Path "/admin/connections"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#connections"/></svg><span>{{t "Connections"}}</span></a>
+  <a href="/admin/webhooks" data-rail-name="{{t "Webhooks"}}" {{if eq .Path "/admin/webhooks"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#webhooks"/></svg><span>{{t "Webhooks"}}</span></a>
+  <p class="group">{{t "Data"}}</p>
   {{/* One entry, because they are one screen now. Either tab's URL lights it,
        so landing on Components from a link does not leave the navigation
        looking like you are somewhere else. */}}
-  <a href="/transfer" data-rail-name="Import and export" {{if or (eq .Path "/transfer") (eq .Path "/bundles")}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#transfer"/></svg><span>Import and export</span></a>
-  <a href="/sync" data-rail-name="Sync" {{if or (eq .Path "/sync") (eq .Path "/sync/runs")}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#sync"/></svg><span>Sync</span></a>
+  <a href="/transfer" data-rail-name="{{t "Import and export"}}" {{if or (eq .Path "/transfer") (eq .Path "/bundles")}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#transfer"/></svg><span>{{t "Import and export"}}</span></a>
+  <a href="/sync" data-rail-name="{{t "Sync"}}" {{if or (eq .Path "/sync") (eq .Path "/sync/runs")}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#sync"/></svg><span>{{t "Sync"}}</span></a>
   {{end}}
 
   {{/* The running version, under the last button, and whether anything newer
@@ -66,7 +66,7 @@
          into these pages, not about refusing to say what changed, and the
          notes are fetched server side and stripped of links before they are
          cached. Only shown when there is something to read. */}}
-    {{if .Upgrade.Newer}}<a class="upgrade" href="/release">v{{.Upgrade.Latest}} is available</a>{{end}}
+    {{if .Upgrade.Newer}}<a class="upgrade" href="/release">{{t "v%s is available" .Upgrade.Latest}}</a>{{end}}
   </p>
 </nav>
 {{end}}
@@ -76,7 +76,7 @@
      rule is written out beside the glyph: a bare arrow said that a task
      repeats and hid how often behind a hover, which a touch screen never
      gets. Readers who find it loud turn the Repeats field off under View. */}}
-{{define "repeatmark"}}<a class="repeatmark" href="/tasks?q=is:recurring" title="Repeats {{.}}"><span aria-hidden="true">&#x21bb;</span><span class="sr-only">Repeats</span> <span class="repeat-rule">{{.}}</span></a>{{end}}
+{{define "repeatmark"}}<a class="repeatmark" href="/tasks?q=is:recurring" title="{{t "Repeats %s" .}}"><span aria-hidden="true">&#x21bb;</span><span class="sr-only">{{t "Repeats"}}</span> <span class="repeat-rule">{{.}}</span></a>{{end}}
 {{define "csrf"}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}
 
 {{/* star is one task's personal star toggle. A plain form and a real button,
@@ -87,7 +87,7 @@
   {{template "csrf" .CSRF}}
   <input type="hidden" name="next" value="{{.Next}}">
   <button type="submit" class="star{{if .Starred}} is-starred{{end}}" aria-pressed="{{if .Starred}}true{{else}}false{{end}}"
-          aria-label="{{if .Starred}}Unstar{{else}}Star{{end}} {{.Ref}}" title="{{if .Starred}}Unstar{{else}}Star{{end}}">
+          aria-label="{{if .Starred}}{{t "Unstar %s" .Ref}}{{else}}{{t "Star %s" .Ref}}{{end}}" title="{{if .Starred}}{{t "Unstar"}}{{else}}{{t "Star"}}{{end}}">
     <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#star"/></svg>
   </button>
 </form>{{end}}
@@ -101,10 +101,22 @@
      domains.html for the fields judged to need one. */}}
 {{define "field-info"}}
 <details class="field-info">
-  <summary aria-label="What is this field?"><span aria-hidden="true">i</span></summary>
-  <p>{{.}}</p>
+  <summary aria-label="{{t "What is this field?"}}"><span aria-hidden="true">i</span></summary>
+  <p>{{t .}}</p>
 </details>
 {{end}}
+
+{{/* tip is the same "i" disclosure as field-info, for a concept rather than
+     a field: a heading, a filter box, a figure a newcomer would not know how
+     to read. Built with the tip func from a topic, one or two plain
+     sentences, and optionally the page in docs/ that says more. A disclosure
+     for the reasons field-info gives, and named "About <topic>" so a screen
+     reader says what it explains rather than "i". The doc is named rather
+     than linked: docs/ is not served here, and no page may point off-site. */}}
+{{define "tip"}}<details class="field-info tip">
+  <summary aria-label="{{t "About %s" (t .Topic)}}" title="{{t "About %s" (t .Topic)}}"><svg aria-hidden="true" width="12" height="12"><use href="/assets/icons.svg#info"/></svg></summary>
+  <p>{{t .Text}}{{if .Doc}} <span class="tip-doc">{{t "More in"}} <code>{{.Doc}}</code>.</span>{{end}}</p>
+</details>{{end}}
 
 {{/* secret is a value the server will never show again: a freshly minted API
      token, or a signing secret tix generated because the operator left the
@@ -129,7 +141,7 @@
   <p>{{.Note}}</p>
   <div class="copyline">
     <code id="{{.ID}}">{{.Value}}</code>
-    <button type="button" class="secondary" data-copy-target="{{.ID}}">Copy</button>
+    <button type="button" class="secondary" data-copy-target="{{.ID}}">{{t "Copy"}}</button>
   </div>
 </section>
 {{end}}
@@ -151,8 +163,8 @@
   <div class="shortcuts-help-backdrop" data-shortcuts-close></div>
   <div class="shortcuts-help-dialog" role="dialog" aria-modal="true" aria-labelledby="shortcuts-help-title" tabindex="-1">
     <div class="shortcuts-help-head">
-      <h2 id="shortcuts-help-title">Keyboard shortcuts</h2>
-      <button type="button" class="secondary" data-shortcuts-close>Close</button>
+      <h2 id="shortcuts-help-title">{{t "Keyboard shortcuts"}}</h2>
+      <button type="button" class="secondary" data-shortcuts-close>{{t "Close"}}</button>
     </div>
     <dl class="shortcuts-help-list" id="shortcuts-help-list"></dl>
   </div>
@@ -180,14 +192,14 @@
   <input type="hidden" name="next" value="{{.Here}}">
   <div class="choices">
     {{range .Options}}
-    <label><input type="checkbox" name="column" value="{{.Key}}" {{if .Shown}}checked{{end}}> {{.Label}}</label>
+    <label><input type="checkbox" name="column" value="{{.Key}}" {{if .Shown}}checked{{end}}> {{t .Label}}</label>
     {{end}}
   </div>
   {{/* Named by what it commits. Two sections in one panel each ended in a
        button reading "Apply", so neither said what it applied. */}}
   <div class="actions">
-    <button type="submit">Apply columns</button>
-    <button class="secondary" type="submit" name="reset" value="1">Reset</button>
+    <button type="submit">{{t "Apply columns"}}</button>
+    <button class="secondary" type="submit" name="reset" value="1">{{t "Reset"}}</button>
   </div>
 </form>
 {{end}}
@@ -210,12 +222,12 @@
 <div class="colmenu">
   <button type="button" class="secondary colmenu-open" popovertarget="{{$id}}">
     <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#columns"/></svg>
-    Columns
+    {{t "Columns"}}
   </button>
   <div id="{{$id}}" class="flowmenu colpop" popover>
-    <p class="flowhead">Columns on this listing</p>
+    <p class="flowhead">{{t "Columns on this listing"}}</p>
     {{template "column-choices" .ColumnForm}}
-    <button type="button" class="flowclose" popovertarget="{{$id}}" popovertargetaction="hide">Close</button>
+    <button type="button" class="flowclose" popovertarget="{{$id}}" popovertargetaction="hide">{{t "Close"}}</button>
   </div>
 </div>
 {{end}}
@@ -244,20 +256,20 @@
       {{if .Icon}}<span class="proj-icon" role="img" aria-label="{{.Name}}">{{.Icon}}</span>{{end}}
       <span class="projectchoice-name">{{.Name}}</span> <code>{{.Key}}</code>
     </label>
-    {{else}}<span class="muted">No projects yet.</span>{{end}}
+    {{else}}<span class="muted">{{t "No projects yet."}}</span>{{end}}
   </div>
   {{if not .Whole}}
   {{/* The walk behind these checkboxes stopped at its bound, so the set is a
        part of the tenant's projects. Said here rather than on each screen,
        because both screens render this one control. */}}
-  <p class="muted short-projects">This tenant has more projects than this control walked, so the list above is not the whole set.</p>
+  <p class="muted short-projects">{{t "This tenant has more projects than this control walked, so the list above is not the whole set."}}</p>
   {{end}}
   {{if .Stale}}
-  <p class="muted stale-projects">Still hidden, and no project on this list answers to {{if eq (len .Stale) 1}}it{{else}}them{{end}}: {{range $i, $key := .Stale}}{{if $i}}, {{end}}<code>{{$key}}</code>{{end}}. Kept from an earlier choice; applying this form forgets {{if eq (len .Stale) 1}}it{{else}}them{{end}}.</p>
+  <p class="muted stale-projects">{{tn "Still hidden, and no project on this list answers to it:" "Still hidden, and no project on this list answers to them:" (len .Stale)}} {{range $i, $key := .Stale}}{{if $i}}, {{end}}<code>{{$key}}</code>{{end}}. {{tn "Kept from an earlier choice; applying this form forgets it." "Kept from an earlier choice; applying this form forgets them." (len .Stale)}}</p>
   {{end}}
   <div class="actions">
-    <button type="submit">Apply projects</button>
-    <button class="secondary" type="submit" name="reset" value="1">Show all</button>
+    <button type="submit">{{t "Apply projects"}}</button>
+    <button class="secondary" type="submit" name="reset" value="1">{{t "Show all"}}</button>
   </div>
 </form>
 {{end}}
@@ -270,16 +282,17 @@
      swap of the body is a second request either way. */}}
 {{define "taskview-switch"}}
 <form method="post" action="/taskview" class="viewswitch" hx-boost="false"
-      aria-label="How to draw the tasks">
+      aria-label="{{t "How to draw the tasks"}}">
   {{template "csrf" .CSRF}}
   <input type="hidden" name="next" value="{{.Here}}">
-  <span class="viewswitch-label" id="viewswitch-label">View as</span>
+  <span class="viewswitch-label" id="viewswitch-label">{{t "View as"}}</span>
   <div class="segmented" role="group" aria-labelledby="viewswitch-label">
     {{range .Choices}}
     <button type="submit" name="view" value="{{.Value}}" class="segment{{if .Selected}} is-on{{end}}"
-            {{if .Selected}}aria-current="true"{{end}}>{{.Label}}</button>
+            {{if .Selected}}aria-current="true"{{end}}>{{t .Label}}</button>
     {{end}}
   </div>
+  {{template "tip" (tip "Views" "The same tasks, drawn three ways. List is one row per task. Board is one column per workflow state, so it needs the listed projects to share their states. Lanes is one lane per project, with finished tasks ticked in place." "docs/web-ui.md")}}
 </form>
 {{end}}
 
@@ -311,20 +324,20 @@
          never push those two spans around: everything they need is already
          laid out before this element wraps. */}}
     <details class="panel raw feed-raw">
-      <summary>{{if gt (len .Group.Hops) 1}}{{len .Group.Hops}} steps{{else}}Raw{{end}}</summary>
+      <summary>{{if gt (len .Group.Hops) 1}}{{t "%d steps" (len .Group.Hops)}}{{else}}{{t "Raw"}}{{end}}</summary>
       <div class="body">
         {{range .Group.Hops}}
         <dl class="raw-fields">
-          <div><dt>When</dt><dd class="mono">{{compact .Entry.OccurredAt}}</dd></div>
-          <div><dt>Action</dt><dd class="mono">{{.Entry.Action}}</dd></div>
-          {{if .Changed}}<div><dt>Fields</dt><dd class="mono">{{join .Changed}}</dd></div>{{end}}
+          <div><dt>{{t "When"}}</dt><dd class="mono">{{compact .Entry.OccurredAt}}</dd></div>
+          <div><dt>{{t "Action"}}</dt><dd class="mono">{{.Entry.Action}}</dd></div>
+          {{if .Changed}}<div><dt>{{t "Fields"}}</dt><dd class="mono">{{join .Changed}}</dd></div>{{end}}
         </dl>
         {{end}}
       </div>
     </details>
   </li>
 {{else}}
-  <li class="empty">{{if .Data.Query.Active}}Nothing here matches that filter, anywhere in this tenant's history. <a href="/activity">Clear it</a> to see everything.{{else}}No recorded activity.{{end}}</li>
+  <li class="empty">{{if .Data.Query.Active}}{{t "Nothing here matches that filter, anywhere in this tenant's history."}} <a href="/activity">{{t "Clear the filter to see everything."}}</a>{{else}}{{t "No recorded activity."}}{{end}}</li>
 {{end}}
 {{end}}
 
@@ -338,10 +351,10 @@
      other two exactly where they were rather than sliding them across. */}}
 {{define "pager"}}
 {{if .Show}}
-<nav class="pager" aria-label="Pages of this list">
-  {{if .HasPrev}}<a class="pager-step pager-prev" href="{{.PrevHref}}" rel="prev"><span class="pager-arrow" aria-hidden="true">&larr;</span> Previous</a>{{end}}
-  <span class="pager-at">Page {{.Page}}{{if .Count}} <span class="pager-count">&middot; {{.Count}} {{.Unit}}</span>{{end}}</span>
-  {{if .HasNext}}<a class="pager-step pager-next" href="{{.NextHref}}" rel="next">Next <span class="pager-arrow" aria-hidden="true">&rarr;</span></a>{{end}}
+<nav class="pager" aria-label="{{t "Pages of this list"}}">
+  {{if .HasPrev}}<a class="pager-step pager-prev" href="{{.PrevHref}}" rel="prev"><span class="pager-arrow" aria-hidden="true">&larr;</span> {{t "Previous"}}</a>{{end}}
+  <span class="pager-at">{{t "Page %d" .Page}}{{if .Count}} <span class="pager-count">&middot; {{.Count}} {{t .Unit}}</span>{{end}}</span>
+  {{if .HasNext}}<a class="pager-step pager-next" href="{{.NextHref}}" rel="next">{{t "Next"}} <span class="pager-arrow" aria-hidden="true">&rarr;</span></a>{{end}}
 </nav>
 {{end}}
 {{end}}
@@ -392,9 +405,9 @@
   {{template "csrf" .CSRF}}
   <input type="hidden" name="next" value="{{.Here}}">
   <input type="hidden" name="theme" value="{{.Next}}">
-  <button type="submit" class="theme-switch" aria-label="Colour scheme: {{.Label}}. Switch to {{.NextLabel}}.">
+  <button type="submit" class="theme-switch" aria-label="{{t "Colour scheme: %s. Switch to %s." (t .Label) (t .NextLabel)}}">
     {{template "themeglyph" .Theme}}
-    <span class="theme-name">{{.Label}}</span>
+    <span class="theme-name">{{t .Label}}</span>
   </button>
 </form>
 {{end}}

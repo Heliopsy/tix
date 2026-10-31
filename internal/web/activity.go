@@ -202,7 +202,7 @@ func (h *handler) showActivityFeed(w http.ResponseWriter, r *http.Request) error
 	v := h.newView(r, "activity.html", "Activity", data)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	return h.templates["activity.html"].ExecuteTemplate(w, "activity-rows", v)
+	return h.templatesFor(r)["activity.html"].ExecuteTemplate(w, "activity-rows", v)
 }
 
 // activityPageSize is how many audit entries one screen of the feed shows.

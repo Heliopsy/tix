@@ -2,10 +2,12 @@
 {{$v := .Data}}
 <div class="pagehead">
   <div class="pagehead-title">
-    <h1>Users</h1>
+    <div class="headtip"><h1>{{t "Users"}}</h1>{{template "tip" (tip "Users" "The accounts that sign in to this tenant, each with a role: viewer reads, member also writes, claims and moves tasks, and admin may do everything. Disabling an account can be undone; deleting it cannot." "docs/tenancy.md")}}</div>
+    {{/* In a context: the count wants a plural where the state chip below
+         wants the bare adjective, and both are "active" in English. */}}
     <p class="lede summary">
-      {{if eq (len $v.Users) 0}}No accounts yet.
-      {{else}}<strong>{{$v.Active}}</strong> active{{if $v.Off}} &middot; <span class="held">{{$v.Off}} disabled</span>{{end}}
+      {{if eq (len $v.Users) 0}}{{t "No accounts yet."}}
+      {{else}}<strong>{{$v.Active}}</strong> {{tc "count" "active"}}{{if $v.Off}} &middot; <span class="held">{{t "%d disabled" $v.Off}}</span>{{end}}
       {{end}}
     </p>
   </div>
@@ -22,28 +24,28 @@
   <li class="person{{if .Disabled}} is-off{{end}}" id="user-{{.User.ID}}">
     <span class="avatar" aria-hidden="true">{{.Monogram}}</span>
     <span class="person-id">
-      {{if $.Columns.Show "users" "name"}}<span class="person-name">{{.Label}}{{if .Self}} <span class="chip you">you</span>{{end}}</span>{{end}}
+      {{if $.Columns.Show "users" "name"}}<span class="person-name">{{.Label}}{{if .Self}} <span class="chip you">{{t "you"}}</span>{{end}}</span>{{end}}
       <span class="person-mail mono">{{.User.Email}}</span>
     </span>
     <span class="person-marks">
       {{if $.Columns.Show "users" "role"}}
         {{if .Role}}<span class="role role-{{slug .Role}}">{{.Role}}</span>
-        {{else}}<span class="role role-none" title="This account has no membership of this tenant">no role</span>{{end}}
+        {{else}}<span class="role role-none" title="{{t "This account has no membership of this tenant"}}">{{t "no role"}}</span>{{end}}
       {{end}}
       {{if $.Columns.Show "users" "state"}}
-        {{if .Disabled}}<span class="state off" title="Signed out everywhere, tokens revoked">disabled</span>
-        {{else}}<span class="state on">active</span>{{end}}
+        {{if .Disabled}}<span class="state off" title="{{t "Signed out everywhere, tokens revoked"}}">{{t "disabled"}}</span>
+        {{else}}<span class="state on">{{t "active"}}</span>{{end}}
       {{end}}
     </span>
     <details class="panel person-edit">
-      <summary aria-label="Manage {{.Label}}">Manage</summary>
+      <summary aria-label="{{t "Manage %s" .Label}}">{{t "Manage"}}</summary>
       <div class="body">
         <form method="post" action="/admin/users/update">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="id" value="{{.User.ID}}">
           <div class="row">
             <div>
-              <label for="name-{{.User.ID}}">Display name</label>
+              <label for="name-{{.User.ID}}">{{t "Display name"}}</label>
               <input id="name-{{.User.ID}}" name="display_name" value="{{.User.DisplayName}}">
             </div>
             <div>
@@ -52,10 +54,10 @@
                    none chosen, so saving any other change on this form
                    demoted the account to whichever role happened to be
                    first. */}}
-              <label for="role-{{.User.ID}}">Role</label>
+              <label for="role-{{.User.ID}}">{{t "Role"}}</label>
               {{$role := .Role}}
               <select id="role-{{.User.ID}}" name="role">
-                {{if not $role}}<option value="" selected>leave unchanged</option>{{end}}
+                {{if not $role}}<option value="" selected>{{t "leave unchanged"}}</option>{{end}}
                 {{range $.Data.Roles}}<option value="{{.}}" {{if eq . $role}}selected{{end}}>{{.}}</option>{{end}}
               </select>
             </div>
@@ -68,11 +70,11 @@
           <div class="field-label">
             <label class="check-inline" for="disabled-{{.User.ID}}">
               <input id="disabled-{{.User.ID}}" type="checkbox" name="disabled" value="1" {{if .Disabled}}checked{{end}}>
-              Disabled
+              {{t "Disabled"}}
             </label>
             {{template "field-info" "A disabled account cannot sign in: its sessions are dropped and its API tokens are revoked the moment you save. Clearing the box lets it sign in again, but does not bring the old tokens back."}}
           </div>
-          <div class="actions"><button type="submit">Save changes</button></div>
+          <div class="actions"><button type="submit">{{t "Save changes"}}</button></div>
         </form>
         {{if $.Data.CanClearTOTP}}
         {{/* Clearing is all an administrator can do to somebody else's second
@@ -84,25 +86,25 @@
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="id" value="{{.User.ID}}">
           <p class="muted">
-            {{if .User.TOTPEnrolled}}This account holds a second factor.{{else}}This account holds no second factor.{{end}}
-            Clearing it drops the enrolment and its recovery codes. Use it when somebody has lost both.
+            {{if .User.TOTPEnrolled}}{{t "This account holds a second factor."}}{{else}}{{t "This account holds no second factor."}}{{end}}
+            {{t "Clearing it drops the enrolment and its recovery codes. Use it when somebody has lost both."}}
           </p>
-          <div class="actions"><button class="secondary" type="submit">Clear second factor</button></div>
+          <div class="actions"><button class="secondary" type="submit">{{t "Clear second factor"}}</button></div>
         </form>
         {{end}}
         <form method="post" action="/admin/users/delete" class="person-delete">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="id" value="{{.User.ID}}">
-          <p class="muted">Deleting removes the account and its membership. Disabling is usually what you want, and can be undone.</p>
-          <div class="actions"><button class="danger" type="submit">Delete {{.Label}}</button></div>
+          <p class="muted">{{t "Deleting removes the account and its membership. Disabling is usually what you want, and can be undone."}}</p>
+          <div class="actions"><button class="danger" type="submit">{{t "Delete %s" .Label}}</button></div>
         </form>
       </div>
     </details>
   </li>
 {{else}}
   <li class="empty">
-    <p class="empty-title">No users yet</p>
-    <p>Create the first one below.</p>
+    <p class="empty-title">{{t "No users yet"}}</p>
+    <p>{{t "Create the first one below."}}</p>
   </li>
 {{end}}
 </ul>
@@ -114,23 +116,23 @@
      screens that each end in a form for adding a record should not end in
      four differently shaped controls. */}}
 <details class="panel addmore">
-  <summary>Create a user</summary>
+  <summary>{{t "Create a user"}}</summary>
   <div class="body">
     <form method="post" action="/admin/users">
       {{template "csrf" .CSRF}}
       <div class="row">
-        <div><label for="email">Email</label><input id="email" name="email" type="email" required></div>
-        <div><label for="display_name">Display name</label><input id="display_name" name="display_name"></div>
+        <div><label for="email">{{t "Email"}}</label><input id="email" name="email" type="email" required></div>
+        <div><label for="display_name">{{t "Display name"}}</label><input id="display_name" name="display_name"></div>
         <div>
-          <label for="role">Role</label>
+          <label for="role">{{t "Role"}}</label>
           <select id="role" name="role">
             {{range $v.Roles}}<option value="{{.}}">{{.}}</option>{{end}}
           </select>
         </div>
       </div>
-      <label for="password">Password</label>
+      <label for="password">{{t "Password"}}</label>
       <input id="password" name="password" type="password" autocomplete="new-password">
-      <div class="actions"><button type="submit">Create user</button></div>
+      <div class="actions"><button type="submit">{{t "Create user"}}</button></div>
     </form>
   </div>
 </details>

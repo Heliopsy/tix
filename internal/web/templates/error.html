@@ -9,15 +9,15 @@
      of what had actually gone wrong. It is a block, in the flow, under the
      heading it explains. */}}
 <section class="failure">
-  <h1>{{.Data.Heading}}</h1>
-  <p class="failure-message" role="alert">{{.Data.Message}}</p>
-  {{if .Data.Hint}}<p class="failure-hint">{{.Data.Hint}}</p>{{end}}
+  <h1>{{t .Data.Heading}}</h1>
+  <p class="failure-message" role="alert">{{t .Data.Message}}</p>
+  {{if .Data.Hint}}<p class="failure-hint">{{t .Data.Hint}}</p>{{end}}
   <div class="actions">
-    <a href="{{.Data.Back}}">{{.Data.BackLabel}}</a>
+    <a href="{{.Data.Back}}">{{phrase .Data.BackLabel}}</a>
     {{/* Named for where it goes. It said "Back to the dashboard" and pointed
          at "/", which has no screen of its own and redirects to the projects
          list, so it promised one place and delivered another. */}}
-    {{if ne .Data.Back "/tasks"}}<a href="/tasks">Go to tasks</a>{{end}}
+    {{if ne .Data.Back "/tasks"}}<a href="/tasks">{{t "Go to tasks"}}</a>{{end}}
   </div>
 </section>
 {{end}}

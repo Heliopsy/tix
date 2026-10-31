@@ -1,5 +1,5 @@
 {{define "content"}}
-<h1>Projects</h1>
+<div class="headtip"><h1>{{t "Projects"}}</h1>{{template "tip" (tip "Projects" "A project groups tasks under a short key that starts every reference, as in infra-5. Each project uses one workflow, which gives its board its columns. An archived project is hidden from active lists and keeps its tasks." "docs/workflows.md")}}</div>
 {{/* A list of projects, not a dump of their columns.
      This was a table of Key, Name, Colour, State, Screens, Manage: a Colour
      column that printed the word "slate", a State column that said "active"
@@ -8,7 +8,7 @@
      it said anything about the work, which is the only reason to open this
      screen. The description is shown because it is the one field here a
      person wrote, and the state only when it is not the ordinary one. */}}
-<p class="lede">Open a project for its board, or manage its name, workflow, colour, icon and fields.</p>
+<p class="lede">{{t "Open a project for its board, or manage its name, workflow, colour, icon and fields."}}</p>
 
 <ul class="projlist">
   {{range .Data.Projects}}
@@ -16,18 +16,18 @@
     <a class="projrow-main" href="/projects/{{.Key}}">
       <span class="projrow-mark" aria-hidden="true">{{if .Icon}}{{.Icon}}{{else}}{{slice .Key 0 1}}{{end}}</span>
       <span class="projrow-text">
-        <span class="projrow-title">{{.Name}}<span class="projrow-key mono">{{.Key}}</span>{{if .Archived}}<span class="pill status cancelled">archived</span>{{end}}</span>
+        <span class="projrow-title">{{.Name}}<span class="projrow-key mono">{{.Key}}</span>{{if .Archived}}<span class="pill status cancelled">{{t "archived"}}</span>{{end}}</span>
         {{if .Description}}<span class="projrow-desc">{{.Description}}</span>{{end}}
       </span>
     </a>
     <span class="projrow-tools">
-      <a class="ghostlink" href="/tasks?q=project:{{.Key}}">Tasks</a>
-      <a class="ghostlink" href="/projects/{{.Key}}/fields">Fields</a>
-      <a class="ghostlink" href="/projects/{{.Key}}">Manage</a>
+      <a class="ghostlink" href="/tasks?q=project:{{.Key}}">{{t "Tasks"}}</a>
+      <a class="ghostlink" href="/projects/{{.Key}}/fields">{{t "Fields"}}</a>
+      <a class="ghostlink" href="/projects/{{.Key}}">{{t "Manage"}}</a>
     </span>
   </li>
   {{else}}
-  <li class="empty muted">No projects yet. Make the first one below.</li>
+  <li class="empty muted">{{t "No projects yet. Make the first one below."}}</li>
   {{end}}
 </ul>
 {{template "pager" .Data.Pager}}
@@ -35,15 +35,15 @@
 {{/* Folded. It is eight fields including a description box, and it was open
      on every visit under the list it has nothing to do with. */}}
 <details class="panel addmore">
-  <summary>New project</summary>
+  <summary>{{t "New project"}}</summary>
   <div class="body">
 <form method="post" action="/projects">
   {{template "csrf" .CSRF}}
   <div class="row">
-    <div><label for="key">Key</label><input id="key" name="key" required></div>
-    <div><label for="name">Name</label><input id="name" name="name" required></div>
+    <div><label for="key">{{t "Key"}}</label>{{template "tip" (tip "Key" "A short code for the project, such as infra. Every task reference starts with it, as in infra-5.")}}<input id="key" name="key" required></div>
+    <div><label for="name">{{t "Name"}}</label><input id="name" name="name" required></div>
     <div>
-      <label for="workflow_key">Workflow</label>
+      <label for="workflow_key">{{t "Workflow"}}</label>{{template "tip" (tip "Workflow" "A project uses exactly one workflow. It sets the states a task can be in, the board's columns and the moves allowed between them. Several projects can share one workflow." "docs/workflows.md")}}
       <select id="workflow_key" name="workflow_key">
         {{range .Data.Workflows}}<option value="{{.Key}}">{{.Name}}</option>{{end}}
       </select>
@@ -51,20 +51,20 @@
   </div>
   <div class="row">
     <div>
-      <label for="color">Colour</label>
+      <label for="color">{{t "Colour"}}</label>
       <select id="color" name="color">
-        <option value="">none</option>
+        <option value="">{{t "none"}}</option>
         {{range .Data.Colors}}<option value="{{.}}">{{.}}</option>{{end}}
       </select>
     </div>
     <div>
-      <label for="icon">Icon</label>
-      <input id="icon" name="icon" maxlength="2" placeholder="an emoji, or one or two letters">
+      <label for="icon">{{t "Icon"}}</label>
+      <input id="icon" name="icon" maxlength="2" placeholder="{{t "an emoji, or one or two letters"}}">
     </div>
   </div>
-  <label for="description">Description</label>
+  <label for="description">{{t "Description"}}</label>
   <textarea id="description" name="description"></textarea>
-  <div class="actions"><button type="submit">Create project</button></div>
+  <div class="actions"><button type="submit">{{t "Create project"}}</button></div>
 </form>
   </div>
 </details>

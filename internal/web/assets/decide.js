@@ -2,6 +2,10 @@
 
 (function (global) {
   "use strict";
+  // say is text in the page's language; see i18n.js.
+  function say(text) {
+    return global.tix && global.tix.t ? global.tix.t(text) : text;
+  }
   // The decisions the other scripts make, lifted out of their DOM handlers so
   // they can be exercised without a browser. Everything here is pure: it takes
   // values, returns values, and touches no document. The handlers in
@@ -367,11 +371,11 @@
   tix.fileChoiceLabel = function (files) {
     var count = files && files.length ? files.length : 0;
     if (count > 1) {
-      return count + " files chosen";
+      return say("%d files chosen").replace("%d", String(count));
     }
     if (count === 1) {
       return files[0].name;
     }
-    return "No file chosen";
+    return say("No file chosen");
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);

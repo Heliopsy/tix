@@ -1,70 +1,59 @@
 {{define "content"}}
-<h1>Import and export</h1>
+<div class="headtip"><h1>{{t "Import and export"}}</h1>{{template "tip" (tip "Snapshot or components" "A snapshot moves work: projects, tasks and their history. A components bundle moves configuration: workflows, fields, tags, project templates and webhooks. Use a snapshot to move a tenant, a bundle to share a way of working." "docs/migrating.md")}}</div>
 {{template "datatabs" .}}
 
-<p>A snapshot carries this tenant's <strong>work</strong>: its projects, tasks and
-their history. Configuration travels separately, under Components.</p>
+<p>{{th "A snapshot carries this tenant's <strong>work</strong>: its projects, tasks and their history. Configuration travels separately, under Components."}}</p>
 
-<h2>Export a snapshot</h2>
+<h2>{{t "Export a snapshot"}}</h2>
 <details class="note">
-  <summary>What goes into the file</summary>
-  <p>Every task in the projects you name, with its status, priority, tags,
-  dependencies and custom field values. Comments and artifacts are included
-  only if you tick them. People, tokens, SSH keys and webhook secrets are
-  never exported: a snapshot is safe to hand to another install without
-  handing over credentials with it.</p>
+  <summary>{{t "What goes into the file"}}</summary>
+  <p>{{t "Every task in the projects you name, with its status, priority, tags, dependencies and custom field values. Comments and artifacts are included only if you tick them. People, tokens, SSH keys and webhook secrets are never exported: a snapshot is safe to hand to another install without handing over credentials with it."}}</p>
 </details>
 <form method="post" action="/transfer/export">
   {{template "csrf" .CSRF}}
-  <label for="projects">Projects, comma separated, blank for every project</label>
+  <label for="projects">{{t "Projects, comma separated, blank for every project"}}</label>
   <input id="projects" name="projects">
-  <label for="include_comments"><input id="include_comments" type="checkbox" name="include_comments" value="1" checked> Include comments</label>
-  <label for="include_artifacts"><input id="include_artifacts" type="checkbox" name="include_artifacts" value="1"> Include artifacts</label>
-  <p><button type="submit">Download snapshot</button></p>
+  <label for="include_comments"><input id="include_comments" type="checkbox" name="include_comments" value="1" checked> {{t "Include comments"}}</label>
+  <label for="include_artifacts"><input id="include_artifacts" type="checkbox" name="include_artifacts" value="1"> {{t "Include artifacts"}}</label>
+  <p><button type="submit">{{t "Download snapshot"}}</button></p>
 </form>
 
-<h2>Import a snapshot</h2>
+<h2>{{t "Import a snapshot"}}</h2>
 <details class="note">
-  <summary>What an import changes</summary>
-  <p><strong>Merge</strong> adds what is new and updates what the snapshot
-  carries. Anything already here that the snapshot does not mention is left
-  alone.</p>
-  <p><strong>Replace</strong> does that and then <strong>deletes</strong>, from
-  the projects the snapshot covers, the tasks and field definitions it does not
-  carry. It is how you make this tenant match the file exactly. Projects
-  outside the snapshot are untouched either way.</p>
-  <p>Leave <strong>dry run</strong> ticked to see the counts first. Nothing is
-  written until you untick it.</p>
+  <summary>{{t "What an import changes"}}</summary>
+  <p>{{th "<strong>Merge</strong> adds what is new and updates what the snapshot carries. Anything already here that the snapshot does not mention is left alone."}}</p>
+  <p>{{th "<strong>Replace</strong> does that and then <strong>deletes</strong>, from the projects the snapshot covers, the tasks and field definitions it does not carry. It is how you make this tenant match the file exactly. Projects outside the snapshot are untouched either way."}}</p>
+  <p>{{th "Leave <strong>dry run</strong> ticked to see the counts first. Nothing is written until you untick it."}}</p>
 </details>
 <form method="post" action="/transfer/import" enctype="multipart/form-data">
   {{template "csrf" .CSRF}}
   <label class="file-field">
-    <input id="snapshot" name="snapshot" type="file" aria-label="Snapshot file">
-    <span class="file-button">Choose file</span>
-    <span class="file-name" data-file-name>No file chosen</span>
+    <input id="snapshot" name="snapshot" type="file" aria-label="{{t "Snapshot file"}}">
+    <span class="file-button">{{t "Choose file"}}</span>
+    <span class="file-name" data-file-name>{{t "No file chosen"}}</span>
   </label>
-  <label for="snapshot_text">Or paste the snapshot</label>
+  <label for="snapshot_text">{{t "Or paste the snapshot"}}</label>
   <textarea id="snapshot_text" name="snapshot_text"></textarea>
   <div class="row">
     <div>
-      <label for="mode">Mode</label>
+      <label for="mode">{{t "Mode"}}</label>
       <select id="mode" name="mode">
         {{range .Data.Modes}}<option value="{{.}}">{{.}}</option>{{end}}
       </select>
     </div>
-    <div><label for="dry_run"><input id="dry_run" type="checkbox" name="dry_run" value="1" checked> Dry run</label></div>
-    <div><button type="submit">Run import</button></div>
+    <div><label for="dry_run"><input id="dry_run" type="checkbox" name="dry_run" value="1" checked> {{t "Dry run"}}</label></div>
+    <div><button type="submit">{{t "Run import"}}</button></div>
   </div>
 </form>
 
 {{if .Data.Result}}
-<h2>Result{{if .Data.Result.DryRun}}, dry run, nothing was written{{end}}</h2>
+<h2>{{if .Data.Result.DryRun}}{{t "Result, dry run, nothing was written"}}{{else}}{{t "Result"}}{{end}}</h2>
 <dl class="fields">
-  <dt>Created</dt><dd>{{counts .Data.Result.Created}}</dd>
-  <dt>Updated</dt><dd>{{counts .Data.Result.Updated}}</dd>
-  <dt>Skipped</dt><dd>{{counts .Data.Result.Skipped}}</dd>
-  <dt>Deleted</dt><dd>{{counts .Data.Result.Deleted}}</dd>
-  <dt>Warnings</dt><dd>{{join .Data.Result.Warnings}}</dd>
+  <dt>{{t "Created"}}</dt><dd>{{counts .Data.Result.Created}}</dd>
+  <dt>{{t "Updated"}}</dt><dd>{{counts .Data.Result.Updated}}</dd>
+  <dt>{{t "Skipped"}}</dt><dd>{{counts .Data.Result.Skipped}}</dd>
+  <dt>{{t "Deleted"}}</dt><dd>{{counts .Data.Result.Deleted}}</dd>
+  <dt>{{t "Warnings"}}</dt><dd>{{join .Data.Result.Warnings}}</dd>
 </dl>
 {{end}}
 {{end}}

@@ -2,6 +2,10 @@
 
 (function () {
   "use strict";
+  // say is text in the page's language; see i18n.js.
+  function say(text) {
+    return window.tix && window.tix.t ? window.tix.t(text) : text;
+  }
   var tix = window.tix;
   if (!tix) {
     return;
@@ -54,7 +58,7 @@
   function announce(btn, ok) {
     var original = btn.getAttribute("data-copy-label") || btn.textContent;
     btn.setAttribute("data-copy-label", original);
-    btn.textContent = ok ? "Copied" : "Copy failed";
+    btn.textContent = say(ok ? "Copied" : "Copy failed");
     window.setTimeout(function () {
       btn.textContent = original;
     }, 1500);

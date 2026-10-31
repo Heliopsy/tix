@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en"{{if .Theme}} data-theme="{{.Theme}}"{{end}}{{if not .Hover}} data-hover="off"{{end}}>
+<html lang="{{.Lang}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}{{if not .Hover}} data-hover="off"{{end}}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{.Title}} &middot; {{.Brand.Title}}</title>
+<title>{{t .Title}} &middot; {{.Brand.Title}}</title>
 <link rel="icon" href="/assets/tix.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/app.css">
 {{/* The scheme rules in app.css are written as :root[data-theme="dark"] and
@@ -22,6 +22,10 @@
 </style>
 {{/* Not deferred: it sets the Show completed class on the root before the
      body paints, so hidden lane cards never flash in. See assets/lanes.js. */}}
+{{/* The translations the scripts need, read by assets/i18n.js. Absent for
+     English, which the scripts already speak. */}}
+{{if .JSText}}<script id="tix-i18n" type="application/json">{{.JSText}}</script>{{end}}
+<script src="/assets/i18n.js"></script>
 <script src="/assets/lanes.js"></script>
 {{/* Not deferred either: the sidebar's stored width and collapsed rail are
      set on the root before the body paints. See assets/sidebar.js. */}}
@@ -59,10 +63,10 @@
         <a class="brand" href="/" data-rail-name="{{.Brand.Title}}"><img class="logo" src="/assets/tix.svg" alt="" width="28" height="28"><span class="brand-name">{{.Brand.Title}}</span></a>
         {{/* Collapses the desktop column to a rail and back. Hidden until
              sidebar.js runs, since it does nothing without it. */}}
-        <button type="button" class="side-toggle" data-side-toggle aria-controls="side" aria-expanded="true" aria-label="Collapse sidebar" hidden>
+        <button type="button" class="side-toggle" data-side-toggle aria-controls="side" aria-expanded="true" aria-label="{{t "Collapse sidebar"}}" hidden>
           <svg aria-hidden="true" width="18" height="18"><use href="/assets/icons.svg#sidebar"/></svg>
         </button>
-        <button type="button" class="burger" popovertarget="sidemenu" aria-label="Menu">
+        <button type="button" class="burger" popovertarget="sidemenu" aria-label="{{t "Menu"}}">
           <svg class="burger-icon" aria-hidden="true" width="24" height="24"><use href="/assets/icons.svg#menu"/></svg>
         </button>
       </div>
@@ -70,23 +74,23 @@
       <p class="who">{{.Actor.Handle}}</p>
       {{template "nav" .}}
       <div class="side-foot">
-        <a href="/settings" data-rail-name="Settings" {{if eq .Path "/settings"}}aria-current="page"{{end}}><svg class="rail-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#settings"/></svg><span class="rail-label">Settings</span></a>
+        <a href="/settings" data-rail-name="{{t "Settings"}}" {{if eq .Path "/settings"}}aria-current="page"{{end}}><svg class="rail-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#settings"/></svg><span class="rail-label">{{t "Settings"}}</span></a>
         {{template "themeswitch" .ThemeToggle}}
       </div>
       <form method="post" action="/logout" class="actions">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-        <button class="secondary signout" type="submit" data-rail-name="Sign out"><svg class="rail-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#signout"/></svg><span class="rail-label">Sign out</span></button>
+        <button class="secondary signout" type="submit" data-rail-name="{{t "Sign out"}}"><svg class="rail-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#signout"/></svg><span class="rail-label">{{t "Sign out"}}</span></button>
       </form>
-      <button type="button" class="menuclose" popovertarget="sidemenu" popovertargetaction="hide">Close</button>
+      <button type="button" class="menuclose" popovertarget="sidemenu" popovertargetaction="hide">{{t "Close"}}</button>
       </div>
     </div>
     {{/* The drag handle on the sidebar's right edge. A separator, so it is
          focusable and announced with its width; hidden until sidebar.js
          runs, which fills in the values. */}}
-    <div class="side-resize" data-side-resize role="separator" aria-orientation="vertical" aria-controls="side" aria-label="Resize sidebar" tabindex="0" hidden></div>
+    <div class="side-resize" data-side-resize role="separator" aria-orientation="vertical" aria-controls="side" aria-label="{{t "Resize sidebar"}}" tabindex="0" hidden></div>
   </aside>
   <main class="wrap">
-    {{if .Flash}}<p class="flash">{{.Flash}}{{if .FlashRef}} <a class="flashref" href="/tasks/{{.FlashRef}}">{{.FlashRef}}</a>{{end}}</p>{{end}}
+    {{if .Flash}}<p class="flash">{{phrase .Flash}}{{if .FlashRef}} <a class="flashref" href="/tasks/{{.FlashRef}}">{{.FlashRef}}</a>{{end}}</p>{{end}}
     {{if .Error}}<p class="flash error">{{.Error}}</p>{{end}}
     {{block "content" .}}{{end}}
   </main>
@@ -94,7 +98,7 @@
 {{template "shortcuts-help" .}}
 {{else}}
 <main class="auth">
-  {{if .Flash}}<p class="flash">{{.Flash}}</p>{{end}}
+  {{if .Flash}}<p class="flash">{{phrase .Flash}}</p>{{end}}
   {{if .Error}}<p class="flash error">{{.Error}}</p>{{end}}
   {{template "content" .}}
 </main>

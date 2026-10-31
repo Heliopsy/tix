@@ -390,6 +390,8 @@ type browser struct {
 	fix    *fixture
 	client *http.Client
 	actor  string
+	// lang is the Accept-Language the browser sends, empty for none.
+	lang string
 }
 
 // as returns a browser signed in as the named actor.
@@ -496,6 +498,9 @@ func (b *browser) postMultipart(path string, fields map[string]string, filename,
 func (b *browser) stamp(req *http.Request) {
 	if b.actor != "" {
 		req.Header.Set(actorHeader, b.actor)
+	}
+	if b.lang != "" {
+		req.Header.Set("Accept-Language", b.lang)
 	}
 }
 

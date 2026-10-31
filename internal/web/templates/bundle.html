@@ -1,104 +1,99 @@
 {{define "content"}}
-<h1>Share components</h1>
+<div class="headtip"><h1>{{t "Share components"}}</h1>{{template "tip" (tip "Snapshot or components" "A snapshot moves work: projects, tasks and their history. A components bundle moves configuration: workflows, fields, tags, project templates and webhooks. Use a snapshot to move a tenant, a bundle to share a way of working." "docs/migrating.md")}}</div>
 {{template "datatabs" .}}
 
-<p>A bundle carries this tenant's <strong>configuration</strong>: the shapes
-work takes, rather than the work itself. The work travels separately, under
-Snapshot.</p>
+<p>{{th "A bundle carries this tenant's <strong>configuration</strong>: the shapes work takes, rather than the work itself. The work travels separately, under Snapshot."}}</p>
 
-<h2>Export a bundle</h2>
+<h2>{{t "Export a bundle"}}</h2>
 <details class="note">
-  <summary>What goes into the file</summary>
-  <p>Workflows, field definitions, tags, project templates and webhook
-  endpoints. Never tasks, comments or artifacts, and never a webhook's signing
-  secret: the endpoint arrives, its secret does not, so an imported webhook is
-  inert until somebody gives it one.</p>
+  <summary>{{t "What goes into the file"}}</summary>
+  <p>{{t "Workflows, field definitions, tags, project templates and webhook endpoints. Never tasks, comments or artifacts, and never a webhook's signing secret: the endpoint arrives, its secret does not, so an imported webhook is inert until somebody gives it one."}}</p>
 </details>
 <form method="post" action="/bundles/export">
   {{template "csrf" .CSRF}}
-  <label for="bundle_name">Bundle name</label>
-  <input id="bundle_name" name="name" placeholder="starter kit">
+  <label for="bundle_name">{{t "Bundle name"}}</label>
+  <input id="bundle_name" name="name" placeholder="{{t "starter kit"}}">
   <fieldset>
-    <legend>Component kinds, blank for every kind the selection reaches</legend>
+    <legend>{{t "Component kinds, blank for every kind the selection reaches"}}</legend>
     {{range .Data.Kinds}}
-    <label for="kind-{{.}}"><input id="kind-{{.}}" type="checkbox" name="kinds" value="{{.}}"> {{kindLabel .}}</label>
+    <label for="kind-{{.}}"><input id="kind-{{.}}" type="checkbox" name="kinds" value="{{.}}"> {{t (kindLabel .)}}</label>
     {{end}}
   </fieldset>
   <div class="field-label">
-    <label for="workflow_keys">Workflow keys, comma separated</label>
+    <label for="workflow_keys">{{t "Workflow keys, comma separated"}}</label>
     {{template "field-info" "Which workflows to include, by their key (not their display name), for example default,triage. Leave it blank to include every workflow the selected component kinds and projects reach."}}
   </div>
   <input id="workflow_keys" name="workflow_keys">
   <div class="field-label">
-    <label for="project_refs">Projects to export as templates, comma separated</label>
+    <label for="project_refs">{{t "Projects to export as templates, comma separated"}}</label>
     {{template "field-info" "Which projects to carry, by their key or ref, for example infra,house. Exported as templates means their tasks are never included, only their configuration: fields, tags and the workflow they use."}}
   </div>
   <input id="project_refs" name="project_refs">
   <div class="field-label">
-    <label for="webhook_ids">Webhook endpoint ids, comma separated</label>
+    <label for="webhook_ids">{{t "Webhook endpoint ids, comma separated"}}</label>
     {{template "field-info" "Which webhook endpoints to include, by id. The bundle carries the URL and event types only; the signing secret never leaves this tenant, so a target importing this bundle must set its own."}}
   </div>
   <input id="webhook_ids" name="webhook_ids">
-  <p><button type="submit">Download bundle</button></p>
+  <p><button type="submit">{{t "Download bundle"}}</button></p>
 </form>
 
-<h2>Import a bundle</h2>
+<h2>{{t "Import a bundle"}}</h2>
 <details class="note">
-  <summary>What an import changes</summary>
-  <p>Nothing here is deleted. A component whose key is free is created.</p>
-  <p>A component whose key is already taken stops the import and asks what to
-  do with it: <strong>skip</strong> keeps what is here, <strong>rename</strong>
-  brings the incoming one in under a new key, and <strong>replace</strong>
-  overwrites what is here with the incoming one.</p>
-  <p>Leave <strong>preview</strong> ticked to see what would happen. Nothing is
-  written until you untick it.</p>
+  <summary>{{t "What an import changes"}}</summary>
+  <p>{{t "Nothing here is deleted. A component whose key is free is created."}}</p>
+  <p>{{th "A component whose key is already taken stops the import and asks what to do with it: <strong>skip</strong> keeps what is here, <strong>rename</strong> brings the incoming one in under a new key, and <strong>replace</strong> overwrites what is here with the incoming one."}}</p>
+  <p>{{th "Leave <strong>preview</strong> ticked to see what would happen. Nothing is written until you untick it."}}</p>
 </details>
 <form method="post" action="/bundles/import" enctype="multipart/form-data">
   {{template "csrf" .CSRF}}
   <label class="file-field">
-    <input id="bundle" name="bundle" type="file" aria-label="Bundle file">
-    <span class="file-button">Choose file</span>
-    <span class="file-name" data-file-name>No file chosen</span>
+    <input id="bundle" name="bundle" type="file" aria-label="{{t "Bundle file"}}">
+    <span class="file-button">{{t "Choose file"}}</span>
+    <span class="file-name" data-file-name>{{t "No file chosen"}}</span>
   </label>
-  <label for="bundle_text">Or paste the bundle</label>
+  <label for="bundle_text">{{t "Or paste the bundle"}}</label>
   <textarea id="bundle_text" name="bundle_text"></textarea>
-  <label for="project_ref">Target project for project-scoped components</label>
+  <div class="field-label">
+    <label for="project_ref">{{t "Target project for project-scoped components"}}</label>
+    {{template "tip" (tip "Target project" "Field definitions belong to a project, so importing one needs a project to land in. A project template brings its own fields and tags and needs no target." "docs/migrating.md")}}
+  </div>
   <input id="project_ref" name="project_ref">
   <div class="row">
     <div>
       <div class="field-label">
-        <label for="on_collision">On a name collision, required</label>
+        <label for="on_collision">{{t "On a name collision, required"}}</label>
+        {{template "tip" (tip "Conflict policy" "A collision is matched by key, never by display name. Rename brings the incoming component in under a derived key such as default-2, shown in the New key column of the result." "docs/migrating.md")}}
         {{template "field-info" "What to do when an incoming component's key already names something in this tenant: skip leaves the existing one alone, replace overwrites it, and rename keeps both by giving the incoming one a new key. There is no default on purpose -- pick the one you mean for this import."}}
       </div>
       <select id="on_collision" name="on_collision" required>
-        <option value="">Choose what to do</option>
+        <option value="">{{t "Choose what to do"}}</option>
         {{range .Data.Policies}}<option value="{{.}}">{{.}}</option>{{end}}
       </select>
     </div>
-    <div><label for="preview"><input id="preview" type="checkbox" name="preview" value="1" checked> Preview only</label></div>
-    <div><button type="submit">Run import</button></div>
+    <div><label for="preview"><input id="preview" type="checkbox" name="preview" value="1" checked> {{t "Preview only"}}</label></div>
+    <div><button type="submit">{{t "Run import"}}</button></div>
   </div>
 </form>
 
 {{if .Data.Result}}
 {{with .Data.Result}}
-<h2>{{if .Preview}}Preview, nothing was written{{else}}Import result{{end}}</h2>
+<h2>{{if .Preview}}{{t "Preview, nothing was written"}}{{else}}{{t "Import result"}}{{end}}</h2>
 <dl class="fields">
-  <dt>Bundle</dt><dd>{{if .BundleName}}{{.BundleName}}{{else}}unnamed{{end}}</dd>
-  <dt>Schema version</dt><dd>{{.BundleVersion}}</dd>
+  <dt>{{t "Bundle"}}</dt><dd>{{if .BundleName}}{{.BundleName}}{{else}}{{t "unnamed"}}{{end}}</dd>
+  <dt>{{t "Schema version"}}</dt><dd>{{.BundleVersion}}</dd>
 </dl>
 <table>
-  <thead><tr><th>Kind</th><th>Key</th><th>Action</th><th>New key</th><th>Reason</th></tr></thead>
+  <thead><tr><th>{{t "Kind"}}</th><th>{{t "Key"}}</th><th>{{t "Action"}}</th><th>{{t "New key"}}</th><th>{{t "Reason"}}</th></tr></thead>
   <tbody>
   {{range .Outcomes}}
-    <tr><td>{{kindLabel .Kind}}</td><td>{{.Key}}</td><td>{{.Action}}</td><td>{{.NewKey}}</td><td>{{.Reason}}</td></tr>
+    <tr><td>{{t (kindLabel .Kind)}}</td><td>{{.Key}}</td><td>{{.Action}}</td><td>{{.NewKey}}</td><td>{{.Reason}}</td></tr>
   {{else}}
-    <tr><td colspan="5">This bundle carries no components.</td></tr>
+    <tr><td colspan="5">{{t "This bundle carries no components."}}</td></tr>
   {{end}}
   </tbody>
 </table>
 {{if .Warnings}}<p class="flash">{{join .Warnings}}</p>{{end}}
-{{if .Preview}}<p>Nothing was written: no component, no audit entry and no event.</p>{{end}}
+{{if .Preview}}<p>{{t "Nothing was written: no component, no audit entry and no event."}}</p>{{end}}
 {{end}}
 {{end}}
 {{end}}

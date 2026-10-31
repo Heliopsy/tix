@@ -6,14 +6,14 @@
 */}}
 {{define "content"}}
 {{$v := .Data}}
-<h1>Recovery codes</h1>
-<p class="lede">{{$v.Lede}}</p>
+<div class="headtip"><h1>{{t "Recovery codes"}}</h1>{{template "tip" (tip "Recovery codes" "Each code signs you in once in place of the authenticator's code. They are stored only as hashes, so nothing can show them again: new ones replace the whole set." "docs/second-factor.md")}}</div>
+<p class="lede">{{t $v.Lede}}</p>
 <section class="secret" aria-labelledby="recovery-codes-heading">
-  <h2 id="recovery-codes-heading">Ten codes, each good once</h2>
+  <h2 id="recovery-codes-heading">{{t "Ten codes, each good once"}}</h2>
   <div class="copyline">
     <pre id="recovery-codes"><code>{{$v.Joined}}</code></pre>
-    <button type="button" class="secondary" data-copy-target="recovery-codes">Copy</button>
+    <button type="button" class="secondary" data-copy-target="recovery-codes">{{t "Copy"}}</button>
   </div>
 </section>
-<p><a href="{{$v.Continue}}">I have kept them, continue</a></p>
+<p><a href="{{$v.Continue}}">{{t "I have kept them, continue"}}</a></p>
 {{end}}
