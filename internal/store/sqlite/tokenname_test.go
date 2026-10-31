@@ -68,6 +68,7 @@ func TestUpgradeKeepsDuplicateTokensWorkingAndTellsThemApart(t *testing.T) {
 		"ALTER TABLE tenants DROP COLUMN require_totp_ssh",
 		"ALTER TABLE tenants DROP COLUMN lease_default",
 		"ALTER TABLE tenants DROP COLUMN lease_max",
+		"DROP TABLE project_key_aliases",
 		"DROP TABLE task_stars",
 		"DROP TABLE group_prefs",
 		"ALTER TABLE tasks DROP COLUMN recurrence",

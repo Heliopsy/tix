@@ -114,8 +114,10 @@ func (in CreateProjectInput) Validate() error {
 
 // UpdateProjectInput changes a project. A pointer to an empty colour clears
 // it. Naming any icon field replaces the whole icon with that kind, and an
-// empty one clears it.
+// empty one clears it. A new key renames every task reference and keeps the
+// old key as an alias of the project.
 type UpdateProjectInput struct {
+	Key         *string `json:"key,omitempty" yaml:"key,omitempty"`
 	Name        *string `json:"name,omitempty" yaml:"name,omitempty"`
 	Description *string `json:"description,omitempty" yaml:"description,omitempty"`
 	WorkflowKey *string `json:"workflow_key,omitempty" yaml:"workflow_key,omitempty"`

@@ -706,6 +706,7 @@ func (i *importer) applyProject(ctx context.Context, tx store.Tx, m *mutation, p
 	switch {
 	case existing != nil:
 		target.ID = existing.ID
+		target.Key = existing.Key
 		i.mapID(p.ID, existing.ID)
 		if !i.dryRun {
 			if err := carryIconImage(ctx, tx, existing, target); err != nil {

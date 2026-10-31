@@ -137,6 +137,13 @@ type ProjectTx interface {
 	GetProjectIcon(ctx context.Context, projectID string) (*core.ProjectIconImage, error)
 	DeleteProjectIcon(ctx context.Context, projectID string) error
 
+	// AddProjectAlias keeps a key a project was renamed from.
+	AddProjectAlias(ctx context.Context, key, projectID string) error
+	// DeleteProjectAlias drops a kept key, reporting whether there was one.
+	DeleteProjectAlias(ctx context.Context, key string) (bool, error)
+	// ProjectAliasTarget returns the project a kept key belongs to.
+	ProjectAliasTarget(ctx context.Context, key string) (string, error)
+
 	PutFieldDef(ctx context.Context, d *core.FieldDef) error
 	ListFieldDefs(ctx context.Context, projectID string) ([]core.FieldDef, error)
 	DeleteFieldDef(ctx context.Context, projectID, key string) error

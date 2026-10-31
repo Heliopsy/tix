@@ -109,10 +109,7 @@ func (l *Local) CreateProject(ctx context.Context, in core.CreateProjectInput) (
 
 	var out *core.Project
 	err = l.write(ctx, actor, func(m *mutation) error {
-		switch _, err := m.tx.GetProject(ctx, key); {
-		case err == nil:
-			return core.Conflict("project key %q is already in use", key).WithDetail(core.DetailField, "key")
-		case !core.IsKind(err, core.KindNotFound):
+		if err := keyAvailable(ctx, m.tx, key, ""); err != nil {
 			return err
 		}
 		wf, err := lookupWorkflow(ctx, m.tx, workflowKey)
@@ -203,6 +200,13 @@ func (l *Local) UpdateProject(ctx context.Context, ref string, in core.UpdatePro
 	if in.Name != nil && strings.TrimSpace(*in.Name) == "" {
 		return nil, core.Invalid("project name is required").WithDetail(core.DetailField, "name")
 	}
+	var key string
+	if in.Key != nil {
+		key = strings.ToLower(strings.TrimSpace(*in.Key))
+		if err := core.ValidateProjectKey(key); err != nil {
+			return nil, core.OnField(err, "key")
+		}
+	}
 	var color core.ProjectColor
 	if in.Color != nil {
 		if color, err = core.NormalizeProjectColor(*in.Color); err != nil {
@@ -226,6 +230,13 @@ func (l *Local) UpdateProject(ctx context.Context, ref string, in core.UpdatePro
 			return err
 		}
 		before := *p
+		payload := map[string]any{}
+		if in.Key != nil && key != p.Key {
+			if err := rekeyProject(ctx, m.tx, p, key); err != nil {
+				return err
+			}
+			payload["previous_key"] = before.Key
+		}
 		if in.Name != nil {
 			p.Name = *in.Name
 		}
@@ -255,8 +266,8 @@ func (l *Local) UpdateProject(ctx context.Context, ref string, in core.UpdatePro
 			return err
 		}
 		out = p
-		return m.Record(auditProjectUpdate, core.EventProjectUpdated, "project", p.ID, p.ID, before, p,
-			map[string]any{"key": p.Key})
+		payload["key"] = p.Key
+		return m.Record(auditProjectUpdate, core.EventProjectUpdated, "project", p.ID, p.ID, before, p, payload)
 	})
 	if err != nil {
 		return nil, err
@@ -359,6 +370,44 @@ func (l *Local) GetProjectIcon(ctx context.Context, ref string) (*core.ProjectIc
 		return nil, err
 	}
 	return out, nil
+}
+
+// keyAvailable refuses a key that already addresses a project other than the
+// one named by self, whether as its key or as a key it was renamed from. An
+// old key is never handed to another project, because links written while it
+// was current would then open somebody else's tasks.
+func keyAvailable(ctx context.Context, tx store.Tx, key, self string) error {
+	holder, err := tx.GetProject(ctx, key)
+	switch {
+	case core.IsKind(err, core.KindNotFound):
+		return nil
+	case err != nil:
+		return err
+	case holder.ID == self:
+		return nil
+	case holder.Key != key:
+		return core.Conflict("project key %q is kept as an old key of project %q, so its links keep working", key, holder.Key).
+			WithDetail("project", holder.Key).WithDetail(core.DetailField, "key")
+	default:
+		return core.Conflict("project key %q is already in use", key).WithDetail(core.DetailField, "key")
+	}
+}
+
+// rekeyProject moves a project to a new key and keeps the old one as an alias.
+// Taking back one of the project's own old keys turns that alias back into the
+// key, so a rename can be undone.
+func rekeyProject(ctx context.Context, tx store.Tx, p *core.Project, key string) error {
+	if err := keyAvailable(ctx, tx, key, p.ID); err != nil {
+		return err
+	}
+	if _, err := tx.DeleteProjectAlias(ctx, key); err != nil {
+		return err
+	}
+	if err := tx.AddProjectAlias(ctx, p.Key, p.ID); err != nil {
+		return err
+	}
+	p.Key = key
+	return nil
 }
 
 // ensureStatusesSurvive refuses a workflow reassignment that would leave a task
