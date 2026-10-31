@@ -5,6 +5,7 @@ package web_test
 import (
 	"encoding/json"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -323,7 +324,9 @@ func TestALiveFragmentRendersThroughTheScreensOwnBlocks(t *testing.T) {
 	if row == "" {
 		t.Fatal("the listing has no row to compare")
 	}
-	if !strings.Contains(fragment, row) {
+	// The CSRF value is masked afresh on every response, so it is the one part
+	// of a row that is meant to differ between two renders of it.
+	if !strings.Contains(unmasked(fragment), unmasked(row)) {
 		t.Error("a refreshed row is not the row the page renders, so one of them is a second copy of the rule")
 	}
 }
@@ -364,4 +367,11 @@ func TestOneTaskRedrawsSoonerThanAWholeListing(t *testing.T) {
 	if list != "300" || detail != "150" {
 		t.Errorf("coalescing windows are list %q, task %q; want 300 and 150", list, detail)
 	}
+}
+
+var csrfValue = regexp.MustCompile(`name="csrf_token" value="[^"]*"`)
+
+// unmasked replaces every CSRF value in html with one placeholder.
+func unmasked(html string) string {
+	return csrfValue.ReplaceAllString(html, `name="csrf_token" value="-"`)
 }

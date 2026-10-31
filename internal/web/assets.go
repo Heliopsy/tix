@@ -39,6 +39,8 @@ type asset struct {
 	body        []byte
 	etag        string
 	contentType string
+	gzipped     []byte
+	gzipEtag    string
 }
 
 // assetSet serves the embedded stylesheet, scripts and icons.
@@ -67,6 +69,10 @@ func assetHandler() http.Handler {
 			etag:        assetETag(body),
 			contentType: assetContentType(name),
 		}
+		a := set.files[name]
+		a.gzipped = gzipBytes(body)
+		a.gzipEtag = assetETag(a.gzipped)
+		set.files[name] = a
 		return nil
 	})
 	if err != nil {
@@ -97,11 +103,16 @@ func (s *assetSet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	body, etag := a.body, a.etag
+	if acceptsGzip(r) && len(a.gzipped) < len(a.body) {
+		body, etag = a.gzipped, a.gzipEtag
+		w.Header().Set("Content-Encoding", "gzip")
+	}
 	w.Header().Set("Cache-Control", assetCacheControl)
-	w.Header().Set("ETag", a.etag)
+	w.Header().Set("ETag", etag)
 	w.Header().Set("Content-Type", a.contentType)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	// A zero modtime keeps ServeContent from emitting a Last-Modified an
 	// embedded file cannot honestly claim; the ETag is the validator.
-	http.ServeContent(w, r, name, time.Time{}, bytes.NewReader(a.body))
+	http.ServeContent(w, r, name, time.Time{}, bytes.NewReader(body))
 }

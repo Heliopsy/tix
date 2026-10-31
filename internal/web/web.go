@@ -152,6 +152,7 @@ func WithPageSize(rows int) Option {
 type handler struct {
 	svc            core.Service
 	mux            *http.ServeMux
+	served         http.Handler
 	templates      map[string]*template.Template
 	assets         http.Handler
 	logger         *slog.Logger
@@ -188,12 +189,13 @@ func Handler(svc core.Service, opts ...Option) http.Handler {
 	h.templates = parseTemplates(h.style, i18n.English)
 	h.assets = assetHandler()
 	h.register()
+	h.served = compressed(h.mux)
 	return h
 }
 
 // ServeHTTP serves one browser request.
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.mux.ServeHTTP(w, r)
+	h.served.ServeHTTP(w, r)
 }
 
 // register binds the asset route and every screen route.

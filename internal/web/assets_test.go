@@ -100,21 +100,43 @@ func TestAConditionalAssetRequestIsAnswered304(t *testing.T) {
 }
 
 // TestAnAssetETagTracksItsBytes proves the validator fingerprints content, so
-// an edited asset cannot be served under the fingerprint of the old one.
+// an edited asset cannot be served under the fingerprint of the old one. Each
+// encoding is a representation of its own, so each carries the digest of the
+// bytes actually sent: a cache holding the gzip body must not be able to
+// revalidate it against the plain one.
 func TestAnAssetETagTracksItsBytes(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	b := f.as("alice")
 
-	resp := b.get("/assets/app.css")
-	wantStatus(t, resp, http.StatusOK)
-	etag := resp.Header.Get("ETag")
-	sheet := body(t, resp)
-	if want := assetFingerprint([]byte(sheet)); etag != want {
-		t.Errorf("app.css ETag = %s, want %s derived from the bytes served;\n"+
-			"an ETag that is not a digest of the body cannot invalidate on an upgrade",
-			etag, want)
+	for _, encoding := range []string{"identity", "gzip"} {
+		resp := getEncoded(b, "/assets/app.css", encoding)
+		wantStatus(t, resp, http.StatusOK)
+		etag := resp.Header.Get("ETag")
+		sheet := body(t, resp)
+		if want := assetFingerprint([]byte(sheet)); etag != want {
+			t.Errorf("app.css as %s: ETag = %s, want %s derived from the bytes served;\n"+
+				"an ETag that is not a digest of the body cannot invalidate on an upgrade",
+				encoding, etag, want)
+		}
 	}
+}
+
+// getEncoded fetches path asking for one content coding, and hands back the
+// body exactly as it came off the wire.
+func getEncoded(b *browser, path, encoding string) *http.Response {
+	b.t.Helper()
+	req, err := http.NewRequest(http.MethodGet, b.fix.server.URL+path, nil)
+	if err != nil {
+		b.t.Fatalf("building request: %v", err)
+	}
+	req.Header.Set("Accept-Encoding", encoding)
+	b.stamp(req)
+	resp, err := b.client.Do(req)
+	if err != nil {
+		b.t.Fatalf("getting %s: %v", path, err)
+	}
+	return resp
 }
 
 // TestAnUnknownAssetIs404 keeps a missing or renamed asset from reaching the
