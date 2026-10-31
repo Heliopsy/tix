@@ -603,3 +603,42 @@ it, a scannable code, and SHALL display the recovery codes exactly once.
 
 - **WHEN** an administrator clears another user's enrolment
 - **THEN** the command succeeds, and a user without the administrative scope attempting the same is refused
+
+### Requirement: Starring from the command line
+
+The CLI SHALL offer `tix task star <ref>` and `tix task unstar <ref>`. `tix task ls` SHALL mark a
+starred task in its table output, `tix task show` SHALL state whether the task is starred, and the
+structured output of both SHALL carry `starred: true` for a starred task. `tix task ls` SHALL
+accept `--starred` and `--starred=false`.
+
+#### Scenario: Star then list
+
+- **WHEN** `tix task star OPS-3` is run and then `tix task ls`
+- **THEN** OPS-3 is the first row and is marked starred
+
+#### Scenario: Structured output
+
+- **WHEN** `tix task show OPS-3 -o json` is run for a starred task
+- **THEN** the document carries `"starred": true`
+
+### Requirement: The command line sets, clears and shows a repeat rule
+
+`tix task add` SHALL accept `--repeat RULE`. `tix task edit` SHALL accept `--repeat RULE` to set or replace
+the rule and `--no-repeat` to remove it, and SHALL refuse both together as a usage error. `tix task show`
+SHALL state the rule and the successor's reference when there is one; the table listing SHALL mark a
+recurring task; JSON and YAML output SHALL carry `recurrence` and `recurrence_next_id`.
+
+#### Scenario: Add with a rule
+
+- **WHEN** `tix task add "Pay rent" --due 2026-11-01 --repeat monthly` is run
+- **THEN** the task is created carrying `every month`
+
+#### Scenario: Both flags
+
+- **WHEN** `tix task edit REF --repeat daily --no-repeat` is run
+- **THEN** it exits with a usage error and the task is unchanged
+
+#### Scenario: Show
+
+- **WHEN** `tix task show` is run on a finished occurrence that spawned
+- **THEN** the output states its rule and names the successor's reference

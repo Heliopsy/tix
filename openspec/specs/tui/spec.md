@@ -1592,3 +1592,37 @@ SHALL be kept and the mark dropped.
 
 - **WHEN** a string, styled or plain, is cut to one cell
 - **THEN** it draws the first character of its visible text and no ellipsis
+
+### Requirement: The terminal interface stars a task
+
+The terminal interface SHALL toggle the star on the selected task with the `*` key, offered only
+to a reader who may star and unstar, and listed in the help overlay and the command palette. A
+starred task SHALL be marked on its card and SHALL be drawn first within its board column.
+
+#### Scenario: Toggling a star
+
+- **GIVEN** an unstarred task selected on the board
+- **WHEN** the reader presses `*`
+- **THEN** the task is starred, the board reloads, and the card is marked and first in its column
+
+#### Scenario: The key is offered only with the authority
+
+- **GIVEN** a reader who may not star
+- **WHEN** the help overlay is opened
+- **THEN** the star key is not listed and pressing it calls nothing
+
+### Requirement: The terminal interface marks recurring tasks
+
+A board card for a task carrying a recurrence rule SHALL show a repeat marker, and the task detail view
+SHALL state the rule in its canonical spelling. The terminal interface does not edit due dates, and SHALL
+NOT edit the rule either; it is set from the command line, the browser or the API.
+
+#### Scenario: Card marker
+
+- **WHEN** the board shows a task carrying `every week`
+- **THEN** its card carries the repeat marker and a card for a task with no rule does not
+
+#### Scenario: Detail
+
+- **WHEN** the detail view is opened on a task carrying `every 2 weeks on mon,thu`
+- **THEN** it states `every 2 weeks on mon,thu`

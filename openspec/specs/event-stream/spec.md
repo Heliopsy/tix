@@ -46,7 +46,7 @@ Each event SHALL carry a sequence number that increases monotonically within a d
 
 ### Requirement: Event taxonomy
 
-The system SHALL define a closed set of event types covering task created, task updated, task transitioned, task claimed, task released, task lease expired, task deleted, comment created, artifact created, dependency changed, tag changed, project changed, workflow changed, field definition changed, webhook delivery outcome, webhook redelivery, and import completed. Each mutation SHALL emit the event type that describes it, and every type a mutation can emit SHALL be nameable in a subscription filter.
+The system SHALL define a closed set of event types covering task created, task updated, task transitioned, task claimed, task released, task lease expired, task deleted, task starred, task unstarred, comment created, artifact created, dependency changed, tag changed, project changed, workflow changed, field definition changed, webhook delivery outcome, webhook redelivery, and import completed. Each mutation SHALL emit the event type that describes it, and every type a mutation can emit SHALL be nameable in a subscription filter.
 
 #### Scenario: Transition emits its own type
 
@@ -72,6 +72,11 @@ The system SHALL define a closed set of event types covering task created, task 
 
 - **WHEN** a consumer subscribes with a filter naming any type in the defined set, including webhook redelivery
 - **THEN** the subscription is accepted and receives events of that type
+
+#### Scenario: A star emits its own type
+
+- **WHEN** an actor stars a task and later unstars it
+- **THEN** a task starred event and then a task unstarred event are emitted, each carrying the task's ref and the acting actor, and neither is emitted for a star or unstar that changed nothing
 
 ### Requirement: Event payload shape
 
@@ -402,3 +407,14 @@ carries, or the retry behaviour of a subscriber whose reads are failing.
 
 - **WHEN** events are committed in quick succession and a subscriber is woken by each
 - **THEN** it receives them in strictly increasing sequence order, with no duplicate and no gap, and can resume from any of their sequence numbers
+
+### Requirement: A spawned occurrence is announced like any created task
+
+The next occurrence of a recurring task SHALL be announced by an ordinary `task.created` event, written in
+the transaction that finished its predecessor, whose payload SHALL carry `recurs_from`, the predecessor's
+reference. The predecessor's `task.transitioned` event SHALL carry `next`, the successor's reference.
+
+#### Scenario: Subscriber sees both
+
+- **WHEN** a recurring task is finished while a subscriber is watching
+- **THEN** the subscriber receives the `task.transitioned` event naming `next` and a `task.created` event naming `recurs_from`
