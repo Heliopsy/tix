@@ -1,7 +1,8 @@
 # task-recurrence Specification
 
 ## Purpose
-TBD - created by archiving change tasks-repeat-when-done. Update Purpose after archive.
+
+Lets a task carry a repeat rule, so finishing it creates the next occurrence with its due date moved on, instead of somebody re-entering routine work by hand.
 
 ## Requirements
 

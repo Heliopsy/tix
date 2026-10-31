@@ -137,7 +137,7 @@ The CLI SHALL disable colour when `NO_COLOR` is set, when output is not a termin
 
 ### Requirement: Documented exit codes
 
-The CLI SHALL use exit code 0 for success, 1 for a generic error, 2 for a usage error, 3 for not found or no task available, 4 for conflict or lease expired, 5 for an authentication or authorization failure, and 6 for a failed precondition. These codes SHALL be documented in help output.
+The CLI SHALL use exit code 0 for success, 1 for a generic error, 2 for a usage error, 3 for not found or no task available, 4 for conflict or lease expired, 5 for an authentication or authorization failure, 6 for a failed precondition, and 7 when a system tix reads from, such as a sync source, could not be read. These codes SHALL be documented in help output.
 
 #### Scenario: Success
 
@@ -168,6 +168,11 @@ The CLI SHALL use exit code 0 for success, 1 for a generic error, 2 for a usage 
 
 - **WHEN** the actor is not permitted to perform the operation
 - **THEN** it exits 5
+
+#### Scenario: Upstream unreachable
+
+- **WHEN** a sync run cannot reach the system it imports from
+- **THEN** it exits 7
 
 ### Requirement: Exit codes derive from the service error taxonomy
 
@@ -209,7 +214,7 @@ Every command that mutates state SHALL accept `--dry-run`, which reports exactly
 
 ### Requirement: Command surface
 
-The CLI SHALL provide the command groups `task`, `project`, `workflow`, `field`, `claim`, `comment`, `dep`, `tag`, `user`, `token`, `ctx`, `config`, `tenant`, `watch`, `doctor`, `serve`, `tui`, `export`, `import`, `bundle`, `sync`, `webhook`, `prune`, `docs`, `completion`, and `version`.
+The CLI SHALL provide the top-level commands `actor`, `artifact`, `audit`, `bundle`, `claim`, `comment`, `completion`, `config`, `connection`, `ctx`, `demo`, `dep`, `docs`, `doctor`, `domain`, `export`, `field`, `import`, `login`, `logout`, `member`, `project`, `prune`, `retention`, `serve`, `ssh`, `stats`, `status`, `sync`, `tag`, `task`, `tenant`, `theme`, `token`, `tui`, `update`, `user`, `version`, `watch`, `webhook`, and `workflow`. The root help SHALL list exactly these, so a command added to the tree is added here.
 
 #### Scenario: Every group is reachable
 

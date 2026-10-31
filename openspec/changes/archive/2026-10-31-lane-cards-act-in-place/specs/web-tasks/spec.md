@@ -95,7 +95,6 @@ card SHALL render ticked whichever control it offers.
 - **WHEN** the lane card is drawn
 - **THEN** no route is submitted by the tick and its panel says they cannot move tasks
 
-
 ### Requirement: A lane card's status and priority are menus
 
 A lane card SHALL draw its status badge as a control that opens a menu of the routes the reader may
