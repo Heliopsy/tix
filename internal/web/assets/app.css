@@ -5779,3 +5779,7 @@ li.task:has(> .title-edit-error:not([hidden])),
     padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
   }
 }
+.viewstack { display: flex; flex-direction: column; gap: 18px; }
+.viewstack > .viewblock.is-empty { display: none; }
+.viewstack > .viewblock:not(.is-empty) ~ .viewblock:not(.is-empty) { border-top: 1px solid var(--line); padding-top: 18px; }
+.listgroup > .tasklist { height: auto; max-height: none; min-height: 0; }

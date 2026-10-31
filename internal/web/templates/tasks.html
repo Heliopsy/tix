@@ -51,16 +51,17 @@
             {{template "column-choices" .ColumnForm}}
           </section>
           {{end}}
+          <section class="viewstack">
           {{if eq $v.View "list"}}
-          <section>
+          <div class="viewblock">
             <div class="headtip"><p class="viewhead">{{t "Group the list"}}</p>{{template "tip" (tip "Grouping" "Draws a heading per project or per status over the rows of this page. Each heading has the same menu as a lane or a board column, and shares its arrangement." "docs/web-ui.md")}}</div>
             {{template "listgroup-switch" $v.Prefs.ListGroup}}
-          </section>
+          </div>
           {{end}}
           {{/* The groups this reader hid on the view in force, the same Show
                forms as the Hidden control at the end of the view. Replaced
                out of band when a heading menu changes the arrangement. */}}
-          <section id="view-groups">
+          <div class="viewblock{{if not $v.Arrange.View}} is-empty{{end}}" id="view-groups">
             {{if $v.Arrange.View}}
             <div class="headtip"><p class="viewhead">{{if eq $v.Arrange.View "lanes"}}{{t "Hidden lanes"}}{{else}}{{t "Hidden columns"}}{{end}}</p>{{template "tip" (tip "Arranging columns and lanes" "The three dots on a column, lane or group heading hide, star, collapse or move it. The arrangement is yours, kept with your account, so it follows you to any browser and changes nothing anybody else sees." "docs/web-ui.md")}}</div>
             {{if $v.Arrange.Hidden}}<div class="viewgroups">{{template "group-shows" (groupMenu $v.Arrange (groupHeadNone))}}</div>
@@ -74,10 +75,11 @@
             </form>
             {{end}}
             {{end}}
-          </section>
-          <section>
+          </div>
+          <div class="viewblock">
             <div class="headtip"><p class="viewhead">{{t "Projects"}}</p>{{template "tip" (tip "Project visibility" "Untick a project to leave its tasks out of this screen. The choice is kept in this browser only, and a filter that names a project shows it anyway." "docs/web-ui.md")}}</div>
             {{template "project-choices" $v.Prefs.Projects}}
+          </div>
           </section>
         </div>
         <button type="button" class="flowclose" popovertarget="viewprefs" popovertargetaction="hide">{{t "Close"}}</button>

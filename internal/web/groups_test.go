@@ -123,7 +123,7 @@ func TestAHiddenColumnFollowsTheReaderAndNobodyElse(t *testing.T) {
 		!strings.Contains(hidden, `name="value" value="0"`) {
 		t.Errorf("the Hidden control does not offer done back:\n%s", hidden)
 	}
-	viewGroups := between(t, page, `<section id="view-groups">`, "</section>")
+	viewGroups := between(t, page, `id="view-groups">`, `<div class="viewblock">`)
 	if !strings.Contains(viewGroups, `name="group" value="done"`) || !strings.Contains(viewGroups, `action="/view/reset"`) {
 		t.Errorf("the View menu does not list the hidden column and a reset:\n%s", viewGroups)
 	}

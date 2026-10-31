@@ -553,7 +553,7 @@
       <input type="hidden" name="group" value="{{$g.Key}}">
       <input type="hidden" name="next" value="{{$a.Self}}">
       <input type="hidden" name="set" value="collapsed">
-      <button type="submit" name="value" value="{{if $g.Collapsed}}0{{else}}1{{end}}" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">{{if $g.Collapsed}}&#8596;{{else}}&#8594;&#8592;{{end}}</span>{{if $g.Collapsed}}{{t "Expand"}}{{else}}{{t "Collapse"}}{{end}}</button>
+      <button type="submit" name="value" value="{{if $g.Collapsed}}0{{else}}1{{end}}" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">{{if $g.Collapsed}}&#8677;{{else}}&#8676;{{end}}</span>{{if $g.Collapsed}}{{t "Expand"}}{{else}}{{t "Collapse"}}{{end}}</button>
     </form>
     {{if or $g.Left $g.Right}}
     <form method="post" action="/view/order" hx-post="/view/order" hx-target="{{$a.Region}}" hx-select="{{$a.Region}}" hx-swap="outerHTML"{{if eq $a.Region "#tasks-listing"}} hx-select-oob="#view-groups"{{end}} data-group-control="{{$g.Key}}">
@@ -576,10 +576,10 @@
     </form>
     <p class="flowhead lanemore-sect groupmenu-sect">{{if eq $g.Kind "project"}}{{t "Project"}}{{else}}{{t "Status"}}{{end}}</p>
     {{if eq $g.Kind "project"}}
-    <a class="flowgo" href="/projects/{{$g.Key}}">{{t "Open the project"}}</a>
-    <a class="flowgo" href="/tasks?q=project:{{$g.Key}}">{{t "Show only this project"}}</a>
+    <a class="flowgo" href="/projects/{{$g.Key}}"><span class="groupmenu-icon" aria-hidden="true">&#8599;&#xFE0E;</span>{{t "Open the project"}}</a>
+    <a class="flowgo" href="/tasks?q=project:{{$g.Key}}"><span class="groupmenu-icon" aria-hidden="true">&#8981;</span>{{t "Show only this project"}}</a>
     {{else}}
-    <a class="flowgo" href="/tasks?q=status:{{$g.Key}}">{{t "Show only this status"}}</a>
+    <a class="flowgo" href="/tasks?q=status:{{$g.Key}}"><span class="groupmenu-icon" aria-hidden="true">&#8981;</span>{{t "Show only this status"}}</a>
     {{end}}
     {{if and $a.CanCreate $g.Projects}}
     <form method="post" action="/tasks" class="groupmenu-add">
