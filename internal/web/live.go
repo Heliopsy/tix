@@ -103,6 +103,7 @@ func screenHref(r *http.Request, route string) string {
 	u.Path = route
 	query := u.Query()
 	query.Del("flash")
+	query.Del("flashref")
 	u.RawQuery = query.Encode()
 	return u.RequestURI()
 }

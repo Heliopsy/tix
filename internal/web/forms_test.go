@@ -35,7 +35,7 @@ func TestFormWorksWithoutJavaScript(t *testing.T) {
 	if !strings.Contains(listed, "created without scripts") {
 		t.Fatalf("the task a plain form created is not listed")
 	}
-	detail := b.page(resp.Header.Get("Location"))
+	detail := b.page("/tasks/" + createdRef(resp.Header.Get("Location")))
 	for _, want := range []string{"submitted by a plain form post", "ops", "urgent"} {
 		if !strings.Contains(detail, want) {
 			t.Fatalf("the created task lost %q", want)

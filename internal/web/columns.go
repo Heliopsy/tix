@@ -59,12 +59,14 @@ const columnsVersion = "v2"
 // or put a record out of reach.
 var columnSets = map[string][]Column{
 	"tasks": {
+		{Key: "star", Label: "Star", Default: true},
 		{Key: "status", Label: "Status", Default: true},
 		{Key: "priority", Label: "Priority", Default: true},
 		{Key: "tags", Label: "Tags", Default: true},
 		{Key: "assignee", Label: "Assignee", Default: true},
 		{Key: "project", Label: "Project", Default: true},
 		{Key: "due", Label: "Due", Default: true},
+		{Key: "repeat", Label: "Repeats", Default: true},
 		{Key: "updated", Label: "Updated"},
 		{Key: "ref", Label: "Reference", Default: true},
 	},

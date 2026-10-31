@@ -389,6 +389,7 @@ func (v view) CanStar() bool {
 func here(r *http.Request) string {
 	query := r.URL.Query()
 	query.Del("flash")
+	query.Del("flashref")
 	if len(query) == 0 {
 		return r.URL.Path
 	}
@@ -532,16 +533,14 @@ const OpenAfterAddCookie = "tix_open_after_add"
 // openAfterAdd reports whether a new task's own screen should be opened once
 // it is created.
 //
-// On by default, because that is what the screen has always done and because
-// somebody adding one considered task usually wants to keep writing it. It is
-// the wrong default for the other way of using this box, which is emptying a
-// head onto the list: there each add threw the page away, and getting back to
-// type the next one meant the back button, every time.
-//
-// Absent means on, so a browser that has said nothing behaves as before.
+// Off by default: adding a task leaves the reader on the listing, with a
+// toast linking the new task and its row marked. "1" opens it. A cookie that
+// is present but empty also opens it, because that is what earlier builds
+// wrote when a reader turned the preference on, and a reader who chose it
+// keeps it. Only a browser that never chose changes behaviour.
 func openAfterAdd(r *http.Request) bool {
 	c, err := r.Cookie(OpenAfterAddCookie)
-	return err != nil || c.Value != "0"
+	return err == nil && c.Value != "0"
 }
 
 // HoverCookie remembers whether this browser wants hover effects.
@@ -797,6 +796,15 @@ type errorView struct {
 	Back    string
 }
 
+// BackLabel names the first way out. The task list is named as itself; any
+// other target is the screen the reader was on.
+func (e errorView) BackLabel() string {
+	if e.Back == RouteTasks {
+		return "Back to tasks"
+	}
+	return "Back to where you were"
+}
+
 // fail renders the error screen, disclosing the domain message only. An
 // internal failure is reported generically, so no query text or stack trace
 // can reach a browser.
@@ -828,13 +836,25 @@ func hintFor(kind core.Kind) string {
 	}
 }
 
-// backFrom is the screen a failed mutation came from, so the reader returns to
-// their work rather than to the dashboard.
+// backFrom is the screen a failed request came from, so the reader returns to
+// their work. A failed mutation goes back to the screen it was posted from. A
+// failed page goes back to the page that linked to it when that was one of
+// ours, and otherwise to the task list. It used to answer "/", which is not a
+// screen: it redirects to the projects list, so "back" from a task that no
+// longer existed landed somewhere the reader had never been.
 func backFrom(r *http.Request) string {
-	if r.Method != http.MethodPost {
-		return RouteRoot
+	if r.Method == http.MethodPost {
+		return safeNext(r.URL.Path)
 	}
-	return safeNext(r.URL.Path)
+	ref := r.Referer()
+	if ref == "" {
+		return RouteTasks
+	}
+	u, err := url.Parse(ref)
+	if err != nil || u.IsAbs() && u.Host != r.Host || u.Path == r.URL.Path || u.Path == RouteRoot {
+		return RouteTasks
+	}
+	return backTarget(withoutFlash(u.Path, u.Query()))
 }
 
 // safeMessage returns the text an error may disclose to a browser.
@@ -932,7 +952,8 @@ func redirect(w http.ResponseWriter, r *http.Request, path, flash string) {
 	// None of those can carry a path separator, which is what keeps the route:
 	// http.Redirect runs path.Clean over a relative location, so
 	// "/workflows/" + "../admin" would answer with /admin. The flash is
-	// query-escaped.
+	// query-escaped, and so is the next a task screen's address carries,
+	// which has been through safeNext first.
 	http.Redirect(w, r, target, http.StatusSeeOther)
 }
 

@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 )
@@ -121,6 +123,17 @@ type taskView struct {
 	// Successor is the reference of the occurrence this task spawned when it
 	// was finished, empty when it has none or the reader cannot see it.
 	Successor string
+	// SuccessorDue is when that occurrence is due, when it has a date.
+	SuccessorDue *time.Time
+	// NextDue is when the next occurrence would fall due were this task
+	// finished now, for a repeating task that has not spawned one yet.
+	NextDue *time.Time
+	// LastOccurrence says the rule has run out: finishing this task creates
+	// no further one.
+	LastOccurrence bool
+
+	// Parent is the task this one is a subtask of, when the reader can see it.
+	Parent *core.Task
 
 	// Back is the listing the reader came from, carried in the link they
 	// followed. A task opened from a filtered list used to strand them: the
@@ -128,20 +141,98 @@ type taskView struct {
 	// sidebar goes to the unfiltered list. It falls back to the plain task
 	// list so the link is always there rather than appearing and vanishing.
 	Back string
+
+	// BackLabel names where Back goes, so the link says where it leads
+	// rather than promising "the list" and arriving at a board.
+	BackLabel string
 }
 
-// backTo resolves where this screen's back link points. The listing travels
-// in the link the reader followed, and goes through the same check as every
-// other redirect target, so a crafted next cannot send them off site.
+// backTo resolves where this screen's back link points.
+//
+// The listing travels in the link the reader followed, and goes through the
+// same check as every other redirect target, so a crafted next cannot send
+// them off site. A link that carried none -- a board card, a flash, a
+// subtask -- or a reload after saving, which redirects to the bare task
+// address, is answered from the referring page: a listing is returned to as
+// it was, and this same screen hands on the next it was opened with. Saving
+// a tag used to drop the reader's filter from the back link for that reason.
 func backTo(r *http.Request) string {
-	next := r.URL.Query().Get("next")
-	if next == "" {
+	if next := r.URL.Query().Get("next"); next != "" {
+		return backTarget(next)
+	}
+	ref := r.Referer()
+	if ref == "" {
 		return RouteTasks
 	}
+	u, err := url.Parse(ref)
+	if err != nil || u.IsAbs() && u.Host != r.Host {
+		return RouteTasks
+	}
+	if u.Path == RouteTasks+"/"+r.PathValue("ref") {
+		if next := u.Query().Get("next"); next != "" {
+			return backTarget(next)
+		}
+		return RouteTasks
+	}
+	if isListing(u.Path) {
+		return withoutFlash(u.Path, u.Query())
+	}
+	return RouteTasks
+}
+
+// backTarget is a next value made safe, or the task list where it was not.
+func backTarget(next string) string {
 	if back := safeNext(next); back != RouteProjects || strings.HasPrefix(next, RouteProjects) {
 		return back
 	}
 	return RouteTasks
+}
+
+// isListing reports whether a path is a screen that lists tasks: the task
+// list, or one project's board.
+func isListing(path string) bool {
+	if path == RouteTasks {
+		return true
+	}
+	key, ok := strings.CutPrefix(path, RouteProjects+"/")
+	return ok && key != "" && !strings.Contains(key, "/")
+}
+
+// backLabel names a back target in the words its own screen uses.
+func backLabel(back string) string {
+	path, _, _ := strings.Cut(back, "?")
+	if key, ok := strings.CutPrefix(path, RouteProjects+"/"); ok && isListing(path) {
+		return "Back to the " + key + " board"
+	}
+	switch path {
+	case RouteTasks:
+		return "Back to tasks"
+	case RouteActivity:
+		return "Back to activity"
+	case RouteStats:
+		return "Back to statistics"
+	}
+	return "Back"
+}
+
+// nextOccurrence is when a repeating task's next occurrence would fall due
+// were it finished at now, and whether its rule has run out instead. It asks
+// the same rule the service applies on completion, so the screen cannot
+// promise a date the completion would not produce. A task that does not
+// repeat, or has already been finished, has neither.
+func nextOccurrence(t core.Task, now time.Time) (*time.Time, bool) {
+	if t.Recurrence == "" || t.CompletedAt != nil {
+		return nil, false
+	}
+	rule, err := core.ParseRecurrence(t.Recurrence)
+	if err != nil {
+		return nil, false
+	}
+	next, ok := rule.Next(t.DueAt, now)
+	if !ok {
+		return nil, true
+	}
+	return &next, false
 }
 
 // actorIDs lists every actor the screen names, so one pass over the directory
@@ -215,6 +306,7 @@ func (h *handler) buildTaskView(r *http.Request) (taskView, error) {
 		CanAudit:      actor.HasScope(core.ScopeAuditRead),
 		Back:          backTo(r),
 	}
+	data.BackLabel = backLabel(data.Back)
 	if err := h.attachRelations(r, ref, &data); err != nil {
 		return taskView{}, err
 	}
@@ -229,6 +321,14 @@ func (h *handler) buildTaskView(r *http.Request) (taskView, error) {
 	if task.RecurrenceNextID != "" {
 		if next, err := h.svc.GetTask(r.Context(), core.TaskRef{ID: task.RecurrenceNextID}); err == nil {
 			data.Successor = next.Ref
+			data.SuccessorDue = next.DueAt
+		}
+	} else {
+		data.NextDue, data.LastOccurrence = nextOccurrence(*task, time.Now())
+	}
+	if task.ParentID != "" {
+		if parent, err := h.svc.GetTask(r.Context(), core.TaskRef{ID: task.ParentID}); err == nil {
+			data.Parent = parent
 		}
 	}
 	data.Names = h.resolveActors(r, data.actorIDs()...)
@@ -393,8 +493,17 @@ func taskRefOf(r *http.Request) (core.TaskRef, error) {
 	return core.ParseTaskRef(r.PathValue("ref"))
 }
 
-// taskPath is the detail screen of the task in the request path.
-func taskPath(r *http.Request) string { return RouteTasks + "/" + r.PathValue("ref") }
+// taskPath is the detail screen of the task in the request path, still
+// carrying the listing its back link returns to. Every save on that screen
+// redirects here, and a bare address would have reset the back link to the
+// plain task list after the first tag or comment.
+func taskPath(r *http.Request) string {
+	path := RouteTasks + "/" + r.PathValue("ref")
+	if back := backTo(r); back != RouteTasks {
+		return path + "?next=" + url.QueryEscape(back)
+	}
+	return path
+}
 
 // updateTask saves the detail screen's edit form.
 func (h *handler) updateTask(w http.ResponseWriter, r *http.Request) error {
@@ -575,7 +684,7 @@ func (h *handler) deleteTask(w http.ResponseWriter, r *http.Request) error {
 	if err := h.svc.DeleteTask(r.Context(), ref, in); err != nil {
 		return err
 	}
-	redirect(w, r, RouteTasks, "task deleted")
+	redirect(w, r, backTo(r), "task deleted")
 	return nil
 }
 

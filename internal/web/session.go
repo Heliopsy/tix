@@ -274,13 +274,12 @@ func (h *handler) toggleDragMove(w http.ResponseWriter, r *http.Request) error {
 
 // toggleOpenAfterAdd decides whether adding a task leaves the listing.
 //
-// Default on, so an absent cookie behaves the way the screen always has.
-// Same polarity as Drag to move for that reason: "0" is the only value that
-// turns it off.
+// Default off. Both states are written explicitly, "1" and "0", so a stored
+// choice never depends on how an absent cookie is read.
 func (h *handler) toggleOpenAfterAdd(w http.ResponseWriter, r *http.Request) error {
-	value := "0"
-	if !openAfterAdd(r) {
-		value = ""
+	value := "1"
+	if openAfterAdd(r) {
+		value = "0"
 	}
 	// #nosec G124 -- a display preference, readable by no script.
 	http.SetCookie(w, &http.Cookie{

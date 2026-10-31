@@ -99,7 +99,13 @@
         .then(function (resp) { return resp.ok ? resp.text() : null; })
         .then(function (html) {
           pending = null;
-          if (html === null || bound !== target) {
+          // A boosted navigation can swap the page in before htmx:load moves
+          // the binding, so the element this was asked for may already be
+          // gone while bound still names it. The new page was rendered after
+          // the change that prompted this, and drawing the old page's answer
+          // over it threw away its own state: the row a just-added task was
+          // marked on lost its ring.
+          if (html === null || bound !== target || spec.find() !== target) {
             return;
           }
           if (spec.busy(target)) {
