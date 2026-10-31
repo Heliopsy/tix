@@ -252,6 +252,13 @@
       return;
     }
     pending = null;
+    // The dialog's entry becomes the page's first, as leaveTo does: the
+    // dialog's close event arrives after this, and finding its entry still
+    // there it went Back, aborting the page the answer named and its toast.
+    var state = window.history.state;
+    if (state && state.tixDialog) {
+      window.history.replaceState(null, "", state.over);
+    }
     closeNow();
     window.location.replace(xhr.responseURL || over);
   });

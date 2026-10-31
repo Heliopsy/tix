@@ -403,6 +403,11 @@ test("a save answered with another page leaves the dialog for it", () => {
   assert.equal(d.shouldSwap, false, "a whole page was drawn inside the dialog");
   assert.equal(p.dlg.open, false);
   assert.deepEqual(p.nav, [["replace", ORIGIN + "/tasks?flash=task+deleted"]]);
+  // The dialog's own close event arrives after the navigation began. Going
+  // Back from it would abort the page the answer named, toast and all.
+  p.fire("close", { target: p.dlg });
+  assert.equal(p.history.backs, 0, "the late close went Back over the page the answer named");
+  assert.notEqual(p.history.state && p.history.state.tixDialog, true, "the dialog's entry outlived the dialog");
 });
 
 test("a save in the dialog redraws it and refreshes the page under it", () => {
