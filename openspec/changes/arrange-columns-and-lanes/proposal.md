@@ -34,7 +34,7 @@ of the reader's own user rather than of one browser.
 
 ## Impact
 
-- New table `group_prefs` (migration 0016), store methods on both engines.
+- New table `group_prefs` (migration 0018), store methods on both engines.
 - `core.GroupPref`, `core.GroupPrefInput`, `core.GroupOrderInput`, `core.ViewService` with four
   methods, one event type, one authz action, four registry entries.
 - No change for a reader who arranges nothing: every view draws exactly as before.

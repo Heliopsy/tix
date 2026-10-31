@@ -169,6 +169,7 @@ func (rt *Router) register() {
 	rt.registerTransferRoutes()
 	rt.registerBundleRoutes()
 	rt.registerConnectionRoutes()
+	rt.registerViewRoutes()
 
 	if rt.cfg.EventHandler != nil {
 		rt.mux.Handle(wire.RouteEvents, rt.cfg.EventHandler)

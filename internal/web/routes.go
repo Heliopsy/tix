@@ -164,6 +164,10 @@ const (
 	RouteCommentDel   = "/tasks/{ref}/comments/delete"
 	RouteTaskArts     = "/tasks/{ref}/artifacts"
 
+	RouteViewGroup = "/view/group"
+	RouteViewOrder = "/view/order"
+	RouteViewReset = "/view/reset"
+
 	RouteTenant        = "/admin/tenant"
 	RouteMembers       = "/admin/tenant/members"
 	RouteMemberRemove  = "/admin/tenant/members/remove"

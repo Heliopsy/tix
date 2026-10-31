@@ -39,6 +39,8 @@ type fakeService struct {
 	starred  []core.TaskRef
 	unstars  []core.TaskRef
 
+	groupPrefs map[string][]core.GroupPref
+
 	// what the destructive and corrective calls recorded, and what the reads
 	// the forms offer from are scripted to answer with.
 	deleted        []core.DeleteTaskInput

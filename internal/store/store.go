@@ -60,6 +60,7 @@ type Tx interface {
 	WebhookTx
 	SyncTx
 	StatsTx
+	ViewTx
 
 	Commit() error
 	Rollback() error
@@ -190,6 +191,17 @@ type TaskTx interface {
 	UnstarTask(ctx context.Context, actorID, taskID string) (bool, error)
 	// StarredTasks reports which of the given tasks the actor has starred.
 	StarredTasks(ctx context.Context, actorID string, taskIDs []string) (map[string]bool, error)
+}
+
+// ViewTx covers each actor's own arrangement of the groups a view draws.
+type ViewTx interface {
+	// GroupPrefs lists an actor's preferences on one view.
+	GroupPrefs(ctx context.Context, actorID, view string) ([]core.GroupPref, error)
+	// SaveGroupPref inserts or replaces an actor's preference on one group.
+	SaveGroupPref(ctx context.Context, actorID string, p core.GroupPref) error
+	// DeleteGroupPrefs removes an actor's preference on one group, or on every
+	// group of the view when group is empty, reporting how many it removed.
+	DeleteGroupPrefs(ctx context.Context, actorID, view, group string) (int64, error)
 }
 
 // ClaimTx covers the work queue.
