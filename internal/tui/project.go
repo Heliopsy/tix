@@ -219,6 +219,7 @@ func projectRow(label, value string) ProjectLine {
 // action it releases cannot spell one differently.
 const (
 	attrName        = "name"
+	attrKey         = "key"
 	attrDescription = "description"
 	attrIcon        = "icon"
 	attrColour      = "colour"
@@ -254,7 +255,7 @@ func ColourValue(option string) string {
 	return option
 }
 
-// ProjectEditForm offers the project attributes an edit can change. The three
+// ProjectEditForm offers the project attributes an edit can change. The four
 // free-text ones are answered by the single-line prompt the form hands over to,
 // and the two drawn from fixed sets are answered here, so one key reaches every
 // field the operation accepts rather than reaching the enumerable ones only.
@@ -263,7 +264,7 @@ func ColourValue(option string) string {
 // one workflow has no choice to make, and a field whose list holds the current
 // answer alone is a question with one answer.
 func ProjectEditForm(p core.Project, workflows []string) Form {
-	attributes := []string{attrName, attrDescription, attrIcon, attrColour}
+	attributes := []string{attrName, attrKey, attrDescription, attrIcon, attrColour}
 	if len(workflows) > 1 {
 		attributes = append(attributes, attrWorkflow)
 	}

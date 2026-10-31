@@ -29,6 +29,7 @@ const (
 	promptActivityFilter
 	promptTenant
 	promptProjectName
+	promptProjectKey
 	promptProjectDesc
 	promptProjectIcon
 	promptNewField
@@ -83,6 +84,8 @@ var promptSpecs = map[promptKind]PromptSpec{
 	// The project screen's own inputs. Each is seeded with the value it would
 	// replace, so an edit starts from what is there rather than from blank.
 	promptProjectName: {Prompt: "project name: ", Placeholder: "what this project is called", Limit: 256, Field: "name"},
+	// A new key renames every task reference; the old key keeps resolving.
+	promptProjectKey: {Prompt: "project key: ", Placeholder: "letters, digits, - and _; old references keep working", Limit: 64, Field: "key"},
 	// A project's description is prose too, and the one prose field that screen
 	// has.
 	promptProjectDesc: {Prompt: "description: ", Placeholder: "what this project is for", Limit: 1024, Field: "description", Multiline: true},
@@ -115,7 +118,7 @@ func (k promptKind) Spec() (PromptSpec, bool) {
 func (k promptKind) NeedsTask() bool {
 	switch k {
 	case promptNone, promptFilter, promptActivityFilter, promptTenant, promptNewTask, promptNewProject,
-		promptProjectName, promptProjectDesc, promptProjectIcon, promptNewField,
+		promptProjectName, promptProjectKey, promptProjectDesc, promptProjectIcon, promptNewField,
 		promptTenantName, promptDomain, promptProjectColour, promptTenantAccent:
 		return false
 	default:
