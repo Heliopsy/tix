@@ -16,7 +16,7 @@ func copyBoard(t *testing.T) (Model, *fakeService) {
 	m := boardModel(t)
 	svc := newFakeService()
 	m.svc = svc
-	m.projects = []core.Project{{ID: "p2", Key: "web"}, {ID: "p1", Key: "infra"}}
+	m.projects = []core.Project{{ID: "p2", Key: "web"}, {ID: "p1", Key: "infra"}, {ID: "p3", Key: "apps"}}
 	m.sel = PreserveSelection(m.columns, m.sel, "a")
 	return m, svc
 }
@@ -36,7 +36,7 @@ func TestTheCopyKeyOpensAFormOnTheBoardsProject(t *testing.T) {
 			t.Errorf("%s = %q, want %q", key, got, value)
 		}
 	}
-	if field := next.form.Fields[0]; !slices.Equal(field.Options, []string{"infra", "web"}) {
+	if field := next.form.Fields[0]; !slices.Equal(field.Options, []string{"apps", "infra", "web"}) {
 		t.Errorf("projects offered = %v, want every project", field.Options)
 	}
 	if len(svc.copies) != 0 {
@@ -51,6 +51,10 @@ func TestApplyingTheCopyFormCopiesAndNamesTheCopy(t *testing.T) {
 		want   core.CopyTaskInput
 	}{
 		{"as offered", nil, core.CopyTaskInput{ProjectRef: "infra", Link: true}},
+		{"subtasks alone", map[string]string{"subtasks": yesValue},
+			core.CopyTaskInput{ProjectRef: "infra", WithSubtasks: true, Link: true}},
+		{"comments alone", map[string]string{"comments": yesValue},
+			core.CopyTaskInput{ProjectRef: "infra", WithComments: true, Link: true}},
 		{"elsewhere with everything", map[string]string{
 			"project": "web", "title": "again", "keep_status": yesValue, "comments": yesValue,
 			"subtasks": yesValue, "deps": yesValue, "link": noValue,
