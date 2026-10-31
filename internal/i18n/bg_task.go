@@ -4,7 +4,6 @@ package i18n
 
 func init() {
 	register(Bulgarian, map[string]string{
-		"Back to the list":       "Обратно към списъка",
 		"Move":                   "Премести",
 		"from":                   "от",
 		"Move %s":                "Премести %s",

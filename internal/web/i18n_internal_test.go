@@ -365,7 +365,13 @@ func goKeys() []string {
 		}
 	}
 	out = append(out, "internal error", "pruning removed records", "dry run: nothing was removed",
-		"%s saved", "Columns on %s", "Server default", "Browser default")
+		"Server default", "Browser default", "Back to where you were")
+	for _, p := range phrases {
+		out = append(out, p.key)
+	}
+	for _, back := range []string{RouteTasks, RouteActivity, RouteStats, "/elsewhere"} {
+		out = append(out, backLabel(back))
+	}
 	for _, v := range categoryLabels {
 		out = append(out, v)
 	}
@@ -432,4 +438,27 @@ func handlerKeys(t *testing.T) []string {
 		})
 	}
 	return out
+}
+
+// TestPhrasesTranslateTheirParts covers the texts Go builds around a value:
+// the value is translated when it is a key and kept when it is data.
+func TestPhrasesTranslateTheirParts(t *testing.T) {
+	t.Parallel()
+	cases := []struct{ in, want string }{
+		{"task created", "задачата е създадена"},
+		{"Language saved", "Език: запазено"},
+		{"Columns on Tasks saved", "Колони в Задачи: запазено"},
+		{"Back to the infra board", "Обратно към таблото на infra"},
+		{"Back to tasks", "Обратно към задачите"},
+		{"links-4 moved to doing", "links-4 moved to doing"},
+		{"Back to the  board", "Back to the  board"},
+	}
+	for _, tc := range cases {
+		if got := phraseText(i18n.Bulgarian, tc.in); got != tc.want {
+			t.Errorf("phraseText(bg, %q) = %q, want %q", tc.in, got, tc.want)
+		}
+		if got := phraseText(i18n.English, tc.in); got != tc.in {
+			t.Errorf("phraseText(en, %q) = %q", tc.in, got)
+		}
+	}
 }

@@ -4,7 +4,7 @@
      task opened from a filtered list had no way back to it: the sidebar goes
      to the unfiltered list, so the browser's back button was the only thing
      that preserved the reader's place. */}}
-<p class="backlink"><a href="{{.Data.Back}}">&larr; {{t .Data.BackLabel}}</a></p>
+<p class="backlink"><a href="{{.Data.Back}}">&larr; {{phrase .Data.BackLabel}}</a></p>
 <div class="titlebar">
   {{if .CanStar}}{{template "star" (star $t.Ref $t.Starred .Here .CSRF)}}{{end}}
   <span class="ref">{{$t.Ref}}</span>

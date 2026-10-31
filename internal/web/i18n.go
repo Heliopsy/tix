@@ -77,23 +77,43 @@ func (h *handler) setLanguage(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// flashText is a flash in lang. A settings save says "<what> saved", built
-// by savedNext, so it is translated as its two halves; a listing's columns
-// name the listing inside the what.
-func flashText(lang, flash string) string {
-	if text, ok := i18n.Lookup(lang, flash); ok {
-		return text
+// phrase is one shape of text Go builds around a value: the prefix and
+// suffix it adds, the key that translates the whole, and whether the value
+// inside is itself a key (a listing name) or data (a project key).
+type phrase struct {
+	prefix, suffix, key string
+	inner               bool
+}
+
+// phrases are every shape the flashes and back links build, so a text built
+// from parts is translated as its parts.
+var phrases = []phrase{
+	{suffix: " saved", key: "%s saved", inner: true},
+	{prefix: "Columns on ", key: "Columns on %s", inner: true},
+	{prefix: "Back to the ", suffix: " board", key: "Back to the %s board"},
+}
+
+// phraseText is a flash or a back link in lang: the whole text when the
+// catalog holds it, else the shape it was built in with its value put back,
+// else the English.
+func phraseText(lang, text string) string {
+	if out, ok := i18n.Lookup(lang, text); ok {
+		return out
 	}
-	what, ok := strings.CutSuffix(flash, " saved")
-	if !ok {
-		return flash
+	for _, p := range phrases {
+		value, ok := strings.CutPrefix(text, p.prefix)
+		if !ok {
+			continue
+		}
+		if value, ok = strings.CutSuffix(value, p.suffix); !ok || value == "" {
+			continue
+		}
+		if p.inner {
+			value = phraseText(lang, value)
+		}
+		return i18n.T(lang, p.key, value)
 	}
-	if listing, ok := strings.CutPrefix(what, "Columns on "); ok {
-		what = i18n.T(lang, "Columns on %s", i18n.T(lang, listing))
-	} else {
-		what = i18n.T(lang, what)
-	}
-	return i18n.T(lang, "%s saved", what)
+	return text
 }
 
 // translators are the template helpers that put a page's words in its
@@ -108,11 +128,11 @@ func translators(lang string) template.FuncMap {
 		"t": func(key string, args ...any) string { return i18n.T(lang, key, args...) },
 		// #nosec G203 -- key is a literal in a template, and every catalog
 		// entry for it is checked to carry the same markup as the key.
-		"th":    func(key string) template.HTML { return template.HTML(i18n.T(lang, key)) },
-		"tn":    func(one, other string, n int, args ...any) string { return i18n.N(lang, one, other, n, args...) },
-		"tc":    func(ctx, text string) string { return i18n.C(lang, ctx, text) },
-		"tip":   newTip,
-		"flash": func(text string) string { return flashText(lang, text) },
+		"th":     func(key string) template.HTML { return template.HTML(i18n.T(lang, key)) },
+		"tn":     func(one, other string, n int, args ...any) string { return i18n.N(lang, one, other, n, args...) },
+		"tc":     func(ctx, text string) string { return i18n.C(lang, ctx, text) },
+		"tip":    newTip,
+		"phrase": func(text string) string { return phraseText(lang, text) },
 	}
 }
 

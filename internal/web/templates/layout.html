@@ -90,7 +90,7 @@
     <div class="side-resize" data-side-resize role="separator" aria-orientation="vertical" aria-controls="side" aria-label="{{t "Resize sidebar"}}" tabindex="0" hidden></div>
   </aside>
   <main class="wrap">
-    {{if .Flash}}<p class="flash">{{flash .Flash}}{{if .FlashRef}} <a class="flashref" href="/tasks/{{.FlashRef}}">{{.FlashRef}}</a>{{end}}</p>{{end}}
+    {{if .Flash}}<p class="flash">{{phrase .Flash}}{{if .FlashRef}} <a class="flashref" href="/tasks/{{.FlashRef}}">{{.FlashRef}}</a>{{end}}</p>{{end}}
     {{if .Error}}<p class="flash error">{{.Error}}</p>{{end}}
     {{block "content" .}}{{end}}
   </main>
@@ -98,7 +98,7 @@
 {{template "shortcuts-help" .}}
 {{else}}
 <main class="auth">
-  {{if .Flash}}<p class="flash">{{flash .Flash}}</p>{{end}}
+  {{if .Flash}}<p class="flash">{{phrase .Flash}}</p>{{end}}
   {{if .Error}}<p class="flash error">{{.Error}}</p>{{end}}
   {{template "content" .}}
 </main>
