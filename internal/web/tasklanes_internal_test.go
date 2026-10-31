@@ -83,6 +83,9 @@ func TestTickRoutesCompleteAndReopen(t *testing.T) {
 		{"reopening takes the nearest open state", service.BuiltinWorkflow(), "done", member, true, []string{"todo"}, false, ""},
 		{"reopening a cancelled task", service.BuiltinWorkflow(), "cancelled", member, true, []string{"todo"}, false, ""},
 		{"two equally near open states are a choice", twoOpen, "done", member, true, []string{"todo", "doing"}, true, ""},
+		{"reopening never lands in another terminal state", edit(func(d *core.WorkflowDefinition) {
+			d.Transitions = append(d.Transitions, core.Transition{From: "done", To: "cancelled"})
+		}), "done", member, true, []string{"todo"}, false, ""},
 		{"reopening needs the scope to move", service.BuiltinWorkflow(), "done", holds(core.ScopeTaskRead), true, nil, false, "you cannot move tasks"},
 		{"reopening needing a comment", needs("done", "todo", "comment"), "done", member, true, nil, false, "reopening it needs a comment"},
 		{"reopening needing a scope the reader lacks", needs("done", "todo", "scope"), "done", member, true, nil, false, "reopening it needs the %s scope"},
