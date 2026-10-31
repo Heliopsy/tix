@@ -51,6 +51,30 @@
             {{template "column-choices" .ColumnForm}}
           </section>
           {{end}}
+          {{if eq $v.View "list"}}
+          <section>
+            <div class="headtip"><p class="viewhead">{{t "Group the list"}}</p>{{template "tip" (tip "Grouping" "Draws a heading per project or per status over the rows of this page. Each heading has the same menu as a lane or a board column, and shares its arrangement." "docs/web-ui.md")}}</div>
+            {{template "listgroup-switch" $v.Prefs.ListGroup}}
+          </section>
+          {{end}}
+          {{/* The groups this reader hid on the view in force, the same Show
+               forms as the Hidden control at the end of the view. Replaced
+               out of band when a heading menu changes the arrangement. */}}
+          <section id="view-groups">
+            {{if $v.Arrange.View}}
+            <div class="headtip"><p class="viewhead">{{if eq $v.Arrange.View "lanes"}}{{t "Hidden lanes"}}{{else}}{{t "Hidden columns"}}{{end}}</p>{{template "tip" (tip "Arranging columns and lanes" "The three dots on a column, lane or group heading hide, star, collapse or move it. The arrangement is yours, kept with your account, so it follows you to any browser and changes nothing anybody else sees." "docs/web-ui.md")}}</div>
+            {{if $v.Arrange.Hidden}}<div class="viewgroups">{{template "group-shows" (groupMenu $v.Arrange (groupHeadNone))}}</div>
+            {{else}}<p class="meta">{{t "None hidden."}}</p>{{end}}
+            {{if $v.Arrange.Stored}}
+            <form method="post" action="/view/reset" hx-post="/view/reset" hx-target="#tasks-listing" hx-select="#tasks-listing" hx-swap="outerHTML" hx-select-oob="#view-groups">
+              {{template "csrf" .CSRF}}
+              <input type="hidden" name="view" value="{{$v.Arrange.View}}">
+              <input type="hidden" name="next" value="{{$v.Self}}">
+              <button type="submit" class="secondary">{{t "Reset the arrangement"}}</button>
+            </form>
+            {{end}}
+            {{end}}
+          </section>
           <section>
             <div class="headtip"><p class="viewhead">{{t "Projects"}}</p>{{template "tip" (tip "Project visibility" "Untick a project to leave its tasks out of this screen. The choice is kept in this browser only, and a filter that names a project shows it anyway." "docs/web-ui.md")}}</div>
             {{template "project-choices" $v.Prefs.Projects}}
@@ -292,8 +316,14 @@
 <p class="sr-only" aria-live="polite" id="board-status"></p>
 <div class="board{{if $v.Board.Merged}} is-merged{{end}}" data-drag="{{if .DragMove}}1{{else}}0{{end}}">
 {{range $v.Board.Columns}}
-  <section class="column" data-state="{{.State.Key}}">
-    <h2>{{stateLabel .State}} <span class="meta">({{len .Tasks}})</span></h2>
+  <section class="column{{if .Head.Collapsed}} is-collapsed{{end}}{{if .Head.Starred}} is-starred{{end}}" data-state="{{.State.Key}}" data-group="{{.Head.Key}}">
+    {{/* The menu sits beside the heading, never inside it: live.js names a
+         column by its h2 when it announces a drop. */}}
+    <div class="grouphead">
+      <h2>{{if .Head.Starred}}<span class="groupstar" aria-label="{{t "Starred"}}" title="{{t "Starred"}}">&#9733;</span>{{end}}{{stateLabel .State}} <span class="meta">({{len .Tasks}})</span></h2>
+      {{template "group-menu" (groupMenu $v.Arrange .Head)}}
+    </div>
+    {{if not .Head.Collapsed}}
     {{range .Tasks}}
       {{$acc := index $v.Accent .Task.ProjectID}}
       {{$mark := ""}}
@@ -339,8 +369,10 @@
     {{else}}
       <p class="meta column-empty">{{t "No tasks."}}</p>
     {{end}}
+    {{end}}
   </section>
 {{end}}
+{{template "group-hidden" $v.Arrange}}
 </div>
 {{if $v.Board.Stray}}
 {{/* A task whose status is in none of these columns would simply be absent
@@ -367,8 +399,12 @@
 <div class="lanes">
 {{range $v.Lanes.Lanes}}
   {{$acc := index $v.Accent .Project.ID}}
-  <section class="lane{{with projClass $acc.Color}} {{.}}{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} id="lane-{{.Project.Key}}" data-lane="{{.Project.Key}}">
-    <h2>{{template "proj-icon" (projIcon $acc true)}}<a href="/tasks?q=project:{{.Project.Key}}" title="{{t "Only tasks in %s" .Project.Name}}">{{.Project.Name}}</a> <span class="meta">({{t "%d open" .Open}})</span></h2>
+  <section class="lane{{with projClass $acc.Color}} {{.}}{{end}}{{if .Head.Collapsed}} is-collapsed{{end}}{{if .Head.Starred}} is-starred{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} id="lane-{{.Project.Key}}" data-lane="{{.Project.Key}}" data-group="{{.Head.Key}}">
+    <div class="grouphead">
+      <h2>{{if .Head.Starred}}<span class="groupstar" aria-label="{{t "Starred"}}" title="{{t "Starred"}}">&#9733;</span>{{end}}{{template "proj-icon" (projIcon $acc true)}}<a href="/tasks?q=project:{{.Project.Key}}" title="{{t "Only tasks in %s" .Project.Name}}">{{.Project.Name}}</a> <span class="meta">({{t "%d open" .Open}})</span></h2>
+      {{template "group-menu" (groupMenu $v.Arrange .Head)}}
+    </div>
+    {{if not .Head.Collapsed}}
     {{range .Cards}}
     {{$mark := ""}}
     {{if eq $.Tint "status"}}{{$mark = printf " is-accented tint-status-%s" (slug .Task.Status)}}
@@ -643,10 +679,12 @@
     <p class="meta lane-empty">{{t "No tasks."}}</p>
     {{end}}
     {{if .AllFinished}}<p class="meta lane-empty lane-allfinished">{{t "Everything here is finished."}}</p>{{end}}
+    {{end}}
   </section>
 {{else}}
   <p class="meta lane-none">{{t "Nothing on the list."}}</p>
 {{end}}
+{{template "group-hidden" $v.Arrange}}
 </div>
 {{if $v.Lanes.Stray}}
 <p class="boardstray" role="alert">
@@ -684,8 +722,50 @@
   {{end}}
 </div>
 {{end}}
+{{if $v.Arrange.Vertical}}
+{{/* A grouped list: a heading per project or state with its rows under it,
+     each heading carrying the same menu as a lane or a board column. The
+     groups are this page's rows split, so paging is unchanged. */}}
+<div class="listgroups">
+{{range $v.ListGroups}}
+<section class="listgroup{{if .Head.Collapsed}} is-collapsed{{end}}{{if .Head.Starred}} is-starred{{end}}" data-group="{{.Head.Key}}">
+  <div class="grouphead">
+    <h2>{{if .Head.Starred}}<span class="groupstar" aria-label="{{t "Starred"}}" title="{{t "Starred"}}">&#9733;</span>{{end}}{{.Head.Name}} <span class="meta">({{.Head.Count}})</span></h2>
+    {{template "group-menu" (groupMenu $v.Arrange .Head)}}
+  </div>
+  {{if not .Head.Collapsed}}
+  <ul class="tasklist">
+  {{range .Tasks}}{{template "task-row" (taskRow $ .)}}{{end}}
+  </ul>
+  {{end}}
+</section>
+{{else}}
+  <p class="meta lane-none">{{t "Nothing on the list."}}</p>
+{{end}}
+{{template "group-hidden" $v.Arrange}}
+</div>
+{{else}}
 <ul class="tasklist">
-{{range $v.Tasks}}
+{{range $v.Tasks}}{{template "task-row" (taskRow $ .)}}
+{{else}}
+  <li class="empty">
+    {{if $v.FilterError}}
+    <p class="empty-title">{{t "Nothing to show while the filter is refused"}}</p>
+    <p>{{t "Correct the filter above, or clear it to see everything."}}</p>
+    {{else}}
+    <p class="empty-title">{{t "Nothing on the list"}}</p>
+    <p>{{t "Add the first one above. Agents can add them too, over the API."}}</p>
+    {{end}}
+  </li>
+{{end}}
+</ul>
+{{end}}
+{{end}}
+
+{{end}}
+
+{{/* task-row is one row of the list, ungrouped or under a group heading. */}}
+{{define "task-row"}}{{$r := .Root}}{{$v := $r.Data}}{{with .Task}}
   {{$acc := index $v.Accent .ProjectID}}
   {{/* The row carries its ref as an id so completing it can send the browser
        back to this row rather than to the top of the list. is-flashed marks
@@ -697,13 +777,13 @@
        --proj and the stripe reads it -- so only the source of the colour
        changes, never how it is drawn. */}}
   {{$mark := ""}}
-  {{if eq $.Tint "project"}}{{with projClass $acc.Color}}{{$mark = printf " is-accented %s" .}}{{end}}
-  {{else if eq $.Tint "status"}}{{$mark = printf " is-accented tint-status-%s" (slug .Status)}}
-  {{else if eq $.Tint "priority"}}{{$mark = printf " is-accented tint-prio-%s" (prio .Priority)}}{{end}}
+  {{if eq $r.Tint "project"}}{{with projClass $acc.Color}}{{$mark = printf " is-accented %s" .}}{{end}}
+  {{else if eq $r.Tint "status"}}{{$mark = printf " is-accented tint-status-%s" (slug .Status)}}
+  {{else if eq $r.Tint "priority"}}{{$mark = printf " is-accented tint-prio-%s" (prio .Priority)}}{{end}}
   {{/* data-inplace: the star, status and priority forms in this row swap
        this row and nothing else, the way the tick does. assets/feel.js
        reads it; without it they post and redirect like any form. */}}
-  <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{$mark}}{{if eq $.FlashRef .Ref}} is-flashed{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Ref}}" data-inplace>
+  <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{$mark}}{{if eq $r.FlashRef .Ref}} is-flashed{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Ref}}" data-inplace>
     {{$done := index $v.CompleteState .ProjectID}}
     {{if $done}}
     {{/* Only this row is swapped, never the page.
@@ -723,7 +803,7 @@
           hx-target="#t-{{.Ref}}"
           hx-select="#t-{{.Ref}}"
           hx-swap="outerHTML">
-      {{template "csrf" $.CSRF}}
+      {{template "csrf" $r.CSRF}}
       {{/* Where to come back to. Without it the handler redirected to a bare
            /tasks, so ticking a row threw away the filter, the search and the
            sort as well as the scroll position: the list you were working
@@ -735,13 +815,13 @@
     </form>
     {{else}}<span class="check placeholder" aria-hidden="true"></span>{{end}}
 
-    {{if and $.CanStar ($.Columns.Show "tasks" "star")}}{{template "star" (star .Ref .Starred $v.Self $.CSRF)}}{{end}}
+    {{if and $r.CanStar ($r.Columns.Show "tasks" "star")}}{{template "star" (star .Ref .Starred $v.Self $r.CSRF)}}{{end}}
 
     {{template "proj-icon" (projIcon $acc false)}}
 
     {{/* next carries this listing, filters and sort included, so the task
          screen can offer a way back to exactly it. */}}
-    {{template "tasktitle" (titleLink .Ref .Title .Version (print "/tasks/" .Ref "?next=" ($v.Self | urlquery)) "task-title" $.TitleEdit)}}
+    {{template "tasktitle" (titleLink .Ref .Title .Version (print "/tasks/" .Ref "?next=" ($v.Self | urlquery)) "task-title" $r.TitleEdit)}}
 
     {{/* Four kinds of marking used to be four near-identical chips, so a row
          read as a row of indistinguishable pills and nobody could tell a tag
@@ -773,8 +853,8 @@
            light dismissal and Escape for free, and one open at a time. Where
            the attribute is not understood the panel simply stays in the row,
            which is the list of choices it always was. */}}
-      {{if $.Columns.Show "tasks" "status"}}<span class="tm tm-status">
-      {{$flow := $v.Flow (index $.Data.Moves .ProjectID) .Status}}
+      {{if $r.Columns.Show "tasks" "status"}}<span class="tm tm-status">
+      {{$flow := $v.Flow (index $r.Data.Moves .ProjectID) .Status}}
       {{if $flow}}
       <span class="statusmenu">
         <button type="button" class="statuspill" data-focus="status" popovertarget="flow-{{.Ref}}"
@@ -784,7 +864,7 @@
         <div id="flow-{{.Ref}}" class="flowmenu" popover>
           <p class="flowhead">{{t "Move"}} <span class="mono">{{.Ref}}</span> {{t "from"}} <span class="pill status {{slug .Status}}">{{.Status}}</span></p>
           <form method="post" action="/tasks/{{.Ref}}/transition">
-            {{template "csrf" $.CSRF}}
+            {{template "csrf" $r.CSRF}}
             <input type="hidden" name="next" value="{{$v.Self}}">
             {{range $flow}}
             <button type="submit" name="route" value="{{.Value}}" class="flowgo{{if .MultiHop}} is-multi{{end}}">
@@ -811,7 +891,7 @@
            controls on a row behave identically, and the normal priority gets
            a chip of its own rather than nothing, because a row you cannot
            press is a row that cannot be raised. */}}
-      {{if $.Columns.Show "tasks" "priority"}}<span class="tm tm-prio">
+      {{if $r.Columns.Show "tasks" "priority"}}<span class="tm tm-prio">
       {{$p := prio .Priority}}
       <span class="priomenu">
         <button type="button" class="priobtn" data-focus="prio" popovertarget="prio-{{.Ref}}"
@@ -821,9 +901,9 @@
         <div id="prio-{{.Ref}}" class="flowmenu priopop" popover>
           <p class="flowhead">{{t "Priority of"}} <span class="mono">{{.Ref}}</span></p>
           <form method="post" action="/tasks/{{.Ref}}/priority">
-            {{template "csrf" $.CSRF}}
+            {{template "csrf" $r.CSRF}}
             <input type="hidden" name="next" value="{{$v.Self}}">
-            {{range $.Data.Priorities}}
+            {{range $r.Data.Priorities}}
             <button type="submit" name="priority" value="{{.Value}}" class="flowgo{{if eq .Label $p}} is-current{{end}}">
               <span class="prio p-{{.Label}}"><span class="caret" aria-hidden="true"></span>{{t .Label}}</span>
               {{if eq .Label $p}}<span class="flowhops">{{t "current"}}</span>{{end}}
@@ -850,15 +930,15 @@
            exactly as it did. A cell is emitted even when this row has
            nothing to put in it, because an empty column still has to hold
            its place for the rows above and below it to stay aligned. */}}
-      {{if $.Columns.Show "tasks" "tags"}}<span class="tm tm-tags">{{$tags := .Tags}}{{$shown := $tags}}{{if gt (len $tags) 3}}{{$shown = slice $tags 0 3}}{{end}}{{range $shown}}<a class="tagref" href="/tasks?q=tag:{{.}}" title="{{t "Only tasks tagged %s" .}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{if gt (len $tags) 3}}<a class="tagmore" href="/tasks/{{.Ref}}" title="{{join $tags}}">+{{len (slice $tags 3)}}</a>{{end}}</span>{{end}}
+      {{if $r.Columns.Show "tasks" "tags"}}<span class="tm tm-tags">{{$tags := .Tags}}{{$shown := $tags}}{{if gt (len $tags) 3}}{{$shown = slice $tags 0 3}}{{end}}{{range $shown}}<a class="tagref" href="/tasks?q=tag:{{.}}" title="{{t "Only tasks tagged %s" .}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{if gt (len $tags) 3}}<a class="tagmore" href="/tasks/{{.Ref}}" title="{{join $tags}}">+{{len (slice $tags 3)}}</a>{{end}}</span>{{end}}
       {{/* Who the work belongs to. The listing showed everything about a task
            except that, so the one question a reader opens a shared list to
            answer -- whose is this -- could only be answered on the command
            line or by opening every row. The handle comes from the page's own
            directory pass, not a lookup per row, and links to the tasks that
            actor holds, the way a tag and a project already do. */}}
-      {{if $.Columns.Show "tasks" "assignee"}}<span class="tm tm-who">{{$who := $.Data.Names.Label .AssigneeActorID}}{{if $who}}<a class="who-ref" href="/tasks?q=assignee:{{$who}}" title="{{t "Assigned to %s" $who}}"><span class="at" aria-hidden="true">@</span>{{$who}}</a>{{else}}<span class="who-ref is-none" title="{{t "Nobody is assigned to this"}}">{{t "unassigned"}}</span>{{end}}</span>{{end}}
-      {{if $.Columns.Show "tasks" "project"}}<span class="tm tm-proj"><a class="projref{{with projClass $acc.Color}} {{.}}{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} href="/tasks?q=project:{{$acc.Key}}" title="{{t "Only tasks in %s" $acc.Name}}">{{template "proj-icon" (projIcon $acc true)}}{{$acc.Key}}</a></span>{{end}}
+      {{if $r.Columns.Show "tasks" "assignee"}}<span class="tm tm-who">{{$who := $r.Data.Names.Label .AssigneeActorID}}{{if $who}}<a class="who-ref" href="/tasks?q=assignee:{{$who}}" title="{{t "Assigned to %s" $who}}"><span class="at" aria-hidden="true">@</span>{{$who}}</a>{{else}}<span class="who-ref is-none" title="{{t "Nobody is assigned to this"}}">{{t "unassigned"}}</span>{{end}}</span>{{end}}
+      {{if $r.Columns.Show "tasks" "project"}}<span class="tm tm-proj"><a class="projref{{with projClass $acc.Color}} {{.}}{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} href="/tasks?q=project:{{$acc.Key}}" title="{{t "Only tasks in %s" $acc.Name}}">{{template "proj-icon" (projIcon $acc true)}}{{$acc.Key}}</a></span>{{end}}
       {{/* A lease is the one thing on a row that is about to change by
            itself. Held says an agent has it; expired says one took it and
            never came back, which is a task looking for an owner rather than
@@ -873,8 +953,8 @@
            hands. */}}
       {{$held := claim .}}
       <span class="tm tm-flags">
-      {{if eq $held "held"}}<span class="lease held" title="{{t "Held by %s until %s" ($.Data.Names.Label .ClaimedByActorID) (compact .LeaseExpiresAt)}}">{{t "held"}} &middot; {{$.Data.Names.Label .ClaimedByActorID}}</span>
-      {{else if eq $held "expired"}}<span class="lease expired" title="{{t "%s let the claim run out %s ago, at %s; the task is claimable again" ($.Data.Names.Label .LeaseExpiredByActorID) (expiredAgo .) (compact .LeaseExpiredAt)}}">{{t "claim expired"}} &middot; {{t "%s ago" (expiredAgo .)}}{{if gt .ClaimCount 1}} <span class="lease-count">&middot; {{t "%d claims" .ClaimCount}}</span>{{end}}</span>{{end}}
+      {{if eq $held "held"}}<span class="lease held" title="{{t "Held by %s until %s" ($r.Data.Names.Label .ClaimedByActorID) (compact .LeaseExpiresAt)}}">{{t "held"}} &middot; {{$r.Data.Names.Label .ClaimedByActorID}}</span>
+      {{else if eq $held "expired"}}<span class="lease expired" title="{{t "%s let the claim run out %s ago, at %s; the task is claimable again" ($r.Data.Names.Label .LeaseExpiredByActorID) (expiredAgo .) (compact .LeaseExpiredAt)}}">{{t "claim expired"}} &middot; {{t "%s ago" (expiredAgo .)}}{{if gt .ClaimCount 1}} <span class="lease-count">&middot; {{t "%d claims" .ClaimCount}}</span>{{end}}</span>{{end}}
       {{/* The date carried no label, so it was a number nobody could name.
            It is the last time the row changed, and saying so costs one word. */}}
       {{/* The deadline, and only while it is one. A badge on every dated row
@@ -882,25 +962,11 @@
            own due marker was removed once; this is drawn for a deadline past
            or within the week and for nothing else. The word carries the
            meaning and the colour only reinforces it. */}}
-      {{if $.Columns.Show "tasks" "due"}}{{$due := due .}}{{if $due}}<a class="duemark is-{{$due}}" href="/tasks?due={{if eq $due "overdue"}}overdue{{else}}week{{end}}" title="{{t "Due %s" (stamp .DueAt)}}">{{if eq $due "overdue"}}{{t "overdue"}}{{else}}{{t "due this week"}}{{end}}</a>{{end}}{{end}}
-      {{if and .Recurrence ($.Columns.Show "tasks" "repeat")}}{{template "repeatmark" .Recurrence}}{{end}}
+      {{if $r.Columns.Show "tasks" "due"}}{{$due := due .}}{{if $due}}<a class="duemark is-{{$due}}" href="/tasks?due={{if eq $due "overdue"}}overdue{{else}}week{{end}}" title="{{t "Due %s" (stamp .DueAt)}}">{{if eq $due "overdue"}}{{t "overdue"}}{{else}}{{t "due this week"}}{{end}}</a>{{end}}{{end}}
+      {{if and .Recurrence ($r.Columns.Show "tasks" "repeat")}}{{template "repeatmark" .Recurrence}}{{end}}
       </span>
-      {{if $.Columns.Show "tasks" "updated"}}<span class="tm tm-when"><span class="when" title="{{t "Last updated %s" (compact .UpdatedAt)}}"><span class="when-label">{{t "updated"}}</span> {{compact .UpdatedAt}}</span></span>{{end}}
-      {{if $.Columns.Show "tasks" "ref"}}<span class="tm tm-ref"><span class="ref mono">{{.Ref}}</span></span>{{end}}
+      {{if $r.Columns.Show "tasks" "updated"}}<span class="tm tm-when"><span class="when" title="{{t "Last updated %s" (compact .UpdatedAt)}}"><span class="when-label">{{t "updated"}}</span> {{compact .UpdatedAt}}</span></span>{{end}}
+      {{if $r.Columns.Show "tasks" "ref"}}<span class="tm tm-ref"><span class="ref mono">{{.Ref}}</span></span>{{end}}
     </span>
   </li>
-{{else}}
-  <li class="empty">
-    {{if $v.FilterError}}
-    <p class="empty-title">{{t "Nothing to show while the filter is refused"}}</p>
-    <p>{{t "Correct the filter above, or clear it to see everything."}}</p>
-    {{else}}
-    <p class="empty-title">{{t "Nothing on the list"}}</p>
-    <p>{{t "Add the first one above. Agents can add them too, over the API."}}</p>
-    {{end}}
-  </li>
-{{end}}
-</ul>
-{{end}}
-
-{{end}}
+{{end}}{{end}}

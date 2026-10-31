@@ -102,6 +102,16 @@ type tasksView struct {
 	// that is the view being drawn.
 	Lanes taskLanes
 
+	// ListGroup is how the list groups its rows, and ListGroups the groups
+	// it draws, only when the list is drawn grouped.
+	ListGroup  string
+	ListGroups []listGroup
+
+	// Arrange is the reader's own arrangement of the groups being drawn: the
+	// board's columns, the lanes, or the list's groups. Its View is empty
+	// when nothing on the screen is grouped.
+	Arrange arrangement
+
 	// Names labels the actors holding a lease, so a held row can say who has
 	// it rather than only that somebody does.
 	Names actorNames
@@ -368,6 +378,18 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 	if view == TaskViewLanes {
 		lanes = buildLanes(projects, filter, page.Tasks, laneMoves{Workflows: moves, HasScope: readerHasScope(r)})
 	}
+	self := screenHref(r, RouteTasks)
+	group := listGroupOf(r)
+	var listGroups []listGroup
+	var arrange arrangement
+	switch {
+	case view == TaskViewBoard && board.Agreed:
+		arrange = h.arrangeBoard(r, &board, self)
+	case view == TaskViewLanes:
+		arrange = h.arrangeLanes(r, &lanes, projects, self)
+	case view == TaskViewList && group != ListGroupNone && refused == "":
+		listGroups, arrange = h.arrangeList(r, group, candidateProjects(projects, filter), page.Tasks, moves, self)
+	}
 	return tasksView{
 		Tasks:         page.Tasks,
 		Projects:      projects,
@@ -379,7 +401,7 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 		Due:           due,
 		DueWindows:    FilterDueWindows,
 		Pager:         newPager(r, RouteTasks, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, SizeParam, AllParam),
-		Self:          screenHref(r, RouteTasks),
+		Self:          self,
 		CompleteState: complete,
 		Accent:        projectAccents(projects),
 		Summary:       summarise(page.Tasks, complete, time.Now()),
@@ -390,6 +412,9 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 		View:          view,
 		Board:         board,
 		Lanes:         lanes,
+		ListGroup:     group,
+		ListGroups:    listGroups,
+		Arrange:       arrange,
 		Hidden:        hidden,
 		Filtered:      filtered && hidden > 0,
 		OpenOnly:      openOnly,
@@ -484,6 +509,7 @@ func (h *handler) createTask(w http.ResponseWriter, r *http.Request) error {
 	in := core.CreateTaskInput{
 		ProjectRef: field(r, "project_ref"),
 		Title:      field(r, "title"),
+		Status:     field(r, "status"),
 		Body:       prose(r, "body"),
 		Priority:   priority,
 		Tags:       fieldList(r, "tags"),

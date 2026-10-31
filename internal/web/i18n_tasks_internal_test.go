@@ -12,6 +12,9 @@ func init() {
 			out = append(out, c.Label)
 		}
 		out = append(out, lockKeys...)
+		for _, c := range listGroupLabels {
+			out = append(out, c.Label)
+		}
 		return out
 	})
 }

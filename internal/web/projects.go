@@ -13,7 +13,7 @@ func (h *handler) projectRoutes() []route {
 	return []route{
 		get(RouteProjects, "projects.html", h.showProjects, "ListProjects", "ListWorkflows"),
 		post(RouteProjects, h.createProject, "CreateProject"),
-		get(RouteProject, "board.html", h.showBoard, "GetProject"),
+		get(RouteProject, "board.html", h.showBoard, "GetProject", "ListGroupPrefs"),
 		// The board's live fragment renders through the same template set,
 		// and the same block, the full board does. See showBoardLive.
 		get(RouteBoardLive, "board.html", h.showBoardLive, "GetProject"),
@@ -180,6 +180,8 @@ type card struct {
 type column struct {
 	State core.State
 	Tasks []card
+	// Head is the column's heading as the reader arranged it.
+	Head groupHead
 }
 
 // boardView is what the project board renders.
@@ -190,6 +192,9 @@ type boardView struct {
 	Colors    []core.ProjectColor
 	Picker    iconPicker
 	Columns   []column
+
+	// Arrange is the reader's own arrangement of this board's columns.
+	Arrange arrangement
 
 	// Live is what keeps the columns current while the board is open. See
 	// live.go.
@@ -239,10 +244,12 @@ func (h *handler) buildBoardView(r *http.Request) (boardView, error) {
 	if err != nil {
 		return boardView{}, err
 	}
+	columns, arrange := h.arrangeProjectBoard(r, *project, workflow.Definition, buildColumns(workflow.Definition, page.Tasks))
 	return boardView{Project: *project, Workflow: *workflow, Workflows: workflows,
 		Colors:  core.ProjectColors(),
 		Picker:  newIconPicker(*project),
-		Columns: buildColumns(workflow.Definition, page.Tasks),
+		Columns: columns,
+		Arrange: arrange,
 		Live:    h.liveBoard(*project),
 	}, nil
 }

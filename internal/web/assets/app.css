@@ -754,13 +754,16 @@ fieldset > label:has(> input[type="radio"]) { margin: var(--space-1) 0; }
    which column it is. The negative margins and matching padding let the
    heading's background span the column's full width as it passes under the
    cards, instead of leaving a strip of them showing either side. */
-.column > h2 {
+.column > .grouphead {
   position: sticky;
   top: calc(-1 * var(--space-3));
   z-index: 1;
   margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) var(--space-2);
-  padding: var(--space-3) var(--space-3) var(--space-2);
+  padding: var(--space-3) var(--space-2) var(--space-2) var(--space-3);
   background: var(--surface);
+}
+.grouphead > h2 {
+  margin: 0;
   font-size: var(--text-sm);
   font-weight: 600;
   letter-spacing: 0;
@@ -5227,21 +5230,17 @@ td > details.panel > summary { overflow-wrap: normal; word-break: keep-all; }
   border-radius: var(--radius);
   padding: var(--space-3);
 }
-.lane > h2 {
+.lane > .grouphead {
   position: sticky;
   top: calc(-1 * var(--space-3));
   z-index: 1;
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
   margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) var(--space-2);
-  padding: var(--space-3) var(--space-3) var(--space-2);
+  padding: var(--space-3) var(--space-2) var(--space-2) var(--space-3);
   background: var(--surface);
-  font-size: var(--text-sm);
-  font-weight: 600;
 }
-.lane > h2 a { color: var(--ink); text-decoration: none; }
-.lane > h2 a:hover { color: var(--accent); text-decoration: underline; }
+.lane > .grouphead > h2 { display: flex; align-items: baseline; gap: 6px; }
+.lane > .grouphead a { color: var(--ink); text-decoration: none; }
+.lane > .grouphead a:hover { color: var(--accent); text-decoration: underline; }
 .lane .lane-card {
   display: flex;
   align-items: flex-start;
@@ -5314,7 +5313,7 @@ td > details.panel > summary { overflow-wrap: normal; word-break: keep-all; }
 @media (max-width: 639px) {
   .lanes { height: auto; min-height: 0; align-items: flex-start; scroll-snap-type: x mandatory; scroll-padding-inline: var(--space-1); }
   .lane { flex: 0 0 86vw; min-width: 0; max-width: none; overflow-y: visible; scroll-snap-stop: always; }
-  .lane > h2 { position: static; }
+  .lane > .grouphead { position: static; }
 }
 
 /* A finger needs 40px. The tick, the badge and the priority are the card's
@@ -5677,3 +5676,106 @@ li.task:has(> .title-edit-error:not([hidden])),
   cursor: pointer;
 }
 .kbdhint kbd { font-size: var(--text-xs); }
+
+/* Group headings (templates/partials.html "group-menu", groups.go). A board
+   column, a lane and a list group heading are a name, a count and three
+   dots. The dots are quiet until the heading is hovered or holds focus, the
+   way a row's own controls are, and always there on a touch screen, which
+   has no hover to reveal them with. A collapsed group keeps only its
+   heading: a column becomes a narrow strip that still takes a dropped card,
+   a lane the same, a list group its heading line. */
+.grouphead { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.grouphead > h2 { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.groupstar { color: var(--accent); margin-inline-end: 4px; }
+.groupmore { flex: 0 0 auto; }
+.groupmore-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.groupmore-btn:hover,
+.groupmore-btn:focus-visible,
+.groupmore:has(:popover-open) .groupmore-btn { color: var(--ink); background: var(--accent-soft); }
+@media (hover: hover) and (pointer: fine) {
+  .groupmore-btn { opacity: 0; }
+  .grouphead:hover .groupmore-btn,
+  .grouphead:focus-within .groupmore-btn,
+  .groupmore:has(:popover-open) .groupmore-btn { opacity: 1; }
+}
+.groupmenu { min-width: 15rem; max-height: min(75vh, 34rem); overflow-y: auto; }
+.groupmenu .flowgo { justify-content: flex-start; gap: var(--space-2); text-decoration: none; }
+.groupmenu > form { display: flex; flex-direction: column; gap: 1px; margin: 0; }
+.groupmenu-icon { display: inline-block; width: 1.25em; text-align: center; color: var(--muted); }
+.groupmenu-count { color: var(--muted); font-weight: 400; }
+.groupmenu .groupmenu-sect { display: block; margin: var(--space-2) 0 2px; padding-top: var(--space-2); border-top: 1px solid var(--line); }
+.groupmenu .groupmenu-row { display: flex; gap: var(--space-1); padding: 0 var(--space-1); }
+.groupmenu .groupmenu-row input { flex: 1 1 auto; min-width: 0; }
+.groupmenu .groupmenu-row select { flex: 0 1 auto; width: auto; }
+
+.column.is-collapsed,
+.board.is-merged > .column.is-collapsed,
+.lane.is-collapsed { flex: 0 0 52px; min-width: 52px; max-width: 52px; padding: var(--space-2) 4px; overflow: hidden; }
+.column.is-collapsed > .grouphead,
+.lane.is-collapsed > .grouphead {
+  position: static;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+.column.is-collapsed > .grouphead > h2,
+.lane.is-collapsed > .grouphead > h2 {
+  flex: 0 1 auto;
+  writing-mode: vertical-rl;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.column.is-collapsed::after { display: none; }
+.column.is-collapsed .groupmore-btn,
+.lane.is-collapsed .groupmore-btn { opacity: 1; }
+
+.grouphidden { flex: 0 0 auto; align-self: flex-start; }
+.grouphidden-btn { flex-wrap: nowrap; }
+.listgroups { display: flex; flex-direction: column; gap: var(--space-3); }
+.listgroup > .grouphead { padding: 0 var(--space-1) var(--space-1); }
+.listgroup > .grouphead > h2 { font-size: var(--text-sm); font-weight: 600; }
+.listgroup.is-collapsed > .grouphead { border-bottom: 1px solid var(--line); }
+.listgroups > .grouphidden { align-self: flex-start; }
+.viewgroups { display: flex; flex-direction: column; gap: 1px; }
+.viewgroups > form { margin: 0; }
+
+@media (pointer: coarse) {
+  .groupmore-btn { min-width: 40px; min-height: 40px; }
+  .groupmenu .flowgo,
+  .groupmenu .flowsee,
+  .groupmenu .flowclose,
+  .groupmenu .groupmenu-row input,
+  .groupmenu .groupmenu-row select,
+  .groupmenu .groupmenu-row button,
+  .grouphidden-btn { min-height: 40px; }
+}
+/* On a phone the menu rises from the bottom edge as a sheet, as a lane
+   card's does, because a popover does not scroll with the page. */
+@media (max-width: 639px) {
+  .groupmenu:popover-open {
+    position: fixed;
+    inset: auto 0 0 0;
+    position-area: none;
+    width: auto;
+    max-width: none;
+    max-height: 75vh;
+    margin: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  }
+}

@@ -61,8 +61,12 @@
 {{define "project-board"}}
 <div class="board" data-drag="{{if .DragMove}}1{{else}}0{{end}}">
 {{range .Data.Columns}}
-  <section class="column" data-state="{{.State.Key}}">
-    <h2>{{.State.Label}} <span class="meta">({{len .Tasks}})</span></h2>
+  <section class="column{{if .Head.Collapsed}} is-collapsed{{end}}{{if .Head.Starred}} is-starred{{end}}" data-state="{{.State.Key}}" data-group="{{.Head.Key}}">
+    <div class="grouphead">
+      <h2>{{if .Head.Starred}}<span class="groupstar" aria-label="{{t "Starred"}}" title="{{t "Starred"}}">&#9733;</span>{{end}}{{.State.Label}} <span class="meta">({{len .Tasks}})</span></h2>
+      {{template "group-menu" (groupMenu $.Data.Arrange .Head)}}
+    </div>
+    {{if not .Head.Collapsed}}
     {{range .Tasks}}
       <article class="card{{with projClass $.Data.Project.Color}} is-accented {{.}}{{end}}"{{with projStyle $.Data.Project.Color}} style="{{.}}"{{end}} draggable="{{if $.DragMove}}true{{else}}false{{end}}" data-task="{{.Task.Ref}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
         <div class="ref">{{if $.CanStar}}{{template "star" (star .Task.Ref .Task.Starred (printf "/projects/%s" $.Data.Project.Key) $.CSRF)}}{{end}}{{.Task.Ref}}</div>
@@ -93,7 +97,9 @@
     {{else}}
       <p class="meta column-empty">{{t "No tasks."}}</p>
     {{end}}
+    {{end}}
   </section>
 {{end}}
+{{template "group-hidden" .Data.Arrange}}
 </div>
 {{end}}

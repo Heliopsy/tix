@@ -522,3 +522,123 @@
   </div>
 </fieldset>
 {{end}}
+
+{{/* group-menu is the three dots on a board column, a lane or a list group
+     heading, and the menu behind them (groups.go). The arrangement is the
+     reader's own and kept on the server, so every form posts to /view/*
+     with the view, the group and the listing to return to, and works without
+     scripting. With htmx each form swaps only the region the view lives in
+     (A.Region), and the View menu's hidden list out of band, so nothing else
+     on the page moves. The menu is a popover inside that region, which holds
+     a live refresh back and stands the shortcuts down while it is open. */}}
+{{define "group-menu"}}{{$a := .A}}{{$g := .G}}{{$id := print "gm-" $g.DOMID}}
+<div class="groupmore">
+  <button type="button" class="groupmore-btn" popovertarget="{{$id}}" data-group-btn="{{$g.Key}}"
+          aria-label="{{t "Actions for %s" $g.Name}}" title="{{t "Actions for %s" $g.Name}}">
+    <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#more"/></svg>
+  </button>
+  <div id="{{$id}}" class="flowmenu groupmenu" popover data-group-menu>
+    <p class="flowhead">{{$g.Name}} <span class="groupmenu-count">({{$g.Count}})</span></p>
+    <form method="post" action="/view/group" hx-post="/view/group" hx-target="{{$a.Region}}" hx-select="{{$a.Region}}" hx-swap="outerHTML"{{if eq $a.Region "#tasks-listing"}} hx-select-oob="#view-groups"{{end}} data-group-control="{{$g.Key}}">
+      {{template "csrf" $a.CSRF}}
+      <input type="hidden" name="view" value="{{$a.View}}">
+      <input type="hidden" name="group" value="{{$g.Key}}">
+      <input type="hidden" name="next" value="{{$a.Self}}">
+      <input type="hidden" name="set" value="starred">
+      <button type="submit" name="value" value="{{if $g.Starred}}0{{else}}1{{end}}" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">{{if $g.Starred}}&#9734;{{else}}&#9733;{{end}}</span>{{if $g.Starred}}{{t "Unstar"}}{{else}}{{t "Star, to show it first"}}{{end}}</button>
+    </form>
+    <form method="post" action="/view/group" hx-post="/view/group" hx-target="{{$a.Region}}" hx-select="{{$a.Region}}" hx-swap="outerHTML"{{if eq $a.Region "#tasks-listing"}} hx-select-oob="#view-groups"{{end}} data-group-control="{{$g.Key}}">
+      {{template "csrf" $a.CSRF}}
+      <input type="hidden" name="view" value="{{$a.View}}">
+      <input type="hidden" name="group" value="{{$g.Key}}">
+      <input type="hidden" name="next" value="{{$a.Self}}">
+      <input type="hidden" name="set" value="collapsed">
+      <button type="submit" name="value" value="{{if $g.Collapsed}}0{{else}}1{{end}}" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">{{if $g.Collapsed}}&#8596;{{else}}&#8594;&#8592;{{end}}</span>{{if $g.Collapsed}}{{t "Expand"}}{{else}}{{t "Collapse"}}{{end}}</button>
+    </form>
+    {{if or $g.Left $g.Right}}
+    <form method="post" action="/view/order" hx-post="/view/order" hx-target="{{$a.Region}}" hx-select="{{$a.Region}}" hx-swap="outerHTML"{{if eq $a.Region "#tasks-listing"}} hx-select-oob="#view-groups"{{end}} data-group-control="{{$g.Key}}">
+      {{template "csrf" $a.CSRF}}
+      <input type="hidden" name="view" value="{{$a.View}}">
+      <input type="hidden" name="group" value="{{$g.Key}}">
+      <input type="hidden" name="order" value="{{$a.Order}}">
+      <input type="hidden" name="next" value="{{$a.Self}}">
+      {{if $g.Left}}<button type="submit" name="dir" value="left" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">{{if $a.Vertical}}&#8593;{{else}}&#8592;{{end}}</span>{{if $a.Vertical}}{{t "Move up"}}{{else}}{{t "Move left"}}{{end}}</button>{{end}}
+      {{if $g.Right}}<button type="submit" name="dir" value="right" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">{{if $a.Vertical}}&#8595;{{else}}&#8594;{{end}}</span>{{if $a.Vertical}}{{t "Move down"}}{{else}}{{t "Move right"}}{{end}}</button>{{end}}
+    </form>
+    {{end}}
+    <form method="post" action="/view/group" hx-post="/view/group" hx-target="{{$a.Region}}" hx-select="{{$a.Region}}" hx-swap="outerHTML"{{if eq $a.Region "#tasks-listing"}} hx-select-oob="#view-groups"{{end}} data-group-control="{{$g.Key}}" data-group-hides>
+      {{template "csrf" $a.CSRF}}
+      <input type="hidden" name="view" value="{{$a.View}}">
+      <input type="hidden" name="group" value="{{$g.Key}}">
+      <input type="hidden" name="next" value="{{$a.Self}}">
+      <input type="hidden" name="set" value="hidden">
+      <button type="submit" name="value" value="1" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">&#8856;</span>{{t "Hide"}}</button>
+    </form>
+    <p class="flowhead lanemore-sect groupmenu-sect">{{if eq $g.Kind "project"}}{{t "Project"}}{{else}}{{t "Status"}}{{end}}</p>
+    {{if eq $g.Kind "project"}}
+    <a class="flowgo" href="/projects/{{$g.Key}}">{{t "Open the project"}}</a>
+    <a class="flowgo" href="/tasks?q=project:{{$g.Key}}">{{t "Show only this project"}}</a>
+    {{else}}
+    <a class="flowgo" href="/tasks?q=status:{{$g.Key}}">{{t "Show only this status"}}</a>
+    {{end}}
+    {{if and $a.CanCreate $g.Projects}}
+    <form method="post" action="/tasks" class="groupmenu-add">
+      {{template "csrf" $a.CSRF}}
+      {{if $g.Status}}<input type="hidden" name="status" value="{{$g.Status}}">{{end}}
+      <label class="flowhead groupmenu-sect" for="{{$id}}-title">{{t "New task in %s" $g.Name}}</label>
+      <span class="lanemore-row groupmenu-row">
+        <input id="{{$id}}-title" name="title" required placeholder="{{t "Title"}}">
+        {{if gt (len $g.Projects) 1}}
+        <select name="project_ref" aria-label="{{t "Project"}}">{{range $g.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}</select>
+        {{else}}{{with index $g.Projects 0}}<input type="hidden" name="project_ref" value="{{.Key}}">{{end}}{{end}}
+        <button type="submit" class="secondary">{{t "Add"}}</button>
+      </span>
+    </form>
+    {{end}}
+    <button type="button" class="flowclose" popovertarget="{{$id}}" popovertargetaction="hide">{{t "Close"}}</button>
+  </div>
+</div>
+{{end}}
+
+{{/* group-shows lists the groups the reader hid on a view, each with a Show
+     button, for the Hidden control at the end of the view and the View menu.
+     Prefix keeps the two copies' element ids apart. */}}
+{{define "group-shows"}}{{$a := .A}}
+{{range $a.Hidden}}
+<form method="post" action="/view/group" hx-post="/view/group" hx-target="{{$a.Region}}" hx-select="{{$a.Region}}" hx-swap="outerHTML"{{if eq $a.Region "#tasks-listing"}} hx-select-oob="#view-groups"{{end}} data-group-control="{{.Key}}">
+  {{template "csrf" $a.CSRF}}
+  <input type="hidden" name="view" value="{{$a.View}}">
+  <input type="hidden" name="group" value="{{.Key}}">
+  <input type="hidden" name="next" value="{{$a.Self}}">
+  <input type="hidden" name="set" value="hidden">
+  <button type="submit" name="value" value="0" class="flowgo">{{t "Show %s" .Name}}</button>
+</form>
+{{end}}
+{{end}}
+
+{{/* group-hidden is the Hidden control drawn at the end of a view. */}}
+{{define "group-hidden"}}{{if .Hidden}}{{$id := print "ghid-" (slug .View)}}
+<div class="grouphidden">
+  <button type="button" class="secondary grouphidden-btn" popovertarget="{{$id}}" data-group-hidden>{{t "Hidden: %d" (len .Hidden)}}</button>
+  <div id="{{$id}}" class="flowmenu groupmenu" popover data-group-menu>
+    <p class="flowhead">{{t "Hidden"}}</p>
+    {{template "group-shows" (groupMenu . (groupHeadNone))}}
+    <button type="button" class="flowclose" popovertarget="{{$id}}" popovertargetaction="hide">{{t "Close"}}</button>
+  </div>
+</div>
+{{end}}{{end}}
+
+{{/* listgroup-switch is how the list groups its rows, the same form on the
+     View menu and on the settings screen. */}}
+{{define "listgroup-switch"}}
+<form method="post" action="/listgroup" class="viewswitch" hx-swap="innerHTML show:none" aria-label="{{t "How to group the list"}}">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="next" value="{{.Here}}">
+  <div class="segmented" role="group" aria-label="{{t "Group the list"}}">
+    {{range .Choices}}
+    <button type="submit" name="group" value="{{.Value}}" class="segment{{if .Selected}} is-on{{end}}"
+            {{if .Selected}}aria-current="true"{{end}}>{{t .Label}}</button>
+    {{end}}
+  </div>
+</form>
+{{end}}

@@ -302,6 +302,36 @@ the head, before the body paints, and sets a class on the root element, so hidde
 in and a live refresh of the lanes does not bring them back. Without JavaScript the toggle is not
 shown and finished cards are.
 
+## Arranging columns and lanes
+
+Every column of a board, every lane and every heading of a grouped list carries three dots. They
+show while the pointer is over the heading or focus is inside it, and always on a touch screen. The
+menu behind them acts on that group:
+
+- **Star** puts the group before every unstarred one. A starred heading carries a star.
+- **Collapse** draws the group as a narrow strip with its name and count and no cards. A collapsed
+  column still takes a card dragged onto it.
+- **Move left** and **Move right** (up and down in a list) swap the group with its neighbour. A
+  starred group moves among the starred ones and the rest among the rest.
+- **Hide** stops drawing the group. **Hidden: N** at the end of the view, and the View menu, list
+  every hidden group with a Show button; the View menu also resets the whole arrangement.
+- A project heading opens the project, shows only its tasks and adds a task to it. A status heading
+  shows only that status and adds a task in that state, to a project the board draws.
+
+The arrangement is yours and kept with your account on the server, not in the browser, so it
+follows you to any browser and device, to `tix view` on the command line and to the terminal board,
+and changes nothing anybody else sees. It is kept per view: `board` is the task screen grouped by
+status (the board and the list grouped by status), `lanes` is the task screen grouped by project
+(the lanes and the list grouped by project), and `project:KEY` is one project's own board. A lane
+is kept by the project, so renaming a project's key keeps it.
+
+Every action is a form, so it works without scripting. With scripting it redraws the view in place
+and puts focus back on the same heading's dots, or on Hidden after a hide. While a menu is open the
+keyboard shortcuts stand down and a live refresh waits; Escape closes only the menu.
+
+The list can group its rows: View, **Group the list**, or Settings, Listings. The grouping splits the
+page being shown, so paging is unchanged and a group can run on to the next page.
+
 ## Starring a task
 
 Every task the browser draws carries a star: beside the tick on a list row or a lane card, before the
@@ -566,6 +596,7 @@ going back a page.
 | Task opens in | `tix_task_open` | `dialog` opens a task followed from a listing in a dialog over it; absent or anything else opens its own page |
 | Clicking a title | `tix_title_click` | `edit` makes a click on a listed title rename it in place, with an open link beside it; absent or anything else opens the task |
 | Task view | `tix_task_view` | `board` draws the task screen as columns, `lanes` as one lane per project; anything else, including no cookie, is the list |
+| List groups | `tix_list_group` | `project` or `status` draws the list under a heading per project or per state; anything else, including no cookie, is one ungrouped list |
 | Language | `tix_lang` | `en` or `bg` draws every screen in that language; anything else, including no cookie, follows the browser's `Accept-Language` |
 | Colour rows by | `tix_tint` | What the stripe down a task row and the edge of a board card stands for: `status`, `priority` or `none`. Anything else, including no cookie, is the project's own colour |
 
