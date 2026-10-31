@@ -118,6 +118,25 @@
   <p>{{t .Text}}{{if .Doc}} <span class="tip-doc">{{t "More in"}} <code>{{.Doc}}</code>.</span>{{end}}</p>
 </details>{{end}}
 
+{{/* colour-field is every colour control on the site: the predefined
+     swatches, none or the default where the colour is optional, and a custom
+     colour. Built by projectColours or themeColours in colour.go. The custom
+     radio posts "custom" and the hex field beside it carries the colour, so
+     the control works with scripting off; assets/feel.js keeps the native
+     picker, the hex field and the preview in step. The caller writes the
+     label, with the id <name>-label, and the tip. */}}
+{{define "colour-field"}}<div class="colourfield" role="radiogroup" aria-labelledby="{{.Name}}-label" data-colour-field>
+  {{if .None}}<label class="colourchoice is-none"><input type="radio" name="{{.Name}}" value="" {{if not .Value}}checked{{end}}><span class="colourswatch" aria-hidden="true"></span><span class="colourname">{{t "none"}}</span></label>{{end}}
+  {{if .Default}}<label class="colourchoice is-none"><input type="radio" name="{{.Name}}" value="" {{if not .Value}}checked{{end}}><span class="colourswatch" aria-hidden="true"></span><span class="colourname">{{t "Default"}}</span></label>{{end}}
+  {{range .Options}}<label class="colourchoice"><input type="radio" name="{{$.Name}}" value="{{.Value}}" {{if .Selected}}checked{{end}}><span class="colourswatch" style="--sw: {{.Swatch}}" aria-hidden="true"></span><span class="colourname">{{.Label}}{{if .Configured}} {{t "(configured)"}}{{end}}</span></label>{{end}}
+  <span class="colourcustom">
+    <label class="colourchoice"><input type="radio" name="{{.Name}}" value="custom" {{if .Custom}}checked{{end}} data-colour-custom><span class="colourname">{{t "Custom"}}</span></label>
+    <input type="color" value="{{.Picker}}" aria-label="{{t "Pick a custom colour"}}" data-colour-picker>
+    <input type="text" id="{{.Name}}_custom" name="{{.Name}}_custom" class="mono hexfield" value="{{.Custom}}" placeholder="{{"#rrggbb"}}" maxlength="7" spellcheck="false" autocomplete="off" aria-label="{{t "Custom colour, as #rrggbb"}}" data-colour-hex>
+    <span class="colourpreview" style="--sw: {{.Picker}}" data-colour-preview>{{t "Preview"}}</span>
+  </span>
+</div>{{end}}
+
 {{/* secret is a value the server will never show again: a freshly minted API
      token, or a signing secret tix generated because the operator left the
      field blank.
@@ -250,9 +269,9 @@
   <input type="hidden" name="next" value="{{.Here}}">
   <div class="choices">
     {{range .Choices}}
-    <label class="projectchoice{{if .Color}} proj-{{.Color}}{{end}}">
+    <label class="projectchoice{{with projClass .Color}} {{.}}{{end}}"{{with projStyle .Color}} style="{{.}}"{{end}}>
       <input type="checkbox" name="project" value="{{.Key}}" {{if .Shown}}checked{{end}}>
-      {{if .Color}}<span class="swatch proj-{{.Color}}" aria-hidden="true"></span>{{end}}
+      {{with projClass .Color}}<span class="swatch {{.}}" aria-hidden="true"></span>{{end}}
       {{template "proj-icon" (projIcon . false)}}
       <span class="projectchoice-name">{{.Name}}</span> <code>{{.Key}}</code>
     </label>
@@ -307,7 +326,7 @@
      JavaScript. */}}
 {{define "activity-rows"}}
 {{range .Data.Groups}}
-  <li{{if .Accent.Color}} class="is-accented proj-{{.Accent.Color}}"{{end}}>
+  <li{{with projClass .Accent.Color}} class="is-accented {{.}}"{{end}}{{with projStyle .Accent.Color}} style="{{.}}"{{end}}>
     <span class="badge act-{{.Group.Verb}}">{{.Group.Verb}}</span>
     {{template "proj-icon" (projIcon .Accent false)}}
     {{/* Both the actor and the record it changed are links: the actor to this
@@ -465,7 +484,7 @@
 <fieldset class="iconpick" data-iconpick>
   <legend class="iconpick-legend">{{t "Icon"}}</legend>{{template "tip" (tip "Icon" "Emoji takes one emoji or one or two letters. Icon picks a symbol drawn in the interface's own style. Upload takes a PNG, JPEG, WebP or SVG of up to 64 KB, shown as an image; an SVG that carries script is refused. The terminal shows a text stand-in for the last two." "docs/web-ui.md")}}
   <div class="iconpick-head">
-    <span class="iconpick-preview{{if .Project.Color}} proj-{{.Project.Color}}{{end}}" data-iconpick-preview aria-hidden="true">{{$mark := projIcon .Project true}}{{if $mark.Any}}{{template "proj-icon" $mark}}{{end}}</span>
+    <span class="iconpick-preview{{with projClass .Project.Color}} {{.}}{{end}}"{{with projStyle .Project.Color}} style="{{.}}"{{end}} data-iconpick-preview aria-hidden="true">{{$mark := projIcon .Project true}}{{if $mark.Any}}{{template "proj-icon" $mark}}{{end}}</span>
     <div class="segmented iconpick-kinds" role="radiogroup" aria-label="{{t "Icon kind"}}">
       <label class="segment"><input type="radio" name="icon_kind" value="text" {{if eq .Kind "text"}}checked{{end}}>{{t "Emoji"}}</label>
       <label class="segment"><input type="radio" name="icon_kind" value="builtin" {{if eq .Kind "builtin"}}checked{{end}}>{{t "Icon"}}</label>

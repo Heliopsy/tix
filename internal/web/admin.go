@@ -217,7 +217,7 @@ func (h *handler) updateTenant(w http.ResponseWriter, r *http.Request) error {
 	name := field(r, "name")
 	// The empty option clears the theme, so the field is always sent and
 	// always applied: treating "" as unset would make the picker one-way.
-	theme := field(r, "theme")
+	theme := colourField(r, "theme")
 	in := core.UpdateTenantInput{Name: &name, Theme: &theme}
 	// Same reasoning as the theme: an empty box is how a bound is handed back
 	// to the deployment setting, so both fields are always applied and a

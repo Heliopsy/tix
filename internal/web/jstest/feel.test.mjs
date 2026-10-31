@@ -77,3 +77,24 @@ test("viewTransitions is off for reduced motion and where unsupported", () => {
   assert.equal(tix.viewTransitions({}, media(false)), false);
   assert.equal(tix.viewTransitions(null, media(false)), false);
 });
+
+test("hexColour takes six hex digits with or without the hash, and nothing else", () => {
+  const cases = [
+    ["#1a7f5a", "#1a7f5a"],
+    ["#1A7F5A", "#1a7f5a"],
+    ["1a7f5a", "#1a7f5a"],
+    ["  #0b4f8c ", "#0b4f8c"],
+    ["#1a7", ""],
+    ["#1a7f5", ""],
+    ["#1a7f5a0", ""],
+    ["#1a7f5g", ""],
+    ["red", ""],
+    ["#1a7f5a;color:red", ""],
+    ["", ""],
+    [null, ""],
+    [undefined, ""],
+  ];
+  for (const [text, want] of cases) {
+    assert.equal(tix.hexColour(text), want, `hexColour(${JSON.stringify(text)})`);
+  }
+});

@@ -239,6 +239,10 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"tokenState":      tokenState,
 		"savedNext":       savedNext,
 		"projIcon":        markOf,
+		"projClass":       projClass,
+		"projStyle":       projStyle,
+		"projectColours":  projectColourField,
+		"themeColours":    themeColourField,
 	}
 }
 

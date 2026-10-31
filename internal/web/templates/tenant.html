@@ -52,16 +52,8 @@
        terminal interface alike. Until this existed the setting could only be
        changed by someone with shell access to the server, which made a
        tenant-wide choice an operator errand. */}}
-  <label for="theme">{{t "Theme"}}</label>
-  <select id="theme" name="theme">
-    <option value="" {{if not .Data.Tenant.Theme}}selected{{end}}>{{t "Default"}}</option>
-    {{$current := .Data.Tenant.Theme}}
-    {{range .Data.Themes}}
-    <option value="{{.Name}}" {{if eq .Name $current}}selected{{end}}>
-      {{.Name}}{{if not .BuiltIn}} {{t "(configured)"}}{{end}}
-    </option>
-    {{end}}
-  </select>
+  <div class="field-label"><span id="theme-label" class="labeltext">{{t "Theme"}}</span>{{template "tip" (tip "Theme" "The accent this tenant is drawn in. Pick a predefined theme, or choose Custom and set any accent with the picker or as #rrggbb; its tint and its shade for dark schemes are derived from it.")}}</div>
+  {{template "colour-field" (themeColours "theme" .Data.Tenant.Theme .Data.Themes)}}
   <p class="note">{{t "Applies to this tenant everywhere: the browser and the terminal interface both read it."}}</p>
 
   {{/* The lease bounds. Until these existed the only way to change how long

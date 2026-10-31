@@ -60,7 +60,7 @@ func TestProjectPageSettingsFormCarriesTheWholeRecordAndSavingKeepsIt(t *testing
 	wantStatus(t, created, http.StatusSeeOther)
 
 	page := b.page("/projects/ops")
-	for _, want := range []string{`value="Ops"`, `value="teal" selected`,
+	for _, want := range []string{`value="Ops"`, `value="teal" checked`,
 		"keeps the lights on", `id="workflow_key"`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("the settings form does not carry %q:\n%s", want, page)

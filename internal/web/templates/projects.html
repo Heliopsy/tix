@@ -12,7 +12,7 @@
 
 <ul class="projlist">
   {{range .Data.Projects}}
-  <li class="projrow{{if .Color}} proj-{{.Color}}{{end}}{{if .Archived}} is-archived{{end}}">
+  <li class="projrow{{with projClass .Color}} {{.}}{{end}}{{if .Archived}} is-archived{{end}}"{{with projStyle .Color}} style="{{.}}"{{end}}>
     <a class="projrow-main" href="/projects/{{.Key}}">
       <span class="projrow-mark" aria-hidden="true">{{$mark := projIcon . true}}{{if $mark.Any}}{{template "proj-icon" $mark}}{{else}}{{slice .Key 0 1}}{{end}}</span>
       <span class="projrow-text">
@@ -49,15 +49,8 @@
       </select>
     </div>
   </div>
-  <div class="row">
-    <div>
-      <label for="color">{{t "Colour"}}</label>
-      <select id="color" name="color">
-        <option value="">{{t "none"}}</option>
-        {{range .Data.Colors}}<option value="{{.}}">{{.}}</option>{{end}}
-      </select>
-    </div>
-  </div>
+  <div class="field-label"><span id="color-label" class="labeltext">{{t "Colour"}}</span>{{template "tip" (tip "Colour" "Pick one of the predefined colours, or choose Custom and set any colour with the picker or as #rrggbb. Each colour scheme draws a custom colour as close to it as stays readable.")}}</div>
+  {{template "colour-field" (projectColours "color" "")}}
   {{template "icon-picker" .Data.Picker}}
   <label for="description">{{t "Description"}}</label>
   <textarea id="description" name="description"></textarea>
