@@ -139,3 +139,39 @@ func TestProjectRmAsksWhatHappensToTheTasks(t *testing.T) {
 		t.Errorf("the task is not in ops: %s", listed)
 	}
 }
+
+func TestProjectEditRenamesTheKeyAndOldRefsResolve(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("project", "create", "infra", "Infrastructure")
+	c.mustRun("project", "create", "web", "Web")
+	c.mustRun("task", "add", "patch the kernel", "--project", "infra")
+
+	renamed := decodeProject(t, c.mustRun("project", "edit", "infra", "--key", "ops", "-o", "json").out)
+	if renamed.Key != "ops" || renamed.Name != "Infrastructure" {
+		t.Fatalf("renamed = %q %q, want ops keeping its name", renamed.Key, renamed.Name)
+	}
+
+	var task core.Task
+	if err := json.Unmarshal([]byte(c.mustRun("task", "show", "infra-1", "-o", "json").out), &task); err != nil {
+		t.Fatalf("decoding task: %v", err)
+	}
+	if task.Ref != "ops-1" {
+		t.Errorf("task show infra-1 answered %q, want ops-1", task.Ref)
+	}
+	if got := decodeProject(t, c.mustRun("project", "show", "infra", "-o", "json").out); got.Key != "ops" {
+		t.Errorf("project show infra = %q, want ops", got.Key)
+	}
+
+	for _, tc := range []struct {
+		args []string
+		code int
+	}{
+		{[]string{"project", "edit", "web", "--key", "infra"}, core.ExitConflict},
+		{[]string{"project", "edit", "web", "--key", "ops"}, core.ExitConflict},
+		{[]string{"project", "edit", "web", "--key", "9lives"}, core.ExitUsage},
+	} {
+		if got := c.run(tc.args...); got.code != tc.code {
+			t.Errorf("%v exit = %d, want %d\nstderr: %s", tc.args, got.code, tc.code, got.err)
+		}
+	}
+}
