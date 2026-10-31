@@ -1,4 +1,5 @@
 {{define "content"}}
+{{if .Data.KeyChange}}{{template "key-change" .}}{{else}}
 <div class="headtip"><h1>{{with projIcon .Data.Project false}}{{if .Any}}{{template "proj-icon" .}} {{end}}{{end}}{{t "%s board" .Data.Project.Name}}</h1>{{template "tip" (tip "Board" "Each column is one state of this project's workflow, in the workflow's order. Drag a card to another column, or use its Move control: only the moves the workflow allows are offered." "docs/workflows.md")}}</div>
 <p class="meta">{{t "Workflow %s" .Data.Workflow.Name}} &middot; <a href="/projects/{{.Data.Project.Key}}/fields">{{t "Field definitions"}}</a> &middot; <a href="/workflows/{{.Data.Workflow.Key}}">{{t "Workflow editor"}}</a></p>
 {{/* A screen reader user learns a drag-and-drop move happened here, since
@@ -27,9 +28,9 @@
           </div>
           <div class="cform-pair">
             <div class="cfield">
-              <div class="cfield-label"><span class="cfield-name">{{t "Key"}}</span>{{template "tip" (tip "Key" "A short code for the project, such as infra. Every task reference starts with it, as in infra-5.")}}</div>
-              <p class="cfield-static mono">{{.Data.Project.Key}}</p>
-              <p class="cfield-hint">{{t "A key cannot be changed: every task reference is built on it."}}</p>
+              <div class="cfield-label"><label for="key">{{t "Key"}}</label>{{template "required-mark"}}{{template "tip" (tip "Key" "The key starts every task reference, such as infra-8, and the project's address. Changing it changes every reference; old links, references and filters keep working and lead to the new ones. You are asked to confirm before it changes." "docs/workflows.md")}}</div>
+              <input id="key" name="key" class="mono" value="{{$f.Key}}" maxlength="64" autocomplete="off" spellcheck="false" required{{$e.Attrs "key"}}>
+              {{with $e.On "key"}}{{template "field-error" .}}{{end}}
             </div>
             <div class="cfield">
               <div class="cfield-label"><label for="workflow_key">{{t "Workflow"}}</label>{{template "tip" (tip "Workflow" "A project uses exactly one workflow. It sets the states a task can be in, the board's columns and the moves allowed between them. Several projects can share one workflow." "docs/workflows.md")}}</div>
@@ -83,6 +84,45 @@
   </div>
 </details>
 {{template "live-screen" .Data.Live}}
+{{end}}
+{{end}}
+
+{{/* key-change asks before a project's key changes, because every task
+     reference changes with it. It repeats the whole settings form as hidden
+     fields, so confirming saves what the reader submitted, and needs no
+     script. */}}
+{{define "key-change"}}{{$c := .Data.KeyChange}}
+<h1>{{t "Change the key of %s?" $c.Name}}</h1>
+<section class="panel">
+  <div class="body">
+    <p>{{t "The key changes from %s to %s, and every task reference changes with it:" $c.From $c.To}}</p>
+    <ul class="key-examples">
+      {{range $c.Examples}}<li><code>{{.From}}</code> &rarr; <code>{{.To}}</code></li>{{end}}
+    </ul>
+    <p class="muted">{{t "Old links, references and filters that use %s keep working and lead here. No other project can take %s while this one exists." $c.From $c.From}}</p>
+    <form method="post" action="/projects/{{$c.From}}/update" enctype="multipart/form-data">
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="confirm_key" value="1">
+      <input type="hidden" name="key" value="{{$c.To}}">
+      <input type="hidden" name="name" value="{{$c.Name}}">
+      <input type="hidden" name="description" value="{{$c.Description}}">
+      <input type="hidden" name="workflow_key" value="{{$c.Workflow}}">
+      <input type="hidden" name="color" value="{{$c.Color}}">
+      <input type="hidden" name="icon" value="{{$c.Icon}}">
+      {{if $c.IconKindSent}}<input type="hidden" name="icon_kind" value="{{$c.IconKind}}">{{end}}
+      <input type="hidden" name="icon_name" value="{{$c.IconName}}">
+      {{if $c.ReuploadImage}}
+      <label for="icon_file">{{t "Image file"}}</label>
+      <p class="muted">{{t "A browser cannot carry a file to this screen, so choose the image again."}}</p>
+      <input id="icon_file" name="icon_file" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" required>
+      {{end}}
+      <div class="actions">
+        <button type="submit">{{t "Change the key to %s" $c.To}}</button>
+        <a href="/projects/{{$c.From}}">{{t "Cancel"}}</a>
+      </div>
+    </form>
+  </div>
+</section>
 {{end}}
 
 {{/* The columns, and only the columns. A live update replaces them from the

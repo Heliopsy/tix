@@ -257,6 +257,9 @@ func (h *handler) showTask(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	if redirectOldRef(w, r, r.PathValue("ref"), &data.Task) {
+		return nil
+	}
 	return h.render(w, r, "task.html", data.Task.Ref, data)
 }
 
@@ -274,6 +277,9 @@ func (h *handler) showTaskLive(w http.ResponseWriter, r *http.Request) error {
 	data, err := h.buildTaskView(r)
 	if err != nil {
 		return err
+	}
+	if redirectOldRef(w, r, r.PathValue("ref"), &data.Task) {
+		return nil
 	}
 	return h.renderFragment(w, r, "task.html", "task-live", data.Task.Ref, data)
 }
