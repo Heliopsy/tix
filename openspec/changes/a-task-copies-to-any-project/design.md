@@ -12,7 +12,7 @@ other comment.
 ## What travels
 
 | Attribute | Copy |
-|---|---|
+| --- | --- |
 | title | the source's, or the caller's replacement |
 | description, priority, tags, assignee, due date, repeat rule | as is |
 | custom fields | only keys the target project defines and whose value its definition accepts; the target's defaults then apply, and a required field still missing refuses the copy |
