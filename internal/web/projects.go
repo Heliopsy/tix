@@ -18,6 +18,7 @@ func (h *handler) projectRoutes() []route {
 		// and the same block, the full board does. See showBoardLive.
 		get(RouteBoardLive, "board.html", h.showBoardLive, "GetProject"),
 		post(RouteProjectEdit, h.updateProject, "UpdateProject"),
+		getFile(RouteProjectIcon, h.showProjectIcon, "GetProjectIcon"),
 		post(RouteProjectArch, h.archiveProject, "ArchiveProject"),
 		post(RouteProjectDel, h.deleteProject, "DeleteProject"),
 		post(RouteBoardMove, h.moveCard, "TransitionRoute"),
@@ -37,6 +38,7 @@ type projectsView struct {
 	Projects  []core.Project
 	Workflows []core.Workflow
 	Colors    []core.ProjectColor
+	Picker    iconPicker
 	Pager     pager
 }
 
@@ -57,6 +59,7 @@ func (h *handler) showProjects(w http.ResponseWriter, r *http.Request) error {
 	return h.render(w, r, "projects.html", "Projects",
 		projectsView{Projects: projects, Workflows: workflows,
 			Colors: core.ProjectColors(),
+			Picker: newIconPicker(core.Project{}),
 			Pager:  newPager(r, RouteProjects, next, len(projects), "projects", SizeParam)})
 }
 
@@ -104,8 +107,18 @@ func (h *handler) createProject(w http.ResponseWriter, r *http.Request) error {
 		Description: prose(r, "description"),
 		WorkflowKey: field(r, "workflow_key"),
 		Color:       field(r, "color"),
-		Icon:        field(r, "icon"),
 	}
+	choice, err := iconChoiceOf(r, false)
+	if err != nil {
+		return err
+	}
+	if choice.Icon != nil {
+		in.Icon = *choice.Icon
+	}
+	if choice.IconName != nil {
+		in.IconName = *choice.IconName
+	}
+	in.IconFile = choice.IconFile
 	project, err := h.svc.CreateProject(r.Context(), in)
 	if err != nil {
 		return err
@@ -118,9 +131,16 @@ func (h *handler) createProject(w http.ResponseWriter, r *http.Request) error {
 func (h *handler) updateProject(w http.ResponseWriter, r *http.Request) error {
 	key := r.PathValue("key")
 	name, description := field(r, "name"), prose(r, "description")
-	color, icon := field(r, "color"), field(r, "icon")
-	in := core.UpdateProjectInput{Name: &name, Description: &description,
-		Color: &color, Icon: &icon}
+	color := field(r, "color")
+	project, err := h.svc.GetProject(r.Context(), key)
+	if err != nil {
+		return err
+	}
+	in, err := iconChoiceOf(r, project.IconImage != "")
+	if err != nil {
+		return err
+	}
+	in.Name, in.Description, in.Color = &name, &description, &color
 	if wf := field(r, "workflow_key"); wf != "" {
 		in.WorkflowKey = &wf
 	}
@@ -168,6 +188,7 @@ type boardView struct {
 	Workflow  core.Workflow
 	Workflows []core.Workflow
 	Colors    []core.ProjectColor
+	Picker    iconPicker
 	Columns   []column
 
 	// Live is what keeps the columns current while the board is open. See
@@ -220,6 +241,7 @@ func (h *handler) buildBoardView(r *http.Request) (boardView, error) {
 	}
 	return boardView{Project: *project, Workflow: *workflow, Workflows: workflows,
 		Colors:  core.ProjectColors(),
+		Picker:  newIconPicker(*project),
 		Columns: buildColumns(workflow.Definition, page.Tasks),
 		Live:    h.liveBoard(*project),
 	}, nil

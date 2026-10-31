@@ -141,9 +141,13 @@ type Project struct {
 	Description string `json:"description,omitempty" yaml:"description,omitempty"`
 	WorkflowID  string `json:"workflow_id" yaml:"workflow_id"`
 
-	// Color and Icon let a reader tell one project's rows from another's.
-	Color ProjectColor `json:"color,omitempty" yaml:"color,omitempty"`
-	Icon  string       `json:"icon,omitempty" yaml:"icon,omitempty"`
+	// Color and the icon let a reader tell one project's rows from another's.
+	// At most one of Icon, IconName and IconImage is set; IconImage is the
+	// digest of an uploaded image, whose bytes GetProjectIcon reads.
+	Color     ProjectColor `json:"color,omitempty" yaml:"color,omitempty"`
+	Icon      string       `json:"icon,omitempty" yaml:"icon,omitempty"`
+	IconName  string       `json:"icon_name,omitempty" yaml:"icon_name,omitempty"`
+	IconImage string       `json:"icon_image,omitempty" yaml:"icon_image,omitempty"`
 
 	ArchivedAt *time.Time `json:"archived_at,omitempty" yaml:"archived_at,omitempty"`
 	CreatedAt  time.Time  `json:"created_at" yaml:"created_at"`

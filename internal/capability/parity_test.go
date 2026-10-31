@@ -101,7 +101,7 @@ func TestOperationsAreWellFormed(t *testing.T) {
 		if op.HTTP.Template != "" {
 			t.Errorf("%s: an http route renders no template", op.Name)
 		}
-		if op.Web.Method == http.MethodGet && op.Web.Template == "" {
+		if op.Web.Method == http.MethodGet && op.Web.Template == "" && !op.Web.Asset {
 			t.Errorf("%s: a browser screen names no template", op.Name)
 		}
 		if op.Web.Query != "" {

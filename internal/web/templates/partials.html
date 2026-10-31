@@ -253,7 +253,7 @@
     <label class="projectchoice{{if .Color}} proj-{{.Color}}{{end}}">
       <input type="checkbox" name="project" value="{{.Key}}" {{if .Shown}}checked{{end}}>
       {{if .Color}}<span class="swatch proj-{{.Color}}" aria-hidden="true"></span>{{end}}
-      {{if .Icon}}<span class="proj-icon" role="img" aria-label="{{.Name}}">{{.Icon}}</span>{{end}}
+      {{template "proj-icon" (projIcon . false)}}
       <span class="projectchoice-name">{{.Name}}</span> <code>{{.Key}}</code>
     </label>
     {{else}}<span class="muted">{{t "No projects yet."}}</span>{{end}}
@@ -309,7 +309,7 @@
 {{range .Data.Groups}}
   <li{{if .Accent.Color}} class="is-accented proj-{{.Accent.Color}}"{{end}}>
     <span class="badge act-{{.Group.Verb}}">{{.Group.Verb}}</span>
-    {{if .Accent.Icon}}<span class="proj-icon" role="img" aria-label="{{.Accent.Name}}" title="{{.Accent.Name}}">{{.Accent.Icon}}</span>{{end}}
+    {{template "proj-icon" (projIcon .Accent false)}}
     {{/* Both the actor and the record it changed are links: the actor to this
          same feed narrowed to them, the record to the thing itself -- a task,
          a project, a workflow, or the comment's own place on its task. A row
@@ -448,3 +448,58 @@
      (taskopen.go), the link carries what assets/taskopen.js needs to edit it
      in place and a separate open link is drawn beside it. */}}
 {{define "tasktitle"}}<a{{if .Class}} class="{{.Class}}"{{end}} href="{{.Href}}"{{if .Edit}} data-edit-title="{{.Ref}}" data-version="{{.Version}}" title="{{t "Click to rename"}}"{{end}}>{{.Title}}</a>{{if .Edit}}<a class="title-open" href="{{.Href}}" aria-label="{{t "Open %s" .Ref}}" title="{{t "Open the task"}}"><svg aria-hidden="true" width="14" height="14"><use href="/assets/icons.svg#open"/></svg></a>{{end}}{{end}}
+
+{{/* proj-icon draws a project's icon whatever its kind: a text icon as text,
+     a built-in one from the sprite, an uploaded one through <img>, where an
+     SVG runs no script and fetches nothing. Hidden is for an icon beside a
+     text that already names the project. Takes projIcon's iconMark. */}}
+{{define "proj-icon"}}{{if .Image}}<img class="proj-icon proj-icon-img" src="/projects/{{.Key}}/icon?v={{.Image}}" width="16" height="16" alt="{{if not .Hidden}}{{.Name}}{{end}}"{{if .Hidden}} aria-hidden="true"{{else}} title="{{.Name}}"{{end}}>{{else if .Builtin}}<svg class="proj-icon proj-icon-svg" width="16" height="16"{{if .Hidden}} aria-hidden="true"{{else}} role="img" aria-label="{{.Name}}"{{end}}>{{if not .Hidden}}<title>{{.Name}}</title>{{end}}<use href="/assets/icons.svg#pi-{{.Builtin}}"/></svg>{{else if .Text}}<span class="proj-icon"{{if .Hidden}} aria-hidden="true"{{else}} role="img" aria-label="{{.Name}}" title="{{.Name}}"{{end}}>{{.Text}}</span>{{end}}{{end}}
+
+{{/* icon-picker is the icon field of the project creation and settings
+     forms: a kind chosen in a segmented control, one pane per kind, and a
+     preview of what the project will carry. The panes are switched by CSS
+     alone (app.css, .iconpick) so the form works without script;
+     assets/iconpick.js only keeps the preview current while choosing. The
+     form around it must be multipart for the upload. Takes iconPicker. */}}
+{{define "icon-picker"}}
+<fieldset class="iconpick" data-iconpick>
+  <legend class="iconpick-legend">{{t "Icon"}}</legend>{{template "tip" (tip "Icon" "Emoji takes one emoji or one or two letters. Icon picks a symbol drawn in the interface's own style. Upload takes a PNG, JPEG, WebP or SVG of up to 64 KB, shown as an image; an SVG that carries script is refused. The terminal shows a text stand-in for the last two." "docs/web-ui.md")}}
+  <div class="iconpick-head">
+    <span class="iconpick-preview{{if .Project.Color}} proj-{{.Project.Color}}{{end}}" data-iconpick-preview aria-hidden="true">{{$mark := projIcon .Project true}}{{if $mark.Any}}{{template "proj-icon" $mark}}{{end}}</span>
+    <div class="segmented iconpick-kinds" role="radiogroup" aria-label="{{t "Icon kind"}}">
+      <label class="segment"><input type="radio" name="icon_kind" value="text" {{if eq .Kind "text"}}checked{{end}}>{{t "Emoji"}}</label>
+      <label class="segment"><input type="radio" name="icon_kind" value="builtin" {{if eq .Kind "builtin"}}checked{{end}}>{{t "Icon"}}</label>
+      <label class="segment"><input type="radio" name="icon_kind" value="image" {{if eq .Kind "image"}}checked{{end}}>{{t "Upload"}}</label>
+      <label class="segment"><input type="radio" name="icon_kind" value="none" {{if eq .Kind "none"}}checked{{end}}>{{t "No icon"}}</label>
+    </div>
+  </div>
+  <div class="iconpick-pane" data-pane="text">
+    <label for="icon" class="sr-only">{{t "Emoji"}}</label>
+    <input id="icon" name="icon" maxlength="2" value="{{.Project.Icon}}" placeholder="{{t "an emoji, or one or two letters"}}" list="icon-suggestions">
+    <datalist id="icon-suggestions">
+      <option value="&#128230;"><option value="&#128640;"><option value="&#128736;">
+      <option value="&#128202;"><option value="&#127968;"><option value="&#128421;">
+      <option value="&#128272;"><option value="&#127760;"><option value="&#11088;">
+    </datalist>
+  </div>
+  <div class="iconpick-pane" data-pane="builtin">
+    <div class="iconpick-grid" role="radiogroup" aria-label="{{t "Built-in icons"}}">
+      {{range .Builtins}}
+      <label class="iconpick-cell" title="{{t .Label}}">
+        <input type="radio" name="icon_name" value="{{.Name}}" {{if eq .Name $.Project.IconName}}checked{{end}}>
+        <svg aria-hidden="true" width="20" height="20"><use href="/assets/icons.svg#pi-{{.Name}}"/></svg>
+        <span class="sr-only">{{t .Label}}</span>
+      </label>
+      {{end}}
+    </div>
+  </div>
+  <div class="iconpick-pane" data-pane="image">
+    <label for="icon_file" class="sr-only">{{t "Image file"}}</label>
+    <input id="icon_file" name="icon_file" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+    <p class="muted">{{t "PNG, JPEG, WebP or SVG, up to 64 KB."}}{{if .Project.IconImage}} {{t "Leave it empty to keep the current image."}}{{end}}</p>
+  </div>
+  <div class="iconpick-pane" data-pane="none">
+    <p class="muted">{{t "The project shows no icon. Saving removes the one it has."}}</p>
+  </div>
+</fieldset>
+{{end}}

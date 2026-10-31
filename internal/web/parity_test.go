@@ -132,7 +132,7 @@ func TestBindingsAreWellFormed(t *testing.T) {
 			t.Errorf("binding %q has no absolute pattern", key)
 		}
 		if binding.Method == http.MethodGet && binding.Pattern != web.RouteRoot &&
-			binding.Template == "" {
+			binding.Template == "" && !binding.Asset {
 			t.Errorf("screen %q names no template", key)
 		}
 	}

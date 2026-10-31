@@ -313,7 +313,7 @@
              heading already said it, and repeating it on every card is noise. */}}
         {{if or $v.Board.Merged $showPrio $showTags $showRepeat}}
         <div class="card-meta">
-          {{if $v.Board.Merged}}<a class="projref{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" href="/tasks?q=project:{{$acc.Key}}" title="{{t "Only tasks in %s" $acc.Name}}">{{if $acc.Icon}}<span class="proj-icon" aria-hidden="true">{{$acc.Icon}}</span>{{end}}{{$acc.Key}}</a>{{end}}
+          {{if $v.Board.Merged}}<a class="projref{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" href="/tasks?q=project:{{$acc.Key}}" title="{{t "Only tasks in %s" $acc.Name}}">{{template "proj-icon" (projIcon $acc true)}}{{$acc.Key}}</a>{{end}}
           {{if $showPrio}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="{{t "Only %s priority tasks" (t (prio .Task.Priority))}}"><span class="caret" aria-hidden="true"></span>{{t (prio .Task.Priority)}}</a>{{end}}
           {{if $showRepeat}}{{template "repeatmark" .Task.Recurrence}}{{end}}
           {{if $showTags}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
@@ -368,7 +368,7 @@
 {{range $v.Lanes.Lanes}}
   {{$acc := index $v.Accent .Project.ID}}
   <section class="lane{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" id="lane-{{.Project.Key}}" data-lane="{{.Project.Key}}">
-    <h2>{{if $acc.Icon}}<span class="proj-icon" aria-hidden="true">{{$acc.Icon}}</span>{{end}}<a href="/tasks?q=project:{{.Project.Key}}" title="{{t "Only tasks in %s" .Project.Name}}">{{.Project.Name}}</a> <span class="meta">({{t "%d open" .Open}})</span></h2>
+    <h2>{{template "proj-icon" (projIcon $acc true)}}<a href="/tasks?q=project:{{.Project.Key}}" title="{{t "Only tasks in %s" .Project.Name}}">{{.Project.Name}}</a> <span class="meta">({{t "%d open" .Open}})</span></h2>
     {{range .Cards}}
     {{$mark := ""}}
     {{if eq $.Tint "status"}}{{$mark = printf " is-accented tint-status-%s" (slug .Task.Status)}}
@@ -737,7 +737,7 @@
 
     {{if and $.CanStar ($.Columns.Show "tasks" "star")}}{{template "star" (star .Ref .Starred $v.Self $.CSRF)}}{{end}}
 
-    {{if $acc.Icon}}<span class="proj-icon" role="img" aria-label="{{$acc.Name}}" title="{{$acc.Name}}">{{$acc.Icon}}</span>{{end}}
+    {{template "proj-icon" (projIcon $acc false)}}
 
     {{/* next carries this listing, filters and sort included, so the task
          screen can offer a way back to exactly it. */}}
@@ -858,7 +858,7 @@
            directory pass, not a lookup per row, and links to the tasks that
            actor holds, the way a tag and a project already do. */}}
       {{if $.Columns.Show "tasks" "assignee"}}<span class="tm tm-who">{{$who := $.Data.Names.Label .AssigneeActorID}}{{if $who}}<a class="who-ref" href="/tasks?q=assignee:{{$who}}" title="{{t "Assigned to %s" $who}}"><span class="at" aria-hidden="true">@</span>{{$who}}</a>{{else}}<span class="who-ref is-none" title="{{t "Nobody is assigned to this"}}">{{t "unassigned"}}</span>{{end}}</span>{{end}}
-      {{if $.Columns.Show "tasks" "project"}}<span class="tm tm-proj"><a class="projref{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" href="/tasks?q=project:{{$acc.Key}}" title="{{t "Only tasks in %s" $acc.Name}}">{{if $acc.Icon}}<span class="proj-icon" aria-hidden="true">{{$acc.Icon}}</span>{{end}}{{$acc.Key}}</a></span>{{end}}
+      {{if $.Columns.Show "tasks" "project"}}<span class="tm tm-proj"><a class="projref{{if $acc.Color}} proj-{{$acc.Color}}{{end}}" href="/tasks?q=project:{{$acc.Key}}" title="{{t "Only tasks in %s" $acc.Name}}">{{template "proj-icon" (projIcon $acc true)}}{{$acc.Key}}</a></span>{{end}}
       {{/* A lease is the one thing on a row that is about to change by
            itself. Held says an agent has it; expired says one took it and
            never came back, which is a task looking for an owner rather than

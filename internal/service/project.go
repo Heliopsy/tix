@@ -97,7 +97,7 @@ func (l *Local) CreateProject(ctx context.Context, in core.CreateProjectInput) (
 	if err != nil {
 		return nil, err
 	}
-	icon, err := core.NormalizeProjectIcon(in.Icon)
+	icon, err := resolveIcon(in.Icon, in.IconName, in.IconFile)
 	if err != nil {
 		return nil, err
 	}
@@ -125,9 +125,12 @@ func (l *Local) CreateProject(ctx context.Context, in core.CreateProjectInput) (
 			Description: in.Description,
 			WorkflowID:  wf.ID,
 			Color:       color,
-			Icon:        icon,
 		}
+		icon.apply(p)
 		if err := m.tx.CreateProject(ctx, p); err != nil {
+			return err
+		}
+		if err := icon.store(ctx, m.tx, p.ID, ""); err != nil {
 			return err
 		}
 		out = p
@@ -206,9 +209,9 @@ func (l *Local) UpdateProject(ctx context.Context, ref string, in core.UpdatePro
 			return nil, err
 		}
 	}
-	var icon string
-	if in.Icon != nil {
-		if icon, err = core.NormalizeProjectIcon(*in.Icon); err != nil {
+	var icon projectIcon
+	if in.IconChanged() {
+		if icon, err = resolveIcon(deref(in.Icon), deref(in.IconName), in.IconFile); err != nil {
 			return nil, err
 		}
 	}
@@ -232,8 +235,11 @@ func (l *Local) UpdateProject(ctx context.Context, ref string, in core.UpdatePro
 		if in.Color != nil {
 			p.Color = color
 		}
-		if in.Icon != nil {
-			p.Icon = icon
+		if in.IconChanged() {
+			icon.apply(p)
+			if err := icon.store(ctx, m.tx, p.ID, before.IconImage); err != nil {
+				return err
+			}
 		}
 		if in.WorkflowKey != nil {
 			wf, err := lookupWorkflow(ctx, m.tx, *in.WorkflowKey)
@@ -253,6 +259,103 @@ func (l *Local) UpdateProject(ctx context.Context, ref string, in core.UpdatePro
 			map[string]any{"key": p.Key})
 	})
 	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// projectIcon is one validated icon choice: at most one of the three kinds.
+type projectIcon struct {
+	text  string
+	name  string
+	image *core.ProjectIconImage
+}
+
+// resolveIcon validates an icon choice and types an uploaded image by its bytes.
+func resolveIcon(text, name string, file *core.ProjectIconFile) (projectIcon, error) {
+	if err := core.ValidateProjectIconChoice(text, name, file); err != nil {
+		return projectIcon{}, err
+	}
+	var out projectIcon
+	out.text, _ = core.NormalizeProjectIcon(text)
+	out.name, _ = core.NormalizeProjectIconName(name)
+	if !file.Empty() {
+		img, err := core.NewProjectIconImage(*file)
+		if err != nil {
+			return projectIcon{}, err
+		}
+		out.image = &img
+	}
+	return out, nil
+}
+
+// apply replaces whichever icon the project carried with this one.
+func (i projectIcon) apply(p *core.Project) {
+	p.Icon, p.IconName, p.IconImage = i.text, i.name, ""
+	if i.image != nil {
+		p.IconImage = i.image.Digest
+	}
+}
+
+// store writes the image this choice carries, and removes the one the project
+// had when the choice no longer names it.
+func (i projectIcon) store(ctx context.Context, tx store.Tx, projectID, previous string) error {
+	if i.image == nil {
+		if previous == "" {
+			return nil
+		}
+		return tx.DeleteProjectIcon(ctx, projectID)
+	}
+	if i.image.Digest == previous {
+		return nil
+	}
+	i.image.ProjectID = projectID
+	return tx.PutProjectIcon(ctx, i.image)
+}
+
+// carryIconImage settles what an import does with the image a project it
+// updates already has, since snapshots and bundles carry no image bytes: the
+// project keeps it when the incoming record names no other icon, and loses it
+// when the record names one.
+func carryIconImage(ctx context.Context, tx store.Tx, existing, target *core.Project) error {
+	if existing == nil || existing.IconImage == "" {
+		return nil
+	}
+	if target.Icon == "" && target.IconName == "" {
+		target.IconImage = existing.IconImage
+		return nil
+	}
+	return tx.DeleteProjectIcon(ctx, existing.ID)
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+// GetProjectIcon returns a project's uploaded icon image.
+func (l *Local) GetProjectIcon(ctx context.Context, ref string) (*core.ProjectIconImage, error) {
+	actor, err := l.authorize(ctx, authz.ActionProjectRead, authz.Resource{})
+	if err != nil {
+		return nil, err
+	}
+	var out *core.ProjectIconImage
+	if err := l.read(ctx, actor, func(tx store.Tx) error {
+		p, err := lookupProject(ctx, tx, ref)
+		if err != nil {
+			return err
+		}
+		if _, err := l.authorize(ctx, authz.ActionProjectRead, authz.Resource{ProjectID: p.ID}); err != nil {
+			return err
+		}
+		if p.IconImage == "" {
+			return core.NotFound("project %q has no icon image", p.Key)
+		}
+		out, err = tx.GetProjectIcon(ctx, p.ID)
+		return err
+	}); err != nil {
 		return nil, err
 	}
 	return out, nil

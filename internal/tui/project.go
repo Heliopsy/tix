@@ -57,9 +57,22 @@ func projectAttributes(state ProjectState) []ProjectLine {
 		projectRow("name", p.Name),
 		projectRow("description", orNone(p.Description)),
 		projectRow("colour", orNone(p.Color.String())),
-		projectRow("icon", ProjectGlyph(p)),
+		projectRow("icon", projectIconLine(p)),
 	}
 	return append(out, projectRow("state", projectStanding(p, state.TimeStyle)))
+}
+
+// projectIconLine draws the icon and, for a kind the terminal can only stand
+// in for, says what it stands for.
+func projectIconLine(p core.Project) string {
+	switch p.IconKind() {
+	case core.IconKindBuiltin:
+		return ProjectGlyph(p) + "  built-in " + p.IconName
+	case core.IconKindImage:
+		return ProjectGlyph(p) + "  uploaded image"
+	default:
+		return ProjectGlyph(p)
+	}
 }
 
 // projectStanding says whether the project is live, and when it was archived if

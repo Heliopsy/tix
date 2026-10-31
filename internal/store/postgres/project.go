@@ -13,7 +13,7 @@ import (
 
 var projectColumns = []string{
 	"id", "tenant_id", "key", "name", "description", "workflow_id",
-	"color", "icon", "archived_at", "created_at", "updated_at",
+	"color", "icon", "icon_name", "icon_image", "archived_at", "created_at", "updated_at",
 }
 
 var projectSortColumns = map[string]string{
@@ -31,7 +31,7 @@ func scanProject(s scanner) (core.Project, error) {
 		updated  sql.NullTime
 	)
 	if err := s.Scan(&p.ID, &p.TenantID, &p.Key, &p.Name, &p.Description, &p.WorkflowID,
-		&p.Color, &p.Icon, &archived, &created, &updated); err != nil {
+		&p.Color, &p.Icon, &p.IconName, &p.IconImage, &archived, &created, &updated); err != nil {
 		return core.Project{}, mapErr(err, "scanning project")
 	}
 	p.ArchivedAt = scanNullTime(archived)
@@ -59,6 +59,8 @@ func (t *tx) CreateProject(ctx context.Context, p *core.Project) error {
 		Set("workflow_id", p.WorkflowID).
 		Set("color", string(p.Color)).
 		Set("icon", p.Icon).
+		Set("icon_name", p.IconName).
+		Set("icon_image", p.IconImage).
 		Set("archived_at", nullTimeArg(p.ArchivedAt)).
 		Set("created_at", timeArg(p.CreatedAt)).
 		Set("updated_at", timeArg(p.UpdatedAt))
@@ -124,6 +126,8 @@ func (t *tx) UpdateProject(ctx context.Context, p *core.Project) error {
 		Set("workflow_id", p.WorkflowID).
 		Set("color", string(p.Color)).
 		Set("icon", p.Icon).
+		Set("icon_name", p.IconName).
+		Set("icon_image", p.IconImage).
 		Set("archived_at", nullTimeArg(p.ArchivedAt)).
 		Set("updated_at", timeArg(p.UpdatedAt))
 	n, err := t.execUpdate(ctx, b, "updating project %q", p.ID)

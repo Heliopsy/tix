@@ -161,13 +161,17 @@ type projectAccent struct {
 	Name  string
 	Color core.ProjectColor
 	Icon  string
+
+	IconName  string
+	IconImage string
 }
 
 // projectAccents maps each project to its row marking.
 func projectAccents(projects []core.Project) map[string]projectAccent {
 	out := make(map[string]projectAccent, len(projects))
 	for _, p := range projects {
-		out[p.ID] = projectAccent{Key: p.Key, Name: p.Name, Color: p.Color, Icon: p.Icon}
+		out[p.ID] = projectAccent{Key: p.Key, Name: p.Name, Color: p.Color, Icon: p.Icon,
+			IconName: p.IconName, IconImage: p.IconImage}
 	}
 	return out
 }

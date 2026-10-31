@@ -677,7 +677,7 @@ func (i *importer) applyProject(ctx context.Context, tx store.Tx, m *mutation, p
 	if !p.Color.Valid() {
 		return i.reject("project %q at line %d has colour %q, which is not in the palette", p.Key, i.dec.Line(), p.Color)
 	}
-	if _, err := core.NormalizeProjectIcon(p.Icon); err != nil {
+	if err := core.ValidateProjectIconChoice(p.Icon, p.IconName, nil); err != nil {
 		return i.reject("project %q at line %d has an invalid icon: %v", p.Key, i.dec.Line(), err)
 	}
 	existing, err := findProject(ctx, tx, p.Key)
@@ -699,7 +699,7 @@ func (i *importer) applyProject(ctx context.Context, tx store.Tx, m *mutation, p
 
 	target := &core.Project{
 		Key: p.Key, Name: name, Description: p.Description,
-		WorkflowID: workflowID, Color: p.Color, Icon: p.Icon,
+		WorkflowID: workflowID, Color: p.Color, Icon: p.Icon, IconName: p.IconName,
 		ArchivedAt: p.ArchivedAt, CreatedAt: p.CreatedAt,
 	}
 	i.count(core.RecordProject, existing != nil)
@@ -708,6 +708,9 @@ func (i *importer) applyProject(ctx context.Context, tx store.Tx, m *mutation, p
 		target.ID = existing.ID
 		i.mapID(p.ID, existing.ID)
 		if !i.dryRun {
+			if err := carryIconImage(ctx, tx, existing, target); err != nil {
+				return err
+			}
 			if err := tx.UpdateProject(ctx, target); err != nil {
 				return err
 			}

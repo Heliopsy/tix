@@ -4,8 +4,10 @@ package client
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/wire"
@@ -19,6 +21,31 @@ func (c *Client) CreateProject(ctx context.Context, in core.CreateProjectInput) 
 // GetProject returns one project.
 func (c *Client) GetProject(ctx context.Context, ref string) (*core.Project, error) {
 	return call[core.Project](ctx, c, http.MethodGet, routePath(wire.RouteProject, "ref", ref), nil, nil)
+}
+
+// GetProjectIcon fetches a project's uploaded icon image.
+func (c *Client) GetProjectIcon(ctx context.Context, ref string) (*core.ProjectIconImage, error) {
+	ctx, cancel := c.withTimeout(ctx)
+	defer cancel()
+	req, err := c.newRequest(ctx, http.MethodGet, routePath(wire.RouteProjectIcon, "ref", ref), nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set(wire.HeaderAccept, "image/*, "+wire.ContentJSON)
+	resp, err := c.send(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	data, err := io.ReadAll(io.LimitReader(resp.Body, core.MaxProjectIconBytes+1))
+	if err != nil {
+		return nil, core.Internal("reading the icon of project %q: %v", ref, err).Wrap(err)
+	}
+	return &core.ProjectIconImage{
+		ContentType: resp.Header.Get(wire.HeaderContentType),
+		Digest:      strings.Trim(resp.Header.Get("ETag"), `"`),
+		Data:        data,
+	}, nil
 }
 
 // ListProjects returns one page of projects.
