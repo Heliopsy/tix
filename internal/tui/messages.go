@@ -55,6 +55,7 @@ const (
 	actionArtifact
 	actionStar
 	actionUnstar
+	actionArrange
 	actionEditTenant
 	actionAddDomain
 	actionRemoveDomain
@@ -95,6 +96,7 @@ var actionLabels = map[actionKind][2]string{
 	actionArtifact: {"record the artifact", "recorded an artifact on"},
 	actionStar:     {"star the task", "starred"},
 	actionUnstar:   {"unstar the task", "unstarred"},
+	actionArrange:  {"arrange the board", "arranged the board"},
 
 	// The tenant screen's own actions. Their subject is the tenant, a hostname
 	// or a membership rather than a task, so each carries its own sentence and
@@ -156,11 +158,17 @@ type boardMsg struct {
 	project  core.Project
 	workflow *core.WorkflowDefinition
 	tasks    []core.Task
+	prefs    []core.GroupPref
 }
 
 // tasksMsg carries a refreshed task listing for the open project.
 type tasksMsg struct {
 	tasks []core.Task
+	// prefs is the reader's arrangement of the board, read with the tasks so
+	// a change to it is drawn by the same reload. arranged is false when it
+	// was not read, which leaves the arrangement already held in place.
+	prefs    []core.GroupPref
+	arranged bool
 }
 
 // detailMsg carries everything the detail view shows.

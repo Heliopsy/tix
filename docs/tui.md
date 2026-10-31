@@ -185,6 +185,11 @@ impossible for a scheme to leave an action unbound.
 | `u` | restore a deleted task | board, detail |
 | `*` | star the task, or unstar a starred one; starred cards lead their column | board, detail |
 | `X` | delete the task or the selected comment; removes the selected domain or member | board, detail, project, tenant |
+| `Z` | hide the selected column, for you, on this project's board everywhere | board |
+| `+` | star the selected column, or unstar it; starred columns lead | board |
+| `z` | collapse the selected column to its name and count, or expand it | board |
+| `<`, `>` | move the selected column left, right | board |
+| `=` | show every hidden column again | board |
 | `y` | agree to a confirmation | wherever one is open |
 | `w` | project setup | everywhere |
 | `f` | custom field definitions | project |
@@ -200,7 +205,7 @@ cross-view keys already use when their letter is taken.
 
 ### The command palette
 
-Fifty-two bindings is more than anyone holds in their head, and the letters ran out: `W` lists projects
+Fifty-eight bindings is more than anyone holds in their head, and the letters ran out: `W` lists projects
 while `w` opens project setup, `H` reads history while `v` draws the live tail, `L` picks a tag, `O` records
 an artifact, `N` claims the next task. The capitals were handed out by elimination rather than by meaning.
 
@@ -378,6 +383,22 @@ shifted `p` is the picker, and wrapping means four presses reach anywhere the re
 subject. `y` answers that, not `enter`: a question answered by the key every other input is accepted with
 is answered by reflex, which is the habit a destructive confirmation exists to interrupt. The same
 confirmation stands in front of archiving or deleting a project and removing a custom field.
+
+### Arranging the board's columns
+
+The board is one project's board, and its columns can be arranged the way the web board's can: `Z` hides
+the selected column, `+` stars it so it leads, `z` collapses it to its name and count, and `<` and `>`
+move it past its neighbour. `=` brings every hidden column back. The arrangement is yours alone and is kept
+on the server under the view `project:KEY`, so a column hidden here is hidden on the same project's board
+in the browser, and the other way round. The command line reads and changes it with `tix view`.
+
+A starred column only moves among starred ones and an unstarred one among the rest, so `<` and `>` are not
+offered at the line between them, nor at either end. A collapsed column is still a column: it can be
+selected, which is how it is expanded again, and a task moved into its state lands in it. A collapsed
+heading carries `▸` and a starred one `★`, so neither depends on colour.
+
+A reader without the authority to read the arrangement gets the board in workflow order, and the keys are
+neither drawn nor sent.
 
 ### Rebinding one action
 
@@ -620,7 +641,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 101
+a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 105
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:

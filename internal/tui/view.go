@@ -359,6 +359,9 @@ func (m Model) columnBlock(index int, layout Layout, gap bool) string {
 // cardBlock renders the cards of one column into a line budget, separated by a
 // blank line, with the scroll hint a window that hides cards owes the reader.
 func (m Model) cardBlock(col Column, focused bool, width, rows int) []string {
+	if col.Collapsed {
+		return []string{m.quiet(m.theme.Empty).Render(Truncate(CollapsedNote, width))}
+	}
 	if len(col.Tasks) == 0 {
 		return []string{m.quiet(m.theme.Empty).Render(Truncate("empty", width))}
 	}
@@ -384,10 +387,27 @@ func (m Model) cardBlock(col Column, focused bool, width, rows int) []string {
 	return out
 }
 
-// ColumnHeadingText names a column and counts it.
+// ColumnHeadingText names a column and counts it, marking a column the reader
+// starred or collapsed in words a terminal without colour still carries. A
+// collapsed column counts the cards it put away.
 func ColumnHeadingText(col Column) string {
-	return col.Label + " (" + fmt.Sprint(len(col.Tasks)) + ")"
+	head := col.Label + " (" + fmt.Sprint(len(col.Tasks)+col.Folded) + ")"
+	if col.Collapsed {
+		head = CollapsedMark + " " + head
+	}
+	if col.Starred {
+		head = StarredColumnMark + " " + head
+	}
+	return head
 }
+
+// StarredColumnMark leads the heading of a column the reader starred, and
+// CollapsedMark one they collapsed. CollapsedNote stands where its cards were.
+const (
+	StarredColumnMark = "★"
+	CollapsedMark     = "▸"
+	CollapsedNote     = "collapsed"
+)
 
 // columnHeading names a column and counts it, coloured by the category its
 // state belongs to rather than by its name, because workflows are user defined.

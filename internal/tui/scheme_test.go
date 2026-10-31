@@ -97,11 +97,11 @@ func TestOverridesAreRefusedForUnknownActionsAndEmptyKeys(t *testing.T) {
 }
 
 func TestMultipleOverridesApplyTogether(t *testing.T) {
-	k, err := KeyMapFrom(SchemeVim, map[string]string{"Comment": "z", "Depend": "Z"})
+	k, err := KeyMapFrom(SchemeVim, map[string]string{"Comment": "b", "Depend": "B"})
 	if err != nil {
 		t.Fatalf("KeyMapFrom: %v", err)
 	}
-	for action, want := range map[string]string{"Comment": "z", "Depend": "Z"} {
+	for action, want := range map[string]string{"Comment": "b", "Depend": "B"} {
 		b, _ := k.Binding(action)
 		if b.Keys()[0] != want {
 			t.Fatalf("%s = %v, want %q", action, b.Keys(), want)

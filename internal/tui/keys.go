@@ -39,6 +39,12 @@ type KeyMap struct {
 	Delete        key.Binding
 	Restore       key.Binding
 	Star          key.Binding
+	HideColumn    key.Binding
+	StarColumn    key.Binding
+	FoldColumn    key.Binding
+	ColumnLeft    key.Binding
+	ColumnRight   key.Binding
+	ShowColumns   key.Binding
 	Artifact      key.Binding
 	ClaimNext     key.Binding
 	Renew         key.Binding
@@ -109,6 +115,16 @@ func DefaultKeyMap() KeyMap {
 		// *, the glyph the card marks a starred task with. It is the one
 		// toggle on the board: pressed again it takes the star off.
 		Star: key.NewBinding(key.WithKeys("*"), key.WithHelp("*", "star")),
+		// The column keys. z folds, as it folds a region in vim, and Z, its
+		// capital, puts the column away altogether. + stars it, beside * which
+		// stars a task; < and > move it the way the arrows point; = shows
+		// every column again.
+		HideColumn:  key.NewBinding(key.WithKeys("Z"), key.WithHelp("Z", "hide column")),
+		StarColumn:  key.NewBinding(key.WithKeys("+"), key.WithHelp("+", "star column")),
+		FoldColumn:  key.NewBinding(key.WithKeys("z"), key.WithHelp("z", "collapse column")),
+		ColumnLeft:  key.NewBinding(key.WithKeys("<"), key.WithHelp("<", "move column left")),
+		ColumnRight: key.NewBinding(key.WithKeys(">"), key.WithHelp(">", "move column right")),
+		ShowColumns: key.NewBinding(key.WithKeys("="), key.WithHelp("=", "show hidden columns")),
 		// O, for the output a worker records. Lowercase o opens a new task under
 		// vim and helix, so the capital is what the other taken letters use.
 		Artifact:  key.NewBinding(key.WithKeys("O"), key.WithHelp("O", "record artifact")),
@@ -218,6 +234,13 @@ const (
 	doArtifact
 	doRenew
 	doReclaim
+
+	doHideColumn
+	doStarColumn
+	doFoldColumn
+	doColumnLeft
+	doColumnRight
+	doShowColumns
 )
 
 // Action is one thing the interface can be asked to do: what performs it, what
@@ -242,6 +265,13 @@ type Action struct {
 	// happen.
 	needsTask    bool
 	needsProject bool
+	// needsColumn and needsHidden are the board's own context: a column the
+	// arrangement can name under the selection, a neighbour to move it past,
+	// and hidden columns to show.
+	needsColumn bool
+	needsLeft   bool
+	needsRight  bool
+	needsHidden bool
 	// hidden keeps an action out of the palette while leaving it in the help
 	// overlay. Only the palette's own key is hidden: an entry for the door the
 	// reader is already standing in is a row that teaches nothing.
@@ -258,7 +288,7 @@ func (a Action) Keys() string { return a.binding.Help().Key }
 // be offered the view it enters. It is what separates the navigation keys from
 // the ones that act on something, since both live in the same list.
 func (a Action) opensView() bool {
-	return !a.always && !a.hidden && !a.needsTask && !a.needsProject &&
+	return !a.always && !a.hidden && !a.needsTask && !a.needsProject && !a.needsColumn && !a.needsHidden &&
 		len(a.gate.methods) == 0 && len(a.gate.needs) == 0
 }
 
@@ -287,7 +317,35 @@ func (k KeyMap) globalKeys() []Action {
 // already prints, which is what keeps the palette reading the same way down the
 // page as the overlay a reader may have learnt it from.
 func (k KeyMap) Actions() []Action {
-	return append(k.globalKeys(), k.taskBindings()...)
+	return append(append(k.globalKeys(), k.taskBindings()...), k.columnBindings()...)
+}
+
+// columnBindings are the actions on the board's selected column, each against
+// the operation it calls. Reading the arrangement is needed too, because a
+// board that cannot read it cannot draw what these change.
+func (k KeyMap) columnBindings() []Action {
+	set := gatedAction{methods: []string{"SetGroupPref"}, needs: []string{"ListGroupPrefs"}}
+	order := gatedAction{methods: []string{"OrderGroups"}, needs: []string{"ListGroupPrefs"}}
+	with := func(b key.Binding, g gatedAction) gatedAction { g.binding = b; return g }
+	return []Action{
+		{id: doHideColumn, binding: k.HideColumn, needsColumn: true, gate: with(k.HideColumn, set)},
+		{id: doStarColumn, binding: k.StarColumn, needsColumn: true, gate: with(k.StarColumn, set)},
+		{id: doFoldColumn, binding: k.FoldColumn, needsColumn: true, gate: with(k.FoldColumn, set)},
+		{id: doColumnLeft, binding: k.ColumnLeft, needsColumn: true, needsLeft: true, gate: with(k.ColumnLeft, order)},
+		{id: doColumnRight, binding: k.ColumnRight, needsColumn: true, needsRight: true, gate: with(k.ColumnRight, order)},
+		{id: doShowColumns, binding: k.ShowColumns, needsHidden: true, gate: with(k.ShowColumns, set)},
+	}
+}
+
+// columnHelp lists the column actions this reader's authority reaches.
+func (k KeyMap) columnHelp(may func(string) bool) []HelpEntry {
+	out := make([]HelpEntry, 0, len(k.columnBindings()))
+	for _, a := range k.columnBindings() {
+		if a.gate.permitted(may) {
+			out = append(out, entry(a.binding))
+		}
+	}
+	return out
 }
 
 // ResolveAction finds the action a key press performs. It is how the keystroke
@@ -442,7 +500,7 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 		return append([]HelpEntry{
 			entry(k.Left), entry(k.Right), entry(k.Up), entry(k.Down), entry(k.Enter),
 			entry(k.Filter), entry(k.ClearFltr),
-		}, append(k.taskActions(may), entry(k.Back))...)
+		}, append(append(k.taskActions(may), k.columnHelp(may)...), entry(k.Back))...)
 	case viewDetail:
 		return append(append([]HelpEntry{entry(k.Up), entry(k.Down)}, k.commentHelp()...),
 			append(k.taskActions(may), entry(k.Back))...)
@@ -602,6 +660,13 @@ type ActionContext struct {
 	// filter revealed. A deleted task accepts one action, so the footer offers
 	// that one and none of the editing keys the service would refuse.
 	IsDeleted bool
+	// HasColumn reports a board column under the selection that the reader's
+	// arrangement can name; CanLeft and CanRight that it has a neighbour of
+	// its own kind to trade places with; HasHidden that columns are hidden.
+	HasColumn bool
+	CanLeft   bool
+	CanRight  bool
+	HasHidden bool
 	// May reports whether this reader holds the authority one operation needs,
 	// asked of the capability registry. Nil offers none of the gated actions.
 	May func(string) bool

@@ -33,7 +33,7 @@ func (m Model) loadBoard(p core.Project) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, filter := m.svc, m.ctx, m.taskFilter(p.Key)
+	svc, ctx, filter, arranges := m.svc, m.ctx, m.taskFilter(p.Key), m.arranges()
 	return func() tea.Msg {
 		def, err := workflowOf(ctx, svc, p)
 		if err != nil {
@@ -43,7 +43,8 @@ func (m Model) loadBoard(p core.Project) tea.Cmd {
 		if err != nil {
 			return errMsg{err: err}
 		}
-		return boardMsg{project: p, workflow: def, tasks: page.Tasks}
+		prefs, _ := readArrangement(ctx, svc, p.Key, arranges)
+		return boardMsg{project: p, workflow: def, tasks: page.Tasks, prefs: prefs}
 	}
 }
 
@@ -67,13 +68,14 @@ func (m Model) loadTasks() tea.Cmd {
 	if m.svc == nil || m.project.ID == "" {
 		return nil
 	}
-	svc, ctx, filter := m.svc, m.ctx, m.taskFilter(m.project.Key)
+	svc, ctx, filter, key, arranges := m.svc, m.ctx, m.taskFilter(m.project.Key), m.project.Key, m.arranges()
 	return func() tea.Msg {
 		page, err := svc.ListTasks(ctx, filter)
 		if err != nil {
 			return errMsg{err: err}
 		}
-		return tasksMsg{tasks: page.Tasks}
+		prefs, arranged := readArrangement(ctx, svc, key, arranges)
+		return tasksMsg{tasks: page.Tasks, prefs: prefs, arranged: arranged}
 	}
 }
 
