@@ -199,3 +199,17 @@ test("Enter on a focused button or link is left to the control", () => {
   const row = doc.dispatch("keydown", keydown("Enter", { target: element("ARTICLE") }));
   assert.equal(row.prevented, 1, "Enter on a row no longer opens it");
 });
+
+// Escape in an open menu closes the menu and nothing else. The back shortcut
+// took it as well, so dismissing a status menu left the page.
+test("while a menu is open the global shortcuts stand down", () => {
+  const p = page();
+  p.doc.querySelector = (sel) => (sel === ":popover-open" ? {} : null);
+  const event = p.doc.dispatch("keydown", keydown("Escape"));
+  assert.equal(event.prevented, 0, "a shortcut fired underneath the open menu");
+  assert.equal(p.history.backs, 0, "Escape in a menu also went Back from the page");
+
+  const old = page();
+  old.doc.querySelector = (sel) => { if (sel === ":popover-open") throw new Error("unsupported"); return null; };
+  assert.doesNotThrow(() => old.doc.dispatch("keydown", keydown("j")), "a browser without popovers broke the shortcuts");
+});
