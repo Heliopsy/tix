@@ -588,9 +588,28 @@ var serviceScenarios = []svcScenario{
 		covers: []string{"CreateProject", "DeleteProject", "GetProject"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
 			p := h.newProject(t, tg)
-			mustf(t, tg, tg.svc.DeleteProject(tg.ctx, p.Key), "deleting the project")
-			_, err := tg.svc.GetProject(tg.ctx, p.Key)
+			_, err := tg.svc.DeleteProject(tg.ctx, p.Key, core.DeleteProjectInput{})
+			mustf(t, tg, err, "deleting the project")
+			_, err = tg.svc.GetProject(tg.ctx, p.Key)
 			return nil, err
+		},
+	},
+	{
+		name:   "a project holding tasks is deleted only with a choice, and moving keeps the task",
+		covers: []string{"PlanProjectDeletion", "DeleteProject"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			from, to := h.newProject(t, tg), h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: from.Key, Title: "travels"})
+			mustf(t, tg, err, "creating the task")
+			_, refused := tg.svc.DeleteProject(tg.ctx, from.Key, core.DeleteProjectInput{})
+			plan, err := tg.svc.PlanProjectDeletion(tg.ctx, from.Key, core.DeleteProjectInput{MoveTasksTo: to.Key})
+			mustf(t, tg, err, "planning the move")
+			done, err := tg.svc.DeleteProject(tg.ctx, from.Key, core.DeleteProjectInput{MoveTasksTo: to.Key})
+			mustf(t, tg, err, "deleting with a move")
+			moved, err := tg.svc.GetTask(tg.ctx, core.TaskRef{ID: task.ID})
+			mustf(t, tg, err, "reading the moved task")
+			return sig{"refused": string(core.KindOf(refused)), "planned": plan.Tasks,
+				"moved": done.Tasks, "home": moved.ProjectID == to.ID}, nil
 		},
 	},
 	{

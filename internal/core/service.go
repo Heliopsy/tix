@@ -64,7 +64,11 @@ type ProjectService interface {
 	ListProjects(ctx context.Context, f ProjectFilter) ([]Project, string, error)
 	UpdateProject(ctx context.Context, ref string, in UpdateProjectInput) (*Project, error)
 	ArchiveProject(ctx context.Context, ref string) error
-	DeleteProject(ctx context.Context, ref string) error
+	// DeleteProject removes a project permanently, moving or deleting its
+	// tasks as the input says; a project holding tasks needs a choice.
+	DeleteProject(ctx context.Context, ref string, in DeleteProjectInput) (*ProjectDeletion, error)
+	// PlanProjectDeletion reports what DeleteProject would do, writing nothing.
+	PlanProjectDeletion(ctx context.Context, ref string, in DeleteProjectInput) (*ProjectDeletion, error)
 
 	PutFieldDef(ctx context.Context, projectRef string, in FieldDefInput) (*FieldDef, error)
 	ListFieldDefs(ctx context.Context, projectRef string) ([]FieldDef, error)

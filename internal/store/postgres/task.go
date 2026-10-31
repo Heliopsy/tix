@@ -560,6 +560,26 @@ func (t *tx) DeleteTask(ctx context.Context, taskID string, hard bool) error {
 	return nil
 }
 
+// MoveTask puts a task, soft deleted or not, into another project under a new
+// number and status, keeping its identifier and everything keyed by it.
+func (t *tx) MoveTask(ctx context.Context, taskID, projectID string, seq int64, status string) error {
+	b := t.builder("tasks").
+		Where("tasks.id = ?", taskID).
+		Set("project_id", projectID).
+		Set("seq", seq).
+		Set("status", status).
+		Set("updated_at", t.now()).
+		SetExpr("version", "version + 1")
+	n, err := t.execUpdate(ctx, b, "moving task %q", taskID)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return core.NotFound("task %q", taskID)
+	}
+	return nil
+}
+
 // RestoreTask clears a task's soft deletion.
 func (t *tx) RestoreTask(ctx context.Context, taskID string) error {
 	b := t.builder("tasks").

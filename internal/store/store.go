@@ -160,6 +160,8 @@ type TaskTx interface {
 	UpdateTask(ctx context.Context, t *core.Task) error
 	DeleteTask(ctx context.Context, id string, hard bool) error
 	RestoreTask(ctx context.Context, id string) error
+	// MoveTask puts a task into another project under a new number and status.
+	MoveTask(ctx context.Context, id, projectID string, seq int64, status string) error
 	// NextSeq reserves the next per-project task number.
 	NextSeq(ctx context.Context, projectID string) (int64, error)
 	Children(ctx context.Context, parentID string) ([]core.Task, error)

@@ -315,7 +315,7 @@ func TestDeleteProject(t *testing.T) {
 	}
 
 	events, audits := countRows(t, l, scope)
-	if err := l.DeleteProject(ctx, "infra"); err != nil {
+	if _, err := l.DeleteProject(ctx, "infra", core.DeleteProjectInput{}); err != nil {
 		t.Fatalf("DeleteProject: %v", err)
 	}
 	afterEvents, afterAudits := countRows(t, l, scope)
@@ -325,7 +325,7 @@ func TestDeleteProject(t *testing.T) {
 	if _, err := l.GetProject(ctx, "infra"); !core.IsKind(err, core.KindNotFound) {
 		t.Errorf("GetProject after deletion = %v, want not found", err)
 	}
-	if err := l.DeleteProject(ctx, "infra"); !core.IsKind(err, core.KindNotFound) {
+	if _, err := l.DeleteProject(ctx, "infra", core.DeleteProjectInput{}); !core.IsKind(err, core.KindNotFound) {
 		t.Errorf("deleting twice = %v, want not found", err)
 	}
 }
@@ -358,7 +358,7 @@ func TestProjectsDoNotLeakAcrossTenants(t *testing.T) {
 	if _, err := l.GetProject(ctx, theirs.ID); !core.IsKind(err, core.KindNotFound) {
 		t.Errorf("GetProject by another tenant's identifier = %v, want not found", err)
 	}
-	if err := l.DeleteProject(ctx, theirs.ID); !core.IsKind(err, core.KindNotFound) {
+	if _, err := l.DeleteProject(ctx, theirs.ID, core.DeleteProjectInput{}); !core.IsKind(err, core.KindNotFound) {
 		t.Errorf("DeleteProject across tenants = %v, want not found", err)
 	}
 
@@ -424,7 +424,7 @@ func TestProjectWritesRequireProjectWriteScope(t *testing.T) {
 	if err := l.ArchiveProject(viewerCtx, "infra"); !core.IsKind(err, core.KindForbidden) {
 		t.Errorf("viewer archiving a project = %v, want forbidden", err)
 	}
-	if err := l.DeleteProject(viewerCtx, "infra"); !core.IsKind(err, core.KindForbidden) {
+	if _, err := l.DeleteProject(viewerCtx, "infra", core.DeleteProjectInput{}); !core.IsKind(err, core.KindForbidden) {
 		t.Errorf("viewer deleting a project = %v, want forbidden", err)
 	}
 	if _, err := l.GetProject(viewerCtx, "infra"); err != nil {

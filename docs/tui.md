@@ -384,6 +384,11 @@ subject. `y` answers that, not `enter`: a question answered by the key every oth
 is answered by reflex, which is the habit a destructive confirmation exists to interrupt. The same
 confirmation stands in front of archiving or deleting a project and removing a custom field.
 
+Deleting a project asks one more thing on its form, shown only once `delete` is chosen: what happens to its
+tasks, `delete them` or `move to KEY` for each other live project. The confirmation then states the plan
+the service returns, either `with its 3 tasks, permanently` or `moving its 3 tasks to ops: todo to todo (2),
+review to doing (1)`, so the status mapping is read before anything is written.
+
 ### Arranging the board's columns
 
 The board is one project's board, and its columns can be arranged the way the web board's can: `Z` hides
@@ -641,7 +646,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 105
+a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 106
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:

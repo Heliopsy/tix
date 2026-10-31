@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"errors"
 	"os"
 	"strings"
 
@@ -342,34 +343,69 @@ func projectArchiveCmd(g *globals) *cobra.Command {
 }
 
 func projectRmCmd(g *globals) *cobra.Command {
-	var dryRun bool
+	var dryRun, deleteTasks bool
+	var moveTo string
 	cmd := &cobra.Command{
 		Use:     "rm KEY",
 		Aliases: []string{"delete"},
 		Short:   "Delete a project",
-		Long:    "Delete a project and everything in it.\n\nExit codes: 3 unknown project, 6 project still holds tasks.",
-		Example: "  tix project rm infra",
+		Long: "Delete a project permanently. A project holding tasks needs to be told what happens to them:\n" +
+			"--move-tasks-to KEY moves them to another project, renumbered there with their status mapped onto\n" +
+			"its workflow, and --delete-tasks deletes them permanently with the project. --dry-run prints the\n" +
+			"task count and the status mapping without writing.\n\n" +
+			"Exit codes: 2 both flags passed, 3 unknown project, 6 project still holds tasks and no flag says what happens to them.",
+		Example: "  tix project rm infra\n  tix project rm infra --move-tasks-to ops\n  tix project rm infra --delete-tasks",
 		Args:    exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
 			}
+			in := core.DeleteProjectInput{MoveTasksTo: moveTo, DeleteTasks: deleteTasks}
 			if dryRun {
-				if _, err := conn.Service.GetProject(ctx, args[0]); err != nil {
+				plan, err := conn.Service.PlanProjectDeletion(ctx, args[0], in)
+				if err != nil {
 					return err
 				}
-				return g.render(cmd, newPlan("project.delete", args[0], nil))
+				return g.render(cmd, newPlan("project.delete", args[0], deletionDetail(plan)))
 			}
-			if err := conn.Service.DeleteProject(ctx, args[0]); err != nil {
-				return err
+			done, err := conn.Service.DeleteProject(ctx, args[0], in)
+			if err != nil {
+				return withDeletionFlags(err)
 			}
-			return g.render(cmd, outcome{Ref: args[0], Status: statusOK})
+			return g.render(cmd, done)
 		},
 		ValidArgsFunction: g.completeProjectKeys,
 	}
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be deleted without writing")
+	cmd.Flags().StringVar(&moveTo, "move-tasks-to", "", "move the project's tasks to this project before deleting it")
+	cmd.Flags().BoolVar(&deleteTasks, "delete-tasks", false, "delete the project's tasks permanently with it")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be deleted or moved without writing")
+	_ = cmd.RegisterFlagCompletionFunc("move-tasks-to", g.completeProjectKeys)
 	return cmd
+}
+
+// deletionDetail is a deletion plan as a dry run reports it.
+func deletionDetail(plan *core.ProjectDeletion) map[string]any {
+	detail := map[string]any{"tasks": plan.Tasks, "deleted_tasks": plan.Deleted}
+	if plan.MoveTo != "" {
+		detail["move_to"] = plan.MoveTo
+		detail["statuses"] = plan.Statuses
+	}
+	if plan.DeleteTasks {
+		detail["delete_tasks"] = true
+	}
+	return detail
+}
+
+// withDeletionFlags names the flags that answer a refusal for want of a choice
+// about the tasks, which the service states in terms of no one surface.
+func withDeletionFlags(err error) error {
+	var domain *core.Error
+	if !errors.As(err, &domain) || domain.Kind != core.KindPrecondition || domain.Details["tasks"] == nil {
+		return err
+	}
+	return core.Precondition("%s; pass --move-tasks-to KEY or --delete-tasks", domain.Message).
+		WithDetail("tasks", domain.Details["tasks"])
 }
 
 // newWorkflowCmd builds the workflow command group.

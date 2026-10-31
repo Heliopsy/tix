@@ -102,7 +102,14 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 			return err
 		}, http.MethodPatch, "/api/v1/projects/infra"},
 		{"archive project", func(c *Client) error { return c.ArchiveProject(ctx, "infra") }, http.MethodDelete, "/api/v1/projects/infra"},
-		{"delete project", func(c *Client) error { return c.DeleteProject(ctx, "infra") }, http.MethodDelete, "/api/v1/projects/infra"},
+		{"delete project", func(c *Client) error {
+			_, err := c.DeleteProject(ctx, "infra", core.DeleteProjectInput{})
+			return err
+		}, http.MethodDelete, "/api/v1/projects/infra"},
+		{"plan project deletion", func(c *Client) error {
+			_, err := c.PlanProjectDeletion(ctx, "infra", core.DeleteProjectInput{})
+			return err
+		}, http.MethodGet, "/api/v1/projects/infra/deletion"},
 		{"put field def", func(c *Client) error {
 			_, err := c.PutFieldDef(ctx, "infra", core.FieldDefInput{Key: "severity"})
 			return err

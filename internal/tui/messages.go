@@ -148,6 +148,15 @@ func (a actionKind) ChangesSetup() bool {
 	}
 }
 
+// deletionPlanMsg carries what a project deletion would do, read before the
+// reader is asked to agree to it.
+type deletionPlanMsg struct {
+	ref  string
+	in   core.DeleteProjectInput
+	plan core.ProjectDeletion
+	err  error
+}
+
 // projectsMsg carries the project listing.
 type projectsMsg struct {
 	projects []core.Project

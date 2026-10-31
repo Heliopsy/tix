@@ -418,25 +418,3 @@ func (l *Local) ArchiveProject(ctx context.Context, ref string) error {
 			map[string]any{"key": p.Key, "archived": true})
 	})
 }
-
-// DeleteProject removes a project and everything cascading from it.
-func (l *Local) DeleteProject(ctx context.Context, ref string) error {
-	actor, err := l.authorize(ctx, authz.ActionProjectWrite, authz.Resource{})
-	if err != nil {
-		return err
-	}
-	return l.write(ctx, actor, func(m *mutation) error {
-		p, err := lookupProject(ctx, m.tx, ref)
-		if err != nil {
-			return err
-		}
-		if _, err := l.authorize(ctx, authz.ActionProjectWrite, authz.Resource{ProjectID: p.ID}); err != nil {
-			return err
-		}
-		if err := m.tx.DeleteProject(ctx, p.ID); err != nil {
-			return err
-		}
-		return m.Record(auditProjectDelete, eventProjectDeleted, "project", p.ID, p.ID, p, nil,
-			map[string]any{"key": p.Key})
-	})
-}

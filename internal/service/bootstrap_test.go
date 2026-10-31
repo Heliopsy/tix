@@ -211,7 +211,7 @@ func TestEnsureDefaultsDoesNotResurrectADeletedList(t *testing.T) {
 		t.Fatalf("EnsureDefaults: %v", err)
 	}
 	admin := core.WithActor(ctx, core.SystemActor(tenant.ID))
-	if err := l.DeleteProject(admin, "homelab"); err != nil {
+	if _, err := l.DeleteProject(admin, "homelab", core.DeleteProjectInput{DeleteTasks: true}); err != nil {
 		t.Fatalf("DeleteProject: %v", err)
 	}
 	if _, err := l.EnsureDefaults(ctx); err != nil {

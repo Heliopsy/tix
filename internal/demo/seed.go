@@ -162,7 +162,7 @@ func resetProjects(ctx context.Context, svc core.Service) error {
 			return nil
 		}
 		for _, p := range projects {
-			if err := svc.DeleteProject(ctx, p.ID); err != nil && !core.IsKind(err, core.KindNotFound) {
+			if _, err := svc.DeleteProject(ctx, p.ID, core.DeleteProjectInput{DeleteTasks: true}); err != nil && !core.IsKind(err, core.KindNotFound) {
 				return err
 			}
 		}
@@ -303,7 +303,7 @@ func (s *seeder) dropEmptyLists(ctx context.Context) error {
 		if len(page.Tasks) > 0 {
 			continue
 		}
-		if err := s.svc.DeleteProject(admin, p.ID); err != nil && !core.IsKind(err, core.KindNotFound) {
+		if _, err := s.svc.DeleteProject(admin, p.ID, core.DeleteProjectInput{DeleteTasks: true}); err != nil && !core.IsKind(err, core.KindNotFound) {
 			return err
 		}
 	}
