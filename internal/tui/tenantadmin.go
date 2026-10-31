@@ -256,12 +256,14 @@ func tenantRow(label, value string) TenantLine {
 
 // ThemeOptions are the palettes a tenant may present itself with: the names
 // the build carries plus the word for having none, so clearing a theme is a
-// choice on the same list rather than an attribute with no way back.
+// choice on the same list rather than an attribute with no way back, and
+// custom, which asks for any #rrggbb accent.
 func ThemeOptions() []string {
 	names := core.ThemeNames()
-	out := make([]string, 0, len(names)+1)
+	out := make([]string, 0, len(names)+2)
 	out = append(out, noTheme)
-	return append(out, names...)
+	out = append(out, names...)
+	return append(out, customColour)
 }
 
 // ThemeValue turns a chosen theme back into what the service takes.
@@ -278,7 +280,9 @@ func ThemeValue(option string) string {
 func TenantEditForm(t core.Tenant) Form {
 	attributes := []string{attrName, attrTheme}
 	theme := t.Theme
-	if theme == "" {
+	if _, custom := core.CustomTheme(theme); custom {
+		theme = customColour
+	} else if theme == "" {
 		theme = noTheme
 	}
 	return Form{

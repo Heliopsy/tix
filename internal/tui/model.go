@@ -1252,6 +1252,8 @@ func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 		return m.updateProject(core.UpdateProjectInput{Color: &text}, attrColour)
 	case promptTenantName:
 		return m.updateTenant(core.UpdateTenantInput{Name: &text}, attrName)
+	case promptTenantAccent:
+		return m.updateTenant(core.UpdateTenantInput{Theme: &text}, attrTheme)
 	case promptDomain:
 		return m.addDomain(text)
 	}

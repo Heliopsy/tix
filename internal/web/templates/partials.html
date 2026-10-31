@@ -130,7 +130,7 @@
   {{if .Default}}<label class="colourchoice is-none"><input type="radio" name="{{.Name}}" value="" {{if not .Value}}checked{{end}}><span class="colourswatch" aria-hidden="true"></span><span class="colourname">{{t "Default"}}</span></label>{{end}}
   {{range .Options}}<label class="colourchoice"><input type="radio" name="{{$.Name}}" value="{{.Value}}" {{if .Selected}}checked{{end}}><span class="colourswatch" style="--sw: {{.Swatch}}" aria-hidden="true"></span><span class="colourname">{{.Label}}{{if .Configured}} {{t "(configured)"}}{{end}}</span></label>{{end}}
   <span class="colourcustom">
-    <label class="colourchoice"><input type="radio" name="{{.Name}}" value="custom" {{if .Custom}}checked{{end}} data-colour-custom><span class="colourname">{{t "Custom"}}</span></label>
+    <label class="colourchoice"><input type="radio" name="{{.Name}}" value="#custom" {{if .Custom}}checked{{end}} data-colour-custom><span class="colourname">{{t "Custom"}}</span></label>
     <input type="color" value="{{.Picker}}" aria-label="{{t "Pick a custom colour"}}" data-colour-picker>
     <input type="text" id="{{.Name}}_custom" name="{{.Name}}_custom" class="mono hexfield" value="{{.Custom}}" placeholder="{{"#rrggbb"}}" maxlength="7" spellcheck="false" autocomplete="off" aria-label="{{t "Custom colour, as #rrggbb"}}" data-colour-hex>
     <span class="colourpreview" style="--sw: {{.Picker}}" data-colour-preview>{{t "Preview"}}</span>

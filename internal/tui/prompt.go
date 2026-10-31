@@ -36,6 +36,7 @@ const (
 	promptTenantName
 	promptDomain
 	promptProjectColour
+	promptTenantAccent
 )
 
 // PromptSpec is how one input introduces itself.
@@ -100,6 +101,7 @@ var promptSpecs = map[promptKind]PromptSpec{
 
 	// A custom project colour, the one colour no fixed list can hold.
 	promptProjectColour: {Prompt: "custom colour: ", Placeholder: "#rrggbb, such as #1a7f5a", Limit: 7, Field: "colour"},
+	promptTenantAccent:  {Prompt: "custom accent: ", Placeholder: "#rrggbb, such as #7a3ef0", Limit: 7, Field: "accent"},
 }
 
 // Spec describes an input, reporting whether the kind names one at all.
@@ -114,7 +116,7 @@ func (k promptKind) NeedsTask() bool {
 	switch k {
 	case promptNone, promptFilter, promptActivityFilter, promptTenant, promptNewTask, promptNewProject,
 		promptProjectName, promptProjectDesc, promptProjectIcon, promptNewField,
-		promptTenantName, promptDomain, promptProjectColour:
+		promptTenantName, promptDomain, promptProjectColour, promptTenantAccent:
 		return false
 	default:
 		return true

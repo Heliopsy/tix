@@ -139,9 +139,9 @@ func TestColourFieldReadsTheChoiceBack(t *testing.T) {
 	}{
 		{url.Values{"color": {"teal"}, "color_custom": {"#123456"}}, "teal"},
 		{url.Values{"color": {""}, "color_custom": {"#123456"}}, ""},
-		{url.Values{"color": {"custom"}, "color_custom": {" #1A7F5A "}}, "#1A7F5A"},
-		{url.Values{"color": {"custom"}, "color_custom": {"1a7f5a"}}, "#1a7f5a"},
-		{url.Values{"color": {"custom"}, "color_custom": {""}}, "custom"},
+		{url.Values{"color": {"#custom"}, "color_custom": {" #1A7F5A "}}, "#1A7F5A"},
+		{url.Values{"color": {"#custom"}, "color_custom": {"1a7f5a"}}, "#1a7f5a"},
+		{url.Values{"color": {"#custom"}, "color_custom": {""}}, "#custom"},
 	}
 	for _, tc := range tests {
 		r := httptest.NewRequest("POST", "/", strings.NewReader(tc.form.Encode()))

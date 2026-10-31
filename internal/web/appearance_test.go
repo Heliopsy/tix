@@ -104,7 +104,7 @@ func TestProjectScreenRefusesAColourOutsideThePalette(t *testing.T) {
 	b := f.as("alice")
 
 	resp := b.post("/projects/infra/update", url.Values{
-		"name": {"INFRA"}, "color": {"custom"}, "color_custom": {"#ff00f"}, "icon": {""},
+		"name": {"INFRA"}, "color": {"#custom"}, "color_custom": {"#ff00f"}, "icon": {""},
 	})
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != core.KindInvalid.HTTPStatus() {
@@ -155,7 +155,7 @@ func TestProjectFormsOfferThePaletteAndACustomColour(t *testing.T) {
 				t.Errorf("%s: the colour field does not offer %s", path, c)
 			}
 		}
-		for _, want := range []string{`name="color" value=""`, `name="color" value="custom"`,
+		for _, want := range []string{`name="color" value=""`, `name="color" value="#custom"`,
 			`type="color"`, `name="color_custom"`, "data-colour-preview"} {
 			if !strings.Contains(field, want) {
 				t.Errorf("%s: the colour field has no %s:\n%s", path, want, field)
@@ -172,13 +172,13 @@ func TestACustomColourIsSavedFromTheBrowserAndDrawn(t *testing.T) {
 	b := f.as("alice")
 
 	resp := b.post("/projects/infra/update", url.Values{
-		"name": {"INFRA"}, "color": {"custom"}, "color_custom": {"#1A7F5A"}, "icon": {""},
+		"name": {"INFRA"}, "color": {"#custom"}, "color_custom": {"#1A7F5A"}, "icon": {""},
 	})
 	wantStatus(t, resp, http.StatusSeeOther)
 	wantStatus(t, b.post("/tasks", url.Values{"title": {"tinted"}, "project_ref": {"infra"}}), http.StatusSeeOther)
 
 	field := colourFieldOf(t, b.page("/projects/infra"), "color")
-	for _, want := range []string{`value="custom" checked`, `value="#1a7f5a" placeholder`, `type="color" value="#1a7f5a"`} {
+	for _, want := range []string{`value="#custom" checked`, `value="#1a7f5a" placeholder`, `type="color" value="#1a7f5a"`} {
 		if !strings.Contains(field, want) {
 			t.Errorf("the settings form does not show the saved custom colour as %s:\n%s", want, field)
 		}
@@ -208,19 +208,19 @@ func TestTheTenantThemeTakesACustomAccent(t *testing.T) {
 	t.Parallel()
 	b := newFixture(t).as("alice")
 	field := colourFieldOf(t, b.page("/admin/tenant"), "theme")
-	for _, want := range []string{`value="ocean"`, `name="theme" value=""`, `name="theme" value="custom"`, `name="theme_custom"`} {
+	for _, want := range []string{`value="ocean"`, `name="theme" value=""`, `name="theme" value="#custom"`, `name="theme_custom"`} {
 		if !strings.Contains(field, want) {
 			t.Errorf("the theme field has no %s:\n%s", want, field)
 		}
 	}
 
-	resp := b.post("/admin/tenant", url.Values{"name": {"Acme"}, "theme": {"custom"}, "theme_custom": {"#7a3ef0"}})
+	resp := b.post("/admin/tenant", url.Values{"name": {"Acme"}, "theme": {"#custom"}, "theme_custom": {"#7a3ef0"}})
 	wantStatus(t, resp, http.StatusSeeOther)
 	page := b.page("/admin/tenant")
 	if got := between(t, page, "\n:root { --accent: ", ";"); got != "#7a3ef0" {
 		t.Errorf("the page accent is %q, want the custom %q", got, "#7a3ef0")
 	}
-	if !strings.Contains(colourFieldOf(t, page, "theme"), `value="custom" checked`) {
+	if !strings.Contains(colourFieldOf(t, page, "theme"), `value="#custom" checked`) {
 		t.Error("the tenant form does not show the custom accent as chosen")
 	}
 }

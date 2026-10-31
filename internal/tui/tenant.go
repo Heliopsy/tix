@@ -263,6 +263,13 @@ func (m Model) applyTenantEdit(form Form) (Model, tea.Cmd) {
 	}
 	switch form.Value("attribute") {
 	case attrTheme:
+		if form.Value(attrTheme) == customColour {
+			seed := ""
+			if _, custom := core.CustomTheme(m.admin.tenant.Theme); custom {
+				seed = m.admin.tenant.Theme
+			}
+			return m.startPrompt(promptTenantAccent, seed), textinput.Blink
+		}
 		theme := ThemeValue(form.Value(attrTheme))
 		return m, m.updateTenant(core.UpdateTenantInput{Theme: &theme}, attrTheme)
 	case attrName:

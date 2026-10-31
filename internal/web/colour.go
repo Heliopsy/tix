@@ -135,13 +135,13 @@ func (v *colourFieldView) withCustom(custom bool, value string) {
 	}
 }
 
-// customChoice is the value the custom radio posts; the colour itself comes
-// from the hex field beside it.
-const customChoice = "custom"
+// customChoice is the value the custom radio posts, which no palette colour
+// or theme is named; the colour itself comes from the hex field beside it.
+const customChoice = "#custom"
 
 // colourField reads a colour field back: the chosen predefined value, or the
 // hex field when custom was chosen. A hex typed without its # gets one. An
-// empty hex field under custom is sent on as "custom", so the service refuses
+// empty hex field under custom is sent on as customChoice, so the service refuses
 // it by name rather than quietly clearing the colour.
 func colourField(r *http.Request, name string) string {
 	choice := field(r, name)
