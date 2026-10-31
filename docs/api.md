@@ -52,7 +52,7 @@ Everything below is under `/api/v1`.
 | Tenancy | `/tenants`, `/tenants/{ref}`, `/members`, `/members/{actorID}`, `/domains`, `/domains/{hostname}` |
 | Projects | `/projects`, `/projects/{ref}`, `/projects/{ref}/icon`, `/projects/{ref}/deletion`, `/projects/{ref}/fields`, `/projects/{ref}/fields/{key}` |
 | Workflows | `/workflows`, `/workflows/{key}` |
-| Tasks | `/tasks`, `/tasks/{ref}`, `/tasks/{ref}/transition`, `/tasks/{ref}/route`, `/tasks/{ref}/restore`, `/tasks/{ref}/tree` |
+| Tasks | `/tasks`, `/tasks/{ref}`, `/tasks/{ref}/transition`, `/tasks/{ref}/route`, `/tasks/{ref}/restore`, `/tasks/{ref}/tree`, `/tasks/{ref}/copy` |
 | Task relations | `/tasks/{ref}/deps`, `/tasks/{ref}/deps/{dep}`, `/tasks/{ref}/tags`, `/tasks/{ref}/tags/{name}`, `/tasks/{ref}/star` |
 | Comments and artifacts | `/tasks/{ref}/comments`, `/tasks/{ref}/artifacts`, `/comments/{id}`, `/tags` |
 | Claims | `/tasks/{ref}/claim`, `/tasks/{ref}/claim/renew`, `/tasks/{ref}/claim/release`, `/tasks/{ref}/claim/reclaim`, `/claims/next`, `/claims/sweep` |
@@ -274,6 +274,33 @@ A preference changes nothing anybody else sees, and needs only `task:read`; a to
 cannot arrange, because a view spans projects. A change writes an audit entry and emits `view.arranged`
 carrying `view` and `groups`; one that changes nothing writes neither. A project renamed to a new key keeps
 its arrangement.
+
+### Copying a task
+
+`POST /tasks/{ref}/copy` makes a new task out of an existing one and answers `201` with the copy. Every field
+of the body is optional, and an empty body copies the task into its own project:
+
+```json
+{
+  "project_ref": "web",
+  "title": "rotate keys again",
+  "keep_status": true,
+  "with_comments": true,
+  "with_subtasks": true,
+  "with_dependencies": true,
+  "link": true
+}
+```
+
+The copy gets a fresh reference in the target project and carries the title (or `title`), description,
+priority, tags, assignee, due date, repeat rule and the custom fields the target defines and accepts. It starts
+in the target workflow's initial state, or in the same-named state with `keep_status` when the target has one.
+`with_comments` copies the comments as new ones by the caller that name the original author and time,
+`with_subtasks` the live subtree, `with_dependencies` the edges (pointed at the copies when both ends were
+copied), and `link` records the original as `copied_from_id` on each copy. Stars, claims, history and artifacts
+never travel. The whole copy is one transaction: each new task writes a `task.copy` audit entry and emits
+`task.created` with `copied_from` in its payload. An unknown project is `404`, a required field the target
+lacks `400`, and copying out of the project a token is pinned to `403`.
 
 ### NDJSON
 
