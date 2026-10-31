@@ -473,3 +473,15 @@ test("focusMemo remembers a menu choice as the menu's opener", () => {
   };
   assert.deepEqual(plain(tix.focusMemo(choice, region)), { id: "t-infra-2", control: "status" });
 });
+
+test("copyValue copies a given text, or a link made absolute on this origin", () => {
+  const btn = (attrs) => ({ getAttribute: (n) => (n in attrs ? attrs[n] : null) });
+  const origin = "https://tix.example";
+  assert.equal(tix.copyValue(btn({ "data-copy-text": "infra-2" }), origin), "infra-2");
+  assert.equal(tix.copyValue(btn({ "data-copy-link": "/tasks/infra-2" }), origin), "https://tix.example/tasks/infra-2");
+  assert.equal(tix.copyValue(btn({ "data-copy-link": "//evil.example/x" }), origin), "//evil.example/x",
+    "a scheme-relative link was glued onto this origin");
+  assert.equal(tix.copyValue(btn({ "data-copy-link": "/tasks/infra-2" }), ""), "/tasks/infra-2");
+  assert.equal(tix.copyValue(btn({ "data-copy-target": "x" }), origin), null);
+  assert.equal(tix.copyValue(null, origin), null);
+});

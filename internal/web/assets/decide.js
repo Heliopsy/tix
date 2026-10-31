@@ -447,6 +447,29 @@
     return ref + " was not moved to " + destination + ": " + (why || "the move was refused.");
   };
 
+  // copyValue is what a button carrying its own value copies: the text of
+  // data-copy-text, or data-copy-link made absolute against the page's
+  // origin, since a pasted "/tasks/x-1" leads nowhere. Only a path of this
+  // origin is widened; anything else is copied as written. null means the
+  // button names no value and data-copy-target applies instead.
+  tix.copyValue = function (btn, origin) {
+    if (!btn || typeof btn.getAttribute !== "function") {
+      return null;
+    }
+    var text = btn.getAttribute("data-copy-text");
+    if (text !== null && text !== undefined) {
+      return text;
+    }
+    var link = btn.getAttribute("data-copy-link");
+    if (link === null || link === undefined) {
+      return null;
+    }
+    if (origin && link.charAt(0) === "/" && link.charAt(1) !== "/") {
+      return origin + link;
+    }
+    return link;
+  };
+
   // copyText copies through whichever mechanism the browser offers and reports
   // the outcome to done. It never throws and never rejects: a clipboard the
   // browser refuses is a "Copy failed" label, not an unhandled error.

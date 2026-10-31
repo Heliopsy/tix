@@ -17,8 +17,9 @@
 //
 // The rest of the file is how a lane card's own forms behave under htmx: the
 // card is swapped by itself (templates/tasks.html), focus goes back to the
-// control that was pressed on the new card, and a refusal is said inside the
-// card rather than replacing it. Everything is bound at the document and
+// control that was pressed on the new card, or to its neighbour when the card
+// was deleted, and a refusal is said inside the card rather than replacing
+// it. The card's menus also answer the arrow keys. Everything is bound at the document and
 // resolved at event time, because the body is swapped by boosted navigation.
 (function (global) {
   "use strict";
@@ -120,8 +121,52 @@
     for (var j = 0; j < forms.length; j++) forms[j].removeAttribute("aria-busy");
   };
 
+  // laneMenuStep is where an arrow key moves focus among a menu's count
+  // items from index, or -1 for a key that is not one of them. Down and Up
+  // wrap, as a menu does; Home and End go to the ends. From outside the
+  // items (index -1) Down starts at the top and Up at the bottom.
+  tix.laneMenuStep = function (count, index, key) {
+    if (!count) return -1;
+    switch (key) {
+      case "ArrowDown":
+        return index < 0 ? 0 : (index + 1) % count;
+      case "ArrowUp":
+        return index < 0 ? count - 1 : (index - 1 + count) % count;
+      case "Home":
+        return 0;
+      case "End":
+        return count - 1;
+      default:
+        return -1;
+    }
+  };
+
+  // laneNeighbour is the card focus moves to when the one acted on is gone,
+  // a delete: the next card in its lane, else the one before, else nothing.
+  tix.laneNeighbour = function (card) {
+    if (!card) return "";
+    var sib = card.nextElementSibling;
+    while (sib && !(sib.classList && sib.classList.contains("lane-card"))) sib = sib.nextElementSibling;
+    if (!sib) {
+      sib = card.previousElementSibling;
+      while (sib && !(sib.classList && sib.classList.contains("lane-card"))) sib = sib.previousElementSibling;
+    }
+    return sib && sib.id ? sib.id : "";
+  };
+
   function say(text) {
     return tix.t ? tix.t(text) : text;
+  }
+
+  var ITEMS = 'a[href], button:not([disabled]), input:not([type="hidden"]):not([disabled])';
+
+  function menuItems(menu) {
+    var all = menu.querySelectorAll(ITEMS);
+    var out = [];
+    for (var i = 0; i < all.length; i++) {
+      if (!all[i].hidden && !all[i].closest("[hidden]")) out.push(all[i]);
+    }
+    return out;
   }
 
   tix.lanesApply();
@@ -136,13 +181,47 @@
     if (toggle) tix.lanesToggle();
   });
 
+  // A lane menu answers the arrow keys, and the more actions menu takes
+  // focus when it opens so they have somewhere to start. A text field keeps
+  // its own arrows: the assignee field's suggestions live on them.
+  doc.addEventListener("keydown", function (event) {
+    var target = event.target;
+    var menu = target && target.closest ? target.closest(".lanepop") : null;
+    if (!menu || target.tagName === "INPUT") return;
+    var items = menuItems(menu);
+    var next = tix.laneMenuStep(items.length, items.indexOf(target), event.key);
+    if (next < 0) return;
+    event.preventDefault();
+    items[next].focus();
+  });
+  doc.addEventListener("toggle", function (event) {
+    var menu = event.target;
+    if (!menu || event.newState !== "open" || !menu.hasAttribute || !menu.hasAttribute("data-lane-menu")) return;
+    var items = menuItems(menu);
+    if (items.length) items[0].focus({ preventScroll: true });
+  }, true);
+  // A link in a lane menu leaves the menu: it opens the task, in the dialog
+  // perhaps, or starts the title editor (taskopen.js), and a menu left open
+  // under either would hold every live refresh back. Captured, and this file
+  // loads before taskopen.js, so the menu is shut before that one decides.
+  doc.addEventListener("click", function (event) {
+    var link = event.target && event.target.closest ? event.target.closest(".lanepop a[href]") : null;
+    var menu = link && link.closest("[popover]");
+    if (!menu || typeof menu.hidePopover !== "function") return;
+    try {
+      menu.hidePopover();
+    } catch (e) {
+      return;
+    }
+  }, true);
+
   var pending = null;
   doc.addEventListener("htmx:beforeRequest", function (event) {
     var elt = event.detail && event.detail.elt;
     var control = tix.laneControl(elt);
     if (!control) return;
     var card = elt.closest(".lane-card");
-    pending = { id: card.id, control: control };
+    pending = { id: card.id, control: control, neighbour: tix.laneNeighbour(card) };
     var old = card.querySelector(".lane-error");
     if (old && old.parentNode) old.parentNode.removeChild(old);
   });
@@ -183,7 +262,12 @@
     if (!pending) return;
     var memo = pending;
     pending = null;
-    tix.laneFocus(doc.getElementById(memo.id), memo.control);
+    var card = doc.getElementById(memo.id);
+    if (card) {
+      tix.laneFocus(card, memo.control);
+    } else if (memo.neighbour) {
+      tix.laneFocus(doc.getElementById(memo.neighbour), "");
+    }
   });
   if (global.addEventListener) {
     global.addEventListener("storage", function (event) {

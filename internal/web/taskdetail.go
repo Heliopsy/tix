@@ -546,7 +546,7 @@ func (h *handler) updateTask(w http.ResponseWriter, r *http.Request) error {
 	if _, err := h.svc.UpdateTask(r.Context(), ref, in); err != nil {
 		return err
 	}
-	redirect(w, r, taskPath(r), "task saved")
+	h.afterTransition(w, r, ref, "task saved", "")
 	return nil
 }
 
@@ -767,7 +767,7 @@ func (h *handler) restoreTask(w http.ResponseWriter, r *http.Request) error {
 	if _, err := h.svc.RestoreTask(r.Context(), ref); err != nil {
 		return err
 	}
-	redirect(w, r, taskPath(r), "task restored")
+	h.afterTransition(w, r, ref, "task restored", "")
 	return nil
 }
 
@@ -835,7 +835,7 @@ func (h *handler) addTag(w http.ResponseWriter, r *http.Request) error {
 	if err := h.svc.AddTag(r.Context(), ref, field(r, "tag")); err != nil {
 		return err
 	}
-	redirect(w, r, taskPath(r), "tag added")
+	h.afterTransition(w, r, ref, "tag added", "")
 	return nil
 }
 
@@ -848,7 +848,7 @@ func (h *handler) removeTag(w http.ResponseWriter, r *http.Request) error {
 	if err := h.svc.RemoveTag(r.Context(), ref, field(r, "tag")); err != nil {
 		return err
 	}
-	redirect(w, r, taskPath(r), "tag removed")
+	h.afterTransition(w, r, ref, "tag removed", "")
 	return nil
 }
 

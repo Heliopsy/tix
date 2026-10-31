@@ -101,7 +101,8 @@ copied, so the panel here and the screen there cannot come to disagree.
 The task fields apply to every drawing of the tasks, not only the list: a board or lane card draws its
 star, status (on a lane card), priority, tags, repeat rule and reference only when that field is ticked.
 Star and Repeats are fields like the others, both on by default. Hiding Star removes the toggle and
-nothing else; starred tasks are still listed first, and the task screen keeps its star.
+nothing else; starred tasks are still listed first, and the task screen keeps its star. A lane card's
+more actions menu (below) is drawn whatever is hidden, so hiding a field never takes its control away.
 
 **Lease badges.** A lease is the one thing on a row that changes by itself, so the row says which
 state it is in:
@@ -254,6 +255,30 @@ by the same template as every other. While the request is out the card dims and 
 Focus returns to the control that was pressed, on the new card. A refusal, say because somebody else
 moved the task meanwhile, leaves the card where it is and says why underneath the title rather than
 swapping the error page in, which used to make the card disappear.
+
+**More actions.** Every lane card has three dots in its corner, drawn whatever the View menu hides.
+They open a menu with the whole task in it: open the task (in the dialog when Task opens in is set
+to Dialog), copy its link or its reference, complete or reopen it along the tick's routes (or the
+tick's reason when it offers none), move it to any state the status menu offers, follow a link to the
+task for a move that needs a comment, change the priority, star or unstar it, rename the title in
+place, set the assignee (the field suggests the tenant's handles), add and remove tags, and delete it.
+A reader sees only what their scopes allow: moves need `task:transition`; priority, rename,
+assignee and tags need `task:write`; delete needs `task:delete`. A reader who may only read gets
+open, copy and their star.
+
+Each item is a form on an existing route or a link, so it works without JavaScript and returns to
+the listing at the card, and with htmx it swaps the card like the controls above, dimmed while it
+waits and with a refusal said on the card. The edit, tag and restore routes return to a posted `next`
+for this, exactly as moves already did; without one they go to the task screen as before. A delete is
+soft, the card goes, focus moves to the next card in the lane, and the toast offers Undo, which brings
+the card back on the same listing. Rename starts the same in-place editor a title click does with
+Clicking a title set to Edits the title, whatever that setting says; without JavaScript it is a link
+to the task. A due date is not offered: the web has no form that sets one.
+
+The menu behaves as the badge's does: Escape closes it and puts focus back on the dots, no shortcut
+acts while it is open, and a live refresh waits for it. It takes focus when it opens, and the arrow
+keys move through it (Home and End go to its ends), in every lane menu; a text field keeps its own
+arrows. On a touch screen the dots, the fields and every row answer a 40px press.
 
 A live refresh holds back while a lane request is in flight or any menu in the listing is open, and
 puts focus back on the same control when it lands. It also hands what it drew to htmx: it writes the

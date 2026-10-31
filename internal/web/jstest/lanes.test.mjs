@@ -220,3 +220,134 @@ test("a refused lane action stays on the card and says why", () => {
   fire(d.listeners, "htmx:beforeSwap", elsewhere);
   assert.equal(elsewhere.shouldSwap, true, "a refusal outside the lanes was taken over");
 });
+
+// ---------------------------------------------------------------------------
+// The more actions menu.
+
+function lanesCtx(extra = {}) {
+  const listeners = {};
+  const document = {
+    documentElement: { classList: { toggle() {}, contains: () => false } },
+    querySelectorAll: () => [],
+    addEventListener(type, fn) { (listeners[type] ||= []).push(fn); },
+    getElementById: () => null,
+    ...extra,
+  };
+  const ctx = bareContext({ document });
+  run(ctx, "lanes.js");
+  return { ctx, listeners, document };
+}
+
+test("the arrow keys walk a menu and wrap, Home and End go to its ends", () => {
+  const { ctx } = lanesCtx();
+  const step = ctx.tix.laneMenuStep;
+  const cases = [
+    [5, 0, "ArrowDown", 1],
+    [5, 4, "ArrowDown", 0],
+    [5, 0, "ArrowUp", 4],
+    [5, 2, "ArrowUp", 1],
+    [5, -1, "ArrowDown", 0],
+    [5, -1, "ArrowUp", 4],
+    [5, 3, "Home", 0],
+    [5, 1, "End", 4],
+    [5, 1, "Enter", -1],
+    [5, 1, "a", -1],
+    [0, -1, "ArrowDown", -1],
+  ];
+  for (const [count, index, key, want] of cases) {
+    assert.equal(step(count, index, key), want, `${key} from ${index} of ${count}`);
+  }
+});
+
+// menuDoc is a lane menu of three items with focus on one of them.
+function menuDoc(on = 0) {
+  const focused = [];
+  const items = ["a", "b", "c"].map((name) => ({
+    name,
+    tagName: "BUTTON",
+    hidden: false,
+    closest(sel) { return sel === ".lanepop" ? menu : null; },
+    focus() { focused.push(name); },
+  }));
+  const menu = { querySelectorAll: () => items };
+  return { items, focused, target: items[on] };
+}
+
+test("an arrow key in a lane menu moves focus to the next item and is not scrolled by", () => {
+  const { listeners } = lanesCtx();
+  const d = menuDoc(2);
+  let prevented = false;
+  for (const fn of listeners.keydown) fn({ target: d.target, key: "ArrowDown", preventDefault() { prevented = true; } });
+  assert.deepEqual(d.focused, ["a"]);
+  assert.equal(prevented, true, "the page scrolled under the menu as well");
+
+  const field = { ...menuDoc(0).target, tagName: "INPUT" };
+  let taken = false;
+  for (const fn of listeners.keydown) fn({ target: field, key: "ArrowDown", preventDefault() { taken = true; } });
+  assert.equal(taken, false, "a text field lost its own arrows, and the assignee suggestions with them");
+
+  const outside = { tagName: "BUTTON", closest: () => null };
+  let stolen = false;
+  for (const fn of listeners.keydown) fn({ target: outside, key: "ArrowDown", preventDefault() { stolen = true; } });
+  assert.equal(stolen, false, "an arrow key outside any menu was taken");
+});
+
+test("opening the more actions menu puts focus on its first item, other menus are left alone", () => {
+  const { listeners } = lanesCtx();
+  const d = menuDoc();
+  const more = { hasAttribute: (n) => n === "data-lane-menu", querySelectorAll: () => d.items };
+  for (const fn of listeners.toggle) fn({ target: more, newState: "open" });
+  assert.deepEqual(d.focused, ["a"]);
+  for (const fn of listeners.toggle) fn({ target: more, newState: "closed" });
+  const badge = { hasAttribute: () => false, querySelectorAll: () => d.items };
+  for (const fn of listeners.toggle) fn({ target: badge, newState: "open" });
+  assert.deepEqual(d.focused, ["a"], "closing it, or opening another menu, moved focus");
+});
+
+test("a link in a lane menu shuts the menu before it is followed", () => {
+  const { listeners } = lanesCtx();
+  let hidden = 0;
+  const menu = { hidePopover() { hidden++; } };
+  const link = { closest: (sel) => (sel === "[popover]" ? menu : null) };
+  const target = { closest: (sel) => (sel === ".lanepop a[href]" ? link : null) };
+  let stopped = false;
+  for (const fn of listeners.click) fn({ target, stopPropagation() { stopped = true; } });
+  assert.equal(hidden, 1, "the menu stayed open over the task, holding live refreshes back");
+  assert.equal(stopped, false, "the link itself was stopped");
+});
+
+// card is a lane card among siblings, for laneNeighbour.
+function cards(...ids) {
+  const els = ids.map((id) => ({ id, classList: { contains: (c) => c === "lane-card" && id.startsWith("t-") } }));
+  els.forEach((el, i) => {
+    el.nextElementSibling = els[i + 1] || null;
+    el.previousElementSibling = els[i - 1] || null;
+  });
+  return els;
+}
+
+test("a deleted card hands focus to the next card in its lane, or the one before", () => {
+  const { ctx } = lanesCtx();
+  const [a, , c] = cards("t-a", "lane-empty", "t-c");
+  assert.equal(ctx.tix.laneNeighbour(a), "t-c", "a paragraph between cards was taken for one");
+  assert.equal(ctx.tix.laneNeighbour(c), "t-a");
+  assert.equal(ctx.tix.laneNeighbour(cards("t-only")[0]), "");
+  assert.equal(ctx.tix.laneNeighbour(null), "");
+});
+
+test("after a delete swaps the card away, focus lands on its neighbour", () => {
+  const focused = [];
+  const [gone, next] = cards("t-gone", "t-next");
+  next.focus = () => focused.push("t-next");
+  next.querySelector = () => null;
+  const form = {
+    getAttribute: (n) => (n === "data-lane-control" ? "more" : null),
+    closest: (sel) => (sel === ".lane-card" ? gone : null),
+  };
+  gone.querySelector = () => null;
+  const button = { closest: (sel) => (sel === "[data-lane-control]" ? form : sel === ".lane-card" ? gone : null) };
+  const { listeners } = lanesCtx({ getElementById: (id) => (id === "t-next" ? next : null) });
+  fire(listeners, "htmx:beforeRequest", { elt: button });
+  fire(listeners, "htmx:afterSettle", {});
+  assert.deepEqual(focused, ["t-next"], "focus fell to the page when the card it was on went away");
+});

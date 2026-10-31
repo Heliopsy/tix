@@ -12,9 +12,15 @@
   }
   // One generic copy-to-clipboard affordance for the whole site: any button
   // carrying data-copy-target="<id>" copies the text content of the element
-  // with that id. Nothing here is specific to any one screen, so a future
+  // with that id, and one carrying data-copy-text or data-copy-link copies
+  // that value (tix.copyValue). Nothing here is specific to any one screen, so a future
   // screen that needs a copy button reuses this rather than writing another.
   document.addEventListener("click", function (event) {
+    var own = event.target && event.target.closest && event.target.closest("[data-copy-text], [data-copy-link]");
+    if (own) {
+      copy(tix.copyValue(own, window.location.origin) || "", own);
+      return;
+    }
     var btn = event.target && event.target.closest && event.target.closest("[data-copy-target]");
     if (!btn) {
       return;

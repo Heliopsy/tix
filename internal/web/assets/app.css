@@ -5186,7 +5186,46 @@ td > details.panel > summary { overflow-wrap: normal; word-break: keep-all; }
   .lanepop .flowgo,
   .lanepop .flowsee,
   .lanepop .flowclose { min-height: 40px; }
+  .lane .lanemore-btn { min-width: 40px; min-height: 40px; margin: -8px -8px -8px 0; }
+  .lanemore-menu .lanemore-row input,
+  .lanemore-menu .lanemore-row button,
+  .lanemore-menu .tagdrop { min-height: 40px; }
 }
+
+/* More actions (templates/tasks.html). The dots are the one control on a
+   card no View setting hides, so they are drawn quietly, like the star, and
+   sit in the card's top corner where a reader looking for "the rest" looks.
+   The menu is the badge's popover with sections; it scrolls inside itself
+   rather than running off a short screen. */
+.lane .lanemore { flex: 0 0 auto; margin-left: auto; }
+.lane .lanemore-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.lane .lanemore-btn:hover,
+.lane .lanemore-btn:focus-visible { color: var(--ink); background: var(--accent-soft); }
+.lanemore-menu { min-width: 15rem; max-height: min(75vh, 34rem); overflow-y: auto; }
+.lanemore-menu > .flowgo { text-decoration: none; }
+.lanemore-menu > form { display: flex; flex-direction: column; gap: 1px; margin: 0; }
+.lanemore-menu .lanemore-sect { display: block; margin: var(--space-2) 0 2px; padding-top: var(--space-2); border-top: 1px solid var(--line); }
+.lanemore-menu .lanemore-row { display: flex; gap: var(--space-1); padding: 0 var(--space-1); }
+.lanemore-menu .lanemore-row input { flex: 1 1 auto; min-width: 0; }
+.lanemore-menu .lanemore-tags { margin: 0 0 var(--space-1); padding: 0 var(--space-1); }
+.lanemore-menu .tagdrop { display: inline-flex; align-items: center; gap: 2px; width: auto; height: auto; padding: 2px 8px; border-radius: var(--radius-pill); font-size: var(--text-xs); }
+.lanemore-menu .lanemore-prio .flowgo[aria-current] { font-weight: 600; }
+.lanemore-menu .flowgo.is-danger { color: var(--danger); }
+.lanemore-menu .flowgo.is-danger:hover { background: var(--danger-soft); }
+.lanemore-menu .lanemore-delete { margin-top: var(--space-2); padding-top: var(--space-1); border-top: 1px solid var(--line); }
 
 /* The star toggle. An outline when the task is not starred, filled when it
    is, so the pressed state is a shape and not a colour alone. It sits inline
