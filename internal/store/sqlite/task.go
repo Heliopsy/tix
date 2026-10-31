@@ -468,6 +468,7 @@ func (t *tx) fillTaskRelations(ctx context.Context, tasks []core.Task) error {
 
 	deps := t.builder("task_deps").
 		Select("task_deps.task_id", "task_deps.depends_on").
+		OrderBy("task_deps.task_id", core.Ascending).
 		OrderBy("task_deps.depends_on", core.Ascending)
 	deps.WhereIn("task_deps.task_id", ids)
 	if err := t.eachPair(ctx, deps, "loading task dependencies", func(taskID, dependsOn string) {

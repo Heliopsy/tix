@@ -160,6 +160,8 @@ func TestMigrationResumesAboveExistingTasks(t *testing.T) {
 		"DROP TABLE task_stars",
 		"ALTER TABLE tasks DROP COLUMN recurrence",
 		"ALTER TABLE tasks DROP COLUMN recurrence_next_id",
+		"DROP INDEX idx_task_tags_task",
+		"DROP INDEX idx_task_deps_task",
 		"DELETE FROM schema_migrations WHERE version > 1",
 	} {
 		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
