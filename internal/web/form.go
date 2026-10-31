@@ -3,6 +3,7 @@
 package web
 
 import (
+	"html/template"
 	"mime"
 	"strconv"
 	"strings"
@@ -177,6 +178,17 @@ func (e fieldErrors) On(name string) *fieldError {
 	return &fieldError{Field: name, Message: message}
 }
 
+// Attrs marks one control as refused and points it at its message, and is
+// empty when the control was not what the refusal was about. The field names
+// are the handlers' own constants, never anything a reader typed.
+func (e fieldErrors) Attrs(name string) template.HTMLAttr {
+	f := e.On(name)
+	if f == nil {
+		return ""
+	}
+	return template.HTMLAttr(` aria-invalid="true" aria-describedby="` + template.HTMLEscapeString(f.ID()) + `"`) // #nosec G203 -- built from a constant field name, escaped
+}
+
 // fieldError is one refusal as a template renders it.
 type fieldError struct {
 	Field   string
@@ -188,7 +200,11 @@ func (f fieldError) ID() string { return f.Field + "-error" }
 
 // refusal records err against the field it names.
 func refusal(err error) fieldErrors {
-	return fieldErrors{core.FieldOf(err): safeMessage(err, core.KindOf(err))}
+	message := safeMessage(err, core.KindOf(err))
+	if core.KindOf(err) == core.KindNotFound && !strings.HasPrefix(message, "no ") {
+		message = "no such " + message
+	}
+	return fieldErrors{core.FieldOf(err): message}
 }
 
 // correctable reports whether a refusal is one the reader can act on by

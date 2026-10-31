@@ -117,6 +117,18 @@ func FieldOf(err error) string {
 	return name
 }
 
+// OnField names the submitted field a domain refusal is about and returns it.
+// Anything that is not a domain error is returned unchanged, so a failure no
+// reader can correct is never dressed up as one about their input.
+func OnField(err error, name string) error {
+	var domain *Error
+	if !errors.As(err, &domain) {
+		return err
+	}
+	_ = domain.WithDetail(DetailField, name)
+	return err
+}
+
 // WithDetail attaches a machine-readable detail. Never use it for secrets.
 func (e *Error) WithDetail(key string, value any) *Error {
 	if e.Details == nil {

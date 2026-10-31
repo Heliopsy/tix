@@ -23,11 +23,12 @@ func (l *Local) CreateTask(ctx context.Context, in core.CreateTaskInput) (*core.
 		return nil, err
 	}
 	if len(in.Body) > core.MaxBodyLength {
-		return nil, core.Invalid("task body must be at most %d characters", core.MaxBodyLength)
+		return nil, core.Invalid("task body must be at most %d characters", core.MaxBodyLength).
+			WithDetail(core.DetailField, "body")
 	}
 	rule, err := core.NormalizeRecurrence(in.Recurrence)
 	if err != nil {
-		return nil, err
+		return nil, core.OnField(err, "repeat")
 	}
 	actor, err := l.authorize(ctx, authz.ActionTaskCreate, authz.Resource{})
 	if err != nil {
@@ -38,7 +39,7 @@ func (l *Local) CreateTask(ctx context.Context, in core.CreateTaskInput) (*core.
 	err = l.write(ctx, actor, func(m *mutation) error {
 		project, err := projectForTask(ctx, m.tx, in.ProjectRef)
 		if err != nil {
-			return err
+			return core.OnField(err, "project_ref")
 		}
 		if _, err := l.authorize(ctx, authz.ActionTaskCreate, authz.Resource{ProjectID: project.ID}); err != nil {
 			return err
@@ -69,7 +70,7 @@ func (l *Local) CreateTask(ctx context.Context, in core.CreateTaskInput) (*core.
 		if in.ParentRef != "" {
 			parent, err := taskByRef(ctx, m.tx, in.ParentRef)
 			if err != nil {
-				return err
+				return core.OnField(err, "parent")
 			}
 			parentID = parent.ID
 		}
@@ -81,7 +82,7 @@ func (l *Local) CreateTask(ctx context.Context, in core.CreateTaskInput) (*core.
 
 		assignee, err := resolveAssignee(ctx, m.tx, in.AssigneeActorID)
 		if err != nil {
-			return err
+			return core.OnField(err, "assignee")
 		}
 
 		priority := in.Priority
@@ -112,16 +113,16 @@ func (l *Local) CreateTask(ctx context.Context, in core.CreateTaskInput) (*core.
 
 		for _, name := range in.Tags {
 			if _, err := attachTaskLabel(ctx, m.tx, task.ID, name); err != nil {
-				return err
+				return core.OnField(err, "tags")
 			}
 		}
 		for _, ref := range in.DependsOn {
 			dep, err := taskByRef(ctx, m.tx, ref)
 			if err != nil {
-				return err
+				return core.OnField(err, "depends_on")
 			}
 			if err := linkDependency(ctx, m.tx, task, dep); err != nil {
-				return err
+				return core.OnField(err, "depends_on")
 			}
 		}
 

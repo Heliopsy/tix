@@ -4,6 +4,7 @@ package web
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/heliopsy/tix/internal/core"
 )
@@ -40,27 +41,53 @@ type projectsView struct {
 	Colors    []core.ProjectColor
 	Picker    iconPicker
 	Pager     pager
+
+	// Taken is every key in use, so the key the form suggests from a name is
+	// one the service will accept.
+	Taken []string
+	// Form, Errors and Refused redraw a refused create in place, holding what
+	// was typed.
+	Form    projectForm
+	Errors  fieldErrors
+	Refused bool
 }
 
 // showProjects renders the project list and the creation form.
 func (h *handler) showProjects(w http.ResponseWriter, r *http.Request) error {
+	data, err := h.buildProjectsView(r)
+	if err != nil {
+		return err
+	}
+	return h.render(w, r, "projects.html", "Projects", data)
+}
+
+// buildProjectsView answers the project list, for the page and for a refused
+// create drawn over it.
+func (h *handler) buildProjectsView(r *http.Request) (projectsView, error) {
 	filter := core.ProjectFilter{
 		IncludeArchived: true,
 		Page:            core.Page{Cursor: r.URL.Query().Get(CursorParam), Limit: h.rowsPerPage(r)},
 	}
 	projects, next, err := h.svc.ListProjects(r.Context(), filter)
 	if err != nil {
-		return err
+		return projectsView{}, err
 	}
 	workflows, err := h.svc.ListWorkflows(r.Context())
 	if err != nil {
-		return err
+		return projectsView{}, err
 	}
-	return h.render(w, r, "projects.html", "Projects",
-		projectsView{Projects: projects, Workflows: workflows,
-			Colors: core.ProjectColors(),
-			Picker: newIconPicker(core.Project{}),
-			Pager:  newPager(r, RouteProjects, next, len(projects), "projects", SizeParam)})
+	all, _, err := h.allProjects(r, true)
+	if err != nil {
+		return projectsView{}, err
+	}
+	taken := make([]string, 0, len(all))
+	for _, p := range all {
+		taken = append(taken, p.Key)
+	}
+	return projectsView{Projects: projects, Workflows: workflows,
+		Colors: core.ProjectColors(), Taken: taken,
+		Picker: newIconPicker(core.Project{}),
+		Pager:  newPager(r, RouteProjects, next, len(projects), "projects", SizeParam)}, nil
 }
 
 // projectScanPages bounds how many pages allProjects will walk. At
@@ -101,16 +128,17 @@ func (h *handler) allProjects(r *http.Request, includeArchived bool) ([]core.Pro
 
 // createProject creates a project from the list screen's form.
 func (h *handler) createProject(w http.ResponseWriter, r *http.Request) error {
+	form := readProjectForm(r)
 	in := core.CreateProjectInput{
-		Key:         field(r, "key"),
-		Name:        field(r, "name"),
-		Description: prose(r, "description"),
-		WorkflowKey: field(r, "workflow_key"),
-		Color:       colourField(r, "color"),
+		Key:         form.Key,
+		Name:        form.Name,
+		Description: form.Description,
+		WorkflowKey: form.Workflow,
+		Color:       form.Color,
 	}
 	choice, err := iconChoiceOf(r, false)
 	if err != nil {
-		return err
+		return h.refuseProject(w, r, form, core.OnField(err, "icon"))
 	}
 	if choice.Icon != nil {
 		in.Icon = *choice.Icon
@@ -121,34 +149,73 @@ func (h *handler) createProject(w http.ResponseWriter, r *http.Request) error {
 	in.IconFile = choice.IconFile
 	project, err := h.svc.CreateProject(r.Context(), in)
 	if err != nil {
-		return err
+		return h.refuseProject(w, r, form, err)
 	}
 	redirect(w, r, RouteProjects+"/"+project.Key, "project created")
 	return nil
 }
 
+// refuseProject answers a create the reader can correct by drawing the
+// projects screen again with the form in place, holding what was typed, and
+// the message beside the field it is about. An uploaded image cannot be
+// handed back to a file input, so the picker reopens on the text or built-in
+// choice the form carried.
+func (h *handler) refuseProject(w http.ResponseWriter, r *http.Request, form projectForm, err error) error {
+	if !refusable(err) {
+		return err
+	}
+	clone := r.Clone(r.Context())
+	clone.URL = &url.URL{Path: RouteProjects}
+	data, viewErr := h.buildProjectsView(clone)
+	if viewErr != nil {
+		return viewErr
+	}
+	data.Form, data.Errors, data.Refused = form, refusal(err), true
+	data.Picker = newIconPicker(core.Project{Icon: form.Icon, IconName: field(r, "icon_name")})
+	return h.renderStatus(w, r, core.KindOf(err).HTTPStatus(), "projects.html", "Projects", data)
+}
+
 // updateProject changes a project's mutable fields.
 func (h *handler) updateProject(w http.ResponseWriter, r *http.Request) error {
 	key := r.PathValue("key")
-	name, description := field(r, "name"), prose(r, "description")
-	color := colourField(r, "color")
+	form := readProjectForm(r)
 	project, err := h.svc.GetProject(r.Context(), key)
 	if err != nil {
 		return err
 	}
 	in, err := iconChoiceOf(r, project.IconImage != "")
 	if err != nil {
-		return err
+		return h.refuseSettings(w, r, form, core.OnField(err, "icon"))
 	}
-	in.Name, in.Description, in.Color = &name, &description, &color
-	if wf := field(r, "workflow_key"); wf != "" {
-		in.WorkflowKey = &wf
+	in.Name, in.Description, in.Color = &form.Name, &form.Description, &form.Color
+	if form.Workflow != "" {
+		in.WorkflowKey = &form.Workflow
 	}
 	if _, err := h.svc.UpdateProject(r.Context(), key, in); err != nil {
-		return err
+		return h.refuseSettings(w, r, form, err)
 	}
 	redirect(w, r, RouteProjects+"/"+key, "project updated")
 	return nil
+}
+
+// refuseSettings answers a settings save the reader can correct by drawing
+// the board again with its settings open, holding what was typed.
+func (h *handler) refuseSettings(w http.ResponseWriter, r *http.Request, form projectForm, err error) error {
+	if !refusable(err) {
+		return err
+	}
+	data, viewErr := h.buildBoardView(r)
+	if viewErr != nil {
+		return viewErr
+	}
+	form.Key = data.Project.Key
+	data.Form, data.Errors, data.Refused = form, refusal(err), true
+	if field(r, "icon_kind") == iconKindText {
+		typed := data.Project
+		typed.Icon, typed.IconName, typed.IconImage = form.Icon, "", ""
+		data.Picker = newIconPicker(typed)
+	}
+	return h.renderStatus(w, r, core.KindOf(err).HTTPStatus(), "board.html", data.Project.Name, data)
 }
 
 // archiveProject archives a project.
@@ -195,6 +262,13 @@ type boardView struct {
 
 	// Arrange is the reader's own arrangement of this board's columns.
 	Arrange arrangement
+
+	// Form is what the settings form holds: the stored project, or what a
+	// refused save was submitted with, in which case Refused opens the
+	// settings and Errors sits beside the fields.
+	Form    projectForm
+	Errors  fieldErrors
+	Refused bool
 
 	// Live is what keeps the columns current while the board is open. See
 	// live.go.
@@ -250,6 +324,7 @@ func (h *handler) buildBoardView(r *http.Request) (boardView, error) {
 		Picker:  newIconPicker(*project),
 		Columns: columns,
 		Arrange: arrange,
+		Form:    formOf(*project, workflow.Key),
 		Live:    h.liveBoard(*project),
 	}, nil
 }

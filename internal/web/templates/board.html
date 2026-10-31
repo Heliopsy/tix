@@ -8,27 +8,63 @@
 <p class="sr-only" aria-live="polite" id="board-status"></p>
 <div id="project-board">{{template "project-board" .}}</div>
 
-<details class="panel">
+{{/* The same layout as New project: what the project is called and how it
+     works on the left, how it looks under Appearance on the right. A refused
+     save opens it again with what was typed and the message under its field. */}}
+{{$e := .Data.Errors}}{{$f := .Data.Form}}
+<details class="panel projsettings"{{if .Data.Refused}} open{{end}}>
   <summary>{{t "Project settings"}}</summary>
   <div class="body">
-    <form method="post" action="/projects/{{.Data.Project.Key}}/update" enctype="multipart/form-data">
+    <form method="post" class="cform" data-form action="/projects/{{.Data.Project.Key}}/update" enctype="multipart/form-data">
       {{template "csrf" .CSRF}}
-      <div class="row">
-        <div><label for="name">{{t "Name"}}</label><input id="name" name="name" value="{{.Data.Project.Name}}" required></div>
-        <div>
-          <label for="workflow_key">{{t "Workflow"}}</label>{{template "tip" (tip "Workflow" "A project uses exactly one workflow. It sets the states a task can be in, the board's columns and the moves allowed between them. Several projects can share one workflow." "docs/workflows.md")}}
-          {{$wf := .Data.Workflow.Key}}
-          <select id="workflow_key" name="workflow_key">
-            {{range .Data.Workflows}}<option value="{{.Key}}" {{if eq .Key $wf}}selected{{end}}>{{.Name}}</option>{{end}}
-          </select>
+      {{with $e.On ""}}{{template "field-error" .}}{{end}}
+      <div class="cform-grid">
+        <div class="cform-main">
+          <div class="cfield">
+            <div class="cfield-label"><label for="name">{{t "Name"}}</label>{{template "required-mark"}}</div>
+            <input id="name" name="name" value="{{$f.Name}}" autocomplete="off" required{{$e.Attrs "name"}}>
+            {{with $e.On "name"}}{{template "field-error" .}}{{end}}
+          </div>
+          <div class="cform-pair">
+            <div class="cfield">
+              <div class="cfield-label"><span class="cfield-name">{{t "Key"}}</span>{{template "tip" (tip "Key" "A short code for the project, such as infra. Every task reference starts with it, as in infra-5.")}}</div>
+              <p class="cfield-static mono">{{.Data.Project.Key}}</p>
+              <p class="cfield-hint">{{t "A key cannot be changed: every task reference is built on it."}}</p>
+            </div>
+            <div class="cfield">
+              <div class="cfield-label"><label for="workflow_key">{{t "Workflow"}}</label>{{template "tip" (tip "Workflow" "A project uses exactly one workflow. It sets the states a task can be in, the board's columns and the moves allowed between them. Several projects can share one workflow." "docs/workflows.md")}}</div>
+              <select id="workflow_key" name="workflow_key"{{$e.Attrs "workflow_key"}}>
+                {{range .Data.Workflows}}<option value="{{.Key}}" {{if eq .Key $f.Workflow}}selected{{end}}>{{.Name}}</option>{{end}}
+              </select>
+              {{with $e.On "workflow_key"}}{{template "field-error" .}}{{end}}
+            </div>
+          </div>
+          <div class="cfield cfield-grow">
+            <div class="cfield-label"><label for="description">{{t "Description"}}</label></div>
+            <textarea id="description" name="description" rows="4" placeholder="{{t "What the project is for, in a sentence or two"}}">{{$f.Description}}</textarea>
+          </div>
+        </div>
+        <fieldset class="cform-side cform-group">
+          <legend>{{t "Appearance"}}</legend>
+          <p class="cfield-hint">{{t "Shown beside the project's name in lists, on its board and on its tasks."}}</p>
+          <div class="cfield">
+          <div class="cfield-label"><span id="color-label" class="cfield-name">{{t "Colour"}}</span>{{template "tip" (tip "Colour" "Pick one of the predefined colours, or choose Custom and set any colour with the picker or as #rrggbb. Each colour scheme draws a custom colour as close to it as stays readable.")}}</div>
+          {{template "colour-field" (projectColours "color" $f.Colour)}}
+          {{with $e.On "color"}}{{template "field-error" .}}{{end}}
+          </div>
+          <div class="cfield">
+          {{template "icon-picker" .Data.Picker}}
+          {{with $e.On "icon"}}{{template "field-error" .}}{{end}}
+          </div>
+        </fieldset>
+      </div>
+      <div class="cform-foot">
+        {{template "form-keys" (t "to save")}}
+        <div class="cform-actions">
+          <a class="secondary cform-cancel" href="/projects/{{.Data.Project.Key}}" data-form-cancel>{{t "Cancel"}}</a>
+          <button type="submit">{{t "Save project"}}</button>
         </div>
       </div>
-      <div class="field-label"><span id="color-label" class="labeltext">{{t "Colour"}}</span>{{template "tip" (tip "Colour" "Pick one of the predefined colours, or choose Custom and set any colour with the picker or as #rrggbb. Each colour scheme draws a custom colour as close to it as stays readable.")}}</div>
-      {{template "colour-field" (projectColours "color" .Data.Project.Color)}}
-      {{template "icon-picker" .Data.Picker}}
-      <label for="description">{{t "Description"}}</label>
-      <textarea id="description" name="description">{{.Data.Project.Description}}</textarea>
-      <div class="actions"><button type="submit">{{t "Save project"}}</button></div>
     </form>
   </div>
 </details>

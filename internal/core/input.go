@@ -97,16 +97,19 @@ type CreateProjectInput struct {
 
 // Validate checks the input.
 func (in CreateProjectInput) Validate() error {
-	if err := ValidateProjectKey(in.Key); err != nil {
-		return err
-	}
 	if in.Name == "" {
-		return Invalid("project name is required")
+		return Invalid("project name is required").WithDetail(DetailField, "name")
+	}
+	if err := ValidateProjectKey(in.Key); err != nil {
+		return OnField(err, "key")
 	}
 	if _, err := NormalizeProjectColor(in.Color); err != nil {
-		return err
+		return OnField(err, "color")
 	}
-	return ValidateProjectIconChoice(in.Icon, in.IconName, in.IconFile)
+	if err := ValidateProjectIconChoice(in.Icon, in.IconName, in.IconFile); err != nil {
+		return OnField(err, "icon")
+	}
+	return nil
 }
 
 // UpdateProjectInput changes a project. A pointer to an empty colour clears
@@ -254,13 +257,13 @@ type CreateTaskInput struct {
 // Validate checks the input.
 func (in CreateTaskInput) Validate() error {
 	if in.Title == "" {
-		return Invalid("task title is required")
+		return Invalid("task title is required").WithDetail(DetailField, "title")
 	}
 	if len(in.Title) > MaxTitleLength {
-		return Invalid("task title must be at most %d characters", MaxTitleLength)
+		return Invalid("task title must be at most %d characters", MaxTitleLength).WithDetail(DetailField, "title")
 	}
 	if in.Priority != 0 && !in.Priority.Valid() {
-		return Invalid("priority %d is out of range", in.Priority)
+		return Invalid("priority %d is out of range", in.Priority).WithDetail(DetailField, "priority")
 	}
 	return nil
 }

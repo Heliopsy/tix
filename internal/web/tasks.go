@@ -148,6 +148,14 @@ type tasksView struct {
 	// AllHref is where the affordance beside it leads: this same listing with
 	// the default turned off.
 	AllHref string
+
+	// Form is what the add forms hold: the project the listing is filtered
+	// to, or everything a refused add was submitted with. Refused draws Add
+	// with details in place rather than as a popover, with Errors beside its
+	// fields.
+	Form    taskForm
+	Errors  fieldErrors
+	Refused bool
 }
 
 // filterFault reports whether an error is the filter expression's fault.
@@ -421,6 +429,7 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 		AllHref:       showAllHref(r),
 		Empty:         hidden > 0 && hidden == len(prefs.Projects.Choices),
 		Live:          h.liveTasks(r),
+		Form:          taskForm{Project: soleProject(filter.ProjectKeys)},
 	}, nil
 }
 
@@ -502,22 +511,14 @@ func doneState(d core.WorkflowDefinition) string {
 
 // createTask creates a task from the list screen's form.
 func (h *handler) createTask(w http.ResponseWriter, r *http.Request) error {
-	priority, err := priorityField(r, "priority")
+	form := readTaskForm(r)
+	in, err := form.input(r)
 	if err != nil {
-		return err
-	}
-	in := core.CreateTaskInput{
-		ProjectRef: field(r, "project_ref"),
-		Title:      field(r, "title"),
-		Status:     field(r, "status"),
-		Body:       prose(r, "body"),
-		Priority:   priority,
-		Tags:       fieldList(r, "tags"),
-		Recurrence: field(r, "repeat"),
+		return h.refuseTask(w, r, form, err)
 	}
 	task, err := h.svc.CreateTask(r.Context(), in)
 	if err != nil {
-		return err
+		return h.refuseTask(w, r, form, err)
 	}
 	// Both add paths land here, the one-line box and Add with details, so the
 	// preference governs both rather than one of them. Staying returns to the
@@ -531,6 +532,22 @@ func (h *handler) createTask(w http.ResponseWriter, r *http.Request) error {
 	}
 	redirect(w, r, RouteTasks+"/"+task.Ref, "task created")
 	return nil
+}
+
+// refuseTask answers an add the reader can correct by drawing the listing it
+// came from again, with Add with details drawn open in place, every value they
+// entered still in it and the message beside the field it is about. It is the
+// response to the ordinary form post, so scripting off gets it too.
+func (h *handler) refuseTask(w http.ResponseWriter, r *http.Request, form taskForm, err error) error {
+	if !refusable(err) {
+		return err
+	}
+	data, viewErr := h.buildTasksView(refusedRequest(r))
+	if viewErr != nil {
+		return viewErr
+	}
+	data.Form, data.Errors, data.Refused = form, refusal(err), true
+	return h.renderStatus(w, r, core.KindOf(err).HTTPStatus(), "tasks.html", "Tasks", data)
 }
 
 // listingReferer is the listing a create came from, or the plain task list
