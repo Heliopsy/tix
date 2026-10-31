@@ -376,6 +376,51 @@ under them was placeholdered `infra-2`, so the screen disagreed with itself abou
 task. A dependency this reader may not read keeps its shortened identifier and gains no link, so a
 dependency they cannot open is still visible as one rather than missing from the list.
 
+## Acting in place
+
+Every action on a list row and on the task screen answers where it was taken. A row's star, status
+and priority swap that row and nothing else, as the tick always did, and a lane card's star swaps that
+card, as its other controls already did; a star, move, priority, tag or
+comment on the task screen swaps the page content and leaves the sidebar alone. The list keeps its
+scroll position and the control you used keeps focus. The element the forms sit in declares this
+with `data-inplace` (`templates/tasks.html`, `templates/task.html`) and `assets/feel.js` reads it at
+submit; with scripting off the forms post and redirect exactly as before. In the task dialog the
+dialog's own body is what its forms swap, so nothing there declares it.
+
+The answer is drawn before the server gives it: the star fills, a moved row's pill names its new
+state, a priority chip shows the one chosen, and the row fades slightly while the request is out (only
+after 80ms, so a quick answer does not flicker). A refusal or a lost connection puts back what was
+there and says why in a toast.
+
+**The toast** sits in `#toast`, which every signed-in screen carries even when empty so an in-place
+answer can bring its toast with it. It leaves on its own after five seconds, ten when it offers Undo,
+and stays while the pointer or focus is on it. Undo is offered for a move whose way back the task's
+workflow allows (directly or through other states; a workflow with no way back offers none), for a
+priority change, and for a soft delete, which it restores. It is an ordinary form, so it works with
+scripting off. The redirect carries it as `flashundo`, which every address the screen builds from the
+request drops, as it drops `flash`.
+
+**Live updates** never take the screen from you. A refresh already waited for a request in flight
+or an open menu in the region it replaces, and now also for a row drawn ahead of its answer
+(`is-pending`). When it lands it keeps the scroll position of boxes inside the region: the task list
+scrolls inside its own box, and every update put it back on its first row. Focus is put back by the
+same rule everywhere (`tix.focusMemo` in `decide.js`, used by live updates, lane cards and in-place
+actions): the nearest id and the control's `data-focus` name, and a choice made in a menu counts as
+the button that opened it.
+
+**Moving between screens.** A link into a task or a listing starts on the mouse press rather than the
+release, which takes 80 to 150ms off each one (main button, no modifiers, never touch or keyboard; the
+click that follows is swallowed). Screens cross-fade over 150ms where the browser has view
+transitions, and not at all for a reader whose system asks for reduced motion. Back to the list
+restores where it was scrolled: the list scrolls inside its own box, which htmx's history does not
+remember, so the positions are kept in `sessionStorage` per address. The filter box applies as you
+type, 300ms after the last key, and the deadline and sort selects apply when changed; Apply stays for
+a browser without scripting. The list, board and lanes switch swaps the page instead of reloading it.
+
+**Keyboard shortcuts** are behind "?" on every screen, and behind the Keyboard shortcuts button at the
+foot of the sidebar for anyone who does not know to press it. The overlay used to be looked up once
+when the page first loaded, so after the first boosted navigation "?" opened a copy nobody could see.
+
 ## The directory
 
 `/actors` lists everyone and everything work can be assigned to in this tenant: handle, kind, display

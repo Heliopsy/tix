@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -533,6 +534,7 @@ func listingReferer(r *http.Request) string {
 func withoutFlash(path string, query url.Values) string {
 	query.Del("flash")
 	query.Del("flashref")
+	query.Del(FlashUndoParam)
 	if len(query) == 0 {
 		return path
 	}
@@ -562,10 +564,14 @@ func (h *handler) setPriority(w http.ResponseWriter, r *http.Request) error {
 	if priority == 0 {
 		return core.Invalid("no priority given")
 	}
+	undo := ""
+	if before, err := h.svc.GetTask(r.Context(), ref); err == nil && before.Priority != priority {
+		undo = undoPriorityPrefix + strconv.Itoa(int(before.Priority))
+	}
 	if _, err := h.svc.UpdateTask(r.Context(), ref, core.UpdateTaskInput{Priority: &priority}); err != nil {
 		return err
 	}
-	h.afterTransition(w, r, ref, "priority is now "+priorityName(priority))
+	h.afterTransition(w, r, ref, "priority is now "+priorityName(priority), undo)
 	return nil
 }
 
@@ -719,6 +725,8 @@ func showAllHref(r *http.Request) string {
 	query.Del(TrailParam)
 	query.Del(PageParam)
 	query.Del("flash")
+	query.Del("flashref")
+	query.Del(FlashUndoParam)
 	query.Set(AllParam, "1")
 	return RouteTasks + "?" + query.Encode()
 }

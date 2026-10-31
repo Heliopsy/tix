@@ -652,8 +652,39 @@ func (h *handler) transitionTask(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	h.afterTransition(w, r, ref, result.Sentence())
+	h.afterTransition(w, r, ref, result.Sentence(), h.routeBack(r, ref, result))
 	return nil
+}
+
+// routeBack is the route that undoes a move, when the task's own workflow
+// has one: the toast offers it as Undo. A move whose way back the workflow
+// does not allow offers nothing, rather than an Undo that is refused.
+func (h *handler) routeBack(r *http.Request, ref core.TaskRef, result *core.RouteResult) string {
+	if result == nil || len(result.Applied) == 0 || ref.ProjectKey == "" {
+		return ""
+	}
+	project, err := h.svc.GetProject(r.Context(), ref.ProjectKey)
+	if err != nil {
+		return ""
+	}
+	workflow, err := h.workflowOf(r, project)
+	if err != nil {
+		return ""
+	}
+	return undoRoute(workflow.Definition, result.Status(), result.From)
+}
+
+// undoRoute finds the route from one state back to another in a workflow.
+func undoRoute(def core.WorkflowDefinition, from, to string) string {
+	if from == to {
+		return ""
+	}
+	for _, route := range core.Routes(def, from) {
+		if route.To.Key == to {
+			return route.Value()
+		}
+	}
+	return ""
 }
 
 // transitionSteps reads the states this submission asks for, in order. Every
@@ -674,12 +705,39 @@ func transitionSteps(r *http.Request) ([]string, error) {
 // a listing returns to that listing, on the row it was made from; one made
 // from the detail screen stays there. Without this the list could offer the
 // control but always threw the reader onto the task screen afterwards.
-func (h *handler) afterTransition(w http.ResponseWriter, r *http.Request, ref core.TaskRef, flash string) {
+func (h *handler) afterTransition(w http.ResponseWriter, r *http.Request, ref core.TaskRef, flash, undo string) {
 	if next := field(r, "next"); next != "" {
-		redirectTo(w, r, safeNext(next), "t-"+ref.String(), flash)
+		redirectTo(w, r, withUndo(safeNext(next), undo), "t-"+ref.String(), flash)
 		return
 	}
-	redirect(w, r, taskPath(r), flash)
+	redirect(w, r, withUndo(flashRef(taskPath(r), refIfUndo(ref, undo)), undo), flash)
+}
+
+// UndoRestore is the undo a soft delete offers: restoring the task.
+const UndoRestore = "restore"
+
+// FlashUndoParam carries what reverses the action a flash reports.
+const FlashUndoParam = "flashundo"
+
+// withUndo adds the undo a toast offers to a redirect target.
+func withUndo(target, undo string) string {
+	if undo == "" {
+		return target
+	}
+	sep := "?"
+	if strings.Contains(target, "?") {
+		sep = "&"
+	}
+	return target + sep + FlashUndoParam + "=" + url.QueryEscape(undo)
+}
+
+// refIfUndo names the task only when there is an undo to offer for it, since
+// the Undo form posts to that task.
+func refIfUndo(ref core.TaskRef, undo string) string {
+	if undo == "" {
+		return ""
+	}
+	return ref.String()
 }
 
 // deleteTask soft deletes a task.
@@ -692,7 +750,11 @@ func (h *handler) deleteTask(w http.ResponseWriter, r *http.Request) error {
 	if err := h.svc.DeleteTask(r.Context(), ref, in); err != nil {
 		return err
 	}
-	redirect(w, r, backTo(r), "task deleted")
+	if in.Hard {
+		redirect(w, r, backTo(r), "task deleted")
+		return nil
+	}
+	redirect(w, r, withUndo(flashRef(backTo(r), ref.String()), UndoRestore), "task deleted")
 	return nil
 }
 

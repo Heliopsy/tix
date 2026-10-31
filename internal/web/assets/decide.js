@@ -262,6 +262,37 @@
     return typeof el.defaultValue === "string" && el.value !== el.defaultValue;
   };
 
+  // scrollPlaces records how far each scrolling element under root has been
+  // scrolled, keyed so the same element can be found in a redrawn copy.
+  tix.scrollPlaces = function (elements) {
+    var out = {};
+    var seen = {};
+    for (var i = 0; i < elements.length; i++) {
+      var el = elements[i];
+      var key = el.tagName + "." + (el.className || "").toString().split(" ")[0];
+      seen[key] = (seen[key] || 0) + 1;
+      if (el.scrollTop > 0 || el.scrollLeft > 0) {
+        out[key + "#" + seen[key]] = [el.scrollTop, el.scrollLeft];
+      }
+    }
+    return out;
+  };
+
+  // restorePlaces puts recorded positions back onto a redrawn set.
+  tix.restorePlaces = function (elements, places) {
+    var seen = {};
+    for (var i = 0; i < elements.length; i++) {
+      var el = elements[i];
+      var key = el.tagName + "." + (el.className || "").toString().split(" ")[0];
+      seen[key] = (seen[key] || 0) + 1;
+      var at = places[key + "#" + seen[key]];
+      if (at) {
+        el.scrollTop = at[0];
+        el.scrollLeft = at[1];
+      }
+    }
+  };
+
   // regionBusy reports whether a live region holds work in progress, which is
   // the one thing a refresh must never discard. Three ways it can: a card is
   // mid-drag, the caret is in a field inside the region, or a field in it has
@@ -292,14 +323,15 @@
 
   // regionWaiting reports whether a region holds a request still in flight
   // (htmx marks its indicator htmx-request, busy.js marks a submitted form
-  // aria-busy) or a menu the reader has open. A refresh landing then would
-  // detach the element the response is meant for, or shut the menu under the
-  // pointer.
+  // aria-busy, feel.js marks what it drew ahead of the answer is-pending) or
+  // a menu the reader has open. A refresh landing then would detach the
+  // element the response is meant for, draw over the state the reader was
+  // just shown, or shut the menu under the pointer.
   tix.regionWaiting = function (region) {
     if (!region || typeof region.querySelector !== "function") {
       return false;
     }
-    if (region.querySelector(".htmx-request, form[aria-busy=\"true\"]")) {
+    if (region.querySelector(".htmx-request, form[aria-busy=\"true\"], .is-pending")) {
       return true;
     }
     try {
@@ -316,6 +348,14 @@
     if (!active || !region || typeof region.contains !== "function" || !region.contains(active) ||
         typeof active.closest !== "function") {
       return null;
+    }
+    // A choice in a menu is remembered as the button that opened the menu:
+    // the menu closes with the answer, and its opener is what was pressed.
+    var menu = active.closest("[popover][id]");
+    var opener = menu && typeof region.querySelector === "function" &&
+      region.querySelector('[popovertarget="' + menu.id + '"]');
+    if (opener) {
+      active = opener;
     }
     var holder = active.closest("[id]");
     if (!holder || !holder.id || holder === region) {

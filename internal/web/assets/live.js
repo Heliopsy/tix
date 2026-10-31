@@ -427,9 +427,11 @@
     }
   }
 
-  // applyRegions replaces each region and puts focus back where it was: the
-  // refresh that follows a reader's own change lands on the region holding
-  // the control they just pressed, and replacing it dropped focus to the body.
+  // applyRegions replaces each region and puts back what the reader had in
+  // it: focus, since the refresh that follows a reader's own change lands on
+  // the region holding the control they just pressed; and the scroll position
+  // of any box inside it, since the task list scrolls inside its own box and
+  // went back to its first row on every update.
   function applyRegions(el, html) {
     var doc = new DOMParser().parseFromString(html, "text/html");
     var ids = regionIDs(el);
@@ -438,7 +440,9 @@
       var here = document.getElementById(ids[i]);
       if (fresh && here) {
         var memo = tix.focusMemo(document.activeElement, here);
+        var places = tix.scrollPlaces(here.querySelectorAll("*"));
         here.innerHTML = fresh.innerHTML;
+        tix.restorePlaces(here.querySelectorAll("*"), places);
         processed(here);
         tix.focusRestore(document, memo);
       }
