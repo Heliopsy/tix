@@ -438,6 +438,7 @@ func (f *fakeService) RestoreTask(_ context.Context, ref core.TaskRef) (*core.Ta
 	f.restored = append(f.restored, ref)
 	return &core.Task{ID: ref.ID}, nil
 }
+
 // copyCall is one CopyTask the fake was asked for.
 type copyCall struct {
 	ref core.TaskRef
