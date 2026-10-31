@@ -95,7 +95,7 @@ func (rt *Router) handleGetProjectIcon(w http.ResponseWriter, r *http.Request) {
 	h.Set(wire.HeaderContentType, img.ContentType)
 	h.Set("Content-Length", strconv.Itoa(len(img.Data)))
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(img.Data)
+	_, _ = w.Write(img.Data) // #nosec G705 -- a checked image, served nosniff under a sandboxing CSP
 }
 
 // handleUpdateProject changes one project.

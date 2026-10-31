@@ -182,6 +182,6 @@ func (h *handler) showProjectIcon(w http.ResponseWriter, r *http.Request) error 
 	hdr.Set("Content-Type", img.ContentType)
 	hdr.Set("Content-Length", strconv.Itoa(len(img.Data)))
 	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(img.Data)
+	_, err = w.Write(img.Data) // #nosec G705 -- a checked image, served nosniff under a sandboxing CSP and drawn only through <img>
 	return err
 }
