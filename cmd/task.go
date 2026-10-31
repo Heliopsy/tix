@@ -25,7 +25,7 @@ func newTaskCmd(g *globals) *cobra.Command {
 	cmd.AddCommand(
 		taskAddCmd(g), taskLsCmd(g), taskShowCmd(g), taskEditCmd(g),
 		taskMvCmd(g), taskRmCmd(g), taskRestoreCmd(g), taskTreeCmd(g),
-		taskStarCmd(g, true), taskStarCmd(g, false),
+		taskStarCmd(g, true), taskStarCmd(g, false), taskCopyCmd(g),
 	)
 	return cmd
 }
@@ -353,11 +353,100 @@ func taskShowCmd(g *globals) *cobra.Command {
 				return err
 			}
 			noteSuccessor(ctx, g, cmd, conn.Service, task)
+			noteCopiedFrom(ctx, g, cmd, conn.Service, task)
 			return nil
 		},
 		ValidArgsFunction: g.completeTaskRefs,
 	}
 	return cmd
+}
+
+// taskCopyCmd builds `task copy`, which makes a new task out of an existing
+// one, in its own project or another.
+func taskCopyCmd(g *globals) *cobra.Command {
+	var (
+		in     core.CopyTaskInput
+		dryRun bool
+	)
+	cmd := &cobra.Command{
+		Use:   "copy REF",
+		Short: "Copy a task to any project",
+		Long: "Copy a task into another project, or into its own when --to is omitted. The copy " +
+			"gets a fresh reference and carries the title, description, priority, tags, assignee, " +
+			"due date, repeat rule and the custom fields the target project defines. It starts in " +
+			"the target workflow's initial state unless --keep-status finds a state of the same name.\n\n" +
+			"--with-comments copies the comments as new ones of yours that name the original author " +
+			"and time, --with-subtasks copies the whole live subtree, --with-deps keeps what the task " +
+			"waits for, and --link records the original on the copy. Stars, claims, history and " +
+			"artifacts are never copied.\n\n" +
+			"Exit codes: 2 invalid input or a required field the target lacks, 3 unknown reference or project, " +
+			"5 permission denied.",
+		Example: "  tix task copy default-1\n  tix task copy infra-4 --to web --with-subtasks --link\n" +
+			"  tix task copy infra-4 --to web --title \"rotate keys again\" --keep-status --dry-run",
+		Args: exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ref, err := parseRef(args[0])
+			if err != nil {
+				return err
+			}
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			if dryRun {
+				if _, err := conn.Service.GetTask(ctx, ref); err != nil {
+					return err
+				}
+				if in.ProjectRef != "" {
+					if _, err := conn.Service.GetProject(ctx, in.ProjectRef); err != nil {
+						return err
+					}
+				}
+				return g.render(cmd, newPlan("task.copy", ref.String(), copyDetail(in)))
+			}
+			task, err := conn.Service.CopyTask(ctx, ref, in)
+			if err != nil {
+				return err
+			}
+			if err := g.render(cmd, task); err != nil {
+				return err
+			}
+			noteCopiedFrom(ctx, g, cmd, conn.Service, task)
+			return nil
+		},
+		ValidArgsFunction: g.completeTaskRefs,
+	}
+	f := cmd.Flags()
+	f.StringVar(&in.ProjectRef, "to", "", "project to copy into (default: the task's own)")
+	f.StringVar(&in.Title, "title", "", "title of the copy (default: the original's)")
+	f.BoolVar(&in.KeepStatus, "keep-status", false, "keep the status when the target workflow has it")
+	f.BoolVar(&in.WithComments, "with-comments", false, "copy the comments too")
+	f.BoolVar(&in.WithSubtasks, "with-subtasks", false, "copy the subtasks, recursively")
+	f.BoolVar(&in.WithDependencies, "with-deps", false, "keep the dependencies")
+	f.BoolVar(&in.Link, "link", false, "record the original on the copy")
+	f.BoolVar(&dryRun, "dry-run", false, "report what would be copied without writing")
+	_ = cmd.RegisterFlagCompletionFunc("to", flagCompletion(g.completeProjectKeys))
+	return cmd
+}
+
+// copyDetail names what a dry run of a copy would carry.
+func copyDetail(in core.CopyTaskInput) map[string]any {
+	detail := map[string]any{}
+	if in.ProjectRef != "" {
+		detail["to"] = in.ProjectRef
+	}
+	if in.Title != "" {
+		detail["title"] = in.Title
+	}
+	for name, on := range map[string]bool{
+		"keep_status": in.KeepStatus, "with_comments": in.WithComments,
+		"with_subtasks": in.WithSubtasks, "with_dependencies": in.WithDependencies, "link": in.Link,
+	} {
+		if on {
+			detail[name] = true
+		}
+	}
+	return detail
 }
 
 func taskEditCmd(g *globals) *cobra.Command {
