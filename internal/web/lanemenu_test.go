@@ -135,7 +135,7 @@ func TestALaneMenuOffersAReaderOnlyWhatTheyMayDo(t *testing.T) {
 			t.Errorf("a reader is not offered %s:\n%s", want, menu)
 		}
 	}
-	for _, refused := range []string{"/transition\"", "/priority\"", `action="/tasks/` + ref + `"`, "/tags\"", "/tags/remove\"", "/delete", "data-rename"} {
+	for _, refused := range []string{"/transition\"", "/priority\"", `action="/tasks/` + ref + `"`, "/tags\"", "/tags/remove\"", "/delete", "data-rename", "data-copy-to"} {
 		if strings.Contains(menu, refused) {
 			t.Errorf("a reader who may only read is offered %s:\n%s", refused, menu)
 		}

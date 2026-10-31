@@ -11,6 +11,7 @@
 <div class="card copyform">
   <form method="post" action="/tasks/{{$t.Ref}}/copy">
     {{template "csrf" .CSRF}}
+    {{if .Data.Next}}<input type="hidden" name="next" value="{{.Data.Next}}">{{end}}
     <label for="{{.IDPrefix}}copy-project">{{t "Project"}}</label>
     <select id="{{.IDPrefix}}copy-project" name="project_ref">
       {{range .Data.Projects}}<option value="{{.Key}}"{{if eq .Key $.Data.Home}} selected{{end}}>{{.Name}} ({{.Key}})</option>{{end}}
@@ -27,7 +28,7 @@
     </fieldset>
     <div class="actions">
       <button type="submit">{{t "Copy"}}</button>
-      <a class="ghostlink" href="/tasks/{{$t.Ref}}">{{t "Cancel"}}</a>
+      <a class="ghostlink" href="{{if .Data.Next}}{{.Data.Next}}{{else}}/tasks/{{$t.Ref}}{{end}}">{{t "Cancel"}}</a>
     </div>
   </form>
 </div>

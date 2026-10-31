@@ -511,7 +511,7 @@
     }
     var href = link.getAttribute("href");
     if (!inside) {
-      if (tix.taskRefOf(href, origin)) {
+      if (tix.taskRefOf(href, origin) || tix.dialogLinkStep(href, origin, link.hasAttribute("data-dialog-load")) === "load") {
         event.preventDefault();
         event.stopPropagation();
         openTask(href, link);

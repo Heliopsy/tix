@@ -455,6 +455,25 @@ test("a link that asks to stay is drawn in the dialog, any other screen leaves i
   assert.deepEqual(p.nav, [["assign", "/projects/infra"]]);
 });
 
+test("a link that asks to stay opens the dialog from the page too, in Dialog mode only", () => {
+  const p = page();
+  const plain = p.row.appendChild(node("a", { href: "/projects/infra" }));
+  assert.equal(p.click(plain).prevented, 0, "a link that did not ask was taken over");
+  const copy = p.row.appendChild(node("a", { href: "/tasks/infra-1/copy?next=%2Ftasks", "data-dialog-load": "" }));
+  const ev = p.click(copy);
+  assert.equal(ev.prevented, 1, "the browser followed the link instead of the dialog");
+  assert.equal(p.ajax.length, 1, "the form was not asked for");
+  assert.equal(p.ajax[0].url, "/tasks/infra-1/copy?next=%2Ftasks");
+  assert.equal(p.ajax[0].opts.headers["X-Tix-Dialog"], "1");
+  p.answer(200, '<div class="taskdlg-frag" data-task-dialog="infra-1">form');
+  assert.equal(p.dlg.open, true, "the dialog did not open over the page");
+
+  const q = page({ dialog: false });
+  const other = q.row.appendChild(node("a", { href: "/tasks/infra-1/copy", "data-dialog-load": "" }));
+  assert.equal(q.click(other).prevented, 0, "Page mode took the click");
+  assert.equal(q.ajax.length, 0);
+});
+
 test("a task that cannot be opened is shown as its own page", () => {
   const p = page();
   p.click(p.title);

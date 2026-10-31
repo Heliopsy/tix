@@ -194,3 +194,46 @@ func TestARefusedCopyIsSaid(t *testing.T) {
 		t.Fatalf("status %d, want 404 naming the project", resp.StatusCode)
 	}
 }
+
+func TestALaneMenuCopiesAndReturnsToTheListing(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	seedProject(t, f.store, f.tenantA.ID, "web")
+	b := f.as("alice")
+	ref := b.createTask("infra", "copy from the lane")
+	b.chooseLanes("/tasks")
+	menu := moreMenu(t, laneCard(t, b.page("/tasks"), ref), ref)
+	link := `href="/tasks/` + ref + `/copy?next=%2ftasks" data-dialog-load data-copy-to`
+	if !strings.Contains(strings.ToLower(menu), strings.ToLower(link)) {
+		t.Fatalf("the lane menu does not offer Copy to returning to the listing:\n%s", menu)
+	}
+
+	form := formAt(t, b.page("/tasks/"+ref+"/copy?next=%2Ftasks%3Fq%3Dtag%3Aops%26flash%3Dold"), "/tasks/"+ref+"/copy")
+	if !strings.Contains(form, `name="next" value="/tasks?q=tag%3Aops"`) {
+		t.Errorf("the form does not carry the listing, minus its old toast:\n%s", form)
+	}
+	if !strings.Contains(form, `class="ghostlink" href="/tasks?q=tag%3Aops"`) {
+		t.Errorf("Cancel does not return to the listing:\n%s", form)
+	}
+
+	resp := b.post("/tasks/"+ref+"/copy", url.Values{"project_ref": {"web"}, "title": {"copy from the lane"},
+		"next": {"/tasks?q=tag%3Aops"}})
+	_ = resp.Body.Close()
+	wantStatus(t, resp, http.StatusSeeOther)
+	loc, err := url.Parse(resp.Header.Get("Location"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loc.Path != "/tasks" || loc.Query().Get("q") != "tag:ops" || loc.Query().Get("flash") != "task copied" ||
+		!strings.HasPrefix(loc.Query().Get("flashref"), "web-") {
+		t.Fatalf("redirect = %q, want the listing with a toast naming the copy", loc)
+	}
+
+	for _, next := range []string{"https://evil.example/tasks", "/tasks/" + ref, "/settings"} {
+		resp := b.post("/tasks/"+ref+"/copy", url.Values{"title": {"again"}, "next": {next}})
+		_ = resp.Body.Close()
+		if got := resp.Header.Get("Location"); !strings.HasPrefix(got, "/tasks/"+ref+"?") {
+			t.Errorf("next %q sent the reader to %q, want the source task", next, got)
+		}
+	}
+}

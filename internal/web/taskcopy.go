@@ -5,6 +5,7 @@ package web
 import (
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
 )
@@ -16,6 +17,27 @@ type copyView struct {
 	Projects []core.Project
 	// Home is the key of the task's own project, the one the form selects.
 	Home string
+	// Next is the listing the form was opened from, where the copy returns
+	// the reader; empty when it was opened from the task screen.
+	Next string
+}
+
+// copyReturn is the listing a copy form was opened from, or "" when the
+// request names none this trusts.
+func copyReturn(next string) string {
+	if next == "" {
+		return ""
+	}
+	back := safeNext(next)
+	path, query, _ := strings.Cut(back, "?")
+	if !isListing(path) {
+		return ""
+	}
+	values, err := url.ParseQuery(query)
+	if err != nil {
+		return path
+	}
+	return withoutFlash(path, values)
 }
 
 // showCopyTask draws the form that copies a task to a project.
@@ -32,7 +54,8 @@ func (h *handler) showCopyTask(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	data := copyView{Task: *task, Home: ref.ProjectKey, Projects: copyTargets(r, projects)}
+	data := copyView{Task: *task, Home: ref.ProjectKey, Projects: copyTargets(r, projects),
+		Next: copyReturn(r.URL.Query().Get("next"))}
 	for _, p := range data.Projects {
 		if p.ID == task.ProjectID {
 			data.Home = p.Key
@@ -83,6 +106,9 @@ func (h *handler) copyTask(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 	source := RouteTasks + "/" + url.PathEscape(r.PathValue("ref"))
+	if back := copyReturn(field(r, "next")); back != "" {
+		source = back
+	}
 	redirect(w, r, flashRef(source, copied.Ref), "task copied")
 	return nil
 }
