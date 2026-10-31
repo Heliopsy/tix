@@ -76,6 +76,27 @@ $ curl -s -X POST -H "Authorization: Bearer $TIX_TOKEN" -H 'Content-Type: applic
 or a monogram of at most two characters. Anything else is `400`. The CLI spellings are `--color` and `--icon` on
 `tix project create` and `tix project edit`; an empty string on either clears it.
 
+The icon can be one of two other kinds instead. `icon_name` picks a built-in symbol (`folder`, `briefcase`,
+`home`, `server`, `database`, `cloud`, `code`, `terminal`, `bug`, `rocket`, `shield`, `lock`, `globe`,
+`chart`, `book`, `users`, `package`, `wrench`, `flask`, `bolt`). `icon_file` uploads an image, as
+`{"content_type": "...", "data": "<base64>"}`: a PNG, JPEG, WebP or SVG of at most 64 KiB, typed by its bytes
+rather than by `content_type`. An SVG carrying script, event handlers, `foreignObject` or an external
+reference is `400`. A project then carries `icon_image`, the image's digest.
+
+A project has at most one kind at a time. Sending one replaces whichever it had, sending two non-empty ones
+is `400`, and sending any of them empty clears the icon.
+
+```console
+$ curl -s -X PATCH -H "Authorization: Bearer $TIX_TOKEN" -H 'Content-Type: application/json' \
+    -d "{\"icon_file\":{\"data\":\"$(base64 -w0 logo.png)\"}}" http://127.0.0.1:8080/api/v1/projects/api1
+$ curl -s -H "Authorization: Bearer $TIX_TOKEN" -o logo.png http://127.0.0.1:8080/api/v1/projects/api1/icon
+```
+
+`GET /projects/{ref}/icon` answers with the image itself: its content type, `X-Content-Type-Options:
+nosniff`, a `Content-Security-Policy` that forbids script and sandboxes the document, and an `ETag` that
+`If-None-Match` revalidates to `304`. A project whose icon is not an uploaded image answers `404`. Snapshots
+and bundles carry `icon` and `icon_name`, never the image bytes.
+
 ### Recurring tasks
 
 A task carries an optional `recurrence`, a repeat rule in the syntax [features.md](features.md)
