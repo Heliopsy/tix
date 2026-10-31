@@ -442,6 +442,13 @@ test("a link that asks to stay is drawn in the dialog, any other screen leaves i
   assert.equal(p.pushed.at(-1)[0], "replace", "the form added a history entry of its own");
   assert.equal(p.pushed.at(-1)[2], "/tasks/infra-1/copy");
 
+  p.answer(200, FRAGMENT + "copied", ORIGIN + "/tasks/infra-1?flashref=infra-9&flash=task+copied");
+  assert.deepEqual(p.pushed.at(-1).slice(0, 1).concat(p.pushed.at(-1).slice(2)),
+    ["replace", "/tasks/infra-1?flashref=infra-9&flash=task+copied"], "the address stayed on the form after copying");
+  const entries = p.pushed.length;
+  p.answer(200, FRAGMENT + "saved again", ORIGIN + "/tasks/infra-1");
+  assert.equal(p.pushed.length, entries, "a save on the task screen moved the address");
+
   const away = p.body.appendChild(node("a", { href: "/projects/infra" }));
   p.click(away);
   assert.equal(p.ajax.length, 2, "a screen that did not ask was drawn in the dialog");

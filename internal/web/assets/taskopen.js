@@ -205,6 +205,21 @@
     note.textContent = text || say("That change was refused.");
   }
 
+  // drawnFrom is the address the answer drawn last came from, after any
+  // redirect. A form the dialog drew in place of the task, such as the copy
+  // form, answers with the task screen, and the address follows it there so
+  // a reload or Forward draws the task rather than the form again.
+  var drawnFrom = "";
+
+  function followAnswer() {
+    var state = window.history.state;
+    var path = drawnFrom.indexOf(origin + "/") === 0 ? drawnFrom.slice(origin.length) : drawnFrom;
+    if (!state || !state.tixDialog || tix.taskRefOf(here(), origin) || !tix.taskRefOf(path, origin)) {
+      return;
+    }
+    window.history.replaceState(state, "", path);
+  }
+
   function fromDialog(detail) {
     var body = dialogBody();
     return !!(body && detail && detail.target === body);
@@ -220,6 +235,7 @@
     if (step === "draw") {
       detail.shouldSwap = true;
       detail.isError = false;
+      drawnFrom = xhr.responseURL || "";
       return;
     }
     detail.shouldSwap = false;
@@ -247,6 +263,7 @@
     var fresh = !!pending;
     shown();
     if (!fresh) {
+      followAnswer();
       poke();
     }
   });
