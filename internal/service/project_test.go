@@ -504,7 +504,8 @@ func TestProjectAppearanceIsValidatedByTheService(t *testing.T) {
 		in   core.CreateProjectInput
 	}{
 		{"unknown colour", core.CreateProjectInput{Key: "ops", Name: "Ops", Color: "chartreuse"}},
-		{"hex colour", core.CreateProjectInput{Key: "ops", Name: "Ops", Color: "#ff00ff"}},
+		{"short hex colour", core.CreateProjectInput{Key: "ops", Name: "Ops", Color: "#f0f"}},
+		{"rgb colour", core.CreateProjectInput{Key: "ops", Name: "Ops", Color: "rgb(1,2,3)"}},
 		{"oversized icon", core.CreateProjectInput{Key: "ops", Name: "Ops", Icon: "ops!"}},
 		{"icon with a control character", core.CreateProjectInput{Key: "ops", Name: "Ops", Icon: "a\u0007"}},
 	}
@@ -522,7 +523,8 @@ func TestProjectAppearanceIsValidatedByTheService(t *testing.T) {
 		icon  string
 	}{
 		{"unknown colour", "chartreuse", ""},
-		{"hex colour", "#ff00ff", ""},
+		{"short hex colour", "#f0f", ""},
+		{"hex with a style break", "#ff00ff;color:red", ""},
 		{"oversized icon", "", "ops!"},
 	}
 	for _, tc := range updates {
@@ -567,5 +569,29 @@ func TestEveryPaletteColourIsAccepted(t *testing.T) {
 		if p.Color != colour {
 			t.Errorf("project %q colour = %q, want %q", key, p.Color, colour)
 		}
+	}
+}
+
+// A custom colour is accepted on create and update on every path through the
+// service, and stored in lowercase so one colour has one spelling.
+func TestACustomProjectColourRoundTripsInLowercase(t *testing.T) {
+	l, _, ctx := withDefaults(t)
+	p, err := l.CreateProject(ctx, core.CreateProjectInput{Key: "ops", Name: "Ops", Color: "#1A7F5A"})
+	if err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	if p.Color != "#1a7f5a" {
+		t.Errorf("created colour = %q, want %q", p.Color, "#1a7f5a")
+	}
+	next := " #0B4F8C "
+	if _, err := l.UpdateProject(ctx, "ops", core.UpdateProjectInput{Color: &next}); err != nil {
+		t.Fatalf("UpdateProject: %v", err)
+	}
+	got, err := l.GetProject(ctx, "ops")
+	if err != nil {
+		t.Fatalf("GetProject: %v", err)
+	}
+	if got.Color != "#0b4f8c" || !got.Color.IsCustom() {
+		t.Errorf("updated colour = %q, want custom %q", got.Color, "#0b4f8c")
 	}
 }

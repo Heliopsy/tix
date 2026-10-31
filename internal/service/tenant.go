@@ -215,7 +215,8 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 	// them nothing. The empty string clears the theme and is always allowed.
 	if in.Theme != nil {
 		if name := strings.TrimSpace(*in.Theme); name != "" {
-			if _, ok := l.themeRegistry().Lookup(name); !ok {
+			_, custom := core.CustomTheme(name)
+			if _, ok := l.themeRegistry().Lookup(name); !ok && !custom {
 				return nil, core.NotFound("theme %q", name)
 			}
 		}

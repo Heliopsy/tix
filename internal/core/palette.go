@@ -7,9 +7,9 @@ import (
 	"unicode"
 )
 
-// ProjectColor names one swatch of the fixed project palette. A project
-// carries a token rather than a hex value so every scheme can render it with
-// its own tuned shade.
+// ProjectColor is a project's colour: one swatch of the fixed palette, which
+// every scheme renders with its own tuned shade, or a custom #rrggbb value,
+// which every scheme renders as near to itself as stays legible.
 type ProjectColor string
 
 // The project palette. An empty colour means the project has none.
@@ -38,9 +38,10 @@ func ProjectColors() []ProjectColor {
 	return out
 }
 
-// Valid reports whether c is the empty colour or a palette member.
+// Valid reports whether c is the empty colour, a palette member or a
+// lowercase custom #rrggbb.
 func (c ProjectColor) Valid() bool {
-	if c == ColorNone {
+	if c == ColorNone || c.IsCustom() {
 		return true
 	}
 	for _, known := range projectColors {
@@ -51,15 +52,29 @@ func (c ProjectColor) Valid() bool {
 	return false
 }
 
+// IsCustom reports whether c is a custom colour rather than a palette name.
+func (c ProjectColor) IsCustom() bool {
+	hex, ok := normalizeHex(string(c))
+	return ok && hex == string(c)
+}
+
+// RGB returns a custom colour's value.
+func (c ProjectColor) RGB() (RGB, bool) {
+	if !c.IsCustom() {
+		return RGB{}, false
+	}
+	return ParseHex(string(c))
+}
+
 // String renders the colour token.
 func (c ProjectColor) String() string { return string(c) }
 
-// NormalizeProjectColor trims and lowercases a colour, then checks it against
-// the palette.
+// NormalizeProjectColor trims and lowercases a colour, then checks it is a
+// palette name or a custom #rrggbb.
 func NormalizeProjectColor(s string) (ProjectColor, error) {
 	c := ProjectColor(strings.ToLower(strings.TrimSpace(s)))
 	if !c.Valid() {
-		return ColorNone, Invalid("project colour %q is not in the palette; choose one of %s",
+		return ColorNone, Invalid("project colour %q is not in the palette or a custom #rrggbb; choose one of %s",
 			s, joinColors(projectColors))
 	}
 	return c, nil

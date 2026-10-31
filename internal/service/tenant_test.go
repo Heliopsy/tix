@@ -428,3 +428,28 @@ func TestRequiringASecondFactorWithNoKeyIsRefused(t *testing.T) {
 		t.Errorf("clearing a requirement with no key = %v, want it allowed", err)
 	}
 }
+
+// A tenant may name a custom accent instead of a theme, stored lowercase and
+// resolved to a theme derived from it; a malformed one is still refused.
+func TestTenantMayNameACustomAccent(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	ctx := core.WithActor(context.Background(), actor)
+
+	custom := "#7A3EF0"
+	got, err := l.UpdateTenant(ctx, "", core.UpdateTenantInput{Theme: &custom})
+	if err != nil {
+		t.Fatalf("setting a custom accent: %v", err)
+	}
+	if got.Theme != "#7a3ef0" {
+		t.Errorf("theme = %q, want %q", got.Theme, "#7a3ef0")
+	}
+	if accent := l.ResolveTheme(got).Accent; accent != "#7a3ef0" {
+		t.Errorf("resolved accent = %q, want the chosen %q, which already reads on white", accent, "#7a3ef0")
+	}
+
+	for _, bad := range []string{"#7a3e", "#7a3ef0;}", "7a3ef0x"} {
+		if _, err := l.UpdateTenant(ctx, "", core.UpdateTenantInput{Theme: &bad}); err == nil {
+			t.Errorf("setting theme %q succeeded, want refused", bad)
+		}
+	}
+}

@@ -64,7 +64,7 @@ func TestProjectAppearanceRejections(t *testing.T) {
 		args []string
 	}{
 		{"unknown colour on create", []string{"project", "create", "ops", "Ops", "--color", "chartreuse"}},
-		{"hex colour on create", []string{"project", "create", "ops", "Ops", "--color", "#ff00ff"}},
+		{"short hex colour on create", []string{"project", "create", "ops", "Ops", "--color", "#f0f"}},
 		{"long icon on create", []string{"project", "create", "ops", "Ops", "--icon", "infra"}},
 		{"unknown colour on edit", []string{"project", "edit", "infra", "--color", "chartreuse"}},
 		{"long icon on edit", []string{"project", "edit", "infra", "--icon", "abc"}},
