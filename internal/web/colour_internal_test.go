@@ -3,6 +3,7 @@
 package web
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
@@ -21,7 +22,11 @@ func schemeBlock(t *testing.T, sheet, selector string) string {
 		t.Fatalf("app.css has no %q block", selector)
 	}
 	body := sheet[at+len(selector)+2:]
-	return body[:strings.Index(body, "\n}")]
+	end := strings.Index(body, "\n}")
+	if end < 0 {
+		t.Fatalf("the %q block never closes", selector)
+	}
+	return body[:end]
 }
 
 // token reads one custom property's #rrggbb out of a rule body.
@@ -144,7 +149,7 @@ func TestColourFieldReadsTheChoiceBack(t *testing.T) {
 		{url.Values{"color": {"#custom"}, "color_custom": {""}}, "#custom"},
 	}
 	for _, tc := range tests {
-		r := httptest.NewRequest("POST", "/", strings.NewReader(tc.form.Encode()))
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(tc.form.Encode()))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		if got := colourField(r, "color"); got != tc.want {
 			t.Errorf("colourField(%v) = %q, want %q", tc.form, got, tc.want)
