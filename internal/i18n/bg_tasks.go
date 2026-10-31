@@ -5,6 +5,12 @@ package i18n
 func init() {
 	register(Bulgarian, map[string]string{ // #nosec G101 -- interface text keyed by its English, not credentials
 		"Click to rename":               "Щракни, за да преименуваш",
+		"More actions":                  "Още действия",
+		"More actions for %s":           "Още действия за %s",
+		"Copy link":                     "Копирай връзката",
+		"Copy reference":                "Копирай референцията",
+		"Rename":                        "Преименувай",
+		"needs a comment":               "изисква коментар",
 		"Open %s":                       "Отвори %s",
 		"Open the task":                 "Отвори задачата",
 		"That change was refused.":      "Промяната беше отказана.",

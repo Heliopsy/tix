@@ -149,10 +149,11 @@ function node(tagName, attrs = {}, children = []) {
 }
 
 function matches(el, sel) {
-  const m = /^([a-z]+)?((?:\[[^\]]+\])*)$/.exec(sel);
+  const m = /^([a-z]+)?(?:\.([a-z-]+))?((?:\[[^\]]+\])*)$/.exec(sel);
   if (!m) return false;
   if (m[1] && el.tagName !== m[1].toUpperCase()) return false;
-  for (const part of m[2].match(/\[[^\]]+\]/g) || []) {
+  if (m[2] && !(el.getAttribute("class") || "").split(" ").includes(m[2])) return false;
+  for (const part of m[3].match(/\[[^\]]+\]/g) || []) {
     const [, name, value] = /^\[([^=\]]+)(?:="([^"]*)")?\]$/.exec(part);
     if (name === "open") {
       if (!el.open) return false;
@@ -168,7 +169,7 @@ let doc;
 
 // page loads the assets over a listing: one row with a title link, and the
 // dialog when Dialog mode put it there.
-function page({ dialog = true, edit = false, fetchAnswer } = {}) {
+function page({ dialog = true, edit = false, fetchAnswer, lane = false } = {}) {
   const listeners = {};
   const winListeners = {};
   const title = node("a", {
@@ -176,7 +177,14 @@ function page({ dialog = true, edit = false, fetchAnswer } = {}) {
     textContent: "Fix the build",
     ...(edit ? { "data-edit-title": "infra-1", "data-version": "3" } : {}),
   });
-  const row = node("li", { "data-shortcut-row": "", "data-shortcut-href": "/tasks/infra-1", tabindex: "-1" }, [title]);
+  if (lane) title.setAttribute("class", "lane-title");
+  const rename = node("a", {
+    href: "/tasks/infra-1?next=%2Ftasks", class: "flowgo", "data-rename": "infra-1", "data-version": "4", textContent: "Rename",
+  });
+  const row = lane
+    ? node("article", { class: "card lane-card", "data-shortcut-row": "", "data-shortcut-href": "/tasks/infra-1", tabindex: "-1" },
+      [title, node("div", { popover: "" }, [rename])])
+    : node("li", { "data-shortcut-row": "", "data-shortcut-href": "/tasks/infra-1", tabindex: "-1" }, [title]);
   const csrf = node("input", { name: "csrf_token", value: "tok" });
   const body = node("div", { id: "taskdlg-body" });
   const dlg = node("dialog", { id: "taskdlg" }, [body]);
@@ -275,7 +283,7 @@ function page({ dialog = true, edit = false, fetchAnswer } = {}) {
     }
     return detail;
   };
-  return { ctx, tix: ctx.tix, title, row, dlg, body, pushed, fetches, ajax, events, nav, history, location, click, fire, pop, answer };
+  return { ctx, tix: ctx.tix, title, rename, row, dlg, body, pushed, fetches, ajax, events, nav, history, location, click, fire, pop, answer };
 }
 
 const FRAGMENT = '<div class="taskdlg-frag" data-task-dialog="infra-1">';
@@ -508,4 +516,23 @@ test("F2 on a selected row edits its title, and only when titles edit", () => {
   const ev2 = { key: "F2", target: q.row, prevented: 0, preventDefault() { this.prevented++; }, stopPropagation() {} };
   q.fire("keydown", ev2);
   assert.equal(ev2.prevented, 0, "F2 acted with titles opening the task");
+});
+
+test("Rename in a lane card's menu edits the card's title even when clicks open tasks", async () => {
+  for (const dialog of [false, true]) {
+    const p = page({ lane: true, dialog });
+    const ev = p.click(p.rename);
+    assert.equal(ev.prevented, 1, "Rename followed its link to the task");
+    assert.equal(p.ajax.length, 0, "Rename opened the task in the dialog");
+    const input = p.row.querySelector("input");
+    assert.ok(input, "no field took the title's place");
+    assert.equal(p.title.hidden, true);
+    input.value = "Fix the CI";
+    input.fire("keydown", { key: "Enter", preventDefault() {}, stopPropagation() {} });
+    assert.deepEqual(p.fetches[0].form, { csrf_token: "tok", version: "4", title: "Fix the CI" },
+      "the save did not carry the version the menu holds");
+    await settle();
+    assert.equal(p.title.textContent, "Fix the CI");
+    assert.equal(p.rename.getAttribute("data-version"), "5", "a second rename would be refused as stale");
+  }
 });

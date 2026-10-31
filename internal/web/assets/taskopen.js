@@ -325,11 +325,16 @@
     return field ? field.value : "";
   }
 
-  function startEdit(link) {
+  // startEdit turns a title link into a field. The link names its task and
+  // version itself when titles edit on click; the more actions menu's Rename
+  // (templates/tasks.html) passes both, as holder, because the reader may
+  // not have chosen that.
+  function startEdit(link, holder) {
     if (!link || link.hidden || !link.parentNode) {
       return;
     }
-    var ref = link.getAttribute("data-edit-title");
+    holder = holder || link;
+    var ref = holder.getAttribute(holder === link ? "data-edit-title" : "data-rename");
     var original = link.textContent;
     var input = document.createElement("input");
     input.type = "text";
@@ -393,7 +398,7 @@
       var value = input.value.trim();
       var form = new URLSearchParams();
       form.set("csrf_token", csrf());
-      form.set("version", link.getAttribute("data-version") || "");
+      form.set("version", holder.getAttribute("data-version") || "");
       form.set("title", value);
       busy = true;
       input.setAttribute("aria-busy", "true");
@@ -407,8 +412,8 @@
         busy = false;
         input.removeAttribute("aria-busy");
         if (tix.titleSaved(resp)) {
-          var version = parseInt(link.getAttribute("data-version"), 10) || 0;
-          link.setAttribute("data-version", String(version + 1));
+          var version = parseInt(holder.getAttribute("data-version"), 10) || 0;
+          holder.setAttribute("data-version", String(version + 1));
           finish(value, document.activeElement === input);
           poke();
           return null;
@@ -468,6 +473,16 @@
       return;
     }
     var inside = !!(dlg && dlg.contains(link));
+    if (link.hasAttribute("data-rename") && !inside) {
+      var card = link.closest(".lane-card");
+      var title = card && card.querySelector(".lane-title");
+      if (title) {
+        event.preventDefault();
+        event.stopPropagation();
+        startEdit(title, link);
+        return;
+      }
+    }
     if (link.hasAttribute("data-edit-title") && !inside) {
       event.preventDefault();
       event.stopPropagation();

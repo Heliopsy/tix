@@ -485,10 +485,12 @@ func TestALaneActionSwapsOnlyItsCard(t *testing.T) {
 
 	forms := 0
 	for _, m := range hxPattern.FindAllStringSubmatch(card, -1) {
-		if strings.HasSuffix(m[1], "/star") {
+		if strings.HasSuffix(m[1], "/star") && !strings.Contains(m[0], "hx-post") {
 			continue
 		}
-		forms++
+		if !strings.Contains(m[0], `data-lane-control="more"`) {
+			forms++
+		}
 		for _, want := range []string{`hx-post="` + m[1] + `"`, `hx-target="#t-` + ref + `"`, `hx-select="#t-` + ref + `"`,
 			`hx-swap="outerHTML"`, `hx-indicator="#t-` + ref + `"`, `data-lane-control="`} {
 			if !strings.Contains(m[0], want) {
@@ -497,7 +499,7 @@ func TestALaneActionSwapsOnlyItsCard(t *testing.T) {
 		}
 	}
 	if forms != 3 {
-		t.Errorf("found %d lane forms, want the tick, the status and the priority", forms)
+		t.Errorf("found %d lane forms outside the more actions menu, want the tick, the status and the priority", forms)
 	}
 
 	req, err := http.NewRequest(http.MethodPost, b.fix.server.URL+"/tasks/"+ref+"/transition",
@@ -639,6 +641,11 @@ func TestLanesFitAPhoneAndAFinger(t *testing.T) {
 		{"@media (pointer: coarse)", ".lane .lanepill::before", "inset: -11px -2px"},
 		{"@media (pointer: coarse)", ".lane button.check", "position: relative"},
 		{"@media (pointer: coarse)", ".lanepop .flowgo", "min-height: 40px"},
+		{"@media (pointer: coarse)", ".lane .lanemore-btn", "min-width: 40px"},
+		{"@media (pointer: coarse)", ".lane .lanemore-btn", "min-height: 40px"},
+		{"@media (pointer: coarse)", ".lanemore-menu .lanemore-row input", "min-height: 40px"},
+		{"", ".lanemore-menu", "overflow-y: auto"},
+		{phone, ".lanemore-menu:popover-open", "inset: auto 0 0 0"},
 		{"", ".lane .lane-card.htmx-request", "cursor: progress"},
 		{"", ".lane .lane-card.htmx-request *", "pointer-events: none"},
 	}

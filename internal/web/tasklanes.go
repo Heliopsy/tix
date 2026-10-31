@@ -31,6 +31,13 @@ type laneCard struct {
 	Moves []flowRoute
 	// Prioritise is set for a reader who may change the priority.
 	Prioritise bool
+	// Write is set for a reader who may edit the task: rename, assign, tag.
+	Write bool
+	// Delete is set for a reader who may delete the task.
+	Delete bool
+	// Commented are the moves that need a comment, which the more actions
+	// menu offers as links to the task, where there is a field for one.
+	Commented []flowRoute
 }
 
 // lockReason is why a tick offers nothing: a catalog key and the one value
@@ -110,6 +117,9 @@ type taskLanes struct {
 	// Stray are tasks whose project the screen cannot name, listed rather
 	// than dropped so the lanes are never quietly short.
 	Stray []core.Task
+	// Write is set for a reader who may edit tasks, so the page carries the
+	// handles the assignee fields suggest.
+	Write bool
 }
 
 // laneMoves is what deciding a card needs beyond the task: each project's
@@ -138,7 +148,7 @@ func buildLanes(projects []core.Project, filter core.TaskFilter, tasks []core.Ta
 	for _, p := range candidates {
 		known[p.ID] = true
 	}
-	var out taskLanes
+	out := taskLanes{Write: moves.HasScope != nil && moves.HasScope(core.ScopeTaskWrite)}
 	for _, t := range tasks {
 		if !known[t.ProjectID] {
 			out.Stray = append(out.Stray, t)
@@ -166,7 +176,8 @@ func buildLanes(projects []core.Project, filter core.TaskFilter, tasks []core.Ta
 
 // newLaneCard decides how one task is drawn in its lane.
 func newLaneCard(t core.Task, def core.WorkflowDefinition, haveDef bool, has func(core.Scope) bool) laneCard {
-	c := laneCard{Task: t, Prioritise: has != nil && has(core.ScopeTaskWrite)}
+	write := has != nil && has(core.ScopeTaskWrite)
+	c := laneCard{Task: t, Prioritise: write, Write: write, Delete: has != nil && has(core.ScopeTaskDelete)}
 	if !haveDef {
 		c.Locked = lockReason{Key: "its workflow could not be read"}
 		return c
@@ -178,6 +189,7 @@ func newLaneCard(t core.Task, def core.WorkflowDefinition, haveDef bool, has fun
 	}
 	c.Tick, c.Choose, c.Locked = tickRoutes(def, t.Status, has, c.Finished)
 	c.Moves = statusMoves(def, t.Status, has)
+	c.Commented = commentedMoves(def, t.Status, has)
 	return c
 }
 
@@ -286,6 +298,21 @@ func statusMoves(def core.WorkflowDefinition, from string, has func(core.Scope) 
 	var out []flowRoute
 	for _, r := range flowRoutes(def, from) {
 		if routeBlocked(def, r, has, false).Key == "" {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// commentedMoves are the routes this reader could take but for a comment,
+// which a menu has nowhere to type.
+func commentedMoves(def core.WorkflowDefinition, from string, has func(core.Scope) bool) []flowRoute {
+	if has == nil || !has(core.ScopeTaskTransition) {
+		return nil
+	}
+	var out []flowRoute
+	for _, r := range flowRoutes(def, from) {
+		if routeBlocked(def, r, has, false).Key == "finishing it needs a comment" {
 			out = append(out, r)
 		}
 	}
