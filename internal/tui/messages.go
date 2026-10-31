@@ -56,6 +56,7 @@ const (
 	actionStar
 	actionUnstar
 	actionArrange
+	actionCopy
 	actionEditTenant
 	actionAddDomain
 	actionRemoveDomain
@@ -97,6 +98,7 @@ var actionLabels = map[actionKind][2]string{
 	actionStar:     {"star the task", "starred"},
 	actionUnstar:   {"unstar the task", "unstarred"},
 	actionArrange:  {"arrange the board", "arranged the board"},
+	actionCopy:     {"copy the task", "copied"},
 
 	// The tenant screen's own actions. Their subject is the tenant, a hostname
 	// or a membership rather than a task, so each carries its own sentence and

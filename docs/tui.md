@@ -184,6 +184,7 @@ impossible for a scheme to leave an action unbound.
 | `O` | record an artifact | board, detail |
 | `u` | restore a deleted task | board, detail |
 | `*` | star the task, or unstar a starred one; starred cards lead their column | board, detail |
+| `Y` | copy the task to any project, this one included, with a form for the title and what travels | board, detail |
 | `X` | delete the task or the selected comment; removes the selected domain or member | board, detail, project, tenant |
 | `Z` | hide the selected column, for you, on this project's board everywhere | board |
 | `+` | star the selected column, or unstar it; starred columns lead | board |
@@ -205,9 +206,9 @@ cross-view keys already use when their letter is taken.
 
 ### The command palette
 
-Fifty-eight bindings is more than anyone holds in their head, and the letters ran out: `W` lists projects
+Fifty-nine bindings is more than anyone holds in their head, and the letters ran out: `W` lists projects
 while `w` opens project setup, `H` reads history while `v` draws the live tail, `L` picks a tag, `O` records
-an artifact, `N` claims the next task. The capitals were handed out by elimination rather than by meaning.
+an artifact, `N` claims the next task, `Y` copies one. The capitals were handed out by elimination rather than by meaning.
 
 `ctrl+k` opens every action by name. The footer says so in every view, which is the point: the keys were
 always there and nothing advertised them.
@@ -368,6 +369,18 @@ slower way to do part of what `e` does. The single-key actions that change somet
 gather are untouched: `P` for priority, `A` for the assignee, `#` and `U` for tags, `D` for a dependency.
 Custom fields are not on the form either: they are per project and typed, and `tix task edit --field`
 takes them with the validation this screen cannot.
+
+### Copying a task
+
+`Y` copies the selected task, to the project on screen or any other this tenant has. The form opens on the
+board's own project and the task's title, so `Y` and `enter` puts a copy beside the original; change the
+project or the title first to send it elsewhere. The switches add what a plain copy leaves behind: the
+status (kept only when the target workflow has a state of that name), the comments, the subtasks and the
+dependencies. Link to the original starts on, and records on the copy which task it came from.
+
+Description, priority, tags, the custom fields the target defines, the repeat rule, the due date and the
+assignee always travel. Stars, claims, history and artifacts never do. The status bar names the new task,
+since it may have landed in a project the board is not showing.
 
 ### Cycling a priority
 
