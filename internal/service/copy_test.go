@@ -3,6 +3,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"slices"
 	"strings"
@@ -342,5 +343,37 @@ func TestCopiedCommentBodyStaysWithinTheLimit(t *testing.T) {
 	}
 	if !strings.HasSuffix(copiedCommentBody("@ana", at, "short"), "\n\nshort") {
 		t.Fatal("a short body was altered")
+	}
+}
+
+func TestRoundTripKeepsTheCopiedFromLink(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	source := core.WithActor(context.Background(), actor)
+	seed(t, l, source, "infra")
+	page, err := l.ListTasks(source, core.TaskFilter{})
+	if err != nil || len(page.Tasks) == 0 {
+		t.Fatalf("listing the seed: %v", err)
+	}
+	orig := page.Tasks[0]
+	if _, err := l.CopyTask(source, core.TaskRef{ID: orig.ID}, core.CopyTaskInput{Title: "the copy", Link: true}); err != nil {
+		t.Fatalf("copying: %v", err)
+	}
+	snapshot := exportBytes(t, l, source, core.ExportInput{})
+
+	target, _, _ := newTenant(t, l, "beta")
+	if _, err := l.ImportFrom(target, bytes.NewReader(snapshot), core.ImportInput{Mode: core.ImportMerge}); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	imported, err := l.ListTasks(target, core.TaskFilter{})
+	if err != nil {
+		t.Fatalf("listing: %v", err)
+	}
+	byTitle := map[string]core.Task{}
+	for _, task := range imported.Tasks {
+		byTitle[task.Title] = task
+	}
+	cp, src := byTitle["the copy"], byTitle[orig.Title]
+	if cp.ID == "" || src.ID == "" || cp.CopiedFromID != src.ID {
+		t.Fatalf("imported copy links %q, want the imported source %q", cp.CopiedFromID, src.ID)
 	}
 }
