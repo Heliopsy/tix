@@ -437,6 +437,10 @@ func (f *fakeService) RestoreTask(_ context.Context, ref core.TaskRef) (*core.Ta
 	f.restored = append(f.restored, ref)
 	return &core.Task{ID: ref.ID}, nil
 }
+func (f *fakeService) CopyTask(context.Context, core.TaskRef, core.CopyTaskInput) (*core.Task, error) {
+	return nil, nil
+}
+
 func (f *fakeService) TaskTree(context.Context, core.TaskRef, int) ([]core.Task, error) {
 	return nil, nil
 }

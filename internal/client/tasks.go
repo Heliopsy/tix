@@ -59,6 +59,11 @@ func (c *Client) RestoreTask(ctx context.Context, ref core.TaskRef) (*core.Task,
 	return call[core.Task](ctx, c, http.MethodPost, taskPath(wire.RouteTaskRestore, ref), nil, nil)
 }
 
+// CopyTask creates a copy of a task.
+func (c *Client) CopyTask(ctx context.Context, ref core.TaskRef, in core.CopyTaskInput) (*core.Task, error) {
+	return call[core.Task](ctx, c, http.MethodPost, taskPath(wire.RouteTaskCopy, ref), nil, in)
+}
+
 // TaskTree returns a task and its descendants.
 func (c *Client) TaskTree(ctx context.Context, ref core.TaskRef, depth int) ([]core.Task, error) {
 	q := url.Values{}

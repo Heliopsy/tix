@@ -420,6 +420,10 @@ type Task struct {
 	Recurrence       string `json:"recurrence,omitempty" yaml:"recurrence,omitempty"`
 	RecurrenceNextID string `json:"recurrence_next_id,omitempty" yaml:"recurrence_next_id,omitempty"`
 
+	// CopiedFromID names the task this one was copied from, when the copy was
+	// asked to keep that link.
+	CopiedFromID string `json:"copied_from_id,omitempty" yaml:"copied_from_id,omitempty"`
+
 	Version   int        `json:"version" yaml:"version"`
 	CreatedAt time.Time  `json:"created_at" yaml:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at" yaml:"updated_at"`

@@ -330,6 +330,30 @@ type DeleteTaskInput struct {
 	Cascade bool `json:"cascade,omitempty" yaml:"cascade,omitempty"`
 }
 
+// CopyTaskInput says where a copy of a task goes and what travels with it.
+// An empty ProjectRef copies into the source's own project and an empty Title
+// keeps the source's.
+type CopyTaskInput struct {
+	ProjectRef string `json:"project_ref,omitempty" yaml:"project_ref,omitempty"`
+	Title      string `json:"title,omitempty" yaml:"title,omitempty"`
+	// KeepStatus starts the copy in the source's state when the target
+	// workflow has one of that name, rather than in its initial state.
+	KeepStatus       bool `json:"keep_status,omitempty" yaml:"keep_status,omitempty"`
+	WithComments     bool `json:"with_comments,omitempty" yaml:"with_comments,omitempty"`
+	WithSubtasks     bool `json:"with_subtasks,omitempty" yaml:"with_subtasks,omitempty"`
+	WithDependencies bool `json:"with_dependencies,omitempty" yaml:"with_dependencies,omitempty"`
+	// Link records the source on each copy as its CopiedFromID.
+	Link bool `json:"link,omitempty" yaml:"link,omitempty"`
+}
+
+// Validate checks the input.
+func (in CopyTaskInput) Validate() error {
+	if len(in.Title) > MaxTitleLength {
+		return Invalid("task title must be at most %d characters", MaxTitleLength)
+	}
+	return nil
+}
+
 // UpdateTaskInput changes a task.
 type UpdateTaskInput struct {
 	Title           *string        `json:"title,omitempty" yaml:"title,omitempty"`

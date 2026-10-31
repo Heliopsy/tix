@@ -94,6 +94,9 @@ type TaskService interface {
 	DeleteTask(ctx context.Context, ref TaskRef, in DeleteTaskInput) error
 	RestoreTask(ctx context.Context, ref TaskRef) (*Task, error)
 	TaskTree(ctx context.Context, ref TaskRef, depth int) ([]Task, error)
+	// CopyTask creates a copy of a task, in its own project or another one,
+	// and returns the copy. See CopyTaskInput for what travels.
+	CopyTask(ctx context.Context, ref TaskRef, in CopyTaskInput) (*Task, error)
 
 	AddDependency(ctx context.Context, ref, dependsOn TaskRef) error
 	RemoveDependency(ctx context.Context, ref, dependsOn TaskRef) error
