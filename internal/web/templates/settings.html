@@ -142,6 +142,32 @@
       <div class="setrow-ctl" aria-describedby="taskview-help">{{template "taskview-switch" .Data.Prefs.TaskView}}</div>
     </div>
 
+    {{/* How a listing behaves under a click. Both default to what the
+         interface did before they existed; see taskopen.go. */}}
+    <form class="setrow" method="post" action="/taskopen" hx-boost="false">
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="next" value="{{savedNext "Task opens in" "listings"}}">
+      <div class="setrow-text">
+        <div class="setname-line"><span class="setname" id="taskopen-name">{{t "Task opens in"}}</span>{{template "field-info" "Page leaves the listing for the task's own screen. Dialog opens the task over the listing you are on: the address changes so a reload or a copied link opens the full page, Back or Escape closes it, and saves made in it update the listing underneath. A ctrl-click or a middle click still opens a new tab."}}</div>
+        <span class="sethelp" id="taskopen-help">{{t "Open a task as its own page, or in a dialog over the list."}}</span>
+      </div>
+      <div class="setrow-ctl">
+        <button class="switch" type="submit" role="switch" aria-checked="{{if .TaskDialog}}true{{else}}false{{end}}" aria-labelledby="taskopen-name" aria-describedby="taskopen-help"><span class="switch-track" aria-hidden="true"></span><span class="switch-state">{{if .TaskDialog}}{{t "Dialog"}}{{else}}{{t "Page"}}{{end}}</span></button>
+      </div>
+    </form>
+
+    <form class="setrow" method="post" action="/titleclick" hx-boost="false">
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="next" value="{{savedNext "Clicking a title" "listings"}}">
+      <div class="setrow-text">
+        <div class="setname-line"><span class="setname" id="titleclick-name">{{t "Clicking a title"}}</span>{{template "field-info" "Edits the title turns a task's title in the list, on a board card or on a lane card into a text field: Enter or clicking away saves, Escape cancels. The small open link beside each title still opens the task. Enter or F2 on a selected row edits its title too."}}</div>
+        <span class="sethelp" id="titleclick-help">{{t "Open the task, or rename it where it is listed."}}</span>
+      </div>
+      <div class="setrow-ctl">
+        <button class="switch" type="submit" role="switch" aria-checked="{{if .TitleEdit}}true{{else}}false{{end}}" aria-labelledby="titleclick-name" aria-describedby="titleclick-help"><span class="switch-track" aria-hidden="true"></span><span class="switch-state">{{if .TitleEdit}}{{t "Edits the title"}}{{else}}{{t "Opens the task"}}{{end}}</span></button>
+      </div>
+    </form>
+
     <div class="setrow stacked">
       <div class="setrow-text">
         <div class="setname-line"><span class="setname">{{t "Projects on the task screen"}}</span>{{template "field-info" "Unticking a project leaves its tasks out of the listing and off the board. It hides nothing from anybody else: every task stays on its own screen, and a project: filter naming it explicitly still finds it. A project created after you choose is shown without being ticked."}}</div>

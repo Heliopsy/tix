@@ -378,4 +378,113 @@
     }
     return say("No file chosen");
   };
+
+  // taskRefOf is the task a link leads to, when it leads to a task's own
+  // screen on this origin, and "" for anything else: another site, a
+  // listing, a task's live fragment or one of its action addresses. The
+  // dialog opens only what this answers for.
+  tix.taskRefOf = function (href, origin) {
+    if (typeof href !== "string" || !href) {
+      return "";
+    }
+    var path = href;
+    if (origin && path.indexOf(origin + "/") === 0) {
+      path = path.slice(origin.length);
+    }
+    if (path.charAt(0) !== "/" || path.charAt(1) === "/" || path.charAt(1) === "\\") {
+      return "";
+    }
+    path = path.split("#")[0].split("?")[0];
+    var m = /^\/tasks\/([^/]+)$/.exec(path);
+    if (!m || m[1] === "live") {
+      return "";
+    }
+    try {
+      return decodeURIComponent(m[1]);
+    } catch (err) {
+      return "";
+    }
+  };
+
+  // plainClick reports whether a click is the reader's ordinary primary
+  // click. A modifier or another button means a new tab or window, which the
+  // browser does by itself and the page must not take over.
+  tix.plainClick = function (event) {
+    return !!event && (event.button === 0 || event.button === undefined) &&
+      !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey &&
+      !event.defaultPrevented;
+  };
+
+  // dialogAnswer decides what an answer to a request made for the dialog
+  // becomes: drawn in it, shown as a refusal above what it holds, or left for
+  // the whole page because it is not the task screen (a delete redirects to
+  // the listing).
+  tix.dialogAnswer = function (status, text) {
+    if (!(status >= 200 && status < 400)) {
+      return "refused";
+    }
+    return /\sdata-task-dialog="/.test(text || "") ? "draw" : "leave";
+  };
+
+  // dialogPop decides what a move through history does to the dialog. state
+  // is the entry arrived at, open whether the dialog is showing, under the
+  // address of the page drawn beneath it and here the address now.
+  //
+  //   close   leave the dialog; the page under it is the entry, keep it
+  //   leave   leave the dialog and let the page's own history restore run
+  //   load    draw the entry's task in the open dialog
+  //   reopen  open the dialog again over the page it was opened over
+  //   reload  the entry belongs to another page: load it whole
+  //   ignore  not the dialog's business
+  tix.dialogPop = function (state, open, under, here) {
+    var entry = !!(state && state.tixDialog);
+    if (open) {
+      if (entry) {
+        return "load";
+      }
+      return here === under ? "close" : "leave";
+    }
+    if (!entry) {
+      return "ignore";
+    }
+    return state.over === under ? "reopen" : "reload";
+  };
+
+  // titleStep decides what finishing a title edit does. refused is the value
+  // last refused, passed only when the field lost focus, so leaving a refused
+  // value does not send it again; Enter always does.
+  tix.titleStep = function (original, value, refused) {
+    var v = String(value || "").trim();
+    if (v === String(original || "").trim()) {
+      return "cancel";
+    }
+    if (!v) {
+      return "empty";
+    }
+    if (typeof refused === "string" && v === refused) {
+      return "keep";
+    }
+    return "save";
+  };
+
+  // titleSaved reads a title save's answer. The save is posted with
+  // redirect "manual", so success is the redirect itself, which a browser
+  // reports as an opaque redirect with no status.
+  tix.titleSaved = function (resp) {
+    if (!resp) {
+      return false;
+    }
+    return resp.type === "opaqueredirect" || (resp.status >= 200 && resp.status < 400);
+  };
+
+  // editKey reports whether a key on a selected row asks to edit its title.
+  tix.editKey = function (event) {
+    return !!event && (event.key === "Enter" || event.key === "F2") &&
+      !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
+  };
+
+  // titleLabel names the field a title is edited in.
+  tix.titleLabel = function (ref) {
+    return say("Title of %s").replace("%s", String(ref || ""));
+  };
 })(typeof globalThis !== "undefined" ? globalThis : this);

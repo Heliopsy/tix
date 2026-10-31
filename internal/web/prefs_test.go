@@ -284,6 +284,8 @@ func TestEveryPreferenceFormWorksWithoutScripting(t *testing.T) {
 		{"/theme", url.Values{"theme": {"dim"}}},
 		{"/advanced", url.Values{}},
 		{"/dragmove", url.Values{}},
+		{"/taskopen", url.Values{}},
+		{"/titleclick", url.Values{}},
 		{"/keyscheme", url.Values{"keyscheme": {"emacs"}}},
 		{"/timezone", url.Values{"timezone": {"UTC"}}},
 		{"/timeformat", url.Values{"time_format": {"iso"}}},

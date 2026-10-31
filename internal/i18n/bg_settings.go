@@ -47,6 +47,17 @@ func init() {
 		"Drag a card between board columns to move it. Each card's own Move menu always works, drag or no drag, so turning this off costs nothing for keyboard or touch use.": "Влачи карта между колоните на таблото, за да я преместиш. Менюто „Премести“ на всяка карта работи винаги, с или без влачене, така че изключването не пречи при работа с клавиатура или с докосване.",
 		"Drag board cards between columns.": "Влачи картите между колоните на таблото.",
 
+		"Task opens in": "Задачата се отваря в",
+		"Page leaves the listing for the task's own screen. Dialog opens the task over the listing you are on: the address changes so a reload or a copied link opens the full page, Back or Escape closes it, and saves made in it update the listing underneath. A ctrl-click or a middle click still opens a new tab.": "Страница напуска списъка и отваря собствения екран на задачата. Диалог отваря задачата върху списъка, в който си: адресът се сменя, така че презареждане или копирана връзка отварят цялата страница, Назад или Escape го затварят, а промените, запазени в него, обновяват списъка отдолу. Ctrl-щракване или щракване със средния бутон все така отваря нов раздел.",
+		"Open a task as its own page, or in a dialog over the list.": "Отваряй задачата като отделна страница или в диалог върху списъка.",
+		"Page":             "Страница",
+		"Dialog":           "Диалог",
+		"Clicking a title": "Щракване върху заглавие",
+		"Edits the title turns a task's title in the list, on a board card or on a lane card into a text field: Enter or clicking away saves, Escape cancels. The small open link beside each title still opens the task. Enter or F2 on a selected row edits its title too.": "„Редактира заглавието“ превръща заглавието на задачата в списъка, в картата на таблото или в картата в лентата в текстово поле: Enter или щракване другаде запазва, Escape отменя. Малката връзка за отваряне до всяко заглавие все така отваря задачата. Enter или F2 върху избран ред също редактира заглавието му.",
+		"Open the task, or rename it where it is listed.": "Отваряй задачата или я преименувай направо в списъка.",
+		"Edits the title": "Редактира заглавието",
+		"Opens the task":  "Отваря задачата",
+
 		"Open a new task": "Отваряй новата задача",
 		"Off by default: adding a task keeps you on the listing with the filter, sort and page you were on, and the toast links the new task. Turn this on to open each task as soon as it is added, for writing one task out in full. Applies to the one-line box and to Add with details.": "Изключено по подразбиране: след добавяне оставаш в списъка със същия филтър, подредба и страница, а известието води към новата задача. Включи го, за да се отваря всяка задача веднага след добавянето, когато искаш да я опишеш подробно. Важи за полето на един ред и за „Добави с подробности“.",
 		"Open a task straight after adding it, instead of staying on the list.": "Отваряй задачата веднага след добавянето ѝ, вместо да оставаш в списъка.",

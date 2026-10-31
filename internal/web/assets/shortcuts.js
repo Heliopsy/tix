@@ -66,6 +66,10 @@
   function openSelected() {
     var el = document.activeElement;
     if (el && el.hasAttribute && el.hasAttribute("data-shortcut-row") && el.dataset.shortcutHref) {
+      // In Dialog mode the task opens over the page (taskopen.js).
+      if (typeof tix.openRow === "function" && tix.openRow(el)) {
+        return;
+      }
       window.location.assign(el.dataset.shortcutHref);
     }
   }
@@ -218,6 +222,12 @@
 
   document.addEventListener("keydown", function (event) {
     if (helpOpen()) {
+      return;
+    }
+    // A task open in the dialog owns the keyboard: Escape closes it there,
+    // and a key meant for the page behind it would act on a page the reader
+    // cannot see.
+    if (document.querySelector && document.querySelector("dialog[open]")) {
       return;
     }
     if (tix.isTypingTarget(event.target)) {

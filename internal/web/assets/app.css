@@ -4908,6 +4908,8 @@ td > details.panel > summary { overflow-wrap: normal; word-break: keep-all; }
     box-shadow: var(--shadow-hover);
   }
   :root:not([data-hover="off"]) .lane:hover { border-color: var(--line-strong); }
+  :root:not([data-hover="off"]) a[data-edit-title]:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
+  :root:not([data-hover="off"]) a.title-open:hover { opacity: 1; color: var(--accent); background: var(--accent-soft); }
 
   :root:not([data-hover="off"]) nav.main a:hover .nav-icon { color: var(--accent); }
   :root:not([data-hover="off"]) .setnav a:hover { border-color: var(--line-strong); color: var(--ink); background: var(--surface); }
@@ -5274,3 +5276,88 @@ button.star.is-starred svg { fill: currentColor; }
   .side-collapsed .actions .signout { width: 100%; }
   .side-collapsed .rail-icon { display: block; flex: 0 0 auto; width: 16px; height: 16px; }
 }
+
+/* ---------------------------------------------------------------------------
+   A task in a dialog (assets/taskopen.js, templates/partials.html
+   "task-dialog-host"). The native element, so the page behind is inert and
+   Escape is the platform's; its padding is nil and the body fills it, so a
+   click whose target is the dialog itself is a click on the backdrop. */
+dialog.taskdlg {
+  width: min(1100px, calc(100vw - 2 * var(--gutter)));
+  max-width: none;
+  max-height: calc(100vh - 2 * var(--gutter));
+  max-height: calc(100dvh - 2 * var(--gutter));
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: var(--shadow-strong);
+  overflow: hidden;
+}
+dialog.taskdlg[open] { display: flex; flex-direction: column; }
+dialog.taskdlg::backdrop { background: var(--scrim); }
+.taskdlg-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+.taskdlg-body .backlink { margin-top: 0; }
+.taskdlg-body button.dlgclose { padding-left: 0; }
+.taskdlg-error { position: sticky; top: 0; right: auto; bottom: auto; max-width: none; margin-bottom: var(--space-3); }
+
+/* A phone has no room to show the page behind: the dialog is the screen. */
+@media (max-width: 599px) {
+  dialog.taskdlg {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+  .taskdlg-body { padding: var(--space-3) var(--gutter) var(--space-5); }
+}
+
+/* A title renamed where it is listed, and the open link drawn beside it
+   while titles edit. */
+a.title-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  margin-left: 4px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  opacity: 0.7;
+  vertical-align: middle;
+}
+a.title-open:focus-visible { opacity: 1; }
+.card-title { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.card-title > a:first-child { min-width: 0; overflow-wrap: anywhere; }
+input.title-edit {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  min-height: 0;
+  padding: 2px 6px;
+  font: inherit;
+}
+/* A refusal goes under the row rather than squeezing what is beside the
+   field, so the row wraps while it shows one. */
+li.task:has(> .title-edit-error:not([hidden])),
+.card-title:has(> .title-edit-error:not([hidden])) { flex-wrap: wrap; }
+.title-edit-error {
+  flex: 1 1 100%;
+  order: 99;
+  display: block;
+  padding-left: var(--space-2);
+  color: var(--danger);
+  font-size: var(--text-sm);
+}
+.title-edit-error[hidden] { display: none; }

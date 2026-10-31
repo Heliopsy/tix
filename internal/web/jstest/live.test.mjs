@@ -497,3 +497,14 @@ test("a hidden page does not reconnect, and catches up when it comes back", asyn
   await settle();
   assert.ok(c.fetches.length >= 1, "coming back to the page did not re-read what it missed");
 });
+
+// A save made in the task dialog or by renaming a title in place asks the
+// page to refresh directly, so the row changes without waiting on a socket
+// that may never open.
+test("a refresh asked for by the page itself fetches the fragment without any event", async () => {
+  const { doc, fetches, nodes } = liveContext({ fresh: { "task-pills": "renamed" } });
+  doc.dispatch("tix:refresh", {});
+  assert.deepEqual(fetches, ["/tasks/infra-1/live"], "asking for a refresh fetched nothing");
+  await settle();
+  assert.equal(nodes["task-pills"].innerHTML, "renamed", "the refreshed region was not drawn");
+});

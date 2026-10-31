@@ -328,7 +328,7 @@
       schedule();
     }
 
-    return { rebind: rebind, woken: woken };
+    return { rebind: rebind, woken: woken, poke: schedule };
   }
 
   // The activity feed. Its fragment is the row list itself, so the response
@@ -439,6 +439,12 @@
   document.addEventListener("visibilitychange", function () {
     feed.woken();
     screen.woken();
+  });
+  // A save made where no event is guaranteed to reach this page in time (a
+  // task saved in the dialog, a title renamed in place) asks for the
+  // refresh directly. See taskopen.js.
+  document.addEventListener("tix:refresh", function () {
+    screen.poke();
   });
 })();
 

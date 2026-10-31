@@ -415,6 +415,8 @@ the current scheme and points at the switch rather than carrying a second form.
 | Hover effects | `tix_hover` | `0` turns hover highlights off and puts `data-hover="off"` on `<html>`; absent or anything else leaves them on |
 | Columns | `tix_columns` | which optional columns each listing leaves out |
 | Hidden projects | `tix_hidden_projects` | which projects a listing leaves out |
+| Task opens in | `tix_task_open` | `dialog` opens a task followed from a listing in a dialog over it; absent or anything else opens its own page |
+| Clicking a title | `tix_title_click` | `edit` makes a click on a listed title rename it in place, with an open link beside it; absent or anything else opens the task |
 | Task view | `tix_task_view` | `board` draws the task screen as columns, `lanes` as one lane per project; anything else, including no cookie, is the list |
 | Language | `tix_lang` | `en` or `bg` draws every screen in that language; anything else, including no cookie, follows the browser's `Accept-Language` |
 | Colour rows by | `tix_tint` | What the stripe down a task row and the edge of a board card stands for: `status`, `priority` or `none`. Anything else, including no cookie, is the project's own colour |
@@ -499,6 +501,46 @@ are not hover effects and stay. Movement and transitions are declared only under
 `prefers-reduced-motion: no-preference`, so a reader whose system asks for less motion gets the
 colour without the lift whatever the preference says.
 
+### Opening a task in a dialog
+
+With Task opens in set to Dialog, following a link to a task from a listing, a board, the lanes, the
+activity feed, search results or the toast after adding opens the task screen in a modal `<dialog>`
+over the page instead of leaving it. It is the same screen: the server answers a request carrying
+`X-Tix-Dialog: 1` with the task screen's content block and its flash, without the layout, inside an
+element marked `data-task-dialog`. The ids the task screen shares with a listing's rows (the status
+and priority menus, the description, priority and repeat fields) are prefixed in that answer, and the
+task's own live binding is left out, so nothing in the dialog addresses the page behind it.
+
+The address changes to the task's, with an entry of its own in history, so a reload or a copied link
+draws the full page, Back closes the dialog, and Forward opens it again over the same page. Escape,
+the Close button where the page has its back link, and a click on the backdrop all close it by going
+Back. A popstate leaving the dialog's entry is stopped before htmx sees it, so htmx does not restore
+an older snapshot of the page over the live one. Focus returns to what opened the dialog, or to the
+task's row when a refresh has redrawn it; while the dialog is open the rest of the page is inert,
+which is the focus trap, and the keyboard shortcuts stand down. A link to another task inside the
+dialog replaces the entry; any other link leaves for its own page.
+
+Every form in the dialog posts as it does on the page, and the request's header survives the
+redirect, so the answer redraws the dialog in place. The listing underneath is refreshed through its
+live binding (`tix:refresh`), whether or not its socket is open. A save that redirects somewhere other
+than the task, which is what deleting it does, closes the dialog and loads that page; a refusal keeps
+the task and shows the error screen's message above it. A task that cannot be opened at all opens as
+its own page, which explains why. Under 600px the dialog fills the screen.
+
+A click with a modifier, a middle click, and any click without scripting open the full page.
+
+### Renaming a title in place
+
+With Clicking a title set to Edits the title, the title of a task in the list, on a board card and on
+a lane card carries its reference and version, and a small open link is drawn beside it. A click turns
+the title into a text field. Enter or leaving the field posts `version` and `title` to the task's
+edit address (`POST /tasks/{ref}`), the same address and the same version check as the task screen's
+form; Escape puts the title back, and an unchanged title sends nothing. A refusal, an empty title or
+a conflict with a newer version included, is shown under the field and the field stays open; leaving
+it does not resend a refused value. Enter or F2 on a selected row edits its title, and the open link
+opens the task as Task opens in says. The edit address changes the description and assignee only
+when the submission names them, so renaming leaves them alone. Without scripting a title is a link.
+
 ### The terminal and the command line keep their own
 
 A browser preference is a cookie on that browser. The terminal interface's settings screen writes the
@@ -513,7 +555,7 @@ change the other:
 | Timezone | `tix_timezone` | `output.timezone` |
 | Keyboard scheme | `tix_keyscheme` | `tui.keymap` |
 | Colour | `tix_theme`, which palette | `output.color`, whether colour at all |
-| Advanced screens, drag to move, hover effects, columns, hidden projects, task view | cookie | no equivalent |
+| Advanced screens, drag to move, hover effects, task opens in, clicking a title, columns, hidden projects, task view | cookie | no equivalent |
 | Selected-row pulse | no equivalent | `tui.motion` |
 
 So a timezone chosen in the browser does not change what `tix task ls` prints, and one chosen in the

@@ -519,10 +519,18 @@ func (h *handler) updateTask(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	title, body, assignee := field(r, "title"), prose(r, "body"), field(r, "assignee")
-	in := core.UpdateTaskInput{
-		Title: &title, Body: &body, AssigneeActorID: &assignee, Version: version,
-		CustomFields: custom,
+	title := field(r, "title")
+	in := core.UpdateTaskInput{Title: &title, Version: version, CustomFields: custom}
+	// Named or not, as for custom fields and the repeat rule: both forms on
+	// the task screen name these, and a listing renaming a task in place
+	// names only the title, which must not clear the description with it.
+	if _, named := r.PostForm["body"]; named {
+		body := prose(r, "body")
+		in.Body = &body
+	}
+	if _, named := r.PostForm["assignee"]; named {
+		assignee := field(r, "assignee")
+		in.AssigneeActorID = &assignee
 	}
 	priority, err := priorityField(r, "priority")
 	if err != nil {
