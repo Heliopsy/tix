@@ -44,6 +44,12 @@
     if (link.pathname === page.pathname && link.search === page.search) {
       return false;
     }
+    // A press on a card that can be dragged may be the start of a drag, and
+    // opening the task on the press took the card away before it could move.
+    // Those links open on the click, which a drag never sends.
+    if (typeof link.closest === "function" && link.closest('[draggable="true"]')) {
+      return false;
+    }
     if (/\/(live|export|download)$/.test(link.pathname) || link.pathname.indexOf("/assets/") === 0) {
       return false;
     }

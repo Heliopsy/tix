@@ -44,6 +44,15 @@ test("goesOnPress takes the screens a reader opens from a list", () => {
   }
 });
 
+test("goesOnPress leaves a link on a draggable card to its click", () => {
+  const onCard = (draggable) => ({
+    ...link("/tasks/infra-3"),
+    closest: (sel) => (draggable && sel === '[draggable="true"]' ? {} : null),
+  });
+  assert.equal(tix.goesOnPress(onCard(true), page), false, "a press on a draggable card opened the task");
+  assert.equal(tix.goesOnPress(onCard(false), page), true);
+});
+
 test("goesOnPress leaves alone what is not a screen, not ours, or already open", () => {
   for (const href of [
     "http://elsewhere/tasks/1", "/tasks?q=tag:ops", "/tasks/live", "/tasks/infra-3/live",

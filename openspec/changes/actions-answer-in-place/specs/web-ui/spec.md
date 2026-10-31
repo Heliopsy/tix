@@ -65,11 +65,23 @@ focus on the same control, and leave the new links and forms working as boosted 
 
 ### Requirement: Moving between screens feels immediate
 
-Links into tasks and listings SHALL start on the primary mouse button's press. Boosted navigations
+Links into tasks and listings SHALL start on the primary mouse button's press, except a link on a card that can be dragged, which SHALL open on its click so the press can start a drag. Boosted navigations
 SHALL cross-fade where the browser supports view transitions, and SHALL NOT for a reader who prefers
 reduced motion. Back to the task list SHALL restore the list's scroll position. The task filter SHALL
 apply as the reader types, after a pause, and when a select beside it changes, and the Apply button
 SHALL remain. The list, board and lanes switch SHALL swap the page without reloading its assets.
+
+#### Scenario: Dragging a card by its title
+
+- **GIVEN** a board with dragging on
+- **WHEN** the reader presses a card's title and drags it to another column
+- **THEN** the card moves to that column and the task is not opened
+
+#### Scenario: Dropping a starrable card
+
+- **GIVEN** a board card that carries a star button ahead of its Move form
+- **WHEN** the reader drops the card on a column it may move to
+- **THEN** the move is posted to the Move form's action and the star is left as it was
 
 #### Scenario: Back to the list
 
