@@ -116,6 +116,9 @@ func redirectOldKey(w http.ResponseWriter, r *http.Request, asked string, p *cor
 	if asked == p.ID || strings.EqualFold(asked, p.Key) {
 		return false
 	}
+	// #nosec G710 -- the target is this request's own path, which the router
+	// matched and cleaned, with one segment swapped for a stored project key;
+	// a key holds letters, digits, hyphens and underscores only.
 	http.Redirect(w, r, movedTo(r, asked, p.Key), http.StatusMovedPermanently)
 	return true
 }
@@ -126,6 +129,8 @@ func redirectOldRef(w http.ResponseWriter, r *http.Request, asked string, t *cor
 	if err != nil || ref.IsID() || strings.EqualFold(asked, t.Ref) {
 		return false
 	}
+	// #nosec G710 -- as in redirectOldKey: this request's own cleaned path
+	// with one segment swapped for a reference built from a stored key.
 	http.Redirect(w, r, movedTo(r, asked, t.Ref), http.StatusMovedPermanently)
 	return true
 }

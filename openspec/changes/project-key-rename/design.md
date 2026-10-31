@@ -8,7 +8,7 @@ no task, comment, dependency or event row needs rewriting. The places that hold 
 id were checked:
 
 | Place | Holds | After a rename |
-|---|---|---|
+| --- | --- | --- |
 | `tasks`, `task_deps`, `comments`, `artifacts`, `task_stars` | ids | unchanged, refs render with the new key |
 | `api_tokens.project_id` | id | a project-scoped token keeps its scope |
 | `webhook_endpoints` | event types only | unchanged |
