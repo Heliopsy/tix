@@ -23,6 +23,9 @@ one thumb. A reader called it a sorry implementation, and they were right.
   keeps focus on the control that was pressed, and shows a refusal inside the card.
 - A live refresh waits while a request is in flight or a menu is open, and puts focus back where it
   was after it lands.
+- A live refresh hands the markup it draws to htmx, so forms it drew keep swapping in place instead of
+  posting as whole pages.
+- Enter and Space on a focused button are no longer taken by the `open` shortcut.
 - Below 640px the lanes snap sideways at their natural height and the page scrolls, instead of a
   fixed-height frame; lane controls are at least 40px on a coarse pointer.
 
@@ -39,7 +42,8 @@ None.
 ## Impact
 
 - `internal/web/tasklanes.go`, `internal/web/templates/tasks.html`, `internal/web/assets/app.css`,
-  `internal/web/assets/lanes.js`, `internal/web/assets/decide.js`, `internal/web/assets/live.js`.
+  `internal/web/assets/lanes.js`, `internal/web/assets/decide.js`, `internal/web/assets/live.js`,
+  `internal/web/assets/shortcuts.js`.
 - `internal/i18n/bg_tasks.go` for the new strings.
 - `docs/web-ui.md`.
 - No service, store or API change: every control posts to the transition and priority routes that

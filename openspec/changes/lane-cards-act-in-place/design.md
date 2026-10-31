@@ -52,3 +52,15 @@ scroller with mandatory snap, 86vw wide so the next lane peeks in.
 
 This change modifies requirements added by `task-screen-draws-project-lanes`, so it is archived
 after that one.
+
+## Two faults found on the way
+
+Both broke lanes and were not lanes' own.
+
+A live refresh writes the listing with `innerHTML`. htmx only wires up markup it swapped in itself,
+so every form a refresh drew had no `hx-post` and no boost, and the next tick on any card posted as a
+whole page. `applyRegions` and the board's refresh now call `htmx.process` on what they wrote.
+
+The `open` shortcut is bound to Enter, and the keydown handler let only text fields keep their keys.
+Enter on a focused button was claimed and did nothing. `tix.pressesNatively` now leaves Enter and
+Space on a button or summary, and Enter on a link, to the control.

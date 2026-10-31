@@ -133,7 +133,8 @@ Both menus SHALL work as plain forms without scripting and SHALL be operable fro
 
 With scripting, every tick, status and priority action on a lane card SHALL replace only that card
 with its newly drawn self, SHALL mark the card busy while the request is in flight, and SHALL return
-keyboard focus to the same control on the new card. A refused action SHALL leave the card in place and
+keyboard focus to the same control on the new card. Markup a live refresh draws SHALL behave as the
+markup it replaced, so a lane action after a refresh is still swapped in place. A refused action SHALL leave the card in place and
 show the refusal inside it. A live refresh SHALL NOT replace the listing while a lane action is in
 flight or a menu in it is open, and SHALL return focus to the element that held it when it lands.
 
@@ -154,3 +155,15 @@ flight or a menu in it is open, and SHALL return focus to the element that held 
 - **GIVEN** a reader with a lane card's status menu open
 - **WHEN** a live update arrives
 - **THEN** the listing is not replaced until the menu closes
+
+### Requirement: A focused button keeps its own keys
+
+A keyboard shortcut SHALL NOT take Enter or Space from a focused button or summary, or Enter from a
+focused link, so that every control on a page can be pressed from the keyboard whatever scheme is
+active.
+
+#### Scenario: Enter presses a focused lane control
+
+- **GIVEN** the default shortcut scheme, which binds Enter to opening the selected row
+- **WHEN** the reader focuses a lane card's status badge and presses Enter
+- **THEN** the status menu opens

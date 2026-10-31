@@ -225,14 +225,46 @@ whose project the screen does not list is named under the lanes rather than drop
 The lane is the project, so the status moves onto the card as a badge: the state's label, coloured by
 its category, which is the one part of a state a tenant cannot rename.
 
-**The tick box is offered only when finishing is one move.** From the task's state, its own
-workflow has to offer exactly one shortest route into a terminal state of the done category, no step
-of it may require a comment, and the reader has to hold the scope to move tasks and every scope a
-step requires. The box posts that route to the task's ordinary transition route, so it is a plain
-form that works without JavaScript, and its label spells out any state it passes through on the way.
-Otherwise the box is a dashed circle that opens the task and says why: two ways to finish is a choice
-for the task's own screen, a comment needs somewhere to type it, and a move the reader may not make
-would only be refused after the click. A finished task is drawn ticked, and unticking is not offered.
+**The tick completes and reopens.** On an unfinished card it considers the shortest route from the
+task's state into each terminal state of the done category. On a finished card it considers the
+routes back to an open state that take the fewest steps: in the built-in workflow that is `done →
+todo`, so unticking a card simply reopens it. A route is usable when no step of it needs a comment
+and the reader holds the scope to move tasks and every scope a step requires.
+
+- One candidate, usable: the tick is a box that applies it. Its label spells out any state it passes
+  through.
+- More than one: the tick opens a menu of the usable ones, each naming its journey. It is never a box
+  in that case, even if only one of them is usable, because picking for the reader writes a history
+  nobody chose.
+- None usable: the circle is dashed and opens a panel that says why in words (no route, a comment is
+  needed, a scope is missing, the reader cannot move tasks) and links to the task. It used to be a
+  link whose reason sat in a tooltip, which a touch screen never shows.
+
+**The badge and the priority are menus**, the same popover controls a list row has. The status menu
+offers every state the card's own workflow reaches from here, leaving out routes that need a comment
+or a scope the reader lacks, since a lane has nowhere to type one. The priority menu offers every
+priority and marks the current one; a normal priority is drawn faintly so it can still be raised. A
+reader who may not move tasks sees the badge as a label, and one who may not write tasks sees the
+priority as the filter link it was, normal not drawn at all.
+
+**Everything happens on the card.** Each of those forms is a plain post that works without
+JavaScript and returns to the listing at the card. With htmx it replaces that card and nothing else:
+the response is the redrawn listing and `hx-select` takes the one card out of it, so the card is drawn
+by the same template as every other. While the request is out the card dims and takes no second press.
+Focus returns to the control that was pressed, on the new card. A refusal, say because somebody else
+moved the task meanwhile, leaves the card where it is and says why underneath the title rather than
+swapping the error page in, which used to make the card disappear.
+
+A live refresh holds back while a lane request is in flight or any menu in the listing is open, and
+puts focus back on the same control when it lands. It also hands what it drew to htmx: it writes the
+listing with `innerHTML`, which htmx never sees, so before this every form a refresh had drawn posted
+as a whole page, and the second tick on a card reloaded the screen and threw the reader to the top.
+
+On a phone (below 640px) the lanes are one row that snaps a lane at a time, each lane 86% of the
+screen wide so the next one shows its edge, and each lane is as tall as its cards so the page, not the
+lane, scrolls down. It was a frame of fixed height whose lanes scrolled inside it, three scroll axes
+for one thumb, and the guessed height cut the last card off below the fold. On a touch screen the
+tick, the badge and the priority each answer a press 40px tall, and the menu rows are 40px.
 
 **Show completed** hides finished cards in every lane. It is the one preference kept in the browser's
 `localStorage` rather than a cookie, as a single key, `tix.lanes.showCompleted`, which holds `false`
@@ -402,6 +434,10 @@ than becoming a select with an Apply beside it, which is what a four-position co
 scripting off. Its accessible name says both the scheme in force and the one a press moves to, since
 the glyph says neither and a `title` never reaches a keyboard user who does not hover. Settings names
 the current scheme and points at the switch rather than carrying a second form.
+
+A shortcut never takes a key from the control it is pressing. Enter on a focused button or link, and
+Space on a focused button, do what they do natively; the `open` shortcut is bound to Enter, and it
+used to claim the key everywhere, so no button on the page could be pressed from the keyboard.
 
 | Preference | Cookie | Values |
 | --- | --- | --- |
