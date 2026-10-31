@@ -463,8 +463,9 @@ Stars, claims, history and artifacts never travel.
 
 When tasks open in a dialog the form opens in the same dialog. Copying returns to the original with a
 toast linking the copy, or opens the copy when the "Open a new task" setting is on, exactly as adding a
-task does. The command line has the same operation as `tix task copy`, and the API as
-`POST /api/v1/tasks/{ref}/copy`.
+task does. A lane card's three dots menu offers **Copy to…** too, opening the same form over the lanes
+when tasks open in a dialog; copying from there returns to the lanes, filter and all, with the toast. The
+command line has the same operation as `tix task copy`, and the API as `POST /api/v1/tasks/{ref}/copy`.
 
 ## Acting in place
 
