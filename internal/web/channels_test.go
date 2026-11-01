@@ -34,7 +34,7 @@ func TestSettingsAddsAChannelAndShowsItsSecretOnce(t *testing.T) {
 		}
 	}
 
-	page := addChannel(t, b, url.Values{"name": {"phone"}, "url": {"https://ntfy.sh/alice-tix"},
+	page := addChannel(t, b, url.Values{"name": {"phone"}, "url": {"https://ntfy.invalid/alice-tix"},
 		"format": {"ntfy"}, "kinds": {"mention", "assigned"}, "active": {"on"}})
 	if !strings.HasPrefix(page, "/settings/notifications/") {
 		t.Fatalf("adding a channel sent the browser to %q", page)
@@ -72,14 +72,14 @@ func TestChannelFormsRefuseInPlaceTestAndRemove(t *testing.T) {
 		t.Fatalf("a refused channel answered %d without the message beside the url:\n%s", resp.StatusCode, refused)
 	}
 
-	page := addChannel(t, b, url.Values{"name": {"hook"}, "url": {"https://example.com/hook"}, "kinds": {"mention"}, "active": {"on"}})
+	page := addChannel(t, b, url.Values{"name": {"hook"}, "url": {"https://hooks.invalid/hook"}, "kinds": {"mention"}, "active": {"on"}})
 	id := strings.TrimPrefix(page, "/settings/notifications/")
-	resp = b.post(page+"/edit", url.Values{"name": {"hook"}, "url": {"https://example.com/hook"}, "format": {"discord"}})
+	resp = b.post(page+"/edit", url.Values{"name": {"hook"}, "url": {"https://hooks.invalid/hook"}, "format": {"discord"}})
 	refused = body(t, resp)
 	if resp.StatusCode != http.StatusBadRequest || !strings.Contains(refused, `id="kinds-error"`) {
 		t.Fatalf("saving with no kind answered %d:\n%s", resp.StatusCode, refused)
 	}
-	b.post(page+"/edit", url.Values{"name": {"renamed"}, "url": {"https://example.com/hook"}, "format": {"discord"},
+	b.post(page+"/edit", url.Values{"name": {"renamed"}, "url": {"https://hooks.invalid/hook"}, "format": {"discord"},
 		"kinds": {"status"}, "active": {"on"}})
 	channels, _ := f.svc.ListInboxChannels(f.ctx())
 	if channels[0].Name != "renamed" || channels[0].Format != "discord" || channels[0].Kinds[0] != "status" {

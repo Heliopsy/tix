@@ -121,3 +121,53 @@ func TestInboxCommandsListMarkAndMute(t *testing.T) {
 		})
 	}
 }
+
+func TestInboxChannelCommands(t *testing.T) {
+	c := newCLI(t)
+	var issued struct {
+		core.InboxChannel
+		Secret string `json:"secret"`
+	}
+	got := c.mustRun("inbox", "channel", "add", "phone", "https://ntfy.invalid/me-tix", "--format", "ntfy", "--kinds", "mention,status", "-o", "json")
+	if err := json.Unmarshal([]byte(got.out), &issued); err != nil || issued.Secret == "" || len(issued.Kinds) != 2 {
+		t.Fatalf("add = %s, %v", got.out, err)
+	}
+	if out := c.mustRun("inbox", "channel", "ls").out; !strings.Contains(out, "phone") || strings.Contains(out, issued.Secret) {
+		t.Fatalf("ls = %s", out)
+	}
+	c.mustRun("inbox", "channel", "edit", issued.ID, "--name", "pager", "--active=false")
+	var channels []core.InboxChannel
+	if err := json.Unmarshal([]byte(c.mustRun("inbox", "channel", "ls", "-o", "json").out), &channels); err != nil {
+		t.Fatal(err)
+	}
+	if len(channels) != 1 || channels[0].Name != "pager" || channels[0].Active {
+		t.Fatalf("after edit = %+v", channels)
+	}
+	if got := c.run("inbox", "channel", "test", issued.ID); got.code != core.ExitPrecondtion {
+		t.Fatalf("testing a channel turned off exited %d\n%s", got.code, got.err)
+	}
+	c.mustRun("inbox", "channel", "edit", issued.ID, "--active")
+	var d core.ChannelDelivery
+	if err := json.Unmarshal([]byte(c.mustRun("inbox", "channel", "test", issued.ID, "-o", "json").out), &d); err != nil || !d.Test() {
+		t.Fatalf("test = %+v, %v", d, err)
+	}
+	if out := c.mustRun("inbox", "channel", "deliveries", issued.ID).out; !strings.Contains(out, "test") {
+		t.Fatalf("deliveries = %s", out)
+	}
+	c.mustRun("inbox", "channel", "redeliver", d.ID)
+	c.mustRun("inbox", "channel", "rm", issued.ID)
+	cases := []struct {
+		name string
+		args []string
+		code int
+	}{
+		{"unknown format", []string{"inbox", "channel", "add", "x", "https://hooks.invalid/h", "--format", "pager"}, core.ExitUsage},
+		{"nothing to change", []string{"inbox", "channel", "edit", issued.ID}, core.ExitUsage},
+		{"a removed channel", []string{"inbox", "channel", "rm", issued.ID}, core.ExitNotFound},
+	}
+	for _, tc := range cases {
+		if got := c.run(tc.args...); got.code != tc.code {
+			t.Errorf("%s: exited %d, want %d\n%s", tc.name, got.code, tc.code, got.err)
+		}
+	}
+}

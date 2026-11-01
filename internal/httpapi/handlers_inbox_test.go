@@ -187,7 +187,7 @@ func TestInboxSurvivesTheClientRoundTrip(t *testing.T) {
 func TestChannelEndpoints(t *testing.T) {
 	f := newFixture(t)
 	resp := f.call(http.MethodPost, wire.RouteChannels, map[string]any{"name": "phone",
-		"url": "https://ntfy.sh/alice", "format": "ntfy", "kinds": []string{"mention"}})
+		"url": "https://ntfy.invalid/alice", "format": "ntfy", "kinds": []string{"mention"}})
 	mustStatus(t, resp, http.StatusCreated)
 	var issued struct {
 		core.InboxChannel
@@ -234,7 +234,7 @@ func TestChannelEndpoints(t *testing.T) {
 	resp = f.call(http.MethodDelete, one, nil)
 	mustStatus(t, resp, http.StatusNoContent)
 	_ = resp.Body.Close()
-	resp = f.call(http.MethodPost, wire.RouteChannels, map[string]any{"name": "x", "url": "https://example.com/h", "format": "pager"})
+	resp = f.call(http.MethodPost, wire.RouteChannels, map[string]any{"name": "x", "url": "https://hooks.invalid/h", "format": "pager"})
 	mustStatus(t, resp, http.StatusBadRequest)
 	_ = resp.Body.Close()
 }
@@ -249,7 +249,7 @@ func TestChannelsSurviveTheClientRoundTrip(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = remote.Close() })
 	ctx := context.Background()
-	issued, err := remote.CreateInboxChannel(ctx, core.InboxChannelInput{Name: "hook", URL: "https://example.com/hook"})
+	issued, err := remote.CreateInboxChannel(ctx, core.InboxChannelInput{Name: "hook", URL: "https://hooks.invalid/hook"})
 	if err != nil || issued.SigningSecret == "" {
 		t.Fatalf("create = %+v, %v", issued, err)
 	}
