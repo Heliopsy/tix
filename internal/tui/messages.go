@@ -272,6 +272,10 @@ type actionMsg struct {
 	// set, which is what lets "edited homelab-3" become "edited the title of
 	// homelab-3" without every action needing its own sentence.
 	sentence string
+
+	// line is the quick-add line a create was typed as, so a refused create
+	// reopens the prompt holding it.
+	line string
 }
 
 // name is what an action calls its subject on screen. A task's identifier is

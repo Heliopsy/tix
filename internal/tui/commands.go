@@ -275,17 +275,17 @@ func reconnect(gen int) tea.Cmd {
 	return tea.Tick(time.Second, func(time.Time) tea.Msg { return reconnectMsg{gen: gen} })
 }
 
-// createTask adds a task to the open project.
-func (m Model) createTask(title string) tea.Cmd {
+// createTask creates a task from a parsed quick-add line. The line travels
+// with the answer, so a refusal can put it back in the prompt as typed.
+func (m Model) createTask(in core.CreateTaskInput, line string) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
 	svc, ctx := m.svc, m.ctx
-	in := core.CreateTaskInput{ProjectRef: m.project.Key, Title: title}
 	return func() tea.Msg {
 		task, err := svc.CreateTask(ctx, in)
 		if err != nil {
-			return actionMsg{kind: actionCreate, err: err}
+			return actionMsg{kind: actionCreate, err: err, line: line}
 		}
 		return actionMsg{kind: actionCreate, ref: core.TaskRef{ID: task.ID}, label: task.Ref}
 	}
