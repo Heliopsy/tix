@@ -31,6 +31,7 @@ tix task ls --filter 'status:todo -tag:ops title~deploy'
 tix task ls --filter 'claimed:yes'      # what another agent is holding
 tix task ls --filter 'is:blocked'
 tix task ls --filter 'is:recurring -status:done'
+tix task ls --filter 'is:trashed'       # only soft-deleted tasks
 ```
 
 Its keys are `project`, `status`, `tag`, `assignee`, `creator`,

@@ -52,6 +52,22 @@ and its row or card is ringed. Settings has "Open a new task" for the other way 
 is opened to write it out in full. That used to be the default; a browser that never touched the
 preference now stays, and one that turned it on keeps opening.
 
+**The trash.** Trash, under Tasks in the sidebar, is the task list filtered by `is:trashed`: the
+soft-deleted tasks and nothing else. It is a filter rather than a screen of its own, so the box says
+what it is, the address can be bookmarked, and a term added to it narrows the trash. Tasks is not
+marked current while it is open. The screen is headed Trash and counts the deleted tasks on the page.
+It is always drawn as the list, whatever the reader chose for the task screen, because a board's
+columns are moves a deleted card cannot make; it does not narrow to open work, since a finished task
+that was deleted is still worth finding; and it has no quick-add row.
+
+A deleted row, there or on an `is:deleted` listing, carries a `deleted` badge, whose tooltip gives the time, and a
+struck-through title that is text rather than a link, since the task screen answers not found for a
+deleted task. It has no tick, and its status and priority are labels rather than menus, since
+the service refuses all three on a deleted task. Restore at the end of the row posts to the task's
+restore route with the listing as the place to come back to, so the reader stays on the trash, the
+row leaves it, the count drops, and the toast says `task restored`. With scripting on, the listing and
+its count are swapped in place; without it, the form posts and the page reloads on the same trash.
+
 **Repeating tasks.** The add form's details and the task screen's Edit card carry a Repeat field taking
 a rule such as `every week` or `3 days after done`, emptied to stop the task repeating. The task screen's
 About card states the rule, links the occurrence it created once the task is finished, and before that
@@ -499,7 +515,7 @@ request drops, as it drops `flash`.
 Undo is a browser convenience over ordinary operations, not an operation of its own, so the command line
 and the API undo the same things directly: a move with `tix task mv` (or `--hops` when the way back passes
 through another state), a priority with `tix task edit --priority`, and a soft delete with
-`tix task restore`, `POST /api/v1/tasks/{ref}/restore`. `tix task ls --include-deleted` finds what was
+`tix task restore`, `POST /api/v1/tasks/{ref}/restore`. `tix task ls --trashed` finds what was
 deleted. A delete with `--hard` has no way back on any surface.
 
 **Live updates** never take the screen from you. A refresh already waited for a request in flight

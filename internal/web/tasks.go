@@ -149,6 +149,11 @@ type tasksView struct {
 	// the default turned off.
 	AllHref string
 
+	// Trash is set when the filter asks for deleted tasks alone. The screen
+	// is then the trash: titled so, drawn as the list, and without the
+	// quick-add row, which would add live tasks to a screen that hides them.
+	Trash bool
+
 	// Form is what the add forms hold: the project the listing is filtered
 	// to, or everything a refused add was submitted with. Refused draws Add
 	// with details in place rather than as a popover, with Errors beside its
@@ -244,7 +249,11 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return h.render(w, r, "tasks.html", "Tasks", data)
+	title := "Tasks"
+	if data.Trash {
+		title = "Trash"
+	}
+	return h.render(w, r, "tasks.html", title, data)
 }
 
 // showTasksLive renders only the regions a live update replaces -- the
@@ -306,8 +315,12 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 	// completed control is what hides one. The default belongs to the list,
 	// which is the screen that opened on the wrong set.
 	openOnly := false
-	showAll := query.Get(AllParam) != ""
+	trash := filter.Trashed == core.Yes
+	showAll := query.Get(AllParam) != "" || trash
 	view := taskViewOf(r)
+	if trash {
+		view = TaskViewList
+	}
 	//
 	// Any filter that does not name a status gets the same narrowing, not just
 	// the empty one. Keying it on "the reader typed nothing" made every other
@@ -427,10 +440,22 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 		Filtered:      filtered && hidden > 0,
 		OpenOnly:      openOnly,
 		AllHref:       showAllHref(r),
+		Trash:         trash,
 		Empty:         hidden > 0 && hidden == len(prefs.Projects.Choices),
 		Live:          h.liveTasks(r),
 		Form:          taskForm{Project: soleProject(filter.ProjectKeys)},
 	}, nil
+}
+
+// inTrash reports whether a request is for the task list showing the trash,
+// which is the list filtered by is:trashed rather than a route of its own, so
+// the filter box says what the screen is.
+func inTrash(r *http.Request) bool {
+	if r.URL.Path != RouteTasks {
+		return false
+	}
+	f, err := ParseFilter(r.URL.Query().Get("q"))
+	return err == nil && f.Trashed == core.Yes
 }
 
 // readerHasScope answers whether the signed-in reader holds a scope, so a

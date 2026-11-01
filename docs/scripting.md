@@ -252,7 +252,8 @@ them (renumbered there, status mapped onto its workflow) or `--delete-tasks` del
 and a `statuses` array with `"dry_run": true` in JSON.
 
 `--cascade` on `tix task rm` also deletes the task's subtasks. `--hard` deletes permanently instead of soft
-deleting; a soft delete is reversible with `tix task restore` and visible with `tix task ls --include-deleted`.
+deleting; a soft delete is reversible with `tix task restore` and visible with `tix task ls --trashed` (only the
+deleted ones) or `--include-deleted` (alongside the rest).
 
 ## Asking what is running
 

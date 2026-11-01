@@ -70,7 +70,7 @@ than the first half of it:
 | `!` | blocked |
 | `+` | has dependencies |
 | `↻` | repeats when done |
-| `†` | deleted, revealed by `is:deleted` |
+| `†` | deleted, revealed by `is:deleted` or `is:trashed` |
 | `due` | falls due within a week |
 | `due!` | overdue |
 
@@ -489,7 +489,8 @@ the bar, rather than emptying the board. The expression in force is named in the
 
 `is:deleted` reveals the deleted cards the board otherwise leaves out, each marked `†`. It is the term the
 shared parser already had, so it is the terminal's equivalent of `tix task ls --include-deleted`, and `u`
-on one of those cards is what brings it back.
+on one of those cards is what brings it back. `is:trashed` shows the deleted cards alone, the board's
+trash, the way `tix task ls --trashed` does; `u` on a live card refuses and names that term.
 
 `/` on the activity view takes a different grammar: the audit filter `tix audit ls --filter` takes,
 because an event has a kind and an actor and no status, tag or due date to ask about. A term the live tail

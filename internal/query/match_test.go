@@ -84,6 +84,12 @@ func TestMatchesHonoursTheNonTextTerms(t *testing.T) {
 	}{
 		{"a deleted task is hidden by default", "", gone, false},
 		{"is:deleted reveals it", "is:deleted", gone, true},
+		{"is:trashed keeps a deleted task", "is:trashed", gone, true},
+		{"is:trashed drops a live task", "is:trashed", base, false},
+		{"-is:trashed drops a deleted task", "-is:trashed", gone, false},
+		{"-is:trashed keeps a live task", "-is:trashed", base, true},
+		{"is:deleted -is:trashed drops a deleted task", "is:deleted -is:trashed", gone, false},
+		{"is:deleted -is:trashed keeps a live task", "is:deleted -is:trashed", base, true},
 		{"a due bound that holds", "due-before:" + due.Add(time.Hour).Format(time.RFC3339), base, true},
 		{"a due bound that does not", "due-before:" + due.Add(-time.Hour).Format(time.RFC3339), base, false},
 		{"a project key that matches", "project:alpha", base, true},

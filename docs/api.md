@@ -317,6 +317,10 @@ Query parameters narrow `/tasks`: project, status, tag, assignee, claimed, block
 text, and `recurring=true` or `recurring=false` for tasks that do or do not carry a repeat rule (`is:recurring` in
 the filter expression).
 
+Soft-deleted tasks are left out unless asked for. `include_deleted=true` adds them to the listing
+(`is:deleted`), `trashed=true` lists only them (`is:trashed`), and `trashed=false` lists only live tasks
+whatever `include_deleted` says (`-is:trashed`).
+
 Custom field values are filtered with a `field.` prefixed parameter, one per field:
 
 ```sh

@@ -200,5 +200,6 @@ func taskFilterQuery(f core.TaskFilter) url.Values {
 	}
 	setJSON(q, "custom_fields", f.CustomFields)
 	setBool(q, "include_deleted", f.IncludeDeleted)
+	setTriState(q, "trashed", f.Trashed)
 	return q
 }

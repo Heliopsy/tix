@@ -146,7 +146,7 @@ func TestRestoreRefusesATaskThatWasNeverDeleted(t *testing.T) {
 	if len(svc.restored) != 0 {
 		t.Fatalf("a live task was restored: %+v", svc.restored)
 	}
-	if !strings.Contains(next.err, "is:deleted") {
+	if !strings.Contains(next.err, "is:trashed") {
 		t.Errorf("the refusal does not say where the deleted tasks are: %q", next.err)
 	}
 }
@@ -204,5 +204,32 @@ func TestTheRegistryBindsRestoreToTheBoard(t *testing.T) {
 	}
 	if op.TUI != viewName(viewBoard) {
 		t.Fatalf("restore is bound to view %q", op.TUI)
+	}
+}
+
+// TestTheBoardFilterReachesTheTrash is is:trashed on the board: the service is
+// asked for the deleted tasks alone, and the live cards are not drawn.
+func TestTheBoardFilterReachesTheTrash(t *testing.T) {
+	m := boardModel(t)
+	gone := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+	tasks := make([]core.Task, len(m.tasks))
+	copy(tasks, m.tasks)
+	tasks[0].DeletedAt = &gone
+	m = m.applyFilterText("is:trashed")
+	if m.filterErr != "" {
+		t.Fatalf("the board refused is:trashed: %s", m.filterErr)
+	}
+	if got := m.taskFilter("infra"); got.Trashed != core.Yes {
+		t.Fatalf("the filter the board sends has Trashed %v, want the trash alone", got.Trashed)
+	}
+	m, _ = m.installTasks(tasks)
+	frame := m.Frame()
+	if line := cardLineFor(t, frame, tasks[0].Ref); !strings.Contains(line, DeletedMarker) {
+		t.Errorf("the deleted card is not drawn marked: %q", line)
+	}
+	for _, live := range tasks[1:] {
+		if strings.Contains(frame, live.Ref) {
+			t.Errorf("the live card %s is drawn on the trash", live.Ref)
+		}
 	}
 }

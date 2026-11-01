@@ -67,6 +67,7 @@ var filterFields = map[string]filterReach{
 	"ParentIsNull":   {Expr: "is:root", CLI: ""},
 	"IncludeDeleted": {Expr: "is:deleted", CLI: "--include-deleted"},
 	"Starred":        {Expr: "is:starred", CLI: "--starred"},
+	"Trashed":        {Expr: "is:trashed", CLI: "--trashed"},
 }
 
 // filterExempt names the fields no filter expression reaches, with the reason.
@@ -323,6 +324,7 @@ func TestEveryTaskFilterFieldSurvivesTheWire(t *testing.T) {
 		},
 		CustomFields:   map[string]any{"severity": "high"},
 		IncludeDeleted: true,
+		Trashed:        core.Yes,
 	}
 
 	svc := &recordingService{}

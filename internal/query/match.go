@@ -14,7 +14,7 @@ import (
 // loaded page with it, so the two must agree: a task the store would have
 // returned must match here too.
 func Matches(f core.TaskFilter, t core.Task, projectKey string, now time.Time) bool {
-	if t.DeletedAt != nil && !f.IncludeDeleted {
+	if deleted := t.DeletedAt != nil; deleted && !f.ListsDeleted() || !deleted && !f.ListsLive() {
 		return false
 	}
 	if !matchIncludes(f, t, projectKey) || !matchExcludes(f.Exclude, t, projectKey) {

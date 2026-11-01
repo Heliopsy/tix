@@ -14,11 +14,13 @@
      at the end of it rather than in rows of their own. */}}
 <div class="pagehead">
   <div class="pagehead-title">
-    <h1>{{t "Tasks"}}</h1>
+    <h1>{{if $v.Trash}}{{t "Trash"}}{{else}}{{t "Tasks"}}{{end}}</h1>
     <div id="tasks-summary">{{template "tasks-summary" .}}</div>
   </div>
   <div class="pagehead-tools">
-    {{template "taskview-switch" $v.Prefs.TaskView}}
+    {{/* The trash is always the list: a board's columns are moves a deleted
+         card cannot make, so the switch would offer a drawing it ignores. */}}
+    {{if not $v.Trash}}{{template "taskview-switch" $v.Prefs.TaskView}}{{end}}
     {{/* A menu, like the columns control on every other listing and like the
          status and priority menus on a row. It was a disclosure that opened
          downwards and pushed the whole task list down by its own height, so
@@ -88,6 +90,7 @@
   </div>
 </div>
 
+{{if not $v.Trash}}
 <form method="post" action="/tasks" class="quickadd">
   {{template "csrf" .CSRF}}
   {{/* Not autofocused. The field was focused on arrival so typing a task
@@ -128,6 +131,7 @@
 <div id="addmore" class="addpop{{if $v.Refused}} is-inplace{{end}}"{{if not $v.Refused}} popover{{end}}>
   {{template "task-create-form" .}}
 </div>
+{{end}}
 {{end}}
 
 <div id="filterpop" class="filterpop" popover>
@@ -220,7 +224,9 @@
 
 {{define "tasks-summary"}}
 {{$v := .Data}}
-{{if not $v.FilterError}}{{with $v.Summary}}
+{{if and $v.Trash (not $v.FilterError)}}
+<p class="lede summary trashnote">{{if $v.Tasks}}{{tn "%d deleted task" "%d deleted tasks" (len $v.Tasks)}} &middot; {{t "Restore one to put it back where it was."}}{{else}}{{t "The trash is empty."}}{{end}}</p>
+{{else if not $v.FilterError}}{{with $v.Summary}}
 <p class="lede summary">
   {{/* An empty narrowed list is not an empty list. With finished work hidden,
        a project whose every task is done came up as "Nothing on the list",
@@ -716,6 +722,9 @@
     {{if $v.FilterError}}
     <p class="empty-title">{{t "Nothing to show while the filter is refused"}}</p>
     <p>{{t "Correct the filter above, or clear it to see everything."}}</p>
+    {{else if $v.Trash}}
+    <p class="empty-title">{{t "The trash is empty"}}</p>
+    <p>{{t "A deleted task waits here until somebody restores it."}}</p>
     {{else}}
     <p class="empty-title">{{t "Nothing on the list"}}</p>
     <p>{{t "Add the first one above. Agents can add them too, over the API."}}</p>
@@ -747,8 +756,11 @@
   {{/* data-inplace: the star, status and priority forms in this row swap
        this row and nothing else, the way the tick does. assets/feel.js
        reads it; without it they post and redirect like any form. */}}
-  <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{$mark}}{{if eq $r.FlashRef .Ref}} is-flashed{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Ref}}" data-inplace>
-    {{$done := index $v.CompleteState .ProjectID}}
+  <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{if .DeletedAt}} is-deleted{{end}}{{$mark}}{{if eq $r.FlashRef .Ref}} is-flashed{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} tabindex="-1" data-shortcut-row{{if not .DeletedAt}} data-shortcut-href="/tasks/{{.Ref}}"{{end}} data-inplace>
+    {{/* A deleted task cannot be completed, moved or reprioritised, so its
+         row offers none of that: no tick, plain status and priority, and
+         Restore at the end, which is the one thing that can be done to it. */}}
+    {{$done := ""}}{{if not .DeletedAt}}{{$done = index $v.CompleteState .ProjectID}}{{end}}
     {{if $done}}
     {{/* Only this row is swapped, never the page.
 
@@ -779,13 +791,16 @@
     </form>
     {{else}}<span class="check placeholder" aria-hidden="true"></span>{{end}}
 
-    {{if and $r.CanStar ($r.Columns.Show "tasks" "star")}}{{template "star" (star .Ref .Starred $v.Self $r.CSRF)}}{{end}}
+    {{if and $r.CanStar ($r.Columns.Show "tasks" "star") (not .DeletedAt)}}{{template "star" (star .Ref .Starred $v.Self $r.CSRF)}}{{end}}
 
     {{template "proj-icon" (projIcon $acc false)}}
 
     {{/* next carries this listing, filters and sort included, so the task
          screen can offer a way back to exactly it. */}}
-    {{template "tasktitle" (titleLink .Ref .Title .Version (print "/tasks/" .Ref "?next=" ($v.Self | urlquery)) "task-title" $r.TitleEdit)}}
+    {{/* A deleted task has no screen to open, the task screen answers not
+         found for it, so its title is text rather than a link. */}}
+    {{if .DeletedAt}}<span class="task-title">{{.Title}}</span>
+    {{else}}{{template "tasktitle" (titleLink .Ref .Title .Version (print "/tasks/" .Ref "?next=" ($v.Self | urlquery)) "task-title" $r.TitleEdit)}}{{end}}
 
     {{/* Four kinds of marking used to be four near-identical chips, so a row
          read as a row of indistinguishable pills and nobody could tell a tag
@@ -818,7 +833,7 @@
            the attribute is not understood the panel simply stays in the row,
            which is the list of choices it always was. */}}
       {{if $r.Columns.Show "tasks" "status"}}<span class="tm tm-status">
-      {{$flow := $v.Flow (index $r.Data.Moves .ProjectID) .Status}}
+      {{$flow := ""}}{{if not .DeletedAt}}{{$flow = $v.Flow (index $r.Data.Moves .ProjectID) .Status}}{{end}}
       {{if $flow}}
       <span class="statusmenu">
         <button type="button" class="statuspill" data-focus="status" popovertarget="flow-{{.Ref}}"
@@ -857,6 +872,8 @@
            press is a row that cannot be raised. */}}
       {{if $r.Columns.Show "tasks" "priority"}}<span class="tm tm-prio">
       {{$p := prio .Priority}}
+      {{if .DeletedAt}}<span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>
+      {{else}}
       <span class="priomenu">
         <button type="button" class="priobtn" data-focus="prio" popovertarget="prio-{{.Ref}}"
                 aria-label="{{t "Priority %s; change it for %s" (t $p) .Ref}}" title="{{t "Change the priority of %s" .Ref}}">
@@ -878,6 +895,7 @@
           <button type="button" class="flowclose" popovertarget="prio-{{.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
         </div>
       </span>
+      {{end}}
       </span>{{end}}
       {{/* At most three, then a count.
            A task carrying ten tags took the whole width of the row for them,
@@ -917,6 +935,7 @@
            hands. */}}
       {{$held := claim .}}
       <span class="tm tm-flags">
+      {{if .DeletedAt}}<span class="deletedmark" title="{{t "Deleted %s" (compact .DeletedAt)}}">{{t "deleted"}}</span>{{end}}
       {{if eq $held "held"}}<span class="lease held" title="{{t "Held by %s until %s" ($r.Data.Names.Label .ClaimedByActorID) (compact .LeaseExpiresAt)}}">{{t "held"}} &middot; {{$r.Data.Names.Label .ClaimedByActorID}}</span>
       {{else if eq $held "expired"}}<span class="lease expired" title="{{t "%s let the claim run out %s ago, at %s; the task is claimable again" ($r.Data.Names.Label .LeaseExpiredByActorID) (expiredAgo .) (compact .LeaseExpiredAt)}}">{{t "claim expired"}} &middot; {{t "%s ago" (expiredAgo .)}}{{if gt .ClaimCount 1}} <span class="lease-count">&middot; {{t "%d claims" .ClaimCount}}</span>{{end}}</span>{{end}}
       {{/* The date carried no label, so it was a number nobody could name.
@@ -932,6 +951,15 @@
       {{if $r.Columns.Show "tasks" "updated"}}<span class="tm tm-when"><span class="when" title="{{t "Last updated %s" (compact .UpdatedAt)}}"><span class="when-label">{{t "updated"}}</span> {{compact .UpdatedAt}}</span></span>{{end}}
       {{if $r.Columns.Show "tasks" "ref"}}<span class="tm tm-ref"><span class="ref mono">{{.Ref}}</span></span>{{end}}
     </span>
+    {{/* The whole listing and its count are swapped, not the row: a restored
+         task leaves the trash, and the count above it has to say so. */}}
+    {{if .DeletedAt}}<form method="post" class="restoreform"
+          hx-post="/tasks/{{.Ref}}/restore" hx-target="#tasks-listing" hx-select="#tasks-listing" hx-select-oob="#tasks-summary,#toast" hx-swap="outerHTML"
+          action="/tasks/{{.Ref}}/restore">
+      {{template "csrf" $r.CSRF}}
+      <input type="hidden" name="next" value="{{$v.Self}}">
+      <button type="submit" class="secondary" aria-label="{{t "Restore %s" .Ref}}">{{t "Restore"}}</button>
+    </form>{{end}}
   </li>
 {{end}}{{end}}
 

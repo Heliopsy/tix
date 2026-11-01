@@ -121,6 +121,9 @@ func builtInDefault() core.Theme {
 type view struct {
 	Title string
 	Path  string
+	// InTrash is set on the task list while it shows the trash, so the
+	// sidebar marks Trash current rather than Tasks.
+	InTrash bool
 	// Lang is the language the page is drawn in, and JSText the translations
 	// its scripts need; see i18n.go.
 	Lang   string
@@ -363,6 +366,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Lang:            langOf(r),
 		JSText:          jsMessagesFor(langOf(r)),
 		Path:            r.URL.Path,
+		InTrash:         inTrash(r),
 		Here:            here(r),
 		Upgrade:         h.releases.state(),
 		ColumnPage:      columnPage(name),

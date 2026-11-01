@@ -196,8 +196,27 @@ type TaskFilter struct {
 
 	IncludeDeleted bool `json:"include_deleted,omitempty" yaml:"include_deleted,omitempty"`
 
+	// Trashed selects by soft deletion: Yes is the trash alone, No the live
+	// tasks alone. When set it decides, whatever IncludeDeleted says.
+	Trashed TriState `json:"trashed,omitempty" yaml:"trashed,omitempty"`
+
 	Page Page `json:"page,omitempty" yaml:"page,omitempty"`
 }
+
+// ListsDeleted reports whether the filter admits soft-deleted tasks.
+func (f TaskFilter) ListsDeleted() bool {
+	switch f.Trashed {
+	case Yes:
+		return true
+	case No:
+		return false
+	default:
+		return f.IncludeDeleted
+	}
+}
+
+// ListsLive reports whether the filter admits tasks that are not deleted.
+func (f TaskFilter) ListsLive() bool { return f.Trashed != Yes }
 
 // Task sort fields.
 const (

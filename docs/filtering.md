@@ -117,6 +117,7 @@ is what makes a large PostgreSQL install fast. If you need an answer that does n
 | `parent:REF`, `parent:none` | subtasks of, or roots | no | no |
 | `is:claimed`, `is:unclaimed`, `is:blocked`, `is:unblocked`, `is:recurring`, `is:root` | state predicates | yes (except `is:root`) | no |
 | `is:deleted` | also list soft-deleted tasks, alongside the rest; it widens, it does not narrow | yes | no |
+| `is:trashed` | only soft-deleted tasks, the trash; `-is:trashed` is live tasks only | yes | no |
 | `is:starred`, `is:unstarred`, `starred:true`, `starred:false` | tasks you starred, or did not | yes | no |
 | `sort:FIELD`, `limit:N` | listing shape | no | no |
 | bare word | free text, engine-native | yes (becomes a weak match) | n/a |
@@ -125,9 +126,21 @@ Dates take `YYYY-MM-DD`, `YYYY-MM-DD HH:MM`, or RFC 3339.
 
 `is:deleted` is the expression spelling of `tix task ls --include-deleted`: the listing keeps its live
 tasks and gains the soft-deleted ones, which carry `deleted_at`. A restored task is live again, so it stays
-in the listing. `-is:deleted` is what every listing does already. There is no term that lists only the
-deleted tasks; pick them out by `deleted_at`, for example
-`tix task ls --filter is:deleted -o ndjson | jq 'select(.deleted_at)'`.
+in the listing. `-is:deleted` is what every listing does already.
+
+`is:trashed` is the narrowing one: only the soft-deleted tasks, which is the trash `tix task restore`
+takes from. `tix task ls --trashed` says the same, `trashed=true` over the HTTP API, and the browser's
+Trash entry in the sidebar is the task list filtered by it. `-is:trashed` (`trashed=false`) is live tasks
+only.
+
+When an `is:trashed` term is present it decides, whatever `is:deleted` says:
+
+| Expression | Listed |
+| --- | --- |
+| nothing, or `-is:deleted` | live tasks |
+| `is:deleted` | live and deleted |
+| `is:trashed`, or `is:trashed is:deleted` | deleted only |
+| `-is:trashed`, or `is:deleted -is:trashed` | live only |
 
 ## Stars
 

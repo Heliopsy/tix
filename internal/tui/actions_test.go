@@ -498,7 +498,7 @@ func TestTheNewTaskActionsReachTheDetailViewToo(t *testing.T) {
 		if cmd != nil {
 			t.Fatal("u sent a restore for a task that was never deleted")
 		}
-		if !strings.Contains(next.err, "is:deleted") {
+		if !strings.Contains(next.err, "is:trashed") {
 			t.Fatalf("u did nothing at all in the detail view; err = %q", next.err)
 		}
 	})

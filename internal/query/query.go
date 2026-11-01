@@ -438,6 +438,8 @@ func applyIs(f *core.TaskFilter, value string, negate bool) error {
 		f.Starred = no
 	case "deleted":
 		f.IncludeDeleted = !negate
+	case "trashed":
+		f.Trashed = yes
 	case "recurring":
 		f.Recurring = yes
 	case "root":
@@ -446,7 +448,7 @@ func applyIs(f *core.TaskFilter, value string, negate bool) error {
 		}
 		f.ParentIsNull = true
 	default:
-		return core.Invalid("unknown is: value %q; try claimed, unclaimed, blocked, unblocked, recurring, starred, unstarred, deleted or root", value)
+		return core.Invalid("unknown is: value %q; try claimed, unclaimed, blocked, unblocked, recurring, starred, unstarred, deleted, trashed or root", value)
 	}
 	return nil
 }

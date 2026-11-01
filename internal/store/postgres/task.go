@@ -300,8 +300,11 @@ func (t *tx) ListTasks(ctx context.Context, f core.TaskFilter) ([]core.Task, err
 }
 
 func (t *tx) applyTaskFilter(b *sqlb.Builder, f core.TaskFilter) error {
-	if !f.IncludeDeleted {
+	switch {
+	case !f.ListsDeleted():
 		b.Where("tasks.deleted_at IS NULL")
+	case !f.ListsLive():
+		b.Where("tasks.deleted_at IS NOT NULL")
 	}
 	if len(f.ProjectIDs) > 0 {
 		b.WhereIn("tasks.project_id", f.ProjectIDs)
