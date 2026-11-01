@@ -176,7 +176,7 @@ func (m *mutation) eligibleNotes(ctx context.Context) ([]inboxNote, error) {
 	}
 	var out []inboxNote
 	for _, n := range m.notes {
-		if !known[n.recipient] || n.recipient == m.actor.ID {
+		if !known[n.recipient] {
 			continue
 		}
 		if (core.InboxPrefs{Muted: mutes[n.recipient]}).Mutes(n.kind) {
