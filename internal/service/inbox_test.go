@@ -144,6 +144,33 @@ func TestAStatusChangeOutranksItsOwnComment(t *testing.T) {
 	}
 }
 
+func TestReassigningAndReleasingReachTheAssignee(t *testing.T) {
+	f := newInboxFixture(t)
+	task := mustCreateTask(t, f.l, f.adaC, core.CreateTaskInput{ProjectRef: "infra", Title: "t"})
+	ref := core.TaskRef{ID: task.ID}
+	bob := "bob"
+	if _, err := f.l.UpdateTask(f.adaC, ref, core.UpdateTaskInput{AssigneeActorID: &bob}); err != nil {
+		t.Fatal(err)
+	}
+	title := "renamed"
+	if _, err := f.l.UpdateTask(f.adaC, ref, core.UpdateTaskInput{Title: &title}); err != nil {
+		t.Fatal(err)
+	}
+	if got := inboxOf(t, f.l, f.bobC); !slices.Equal(got, []string{"assigned " + task.Ref}) {
+		t.Fatalf("bob after reassignment and a rename = %v, want one assignment", got)
+	}
+	claim, err := f.l.ClaimTask(f.adaC, ref, core.ClaimInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.l.ReleaseLease(f.adaC, ref, claim.LeaseToken, core.ReleaseInput{Status: "doing"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := firstItem(t, f.l, f.bobC); got.Kind != core.InboxStatus || got.ToStatus != "doing" {
+		t.Fatalf("bob after a release into doing = %+v, want a status item", got)
+	}
+}
+
 func TestSelfAndMutedKindsCreateNothing(t *testing.T) {
 	f := newInboxFixture(t)
 	task := mustCreateTask(t, f.l, f.adaC, core.CreateTaskInput{ProjectRef: "infra", Title: "t", AssigneeActorID: "alice"})
