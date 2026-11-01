@@ -13,10 +13,10 @@ actually dispatching, so neither can describe keys you do not have. This page ex
 cannot cover: what is here before you connect. Over SSH that is the whole problem, because you connect
 first and find out afterwards.
 
-## The ten views
+## The eleven views
 
 The title bar names the open one, between the project and the connection state, because projects, the
-board, the task, the project screen, activity, history, the tenant screen, statistics and settings all
+board, the task, the project screen, activity, history, the inbox, the tenant screen, statistics and settings all
 render into the same frame and recognising the body was the only way to tell where you were.
 
 <!-- Rows asserted against the view list by TestDocsViewsTableListsEveryView in internal/tui. -->
@@ -28,6 +28,7 @@ render into the same frame and recognising the body was the only way to tell whe
 | detail | `enter` on a card | one task in full: body, custom fields, subtasks, dependencies, artifacts, comments |
 | activity | `v` | the live event tail, filtered by the audit grammar |
 | history | `H` | the stored audit log for the selected task, the open project or the tenant |
+| inbox | `I` | your mentions, assignments, comments on tasks you follow and status changes, newest first |
 | statistics | `S` | the same figures as `tix stats`, for the open project or the whole tenant |
 | tenant | `T` | the tenant in force, its domains and its members, and a key to switch this session |
 | settings | `,` | display preferences, and what this session is connected to |
@@ -202,10 +203,12 @@ impossible for a scheme to leave an action unbound.
 | `z` | collapse the selected column to its name and count, or expand it | board |
 | `<`, `>` | move the selected column left, right | board |
 | `=` | show every hidden column again | board |
+| `space` | mark the selected item read, or unread | inbox |
+| `a` | mark every item read | inbox |
 | `y` | agree to a confirmation | wherever one is open |
 | `w` | project setup | everywhere |
 | `f` | custom field definitions | project |
-| `W`, `,`, `v`, `H`, `S`, `T` | projects, settings, activity, history, statistics, tenant | everywhere |
+| `W`, `,`, `v`, `H`, `I`, `S`, `T` | projects, settings, activity, history, inbox, statistics, tenant | everywhere |
 | `ctrl+k`, `:` | the command palette: every action by name | everywhere |
 | `r` | refresh | everywhere |
 | `?` | help | everywhere |
@@ -585,6 +588,17 @@ The status bar names the bound rather than leaving a page of a long log looking 
 points at `tix audit ls` for the older entries. A subject with nothing recorded against it says so in
 words, since a heading over blank space reads as a read that failed, and a read that did fail opens no
 view at all. `r` re-reads the same subject, rather than refreshing a screen you are not looking at.
+
+## The inbox view
+
+`I` reads the newest hundred items of your inbox: somebody mentioned you as `@handle`, assigned you a task,
+commented on a task you are assigned to or starred, or moved a task assigned to you. Unread items carry a
+dot and full brightness; read ones are dimmed. `enter` marks the selected item read and opens its task,
+`space` toggles it between read and unread, and `a` marks everything read. `r` reads the inbox again. The
+status bar counts the items and the unread ones, and points at `tix inbox ls` for older pages.
+
+Muting a kind is a setting kept with your account, set from the browser's Settings or `tix inbox prefs`;
+the terminal has no screen for it, which the registry records as an exemption rather than a gap.
 
 ## The project screen
 

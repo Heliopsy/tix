@@ -14,6 +14,7 @@ import (
 func (f *fakeService) ListInbox(_ context.Context, filter core.InboxFilter) ([]core.InboxItem, string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.inboxReads++
 	if f.inboxErr != nil {
 		return nil, "", f.inboxErr
 	}

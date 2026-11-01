@@ -66,6 +66,7 @@ Everything below is under `/api/v1`.
 | Views | `/views/{view}/groups`, `/views/{view}/groups/{group}`, `/views/{view}/order` |
 | Saved filters | `/filters`, `/filters/{filter}`, `/filters/order` |
 | Calendar feed | `/calendar`, `/calendar/rotate`, `/calendar/feeds/{file}` (no credential); see [Calendar feed](#calendar-feed) |
+| Inbox | `/inbox`, `/inbox/count`, `/inbox/{id}/read`, `/inbox/read-all`, `/inbox/prefs`; see [Inbox](#inbox) |
 | Events | `/events` (WebSocket) |
 
 Every route above has a command: `tix doctor`, `tix login`, `tix user totp`, `tix user key`, `tix actor`,
@@ -390,6 +391,37 @@ pinned to one project cannot keep them, because a filter spans projects.
 In any filter, `me` in `assignee:`, `creator:` or `claimed-by:` (and the `assignee` query parameter) names the
 caller, so `assignee:me` lists what is assigned to whoever asks.
 
+### Inbox
+
+Each actor has an inbox. An item is written in the same transaction as the change that caused it when
+somebody mentions the actor as `@handle` in a comment or a task description (`mention`), assigns them a
+task (`assigned`), comments on a task they are assigned to or starred (`comment`), or moves a task
+assigned to them (`status`). Nobody receives an item for their own change, one change gives one
+recipient at most one item per task (the strongest reason in that order wins), and a kind the recipient
+muted creates nothing. Editing a comment or a description mentions only handles the earlier text did not.
+
+| Route | Does |
+| --- | --- |
+| `GET /inbox` | The caller's items, newest first; `?unread=true` for unread only, `limit` and `cursor` as every listing |
+| `GET /inbox/count` | `{"unread": N}` |
+| `PUT /inbox/{id}/read` | Marks one item read and answers it |
+| `DELETE /inbox/{id}/read` | Marks one item unread and answers it |
+| `POST /inbox/read-all` | Marks every item read; answers `{"marked": N}` |
+| `GET /inbox/prefs` | `{"muted": [...]}`, the kinds that create no item for the caller |
+| `PUT /inbox/prefs` | Replaces the muted kinds; an unknown kind is `invalid` |
+
+```json
+{"id": "01J...", "kind": "status", "task_id": "01J...", "task_ref": "infra-42", "task_title": "Cut over",
+ "actor_id": "01J...", "actor_handle": "ada", "from_status": "todo", "to_status": "doing",
+ "created_at": "2026-11-01T09:30:00Z"}
+```
+
+Every route works on the caller's own items: another actor's identifier is `not_found`. They need
+`task:read`, and a token pinned to one project cannot use them, because an inbox spans projects. Marking
+and muting write an audit entry and emit `inbox.updated`; one that changes nothing writes neither. A
+change that creates items emits one `inbox.updated` whose payload `recipients` lists the actor
+identifiers that received one, which is what the web sidebar's badge listens for.
+
 ### Copying a task
 
 `POST /tasks/{ref}/copy` makes a new task out of an existing one and answers `201` with the copy. Every field
@@ -562,8 +594,8 @@ Event types are matched as glob patterns, so `task.*` selects every task event. 
 `task.reclaimed`, `task.deleted`, `task.starred`, `task.unstarred`, `task.snoozed`, `task.unsnoozed`,
 `task.woke`, `comment.added`, `artifact.added`,
 `dependency.added`, `tag.added`, `project.created`, `project.updated`, `workflow.updated`, `field.updated`,
-`webhook.delivered`, `import.completed`, `view.arranged`, `filter.saved`, `filter.updated`, `filter.deleted`.
-A type outside it is an error rather than a filter
+`webhook.delivered`, `import.completed`, `view.arranged`, `filter.saved`, `filter.updated`, `filter.deleted`,
+`inbox.updated`. A type outside it is an error rather than a filter
 that silently matches nothing.
 
 A project-scoped token has its subscription narrowed to that project automatically, and naming a different
@@ -663,6 +695,10 @@ and tix generates one, returned in the response to that registration alone — i
 renders it once, in the same one-time secret region the token screen uses for a freshly minted token, and
 never again. Supply your own and nothing is shown back to you, since you already hold it. Saving an existing
 endpoint with the secret field blank keeps the secret it already has rather than rotating it.
+
+There is no per-user endpoint, so inbox items are not delivered to a person's own URL. An endpoint is
+tenant configuration filtered by event type; one subscribed to `inbox.updated` receives every inbox
+change in the tenant with its `recipients`, which is enough for a bridge that fans out to people.
 
 ## Related
 

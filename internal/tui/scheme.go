@@ -213,7 +213,7 @@ func KeyMapFor(scheme Scheme) KeyMap {
 // two views, and often should.
 func viewActions(v viewKind) []string {
 	global := []string{"Palette", "Help", "Refresh", "Projects", "Project", "Activity", "History",
-		"Tenant", "Quit", "Interrupt"}
+		"Inbox", "Tenant", "Quit", "Interrupt"}
 	switch v {
 	case viewProjects:
 		return append([]string{"Up", "Down", "Top", "Bottom", "Enter", "NewProject", "Back"}, global...)
@@ -247,6 +247,8 @@ func viewActions(v viewKind) []string {
 		}, global...)
 	case viewHistory:
 		return append([]string{"Up", "Down", "Top", "Bottom", "Back"}, global...)
+	case viewInbox:
+		return append([]string{"Up", "Down", "Top", "Bottom", "Enter", "ToggleRead", "ReadAll", "Back"}, global...)
 	case viewProject:
 		// Left and Right are listed although the screen itself has nothing
 		// horizontal: they cycle a form's answers, and a scheme that put one of
@@ -265,7 +267,7 @@ func viewActions(v viewKind) []string {
 // inline where a view added later would quietly miss it.
 var collisionViews = []viewKind{
 	viewProjects, viewBoard, viewDetail, viewSettings, viewActivity, viewTenant,
-	viewProject, viewHistory, viewHelp,
+	viewProject, viewHistory, viewInbox, viewHelp,
 }
 
 // Collision is one key bound to two actions in the same view.
@@ -366,6 +368,8 @@ func viewName(v viewKind) string {
 		return "project"
 	case viewHistory:
 		return "history"
+	case viewInbox:
+		return "inbox"
 	default:
 		return "help"
 	}

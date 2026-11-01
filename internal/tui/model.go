@@ -179,6 +179,10 @@ type Model struct {
 	historyActors map[string]string
 	historyMore   bool
 	historySel    int
+	inbox         []core.InboxItem
+	inboxMore     bool
+	inboxSel      int
+	inboxOff      int
 	historyOff    int
 
 	// actorsFor names the form a directory read was started for, because one
@@ -424,6 +428,10 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 		return m.onTenantInfo(msg)
 	case historyMsg:
 		return m.onHistory(msg)
+	case inboxMsg:
+		return m.onInbox(msg)
+	case inboxMarkMsg:
+		return m.onInboxMark(msg)
 	case projectMsg:
 		m.setup, m.setupOff = &msg, 0
 		return m.enterView(viewProject), nil
@@ -756,6 +764,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.handleProjectKey(msg)
 	case viewHistory:
 		return m.handleHistoryKey(msg)
+	case viewInbox:
+		return m.handleInboxKey(msg)
 	}
 	return m, nil
 }
@@ -1096,6 +1106,9 @@ func (m Model) performAction(id actionID) (Model, tea.Cmd, bool) {
 		return m.openActivity(), nil, true
 	case doHistory:
 		next, cmd := m.openHistory()
+		return next, cmd, true
+	case doInbox:
+		next, cmd := m.openInbox()
 		return next, cmd, true
 	case doStats:
 		if !m.canReach(viewStats) {
@@ -1608,6 +1621,9 @@ func (m Model) refresh() tea.Cmd {
 	// from here would reload a screen the reader is not looking at.
 	if m.view == viewHistory {
 		return m.loadHistory(m.historySubj)
+	}
+	if m.view == viewInbox {
+		return m.loadInbox()
 	}
 	// The tenant screen is read once when the view opens, so refreshing
 	// anything else from here would reload a screen the reader is not on.

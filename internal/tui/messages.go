@@ -23,6 +23,7 @@ const (
 	viewStats
 	viewProject
 	viewHistory
+	viewInbox
 )
 
 // actionKind names a board action whose result is reported back.

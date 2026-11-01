@@ -60,6 +60,9 @@ type KeyMap struct {
 	Settings      key.Binding
 	Activity      key.Binding
 	History       key.Binding
+	Inbox         key.Binding
+	ToggleRead    key.Binding
+	ReadAll       key.Binding
 	Stats         key.Binding
 	Tenant        key.Binding
 	Refresh       key.Binding
@@ -167,6 +170,13 @@ func DefaultKeyMap() KeyMap {
 		// H, for the stored history, beside v for the live tail. Lowercase h
 		// moves a column, so the capital is what the taken letters already use.
 		History: key.NewBinding(key.WithKeys("H"), key.WithHelp("H", "history")),
+		// I, for the inbox. Lowercase i is free but the cross-view keys that
+		// open a screen are capitals when they are not the obvious letter.
+		Inbox: key.NewBinding(key.WithKeys("I"), key.WithHelp("I", "inbox")),
+		// Space toggles the selected item and a marks everything read: the
+		// inbox's own keys, free there because the inbox acts on no task.
+		ToggleRead: key.NewBinding(key.WithKeys("space"), key.WithHelp("space", "read/unread")),
+		ReadAll:    key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "mark all read")),
 		// S, not s: lowercase s is taken on the board, and a capital is what
 		// the other cross-view keys already use when their letter is spoken
 		// for.
@@ -226,6 +236,7 @@ const (
 	doSettings
 	doActivity
 	doHistory
+	doInbox
 	doStats
 	doTenant
 	doQuit
@@ -332,6 +343,7 @@ func (k KeyMap) globalKeys() []Action {
 		{id: doSettings, binding: k.Settings, opens: viewSettings},
 		{id: doActivity, binding: k.Activity, opens: viewActivity},
 		{id: doHistory, binding: k.History, opens: viewHistory},
+		{id: doInbox, binding: k.Inbox, opens: viewInbox},
 		{id: doStats, binding: k.Stats, opens: viewStats},
 		{id: doTenant, binding: k.Tenant, opens: viewTenant},
 		{id: doQuit, binding: k.Quit, always: true},
@@ -575,6 +587,11 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 		return []HelpEntry{
 			entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom), entry(k.Back),
 		}
+	case viewInbox:
+		return []HelpEntry{
+			entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom), entry(k.Enter),
+			entry(k.ToggleRead), entry(k.ReadAll), entry(k.Back),
+		}
 	case viewProject:
 		return append([]HelpEntry{entry(k.Up), entry(k.Down)},
 			append(k.projectActions(may), entry(k.Back))...)
@@ -763,6 +780,8 @@ func (k KeyMap) ShortHelp(v viewKind, ctx ActionContext) []HelpEntry {
 			append(k.tenantShort(ctx), entry(k.Back))...)
 	case viewHistory:
 		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
+	case viewInbox:
+		short = []HelpEntry{entry(k.Enter), entry(k.ToggleRead), entry(k.ReadAll), entry(k.Back)}
 	case viewProject:
 		short = append(k.projectShort(ctx), entry(k.Back))
 	default:

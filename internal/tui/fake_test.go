@@ -53,6 +53,7 @@ type fakeService struct {
 	savedErr     error
 	inbox        []core.InboxItem
 	inboxErr     error
+	inboxReads   int
 
 	// what the destructive and corrective calls recorded, and what the reads
 	// the forms offer from are scripted to answer with.

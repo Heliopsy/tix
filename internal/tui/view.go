@@ -91,6 +91,8 @@ func (m Model) viewName() string {
 		return "project"
 	case viewHistory:
 		return "history"
+	case viewInbox:
+		return "inbox"
 	case viewHelp:
 		return "help"
 	}
@@ -143,6 +145,8 @@ func (m Model) bodyLines(layout Layout) []string {
 		return m.setupLines(layout)
 	case viewHistory:
 		return m.historyLines(layout)
+	case viewInbox:
+		return m.inboxLines(layout)
 	default:
 		return m.boardLines(layout)
 	}
@@ -1088,6 +1092,9 @@ func (m Model) statusBar() string {
 	}
 	if m.view == viewHistory {
 		segments = append(segments, m.theme.Dim.Render(HistoryCount(len(m.history), m.historyMore)))
+	}
+	if m.view == viewInbox {
+		segments = append(segments, m.theme.Dim.Render(InboxCount(m.inbox, m.inboxMore)))
 	}
 	switch {
 	case m.activityFilterErr != "":
