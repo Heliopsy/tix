@@ -4,8 +4,8 @@ package sqlite
 
 import (
 	"context"
-	"errors"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
