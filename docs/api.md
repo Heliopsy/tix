@@ -50,7 +50,7 @@ Everything below is under `/api/v1`.
 | SSH keys | `/ssh-keys`, `/ssh-keys/{id}`; see [deployment.md](deployment.md#enrolling-a-key) |
 | Directory | `/actors`, `/actors/{id}` |
 | Tenancy | `/tenants`, `/tenants/{ref}`, `/members`, `/members/{actorID}`, `/domains`, `/domains/{hostname}` |
-| Projects | `/projects`, `/projects/{ref}`, `/projects/{ref}/fields`, `/projects/{ref}/fields/{key}` |
+| Projects | `/projects`, `/projects/{ref}`, `/projects/{ref}/icon`, `/projects/{ref}/fields`, `/projects/{ref}/fields/{key}` |
 | Workflows | `/workflows`, `/workflows/{key}` |
 | Tasks | `/tasks`, `/tasks/{ref}`, `/tasks/{ref}/transition`, `/tasks/{ref}/route`, `/tasks/{ref}/restore`, `/tasks/{ref}/tree` |
 | Task relations | `/tasks/{ref}/deps`, `/tasks/{ref}/deps/{dep}`, `/tasks/{ref}/tags`, `/tasks/{ref}/tags/{name}`, `/tasks/{ref}/star` |
