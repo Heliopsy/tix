@@ -7,10 +7,13 @@ projects can be told apart at a glance. The colour SHALL be either a token drawn
 defined by the system, or a custom colour written as `#` followed by six hexadecimal digits. The
 system SHALL store a palette token or a custom colour in lowercase, and SHALL reject any other value,
 including short hexadecimal forms, colour names outside the palette and functional notations, with a
-validation error raised by the service layer on every access path. The icon SHALL be a short
-printable token, at most two characters, which admits a single emoji or a brief monogram and requires
-no icon font or asset pipeline. Both SHALL default to empty, SHALL be settable at creation and
-afterwards, and SHALL be clearable by setting them to empty.
+validation error raised by the service layer on every access path. The icon SHALL be
+exactly one of three kinds, or none: a text icon, which is a short printable token of at most two
+characters admitting a single emoji or a brief monogram; a built-in icon, named from a fixed set of
+symbols the system ships; or an uploaded image. Setting one kind SHALL replace whichever kind the
+project carried, and a write naming two kinds at once SHALL be rejected. Both the colour and the
+icon SHALL default to empty, SHALL be settable at creation and afterwards, and SHALL be clearable by
+setting them to empty.
 
 #### Scenario: Colour and icon round trip
 
@@ -29,34 +32,50 @@ afterwards, and SHALL be clearable by setting them to empty.
 
 #### Scenario: Icon longer than the limit is refused
 
-- **WHEN** a project is created or updated with an icon longer than two characters
+- **WHEN** a project is created or updated with a text icon longer than two characters
 - **THEN** the write is rejected with a validation error
+
+#### Scenario: Unknown built-in icon is refused
+
+- **WHEN** a project is created or updated with a built-in icon name the system does not ship
+- **THEN** the write is rejected with a validation error naming the available icons
+
+#### Scenario: One kind replaces another
+
+- **WHEN** a project carrying a text icon is updated with a built-in icon
+- **THEN** the project carries the built-in icon and no text icon
+
+#### Scenario: Two kinds at once are refused
+
+- **WHEN** a project is created with both a text icon and a built-in icon
+- **THEN** the write is rejected with a validation error and nothing is persisted
 
 #### Scenario: Both are clearable
 
 - **WHEN** a project that has a colour and an icon is updated with an empty colour and an empty icon
-- **THEN** the project keeps its other fields and carries neither a colour nor an icon
+- **THEN** the project keeps its other fields and carries neither a colour nor an icon of any kind
 
 #### Scenario: Existing projects are unaffected by the migration
 
-- **WHEN** the migration adding the colour and icon columns is applied to a database holding projects
-- **THEN** every existing project carries an empty colour and an empty icon and every other field is unchanged
+- **WHEN** the migration adding the colour and icon columns, or the one adding built-in and uploaded icons, is applied to a database holding projects
+- **THEN** every existing project keeps the colour and text icon it had, carries no built-in icon and no image, and every other field is unchanged
 
 #### Scenario: The project listing shows both
 
 - **WHEN** projects are listed in the human-readable table format
 - **THEN** the table carries a colour column and an icon column, the colour is drawn as a sample in
-  that colour when colour is enabled and as the bare colour name or hexadecimal value when it is
-  not, and a project with neither renders both columns empty
+  that colour when colour is enabled and as the bare colour name or hexadecimal value when it is not, a built-in
+  icon is shown as its fallback glyph and its name, an uploaded image as a fixed mark, and a project
+  with neither renders both columns empty
 
 #### Scenario: Appearance survives a snapshot round trip
 
-- **WHEN** a project carrying a colour and an icon is exported and the snapshot is imported elsewhere
+- **WHEN** a project carrying a colour and a text or built-in icon is exported and the snapshot is imported elsewhere
 - **THEN** the imported project carries the same colour and the same icon
 
 #### Scenario: Appearance travels with a project template
 
-- **WHEN** a project carrying a colour and an icon is exported as a bundle component and the bundle is applied
+- **WHEN** a project carrying a colour and a text or built-in icon is exported as a bundle component and the bundle is applied
 - **THEN** the resulting project carries the same colour and the same icon, and a bundle naming a
-  colour that is neither in the palette nor a custom colour, or an over-long icon, is rejected before
+  colour that is neither in the palette nor a custom colour, an over-long icon or an unknown built-in icon is rejected before
   anything is written

@@ -62,3 +62,8 @@ The TUI hands lipgloss the hex and the theme's colour profile downsamples it, wh
 where the terminal declared it and the nearest 256 or 16 colour otherwise. The CLI painter has no
 profile, so it looks at `COLORTERM`: `truecolor` or `24bit` gets `38;2;r;g;b`, anything else gets the
 SGR of the nearest palette colour by the palette's light-scheme shades.
+
+## Beside the icon change
+
+`a-project-icon-can-be-a-symbol-or-an-image` modifies the same two requirements. The deltas here carry
+its icon text as well as the colour text, so archiving the two in either order leaves both in the spec.

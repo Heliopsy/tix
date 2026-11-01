@@ -3,11 +3,12 @@
 ### Requirement: Project colour and icon distinguish rows
 
 The task list SHALL mark each row with its project's colour as an accent along the row's leading
-edge, and SHALL show the project's icon beside it when one is set. The accent SHALL be visually
-distinct from the status badges, so that a project stripe is not read as a status. A row whose
-project carries neither SHALL render as it did before, without an accent. The project screens SHALL
-allow a project's colour and icon to be set from the palette or to a custom colour, and cleared
-again.
+edge, and SHALL show the project's icon beside it when one is set, drawing a text icon as text, a
+built-in icon from the interface's own symbol sprite and an uploaded image through an image element.
+The accent SHALL be visually distinct from the status badges, so that a project stripe is not read
+as a status. A row whose project carries neither SHALL render as it did before, without an accent.
+The project screens SHALL allow a project's colour and icon to be set from the palette or to a
+custom colour, and cleared again.
 
 A custom colour SHALL be drawn wherever a palette colour is drawn: the row stripe, the board card,
 the lane, the project list and the project key. In each colour scheme it SHALL be drawn in a shade
@@ -24,6 +25,16 @@ parsed and formatted itself SHALL reach a `style` attribute.
 
 - **WHEN** the task list renders a task belonging to a project that has an icon
 - **THEN** the icon is shown on the row
+
+#### Scenario: A built-in icon is drawn from the sprite
+
+- **WHEN** the task list renders a task belonging to a project whose icon is the built-in rocket
+- **THEN** the row draws the sprite's rocket symbol and no emoji
+
+#### Scenario: An uploaded icon is drawn as an image
+
+- **WHEN** the task list renders a task belonging to a project whose icon is an uploaded image
+- **THEN** the row draws an image element whose address names the project and the image's digest
 
 #### Scenario: A project without either renders plainly
 
