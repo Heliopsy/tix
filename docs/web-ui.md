@@ -502,6 +502,17 @@ when it started and finished alongside when it was created and last changed.
 When a page fails, the error screen offers the page that linked to it and the task list, each named for
 where it goes. It used to offer "the dashboard", which was `/`, a redirect to the projects list.
 
+The description sits above the editor, drawn from its Markdown: lists, tables, code, links, and references
+such as `infra-8` and `@handles` linked to their pages. A checklist written `- [ ]` draws as checkboxes. With
+`task:write` each one ticks in place: it is a button a screen reader announces as a checkbox, Space and
+Enter press it, it flips at once and the screen swaps in place when the answer arrives, and a description
+somebody changed in the meantime is refused like any other stale save, with the box put back. Without a
+script the press posts the form and the page reloads with the item ticked. Comments render the same way,
+their checkboxes always read-only. The editor and the comment box stay plain textareas, with a Preview
+link beside them that shows the text as it will be drawn without saving it. Rows and cards in every
+listing carry a `3/5` checklist count, and board cards a thin bar under it. What is shown as typed rather
+than rendered, and why images are linked rather than loaded, is in [features.md](features.md).
+
 Dependencies name each task this one waits for by reference, title and status, linked to the task,
 with the full identifier on the row's title. They read back a raw identifier while the field directly
 under them was placeholdered `infra-2`, so the screen disagreed with itself about what identifies a

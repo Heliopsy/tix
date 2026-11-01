@@ -498,9 +498,7 @@ var registry = []Operation{
 		CLI:   "tix task check",
 		HTTP:  apiPost(wire.RouteTaskChecklist),
 		Web:   webPost(web.RouteTaskChecklist),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; the detail view shows the description as plain text with its checklist count, and has no way to point at one item"),
-		},
+		TUI:   "board",
 	},
 	{
 		Name: "task.unstar", Method: "UnstarTask",

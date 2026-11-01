@@ -53,7 +53,7 @@ Everything below is under `/api/v1`.
 | Projects | `/projects`, `/projects/{ref}`, `/projects/{ref}/icon`, `/projects/{ref}/deletion`, `/projects/{ref}/fields`, `/projects/{ref}/fields/{key}` |
 | Workflows | `/workflows`, `/workflows/{key}` |
 | Tasks | `/tasks`, `/tasks/{ref}`, `/tasks/{ref}/transition`, `/tasks/{ref}/route`, `/tasks/{ref}/restore`, `/tasks/{ref}/tree`, `/tasks/{ref}/copy`, `/tasks/bulk` |
-| Task relations | `/tasks/{ref}/deps`, `/tasks/{ref}/deps/{dep}`, `/tasks/{ref}/tags`, `/tasks/{ref}/tags/{name}`, `/tasks/{ref}/star` |
+| Task relations | `/tasks/{ref}/deps`, `/tasks/{ref}/deps/{dep}`, `/tasks/{ref}/tags`, `/tasks/{ref}/tags/{name}`, `/tasks/{ref}/star`, `/tasks/{ref}/checklist` |
 | Comments and artifacts | `/tasks/{ref}/comments`, `/tasks/{ref}/artifacts`, `/comments/{id}`, `/tags` |
 | Claims | `/tasks/{ref}/claim`, `/tasks/{ref}/claim/renew`, `/tasks/{ref}/claim/release`, `/tasks/{ref}/claim/reclaim`, `/claims/next`, `/claims/sweep` |
 | Webhooks | `/webhooks`, `/webhooks/{id}`, `/webhooks/deliveries`, `/webhooks/deliveries/{id}/redeliver` |
@@ -253,6 +253,24 @@ envelope.
 
 The CLI equivalents are `--cursor`, `--limit`, `--sort`, `--desc`, and `--all` to follow cursors until exhausted.
 
+### Checklists
+
+A task's `body` is Markdown, and its GitHub task-list items (`- [ ]` and `- [x]`) are its checklist. A
+task read carries `"checklist": {"done": 1, "total": 3}` when the description has items and omits the
+field when it has none. The count is computed from the body on every read, so it never appears in an
+audit snapshot or an export.
+
+`POST /tasks/{ref}/checklist` with `{"item": 2, "done": true, "version": 7}` ticks item 2, counted from 1
+in reading order with nested items included, and `"done": false` clears it. Only that item's marker in
+the body changes. It needs `task:write`, answers with the task, and records an ordinary `task.update`
+whose payload names the item. `version` is optional and, when given, a stale one is refused with `409`
+like any other update; an item number the description does not have is a `400` that names the total. An
+item already in the asked-for state answers `200` and writes nothing.
+
+`checklist=true|false` narrows a listing to tasks whose body does or does not carry a checklist marker,
+and `checklist_open=true|false` to those that do or do not carry an unticked one. See
+[filtering.md](filtering.md#checklists).
+
 ### Stars
 
 `PUT /tasks/{ref}/star` stars a task for the caller and `DELETE /tasks/{ref}/star` clears it. Both answer
@@ -416,7 +434,8 @@ curl -H "Authorization: Bearer $TIX_TOKEN" -H 'Accept: application/x-ndjson' \
 
 Query parameters narrow `/tasks`: project, status, tag, assignee, claimed, blocked and starred state, free
 text, and `recurring=true` or `recurring=false` for tasks that do or do not carry a repeat rule (`is:recurring` in
-the filter expression).
+the filter expression). `checklist` and `checklist_open` take `true` or `false` the same way (`has:checklist`
+and `checklist:open`).
 
 Soft-deleted tasks are left out unless asked for. `include_deleted=true` adds them to the listing
 (`is:deleted`), `trashed=true` lists only them (`is:trashed`), and `trashed=false` lists only live tasks

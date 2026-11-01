@@ -39,6 +39,7 @@ type KeyMap struct {
 	Delete        key.Binding
 	Restore       key.Binding
 	Star          key.Binding
+	Check         key.Binding
 	HideColumn    key.Binding
 	StarColumn    key.Binding
 	FoldColumn    key.Binding
@@ -118,6 +119,10 @@ func DefaultKeyMap() KeyMap {
 		// *, the glyph the card marks a starred task with. It is the one
 		// toggle on the board: pressed again it takes the star off.
 		Star: key.NewBinding(key.WithKeys("*"), key.WithHelp("*", "star")),
+		// [, the bracket a checklist item is written with. It asks for the
+		// item's number and flips it: an open item is ticked, a ticked one
+		// cleared.
+		Check: key.NewBinding(key.WithKeys("["), key.WithHelp("[", "tick checklist item")),
 		// The column keys. z folds, as it folds a region in vim, and Z, its
 		// capital, puts the column away altogether. + stars it, beside * which
 		// stars a task; < and > move it the way the arrows point; = shows
@@ -241,6 +246,7 @@ const (
 	doDelete
 	doRestore
 	doStar
+	doCheck
 	doCopy
 	doArtifact
 	doRenew
@@ -502,6 +508,8 @@ func (k KeyMap) taskBindings() []Action {
 			gate: gatedAction{methods: []string{"RestoreTask"}}},
 		{id: doStar, binding: k.Star, needsTask: true,
 			gate: gatedAction{methods: []string{"StarTask"}, needs: []string{"UnstarTask"}}},
+		{id: doCheck, binding: k.Check, needsTask: true,
+			gate: gatedAction{methods: []string{"CheckTaskItem"}}},
 		{id: doCopy, binding: k.Copy, needsTask: true,
 			gate: gatedAction{methods: []string{"CopyTask"}}},
 		{id: doArtifact, binding: k.Artifact, needsTask: true,

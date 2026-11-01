@@ -40,6 +40,17 @@ func Checklist(src string) (done, total int) {
 	return done, total
 }
 
+// Items reports, item by item in reading order, whether each checklist item
+// of src is ticked.
+func Items(src string) []bool {
+	list := boxes(parse([]byte(src)))
+	out := make([]bool, len(list))
+	for i, box := range list {
+		out[i] = box.IsChecked
+	}
+	return out
+}
+
 // SetItem ticks or clears checklist item n, counted from one, and returns the
 // text with only that marker changed. An item already in the asked-for state
 // returns src unchanged.
