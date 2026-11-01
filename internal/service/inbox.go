@@ -237,10 +237,7 @@ func (l *Local) ListInbox(ctx context.Context, f core.InboxFilter) ([]core.Inbox
 	if err != nil {
 		return nil, "", err
 	}
-	f.Page.Sort = core.SortCreatedAt
-	if f.Page.Direction == "" {
-		f.Page.Direction = core.Descending
-	}
+	f.Page.Sort, f.Page.Direction = core.SortCreatedAt, core.Descending
 	page, err := f.Page.Normalize()
 	if err != nil {
 		return nil, "", err

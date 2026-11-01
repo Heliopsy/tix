@@ -214,6 +214,11 @@ tenant, and 3 when the filter names a project or status that does not exist. `cr
 feed address on standard output exactly once; the note that it is shown once goes to standard error, so
 `tix calendar create -o json | jq -r .url` captures just the address. See [calendar.md](calendar.md).
 
+`tix inbox read ID` and `tix inbox unread ID` exit 3 for an identifier that is not one of your own items,
+whoever's it is, and `tix inbox prefs --mute` exits 2 for a kind other than `mention`, `assigned`, `status` or
+`comment`. `tix inbox count -o json` prints `{"unread": N}`, which is the cheap question for a prompt or a
+status bar.
+
 Diagnostics go to standard error, data to standard output, always. That is why `tix export > file` and
 `tix bundle export | tix bundle import` cannot be polluted by a progress line.
 

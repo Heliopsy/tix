@@ -19,14 +19,15 @@ Call sites:
 | `AddComment` | `mention` for handles in the body, `comment` to the assignee and everyone who starred the task |
 | `EditComment` | `mention` for handles new to the body |
 | `TransitionTask` | `status` to the assignee; its comment as `AddComment` |
-| `ReleaseLease` with a status | `status` to the assignee |
+| `ReleaseLease` with a status | `status` to the assignee; its comment as `AddComment` |
 
 Editing only notifies handles that were not already in the old text, so fixing a typo in a comment
 does not mention everybody again.
 
 ## Mentions
 
-`@handle` where the handle is the actor handle grammar (lowercase letters, digits, `.`, `_`, `-`),
+`@handle` where the handle is the actor handle grammar (letters, digits, `.`, `_`, `-`, trailing
+punctuation dropped),
 matched case-insensitively and not preceded by a word character, so `me@example.com` is not a
 mention. A handle that names no actor is ignored rather than refused: a comment is prose.
 
@@ -48,8 +49,16 @@ works on the caller's own items only; an identifier of somebody else's item is n
 ## Live badge
 
 `inbox.updated` carries `recipients` (actor identifiers). The sidebar's badge is a third live stream
-in `live.js`, subscribed to `inbox.updated` only, refreshing when its own actor is named. A reader on
-a page without the badge's script still sees the count on the next navigation.
+in `live.js`, subscribed to `inbox.updated` only. Pages carry no actor identifier (guards elsewhere
+assert that a raw identifier never reaches a screen), so the badge cannot compare recipients itself;
+every `inbox.updated` asks `/inbox/badge`, coalesced, and the server answers for whoever is reading.
+Without scripting the count is as current as the page.
+
+## Terminal
+
+An `inbox` view on `I`: `enter` marks read and opens the task, `space` toggles read state, `a` marks
+everything read. Mutes have no terminal screen; the registry records that as an exemption, since
+mutes are a setting and the terminal has no settings for the account.
 
 ## Outbound delivery
 

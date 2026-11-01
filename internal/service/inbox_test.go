@@ -308,6 +308,10 @@ func TestInboxPagesNewestFirstWithoutRepeats(t *testing.T) {
 	if !slices.Equal(got, want) {
 		t.Fatalf("paged = %v, want %v", got, want)
 	}
+	asc, _, err := f.l.ListInbox(f.bobC, core.InboxFilter{Page: core.Page{Direction: core.Ascending}})
+	if err != nil || asc[0].TaskRef != want[0] {
+		t.Fatalf("a caller asking for ascending got %v first, want the newest %s", asc[0].TaskRef, want[0])
+	}
 	unread, _, err := f.l.ListInbox(f.bobC, core.InboxFilter{Unread: true})
 	if err != nil || len(unread) != 1 || unread[0].TaskRef != want[0] {
 		t.Fatalf("unread only = %v, err = %v", unread, err)

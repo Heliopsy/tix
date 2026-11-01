@@ -392,6 +392,44 @@ keyboard shortcuts stand down and a live refresh waits; Escape closes only the m
 The list can group its rows: View, **Group the list**, or Settings, Listings. The grouping splits the
 page being shown, so paging is unchanged and a group can run on to the next page.
 
+## The inbox
+
+The first entry in the sidebar is Inbox, with a badge counting your unread items. An item arrives when
+somebody mentions you as `@handle` in a comment or a task description, assigns you a task, comments on a
+task you are assigned to or starred, or moves a task assigned to you to another status. Your own changes
+never reach it, and one change gives you at most one item per task: a comment that mentions the assignee
+is a mention, not a mention and a comment. Editing a comment or a description notifies only handles the
+earlier text did not name, so fixing a typo does not mention everybody again.
+
+The badge stays current on every screen: it subscribes to the event stream for `inbox.updated` alone and
+asks `/inbox/badge` for the count when one arrives. The page carries no actor identifier for the script to
+compare against, so the server, which knows who is reading, answers. Without JavaScript it is as current
+as the page. On the collapsed rail it is a dot on the icon, and on a phone a dot on the menu button.
+
+`/inbox` lists items newest first, each saying who did what (mentioned you, assigned you, commented,
+moved it from one status to another), the task's reference and title, the text quoted from the comment or
+description, and when. Unread items carry a dot and bold text. All and Unread switch the list; Mark read
+and Mark unread on each row, and Mark all read above the list, are plain forms that redraw the list in
+place with htmx and work without it. Opening an item marks it read and opens the task the way your
+dialog setting says, over the inbox or as its own page; without JavaScript the link opens the task and
+the row's button marks it read. The listing pages by keyset like every other.
+
+Settings has an Inbox section with one switch per kind: Mentions, Assignments, Status changes and
+Comments. A kind turned off creates no item for you at all. Unlike the rest of Settings these are kept
+with your account rather than the browser, because they decide what the server writes, so they apply in
+every browser, the terminal and the command line (`tix inbox prefs`).
+
+### Mentioning someone
+
+Typing `@` in a comment box, the task description or the new task form's description offers the handles
+of the tenant's directory, the same list the assignee field suggests, narrowed as you type: handles that
+start with what you typed first, then those containing it. The arrow keys move through the list, Enter
+or Tab inserts `@handle` and a space and does not submit the form, and Escape closes the list and nothing else, so a
+comment in the task dialog stays open. The box is a combobox while the list is open, so a screen reader
+announces the option under the arrows. On a phone the list is a bottom sheet, and each option is at
+least 40px tall on a touch screen. Without JavaScript the box is a plain textarea, and a handle typed in
+full mentions just the same. An `@` after a letter, as in an email address, is not a mention.
+
 ## Starring a task
 
 Every task the browser draws carries a star: beside the tick on a list row or a lane card, before the

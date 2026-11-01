@@ -133,6 +133,13 @@ the lease columns it clears, which is what makes an abandoned claim visible at a
 the minute before the next sweep. [docs/web-ui.md](web-ui.md) covers these and the rest of the
 browser interface.
 
+**An inbox.** Each person gets an item when somebody mentions them as `@handle` in a comment or a
+description, assigns them a task, comments on a task they are assigned to or starred, or moves a task
+assigned to them; never for their own changes. The browser's sidebar counts the unread ones and keeps the
+count live, `/inbox` lists them and marks them read, Settings mutes any of the four kinds, and comment and
+description boxes complete handles after `@`. `tix inbox ls|count|read|unread|read-all|prefs`, `I` in the
+terminal interface, and `/api/v1/inbox` cover the rest. [docs/web-ui.md](web-ui.md#the-inbox).
+
 **Stars.** Star a task and it lists ahead of the rest for you, on every surface: the star button on a
 row, a card or the task screen in the browser, `*` in the terminal interface, `tix task star` and
 `tix task unstar` on the command line, `PUT` and `DELETE /api/v1/tasks/{ref}/star` over HTTP. A star is

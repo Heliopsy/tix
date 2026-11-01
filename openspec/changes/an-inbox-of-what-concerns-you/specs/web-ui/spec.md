@@ -6,9 +6,10 @@ The sidebar SHALL carry an Inbox entry with a badge counting unread items, hidde
 live over the event stream when an `inbox.updated` event names the reader. The inbox page SHALL list
 the reader's items newest first, each naming the task, the actor, what happened and when, unread
 items marked, with a filter for unread only, per-item mark read and mark unread, mark all read, and
-keyset paging. Opening an item SHALL mark it read and open the task the way the reader's dialog
-setting says. Every action SHALL work without scripting and swap in place with it. Settings SHALL
-offer one switch per kind to mute it.
+keyset paging. With scripting, opening an item SHALL mark it read and open the task the way the
+reader's dialog setting says; without it, the link SHALL open the task and the row's button SHALL
+mark it read. Every action SHALL work without scripting and swap in place with it. Settings SHALL
+offer one switch per kind to mute it, kept with the account.
 
 #### Scenario: The badge counts unread items
 

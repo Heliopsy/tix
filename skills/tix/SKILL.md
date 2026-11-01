@@ -548,6 +548,15 @@ finished"), `tix calendar rotate` issues a new address and stops the old one,
 and `tix calendar revoke` stops it. Only do this when a person asks: the
 address reads their tasks without signing in.
 
+**Your inbox says what concerns you.** `tix inbox ls --unread -o json` lists
+items written when somebody mentions you as `@handle`, assigns you a task,
+comments on a task you are assigned to or starred, or moves a task assigned to
+you; each names the task (`task_ref`), who (`actor_handle`) and the `kind`
+(`mention`, `assigned`, `comment`, `status`). `tix inbox count -o json` is the
+unread count, `tix inbox read ID` and `tix inbox read-all` mark them, and
+`tix inbox prefs --mute comment` stops a kind. Write `@handle` in a comment to
+get a person's attention; your own changes never reach your own inbox.
+
 **Copy rather than retype.** `tix task copy REF` makes a new task with a fresh
 reference, in the same project or another (`--to`), keeping the title (or
 `--title`), description, priority, tags, assignee, due date, repeat rule and
