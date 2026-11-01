@@ -63,6 +63,7 @@ func (rt *Router) registerTaskRoutes() {
 	rt.mux.HandleFunc("GET "+wire.RouteLabels, rt.handleListLabels)
 	rt.mux.HandleFunc("PUT "+wire.RouteTaskStar, rt.handleStar)
 	rt.mux.HandleFunc("DELETE "+wire.RouteTaskStar, rt.handleUnstar)
+	rt.mux.HandleFunc("POST "+wire.RouteTaskChecklist, rt.handleCheckItem)
 
 	rt.mux.HandleFunc("GET "+wire.RouteTaskComments, rt.handleListComments)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskComments, rt.handleAddComment)
@@ -169,6 +170,8 @@ func taskFilterFrom(r *http.Request) (core.TaskFilter, error) {
 		Starred:        triState(q.Get("starred")),
 		Blocked:        triState(q.Get("blocked")),
 		Recurring:      triState(q.Get("recurring")),
+		Checklist:      triState(q.Get("checklist")),
+		ChecklistOpen:  triState(q.Get("checklist_open")),
 		Query:          q.Get("q"),
 		IncludeDeleted: boolParam(r, "include_deleted"),
 		Trashed:        triState(q.Get("trashed")),
@@ -406,6 +409,25 @@ func (rt *Router) handleUpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	task, err := rt.cfg.Service.UpdateTask(r.Context(), ref, in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, task)
+}
+
+// handleCheckItem ticks or clears one checklist item of a task's description.
+func (rt *Router) handleCheckItem(w http.ResponseWriter, r *http.Request) {
+	ref, err := taskRef(r)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	var in core.CheckItemInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	task, err := rt.cfg.Service.CheckTaskItem(r.Context(), ref, in)
 	if err != nil {
 		WriteError(w, err)
 		return

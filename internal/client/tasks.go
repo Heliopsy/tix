@@ -121,6 +121,11 @@ func (c *Client) UnstarTask(ctx context.Context, ref core.TaskRef) error {
 	return callVoid(ctx, c, http.MethodDelete, taskPath(wire.RouteTaskStar, ref), nil, nil)
 }
 
+// CheckTaskItem ticks or clears one checklist item of a task's description.
+func (c *Client) CheckTaskItem(ctx context.Context, ref core.TaskRef, in core.CheckItemInput) (*core.Task, error) {
+	return call[core.Task](ctx, c, http.MethodPost, taskPath(wire.RouteTaskChecklist, ref), nil, in)
+}
+
 // ListTags returns the tenant's tags.
 func (c *Client) ListTags(ctx context.Context) ([]core.Tag, error) {
 	return listAll[core.Tag](ctx, c, wire.RouteLabels, nil)
@@ -200,6 +205,8 @@ func taskFilterQuery(f core.TaskFilter) url.Values {
 	setTriState(q, "starred", f.Starred)
 	setTriState(q, "blocked", f.Blocked)
 	setTriState(q, "recurring", f.Recurring)
+	setTriState(q, "checklist", f.Checklist)
+	setTriState(q, "checklist_open", f.ChecklistOpen)
 	if f.Query != "" {
 		q.Set("q", f.Query)
 	}

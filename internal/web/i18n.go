@@ -183,6 +183,11 @@ var jsMessages = []string{
 	"No matches",
 	"%d task selected",
 	"%d tasks selected",
+	"Preview",
+	"Write",
+	"Loading preview…",
+	"Nothing to preview.",
+	"The preview could not be drawn. Your text is unchanged.",
 }
 
 // jsMessagesFor is the table the head carries for lang, empty for English,

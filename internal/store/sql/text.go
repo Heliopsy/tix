@@ -100,3 +100,29 @@ func escapeLike(v string) string {
 	)
 	return r.Replace(v)
 }
+
+// ApplyChecklist narrows a statement by the checklist markers col holds: has
+// selects on any marker, open on an unticked one. Both engines answer it with
+// the same literal LIKE patterns, which is what query.Matches mirrors.
+func ApplyChecklist(b *Builder, col string, has, open core.TriState) {
+	all := append(append([]string{}, core.ChecklistOpenMarkers...), core.ChecklistDoneMarkers...)
+	applyMarkers(b, col, all, has)
+	applyMarkers(b, col, core.ChecklistOpenMarkers, open)
+}
+
+func applyMarkers(b *Builder, col string, markers []string, want core.TriState) {
+	if want == core.Either {
+		return
+	}
+	terms := make([]string, len(markers))
+	args := make([]any, len(markers))
+	for i, m := range markers {
+		terms[i] = col + " LIKE ?" + LikeEscape
+		args[i] = ContainsPattern(m)
+	}
+	cond := "(" + strings.Join(terms, " OR ") + ")"
+	if want == core.No {
+		cond = "NOT " + cond
+	}
+	b.Where(cond, args...)
+}

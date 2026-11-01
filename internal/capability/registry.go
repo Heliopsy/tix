@@ -493,6 +493,16 @@ var registry = []Operation{
 		TUI:   "board",
 	},
 	{
+		Name: "task.check", Method: "CheckTaskItem",
+		Scope: core.ScopeTaskWrite,
+		CLI:   "tix task check",
+		HTTP:  apiPost(wire.RouteTaskChecklist),
+		Web:   webPost(web.RouteTaskChecklist),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; the detail view shows the description as plain text with its checklist count, and has no way to point at one item"),
+		},
+	},
+	{
 		Name: "task.unstar", Method: "UnstarTask",
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix task unstar",

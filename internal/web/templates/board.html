@@ -146,13 +146,15 @@
       <article class="card{{with projClass $.Data.Project.Color}} is-accented {{.}}{{end}}"{{with projStyle $.Data.Project.Color}} style="{{.}}"{{end}} draggable="{{if $.DragMove}}true{{else}}false{{end}}" data-task="{{.Task.Ref}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
         <div class="ref">{{if $.CanStar}}{{template "star" (star .Task.Ref .Task.Starred (printf "/projects/%s" $.Data.Project.Key) $.CSRF)}}{{end}}{{.Task.Ref}}</div>
         <div class="card-title">{{template "tasktitle" (titleLink .Task.Ref .Task.Title .Task.Version (print "/tasks/" .Task.Ref) "" $.TitleEdit)}}</div>
-        {{if or (ne (prio .Task.Priority) "normal") .Task.Tags .Task.Recurrence}}
+        {{if or (ne (prio .Task.Priority) "normal") .Task.Tags .Task.Recurrence .Task.Checklist}}
         <div class="card-meta">
           {{if ne (prio .Task.Priority) "normal"}}<span class="prio p-{{prio .Task.Priority}}" title="{{t "Priority: %s" (t (prio .Task.Priority))}}"><span class="caret" aria-hidden="true"></span>{{t (prio .Task.Priority)}}</span>{{end}}
           {{if .Task.Recurrence}}{{template "repeatmark" .Task.Recurrence}}{{end}}
+          {{with .Task.Checklist}}{{template "checkmark" .}}{{end}}
           {{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}
         </div>
         {{end}}
+        {{with .Task.Checklist}}{{template "checkbar" .}}{{end}}
         {{if .Routes}}
         <details class="card-move">
           <summary aria-label="{{t "Move %s" .Task.Ref}}">{{t "Move"}}</summary>

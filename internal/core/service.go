@@ -115,6 +115,9 @@ type TaskService interface {
 	StarTask(ctx context.Context, ref TaskRef) error
 	UnstarTask(ctx context.Context, ref TaskRef) error
 
+	// CheckTaskItem ticks or clears one checklist item of a task's description.
+	CheckTaskItem(ctx context.Context, ref TaskRef, in CheckItemInput) (*Task, error)
+
 	AddComment(ctx context.Context, ref TaskRef, body string) (*Comment, error)
 	ListComments(ctx context.Context, ref TaskRef) ([]Comment, error)
 	EditComment(ctx context.Context, id, body string) (*Comment, error)

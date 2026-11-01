@@ -436,6 +436,11 @@ type Task struct {
 	// read that knows its reader sets it, so it is omitted rather than false
 	// wherever nobody asked, which keeps it out of audit snapshots and exports.
 	Starred bool `json:"starred,omitempty" yaml:"starred,omitempty"`
+
+	// Checklist counts the checklist items of the description. A read sets it
+	// from the body, so it is absent from audit snapshots and exports, and nil
+	// when the description has no items.
+	Checklist *Checklist `json:"checklist,omitempty" yaml:"checklist,omitempty"`
 }
 
 // ClaimedAtTime reports whether the task is effectively claimed at time now.
