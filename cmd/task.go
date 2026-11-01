@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -25,7 +26,7 @@ func newTaskCmd(g *globals) *cobra.Command {
 	}
 	cmd.AddCommand(
 		taskAddCmd(g), taskLsCmd(g), taskShowCmd(g), taskEditCmd(g),
-		taskMvCmd(g), taskRmCmd(g), taskRestoreCmd(g), taskTreeCmd(g),
+		taskMvCmd(g), taskRmCmd(g), taskRestoreCmd(g), taskTrashCmd(g), taskTreeCmd(g),
 		taskStarCmd(g, true), taskStarCmd(g, false), taskCopyCmd(g), taskBulkCmd(g),
 		taskCheckCmd(g, true), taskCheckCmd(g, false),
 		taskSnoozeCmd(g), taskUnsnoozeCmd(g), taskWakeCmd(g),
@@ -737,7 +738,12 @@ func taskRmCmd(g *globals) *cobra.Command {
 		Use:     "rm REF...",
 		Aliases: []string{"delete"},
 		Short:   "Delete tasks",
-		Long:    "Soft delete tasks, or remove them permanently with --hard.\n\nA task with subtasks is refused unless --cascade is given.\n\nExit codes: 3 unknown reference, 5 permission denied, 6 the task has subtasks.",
+		Long: "Soft delete tasks, or remove them permanently with --hard.\n\n" +
+			"A task with subtasks is refused unless --cascade is given.\n\n" +
+			"On a tenant whose trash is turned off (tix tenant edit --trash off) every\n" +
+			"delete is permanent, as if --hard were given, and a note on stderr says so.\n" +
+			"Nothing asks first, as with --hard. `tix task trash` says which it is.\n\n" +
+			"Exit codes: 3 unknown reference, 5 permission denied, 6 the task has subtasks.",
 		Example: "  tix task rm default-1\n  tix task rm default-1 --hard\n  tix task rm default-1 --cascade",
 		Args:    minArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -748,6 +754,17 @@ func taskRmCmd(g *globals) *cobra.Command {
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
+			}
+			if !hard {
+				status, err := conn.Service.TrashStatus(ctx)
+				if err != nil {
+					return err
+				}
+				if !status.Enabled {
+					hard = true
+					_, _ = fmt.Fprintln(cmd.ErrOrStderr(),
+						"trash is turned off for this tenant: these tasks are deleted permanently")
+				}
 			}
 			if dryRun {
 				return g.dryBulk(cmd, conn, ctx, refs, "task.delete",
@@ -794,6 +811,32 @@ func taskRestoreCmd(g *globals) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be restored without writing")
 	return cmd
+}
+
+func taskTrashCmd(g *globals) *cobra.Command {
+	return &cobra.Command{
+		Use:   "trash",
+		Short: "Say whether deleted tasks go to a trash",
+		Long: "Report whether this tenant keeps deleted tasks in a trash they can be restored\n" +
+			"from, and how many it holds. With the trash off, tix task rm deletes\n" +
+			"permanently, and tix task restore and is:trashed are refused with exit code 6.\n" +
+			"Tasks deleted while it was on stay held, and are counted, until it is turned\n" +
+			"back on with tix tenant edit --trash on.\n\n" +
+			"Exit codes: 5 permission denied.",
+		Example: "  tix task trash\n  tix task trash -o json",
+		Args:    noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			status, err := conn.Service.TrashStatus(ctx)
+			if err != nil {
+				return err
+			}
+			return g.render(cmd, status)
+		},
+	}
 }
 
 // taskStarCmd builds `task star` and `task unstar`, which differ only in the

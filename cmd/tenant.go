@@ -164,6 +164,7 @@ func tenantEditCmd(g *globals) *cobra.Command {
 	var theme string
 	var leaseDefault, leaseMax string
 	var totpWeb, totpCLI, totpSSH bool
+	var trash string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "edit REF",
@@ -186,7 +187,11 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			"pass. Either as \"\" falls back to the deployment setting (lease.default and\n" +
 			"lease.max, or TIX_LEASE_DEFAULT and TIX_LEASE_MAX) and then to the built-in\n" +
 			"15m and 24h. A tenant may lower the deployment ceiling but never raise it.\n\n" +
-			"Exit codes: 3 unknown tenant or unknown theme; 6 no second factor key.",
+			"--trash off makes deleting a task permanent: there is no trash to restore it\n" +
+			"from, and is:trashed and task restore are refused. Tasks already in the trash\n" +
+			"stay there untouched, and --trash on brings them back into reach.\n\n" +
+			"Exit codes: 2 --trash is not on or off; 3 unknown tenant or unknown theme;\n" +
+			"6 no second factor key.",
 		Example: "  tix tenant edit acme --name \"Acme Limited\"\n" +
 			"  tix tenant edit acme --theme ocean\n" +
 			"  tix tenant edit acme --theme '#7a3ef0'\n" +
@@ -194,7 +199,8 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			"  tix tenant edit acme --require-totp-web\n" +
 			"  tix tenant edit acme --require-totp-ssh=false\n" +
 			"  tix tenant edit acme --lease-default 45m --lease-max 4h\n" +
-			"  tix tenant edit acme --lease-max \"\"",
+			"  tix tenant edit acme --lease-max \"\"\n" +
+			"  tix tenant edit acme --trash off",
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var in core.UpdateTenantInput
@@ -245,6 +251,14 @@ func tenantEditCmd(g *globals) *cobra.Command {
 				}
 				*f.into = &d
 			}
+			if cmd.Flags().Changed("trash") {
+				on, err := parseOnOff(cmd, "trash", trash)
+				if err != nil {
+					return err
+				}
+				off := !on
+				in.TrashOff = &off
+			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
@@ -271,8 +285,10 @@ func tenantEditCmd(g *globals) *cobra.Command {
 		"how long a claim holds when nothing else says, or \"\" to use the deployment setting")
 	cmd.Flags().StringVar(&leaseMax, "lease-max", "",
 		"the longest lease any claim may take, or \"\" to use the deployment setting")
+	cmd.Flags().StringVar(&trash, "trash", "", "on keeps deleted tasks restorable, off deletes them permanently")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	_ = cmd.RegisterFlagCompletionFunc("theme", fixedCompletion(core.ThemeNames()))
+	_ = cmd.RegisterFlagCompletionFunc("trash", fixedCompletion([]string{"on", "off"}))
 	return cmd
 }
 
@@ -525,4 +541,15 @@ func simpleCreate(g *globals, use, short, long, example string,
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be created without writing")
 	return cmd
+}
+
+// parseOnOff reads a flag that takes on or off.
+func parseOnOff(cmd *cobra.Command, flag, v string) (bool, error) {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "on":
+		return true, nil
+	case "off":
+		return false, nil
+	}
+	return false, usagef(cmd, "--%s takes on or off, not %q", flag, v)
 }

@@ -14,7 +14,7 @@ import (
 var tenantColumns = []string{
 	"id", "key", "name", "theme",
 	"require_totp_web", "require_totp_cli", "require_totp_ssh",
-	"lease_default", "lease_max",
+	"lease_default", "lease_max", "trash_off",
 	"created_at", "updated_at", "deleted_at",
 }
 
@@ -29,16 +29,18 @@ func scanTenant(s scanner) (core.Tenant, error) {
 		totpSSH   int64
 		leaseDef  sql.NullString
 		leaseMax  sql.NullString
+		trashOff  int64
 	)
 	if err := s.Scan(&t.ID, &t.Key, &t.Name, &t.Theme,
 		&totpWeb, &totpCLI, &totpSSH,
-		&leaseDef, &leaseMax,
+		&leaseDef, &leaseMax, &trashOff,
 		&created, &updated, &deletedAt); err != nil {
 		return core.Tenant{}, mapErr(err, "scanning tenant")
 	}
 	t.RequireTOTPWeb = sqlb.Bool(totpWeb)
 	t.RequireTOTPCLI = sqlb.Bool(totpCLI)
 	t.RequireTOTPSSH = sqlb.Bool(totpSSH)
+	t.TrashOff = sqlb.Bool(trashOff)
 	var err error
 	if t.LeaseDefault, err = sqlb.ScanDuration(sqlb.Text(leaseDef), "tenant lease default"); err != nil {
 		return core.Tenant{}, err
@@ -135,6 +137,7 @@ func (t *tx) CreateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("require_totp_ssh", sqlb.BoolInt(in.RequireTOTPSSH)).
 		Set("lease_default", sqlb.DurationText(in.LeaseDefault)).
 		Set("lease_max", sqlb.DurationText(in.LeaseMax)).
+		Set("trash_off", sqlb.BoolInt(in.TrashOff)).
 		Set("created_at", sqlb.TimeText(in.CreatedAt)).
 		Set("updated_at", sqlb.TimeText(in.UpdatedAt)).
 		Set("deleted_at", sqlb.NullTimeText(in.DeletedAt))
@@ -155,6 +158,7 @@ func (t *tx) UpdateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("require_totp_ssh", sqlb.BoolInt(in.RequireTOTPSSH)).
 		Set("lease_default", sqlb.DurationText(in.LeaseDefault)).
 		Set("lease_max", sqlb.DurationText(in.LeaseMax)).
+		Set("trash_off", sqlb.BoolInt(in.TrashOff)).
 		Set("updated_at", sqlb.TimeText(in.UpdatedAt)).
 		Set("deleted_at", sqlb.NullTimeText(in.DeletedAt))
 	n, err := t.execUpdate(ctx, b, "updating tenant %q", in.ID)

@@ -276,8 +276,9 @@ time it cannot read or one that has passed. A snoozed task is left out of `tix t
 `--snoozed` lists only snoozed tasks and `--include-snoozed` lists them beside the rest.
 
 `--cascade` on `tix task rm` also deletes the task's subtasks. `--hard` deletes permanently instead of soft
-deleting; a soft delete is reversible with `tix task restore` and visible with `tix task ls --trashed` (only the
-deleted ones) or `--include-deleted` (alongside the rest).
+deleting, and so does every delete on a tenant whose trash is off ([tenancy.md](tenancy.md#the-trash)); a
+soft delete is reversible with `tix task restore` and visible with `tix task ls --trashed` (only the
+deleted ones) or `--include-deleted` (alongside the rest). `tix task trash -o json` says which applies.
 
 ## Asking what is running
 

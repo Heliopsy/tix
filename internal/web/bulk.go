@@ -97,6 +97,11 @@ func (h *handler) bulkTasks(w http.ResponseWriter, r *http.Request) error {
 	if back == RouteProjects {
 		back = RouteTasks
 	}
+	if in.Action == core.BulkDelete {
+		if asked, err := h.askBeforePermanentDelete(w, r, in.Refs, back); asked || err != nil {
+			return err
+		}
+	}
 	result, err := h.svc.BulkTasks(r.Context(), in)
 	if err != nil {
 		if !refusable(err) {
@@ -106,7 +111,7 @@ func (h *handler) bulkTasks(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 	undo := ""
-	if result.Action == core.BulkDelete && result.Applied > 0 {
+	if result.Action == core.BulkDelete && result.Applied > 0 && !checked(r, confirmParam) {
 		undo = undoBulkRestorePrefix + strings.Join(result.AppliedRefs(), ",")
 	}
 	redirect(w, r, withUndo(back, undo), bulkFlash(langOf(r), in, result))

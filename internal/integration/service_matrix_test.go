@@ -1029,6 +1029,17 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "the trash is on until a tenant admin turns it off",
+		covers: []string{"TrashStatus"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			status, err := tg.svc.TrashStatus(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			return sig{"enabled": status.Enabled}, nil
+		},
+	},
+	{
 		name:   "restoring a task that was never deleted",
 		covers: []string{"CreateProject", "CreateTask", "RestoreTask"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

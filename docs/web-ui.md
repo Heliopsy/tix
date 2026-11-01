@@ -95,6 +95,14 @@ restore route with the listing as the place to come back to, so the reader stays
 row leaves it, the count drops, and the toast says `task restored`. With scripting on, the listing and
 its count are swapped in place; without it, the form posts and the page reloads on the same trash.
 
+A tenant admin can turn the trash off on the Tenant screen ([tenancy.md](tenancy.md#the-trash)). Then the
+Trash entry leaves the sidebar, and the trash's address answers the task list with "trash is turned off
+for this tenant" in its filter bar rather than an error page, since it may have been bookmarked. Every
+Delete, wherever it is drawn, answers with a confirmation, "Delete N tasks permanently", instead of
+deleting and offering Undo; the bulk bar's Delete does the same for the whole selection. The question is
+asked by the delete handlers rather than by the buttons, so a Delete drawn anywhere asks. Delete
+permanently on the task screen, which was already explicit, does not ask again.
+
 **Quick add.** The one-line box reads [quick-add syntax](features.md): `Fix login !high #auth @raj
 due:fri +web` sets the priority, a tag, the assignee, the due date and the project, and the title is what
 is left. A moment after you stop typing, a row of chips under the box shows what the line will set, and a
@@ -772,7 +780,8 @@ Undo is a browser convenience over ordinary operations, not an operation of its 
 and the API undo the same things directly: a move with `tix task mv` (or `--hops` when the way back passes
 through another state), a priority with `tix task edit --priority`, and a soft delete with
 `tix task restore`, `POST /api/v1/tasks/{ref}/restore`. `tix task ls --trashed` finds what was
-deleted. A delete with `--hard` has no way back on any surface.
+deleted. A delete with `--hard` has no way back on any surface, and neither has any delete on a tenant
+whose trash is off.
 
 **Live updates** never take the screen from you. A refresh already waited for a request in flight
 or an open menu in the region it replaces, and now also for a row drawn ahead of its answer

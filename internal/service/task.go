@@ -203,6 +203,13 @@ func (l *Local) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 
 	var tasks []core.Task
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
+		if f.Trashed == core.Yes {
+			if off, err := trashOff(ctx, tx); err != nil {
+				return err
+			} else if off {
+				return core.TrashIsOff("there is no trash to list")
+			}
+		}
 		if err := resolveTaskFilter(ctx, tx, &probe); err != nil {
 			return err
 		}
@@ -612,6 +619,11 @@ func (l *Local) DeleteTask(ctx context.Context, ref core.TaskRef, in core.Delete
 		if err != nil {
 			return err
 		}
+		if !in.Hard {
+			if in.Hard, err = trashOff(ctx, m.tx); err != nil {
+				return err
+			}
+		}
 		if len(subtree) > 1 && !in.Cascade {
 			return core.Precondition("task %q has %d descendant task(s); pass cascade or delete them first",
 				task.Ref, len(subtree)-1).WithDetail("descendants", len(subtree)-1)
@@ -681,6 +693,11 @@ func (l *Local) RestoreTask(ctx context.Context, ref core.TaskRef) (*core.Task, 
 		}
 		if err := l.authorizeTask(ctx, authz.ActionTaskDelete, task); err != nil {
 			return err
+		}
+		if off, err := trashOff(ctx, m.tx); err != nil {
+			return err
+		} else if off {
+			return core.TrashIsOff("nothing can be restored from it")
 		}
 		if err := m.tx.RestoreTask(ctx, task.ID); err != nil {
 			return err

@@ -35,6 +35,9 @@ type Tenant struct {
 	// that grants a lease agrees on what these mean.
 	LeaseDefault Duration `json:"lease_default,omitempty" yaml:"lease_default,omitempty"`
 	LeaseMax     Duration `json:"lease_max,omitempty" yaml:"lease_max,omitempty"`
+	// TrashOff makes deleting a task permanent on this tenant. False, the
+	// default, keeps deleted tasks in a trash they can be restored from.
+	TrashOff bool `json:"trash_off" yaml:"trash_off"`
 
 	CreatedAt time.Time  `json:"created_at" yaml:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at" yaml:"updated_at"`
@@ -742,4 +745,22 @@ type SyncSource struct {
 	LastRunAt  *time.Time `json:"last_run_at,omitempty" yaml:"last_run_at,omitempty"`
 	LastStatus string     `json:"last_status,omitempty" yaml:"last_status,omitempty"`
 	CreatedAt  time.Time  `json:"created_at" yaml:"created_at"`
+}
+
+// TrashStatus says whether a tenant keeps deleted tasks, and how many it holds.
+// Held counts the trash even while it is off, because turning it off keeps
+// what is already there rather than destroying it.
+type TrashStatus struct {
+	Enabled bool `json:"enabled" yaml:"enabled"`
+	Held    int  `json:"held" yaml:"held"`
+}
+
+// ErrTrashOff is the detail key a refusal carries when the tenant's trash is
+// turned off, so a client can tell it from any other failed precondition.
+const ErrTrashOff = "trash_off"
+
+// TrashIsOff is the refusal for asking a tenant with no trash for its trash.
+func TrashIsOff(what string) *Error {
+	return Precondition("trash is turned off for this tenant, so %s; a tenant admin can turn it back on", what).
+		WithDetail("reason", ErrTrashOff)
 }

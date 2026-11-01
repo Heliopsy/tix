@@ -18,6 +18,32 @@ tix tenant rm acme
 
 Keys must be valid and unique; a duplicate is exit 4.
 
+### The trash
+
+A tenant keeps deleted tasks in a trash by default, where `tix task restore` and the browser's Trash bring
+them back. A tenant admin can turn it off:
+
+```sh
+tix tenant edit acme --trash off       # deleting a task is permanent from now on
+tix task trash                          # enabled, and how many tasks it holds
+tix tenant edit acme --trash on        # back to restorable deletes
+```
+
+The same setting is the Trash choice on the browser's Tenant screen and `trash_off` on
+`PATCH /api/v1/tenants/{ref}`. With it off, every delete is permanent on every surface, as if `--hard` were
+given: `tix task rm` prints a note on stderr saying so, the browser asks before each delete instead of
+offering Undo, and the Trash entry leaves the sidebar. `tix task restore`, `tix task ls --trashed` and
+`is:trashed` are refused with exit 6 (`422 precondition_failed` with `"reason": "trash_off"` over the API),
+and the bookmarked trash address shows that refusal in its filter bar.
+
+Turning the trash off does not empty it. Tasks deleted while it was on stay where they are, out of reach,
+and `tix task trash` and the Tenant screen count them; turning it back on makes them listable and
+restorable again. Emptying the trash on the same click would make the safe-looking choice the one that
+cannot be taken back. Retention never deletes tasks, so there is no "empty the trash after N days" either:
+a task stays in the trash until somebody restores it or the trash is off and somebody deletes it again from
+another surface with `--hard`. Changing the setting writes one `tenant.update` audit entry and one
+`tenant.updated` event in the same transaction.
+
 ## Members and roles
 
 Membership is per tenant. The same person can hold different roles in different tenants.

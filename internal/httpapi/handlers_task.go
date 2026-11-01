@@ -52,6 +52,7 @@ func (rt *Router) registerTaskRoutes() {
 	rt.mux.HandleFunc("GET "+wire.RouteTaskTree, rt.handleTaskTree)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskCopy, rt.handleCopyTask)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskBulk, rt.handleBulkTasks)
+	rt.mux.HandleFunc("GET "+wire.RouteTrash, rt.handleTrashStatus)
 
 	rt.mux.HandleFunc("GET "+wire.RouteTaskDeps, rt.handleListDependencies)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskDeps, rt.handleAddDependency)
@@ -527,6 +528,16 @@ func (rt *Router) handleRestoreTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, http.StatusOK, task)
+}
+
+// handleTrashStatus answers whether the tenant keeps deleted tasks.
+func (rt *Router) handleTrashStatus(w http.ResponseWriter, r *http.Request) {
+	status, err := rt.cfg.Service.TrashStatus(r.Context())
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, status)
 }
 
 // handleCopyTask copies a task and answers with the copy.

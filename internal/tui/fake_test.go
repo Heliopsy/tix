@@ -451,6 +451,11 @@ func (f *fakeService) RestoreTask(_ context.Context, ref core.TaskRef) (*core.Ta
 	return &core.Task{ID: ref.ID}, nil
 }
 
+// TrashStatus reports a trash that is on and empty.
+func (f *fakeService) TrashStatus(context.Context) (*core.TrashStatus, error) {
+	return &core.TrashStatus{Enabled: true}, nil
+}
+
 // copyCall is one CopyTask the fake was asked for.
 type copyCall struct {
 	ref core.TaskRef

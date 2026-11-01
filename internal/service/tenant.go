@@ -272,6 +272,9 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 		if in.RequireTOTPSSH != nil {
 			t.RequireTOTPSSH = *in.RequireTOTPSSH
 		}
+		if in.TrashOff != nil {
+			t.TrashOff = *in.TrashOff
+		}
 		u, err := asUnscoped(m.tx)
 		if err != nil {
 			return err
@@ -280,8 +283,11 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 			return err
 		}
 		out = t
-		return m.Record(auditTenantUpdate, eventTenantUpdated, "tenant", t.ID, "", before, t,
-			map[string]any{"key": t.Key})
+		meta := map[string]any{"key": t.Key}
+		if before.TrashOff != t.TrashOff {
+			meta["trash"] = trashWord(!t.TrashOff)
+		}
+		return m.Record(auditTenantUpdate, eventTenantUpdated, "tenant", t.ID, "", before, t, meta)
 	})
 	if err != nil {
 		return nil, err
