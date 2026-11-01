@@ -140,9 +140,10 @@ func (rt *Router) handleReadCalendarFeed(w http.ResponseWriter, r *http.Request)
 	}
 	h.Set(wire.HeaderContentType, ical.ContentType)
 	h.Set("Content-Disposition", `inline; filename="tix.ics"`)
+	h.Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
 	if r.Method != http.MethodHead {
-		_, _ = w.Write(body)
+		_, _ = w.Write(body) // #nosec G705 -- escaped iCalendar text, served as text/calendar with nosniff, never as a page
 	}
 }
 

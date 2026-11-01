@@ -83,6 +83,9 @@ func TestCalendarFeedOverHTTP(t *testing.T) {
 	if ct := resp.Header.Get("Content-Type"); ct != "text/calendar; charset=utf-8" {
 		t.Fatalf("Content-Type = %q", ct)
 	}
+	if resp.Header.Get("X-Content-Type-Options") != "nosniff" {
+		t.Errorf("the feed may be sniffed as a page: %q", resp.Header.Get("X-Content-Type-Options"))
+	}
 	etag := resp.Header.Get("ETag")
 	body := readBody(t, resp)
 	if !strings.HasPrefix(etag, `"`) || strings.HasPrefix(etag, "W/") {
