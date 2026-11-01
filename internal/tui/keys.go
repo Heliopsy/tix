@@ -343,9 +343,9 @@ func (k KeyMap) globalKeys() []Action {
 		{id: doSettings, binding: k.Settings, opens: viewSettings},
 		{id: doActivity, binding: k.Activity, opens: viewActivity},
 		{id: doHistory, binding: k.History, opens: viewHistory},
-		{id: doInbox, binding: k.Inbox, opens: viewInbox},
 		{id: doStats, binding: k.Stats, opens: viewStats},
 		{id: doTenant, binding: k.Tenant, opens: viewTenant},
+		{id: doInbox, binding: k.Inbox, opens: viewInbox},
 		{id: doQuit, binding: k.Quit, always: true},
 		{id: doInterrupt, binding: k.Interrupt, always: true},
 	}

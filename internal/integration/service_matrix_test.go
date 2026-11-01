@@ -4,6 +4,7 @@ package integration
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"reflect"
 	"slices"
@@ -399,6 +400,56 @@ var serviceScenarios = []svcScenario{
 				"type":         img.ContentType,
 				"bytes":        string(img.Data),
 			}, nil
+		},
+	},
+	{
+		name: "inbox round-trip",
+		covers: []string{"ListInbox", "CountInbox", "ReadInboxItem", "UnreadInboxItem", "ReadAllInbox",
+			"GetInboxPrefs", "PutInboxPrefs"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			peer, err := h.local.CreateUser(h.adminCtx, core.CreateUserInput{Email: "peer@example.com", Handle: "peer"})
+			mustf(t, tg, err, "creating a peer")
+			peerCtx := core.WithActor(context.Background(), &core.Actor{ID: peer.ID, TenantID: h.tenantID,
+				Kind: core.ActorUser, Handle: "peer", Scopes: []core.Scope{core.ScopeAll}})
+			for _, title := range []string{"first", "second"} {
+				_, err := h.local.CreateTask(peerCtx, core.CreateTaskInput{ProjectRef: p.Key, Title: title,
+					AssigneeActorID: h.adminActor.ID})
+				mustf(t, tg, err, "assigning %s", title)
+			}
+			items, _, err := tg.svc.ListInbox(tg.ctx, core.InboxFilter{})
+			if err != nil {
+				return nil, err
+			}
+			read, err := tg.svc.ReadInboxItem(tg.ctx, items[0].ID)
+			if err != nil {
+				return nil, err
+			}
+			unread, err := tg.svc.UnreadInboxItem(tg.ctx, items[0].ID)
+			if err != nil {
+				return nil, err
+			}
+			all, err := tg.svc.ReadAllInbox(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			count, err := tg.svc.CountInbox(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			if _, err := tg.svc.PutInboxPrefs(tg.ctx, core.InboxPrefsInput{Muted: []string{"status"}}); err != nil {
+				return nil, err
+			}
+			prefs, err := tg.svc.GetInboxPrefs(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			listed := make([]string, 0, len(items))
+			for _, it := range items {
+				listed = append(listed, fmt.Sprintf("%s %s by %s", it.Kind, it.TaskTitle, it.ActorHandle))
+			}
+			return sig{"listed": listed, "read": read.Read(), "unread": unread.Read(), "marked": all.Marked,
+				"count": count.Unread, "muted": prefs.Muted}, nil
 		},
 	},
 	{
