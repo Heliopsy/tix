@@ -139,8 +139,8 @@ var tableIntroducedIn = map[string]int{
 	"ssh_keys":            5,
 	"task_stars":          14,
 	"project_icons":       16,
-	"project_key_aliases": 17,
 	"group_prefs":         18,
+	"project_key_aliases": 19,
 }
 
 func introducedIn(table string) int {
