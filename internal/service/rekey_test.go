@@ -59,8 +59,11 @@ func TestRenamingAProjectKeyRenamesItsReferences(t *testing.T) {
 
 func TestOldKeysResolveToTheRenamedProject(t *testing.T) {
 	l, _, ctx, p, task := rekeyFixture(t)
-	if _, err := l.UpdateProject(ctx, "infra", core.UpdateProjectInput{Key: strp("ops")}); err != nil {
+	if _, err := l.UpdateProject(ctx, "infra", core.UpdateProjectInput{Key: strp("ops"), IconName: strp("rocket")}); err != nil {
 		t.Fatalf("UpdateProject: %v", err)
+	}
+	if got, err := l.GetProject(ctx, "infra"); err != nil || got.IconName != "rocket" {
+		t.Errorf("a project read through its old key = %+v, %v, want its icon too", got, err)
 	}
 
 	for _, ref := range []string{"infra", "INFRA"} {
