@@ -357,6 +357,8 @@ func TestFeedTrailNeverCarriesTheSecret(t *testing.T) {
 
 // A state name may finish work in one workflow and be a waypoint in another,
 // so the default feed decides by each task's own workflow rather than by name.
+// The waypoint workflow sorts first, so a name judged by whichever workflow
+// was read last would be excluded.
 func TestDefaultFeedJudgesFinishedByTheTasksOwnWorkflow(t *testing.T) {
 	f := newCalendarFixture(t)
 	def := func(terminal bool) core.WorkflowDefinition {
@@ -369,8 +371,8 @@ func TestDefaultFeedJudgesFinishedByTheTasksOwnWorkflow(t *testing.T) {
 			Transitions: []core.Transition{{From: "todo", To: "shipped"}},
 		}
 	}
-	finishes := seedTaskProjectWith(t, f.l, f.scope, "fin", def(true))
-	passes := seedTaskProjectWith(t, f.l, f.scope, "way", def(false))
+	finishes := seedTaskProjectWith(t, f.l, f.scope, "zeta", def(true))
+	passes := seedTaskProjectWith(t, f.l, f.scope, "alpha", def(false))
 	ship := func(p *core.Project) *core.Task {
 		task := mustCreateTask(t, f.l, f.admin, core.CreateTaskInput{
 			Title: p.Key, ProjectRef: p.Key, DueAt: dueOn(2026, 11, 9), AssigneeActorID: f.actor.ID,
