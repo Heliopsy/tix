@@ -5,8 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { bareContext, run } from "./harness.mjs";
 
-const WIDTH = "tix.sidebar.width";
-const COLLAPSED = "tix.sidebar.collapsed";
+const COOKIE = "tix_sidebar";
 const CLASS = "side-collapsed";
 
 function memoryStorage(initial = {}) {
@@ -39,7 +38,45 @@ function element(marker) {
 }
 
 // page is as much of a document as sidebar.js touches.
-function page() {
+// cookieJar is document.cookie as a browser keeps it: assigning sets or
+// removes one cookie, reading lists them all.
+function cookieJar(initial = "") {
+  const jar = new Map();
+  if (initial) jar.set(COOKIE, initial);
+  const writes = [];
+  return {
+    jar,
+    writes,
+    get cookie() {
+      return [...jar].map(([k, v]) => k + "=" + v).join("; ");
+    },
+    set cookie(line) {
+      writes.push(line);
+      const [pair, ...attrs] = line.split(";").map((p) => p.trim());
+      const at = pair.indexOf("=");
+      const name = pair.slice(0, at);
+      if (attrs.includes("Max-Age=0")) jar.delete(name);
+      else jar.set(name, pair.slice(at + 1));
+    },
+  };
+}
+
+// group is a foldable sidebar group and its heading button.
+function group(name) {
+  const classes = new Set();
+  const box = element('[data-navgroup="' + name + '"]');
+  box.classList = { toggle(c, on) { if (on) classes.add(c); else classes.delete(c); }, contains: (c) => classes.has(c) };
+  box.classes = classes;
+  const button = element("[data-navgroup-toggle]");
+  button.attrs["data-navgroup-toggle"] = name;
+  button.attrs["aria-expanded"] = "true";
+  return { box, button };
+}
+
+function page(cookie = "") {
+  const jar = cookieJar(cookie);
+  const configure = group("configure");
+  const recent = group("recent");
   const classes = new Set();
   const props = {};
   const listeners = {};
@@ -48,14 +85,21 @@ function page() {
   const link = element("[data-rail-name]");
   link.attrs["data-rail-name"] = "Tasks";
   const side = { getBoundingClientRect: () => ({ left: 0, width: 224 }) };
-  const lists = { "[data-side-resize]": [handle], "[data-side-toggle]": [toggle], "[data-rail-name]": [link] };
+  const lists = {
+    "[data-side-resize]": [handle], "[data-side-toggle]": [toggle], "[data-rail-name]": [link],
+    '[data-navgroup="configure"]': [configure.box], '[data-navgroup-toggle="configure"]': [configure.button],
+    '[data-navgroup="recent"]': [recent.box], '[data-navgroup-toggle="recent"]': [recent.button],
+  };
   return {
-    classes, props, listeners, handle, toggle, link,
+    classes, props, listeners, handle, toggle, link, jar, configure, recent,
     fire(type, event) { for (const fn of listeners[type] || []) fn(event); },
     document: {
+      get cookie() { return jar.cookie; },
+      set cookie(v) { jar.cookie = v; },
       documentElement: {
         classList: {
           toggle(name, on) { if (on) classes.add(name); else classes.delete(name); },
+          contains: (name) => classes.has(name),
           add: (name) => classes.add(name),
           remove: (name) => classes.delete(name),
         },
@@ -71,26 +115,30 @@ function page() {
   };
 }
 
-function load(storage, p = page()) {
+function load(cookie = "", { storage = memoryStorage(), p = page(cookie) } = {}) {
   const ctx = bareContext({ localStorage: storage, document: p.document });
   run(ctx, "sidebar.js");
-  return { tix: ctx.tix, p };
+  return { tix: ctx.tix, p, storage };
 }
 
+const stored = (p) => p.jar.jar.get(COOKIE);
+
+test("the root is marked as scripted before the body is parsed", () => {
+  const { p } = load();
+  assert.equal(p.classes.has("js"), true, "without it every [data-needs-js] control stays hidden");
+});
+
 test("an untouched browser gets the stylesheet's width, expanded, and nothing stored", () => {
-  const storage = memoryStorage();
-  const { p } = load(storage);
+  const { p } = load();
   assert.equal(p.props["--side-w"], undefined);
   assert.equal(p.classes.has(CLASS), false);
-  assert.equal(storage.data.size, 0);
-  assert.equal(p.handle.hidden, false, "the handle is shown once the script runs");
-  assert.equal(p.toggle.hidden, false, "the toggle is shown once the script runs");
+  assert.equal(p.jar.writes.length, 0);
   assert.equal(p.handle.attrs["aria-valuenow"], "224");
   assert.equal(p.toggle.attrs["aria-expanded"], "true");
 });
 
 test("a stored width and rail are applied as the script loads, before the page is parsed", () => {
-  const { p } = load(memoryStorage({ [WIDTH]: "320", [COLLAPSED]: "true" }));
+  const { p } = load("w=320&rail=1");
   assert.equal(p.props["--side-w"], "320px");
   assert.equal(p.classes.has(CLASS), true);
   assert.equal(p.toggle.attrs["aria-expanded"], "false");
@@ -99,29 +147,44 @@ test("a stored width and rail are applied as the script loads, before the page i
 });
 
 test("a stored width outside the limits is clamped, and garbage is the default", () => {
-  assert.equal(load(memoryStorage({ [WIDTH]: "9000" })).p.props["--side-w"], "480px");
-  assert.equal(load(memoryStorage({ [WIDTH]: "10" })).p.props["--side-w"], "180px");
-  for (const v of ["", "wide", "-5", "3e2", "200px"]) {
-    assert.equal(load(memoryStorage({ [WIDTH]: v })).p.props["--side-w"], undefined, JSON.stringify(v));
+  assert.equal(load("w=9000").p.props["--side-w"], "480px");
+  assert.equal(load("w=10").p.props["--side-w"], "180px");
+  for (const v of ["w=", "w=wide", "w=-5", "w=3e2", "w=200px", "w=0", "nonsense"]) {
+    assert.equal(load(v).p.props["--side-w"], undefined, JSON.stringify(v));
   }
 });
 
+test("the cookie value reads and writes the same state, leaving defaults out", () => {
+  const { tix } = load();
+  const state = JSON.parse(JSON.stringify(tix.sidebarParse("fold=data.configure.bogus&w=300&rail=1")));
+  assert.deepEqual(state, { width: 300, collapsed: true, fold: ["data", "configure"] });
+  assert.equal(tix.sidebarFormat(state), "w=300&rail=1&fold=configure.data");
+  assert.equal(tix.sidebarFormat({ width: null, collapsed: false, fold: [] }), "");
+});
+
 test("the toggle collapses and expands, keeping the width it had", () => {
-  const storage = memoryStorage({ [WIDTH]: "300" });
-  const { p } = load(storage);
+  const { p } = load("w=300");
   p.fire("click", { target: p.toggle });
   assert.equal(p.classes.has(CLASS), true);
-  assert.equal(storage.data.get(COLLAPSED), "true");
-  assert.equal(storage.data.get(WIDTH), "300");
+  assert.equal(stored(p), "w=300&rail=1");
   p.fire("click", { target: p.toggle });
   assert.equal(p.classes.has(CLASS), false);
-  assert.equal(storage.data.has(COLLAPSED), false, "expanded, the default, leaves no key");
+  assert.equal(stored(p), "w=300", "expanded, the default, is left out");
   assert.equal(p.props["--side-w"], "300px");
   assert.equal(p.link.attrs.title, undefined, "the tooltip goes when the label is back");
 });
 
+test("the cookie is written for the whole site, a year, same-site", () => {
+  const { p } = load();
+  p.fire("click", { target: p.toggle });
+  assert.match(p.jar.writes.at(-1), /^tix_sidebar=rail=1; Path=\/; Max-Age=31536000; SameSite=Lax$/);
+  p.fire("click", { target: p.toggle });
+  assert.match(p.jar.writes.at(-1), /^tix_sidebar=; Path=\/; Max-Age=0;/, "nothing but defaults removes it");
+  assert.equal(p.jar.jar.has(COOKIE), false);
+});
+
 test("letting go of a drag below the threshold collapses, above it sets a clamped width", () => {
-  const { tix } = load(memoryStorage());
+  const { tix } = load();
   assert.equal(tix.sidebarDrop(60), "collapse");
   assert.equal(tix.sidebarDrop(119), "collapse");
   assert.equal(tix.sidebarDrop(120), 180);
@@ -130,59 +193,98 @@ test("letting go of a drag below the threshold collapses, above it sets a clampe
 });
 
 test("a drag is applied while it moves and stored when it ends", () => {
-  const storage = memoryStorage();
-  const { p } = load(storage);
+  const { p } = load();
   p.fire("pointerdown", { target: p.handle, button: 0, pointerId: 1, preventDefault() {} });
   assert.equal(p.classes.has("side-dragging"), true);
   p.fire("pointermove", { pointerId: 1, clientX: 300 });
   assert.equal(p.props["--side-w"], "300px");
-  assert.equal(storage.data.size, 0, "nothing is written until the pointer is let go");
+  assert.equal(p.jar.writes.length, 0, "nothing is written until the pointer is let go");
   p.fire("pointerup", { pointerId: 1, clientX: 310 });
-  assert.equal(storage.data.get(WIDTH), "310");
+  assert.equal(stored(p), "w=310");
   assert.equal(p.classes.has("side-dragging"), false);
 
   p.fire("pointerdown", { target: p.handle, button: 0, pointerId: 2, preventDefault() {} });
   p.fire("pointerup", { pointerId: 2, clientX: 40 });
   assert.equal(p.classes.has(CLASS), true);
-  assert.equal(storage.data.get(COLLAPSED), "true");
-  assert.equal(storage.data.get(WIDTH), "310", "collapsing keeps the width to come back to");
+  assert.equal(stored(p), "w=310&rail=1", "collapsing keeps the width to come back to");
 });
 
 test("the keyboard moves the separator and reports the new value", () => {
-  const storage = memoryStorage({ [WIDTH]: "240" });
-  const { p } = load(storage);
+  const { p } = load("w=240");
   const key = (k, shiftKey = false) => p.fire("keydown", { target: p.handle, key: k, shiftKey, preventDefault() {} });
   key("ArrowRight");
-  assert.equal(storage.data.get(WIDTH), "256");
+  assert.equal(stored(p), "w=256");
   assert.equal(p.handle.attrs["aria-valuenow"], "256");
   key("ArrowLeft", true);
-  assert.equal(storage.data.get(WIDTH), "192");
+  assert.equal(stored(p), "w=192");
   key("End");
-  assert.equal(storage.data.get(WIDTH), "480");
+  assert.equal(stored(p), "w=480");
   key("Home");
-  assert.equal(storage.data.get(WIDTH), "180");
+  assert.equal(stored(p), "w=180");
   key("ArrowLeft");
   assert.equal(p.classes.has(CLASS), true, "left at the minimum collapses");
   key("ArrowRight");
   assert.equal(p.classes.has(CLASS), false, "right from the rail expands");
-  assert.equal(storage.data.get(WIDTH), "180");
+  assert.equal(stored(p), "w=180");
   key("Enter");
-  assert.equal(storage.data.size, 0, "Enter restores the default and forgets the width");
+  assert.equal(p.jar.jar.has(COOKIE), false, "Enter restores the default and forgets the width");
   assert.equal(p.props["--side-w"], undefined);
 });
 
-test("a boosted swap gets its controls back", () => {
-  const p = page();
-  load(memoryStorage({ [COLLAPSED]: "true" }), p);
-  p.toggle.hidden = true;
-  p.toggle.attrs["aria-expanded"] = "true";
+test("a boosted swap brings the server's drawing and the script leaves it in place", () => {
+  const p = page("rail=1");
+  load("rail=1", { p });
+  p.toggle.attrs["aria-expanded"] = "false";
+  p.toggle.hidden = false;
   p.fire("htmx:load", {});
-  assert.equal(p.toggle.hidden, false);
   assert.equal(p.toggle.attrs["aria-expanded"], "false");
+  assert.equal(p.toggle.hidden, false, "the script never hides or reveals a control on a swap");
+  assert.equal(p.handle.hidden, true, "nor reveals one: [data-needs-js] does, from the root's class");
 });
 
-test("storage that throws reads as the default and pressing does not throw", () => {
-  const { p } = load(throwingStorage);
+test("a group heading folds and unfolds its group and remembers it", () => {
+  const { p } = load("w=300");
+  p.fire("click", { target: p.configure.button });
+  assert.equal(p.configure.box.classes.has("is-folded"), true);
+  assert.equal(p.configure.button.attrs["aria-expanded"], "false");
+  assert.equal(stored(p), "w=300&fold=configure");
+  p.fire("click", { target: p.recent.button });
+  assert.equal(stored(p), "w=300&fold=recent.configure", "groups are written in drawing order");
+  p.fire("click", { target: p.configure.button });
+  assert.equal(p.configure.box.classes.has("is-folded"), false);
+  assert.equal(p.configure.button.attrs["aria-expanded"], "true");
+  assert.equal(stored(p), "w=300&fold=recent");
+});
+
+test("on the rail a group heading opens the sidebar with the group unfolded", () => {
+  const { p } = load("rail=1&fold=recent");
+  p.recent.box.classes.add("is-folded");
+  p.recent.button.attrs["aria-expanded"] = "false";
+  p.fire("click", { target: p.recent.button });
   assert.equal(p.classes.has(CLASS), false);
-  assert.doesNotThrow(() => p.fire("click", { target: p.toggle }));
+  assert.equal(p.recent.box.classes.has("is-folded"), false);
+  assert.equal(p.recent.button.attrs["aria-expanded"], "true");
+  assert.equal(p.jar.jar.has(COOKIE), false);
+});
+
+test("what an earlier build kept in localStorage moves into the cookie once", () => {
+  const storage = memoryStorage({ "tix.sidebar.width": "320", "tix.sidebar.collapsed": "true", "tix.recent.closed": "true" });
+  const { p } = load("", { storage });
+  assert.equal(stored(p), "w=320&rail=1&fold=recent");
+  assert.equal(storage.data.size, 0, "the old keys are forgotten");
+  assert.equal(p.classes.has(CLASS), true);
+
+  const kept = memoryStorage({ "tix.sidebar.collapsed": "true" });
+  const second = load("w=200", { storage: kept });
+  assert.equal(stored(second.p), "w=200", "a cookie already there wins");
+  assert.equal(kept.data.size, 0);
+});
+
+test("storage and cookies that throw read as the default and pressing does not throw", () => {
+  const p = page();
+  Object.defineProperty(p.document, "cookie", { get() { throw new Error("denied"); }, set() { throw new Error("denied"); } });
+  const { p: got } = load("", { storage: throwingStorage, p });
+  assert.equal(got.classes.has(CLASS), false);
+  assert.doesNotThrow(() => got.fire("click", { target: got.toggle }));
+  assert.doesNotThrow(() => got.fire("click", { target: got.configure.button }));
 });

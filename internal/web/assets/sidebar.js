@@ -1,19 +1,24 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// The sidebar's width and its collapsed rail.
+// The sidebar's width, its collapsed rail and its folded groups.
 //
-// Loaded from the head without defer, like lanes.js, so the width and the
-// collapsed class are on the root before the body is parsed and a reload never
-// draws the default sidebar first. Both sit on the root rather than on the
-// aside, so a boosted navigation replacing the body does not undo them.
+// All three live in one cookie, tix_sidebar, which the server reads to draw
+// the page (sidebar.go). The first paint of a load, and of every boosted
+// navigation, is therefore the sidebar the reader left: nothing here has to
+// correct a default a frame after it was drawn, which is what made the
+// sidebar's entries jump on every navigation while this state lived in
+// localStorage and the markup arrived without it.
 //
-// localStorage holds two keys and nothing else: a number of pixels and a
-// boolean. Neither says anything about anybody's work, which is the condition
-// for living in browser storage (see lanes.js). The default removes each key.
+// The cookie holds a number of pixels, a boolean and a list of group names,
+// none of which says anything about anybody's work. The defaults are left
+// out, and a cookie holding nothing but defaults is removed.
 //
-// The handle and the toggle are rendered hidden and shown from here, so with
-// scripting off neither is offered. Every listener is delegated at the
-// document, so a swapped body needs nothing re-bound. All of it only matters
-// from 900px up, where app.css draws the sidebar as a column.
+// Loaded from the head without defer. It puts the "js" class on the root
+// before the body is parsed, which is what shows the controls that need a
+// script ([data-needs-js]) from the first paint instead of revealing them
+// after it, and it moves a state an earlier build kept in localStorage into
+// the cookie before anything is drawn. Every listener is delegated at the
+// document, so a swapped body needs nothing re-bound. Width and rail only
+// matter from 900px up, where app.css draws the sidebar as a column.
 (function (global) {
   "use strict";
   // say is text in the page's language; see i18n.js.
@@ -21,8 +26,11 @@
     return global.tix && global.tix.t ? global.tix.t(text) : text;
   }
   var tix = (global.tix = global.tix || {});
-  var WIDTH = "tix.sidebar.width";
-  var COLLAPSED = "tix.sidebar.collapsed";
+  var COOKIE = "tix_sidebar";
+  var LEGACY_WIDTH = "tix.sidebar.width";
+  var LEGACY_COLLAPSED = "tix.sidebar.collapsed";
+  var LEGACY_RECENT = "tix.recent.closed";
+  var GROUPS = ["saved", "recent", "configure", "data"];
   var CLASS = "side-collapsed";
   var DRAGGING = "side-dragging";
   var MIN = 180;
@@ -30,6 +38,7 @@
   var COLLAPSE_AT = 120;
   var STEP = 16;
   var BIG_STEP = 64;
+  var YEAR = 60 * 60 * 24 * 365;
 
   tix.sidebarLimits = { min: MIN, max: MAX, collapseAt: COLLAPSE_AT };
 
@@ -40,45 +49,42 @@
     return Math.min(MAX, Math.max(MIN, n));
   };
 
-  // sidebarWidth reads the stored width, or null for the default. Anything
-  // unreadable, including storage that throws, is the default.
-  tix.sidebarWidth = function (storage) {
-    try {
-      var raw = storage ? storage.getItem(WIDTH) : null;
-      if (raw === null || !/^\d+$/.test(raw)) return null;
-      return tix.sidebarClamp(raw);
-    } catch (e) {
-      return null;
+  // sidebarParse reads the cookie's value: {width, collapsed, fold}. A null
+  // width is the default; anything unreadable is the default.
+  tix.sidebarParse = function (value) {
+    var state = { width: null, collapsed: false, fold: [] };
+    var parts = String(value || "").split("&");
+    for (var i = 0; i < parts.length; i++) {
+      var eq = parts[i].indexOf("=");
+      if (eq < 0) continue;
+      var key = parts[i].slice(0, eq);
+      var val = parts[i].slice(eq + 1);
+      if (key === "w" && /^\d+$/.test(val) && Number(val) > 0) {
+        state.width = tix.sidebarClamp(val);
+      } else if (key === "rail") {
+        state.collapsed = val === "1";
+      } else if (key === "fold") {
+        var names = val.split(".");
+        for (var j = 0; j < names.length; j++) {
+          if (GROUPS.indexOf(names[j]) >= 0 && state.fold.indexOf(names[j]) < 0) state.fold.push(names[j]);
+        }
+      }
     }
+    return state;
   };
 
-  // sidebarCollapsed reads the stored collapsed state.
-  tix.sidebarCollapsed = function (storage) {
-    try {
-      return !!storage && storage.getItem(COLLAPSED) === "true";
-    } catch (e) {
-      return false;
+  // sidebarFormat writes a state as the cookie's value, leaving defaults out.
+  // An empty string means there is nothing to keep.
+  tix.sidebarFormat = function (state) {
+    var parts = [];
+    if (state.width !== null && state.width !== undefined) parts.push("w=" + tix.sidebarClamp(state.width));
+    if (state.collapsed) parts.push("rail=1");
+    var fold = [];
+    for (var i = 0; i < GROUPS.length; i++) {
+      if (state.fold && state.fold.indexOf(GROUPS[i]) >= 0) fold.push(GROUPS[i]);
     }
-  };
-
-  // sidebarRemember stores a width and a collapsed state, removing each key
-  // that holds the default. A null width is the default.
-  tix.sidebarRemember = function (storage, width, collapsed) {
-    try {
-      if (!storage) return;
-      if (width === null) {
-        storage.removeItem(WIDTH);
-      } else {
-        storage.setItem(WIDTH, String(tix.sidebarClamp(width)));
-      }
-      if (collapsed) {
-        storage.setItem(COLLAPSED, "true");
-      } else {
-        storage.removeItem(COLLAPSED);
-      }
-    } catch (e) {
-      return;
-    }
+    if (fold.length) parts.push("fold=" + fold.join("."));
+    return parts.join("&");
   };
 
   // sidebarKey is the width a key press on the separator asks for, given the
@@ -106,6 +112,39 @@
     return px < COLLAPSE_AT ? "collapse" : tix.sidebarClamp(px);
   };
 
+  var doc = global.document;
+
+  function readCookie() {
+    var all;
+    try {
+      all = doc && typeof doc.cookie === "string" ? doc.cookie : "";
+    } catch (e) {
+      return "";
+    }
+    var pairs = all.split(";");
+    for (var i = 0; i < pairs.length; i++) {
+      var pair = pairs[i].replace(/^\s+/, "");
+      if (pair.indexOf(COOKIE + "=") === 0) return pair.slice(COOKIE.length + 1);
+    }
+    return "";
+  }
+
+  // tix.sidebarState is the state as the cookie holds it now.
+  tix.sidebarState = function () {
+    return tix.sidebarParse(readCookie());
+  };
+
+  function writeCookie(state) {
+    var value = tix.sidebarFormat(state);
+    var secure = global.location && global.location.protocol === "https:" ? "; Secure" : "";
+    var age = value ? YEAR : 0;
+    try {
+      doc.cookie = COOKIE + "=" + value + "; Path=/; Max-Age=" + age + "; SameSite=Lax" + secure;
+    } catch (e) {
+      return;
+    }
+  }
+
   function storage() {
     try {
       return global.localStorage;
@@ -114,13 +153,36 @@
     }
   }
 
+  // adopt moves what an earlier build kept in localStorage into the cookie,
+  // once, and forgets it there.
+  function adopt() {
+    var s = storage();
+    if (!s) return;
+    try {
+      var width = s.getItem(LEGACY_WIDTH);
+      var collapsed = s.getItem(LEGACY_COLLAPSED);
+      var recent = s.getItem(LEGACY_RECENT);
+      if (width === null && collapsed === null && recent === null) return;
+      var state = tix.sidebarState();
+      if (!readCookie()) {
+        if (width !== null && /^\d+$/.test(width)) state.width = tix.sidebarClamp(width);
+        state.collapsed = collapsed === "true";
+        if (recent === "true") state.fold.push("recent");
+        writeCookie(state);
+      }
+      s.removeItem(LEGACY_WIDTH);
+      s.removeItem(LEGACY_COLLAPSED);
+      s.removeItem(LEGACY_RECENT);
+    } catch (e) {
+      return;
+    }
+  }
+
   function root() {
-    var doc = global.document;
     return doc && doc.documentElement ? doc.documentElement : null;
   }
 
   function aside() {
-    var doc = global.document;
     return doc && doc.querySelector ? doc.querySelector("aside.side") : null;
   }
 
@@ -131,6 +193,13 @@
     return tix.sidebarClamp(measured || 224);
   }
 
+  function all(selector) {
+    return doc && doc.querySelectorAll ? doc.querySelectorAll(selector) : [];
+  }
+
+  // apply draws a width and a rail. The server drew the same from the cookie,
+  // so on a load or a swap this changes nothing that takes up room: it fills
+  // in the separator's value and the rail's tooltips.
   function apply(width, collapsed) {
     var el = root();
     if (!el) return;
@@ -142,11 +211,8 @@
       }
     }
     el.classList.toggle(CLASS, collapsed);
-    var doc = global.document;
-    if (!doc.querySelectorAll) return;
-    var handles = doc.querySelectorAll("[data-side-resize]");
+    var handles = all("[data-side-resize]");
     for (var i = 0; i < handles.length; i++) {
-      handles[i].hidden = false;
       handles[i].setAttribute("aria-valuemin", String(MIN));
       handles[i].setAttribute("aria-valuemax", String(MAX));
       handles[i].setAttribute("aria-valuenow", String(collapsed ? MIN : currentWidth(width)));
@@ -156,15 +222,14 @@
         handles[i].removeAttribute("aria-valuetext");
       }
     }
-    var toggles = doc.querySelectorAll("[data-side-toggle]");
+    var toggles = all("[data-side-toggle]");
     for (var j = 0; j < toggles.length; j++) {
-      toggles[j].hidden = false;
       toggles[j].setAttribute("aria-expanded", collapsed ? "false" : "true");
       var label = say(collapsed ? "Expand sidebar" : "Collapse sidebar");
       toggles[j].setAttribute("aria-label", label);
       toggles[j].setAttribute("title", label);
     }
-    var named = doc.querySelectorAll("[data-rail-name]");
+    var named = all("[data-rail-name]");
     for (var k = 0; k < named.length; k++) {
       if (collapsed) {
         named[k].setAttribute("title", named[k].getAttribute("data-rail-name"));
@@ -175,25 +240,47 @@
   }
 
   function set(width, collapsed) {
-    tix.sidebarRemember(storage(), width, collapsed);
+    var state = tix.sidebarState();
+    state.width = width;
+    state.collapsed = collapsed;
+    writeCookie(state);
     apply(width, collapsed);
   }
 
   tix.sidebarApply = function () {
-    var s = storage();
-    apply(tix.sidebarWidth(s), tix.sidebarCollapsed(s));
+    var state = tix.sidebarState();
+    apply(state.width, state.collapsed);
   };
 
   tix.sidebarToggle = function () {
-    var s = storage();
-    var collapsed = !tix.sidebarCollapsed(s);
-    set(tix.sidebarWidth(s), collapsed);
-    return collapsed;
+    var state = tix.sidebarState();
+    set(state.width, !state.collapsed);
+    return !state.collapsed;
   };
 
+  // sidebarFold folds or unfolds one group, drawn and remembered.
+  tix.sidebarFold = function (name, folded) {
+    if (GROUPS.indexOf(name) < 0) return;
+    var state = tix.sidebarState();
+    var at = state.fold.indexOf(name);
+    if (folded && at < 0) state.fold.push(name);
+    if (!folded && at >= 0) state.fold.splice(at, 1);
+    writeCookie(state);
+    var groups = all('[data-navgroup="' + name + '"]');
+    for (var i = 0; i < groups.length; i++) {
+      groups[i].classList.toggle("is-folded", folded);
+    }
+    var buttons = all('[data-navgroup-toggle="' + name + '"]');
+    for (var j = 0; j < buttons.length; j++) {
+      buttons[j].setAttribute("aria-expanded", folded ? "false" : "true");
+    }
+  };
+
+  var el = root();
+  if (el && el.classList) el.classList.add("js");
+  adopt();
   tix.sidebarApply();
 
-  var doc = global.document;
   if (!doc || !doc.addEventListener) return;
   doc.addEventListener("DOMContentLoaded", tix.sidebarApply);
   doc.addEventListener("htmx:load", tix.sidebarApply);
@@ -203,7 +290,22 @@
   }
 
   doc.addEventListener("click", function (event) {
-    if (closest(event.target, "[data-side-toggle]")) tix.sidebarToggle();
+    if (closest(event.target, "[data-side-toggle]")) {
+      tix.sidebarToggle();
+      return;
+    }
+    var fold = closest(event.target, "[data-navgroup-toggle]");
+    if (!fold) return;
+    var name = fold.getAttribute("data-navgroup-toggle");
+    var r = root();
+    // On the rail a group has no room to unfold into; its heading opens the
+    // sidebar instead, with the group open.
+    if (r && r.classList.contains(CLASS)) {
+      tix.sidebarToggle();
+      tix.sidebarFold(name, false);
+      return;
+    }
+    tix.sidebarFold(name, fold.getAttribute("aria-expanded") === "true");
   });
 
   doc.addEventListener("dblclick", function (event) {
@@ -212,16 +314,15 @@
 
   doc.addEventListener("keydown", function (event) {
     if (!closest(event.target, "[data-side-resize]")) return;
-    var s = storage();
-    var collapsed = tix.sidebarCollapsed(s);
-    var width = currentWidth(tix.sidebarWidth(s));
-    var next = collapsed && event.key === "ArrowRight" ? "expand" : tix.sidebarKey(event.key, event.shiftKey, width);
+    var state = tix.sidebarState();
+    var width = currentWidth(state.width);
+    var next = state.collapsed && event.key === "ArrowRight" ? "expand" : tix.sidebarKey(event.key, event.shiftKey, width);
     if (next === null) return;
     event.preventDefault();
     if (next === "expand") {
-      set(tix.sidebarWidth(s), false);
+      set(state.width, false);
     } else if (next === "collapse") {
-      set(tix.sidebarWidth(s), true);
+      set(state.width, true);
     } else if (next === "reset") {
       set(null, false);
     } else {
@@ -246,7 +347,7 @@
     if (!drag || event.pointerId !== drag.id) return;
     var next = tix.sidebarDrop(event.clientX - drag.left);
     if (next === "collapse") {
-      apply(tix.sidebarWidth(storage()), true);
+      apply(tix.sidebarState().width, true);
     } else {
       apply(next, false);
     }
@@ -258,7 +359,7 @@
     root().classList.remove(DRAGGING);
     drag = null;
     if (next === "collapse") {
-      set(tix.sidebarWidth(storage()), true);
+      set(tix.sidebarState().width, true);
     } else {
       set(next, false);
     }
@@ -271,10 +372,4 @@
     drag = null;
     tix.sidebarApply();
   });
-
-  if (global.addEventListener) {
-    global.addEventListener("storage", function (event) {
-      if (event.key === WIDTH || event.key === COLLAPSED || event.key === null) tix.sidebarApply();
-    });
-  }
 })(window);

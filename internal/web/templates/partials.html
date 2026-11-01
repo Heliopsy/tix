@@ -45,7 +45,10 @@
   <a href="/activity" data-rail-name="{{t "Activity"}}" {{if eq .Path "/activity"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#activity"/></svg><span>{{t "Activity"}}</span></a>
   <a href="/stats" data-rail-name="{{t "Statistics"}}" {{if eq .Path "/stats"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#stats"/></svg><span>{{t "Statistics"}}</span></a>
   {{if .Advanced}}
-  <p class="group">{{t "Configure"}}</p>
+  {{$side := .Side}}
+  <div class="navgroup{{if $side.Folded "configure"}} is-folded{{end}}" data-navgroup="configure">
+  {{template "navgroup-head" navGroup $side "configure" (t "Configure") ""}}
+  <div class="navgroup-body" id="navgroup-configure">
   <a href="/workflows" data-rail-name="{{t "Workflows"}}" {{if eq .Path "/workflows"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#workflows"/></svg><span>{{t "Workflows"}}</span></a>
   <a href="/templates" data-rail-name="{{t "Templates"}}" {{if hasPrefix .Path "/templates"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#templates"/></svg><span>{{t "Templates"}}</span></a>
   <a href="/admin/tenant" data-rail-name="{{t "Tenant"}}" {{if eq .Path "/admin/tenant"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tenant"/></svg><span>{{t "Tenant"}}</span></a>
@@ -56,12 +59,18 @@
   <a href="/admin/status" data-rail-name="{{t "Status"}}" {{if eq .Path "/admin/status"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#status"/></svg><span>{{t "Status"}}</span></a>
   <a href="/admin/connections" data-rail-name="{{t "Connections"}}" {{if eq .Path "/admin/connections"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#connections"/></svg><span>{{t "Connections"}}</span></a>
   <a href="/admin/webhooks" data-rail-name="{{t "Webhooks"}}" {{if eq .Path "/admin/webhooks"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#webhooks"/></svg><span>{{t "Webhooks"}}</span></a>
-  <p class="group">{{t "Data"}}</p>
+  </div>
+  </div>
+  <div class="navgroup{{if $side.Folded "data"}} is-folded{{end}}" data-navgroup="data">
+  {{template "navgroup-head" navGroup $side "data" (t "Data") ""}}
+  <div class="navgroup-body" id="navgroup-data">
   {{/* One entry, because they are one screen now. Either tab's URL lights it,
        so landing on Components from a link does not leave the navigation
        looking like you are somewhere else. */}}
   <a href="/transfer" data-rail-name="{{t "Import and export"}}" {{if or (eq .Path "/transfer") (eq .Path "/bundles")}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#transfer"/></svg><span>{{t "Import and export"}}</span></a>
   <a href="/sync" data-rail-name="{{t "Sync"}}" {{if or (eq .Path "/sync") (eq .Path "/sync/runs")}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#sync"/></svg><span>{{t "Sync"}}</span></a>
+  </div>
+  </div>
   {{end}}
 
   {{/* The running version, under the last button, and whether anything newer
@@ -94,8 +103,9 @@
 {{define "saved-filters"}}
 <div id="side-saved" class="side-saved">
 {{with .Saved}}{{if .Items}}
-<p class="group side-group">{{t "Saved filters"}}</p>
-<ul class="savedlist" aria-label="{{t "Saved filters"}}">
+<div class="navgroup{{if $.Side.Folded "saved"}} is-folded{{end}}" data-navgroup="saved">
+{{template "navgroup-head" navGroup $.Side "saved" (t "Saved filters") ""}}
+<ul class="savedlist navgroup-body" id="navgroup-saved" aria-label="{{t "Saved filters"}}">
 {{range .Items}}{{$id := .DOMID}}
   <li class="saveditem{{if .Current}} is-current{{end}}">
     <a class="side-sub" href="{{.Href}}" data-rail-name="{{.Name}}" {{if .Current}}aria-current="page"{{end}} title="{{if .Query}}{{.Query}}{{else}}{{.Name}}{{end}}"><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#{{if .Shared}}filter-shared{{else}}filter{{end}}"/></svg><span>{{.Name}}{{if and .Shared (not .Mine)}} <span class="savedby">{{t "shared"}}</span>{{end}}</span></a>
@@ -143,6 +153,7 @@
   </li>
 {{end}}
 </ul>
+</div>
 {{end}}{{end}}
 </div>
 {{end}}
@@ -151,11 +162,19 @@
      storage by assets/recent.js and drawn there, so it is rendered hidden
      and empty and stays so with scripting off. Collapsible; the choice is
      kept beside the list. */}}
+{{/* navgroup-head is a foldable sidebar group's heading. With scripting it
+     is a disclosure button over the group's body; without, the plain name,
+     since nothing could fold it. Which of the two shows is decided by the
+     root's "js" class, set before the body paints, and whether the group is
+     folded by the tix_sidebar cookie, so the heading is drawn final. A folded
+     group still shows the entry for the page being read. */}}
+{{define "navgroup-head"}}<p class="group navgroup-head{{if .Sub}} side-group{{end}}"><span class="navgroup-name">{{.Label}}</span><button type="button" class="navgroup-toggle" data-navgroup-toggle="{{.Name}}" aria-expanded="{{if .Folded}}false{{else}}true{{end}}" aria-controls="navgroup-{{.Name}}"{{if .Icon}} data-rail-name="{{.Label}}"{{end}} data-needs-js>{{if .Icon}}<svg class="nav-icon rail-only" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#{{.Icon}}"/></svg>{{end}}<span class="navgroup-label">{{.Label}}</span><span class="navgroup-chev" aria-hidden="true"></span></button></p>{{end}}
+
 {{define "recent-tasks"}}
-<details class="side-recent" data-recent data-recent-for="{{.RecentOwner}}" hidden>
-  <summary class="group side-group" data-rail-name="{{t "Recently viewed"}}"><svg class="nav-icon rail-only" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#recent"/></svg><span>{{t "Recently viewed"}}</span></summary>
-  <ul class="recentlist" data-recent-list></ul>
-</details>
+<div class="navgroup side-recent{{if .Side.Folded "recent"}} is-folded{{end}}" id="side-recent" data-navgroup="recent" data-recent data-recent-for="{{.RecentOwner}}" hx-preserve="true" hidden>
+  {{template "navgroup-head" navGroup .Side "recent" (t "Recently viewed") "recent"}}
+  <ul class="recentlist navgroup-body" id="navgroup-recent" data-recent-list></ul>
+</div>
 {{end}}
 {{/* inbox-badge is the reader's unread count beside the Inbox entry, hidden
      at zero. live.js refreshes it from /inbox/badge on every inbox.updated

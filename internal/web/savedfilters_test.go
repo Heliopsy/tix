@@ -17,7 +17,7 @@ import (
 // sidebarSaved is the sidebar's saved filter block of a rendered page.
 func sidebarSaved(t *testing.T, page string) string {
 	t.Helper()
-	return between(t, page, `<div id="side-saved" class="side-saved">`, `<details class="side-recent"`)
+	return between(t, page, `<div id="side-saved" class="side-saved">`, `<div class="navgroup side-recent`)
 }
 
 // saveFilter posts the filter bar's Save form and answers the new filter's id.
@@ -265,7 +265,7 @@ func TestTheSidebarCarriesTheRecentListHiddenForItsScript(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	page := f.as("alice").page("/tasks")
-	block := between(t, page, `<details class="side-recent"`, `</details>`)
+	block := between(t, page, `<div class="navgroup side-recent`, `</ul>`)
 	if block == "" || !strings.Contains(block, `data-recent-for="`) || !strings.Contains(block, "hidden>") {
 		t.Fatalf("the sidebar has no hidden recent list for recent.js:\n%s", block)
 	}

@@ -22,13 +22,40 @@ scheme glyph and a sign-out icon. The labels are clipped rather than removed, so
 accessible name, and each gets a tooltip while the rail is showing. The same button, or the right
 arrow on the edge, expands it to the width it had.
 
-Both are kept in `localStorage`: `tix.sidebar.width` holds a number of pixels and
-`tix.sidebar.collapsed` holds `true`, and each key is removed when it holds the default. Neither says
-anything about anybody's work, which is the rule for what may live there (see Show completed under
-Lanes). `assets/sidebar.js` loads in the head, before the body paints, and applies them to the root
-element, so a reload never draws the default sidebar first. Without JavaScript neither control is
-shown and the sidebar is its default width. Below 900px neither applies: a phone gets the brand bar
-and its menu whatever a desktop chose.
+Both are kept in the `tix_sidebar` cookie, with the groups folded below: `w=320&rail=1&fold=configure.data`
+holds a width in pixels, the rail, and the folded groups by name (`saved`, `recent`, `configure`,
+`data`). A default is left out, and a cookie holding only defaults is removed. None of it says anything
+about anybody's work. The server reads the cookie and draws the page with it: the rail as a class on
+`<html>`, the width as `--side-w` on its style, each folded group folded. `assets/sidebar.js` changes the
+same places and rewrites the cookie when the reader drags, presses or folds. An earlier build kept the
+width and the rail in `localStorage` (`tix.sidebar.width`, `tix.sidebar.collapsed`) and the recent list's
+fold under `tix.recent.closed`; the script moves those into the cookie once and removes them. Without
+JavaScript neither control is shown and the sidebar is its default width. Below 900px neither applies: a
+phone gets the brand bar and its menu whatever a desktop chose.
+
+**Folding a group.** Saved filters, Recently viewed, Configure and Data each have a heading that is a
+button: pressing it, or Enter or Space on it, folds the group under a chevron and again unfolds it. The
+button says `aria-expanded` and names the group's body with `aria-controls`. Because the server draws the
+fold from the cookie, a folded group arrives folded and nothing animates or moves on load. A folded group
+still shows the entry for the page you are on, so the sidebar never hides where you are: folding Configure
+while on Users leaves Users under the heading. On the collapsed rail folding does not apply, and every
+group is its icons as before; the Recently viewed clock opens the sidebar with the list unfolded. Without
+JavaScript the heading is plain text and every group is open.
+
+**Navigating without the sidebar moving.** Every link is boosted by htmx, which swaps the whole body,
+sidebar included. The sidebar used to arrive from the server in a state the scripts then corrected: the
+Search button, the rail toggle and the shortcuts hint were rendered `hidden` until their scripts revealed
+them, and Recently viewed was rendered empty and hidden until `assets/recent.js` refilled it. Between the
+swap and those scripts, about 20 to 60ms on every navigation, everything under them sat up to 119px higher
+and then dropped back. Now nothing in the sidebar waits for a script to look right. A control that needs
+scripting carries `data-needs-js` and is shown by the `js` class `assets/sidebar.js` puts on `<html>` from
+the head, before the body paints; a swap never touches `<html>`, so it is right in the first frame. The
+inbox badge, the saved filters, the current entry and the folds are server-rendered. Recently viewed lives
+only in this browser, so it carries `hx-preserve` and a swap keeps the list already drawn; recent.js then
+moves only its current mark, or adds the task just opened. Its links are handed to htmx as they are
+drawn, so opening a recent task swaps the page like every other entry instead of reloading it, which it
+used to. On a full reload the list is still drawn by the
+deferred script, a step after the first paint.
 
 The page content starts the gutter's width from the sidebar on every screen. It used to be centred in
 the space beside the sidebar, under a width cap that differs between a listing and a form, which put
@@ -318,8 +345,9 @@ tick, the badge and the priority each answer a press 40px tall, and the menu row
 
 **Show completed** hides finished cards in every lane. It is kept in the browser's `localStorage`
 rather than a cookie, as a single key, `tix.lanes.showCompleted`, which holds `false` when finished
-cards are hidden and is removed when they are shown. The sidebar's width and collapsed state are the
-only other keys there (see The sidebar). Nothing about work goes there: no project key, no task
+cards are hidden and is removed when they are shown. The sidebar's width and collapsed state used to
+sit beside it and are a cookie now, because the server has to draw them (see The sidebar). Nothing
+about work goes there: no project key, no task
 reference, no count. Screens are served `no-store` so that a page does not outlive the
 session on a shared machine, and browser storage is the same disk with no logout to clear it, so only
 a choice that says nothing about anybody's work may live in it. The script that applies it loads in
@@ -351,7 +379,7 @@ dots, and a refusal (a name you already use) is said inside the menu. `tix filte
 filters from the command line.
 
 **Recently viewed** lists the last ten tasks this browser opened, as a page or in the dialog, newest
-first, in a section that folds and remembers whether it was folded. It is kept in `localStorage`
+first, in a group that folds like the others (see The sidebar). It is kept in `localStorage`
 under `tix.recent.<digest>`, a digest of the tenant and the reader so two people sharing a browser
 keep apart lists, and is drawn by `assets/recent.js`; with scripting off it is not offered. The same
 list is `tix.recentTasks()` for other scripts, an array of `{ref, title, href, at}` newest first,
@@ -359,7 +387,7 @@ and the document receives a `tix:recent` event whenever it changes.
 
 On the collapsed rail My work and each saved filter are icons with their names kept as accessible
 names and tooltips, the menus are put away, and Recently viewed folds to a clock that opens the
-sidebar.
+sidebar with the list unfolded.
 
 ## Arranging columns and lanes
 
