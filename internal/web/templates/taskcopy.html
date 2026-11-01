@@ -47,7 +47,7 @@
   <div class="cform-foot">
     {{template "form-keys" (t "to copy")}}
     <div class="cform-actions">
-      <a class="secondary cform-cancel" href="{{$back}}" data-form-cancel>{{t "Cancel"}}</a>
+      <a class="secondary cform-cancel" href="{{$back}}" data-form-cancel{{if .InDialog}} data-dialog-close{{end}}>{{t "Cancel"}}</a>
       <button type="submit">{{t "Copy"}}</button>
     </div>
   </div>

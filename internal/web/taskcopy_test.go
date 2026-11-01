@@ -172,6 +172,9 @@ func TestTheCopyFormDrawsInTheDialog(t *testing.T) {
 	if !strings.HasPrefix(strings.TrimSpace(page), `<div class="taskdlg-frag" data-task-dialog="`+ref+`"`) {
 		t.Fatalf("the dialog's drawing is not a dialog fragment:\n%.300s", page)
 	}
+	if !strings.Contains(page, `href="/tasks/`+ref+`" data-form-cancel data-dialog-close>`) {
+		t.Errorf("Cancel in the dialog does not close it:\n%.2000s", page)
+	}
 	if strings.Contains(page, "<html") || !strings.Contains(page, `id="dlg-copy-title"`) {
 		t.Errorf("the dialog drew the whole page or ids that collide with the page under it")
 	}
