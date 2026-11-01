@@ -171,3 +171,27 @@ func TestAKeyChangeKeepsACustomColour(t *testing.T) {
 		t.Errorf("the confirmation does not carry the custom colour:\n%s", confirm)
 	}
 }
+
+// A key that breaks the rules, or one another project holds, is refused on
+// the key field with what was typed kept in it.
+func TestARefusedKeyIsShownOnItsField(t *testing.T) {
+	f := newFixture(t)
+	b := f.as("alice")
+	created := b.post("/projects", url.Values{"key": {"web"}, "name": {"Web"}})
+	_ = created.Body.Close()
+	wantStatus(t, created, http.StatusSeeOther)
+	for _, key := range []string{"9lives", "web"} {
+		form := settingsForm("Infra", key)
+		form.Set("confirm_key", "1")
+		resp := b.post("/projects/infra/update", form)
+		page := readAll(t, resp)
+		_ = resp.Body.Close()
+		if resp.StatusCode == http.StatusSeeOther || resp.StatusCode == http.StatusOK {
+			t.Fatalf("key %q was accepted with %d", key, resp.StatusCode)
+		}
+		input := between(t, page, `<input id="key"`, ">")
+		if !strings.Contains(input, `value="`+key+`"`) || !strings.Contains(input, `aria-invalid="true"`) {
+			t.Errorf("key %q is not refused on its field: %s", key, input)
+		}
+	}
+}
