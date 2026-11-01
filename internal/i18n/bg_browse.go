@@ -166,7 +166,7 @@ func init() {
 		"Open a project for its board, or manage its name, workflow, colour, icon and fields.": "Отворете проект за таблото му или управлявайте името, работния процес, цвета, иконата и полетата му.",
 		"archived": "архивиран",
 		"Manage":   "Управление",
-		"No projects yet. Make the first one below.": "Все още няма проекти. Създайте първия по-долу.",
+		"No projects yet. Use New project to make the first one.": "Все още няма проекти. Създайте първия с „Нов проект“.",
 		"New project":    "Нов проект",
 		"Create project": "Създай проект",
 		"A project groups tasks under a short key that starts every reference, as in infra-5. Each project uses one workflow, which gives its board its columns. An archived project is hidden from active lists and keeps its tasks.": "Проектът групира задачи под кратък ключ, с който започва всяка референция, например infra-5. Всеки проект използва един работен процес, който дава колоните на таблото му. Архивираният проект е скрит от активните списъци и запазва задачите си.",

@@ -173,6 +173,15 @@
      id and sits at the top of the form. */}}
 {{define "field-error"}}<p class="field-error"{{if .Field}} id="{{.ID}}"{{end}} role="alert">{{.Message}}</p>{{end}}
 
+{{/* required-mark says a field must be filled in, in words rather than an
+     asterisk a reader has to know the convention for. The control itself
+     carries required, which is what a screen reader announces. */}}
+{{define "required-mark"}}<span class="req" aria-hidden="true">{{t "required"}}</span>{{end}}
+
+{{/* form-keys is the keyboard line at the foot of a create or settings form.
+     Hidden until assets/forms.js is there to honour it. */}}
+{{define "form-keys"}}<p class="cform-keys" data-form-keys hidden><kbd data-form-mod>Ctrl</kbd>+<kbd>Enter</kbd> {{.}} &middot; <kbd>Esc</kbd> {{t "to cancel"}}</p>{{end}}
+
 {{/* The dl content is filled entirely by assets/shortcuts.js from the same
      JSON blob the keydown handler reads, so this markup is a shell: nothing
      here names a key or an action, which is what keeps the overlay from

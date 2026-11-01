@@ -100,7 +100,7 @@
        keystroke rather than a click. */}}
   <input name="title" placeholder="{{t "Add a task and press Enter"}}" aria-label="{{t "New task"}}" data-shortcut-target="new" required>
   <select name="project_ref" aria-label="{{t "Project"}}">
-    {{range $v.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
+    {{range $v.Projects}}<option value="{{.Key}}"{{if eq .Key $v.Form.Project}} selected{{end}}>{{.Key}}</option>{{end}}
   </select>
   <button type="submit">{{t "Add"}}</button>
   {{/* The fuller form opens from the row it extends, at the height of the
@@ -119,53 +119,14 @@
      at the top and its fuller version was a screenful away, so "add a task
      with a description" meant scrolling past the work to find it. It opens
      under the button that asks for it, over the list rather than pushing it
-     down, and is the same popover primitive as the View menu beside it. */}}
-{{if .Advanced}}
-<div id="addmore" class="addpop" popover>
-  <p class="viewhead">{{t "Add with details"}}</p>
-  <div class="body">
-    <form method="post" action="/tasks">
-      {{template "csrf" .CSRF}}
-      <div class="addgrid">
-        <label class="field">
-          <span>{{t "Title"}}</span>
-          <input id="title2" name="title" required>
-        </label>
-        <label class="field">
-          <span>{{t "Project"}}</span>
-          <select id="project_ref2" name="project_ref">
-            {{range $v.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}
-          </select>
-        </label>
-        <label class="field">
-          <span>{{t "Priority"}}</span>
-          <select id="priority" name="priority">
-            <option value="">{{t "default"}}</option>
-            {{range $v.Priorities}}<option value="{{.Value}}">{{t .Label}}</option>{{end}}
-          </select>
-        </label>
-        <label class="field is-wide">
-          <span>{{t "Notes"}}</span>
-          <textarea id="body" name="body" rows="3"></textarea>
-        </label>
-        <label class="field is-wide">
-          <span>{{t "Tags, comma separated"}}</span>
-          <input id="tags" name="tags" list="known-tags">
-        </label>
-        <div class="field is-wide">
-          <div class="field-label"><label for="repeat">{{t "Repeat when done"}}</label>{{template "tip" (tip "Repeating tasks" "Finishing a repeating task creates the next one, with the same title, tags and assignee, due on the next date. Cancelling it ends the series." "docs/features.md")}}</div>
-          <input id="repeat" name="repeat" placeholder="{{t "every week, every month on day 1, 3 days after done"}}">
-        </div>
-      </div>
-      <datalist id="known-tags">
-        {{range $v.Tags}}<option value="{{.Name}}"></option>{{end}}
-      </datalist>
-      <div class="actions">
-        <button type="button" class="secondary" popovertarget="addmore" popovertargetaction="hide">{{t "Cancel"}}</button>
-        <button type="submit">{{t "Create task"}}</button>
-      </div>
-    </form>
-  </div>
+     down, and is the same popover primitive as the View menu beside it.
+
+     A refused add draws it in place instead, with what was typed still in it:
+     the server cannot open a popover, and a browser without scripting gets
+     the same answer. */}}
+{{if or .Advanced $v.Refused}}
+<div id="addmore" class="addpop{{if $v.Refused}} is-inplace{{end}}"{{if not $v.Refused}} popover{{end}}>
+  {{template "task-create-form" .}}
 </div>
 {{end}}
 
@@ -972,3 +933,99 @@
     </span>
   </li>
 {{end}}{{end}}
+
+{{/* Add with details. The title leads and is the one large control, because
+     it is the only thing the form needs; the description is under it, and
+     what a reader picks rather than writes sits in the column beside them.
+     The fields most adds never touch -- a repeat rule with its own syntax, a
+     parent, dependencies -- are folded under More options, which opens by
+     itself whenever one of them holds something. The old form was a grid of
+     equal boxes where the repeat rule stood as tall as the title. */}}
+{{define "task-create-form"}}
+{{$v := .Data}}{{$e := $v.Errors}}{{$f := $v.Form}}
+<form method="post" class="cform" data-form action="/tasks">
+  {{template "csrf" .CSRF}}
+  {{with $f.Status}}<input type="hidden" name="status" value="{{.}}">{{end}}
+  <div class="cform-head">
+    <h2 class="cform-title">{{t "New task"}}</h2>
+  </div>
+  {{with $e.On ""}}{{template "field-error" .}}{{end}}
+  <div class="cform-grid">
+    <div class="cform-main">
+      <div class="cfield">
+        <div class="cfield-label"><label for="new-title">{{t "Title"}}</label>{{template "required-mark"}}</div>
+        <input id="new-title" class="cform-lead" name="title" value="{{$f.Title}}" placeholder="{{t "What needs doing?"}}" maxlength="500" autocomplete="off" required autofocus{{$e.Attrs "title"}}>
+        {{with $e.On "title"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="cfield cfield-grow">
+        <div class="cfield-label"><label for="new-body">{{t "Description"}}</label></div>
+        <textarea id="new-body" name="body" rows="6" placeholder="{{t "Add a description"}}"{{$e.Attrs "body"}}>{{$f.Body}}</textarea>
+        {{with $e.On "body"}}{{template "field-error" .}}{{end}}
+      </div>
+    </div>
+    <div class="cform-side">
+      <div class="cfield">
+        <div class="cfield-label"><label for="new-project">{{t "Project"}}</label></div>
+        <select id="new-project" name="project_ref"{{$e.Attrs "project_ref"}}>
+          {{range $v.Projects}}<option value="{{.Key}}"{{if eq .Key $f.Project}} selected{{end}}>{{.Name}} ({{.Key}})</option>{{end}}
+        </select>
+        {{with $e.On "project_ref"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="cform-pair">
+        <div class="cfield">
+          <div class="cfield-label"><label for="new-priority">{{t "Priority"}}</label></div>
+          <select id="new-priority" name="priority"{{$e.Attrs "priority"}}>
+            {{range $v.Priorities}}<option value="{{.Value}}"{{if or (eq (printf "%d" .Value) $f.Priority) (and (not $f.Priority) (eq .Label "normal"))}} selected{{end}}>{{t .Label}}</option>{{end}}
+          </select>
+          {{with $e.On "priority"}}{{template "field-error" .}}{{end}}
+        </div>
+        <div class="cfield">
+          <div class="cfield-label"><label for="new-due">{{t "Due date"}}</label></div>
+          <input id="new-due" name="due_at" type="date" value="{{$f.Due}}"{{$e.Attrs "due_at"}}>
+          {{with $e.On "due_at"}}{{template "field-error" .}}{{end}}
+        </div>
+      </div>
+      <div class="cfield">
+        <div class="cfield-label"><label for="new-assignee">{{t "Assignee"}}</label>{{template "tip" (tip "Assignee" "A person's or an agent's handle. Leave it empty and the task waits for whoever picks it up.")}}</div>
+        <input id="new-assignee" name="assignee" value="{{$f.Assignee}}" list="new-handles" autocomplete="off" placeholder="{{t "nobody yet"}}"{{$e.Attrs "assignee"}}>
+        <datalist id="new-handles">{{range $v.Names.Handles}}<option value="{{.}}"></option>{{end}}</datalist>
+        {{with $e.On "assignee"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="cfield">
+        <div class="cfield-label"><label for="new-tags">{{t "Tags"}}</label></div>
+        <input id="new-tags" name="tags" value="{{$f.Tags}}" list="known-tags" autocomplete="off" placeholder="{{t "comma separated"}}"{{$e.Attrs "tags"}}>
+        <datalist id="known-tags">{{range $v.Tags}}<option value="{{.Name}}"></option>{{end}}</datalist>
+        {{with $e.On "tags"}}{{template "field-error" .}}{{end}}
+      </div>
+    </div>
+  </div>
+  <details class="cform-more"{{if or $f.More ($e.On "repeat") ($e.On "parent") ($e.On "depends_on")}} open{{end}}>
+    <summary>{{t "More options"}} <span class="muted">{{t "repeat, parent, dependencies"}}</span></summary>
+    <div class="cform-moregrid">
+      <div class="cfield cfield-wide">
+        <div class="cfield-label"><label for="new-repeat">{{t "Repeat when done"}}</label>{{template "tip" (tip "Repeating tasks" "Finishing a repeating task creates the next one, with the same title, tags and assignee, due on the next date. Cancelling it ends the series." "docs/features.md")}}</div>
+        <input id="new-repeat" name="repeat" value="{{$f.Repeat}}" placeholder="{{t "every week, every month on day 1, 3 days after done"}}"{{$e.Attrs "repeat"}}>
+        {{with $e.On "repeat"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="cfield">
+        <div class="cfield-label"><label for="new-parent">{{t "Parent task"}}</label>{{template "tip" (tip "Parent task" "Makes this a subtask of another task. Name it by its reference, the key and number on its row.")}}</div>
+        <input id="new-parent" name="parent" value="{{$f.Parent}}" class="mono" autocomplete="off" placeholder="{{"proj-42"}}"{{$e.Attrs "parent"}}>
+        {{with $e.On "parent"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="cfield">
+        <div class="cfield-label"><label for="new-depends">{{t "Depends on"}}</label>{{template "tip" (tip "Dependencies" "Tasks that have to be finished before this one can start, comma separated. The task is shown as blocked until they are.")}}</div>
+        <input id="new-depends" name="depends_on" value="{{$f.DependsOn}}" class="mono" autocomplete="off" placeholder="{{"proj-42, proj-7"}}"{{$e.Attrs "depends_on"}}>
+        {{with $e.On "depends_on"}}{{template "field-error" .}}{{end}}
+      </div>
+    </div>
+  </details>
+  <div class="cform-foot">
+    {{template "form-keys" (t "to create")}}
+    <div class="cform-actions">
+      {{if $v.Refused}}<a class="secondary cform-cancel" href="{{$v.Self}}" data-form-cancel>{{t "Cancel"}}</a>
+      {{else}}<button type="button" class="secondary" popovertarget="addmore" popovertargetaction="hide">{{t "Cancel"}}</button>{{end}}
+      <button type="submit">{{t "Create task"}}</button>
+    </div>
+  </div>
+</form>
+{{end}}

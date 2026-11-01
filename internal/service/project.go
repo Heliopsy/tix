@@ -95,11 +95,11 @@ func (l *Local) CreateProject(ctx context.Context, in core.CreateProjectInput) (
 	}
 	color, err := core.NormalizeProjectColor(in.Color)
 	if err != nil {
-		return nil, err
+		return nil, core.OnField(err, "color")
 	}
 	icon, err := resolveIcon(in.Icon, in.IconName, in.IconFile)
 	if err != nil {
-		return nil, err
+		return nil, core.OnField(err, "icon")
 	}
 	key := strings.ToLower(strings.TrimSpace(in.Key))
 	workflowKey := strings.TrimSpace(in.WorkflowKey)
@@ -111,13 +111,13 @@ func (l *Local) CreateProject(ctx context.Context, in core.CreateProjectInput) (
 	err = l.write(ctx, actor, func(m *mutation) error {
 		switch _, err := m.tx.GetProject(ctx, key); {
 		case err == nil:
-			return core.Conflict("project key %q is already in use", key)
+			return core.Conflict("project key %q is already in use", key).WithDetail(core.DetailField, "key")
 		case !core.IsKind(err, core.KindNotFound):
 			return err
 		}
 		wf, err := lookupWorkflow(ctx, m.tx, workflowKey)
 		if err != nil {
-			return err
+			return core.OnField(err, "workflow_key")
 		}
 		p := &core.Project{
 			Key:         key,
@@ -201,18 +201,18 @@ func (l *Local) UpdateProject(ctx context.Context, ref string, in core.UpdatePro
 		return nil, err
 	}
 	if in.Name != nil && strings.TrimSpace(*in.Name) == "" {
-		return nil, core.Invalid("project name is required")
+		return nil, core.Invalid("project name is required").WithDetail(core.DetailField, "name")
 	}
 	var color core.ProjectColor
 	if in.Color != nil {
 		if color, err = core.NormalizeProjectColor(*in.Color); err != nil {
-			return nil, err
+			return nil, core.OnField(err, "color")
 		}
 	}
 	var icon projectIcon
 	if in.IconChanged() {
 		if icon, err = resolveIcon(deref(in.Icon), deref(in.IconName), in.IconFile); err != nil {
-			return nil, err
+			return nil, core.OnField(err, "icon")
 		}
 	}
 
@@ -244,10 +244,10 @@ func (l *Local) UpdateProject(ctx context.Context, ref string, in core.UpdatePro
 		if in.WorkflowKey != nil {
 			wf, err := lookupWorkflow(ctx, m.tx, *in.WorkflowKey)
 			if err != nil {
-				return err
+				return core.OnField(err, "workflow_key")
 			}
 			if err := ensureStatusesSurvive(ctx, m.tx, p, wf); err != nil {
-				return err
+				return core.OnField(err, "workflow_key")
 			}
 			p.WorkflowID = wf.ID
 		}
