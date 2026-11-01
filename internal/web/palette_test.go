@@ -114,6 +114,25 @@ func TestPaletteSearchStopsAtItsLimit(t *testing.T) {
 	}
 }
 
+// A ref lookup and a page of matches together could come to one more than
+// the limit; the answer still stops at it.
+func TestPaletteSearchStopsAtItsLimitWithARefFirst(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	first := b.createTask("infra", "Kick-off")
+	for i := range web.PaletteTaskLimit + 1 {
+		b.createTask("infra", fmt.Sprintf("%s follow-up %d", first, i))
+	}
+	got := paletteSearch(t, b, first)
+	if len(got) != web.PaletteTaskLimit {
+		t.Fatalf("search %s answered %d tasks, want %d", first, len(got), web.PaletteTaskLimit)
+	}
+	if got[0].Ref != first {
+		t.Errorf("search %s = %v, want the task it names first", first, refsOf(got))
+	}
+}
+
 func TestPaletteLeavesOutADeletedTask(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
@@ -121,6 +140,7 @@ func TestPaletteLeavesOutADeletedTask(t *testing.T) {
 	gone := b.createTask("infra", "Retired widget")
 	resp := b.post("/tasks/"+gone+"/delete", url.Values{})
 	_ = resp.Body.Close()
+	wantStatus(t, resp, http.StatusSeeOther)
 	for _, q := range []string{"widget", gone} {
 		if got := paletteSearch(t, b, q); len(got) != 0 {
 			t.Errorf("search %q = %v, want the deleted task left out", q, refsOf(got))
@@ -166,13 +186,19 @@ func TestPaletteNeedsASignedInReader(t *testing.T) {
 func TestPaletteProjectsNameEachProjectAndItsBoard(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
-	resp := f.as("alice").get(web.RoutePaletteProjects)
+	b := f.as("alice")
+	created := b.post("/projects", url.Values{"key": {"attic"}, "name": {"Attic"}})
+	_ = created.Body.Close()
+	archived := b.post("/projects/attic/archive", url.Values{})
+	_ = archived.Body.Close()
+	wantStatus(t, archived, http.StatusSeeOther)
+	resp := b.get(web.RoutePaletteProjects)
 	var got []struct{ Key, Name, Href string }
 	if err := json.Unmarshal([]byte(body(t, resp)), &got); err != nil {
 		t.Fatal(err)
 	}
 	if len(got) != 1 || got[0].Key != "infra" || got[0].Href != "/projects/infra" || got[0].Name == "" {
-		t.Fatalf("palette projects = %+v, want infra with its name and board", got)
+		t.Fatalf("palette projects = %+v, want infra with its name and board and no archived project", got)
 	}
 }
 

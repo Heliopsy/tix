@@ -74,7 +74,7 @@ func (h *handler) paletteTasks(w http.ResponseWriter, r *http.Request) error {
 	}
 	seen := map[string]bool{}
 	add := func(t core.Task) {
-		if seen[t.Ref] || t.Deleted() || len(out) >= PaletteTaskLimit {
+		if seen[t.Ref] || len(out) >= PaletteTaskLimit {
 			return
 		}
 		seen[t.Ref] = true
