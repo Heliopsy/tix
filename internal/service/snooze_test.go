@@ -283,3 +283,22 @@ func TestAnExportKeepsASnoozedTask(t *testing.T) {
 		t.Fatalf("export left out the snoozed task or its wake time:\n%s", buf.String())
 	}
 }
+
+func TestASnoozeSurvivesARoundTripIntoAFreshTenant(t *testing.T) {
+	l, clk, _, actor := newLocal(t)
+	source := core.WithActor(context.Background(), actor)
+	seeded := seed(t, l, source, "infra")
+	until := clk.Now().Add(48 * time.Hour).Truncate(time.Second)
+	if _, err := l.SnoozeTask(source, seeded.first, core.SnoozeInput{Until: until}); err != nil {
+		t.Fatal(err)
+	}
+	target, _, _ := newTenant(t, l, "beta")
+	if _, err := l.ImportFrom(target, bytes.NewReader(exportBytes(t, l, source, core.ExportInput{})),
+		core.ImportInput{Mode: core.ImportMerge}); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	page, err := l.ListTasks(target, core.TaskFilter{Snoozed: core.Yes})
+	if err != nil || len(page.Tasks) != 1 || !page.Tasks[0].SnoozedUntil.Equal(until) {
+		t.Fatalf("snoozed tasks in the target = %+v, %v; want one until %v", page.Tasks, err, until)
+	}
+}
