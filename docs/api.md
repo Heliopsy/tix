@@ -150,6 +150,21 @@ $ curl -s -H "Authorization: Bearer $TIX_TOKEN" http://127.0.0.1:8080/api/v1/tas
 {"id":"01M6...","ref":"ops-8", ...}
 ```
 
+### Quick add
+
+`POST /tasks` with `"parse": true` reads `title` as a quick-add line, the syntax
+[features.md](features.md) describes, and takes the attributes it names out of the title before the task
+is created. Relative dates (`due:fri`, `due:+3d`) count in UTC, since the API knows nobody's zone. A field
+in the body that the line contradicts is `400`; an unknown project, handle or parent is `404`, as it is
+for the explicit field. Without `parse` the title is stored as given.
+
+```console
+$ curl -s -X POST -H "Authorization: Bearer $TIX_TOKEN" -H 'Content-Type: application/json' \
+    -d '{"title":"Fix login !high #auth due:2026-11-20 +infra","parse":true}' \
+    http://127.0.0.1:8080/api/v1/tasks
+{"id":"01M6...","ref":"infra-9","title":"Fix login","priority":2,"tags":["auth"], ...}
+```
+
 ### Recurring tasks
 
 A task carries an optional `recurrence`, a repeat rule in the syntax [features.md](features.md)

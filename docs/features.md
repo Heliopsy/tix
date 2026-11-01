@@ -31,6 +31,40 @@ that row's own workflow can reach, including ones reachable only through another
 route is spelled out before it is applied, and each hop is an ordinary transition, so a task that
 passed through a state really did pass through it and the audit trail says so.
 
+**Quick-add syntax.** One line can carry a task's attributes: `Fix login !high #auth @raj due:fri +web
+^infra-3` is a task titled "Fix login", priority high, tagged `auth`, assigned to `raj`, due next Friday,
+in project `web`, under `infra-3`. The same parser reads the browser's one-line add box (always), the
+terminal's new-task prompt (always), `tix task add --parse` and `POST /v1/tasks` with `"parse": true`.
+
+| Token | Sets | Notes |
+| --- | --- | --- |
+| `!highest` `!high` `!normal` `!low` `!lowest`, `!1` to `!5`, `priority:X` | priority | 1 is highest |
+| `#tag`, `tag:X` | a tag, repeatable | needs a letter, so `#42` stays text |
+| `@handle`, `assignee:X` | assignee | |
+| `due:X` | due date | `today`, `tomorrow`, a weekday (`fri`, `friday`), `+3d`, `+2w`, `2026-11-20`, RFC 3339 |
+| `+key`, `project:key` | project | takes the place of the box's project picker |
+| `^ref`, `parent:ref` | parent task | |
+| `status:X` | initial status | any state of the project's workflow |
+
+A weekday is the next one after today, never today itself, which is `due:today`. Dates count in the
+reader's calendar: the local zone on the command line and in the terminal, the zone chosen under Settings
+in the browser, and UTC over the API. A date with no time is midnight UTC of that day, as `--due` gives.
+
+A token is a whole word and only counts when its value fits, so `C#`, `a@b.c`, `#42`, `+1`, `!important`
+and the `#` inside a URL stay in the title. A keyed form with a bad value (`due:someday`) is refused
+rather than kept. Put a backslash before a token (`\#news`) or quotes around text (`"#main"`, `„#main“`)
+to keep it as written; quotes stay in the title. Naming one attribute twice with different values, or
+contradicting a flag or field given alongside the line, is refused. An unknown project, handle or parent
+is refused the way the explicit field is, and the browser and terminal keep the line for you to fix.
+
+The command line parses only when asked, because a script passing a title it did not write, an issue
+title or a commit subject, must get that title back. Single-quote the line so the shell leaves `!` and `#`
+alone:
+
+```console
+$ tix task add --parse 'Fix login !high #auth @raj due:fri'
+```
+
 **Tasks that repeat.** A task can carry a repeat rule, and finishing it puts the next one on the list, the
 way Google Tasks does it: nothing is generated ahead of time, so there is only ever one open occurrence of
 a series. Set it with `tix task add --repeat`, change it with `tix task edit --repeat`, remove it with

@@ -482,6 +482,15 @@ for everything that is configuration rather than a reading preference.
 A session with nowhere to write, which is what an SSH session is, keeps the screen usable and says the
 choices last until you quit.
 
+## Adding a task
+
+`n` opens the new-task prompt, which reads [quick-add syntax](features.md): `Fix login !high #auth
+@raj due:fri` creates "Fix login" with that priority, tag, assignee and due date, in the open project
+unless the line names another with `+key`. A row under the field names what the line will set while you
+type. A line the parser refuses keeps the prompt open with the reason, and one the service refuses, an
+unknown handle or project, reopens the prompt holding the line as typed. Relative dates count in the
+local zone.
+
 ## Filtering
 
 `/` on the board takes the expression language of [filtering.md](filtering.md), through the same parser,
