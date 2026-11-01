@@ -431,6 +431,7 @@ func ScopedTables() []string {
 		"ssh_keys", "tenant_domains", "task_stars", "project_icons", "project_key_aliases",
 		"group_prefs", "saved_filters", "calendar_feeds", "inbox_items", "inbox_mutes",
 		"inbox_channels", "inbox_deliveries",
+		"task_templates",
 	}
 	return all
 }

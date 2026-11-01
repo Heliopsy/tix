@@ -612,6 +612,9 @@ const (
 	// created for them, read or unread, or their mutes changed. Its payload
 	// names the actors under "recipients".
 	EventInboxUpdated EventType = "inbox.updated"
+	// EventTemplateUpdated records a task template saved, edited or deleted;
+	// the payload's action says which.
+	EventTemplateUpdated EventType = "template.updated"
 )
 
 // eventTypes is the complete event vocabulary, in declaration order.
@@ -627,6 +630,7 @@ var eventTypes = []EventType{
 	EventWebhookDelivered, EventImportCompleted, EventViewArranged,
 	EventFilterSaved, EventFilterUpdated, EventFilterDeleted,
 	EventInboxUpdated,
+	EventTemplateUpdated,
 }
 
 // EventTypes returns the complete event vocabulary. Callers outside this

@@ -79,7 +79,7 @@ func TestRoleActionMatrix(t *testing.T) {
 	}
 	member := append([]Action{
 		ActionTaskCreate, ActionTaskUpdate, ActionTaskTransition, ActionTaskClaim,
-		ActionCommentWrite, ActionArtifactWrite, ActionExport,
+		ActionCommentWrite, ActionArtifactWrite, ActionExport, ActionTemplateTenantWrite,
 	}, viewer...)
 
 	allowedByRole := map[core.Role][]Action{

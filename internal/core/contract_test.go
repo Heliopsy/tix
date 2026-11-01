@@ -57,6 +57,7 @@ var (
 	_ core.CalendarService     = service
 	_ core.InboxService        = service
 	_ core.InboxChannelService = service
+	_ core.TemplateService     = service
 )
 
 // serviceParts names every sub-interface Service is assembled from.
@@ -80,6 +81,7 @@ var serviceParts = map[string]reflect.Type{
 	"CalendarService":     reflect.TypeOf((*core.CalendarService)(nil)).Elem(),
 	"InboxService":        reflect.TypeOf((*core.InboxService)(nil)).Elem(),
 	"InboxChannelService": reflect.TypeOf((*core.InboxChannelService)(nil)).Elem(),
+	"TemplateService":     reflect.TypeOf((*core.TemplateService)(nil)).Elem(),
 }
 
 // serviceOwnMethods are the only two methods Service may declare itself.

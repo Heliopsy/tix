@@ -65,6 +65,7 @@ type Tx interface {
 	CalendarTx
 	InboxTx
 	InboxChannelTx
+	TemplateTx
 
 	Commit() error
 	Rollback() error
@@ -300,6 +301,23 @@ type InboxChannelTx interface {
 	GetChannelDelivery(ctx context.Context, id string) (*core.ChannelDelivery, error)
 	// ListChannelDeliveries returns a page of one channel's deliveries, newest first.
 	ListChannelDeliveries(ctx context.Context, f core.ChannelDeliveryFilter) ([]core.ChannelDelivery, error)
+}
+
+// TemplateTx covers task templates.
+type TemplateTx interface {
+	CreateTemplate(ctx context.Context, t *core.TaskTemplate) error
+	// GetTemplate reads a template by identifier or, ignoring case, name.
+	GetTemplate(ctx context.Context, ref string) (*core.TaskTemplate, error)
+	ListTemplates(ctx context.Context, f TemplateQuery) ([]core.TaskTemplate, error)
+	UpdateTemplate(ctx context.Context, t *core.TaskTemplate) error
+	DeleteTemplate(ctx context.Context, id string) error
+}
+
+// TemplateQuery narrows a template listing. A ProjectID keeps that project's
+// templates and the tenant-wide ones.
+type TemplateQuery struct {
+	ProjectID string
+	Page      core.Page
 }
 
 // ClaimTx covers the work queue.

@@ -38,6 +38,7 @@ type Service interface {
 	CalendarService
 	InboxService
 	InboxChannelService
+	TemplateService
 
 	Close() error
 }
