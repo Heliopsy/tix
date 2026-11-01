@@ -354,3 +354,44 @@ func TestFeedTrailNeverCarriesTheSecret(t *testing.T) {
 		}
 	}
 }
+
+// A state name may finish work in one workflow and be a waypoint in another,
+// so the default feed decides by each task's own workflow rather than by name.
+func TestDefaultFeedJudgesFinishedByTheTasksOwnWorkflow(t *testing.T) {
+	f := newCalendarFixture(t)
+	def := func(terminal bool) core.WorkflowDefinition {
+		return core.WorkflowDefinition{
+			Initial: "todo",
+			States: []core.State{
+				{Key: "todo", Label: "Todo"},
+				{Key: "shipped", Label: "Shipped", Terminal: terminal},
+			},
+			Transitions: []core.Transition{{From: "todo", To: "shipped"}},
+		}
+	}
+	finishes := seedTaskProjectWith(t, f.l, f.scope, "fin", def(true))
+	passes := seedTaskProjectWith(t, f.l, f.scope, "way", def(false))
+	ship := func(p *core.Project) *core.Task {
+		task := mustCreateTask(t, f.l, f.admin, core.CreateTaskInput{
+			Title: p.Key, ProjectRef: p.Key, DueAt: dueOn(2026, 11, 9), AssigneeActorID: f.actor.ID,
+		})
+		if _, err := f.l.TransitionTask(f.admin, core.TaskRef{ID: task.ID}, core.TransitionInput{To: "shipped"}); err != nil {
+			t.Fatalf("shipping %s: %v", task.Ref, err)
+		}
+		return task
+	}
+	ship(finishes)
+	open := ship(passes)
+
+	issued, err := f.l.CreateCalendarFeed(f.member, core.CalendarFeedInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := f.l.ReadCalendarFeed(f.feedCtx(), issued.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refs := entryRefs(got); !slices.Equal(refs, []string{open.Ref}) {
+		t.Fatalf("feed lists %v, want only the task whose shipped is a waypoint, %s", refs, open.Ref)
+	}
+}
