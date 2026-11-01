@@ -12,8 +12,6 @@ import (
 	"github.com/heliopsy/tix/internal/store"
 )
 
-func strp(s string) *string { return &s }
-
 // rekeyFixture is a tenant with project infra holding one task, infra-1.
 func rekeyFixture(t *testing.T) (*Local, core.TenantScope, context.Context, *core.Project, *core.Task) {
 	t.Helper()

@@ -157,7 +157,6 @@ func TestMigrationResumesAboveExistingTasks(t *testing.T) {
 		"ALTER TABLE tenants DROP COLUMN require_totp_ssh",
 		"ALTER TABLE tenants DROP COLUMN lease_default",
 		"ALTER TABLE tenants DROP COLUMN lease_max",
-		"DROP TABLE project_key_aliases",
 		"DROP TABLE task_stars",
 		"DROP TABLE group_prefs",
 		"ALTER TABLE tasks DROP COLUMN recurrence",
@@ -167,6 +166,7 @@ func TestMigrationResumesAboveExistingTasks(t *testing.T) {
 		"DROP TABLE project_icons",
 		"ALTER TABLE projects DROP COLUMN icon_name",
 		"ALTER TABLE projects DROP COLUMN icon_image",
+		"DROP TABLE project_key_aliases",
 		"DELETE FROM schema_migrations WHERE version > 1",
 	} {
 		if _, err := s.writer.ExecContext(ctx, stmt); err != nil {
