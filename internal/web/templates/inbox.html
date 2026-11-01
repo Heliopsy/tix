@@ -1,0 +1,64 @@
+{{/* The reader's inbox: one row per item, newest first, unread ones marked.
+
+     The list is one in-place region (assets/feel.js data-inplace), so marking
+     an item read or unread, or everything read, redraws the list without a
+     page load; every form is a plain post that works with scripting off.
+     Opening an item is a link to the task, which the dialog setting may open
+     over this page (assets/taskopen.js); assets/inbox.js marks it read on the
+     way. The sidebar's badge follows over the event stream. */}}
+{{define "content"}}
+{{$v := .Data}}
+<div class="headtip"><h1>{{t "Inbox"}}</h1>{{template "tip" (tip "Inbox" "What concerns you: somebody mentions you as @handle in a comment or a description, assigns you a task, comments on a task you are assigned to or starred, or moves a task assigned to you. Your own changes never appear here. Turn kinds off under Settings, Inbox." "docs/web-ui.md")}}</div>
+<p class="lede">{{t "Mentions, assignments, comments and status changes that concern you, newest first."}}</p>
+
+<div class="inbox-bar">
+  <nav class="segmented" aria-label="{{t "Which items to show"}}">
+    <a href="/inbox" class="segment{{if not $v.Unread}} is-on{{end}}" {{if not $v.Unread}}aria-current="page"{{end}}>{{t "All"}}</a>
+    <a href="/inbox?show=unread" class="segment{{if $v.Unread}} is-on{{end}}" {{if $v.Unread}}aria-current="page"{{end}}>{{t "Unread"}}{{if $v.Count}} <span class="count">{{$v.Count}}</span>{{end}}</a>
+  </nav>
+  {{if $v.Count}}
+  <form method="post" class="inbox-readall" action="/inbox/read-all">
+    {{template "csrf" .CSRF}}
+    <input type="hidden" name="next" value="{{$v.Here}}">
+    <button type="submit" class="secondary">{{t "Mark all read"}}</button>
+  </form>
+  {{end}}
+</div>
+
+<section id="inbox-list" class="card inbox" data-inplace aria-label="{{t "Inbox items"}}">
+  {{if not $v.Items}}
+  <p class="empty">{{if $v.Unread}}{{t "Nothing unread."}}{{else}}{{t "Nothing here yet. When somebody mentions you, assigns you a task or comments on one you follow, it shows up here."}}{{end}}</p>
+  {{else}}
+  <ul class="plain inbox-items">
+    {{range $v.Items}}
+    <li class="inbox-item{{if not .Read}} is-unread{{end}}" id="i-{{.ID}}">
+      <span class="inbox-dot" aria-hidden="true"></span>
+      <div class="inbox-main">
+        <p class="inbox-what">
+          {{$by := or .ActorHandle (t "somebody")}}
+          {{if eq (printf "%s" .Kind) "mention"}}{{t "%s mentioned you" $by}}
+          {{else if eq (printf "%s" .Kind) "assigned"}}{{t "%s assigned you" $by}}
+          {{else if eq (printf "%s" .Kind) "status"}}{{t "%s moved it from %s to %s" $by .FromStatus .ToStatus}}
+          {{else}}{{t "%s commented" $by}}{{end}}
+          {{if not .Read}}<span class="sr-only">{{t "(unread)"}}</span>{{end}}
+        </p>
+        <p class="inbox-task">
+          {{if .Href}}<a href="{{.Href}}" data-inbox-open="{{.ID}}"{{if not .Read}} data-inbox-unread{{end}}><span class="ref">{{.TaskRef}}</span> {{.TaskTitle}}</a>
+          {{else}}<span class="muted">{{t "a task that has been deleted"}}</span>{{end}}
+        </p>
+        {{if and .Excerpt (ne (printf "%s" .Kind) "assigned")}}<p class="inbox-excerpt">{{.Excerpt}}</p>{{end}}
+      </div>
+      <time class="inbox-when muted" datetime="{{absolute .CreatedAt}}" title="{{absolute .CreatedAt}}">{{relativeAt .CreatedAt}}</time>
+      <form method="post" class="inbox-mark" action="{{if .Read}}/inbox/unread{{else}}/inbox/read{{end}}">
+        {{template "csrf" $.CSRF}}
+        <input type="hidden" name="id" value="{{.ID}}">
+        <input type="hidden" name="next" value="{{$v.Here}}">
+        <button type="submit" class="ghost" data-focus="mark-{{.ID}}">{{if .Read}}{{t "Mark unread"}}{{else}}{{t "Mark read"}}{{end}}</button>
+      </form>
+    </li>
+    {{end}}
+  </ul>
+  {{end}}
+</section>
+{{template "pager" $v.Pager}}
+{{end}}

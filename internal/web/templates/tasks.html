@@ -1056,7 +1056,7 @@
       </div>
       <div class="cfield cfield-grow">
         <div class="cfield-label"><label for="new-body">{{t "Description"}}</label></div>
-        <textarea id="new-body" name="body" rows="6" placeholder="{{t "Add a description"}}"{{$e.Attrs "body"}}>{{$f.Body}}</textarea>
+        <textarea id="new-body" name="body" rows="6" data-mention="new-handles" placeholder="{{t "Add a description"}}"{{$e.Attrs "body"}}>{{$f.Body}}</textarea>
         {{with $e.On "body"}}{{template "field-error" .}}{{end}}
       </div>
     </div>

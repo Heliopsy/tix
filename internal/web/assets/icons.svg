@@ -42,6 +42,12 @@
     <path d="M3 12h4l3 8 4-16 3 8h4"/>
   </symbol>
 
+  <symbol id="inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 13l3-8h12l3 8v6H3z"/>
+    <path d="M3 13h5l1 2h6l1-2h5"/>
+  </symbol>
+
   <symbol id="stats" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M5 20V10"/><path d="M12 20V4"/><path d="M19 20v-7"/>

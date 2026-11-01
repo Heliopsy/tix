@@ -21,7 +21,7 @@ func (h *handler) sessionRoutes() []route {
 		public(get(RouteLogin, "login.html", h.showLogin)),
 		public(post(RouteLogin, h.doLogin, "Login")),
 		post(RouteLogout, h.doLogout, "Logout"),
-		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed"),
+		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs"),
 		get(RouteRelease, "release.html", h.showRelease, "WhoAmI"),
 		post(RouteAdvanced, h.toggleAdvanced, "Logout"),
 		post(RouteTheme, h.setTheme, "Logout"),
@@ -158,6 +158,8 @@ type settingsView struct {
 
 	// Calendar is the reader's own feed of due dates.
 	Calendar calendarView
+	// InboxKinds are the switches that mute a kind of inbox item.
+	InboxKinds []inboxKindChoice
 }
 
 // showSettings renders the settings screen: every per-browser display
@@ -197,6 +199,7 @@ func (h *handler) renderSettings(w http.ResponseWriter, r *http.Request, status 
 		Prefs:          settingsPrefs(h.prefsFor(r, projects, whole)),
 		TOTP:           totp,
 		Calendar:       calendar,
+		InboxKinds:     inboxKindChoices(h.inboxPrefs(r)),
 	})
 }
 

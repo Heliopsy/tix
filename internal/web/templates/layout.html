@@ -45,6 +45,8 @@
 <script src="/assets/palette.js" defer></script>
 <script src="/assets/select.js" defer></script>
 <script src="/assets/recent.js" defer></script>
+<script src="/assets/inbox.js" defer></script>
+<script src="/assets/mention.js" defer></script>
 </head>
 <body hx-boost="true">
 {{if .Actor}}
@@ -85,7 +87,7 @@
           <kbd class="palette-open-kbd" data-palette-kbd aria-hidden="true">Ctrl K</kbd>
         </button>
         <button type="button" class="burger" popovertarget="sidemenu" aria-label="{{t "Menu"}}">
-          <svg class="burger-icon" aria-hidden="true" width="24" height="24"><use href="/assets/icons.svg#menu"/></svg>
+          <svg class="burger-icon" aria-hidden="true" width="24" height="24"><use href="/assets/icons.svg#menu"/></svg><span class="burger-dot" data-inbox-mirror aria-hidden="true"{{if not .Inbox}} hidden{{end}}></span>
         </button>
       </div>
       <div id="sidemenu" class="sidemenu" popover>

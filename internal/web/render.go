@@ -177,6 +177,8 @@ type view struct {
 	Upgrade     upgrade
 	// Saved is the sidebar's list of the reader's saved filters.
 	Saved savedNav
+	// Inbox is the reader's unread count, which the sidebar's badge shows.
+	Inbox int
 	Data  any
 }
 
@@ -373,6 +375,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		InTrash:         inTrash(r),
 		Here:            here(r),
 		Upgrade:         h.releases.state(),
+		Inbox:           h.unreadCount(r),
 		ColumnPage:      columnPage(name),
 		Columns:         columnsOf(r),
 		Flash:           r.URL.Query().Get("flash"),

@@ -652,4 +652,63 @@
   tix.titleLabel = function (ref) {
     return say("Title of %s").replace("%s", String(ref || ""));
   };
+
+  // applyBadge copies a freshly rendered unread badge onto the one on screen:
+  // its count and whether it shows. mirrors are the other marks that say
+  // there is something unread (the phone menu button's dot), shown with it.
+  tix.applyBadge = function (here, fresh, mirrors) {
+    if (!here || !fresh) {
+      return;
+    }
+    var count = parseInt(fresh.getAttribute("data-inbox-count"), 10) || 0;
+    here.innerHTML = fresh.innerHTML;
+    here.setAttribute("data-inbox-count", String(count));
+    var marks = [here].concat(Array.prototype.slice.call(mirrors || []));
+    for (var i = 0; i < marks.length; i++) {
+      if (count > 0) {
+        marks[i].removeAttribute("hidden");
+      } else {
+        marks[i].setAttribute("hidden", "hidden");
+      }
+    }
+  };
+
+  // mentionAt finds the @handle being typed at the caret: the position of
+  // its @ and what follows it so far, or null when the caret is not in one.
+  // An @ preceded by a word character is an address, not a mention.
+  tix.mentionAt = function (text, caret) {
+    var before = String(text || "").slice(0, caret);
+    var m = /(^|[^\w@.])@([A-Za-z0-9._-]*)$/.exec(before);
+    if (!m) {
+      return null;
+    }
+    return { start: before.length - m[2].length - 1, query: m[2].toLowerCase() };
+  };
+
+  // mentionMatches lists the handles a query completes to: those starting
+  // with it first, then those containing it, at most limit of them.
+  tix.mentionMatches = function (handles, query, limit) {
+    var q = String(query || "").toLowerCase();
+    var starts = [];
+    var inside = [];
+    for (var i = 0; i < (handles || []).length; i++) {
+      var h = String(handles[i]);
+      var low = h.toLowerCase();
+      if (low.indexOf(q) === 0) {
+        starts.push(h);
+      } else if (q && low.indexOf(q) > 0) {
+        inside.push(h);
+      }
+    }
+    return starts.concat(inside).slice(0, limit || 8);
+  };
+
+  // mentionInsert is the text once a handle is chosen: the @query replaced by
+  // @handle and a space, and where the caret goes.
+  tix.mentionInsert = function (text, caret, at, handle) {
+    var value = String(text || "");
+    var head = value.slice(0, at.start) + "@" + handle + " ";
+    var rest = value.slice(caret).replace(/^\s/, "");
+    return { value: head + rest, caret: head.length };
+  };
 })(typeof globalThis !== "undefined" ? globalThis : this);

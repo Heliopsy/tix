@@ -25,6 +25,7 @@
   <a href="#listings">{{t "Listings"}}</a>
   <a href="#keyboard">{{t "Keyboard"}}</a>
   <a href="#dates">{{t "Dates and times"}}</a>
+  <a href="#inbox">{{t "Inbox"}}</a>
   <a href="#second-factor">{{t "Second factor"}}</a>
   <a href="#calendar">{{t "Calendar feed"}}</a>
   <a href="#database">{{t "Database"}}</a>
@@ -303,6 +304,31 @@
       </div>
     </form>
 
+  </div>
+</section>
+
+<section class="setgroup" id="inbox">
+  <h2>{{t "Inbox"}}</h2>
+  {{/* Unlike the rest of this screen these are kept with the account, not
+       the browser: they decide what the server writes to the inbox, so they
+       follow the reader to every browser, the command line and the API. */}}
+  <p class="sethelp">{{t "What reaches your inbox. Kept with your account, so it applies everywhere you sign in."}}</p>
+  <div class="setlist">
+  {{range .Data.InboxKinds}}
+    <form class="setrow" method="post" action="/settings/inbox" hx-boost="false">
+      {{template "csrf" $.CSRF}}
+      <input type="hidden" name="next" value="{{savedNext "Inbox" "inbox"}}">
+      <input type="hidden" name="kind" value="{{.Kind}}">
+      <input type="hidden" name="receive" value="{{if .Receive}}off{{else}}on{{end}}">
+      <div class="setrow-text">
+        <div class="setname-line"><span class="setname" id="inbox-{{.Kind}}-name">{{t .Label}}</span></div>
+        <span class="sethelp" id="inbox-{{.Kind}}-help">{{t .Help}}</span>
+      </div>
+      <div class="setrow-ctl">
+        <button class="switch" type="submit" role="switch" aria-checked="{{if .Receive}}true{{else}}false{{end}}" aria-labelledby="inbox-{{.Kind}}-name" aria-describedby="inbox-{{.Kind}}-help"><span class="switch-track" aria-hidden="true"></span><span class="switch-state">{{if .Receive}}{{t "On"}}{{else}}{{t "Off"}}{{end}}</span></button>
+      </div>
+    </form>
+  {{end}}
   </div>
 </section>
 
