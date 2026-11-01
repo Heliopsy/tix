@@ -140,7 +140,6 @@ func (h *handler) refuseCalendar(w http.ResponseWriter, r *http.Request, err err
 // renderCalendarIssued shows a feed's address, the one time it can be shown.
 func (h *handler) renderCalendarIssued(w http.ResponseWriter, r *http.Request, feed *core.IssuedCalendarFeed, rotated bool) error {
 	addr, webcal := feedAddress(r, feed.Token)
-	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	// #nosec G203 -- the webcal address is this request's own host and a
 	// route built from a secret in the token alphabet, so it carries no markup.
