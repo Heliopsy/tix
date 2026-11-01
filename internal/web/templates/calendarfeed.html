@@ -11,7 +11,7 @@
 <section class="secret" aria-labelledby="calendar-url-heading">
   <h2 id="calendar-url-heading">{{t "Feed address"}}</h2>
   <div class="copyline">
-    <pre id="calendar-url"><code>{{$v.URL}}</code></pre>
+    <pre id="calendar-url" class="wraps"><code>{{$v.URL}}</code></pre>
     <button type="button" class="secondary" data-copy-target="calendar-url">{{t "Copy"}}</button>
   </div>
   <p class="muted">{{t "Lists:"}} {{if $v.Filter}}<code>{{$v.Filter}}</code>{{else}}{{t "the tasks assigned to you that are not finished"}}{{end}}</p>

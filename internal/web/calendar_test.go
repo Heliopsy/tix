@@ -26,7 +26,7 @@ func calendarSection(t *testing.T, page string) string {
 // feedURL reads the one address the issued screen shows.
 func feedURL(t *testing.T, page string) string {
 	t.Helper()
-	addr := between(t, page, `<pre id="calendar-url"><code>`, "</code>")
+	addr := between(t, page, `<pre id="calendar-url" class="wraps"><code>`, "</code>")
 	if !strings.Contains(addr, "/api/v1/calendar/feeds/tix_cal_") || !strings.HasSuffix(addr, ".ics") {
 		t.Fatalf("the issued screen shows no feed address:\n%s", page)
 	}

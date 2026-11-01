@@ -208,6 +208,12 @@ something this tenant does not have, which is `not_found` on stderr rather than 
 retrying will not fix. Read the code when the command carries `-p`, `-s` or an actor term. See
 [filtering.md](filtering.md#a-term-that-names-nothing).
 
+`tix calendar` uses the same codes: 3 when you have no feed to show, rotate, filter or revoke, 4 when
+`create` finds one already live, 2 when the filter does not parse or the caller holds no membership in the
+tenant, and 3 when the filter names a project or status that does not exist. `create` and `rotate` print the
+feed address on standard output exactly once; the note that it is shown once goes to standard error, so
+`tix calendar create -o json | jq -r .url` captures just the address. See [calendar.md](calendar.md).
+
 Diagnostics go to standard error, data to standard output, always. That is why `tix export > file` and
 `tix bundle export | tix bundle import` cannot be polluted by a progress line.
 
