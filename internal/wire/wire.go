@@ -79,6 +79,9 @@ const (
 	RouteTaskArtifacts  = APIPrefix + "/tasks/{ref}/artifacts"
 	RouteTaskAudit      = APIPrefix + "/tasks/{ref}/audit"
 
+	// RouteTrash answers whether the tenant keeps deleted tasks.
+	RouteTrash = APIPrefix + "/trash"
+
 	RouteComment = APIPrefix + "/comments/{id}"
 	RouteLabels  = APIPrefix + "/tags"
 

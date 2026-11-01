@@ -653,6 +653,12 @@ and `task show` answers exit `3` for it, but `--trashed` (`is:trashed`) and
 restore after it is exit `3` too. Never pass `--hard` to tidy up your own
 plan; cancel the task instead, which is terminal and keeps the history.
 
+A tenant admin can turn the tenant's trash off. Then
+every `task rm` is permanent, `task rm` says so on stderr, and `task restore`
+and `--trashed` fail with exit `6`. `tix task trash -o json` answers
+`{"enabled": ..., "held": N}`; check it before deleting anything you might
+want back, and prefer cancelling a task over deleting it when it is off.
+
 ## Parking a task until later
 
 ```sh

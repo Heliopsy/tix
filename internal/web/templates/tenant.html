@@ -78,6 +78,22 @@
          placeholder="{{.Data.LeaseMax}}">
   <p class="note">{{t "Leave either empty to use the deployment setting, shown greyed. A claim may always ask for less."}}</p>
 
+  {{/* Whether a delete can be taken back. Off is permanent deletion
+       everywhere: no undo toast, a confirmation instead, no Trash in the
+       sidebar. Turning it off never empties the trash: what is already there
+       stays, out of reach, and turning it back on returns it. Destroying it
+       on the same click would make the safe-looking choice the one that
+       cannot be reversed. */}}
+  <div class="field-label">
+    <label for="trash">{{t "Trash"}}</label>
+    {{template "field-info" "On, a deleted task goes to the Trash, where anyone who could delete it can restore it, and every delete offers Undo. Off, deleting a task removes it for good: each delete asks first, nothing can be restored, and the Trash leaves the sidebar. Tasks already in the trash when it is turned off are kept, out of reach, and come back when it is turned on again."}}
+  </div>
+  <select id="trash" name="trash">
+    <option value="on"{{if not .Data.Tenant.TrashOff}} selected{{end}}>{{t "On: deleted tasks can be restored"}}</option>
+    <option value="off"{{if .Data.Tenant.TrashOff}} selected{{end}}>{{t "Off: deleting is permanent"}}</option>
+  </select>
+  {{with .Data.Trash.Held}}<p class="note trashheld">{{if $.Data.Tenant.TrashOff}}{{tn "%d task deleted while the trash was on is kept out of reach until it is turned back on." "%d tasks deleted while the trash was on are kept out of reach until it is turned back on." .}}{{else}}{{tn "%d task is in the trash. Turning the trash off keeps it, out of reach, until the trash is on again." "%d tasks are in the trash. Turning the trash off keeps them, out of reach, until the trash is on again." .}}{{end}}</p>{{end}}
+
   <p><button type="submit">{{t "Save"}}</button></p>
 </form>
 

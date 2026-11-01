@@ -549,6 +549,9 @@ type StatsTx interface {
 	// as unclaimed whether or not the sweeper has been, which is the same
 	// judgement Task.ClaimedAtTime makes on a single row.
 	WorkCounts(ctx context.Context, now time.Time) (WorkCounts, error)
+	// CountTrashed counts the soft-deleted tasks, in one project when
+	// projectID is set.
+	CountTrashed(ctx context.Context, projectID string) (int, error)
 }
 
 // WorkCounts totals one tenant's work.

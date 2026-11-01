@@ -51,3 +51,13 @@ func (t *tx) WorkCounts(ctx context.Context, now time.Time) (store.WorkCounts, e
 	}
 	return out, nil
 }
+
+// CountTrashed counts the soft-deleted tasks, in one project when projectID is
+// set.
+func (t *tx) CountTrashed(ctx context.Context, projectID string) (int, error) {
+	b := t.builder("tasks").Where("deleted_at IS NOT NULL")
+	if projectID != "" {
+		b = b.Where("project_id = ?", projectID)
+	}
+	return t.count(ctx, b, "counting deleted tasks")
+}

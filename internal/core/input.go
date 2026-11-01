@@ -52,6 +52,9 @@ type UpdateTenantInput struct {
 	// and a plain value cannot tell them apart.
 	LeaseDefault *Duration `json:"lease_default,omitempty" yaml:"lease_default,omitempty"`
 	LeaseMax     *Duration `json:"lease_max,omitempty" yaml:"lease_max,omitempty"`
+	// TrashOff turns the trash off (true) or back on (false); nil leaves it
+	// alone. Turning it off keeps the tasks already in the trash.
+	TrashOff *bool `json:"trash_off,omitempty" yaml:"trash_off,omitempty"`
 }
 
 // Validate checks the input.

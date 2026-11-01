@@ -98,6 +98,7 @@ type TaskService interface {
 	TransitionRoute(ctx context.Context, ref TaskRef, in RouteInput) (*RouteResult, error)
 	DeleteTask(ctx context.Context, ref TaskRef, in DeleteTaskInput) error
 	RestoreTask(ctx context.Context, ref TaskRef) (*Task, error)
+	TrashStatus(ctx context.Context) (*TrashStatus, error)
 	TaskTree(ctx context.Context, ref TaskRef, depth int) ([]Task, error)
 	// CopyTask creates a copy of a task, in its own project or another one,
 	// and returns the copy. See CopyTaskInput for what travels.

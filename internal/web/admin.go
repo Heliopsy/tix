@@ -52,10 +52,13 @@ type tenantView struct {
 	LeaseDefault core.Duration
 	LeaseMax     core.Duration
 	Tenants      []core.Tenant
-	Members      []core.Membership
-	Retention    core.RetentionPolicy
-	Roles        []core.Role
-	Shape        []shapeNode
+	// Trash is whether deleted tasks are kept, and how many are held, so
+	// turning it off can say what stays behind.
+	Trash     core.TrashStatus
+	Members   []core.Membership
+	Retention core.RetentionPolicy
+	Roles     []core.Role
+	Shape     []shapeNode
 	// Names labels each member by the handle its actor carries, because a
 	// membership row holds an actor identifier and nothing else. Without
 	// this the table read as three 26-character ULIDs under a heading
@@ -110,6 +113,10 @@ func (h *handler) showTenant(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	trash, err := h.svc.TrashStatus(r.Context())
+	if err != nil {
+		return err
+	}
 	actors := make([]string, 0, len(members))
 	for _, m := range members {
 		actors = append(actors, m.ActorID)
@@ -117,7 +124,7 @@ func (h *handler) showTenant(w http.ResponseWriter, r *http.Request) error {
 	return h.render(w, r, "tenant.html", "Tenant", tenantView{
 		Tenant: *tenant, Tenants: tenants, Members: members, Themes: h.themes.List(),
 		LeaseDefault: core.Duration(h.leases.Default), LeaseMax: core.Duration(h.leases.Max),
-		Retention: *retention, Roles: core.Roles, Shape: shape,
+		Retention: *retention, Roles: core.Roles, Shape: shape, Trash: *trash,
 		Names: h.resolveActors(r, actors...)})
 }
 
@@ -212,7 +219,7 @@ func (h *handler) tokenShapeRow(r *http.Request) shapeNode {
 	return row
 }
 
-// updateTenant saves the tenant's display name, theme and lease bounds.
+// updateTenant saves the tenant's display name, theme, lease bounds and trash.
 func (h *handler) updateTenant(w http.ResponseWriter, r *http.Request) error {
 	name := field(r, "name")
 	// The empty option clears the theme, so the field is always sent and
@@ -239,6 +246,13 @@ func (h *handler) updateTenant(w http.ResponseWriter, r *http.Request) error {
 			d = parsed
 		}
 		*f.into = &d
+	}
+	switch field(r, "trash") {
+	case "on":
+		in.TrashOff = new(bool)
+	case "off":
+		off := true
+		in.TrashOff = &off
 	}
 	if _, err := h.svc.UpdateTenant(r.Context(), "", in); err != nil {
 		return err

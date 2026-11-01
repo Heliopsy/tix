@@ -4,6 +4,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -198,7 +199,16 @@ func filterFault(err error) bool {
 	case core.KindInvalid, core.KindNotFound:
 		return true
 	}
-	return false
+	return trashRefusal(err)
+}
+
+// trashRefusal reports whether the service refused because the tenant's
+// trash is off, which the trash screen says in its filter bar rather than as
+// an error page: the reader asked a fair question with a link that may have
+// been bookmarked before the trash was turned off.
+func trashRefusal(err error) bool {
+	var domain *core.Error
+	return errors.As(err, &domain) && domain.Details["reason"] == core.ErrTrashOff
 }
 
 // projectAccent is how one project marks its rows apart from another's.

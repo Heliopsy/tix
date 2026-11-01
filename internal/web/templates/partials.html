@@ -33,7 +33,7 @@
        says what it is. It sits under Tasks because it is that list's
        deleted half, and it is the only way the browser reaches a deleted
        task without already knowing its ref. */}}
-  <a href="/tasks?q=is:trashed" data-rail-name="{{t "Trash"}}" {{if .InTrash}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#trash"/></svg><span>{{t "Trash"}}</span></a>
+  {{if not .TrashOff}}<a href="/tasks?q=is:trashed" data-rail-name="{{t "Trash"}}" {{if .InTrash}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#trash"/></svg><span>{{t "Trash"}}</span></a>{{end}}
   {{/* The reader's own entries under Tasks: My work, the saved filters and
        the tasks opened lately. They are links like the rest of the
        navigation, so the rail draws them as icons with their names kept for

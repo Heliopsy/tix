@@ -21,7 +21,7 @@ import (
 func (h *handler) taskRoutes() []route {
 	return []route{
 		get(RouteTasks, "tasks.html", h.showTasks, "ListTasks", "ListProjects", "ListTags", "ListGroupPrefs", "ListSavedFilters",
-			"ListTemplates"),
+			"ListTemplates", "TrashStatus"),
 		post(RouteTasks, h.createTask, "CreateTask"),
 		post(RouteTasksBulk, h.bulkTasks, "BulkTasks"),
 		getFile(RouteTasksCSV, h.exportTasksCSV, "ListTasks", "ListProjects"),
@@ -786,11 +786,16 @@ func (h *handler) deleteTask(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	in := core.DeleteTaskInput{Hard: checked(r, "hard"), Cascade: checked(r, "cascade")}
+	if !in.Hard {
+		if asked, err := h.askBeforePermanentDelete(w, r, []string{ref.String()}, backTo(r)); asked || err != nil {
+			return err
+		}
+	}
 	if err := h.svc.DeleteTask(r.Context(), ref, in); err != nil {
 		return err
 	}
-	if in.Hard {
-		redirect(w, r, backTo(r), "task deleted")
+	if in.Hard || checked(r, confirmParam) {
+		redirect(w, r, backTo(r), "task deleted permanently")
 		return nil
 	}
 	redirect(w, r, withUndo(flashRef(backTo(r), ref.String()), UndoRestore), "task deleted")

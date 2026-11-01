@@ -52,7 +52,7 @@ Everything below is under `/api/v1`.
 | Tenancy | `/tenants`, `/tenants/{ref}`, `/members`, `/members/{actorID}`, `/domains`, `/domains/{hostname}` |
 | Projects | `/projects`, `/projects/{ref}`, `/projects/{ref}/icon`, `/projects/{ref}/deletion`, `/projects/{ref}/fields`, `/projects/{ref}/fields/{key}` |
 | Workflows | `/workflows`, `/workflows/{key}` |
-| Tasks | `/tasks`, `/tasks/{ref}`, `/tasks/{ref}/transition`, `/tasks/{ref}/route`, `/tasks/{ref}/restore`, `/tasks/{ref}/tree`, `/tasks/{ref}/copy`, `/tasks/bulk` |
+| Tasks | `/tasks`, `/tasks/{ref}`, `/tasks/{ref}/transition`, `/tasks/{ref}/route`, `/tasks/{ref}/restore`, `/tasks/{ref}/tree`, `/tasks/{ref}/copy`, `/tasks/bulk`, `GET /trash`; see [Trash](#trash) |
 | Task relations | `/tasks/{ref}/deps`, `/tasks/{ref}/deps/{dep}`, `/tasks/{ref}/tags`, `/tasks/{ref}/tags/{name}`, `/tasks/{ref}/star`, `/tasks/{ref}/checklist`, `/tasks/{ref}/snooze` |
 | Comments and artifacts | `/tasks/{ref}/comments`, `/tasks/{ref}/artifacts`, `/comments/{id}`, `/tags` |
 | Claims | `/tasks/{ref}/claim`, `/tasks/{ref}/claim/renew`, `/tasks/{ref}/claim/release`, `/tasks/{ref}/claim/reclaim`, `/claims/next`, `/claims/sweep` |
@@ -507,7 +507,7 @@ distinct reference, in the order given, also when some were refused:
 | `assign` | `assignee_actor_id`, a handle or id; empty clears | `PATCH /tasks/{ref}` |
 | `star`, `unstar` | none | `PUT`, `DELETE /tasks/{ref}/star` |
 | `copy` | `project_ref` | `POST /tasks/{ref}/copy` with `link` |
-| `delete` | `cascade` (optional) | `DELETE /tasks/{ref}`, always soft |
+| `delete` | `cascade` (optional) | `DELETE /tasks/{ref}`, soft unless the [trash](#trash) is off |
 | `restore` | none | `POST /tasks/{ref}/restore` |
 
 Each task is changed through the single-task operation in its own transaction, with its own audit entry and
@@ -515,6 +515,28 @@ event, so a refused task never holds back or undoes another; a copy's outcome na
 `copy_ref`. A reference named twice is acted on once. An unknown action, no references, more than 500, or a
 missing argument is `400` before any task changes, and a caller without the scope the action needs (for
 example `task:delete` for a bulk delete) gets one `403` for the request.
+
+### Trash
+
+A deleted task goes to the tenant's trash, where `POST /tasks/{ref}/restore` brings it back and
+`GET /tasks?trashed=true` lists it. A tenant admin can turn the trash off with `PATCH /tenants/{ref}` and
+`{"trash_off": true}`, and back on with `false`; the tenant record reports it as `trash_off`. `GET /trash`
+answers any reader with what the tenant does now:
+
+```json
+{"enabled": false, "held": 3}
+```
+
+With the trash off, `DELETE /tasks/{ref}` and a bulk `delete` remove the task permanently whatever `hard`
+says, and both restoring and listing with `trashed=true` are refused with `422`:
+
+```json
+{"error":{"code":"precondition_failed","message":"trash is turned off for this tenant, so nothing can be restored from it; a tenant admin can turn it back on","details":{"reason":"trash_off"}}}
+```
+
+Turning the trash off deletes nothing. The tasks already in it stay there, out of reach, and `held` counts
+them; turning it back on makes them listable and restorable again. Changing the setting writes one
+`tenant.update` audit entry and one `tenant.updated` event, in the same transaction as the change.
 
 ### CSV
 

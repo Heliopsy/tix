@@ -33,6 +33,7 @@ var inputReaches = []inputReach{
 		"require_totp_web": "--require-totp-web", "require_totp_cli": "--require-totp-cli",
 		"require_totp_ssh": "--require-totp-ssh",
 		"lease_default":    "--lease-default", "lease_max": "--lease-max",
+		"trash_off": "--trash",
 	}},
 	{"tix domain add", core.AddDomainInput{}, map[string]string{
 		"hostname": "arg", "cert_mode": "--cert-mode", "cert_path": "--cert", "key_path": "--key",

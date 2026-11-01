@@ -59,6 +59,11 @@ func (c *Client) RestoreTask(ctx context.Context, ref core.TaskRef) (*core.Task,
 	return call[core.Task](ctx, c, http.MethodPost, taskPath(wire.RouteTaskRestore, ref), nil, nil)
 }
 
+// TrashStatus asks whether the tenant keeps deleted tasks.
+func (c *Client) TrashStatus(ctx context.Context) (*core.TrashStatus, error) {
+	return call[core.TrashStatus](ctx, c, http.MethodGet, wire.RouteTrash, nil, nil)
+}
+
 // CopyTask creates a copy of a task.
 func (c *Client) CopyTask(ctx context.Context, ref core.TaskRef, in core.CopyTaskInput) (*core.Task, error) {
 	return call[core.Task](ctx, c, http.MethodPost, taskPath(wire.RouteTaskCopy, ref), nil, in)

@@ -423,6 +423,18 @@ var registry = []Operation{
 		TUI: "board",
 	},
 	{
+		Name: "trash.status", Method: "TrashStatus",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix task trash",
+		HTTP:  apiGet(wire.RouteTrash),
+		// Every screen reads it for the sidebar's Trash entry and the delete
+		// confirmation; the task list is the one whose Trash it decides.
+		Web: webGet(web.RouteTasks, tplTasks),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "the board never asks ahead: a delete is permanent and a restore or is:trashed is refused by the service when the trash is off, and the board shows that refusal"),
+		},
+	},
+	{
 		Name: "task.copy", Method: "CopyTask",
 		Scope: core.ScopeTaskWrite,
 		CLI:   "tix task copy",

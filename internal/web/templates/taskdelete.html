@@ -1,0 +1,24 @@
+{{define "content"}}
+{{$d := .Data}}
+{{/* Drawn when a tenant's trash is off and a delete arrives unconfirmed. The
+     undo toast is how a delete is taken back while the trash is on; with it
+     off there is nothing to take back, so the question is asked first. It is
+     drawn by the delete handlers, not by the buttons, so any Delete anywhere
+     on the site lands here. Same card as the project deletion. */}}
+<div class="headtip"><h1>{{tn "Delete %d task permanently" "Delete %d tasks permanently" (len $d.Refs)}}</h1>{{template "tip" (tip "Trash is off" "This tenant's trash is turned off, so a deleted task is removed for good: it cannot be restored and there is no undo. A tenant admin can turn the trash back on from the Tenant screen." "docs/web-ui.md")}}</div>
+<div class="delsheet">
+<form method="post" class="cform delform" data-form hx-boost="false" action="{{$d.Action}}">
+  {{template "csrf" .CSRF}}
+  {{range $d.Fields}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}
+  <input type="hidden" name="confirm" value="1">
+  <p class="delform-lead">{{t "Delete %s?" (join $d.Refs)}}</p>
+  <p class="cfield-hint">{{t "The trash is turned off for this tenant, so this cannot be undone."}}{{if $d.Cascade}} {{t "Their subtasks are deleted with them."}}{{end}}</p>
+  <div class="cform-foot">
+    <div class="cform-actions">
+      <a class="secondary cform-cancel" href="{{$d.Cancel}}" data-form-cancel>{{t "Cancel"}}</a>
+      <button class="danger" type="submit" autofocus>{{t "Delete permanently"}}</button>
+    </div>
+  </div>
+</form>
+</div>
+{{end}}
