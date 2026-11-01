@@ -205,6 +205,11 @@ type TaskFilter struct {
 	// Trashed selects by soft deletion: Yes is the trash alone, No the live
 	// tasks alone. When set it decides, whatever IncludeDeleted says.
 	Trashed TriState `json:"trashed,omitempty" yaml:"trashed,omitempty"`
+	// Snoozed selects by whether a task is snoozed now. IncludeSnoozed widens
+	// a listing that names no snooze to hold snoozed tasks too; without
+	// either, Service.ListTasks leaves snoozed tasks out.
+	Snoozed        TriState `json:"snoozed,omitempty" yaml:"snoozed,omitempty"`
+	IncludeSnoozed bool     `json:"include_snoozed,omitempty" yaml:"include_snoozed,omitempty"`
 
 	Page Page `json:"page,omitempty" yaml:"page,omitempty"`
 }

@@ -22,6 +22,7 @@ var taskColumns = []string{
 	"tasks.claimed_by_actor_id", "tasks.claimed_at", "tasks.lease_expires_at", "tasks.claim_count",
 	"tasks.lease_expired_at", "tasks.lease_expired_by",
 	"tasks.recurrence", "tasks.recurrence_next_id", "tasks.copied_from_id",
+	"tasks.snoozed_until", "tasks.snoozed_by",
 	"tasks.custom_fields", "tasks.version", "tasks.created_at", "tasks.updated_at", "tasks.deleted_at",
 	"projects.key",
 }
@@ -64,6 +65,10 @@ func resolveTaskPage(p core.Page) (pageSpec, error) {
 // correctness never depends on the sweeper having run.
 const unclaimedPredicate = "(tasks.claimed_by_actor_id IS NULL OR tasks.lease_expires_at IS NULL OR tasks.lease_expires_at <= ?)"
 
+// awakePredicate reads a snooze whose time has passed as no snooze, so a task
+// comes back on time whether or not the wake pass has run.
+const awakePredicate = "(tasks.snoozed_until IS NULL OR tasks.snoozed_until <= ?)"
+
 func scanTask(s scanner) (core.Task, error) {
 	return scanTaskWith(s)
 }
@@ -85,6 +90,8 @@ func scanTaskWith(s scanner, extra ...any) (core.Task, error) {
 		expiredBy    sql.NullString
 		nextID       sql.NullString
 		copiedFrom   sql.NullString
+		snoozed      sql.NullString
+		snoozedBy    sql.NullString
 		custom       string
 		created      sql.NullString
 		updated      sql.NullString
@@ -98,6 +105,7 @@ func scanTaskWith(s scanner, extra ...any) (core.Task, error) {
 		&claimedBy, &claimedAt, &leaseExpires, &t.ClaimCount,
 		&expiredAt, &expiredBy,
 		&t.Recurrence, &nextID, &copiedFrom,
+		&snoozed, &snoozedBy,
 		&custom, &t.Version, &created, &updated, &deleted, &projectKey}
 	if err := s.Scan(append(dests, extra...)...); err != nil {
 		return core.Task{}, mapErr(err, "scanning task")
@@ -109,6 +117,7 @@ func scanTaskWith(s scanner, extra ...any) (core.Task, error) {
 	t.LeaseExpiredByActorID = sqlb.Text(expiredBy)
 	t.RecurrenceNextID = sqlb.Text(nextID)
 	t.CopiedFromID = sqlb.Text(copiedFrom)
+	t.SnoozedByActorID = sqlb.Text(snoozedBy)
 	t.Ref = projectKey + "-" + strconv.FormatInt(t.Seq, 10)
 
 	if err := sqlb.ParseJSON(custom, &t.CustomFields); err != nil {
@@ -141,6 +150,9 @@ func scanTaskWith(s scanner, extra ...any) (core.Task, error) {
 		return core.Task{}, err
 	}
 	if t.DeletedAt, err = sqlb.ScanNullTime(deleted); err != nil {
+		return core.Task{}, err
+	}
+	if t.SnoozedUntil, err = sqlb.ScanNullTime(snoozed); err != nil {
 		return core.Task{}, err
 	}
 	return t, nil
@@ -198,6 +210,8 @@ func (t *tx) CreateTask(ctx context.Context, task *core.Task) error {
 		Set("recurrence", task.Recurrence).
 		Set("recurrence_next_id", sqlb.NullText(task.RecurrenceNextID)).
 		Set("copied_from_id", sqlb.NullText(task.CopiedFromID)).
+		Set("snoozed_until", sqlb.NullTimeText(task.SnoozedUntil)).
+		Set("snoozed_by", sqlb.NullText(task.SnoozedByActorID)).
 		Set("version", task.Version).
 		Set("created_at", sqlb.TimeText(task.CreatedAt)).
 		Set("updated_at", sqlb.TimeText(task.UpdatedAt)).
@@ -362,6 +376,13 @@ func (t *tx) applyTaskFilter(b *sqlb.Builder, f core.TaskFilter) error {
 		b.Where("NOT "+unclaimedPredicate, t.now())
 	case core.No:
 		b.Where(unclaimedPredicate, t.now())
+	case core.Either:
+	}
+	switch f.Snoozed {
+	case core.Yes:
+		b.Where("NOT "+awakePredicate, t.now())
+	case core.No:
+		b.Where(awakePredicate, t.now())
 	case core.Either:
 	}
 	switch f.Recurring {

@@ -70,6 +70,9 @@ func (l *Local) ClaimTask(ctx context.Context, ref core.TaskRef, in core.ClaimIn
 		if wf.Definition.IsTerminal(task.Status) {
 			return finishedTask(task)
 		}
+		if task.SnoozedAt(m.now) {
+			return snoozedTask(task)
+		}
 		pol, err := l.leasePolicy(ctx, m.tx)
 		if err != nil {
 			return err
@@ -688,6 +691,14 @@ func claimRefused(task *core.Task, holder string, now time.Time) error {
 func finishedTask(task *core.Task) error {
 	return core.Conflict("task %q is already finished in status %q", task.Ref, task.Status).
 		WithDetail("status", task.Status)
+}
+
+// snoozedTask refuses a lease on a task somebody asked to leave alone until
+// later. Unsnoozing it is the way to take it now.
+func snoozedTask(task *core.Task) error {
+	return core.Precondition("task %q is snoozed until %s; unsnooze it to claim it now",
+		task.Ref, task.SnoozedUntil.Format(time.RFC3339)).
+		WithDetail("snoozed_until", task.SnoozedUntil)
 }
 
 // staleLease reports a token that is no longer current, which a worker answers

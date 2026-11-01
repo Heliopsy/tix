@@ -40,6 +40,7 @@ type KeyMap struct {
 	Restore       key.Binding
 	Star          key.Binding
 	Check         key.Binding
+	Snooze        key.Binding
 	HideColumn    key.Binding
 	StarColumn    key.Binding
 	FoldColumn    key.Binding
@@ -123,6 +124,9 @@ func DefaultKeyMap() KeyMap {
 		// item's number and flips it: an open item is ticked, a ticked one
 		// cleared.
 		Check: key.NewBinding(key.WithKeys("["), key.WithHelp("[", "tick checklist item")),
+		// b, for back later: s and z were spoken for. On a snoozed card the
+		// same key unsnoozes, the way * takes a star off.
+		Snooze: key.NewBinding(key.WithKeys("b"), key.WithHelp("b", "snooze")),
 		// The column keys. z folds, as it folds a region in vim, and Z, its
 		// capital, puts the column away altogether. + stars it, beside * which
 		// stars a task; < and > move it the way the arrows point; = shows
@@ -247,6 +251,7 @@ const (
 	doRestore
 	doStar
 	doCheck
+	doSnooze
 	doCopy
 	doArtifact
 	doRenew
@@ -506,6 +511,8 @@ func (k KeyMap) taskBindings() []Action {
 			gate: gatedAction{methods: []string{"DeleteTask", "DeleteComment"}}},
 		{id: doRestore, binding: k.Restore, needsTask: true,
 			gate: gatedAction{methods: []string{"RestoreTask"}}},
+		{id: doSnooze, binding: k.Snooze, needsTask: true,
+			gate: gatedAction{methods: []string{"SnoozeTask"}, needs: []string{"UnsnoozeTask"}}},
 		{id: doStar, binding: k.Star, needsTask: true,
 			gate: gatedAction{methods: []string{"StarTask"}, needs: []string{"UnstarTask"}}},
 		{id: doCheck, binding: k.Check, needsTask: true,

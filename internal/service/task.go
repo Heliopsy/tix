@@ -186,6 +186,9 @@ func (l *Local) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 	}
 	f.StarredBy = actor.ID
 	bindMe(&f, actor.ID)
+	if f.Snoozed == core.Either && !f.IncludeSnoozed {
+		f.Snoozed = core.No
+	}
 
 	limit := f.Page.Limit
 	probe := f

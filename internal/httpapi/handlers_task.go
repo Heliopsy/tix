@@ -64,6 +64,9 @@ func (rt *Router) registerTaskRoutes() {
 	rt.mux.HandleFunc("PUT "+wire.RouteTaskStar, rt.handleStar)
 	rt.mux.HandleFunc("DELETE "+wire.RouteTaskStar, rt.handleUnstar)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskChecklist, rt.handleCheckItem)
+	rt.mux.HandleFunc("PUT "+wire.RouteTaskSnooze, rt.handleSnooze)
+	rt.mux.HandleFunc("DELETE "+wire.RouteTaskSnooze, rt.handleUnsnooze)
+	rt.mux.HandleFunc("POST "+wire.RouteSnoozeWake, rt.handleWakeSnoozed)
 
 	rt.mux.HandleFunc("GET "+wire.RouteTaskComments, rt.handleListComments)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskComments, rt.handleAddComment)
@@ -176,6 +179,9 @@ func taskFilterFrom(r *http.Request) (core.TaskFilter, error) {
 		IncludeDeleted: boolParam(r, "include_deleted"),
 		Trashed:        triState(q.Get("trashed")),
 		Page:           page,
+	}
+	if f.Snoozed, f.IncludeSnoozed, err = snoozedParam(q.Get("snoozed")); err != nil {
+		return core.TaskFilter{}, err
 	}
 	if f.Priorities, err = priorities(q["priority"]); err != nil {
 		return core.TaskFilter{}, err
@@ -343,6 +349,21 @@ func triState(v string) core.TriState {
 	default:
 		return core.Either
 	}
+}
+
+// snoozedParam reads snoozed=true, false or any. Absent leaves the service's
+// default, which hides snoozed tasks.
+func snoozedParam(v string) (core.TriState, bool, error) {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "":
+		return core.Either, false, nil
+	case "any", "all":
+		return core.Either, true, nil
+	}
+	if t := triState(v); t != core.Either {
+		return t, false, nil
+	}
+	return core.Either, false, core.Invalid("snoozed must be true, false or any, not %q", v)
 }
 
 // timeParam reads an optional RFC 3339 timestamp.
@@ -675,6 +696,54 @@ func (rt *Router) starAction(w http.ResponseWriter, r *http.Request, fn func(con
 		return
 	}
 	writeNoContent(w)
+}
+
+// handleSnooze hides a task until the time the body names.
+func (rt *Router) handleSnooze(w http.ResponseWriter, r *http.Request) {
+	ref, err := taskRef(r)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	var in core.SnoozeInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	task, err := rt.cfg.Service.SnoozeTask(r.Context(), ref, in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, task)
+}
+
+// handleUnsnooze brings a snoozed task back now.
+func (rt *Router) handleUnsnooze(w http.ResponseWriter, r *http.Request) {
+	ref, err := taskRef(r)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	task, err := rt.cfg.Service.UnsnoozeTask(r.Context(), ref)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, task)
+}
+
+// handleWakeSnoozed runs one wake pass on demand.
+func (rt *Router) handleWakeSnoozed(w http.ResponseWriter, r *http.Request) {
+	var in SweepRequest
+	if !readOptionalJSON(w, r, &in) {
+		return
+	}
+	woken, err := rt.cfg.Service.WakeSnoozed(r.Context(), in.Limit)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, WakeResult{Woken: woken})
 }
 
 // handleListLabels returns every tag in the resolved tenant.

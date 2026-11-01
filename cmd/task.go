@@ -28,6 +28,8 @@ func newTaskCmd(g *globals) *cobra.Command {
 		taskMvCmd(g), taskRmCmd(g), taskRestoreCmd(g), taskTreeCmd(g),
 		taskStarCmd(g, true), taskStarCmd(g, false), taskCopyCmd(g), taskBulkCmd(g),
 		taskCheckCmd(g, true), taskCheckCmd(g, false),
+		taskStarCmd(g, true), taskStarCmd(g, false), taskCopyCmd(g),
+		taskSnoozeCmd(g), taskUnsnoozeCmd(g), taskWakeCmd(g),
 	)
 	return cmd
 }
@@ -168,6 +170,7 @@ func taskLsCmd(g *globals) *cobra.Command {
 		claimed, unclaimed, blocked, starred bool
 		overdue, recurring, trashed, mine    bool
 		saved                                string
+		snoozed, includeSnoozed              bool
 	)
 	cmd := &cobra.Command{
 		Use:         "ls",
@@ -189,6 +192,8 @@ func taskLsCmd(g *globals) *cobra.Command {
 			"--saved NAME starts from one of your saved filters (see tix filter), with its sort; " +
 			"--filter and the other flags narrow it further. --mine is assignee:me, the tasks " +
 			"assigned to you; claimed-by:me in --filter selects the ones you hold.\n\n" +
+			"Snoozed tasks are left out until they wake; --snoozed (is:snoozed) lists only them and " +
+			"--include-snoozed (snoozed:any) lists them beside the rest.\n\n" +
 			"Exit codes: 2 invalid filter, 3 unknown project, status, parent, actor or saved filter, 5 permission denied.",
 		Example: "  tix task ls\n  tix task ls --status todo -o ndjson\n" +
 			"  tix task ls -p infra --tag ops --all\n" +
@@ -283,6 +288,13 @@ func taskLsCmd(g *globals) *cobra.Command {
 					filter.Starred = core.Yes
 				}
 			}
+			if cmd.Flags().Changed("snoozed") {
+				filter.Snoozed = core.No
+				if snoozed {
+					filter.Snoozed = core.Yes
+				}
+			}
+			filter.IncludeSnoozed = filter.IncludeSnoozed || includeSnoozed
 			if err := applyDueFlags(cmd, &filter, overdue, dueBefore, dueAfter); err != nil {
 				return err
 			}
@@ -333,6 +345,8 @@ func taskLsCmd(g *globals) *cobra.Command {
 	f.BoolVar(&blocked, "blocked", false, "only tasks blocked by a dependency")
 	f.BoolVar(&recurring, "recurring", false, "only tasks carrying a repeat rule")
 	f.BoolVar(&starred, "starred", false, "only tasks you starred; --starred=false for the rest")
+	f.BoolVar(&snoozed, "snoozed", false, "only snoozed tasks; --snoozed=false for the tasks that are not")
+	f.BoolVar(&includeSnoozed, "include-snoozed", false, "list snoozed tasks beside the rest")
 	f.BoolVar(&overdue, "overdue", false, "only tasks whose due date has passed")
 	f.StringVar(&dueBefore, "due-before", "", "only tasks due on or before a date")
 	f.StringVar(&dueAfter, "due-after", "", "only tasks due on or after a date")
@@ -413,6 +427,7 @@ func taskShowCmd(g *globals) *cobra.Command {
 			noteSuccessor(ctx, g, cmd, conn.Service, task)
 			noteCopiedFrom(ctx, g, cmd, conn.Service, task)
 			noteChecklist(g, cmd, task)
+			noteSnoozed(g, cmd, task)
 			return nil
 		},
 		ValidArgsFunction: g.completeTaskRefs,

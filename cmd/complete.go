@@ -43,7 +43,7 @@ func flagCompletion(fn func(*cobra.Command, []string, string) ([]string, cobra.S
 // completeTaskRefs offers existing task references.
 func (g *globals) completeTaskRefs(cmd *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 	return g.candidates(cmd, func(ctx context.Context, svc core.Service) ([]string, error) {
-		page, err := svc.ListTasks(ctx, core.TaskFilter{Page: core.Page{Limit: core.MaxPageLimit}})
+		page, err := svc.ListTasks(ctx, core.TaskFilter{IncludeSnoozed: true, Page: core.Page{Limit: core.MaxPageLimit}})
 		if err != nil {
 			return nil, err
 		}

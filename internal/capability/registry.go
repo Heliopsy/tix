@@ -509,6 +509,32 @@ var registry = []Operation{
 		TUI:   "board",
 	},
 	{
+		Name: "task.snooze", Method: "SnoozeTask",
+		Scope: core.ScopeTaskWrite,
+		CLI:   "tix task snooze",
+		HTTP:  apiPut(wire.RouteTaskSnooze),
+		Web:   webPost(web.RouteTaskSnooze),
+		TUI:   "board",
+	},
+	{
+		Name: "task.unsnooze", Method: "UnsnoozeTask",
+		Scope: core.ScopeTaskWrite,
+		CLI:   "tix task unsnooze",
+		HTTP:  apiDelete(wire.RouteTaskSnooze),
+		Web:   webPost(web.RouteTaskUnsnooze),
+		TUI:   "board",
+	},
+	{
+		Name: "task.wake", Method: "WakeSnoozed",
+		Scope: core.ScopeTaskWrite,
+		CLI:   "tix task wake",
+		HTTP:  apiPost(wire.RouteSnoozeWake),
+		Exempt: []Exemption{
+			off(SurfaceWeb, "waking snoozed tasks is a background loop beside the lease sweep, not an operator action"),
+			off(SurfaceTUI, "waking snoozed tasks is a background loop beside the lease sweep, not an operator action"),
+		},
+	},
+	{
 		Name: "view.groups", Method: "ListGroupPrefs",
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix view ls",

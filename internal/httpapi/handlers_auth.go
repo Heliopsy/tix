@@ -37,6 +37,11 @@ type SweepRequest struct {
 	Limit int `json:"limit,omitempty"`
 }
 
+// WakeResult reports how many snoozes a wake pass cleared.
+type WakeResult struct {
+	Woken int `json:"woken"`
+}
+
 // SweepResult reports how many leases a sweep materialized.
 type SweepResult struct {
 	Swept int `json:"swept"`

@@ -17,6 +17,9 @@ func Matches(f core.TaskFilter, t core.Task, projectKey string, now time.Time) b
 	if deleted := t.DeletedAt != nil; deleted && !f.ListsDeleted() || !deleted && !f.ListsLive() {
 		return false
 	}
+	if !matchSnoozed(f, t, now) {
+		return false
+	}
 	if !matchIncludes(f, t, projectKey) || !matchExcludes(f.Exclude, t, projectKey) {
 		return false
 	}
@@ -37,6 +40,15 @@ func Matches(f core.TaskFilter, t core.Task, projectKey string, now time.Time) b
 		}
 	}
 	return matchQuery(f.Query, t)
+}
+
+// matchSnoozed applies the snooze terms, and the default that leaves snoozed
+// tasks out when the filter names none, the way Service.ListTasks does.
+func matchSnoozed(f core.TaskFilter, t core.Task, now time.Time) bool {
+	if f.Snoozed == core.Either && !f.IncludeSnoozed {
+		return !t.SnoozedAt(now)
+	}
+	return f.Snoozed.Match(t.SnoozedAt(now))
 }
 
 // matchIncludes checks the selecting list terms.

@@ -13,6 +13,7 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/markdown"
 	"github.com/heliopsy/tix/internal/output"
+	"github.com/heliopsy/tix/internal/query"
 )
 
 // loadProjects lists the projects the caller can reach.
@@ -765,6 +766,36 @@ func (m Model) restore(task core.Task) tea.Cmd {
 	return func() tea.Msg {
 		_, err := svc.RestoreTask(ctx, ref)
 		return actionMsg{kind: actionRestore, ref: ref, label: label, err: err}
+	}
+}
+
+// snooze hides a task until the time the reader typed, read in the local zone
+// the way the CLI reads it.
+func (m Model) snooze(task core.Task, when string) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	until, err := query.ParseUntil(when, m.now(), time.Local)
+	return func() tea.Msg {
+		if err != nil {
+			return actionMsg{kind: actionSnooze, ref: ref, label: label, err: err}
+		}
+		_, err := svc.SnoozeTask(ctx, ref, core.SnoozeInput{Until: until})
+		return actionMsg{kind: actionSnooze, ref: ref, label: label, err: err,
+			sentence: "snoozed " + label + " until " + until.Local().Format("Mon 2 Jan 15:04")}
+	}
+}
+
+// unsnooze brings a snoozed task back now.
+func (m Model) unsnooze(task core.Task) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	return func() tea.Msg {
+		_, err := svc.UnsnoozeTask(ctx, ref)
+		return actionMsg{kind: actionUnsnooze, ref: ref, label: label, err: err}
 	}
 }
 

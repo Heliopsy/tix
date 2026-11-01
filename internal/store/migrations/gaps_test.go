@@ -14,6 +14,8 @@ import (
 // listed here, deliberately and for good, or it is a mistake.
 var skippedVersions = map[int]string{
 	17: "reserved for a branch that then landed as 0019; databases already carry 0018 and 0019, so 0017 can never be applied",
+	21: "reserved for saved filters, which merge before 0023; the branch that adds 0021 removes this line",
+	22: "reserved for calendar feed tokens, which merge before 0023 if they need a table at all; the branch that adds 0022 removes this line",
 }
 
 // missingVersions lists the numbers between the first and the last version

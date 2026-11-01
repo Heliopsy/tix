@@ -53,6 +53,7 @@ func Exemptions() []Exemption {
 		{"RenewLease", "a lease is renewed by the worker holding its token, which a browser session does not hold"},
 		{"ReleaseLease", "a lease is released by the worker holding its token, which a browser session does not hold"},
 		{"SweepLeases", "lease sweeping is a background maintenance loop, not an operator action"},
+		{"WakeSnoozed", "waking snoozed tasks is a background loop beside the lease sweep, not an operator action"},
 		{"Subscribe", "the browser consumes the event stream over the WebSocket route rather than calling the method directly"},
 		{"Close", "closing the service is process lifecycle, not an operation"},
 		{"WhoAmI", "the root route calls it to bounce a visitor who is not signed in and discards the identity it answers with, so no screen states who the reader is"},
@@ -171,6 +172,8 @@ const (
 	RouteMarkdownPreview = "/markdown/preview"
 	RouteTaskCopy        = "/tasks/{ref}/copy"
 	RouteTaskUnstar      = "/tasks/{ref}/star/remove"
+	RouteTaskSnooze      = "/tasks/{ref}/snooze"
+	RouteTaskUnsnooze    = "/tasks/{ref}/snooze/remove"
 	RouteTaskComments    = "/tasks/{ref}/comments"
 	RouteCommentEdit     = "/tasks/{ref}/comments/edit"
 	RouteCommentDel      = "/tasks/{ref}/comments/delete"

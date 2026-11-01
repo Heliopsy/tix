@@ -55,6 +55,8 @@ const (
 	actionArtifact
 	actionStar
 	actionUnstar
+	actionSnooze
+	actionUnsnooze
 	actionArrange
 	actionCopy
 	actionEditTenant
@@ -100,6 +102,8 @@ var actionLabels = map[actionKind][2]string{
 	actionStar:     {"star the task", "starred"},
 	actionCheck:    {"tick the checklist item", "updated the checklist of"},
 	actionUnstar:   {"unstar the task", "unstarred"},
+	actionSnooze:   {"snooze the task", "snoozed"},
+	actionUnsnooze: {"unsnooze the task", "unsnoozed"},
 	actionArrange:  {"arrange the board", "arranged the board"},
 	actionCopy:     {"copy the task", "copied"},
 

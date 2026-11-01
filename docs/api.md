@@ -53,9 +53,10 @@ Everything below is under `/api/v1`.
 | Projects | `/projects`, `/projects/{ref}`, `/projects/{ref}/icon`, `/projects/{ref}/deletion`, `/projects/{ref}/fields`, `/projects/{ref}/fields/{key}` |
 | Workflows | `/workflows`, `/workflows/{key}` |
 | Tasks | `/tasks`, `/tasks/{ref}`, `/tasks/{ref}/transition`, `/tasks/{ref}/route`, `/tasks/{ref}/restore`, `/tasks/{ref}/tree`, `/tasks/{ref}/copy`, `/tasks/bulk` |
-| Task relations | `/tasks/{ref}/deps`, `/tasks/{ref}/deps/{dep}`, `/tasks/{ref}/tags`, `/tasks/{ref}/tags/{name}`, `/tasks/{ref}/star`, `/tasks/{ref}/checklist` |
+| Task relations | `/tasks/{ref}/deps`, `/tasks/{ref}/deps/{dep}`, `/tasks/{ref}/tags`, `/tasks/{ref}/tags/{name}`, `/tasks/{ref}/star`, `/tasks/{ref}/checklist`, `/tasks/{ref}/snooze` |
 | Comments and artifacts | `/tasks/{ref}/comments`, `/tasks/{ref}/artifacts`, `/comments/{id}`, `/tags` |
 | Claims | `/tasks/{ref}/claim`, `/tasks/{ref}/claim/renew`, `/tasks/{ref}/claim/release`, `/tasks/{ref}/claim/reclaim`, `/claims/next`, `/claims/sweep` |
+| Snoozes | `/snoozes/wake` |
 | Webhooks | `/webhooks`, `/webhooks/{id}`, `/webhooks/deliveries`, `/webhooks/deliveries/{id}/redeliver` |
 | History | `/audit`, `/tasks/{ref}/audit`, `/retention`, `/prune` |
 | Reports | `GET /stats`, see [statistics.md](statistics.md); `GET /status`, the report `tix status` prints, see [scripting.md](scripting.md) |
@@ -314,6 +315,25 @@ somebody pages moves between the groups, like a task whose priority changed unde
 stays valid and the moved task may be seen twice or not at all. A cursor issued before stars existed resumes
 among the unstarred tasks.
 
+### Snoozing
+
+`PUT /tasks/{ref}/snooze` with `{"until": "2026-12-01T09:00:00Z"}` hides a task from every default
+listing, for everybody, until that instant, and answers the task with `snoozed_until` and
+`snoozed_by_actor_id`. The time must be in the future (`invalid` otherwise) and is kept to the second.
+Snoozing a snoozed task moves its wake time. `DELETE /tasks/{ref}/snooze` brings it back and answers the
+task; on a task that is not snoozed it changes nothing and writes nothing. Each change writes an audit
+entry naming the caller and emits `task.snoozed` or `task.unsnoozed`.
+
+A task is snoozed while `snoozed_until` is after the present, judged on every read, so it comes back on
+time with nothing running. `snoozed=true` lists only snoozed tasks, `snoozed=false` only the others (the
+default made explicit), and `snoozed=any` both. Reading one task by reference always works.
+
+`POST /snoozes/wake`, with an optional `{"limit": N}`, clears snoozes whose time has passed and answers
+`{"woken": N}`, emitting `task.woke` for each. The server's sweep loop does this every sweep interval.
+
+A snoozed task is not claimable: `/claims/next` skips it, and `POST /tasks/{ref}/claim` answers
+`precondition` with the wake time in `details.snoozed_until` until it wakes or is unsnoozed.
+
 ### Arranging views
 
 Each actor keeps their own arrangement of the groups a view draws: the columns of a board and the lanes of
@@ -468,6 +488,8 @@ and `checklist:open`).
 Soft-deleted tasks are left out unless asked for. `include_deleted=true` adds them to the listing
 (`is:deleted`), `trashed=true` lists only them (`is:trashed`), and `trashed=false` lists only live tasks
 whatever `include_deleted` says (`-is:trashed`).
+the filter expression). Snoozed tasks are left out unless `snoozed=true` (only them) or `snoozed=any`
+(beside the rest) asks for them.
 
 Custom field values are filtered with a `field.` prefixed parameter, one per field:
 
@@ -537,7 +559,8 @@ one connection. `{"type":"unsubscribe","id":"s1"}` ends one.
 
 Event types are matched as glob patterns, so `task.*` selects every task event. The vocabulary is closed:
 `task.created`, `task.updated`, `task.transitioned`, `task.claimed`, `task.released`, `task.lease_expired`,
-`task.reclaimed`, `task.deleted`, `task.starred`, `task.unstarred`, `comment.added`, `artifact.added`,
+`task.reclaimed`, `task.deleted`, `task.starred`, `task.unstarred`, `task.snoozed`, `task.unsnoozed`,
+`task.woke`, `comment.added`, `artifact.added`,
 `dependency.added`, `tag.added`, `project.created`, `project.updated`, `workflow.updated`, `field.updated`,
 `webhook.delivered`, `import.completed`, `view.arranged`, `filter.saved`, `filter.updated`, `filter.deleted`.
 A type outside it is an error rather than a filter

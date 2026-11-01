@@ -1087,6 +1087,50 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "snooze hides a task until it wakes",
+		covers: []string{"CreateProject", "CreateTask", "SnoozeTask", "UnsnoozeTask", "WakeSnoozed", "ListTasks", "ClaimTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			a, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "a"})
+			mustf(t, tg, err, "creating a")
+			b, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "b"})
+			mustf(t, tg, err, "creating b")
+			titles := func(f core.TaskFilter) []string {
+				f.ProjectKeys = []string{p.Key}
+				f.Page.Sort = core.SortSeq
+				page, err := tg.svc.ListTasks(tg.ctx, f)
+				mustf(t, tg, err, "listing")
+				out := []string{}
+				for _, task := range page.Tasks {
+					out = append(out, task.Title)
+				}
+				return out
+			}
+			if _, err := tg.svc.SnoozeTask(tg.ctx, core.TaskRef{ID: a.ID},
+				core.SnoozeInput{Until: h.clk.Now().Add(time.Hour)}); err != nil {
+				return nil, err
+			}
+			if _, err := tg.svc.SnoozeTask(tg.ctx, core.TaskRef{ID: b.ID},
+				core.SnoozeInput{Until: h.clk.Now().Add(3 * time.Hour)}); err != nil {
+				return nil, err
+			}
+			_, claimErr := tg.svc.ClaimTask(tg.ctx, core.TaskRef{ID: a.ID}, core.ClaimInput{})
+			hidden := titles(core.TaskFilter{})
+			only := titles(core.TaskFilter{Snoozed: core.Yes})
+			both := titles(core.TaskFilter{IncludeSnoozed: true})
+			if _, err := tg.svc.UnsnoozeTask(tg.ctx, core.TaskRef{ID: b.ID}); err != nil {
+				return nil, err
+			}
+			h.clk.Advance(2 * time.Hour)
+			woken, err := tg.svc.WakeSnoozed(tg.ctx, 10)
+			if err != nil {
+				return nil, err
+			}
+			return sig{"hidden": hidden, "only": only, "both": both, "claim": core.KindOf(claimErr),
+				"woken": woken, "after": titles(core.TaskFilter{})}, nil
+		},
+	},
+	{
 		name:   "the audit log records a task creation",
 		covers: []string{"CreateProject", "CreateTask", "ListAudit"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

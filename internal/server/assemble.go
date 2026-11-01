@@ -219,6 +219,18 @@ func workersFor(opts Options) []Worker {
 			}),
 		)
 		workers = append(workers, SweeperWorker(sweeper))
+
+		waker := lease.NewSweeper(
+			func(ctx context.Context, limit int) (int, error) {
+				return opts.Service.WakeSnoozed(systemContext(ctx, opts.TenantID), limit)
+			},
+			lease.WithClock(opts.Clock),
+			lease.WithInterval(opts.SweepInterval),
+			lease.WithErrorHandler(func(err error) {
+				opts.Logger.Error("snooze wake failed", "error", err.Error())
+			}),
+		)
+		workers = append(workers, FuncWorker{WorkerName: "snooze-waker", Fn: waker.Run})
 	}
 
 	if !opts.DisablePrune && opts.PruneInterval > 0 {

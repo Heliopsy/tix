@@ -1183,6 +1183,9 @@ func (m Model) performTaskAction(id actionID) (Model, tea.Cmd, bool) {
 	case doStar:
 		next, cmd := m.starTask()
 		return next, cmd, true
+	case doSnooze:
+		next, cmd := m.snoozeTask()
+		return next, cmd, true
 	case doCopy:
 		next, cmd := m.openCopyForm()
 		return next, cmd, true
@@ -1338,6 +1341,8 @@ func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 		return m.untag(task, text)
 	case promptDependency:
 		return m.depend(task, text)
+	case promptSnooze:
+		return m.snooze(task, text)
 	default:
 		return nil
 	}
@@ -1906,6 +1911,21 @@ func (m Model) openArtifactForm(name string) (Model, tea.Cmd) {
 	m.pendingArtifact = name
 	m.form, m.err = ArtifactForm(name), ""
 	return m, nil
+}
+
+// snoozeTask asks when to wake the selected task, or unsnoozes it at once
+// when it is snoozed already.
+func (m Model) snoozeTask() (Model, tea.Cmd) {
+	task, ok := m.selectedTask()
+	if !ok {
+		m.err = "no task is selected"
+		return m, nil
+	}
+	if task.SnoozedAt(m.now()) {
+		m.err = ""
+		return m, m.unsnooze(task)
+	}
+	return m.openPrompt(promptSnooze)
 }
 
 // starTask toggles the reader's own star on the selected task.

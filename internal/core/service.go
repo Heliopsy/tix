@@ -118,6 +118,13 @@ type TaskService interface {
 
 	// CheckTaskItem ticks or clears one checklist item of a task's description.
 	CheckTaskItem(ctx context.Context, ref TaskRef, in CheckItemInput) (*Task, error)
+	// SnoozeTask hides a task from default listings until a future instant,
+	// for every reader. UnsnoozeTask clears it, writing nothing when the task
+	// is not snoozed. WakeSnoozed clears snoozes that have run out, announcing
+	// each, and reports how many it cleared.
+	SnoozeTask(ctx context.Context, ref TaskRef, in SnoozeInput) (*Task, error)
+	UnsnoozeTask(ctx context.Context, ref TaskRef) (*Task, error)
+	WakeSnoozed(ctx context.Context, limit int) (int, error)
 
 	AddComment(ctx context.Context, ref TaskRef, body string) (*Comment, error)
 	ListComments(ctx context.Context, ref TaskRef) ([]Comment, error)

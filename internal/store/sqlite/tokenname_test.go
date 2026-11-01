@@ -81,6 +81,9 @@ func TestUpgradeKeepsDuplicateTokensWorkingAndTellsThemApart(t *testing.T) {
 		"ALTER TABLE tasks DROP COLUMN copied_from_id",
 		"DROP TABLE saved_filters",
 		"DROP TABLE calendar_feeds",
+		"DROP INDEX idx_tasks_snoozed",
+		"ALTER TABLE tasks DROP COLUMN snoozed_until",
+		"ALTER TABLE tasks DROP COLUMN snoozed_by",
 		"DELETE FROM schema_migrations WHERE version > 9",
 	} {
 		if _, err := s.writer.ExecContext(ctx, stmt); err != nil {

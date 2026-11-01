@@ -33,13 +33,15 @@ tix task ls --filter 'is:blocked'
 tix task ls --filter 'is:recurring -status:done'
 tix task ls --filter 'is:trashed'       # only soft-deleted tasks
 tix task ls --filter 'checklist:open'   # a description with items still to tick
+tix task ls --filter 'is:snoozed'       # parked until later, hidden by default
 ```
 
 Its keys are `project`, `status`, `tag`, `assignee`, `creator`,
 `claimed-by`, `priority`, `due`, `due-before`, `due-after`, `parent`, `is`,
 `sort`, `limit`, `text`, `title`, `body`, `claimed`, `blocked`, `deleted`,
-`starred`, `has` (`has:checklist`) and `checklist` (`checklist:open`,
-`checklist:done`). An
+`starred`, `has` (`has:checklist`), `checklist` (`checklist:open`,
+`checklist:done`) and `snoozed`. Snoozed tasks are left out unless you ask:
+`is:snoozed` lists only them, `snoozed:any` lists them beside the rest. An
 unknown key is exit `2` and the error names the whole set. The other flags add
 to whatever `--filter` selected.
 

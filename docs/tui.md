@@ -71,6 +71,7 @@ than the first half of it:
 | `+` | has dependencies |
 | `↻` | repeats when done |
 | `†` | deleted, revealed by `is:deleted` or `is:trashed` |
+| `zz` | snoozed, revealed by `is:snoozed` or `snoozed:any` |
 | `due` | falls due within a week |
 | `due!` | overdue |
 
@@ -82,6 +83,12 @@ set it with `tix task edit --repeat` or in the browser.
 the same task unstarred and in its usual place, while on your board a starred card leads its column ahead of
 the priority order. It is stored on the server, so the star you set here is the one `tix task ls` and the
 browser show you too, and `is:starred` in the filter narrows the board to them.
+
+`zz` marks a snoozed task. Snoozed tasks are off the board until they wake, so the marker shows only
+under `is:snoozed` or `snoozed:any`. `b` on a card asks when it should wake (`later`, `tomorrow`,
+`next-week`, a duration such as `3d`, a date or `YYYY-MM-DD HH:MM`, read in the local zone) and takes it
+off the board; `b` on a snoozed card unsnoozes it. The detail view says until when and who snoozed it. A
+snooze is for everybody, unlike a star, and a snoozed task is not handed to agents claiming work.
 
 `@me` is separate from `@` because "is that me" is the first question anybody asks of a claimed card on a
 shared board, and a single marker left it answerable only by opening the task.
@@ -187,6 +194,7 @@ impossible for a scheme to leave an action unbound.
 | `u` | restore a deleted task | board, detail |
 | `*` | star the task, or unstar a starred one; starred cards lead their column | board, detail |
 | `[` | tick a checklist item of the description by its number, or clear a ticked one | board, detail |
+| `b` | snooze the task until a time you type, or unsnooze a snoozed one | board, detail |
 | `Y` | copy the task to any project, this one included, with a form for the title and what travels | board, detail |
 | `X` | delete the task or the selected comment; removes the selected domain or member | board, detail, project, tenant |
 | `Z` | hide the selected column, for you, on this project's board everywhere | board |
@@ -695,7 +703,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 121
+a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 124
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:

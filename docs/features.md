@@ -140,6 +140,15 @@ yours alone, stored with your actor rather than in a cookie, so it follows you b
 terminal and the command line and never reorders a colleague's queue. Your starred tasks lead under
 every sort, and `is:starred` narrows a listing to them. [docs/filtering.md](filtering.md#stars).
 
+**Snooze.** Snooze a task until later and it leaves every default listing, for everybody, until that
+moment, then comes back by itself; nothing has to run for that, because listings compare the wake time
+with the clock. Pick later today, tomorrow morning, next week or a date in the browser (the task screen,
+a lane card's three dots), `b` in the terminal interface, `tix task snooze REF UNTIL` and
+`tix task unsnooze REF`, or `PUT` and `DELETE /api/v1/tasks/{ref}/snooze`. A snoozed task drawn
+anywhere carries its wake time, the audit names who snoozed it, and agents cannot claim it until it
+wakes. A running server announces each wake as `task.woke`. `is:snoozed` lists them, `snoozed:any`
+lists them beside the rest. [docs/filtering.md](filtering.md#snoozed-tasks).
+
 **Lanes.** Besides the list and the board, the task screen can draw one lane per project, each lane
 holding that project's open work as cards. A card ticks, changes status and changes priority where it
 sits, without leaving the screen. [docs/web-ui.md](web-ui.md#lanes).

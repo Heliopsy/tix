@@ -200,6 +200,14 @@ type TaskTx interface {
 	StarTask(ctx context.Context, actorID, taskID string) (bool, error)
 	// UnstarTask removes an actor's star, reporting whether there was one.
 	UnstarTask(ctx context.Context, actorID, taskID string) (bool, error)
+	// SetSnooze writes a task's wake time and who set it, or clears both
+	// when until is nil. It touches neither the version nor any other field.
+	SetSnooze(ctx context.Context, taskID string, until *time.Time, by string) error
+	// ExpiredSnoozes returns live tasks whose wake time has passed.
+	ExpiredSnoozes(ctx context.Context, now time.Time, limit int) ([]core.Task, error)
+	// WakeSnooze clears a passed snooze only if the task still carries the
+	// wake time the caller read, reporting whether it did.
+	WakeSnooze(ctx context.Context, taskID string, until time.Time) (bool, error)
 	// StarredTasks reports which of the given tasks the actor has starred.
 	StarredTasks(ctx context.Context, actorID string, taskIDs []string) (map[string]bool, error)
 }

@@ -478,6 +478,11 @@ const DeletedMarker = "†"
 // next one. The rule itself is in the detail view.
 const RepeatMarker = "↻"
 
+// SnoozedMarker is what a card carries while its task is snoozed. Such a card
+// is drawn only where a filter asked for snoozed tasks; the detail view says
+// until when.
+const SnoozedMarker = "zz"
+
 // CardFlags renders a card's state markers compactly, so a narrow column still
 // says what is true of a task. The help view carries the legend.
 //
@@ -508,6 +513,9 @@ func CardFlags(t core.Task, now time.Time, mine string) string {
 	// unmarked card there is indistinguishable from live work.
 	if t.DeletedAt != nil {
 		b.WriteString(DeletedMarker)
+	}
+	if t.SnoozedAt(now) {
+		b.WriteString(SnoozedMarker)
 	}
 	return b.String()
 }
@@ -543,6 +551,9 @@ func (m Model) detailLines(layout Layout) []string {
 	}
 	if repeat := repeatText(t); repeat != "" {
 		lines = append(lines, m.theme.Dim.Render(repeat))
+	}
+	if snoozed := snoozeText(t, now, m.timeStyle, d.actors); snoozed != "" {
+		lines = append(lines, m.theme.Dim.Render(snoozed))
 	}
 	lines = append(lines, "")
 
@@ -667,6 +678,19 @@ func repeatText(t core.Task) string {
 		return ""
 	}
 	return "repeats: " + t.Recurrence
+}
+
+// snoozeText says until when a snoozed task sleeps and who put it to sleep,
+// or the empty string for a task that is awake.
+func snoozeText(t core.Task, now time.Time, style output.TimeStyle, actors map[string]string) string {
+	if !t.SnoozedAt(now) {
+		return ""
+	}
+	text := "snoozed until " + style.FormatPtr(t.SnoozedUntil)
+	if t.SnoozedByActorID != "" {
+		text += " by " + actorLabel(t.SnoozedByActorID, actors)
+	}
+	return text + " (b to unsnooze)"
 }
 
 // tagsText renders a task's tags, or the empty string when it has none, so
@@ -842,6 +866,7 @@ var CardLegend = []string{
 	strings.TrimSpace(StarMarker) + " starred by you", "@ claimed", "@me claimed by you", "! blocked", "+ dependencies",
 	RepeatMarker + " repeats when done",
 	DeletedMarker + " deleted",
+	SnoozedMarker + " snoozed",
 	DueSoonMarker + " within the week", DueOverdueMarker + " overdue",
 }
 

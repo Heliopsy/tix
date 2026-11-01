@@ -304,6 +304,8 @@ func TestEveryMarkerACardDrawsIsInTheLegend(t *testing.T) {
 			lit = `"` + DeletedMarker + `"`
 		case "RepeatMarker":
 			lit = `"` + RepeatMarker + `"`
+		case "SnoozedMarker":
+			lit = `"` + SnoozedMarker + `"`
 		}
 		marker, err := strconv.Unquote(lit)
 		if err != nil {
