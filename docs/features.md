@@ -20,6 +20,12 @@ listing behind the assignee field, which suggests handles instead of asking for 
 memory. It suggests without constraining: an actor from another tenant is still assignable by
 identifier. Agents are in the directory alongside people, because work is assigned to them as often.
 
+**Due dates in your calendar.** `tix calendar create`, or Settings in the browser, issues a private
+iCalendar address that Google Calendar, Apple Calendar or Outlook subscribes to: every task you are
+assigned that has a due date and is not finished becomes an all-day event, or whatever a filter
+expression selects. The address reads as you and nothing more, and stops the moment it is rotated or
+revoked or you leave the tenant. [docs/calendar.md](calendar.md).
+
 **Project keys that can change.** A project's key starts every task reference, and it can be changed with
 `tix project edit --key`, `PATCH /projects/{ref}`, the project's settings in the browser or the terminal's
 project screen. Every reference changes with it, and the old key stays an alias, so old references, filters
