@@ -150,7 +150,7 @@ func quoteEnd(runes []rune, start int) (int, bool) {
 		return 0, false
 	}
 	for i := start + 1; i < len(runes); i++ {
-		if runes[i] == closing && (i+1 == len(runes) || unicode.IsSpace(runes[i+1])) && i > start+1 {
+		if runes[i] == closing && (i+1 == len(runes) || unicode.IsSpace(runes[i+1])) {
 			return i, true
 		}
 	}
