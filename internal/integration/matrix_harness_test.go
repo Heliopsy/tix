@@ -141,6 +141,7 @@ func newMatrixHarness(t *testing.T) *matrixHarness {
 		stop()
 		wg.Wait()
 	})
+	waitForRegistration(adminCtx, t, svc)
 
 	return &matrixHarness{
 		t: t, clk: clk, tenantID: tenant.ID,
@@ -279,3 +280,25 @@ func snapshotKinds(t *testing.T, tg target, snapshot []byte) []string {
 // drain fails at connect instead of spending the dial timeout resolving a
 // name. These scenarios are about the delivery records, not about delivery.
 const closedEndpoint = "http://127.0.0.1:1/hook"
+
+// waitForRegistration holds the harness back until its server has written its
+// row in the registry. The registrar runs as a background worker, so without
+// this a scenario reading the server list raced it: the local run read before
+// the row landed and the remote run, a request later, read after it.
+func waitForRegistration(ctx context.Context, t *testing.T, svc core.Service) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		report, err := svc.Status(ctx)
+		if err != nil {
+			t.Fatalf("reading the server registry: %v", err)
+		}
+		if report.AttachedCount() == 1 {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the harness server never registered (%d servers listed)", len(report.Servers))
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
