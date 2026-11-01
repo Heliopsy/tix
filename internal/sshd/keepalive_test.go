@@ -176,15 +176,7 @@ type relay struct {
 	frozen  atomic.Bool
 	dropped chan struct{}
 	once    sync.Once
-	// fromListener counts the reads taken off the listener's socket. A frozen
-	// relay still drains it, so this keeps counting once the client is gone
-	// and is how a test waits for one keepalive to have been sent rather than
-	// guessing at how long one takes.
-	fromListener atomic.Int64
 }
-
-// sent reports how many times the listener has written to the relay.
-func (r *relay) sent() int64 { return r.fromListener.Load() }
 
 func newRelay(t *testing.T, target string) *relay {
 	t.Helper()
@@ -224,9 +216,6 @@ func (r *relay) pump(dst io.Writer, src net.Conn, fromListener bool) {
 	buf := make([]byte, 4096)
 	for {
 		n, err := src.Read(buf)
-		if n > 0 && fromListener {
-			r.fromListener.Add(1)
-		}
 		if n > 0 && !r.frozen.Load() {
 			if _, werr := dst.Write(buf[:n]); werr != nil {
 				return
@@ -373,17 +362,19 @@ func TestASessionIdleForExactlyTheTimeoutIsClosed(t *testing.T) {
 // other boundary: how many unanswered requests a client is allowed before its
 // slot is taken back.
 //
-// Each round advances the clock by one interval and waits for the request that
-// interval produced, so the count is of keepalives actually sent rather than
-// of time elapsed. Two go unanswered; the third tick is the one that has to
-// close the connection.
+// Each round advances the clock by one interval and waits for the watchdog's
+// decision on that tick before the next, so no tick lands while the last one
+// is still queued and is lost. Two go unanswered; the third tick is the one
+// that has to close the connection.
 func TestADeadClientIsDroppedOnTheMissedKeepaliveThatReachesTheLimit(t *testing.T) {
 	const interval = time.Minute
 	const missed = 2
+	decisions := make(chan string, 64)
 	srv, clk := newPacedServer(t, func(o *Options) {
 		o.KeepaliveInterval = interval
 		o.KeepaliveMaxMissed = missed
 		o.IdleTimeout = time.Hour
+		o.Logger = slog.New(&keepaliveDecisions{seen: decisions})
 	})
 	before := clk.Tickers()
 	r := newRelay(t, srv.Addr())
@@ -394,35 +385,48 @@ func TestADeadClientIsDroppedOnTheMissedKeepaliveThatReachesTheLimit(t *testing.
 
 	r.freeze()
 	for i := 1; i <= missed; i++ {
-		sent := r.sent()
 		clk.Advance(interval)
-		waitForSend(t, r, sent)
-		select {
-		case <-r.dropped:
-			t.Fatalf("the listener gave up after %d unanswered keepalives, want %d", i, missed)
-		default:
+		if got := <-decisions; got != keepaliveSent {
+			t.Fatalf("on interval %d the listener logged %q, want another keepalive: it gave up "+
+				"after %d unanswered, want %d", i, got, i-1, missed)
 		}
 	}
 
 	clk.Advance(interval)
-	select {
-	case <-r.dropped:
-	case <-time.After(30 * time.Second):
-		t.Fatalf("a client that left %d keepalives unanswered still holds its slot", missed)
+	if got := <-decisions; got != clientDropped {
+		t.Fatalf("after %d unanswered keepalives the listener logged %q, want the client dropped",
+			missed, got)
 	}
+	<-r.dropped
 }
 
-// waitForSend blocks until the listener has written again.
-func waitForSend(t *testing.T, r *relay, since int64) {
-	t.Helper()
-	deadline := time.Now().Add(30 * time.Second)
-	for r.sent() <= since {
-		if time.Now().After(deadline) {
-			t.Fatal("no keepalive reached the frozen client within 30s")
-		}
-		time.Sleep(2 * time.Millisecond)
+// The two watchdog decisions a keepalive tick can end in, as the listener logs
+// them.
+const (
+	keepaliveSent = "sending an ssh keepalive"
+	clientDropped = "dropping an ssh session whose client stopped answering"
+)
+
+// keepaliveDecisions passes on every keepalive decision the watchdog logs.
+//
+// It is what a test waits on between two ticks, because nothing on the wire
+// marks one. The SSH transport holds a request that wants a reply until the
+// previous one is answered, so to a frozen client only the first keepalive is
+// ever written: a test counting traffic was counting the interface redrawing,
+// and timed out whenever it did not.
+type keepaliveDecisions struct{ seen chan<- string }
+
+func (h *keepaliveDecisions) Enabled(context.Context, slog.Level) bool { return true }
+
+func (h *keepaliveDecisions) Handle(_ context.Context, r slog.Record) error {
+	if r.Message == keepaliveSent || r.Message == clientDropped {
+		h.seen <- r.Message
 	}
+	return nil
 }
+
+func (h *keepaliveDecisions) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *keepaliveDecisions) WithGroup(string) slog.Handler      { return h }
 
 // collectedSession is a running session with its output kept and a channel
 // that closes when the listener ends it.
