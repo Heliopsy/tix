@@ -188,7 +188,7 @@ and `tix task add --body -` composable with anything that writes to a pipe.
 | 3 | not found, empty queue, a filter term naming nothing |
 | 4 | conflict, held lease, version clash |
 | 5 | permission denied |
-| 6 | precondition failed, illegal transition |
+| 6 | precondition failed, illegal transition, claiming a snoozed task |
 | 7 | a system tix imports from could not be read |
 
 `tix tui` additionally uses 130 for an interrupt, and `tix claim exec` passes the child's exit status through.
@@ -262,6 +262,10 @@ why. Check both: a non-zero exit does not mean nothing happened.
 them (renumbered there, status mapped onto its workflow) or `--delete-tasks` deletes them permanently with it.
 `--dry-run` prints the count and the status mapping without writing, one `from -> to` row per status in a table
 and a `statuses` array with `"dry_run": true` in JSON.
+
+`tix claim task REF` exits 6 on a snoozed task, naming the wake time; `tix task snooze REF UNTIL` exits 2 for a
+time it cannot read or one that has passed. A snoozed task is left out of `tix task ls` until it wakes;
+`--snoozed` lists only snoozed tasks and `--include-snoozed` lists them beside the rest.
 
 `--cascade` on `tix task rm` also deletes the task's subtasks. `--hard` deletes permanently instead of soft
 deleting; a soft delete is reversible with `tix task restore` and visible with `tix task ls --trashed` (only the
