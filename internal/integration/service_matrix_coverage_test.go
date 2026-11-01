@@ -22,6 +22,9 @@ var matrixExemptions = map[string]string{
 		"tenant operation: service.Local closes a database pool and client.Client " +
 		"closes idle sockets and live event streams, so the two are not comparable " +
 		"outcomes and every scenario already exercises both through the harness cleanup",
+	"ReadCalendarFeed": "a feed is answered as iCalendar to a calendar app at its address with no " +
+		"credential, so client.Client refuses it by design; internal/httpapi/handlers_calendar_test.go " +
+		"reads the same service through the HTTP route instead",
 }
 
 // TestEveryOperationIsCoveredOrExempt is the guard the matrix lacked. The

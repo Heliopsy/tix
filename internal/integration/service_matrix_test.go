@@ -472,6 +472,37 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "calendar feed round-trip",
+		covers: []string{"CreateCalendarFeed", "GetCalendarFeed", "SetCalendarFeedFilter", "RotateCalendarFeed", "RevokeCalendarFeed"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			created, err := tg.svc.CreateCalendarFeed(tg.ctx, core.CalendarFeedInput{Filter: "project:" + p.Key})
+			if err != nil {
+				return nil, err
+			}
+			_, again := tg.svc.CreateCalendarFeed(tg.ctx, core.CalendarFeedInput{})
+			_, unknown := tg.svc.SetCalendarFeedFilter(tg.ctx, core.CalendarFeedInput{Filter: "project:nosuch"})
+			filtered, err := tg.svc.SetCalendarFeedFilter(tg.ctx, core.CalendarFeedInput{Filter: "tag:ops"})
+			mustf(t, tg, err, "changing the filter")
+			rotated, err := tg.svc.RotateCalendarFeed(tg.ctx)
+			mustf(t, tg, err, "rotating")
+			shown, err := tg.svc.GetCalendarFeed(tg.ctx)
+			mustf(t, tg, err, "reading the feed")
+			mustf(t, tg, tg.svc.RevokeCalendarFeed(tg.ctx), "revoking")
+			_, gone := tg.svc.GetCalendarFeed(tg.ctx)
+			return sig{
+				"created_filter": strings.HasPrefix(created.Filter, "project:"),
+				"secret":         strings.HasPrefix(created.Token, "tix_cal_") && rotated.Token != created.Token,
+				"again":          core.KindOf(again),
+				"unknown":        core.KindOf(unknown),
+				"filtered":       filtered.Filter,
+				"rotated_filter": rotated.Filter,
+				"shown_is_new":   shown.ID == rotated.ID,
+				"gone":           core.KindOf(gone),
+			}, nil
+		},
+	},
+	{
 		name:   "copy round-trip",
 		covers: []string{"CreateProject", "CreateTask", "AddComment", "CopyTask", "TaskTree", "ListComments"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
