@@ -169,7 +169,7 @@ func TestDeletingAProjectFreesItsOldKeys(t *testing.T) {
 	if _, err := l.UpdateProject(ctx, "infra", core.UpdateProjectInput{Key: strp("ops")}); err != nil {
 		t.Fatalf("UpdateProject: %v", err)
 	}
-	if err := l.DeleteProject(ctx, "ops"); err != nil {
+	if _, err := l.DeleteProject(ctx, "ops", core.DeleteProjectInput{DeleteTasks: true}); err != nil {
 		t.Fatalf("DeleteProject: %v", err)
 	}
 	if _, err := l.GetProject(ctx, "infra"); !core.IsKind(err, core.KindNotFound) {
