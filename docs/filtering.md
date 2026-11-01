@@ -161,7 +161,7 @@ same thing, and over the HTTP API `starred=true` and `starred=false`.
 those that have items and none left open; `-checklist:open` keeps every task with nothing open, which
 includes the ones with no checklist at all.
 
-These terms read the text for the markers `- [ ] `, `* [ ] `, `+ [ ] ` and their ticked forms, which is
+These terms read the text for a bullet (`-`, `*` or `+`), a space, `[ ]` or a ticked box, and a space, which is
 what both storage engines can answer the same way and the terminal can answer in memory. The count on a
 card is taken from the rendered Markdown instead, so a marker typed inside a code block, or an ordered
 list item such as `1. [ ] ...`, is the one place the two can disagree: the filter counts the first and

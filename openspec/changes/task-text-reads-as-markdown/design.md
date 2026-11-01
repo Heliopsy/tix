@@ -52,7 +52,7 @@ needs no column or migration. Parsing a body costs microseconds and a body witho
 
 `has:checklist` and `checklist:open` must be answered the same way by SQLite, PostgreSQL and the
 terminal's in-memory matcher. A literal substring is the predicate all three answer identically, so the
-filter looks for `- [ ] `, `* [ ] `, `+ [ ] ` and the ticked forms. It can disagree with the count for a
+filter looks for a bullet (`-`, `*` or `+`), a space, `[ ]`, `[x]` or `[X]`, and a space. It can disagree with the count for a
 marker inside a code block or an ordered-list item; docs/filtering.md says so.
 
 ## Alternatives not taken
