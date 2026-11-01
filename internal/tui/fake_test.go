@@ -445,6 +445,10 @@ type copyCall struct {
 	in  core.CopyTaskInput
 }
 
+func (*fakeService) BulkTasks(context.Context, core.BulkTaskInput) (*core.BulkResult, error) {
+	return nil, core.Internal("the terminal interface makes no bulk requests")
+}
+
 func (f *fakeService) CopyTask(_ context.Context, ref core.TaskRef, in core.CopyTaskInput) (*core.Task, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

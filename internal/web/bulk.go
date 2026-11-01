@@ -252,7 +252,7 @@ func (h *handler) exportTasksCSV(w http.ResponseWriter, r *http.Request) error {
 	out := output.NewTaskCSV(w, csvColumns(columnsOf(r)), labels)
 	for _, t := range tasks {
 		if err := out.Write(t); err != nil {
-			return nil
+			return err
 		}
 	}
 	return out.Close()
