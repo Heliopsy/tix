@@ -13,6 +13,6 @@ func init() {
 		"%d of %d checklist items done": "%d от %d точки от списъка са отметнати",
 		"item ticked":                   "точката е отметната",
 		"item cleared":                  "отметката е махната",
-		"Written in Markdown: **bold**, lists, tables, `code`, links, and - [ ] for a checklist the task screen can tick. A reference such as infra-8 and an @handle become links. HTML is shown as typed, and images are linked rather than loaded.": "Пише се в Markdown: **удебелено**, списъци, таблици, `код`, връзки и - [ ] за списък с отметки, който екранът на задачата може да отмята. Препратка като infra-8 и @потребител стават връзки. HTML се показва както е написан, а изображенията се свързват, без да се зареждат.",
+		"Written in Markdown: **bold**, lists, tables, `code`, links, and - [ ] for a checklist the task screen can tick. A reference such as INFRA-8 and an @handle become links. HTML is shown as typed, and images are linked rather than loaded.": "Пише се в Markdown: **удебелено**, списъци, таблици, `код`, връзки и - [ ] за списък с отметки, който екранът на задачата може да отмята. Препратка като INFRA-8 и @потребител стават връзки. HTML се показва както е написан, а изображенията се свързват, без да се зареждат.",
 	})
 }

@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 )
 
 // The bar drawn down a card's left edge. It carries the card's state as a
@@ -74,7 +75,7 @@ func CardOf(t core.Task, width int, now time.Time, mine string) Card {
 	text := max(1, width-CardBarWidth)
 	title := t.Title
 	if strings.TrimSpace(title) == "" {
-		title = t.Ref
+		title = output.ShowRef(t.Ref)
 	}
 	return Card{
 		Title: WrapTitle(title, text, CardTitleLines),
@@ -122,7 +123,7 @@ func CardMetaSegments(t core.Task, now time.Time, mine string) []MetaSegment {
 	if t.Starred {
 		lead = StarMarker
 	}
-	out := []MetaSegment{{Text: lead + t.Ref + CardSeparator + "P" + priorityDigit(t.Priority)}}
+	out := []MetaSegment{{Text: lead + output.ShowRef(t.Ref) + CardSeparator + "P" + priorityDigit(t.Priority)}}
 	state := t.DueState(now)
 	if marker := DueMarker(state); marker != "" {
 		out = append(out, MetaSegment{Text: CardSeparator}, MetaSegment{Text: marker, Due: state})

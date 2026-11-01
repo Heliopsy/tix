@@ -24,6 +24,10 @@
   // highest, more so at the start or at a word start; failing that, the
   // letters in order with gaps score lower the more they are spread. -1 is no
   // match.
+  // A ref or project key is kept lower case and drawn upper case, as INFRA-8.
+  function shownRef(s) {
+    return String(s || "").toUpperCase();
+  }
   function fuzzyWord(word, text) {
     var at = text.indexOf(word);
     if (at === 0) {
@@ -144,7 +148,7 @@
       }
       var title = entry && typeof entry.title === "string" ? entry.title : "";
       var href = entry && typeof entry.href === "string" && entry.href.charAt(0) === "/" ? entry.href : "/tasks/" + encodeURIComponent(ref);
-      out.push({ key: "task:" + ref, kind: "task", label: title || ref, hint: title ? ref : "", href: href });
+      out.push({ key: "task:" + ref, kind: "task", label: title || shownRef(ref), hint: title ? shownRef(ref) : "", href: href });
     }
     return out;
   };
@@ -268,12 +272,12 @@
       return { key: "action:" + a.id, kind: "action", action: a.id, label: a.label, hint: "" };
     });
     var projs = (projects || []).map(function (p) {
-      return { key: "project:" + p.key, kind: "project", label: p.name, hint: p.key, href: p.href };
+      return { key: "project:" + p.key, kind: "project", label: p.name, hint: shownRef(p.key), href: p.href };
     });
     if (typed) {
       (projects || []).forEach(function (p) {
         actions.push({ key: "action:new-task:" + p.key, kind: "action", action: "new-task", project: p.key,
-          label: say("New task in %s").replace("%s", p.name), hint: p.key });
+          label: say("New task in %s").replace("%s", p.name), hint: shownRef(p.key) });
       });
     }
     return { screens: screens, actions: actions, projects: projs };
@@ -308,7 +312,7 @@
     var found = tix.paletteRank(known, q, recentKeys);
     if (tasks && tasks.q === q) {
       found = found.concat(tasks.items.map(function (t) {
-        return { key: "task:" + t.ref, kind: "task", label: t.title, hint: t.ref, href: t.href, status: t.status };
+        return { key: "task:" + t.ref, kind: "task", label: t.title, hint: shownRef(t.ref), href: t.href, status: t.status };
       }));
     }
     groups.push({ name: say("Tasks"), items: take(found, 10) });

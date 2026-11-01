@@ -130,13 +130,13 @@ func TestTheAddFormsPreselectTheFilteredProject(t *testing.T) {
 
 	page := b.page("/tasks?q=" + url.QueryEscape("project:web"))
 	quick := between(t, page, `class="quickadd">`, "</form>")
-	if !strings.Contains(quick, `<option value="web" selected>`) {
+	if !strings.Contains(quick, `<option value="web" selected data-short="WEB">`) {
 		t.Errorf("the one-line box does not preselect web:\n%s", quick)
 	}
 	if !strings.Contains(addForm(t, page), `<option value="web" selected>`) {
 		t.Error("Add with details does not preselect web")
 	}
-	if strings.Contains(b.page("/tasks"), `<option value="web" selected>`) {
+	if strings.Contains(b.page("/tasks"), `<option value="web" selected`) {
 		t.Error("an unfiltered list preselects a project")
 	}
 }

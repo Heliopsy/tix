@@ -25,7 +25,7 @@
       <option value="">{{t "Every project"}}</option>
       {{$project := .Data.Project}}
       {{range .Data.Projects}}
-      <option value="{{.Key}}" {{if eq .Key $project}}selected{{end}}>{{.Name}}</option>
+      <option value="{{.Key}}" {{if eq .Key $project}}selected{{end}}>{{projLabel $.ProjectLabel .}}</option>
       {{end}}
     </select>
   </span>
@@ -153,7 +153,7 @@
   <tbody>
     {{range .Data.Stats.Oldest}}
     <tr>
-      <td><a href="/tasks/{{.Ref}}">{{.Ref}}</a></td>
+      <td><a href="/tasks/{{.Ref}}">{{ref .Ref}}</a></td>
       <td>{{.Title}}</td>
       <td>{{.Status}}</td>
       <td class="num">{{age .Age}}</td>

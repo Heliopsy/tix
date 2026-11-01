@@ -19,7 +19,7 @@ type contextRow struct {
 	Database string `json:"database,omitempty" yaml:"database,omitempty"`
 	Server   string `json:"server,omitempty" yaml:"server,omitempty"`
 	Tenant   string `json:"tenant,omitempty" yaml:"tenant,omitempty"`
-	Project  string `json:"project,omitempty" yaml:"project,omitempty"`
+	Project  string `json:"project,omitempty" yaml:"project,omitempty" show:"key"`
 }
 
 // newCtxCmd builds the context command group.

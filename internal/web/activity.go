@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 )
 
 // activityRoutes are the tenant-wide activity feed and the fragment its live
@@ -362,13 +363,13 @@ func (h *handler) subjectFor(r *http.Request, entry core.AuditEntry, accents map
 			break
 		}
 		if task := h.taskByID(r, tasks, entry.SubjectID); task != nil && task.Ref != "" {
-			return task.Ref, RouteTasks + "/" + task.Ref, task.ProjectID
+			return output.ShowRef(task.Ref), RouteTasks + "/" + task.Ref, task.ProjectID
 		}
 	case "comment", "artifact":
 		if task := h.taskOfAttachment(r, tasks, entry); task != nil && task.Ref != "" {
 			noun := subjectKindNouns[entry.SubjectType]
 			anchor := "#" + entry.SubjectType + "-" + entry.SubjectID
-			return noun + " on " + task.Ref, RouteTasks + "/" + task.Ref + anchor, task.ProjectID
+			return noun + " on " + output.ShowRef(task.Ref), RouteTasks + "/" + task.Ref + anchor, task.ProjectID
 		}
 	case "project":
 		if a, ok := accents[entry.SubjectID]; ok && a.Name != "" {

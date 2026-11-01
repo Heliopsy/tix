@@ -128,7 +128,7 @@
       if (global.location && global.location.pathname === list[i].href) a.setAttribute("aria-current", "page");
       var ref = doc.createElement("span");
       ref.className = "ref";
-      ref.textContent = list[i].ref;
+      ref.textContent = String(list[i].ref).toUpperCase();
       var title = doc.createElement("span");
       title.className = "recenttitle";
       title.textContent = list[i].title;

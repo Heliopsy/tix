@@ -48,7 +48,7 @@
           {{if not .Read}}<span class="sr-only">{{t "(unread)"}}</span>{{end}}
         </p>
         <p class="inbox-task">
-          {{if .Href}}<a href="{{.Href}}" data-inbox-open="{{.ID}}"{{if not .Read}} data-inbox-unread{{end}}><span class="ref">{{.TaskRef}}</span> {{.TaskTitle}}</a>
+          {{if .Href}}<a href="{{.Href}}" data-inbox-open="{{.ID}}"{{if not .Read}} data-inbox-unread{{end}}><span class="ref">{{ref .TaskRef}}</span> {{.TaskTitle}}</a>
           {{else}}<span class="muted">{{t "a task that has been deleted"}}</span>{{end}}
         </p>
         {{if and .Excerpt (ne (printf "%s" .Kind) "assigned")}}<p class="inbox-excerpt">{{.Excerpt}}</p>{{end}}

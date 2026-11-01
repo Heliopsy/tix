@@ -51,7 +51,7 @@ whichever markers are true of the task, separated so that a priority and a marke
 ```text
 ┃ Default-deny network      │ Bring the platform
 ┃ policies in staging       │ onto one observ…
-┃ infra-13 · P2 · due! · @me│ infra-8 · P2
+┃ INFRA-13 · P2 · due! · @me│ INFRA-8 · P2
 ```
 
 The bar down the left edge carries the workflow category as a colour and the selection as a shape: the

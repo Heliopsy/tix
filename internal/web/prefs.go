@@ -146,6 +146,7 @@ var Preferences = []Preference{
 	{Cookie: TaskOpenCookie, Route: RouteTaskOpen, Label: "Task opens in"},
 	{Cookie: TitleClickCookie, Route: RouteTitleClick, Label: "Clicking a title"},
 	{Cookie: TintCookie, Route: RouteTint, Label: "Colour rows by"},
+	{Cookie: ProjectLabelCookie, Route: RouteProjectLabel, Label: "Project names in pickers"},
 	{Cookie: LanguageCookie, Route: RouteLanguage, Label: "Language"},
 }
 

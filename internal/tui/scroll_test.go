@@ -110,7 +110,7 @@ func TestEveryProjectIsReachableAtASmallHeight(t *testing.T) {
 			for step := 0; step <= total; step++ {
 				for _, line := range m.projectLines() {
 					for i := range total {
-						if strings.Contains(line, fmt.Sprintf("proj%d ", i)) {
+						if strings.Contains(line, fmt.Sprintf("PROJ%d ", i)) {
 							seen[fmt.Sprintf("proj%d", i)] = true
 						}
 					}
@@ -153,7 +153,7 @@ func TestTheSelectionStaysOnScreenAsItMoves(t *testing.T) {
 	m := projectListModel(t, 13, 130, 14)
 	for step := range 13 {
 		m, _ = m.reduce(pressKey("j"))
-		want := fmt.Sprintf("proj%d ", min(step+1, 12))
+		want := fmt.Sprintf("PROJ%d ", min(step+1, 12))
 		found := false
 		for _, line := range m.projectLines() {
 			if strings.Contains(line, SelectionMarker(true)) && strings.Contains(line, want) {

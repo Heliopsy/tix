@@ -131,6 +131,7 @@ const (
 	RouteTaskView     = "/taskview"
 	RouteListGroup    = "/listgroup"
 	RouteTint         = "/tint"
+	RouteProjectLabel = "/projectlabel"
 	RouteDragMove     = "/dragmove"
 	RouteOpenAfterAdd = "/openafteradd"
 	RouteHover        = "/hover"

@@ -46,7 +46,7 @@
         <div class="cfield-label"><label for="tpl-project">{{t "Project"}}</label></div>
         <select id="tpl-project" name="project_ref"{{$e.Attrs "project_ref"}}>
           <option value=""{{if not $f.Project}} selected{{end}}>{{t "All projects"}}</option>
-          {{range .Data.Projects}}<option value="{{.Key}}"{{if eq .Key $f.Project}} selected{{end}}>{{.Name}} ({{.Key}})</option>{{end}}
+          {{range .Data.Projects}}<option value="{{.Key}}"{{if eq .Key $f.Project}} selected{{end}}>{{projLabel $.ProjectLabel .}}</option>{{end}}
         </select>
         {{with $e.On "project_ref"}}{{template "field-error" .}}{{end}}
       </div>

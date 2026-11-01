@@ -70,7 +70,7 @@ func TestALaneCardsMoreActionsSurviveEveryHiddenField(t *testing.T) {
 	for _, want := range []string{
 		`<a class="flowgo" href="/tasks/` + ref + `?next=%2Ftasks">`,
 		`data-copy-link="/tasks/` + ref + `"`,
-		`data-copy-text="` + ref + `"`,
+		`data-copy-text="` + strings.ToUpper(ref) + `"`,
 		`data-rename="` + ref + `" data-version="`,
 	} {
 		if !strings.Contains(menu, want) {

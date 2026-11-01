@@ -276,7 +276,7 @@ func TestIdenticalWorkflowsMergeIntoOneBoard(t *testing.T) {
 	}
 	// A merged card says which list it came from, because one column now
 	// holds two projects' work.
-	if !strings.Contains(cardBlock(t, page, second), `>ops</a>`) {
+	if !strings.Contains(cardBlock(t, page, second), `>OPS</a>`) {
 		t.Errorf("a card on a merged board does not name its project:\n%s", cardBlock(t, page, second))
 	}
 }
@@ -316,10 +316,10 @@ func TestWorkflowsThatDisagreeRefuseTheBoardAndNameThem(t *testing.T) {
 	if len(entries) != 2 {
 		t.Fatalf("the refusal names %d workflow groups, want 2: %v", len(entries), entries)
 	}
-	if !strings.Contains(entries[0], "infra, ops") {
+	if !strings.Contains(entries[0], "INFRA, OPS") {
 		t.Errorf("the agreeing projects are not grouped together: %q", entries[0])
 	}
-	if !strings.Contains(entries[1], "web") || strings.Contains(entries[1], "infra") {
+	if !strings.Contains(entries[1], "WEB") || strings.Contains(entries[1], "INFRA") {
 		t.Errorf("the disagreeing project is not a group of its own: %q", entries[1])
 	}
 	// Both of these workflows are called "Default", which is the whole trap:

@@ -180,7 +180,7 @@ func (m Model) claim() tea.Cmd {
 	if !ok || m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
 	return func() tea.Msg {
 		claim, err := svc.ClaimTask(ctx, ref, core.ClaimInput{})
 		if err != nil {
@@ -195,7 +195,7 @@ func (m Model) releaseCmd(task core.Task) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, token, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, m.leases[task.ID], task.Ref
+	svc, ctx, ref, token, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, m.leases[task.ID], output.ShowRef(task.Ref)
 	return func() tea.Msg {
 		err := svc.ReleaseLease(ctx, ref, token, core.ReleaseInput{})
 		return actionMsg{kind: actionRelease, ref: ref, label: label, err: err}
@@ -215,9 +215,9 @@ func (m Model) transition(route string) tea.Cmd {
 	}
 	steps, err := core.ParseRoute(route)
 	if err != nil {
-		return func() tea.Msg { return actionMsg{kind: actionTransition, label: task.Ref, err: err} }
+		return func() tea.Msg { return actionMsg{kind: actionTransition, label: output.ShowRef(task.Ref), err: err} }
 	}
-	svc, ctx, ref, label, from := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref, task.Status
+	svc, ctx, ref, label, from := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref), task.Status
 	in := core.RouteInput{Route: steps, LeaseToken: m.leases[task.ID]}
 	return func() tea.Msg {
 		result, err := svc.TransitionRoute(ctx, ref, in)
@@ -290,7 +290,7 @@ func (m Model) createTask(in core.CreateTaskInput, line string) tea.Cmd {
 		if err != nil {
 			return actionMsg{kind: actionCreate, err: err, line: line}
 		}
-		return actionMsg{kind: actionCreate, ref: core.TaskRef{ID: task.ID}, label: task.Ref}
+		return actionMsg{kind: actionCreate, ref: core.TaskRef{ID: task.ID}, label: output.ShowRef(task.Ref)}
 	}
 }
 
@@ -299,7 +299,7 @@ func (m Model) updateTask(task core.Task, in core.UpdateTaskInput) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
 	sentence := updateSentence(label, in)
 	return func() tea.Msg {
 		_, err := svc.UpdateTask(ctx, ref, in)
@@ -362,7 +362,7 @@ func (m Model) comment(task core.Task, body string) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
 	return func() tea.Msg {
 		_, err := svc.AddComment(ctx, ref, body)
 		return actionMsg{kind: actionComment, ref: ref, label: label, err: err}
@@ -374,7 +374,7 @@ func (m Model) tag(task core.Task, name string) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
 	return func() tea.Msg {
 		return actionMsg{kind: actionTag, ref: ref, label: label, err: svc.AddTag(ctx, ref, name)}
 	}
@@ -386,7 +386,7 @@ func (m Model) checkItem(task core.Task, text string) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	ref, label := core.TaskRef{ID: task.ID}, task.Ref
+	ref, label := core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
 	n, err := strconv.Atoi(strings.TrimSpace(text))
 	items := markdown.Items(task.Body)
 	if err != nil || n < 1 || n > len(items) {
@@ -406,7 +406,7 @@ func (m Model) untag(task core.Task, name string) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
 	return func() tea.Msg {
 		return actionMsg{kind: actionUntag, ref: ref, label: label, err: svc.RemoveTag(ctx, ref, name)}
 	}
@@ -417,7 +417,7 @@ func (m Model) depend(task core.Task, on string) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
 	target, err := core.ParseTaskRef(on)
 	if err != nil {
 		return func() tea.Msg { return actionMsg{kind: actionDepend, ref: ref, label: label, err: err} }
@@ -446,7 +446,7 @@ func (m Model) claimNext() tea.Cmd {
 		}
 		ref, label := core.TaskRef{}, ""
 		if claim.Task != nil {
-			ref.ID, label = claim.Task.ID, claim.Task.Ref
+			ref.ID, label = claim.Task.ID, output.ShowRef(claim.Task.Ref)
 		}
 		return actionMsg{kind: actionClaim, ref: ref, label: label, token: claim.LeaseToken}
 	}
@@ -457,7 +457,7 @@ func (m Model) renew(task core.Task) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, token, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, m.leases[task.ID], task.Ref
+	svc, ctx, ref, token, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, m.leases[task.ID], output.ShowRef(task.Ref)
 	return func() tea.Msg {
 		_, err := svc.RenewLease(ctx, ref, token, 0)
 		return actionMsg{kind: actionRenew, ref: ref, label: label, err: err}
@@ -469,7 +469,7 @@ func (m Model) reclaim(task core.Task) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
 	return func() tea.Msg {
 		_, err := svc.ForceReclaim(ctx, ref, core.ForceReclaimInput{})
 		return actionMsg{kind: actionReclaim, ref: ref, label: label, err: err}
@@ -488,7 +488,7 @@ func (m Model) createProject(key, name string) tea.Cmd {
 		if err != nil {
 			return actionMsg{kind: actionNewProject, err: err}
 		}
-		return actionMsg{kind: actionNewProject, label: project.Key}
+		return actionMsg{kind: actionNewProject, label: output.ShowKey(project.Key)}
 	}
 }
 
@@ -529,7 +529,7 @@ func (m Model) editComment(body string) tea.Cmd {
 		return nil
 	}
 	task, _ := m.selectedTask()
-	svc, ctx, ref, label, id := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref, comment.ID
+	svc, ctx, ref, label, id := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref), comment.ID
 	return func() tea.Msg {
 		_, err := svc.EditComment(ctx, id, body)
 		return actionMsg{kind: actionEditComment, ref: ref, label: label, err: err}
@@ -542,12 +542,12 @@ func (m Model) undepend(task core.Task, on string) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
 	target, err := core.ParseTaskRef(on)
 	if err != nil {
 		return func() tea.Msg { return actionMsg{kind: actionUndepend, ref: ref, label: label, err: err} }
 	}
-	sentence := "removed the dependency on " + on + " from " + label
+	sentence := "removed the dependency on " + output.ShowRef(on) + " from " + label
 	return func() tea.Msg {
 		return actionMsg{kind: actionUndepend, ref: ref, label: label, sentence: sentence,
 			err: svc.RemoveDependency(ctx, ref, target)}
@@ -645,10 +645,10 @@ func (m Model) updateProject(in core.UpdateProjectInput, attribute string) tea.C
 		return nil
 	}
 	svc, ctx := m.svc, m.ctx
-	sentence := "set the " + attribute + " of project " + ref
+	sentence := "set the " + attribute + " of project " + output.ShowKey(ref)
 	return func() tea.Msg {
 		_, err := svc.UpdateProject(ctx, ref, in)
-		return actionMsg{kind: actionEditProject, label: ref, sentence: sentence, err: err}
+		return actionMsg{kind: actionEditProject, label: output.ShowKey(ref), sentence: sentence, err: err}
 	}
 }
 
@@ -659,8 +659,8 @@ func (m Model) archiveProject(ref string) tea.Cmd {
 	}
 	svc, ctx := m.svc, m.ctx
 	return func() tea.Msg {
-		return actionMsg{kind: actionArchiveProject, label: ref,
-			sentence: "archived project " + ref, err: svc.ArchiveProject(ctx, ref)}
+		return actionMsg{kind: actionArchiveProject, label: output.ShowKey(ref),
+			sentence: "archived project " + output.ShowKey(ref), err: svc.ArchiveProject(ctx, ref)}
 	}
 }
 
@@ -690,8 +690,8 @@ func (m Model) deleteProject(ref string, in core.DeleteProjectInput, note string
 	svc, ctx := m.svc, m.ctx
 	return func() tea.Msg {
 		_, err := svc.DeleteProject(ctx, ref, in)
-		return actionMsg{kind: actionDeleteProject, label: ref,
-			sentence: "deleted project " + ref + " " + note, err: err}
+		return actionMsg{kind: actionDeleteProject, label: output.ShowKey(ref),
+			sentence: "deleted project " + output.ShowKey(ref) + " " + note, err: err}
 	}
 }
 
@@ -702,7 +702,7 @@ func (m Model) putFieldDef(in core.FieldDefInput) tea.Cmd {
 		return nil
 	}
 	svc, ctx := m.svc, m.ctx
-	sentence := "defined field " + in.Key + " on " + ref + " as " + string(in.Type)
+	sentence := "defined field " + in.Key + " on " + output.ShowKey(ref) + " as " + string(in.Type)
 	if in.Required {
 		sentence += ", required"
 	}
@@ -720,7 +720,7 @@ func (m Model) deleteFieldDef(ref, fieldKey string) tea.Cmd {
 	svc, ctx := m.svc, m.ctx
 	return func() tea.Msg {
 		return actionMsg{kind: actionDeleteField, label: fieldKey,
-			sentence: "deleted field " + fieldKey + " from " + ref,
+			sentence: "deleted field " + fieldKey + " from " + output.ShowKey(ref),
 			err:      svc.DeleteFieldDef(ctx, ref, fieldKey)}
 	}
 }
@@ -746,12 +746,12 @@ func (m Model) copyTask(task core.Task, in core.CopyTaskInput) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
 	return func() tea.Msg {
 		copied, err := svc.CopyTask(ctx, ref, in)
 		msg := actionMsg{kind: actionCopy, ref: ref, label: label, err: err}
 		if err == nil {
-			msg.sentence = "copied " + label + " to " + copied.Ref
+			msg.sentence = "copied " + label + " to " + output.ShowRef(copied.Ref)
 		}
 		return msg
 	}
@@ -781,7 +781,7 @@ func (m Model) useTemplate(name string, in core.UseTemplateInput) tea.Cmd {
 		task, err := svc.UseTemplate(ctx, name, in)
 		msg := actionMsg{kind: actionUseTemplate, label: name, err: err}
 		if err == nil {
-			msg.ref, msg.sentence = core.TaskRef{ID: task.ID}, "created "+task.Ref+" from "+name
+			msg.ref, msg.sentence = core.TaskRef{ID: task.ID}, "created "+output.ShowRef(task.Ref)+" from "+name
 		}
 		return msg
 	}
@@ -832,7 +832,7 @@ func (m Model) saveTemplate(task core.Task, in core.SaveTemplateInput) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
 	return func() tea.Msg {
 		tpl, err := svc.SaveTemplate(ctx, in)
 		msg := actionMsg{kind: actionSaveTemplate, ref: ref, label: label, err: err}
@@ -848,7 +848,7 @@ func (m Model) restore(task core.Task) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
 	return func() tea.Msg {
 		_, err := svc.RestoreTask(ctx, ref)
 		return actionMsg{kind: actionRestore, ref: ref, label: label, err: err}
@@ -861,7 +861,7 @@ func (m Model) snooze(task core.Task, when string) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
 	until, err := query.ParseUntil(when, m.now(), time.Local)
 	return func() tea.Msg {
 		if err != nil {
@@ -878,7 +878,7 @@ func (m Model) unsnooze(task core.Task) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
 	return func() tea.Msg {
 		_, err := svc.UnsnoozeTask(ctx, ref)
 		return actionMsg{kind: actionUnsnooze, ref: ref, label: label, err: err}
@@ -891,7 +891,7 @@ func (m Model) toggleStar(task core.Task) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
 	call, kind := svc.StarTask, actionStar
 	if task.Starred {
 		call, kind = svc.UnstarTask, actionUnstar
@@ -906,7 +906,7 @@ func (m Model) putArtifact(task core.Task, in core.ArtifactInput) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
 	sentence := "recorded " + string(in.Kind) + " artifact " + in.Name + " on " + label
 	return func() tea.Msg {
 		_, err := svc.PutArtifact(ctx, ref, in)

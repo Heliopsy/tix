@@ -46,7 +46,7 @@ func TestChangingAProjectKeyIsConfirmedFirst(t *testing.T) {
 	wantStatus(t, resp, http.StatusOK)
 	page := readAll(t, resp)
 	_ = resp.Body.Close()
-	if !strings.Contains(page, "<code>"+ref+"</code> &rarr; <code>ops-"+seq+"</code>") {
+	if !strings.Contains(page, "<code>"+strings.ToUpper(ref)+"</code> &rarr; <code>OPS-"+seq+"</code>") {
 		t.Errorf("the confirmation does not show %s becoming ops-%s:\n%s", ref, seq, page)
 	}
 	confirm := settingsAt(t, page, "/projects/infra/update")

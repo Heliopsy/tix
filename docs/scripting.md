@@ -46,13 +46,13 @@ one-line banner naming what it is connected to, any active filter, and how to st
 ```console
 $ tix watch
 watching local /tmp/scratch/tix.db (from --db); ctrl-c to stop
-000043  10:15:03  alice  created         homelab-9   Move backups off the old NAS
-000044  10:15:12  alice  claimed         homelab-9   lease 30m
-000045  10:15:40  alice  transitioned    homelab-9   todo → doing
-000046  10:16:02  bob    claimed         homelab-4   for agent-pax, lease 1h
-000047  10:16:20  alice  updated         homelab-9   the title and priority
-000048  10:46:02  bob    lease expired   homelab-4   held by agent-pax, reverted to todo
-000049  10:47:11  alice  released        homelab-9   → done
+000043  10:15:03  alice  created         HOMELAB-9   Move backups off the old NAS
+000044  10:15:12  alice  claimed         HOMELAB-9   lease 30m
+000045  10:15:40  alice  transitioned    HOMELAB-9   todo → doing
+000046  10:16:02  bob    claimed         HOMELAB-4   for agent-pax, lease 1h
+000047  10:16:20  alice  updated         HOMELAB-9   the title and priority
+000048  10:46:02  bob    lease expired   HOMELAB-4   held by agent-pax, reverted to todo
+000049  10:47:11  alice  released        HOMELAB-9   → done
 ```
 
 Each line leads with the event's sequence number, and that number is the resume cursor: whatever handled line

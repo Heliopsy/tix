@@ -286,7 +286,7 @@ func (l *Local) RunSync(ctx context.Context, in core.RunSyncInput) (*core.SyncRe
 // a single record is read.
 func (r *syncRun) prepare(ctx context.Context, actor *core.Actor) error {
 	if err := r.local.read(ctx, actor, func(tx store.Tx) error {
-		project, err := tx.GetProject(ctx, r.mapping.Project)
+		project, err := lookupProject(ctx, tx, r.mapping.Project)
 		if err != nil {
 			return err
 		}

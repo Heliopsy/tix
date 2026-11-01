@@ -244,8 +244,8 @@ func TestTheHistorySubjectFollowsWhatTheReaderIsLookingAt(t *testing.T) {
 		want HistorySubject
 	}{
 		{"a selected card", board, HistorySubject{Type: "task", ID: task.ID, Label: task.Ref}},
-		{"the project screen", setup, HistorySubject{Type: "project", ID: "p9", Label: "project web"}},
-		{"the project list", projects, HistorySubject{Type: "project", ID: "p1", Label: "project infra"}},
+		{"the project screen", setup, HistorySubject{Type: "project", ID: "p9", Label: "project WEB"}},
+		{"the project list", projects, HistorySubject{Type: "project", ID: "p1", Label: "project INFRA"}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

@@ -95,7 +95,7 @@ func TestActivityViewRendersAReadableLinePerEvent(t *testing.T) {
 	m, _ = m.reduce(eventMsg{event: activityEvent(5, "alice")})
 	m, _ = m.reduce(pressKey("v"))
 	frame := m.Frame()
-	for _, want := range []string{"alice", "claimed", "infra-5"} {
+	for _, want := range []string{"alice", "claimed", "INFRA-5"} {
 		if !strings.Contains(frame, want) {
 			t.Fatalf("frame does not contain %q:\n%s", want, frame)
 		}

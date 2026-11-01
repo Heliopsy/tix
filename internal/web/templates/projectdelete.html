@@ -14,7 +14,7 @@
 <form method="post" class="cform delform" data-form hx-boost="false" action="/projects/{{$p.Key}}/delete">
   {{template "csrf" .CSRF}}
   {{with .Data.Errors.On ""}}{{template "field-error" .}}{{end}}
-  <p class="delform-lead">{{t "%s holds no tasks. Deleting it is permanent and cannot be undone." $p.Key}}</p>
+  <p class="delform-lead">{{t "%s holds no tasks. Deleting it is permanent and cannot be undone." (key $p.Key)}}</p>
   <div class="cform-foot">
     <div class="cform-actions">
       <a class="secondary cform-cancel" href="/projects/{{$p.Key}}" data-form-cancel>{{t "Cancel"}}</a>
@@ -30,7 +30,7 @@
        intent=delete deletes anything; see deleteProject. */}}
   <button type="submit" class="sr-only" tabindex="-1" aria-hidden="true" name="intent" value="delete">{{t "Delete project"}}</button>
   {{with .Data.Errors.On ""}}{{template "field-error" .}}{{end}}
-  <p class="delform-lead">{{tn "%[2]s holds %[1]d task." "%[2]s holds %[1]d tasks." .Data.Plan.Total $p.Key}}{{if .Data.Plan.Deleted}} {{tn "%d of them is already deleted and can still be restored." "%d of them are already deleted and can still be restored." .Data.Plan.Deleted}}{{end}}</p>
+  <p class="delform-lead">{{tn "%[2]s holds %[1]d task." "%[2]s holds %[1]d tasks." .Data.Plan.Total (key $p.Key)}}{{if .Data.Plan.Deleted}} {{tn "%d of them is already deleted and can still be restored." "%d of them are already deleted and can still be restored." .Data.Plan.Deleted}}{{end}}</p>
   <p class="cfield-hint">{{t "Deleting the project is permanent and cannot be undone. Choose what happens to its tasks."}}</p>
   <fieldset class="delchoices"{{with .Data.Errors.On "choice"}} aria-invalid="true" aria-describedby="{{.ID}}"{{end}}>
     <legend>{{t "What happens to the tasks"}}</legend>
@@ -44,7 +44,7 @@
           <div class="cfield-label"><label for="move_to">{{t "Target project"}}</label></div>
           <div class="delpick">
             <select id="move_to" name="move_to"{{.Data.Errors.Attrs "move_to"}}>
-              {{range .Data.Targets}}<option value="{{.Key}}"{{if eq .Key $.Data.MoveTo}} selected{{end}}>{{.Key}} &middot; {{.Name}}</option>{{end}}
+              {{range .Data.Targets}}<option value="{{.Key}}"{{if eq .Key $.Data.MoveTo}} selected{{end}}>{{projLabel $.ProjectLabel .}}</option>{{end}}
             </select>
             <button class="secondary apply" type="submit" name="intent" value="preview" formnovalidate>{{t "Show the mapping"}}</button>
           </div>
@@ -71,7 +71,7 @@
       <label class="delchoice-head"><input type="radio" name="choice" value="delete"{{if eq .Data.Choice "delete"}} checked{{end}}> <span class="delchoice-title">{{t "Delete them with the project, permanently"}}</span></label>
       <div class="delchoice-body">
         <div class="cfield">
-          <div class="cfield-label"><label for="confirm">{{t "Type %s to confirm deleting the tasks" $p.Key}}</label></div>
+          <div class="cfield-label"><label for="confirm">{{t "Type %s to confirm deleting the tasks" (key $p.Key)}}</label></div>
           <input id="confirm" class="mono" name="confirm" autocomplete="off" autocapitalize="none" spellcheck="false"{{.Data.Errors.Attrs "confirm"}}>
           {{with .Data.Errors.On "confirm"}}{{template "field-error" .}}{{end}}
         </div>

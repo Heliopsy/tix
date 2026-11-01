@@ -45,7 +45,7 @@ func TestTheDeleteButtonOpensAConfirmationRatherThanDeleting(t *testing.T) {
 	}
 
 	page := b.page("/projects/infra/delete")
-	if !strings.Contains(page, "infra holds no tasks.") {
+	if !strings.Contains(page, "INFRA holds no tasks.") {
 		t.Errorf("an empty project's confirmation does not say it holds none:\n%s", page)
 	}
 	if strings.Contains(page, `name="choice"`) {
@@ -69,7 +69,7 @@ func TestTheConfirmationOffersBothChoicesAndShowsTheMapping(t *testing.T) {
 	page := b.page("/projects/infra/delete")
 	form := formAt(t, page, "/projects/infra/delete")
 	for _, want := range []string{
-		"infra holds 2 tasks.",
+		"INFRA holds 2 tasks.",
 		`type="radio" name="choice" value="move"`,
 		`type="radio" name="choice" value="delete"`,
 		`<option value="ops" selected>`,

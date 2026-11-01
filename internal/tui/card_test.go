@@ -111,18 +111,18 @@ func TestTheCardMetaSeparatesThePriorityFromItsMarkers(t *testing.T) {
 		task core.Task
 		want string
 	}{
-		{"no markers", core.Task{Ref: "infra-1", Priority: core.PriorityNormal}, "infra-1 · P3"},
+		{"no markers", core.Task{Ref: "infra-1", Priority: core.PriorityNormal}, "INFRA-1 · P3"},
 		// A due date draws a marker only while the deadline is pressing. The
 		// marker removed before was drawn for any due date at all, which put it
 		// on nearly every card in a real backlog and so distinguished nothing.
 		{"a deadline this week", core.Task{Ref: "infra-1", Priority: core.PriorityHigh, DueAt: &soon},
-			"infra-1 · P2 · due"},
+			"INFRA-1 · P2 · due"},
 		{"a deadline past", core.Task{Ref: "infra-1", Priority: core.PriorityHigh, DueAt: &past},
-			"infra-1 · P2 · due!"},
+			"INFRA-1 · P2 · due!"},
 		{"a deadline next quarter draws nothing", core.Task{Ref: "infra-1", Priority: core.PriorityHigh, DueAt: &far},
-			"infra-1 · P2"},
+			"INFRA-1 · P2"},
 		{"blocked, with a deadline this week", core.Task{Ref: "infra-1", Priority: core.PriorityHigh, Blocked: true, DueAt: &soon},
-			"infra-1 · P2 · due · !"},
+			"INFRA-1 · P2 · due · !"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

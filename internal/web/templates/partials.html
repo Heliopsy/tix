@@ -210,7 +210,7 @@
   {{template "csrf" .CSRF}}
   <input type="hidden" name="next" value="{{.Next}}">
   <button type="submit" class="star{{if .Starred}} is-starred{{end}}" data-focus="star" aria-pressed="{{if .Starred}}true{{else}}false{{end}}"
-          aria-label="{{if .Starred}}{{t "Unstar %s" .Ref}}{{else}}{{t "Star %s" .Ref}}{{end}}" title="{{if .Starred}}{{t "Unstar"}}{{else}}{{t "Star"}}{{end}}">
+          aria-label="{{if .Starred}}{{t "Unstar %s" (ref .Ref)}}{{else}}{{t "Star %s" (ref .Ref)}}{{end}}" title="{{if .Starred}}{{t "Unstar"}}{{else}}{{t "Star"}}{{end}}">
     <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#star"/></svg>
   </button>
 </form>{{end}}
@@ -445,7 +445,7 @@
       <input type="checkbox" name="project" value="{{.Key}}" {{if .Shown}}checked{{end}}>
       {{with projClass .Color}}<span class="swatch {{.}}" aria-hidden="true"></span>{{end}}
       {{template "proj-icon" (projIcon . false)}}
-      <span class="projectchoice-name">{{.Name}}</span> <code>{{.Key}}</code>
+      <span class="projectchoice-name">{{.Name}}</span> <code>{{key .Key}}</code>
     </label>
     {{else}}<span class="muted">{{t "No projects yet."}}</span>{{end}}
   </div>
@@ -638,7 +638,7 @@
      preference, so it works with scripting off; when a title click edits
      (taskopen.go), the link carries what assets/taskopen.js needs to edit it
      in place and a separate open link is drawn beside it. */}}
-{{define "tasktitle"}}<a{{if .Class}} class="{{.Class}}"{{end}} href="{{.Href}}"{{if .Edit}} data-edit-title="{{.Ref}}" data-version="{{.Version}}" title="{{t "Click to rename"}}"{{end}}>{{.Title}}</a>{{if .Edit}}<a class="title-open" href="{{.Href}}" aria-label="{{t "Open %s" .Ref}}" title="{{t "Open the task"}}"><svg aria-hidden="true" width="14" height="14"><use href="/assets/icons.svg#open"/></svg></a>{{end}}{{end}}
+{{define "tasktitle"}}<a{{if .Class}} class="{{.Class}}"{{end}} href="{{.Href}}"{{if .Edit}} data-edit-title="{{.Ref}}" data-version="{{.Version}}" title="{{t "Click to rename"}}"{{end}}>{{.Title}}</a>{{if .Edit}}<a class="title-open" href="{{.Href}}" aria-label="{{t "Open %s" (ref .Ref)}}" title="{{t "Open the task"}}"><svg aria-hidden="true" width="14" height="14"><use href="/assets/icons.svg#open"/></svg></a>{{end}}{{end}}
 
 {{/* proj-icon draws a project's icon whatever its kind: a text icon as text,
      a built-in one from the sprite, an uploaded one through <img>, where an
@@ -764,7 +764,7 @@
       <span class="lanemore-row groupmenu-row">
         <input id="{{$id}}-title" name="title" required placeholder="{{t "Title"}}">
         {{if gt (len $g.Projects) 1}}
-        <select name="project_ref" aria-label="{{t "Project"}}">{{range $g.Projects}}<option value="{{.Key}}">{{.Key}}</option>{{end}}</select>
+        <select name="project_ref" aria-label="{{t "Project"}}">{{range $g.Projects}}<option value="{{.Key}}"{{with projShort $a.ProjectLabel .}} data-short="{{.}}"{{end}}>{{projLabel $a.ProjectLabel .}}</option>{{end}}</select>
         {{else}}{{with index $g.Projects 0}}<input type="hidden" name="project_ref" value="{{.Key}}">{{end}}{{end}}
         <button type="submit" class="secondary">{{t "Add"}}</button>
       </span>

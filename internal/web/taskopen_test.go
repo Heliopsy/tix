@@ -353,7 +353,7 @@ func TestEveryListingMarksItsTitlesForRenaming(t *testing.T) {
 			`data-version="` + version + `"`,
 			`>renamed where it is listed</a>`,
 			`<a class="title-open" href="/tasks/` + ref,
-			`aria-label="Open ` + ref + `"`,
+			`aria-label="Open ` + strings.ToUpper(ref) + `"`,
 		} {
 			if !strings.Contains(link, want) {
 				t.Errorf("%s on %s: the title lacks %s:\n%s", c.view, c.path, want, link)

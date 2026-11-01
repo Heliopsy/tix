@@ -30,12 +30,12 @@ func TestStatsTableNamesEveryFigureAndTheMeasure(t *testing.T) {
 	got := c.mustRun("stats", "-p", "infra")
 
 	for _, want := range []string{
-		"WINDOW", "project infra",
+		"WINDOW", "project INFRA",
 		"COMPLETED", "CREATED", "MEDIAN LEAD TIME", "SLOWEST LEAD TIME",
 		"COMPLETED PER DAY", "TASKS BY STATE CATEGORY",
 		"MOST ACTIVE ACTORS", core.StatsLeaderboardMeasure,
 		"OLDEST TASKS NOT YET IN A TERMINAL STATE",
-		"infra-2", "leave me",
+		"INFRA-2", "leave me",
 	} {
 		if !strings.Contains(got.out, want) {
 			t.Errorf("table output is missing %q\n%s", want, got.out)

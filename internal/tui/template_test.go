@@ -98,7 +98,7 @@ func TestTheTemplateFormPerformsWhatItWasAsked(t *testing.T) {
 				svc.tpl.used[0].in.DueIn != nil || svc.tpl.used[0].in.Title != "" {
 				t.Fatalf("uses = %+v, want %+v", svc.tpl.used, want)
 			}
-			if status != "created infra-77 from release" {
+			if status != "created INFRA-77 from release" {
 				t.Errorf("status = %q", status)
 			}
 		}},
@@ -113,7 +113,7 @@ func TestTheTemplateFormPerformsWhatItWasAsked(t *testing.T) {
 			if !slices.Equal(svc.tpl.read, []string{"release"}) {
 				t.Fatalf("reads = %v", svc.tpl.read)
 			}
-			want := `release: infra, 2 tasks, due in 3d, used 0 times, title "Ship"`
+			want := `release: INFRA, 2 tasks, due in 3d, used 0 times, title "Ship"`
 			if status != want {
 				t.Errorf("status = %q, want %q", status, want)
 			}

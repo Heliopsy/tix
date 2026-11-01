@@ -96,7 +96,7 @@ func (l *Local) newCopier(ctx context.Context, m *mutation, source *core.Task, i
 	if target == "" {
 		target = source.ProjectID
 	}
-	project, err := m.tx.GetProject(ctx, target)
+	project, err := lookupProject(ctx, m.tx, target)
 	if err != nil {
 		return nil, core.OnField(err, "project_ref")
 	}

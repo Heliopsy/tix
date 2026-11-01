@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 )
 
 // taskRoutes are the task list, detail and attachment screens.
@@ -107,8 +108,11 @@ type historyRow struct {
 
 // taskView is what the task detail screen renders.
 type taskView struct {
-	Task          core.Task
-	ProjectKey    string
+	Task       core.Task
+	ProjectKey string
+	// Project is the task's project, named in the Project row the way the
+	// reader's pickers name it; nil until attachProject has read it.
+	Project       *core.Project
 	Fields        []fieldValue
 	Subtasks      []core.Task
 	Dependencies  []depRow
@@ -280,7 +284,7 @@ func (h *handler) showTask(w http.ResponseWriter, r *http.Request) error {
 	if redirectOldRef(w, r, r.PathValue("ref"), &data.Task) {
 		return nil
 	}
-	return h.render(w, r, "task.html", data.Task.Ref, data)
+	return h.render(w, r, "task.html", output.ShowRef(data.Task.Ref), data)
 }
 
 // showTaskLive renders only the regions a live update replaces -- the status
@@ -417,7 +421,7 @@ func (h *handler) attachProject(r *http.Request, ref core.TaskRef, data *taskVie
 	if err != nil {
 		return err
 	}
-	data.ProjectKey = project.Key
+	data.ProjectKey, data.Project = project.Key, project
 	workflow, err := h.workflowOf(r, project)
 	if err != nil {
 		return err

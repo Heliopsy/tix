@@ -505,7 +505,7 @@ reader's other open task screens through the same live updates any other change 
 
 The button is a plain form posting to `/tasks/{ref}/star` or `/tasks/{ref}/star/remove` with the
 CSRF token, so it works with no script. It is a real button, `aria-pressed` says whether the task is
-starred, and its name says what pressing it does: "Star infra-2" or "Unstar infra-2". The icon is an
+starred, and its name says what pressing it does: "Star INFRA-2" or "Unstar INFRA-2". The icon is an
 outline until pressed and filled after, so the state is a shape and not a colour alone. Starring
 needs only what reading the task needs.
 
@@ -592,11 +592,32 @@ result set, and under a different filter, or a different ordering, they name row
 the reader's screen. The filter form submits neither the cursor nor the trail, so submitting one is a
 return to the first page without anything having to clear it.
 
+## Keys in upper case
+
+Project keys and task references are drawn upper case wherever the interface shows them to a reader:
+`INFRA`, `INFRA-8`. They are stored, linked and sent in lower case, so links keep pointing at
+`/tasks/infra-8`, a form value or a data attribute holds `infra-8`, and the API and every export carry
+`infra-8` as they always have. Anything typed or followed takes either case: `/tasks/INFRA-8` and
+`/projects/INFRA` show the task and the project without a redirect, and `project:INFRA` filters the
+same tasks as `project:infra`.
+
+## Naming a project in a picker
+
+Every control a project is chosen in names it the same way: the add box, Add with details, the bulk Copy
+to, a heading's New task in, Copy to, New from template, a template's project, the move target of a
+project delete and the statistics filter. The Project row on the task screen reads the same way. Settings,
+under Listings, picks the style: `Name (KEY)` by
+default, `KEY · Name`, `Name` or `KEY`. The choice is a cookie, `tix_project_label`, like every other
+display preference, and the value each option submits is the key whatever the label says. A name past
+24 characters is shortened with an ellipsis so the key after it is never cut off, and on a
+phone the add box and a heading's add field, which are only a few characters wide, list projects by key
+alone. A project's text icon leads the label, since a native option holds text only.
+
 ## Changing a project's key
 
 The project board's settings carry the key beside the name and the description, with an (i) that says what a
 change does. Saving a different key does not change it straight away: the next screen names the old and the
-new key and shows two of the project's references before and after, such as `infra-1 → ops-1`, and the key
+new key and shows two of the project's references before and after, such as `INFRA-1 → OPS-1`, and the key
 changes only when that is confirmed. The confirmation carries the rest of the form, so the name or
 description changed in the same save are kept, and so is the icon. A browser cannot carry an uploaded file to
 a second screen, so when the same save uploaded an icon image the confirmation asks for the file again. It needs
@@ -967,6 +988,7 @@ going back a page.
 | List groups | `tix_list_group` | `project` or `status` draws the list under a heading per project or per state; anything else, including no cookie, is one ungrouped list |
 | Language | `tix_lang` | `en` or `bg` draws every screen in that language; anything else, including no cookie, follows the browser's `Accept-Language` |
 | Colour rows by | `tix_tint` | What the stripe down a task row and the edge of a board card stands for: `status`, `priority` or `none`. Anything else, including no cookie, is the project's own colour |
+| Project names in pickers | `tix_project_label` | How a project reads in every control that chooses one: `key-name` (`INFRA · Infrastructure`), `name` or `key`. Anything else, including no cookie, is the name with the key, `Infrastructure (INFRA)`. The option's value is always the key |
 
 `tix_advanced` has three states rather than two: shown, hidden, and absent, which leaves the answer
 to who is reading. A tenant administrator who has never chosen gets the Configure and Data groups,

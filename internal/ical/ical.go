@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 )
 
 // ContentType is the media type a feed is served as.
@@ -65,7 +66,7 @@ func (w *writer) event(e core.CalendarEntry, opt Options) {
 	if opt.TaskURL != nil {
 		url = opt.TaskURL(t.Ref)
 	}
-	summary := t.Ref + ": " + t.Title
+	summary := output.ShowRef(t.Ref) + ": " + t.Title
 	status := "CONFIRMED"
 	switch e.Category {
 	case core.CategoryDone:
@@ -107,7 +108,7 @@ func UID(taskID string) string { return "task-" + strings.ToLower(taskID) + "@ti
 // description is the event body: the state, the priority and the link back.
 func description(e core.CalendarEntry, url string) string {
 	var b strings.Builder
-	b.WriteString(e.Task.Ref + " · " + e.State + " · priority " + priorityName(e.Task.Priority))
+	b.WriteString(output.ShowRef(e.Task.Ref) + " · " + e.State + " · priority " + priorityName(e.Task.Priority))
 	if url != "" {
 		b.WriteString("\n" + url)
 	}

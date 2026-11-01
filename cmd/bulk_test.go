@@ -12,9 +12,9 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 )
 
-func outcomes(t *testing.T, out string) []outcome {
+func outcomes(t *testing.T, out string) []taskOutcome {
 	t.Helper()
-	var rows []outcome
+	var rows []taskOutcome
 	if err := json.Unmarshal([]byte(out), &rows); err != nil {
 		t.Fatalf("not json: %v\n%s", err, out)
 	}

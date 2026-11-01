@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 )
 
 // templateScanPages bounds how many pages of templates a screen walks.
@@ -268,7 +269,7 @@ func (h *handler) showSaveTemplate(w http.ResponseWriter, r *http.Request) error
 		return err
 	}
 	data.Form = saveForm{Name: data.Task.Title, Subtasks: data.HasSubtasks}
-	return h.render(w, r, "tasktemplate.html", data.Task.Ref, data)
+	return h.render(w, r, "tasktemplate.html", output.ShowRef(data.Task.Ref), data)
 }
 
 func (h *handler) buildSaveView(r *http.Request) (saveView, error) {

@@ -127,7 +127,7 @@
          not sit inside a p; the form is a plain post, so it works with
          scripting off. */}}
     <div id="toast">
-    {{- if .Flash}}<p class="flash">{{phrase .Flash}}{{if .FlashRef}} <a class="flashref" href="/tasks/{{.FlashRef}}">{{.FlashRef}}</a>{{end}}{{if .UndoAction}} <button type="submit" form="flash-undo" class="flashundo">{{t "Undo"}}</button>{{end}}</p>
+    {{- if .Flash}}<p class="flash">{{phrase .Flash}}{{if .FlashRef}} <a class="flashref" href="/tasks/{{.FlashRef}}">{{ref .FlashRef}}</a>{{end}}{{if .UndoAction}} <button type="submit" form="flash-undo" class="flashundo">{{t "Undo"}}</button>{{end}}</p>
     {{- if .UndoAction}}<form id="flash-undo" method="post" action="{{.UndoAction}}" hidden>{{template "csrf" .CSRF}}{{with .UndoField}}{{if index . 0}}<input type="hidden" name="{{index . 0}}" value="{{index . 1}}">{{end}}{{end}}{{range .UndoBulk}}<input type="hidden" name="ref" value="{{.}}">{{end}}<input type="hidden" name="next" value="{{.Here}}"></form>{{end}}{{end -}}
     </div>
     {{if .Error}}<p class="flash error">{{.Error}}</p>{{end}}

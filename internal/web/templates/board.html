@@ -28,7 +28,7 @@
           </div>
           <div class="cform-pair">
             <div class="cfield">
-              <div class="cfield-label"><label for="key">{{t "Key"}}</label>{{template "required-mark"}}{{template "tip" (tip "Key" "The key starts every task reference, such as infra-8, and the project's address. Changing it changes every reference; old links, references and filters keep working and lead to the new ones. You are asked to confirm before it changes." "docs/workflows.md")}}</div>
+              <div class="cfield-label"><label for="key">{{t "Key"}}</label>{{template "required-mark"}}{{template "tip" (tip "Key" "The key starts every task reference, such as INFRA-8, and the project's address. Changing it changes every reference; old links, references and filters keep working and lead to the new ones. You are asked to confirm before it changes." "docs/workflows.md")}}</div>
               <input id="key" name="key" class="mono" value="{{$f.Key}}" maxlength="64" autocomplete="off" spellcheck="false" required{{$e.Attrs "key"}}>
               {{with $e.On "key"}}{{template "field-error" .}}{{end}}
             </div>
@@ -95,11 +95,11 @@
 <h1>{{t "Change the key of %s?" $c.Name}}</h1>
 <section class="panel">
   <div class="body">
-    <p>{{t "The key changes from %s to %s, and every task reference changes with it:" $c.From $c.To}}</p>
+    <p>{{t "The key changes from %s to %s, and every task reference changes with it:" (key $c.From) (key $c.To)}}</p>
     <ul class="key-examples">
-      {{range $c.Examples}}<li><code>{{.From}}</code> &rarr; <code>{{.To}}</code></li>{{end}}
+      {{range $c.Examples}}<li><code>{{ref .From}}</code> &rarr; <code>{{ref .To}}</code></li>{{end}}
     </ul>
-    <p class="muted">{{t "Old links, references and filters that use %s keep working and lead here. No other project can take %s while this one exists." $c.From $c.From}}</p>
+    <p class="muted">{{t "Old links, references and filters that use %s keep working and lead here. No other project can take %s while this one exists." (key $c.From) (key $c.From)}}</p>
     <form method="post" action="/projects/{{$c.From}}/update" enctype="multipart/form-data">
       {{template "csrf" .CSRF}}
       <input type="hidden" name="confirm_key" value="1">
@@ -117,7 +117,7 @@
       <input id="icon_file" name="icon_file" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" required>
       {{end}}
       <div class="actions">
-        <button type="submit">{{t "Change the key to %s" $c.To}}</button>
+        <button type="submit">{{t "Change the key to %s" (key $c.To)}}</button>
         <a href="/projects/{{$c.From}}">{{t "Cancel"}}</a>
       </div>
     </form>
@@ -144,7 +144,7 @@
     {{if not .Head.Collapsed}}
     {{range .Tasks}}
       <article class="card{{with projClass $.Data.Project.Color}} is-accented {{.}}{{end}}"{{with projStyle $.Data.Project.Color}} style="{{.}}"{{end}} draggable="{{if $.DragMove}}true{{else}}false{{end}}" data-task="{{.Task.Ref}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
-        <div class="ref">{{if $.CanStar}}{{template "star" (star .Task.Ref .Task.Starred (printf "/projects/%s" $.Data.Project.Key) $.CSRF)}}{{end}}{{.Task.Ref}}</div>
+        <div class="ref">{{if $.CanStar}}{{template "star" (star .Task.Ref .Task.Starred (printf "/projects/%s" $.Data.Project.Key) $.CSRF)}}{{end}}{{ref .Task.Ref}}</div>
         <div class="card-title">{{template "tasktitle" (titleLink .Task.Ref .Task.Title .Task.Version (print "/tasks/" .Task.Ref) "" $.TitleEdit)}}</div>
         {{if or (ne (prio .Task.Priority) "normal") .Task.Tags .Task.Recurrence .Task.Checklist}}
         <div class="card-meta">
@@ -157,12 +157,12 @@
         {{with .Task.Checklist}}{{template "checkbar" .}}{{end}}
         {{if .Routes}}
         <details class="card-move">
-          <summary aria-label="{{t "Move %s" .Task.Ref}}">{{t "Move"}}</summary>
+          <summary aria-label="{{t "Move %s" (ref .Task.Ref)}}">{{t "Move"}}</summary>
           <div class="body">
             <form method="post" action="/projects/{{$.Data.Project.Key}}/move">
               {{template "csrf" $.CSRF}}
               <input type="hidden" name="ref" value="{{.Task.Ref}}">
-              <select id="to-{{.Task.Ref}}" name="route" aria-label="{{t "Move %s to" .Task.Ref}}">
+              <select id="to-{{.Task.Ref}}" name="route" aria-label="{{t "Move %s to" (ref .Task.Ref)}}">
                 {{range $i, $r := .Routes}}<option value="{{$r.Value}}"{{if eq $i 0}} selected{{end}}>{{$r.Option}}</option>{{end}}
               </select>
               <button type="submit">{{t "Move"}}</button>

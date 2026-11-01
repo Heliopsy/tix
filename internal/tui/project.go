@@ -54,7 +54,7 @@ func ProjectView(state ProjectState) []ProjectLine {
 func projectAttributes(state ProjectState) []ProjectLine {
 	p := state.Project
 	out := []ProjectLine{
-		projectRow("key", p.Key),
+		projectRow("key", output.ShowKey(p.Key)),
 		projectRow("name", p.Name),
 		projectRow("description", orNone(p.Description)),
 		projectRow("colour", orNone(p.Color.String())),
@@ -285,7 +285,7 @@ func ProjectEditForm(p core.Project, workflows []string) Form {
 			Options: workflows, Value: workflows[0],
 			Needs: FieldCondition{Key: "attribute", Value: attrWorkflow}})
 	}
-	return Form{Kind: formProject, Title: "edit project " + p.Key, Fields: fields}
+	return Form{Kind: formProject, Title: "edit project " + output.ShowKey(p.Key), Fields: fields}
 }
 
 // ProjectRemoveForm asks whether a project should be hidden or destroyed. The
@@ -313,14 +313,14 @@ func ProjectRemoveForm(p core.Project, mayArchive, mayDelete bool, targets []str
 		fate := []string{TasksDeleted}
 		for _, key := range targets {
 			if key != p.Key {
-				fate = append(fate, TasksMoveTo+key)
+				fate = append(fate, TasksMoveTo+output.ShowKey(key))
 			}
 		}
 		fields = append(fields, FormField{Key: "tasks", Label: "its tasks", Options: fate, Value: fate[0],
 			Needs: FieldCondition{Key: "action", Value: "delete"}})
 	}
 	return Form{
-		Kind: formProjectRemove, Title: "remove project " + p.Key,
+		Kind: formProjectRemove, Title: "remove project " + output.ShowKey(p.Key),
 		Note:   projectRemoveNote(p),
 		Fields: fields,
 	}
@@ -332,10 +332,11 @@ const (
 	TasksMoveTo  = "move to "
 )
 
-// DeletionInput reads the removal form's answer about the tasks.
+// DeletionInput reads the removal form's answer about the tasks, folding the
+// upper-case key the option shows back to the stored one.
 func DeletionInput(answer string) core.DeleteProjectInput {
 	if key, ok := strings.CutPrefix(answer, TasksMoveTo); ok {
-		return core.DeleteProjectInput{MoveTasksTo: key}
+		return core.DeleteProjectInput{MoveTasksTo: strings.ToLower(key)}
 	}
 	return core.DeleteProjectInput{DeleteTasks: true}
 }
@@ -352,7 +353,7 @@ func DeletionNote(plan core.ProjectDeletion) string {
 		for _, s := range plan.Statuses {
 			moves = append(moves, fmt.Sprintf("%s to %s (%d)", s.From, s.To, s.Tasks))
 		}
-		return fmt.Sprintf("moving its %s to %s: %s", taskCount(n), plan.MoveTo, strings.Join(moves, ", "))
+		return fmt.Sprintf("moving its %s to %s: %s", taskCount(n), output.ShowKey(plan.MoveTo), strings.Join(moves, ", "))
 	default:
 		return fmt.Sprintf("with its %s, permanently", taskCount(n))
 	}

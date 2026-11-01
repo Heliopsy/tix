@@ -78,7 +78,7 @@ func writeStatsTable(w io.Writer, s *core.Stats) error {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	scope := "whole tenant"
 	if s.ProjectKey != "" {
-		scope = "project " + s.ProjectKey
+		scope = "project " + output.ShowKey(s.ProjectKey)
 	}
 	_, _ = fmt.Fprintf(tw, "WINDOW\t%s .. %s\t(%s)\n",
 		s.Since.Format(core.StatsDayLayout), s.Until.Format(core.StatsDayLayout), scope)
@@ -111,7 +111,7 @@ func writeStatsTable(w io.Writer, s *core.Stats) error {
 
 	statsSection(tw, "OLDEST TASKS NOT YET IN A TERMINAL STATE", len(s.Oldest))
 	for _, o := range s.Oldest {
-		_, _ = fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\n", o.Ref, o.Status, o.Age.Human(), o.Title)
+		_, _ = fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\n", output.ShowRef(o.Ref), o.Status, o.Age.Human(), o.Title)
 	}
 	return tw.Flush()
 }

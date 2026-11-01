@@ -67,6 +67,8 @@ type arrangement struct {
 	CanCreate bool
 	// Vertical is set for a list, whose groups move up and down.
 	Vertical bool
+	// ProjectLabel is how the add field's project picker names a project.
+	ProjectLabel string
 }
 
 // groupMenu is what the "group-menu" partial draws: one heading's menu with
@@ -156,7 +158,8 @@ func newArrangement(r *http.Request, view, self, region, order string, hidden []
 	return arrangement{
 		View: view, Self: self, CSRF: csrfFrom(r), Region: region,
 		Order: order, Hidden: hidden, Stored: len(prefs) > 0,
-		CanCreate: readerHasScope(r)(core.ScopeTaskWrite),
+		CanCreate:    readerHasScope(r)(core.ScopeTaskWrite),
+		ProjectLabel: projectLabelOf(r),
 	}
 }
 

@@ -655,7 +655,7 @@
       return;
     }
     var wanted = column.getAttribute("data-state");
-    var ref = card.getAttribute("data-task") || "the card";
+    var ref = (card.getAttribute("data-task") || "").toUpperCase() || "the card";
     var destination = columnLabel(column);
     select.value = wanted;
 

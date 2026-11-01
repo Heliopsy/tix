@@ -116,10 +116,10 @@ func TestUpdateTaskCommandCarriesTheSentence(t *testing.T) {
 	if !ok {
 		t.Fatalf("updateTask did not return an actionMsg")
 	}
-	if msg.sentence != "edited the title of infra-3" {
+	if msg.sentence != "edited the title of INFRA-3" {
 		t.Fatalf("sentence = %q", msg.sentence)
 	}
-	if got := msg.statusText(); got != "edited the title of infra-3" {
+	if got := msg.statusText(); got != "edited the title of INFRA-3" {
 		t.Fatalf("statusText = %q", got)
 	}
 }

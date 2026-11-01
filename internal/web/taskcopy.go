@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 )
 
 // copyView is what the copy form draws: the task being copied and the
@@ -78,7 +79,7 @@ func (h *handler) showCopyTask(w http.ResponseWriter, r *http.Request) error {
 	}
 	data.Form = copyForm{Title: data.Task.Title, Project: data.Home, Next: copyReturn(r.URL.Query().Get("next")), Link: true}
 	data.Next = data.Form.Next
-	return h.render(w, r, "taskcopy.html", data.Task.Ref, data)
+	return h.render(w, r, "taskcopy.html", output.ShowRef(data.Task.Ref), data)
 }
 
 // buildCopyView loads the task a copy form is about and where it may go.

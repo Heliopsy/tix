@@ -33,7 +33,7 @@ func TestEveryActivityRowLeadsToWhatItIsAbout(t *testing.T) {
 	if !strings.Contains(page, `href="/tasks/`+ref+`"`) {
 		t.Errorf("a task row does not link to the task:\n%s", page)
 	}
-	if !strings.Contains(page, "a comment on "+ref) {
+	if !strings.Contains(page, "a comment on "+strings.ToUpper(ref)) {
 		t.Errorf("a comment row does not say which task it is on:\n%s", page)
 	}
 	if !strings.Contains(page, `href="/tasks/`+ref+`#comment-`) {
@@ -389,7 +389,7 @@ func TestTheActivityFragmentCarriesEachRowExactlyOnce(t *testing.T) {
 	if !strings.Contains(fragment, ref) {
 		t.Fatalf("the live fragment carries no rows at all:\n%s", fragment)
 	}
-	if n := strings.Count(fragment, ">"+ref+"<"); n != 1 {
+	if n := strings.Count(fragment, ">"+strings.ToUpper(ref)+"<"); n != 1 {
 		t.Errorf("the live fragment names %s %d times, want once:\n%s", ref, n, fragment)
 	}
 }
@@ -420,7 +420,7 @@ func TestAFullActivityPageOffersTheOneBehindIt(t *testing.T) {
 		t.Fatalf("a full page of the feed offers no way to the one behind it:\n%s",
 			between(t, first, `<nav class="pager"`, "</nav>"))
 	}
-	if !strings.Contains(b.page(next), ">"+oldest+"<") {
+	if !strings.Contains(b.page(next), ">"+strings.ToUpper(oldest)+"<") {
 		t.Errorf("the page behind the first one does not carry the oldest entry %s", oldest)
 	}
 }

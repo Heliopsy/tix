@@ -19,8 +19,8 @@
      the dialog's own body is what its forms swap already. */}}
 <header class="titlebar taskhead"{{if $in}} data-inplace="main.wrap"{{end}} data-recent-task="{{$t.Ref}}" data-recent-title="{{$t.Title}}">
   <div class="taskhead-line">
-    <span class="ref">{{$t.Ref}}</span>
-    {{if .Data.Parent}}<span class="taskhead-parent">{{t "in"}} <a class="mono" href="/tasks/{{.Data.Parent.Ref}}" title="{{.Data.Parent.Title}}">{{.Data.Parent.Ref}}</a></span>{{end}}
+    <span class="ref">{{ref $t.Ref}}</span>
+    {{if .Data.Parent}}<span class="taskhead-parent">{{t "in"}} <a class="mono" href="/tasks/{{.Data.Parent.Ref}}" title="{{.Data.Parent.Title}}">{{ref .Data.Parent.Ref}}</a></span>{{end}}
   </div>
   <div class="taskhead-title">
     <h1{{if .InDialog}} id="taskdlg-title"{{end}}>{{$t.Title}}</h1>
@@ -41,7 +41,7 @@
     <span class="taskhead-tools">
       {{if .CanStar}}{{template "star" (star $t.Ref $t.Starred .Here .CSRF)}}{{template "tip" (tip "Stars" "A star is yours alone: your starred tasks come first in every listing you see, and is:starred finds them. Nobody else's order changes." "docs/filtering.md")}}{{end}}
       <button type="button" class="taskmenu-open" popovertarget="{{.IDPrefix}}taskmenu-{{$t.Ref}}"
-              aria-label="{{t "Actions for %s" $t.Ref}}" title="{{t "Actions for %s" $t.Ref}}">
+              aria-label="{{t "Actions for %s" (ref $t.Ref)}}" title="{{t "Actions for %s" (ref $t.Ref)}}">
         <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#more"/></svg>
       </button>
     </span>
@@ -53,7 +53,7 @@
      scripting off, and data-dialog-load keeps them inside the dialog when
      the task is open in one (assets/taskopen.js). */}}
 <div id="{{.IDPrefix}}taskmenu-{{$t.Ref}}" class="flowmenu taskmenu" popover{{if $in}} data-inplace="main.wrap"{{end}}>
-  <p class="flowhead">{{t "Actions for %s" $t.Ref}}</p>
+  <p class="flowhead">{{t "Actions for %s" (ref $t.Ref)}}</p>
   <button type="button" class="flowgo" data-copy-link="/tasks/{{$t.Ref}}">{{t "Copy link"}}</button>
   <button type="button" class="flowgo" data-copy-text="{{$t.ID}}">{{t "Copy the task id"}}</button>
   {{if .Data.CanWrite}}
@@ -68,7 +68,7 @@
     <button type="submit" class="flowgo snoozebtn" data-focus="snooze">{{t "Unsnooze"}}</button>
   </form>
   {{else}}<button type="button" class="flowgo snoozebtn" data-focus="snooze" popovertarget="{{$.IDPrefix}}snooze-{{$t.Ref}}"
-          aria-label="{{t "Snooze %s" $t.Ref}}" title="{{t "Hide it from every listing until later"}}">{{t "Snooze…"}}</button>{{end}}
+          aria-label="{{t "Snooze %s" (ref $t.Ref)}}" title="{{t "Hide it from every listing until later"}}">{{t "Snooze…"}}</button>{{end}}
   {{end}}
   {{/* Offered only beside a live lease and only to a reader who holds
        task:reclaim. It ends the lease and nothing else. */}}
@@ -99,7 +99,7 @@
      inside the refreshed rows while the form it opens stays out here. */}}
 {{if and .Data.CanWrite .Data.Routes}}
 <div id="{{$.IDPrefix}}flow-{{$t.Ref}}" class="flowmenu" popover{{if $in}} data-inplace="main.wrap"{{end}}>
-  <p class="flowhead">{{t "Move"}} <span class="mono">{{$t.Ref}}</span> {{t "from"}} <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span></p>
+  <p class="flowhead">{{t "Move"}} <span class="mono">{{ref $t.Ref}}</span> {{t "from"}} <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span></p>
   {{template "tip" (tip "Moves" "Only the moves the project's workflow allows from this state are offered. A move that passes through other states names each one, and the history records every step." "docs/workflows.md")}}
   <form method="post" action="/tasks/{{$t.Ref}}/transition">
     {{template "csrf" $.CSRF}}
@@ -116,7 +116,7 @@
 {{if .Data.CanWrite}}
 {{$p := prio $t.Priority}}
 <div id="{{$.IDPrefix}}prio-{{$t.Ref}}" class="flowmenu priopop" popover{{if $in}} data-inplace="main.wrap"{{end}}>
-  <p class="flowhead">{{t "Priority of"}} <span class="mono">{{$t.Ref}}</span></p>
+  <p class="flowhead">{{t "Priority of"}} <span class="mono">{{ref $t.Ref}}</span></p>
   <form method="post" action="/tasks/{{$t.Ref}}/priority">
     {{template "csrf" $.CSRF}}
     {{range $.Data.Priorities}}
@@ -132,7 +132,7 @@
 {{end}}
 {{if and .Data.CanWrite (not (snoozed $t))}}
 <div id="{{$.IDPrefix}}snooze-{{$t.Ref}}" class="flowmenu snoozepop" popover{{if $in}} data-inplace="main.wrap"{{end}}>
-  <p class="flowhead">{{t "Snooze"}} <span class="mono">{{$t.Ref}}</span></p>
+  <p class="flowhead">{{t "Snooze"}} <span class="mono">{{ref $t.Ref}}</span></p>
   {{template "tip" (tip "Snooze" "A snoozed task leaves every listing, for everybody, until the time you pick, then comes back by itself. Agents cannot claim it meanwhile. is:snoozed finds it." "docs/web-ui.md")}}
   {{template "snooze-choices" (snoozeForm $t.Ref $.Here $.CSRF (print $.IDPrefix "snoozeat-" $t.Ref) "")}}
   <button type="button" class="flowclose" popovertarget="{{$.IDPrefix}}snooze-{{$t.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
@@ -198,7 +198,7 @@
     </div>
     <div class="prop" data-prop="project">
       <dt>{{t "Project"}}</dt>
-      <dd><a href="/projects/{{.Data.ProjectKey}}">{{.Data.ProjectKey}}</a></dd>
+      <dd><a href="/projects/{{.Data.ProjectKey}}">{{with .Data.Project}}{{projLabel $.ProjectLabel .}}{{else}}{{key $.Data.ProjectKey}}{{end}}</a></dd>
     </div>
     <div class="prop" data-prop="tags">
       <dt>{{if .Data.CanWrite}}<label for="{{.IDPrefix}}tag">{{t "Tags"}}</label>{{else}}{{t "Tags"}}{{end}}</dt>
@@ -273,8 +273,8 @@
         {{else if .Value}}{{.Value}}{{else}}<span class="muted">&mdash;</span>{{end}}</dd>
     </div>
     {{end}}
-    {{if .Data.Parent}}<div class="prop" data-prop="parent"><dt>{{t "Subtask of"}}</dt><dd><a class="mono" href="/tasks/{{.Data.Parent.Ref}}">{{.Data.Parent.Ref}}</a> {{.Data.Parent.Title}}</dd></div>{{end}}
-    {{if .Data.CopiedFrom}}<div class="prop" data-prop="copied"><dt>{{t "Copied from"}}</dt><dd class="copiedfrom"><a class="mono" href="/tasks/{{.Data.CopiedFrom.Ref}}">{{.Data.CopiedFrom.Ref}}</a> {{.Data.CopiedFrom.Title}}</dd></div>{{end}}
+    {{if .Data.Parent}}<div class="prop" data-prop="parent"><dt>{{t "Subtask of"}}</dt><dd><a class="mono" href="/tasks/{{.Data.Parent.Ref}}">{{ref .Data.Parent.Ref}}</a> {{.Data.Parent.Title}}</dd></div>{{end}}
+    {{if .Data.CopiedFrom}}<div class="prop" data-prop="copied"><dt>{{t "Copied from"}}</dt><dd class="copiedfrom"><a class="mono" href="/tasks/{{.Data.CopiedFrom.Ref}}">{{ref .Data.CopiedFrom.Ref}}</a> {{.Data.CopiedFrom.Title}}</dd></div>{{end}}
   </dl>
 </aside>
 
@@ -295,7 +295,7 @@
         <input type="hidden" name="version" value="{{$t.Version}}">
         <input type="hidden" name="title" value="{{$t.Title}}">
         <div class="field-label"><label class="sr-only" for="{{.IDPrefix}}body">{{t "Description"}}</label>
-          {{template "tip" (tip "Description" "Written in Markdown: **bold**, lists, tables, `code`, links, and - [ ] for a checklist the task screen can tick. A reference such as infra-8 and an @handle become links. HTML is shown as typed, and images are linked rather than loaded." "docs/features.md")}}
+          {{template "tip" (tip "Description" "Written in Markdown: **bold**, lists, tables, `code`, links, and - [ ] for a checklist the task screen can tick. A reference such as INFRA-8 and an @handle become links. HTML is shown as typed, and images are linked rather than loaded." "docs/features.md")}}
           {{template "md-preview" (print .IDPrefix "body")}}</div>
         <textarea id="{{.IDPrefix}}body" name="body" data-mention="actor-handles" placeholder="{{t "Add a description"}}">{{$t.Body}}</textarea>
         <div class="md mdpreview" id="{{.IDPrefix}}body-preview" aria-live="polite" hidden></div>
@@ -312,7 +312,7 @@
     {{if .Data.Subtasks}}
     <ul class="rellist">
       {{range .Data.Subtasks}}
-      <li><a class="mono" href="/tasks/{{.Ref}}">{{.Ref}}</a> <span class="reltitle">{{.Title}}</span> <span class="pill status {{slug .Status}}">{{.Status}}</span></li>
+      <li><a class="mono" href="/tasks/{{.Ref}}">{{ref .Ref}}</a> <span class="reltitle">{{.Title}}</span> <span class="pill status {{slug .Status}}">{{.Status}}</span></li>
       {{end}}
     </ul>
     {{else}}<p class="empty quiet">{{t "No subtasks."}}</p>{{end}}
@@ -431,7 +431,7 @@
      dialog. See renderStatus. */}}
 {{define "task-dialog"}}
 <div class="taskdlg-frag" data-task-dialog="{{.Data.Task.Ref}}">
-{{if .Flash}}<p class="flash" role="status">{{phrase .Flash}}{{if .FlashRef}} <a class="flashref" href="/tasks/{{.FlashRef}}">{{.FlashRef}}</a>{{end}}</p>{{end}}
+{{if .Flash}}<p class="flash" role="status">{{phrase .Flash}}{{if .FlashRef}} <a class="flashref" href="/tasks/{{.FlashRef}}">{{ref .FlashRef}}</a>{{end}}</p>{{end}}
 {{if .Error}}<p class="flash error">{{.Error}}</p>{{end}}
 {{template "content" .}}
 </div>
@@ -461,7 +461,7 @@
         {{/* The "t" shortcut focuses this. */}}
         <button type="button" class="statuspill" data-focus="status" popovertarget="{{$.IDPrefix}}flow-{{$t.Ref}}"
                 data-shortcut-target="transition"
-                aria-label="{{t "Status %s; move %s" $t.Status $t.Ref}}" title="{{t "Move %s" $t.Ref}}">
+                aria-label="{{t "Status %s; move %s" $t.Status (ref $t.Ref)}}" title="{{t "Move %s" (ref $t.Ref)}}">
           <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span>
         </button>
       </span>

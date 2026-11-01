@@ -14,7 +14,7 @@
   {{template "csrf" .CSRF}}
   {{if .Data.Next}}<input type="hidden" name="next" value="{{.Data.Next}}">{{end}}
   <div class="cform-head">
-    <h1 class="cform-title"{{if .InDialog}} id="taskdlg-title"{{end}}>{{t "Copy to another project"}} <span class="ref mono">{{$t.Ref}}</span></h1>
+    <h1 class="cform-title"{{if .InDialog}} id="taskdlg-title"{{end}}>{{t "Copy to another project"}} <span class="ref mono">{{ref $t.Ref}}</span></h1>
     {{template "tip" (tip "Copying a task" "The copy is a new task with its own reference. Its title, description, priority, tags, assignee, due date and repeat rule travel with it, and so do the custom fields the target project defines. Stars, claims, history and artifacts stay behind. Comments, subtasks and dependencies come along only when ticked." "docs/web-ui.md")}}
   </div>
   {{with $e.On ""}}{{template "field-error" .}}{{end}}
@@ -38,7 +38,7 @@
       <div class="cfield">
         <div class="cfield-label"><label for="{{.IDPrefix}}copy-project">{{t "Project"}}</label></div>
         <select id="{{.IDPrefix}}copy-project" name="project_ref"{{$e.Attrs "project_ref"}}>
-          {{range .Data.Projects}}<option value="{{.Key}}"{{if eq .Key $f.Project}} selected{{end}}>{{.Name}} ({{.Key}})</option>{{end}}
+          {{range .Data.Projects}}<option value="{{.Key}}"{{if eq .Key $f.Project}} selected{{end}}>{{projLabel $.ProjectLabel .}}</option>{{end}}
         </select>
         {{with $e.On "project_ref"}}{{template "field-error" .}}{{end}}
       </div>

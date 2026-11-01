@@ -82,14 +82,14 @@ test("typing a name fills the key until the reader types one", () => {
   source.value = "Web shop";
   forms.onInput({ target: source });
   assert.equal(target.value, "web2");
-  assert.equal(shown.textContent, "web2-1");
+  assert.equal(shown.textContent, "WEB2-1", "the preview names the first task as a reader sees it");
 
   target.value = "shop";
   forms.onInput({ target });
   source.value = "Web shop two";
   forms.onInput({ target: source });
   assert.equal(target.value, "shop", "an edited key was overwritten");
-  assert.equal(shown.textContent, "shop-1");
+  assert.equal(shown.textContent, "SHOP-1");
 
   target.value = "";
   forms.onInput({ target });
@@ -213,4 +213,23 @@ test("an emptied box clears the row without asking, and a failed answer leaves i
   timers.fire();
   assert.equal(calls.length, 1);
   assert.equal(row.innerHTML, "");
+});
+
+test("a narrow screen shows compact project pickers by key alone, and a wide one puts the label back", () => {
+  const { forms } = load();
+  const option = node({ "data-short": "INFRA" });
+  option.textContent = "Infrastructure (INFRA)";
+  const plain = node();
+  plain.textContent = "WEB";
+  const scope = { querySelectorAll: (sel) => (sel === "option[data-short]" ? [option] : [option, plain]) };
+
+  forms.shortLabels(scope, true);
+  assert.equal(option.textContent, "INFRA");
+  assert.equal(plain.textContent, "WEB", "an option with no short form was touched");
+
+  forms.shortLabels(scope, true);
+  assert.equal(option.textContent, "INFRA", "a second narrow pass lost the full label");
+
+  forms.shortLabels(scope, false);
+  assert.equal(option.textContent, "Infrastructure (INFRA)");
 });

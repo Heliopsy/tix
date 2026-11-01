@@ -193,8 +193,17 @@ type outcome struct {
 	Status string `json:"status" yaml:"status"`
 	Code   string `json:"code,omitempty" yaml:"code,omitempty"`
 	Error  string `json:"error,omitempty" yaml:"error,omitempty"`
-	// Copy names the new task a bulk copy created.
-	Copy string `json:"copy,omitempty" yaml:"copy,omitempty"`
+}
+
+// taskOutcome is an outcome whose subject is a task, so a table shows its ref
+// upper case while the JSON keeps the stored one. Copy names the new task a
+// bulk copy created.
+type taskOutcome struct {
+	Ref    string `json:"ref" yaml:"ref" show:"ref"`
+	Status string `json:"status" yaml:"status"`
+	Code   string `json:"code,omitempty" yaml:"code,omitempty"`
+	Error  string `json:"error,omitempty" yaml:"error,omitempty"`
+	Copy   string `json:"copy,omitempty" yaml:"copy,omitempty" show:"ref"`
 }
 
 // Bulk outcome statuses.
@@ -206,15 +215,15 @@ const (
 
 // bulk applies fn to every reference, reports each outcome and fails if any did.
 func (g *globals) bulk(cmd *cobra.Command, refs []core.TaskRef, fn func(core.TaskRef) error) error {
-	results := make([]outcome, 0, len(refs))
+	results := make([]taskOutcome, 0, len(refs))
 	var failure error
 	for _, ref := range refs {
 		err := fn(ref)
 		if err == nil {
-			results = append(results, outcome{Ref: ref.String(), Status: statusOK})
+			results = append(results, taskOutcome{Ref: ref.String(), Status: statusOK})
 			continue
 		}
-		results = append(results, outcome{
+		results = append(results, taskOutcome{
 			Ref:    ref.String(),
 			Status: statusFailed,
 			Code:   string(core.KindOf(err)),

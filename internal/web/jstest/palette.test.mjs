@@ -90,9 +90,9 @@ test("recent tasks are read from refs or objects and anything else is dropped", 
     { title: "no ref" },
   ]));
   assert.deepEqual(got, [
-    { key: "task:infra-1", kind: "task", label: "infra-1", hint: "", href: "/tasks/infra-1" },
-    { key: "task:web-2", kind: "task", label: "Fix login", hint: "web-2", href: "/tasks/web-2" },
-    { key: "task:ops-3", kind: "task", label: "ops-3", hint: "", href: "/tasks/ops-3" },
+    { key: "task:infra-1", kind: "task", label: "INFRA-1", hint: "", href: "/tasks/infra-1" },
+    { key: "task:web-2", kind: "task", label: "Fix login", hint: "WEB-2", href: "/tasks/web-2" },
+    { key: "task:ops-3", kind: "task", label: "OPS-3", hint: "", href: "/tasks/ops-3" },
   ]);
   assert.deepEqual(plain(tix.paletteRecentTasks(undefined)), []);
 });

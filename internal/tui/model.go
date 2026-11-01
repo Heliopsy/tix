@@ -516,7 +516,7 @@ func (m Model) onProjects(msg projectsMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 	for i, p := range m.projects {
-		if p.Key == m.openProject {
+		if strings.EqualFold(p.Key, m.openProject) {
 			m.projectSel, m.openProject = i, ""
 			return m, m.loadBoard(p)
 		}
@@ -1535,7 +1535,7 @@ func (m Model) renewLease() (Model, tea.Cmd) {
 		return m, nil
 	}
 	if m.leases[task.ID] == "" {
-		m.err = "cannot renew: this session does not hold a lease on " + task.Ref
+		m.err = "cannot renew: this session does not hold a lease on " + output.ShowRef(task.Ref)
 		return m, nil
 	}
 	return m, m.renew(task)
@@ -1551,7 +1551,7 @@ func (m Model) reclaimLease() (Model, tea.Cmd) {
 		return m, nil
 	}
 	if m.leases[task.ID] != "" {
-		m.err = "cannot reclaim: this session holds the lease on " + task.Ref + "; release it instead"
+		m.err = "cannot reclaim: this session holds the lease on " + output.ShowRef(task.Ref) + "; release it instead"
 		return m, nil
 	}
 	return m, m.reclaim(task)
@@ -1564,7 +1564,7 @@ func (m Model) release() (Model, tea.Cmd) {
 		return m, nil
 	}
 	if m.leases[task.ID] == "" {
-		m.err = "cannot release: this session does not hold a lease on " + task.Ref
+		m.err = "cannot release: this session does not hold a lease on " + output.ShowRef(task.Ref)
 		return m, nil
 	}
 	return m, m.releaseCmd(task)
@@ -2197,7 +2197,7 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 // confirmation that cannot name its subject is not opened at all, because the
 // naming is the whole of its value.
 func (m Model) openConfirm(form Form, task core.Task) (Model, tea.Cmd) {
-	confirm := Confirm{ref: core.TaskRef{ID: task.ID}, label: task.Ref}
+	confirm := Confirm{ref: core.TaskRef{ID: task.ID}, label: output.ShowRef(task.Ref)}
 	if form.Value("what") == "comment" {
 		comment, ok := m.selectedComment()
 		if !ok {
@@ -2206,7 +2206,7 @@ func (m Model) openConfirm(form Form, task core.Task) (Model, tea.Cmd) {
 		}
 		confirm.Kind, confirm.Target, confirm.commentID = confirmDeleteComment, m.commentTarget(), comment.ID
 	} else {
-		confirm.Kind, confirm.Target = confirmDeleteTask, task.Ref
+		confirm.Kind, confirm.Target = confirmDeleteTask, output.ShowRef(task.Ref)
 		confirm.hard, confirm.cascade = form.Yes("hard"), form.Yes("cascade")
 		confirm.Note = DeleteNote(confirm.hard, confirm.cascade)
 	}
@@ -2498,7 +2498,7 @@ func (m Model) confirmProjectRemoval(form Form) (Model, tea.Cmd) {
 		}
 		return m, m.planProjectDeletion(p.Key, DeletionInput(form.Value("tasks")))
 	}
-	confirm := Confirm{Target: p.Key, label: p.Key, projectRef: p.Key, Kind: confirmArchiveProject}
+	confirm := Confirm{Target: output.ShowKey(p.Key), label: output.ShowKey(p.Key), projectRef: p.Key, Kind: confirmArchiveProject}
 	return m.askConfirm(confirm, "there is no project named to remove")
 }
 
@@ -2508,7 +2508,7 @@ func (m Model) onDeletionPlan(msg deletionPlanMsg) (Model, tea.Cmd) {
 	if msg.err != nil {
 		return m.onError(errMsg{err: msg.err})
 	}
-	confirm := Confirm{Target: msg.ref, label: msg.ref, projectRef: msg.ref, Kind: confirmDeleteProject,
+	confirm := Confirm{Target: output.ShowKey(msg.ref), label: output.ShowKey(msg.ref), projectRef: msg.ref, Kind: confirmDeleteProject,
 		Note: DeletionNote(msg.plan), deletion: msg.in}
 	return m.askConfirm(confirm, "there is no project named to remove")
 }

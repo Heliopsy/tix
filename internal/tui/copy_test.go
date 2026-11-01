@@ -4,6 +4,7 @@ package tui
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -28,7 +29,7 @@ func TestTheCopyKeyOpensAFormOnTheBoardsProject(t *testing.T) {
 		t.Fatalf("Y opened form %v, want the copy form", next.form.Kind)
 	}
 	want := map[string]string{
-		"project": "infra", "title": "task a", "keep_status": noValue, "comments": noValue,
+		"project": "INFRA", "title": "task a", "keep_status": noValue, "comments": noValue,
 		"subtasks": noValue, "deps": noValue, "link": yesValue,
 	}
 	for key, value := range want {
@@ -36,7 +37,7 @@ func TestTheCopyKeyOpensAFormOnTheBoardsProject(t *testing.T) {
 			t.Errorf("%s = %q, want %q", key, got, value)
 		}
 	}
-	if field := next.form.Fields[0]; !slices.Equal(field.Options, []string{"apps", "infra", "web"}) {
+	if field := next.form.Fields[0]; !slices.Equal(field.Options, []string{"APPS", "INFRA", "WEB"}) {
 		t.Errorf("projects offered = %v, want every project", field.Options)
 	}
 	if len(svc.copies) != 0 {
@@ -74,7 +75,7 @@ func TestApplyingTheCopyFormCopiesAndNamesTheCopy(t *testing.T) {
 				t.Fatalf("copies = %+v, want one of a with %+v", svc.copies, tc.want)
 			}
 			after, reload := next.reduce(msg)
-			if want := "copied infra-a to " + tc.want.ProjectRef + "-99"; after.status != want || after.err != "" {
+			if want := "copied infra-a to " + strings.ToUpper(tc.want.ProjectRef) + "-99"; after.status != want || after.err != "" {
 				t.Errorf("status = %q (err %q), want %q", after.status, after.err, want)
 			}
 			if reload == nil || after.form.Open() {

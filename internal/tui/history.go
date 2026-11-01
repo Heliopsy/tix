@@ -50,14 +50,14 @@ func (s HistorySubject) Filter() core.AuditFilter {
 func (m Model) historySubject() HistorySubject {
 	if m.view == viewProject && m.setup != nil {
 		return HistorySubject{Type: "project", ID: m.setup.project.ID,
-			Label: "project " + m.setup.project.Key}
+			Label: "project " + output.ShowKey(m.setup.project.Key)}
 	}
 	if task, ok := m.selectedTask(); ok && m.view != viewProjects {
-		return HistorySubject{Type: "task", ID: task.ID, Label: task.Ref}
+		return HistorySubject{Type: "task", ID: task.ID, Label: output.ShowRef(task.Ref)}
 	}
 	if m.view == viewProjects && m.projectSel < len(m.projects) {
 		p := m.projects[m.projectSel]
-		return HistorySubject{Type: "project", ID: p.ID, Label: "project " + p.Key}
+		return HistorySubject{Type: "project", ID: p.ID, Label: "project " + output.ShowKey(p.Key)}
 	}
 	return HistorySubject{}
 }

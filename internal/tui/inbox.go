@@ -56,7 +56,7 @@ func InboxRow(it core.InboxItem, style output.TimeStyle) string {
 	default:
 		what = by + " commented"
 	}
-	task := it.TaskRef
+	task := output.ShowRef(it.TaskRef)
 	if it.TaskGone || task == "" {
 		task = "(deleted task)"
 	} else if it.TaskTitle != "" {

@@ -15,7 +15,7 @@ import (
 // routeOutcome is one task's journey, reported per reference the way every
 // other bulk command reports one.
 type routeOutcome struct {
-	Ref     string   `json:"ref" yaml:"ref"`
+	Ref     string   `json:"ref" yaml:"ref" show:"ref"`
 	Status  string   `json:"status" yaml:"status"`
 	From    string   `json:"from,omitempty" yaml:"from,omitempty"`
 	Route   []string `json:"route,omitempty" yaml:"route,omitempty"`

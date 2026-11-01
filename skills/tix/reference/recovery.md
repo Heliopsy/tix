@@ -23,9 +23,9 @@ $ tix task tree default-1
 ┌───────────┬─────────────────────┬────────┬──────────┬──────────┬──────┬─────┬──────────────────┬─────────┐
 │ REF       │ TITLE               │ STATUS │ PRIORITY │ ASSIGNEE │ TAGS │ DUE │ UPDATED          │ BLOCKED │
 ├───────────┼─────────────────────┼────────┼──────────┼──────────┼──────┼─────┼──────────────────┼─────────┤
-│ default-1 │ ship the retry fix  │ todo   │ high     │          │      │     │ 2026-10-11 15:43 │ no      │
-│ default-2 │ reproduce the flake │ todo   │ normal   │          │      │     │ 2026-10-11 15:43 │ no      │
-│ default-3 │ patch and test      │ todo   │ normal   │          │      │     │ 2026-10-11 15:43 │ yes     │
+│ DEFAULT-1 │ ship the retry fix  │ todo   │ high     │          │      │     │ 2026-10-11 15:43 │ no      │
+│ DEFAULT-2 │ reproduce the flake │ todo   │ normal   │          │      │     │ 2026-10-11 15:43 │ no      │
+│ DEFAULT-3 │ patch and test      │ todo   │ normal   │          │      │     │ 2026-10-11 15:43 │ yes     │
 └───────────┴─────────────────────┴────────┴──────────┴──────────┴──────┴─────┴──────────────────┴─────────┘
 ```
 
@@ -42,7 +42,7 @@ tix claim exec --ref default-2 --ttl 5s --on-start doing -- sleep 300 &
 ```
 
 ```console
-claimed default-2 until 2026-10-11T12:43:20Z
+claimed DEFAULT-2 until 2026-10-11T12:43:20Z
 ```
 
 While it is alive the row is held:

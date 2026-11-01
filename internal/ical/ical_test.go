@@ -203,14 +203,17 @@ func TestRenderRoundTripsThroughAStrictParser(t *testing.T) {
 		if got := unescape(t, ev.one(t, "DESCRIPTION").value); !strings.HasSuffix(got, "\nhttps://tix.example/tasks/"+task.Ref) {
 			t.Errorf("%s DESCRIPTION does not end with the link: %q", task.Ref, got)
 		}
+		if got := unescape(t, ev.one(t, "DESCRIPTION").value); !strings.HasPrefix(got, strings.ToUpper(task.Ref)+" · ") {
+			t.Errorf("%s DESCRIPTION does not open with the upper-case ref: %q", task.Ref, got)
+		}
 	}
 }
 
 func TestSummaryRoundTripsEveryAwkwardCharacter(t *testing.T) {
 	ev := parse(t, render()).children[0]
 	task := entries().Entries[0].Task
-	if got := unescape(t, ev.one(t, "SUMMARY").value); got != task.Ref+": "+task.Title {
-		t.Fatalf("SUMMARY round-tripped as %q, want %q", got, task.Ref+": "+task.Title)
+	if want := strings.ToUpper(task.Ref) + ": " + task.Title; unescape(t, ev.one(t, "SUMMARY").value) != want {
+		t.Fatalf("SUMMARY round-tripped as %q, want %q", unescape(t, ev.one(t, "SUMMARY").value), want)
 	}
 	if got := ev.one(t, "CATEGORIES").value; got != `ops,a\,b` {
 		t.Fatalf("CATEGORIES = %q", got)
@@ -225,9 +228,9 @@ func TestStateMapsToStatusAndSummary(t *testing.T) {
 	cases := []struct {
 		status, summaryPrefix string
 	}{
-		{"CONFIRMED", "infra-12: "},
-		{"CONFIRMED", DoneMark + "infra-13: "},
-		{"CANCELLED", "infra-14: "},
+		{"CONFIRMED", "INFRA-12: "},
+		{"CONFIRMED", DoneMark + "INFRA-13: "},
+		{"CANCELLED", "INFRA-14: "},
 	}
 	for i, tc := range cases {
 		ev := cal.children[i]

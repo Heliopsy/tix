@@ -120,7 +120,7 @@
   <input name="title" value="{{$v.QuickLine}}" placeholder="{{t "Add a task and press Enter"}}" aria-label="{{t "New task"}}" data-shortcut-target="new" required autocomplete="off" aria-describedby="quickadd-preview"{{if $v.Quick.Error}} aria-invalid="true"{{end}} data-quickadd="/tasks/quickadd" data-quickadd-target="quickadd-preview">
   {{template "tip" (tip "Quick add" "Type the attributes into the line: !high or !1 to !5 for the priority, #tag, @handle for the assignee, due:fri, due:tomorrow, due:+3d or due:2026-11-20, +project, ^infra-3 for the parent, status:doing. They are taken out of the title. Put a backslash before one, or quotes around it, to keep it as text." "docs/features.md")}}
   <select name="project_ref" aria-label="{{t "Project"}}">
-    {{range $v.Projects}}<option value="{{.Key}}"{{if eq .Key $v.Form.Project}} selected{{end}}>{{.Key}}</option>{{end}}
+    {{range $v.Projects}}<option value="{{.Key}}"{{if eq .Key $v.Form.Project}} selected{{end}}{{with projShort $.ProjectLabel .}} data-short="{{.}}"{{end}}>{{projLabel $.ProjectLabel .}}</option>{{end}}
   </select>
   <button type="submit">{{t "Add"}}</button>
   {{/* The fuller form opens from the row it extends, at the height of the
@@ -146,7 +146,7 @@
 {{if $v.Templates}}
 <div id="addtpl" class="flowmenu lanepop lanemore-menu addtpl-menu" popover data-lane-menu>
   <p class="flowhead">{{t "New from template"}}</p>
-  {{range $v.Templates}}<a class="flowgo" href="/templates/new?template={{.ID}}&amp;next={{$v.Self | urlquery}}">{{.Name}}{{if not .TenantWide}} <span class="muted mono">{{.ProjectKey}}</span>{{end}}</a>{{end}}
+  {{range $v.Templates}}<a class="flowgo" href="/templates/new?template={{.ID}}&amp;next={{$v.Self | urlquery}}">{{.Name}}{{if not .TenantWide}} <span class="muted mono">{{key .ProjectKey}}</span>{{end}}</a>{{end}}
   <a class="flowgo" href="/templates">{{t "All templates…"}}</a>
 </div>
 {{end}}
@@ -338,7 +338,7 @@
      (assets/live.js) rather than navigating. Visually hidden, never removed. */}}
 <p class="meta boardmeta">
   {{t "Workflow %s" $v.Board.Workflow}} &middot; {{tn "%d column" "%d columns" (len $v.Board.Columns)}}
-  {{- with index $v.Board.Groups 0}} &middot; {{tn "%d project sharing it: %s" "%d projects sharing it: %s" (len .Projects) (join .Keys)}}{{end}}
+  {{- with index $v.Board.Groups 0}} &middot; {{tn "%d project sharing it: %s" "%d projects sharing it: %s" (len .Projects) (joinKeys .Keys)}}{{end}}
 </p>{{template "tip" (tip "Board" "Projects share one board only when their workflows have the same states in the same order and the same moves. Each card still moves only the way its own project allows." "docs/web-ui.md")}}
 <p class="sr-only" aria-live="polite" id="board-status"></p>
 <div class="board{{if $v.Board.Merged}} is-merged{{end}}" data-drag="{{if .DragMove}}1{{else}}0{{end}}">
@@ -363,14 +363,14 @@
         {{$showPrio := and ($.Columns.Show "tasks" "priority") (ne (prio .Task.Priority) "normal")}}
         {{$showTags := and ($.Columns.Show "tasks" "tags") .Task.Tags}}
         {{$showRepeat := and ($.Columns.Show "tasks" "repeat") .Task.Recurrence}}
-        <div class="ref">{{if and $.CanStar ($.Columns.Show "tasks" "star")}}{{template "star" (star .Task.Ref .Task.Starred $v.Self $.CSRF)}}{{end}}{{if $.Columns.Show "tasks" "ref"}}{{.Task.Ref}}{{end}}</div>
+        <div class="ref">{{if and $.CanStar ($.Columns.Show "tasks" "star")}}{{template "star" (star .Task.Ref .Task.Starred $v.Self $.CSRF)}}{{end}}{{if $.Columns.Show "tasks" "ref"}}{{ref .Task.Ref}}{{end}}</div>
         <div class="card-title">{{template "tasktitle" (titleLink .Task.Ref .Task.Title .Task.Version (print "/tasks/" .Task.Ref "?next=" ($v.Self | urlquery)) "" $.TitleEdit)}}</div>
         {{/* A merged board mixes projects in one column, so each card says
              which list it belongs to. A board of one project does not: the
              heading already said it, and repeating it on every card is noise. */}}
         {{if or $v.Board.Merged $showPrio $showTags $showRepeat (snoozed .Task) .Task.Checklist}}
         <div class="card-meta">
-          {{if $v.Board.Merged}}<a class="projref{{with projClass $acc.Color}} {{.}}{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} href="/tasks?q=project:{{$acc.Key}}" title="{{t "Only tasks in %s" $acc.Name}}">{{template "proj-icon" (projIcon $acc true)}}{{$acc.Key}}</a>{{end}}
+          {{if $v.Board.Merged}}<a class="projref{{with projClass $acc.Color}} {{.}}{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} href="/tasks?q=project:{{$acc.Key}}" title="{{t "Only tasks in %s" $acc.Name}}">{{template "proj-icon" (projIcon $acc true)}}{{key $acc.Key}}</a>{{end}}
           {{if $showPrio}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="{{t "Only %s priority tasks" (t (prio .Task.Priority))}}"><span class="caret" aria-hidden="true"></span>{{t (prio .Task.Priority)}}</a>{{end}}
           {{if $showRepeat}}{{template "repeatmark" .Task.Recurrence}}{{end}}
           {{with .Task.Checklist}}{{template "checkmark" .}}{{end}}
@@ -381,13 +381,13 @@
         {{with .Task.Checklist}}{{template "checkbar" .}}{{end}}
         {{if .Routes}}
         <details class="card-move">
-          <summary aria-label="{{t "Move %s" .Task.Ref}}">{{t "Move"}}</summary>
+          <summary aria-label="{{t "Move %s" (ref .Task.Ref)}}">{{t "Move"}}</summary>
           <div class="body">
             <form method="post" action="/tasks/{{.Task.Ref}}/transition">
               {{template "csrf" $.CSRF}}
               <input type="hidden" name="ref" value="{{.Task.Ref}}">
               <input type="hidden" name="next" value="{{$v.Self}}">
-              <select id="to-{{.Task.Ref}}" name="route" aria-label="{{t "Move %s to" .Task.Ref}}">
+              <select id="to-{{.Task.Ref}}" name="route" aria-label="{{t "Move %s to" (ref .Task.Ref)}}">
                 {{range .Routes}}<option value="{{.Value}}">{{.Option}}</option>{{end}}
               </select>
               <button type="submit">{{t "Move"}}</button>
@@ -411,7 +411,7 @@
      that was in it. */}}
 <p class="boardstray" role="alert">
   {{tn "%d task is in a state this workflow no longer has, so it has no column:" "%d tasks are in a state this workflow no longer has, so they have no column:" (len $v.Board.Stray)}}
-  {{range $v.Board.Stray}}<a href="/tasks/{{.Ref}}">{{.Ref}}</a> ({{.Status}}) {{end}}
+  {{range $v.Board.Stray}}<a href="/tasks/{{.Ref}}">{{ref .Ref}}</a> ({{.Status}}) {{end}}
 </p>
 {{end}}
 {{else if eq $v.View "lanes"}}
@@ -462,19 +462,19 @@
         <input type="hidden" name="next" value="{{$v.Self}}">
         <input type="hidden" name="route" value="{{.Complete.Value}}">
         <button type="submit" class="check{{if .Finished}} is-done{{end}}" data-focus="tick"
-                {{if .Finished}}aria-label="{{t "Reopen %s: %s" .Task.Ref .Journey}}" title="{{t "Reopen: %s" .Journey}}"{{else}}aria-label="{{t "Complete %s: %s" .Task.Ref .Journey}}" title="{{t "Complete: %s" .Journey}}"{{end}}>
+                {{if .Finished}}aria-label="{{t "Reopen %s: %s" (ref .Task.Ref) .Journey}}" title="{{t "Reopen: %s" .Journey}}"{{else}}aria-label="{{t "Complete %s: %s" (ref .Task.Ref) .Journey}}" title="{{t "Complete: %s" .Journey}}"{{end}}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5 10.2 16.7 18 8.4"/></svg>
         </button>
       </form>
       {{else}}
       <div class="tick">
       <button type="button" class="check{{if .Finished}} is-done{{end}}{{if not .Tick}} is-locked{{end}}" popovertarget="ltick-{{.Task.Ref}}" data-focus="tick"
-              {{if .Tick}}{{if .Finished}}aria-label="{{t "Reopen %s: choose how" .Task.Ref}}" title="{{t "Choose how to reopen it"}}"{{else}}aria-label="{{t "Complete %s: choose how" .Task.Ref}}" title="{{t "Choose how to complete it"}}"{{end}}
-              {{else}}aria-label="{{if .Finished}}{{t "%s is finished and cannot be reopened here" .Task.Ref}}{{else}}{{t "%s cannot be completed here" .Task.Ref}}{{end}}" title="{{t "Why this cannot be ticked"}}"{{end}}>
+              {{if .Tick}}{{if .Finished}}aria-label="{{t "Reopen %s: choose how" (ref .Task.Ref)}}" title="{{t "Choose how to reopen it"}}"{{else}}aria-label="{{t "Complete %s: choose how" (ref .Task.Ref)}}" title="{{t "Choose how to complete it"}}"{{end}}
+              {{else}}aria-label="{{if .Finished}}{{t "%s is finished and cannot be reopened here" (ref .Task.Ref)}}{{else}}{{t "%s cannot be completed here" (ref .Task.Ref)}}{{end}}" title="{{t "Why this cannot be ticked"}}"{{end}}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5 10.2 16.7 18 8.4"/></svg>
       </button>
       <div id="ltick-{{.Task.Ref}}" class="flowmenu lanepop" popover>
-        <p class="flowhead">{{if .Finished}}{{t "Reopen"}}{{else}}{{t "Complete"}}{{end}} <span class="mono">{{.Task.Ref}}</span></p>
+        <p class="flowhead">{{if .Finished}}{{t "Reopen"}}{{else}}{{t "Complete"}}{{end}} <span class="mono">{{ref .Task.Ref}}</span></p>
         {{if .Tick}}
         <form method="post" action="/tasks/{{.Task.Ref}}/transition"
               hx-post="/tasks/{{.Task.Ref}}/transition" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
@@ -508,11 +508,11 @@
           {{if $.Columns.Show "tasks" "status"}}{{if .Moves}}
           <span class="statusmenu">
             <button type="button" class="statuspill lanepill" popovertarget="lflow-{{.Task.Ref}}" data-focus="status"
-                    aria-label="{{t "Status %s; move %s" .Label .Task.Ref}}" title="{{t "Move %s" .Task.Ref}}">
+                    aria-label="{{t "Status %s; move %s" .Label (ref .Task.Ref)}}" title="{{t "Move %s" (ref .Task.Ref)}}">
               <span class="pill status lane-state {{categoryClass .Category}}" data-state="{{.Task.Status}}">{{.Label}}</span>
             </button>
             <div id="lflow-{{.Task.Ref}}" class="flowmenu lanepop" popover>
-              <p class="flowhead">{{t "Move"}} <span class="mono">{{.Task.Ref}}</span> {{t "from"}} <span class="pill status {{categoryClass .Category}}">{{.Label}}</span></p>
+              <p class="flowhead">{{t "Move"}} <span class="mono">{{ref .Task.Ref}}</span> {{t "from"}} <span class="pill status {{categoryClass .Category}}">{{.Label}}</span></p>
               <form method="post" action="/tasks/{{.Task.Ref}}/transition"
                     hx-post="/tasks/{{.Task.Ref}}/transition" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
                     hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="status">
@@ -535,11 +535,11 @@
           {{if and ($.Columns.Show "tasks" "priority") .Prioritise}}
           <span class="priomenu">
             <button type="button" class="priobtn lanepill" popovertarget="lprio-{{.Task.Ref}}" data-focus="prio"
-                    aria-label="{{t "Priority %s; change it for %s" (t $p) .Task.Ref}}" title="{{t "Change the priority of %s" .Task.Ref}}">
+                    aria-label="{{t "Priority %s; change it for %s" (t $p) (ref .Task.Ref)}}" title="{{t "Change the priority of %s" (ref .Task.Ref)}}">
               <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>
             </button>
             <div id="lprio-{{.Task.Ref}}" class="flowmenu priopop lanepop" popover>
-              <p class="flowhead">{{t "Priority of"}} <span class="mono">{{.Task.Ref}}</span></p>
+              <p class="flowhead">{{t "Priority of"}} <span class="mono">{{ref .Task.Ref}}</span></p>
               <form method="post" action="/tasks/{{.Task.Ref}}/priority"
                     hx-post="/tasks/{{.Task.Ref}}/priority" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
                     hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="prio">
@@ -560,7 +560,7 @@
           {{if and ($.Columns.Show "tasks" "repeat") .Task.Recurrence}}{{template "repeatmark" .Task.Recurrence}}{{end}}
           {{with .Task.Checklist}}{{template "checkmark" .}}{{end}}
           {{if $.Columns.Show "tasks" "tags"}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
-          {{if $.Columns.Show "tasks" "ref"}}<span class="ref mono">{{.Task.Ref}}</span>{{end}}
+          {{if $.Columns.Show "tasks" "ref"}}<span class="ref mono">{{ref .Task.Ref}}</span>{{end}}
           {{if snoozed .Task}}<span class="snoozemark" title="{{t "Snoozed until %s" (stamp .Task.SnoozedUntil)}}">{{t "until %s" (stamp .Task.SnoozedUntil)}}</span>{{end}}
         </div>
       </div>
@@ -571,14 +571,14 @@
       {{$ref := .Task.Ref}}
       <div class="lanemore">
         <button type="button" class="lanemore-btn" popovertarget="lmore-{{.Task.Ref}}" data-focus="more"
-                aria-label="{{t "More actions for %s" .Task.Ref}}" title="{{t "More actions"}}">
+                aria-label="{{t "More actions for %s" (ref .Task.Ref)}}" title="{{t "More actions"}}">
           <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#more"/></svg>
         </button>
         <div id="lmore-{{.Task.Ref}}" class="flowmenu lanepop lanemore-menu" popover data-lane-menu>
-          <p class="flowhead"><span class="mono">{{.Task.Ref}}</span></p>
+          <p class="flowhead"><span class="mono">{{ref .Task.Ref}}</span></p>
           <a class="flowgo" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}">{{t "Open the task"}}</a>
           <button type="button" class="flowgo" data-copy-link="/tasks/{{.Task.Ref}}">{{t "Copy link"}}</button>
-          <button type="button" class="flowgo" data-copy-text="{{.Task.Ref}}">{{t "Copy reference"}}</button>
+          <button type="button" class="flowgo" data-copy-text="{{ref .Task.Ref}}">{{t "Copy reference"}}</button>
           {{if .Write}}<a class="flowgo" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}" data-rename="{{.Task.Ref}}" data-version="{{.Task.Version}}" data-no-press>{{t "Rename"}}</a>{{end}}
           {{if .Write}}<a class="flowgo" href="/tasks/{{.Task.Ref}}/copy?next={{$v.Self | urlquery}}" data-dialog-load data-copy-to>{{t "Copy to…"}}</a>
           <a class="flowgo" href="/tasks/{{.Task.Ref}}/template" data-dialog-load>{{t "Save as template"}}</a>{{end}}
@@ -738,7 +738,7 @@
 {{if $v.Lanes.Stray}}
 <p class="boardstray" role="alert">
   {{tn "%d task belongs to a project this screen does not list, so it has no lane:" "%d tasks belong to a project this screen does not list, so they have no lane:" (len $v.Lanes.Stray)}}
-  {{range $v.Lanes.Stray}}<a href="/tasks/{{.Ref}}">{{.Ref}}</a> {{end}}
+  {{range $v.Lanes.Stray}}<a href="/tasks/{{.Ref}}">{{ref .Ref}}</a> {{end}}
 </p>
 {{end}}
 {{else}}
@@ -763,7 +763,7 @@
   {{end}}
   <ul class="boardgroups">
     {{range $v.Board.Groups}}
-    <li><a href="{{.Href}}">{{.Label}}</a>: {{join .Keys}}</li>
+    <li><a href="{{.Href}}">{{.Label}}</a>: {{joinKeys .Keys}}</li>
     {{end}}
   </ul>
   {{else}}
@@ -840,7 +840,7 @@
          attribute, so ticking rows and pressing an action posts the
          selection with scripting off too. assets/select.js adds the range,
          the keys and the count. The trash has no bar. */}}
-    {{if and (eq $v.View "list") $v.Bulk.Any (not .DeletedAt)}}<input type="checkbox" class="rowpick" name="ref" value="{{.Ref}}" form="bulkbar" aria-label="{{t "Select %s" .Ref}}" data-pick>{{end}}
+    {{if and (eq $v.View "list") $v.Bulk.Any (not .DeletedAt)}}<input type="checkbox" class="rowpick" name="ref" value="{{.Ref}}" form="bulkbar" aria-label="{{t "Select %s" (ref .Ref)}}" data-pick>{{end}}
     {{/* A deleted task cannot be completed, moved or reprioritised, so its
          row offers none of that: no tick, plain status and priority, and
          Restore at the end, which is the one thing that can be done to it. */}}
@@ -869,7 +869,7 @@
            sort as well as the scroll position: the list you were working
            through was replaced by an unfiltered one, scrolled to the top. */}}
       <input type="hidden" name="next" value="{{$v.Self}}">
-      <button type="submit" class="check{{if eq .Status $done}} is-done{{end}}" data-focus="tick" {{if eq .Status $done}}aria-label="{{t "Reopen %s" .Ref}}" title="{{t "Reopen"}}"{{else}}aria-label="{{t "Complete %s" .Ref}}" title="{{t "Complete"}}"{{end}}>
+      <button type="submit" class="check{{if eq .Status $done}} is-done{{end}}" data-focus="tick" {{if eq .Status $done}}aria-label="{{t "Reopen %s" (ref .Ref)}}" title="{{t "Reopen"}}"{{else}}aria-label="{{t "Complete %s" (ref .Ref)}}" title="{{t "Complete"}}"{{end}}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5 10.2 16.7 18 8.4"/></svg>
       </button>
     </form>
@@ -921,11 +921,11 @@
       {{if $flow}}
       <span class="statusmenu">
         <button type="button" class="statuspill" data-focus="status" popovertarget="flow-{{.Ref}}"
-                aria-label="{{t "Status %s; move %s" .Status .Ref}}" title="{{t "Move %s" .Ref}}">
+                aria-label="{{t "Status %s; move %s" .Status (ref .Ref)}}" title="{{t "Move %s" (ref .Ref)}}">
           <span class="pill status {{slug .Status}}">{{.Status}}</span>
         </button>
         <div id="flow-{{.Ref}}" class="flowmenu" popover>
-          <p class="flowhead">{{t "Move"}} <span class="mono">{{.Ref}}</span> {{t "from"}} <span class="pill status {{slug .Status}}">{{.Status}}</span></p>
+          <p class="flowhead">{{t "Move"}} <span class="mono">{{ref .Ref}}</span> {{t "from"}} <span class="pill status {{slug .Status}}">{{.Status}}</span></p>
           <form method="post" action="/tasks/{{.Ref}}/transition">
             {{template "csrf" $r.CSRF}}
             <input type="hidden" name="next" value="{{$v.Self}}">
@@ -960,11 +960,11 @@
       {{else}}
       <span class="priomenu">
         <button type="button" class="priobtn" data-focus="prio" popovertarget="prio-{{.Ref}}"
-                aria-label="{{t "Priority %s; change it for %s" (t $p) .Ref}}" title="{{t "Change the priority of %s" .Ref}}">
+                aria-label="{{t "Priority %s; change it for %s" (t $p) (ref .Ref)}}" title="{{t "Change the priority of %s" (ref .Ref)}}">
           <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>
         </button>
         <div id="prio-{{.Ref}}" class="flowmenu priopop" popover>
-          <p class="flowhead">{{t "Priority of"}} <span class="mono">{{.Ref}}</span></p>
+          <p class="flowhead">{{t "Priority of"}} <span class="mono">{{ref .Ref}}</span></p>
           <form method="post" action="/tasks/{{.Ref}}/priority">
             {{template "csrf" $r.CSRF}}
             <input type="hidden" name="next" value="{{$v.Self}}">
@@ -1004,7 +1004,7 @@
            directory pass, not a lookup per row, and links to the tasks that
            actor holds, the way a tag and a project already do. */}}
       {{if $r.Columns.Show "tasks" "assignee"}}<span class="tm tm-who">{{$who := $r.Data.Names.Label .AssigneeActorID}}{{if $who}}<a class="who-ref" href="/tasks?q=assignee:{{$who}}" title="{{t "Assigned to %s" $who}}"><span class="at" aria-hidden="true">@</span>{{$who}}</a>{{else}}<span class="who-ref is-none" title="{{t "Nobody is assigned to this"}}">{{t "unassigned"}}</span>{{end}}</span>{{end}}
-      {{if $r.Columns.Show "tasks" "project"}}<span class="tm tm-proj"><a class="projref{{with projClass $acc.Color}} {{.}}{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} href="/tasks?q=project:{{$acc.Key}}" title="{{t "Only tasks in %s" $acc.Name}}">{{template "proj-icon" (projIcon $acc true)}}{{$acc.Key}}</a></span>{{end}}
+      {{if $r.Columns.Show "tasks" "project"}}<span class="tm tm-proj"><a class="projref{{with projClass $acc.Color}} {{.}}{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} href="/tasks?q=project:{{$acc.Key}}" title="{{t "Only tasks in %s" $acc.Name}}">{{template "proj-icon" (projIcon $acc true)}}{{key $acc.Key}}</a></span>{{end}}
       {{/* A lease is the one thing on a row that is about to change by
            itself. Held says an agent has it; expired says one took it and
            never came back, which is a task looking for an owner rather than
@@ -1035,7 +1035,7 @@
       {{if snoozed .}}<a class="snoozemark" href="/tasks?q=is:snoozed" title="{{t "Snoozed until %s" (stamp .SnoozedUntil)}}{{with $r.Data.Names.Label .SnoozedByActorID}}, {{t "snoozed by %s" .}}{{end}}">{{t "until %s" (stamp .SnoozedUntil)}}</a>{{end}}
       </span>
       {{if $r.Columns.Show "tasks" "updated"}}<span class="tm tm-when"><span class="when" title="{{t "Last updated %s" (compact .UpdatedAt)}}"><span class="when-label">{{t "updated"}}</span> {{compact .UpdatedAt}}</span></span>{{end}}
-      {{if $r.Columns.Show "tasks" "ref"}}<span class="tm tm-ref"><span class="ref mono">{{.Ref}}</span></span>{{end}}
+      {{if $r.Columns.Show "tasks" "ref"}}<span class="tm tm-ref"><span class="ref mono">{{ref .Ref}}</span></span>{{end}}
     </span>
     {{/* The whole listing and its count are swapped, not the row: a restored
          task leaves the trash, and the count above it has to say so. */}}
@@ -1044,7 +1044,7 @@
           action="/tasks/{{.Ref}}/restore">
       {{template "csrf" $r.CSRF}}
       <input type="hidden" name="next" value="{{$v.Self}}">
-      <button type="submit" class="secondary" aria-label="{{t "Restore %s" .Ref}}">{{t "Restore"}}</button>
+      <button type="submit" class="secondary" aria-label="{{t "Restore %s" (ref .Ref)}}">{{t "Restore"}}</button>
     </form>{{end}}
   </li>
 {{end}}{{end}}
@@ -1083,7 +1083,7 @@
       <div class="cfield">
         <div class="cfield-label"><label for="new-project">{{t "Project"}}</label></div>
         <select id="new-project" name="project_ref"{{$e.Attrs "project_ref"}}>
-          {{range $v.Projects}}<option value="{{.Key}}"{{if eq .Key $f.Project}} selected{{end}}>{{.Name}} ({{.Key}})</option>{{end}}
+          {{range $v.Projects}}<option value="{{.Key}}"{{if eq .Key $f.Project}} selected{{end}}>{{projLabel $.ProjectLabel .}}</option>{{end}}
         </select>
         {{with $e.On "project_ref"}}{{template "field-error" .}}{{end}}
       </div>
@@ -1208,7 +1208,7 @@
     <div id="bulk-copy" class="flowmenu bulkpop" popover>
       <label class="flowhead" for="bulk-copy-project">{{t "Copy the selected tasks to"}}</label>
       <select id="bulk-copy-project" name="project">
-        {{range $v.Projects}}<option value="{{.Key}}">{{.Key}} &middot; {{.Name}}</option>{{end}}
+        {{range $v.Projects}}<option value="{{.Key}}">{{projLabel $.ProjectLabel .}}</option>{{end}}
       </select>
       <div class="bulkpair">
         <button type="submit" formaction="/tasks/bulk?action=copy">{{t "Copy"}}</button>
