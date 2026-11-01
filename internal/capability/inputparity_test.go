@@ -42,7 +42,7 @@ var inputReaches = []inputReach{
 		"color": "--color", "icon": "--icon", "icon_name": "--icon-name", "icon_file": "--icon-file",
 	}},
 	{"tix project edit", core.UpdateProjectInput{}, map[string]string{
-		"name": "--name", "description": "--description", "workflow_key": "--workflow",
+		"key": "--key", "name": "--name", "description": "--description", "workflow_key": "--workflow",
 		"color": "--color", "icon": "--icon", "icon_name": "--icon-name", "icon_file": "--icon-file",
 	}},
 	{"tix project ls", core.ProjectFilter{}, map[string]string{
