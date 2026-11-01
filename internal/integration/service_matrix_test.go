@@ -79,6 +79,33 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "tick a checklist item",
+		covers: []string{"CreateProject", "CreateTask", "CheckTaskItem"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "list",
+				Body: "- [ ] one\n- [ ] two\n"})
+			mustf(t, tg, err, "creating the task")
+			ticked, err := tg.svc.CheckTaskItem(tg.ctx, core.TaskRef{ID: task.ID},
+				core.CheckItemInput{Item: 2, Done: true, Version: task.Version})
+			if err != nil {
+				return nil, err
+			}
+			return sig{"body": ticked.Body, "done": ticked.Checklist.Done, "total": ticked.Checklist.Total}, nil
+		},
+	},
+	{
+		name:   "tick a checklist item the description does not have",
+		covers: []string{"CreateProject", "CreateTask", "CheckTaskItem"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "plain"})
+			mustf(t, tg, err, "creating the task")
+			_, err = tg.svc.CheckTaskItem(tg.ctx, core.TaskRef{ID: task.ID}, core.CheckItemInput{Item: 1, Done: true})
+			return nil, err
+		},
+	},
+	{
 		name:   "a legal transition",
 		covers: []string{"CreateProject", "CreateTask", "TransitionTask"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
