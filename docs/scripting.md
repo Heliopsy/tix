@@ -162,6 +162,12 @@ tix task ls --all -o ndjson -s todo | jq -r .project_id | sort | uniq -c
 # What has run out of time, oldest deadline first
 tix task ls --all -o ndjson --overdue --sort due_at | jq -r '[.ref, .due_at, .title] | @tsv'
 
+# Retag everything a filter selects in one request; each task still gets its own audit entry
+tix task ls --all -o ndjson --filter 'tag:old' | jq -r .ref | tix task bulk tag-add - --tag archive
+
+# A spreadsheet of the open work, formula-looking cells prefixed with '
+tix task ls --all -o csv -s todo > todo.csv
+
 # Feed a body in from another process
 git log -1 --format=%B | tix comment add infra-42 -
 ```

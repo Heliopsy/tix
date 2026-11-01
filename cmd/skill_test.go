@@ -436,9 +436,7 @@ func takesValue(cmd *cobra.Command, name string) bool {
 // skillOmits names the "work" group commands the skill deliberately does not
 // cover, each with the reason. An entry here is a decision; a command that is
 // neither documented nor listed is the accident this guard exists to catch.
-var skillOmits = map[string]string{
-	"tag": "agents attach tags with task add -l and filter with task ls -l; tag add/rm/ls is tenant upkeep a person does",
-}
+var skillOmits = map[string]string{}
 
 // TestSkillCoversEveryWorkCommand fails when a command an agent is meant to
 // drive lands without reaching the skill. The existing guards prove the skill

@@ -421,7 +421,8 @@ think you're in is not the state that's actually there.
 
 ## Machine-readable output
 
-`-o json`, `-o yaml`, `-o ndjson` (default is `table`). `tix task ls`
+`-o json`, `-o yaml`, `-o ndjson` (default is `table`), and `-o csv` on
+`tix task ls` only. `tix task ls`
 streams so large listings never buffer. Machine formats **never** carry
 colour escapes, even with `--color` forced. `-q` suppresses diagnostics (not
 errors — those still go to stderr with a nonzero exit), and it does not
@@ -506,6 +507,20 @@ initial state unless `--keep-status` finds a state of the same name.
 `--with-subtasks`, `--with-comments` and `--with-deps` bring those along, and
 `--link` records the original as `copied_from_id`. It never copies a lease, so
 a copy of a task you hold is unclaimed. Exit `3` on an unknown project.
+
+**Many tasks in one request.** `tix task bulk ACTION REF...` applies `move
+--to S`, `priority --priority P`, `tag-add`/`tag-remove --tag T`, `assign
+--assignee H` (empty clears), `star`, `unstar`, `copy --project K`, `delete`
+or `restore` to up to 500 tasks (`-` reads references from stdin). Each task
+is changed on its own, so read every outcome: the exit status is non-zero when
+any was refused, and the others still changed. `tix task edit`, `tix task
+copy`, `tix tag rm REF... TAG` and `tix tag add REF,REF TAG` take many
+references too, one request per task.
+
+`tix task ls -o csv` prints `ref, project, title, status, priority, assignee,
+tags, due, created, updated` for a human's spreadsheet; parse `-o json` or
+`-o ndjson` yourself, since a CSV cell that looks like a formula is prefixed
+with `'`.
 
 **Do not poll `tix task ls` in a loop.** `tix watch` subscribes to the event
 stream instead; see [reference/queries.md](reference/queries.md).
