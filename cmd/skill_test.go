@@ -845,7 +845,6 @@ var skillFlagOmits = map[string]string{
 	"tix config show --sources":         "the skill sends a reader to config show -v, which is the whole resolution; --sources is a narrower view of the same thing",
 	"tix project ls --include-archived": "the skill uses project ls only to find project keys, and an archived project is not one an agent should claim into",
 	"tix task ls --claimed":             "the skill drives the empty side with --unclaimed and the held side through --filter 'claimed:', which is the form it teaches",
-	"tix task ls --include-deleted":     "a deleted task is not work; the skill names the deleted: filter term instead",
 	"tix serve --insecure-no-tls":       "tix serve is an operator command the skill names only to say where the sweeper and the event stream run; deployment.md owns its flags",
 	"tix serve --no-lease-sweeper":      "as above: the skill says the sweeper runs inside tix serve, not how to turn it off",
 	"tix serve --no-retention-pruner":   "as above: operator tuning, not agent behaviour",

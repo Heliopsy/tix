@@ -1,8 +1,8 @@
 ---
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. There is no MCP server; this CLI is the only interface. Covers writing your own plan down as tasks before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 12
-verified-against: tix 425cd60 (2026-10-26)
+version: 13
+verified-against: tix 17d1152 (2026-11-01)
 ---
 
 # tix
@@ -521,6 +521,20 @@ link two tasks it can both reach, and a cross-project link with such a token
 fails exit `5`, not a database error. `task add --depends-on` is the same
 edge, recorded as the task is created, which is what the planning section
 uses.
+
+## Undoing a delete
+
+```sh
+tix task rm default-4                  # soft delete: gone from lists and from task show
+tix task ls --include-deleted          # the deleted rows are back in the listing
+tix task restore default-4             # and the task is back where it was
+```
+
+`task rm` without `--hard` is a soft delete. The task drops out of `task ls`
+and `task show` answers exit `3` for it, but `--include-deleted` still lists
+it and `task restore` brings it back. `task rm --hard` has no way back: a
+restore after it is exit `3` too. Never pass `--hard` to tidy up your own
+plan; cancel the task instead, which is terminal and keeps the history.
 
 ## Know which store you are writing to
 

@@ -45,19 +45,28 @@ Everything below is under `/api/v1`.
 | Area | Routes |
 | --- | --- |
 | Identity | `GET /whoami`, `POST /auth/login`, `POST /auth/logout` |
+| Second factor | `/auth/totp`, `/auth/totp/confirm`, `/auth/totp/verify`, `/auth/totp/recovery-codes`, `/users/{id}/totp`; see [Second factor](#second-factor) |
 | Users and tokens | `/users`, `/users/{id}`, `/tokens`, `/tokens/{id}` |
+| SSH keys | `/ssh-keys`, `/ssh-keys/{id}`; see [deployment.md](deployment.md#enrolling-a-key) |
+| Directory | `/actors`, `/actors/{id}` |
 | Tenancy | `/tenants`, `/tenants/{ref}`, `/members`, `/members/{actorID}`, `/domains`, `/domains/{hostname}` |
 | Projects | `/projects`, `/projects/{ref}`, `/projects/{ref}/fields`, `/projects/{ref}/fields/{key}` |
 | Workflows | `/workflows`, `/workflows/{key}` |
 | Tasks | `/tasks`, `/tasks/{ref}`, `/tasks/{ref}/transition`, `/tasks/{ref}/route`, `/tasks/{ref}/restore`, `/tasks/{ref}/tree` |
 | Task relations | `/tasks/{ref}/deps`, `/tasks/{ref}/deps/{dep}`, `/tasks/{ref}/tags`, `/tasks/{ref}/tags/{name}`, `/tasks/{ref}/star` |
 | Comments and artifacts | `/tasks/{ref}/comments`, `/tasks/{ref}/artifacts`, `/comments/{id}`, `/tags` |
-| Claims | `/tasks/{ref}/claim`, `/tasks/{ref}/claim/renew`, `/tasks/{ref}/claim/release`, `/claims/next`, `/claims/sweep` |
+| Claims | `/tasks/{ref}/claim`, `/tasks/{ref}/claim/renew`, `/tasks/{ref}/claim/release`, `/tasks/{ref}/claim/reclaim`, `/claims/next`, `/claims/sweep` |
 | Webhooks | `/webhooks`, `/webhooks/{id}`, `/webhooks/deliveries`, `/webhooks/deliveries/{id}/redeliver` |
 | History | `/audit`, `/tasks/{ref}/audit`, `/retention`, `/prune` |
+| Reports | `GET /stats`, see [statistics.md](statistics.md); `GET /status`, the report `tix status` prints, see [scripting.md](scripting.md) |
+| Live connections | `GET /connections`, `DELETE /connections/{id}`; see [deployment.md](deployment.md#live-connections) |
 | Transfer | `/export`, `/import`, `/bundles/export`, `/bundles/import` |
 | Sync | `/sync/sources`, `/sync/sources/{id}`, `/sync/run` |
 | Events | `/events` (WebSocket) |
+
+Every route above has a command: `tix doctor`, `tix login`, `tix user totp`, `tix user key`, `tix actor`,
+`tix stats`, `tix status` and `tix connection` among the less obvious ones. [commands.md](commands.md)
+lists them.
 
 ### Project appearance
 
@@ -118,6 +127,45 @@ Moving a recurring task into a done state, through `/transition`, `/route` or a 
 status, creates the next occurrence in the same transaction. The stream carries the move's
 `task.transitioned` event with `next`, the new task's reference, followed by an ordinary `task.created`
 event whose payload names `recurs_from`. Moving into a cancelled state creates nothing.
+
+### Second factor
+
+When the tenant requires a code on the surface a sign-in names, `POST /auth/login` answers the password
+step with a challenge instead of a session. `surface` is `web`, `cli` or `ssh`; leaving it out means `cli`,
+so omitting it never walks past a requirement:
+
+```console
+$ curl -s -X POST -H 'Content-Type: application/json' \
+    -d '{"email":"ana@example.com","password":"...","surface":"cli"}' \
+    http://127.0.0.1:8080/api/v1/auth/login
+{"challenge":{"kind":"code","ticket":"..."}}
+```
+
+The second step sends the ticket back with the code, and no password. A recovery code is accepted in place
+of a code. The answer is the session, set as a cookie too:
+
+```console
+$ curl -s -X POST -H 'Content-Type: application/json' \
+    -d '{"ticket":"...","code":"123456"}' http://127.0.0.1:8080/api/v1/auth/login
+{"session":{"token":"...","actor_id":"...","tenant_id":"...","expires_at":"..."}}
+```
+
+A challenge of kind `enrol` carries an `enrolment` (`secret`, `uri`, `issuer`, `account`) for a user the
+requirement applies to who has no factor yet; the second step confirms a code from it, and the answer then
+also carries `recovery_codes`, once. There is no way to send a code with the password in one call.
+
+| Route | Effect |
+| --- | --- |
+| `GET /auth/totp` | the caller's enrolment and what the tenant requires of them |
+| `POST /auth/totp` | start an enrolment; `201` with `secret` and `uri`, inert until confirmed |
+| `POST /auth/totp/confirm` | `{"code":"..."}` confirms it and returns `{"codes":[...]}`, the recovery codes, once |
+| `POST /auth/totp/recovery-codes` | replace the caller's recovery codes and return the new set once |
+| `DELETE /auth/totp` | remove the caller's own enrolment; `204` |
+| `POST /auth/totp/verify` | `{"code":"..."}` proves the caller's existing factor and mints nothing; `204`. It is for a surface whose first factor is not a password, such as an SSH key |
+| `DELETE /users/{id}/totp` | clear another user's enrolment; needs `totp:admin`; `204` |
+
+API tokens never meet a second factor. [second-factor.md](second-factor.md) covers the policy, the key and
+recovery.
 
 ## Listing and pagination
 

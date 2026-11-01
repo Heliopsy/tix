@@ -3,8 +3,6 @@
 Capabilities that are easy to miss from the command table, because they are not a command each.
 [commands.md](commands.md) is the index of commands themselves.
 
-Capabilities that are easy to miss from the command table above.
-
 **Statistics.** `tix stats`, `/stats` in the browser and `S` in the terminal interface, over one
 window and optionally one project: completions per day, median and slowest lead time, where the work
 is sitting, who moved it, what has waited longest. The leaderboard prints what it counts every time
@@ -73,6 +71,33 @@ row, a card or the task screen in the browser, `*` in the terminal interface, `t
 yours alone, stored with your actor rather than in a cookie, so it follows you between the browser, the
 terminal and the command line and never reorders a colleague's queue. Your starred tasks lead under
 every sort, and `is:starred` narrows a listing to them. [docs/filtering.md](filtering.md#stars).
+
+**Lanes.** Besides the list and the board, the task screen can draw one lane per project, each lane
+holding that project's open work as cards. A card ticks, changes status and changes priority where it
+sits, without leaving the screen. [docs/web-ui.md](web-ui.md#lanes).
+
+**A task over the list, and titles renamed where they are listed.** Two per-browser settings: a task
+followed from a listing can open in a dialog over it instead of its own page, and a click on a listed
+title can rename it in place. [docs/web-ui.md](web-ui.md#opening-a-task-in-a-dialog).
+
+**Undo.** A status change, a priority change and a soft delete in the browser come back with a toast
+offering Undo. Elsewhere the same undo is an ordinary command: `tix task mv` back, `tix task edit
+--priority`, and `tix task restore` for a soft delete. [docs/web-ui.md](web-ui.md#acting-in-place).
+
+**Two languages.** The browser draws every screen in English or Bulgarian, following `Accept-Language`
+unless Settings picks one for that browser. [docs/web-ui.md](web-ui.md#language-and-info-tips).
+
+**An activity feed.** Every change the audit log records, as a live feed at `/activity` that narrows by
+record, kind, surface and actor, and as `tix audit ls --filter` and the terminal's history view.
+[docs/filtering.md](filtering.md).
+
+**A second factor.** A time-based code on top of a password or an SSH key, required per tenant and per
+surface, with recovery codes and an administrator's clear for a lost phone. API tokens are exempt.
+[docs/second-factor.md](second-factor.md).
+
+**Custom field defaults.** A field definition can carry a `default`, which a task created without a value
+for that field is given. It is part of the definition the API's `PUT /projects/{ref}/fields` takes and
+travels in a bundle. [docs/workflows.md](workflows.md#custom-fields).
 
 **Shell completion.** `tix completion install` detects the shell, writes the script where that shell
 looks for it and never edits a startup file. It completes task references, project keys, tags and the
