@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.28.0](https://github.com/Heliopsy/tix/compare/v0.27.0...v0.28.0) (2026-11-01)
+
+
+### Features
+
+* a project icon can be a built-in symbol or an uploaded image ([#113](https://github.com/Heliopsy/tix/issues/113)) ([a1c1b11](https://github.com/Heliopsy/tix/commit/a1c1b1118e560a1586940b44422575a3ca3c9132))
+* arrange board columns and lanes from three dots, kept per user ([#121](https://github.com/Heliopsy/tix/issues/121)) ([c56d8d0](https://github.com/Heliopsy/tix/commit/c56d8d02f1fe50335e13b71135c555a6be777984))
+* change a project's key, with old keys kept as redirecting aliases ([#116](https://github.com/Heliopsy/tix/issues/116)) ([3bc6fd2](https://github.com/Heliopsy/tix/commit/3bc6fd29ac0efd80949fb52f9b8cdfbe411c196f))
+* **cli:** reach every API input field from the command line ([#115](https://github.com/Heliopsy/tix/issues/115)) ([9b8c705](https://github.com/Heliopsy/tix/commit/9b8c70595cdd7dbd4503801a45f73a03fce9b7fa))
+* colour fields take a custom colour beside the palette ([#119](https://github.com/Heliopsy/tix/issues/119)) ([80244eb](https://github.com/Heliopsy/tix/commit/80244eb9dc527f2d01006bbf4d2bbb6386524cae))
+* copy a task to any project, with its subtasks, comments and dependencies ([#122](https://github.com/Heliopsy/tix/issues/122)) ([5f57271](https://github.com/Heliopsy/tix/commit/5f57271dc0eef6f20cb7a3bfa4604d2a3795d23a))
+* deleting a project asks what happens to its tasks ([#120](https://github.com/Heliopsy/tix/issues/120)) ([c402d3b](https://github.com/Heliopsy/tix/commit/c402d3b56c77c3a37506e7d030ef934819e4c7b3))
+* **web:** new task and new project forms with a real layout, kept input on refusal ([#118](https://github.com/Heliopsy/tix/issues/118)) ([f7340fd](https://github.com/Heliopsy/tix/commit/f7340fde2c58cf3462644bb52dcecf1c011b3c75))
+* **web:** three dots on every lane card with the whole task behind them ([#111](https://github.com/Heliopsy/tix/issues/111)) ([17d1152](https://github.com/Heliopsy/tix/commit/17d1152ea0d59200c1099ccdfe6036e730130b45))
+
+
+### Bug Fixes
+
+* **web:** board cards drag between columns again ([#108](https://github.com/Heliopsy/tix/issues/108)) ([2f6559b](https://github.com/Heliopsy/tix/commit/2f6559b8039925b28a87da3ff8576b36908ed254))
+* **web:** let the page scroll with the pointer over a board, lanes or the list ([#112](https://github.com/Heliopsy/tix/issues/112)) ([5a2496d](https://github.com/Heliopsy/tix/commit/5a2496d8281dc31cf534fc0f2d046ba7f2675bdf))
+
 ## [0.27.0](https://github.com/Heliopsy/tix/compare/v0.26.0...v0.27.0) (2026-10-31)
 
 
