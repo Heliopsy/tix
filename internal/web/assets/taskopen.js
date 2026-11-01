@@ -556,6 +556,16 @@
     startEdit(link);
   }, true);
 
+  // openTaskHref is what the command palette asks first (palette.js): a
+  // task it offers opens in the dialog when the page has one, and focus
+  // returns to from when the dialog closes.
+  tix.openTaskHref = function (href, from) {
+    if (!href || !dialog() || !tix.taskRefOf(href, origin)) {
+      return false;
+    }
+    return openTask(href, from);
+  };
+
   // openRow is what the "open" shortcut asks first (shortcuts.js): a
   // selected row opens in the dialog when the page has one.
   tix.openRow = function (row) {

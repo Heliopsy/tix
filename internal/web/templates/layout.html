@@ -41,10 +41,12 @@
 <script src="/assets/feel.js" defer></script>
 <script src="/assets/iconpick.js" defer></script>
 <script src="/assets/groups.js" defer></script>
+<script src="/assets/palette.js" defer></script>
 </head>
 <body hx-boost="true">
 {{if .Actor}}
 <script id="tix-shortcuts-data" type="application/json">{{.ShortcutsJSON}}</script>
+<script id="tix-palette-data" type="application/json">{{.PaletteJSON}}</script>
 <div class="shell">
   {{/* The aside paints the sidebar's background and is left to the grid,
        which stretches it to whatever the content beside it needs. Only its
@@ -70,6 +72,14 @@
              sidebar.js runs, since it does nothing without it. */}}
         <button type="button" class="side-toggle" data-side-toggle aria-controls="side" aria-expanded="true" aria-label="{{t "Collapse sidebar"}}" hidden>
           <svg aria-hidden="true" width="18" height="18"><use href="/assets/icons.svg#sidebar"/></svg>
+        </button>
+        {{/* The command palette (assets/palette.js), also ctrl+k. A field-like
+             row under the brand on a desktop, an icon in the bar on a phone.
+             Hidden until the script runs, since it is what opens it. */}}
+        <button type="button" class="palette-open" data-palette-open aria-keyshortcuts="Control+K Meta+K" data-rail-name="{{t "Search"}}" hidden>
+          <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#search"/></svg>
+          <span class="palette-open-label rail-label">{{t "Search"}}</span>
+          <kbd class="palette-open-kbd" data-palette-kbd aria-hidden="true">Ctrl K</kbd>
         </button>
         <button type="button" class="burger" popovertarget="sidemenu" aria-label="{{t "Menu"}}">
           <svg class="burger-icon" aria-hidden="true" width="24" height="24"><use href="/assets/icons.svg#menu"/></svg>
@@ -112,6 +122,7 @@
   </main>
 </div>
 {{template "shortcuts-help" .}}
+{{template "palette" .}}
 {{if .TaskDialog}}{{template "task-dialog-host" .}}{{end}}
 {{else}}
 <main class="auth">

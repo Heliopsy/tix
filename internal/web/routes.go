@@ -80,6 +80,7 @@ func (h *handler) routes() []route {
 	out = append(out, h.transferRoutes()...)
 	out = append(out, h.syncRoutes()...)
 	out = append(out, h.bundleRoutes()...)
+	out = append(out, h.paletteRoutes()...)
 	return out
 }
 

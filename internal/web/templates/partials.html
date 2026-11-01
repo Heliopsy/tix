@@ -199,6 +199,25 @@
 </div>
 {{end}}
 
+{{/* The command palette, opened with ctrl+k or the Search button and
+     driven by assets/palette.js. The native dialog makes the page behind
+     inert; the input is a combobox over one listbox of grouped options, and
+     the options are drawn by the script from the embedded tix-palette-data,
+     the projects it reads once, and the tasks a typed search answers. */}}
+{{define "palette"}}
+<dialog id="palette" class="palette" aria-labelledby="palette-title">
+  <h2 id="palette-title" class="sr-only">{{t "Command palette"}}</h2>
+  <div class="palette-head">
+    <svg class="palette-icon" aria-hidden="true" width="18" height="18"><use href="/assets/icons.svg#search"/></svg>
+    <input id="palette-input" class="palette-input" type="text" role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="{{t "Search tasks, projects, screens and actions"}}" aria-label="{{t "Search tasks, projects, screens and actions"}}" aria-describedby="palette-foot">
+    <button type="button" class="secondary palette-close" data-palette-close>{{t "Close"}}</button>
+  </div>
+  <div id="palette-list" class="palette-list" role="listbox" aria-label="{{t "Results"}}"></div>
+  <p id="palette-status" class="palette-status" role="status" aria-live="polite"></p>
+  <p id="palette-foot" class="palette-foot">{{th "<kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close"}}</p>
+</dialog>
+{{end}}
+
 {{/* The columns form on its own, so a screen that has nothing else to put
      beside it can wrap it in its own disclosure (column-picker, below), the
      task list can sit it next to the project filter inside one, and the

@@ -6005,3 +6005,141 @@ li.task:has(> .title-edit-error:not([hidden])),
 .viewstack > .viewblock.is-empty { display: none; }
 .viewstack > .viewblock:not(.is-empty) ~ .viewblock:not(.is-empty) { border-top: 1px solid var(--line); padding-top: 18px; }
 .listgroup > .tasklist { height: auto; max-height: none; min-height: 0; }
+
+/* ---------------------------------------------------------------------------
+   The command palette (assets/palette.js, templates/partials.html "palette").
+   The opener is a field-like row under the brand on a desktop and an icon in
+   the bar on a phone; the palette is a native modal dialog near the top of
+   the screen, the whole screen on a phone. Its padding is nil and the panes
+   fill it, so a click whose target is the dialog itself is the backdrop. */
+.palette-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.palette-open[hidden] { display: none; }
+.palette-open-label,
+.palette-open-kbd { display: none; }
+.palette-open:hover,
+.palette-open:focus-visible { color: var(--ink); }
+.side-head .palette-open { margin-left: auto; }
+
+@media (min-width: 900px) {
+  .side-head { flex-wrap: wrap; }
+  .side-head .palette-open {
+    order: 3;
+    flex: 1 0 100%;
+    justify-content: flex-start;
+    width: auto;
+    min-height: 34px;
+    margin: var(--space-2) 0 var(--space-1);
+    padding: 0 var(--space-2);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  .palette-open-label { display: inline; }
+  .palette-open-kbd { display: inline; margin-left: auto; font-size: var(--text-xs); }
+  .side-collapsed .side-head .palette-open { justify-content: center; padding: var(--space-2); margin: 0; }
+  .side-collapsed .palette-open-kbd { display: none; }
+}
+
+dialog.palette {
+  width: min(640px, calc(100vw - 2 * var(--gutter)));
+  max-width: none;
+  max-height: min(560px, calc(100dvh - 2 * var(--gutter)));
+  margin: 12vh auto auto;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: var(--shadow-strong);
+  overflow: hidden;
+}
+dialog.palette[open] { display: flex; flex-direction: column; }
+dialog.palette::backdrop { background: var(--scrim); }
+.palette-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+.palette-icon { flex: 0 0 auto; color: var(--muted); }
+.palette-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: none;
+  font-size: var(--text-md);
+  padding: var(--space-2) 0;
+}
+.palette-head .palette-input,
+.palette-head .palette-input:focus { border: 0; background: none; outline: none; box-shadow: none; }
+.palette-head:focus-within { box-shadow: inset 0 -2px 0 var(--accent); }
+.palette-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-1) 0 var(--space-2);
+}
+.palette-group-name {
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 36px;
+  margin: 0 var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.palette-item.is-active { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.palette-label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.palette-hint { flex: 0 0 auto; color: var(--muted); font-size: var(--text-sm); }
+.palette-task .palette-hint { font-family: ui-monospace, monospace; }
+.palette-status:empty { display: none; }
+.palette-status { margin: 0; padding: var(--space-2) var(--space-3); color: var(--muted); font-size: var(--text-sm); }
+.palette-foot {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+@media (pointer: coarse) {
+  .palette-item { min-height: 44px; }
+  .palette-close { min-height: 44px; }
+  .palette-foot { display: none; }
+}
+
+/* A phone has no room to float a dialog: the palette is the screen. */
+@media (max-width: 599px) {
+  dialog.palette {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+}

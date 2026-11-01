@@ -247,8 +247,16 @@
     comment: function () { focusTarget("comment"); },
     transition: function () { focusTarget("transition"); },
     filter: function () { focusTarget("filter"); },
+    palette: function () {
+      if (typeof tix.openPalette === "function") {
+        tix.openPalette();
+      }
+    },
     help: openHelp
   };
+
+  // The palette's Keyboard shortcuts action opens this same overlay.
+  tix.openShortcutsHelp = openHelp;
 
   function menuOpen() {
     try {

@@ -27,6 +27,9 @@ test("comboOf names a key the way the binding table does", () => {
     [{ key: "?" }, "?"],
     [{ key: "s", ctrlKey: true }, "ctrl+s"],
     [{ key: "S", ctrlKey: true }, "ctrl+s"],
+    // A Mac's command key is its own chord, not the bare key.
+    [{ key: "k", metaKey: true }, "meta+k"],
+    [{ key: "g", metaKey: true }, "meta+g"],
     // A modifier on a named key is not a chord any shipped scheme uses.
     [{ key: "ArrowDown", ctrlKey: true }, "ArrowDown"],
     [{ key: "j", shiftKey: true }, "j"],

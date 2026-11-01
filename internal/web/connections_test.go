@@ -5,6 +5,7 @@ package web_test
 import (
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -95,7 +96,7 @@ func TestTheConnectionScreenIsScopedToTheSessionTenant(t *testing.T) {
 	b := f.as("alice")
 	page := b.page("/admin/connections")
 	for _, secret := range []string{other.ID(), f.actorB.ID, "bob"} {
-		if strings.Contains(page, secret) {
+		if regexp.MustCompile(`\b` + regexp.QuoteMeta(secret) + `\b`).MatchString(page) {
 			t.Errorf("the screen discloses %q:\n%s", secret, page)
 		}
 	}

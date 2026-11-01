@@ -103,9 +103,14 @@ var shortcutActions = []shortcutAction{
 	{"comment", "Focus the comment field"},
 	{"transition", "Open the move menu"},
 	{"filter", "Focus the filter field"},
+	{"palette", "Open the command palette"},
 	{"help", "Show this help"},
 }
 
+// The palette is ctrl+k, as it is in the TUI, and meta+k for a Mac's command
+// key. No scheme rebinds it: neither chord is one the browser keeps from page
+// script, and no scheme spends either on something else.
+//
 // baseKeyBindings are the default scheme's bindings, taken from
 // internal/tui/keys.go's DefaultKeyMap so a key means the same thing on both
 // surfaces: Up/Down/Top/Bottom already carry vi aliases (j/k, g/G) there,
@@ -123,6 +128,7 @@ var baseKeyBindings = map[string][]string{
 	"comment":    {"m"},
 	"transition": {"t"},
 	"filter":     {"/"},
+	"palette":    {"ctrl+k", "meta+k"},
 	"help":       {"?"},
 }
 
