@@ -73,6 +73,8 @@ const (
 	tplProjDel   = "projectdelete.html"
 	tplInbox     = "inbox.html"
 	tplChannel   = "channel.html"
+	tplTemplates = "templates.html"
+	tplTemplate  = "template.html"
 )
 
 // registry declares every operation the product offers. Every exported method
@@ -435,6 +437,54 @@ var registry = []Operation{
 		Web:  webPost(web.RouteTasksBulk),
 		Exempt: []Exemption{off(SurfaceTUI, "the board acts on the one card under the cursor and has no "+
 			"selection of many; every action a bulk request applies is bound there for that card")},
+	},
+	{
+		Name: "template.list", Method: "ListTemplates",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix template ls",
+		HTTP:  apiGet(wire.RouteTemplates),
+		Web:   webGet(web.RouteTemplates, tplTemplates),
+		TUI:   "board",
+	},
+	{
+		Name: "template.show", Method: "GetTemplate",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix template show",
+		HTTP:  apiGet(wire.RouteTemplate),
+		Web:   webGet(web.RouteTemplate, tplTemplate),
+		TUI:   "board",
+	},
+	{
+		Name: "template.save", Method: "SaveTemplate",
+		Scope: core.ScopeTaskWrite,
+		CLI:   "tix template save",
+		HTTP:  apiPost(wire.RouteTemplates),
+		Web:   webPost(web.RouteTaskTemplate),
+		TUI:   "board",
+	},
+	{
+		Name: "template.update", Method: "UpdateTemplate",
+		Scope: core.ScopeTaskWrite,
+		CLI:   "tix template edit",
+		HTTP:  apiPatch(wire.RouteTemplate),
+		Web:   webPost(web.RouteTemplateEdit),
+		TUI:   "board",
+	},
+	{
+		Name: "template.delete", Method: "DeleteTemplate",
+		Scope: core.ScopeTaskWrite,
+		CLI:   "tix template rm",
+		HTTP:  apiDelete(wire.RouteTemplate),
+		Web:   webPost(web.RouteTemplateDel),
+		TUI:   "board",
+	},
+	{
+		Name: "template.use", Method: "UseTemplate",
+		Scope: core.ScopeTaskWrite,
+		CLI:   "tix template use",
+		HTTP:  apiPost(wire.RouteTemplateUse),
+		Web:   webPost(web.RouteTemplateNew),
+		TUI:   "board",
 	},
 	{
 		Name: "task.tree", Method: "TaskTree",

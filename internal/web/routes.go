@@ -180,6 +180,12 @@ const (
 	RouteCommentEdit     = "/tasks/{ref}/comments/edit"
 	RouteCommentDel      = "/tasks/{ref}/comments/delete"
 	RouteTaskArts        = "/tasks/{ref}/artifacts"
+	RouteTemplates       = "/templates"
+	RouteTemplateNew     = "/templates/new"
+	RouteTemplate        = "/templates/{id}"
+	RouteTemplateEdit    = "/templates/{id}/update"
+	RouteTemplateDel     = "/templates/{id}/delete"
+	RouteTaskTemplate    = "/tasks/{ref}/template"
 
 	RouteViewGroup = "/view/group"
 	RouteViewOrder = "/view/order"
