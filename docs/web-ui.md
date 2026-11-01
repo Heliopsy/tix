@@ -523,6 +523,36 @@ a browser without scripting. The list, board and lanes switch swaps the page ins
 foot of the sidebar for anyone who does not know to press it. The overlay used to be looked up once
 when the page first loaded, so after the first boosted navigation "?" opened a copy nobody could see.
 
+## The command palette
+
+ctrl+k, or command+k on a Mac, opens the command palette on every screen, in every key scheme and
+from inside a text field too; the Search button under the brand in the sidebar, and in the bar on a
+phone, opens it as well. It is one search box over four groups:
+
+- **Tasks**, searched on the server once something is typed: the query is read by the same filter
+  language as the filter bar, so `is:starred deploy` narrows the way it does there, and a half-typed
+  term is searched as plain words. A ref, in any case, puts its task first. Ten at most, most
+  recently changed first.
+- **Projects**, read once when the palette opens, each going to its board.
+- **Screens**, every destination the sidebar shows (the Configure and Data ones only with Advanced
+  screens on) and every section of Settings.
+- **Actions**: New task, New task in a project, New project, Open the filter, Show tasks as a list, a
+  board or in lanes, Switch the colour scheme, Keyboard shortcuts and Sign out. Each one presses a
+  control the screen already has; from a screen without it, the palette goes to the one that has it.
+
+Screens and actions are matched as you type with a forgiving match (`stg` finds Settings) and draw the
+moment the palette opens, with no request behind them. Nothing is asked of the server for tasks until
+something is typed, and then only 150ms after the last key. With nothing typed, the last things chosen
+in this browser come first under Recent, along with recently viewed tasks when the sidebar keeps them.
+
+Up and Down move through the options, Enter chooses, Escape closes and focus goes back where it was.
+A task chosen here opens the way **Task opens in** says: in the dialog over the page, or as its own page.
+
+The palette reads `GET /palette/tasks?q=` and `GET /palette/projects`, two JSON routes behind the
+session and the tenant like every screen. They are not a new capability: over the API the same
+questions are `GET /api/v1/tasks?q=...&limit=10`, `GET /api/v1/tasks/{ref}` and `GET /api/v1/projects`.
+The terminal interface has its own palette on the same ctrl+k.
+
 ## The directory
 
 `/actors` lists everyone and everything work can be assigned to in this tenant: handle, kind, display

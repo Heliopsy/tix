@@ -166,11 +166,13 @@ type view struct {
 	// LanguageChoices is the settings screen's language picker.
 	LanguageChoices []languageChoice
 	ShortcutsJSON   template.JS
-	Columns         columnPrefs
-	ColumnPage      string
-	Here            string
-	Upgrade         upgrade
-	Data            any
+	// PaletteJSON is the command palette's fixed entries; see palette.go.
+	PaletteJSON template.JS
+	Columns     columnPrefs
+	ColumnPage  string
+	Here        string
+	Upgrade     upgrade
+	Data        any
 }
 
 // ColumnForm is this screen's own column picker, built by the same
@@ -385,6 +387,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Schemes:         KeySchemes(),
 		LanguageChoices: languageChoices(r),
 		ShortcutsJSON:   shortcutsJSON(scheme, langOf(r)),
+		PaletteJSON:     paletteJSON(langOf(r), advancedMode(r)),
 		Data:            data,
 	}
 }

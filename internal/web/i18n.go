@@ -172,6 +172,15 @@ var jsMessages = []string{
 	"Not saved:",
 	"That did not work. Nothing was changed.",
 	"Could not reach the server. Nothing was changed.",
+	"New task in %s",
+	"Recent",
+	"Actions",
+	"Screens",
+	"Projects",
+	"Tasks",
+	"Searching tasks",
+	"The task search did not answer.",
+	"No matches",
 }
 
 // jsMessagesFor is the table the head carries for lang, empty for English,

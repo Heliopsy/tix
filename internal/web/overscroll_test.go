@@ -20,7 +20,7 @@ func TestScrollingBoxesHandTheWheelBackToThePage(t *testing.T) {
 	f := newFixture(t)
 	sheet := body(t, f.as("").get("/assets/app.css"))
 
-	allowed := map[string]bool{".taskdlg-body": true}
+	allowed := map[string]bool{".taskdlg-body": true, ".palette-list": true}
 	const rule = "overscroll-behavior: contain;"
 	rest := sheet
 	for {
