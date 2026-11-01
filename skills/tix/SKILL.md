@@ -533,6 +533,7 @@ work, grouped by deadline.
 filter is listed for the whole tenant and only its owner or an admin may
 change it. They belong to the person who saved them; do not create or rename
 one unless asked to.
+
 **Due dates in a calendar app.** `tix calendar create` (or `--filter EXPR`)
 prints a private iCalendar address, once, that Google Calendar, Apple Calendar
 or Outlook subscribes to; each task with a due date becomes an all-day event.

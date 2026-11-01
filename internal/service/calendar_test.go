@@ -397,3 +397,22 @@ func TestDefaultFeedJudgesFinishedByTheTasksOwnWorkflow(t *testing.T) {
 		t.Fatalf("feed lists %v, want only the task whose shipped is a waypoint, %s", refs, open.Ref)
 	}
 }
+
+// "me" in a feed filter is the feed's owner, when it is saved and when a
+// calendar app reads it with nobody signed in.
+func TestFeedFilterMeIsTheOwner(t *testing.T) {
+	f := newCalendarFixture(t)
+	mine := f.task(t, "mine", dueOn(2026, 11, 5), f.actor.ID)
+	f.task(t, "theirs", dueOn(2026, 11, 6), "")
+	issued, err := f.l.CreateCalendarFeed(f.member, core.CalendarFeedInput{Filter: "assignee:me"})
+	if err != nil {
+		t.Fatalf("saving assignee:me: %v", err)
+	}
+	got, err := f.l.ReadCalendarFeed(f.feedCtx(), issued.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refs := entryRefs(got); !slices.Equal(refs, []string{mine.Ref}) {
+		t.Fatalf("assignee:me lists %v, want %s", refs, mine.Ref)
+	}
+}

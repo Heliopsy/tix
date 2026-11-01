@@ -236,6 +236,7 @@ func calendarFilter(ctx context.Context, tx store.Tx, ownerID, expr string, now 
 			return f, core.Invalid("calendar filter: %v", err).WithDetail(core.DetailField, "filter")
 		}
 		f = parsed
+		bindMe(&f, ownerID)
 	}
 	if f.DueAfter == nil {
 		f.DueAfter = &dueFloor
