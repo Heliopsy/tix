@@ -149,7 +149,8 @@ func taskLsCmd(g *globals) *cobra.Command {
 		limit                                int
 		desc, all, deleted                   bool
 		claimed, unclaimed, blocked, starred bool
-		overdue, recurring, trashed          bool
+		overdue, recurring, trashed, mine    bool
+		saved                                string
 	)
 	cmd := &cobra.Command{
 		Use:         "ls",
@@ -168,11 +169,15 @@ func taskLsCmd(g *globals) *cobra.Command {
 			"(is:trashed) lists only them, which is the trash `tix task restore` takes from.\n\n" +
 			"-o csv prints ref, project, title, status, priority, assignee, tags, due, created and updated, " +
 			"with any cell a spreadsheet would read as a formula prefixed with a quote.\n\n" +
-			"Exit codes: 2 invalid filter, 3 unknown project, status, parent or actor, 5 permission denied.",
+			"--saved NAME starts from one of your saved filters (see tix filter), with its sort; " +
+			"--filter and the other flags narrow it further. --mine is assignee:me, the tasks " +
+			"assigned to you; claimed-by:me in --filter selects the ones you hold.\n\n" +
+			"Exit codes: 2 invalid filter, 3 unknown project, status, parent, actor or saved filter, 5 permission denied.",
 		Example: "  tix task ls\n  tix task ls --status todo -o ndjson\n" +
 			"  tix task ls -p infra --tag ops --all\n" +
 			"  tix task ls --filter 'status:todo -tag:ops title~deploy'\n" +
-			"  tix task ls --overdue\n  tix task ls --filter 'due:overdue -status:done'",
+			"  tix task ls --overdue\n  tix task ls --filter 'due:overdue -status:done'\n" +
+			"  tix task ls --mine --overdue\n  tix task ls --saved 'ops board'",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			// The configured page size joins the expression as its first
@@ -182,12 +187,23 @@ func taskLsCmd(g *globals) *cobra.Command {
 			// already replaced an unset limit with the contract's default,
 			// so "asked for nothing" and "asked for fifty" arrive identical.
 			expression := expr
+			if saved != "" {
+				conn, ctx, err := g.dial(cmd)
+				if err != nil {
+					return err
+				}
+				sf, err := conn.Service.GetSavedFilter(ctx, saved)
+				if err != nil {
+					return err
+				}
+				expression = savedExpression(*sf, expr)
+			}
 			if !cmd.Flags().Changed("limit") {
 				size, err := g.pageSize(cmd, limit)
 				if err != nil {
 					return err
 				}
-				expression = "limit:" + strconv.Itoa(size) + " " + expr
+				expression = "limit:" + strconv.Itoa(size) + " " + expression
 			}
 			filter, err := query.Parse(expression)
 			if err != nil {
@@ -209,6 +225,9 @@ func taskLsCmd(g *globals) *cobra.Command {
 			filter.Statuses = append(filter.Statuses, statuses...)
 			filter.Tags = append(filter.Tags, tags...)
 			filter.AssigneeIDs = append(filter.AssigneeIDs, assignees...)
+			if mine {
+				filter.AssigneeIDs = append(filter.AssigneeIDs, core.MeRef)
+			}
 			filter.IncludeDeleted = filter.IncludeDeleted || deleted
 			if text != "" {
 				filter.Query = strings.TrimSpace(filter.Query + " " + text)
@@ -300,9 +319,22 @@ func taskLsCmd(g *globals) *cobra.Command {
 	f.BoolVar(&overdue, "overdue", false, "only tasks whose due date has passed")
 	f.StringVar(&dueBefore, "due-before", "", "only tasks due on or before a date")
 	f.StringVar(&dueAfter, "due-after", "", "only tasks due on or after a date")
+	f.BoolVar(&mine, "mine", false, "only tasks assigned to you, the same as assignee:me")
+	f.StringVar(&saved, "saved", "", "start from a saved filter, by name or id")
 	_ = cmd.RegisterFlagCompletionFunc("sort", fixedCompletion(core.TaskSortFields))
 	registerCompletions(g, cmd, "project", "status", "tag")
 	return cmd
+}
+
+// savedExpression is a saved filter's expression with its sort, followed by
+// what was typed, so a term or sort given on the command line wins.
+func savedExpression(sf core.SavedFilter, typed string) string {
+	parts := []string{}
+	if sf.Sort != "" {
+		parts = append(parts, "sort:"+sf.Sort)
+	}
+	parts = append(parts, sf.Query, typed)
+	return strings.TrimSpace(strings.Join(parts, " "))
 }
 
 // applyDueFlags folds the deadline flags into a filter the expression may
