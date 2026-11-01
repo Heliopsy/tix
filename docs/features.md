@@ -223,6 +223,16 @@ why. `tix task edit`, `tix task copy`, `tix tag add` and `tix tag rm` take many 
 `GET /api/v1/tasks?format=csv` write a listing as CSV, with any cell a spreadsheet would read as a formula
 prefixed with a quote. [docs/web-ui.md](web-ui.md#exporting-the-list), [docs/api.md](api.md#csv).
 
+**Task templates.** Save a task as a named template, for one project or the whole tenant, with its
+description (checklists included), priority, tags, custom fields, repeat rule and, when asked, its subtasks.
+Create tasks from it in one step, optionally with another title, project or a due offset such as 3d. A
+template is not a task: it never appears in a listing, a claim or the statistics. Titles may carry
+placeholders, matched in any case and filled in at each use: `{DATE}` is today's date, `{N}` the use number
+and `{PROJECT}` the project's key. Save as template on the task screen and New from template in the add box
+in the browser, a Templates screen under Configure, `B` and `K` in the terminal interface, `tix template
+ls|save|show|edit|rm|use` and `/api/v1/templates` over HTTP.
+[docs/web-ui.md](web-ui.md#task-templates), [docs/api.md](api.md#task-templates).
+
 **Shell completion.** `tix completion install` detects the shell, writes the script where that shell
 looks for it and never edits a startup file. It completes task references, project keys, tags and the
 states your workflows actually define, not only flag names.

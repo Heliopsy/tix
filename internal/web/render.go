@@ -536,7 +536,7 @@ func advancedChoiceOf(r *http.Request) advancedChoice {
 // on one of them expands its group whatever the preference says, so a reader
 // is never on a page the navigation beside them denies exists.
 var advancedPaths = []string{
-	RouteWorkflows, RouteTemplates, RouteTransfer, RouteBundles, RouteSync, "/admin/",
+	RouteWorkflows, RouteTransfer, RouteBundles, RouteSync, "/admin/",
 }
 
 // OnAdvancedPath reports whether a path is one of the screens the Configure

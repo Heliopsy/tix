@@ -661,6 +661,42 @@ in the order the list draws them. Cells are quoted the RFC 4180 way, and a cell 
 running it as a formula. `tix task ls -o csv` and `GET /api/v1/tasks?format=csv` export with a fixed set of
 columns.
 
+## Task templates
+
+A template is a named shape of a task that is not itself work: it never shows in a listing, a claim or the
+statistics.
+
+**Save as template**, beside Copy to… in the task screen's title bar and in a lane card's three dots menu,
+opens a small form drawn like the copy form: the template's name (the task's title to start with), whether
+it is for **This project** or **All projects**, whether the subtasks come along (ticked when the task has
+any), and an optional **Due in** such as 3d or 12h. The template keeps the title, description with its
+checklists, priority, tags, custom fields and repeat rule. Status, assignee, due date, comments and history
+stay with the task. A name another template already holds, in any case, is refused under the name field.
+When tasks open in a dialog the form opens in the same dialog; saving returns to the task with a toast.
+
+**Templates**, under Configure in the sidebar, lists every template the reader can see with its project
+(or All projects), the title it creates, how many tasks it holds, its due offset and how often it was used.
+Each row links to **Use** and **Edit**. The edit screen renames the template, moves it to a project or to
+all projects, and changes the title, description, priority, due offset, tags, repeat rule and custom fields
+(one `key=value` per line; a line removed removes the field). Its subtasks are listed for reading; save a
+task as a template again to change them. **Delete template** sits under Danger zone; tasks already made
+from it stay as they are.
+
+**New from template** creates a task, and a subtask for each one the template holds. It is offered by the
+**From template** button at the end of the add box, a menu listing the templates with All templates… at
+the bottom, by a link at the top of Add with details, and by Use on the Templates screen. The form takes
+the template, a title (empty keeps the template's), the project (the template's own to start with, which a
+template for all projects needs when the tenant has several) and **Due in** (empty for the template's own
+offset, 0 for none). Titles may carry placeholders, matched in any case and filled in at each use:
+`{DATE}` is today's date as YYYY-MM-DD, `{N}` the use number and `{PROJECT}` the project's key. The task
+starts in the project's first state and keeps the custom fields the project defines. Creating returns to
+the listing the form was opened from with a toast linking the new task, or opens it when "Open a new task"
+is on. A refusal comes back with every value kept and the reason under its field.
+
+The add box menu is a popover like the lane card menu: arrow keys move through it, Escape closes it and
+returns focus to its button, and on a phone it rises from the bottom of the screen with 40px rows. Every
+entry is a link, so it all works with scripting off.
+
 ## Acting in place
 
 Every action on a list row and on the task screen answers where it was taken. A row's star, status

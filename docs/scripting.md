@@ -191,6 +191,8 @@ and `tix task add --body -` composable with anything that writes to a pipe.
 | 6 | precondition failed, illegal transition, claiming a snoozed task |
 | 7 | a system tix imports from could not be read |
 
+`tix template save` and `tix template edit` exit 4 when another template already holds the name in any case,
+and `tix template use` exits 2 when a tenant-wide template names no project in a tenant with several.
 `tix tui` additionally uses 130 for an interrupt, and `tix claim exec` passes the child's exit status through.
 See [agents.md](agents.md).
 

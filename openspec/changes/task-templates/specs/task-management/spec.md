@@ -43,7 +43,7 @@ use counter SHALL go up by one.
 
 #### Scenario: Tenant-wide template needs a project
 
-- **WHEN** a tenant has two projects and a member uses a tenant-wide template naming no project
+- **WHEN** a tenant whose projects were all named by hand holds two and a member uses a tenant-wide template naming no project
 - **THEN** the use is refused naming the project field
 
 ### Requirement: Title placeholders

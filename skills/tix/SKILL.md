@@ -583,6 +583,15 @@ tags, due, created, updated` for a human's spreadsheet; parse `-o json` or
 `-o ndjson` yourself, since a CSV cell that looks like a formula is prefixed
 with `'`.
 
+**Recurring shapes of work live in templates.** `tix template ls` lists them,
+`tix template use NAME` creates a task (and the subtasks the template holds) in
+the template's project or `--project`, with `--title` and `--due-in 3d` to
+override, and prints the new task. `tix template save REF --name NAME
+[--with-subtasks] [--tenant-wide]` keeps a task's shape, `tix template show`,
+`edit` and `rm` manage them. A template is not a task: it never appears in a
+listing and cannot be claimed. Titles may carry `{N}`, `{DATE}` and `{PROJECT}`
+in any case, filled in at each use.
+
 **Do not poll `tix task ls` in a loop.** `tix watch` subscribes to the event
 stream instead; see [reference/queries.md](reference/queries.md).
 

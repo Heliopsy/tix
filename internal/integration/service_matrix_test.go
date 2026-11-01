@@ -652,6 +652,44 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name: "template round-trip",
+		covers: []string{"CreateProject", "CreateTask", "SaveTemplate", "GetTemplate", "ListTemplates",
+			"UpdateTemplate", "UseTemplate", "DeleteTemplate", "TaskTree"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			from := h.newProject(t, tg)
+			to := h.newProject(t, tg)
+			root, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: from.Key, Title: "root {N}", Tags: []string{"x"}})
+			mustf(t, tg, err, "creating the root")
+			_, err = tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: from.Key, Title: "child", ParentRef: root.Ref})
+			mustf(t, tg, err, "creating the child")
+			name := "tpl-" + from.Key
+			saved, err := tg.svc.SaveTemplate(tg.ctx, core.SaveTemplateInput{Name: name, TaskRef: root.Ref, WithSubtasks: true})
+			if err != nil {
+				return nil, err
+			}
+			listed, _, err := tg.svc.ListTemplates(tg.ctx, core.TemplateFilter{ProjectRef: from.Key})
+			mustf(t, tg, err, "listing templates")
+			wide := ""
+			_, err = tg.svc.UpdateTemplate(tg.ctx, name, core.UpdateTemplateInput{ProjectRef: &wide})
+			mustf(t, tg, err, "making the template tenant-wide")
+			made, err := tg.svc.UseTemplate(tg.ctx, name, core.UseTemplateInput{ProjectRef: to.Key})
+			mustf(t, tg, err, "using the template")
+			tree, err := tg.svc.TaskTree(tg.ctx, core.TaskRef{ID: made.ID}, 0)
+			mustf(t, tg, err, "reading the made tree")
+			shown, err := tg.svc.GetTemplate(tg.ctx, name)
+			mustf(t, tg, err, "showing the template")
+			mustf(t, tg, tg.svc.DeleteTemplate(tg.ctx, name), "deleting the template")
+			titles := make([]string, 0, len(tree))
+			for _, task := range tree {
+				titles = append(titles, task.Title)
+			}
+			return sig{
+				"subtasks": len(saved.Task.Subtasks), "listed": len(listed), "titles": titles, "tags": made.Tags,
+				"moved": made.ProjectID == to.ID, "uses": shown.Uses, "wide": shown.TenantWide(),
+			}, nil
+		},
+	},
+	{
 		name:   "dependencies round-trip",
 		covers: []string{"CreateProject", "CreateTask", "AddDependency", "ListDependencies"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

@@ -30,6 +30,7 @@ var workSubjects = []string{
 	"project",
 	"tag",
 	"task",
+	"template",
 	"view",
 	"workflow",
 	"",
