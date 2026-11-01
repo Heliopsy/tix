@@ -23,7 +23,7 @@ func TestZeroConfigurationPathWorksWithNoConfigAnywhere(t *testing.T) {
 		t.Fatalf("task add did not show the task:\n%s", added.out)
 	}
 	ref := refOf(t, added.out)
-	if !strings.HasPrefix(ref, "default-") {
+	if !strings.HasPrefix(ref, "DEFAULT-") {
 		t.Fatalf("ref = %q, want the default project to have been created", ref)
 	}
 
@@ -76,7 +76,7 @@ func TestListingsRenderForAPerson(t *testing.T) {
 		out := s.mustRun("--db", db, "project", "ls").out
 		assertRendered(t, "project ls", out,
 			"KEY", "NAME", "WORKFLOW", "COLOR", "ICON", "ARCHIVED", "CREATED", "UPDATED")
-		if !strings.Contains(out, "mine") {
+		if !strings.Contains(out, "MINE") {
 			t.Errorf("project ls did not list the project that was created:\n%s", out)
 		}
 	})

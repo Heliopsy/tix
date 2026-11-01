@@ -101,8 +101,8 @@ func TestSSHDemoServesASeededBoardToAnyKey(t *testing.T) {
 	// "connected" is gone rather than kept: the disconnected label reads
 	// "○ disconnected, retrying", so that token was satisfied whether the
 	// stream was up or not. "live" appears only in "● live".
-	screen := term.waitForScreen("Demo board", "demo-", "live")
-	if !strings.Contains(screen, "demo-") {
+	screen := term.waitForScreen("Demo board", "DEMO-", "live")
+	if !strings.Contains(screen, "DEMO-") {
 		t.Fatalf("the demo board carried no seeded tasks:\n%s", screen)
 	}
 
@@ -136,7 +136,7 @@ func TestSSHServesEnrolledKeysAndRefusesTheRest(t *testing.T) {
 		// list, which is the screen this asserts about, so the wait and the
 		// assertion name the same thing. "connected" is gone for the reason
 		// given above: "○ disconnected, retrying" satisfied it too.
-		screen := term.waitForScreen("as smoke", "live", "mine")
+		screen := term.waitForScreen("as smoke", "live", "MINE")
 		if !strings.Contains(screen, "Mine") {
 			t.Fatalf("the board did not show the actor's own projects:\n%s", screen)
 		}
