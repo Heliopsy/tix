@@ -4,6 +4,7 @@ package sqlite
 
 import (
 	"context"
+	"errors"
 	"database/sql"
 	"time"
 
@@ -20,7 +21,7 @@ func scanCalendarFeed(s scanner) (*core.CalendarFeed, error) {
 		revoked sql.NullString
 	)
 	if err := s.Scan(&f.ID, &f.TenantID, &f.ActorID, &f.Filter, &created, &revoked); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, core.NotFound("calendar feed not found")
 		}
 		return nil, mapErr(err, "scanning calendar feed")
