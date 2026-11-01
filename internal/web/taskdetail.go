@@ -5,8 +5,8 @@ package web
 import (
 	"context"
 	"encoding/json"
-	"html/template"
 	"fmt"
+	"html/template"
 	"net/http"
 	"net/url"
 	"sort"
