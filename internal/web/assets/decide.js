@@ -540,6 +540,26 @@
     }
   };
 
+  // dialogLinkStep decides what a plain click on a link inside the open
+  // dialog does: "task" draws that task in the dialog, "load" draws a screen
+  // that asked to stay in the dialog (data-dialog-load, such as a task's copy
+  // form), "leave" takes the whole page there, and "" is an anchor on this
+  // page. Only a path on this origin may stay.
+  tix.dialogLinkStep = function (href, origin, staysInDialog) {
+    if (typeof href !== "string" || !href || href.charAt(0) === "#") {
+      return "";
+    }
+    if (tix.taskRefOf(href, origin)) {
+      return "task";
+    }
+    var path = href;
+    if (origin && path.indexOf(origin + "/") === 0) {
+      path = path.slice(origin.length);
+    }
+    var local = path.charAt(0) === "/" && path.charAt(1) !== "/" && path.charAt(1) !== "\\";
+    return staysInDialog && local ? "load" : "leave";
+  };
+
   // plainClick reports whether a click is the reader's ordinary primary
   // click. A modifier or another button means a new tab or window, which the
   // browser does by itself and the page must not take over.

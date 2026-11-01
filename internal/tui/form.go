@@ -32,6 +32,7 @@ const (
 	formTenantAdd
 	formMember
 	formTaskEdit
+	formCopy
 )
 
 // FieldKind says what a form field gathers. A field drawn from a fixed set is
@@ -524,4 +525,54 @@ func PriorityFor(label string) (core.Priority, bool) {
 		}
 	}
 	return core.PriorityNormal, false
+}
+
+// CopyNote says what a copy carries, so a reader knows what the switches add to.
+const CopyNote = "title, description, priority, tags, fields, repeat, due date and assignee travel; stars, claims and history do not"
+
+// CopyForm gathers where a copy of a task goes and what travels with it. The
+// target opens on the project the board shows, so copying beside the original
+// is one key and enter; link opens on, so the copy can say where it came from.
+func CopyForm(t core.Task, projects []core.Project, current string) Form {
+	keys := make([]string, 0, len(projects))
+	for _, p := range projects {
+		keys = append(keys, p.Key)
+	}
+	keys = uniqueSorted(keys)
+	if len(keys) == 0 {
+		return Form{}
+	}
+	target := keys[0]
+	if slices.Contains(keys, current) {
+		target = current
+	}
+	return Form{
+		Kind: formCopy, Title: "copy " + t.Ref, Note: CopyNote,
+		Fields: []FormField{
+			{Key: "project", Label: "to project", Options: keys, Value: target},
+			{Key: "title", Label: "title", Value: t.Title, Kind: FieldText, Limit: core.MaxTitleLength},
+			{Key: "keep_status", Label: "keep status", Options: switchOptions(), Value: noValue},
+			{Key: "comments", Label: "with comments", Options: switchOptions(), Value: noValue},
+			{Key: "subtasks", Label: "with subtasks", Options: switchOptions(), Value: noValue},
+			{Key: "deps", Label: "with dependencies", Options: switchOptions(), Value: noValue},
+			{Key: "link", Label: "link to the original", Options: switchOptions(), Value: yesValue},
+		},
+	}
+}
+
+// CopyInput is what an answered copy form asks the service for. A title left
+// as the source's is sent empty, which the service reads as unchanged.
+func CopyInput(t core.Task, f Form) core.CopyTaskInput {
+	in := core.CopyTaskInput{
+		ProjectRef:       f.Value("project"),
+		KeepStatus:       f.Yes("keep_status"),
+		WithComments:     f.Yes("comments"),
+		WithSubtasks:     f.Yes("subtasks"),
+		WithDependencies: f.Yes("deps"),
+		Link:             f.Yes("link"),
+	}
+	if title := strings.TrimSpace(f.Value("title")); title != t.Title {
+		in.Title = title
+	}
+	return in
 }

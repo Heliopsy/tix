@@ -1072,6 +1072,10 @@ func (i *importer) buildLiveTaskTarget(ctx context.Context, tx store.Tx, project
 		DueAt: t.DueAt, StartedAt: t.StartedAt, CompletedAt: t.CompletedAt,
 		CustomFields: fields, CreatedAt: t.CreatedAt, Tags: t.Tags,
 		Recurrence: rule, RecurrenceNextID: t.RecurrenceNextID,
+		CopiedFromID: t.CopiedFromID,
+	}
+	if mapped, ok := i.ids[t.CopiedFromID]; ok {
+		target.CopiedFromID = mapped
 	}
 	if target.Priority == 0 {
 		target.Priority = core.PriorityNormal

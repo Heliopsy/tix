@@ -48,6 +48,25 @@ test("an answer is drawn in the dialog only when it is the dialog's task screen"
   assert.equal(tix.dialogAnswer(0, ""), "refused");
 });
 
+test("a link inside the dialog stays in it only for a task or a screen that asks to", () => {
+  const { tix } = newContext();
+  const cases = [
+    ["/tasks/infra-4", false, "task"],
+    ["/tasks/infra-4", true, "task"],
+    ["/tasks/infra-4/copy", true, "load"],
+    [ORIGIN + "/tasks/infra-4/copy", true, "load"],
+    ["/tasks/infra-4/copy", false, "leave"],
+    ["/projects/infra", false, "leave"],
+    ["//evil.example/tasks/infra-4/copy", true, "leave"],
+    ["https://evil.example/x", true, "leave"],
+    ["#comments", true, ""],
+    ["", true, ""],
+  ];
+  for (const [href, stays, want] of cases) {
+    assert.equal(tix.dialogLinkStep(href, ORIGIN, stays), want, href + " " + stays);
+  }
+});
+
 test("history moves close, reopen or reload the dialog", () => {
   const { tix } = newContext();
   const entry = { tixDialog: true, over: "/tasks?q=tag:ops" };
@@ -384,6 +403,11 @@ test("a save answered with another page leaves the dialog for it", () => {
   assert.equal(d.shouldSwap, false, "a whole page was drawn inside the dialog");
   assert.equal(p.dlg.open, false);
   assert.deepEqual(p.nav, [["replace", ORIGIN + "/tasks?flash=task+deleted"]]);
+  // The dialog's own close event arrives after the navigation began. Going
+  // Back from it would abort the page the answer named, toast and all.
+  p.fire("close", { target: p.dlg });
+  assert.equal(p.history.backs, 0, "the late close went Back over the page the answer named");
+  assert.notEqual(p.history.state && p.history.state.tixDialog, true, "the dialog's entry outlived the dialog");
 });
 
 test("a save in the dialog redraws it and refreshes the page under it", () => {
@@ -406,6 +430,53 @@ test("a refused save keeps the task and says why", () => {
   assert.equal(p.dlg.open, true);
   const note = p.body.querySelector("p");
   assert.ok(note && /version conflict/.test(note.textContent), "the refusal was not shown");
+});
+
+test("a link that asks to stay is drawn in the dialog, any other screen leaves it", () => {
+  const p = page();
+  p.click(p.title);
+  p.answer(200, FRAGMENT);
+  const copy = p.body.appendChild(node("a", { href: "/tasks/infra-1/copy", "data-dialog-load": "" }));
+  const ev = p.click(copy);
+  assert.equal(ev.prevented, 1, "the browser followed the link out of the dialog");
+  assert.equal(p.ajax.length, 2, "the form was not asked for");
+  assert.equal(p.ajax[1].url, "/tasks/infra-1/copy");
+  assert.equal(p.ajax[1].opts.headers["X-Tix-Dialog"], "1");
+  assert.deepEqual(p.nav, [], "the page left for the form");
+  p.answer(200, '<div class="taskdlg-frag" data-task-dialog="infra-1">form');
+  assert.equal(p.pushed.at(-1)[0], "replace", "the form added a history entry of its own");
+  assert.equal(p.pushed.at(-1)[2], "/tasks/infra-1/copy");
+
+  p.answer(200, FRAGMENT + "copied", ORIGIN + "/tasks/infra-1?flashref=infra-9&flash=task+copied");
+  assert.deepEqual(p.pushed.at(-1).slice(0, 1).concat(p.pushed.at(-1).slice(2)),
+    ["replace", "/tasks/infra-1?flashref=infra-9&flash=task+copied"], "the address stayed on the form after copying");
+  const entries = p.pushed.length;
+  p.answer(200, FRAGMENT + "saved again", ORIGIN + "/tasks/infra-1");
+  assert.equal(p.pushed.length, entries, "a save on the task screen moved the address");
+
+  const away = p.body.appendChild(node("a", { href: "/projects/infra" }));
+  p.click(away);
+  assert.equal(p.ajax.length, 2, "a screen that did not ask was drawn in the dialog");
+  assert.deepEqual(p.nav, [["assign", "/projects/infra"]]);
+});
+
+test("a link that asks to stay opens the dialog from the page too, in Dialog mode only", () => {
+  const p = page();
+  const plain = p.row.appendChild(node("a", { href: "/projects/infra" }));
+  assert.equal(p.click(plain).prevented, 0, "a link that did not ask was taken over");
+  const copy = p.row.appendChild(node("a", { href: "/tasks/infra-1/copy?next=%2Ftasks", "data-dialog-load": "" }));
+  const ev = p.click(copy);
+  assert.equal(ev.prevented, 1, "the browser followed the link instead of the dialog");
+  assert.equal(p.ajax.length, 1, "the form was not asked for");
+  assert.equal(p.ajax[0].url, "/tasks/infra-1/copy?next=%2Ftasks");
+  assert.equal(p.ajax[0].opts.headers["X-Tix-Dialog"], "1");
+  p.answer(200, '<div class="taskdlg-frag" data-task-dialog="infra-1">form');
+  assert.equal(p.dlg.open, true, "the dialog did not open over the page");
+
+  const q = page({ dialog: false });
+  const other = q.row.appendChild(node("a", { href: "/tasks/infra-1/copy", "data-dialog-load": "" }));
+  assert.equal(q.click(other).prevented, 0, "Page mode took the click");
+  assert.equal(q.ajax.length, 0);
 });
 
 test("a task that cannot be opened is shown as its own page", () => {

@@ -41,6 +41,8 @@ func (h *handler) taskRoutes() []route {
 		post(RouteTaskDepDel, h.removeDependency, "RemoveDependency"),
 		post(RouteTaskTags, h.addTag, "AddTag"),
 		post(RouteTaskTagDel, h.removeTag, "RemoveTag"),
+		get(RouteTaskCopy, "taskcopy.html", h.showCopyTask, "GetTask", "ListProjects"),
+		post(RouteTaskCopy, h.copyTask, "CopyTask"),
 		post(RouteTaskStar, h.starTask, "StarTask"),
 		post(RouteTaskUnstar, h.unstarTask, "UnstarTask"),
 		post(RouteTaskComments, h.addComment, "AddComment"),
@@ -134,6 +136,10 @@ type taskView struct {
 
 	// Parent is the task this one is a subtask of, when the reader can see it.
 	Parent *core.Task
+
+	// CopiedFrom is the task this one was copied from, when the copy kept the
+	// link and the reader can still see the source.
+	CopiedFrom *core.Task
 
 	// Back is the listing the reader came from, carried in the link they
 	// followed. A task opened from a filtered list used to strand them: the
@@ -335,6 +341,11 @@ func (h *handler) buildTaskView(r *http.Request) (taskView, error) {
 	if task.ParentID != "" {
 		if parent, err := h.svc.GetTask(r.Context(), core.TaskRef{ID: task.ParentID}); err == nil {
 			data.Parent = parent
+		}
+	}
+	if task.CopiedFromID != "" {
+		if source, err := h.svc.GetTask(r.Context(), core.TaskRef{ID: task.CopiedFromID}); err == nil {
+			data.CopiedFrom = source
 		}
 	}
 	data.Names = h.resolveActors(r, data.actorIDs()...)

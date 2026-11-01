@@ -1162,6 +1162,9 @@ func (m Model) performTaskAction(id actionID) (Model, tea.Cmd, bool) {
 	case doStar:
 		next, cmd := m.starTask()
 		return next, cmd, true
+	case doCopy:
+		next, cmd := m.openCopyForm()
+		return next, cmd, true
 	case doArtifact:
 		next, cmd := m.openPrompt(promptArtifact)
 		return next, cmd, true
@@ -1751,6 +1754,22 @@ func (m Model) openTaskEditForm() (Model, tea.Cmd) {
 	return m, m.loadActors()
 }
 
+// openCopyForm asks where a copy of the selected task goes, from the projects
+// the session already lists.
+func (m Model) openCopyForm() (Model, tea.Cmd) {
+	task, ok := m.selectedTask()
+	if !ok {
+		m.err = "no task is selected"
+		return m, nil
+	}
+	form := CopyForm(task, m.projects, m.project.Key)
+	if !form.Open() {
+		m.err = "there is no project to copy into"
+		return m, nil
+	}
+	return m.openForm(form)
+}
+
 // openAssigneeForm reads the tenant's directory so the reader can pick a
 // colleague rather than remember an identifier. The listing is fetched on the
 // keystroke rather than held for the session, because who a tenant has changes
@@ -1965,6 +1984,14 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 			return next, nil
 		}
 		return next, next.applyTaskEdit(task, form)
+	}
+	if form.Kind == formCopy {
+		next := m.closeForm()
+		task, ok := next.selectedTask()
+		if !ok {
+			return next, nil
+		}
+		return next, next.copyTask(task, CopyInput(task, form))
 	}
 	if form.Kind == formAssignee {
 		next := m.closeForm()

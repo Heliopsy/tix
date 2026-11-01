@@ -452,6 +452,7 @@ tix task tree default-1              # a task and its descendants
 tix task ls -s todo --unclaimed -o json
 tix task ls --blocked                # only tasks blocked by a dependency
 tix task ls --starred                # only tasks you starred
+tix task copy default-1 --to work --with-subtasks --link   # a fresh copy in another project
 tix project ls -o json               # the project keys, if you do not know them
 ```
 
@@ -495,6 +496,15 @@ homelab` and `tix view reset board` change how the caller's own boards and
 lanes are drawn (views `board`, `lanes`, `project:KEY`), and `tix view ls
 board -o json` lists it. It reorders no listing and changes nothing another
 actor sees, so an agent has no reason to touch it unless asked to.
+
+**Copy rather than retype.** `tix task copy REF` makes a new task with a fresh
+reference, in the same project or another (`--to`), keeping the title (or
+`--title`), description, priority, tags, assignee, due date, repeat rule and
+the custom fields the target defines. It starts in the target workflow's
+initial state unless `--keep-status` finds a state of the same name.
+`--with-subtasks`, `--with-comments` and `--with-deps` bring those along, and
+`--link` records the original as `copied_from_id`. It never copies a lease, so
+a copy of a task you hold is unclaimed. Exit `3` on an unknown project.
 
 **Do not poll `tix task ls` in a loop.** `tix watch` subscribes to the event
 stream instead; see [reference/queries.md](reference/queries.md).

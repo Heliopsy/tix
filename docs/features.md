@@ -111,6 +111,15 @@ is yours alone and kept on the server, so it follows you to another browser, to 
 (through its palette) and to `tix view ls|set|order|reset` and `/api/v1/views` over HTTP.
 [docs/web-ui.md](web-ui.md#arranging-columns-and-lanes), [docs/api.md](api.md#arranging-views).
 
+**Copying a task.** A task copies into any project you can create tasks in, its own included: "Copy to…"
+on the task screen in the browser, `Y` in the terminal interface, `tix task copy REF --to PROJECT` on the
+command line and `POST /api/v1/tasks/{ref}/copy` over HTTP. The copy gets a fresh reference and keeps the
+title (editable), description, priority, tags, assignee, due date, repeat rule and the custom fields the
+target defines. It starts in the target workflow's first state, or keeps its state when asked and the target
+has one of the same name. Comments, subtasks (recursively) and dependencies come along only when asked, and a
+linked copy shows "Copied from" with the original. Stars, claims, history and artifacts stay behind.
+[docs/api.md](api.md#copying-a-task).
+
 **Shell completion.** `tix completion install` detects the shell, writes the script where that shell
 looks for it and never edits a startup file. It completes task references, project keys, tags and the
 states your workflows actually define, not only flag names.

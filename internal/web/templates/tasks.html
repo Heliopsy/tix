@@ -511,6 +511,7 @@
           <button type="button" class="flowgo" data-copy-link="/tasks/{{.Task.Ref}}">{{t "Copy link"}}</button>
           <button type="button" class="flowgo" data-copy-text="{{.Task.Ref}}">{{t "Copy reference"}}</button>
           {{if .Write}}<a class="flowgo" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}" data-rename="{{.Task.Ref}}" data-version="{{.Task.Version}}" data-no-press>{{t "Rename"}}</a>{{end}}
+          {{if .Write}}<a class="flowgo" href="/tasks/{{.Task.Ref}}/copy?next={{$v.Self | urlquery}}" data-dialog-load data-copy-to>{{t "Copy to…"}}</a>{{end}}
           {{if $.CanStar}}
           <form method="post" action="/tasks/{{.Task.Ref}}/star{{if .Task.Starred}}/remove{{end}}"
                 hx-post="/tasks/{{.Task.Ref}}/star{{if .Task.Starred}}/remove{{end}}" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"

@@ -419,6 +419,14 @@ var registry = []Operation{
 		TUI: "board",
 	},
 	{
+		Name: "task.copy", Method: "CopyTask",
+		Scope: core.ScopeTaskWrite,
+		CLI:   "tix task copy",
+		HTTP:  apiPost(wire.RouteTaskCopy),
+		Web:   webPost(web.RouteTaskCopy),
+		TUI:   "board",
+	},
+	{
 		Name: "task.tree", Method: "TaskTree",
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix task tree",

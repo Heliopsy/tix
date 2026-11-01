@@ -205,6 +205,21 @@
     note.textContent = text || say("That change was refused.");
   }
 
+  // drawnFrom is the address the answer drawn last came from, after any
+  // redirect. A form the dialog drew in place of the task, such as the copy
+  // form, answers with the task screen, and the address follows it there so
+  // a reload or Forward draws the task rather than the form again.
+  var drawnFrom = "";
+
+  function followAnswer() {
+    var state = window.history.state;
+    var path = drawnFrom.indexOf(origin + "/") === 0 ? drawnFrom.slice(origin.length) : drawnFrom;
+    if (!state || !state.tixDialog || tix.taskRefOf(here(), origin) || !tix.taskRefOf(path, origin)) {
+      return;
+    }
+    window.history.replaceState(state, "", path);
+  }
+
   function fromDialog(detail) {
     var body = dialogBody();
     return !!(body && detail && detail.target === body);
@@ -220,6 +235,7 @@
     if (step === "draw") {
       detail.shouldSwap = true;
       detail.isError = false;
+      drawnFrom = xhr.responseURL || "";
       return;
     }
     detail.shouldSwap = false;
@@ -236,6 +252,13 @@
       return;
     }
     pending = null;
+    // The dialog's entry becomes the page's first, as leaveTo does: the
+    // dialog's close event arrives after this, and finding its entry still
+    // there it went Back, aborting the page the answer named and its toast.
+    var state = window.history.state;
+    if (state && state.tixDialog) {
+      window.history.replaceState(null, "", state.over);
+    }
     closeNow();
     window.location.replace(xhr.responseURL || over);
   });
@@ -247,6 +270,7 @@
     var fresh = !!pending;
     shown();
     if (!fresh) {
+      followAnswer();
       poke();
     }
   });
@@ -493,20 +517,24 @@
       return;
     }
     var href = link.getAttribute("href");
-    if (tix.taskRefOf(href, origin)) {
-      event.preventDefault();
-      event.stopPropagation();
-      if (inside) {
-        load(href, "replace");
-      } else {
+    if (!inside) {
+      if (tix.taskRefOf(href, origin) || tix.dialogLinkStep(href, origin, link.hasAttribute("data-dialog-load")) === "load") {
+        event.preventDefault();
+        event.stopPropagation();
         openTask(href, link);
       }
       return;
     }
-    if (inside && href.charAt(0) !== "#") {
-      event.preventDefault();
-      event.stopPropagation();
+    var step = tix.dialogLinkStep(href, origin, link.hasAttribute("data-dialog-load"));
+    if (!step) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    if (step === "leave") {
       leaveTo(href);
+    } else {
+      load(href, "replace");
     }
   }, true);
 

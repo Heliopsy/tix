@@ -40,6 +40,7 @@ type fakeService struct {
 	deps     []core.TaskRef
 	starred  []core.TaskRef
 	unstars  []core.TaskRef
+	copies   []copyCall
 
 	groupPrefs map[string][]core.GroupPref
 
@@ -437,6 +438,20 @@ func (f *fakeService) RestoreTask(_ context.Context, ref core.TaskRef) (*core.Ta
 	f.restored = append(f.restored, ref)
 	return &core.Task{ID: ref.ID}, nil
 }
+
+// copyCall is one CopyTask the fake was asked for.
+type copyCall struct {
+	ref core.TaskRef
+	in  core.CopyTaskInput
+}
+
+func (f *fakeService) CopyTask(_ context.Context, ref core.TaskRef, in core.CopyTaskInput) (*core.Task, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.copies = append(f.copies, copyCall{ref: ref, in: in})
+	return &core.Task{ID: "copy", Ref: in.ProjectRef + "-99", Title: in.Title}, nil
+}
+
 func (f *fakeService) TaskTree(context.Context, core.TaskRef, int) ([]core.Task, error) {
 	return nil, nil
 }

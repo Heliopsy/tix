@@ -41,6 +41,7 @@ func (rt *Router) registerTaskRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteTaskRoute, rt.handleTransitionRoute)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskRestore, rt.handleRestoreTask)
 	rt.mux.HandleFunc("GET "+wire.RouteTaskTree, rt.handleTaskTree)
+	rt.mux.HandleFunc("POST "+wire.RouteTaskCopy, rt.handleCopyTask)
 
 	rt.mux.HandleFunc("GET "+wire.RouteTaskDeps, rt.handleListDependencies)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskDeps, rt.handleAddDependency)
@@ -402,6 +403,25 @@ func (rt *Router) handleRestoreTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, http.StatusOK, task)
+}
+
+// handleCopyTask copies a task and answers with the copy.
+func (rt *Router) handleCopyTask(w http.ResponseWriter, r *http.Request) {
+	ref, err := taskRef(r)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	var in core.CopyTaskInput
+	if !readOptionalJSON(w, r, &in) {
+		return
+	}
+	task, err := rt.cfg.Service.CopyTask(r.Context(), ref, in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusCreated, task)
 }
 
 // handleTaskTree returns a task and its descendants.

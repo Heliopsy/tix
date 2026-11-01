@@ -448,6 +448,30 @@ under them was placeholdered `infra-2`, so the screen disagreed with itself abou
 task. A dependency this reader may not read keeps its shortened identifier and gains no link, so a
 dependency they cannot open is still visible as one rather than missing from the list.
 
+## Copying a task
+
+**Copy to…** at the right of the task screen's title bar, offered to a reader who may write tasks, opens a
+small form: the project the copy goes to, the reader's own project selected, the title ready to edit, and
+what else to bring. The copy is a new task with its own reference, in that project or the same one. Its
+description, priority, tags, assignee, due date and repeat rule come with it, and so do the custom fields
+the target project defines. It starts in the target workflow's first state unless **Keep the status** is
+ticked and the target has a state of that name. **Comments** copies each comment as a new one by you that
+names who wrote it and when, **Subtasks** copies the whole live subtree under the copy, and
+**Dependencies** makes the copy wait for what the original waits for. **Link the copy to this task**, ticked
+by default, records where the copy came from: its About card then shows **Copied from** with a link back.
+Stars, claims, history and artifacts never travel.
+
+The form is laid out like New task: the title is the large field, the project sits beside it, the options
+are one group of checkboxes, and Cancel and Copy close the form at the bottom right, with Ctrl+Enter (Cmd+Enter
+on a Mac) to copy and Escape to cancel. A copy that is refused, such as one into a project that no longer
+exists, comes back with every choice kept and the reason under the field it is about.
+
+When tasks open in a dialog the form opens in the same dialog. Copying returns to the original with a
+toast linking the copy, or opens the copy when the "Open a new task" setting is on, exactly as adding a
+task does. A lane card's three dots menu offers **Copy to…** too, opening the same form over the lanes
+when tasks open in a dialog; copying from there returns to the lanes, filter and all, with the toast. The
+command line has the same operation as `tix task copy`, and the API as `POST /api/v1/tasks/{ref}/copy`.
+
 ## Acting in place
 
 Every action on a list row and on the task screen answers where it was taken. A row's star, status

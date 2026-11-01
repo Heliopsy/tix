@@ -376,7 +376,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		DragMove:        dragMoveMode(r),
 		OpenAfterAdd:    openAfterAdd(r),
 		Hover:           hoverEffects(r),
-		TaskDialog:      taskDialogMode(r) && name != "task.html",
+		TaskDialog:      taskDialogMode(r) && name != "task.html" && name != "taskcopy.html",
 		TitleEdit:       titleEditMode(r),
 		Theme:           themeOf(r),
 		Tint:            tintOf(r),
@@ -871,7 +871,7 @@ func (h *handler) renderStatus(w http.ResponseWriter, r *http.Request, status in
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", screenCacheControl)
 	w.Header().Add("Vary", DialogHeader)
-	if name == "task.html" && dialogRequest(r) {
+	if (name == "task.html" || name == "taskcopy.html") && dialogRequest(r) {
 		v.InDialog, v.IDPrefix = true, "dlg-"
 		w.WriteHeader(status)
 		return tmpl.ExecuteTemplate(w, "task-dialog", v)

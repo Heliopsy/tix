@@ -716,6 +716,23 @@ func (m Model) loadActors() tea.Cmd {
 	}
 }
 
+// copyTask copies a task and names the copy on the status bar, since the copy
+// may land in a project the board is not showing.
+func (m Model) copyTask(task core.Task, in core.CopyTaskInput) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	return func() tea.Msg {
+		copied, err := svc.CopyTask(ctx, ref, in)
+		msg := actionMsg{kind: actionCopy, ref: ref, label: label, err: err}
+		if err == nil {
+			msg.sentence = "copied " + label + " to " + copied.Ref
+		}
+		return msg
+	}
+}
+
 // restore brings a deleted task back.
 func (m Model) restore(task core.Task) tea.Cmd {
 	if m.svc == nil {

@@ -45,6 +45,7 @@ type KeyMap struct {
 	ColumnLeft    key.Binding
 	ColumnRight   key.Binding
 	ShowColumns   key.Binding
+	Copy          key.Binding
 	Artifact      key.Binding
 	ClaimNext     key.Binding
 	Renew         key.Binding
@@ -125,6 +126,9 @@ func DefaultKeyMap() KeyMap {
 		ColumnLeft:  key.NewBinding(key.WithKeys("<"), key.WithHelp("<", "move column left")),
 		ColumnRight: key.NewBinding(key.WithKeys(">"), key.WithHelp(">", "move column right")),
 		ShowColumns: key.NewBinding(key.WithKeys("="), key.WithHelp("=", "show hidden columns")),
+		// Y, vim's yank, which is the copy a reader of these schemes already
+		// knows. Lowercase y is Agree, the answer to a confirmation.
+		Copy: key.NewBinding(key.WithKeys("Y"), key.WithHelp("Y", "copy task")),
 		// O, for the output a worker records. Lowercase o opens a new task under
 		// vim and helix, so the capital is what the other taken letters use.
 		Artifact:  key.NewBinding(key.WithKeys("O"), key.WithHelp("O", "record artifact")),
@@ -231,6 +235,7 @@ const (
 	doDelete
 	doRestore
 	doStar
+	doCopy
 	doArtifact
 	doRenew
 	doReclaim
@@ -464,6 +469,8 @@ func (k KeyMap) taskBindings() []Action {
 			gate: gatedAction{methods: []string{"RestoreTask"}}},
 		{id: doStar, binding: k.Star, needsTask: true,
 			gate: gatedAction{methods: []string{"StarTask"}, needs: []string{"UnstarTask"}}},
+		{id: doCopy, binding: k.Copy, needsTask: true,
+			gate: gatedAction{methods: []string{"CopyTask"}}},
 		{id: doArtifact, binding: k.Artifact, needsTask: true,
 			gate: gatedAction{methods: []string{"PutArtifact"}}},
 		{id: doRenew, binding: k.Renew, needsTask: true,

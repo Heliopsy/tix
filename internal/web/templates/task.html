@@ -17,6 +17,10 @@
   <span class="ref">{{$t.Ref}}</span>
   <h1{{if .InDialog}} id="taskdlg-title"{{end}}>{{$t.Title}}</h1>
   {{if .CanStar}}{{template "tip" (tip "Stars" "A star is yours alone: your starred tasks come first in every listing you see, and is:starred finds them. Nobody else's order changes." "docs/filtering.md")}}{{end}}
+  {{/* A link, so it opens in a new tab and works with scripting off.
+       data-dialog-load keeps it inside the dialog when the task is open in
+       one; see assets/taskopen.js. */}}
+  {{if .Data.CanWrite}}<a class="ghostlink copyto" href="/tasks/{{$t.Ref}}/copy" data-dialog-load>{{t "Copy to…"}}</a>{{end}}
 </div>
 {{$held := claim $t}}
 {{/* A div, not a p. The status and priority controls carry popover panels,
@@ -253,6 +257,7 @@
       {{/* The star is a shape in the title bar; here it is said in words, with
            what it does, since nobody else sees it. */}}
       {{if .CanStar}}<dt>{{t "Starred"}}</dt><dd class="starstate">{{if $t.Starred}}{{t "Yes, listed first for you"}}{{else}}<span class="muted">{{t "No"}}</span>{{end}}</dd>{{end}}
+      {{if .Data.CopiedFrom}}<dt>{{t "Copied from"}}</dt><dd class="copiedfrom"><a class="mono" href="/tasks/{{.Data.CopiedFrom.Ref}}">{{.Data.CopiedFrom.Ref}}</a> {{.Data.CopiedFrom.Title}}</dd>{{end}}
       {{if .Data.Parent}}<dt>{{t "Subtask of"}}</dt><dd><a class="mono" href="/tasks/{{.Data.Parent.Ref}}">{{.Data.Parent.Ref}}</a> {{.Data.Parent.Title}}</dd>{{end}}
       {{/* The rule, and what it will do next. The occurrence already created
            is linked with its date; one not yet created is the date finishing
@@ -388,7 +393,7 @@
      dialog. See renderStatus. */}}
 {{define "task-dialog"}}
 <div class="taskdlg-frag" data-task-dialog="{{.Data.Task.Ref}}">
-{{if .Flash}}<p class="flash" role="status">{{phrase .Flash}}</p>{{end}}
+{{if .Flash}}<p class="flash" role="status">{{phrase .Flash}}{{if .FlashRef}} <a class="flashref" href="/tasks/{{.FlashRef}}">{{.FlashRef}}</a>{{end}}</p>{{end}}
 {{if .Error}}<p class="flash error">{{.Error}}</p>{{end}}
 {{template "content" .}}
 </div>
