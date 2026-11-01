@@ -555,13 +555,14 @@ uses.
 
 ```sh
 tix task rm default-4                  # soft delete: gone from lists and from task show
-tix task ls --include-deleted          # the deleted rows are back in the listing
+tix task ls --trashed                  # only the deleted tasks, the trash
+tix task ls --include-deleted          # the deleted rows alongside the live ones
 tix task restore default-4             # and the task is back where it was
 ```
 
 `task rm` without `--hard` is a soft delete. The task drops out of `task ls`
-and `task show` answers exit `3` for it, but `--include-deleted` still lists
-it and `task restore` brings it back. `task rm --hard` has no way back: a
+and `task show` answers exit `3` for it, but `--trashed` (`is:trashed`) and
+`--include-deleted` still list it and `task restore` brings it back. `task rm --hard` has no way back: a
 restore after it is exit `3` too. Never pass `--hard` to tidy up your own
 plan; cancel the task instead, which is terminal and keeps the history.
 
