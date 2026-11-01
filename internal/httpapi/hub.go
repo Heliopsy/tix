@@ -255,11 +255,14 @@ func newConn(a *core.Actor, queue int) *wsConn {
 // new subject that appears in neither this map nor the work list, so the next
 // administrative object cannot be added to the stream by omission.
 var subjectScope = map[string]core.Scope{
-	"api_token":  core.ScopeTokenAdmin,
-	"ssh_key":    core.ScopeTokenAdmin,
-	"user":       core.ScopeUserAdmin,
-	"membership": core.ScopeUserAdmin,
-	"session":    core.ScopeUserAdmin,
+	"api_token": core.ScopeTokenAdmin,
+	// A calendar feed is a credential, and its events say whose feed changed
+	// and what it selects.
+	"calendar_feed": core.ScopeTokenAdmin,
+	"ssh_key":       core.ScopeTokenAdmin,
+	"user":          core.ScopeUserAdmin,
+	"membership":    core.ScopeUserAdmin,
+	"session":       core.ScopeUserAdmin,
 
 	// A second-factor event names a user and says whether that account holds
 	// one, which is a list of who to attack first. The scope is the one that

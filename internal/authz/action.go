@@ -32,6 +32,10 @@ const (
 	// ActionFilterManage changes or removes a shared filter somebody else
 	// owns, which is administering what the whole tenant sees.
 	ActionFilterManage Action = "filter.manage"
+	// ActionCalendarFeed manages the caller's own calendar feed. The feed
+	// reads no more than its owner may, so reading tasks is authority enough;
+	// it lists every project the owner reads, so it is not confinable.
+	ActionCalendarFeed Action = "calendar.feed"
 
 	ActionProjectRead  Action = "project.read"
 	ActionProjectWrite Action = "project.write"
@@ -76,6 +80,7 @@ var actionScopes = map[Action]core.Scope{
 	ActionViewArrange:    core.ScopeTaskRead,
 	ActionFilterSave:     core.ScopeTaskRead,
 	ActionFilterManage:   core.ScopeTenantAdmin,
+	ActionCalendarFeed:   core.ScopeTaskRead,
 
 	ActionProjectRead:  core.ScopeProjectRead,
 	ActionProjectWrite: core.ScopeProjectWrite,
@@ -151,7 +156,7 @@ func (a Action) ProjectConfinable() bool { return projectConfinable[a] }
 var allActions = []Action{
 	ActionTaskRead, ActionTaskCreate, ActionTaskUpdate, ActionTaskTransition,
 	ActionTaskClaim, ActionTaskDelete, ActionTaskReclaim, ActionTaskStar, ActionViewArrange,
-	ActionFilterSave, ActionFilterManage,
+	ActionFilterSave, ActionFilterManage, ActionCalendarFeed,
 	ActionProjectRead, ActionProjectWrite,
 	ActionWorkflowRead, ActionWorkflowWrite,
 	ActionFieldWrite, ActionCommentWrite, ActionArtifactWrite,

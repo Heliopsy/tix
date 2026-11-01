@@ -534,6 +534,15 @@ filter is listed for the whole tenant and only its owner or an admin may
 change it. They belong to the person who saved them; do not create or rename
 one unless asked to.
 
+**Due dates in a calendar app.** `tix calendar create` (or `--filter EXPR`)
+prints a private iCalendar address, once, that Google Calendar, Apple Calendar
+or Outlook subscribes to; each task with a due date becomes an all-day event.
+`tix calendar show` reports the feed without the address, `tix calendar filter
+EXPR` changes what it lists (no expression restores "assigned to me, not
+finished"), `tix calendar rotate` issues a new address and stops the old one,
+and `tix calendar revoke` stops it. Only do this when a person asks: the
+address reads their tasks without signing in.
+
 **Copy rather than retype.** `tix task copy REF` makes a new task with a fresh
 reference, in the same project or another (`--to`), keeping the title (or
 `--title`), description, priority, tags, assignee, due date, repeat rule and

@@ -987,6 +987,16 @@ rather than by a client-side library. Every form here is a plain form: a sign-in
 would be a sign-in some readers could not complete, and a script that drew the code would need the
 enrolment secret handed to it.
 
+## Calendar feed
+
+Settings carries a Calendar feed section with an (i) tip. Without a feed it offers a filter field and
+Create feed; with one it says since when it is active and offers the filter with Save filter, Rotate and
+Revoke. Creating and rotating answer a screen that shows the address once, as text a reader with scripting
+off can select, beside a Copy button and a link that asks the device's calendar to subscribe. That screen is
+rendered rather than redirected to, so the secret never travels in a URL the browser keeps, and it is sent
+`Cache-Control: no-store`. A filter the service refuses draws Settings again with the text kept in the field
+and the reason beside it. [calendar.md](calendar.md) covers the feed itself.
+
 ## Project icons
 
 The new-project form and a project's settings carry an icon picker. Emoji takes one emoji or one or two

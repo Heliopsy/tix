@@ -26,6 +26,7 @@
   <a href="#keyboard">{{t "Keyboard"}}</a>
   <a href="#dates">{{t "Dates and times"}}</a>
   <a href="#second-factor">{{t "Second factor"}}</a>
+  <a href="#calendar">{{t "Calendar feed"}}</a>
   <a href="#database">{{t "Database"}}</a>
 </nav>
 
@@ -373,6 +374,77 @@
       </div>
       <div class="setrow-ctl"><span class="setvalue">{{t "Not applicable"}}</span></div>
     </div>
+  {{end}}
+  </div>
+</section>
+
+<section class="setgroup" id="calendar">
+  <div class="headtip"><h2>{{t "Calendar feed"}}</h2>{{template "tip" (tip "Calendar feed" "A private address Google Calendar, Apple Calendar or Outlook subscribes to, so your due dates appear beside the rest of your week. Each task with a due date is an all-day event that links back here. Anybody holding the address can read what it lists, so treat it like a password: rotate it to issue a new one, revoke it to stop it." "docs/calendar.md")}}</div>
+  {{/* Like the second factor, this belongs to the account rather than the
+       browser. The address is shown once, on the screen creating or rotating
+       it answers with, because only its hash is kept. */}}
+  {{$c := .Data.Calendar}}
+  <div class="setlist">
+  {{if not $c.Available}}
+    <div class="setrow">
+      <div class="setrow-text">
+        <span class="setname">{{t "Feed address"}}</span>
+        <span class="sethelp">{{t "A calendar feed reads tasks as you, and this session cannot read tasks, so there is nothing to manage here."}}</span>
+      </div>
+      <div class="setrow-ctl"><span class="setvalue">{{t "Not applicable"}}</span></div>
+    </div>
+  {{else if $c.Active}}
+    <div class="setrow">
+      <div class="setrow-text">
+        <div class="setname-line"><span class="setname">{{t "Feed address"}}</span>{{template "field-info" "The address was shown once, when it was created. Rotate to see a new one; calendars subscribed to the old address stop updating."}}</div>
+        <span class="sethelp">{{t "Active since %s." (stamp $c.Feed.CreatedAt)}}</span>
+      </div>
+      <div class="setrow-ctl"><span class="setvalue">{{t "Active"}}</span></div>
+    </div>
+
+    <form class="setrow" method="post" action="/settings/calendar/filter" hx-boost="false">
+      {{template "csrf" .CSRF}}
+      <div class="setrow-text">
+        <div class="setname-line"><label class="setname" for="calendar-filter">{{t "Feed filter"}}</label>{{template "field-info" "A filter expression, the same language as the task list's filter box. Leave it empty for the tasks assigned to you that are not finished. Only tasks with a due date are listed either way. Changing it keeps the address."}}</div>
+        <span class="sethelp" id="calendar-filter-help">{{t "Which tasks the feed lists. Empty means yours, not finished."}}</span>
+        {{if $c.Error}}<span class="field-error" id="calendar-filter-error">{{$c.Error}}</span>{{end}}
+      </div>
+      <div class="setrow-ctl">
+        <input id="calendar-filter" name="filter" value="{{$c.Filter}}" placeholder="{{t "assigned to you, not finished"}}" maxlength="1000" spellcheck="false" autocomplete="off" aria-describedby="calendar-filter-help{{if $c.Error}} calendar-filter-error{{end}}"{{if $c.Error}} aria-invalid="true"{{end}}>
+        <button class="apply" type="submit">{{t "Save filter"}}</button>
+      </div>
+    </form>
+
+    <form class="setrow" method="post" action="/settings/calendar/rotate" hx-boost="false">
+      {{template "csrf" .CSRF}}
+      <div class="setrow-text">
+        <div class="setname-line"><span class="setname">{{t "Rotate the address"}}</span>{{template "field-info" "Issues a new address with the same filter and stops the old one at once. Use it if the address was shared by mistake, or to subscribe somewhere new."}}</div>
+        <span class="sethelp" id="calendar-rotate-help">{{t "A new address; the old one stops."}}</span>
+      </div>
+      <div class="setrow-ctl"><button class="secondary" type="submit" aria-describedby="calendar-rotate-help">{{t "Rotate"}}</button></div>
+    </form>
+
+    <form class="setrow" method="post" action="/settings/calendar/revoke" hx-boost="false">
+      {{template "csrf" .CSRF}}
+      <div class="setrow-text">
+        <div class="setname-line"><span class="setname">{{t "Revoke the feed"}}</span>{{template "field-info" "Stops the address at once. Subscribed calendars keep the events they last fetched until you remove the subscription there."}}</div>
+        <span class="sethelp" id="calendar-revoke-help">{{t "The address stops answering."}}</span>
+      </div>
+      <div class="setrow-ctl"><button class="danger" type="submit" aria-describedby="calendar-revoke-help">{{t "Revoke"}}</button></div>
+    </form>
+  {{else}}
+    <form class="setrow" method="post" action="/settings/calendar" hx-boost="false">
+      {{template "csrf" .CSRF}}
+      <div class="setrow-text">
+        <div class="setname-line"><label class="setname" for="calendar-filter">{{t "Feed filter"}}</label>{{template "field-info" "A filter expression, the same language as the task list's filter box. Leave it empty for the tasks assigned to you that are not finished. Only tasks with a due date are listed either way. Changing it keeps the address."}}</div>
+        <span class="sethelp" id="calendar-filter-help">{{t "You have no calendar feed. Create one to subscribe to your due dates."}}</span>
+        {{if $c.Error}}<span class="field-error" id="calendar-filter-error">{{$c.Error}}</span>{{end}}
+      </div>
+      <div class="setrow-ctl">
+        <input id="calendar-filter" name="filter" value="{{$c.Filter}}" placeholder="{{t "assigned to you, not finished"}}" maxlength="1000" spellcheck="false" autocomplete="off" aria-describedby="calendar-filter-help{{if $c.Error}} calendar-filter-error{{end}}"{{if $c.Error}} aria-invalid="true"{{end}}>
+        <button type="submit">{{t "Create feed"}}</button>
+      </div>
+    </form>
   {{end}}
   </div>
 </section>

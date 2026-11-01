@@ -935,6 +935,66 @@ var registry = []Operation{
 	},
 
 	{
+		Name: "calendar.show", Method: "GetCalendarFeed",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix calendar show",
+		HTTP:  apiGet(wire.RouteCalendar),
+		Web:   webGet(web.RouteSettings, tplSettings),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "a feed address is pasted into a calendar app; the terminal has nothing to subscribe with, and the cli and the settings screen manage it"),
+		},
+	},
+	{
+		Name: "calendar.create", Method: "CreateCalendarFeed",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix calendar create",
+		HTTP:  apiPost(wire.RouteCalendar),
+		Web:   webPost(web.RouteCalendarCreate),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "a feed address is pasted into a calendar app; the terminal has nothing to subscribe with, and the cli and the settings screen manage it"),
+		},
+	},
+	{
+		Name: "calendar.rotate", Method: "RotateCalendarFeed",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix calendar rotate",
+		HTTP:  apiPost(wire.RouteCalendarRotate),
+		Web:   webPost(web.RouteCalendarRotate),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "a feed address is pasted into a calendar app; the terminal has nothing to subscribe with, and the cli and the settings screen manage it"),
+		},
+	},
+	{
+		Name: "calendar.filter", Method: "SetCalendarFeedFilter",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix calendar filter",
+		HTTP:  apiPatch(wire.RouteCalendar),
+		Web:   webPost(web.RouteCalendarFilter),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "a feed address is pasted into a calendar app; the terminal has nothing to subscribe with, and the cli and the settings screen manage it"),
+		},
+	},
+	{
+		Name: "calendar.revoke", Method: "RevokeCalendarFeed",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix calendar revoke",
+		HTTP:  apiDelete(wire.RouteCalendar),
+		Web:   webPost(web.RouteCalendarRevoke),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "a feed address is pasted into a calendar app; the terminal has nothing to subscribe with, and the cli and the settings screen manage it"),
+		},
+	},
+	{
+		Name: "calendar.read", Method: "ReadCalendarFeed",
+		HTTP: apiGet(wire.RouteCalendarFeed),
+		Exempt: []Exemption{
+			off(SurfaceCLI, "a feed is read by a calendar app at its address, with no credential; the cli prints that address"),
+			off(SurfaceWeb, "a feed is iCalendar for a calendar app, not a screen; the settings screen hands out its address"),
+			off(SurfaceTUI, "a feed is iCalendar for a calendar app, not a view"),
+		},
+	},
+
+	{
 		Name: "token.create", Method: "CreateToken",
 		Scope: core.ScopeTokenAdmin,
 		CLI:   "tix token create",

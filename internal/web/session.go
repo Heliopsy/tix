@@ -21,7 +21,7 @@ func (h *handler) sessionRoutes() []route {
 		public(get(RouteLogin, "login.html", h.showLogin)),
 		public(post(RouteLogin, h.doLogin, "Login")),
 		post(RouteLogout, h.doLogout, "Logout"),
-		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus"),
+		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed"),
 		get(RouteRelease, "release.html", h.showRelease, "WhoAmI"),
 		post(RouteAdvanced, h.toggleAdvanced, "Logout"),
 		post(RouteTheme, h.setTheme, "Logout"),
@@ -155,6 +155,9 @@ type settingsView struct {
 	// TOTP is the reader's own second factor: whether they hold one, how many
 	// recovery codes are left, and whether this tenant requires it here.
 	TOTP totpSection
+
+	// Calendar is the reader's own feed of due dates.
+	Calendar calendarView
 }
 
 // showSettings renders the settings screen: every per-browser display
@@ -162,6 +165,16 @@ type settingsView struct {
 // used to hold the same controls. Keeping both would let them drift, so the
 // sidebar now only links here.
 func (h *handler) showSettings(w http.ResponseWriter, r *http.Request) error {
+	calendar, err := h.calendarFor(r)
+	if err != nil {
+		return err
+	}
+	return h.renderSettings(w, r, http.StatusOK, calendar)
+}
+
+// renderSettings draws the settings screen with the given calendar section,
+// which a refused feed filter replaces with the text it refused.
+func (h *handler) renderSettings(w http.ResponseWriter, r *http.Request, status int, calendar calendarView) error {
 	zone := timezoneOf(r)
 	// The same walk the task screen's visibility control is built from, so
 	// the two controls are offered one set of projects rather than one a page
@@ -174,7 +187,7 @@ func (h *handler) showSettings(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return h.render(w, r, "settings.html", "Settings", settingsView{
+	return h.renderStatus(w, r, status, "settings.html", "Settings", settingsView{
 		TargetDescribe: h.targetDescribe,
 		Shortcuts:      buildShortcutTable(),
 		TimeFormat:     timeFormatOf(r),
@@ -183,6 +196,7 @@ func (h *handler) showSettings(w http.ResponseWriter, r *http.Request) error {
 		Timezones:      timezoneChoices(),
 		Prefs:          settingsPrefs(h.prefsFor(r, projects, whole)),
 		TOTP:           totp,
+		Calendar:       calendar,
 	})
 }
 

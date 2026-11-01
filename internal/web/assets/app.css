@@ -3616,6 +3616,10 @@ kbd {
   background: none;
   font: inherit;
 }
+/* A feed address is one unbroken token far wider than a phone. Wrapping it
+   anywhere keeps all of it in view, so a reader selecting it by hand gets the
+   whole address rather than the part a scroll left visible. */
+.copyline pre.wraps > code { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* A one-time secret: the value of a freshly issued API token
    (templates/tokens.html). Deliberately not a .flash -- that is the transient
@@ -4951,7 +4955,8 @@ input#code {
    this interface is set: in its own words, at the sidebar group's size and
    colour. APPEARANCE in tracked capitals is the loudest kind of type there
    is, spent on a word whose job is to be skimmed past. */
-.setgroup > h2 {
+.setgroup > h2,
+.setgroup > .headtip > h2 {
   font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0;
@@ -4959,6 +4964,9 @@ input#code {
   color: var(--muted);
   margin: 0 0 var(--space-2);
 }
+/* A group heading carrying an (i) tip keeps the tip on the heading's line. */
+.setgroup > .headtip { margin: 0 0 var(--space-2); }
+.setgroup > .headtip > h2 { margin: 0; }
 
 /* A setting is a sentence on the left and the control that changes it on the
    right, and the two have to be read together. Unbounded, the row grew with

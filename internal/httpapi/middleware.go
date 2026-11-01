@@ -70,7 +70,7 @@ func (rt *Router) recoverPanic(next http.Handler) http.Handler {
 		defer func() {
 			if v := recover(); v != nil {
 				rt.cfg.Logger.Error("panic serving request",
-					"method", r.Method, "path", r.URL.Path, "panic", v)
+					"method", r.Method, "path", loggedPath(r.URL.Path), "panic", v)
 				if !rec.written {
 					WriteError(rec, core.Internal("panic serving request"))
 				}
@@ -107,12 +107,22 @@ func (rt *Router) logRequest(next http.Handler) http.Handler {
 		rt.cfg.Logger.Info("request",
 			"request_id", RequestIDFrom(r.Context()),
 			"method", r.Method,
-			"path", r.URL.Path,
+			"path", loggedPath(r.URL.Path),
 			"status", rec.status,
 			"duration_ms", time.Since(started).Milliseconds(),
 			"tenant", tenant,
 		)
 	})
+}
+
+// loggedPath is the path as the log records it. A feed address is a secret a
+// calendar app holds, and a log is read by more people than the app is, so the
+// secret is replaced before the line is written.
+func loggedPath(path string) string {
+	if isCalendarFeedPath(path) {
+		return wire.CalendarFeedPrefix + "[redacted]"
+	}
+	return path
 }
 
 // muxErrorWriter replaces the plain text body the mux writes for an unmatched
@@ -344,7 +354,7 @@ func isUnscopedPath(path string) bool {
 
 // isPublicPath reports whether a route runs without a credential.
 func isPublicPath(path string) bool {
-	return isUnscopedPath(path) || path == wire.RouteLogin
+	return isUnscopedPath(path) || path == wire.RouteLogin || isCalendarFeedPath(path)
 }
 
 // Context keys for the values the forwarded-header and credential middleware

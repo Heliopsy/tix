@@ -64,11 +64,39 @@ Everything below is under `/api/v1`.
 | Sync | `/sync/sources`, `/sync/sources/{id}`, `/sync/run` |
 | Views | `/views/{view}/groups`, `/views/{view}/groups/{group}`, `/views/{view}/order` |
 | Saved filters | `/filters`, `/filters/{filter}`, `/filters/order` |
+| Calendar feed | `/calendar`, `/calendar/rotate`, `/calendar/feeds/{file}` (no credential); see [Calendar feed](#calendar-feed) |
 | Events | `/events` (WebSocket) |
 
 Every route above has a command: `tix doctor`, `tix login`, `tix user totp`, `tix user key`, `tix actor`,
 `tix stats`, `tix status` and `tix connection` among the less obvious ones. [commands.md](commands.md)
 lists them.
+
+### Calendar feed
+
+Each person may hold one calendar feed: an iCalendar address a calendar app subscribes to. The
+management routes act on the caller's own feed and need `task:read`. [calendar.md](calendar.md) has
+the format, the state mapping and the reasons behind them.
+
+| Route | Does |
+| --- | --- |
+| `GET /calendar` | the caller's feed: `id`, `filter`, `created_at`; never the secret. `404` without one |
+| `POST /calendar` | creates the feed from an optional `{"filter": "..."}` and answers `201` with `token`, `path` and the absolute `url`, once. `409` when one is live |
+| `PATCH /calendar` | replaces the filter with `{"filter": "..."}`; an empty string restores the default. The address stays |
+| `POST /calendar/rotate` | a new `token`, `path` and `url` with the same filter; the old address answers `404` at once |
+| `DELETE /calendar` | stops the feed, `204` |
+| `GET /calendar/feeds/{token}.ics` | the feed itself, `text/calendar; charset=utf-8`, with no credential |
+
+A filter is validated when it is stored, so `project:nosuch` is `404` and a term that does not parse is
+`400`. The feed answer carries a strong `ETag` and `Cache-Control: private, max-age=300`, and a
+request whose `If-None-Match` matches gets `304` with no body. A malformed, unknown, rotated or revoked
+secret, an owner who is no longer a member and a disabled account all answer the same `404`.
+
+```console
+$ curl -s -X POST -H "Authorization: Bearer $TIX_TOKEN" http://127.0.0.1:8080/api/v1/calendar
+{"id":"01M3...","tenant_id":"01M2...","actor_id":"01M2...","filter":"","created_at":"...",
+ "token":"tix_cal_...","path":"/api/v1/calendar/feeds/tix_cal_....ics",
+ "url":"http://127.0.0.1:8080/api/v1/calendar/feeds/tix_cal_....ics"}
+```
 
 ### Project appearance
 

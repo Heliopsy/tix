@@ -19,6 +19,7 @@ with the thing.
 | [second-factor.md](second-factor.md) | TOTP per tenant and per surface, enrolment, recovery codes, the sealing key |
 | [api.md](api.md) | The HTTP API, the WebSocket event stream, and resuming with `since_seq` |
 | [filtering.md](filtering.md) | The filter expression language: negation, weak matching, and what each engine does |
+| [calendar.md](calendar.md) | Subscribing to your due dates from Google Calendar, Apple Calendar or Outlook, and what the feed carries |
 | [scripting.md](scripting.md) | NDJSON everywhere, output formats, piping, exit codes |
 | [web-ui.md](web-ui.md) | The browser interface: lease badges, multi-step moves, the directory, per-browser preferences |
 | [tui.md](tui.md) | The terminal interface: the ten views, five keybinding schemes, the settings screen, what it does not do |

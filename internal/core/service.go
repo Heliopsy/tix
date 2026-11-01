@@ -35,6 +35,7 @@ type Service interface {
 	StatusService
 	ViewService
 	SavedFilterService
+	CalendarService
 
 	Close() error
 }

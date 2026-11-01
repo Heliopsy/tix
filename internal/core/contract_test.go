@@ -54,6 +54,7 @@ var (
 	_ core.StatusService      = service
 	_ core.ViewService        = service
 	_ core.SavedFilterService = service
+	_ core.CalendarService    = service
 )
 
 // serviceParts names every sub-interface Service is assembled from.
@@ -74,6 +75,7 @@ var serviceParts = map[string]reflect.Type{
 	"StatusService":      reflect.TypeOf((*core.StatusService)(nil)).Elem(),
 	"ViewService":        reflect.TypeOf((*core.ViewService)(nil)).Elem(),
 	"SavedFilterService": reflect.TypeOf((*core.SavedFilterService)(nil)).Elem(),
+	"CalendarService":    reflect.TypeOf((*core.CalendarService)(nil)).Elem(),
 }
 
 // serviceOwnMethods are the only two methods Service may declare itself.
