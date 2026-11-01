@@ -169,6 +169,7 @@ what both storage engines can answer the same way and the terminal can answer in
 card is taken from the rendered Markdown instead, so a marker typed inside a code block, or an ordered
 list item such as `1. [ ] ...`, is the one place the two can disagree: the filter counts the first and
 not the second, the card the other way round.
+
 ## Snoozed tasks
 
 A snoozed task is left out of every listing that does not ask for it, for every reader: a snooze is
