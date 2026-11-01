@@ -345,6 +345,35 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "project icon round-trip",
+		covers: []string{"CreateProject", "UpdateProject", "GetProjectIcon"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			_, missing := tg.svc.GetProjectIcon(tg.ctx, p.Key)
+			name := "rocket"
+			named, err := tg.svc.UpdateProject(tg.ctx, p.Key, core.UpdateProjectInput{IconName: &name})
+			mustf(t, tg, err, "setting a built-in icon")
+			png := []byte("\x89PNG\r\n\x1a\nmatrix")
+			pictured, err := tg.svc.UpdateProject(tg.ctx, p.Key, core.UpdateProjectInput{
+				IconFile: &core.ProjectIconFile{Data: png}})
+			if err != nil {
+				return nil, err
+			}
+			img, err := tg.svc.GetProjectIcon(tg.ctx, p.Key)
+			if err != nil {
+				return nil, err
+			}
+			return sig{
+				"missing":      core.KindOf(missing),
+				"named":        named.IconName,
+				"kind":         string(pictured.IconKind()),
+				"digest_match": pictured.IconImage == img.Digest,
+				"type":         img.ContentType,
+				"bytes":        string(img.Data),
+			}, nil
+		},
+	},
+	{
 		name:   "dependencies round-trip",
 		covers: []string{"CreateProject", "CreateTask", "AddDependency", "ListDependencies"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

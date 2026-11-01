@@ -132,6 +132,9 @@ type ProjectTx interface {
 	ListProjects(ctx context.Context, f core.ProjectFilter) ([]core.Project, error)
 	UpdateProject(ctx context.Context, p *core.Project) error
 	DeleteProject(ctx context.Context, id string) error
+	PutProjectIcon(ctx context.Context, img *core.ProjectIconImage) error
+	GetProjectIcon(ctx context.Context, projectID string) (*core.ProjectIconImage, error)
+	DeleteProjectIcon(ctx context.Context, projectID string) error
 
 	PutFieldDef(ctx context.Context, d *core.FieldDef) error
 	ListFieldDefs(ctx context.Context, projectID string) ([]core.FieldDef, error)

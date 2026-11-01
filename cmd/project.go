@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/x/term"
 	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/spf13/cobra"
@@ -16,7 +17,39 @@ import (
 var (
 	colorFlagUsage = "palette colour marking the project's rows (" + projectColorList() + ")"
 	iconFlagUsage  = "an emoji or a short monogram shown beside the project's rows"
+	iconNameUsage  = "a built-in icon shown beside the project's rows (" + builtinIconList() + ")"
+	iconFileUsage  = "path to a PNG, JPEG, WebP or SVG image of at most 64 KiB to use as the icon"
 )
+
+// builtinIconList renders the built-in icon names for a flag's usage line.
+func builtinIconList() string {
+	icons := core.BuiltinIcons()
+	parts := make([]string, 0, len(icons))
+	for _, b := range icons {
+		parts = append(parts, b.Name)
+	}
+	return strings.Join(parts, ", ")
+}
+
+// readIconFile loads the image --icon-file names, refusing one too large to
+// upload before it is read whole.
+func readIconFile(path string) (*core.ProjectIconFile, error) {
+	if path == "" {
+		return &core.ProjectIconFile{}, nil
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, core.Invalid("reading icon file %q: %v", path, err)
+	}
+	if info.Size() > core.MaxProjectIconBytes {
+		return nil, core.Invalid("icon file %q is %d bytes; the limit is %d", path, info.Size(), core.MaxProjectIconBytes)
+	}
+	data, err := os.ReadFile(path) // #nosec G304 -- the operator names the file to upload
+	if err != nil {
+		return nil, core.Invalid("reading icon file %q: %v", path, err)
+	}
+	return &core.ProjectIconFile{Data: data}, nil
+}
 
 // projectColorList renders the palette for a flag's usage line.
 func projectColorList() string {
@@ -38,23 +71,31 @@ func newProjectCmd(g *globals) *cobra.Command {
 		RunE:    helpRunner,
 	}
 	cmd.AddCommand(projectCreateCmd(g), projectLsCmd(g), projectShowCmd(g),
-		projectEditCmd(g), projectArchiveCmd(g), projectRmCmd(g))
+		projectEditCmd(g), projectIconCmd(g), projectArchiveCmd(g), projectRmCmd(g))
 	return cmd
 }
 
 func projectCreateCmd(g *globals) *cobra.Command {
-	var description, workflow, color, icon string
+	var description, workflow, color, icon, iconName, iconFile string
 	var dryRun bool
 	cmd := &cobra.Command{
-		Use:     "create KEY NAME",
-		Short:   "Create a project",
-		Long:    "Create a project with a key used in task references.\n\nExit codes: 2 invalid key, 4 key already exists.",
-		Example: "  tix project create infra Infrastructure\n  tix project create infra Infrastructure --color blue --icon \U0001F680",
-		Args:    exactArgs(2),
+		Use:   "create KEY NAME",
+		Short: "Create a project",
+		Long:  "Create a project with a key used in task references.\n\nExit codes: 2 invalid key, 4 key already exists.",
+		Example: "  tix project create infra Infrastructure\n  tix project create infra Infrastructure --color blue --icon \U0001F680\n" +
+			"  tix project create infra Infrastructure --icon-name server\n  tix project create web Web --icon-file logo.svg",
+		Args: exactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			file, err := readIconFile(iconFile)
+			if err != nil {
+				return err
+			}
 			in := core.CreateProjectInput{
 				Key: args[0], Name: args[1], Description: description, WorkflowKey: workflow,
-				Color: color, Icon: icon,
+				Color: color, Icon: icon, IconName: iconName,
+			}
+			if !file.Empty() {
+				in.IconFile = file
 			}
 			if err := in.Validate(); err != nil {
 				return err
@@ -77,6 +118,8 @@ func projectCreateCmd(g *globals) *cobra.Command {
 	cmd.Flags().StringVar(&workflow, "workflow", "", "workflow key or identifier to assign")
 	cmd.Flags().StringVar(&color, "color", "", colorFlagUsage)
 	cmd.Flags().StringVar(&icon, "icon", "", iconFlagUsage)
+	cmd.Flags().StringVar(&iconName, "icon-name", "", iconNameUsage)
+	cmd.Flags().StringVar(&iconFile, "icon-file", "", iconFileUsage)
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be created without writing")
 	return cmd
 }
@@ -147,14 +190,17 @@ func projectShowCmd(g *globals) *cobra.Command {
 }
 
 func projectEditCmd(g *globals) *cobra.Command {
-	var name, description, workflow, color, icon string
+	var name, description, workflow, color, icon, iconName, iconFile string
 	var dryRun bool
 	cmd := &cobra.Command{
-		Use:     "edit KEY",
-		Short:   "Change a project",
-		Long:    "Change a project's name, description, workflow, colour or icon.\n\nExit codes: 2 invalid colour or icon, 3 unknown project.",
-		Example: "  tix project edit infra --name \"Platform\"\n  tix project edit infra --color \"\" --icon \"\"",
-		Args:    exactArgs(1),
+		Use:   "edit KEY",
+		Short: "Change a project",
+		Long: "Change a project's name, description, workflow, colour or icon.\n\n" +
+			"The icon is one of --icon, --icon-name or --icon-file; setting one replaces whichever the project had, " +
+			"and setting any of them empty clears the icon.\n\nExit codes: 2 invalid colour or icon, 3 unknown project.",
+		Example: "  tix project edit infra --name \"Platform\"\n  tix project edit infra --color \"\" --icon \"\"\n" +
+			"  tix project edit infra --icon-name rocket\n  tix project edit infra --icon-file logo.png",
+		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var in core.UpdateProjectInput
 			if cmd.Flags().Changed("name") {
@@ -171,6 +217,21 @@ func projectEditCmd(g *globals) *cobra.Command {
 			}
 			if cmd.Flags().Changed("icon") {
 				in.Icon = &icon
+			}
+			if cmd.Flags().Changed("icon-name") {
+				in.IconName = &iconName
+			}
+			if cmd.Flags().Changed("icon-file") {
+				file, err := readIconFile(iconFile)
+				if err != nil {
+					return err
+				}
+				in.IconFile = file
+			}
+			if in.IconChanged() {
+				if err := in.ValidateIcon(); err != nil {
+					return err
+				}
 			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
@@ -195,8 +256,53 @@ func projectEditCmd(g *globals) *cobra.Command {
 	cmd.Flags().StringVar(&workflow, "workflow", "", "new workflow key or identifier")
 	cmd.Flags().StringVar(&color, "color", "", colorFlagUsage+", or empty to clear it")
 	cmd.Flags().StringVar(&icon, "icon", "", iconFlagUsage+", or empty to clear it")
+	cmd.Flags().StringVar(&iconName, "icon-name", "", iconNameUsage+", or empty to clear it")
+	cmd.Flags().StringVar(&iconFile, "icon-file", "", iconFileUsage+", or empty to clear it")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	return cmd
+}
+
+func projectIconCmd(g *globals) *cobra.Command {
+	var out string
+	cmd := &cobra.Command{
+		Use:   "icon KEY",
+		Short: "Save a project's uploaded icon image",
+		Long: "Write a project's uploaded icon image to the file --out names, or to standard output when that is not a terminal.\n\n" +
+			"Exit codes: 2 standard output is a terminal and no --out was given, 3 unknown project or no uploaded icon.",
+		Example: "  tix project icon infra --out infra.png\n  tix project icon infra > infra.png",
+		Args:    exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if out == "" && writesToTerminal(cmd) {
+				return core.Invalid("standard output is a terminal; name a file with --out or redirect the output")
+			}
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			img, err := conn.Service.GetProjectIcon(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			if out == "" {
+				_, err = cmd.OutOrStdout().Write(img.Data)
+				return err
+			}
+			if err := os.WriteFile(out, img.Data, 0o600); err != nil {
+				return core.Internal("writing icon to %q: %v", out, err).Wrap(err)
+			}
+			return g.render(cmd, outcome{Ref: args[0], Status: statusOK})
+		},
+		ValidArgsFunction: g.completeProjectKeys,
+	}
+	cmd.Flags().StringVar(&out, "out", "", "file to write the image to")
+	return cmd
+}
+
+// writesToTerminal reports whether the command's output is a terminal, where
+// image bytes would be noise.
+func writesToTerminal(cmd *cobra.Command) bool {
+	f, ok := cmd.OutOrStdout().(*os.File)
+	return ok && term.IsTerminal(f.Fd())
 }
 
 func projectArchiveCmd(g *globals) *cobra.Command {

@@ -31,6 +31,11 @@ func webGet(pattern, tmpl string) Route {
 	return Route{Method: http.MethodGet, Pattern: pattern, Template: tmpl}
 }
 
+// webAsset names a browser route answering with a file a screen embeds.
+func webAsset(pattern string) Route {
+	return Route{Method: http.MethodGet, Pattern: pattern, Asset: true}
+}
+
 // webPost names a browser route performing a mutation.
 func webPost(pattern string) Route { return Route{Method: http.MethodPost, Pattern: pattern} }
 
@@ -218,6 +223,16 @@ var registry = []Operation{
 		// archive returns nothing, so the listing's copy would be stale the
 		// moment the screen acted on it.
 		TUI: "project",
+	},
+	{
+		Name: "project.icon", Method: "GetProjectIcon",
+		Scope: core.ScopeProjectRead,
+		CLI:   "tix project icon",
+		HTTP:  apiGet(wire.RouteProjectIcon),
+		Web:   webAsset(web.RouteProjectIcon),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "a terminal draws no image; the project view names an uploaded icon and draws a fixed mark in its place"),
+		},
 	},
 	{
 		Name: "project.list", Method: "ListProjects",

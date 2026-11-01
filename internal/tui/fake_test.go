@@ -298,6 +298,12 @@ func (f *fakeService) CreateProject(_ context.Context, in core.CreateProjectInpu
 	f.projectsMade = append(f.projectsMade, in)
 	return &core.Project{Key: in.Key, Name: in.Name}, nil
 }
+
+// GetProjectIcon refuses: the terminal never reads an icon image.
+func (f *fakeService) GetProjectIcon(context.Context, string) (*core.ProjectIconImage, error) {
+	return nil, core.Internal("the terminal interface read an icon image")
+}
+
 func (f *fakeService) GetProject(_ context.Context, ref string) (*core.Project, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

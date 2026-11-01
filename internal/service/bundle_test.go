@@ -997,3 +997,44 @@ func TestBundleRefusesAnAppearanceOutsideThePalette(t *testing.T) {
 		t.Fatalf("import = %v, want a palette complaint", err)
 	}
 }
+
+func TestBundleCarriesABuiltinIconAndKeepsAnImage(t *testing.T) {
+	f := newBundleFixture(t)
+	if _, err := f.l.UpdateProject(f.ctx, "acme", core.UpdateProjectInput{IconName: strPtr("rocket")}); err != nil {
+		t.Fatalf("update project: %v", err)
+	}
+	raw := f.export(t, core.BundleExportInput{Kinds: []core.ComponentKind{core.ComponentProject}})
+	if comps := f.components(t, raw); len(comps) != 1 || comps[0].Project.IconName != "rocket" {
+		t.Fatalf("the template does not carry the built-in icon: %s", raw)
+	}
+
+	other := newBundleTenant(t, f.l)
+	if _, err := f.l.ImportBundle(other, bytes.NewReader(raw),
+		core.BundleImportInput{OnCollision: core.CollisionReplace}); err != nil {
+		t.Fatalf("ImportBundle: %v", err)
+	}
+	if got, _ := f.l.GetProject(other, "acme"); got.IconName != "rocket" {
+		t.Fatalf("imported icon name = %q, want rocket", got.IconName)
+	}
+
+	if _, err := f.l.UpdateProject(f.ctx, "acme", core.UpdateProjectInput{
+		IconFile: &core.ProjectIconFile{Data: iconPNG}}); err != nil {
+		t.Fatal(err)
+	}
+	plain := `{"record":"header","header":{"version":1}}` + "\n" +
+		`{"record":"component","component":{"kind":"project_template","project":{"key":"acme","name":"Acme"}}}` + "\n"
+	if _, err := f.l.ImportBundle(f.ctx, strings.NewReader(plain),
+		core.BundleImportInput{OnCollision: core.CollisionReplace}); err != nil {
+		t.Fatalf("ImportBundle: %v", err)
+	}
+	if img, err := f.l.GetProjectIcon(f.ctx, "acme"); err != nil || !bytes.Equal(img.Data, iconPNG) {
+		t.Fatalf("a template naming no icon dropped the image: %v", err)
+	}
+
+	two := `{"record":"header","header":{"version":1}}` + "\n" +
+		`{"record":"component","component":{"kind":"project_template","project":{"key":"acme","icon":"A","icon_name":"rocket"}}}` + "\n"
+	if _, err := f.l.ImportBundle(f.ctx, strings.NewReader(two),
+		core.BundleImportInput{OnCollision: core.CollisionReplace}); err == nil {
+		t.Fatal("a template naming two icon kinds was applied")
+	}
+}

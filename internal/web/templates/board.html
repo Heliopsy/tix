@@ -1,5 +1,5 @@
 {{define "content"}}
-<div class="headtip"><h1>{{if .Data.Project.Icon}}<span class="proj-icon" role="img" aria-label="{{.Data.Project.Name}}">{{.Data.Project.Icon}}</span> {{end}}{{t "%s board" .Data.Project.Name}}</h1>{{template "tip" (tip "Board" "Each column is one state of this project's workflow, in the workflow's order. Drag a card to another column, or use its Move control: only the moves the workflow allows are offered." "docs/workflows.md")}}</div>
+<div class="headtip"><h1>{{with projIcon .Data.Project false}}{{if .Any}}{{template "proj-icon" .}} {{end}}{{end}}{{t "%s board" .Data.Project.Name}}</h1>{{template "tip" (tip "Board" "Each column is one state of this project's workflow, in the workflow's order. Drag a card to another column, or use its Move control: only the moves the workflow allows are offered." "docs/workflows.md")}}</div>
 <p class="meta">{{t "Workflow %s" .Data.Workflow.Name}} &middot; <a href="/projects/{{.Data.Project.Key}}/fields">{{t "Field definitions"}}</a> &middot; <a href="/workflows/{{.Data.Workflow.Key}}">{{t "Workflow editor"}}</a></p>
 {{/* A screen reader user learns a drag-and-drop move happened here, since
      nothing else on the page narrates it: the move itself patches the DOM in
@@ -11,7 +11,7 @@
 <details class="panel">
   <summary>{{t "Project settings"}}</summary>
   <div class="body">
-    <form method="post" action="/projects/{{.Data.Project.Key}}/update">
+    <form method="post" action="/projects/{{.Data.Project.Key}}/update" enctype="multipart/form-data">
       {{template "csrf" .CSRF}}
       <div class="row">
         <div><label for="name">{{t "Name"}}</label><input id="name" name="name" value="{{.Data.Project.Name}}" required></div>
@@ -32,16 +32,8 @@
             {{range .Data.Colors}}<option value="{{.}}" {{if eq . $current}}selected{{end}}>{{.}}</option>{{end}}
           </select>
         </div>
-        <div>
-          <label for="icon">{{t "Icon"}}</label>
-          <input id="icon" name="icon" maxlength="2" value="{{.Data.Project.Icon}}" placeholder="{{t "an emoji, or one or two letters"}}" list="icon-suggestions">
-          <datalist id="icon-suggestions">
-            <option value="&#128230;"><option value="&#128640;"><option value="&#128736;">
-            <option value="&#128202;"><option value="&#127968;"><option value="&#128421;">
-            <option value="&#128272;"><option value="&#127760;"><option value="&#11088;">
-          </datalist>
-        </div>
       </div>
+      {{template "icon-picker" .Data.Picker}}
       <label for="description">{{t "Description"}}</label>
       <textarea id="description" name="description">{{.Data.Project.Description}}</textarea>
       <div class="actions"><button type="submit">{{t "Save project"}}</button></div>

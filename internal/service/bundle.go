@@ -235,7 +235,7 @@ func exportTemplates(ctx context.Context, tx store.Tx, projects []core.Project) 
 	for _, p := range projects {
 		tpl := &bundle.Project{
 			Key: p.Key, Name: p.Name, Description: p.Description,
-			Color: p.Color, Icon: p.Icon,
+			Color: p.Color, Icon: p.Icon, IconName: p.IconName,
 		}
 		wf, err := tx.GetWorkflowByID(ctx, p.WorkflowID)
 		if err != nil {
@@ -726,11 +726,14 @@ func (i *bundleImport) applyProject(ctx context.Context, tx store.Tx, m *mutatio
 	}
 	project := &core.Project{
 		Key: target, Name: bundleLabel(p.Name, target), Description: p.Description,
-		WorkflowID: workflowID, Color: p.Color, Icon: p.Icon,
+		WorkflowID: workflowID, Color: p.Color, Icon: p.Icon, IconName: p.IconName,
 	}
 	if action == core.ActionUpdated {
 		project.ID = existing.ID
 		project.CreatedAt = existing.CreatedAt
+		if err := carryIconImage(ctx, tx, existing, project); err != nil {
+			return err
+		}
 		err = tx.UpdateProject(ctx, project)
 	} else {
 		err = tx.CreateProject(ctx, project)

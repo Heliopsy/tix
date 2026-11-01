@@ -314,10 +314,23 @@ func (p Painter) taskRow(t core.Task) table.Row {
 	}
 }
 
+// projectIconCell is a project's icon as a table cell: a text icon as it is, a
+// built-in one as its fallback glyph and name, an image as a mark and a word.
+func projectIconCell(p core.Project) string {
+	switch p.IconKind() {
+	case core.IconKindBuiltin:
+		return p.IconText() + " " + p.IconName
+	case core.IconKindImage:
+		return p.IconText() + " image"
+	default:
+		return p.Icon
+	}
+}
+
 func (p Painter) projectRow(project core.Project) table.Row {
 	return table.Row{
 		project.Key, truncate(project.Name, 40), project.WorkflowID,
-		p.Swatch(project.Color), project.Icon,
+		p.Swatch(project.Color), projectIconCell(project),
 		yesNo(project.Archived()), p.style.Format(project.CreatedAt), p.style.Format(project.UpdatedAt),
 	}
 }

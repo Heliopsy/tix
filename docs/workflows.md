@@ -192,6 +192,20 @@ tix project edit rv --color "" --icon ""        # clear both
 renders with those columns empty. They travel with `tix export`/`tix import` and with a project template in a
 bundle.
 
+The icon can also be a built-in symbol or an uploaded image:
+
+```sh
+tix project edit rv --icon-name rocket          # one of the built-in symbols, listed in --help
+tix project edit rv --icon-file logo.svg        # PNG, JPEG, WebP or SVG, at most 64 KiB
+tix project icon rv --out copy.svg              # save the uploaded image again
+```
+
+A project carries one kind at a time: setting one replaces the other, naming two is exit 2, and any of the
+three flags given empty clears the icon. Where a terminal cannot draw them, a built-in symbol shows as a
+fallback glyph and its name, and an image as `▣ image`. A built-in icon travels in snapshots and bundles; an
+uploaded image does not, and an import that updates a project keeps the image it has unless the record names
+another icon.
+
 The `COLOR` column is drawn as a swatch in the project's own colour when the output is a terminal, and as the
 bare colour name otherwise.
 

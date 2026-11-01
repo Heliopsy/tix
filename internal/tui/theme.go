@@ -349,7 +349,7 @@ func SelectionMarker(selected bool) string {
 // ProjectGlyph renders a project's icon, falling back to a neutral marker so
 // every row in the list starts at the same column.
 func ProjectGlyph(p core.Project) string {
-	if icon := strings.TrimSpace(p.Icon); icon != "" {
+	if icon := strings.TrimSpace(p.IconText()); icon != "" {
 		return icon
 	}
 	return "•"

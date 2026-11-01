@@ -725,6 +725,18 @@ rather than by a client-side library. Every form here is a plain form: a sign-in
 would be a sign-in some readers could not complete, and a script that drew the code would need the
 enrolment secret handed to it.
 
+## Project icons
+
+The new-project form and a project's settings carry an icon picker. Emoji takes one emoji or one or two
+letters, Icon offers a grid of built-in symbols drawn in the same style as the navigation, Upload takes a PNG,
+JPEG, WebP or SVG of up to 64 KB, and No icon removes it. The preview beside the choice shows what the project
+will carry; saving the form with Upload chosen and no new file keeps the image already there.
+
+An uploaded image is drawn through `<img>`, where an SVG runs no script and fetches nothing, and an SVG that
+carries script is refused on upload anyway. It is served from `/projects/{key}/icon` with its own content
+type, `nosniff`, a sandboxing content security policy and an ETag; the screens address it with the image's
+digest, so a browser keeps it until the image changes.
+
 ## Static assets
 
 The stylesheet, the scripts and the icon are compiled into the binary and served from memory with a

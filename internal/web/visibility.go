@@ -82,6 +82,9 @@ type projectChoice struct {
 	Color core.ProjectColor
 	Icon  string
 	Shown bool
+
+	IconName  string
+	IconImage string
 }
 
 // projectChoices pairs every project with whether the task list shows it.
@@ -89,7 +92,7 @@ func projectChoices(projects []core.Project, hidden map[string]bool) []projectCh
 	out := make([]projectChoice, 0, len(projects))
 	for _, p := range projects {
 		out = append(out, projectChoice{Key: p.Key, Name: p.Name, Color: p.Color,
-			Icon: p.Icon, Shown: !hidden[p.Key]})
+			Icon: p.Icon, IconName: p.IconName, IconImage: p.IconImage, Shown: !hidden[p.Key]})
 	}
 	return out
 }

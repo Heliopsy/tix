@@ -33,12 +33,14 @@ var Bound = []Surface{SurfaceCLI, SurfaceHTTP, SurfaceWeb, SurfaceTUI}
 // Route is one HTTP or browser route. Template is set only for a browser
 // screen that renders one. Query names the query parameter that picks this
 // operation when one pattern serves several: without it two operations can sit
-// at one address and a reader has no way to reach the second.
+// at one address and a reader has no way to reach the second. Asset marks a
+// browser GET answering with a file a screen embeds rather than a screen.
 type Route struct {
 	Method   string
 	Pattern  string
 	Template string
 	Query    string
+	Asset    bool
 }
 
 // Zero reports whether the route names nothing.

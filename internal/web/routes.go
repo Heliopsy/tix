@@ -5,12 +5,15 @@ package web
 import "net/http"
 
 // Binding records one browser route, the service operation it exposes and the
-// template it renders. It is the web half of the operation registry.
+// template it renders. It is the web half of the operation registry. Asset
+// marks a GET answering with a file rather than a screen, which renders no
+// template.
 type Binding struct {
 	Method   string
 	Pattern  string
 	Services []string
 	Template string
+	Asset    bool
 }
 
 // Exemption records an operation deliberately absent from the browser
@@ -85,6 +88,12 @@ func get(pattern, tmpl string, fn func(http.ResponseWriter, *http.Request) error
 		Services: services, Template: tmpl}, fn: fn}
 }
 
+// getFile builds a route answering with a file a screen embeds.
+func getFile(pattern string, fn func(http.ResponseWriter, *http.Request) error, services ...string) route {
+	return route{Binding: Binding{Method: http.MethodGet, Pattern: pattern,
+		Services: services, Asset: true}, fn: fn}
+}
+
 // post builds a route performing a mutation.
 func post(pattern string, fn func(http.ResponseWriter, *http.Request) error, services ...string) route {
 	return route{Binding: Binding{Method: http.MethodPost, Pattern: pattern,
@@ -126,6 +135,7 @@ const (
 	RouteProjectEdit  = "/projects/{key}/update"
 	RouteProjectArch  = "/projects/{key}/archive"
 	RouteProjectDel   = "/projects/{key}/delete"
+	RouteProjectIcon  = "/projects/{key}/icon"
 	RouteBoardMove    = "/projects/{key}/move"
 	RouteBoardLive    = "/projects/{key}/live"
 	RouteFields       = "/projects/{key}/fields"

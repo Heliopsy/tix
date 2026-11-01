@@ -50,6 +50,7 @@ const (
 
 	RouteProjects      = APIPrefix + "/projects"
 	RouteProject       = APIPrefix + "/projects/{ref}"
+	RouteProjectIcon   = APIPrefix + "/projects/{ref}/icon"
 	RouteProjectFields = APIPrefix + "/projects/{ref}/fields"
 	RouteProjectField  = APIPrefix + "/projects/{ref}/fields/{key}"
 
@@ -110,6 +111,13 @@ const (
 	ContentJSON   = "application/json"
 	ContentNDJSON = "application/x-ndjson"
 )
+
+// IconPolicy is the content security policy a project icon image is served
+// under, so an SVG opened on its own runs no script and loads nothing.
+const IconPolicy = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+
+// IconETag is the strong entity tag of a project icon image.
+func IconETag(digest string) string { return `"` + digest + `"` }
 
 // Header names.
 const (

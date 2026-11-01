@@ -81,6 +81,7 @@ type Project struct {
 	Description string            `json:"description,omitempty"`
 	Color       core.ProjectColor `json:"color,omitempty"`
 	Icon        string            `json:"icon,omitempty"`
+	IconName    string            `json:"icon_name,omitempty"`
 	Workflow    *Workflow         `json:"workflow,omitempty"`
 	Fields      []Field           `json:"fields,omitempty"`
 	Tags        []Tag             `json:"tags,omitempty"`
@@ -205,7 +206,7 @@ func (p Project) validate() error {
 	if !p.Color.Valid() {
 		return core.Invalid("project template %q carries colour %q, which is not in the palette", p.Key, p.Color)
 	}
-	if _, err := core.NormalizeProjectIcon(p.Icon); err != nil {
+	if err := core.ValidateProjectIconChoice(p.Icon, p.IconName, nil); err != nil {
 		return core.Invalid("project template %q carries an invalid icon: %s", p.Key, message(err))
 	}
 	if p.Workflow != nil {

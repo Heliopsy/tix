@@ -4,6 +4,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/wire"
@@ -16,6 +17,7 @@ func (rt *Router) registerProjectRoutes() {
 	rt.mux.HandleFunc("GET "+wire.RouteProject, rt.handleGetProject)
 	rt.mux.HandleFunc("PATCH "+wire.RouteProject, rt.handleUpdateProject)
 	rt.mux.HandleFunc("DELETE "+wire.RouteProject, rt.handleDeleteProject)
+	rt.mux.HandleFunc("GET "+wire.RouteProjectIcon, rt.handleGetProjectIcon)
 
 	rt.mux.HandleFunc("GET "+wire.RouteProjectFields, rt.handleListFieldDefs)
 	rt.mux.HandleFunc("PUT "+wire.RouteProjectFields, rt.handlePutFieldDef)
@@ -70,6 +72,30 @@ func (rt *Router) handleGetProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, http.StatusOK, project)
+}
+
+// handleGetProjectIcon answers with a project's uploaded icon image, as the
+// image itself rather than JSON, so it can be saved or drawn directly.
+func (rt *Router) handleGetProjectIcon(w http.ResponseWriter, r *http.Request) {
+	img, err := rt.cfg.Service.GetProjectIcon(r.Context(), r.PathValue("ref"))
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	etag := wire.IconETag(img.Digest)
+	h := w.Header()
+	h.Set("ETag", etag)
+	h.Set("Cache-Control", "private, no-cache")
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("Content-Security-Policy", wire.IconPolicy)
+	if r.Header.Get("If-None-Match") == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	h.Set(wire.HeaderContentType, img.ContentType)
+	h.Set("Content-Length", strconv.Itoa(len(img.Data)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(img.Data) // #nosec G705 -- a checked image, served nosniff under a sandboxing CSP
 }
 
 // handleUpdateProject changes one project.

@@ -90,6 +90,9 @@ type CreateProjectInput struct {
 	WorkflowKey string `json:"workflow_key,omitempty" yaml:"workflow_key,omitempty"`
 	Color       string `json:"color,omitempty" yaml:"color,omitempty"`
 	Icon        string `json:"icon,omitempty" yaml:"icon,omitempty"`
+	IconName    string `json:"icon_name,omitempty" yaml:"icon_name,omitempty"`
+
+	IconFile *ProjectIconFile `json:"icon_file,omitempty" yaml:"icon_file,omitempty"`
 }
 
 // Validate checks the input.
@@ -103,20 +106,38 @@ func (in CreateProjectInput) Validate() error {
 	if _, err := NormalizeProjectColor(in.Color); err != nil {
 		return err
 	}
-	if _, err := NormalizeProjectIcon(in.Icon); err != nil {
-		return err
-	}
-	return nil
+	return ValidateProjectIconChoice(in.Icon, in.IconName, in.IconFile)
 }
 
-// UpdateProjectInput changes a project. A pointer to an empty colour or icon
-// clears it.
+// UpdateProjectInput changes a project. A pointer to an empty colour clears
+// it. Naming any icon field replaces the whole icon with that kind, and an
+// empty one clears it.
 type UpdateProjectInput struct {
 	Name        *string `json:"name,omitempty" yaml:"name,omitempty"`
 	Description *string `json:"description,omitempty" yaml:"description,omitempty"`
 	WorkflowKey *string `json:"workflow_key,omitempty" yaml:"workflow_key,omitempty"`
 	Color       *string `json:"color,omitempty" yaml:"color,omitempty"`
 	Icon        *string `json:"icon,omitempty" yaml:"icon,omitempty"`
+	IconName    *string `json:"icon_name,omitempty" yaml:"icon_name,omitempty"`
+
+	IconFile *ProjectIconFile `json:"icon_file,omitempty" yaml:"icon_file,omitempty"`
+}
+
+// IconChanged reports whether the update names the project's icon at all.
+func (in UpdateProjectInput) IconChanged() bool {
+	return in.Icon != nil || in.IconName != nil || in.IconFile != nil
+}
+
+// ValidateIcon checks the icon fields the update names.
+func (in UpdateProjectInput) ValidateIcon() error {
+	return ValidateProjectIconChoice(deref(in.Icon), deref(in.IconName), in.IconFile)
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 // FieldDefInput defines or redefines a custom field.

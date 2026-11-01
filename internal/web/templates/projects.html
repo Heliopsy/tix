@@ -14,7 +14,7 @@
   {{range .Data.Projects}}
   <li class="projrow{{if .Color}} proj-{{.Color}}{{end}}{{if .Archived}} is-archived{{end}}">
     <a class="projrow-main" href="/projects/{{.Key}}">
-      <span class="projrow-mark" aria-hidden="true">{{if .Icon}}{{.Icon}}{{else}}{{slice .Key 0 1}}{{end}}</span>
+      <span class="projrow-mark" aria-hidden="true">{{$mark := projIcon . true}}{{if $mark.Any}}{{template "proj-icon" $mark}}{{else}}{{slice .Key 0 1}}{{end}}</span>
       <span class="projrow-text">
         <span class="projrow-title">{{.Name}}<span class="projrow-key mono">{{.Key}}</span>{{if .Archived}}<span class="pill status cancelled">{{t "archived"}}</span>{{end}}</span>
         {{if .Description}}<span class="projrow-desc">{{.Description}}</span>{{end}}
@@ -37,7 +37,7 @@
 <details class="panel addmore">
   <summary>{{t "New project"}}</summary>
   <div class="body">
-<form method="post" action="/projects">
+<form method="post" action="/projects" enctype="multipart/form-data">
   {{template "csrf" .CSRF}}
   <div class="row">
     <div><label for="key">{{t "Key"}}</label>{{template "tip" (tip "Key" "A short code for the project, such as infra. Every task reference starts with it, as in infra-5.")}}<input id="key" name="key" required></div>
@@ -57,11 +57,8 @@
         {{range .Data.Colors}}<option value="{{.}}">{{.}}</option>{{end}}
       </select>
     </div>
-    <div>
-      <label for="icon">{{t "Icon"}}</label>
-      <input id="icon" name="icon" maxlength="2" placeholder="{{t "an emoji, or one or two letters"}}">
-    </div>
   </div>
+  {{template "icon-picker" .Data.Picker}}
   <label for="description">{{t "Description"}}</label>
   <textarea id="description" name="description"></textarea>
   <div class="actions"><button type="submit">{{t "Create project"}}</button></div>

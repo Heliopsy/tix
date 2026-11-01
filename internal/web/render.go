@@ -238,6 +238,7 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"categoryClass":   categoryClass,
 		"tokenState":      tokenState,
 		"savedNext":       savedNext,
+		"projIcon":        markOf,
 	}
 }
 

@@ -22,7 +22,7 @@ render into the same frame and recognising the body was the only way to tell whe
 <!-- Rows asserted against the view list by TestDocsViewsTableListsEveryView in internal/tui. -->
 | View | Opened by | Shows |
 | --- | --- | --- |
-| projects | `W`, and every session starts here | every project this tenant has, with its colour and icon |
+| projects | `W`, and every session starts here | every project this tenant has, with its colour and icon (a built-in or uploaded icon as a text stand-in) |
 | board | `enter` on a project | one project's tasks in columns, one column per workflow state |
 | project | `w` | one project's attributes, the workflow it runs on, and its custom field definitions |
 | detail | `enter` on a card | one task in full: body, custom fields, subtasks, dependencies, artifacts, comments |
@@ -619,7 +619,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 100
+a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 101
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:

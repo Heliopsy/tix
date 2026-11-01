@@ -2239,6 +2239,85 @@ li.task.is-accented, .feed > li.is-accented {
   line-height: 1;
 }
 
+/* A built-in icon is a sprite symbol in the project's colour, and an uploaded
+   one an image; both sit on the text's line at its size, like an emoji. */
+.proj-icon-svg, .proj-icon-img {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+}
+.proj-icon-svg { color: var(--proj, currentColor); }
+.proj-icon-img { object-fit: contain; border-radius: 3px; }
+.projrow-mark .proj-icon-svg, .projrow-mark .proj-icon-img { width: 20px; height: 20px; }
+
+/* The icon picker on the project forms. Each kind has a pane; the checked
+   radio in the segmented control shows its pane, with no script. A browser
+   without :has() shows every pane, which still submits correctly. */
+.iconpick { max-width: none; }
+.iconpick-legend { float: left; margin-right: 4px; }
+.iconpick-head {
+  clear: both;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-2) 0;
+}
+.iconpick-preview {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--proj, var(--muted)) 14%, transparent);
+  font-size: 22px;
+}
+.iconpick-preview .proj-icon-svg, .iconpick-preview .proj-icon-img { width: 24px; height: 24px; }
+.iconpick-kinds label.segment {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  gap: 0;
+}
+.iconpick-kinds label.segment input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.iconpick-kinds label.segment:has(input:checked) { background: var(--accent); color: var(--on-accent); }
+.iconpick-kinds label.segment:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -4px; }
+.iconpick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 6px;
+  max-width: 480px;
+}
+.iconpick-grid label.iconpick-cell {
+  display: grid;
+  place-items: center;
+  margin: 0;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  cursor: pointer;
+}
+.iconpick-grid label.iconpick-cell input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.iconpick-grid label.iconpick-cell:hover { border-color: var(--line-strong); }
+.iconpick-grid label.iconpick-cell:has(input:checked) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+.iconpick-grid label.iconpick-cell:has(input:focus-visible) { outline: 2px solid var(--accent); }
+@supports selector(:has(*)) {
+  .iconpick .iconpick-pane { display: none; }
+  .iconpick:has(input[name="icon_kind"][value="text"]:checked) .iconpick-pane[data-pane="text"],
+  .iconpick:has(input[name="icon_kind"][value="builtin"]:checked) .iconpick-pane[data-pane="builtin"],
+  .iconpick:has(input[name="icon_kind"][value="image"]:checked) .iconpick-pane[data-pane="image"],
+  .iconpick:has(input[name="icon_kind"][value="none"]:checked) .iconpick-pane[data-pane="none"] { display: block; }
+}
+
 .swatch {
   display: inline-block;
   width: 10px;

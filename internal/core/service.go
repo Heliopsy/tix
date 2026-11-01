@@ -59,6 +59,7 @@ type TenantService interface {
 type ProjectService interface {
 	CreateProject(ctx context.Context, in CreateProjectInput) (*Project, error)
 	GetProject(ctx context.Context, ref string) (*Project, error)
+	GetProjectIcon(ctx context.Context, ref string) (*ProjectIconImage, error)
 	ListProjects(ctx context.Context, f ProjectFilter) ([]Project, string, error)
 	UpdateProject(ctx context.Context, ref string, in UpdateProjectInput) (*Project, error)
 	ArchiveProject(ctx context.Context, ref string) error
