@@ -106,7 +106,7 @@ func (h *handler) createProject(w http.ResponseWriter, r *http.Request) error {
 		Name:        field(r, "name"),
 		Description: prose(r, "description"),
 		WorkflowKey: field(r, "workflow_key"),
-		Color:       field(r, "color"),
+		Color:       colourField(r, "color"),
 	}
 	choice, err := iconChoiceOf(r, false)
 	if err != nil {
@@ -131,7 +131,7 @@ func (h *handler) createProject(w http.ResponseWriter, r *http.Request) error {
 func (h *handler) updateProject(w http.ResponseWriter, r *http.Request) error {
 	key := r.PathValue("key")
 	name, description := field(r, "name"), prose(r, "description")
-	color := field(r, "color")
+	color := colourField(r, "color")
 	project, err := h.svc.GetProject(r.Context(), key)
 	if err != nil {
 		return err

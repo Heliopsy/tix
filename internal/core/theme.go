@@ -201,11 +201,39 @@ func (r *ThemeRegistry) Resolve(t *Tenant) Theme {
 		return r.Default()
 	}
 	if name := strings.TrimSpace(t.Theme); name != "" {
+		if custom, ok := CustomTheme(name); ok {
+			return custom
+		}
 		if found, ok := r.Lookup(name); ok {
 			return found
 		}
 	}
 	return r.Default()
+}
+
+// darkPage is the dark scheme's page colour, which a custom accent has to read
+// on. It mirrors --bg in the web stylesheet's dark scheme.
+var darkPage = RGB{0x14, 0x17, 0x1b}
+
+// AccentFloor is the contrast a derived accent reaches against its page.
+const AccentFloor = 4.5
+
+// CustomTheme derives a whole theme from one #rrggbb accent: the accent moved
+// just far enough to read on white for the light scheme and on the dark page
+// for the dark ones, each over a soft tint of itself.
+func CustomTheme(accent string) (Theme, bool) {
+	hex, ok := normalizeHex(accent)
+	if !ok {
+		return Theme{}, false
+	}
+	c, _ := ParseHex(hex)
+	white := RGB{255, 255, 255}
+	light := Readable(c, AccentFloor, white)
+	dark := Readable(c, AccentFloor, darkPage)
+	return Theme{
+		Name: hex, Accent: light.Hex(), AccentSoft: white.Mix(light, 0.1).Hex(),
+		AccentDark: dark.Hex(), AccentSoftDark: darkPage.Mix(dark, 0.22).Hex(),
+	}, true
 }
 
 // ThemeNames lists the built-in theme names, for shell completion.

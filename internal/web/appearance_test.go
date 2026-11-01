@@ -79,7 +79,7 @@ func TestProjectScreenSetsAndClearsTheAppearance(t *testing.T) {
 	}
 
 	board := b.page("/projects/ops")
-	if !strings.Contains(board, `value="teal" selected`) {
+	if !strings.Contains(board, `value="teal" checked`) {
 		t.Errorf("the project form does not preselect the saved colour:\n%s", board)
 	}
 	if !strings.Contains(board, `value="\U0001F9EA"`) && !strings.Contains(board, "\U0001F9EA") {
@@ -92,7 +92,7 @@ func TestProjectScreenSetsAndClearsTheAppearance(t *testing.T) {
 		t.Fatalf("clearing = %d, want 303: %s", resp.StatusCode, body(t, resp))
 	}
 	cleared := b.page("/projects")
-	if strings.Contains(cleared, "proj-teal") || strings.Contains(cleared, "\U0001F9EA") {
+	if strings.Contains(cleared, `class="projrow proj-teal"`) || strings.Contains(cleared, "\U0001F9EA") {
 		t.Errorf("the cleared project still shows its appearance:\n%s", cleared)
 	}
 }
@@ -104,13 +104,13 @@ func TestProjectScreenRefusesAColourOutsideThePalette(t *testing.T) {
 	b := f.as("alice")
 
 	resp := b.post("/projects/infra/update", url.Values{
-		"name": {"INFRA"}, "color": {"#ff00ff"}, "icon": {""},
+		"name": {"INFRA"}, "color": {"#custom"}, "color_custom": {"#ff00f"}, "icon": {""},
 	})
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != core.KindInvalid.HTTPStatus() {
 		t.Fatalf("invalid colour = %d, want %d", resp.StatusCode, core.KindInvalid.HTTPStatus())
 	}
-	if page := b.page("/projects"); strings.Contains(page, "#ff00ff") {
+	if page := b.page("/projects"); strings.Contains(page, "#ff00f") {
 		t.Errorf("the refused colour reached a page:\n%s", page)
 	}
 }
@@ -130,5 +130,97 @@ func TestTheDarkSchemeGetsTheThemesOwnDarkAccent(t *testing.T) {
 	}
 	if light == dark {
 		t.Errorf("the dark scheme is given the light accent %q, which is what it exists to replace", dark)
+	}
+}
+
+// colourFieldOf is the colour control posting name, and nothing around it.
+func colourFieldOf(t *testing.T, page, name string) string {
+	t.Helper()
+	field := between(t, page, `aria-labelledby="`+name+`-label" data-colour-field>`, "</div>")
+	if field == "" {
+		t.Fatalf("the page has no colour field for %q:\n%s", name, page)
+	}
+	return field
+}
+
+// Both project forms offer the palette, none, and a custom colour through
+// the same control.
+func TestProjectFormsOfferThePaletteAndACustomColour(t *testing.T) {
+	t.Parallel()
+	b := newFixture(t).as("alice")
+	for _, path := range []string{"/projects", "/projects/infra"} {
+		field := colourFieldOf(t, b.page(path), "color")
+		for _, c := range core.ProjectColors() {
+			if !strings.Contains(field, `value="`+string(c)+`"`) {
+				t.Errorf("%s: the colour field does not offer %s", path, c)
+			}
+		}
+		for _, want := range []string{`name="color" value=""`, `name="color" value="#custom"`,
+			`type="color"`, `name="color_custom"`, "data-colour-preview"} {
+			if !strings.Contains(field, want) {
+				t.Errorf("%s: the colour field has no %s:\n%s", path, want, field)
+			}
+		}
+	}
+}
+
+// A custom colour chosen in the browser is saved, shown as the current
+// choice, and draws the project's rows, board cards and list entry.
+func TestACustomColourIsSavedFromTheBrowserAndDrawn(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+
+	resp := b.post("/projects/infra/update", url.Values{
+		"name": {"INFRA"}, "color": {"#custom"}, "color_custom": {"#1A7F5A"}, "icon": {""},
+	})
+	wantStatus(t, resp, http.StatusSeeOther)
+	wantStatus(t, b.post("/tasks", url.Values{"title": {"tinted"}, "project_ref": {"infra"}}), http.StatusSeeOther)
+
+	field := colourFieldOf(t, b.page("/projects/infra"), "color")
+	for _, want := range []string{`value="#custom" checked`, `value="#1a7f5a" placeholder`, `type="color" value="#1a7f5a"`} {
+		if !strings.Contains(field, want) {
+			t.Errorf("the settings form does not show the saved custom colour as %s:\n%s", want, field)
+		}
+	}
+	if strings.Contains(field, `checked><span class="colourswatch" style`) {
+		t.Errorf("a palette swatch is checked as well as custom:\n%s", field)
+	}
+
+	style := `style="--proj-l: #1a7f5a; --proj-m: `
+	row := between(t, b.page("/tasks"), `<li id="t-`, ">")
+	if !strings.Contains(row, "is-accented proj-custom") || !strings.Contains(row, style) {
+		t.Errorf("the task row is not drawn in the custom colour: %s", row)
+	}
+	list := between(t, b.page("/projects"), `<li class="projrow`, ">")
+	if !strings.Contains(list, "proj-custom") || !strings.Contains(list, style) {
+		t.Errorf("the project list entry is not drawn in the custom colour: %s", list)
+	}
+	card := between(t, b.page("/projects/infra"), `<article class="card`, ">")
+	if !strings.Contains(card, "proj-custom") || !strings.Contains(card, style) {
+		t.Errorf("the board card is not drawn in the custom colour: %s", card)
+	}
+}
+
+// The tenant theme is chosen with the same control, and a custom accent
+// saved there becomes the page's accent.
+func TestTheTenantThemeTakesACustomAccent(t *testing.T) {
+	t.Parallel()
+	b := newFixture(t).as("alice")
+	field := colourFieldOf(t, b.page("/admin/tenant"), "theme")
+	for _, want := range []string{`value="ocean"`, `name="theme" value=""`, `name="theme" value="#custom"`, `name="theme_custom"`} {
+		if !strings.Contains(field, want) {
+			t.Errorf("the theme field has no %s:\n%s", want, field)
+		}
+	}
+
+	resp := b.post("/admin/tenant", url.Values{"name": {"Acme"}, "theme": {"#custom"}, "theme_custom": {"#7a3ef0"}})
+	wantStatus(t, resp, http.StatusSeeOther)
+	page := b.page("/admin/tenant")
+	if got := between(t, page, "\n:root { --accent: ", ";"); got != "#7a3ef0" {
+		t.Errorf("the page accent is %q, want the custom %q", got, "#7a3ef0")
+	}
+	if !strings.Contains(colourFieldOf(t, page, "theme"), `value="#custom" checked`) {
+		t.Error("the tenant form does not show the custom accent as chosen")
 	}
 }

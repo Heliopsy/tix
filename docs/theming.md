@@ -30,11 +30,17 @@ browser's palette anyway. What a tenant actually wants to set is the accent.
 ```sh
 tix theme ls                          # what resolves, built in and configured
 tix tenant edit acme --theme ocean     # name it
+tix tenant edit acme --theme '#7a3ef0' # a custom accent
 tix tenant edit acme --theme ""        # back to the default
 ```
 
 The name must resolve when you set it. A typo is refused at that moment, because that is when you can fix
 it.
+
+A custom accent is `#rrggbb` in place of a name. Nothing needs configuring: the light accent is the colour
+moved just far enough to reach 4.5:1 on white, the dark accent the same against the dark page, and the two
+soft tints are drawn from those. In the browser the tenant screen offers the themes as swatches next to a
+colour picker for a custom accent.
 
 ## The built-in themes
 

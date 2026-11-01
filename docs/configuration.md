@@ -409,8 +409,8 @@ These apply to every command:
 The seven `--log-*` flags are the flag layer of the `log.*` keys, so they apply to every command for the same
 reason the keys do, and only a command that builds a logger acts on them. See [Logging](#logging).
 
-`tix project create` and `tix project edit` take their own `--color`, which names a palette colour for the
-project and shadows the global flag on those two commands.
+`tix project create` and `tix project edit` take their own `--color`, which names a palette colour or a custom
+`#rrggbb` for the project and shadows the global flag on those two commands.
 
 ## The configuration file
 

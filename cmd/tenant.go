@@ -172,7 +172,9 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			"requires a second factor.\n\n" +
 			"The theme is the accent every surface renders: the browser and the terminal\n" +
 			"interface both read it. --theme \"\" clears it, which returns the tenant to the\n" +
-			"colour derived from its own identity. `tix theme ls` lists what resolves.\n\n" +
+			"colour derived from its own identity. `tix theme ls` lists what resolves.\n" +
+			"A custom accent is given as #rrggbb in place of a name; its tint and its\n" +
+			"shade for the dark schemes are derived from it.\n\n" +
 			"The three --require-totp flags are independent, so a tenant can require a code\n" +
 			"in the browser and leave the SSH board on keys alone. Turning one on does not\n" +
 			"lock anybody out: a user subject to it who holds no enrolment is taken through\n" +
@@ -187,6 +189,7 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			"Exit codes: 3 unknown tenant or unknown theme; 6 no second factor key.",
 		Example: "  tix tenant edit acme --name \"Acme Limited\"\n" +
 			"  tix tenant edit acme --theme ocean\n" +
+			"  tix tenant edit acme --theme '#7a3ef0'\n" +
 			"  tix tenant edit acme --theme \"\"\n" +
 			"  tix tenant edit acme --require-totp-web\n" +
 			"  tix tenant edit acme --require-totp-ssh=false\n" +
@@ -260,7 +263,7 @@ func tenantEditCmd(g *globals) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "new name")
-	cmd.Flags().StringVar(&theme, "theme", "", "theme name, or \"\" to use the default theme")
+	cmd.Flags().StringVar(&theme, "theme", "", "theme name or custom #rrggbb accent, or \"\" to use the default theme")
 	cmd.Flags().BoolVar(&totpWeb, "require-totp-web", false, "require a second factor to sign in to the browser interface")
 	cmd.Flags().BoolVar(&totpCLI, "require-totp-cli", false, "require a second factor for tix login")
 	cmd.Flags().BoolVar(&totpSSH, "require-totp-ssh", false, "require a second factor to open the terminal interface over ssh")

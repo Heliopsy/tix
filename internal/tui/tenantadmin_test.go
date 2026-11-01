@@ -531,3 +531,34 @@ func TestTheAddFormOffersOnlyWhatTheReaderMayAdd(t *testing.T) {
 		})
 	}
 }
+
+// Custom asks for a #rrggbb accent at the prompt, and the answer is the theme
+// sent.
+func TestTheTenantEditAsksForACustomAccent(t *testing.T) {
+	m, svc := adminModel(t)
+	m, _ = m.reduce(pressKey("e"))
+	m, _ = m.reduce(pressKey("right"))
+	m, _ = m.reduce(pressKey("down"))
+	for range len(ThemeOptions()) {
+		if strings.Contains(formRow(t, m.Frame(), "edit tenant default", "theme"), customColour) {
+			break
+		}
+		m, _ = m.reduce(pressKey("right"))
+	}
+	if got := formRow(t, m.Frame(), "edit tenant default", "theme"); !strings.Contains(got, customColour) {
+		t.Fatalf("the theme row never offered custom: %q", got)
+	}
+	m, _ = m.reduce(pressKey("enter"))
+	if m.prompt != promptTenantAccent {
+		t.Fatalf("choosing custom opened prompt %v", m.prompt)
+	}
+	if len(svc.tenantsEdited) != 0 {
+		t.Fatalf("choosing custom sent %+v before an accent was given", svc.tenantsEdited)
+	}
+	m.input.SetValue("#7a3ef0")
+	m, cmd := m.reduce(pressKey("enter"))
+	runCmd(t, m, cmd)
+	if len(svc.tenantsEdited) != 1 || svc.tenantsEdited[0].Theme == nil || *svc.tenantsEdited[0].Theme != "#7a3ef0" {
+		t.Fatalf("the custom accent sent %+v", svc.tenantsEdited)
+	}
+}

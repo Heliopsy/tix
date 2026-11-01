@@ -187,7 +187,11 @@ tix project edit rv --color teal --icon RV
 tix project edit rv --color "" --icon ""        # clear both
 ```
 
-`--color` is one of `slate`, `red`, `amber`, `green`, `teal`, `blue`, `violet` or `pink`; anything else is exit 2.
+`--color` is one of `slate`, `red`, `amber`, `green`, `teal`, `blue`, `violet` or `pink`, or a custom colour as
+`#rrggbb` (quote it, the shell reads `#` as a comment); anything else is exit 2. The browser offers the same
+choices as swatches plus a colour picker. Each colour scheme draws a custom colour as close to it as stays
+readable on that scheme's background, and the CLI table draws it in truecolor when `COLORTERM` says so and as
+the nearest palette colour otherwise.
 `--icon` is one emoji or a monogram of at most two characters. Both are optional, and a project with neither
 renders with those columns empty. They travel with `tix export`/`tix import` and with a project template in a
 bundle.

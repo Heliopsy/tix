@@ -202,6 +202,13 @@ func TestProjectColourCoversThePalette(t *testing.T) {
 	if _, ok := ProjectColor(core.ColorNone); ok {
 		t.Fatal("the empty colour was given a style")
 	}
+	got, ok := ProjectColor("#1a7f5a")
+	if !ok {
+		t.Fatal("a custom colour has no terminal colour")
+	}
+	if r, g, b, _ := got.RGBA(); r>>8 != 0x1a || g>>8 != 0x7f || b>>8 != 0x5a {
+		t.Errorf("a custom colour is drawn as %v, not as itself", got)
+	}
 }
 
 func TestPriorityLabelNamesEveryPriority(t *testing.T) {

@@ -508,6 +508,16 @@ event streams and SSH sessions this server holds, and ending one. `/admin/ssh-ke
 the public keys the SSH listener accepts, enrolled and revoked. [deployment.md](deployment.md) covers
 the listener and live connections.
 
+## Choosing a colour
+
+Every place the browser asks for a colour, a project's on the new project form and in its settings, and
+the tenant's accent on the tenant screen, uses one control: the predefined colours as swatches, none or the
+default where the colour is optional, and Custom, with a colour picker, a `#rrggbb` box and a preview. The
+box alone is enough with scripting off. A custom project colour is stored as `#rrggbb` in the same field a
+palette name is, and is drawn wherever a palette colour is, in a shade per colour scheme that clears 4.5:1
+on that scheme's page and surface, the same floor the palette is tuned to. A colour that already clears it
+is drawn exactly as chosen.
+
 ## Display preferences
 
 Every display preference under Settings is a property of the person reading, not of the tenant, so

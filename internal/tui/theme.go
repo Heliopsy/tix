@@ -305,8 +305,13 @@ var projectColors = map[core.ProjectColor]color.Color{
 	core.ColorPink:   lipgloss.Color("13"),
 }
 
-// ProjectColor returns the terminal colour a project's palette colour maps to.
+// ProjectColor returns the terminal colour a project's colour maps to. A
+// custom colour is handed over as itself, and the theme's profile brings it
+// down to whatever depth the terminal declared.
 func ProjectColor(c core.ProjectColor) (color.Color, bool) {
+	if c.IsCustom() {
+		return lipgloss.Color(c.String()), true
+	}
 	value, ok := projectColors[c]
 	return value, ok
 }

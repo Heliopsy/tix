@@ -50,7 +50,7 @@ Everything below is under `/api/v1`.
 | SSH keys | `/ssh-keys`, `/ssh-keys/{id}`; see [deployment.md](deployment.md#enrolling-a-key) |
 | Directory | `/actors`, `/actors/{id}` |
 | Tenancy | `/tenants`, `/tenants/{ref}`, `/members`, `/members/{actorID}`, `/domains`, `/domains/{hostname}` |
-| Projects | `/projects`, `/projects/{ref}`, `/projects/{ref}/fields`, `/projects/{ref}/fields/{key}` |
+| Projects | `/projects`, `/projects/{ref}`, `/projects/{ref}/icon`, `/projects/{ref}/fields`, `/projects/{ref}/fields/{key}` |
 | Workflows | `/workflows`, `/workflows/{key}` |
 | Tasks | `/tasks`, `/tasks/{ref}`, `/tasks/{ref}/transition`, `/tasks/{ref}/route`, `/tasks/{ref}/restore`, `/tasks/{ref}/tree` |
 | Task relations | `/tasks/{ref}/deps`, `/tasks/{ref}/deps/{dep}`, `/tasks/{ref}/tags`, `/tasks/{ref}/tags/{name}`, `/tasks/{ref}/star` |
@@ -81,8 +81,9 @@ $ curl -s -X POST -H "Authorization: Bearer $TIX_TOKEN" -H 'Content-Type: applic
  "color":"amber","icon":"A","created_at":"...","updated_at":"..."}
 ```
 
-`color` is one of `slate`, `red`, `amber`, `green`, `teal`, `blue`, `violet` or `pink`, and `icon` is one emoji
-or a monogram of at most two characters. Anything else is `400`. The CLI spellings are `--color` and `--icon` on
+`color` is one of `slate`, `red`, `amber`, `green`, `teal`, `blue`, `violet` or `pink`, or a custom colour as
+`#rrggbb`, which is stored and returned in lowercase. `icon` is one emoji or a monogram of at most two
+characters. Anything else is `400`. The CLI spellings are `--color` and `--icon` on
 `tix project create` and `tix project edit`; an empty string on either clears it.
 
 The icon can be one of two other kinds instead. `icon_name` picks a built-in symbol (`folder`, `briefcase`,

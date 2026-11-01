@@ -76,10 +76,59 @@
     return !(reduce && reduce.matches);
   };
 
+  // hexColour reads what someone typed into a colour field's hex box: six hex
+  // digits, with or without the #, in either case. Anything else is "", so a
+  // half-typed value never reaches the preview or the native picker.
+  tix.hexColour = function (text) {
+    var v = String(text == null ? "" : text).trim().toLowerCase();
+    if (v.charAt(0) !== "#") {
+      v = "#" + v;
+    }
+    return /^#[0-9a-f]{6}$/.test(v) ? v : "";
+  };
+
   if (!global.document || !global.document.addEventListener) {
     return;
   }
   var document = global.document;
+
+  // -- colour field --------------------------------------------------------------
+
+  // The native picker, the hex box and the preview of one colour field are
+  // kept in step, and touching either input chooses Custom. Without this the
+  // hex box alone still posts the colour.
+  function colourInput(event) {
+    var el = event.target;
+    var field = el && el.closest && el.closest("[data-colour-field]");
+    if (!field) {
+      return;
+    }
+    var picker = field.querySelector("[data-colour-picker]");
+    var hexBox = field.querySelector("[data-colour-hex]");
+    var hex = "";
+    if (el === picker) {
+      hex = tix.hexColour(picker.value);
+      if (hex && hexBox) {
+        hexBox.value = hex;
+      }
+    } else if (el === hexBox) {
+      hex = tix.hexColour(hexBox.value);
+      if (hex && picker) {
+        picker.value = hex;
+      }
+    } else {
+      return;
+    }
+    var custom = field.querySelector("[data-colour-custom]");
+    if (custom) {
+      custom.checked = true;
+    }
+    var preview = field.querySelector("[data-colour-preview]");
+    if (hex && preview) {
+      preview.style.setProperty("--sw", hex);
+    }
+  }
+  document.addEventListener("input", colourInput);
 
   function htmxReady() {
     return global.htmx && typeof global.htmx.process === "function";

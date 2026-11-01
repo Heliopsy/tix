@@ -15,7 +15,7 @@ import (
 // colorFlagUsage and iconFlagUsage describe the appearance flags once, so the
 // create and edit forms of them cannot drift apart.
 var (
-	colorFlagUsage = "palette colour marking the project's rows (" + projectColorList() + ")"
+	colorFlagUsage = "colour marking the project's rows: a palette colour (" + projectColorList() + ") or a custom #rrggbb"
 	iconFlagUsage  = "an emoji or a short monogram shown beside the project's rows"
 	iconNameUsage  = "a built-in icon shown beside the project's rows (" + builtinIconList() + ")"
 	iconFileUsage  = "path to a PNG, JPEG, WebP or SVG image of at most 64 KiB to use as the icon"
@@ -83,7 +83,8 @@ func projectCreateCmd(g *globals) *cobra.Command {
 		Short: "Create a project",
 		Long:  "Create a project with a key used in task references.\n\nExit codes: 2 invalid key, 4 key already exists.",
 		Example: "  tix project create infra Infrastructure\n  tix project create infra Infrastructure --color blue --icon \U0001F680\n" +
-			"  tix project create infra Infrastructure --icon-name server\n  tix project create web Web --icon-file logo.svg",
+			"  tix project create infra Infrastructure --icon-name server\n  tix project create web Web --icon-file logo.svg\n" +
+			"  tix project create web Website --color '#1a7f5a'",
 		Args: exactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			file, err := readIconFile(iconFile)
