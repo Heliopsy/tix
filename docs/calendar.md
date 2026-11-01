@@ -68,7 +68,7 @@ The server log records a feed request with the secret replaced by `[redacted]`.
 | Property | Value |
 | --- | --- |
 | `UID` | `task-<id>@tix`, stable for the life of the task, across renames, new dates and moves |
-| `SUMMARY` | `INFRA-12: the title`, with `✓ ` in front once the task is finished |
+| `SUMMARY` | `INFRA-12: the title`, with a check mark (✓) in front once the task is finished |
 | `DTSTART`, `DTEND` | the due date as an all-day `VALUE=DATE`, ending the next day |
 | `DESCRIPTION` | the reference, state and priority, and the task's address |
 | `URL` | the task's page |
