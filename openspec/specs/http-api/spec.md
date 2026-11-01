@@ -252,3 +252,75 @@ The API SHALL accept JSON request bodies and SHALL respond with JSON. A request 
 
 - **WHEN** any API route responds, including on error
 - **THEN** the response declares a JSON content type
+
+### Requirement: Star endpoints
+
+The API SHALL expose `PUT /api/v1/tasks/{ref}/star` to star a task and `DELETE /api/v1/tasks/{ref}/star`
+to unstar it, for the authenticated actor. Both SHALL answer `204 No Content` whether or not the
+state changed. A task read SHALL carry `"starred": true` when the reading actor has starred it and
+SHALL omit the field otherwise. The task list SHALL accept `starred=true` and `starred=false`.
+
+#### Scenario: Star over HTTP
+
+- **WHEN** a client sends `PUT /api/v1/tasks/OPS-1/star`
+- **THEN** the response is 204 and a following `GET /api/v1/tasks/OPS-1` carries `"starred": true`
+
+#### Scenario: Unstar over HTTP is idempotent
+
+- **WHEN** a client sends `DELETE /api/v1/tasks/OPS-1/star` for a task it has not starred
+- **THEN** the response is 204
+
+### Requirement: Recurrence on the task resource
+
+A task resource SHALL carry `recurrence`, the canonical rule, and `recurrence_next_id`, the successor's
+identifier, each omitted when empty. Task creation SHALL accept `recurrence`. A task update SHALL accept
+`recurrence`, where an empty string removes the rule and an absent key leaves it unchanged. A rule that does
+not parse SHALL be refused with the validation error envelope. `recurrence_next_id` SHALL NOT be accepted
+as input.
+
+#### Scenario: Create
+
+- **WHEN** a task is created with `"recurrence": "daily"`
+- **THEN** the response carries `"recurrence": "every day"`
+
+#### Scenario: Invalid rule
+
+- **WHEN** an update carries `"recurrence": "every blue moon"`
+- **THEN** the response is a 400 validation error and the task is unchanged
+
+### Requirement: Routes beyond the resource collections
+
+Besides the resource routes, the API SHALL serve these routes under `/api/v1`:
+
+- identity and sessions: `GET /whoami`, `POST /auth/login`, `POST /auth/logout`
+- the directory: `GET /actors`, `GET /actors/{id}`, and membership at `/members` and
+  `/members/{actorID}`
+- second factor: `GET`, `POST` and `DELETE /auth/totp`, `POST /auth/totp/confirm`,
+  `POST /auth/totp/verify`, `POST /auth/totp/recovery-codes`, and `DELETE /users/{id}/totp` for an
+  administrator clearing another user's enrolment
+- ssh keys: `/ssh-keys` and `/ssh-keys/{id}`
+- task movement and history: `POST /tasks/{ref}/route` for a multi-hop move, `POST
+  /tasks/{ref}/restore`, `GET /tasks/{ref}/tree`, `GET /tasks/{ref}/audit` and
+  `POST /tasks/{ref}/claim/reclaim`
+- retention: `GET` and `PUT /retention`, `POST /prune`
+- reports: `GET /stats` and `GET /status`
+- live connections: `GET /connections` and `DELETE /connections/{id}`
+
+Each SHALL answer with the standard error envelope on failure and SHALL be held to the same scopes
+as the CLI command bound to the same operation.
+
+#### Scenario: Restoring a deleted task over HTTP
+
+- **GIVEN** a soft-deleted task `infra-3`
+- **WHEN** a client holding `task:delete` sends `POST /api/v1/tasks/infra-3/restore`
+- **THEN** the task is listed again and the response carries it
+
+#### Scenario: A route without its scope
+
+- **WHEN** a client without `tenant:admin` sends `GET /api/v1/connections`
+- **THEN** the response is 403 in the standard error envelope
+
+#### Scenario: Every registry route is served
+
+- **WHEN** each HTTP binding in the capability registry is requested on the real server mux
+- **THEN** none answers 404 or 405

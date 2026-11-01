@@ -32,7 +32,7 @@
 - [x] guard: a freshly seeded and a re-seeded database both authenticate the reported credentials
 - [x] `internal/demo`: completions cluster into bursts and quiet stretches, uneven at 7, 14, 30 and 90 days
 - [x] `internal/demo`: an abandoned claim sits on urgent work, so it lands on the first page of the default sort
-- [ ] screenshots regenerate from the new seed
+- [x] screenshots regenerate from the new seed
 
 ## Durations
 
@@ -42,7 +42,7 @@
 - [x] the command line, the HTTP window, the configuration reader and both unmarshal paths share it
 - [x] `String` and `MarshalJSON` stay Go syntax, because snapshots round-trip through them
 - [x] guard: for a spread of magnitudes, parsing `Human` output and rendering it again is identical text
-- [ ] web: the retention fields read and show `30d` through `core.ParseDuration` and `Human`
+- [x] web: the retention fields read and show `30d` through `core.ParseDuration` and `Human`
 
 ## Honest output
 

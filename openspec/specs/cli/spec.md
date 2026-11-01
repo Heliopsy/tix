@@ -137,7 +137,7 @@ The CLI SHALL disable colour when `NO_COLOR` is set, when output is not a termin
 
 ### Requirement: Documented exit codes
 
-The CLI SHALL use exit code 0 for success, 1 for a generic error, 2 for a usage error, 3 for not found or no task available, 4 for conflict or lease expired, 5 for an authentication or authorization failure, and 6 for a failed precondition. These codes SHALL be documented in help output.
+The CLI SHALL use exit code 0 for success, 1 for a generic error, 2 for a usage error, 3 for not found or no task available, 4 for conflict or lease expired, 5 for an authentication or authorization failure, 6 for a failed precondition, and 7 when a system tix reads from, such as a sync source, could not be read. These codes SHALL be documented in help output.
 
 #### Scenario: Success
 
@@ -168,6 +168,11 @@ The CLI SHALL use exit code 0 for success, 1 for a generic error, 2 for a usage 
 
 - **WHEN** the actor is not permitted to perform the operation
 - **THEN** it exits 5
+
+#### Scenario: Upstream unreachable
+
+- **WHEN** a sync run cannot reach the system it imports from
+- **THEN** it exits 7
 
 ### Requirement: Exit codes derive from the service error taxonomy
 
@@ -209,7 +214,7 @@ Every command that mutates state SHALL accept `--dry-run`, which reports exactly
 
 ### Requirement: Command surface
 
-The CLI SHALL provide the command groups `task`, `project`, `workflow`, `field`, `claim`, `comment`, `dep`, `tag`, `user`, `token`, `ctx`, `config`, `tenant`, `watch`, `doctor`, `serve`, `tui`, `export`, `import`, `bundle`, `sync`, `webhook`, `prune`, `docs`, `completion`, and `version`.
+The CLI SHALL provide the top-level commands `actor`, `artifact`, `audit`, `bundle`, `claim`, `comment`, `completion`, `config`, `connection`, `ctx`, `demo`, `dep`, `docs`, `doctor`, `domain`, `export`, `field`, `import`, `login`, `logout`, `member`, `project`, `prune`, `retention`, `serve`, `ssh`, `stats`, `status`, `sync`, `tag`, `task`, `tenant`, `theme`, `token`, `tui`, `update`, `user`, `version`, `watch`, `webhook`, and `workflow`. The root help SHALL list exactly these, so a command added to the tree is added here.
 
 #### Scenario: Every group is reachable
 
@@ -603,3 +608,42 @@ it, a scannable code, and SHALL display the recovery codes exactly once.
 
 - **WHEN** an administrator clears another user's enrolment
 - **THEN** the command succeeds, and a user without the administrative scope attempting the same is refused
+
+### Requirement: Starring from the command line
+
+The CLI SHALL offer `tix task star <ref>` and `tix task unstar <ref>`. `tix task ls` SHALL mark a
+starred task in its table output, `tix task show` SHALL state whether the task is starred, and the
+structured output of both SHALL carry `starred: true` for a starred task. `tix task ls` SHALL
+accept `--starred` and `--starred=false`.
+
+#### Scenario: Star then list
+
+- **WHEN** `tix task star OPS-3` is run and then `tix task ls`
+- **THEN** OPS-3 is the first row and is marked starred
+
+#### Scenario: Structured output
+
+- **WHEN** `tix task show OPS-3 -o json` is run for a starred task
+- **THEN** the document carries `"starred": true`
+
+### Requirement: The command line sets, clears and shows a repeat rule
+
+`tix task add` SHALL accept `--repeat RULE`. `tix task edit` SHALL accept `--repeat RULE` to set or replace
+the rule and `--no-repeat` to remove it, and SHALL refuse both together as a usage error. `tix task show`
+SHALL state the rule and the successor's reference when there is one; the table listing SHALL mark a
+recurring task; JSON and YAML output SHALL carry `recurrence` and `recurrence_next_id`.
+
+#### Scenario: Add with a rule
+
+- **WHEN** `tix task add "Pay rent" --due 2026-11-01 --repeat monthly` is run
+- **THEN** the task is created carrying `every month`
+
+#### Scenario: Both flags
+
+- **WHEN** `tix task edit REF --repeat daily --no-repeat` is run
+- **THEN** it exits with a usage error and the task is unchanged
+
+#### Scenario: Show
+
+- **WHEN** `tix task show` is run on a finished occurrence that spawned
+- **THEN** the output states its rule and names the successor's reference

@@ -373,3 +373,33 @@ and afterwards, and SHALL be clearable by setting them to empty.
 - **WHEN** a project carrying a colour and an icon is exported as a bundle component and the bundle is applied
 - **THEN** the resulting project carries the same colour and the same icon, and a bundle naming a
   colour outside the palette or an over-long icon is rejected before anything is written
+
+### Requirement: Stars are tenant-owned rows keyed by actor and task
+
+A star SHALL be stored as a row of `task_stars` carrying `tenant_id`, `actor_id`, `task_id` and
+`created_at`, unique on the tenant, actor and task. The row SHALL be removed with its task and
+with its actor, and SHALL be subject to the same tenant scoping, and on PostgreSQL the same
+row-level isolation policy, as every other tenant-owned table.
+
+#### Scenario: One row per actor and task
+
+- **WHEN** one actor stars the same task twice
+- **THEN** exactly one star row exists for that actor and task
+
+#### Scenario: Stars are invisible across tenants
+
+- **GIVEN** a star in one tenant
+- **WHEN** a listing runs in another tenant
+- **THEN** the star is neither read nor able to affect the order
+
+### Requirement: Recurrence columns on tasks
+
+The tasks table SHALL carry `recurrence`, a non-null text column defaulting to the empty string, and
+`recurrence_next_id`, a nullable text column naming the successor. The successor column SHALL NOT be a
+foreign key, so that deleting the successor never clears the guard against a second spawn. Both SHALL be
+added by one forward-only migration applied identically on SQLite and PostgreSQL.
+
+#### Scenario: Upgrade
+
+- **WHEN** a database at the previous schema version is migrated
+- **THEN** every existing task carries an empty rule and no successor

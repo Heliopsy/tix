@@ -1,9 +1,36 @@
-## RENAMED Requirements
+## REMOVED Requirements
 
-- FROM: `### Requirement: A lane card offers a tick box only for one unambiguous completion`
-- TO: `### Requirement: A lane card's tick completes and reopens along its workflow`
+### Requirement: A lane card offers a tick box only for one unambiguous completion
+
+**Reason**: The tick now reopens a finished task and offers a menu or a panel where it used to
+withhold the box, so the requirement is replaced rather than amended.
+
+**Migration**: See "A lane card's tick completes and reopens along its workflow".
 
 ## MODIFIED Requirements
+
+### Requirement: Lanes stay current and fit the screen
+
+The lanes view SHALL refresh from the event stream through the same listing fragment as the list and
+the board, keeping the view, filter, sort, page and visibility choice. From 640px wide, lanes SHALL
+scroll sideways inside their own frame rather than scrolling the page. Below 640px each lane SHALL
+take most of the width of the screen, the lanes SHALL snap sideways one lane at a time, and each lane
+SHALL be its natural height so that the page, not the lane, scrolls vertically. On a coarse pointer
+the tick, status and priority controls of a lane card SHALL be at least 40px in both dimensions.
+
+#### Scenario: A refresh keeps the lanes
+
+- **GIVEN** a reader on the lanes view
+- **WHEN** the listing fragment is fetched for a live refresh
+- **THEN** it draws lanes holding the tasks on screen
+
+#### Scenario: A phone scrolls the page, not the lane
+
+- **GIVEN** a viewport 390px wide
+- **WHEN** the lanes are drawn
+- **THEN** a lane does not scroll vertically inside itself and the lanes snap sideways
+
+## ADDED Requirements
 
 ### Requirement: A lane card's tick completes and reopens along its workflow
 
@@ -67,29 +94,6 @@ card SHALL render ticked whichever control it offers.
 - **GIVEN** a reader who cannot transition tasks
 - **WHEN** the lane card is drawn
 - **THEN** no route is submitted by the tick and its panel says they cannot move tasks
-
-### Requirement: Lanes stay current and fit the screen
-
-The lanes view SHALL refresh from the event stream through the same listing fragment as the list and
-the board, keeping the view, filter, sort, page and visibility choice. From 640px wide, lanes SHALL
-scroll sideways inside their own frame rather than scrolling the page. Below 640px each lane SHALL
-take most of the width of the screen, the lanes SHALL snap sideways one lane at a time, and each lane
-SHALL be its natural height so that the page, not the lane, scrolls vertically. On a coarse pointer
-the tick, status and priority controls of a lane card SHALL be at least 40px in both dimensions.
-
-#### Scenario: A refresh keeps the lanes
-
-- **GIVEN** a reader on the lanes view
-- **WHEN** the listing fragment is fetched for a live refresh
-- **THEN** it draws lanes holding the tasks on screen
-
-#### Scenario: A phone scrolls the page, not the lane
-
-- **GIVEN** a viewport 390px wide
-- **WHEN** the lanes are drawn
-- **THEN** a lane does not scroll vertically inside itself and the lanes snap sideways
-
-## ADDED Requirements
 
 ### Requirement: A lane card's status and priority are menus
 
