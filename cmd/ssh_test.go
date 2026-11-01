@@ -3,12 +3,15 @@
 package cmd
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -83,36 +86,14 @@ func TestSSHRefusesANonLoopbackBindWithoutTheChoice(t *testing.T) {
 func TestSSHServesAndShutsDownOnASignal(t *testing.T) {
 	c := newCLI(t)
 	db := filepath.Join(t.TempDir(), "demo.db")
-	addr := freePort(t)
+	_, done := startSSH(t, c, "--db", db, "ssh", "--listen", "127.0.0.1:0")
 
-	done := make(chan result, 1)
-	go func() { done <- c.run("--db", db, "ssh", "--listen", addr) }()
-
-	deadline := time.Now().Add(30 * time.Second)
-	hostKey := filepath.Join(filepath.Dir(db), hostKeyName)
-	for {
-		if _, err := os.Stat(hostKey); err == nil {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the listener never wrote its host key")
-		}
-		time.Sleep(50 * time.Millisecond)
+	got := stopSSH(t, done)
+	if got.code != core.ExitOK {
+		t.Fatalf("ssh exited %d: %s", got.code, got.err)
 	}
-
-	if err := syscall.Kill(os.Getpid(), syscall.SIGINT); err != nil {
-		t.Fatalf("signalling: %v", err)
-	}
-	select {
-	case got := <-done:
-		if got.code != core.ExitOK {
-			t.Fatalf("ssh exited %d: %s", got.code, got.err)
-		}
-		if !strings.Contains(got.out, "listening on") {
-			t.Fatalf("stdout = %q, want the bound address", got.out)
-		}
-	case <-time.After(30 * time.Second):
-		t.Fatal("the listener did not shut down")
+	if _, err := os.Stat(filepath.Join(filepath.Dir(db), hostKeyName)); err != nil {
+		t.Fatalf("the listener served without its host key beside the database: %v", err)
 	}
 }
 
@@ -291,12 +272,8 @@ func TestTheHTTPTrustedProxyListDoesNotGrantSSHTrust(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := newCLI(t)
 			db := filepath.Join(t.TempDir(), "tix.db")
-			addr := freePort(t)
 			writeFile(t, filepath.Join(c.home, "conf", "tix", "config.yaml"), tc.config)
-
-			done := make(chan result, 1)
-			go func() { done <- c.run("--db", db, "ssh", "--listen", addr) }()
-			waitForHostKey(t, filepath.Join(filepath.Dir(db), hostKeyName))
+			addr, done := startSSH(t, c, "--db", db, "ssh", "--listen", "127.0.0.1:0")
 
 			// A plain SSH client sends no PROXY header. A listener that trusts
 			// this peer closes it before the version exchange; one that does
@@ -305,6 +282,8 @@ func TestTheHTTPTrustedProxyListDoesNotGrantSSHTrust(t *testing.T) {
 			switch {
 			case tc.refused && err == nil:
 				t.Error("the dial was served, so no proxy header was demanded of a listed peer")
+			case tc.refused && errors.Is(err, syscall.ECONNREFUSED):
+				t.Errorf("nothing was listening, so the refusal says nothing about proxy trust: %v", err)
 			case tc.refused && strings.Contains(err.Error(), "unable to authenticate"):
 				t.Errorf("the dial reached authentication, so no proxy header was demanded of a "+
 					"listed peer: %v", err)
@@ -313,35 +292,79 @@ func TestTheHTTPTrustedProxyListDoesNotGrantSSHTrust(t *testing.T) {
 					"server.trusted_proxies names: %v", err)
 			}
 
-			if err := syscall.Kill(os.Getpid(), syscall.SIGINT); err != nil {
-				t.Fatalf("signalling: %v", err)
-			}
-			select {
-			case got := <-done:
-				if got.code != core.ExitOK {
-					t.Fatalf("ssh exited %d: %s", got.code, got.err)
-				}
-			case <-time.After(30 * time.Second):
-				t.Fatal("the listener did not shut down")
+			if got := stopSSH(t, done); got.code != core.ExitOK {
+				t.Fatalf("ssh exited %d: %s", got.code, got.err)
 			}
 		})
 	}
 }
 
-// waitForHostKey blocks until the listener has written its host key, which it
-// does before it serves.
-func waitForHostKey(t *testing.T, path string) {
-	t.Helper()
-	deadline := time.Now().Add(30 * time.Second)
-	for {
-		if _, err := os.Stat(path); err == nil {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the listener never wrote its host key")
-		}
-		time.Sleep(50 * time.Millisecond)
+// announcement is the line tix ssh prints once its listener is bound.
+const announcement = "tix ssh listening on "
+
+// announcer is a command's stdout that hands over the bound address the
+// moment tix ssh announces it.
+type announcer struct {
+	mu    sync.Mutex
+	buf   bytes.Buffer
+	bound chan string
+	once  sync.Once
+}
+
+func (a *announcer) Write(p []byte) (int, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	n, err := a.buf.Write(p)
+	_, rest, found := strings.Cut(a.buf.String(), announcement)
+	if addr, _, complete := strings.Cut(rest, "\n"); found && complete {
+		a.once.Do(func() { a.bound <- addr })
 	}
+	return n, err
+}
+
+func (a *announcer) String() string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.buf.String()
+}
+
+// startSSH runs tix in the background and returns once it has announced the
+// address it bound, with the channel its result arrives on.
+//
+// The announcement is the readiness signal because it is printed after the
+// interrupt handler is installed and the port is bound, and nothing before it
+// is both. The host key these tests used to wait for is written earlier than
+// either, so a signal sent on seeing it could land before the handler and a
+// dial could land before the bind.
+func startSSH(t *testing.T, c *cli, args ...string) (string, <-chan result) {
+	t.Helper()
+	out := &announcer{bound: make(chan string, 1)}
+	done := make(chan result, 1)
+	go func() {
+		var errb bytes.Buffer
+		code := Run(args, strings.NewReader(""), out, &errb, c.environ(), c.home)
+		done <- result{code: code, out: out.String(), err: errb.String()}
+	}()
+	select {
+	case addr := <-out.bound:
+		return addr, done
+	case got := <-done:
+		t.Fatalf("tix %s exited %d before it bound: %s%s",
+			strings.Join(args, " "), got.code, got.out, got.err)
+		return "", nil
+	}
+}
+
+// stopSSH interrupts a command startSSH started and waits for it to exit,
+// which stopAndRead explains is safe. It sets no deadline of its own: a
+// listener that ignores the signal hangs the test binary, whose timeout then
+// reports the stuck goroutine rather than a wall clock that ran out.
+func stopSSH(t *testing.T, done <-chan result) result {
+	t.Helper()
+	if err := syscall.Kill(os.Getpid(), syscall.SIGINT); err != nil {
+		t.Fatalf("signalling: %v", err)
+	}
+	return <-done
 }
 
 // dialSSH authenticates against addr with a key nobody enrolled.

@@ -95,7 +95,8 @@ func (s *Server) watch(sess ssh.Session, program *tea.Program, act *activity) {
 				_ = conn.Close()
 				return
 			}
-			missed.Add(1)
+			s.log.Debug("sending an ssh keepalive",
+				"source", sourceOf(sess.RemoteAddr()), "unanswered", missed.Add(1))
 			go func() {
 				// A request to a client that is gone never returns, which is
 				// why the count is kept here rather than read from an error.

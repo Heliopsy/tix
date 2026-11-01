@@ -487,33 +487,19 @@ func TestSSHBindsTheConfiguredListenAddress(t *testing.T) {
 	db := filepath.Join(t.TempDir(), "enrolled.db")
 	writeUserConfig(t, c, "database:\n  dsn: sqlite://"+db+"\nssh:\n  listen: "+addr+"\n")
 
-	done := make(chan result, 1)
-	go func() { done <- c.run("ssh") }()
-
-	if !accepts(t, addr) {
-		reported := stopAndRead(t, done)
-		t.Fatalf("nothing accepted a connection on the configured %s; ssh reported: %s",
-			addr, strings.TrimSpace(reported))
+	bound, done := startSSH(t, c, "ssh")
+	conn, err := net.Dial("tcp", addr)
+	if err == nil {
+		_ = conn.Close()
 	}
-	if got := stopAndRead(t, done); !strings.Contains(got, addr) {
-		t.Errorf("ssh reported %q, want the configured %s", strings.TrimSpace(got), addr)
+	got := stopSSH(t, done)
+	if bound != addr {
+		t.Errorf("ssh bound %s, want the configured %s", bound, addr)
 	}
-}
-
-// accepts reports whether something accepts a connection on addr before the
-// deadline. The assertion is the accepted connection, not a printed line.
-func accepts(t *testing.T, addr string) bool {
-	t.Helper()
-	deadline := time.Now().Add(20 * time.Second)
-	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", addr, time.Second)
-		if err == nil {
-			_ = conn.Close()
-			return true
-		}
-		time.Sleep(20 * time.Millisecond)
+	if err != nil {
+		t.Errorf("nothing accepted a connection on the configured %s: %v; ssh reported: %s",
+			addr, err, strings.TrimSpace(got.out+got.err))
 	}
-	return false
 }
 
 // TestServerTokenFromConfigurationAuthenticates covers the other half of the
