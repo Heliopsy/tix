@@ -1,0 +1,57 @@
+{{define "content"}}
+{{$f := .Data.Form}}{{$e := .Data.Errors}}{{$c := .Data.Chosen}}
+{{$back := "/tasks"}}{{if $f.Next}}{{$back = $f.Next}}{{end}}
+<p class="backlink"><a href="{{$back}}">&larr; {{t "Back to tasks"}}</a></p>
+{{if not .Data.Templates}}
+<div class="headtip"><h1>{{t "New from template"}}</h1></div>
+<p>{{t "No templates yet. Open a task and pick Save as template."}}</p>
+{{else}}
+<form method="post" class="cform" data-form action="/templates/new">
+  {{template "csrf" .CSRF}}
+  {{if $f.Next}}<input type="hidden" name="next" value="{{$f.Next}}">{{end}}
+  <div class="cform-head">
+    <h1 class="cform-title">{{t "New from template"}}</h1>
+    {{template "tip" (tip "Task templates" "Creates a task, and a subtask for each one the template holds. It starts in the project's first state and keeps the custom fields that project defines." "docs/web-ui.md")}}
+  </div>
+  {{with $e.On ""}}{{template "field-error" .}}{{end}}
+  <div class="cform-grid">
+    <div class="cform-main">
+      <div class="cfield">
+        <div class="cfield-label"><label for="use-template">{{t "Template"}}</label>{{template "required-mark"}}</div>
+        <select id="use-template" class="cform-lead" name="template" required{{$e.Attrs "template"}}>
+          {{range .Data.Templates}}<option value="{{.ID}}"{{if eq .ID $f.Template}} selected{{end}}>{{.Name}} &middot; {{if .TenantWide}}{{t "All projects"}}{{else}}{{.ProjectKey}}{{end}}</option>{{end}}
+        </select>
+        {{with $e.On "template"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="cfield">
+        <div class="cfield-label"><label for="use-title">{{t "Title"}}</label>{{template "field-info" "Leave it empty for the template's own title. Placeholders work here too: {DATE} is today's date, {N} the use number and {PROJECT} the project's key."}}</div>
+        <input id="use-title" name="title" value="{{$f.Title}}" maxlength="500" autocomplete="off" placeholder="{{if $c}}{{$c.Task.Title}}{{else}}{{t "The template's title"}}{{end}}"{{$e.Attrs "title"}}>
+        {{with $e.On "title"}}{{template "field-error" .}}{{end}}
+      </div>
+    </div>
+    <div class="cform-side">
+      <div class="cfield">
+        <div class="cfield-label"><label for="use-project">{{t "Project"}}</label></div>
+        <select id="use-project" name="project_ref"{{$e.Attrs "project_ref"}}>
+          <option value=""{{if not $f.Project}} selected{{end}}>{{t "The template's project"}}</option>
+          {{range .Data.Projects}}<option value="{{.Key}}"{{if eq .Key $f.Project}} selected{{end}}>{{.Name}} ({{.Key}})</option>{{end}}
+        </select>
+        {{with $e.On "project_ref"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="cfield">
+        <div class="cfield-label"><label for="use-due">{{t "Due in"}}</label>{{template "field-info" "How long from now the task falls due, such as 3d or 12h. Leave it empty for the template's own offset; 0 sets no due date."}}</div>
+        <input id="use-due" name="due_in" value="{{$f.DueIn}}" autocomplete="off" placeholder="{{if and $c $c.DueIn}}{{$c.DueIn.Human}}{{else}}{{t "3d"}}{{end}}"{{$e.Attrs "due_in"}}>
+        {{with $e.On "due_in"}}{{template "field-error" .}}{{end}}
+      </div>
+    </div>
+  </div>
+  <div class="cform-foot">
+    {{template "form-keys" (t "to create")}}
+    <div class="cform-actions">
+      <a class="secondary cform-cancel" href="{{$back}}" data-form-cancel>{{t "Cancel"}}</a>
+      <button type="submit">{{t "Create task"}}</button>
+    </div>
+  </div>
+</form>
+{{end}}
+{{end}}

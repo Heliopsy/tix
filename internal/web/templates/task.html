@@ -32,6 +32,7 @@
   </form>
   {{else}}<button type="button" class="ghostlink snoozebtn" data-focus="snooze" popovertarget="{{$.IDPrefix}}snooze-{{$t.Ref}}"
           aria-label="{{t "Snooze %s" $t.Ref}}" title="{{t "Hide it from every listing until later"}}">{{t "Snooze"}}</button>{{end}}{{end}}
+  {{if .Data.CanWrite}}<a class="ghostlink savetpl" href="/tasks/{{$t.Ref}}/template" data-dialog-load>{{t "Save as template"}}</a>{{end}}
 </div>
 {{$held := claim $t}}
 {{/* A div, not a p. The status and priority controls carry popover panels,

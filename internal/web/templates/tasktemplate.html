@@ -1,0 +1,55 @@
+{{define "content"}}
+{{$t := .Data.Task}}{{$f := .Data.Form}}{{$e := .Data.Errors}}
+{{if .InDialog}}<p class="backlink"><button type="button" class="ghost dlgclose" data-dialog-close>&larr; {{t "Close"}}</button></p>{{end}}
+{{/* Drawn as the copy form is: the name leads, where the template belongs
+     sits in the side column, and Cancel and Save end the form. */}}
+<div class="copysheet">
+<form method="post" class="cform copyform" data-form action="/tasks/{{$t.Ref}}/template">
+  {{template "csrf" .CSRF}}
+  <div class="cform-head">
+    <h1 class="cform-title"{{if .InDialog}} id="taskdlg-title"{{end}}>{{t "Save as template"}} <span class="ref mono">{{$t.Ref}}</span></h1>
+    {{template "tip" (tip "Task templates" "The template keeps this task's title, description, priority, tags, custom fields and repeat rule, and its subtasks when ticked. Status, assignee, due date, comments and history stay with the task. Templates never show in a listing; find them under Templates." "docs/web-ui.md")}}
+  </div>
+  {{with $e.On ""}}{{template "field-error" .}}{{end}}
+  <div class="cform-grid">
+    <div class="cform-main">
+      <div class="cfield">
+        <div class="cfield-label"><label for="{{.IDPrefix}}tpl-name">{{t "Template name"}}</label>{{template "required-mark"}}</div>
+        <input id="{{.IDPrefix}}tpl-name" class="cform-lead" name="name" value="{{$f.Name}}" maxlength="100" autocomplete="off" required autofocus{{$e.Attrs "name"}}>
+        {{with $e.On "name"}}{{template "field-error" .}}{{end}}
+      </div>
+      <fieldset class="cform-group copyopts">
+        <legend>{{t "Also keep"}}</legend>
+        <label for="{{.IDPrefix}}tpl-subtasks"><input id="{{.IDPrefix}}tpl-subtasks" type="checkbox" name="with_subtasks" value="1"{{if $f.Subtasks}} checked{{end}}{{if not .Data.HasSubtasks}} disabled{{end}}> {{t "Subtasks"}}</label>
+      </fieldset>
+    </div>
+    <div class="cform-side">
+      <fieldset class="cform-group">
+        <legend>{{t "Use in"}}</legend>
+        <label for="{{.IDPrefix}}tpl-scope-project"><input id="{{.IDPrefix}}tpl-scope-project" type="radio" name="scope" value="project"{{if not $f.TenantWide}} checked{{end}}> {{t "This project"}}</label>
+        <label for="{{.IDPrefix}}tpl-scope-tenant"><input id="{{.IDPrefix}}tpl-scope-tenant" type="radio" name="scope" value="tenant"{{if $f.TenantWide}} checked{{end}}> {{t "All projects"}}</label>
+      </fieldset>
+      <div class="cfield">
+        <div class="cfield-label"><label for="{{.IDPrefix}}tpl-due">{{t "Due in"}}</label>{{template "field-info" "Each task made from the template falls due this long after it is made, such as 3d or 12h. Leave it empty for no due date."}}</div>
+        <input id="{{.IDPrefix}}tpl-due" name="due_in" value="{{$f.DueIn}}" placeholder="{{t "3d"}}" autocomplete="off"{{$e.Attrs "due_in"}}>
+        {{with $e.On "due_in"}}{{template "field-error" .}}{{end}}
+      </div>
+    </div>
+  </div>
+  <div class="cform-foot">
+    {{template "form-keys" (t "to save")}}
+    <div class="cform-actions">
+      <a class="secondary cform-cancel" href="/tasks/{{$t.Ref}}" data-form-cancel{{if .InDialog}} data-dialog-close{{end}}>{{t "Cancel"}}</a>
+      <button type="submit">{{t "Save template"}}</button>
+    </div>
+  </div>
+</form>
+</div>
+{{end}}
+
+{{define "task-dialog"}}
+<div class="taskdlg-frag" data-task-dialog="{{.Data.Task.Ref}}">
+{{if .Error}}<p class="flash error">{{.Error}}</p>{{end}}
+{{template "content" .}}
+</div>
+{{end}}

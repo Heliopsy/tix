@@ -59,6 +59,12 @@
     <rect x="14" y="14" width="7" height="6" rx="1.5"/>
     <path d="M10 7h4a3 3 0 0 1 3 3v4"/>
   </symbol>
+  <symbol id="templates" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="4" y="3" width="13" height="16" rx="2" stroke-dasharray="3 2"/>
+    <path d="M8 8h5M8 12h5"/>
+    <path d="M20 13v8M16 17h8"/>
+  </symbol>
 
   <symbol id="tenant" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

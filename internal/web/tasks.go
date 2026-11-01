@@ -49,9 +49,11 @@ type tasksView struct {
 	HeldHref string
 	More     bool
 
-	Tasks      []core.Task
-	Projects   []core.Project
-	Tags       []core.Tag
+	Tasks    []core.Task
+	Projects []core.Project
+	Tags     []core.Tag
+	// Templates are what the add box menu offers to create a task from.
+	Templates  []core.TaskTemplate
 	Priorities []priorityChoice
 	SortFields []string
 	Query      string
@@ -493,6 +495,7 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool) (tasksView, error)
 		Tasks:         page.Tasks,
 		Projects:      projects,
 		Tags:          tags,
+		Templates:     h.addTemplates(r),
 		Priorities:    priorityChoices,
 		SortFields:    core.TaskSortFields,
 		Query:         query.Get("q"),

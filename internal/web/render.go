@@ -221,6 +221,7 @@ func parseTemplates(style output.TimeStyle, lang string) map[string]*template.Te
 // configured TimeStyle.
 func funcs(style output.TimeStyle) template.FuncMap {
 	return template.FuncMap{
+		"hasPrefix":       strings.HasPrefix,
 		"compact":         style.Format,
 		"stamp":           style.FormatPtr,
 		"absolute":        style.Absolute,
@@ -389,7 +390,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		DragMove:        dragMoveMode(r),
 		OpenAfterAdd:    openAfterAdd(r),
 		Hover:           hoverEffects(r),
-		TaskDialog:      taskDialogMode(r) && name != "task.html" && name != "taskcopy.html",
+		TaskDialog:      taskDialogMode(r) && !dialogScreens[name],
 		TitleEdit:       titleEditMode(r),
 		Theme:           themeOf(r),
 		Tint:            tintOf(r),
@@ -535,7 +536,7 @@ func advancedChoiceOf(r *http.Request) advancedChoice {
 // on one of them expands its group whatever the preference says, so a reader
 // is never on a page the navigation beside them denies exists.
 var advancedPaths = []string{
-	RouteWorkflows, RouteTransfer, RouteBundles, RouteSync, "/admin/",
+	RouteWorkflows, RouteTemplates, RouteTransfer, RouteBundles, RouteSync, "/admin/",
 }
 
 // OnAdvancedPath reports whether a path is one of the screens the Configure
@@ -880,6 +881,10 @@ func (h *handler) render(w http.ResponseWriter, r *http.Request, name, title str
 	return h.renderStatus(w, r, http.StatusOK, name, title, data)
 }
 
+// dialogScreens are the screens that draw inside the task dialog when they
+// are asked for from it: the task itself and the forms its actions open.
+var dialogScreens = map[string]bool{"task.html": true, "taskcopy.html": true, "tasktemplate.html": true}
+
 // renderStatus writes one screen with an explicit status.
 func (h *handler) renderStatus(w http.ResponseWriter, r *http.Request, status int, name, title string, data any) error {
 	tmpl, ok := h.templatesFor(r)[name]
@@ -894,7 +899,7 @@ func (h *handler) renderStatus(w http.ResponseWriter, r *http.Request, status in
 		v.Saved = h.buildSavedNav(r)
 	}
 	w.Header().Add("Vary", DialogHeader)
-	if (name == "task.html" || name == "taskcopy.html") && dialogRequest(r) {
+	if dialogScreens[name] && dialogRequest(r) {
 		v.InDialog, v.IDPrefix = true, "dlg-"
 		w.WriteHeader(status)
 		return tmpl.ExecuteTemplate(w, "task-dialog", v)

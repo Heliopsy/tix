@@ -68,6 +68,7 @@ Everything below is under `/api/v1`.
 | Calendar feed | `/calendar`, `/calendar/rotate`, `/calendar/feeds/{file}` (no credential); see [Calendar feed](#calendar-feed) |
 | Inbox | `/inbox`, `/inbox/count`, `/inbox/{id}/read`, `/inbox/read-all`, `/inbox/prefs`; see [Inbox](#inbox) |
 | Notification channels | `/channels`, `/channels/{id}`, `/channels/{id}/test`, `/channels/{id}/deliveries`, `/channel-deliveries/{id}/redeliver`; see [Notification channels](#notification-channels) |
+| Templates | `/templates`, `/templates/{ref}`, `/templates/{ref}/use`; see [Task templates](#task-templates) |
 | Events | `/events` (WebSocket) |
 
 Every route above has a command: `tix doctor`, `tix login`, `tix user totp`, `tix user key`, `tix actor`,
@@ -528,6 +529,44 @@ response header:
 curl -H "Authorization: Bearer $TIX_TOKEN" 'http://127.0.0.1:8080/api/v1/tasks?format=csv&status=todo'
 ```
 
+### Task templates
+
+A template is a named shape of a task kept apart from tasks: it never appears in a task listing, a claim, the
+statistics or a snapshot. `{ref}` is the template's name, matched in any case, or its identifier.
+
+| Route | Does |
+| --- | --- |
+| `GET /templates` | The templates the caller can read, by name; `?project=KEY` keeps that project's and the tenant-wide ones |
+| `POST /templates` | Saves a task as a template; answers `201` with it |
+| `GET /templates/{ref}` | One template, its task shape and subtasks included |
+| `PATCH /templates/{ref}` | Renames, rescopes or edits it; answers the template |
+| `DELETE /templates/{ref}` | Deletes it, leaving tasks made from it alone; answers `204 No Content` |
+| `POST /templates/{ref}/use` | Creates a task, with the template's subtasks; answers `201` with the new task |
+
+Saving takes the task and a name, and optionally makes the template tenant-wide, keeps the live subtasks at any
+depth and gives it a due offset:
+
+{"name": "release", "task_ref": "infra-4", "tenant_wide": false, "with_subtasks": true, "due_in": "3d"}
+
+The template keeps the title, description, priority, tags, custom fields and repeat rule. A `PATCH` takes any of
+`name`, `project_ref` (the empty string makes it tenant-wide), `due_in`, `title`, `body`, `priority`, `tags`,
+`custom_fields` (a `null` value removes a field) and `recurrence`. Using one takes an optional `project_ref`
+(required in practice for a tenant-wide template in a tenant with several projects), `title` and `due_in` (`"0s"`
+for no due date, absent for the template's own offset):
+
+{"project_ref": "web", "title": "Release {N}", "due_in": "72h"}
+
+Titles may carry placeholders, matched in any case: `{DATE}` is today's date as YYYY-MM-DD in UTC, `{N}` the use
+number and `{PROJECT}` the target project's key. Other braced words stay as written. A use goes through the same
+code as [copying a task](#copying-a-task): the tasks start in the project's initial state, keep the custom fields
+it defines with its defaults applied, write a `task.template` audit entry and emit `task.created` with the
+template's name in its payload. Saving, editing and deleting write `template.save`, `template.update` and
+`template.delete` and emit `template.updated`.
+
+A name taken by another template in any case is `409`. A project template needs `task:write` on its project to
+change; a tenant-wide one needs `task:write` and a token that is not pinned to a project, so a pinned token sees
+and uses its own project's templates and the tenant-wide ones and cannot change the latter (`403`).
+
 ### NDJSON
 
 Send `Accept: application/x-ndjson` and the list streams one object per line with no envelope:
@@ -623,6 +662,7 @@ Event types are matched as glob patterns, so `task.*` selects every task event. 
 `dependency.added`, `tag.added`, `project.created`, `project.updated`, `workflow.updated`, `field.updated`,
 `webhook.delivered`, `import.completed`, `view.arranged`, `filter.saved`, `filter.updated`, `filter.deleted`,
 `inbox.updated`. A type outside it is an error rather than a filter
+`webhook.delivered`, `import.completed`, `view.arranged`, `template.updated`. A type outside it is an error rather than a filter
 that silently matches nothing.
 
 A project-scoped token has its subscription narrowed to that project automatically, and naming a different

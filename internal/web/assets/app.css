@@ -2967,11 +2967,11 @@ details.panel.addmore .actions {
 /* Add with details on the task screen: a secondary button at the end of the
    quick-add row, and the form it opens hanging under it like the View menu
    does, rather than a dashed-looking disclosure on a strip of its own. */
-.quickadd .addmore-open { flex: 0 0 auto; }
+.quickadd .addmore-open, .quickadd .addtpl-open { flex: 0 0 auto; }
 @media (max-width: 639px) {
   /* The icon alone on a phone, so the row stays one row; the words stay the
      button's name. */
-  .quickadd .addmore-open { padding-inline: var(--space-2); }
+  .quickadd .addmore-open, .quickadd .addtpl-open { padding-inline: var(--space-2); }
   .addmore-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 }
 
@@ -6677,3 +6677,13 @@ ul.plain > li.channelrow { display: flex; flex-wrap: wrap; align-items: center; 
 @media (pointer: coarse) { .cform label.check { min-height: 40px; } }
 .channel-actions .inlineform { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin: 0; }
 table.deliveries { width: 100%; }
+/* Task templates (templates/templates.html, template.html, tasktemplate.html,
+   templatenew.html). New from template sits at the end of the form's head,
+   quiet like Copy to beside a task's title; the subtasks a template holds are
+   listed as a plain indented outline, since they are read here, not edited. */
+.cform-head .cform-fromtpl { margin-left: auto; font-size: var(--text-sm); }
+.tplsubs { margin: 0; padding-left: var(--space-4); }
+.tplsubs li { margin: 2px 0; }
+table.templates .rowacts { white-space: normal; text-align: right; }
+table.templates .rowacts .ghostlink + .ghostlink { margin-left: var(--space-2); }
+.addtpl-menu .flowgo .muted { margin-left: var(--space-1); }

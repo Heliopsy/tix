@@ -132,7 +132,24 @@
     <span class="addmore-label">{{t "Add with details"}}</span>
   </button>
   {{end}}
+  {{/* The add box menu: the templates a new task can start from. A popover
+       like the lane card menu, so Escape closes only the menu and focus
+       returns to its button; each entry is a link to the New from template
+       form, which works with scripting off. */}}
+  {{if $v.Templates}}
+  <button type="button" class="secondary addtpl-open" popovertarget="addtpl" aria-label="{{t "New from template"}}" title="{{t "New from template"}}">
+    <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#templates"/></svg>
+    <span class="addmore-label">{{t "From template"}}</span>
+  </button>
+  {{end}}
 </form>
+{{if $v.Templates}}
+<div id="addtpl" class="flowmenu lanepop lanemore-menu addtpl-menu" popover data-lane-menu>
+  <p class="flowhead">{{t "New from template"}}</p>
+  {{range $v.Templates}}<a class="flowgo" href="/templates/new?template={{.ID}}&amp;next={{$v.Self | urlquery}}">{{.Name}}{{if not .TenantWide}} <span class="muted mono">{{.ProjectKey}}</span>{{end}}</a>{{end}}
+  <a class="flowgo" href="/templates">{{t "All templates…"}}</a>
+</div>
+{{end}}
 
 <div id="quickadd-preview" class="quickadd-preview" aria-live="polite">{{template "quickadd-preview" $v.Quick}}</div>
 
@@ -563,7 +580,8 @@
           <button type="button" class="flowgo" data-copy-link="/tasks/{{.Task.Ref}}">{{t "Copy link"}}</button>
           <button type="button" class="flowgo" data-copy-text="{{.Task.Ref}}">{{t "Copy reference"}}</button>
           {{if .Write}}<a class="flowgo" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}" data-rename="{{.Task.Ref}}" data-version="{{.Task.Version}}" data-no-press>{{t "Rename"}}</a>{{end}}
-          {{if .Write}}<a class="flowgo" href="/tasks/{{.Task.Ref}}/copy?next={{$v.Self | urlquery}}" data-dialog-load data-copy-to>{{t "Copy to…"}}</a>{{end}}
+          {{if .Write}}<a class="flowgo" href="/tasks/{{.Task.Ref}}/copy?next={{$v.Self | urlquery}}" data-dialog-load data-copy-to>{{t "Copy to…"}}</a>
+          <a class="flowgo" href="/tasks/{{.Task.Ref}}/template" data-dialog-load>{{t "Save as template"}}</a>{{end}}
           {{if $.CanStar}}
           <form method="post" action="/tasks/{{.Task.Ref}}/star{{if .Task.Starred}}/remove{{end}}"
                 hx-post="/tasks/{{.Task.Ref}}/star{{if .Task.Starred}}/remove{{end}}" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
@@ -1045,6 +1063,7 @@
   {{with $f.Status}}<input type="hidden" name="status" value="{{.}}">{{end}}
   <div class="cform-head">
     <h2 class="cform-title">{{t "New task"}}</h2>
+    <a class="ghostlink cform-fromtpl" href="/templates/new?next={{$v.Self | urlquery}}">{{t "New from template"}}</a>
   </div>
   {{with $e.On ""}}{{template "field-error" .}}{{end}}
   <div class="cform-grid">

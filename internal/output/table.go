@@ -154,6 +154,10 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, channelDeliveryHeader, v, p.channelDeliveryRow)
 	case *core.ChannelDelivery:
 		return renderRows(w, p, channelDeliveryHeader, []core.ChannelDelivery{*v}, p.channelDeliveryRow)
+	case []core.TaskTemplate:
+		return renderRows(w, p, templateHeader, v, templateRow)
+	case core.TaskTemplate:
+		return renderRows(w, p, templateHeader, []core.TaskTemplate{v}, templateRow)
 	case core.ProjectDeletion:
 		return renderProjectDeletion(w, p, &v)
 	case []core.SavedFilter:
@@ -196,6 +200,7 @@ var (
 	groupPrefHeader       = table.Row{"VIEW", "GROUP", "HIDDEN", "COLLAPSED", "STARRED", "POSITION"}
 	savedFilterHeader     = table.Row{"NAME", "FILTER", "VIEW", "SORT", "SHARED", "MINE", "ID"}
 	syncHeader            = table.Row{"ID", "SYSTEM", "NAME", "CURSOR", "LAST RUN", "LAST STATUS"}
+	templateHeader        = table.Row{"NAME", "PROJECT", "TITLE", "TASKS", "DUE IN", "USES"}
 
 	connectionHeader = table.Row{"ID", "SURFACE", "ACTOR", "FROM", "SINCE", "KEY"}
 )
@@ -375,6 +380,19 @@ func (p Painter) inboxRow(it core.InboxItem) table.Row {
 	}
 	return table.Row{it.ID, string(it.Kind), ref, it.TaskTitle, it.ActorHandle, what,
 		p.style.Format(it.CreatedAt), yesNo(it.Read())}
+}
+
+// templateRow is one template: a tenant-wide one names no project, shown as
+// "all", and one with no due offset shows a dash.
+func templateRow(t core.TaskTemplate) table.Row {
+	project, due := t.ProjectKey, "-"
+	if t.TenantWide() {
+		project = "all"
+	}
+	if t.DueIn > 0 {
+		due = t.DueIn.Human()
+	}
+	return table.Row{t.Name, project, t.Task.Title, strconv.Itoa(t.Task.Count()), due, strconv.Itoa(t.Uses)}
 }
 
 func tagRow(t core.Tag) table.Row {

@@ -25,6 +25,10 @@ const (
 // SaveTemplate keeps a live task, and its live subtasks when asked, as a
 // named template in the task's project or, asked to, for the whole tenant.
 func (l *Local) SaveTemplate(ctx context.Context, in core.SaveTemplateInput) (*core.TaskTemplate, error) {
+	actor, err := l.authorize(ctx, authz.ActionTaskCreate, authz.Resource{})
+	if err != nil {
+		return nil, err
+	}
 	in.Name = strings.TrimSpace(in.Name)
 	in.TaskRef = strings.TrimSpace(in.TaskRef)
 	if err := in.Validate(); err != nil {
@@ -33,10 +37,6 @@ func (l *Local) SaveTemplate(ctx context.Context, in core.SaveTemplateInput) (*c
 	ref, err := core.ParseTaskRef(in.TaskRef)
 	if err != nil {
 		return nil, core.OnField(err, "task_ref")
-	}
-	actor, err := l.authorize(ctx, authz.ActionTaskRead, authz.Resource{})
-	if err != nil {
-		return nil, err
 	}
 	var out *core.TaskTemplate
 	err = l.write(ctx, actor, func(m *mutation) error {
@@ -134,11 +134,11 @@ func (l *Local) ListTemplates(ctx context.Context, f core.TemplateFilter) ([]cor
 // UpdateTemplate renames, rescopes or edits a template. A change that leaves
 // it as it was writes nothing.
 func (l *Local) UpdateTemplate(ctx context.Context, ref string, in core.UpdateTemplateInput) (*core.TaskTemplate, error) {
-	if err := in.Validate(); err != nil {
+	actor, err := l.authorize(ctx, authz.ActionTaskCreate, authz.Resource{})
+	if err != nil {
 		return nil, err
 	}
-	actor, err := l.authorize(ctx, authz.ActionTaskRead, authz.Resource{})
-	if err != nil {
+	if err := in.Validate(); err != nil {
 		return nil, err
 	}
 	var out *core.TaskTemplate
@@ -184,7 +184,7 @@ func (l *Local) UpdateTemplate(ctx context.Context, ref string, in core.UpdateTe
 
 // DeleteTemplate removes a template. Tasks made from it are not touched.
 func (l *Local) DeleteTemplate(ctx context.Context, ref string) error {
-	actor, err := l.authorize(ctx, authz.ActionTaskRead, authz.Resource{})
+	actor, err := l.authorize(ctx, authz.ActionTaskCreate, authz.Resource{})
 	if err != nil {
 		return err
 	}
@@ -207,13 +207,13 @@ func (l *Local) DeleteTemplate(ctx context.Context, ref string) error {
 // one transaction, through the copier CopyTask uses, so a task made from a
 // template gets the same status, fields and tags rules as a copy.
 func (l *Local) UseTemplate(ctx context.Context, ref string, in core.UseTemplateInput) (*core.Task, error) {
+	actor, err := l.authorize(ctx, authz.ActionTaskCreate, authz.Resource{})
+	if err != nil {
+		return nil, err
+	}
 	in.Title = strings.TrimSpace(in.Title)
 	in.ProjectRef = strings.TrimSpace(in.ProjectRef)
 	if err := in.Validate(); err != nil {
-		return nil, err
-	}
-	actor, err := l.authorize(ctx, authz.ActionTaskCreate, authz.Resource{})
-	if err != nil {
 		return nil, err
 	}
 	var out *core.Task

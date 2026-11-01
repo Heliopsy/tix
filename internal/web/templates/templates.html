@@ -1,0 +1,22 @@
+{{define "content"}}
+<div class="headtip"><h1>{{t "Templates"}}</h1>{{template "tip" (tip "Task templates" "A template is a named shape of a task: title, description, priority, tags, custom fields, repeat rule and, when saved with them, subtasks. It is not a task, so it never shows in a listing, a claim or the statistics. Save one from a task's Save as template, and create tasks from it with New from template in the add box." "docs/web-ui.md")}}</div>
+<p class="muted">{{t "Titles may carry placeholders, filled in each time a template is used: {DATE} is today's date, {N} the use number and {PROJECT} the project's key."}}</p>
+<table class="templates">
+  <thead><tr><th>{{t "Name"}}</th><th>{{t "Project"}}</th><th>{{t "Title"}}</th><th>{{t "Tasks"}}</th><th>{{t "Due in"}}</th><th>{{t "Uses"}}</th><th><span class="sr-only">{{t "Actions"}}</span></th></tr></thead>
+  <tbody>
+  {{range .Data.Templates}}
+    <tr>
+      <td><a href="/templates/{{.ID}}">{{.Name}}</a></td>
+      <td>{{if .TenantWide}}{{t "All projects"}}{{else}}<span class="mono">{{.ProjectKey}}</span>{{end}}</td>
+      <td>{{.Task.Title}}</td>
+      <td>{{.Task.Count}}</td>
+      <td>{{if .DueIn}}{{.DueIn.Human}}{{else}}&ndash;{{end}}</td>
+      <td>{{.Uses}}</td>
+      <td class="rowacts"><a class="ghostlink" href="/templates/new?template={{.ID}}">{{t "Use"}}</a> <a class="ghostlink" href="/templates/{{.ID}}">{{t "Edit"}}</a></td>
+    </tr>
+  {{else}}
+    <tr><td colspan="7">{{t "No templates yet. Open a task and pick Save as template."}}</td></tr>
+  {{end}}
+  </tbody>
+</table>
+{{end}}
