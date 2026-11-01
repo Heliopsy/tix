@@ -62,8 +62,11 @@ type Model struct {
 	// hiddenCols the columns it leaves out, and followCol the column a move
 	// should keep selected once the board is drawn again.
 	arrangement []core.GroupPref
-	hiddenCols  []string
-	followCol   string
+	// savedFilters are what the saved filter picker offered, held until it
+	// is answered so an option resolves to the filter it named.
+	savedFilters []core.SavedFilter
+	hiddenCols   []string
+	followCol    string
 
 	filterText string
 	filter     core.TaskFilter
@@ -404,6 +407,8 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 		return m.applyStats(msg), nil
 	case tagsMsg:
 		return m.onTags(msg)
+	case savedFiltersMsg:
+		return m.onSavedFilters(msg)
 	case actorsMsg:
 		// One read serves two pickers. The tenant screen asks for the same
 		// directory the assignee picker does, and which of them is waiting is
@@ -993,7 +998,7 @@ func (m Model) handleBoardKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Enter):
 		return m, m.loadDetail()
 	default:
-		if a, ok := ResolveAction(msg, m.keys.columnBindings()); ok {
+		if a, ok := ResolveAction(msg, append(m.keys.columnBindings(), m.keys.filterBindings()...)); ok {
 			if !m.paletteContext().offers(a) {
 				return m, nil
 			}
@@ -1101,6 +1106,11 @@ func (m Model) performAction(id actionID) (Model, tea.Cmd, bool) {
 		return m, tea.Quit, true
 	case doHideColumn, doStarColumn, doFoldColumn, doColumnLeft, doColumnRight, doShowColumns:
 		return m.columnAction(id)
+	case doSavedFilters:
+		return m, m.loadSavedFilters(), true
+	case doSaveFilter:
+		next, cmd := m.openSaveFilter()
+		return next, cmd, true
 	}
 	return m.performTaskAction(id)
 }
@@ -1286,6 +1296,8 @@ func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 		return m.updateTenant(core.UpdateTenantInput{Theme: &text}, attrTheme)
 	case promptDomain:
 		return m.addDomain(text)
+	case promptSaveFilter:
+		return m.saveFilter(text)
 	}
 	task, ok := m.selectedTask()
 	if !ok {
@@ -1440,7 +1452,7 @@ func (m Model) applyFilterText(text string) Model {
 		m.filterErr = err.Error()
 		return m
 	}
-	m.filterErr, m.filterText, m.filter = "", text, parsed
+	m.filterErr, m.filterText, m.filter = "", text, BindMe(parsed, m.actorID())
 	selected, _ := TaskAt(m.columns, m.sel)
 	m = m.drawColumns()
 	m.sel = PreserveSelection(m.columns, m.sel, selected.ID)
@@ -1521,6 +1533,7 @@ func (m Model) actionContext() ActionContext {
 		ctx.CanRight = ColumnNeighbour(m.columns, m.sel.Col, 1) >= 0
 	}
 	ctx.HasHidden = m.view == viewBoard && len(m.hiddenCols) > 0
+	ctx.HasFilter = strings.TrimSpace(m.filterText) != ""
 	task, ok := m.selectedTask()
 	if !ok {
 		return ctx
@@ -1923,6 +1936,17 @@ func (m Model) handleFormKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if typing {
 		return m.editField(msg)
 	}
+	// The saved filter picker is one list, so up and down walk it as well.
+	if m.form.Kind == formSavedFilter {
+		switch {
+		case key.Matches(msg, m.keys.Up):
+			m.form = m.form.Cycle(-1)
+			return m, nil
+		case key.Matches(msg, m.keys.Down):
+			m.form = m.form.Cycle(1)
+			return m, nil
+		}
+	}
 	switch {
 	case key.Matches(msg, m.keys.Up):
 		return m.moveField(-1)
@@ -1976,6 +2000,8 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 		return m.closeForm().applyTenantAdd(form)
 	case formMember:
 		return m.closeForm().applyMember(form)
+	case formSavedFilter:
+		return m.closeForm().applySavedFilter(form)
 	}
 	if form.Kind == formTaskEdit {
 		next := m.closeForm()
