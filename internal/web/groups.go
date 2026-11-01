@@ -14,6 +14,7 @@ import (
 const (
 	groupStatus  = "status"
 	groupProject = "project"
+	groupDue     = "due"
 )
 
 // groupHead is one heading of a board column, a lane or a list group: its

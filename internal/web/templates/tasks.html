@@ -14,13 +14,20 @@
      at the end of it rather than in rows of their own. */}}
 <div class="pagehead">
   <div class="pagehead-title">
-    <h1>{{if $v.Trash}}{{t "Trash"}}{{else}}{{t "Tasks"}}{{end}}</h1>
+    <h1>{{if $v.Mine}}{{t "My work"}}{{else if $v.Trash}}{{t "Trash"}}{{else}}{{t "Tasks"}}{{end}}</h1>
     <div id="tasks-summary">{{template "tasks-summary" .}}</div>
   </div>
   <div class="pagehead-tools">
+    {{/* My work is always the list grouped by deadline, so the view switch
+         would offer a choice it ignores. Its own switch takes in the tasks
+         the reader holds a claim on, as well as the ones assigned to them. */}}
+    {{if $v.Mine}}
+    <a class="secondary heldswitch" href="{{$v.HeldHref}}" role="switch" aria-checked="{{if $v.Held}}true{{else}}false{{end}}">{{t "Include tasks I hold"}}</a>{{template "tip" (tip "My work" "Tasks assigned to you that are still open, under a heading per deadline: overdue, today, this week, later and no date. Include tasks I hold adds the ones you have claimed. The same list is tix task ls --mine, or assignee:me in any filter." "docs/web-ui.md")}}
+    {{else if not $v.Trash}}
     {{/* The trash is always the list: a board's columns are moves a deleted
          card cannot make, so the switch would offer a drawing it ignores. */}}
-    {{if not $v.Trash}}{{template "taskview-switch" $v.Prefs.TaskView}}{{end}}
+    {{template "taskview-switch" $v.Prefs.TaskView}}
+    {{end}}
     {{/* A menu, like the columns control on every other listing and like the
          status and priority menus on a row. It was a disclosure that opened
          downwards and pushed the whole task list down by its own height, so
@@ -58,7 +65,7 @@
           </section>
           {{end}}
           <section class="viewstack">
-          {{if eq $v.View "list"}}
+          {{if and (eq $v.View "list") (not $v.Mine)}}
           <div class="viewblock">
             <div class="headtip"><p class="viewhead">{{t "Group the list"}}</p>{{template "tip" (tip "Grouping" "Draws a heading per project or per status over the rows of this page. Each heading has the same menu as a lane or a board column, and shares its arrangement." "docs/web-ui.md")}}</div>
             {{template "listgroup-switch" $v.Prefs.ListGroup}}
@@ -69,7 +76,7 @@
                out of band when a heading menu changes the arrangement. */}}
           <div class="viewblock{{if not $v.Arrange.View}} is-empty{{end}}" id="view-groups">
             {{if $v.Arrange.View}}
-            <div class="headtip"><p class="viewhead">{{if eq $v.Arrange.View "lanes"}}{{t "Hidden lanes"}}{{else}}{{t "Hidden columns"}}{{end}}</p>{{template "tip" (tip "Arranging columns and lanes" "The three dots on a column, lane or group heading hide, star, collapse or move it. The arrangement is yours, kept with your account, so it follows you to any browser and changes nothing anybody else sees." "docs/web-ui.md")}}</div>
+            <div class="headtip"><p class="viewhead">{{if eq $v.Arrange.View "lanes"}}{{t "Hidden lanes"}}{{else if eq $v.Arrange.View "mine"}}{{t "Hidden groups"}}{{else}}{{t "Hidden columns"}}{{end}}</p>{{template "tip" (tip "Arranging columns and lanes" "The three dots on a column, lane or group heading hide, star, collapse or move it. The arrangement is yours, kept with your account, so it follows you to any browser and changes nothing anybody else sees." "docs/web-ui.md")}}</div>
             {{if $v.Arrange.Hidden}}<div class="viewgroups">{{template "group-shows" (groupMenu $v.Arrange (groupHeadNone))}}</div>
             {{else}}<p class="meta">{{t "None hidden."}}</p>{{end}}
             {{if $v.Arrange.Stored}}
@@ -162,6 +169,26 @@
        cost one click too. The sort is kept, because a sort is not a filter. */}}
   {{if or $v.Query $v.Due}}<a class="secondary clear" href="/tasks{{if $v.Sort}}?sort={{$v.Sort}}{{end}}">{{t "Clear"}}</a>{{end}}
 </form>
+{{/* Keeps what the bar is answering under a name, listed in the sidebar
+     under Tasks: the expression, the deadline window, the sort and the view
+     the screen is drawn in. A disclosure rather than a popover, so it works
+     with scripting off and opens in place inside this menu. */}}
+{{if or $v.Query $v.Due}}
+<details class="savefilter"{{if $v.FilterError}} hidden{{end}}>
+  <summary class="secondary">{{t "Save this filter"}}</summary>
+  <form method="post" class="savefilter-form" action="/filters">
+    {{template "csrf" .CSRF}}
+    <input type="hidden" name="q" value="{{$v.Query}}">
+    <input type="hidden" name="due" value="{{$v.Due}}">
+    <input type="hidden" name="sort" value="{{$v.Sort}}">
+    <input type="hidden" name="view" value="{{$v.View}}">
+    <label for="savefilter-name">{{t "Name"}}</label>
+    <input id="savefilter-name" name="name" required maxlength="80" placeholder="{{t "For example, my overdue work"}}">
+    <label class="savefilter-share"><input type="checkbox" name="shared" value="1"> {{t "Share with everyone in the tenant"}}</label>{{template "tip" (tip "Saved filters" "A saved filter keeps this filter, its sort and the view under a name in the sidebar, under Tasks. It is yours; a shared one is listed for everybody in the tenant, and only you or an administrator can change it." "docs/web-ui.md")}}
+    <button type="submit">{{t "Save"}}</button>
+  </form>
+</details>
+{{end}}
 <button type="button" class="flowclose filterclose" popovertarget="filterpop" popovertargetaction="hide">{{t "Close"}}</button>
 </div>
 {{/* A filter that names something this tenant does not have is a typo in a
@@ -247,7 +274,8 @@
   {{/* The link is built from the address the reader is on rather than
        written out, so a sort, a page size or a deadline window survives
        following it. A hardcoded /tasks?all=1 dropped all three. */}}
-  {{if $v.OpenOnly}} &middot; <span class="muted">{{t "open work only"}}</span> &middot; <a href="{{$v.AllHref}}">{{t "show finished too"}}</a>{{end}}
+  {{if and $v.OpenOnly (not $v.Mine)}} &middot; <span class="muted">{{t "open work only"}}</span> &middot; <a href="{{$v.AllHref}}">{{t "show finished too"}}</a>{{end}}
+  {{if $v.More}} &middot; <span class="muted">{{t "the first %d by deadline" (len $v.Tasks)}}</span> &middot; <a href="/tasks?q=assignee:me&amp;sort=due_at">{{t "see them all"}}</a>{{end}}
 </p>
 {{end}}{{end}}
 {{end}}
