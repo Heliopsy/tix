@@ -370,6 +370,12 @@
     return { id: holder.id, control: /^[a-z]+$/.test(control) ? control : "" };
   };
 
+  // tickedNext is what a checklist item says while its post is on its way:
+  // the opposite of what it said.
+  tix.tickedNext = function (checked) {
+    return checked === "true" ? "false" : "true";
+  };
+
   // focusRestore focuses what a memo names in the document as it is now,
   // without scrolling, and returns it.
   tix.focusRestore = function (doc, memo) {

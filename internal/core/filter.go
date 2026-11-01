@@ -177,6 +177,12 @@ type TaskFilter struct {
 	// Starred selects by the reading actor's own stars.
 	Starred TriState `json:"starred,omitempty" yaml:"starred,omitempty"`
 
+	// Checklist selects tasks by whether the description carries a checklist
+	// marker, and ChecklistOpen by whether it carries an unticked one. Both
+	// read the text for ChecklistMarkers, not the parsed Markdown.
+	Checklist     TriState `json:"checklist,omitempty" yaml:"checklist,omitempty"`
+	ChecklistOpen TriState `json:"checklist_open,omitempty" yaml:"checklist_open,omitempty"`
+
 	// StarredBy is the reading actor, set by the service from the caller and
 	// never by the caller, which is why it does not travel on the wire. A
 	// listing with no reader neither groups nor filters by stars.

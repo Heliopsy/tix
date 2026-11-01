@@ -119,6 +119,8 @@ is what makes a large PostgreSQL install fast. If you need an answer that does n
 | `is:deleted` | also list soft-deleted tasks, alongside the rest; it widens, it does not narrow | yes | no |
 | `is:trashed` | only soft-deleted tasks, the trash; `-is:trashed` is live tasks only | yes | no |
 | `is:starred`, `is:unstarred`, `starred:true`, `starred:false` | tasks you starred, or did not | yes | no |
+| `has:checklist` | the description carries a checklist | yes | no |
+| `checklist:open`, `checklist:done` | a checklist item is still open, or every item is ticked | `checklist:open` only | no |
 | `sort:FIELD`, `limit:N` | listing shape | no | no |
 | bare word | free text, engine-native | yes (becomes a weak match) | n/a |
 
@@ -151,6 +153,19 @@ names no reader; the service fills that in from whoever is asking.
 Every listing already puts your starred tasks first, under every sort and in either direction, so the
 term is for narrowing rather than ordering. On the command line `--starred` and `--starred=false` say the
 same thing, and over the HTTP API `starred=true` and `starred=false`.
+
+## Checklists
+
+`has:checklist` selects tasks whose description carries a checklist item, ticked or not, and
+`-has:checklist` the rest. `checklist:open` selects those with an item still to tick, and `checklist:done`
+those that have items and none left open; `-checklist:open` keeps every task with nothing open, which
+includes the ones with no checklist at all.
+
+These terms read the text for a bullet (`-`, `*` or `+`), a space, `[ ]` or a ticked box, and a space, which is
+what both storage engines can answer the same way and the terminal can answer in memory. The count on a
+card is taken from the rendered Markdown instead, so a marker typed inside a code block, or an ordered
+list item such as `1. [ ] ...`, is the one place the two can disagree: the filter counts the first and
+not the second, the card the other way round.
 
 ## Deadlines
 
@@ -285,6 +300,7 @@ $ curl -s -H "Authorization: Bearer $TIX_TOKEN" \
 | `not_project`, `not_status`, `not_tag`, `not_assignee`, `not_creator`, `not_claimed_by` | repeatable exclusions |
 | `not_priority` | repeatable, numeric 1–5 |
 | `starred` | `true` or `false`, against the caller's own stars |
+| `checklist`, `checklist_open` | `true` or `false`; `has:checklist` and `checklist:open` |
 | `text` | repeatable; `title~api`, `body:exact`, `any~value`, each optionally `-` prefixed |
 
 Everything is keyset-paginated as usual: there is no `OFFSET`, and the `cursor` a page returns is what fetches

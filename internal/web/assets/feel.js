@@ -207,6 +207,13 @@
       submitter.setAttribute("aria-pressed", on ? "true" : "false");
       return;
     }
+    if (submitter && submitter.classList.contains("check")) {
+      // A checklist item ticks at once, like the star; the snapshot taken
+      // above puts it back if the post is refused.
+      submitter.classList.remove("is-busy");
+      submitter.setAttribute("aria-checked", tix.tickedNext(submitter.getAttribute("aria-checked")));
+      return;
+    }
     if (!submitter) {
       return;
     }

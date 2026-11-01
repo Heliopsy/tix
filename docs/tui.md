@@ -186,6 +186,7 @@ impossible for a scheme to leave an action unbound.
 | `O` | record an artifact | board, detail |
 | `u` | restore a deleted task | board, detail |
 | `*` | star the task, or unstar a starred one; starred cards lead their column | board, detail |
+| `[` | tick a checklist item of the description by its number, or clear a ticked one | board, detail |
 | `Y` | copy the task to any project, this one included, with a form for the title and what travels | board, detail |
 | `X` | delete the task or the selected comment; removes the selected domain or member | board, detail, project, tenant |
 | `Z` | hide the selected column, for you, on this project's board everywhere | board |
@@ -694,7 +695,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 114
+a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 115
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:

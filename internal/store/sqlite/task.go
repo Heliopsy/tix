@@ -371,6 +371,7 @@ func (t *tx) applyTaskFilter(b *sqlb.Builder, f core.TaskFilter) error {
 		b.Where("tasks.recurrence = ''")
 	case core.Either:
 	}
+	sqlb.ApplyChecklist(b, "tasks.body", f.Checklist, f.ChecklistOpen)
 	switch f.Blocked {
 	case core.Yes:
 		b.Where("EXISTS " + blockingSubquery)

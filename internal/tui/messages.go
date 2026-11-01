@@ -63,6 +63,7 @@ const (
 	actionAddMember
 	actionRemoveMember
 	actionSaveFilter
+	actionCheck
 )
 
 // actionLabels name each action in the present tense, for a refusal, and in
@@ -97,6 +98,7 @@ var actionLabels = map[actionKind][2]string{
 	actionRestore:  {"restore the task", "restored"},
 	actionArtifact: {"record the artifact", "recorded an artifact on"},
 	actionStar:     {"star the task", "starred"},
+	actionCheck:    {"tick the checklist item", "updated the checklist of"},
 	actionUnstar:   {"unstar the task", "unstarred"},
 	actionArrange:  {"arrange the board", "arranged the board"},
 	actionCopy:     {"copy the task", "copied"},

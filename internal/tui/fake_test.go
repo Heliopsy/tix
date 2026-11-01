@@ -40,6 +40,7 @@ type fakeService struct {
 	deps     []core.TaskRef
 	starred  []core.TaskRef
 	unstars  []core.TaskRef
+	checks   []core.CheckItemInput
 	copies   []copyCall
 
 	groupPrefs map[string][]core.GroupPref
@@ -507,6 +508,13 @@ func (f *fakeService) UnstarTask(_ context.Context, ref core.TaskRef) error {
 	defer f.mu.Unlock()
 	f.unstars = append(f.unstars, ref)
 	return nil
+}
+
+func (f *fakeService) CheckTaskItem(_ context.Context, ref core.TaskRef, in core.CheckItemInput) (*core.Task, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.checks = append(f.checks, in)
+	return &core.Task{ID: ref.ID}, nil
 }
 
 func (f *fakeService) ListTags(context.Context) ([]core.Tag, error) {

@@ -27,6 +27,7 @@ func newTaskCmd(g *globals) *cobra.Command {
 		taskAddCmd(g), taskLsCmd(g), taskShowCmd(g), taskEditCmd(g),
 		taskMvCmd(g), taskRmCmd(g), taskRestoreCmd(g), taskTreeCmd(g),
 		taskStarCmd(g, true), taskStarCmd(g, false), taskCopyCmd(g), taskBulkCmd(g),
+		taskCheckCmd(g, true), taskCheckCmd(g, false),
 	)
 	return cmd
 }
@@ -411,6 +412,7 @@ func taskShowCmd(g *globals) *cobra.Command {
 			}
 			noteSuccessor(ctx, g, cmd, conn.Service, task)
 			noteCopiedFrom(ctx, g, cmd, conn.Service, task)
+			noteChecklist(g, cmd, task)
 			return nil
 		},
 		ValidArgsFunction: g.completeTaskRefs,

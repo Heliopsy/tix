@@ -162,6 +162,14 @@
      repeats and hid how often behind a hover, which a touch screen never
      gets. Readers who find it loud turn the Repeats field off under View. */}}
 {{define "repeatmark"}}<a class="repeatmark" href="/tasks?q=is:recurring" title="{{t "Repeats %s" .}}"><span aria-hidden="true">&#x21bb;</span><span class="sr-only">{{t "Repeats"}}</span> <span class="repeat-rule">{{.}}</span></a>{{end}}
+{{/* The checklist count a card, a row and the task screen carry. A progress
+     element rather than a styled bar: its width needs no inline style, so it
+     holds under a strict content security policy. */}}
+{{define "checkmark"}}<span class="checkmark{{if eq .Done .Total}} is-done{{end}}" title="{{t "%d of %d checklist items done" .Done .Total}}"><svg aria-hidden="true" width="12" height="12"><use href="/assets/icons.svg#checklist"/></svg><span class="sr-only">{{t "Checklist"}}</span> {{.Done}}/{{.Total}}</span>{{end}}
+{{define "checkbar"}}<progress class="checkbar" value="{{.Done}}" max="{{.Total}}" aria-hidden="true"></progress>{{end}}
+{{/* The Preview toggle beside a Markdown textarea, revealed by
+     assets/markdown.js. Without a script there is nothing to toggle to. */}}
+{{define "md-preview"}}<button type="button" class="link mdtoggle" data-md-preview="{{.}}" data-md-pane="{{.}}-preview" aria-pressed="false" aria-controls="{{.}}-preview" hidden>{{t "Preview"}}</button>{{end}}
 {{define "csrf"}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}
 
 {{/* star is one task's personal star toggle. A plain form and a real button,

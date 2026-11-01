@@ -79,6 +79,19 @@ tix artifact put default-2 --kind log --file ./test-output.txt --content-type te
 (Once you have *claimed* default-2, `artifact put` also needs
 `--lease-token "$token"` — see "Leases" below. `comment add` never does.)
 
+For small steps that do not each deserve a task, a checklist in the
+description is enough. A description is Markdown, and `- [ ]` lines are items:
+
+```sh
+tix task add "rotate the keys" -p default --body $'- [ ] revoke the old pair\n- [ ] issue the new one' -q
+tix task check default-4 1            # tick item 1; `tix task uncheck` clears it
+tix task show default-4 -o json | jq .checklist   # {"done":1,"total":2}
+```
+
+Items count from 1 in reading order, nested ones included. Pass `--version`
+when you read the task first, so a description somebody changed since is a
+version conflict, exit `4`, rather than a tick on the wrong line.
+
 When you discover work you did not plan for, add it as a task rather than
 doing it silently. That is the same durability argument: an unrecorded detour
 is lost with your context.

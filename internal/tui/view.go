@@ -552,7 +552,7 @@ func (m Model) detailLines(layout Layout) []string {
 	if len(body) == 0 && len(fields) == 0 && len(d.subtasks) == 0 && len(d.deps) == 0 && len(d.artifacts) == 0 && len(d.comments) == 0 {
 		lines = append(lines, m.theme.Empty.Render("  nothing else recorded on this task."))
 	} else {
-		lines = append(lines, m.section("body", body)...)
+		lines = append(lines, m.section(bodyTitle(t), body)...)
 		lines = append(lines, m.section(fmt.Sprintf("custom fields (%d)", len(fields)), fields)...)
 		lines = append(lines, m.section(fmt.Sprintf("subtasks (%d)", len(d.subtasks)), refLines(d.subtasks))...)
 		lines = append(lines, m.section(fmt.Sprintf("dependencies (%d)", len(d.deps)), dependencyLines(d.deps))...)
@@ -565,6 +565,15 @@ func (m Model) detailLines(layout Layout) []string {
 		wrapped = append(wrapped, m.fit(l))
 	}
 	return WindowLines(wrapped, m.detailOff, layout.BodyHeight)
+}
+
+// bodyTitle heads the description, with how much of its checklist is ticked
+// when it has one.
+func bodyTitle(t core.Task) string {
+	if t.Checklist == nil {
+		return "body"
+	}
+	return fmt.Sprintf("body (checklist %d/%d)", t.Checklist.Done, t.Checklist.Total)
 }
 
 // section titles a non-empty block. An empty block contributes nothing.

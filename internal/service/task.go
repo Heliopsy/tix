@@ -167,6 +167,7 @@ func (l *Local) GetTask(ctx context.Context, ref core.TaskRef) (*core.Task, erro
 	if err != nil {
 		return nil, err
 	}
+	markChecklists(out)
 	return out, nil
 }
 
@@ -211,6 +212,7 @@ func (l *Local) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 	} else if limit >= core.MaxPageLimit && len(tasks) == limit {
 		more = true
 	}
+	markChecklistsIn(tasks)
 	page := core.TaskPage{Tasks: tasks}
 	if more && len(tasks) > 0 {
 		last := tasks[len(tasks)-1]
@@ -327,6 +329,7 @@ func (l *Local) UpdateTask(ctx context.Context, ref core.TaskRef, in core.Update
 	if err != nil {
 		return nil, err
 	}
+	markChecklists(out)
 	return out, nil
 }
 
@@ -699,6 +702,7 @@ func (l *Local) TaskTree(ctx context.Context, ref core.TaskRef, depth int) ([]co
 	if err != nil {
 		return nil, err
 	}
+	markChecklistsIn(out)
 	return out, nil
 }
 

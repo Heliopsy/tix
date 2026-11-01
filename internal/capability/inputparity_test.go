@@ -66,6 +66,10 @@ var inputReaches = []inputReach{
 		"parent_ref": "--parent", "due_at": "--due", "custom_fields": "--field", "tags": "--tag",
 		"recurrence": "--repeat", "version": "--version",
 	}},
+	{"tix task check", core.CheckItemInput{}, map[string]string{
+		"item": "arg", "version": "--version",
+		"done": "!the command is the value: tix task check ticks the item and tix task uncheck clears it",
+	}},
 	{"tix task rm", core.DeleteTaskInput{}, map[string]string{"hard": "--hard", "cascade": "--cascade"}},
 	{"tix task mv", core.TransitionInput{}, map[string]string{
 		"to": "arg", "comment": "--comment", "lease_token": "--lease-token",

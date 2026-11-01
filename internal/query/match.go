@@ -27,6 +27,10 @@ func Matches(f core.TaskFilter, t core.Task, projectKey string, now time.Time) b
 		!f.Recurring.Match(t.Recurrence != "") || !f.Starred.Match(t.Starred) {
 		return false
 	}
+	if !f.Checklist.Match(core.HasChecklistMarker(t.Body)) ||
+		!f.ChecklistOpen.Match(core.HasOpenChecklistMarker(t.Body)) {
+		return false
+	}
 	for _, term := range f.Text {
 		if !term.Matches(t.Title, t.Body) {
 			return false

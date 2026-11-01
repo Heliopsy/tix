@@ -117,7 +117,8 @@ by a test that fails the build when an operation lacks a binding.
 
 Statistics, tenant theming, a ctrl+k command palette in the browser, an actor directory, multi-step
 status moves, bulk actions, CSV export, tasks that repeat when they are done, quick-add syntax,
-per-browser dates, lease badges, shell completion, self-update and seedable demonstration data.
+Markdown descriptions with checklists you tick in place, per-browser dates, lease badges, shell
+completion, self-update and seedable demonstration data.
 [docs/features.md](docs/features.md) describes each one and why it is there.
 
 ## Screenshots

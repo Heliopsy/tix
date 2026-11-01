@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 	"net/url"
 	"sort"
@@ -49,6 +50,8 @@ func (h *handler) taskRoutes() []route {
 		post(RouteTaskStar, h.starTask, "StarTask"),
 		post(RouteTaskUnstar, h.unstarTask, "UnstarTask"),
 		post(RouteTaskComments, h.addComment, "AddComment"),
+		post(RouteTaskChecklist, h.checkItem, "CheckTaskItem"),
+		post(RouteMarkdownPreview, h.previewMarkdown, "UpdateTask", "AddComment", "EditComment"),
 		post(RouteCommentEdit, h.editComment, "EditComment"),
 		post(RouteCommentDel, h.deleteComment, "DeleteComment"),
 		post(RouteTaskArts, h.putArtifact, "PutArtifact"),
@@ -121,6 +124,11 @@ type taskView struct {
 	// control is drawn only when a lease is live, so the field alone does not
 	// decide whether it appears.
 	CanReclaim bool
+
+	// BodyHTML is the description drawn from its Markdown, and CommentHTML
+	// each comment's body by comment id. See markdown.go.
+	BodyHTML    template.HTML
+	CommentHTML map[string]template.HTML
 
 	// Live is what keeps this screen current while it is open. See live.go.
 	Live liveScreen
@@ -352,6 +360,7 @@ func (h *handler) buildTaskView(r *http.Request) (taskView, error) {
 		}
 	}
 	data.Names = h.resolveActors(r, data.actorIDs()...)
+	h.renderProse(r, &data, data.Task.Ref+"-")
 	data.Live = h.liveTask(data.Task)
 	return data, nil
 }

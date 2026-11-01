@@ -39,6 +39,7 @@ const (
 	promptProjectColour
 	promptTenantAccent
 	promptSaveFilter
+	promptCheck
 )
 
 // PromptSpec is how one input introduces itself.
@@ -73,6 +74,7 @@ var promptSpecs = map[promptKind]PromptSpec{
 	promptCommentEdit: {Prompt: "edit comment: ", Placeholder: "what the comment should say", Limit: 4096, Field: "comment", Multiline: true},
 
 	promptTag:        {Prompt: "add tag: ", Placeholder: "tag to attach", Limit: 128, Field: "tag"},
+	promptCheck:      {Prompt: "tick item: ", Placeholder: "checklist item number; a ticked item is cleared", Limit: 6, Field: "item"},
 	promptUntag:      {Prompt: "remove tag: ", Placeholder: "tag to detach", Limit: 128, Field: "tag"},
 	promptDependency: {Prompt: "depends on: ", Placeholder: "task ref, such as infra-42", Limit: 128, Field: "task ref"},
 	promptNewProject: {Prompt: "new project: ", Placeholder: "key and name, such as: infra Infrastructure", Limit: 256, Field: "key and name"},

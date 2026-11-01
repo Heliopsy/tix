@@ -73,6 +73,12 @@
 <div class="detail"{{if not .InDialog}} data-inplace="main.wrap"{{end}}>
 <div class="main">
 
+  {{/* The description as it reads, above the editor, so a checklist can be
+       ticked without opening the textarea. A writer with nothing written yet
+       sees only the editor; "No description." over an empty box said the
+       same thing twice. */}}
+  <div id="task-desc">{{template "task-desc" .}}</div>
+
   {{if .Data.CanWrite}}
   <div class="card">
     {{/* "Edit", not "Details". The aside on the right is also headed Details,
@@ -90,8 +96,11 @@
       <input type="hidden" name="version" value="{{$t.Version}}">
       <label for="title">{{t "Title"}}</label>
       <input id="title" name="title" value="{{$t.Title}}" data-shortcut-target="editTitle" required>
-      <label for="{{.IDPrefix}}body">{{t "Description"}}</label>
+      <div class="field-label"><label for="{{.IDPrefix}}body">{{t "Description"}}</label>
+        {{template "tip" (tip "Description" "Written in Markdown: **bold**, lists, tables, `code`, links, and - [ ] for a checklist the task screen can tick. A reference such as infra-8 and an @handle become links. HTML is shown as typed, and images are linked rather than loaded." "docs/features.md")}}
+        {{template "md-preview" (print .IDPrefix "body")}}</div>
       <textarea id="{{.IDPrefix}}body" name="body" placeholder="{{t "Add a description"}}">{{$t.Body}}</textarea>
+      <div class="md mdpreview" id="{{.IDPrefix}}body-preview" aria-live="polite" hidden></div>
       <div class="row">
         <div>
           <label for="{{.IDPrefix}}priority">{{t "Priority"}}</label>
@@ -142,10 +151,6 @@
   </details>
   {{end}}
   {{else}}
-  <div class="card">
-    <h2>{{t "Description"}}</h2>
-    {{if $t.Body}}<pre>{{$t.Body}}</pre>{{else}}<p class="empty">{{t "No description."}}</p>{{end}}
-  </div>
   <p class="flash">{{t "You may read this task but not change it."}}</p>
   {{end}}
 
@@ -207,7 +212,8 @@
       <textarea id="comment-body" name="body" rows="1" class="composer"
                 placeholder="{{t "Add a comment"}}" aria-label="{{t "Add a comment"}}"
                 data-shortcut-target="comment" required></textarea>
-      <div class="actions"><button type="submit">{{t "Comment"}}</button></div>
+      <div class="md mdpreview" id="comment-body-preview" aria-live="polite" hidden></div>
+      <div class="actions">{{template "md-preview" "comment-body"}}<button type="submit">{{t "Comment"}}</button></div>
     </form>
     {{end}}
   </div>
@@ -408,6 +414,7 @@
      which are divs, and a div inside a paragraph makes the HTML parser close
      the paragraph before it: the priority ended up outside the row and on a
      line of its own. */}}
+<div id="task-desc">{{template "task-desc" .}}</div>
 <div id="task-pills" class="taskpills">{{template "task-pills" .}}</div>
 <ul class="plain" id="task-comments">{{template "task-comments" .}}</ul>
 <div class="body" id="task-history">{{template "task-history" .}}</div>
@@ -455,6 +462,27 @@
   {{if $t.ClaimCount}}<span class="muted" title="{{t "How many times this task has been claimed"}}">{{tn "claimed %d time" "claimed %d times" $t.ClaimCount}}</span>{{end}}
 {{end}}
 
+{{define "task-desc"}}
+{{$t := .Data.Task}}
+{{if or $t.Body (not .Data.CanWrite)}}
+  <div class="card">
+    <div class="headtip"><h2>{{t "Description"}}</h2>{{with $t.Checklist}}{{template "checkmark" .}}{{end}}</div>
+    {{if not $t.Body}}<p class="empty">{{t "No description."}}</p>
+    {{else if and .Data.CanWrite $t.Checklist}}
+    {{/* One form around the whole text: each checklist item is a submit
+         button naming its number and whether it is being ticked or cleared,
+         so a tick works without a script, and the version makes a tick
+         against text somebody has since changed a refusal, not a guess. */}}
+    <form method="post" class="mdform" action="/tasks/{{$t.Ref}}/checklist">
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="version" value="{{$t.Version}}">
+      <div class="md">{{.Data.BodyHTML}}</div>
+    </form>
+    {{else}}<div class="md">{{.Data.BodyHTML}}</div>{{end}}
+  </div>
+{{end}}
+{{end}}
+
 {{define "task-comments"}}
 {{$t := .Data.Task}}
 
@@ -465,7 +493,7 @@
              disclosure below it: three stacked blocks per comment is why ten
              comments were a screenful of chrome. */}}
         <p class="byline"><span class="who-name" title="{{.AuthorActorID}}">{{$.Data.Names.Label .AuthorActorID}}</span> &middot; {{compact .CreatedAt}}</p>
-        <div class="comment-body">{{.Body}}</div>
+        <div class="comment-body md">{{index $.Data.CommentHTML .ID}}</div>
         {{if $.Data.CanComment}}
         {{/* A textarea, and the reason is data loss rather than taste. This
              was an <input>, whose value attribute cannot hold a newline: the

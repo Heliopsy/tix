@@ -65,6 +65,28 @@ alone:
 tix task add --parse 'Fix login !high #auth @raj due:fri'
 ```
 
+**Descriptions and comments in Markdown, with checklists.** A task's description and its comments are
+CommonMark with the GitHub tables, task lists, autolinks, strikethrough and fenced code, and a line break
+you type stays a line break. The browser draws them; the command line and the terminal show the text as
+written. A reference such as `infra-8` links to the task when the project is one you can see, and an
+`@handle` of this tenant links to the tasks assigned to it. A line written `- [ ]` or `- [x]` is a
+checklist item: the task screen draws it as a checkbox anyone with `task:write` can tick in place, rows and
+cards carry a `3/5` count (cards add a thin progress bar), `tix task show` reports it, a task read carries
+`"checklist": {"done": 3, "total": 5}`, and `tix task check REF N` / `tix task uncheck REF N`, the
+terminal's `[` key and `POST /tasks/{ref}/checklist` tick and clear item N. A tick rewrites only that
+item's marker and carries the version it was made against, so a tick on a description somebody changed
+since is refused with the usual conflict rather than landing on the wrong line. `has:checklist`,
+`checklist:open` and `checklist:done` filter by it. The editor stays a plain textarea, with a Preview
+toggle that renders on the server.
+
+What is never rendered, by design: raw HTML is shown as the text that was typed, a link survives only
+when it is `http`, `https` or `mailto` and opens in the same tab with `rel="noopener noreferrer
+nofollow"`, and an image is never loaded. It becomes a link to its address labelled by its alt text. An
+image would make every reader's browser fetch from whatever origin the writer named, which tells that
+origin who opened the task and when; a link fetches only when somebody chooses to follow it. The markup
+carries no inline style or script, so it holds under a strict content security policy.
+[docs/filtering.md](filtering.md#checklists), [docs/api.md](api.md#checklists).
+
 **Tasks that repeat.** A task can carry a repeat rule, and finishing it puts the next one on the list, the
 way Google Tasks does it: nothing is generated ahead of time, so there is only ever one open occurrence of
 a series. Set it with `tix task add --repeat`, change it with `tix task edit --repeat`, remove it with

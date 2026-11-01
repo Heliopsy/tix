@@ -27,6 +27,7 @@ var Keys = []string{
 	"project", "status", "tag", "assignee", "creator", "claimed-by",
 	"priority", "due", "due-before", "due-after", "parent", "is", "sort", "limit",
 	"text", "title", "body", "claimed", "blocked", "deleted", "starred",
+	"has", "checklist",
 }
 
 // SyntaxHint is the one line that tells somebody the two operators exist. A
@@ -201,6 +202,10 @@ func applyTerm(f *core.TaskFilter, key, value, op string, negate bool, now time.
 		return applyParent(f, value)
 	case "is":
 		return applyIs(f, strings.ToLower(value), negate)
+	case "has":
+		return applyHas(f, strings.ToLower(value), negate)
+	case "checklist":
+		return applyChecklist(f, strings.ToLower(value), negate)
 	case "sort":
 		f.Page.Sort = value
 	case "limit":
@@ -449,6 +454,39 @@ func applyIs(f *core.TaskFilter, value string, negate bool) error {
 		f.ParentIsNull = true
 	default:
 		return core.Invalid("unknown is: value %q; try claimed, unclaimed, blocked, unblocked, recurring, starred, unstarred, deleted, trashed or root", value)
+	}
+	return nil
+}
+
+// applyHas folds a has: term into the filter. A checklist is the one thing a
+// task can have that is not already an is: state.
+func applyHas(f *core.TaskFilter, value string, negate bool) error {
+	if value != "checklist" {
+		return core.Invalid("unknown has: value %q; try has:checklist", value)
+	}
+	f.Checklist = core.Yes
+	if negate {
+		f.Checklist = core.No
+	}
+	return nil
+}
+
+// applyChecklist selects by the state of a description's checklist: open has
+// an unticked item, done has items and none unticked.
+func applyChecklist(f *core.TaskFilter, value string, negate bool) error {
+	switch value {
+	case "open":
+		f.ChecklistOpen = core.Yes
+		if negate {
+			f.ChecklistOpen = core.No
+		}
+	case "done":
+		if negate {
+			return core.Invalid("checklist:done cannot be negated; use checklist:open")
+		}
+		f.Checklist, f.ChecklistOpen = core.Yes, core.No
+	default:
+		return core.Invalid("unknown checklist: value %q; try checklist:open or checklist:done", value)
 	}
 	return nil
 }

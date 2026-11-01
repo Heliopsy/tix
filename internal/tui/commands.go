@@ -5,11 +5,13 @@ package tui
 import (
 	"context"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/markdown"
 	"github.com/heliopsy/tix/internal/output"
 )
 
@@ -374,6 +376,27 @@ func (m Model) tag(task core.Task, name string) tea.Cmd {
 	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
 	return func() tea.Msg {
 		return actionMsg{kind: actionTag, ref: ref, label: label, err: svc.AddTag(ctx, ref, name)}
+	}
+}
+
+// checkItem flips one checklist item of a task's description, against the
+// version the reader is looking at.
+func (m Model) checkItem(task core.Task, text string) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	ref, label := core.TaskRef{ID: task.ID}, task.Ref
+	n, err := strconv.Atoi(strings.TrimSpace(text))
+	items := markdown.Items(task.Body)
+	if err != nil || n < 1 || n > len(items) {
+		err := core.Invalid("checklist item %q must be a number from 1 to %d", text, len(items))
+		return func() tea.Msg { return actionMsg{kind: actionCheck, ref: ref, label: label, err: err} }
+	}
+	svc, ctx := m.svc, m.ctx
+	in := core.CheckItemInput{Item: n, Done: !items[n-1], Version: task.Version}
+	return func() tea.Msg {
+		_, err := svc.CheckTaskItem(ctx, ref, in)
+		return actionMsg{kind: actionCheck, ref: ref, label: label, err: err}
 	}
 }
 

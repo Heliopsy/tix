@@ -33,9 +33,9 @@ type Task struct {
 // unescaped would wrongly match.
 func Corpus() []Task {
 	return []Task{
-		{Title: "Deploy the API gateway", Body: "roll out the edge", Status: "todo",
+		{Title: "Deploy the API gateway", Body: "roll out the edge\n\n* [X] canary first\n", Status: "todo",
 			Priority: core.PriorityHigh, Tags: []string{"ops"}},
-		{Title: "rotate API keys", Body: "quarterly rotation", Status: "doing",
+		{Title: "rotate API keys", Body: "quarterly rotation\n\n- [x] revoke the old pair\n- [ ] issue the new one\n", Status: "doing",
 			Priority: core.PriorityNormal, Tags: []string{"sec"}, Recurrence: "every 3 months"},
 		{Title: "write runbook", Body: "document the API gateway rollout", Status: "todo",
 			Priority: core.PriorityLow, Tags: []string{"ops", "docs"}},
@@ -46,7 +46,7 @@ func Corpus() []Task {
 		// so a value that is meant to be literal would pull these in too.
 		{Title: "uptimeXgoal", Body: "decoy for the underscore wildcard", Status: "todo",
 			Priority: core.PriorityLowest},
-		{Title: "1000 things", Body: "decoy for the percent wildcard", Status: "todo",
+		{Title: "1000 things", Body: "decoy for the percent wildcard, [ ] is not a checklist", Status: "todo",
 			Priority: core.PriorityLowest},
 	}
 }
@@ -120,6 +120,15 @@ func Cases() []Case {
 		{"not recurring keeps every task without a rule",
 			core.TaskFilter{Recurring: core.No},
 			[]string{"Deploy the API gateway", "write runbook", "100% uptime_goal", "uptimeXgoal", "1000 things"}},
+		{"has a checklist selects any marker, ticked or not, in any bullet",
+			core.TaskFilter{Checklist: core.Yes}, []string{"Deploy the API gateway", "rotate API keys"}},
+		{"no checklist keeps a bracket that is not a marker",
+			core.TaskFilter{Checklist: core.No},
+			[]string{"write runbook", "100% uptime_goal", "uptimeXgoal", "1000 things"}},
+		{"an open checklist has an unticked marker",
+			core.TaskFilter{ChecklistOpen: core.Yes}, []string{"rotate API keys"}},
+		{"a done checklist has markers and none unticked",
+			core.TaskFilter{Checklist: core.Yes, ChecklistOpen: core.No}, []string{"Deploy the API gateway"}},
 		{"inclusion and exclusion combine",
 			core.TaskFilter{Statuses: []string{"todo"}, Exclude: core.TaskExclude{Tags: []string{"docs"}}},
 			[]string{"Deploy the API gateway", "100% uptime_goal", "uptimeXgoal", "1000 things"}},

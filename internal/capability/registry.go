@@ -493,6 +493,14 @@ var registry = []Operation{
 		TUI:   "board",
 	},
 	{
+		Name: "task.check", Method: "CheckTaskItem",
+		Scope: core.ScopeTaskWrite,
+		CLI:   "tix task check",
+		HTTP:  apiPost(wire.RouteTaskChecklist),
+		Web:   webPost(web.RouteTaskChecklist),
+		TUI:   "board",
+	},
+	{
 		Name: "task.unstar", Method: "UnstarTask",
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix task unstar",

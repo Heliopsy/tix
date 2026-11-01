@@ -328,6 +328,16 @@ tix status -o json | jq -r '.servers[] | select(.attached | not) | "\(.id) \(.ad
 `tix task edit --version N` refuses the edit with exit 4 if the task has changed since version N was read. Read
 the version from the task's `version` field. Without `--version`, last write wins.
 
+`tix task check REF N` and `tix task uncheck REF N` tick and clear checklist item N of a description and
+take the same `--version`: a stale one is exit 4, and an item number the description does not have is exit
+2 with the total in the message. Ticking a ticked item succeeds and writes nothing, so a retry is safe.
+
+```sh
+v=$(tix task show infra-8 -o json | jq .version)
+tix task check infra-8 2 --version "$v" -q
+tix task ls --filter 'checklist:open' -o json | jq -r '.[] | "\(.ref) \(.checklist.done)/\(.checklist.total)"'
+```
+
 ## Quiet and verbose
 
 `-q` suppresses diagnostics on standard error while leaving the data alone. `-v` prints how the target was

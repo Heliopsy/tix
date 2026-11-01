@@ -156,7 +156,7 @@ func (h *handler) liveTask(task core.Task) liveScreen {
 		Href:    taskLiveRoute(task.Ref),
 		Filter:  liveFilter([]string{task.ProjectID}, liveDetailTypes),
 		Subject: task.ID,
-		Regions: "task-pills task-comments task-history",
+		Regions: "task-desc task-pills task-comments task-history",
 		Window:  liveDetailWindow,
 	}
 }

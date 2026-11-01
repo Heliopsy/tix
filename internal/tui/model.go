@@ -1159,6 +1159,9 @@ func (m Model) performTaskAction(id actionID) (Model, tea.Cmd, bool) {
 	case doTag:
 		next, cmd := m.openPrompt(promptTag)
 		return next, cmd, true
+	case doCheck:
+		next, cmd := m.openPrompt(promptCheck)
+		return next, cmd, true
 	case doUntag:
 		next, cmd := m.openPrompt(promptUntag)
 		return next, cmd, true
@@ -1329,6 +1332,8 @@ func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 		return m.editComment(text)
 	case promptTag:
 		return m.tag(task, text)
+	case promptCheck:
+		return m.checkItem(task, text)
 	case promptUntag:
 		return m.untag(task, text)
 	case promptDependency:

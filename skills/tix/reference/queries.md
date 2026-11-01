@@ -32,11 +32,14 @@ tix task ls --filter 'claimed:yes'      # what another agent is holding
 tix task ls --filter 'is:blocked'
 tix task ls --filter 'is:recurring -status:done'
 tix task ls --filter 'is:trashed'       # only soft-deleted tasks
+tix task ls --filter 'checklist:open'   # a description with items still to tick
 ```
 
 Its keys are `project`, `status`, `tag`, `assignee`, `creator`,
 `claimed-by`, `priority`, `due`, `due-before`, `due-after`, `parent`, `is`,
-`sort`, `limit`, `text`, `title`, `body`, `claimed`, `blocked`, `deleted`. An
+`sort`, `limit`, `text`, `title`, `body`, `claimed`, `blocked`, `deleted`,
+`starred`, `has` (`has:checklist`) and `checklist` (`checklist:open`,
+`checklist:done`). An
 unknown key is exit `2` and the error names the whole set. The other flags add
 to whatever `--filter` selected.
 

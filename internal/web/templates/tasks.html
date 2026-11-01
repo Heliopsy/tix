@@ -351,14 +351,16 @@
         {{/* A merged board mixes projects in one column, so each card says
              which list it belongs to. A board of one project does not: the
              heading already said it, and repeating it on every card is noise. */}}
-        {{if or $v.Board.Merged $showPrio $showTags $showRepeat}}
+        {{if or $v.Board.Merged $showPrio $showTags $showRepeat .Task.Checklist}}
         <div class="card-meta">
           {{if $v.Board.Merged}}<a class="projref{{with projClass $acc.Color}} {{.}}{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} href="/tasks?q=project:{{$acc.Key}}" title="{{t "Only tasks in %s" $acc.Name}}">{{template "proj-icon" (projIcon $acc true)}}{{$acc.Key}}</a>{{end}}
           {{if $showPrio}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="{{t "Only %s priority tasks" (t (prio .Task.Priority))}}"><span class="caret" aria-hidden="true"></span>{{t (prio .Task.Priority)}}</a>{{end}}
           {{if $showRepeat}}{{template "repeatmark" .Task.Recurrence}}{{end}}
+          {{with .Task.Checklist}}{{template "checkmark" .}}{{end}}
           {{if $showTags}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
         </div>
         {{end}}
+        {{with .Task.Checklist}}{{template "checkbar" .}}{{end}}
         {{if .Routes}}
         <details class="card-move">
           <summary aria-label="{{t "Move %s" .Task.Ref}}">{{t "Move"}}</summary>
@@ -538,6 +540,7 @@
           </span>
           {{else if and ($.Columns.Show "tasks" "priority") (ne $p "normal")}}<a class="prio p-{{$p}}" href="/tasks?q=priority:{{$p}}" title="{{t "Only %s priority tasks" (t $p)}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</a>{{end}}
           {{if and ($.Columns.Show "tasks" "repeat") .Task.Recurrence}}{{template "repeatmark" .Task.Recurrence}}{{end}}
+          {{with .Task.Checklist}}{{template "checkmark" .}}{{end}}
           {{if $.Columns.Show "tasks" "tags"}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
           {{if $.Columns.Show "tasks" "ref"}}<span class="ref mono">{{.Task.Ref}}</span>{{end}}
         </div>
@@ -993,6 +996,7 @@
            meaning and the colour only reinforces it. */}}
       {{if $r.Columns.Show "tasks" "due"}}{{$due := due .}}{{if $due}}<a class="duemark is-{{$due}}" href="/tasks?due={{if eq $due "overdue"}}overdue{{else}}week{{end}}" title="{{t "Due %s" (stamp .DueAt)}}">{{if eq $due "overdue"}}{{t "overdue"}}{{else}}{{t "due this week"}}{{end}}</a>{{end}}{{end}}
       {{if and .Recurrence ($r.Columns.Show "tasks" "repeat")}}{{template "repeatmark" .Recurrence}}{{end}}
+      {{with .Checklist}}{{template "checkmark" .}}{{end}}
       </span>
       {{if $r.Columns.Show "tasks" "updated"}}<span class="tm tm-when"><span class="when" title="{{t "Last updated %s" (compact .UpdatedAt)}}"><span class="when-label">{{t "updated"}}</span> {{compact .UpdatedAt}}</span></span>{{end}}
       {{if $r.Columns.Show "tasks" "ref"}}<span class="tm tm-ref"><span class="ref mono">{{.Ref}}</span></span>{{end}}

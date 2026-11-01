@@ -68,6 +68,8 @@ var filterFields = map[string]filterReach{
 	"IncludeDeleted": {Expr: "is:deleted", CLI: "--include-deleted"},
 	"Starred":        {Expr: "is:starred", CLI: "--starred"},
 	"Trashed":        {Expr: "is:trashed", CLI: "--trashed"},
+	"Checklist":      {Expr: "has:checklist", CLI: ""},
+	"ChecklistOpen":  {Expr: "checklist:open", CLI: ""},
 }
 
 // filterExempt names the fields no filter expression reaches, with the reason.
@@ -90,13 +92,15 @@ var filterExempt = map[string]string{
 var cliFlagExempt = map[string]string{
 	"Priorities": "the expression is the only spelling that can also exclude, and " +
 		"--priority beside -priority:low would be one vocabulary in two grammars",
-	"CreatorIDs":   "asked for far less often than assignee; --filter 'creator:alice' is the whole of it",
-	"ClaimedBy":    "the same, and --claimed already answers the question people actually ask",
-	"ParentID":     "`tix task tree` is the command for a parent's subtasks",
-	"ParentIsNull": "the same: a flag for the roots would be a second way to say `tix task tree`",
-	"Text":         "the weak and negated forms need the operators, which is a grammar rather than a flag",
-	"Exclude":      "every exclusion is the negation of an inclusion, so a flag per excluded field would double the flag list",
-	"CustomFields": "the name is part of the term, so a flag would be --field.severity=high, which pflag cannot register",
+	"CreatorIDs":    "asked for far less often than assignee; --filter 'creator:alice' is the whole of it",
+	"ClaimedBy":     "the same, and --claimed already answers the question people actually ask",
+	"ParentID":      "`tix task tree` is the command for a parent's subtasks",
+	"ParentIsNull":  "the same: a flag for the roots would be a second way to say `tix task tree`",
+	"Text":          "the weak and negated forms need the operators, which is a grammar rather than a flag",
+	"Exclude":       "every exclusion is the negation of an inclusion, so a flag per excluded field would double the flag list",
+	"Checklist":     "a question about the description rather than the task's state; --filter 'has:checklist' is the whole of it",
+	"ChecklistOpen": "the same: --filter 'checklist:open' or 'checklist:done'",
+	"CustomFields":  "the name is part of the term, so a flag would be --field.severity=high, which pflag cannot register",
 }
 
 // taskFilterFields is every field of the contract a listing is narrowed by.
