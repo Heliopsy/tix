@@ -102,6 +102,7 @@ func taskFilterFrom(r *http.Request) (core.TaskFilter, error) {
 		Recurring:      triState(q.Get("recurring")),
 		Query:          q.Get("q"),
 		IncludeDeleted: boolParam(r, "include_deleted"),
+		Trashed:        triState(q.Get("trashed")),
 		Page:           page,
 	}
 	if f.Priorities, err = priorities(q["priority"]); err != nil {

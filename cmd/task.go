@@ -149,7 +149,7 @@ func taskLsCmd(g *globals) *cobra.Command {
 		limit                                int
 		desc, all, deleted                   bool
 		claimed, unclaimed, blocked, starred bool
-		overdue, recurring                   bool
+		overdue, recurring, trashed          bool
 	)
 	cmd := &cobra.Command{
 		Use:     "ls",
@@ -163,6 +163,8 @@ func taskLsCmd(g *globals) *cobra.Command {
 			"--overdue, --due-before and --due-after select by deadline; the expression spells " +
 			"the same thing as due:overdue, due:<DATE and due:>DATE.\n\n" +
 			"Tasks you starred come first, under every sort; is:starred and --starred select them.\n\n" +
+			"--include-deleted (is:deleted) adds soft-deleted tasks to the listing; --trashed " +
+			"(is:trashed) lists only them, which is the trash `tix task restore` takes from.\n\n" +
 			"Exit codes: 2 invalid filter, 3 unknown project, status, parent or actor, 5 permission denied.",
 		Example: "  tix task ls\n  tix task ls --status todo -o ndjson\n" +
 			"  tix task ls -p infra --tag ops --all\n" +
@@ -233,6 +235,9 @@ func taskLsCmd(g *globals) *cobra.Command {
 			if recurring {
 				filter.Recurring = core.Yes
 			}
+			if trashed {
+				filter.Trashed = core.Yes
+			}
 			if cmd.Flags().Changed("starred") {
 				filter.Starred = core.No
 				if starred {
@@ -283,6 +288,7 @@ func taskLsCmd(g *globals) *cobra.Command {
 	f.BoolVar(&desc, "desc", false, "sort descending")
 	f.BoolVar(&all, "all", false, "follow cursors until every page is read")
 	f.BoolVar(&deleted, "include-deleted", false, "include soft-deleted tasks")
+	f.BoolVar(&trashed, "trashed", false, "only soft-deleted tasks, the trash")
 	f.BoolVar(&claimed, "claimed", false, "only tasks currently claimed")
 	f.BoolVar(&unclaimed, "unclaimed", false, "only tasks not currently claimed")
 	f.BoolVar(&blocked, "blocked", false, "only tasks blocked by a dependency")

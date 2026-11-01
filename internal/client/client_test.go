@@ -474,6 +474,7 @@ func TestTaskFilterQueryCarriesEveryField(t *testing.T) {
 		Query:          "search me",
 		CustomFields:   map[string]any{"severity": "high"},
 		IncludeDeleted: true,
+		Trashed:        core.Yes,
 	})
 	if err != nil {
 		t.Fatalf("list: %v", err)
@@ -482,6 +483,7 @@ func TestTaskFilterQueryCarriesEveryField(t *testing.T) {
 		"project_id=p1", "project=infra", "tag=bug", "assignee=a1", "creator=c1",
 		"claimed_by=agent", "priority=2", "due_before=", "due_after=", "parent_id=p",
 		"claimed=true", "blocked=false", "q=search", "custom_fields=", "include_deleted=true",
+		"trashed=true",
 	} {
 		if !strings.Contains(got.query, want) {
 			t.Errorf("query %q missing %q", got.query, want)

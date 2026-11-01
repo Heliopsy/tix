@@ -102,6 +102,26 @@ func TestParseNegationAndWeakMatch(t *testing.T) {
 				t.Fatal("-is:deleted must not include deleted tasks")
 			}
 		}},
+		{"is:trashed selects the trash", "is:trashed", func(t *testing.T, f core.TaskFilter) {
+			if f.Trashed != core.Yes || !f.ListsDeleted() || f.ListsLive() {
+				t.Fatalf("trashed %v lists deleted %v, live %v; want the trash alone", f.Trashed, f.ListsDeleted(), f.ListsLive())
+			}
+		}},
+		{"-is:trashed selects the live tasks", "-is:trashed", func(t *testing.T, f core.TaskFilter) {
+			if f.Trashed != core.No || f.ListsDeleted() || !f.ListsLive() {
+				t.Fatalf("trashed %v lists deleted %v, live %v; want live alone", f.Trashed, f.ListsDeleted(), f.ListsLive())
+			}
+		}},
+		{"is:deleted -is:trashed is live only", "is:deleted -is:trashed", func(t *testing.T, f core.TaskFilter) {
+			if f.ListsDeleted() || !f.ListsLive() {
+				t.Fatalf("lists deleted %v, live %v; want live alone", f.ListsDeleted(), f.ListsLive())
+			}
+		}},
+		{"is:deleted alone lists both", "is:deleted", func(t *testing.T, f core.TaskFilter) {
+			if !f.ListsDeleted() || !f.ListsLive() {
+				t.Fatalf("lists deleted %v, live %v; want both", f.ListsDeleted(), f.ListsLive())
+			}
+		}},
 		{"two weak terms both survive", "title~api body~roll", func(t *testing.T, f core.TaskFilter) {
 			if len(f.Text) != 2 {
 				t.Fatalf("terms %+v, want two", f.Text)
