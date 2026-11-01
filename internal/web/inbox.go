@@ -23,6 +23,7 @@ func (h *handler) inboxRoutes() []route {
 
 // inboxView is what the inbox screen renders.
 type inboxView struct {
+	Live   liveScreen
 	Items  []inboxRow
 	Unread bool
 	Count  int
@@ -54,6 +55,9 @@ func (h *handler) showInbox(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 	return h.render(w, r, "inbox.html", "Inbox", inboxView{
+		Live: liveScreen{Events: h.eventsPath, Href: fragmentHref(r, RouteInbox),
+			Filter:  liveFilter(nil, []core.EventType{core.EventInboxUpdated}),
+			Regions: "inbox-bar inbox-list", Window: liveListWindow},
 		Items: rows, Unread: unread, Count: h.unreadCount(r), Here: here(r),
 		Pager: newPager(r, RouteInbox, next, len(rows), "items", "show"),
 	})

@@ -711,4 +711,20 @@
     var rest = value.slice(caret).replace(/^\s/, "");
     return { value: head + rest, caret: head.length };
   };
+
+  // freshIDs lists the identifiers in after that were not in before, in the
+  // order after holds them: the rows a redraw brought.
+  tix.freshIDs = function (before, after) {
+    var seen = {};
+    for (var i = 0; i < (before || []).length; i++) {
+      seen[before[i]] = true;
+    }
+    var out = [];
+    for (var j = 0; j < (after || []).length; j++) {
+      if (!seen[after[j]]) {
+        out.push(after[j]);
+      }
+    }
+    return out;
+  };
 })(typeof globalThis !== "undefined" ? globalThis : this);
