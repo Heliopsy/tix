@@ -2752,7 +2752,11 @@ li.task.is-blocked a.task-title { color: var(--muted); }
      select and the Add button on a second line, 44px of the fold spent on
      two controls that fit beside the box perfectly well. */
   .quickadd, .filterbar { flex-wrap: wrap; }
-  .quickadd input[name="title"] { flex: 1 1 90px; min-width: 0; }
+  /* With From template beside Add with details the row holds two icon
+     buttons; the box gives up its last few pixels of basis and the project
+     select is capped, so all of it still fits a 390px phone on one line. */
+  .quickadd input[name="title"] { flex: 1 1 72px; min-width: 0; }
+  .quickadd select { max-width: 5.25rem; }
   .filterbar input { flex: 1 1 100%; }
   /* The four controls that decide how the list is drawn, on one line at the
      width where they only just fit. They keep their 44px height; it is the
