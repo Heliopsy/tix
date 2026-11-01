@@ -36,6 +36,10 @@ const (
 	// reads no more than its owner may, so reading tasks is authority enough;
 	// it lists every project the owner reads, so it is not confinable.
 	ActionCalendarFeed Action = "calendar.feed"
+	// ActionInboxRead reads and changes the caller's own inbox. An inbox is
+	// the caller's alone and spans projects, so it needs only task:read and
+	// is not confinable.
+	ActionInboxRead Action = "inbox.read"
 
 	ActionProjectRead  Action = "project.read"
 	ActionProjectWrite Action = "project.write"
@@ -81,6 +85,7 @@ var actionScopes = map[Action]core.Scope{
 	ActionFilterSave:     core.ScopeTaskRead,
 	ActionFilterManage:   core.ScopeTenantAdmin,
 	ActionCalendarFeed:   core.ScopeTaskRead,
+	ActionInboxRead:      core.ScopeTaskRead,
 
 	ActionProjectRead:  core.ScopeProjectRead,
 	ActionProjectWrite: core.ScopeProjectWrite,
@@ -156,7 +161,7 @@ func (a Action) ProjectConfinable() bool { return projectConfinable[a] }
 var allActions = []Action{
 	ActionTaskRead, ActionTaskCreate, ActionTaskUpdate, ActionTaskTransition,
 	ActionTaskClaim, ActionTaskDelete, ActionTaskReclaim, ActionTaskStar, ActionViewArrange,
-	ActionFilterSave, ActionFilterManage, ActionCalendarFeed,
+	ActionFilterSave, ActionFilterManage, ActionCalendarFeed, ActionInboxRead,
 	ActionProjectRead, ActionProjectWrite,
 	ActionWorkflowRead, ActionWorkflowWrite,
 	ActionFieldWrite, ActionCommentWrite, ActionArtifactWrite,

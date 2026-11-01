@@ -125,6 +125,11 @@ const (
 	// segment is the feed secret followed by CalendarFeedSuffix, because some
 	// clients refuse an address that does not look like a file.
 	RouteCalendarFeed = CalendarFeedPrefix + "{file}"
+	RouteInbox        = APIPrefix + "/inbox"
+	RouteInboxCount   = APIPrefix + "/inbox/count"
+	RouteInboxRead    = APIPrefix + "/inbox/{id}/read"
+	RouteInboxReadAll = APIPrefix + "/inbox/read-all"
+	RouteInboxPrefs   = APIPrefix + "/inbox/prefs"
 )
 
 // CalendarFeedPrefix starts every feed address, and CalendarFeedSuffix ends it.

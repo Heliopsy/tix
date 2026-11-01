@@ -63,6 +63,7 @@ type Tx interface {
 	ViewTx
 	SavedFilterTx
 	CalendarTx
+	InboxTx
 
 	Commit() error
 	Rollback() error
@@ -253,6 +254,31 @@ type CalendarTx interface {
 	SetCalendarFeedFilter(ctx context.Context, id, filter string) error
 	// RevokeCalendarFeed marks a live feed unusable from the given instant.
 	RevokeCalendarFeed(ctx context.Context, id string, at time.Time) error
+}
+
+// InboxTx covers each actor's inbox. Every method but CreateInboxItem and
+// InboxMutesOf is confined to the one recipient it names.
+type InboxTx interface {
+	// CreateInboxItem inserts an item, filling its identifier when empty.
+	CreateInboxItem(ctx context.Context, item *core.InboxItem) error
+	// ListInbox returns one page of a recipient's items, newest first.
+	ListInbox(ctx context.Context, recipientID string, f core.InboxFilter) ([]core.InboxItem, error)
+	// CountUnreadInbox counts a recipient's unread items.
+	CountUnreadInbox(ctx context.Context, recipientID string) (int, error)
+	// GetInboxItem returns one of a recipient's items.
+	GetInboxItem(ctx context.Context, recipientID, id string) (*core.InboxItem, error)
+	// SetInboxRead sets or clears when an item was read, reporting whether
+	// the row changed.
+	SetInboxRead(ctx context.Context, recipientID, id string, at *time.Time) (bool, error)
+	// ReadAllInbox marks every unread item of a recipient read, reporting
+	// how many it marked.
+	ReadAllInbox(ctx context.Context, recipientID string, at time.Time) (int64, error)
+	// InboxMutesOf returns the kinds each of the given actors muted.
+	InboxMutesOf(ctx context.Context, actorIDs []string) (map[string][]core.InboxKind, error)
+	// SetInboxMutes replaces the kinds an actor muted.
+	SetInboxMutes(ctx context.Context, actorID string, kinds []core.InboxKind) error
+	// TaskStarrers lists the actors who starred a task.
+	TaskStarrers(ctx context.Context, taskID string) ([]string, error)
 }
 
 // ClaimTx covers the work queue.

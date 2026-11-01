@@ -51,6 +51,8 @@ type fakeService struct {
 	savedFilters []core.SavedFilter
 	savedInputs  []core.SavedFilterInput
 	savedErr     error
+	inbox        []core.InboxItem
+	inboxErr     error
 
 	// what the destructive and corrective calls recorded, and what the reads
 	// the forms offer from are scripted to answer with.

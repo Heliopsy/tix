@@ -608,6 +608,10 @@ const (
 	EventFilterSaved   EventType = "filter.saved"
 	EventFilterUpdated EventType = "filter.updated"
 	EventFilterDeleted EventType = "filter.deleted"
+	// EventInboxUpdated says one or more actors' inboxes changed: items were
+	// created for them, read or unread, or their mutes changed. Its payload
+	// names the actors under "recipients".
+	EventInboxUpdated EventType = "inbox.updated"
 )
 
 // eventTypes is the complete event vocabulary, in declaration order.
@@ -622,6 +626,7 @@ var eventTypes = []EventType{
 	EventProjectUpdated, EventWorkflowUpdated, EventFieldUpdated,
 	EventWebhookDelivered, EventImportCompleted, EventViewArranged,
 	EventFilterSaved, EventFilterUpdated, EventFilterDeleted,
+	EventInboxUpdated,
 }
 
 // EventTypes returns the complete event vocabulary. Callers outside this

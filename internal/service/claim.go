@@ -350,11 +350,11 @@ func (l *Local) ReleaseLease(ctx context.Context, ref core.TaskRef, token string
 // comment a release carries.
 func (l *Local) applyRelease(ctx context.Context, m *mutation, task *core.Task, wf *core.Workflow, in core.ReleaseInput) error {
 	if in.Comment != "" {
-		if err := m.tx.CreateComment(ctx, &core.Comment{
-			TaskID:        task.ID,
-			AuthorActorID: m.actor.ID,
-			Body:          in.Comment,
-		}); err != nil {
+		c := &core.Comment{TaskID: task.ID, AuthorActorID: m.actor.ID, Body: in.Comment}
+		if err := m.tx.CreateComment(ctx, c); err != nil {
+			return err
+		}
+		if err := m.notifyComment(ctx, task, c); err != nil {
 			return err
 		}
 	}
@@ -386,6 +386,7 @@ func (l *Local) applyRelease(ctx context.Context, m *mutation, task *core.Task, 
 	if err := m.tx.UpdateTask(ctx, &updated); err != nil {
 		return err
 	}
+	m.notifyStatus(&updated, task.Status, in.Status)
 	if err := m.Record("task.transition", core.EventTaskTransitioned, "task", task.ID, task.ProjectID,
 		task, updated, withNext(map[string]any{"from": task.Status, "to": in.Status}, next)); err != nil {
 		return err

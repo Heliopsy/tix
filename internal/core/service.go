@@ -36,6 +36,7 @@ type Service interface {
 	ViewService
 	SavedFilterService
 	CalendarService
+	InboxService
 
 	Close() error
 }

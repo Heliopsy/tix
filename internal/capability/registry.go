@@ -71,6 +71,7 @@ const (
 	tplStatus    = "status.html"
 	tplSettings  = "settings.html"
 	tplProjDel   = "projectdelete.html"
+	tplInbox     = "inbox.html"
 )
 
 // registry declares every operation the product offers. Every exported method
@@ -621,6 +622,62 @@ var registry = []Operation{
 		Exempt: []Exemption{
 			off(SurfaceTUI, "removing a saved filter is done in the browser sidebar or with tix filter rm; the terminal applies and saves them"),
 		},
+	},
+	{
+		Name: "inbox.list", Method: "ListInbox",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix inbox ls",
+		HTTP:  apiGet(wire.RouteInbox),
+		Web:   webGet(web.RouteInbox, tplInbox),
+		TUI:   "inbox",
+	},
+	{
+		Name: "inbox.count", Method: "CountInbox",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix inbox count",
+		HTTP:  apiGet(wire.RouteInboxCount),
+		Web:   webGet(web.RouteInboxBadge, tplInbox),
+		TUI:   "inbox",
+	},
+	{
+		Name: "inbox.read", Method: "ReadInboxItem",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix inbox read",
+		HTTP:  apiPut(wire.RouteInboxRead),
+		Web:   webPost(web.RouteInboxRead),
+		TUI:   "inbox",
+	},
+	{
+		Name: "inbox.unread", Method: "UnreadInboxItem",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix inbox unread",
+		HTTP:  apiDelete(wire.RouteInboxRead),
+		Web:   webPost(web.RouteInboxUnread),
+		TUI:   "inbox",
+	},
+	{
+		Name: "inbox.read_all", Method: "ReadAllInbox",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix inbox read-all",
+		HTTP:  apiPost(wire.RouteInboxReadAll),
+		Web:   webPost(web.RouteInboxReadAll),
+		TUI:   "inbox",
+	},
+	{
+		Name: "inbox.prefs", Method: "GetInboxPrefs",
+		Scope:  core.ScopeTaskRead,
+		CLI:    "tix inbox prefs",
+		HTTP:   apiGet(wire.RouteInboxPrefs),
+		Web:    webGet(web.RouteSettings, tplSettings),
+		Exempt: []Exemption{off(SurfaceTUI, "mutes are a setting, and the terminal interface has no settings screen; set them from the browser or tix inbox prefs")},
+	},
+	{
+		Name: "inbox.prefs.set", Method: "PutInboxPrefs",
+		Scope:  core.ScopeTaskRead,
+		CLI:    "tix inbox prefs",
+		HTTP:   apiPut(wire.RouteInboxPrefs),
+		Web:    webPost(web.RouteInboxMutes),
+		Exempt: []Exemption{off(SurfaceTUI, "mutes are a setting, and the terminal interface has no settings screen; set them from the browser or tix inbox prefs")},
 	},
 	{
 		Name: "tag.list", Method: "ListTags",

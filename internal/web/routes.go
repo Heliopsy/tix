@@ -183,6 +183,13 @@ const (
 	RouteViewOrder = "/view/order"
 	RouteViewReset = "/view/reset"
 
+	RouteInbox        = "/inbox"
+	RouteInboxBadge   = "/inbox/badge"
+	RouteInboxRead    = "/inbox/read"
+	RouteInboxUnread  = "/inbox/unread"
+	RouteInboxReadAll = "/inbox/read-all"
+	RouteInboxMutes   = "/settings/inbox"
+
 	RouteTenant        = "/admin/tenant"
 	RouteMembers       = "/admin/tenant/members"
 	RouteMemberRemove  = "/admin/tenant/members/remove"

@@ -26,6 +26,7 @@ var workSubjects = []string{
 	"field_def",
 	"filter",
 	"noop",
+	"inbox",
 	"project",
 	"tag",
 	"task",

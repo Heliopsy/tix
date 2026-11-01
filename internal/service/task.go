@@ -126,6 +126,10 @@ func (l *Local) CreateTask(ctx context.Context, in core.CreateTaskInput) (*core.
 			}
 		}
 
+		m.notifyAssigned(task)
+		if err := m.notifyMentions(ctx, inboxNote{task: task}, task.Body, ""); err != nil {
+			return err
+		}
 		if err := m.Record("task.create", core.EventTaskCreated, "task", task.ID, project.ID,
 			nil, task, map[string]any{"ref": task.Ref, "title": task.Title, "status": task.Status}); err != nil {
 			return err
@@ -318,6 +322,12 @@ func (l *Local) UpdateTask(ctx context.Context, ref core.TaskRef, in core.Update
 				return err
 			}
 		}
+		if task.AssigneeActorID != before.AssigneeActorID {
+			m.notifyAssigned(task)
+		}
+		if err := m.notifyMentions(ctx, inboxNote{task: task}, task.Body, before.Body); err != nil {
+			return err
+		}
 		payload := map[string]any{"ref": task.Ref, "version": task.Version}
 		if fields := updatedFields(in); len(fields) > 0 {
 			payload["fields"] = fields
@@ -493,7 +503,11 @@ func (l *Local) TransitionTask(ctx context.Context, ref core.TaskRef, in core.Tr
 			if err := m.tx.CreateComment(ctx, c); err != nil {
 				return err
 			}
+			if err := m.notifyComment(ctx, task, c); err != nil {
+				return err
+			}
 		}
+		m.notifyStatus(task, before.Status, task.Status)
 		if err := m.Record("task.transition", core.EventTaskTransitioned, "task", task.ID, task.ProjectID,
 			before, task, withNext(map[string]any{"ref": task.Ref, "from": before.Status, "to": task.Status}, next)); err != nil {
 			return err

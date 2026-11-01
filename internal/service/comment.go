@@ -36,6 +36,9 @@ func (l *Local) AddComment(ctx context.Context, ref core.TaskRef, body string) (
 			return err
 		}
 		out = c
+		if err := m.notifyComment(ctx, task, c); err != nil {
+			return err
+		}
 		return m.Record("comment.add", core.EventCommentAdded, "comment", c.ID, task.ProjectID,
 			nil, c, map[string]any{"ref": task.Ref, "task_id": task.ID})
 	})
@@ -102,6 +105,9 @@ func (l *Local) EditComment(ctx context.Context, id, body string) (*core.Comment
 			return err
 		}
 		out = c
+		if err := m.notifyMentions(ctx, inboxNote{task: task, commentID: c.ID}, c.Body, before.Body); err != nil {
+			return err
+		}
 		return m.Record("comment.edit", core.EventCommentAdded, "comment", c.ID, task.ProjectID,
 			before, c, map[string]any{"ref": task.Ref, "task_id": task.ID, "edited": true})
 	})
