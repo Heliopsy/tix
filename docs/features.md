@@ -61,8 +61,8 @@ The command line parses only when asked, because a script passing a title it did
 title or a commit subject, must get that title back. Single-quote the line so the shell leaves `!` and `#`
 alone:
 
-```console
-$ tix task add --parse 'Fix login !high #auth @raj due:fri'
+```sh
+tix task add --parse 'Fix login !high #auth @raj due:fri'
 ```
 
 **Tasks that repeat.** A task can carry a repeat rule, and finishing it puts the next one on the list, the
