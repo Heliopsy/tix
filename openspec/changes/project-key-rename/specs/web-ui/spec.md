@@ -7,7 +7,9 @@ explanation that task references change and old links redirect. Submitting a dif
 change anything at once: the reader SHALL be shown a confirmation naming the old and new key with
 example task references before and after, and SHALL change the key only by confirming. The
 confirmation SHALL carry every other submitted field so confirming also saves them, and SHALL work
-without scripting. Submitting the current key SHALL save without a confirmation.
+without scripting. An icon image uploaded in the same save cannot be carried to a second screen, so
+the confirmation SHALL ask for it again rather than drop it. Submitting the current key SHALL save
+without a confirmation.
 
 #### Scenario: A changed key asks first
 
@@ -19,6 +21,12 @@ without scripting. Submitting the current key SHALL save without a confirmation.
 
 - **WHEN** the reader confirms the change of `infra` to `ops`
 - **THEN** the key is `ops` and the reader is taken to `/projects/ops`
+
+#### Scenario: The icon chosen with a new key is kept
+
+- **WHEN** the reader picks a built-in icon and a new key in one save and confirms
+- **THEN** the project carries both the new key and the icon
+- **AND** had the reader uploaded an image instead, the confirmation asks for the file again
 
 ### Requirement: Old project and task URLs redirect to the new ones
 

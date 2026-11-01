@@ -417,7 +417,9 @@ The project board's settings carry the key beside the name and the description, 
 change does. Saving a different key does not change it straight away: the next screen names the old and the
 new key and shows two of the project's references before and after, such as `infra-1 → ops-1`, and the key
 changes only when that is confirmed. The confirmation carries the rest of the form, so the name or
-description changed in the same save are kept. It needs no script.
+description changed in the same save are kept, and so is the icon. A browser cannot carry an uploaded file to
+a second screen, so when the same save uploaded an icon image the confirmation asks for the file again. It needs
+no script.
 
 The old key stays an alias of the project for as long as the project exists. Opening `/projects/infra`,
 `/projects/infra/fields`, `/tasks/infra-8` or a screen under it answers `301 Moved Permanently` to the same
