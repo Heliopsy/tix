@@ -33,3 +33,21 @@ the move choice SHALL be shown as unavailable with the reason.
 
 - **WHEN** the move choice is submitted with a target
 - **THEN** the project is deleted, its tasks are in the target, and the reader lands on the target's board
+
+### Requirement: The deletion confirmation is drawn in the shared form layout
+
+The project deletion confirmation SHALL be drawn in the layout the create forms use: one card, controls of the
+shared control height, refusals under the field they are about, and Cancel beside the action at the bottom
+right. Each answer about the tasks SHALL be a card holding the controls that answer needs, and the mapping table
+SHALL fit the card at any width without scrolling sideways. Escape SHALL follow Cancel back to the project's
+board. On a phone the actions SHALL stay at the bottom edge of the screen while the choices scroll.
+
+#### Scenario: Escape leaves the confirmation
+
+- **WHEN** the reader presses Escape in the confirmation
+- **THEN** the browser returns to the project's board and nothing is deleted
+
+#### Scenario: Each answer holds its own controls
+
+- **WHEN** the confirmation is shown for a project with tasks and another live project
+- **THEN** the move card holds the target select and the mapping, and the delete card holds the key field
