@@ -240,12 +240,11 @@ func insideLink(n ast.Node) bool {
 
 // heading sits two levels down, under the h2 of the card the text is in.
 func (r *safeRenderer) heading(w util.BufWriter, _ []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
-	level := min(node.(*ast.Heading).Level+2, 6)
-	tag := []byte{'h', byte('0' + level)}
+	tag := "h" + strconv.Itoa(min(node.(*ast.Heading).Level+2, 6))
 	if entering {
-		_, _ = w.WriteString("<" + string(tag) + ">")
+		_, _ = w.WriteString("<" + tag + ">")
 	} else {
-		_, _ = w.WriteString("</" + string(tag) + ">\n")
+		_, _ = w.WriteString("</" + tag + ">\n")
 	}
 	return ast.WalkContinue, nil
 }

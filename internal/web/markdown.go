@@ -119,6 +119,6 @@ func (h *handler) previewMarkdown(w http.ResponseWriter, r *http.Request) error 
 	html := markdown.Render(text, h.markdownOptions(r, h.resolveActors(r)))
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	_, err := w.Write([]byte(html))
+	_, err := w.Write([]byte(html)) // #nosec G705 -- markdown.Render escapes every node it draws; see internal/markdown
 	return err
 }
