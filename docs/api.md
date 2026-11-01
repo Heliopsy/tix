@@ -661,9 +661,8 @@ Event types are matched as glob patterns, so `task.*` selects every task event. 
 `task.woke`, `comment.added`, `artifact.added`,
 `dependency.added`, `tag.added`, `project.created`, `project.updated`, `workflow.updated`, `field.updated`,
 `webhook.delivered`, `import.completed`, `view.arranged`, `filter.saved`, `filter.updated`, `filter.deleted`,
-`inbox.updated`. A type outside it is an error rather than a filter
-`webhook.delivered`, `import.completed`, `view.arranged`, `template.updated`. A type outside it is an error rather than a filter
-that silently matches nothing.
+`inbox.updated`, `template.updated`. A type outside it is an error rather than a filter that silently matches
+nothing.
 
 A project-scoped token has its subscription narrowed to that project automatically, and naming a different
 project is `forbidden`.
