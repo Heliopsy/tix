@@ -559,3 +559,33 @@ func TestSeededWorkflowCarriesTheShortLease(t *testing.T) {
 		t.Fatalf("seeded lease = %v, want the configured 90s", got)
 	}
 }
+
+// TestAStopBeforeServeRegistersTheListenerStillEndsServe pins the shutdown a
+// signal right after the bind delivers. The SSH server closes only listeners
+// its own Serve has registered, and registering one after a Close reopens it
+// for business, so a stop landing in that gap left Serve accepting forever and
+// the process waiting on it. A failure here is a hang, which the test binary's
+// timeout reports with the stuck Serve in its goroutine dump.
+func TestAStopBeforeServeRegistersTheListenerStillEndsServe(t *testing.T) {
+	tests := []struct {
+		name string
+		stop func(*Server, context.CancelFunc)
+	}{
+		{name: "the context is cancelled", stop: func(_ *Server, cancel context.CancelFunc) { cancel() }},
+		{name: "the server is closed", stop: func(s *Server, _ context.CancelFunc) { _ = s.Close() }},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, _ := newLiveServer(t)
+			if err := srv.Listen(); err != nil {
+				t.Fatalf("Listen: %v", err)
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			tc.stop(srv, cancel)
+			if err := srv.Serve(ctx); err != nil {
+				t.Fatalf("Serve = %v, want a clean stop", err)
+			}
+		})
+	}
+}

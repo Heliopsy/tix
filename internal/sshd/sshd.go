@@ -314,16 +314,16 @@ func (s *Server) Serve(ctx context.Context) error {
 	select {
 	case err := <-done:
 		s.waitForHeaderParses()
-		if errors.Is(err, ssh.ErrServerClosed) {
+		if errors.Is(err, ssh.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
 			return nil
 		}
 		return err
 	case <-ctx.Done():
-		_ = s.ssh.Close()
+		_ = s.Close()
 		// Drained so Serve cannot outlive this call. The error it reports is
-		// ErrServerClosed, caused by the Close above, which is this path
+		// the closed listener the Close above caused, which is this path
 		// working rather than failing.
-		<-done //nolint:errcheck // the value is the ErrServerClosed the Close above caused
+		<-done //nolint:errcheck // the value is the closed listener the Close above caused
 		s.waitForHeaderParses()
 		return nil
 	}
@@ -348,7 +348,20 @@ func (s *Server) waitForHeaderParses() {
 }
 
 // Close stops the listener.
-func (s *Server) Close() error { return s.ssh.Close() }
+//
+// The bound listener is closed here as well as through the SSH server, because
+// the SSH server only knows a listener once its Serve has registered it. A
+// Close landing before that, which a signal right after the bind does, used to
+// close nothing, and the Serve that registered afterwards accepted forever.
+func (s *Server) Close() error {
+	err := s.ssh.Close()
+	if s.listener != nil {
+		if lerr := s.listener.Close(); lerr != nil && !errors.Is(lerr, net.ErrClosed) && err == nil {
+			err = lerr
+		}
+	}
+	return err
+}
 
 // sourceOf reduces a remote address to the host the limit counts against, so
 // a client reconnecting from a fresh ephemeral port is still the same source.
