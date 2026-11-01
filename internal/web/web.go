@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
-	"github.com/heliopsy/tix/internal/i18n"
 	"github.com/heliopsy/tix/internal/lease"
 	"github.com/heliopsy/tix/internal/output"
 )
@@ -186,7 +185,7 @@ func Handler(svc core.Service, opts ...Option) http.Handler {
 		// the built-ins are constants that this package's own tests validate.
 		h.themes, _ = core.NewThemeRegistry(nil)
 	}
-	h.templates = parseTemplates(h.style, i18n.English)
+	h.templates = defaultTemplatesFor(h.style)
 	h.assets = assetHandler()
 	h.register()
 	h.served = compressed(h.mux)

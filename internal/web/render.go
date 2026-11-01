@@ -841,6 +841,25 @@ func (h *handler) templatesFor(r *http.Request) map[string]*template.Template {
 	return set.(map[string]*template.Template)
 }
 
+// defaultTemplates caches the template set each handler draws in its
+// configured style. Parsed templates are read-only once built, so every
+// handler in a process with the same style shares one set; parsing a set per
+// handler held a copy for every live handler, which in the web test suite,
+// with one handler per parallel test, came to more than 9 GB of parse trees.
+var defaultTemplates sync.Map
+
+func defaultTemplatesFor(style output.TimeStyle) map[string]*template.Template {
+	key, ok := style.CacheKey()
+	if !ok {
+		return parseTemplates(style, i18n.English)
+	}
+	if set, ok := defaultTemplates.Load(key); ok {
+		return set.(map[string]*template.Template)
+	}
+	set, _ := defaultTemplates.LoadOrStore(key, parseTemplates(style, i18n.English))
+	return set.(map[string]*template.Template)
+}
+
 // brand resolves the signed-in tenant's branding, falling back to the default
 // when the caller may not read the tenant record.
 func (h *handler) brand(r *http.Request) branding {
