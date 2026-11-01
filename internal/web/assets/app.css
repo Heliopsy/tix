@@ -6212,3 +6212,5 @@ a.secondary.exportlink {
   line-height: 1;
 }
 a.secondary.exportlink:hover { filter: brightness(1.08); }
+.bulkpop:popover-open { display: flex; flex-direction: column; gap: 1px; min-width: 14rem; }
+.bulkpop .flowgo { justify-content: flex-start; }
