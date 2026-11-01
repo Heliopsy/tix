@@ -83,7 +83,9 @@ subscribe and a reconnect resumes from a cursor without gaps.
 The same data, with a board, custom workflows, custom fields, dependencies, comments, history, and a
 personal star that keeps the tasks you are watching at the top of your own listings. The columns and
 lanes are yours to arrange too: hide, star, collapse or move any of them from the three dots on its
-heading, kept with your account so it follows you everywhere (`tix view`). A task copies
+heading, kept with your account so it follows you everywhere (`tix view`). A filter you use every day
+is saved under a name in the sidebar, for you or the whole team (`tix filter`), My work lists what is
+yours by deadline (`assignee:me`), and the sidebar remembers the last tasks you opened. A task copies
 into any project, subtasks and comments included when you ask, instead of being typed twice. Tick rows on
 the task list to move, retag, assign, star, copy or delete them in one go, and export any filtered list as
 CSV for a spreadsheet. A fresh install

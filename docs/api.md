@@ -63,6 +63,7 @@ Everything below is under `/api/v1`.
 | Transfer | `/export`, `/import`, `/bundles/export`, `/bundles/import` |
 | Sync | `/sync/sources`, `/sync/sources/{id}`, `/sync/run` |
 | Views | `/views/{view}/groups`, `/views/{view}/groups/{group}`, `/views/{view}/order` |
+| Saved filters | `/filters`, `/filters/{filter}`, `/filters/order` |
 | Events | `/events` (WebSocket) |
 
 Every route above has a command: `tix doctor`, `tix login`, `tix user totp`, `tix user key`, `tix actor`,
@@ -256,8 +257,9 @@ among the unstarred tasks.
 
 Each actor keeps their own arrangement of the groups a view draws: the columns of a board and the lanes of
 the task screen. A view is `board` (the task screen grouped by status, groups are state keys), `lanes` (the
-task screen grouped by project, groups are project keys) or `project:KEY` (one project's board, groups are
-the states of its workflow). Anything else is `invalid`, and so is a group the view cannot hold.
+task screen grouped by project, groups are project keys), `mine` (My work, grouped by deadline: `overdue`,
+`today`, `week`, `later` and `none`) or `project:KEY` (one project's board, groups are the states of its
+workflow). Anything else is `invalid`, and so is a group the view cannot hold.
 
 | Route | Does |
 | --- | --- |
@@ -274,6 +276,38 @@ A preference changes nothing anybody else sees, and needs only `task:read`; a to
 cannot arrange, because a view spans projects. A change writes an audit entry and emits `view.arranged`
 carrying `view` and `groups`; one that changes nothing writes neither. A project renamed to a new key keeps
 its arrangement.
+
+### Saved filters
+
+A saved filter is a named filter expression with the view (`list`, `board` or `lanes`, or empty for the
+reader's own) and the sort the task screen opens it with. It belongs to the actor who saved it; one saved
+with `"shared": true` is listed for everybody in the tenant, and only its owner or an actor with
+`tenant:admin` may change or delete it. Another reader's private filter is `not_found`, never `forbidden`.
+A filter is addressed by its id or by its name: the caller's own name first, then a shared one.
+
+| Route | Does |
+| --- | --- |
+| `GET /filters` | The caller's own filters in their order, then the shared ones by name |
+| `POST /filters` | Saves `{"name", "query", "view", "sort", "shared"}`; answers `201` with the filter |
+| `GET /filters/{filter}` | One filter, by id or name |
+| `PATCH /filters/{filter}` | Changes any of `name`, `query`, `view`, `sort` and `shared` |
+| `PUT /filters/order` | Takes `{"filters": [...]}`, the caller's own, and puts them first in that order |
+| `DELETE /filters/{filter}` | Removes it; answers `204 No Content` |
+
+```json
+{"id": "01J...", "name": "My overdue", "query": "assignee:me due:overdue", "view": "list", "sort": "due_at",
+ "shared": false, "owner_id": "01H...", "position": 1, "mine": true, "editable": true}
+```
+
+`mine` and `editable` are answered for the caller. The expression is checked by the filter parser when it is
+saved, so an unreadable one is `invalid`; the names it holds (projects, states, handles) are resolved when it
+is used, like any filter. Names are unique per owner without regard to case, and a taken one is `conflict`.
+Each change writes an audit entry and emits `filter.saved`, `filter.updated` or `filter.deleted` carrying the
+`name` and `shared`; one that changes nothing writes neither. Saved filters need only `task:read`, and a token
+pinned to one project cannot keep them, because a filter spans projects.
+
+In any filter, `me` in `assignee:`, `creator:` or `claimed-by:` (and the `assignee` query parameter) names the
+caller, so `assignee:me` lists what is assigned to whoever asks.
 
 ### Copying a task
 
@@ -443,7 +477,8 @@ Event types are matched as glob patterns, so `task.*` selects every task event. 
 `task.created`, `task.updated`, `task.transitioned`, `task.claimed`, `task.released`, `task.lease_expired`,
 `task.reclaimed`, `task.deleted`, `task.starred`, `task.unstarred`, `comment.added`, `artifact.added`,
 `dependency.added`, `tag.added`, `project.created`, `project.updated`, `workflow.updated`, `field.updated`,
-`webhook.delivered`, `import.completed`, `view.arranged`. A type outside it is an error rather than a filter
+`webhook.delivered`, `import.completed`, `view.arranged`, `filter.saved`, `filter.updated`, `filter.deleted`.
+A type outside it is an error rather than a filter
 that silently matches nothing.
 
 A project-scoped token has its subscription narrowed to that project automatically, and naming a different

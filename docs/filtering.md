@@ -104,9 +104,9 @@ is what makes a large PostgreSQL install fast. If you need an answer that does n
 | `project:KEY`, `p:KEY` | project key or id, in any case | yes | no |
 | `status:NAME`, `s:NAME` | workflow state, in any case | yes | no |
 | `tag:NAME` | carries the tag | yes | no |
-| `assignee:REF`, `a:REF` | assigned actor, by handle or id | yes | no |
-| `creator:REF` | who created it, by handle or id | yes | no |
-| `claimed-by:REF` | who holds the lease, by handle or id | yes | no |
+| `assignee:REF`, `a:REF` | assigned actor, by handle or id, or `me` | yes | no |
+| `creator:REF` | who created it, by handle or id, or `me` | yes | no |
+| `claimed-by:REF` | who holds the lease, by handle or id, or `me` | yes | no |
 | `priority:NAME` | `highest`…`lowest`, or 1–5 | yes | no |
 | `title:VALUE` | whole title | yes | `title~` |
 | `body:VALUE` | whole body | yes | `body~` |
@@ -200,6 +200,17 @@ error: not_found: no workflow of this tenant defines a status "nosuchstatus"; th
 This applies to `project`, `status`, `parent`, `assignee`, `creator` and `claimed-by`, on the
 inclusion side and the exclusion side alike, and to the flags that carry the same terms. A `priority`
 outside the range was already a usage error and needs no lookup.
+
+**`me`.** In `assignee:`, `creator:` and `claimed-by:`, `me` is whoever is reading: `assignee:me`
+is your own work, `claimed-by:me` what you hold, `-creator:me` what somebody else filed. It is
+resolved by the service for the caller, so it means the same thing in the browser, the terminal, the
+command line (`tix task ls --mine` is `assignee:me`) and the API, and a saved or shared filter holding
+it lists each reader's own tasks.
+
+**Saved filters.** A filter worth keeping can be saved under a name, with its sort and view: from the
+browser's filter bar, from the terminal's palette, or with `tix filter save NAME --filter EXPR`.
+`tix task ls --saved NAME` starts from one, and the flags beside it narrow it further. The expression
+is checked when it is saved; the names in it are resolved each time it is used, like a typed one.
 
 **Old keys.** A project that was given a new key keeps its old one as an alias, so `project:infra` goes
 on selecting the tasks of the project now keyed `ops`. See [workflows.md](workflows.md#changing-a-projects-key).

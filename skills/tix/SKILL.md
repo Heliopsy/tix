@@ -495,9 +495,24 @@ there will be two. Moving it to `cancelled` ends the series instead.
 --hidden`, `tix view set lanes homelab --starred`, `tix view set board doing
 --collapsed` (each flag takes `=false` to undo it), `tix view order lanes work
 homelab` and `tix view reset board` change how the caller's own boards and
-lanes are drawn (views `board`, `lanes`, `project:KEY`), and `tix view ls
+lanes are drawn (views `board`, `lanes`, `mine`, `project:KEY`), and `tix view ls
 board -o json` lists it. It reorders no listing and changes nothing another
 actor sees, so an agent has no reason to touch it unless asked to.
+
+**Your own work is `assignee:me`.** In any filter, `me` in `assignee:`,
+`creator:` or `claimed-by:` is the caller, so `tix task ls --mine` (the same
+as `--filter assignee:me`) lists what is assigned to you and
+`--filter claimed-by:me` what you hold. In the browser the same list is My
+work, grouped by deadline.
+
+**Saved filters are named filters a person keeps.** `tix filter save NAME
+--filter EXPR [--view list|board|lanes] [--sort FIELD] [--shared]` keeps one,
+`tix filter ls -o json` lists yours and the shared ones, `tix filter set`,
+`tix filter rename`, `tix filter order` and `tix filter rm` change them, and
+`tix task ls --saved NAME` lists what one selects, with its sort. A shared
+filter is listed for the whole tenant and only its owner or an admin may
+change it. They belong to the person who saved them; do not create or rename
+one unless asked to.
 
 **Copy rather than retype.** `tix task copy REF` makes a new task with a fresh
 reference, in the same project or another (`--to`), keeping the title (or
