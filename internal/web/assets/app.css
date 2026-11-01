@@ -1762,6 +1762,24 @@ a.secondary.clear:hover { filter: brightness(1.08); }
 .lease.held { color: var(--accent); border-color: var(--accent); }
 .lease.expired { color: var(--warn); border-color: var(--warn); }
 
+/* A deleted row, on the trash or an is:deleted listing. Outlined like a lease
+   and in the danger colour, with the word, so it reads as deleted without
+   relying on the hue; the title is struck through as a second cue. Restore
+   is the row's one action and sits at its end. */
+.deletedmark {
+  display: inline-block;
+  padding: 0 6px;
+  border: 1px solid var(--danger);
+  border-radius: 999px;
+  color: var(--danger);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+}
+
+.task.is-deleted .task-title { text-decoration: line-through; text-decoration-thickness: 1px; }
+.restoreform { flex: 0 0 auto; display: flex; margin-left: 8px; }
+.restoreform button { padding: 2px 10px; font-size: var(--text-xs); }
+
 /* The deadline badge, on a listing row and in the detail rail. Outlined like
    a lease rather than filled, for the same reason: the row's one filled thing
    is its status. Overdue is danger and this week is warn, which is the same

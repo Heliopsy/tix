@@ -27,7 +27,12 @@
 
 {{define "nav"}}
 <nav class="main">
-  <a href="/tasks" data-rail-name="{{t "Tasks"}}" {{if eq .Path "/tasks"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tasks"/></svg><span>{{t "Tasks"}}</span></a>
+  <a href="/tasks" data-rail-name="{{t "Tasks"}}" {{if and (eq .Path "/tasks") (not .InTrash)}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tasks"/></svg><span>{{t "Tasks"}}</span></a>
+  {{/* The trash is the task list filtered by is:trashed, so the filter box
+       says what it is. It sits under Tasks because it is that list's
+       deleted half, and it is the only way the browser reaches a deleted
+       task without already knowing its ref. */}}
+  <a href="/tasks?q=is:trashed" data-rail-name="{{t "Trash"}}" {{if .InTrash}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#trash"/></svg><span>{{t "Trash"}}</span></a>
   <a href="/projects" data-rail-name="{{t "Projects"}}" {{if eq .Path "/projects"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#projects"/></svg><span>{{t "Projects"}}</span></a>
   <a href="/activity" data-rail-name="{{t "Activity"}}" {{if eq .Path "/activity"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#activity"/></svg><span>{{t "Activity"}}</span></a>
   <a href="/stats" data-rail-name="{{t "Statistics"}}" {{if eq .Path "/stats"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#stats"/></svg><span>{{t "Statistics"}}</span></a>
