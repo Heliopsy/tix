@@ -153,11 +153,6 @@ func (p *cdpPage) dragAndCheck(t *testing.T, ref, handle, path string) {
 	if x < 0 {
 		t.Fatalf("found no bare spot on %s to press", ref)
 	}
-	tx, ty := p.point(t, `(() => {
-		const r = document.querySelector('.board .column[data-state="`+target+`"]').getBoundingClientRect();
-		return [r.left + r.width / 2, r.bottom - 12];
-	})()`)
-
 	data := p.startDrag(t, x, y)
 	if data == nil {
 		p.mouse("mouseReleased", x, y)
@@ -165,6 +160,23 @@ func (p *cdpPage) dragAndCheck(t *testing.T, ref, handle, path string) {
 		p.eval(t, `location.pathname`, &where)
 		t.Fatalf("pressing %s did not start a drag (now on %s)", ref, where)
 	}
+	// Measured once the card is held, not before the press: anything that
+	// moved the layout in between left a point measured earlier over
+	// whatever slid into its place, and the drop never reached a column.
+	var drop struct {
+		X, Y float64
+		Hit  string
+	}
+	p.eval(t, `(() => {
+		const r = document.querySelector('.board .column[data-state="`+target+`"]').getBoundingClientRect();
+		const x = r.left + r.width / 2, y = r.bottom - 12;
+		const hit = document.elementFromPoint(x, y)?.closest('.board .column')?.dataset.state ?? '';
+		return {x, y, hit};
+	})()`, &drop)
+	if drop.Hit != target {
+		t.Fatalf("the point measured inside the %s column is over %q", target, drop.Hit)
+	}
+	tx, ty := drop.X, drop.Y
 	for _, kind := range []string{"dragEnter", "dragOver", "drop"} {
 		p.call("Input.dispatchDragEvent", map[string]any{"type": kind, "x": tx, "y": ty, "data": data})
 	}
@@ -511,6 +523,12 @@ func (p *cdpPage) open(t *testing.T, address string) {
 	p.waitFor(t, `document.readyState === "complete" && window.htmx && window.tix &&
 		location.href === `+fmt.Sprintf("%q", address)+` && document.querySelector('.board .card')`,
 		"the board never finished loading at "+address)
+	// The fixture serves no event stream, so the screen's live connection
+	// fails and live.js says so in a notice. On /tasks the notice takes its
+	// height from the board's columns, whenever it arrives, which under load
+	// was in the middle of a drag. Wait until it is up.
+	p.waitFor(t, `document.getElementById('live-stale')?.hidden === false`,
+		"the screen never said it was not live at "+address)
 	var drag struct {
 		Attr string `json:"attr"`
 		Fine bool   `json:"fine"`
