@@ -112,6 +112,10 @@ const (
 	RouteViewGroups = APIPrefix + "/views/{view}/groups"
 	RouteViewGroup  = APIPrefix + "/views/{view}/groups/{group}"
 	RouteViewOrder  = APIPrefix + "/views/{view}/order"
+
+	RouteFilters     = APIPrefix + "/filters"
+	RouteFilter      = APIPrefix + "/filters/{filter}"
+	RouteFilterOrder = APIPrefix + "/filters/order"
 )
 
 // Content types.

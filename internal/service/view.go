@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/heliopsy/tix/internal/authz"
@@ -73,6 +74,12 @@ func resolveGroup(ctx context.Context, tx store.Tx, v arrangedView, group string
 			return "", "", err
 		}
 		return p.ID, p.Key, nil
+	case core.ViewMine:
+		key := strings.ToLower(group)
+		if !slices.Contains(core.DueBuckets, key) {
+			return "", "", core.Invalid("%s has no group %q; use one of %s", core.ViewMine, group, strings.Join(core.DueBuckets, ", "))
+		}
+		return key, key, nil
 	case core.ViewProjectPrefix:
 		if !v.def.HasState(group) {
 			return "", "", core.Invalid("%s has no state %q", v.shown, group)

@@ -5,6 +5,7 @@ package core
 import (
 	"context"
 	"strings"
+	"time"
 )
 
 // Views whose groups a reader may arrange. A view names a grouping, not a
@@ -19,7 +20,46 @@ const (
 	// ViewProjectPrefix starts the view of one project's own board, as in
 	// "project:infra". Its groups are the states of that project's workflow.
 	ViewProjectPrefix = "project:"
+	// ViewMine is the reader's own work grouped by deadline. Its groups are
+	// the DueBuckets.
+	ViewMine = "mine"
 )
+
+// Deadline buckets: the groups of ViewMine, in the order it draws them.
+const (
+	DueBucketOverdue = "overdue"
+	DueBucketToday   = "today"
+	DueBucketWeek    = "week"
+	DueBucketLater   = "later"
+	DueBucketNone    = "none"
+)
+
+// DueBuckets lists the deadline buckets in drawing order.
+var DueBuckets = []string{DueBucketOverdue, DueBucketToday, DueBucketWeek, DueBucketLater, DueBucketNone}
+
+// DueBucketOf places a deadline in its bucket, read in loc: overdue before
+// now, today until the end of the day, this week within seven days, later
+// after that, and none without a deadline.
+func DueBucketOf(due *time.Time, now time.Time, loc *time.Location) string {
+	if due == nil {
+		return DueBucketNone
+	}
+	if loc == nil {
+		loc = time.UTC
+	}
+	local := now.In(loc)
+	endOfDay := time.Date(local.Year(), local.Month(), local.Day()+1, 0, 0, 0, 0, loc)
+	switch {
+	case due.Before(now):
+		return DueBucketOverdue
+	case due.Before(endOfDay):
+		return DueBucketToday
+	case due.Before(now.AddDate(0, 0, 7)):
+		return DueBucketWeek
+	default:
+		return DueBucketLater
+	}
+}
 
 // MaxGroupsOrdered bounds one OrderGroups call.
 const MaxGroupsOrdered = 500
@@ -87,7 +127,7 @@ func ProjectView(projectRef string) string { return ViewProjectPrefix + projectR
 func SplitView(view string) (kind, project string, err error) {
 	view = strings.TrimSpace(view)
 	switch {
-	case view == ViewBoard || view == ViewLanes:
+	case view == ViewBoard || view == ViewLanes || view == ViewMine:
 		return view, "", nil
 	case strings.HasPrefix(view, ViewProjectPrefix):
 		ref := strings.TrimSpace(strings.TrimPrefix(view, ViewProjectPrefix))
@@ -96,7 +136,7 @@ func SplitView(view string) (kind, project string, err error) {
 		}
 		return ViewProjectPrefix, ref, nil
 	default:
-		return "", "", Invalid("unknown view %q: use %s, %s or %sKEY", view, ViewBoard, ViewLanes, ViewProjectPrefix)
+		return "", "", Invalid("unknown view %q: use %s, %s, %s or %sKEY", view, ViewBoard, ViewLanes, ViewMine, ViewProjectPrefix)
 	}
 }
 

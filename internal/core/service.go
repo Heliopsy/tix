@@ -34,6 +34,7 @@ type Service interface {
 	StatsService
 	StatusService
 	ViewService
+	SavedFilterService
 
 	Close() error
 }

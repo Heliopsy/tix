@@ -405,6 +405,46 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "saved filter round-trip",
+		covers: []string{"CreateProject", "CreateSavedFilter", "UpdateSavedFilter", "OrderSavedFilters", "GetSavedFilter", "ListSavedFilters", "DeleteSavedFilter"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			a, err := tg.svc.CreateSavedFilter(tg.ctx, core.SavedFilterInput{Name: p.Key + " a", Query: "project:" + p.Key, View: "board"})
+			if err != nil {
+				return nil, err
+			}
+			if _, err := tg.svc.CreateSavedFilter(tg.ctx, core.SavedFilterInput{Name: p.Key + " b", Shared: true}); err != nil {
+				return nil, err
+			}
+			on := true
+			updated, err := tg.svc.UpdateSavedFilter(tg.ctx, a.ID, core.SavedFilterUpdate{Shared: &on})
+			if err != nil {
+				return nil, err
+			}
+			ordered, err := tg.svc.OrderSavedFilters(tg.ctx, core.SavedFilterOrderInput{Filters: []string{p.Key + " b"}})
+			if err != nil {
+				return nil, err
+			}
+			got, err := tg.svc.GetSavedFilter(tg.ctx, p.Key+" A")
+			mustf(t, tg, err, "reading a filter by name")
+			if err := tg.svc.DeleteSavedFilter(tg.ctx, p.Key+" b"); err != nil {
+				return nil, err
+			}
+			listed, err := tg.svc.ListSavedFilters(tg.ctx)
+			mustf(t, tg, err, "listing filters")
+			shape := func(fs []core.SavedFilter) []string {
+				out := []string{}
+				for _, f := range fs {
+					if strings.HasPrefix(f.Name, p.Key+" ") {
+						out = append(out, fmt.Sprintf("%s q=%s v=%s shared=%v mine=%v", strings.TrimPrefix(f.Name, p.Key), strings.TrimPrefix(f.Query, "project:"+p.Key), f.View, f.Shared, f.Mine))
+					}
+				}
+				return out
+			}
+			return sig{"updated": shape([]core.SavedFilter{*updated}), "ordered": shape(ordered), "got": shape([]core.SavedFilter{*got}), "listed": shape(listed)}, nil
+		},
+	},
+	{
 		name:   "copy round-trip",
 		covers: []string{"CreateProject", "CreateTask", "AddComment", "CopyTask", "TaskTree", "ListComments"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

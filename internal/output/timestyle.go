@@ -57,6 +57,14 @@ func NewTimeStyle(format, timezone string) (TimeStyle, error) {
 	return TimeStyle{format: f, loc: loc}, nil
 }
 
+// Location is the zone instants are rendered in. A zero style renders in UTC.
+func (s TimeStyle) Location() *time.Location {
+	if s.loc == nil {
+		return time.UTC
+	}
+	return s.loc
+}
+
 // loadLocation resolves a timezone name, treating the empty string as local.
 func loadLocation(name string) (*time.Location, error) {
 	switch strings.ToLower(strings.TrimSpace(name)) {

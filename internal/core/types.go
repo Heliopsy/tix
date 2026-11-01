@@ -582,6 +582,12 @@ const (
 	// EventViewArranged records one reader changing their own arrangement of
 	// a view's groups. Like a star it changes nothing anybody else sees.
 	EventViewArranged EventType = "view.arranged"
+
+	// EventFilterSaved, EventFilterUpdated and EventFilterDeleted record a
+	// reader creating, changing or removing one of their saved filters.
+	EventFilterSaved   EventType = "filter.saved"
+	EventFilterUpdated EventType = "filter.updated"
+	EventFilterDeleted EventType = "filter.deleted"
 )
 
 // eventTypes is the complete event vocabulary, in declaration order.
@@ -594,6 +600,7 @@ var eventTypes = []EventType{
 	EventDependencyAdded, EventLabelAdded, EventProjectCreated,
 	EventProjectUpdated, EventWorkflowUpdated, EventFieldUpdated,
 	EventWebhookDelivered, EventImportCompleted, EventViewArranged,
+	EventFilterSaved, EventFilterUpdated, EventFilterDeleted,
 }
 
 // EventTypes returns the complete event vocabulary. Callers outside this

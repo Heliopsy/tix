@@ -61,6 +61,7 @@ type Tx interface {
 	SyncTx
 	StatsTx
 	ViewTx
+	SavedFilterTx
 
 	Commit() error
 	Rollback() error
@@ -212,6 +213,24 @@ type ViewTx interface {
 	// group of the view when group is empty, reporting how many it removed.
 	DeleteGroupPrefs(ctx context.Context, actorID, view, group string) (int64, error)
 }
+
+// SavedFilterTx covers each actor's named task filters.
+type SavedFilterTx interface {
+	// SavedFilters lists the filters an actor owns and the ones shared with
+	// the tenant, at most MaxListedFilters of them.
+	SavedFilters(ctx context.Context, actorID string) ([]core.SavedFilter, error)
+	// CreateSavedFilter inserts a filter, assigning its identifier.
+	CreateSavedFilter(ctx context.Context, f *core.SavedFilter) error
+	// UpdateSavedFilter writes a filter's name, expression, view, sort,
+	// sharing and position.
+	UpdateSavedFilter(ctx context.Context, f core.SavedFilter) error
+	// DeleteSavedFilter removes a filter, reporting how many rows it removed.
+	DeleteSavedFilter(ctx context.Context, id string) (int64, error)
+}
+
+// MaxListedFilters bounds one SavedFilters read: a reader's own, at most
+// core.MaxSavedFilters, and the tenant's shared ones.
+const MaxListedFilters = 2000
 
 // ClaimTx covers the work queue.
 type ClaimTx interface {
