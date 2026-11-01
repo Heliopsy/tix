@@ -791,7 +791,7 @@
     </form>
     {{else}}<span class="check placeholder" aria-hidden="true"></span>{{end}}
 
-    {{if and $r.CanStar ($r.Columns.Show "tasks" "star")}}{{template "star" (star .Ref .Starred $v.Self $r.CSRF)}}{{end}}
+    {{if and $r.CanStar ($r.Columns.Show "tasks" "star") (not .DeletedAt)}}{{template "star" (star .Ref .Starred $v.Self $r.CSRF)}}{{end}}
 
     {{template "proj-icon" (projIcon $acc false)}}
 

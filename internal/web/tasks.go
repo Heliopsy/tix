@@ -249,7 +249,11 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return h.render(w, r, "tasks.html", "Tasks", data)
+	title := "Tasks"
+	if data.Trash {
+		title = "Trash"
+	}
+	return h.render(w, r, "tasks.html", title, data)
 }
 
 // showTasksLive renders only the regions a live update replaces -- the

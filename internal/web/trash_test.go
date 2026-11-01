@@ -78,6 +78,9 @@ func TestTheTrashListsDeletedTasksAndRestoresThem(t *testing.T) {
 	deleteTask(t, b, second)
 
 	page := b.page(trashPath)
+	if title := between(t, page, "<title>", "</title>"); !strings.HasPrefix(title, "Trash") {
+		t.Errorf("the trash's browser title is %q", title)
+	}
 	if h1 := between(t, page, "<h1>", "</h1>"); h1 != "Trash" {
 		t.Errorf("the trash is headed %q", h1)
 	}
@@ -140,6 +143,7 @@ func TestADeletedRowOffersOnlyRestore(t *testing.T) {
 		`popovertarget="prio-` + gone + `"`,
 		`href="/tasks/` + gone + `?`,
 		`data-shortcut-href=`,
+		`/star"`,
 	} {
 		if strings.Contains(row, refused) {
 			t.Errorf("the deleted row offers %s", refused)
