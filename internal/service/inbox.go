@@ -126,6 +126,7 @@ func (m *mutation) deliverInbox(ctx context.Context) error {
 		}
 	}
 	var recipients []string
+	var created []*core.InboxItem
 	seen := map[string]bool{}
 	for _, k := range order {
 		n := notes[best[k]]
@@ -137,10 +138,14 @@ func (m *mutation) deliverInbox(ctx context.Context) error {
 		if err := m.tx.CreateInboxItem(ctx, item); err != nil {
 			return err
 		}
+		created = append(created, item)
 		if !seen[n.recipient] {
 			seen[n.recipient] = true
 			recipients = append(recipients, n.recipient)
 		}
+	}
+	if err := m.queueChannels(ctx, created, recipients); err != nil {
+		return err
 	}
 	first := notes[best[order[0]]].task
 	m.Event(core.EventInboxUpdated, inboxSubject, first.ID, first.ProjectID,

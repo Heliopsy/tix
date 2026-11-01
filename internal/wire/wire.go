@@ -130,6 +130,12 @@ const (
 	RouteInboxRead    = APIPrefix + "/inbox/{id}/read"
 	RouteInboxReadAll = APIPrefix + "/inbox/read-all"
 	RouteInboxPrefs   = APIPrefix + "/inbox/prefs"
+
+	RouteChannels          = APIPrefix + "/channels"
+	RouteChannel           = APIPrefix + "/channels/{id}"
+	RouteChannelTest       = APIPrefix + "/channels/{id}/test"
+	RouteChannelDeliveries = APIPrefix + "/channels/{id}/deliveries"
+	RouteChannelRedeliver  = APIPrefix + "/channel-deliveries/{id}/redeliver"
 )
 
 // CalendarFeedPrefix starts every feed address, and CalendarFeedSuffix ends it.

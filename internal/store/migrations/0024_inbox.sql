@@ -34,3 +34,43 @@ CREATE TABLE inbox_mutes (
   kind      TEXT NOT NULL,
   PRIMARY KEY (tenant_id, actor_id, kind)
 );
+
+-- A person's own notification channels: URLs their inbox items are posted
+-- to, shaped for the service behind them. Separate from webhook_endpoints,
+-- which belong to the tenant and carry every event; a channel carries only its
+-- owner's items, of the kinds listed in kinds (a JSON array).
+CREATE TABLE inbox_channels (
+  id         TEXT PRIMARY KEY,
+  tenant_id  TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  actor_id   TEXT NOT NULL REFERENCES actors(id) ON DELETE CASCADE,
+  name       TEXT NOT NULL,
+  url        TEXT NOT NULL,
+  secret     TEXT NOT NULL,
+  format     TEXT NOT NULL,
+  kinds      TEXT NOT NULL,
+  active     INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  UNIQUE (tenant_id, actor_id, name)
+);
+
+-- The delivery queue of the channels, drained by the webhook dispatcher with
+-- the same claim, retry schedule and signature as webhook_deliveries. item_id
+-- is NULL for a test message, and is not a foreign key: an item gone with its
+-- task fails its delivery rather than blocking the purge.
+CREATE TABLE inbox_deliveries (
+  id               TEXT PRIMARY KEY,
+  tenant_id        TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  channel_id       TEXT NOT NULL REFERENCES inbox_channels(id) ON DELETE CASCADE,
+  item_id          TEXT,
+  attempts         INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at  TEXT NOT NULL,
+  locked_by        TEXT,
+  locked_until     TEXT,
+  status           TEXT NOT NULL DEFAULT 'pending'
+                     CHECK (status IN ('pending','delivered','failed')),
+  last_error       TEXT NOT NULL DEFAULT '',
+  last_status_code INTEGER NOT NULL DEFAULT 0,
+  created_at       TEXT NOT NULL
+);
+CREATE INDEX idx_inbox_deliveries_pending ON inbox_deliveries(tenant_id, status, next_attempt_at);
+CREATE INDEX idx_inbox_deliveries_channel ON inbox_deliveries(tenant_id, channel_id, created_at, id);

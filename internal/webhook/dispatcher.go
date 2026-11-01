@@ -205,11 +205,15 @@ func (d *Dispatcher) Stop() {
 	}
 }
 
-// job is one claimed delivery with everything the attempt needs.
+// job is one claimed delivery with everything the attempt needs: a tenant
+// webhook delivery, or, when channel is set, a personal channel's.
 type job struct {
 	delivery         core.WebhookDelivery
 	endpoint         core.WebhookEndpoint
 	event            core.Event
+	channel          *core.InboxChannel
+	channelDelivery  core.ChannelDelivery
+	message          ChannelMessage
 	outcomeDelivered bool
 }
 
@@ -296,8 +300,10 @@ func (d *Dispatcher) pass(ctx context.Context, limit int) (Result, int, error) {
 	return res, len(jobs), nil
 }
 
-// claim locks due deliveries and loads what each attempt needs. A delivery
-// whose endpoint or event is gone can never succeed and is failed here.
+// claim locks due deliveries and loads what each attempt needs: tenant
+// webhook deliveries first, then personal channel deliveries in whatever room
+// the limit leaves. A delivery whose target or subject is gone can never
+// succeed and is failed here.
 func (d *Dispatcher) claim(ctx context.Context, limit int) ([]*job, error) {
 	var jobs []*job
 	err := d.store.Update(ctx, d.scope, func(tx store.Tx) error {
@@ -310,6 +316,27 @@ func (d *Dispatcher) claim(ctx context.Context, limit int) ([]*job, error) {
 			j, reason := d.load(ctx, tx, delivery)
 			if reason != "" {
 				if err := tx.MarkFailed(ctx, delivery.ID, 0, reason, now, true); err != nil {
+					return err
+				}
+				continue
+			}
+			jobs = append(jobs, j)
+		}
+		if len(claimed) >= limit {
+			return nil
+		}
+		channels, err := tx.ClaimChannelDeliveries(ctx, d.owner, now, now.Add(d.lease), limit-len(claimed))
+		if err != nil {
+			return err
+		}
+		base := ""
+		if len(channels) > 0 {
+			base = channelBase(ctx, tx)
+		}
+		for _, delivery := range channels {
+			j, reason := d.loadChannel(ctx, tx, delivery, base)
+			if reason != "" {
+				if err := tx.MarkChannelFailed(ctx, delivery.ID, 0, reason, now, true); err != nil {
 					return err
 				}
 				continue
@@ -341,8 +368,32 @@ func (d *Dispatcher) load(ctx context.Context, tx store.Tx, delivery core.Webhoo
 	return &job{delivery: delivery, endpoint: *endpoint, event: events[0]}, ""
 }
 
+// loadChannel reads the channel and the inbox item behind a channel delivery.
+func (d *Dispatcher) loadChannel(ctx context.Context, tx store.Tx, delivery core.ChannelDelivery, base string) (*job, string) {
+	channel, err := tx.GetInboxChannel(ctx, delivery.ChannelID)
+	if err != nil {
+		return nil, "channel is no longer registered"
+	}
+	if !channel.Active {
+		return nil, "channel is turned off"
+	}
+	j := &job{channel: channel, channelDelivery: delivery, message: TestChannelMessage(channel.Name)}
+	if delivery.Test() {
+		return j, ""
+	}
+	item, reason := loadChannelItem(ctx, tx, channel, delivery.ItemID)
+	if reason != "" {
+		return nil, reason
+	}
+	j.message = NewChannelMessage(*item, base)
+	return j, ""
+}
+
 // attempt posts one delivery and records its outcome.
 func (d *Dispatcher) attempt(ctx context.Context, j *job) error {
+	if j.channel != nil {
+		return d.attemptChannel(ctx, j)
+	}
 	body, err := json.Marshal(j.event)
 	if err != nil {
 		return core.Internal("encoding event %d for delivery", j.event.Seq).Wrap(err)
@@ -367,24 +418,62 @@ func (d *Dispatcher) attempt(ctx context.Context, j *job) error {
 	})
 }
 
-// post sends the signed request, returning the response status where one
+// attemptChannel posts one channel delivery and records its outcome, on the
+// same schedule and in the same words as a webhook's.
+func (d *Dispatcher) attemptChannel(ctx context.Context, j *job) error {
+	req, err := ShapeChannelRequest(j.channel.Format, j.message)
+	if err != nil {
+		return err
+	}
+	event := ChannelEventItem
+	if j.channelDelivery.Test() {
+		event = ChannelEventTest
+	}
+	code, sendErr := d.send(ctx, j.channel.URL, j.channel.Secret, event, j.channelDelivery.ID, req)
+	now := d.clk.Now()
+	if sendErr == nil && code >= 200 && code < 300 {
+		j.outcomeDelivered = true
+		return d.store.Update(ctx, d.scope, func(tx store.Tx) error {
+			return tx.MarkChannelDelivered(ctx, j.channelDelivery.ID, code, now)
+		})
+	}
+	next, retry := d.schedule.NextAttemptAt(j.channelDelivery.Attempts+1, now)
+	reason := responseError(code)
+	if sendErr != nil {
+		reason = transportError(sendErr)
+	}
+	return d.store.Update(ctx, d.scope, func(tx store.Tx) error {
+		return tx.MarkChannelFailed(ctx, j.channelDelivery.ID, code, reason, next, !retry)
+	})
+}
+
+// post sends a webhook delivery's signed request.
+func (d *Dispatcher) post(ctx context.Context, j *job, body []byte) (int, error) {
+	return d.send(ctx, j.endpoint.URL, j.endpoint.Secret, string(j.event.Type), j.delivery.ID,
+		ChannelRequest{Body: body, ContentType: contentTypeJSON})
+}
+
+// send posts one signed request, returning the response status where one
 // arrived. The signing secret is never placed in a header value that is not
 // the signature, nor in any error this returns.
-func (d *Dispatcher) post(ctx context.Context, j *job, body []byte) (int, error) {
-	if err := d.guard.CheckURL(j.endpoint.URL); err != nil {
+func (d *Dispatcher) send(ctx context.Context, target, secret, event, deliveryID string, r ChannelRequest) (int, error) {
+	if err := d.guard.CheckURL(target); err != nil {
 		return 0, ErrBlockedTarget
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, j.endpoint.URL, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, target, bytes.NewReader(r.Body))
 	if err != nil {
 		return 0, err
 	}
 	timestamp := FormatTimestamp(d.clk.Now())
-	req.Header.Set("Content-Type", contentTypeJSON)
+	req.Header.Set("Content-Type", r.ContentType)
 	req.Header.Set("User-Agent", userAgentDefault)
-	req.Header.Set(HeaderEvent, string(j.event.Type))
-	req.Header.Set(HeaderDelivery, j.delivery.ID)
+	for k, v := range r.Headers {
+		req.Header.Set(k, v)
+	}
+	req.Header.Set(HeaderEvent, event)
+	req.Header.Set(HeaderDelivery, deliveryID)
 	req.Header.Set(HeaderTimestamp, timestamp)
-	req.Header.Set(HeaderSignature, Sign(j.endpoint.Secret, timestamp, body))
+	req.Header.Set(HeaderSignature, Sign(secret, timestamp, r.Body))
 
 	resp, err := d.client.Do(req)
 	if err != nil {

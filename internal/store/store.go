@@ -64,6 +64,7 @@ type Tx interface {
 	SavedFilterTx
 	CalendarTx
 	InboxTx
+	InboxChannelTx
 
 	Commit() error
 	Rollback() error
@@ -279,6 +280,26 @@ type InboxTx interface {
 	SetInboxMutes(ctx context.Context, actorID string, kinds []core.InboxKind) error
 	// TaskStarrers lists the actors who starred a task.
 	TaskStarrers(ctx context.Context, taskID string) ([]string, error)
+}
+
+// InboxChannelTx covers each person's own notification channels and their
+// delivery queue, which the webhook dispatcher drains beside its own.
+type InboxChannelTx interface {
+	CreateInboxChannel(ctx context.Context, c *core.InboxChannel) error
+	UpdateInboxChannel(ctx context.Context, c *core.InboxChannel) error
+	GetInboxChannel(ctx context.Context, id string) (*core.InboxChannel, error)
+	// ListInboxChannels returns the channels of the given actors, by name.
+	ListInboxChannels(ctx context.Context, actorIDs []string) ([]core.InboxChannel, error)
+	DeleteInboxChannel(ctx context.Context, id string) error
+
+	EnqueueChannelDelivery(ctx context.Context, d *core.ChannelDelivery) error
+	// ClaimChannelDeliveries locks due deliveries, as ClaimDeliveries does.
+	ClaimChannelDeliveries(ctx context.Context, owner string, now, until time.Time, limit int) ([]core.ChannelDelivery, error)
+	MarkChannelDelivered(ctx context.Context, id string, statusCode int, at time.Time) error
+	MarkChannelFailed(ctx context.Context, id string, statusCode int, errMsg string, nextAttempt time.Time, terminal bool) error
+	GetChannelDelivery(ctx context.Context, id string) (*core.ChannelDelivery, error)
+	// ListChannelDeliveries returns a page of one channel's deliveries, newest first.
+	ListChannelDeliveries(ctx context.Context, f core.ChannelDeliveryFilter) ([]core.ChannelDelivery, error)
 }
 
 // ClaimTx covers the work queue.

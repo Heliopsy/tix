@@ -159,6 +159,8 @@ func TestMigrationResumesAboveExistingTasks(t *testing.T) {
 		"ALTER TABLE tenants DROP COLUMN lease_max",
 		"DROP TABLE task_stars",
 		"DROP TABLE group_prefs",
+		"DROP TABLE inbox_deliveries",
+		"DROP TABLE inbox_channels",
 		"DROP TABLE inbox_items",
 		"DROP TABLE inbox_mutes",
 		"ALTER TABLE tasks DROP COLUMN recurrence",
