@@ -223,7 +223,7 @@ func TestQuickAddBoxOffersThePreviewAndTheSyntax(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	box := quickBox(t, f.as("alice").page("/tasks"))
-	for _, attr := range []string{`hx-get="` + web.RouteQuickAdd + `"`, `hx-target="#quickadd-preview"`,
+	for _, attr := range []string{`data-quickadd="` + web.RouteQuickAdd + `"`, `data-quickadd-target="quickadd-preview"`,
 		`name="quick" value="1"`, `aria-describedby="quickadd-preview"`} {
 		if !strings.Contains(box, attr) {
 			t.Errorf("the box lacks %s:\n%s", attr, box)

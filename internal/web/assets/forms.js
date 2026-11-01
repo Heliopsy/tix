@@ -12,6 +12,11 @@
 // until the reader types a key of their own, and says what the project's
 // tasks will be numbered.
 //
+// The one-line add box, input[data-quickadd], asks the server what its line
+// will set a moment after the reader stops typing and draws the answer in the
+// row its data-quickadd-target names. Only the latest answer is drawn, so a
+// slow reply never overwrites a newer one.
+//
 // Everything here is decoration over an ordinary form post: with scripting
 // off every form still submits, and the keyboard line stays hidden because
 // nothing would honour it.
@@ -74,8 +79,39 @@
     shown.textContent = (target.value.trim().toLowerCase() || target.placeholder || "key") + "-1";
   }
 
+  var QUICK_DELAY = 200;
+  var quickSeq = 0;
+  var quickTimer = null;
+
+  function quickURL(input) {
+    return input.getAttribute("data-quickadd") + "?title=" + encodeURIComponent(input.value);
+  }
+
+  // onQuickInput schedules the preview for the box's current line, reporting
+  // whether the input was a quick-add box at all.
+  function onQuickInput(input) {
+    if (!input || !input.hasAttribute || !input.hasAttribute("data-quickadd")) return false;
+    var target = document.getElementById(input.getAttribute("data-quickadd-target"));
+    if (!target) return true;
+    if (quickTimer) clearTimeout(quickTimer);
+    var seq = ++quickSeq;
+    quickTimer = setTimeout(function () {
+      quickTimer = null;
+      if (!input.value.trim()) {
+        target.innerHTML = "";
+        return;
+      }
+      fetch(quickURL(input), { credentials: "same-origin" })
+        .then(function (resp) { return resp.ok ? resp.text() : null; })
+        .then(function (html) { if (html !== null && seq === quickSeq) target.innerHTML = html; })
+        .catch(function () {});
+    }, QUICK_DELAY);
+    return true;
+  }
+
   function onInput(event) {
     var input = event.target;
+    if (onQuickInput(input)) return;
     var form = closestForm(input);
     if (!form) return;
     if (input.hasAttribute("data-key-target")) {

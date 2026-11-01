@@ -4,7 +4,7 @@
 // Escape do inside a create or settings form. The DOM is a stub.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bareContext, run } from "./harness.mjs";
+import { bareContext, fakeTimers, run } from "./harness.mjs";
 
 function load() {
   const location = { assigned: [], assign(href) { this.assigned.push(href); } };
@@ -140,4 +140,77 @@ test("Escape in a form drawn in the task dialog is the dialog's, which closes it
   forms.onKeydown(ev);
   assert.equal(ev.prevented, 0, "the dialog's own Escape was taken away");
   assert.deepEqual(location.assigned, [], "Escape left the page instead of closing the dialog");
+});
+
+// quickContext loads forms.js with a hand-driven clock, a fetch that answers
+// when the test says so, and one preview row.
+function quickContext() {
+  const timers = fakeTimers();
+  const row = { innerHTML: "old" };
+  const calls = [];
+  const fetch = (url, opts) => new Promise((resolve) => {
+    calls.push({ url, opts, answer(html, ok = true) { resolve({ ok, text: () => Promise.resolve(html) }); } });
+  });
+  const document = { getElementById: (id) => (id === "quickadd-preview" ? row : null) };
+  const ctx = bareContext({ document, fetch, setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout,
+    encodeURIComponent, navigator: { platform: "Linux" } });
+  run(ctx, "forms.js");
+  return { forms: ctx.tixForms, timers, row, calls };
+}
+
+function quickBox() {
+  return node({ "data-quickadd": "/tasks/quickadd", "data-quickadd-target": "quickadd-preview" }, {});
+}
+
+const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+test("the quick-add preview asks once the reader pauses, for the line as typed", async () => {
+  const { forms, timers, row, calls } = quickContext();
+  const box = quickBox();
+  box.value = "Fix";
+  forms.onInput({ target: box });
+  box.value = "Fix #auth & co";
+  forms.onInput({ target: box });
+  assert.equal(timers.count, 1, "typing again replaces the pending request");
+  assert.deepEqual(timers.delays(), [200]);
+  assert.equal(calls.length, 0, "nothing is asked before the pause");
+  timers.fire();
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/tasks/quickadd?title=Fix%20%23auth%20%26%20co");
+  assert.equal(calls[0].opts.credentials, "same-origin");
+  calls[0].answer("<ul>chips</ul>");
+  await settle();
+  assert.equal(row.innerHTML, "<ul>chips</ul>");
+});
+
+test("a slow answer never overwrites a newer one", async () => {
+  const { forms, timers, row, calls } = quickContext();
+  const box = quickBox();
+  box.value = "first";
+  forms.onInput({ target: box });
+  timers.fire();
+  box.value = "second";
+  forms.onInput({ target: box });
+  timers.fire();
+  calls[1].answer("second");
+  await settle();
+  calls[0].answer("first");
+  await settle();
+  assert.equal(row.innerHTML, "second");
+});
+
+test("an emptied box clears the row without asking, and a failed answer leaves it", async () => {
+  const { forms, timers, row, calls } = quickContext();
+  const box = quickBox();
+  box.value = "x";
+  forms.onInput({ target: box });
+  timers.fire();
+  calls[0].answer("broken", false);
+  await settle();
+  assert.equal(row.innerHTML, "old");
+  box.value = "   ";
+  forms.onInput({ target: box });
+  timers.fire();
+  assert.equal(calls.length, 1);
+  assert.equal(row.innerHTML, "");
 });

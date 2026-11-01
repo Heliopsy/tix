@@ -117,7 +117,7 @@
        set while it is typed, from the same parser the add runs; a refused
        add comes back with the line still in the box and the reason there. */}}
   <input type="hidden" name="quick" value="1">
-  <input name="title" value="{{$v.QuickLine}}" placeholder="{{t "Add a task and press Enter"}}" aria-label="{{t "New task"}}" data-shortcut-target="new" required autocomplete="off" aria-describedby="quickadd-preview"{{if $v.Quick.Error}} aria-invalid="true"{{end}} hx-get="/tasks/quickadd" hx-trigger="input changed delay:200ms" hx-target="#quickadd-preview" hx-swap="innerHTML" hx-sync="this:replace">
+  <input name="title" value="{{$v.QuickLine}}" placeholder="{{t "Add a task and press Enter"}}" aria-label="{{t "New task"}}" data-shortcut-target="new" required autocomplete="off" aria-describedby="quickadd-preview"{{if $v.Quick.Error}} aria-invalid="true"{{end}} data-quickadd="/tasks/quickadd" data-quickadd-target="quickadd-preview">
   {{template "tip" (tip "Quick add" "Type the attributes into the line: !high or !1 to !5 for the priority, #tag, @handle for the assignee, due:fri, due:tomorrow, due:+3d or due:2026-11-20, +project, ^infra-3 for the parent, status:doing. They are taken out of the title. Put a backslash before one, or quotes around it, to keep it as text." "docs/features.md")}}
   <select name="project_ref" aria-label="{{t "Project"}}">
     {{range $v.Projects}}<option value="{{.Key}}"{{if eq .Key $v.Form.Project}} selected{{end}}>{{.Key}}</option>{{end}}
