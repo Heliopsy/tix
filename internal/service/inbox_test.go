@@ -133,6 +133,17 @@ func TestOneChangeGivesOneItemWithTheStrongestReason(t *testing.T) {
 	}
 }
 
+func TestAStatusChangeOutranksItsOwnComment(t *testing.T) {
+	f := newInboxFixture(t)
+	task := mustCreateTask(t, f.l, f.adaC, core.CreateTaskInput{ProjectRef: "infra", Title: "t", AssigneeActorID: "bob"})
+	if _, err := f.l.TransitionTask(f.adaC, core.TaskRef{ID: task.ID}, core.TransitionInput{To: "doing", Comment: "starting"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := inboxOf(t, f.l, f.bobC); !slices.Equal(got, []string{"status " + task.Ref, "assigned " + task.Ref}) {
+		t.Fatalf("bob = %v, want one status item for the move and its comment", got)
+	}
+}
+
 func TestSelfAndMutedKindsCreateNothing(t *testing.T) {
 	f := newInboxFixture(t)
 	task := mustCreateTask(t, f.l, f.adaC, core.CreateTaskInput{ProjectRef: "infra", Title: "t", AssigneeActorID: "alice"})
