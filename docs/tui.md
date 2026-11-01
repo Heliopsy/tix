@@ -598,7 +598,8 @@ dot and full brightness; read ones are dimmed. `enter` marks the selected item r
 status bar counts the items and the unread ones, and points at `tix inbox ls` for older pages.
 
 Muting a kind is a setting kept with your account, set from the browser's Settings or `tix inbox prefs`;
-the terminal has no screen for it, which the registry records as an exemption rather than a gap.
+the terminal has no screen for it, which the registry records as an exemption rather than a gap. The
+same holds for notification channels (`tix inbox channel`).
 
 ## The project screen
 

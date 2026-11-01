@@ -10,3 +10,13 @@ a key marks everything read.
 
 - **WHEN** a reader selects an unread item in the Inbox view and presses Enter
 - **THEN** the task opens and the item is read
+
+### Requirement: Channels are not managed in the terminal
+
+The terminal interface SHALL NOT offer notification channels, and the registry SHALL record that as an
+exemption naming the browser and `tix inbox channel`.
+
+#### Scenario: The registry says why
+
+- **WHEN** the capability registry is read for `inbox.channel.add`
+- **THEN** its terminal binding is an exemption, not a gap

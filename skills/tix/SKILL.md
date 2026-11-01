@@ -554,7 +554,10 @@ comments on a task you are assigned to or starred, or moves a task assigned to
 you; each names the task (`task_ref`), who (`actor_handle`) and the `kind`
 (`mention`, `assigned`, `comment`, `status`). `tix inbox count -o json` is the
 unread count, `tix inbox read ID` and `tix inbox read-all` mark them, and
-`tix inbox prefs --mute comment` stops a kind. Write `@handle` in a comment to
+`tix inbox prefs --mute comment` stops a kind. `tix inbox channel add NAME URL
+--format slack|discord|ntfy|generic --kinds mention` sends your items to an
+endpoint of your own; its secret is printed once, `tix inbox channel test ID`
+tries it and `tix inbox channel deliveries ID` shows how it answered. Write `@handle` in a comment to
 get a person's attention; your own changes never reach your own inbox.
 
 **Copy rather than retype.** `tix task copy REF` makes a new task with a fresh

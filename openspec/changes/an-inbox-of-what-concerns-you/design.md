@@ -60,12 +60,29 @@ An `inbox` view on `I`: `enter` marks read and opens the task, `space` toggles r
 everything read. Mutes have no terminal screen; the registry records that as an exemption, since
 mutes are a setting and the terminal has no settings for the account.
 
-## Outbound delivery
+## Personal channels
 
-Left out. Webhook endpoints are tenant configuration filtered by event type; there is no per-user
-endpoint and no per-recipient filter, and adding one is a webhook feature, not an inbox feature. A
-tenant endpoint can subscribe to `inbox.updated`, whose payload names the recipients, which is enough
-for a bridge to fan out.
+A channel is a row in `inbox_channels` owned by one actor. `deliverInbox` queues one row in
+`inbox_deliveries` per created item and matching enabled channel of its recipient, in the same
+transaction, and adds to the mutation's queued count so the inline drain runs after commit. The queue is a
+copy of `webhook_deliveries` with `channel_id` and `item_id` instead of endpoint and event, because the
+existing table's foreign key and uniqueness are on webhook endpoints.
+
+The webhook `Dispatcher` claims tenant deliveries first and channel deliveries in the room left, so the
+server ticker, the inline drain, the retry schedule, the SSRF guard and the HMAC signature are the same
+code. `ShapeChannelRequest` renders the message per format: Slack escapes its reserved characters, Discord
+disables mentions, ntfy sends text with `Title` and `Click`, and generic sends signed JSON with the item.
+A link to the task is built from the tenant's first domain; with none, messages carry the reference only.
+
+The secret is generated at creation and returned once, like a token's. Audit snapshots cut the URL to its
+scheme and host, because a Slack or Discord webhook URL is a credential.
+
+## Live list
+
+The inbox page renders the shared `live-screen` binding with `inbox.updated` as its filter and the bar and
+list as its regions, so `live.js` refetches and swaps them with the focus and scroll handling every live
+screen has. `live.js` now announces a redraw with `tix:regions`, and `inbox.js` highlights the rows that
+were not there before.
 
 ## Alternatives
 

@@ -16,7 +16,14 @@
 - [x] 2.4 `internal/web/assets`: live badge, `@` completion, styles, i18n with Bulgarian
 - [x] 2.5 `internal/tui`: the Inbox view
 
-## 3. Documentation
+## 3. Channels and the live list
 
-- [x] 3.1 `docs/api.md`, `docs/web-ui.md`, `docs/tui.md`, `docs/features.md`, `docs/commands.md`,
+- [x] 3.1 `inbox_channels` and `inbox_deliveries` in 0024, store methods on both engines
+- [x] 3.2 Service methods, queueing in `deliverInbox`, the dispatcher's channel pass and formats
+- [x] 3.3 HTTP routes, client, `tix inbox channel`, registry entries with terminal exemptions
+- [x] 3.4 Settings, Notifications and the channel screen; the inbox's live binding and highlight
+
+## 4. Documentation
+
+- [x] 4.1 `docs/api.md`, `docs/web-ui.md`, `docs/tui.md`, `docs/features.md`, `docs/commands.md`,
       `docs/webhooks.md`, README and `skills/tix`

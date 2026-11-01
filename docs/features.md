@@ -138,7 +138,9 @@ description, assigns them a task, comments on a task they are assigned to or sta
 assigned to them; never for their own changes. The browser's sidebar counts the unread ones and keeps the
 count live, `/inbox` lists them and marks them read, Settings mutes any of the four kinds, and comment and
 description boxes complete handles after `@`. `tix inbox ls|count|read|unread|read-all|prefs`, `I` in the
-terminal interface, and `/api/v1/inbox` cover the rest. [docs/web-ui.md](web-ui.md#the-inbox).
+terminal interface, and `/api/v1/inbox` cover the rest. Each person can also send their items to Slack,
+Discord, ntfy or an endpoint of their own from Settings, Notifications, or `tix inbox channel`, delivered
+and retried by the same dispatcher as tenant webhooks. [docs/web-ui.md](web-ui.md#the-inbox).
 
 **Stars.** Star a task and it lists ahead of the rest for you, on every surface: the star button on a
 row, a card or the task screen in the browser, `*` in the terminal interface, `tix task star` and

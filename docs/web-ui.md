@@ -419,6 +419,27 @@ Comments. A kind turned off creates no item for you at all. Unlike the rest of S
 with your account rather than the browser, because they decide what the server writes, so they apply in
 every browser, the terminal and the command line (`tix inbox prefs`).
 
+The list keeps itself current. It is bound to the event stream for `inbox.updated`, and when one arrives
+it fetches its own page again and swaps the bar and the list in place, the way the task list does: the
+scroll position and focus stay where they were, a refresh waits while you are in the middle of something,
+and the rows the redraw brought are washed in the accent colour for a few seconds (shown without the fade
+when your system asks for reduced motion).
+
+### Notification channels
+
+Settings has a Notifications section for sending your inbox items elsewhere as they arrive: a Slack
+incoming webhook, a Discord webhook, an ntfy topic URL, or your own endpoint taking signed JSON. Each
+channel has a name, a URL, a format, the kinds it sends (mentions, assignments, status changes, comments)
+and an on switch. The add form uses the same layout as New project. These are yours, kept with your
+account, and only your items reach them; a kind you turned off above is not sent either. They are not the
+tenant's webhooks under Configure.
+
+Adding a channel opens its own screen, which shows the signing secret once (signed JSON deliveries carry
+`X-Tix-Signature` made with it), then the channel's settings, Send test, and its recent deliveries with
+their state, attempts and the last answer, each not yet delivered with a Redeliver button. A refused
+delivery is retried on the same schedule as a tenant webhook, and private network addresses are refused
+the same way. Each message says who did what to which task and links it when the tenant has a domain.
+
 ### Mentioning someone
 
 Typing `@` in a comment box, the task description or the new task form's description offers the handles

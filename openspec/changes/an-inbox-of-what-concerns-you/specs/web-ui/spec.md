@@ -37,3 +37,25 @@ with Escape without closing anything else. Without scripting the box SHALL stay 
 
 - **WHEN** a reader types "@bo" in a comment box and presses Enter on "bob"
 - **THEN** the box reads "@bob " and the comment is not submitted
+
+### Requirement: Notification channels in Settings
+
+Settings SHALL have a Notifications section listing the reader's channels and a form, in the create-form
+layout, adding one. Each channel SHALL have a screen showing its signing secret once after creation, its
+settings as a form, a Send test button and its recent deliveries with state and a Redeliver action for one
+not delivered. A refused form SHALL be drawn again with the message beside the field and the values kept.
+
+#### Scenario: Adding a channel
+
+- **WHEN** a reader adds a channel in Settings
+- **THEN** its screen shows the signing secret, and reloading it does not
+
+### Requirement: The inbox redraws itself
+
+The inbox page SHALL redraw its bar and list in place when an `inbox.updated` event arrives, keeping the
+reader's scroll position and focus, and SHALL highlight the rows the redraw brought for a few seconds.
+
+#### Scenario: A new item arrives while the inbox is open
+
+- **WHEN** somebody mentions the reader while their inbox is on screen
+- **THEN** the item appears at the top of the list, highlighted, without a reload

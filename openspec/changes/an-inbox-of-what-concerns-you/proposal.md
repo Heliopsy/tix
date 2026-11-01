@@ -30,12 +30,15 @@ Nothing handles mentions today. `@handle` in a comment is plain text.
   `GET|PUT /v1/inbox/prefs`; an Inbox entry in the web sidebar with an unread badge, an inbox page,
   per-kind mute switches in Settings, and `@` completion of handles in comment and description
   boxes; an Inbox view in the terminal interface.
-- Outbound delivery per user is left out: webhook endpoints belong to the tenant and filter by
-  event type only. A tenant endpoint subscribed to `inbox.updated` sees which actors got items.
+- **Notification channels.** Each person can send their own inbox items to channels of their own:
+  Slack, Discord, ntfy or signed JSON, per kind, with Send test, recent deliveries and redeliver. The
+  webhook dispatcher drains their queue with its own retries, guard and signature. Surfaces: Settings,
+  Notifications; `tix inbox channel ls|add|edit|rm|test|deliveries|redeliver`; `/v1/channels`.
+- **Live inbox.** The inbox page redraws in place on `inbox.updated`, highlighting new rows.
 
 ## Impact
 
-- New tables `inbox_items` and `inbox_mutes` (migration 0024), store methods on both engines.
+- New tables `inbox_items`, `inbox_mutes`, `inbox_channels` and `inbox_deliveries` (migration 0024), store methods on both engines.
 - `core.InboxItem`, `core.InboxKind`, `core.InboxFilter`, `core.InboxPrefs`, `core.InboxService`
   with seven methods, one event type, one authz action, seven registry entries.
 - Comment, task create, task update, transition and release paths call one notifier.

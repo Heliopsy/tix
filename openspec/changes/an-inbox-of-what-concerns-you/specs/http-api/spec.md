@@ -19,3 +19,15 @@ invalid.
 
 - **WHEN** a client sends `PUT /v1/inbox/prefs` with `{"muted": ["everything"]}`
 - **THEN** the response is 400
+
+### Requirement: Notification channel endpoints
+
+The API SHALL expose `GET /v1/channels`, `POST /v1/channels` (answering 201 with the channel and its
+`secret`), `PATCH /v1/channels/{id}`, `DELETE /v1/channels/{id}`, `POST /v1/channels/{id}/test`,
+`GET /v1/channels/{id}/deliveries` (keyset paginated, newest first) and
+`POST /v1/channel-deliveries/{id}/redeliver`, all over the authenticated actor's own channels.
+
+#### Scenario: The secret is returned once
+
+- **WHEN** a client creates a channel and then lists channels
+- **THEN** the creation carries `secret` and the listing does not
