@@ -44,7 +44,7 @@ func (l *Local) SnoozeTask(ctx context.Context, ref core.TaskRef, in core.Snooze
 		out = after
 		return m.Record("task.snooze", core.EventTaskSnoozed, "task", task.ID, task.ProjectID,
 			snoozeRow(task, m.now), snoozeRow(after, m.now),
-			map[string]any{"snoozed_until": until, "snoozed_by": actor.ID})
+			map[string]any{"ref": task.Ref, "snoozed_until": until, "snoozed_by": actor.ID})
 	})
 	if err != nil {
 		return nil, err
@@ -82,7 +82,7 @@ func (l *Local) UnsnoozeTask(ctx context.Context, ref core.TaskRef) (*core.Task,
 		out = after
 		return m.Record("task.unsnooze", core.EventTaskUnsnoozed, "task", task.ID, task.ProjectID,
 			snoozeRow(task, m.now), snoozeRow(after, m.now),
-			map[string]any{"snoozed_until": task.SnoozedUntil})
+			map[string]any{"ref": task.Ref, "snoozed_until": task.SnoozedUntil})
 	})
 	if err != nil {
 		return nil, err
@@ -116,7 +116,7 @@ func (l *Local) WakeSnoozed(ctx context.Context, limit int) (int, error) {
 			woken++
 			if err := m.Record("task.wake", core.EventTaskWoke, "task", task.ID, task.ProjectID,
 				snoozeRow(&task, time.Time{}), map[string]any{"id": task.ID, "ref": task.Ref},
-				map[string]any{"snoozed_until": task.SnoozedUntil, "snoozed_by": task.SnoozedByActorID}); err != nil {
+				map[string]any{"ref": task.Ref, "snoozed_until": task.SnoozedUntil, "snoozed_by": task.SnoozedByActorID}); err != nil {
 				return err
 			}
 		}
