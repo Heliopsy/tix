@@ -195,7 +195,7 @@ func TestNoTemplatesSaysHowToMakeOne(t *testing.T) {
 	m, svc := templateBoard(t)
 	svc.tpl.list = nil
 	next := openTemplates(t, m)
-	if next.form.Open() || !strings.Contains(next.err, "K saves") {
+	if next.form.Open() || !strings.Contains(next.err, "E saves") {
 		t.Fatalf("form %v err %q", next.form.Kind, next.err)
 	}
 }
@@ -213,9 +213,9 @@ func TestTheSaveKeyKeepsTheTaskAsATemplate(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			m, svc := templateBoard(t)
-			m, _ = m.reduce(pressKey("K"))
+			m, _ = m.reduce(pressKey("E"))
 			if m.form.Kind != formSaveTemplate {
-				t.Fatalf("K opened form %v", m.form.Kind)
+				t.Fatalf("E opened form %v", m.form.Kind)
 			}
 			for key, value := range tc.answer {
 				m.form = m.form.SetValue(key, value)
@@ -241,11 +241,11 @@ func TestTemplateKeysAreNeitherOfferedNorSentWithoutTheAuthority(t *testing.T) {
 		t.Fatal("the reader may use templates, so this test proves nothing")
 	}
 	help := m.keys.ViewHelp(viewBoard, m.permits())
-	if slices.ContainsFunc(help, func(e HelpEntry) bool { return e.Keys == "B" || e.Keys == "K" }) {
-		t.Errorf("a reader without the authority is told about B or K: %+v", help)
+	if slices.ContainsFunc(help, func(e HelpEntry) bool { return e.Keys == "B" || e.Keys == "E" }) {
+		t.Errorf("a reader without the authority is told about B or E: %+v", help)
 	}
 	next := openTemplates(t, m)
-	next, cmd := next.reduce(pressKey("K"))
+	next, cmd := next.reduce(pressKey("E"))
 	if cmd != nil || next.form.Open() || len(svc.tpl.filters)+len(svc.tpl.saved) != 0 {
 		t.Fatalf("form %v listings %v saves %v", next.form.Kind, svc.tpl.filters, svc.tpl.saved)
 	}
@@ -254,7 +254,7 @@ func TestTemplateKeysAreNeitherOfferedNorSentWithoutTheAuthority(t *testing.T) {
 func TestTemplateKeysAreOfferedInHelpAndPalette(t *testing.T) {
 	m, _ := templateBoard(t)
 	help := m.keys.ViewHelp(viewBoard, m.permits())
-	for _, want := range []HelpEntry{{"B", "templates"}, {"K", "save as template"}} {
+	for _, want := range []HelpEntry{{"B", "templates"}, {"E", "save as template"}} {
 		if !slices.Contains(help, want) {
 			t.Errorf("help does not list %+v", want)
 		}

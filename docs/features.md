@@ -229,7 +229,7 @@ Create tasks from it in one step, optionally with another title, project or a du
 template is not a task: it never appears in a listing, a claim or the statistics. Titles may carry
 placeholders, matched in any case and filled in at each use: `{DATE}` is today's date, `{N}` the use number
 and `{PROJECT}` the project's key. Save as template on the task screen and New from template in the add box
-in the browser, a Templates screen under Configure, `B` and `K` in the terminal interface, `tix template
+in the browser, a Templates screen under Configure, `B` and `E` in the terminal interface, `tix template
 ls|save|show|edit|rm|use` and `/api/v1/templates` over HTTP.
 [docs/web-ui.md](web-ui.md#task-templates), [docs/api.md](api.md#task-templates).
 

@@ -150,9 +150,10 @@ func DefaultKeyMap() KeyMap {
 		// knows. Lowercase y is Agree, the answer to a confirmation.
 		Copy: key.NewBinding(key.WithKeys("Y"), key.WithHelp("Y", "copy task")),
 		// B, for a blueprint, since t, T and the obvious capitals are spoken
-		// for. K keeps the selected task as one; lowercase k moves up.
+		// for. E keeps the selected task as an exemplar to make more from; K
+		// went to saving the filter.
 		Templates:    key.NewBinding(key.WithKeys("B"), key.WithHelp("B", "templates")),
-		SaveTemplate: key.NewBinding(key.WithKeys("K"), key.WithHelp("K", "save as template")),
+		SaveTemplate: key.NewBinding(key.WithKeys("E"), key.WithHelp("E", "save as template")),
 		// O, for the output a worker records. Lowercase o opens a new task under
 		// vim and helix, so the capital is what the other taken letters use.
 		Artifact:  key.NewBinding(key.WithKeys("O"), key.WithHelp("O", "record artifact")),

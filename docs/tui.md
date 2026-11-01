@@ -198,7 +198,7 @@ impossible for a scheme to leave an action unbound.
 | `b` | snooze the task until a time you type, or unsnooze a snoozed one | board, detail |
 | `Y` | copy the task to any project, this one included, with a form for the title and what travels | board, detail |
 | `B` | pick a task template: create a task from it, show it, rename it or delete it | board, detail |
-| `K` | save the task as a template, for this project or the whole tenant | board, detail |
+| `E` | save the task as a template, for this project or the whole tenant | board, detail |
 | `X` | delete the task or the selected comment; removes the selected domain or member | board, detail, project, tenant |
 | `Z` | hide the selected column, for you, on this project's board everywhere | board |
 | `+` | star the selected column, or unstar it; starred columns lead | board |
@@ -400,7 +400,7 @@ since it may have landed in a project the board is not showing.
 
 ### Task templates
 
-`K` keeps the selected task as a template. The form asks for a name (the task's title to start with),
+`E` keeps the selected task as a template. The form asks for a name (the task's title to start with),
 whether the template is for this project or the whole tenant, and whether the subtasks go with it. The
 title, description, priority, tags, custom fields and repeat rule are kept; status, assignee and due date
 are not, because they describe one piece of work rather than its shape.

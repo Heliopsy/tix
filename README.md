@@ -88,8 +88,8 @@ is saved under a name in the sidebar, for you or the whole team (`tix filter`), 
 yours by deadline (`assignee:me`), and the sidebar remembers the last tasks you opened. A task copies
 into any project, subtasks and comments included when you ask, instead of being typed twice, and a
 task you make again and again is saved once as a template and created from it in one step
-(`tix template`). Tick rows on the task list to move, retag, assign, star, copy or delete them in one go, and export any filtered list as
-CSV for a spreadsheet. Your due dates show up in Google Calendar, Apple Calendar or Outlook through a
+(`tix template`). Tick rows on the task list to move, retag, assign, star, copy or delete them in one
+go, and export any filtered list as CSV for a spreadsheet. Your due dates show up in Google Calendar, Apple Calendar or Outlook through a
 private feed address you subscribe to once (`tix calendar`, or Settings in the browser). A task you cannot
 move until later snoozes out of every listing until then and comes back by itself. A fresh install
 needs no configuration: one default workflow, no required fields, and `tix task add "buy milk"` works
