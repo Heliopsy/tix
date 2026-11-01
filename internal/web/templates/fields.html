@@ -35,6 +35,11 @@
   </div>
   <label for="enum_options">{{t "Enum options, comma separated"}}</label>
   <input id="enum_options" name="enum_options">
+  <div class="row">
+    <div><label for="default">{{t "Default"}}</label>{{template "tip" (tip "Default value" "The value a task created without one is given. It has to fit the type, and for an enum it has to be one of the options. Leave it blank for none.")}}<input id="default" name="default"></div>
+    <div><label for="position">{{t "Position"}}</label><input id="position" name="position" type="number" min="0" value="0"></div>
+  </div>
+  <label for="indexed"><input id="indexed" type="checkbox" name="indexed" value="1"> {{t "Indexed"}}</label>{{template "tip" (tip "Indexed" "Keep an index on this field so filtering a large project on field.KEY:VALUE stays fast.")}}
   <label for="required"><input id="required" type="checkbox" name="required" value="1"> {{t "Required"}}</label>{{template "tip" (tip "Required" "Every task in the project must carry a value for this field. Marking a field required later does not invalidate tasks that already lack one.")}}
   <p><button type="submit">{{t "Save field"}}</button></p>
 </form>

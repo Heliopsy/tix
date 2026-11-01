@@ -181,7 +181,12 @@ func init() {
 		"Custom fields":                 "Потребителски полета",
 		"Extra typed values every task in this project can carry, set from the task screen, with tix task edit --field key=value, or through the API. Filter on one with field.KEY:VALUE.": "Допълнителни типизирани стойности, които всяка задача в проекта може да носи. Задават се от екрана на задачата, с tix task edit --field key=value или през API. Филтрирайте по тях с field.KEY:VALUE.",
 		"What a value must look like: string, text, int, float, bool, date, datetime, enum (one of the options below), actor (a person or agent) or json.":                                 "Какъв вид трябва да е стойността: string, text, int, float, bool, date, datetime, enum (една от стойностите по-долу), actor (човек или агент) или json.",
-		"Every task in the project must carry a value for this field. Marking a field required later does not invalidate tasks that already lack one.":                                     "Всяка задача в проекта трябва да има стойност за това поле. Ако го направите задължително по-късно, съществуващите задачи без стойност остават валидни.",
+		"Default value": "Стойност по подразбиране",
+		"Position":      "Позиция",
+		"Indexed":       "Индексирано",
+		"The value a task created without one is given. It has to fit the type, and for an enum it has to be one of the options. Leave it blank for none.": "Стойността, която получава задача, създадена без такава. Трябва да отговаря на типа, а за изброим тип да е една от възможностите. Оставете празно, ако няма.",
+		"Keep an index on this field so filtering a large project on field.KEY:VALUE stays fast.":                                                          "Поддържа индекс по това поле, за да остава бързо филтрирането на голям проект по field.KEY:VALUE.",
+		"Every task in the project must carry a value for this field. Marking a field required later does not invalidate tasks that already lack one.":     "Всяка задача в проекта трябва да има стойност за това поле. Ако го направите задължително по-късно, съществуващите задачи без стойност остават валидни.",
 
 		// Release.
 		"Release": "Версия",
