@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.1](https://github.com/Heliopsy/tix/compare/v0.29.0...v0.29.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* stop tix ssh hanging on a signal right after it binds, and the SSH flakes behind [#102](https://github.com/Heliopsy/tix/issues/102) ([#140](https://github.com/Heliopsy/tix/issues/140)) ([05b44c4](https://github.com/Heliopsy/tix/commit/05b44c45a6cc02fa3e86740dadc8ac9507b2d311))
+
 ## [0.29.0](https://github.com/Heliopsy/tix/compare/v0.28.0...v0.29.0) (2026-11-01)
 
 
