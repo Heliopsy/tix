@@ -188,6 +188,9 @@ This applies to `project`, `status`, `parent`, `assignee`, `creator` and `claime
 inclusion side and the exclusion side alike, and to the flags that carry the same terms. A `priority`
 outside the range was already a usage error and needs no lookup.
 
+**Old keys.** A project that was given a new key keeps its old one as an alias, so `project:infra` goes
+on selecting the tasks of the project now keyed `ops`. See [workflows.md](workflows.md#changing-a-projects-key).
+
 **Case.** A project key and a status are matched without regard to case, because the store matches
 both exactly, and `-p INFRA` or `--status TODO` selecting nothing is the same silent empty answer by
 another route.

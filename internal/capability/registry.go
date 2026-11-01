@@ -250,8 +250,8 @@ var registry = []Operation{
 		HTTP:  apiPatch(wire.RouteProject),
 		Web:   webPost(web.RouteProjectEdit),
 		// Every attribute the input accepts: the colour and the workflow from
-		// the form's own lists, the name, the description and the icon from the
-		// single-line prompt the form hands over to.
+		// the form's own lists, the name, the key, the description and the icon
+		// from the single-line prompt the form hands over to.
 		TUI: "project",
 	},
 	{

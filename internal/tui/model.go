@@ -1269,6 +1269,8 @@ func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 		return m.createProject(key, name)
 	case promptProjectName:
 		return m.updateProject(core.UpdateProjectInput{Name: &text}, attrName)
+	case promptProjectKey:
+		return m.updateProject(core.UpdateProjectInput{Key: &text}, attrKey)
 	case promptProjectDesc:
 		return m.updateProject(core.UpdateProjectInput{Description: &text}, attrDescription)
 	case promptProjectIcon:
@@ -2252,7 +2254,7 @@ func (m Model) openFieldDefForm(text string) (Model, tea.Cmd) {
 }
 
 // applyProjectEdit performs what the edit form asked for. The two attributes
-// drawn from fixed sets are answered by the form; the three that are free text
+// drawn from fixed sets are answered by the form; the four that are free text
 // hand over to the single-line prompt, seeded with the value they would replace.
 func (m Model) applyProjectEdit(form Form) (Model, tea.Cmd) {
 	if m.setup == nil {
@@ -2275,6 +2277,8 @@ func (m Model) applyProjectEdit(form Form) (Model, tea.Cmd) {
 		return m, m.updateProject(core.UpdateProjectInput{WorkflowKey: &flow}, attrWorkflow)
 	case attrName:
 		return m.startPrompt(promptProjectName, p.Name), textinput.Blink
+	case attrKey:
+		return m.startPrompt(promptProjectKey, p.Key), textinput.Blink
 	case attrDescription:
 		return m.startPrompt(promptProjectDesc, p.Description), textinput.Blink
 	case attrIcon:

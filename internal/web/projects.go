@@ -178,6 +178,7 @@ func (h *handler) refuseProject(w http.ResponseWriter, r *http.Request, form pro
 }
 
 // updateProject changes a project's mutable fields.
+// A changed key is asked about first; see confirmKeyChange.
 func (h *handler) updateProject(w http.ResponseWriter, r *http.Request) error {
 	key := r.PathValue("key")
 	form := readProjectForm(r)
@@ -185,18 +186,29 @@ func (h *handler) updateProject(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	asked, err := h.confirmKeyChange(w, r, project, form.Key)
+	switch {
+	case asked:
+		return err
+	case err != nil:
+		return h.refuseSettings(w, r, form, core.OnField(err, "key"))
+	}
 	in, err := iconChoiceOf(r, project.IconImage != "")
 	if err != nil {
 		return h.refuseSettings(w, r, form, core.OnField(err, "icon"))
 	}
 	in.Name, in.Description, in.Color = &form.Name, &form.Description, &form.Color
+	if form.Key != "" {
+		in.Key = &form.Key
+	}
 	if form.Workflow != "" {
 		in.WorkflowKey = &form.Workflow
 	}
-	if _, err := h.svc.UpdateProject(r.Context(), key, in); err != nil {
+	updated, err := h.svc.UpdateProject(r.Context(), project.ID, in)
+	if err != nil {
 		return h.refuseSettings(w, r, form, err)
 	}
-	redirect(w, r, RouteProjects+"/"+key, "project updated")
+	redirect(w, r, RouteProjects+"/"+updated.Key, "project updated")
 	return nil
 }
 
@@ -210,7 +222,9 @@ func (h *handler) refuseSettings(w http.ResponseWriter, r *http.Request, form pr
 	if viewErr != nil {
 		return viewErr
 	}
-	form.Key = data.Project.Key
+	if form.Key == "" {
+		form.Key = data.Project.Key
+	}
 	data.Form, data.Errors, data.Refused = form, refusal(err), true
 	if field(r, "icon_kind") == iconKindText {
 		typed := data.Project
@@ -266,6 +280,10 @@ type boardView struct {
 	// Live is what keeps the columns current while the board is open. See
 	// live.go.
 	Live liveScreen
+
+	// KeyChange, when set, turns the screen into the confirmation of a new
+	// key and nothing else.
+	KeyChange *keyChange
 }
 
 // showBoard renders one column per workflow state.
@@ -273,6 +291,9 @@ func (h *handler) showBoard(w http.ResponseWriter, r *http.Request) error {
 	data, err := h.buildBoardView(r)
 	if err != nil {
 		return err
+	}
+	if redirectOldKey(w, r, r.PathValue("key"), &data.Project) {
+		return nil
 	}
 	return h.render(w, r, "board.html", data.Project.Name, data)
 }
@@ -284,6 +305,9 @@ func (h *handler) showBoardLive(w http.ResponseWriter, r *http.Request) error {
 	data, err := h.buildBoardView(r)
 	if err != nil {
 		return err
+	}
+	if redirectOldKey(w, r, r.PathValue("key"), &data.Project) {
+		return nil
 	}
 	return h.renderFragment(w, r, "board.html", "board-live", data.Project.Name, data)
 }
@@ -388,6 +412,9 @@ func (h *handler) showFields(w http.ResponseWriter, r *http.Request) error {
 	project, err := h.svc.GetProject(r.Context(), key)
 	if err != nil {
 		return err
+	}
+	if redirectOldKey(w, r, key, project) {
+		return nil
 	}
 	defs, err := h.svc.ListFieldDefs(r.Context(), key)
 	if err != nil {

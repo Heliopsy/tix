@@ -136,10 +136,11 @@ const firstMigration = 1
 // fail on the deployment that has been running for months. Recording the
 // version here keeps the two paths identical.
 var tableIntroducedIn = map[string]int{
-	"ssh_keys":      5,
-	"task_stars":    14,
-	"project_icons": 16,
-	"group_prefs":   18,
+	"ssh_keys":            5,
+	"task_stars":          14,
+	"project_icons":       16,
+	"group_prefs":         18,
+	"project_key_aliases": 19,
 }
 
 func introducedIn(table string) int {

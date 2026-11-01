@@ -75,7 +75,8 @@ func (t *tx) CreateProject(ctx context.Context, p *core.Project) error {
 	return err
 }
 
-// GetProject returns a project by identifier or by key.
+// GetProject returns a project by identifier, by key, or by a key it was
+// renamed from.
 func (t *tx) GetProject(ctx context.Context, ref string) (*core.Project, error) {
 	b := t.builder("projects").
 		Select(projectColumns...).
@@ -83,10 +84,22 @@ func (t *tx) GetProject(ctx context.Context, ref string) (*core.Project, error) 
 		Limit(1)
 	q, args := b.SelectQuery()
 	p, err := scanProject(t.ex.QueryRowContext(ctx, q, args...))
+	if err == nil {
+		return &p, nil
+	}
+	if !core.IsKind(err, core.KindNotFound) {
+		return nil, err
+	}
+	projectID, err := t.ProjectAliasTarget(ctx, ref)
 	if err != nil {
 		if core.IsKind(err, core.KindNotFound) {
 			return nil, core.NotFound("project %q", ref)
 		}
+		return nil, err
+	}
+	b = t.builder("projects").Select(projectColumns...).Where("id = ?", projectID).Limit(1)
+	q, args = b.SelectQuery()
+	if p, err = scanProject(t.ex.QueryRowContext(ctx, q, args...)); err != nil {
 		return nil, err
 	}
 	return &p, nil

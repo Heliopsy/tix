@@ -132,6 +132,23 @@ $ curl -s -H "Authorization: Bearer $TIX_TOKEN" \
 Every moved task records a `task.move` audit entry and a `task.updated` event naming its old and new
 reference, and every deleted one a `task.delete` entry and a `task.deleted` event with `hard: true`.
 
+### Changing a project's key
+
+`PATCH /projects/{ref}` accepts `key`, which renames the project and every task reference with it: `infra-8`
+becomes `ops-8`. The old key is kept as an alias of the project for as long as the project exists, so a path,
+a `project_ref`, a filter or a task reference that still names it resolves to the renamed project, and the
+response carries the new key and the new `ref`. A key that is the current key or an old key of another
+project is `409`; a key that breaks the key rules is `400`. The `project.updated` event of a rename carries
+`previous_key` beside `key`.
+
+```console
+$ curl -s -X PATCH -H "Authorization: Bearer $TIX_TOKEN" -H 'Content-Type: application/json' \
+    -d '{"key":"ops"}' http://127.0.0.1:8080/api/v1/projects/infra
+{"id":"01M30P5...","key":"ops","name":"Infrastructure", ...}
+$ curl -s -H "Authorization: Bearer $TIX_TOKEN" http://127.0.0.1:8080/api/v1/tasks/infra-8
+{"id":"01M6...","ref":"ops-8", ...}
+```
+
 ### Recurring tasks
 
 A task carries an optional `recurrence`, a repeat rule in the syntax [features.md](features.md)

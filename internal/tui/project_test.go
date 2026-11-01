@@ -302,7 +302,7 @@ func TestTheEditFormHidesTheRowsItsOwnAnswerMakesIrrelevant(t *testing.T) {
 	if form.Value(attrColour) != "" {
 		t.Errorf("the colour row is shown while the attribute is the name: %+v", form.Visible())
 	}
-	for range 3 {
+	for range 4 {
 		form = form.Cycle(1)
 	}
 	if form.Value("attribute") != attrColour {
@@ -370,7 +370,7 @@ func TestEditingAProjectAttributeDrawnFromAListSendsIt(t *testing.T) {
 	}
 
 	// Step the attribute to the colour, then the colour to the next swatch.
-	for range 3 {
+	for range 4 {
 		m, _ = m.reduce(pressKey("right"))
 	}
 	if got := formRow(t, m.Frame(), "edit project infra", "attribute"); !strings.Contains(got, attrColour) {
@@ -418,6 +418,35 @@ func TestEditingAFreeTextAttributeOpensThePromptSeededWithIt(t *testing.T) {
 	}
 	if !strings.Contains(m.status, "name") || !strings.Contains(m.status, "infra") {
 		t.Errorf("the status bar says %q", m.status)
+	}
+}
+
+func TestEditingTheKeyOpensThePromptSeededWithIt(t *testing.T) {
+	m, svc := setupModel(t)
+	m, _ = m.reduce(pressKey("e"))
+	m, _ = m.reduce(pressKey("right"))
+	if got := formRow(t, m.Frame(), "edit project infra", "attribute"); !strings.Contains(got, attrKey) {
+		t.Fatalf("the attribute row says %q", got)
+	}
+	m, _ = m.reduce(pressKey("enter"))
+	if m.prompt != promptProjectKey {
+		t.Fatalf("the key attribute opened prompt %v", m.prompt)
+	}
+	if got := m.input.Value(); got != "infra" {
+		t.Errorf("the prompt is seeded with %q", got)
+	}
+	m.input.SetValue("ops")
+	m, cmd := m.reduce(pressKey("enter"))
+	_, _ = m.reduce(run(t, cmd))
+	if len(svc.projectsEdited) != 1 {
+		t.Fatalf("the key edit sent %d updates", len(svc.projectsEdited))
+	}
+	in := svc.projectsEdited[0]
+	if in.Key == nil || *in.Key != "ops" {
+		t.Fatalf("the key edit sent %+v", in)
+	}
+	if in.Name != nil || in.Description != nil || in.Icon != nil || in.Color != nil || in.WorkflowKey != nil {
+		t.Errorf("a key edit also sent other fields: %+v", in)
 	}
 }
 
@@ -825,7 +854,7 @@ func lastLine(frame string) string {
 func TestChoosingACustomColourAsksForItAndSendsIt(t *testing.T) {
 	m, svc := setupModel(t)
 	m, _ = m.reduce(pressKey("e"))
-	for range 3 {
+	for range 4 {
 		m, _ = m.reduce(pressKey("right"))
 	}
 	m, _ = m.reduce(pressKey("down"))
@@ -854,7 +883,7 @@ func TestAProjectWithACustomColourOpensOnCustom(t *testing.T) {
 	p := setupProject()
 	p.Color = "#1a7f5a"
 	form := ProjectEditForm(p, []string{"standard"})
-	for range 3 {
+	for range 4 {
 		form = form.Cycle(1)
 	}
 	if got := form.Value(attrColour); got != customColour {

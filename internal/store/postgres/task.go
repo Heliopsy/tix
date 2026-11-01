@@ -235,6 +235,9 @@ func (t *tx) GetTask(ctx context.Context, ref core.TaskRef) (*core.Task, error) 
 	}
 	q, args := b.SelectQuery()
 	task, err := scanTask(t.ex.QueryRowContext(ctx, q, args...))
+	if err != nil && !ref.IsID() && core.IsKind(err, core.KindNotFound) {
+		task, err = t.taskByAlias(ctx, ref)
+	}
 	if err != nil {
 		if core.IsKind(err, core.KindNotFound) {
 			return nil, core.NotFound("task %q", ref.String())

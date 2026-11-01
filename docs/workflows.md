@@ -176,6 +176,26 @@ tix project edit rv --workflow review
 Removing a state that tasks currently sit in is refused with exit 6, as is removing a workflow still assigned to a
 project.
 
+## Changing a project's key
+
+The key is the start of every task reference and of the project's address, and it can be changed:
+
+```sh
+tix project edit infra --key ops              # infra-8 is now ops-8
+tix project edit ops --name "Operations" --description "on call and the fleet"
+```
+
+The old key stays an alias of the project for as long as the project exists. `tix task show infra-8`,
+`-p infra`, `project:infra`, a `project:` default in the configuration, a sync mapping and a link to
+`/projects/infra` or `/tasks/infra-8` all keep working and answer with the new key, and the browser is sent
+on to the new address. Because an old key keeps pointing at its project, no other project can take it: a key
+held by another project, current or old, is exit 4, and a key that breaks the key rules is exit 2. A project
+can take back one of its own old keys. Deleting a project frees every key it held.
+
+In the browser the key is in the project's settings, and a changed key is confirmed on a second screen that
+shows references before and after. In the terminal interface it is the `key` attribute of the project
+screen's edit form.
+
 ## Marking a project
 
 A project carries a colour and an icon so its rows are recognisable at a glance in the CLI table and in the
