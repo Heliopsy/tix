@@ -6396,7 +6396,7 @@ a.heldswitch[aria-checked="true"]::before { content: "\2611"; }
   min-height: 0;
   margin: 0 4px 0 0;
   padding: 0;
-  vertical-align: -3px;
+  vertical-align: middle;
   border: 1.5px solid var(--line-strong);
   border-radius: 4px;
   background: var(--bg);
@@ -6452,3 +6452,13 @@ a.heldswitch[aria-checked="true"]::before { content: "\2611"; }
 .mdtoggle { margin-left: auto; font-size: var(--text-xs); }
 .actions .mdtoggle { margin: 0 auto 0 0; }
 .mdpreview { min-height: 4.5em; padding: var(--space-2); border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); }
+/* A table someone typed keeps its rows and columns on a phone, scrolling
+   sideways, rather than becoming the card per row the app's own tables turn
+   into: its header is the only thing saying what a cell means. */
+@media (max-width: 639px) {
+  .md table { display: block; }
+  .md thead { display: table-header-group; }
+  .md tbody { display: table-row-group; }
+  .md tr { display: table-row; margin: 0; padding: 0; border: 0; border-radius: 0; }
+  .md th, .md td { display: table-cell; width: auto; padding: 4px 8px; border: 1px solid var(--line); }
+}
