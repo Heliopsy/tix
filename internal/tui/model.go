@@ -1892,7 +1892,7 @@ func (m Model) restoreTask() (Model, tea.Cmd) {
 		return m, nil
 	}
 	if task.DeletedAt == nil {
-		m.err = "only a deleted task can be restored; filter the board with is:deleted to see them"
+		m.err = "only a deleted task can be restored; filter the board with is:trashed to see them"
 		return m, nil
 	}
 	return m, m.restore(task)
