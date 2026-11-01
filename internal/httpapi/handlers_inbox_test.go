@@ -4,6 +4,7 @@ package httpapi_test
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"slices"
 	"strings"
@@ -180,5 +181,96 @@ func TestInboxSurvivesTheClientRoundTrip(t *testing.T) {
 	}
 	if p, err := remote.GetInboxPrefs(ctx); err != nil || len(p.Muted) != 1 {
 		t.Fatalf("prefs = %+v, %v", p, err)
+	}
+}
+
+func TestChannelEndpoints(t *testing.T) {
+	f := newFixture(t)
+	resp := f.call(http.MethodPost, wire.RouteChannels, map[string]any{"name": "phone",
+		"url": "https://ntfy.sh/alice", "format": "ntfy", "kinds": []string{"mention"}})
+	mustStatus(t, resp, http.StatusCreated)
+	var issued struct {
+		core.InboxChannel
+		Secret string `json:"secret"`
+	}
+	decodeBody(t, resp, &issued)
+	if issued.Secret == "" || issued.ID == "" || issued.Format != core.ChannelNtfy {
+		t.Fatalf("POST answered %+v", issued)
+	}
+	resp = f.call(http.MethodGet, wire.RouteChannels, nil)
+	mustStatus(t, resp, http.StatusOK)
+	rawBytes, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	raw := string(rawBytes)
+	if strings.Contains(raw, issued.Secret) || !strings.Contains(raw, `"name":"phone"`) {
+		t.Fatalf("GET /channels = %s", raw)
+	}
+	one := strings.Replace(wire.RouteChannel, "{id}", issued.ID, 1)
+	resp = f.call(http.MethodPatch, one, map[string]any{"active": false})
+	mustStatus(t, resp, http.StatusOK)
+	_ = resp.Body.Close()
+	resp = f.call(http.MethodPost, strings.Replace(wire.RouteChannelTest, "{id}", issued.ID, 1), nil)
+	mustStatus(t, resp, http.StatusUnprocessableEntity)
+	_ = resp.Body.Close()
+	resp = f.call(http.MethodPatch, one, map[string]any{"active": true})
+	mustStatus(t, resp, http.StatusOK)
+	_ = resp.Body.Close()
+	resp = f.call(http.MethodPost, strings.Replace(wire.RouteChannelTest, "{id}", issued.ID, 1), nil)
+	mustStatus(t, resp, http.StatusOK)
+	var d core.ChannelDelivery
+	decodeBody(t, resp, &d)
+	resp = f.call(http.MethodGet, strings.Replace(wire.RouteChannelDeliveries, "{id}", issued.ID, 1), nil)
+	var page wire.Page[core.ChannelDelivery]
+	decodeBody(t, resp, &page)
+	if len(page.Items) != 1 || page.Items[0].ID != d.ID {
+		t.Fatalf("deliveries = %+v", page.Items)
+	}
+	resp = f.call(http.MethodPost, strings.Replace(wire.RouteChannelRedeliver, "{id}", d.ID, 1), nil)
+	mustStatus(t, resp, http.StatusNoContent)
+	_ = resp.Body.Close()
+	resp = f.do(http.MethodDelete, one, f.hostB, f.tokenB, nil)
+	mustStatus(t, resp, http.StatusNotFound)
+	_ = resp.Body.Close()
+	resp = f.call(http.MethodDelete, one, nil)
+	mustStatus(t, resp, http.StatusNoContent)
+	_ = resp.Body.Close()
+	resp = f.call(http.MethodPost, wire.RouteChannels, map[string]any{"name": "x", "url": "https://example.com/h", "format": "pager"})
+	mustStatus(t, resp, http.StatusBadRequest)
+	_ = resp.Body.Close()
+}
+
+func TestChannelsSurviveTheClientRoundTrip(t *testing.T) {
+	f := newFixtureWith(t, func(fx *apiFixture, cfg *httpapi.Config) {
+		cfg.DefaultTenantID = fx.tenantA.ID
+	})
+	remote, err := client.New(f.server.URL, f.tokenA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = remote.Close() })
+	ctx := context.Background()
+	issued, err := remote.CreateInboxChannel(ctx, core.InboxChannelInput{Name: "hook", URL: "https://example.com/hook"})
+	if err != nil || issued.SigningSecret == "" {
+		t.Fatalf("create = %+v, %v", issued, err)
+	}
+	name := "renamed"
+	if c, err := remote.UpdateInboxChannel(ctx, issued.ID, core.InboxChannelUpdate{Name: &name}); err != nil || c.Name != name {
+		t.Fatalf("update = %+v, %v", c, err)
+	}
+	d, err := remote.TestInboxChannel(ctx, issued.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if list, _, err := remote.ListChannelDeliveries(ctx, core.ChannelDeliveryFilter{ChannelID: issued.ID}); err != nil || len(list) != 1 {
+		t.Fatalf("deliveries = %v, %v", list, err)
+	}
+	if err := remote.RedeliverChannelDelivery(ctx, d.ID); err != nil {
+		t.Fatal(err)
+	}
+	if list, err := remote.ListInboxChannels(ctx); err != nil || len(list) != 1 {
+		t.Fatalf("list = %v, %v", list, err)
+	}
+	if err := remote.DeleteInboxChannel(ctx, issued.ID); err != nil {
+		t.Fatal(err)
 	}
 }
