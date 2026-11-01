@@ -5,7 +5,11 @@
 The task screen and each lane card's more actions menu SHALL offer "Copy to…" to a reader who
 may create tasks. It SHALL open a form
 with the target project, defaulting to the task's own, the title prefilled and editable, and the
-options keep status, with comments, with subtasks, with dependencies and link, link checked. The
+options keep status, with comments, with subtasks, with dependencies and link, link checked, in
+the shared create form layout: the title as the lead field, the project in the side column, the
+options as one checkbox group, Cancel and Copy at the bottom right, Ctrl or Cmd+Enter to copy and
+Escape to cancel. A refused copy SHALL draw the form again with every submitted value kept and the
+reason under the field it is about. The
 form SHALL be drawn in the task dialog when the task is open in one, and as a page otherwise.
 After copying, the reader SHALL stay where the form was opened from, the source task or the
 listing, with a toast linking the copy, unless
@@ -31,6 +35,11 @@ copy was copied from.
 
 - **WHEN** a reader opens a lane card's three dots menu on the lanes filtered by `tag:ops`, chooses Copy to… and submits
 - **THEN** the reader returns to the lanes filtered by `tag:ops` with a toast linking the copy
+
+#### Scenario: A refused copy keeps the reader's choices
+
+- **WHEN** a reader submits the copy form with subtasks ticked and a project that no longer exists
+- **THEN** the form is drawn again with the same title and subtasks still ticked, and the reason is shown under the project field
 
 #### Scenario: Read-only reader
 

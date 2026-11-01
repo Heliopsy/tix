@@ -461,6 +461,11 @@ names who wrote it and when, **Subtasks** copies the whole live subtree under th
 by default, records where the copy came from: its About card then shows **Copied from** with a link back.
 Stars, claims, history and artifacts never travel.
 
+The form is laid out like New task: the title is the large field, the project sits beside it, the options
+are one group of checkboxes, and Cancel and Copy close the form at the bottom right, with Ctrl+Enter (Cmd+Enter
+on a Mac) to copy and Escape to cancel. A copy that is refused, such as one into a project that no longer
+exists, comes back with every choice kept and the reason under the field it is about.
+
 When tasks open in a dialog the form opens in the same dialog. Copying returns to the original with a
 toast linking the copy, or opens the copy when the "Open a new task" setting is on, exactly as adding a
 task does. A lane card's three dots menu offers **Copy to…** too, opening the same form over the lanes
