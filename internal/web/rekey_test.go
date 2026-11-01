@@ -154,3 +154,20 @@ func TestAKeyChangeKeepsTheIconChoice(t *testing.T) {
 		t.Errorf("an uploaded image is not asked for again on the confirmation:\n%s", page)
 	}
 }
+
+// A custom colour chosen in the same save reaches the confirmation as the
+// colour itself, so confirming keeps it.
+func TestAKeyChangeKeepsACustomColour(t *testing.T) {
+	f := newFixture(t)
+	b := f.as("alice")
+	form := settingsForm("Infra", "ops")
+	form.Set("color", "#custom")
+	form.Set("color_custom", "1a7f5a")
+	resp := b.post("/projects/infra/update", form)
+	wantStatus(t, resp, http.StatusOK)
+	confirm := settingsAt(t, readAll(t, resp), "/projects/infra/update")
+	_ = resp.Body.Close()
+	if !strings.Contains(confirm, `name="color" value="#1a7f5a"`) {
+		t.Errorf("the confirmation does not carry the custom colour:\n%s", confirm)
+	}
+}

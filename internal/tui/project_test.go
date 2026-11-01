@@ -854,7 +854,7 @@ func lastLine(frame string) string {
 func TestChoosingACustomColourAsksForItAndSendsIt(t *testing.T) {
 	m, svc := setupModel(t)
 	m, _ = m.reduce(pressKey("e"))
-	for range 3 {
+	for range 4 {
 		m, _ = m.reduce(pressKey("right"))
 	}
 	m, _ = m.reduce(pressKey("down"))
