@@ -77,9 +77,9 @@ project picker beside the box is where the task goes when the line names no proj
 zone chosen under Settings. With scripting off the add still parses; only the preview needs a script.
 Add with details has a field per attribute and stores its title as typed.
 
-**Repeating tasks.** The add form's details and the task screen's Edit card carry a Repeat field taking
+**Repeating tasks.** The add form's details and the task screen's Repeats row carry a Repeat field taking
 a rule such as `every week` or `3 days after done`, emptied to stop the task repeating. The task screen's
-About card states the rule, links the occurrence it created once the task is finished, and before that
+Repeats row states the rule, links the occurrence it created once the task is finished, and before that
 gives the date finishing it now would make the next one due, or says that this is the last occurrence.
 A recurring row or card carries a `↻` marker with the rule beside it, linking every recurring task. The
 Repeats field under View turns it off. Completing one from the browser creates the next exactly as the
@@ -479,7 +479,7 @@ Snooze hides a task from every listing, for everybody, until a time you pick, an
 by itself. Nothing has to run for that: every listing compares the wake time with the clock. Agents
 cannot claim a snoozed task until it wakes.
 
-Snooze is in two places. On the task screen it is in the title bar, beside Copy to; on a lane card it
+Snooze is in two places. On the task screen it is in the actions menu (the three dots in the header); on a lane card it
 is a section of the three dots menu. Both offer **Later today** (three hours on, rounded up to the
 hour), **Tomorrow morning** (09:00), **Next week** (09:00 next Monday) and **Pick a date**, a date
 and time field with its own Snooze button. Every choice is read in the time zone chosen under
@@ -494,8 +494,8 @@ the toast names the task and when it wakes.
 
 A snoozed task is drawn only where it was asked for, under `is:snoozed` or `snoozed:any` in the
 filter, and there it carries a dashed badge saying until when: "until 3 Nov 09:00" on a row or a card,
-"Snoozed until ..." on its own screen, where hovering names who snoozed it. Its task screen offers
-**Unsnooze** in place of Snooze, as does its lane card's menu; it posts to `/tasks/REF/snooze/remove`
+"Snoozed until ..." in the Snoozed row of its own screen, where hovering names who snoozed it. Its
+task screen's actions menu offers **Unsnooze** in place of Snooze, as does its lane card's menu; it posts to `/tasks/REF/snooze/remove`
 and the task is back at once. Snoozing and unsnoozing need `task:write`, and a reader without it is
 offered neither. See [filtering.md](filtering.md#snoozed-tasks).
 
@@ -581,13 +581,32 @@ answered from the page that linked here. Every save on the screen returns to it 
 attached, so the link still goes to the same place after a tag, a comment or an edit, and deleting the
 task returns there too.
 
-The About card says whether you starred the task, in words, links the task it is a subtask of, and shows
-when it started and finished alongside when it was created and last changed.
+The screen reads like an issue. The header holds the reference, the title in large type with **Rename**
+beside it, your star, and one actions menu behind the three dots: **Copy link**, **Copy the task id**,
+**Copy to…**, **Save as template**, **Snooze…** or **Unsnooze**, **Reclaim the lease…** when you may take
+a live lease, and **Delete task** with its two options. Nothing in that menu is drawn anywhere else.
+
+On a wide screen the main column holds the description, subtasks, dependencies, artifacts, comments and
+history, and the column on the right holds the properties: status and priority, which open the same menus a
+list row does, the snooze and claim state when there is one, assignee, due date, project, tags, repeat rule
+and each custom field. Each is a label and a value, and a writer changes it where it is read: point at or
+focus the value, type, and press Enter or the Save that appears. Each row posts only its own field, so a
+save never touches anything else, and with scripting off it is a plain form post. An enum field is a
+dropdown that saves when chosen. The record's facts follow in small type: who created the task, when it was
+created and last changed, when it started and finished, its version and its identifier with a Copy button.
+On a phone the properties come first, straight under the title, and the facts come last. The task dialog a
+listing can open draws the same screen.
+
+The star is a shape in the header; its name says whether you starred the task (Star or Unstar). A subtask
+names its parent beside its reference and in a Subtask of row.
 
 When a page fails, the error screen offers the page that linked to it and the task list, each named for
 where it goes. It used to offer "the dashboard", which was `/`, a redirect to the projects list.
 
-The description sits above the editor, drawn from its Markdown: lists, tables, code, links, and references
+The description is drawn from its Markdown, and **Edit** beside its heading turns it into the editor in
+place, reading **Cancel** until you save; a task with no description offers **Add a description** instead.
+Both are disclosures, so they work with no script, and the `e` shortcut opens Rename and focuses the title.
+The description is drawn from its Markdown: lists, tables, code, links, and references
 such as `infra-8` and `@handles` linked to their pages. A checklist written `- [ ]` draws as checkboxes. With
 `task:write` each one ticks in place: it is a button a screen reader announces as a checkbox, Space and
 Enter press it, it flips at once and the screen swaps in place when the answer arrives, and a description
@@ -606,7 +625,7 @@ dependency they cannot open is still visible as one rather than missing from the
 
 ## Copying a task
 
-**Copy to…** at the right of the task screen's title bar, offered to a reader who may write tasks, opens a
+**Copy to…** in the task screen's actions menu, offered to a reader who may write tasks, opens a
 small form: the project the copy goes to, the reader's own project selected, the title ready to edit, and
 what else to bring. The copy is a new task with its own reference, in that project or the same one. Its
 description, priority, tags, assignee, due date and repeat rule come with it, and so do the custom fields
@@ -614,7 +633,7 @@ the target project defines. It starts in the target workflow's first state unles
 ticked and the target has a state of that name. **Comments** copies each comment as a new one by you that
 names who wrote it and when, **Subtasks** copies the whole live subtree under the copy, and
 **Dependencies** makes the copy wait for what the original waits for. **Link the copy to this task**, ticked
-by default, records where the copy came from: its About card then shows **Copied from** with a link back.
+by default, records where the copy came from: its properties then show **Copied from** with a link back.
 Stars, claims, history and artifacts never travel.
 
 The form is laid out like New task: the title is the large field, the project sits beside it, the options
@@ -666,7 +685,7 @@ columns.
 A template is a named shape of a task that is not itself work: it never shows in a listing, a claim or the
 statistics.
 
-**Save as template**, beside Copy to… in the task screen's title bar and in a lane card's three dots menu,
+**Save as template**, in the task screen's actions menu and in a lane card's three dots menu,
 opens a small form drawn like the copy form: the template's name (the task's title to start with), whether
 it is for **This project** or **All projects**, whether the subtasks come along (ticked when the task has
 any), and an optional **Due in** such as 3d or 12h. The template keeps the title, description with its

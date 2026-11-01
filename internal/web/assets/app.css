@@ -930,6 +930,7 @@ textarea { max-width: var(--measure-text); }
 .composer textarea,
 .commentpop textarea,
 .copyline input,
+.taskmain textarea, .taskprops input, .taskprops select, .titleform input, .reladd input,
 .statsfilter select { max-width: 100%; }
 
 input:focus-visible, select:focus-visible, textarea:focus-visible {
@@ -1483,29 +1484,7 @@ td > details.panel > .body {
   max-width: 22rem;
 }
 
-/* Detail layout: content beside a metadata rail */
-.detail { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
-
-@media (min-width: 960px) {
-  .detail { grid-template-columns: minmax(0, 1fr) 300px; align-items: start; }
-  .detail .rail { position: sticky; top: 22px; }
-}
-
-/* The two columns hold different amounts and always will: the rail is a
-   fixed set of metadata cards, the column beside it grows with every comment
-   written. Anything tabular therefore goes below both of them rather than
-   inside the narrower of the two, where the history table was getting a
-   third of the page while the gutter beside it ran empty for thousands of
-   pixels. In one column this is simply the last thing on the page. */
-.detail > .wide { grid-column: 1 / -1; }
-
-.titlebar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin-bottom: var(--head-sub); }
-/* A flex item's margin does not collapse, so the heading's own 16px stacked on
-   the bar's and put the status pills 20px under the title they qualify. */
 .titlebar > h1 { margin: 0; }
-.titlebar .ref { font-family: ui-monospace, monospace; color: var(--muted); font-size: var(--text-md); }
-/* Copy to sits at the far end of the title bar, out of the title's way. */
-.titlebar .copyto { margin-left: auto; align-self: center; }
 
 /* Lists */
 ul.plain { list-style: none; padding: 0; margin: 0; }
@@ -3232,15 +3211,6 @@ div.formsheet:popover-open:not(.is-inplace) { inset: 0; height: fit-content; mar
   }
 }
 
-/* Tags in the aside: chips that wrap, each with its own removal. */
-/* The status, priority and lease marks under the title, on one line. */
-.taskpills {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0 0 var(--head-gap);
-}
 
 /* The identifier, with a way to take it. */
 .idline { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
@@ -6491,8 +6461,6 @@ a.heldswitch[aria-checked="true"]::before { content: "\2611"; }
 }
 a.snoozemark:hover { color: var(--ink); border-color: var(--ink); }
 .taskpills .snoozemark { font-size: var(--text-xs); padding: 1px 8px; }
-.titlebar .snoozeform { display: inline-flex; margin: 0; align-self: center; }
-.titlebar .snoozebtn { align-self: center; }
 button.ghostlink {
   min-height: 0;
   border: 0;
@@ -6508,7 +6476,6 @@ button.ghostlink {
 .snooze-row { display: flex; gap: var(--space-1); padding: 0 var(--space-1) var(--space-1); }
 .snooze-row input { flex: 1 1 auto; min-width: 0; }
 @media (pointer: coarse) {
-  .titlebar .snoozebtn { min-height: 44px; display: inline-flex; align-items: center; padding-inline: var(--space-3); }
   .snoozepop .flowgo,
   .snoozepop .flowclose,
   .snooze-row input,
@@ -6525,6 +6492,8 @@ button.ghostlink {
     margin: 0;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  }
+}
 
 /* ---------------------------------------------------------------------------
    The inbox (templates/inbox.html), its badge in the sidebar and @handle
@@ -6691,3 +6660,270 @@ table.deliveries { width: 100%; }
 table.templates .rowacts { white-space: normal; text-align: right; }
 table.templates .rowacts .ghostlink + .ghostlink { margin-left: var(--space-2); }
 .addtpl-menu .flowgo .muted { margin-left: var(--space-1); }
+
+/* ---- The task screen ------------------------------------------------------
+
+   An issue tracker's detail view: a header with the reference, the title and
+   one actions menu; a main column that reads top to bottom (description,
+   subtasks, dependencies, comments, history); and a sidebar of properties,
+   each a label and a value that edits where it is read. On a phone the
+   sidebar comes first, as a summary under the title, and the record's own
+   facts go last. Spacing is the tokens and nothing else. */
+
+@media (min-width: 1024px) {
+  .taskgrid {
+    grid-template-columns: minmax(0, 1fr) 20rem;
+    grid-template-areas: "main props" "main meta";
+    grid-template-rows: auto 1fr;
+    column-gap: var(--space-6);
+  }
+  .taskprops { position: sticky; top: var(--space-4); }
+}
+@media (max-width: 1023px) {
+  .taskgrid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "props" "main" "meta"; }
+}
+.taskgrid { display: grid; row-gap: var(--space-5); align-items: start; }
+.taskprops { grid-area: props; min-width: 0; }
+.taskmain { grid-area: main; min-width: 0; }
+.propmeta { grid-area: meta; }
+
+/* Header. */
+.taskhead { display: flex; flex-direction: column; gap: var(--space-1); margin: 0 0 var(--head-gap); }
+.taskhead-line { display: flex; align-items: center; gap: var(--space-2); min-height: var(--control-h-sm); }
+.taskhead .ref { font-family: ui-monospace, monospace; font-size: var(--text-sm); color: var(--muted); }
+.taskhead-parent { font-size: var(--text-sm); color: var(--muted); }
+.taskhead-tools { display: inline-flex; flex: 0 0 auto; align-items: center; gap: var(--space-1); }
+.taskhead-title:has(> .titleedit[open]) > .taskhead-tools { display: none; }
+.taskhead-tools .starform { display: inline-flex; }
+.taskmenu-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  min-height: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+}
+.taskmenu-open:hover, .taskmenu-open:focus-visible { border-color: var(--line); background: var(--surface); color: var(--ink); filter: none; }
+.taskhead-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.taskhead-title > h1 { flex: 1 1 20rem; min-width: 0; margin: 0; font-size: var(--text-2xl); line-height: 1.25; overflow-wrap: anywhere; }
+.taskhead-title:has(> .titleedit[open]) > h1 { display: none; }
+.titleedit { flex: 0 0 auto; }
+.titleedit[open] { flex: 1 1 100%; }
+.titleedit[open] > .editswitch { float: right; min-height: 44px; margin-left: var(--space-2); }
+.titleform { display: flex; gap: var(--space-2); margin: 0; overflow: hidden; }
+.titleform input { flex: 1 1 auto; min-width: 0; min-height: 44px; font-size: var(--text-xl); font-weight: 600; }
+
+/* The Edit / Rename / Cancel switches: a summary that reads as a quiet
+   button, and says Cancel while what it opened is open. */
+.editswitch {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  list-style: none;
+  cursor: pointer;
+}
+.editswitch::-webkit-details-marker { display: none; }
+.editswitch::marker { content: ""; }
+.editswitch:hover { background: var(--surface); color: var(--ink); }
+.editswitch .when-open,
+details[open] > .editswitch .when-shut { display: none; }
+details[open] > .editswitch .when-open { display: inline; }
+
+/* The actions menu. */
+.taskmenu { min-width: 15rem; }
+.taskmenu .flowgo { justify-content: flex-start; text-decoration: none; }
+.taskmenu > form { display: flex; flex-direction: column; gap: 1px; margin: 0; }
+.taskmenu .flowgo.is-danger { color: var(--danger); }
+.taskmenu .flowgo.is-danger:hover { background: var(--danger-soft); }
+.taskmenu-delete { margin-top: var(--space-1); padding-top: var(--space-1); border-top: 1px solid var(--line); }
+.taskmenu-delete .flowhead { margin: var(--space-1) 0 2px; }
+.taskmenu-delete label { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: var(--space-1) var(--space-3); font-size: var(--text-sm); font-weight: 400; color: var(--ink); }
+.reclaimpop { min-width: 18rem; padding: var(--space-3); }
+.reclaimpop input { width: 100%; }
+
+/* Main column: sections divided by a rule, each with a small heading row. */
+.taskmain > .tsec + .tsec { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--line); }
+.tsec { position: relative; margin: 0; }
+.tsec-head { display: flex; align-items: center; gap: var(--space-2); min-height: var(--control-h-sm); margin: 0 0 var(--space-2); }
+.tsec-head > h2,
+.tfold > summary > h2 { margin: 0; font-size: var(--text-md); font-weight: 600; }
+.tsec-count {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.empty.quiet { margin: 0; padding: 0; font-size: var(--text-sm); color: var(--muted); }
+
+/* The description and its in-place editor. The switch sits at the end of
+   the heading row; with nothing written yet it is the dashed prompt itself. */
+.tdesc .md { font-size: var(--text-base); line-height: 1.6; }
+.tdesc > .descedit > .editswitch { position: absolute; top: 0; right: 0; }
+.tdesc.is-empty > .descedit:not([open]) > .editswitch {
+  position: static;
+  display: flex;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+}
+.tdesc:has(> .descedit[open]) #task-desc > :not(.tsec-head) { display: none; }
+.descform textarea { width: 100%; min-height: 14rem; line-height: 1.5; resize: vertical; }
+.descform .field-label { display: flex; align-items: center; gap: var(--space-1); }
+.descform .field-label .mdtoggle { margin-left: auto; }
+.readonly-note { margin: var(--space-3) 0 0; font-size: var(--text-sm); }
+
+/* Subtasks, dependencies and artifacts: one line each, reference, title,
+   then the state at the end. */
+.rellist { list-style: none; margin: 0; padding: 0; }
+.rellist > li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+  padding: var(--space-1) var(--space-2);
+  margin: 0 calc(-1 * var(--space-2));
+  border-radius: var(--radius-sm);
+}
+.rellist > li:hover { background: var(--surface); }
+.rellist > li > .mono { flex: 0 0 auto; font-size: var(--text-sm); }
+.reltitle { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.reldrop { display: inline-flex; margin: 0; }
+.reladd { display: flex; gap: var(--space-2); margin: var(--space-2) 0 0; }
+.reladd input { flex: 1 1 auto; min-width: 0; }
+.tfold > summary { display: flex; align-items: center; gap: var(--space-2); min-height: var(--control-h-sm); list-style: none; cursor: pointer; }
+.tfold > summary::-webkit-details-marker { display: none; }
+.tfold > summary::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 5px solid var(--muted);
+  transition: transform 120ms ease;
+}
+.tfold[open] > summary::before { transform: rotate(90deg); }
+.tfold > summary:hover > h2 { color: var(--accent); }
+.tfold[open] > summary { margin-bottom: var(--space-2); }
+.tfold .table-wrap { margin: 0; }
+
+/* Comments: a byline with a monogram, the body under it, aligned. */
+.commentlist > li.comment { padding: var(--space-3) 0; border: 0; border-top: 1px solid var(--line); }
+.commentlist > li.comment:first-child { border-top: 0; padding-top: 0; }
+.commentlist > li.empty { border: 0; padding: 0 0 var(--space-2); }
+.comment .byline { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-1); font-size: var(--text-sm); color: var(--ink); }
+.comment .byline .who-name { font-weight: 600; }
+.comment .comment-editopen { margin-left: auto; font-size: var(--text-xs); }
+.comment-body { padding-left: calc(24px + var(--space-2)); }
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+}
+.composerform { margin: var(--space-3) 0 0; }
+.composerform .composer { width: 100%; }
+.composerform .actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-2); }
+
+/* The properties: one aligned grid of labels and values. A row is display:
+   contents so every label shares the one column and every value the other. */
+.taskprops { padding: var(--space-3) var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); }
+.props { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); column-gap: var(--space-3); margin: 0; }
+.prop { display: contents; }
+.props dt {
+  display: flex;
+  align-items: center;
+  align-self: start;
+  min-height: var(--control-h);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.props dt label { margin: 0; font-size: inherit; font-weight: inherit; color: inherit; }
+.proplabel { display: inline-flex; align-items: center; gap: 2px; }
+.props dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+  min-height: var(--control-h);
+  margin: 0;
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+.taskprops > .props + .props { margin-top: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--line); }
+.prop-tip { display: flex; justify-content: flex-end; margin-top: calc(-1 * var(--space-1)); }
+.propnote { flex: 1 1 100%; font-size: var(--text-xs); color: var(--muted); }
+
+/* A value a writer may change is a field drawn as text until it is pointed
+   at or focused, with its Save beside it only then. */
+.propform { display: flex; flex: 1 1 100%; align-items: center; gap: var(--space-1); min-width: 0; margin: 0; }
+.propform input,
+.propform select {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  height: var(--control-h-sm);
+  min-height: var(--control-h-sm);
+  margin: 0 0 0 calc(-1 * var(--space-2));
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+.propform input:hover,
+.propform select:hover { border-color: var(--line-strong); background: var(--bg); }
+.propform input:focus-visible,
+.propform select:focus-visible { background: var(--bg); }
+.propsave { display: none; min-height: var(--control-h-sm); padding: 0 var(--space-2); font-size: var(--text-xs); }
+.propform:focus-within .propsave,
+.propform:hover .propsave { display: inline-flex; align-items: center; }
+.taskprops .tagchips { margin: 0; gap: var(--space-1) var(--space-2); }
+.taskprops .tagadd { flex: 1 1 100%; }
+.taskprops .statusmenu,
+.taskprops .priomenu { display: inline-flex; }
+
+/* The record's facts: smaller, quieter, outside the panel. */
+.propmeta { padding: 0 var(--space-4); }
+.propmeta dt,
+.propmeta dd { min-height: var(--control-h-sm); font-size: var(--text-xs); }
+.propmeta dd { color: var(--muted); }
+.propmeta .idline { flex-wrap: nowrap; }
+.propmeta .idline > button { flex: 0 0 auto; }
+
+@media (max-width: 1023px) {
+  .taskprops { padding: var(--space-2) var(--space-3); }
+}
+@media (max-width: 599px) {
+  .taskhead-title > h1 { font-size: var(--text-xl); }
+  .props { grid-template-columns: 5rem minmax(0, 1fr); }
+  .propmeta { padding: 0; }
+  .comment-body { padding-left: 0; }
+}
+@media (pointer: coarse) {
+  .taskmenu-open { width: 44px; height: 44px; }
+  .propsave { display: inline-flex; align-items: center; }
+  .propform:not(:focus-within) .propsave { display: none; }
+  .taskmenu .flowgo { min-height: 44px; }
+}

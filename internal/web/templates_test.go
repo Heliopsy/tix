@@ -27,8 +27,8 @@ func TestSaveAsTemplateIsOfferedToWritersOnly(t *testing.T) {
 	ref := f.as("alice").createTask("infra", "release")
 	link := `href="/tasks/` + ref + `/template" data-dialog-load`
 
-	if bar := titleBar(t, f.as("alice").page("/tasks/"+ref)); !strings.Contains(bar, link) {
-		t.Errorf("a writer is not offered Save as template in the title bar:\n%s", bar)
+	if bar := actionsMenu(t, f.as("alice").page("/tasks/"+ref), ref); !strings.Contains(bar, link) {
+		t.Errorf("a writer is not offered Save as template in the actions menu:\n%s", bar)
 	}
 	if page := f.as("viewer").page("/tasks/" + ref); strings.Contains(page, "/tasks/"+ref+"/template") {
 		t.Errorf("a read-only reader is offered Save as template")

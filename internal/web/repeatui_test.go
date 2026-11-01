@@ -12,15 +12,11 @@ import (
 	"github.com/heliopsy/tix/internal/web"
 )
 
-// aboutRow returns the one definition in the task screen's About card that a
-// term heads, so an assertion about the rule cannot pass on the due date.
-func aboutRow(t *testing.T, page, term string) string {
+// aboutRow returns the value of one property row of the task screen, found
+// by its key, so an assertion about the rule cannot pass on the due date.
+func aboutRow(t *testing.T, page, key string) string {
 	t.Helper()
-	row := between(t, page, "<dt>"+term+"</dt>", "<dt>")
-	if row == "" {
-		t.Fatalf("the task screen has no %s row", term)
-	}
-	return row
+	return propValue(t, page, key)
 }
 
 func TestTheBrowserSetsShowsAndClearsARepeatRule(t *testing.T) {
@@ -29,17 +25,17 @@ func TestTheBrowserSetsShowsAndClearsARepeatRule(t *testing.T) {
 	ref := b.createTask("infra", "water plants")
 
 	page := b.page("/tasks/" + ref)
-	if form := editForm(t, page, ref); !strings.Contains(form, `name="repeat"`) {
-		t.Fatalf("the edit form offers no Repeat field:\n%s", form)
+	if row := propRow(t, page, "repeat"); !strings.Contains(row, `name="repeat"`) {
+		t.Fatalf("the Repeats row offers no field:\n%s", row)
 	}
-	if fields := between(t, page, `<summary>Edit custom fields</summary>`, "</form>"); strings.Contains(fields, `name="repeat"`) {
-		t.Fatalf("the custom fields form names the rule, so saving a field would rewrite it")
+	if n := strings.Count(page, `name="repeat"`); n != 1 {
+		t.Fatalf("%d forms name the rule, so saving another property would rewrite it", n)
 	}
 
 	save := func(fields url.Values) *http.Response {
 		t.Helper()
 		current := b.page("/tasks/" + ref)
-		fields.Set("version", between(t, editForm(t, current, ref), `name="version" value="`, `"`))
+		fields.Set("version", between(t, propRow(t, current, "repeat"), `name="version" value="`, `"`))
 		fields.Set("title", "water plants")
 		return b.post("/tasks/"+ref, fields)
 	}
@@ -48,7 +44,7 @@ func TestTheBrowserSetsShowsAndClearsARepeatRule(t *testing.T) {
 	wantStatus(t, resp, http.StatusSeeOther)
 	_ = resp.Body.Close()
 	page = b.page("/tasks/" + ref)
-	if row := aboutRow(t, page, "Repeats"); !strings.Contains(row, "every week on mon,thu") {
+	if row := aboutRow(t, page, "repeat"); !strings.Contains(row, "every week on mon,thu") {
 		t.Fatalf("the task screen does not state the rule:\n%s", row)
 	}
 	if got := inputValue(t, page, "repeat"); got != "every week on mon,thu" {
@@ -64,19 +60,19 @@ func TestTheBrowserSetsShowsAndClearsARepeatRule(t *testing.T) {
 	if refused.StatusCode != http.StatusSeeOther && !strings.Contains(body, "fortnight") {
 		t.Fatalf("the refusal does not name the rule:\n%s", tail(body))
 	}
-	if row := aboutRow(t, b.page("/tasks/"+ref), "Repeats"); !strings.Contains(row, "every week on mon,thu") {
+	if row := aboutRow(t, b.page("/tasks/"+ref), "repeat"); !strings.Contains(row, "every week on mon,thu") {
 		t.Fatalf("a refused rule changed the task:\n%s", row)
 	}
 
 	withoutField := save(url.Values{})
 	_ = withoutField.Body.Close()
-	if row := aboutRow(t, b.page("/tasks/"+ref), "Repeats"); !strings.Contains(row, "every week on mon,thu") {
+	if row := aboutRow(t, b.page("/tasks/"+ref), "repeat"); !strings.Contains(row, "every week on mon,thu") {
 		t.Fatalf("a save that did not name the rule cleared it:\n%s", row)
 	}
 
 	cleared := save(url.Values{"repeat": {""}})
 	_ = cleared.Body.Close()
-	if row := aboutRow(t, b.page("/tasks/"+ref), "Repeats"); strings.Contains(row, "every") {
+	if row := aboutRow(t, b.page("/tasks/"+ref), "repeat"); strings.Contains(row, "every") {
 		t.Fatalf("emptying the field left the rule:\n%s", row)
 	}
 }
@@ -143,17 +139,6 @@ func TestRowsAndCardsMarkARecurringTask(t *testing.T) {
 	}
 }
 
-// editForm returns the task screen's main edit form, the one that saves the
-// title, and not the custom fields form beside it that posts to the same place.
-func editForm(t *testing.T, page, ref string) string {
-	t.Helper()
-	form := between(t, page, `action="/tasks/`+ref+`" data-dirty-save>`, "</form>")
-	if form == "" {
-		t.Fatalf("the task screen has no edit form")
-	}
-	return form
-}
-
 // boardCard returns the one card on a board that names a task.
 func boardCard(t *testing.T, page, title string) string {
 	t.Helper()
@@ -179,9 +164,9 @@ func TestCompletingFromTheBrowserSpawnsTheNextOccurrence(t *testing.T) {
 	_ = resp.Body.Close()
 
 	page := b.page("/tasks/" + task.Ref)
-	next := between(t, aboutRow(t, page, "Repeats"), `href="/tasks/`, `"`)
+	next := between(t, aboutRow(t, page, "repeat"), `href="/tasks/`, `"`)
 	if next == "" || next == task.Ref {
-		t.Fatalf("the finished task links no successor:\n%s", aboutRow(t, page, "Repeats"))
+		t.Fatalf("the finished task links no successor:\n%s", aboutRow(t, page, "repeat"))
 	}
 	if !strings.Contains(b.page("/tasks/"+next), "standup") {
 		t.Fatalf("the successor %s is not the same task again", next)

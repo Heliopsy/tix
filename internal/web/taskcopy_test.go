@@ -12,26 +12,6 @@ import (
 	"github.com/heliopsy/tix/internal/web"
 )
 
-// titleBar is the task screen's title bar, where Copy to is offered.
-func titleBar(t *testing.T, page string) string {
-	t.Helper()
-	bar := between(t, page, `<div class="titlebar"`, "</div>")
-	if bar == "" {
-		t.Fatalf("the screen draws no title bar")
-	}
-	return bar
-}
-
-// aboutCard is the task screen's About card.
-func aboutCard(t *testing.T, page string) string {
-	t.Helper()
-	card := between(t, page, "<h3>About</h3>", "</dl>")
-	if card == "" {
-		t.Fatalf("the screen draws no About card")
-	}
-	return card
-}
-
 // checkbox reads one checkbox input of a form by its name.
 func checkbox(t *testing.T, form, name string) string {
 	t.Helper()
@@ -48,8 +28,8 @@ func TestCopyToIsOfferedToWritersOnly(t *testing.T) {
 	ref := f.as("alice").createTask("infra", "copy me")
 	link := `href="/tasks/` + ref + `/copy" data-dialog-load`
 
-	if bar := titleBar(t, f.as("alice").page("/tasks/"+ref)); !strings.Contains(bar, link) {
-		t.Errorf("a writer is not offered Copy to in the title bar:\n%s", bar)
+	if bar := actionsMenu(t, f.as("alice").page("/tasks/"+ref), ref); !strings.Contains(bar, link) {
+		t.Errorf("a writer is not offered Copy to in the actions menu:\n%s", bar)
 	}
 	if page := f.as("viewer").page("/tasks/" + ref); strings.Contains(page, "/tasks/"+ref+"/copy") {
 		t.Errorf("a read-only reader is offered Copy to")
@@ -128,11 +108,11 @@ func TestCopyingStaysWithAToastLinkingTheCopy(t *testing.T) {
 		t.Errorf("copied comments = %+v, %v", comments, err)
 	}
 
-	about := aboutCard(t, b.page("/tasks/"+copied))
+	about := propsPanel(t, b.page("/tasks/"+copied))
 	if !strings.Contains(about, "Copied from") || !strings.Contains(about, `href="/tasks/`+ref+`"`) {
-		t.Errorf("the copy's About card does not name its source:\n%s", about)
+		t.Errorf("the copy's properties do not name its source:\n%s", about)
 	}
-	if strings.Contains(aboutCard(t, b.page("/tasks/"+ref)), "Copied from") {
+	if strings.Contains(propsPanel(t, b.page("/tasks/"+ref)), "Copied from") {
 		t.Errorf("the source claims to be a copy")
 	}
 }
@@ -155,7 +135,7 @@ func TestCopyingOpensTheCopyWhenAddingDoes(t *testing.T) {
 		t.Fatalf("redirect = %q, want the copy's own screen", loc)
 	}
 	copied := strings.TrimPrefix(loc.Path, "/tasks/")
-	if strings.Contains(aboutCard(t, b.page(loc.Path)), "Copied from") {
+	if strings.Contains(propsPanel(t, b.page(loc.Path)), "Copied from") {
 		t.Errorf("an unlinked copy %s names a source", copied)
 	}
 }

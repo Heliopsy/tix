@@ -30,7 +30,7 @@ func snoozeMenu(t *testing.T, page, ref string) string {
 	return popover(t, page, "snooze-"+ref)
 }
 
-// The task screen's title bar opens a menu of the three presets and a date
+// The task screen's actions menu opens a menu of the three presets and a date
 // picker, every one a plain form post that returns to the screen.
 func TestTheTaskScreenOffersASnoozeMenu(t *testing.T) {
 	t.Parallel()
@@ -39,8 +39,8 @@ func TestTheTaskScreenOffersASnoozeMenu(t *testing.T) {
 	ref := b.createTask("infra", "not this week")
 	page := b.page("/tasks/" + ref)
 
-	if !strings.Contains(between(t, page, `<div class="titlebar"`, "</div>"), `popovertarget="snooze-`+ref+`"`) {
-		t.Fatalf("the title bar has no Snooze button opening the menu:\n%s", page)
+	if !strings.Contains(actionsMenu(t, page, ref), `popovertarget="snooze-`+ref+`"`) {
+		t.Fatalf("the actions menu has no Snooze button opening the menu:\n%s", page)
 	}
 	menu := snoozeMenu(t, page, ref)
 	if menu == "" {
@@ -147,9 +147,9 @@ func TestASnoozedTaskShowsItsWakeTimeAndUnsnoozes(t *testing.T) {
 	_ = resp.Body.Close()
 
 	page := b.page("/tasks/" + ref)
-	pills := between(t, page, `id="task-pills"`, `</div>`)
+	pills := propRow(t, page, "snooze")
 	if !strings.Contains(pills, `class="snoozemark"`) || !strings.Contains(pills, "Snoozed until ") {
-		t.Errorf("the snoozed task's pills carry no wake time:\n%s", pills)
+		t.Errorf("the snoozed task's properties carry no wake time:\n%s", pills)
 	}
 	if !strings.Contains(pills, `title="Snoozed by alice"`) {
 		t.Errorf("the badge does not say who snoozed it:\n%s", pills)

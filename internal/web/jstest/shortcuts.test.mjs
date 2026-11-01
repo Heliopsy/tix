@@ -245,3 +245,20 @@ test("while a menu is open the global shortcuts stand down", () => {
   old.doc.querySelector = (sel) => { if (sel === ":popover-open") throw new Error("unsupported"); return null; };
   assert.doesNotThrow(() => old.doc.dispatch("keydown", keydown("j")), "a browser without popovers broke the shortcuts");
 });
+
+test("a shortcut target inside a closed disclosure opens it before taking focus", () => {
+  const fold = { open: false };
+  const title = element("INPUT");
+  title.closest = (sel) => (sel === "details" ? fold : null);
+  const data = { scheme: "default", bindings: { default: { editTitle: ["e"] } }, actions: [{ name: "editTitle", label: "Focus the title field" }] };
+  const ctx = newContext({ history: { length: 1, back() {} }, location: { assign() {} } });
+  const doc = fakeDocument({
+    byId: { "tix-shortcuts-data": { textContent: JSON.stringify(data) }, "shortcuts-help": null, "shortcuts-help-list": null },
+    bySelector: { '[data-shortcut-target="editTitle"]': title },
+  });
+  ctx.document = doc;
+  run(ctx, "shortcuts.js");
+  doc.dispatch("keydown", keydown("e"));
+  assert.equal(fold.open, true, "the disclosure holding the title stayed shut");
+  assert.equal(title.focused, 1, "the title field was not focused");
+});
