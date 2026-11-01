@@ -1647,6 +1647,7 @@ ul.plain > li:last-child { border-bottom: 0; }
 }
 .qchip-kind { color: var(--muted); }
 .qchip.is-unknown { background: var(--danger-soft); color: var(--danger); }
+.qchip-why::before { content: "\00b7  "; }
 
 /* The list-or-board switch. It belongs to the strip of controls above the
    listing, so it borrows the bar's own arrangement and wraps onto its own
@@ -2751,7 +2752,7 @@ li.task.is-blocked a.task-title { color: var(--muted); }
      select and the Add button on a second line, 44px of the fold spent on
      two controls that fit beside the box perfectly well. */
   .quickadd, .filterbar { flex-wrap: wrap; }
-  .quickadd input[name="title"] { flex: 1 1 140px; min-width: 0; }
+  .quickadd input[name="title"] { flex: 1 1 90px; min-width: 0; }
   .filterbar input { flex: 1 1 100%; }
   /* The four controls that decide how the list is drawn, on one line at the
      width where they only just fit. They keep their 44px height; it is the
