@@ -115,12 +115,19 @@ is what makes a large PostgreSQL install fast. If you need an answer that does n
 | `due:<DATE`, `due:>DATE` | the same bounds, spelled with the comparison | no | no |
 | `due-before:DATE`, `due-after:DATE` | due bounds | no | no |
 | `parent:REF`, `parent:none` | subtasks of, or roots | no | no |
-| `is:claimed`, `is:unclaimed`, `is:blocked`, `is:unblocked`, `is:recurring`, `is:deleted`, `is:root` | state predicates | yes (except `is:root`) | no |
+| `is:claimed`, `is:unclaimed`, `is:blocked`, `is:unblocked`, `is:recurring`, `is:root` | state predicates | yes (except `is:root`) | no |
+| `is:deleted` | also list soft-deleted tasks, alongside the rest; it widens, it does not narrow | yes | no |
 | `is:starred`, `is:unstarred`, `starred:true`, `starred:false` | tasks you starred, or did not | yes | no |
 | `sort:FIELD`, `limit:N` | listing shape | no | no |
 | bare word | free text, engine-native | yes (becomes a weak match) | n/a |
 
 Dates take `YYYY-MM-DD`, `YYYY-MM-DD HH:MM`, or RFC 3339.
+
+`is:deleted` is the expression spelling of `tix task ls --include-deleted`: the listing keeps its live
+tasks and gains the soft-deleted ones, which carry `deleted_at`. A restored task is live again, so it stays
+in the listing. `-is:deleted` is what every listing does already. There is no term that lists only the
+deleted tasks; pick them out by `deleted_at`, for example
+`tix task ls --filter is:deleted -o ndjson | jq 'select(.deleted_at)'`.
 
 ## Stars
 
