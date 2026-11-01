@@ -95,7 +95,7 @@ func (l *Local) newCopier(ctx context.Context, m *mutation, source *core.Task, i
 	}
 	project, err := m.tx.GetProject(ctx, target)
 	if err != nil {
-		return nil, err
+		return nil, core.OnField(err, "project_ref")
 	}
 	if _, err := l.authorize(ctx, authz.ActionTaskCreate, authz.Resource{ProjectID: project.ID}); err != nil {
 		return nil, err

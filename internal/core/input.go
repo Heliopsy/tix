@@ -349,7 +349,7 @@ type CopyTaskInput struct {
 // Validate checks the input.
 func (in CopyTaskInput) Validate() error {
 	if len(in.Title) > MaxTitleLength {
-		return Invalid("task title must be at most %d characters", MaxTitleLength)
+		return Invalid("task title must be at most %d characters", MaxTitleLength).WithDetail(DetailField, "title")
 	}
 	return nil
 }

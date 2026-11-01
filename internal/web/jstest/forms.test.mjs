@@ -28,13 +28,14 @@ function node(attrs = {}, parents = {}) {
   };
 }
 
-function form({ popover = false, details = null, cancel = null, inside = {} } = {}) {
+function form({ popover = false, dialog = false, details = null, cancel = null, inside = {} } = {}) {
   const f = {
     submitted: 0,
     requestSubmit() { this.submitted++; },
     closest(sel) {
       if (sel === "form[data-form]") return this;
       if (sel === "[popover]") return popover ? {} : null;
+      if (sel === "dialog") return dialog ? {} : null;
       if (sel === "details[open]") return details;
       return null;
     },
@@ -130,4 +131,13 @@ test("Escape follows Cancel in place, closes a disclosure, and leaves a popover 
   forms.onKeydown(ev);
   assert.equal(ev.prevented, 0);
   assert.equal(location.assigned.length, 1);
+});
+
+test("Escape in a form drawn in the task dialog is the dialog's, which closes it", () => {
+  const { forms, location } = load();
+  const inDialog = form({ dialog: true, cancel: { href: "/tasks/infra-1" } });
+  const ev = key(node({}, { "form[data-form]": inDialog }), "Escape");
+  forms.onKeydown(ev);
+  assert.equal(ev.prevented, 0, "the dialog's own Escape was taken away");
+  assert.deepEqual(location.assigned, [], "Escape left the page instead of closing the dialog");
 });

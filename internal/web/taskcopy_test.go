@@ -183,15 +183,87 @@ func TestTheCopyFormDrawsInTheDialog(t *testing.T) {
 	}
 }
 
-func TestARefusedCopyIsSaid(t *testing.T) {
+func TestTheCopyFormIsLaidOutAsTheCreateForms(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	b := f.as("alice")
 	ref := b.createTask("infra", "rotate keys")
-	resp := b.post("/tasks/"+ref+"/copy", url.Values{"project_ref": {"nope"}, "title": {"x"}})
+	page := b.page("/tasks/" + ref + "/copy")
+	form := formAt(t, page, "/tasks/"+ref+"/copy")
+	if !strings.Contains(page, `<form method="post" class="cform copyform" data-form action="/tasks/`+ref+`/copy">`) {
+		t.Errorf("the copy form is not a shared create form:\n%s", form)
+	}
+	if !strings.Contains(form, `class="cform-lead" name="title"`) {
+		t.Errorf("the title is not the lead field:\n%s", form)
+	}
+	side := between(t, form, `<div class="cform-side">`, "</select>")
+	if !strings.Contains(side, `name="project_ref"`) {
+		t.Errorf("the project is not in the side column:\n%s", side)
+	}
+	group := between(t, form, `<fieldset class="cform-group copyopts">`, "</fieldset>")
+	for _, name := range []string{"keep_status", "with_comments", "with_subtasks", "with_dependencies", "link"} {
+		if !strings.Contains(group, `name="`+name+`"`) {
+			t.Errorf("%s is not in the options group:\n%s", name, group)
+		}
+	}
+	foot := between(t, form, `<div class="cform-foot">`, "</button>")+"</button>"
+	order(t, foot, "data-form-keys", `href="/tasks/`+ref+`" data-form-cancel`, `<button type="submit">Copy</button>`)
+}
+
+func TestARefusedCopyKeepsWhatWasChosen(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "rotate keys")
+	cases := []struct {
+		name   string
+		form   url.Values
+		status int
+		field  string
+	}{
+		{"unknown project", url.Values{"project_ref": {"nope"}, "title": {"kept title"}, "with_subtasks": {"1"}, "next": {"/tasks?q=tag%3Aops"}},
+			http.StatusNotFound, "project_ref"},
+		{"title too long", url.Values{"project_ref": {"infra"}, "title": {strings.Repeat("x", core.MaxTitleLength+1)}, "with_subtasks": {"1"}, "next": {"/tasks?q=tag%3Aops"}},
+			http.StatusBadRequest, "title"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := b.post("/tasks/"+ref+"/copy", tc.form)
+			page := body(t, resp)
+			wantStatus(t, resp, tc.status)
+			form := formAt(t, page, "/tasks/"+ref+"/copy")
+			if got := inputValue(t, form, "copy-title"); got != tc.form.Get("title") {
+				t.Errorf("title = %.40q, want what was typed", got)
+			}
+			if !strings.Contains(checkbox(t, form, "with_subtasks"), "checked") || strings.Contains(checkbox(t, form, "link"), "checked") {
+				t.Errorf("the checkboxes were not kept as submitted:\n%s", form)
+			}
+			if !strings.Contains(form, `name="next" value="/tasks?q=tag%3Aops"`) {
+				t.Errorf("the listing to return to was dropped:\n%s", form)
+			}
+			if !strings.Contains(form, `<p class="field-error" id="`+tc.field+`-error" role="alert">`) {
+				t.Errorf("the message is not under %s:\n%s", tc.field, form)
+			}
+		})
+	}
+
+	req, err := http.NewRequest(http.MethodPost, f.server.URL+"/tasks/"+ref+"/copy",
+		strings.NewReader(url.Values{"project_ref": {"nope"}, "title": {"x"}, "csrf_token": {b.csrf()}}.Encode()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set(web.DialogHeader, "1")
+	b.stamp(req)
+	resp, err := b.client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
 	page := body(t, resp)
-	if resp.StatusCode != http.StatusNotFound || !strings.Contains(page, "nope") {
-		t.Fatalf("status %d, want 404 naming the project", resp.StatusCode)
+	wantStatus(t, resp, http.StatusOK)
+	if !strings.HasPrefix(strings.TrimSpace(page), `<div class="taskdlg-frag" data-task-dialog="`+ref+`"`) ||
+		!strings.Contains(page, `id="project_ref-error"`) {
+		t.Errorf("a refusal in the dialog is not the form drawn again for the dialog:\n%.400s", page)
 	}
 }
 
@@ -212,7 +284,7 @@ func TestALaneMenuCopiesAndReturnsToTheListing(t *testing.T) {
 	if !strings.Contains(form, `name="next" value="/tasks?q=tag%3Aops"`) {
 		t.Errorf("the form does not carry the listing, minus its old toast:\n%s", form)
 	}
-	if !strings.Contains(form, `class="ghostlink" href="/tasks?q=tag%3Aops"`) {
+	if !strings.Contains(form, `class="secondary cform-cancel" href="/tasks?q=tag%3Aops" data-form-cancel`) {
 		t.Errorf("Cancel does not return to the listing:\n%s", form)
 	}
 

@@ -128,6 +128,7 @@ func init() {
 		"Also copy": "Копирай също",
 		"Keep the status %s when the project has it": "Запази статуса %s, ако проектът го има",
 		"Link the copy to this task":                 "Свържи копието с тази задача",
+		"to copy":                                    "за копиране",
 		"Reclaim":                                    "Отнемане",
 		"Offered only to holders of the task:reclaim scope. The holder's token stops working at once, so its next write is refused as lease expired, and anyone may claim the task again.": "Предлага се само на притежателите на обхвата task:reclaim. Токенът на държателя спира да работи веднага, следващият му запис се отказва като изтекла резервация и всеки може да поеме задачата отново.",
 	})

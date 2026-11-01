@@ -320,14 +320,14 @@ func TestCopyAuthority(t *testing.T) {
 func TestCopyOfAMissingProjectOrTask(t *testing.T) {
 	l, ctx, _, _, _ := newTaskFixture(t)
 	src := mustCreateTask(t, l, ctx, core.CreateTaskInput{ProjectRef: "infra", Title: "x"})
-	if _, err := l.CopyTask(ctx, core.TaskRef{ID: src.ID}, core.CopyTaskInput{ProjectRef: "nope"}); !core.IsKind(err, core.KindNotFound) {
+	if _, err := l.CopyTask(ctx, core.TaskRef{ID: src.ID}, core.CopyTaskInput{ProjectRef: "nope"}); !core.IsKind(err, core.KindNotFound) || core.FieldOf(err) != "project_ref" {
 		t.Errorf("unknown project: err = %v", err)
 	}
 	if _, err := l.CopyTask(ctx, core.TaskRef{ProjectKey: "infra", Seq: 99}, core.CopyTaskInput{}); !core.IsKind(err, core.KindNotFound) {
 		t.Errorf("unknown task: err = %v", err)
 	}
 	long := strings.Repeat("x", core.MaxTitleLength+1)
-	if _, err := l.CopyTask(ctx, core.TaskRef{ID: src.ID}, core.CopyTaskInput{Title: long}); !core.IsKind(err, core.KindInvalid) {
+	if _, err := l.CopyTask(ctx, core.TaskRef{ID: src.ID}, core.CopyTaskInput{Title: long}); !core.IsKind(err, core.KindInvalid) || core.FieldOf(err) != "title" {
 		t.Errorf("long title: err = %v", err)
 	}
 }

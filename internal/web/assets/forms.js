@@ -4,7 +4,7 @@
 //
 // Ctrl+Enter, or Cmd+Enter, submits through requestSubmit, so the browser's
 // own required checks and assets/busy.js still run. Escape inside a popover
-// is the popover's own and is left alone; in a disclosure it closes the
+// or the task dialog is theirs and is left alone; in a disclosure it closes the
 // disclosure, and in a form drawn in place after a refusal it follows the
 // form's Cancel link.
 //
@@ -102,7 +102,7 @@
       return;
     }
     if (event.key !== "Escape" || event.defaultPrevented) return;
-    if (form.closest("[popover]")) return;
+    if (form.closest("[popover]") || form.closest("dialog")) return;
     var fold = form.closest("details[open]");
     if (fold) {
       event.preventDefault();

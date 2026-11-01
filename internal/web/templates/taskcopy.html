@@ -1,36 +1,57 @@
 {{define "content"}}
-{{$t := .Data.Task}}
-{{/* The way back is the task this form copies. In the dialog that link is a
-     task's own screen, so assets/taskopen.js draws it in the dialog too. */}}
+{{$t := .Data.Task}}{{$f := .Data.Form}}{{$e := .Data.Errors}}
+{{/* In the dialog the way out is closing it, which assets/taskopen.js turns
+     into Back. On a page the form's own Cancel is the way back. */}}
 {{if .InDialog}}<p class="backlink"><button type="button" class="ghost dlgclose" data-dialog-close>&larr; {{t "Close"}}</button></p>{{end}}
-<div class="titlebar">
-  <span class="ref">{{$t.Ref}}</span>
-  <h1{{if .InDialog}} id="taskdlg-title"{{end}}>{{t "Copy to another project"}}</h1>
-  {{template "tip" (tip "Copying a task" "The copy is a new task with its own reference. Its title, description, priority, tags, assignee, due date and repeat rule travel with it, and so do the custom fields the target project defines. Stars, claims, history and artifacts stay behind. Comments, subtasks and dependencies come along only when ticked." "docs/web-ui.md")}}
-</div>
-<div class="card copyform">
-  <form method="post" action="/tasks/{{$t.Ref}}/copy">
-    {{template "csrf" .CSRF}}
-    {{if .Data.Next}}<input type="hidden" name="next" value="{{.Data.Next}}">{{end}}
-    <label for="{{.IDPrefix}}copy-project">{{t "Project"}}</label>
-    <select id="{{.IDPrefix}}copy-project" name="project_ref">
-      {{range .Data.Projects}}<option value="{{.Key}}"{{if eq .Key $.Data.Home}} selected{{end}}>{{.Name}} ({{.Key}})</option>{{end}}
-    </select>
-    <label for="{{.IDPrefix}}copy-title">{{t "Title"}}</label>
-    <input id="{{.IDPrefix}}copy-title" name="title" value="{{$t.Title}}" required>
-    <fieldset class="copyopts">
-      <legend>{{t "Also copy"}}</legend>
-      <label for="{{.IDPrefix}}copy-status"><input id="{{.IDPrefix}}copy-status" type="checkbox" name="keep_status" value="1"> {{t "Keep the status %s when the project has it" $t.Status}}</label>
-      <label for="{{.IDPrefix}}copy-comments"><input id="{{.IDPrefix}}copy-comments" type="checkbox" name="with_comments" value="1"> {{t "Comments"}}</label>
-      <label for="{{.IDPrefix}}copy-subtasks"><input id="{{.IDPrefix}}copy-subtasks" type="checkbox" name="with_subtasks" value="1"> {{t "Subtasks"}}</label>
-      <label for="{{.IDPrefix}}copy-deps"><input id="{{.IDPrefix}}copy-deps" type="checkbox" name="with_dependencies" value="1"> {{t "Dependencies"}}</label>
-      <label for="{{.IDPrefix}}copy-link"><input id="{{.IDPrefix}}copy-link" type="checkbox" name="link" value="1" checked> {{t "Link the copy to this task"}}</label>
-    </fieldset>
-    <div class="actions">
-      <button type="submit">{{t "Copy"}}</button>
-      <a class="ghostlink" href="{{if .Data.Next}}{{.Data.Next}}{{else}}/tasks/{{$t.Ref}}{{end}}">{{t "Cancel"}}</a>
+{{$back := printf "/tasks/%s" $t.Ref}}{{if .Data.Next}}{{$back = .Data.Next}}{{end}}
+{{/* Drawn as the create forms are (create-forms-read-as-forms): the title
+     leads as the one large control, the target project sits in the side
+     column, what else travels is one group of checkboxes, and Cancel and Copy
+     end the form at the bottom right. A refused copy comes back with every
+     choice kept and the message under the field it is about. */}}
+<div class="copysheet">
+<form method="post" class="cform copyform" data-form action="/tasks/{{$t.Ref}}/copy">
+  {{template "csrf" .CSRF}}
+  {{if .Data.Next}}<input type="hidden" name="next" value="{{.Data.Next}}">{{end}}
+  <div class="cform-head">
+    <h1 class="cform-title"{{if .InDialog}} id="taskdlg-title"{{end}}>{{t "Copy to another project"}} <span class="ref mono">{{$t.Ref}}</span></h1>
+    {{template "tip" (tip "Copying a task" "The copy is a new task with its own reference. Its title, description, priority, tags, assignee, due date and repeat rule travel with it, and so do the custom fields the target project defines. Stars, claims, history and artifacts stay behind. Comments, subtasks and dependencies come along only when ticked." "docs/web-ui.md")}}
+  </div>
+  {{with $e.On ""}}{{template "field-error" .}}{{end}}
+  <div class="cform-grid">
+    <div class="cform-main">
+      <div class="cfield">
+        <div class="cfield-label"><label for="{{.IDPrefix}}copy-title">{{t "Title"}}</label>{{template "required-mark"}}</div>
+        <input id="{{.IDPrefix}}copy-title" class="cform-lead" name="title" value="{{$f.Title}}" maxlength="500" autocomplete="off" required autofocus{{$e.Attrs "title"}}>
+        {{with $e.On "title"}}{{template "field-error" .}}{{end}}
+      </div>
+      <fieldset class="cform-group copyopts">
+        <legend>{{t "Also copy"}}</legend>
+        <label for="{{.IDPrefix}}copy-status"><input id="{{.IDPrefix}}copy-status" type="checkbox" name="keep_status" value="1"{{if $f.KeepStatus}} checked{{end}}> {{t "Keep the status %s when the project has it" $t.Status}}</label>
+        <label for="{{.IDPrefix}}copy-comments"><input id="{{.IDPrefix}}copy-comments" type="checkbox" name="with_comments" value="1"{{if $f.Comments}} checked{{end}}> {{t "Comments"}}</label>
+        <label for="{{.IDPrefix}}copy-subtasks"><input id="{{.IDPrefix}}copy-subtasks" type="checkbox" name="with_subtasks" value="1"{{if $f.Subtasks}} checked{{end}}> {{t "Subtasks"}}</label>
+        <label for="{{.IDPrefix}}copy-deps"><input id="{{.IDPrefix}}copy-deps" type="checkbox" name="with_dependencies" value="1"{{if $f.Dependencies}} checked{{end}}> {{t "Dependencies"}}</label>
+        <label for="{{.IDPrefix}}copy-link"><input id="{{.IDPrefix}}copy-link" type="checkbox" name="link" value="1"{{if $f.Link}} checked{{end}}> {{t "Link the copy to this task"}}</label>
+      </fieldset>
     </div>
-  </form>
+    <div class="cform-side">
+      <div class="cfield">
+        <div class="cfield-label"><label for="{{.IDPrefix}}copy-project">{{t "Project"}}</label></div>
+        <select id="{{.IDPrefix}}copy-project" name="project_ref"{{$e.Attrs "project_ref"}}>
+          {{range .Data.Projects}}<option value="{{.Key}}"{{if eq .Key $f.Project}} selected{{end}}>{{.Name}} ({{.Key}})</option>{{end}}
+        </select>
+        {{with $e.On "project_ref"}}{{template "field-error" .}}{{end}}
+      </div>
+    </div>
+  </div>
+  <div class="cform-foot">
+    {{template "form-keys" (t "to copy")}}
+    <div class="cform-actions">
+      <a class="secondary cform-cancel" href="{{$back}}" data-form-cancel>{{t "Cancel"}}</a>
+      <button type="submit">{{t "Copy"}}</button>
+    </div>
+  </div>
+</form>
 </div>
 {{end}}
 
