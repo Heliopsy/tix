@@ -15,6 +15,7 @@ func TestRoutesAreVersioned(t *testing.T) {
 		RouteWhoAmI, RouteLogin, RouteUsers, RouteTokens, RouteTenants, RouteDomains,
 		RouteProjects, RouteWorkflows, RouteTasks, RouteTaskClaim, RouteClaimNext,
 		RouteWebhooks, RouteAudit, RouteStats, RouteExport, RouteImport, RouteEvents, RouteSyncRun,
+		RouteCalendar, RouteCalendarRotate, RouteCalendarFeed,
 	}
 	for _, r := range routes {
 		if unversioned[r] {

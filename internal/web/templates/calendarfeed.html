@@ -1,0 +1,25 @@
+{{/*
+  A calendar feed's address, shown in exactly one response: only its hash is
+  stored, so nothing can produce it again. The address is plain text in the
+  page, so a reader with scripting off selects it by hand and the Copy button
+  is an extra rather than the only way out.
+*/}}
+{{define "content"}}
+{{$v := .Data}}
+<div class="headtip"><h1>{{t "Calendar feed"}}</h1>{{template "tip" (tip "Calendar feed" "A private address Google Calendar, Apple Calendar or Outlook subscribes to, so your due dates appear beside the rest of your week. Each task with a due date is an all-day event that links back here. Anybody holding the address can read what it lists, so treat it like a password: rotate it to issue a new one, revoke it to stop it." "docs/calendar.md")}}</div>
+<p class="lede">{{if $v.Rotated}}{{t "This address replaces the old one, which has stopped. Subscribe to it again wherever the old one was used. It is not shown again."}}{{else}}{{t "Subscribe to this address in your calendar app. It is not shown again, so copy it now."}}{{end}}</p>
+<section class="secret" aria-labelledby="calendar-url-heading">
+  <h2 id="calendar-url-heading">{{t "Feed address"}}</h2>
+  <div class="copyline">
+    <pre id="calendar-url"><code>{{$v.URL}}</code></pre>
+    <button type="button" class="secondary" data-copy-target="calendar-url">{{t "Copy"}}</button>
+  </div>
+  <p class="muted">{{t "Lists:"}} {{if $v.Filter}}<code>{{$v.Filter}}</code>{{else}}{{t "the tasks assigned to you that are not finished"}}{{end}}</p>
+</section>
+<ul class="calendar-howto">
+  <li>{{th "<strong>Google Calendar</strong>: Other calendars, then From URL, and paste the address."}}</li>
+  <li>{{th "<strong>Apple Calendar</strong>: File, then New Calendar Subscription, or open the subscribe link below."}}</li>
+  <li>{{th "<strong>Outlook</strong>: Add calendar, then Subscribe from web, and paste the address."}}</li>
+</ul>
+<p><a href="{{$v.Webcal}}" rel="noreferrer">{{t "Subscribe in this device's calendar"}}</a> · <a href="/settings#calendar">{{t "I have kept it, back to settings"}}</a></p>
+{{end}}

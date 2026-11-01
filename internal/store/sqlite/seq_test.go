@@ -169,6 +169,7 @@ func TestMigrationResumesAboveExistingTasks(t *testing.T) {
 		"DROP TABLE project_key_aliases",
 		"ALTER TABLE tasks DROP COLUMN copied_from_id",
 		"DROP TABLE saved_filters",
+		"DROP TABLE calendar_feeds",
 		"DELETE FROM schema_migrations WHERE version > 1",
 	} {
 		if _, err := s.writer.ExecContext(ctx, stmt); err != nil {

@@ -114,10 +114,25 @@ const (
 	RouteViewGroup  = APIPrefix + "/views/{view}/groups/{group}"
 	RouteViewOrder  = APIPrefix + "/views/{view}/order"
 
-	RouteFilters     = APIPrefix + "/filters"
-	RouteFilter      = APIPrefix + "/filters/{filter}"
-	RouteFilterOrder = APIPrefix + "/filters/order"
+	RouteFilters        = APIPrefix + "/filters"
+	RouteFilter         = APIPrefix + "/filters/{filter}"
+	RouteFilterOrder    = APIPrefix + "/filters/order"
+	RouteCalendar       = APIPrefix + "/calendar"
+	RouteCalendarRotate = APIPrefix + "/calendar/rotate"
+	// RouteCalendarFeed is read by calendar apps with no credential. Its one
+	// segment is the feed secret followed by CalendarFeedSuffix, because some
+	// clients refuse an address that does not look like a file.
+	RouteCalendarFeed = CalendarFeedPrefix + "{file}"
 )
+
+// CalendarFeedPrefix starts every feed address, and CalendarFeedSuffix ends it.
+const (
+	CalendarFeedPrefix = APIPrefix + "/calendar/feeds/"
+	CalendarFeedSuffix = ".ics"
+)
+
+// CalendarFeedPath is the path a feed secret is read at.
+func CalendarFeedPath(token string) string { return CalendarFeedPrefix + token + CalendarFeedSuffix }
 
 // Content types.
 const (

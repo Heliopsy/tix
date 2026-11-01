@@ -62,6 +62,7 @@ type Tx interface {
 	StatsTx
 	ViewTx
 	SavedFilterTx
+	CalendarTx
 
 	Commit() error
 	Rollback() error
@@ -231,6 +232,20 @@ type SavedFilterTx interface {
 // MaxListedFilters bounds one SavedFilters read: a reader's own, at most
 // core.MaxSavedFilters, and the tenant's shared ones.
 const MaxListedFilters = 2000
+
+// CalendarTx covers each actor's calendar feed.
+type CalendarTx interface {
+	// CreateCalendarFeed stores a feed and the hash of its secret.
+	CreateCalendarFeed(ctx context.Context, f *core.CalendarFeed, tokenHash string) error
+	// LiveCalendarFeed returns an actor's unrevoked feed.
+	LiveCalendarFeed(ctx context.Context, actorID string) (*core.CalendarFeed, error)
+	// CalendarFeedByHash returns the unrevoked feed behind a secret's hash.
+	CalendarFeedByHash(ctx context.Context, tokenHash string) (*core.CalendarFeed, error)
+	// SetCalendarFeedFilter replaces a live feed's filter.
+	SetCalendarFeedFilter(ctx context.Context, id, filter string) error
+	// RevokeCalendarFeed marks a live feed unusable from the given instant.
+	RevokeCalendarFeed(ctx context.Context, id string, at time.Time) error
+}
 
 // ClaimTx covers the work queue.
 type ClaimTx interface {
