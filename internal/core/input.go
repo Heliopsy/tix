@@ -172,6 +172,8 @@ type ProjectDeletion struct {
 	DeleteTasks bool `json:"delete_tasks,omitempty" yaml:"delete_tasks,omitempty"`
 	// Statuses is the mapping a move applies, one entry per source status.
 	Statuses []StatusMove `json:"statuses,omitempty" yaml:"statuses,omitempty"`
+	// DryRun marks a plan: what the deletion would do, nothing written.
+	DryRun bool `json:"dry_run,omitempty" yaml:"dry_run,omitempty"`
 }
 
 // Total is every task the deletion reaches, soft deleted ones included.

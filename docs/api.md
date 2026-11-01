@@ -126,7 +126,7 @@ same parameters and returns the same shape without writing, which is how to see 
 $ curl -s -H "Authorization: Bearer $TIX_TOKEN" \
     'http://127.0.0.1:8080/api/v1/projects/old/deletion?move_tasks_to=ops'
 {"project":"old","tasks":3,"deleted":0,"move_to":"ops",
- "statuses":[{"from":"todo","to":"todo","tasks":2},{"from":"review","to":"doing","tasks":1}]}
+ "statuses":[{"from":"todo","to":"todo","tasks":2},{"from":"review","to":"doing","tasks":1}],"dry_run":true}
 ```
 
 Every moved task records a `task.move` audit entry and a `task.updated` event naming its old and new

@@ -367,7 +367,7 @@ func projectRmCmd(g *globals) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return g.render(cmd, newPlan("project.delete", args[0], deletionDetail(plan)))
+				return g.render(cmd, plan)
 			}
 			done, err := conn.Service.DeleteProject(ctx, args[0], in)
 			if err != nil {
@@ -382,19 +382,6 @@ func projectRmCmd(g *globals) *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be deleted or moved without writing")
 	_ = cmd.RegisterFlagCompletionFunc("move-tasks-to", g.completeProjectKeys)
 	return cmd
-}
-
-// deletionDetail is a deletion plan as a dry run reports it.
-func deletionDetail(plan *core.ProjectDeletion) map[string]any {
-	detail := map[string]any{"tasks": plan.Tasks, "deleted_tasks": plan.Deleted}
-	if plan.MoveTo != "" {
-		detail["move_to"] = plan.MoveTo
-		detail["statuses"] = plan.Statuses
-	}
-	if plan.DeleteTasks {
-		detail["delete_tasks"] = true
-	}
-	return detail
 }
 
 // withDeletionFlags names the flags that answer a refusal for want of a choice

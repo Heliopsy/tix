@@ -117,8 +117,13 @@ func TestProjectRmAsksWhatHappensToTheTasks(t *testing.T) {
 	}
 
 	plan := c.mustRun("project", "rm", "old", "--move-tasks-to", "ops", "--dry-run", "-o", "json").out
-	if !strings.Contains(plan, `"move_to": "ops"`) || !strings.Contains(plan, `"from": "todo"`) {
+	if !strings.Contains(plan, `"move_to": "ops"`) || !strings.Contains(plan, `"from": "todo"`) ||
+		!strings.Contains(plan, `"dry_run": true`) {
 		t.Errorf("the dry run does not state the mapping: %s", plan)
+	}
+	table := c.mustRun("project", "rm", "old", "--move-tasks-to", "ops", "--dry-run").out
+	if strings.Contains(table, "map[") || !strings.Contains(table, "todo -> todo") {
+		t.Errorf("the dry run's table does not read as a mapping:\n%s", table)
 	}
 	c.mustRun("project", "show", "old")
 

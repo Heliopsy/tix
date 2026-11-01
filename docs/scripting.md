@@ -248,7 +248,8 @@ why. Check both: a non-zero exit does not mean nothing happened.
 
 `tix project rm KEY` refuses with exit 6 while the project holds tasks, unless `--move-tasks-to OTHER` moves
 them (renumbered there, status mapped onto its workflow) or `--delete-tasks` deletes them permanently with it.
-`--dry-run` prints the count and the status mapping without writing.
+`--dry-run` prints the count and the status mapping without writing, one `from -> to` row per status in a table
+and a `statuses` array with `"dry_run": true` in JSON.
 
 `--cascade` on `tix task rm` also deletes the task's subtasks. `--hard` deletes permanently instead of soft
 deleting; a soft delete is reversible with `tix task restore` and visible with `tix task ls --include-deleted`.

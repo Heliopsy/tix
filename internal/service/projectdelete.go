@@ -43,6 +43,7 @@ func (l *Local) PlanProjectDeletion(ctx context.Context, ref string, in core.Del
 			return err
 		}
 		out = s.summary(in)
+		out.DryRun = true
 		return nil
 	})
 	if err != nil {
