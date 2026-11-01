@@ -411,7 +411,7 @@ func (f *fixture) settingsPage(t *testing.T, handler http.Handler) string {
 		t.Fatalf("building request: %v", err)
 	}
 	req.Header.Set(actorHeader, "alice")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := server.Client().Do(req)
 	if err != nil {
 		t.Fatalf("getting /settings: %v", err)
 	}
