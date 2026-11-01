@@ -206,7 +206,7 @@ func TestTheCopyFormIsLaidOutAsTheCreateForms(t *testing.T) {
 			t.Errorf("%s is not in the options group:\n%s", name, group)
 		}
 	}
-	foot := between(t, form, `<div class="cform-foot">`, "</button>")+"</button>"
+	foot := between(t, form, `<div class="cform-foot">`, "</button>") + "</button>"
 	order(t, foot, "data-form-keys", `href="/tasks/`+ref+`" data-form-cancel`, `<button type="submit">Copy</button>`)
 }
 
