@@ -40,6 +40,7 @@ func init() {
 		"test not delivered yet":       "пробата още не е доставена",
 		"deliveries":                   "доставки",
 		"The address to post to":       "Адресът, към който да се изпраща",
+		"Send to this channel":         "Изпращай към този канал",
 		"Inbox":                        "Входящи",
 		"Inbox items":                  "Входящи известия",
 		"%s assigned you":              "%s ви възложи",

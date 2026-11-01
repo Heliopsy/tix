@@ -827,12 +827,12 @@
         </select>
         {{with $e.On "format"}}{{template "field-error" .}}{{end}}
       </div>
+      <label class="check"><input type="checkbox" name="active" value="on"{{if $f.Active}} checked{{end}}> {{t "Send to this channel"}}</label>
     </div>
     <fieldset class="cform-side cform-group">
       <legend>{{t "Sends"}}</legend>
       {{range .Kinds}}<label class="check"><input type="checkbox" name="kinds" value="{{.Kind}}"{{if $f.Has .Kind}} checked{{end}}> {{t .Label}}</label>{{end}}
       {{with $e.On "kinds"}}{{template "field-error" .}}{{end}}
-      <label class="check"><input type="checkbox" name="active" value="on"{{if $f.Active}} checked{{end}}> {{t "On"}}</label>
     </fieldset>
   </div>
   <div class="cform-foot">
