@@ -412,6 +412,8 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 		return m.onTenant(msg)
 	case statsMsg:
 		return m.applyStats(msg), nil
+	case templatesMsg:
+		return m.onTemplates(msg)
 	case tagsMsg:
 		return m.onTags(msg)
 	case savedFiltersMsg:
@@ -1202,6 +1204,12 @@ func (m Model) performTaskAction(id actionID) (Model, tea.Cmd, bool) {
 	case doCopy:
 		next, cmd := m.openCopyForm()
 		return next, cmd, true
+	case doTemplates:
+		next, cmd := m.openTemplatesForm()
+		return next, cmd, true
+	case doSaveTemplate:
+		next, cmd := m.openSaveTemplateForm()
+		return next, cmd, true
 	case doArtifact:
 		next, cmd := m.openPrompt(promptArtifact)
 		return next, cmd, true
@@ -1828,6 +1836,69 @@ func (m Model) openCopyForm() (Model, tea.Cmd) {
 	return m.openForm(form)
 }
 
+// openTemplatesForm reads the templates the board's project can use, fetched on
+// the keystroke because another reader may have saved one since the board
+// opened.
+func (m Model) openTemplatesForm() (Model, tea.Cmd) {
+	if m.project.ID == "" {
+		m.err = "no project is open"
+		return m, nil
+	}
+	return m, m.loadTemplates()
+}
+
+// onTemplates opens the template form on a listing, or says there is no
+// template yet rather than offering a picker with nothing to pick.
+func (m Model) onTemplates(msg templatesMsg) (Model, tea.Cmd) {
+	if msg.err != nil {
+		m.err = "listing templates: " + msg.err.Error()
+		return m, nil
+	}
+	form := TemplatesForm(msg.templates, m.mayPerform)
+	if !form.Open() {
+		m.err = "no template exists yet; " + m.keys.SaveTemplate.Help().Key + " saves the selected task as one"
+		return m, nil
+	}
+	return m.openForm(form)
+}
+
+// applyTemplatesForm performs what the template form asked for. A deletion is
+// asked about first, and a due offset that does not read is refused before any
+// call.
+func (m Model) applyTemplatesForm(form Form) (Model, tea.Cmd) {
+	name := form.Value("template")
+	switch form.Value("action") {
+	case templateShow:
+		return m, m.showTemplate(name)
+	case templateRename:
+		to := strings.TrimSpace(form.Value("name"))
+		if to == "" {
+			m.err = "a new name is required"
+			return m, nil
+		}
+		return m, m.renameTemplate(name, to)
+	case templateDelete:
+		return m.askConfirm(Confirm{Kind: confirmDeleteTemplate, Target: name, label: name, template: name},
+			"there is no template named to delete")
+	}
+	in, err := UseInput(m.project.Key, form)
+	if err != nil {
+		m.err = "due in: " + err.Error()
+		return m, nil
+	}
+	return m, m.useTemplate(name, in)
+}
+
+// openSaveTemplateForm asks what to call a template of the selected task.
+func (m Model) openSaveTemplateForm() (Model, tea.Cmd) {
+	task, ok := m.selectedTask()
+	if !ok {
+		m.err = "no task is selected"
+		return m, nil
+	}
+	return m.openForm(SaveTemplateForm(task))
+}
+
 // openAssigneeForm reads the tenant's directory so the reader can pick a
 // colleague rather than remember an identifier. The listing is fetched on the
 // keystroke rather than held for the session, because who a tenant has changes
@@ -2071,6 +2142,17 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 		}
 		return next, next.applyTaskEdit(task, form)
 	}
+	if form.Kind == formTemplates {
+		return m.closeForm().applyTemplatesForm(form)
+	}
+	if form.Kind == formSaveTemplate {
+		next := m.closeForm()
+		task, ok := next.selectedTask()
+		if !ok {
+			return next, nil
+		}
+		return next, next.saveTemplate(task, SaveInput(task, form))
+	}
 	if form.Kind == formCopy {
 		next := m.closeForm()
 		task, ok := next.selectedTask()
@@ -2174,6 +2256,8 @@ func (m Model) runConfirm(c Confirm) tea.Cmd {
 		return m.removeDomain(c.hostname)
 	case confirmRemoveMember:
 		return m.removeMember(c.actorID, c.Target)
+	case confirmDeleteTemplate:
+		return m.deleteTemplate(c.template)
 	default:
 		return nil
 	}

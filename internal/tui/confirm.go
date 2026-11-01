@@ -17,6 +17,7 @@ const (
 	confirmDeleteField
 	confirmRemoveDomain
 	confirmRemoveMember
+	confirmDeleteTemplate
 )
 
 // confirmVerbs are what each confirmation says it will do, in the words the
@@ -29,6 +30,7 @@ var confirmVerbs = map[confirmKind]string{
 	confirmDeleteField:    "delete custom field",
 	confirmRemoveDomain:   "remove domain",
 	confirmRemoveMember:   "remove member",
+	confirmDeleteTemplate: "delete template",
 }
 
 // Confirm is one destructive action held back until the reader agrees to it.
@@ -62,6 +64,8 @@ type Confirm struct {
 	// on a domain and on a membership rather than on anything a task has.
 	hostname string
 	actorID  string
+	// template names the task template a deletion removes.
+	template string
 }
 
 // Open reports whether a confirmation is waiting for an answer.

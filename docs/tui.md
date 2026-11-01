@@ -197,6 +197,8 @@ impossible for a scheme to leave an action unbound.
 | `[` | tick a checklist item of the description by its number, or clear a ticked one | board, detail |
 | `b` | snooze the task until a time you type, or unsnooze a snoozed one | board, detail |
 | `Y` | copy the task to any project, this one included, with a form for the title and what travels | board, detail |
+| `B` | pick a task template: create a task from it, show it, rename it or delete it | board, detail |
+| `K` | save the task as a template, for this project or the whole tenant | board, detail |
 | `X` | delete the task or the selected comment; removes the selected domain or member | board, detail, project, tenant |
 | `Z` | hide the selected column, for you, on this project's board everywhere | board |
 | `+` | star the selected column, or unstar it; starred columns lead | board |
@@ -395,6 +397,20 @@ dependencies. Link to the original starts on, and records on the copy which task
 Description, priority, tags, the custom fields the target defines, the repeat rule, the due date and the
 assignee always travel. Stars, claims, history and artifacts never do. The status bar names the new task,
 since it may have landed in a project the board is not showing.
+
+### Task templates
+
+`K` keeps the selected task as a template. The form asks for a name (the task's title to start with),
+whether the template is for this project or the whole tenant, and whether the subtasks go with it. The
+title, description, priority, tags, custom fields and repeat rule are kept; status, assignee and due date
+are not, because they describe one piece of work rather than its shape.
+
+`B` lists the templates the open project can use: its own and the tenant-wide ones. Pick one and an
+action. Create a task makes a task, with the template's subtasks, in the board's project; leave the title
+empty to keep the template's, and give due in as `3d` or `12h` to set a due date that far from now. A
+title may carry `{N}` (the use number), `{DATE}` (today) and `{PROJECT}` (the project key), in any case,
+and the service fills them in. Show states the template on the status bar, rename gives it a new name,
+and delete asks first. The status bar names the new task.
 
 ### Cycling a priority
 
@@ -718,7 +734,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 138
+a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 144
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:

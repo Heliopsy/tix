@@ -50,6 +50,8 @@ type KeyMap struct {
 	SavedFilters  key.Binding
 	SaveFilter    key.Binding
 	Copy          key.Binding
+	Templates     key.Binding
+	SaveTemplate  key.Binding
 	Artifact      key.Binding
 	ClaimNext     key.Binding
 	Renew         key.Binding
@@ -147,6 +149,10 @@ func DefaultKeyMap() KeyMap {
 		// Y, vim's yank, which is the copy a reader of these schemes already
 		// knows. Lowercase y is Agree, the answer to a confirmation.
 		Copy: key.NewBinding(key.WithKeys("Y"), key.WithHelp("Y", "copy task")),
+		// B, for a blueprint, since t, T and the obvious capitals are spoken
+		// for. K keeps the selected task as one; lowercase k moves up.
+		Templates:    key.NewBinding(key.WithKeys("B"), key.WithHelp("B", "templates")),
+		SaveTemplate: key.NewBinding(key.WithKeys("K"), key.WithHelp("K", "save as template")),
 		// O, for the output a worker records. Lowercase o opens a new task under
 		// vim and helix, so the capital is what the other taken letters use.
 		Artifact:  key.NewBinding(key.WithKeys("O"), key.WithHelp("O", "record artifact")),
@@ -264,6 +270,8 @@ const (
 	doCheck
 	doSnooze
 	doCopy
+	doTemplates
+	doSaveTemplate
 	doArtifact
 	doRenew
 	doReclaim
@@ -531,6 +539,11 @@ func (k KeyMap) taskBindings() []Action {
 			gate: gatedAction{methods: []string{"CheckTaskItem"}}},
 		{id: doCopy, binding: k.Copy, needsTask: true,
 			gate: gatedAction{methods: []string{"CopyTask"}}},
+		{id: doTemplates, binding: k.Templates, needsProject: true,
+			gate: gatedAction{methods: []string{"UseTemplate", "GetTemplate", "UpdateTemplate", "DeleteTemplate"},
+				needs: []string{"ListTemplates"}}},
+		{id: doSaveTemplate, binding: k.SaveTemplate, needsTask: true,
+			gate: gatedAction{methods: []string{"SaveTemplate"}}},
 		{id: doArtifact, binding: k.Artifact, needsTask: true,
 			gate: gatedAction{methods: []string{"PutArtifact"}}},
 		{id: doRenew, binding: k.Renew, needsTask: true,

@@ -54,6 +54,7 @@ type fakeService struct {
 	inbox        []core.InboxItem
 	inboxErr     error
 	inboxReads   int
+	tpl          fakeTemplates
 
 	// what the destructive and corrective calls recorded, and what the reads
 	// the forms offer from are scripted to answer with.
