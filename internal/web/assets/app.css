@@ -1774,7 +1774,6 @@ a.secondary.clear:hover { filter: brightness(1.08); }
   color: var(--danger);
   font-size: var(--text-2xs);
   font-weight: 600;
-  white-space: nowrap;
 }
 
 .task.is-deleted .task-title { text-decoration: line-through; text-decoration-thickness: 1px; }
