@@ -22,4 +22,4 @@
 
 - [x] 4.1 features, commands, api, web-ui, tui, agent skill, i18n English and Bulgarian
 - [x] 4.2 Surface tests with guards watched failing
-- [ ] 4.3 `just check` passes
+- [x] 4.3 `just check` passes
