@@ -2,8 +2,8 @@
 
 ### Requirement: Snooze from the browser
 
-A reader with task write SHALL find Snooze on the task screen, in the lane card's more actions
-menu and in the list row's menu, offering Later today, Tomorrow morning, Next week and a picked date
+A reader with task write SHALL find Snooze on the task screen and in the lane card's more actions
+menu, offering Later today, Tomorrow morning, Next week and a picked date
 and time, resolved in the reader's time zone. A snoozed task SHALL offer Unsnooze in the same
 places. Each choice SHALL be a plain form post that works without scripting, swaps in place under
 htmx, and returns to the listing it came from. A reader without task write SHALL NOT be offered

@@ -6470,3 +6470,56 @@ a.heldswitch[aria-checked="true"]::before { content: "\2611"; }
   .md tr { display: table-row; margin: 0; padding: 0; border: 0; border-radius: 0; }
   .md th, .md td { display: table-cell; width: auto; padding: 4px 8px; border: 1px solid var(--line); }
 }
+/* Snooze (templates/task.html, tasks.html, partials.html "snooze-choices").
+   The badge is outlined like a lease, muted rather than accented: a snoozed
+   task is waiting on the calendar, not on anybody. It is drawn only where a
+   snoozed task is drawn at all, under is:snoozed or snoozed:any, and on its
+   own screen. */
+.snoozemark {
+  display: inline-block;
+  padding: 0 6px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+}
+a.snoozemark:hover { color: var(--ink); border-color: var(--ink); }
+.taskpills .snoozemark { font-size: var(--text-xs); padding: 1px 8px; }
+.titlebar .snoozeform { display: inline-flex; margin: 0; align-self: center; }
+.titlebar .snoozebtn { align-self: center; }
+button.ghostlink {
+  min-height: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+.snoozepop { min-width: 15rem; }
+.snoozepop .flowgo { justify-content: flex-start; }
+.snooze-pick { display: block; margin: var(--space-2) 0 2px; padding-top: var(--space-2); border-top: 1px solid var(--line); }
+.snooze-row { display: flex; gap: var(--space-1); padding: 0 var(--space-1) var(--space-1); }
+.snooze-row input { flex: 1 1 auto; min-width: 0; }
+@media (pointer: coarse) {
+  .titlebar .snoozebtn { min-height: 44px; display: inline-flex; align-items: center; padding-inline: var(--space-3); }
+  .snoozepop .flowgo,
+  .snoozepop .flowclose,
+  .snooze-row input,
+  .snooze-row button { min-height: 40px; }
+}
+@media (max-width: 639px) {
+  .snoozepop:popover-open {
+    position: fixed;
+    inset: auto 0 0 0;
+    position-area: none;
+    width: auto;
+    max-width: none;
+    max-height: 75vh;
+    margin: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  }
+}

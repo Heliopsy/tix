@@ -26,7 +26,7 @@ it. Snoozing hides it until a moment the reader picks and brings it back by itse
   wakes or is unsnoozed.
 - CLI `tix task snooze REF UNTIL`, `tix task unsnooze REF` and `tix task wake`; HTTP
   `PUT`/`DELETE /api/v1/tasks/{ref}/snooze` and `POST /api/v1/snoozes/wake`; the TUI's `b` key;
-  the web task screen, the lane card's more actions menu and the list row, with presets (later
+  the web task screen and the lane card's more actions menu, with presets (later
   today, tomorrow morning, next week, a picked date and time) and Unsnooze. A snoozed task drawn
   anywhere carries a badge with its wake time.
 

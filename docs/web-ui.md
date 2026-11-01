@@ -285,9 +285,9 @@ swapping the error page in, which used to make the card disappear.
 They open a menu with the whole task in it: open the task (in the dialog when Task opens in is set
 to Dialog), copy its link or its reference, complete or reopen it along the tick's routes (or the
 tick's reason when it offers none), move it to any state the status menu offers, follow a link to the
-task for a move that needs a comment, change the priority, star or unstar it, rename the title in
-place, set the assignee (the field suggests the tenant's handles), add and remove tags, and delete it.
-A reader sees only what their scopes allow: moves need `task:transition`; priority, rename,
+task for a move that needs a comment, change the priority, star or unstar it, snooze or unsnooze it,
+rename the title in place, set the assignee (the field suggests the tenant's handles), add and remove tags, and delete it.
+A reader sees only what their scopes allow: moves need `task:transition`; priority, snooze, rename,
 assignee and tags need `task:write`; delete needs `task:delete`. A reader who may only read gets
 open, copy and their star.
 
@@ -413,6 +413,32 @@ CSRF token, so it works with no script. It is a real button, `aria-pressed` says
 starred, and its name says what pressing it does: "Star infra-2" or "Unstar infra-2". The icon is an
 outline until pressed and filled after, so the state is a shape and not a colour alone. Starring
 needs only what reading the task needs.
+
+## Snoozing a task
+
+Snooze hides a task from every listing, for everybody, until a time you pick, and then it comes back
+by itself. Nothing has to run for that: every listing compares the wake time with the clock. Agents
+cannot claim a snoozed task until it wakes.
+
+Snooze is in two places. On the task screen it is in the title bar, beside Copy to; on a lane card it
+is a section of the three dots menu. Both offer **Later today** (three hours on, rounded up to the
+hour), **Tomorrow morning** (09:00), **Next week** (09:00 next Monday) and **Pick a date**, a date
+and time field with its own Snooze button. Every choice is read in the time zone chosen under
+Settings, or the server's when none is, so tomorrow morning is your morning. A time that has passed
+is refused and nothing changes: on the task screen the refusal is a toast, in the lane it is said
+inside the card. List rows have no snooze control of their own; open the task or use the lanes.
+
+Each choice is a plain form posting to `/tasks/REF/snooze` with `until` set to `later`, `tomorrow` or
+`next-week`, or with the picked time in `at`, so it works with no script. With htmx a lane card's
+snooze swaps the card, and because a snoozed task is not in the listing the card leaves the lane and
+the toast names the task and when it wakes.
+
+A snoozed task is drawn only where it was asked for, under `is:snoozed` or `snoozed:any` in the
+filter, and there it carries a dashed badge saying until when: "until 3 Nov 09:00" on a row or a card,
+"Snoozed until ..." on its own screen, where hovering names who snoozed it. Its task screen offers
+**Unsnooze** in place of Snooze, as does its lane card's menu; it posts to `/tasks/REF/snooze/remove`
+and the task is back at once. Snoozing and unsnoozing need `task:write`, and a reader without it is
+offered neither. See [filtering.md](filtering.md#snoozed-tasks).
 
 ## Moving a task through its workflow
 

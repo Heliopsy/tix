@@ -185,6 +185,27 @@
   </button>
 </form>{{end}}
 
+{{/* snooze-choices is a snooze menu's one form: a button per preset, each
+     posting until=<preset>, and a date and time picked by hand posted as at.
+     The server resolves both in the reader's zone. Card, on a lane card,
+     swaps the answer into the card the way the card's other forms do; the
+     snoozed card is not in the answer, so it leaves the lane, and the toast
+     comes along out of band. */}}
+{{define "snooze-choices"}}<form method="post" action="/tasks/{{.Ref}}/snooze"
+  {{- if .Card}} hx-post="/tasks/{{.Ref}}/snooze" hx-target="{{.Card}}" hx-select="{{.Card}}" hx-select-oob="#toast" hx-swap="outerHTML"
+  hx-indicator="{{.Card}}" hx-sync="closest .lane-card:drop" data-lane-control="more"{{end}}>
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="next" value="{{.Next}}">
+  {{range .Presets}}
+  <button type="submit" name="until" value="{{.Value}}" class="flowgo"><span class="flowto">{{t .Label}}</span></button>
+  {{end}}
+  <label class="flowhead snooze-pick" for="{{.ID}}">{{t "Pick a date"}}</label>
+  <span class="snooze-row">
+    <input type="datetime-local" id="{{.ID}}" name="at">
+    <button type="submit" class="secondary">{{t "Snooze"}}</button>
+  </span>
+</form>{{end}}
+
 {{/* field-info is the small "i" affordance a field's label carries when its
      meaning is not obvious from the label text alone: a workflow migration,
      a Go duration string, a comma-separated id list. A native disclosure,

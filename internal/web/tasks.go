@@ -554,7 +554,7 @@ func readerHasScope(r *http.Request) func(core.Scope) bool {
 func rowActors(tasks []core.Task) []string {
 	out := make([]string, 0, len(tasks))
 	for _, t := range tasks {
-		out = append(out, t.ClaimedByActorID, t.AssigneeActorID, t.LeaseExpiredByActorID)
+		out = append(out, t.ClaimedByActorID, t.AssigneeActorID, t.LeaseExpiredByActorID, t.SnoozedByActorID)
 	}
 	return out
 }

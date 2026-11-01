@@ -63,7 +63,8 @@ presets in the reader's chosen time zone. The time must be in the future.
 ## Web
 
 The task screen's title bar gets a Snooze menu (or Unsnooze, with the wake time, when snoozed).
-The lane card's more actions menu and the list row's menu carry the same presets. Each preset is
+The lane card's more actions menu carries the same presets. A list row has no per-row menu to hold them,
+so it carries only the badge; bulk actions are a separate change. Each preset is
 a plain form posting `until=<preset>`; "Pick a date" is a `datetime-local` input in the same form.
 A snoozed task shown in a listing (only under `is:snoozed` or `snoozed:any`) and on its own screen
 carries a badge "Snoozed until <time>".

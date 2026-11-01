@@ -23,7 +23,7 @@
 - [x] 4.1 HTTP: `PUT`/`DELETE /tasks/{ref}/snooze`, `POST /snoozes/wake`, `snoozed=` on listings; client
 - [x] 4.2 CLI: `tix task snooze`, `unsnooze`, `wake`; `--snoozed`, `--include-snoozed`; `task show` names the wake time
 - [x] 4.3 TUI: `b` to snooze or unsnooze, the `zz` marker, the detail line
-- [x] 4.4 Web: task screen, lane card menu and list row, presets in the reader's zone, the badge
+- [x] 4.4 Web: task screen and lane card menu, presets in the reader's zone, the badge
 - [x] 4.5 Capability registry entries and web exemption for the wake pass
 
 ## 5. Guards

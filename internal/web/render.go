@@ -242,6 +242,8 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"groupHeadNone":   noGroupHead,
 		"taskRow":         newTaskRow,
 		"due":             dueState,
+		"snoozed":         snoozedNow,
+		"snoozeForm":      newSnoozeForm,
 		"expiredAgo":      expiredAgo,
 		"stateLabel":      core.StateLabel,
 		"category":        categoryLabel,
