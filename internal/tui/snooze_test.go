@@ -63,7 +63,7 @@ func TestASnoozedCardIsOffTheBoardUntilAFilterAsks(t *testing.T) {
 func TestTheSnoozeKeyAsksWhenAndSnoozes(t *testing.T) {
 	m, svc := snoozedBoard(t)
 	m.sel = PreserveSelection(m.columns, m.sel, "a")
-	next, cmd := typeInto(t, m, "s", "tomorrow")
+	next, cmd := typeInto(t, m, "b", "tomorrow")
 	msg := run(t, cmd)
 	if len(svc.snoozes) != 1 {
 		t.Fatalf("snoozes = %+v, want one", svc.snoozes)
@@ -84,7 +84,7 @@ func TestTheSnoozeKeyAsksWhenAndSnoozes(t *testing.T) {
 func TestAnUnreadableTimeIsSaidAndNotSent(t *testing.T) {
 	m, svc := snoozedBoard(t)
 	m.sel = PreserveSelection(m.columns, m.sel, "a")
-	next, cmd := typeInto(t, m, "s", "someday")
+	next, cmd := typeInto(t, m, "b", "someday")
 	after, _ := next.reduce(run(t, cmd))
 	if len(svc.snoozes) != 0 {
 		t.Fatalf("an unreadable time reached the service: %+v", svc.snoozes)
@@ -98,9 +98,9 @@ func TestTheSnoozeKeyUnsnoozesASnoozedCard(t *testing.T) {
 	m, svc := snoozedBoard(t)
 	m = m.applyFilterText("is:snoozed")
 	m.sel = PreserveSelection(m.columns, m.sel, "b")
-	next, cmd := m.reduce(pressKey("s"))
+	next, cmd := m.reduce(pressKey("b"))
 	if next.prompt != promptNone {
-		t.Fatal("s on a snoozed card asked when, rather than unsnoozing")
+		t.Fatal("b on a snoozed card asked when, rather than unsnoozing")
 	}
 	run(t, cmd)
 	if !slices.Equal(svc.unsnooze, []core.TaskRef{{ID: "b"}}) || len(svc.snoozes) != 0 {
@@ -116,10 +116,10 @@ func TestTheSnoozeKeyIsNeitherOfferedNorSentWithoutTheAuthority(t *testing.T) {
 		t.Fatal("the reader may snooze, so this test proves nothing")
 	}
 	help := m.keys.ViewHelp(viewBoard, m.permits())
-	if slices.ContainsFunc(help, func(e HelpEntry) bool { return e.Keys == "s" }) {
-		t.Errorf("a reader who may not snooze is told about s: %+v", help)
+	if slices.ContainsFunc(help, func(e HelpEntry) bool { return e.Keys == "b" }) {
+		t.Errorf("a reader who may not snooze is told about b: %+v", help)
 	}
-	next, _ := m.reduce(pressKey("s"))
+	next, _ := m.reduce(pressKey("b"))
 	if next.prompt == promptSnooze {
 		t.Fatal("a reader who may not snooze was asked when")
 	}
