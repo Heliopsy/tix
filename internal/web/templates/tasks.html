@@ -112,7 +112,13 @@
        rows. The shortcut layer already focuses this field, and says so in
        the "?" overlay, so the cost of reaching it without a click is one
        keystroke rather than a click. */}}
-  <input name="title" placeholder="{{t "Add a task and press Enter"}}" aria-label="{{t "New task"}}" data-shortcut-target="new" required>
+  {{/* The line is read as quick-add syntax, so "Fix login !high #auth" sets
+       a priority and a tag. The row under the box says what the line will
+       set while it is typed, from the same parser the add runs; a refused
+       add comes back with the line still in the box and the reason there. */}}
+  <input type="hidden" name="quick" value="1">
+  <input name="title" value="{{$v.QuickLine}}" placeholder="{{t "Add a task and press Enter"}}" aria-label="{{t "New task"}}" data-shortcut-target="new" required autocomplete="off" aria-describedby="quickadd-preview"{{if $v.Quick.Error}} aria-invalid="true"{{end}} hx-get="/tasks/quickadd" hx-trigger="input changed delay:200ms" hx-target="#quickadd-preview" hx-swap="innerHTML" hx-sync="this:replace">
+  {{template "tip" (tip "Quick add" "Type the attributes into the line: !high or !1 to !5 for the priority, #tag, @handle for the assignee, due:fri, due:tomorrow, due:+3d or due:2026-11-20, +project, ^infra-3 for the parent, status:doing. They are taken out of the title. Put a backslash before one, or quotes around it, to keep it as text." "docs/features.md")}}
   <select name="project_ref" aria-label="{{t "Project"}}">
     {{range $v.Projects}}<option value="{{.Key}}"{{if eq .Key $v.Form.Project}} selected{{end}}>{{.Key}}</option>{{end}}
   </select>
@@ -127,6 +133,8 @@
   </button>
   {{end}}
 </form>
+
+<div id="quickadd-preview" class="quickadd-preview" aria-live="polite">{{template "quickadd-preview" $v.Quick}}</div>
 
 {{/* The same form, where the thing it extends is. It used to sit at the
      bottom of the page, under every row of the listing: the quick-add box was
@@ -1172,4 +1180,24 @@
     {{template "tip" (tip "Bulk actions" "Tick rows, or press x on a focused row; shift-click ticks a range, Ctrl+A ticks every row while the list has focus and Escape clears. Each action is one request; every task is changed on its own, and the toast names any that were refused and why. A bulk delete can be undone from the toast." "docs/web-ui.md")}}
   </div>
 </form>
+{{end}}
+
+{{/* quickadd-preview is the row under the one-line box: what the line sets,
+     one chip per token in the order typed, and why it would be refused.
+     quickadd-live is the same row answered on its own, for the box's
+     request as the reader types. */}}
+{{define "quickadd-live"}}{{template "quickadd-preview" .Data}}{{end}}
+{{define "quickadd-preview"}}
+{{with .Error}}<p class="field-error" id="quickadd-error" role="alert">{{.}}</p>{{end}}
+{{if .Chips}}<ul class="quickchips" aria-label="{{t "What the line sets"}}">
+  {{range .Chips}}<li class="qchip{{if .Unknown}} is-unknown{{end}}">
+    {{if eq .Kind "priority"}}<span class="qchip-kind">{{t "Priority"}}</span> {{t .Value}}
+    {{else if eq .Kind "tag"}}<span class="qchip-kind">{{t "Tag"}}</span> {{.Value}}
+    {{else if eq .Kind "assignee"}}<span class="qchip-kind">{{t "Assignee"}}</span> {{.Value}}{{if .Unknown}} <span class="qchip-why">{{t "nobody has this handle"}}</span>{{end}}
+    {{else if eq .Kind "due"}}<span class="qchip-kind">{{t "Due date"}}</span> {{.Value}}
+    {{else if eq .Kind "project"}}<span class="qchip-kind">{{t "Project"}}</span> {{.Value}}{{if .Unknown}} <span class="qchip-why">{{t "no such project"}}</span>{{end}}
+    {{else if eq .Kind "parent"}}<span class="qchip-kind">{{t "Parent task"}}</span> {{.Value}}
+    {{else if eq .Kind "status"}}<span class="qchip-kind">{{t "Status"}}</span> {{.Value}}{{end}}
+  </li>{{end}}
+</ul>{{end}}
 {{end}}

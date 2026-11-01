@@ -176,6 +176,12 @@ type tasksView struct {
 	// Bulk is the selection bar under the list: what a selection of rows can
 	// have done to it in one request.
 	Bulk bulkBar
+
+	// Quick is what the one-line box shows under itself: what its line will
+	// set, and why a refused line was refused. QuickLine is that line, kept
+	// in the box after a refusal.
+	Quick     quickPreview
+	QuickLine string
 }
 
 // filterFault reports whether an error is the filter expression's fault.
@@ -612,6 +618,9 @@ func doneState(d core.WorkflowDefinition) string {
 func (h *handler) createTask(w http.ResponseWriter, r *http.Request) error {
 	form := readTaskForm(r)
 	in, err := form.input(r)
+	if err == nil && form.Quick {
+		in, err = h.quickInput(r, in)
+	}
 	if err != nil {
 		return h.refuseTask(w, r, form, err)
 	}
@@ -644,6 +653,12 @@ func (h *handler) refuseTask(w http.ResponseWriter, r *http.Request, form taskFo
 	data, viewErr := h.buildTasksView(refusedRequest(r))
 	if viewErr != nil {
 		return viewErr
+	}
+	if form.Quick {
+		data.Form.Project, data.QuickLine = form.Project, form.Title
+		data.Quick = h.previewLine(r, form.Title)
+		data.Quick.Error = refusalMessage(err)
+		return h.renderStatus(w, r, core.KindOf(err).HTTPStatus(), "tasks.html", "Tasks", data)
 	}
 	data.Form, data.Errors, data.Refused = form, refusal(err), true
 	return h.renderStatus(w, r, core.KindOf(err).HTTPStatus(), "tasks.html", "Tasks", data)

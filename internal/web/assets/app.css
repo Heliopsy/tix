@@ -1627,6 +1627,27 @@ ul.plain > li:last-child { border-bottom: 0; }
    and the listing. */
 .filterbar:has(+ .filterfault) { margin-bottom: 8px; }
 
+/* What the one-line box's line will set, under the box, in the order typed.
+   Empty until there is something to say, so the row costs nothing on arrival.
+   A project or handle the tenant does not have is drawn in the danger colour
+   with the reason beside it, before the add is ever sent. */
+.quickadd-preview:empty { display: none; }
+.quickadd-preview { margin: calc(-1 * var(--space-1)) 0 var(--space-2); }
+.quickadd-preview .field-error { margin: 0 0 var(--space-1); }
+.quickchips { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.qchip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 1px 9px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.qchip-kind { color: var(--muted); }
+.qchip.is-unknown { background: var(--danger-soft); color: var(--danger); }
+
 /* The list-or-board switch. It belongs to the strip of controls above the
    listing, so it borrows the bar's own arrangement and wraps onto its own
    line on a narrow screen rather than squeezing the segments. */
