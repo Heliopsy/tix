@@ -160,20 +160,30 @@ func TestInboxItemsQueueForTheRecipientsOwnMatchingChannels(t *testing.T) {
 		t.Fatalf("somebody else's item reached carol's channel %d times", n)
 	}
 
+	if _, err := f.l.AddComment(f.adaC, core.TaskRef{ID: task.ID}, "@carol and @bob"); err != nil {
+		t.Fatal(err)
+	}
+	if got := queued(t, f.l, f.scope, carols.ID); len(got) != 1 {
+		t.Fatalf("a comment mentioning two people queued %d deliveries on carol's channel, want her own one", len(got))
+	}
+	if n := len(queued(t, f.l, f.scope, everything.ID)); n != 3 {
+		t.Fatalf("bob's all channel holds %d deliveries, want 3", n)
+	}
+
 	if _, err := f.l.PutInboxPrefs(f.bobC, core.InboxPrefsInput{Muted: []string{"comment", "mention"}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := f.l.AddComment(f.adaC, core.TaskRef{ID: task.ID}, "@bob again"); err != nil {
 		t.Fatal(err)
 	}
-	if n := len(queued(t, f.l, f.scope, everything.ID)); n != 2 {
-		t.Fatalf("muted kinds were delivered: the all channel holds %d deliveries, want 2", n)
+	if n := len(queued(t, f.l, f.scope, everything.ID)); n != 3 {
+		t.Fatalf("muted kinds were delivered: the all channel holds %d deliveries, want 3", n)
 	}
 
 	if _, err := f.l.AddComment(f.bobC, core.TaskRef{ID: task.ID}, "@bob note to self"); err != nil {
 		t.Fatal(err)
 	}
-	if n := len(queued(t, f.l, f.scope, everything.ID)); n != 2 {
+	if n := len(queued(t, f.l, f.scope, everything.ID)); n != 3 {
 		t.Fatalf("bob's own comment reached his channel: %d deliveries", n)
 	}
 }
