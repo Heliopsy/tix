@@ -6,7 +6,7 @@
 
 ## 2. Storage
 
-- [x] 2.1 Migration 0016 `tasks.copied_from_id` on both engines
+- [x] 2.1 Migration 0017 `tasks.copied_from_id` on both engines
 - [x] 2.2 Store task columns read and write `copied_from_id` on SQLite and PostgreSQL
 
 ## 3. Contract and service

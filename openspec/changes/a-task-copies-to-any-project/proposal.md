@@ -20,7 +20,7 @@ action that takes a task to any project the reader can write to, the same one in
 - Never copied: stars, claims and leases, history, artifacts, the recurrence successor link.
 - One transaction: rows, a `task.copy` audit entry and a `task.created` event per new task (the
   event payload names `copied_from`), plus `comment.add` for every copied comment.
-- New nullable column `tasks.copied_from_id` (migration 0016), shown as "Copied from" on the
+- New nullable column `tasks.copied_from_id` (migration 0017), shown as "Copied from" on the
   task screen's About card, in `tix task show` and in the API's task document.
 - Surfaces: `tix task copy`, `POST /v1/tasks/{ref}/copy`, a "Copy to…" action and form in the
   web interface (page, or the task dialog when tasks open in a dialog), and the `Y` key in the
@@ -29,5 +29,5 @@ action that takes a task to any project the reader can write to, the same one in
 ## Impact
 
 - `core.CopyTaskInput`, `core.Task.CopiedFromID`, `Service.CopyTask`, capability `task.copy`.
-- Migration 0016 on both engines; store task columns.
+- Migration 0017 on both engines; store task columns.
 - No change for readers who never copy.
