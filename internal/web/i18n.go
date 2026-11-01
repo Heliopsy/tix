@@ -181,6 +181,8 @@ var jsMessages = []string{
 	"Searching tasks",
 	"The task search did not answer.",
 	"No matches",
+	"%d task selected",
+	"%d tasks selected",
 }
 
 // jsMessagesFor is the table the head carries for lang, empty for English,

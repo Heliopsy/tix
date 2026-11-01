@@ -200,7 +200,7 @@ func newRoot(environ []string, dir string) (*cobra.Command, *globals) {
 	f.StringVar(&g.server, "server", "", "server url to use instead of the configured target")
 	f.StringVar(&g.tenant, "tenant", "", "tenant key to work in instead of the configured one")
 	f.StringVar(&g.token, "token", "", "api token to authenticate with")
-	f.StringVarP(&g.format, "output", "o", "", "output format: "+strings.Join(output.Formats, "|"))
+	f.StringVarP(&g.format, "output", "o", "", "output format: "+strings.Join(output.Formats, "|")+" (csv on task ls)")
 	f.BoolVar(&g.noColor, "no-color", false, "disable coloured output")
 	f.BoolVar(&g.color, "color", false, "force coloured output, even when not writing to a terminal")
 	f.BoolVarP(&g.quiet, "quiet", "q", false, "suppress diagnostics")
@@ -239,6 +239,9 @@ func (g *globals) validateGlobals(cmd *cobra.Command, _ []string) error {
 		return usagef(cmd, "--color and --no-color contradict each other")
 	}
 	if g.format == "" {
+		return nil
+	}
+	if g.format == output.FormatCSV && cmd.Annotations[csvAnnotation] != "" {
 		return nil
 	}
 	if !slices.Contains(output.Formats, g.format) {

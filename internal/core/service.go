@@ -97,6 +97,9 @@ type TaskService interface {
 	// CopyTask creates a copy of a task, in its own project or another one,
 	// and returns the copy. See CopyTaskInput for what travels.
 	CopyTask(ctx context.Context, ref TaskRef, in CopyTaskInput) (*Task, error)
+	// BulkTasks applies one action to many tasks, each in its own transaction,
+	// and reports an outcome per task rather than failing on the first refusal.
+	BulkTasks(ctx context.Context, in BulkTaskInput) (*BulkResult, error)
 
 	AddDependency(ctx context.Context, ref, dependsOn TaskRef) error
 	RemoveDependency(ctx context.Context, ref, dependsOn TaskRef) error

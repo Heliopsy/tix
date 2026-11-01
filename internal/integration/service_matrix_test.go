@@ -436,6 +436,31 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "bulk round-trip",
+		covers: []string{"CreateProject", "CreateTask", "BulkTasks", "GetTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			a, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "a"})
+			mustf(t, tg, err, "creating task a")
+			b, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "b"})
+			mustf(t, tg, err, "creating task b")
+			result, err := tg.svc.BulkTasks(tg.ctx, core.BulkTaskInput{
+				Action: core.BulkPriority, Priority: core.PriorityHighest,
+				Refs: []string{a.Ref, b.Ref, p.Key + "-999"},
+			})
+			if err != nil {
+				return nil, err
+			}
+			got, err := tg.svc.GetTask(tg.ctx, core.TaskRef{ID: b.ID})
+			mustf(t, tg, err, "reading task b")
+			codes := make([]string, 0, len(result.Outcomes))
+			for _, o := range result.Outcomes {
+				codes = append(codes, o.Code)
+			}
+			return sig{"applied": result.Applied, "refused": result.Refused, "codes": codes, "priority": int(got.Priority)}, nil
+		},
+	},
+	{
 		name:   "dependencies round-trip",
 		covers: []string{"CreateProject", "CreateTask", "AddDependency", "ListDependencies"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

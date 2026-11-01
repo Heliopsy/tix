@@ -488,6 +488,39 @@ task does. A lane card's three dots menu offers **Copy to…** too, opening the 
 when tasks open in a dialog; copying from there returns to the lanes, filter and all, with the toast. The
 command line has the same operation as `tix task copy`, and the API as `POST /api/v1/tasks/{ref}/copy`.
 
+## Acting on many tasks
+
+Every row of the list starts with a checkbox. Tick one and a bar appears under the list, saying how many
+are selected and offering **Move**, **Priority**, **Tag** (add or remove), **Assignee** (a handle, or empty
+to unassign), **Star**, **Unstar**, **Copy to…**, **Delete** and **Clear**. Shift-click ticks every row
+between the last box you clicked and this one; `x` toggles the focused row; Ctrl+A (Cmd+A on a Mac, `*` in
+the Emacs scheme, where Ctrl+A goes to the top) ticks every row while focus is in the list, and leaves a
+text field's own select all alone; Escape clears the selection before it does anything else, and an open
+menu or the task dialog keeps its own Escape. While anything is ticked the live refresh waits, the same
+rule that keeps it from drawing over a half typed comment.
+
+Each action is one request for the whole selection. The server changes each task on its own, with its own
+history entry and event, so a task that cannot take the change does not hold back the rest: the toast
+says how many changed and names each refused task with the reason, such as a status its workflow cannot
+reach. Move offers every state the projects on the page run and walks each task along the shortest route
+of its own workflow. A copy is linked to its original. Delete is a soft delete, and the toast's one
+**Undo** restores every task it removed in one request.
+
+The checkboxes belong to the bar's form, so all of it works with scripting off: the bar is then always
+drawn under the list, and Clear is the form's own reset. The board and the lanes have no checkboxes; their
+cards are drag targets and each carries its own menu. `tix task bulk` and `POST /api/v1/tasks/bulk` are
+the same operation.
+
+## Exporting the list
+
+**Export CSV** under the Columns choices in the View menu downloads the listing you are looking at: the
+filter, the deadline window, the sort, the open work default and the projects you have not put away, every
+page of it up to 10000 rows. The columns are the title and then whichever columns are ticked just above,
+in the order the list draws them. Cells are quoted the RFC 4180 way, and a cell starting with `=`, `+`,
+`-`, `@`, a tab or a carriage return gets a leading `'`, so a spreadsheet shows it as text instead of
+running it as a formula. `tix task ls -o csv` and `GET /api/v1/tasks?format=csv` export with a fixed set of
+columns.
+
 ## Acting in place
 
 Every action on a list row and on the task screen answers where it was taken. A row's star, status

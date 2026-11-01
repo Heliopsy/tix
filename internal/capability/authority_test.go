@@ -26,6 +26,8 @@ var scopeVariesByInput = map[string]string{
 	"ImportBundle": "authorises each component kind the bundle carries, so a " +
 		"bundle of workflows needs workflow:write and a bundle of projects needs " +
 		"project:write; the registry cannot name one scope for both",
+	"BulkTasks": "checks the scope of the action it is asked to apply, so a bulk move needs " +
+		"task:transition and a bulk delete task:delete; no one scope describes the operation",
 }
 
 // validArgs supplies the least input that gets past a method's own validation,

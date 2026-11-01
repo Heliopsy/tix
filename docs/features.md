@@ -125,6 +125,17 @@ has one of the same name. Comments, subtasks (recursively) and dependencies come
 linked copy shows "Copied from" with the original. Stars, claims, history and artifacts stay behind.
 [docs/api.md](api.md#copying-a-task).
 
+**Bulk actions.** Tick rows on the web task list and a bar applies one action to all of them: move,
+priority, add or remove a tag, assignee, star, unstar, copy to a project, or delete with one Undo for the
+batch. It is one request, `POST /api/v1/tasks/bulk` or `tix task bulk ACTION REF...`, and each task is still
+changed on its own with its own history entry and event, so the answer names any task that was refused and
+why. `tix task edit`, `tix task copy`, `tix tag add` and `tix tag rm` take many references too.
+[docs/web-ui.md](web-ui.md#acting-on-many-tasks), [docs/api.md](api.md#bulk-actions).
+
+**CSV export.** Export CSV in the task list's View menu, `tix task ls -o csv` and
+`GET /api/v1/tasks?format=csv` write a listing as CSV, with any cell a spreadsheet would read as a formula
+prefixed with a quote. [docs/web-ui.md](web-ui.md#exporting-the-list), [docs/api.md](api.md#csv).
+
 **Shell completion.** `tix completion install` detects the shell, writes the script where that shell
 looks for it and never edits a startup file. It completes task references, project keys, tags and the
 states your workflows actually define, not only flag names.

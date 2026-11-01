@@ -71,6 +71,7 @@ const (
 	RouteTaskLabel      = APIPrefix + "/tasks/{ref}/tags/{name}"
 	RouteTaskStar       = APIPrefix + "/tasks/{ref}/star"
 	RouteTaskCopy       = APIPrefix + "/tasks/{ref}/copy"
+	RouteTaskBulk       = APIPrefix + "/tasks/bulk"
 	RouteTaskComments   = APIPrefix + "/tasks/{ref}/comments"
 	RouteTaskArtifacts  = APIPrefix + "/tasks/{ref}/artifacts"
 	RouteTaskAudit      = APIPrefix + "/tasks/{ref}/audit"
@@ -178,3 +179,11 @@ const HeaderContentDisposition = "Content-Disposition"
 // letter and an identifier is alphanumeric, so this can never be mistaken for
 // either. It is also unreserved in RFC 3986 and needs no escaping.
 const TenantSelf = "~"
+
+// ContentCSV is the media type a task listing is served as when a client asks
+// for CSV.
+const ContentCSV = "text/csv"
+
+// HeaderNextCursor names the cursor of the next page on a CSV listing, which
+// has no envelope to carry it in.
+const HeaderNextCursor = "X-Tix-Next-Cursor"

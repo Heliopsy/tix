@@ -84,7 +84,9 @@ The same data, with a board, custom workflows, custom fields, dependencies, comm
 personal star that keeps the tasks you are watching at the top of your own listings. The columns and
 lanes are yours to arrange too: hide, star, collapse or move any of them from the three dots on its
 heading, kept with your account so it follows you everywhere (`tix view`). A task copies
-into any project, subtasks and comments included when you ask, instead of being typed twice. A fresh install
+into any project, subtasks and comments included when you ask, instead of being typed twice. Tick rows on
+the task list to move, retag, assign, star, copy or delete them in one go, and export any filtered list as
+CSV for a spreadsheet. A fresh install
 needs no configuration: one default workflow, no required fields, and `tix task add "buy milk"` works
 on a machine that has never seen tix.
 
@@ -102,7 +104,7 @@ by a test that fails the build when an operation lacks a binding.
 
 | Path | Notes |
 | ------ | ------- |
-| CLI | UNIX-composable, `-o table\|json\|yaml`, documented exit codes, works with zero configuration |
+| CLI | UNIX-composable, `-o table\|json\|yaml\|ndjson`, `-o csv` for task listings, documented exit codes, works with zero configuration |
 | TUI | Terminal board for interactive use, over the same service interface |
 | HTTP API | `/api/v1`, keyset paginated, consistent error envelope |
 | WebSocket | Subscribe to events, resume from a cursor after a reconnect |
@@ -111,8 +113,8 @@ by a test that fails the build when an operation lacks a binding.
 ## What else is in the binary
 
 Statistics, tenant theming, a ctrl+k command palette in the browser, an actor directory, multi-step
-status moves, tasks that repeat when they are done, per-browser dates, lease badges, shell completion,
-self-update and seedable demonstration data.
+status moves, bulk actions, CSV export, tasks that repeat when they are done, per-browser dates, lease
+badges, shell completion, self-update and seedable demonstration data.
 [docs/features.md](docs/features.md) describes each one and why it is there.
 
 ## Screenshots

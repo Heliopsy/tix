@@ -25,7 +25,7 @@ func newTaskCmd(g *globals) *cobra.Command {
 	cmd.AddCommand(
 		taskAddCmd(g), taskLsCmd(g), taskShowCmd(g), taskEditCmd(g),
 		taskMvCmd(g), taskRmCmd(g), taskRestoreCmd(g), taskTreeCmd(g),
-		taskStarCmd(g, true), taskStarCmd(g, false), taskCopyCmd(g),
+		taskStarCmd(g, true), taskStarCmd(g, false), taskCopyCmd(g), taskBulkCmd(g),
 	)
 	return cmd
 }
@@ -152,9 +152,10 @@ func taskLsCmd(g *globals) *cobra.Command {
 		overdue, recurring, trashed          bool
 	)
 	cmd := &cobra.Command{
-		Use:     "ls",
-		Aliases: []string{"list"},
-		Short:   "List tasks",
+		Use:         "ls",
+		Aliases:     []string{"list"},
+		Annotations: map[string]string{csvAnnotation: "1"},
+		Short:       "List tasks",
 		Long: "List tasks. Results stream, so large listings are never buffered.\n\n" +
 			"--filter takes the expression language the terminal interface's filter bar uses: " +
 			"space separated key:value terms, ANDed. A leading - excludes (-tag:ops, -status:done), " +
@@ -165,6 +166,8 @@ func taskLsCmd(g *globals) *cobra.Command {
 			"Tasks you starred come first, under every sort; is:starred and --starred select them.\n\n" +
 			"--include-deleted (is:deleted) adds soft-deleted tasks to the listing; --trashed " +
 			"(is:trashed) lists only them, which is the trash `tix task restore` takes from.\n\n" +
+			"-o csv prints ref, project, title, status, priority, assignee, tags, due, created and updated, " +
+			"with any cell a spreadsheet would read as a formula prefixed with a quote.\n\n" +
 			"Exit codes: 2 invalid filter, 3 unknown project, status, parent or actor, 5 permission denied.",
 		Example: "  tix task ls\n  tix task ls --status todo -o ndjson\n" +
 			"  tix task ls -p infra --tag ops --all\n" +
@@ -375,8 +378,8 @@ func taskCopyCmd(g *globals) *cobra.Command {
 		dryRun bool
 	)
 	cmd := &cobra.Command{
-		Use:   "copy REF",
-		Short: "Copy a task to any project",
+		Use:   "copy REF...",
+		Short: "Copy tasks to any project",
 		Long: "Copy a task into another project, or into its own when --to is omitted. The copy " +
 			"gets a fresh reference and carries the title, description, priority, tags, assignee, " +
 			"due date, repeat rule and the custom fields the target project defines. It starts in " +
@@ -385,20 +388,35 @@ func taskCopyCmd(g *globals) *cobra.Command {
 			"and time, --with-subtasks copies the whole live subtree, --with-deps keeps what the task " +
 			"waits for, and --link records the original on the copy. Stars, claims, history and " +
 			"artifacts are never copied.\n\n" +
+			"Given several references, each task is copied with the same options and one outcome per " +
+			"task is printed; --title is refused then. Pass - to read references from standard input.\n\n" +
 			"Exit codes: 2 invalid input or a required field the target lacks, 3 unknown reference or project, " +
 			"5 permission denied.",
 		Example: "  tix task copy default-1\n  tix task copy infra-4 --to web --with-subtasks --link\n" +
 			"  tix task copy infra-4 --to web --title \"rotate keys again\" --keep-status --dry-run",
-		Args: exactArgs(1),
+		Args: minArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ref, err := parseRef(args[0])
+			refs, err := readRefs(cmd, args)
 			if err != nil {
 				return err
+			}
+			if len(refs) > 1 && in.Title != "" {
+				return core.Invalid("--title names one copy's title, and %d tasks were given", len(refs))
 			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
 			}
+			if len(refs) > 1 {
+				if dryRun {
+					return g.dryBulk(cmd, conn, ctx, refs, "task.copy", copyDetail(in))
+				}
+				return g.bulk(cmd, refs, func(ref core.TaskRef) error {
+					_, err := conn.Service.CopyTask(ctx, ref, in)
+					return err
+				})
+			}
+			ref := refs[0]
 			if dryRun {
 				if _, err := conn.Service.GetTask(ctx, ref); err != nil {
 					return err
@@ -463,19 +481,29 @@ func taskEditCmd(g *globals) *cobra.Command {
 		dryRun, noRepeat                                         bool
 	)
 	cmd := &cobra.Command{
-		Use:   "edit REF",
-		Short: "Change a task",
+		Use:   "edit REF...",
+		Short: "Change tasks",
 		Long: "Change a task's attributes. Only the flags you pass are applied.\n\n" +
+			"Given several references, the same change is applied to each and one outcome per task " +
+			"is printed; --title and --version are refused then. Pass - to read references from standard input.\n\n" +
 			"--repeat sets or replaces the repeat rule and --no-repeat removes it. " + repeatHelp + "\n\n" +
 			"Exit codes: 2 invalid input, 3 unknown reference or assignee, 4 version conflict, 5 permission denied.",
 		Example: "  tix task edit default-1 --title \"buy oat milk\"\n  tix task edit default-1 --priority high --dry-run\n" +
+			"  tix task edit default-1 default-2 --priority low\n" +
 			"  tix task edit default-1 --repeat 'every 2 weeks on mon,thu'\n  tix task edit default-1 --no-repeat",
-		Args: exactArgs(1),
+		Args: minArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ref, err := parseRef(args[0])
+			refs, err := readRefs(cmd, args)
 			if err != nil {
 				return err
 			}
+			if len(refs) > 1 && version != 0 {
+				return core.Invalid("--version names one task's version, and %d tasks were given", len(refs))
+			}
+			if len(refs) > 1 && cmd.Flags().Changed("title") {
+				return core.Invalid("--title names one task's title, and %d tasks were given", len(refs))
+			}
+			ref := refs[0]
 			in := core.UpdateTaskInput{Version: version}
 			if cmd.Flags().Changed("title") {
 				in.Title = &title
@@ -528,6 +556,15 @@ func taskEditCmd(g *globals) *cobra.Command {
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
+			}
+			if len(refs) > 1 {
+				if dryRun {
+					return g.dryBulk(cmd, conn, ctx, refs, "task.update", nil)
+				}
+				return g.bulk(cmd, refs, func(ref core.TaskRef) error {
+					_, err := conn.Service.UpdateTask(ctx, ref, in)
+					return err
+				})
 			}
 			if dryRun {
 				if _, err := conn.Service.GetTask(ctx, ref); err != nil {

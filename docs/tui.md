@@ -667,7 +667,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 107
+a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 108
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:
@@ -711,6 +711,10 @@ a form over fixed lists gathers one, so the project screen names
 `tix workflow put` instead. A deletion would only ever be offered on the workflow the open project runs
 on, which is the one workflow the service refuses to delete, and an entry leading to a refusal is worse
 than no entry.
+
+Bulk task actions are absent on purpose as well: the board acts on the card under the cursor, and each
+action a bulk request applies (move, priority, tags, assignee, star, copy, delete, restore) is bound
+there for that card. Selecting many rows at once belongs to the web task list and `tix task bulk`.
 
 What is bound is daily work, and that is asserted rather than hoped for: a test names the operations a
 board has to reach and fails if any of them loses its terminal binding.

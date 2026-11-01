@@ -102,6 +102,8 @@ var shortcutActions = []shortcutAction{
 	{"editTitle", "Focus the title field"},
 	{"comment", "Focus the comment field"},
 	{"transition", "Open the move menu"},
+	{"select", "Select or unselect the focused task"},
+	{"selectAll", "Select every task in the list"},
 	{"filter", "Focus the filter field"},
 	{"palette", "Open the command palette"},
 	{"help", "Show this help"},
@@ -127,6 +129,8 @@ var baseKeyBindings = map[string][]string{
 	"editTitle":  {"e"},
 	"comment":    {"m"},
 	"transition": {"t"},
+	"select":     {"x"},
+	"selectAll":  {"ctrl+a", "meta+a"},
 	"filter":     {"/"},
 	"palette":    {"ctrl+k", "meta+k"},
 	"help":       {"?"},
@@ -159,6 +163,9 @@ var keySchemeOverrides = map[KeyScheme]map[string][]string{
 		"top":    {"Home", "ctrl+a"}, // ctrl+a (select all) is safe to intercept
 		"bottom": {"End"},            // ctrl+e is Chrome's omnibox search shortcut
 		"back":   {"Escape", "ctrl+g"},
+		// ctrl+a is top here, as it is in the terminal interface, so select
+		// all takes a key no scheme uses.
+		"selectAll": {"*"},
 		// Filter keeps the base "/": the TUI binds it only to ctrl+s, which
 		// opens Save Page As and cannot be overridden from script.
 		// EditTitle keeps the base "e": the TUI binds it to ctrl+t, which

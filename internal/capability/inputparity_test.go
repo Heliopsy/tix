@@ -75,6 +75,10 @@ var inputReaches = []inputReach{
 		"route": "arg", "to": "arg", "comment": "--comment", "lease_token": "--lease-token",
 		"custom_fields": "--field", "version": "--version",
 	}},
+	{"tix task bulk", core.BulkTaskInput{}, map[string]string{
+		"action": "arg", "refs": "arg", "to": "--to", "priority": "--priority", "tag": "--tag",
+		"assignee_actor_id": "--assignee", "project_ref": "--project", "cascade": "--cascade",
+	}},
 	{"tix artifact put", core.ArtifactInput{}, map[string]string{
 		"kind": "--kind", "name": "--name", "payload": "--payload", "content_type": "--content-type",
 		"blob": "--file", "lease_token": "--lease-token",

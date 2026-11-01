@@ -427,6 +427,14 @@ var registry = []Operation{
 		TUI:   "board",
 	},
 	{
+		Name: "task.bulk", Method: "BulkTasks",
+		CLI:  "tix task bulk",
+		HTTP: apiPost(wire.RouteTaskBulk),
+		Web:  webPost(web.RouteTasksBulk),
+		Exempt: []Exemption{off(SurfaceTUI, "the board acts on the one card under the cursor and has no "+
+			"selection of many; every action a bulk request applies is bound there for that card")},
+	},
+	{
 		Name: "task.tree", Method: "TaskTree",
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix task tree",
