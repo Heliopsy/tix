@@ -11,6 +11,7 @@ import (
 
 func actorLsCmd(g *globals) *cobra.Command {
 	var limit int
+	var cursor string
 	cmd := &cobra.Command{
 		Use:     "ls",
 		Aliases: []string{"list"},
@@ -27,7 +28,7 @@ func actorLsCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			actors, next, err := conn.Service.ListActors(ctx, core.Page{Limit: size})
+			actors, next, err := conn.Service.ListActors(ctx, core.Page{Limit: size, Cursor: cursor})
 			if err != nil {
 				return err
 			}
@@ -38,5 +39,6 @@ func actorLsCmd(g *globals) *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&limit, "limit", config.DefaultPageSize, "maximum records to return")
+	cmd.Flags().StringVar(&cursor, "cursor", "", "continue from a previous page")
 	return cmd
 }
