@@ -60,7 +60,7 @@ It is always drawn as the list, whatever the reader chose for the task screen, b
 columns are moves a deleted card cannot make; it does not narrow to open work, since a finished task
 that was deleted is still worth finding; and it has no quick-add row.
 
-A deleted row, there or on an `is:deleted` listing, carries a `deleted` badge with the time and a
+A deleted row, there or on an `is:deleted` listing, carries a `deleted` badge, whose tooltip gives the time, and a
 struck-through title that is text rather than a link, since the task screen answers not found for a
 deleted task. It has no tick, and its status and priority are labels rather than menus, since
 the service refuses all three on a deleted task. Restore at the end of the row posts to the task's

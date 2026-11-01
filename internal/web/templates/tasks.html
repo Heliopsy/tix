@@ -935,7 +935,7 @@
            hands. */}}
       {{$held := claim .}}
       <span class="tm tm-flags">
-      {{if .DeletedAt}}<span class="deletedmark" title="{{t "Deleted %s" (compact .DeletedAt)}}">{{t "deleted"}} &middot; {{compact .DeletedAt}}</span>{{end}}
+      {{if .DeletedAt}}<span class="deletedmark" title="{{t "Deleted %s" (compact .DeletedAt)}}">{{t "deleted"}}</span>{{end}}
       {{if eq $held "held"}}<span class="lease held" title="{{t "Held by %s until %s" ($r.Data.Names.Label .ClaimedByActorID) (compact .LeaseExpiresAt)}}">{{t "held"}} &middot; {{$r.Data.Names.Label .ClaimedByActorID}}</span>
       {{else if eq $held "expired"}}<span class="lease expired" title="{{t "%s let the claim run out %s ago, at %s; the task is claimable again" ($r.Data.Names.Label .LeaseExpiredByActorID) (expiredAgo .) (compact .LeaseExpiredAt)}}">{{t "claim expired"}} &middot; {{t "%s ago" (expiredAgo .)}}{{if gt .ClaimCount 1}} <span class="lease-count">&middot; {{t "%d claims" .ClaimCount}}</span>{{end}}</span>{{end}}
       {{/* The date carried no label, so it was a number nobody could name.

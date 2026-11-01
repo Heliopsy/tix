@@ -45,7 +45,7 @@ The trash listing:
 - skips the open-work default, since a deleted task's status is not what makes it worth finding;
 - leaves out the quick-add row, which would add live tasks to a screen that does not show them.
 
-A deleted row, on the trash or on an `is:deleted` listing, carries a "deleted" marker with the time,
+A deleted row, on the trash or on an `is:deleted` listing, carries a "deleted" marker (the time in its tooltip),
 shows its status and priority as plain labels instead of menus, has no tick, and offers Restore. Restore
 posts to the existing `/tasks/{ref}/restore` with `next` set to the listing, so the reader lands
 back on the trash with the "task restored" toast and the row gone.
