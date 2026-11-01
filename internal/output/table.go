@@ -132,6 +132,12 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, themeHeader, v, themeRow)
 	case core.Theme:
 		return renderRows(w, p, themeHeader, []core.Theme{v}, themeRow)
+	case []core.GroupPref:
+		return renderRows(w, p, groupPrefHeader, v, groupPrefRow)
+	case core.GroupPref:
+		return renderRows(w, p, groupPrefHeader, []core.GroupPref{v}, groupPrefRow)
+	case *core.GroupPref:
+		return renderRows(w, p, groupPrefHeader, []core.GroupPref{*v}, groupPrefRow)
 	case *core.SyncResult:
 		return renderSyncResult(w, p, v)
 	case core.SyncResult:
@@ -159,6 +165,7 @@ var (
 	depHeader        = table.Row{"TASK", "DEPENDS ON", "CREATED"}
 	deliveryHeader   = table.Row{"ID", "ENDPOINT", "EVENT", "STATUS", "ATTEMPTS", "NEXT ATTEMPT", "CODE"}
 	tagHeader        = table.Row{"ID", "NAME", "PROJECT", "COLOR"}
+	groupPrefHeader  = table.Row{"VIEW", "GROUP", "HIDDEN", "COLLAPSED", "STARRED", "POSITION"}
 	syncHeader       = table.Row{"ID", "SYSTEM", "NAME", "CURSOR", "LAST RUN", "LAST STATUS"}
 
 	connectionHeader = table.Row{"ID", "SURFACE", "ACTOR", "FROM", "SINCE", "KEY"}
@@ -273,6 +280,16 @@ func (p Painter) deliveryRow(d core.WebhookDelivery) table.Row {
 	}
 	return table.Row{d.ID, d.EndpointID, strconv.FormatInt(d.EventSeq, 10), string(d.Status),
 		strconv.Itoa(d.Attempts), p.style.Format(d.NextAttemptAt), code}
+}
+
+// groupPrefRow is one group of a view as its reader arranged it. A group
+// left where the view draws it has no position, shown as a dash.
+func groupPrefRow(g core.GroupPref) table.Row {
+	pos := "-"
+	if g.Position > 0 {
+		pos = strconv.Itoa(g.Position)
+	}
+	return table.Row{g.View, g.Group, yesNo(g.Hidden), yesNo(g.Collapsed), yesNo(g.Starred), pos}
 }
 
 func tagRow(t core.Tag) table.Row {

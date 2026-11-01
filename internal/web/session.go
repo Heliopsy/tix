@@ -31,6 +31,7 @@ func (h *handler) sessionRoutes() []route {
 		post(RouteColumns, h.setColumns, "Logout"),
 		post(RouteVisibility, h.setVisibility, "Logout"),
 		post(RouteTaskView, h.setTaskView, "Logout"),
+		post(RouteListGroup, h.setListGroup, "Logout"),
 		post(RouteTint, h.setTint, "Logout"),
 		post(RouteDragMove, h.toggleDragMove, "Logout"),
 		post(RouteOpenAfterAdd, h.toggleOpenAfterAdd, "Logout"),
@@ -191,6 +192,7 @@ func (h *handler) showSettings(w http.ResponseWriter, r *http.Request) error {
 // to differs.
 func settingsPrefs(p prefsView) prefsView {
 	p.TaskView.Here = savedNext("Task view", "listings")
+	p.ListGroup.Here = savedNext("List groups", "listings")
 	p.Projects.Here = savedNext("Project choice", "listings")
 	for i := range p.Columns {
 		p.Columns[i].Here = savedNext("Columns on "+p.Columns[i].Label, "listings")

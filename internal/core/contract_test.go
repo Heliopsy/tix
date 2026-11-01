@@ -52,6 +52,7 @@ var (
 	_ core.BundleService     = service
 	_ core.ConnectionService = service
 	_ core.StatusService     = service
+	_ core.ViewService       = service
 )
 
 // serviceParts names every sub-interface Service is assembled from.
@@ -70,6 +71,7 @@ var serviceParts = map[string]reflect.Type{
 	"ConnectionService": reflect.TypeOf((*core.ConnectionService)(nil)).Elem(),
 	"StatsService":      reflect.TypeOf((*core.StatsService)(nil)).Elem(),
 	"StatusService":     reflect.TypeOf((*core.StatusService)(nil)).Elem(),
+	"ViewService":       reflect.TypeOf((*core.ViewService)(nil)).Elem(),
 }
 
 // serviceOwnMethods are the only two methods Service may declare itself.

@@ -105,6 +105,8 @@ type lane struct {
 	// Named is set when a project: term asked for this project, which is
 	// the only reason an empty lane is drawn.
 	Named bool
+	// Head is the lane's heading as the reader arranged it.
+	Head groupHead
 }
 
 // AllFinished reports whether every card is finished, so a lane emptied by

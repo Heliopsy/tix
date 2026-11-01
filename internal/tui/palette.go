@@ -48,6 +48,10 @@ func (c PaletteContext) offers(a Action) bool {
 		return false
 	case a.needsProject && !c.HasProject:
 		return false
+	case a.needsColumn && !c.HasColumn, a.needsHidden && !c.HasHidden:
+		return false
+	case a.needsLeft && !c.CanLeft, a.needsRight && !c.CanRight:
+		return false
 	case a.always:
 		return true
 	case a.opensView():

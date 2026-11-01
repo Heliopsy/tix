@@ -70,6 +70,7 @@ func (h *handler) routes() []route {
 	out = append(out, h.statsRoutes()...)
 	out = append(out, h.statusRoutes()...)
 	out = append(out, h.projectRoutes()...)
+	out = append(out, h.viewRoutes()...)
 	out = append(out, h.workflowRoutes()...)
 	out = append(out, h.taskRoutes()...)
 	out = append(out, h.actorRoutes()...)
@@ -119,6 +120,7 @@ const (
 	RouteColumns      = "/columns"
 	RouteVisibility   = "/visibility"
 	RouteTaskView     = "/taskview"
+	RouteListGroup    = "/listgroup"
 	RouteTint         = "/tint"
 	RouteDragMove     = "/dragmove"
 	RouteOpenAfterAdd = "/openafteradd"
@@ -163,6 +165,10 @@ const (
 	RouteCommentEdit  = "/tasks/{ref}/comments/edit"
 	RouteCommentDel   = "/tasks/{ref}/comments/delete"
 	RouteTaskArts     = "/tasks/{ref}/artifacts"
+
+	RouteViewGroup = "/view/group"
+	RouteViewOrder = "/view/order"
+	RouteViewReset = "/view/reset"
 
 	RouteTenant        = "/admin/tenant"
 	RouteMembers       = "/admin/tenant/members"

@@ -574,6 +574,10 @@ const (
 
 	EventWebhookDelivered EventType = "webhook.delivered"
 	EventImportCompleted  EventType = "import.completed"
+
+	// EventViewArranged records one reader changing their own arrangement of
+	// a view's groups. Like a star it changes nothing anybody else sees.
+	EventViewArranged EventType = "view.arranged"
 )
 
 // eventTypes is the complete event vocabulary, in declaration order.
@@ -585,7 +589,7 @@ var eventTypes = []EventType{
 	EventCommentAdded, EventArtifactAdded,
 	EventDependencyAdded, EventLabelAdded, EventProjectCreated,
 	EventProjectUpdated, EventWorkflowUpdated, EventFieldUpdated,
-	EventWebhookDelivered, EventImportCompleted,
+	EventWebhookDelivered, EventImportCompleted, EventViewArranged,
 }
 
 // EventTypes returns the complete event vocabulary. Callers outside this

@@ -20,6 +20,10 @@ const (
 	// ActionTaskStar sets or clears the caller's own star. It changes nothing
 	// anybody else sees in a listing, so reading the task is authority enough.
 	ActionTaskStar Action = "task.star"
+	// ActionViewArrange reads and changes the caller's own arrangement of a
+	// view's groups. Like a star it changes nothing anybody else sees, so it
+	// needs only task:read; a view spans projects, so it is not confinable.
+	ActionViewArrange Action = "view.arrange"
 
 	ActionProjectRead  Action = "project.read"
 	ActionProjectWrite Action = "project.write"
@@ -61,6 +65,7 @@ var actionScopes = map[Action]core.Scope{
 	ActionTaskDelete:     core.ScopeTaskDelete,
 	ActionTaskReclaim:    core.ScopeTaskReclaim,
 	ActionTaskStar:       core.ScopeTaskRead,
+	ActionViewArrange:    core.ScopeTaskRead,
 
 	ActionProjectRead:  core.ScopeProjectRead,
 	ActionProjectWrite: core.ScopeProjectWrite,
@@ -135,7 +140,7 @@ func (a Action) ProjectConfinable() bool { return projectConfinable[a] }
 // allActions is the action vocabulary in a stable order.
 var allActions = []Action{
 	ActionTaskRead, ActionTaskCreate, ActionTaskUpdate, ActionTaskTransition,
-	ActionTaskClaim, ActionTaskDelete, ActionTaskReclaim, ActionTaskStar,
+	ActionTaskClaim, ActionTaskDelete, ActionTaskReclaim, ActionTaskStar, ActionViewArrange,
 	ActionProjectRead, ActionProjectWrite,
 	ActionWorkflowRead, ActionWorkflowWrite,
 	ActionFieldWrite, ActionCommentWrite, ActionArtifactWrite,

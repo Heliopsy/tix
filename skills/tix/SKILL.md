@@ -477,6 +477,14 @@ occurrence itself when you move it to a done state, in the same write, and
 records it as `recurrence_next_id`. Do not create the next one yourself, or
 there will be two. Moving it to `cancelled` ends the series instead.
 
+**Columns and lanes are arranged per reader.** `tix view set board done
+--hidden`, `tix view set lanes homelab --starred`, `tix view set board doing
+--collapsed` (each flag takes `=false` to undo it), `tix view order lanes work
+homelab` and `tix view reset board` change how the caller's own boards and
+lanes are drawn (views `board`, `lanes`, `project:KEY`), and `tix view ls
+board -o json` lists it. It reorders no listing and changes nothing another
+actor sees, so an agent has no reason to touch it unless asked to.
+
 **Do not poll `tix task ls` in a loop.** `tix watch` subscribes to the event
 stream instead; see [reference/queries.md](reference/queries.md).
 

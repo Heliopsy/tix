@@ -4,6 +4,7 @@ package integration
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
 	"slices"
 	"sort"
@@ -371,6 +372,36 @@ var serviceScenarios = []svcScenario{
 				"type":         img.ContentType,
 				"bytes":        string(img.Data),
 			}, nil
+		},
+	},
+	{
+		name:   "view arrangement round-trip",
+		covers: []string{"CreateProject", "SetGroupPref", "OrderGroups", "ListGroupPrefs", "ResetGroupPrefs"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			view := core.ProjectView(p.Key)
+			on := true
+			set, err := tg.svc.SetGroupPref(tg.ctx, view, "done", core.GroupPrefInput{Hidden: &on})
+			if err != nil {
+				return nil, err
+			}
+			ordered, err := tg.svc.OrderGroups(tg.ctx, view, core.GroupOrderInput{Groups: []string{"doing", "todo"}})
+			if err != nil {
+				return nil, err
+			}
+			if err := tg.svc.ResetGroupPrefs(tg.ctx, view, "todo"); err != nil {
+				return nil, err
+			}
+			listed, err := tg.svc.ListGroupPrefs(tg.ctx, view)
+			mustf(t, tg, err, "listing the arrangement")
+			shape := func(prefs []core.GroupPref) []string {
+				out := make([]string, 0, len(prefs))
+				for _, g := range prefs {
+					out = append(out, fmt.Sprintf("%s h=%v c=%v s=%v p=%d", g.Group, g.Hidden, g.Collapsed, g.Starred, g.Position))
+				}
+				return out
+			}
+			return sig{"set": shape([]core.GroupPref{*set}), "ordered": shape(ordered), "listed": shape(listed)}, nil
 		},
 	},
 	{

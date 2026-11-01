@@ -33,6 +33,7 @@ type Service interface {
 	ConnectionService
 	StatsService
 	StatusService
+	ViewService
 
 	Close() error
 }

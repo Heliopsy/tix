@@ -104,6 +104,10 @@ const (
 
 	RouteConnections = APIPrefix + "/connections"
 	RouteConnection  = APIPrefix + "/connections/{id}"
+
+	RouteViewGroups = APIPrefix + "/views/{view}/groups"
+	RouteViewGroup  = APIPrefix + "/views/{view}/groups/{group}"
+	RouteViewOrder  = APIPrefix + "/views/{view}/order"
 )
 
 // Content types.

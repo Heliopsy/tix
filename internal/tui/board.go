@@ -16,6 +16,17 @@ type Column struct {
 	Terminal bool
 	Category core.StateCategory
 	Tasks    []core.Task
+
+	// Starred and Collapsed are the reader's own arrangement of the column.
+	// A collapsed column holds no cards: Folded counts the ones it put away,
+	// so the heading still says how many there are and the selection never
+	// lands on a card nobody can see.
+	Starred   bool
+	Collapsed bool
+	Folded    int
+	// Declared is set for a column the workflow declares, which is the only
+	// kind the arrangement can name. A column drawn for a stray status is not.
+	Declared bool
 }
 
 // Selection addresses one card on the board.
@@ -55,7 +66,7 @@ func declaredColumns(def *core.WorkflowDefinition) ([]Column, map[string]int) {
 			label = s.Key
 		}
 		index[s.Key] = len(cols)
-		cols = append(cols, Column{Key: s.Key, Label: label, Terminal: s.Terminal, Category: s.Category})
+		cols = append(cols, Column{Key: s.Key, Label: label, Terminal: s.Terminal, Category: s.Category, Declared: true})
 	}
 	return cols, index
 }

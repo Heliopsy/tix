@@ -34,6 +34,9 @@ type prefsView struct {
 
 	// TaskView is the list, board or lanes switch.
 	TaskView taskViewFormView
+
+	// ListGroup is whether the list draws a heading per project or state.
+	ListGroup listGroupFormView
 }
 
 // columnFormView is one listing's column picker: which listing, how it is
@@ -139,6 +142,7 @@ var Preferences = []Preference{
 	{Cookie: ColumnsCookie, Route: RouteColumns, Label: "Columns"},
 	{Cookie: HiddenProjectsCookie, Route: RouteVisibility, Label: "Hidden projects"},
 	{Cookie: TaskViewCookie, Route: RouteTaskView, Label: "Task view"},
+	{Cookie: ListGroupCookie, Route: RouteListGroup, Label: "List groups"},
 	{Cookie: TaskOpenCookie, Route: RouteTaskOpen, Label: "Task opens in"},
 	{Cookie: TitleClickCookie, Route: RouteTitleClick, Label: "Clicking a title"},
 	{Cookie: TintCookie, Route: RouteTint, Label: "Colour rows by"},
@@ -207,6 +211,7 @@ func (h *handler) prefsFor(r *http.Request, projects []core.Project, whole bool)
 		TaskView: taskViewFormView{
 			CSRF: csrf, Here: back, Current: current, Choices: taskViewChoices(current),
 		},
+		ListGroup: newListGroupForm(csrf, back, listGroupOf(r)),
 	}
 }
 

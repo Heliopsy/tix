@@ -58,6 +58,13 @@ type Model struct {
 	sel      Selection
 	rowOff   int
 
+	// arrangement is the reader's own arrangement of this project's board,
+	// hiddenCols the columns it leaves out, and followCol the column a move
+	// should keep selected once the board is drawn again.
+	arrangement []core.GroupPref
+	hiddenCols  []string
+	followCol   string
+
 	filterText string
 	filter     core.TaskFilter
 	filterErr  string
@@ -501,12 +508,15 @@ func (m Model) onProjects(msg projectsMsg) (Model, tea.Cmd) {
 
 // onBoard installs a project's workflow and first page of tasks.
 func (m Model) onBoard(msg boardMsg) (Model, tea.Cmd) {
-	m.project, m.workflow = msg.project, msg.workflow
+	m.project, m.workflow, m.arrangement = msg.project, msg.workflow, msg.prefs
 	return m.enterView(viewBoard).installTasks(msg.tasks)
 }
 
 // onTasks refreshes the board's tasks without changing the open project.
 func (m Model) onTasks(msg tasksMsg) (Model, tea.Cmd) {
+	if msg.arranged {
+		m.arrangement = msg.prefs
+	}
 	return m.installTasks(msg.tasks)
 }
 
@@ -514,8 +524,12 @@ func (m Model) onTasks(msg tasksMsg) (Model, tea.Cmd) {
 func (m Model) installTasks(tasks []core.Task) (Model, tea.Cmd) {
 	selected, _ := TaskAt(m.columns, m.sel)
 	m.tasks = tasks
-	m.columns = BuildColumns(m.workflow, m.visibleTasks(tasks))
+	m = m.drawColumns()
 	m.sel = PreserveSelection(m.columns, m.sel, selected.ID)
+	if m.followCol != "" {
+		m.sel = followColumn(m.columns, m.sel, m.followCol)
+		m.followCol = ""
+	}
 	m.rowOff = ScrollOffset(m.rowOff, m.sel.Row, LayoutFor(m.width, m.height, len(m.columns)).BodyHeight)
 	return m, nil
 }
@@ -977,6 +991,13 @@ func (m Model) handleBoardKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Enter):
 		return m, m.loadDetail()
 	default:
+		if a, ok := ResolveAction(msg, m.keys.columnBindings()); ok {
+			if !m.paletteContext().offers(a) {
+				return m, nil
+			}
+			next, cmd, _ := m.performAction(a.id)
+			return next, cmd
+		}
 		return m.handleTaskKey(msg)
 	}
 	m.rowOff = ScrollWindow(m.rowOff, m.sel.Row, m.cardRows(), m.columnLength(m.sel.Col))
@@ -1076,6 +1097,8 @@ func (m Model) performAction(id actionID) (Model, tea.Cmd, bool) {
 	case doInterrupt:
 		m.interrupted = true
 		return m, tea.Quit, true
+	case doHideColumn, doStarColumn, doFoldColumn, doColumnLeft, doColumnRight, doShowColumns:
+		return m.columnAction(id)
 	}
 	return m.performTaskAction(id)
 }
@@ -1412,7 +1435,7 @@ func (m Model) applyFilterText(text string) Model {
 	}
 	m.filterErr, m.filterText, m.filter = "", text, parsed
 	selected, _ := TaskAt(m.columns, m.sel)
-	m.columns = BuildColumns(m.workflow, m.visibleTasks(m.tasks))
+	m = m.drawColumns()
 	m.sel = PreserveSelection(m.columns, m.sel, selected.ID)
 	return m
 }
@@ -1485,6 +1508,12 @@ func (m Model) actionContext() ActionContext {
 		HasComment: m.view == viewDetail && m.detail != nil && len(m.detail.comments) > 0,
 		HasFields:  m.setup != nil && len(m.setup.fields) > 0,
 		HasRows:    m.view == viewTenant && len(m.adminRows()) > 0}
+	if _, ok := m.selectedColumn(); ok {
+		ctx.HasColumn = true
+		ctx.CanLeft = ColumnNeighbour(m.columns, m.sel.Col, -1) >= 0
+		ctx.CanRight = ColumnNeighbour(m.columns, m.sel.Col, 1) >= 0
+	}
+	ctx.HasHidden = m.view == viewBoard && len(m.hiddenCols) > 0
 	task, ok := m.selectedTask()
 	if !ok {
 		return ctx
