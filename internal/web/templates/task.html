@@ -27,7 +27,6 @@
      which are divs, and a div inside a paragraph makes the HTML parser close
      the paragraph before it: the priority ended up outside the row and on a
      line of its own. */}}
-<div id="task-desc">{{template "task-desc" .}}</div>
 <div id="task-pills" class="taskpills">{{template "task-pills" .}}</div>
 {{if or $held $t.ClaimCount}}{{template "tip" (tip "Claims and leases" "A claim is how a worker, usually an agent, takes a task for itself. It holds a lease that expires unless renewed, and claiming does not change the status. When a lease lapses the task can be claimed again, and the expiry stays shown here for a while." "docs/agents.md")}}{{end}}
 {{/* The menus live out here, not inside #task-pills.
@@ -415,6 +414,7 @@
      which are divs, and a div inside a paragraph makes the HTML parser close
      the paragraph before it: the priority ended up outside the row and on a
      line of its own. */}}
+<div id="task-desc">{{template "task-desc" .}}</div>
 <div id="task-pills" class="taskpills">{{template "task-pills" .}}</div>
 <ul class="plain" id="task-comments">{{template "task-comments" .}}</ul>
 <div class="body" id="task-history">{{template "task-history" .}}</div>

@@ -71,7 +71,15 @@ func TestTheDescriptionReadsAsMarkdown(t *testing.T) {
 
 	for _, who := range []string{"alice", "viewer"} {
 		t.Run(who, func(t *testing.T) {
-			desc := elementByID(t, f.as(who).page("/tasks/"+ref), "div", "task-desc")
+			page := f.as(who).page("/tasks/" + ref)
+			if n := strings.Count(page, `id="task-desc"`); n != 1 {
+				t.Errorf("the screen draws the description %d times, want once", n)
+			}
+			live := f.as(who).page("/tasks/" + ref + "/live")
+			if !strings.Contains(elementByID(t, live, "div", "task-desc"), "<strong>carefully</strong>") {
+				t.Errorf("the live refresh does not carry the description region")
+			}
+			desc := elementByID(t, page, "div", "task-desc")
 			for _, want := range []string{
 				"<strong>carefully</strong>",
 				`<a href="/tasks/infra-1" class="taskref">infra-1</a>`,

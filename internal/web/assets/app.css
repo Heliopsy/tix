@@ -6380,7 +6380,9 @@ a.heldswitch[aria-checked="true"]::before { content: "\2611"; }
 .md a { overflow-wrap: anywhere; }
 .md a.taskref { font-family: ui-monospace, monospace; }
 .md .md-html { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: var(--text-sm); }
-.md li.task-item { list-style: none; margin-left: -1.4em; }
+.md li.task-item { list-style: none; }
+.md ul:has(> li.task-item), .md ol:has(> li.task-item) { padding-left: 0.1em; }
+.md li > ul:has(> li.task-item), .md li > ol:has(> li.task-item) { padding-left: 1.6em; }
 .md li.task-item > input[type="checkbox"] { margin: 0 4px 0 0; vertical-align: -2px; }
 .comment-body.md { white-space: normal; }
 
