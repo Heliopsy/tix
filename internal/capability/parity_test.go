@@ -273,6 +273,7 @@ func concretePath(pattern string) string {
 		"{name}", "urgent",
 		"{hostname}", "acme.example",
 		"{actorID}", "u1",
+		"{file}", "feed.ics",
 	)
 	return r.Replace(pattern)
 }
