@@ -21,8 +21,8 @@ view the reader chose, SHALL NOT narrow to open work, and SHALL NOT offer the qu
 
 ### Requirement: A deleted row offers Restore
 
-A task row for a soft-deleted task SHALL be marked deleted, SHALL NOT offer the complete tick or the
-status and priority menus, and SHALL offer a Restore button posting to the task's restore route with
+A task row for a soft-deleted task SHALL be marked deleted, SHALL NOT offer the complete tick, the
+status and priority menus or a link to the task screen, and SHALL offer a Restore button posting to the task's restore route with
 the listing as the place to return to.
 
 #### Scenario: Restoring from the trash

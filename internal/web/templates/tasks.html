@@ -756,7 +756,7 @@
   {{/* data-inplace: the star, status and priority forms in this row swap
        this row and nothing else, the way the tick does. assets/feel.js
        reads it; without it they post and redirect like any form. */}}
-  <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{if .DeletedAt}} is-deleted{{end}}{{$mark}}{{if eq $r.FlashRef .Ref}} is-flashed{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Ref}}" data-inplace>
+  <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{if .DeletedAt}} is-deleted{{end}}{{$mark}}{{if eq $r.FlashRef .Ref}} is-flashed{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} tabindex="-1" data-shortcut-row{{if not .DeletedAt}} data-shortcut-href="/tasks/{{.Ref}}"{{end}} data-inplace>
     {{/* A deleted task cannot be completed, moved or reprioritised, so its
          row offers none of that: no tick, plain status and priority, and
          Restore at the end, which is the one thing that can be done to it. */}}
@@ -797,7 +797,10 @@
 
     {{/* next carries this listing, filters and sort included, so the task
          screen can offer a way back to exactly it. */}}
-    {{template "tasktitle" (titleLink .Ref .Title .Version (print "/tasks/" .Ref "?next=" ($v.Self | urlquery)) "task-title" $r.TitleEdit)}}
+    {{/* A deleted task has no screen to open, the task screen answers not
+         found for it, so its title is text rather than a link. */}}
+    {{if .DeletedAt}}<span class="task-title">{{.Title}}</span>
+    {{else}}{{template "tasktitle" (titleLink .Ref .Title .Version (print "/tasks/" .Ref "?next=" ($v.Self | urlquery)) "task-title" $r.TitleEdit)}}{{end}}
 
     {{/* Four kinds of marking used to be four near-identical chips, so a row
          read as a row of indistinguishable pills and nobody could tell a tag

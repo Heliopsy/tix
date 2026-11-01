@@ -138,6 +138,8 @@ func TestADeletedRowOffersOnlyRestore(t *testing.T) {
 		`action="/tasks/` + gone + `/complete"`,
 		`popovertarget="flow-` + gone + `"`,
 		`popovertarget="prio-` + gone + `"`,
+		`href="/tasks/` + gone + `?`,
+		`data-shortcut-href=`,
 	} {
 		if strings.Contains(row, refused) {
 			t.Errorf("the deleted row offers %s", refused)
@@ -147,7 +149,7 @@ func TestADeletedRowOffersOnlyRestore(t *testing.T) {
 		t.Error("the deleted row on an is:deleted listing offers no Restore")
 	}
 	liveRow := rowOf(t, page, live)
-	if !strings.Contains(liveRow, `action="/tasks/`+live+`/complete"`) {
+	if !strings.Contains(liveRow, `action="/tasks/`+live+`/complete"`) || !strings.Contains(liveRow, `href="/tasks/`+live+`?`) {
 		t.Fatalf("the live row has no tick either, so this test reads nothing: %s", liveRow)
 	}
 	if strings.Contains(liveRow, "/restore") || strings.Contains(liveRow, "deletedmark") {
