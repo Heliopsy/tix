@@ -94,3 +94,48 @@ func TestProjectHelpNamesThePalette(t *testing.T) {
 		}
 	}
 }
+
+func TestProjectRmAsksWhatHappensToTheTasks(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("project", "create", "old", "Old")
+	c.mustRun("project", "create", "ops", "Ops")
+	c.mustRun("task", "add", "travels", "-p", "old")
+
+	refused := c.run("project", "rm", "old")
+	if refused.code != core.KindPrecondition.ExitCode() {
+		t.Fatalf("rm without a choice exited %d, want %d\nstderr: %s",
+			refused.code, core.KindPrecondition.ExitCode(), refused.err)
+	}
+	for _, flag := range []string{"--move-tasks-to", "--delete-tasks"} {
+		if !strings.Contains(refused.err, flag) {
+			t.Errorf("the refusal does not name %s: %s", flag, refused.err)
+		}
+	}
+
+	if both := c.run("project", "rm", "old", "--move-tasks-to", "ops", "--delete-tasks"); both.code != core.ExitUsage {
+		t.Errorf("both flags exited %d, want %d", both.code, core.ExitUsage)
+	}
+
+	plan := c.mustRun("project", "rm", "old", "--move-tasks-to", "ops", "--dry-run", "-o", "json").out
+	if !strings.Contains(plan, `"move_to": "ops"`) || !strings.Contains(plan, `"from": "todo"`) ||
+		!strings.Contains(plan, `"dry_run": true`) {
+		t.Errorf("the dry run does not state the mapping: %s", plan)
+	}
+	table := c.mustRun("project", "rm", "old", "--move-tasks-to", "ops", "--dry-run").out
+	if strings.Contains(table, "map[") || !strings.Contains(table, "todo -> todo") {
+		t.Errorf("the dry run's table does not read as a mapping:\n%s", table)
+	}
+	c.mustRun("project", "show", "old")
+
+	var done core.ProjectDeletion
+	out := c.mustRun("project", "rm", "old", "--move-tasks-to", "ops", "-o", "json").out
+	if err := json.Unmarshal([]byte(out), &done); err != nil {
+		t.Fatalf("decoding %q: %v", out, err)
+	}
+	if done.Tasks != 1 || done.MoveTo != "ops" {
+		t.Errorf("rm reported %+v", done)
+	}
+	if listed := c.mustRun("task", "ls", "-p", "ops", "-o", "json").out; !strings.Contains(listed, "travels") {
+		t.Errorf("the task is not in ops: %s", listed)
+	}
+}

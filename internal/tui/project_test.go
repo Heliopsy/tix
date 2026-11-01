@@ -333,7 +333,7 @@ func TestAnArchivedProjectIsNotOfferedArchivingAgain(t *testing.T) {
 	when := time.Date(2026, 5, 6, 7, 8, 0, 0, time.UTC)
 	p := setupProject()
 	p.ArchivedAt = &when
-	form := ProjectRemoveForm(p, true, true)
+	form := ProjectRemoveForm(p, true, true, nil)
 	if slices.Contains(form.Fields[0].Options, "archive") {
 		t.Errorf("an archived project is offered an archive the service refuses: %v", form.Fields[0].Options)
 	}
@@ -343,7 +343,7 @@ func TestAnArchivedProjectIsNotOfferedArchivingAgain(t *testing.T) {
 	if !strings.Contains(form.Note, "already archived") {
 		t.Errorf("the form does not say the project is archived: %q", form.Note)
 	}
-	if ProjectRemoveForm(p, true, false).Open() {
+	if ProjectRemoveForm(p, true, false, nil).Open() {
 		t.Error("a reader who may only archive is offered a form with nothing on it")
 	}
 }
@@ -433,7 +433,7 @@ func TestArchivingAProjectNamesItBeforeItHappens(t *testing.T) {
 	if !strings.Contains(line, "archive project infra") {
 		t.Errorf("the confirmation asks %q", line)
 	}
-	if strings.Contains(line, ProjectDeleteNote) {
+	if strings.Contains(line, "permanently") || strings.Contains(line, "task") {
 		t.Errorf("an archive claims a deletion's reach: %q", line)
 	}
 
@@ -454,17 +454,24 @@ func TestDeletingAProjectStatesHowFarItReachesAndLeavesTheScreen(t *testing.T) {
 	if got := formRow(t, m.Frame(), "remove project infra", "action"); !strings.Contains(got, "delete") {
 		t.Fatalf("the action row says %q", got)
 	}
-	m, _ = m.reduce(pressKey("enter"))
+	m, cmd := m.reduce(pressKey("enter"))
+	if len(svc.projectsGone) != 0 {
+		t.Fatal("agreeing to the form deleted before the confirmation was asked")
+	}
+	m, _ = m.reduce(run(t, cmd))
 
 	line := confirmLine(t, m.Frame(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
-	if !strings.Contains(line, "delete project infra") || !strings.Contains(line, ProjectDeleteNote) {
+	if !strings.Contains(line, "delete project infra") || !strings.Contains(line, "with its 3 tasks, permanently") {
 		t.Errorf("the confirmation asks %q", line)
 	}
 
-	m, cmd := m.reduce(pressKey("y"))
+	m, cmd = m.reduce(pressKey("y"))
 	m, _ = m.reduce(run(t, cmd))
 	if len(svc.projectsGone) != 1 || svc.projectsGone[0] != "infra" {
 		t.Fatalf("the deletion sent %v", svc.projectsGone)
+	}
+	if got := svc.deletions[0]; !got.DeleteTasks || got.MoveTasksTo != "" {
+		t.Errorf("the deletion asked for %+v, want the tasks deleted", got)
 	}
 	if m.view != viewProjects {
 		t.Errorf("the screen stayed on a project that no longer exists: view = %v", m.view)
@@ -762,7 +769,10 @@ func TestEverySchemeDrivesTheProjectScreen(t *testing.T) {
 			if got := formRow(t, m.Frame(), "remove project infra", "action"); !strings.Contains(got, "delete") {
 				t.Errorf("%q did not cycle the answer: %q", keys.Right.Help().Key, got)
 			}
-			m, _ = m.reduce(keyMsgFor(keys.Accept.Help().Key))
+			m, cmd = m.reduce(keyMsgFor(keys.Accept.Help().Key))
+			if cmd != nil {
+				m, _ = m.reduce(run(t, cmd))
+			}
 			if !m.confirm.Open() {
 				t.Fatalf("%q did not submit the form", keys.Accept.Help().Key)
 			}
@@ -849,5 +859,59 @@ func TestAProjectWithACustomColourOpensOnCustom(t *testing.T) {
 	}
 	if got := form.Value(attrColour); got != customColour {
 		t.Errorf("the colour row opens on %q for a custom colour", got)
+	}
+}
+
+func TestDeletingAProjectCanMoveItsTasksAndSaysWhere(t *testing.T) {
+	m, svc := setupModel(t)
+	when := time.Date(2026, 5, 6, 7, 8, 0, 0, time.UTC)
+	m.projects = []core.Project{setupProject(), {ID: "p2", Key: "ops", Name: "Ops"},
+		{ID: "p3", Key: "attic", Name: "Attic", ArchivedAt: &when}}
+	m, _ = m.reduce(pressKey("X"))
+	m, _ = m.reduce(pressKey("right"))
+	m, _ = m.reduce(pressKey("down"))
+	row := formRow(t, m.Frame(), "remove project infra", "its tasks")
+	if !strings.Contains(row, TasksDeleted) {
+		t.Fatalf("the tasks row opens on %q", row)
+	}
+	m, _ = m.reduce(pressKey("right"))
+	if row := formRow(t, m.Frame(), "remove project infra", "its tasks"); !strings.Contains(row, "move to ops") {
+		t.Fatalf("the tasks row offers %q after one step", row)
+	}
+	if slices.Contains(m.form.Fields[1].Options, TasksMoveTo+"attic") || slices.Contains(m.form.Fields[1].Options, TasksMoveTo+"infra") {
+		t.Errorf("the form offers an archived project or the project itself: %v", m.form.Fields[1].Options)
+	}
+	m, cmd := m.reduce(pressKey("enter"))
+	m, _ = m.reduce(run(t, cmd))
+	if len(svc.plans) != 1 || svc.plans[0].MoveTasksTo != "ops" {
+		t.Fatalf("the plan asked for %+v", svc.plans)
+	}
+
+	line := confirmLine(t, m.Frame(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
+	for _, want := range []string{"delete project infra", "moving its 3 tasks to ops", "review to doing (1)"} {
+		if !strings.Contains(line, want) {
+			t.Errorf("the confirmation %q does not say %q", line, want)
+		}
+	}
+	m, cmd = m.reduce(pressKey("y"))
+	_, _ = m.reduce(run(t, cmd))
+	if len(svc.deletions) != 1 || svc.deletions[0].MoveTasksTo != "ops" || svc.deletions[0].DeleteTasks {
+		t.Fatalf("the deletion asked for %+v", svc.deletions)
+	}
+}
+
+func TestTheTasksRowIsShownOnlyForADeletion(t *testing.T) {
+	form := ProjectRemoveForm(setupProject(), true, true, []string{"ops"})
+	if len(form.Fields) != 2 || form.Fields[1].Needs != (FieldCondition{Key: "action", Value: "delete"}) {
+		t.Fatalf("fields = %+v", form.Fields)
+	}
+	if got := DeletionInput(TasksMoveTo + "ops"); got.MoveTasksTo != "ops" || got.DeleteTasks {
+		t.Errorf("a move reads as %+v", got)
+	}
+	if got := DeletionInput(TasksDeleted); !got.DeleteTasks || got.MoveTasksTo != "" {
+		t.Errorf("a deletion reads as %+v", got)
+	}
+	if got := DeletionNote(core.ProjectDeletion{}); got != "which holds no tasks" {
+		t.Errorf("an empty project's note = %q", got)
 	}
 }

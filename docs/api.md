@@ -50,7 +50,7 @@ Everything below is under `/api/v1`.
 | SSH keys | `/ssh-keys`, `/ssh-keys/{id}`; see [deployment.md](deployment.md#enrolling-a-key) |
 | Directory | `/actors`, `/actors/{id}` |
 | Tenancy | `/tenants`, `/tenants/{ref}`, `/members`, `/members/{actorID}`, `/domains`, `/domains/{hostname}` |
-| Projects | `/projects`, `/projects/{ref}`, `/projects/{ref}/icon`, `/projects/{ref}/fields`, `/projects/{ref}/fields/{key}` |
+| Projects | `/projects`, `/projects/{ref}`, `/projects/{ref}/icon`, `/projects/{ref}/deletion`, `/projects/{ref}/fields`, `/projects/{ref}/fields/{key}` |
 | Workflows | `/workflows`, `/workflows/{key}` |
 | Tasks | `/tasks`, `/tasks/{ref}`, `/tasks/{ref}/transition`, `/tasks/{ref}/route`, `/tasks/{ref}/restore`, `/tasks/{ref}/tree` |
 | Task relations | `/tasks/{ref}/deps`, `/tasks/{ref}/deps/{dep}`, `/tasks/{ref}/tags`, `/tasks/{ref}/tags/{name}`, `/tasks/{ref}/star` |
@@ -107,6 +107,30 @@ $ curl -s -H "Authorization: Bearer $TIX_TOKEN" -o logo.png http://127.0.0.1:808
 nosniff`, a `Content-Security-Policy` that forbids script and sandboxes the document, and an `ETag` that
 `If-None-Match` revalidates to `304`. A project whose icon is not an uploaded image answers `404`. Snapshots
 and bundles carry `icon` and `icon_name`, never the image bytes.
+
+### Deleting a project
+
+`DELETE /projects/{ref}` is permanent. A project holding tasks, soft deleted ones included, needs one of two
+query parameters, and without either the answer is `422` with code `precondition` and a `tasks` detail:
+
+- `move_tasks_to=KEY` moves every task to that project first. Each gets the target's next number, keeps its
+  identifier and so its comments, attachments, tags, dependencies, stars and history, and has its status
+  mapped onto the target's workflow: the same state, else the first state of the same category, else the
+  initial state. It needs `task:write` on the target, and an archived target is `422`.
+- `delete_tasks=true` deletes them permanently with the project.
+
+Both at once is `400`. A deletion answers `200` with what it did. `GET /projects/{ref}/deletion` takes the
+same parameters and returns the same shape without writing, which is how to see the mapping first:
+
+```console
+$ curl -s -H "Authorization: Bearer $TIX_TOKEN" \
+    'http://127.0.0.1:8080/api/v1/projects/old/deletion?move_tasks_to=ops'
+{"project":"old","tasks":3,"deleted":0,"move_to":"ops",
+ "statuses":[{"from":"todo","to":"todo","tasks":2},{"from":"review","to":"doing","tasks":1}],"dry_run":true}
+```
+
+Every moved task records a `task.move` audit entry and a `task.updated` event naming its old and new
+reference, and every deleted one a `task.delete` entry and a `task.deleted` event with `hard: true`.
 
 ### Recurring tasks
 

@@ -56,6 +56,8 @@ type Confirm struct {
 	// project a removal acts on, and the custom field a deletion names.
 	projectRef string
 	fieldKey   string
+	// deletion is what a project deletion does with the project's tasks.
+	deletion core.DeleteProjectInput
 	// hostname and actorID address the tenant screen's two removals, which act
 	// on a domain and on a membership rather than on anything a task has.
 	hostname string

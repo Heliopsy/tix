@@ -640,16 +640,34 @@ func (m Model) archiveProject(ref string) tea.Cmd {
 	}
 }
 
-// deleteProject destroys the project the reader agreed to destroy.
-func (m Model) deleteProject(ref string) tea.Cmd {
+// planProjectDeletion reads what deleting a project would do with its tasks,
+// so the confirmation can state it.
+func (m Model) planProjectDeletion(ref string, in core.DeleteProjectInput) tea.Cmd {
 	if m.svc == nil || ref == "" {
 		return nil
 	}
 	svc, ctx := m.svc, m.ctx
 	return func() tea.Msg {
+		plan, err := svc.PlanProjectDeletion(ctx, ref, in)
+		msg := deletionPlanMsg{ref: ref, in: in, err: err}
+		if plan != nil {
+			msg.plan = *plan
+		}
+		return msg
+	}
+}
+
+// deleteProject destroys the project the reader agreed to destroy, doing
+// with its tasks what the reader chose.
+func (m Model) deleteProject(ref string, in core.DeleteProjectInput, note string) tea.Cmd {
+	if m.svc == nil || ref == "" {
+		return nil
+	}
+	svc, ctx := m.svc, m.ctx
+	return func() tea.Msg {
+		_, err := svc.DeleteProject(ctx, ref, in)
 		return actionMsg{kind: actionDeleteProject, label: ref,
-			sentence: "deleted project " + ref + " " + ProjectDeleteNote,
-			err:      svc.DeleteProject(ctx, ref)}
+			sentence: "deleted project " + ref + " " + note, err: err}
 	}
 }
 

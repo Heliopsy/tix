@@ -166,7 +166,7 @@ func TestProjectAndWorkflowMutationRoutes(t *testing.T) {
 	_ = archived.Body.Close()
 
 	dropped := f.call(http.MethodDelete, "/api/v1/projects/ops", nil)
-	mustStatus(t, dropped, http.StatusNoContent)
+	mustStatus(t, dropped, http.StatusOK)
 	_ = dropped.Body.Close()
 
 	deleted := f.call(http.MethodDelete, "/api/v1/workflows/temp", nil)

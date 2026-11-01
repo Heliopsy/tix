@@ -143,6 +143,50 @@ func deref(s *string) string {
 	return *s
 }
 
+// DeleteProjectInput says what happens to the tasks of a project being
+// deleted. A project holding tasks needs exactly one of the two.
+type DeleteProjectInput struct {
+	// MoveTasksTo is the key or identifier of the project the tasks move to.
+	MoveTasksTo string `json:"move_tasks_to,omitempty" yaml:"move_tasks_to,omitempty"`
+	// DeleteTasks removes the tasks permanently with the project.
+	DeleteTasks bool `json:"delete_tasks,omitempty" yaml:"delete_tasks,omitempty"`
+}
+
+// Validate checks the input for choices that contradict each other.
+func (in DeleteProjectInput) Validate() error {
+	if in.MoveTasksTo != "" && in.DeleteTasks {
+		return Invalid("choose either moving the tasks or deleting them, not both").WithDetail(DetailField, "move_tasks_to")
+	}
+	return nil
+}
+
+// ProjectDeletion is what deleting a project does, or did, to its tasks.
+type ProjectDeletion struct {
+	Project string `json:"project" yaml:"project"`
+	// Tasks counts the live tasks and Deleted the soft deleted ones.
+	Tasks   int `json:"tasks" yaml:"tasks"`
+	Deleted int `json:"deleted" yaml:"deleted"`
+	// MoveTo is the target's key when the tasks move.
+	MoveTo string `json:"move_to,omitempty" yaml:"move_to,omitempty"`
+	// DeleteTasks reports that the tasks go permanently with the project.
+	DeleteTasks bool `json:"delete_tasks,omitempty" yaml:"delete_tasks,omitempty"`
+	// Statuses is the mapping a move applies, one entry per source status.
+	Statuses []StatusMove `json:"statuses,omitempty" yaml:"statuses,omitempty"`
+	// DryRun marks a plan: what the deletion would do, nothing written.
+	DryRun bool `json:"dry_run,omitempty" yaml:"dry_run,omitempty"`
+}
+
+// Total is every task the deletion reaches, soft deleted ones included.
+func (d ProjectDeletion) Total() int { return d.Tasks + d.Deleted }
+
+// StatusMove is one source status, the target status it maps to and how many
+// tasks it carries.
+type StatusMove struct {
+	From  string `json:"from" yaml:"from"`
+	To    string `json:"to" yaml:"to"`
+	Tasks int    `json:"tasks" yaml:"tasks"`
+}
+
 // FieldDefInput defines or redefines a custom field.
 type FieldDefInput struct {
 	Key         string    `json:"key" yaml:"key"`

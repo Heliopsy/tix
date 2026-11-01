@@ -408,7 +408,7 @@ subcommand's `--help` names the codes that command can return; the root
 | 3 | not found: a filter term naming nothing, or an empty/no-match queue |
 | 4 | conflict — held task, lost lease, version clash, duplicate name |
 | 5 | permission denied |
-| 6 | precondition failed — illegal transition, task has subtasks |
+| 6 | precondition failed — illegal transition, task has subtasks, project still holds tasks |
 | 7 | upstream failed — a system tix called, such as a sync source, answered badly |
 
 Exit `6` is for things a legal *value* still can't do right now (no edge from
@@ -454,6 +454,10 @@ tix task ls --blocked                # only tasks blocked by a dependency
 tix task ls --starred                # only tasks you starred
 tix project ls -o json               # the project keys, if you do not know them
 ```
+
+`tix project rm KEY` exits 6 while the project holds tasks. Say what happens
+to them: `--move-tasks-to OTHER` (renumbered there, statuses mapped onto its
+workflow) or `--delete-tasks` (permanent). `--dry-run` shows the mapping first.
 
 A fresh database seeds four projects — `default`, `work`, `homelab`, `house` —
 so `task ls` with no `-p` spans all of them, while `task add` with no `-p`

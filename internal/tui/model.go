@@ -438,6 +438,8 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, m.subscribe(m.lastSeq)
+	case deletionPlanMsg:
+		return m.onDeletionPlan(msg)
 	case actionMsg:
 		return m.onAction(msg)
 	case errMsg:
@@ -2050,7 +2052,7 @@ func (m Model) runConfirm(c Confirm) tea.Cmd {
 	case confirmArchiveProject:
 		return m.archiveProject(c.projectRef)
 	case confirmDeleteProject:
-		return m.deleteProject(c.projectRef)
+		return m.deleteProject(c.projectRef, c.deletion, c.Note)
 	case confirmDeleteField:
 		return m.deleteFieldDef(c.projectRef, c.fieldKey)
 	case confirmRemoveDomain:
@@ -2195,8 +2197,14 @@ func (m Model) openProjectRemoveForm() (Model, tea.Cmd) {
 		m.err = "no project is open"
 		return m, nil
 	}
+	var targets []string
+	for _, p := range m.projects {
+		if !p.Archived() {
+			targets = append(targets, p.Key)
+		}
+	}
 	form := ProjectRemoveForm(m.setup.project,
-		m.mayPerform("ArchiveProject"), m.mayPerform("DeleteProject"))
+		m.mayPerform("ArchiveProject"), m.mayPerform("DeleteProject"), targets)
 	if !form.Open() {
 		m.err = "this project is already archived and cannot be deleted from here"
 		return m, nil
@@ -2282,10 +2290,25 @@ func (m Model) confirmProjectRemoval(form Form) (Model, tea.Cmd) {
 		return m, nil
 	}
 	p := m.setup.project
-	confirm := Confirm{Target: p.Key, label: p.Key, projectRef: p.Key, Kind: confirmArchiveProject}
 	if form.Value("action") == "delete" {
-		confirm.Kind, confirm.Note = confirmDeleteProject, ProjectDeleteNote
+		if p.Key == "" {
+			m.err = "there is no project named to remove"
+			return m, nil
+		}
+		return m, m.planProjectDeletion(p.Key, DeletionInput(form.Value("tasks")))
 	}
+	confirm := Confirm{Target: p.Key, label: p.Key, projectRef: p.Key, Kind: confirmArchiveProject}
+	return m.askConfirm(confirm, "there is no project named to remove")
+}
+
+// onDeletionPlan confirms a project deletion once its plan has said how far
+// it reaches: how many tasks, and where they go or that they go for good.
+func (m Model) onDeletionPlan(msg deletionPlanMsg) (Model, tea.Cmd) {
+	if msg.err != nil {
+		return m.onError(errMsg{err: msg.err})
+	}
+	confirm := Confirm{Target: msg.ref, label: msg.ref, projectRef: msg.ref, Kind: confirmDeleteProject,
+		Note: DeletionNote(msg.plan), deletion: msg.in}
 	return m.askConfirm(confirm, "there is no project named to remove")
 }
 

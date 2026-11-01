@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -292,7 +293,10 @@ func ProjectEditForm(p core.Project, workflows []string) Form {
 //
 // An archived project is not offered archiving again, because the service
 // refuses it: an entry leading to a refusal is worse than no entry.
-func ProjectRemoveForm(p core.Project, mayArchive, mayDelete bool) Form {
+//
+// A deletion also asks what happens to the project's tasks: they go with it,
+// or move to one of the targets, which are the other live projects' keys.
+func ProjectRemoveForm(p core.Project, mayArchive, mayDelete bool, targets []string) Form {
 	var actions []string
 	if mayArchive && !p.Archived() {
 		actions = append(actions, "archive")
@@ -303,17 +307,62 @@ func ProjectRemoveForm(p core.Project, mayArchive, mayDelete bool) Form {
 	if len(actions) == 0 {
 		return Form{}
 	}
+	fields := []FormField{{Key: "action", Label: "action", Options: actions, Value: actions[0]}}
+	if mayDelete {
+		fate := []string{TasksDeleted}
+		for _, key := range targets {
+			if key != p.Key {
+				fate = append(fate, TasksMoveTo+key)
+			}
+		}
+		fields = append(fields, FormField{Key: "tasks", Label: "its tasks", Options: fate, Value: fate[0],
+			Needs: FieldCondition{Key: "action", Value: "delete"}})
+	}
 	return Form{
 		Kind: formProjectRemove, Title: "remove project " + p.Key,
 		Note:   projectRemoveNote(p),
-		Fields: []FormField{{Key: "action", Label: "action", Options: actions, Value: actions[0]}},
+		Fields: fields,
 	}
 }
 
-// ProjectDeleteNote says how far a project deletion reaches, which the key
-// cannot: archiving and deleting differ only in that, so the confirmation has to
-// state it out loud.
-const ProjectDeleteNote = "with every task, comment and attachment in it"
+// The answers the removal form offers for a deleted project's tasks.
+const (
+	TasksDeleted = "delete them"
+	TasksMoveTo  = "move to "
+)
+
+// DeletionInput reads the removal form's answer about the tasks.
+func DeletionInput(answer string) core.DeleteProjectInput {
+	if key, ok := strings.CutPrefix(answer, TasksMoveTo); ok {
+		return core.DeleteProjectInput{MoveTasksTo: key}
+	}
+	return core.DeleteProjectInput{DeleteTasks: true}
+}
+
+// DeletionNote states what a planned project deletion does with the tasks,
+// which is the part of its reach the key cannot show.
+func DeletionNote(plan core.ProjectDeletion) string {
+	n := plan.Total()
+	switch {
+	case n == 0:
+		return "which holds no tasks"
+	case plan.MoveTo != "":
+		var moves []string
+		for _, s := range plan.Statuses {
+			moves = append(moves, fmt.Sprintf("%s to %s (%d)", s.From, s.To, s.Tasks))
+		}
+		return fmt.Sprintf("moving its %s to %s: %s", taskCount(n), plan.MoveTo, strings.Join(moves, ", "))
+	default:
+		return fmt.Sprintf("with its %s, permanently", taskCount(n))
+	}
+}
+
+func taskCount(n int) string {
+	if n == 1 {
+		return "1 task"
+	}
+	return fmt.Sprintf("%d tasks", n)
+}
 
 // projectRemoveNote says what the reader cannot see from the key alone.
 func projectRemoveNote(p core.Project) string {

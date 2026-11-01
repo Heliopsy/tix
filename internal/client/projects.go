@@ -67,9 +67,25 @@ func (c *Client) ArchiveProject(ctx context.Context, ref string) error {
 	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteProject, "ref", ref), q, nil)
 }
 
-// DeleteProject removes a project.
-func (c *Client) DeleteProject(ctx context.Context, ref string) error {
-	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteProject, "ref", ref), nil, nil)
+// DeleteProject removes a project, moving or deleting its tasks.
+func (c *Client) DeleteProject(ctx context.Context, ref string, in core.DeleteProjectInput) (*core.ProjectDeletion, error) {
+	return call[core.ProjectDeletion](ctx, c, http.MethodDelete, routePath(wire.RouteProject, "ref", ref),
+		deletionQuery(in), nil)
+}
+
+// PlanProjectDeletion reports what deleting a project would do.
+func (c *Client) PlanProjectDeletion(ctx context.Context, ref string, in core.DeleteProjectInput) (*core.ProjectDeletion, error) {
+	return call[core.ProjectDeletion](ctx, c, http.MethodGet, routePath(wire.RouteProjectDeletion, "ref", ref),
+		deletionQuery(in), nil)
+}
+
+func deletionQuery(in core.DeleteProjectInput) url.Values {
+	q := url.Values{}
+	if in.MoveTasksTo != "" {
+		q.Set("move_tasks_to", in.MoveTasksTo)
+	}
+	setBool(q, "delete_tasks", in.DeleteTasks)
+	return q
 }
 
 // PutFieldDef defines or redefines a custom field.

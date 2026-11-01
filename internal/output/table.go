@@ -138,6 +138,8 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, groupPrefHeader, []core.GroupPref{v}, groupPrefRow)
 	case *core.GroupPref:
 		return renderRows(w, p, groupPrefHeader, []core.GroupPref{*v}, groupPrefRow)
+	case core.ProjectDeletion:
+		return renderProjectDeletion(w, p, &v)
 	case *core.SyncResult:
 		return renderSyncResult(w, p, v)
 	case core.SyncResult:
@@ -658,4 +660,52 @@ func concreteSlice(rv reflect.Value) reflect.Value {
 		typed = reflect.Append(typed, e)
 	}
 	return typed
+}
+
+// projectDeletionHeader heads the status mapping a project deletion applies.
+var projectDeletionHeader = table.Row{"STATUS", "TASKS"}
+
+// renderProjectDeletion says what deleting a project did, or would do, to its
+// tasks, and for a move lists the status mapping one source status per row as
+// "from -> to", which the reflected fallback printed as a slice of structs.
+func renderProjectDeletion(w io.Writer, p Painter, d *core.ProjectDeletion) error {
+	if _, err := fmt.Fprintln(w, projectDeletionLead(d)); err != nil {
+		return err
+	}
+	if len(d.Statuses) == 0 {
+		return nil
+	}
+	return renderRows(w, p, projectDeletionHeader, d.Statuses, func(s core.StatusMove) table.Row {
+		return table.Row{s.From + " -> " + s.To, s.Tasks}
+	})
+}
+
+// projectDeletionLead is the sentence above a project deletion's mapping.
+func projectDeletionLead(d *core.ProjectDeletion) string {
+	n := countOf(d.Total(), "task", "tasks")
+	switch {
+	case d.DryRun && d.Total() == 0:
+		return fmt.Sprintf("Dry run, planned only: %s holds no tasks and would be deleted; nothing was written.", d.Project)
+	case d.DryRun && d.MoveTo != "":
+		return fmt.Sprintf("Dry run, planned only: deleting %s would move its %s to %s; nothing was written.", d.Project, n, d.MoveTo)
+	case d.DryRun && d.DeleteTasks:
+		return fmt.Sprintf("Dry run, planned only: deleting %s would delete its %s permanently; nothing was written.", d.Project, n)
+	case d.DryRun:
+		return fmt.Sprintf("Dry run, planned only: %s holds %s; pass --move-tasks-to KEY or --delete-tasks; nothing was written.",
+			d.Project, n)
+	case d.Total() == 0:
+		return fmt.Sprintf("Deleted project %s, which held no tasks.", d.Project)
+	case d.MoveTo != "":
+		return fmt.Sprintf("Deleted project %s and moved its %s to %s.", d.Project, n, d.MoveTo)
+	default:
+		return fmt.Sprintf("Deleted project %s with its %s, permanently.", d.Project, n)
+	}
+}
+
+// countOf spells a count with the noun that agrees with it.
+func countOf(n int, one, many string) string {
+	if n == 1 {
+		return "1 " + one
+	}
+	return fmt.Sprintf("%d %s", n, many)
 }

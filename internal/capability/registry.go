@@ -70,6 +70,7 @@ const (
 	tplConns     = "connections.html"
 	tplStatus    = "status.html"
 	tplSettings  = "settings.html"
+	tplProjDel   = "projectdelete.html"
 )
 
 // registry declares every operation the product offers. Every exported method
@@ -267,6 +268,16 @@ var registry = []Operation{
 		CLI:   "tix project rm",
 		HTTP:  apiDelete(wire.RouteProject),
 		Web:   webPost(web.RouteProjectDel),
+		TUI:   "project",
+	},
+	{
+		// The plan behind every deletion confirmation: the task count and,
+		// for a move, the status mapping the target's workflow implies.
+		Name: "project.delete-plan", Method: "PlanProjectDeletion",
+		Scope: core.ScopeProjectRead,
+		CLI:   "tix project rm",
+		HTTP:  apiGet(wire.RouteProjectDeletion),
+		Web:   webGet(web.RouteProjectDel, tplProjDel),
 		TUI:   "project",
 	},
 	{

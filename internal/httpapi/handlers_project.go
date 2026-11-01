@@ -18,6 +18,7 @@ func (rt *Router) registerProjectRoutes() {
 	rt.mux.HandleFunc("PATCH "+wire.RouteProject, rt.handleUpdateProject)
 	rt.mux.HandleFunc("DELETE "+wire.RouteProject, rt.handleDeleteProject)
 	rt.mux.HandleFunc("GET "+wire.RouteProjectIcon, rt.handleGetProjectIcon)
+	rt.mux.HandleFunc("GET "+wire.RouteProjectDeletion, rt.handlePlanProjectDeletion)
 
 	rt.mux.HandleFunc("GET "+wire.RouteProjectFields, rt.handleListFieldDefs)
 	rt.mux.HandleFunc("PUT "+wire.RouteProjectFields, rt.handlePutFieldDef)
@@ -112,20 +113,42 @@ func (rt *Router) handleUpdateProject(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, http.StatusOK, project)
 }
 
-// handleDeleteProject deletes a project, or archives it when asked to.
+// handleDeleteProject deletes a project, or archives it when asked to. A
+// deletion answers with what happened to the project's tasks.
 func (rt *Router) handleDeleteProject(w http.ResponseWriter, r *http.Request) {
 	ref := r.PathValue("ref")
-	var err error
 	if boolParam(r, "archive") {
-		err = rt.cfg.Service.ArchiveProject(r.Context(), ref)
-	} else {
-		err = rt.cfg.Service.DeleteProject(r.Context(), ref)
+		if err := rt.cfg.Service.ArchiveProject(r.Context(), ref); err != nil {
+			WriteError(w, err)
+			return
+		}
+		writeNoContent(w)
+		return
 	}
+	done, err := rt.cfg.Service.DeleteProject(r.Context(), ref, deletionInput(r))
 	if err != nil {
 		WriteError(w, err)
 		return
 	}
-	writeNoContent(w)
+	WriteJSON(w, http.StatusOK, done)
+}
+
+// handlePlanProjectDeletion reports what deleting a project would do.
+func (rt *Router) handlePlanProjectDeletion(w http.ResponseWriter, r *http.Request) {
+	plan, err := rt.cfg.Service.PlanProjectDeletion(r.Context(), r.PathValue("ref"), deletionInput(r))
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, plan)
+}
+
+// deletionInput reads the task choice off a deletion's query string.
+func deletionInput(r *http.Request) core.DeleteProjectInput {
+	return core.DeleteProjectInput{
+		MoveTasksTo: r.URL.Query().Get("move_tasks_to"),
+		DeleteTasks: boolParam(r, "delete_tasks"),
+	}
 }
 
 // handleListFieldDefs returns a project's custom field definitions.

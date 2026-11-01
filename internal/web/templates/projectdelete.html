@@ -1,0 +1,69 @@
+{{define "content"}}
+{{$p := .Data.Project}}
+<div class="headtip"><h1>{{t "Delete project %s" $p.Name}}</h1>{{template "tip" (tip "Deleting a project" "Deleting a project is permanent. Its tasks either move to another project, keeping their comments, attachments, tags, dependencies, stars and history under a new number, or are deleted with it for good. Archive the project instead to hide it and keep everything." "docs/web-ui.md")}}</div>
+<p class="meta"><a href="/projects/{{$p.Key}}">{{t "Back to the %s board" $p.Name}}</a></p>
+
+{{if eq .Data.Plan.Total 0}}
+<form method="post" class="panel danger" hx-boost="false" action="/projects/{{$p.Key}}/delete">
+  <div class="body">
+    {{template "csrf" .CSRF}}
+    {{with .Data.Errors.On ""}}{{template "field-error" .}}{{end}}
+    <p>{{t "%s holds no tasks. Deleting it is permanent and cannot be undone." $p.Key}}</p>
+    <div class="actions"><button class="danger" type="submit" name="intent" value="delete">{{t "Delete project"}}</button></div>
+  </div>
+</form>
+{{else}}
+<form method="post" class="panel danger" hx-boost="false" data-apply action="/projects/{{$p.Key}}/delete">
+  <div class="body">
+    {{template "csrf" .CSRF}}
+    {{/* Enter in a field submits the first submit button in the form, which
+         would otherwise be the mapping preview below. Only a submission naming
+         intent=delete deletes anything; see deleteProject. */}}
+    <button type="submit" class="sr-only" tabindex="-1" aria-hidden="true" name="intent" value="delete">{{t "Delete project"}}</button>
+    {{with .Data.Errors.On ""}}{{template "field-error" .}}{{end}}
+    <p>{{tn "%[2]s holds %[1]d task." "%[2]s holds %[1]d tasks." .Data.Plan.Total $p.Key}}{{if .Data.Plan.Deleted}} {{tn "%d of them is already deleted and can still be restored." "%d of them are already deleted and can still be restored." .Data.Plan.Deleted}}{{end}}</p>
+    <p>{{t "Deleting the project is permanent and cannot be undone. Choose what happens to its tasks."}}</p>
+    <fieldset{{with .Data.Errors.On "choice"}} aria-invalid="true" aria-describedby="{{.ID}}"{{end}}>
+      <legend>{{t "What happens to the tasks"}}</legend>
+      {{with .Data.Errors.On "choice"}}{{template "field-error" .}}{{end}}
+
+      <label><input type="radio" name="choice" value="move"{{if eq .Data.Choice "move"}} checked{{end}}{{if not .Data.Targets}} disabled{{end}}> {{t "Move them to another project"}}</label>
+      {{if .Data.Targets}}
+      <div class="row">
+        <div>
+          <label for="move_to">{{t "Target project"}}</label>
+          <select id="move_to" name="move_to"{{with .Data.Errors.On "move_to"}} aria-invalid="true" aria-describedby="{{.ID}}"{{end}}>
+            {{range .Data.Targets}}<option value="{{.Key}}"{{if eq .Key $.Data.MoveTo}} selected{{end}}>{{.Key}} &middot; {{.Name}}</option>{{end}}
+          </select>
+          {{with .Data.Errors.On "move_to"}}{{template "field-error" .}}{{end}}
+        </div>
+        <div class="actions"><button class="secondary apply" type="submit" name="intent" value="preview" formnovalidate>{{t "Show the mapping"}}</button></div>
+      </div>
+      {{with .Data.Mapping}}
+      <table class="mapping">
+        <caption>{{t "Statuses in %s" .MoveTo}}</caption>
+        <thead><tr><th>{{t "Status now"}}</th><th>{{t "Status after the move"}}</th><th>{{t "Tasks"}}</th></tr></thead>
+        <tbody>
+        {{range .Statuses}}<tr><td>{{.From}}</td><td>{{.To}}{{if ne .From .To}} <span class="muted">({{t "changed"}})</span>{{end}}</td><td>{{.Tasks}}</td></tr>{{end}}
+        </tbody>
+      </table>
+      <p class="muted">{{t "Each task gets the next number in the target project. Comments, attachments, tags, dependencies, stars and history move with it."}}</p>
+      {{end}}
+      {{else}}
+      <p class="muted">{{t "There is no other active project to move them to."}}</p>
+      {{end}}
+
+      <label><input type="radio" name="choice" value="delete"{{if eq .Data.Choice "delete"}} checked{{end}}> {{t "Delete them with the project, permanently"}}</label>
+      <div>
+        <label for="confirm">{{t "Type %s to confirm deleting the tasks" $p.Key}}</label>
+        <input id="confirm" name="confirm" autocomplete="off" spellcheck="false"{{with .Data.Errors.On "confirm"}} aria-invalid="true" aria-describedby="{{.ID}}"{{end}}>
+        {{with .Data.Errors.On "confirm"}}{{template "field-error" .}}{{end}}
+      </div>
+    </fieldset>
+    <div class="actions">
+      <button class="danger" type="submit" name="intent" value="delete">{{t "Delete project"}}</button>
+    </div>
+  </div>
+</form>
+{{end}}
+{{end}}

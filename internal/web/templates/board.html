@@ -77,8 +77,7 @@
       {{template "csrf" .CSRF}}
       <div class="actions"><button class="secondary" type="submit">{{t "Archive project"}}</button></div>
     </form>
-    <form method="post" action="/projects/{{.Data.Project.Key}}/delete">
-      {{template "csrf" .CSRF}}
+    <form method="get" hx-boost="false" action="/projects/{{.Data.Project.Key}}/delete">
       <div class="actions"><button class="danger" type="submit">{{t "Delete project"}}</button></div>
     </form>
   </div>

@@ -21,6 +21,8 @@ func (h *handler) projectRoutes() []route {
 		post(RouteProjectEdit, h.updateProject, "UpdateProject"),
 		getFile(RouteProjectIcon, h.showProjectIcon, "GetProjectIcon"),
 		post(RouteProjectArch, h.archiveProject, "ArchiveProject"),
+		get(RouteProjectDel, "projectdelete.html", h.showProjectDelete,
+			"GetProject", "ListProjects", "PlanProjectDeletion"),
 		post(RouteProjectDel, h.deleteProject, "DeleteProject"),
 		post(RouteBoardMove, h.moveCard, "TransitionRoute"),
 		get(RouteFields, "fields.html", h.showFields, "ListFieldDefs"),
@@ -224,15 +226,6 @@ func (h *handler) archiveProject(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	redirect(w, r, RouteProjects, "project archived")
-	return nil
-}
-
-// deleteProject deletes a project.
-func (h *handler) deleteProject(w http.ResponseWriter, r *http.Request) error {
-	if err := h.svc.DeleteProject(r.Context(), r.PathValue("key")); err != nil {
-		return err
-	}
-	redirect(w, r, RouteProjects, "project deleted")
 	return nil
 }
 

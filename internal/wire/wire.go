@@ -52,7 +52,9 @@ const (
 	RouteProject       = APIPrefix + "/projects/{ref}"
 	RouteProjectIcon   = APIPrefix + "/projects/{ref}/icon"
 	RouteProjectFields = APIPrefix + "/projects/{ref}/fields"
-	RouteProjectField  = APIPrefix + "/projects/{ref}/fields/{key}"
+	// RouteProjectDeletion plans a project's deletion without performing it.
+	RouteProjectDeletion = APIPrefix + "/projects/{ref}/deletion"
+	RouteProjectField    = APIPrefix + "/projects/{ref}/fields/{key}"
 
 	RouteWorkflows = APIPrefix + "/workflows"
 	RouteWorkflow  = APIPrefix + "/workflows/{key}"

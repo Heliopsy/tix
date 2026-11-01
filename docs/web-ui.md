@@ -548,6 +548,23 @@ palette name is, and is drawn wherever a palette colour is, in a shade per colou
 on that scheme's page and surface, the same floor the palette is tuned to. A colour that already clears it
 is drawn exactly as chosen.
 
+## Deleting a project
+
+Delete project in a board's danger zone opens a confirmation screen at `/projects/{key}/delete`; nothing
+is deleted by the button itself. A project with no tasks gets one button. A project with tasks, soft
+deleted ones counted, offers two choices:
+
+- **Move them to another project.** A select lists the other live projects, and the screen shows the
+  status mapping that target implies: the same state when its workflow has it, otherwise its first state
+  of the same category, otherwise its initial state. Choosing another target redraws the mapping (with
+  scripting off, through the Show the mapping button). Each task gets the target's next number and keeps
+  its comments, attachments, tags, dependencies, stars and history. The reader lands on the target's board.
+- **Delete them with the project, permanently.** The project key has to be typed. Nothing is restorable
+  afterwards: project deletion is permanent, and Archive is the reversible way to put a project away.
+
+The command line spells the same choice `tix project rm KEY --move-tasks-to OTHER` or `--delete-tasks`, and
+the API `DELETE /api/v1/projects/{ref}?move_tasks_to=OTHER` or `?delete_tasks=true`.
+
 ## Display preferences
 
 Every display preference under Settings is a property of the person reading, not of the tenant, so

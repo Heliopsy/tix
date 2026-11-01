@@ -15,6 +15,8 @@ type fakeService struct {
 	mu sync.Mutex
 
 	projects  []core.Project
+	deletions []core.DeleteProjectInput
+	plans     []core.DeleteProjectInput
 	workflows []core.Workflow
 	tasks     []core.Task
 	events    chan core.Event
@@ -335,11 +337,22 @@ func (f *fakeService) ArchiveProject(_ context.Context, ref string) error {
 	f.archived = append(f.archived, ref)
 	return nil
 }
-func (f *fakeService) DeleteProject(_ context.Context, ref string) error {
+func (f *fakeService) DeleteProject(_ context.Context, ref string, in core.DeleteProjectInput) (*core.ProjectDeletion, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.projectsGone = append(f.projectsGone, ref)
-	return nil
+	f.deletions = append(f.deletions, in)
+	return &core.ProjectDeletion{Project: ref, MoveTo: in.MoveTasksTo, DeleteTasks: in.DeleteTasks}, nil
+}
+func (f *fakeService) PlanProjectDeletion(_ context.Context, ref string, in core.DeleteProjectInput) (*core.ProjectDeletion, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.plans = append(f.plans, in)
+	plan := &core.ProjectDeletion{Project: ref, Tasks: 3, MoveTo: in.MoveTasksTo, DeleteTasks: in.DeleteTasks}
+	if in.MoveTasksTo != "" {
+		plan.Statuses = []core.StatusMove{{From: "todo", To: "todo", Tasks: 2}, {From: "review", To: "doing", Tasks: 1}}
+	}
+	return plan, nil
 }
 func (f *fakeService) PutFieldDef(_ context.Context, _ string, in core.FieldDefInput) (*core.FieldDef, error) {
 	f.mu.Lock()
