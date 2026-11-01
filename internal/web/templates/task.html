@@ -12,7 +12,7 @@
      any of them swaps the page's content and leaves the sidebar, the scroll
      position and the focused field where they were. See assets/feel.js. In
      the dialog the dialog's own body is what its forms swap already. */}}
-<div class="titlebar"{{if not .InDialog}} data-inplace="main.wrap"{{end}}>
+<div class="titlebar"{{if not .InDialog}} data-inplace="main.wrap"{{end}} data-recent-task="{{$t.Ref}}" data-recent-title="{{$t.Title}}">
   {{if .CanStar}}{{template "star" (star $t.Ref $t.Starred .Here .CSRF)}}{{end}}
   <span class="ref">{{$t.Ref}}</span>
   <h1{{if .InDialog}} id="taskdlg-title"{{end}}>{{$t.Title}}</h1>

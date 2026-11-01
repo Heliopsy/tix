@@ -24,6 +24,14 @@ const (
 	// view's groups. Like a star it changes nothing anybody else sees, so it
 	// needs only task:read; a view spans projects, so it is not confinable.
 	ActionViewArrange Action = "view.arrange"
+	// ActionFilterSave reads, saves and changes the caller's own saved
+	// filters, and reads the ones shared with the tenant. A filter selects
+	// nothing by itself, so reading tasks is authority enough; a filter spans
+	// projects, so it is not confinable.
+	ActionFilterSave Action = "filter.save"
+	// ActionFilterManage changes or removes a shared filter somebody else
+	// owns, which is administering what the whole tenant sees.
+	ActionFilterManage Action = "filter.manage"
 
 	ActionProjectRead  Action = "project.read"
 	ActionProjectWrite Action = "project.write"
@@ -66,6 +74,8 @@ var actionScopes = map[Action]core.Scope{
 	ActionTaskReclaim:    core.ScopeTaskReclaim,
 	ActionTaskStar:       core.ScopeTaskRead,
 	ActionViewArrange:    core.ScopeTaskRead,
+	ActionFilterSave:     core.ScopeTaskRead,
+	ActionFilterManage:   core.ScopeTenantAdmin,
 
 	ActionProjectRead:  core.ScopeProjectRead,
 	ActionProjectWrite: core.ScopeProjectWrite,
@@ -141,6 +151,7 @@ func (a Action) ProjectConfinable() bool { return projectConfinable[a] }
 var allActions = []Action{
 	ActionTaskRead, ActionTaskCreate, ActionTaskUpdate, ActionTaskTransition,
 	ActionTaskClaim, ActionTaskDelete, ActionTaskReclaim, ActionTaskStar, ActionViewArrange,
+	ActionFilterSave, ActionFilterManage,
 	ActionProjectRead, ActionProjectWrite,
 	ActionWorkflowRead, ActionWorkflowWrite,
 	ActionFieldWrite, ActionCommentWrite, ActionArtifactWrite,

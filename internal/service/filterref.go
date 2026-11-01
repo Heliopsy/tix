@@ -79,6 +79,28 @@ func resolveTaskFilter(ctx context.Context, tx store.Tx, f *core.TaskFilter) err
 	return r.resolveParent(ctx, f)
 }
 
+// bindMe replaces every "me" in an actor-shaped term with the caller, so
+// assignee:me reads as the reader on every surface. It is the caller's word
+// for themselves, so it wins over an actor whose handle happens to be "me".
+func bindMe(f *core.TaskFilter, actorID string) {
+	for _, list := range []*[]string{
+		&f.AssigneeIDs, &f.Exclude.AssigneeIDs,
+		&f.CreatorIDs, &f.Exclude.CreatorIDs,
+		&f.ClaimedBy, &f.Exclude.ClaimedBy,
+	} {
+		var bound []string
+		for _, ref := range *list {
+			if strings.EqualFold(strings.TrimSpace(ref), core.MeRef) {
+				ref = actorID
+			}
+			bound = append(bound, ref)
+		}
+		if bound != nil {
+			*list = bound
+		}
+	}
+}
+
 // resolveActors resolves every actor-shaped term. Assignee, creator and
 // claimant all name a row in the same directory and all reached storage as
 // raw identifiers, so a handle in any of the three selected nothing.

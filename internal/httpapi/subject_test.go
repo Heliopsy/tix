@@ -24,6 +24,7 @@ var workSubjects = []string{
 	"comment",
 	"field",
 	"field_def",
+	"filter",
 	"noop",
 	"project",
 	"tag",

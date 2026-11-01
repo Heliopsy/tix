@@ -43,6 +43,11 @@ type fakeService struct {
 	copies   []copyCall
 
 	groupPrefs map[string][]core.GroupPref
+	// savedFilters are the reader's saved filters, and savedInputs what
+	// CreateSavedFilter was asked to keep.
+	savedFilters []core.SavedFilter
+	savedInputs  []core.SavedFilterInput
+	savedErr     error
 
 	// what the destructive and corrective calls recorded, and what the reads
 	// the forms offer from are scripted to answer with.

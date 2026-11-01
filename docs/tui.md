@@ -164,6 +164,8 @@ impossible for a scheme to leave an action unbound.
 | `esc`/`backspace` | back one level | everywhere |
 | `/` | filter | board, activity; cycles the window on statistics |
 | `C` | clear the filter | board, activity |
+| `s` | apply one of your saved filters, or one shared with the tenant | board |
+| `K` | keep the board's filter as a saved filter, under a name | board |
 | `c` | claim | board, detail |
 | `x` | release | board, detail |
 | `R` | renew the lease | board, detail |
@@ -487,6 +489,22 @@ so an expression that selects a set of tasks here selects the same set from a sh
 expression keeps the filter already in force and reports itself in the status bar, with the text still in
 the bar, rather than emptying the board. The expression in force is named in the title bar.
 
+`assignee:me`, `creator:me` and `claimed-by:me` name whoever is signed in, here as on every other surface,
+so `/ assignee:me due:week` is your week on this board.
+
+### Saved filters
+
+`s` lists your saved filters, your own first in the order you keep them, then the ones others shared with
+the tenant, each with the expression it applies. The arrows walk the list, `enter` puts the filter on the
+board with its sort, and `esc` closes the list and leaves the board's filter as it was. With none saved
+yet, the status bar says how to keep one instead of opening an empty list.
+
+`K` keeps the filter in force under a name you type, as one of your own, unshared. It is the same list
+the browser's sidebar shows under Tasks and `tix filter ls` prints, so a filter kept here is a link there.
+Renaming, sharing, ordering and removing one are done in the sidebar or with `tix filter`; the terminal
+applies and keeps them. Both keys are offered only to a reader who may read tasks, and `K` only while a
+filter is in force.
+
 `is:deleted` reveals the deleted cards the board otherwise leaves out, each marked `†`. It is the term the
 shared parser already had, so it is the terminal's equivalent of `tix task ls --include-deleted`, and `u`
 on one of those cards is what brings it back. `is:trashed` shows the deleted cards alone, the board's
@@ -667,7 +685,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 108
+a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 114
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:
@@ -715,6 +733,10 @@ than no entry.
 Bulk task actions are absent on purpose as well: the board acts on the card under the cursor, and each
 action a bulk request applies (move, priority, tags, assignee, star, copy, delete, restore) is bound
 there for that card. Selecting many rows at once belongs to the web task list and `tix task bulk`.
+
+Saved filters account for four more, by choice: renaming, sharing, ordering and removing one belong to
+the browser's sidebar and `tix filter`, reading one by name is `tix filter show`, and the board applies
+them from the list with `s` and keeps a new one with `K`.
 
 What is bound is daily work, and that is asserted rather than hoped for: a test names the operations a
 board has to reach and fails if any of them loses its terminal binding.

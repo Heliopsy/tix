@@ -62,6 +62,7 @@ const (
 	actionRemoveDomain
 	actionAddMember
 	actionRemoveMember
+	actionSaveFilter
 )
 
 // actionLabels name each action in the present tense, for a refusal, and in
@@ -108,6 +109,8 @@ var actionLabels = map[actionKind][2]string{
 	actionRemoveDomain: {"remove the domain", "removed domain"},
 	actionAddMember:    {"add the member", "added member"},
 	actionRemoveMember: {"remove the member", "removed member"},
+
+	actionSaveFilter: {"save the filter", "saved filter"},
 }
 
 // Label renders an action for a message.

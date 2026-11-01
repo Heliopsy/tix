@@ -45,6 +45,8 @@ type KeyMap struct {
 	ColumnLeft    key.Binding
 	ColumnRight   key.Binding
 	ShowColumns   key.Binding
+	SavedFilters  key.Binding
+	SaveFilter    key.Binding
 	Copy          key.Binding
 	Artifact      key.Binding
 	ClaimNext     key.Binding
@@ -126,6 +128,10 @@ func DefaultKeyMap() KeyMap {
 		ColumnLeft:  key.NewBinding(key.WithKeys("<"), key.WithHelp("<", "move column left")),
 		ColumnRight: key.NewBinding(key.WithKeys(">"), key.WithHelp(">", "move column right")),
 		ShowColumns: key.NewBinding(key.WithKeys("="), key.WithHelp("=", "show hidden columns")),
+		// s, for saved, which nothing on the board was on; K keeps the filter
+		// the board is showing under a name.
+		SavedFilters: key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "saved filters")),
+		SaveFilter:   key.NewBinding(key.WithKeys("K"), key.WithHelp("K", "save the filter")),
 		// Y, vim's yank, which is the copy a reader of these schemes already
 		// knows. Lowercase y is Agree, the answer to a confirmation.
 		Copy: key.NewBinding(key.WithKeys("Y"), key.WithHelp("Y", "copy task")),
@@ -246,6 +252,9 @@ const (
 	doColumnLeft
 	doColumnRight
 	doShowColumns
+
+	doSavedFilters
+	doSaveFilter
 )
 
 // Action is one thing the interface can be asked to do: what performs it, what
@@ -277,6 +286,8 @@ type Action struct {
 	needsLeft   bool
 	needsRight  bool
 	needsHidden bool
+	// needsFilter is a filter on the board to keep.
+	needsFilter bool
 	// hidden keeps an action out of the palette while leaving it in the help
 	// overlay. Only the palette's own key is hidden: an entry for the door the
 	// reader is already standing in is a row that teaches nothing.
@@ -293,7 +304,7 @@ func (a Action) Keys() string { return a.binding.Help().Key }
 // be offered the view it enters. It is what separates the navigation keys from
 // the ones that act on something, since both live in the same list.
 func (a Action) opensView() bool {
-	return !a.always && !a.hidden && !a.needsTask && !a.needsProject && !a.needsColumn && !a.needsHidden &&
+	return !a.always && !a.hidden && !a.needsTask && !a.needsProject && !a.needsColumn && !a.needsHidden && !a.needsFilter &&
 		len(a.gate.methods) == 0 && len(a.gate.needs) == 0
 }
 
@@ -322,7 +333,29 @@ func (k KeyMap) globalKeys() []Action {
 // already prints, which is what keeps the palette reading the same way down the
 // page as the overlay a reader may have learnt it from.
 func (k KeyMap) Actions() []Action {
-	return append(append(k.globalKeys(), k.taskBindings()...), k.columnBindings()...)
+	return append(append(append(k.globalKeys(), k.taskBindings()...), k.columnBindings()...), k.filterBindings()...)
+}
+
+// filterBindings are the board's saved filter actions: pick one to apply,
+// and keep the filter in force under a name.
+func (k KeyMap) filterBindings() []Action {
+	return []Action{
+		{id: doSavedFilters, binding: k.SavedFilters, needsProject: true,
+			gate: gatedAction{binding: k.SavedFilters, methods: []string{"ListSavedFilters"}}},
+		{id: doSaveFilter, binding: k.SaveFilter, needsProject: true, needsFilter: true,
+			gate: gatedAction{binding: k.SaveFilter, methods: []string{"CreateSavedFilter"}}},
+	}
+}
+
+// filterHelp lists the saved filter actions this reader's authority reaches.
+func (k KeyMap) filterHelp(may func(string) bool) []HelpEntry {
+	out := make([]HelpEntry, 0, 2)
+	for _, a := range k.filterBindings() {
+		if a.gate.permitted(may) {
+			out = append(out, entry(a.binding))
+		}
+	}
+	return out
 }
 
 // columnBindings are the actions on the board's selected column, each against
@@ -507,7 +540,7 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 		return append([]HelpEntry{
 			entry(k.Left), entry(k.Right), entry(k.Up), entry(k.Down), entry(k.Enter),
 			entry(k.Filter), entry(k.ClearFltr),
-		}, append(append(k.taskActions(may), k.columnHelp(may)...), entry(k.Back))...)
+		}, append(append(append(k.filterHelp(may), k.taskActions(may)...), k.columnHelp(may)...), entry(k.Back))...)
 	case viewDetail:
 		return append(append([]HelpEntry{entry(k.Up), entry(k.Down)}, k.commentHelp()...),
 			append(k.taskActions(may), entry(k.Back))...)
@@ -674,6 +707,9 @@ type ActionContext struct {
 	CanLeft   bool
 	CanRight  bool
 	HasHidden bool
+	// HasFilter reports a filter in force on the board, which is what saving
+	// one needs.
+	HasFilter bool
 	// May reports whether this reader holds the authority one operation needs,
 	// asked of the capability registry. Nil offers none of the gated actions.
 	May func(string) bool

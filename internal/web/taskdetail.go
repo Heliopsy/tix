@@ -19,7 +19,7 @@ import (
 // taskRoutes are the task list, detail and attachment screens.
 func (h *handler) taskRoutes() []route {
 	return []route{
-		get(RouteTasks, "tasks.html", h.showTasks, "ListTasks", "ListProjects", "ListTags", "ListGroupPrefs"),
+		get(RouteTasks, "tasks.html", h.showTasks, "ListTasks", "ListProjects", "ListTags", "ListGroupPrefs", "ListSavedFilters"),
 		post(RouteTasks, h.createTask, "CreateTask"),
 		post(RouteTasksBulk, h.bulkTasks, "BulkTasks"),
 		getFile(RouteTasksCSV, h.exportTasksCSV, "ListTasks", "ListProjects"),

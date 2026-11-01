@@ -48,7 +48,7 @@ func names(entries []PaletteEntry) []string {
 // permission or by context.
 func fullPalette() PaletteContext {
 	return PaletteContext{
-		ActionContext: ActionContext{May: permitAll, HasTask: true, HasProject: true},
+		ActionContext: ActionContext{May: permitAll, HasTask: true, HasProject: true, HasFilter: true},
 		Offered:       allViews,
 	}
 }
@@ -160,7 +160,7 @@ func TestThePaletteAndTheHelpOverlayOfferTheSameActions(t *testing.T) {
 	offered := names(k.PaletteActions(ctx))
 
 	documented := make([]string, 0, 32)
-	for _, e := range append(k.GlobalHelp(allViews), k.taskActions(permitAll)...) {
+	for _, e := range append(append(k.GlobalHelp(allViews), k.taskActions(permitAll)...), k.filterHelp(permitAll)...) {
 		documented = append(documented, e.Desc)
 	}
 

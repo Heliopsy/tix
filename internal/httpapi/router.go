@@ -170,6 +170,7 @@ func (rt *Router) register() {
 	rt.registerBundleRoutes()
 	rt.registerConnectionRoutes()
 	rt.registerViewRoutes()
+	rt.registerFilterRoutes()
 
 	if rt.cfg.EventHandler != nil {
 		rt.mux.Handle(wire.RouteEvents, rt.cfg.EventHandler)

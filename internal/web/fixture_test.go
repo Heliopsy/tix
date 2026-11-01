@@ -321,6 +321,11 @@ func (f *fixture) actorFor(name string) *core.Actor {
 		// the screens themselves created. A user account and its actor share
 		// an identifier, so this is what "the reader is one of the rows" looks
 		// like on the user administration screen.
+		if id, ok := strings.CutPrefix(name, "member:"); ok {
+			as := f.actorA
+			as.ID = id
+			return copyActor(as, core.RoleMember.Scopes(), core.RoleMember)
+		}
 		if id, ok := strings.CutPrefix(name, "actor:"); ok {
 			as := f.actorA
 			as.ID = id

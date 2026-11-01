@@ -175,7 +175,9 @@ type view struct {
 	ColumnPage  string
 	Here        string
 	Upgrade     upgrade
-	Data        any
+	// Saved is the sidebar's list of the reader's saved filters.
+	Saved savedNav
+	Data  any
 }
 
 // ColumnForm is this screen's own column picker, built by the same
@@ -883,6 +885,9 @@ func (h *handler) renderStatus(w http.ResponseWriter, r *http.Request, status in
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", screenCacheControl)
+	if !dialogRequest(r) {
+		v.Saved = h.buildSavedNav(r)
+	}
 	w.Header().Add("Vary", DialogHeader)
 	if (name == "task.html" || name == "taskcopy.html") && dialogRequest(r) {
 		v.InDialog, v.IDPrefix = true, "dlg-"

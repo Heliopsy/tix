@@ -184,6 +184,7 @@ func (l *Local) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 		f.ProjectIDs = []string{actor.ProjectID}
 	}
 	f.StarredBy = actor.ID
+	bindMe(&f, actor.ID)
 
 	limit := f.Page.Limit
 	probe := f

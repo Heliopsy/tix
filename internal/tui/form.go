@@ -33,6 +33,7 @@ const (
 	formMember
 	formTaskEdit
 	formCopy
+	formSavedFilter
 )
 
 // FieldKind says what a form field gathers. A field drawn from a fixed set is

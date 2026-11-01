@@ -141,6 +141,7 @@ var tableIntroducedIn = map[string]int{
 	"project_icons":       16,
 	"group_prefs":         18,
 	"project_key_aliases": 19,
+	"saved_filters":       21,
 }
 
 func introducedIn(table string) int {

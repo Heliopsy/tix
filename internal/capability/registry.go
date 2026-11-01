@@ -533,6 +533,62 @@ var registry = []Operation{
 		TUI:   "board",
 	},
 	{
+		Name: "filter.list", Method: "ListSavedFilters",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix filter ls",
+		HTTP:  apiGet(wire.RouteFilters),
+		Web:   webGet(web.RouteTasks, tplTasks),
+		TUI:   "board",
+	},
+	{
+		Name: "filter.show", Method: "GetSavedFilter",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix filter show",
+		HTTP:  apiGet(wire.RouteFilter),
+		Web:   webGet(web.RouteFilterOpen, tplTasks),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "the picker applies a filter from the list it already read; one filter by name is tix filter show"),
+		},
+	},
+	{
+		Name: "filter.save", Method: "CreateSavedFilter",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix filter save",
+		HTTP:  apiPost(wire.RouteFilters),
+		Web:   webPost(web.RouteFilters),
+		TUI:   "board",
+	},
+	{
+		Name: "filter.update", Method: "UpdateSavedFilter",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix filter set",
+		HTTP:  apiPatch(wire.RouteFilter),
+		Web:   webPost(web.RouteFilterEdit),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "the terminal applies and saves filters; renaming, sharing and editing one is done in the browser sidebar or with tix filter set"),
+		},
+	},
+	{
+		Name: "filter.order", Method: "OrderSavedFilters",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix filter order",
+		HTTP:  apiPut(wire.RouteFilterOrder),
+		Web:   webPost(web.RouteFilterMove),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "the terminal's picker lists filters in the order kept elsewhere; ordering them is done in the browser sidebar or with tix filter order"),
+		},
+	},
+	{
+		Name: "filter.delete", Method: "DeleteSavedFilter",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix filter rm",
+		HTTP:  apiDelete(wire.RouteFilter),
+		Web:   webPost(web.RouteFilterDelete),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "removing a saved filter is done in the browser sidebar or with tix filter rm; the terminal applies and saves them"),
+		},
+	},
+	{
 		Name: "tag.list", Method: "ListTags",
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix tag ls",

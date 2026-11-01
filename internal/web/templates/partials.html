@@ -33,6 +33,13 @@
        deleted half, and it is the only way the browser reaches a deleted
        task without already knowing its ref. */}}
   <a href="/tasks?q=is:trashed" data-rail-name="{{t "Trash"}}" {{if .InTrash}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#trash"/></svg><span>{{t "Trash"}}</span></a>
+  {{/* The reader's own entries under Tasks: My work, the saved filters and
+       the tasks opened lately. They are links like the rest of the
+       navigation, so the rail draws them as icons with their names kept for
+       a screen reader; the menus and the recent list are put away there. */}}
+  <a class="side-sub" href="/mine" data-rail-name="{{t "My work"}}" {{if eq .Path "/mine"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#mywork"/></svg><span>{{t "My work"}}</span></a>
+  {{template "saved-filters" .}}
+  {{template "recent-tasks" .}}
   <a href="/projects" data-rail-name="{{t "Projects"}}" {{if eq .Path "/projects"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#projects"/></svg><span>{{t "Projects"}}</span></a>
   <a href="/activity" data-rail-name="{{t "Activity"}}" {{if eq .Path "/activity"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#activity"/></svg><span>{{t "Activity"}}</span></a>
   <a href="/stats" data-rail-name="{{t "Statistics"}}" {{if eq .Path "/stats"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#stats"/></svg><span>{{t "Statistics"}}</span></a>
@@ -74,6 +81,79 @@
     {{if .Upgrade.Newer}}<a class="upgrade" href="/release">{{t "v%s is available" .Upgrade.Latest}}</a>{{end}}
   </p>
 </nav>
+{{end}}
+
+{{/* saved-filters is the sidebar's list of saved filters, redrawn in place
+     by its own forms (#side-saved). Each filter is a link that opens the task
+     screen on it; the three dots beside one the reader may change rename,
+     share, move and delete it. The forms are the heading menus' forms, so
+     assets/groups.js gives them the same focus return, arrow keys and a
+     refusal said inside the menu. */}}
+{{define "saved-filters"}}
+<div id="side-saved" class="side-saved">
+{{with .Saved}}{{if .Items}}
+<p class="group side-group">{{t "Saved filters"}}</p>
+<ul class="savedlist" aria-label="{{t "Saved filters"}}">
+{{range .Items}}{{$id := .DOMID}}
+  <li class="saveditem{{if .Current}} is-current{{end}}">
+    <a class="side-sub" href="{{.Href}}" data-rail-name="{{.Name}}" {{if .Current}}aria-current="page"{{end}} title="{{if .Query}}{{.Query}}{{else}}{{.Name}}{{end}}"><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#{{if .Shared}}filter-shared{{else}}filter{{end}}"/></svg><span>{{.Name}}{{if and .Shared (not .Mine)}} <span class="savedby">{{t "shared"}}</span>{{end}}</span></a>
+    {{if .Editable}}
+    <div class="groupmore savedmore">
+      <button type="button" class="groupmore-btn" popovertarget="{{$id}}-menu" data-group-btn="{{.ID}}"
+              aria-label="{{t "Actions for %s" .Name}}" title="{{t "Actions for %s" .Name}}">
+        <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#more"/></svg>
+      </button>
+      <div id="{{$id}}-menu" class="flowmenu groupmenu savedmenu" popover data-group-menu>
+        <p class="flowhead">{{.Name}}</p>
+        <form method="post" action="/filters/{{.ID}}/edit" hx-post="/filters/{{.ID}}/edit" hx-target="#side-saved" hx-select="#side-saved" hx-swap="outerHTML" hx-select-oob="#toast" data-group-control="{{.ID}}">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="next" value="{{$.Here}}">
+          <label class="flowhead groupmenu-sect" for="{{$id}}-name">{{t "Rename"}}</label>
+          <span class="lanemore-row groupmenu-row">
+            <input id="{{$id}}-name" name="name" value="{{.Name}}" required maxlength="80">
+            <button type="submit" class="secondary">{{t "Rename"}}</button>
+          </span>
+        </form>
+        {{if or .Mine .Shared}}
+        <form method="post" action="/filters/{{.ID}}/edit" hx-post="/filters/{{.ID}}/edit" hx-target="#side-saved" hx-select="#side-saved" hx-swap="outerHTML" hx-select-oob="#toast" data-group-control="{{.ID}}">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="next" value="{{$.Here}}">
+          <button type="submit" name="shared" value="{{if .Shared}}0{{else}}1{{end}}" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">{{if .Shared}}&#8856;{{else}}&#8853;{{end}}</span>{{if .Shared}}{{t "Stop sharing"}}{{else}}{{t "Share with everyone in the tenant"}}{{end}}</button>
+        </form>
+        {{end}}
+        {{if or .Up .Down}}
+        <form method="post" action="/filters/{{.ID}}/move" hx-post="/filters/{{.ID}}/move" hx-target="#side-saved" hx-select="#side-saved" hx-swap="outerHTML" data-group-control="{{.ID}}">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="next" value="{{$.Here}}">
+          {{if .Up}}<button type="submit" name="dir" value="up" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">&#8593;</span>{{t "Move up"}}</button>{{end}}
+          {{if .Down}}<button type="submit" name="dir" value="down" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">&#8595;</span>{{t "Move down"}}</button>{{end}}
+        </form>
+        {{end}}
+        <form method="post" action="/filters/{{.ID}}/delete" hx-post="/filters/{{.ID}}/delete" hx-target="#side-saved" hx-select="#side-saved" hx-swap="outerHTML" hx-select-oob="#toast" data-group-control="{{.ID}}" data-group-hides>
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="next" value="{{$.Here}}">
+          <button type="submit" class="flowgo savedmenu-delete"><span class="groupmenu-icon" aria-hidden="true">&#215;</span>{{t "Delete"}}</button>
+        </form>
+        <button type="button" class="flowclose" popovertarget="{{$id}}-menu" popovertargetaction="hide">{{t "Close"}}</button>
+      </div>
+    </div>
+    {{end}}
+  </li>
+{{end}}
+</ul>
+{{end}}{{end}}
+</div>
+{{end}}
+
+{{/* recent-tasks is the tasks this browser opened lately, kept in its own
+     storage by assets/recent.js and drawn there, so it is rendered hidden
+     and empty and stays so with scripting off. Collapsible; the choice is
+     kept beside the list. */}}
+{{define "recent-tasks"}}
+<details class="side-recent" data-recent data-recent-for="{{.RecentOwner}}" hidden>
+  <summary class="group side-group" data-rail-name="{{t "Recently viewed"}}"><svg class="nav-icon rail-only" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#recent"/></svg><span>{{t "Recently viewed"}}</span></summary>
+  <ul class="recentlist" data-recent-list></ul>
+</details>
 {{end}}
 
 {{/* The repeat marker a listing row and a board card share, given the rule.
@@ -607,8 +687,11 @@
       <input type="hidden" name="set" value="hidden">
       <button type="submit" name="value" value="1" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">&#8856;</span>{{t "Hide"}}</button>
     </form>
+    {{if ne $g.Kind "due"}}
     <p class="flowhead lanemore-sect groupmenu-sect">{{if eq $g.Kind "project"}}{{t "Project"}}{{else}}{{t "Status"}}{{end}}</p>
-    {{if eq $g.Kind "project"}}
+    {{end}}
+    {{if eq $g.Kind "due"}}
+    {{else if eq $g.Kind "project"}}
     <a class="flowgo" href="/projects/{{$g.Key}}"><span class="groupmenu-icon" aria-hidden="true">&#8599;&#xFE0E;</span>{{t "Open the project"}}</a>
     <a class="flowgo" href="/tasks?q=project:{{$g.Key}}"><span class="groupmenu-icon" aria-hidden="true">&#8981;</span>{{t "Show only this project"}}</a>
     {{else}}

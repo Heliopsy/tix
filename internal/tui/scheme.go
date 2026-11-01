@@ -224,6 +224,7 @@ func viewActions(v viewKind) []string {
 			"Assign", "Comment", "CommentEdit", "Tag", "Untag", "Tags", "Depend", "Undepend",
 			"Delete", "Restore", "Artifact", "ClaimNext", "Renew", "Reclaim", "Settings", "Back",
 			"HideColumn", "StarColumn", "FoldColumn", "ColumnLeft", "ColumnRight", "ShowColumns",
+			"SavedFilters", "SaveFilter",
 		}, global...)
 	case viewDetail:
 		return append([]string{

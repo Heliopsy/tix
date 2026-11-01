@@ -6214,3 +6214,119 @@ a.secondary.exportlink {
 a.secondary.exportlink:hover { filter: brightness(1.08); }
 .bulkpop:popover-open { display: flex; flex-direction: column; gap: 1px; min-width: 14rem; }
 .bulkpop .flowgo { justify-content: flex-start; }
+
+/* The frame rule for the task screen names the listing by id, which outranks
+   the .listgroup > .tasklist rule, so every group of a grouped list was drawn 220px tall
+   however few rows it held. A group takes its rows' height. */
+.wrap:has(#tasks-listing) .listgroup > ul.tasklist { flex: 0 0 auto; height: auto; max-height: none; min-height: 0; }
+
+/* ---------------------------------------------------------------------------
+   The reader's own entries under Tasks in the sidebar: My work, the saved
+   filters (templates/partials.html "saved-filters") and the recently viewed
+   tasks ("recent-tasks", assets/recent.js). They are indented under Tasks,
+   a step quieter than the screens above them, and a saved filter's three
+   dots show on hover and focus as a heading's do, always on a touch screen. */
+nav.main a.side-sub { padding-inline-start: calc(var(--space-3) + 12px); }
+nav .side-group { margin-top: var(--space-3); padding-inline-start: 12px; }
+.side-saved, .side-recent { display: block; }
+.savedlist, .recentlist { list-style: none; margin: 0; padding: 0; }
+.saveditem { position: relative; display: flex; align-items: center; min-width: 0; }
+.saveditem > a { flex: 1 1 auto; min-width: 0; }
+.saveditem > a > span { min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+.savedby { color: var(--muted); font-size: var(--text-2xs); font-weight: 400; }
+.savedmore { position: absolute; inset-inline-end: 2px; top: 50%; transform: translateY(-50%); }
+.saveditem:has(.savedmore) > a { padding-inline-end: 32px; }
+@media (hover: hover) and (pointer: fine) {
+  .savedmore .groupmore-btn { opacity: 0; }
+  .saveditem:hover .groupmore-btn,
+  .saveditem:focus-within .groupmore-btn,
+  .savedmore:has(:popover-open) .groupmore-btn { opacity: 1; }
+}
+.savedmenu .flowgo.savedmenu-delete { color: var(--danger); }
+
+.side-recent > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  list-style: none;
+}
+.side-recent > summary::-webkit-details-marker { display: none; }
+.side-recent > summary::after { content: "\25B8"; font-size: 0.9em; transition: transform 120ms ease; }
+.side-recent[open] > summary::after { transform: rotate(90deg); }
+.side-recent .rail-only { display: none; }
+.recentlist a.recentitem {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 4px var(--space-3) 4px calc(var(--space-3) + 12px);
+  min-width: 0;
+}
+.recentitem .ref { flex: 0 0 auto; font-size: var(--text-2xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+.recentitem .recenttitle { min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+
+/* Pressing "Include tasks I hold" on My work is a switch, drawn pressed when
+   it is on. */
+a.heldswitch {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+a.heldswitch::before { content: "\2610"; margin-inline-end: var(--space-2); }
+a.heldswitch[aria-checked="true"]::before { content: "\2611"; }
+.heldswitch[aria-checked="true"] { background: var(--accent-soft); color: var(--ink); border-color: var(--accent); }
+
+.savefilter { margin: 0 0 var(--space-3); }
+.savefilter > summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+}
+.savefilter > summary::-webkit-details-marker { display: none; }
+.savefilter-form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-2); }
+.savefilter-form input[name="name"] { flex: 1 1 14rem; min-width: 0; }
+.savefilter-share { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-sm); }
+
+@media (pointer: coarse) {
+  .recentlist a.recentitem { min-height: 40px; align-items: center; }
+  .side-recent > summary { min-height: 40px; }
+}
+
+/* On the rail every entry is an icon. A saved filter keeps its filter icon
+   and its name for a screen reader; its menu is put away, and the recent
+   list folds to its clock, which opens the sidebar when pressed. */
+@media (min-width: 900px) {
+  .side-collapsed nav.main a.side-sub { padding: var(--space-2); justify-content: center; }
+  .side-collapsed .savedmore,
+  .side-collapsed .recentlist,
+  .side-collapsed .side-recent > summary::after { display: none; }
+  .side-collapsed .saveditem:has(.savedmore) > a { padding-inline-end: var(--space-2); }
+  .side-collapsed .side-recent .rail-only { display: block; }
+  .side-collapsed .side-recent > summary { justify-content: center; height: auto; margin: var(--space-2) 0; padding: var(--space-2); overflow: visible; font-size: inherit; color: var(--muted); background: none; }
+  .side-collapsed .side-recent > summary > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+  }
+}

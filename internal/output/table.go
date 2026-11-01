@@ -140,6 +140,12 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, groupPrefHeader, []core.GroupPref{*v}, groupPrefRow)
 	case core.ProjectDeletion:
 		return renderProjectDeletion(w, p, &v)
+	case []core.SavedFilter:
+		return renderRows(w, p, savedFilterHeader, v, savedFilterRow)
+	case core.SavedFilter:
+		return renderRows(w, p, savedFilterHeader, []core.SavedFilter{v}, savedFilterRow)
+	case *core.SavedFilter:
+		return renderRows(w, p, savedFilterHeader, []core.SavedFilter{*v}, savedFilterRow)
 	case *core.SyncResult:
 		return renderSyncResult(w, p, v)
 	case core.SyncResult:
@@ -149,26 +155,27 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 }
 
 var (
-	taskHeader       = table.Row{"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "REPEAT", "UPDATED", "BLOCKED"}
-	projectHeader    = table.Row{"KEY", "NAME", "WORKFLOW", "COLOR", "ICON", "ARCHIVED", "CREATED", "UPDATED"}
-	workflowHeader   = table.Row{"KEY", "NAME", "INITIAL", "STATES", "TRANSITIONS", "BUILTIN", "UPDATED"}
-	commentHeader    = table.Row{"ID", "TASK", "AUTHOR", "BODY", "CREATED"}
-	tokenHeader      = table.Row{"ID", "NAME", "ACTOR", "SCOPES", "PROJECT", "CREATED", "EXPIRES", "LAST USED", "REVOKED"}
-	sshKeyHeader     = table.Row{"ID", "ACTOR", "LABEL", "FINGERPRINT", "CREATED", "LAST USED", "REVOKED"}
-	auditHeader      = table.Row{"SEQ", "ACTION", "SUBJECT", "ACTOR", "SOURCE", "OCCURRED"}
-	endpointHeader   = table.Row{"ID", "URL", "EVENTS", "ACTIVE", "CREATED"}
-	tenantHeader     = table.Row{"ID", "KEY", "NAME", "THEME", "CREATED", "DELETED"}
-	syncResultHeader = table.Row{"ENTITY", "CREATED", "UPDATED", "SKIPPED", "DELETED"}
-	themeHeader      = table.Row{"NAME", "ACCENT", "SOFT", "SOURCE"}
-	userHeader       = table.Row{"ID", "EMAIL", "NAME", "CREATED", "DISABLED"}
-	issuedHeader     = table.Row{"ID", "NAME", "SCOPES", "TOKEN", "EXPIRES"}
-	claimHeader      = table.Row{"REF", "TITLE", "STATUS", "LEASE EXPIRES", "TOKEN"}
-	fieldHeader      = table.Row{"KEY", "LABEL", "TYPE", "REQUIRED", "INDEXED", "OPTIONS"}
-	depHeader        = table.Row{"TASK", "DEPENDS ON", "CREATED"}
-	deliveryHeader   = table.Row{"ID", "ENDPOINT", "EVENT", "STATUS", "ATTEMPTS", "NEXT ATTEMPT", "CODE"}
-	tagHeader        = table.Row{"ID", "NAME", "PROJECT", "COLOR"}
-	groupPrefHeader  = table.Row{"VIEW", "GROUP", "HIDDEN", "COLLAPSED", "STARRED", "POSITION"}
-	syncHeader       = table.Row{"ID", "SYSTEM", "NAME", "CURSOR", "LAST RUN", "LAST STATUS"}
+	taskHeader        = table.Row{"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "REPEAT", "UPDATED", "BLOCKED"}
+	projectHeader     = table.Row{"KEY", "NAME", "WORKFLOW", "COLOR", "ICON", "ARCHIVED", "CREATED", "UPDATED"}
+	workflowHeader    = table.Row{"KEY", "NAME", "INITIAL", "STATES", "TRANSITIONS", "BUILTIN", "UPDATED"}
+	commentHeader     = table.Row{"ID", "TASK", "AUTHOR", "BODY", "CREATED"}
+	tokenHeader       = table.Row{"ID", "NAME", "ACTOR", "SCOPES", "PROJECT", "CREATED", "EXPIRES", "LAST USED", "REVOKED"}
+	sshKeyHeader      = table.Row{"ID", "ACTOR", "LABEL", "FINGERPRINT", "CREATED", "LAST USED", "REVOKED"}
+	auditHeader       = table.Row{"SEQ", "ACTION", "SUBJECT", "ACTOR", "SOURCE", "OCCURRED"}
+	endpointHeader    = table.Row{"ID", "URL", "EVENTS", "ACTIVE", "CREATED"}
+	tenantHeader      = table.Row{"ID", "KEY", "NAME", "THEME", "CREATED", "DELETED"}
+	syncResultHeader  = table.Row{"ENTITY", "CREATED", "UPDATED", "SKIPPED", "DELETED"}
+	themeHeader       = table.Row{"NAME", "ACCENT", "SOFT", "SOURCE"}
+	userHeader        = table.Row{"ID", "EMAIL", "NAME", "CREATED", "DISABLED"}
+	issuedHeader      = table.Row{"ID", "NAME", "SCOPES", "TOKEN", "EXPIRES"}
+	claimHeader       = table.Row{"REF", "TITLE", "STATUS", "LEASE EXPIRES", "TOKEN"}
+	fieldHeader       = table.Row{"KEY", "LABEL", "TYPE", "REQUIRED", "INDEXED", "OPTIONS"}
+	depHeader         = table.Row{"TASK", "DEPENDS ON", "CREATED"}
+	deliveryHeader    = table.Row{"ID", "ENDPOINT", "EVENT", "STATUS", "ATTEMPTS", "NEXT ATTEMPT", "CODE"}
+	tagHeader         = table.Row{"ID", "NAME", "PROJECT", "COLOR"}
+	groupPrefHeader   = table.Row{"VIEW", "GROUP", "HIDDEN", "COLLAPSED", "STARRED", "POSITION"}
+	savedFilterHeader = table.Row{"NAME", "FILTER", "VIEW", "SORT", "SHARED", "MINE", "ID"}
+	syncHeader        = table.Row{"ID", "SYSTEM", "NAME", "CURSOR", "LAST RUN", "LAST STATUS"}
 
 	connectionHeader = table.Row{"ID", "SURFACE", "ACTOR", "FROM", "SINCE", "KEY"}
 )
@@ -292,6 +299,20 @@ func groupPrefRow(g core.GroupPref) table.Row {
 		pos = strconv.Itoa(g.Position)
 	}
 	return table.Row{g.View, g.Group, yesNo(g.Hidden), yesNo(g.Collapsed), yesNo(g.Starred), pos}
+}
+
+// savedFilterRow is one saved filter. An empty view or sort keeps whatever
+// the reader has, shown as a dash.
+func savedFilterRow(f core.SavedFilter) table.Row {
+	return table.Row{f.Name, dashIfEmpty(f.Query), dashIfEmpty(f.View), dashIfEmpty(f.Sort),
+		yesNo(f.Shared), yesNo(f.Mine), f.ID}
+}
+
+func dashIfEmpty(s string) string {
+	if s == "" {
+		return "-"
+	}
+	return s
 }
 
 func tagRow(t core.Tag) table.Row {

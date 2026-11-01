@@ -41,6 +41,14 @@ var priorityChoices = []priorityChoice{
 
 // tasksView is what the filterable task list renders.
 type tasksView struct {
+	// Mine marks the reader's own work, drawn as a list grouped by
+	// deadline, and Held that it takes in the tasks they hold as well.
+	// HeldHref turns that on or off, and More says the page was cut short.
+	Mine     bool
+	Held     bool
+	HeldHref string
+	More     bool
+
 	Tasks      []core.Task
 	Projects   []core.Project
 	Tags       []core.Tag
@@ -358,15 +366,34 @@ func (h *handler) listingFilter(r *http.Request, view string) (filter core.TaskF
 // buildTasksView answers one request for the task screen, for the page and
 // for its live fragment alike.
 func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
-	query := r.URL.Query()
+	return h.buildTaskScreen(r, false)
+}
+
+// buildTaskScreen answers the task screen, or with mine the reader's own
+// work: the tasks assigned to them, and with held=1 the ones they hold too,
+// grouped by deadline. My work asks its fixed question through the same
+// listingFilter, on a copy of the request that carries it.
+func (h *handler) buildTaskScreen(r *http.Request, mine bool) (tasksView, error) {
+	held := mine && r.URL.Query().Get(HeldParam) != ""
+	asked := r
 	view := taskViewOf(r)
-	filter, due, refused, openOnly, err := h.listingFilter(r, view)
+	if mine {
+		asked, view = myWorkRequest(r), TaskViewList
+	}
+	query := asked.URL.Query()
+	filter, due, refused, openOnly, err := h.listingFilter(asked, view)
 	if err != nil {
 		return tasksView{}, err
 	}
 	trash := filter.Trashed == core.Yes
 	if trash {
 		view = TaskViewList
+	}
+	if mine {
+		if query.Get("sort") == "" {
+			filter.Page.Sort = core.SortDueAt
+		}
+		filter.Page.Cursor, filter.Page.Limit = "", myWorkLimit
 	}
 	expression := query.Get("q")
 	if due != "" {
@@ -398,6 +425,11 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 			refused, page = safeMessage(err, core.KindOf(err)), core.TaskPage{}
 		}
 	}
+	if held && refused == "" {
+		if page, err = h.withHeld(r, filter, page); err != nil {
+			return tasksView{}, err
+		}
+	}
 	tags, err := h.svc.ListTags(r.Context())
 	if err != nil {
 		return tasksView{}, err
@@ -426,6 +458,9 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 	}
 	self := screenHref(r, RouteTasks)
 	group := listGroupOf(r)
+	if mine {
+		self, group = screenHref(r, RouteMine), ListGroupDue
+	}
 	var listGroups []listGroup
 	var arrange arrangement
 	switch {
@@ -433,10 +468,22 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 		arrange = h.arrangeBoard(r, &board, self)
 	case view == TaskViewLanes:
 		arrange = h.arrangeLanes(r, &lanes, projects, self)
+	case mine && refused == "":
+		listGroups, arrange = h.arrangeMine(r, page.Tasks, self)
 	case view == TaskViewList && group != ListGroupNone && refused == "":
 		listGroups, arrange = h.arrangeList(r, group, candidateProjects(projects, filter), page.Tasks, moves, self)
 	}
+	live := h.liveTasks(r)
+	pageNav := newPager(r, RouteTasks, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, SizeParam, AllParam)
+	if mine {
+		live.Href = fragmentHref(r, RouteMineLive)
+		pageNav = pager{}
+	}
 	return tasksView{
+		Mine:          mine,
+		Held:          held,
+		HeldHref:      heldHref(r, !held),
+		More:          mine && page.NextCursor != "",
 		Tasks:         page.Tasks,
 		Projects:      projects,
 		Tags:          tags,
@@ -446,7 +493,7 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 		Sort:          filter.Page.Sort,
 		Due:           due,
 		DueWindows:    FilterDueWindows,
-		Pager:         newPager(r, RouteTasks, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, SizeParam, AllParam),
+		Pager:         pageNav,
 		Self:          self,
 		CompleteState: complete,
 		Accent:        projectAccents(projects),
@@ -467,10 +514,10 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 		AllHref:       showAllHref(r),
 		Trash:         trash,
 		Empty:         hidden > 0 && hidden == len(prefs.Projects.Choices),
-		Live:          h.liveTasks(r),
+		Live:          live,
 		Form:          taskForm{Project: soleProject(filter.ProjectKeys)},
 		Bulk:          bulkBarUnlessTrash(r, page.Tasks, moves, trash),
-		ExportHref:    csvHref(r),
+		ExportHref:    csvHref(asked),
 	}, nil
 }
 

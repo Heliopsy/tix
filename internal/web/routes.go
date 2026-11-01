@@ -71,6 +71,8 @@ func (h *handler) routes() []route {
 	out = append(out, h.statusRoutes()...)
 	out = append(out, h.projectRoutes()...)
 	out = append(out, h.viewRoutes()...)
+	out = append(out, h.filterRoutes()...)
+	out = append(out, h.myWorkRoutes()...)
 	out = append(out, h.workflowRoutes()...)
 	out = append(out, h.taskRoutes()...)
 	out = append(out, h.actorRoutes()...)

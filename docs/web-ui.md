@@ -318,6 +318,40 @@ the head, before the body paints, and sets a class on the root element, so hidde
 in and a live refresh of the lanes does not bring them back. Without JavaScript the toggle is not
 shown and finished cards are.
 
+## My work, saved filters and recently viewed
+
+Under Tasks the sidebar holds three things of the reader's own.
+
+**My work** is your open tasks assigned to you, drawn as the list under a heading per deadline:
+Overdue, Today, This week, Later and No date, read in the time zone you chose in Settings. An empty
+heading is left out. **Include tasks I hold** adds the tasks you hold a claim on, assigned or not. The
+headings carry the same three dots as any list group and are kept per reader as the view `mine`
+(`tix view set mine overdue --collapsed`). It draws one page of 200 by deadline and says so when
+there are more, linking the full listing. The filter box reads `assignee:me`, so Apply takes you to
+the task list on the same question and Save keeps it.
+
+**Saved filters.** With an expression or a deadline window in the filter bar, **Save this filter**
+asks for a name and whether to share it with everyone in the tenant, and keeps the expression, the
+deadline window, the sort and the view the screen is drawn in. The filter is listed in the sidebar,
+your own in your order and then the ones others shared; opening it sets the view switch to its view
+and lands on the task screen filtered and sorted the same way, marked current there. The three dots
+beside a filter you may change rename it, share it or stop sharing it, move it up or down among your
+own, and delete it. A shared filter is changed only by its owner or an administrator. The forms work
+without scripting; with it the sidebar is redrawn in place, focus goes back to the same filter's
+dots, and a refusal (a name you already use) is said inside the menu. `tix filter` keeps the same
+filters from the command line.
+
+**Recently viewed** lists the last ten tasks this browser opened, as a page or in the dialog, newest
+first, in a section that folds and remembers whether it was folded. It is kept in `localStorage`
+under `tix.recent.<digest>`, a digest of the tenant and the reader so two people sharing a browser
+keep apart lists, and is drawn by `assets/recent.js`; with scripting off it is not offered. The same
+list is `tix.recentTasks()` for other scripts, an array of `{ref, title, href, at}` newest first,
+and the document receives a `tix:recent` event whenever it changes.
+
+On the collapsed rail My work and each saved filter are icons with their names kept as accessible
+names and tooltips, the menus are put away, and Recently viewed folds to a clock that opens the
+sidebar.
+
 ## Arranging columns and lanes
 
 Every column of a board, every lane and every heading of a grouped list carries three dots. They
@@ -338,7 +372,8 @@ The arrangement is yours and kept with your account on the server, not in the br
 follows you to any browser and device, to `tix view` on the command line and to the terminal board,
 and changes nothing anybody else sees. It is kept per view: `board` is the task screen grouped by
 status (the board and the list grouped by status), `lanes` is the task screen grouped by project
-(the lanes and the list grouped by project), and `project:KEY` is one project's own board. A lane
+(the lanes and the list grouped by project), `mine` is My work grouped by deadline, and
+`project:KEY` is one project's own board. A lane
 is kept by the project, so renaming a project's key keeps it.
 
 Every action is a form, so it works without scripting. With scripting it redraws the view in place

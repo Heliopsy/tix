@@ -116,6 +116,13 @@ projects, every screen and settings section, and actions such as New task in a p
 view or the colour scheme, and signing out. Task search runs the filter language on the server once
 something is typed; everything else draws instantly. [docs/web-ui.md](web-ui.md#the-command-palette).
 
+**Saved filters, My work and recently viewed.** A filter keeps its expression, sort and view under a
+name, private or shared with the tenant: saved from the browser's filter bar and listed in its sidebar,
+picked in the terminal, and kept with `tix filter` and `/api/v1/filters`. `me` in an actor term is the
+reader, so `assignee:me` and `tix task ls --mine` are your own work; My work in the sidebar draws it under a
+heading per deadline. The sidebar also lists the last ten tasks the browser opened.
+[docs/web-ui.md](web-ui.md#my-work-saved-filters-and-recently-viewed), [docs/api.md](api.md#saved-filters).
+
 **Copying a task.** A task copies into any project you can create tasks in, its own included: "Copy to…"
 on the task screen in the browser, `Y` in the terminal interface, `tix task copy REF --to PROJECT` on the
 command line and `POST /api/v1/tasks/{ref}/copy` over HTTP. The copy gets a fresh reference and keeps the
