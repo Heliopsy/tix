@@ -6161,3 +6161,54 @@ dialog.palette::backdrop { background: var(--scrim); }
     border-radius: 0;
   }
 }
+/* Bulk selection. The box leads the row, before the tick, and the bar sits
+   under the list frame as the last item of the screen's column, so it stays
+   in view however far the list inside the frame is scrolled. select.js hides
+   it while nothing is selected; without scripting it is always there. */
+input.rowpick { flex: 0 0 auto; width: 18px; height: 18px; margin: 0 var(--space-1) 0 0; accent-color: var(--accent); cursor: pointer; }
+li.task:has(input.rowpick:checked) { background: var(--accent-soft); }
+.bulkbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.bulkbar[hidden] { display: none; }
+.bulkcount { margin: 0 var(--space-2) 0 0; font-weight: 600; font-size: var(--text-sm); }
+.bulkactions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.bulkpop input, .bulkpop select { width: 100%; margin: 0 0 var(--space-2); }
+.bulkpair { display: flex; gap: var(--space-2); justify-content: flex-end; }
+.viewexport { margin-top: var(--space-2); }
+@media (pointer: coarse) {
+  input.rowpick { width: 24px; height: 24px; }
+  .bulkactions > button { min-height: 40px; }
+}
+@media (max-width: 640px) {
+  .bulkbar { gap: var(--space-1); padding: var(--space-2); }
+  .bulkactions { gap: var(--space-1); }
+}
+a.secondary.exportlink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+  line-height: 1;
+}
+a.secondary.exportlink:hover { filter: brightness(1.08); }

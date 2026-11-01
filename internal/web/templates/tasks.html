@@ -51,6 +51,10 @@
           <section>
             <p class="viewhead">{{t "Columns"}}</p>
             {{template "column-choices" .ColumnForm}}
+            {{/* Export takes what this screen shows: the filter, the
+                 deadline window, the sort, the visible projects and the
+                 columns ticked just above. */}}
+            <div class="headtip viewexport"><a class="secondary exportlink" href="{{$v.ExportHref}}" download>{{t "Export CSV"}}</a>{{template "tip" (tip "Export CSV" "Downloads every task this filter selects, up to 10000, with the title and the columns ticked above. A cell a spreadsheet would read as a formula starts with a quote." "docs/web-ui.md")}}</div>
           </section>
           {{end}}
           <section class="viewstack">
@@ -207,6 +211,7 @@
 </div>
 {{end}}
 <div id="tasks-listing">{{template "tasks-listing" .}}</div>
+{{if and (eq $v.View "list") $v.Bulk.Any $v.Tasks}}{{template "bulk-bar" .}}{{end}}
 
 {{template "live-screen" $v.Live}}
 {{end}}
@@ -757,6 +762,11 @@
        this row and nothing else, the way the tick does. assets/feel.js
        reads it; without it they post and redirect like any form. */}}
   <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{if .DeletedAt}} is-deleted{{end}}{{$mark}}{{if eq $r.FlashRef .Ref}} is-flashed{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} tabindex="-1" data-shortcut-row{{if not .DeletedAt}} data-shortcut-href="/tasks/{{.Ref}}"{{end}} data-inplace>
+    {{/* The selection box belongs to the bar's form through its form
+         attribute, so ticking rows and pressing an action posts the
+         selection with scripting off too. assets/select.js adds the range,
+         the keys and the count. The trash has no bar. */}}
+    {{if and (eq $v.View "list") $v.Bulk.Any (not .DeletedAt)}}<input type="checkbox" class="rowpick" name="ref" value="{{.Ref}}" form="bulkbar" aria-label="{{t "Select %s" .Ref}}" data-pick>{{end}}
     {{/* A deleted task cannot be completed, moved or reprioritised, so its
          row offers none of that: no tick, plain status and priority, and
          Restore at the end, which is the one thing that can be done to it. */}}
@@ -1055,6 +1065,83 @@
       {{else}}<button type="button" class="secondary" popovertarget="addmore" popovertargetaction="hide">{{t "Cancel"}}</button>{{end}}
       <button type="submit">{{t "Create task"}}</button>
     </div>
+  </div>
+</form>
+{{end}}
+
+{{/* bulk-bar is the selection bar under the task list. One form: the
+     checkboxes in the rows join it through their form attribute, and each
+     action is a submit button naming its action in its formaction, so the
+     argument fields beside it (a tag, a handle, a project) ride along and
+     only the one the action needs is read. Drawn with scripting off and
+     usable then; assets/select.js hides it until a row is selected and
+     counts the selection. */}}
+{{define "bulk-bar"}}{{$v := .Data}}{{$b := $v.Bulk}}
+<form id="bulkbar" class="bulkbar" method="post" action="/tasks/bulk" data-bulkbar aria-label="{{t "Selected tasks"}}">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="next" value="{{$v.Self}}">
+  {{/* Disabled and first, so Enter in the tag or handle box submits
+       nothing rather than whichever action happens to come first. */}}
+  <button type="submit" class="bulk-default" disabled hidden tabindex="-1" aria-hidden="true"></button>
+  <p class="bulkcount" role="status" data-bulk-count>{{t "Selected tasks"}}</p>
+  <div class="bulkactions">
+    {{if and $b.Move $b.States}}
+    <button type="button" class="secondary" popovertarget="bulk-move">{{t "Move"}}</button>
+    <div id="bulk-move" class="flowmenu bulkpop" popover>
+      <p class="flowhead">{{t "Move the selected tasks to"}}</p>
+      {{range $b.States}}<button type="submit" class="flowgo" formaction="/tasks/bulk?action=move" name="to" value="{{.}}"><span class="flowto">{{.}}</span></button>{{end}}
+      <button type="button" class="flowclose" popovertarget="bulk-move" popovertargetaction="hide">{{t "Close"}}</button>
+    </div>
+    {{end}}
+    {{if $b.Write}}
+    <button type="button" class="secondary" popovertarget="bulk-prio">{{t "Priority"}}</button>
+    <div id="bulk-prio" class="flowmenu bulkpop priopop" popover>
+      <p class="flowhead">{{t "Priority of the selected tasks"}}</p>
+      {{range $b.Priorities}}<button type="submit" class="flowgo" formaction="/tasks/bulk?action=priority" name="priority" value="{{.Value}}"><span class="prio p-{{.Label}}"><span class="caret" aria-hidden="true"></span>{{t .Label}}</span></button>{{end}}
+      <button type="button" class="flowclose" popovertarget="bulk-prio" popovertargetaction="hide">{{t "Close"}}</button>
+    </div>
+    <button type="button" class="secondary" popovertarget="bulk-tag">{{t "Tag"}}</button>
+    <div id="bulk-tag" class="flowmenu bulkpop" popover>
+      <label class="flowhead" for="bulk-tag-name">{{t "Tag the selected tasks"}}</label>
+      <input id="bulk-tag-name" name="tag" list="bulk-tags" autocomplete="off" data-bulk-enter="bulk-tag-add">
+      <datalist id="bulk-tags">{{range $v.Tags}}<option value="{{.Name}}"></option>{{end}}</datalist>
+      <div class="bulkpair">
+        <button type="submit" id="bulk-tag-add" formaction="/tasks/bulk?action=tag_add">{{t "Add"}}</button>
+        <button type="submit" class="secondary" formaction="/tasks/bulk?action=tag_remove">{{t "Remove"}}</button>
+      </div>
+      <button type="button" class="flowclose" popovertarget="bulk-tag" popovertargetaction="hide">{{t "Close"}}</button>
+    </div>
+    <button type="button" class="secondary" popovertarget="bulk-who">{{t "Assignee"}}</button>
+    <div id="bulk-who" class="flowmenu bulkpop" popover>
+      <label class="flowhead" for="bulk-who-name">{{t "Assign the selected tasks to"}}</label>
+      <input id="bulk-who-name" name="assignee" list="bulk-handles" autocomplete="off" placeholder="{{t "nobody"}}" data-bulk-enter="bulk-who-set">
+      <datalist id="bulk-handles">{{range $v.Names.Handles}}<option value="{{.}}"></option>{{end}}</datalist>
+      <div class="bulkpair">
+        <button type="submit" id="bulk-who-set" formaction="/tasks/bulk?action=assign">{{t "Assign"}}</button>
+      </div>
+      <button type="button" class="flowclose" popovertarget="bulk-who" popovertargetaction="hide">{{t "Close"}}</button>
+    </div>
+    {{end}}
+    {{if $b.Star}}
+    <button type="submit" class="secondary" formaction="/tasks/bulk?action=star">{{t "Star"}}</button>
+    <button type="submit" class="secondary" formaction="/tasks/bulk?action=unstar">{{t "Unstar"}}</button>
+    {{end}}
+    {{if $b.Copy}}
+    <button type="button" class="secondary" popovertarget="bulk-copy">{{t "Copy to…"}}</button>
+    <div id="bulk-copy" class="flowmenu bulkpop" popover>
+      <label class="flowhead" for="bulk-copy-project">{{t "Copy the selected tasks to"}}</label>
+      <select id="bulk-copy-project" name="project">
+        {{range $v.Projects}}<option value="{{.Key}}">{{.Key}} &middot; {{.Name}}</option>{{end}}
+      </select>
+      <div class="bulkpair">
+        <button type="submit" formaction="/tasks/bulk?action=copy">{{t "Copy"}}</button>
+      </div>
+      <button type="button" class="flowclose" popovertarget="bulk-copy" popovertargetaction="hide">{{t "Close"}}</button>
+    </div>
+    {{end}}
+    {{if $b.Delete}}<button type="submit" class="secondary" formaction="/tasks/bulk?action=delete">{{t "Delete"}}</button>{{end}}
+    <button type="reset" class="secondary" data-bulk-clear>{{t "Clear"}}</button>
+    {{template "tip" (tip "Bulk actions" "Tick rows, or press x on a focused row; shift-click ticks a range, Ctrl+A ticks every row while the list has focus and Escape clears. Each action is one request; every task is changed on its own, and the toast names any that were refused and why. A bulk delete can be undone from the toast." "docs/web-ui.md")}}
   </div>
 </form>
 {{end}}

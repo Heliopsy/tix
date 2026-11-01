@@ -193,6 +193,8 @@ type outcome struct {
 	Status string `json:"status" yaml:"status"`
 	Code   string `json:"code,omitempty" yaml:"code,omitempty"`
 	Error  string `json:"error,omitempty" yaml:"error,omitempty"`
+	// Copy names the new task a bulk copy created.
+	Copy string `json:"copy,omitempty" yaml:"copy,omitempty"`
 }
 
 // Bulk outcome statuses.
@@ -280,10 +282,13 @@ type listWriter[T any] struct {
 	names func([]T) map[string]string
 }
 
+// csvAnnotation marks the one command whose records have a CSV column set.
+const csvAnnotation = "tix.csv"
+
 // newList returns a writer for a listing of T.
 func newList[T any](g *globals, cmd *cobra.Command) *listWriter[T] {
 	l := &listWriter[T]{g: g, cmd: cmd}
-	if g.formatName() != output.FormatTable {
+	if format := g.formatName(); format != output.FormatTable && format != output.FormatCSV {
 		l.stream = g.stream(cmd)
 	}
 	return l

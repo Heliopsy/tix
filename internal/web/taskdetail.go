@@ -21,6 +21,8 @@ func (h *handler) taskRoutes() []route {
 	return []route{
 		get(RouteTasks, "tasks.html", h.showTasks, "ListTasks", "ListProjects", "ListTags", "ListGroupPrefs"),
 		post(RouteTasks, h.createTask, "CreateTask"),
+		post(RouteTasksBulk, h.bulkTasks, "BulkTasks"),
+		getFile(RouteTasksCSV, h.exportTasksCSV, "ListTasks", "ListProjects"),
 		// The live fragments render through the same template sets, and the
 		// same blocks, the full screens do, so they are bound to the same
 		// template files here even though each executes one named block

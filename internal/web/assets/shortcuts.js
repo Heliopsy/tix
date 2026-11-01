@@ -246,6 +246,10 @@
     editTitle: function () { focusTarget("editTitle"); },
     comment: function () { focusTarget("comment"); },
     transition: function () { focusTarget("transition"); },
+    // Both answer false when the page has no selection to act on, and the
+    // key then keeps whatever the browser does with it.
+    select: function () { return typeof tix.togglePick === "function" && tix.togglePick(); },
+    selectAll: function () { return typeof tix.pickAll === "function" && tix.pickAll(); },
     filter: function () { focusTarget("filter"); },
     palette: function () {
       if (typeof tix.openPalette === "function") {
@@ -294,7 +298,9 @@
     if (!handler) {
       return;
     }
+    if (handler() === false) {
+      return;
+    }
     event.preventDefault();
-    handler();
   });
 })();

@@ -403,6 +403,9 @@ const undoPriorityPrefix = "priority:"
 // delete, the priority route for a priority change, the transition route
 // for a move. Empty when there is nothing to undo.
 func (v view) UndoAction() string {
+	if v.UndoBulk() != nil {
+		return RouteTasksBulk
+	}
 	if v.FlashUndo == "" || v.FlashRef == "" {
 		return ""
 	}
@@ -420,6 +423,9 @@ func (v view) UndoAction() string {
 // UndoField is the one field the Undo form submits besides the token and
 // the page to come back to: the priority or the route, by name and value.
 func (v view) UndoField() [2]string {
+	if v.UndoBulk() != nil {
+		return [2]string{"action", string(core.BulkRestore)}
+	}
 	if p, ok := strings.CutPrefix(v.FlashUndo, undoPriorityPrefix); ok {
 		return [2]string{"priority", p}
 	}

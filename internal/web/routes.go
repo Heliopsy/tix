@@ -148,6 +148,8 @@ const (
 	RouteWorkflowDel  = "/workflows/{key}/delete"
 	RouteTasks        = "/tasks"
 	RouteTasksLive    = "/tasks/live"
+	RouteTasksBulk    = "/tasks/bulk"
+	RouteTasksCSV     = "/tasks/export.csv"
 	RouteTask         = "/tasks/{ref}"
 	RouteTaskLive     = "/tasks/{ref}/live"
 	RouteTaskMove     = "/tasks/{ref}/transition"

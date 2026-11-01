@@ -139,13 +139,17 @@ func newTagCmd(g *globals) *cobra.Command {
 func labelAddCmd(g *globals) *cobra.Command {
 	var dryRun bool
 	cmd := &cobra.Command{
-		Use:     "add REF LABEL...",
-		Short:   "Attach tags to a task",
-		Long:    "Attach one or more tags to a task, creating them if needed.\n\nExit codes: 3 unknown reference.",
-		Example: "  tix tag add default-1 urgent ops",
-		Args:    minArgs(2),
+		Use:   "add REF LABEL...",
+		Short: "Attach tags to tasks",
+		Long: "Attach one or more tags to a task, creating them if needed.\n\n" +
+			"REF may be a comma separated list of references, or - to read them from standard input, " +
+			"and every tag is attached to every task, with one outcome per task.\n\n" +
+			"Exit codes: 3 unknown reference.",
+		Example: "  tix tag add default-1 urgent ops\n  tix tag add default-1,default-2 ops\n" +
+			"  tix task ls --filter status:todo -o ndjson | jq -r .ref | tix tag add - triage",
+		Args: minArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ref, err := parseRef(args[0])
+			refs, err := readRefs(cmd, splitRefs(args[:1]))
 			if err != nil {
 				return err
 			}
@@ -154,15 +158,23 @@ func labelAddCmd(g *globals) *cobra.Command {
 				return err
 			}
 			if dryRun {
-				return g.dryBulk(cmd, conn, ctx, []core.TaskRef{ref}, "tag.add",
-					map[string]any{"tags": args[1:]})
+				return g.dryBulk(cmd, conn, ctx, refs, "tag.add", map[string]any{"tags": args[1:]})
 			}
-			for _, name := range args[1:] {
-				if err := conn.Service.AddTag(ctx, ref, name); err != nil {
-					return err
+			apply := func(ref core.TaskRef) error {
+				for _, name := range args[1:] {
+					if err := conn.Service.AddTag(ctx, ref, name); err != nil {
+						return err
+					}
 				}
+				return nil
 			}
-			return g.render(cmd, outcome{Ref: ref.String(), Status: statusOK})
+			if len(refs) > 1 {
+				return g.bulk(cmd, refs, apply)
+			}
+			if err := apply(refs[0]); err != nil {
+				return err
+			}
+			return g.render(cmd, outcome{Ref: refs[0].String(), Status: statusOK})
 		},
 		ValidArgsFunction: g.completeTaskRefs,
 	}
@@ -173,13 +185,15 @@ func labelAddCmd(g *globals) *cobra.Command {
 func labelRmCmd(g *globals) *cobra.Command {
 	var dryRun bool
 	cmd := &cobra.Command{
-		Use:     "rm REF LABEL",
-		Short:   "Detach a tag from a task",
-		Long:    "Detach a tag from a task.\n\nExit codes: 3 unknown reference or tag.",
-		Example: "  tix tag rm default-1 urgent",
-		Args:    exactArgs(2),
+		Use:   "rm REF... LABEL",
+		Short: "Detach a tag from tasks",
+		Long: "Detach a tag from one or more tasks. A reference may also be a comma separated list, " +
+			"or - to read references from standard input.\n\nExit codes: 3 unknown reference or tag.",
+		Example: "  tix tag rm default-1 urgent\n  tix tag rm default-1 default-2 urgent",
+		Args:    minArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ref, err := parseRef(args[0])
+			label := args[len(args)-1]
+			refs, err := readRefs(cmd, splitRefs(args[:len(args)-1]))
 			if err != nil {
 				return err
 			}
@@ -188,18 +202,36 @@ func labelRmCmd(g *globals) *cobra.Command {
 				return err
 			}
 			if dryRun {
-				return g.dryBulk(cmd, conn, ctx, []core.TaskRef{ref}, "tag.remove",
-					map[string]any{"tag": args[1]})
+				return g.dryBulk(cmd, conn, ctx, refs, "tag.remove", map[string]any{"tag": label})
 			}
-			if err := conn.Service.RemoveTag(ctx, ref, args[1]); err != nil {
+			if len(refs) > 1 {
+				return g.bulk(cmd, refs, func(ref core.TaskRef) error {
+					return conn.Service.RemoveTag(ctx, ref, label)
+				})
+			}
+			if err := conn.Service.RemoveTag(ctx, refs[0], label); err != nil {
 				return err
 			}
-			return g.render(cmd, outcome{Ref: ref.String(), Status: statusOK})
+			return g.render(cmd, outcome{Ref: refs[0].String(), Status: statusOK})
 		},
 		ValidArgsFunction: g.completeTaskRefs,
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	return cmd
+}
+
+// splitRefs spreads comma separated references into arguments of their own.
+// A reference never holds a comma, so the split cannot cut one in two.
+func splitRefs(args []string) []string {
+	out := make([]string, 0, len(args))
+	for _, arg := range args {
+		for _, part := range strings.Split(arg, ",") {
+			if part = strings.TrimSpace(part); part != "" {
+				out = append(out, part)
+			}
+		}
+	}
+	return out
 }
 
 func labelLsCmd(g *globals) *cobra.Command {

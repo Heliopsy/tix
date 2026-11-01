@@ -161,6 +161,13 @@ type tasksView struct {
 	Form    taskForm
 	Errors  fieldErrors
 	Refused bool
+
+	// ExportHref downloads this listing as CSV.
+	ExportHref string
+
+	// Bulk is the selection bar under the list: what a selection of rows can
+	// have done to it in one request.
+	Bulk bulkBar
 }
 
 // filterFault reports whether an error is the filter expression's fault.
@@ -270,9 +277,10 @@ func (h *handler) showTasksLive(w http.ResponseWriter, r *http.Request) error {
 	return h.renderFragment(w, r, "tasks.html", "tasks-live", "Tasks", data)
 }
 
-// buildTasksView answers one request for the task screen, for the page and
-// for its live fragment alike.
-func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
+// listingFilter answers the filter half of the task screen: the expression,
+// the deadline window, the open-work default and the page, read off the
+// request the same way for the screen, its live fragment and the CSV export.
+func (h *handler) listingFilter(r *http.Request, view string) (filter core.TaskFilter, due, refused string, openOnly bool, err error) {
 	query := r.URL.Query()
 	expression := query.Get("q")
 	// The deadline control is folded into the expression rather than set on
@@ -283,15 +291,14 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 	// control and in the URL; it is not written into the box, which would put
 	// the same term in two places for the reader to keep in step. The term
 	// leads the expression, so a due: term typed by hand wins.
-	due := strings.TrimSpace(query.Get(DueParam))
+	due = strings.TrimSpace(query.Get(DueParam))
 	if due != "" {
 		expression = strings.TrimSpace("due:" + due + " " + expression)
 	}
-	var refused string
-	filter, err := ParseFilter(expression)
+	filter, err = ParseFilter(expression)
 	if err != nil {
 		if expression == "" || !filterFault(err) {
-			return tasksView{}, err
+			return filter, due, refused, openOnly, err
 		}
 		refused, filter = safeMessage(err, core.KindOf(err)), core.TaskFilter{}
 	}
@@ -314,10 +321,8 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 	// altogether. Lanes draw a finished task ticked, and their own Show
 	// completed control is what hides one. The default belongs to the list,
 	// which is the screen that opened on the wrong set.
-	openOnly := false
 	trash := filter.Trashed == core.Yes
 	showAll := query.Get(AllParam) != "" || trash
-	view := taskViewOf(r)
 	if trash {
 		view = TaskViewList
 	}
@@ -346,6 +351,26 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 	}
 	if filter.Page.Sort == "" {
 		filter.Page.Sort = core.SortUrgency
+	}
+	return filter, due, refused, openOnly, nil
+}
+
+// buildTasksView answers one request for the task screen, for the page and
+// for its live fragment alike.
+func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
+	query := r.URL.Query()
+	view := taskViewOf(r)
+	filter, due, refused, openOnly, err := h.listingFilter(r, view)
+	if err != nil {
+		return tasksView{}, err
+	}
+	trash := filter.Trashed == core.Yes
+	if trash {
+		view = TaskViewList
+	}
+	expression := query.Get("q")
+	if due != "" {
+		expression = strings.TrimSpace("due:" + due + " " + expression)
 	}
 	projects, whole, err := h.allProjects(r, false)
 	if err != nil {
@@ -444,6 +469,8 @@ func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
 		Empty:         hidden > 0 && hidden == len(prefs.Projects.Choices),
 		Live:          h.liveTasks(r),
 		Form:          taskForm{Project: soleProject(filter.ProjectKeys)},
+		Bulk:          bulkBarUnlessTrash(r, page.Tasks, moves, trash),
+		ExportHref:    csvHref(r),
 	}, nil
 }
 

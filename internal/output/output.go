@@ -52,6 +52,8 @@ func NewWithNames(format string, mode Mode, style TimeStyle, names map[string]st
 		return &yamlFormatter{}
 	case FormatNDJSON:
 		return &ndjsonFormatter{}
+	case FormatCSV:
+		return &csvFormatter{names: names}
 	default:
 		return &tableFormatter{mode: mode, style: style, names: names}
 	}

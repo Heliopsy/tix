@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 	"github.com/heliopsy/tix/internal/wire"
 )
 
@@ -42,6 +43,7 @@ func (rt *Router) registerTaskRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteTaskRestore, rt.handleRestoreTask)
 	rt.mux.HandleFunc("GET "+wire.RouteTaskTree, rt.handleTaskTree)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskCopy, rt.handleCopyTask)
+	rt.mux.HandleFunc("POST "+wire.RouteTaskBulk, rt.handleBulkTasks)
 
 	rt.mux.HandleFunc("GET "+wire.RouteTaskDeps, rt.handleListDependencies)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskDeps, rt.handleAddDependency)
@@ -76,7 +78,66 @@ func (rt *Router) handleListTasks(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, err)
 		return
 	}
+	if wantsCSV(r) {
+		rt.writeTaskCSV(w, r, page)
+		return
+	}
 	writeList(w, r, page.Tasks, page.NextCursor)
+}
+
+// wantsCSV reports whether the client asked for the listing as CSV, by the
+// format parameter or by its Accept header.
+func wantsCSV(r *http.Request) bool {
+	if strings.EqualFold(r.URL.Query().Get("format"), "csv") {
+		return true
+	}
+	return strings.Contains(strings.ToLower(r.Header.Get(wire.HeaderAccept)), wire.ContentCSV)
+}
+
+// writeTaskCSV answers one page of tasks as CSV. The page has no envelope, so
+// the next cursor travels in a header.
+func (rt *Router) writeTaskCSV(w http.ResponseWriter, r *http.Request, page core.TaskPage) {
+	names := map[string]string{}
+	for _, t := range page.Tasks {
+		id := t.AssigneeActorID
+		if id == "" {
+			continue
+		}
+		if _, done := names[id]; done {
+			continue
+		}
+		names[id] = ""
+		if actor, err := rt.cfg.Service.GetActor(r.Context(), id); err == nil {
+			names[id] = actor.Handle
+		}
+	}
+	w.Header().Set(wire.HeaderContentType, wire.ContentCSV+"; charset=utf-8")
+	if page.NextCursor != "" {
+		w.Header().Set(wire.HeaderNextCursor, page.NextCursor)
+	}
+	w.WriteHeader(http.StatusOK)
+	out := output.NewTaskCSV(w, output.TaskCSVColumns, names)
+	for _, t := range page.Tasks {
+		if err := out.Write(t); err != nil {
+			return
+		}
+	}
+	_ = out.Close()
+}
+
+// handleBulkTasks applies one action to many tasks. A batch where some tasks
+// were refused is still a 200: the outcomes say which.
+func (rt *Router) handleBulkTasks(w http.ResponseWriter, r *http.Request) {
+	var in core.BulkTaskInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	result, err := rt.cfg.Service.BulkTasks(r.Context(), in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, result)
 }
 
 // taskFilterFrom builds a task filter from the query string.

@@ -52,7 +52,7 @@ Everything below is under `/api/v1`.
 | Tenancy | `/tenants`, `/tenants/{ref}`, `/members`, `/members/{actorID}`, `/domains`, `/domains/{hostname}` |
 | Projects | `/projects`, `/projects/{ref}`, `/projects/{ref}/icon`, `/projects/{ref}/deletion`, `/projects/{ref}/fields`, `/projects/{ref}/fields/{key}` |
 | Workflows | `/workflows`, `/workflows/{key}` |
-| Tasks | `/tasks`, `/tasks/{ref}`, `/tasks/{ref}/transition`, `/tasks/{ref}/route`, `/tasks/{ref}/restore`, `/tasks/{ref}/tree`, `/tasks/{ref}/copy` |
+| Tasks | `/tasks`, `/tasks/{ref}`, `/tasks/{ref}/transition`, `/tasks/{ref}/route`, `/tasks/{ref}/restore`, `/tasks/{ref}/tree`, `/tasks/{ref}/copy`, `/tasks/bulk` |
 | Task relations | `/tasks/{ref}/deps`, `/tasks/{ref}/deps/{dep}`, `/tasks/{ref}/tags`, `/tasks/{ref}/tags/{name}`, `/tasks/{ref}/star` |
 | Comments and artifacts | `/tasks/{ref}/comments`, `/tasks/{ref}/artifacts`, `/comments/{id}`, `/tags` |
 | Claims | `/tasks/{ref}/claim`, `/tasks/{ref}/claim/renew`, `/tasks/{ref}/claim/release`, `/tasks/{ref}/claim/reclaim`, `/claims/next`, `/claims/sweep` |
@@ -301,6 +301,58 @@ copied), and `link` records the original as `copied_from_id` on each copy. Stars
 never travel. The whole copy is one transaction: each new task writes a `task.copy` audit entry and emits
 `task.created` with `copied_from` in its payload. An unknown project is `404`, a required field the target
 lacks `400`, and copying out of the project a token is pinned to `403`.
+
+### Bulk actions
+
+`POST /tasks/bulk` applies one action to up to 500 tasks in one request and answers `200` with an outcome per
+distinct reference, in the order given, also when some were refused:
+
+```json
+{"action": "move", "refs": ["infra-1", "infra-2", "web-7"], "to": "done"}
+```
+
+```json
+{
+  "action": "move",
+  "applied": 2,
+  "refused": 1,
+  "outcomes": [
+    {"ref": "infra-1", "applied": true},
+    {"ref": "infra-2", "applied": true},
+    {"ref": "web-7", "applied": false, "code": "precondition", "error": "no route leads from \"cancelled\" to \"done\""}
+  ]
+}
+```
+
+| `action` | Argument | Same as |
+| --- | --- | --- |
+| `move` | `to` | `POST /tasks/{ref}/route`, along the shortest route of each task's workflow |
+| `priority` | `priority` (1 to 5) | `PATCH /tasks/{ref}` |
+| `tag_add`, `tag_remove` | `tag` | `POST /tasks/{ref}/tags`, `DELETE /tasks/{ref}/tags/{name}` |
+| `assign` | `assignee_actor_id`, a handle or id; empty clears | `PATCH /tasks/{ref}` |
+| `star`, `unstar` | none | `PUT`, `DELETE /tasks/{ref}/star` |
+| `copy` | `project_ref` | `POST /tasks/{ref}/copy` with `link` |
+| `delete` | `cascade` (optional) | `DELETE /tasks/{ref}`, always soft |
+| `restore` | none | `POST /tasks/{ref}/restore` |
+
+Each task is changed through the single-task operation in its own transaction, with its own audit entry and
+event, so a refused task never holds back or undoes another; a copy's outcome names the new task in
+`copy_ref`. A reference named twice is acted on once. An unknown action, no references, more than 500, or a
+missing argument is `400` before any task changes, and a caller without the scope the action needs (for
+example `task:delete` for a bulk delete) gets one `403` for the request.
+
+### CSV
+
+`GET /tasks?format=csv`, or the same listing with `Accept: text/csv`, answers the page as `text/csv` with a
+header row and the columns `ref, project, title, status, priority, assignee, tags, due, created, updated`.
+Cells are quoted by RFC 4180, tags are space separated, times are RFC 3339 in UTC and the assignee is a handle
+where it resolves. A cell starting with `=`, `+`, `-`, `@`, a tab or a carriage return is prefixed with `'` so a
+spreadsheet reads it as text. There is no envelope, so the next page's cursor is in the `X-Tix-Next-Cursor`
+response header:
+
+```sh
+curl -H "Authorization: Bearer $TIX_TOKEN" 'http://127.0.0.1:8080/api/v1/tasks?format=csv&status=todo'
+```
 
 ### NDJSON
 
