@@ -28,7 +28,6 @@ func newTaskCmd(g *globals) *cobra.Command {
 		taskMvCmd(g), taskRmCmd(g), taskRestoreCmd(g), taskTreeCmd(g),
 		taskStarCmd(g, true), taskStarCmd(g, false), taskCopyCmd(g), taskBulkCmd(g),
 		taskCheckCmd(g, true), taskCheckCmd(g, false),
-		taskStarCmd(g, true), taskStarCmd(g, false), taskCopyCmd(g),
 		taskSnoozeCmd(g), taskUnsnoozeCmd(g), taskWakeCmd(g),
 	)
 	return cmd
