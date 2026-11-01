@@ -53,6 +53,7 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.16.0 // indirect
 	github.com/xo/terminfo v1.3.0 // indirect
+	github.com/yuin/goldmark v1.8.7 // indirect
 	golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
