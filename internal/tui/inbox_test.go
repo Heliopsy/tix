@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -72,18 +73,18 @@ func TestTheInboxViewListsMarksAndOpens(t *testing.T) {
 
 	m, cmd := m.reduce(pressKey(" "))
 	m, _ = m.reduce(run(t, cmd))
-	if n, _ := svc.CountInbox(nil); n.Unread != 0 || !m.inbox[0].Read() {
+	if n, _ := svc.CountInbox(context.TODO()); n.Unread != 0 || !m.inbox[0].Read() {
 		t.Fatalf("space did not mark the selected item read: unread = %d", n.Unread)
 	}
 	m, cmd = m.reduce(pressKey(" "))
 	m, _ = m.reduce(run(t, cmd))
-	if n, _ := svc.CountInbox(nil); n.Unread != 1 {
+	if n, _ := svc.CountInbox(context.TODO()); n.Unread != 1 {
 		t.Fatal("space on a read item did not mark it unread")
 	}
 
 	m, cmd = m.reduce(pressKey("enter"))
 	m, cmd = m.reduce(run(t, cmd))
-	if n, _ := svc.CountInbox(nil); n.Unread != 0 {
+	if n, _ := svc.CountInbox(context.TODO()); n.Unread != 0 {
 		t.Fatal("opening an unread item did not mark it read")
 	}
 	if cmd == nil {
@@ -100,7 +101,7 @@ func TestReadAllMarksEveryInboxItem(t *testing.T) {
 	svc.inbox[1].ReadAt = nil
 	m, cmd := m.reduce(pressKey("a"))
 	m, _ = m.reduce(run(t, cmd))
-	if n, _ := svc.CountInbox(nil); n.Unread != 0 {
+	if n, _ := svc.CountInbox(context.TODO()); n.Unread != 0 {
 		t.Fatalf("a left %d unread", n.Unread)
 	}
 	if strings.Contains(inboxBlock(t, m.Frame()), "● ") {
@@ -118,7 +119,7 @@ func TestTheInboxIsNeitherOpenedNorReadWithoutAccess(t *testing.T) {
 		t.Fatal("a reader refused the inbox was shown it")
 	}
 	if cmd != nil {
-		next, _ = next.reduce(run(t, cmd))
+		_, _ = next.reduce(run(t, cmd))
 	}
 	if svc.inboxReads != 0 {
 		t.Fatalf("the inbox was read %d times for a reader refused it", svc.inboxReads)

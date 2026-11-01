@@ -27,7 +27,7 @@
 
 {{define "nav"}}
 <nav class="main">
-  <a href="/inbox" data-rail-name="{{t "Inbox"}}" {{if eq .Path "/inbox"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#inbox"/></svg><span>{{t "Inbox"}}</span>{{template "inbox-badge" .}}</a>
+  <a href="/inbox" data-rail-name="{{t "Inbox"}}" {{if eq .Path "/inbox"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#inbox"/></svg>{{template "inbox-badge" .}}<span>{{t "Inbox"}}</span></a>
   <a href="/tasks" data-rail-name="{{t "Tasks"}}" {{if and (eq .Path "/tasks") (not .InTrash)}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tasks"/></svg><span>{{t "Tasks"}}</span></a>
   {{/* The trash is the task list filtered by is:trashed, so the filter box
        says what it is. It sits under Tasks because it is that list's
@@ -162,8 +162,9 @@
      current as the page. The page carries no actor identifier for the script
      to compare the event's recipients with, so the refresh asks the server,
      which knows who is reading. The sr-only words make the link read
-     "Inbox, 3 unread" rather than "Inbox 3". */}}
-{{define "inbox-badge"}}<span class="navbadge" id="inbox-badge" data-inbox-count="{{.Inbox}}"{{if .Actor}} data-events="{{.EventsPath}}" data-inbox="/inbox/badge"{{end}}{{if not .Inbox}} hidden{{end}}><span class="sr-only">, </span>{{.Inbox}}<span class="sr-only"> {{t "unread"}}</span></span>{{end}}
+     "3 unread, Inbox" rather than "3 Inbox"; the badge comes first in the
+     markup so the label stays the link's last span, and CSS draws it last. */}}
+{{define "inbox-badge"}}<span class="navbadge" id="inbox-badge" data-inbox-count="{{.Inbox}}"{{if .Actor}} data-events="{{.EventsPath}}" data-inbox="/inbox/badge"{{end}}{{if not .Inbox}} hidden{{end}}>{{.Inbox}}<span class="sr-only"> {{t "unread"}},</span></span>{{end}}
 
 {{/* The repeat marker a listing row and a board card share, given the rule.
      It links to every recurring task, the way a tag links to its tag. The
