@@ -556,7 +556,7 @@ you; each names the task (`task_ref`), who (`actor_handle`) and the `kind`
 unread count, `tix inbox read ID` and `tix inbox read-all` mark them, and
 `tix inbox prefs --mute comment` stops a kind. `tix inbox channel add NAME URL
 --format slack|discord|ntfy|generic --kinds mention` sends your items to an
-endpoint of your own; its secret is printed once, `tix inbox channel test ID`
+endpoint of your own (`--off` adds it turned off); its secret is printed once, `tix inbox channel test ID`
 tries it and `tix inbox channel deliveries ID` shows how it answered. Write `@handle` in a comment to
 get a person's attention; your own changes never reach your own inbox.
 

@@ -816,8 +816,8 @@
         {{with $e.On "name"}}{{template "field-error" .}}{{end}}
       </div>
       <div class="cfield">
-        <div class="cfield-label"><label for="{{.Prefix}}url">{{t "URL"}}</label>{{template "required-mark"}}{{template "tip" (tip "URL" "Where tix posts: a Slack or Discord webhook URL, an ntfy topic such as https://ntfy.sh/your-topic, or your own endpoint. Addresses on private networks are refused, as they are for tenant webhooks.")}}</div>
-        <input id="{{.Prefix}}url" class="mono" name="url" type="url" value="{{$f.URL}}" placeholder="{{"https://ntfy.sh/your-topic"}}" autocomplete="off" spellcheck="false" required{{$e.Attrs "url"}}>
+        <div class="cfield-label"><label for="{{.Prefix}}url">{{t "URL"}}</label>{{template "required-mark"}}{{template "tip" (tip "URL" "Where tix posts: a Slack or Discord webhook URL, an ntfy topic URL, or your own endpoint. Addresses on private networks are refused, as they are for tenant webhooks.")}}</div>
+        <input id="{{.Prefix}}url" class="mono" name="url" type="url" value="{{$f.URL}}" placeholder="{{t "The address to post to"}}" autocomplete="off" spellcheck="false" required{{$e.Attrs "url"}}>
         {{with $e.On "url"}}{{template "field-error" .}}{{end}}
       </div>
       <div class="cfield">

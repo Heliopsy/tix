@@ -453,6 +453,48 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name: "notification channel round-trip",
+		covers: []string{"CreateInboxChannel", "ListInboxChannels", "UpdateInboxChannel", "TestInboxChannel",
+			"ListChannelDeliveries", "RedeliverChannelDelivery", "DeleteInboxChannel"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			issued, err := tg.svc.CreateInboxChannel(tg.ctx, core.InboxChannelInput{Name: "phone",
+				URL: "https://ntfy.invalid/topic", Format: "ntfy", Kinds: []string{"status", "mention"}})
+			if err != nil {
+				return nil, err
+			}
+			off := false
+			updated, err := tg.svc.UpdateInboxChannel(tg.ctx, issued.ID, core.InboxChannelUpdate{Active: &off})
+			if err != nil {
+				return nil, err
+			}
+			on := true
+			if _, err := tg.svc.UpdateInboxChannel(tg.ctx, issued.ID, core.InboxChannelUpdate{Active: &on}); err != nil {
+				return nil, err
+			}
+			d, err := tg.svc.TestInboxChannel(tg.ctx, issued.ID)
+			if err != nil {
+				return nil, err
+			}
+			if err := tg.svc.RedeliverChannelDelivery(tg.ctx, d.ID); err != nil {
+				return nil, err
+			}
+			deliveries, _, err := tg.svc.ListChannelDeliveries(tg.ctx, core.ChannelDeliveryFilter{ChannelID: issued.ID})
+			if err != nil {
+				return nil, err
+			}
+			listed, err := tg.svc.ListInboxChannels(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			if err := tg.svc.DeleteInboxChannel(tg.ctx, issued.ID); err != nil {
+				return nil, err
+			}
+			return sig{"secret": issued.SigningSecret != "", "kinds": issued.Kinds, "format": issued.Format,
+				"off": updated.Active, "deliveries": len(deliveries), "test": deliveries[0].Test(),
+				"listed": len(listed)}, nil
+		},
+	},
+	{
 		name:   "view arrangement round-trip",
 		covers: []string{"CreateProject", "SetGroupPref", "OrderGroups", "ListGroupPrefs", "ResetGroupPrefs"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
