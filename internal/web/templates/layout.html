@@ -1,5 +1,8 @@
 <!doctype html>
-<html lang="{{.Lang}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}{{if not .Hover}} data-hover="off"{{end}}>
+{{/* The sidebar's rail and width are drawn from the tix_sidebar cookie
+     (sidebar.go), on the root where assets/sidebar.js keeps them, so the
+     first paint is the sidebar the reader left. */}}
+<html lang="{{.Lang}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}{{if not .Hover}} data-hover="off"{{end}}{{if .Side.Rail}} class="side-collapsed"{{end}}{{with .Side.Width}} style="--side-w: {{.}}px"{{end}}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -27,8 +30,10 @@
 {{if .JSText}}<script id="tix-i18n" type="application/json">{{.JSText}}</script>{{end}}
 <script src="/assets/i18n.js"></script>
 <script src="/assets/lanes.js"></script>
-{{/* Not deferred either: the sidebar's stored width and collapsed rail are
-     set on the root before the body paints. See assets/sidebar.js. */}}
+{{/* Not deferred either: it puts the "js" class on the root before the
+     body paints, which is what shows every [data-needs-js] control in the
+     first frame rather than revealing it in a later one. See
+     assets/sidebar.js. */}}
 <script src="/assets/sidebar.js"></script>
 <script src="/assets/decide.js" defer></script>
 <script src="/assets/htmx.min.js" defer></script>
@@ -73,15 +78,18 @@
            wrapper, so the sidebar is the column it has always been. */}}
       <div class="side-head">
         <a class="brand" href="/" data-rail-name="{{.Brand.Title}}"><img class="logo" src="/assets/tix.svg" alt="" width="28" height="28"><span class="brand-name">{{.Brand.Title}}</span></a>
-        {{/* Collapses the desktop column to a rail and back. Hidden until
-             sidebar.js runs, since it does nothing without it. */}}
-        <button type="button" class="side-toggle" data-side-toggle aria-controls="side" aria-expanded="true" aria-label="{{t "Collapse sidebar"}}" hidden>
+        {{/* Collapses the desktop column to a rail and back. Shown only with
+             scripting, since it does nothing without it. These controls are
+             not rendered hidden for a script to reveal: on every boosted
+             navigation that drew them missing for a frame, and every entry
+             under them jumped up and back. */}}
+        <button type="button" class="side-toggle" data-side-toggle aria-controls="side" aria-expanded="{{if .Side.Rail}}false{{else}}true{{end}}" aria-label="{{if .Side.Rail}}{{t "Expand sidebar"}}{{else}}{{t "Collapse sidebar"}}{{end}}" data-needs-js>
           <svg aria-hidden="true" width="18" height="18"><use href="/assets/icons.svg#sidebar"/></svg>
         </button>
         {{/* The command palette (assets/palette.js), also ctrl+k. A field-like
              row under the brand on a desktop, an icon in the bar on a phone.
-             Hidden until the script runs, since it is what opens it. */}}
-        <button type="button" class="palette-open" data-palette-open aria-keyshortcuts="Control+K Meta+K" data-rail-name="{{t "Search"}}" hidden>
+             Shown only with scripting, since the script is what opens it. */}}
+        <button type="button" class="palette-open" data-palette-open aria-keyshortcuts="Control+K Meta+K" data-rail-name="{{t "Search"}}" data-needs-js>
           <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#search"/></svg>
           <span class="palette-open-label rail-label">{{t "Search"}}</span>
           <kbd class="palette-open-kbd" data-palette-kbd aria-hidden="true">Ctrl K</kbd>
@@ -97,8 +105,8 @@
         <a href="/settings" data-rail-name="{{t "Settings"}}" {{if eq .Path "/settings"}}aria-current="page"{{end}}><svg class="rail-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#settings"/></svg><span class="rail-label">{{t "Settings"}}</span></a>
         {{template "themeswitch" .ThemeToggle}}
         {{/* The "?" overlay, findable by someone who does not know to press
-             "?". Hidden until shortcuts.js runs, which is what opens it. */}}
-        <button type="button" class="kbdhint" data-shortcuts-open data-rail-name="{{t "Keyboard shortcuts"}}" hidden><kbd>?</kbd><span class="rail-label">{{t "Keyboard shortcuts"}}</span></button>
+             "?". Shown only with scripting: shortcuts.js is what opens it. */}}
+        <button type="button" class="kbdhint" data-shortcuts-open data-rail-name="{{t "Keyboard shortcuts"}}" data-needs-js><kbd>?</kbd><span class="rail-label">{{t "Keyboard shortcuts"}}</span></button>
       </div>
       <form method="post" action="/logout" class="actions">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
@@ -108,9 +116,9 @@
       </div>
     </div>
     {{/* The drag handle on the sidebar's right edge. A separator, so it is
-         focusable and announced with its width; hidden until sidebar.js
-         runs, which fills in the values. */}}
-    <div class="side-resize" data-side-resize role="separator" aria-orientation="vertical" aria-controls="side" aria-label="{{t "Resize sidebar"}}" tabindex="0" hidden></div>
+         focusable and announced with its width; shown only with scripting,
+         and sidebar.js fills in the values. */}}
+    <div class="side-resize" data-side-resize role="separator" aria-orientation="vertical" aria-controls="side" aria-label="{{t "Resize sidebar"}}" tabindex="0" data-needs-js></div>
   </aside>
   <main class="wrap">
     {{/* #toast is always there, empty or not, so an action swapped in place

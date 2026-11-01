@@ -210,8 +210,8 @@ func TestTheViewSwitchIsBoosted(t *testing.T) {
 }
 
 // The keyboard shortcuts can be found without knowing to press "?": the
-// sidebar carries a control that opens them, hidden until the script that
-// opens them runs.
+// sidebar carries a control that opens them, shown only with the script
+// that opens them.
 func TestTheSidebarOffersTheKeyboardShortcuts(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
@@ -221,7 +221,7 @@ func TestTheSidebarOffersTheKeyboardShortcuts(t *testing.T) {
 	if tag == "" {
 		t.Fatal("the sidebar has no control that opens the keyboard shortcuts")
 	}
-	if !strings.Contains(tag, `type="button"`) || !strings.Contains(tag, " hidden") {
-		t.Errorf("the shortcuts control is not a button hidden until its script runs:\n%s", tag)
+	if !strings.Contains(tag, `type="button"`) || !strings.Contains(tag, "data-needs-js") {
+		t.Errorf("the shortcuts control is not a button shown only with its script:\n%s", tag)
 	}
 }

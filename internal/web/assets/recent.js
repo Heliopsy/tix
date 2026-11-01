@@ -8,8 +8,11 @@
 // [data-recent-task] on the title bar (templates/task.html).
 //
 // The list is drawn into the sidebar's "recent-tasks" block, which is
-// rendered hidden and empty, so with scripting off nothing is offered. On the
-// collapsed rail only its icon shows, and pressing it opens the sidebar.
+// rendered hidden and empty, so with scripting off nothing is offered. The
+// block carries hx-preserve, so a boosted navigation keeps the list already
+// drawn instead of bringing back the empty one and filling it a frame later;
+// the redraw after the swap only moves the current mark. Folding it, and its
+// clock on the collapsed rail, are the sidebar's (assets/sidebar.js).
 //
 // tix.recentTasks() is the public face, for the command palette and anything
 // else that wants it: the entries newest first, each {ref, title, href, at},
@@ -19,7 +22,6 @@
   var tix = (global.tix = global.tix || {});
   var MAX = 10;
   var PREFIX = "tix.recent.";
-  var OPEN = "tix.recent.closed";
 
   // recentKey is the storage key one reader's list lives under.
   tix.recentKey = function (who) {
@@ -136,14 +138,9 @@
       ul.appendChild(li);
     }
     box.hidden = list.length === 0;
-    var s = storage();
-    var closed = false;
-    try {
-      closed = !!s && s.getItem(OPEN) === "true";
-    } catch (e) {
-      closed = false;
-    }
-    box.open = !closed;
+    // Links added after htmx processed the page are plain links, so a recent
+    // task opened as a full reload while every other sidebar entry swapped.
+    if (global.htmx && typeof global.htmx.process === "function") global.htmx.process(ul);
   }
 
   function refresh(root) {
@@ -153,33 +150,6 @@
       doc.dispatchEvent(new global.CustomEvent("tix:recent", { detail: tix.recentTasks() }));
     }
   }
-
-  doc.addEventListener(
-    "toggle",
-    function (event) {
-      var box = event.target;
-      if (!box || !box.hasAttribute || !box.hasAttribute("data-recent") || box.hidden) return;
-      var s = storage();
-      try {
-        if (!s) return;
-        if (box.open) s.removeItem(OPEN);
-        else s.setItem(OPEN, "true");
-      } catch (e) {
-        return;
-      }
-    },
-    true
-  );
-
-  // On the rail the list has no room; its icon opens the sidebar instead.
-  doc.addEventListener("click", function (event) {
-    var summary = event.target && event.target.closest ? event.target.closest("[data-recent] > summary") : null;
-    var root = doc.documentElement;
-    if (!summary || !root.classList.contains("side-collapsed") || typeof tix.sidebarToggle !== "function") return;
-    event.preventDefault();
-    tix.sidebarToggle();
-    summary.parentNode.open = true;
-  });
 
   doc.addEventListener("htmx:afterSettle", function (event) {
     refresh(event.detail && event.detail.elt);

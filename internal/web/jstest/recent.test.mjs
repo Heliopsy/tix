@@ -68,3 +68,78 @@ test("each reader has a key of their own", () => {
   const { tix } = loaded();
   assert.notEqual(tix.recentKey("t1:alice"), tix.recentKey("t1:bob"));
 });
+
+// sidebarPage is as much of a page as recent.js draws into: the preserved
+// recent block, its list, and whatever task marks the swapped content holds.
+function sidebarPage(pathname) {
+  const listeners = {};
+  const node = (tag) => {
+    const attrs = {};
+    return {
+      tag, attrs, children: [], className: "", textContent: "", href: "",
+      setAttribute(k, v) { attrs[k] = String(v); },
+      getAttribute(k) { return k in attrs ? attrs[k] : null; },
+      hasAttribute(k) { return k in attrs; },
+      appendChild(c) { this.children.push(c); return c; },
+      removeChild(c) { this.children.splice(this.children.indexOf(c), 1); return c; },
+      get firstChild() { return this.children[0] || null; },
+    };
+  };
+  const ul = node("ul");
+  const box = node("div");
+  box.hidden = true;
+  box.className = "navgroup side-recent is-folded";
+  box.setAttribute("data-recent-for", "t1:alice");
+  box.querySelector = (sel) => (sel === "[data-recent-list]" ? ul : null);
+  let marks = [];
+  const document = {
+    readyState: "complete",
+    querySelector: (sel) => (sel === "[data-recent]" || sel === "[data-recent-for]" ? box : null),
+    querySelectorAll: (sel) => (sel === "[data-recent-task]" ? marks : []),
+    createElement: node,
+    addEventListener(type, fn) { (listeners[type] ||= []).push(fn); },
+    dispatchEvent() {},
+  };
+  const location = { pathname };
+  return {
+    box, ul, document, location,
+    show(ref, title) {
+      const m = node("h1");
+      m.setAttribute("data-recent-task", ref);
+      m.setAttribute("data-recent-title", title);
+      marks = [m];
+    },
+    navigate(path) {
+      location.pathname = path;
+      for (const fn of listeners["htmx:afterSettle"] || []) fn({ detail: { elt: document } });
+    },
+  };
+}
+
+test("a boosted navigation redraws the preserved list in place and moves only the current mark", () => {
+  const localStorage = memoryStorage({
+    "tix.recent.t1:alice": '[{"ref":"infra-2","title":"Deploy","at":"x"},{"ref":"infra-1","title":"Plan","at":"y"}]',
+  });
+  const p = sidebarPage("/tasks/infra-2");
+  loaded({ localStorage, document: p.document, location: p.location });
+  assert.equal(p.box.hidden, false, "a list with entries is shown");
+  assert.equal(p.ul.children.length, 2);
+  assert.equal(p.ul.children[0].children[0].getAttribute("aria-current"), "page");
+
+  p.navigate("/tasks/infra-1");
+  assert.equal(p.ul.children.length, 2, "the same two entries, no row comes or goes");
+  assert.equal(p.ul.children[0].children[0].getAttribute("aria-current"), null);
+  assert.equal(p.ul.children[1].children[0].getAttribute("aria-current"), "page");
+  assert.equal(p.box.className, "navgroup side-recent is-folded", "folding is the sidebar's, never redrawn here");
+  assert.equal(p.box.open, undefined, "nothing re-opens a details element on each swap");
+});
+
+test("the drawn links are handed to htmx, so opening one is a boosted navigation", () => {
+  const localStorage = memoryStorage({ "tix.recent.t1:alice": '[{"ref":"infra-2","title":"Deploy","at":"x"}]' });
+  const p = sidebarPage("/tasks");
+  const processed = [];
+  loaded({ localStorage, document: p.document, location: p.location, htmx: { process: (el) => processed.push(el) } });
+  assert.equal(processed.at(-1), p.ul);
+  p.navigate("/projects");
+  assert.equal(processed.length, 2, "and again after each redraw");
+});

@@ -143,7 +143,9 @@ type view struct {
 	Brand      branding
 	Actor      *core.Actor
 	Advanced   bool
-	DragMove   bool
+	// Side is the sidebar as this browser left it; see sidebar.go.
+	Side     sidebarState
+	DragMove bool
 	// OpenAfterAdd decides whether creating a task leaves the listing for it.
 	OpenAfterAdd bool
 	// Hover is whether rows, cards and controls respond to the pointer.
@@ -223,6 +225,7 @@ func funcs(style output.TimeStyle) template.FuncMap {
 	return template.FuncMap{
 		"hasPrefix":       strings.HasPrefix,
 		"monogram":        monogramOf,
+		"navGroup":        newNavGroup,
 		"compact":         style.Format,
 		"stamp":           style.FormatPtr,
 		"absolute":        style.Absolute,
@@ -388,6 +391,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Brand:           h.brand(r),
 		Actor:           actor,
 		Advanced:        advancedMode(r),
+		Side:            sidebarOf(r),
 		DragMove:        dragMoveMode(r),
 		OpenAfterAdd:    openAfterAdd(r),
 		Hover:           hoverEffects(r),
