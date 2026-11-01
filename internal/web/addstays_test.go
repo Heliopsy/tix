@@ -179,7 +179,7 @@ func TestOpenANewTaskHonoursAStoredChoice(t *testing.T) {
 				req.Header.Set("Cookie", req.Header.Get("Cookie")+"; "+web.OpenAfterAddCookie+"="+*tc.cookie)
 			}
 			b.stamp(req)
-			resp, err := http.DefaultTransport.RoundTrip(req)
+			resp, err := b.client.Transport.RoundTrip(req)
 			if err != nil {
 				t.Fatal(err)
 			}

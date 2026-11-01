@@ -401,7 +401,11 @@ func (f *fixture) as(actor string) *browser {
 	if err != nil {
 		f.t.Fatalf("building cookie jar: %v", err)
 	}
-	client := &http.Client{Jar: jar, CheckRedirect: func(*http.Request, []*http.Request) error {
+	// The server's own transport, never http.DefaultTransport: every
+	// httptest.Server.Close calls CloseIdleConnections on the default one, so a
+	// parallel test shutting its server down broke this browser's request in
+	// flight ("transport connection broken: CloseIdleConnections called").
+	client := &http.Client{Jar: jar, Transport: f.server.Client().Transport, CheckRedirect: func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}}
 	return &browser{t: f.t, fix: f, client: client, actor: actor}
@@ -589,3 +593,14 @@ func createdRef(location string) string {
 }
 
 // refPattern finds a task reference in a redirect target.
+
+// TestFixtureBrowsersUseTheirServersTransport is the other half of
+// TestTestsNeverUseTheSharedDefaultTransport: a client with no Transport set
+// falls back to http.DefaultTransport without naming it.
+func TestFixtureBrowsersUseTheirServersTransport(t *testing.T) {
+	t.Parallel()
+	b := newFixture(t).as("alice")
+	if b.client.Transport == nil || b.client.Transport != b.fix.server.Client().Transport {
+		t.Fatal("fixture browsers send through http.DefaultTransport, which any parallel httptest.Server.Close can break")
+	}
+}
