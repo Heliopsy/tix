@@ -64,6 +64,7 @@ alone:
 ```sh
 tix task add --parse 'Fix login !high #auth @raj due:fri'
 ```
+
 **Descriptions and comments in Markdown, with checklists.** A task's description and its comments are
 CommonMark with the GitHub tables, task lists, autolinks, strikethrough and fenced code, and a line break
 you type stays a line break. The browser draws them; the command line and the terminal show the text as
