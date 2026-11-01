@@ -141,6 +141,54 @@ A list the code already holds is asserted rather than maintained: see
   changed, so a pull request cut before a workflow fix keeps failing on it.
   Close it and let the next push to `main` regenerate one on the fixed base.
 
+## Parallel agents
+
+Rules for a batch of agents working at once, each learned the slow way.
+
+- **One worktree and one scratch directory per agent.** Worktrees go in
+  `.worktrees/<task>`, branched from `origin/main`. Scratch, databases and
+  screenshots go in a directory named for that agent. A Postgres container
+  gets a port checked free first: one run once reached an unrelated database
+  that happened to hold the port it picked.
+- **Split by file set, not by feature count.** `layout.html`, `tasks.html`,
+  `app.css`, `internal/web/i18n.go`, the README feature line,
+  `capability/registry.go` and the operation count in `docs/tui.md` are shared
+  by nearly every web feature. Ten agents all touching them meant every merge
+  forced nine rebases and nine fresh CI runs. Group features that share these
+  files under one agent, or run them one after another.
+- **Migrations merge in version order.** The runner applies only versions above
+  the highest one applied, so a lower number merged later is silently skipped
+  on every database already past it. `internal/store/migrations/gaps_test.go`
+  fails on an unlisted gap. Reserve numbers up front, merge strictly ascending,
+  and keep a PR whose lower numbers are not on `main` yet as a draft instead of
+  letting it sit red.
+- **Verify lightly per change, fully once per batch.** Locally: `just lint`,
+  `go test` for the packages you touched, the node suite if you changed
+  JavaScript, `just spec`, `just docs-check`, and screenshots of the pages you
+  changed. Watch each new guard fail by running only that test
+  (`go test -run TestName ./pkg/`), not the package. The full suite, PostgreSQL
+  and the container gates run in CI, and `just check` once per batch. Ten
+  agents each running the full suite on both engines pushed the load average
+  past 60, got runs killed, and doubled every agent's wall time.
+- **Green means every check passes.** `gh pr checks N --json bucket --jq
+  '[.[].bucket]|all(.=="pass")'` prints `true`. Reading the table by eye merged
+  a PR with a failed check once. Rerun a failed job only for a known flake
+  (#102, the SSH timing tests), and name it in the PR.
+- **Rebase once, when it is your turn.** A PR waiting behind another does
+  nothing until that one merges, then rebases once and pushes. Rebasing on
+  every merge while waiting only spends CI.
+- **Every feature is whole on every surface.** Service method and registry
+  entry, HTTP route in the `docs/api.md` routes table, CLI flags and generated
+  docs, TUI binding or a written exemption, web, OpenSpec change, docs, the
+  skill under `skills/tix`, Bulgarian strings. The parity guards in
+  `internal/capability` fail on most of the gaps; the rest is review.
+- **Leave a Website note in the PR body.** List the new commands, flags, exit
+  codes and screens, so the tix.red docs can be updated at release. Write route
+  parameters as `REF`, `KEY` or `ID`, never a bare lowercase word in braces:
+  the site's smoke test reads that as an unfilled token and blocks the deploy.
+- **Report early when it runs long.** An agent past an hour reports what is
+  done and what is left rather than staying silent.
+
 ## Before you push
 
     just check
