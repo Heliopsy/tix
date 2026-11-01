@@ -38,10 +38,10 @@ each get a different task, with no lock, no coordinator and no server process.
 | `--actor` | claim on behalf of another actor |
 
 Claim eligibility covers every task that is not blocked by an unfinished dependency, not held by a live lease,
-not snoozed, and not already in a terminal state (`done`, `cancelled`). A queue whose tasks are all terminal reports the same
-empty-queue result as a queue with nothing in it: exit 3, `no_task_available`. A worker that should only pick up
-work in a specific non-terminal status still should say so, e.g. `tix claim next -s todo`, since a task sitting in
-`blocked` is non-terminal and would otherwise be handed out.
+not snoozed, and not already in a terminal state (`done`, `cancelled`). A queue whose tasks are all terminal
+reports the same empty-queue result as a queue with nothing in it: exit 3, `no_task_available`. A worker that
+should only pick up work in a specific non-terminal status still should say so, e.g. `tix claim next -s todo`,
+since a task sitting in `blocked` is non-terminal and would otherwise be handed out.
 
 A queue filter that names nothing is a different answer from an empty queue, and the codes say which is which.
 `-p` naming no project, and `-s` naming a status no workflow of this tenant defines, both fail with exit 3 and
