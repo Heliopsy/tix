@@ -9,16 +9,26 @@ import (
 	"testing"
 )
 
-// addChannel posts the Notifications form and returns where it sent the
-// browser, which is the new channel's own screen.
-func addChannel(t *testing.T, b *browser, form url.Values) string {
+// addChannel posts the Notifications form and returns the new channel's
+// screen path and the screen the answer drew, which carries the secret.
+func addChannel(t *testing.T, f *fixture, b *browser, form url.Values) (string, string) {
 	t.Helper()
 	resp := b.post("/settings/notifications", form)
-	if resp.StatusCode != http.StatusSeeOther && resp.StatusCode != http.StatusFound {
-		t.Fatalf("adding a channel answered %d:\n%s", resp.StatusCode, body(t, resp))
+	page := body(t, resp)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("adding a channel answered %d:\n%s", resp.StatusCode, page)
 	}
-	loc, _ := url.Parse(resp.Header.Get("Location"))
-	return loc.Path
+	channels, err := f.svc.ListInboxChannels(f.ctx())
+	if err != nil || len(channels) == 0 {
+		t.Fatalf("no channel after adding one: %v", err)
+	}
+	for _, c := range channels {
+		if c.Name == form.Get("name") {
+			return "/settings/notifications/" + c.ID, page
+		}
+	}
+	t.Fatalf("no channel named %q", form.Get("name"))
+	return "", ""
 }
 
 func TestSettingsAddsAChannelAndShowsItsSecretOnce(t *testing.T) {
@@ -34,21 +44,20 @@ func TestSettingsAddsAChannelAndShowsItsSecretOnce(t *testing.T) {
 		}
 	}
 
-	page := addChannel(t, b, url.Values{"name": {"phone"}, "url": {"https://ntfy.invalid/alice-tix"},
+	page, first := addChannel(t, f, b, url.Values{"name": {"phone"}, "url": {"https://ntfy.invalid/alice-tix"},
 		"format": {"ntfy"}, "kinds": {"mention", "assigned"}, "active": {"on"}})
-	if !strings.HasPrefix(page, "/settings/notifications/") {
-		t.Fatalf("adding a channel sent the browser to %q", page)
-	}
 	channels, err := f.svc.ListInboxChannels(f.ctx())
 	if err != nil || len(channels) != 1 || len(channels[0].Kinds) != 2 || channels[0].Format != "ntfy" {
 		t.Fatalf("channels = %+v, %v", channels, err)
 	}
-	first := b.page(page)
 	if !strings.Contains(first, `id="channel-secret"`) {
 		t.Fatal("the new channel's screen does not show its secret")
 	}
 	if strings.Contains(b.page(page), `id="channel-secret"`) {
 		t.Fatal("the secret is shown a second time")
+	}
+	if c := b.cookie("tix_issued_channel"); c != "" {
+		t.Fatal("the secret travelled in a cookie")
 	}
 	for _, want := range []string{`action="/settings/notifications/` + channels[0].ID + `/test">`,
 		`action="/settings/notifications/` + channels[0].ID + `/edit">`, "Recent deliveries"} {
@@ -72,7 +81,7 @@ func TestChannelFormsRefuseInPlaceTestAndRemove(t *testing.T) {
 		t.Fatalf("a refused channel answered %d without the message beside the url:\n%s", resp.StatusCode, refused)
 	}
 
-	page := addChannel(t, b, url.Values{"name": {"hook"}, "url": {"https://hooks.invalid/hook"}, "kinds": {"mention"}, "active": {"on"}})
+	page, _ := addChannel(t, f, b, url.Values{"name": {"hook"}, "url": {"https://hooks.invalid/hook"}, "kinds": {"mention"}, "active": {"on"}})
 	id := strings.TrimPrefix(page, "/settings/notifications/")
 	resp = b.post(page+"/edit", url.Values{"name": {"hook"}, "url": {"https://hooks.invalid/hook"}, "format": {"discord"}})
 	refused = body(t, resp)

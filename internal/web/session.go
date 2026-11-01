@@ -484,7 +484,7 @@ const cookieYear = 365 * 24 * 60 * 60
 
 // safeNext keeps a post-login redirect on this origin.
 func safeNext(next string) string {
-	if !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
+	if next == "" || next[0] != '/' || (len(next) > 1 && (next[1] == '/' || next[1] == '\\')) {
 		return RouteProjects
 	}
 	// A backslash is treated as a separator by some browsers, so "/\evil.com"

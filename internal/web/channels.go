@@ -10,10 +10,6 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 )
 
-// issuedChannelCookie carries a new channel's signing secret to its screen,
-// which shows it once, so the value never appears in a URL.
-const issuedChannelCookie = "tix_issued_channel"
-
 // channelRoutes are the Notifications section's forms and one channel's screen.
 func (h *handler) channelRoutes() []route {
 	return []route{
@@ -106,8 +102,10 @@ func (h *handler) notifications(r *http.Request, form channelForm, errs fieldErr
 		Formats: channelFormats(), Kinds: inboxKindChoices(nil)}}
 }
 
-// createChannel adds a channel and shows its secret, once, on its own screen.
-// A refusal draws the settings screen again with the form as it was typed.
+// createChannel adds a channel and answers with its screen showing the
+// secret, once: drawn in this response rather than carried to a redirect, so
+// the value is in no URL, no cookie and no later page. A refusal draws the
+// settings screen again with the form as it was typed.
 func (h *handler) createChannel(w http.ResponseWriter, r *http.Request) error {
 	form := channelFormOf(r)
 	active := form.Active
@@ -123,11 +121,7 @@ func (h *handler) createChannel(w http.ResponseWriter, r *http.Request) error {
 		}
 		return h.renderSettings(w, r, core.KindOf(err).HTTPStatus(), calendar, h.notifications(r, form, refusal(err)))
 	}
-	page := channelPath(issued.ID)
-	// #nosec G124 -- one-time value, HttpOnly, cleared by the screen that shows it
-	http.SetCookie(w, oneTimeCookie(issuedChannelCookie, page, issued.SigningSecret, h.secureCookie(r)))
-	redirect(w, r, page, "channel added")
-	return nil
+	return h.renderChannel(w, r, http.StatusCreated, issued.ID, nil, nil, issued.SigningSecret)
 }
 
 func nonNil(v []string) []string {
@@ -152,11 +146,11 @@ type channelView struct {
 // showChannel renders one of the reader's channels: its settings, a test
 // button and its recent deliveries.
 func (h *handler) showChannel(w http.ResponseWriter, r *http.Request) error {
-	return h.renderChannel(w, r, http.StatusOK, nil, nil)
+	return h.renderChannel(w, r, http.StatusOK, r.PathValue("id"), nil, nil, "")
 }
 
-func (h *handler) renderChannel(w http.ResponseWriter, r *http.Request, status int, form *channelForm, errs fieldErrors) error {
-	id := r.PathValue("id")
+func (h *handler) renderChannel(w http.ResponseWriter, r *http.Request, status int, id string,
+	form *channelForm, errs fieldErrors, secret string) error {
 	channels, err := h.svc.ListInboxChannels(r.Context())
 	if err != nil {
 		return err
@@ -182,7 +176,7 @@ func (h *handler) renderChannel(w http.ResponseWriter, r *http.Request, status i
 		Channel: c, Editor: channelFormView{Action: channelPath(c.ID) + "/edit", Title: "Settings",
 			Submit: "Save channel", CSRF: csrfFrom(r), Form: f, Errors: errs, Formats: channelFormats(),
 			Kinds: inboxKindChoices(nil)},
-		Secret:     issuedChannelSecret(readOneTimeCookie(w, r, issuedChannelCookie, channelPath(c.ID))),
+		Secret:     issuedChannelSecret(secret),
 		Deliveries: deliveries, Format: formatLabel(c.Format),
 		Pager: newPager(r, channelPath(c.ID), next, len(deliveries), "deliveries"),
 	})
@@ -213,7 +207,7 @@ func (h *handler) editChannel(w http.ResponseWriter, r *http.Request) error {
 		if !correctable(err) {
 			return err
 		}
-		return h.renderChannel(w, r, core.KindOf(err).HTTPStatus(), &form, refusal(err))
+		return h.renderChannel(w, r, core.KindOf(err).HTTPStatus(), r.PathValue("id"), &form, refusal(err), "")
 	}
 	redirect(w, r, channelPath(r.PathValue("id")), "channel saved")
 	return nil
@@ -234,7 +228,7 @@ func (h *handler) testChannel(w http.ResponseWriter, r *http.Request) error {
 		if !correctable(err) {
 			return err
 		}
-		return h.renderChannel(w, r, core.KindOf(err).HTTPStatus(), nil, refusal(err))
+		return h.renderChannel(w, r, core.KindOf(err).HTTPStatus(), r.PathValue("id"), nil, refusal(err), "")
 	}
 	flash := "test sent"
 	if d.Status != core.DeliveryDelivered {

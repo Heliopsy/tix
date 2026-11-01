@@ -30,9 +30,7 @@ func FormatTimestamp(t time.Time) string { return t.UTC().Format(TimestampLayout
 // body joined by a dot, so a captured body cannot be replayed under another
 // timestamp.
 func SignedMaterial(timestamp string, body []byte) []byte {
-	out := make([]byte, 0, len(timestamp)+1+len(body))
-	out = append(out, timestamp...)
-	out = append(out, '.')
+	out := append([]byte(timestamp), '.')
 	return append(out, body...)
 }
 

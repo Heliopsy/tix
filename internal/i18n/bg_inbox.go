@@ -23,7 +23,6 @@ func init() {
 		"Turn the channel on to test it.": "Включете канала, за да го изпробвате.",
 		"What":                            "Какво",
 		"Where tix posts: a Slack or Discord webhook URL, an ntfy topic URL, or your own endpoint. Addresses on private networks are refused, as they are for tenant webhooks.": "Къде изпраща tix: адрес на уебкука на Slack или Discord, адрес на тема в ntfy или ваш собствен адрес. Адреси в частни мрежи се отказват, както при уебкуките на организацията.",
-		"channel added":                "каналът е добавен",
 		"channel removed":              "каналът е премахнат",
 		"channel saved":                "каналът е запазен",
 		"delivery queued again":        "доставката е наредена отново",
