@@ -141,6 +141,12 @@ func TestAWriterTicksAChecklistInPlaceAndAReaderCannot(t *testing.T) {
 		t.Fatalf("a refused tick still changed the text:\n%s", got)
 	}
 
+	cleared := b.post(action, url.Values{"uncheck": {"1"}, "version": {strconv.Itoa(task.Version)}})
+	_ = cleared.Body.Close()
+	if got := taskOf(t, f, ref).Body; !strings.HasSuffix(got, "- [ ] write the plan\n- [x] get a review\n- [ ] deploy\n") {
+		t.Fatalf("unchecking item 1 did not clear it:\n%s", got)
+	}
+
 	refused := f.as("viewer").post(action, url.Values{"check": {"3"}})
 	_ = refused.Body.Close()
 	if refused.StatusCode != http.StatusForbidden {

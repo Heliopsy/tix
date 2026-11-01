@@ -36,8 +36,8 @@ func (n *refNode) Dump(src []byte, level int) {
 var refPattern = regexp.MustCompile(`(^|[^\w@./-])(@[A-Za-z0-9][A-Za-z0-9_.-]*[A-Za-z0-9]|@[A-Za-z0-9]|[A-Za-z][A-Za-z0-9_-]*-[0-9]+)\b`)
 
 // linkRefs replaces the references and handles in the document's text with
-// links, wherever the options resolve them. Code and existing links keep
-// their text.
+// links, wherever the options resolve them. Existing links keep their text,
+// and code keeps it because its text nodes are raw.
 func linkRefs(doc ast.Node, src []byte, opt Options) {
 	if opt.TaskHref == nil && opt.HandleHref == nil {
 		return
@@ -48,8 +48,7 @@ func linkRefs(doc ast.Node, src []byte, opt Options) {
 			return ast.WalkContinue, nil
 		}
 		switch n.Kind() {
-		case ast.KindLink, ast.KindAutoLink, ast.KindImage, ast.KindCodeSpan,
-			ast.KindCodeBlock, ast.KindFencedCodeBlock, ast.KindHTMLBlock, ast.KindRawHTML:
+		case ast.KindLink, ast.KindAutoLink, ast.KindImage:
 			return ast.WalkSkipChildren, nil
 		}
 		if t, ok := n.(*ast.Text); ok && !t.IsRaw() {
