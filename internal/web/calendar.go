@@ -134,7 +134,7 @@ func (h *handler) refuseCalendar(w http.ResponseWriter, r *http.Request, err err
 		return readErr
 	}
 	view.Filter, view.Error = filter, safeMessage(err, kind)
-	return h.renderSettings(w, r, kind.HTTPStatus(), view)
+	return h.renderSettings(w, r, kind.HTTPStatus(), view, h.notifications(r, channelForm{}, nil))
 }
 
 // renderCalendarIssued shows a feed's address, the one time it can be shown.

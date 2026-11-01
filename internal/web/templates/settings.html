@@ -26,6 +26,7 @@
   <a href="#keyboard">{{t "Keyboard"}}</a>
   <a href="#dates">{{t "Dates and times"}}</a>
   <a href="#inbox">{{t "Inbox"}}</a>
+  <a href="#notifications">{{t "Notifications"}}</a>
   <a href="#second-factor">{{t "Second factor"}}</a>
   <a href="#calendar">{{t "Calendar feed"}}</a>
   <a href="#database">{{t "Database"}}</a>
@@ -330,6 +331,27 @@
     </form>
   {{end}}
   </div>
+</section>
+
+<section class="setgroup" id="notifications">
+  <h2>{{t "Notifications"}}</h2>
+  {{/* The reader's own delivery endpoints for their inbox items. Kept with
+       the account, like the switches above, and nothing to do with the
+       tenant's webhooks under Configure. */}}
+  <p class="sethelp">{{t "Send your inbox items to Slack, Discord, ntfy or your own endpoint as they arrive. Only your items, of the kinds you choose, and nothing you muted above."}}</p>
+  {{$n := .Data.Notifications}}
+  {{if $n.Channels}}
+  <ul class="plain channels">
+    {{range $n.Channels}}
+    <li class="channelrow">
+      <a class="channelrow-main" href="/settings/notifications/{{.ID}}"><span class="channelrow-name">{{.Name}}</span> <span class="muted">{{t ($n.Label .Format)}}</span></a>
+      <span class="pill status {{if .Active}}done{{else}}cancelled{{end}}">{{if .Active}}{{t "on"}}{{else}}{{t "off"}}{{end}}</span>
+      <a class="ghostlink" href="/settings/notifications/{{.ID}}">{{t "Manage"}}</a>
+    </li>
+    {{end}}
+  </ul>
+  {{end}}
+  <div class="card">{{template "channel-form" $n.Adder}}</div>
 </section>
 
 <section class="setgroup" id="second-factor">

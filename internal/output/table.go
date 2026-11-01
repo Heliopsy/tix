@@ -144,6 +144,16 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, inboxHeader, []core.InboxItem{v}, p.inboxRow)
 	case *core.InboxItem:
 		return renderRows(w, p, inboxHeader, []core.InboxItem{*v}, p.inboxRow)
+	case []core.InboxChannel:
+		return renderRows(w, p, channelHeader, v, p.channelRow)
+	case *core.InboxChannel:
+		return renderRows(w, p, channelHeader, []core.InboxChannel{*v}, p.channelRow)
+	case *core.IssuedInboxChannel:
+		return renderRows(w, p, issuedChannelHeader, []core.IssuedInboxChannel{*v}, issuedChannelRow)
+	case []core.ChannelDelivery:
+		return renderRows(w, p, channelDeliveryHeader, v, p.channelDeliveryRow)
+	case *core.ChannelDelivery:
+		return renderRows(w, p, channelDeliveryHeader, []core.ChannelDelivery{*v}, p.channelDeliveryRow)
 	case core.ProjectDeletion:
 		return renderProjectDeletion(w, p, &v)
 	case []core.SavedFilter:
@@ -161,28 +171,31 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 }
 
 var (
-	taskHeader        = table.Row{"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "REPEAT", "UPDATED", "BLOCKED"}
-	projectHeader     = table.Row{"KEY", "NAME", "WORKFLOW", "COLOR", "ICON", "ARCHIVED", "CREATED", "UPDATED"}
-	workflowHeader    = table.Row{"KEY", "NAME", "INITIAL", "STATES", "TRANSITIONS", "BUILTIN", "UPDATED"}
-	commentHeader     = table.Row{"ID", "TASK", "AUTHOR", "BODY", "CREATED"}
-	tokenHeader       = table.Row{"ID", "NAME", "ACTOR", "SCOPES", "PROJECT", "CREATED", "EXPIRES", "LAST USED", "REVOKED"}
-	sshKeyHeader      = table.Row{"ID", "ACTOR", "LABEL", "FINGERPRINT", "CREATED", "LAST USED", "REVOKED"}
-	auditHeader       = table.Row{"SEQ", "ACTION", "SUBJECT", "ACTOR", "SOURCE", "OCCURRED"}
-	endpointHeader    = table.Row{"ID", "URL", "EVENTS", "ACTIVE", "CREATED"}
-	tenantHeader      = table.Row{"ID", "KEY", "NAME", "THEME", "CREATED", "DELETED"}
-	syncResultHeader  = table.Row{"ENTITY", "CREATED", "UPDATED", "SKIPPED", "DELETED"}
-	themeHeader       = table.Row{"NAME", "ACCENT", "SOFT", "SOURCE"}
-	userHeader        = table.Row{"ID", "EMAIL", "NAME", "CREATED", "DISABLED"}
-	issuedHeader      = table.Row{"ID", "NAME", "SCOPES", "TOKEN", "EXPIRES"}
-	claimHeader       = table.Row{"REF", "TITLE", "STATUS", "LEASE EXPIRES", "TOKEN"}
-	fieldHeader       = table.Row{"KEY", "LABEL", "TYPE", "REQUIRED", "INDEXED", "OPTIONS"}
-	depHeader         = table.Row{"TASK", "DEPENDS ON", "CREATED"}
-	deliveryHeader    = table.Row{"ID", "ENDPOINT", "EVENT", "STATUS", "ATTEMPTS", "NEXT ATTEMPT", "CODE"}
-	inboxHeader       = table.Row{"ID", "KIND", "TASK", "TITLE", "BY", "WHAT", "CREATED", "READ"}
-	tagHeader         = table.Row{"ID", "NAME", "PROJECT", "COLOR"}
-	groupPrefHeader   = table.Row{"VIEW", "GROUP", "HIDDEN", "COLLAPSED", "STARRED", "POSITION"}
-	savedFilterHeader = table.Row{"NAME", "FILTER", "VIEW", "SORT", "SHARED", "MINE", "ID"}
-	syncHeader        = table.Row{"ID", "SYSTEM", "NAME", "CURSOR", "LAST RUN", "LAST STATUS"}
+	taskHeader            = table.Row{"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "REPEAT", "UPDATED", "BLOCKED"}
+	projectHeader         = table.Row{"KEY", "NAME", "WORKFLOW", "COLOR", "ICON", "ARCHIVED", "CREATED", "UPDATED"}
+	workflowHeader        = table.Row{"KEY", "NAME", "INITIAL", "STATES", "TRANSITIONS", "BUILTIN", "UPDATED"}
+	commentHeader         = table.Row{"ID", "TASK", "AUTHOR", "BODY", "CREATED"}
+	tokenHeader           = table.Row{"ID", "NAME", "ACTOR", "SCOPES", "PROJECT", "CREATED", "EXPIRES", "LAST USED", "REVOKED"}
+	sshKeyHeader          = table.Row{"ID", "ACTOR", "LABEL", "FINGERPRINT", "CREATED", "LAST USED", "REVOKED"}
+	auditHeader           = table.Row{"SEQ", "ACTION", "SUBJECT", "ACTOR", "SOURCE", "OCCURRED"}
+	endpointHeader        = table.Row{"ID", "URL", "EVENTS", "ACTIVE", "CREATED"}
+	tenantHeader          = table.Row{"ID", "KEY", "NAME", "THEME", "CREATED", "DELETED"}
+	syncResultHeader      = table.Row{"ENTITY", "CREATED", "UPDATED", "SKIPPED", "DELETED"}
+	themeHeader           = table.Row{"NAME", "ACCENT", "SOFT", "SOURCE"}
+	userHeader            = table.Row{"ID", "EMAIL", "NAME", "CREATED", "DISABLED"}
+	issuedHeader          = table.Row{"ID", "NAME", "SCOPES", "TOKEN", "EXPIRES"}
+	claimHeader           = table.Row{"REF", "TITLE", "STATUS", "LEASE EXPIRES", "TOKEN"}
+	fieldHeader           = table.Row{"KEY", "LABEL", "TYPE", "REQUIRED", "INDEXED", "OPTIONS"}
+	depHeader             = table.Row{"TASK", "DEPENDS ON", "CREATED"}
+	deliveryHeader        = table.Row{"ID", "ENDPOINT", "EVENT", "STATUS", "ATTEMPTS", "NEXT ATTEMPT", "CODE"}
+	inboxHeader           = table.Row{"ID", "KIND", "TASK", "TITLE", "BY", "WHAT", "CREATED", "READ"}
+	channelHeader         = table.Row{"ID", "NAME", "FORMAT", "KINDS", "ON", "URL", "CREATED"}
+	issuedChannelHeader   = table.Row{"ID", "NAME", "FORMAT", "SECRET"}
+	channelDeliveryHeader = table.Row{"ID", "WHAT", "STATUS", "ATTEMPTS", "CODE", "ERROR", "CREATED"}
+	tagHeader             = table.Row{"ID", "NAME", "PROJECT", "COLOR"}
+	groupPrefHeader       = table.Row{"VIEW", "GROUP", "HIDDEN", "COLLAPSED", "STARRED", "POSITION"}
+	savedFilterHeader     = table.Row{"NAME", "FILTER", "VIEW", "SORT", "SHARED", "MINE", "ID"}
+	syncHeader            = table.Row{"ID", "SYSTEM", "NAME", "CURSOR", "LAST RUN", "LAST STATUS"}
 
 	connectionHeader = table.Row{"ID", "SURFACE", "ACTOR", "FROM", "SINCE", "KEY"}
 )
@@ -320,6 +333,33 @@ func dashIfEmpty(s string) string {
 		return "-"
 	}
 	return s
+}
+
+func (p Painter) channelRow(c core.InboxChannel) table.Row {
+	kinds := make([]string, len(c.Kinds))
+	for i, k := range c.Kinds {
+		kinds[i] = string(k)
+	}
+	return table.Row{c.ID, c.Name, string(c.Format), strings.Join(kinds, ","), yesNo(c.Active), c.URL,
+		p.style.Format(c.CreatedAt)}
+}
+
+// issuedChannelRow is a channel as created, the one time its secret is shown.
+func issuedChannelRow(c core.IssuedInboxChannel) table.Row {
+	return table.Row{c.ID, c.Name, string(c.Format), c.SigningSecret}
+}
+
+func (p Painter) channelDeliveryRow(d core.ChannelDelivery) table.Row {
+	what := "item " + d.ItemID
+	if d.Test() {
+		what = "test"
+	}
+	code := ""
+	if d.LastStatusCode != 0 {
+		code = strconv.Itoa(d.LastStatusCode)
+	}
+	return table.Row{d.ID, what, string(d.Status), strconv.Itoa(d.Attempts), code, d.LastError,
+		p.style.Format(d.CreatedAt)}
 }
 
 // inboxRow is one inbox item. WHAT is the status change of a status item and

@@ -43,6 +43,46 @@
     });
   }
 
+  // The rows on screen, so a redraw can tell which ones it brought.
+  var known = [];
+
+  function rowIDs() {
+    var rows = document.querySelectorAll("#inbox-list .inbox-item");
+    var out = [];
+    for (var i = 0; i < rows.length; i++) {
+      out.push(rows[i].id);
+    }
+    return out;
+  }
+
+  function remember() {
+    known = rowIDs();
+  }
+
+  // highlightFresh marks the rows a live redraw brought for a few seconds:
+  // the list moved under the reader, and this says where.
+  document.addEventListener("tix:regions", function () {
+    var now = rowIDs();
+    var fresh = tix.freshIDs(known, now);
+    known = now;
+    for (var i = 0; i < fresh.length; i++) {
+      var row = document.getElementById(fresh[i]);
+      if (row) {
+        row.classList.add("is-fresh");
+      }
+    }
+    if (fresh.length) {
+      window.setTimeout(function () {
+        var marked = document.querySelectorAll("#inbox-list .is-fresh");
+        for (var j = 0; j < marked.length; j++) {
+          marked[j].classList.remove("is-fresh");
+        }
+      }, 4000);
+    }
+  });
+  document.addEventListener("htmx:load", remember);
+  remember();
+
   // Captured, so it runs before the dialog's own handler takes the click.
   document.addEventListener("click", function (event) {
     var target = event.target;

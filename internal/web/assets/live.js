@@ -472,6 +472,9 @@
         tix.focusRestore(document, memo);
       }
     }
+    // Tells a screen's own script that its regions were redrawn, so it can
+    // mark what is new (assets/inbox.js).
+    document.dispatchEvent(new CustomEvent("tix:regions", { detail: ids }));
   }
 
   function rebindAll() {

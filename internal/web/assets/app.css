@@ -6659,3 +6659,19 @@ ul.plain > li.inbox-item:first-child { border-top: 0; }
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   }
 }
+
+@keyframes inbox-fresh { from { background: var(--accent-soft); } to { background: transparent; } }
+ul.plain > li.inbox-item.is-fresh { animation: inbox-fresh 4s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  ul.plain > li.inbox-item.is-fresh { animation: none; background: var(--accent-soft); }
+}
+
+/* Notification channels (templates/settings.html, templates/channel.html). */
+ul.plain > li.channelrow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.channelrow-main { flex: 1 1 auto; min-width: 0; color: var(--ink); text-decoration: none; }
+.channelrow-main:hover .channelrow-name { text-decoration: underline; }
+.channelrow-name { font-weight: 600; }
+.cform-group label.check { display: flex; align-items: center; gap: var(--space-2); min-height: 32px; }
+@media (pointer: coarse) { .cform-group label.check { min-height: 40px; } }
+.channel-actions .inlineform { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin: 0; }
+table.deliveries { width: 100%; }

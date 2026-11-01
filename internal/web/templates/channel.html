@@ -1,0 +1,57 @@
+{{/* One of the reader's own notification channels: the secret once, after
+     it was added; its settings as a form; Send test; and its recent
+     deliveries with Redeliver. Every control is a plain post. */}}
+{{define "content"}}
+{{$v := .Data}}{{$c := $v.Channel}}
+<p class="backlink"><a href="/settings#notifications">&larr; {{t "Notifications"}}</a></p>
+<div class="headtip"><h1>{{$c.Name}}</h1>{{template "tip" (tip "Notification channels" "A channel of your own: tix posts your inbox items of the kinds you ticked to its URL, shaped for the service behind it, and retries a refused delivery on the same schedule as a tenant webhook. Nobody else's items reach it." "docs/web-ui.md")}}</div>
+<p class="lede">{{t $v.Format}} &middot; {{if $c.Active}}{{t "on"}}{{else}}{{t "off"}}{{end}}</p>
+
+{{with $v.Secret}}{{template "secret" .}}{{end}}
+
+<section class="card">
+{{template "channel-form" $v.Editor}}
+</section>
+
+<section class="card channel-actions">
+  <form method="post" class="inlineform" action="/settings/notifications/{{$c.ID}}/test">
+    {{template "csrf" .CSRF}}
+    <button type="submit" class="secondary"{{if not $c.Active}} disabled{{end}}>{{t "Send test"}}</button>
+    <span class="muted">{{if $c.Active}}{{t "Posts a short test message to the channel now."}}{{else}}{{t "Turn the channel on to test it."}}{{end}}</span>
+  </form>
+</section>
+
+<section class="card">
+  <h2>{{t "Recent deliveries"}}</h2>
+  {{if not $v.Deliveries}}<p class="muted">{{t "Nothing has been sent to this channel yet."}}</p>
+  {{else}}
+  <table class="deliveries">
+    <thead><tr><th>{{t "When"}}</th><th>{{t "What"}}</th><th>{{t "State"}}</th><th>{{t "Attempts"}}</th><th>{{t "Last answer"}}</th><th class="actioncell"></th></tr></thead>
+    <tbody>
+    {{range $v.Deliveries}}
+    <tr>
+      <td><time datetime="{{absolute .CreatedAt}}" title="{{absolute .CreatedAt}}">{{relativeAt .CreatedAt}}</time></td>
+      <td>{{if .Test}}{{t "test"}}{{else}}{{t "inbox item"}}{{end}}</td>
+      <td><span class="pill status {{if eq .Status "delivered"}}done{{else if eq .Status "failed"}}blocked{{else}}todo{{end}}">{{t (printf "%s" .Status)}}</span></td>
+      <td>{{.Attempts}}</td>
+      <td class="muted">{{if .LastStatusCode}}{{.LastStatusCode}}{{end}}{{if .LastError}} {{.LastError}}{{end}}</td>
+      <td class="actioncell">{{if ne .Status "delivered"}}<form method="post" class="inlineform" action="/settings/notifications/{{$c.ID}}/redeliver">{{template "csrf" $.CSRF}}<input type="hidden" name="delivery" value="{{.ID}}"><button type="submit" class="ghost">{{t "Redeliver"}}</button></form>{{end}}</td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{end}}
+  {{template "pager" $v.Pager}}
+</section>
+
+<details class="panel danger">
+  <summary>{{t "Remove this channel"}}</summary>
+  <div class="body">
+    <form method="post" action="/settings/notifications/{{$c.ID}}/delete">
+      {{template "csrf" .CSRF}}
+      <p class="muted">{{t "Nothing more is sent to it, and its delivery history goes with it."}}</p>
+      <div class="actions"><button class="danger" type="submit">{{t "Remove channel"}}</button></div>
+    </form>
+  </div>
+</details>
+{{end}}

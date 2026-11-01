@@ -11,7 +11,12 @@
 <div class="headtip"><h1>{{t "Inbox"}}</h1>{{template "tip" (tip "Inbox" "What concerns you: somebody mentions you as @handle in a comment or a description, assigns you a task, comments on a task you are assigned to or starred, or moves a task assigned to you. Your own changes never appear here. Turn kinds off under Settings, Inbox." "docs/web-ui.md")}}</div>
 <p class="lede">{{t "Mentions, assignments, comments and status changes that concern you, newest first."}}</p>
 
-<div class="inbox-bar">
+{{/* The list redraws in place on every inbox.updated (assets/live.js, the
+     screen stream): the page is fetched again and the bar and the list are
+     swapped, keeping scroll and focus, and assets/inbox.js marks the rows
+     that were not there before. */}}
+{{template "live-screen" $v.Live}}
+<div class="inbox-bar" id="inbox-bar">
   <nav class="segmented" aria-label="{{t "Which items to show"}}">
     <a href="/inbox" class="segment{{if not $v.Unread}} is-on{{end}}" {{if not $v.Unread}}aria-current="page"{{end}}>{{t "All"}}</a>
     <a href="/inbox?show=unread" class="segment{{if $v.Unread}} is-on{{end}}" {{if $v.Unread}}aria-current="page"{{end}}>{{t "Unread"}}{{if $v.Count}} <span class="count">{{$v.Count}}</span>{{end}}</a>

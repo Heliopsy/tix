@@ -72,6 +72,7 @@ const (
 	tplSettings  = "settings.html"
 	tplProjDel   = "projectdelete.html"
 	tplInbox     = "inbox.html"
+	tplChannel   = "channel.html"
 )
 
 // registry declares every operation the product offers. Every exported method
@@ -678,6 +679,62 @@ var registry = []Operation{
 		HTTP:   apiPut(wire.RouteInboxPrefs),
 		Web:    webPost(web.RouteInboxMutes),
 		Exempt: []Exemption{off(SurfaceTUI, "mutes are a setting, and the terminal interface has no settings screen; set them from the browser or tix inbox prefs")},
+	},
+	{
+		Name: "inbox.channel.list", Method: "ListInboxChannels",
+		Scope:  core.ScopeTaskRead,
+		CLI:    "tix inbox channel ls",
+		HTTP:   apiGet(wire.RouteChannels),
+		Web:    webGet(web.RouteSettings, tplSettings),
+		Exempt: []Exemption{off(SurfaceTUI, "notification channels are a setting, and the terminal interface has no settings screen for the account; manage them from the browser or tix inbox channel")},
+	},
+	{
+		Name: "inbox.channel.add", Method: "CreateInboxChannel",
+		Scope:  core.ScopeTaskRead,
+		CLI:    "tix inbox channel add",
+		HTTP:   apiPost(wire.RouteChannels),
+		Web:    webPost(web.RouteChannels),
+		Exempt: []Exemption{off(SurfaceTUI, "notification channels are a setting, and the terminal interface has no settings screen for the account; manage them from the browser or tix inbox channel")},
+	},
+	{
+		Name: "inbox.channel.edit", Method: "UpdateInboxChannel",
+		Scope:  core.ScopeTaskRead,
+		CLI:    "tix inbox channel edit",
+		HTTP:   apiPatch(wire.RouteChannel),
+		Web:    webPost(web.RouteChannelEdit),
+		Exempt: []Exemption{off(SurfaceTUI, "notification channels are a setting, and the terminal interface has no settings screen for the account; manage them from the browser or tix inbox channel")},
+	},
+	{
+		Name: "inbox.channel.rm", Method: "DeleteInboxChannel",
+		Scope:  core.ScopeTaskRead,
+		CLI:    "tix inbox channel rm",
+		HTTP:   apiDelete(wire.RouteChannel),
+		Web:    webPost(web.RouteChannelDelete),
+		Exempt: []Exemption{off(SurfaceTUI, "notification channels are a setting, and the terminal interface has no settings screen for the account; manage them from the browser or tix inbox channel")},
+	},
+	{
+		Name: "inbox.channel.test", Method: "TestInboxChannel",
+		Scope:  core.ScopeTaskRead,
+		CLI:    "tix inbox channel test",
+		HTTP:   apiPost(wire.RouteChannelTest),
+		Web:    webPost(web.RouteChannelTest),
+		Exempt: []Exemption{off(SurfaceTUI, "notification channels are a setting, and the terminal interface has no settings screen for the account; manage them from the browser or tix inbox channel")},
+	},
+	{
+		Name: "inbox.channel.deliveries", Method: "ListChannelDeliveries",
+		Scope:  core.ScopeTaskRead,
+		CLI:    "tix inbox channel deliveries",
+		HTTP:   apiGet(wire.RouteChannelDeliveries),
+		Web:    webGet(web.RouteChannel, tplChannel),
+		Exempt: []Exemption{off(SurfaceTUI, "notification channels are a setting, and the terminal interface has no settings screen for the account; manage them from the browser or tix inbox channel")},
+	},
+	{
+		Name: "inbox.channel.redeliver", Method: "RedeliverChannelDelivery",
+		Scope:  core.ScopeTaskRead,
+		CLI:    "tix inbox channel redeliver",
+		HTTP:   apiPost(wire.RouteChannelRedeliver),
+		Web:    webPost(web.RouteChannelRedeliver),
+		Exempt: []Exemption{off(SurfaceTUI, "notification channels are a setting, and the terminal interface has no settings screen for the account; manage them from the browser or tix inbox channel")},
 	},
 	{
 		Name: "tag.list", Method: "ListTags",

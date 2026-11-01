@@ -88,3 +88,34 @@ func (f *fakeService) PutInboxPrefs(_ context.Context, in core.InboxPrefsInput) 
 	kinds, err := core.ParseInboxKinds(in.Muted)
 	return &core.InboxPrefs{Muted: kinds}, err
 }
+
+// The terminal has no screen for notification channels, so the fake answers
+// with none and refuses the rest.
+
+func (f *fakeService) ListInboxChannels(context.Context) ([]core.InboxChannel, error) {
+	return []core.InboxChannel{}, nil
+}
+
+func (f *fakeService) CreateInboxChannel(context.Context, core.InboxChannelInput) (*core.IssuedInboxChannel, error) {
+	return nil, core.Forbidden("not offered by the terminal")
+}
+
+func (f *fakeService) UpdateInboxChannel(context.Context, string, core.InboxChannelUpdate) (*core.InboxChannel, error) {
+	return nil, core.Forbidden("not offered by the terminal")
+}
+
+func (f *fakeService) DeleteInboxChannel(context.Context, string) error {
+	return core.Forbidden("not offered by the terminal")
+}
+
+func (f *fakeService) TestInboxChannel(context.Context, string) (*core.ChannelDelivery, error) {
+	return nil, core.Forbidden("not offered by the terminal")
+}
+
+func (f *fakeService) ListChannelDeliveries(context.Context, core.ChannelDeliveryFilter) ([]core.ChannelDelivery, string, error) {
+	return []core.ChannelDelivery{}, "", nil
+}
+
+func (f *fakeService) RedeliverChannelDelivery(context.Context, string) error {
+	return core.Forbidden("not offered by the terminal")
+}

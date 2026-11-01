@@ -28,7 +28,7 @@ func newInboxCmd(g *globals) *cobra.Command {
 		RunE:    helpRunner,
 	}
 	cmd.AddCommand(inboxLsCmd(g), inboxCountCmd(g), inboxReadCmd(g, true), inboxReadCmd(g, false),
-		inboxReadAllCmd(g), inboxPrefsCmd(g))
+		inboxReadAllCmd(g), inboxPrefsCmd(g), newInboxChannelCmd(g))
 	return cmd
 }
 

@@ -58,3 +58,9 @@ test("a fresh badge carries its count and shows or hides every mark", () => {
   assert.equal(here.getAttribute("hidden"), "hidden");
   assert.equal(dot.getAttribute("hidden"), "hidden");
 });
+
+test("a redraw's fresh rows are the ones that were not there before", () => {
+  assert.deepEqual(plain(tix.freshIDs(["i-2", "i-1"], ["i-4", "i-3", "i-2", "i-1"])), ["i-4", "i-3"]);
+  assert.deepEqual(plain(tix.freshIDs(["i-2"], ["i-2"])), []);
+  assert.deepEqual(plain(tix.freshIDs([], ["i-1"])), ["i-1"]);
+});

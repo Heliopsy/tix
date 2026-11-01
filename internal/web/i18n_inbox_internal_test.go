@@ -8,6 +8,10 @@ func init() {
 		for _, c := range inboxKindChoices(nil) {
 			out = append(out, c.Label, c.Help)
 		}
-		return out
+		for _, c := range channelFormats() {
+			out = append(out, c.Label)
+		}
+		return append(out, "Add a channel", "Add channel", "Settings", "Save channel", "test sent",
+			"test not delivered yet", "deliveries")
 	})
 }

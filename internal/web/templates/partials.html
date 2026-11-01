@@ -797,3 +797,47 @@
   </div>
 </form>
 {{end}}
+
+{{/* channel-form adds or edits a notification channel (channels.go
+     channelFormView), in the create-form layout: name and URL in the main
+     column, the format and the kinds beside them. A refusal comes back with
+     the message under the field it is about and what was typed in place. */}}
+{{define "channel-form"}}
+{{$e := .Errors}}{{$f := .Form}}
+<form method="post" class="cform" data-form action="{{.Action}}">
+  {{template "csrf" .CSRF}}
+  <div class="cform-head"><h2 class="cform-title">{{t .Title}}</h2></div>
+  {{with $e.On ""}}{{template "field-error" .}}{{end}}
+  <div class="cform-grid">
+    <div class="cform-main">
+      <div class="cfield">
+        <div class="cfield-label"><label for="{{.Prefix}}name">{{t "Name"}}</label>{{template "required-mark"}}</div>
+        <input id="{{.Prefix}}name" name="name" value="{{$f.Name}}" placeholder="{{t "Phone"}}" maxlength="80" autocomplete="off" required{{$e.Attrs "name"}}>
+        {{with $e.On "name"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="cfield">
+        <div class="cfield-label"><label for="{{.Prefix}}url">{{t "URL"}}</label>{{template "required-mark"}}{{template "tip" (tip "URL" "Where tix posts: a Slack or Discord webhook URL, an ntfy topic such as https://ntfy.sh/your-topic, or your own endpoint. Addresses on private networks are refused, as they are for tenant webhooks.")}}</div>
+        <input id="{{.Prefix}}url" class="mono" name="url" type="url" value="{{$f.URL}}" placeholder="{{"https://ntfy.sh/your-topic"}}" autocomplete="off" spellcheck="false" required{{$e.Attrs "url"}}>
+        {{with $e.On "url"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="cfield">
+        <div class="cfield-label"><label for="{{.Prefix}}format">{{t "Format"}}</label></div>
+        <select id="{{.Prefix}}format" name="format"{{$e.Attrs "format"}}>
+          {{range .Formats}}<option value="{{.Value}}"{{if eq .Value $f.Format}} selected{{end}}>{{t .Label}}</option>{{end}}
+        </select>
+        {{with $e.On "format"}}{{template "field-error" .}}{{end}}
+      </div>
+    </div>
+    <fieldset class="cform-side cform-group">
+      <legend>{{t "Sends"}}</legend>
+      {{range .Kinds}}<label class="check"><input type="checkbox" name="kinds" value="{{.Kind}}"{{if $f.Has .Kind}} checked{{end}}> {{t .Label}}</label>{{end}}
+      {{with $e.On "kinds"}}{{template "field-error" .}}{{end}}
+      <label class="check"><input type="checkbox" name="active" value="on"{{if $f.Active}} checked{{end}}> {{t "On"}}</label>
+    </fieldset>
+  </div>
+  <div class="cform-foot">
+    {{template "form-keys" (t "to save")}}
+    <div class="cform-actions"><button type="submit">{{t .Submit}}</button></div>
+  </div>
+</form>
+{{end}}

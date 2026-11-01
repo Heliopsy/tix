@@ -67,6 +67,7 @@ Everything below is under `/api/v1`.
 | Saved filters | `/filters`, `/filters/{filter}`, `/filters/order` |
 | Calendar feed | `/calendar`, `/calendar/rotate`, `/calendar/feeds/{file}` (no credential); see [Calendar feed](#calendar-feed) |
 | Inbox | `/inbox`, `/inbox/count`, `/inbox/{id}/read`, `/inbox/read-all`, `/inbox/prefs`; see [Inbox](#inbox) |
+| Notification channels | `/channels`, `/channels/{id}`, `/channels/{id}/test`, `/channels/{id}/deliveries`, `/channel-deliveries/{id}/redeliver`; see [Notification channels](#notification-channels) |
 | Events | `/events` (WebSocket) |
 
 Every route above has a command: `tix doctor`, `tix login`, `tix user totp`, `tix user key`, `tix actor`,
@@ -422,6 +423,32 @@ and muting write an audit entry and emit `inbox.updated`; one that changes nothi
 change that creates items emits one `inbox.updated` whose payload `recipients` lists the actor
 identifiers that received one, which is what the web sidebar's badge listens for.
 
+### Notification channels
+
+A person can deliver their own inbox items to endpoints of their own: a Slack incoming webhook, a Discord
+webhook, an ntfy topic URL, or any URL taking signed JSON. These are not the tenant's webhooks: a channel
+belongs to the actor who added it and receives only that actor's items, of the kinds it lists, and nothing
+of a kind they muted. Each item queues a delivery in the transaction that writes it, and the webhook
+dispatcher drains the queue beside its own, with the same claim, retry schedule, network guard and
+`X-Tix-Signature` (the event header is `inbox.item`, or `inbox.test` for a test).
+
+| Route | Does |
+| --- | --- |
+| `GET /channels` | The caller's channels, without their secrets |
+| `POST /channels` | Takes `name`, `url`, `format` (`generic`, `slack`, `discord`, `ntfy`), `kinds` (default all) and `active`; answers `201` with the channel and its `secret`, which no later read returns |
+| `PATCH /channels/{id}` | Changes any of those fields |
+| `DELETE /channels/{id}` | Removes the channel and its deliveries; `204` |
+| `POST /channels/{id}/test` | Queues a test message and answers the delivery, attempted already when the server drains inline |
+| `GET /channels/{id}/deliveries` | The channel's deliveries, newest first, keyset paged |
+| `POST /channel-deliveries/{id}/redeliver` | Queues another attempt; `204` |
+
+Every message says who did what to which task, links the task when the tenant has a domain
+(`https://DOMAIN/tasks/REF`), and quotes the comment or description when there is one. Signed JSON
+carries `type`, `message`, `task_ref`, `task_title`, `url`, `excerpt` and the `item`. Discord messages
+disable mentions, so a comment quoting `@everyone` pings nobody. Another actor's channel or delivery is
+`not_found`. The audit log keeps a channel's URL cut to its scheme and host, because a Slack or Discord
+webhook URL is itself the credential.
+
 ### Copying a task
 
 `POST /tasks/{ref}/copy` makes a new task out of an existing one and answers `201` with the copy. Every field
@@ -696,9 +723,9 @@ renders it once, in the same one-time secret region the token screen uses for a 
 never again. Supply your own and nothing is shown back to you, since you already hold it. Saving an existing
 endpoint with the secret field blank keeps the secret it already has rather than rotating it.
 
-There is no per-user endpoint, so inbox items are not delivered to a person's own URL. An endpoint is
-tenant configuration filtered by event type; one subscribed to `inbox.updated` receives every inbox
-change in the tenant with its `recipients`, which is enough for a bridge that fans out to people.
+Inbox items reach a person's own URL through their [notification channels](#notification-channels),
+not through these endpoints, which are tenant configuration filtered by event type. One subscribed to
+`inbox.updated` still receives every inbox change in the tenant with its `recipients`.
 
 ## Related
 
