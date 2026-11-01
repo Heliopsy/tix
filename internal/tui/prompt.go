@@ -63,7 +63,7 @@ func (s PromptSpec) Title() string { return strings.TrimSuffix(strings.TrimSpace
 
 // promptSpecs describes every input. An input that is not listed is not open.
 var promptSpecs = map[promptKind]PromptSpec{
-	promptFilter:  {Prompt: "filter: ", Placeholder: "status:todo is:unclaimed text", Limit: 512, Field: "expression"},
+	promptFilter: {Prompt: "filter: ", Placeholder: "status:todo is:unclaimed text", Limit: 512, Field: "expression"},
 	// The new task is a quick-add line: a title with its attributes typed in.
 	promptNewTask: {Prompt: "new task: ", Placeholder: "title, then !high #tag @handle due:fri +project ^parent-1 status:doing", Limit: core.MaxTitleLength, Field: "title"},
 
