@@ -10,6 +10,7 @@ import (
 	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/query"
+	"github.com/heliopsy/tix/internal/quickadd"
 	"github.com/spf13/cobra"
 )
 
@@ -57,24 +58,26 @@ func taskAddCmd(g *globals) *cobra.Command {
 	var (
 		project, bodyFlag, status, priority, assignee, parent, due, repeat string
 		tags, depends, fields                                              []string
-		dryRun                                                             bool
+		dryRun, parse                                                      bool
 	)
 	cmd := &cobra.Command{
 		Use:   "add TITLE...",
 		Short: "Create a task",
 		Long: "Create a task. Only a title is required; the default project and workflow are used.\n\n" +
 			"--repeat makes the task recurring: finishing it creates the next one. " + repeatHelp + "\n\n" +
+			"--parse reads the title as a quick-add line and takes out what it names: " + quickadd.SyntaxHint() +
+			". Relative dates count from today in the local time zone. Off by default, so a script " +
+			"passing a title it did not write is stored as given; single-quote the line so the shell " +
+			"leaves ! and # alone. A flag the line contradicts is refused.\n\n" +
 			"Exit codes: 2 invalid input, 3 unknown project, parent or assignee, 5 permission denied.",
 		Example: "  tix task add \"buy milk\"\n  tix task add \"ship release\" -p infra --priority high --tag ops\n" +
-			"  tix task add \"pay rent\" --due 2026-12-01 --repeat monthly",
+			"  tix task add \"pay rent\" --due 2026-12-01 --repeat monthly\n" +
+			"  tix task add --parse 'Fix login !high #auth @raj due:fri +web'",
 		Args: minArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fallback, err := g.projectFallback(cmd)
 			if err != nil {
 				return err
-			}
-			if fallback != "" {
-				project = fallback
 			}
 			title := strings.Join(args, " ")
 			if len(args) == 1 && args[0] == StdinMarker {
@@ -106,12 +109,24 @@ func taskAddCmd(g *globals) *cobra.Command {
 				AssigneeActorID: assignee, ParentRef: parent, DueAt: dueAt,
 				CustomFields: custom, DependsOn: depends, Recurrence: repeat,
 			}
+			if parse {
+				parsed, err := quickadd.Parse(in.Title, time.Now())
+				if err != nil {
+					return err
+				}
+				if in, err = parsed.Apply(in); err != nil {
+					return err
+				}
+			}
+			if in.ProjectRef == "" {
+				in.ProjectRef = fallback
+			}
 			if err := in.Validate(); err != nil {
 				return err
 			}
 			if dryRun {
 				return g.render(cmd, newPlan("task.create", in.Title,
-					map[string]any{"project": project, "status": status, "tags": tags}))
+					map[string]any{"project": in.ProjectRef, "status": in.Status, "tags": in.Tags}))
 			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
@@ -137,6 +152,7 @@ func taskAddCmd(g *globals) *cobra.Command {
 	f.StringSliceVar(&depends, "depends-on", nil, "task this one depends on, repeatable")
 	f.StringSliceVar(&fields, "field", nil, "custom field as key=value, repeatable")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would be created without writing")
+	f.BoolVar(&parse, "parse", false, "read quick-add syntax (!high #tag @handle due:fri +project ^parent) out of the title")
 	registerCompletions(g, cmd, "project", "status", "tag")
 	return cmd
 }

@@ -357,8 +357,14 @@ func eq(a, b string) bool { return a == b }
 
 // contradiction refuses a line that disagrees with an explicit field.
 func contradiction(field, line, explicit string) error {
-	return core.Invalid("the line sets %s to %s but it was also given as %s", field, line, explicit).
+	return core.Invalid("the line sets the %s to %s but it was also given as %s", labels[field], line, explicit).
 		WithDetail(core.DetailField, field)
+}
+
+// labels names each input field the way a refusal says it.
+var labels = map[string]string{
+	"priority": "priority", "due_at": "due date", "project_ref": "project",
+	"assignee_actor_id": "assignee", "parent_ref": "parent", "status": "status",
 }
 
 // onTitle attributes a value error to the line, which is the title field.
