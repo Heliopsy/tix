@@ -93,8 +93,6 @@ func init() {
 		"Back to the %s board":                                                 "Обратно към таблото на %s",
 		"Go to tasks":                                                          "Към задачите",
 		"Starred":                                                              "Със звезда",
-		"Yes, listed first for you":                                            "Да, показва се първа за теб",
-		"No":                                                                   "Не",
 		"Subtask of":                                                           "Подзадача на",
 		"Started":                                                              "Започната",
 		"due %s":                                                               "срок %s",

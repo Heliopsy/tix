@@ -180,7 +180,8 @@
 
   function wire(form) {
     var select = form.querySelector("select");
-    if (!select) return;
+    if (!select || form.hasAttribute("data-apply-wired")) return;
+    form.setAttribute("data-apply-wired", "");
 
     var apply = form.querySelector("button.apply");
     if (apply) apply.hidden = true;
@@ -204,4 +205,7 @@
   } else {
     start();
   }
+  // A property of the task screen saved in place comes back in a swapped
+  // page body, whose selects have not been wired yet.
+  document.addEventListener("htmx:afterSwap", start);
 })();

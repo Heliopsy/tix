@@ -1,55 +1,104 @@
 {{define "content"}}
 {{$t := .Data.Task}}
-{{/* The way back to the listing the reader came from, filters and all. A
-     task opened from a filtered list had no way back to it: the sidebar goes
-     to the unfiltered list, so the browser's back button was the only thing
-     that preserved the reader's place. */}}
-{{/* In the dialog there is nowhere to go back to: the listing is under it.
-     The way out is closing it, which assets/taskopen.js turns into Back. */}}
+{{$held := claim $t}}
+{{$in := not .InDialog}}
+{{/* The way back to the listing the reader came from, filters and all. In
+     the dialog there is nowhere to go back to: the listing is under it, and
+     the way out is closing it, which assets/taskopen.js turns into Back. */}}
 {{if .InDialog}}<p class="backlink"><button type="button" class="ghost dlgclose" data-dialog-close>&larr; {{t "Close"}}</button></p>
 {{else}}<p class="backlink"><a href="{{.Data.Back}}">&larr; {{phrase .Data.BackLabel}}</a></p>{{end}}
-{{/* data-inplace on the title bar, the two menus and the body: a form in
-     any of them swaps the page's content and leaves the sidebar, the scroll
-     position and the focused field where they were. See assets/feel.js. In
-     the dialog the dialog's own body is what its forms swap already. */}}
-<div class="titlebar"{{if not .InDialog}} data-inplace="main.wrap"{{end}} data-recent-task="{{$t.Ref}}" data-recent-title="{{$t.Title}}">
-  {{if .CanStar}}{{template "star" (star $t.Ref $t.Starred .Here .CSRF)}}{{end}}
-  <span class="ref">{{$t.Ref}}</span>
-  <h1{{if .InDialog}} id="taskdlg-title"{{end}}>{{$t.Title}}</h1>
-  {{if .CanStar}}{{template "tip" (tip "Stars" "A star is yours alone: your starred tasks come first in every listing you see, and is:starred finds them. Nobody else's order changes." "docs/filtering.md")}}{{end}}
-  {{/* A link, so it opens in a new tab and works with scripting off.
-       data-dialog-load keeps it inside the dialog when the task is open in
-       one; see assets/taskopen.js. */}}
-  {{if .Data.CanWrite}}<a class="ghostlink copyto" href="/tasks/{{$t.Ref}}/copy" data-dialog-load>{{t "Copy to…"}}</a>{{end}}
-  {{/* Snooze opens its menu, which lives below with the other two so a live
-       refresh never swaps it away. A snoozed task offers Unsnooze instead,
-       one press, since there is nothing to choose. */}}
-  {{if .Data.CanWrite}}{{if snoozed $t}}
+
+{{/* The header: the reference, the title, the star and one menu holding
+     every action on the task as a whole. Copy to, Save as template, Snooze
+     and Delete used to be four controls in four places: three ghost links at
+     the far end of the title row and a Danger zone at the foot of the page.
+
+     data-inplace on the header, the menus and the body: a form in any of
+     them swaps the page's content and leaves the sidebar, the scroll position
+     and the focused field where they were. See assets/feel.js. In the dialog
+     the dialog's own body is what its forms swap already. */}}
+<header class="titlebar taskhead"{{if $in}} data-inplace="main.wrap"{{end}} data-recent-task="{{$t.Ref}}" data-recent-title="{{$t.Title}}">
+  <div class="taskhead-line">
+    <span class="ref">{{$t.Ref}}</span>
+    {{if .Data.Parent}}<span class="taskhead-parent">{{t "in"}} <a class="mono" href="/tasks/{{.Data.Parent.Ref}}" title="{{.Data.Parent.Title}}">{{.Data.Parent.Ref}}</a></span>{{end}}
+  </div>
+  <div class="taskhead-title">
+    <h1{{if .InDialog}} id="taskdlg-title"{{end}}>{{$t.Title}}</h1>
+    {{/* The title edits where it is read. A disclosure, so it opens and
+         closes with scripting off; open, the heading gives way to the field
+         and the same summary reads Cancel. */}}
+    {{if .Data.CanWrite}}
+    <details class="titleedit">
+      <summary class="editswitch"><span class="when-shut">{{t "Rename"}}</span><span class="when-open">{{t "Cancel"}}</span></summary>
+      <form method="post" class="titleform" action="/tasks/{{$t.Ref}}">
+        {{template "csrf" .CSRF}}
+        <input type="hidden" name="version" value="{{$t.Version}}">
+        <input id="{{.IDPrefix}}title" name="title" value="{{$t.Title}}" aria-label="{{t "Title"}}" data-shortcut-target="editTitle" required>
+        <button type="submit">{{t "Save"}}</button>
+      </form>
+    </details>
+    {{end}}
+    <span class="taskhead-tools">
+      {{if .CanStar}}{{template "star" (star $t.Ref $t.Starred .Here .CSRF)}}{{template "tip" (tip "Stars" "A star is yours alone: your starred tasks come first in every listing you see, and is:starred finds them. Nobody else's order changes." "docs/filtering.md")}}{{end}}
+      <button type="button" class="taskmenu-open" popovertarget="{{.IDPrefix}}taskmenu-{{$t.Ref}}"
+              aria-label="{{t "Actions for %s" $t.Ref}}" title="{{t "Actions for %s" $t.Ref}}">
+        <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#more"/></svg>
+      </button>
+    </span>
+  </div>
+</header>
+
+{{/* The one menu. Copy link and Copy id copy without leaving; Copy to and
+     Save as template are links, so they open in a new tab and work with
+     scripting off, and data-dialog-load keeps them inside the dialog when
+     the task is open in one (assets/taskopen.js). */}}
+<div id="{{.IDPrefix}}taskmenu-{{$t.Ref}}" class="flowmenu taskmenu" popover{{if $in}} data-inplace="main.wrap"{{end}}>
+  <p class="flowhead">{{t "Actions for %s" $t.Ref}}</p>
+  <button type="button" class="flowgo" data-copy-link="/tasks/{{$t.Ref}}">{{t "Copy link"}}</button>
+  <button type="button" class="flowgo" data-copy-text="{{$t.ID}}">{{t "Copy the task id"}}</button>
+  {{if .Data.CanWrite}}
+  <a class="flowgo copyto" href="/tasks/{{$t.Ref}}/copy" data-dialog-load>{{t "Copy to…"}}</a>
+  <a class="flowgo savetpl" href="/tasks/{{$t.Ref}}/template" data-dialog-load>{{t "Save as template"}}</a>
+  {{/* Snooze opens its own menu over this one. A snoozed task offers
+       Unsnooze instead, one press, since there is nothing to choose. */}}
+  {{if snoozed $t}}
   <form method="post" class="snoozeform" action="/tasks/{{$t.Ref}}/snooze/remove">
     {{template "csrf" $.CSRF}}
     <input type="hidden" name="next" value="{{$.Here}}">
-    <button type="submit" class="ghostlink snoozebtn" data-focus="snooze">{{t "Unsnooze"}}</button>
+    <button type="submit" class="flowgo snoozebtn" data-focus="snooze">{{t "Unsnooze"}}</button>
   </form>
-  {{else}}<button type="button" class="ghostlink snoozebtn" data-focus="snooze" popovertarget="{{$.IDPrefix}}snooze-{{$t.Ref}}"
-          aria-label="{{t "Snooze %s" $t.Ref}}" title="{{t "Hide it from every listing until later"}}">{{t "Snooze"}}</button>{{end}}{{end}}
-  {{if .Data.CanWrite}}<a class="ghostlink savetpl" href="/tasks/{{$t.Ref}}/template" data-dialog-load>{{t "Save as template"}}</a>{{end}}
+  {{else}}<button type="button" class="flowgo snoozebtn" data-focus="snooze" popovertarget="{{$.IDPrefix}}snooze-{{$t.Ref}}"
+          aria-label="{{t "Snooze %s" $t.Ref}}" title="{{t "Hide it from every listing until later"}}">{{t "Snooze…"}}</button>{{end}}
+  {{end}}
+  {{/* Offered only beside a live lease and only to a reader who holds
+       task:reclaim. It ends the lease and nothing else. */}}
+  {{if and .Data.CanReclaim (eq $held "held")}}
+  <button type="button" class="flowgo is-danger" popovertarget="{{.IDPrefix}}reclaim-{{$t.Ref}}">{{t "Reclaim the lease…"}}</button>
+  {{end}}
+  {{if .Data.CanDelete}}
+  <form method="post" class="taskmenu-delete" action="/tasks/{{$t.Ref}}/delete">
+    {{template "csrf" .CSRF}}
+    <p class="flowhead">{{t "Delete"}}</p>
+    <label for="{{.IDPrefix}}hard"><input id="{{.IDPrefix}}hard" type="checkbox" name="hard" value="1"> {{t "Delete permanently"}}</label>
+    <label for="{{.IDPrefix}}cascade"><input id="{{.IDPrefix}}cascade" type="checkbox" name="cascade" value="1"> {{t "Also delete subtasks"}}</label>
+    <button class="flowgo is-danger" type="submit">{{t "Delete task"}}</button>
+  </form>
+  <form method="post" action="/tasks/{{$t.Ref}}/restore">
+    {{template "csrf" .CSRF}}
+    <button class="flowgo" type="submit">{{t "Restore task"}}</button>
+  </form>
+  {{end}}
+  <button type="button" class="flowclose" popovertarget="{{.IDPrefix}}taskmenu-{{$t.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
 </div>
-{{$held := claim $t}}
-{{/* A div, not a p. The status and priority controls carry popover panels,
-     which are divs, and a div inside a paragraph makes the HTML parser close
-     the paragraph before it: the priority ended up outside the row and on a
-     line of its own. */}}
-<div id="task-pills" class="taskpills">{{template "task-pills" .}}</div>
-{{if or $held $t.ClaimCount}}{{template "tip" (tip "Claims and leases" "A claim is how a worker, usually an agent, takes a task for itself. It holds a lease that expires unless renewed, and claiming does not change the status. When a lease lapses the task can be claimed again, and the expiry stays shown here for a while." "docs/agents.md")}}{{end}}
-{{/* The menus live out here, not inside #task-pills.
-     That region is replaced wholesale by a live refresh, and a refresh that
-     lands while a reader has a menu open would swap the form away under the
-     pointer -- which is what livescreen_test.go watches every refreshed
-     region for. A popover is invoked by id rather than by nesting, so the
-     button can sit inside the refreshed marks while the form it opens stays
-     out here, untouched by any swap. */}}
+
+{{/* The menus live out here, not inside #task-pills. That region is
+     replaced wholesale by a live refresh, and a refresh that lands while a
+     reader has a menu open would swap the form away under the pointer --
+     which is what livescreen_test.go watches every refreshed region for. A
+     popover is invoked by id rather than by nesting, so the button can sit
+     inside the refreshed rows while the form it opens stays out here. */}}
 {{if and .Data.CanWrite .Data.Routes}}
-<div id="{{$.IDPrefix}}flow-{{$t.Ref}}" class="flowmenu" popover{{if not .InDialog}} data-inplace="main.wrap"{{end}}>
+<div id="{{$.IDPrefix}}flow-{{$t.Ref}}" class="flowmenu" popover{{if $in}} data-inplace="main.wrap"{{end}}>
   <p class="flowhead">{{t "Move"}} <span class="mono">{{$t.Ref}}</span> {{t "from"}} <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span></p>
   {{template "tip" (tip "Moves" "Only the moves the project's workflow allows from this state are offered. A move that passes through other states names each one, and the history records every step." "docs/workflows.md")}}
   <form method="post" action="/tasks/{{$t.Ref}}/transition">
@@ -66,7 +115,7 @@
 {{end}}
 {{if .Data.CanWrite}}
 {{$p := prio $t.Priority}}
-<div id="{{$.IDPrefix}}prio-{{$t.Ref}}" class="flowmenu priopop" popover{{if not .InDialog}} data-inplace="main.wrap"{{end}}>
+<div id="{{$.IDPrefix}}prio-{{$t.Ref}}" class="flowmenu priopop" popover{{if $in}} data-inplace="main.wrap"{{end}}>
   <p class="flowhead">{{t "Priority of"}} <span class="mono">{{$t.Ref}}</span></p>
   <form method="post" action="/tasks/{{$t.Ref}}/priority">
     {{template "csrf" $.CSRF}}
@@ -81,336 +130,298 @@
   <button type="button" class="flowclose" popovertarget="{{$.IDPrefix}}prio-{{$t.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
 </div>
 {{end}}
-
 {{if and .Data.CanWrite (not (snoozed $t))}}
-<div id="{{$.IDPrefix}}snooze-{{$t.Ref}}" class="flowmenu snoozepop" popover{{if not .InDialog}} data-inplace="main.wrap"{{end}}>
+<div id="{{$.IDPrefix}}snooze-{{$t.Ref}}" class="flowmenu snoozepop" popover{{if $in}} data-inplace="main.wrap"{{end}}>
   <p class="flowhead">{{t "Snooze"}} <span class="mono">{{$t.Ref}}</span></p>
   {{template "tip" (tip "Snooze" "A snoozed task leaves every listing, for everybody, until the time you pick, then comes back by itself. Agents cannot claim it meanwhile. is:snoozed finds it." "docs/web-ui.md")}}
   {{template "snooze-choices" (snoozeForm $t.Ref $.Here $.CSRF (print $.IDPrefix "snoozeat-" $t.Ref) "")}}
   <button type="button" class="flowclose" popovertarget="{{$.IDPrefix}}snooze-{{$t.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
 </div>
 {{end}}
+{{if and .Data.CanReclaim (eq $held "held")}}
+<div id="{{.IDPrefix}}reclaim-{{$t.Ref}}" class="flowmenu reclaimpop" popover{{if $in}} data-inplace="main.wrap"{{end}}>
+  <p class="flowhead">{{t "Reclaim the lease"}}</p>
+  {{template "tip" (tip "Reclaim" "Offered only to holders of the task:reclaim scope. The holder's token stops working at once, so its next write is refused as lease expired, and anyone may claim the task again." "docs/agents.md")}}
+  <p class="muted">{{if $t.LeaseExpiresAt}}{{t "%s holds this task until %s." ($.Data.Names.Label $t.ClaimedByActorID) (compact $t.LeaseExpiresAt)}}{{else}}{{t "%s holds this task." ($.Data.Names.Label $t.ClaimedByActorID)}}{{end}} {{t "Reclaiming ends their lease at once and leaves the task in %s." $t.Status}}</p>
+  <form method="post" action="/tasks/{{$t.Ref}}/reclaim">
+    {{template "csrf" .CSRF}}
+    <label for="{{.IDPrefix}}reason">{{t "Reason"}}</label>
+    <input id="{{.IDPrefix}}reason" name="reason" placeholder="{{t "Why the lease is being taken"}}">
+    <div class="actions"><button class="danger" type="submit">{{t "Reclaim lease"}}</button></div>
+  </form>
+  <button type="button" class="flowclose" popovertarget="{{.IDPrefix}}reclaim-{{$t.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
+</div>
+{{end}}
 
-<div class="detail"{{if not .InDialog}} data-inplace="main.wrap"{{end}}>
-<div class="main">
+<div class="detail taskgrid"{{if $in}} data-inplace="main.wrap"{{end}}>
 
-  {{/* The description as it reads, above the editor, so a checklist can be
-       ticked without opening the textarea. A writer with nothing written yet
-       sees only the editor; "No description." over an empty box said the
-       same thing twice. */}}
-  <div id="task-desc">{{template "task-desc" .}}</div>
-
-  {{if .Data.CanWrite}}
-  <div class="card">
-    {{/* "Edit", not "Details". The aside on the right is also headed Details,
-         so the screen said the same word twice for two different things: the
-         form you type into and the facts you cannot. */}}
-    <h2>{{t "Edit"}}</h2>
-    {{/* data-dirty-save: assets/busy.js greys the Save until a field actually
-         differs from what the server holds, so the button says whether there
-         is anything to save instead of looking identical either way. The
-         custom fields form below is not marked: it posts hidden copies of
-         the title and body, so "has anything changed" is not a question its
-         own controls can answer. */}}
-    <form method="post" action="/tasks/{{$t.Ref}}" data-dirty-save>
-      {{template "csrf" .CSRF}}
-      <input type="hidden" name="version" value="{{$t.Version}}">
-      <label for="title">{{t "Title"}}</label>
-      <input id="title" name="title" value="{{$t.Title}}" data-shortcut-target="editTitle" required>
-      <div class="field-label"><label for="{{.IDPrefix}}body">{{t "Description"}}</label>
-        {{template "tip" (tip "Description" "Written in Markdown: **bold**, lists, tables, `code`, links, and - [ ] for a checklist the task screen can tick. A reference such as infra-8 and an @handle become links. HTML is shown as typed, and images are linked rather than loaded." "docs/features.md")}}
-        {{template "md-preview" (print .IDPrefix "body")}}</div>
-      <textarea id="{{.IDPrefix}}body" name="body" data-mention="actor-handles" placeholder="{{t "Add a description"}}">{{$t.Body}}</textarea>
-      <div class="md mdpreview" id="{{.IDPrefix}}body-preview" aria-live="polite" hidden></div>
-      <div class="row">
-        <div>
-          <label for="{{.IDPrefix}}priority">{{t "Priority"}}</label>
-          <select id="{{.IDPrefix}}priority" name="priority">
-            {{range .Data.Priorities}}<option value="{{.Value}}" {{if eq .Value $t.Priority}}selected{{end}}>{{t .Label}}</option>{{end}}
-          </select>
-        </div>
-        {{/* The handle, not the identifier. The panel beside this field
-             already showed "mint" while the field showed twenty-six
-             characters of ULID, which reads as two different values for the
-             same thing. The service resolves a handle back to an actor on
-             save, so what is shown is what can be typed. */}}
-        {{/* A datalist rather than a select: the field stays free text, so an
-             actor of another tenant, which the directory cannot list, is
+{{/* Properties first in the document, so a phone, which stacks the page,
+     reads them as a summary under the title; on a wide screen the grid puts
+     them in the column on the right. Each row is a label and a value, and a
+     value a writer may change is its own small form that changes that one
+     thing, so there is no second copy of any of them anywhere else. */}}
+<aside class="taskprops" aria-label="{{t "Properties"}}">
+  {{/* The refreshed rows: status, priority and the state marks. Their
+       controls open menus kept outside, so nothing a reader types is inside. */}}
+  <dl id="task-pills" class="props taskpills">{{template "task-pills" .}}</dl>
+  {{if or $held $t.ClaimCount}}<div class="prop-tip">{{template "tip" (tip "Claims and leases" "A claim is how a worker, usually an agent, takes a task for itself. It holds a lease that expires unless renewed, and claiming does not change the status. When a lease lapses the task can be claimed again, and the expiry stays shown here for a while." "docs/agents.md")}}</div>{{end}}
+  <dl class="props">
+    <div class="prop" data-prop="assignee">
+      <dt><label for="{{.IDPrefix}}assignee">{{t "Assignee"}}</label></dt>
+      <dd>{{if .Data.CanWrite}}
+        {{/* The handle, not the identifier: the service resolves a handle
+             back to an actor on save, so what is shown is what can be typed.
+             A datalist rather than a select, so an actor of another tenant is
              still assignable by identifier. */}}
-        <div><label for="assignee">{{t "Assignee"}}</label><input id="assignee" name="assignee" list="actor-handles" autocomplete="off" value="{{$.Data.Names.Label $t.AssigneeActorID}}">
+        <form method="post" class="propform" action="/tasks/{{$t.Ref}}">
+          {{template "csrf" .CSRF}}
+          <input type="hidden" name="version" value="{{$t.Version}}">
+          <input type="hidden" name="title" value="{{$t.Title}}">
+          <input id="{{.IDPrefix}}assignee" name="assignee" list="actor-handles" autocomplete="off" value="{{$.Data.Names.Label $t.AssigneeActorID}}"{{with $t.AssigneeActorID}} title="{{.}}"{{end}} placeholder="{{t "unassigned"}}">
           <datalist id="actor-handles">{{range $.Data.Names.Handles}}<option value="{{.}}"></option>{{end}}</datalist>
-        </div>
-      </div>
-      {{/* Only this form carries the field. The custom fields form below
-           posts without it, and a form that does not name the rule leaves it
-           alone, so saving a field value never clears a repeat. */}}
-      <div class="field-label"><label for="{{.IDPrefix}}repeat">{{t "Repeat when done"}}</label>
-        {{template "tip" (tip "Repeat when done" "Finishing a task that carries a rule creates the next one at once: same title, tags and assignee, a due date moved on by the rule. Cancelling it does not. Add after done to count from the day it was finished; end a rule with until 2027-06-30 or for 5 times." "docs/features.md")}}</div>
-      <input id="{{.IDPrefix}}repeat" name="repeat" value="{{$t.Recurrence}}" placeholder="{{t "every week, every month on day 1, 3 days after done"}}">
-      <div class="actions"><button type="submit">{{t "Save"}}</button></div>
-    </form>
-  </div>
+          <button type="submit" class="propsave">{{t "Save"}}</button>
+        </form>
+        {{else if $t.AssigneeActorID}}<span class="who-name" title="{{$t.AssigneeActorID}}">{{$.Data.Names.Label $t.AssigneeActorID}}</span>{{else}}<span class="muted">{{t "unassigned"}}</span>{{end}}</dd>
+    </div>
+    <div class="prop" data-prop="due">
+      <dt><label for="{{.IDPrefix}}due">{{t "Due"}}</label></dt>
+      <dd>{{if .Data.CanWrite}}
+        <form method="post" class="propform" action="/tasks/{{$t.Ref}}">
+          {{template "csrf" .CSRF}}
+          <input type="hidden" name="version" value="{{$t.Version}}">
+          <input type="hidden" name="title" value="{{$t.Title}}">
+          <input id="{{.IDPrefix}}due" name="due_at" type="date" value="{{with $t.DueAt}}{{.UTC.Format "2006-01-02"}}{{end}}">
+          <button type="submit" class="propsave">{{t "Save"}}</button>
+        </form>
+        {{else if $t.DueAt}}{{stamp $t.DueAt}}{{else}}<span class="muted">&mdash;</span>{{end}}
+        {{$due := due $t}}{{if $due}}<span class="duemark is-{{$due}}">{{if eq $due "overdue"}}{{t "overdue"}}{{else}}{{t "this week"}}{{end}}</span>{{end}}</dd>
+    </div>
+    <div class="prop" data-prop="project">
+      <dt>{{t "Project"}}</dt>
+      <dd><a href="/projects/{{.Data.ProjectKey}}">{{.Data.ProjectKey}}</a></dd>
+    </div>
+    <div class="prop" data-prop="tags">
+      <dt>{{if .Data.CanWrite}}<label for="{{.IDPrefix}}tag">{{t "Tags"}}</label>{{else}}{{t "Tags"}}{{end}}</dt>
+      <dd>
+        {{/* Chips, each carrying its own removal, and the field to add one
+             directly after them, so a tag is added where tags are read. */}}
+        <ul class="tagchips">
+          {{range $t.Tags}}
+          <li>
+            <a class="tagref" href="/tasks?q=tag:{{.}}" title="{{t "Only tasks tagged %s" .}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>
+            {{if $.Data.CanWrite}}
+            <form method="post" action="/tasks/{{$t.Ref}}/tags/remove">
+              {{template "csrf" $.CSRF}}
+              <input type="hidden" name="tag" value="{{.}}">
+              <button class="tagdrop" type="submit" aria-label="{{t "Remove the tag %s" .}}" title="{{t "Remove %s" .}}">&times;</button>
+            </form>
+            {{end}}
+          </li>
+          {{else}}{{if not $.Data.CanWrite}}<li class="empty muted">{{t "None yet."}}</li>{{end}}{{end}}
+        </ul>
+        {{if .Data.CanWrite}}
+        <form method="post" action="/tasks/{{$t.Ref}}/tags" class="tagadd propform">
+          {{template "csrf" .CSRF}}
+          <input id="{{.IDPrefix}}tag" name="tag" required placeholder="{{t "Add a tag"}}">
+          <button class="propsave" type="submit">{{t "Add"}}</button>
+        </form>
+        {{end}}
+      </dd>
+    </div>
+    <div class="prop" data-prop="repeat">
+      <dt><span class="proplabel">{{if .Data.CanWrite}}<label for="{{.IDPrefix}}repeat">{{t "Repeats"}}</label>{{else}}{{t "Repeats"}}{{end}}{{template "tip" (tip "Repeat when done" "Finishing a task that carries a rule creates the next one at once: same title, tags and assignee, a due date moved on by the rule. Cancelling it does not. Add after done to count from the day it was finished; end a rule with until 2027-06-30 or for 5 times." "docs/features.md")}}</span></dt>
+      <dd class="repeatline">
+        {{/* Only this form names the rule. A form that does not name it
+             leaves it alone, so saving anything else never clears a repeat. */}}
+        {{if .Data.CanWrite}}
+        <form method="post" class="propform" action="/tasks/{{$t.Ref}}">
+          {{template "csrf" .CSRF}}
+          <input type="hidden" name="version" value="{{$t.Version}}">
+          <input type="hidden" name="title" value="{{$t.Title}}">
+          <input id="{{.IDPrefix}}repeat" name="repeat" value="{{$t.Recurrence}}" placeholder="{{t "Does not repeat"}}">
+          <button type="submit" class="propsave">{{t "Save"}}</button>
+        </form>
+        {{else if $t.Recurrence}}<span aria-hidden="true">&#x21bb;</span> {{$t.Recurrence}}{{else}}<span class="muted">&mdash;</span>{{end}}
+        {{/* What the rule will do next: the occurrence already created, or
+             the date finishing now would give one. */}}
+        {{if .Data.Successor}}<span class="propnote">{{t "next"}} <a class="mono" href="/tasks/{{.Data.Successor}}">{{.Data.Successor}}</a>{{if .Data.SuccessorDue}} {{t "due %s" (stamp .Data.SuccessorDue)}}{{end}}</span>
+        {{else if .Data.NextDue}}<span class="propnote">{{t "next due %s if finished now" (stamp .Data.NextDue)}}</span>
+        {{else if .Data.LastOccurrence}}<span class="propnote">{{t "this is the last occurrence"}}</span>{{end}}
+      </dd>
+    </div>
+    {{/* Each custom field edits on its own. A form that names one field
+         changes that field and leaves the others, and the repeat rule, alone. */}}
+    {{range .Data.Fields}}
+    <div class="prop" data-prop="field.{{.Def.Key}}">
+      <dt>{{if $.Data.CanWrite}}<label for="{{$.IDPrefix}}field-{{.Def.Key}}">{{.Def.Label}}</label>{{else}}{{.Def.Label}}{{end}}</dt>
+      <dd>{{if $.Data.CanWrite}}
+        <form method="post" class="propform"{{if .Def.EnumOptions}} data-apply{{end}} action="/tasks/{{$t.Ref}}">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="version" value="{{$t.Version}}">
+          <input type="hidden" name="title" value="{{$t.Title}}">
+          {{if .Def.EnumOptions}}{{$v := .Value}}
+          <select id="{{$.IDPrefix}}field-{{.Def.Key}}" name="field.{{.Def.Key}}">
+            <option value=""{{if not $v}} selected{{end}}>&mdash;</option>
+            {{range .Def.EnumOptions}}<option value="{{.}}"{{if eq . $v}} selected{{end}}>{{.}}</option>{{end}}
+          </select>
+          <button type="submit" class="propsave apply">{{t "Save"}}</button>
+          {{else}}
+          <input id="{{$.IDPrefix}}field-{{.Def.Key}}" name="field.{{.Def.Key}}" value="{{.Value}}" placeholder="&mdash;">
+          <button type="submit" class="propsave">{{t "Save"}}</button>
+          {{end}}
+        </form>
+        {{else if .Value}}{{.Value}}{{else}}<span class="muted">&mdash;</span>{{end}}</dd>
+    </div>
+    {{end}}
+    {{if .Data.Parent}}<div class="prop" data-prop="parent"><dt>{{t "Subtask of"}}</dt><dd><a class="mono" href="/tasks/{{.Data.Parent.Ref}}">{{.Data.Parent.Ref}}</a> {{.Data.Parent.Title}}</dd></div>{{end}}
+    {{if .Data.CopiedFrom}}<div class="prop" data-prop="copied"><dt>{{t "Copied from"}}</dt><dd class="copiedfrom"><a class="mono" href="/tasks/{{.Data.CopiedFrom.Ref}}">{{.Data.CopiedFrom.Ref}}</a> {{.Data.CopiedFrom.Title}}</dd></div>{{end}}
+  </dl>
+</aside>
 
-  {{if .Data.Fields}}
-  <details class="panel">
-    <summary>{{t "Edit custom fields"}}</summary>
-    <div class="body">
-      <form method="post" action="/tasks/{{$t.Ref}}">
+<div class="main taskmain">
+
+  {{/* The description reads as it is written; Edit turns it into the field
+       in place. A disclosure, so it works with scripting off, and the text
+       it replaces is hidden while it is open rather than shown twice. */}}
+  <section class="tsec tdesc{{if not $t.Body}} is-empty{{end}}">
+    <div id="task-desc">{{template "task-desc" .}}</div>
+    {{if .Data.CanWrite}}
+    <details class="descedit">
+      <summary class="editswitch">{{if $t.Body}}<span class="when-shut">{{t "Edit"}}</span>{{else}}<span class="when-shut">{{t "Add a description"}}</span>{{end}}<span class="when-open">{{t "Cancel"}}</span></summary>
+      {{/* data-dirty-save: assets/busy.js greys Save until the text differs
+           from what the server holds. */}}
+      <form method="post" class="descform" action="/tasks/{{$t.Ref}}" data-dirty-save>
         {{template "csrf" .CSRF}}
         <input type="hidden" name="version" value="{{$t.Version}}">
         <input type="hidden" name="title" value="{{$t.Title}}">
-        <input type="hidden" name="body" value="{{$t.Body}}">
-        <input type="hidden" name="priority" value="{{$t.Priority}}">
-        <input type="hidden" name="assignee" value="{{$t.AssigneeActorID}}">
-        {{range .Data.Fields}}
-          <label for="field-{{.Def.Key}}">{{.Def.Label}}</label>
-          <input id="field-{{.Def.Key}}" name="field.{{.Def.Key}}" value="{{.Value}}">
-        {{end}}
-        <div class="actions"><button type="submit">{{t "Save changes"}}</button></div>
+        <div class="field-label"><label class="sr-only" for="{{.IDPrefix}}body">{{t "Description"}}</label>
+          {{template "tip" (tip "Description" "Written in Markdown: **bold**, lists, tables, `code`, links, and - [ ] for a checklist the task screen can tick. A reference such as infra-8 and an @handle become links. HTML is shown as typed, and images are linked rather than loaded." "docs/features.md")}}
+          {{template "md-preview" (print .IDPrefix "body")}}</div>
+        <textarea id="{{.IDPrefix}}body" name="body" data-mention="actor-handles" placeholder="{{t "Add a description"}}">{{$t.Body}}</textarea>
+        <div class="md mdpreview" id="{{.IDPrefix}}body-preview" aria-live="polite" hidden></div>
+        <div class="actions"><button type="submit">{{t "Save"}}</button></div>
       </form>
-    </div>
-  </details>
-  {{end}}
-  {{else}}
-  <p class="flash">{{t "You may read this task but not change it."}}</p>
-  {{end}}
+    </details>
+    {{else}}
+    <p class="muted readonly-note">{{t "You may read this task but not change it."}}</p>
+    {{end}}
+  </section>
 
-  <div class="card">
-    <h2>{{t "Subtasks"}}</h2>
-    <ul class="plain">
+  <section class="tsec" id="{{.IDPrefix}}subtasks">
+    <div class="tsec-head"><h2>{{t "Subtasks"}}</h2>{{with .Data.Subtasks}}<span class="tsec-count">{{len .}}</span>{{end}}</div>
+    {{if .Data.Subtasks}}
+    <ul class="rellist">
       {{range .Data.Subtasks}}
-      <li><a class="mono" href="/tasks/{{.Ref}}">{{.Ref}}</a> {{.Title}} <span class="pill status {{slug .Status}}">{{.Status}}</span></li>
-      {{else}}<li class="empty">{{t "None."}}</li>{{end}}
+      <li><a class="mono" href="/tasks/{{.Ref}}">{{.Ref}}</a> <span class="reltitle">{{.Title}}</span> <span class="pill status {{slug .Status}}">{{.Status}}</span></li>
+      {{end}}
     </ul>
-  </div>
+    {{else}}<p class="empty quiet">{{t "No subtasks."}}</p>{{end}}
+  </section>
 
-  {{/* Its own card. Subtasks and dependencies shared one, with Dependencies
-       set as an h3 inside it: two unrelated relationships in one box, and a
-       heading level implying one was part of the other. */}}
-  <div class="card">
-    <div class="headtip"><h2>{{t "Dependencies"}}</h2>{{template "tip" (tip "Dependencies" "This task waits for the tasks listed here. It counts as blocked, and claim next never hands it out, until each of them reaches a terminal state of its own workflow." "docs/workflows.md")}}</div>
-    <ul class="plain">
-      {{/* A dependency is named the way the field below asks for one. It read
-           back a raw identifier while the input directly under it was
-           placeholdered "infra-2", so the screen disagreed with itself about
-           what identifies a task. */}}
+  <section class="tsec" id="{{.IDPrefix}}dependencies">
+    <div class="tsec-head"><h2>{{t "Dependencies"}}</h2>{{with .Data.Dependencies}}<span class="tsec-count">{{len .}}</span>{{end}}{{template "tip" (tip "Dependencies" "This task waits for the tasks listed here. It counts as blocked, and claim next never hands it out, until each of them reaches a terminal state of its own workflow." "docs/workflows.md")}}</div>
+    {{if .Data.Dependencies}}
+    <ul class="rellist">
+      {{/* Named the way the field below asks for one, a reference rather
+           than the raw identifier the record carries. */}}
       {{range .Data.Dependencies}}
       <li title="{{.ID}}">
         {{if .Href}}<a class="mono" href="{{.Href}}">{{.Label}}</a>{{else}}<span class="mono">{{.Label}}</span>{{end}}
-        {{if .Title}}{{.Title}}{{end}}
+        <span class="reltitle">{{if .Title}}{{.Title}}{{end}}</span>
         {{if .Status}}<span class="pill status {{slug .Status}}">{{.Status}}</span>{{end}}
         {{if $.Data.CanWrite}}
-        <form method="post" action="/tasks/{{$t.Ref}}/deps/remove" style="display:inline">
+        <form method="post" class="reldrop" action="/tasks/{{$t.Ref}}/deps/remove">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="depends_on" value="{{.ID}}">
-          <button class="link" type="submit">{{t "remove"}}</button>
+          <button class="tagdrop" type="submit" aria-label="{{t "Remove the dependency on %s" .Label}}" title="{{t "Remove %s" .Label}}">&times;</button>
         </form>
         {{end}}
       </li>
-      {{else}}<li class="empty">{{t "None."}}</li>{{end}}
+      {{end}}
     </ul>
+    {{else}}<p class="empty quiet">{{t "Waits for nothing."}}</p>{{end}}
     {{if .Data.CanWrite}}
-    <form method="post" action="/tasks/{{$t.Ref}}/deps">
+    <form method="post" class="reladd" action="/tasks/{{$t.Ref}}/deps">
       {{template "csrf" .CSRF}}
-      <label for="depends_on">{{t "Depends on"}}</label>
-      <div class="row">
-        <div><input id="depends_on" name="depends_on" placeholder="{{"infra-2"}}" required></div>
-        <div class="actions"><button class="secondary" type="submit">{{t "Add dependency"}}</button></div>
-      </div>
+      <input id="{{.IDPrefix}}depends_on" name="depends_on" placeholder="{{t "Depends on, for example infra-2"}}" aria-label="{{t "Depends on"}}" required>
+      <button class="secondary" type="submit">{{t "Add dependency"}}</button>
     </form>
     {{end}}
-  </div>
-
-  <div class="card">
-    <h2>{{t "Comments"}}</h2>
-    <ul class="plain" id="task-comments">{{template "task-comments" .}}</ul>
-    {{if .Data.CanComment}}
-    <form method="post" action="/tasks/{{$t.Ref}}/comments">
-      {{template "csrf" .CSRF}}
-      {{/* One row, not a label over a four-line box over a button. The
-           composer was the tallest thing in the card and it is the part
-           nobody is reading. It grows when it is typed into. */}}
-      <textarea id="comment-body" name="body" rows="1" class="composer" data-mention="actor-handles"
-                placeholder="{{t "Add a comment"}}" aria-label="{{t "Add a comment"}}"
-                data-shortcut-target="comment" required></textarea>
-      <div class="md mdpreview" id="comment-body-preview" aria-live="polite" hidden></div>
-      <div class="actions">{{template "md-preview" "comment-body"}}<button type="submit">{{t "Comment"}}</button></div>
-    </form>
-    {{end}}
-  </div>
+  </section>
 
   {{/* Open when the address bar names an artifact, so a link from the
-       activity feed lands on a visible record rather than inside a closed
-       disclosure. */}}
-  <details class="panel" id="artifacts" data-open-for="artifact">
-    <summary>{{t "Artifacts"}}</summary>
-    <div class="body">
-      {{template "tip" (tip "Artifacts" "An artifact is a record of work product kept on the task: a result, a log, a file reference or a metric, usually written by an agent. While the task is claimed only the lease holder can attach one." "docs/agents.md")}}
-      <ul class="plain">
-        {{range .Data.Artifacts}}<li id="artifact-{{.ID}}">{{t (print .Kind)}} {{.Name}} <span class="muted">{{compact .CreatedAt}}</span></li>{{else}}<li class="empty">{{t "None."}}</li>{{end}}
-      </ul>
-      {{if .Data.CanComment}}
-      <form method="post" action="/tasks/{{$t.Ref}}/artifacts">
-        {{template "csrf" .CSRF}}
-        <div class="row">
-          <div>
-            <label for="artifact-kind">{{t "Kind"}}</label>
-            <select id="artifact-kind" name="kind">
-              {{range .Data.ArtifactKinds}}<option value="{{.}}">{{t (print .)}}</option>{{end}}
-            </select>
-          </div>
-          <div><label for="artifact-name">{{t "Name"}}</label><input id="artifact-name" name="name"></div>
-        </div>
-        <label for="artifact-payload">{{t "Payload, one key=value per line"}}</label>
-        <textarea id="artifact-payload" name="payload"></textarea>
-        <div class="actions"><button class="secondary" type="submit">{{t "Attach artifact"}}</button></div>
-      </form>
-      {{end}}
-    </div>
-  </details>
-
-</div>
-
-<aside class="rail">
-  <div class="card">
-    <h3>{{t "About"}}</h3>
-    <dl class="fields">
-      <dt>{{t "Project"}}</dt><dd><a href="/projects/{{.Data.ProjectKey}}">{{.Data.ProjectKey}}</a></dd>
-      <dt>{{t "Assignee"}}</dt><dd>{{if $t.AssigneeActorID}}<span class="who-name" title="{{$t.AssigneeActorID}}">{{$.Data.Names.Label $t.AssigneeActorID}}</span>{{else}}<span class="muted">{{t "unassigned"}}</span>{{end}}</dd>
-      <dt>{{t "Creator"}}</dt><dd class="who-name" title="{{$t.CreatorActorID}}">{{$.Data.Names.Label $t.CreatorActorID}}</dd>
-      {{/* The date alone left the reader comparing it with a calendar. The
-           state is what they were working it out for, so it is said, in the
-           same words the listing and the board use. */}}
-      {{/* The star is a shape in the title bar; here it is said in words, with
-           what it does, since nobody else sees it. */}}
-      {{if .CanStar}}<dt>{{t "Starred"}}</dt><dd class="starstate">{{if $t.Starred}}{{t "Yes, listed first for you"}}{{else}}<span class="muted">{{t "No"}}</span>{{end}}</dd>{{end}}
-      {{if .Data.CopiedFrom}}<dt>{{t "Copied from"}}</dt><dd class="copiedfrom"><a class="mono" href="/tasks/{{.Data.CopiedFrom.Ref}}">{{.Data.CopiedFrom.Ref}}</a> {{.Data.CopiedFrom.Title}}</dd>{{end}}
-      {{if .Data.Parent}}<dt>{{t "Subtask of"}}</dt><dd><a class="mono" href="/tasks/{{.Data.Parent.Ref}}">{{.Data.Parent.Ref}}</a> {{.Data.Parent.Title}}</dd>{{end}}
-      {{/* The rule, and what it will do next. The occurrence already created
-           is linked with its date; one not yet created is the date finishing
-           now would give it, from the same rule the completion applies. */}}
-      <dt>{{t "Repeats"}}</dt><dd class="repeatline">{{if $t.Recurrence}}<span aria-hidden="true">&#x21bb;</span> {{$t.Recurrence}}{{else}}<span class="muted">&mdash;</span>{{end}}
-        {{if .Data.Successor}}<br><span class="muted">{{t "next"}}</span> <a class="mono" href="/tasks/{{.Data.Successor}}">{{.Data.Successor}}</a>{{if .Data.SuccessorDue}} <span class="muted">{{t "due %s" (stamp .Data.SuccessorDue)}}</span>{{end}}
-        {{else if .Data.NextDue}}<br><span class="muted">{{t "next due %s if finished now" (stamp .Data.NextDue)}}</span>
-        {{else if .Data.LastOccurrence}}<br><span class="muted">{{t "this is the last occurrence"}}</span>{{end}}</dd>
-      <dt>{{t "Due"}}</dt><dd>{{if $t.DueAt}}{{stamp $t.DueAt}}{{$due := due $t}}{{if $due}} <span class="duemark is-{{$due}}">{{if eq $due "overdue"}}{{t "overdue"}}{{else}}{{t "this week"}}{{end}}</span>{{end}}{{else}}<span class="muted">&mdash;</span>{{end}}</dd>
-      {{/* A 26 character identifier wrapped onto two lines of the aside and
-           could only be had by selecting it with the mouse, which is how
-           every other secret and identifier in this product is NOT offered:
-           copy.js and .copyline exist for exactly this. */}}
-      <dt>{{t "Id"}}</dt><dd class="idline">
-        <code class="mono" id="task-id-{{$t.Ref}}" title="{{$t.ID}}">{{$t.ID}}</code>
-        <button type="button" class="ghost small" data-copy-target="task-id-{{$t.Ref}}" aria-label="{{t "Copy the task id"}}">{{t "Copy"}}</button>
-      </dd>
-      <dt>{{t "Version"}}</dt><dd class="muted">{{$t.Version}}</dd>
-      <dt>{{t "Created"}}</dt><dd class="muted">{{compact $t.CreatedAt}}</dd>
-      <dt>{{t "Updated"}}</dt><dd class="muted">{{compact $t.UpdatedAt}}</dd>
-      {{if $t.StartedAt}}<dt>{{t "Started"}}</dt><dd class="muted">{{stamp $t.StartedAt}}</dd>{{end}}
-      {{if $t.CompletedAt}}<dt>{{t "Finished"}}</dt><dd class="muted">{{stamp $t.CompletedAt}}</dd>{{end}}
-    </dl>
-  </div>
-
-  {{/* "Move to" lived here: a select, a comment box and an Apply button, for
-       a move the status pill in the header now makes in one press. The
-       keyboard shortcut still needs a target, which the pill carries. */}}
-
-  <div class="card">
-    <h3>{{t "Tags"}}</h3>
-    {{/* Chips in a row, each carrying its own removal. One tag per line with
-         the word "remove" beside it spent a whole row of the aside on every
-         tag, so four tags pushed everything below them off the screen, and
-         "remove" set as a link read as somewhere to go rather than something
-         to do. */}}
-    <ul class="tagchips">
-      {{range $t.Tags}}
-      <li>
-        <a class="tagref" href="/tasks?q=tag:{{.}}" title="{{t "Only tasks tagged %s" .}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>
-        {{if $.Data.CanWrite}}
-        <form method="post" action="/tasks/{{$t.Ref}}/tags/remove">
-          {{template "csrf" $.CSRF}}
-          <input type="hidden" name="tag" value="{{.}}">
-          <button class="tagdrop" type="submit" aria-label="{{t "Remove the tag %s" .}}" title="{{t "Remove %s" .}}">&times;</button>
-        </form>
-        {{end}}
-      </li>
-      {{else}}<li class="empty muted">{{t "None yet."}}</li>{{end}}
+       activity feed lands on a visible record. Shown only when there is
+       something to show or something the reader may attach. */}}
+  {{if or .Data.Artifacts .Data.CanComment}}
+  <details class="tsec tfold" id="artifacts" data-open-for="artifact">
+    <summary><h2>{{t "Artifacts"}}</h2>{{with .Data.Artifacts}}<span class="tsec-count">{{len .}}</span>{{end}}</summary>
+    {{template "tip" (tip "Artifacts" "An artifact is a record of work product kept on the task: a result, a log, a file reference or a metric, usually written by an agent. While the task is claimed only the lease holder can attach one." "docs/agents.md")}}
+    <ul class="rellist">
+      {{range .Data.Artifacts}}<li id="artifact-{{.ID}}">{{t (print .Kind)}} {{.Name}} <span class="muted">{{compact .CreatedAt}}</span></li>{{else}}<li class="empty quiet">{{t "None."}}</li>{{end}}
     </ul>
-    {{if .Data.CanWrite}}
-    <form method="post" action="/tasks/{{$t.Ref}}/tags" class="tagadd">
+    {{if .Data.CanComment}}
+    <form method="post" action="/tasks/{{$t.Ref}}/artifacts">
       {{template "csrf" .CSRF}}
-      <input id="tag" name="tag" required placeholder="{{t "Add a tag"}}" aria-label="{{t "Add a tag"}}">
-      <button class="secondary" type="submit">{{t "Add"}}</button>
+      <div class="row">
+        <div>
+          <label for="{{.IDPrefix}}artifact-kind">{{t "Kind"}}</label>
+          <select id="{{.IDPrefix}}artifact-kind" name="kind">
+            {{range .Data.ArtifactKinds}}<option value="{{.}}">{{t (print .)}}</option>{{end}}
+          </select>
+        </div>
+        <div><label for="{{.IDPrefix}}artifact-name">{{t "Name"}}</label><input id="{{.IDPrefix}}artifact-name" name="name"></div>
+      </div>
+      <label for="{{.IDPrefix}}artifact-payload">{{t "Payload, one key=value per line"}}</label>
+      <textarea id="{{.IDPrefix}}artifact-payload" name="payload"></textarea>
+      <div class="actions"><button class="secondary" type="submit">{{t "Attach artifact"}}</button></div>
     </form>
     {{end}}
-  </div>
-
-  {{/* Only when the project defines some. A whole card headed "Custom
-       fields" whose entire content was "This project defines none." took a
-       slot in the aside to report the absence of a feature most projects do
-       not use. */}}
-  {{if .Data.Fields}}
-  <div class="card">
-    <h3>{{t "Custom fields"}}</h3>
-    <dl class="fields">
-      {{range .Data.Fields}}<dt>{{.Def.Label}}</dt><dd>{{.Value}}</dd>{{end}}
-    </dl>
-  </div>
+  </details>
   {{end}}
-</aside>
 
-  {{/* Below both columns and across the whole width. A table of three
-       columns is the widest thing on this screen, and it was the one piece
-       of it rendered in the narrower track. */}}
-  <details class="panel wide">
-    <summary>{{t "History"}}</summary>
+  {{/* Activity: what has been said, then what has been done. */}}
+  <section class="tsec tactivity">
+    <div class="tsec-head"><h2>{{t "Comments"}}</h2>{{with .Data.Comments}}<span class="tsec-count">{{len .}}</span>{{end}}</div>
+    <ul class="plain commentlist" id="task-comments">{{template "task-comments" .}}</ul>
+    {{if .Data.CanComment}}
+    <form method="post" class="composerform" action="/tasks/{{$t.Ref}}/comments">
+      {{template "csrf" .CSRF}}
+      {{/* One row that grows when it is typed into, with Preview and
+           Comment on one line under it. */}}
+      <textarea id="{{.IDPrefix}}comment-body" name="body" rows="1" class="composer" data-mention="actor-handles"
+                placeholder="{{t "Add a comment"}}" aria-label="{{t "Add a comment"}}"
+                data-shortcut-target="comment" required></textarea>
+      <div class="md mdpreview" id="{{.IDPrefix}}comment-body-preview" aria-live="polite" hidden></div>
+      <div class="actions">{{template "md-preview" (print .IDPrefix "comment-body")}}<button type="submit">{{t "Comment"}}</button></div>
+    </form>
+    {{end}}
+  </section>
+
+  <details class="tsec tfold" id="{{.IDPrefix}}history">
+    <summary><h2>{{t "History"}}</h2></summary>
     <div class="body" id="task-history">{{template "task-history" .}}</div>
-
   </details>
-
-  {{/* Offered only beside a live lease and only to a reader who holds
-       task:reclaim. It ends the lease and nothing else: the status pill above
-       reads the same afterwards, and reopening finished work is the move
-       control's job, not this one. */}}
-  {{if and .Data.CanReclaim (eq $held "held")}}
-  {{/* Not wide. The rule above is for a table that needs both columns; a
-       short form drawn across the full width while the forms above it stop
-       at the content column leaves the page with a ragged right edge for no
-       gain. */}}
-  <details class="panel danger" id="reclaim">
-    <summary>{{t "Reclaim the lease"}}</summary>
-    <div class="body">
-      {{template "tip" (tip "Reclaim" "Offered only to holders of the task:reclaim scope. The holder's token stops working at once, so its next write is refused as lease expired, and anyone may claim the task again." "docs/agents.md")}}
-      <p class="muted">{{if $t.LeaseExpiresAt}}{{t "%s holds this task until %s." ($.Data.Names.Label $t.ClaimedByActorID) (compact $t.LeaseExpiresAt)}}{{else}}{{t "%s holds this task." ($.Data.Names.Label $t.ClaimedByActorID)}}{{end}} {{t "Reclaiming ends their lease at once and leaves the task in %s." $t.Status}}</p>
-      <form method="post" action="/tasks/{{$t.Ref}}/reclaim">
-        {{template "csrf" .CSRF}}
-        <label for="reason">{{t "Reason"}}</label>
-        <input id="reason" name="reason" placeholder="{{t "Why the lease is being taken"}}">
-        <div class="actions"><button class="danger" type="submit">{{t "Reclaim lease"}}</button></div>
-      </form>
-    </div>
-  </details>
-  {{end}}
-
-  {{if .Data.CanDelete}}
-  <details class="panel danger">
-    <summary>{{t "Danger zone"}}</summary>
-    <div class="body">
-      <form method="post" action="/tasks/{{$t.Ref}}/delete">
-        {{template "csrf" .CSRF}}
-        <label for="hard"><input id="hard" type="checkbox" name="hard" value="1"> {{t "Delete permanently"}}</label>
-        <label for="cascade"><input id="cascade" type="checkbox" name="cascade" value="1"> {{t "Also delete subtasks"}}</label>
-        <div class="actions"><button class="danger" type="submit">{{t "Delete task"}}</button></div>
-      </form>
-      <form method="post" action="/tasks/{{$t.Ref}}/restore">
-        {{template "csrf" .CSRF}}
-        <div class="actions"><button class="secondary" type="submit">{{t "Restore task"}}</button></div>
-      </form>
-    </div>
-  </details>
-  {{end}}
 
 </div>
-{{if not .InDialog}}{{template "live-screen" .Data.Live}}{{end}}
+
+{{/* The record's own facts, which nobody edits: small, last, and beside
+     the properties on a wide screen. */}}
+<dl class="props propmeta">
+  <div class="prop"><dt>{{t "Created by"}}</dt><dd class="who-name" title="{{$t.CreatorActorID}}">{{$.Data.Names.Label $t.CreatorActorID}}</dd></div>
+  <div class="prop"><dt>{{t "Created"}}</dt><dd>{{compact $t.CreatedAt}}</dd></div>
+  <div class="prop"><dt>{{t "Updated"}}</dt><dd>{{compact $t.UpdatedAt}}</dd></div>
+  {{if $t.StartedAt}}<div class="prop"><dt>{{t "Started"}}</dt><dd>{{stamp $t.StartedAt}}</dd></div>{{end}}
+  {{if $t.CompletedAt}}<div class="prop"><dt>{{t "Finished"}}</dt><dd>{{stamp $t.CompletedAt}}</dd></div>{{end}}
+  <div class="prop"><dt>{{t "Version"}}</dt><dd>{{$t.Version}}</dd></div>
+  {{/* The identifier, copyable rather than selectable by hand. */}}
+  <div class="prop"><dt>{{t "Id"}}</dt><dd class="idline">
+    <code class="mono" id="{{.IDPrefix}}task-id-{{$t.Ref}}" title="{{$t.ID}}">{{$t.ID}}</code>
+    <button type="button" class="ghost small" data-copy-target="{{.IDPrefix}}task-id-{{$t.Ref}}" aria-label="{{t "Copy the task id"}}">{{t "Copy"}}</button>
+  </dd></div>
+</dl>
+
+</div>
+{{if $in}}{{template "live-screen" .Data.Live}}{{end}}
 {{end}}
 
 {{/* The task screen drawn for the dialog a listing opens it in: the same
@@ -431,65 +442,75 @@
      control and the comment box are deliberately not among them -- see
      showTaskLive for why a form is never swapped under the reader. */}}
 {{define "task-live"}}
-{{/* A div, not a p. The status and priority controls carry popover panels,
-     which are divs, and a div inside a paragraph makes the HTML parser close
-     the paragraph before it: the priority ended up outside the row and on a
-     line of its own. */}}
 <div id="task-desc">{{template "task-desc" .}}</div>
-<div id="task-pills" class="taskpills">{{template "task-pills" .}}</div>
-<ul class="plain" id="task-comments">{{template "task-comments" .}}</ul>
+<dl id="task-pills" class="props taskpills">{{template "task-pills" .}}</dl>
+<ul class="plain commentlist" id="task-comments">{{template "task-comments" .}}</ul>
 <div class="body" id="task-history">{{template "task-history" .}}</div>
 {{end}}
 
+{{/* task-pills is the top of the properties: status, priority and the state
+     marks, each a label and a value. The status and priority are the same
+     controls the listing row carries, in the same shapes, with the same menus,
+     which live outside this region so a refresh never swaps one away. */}}
 {{define "task-pills"}}
 {{$t := .Data.Task}}
-  {{/* The same two controls the listing row carries, in the same shapes, with
-       the same menus. A reader who learned to press the status on a row found
-       it inert here and had to go looking for a card called "Move to" in the
-       aside, fill a select and press Apply: three steps and a different
-       vocabulary for the move they had just made in one. */}}
-  {{if and .Data.CanWrite .Data.Routes}}
-  <span class="statusmenu">
-    {{/* The "t" shortcut focuses this. It used to focus the select inside the
-         Move to card; the control moved, so the target moved with it rather
-         than being left pointing at markup that no longer exists. */}}
-    <button type="button" class="statuspill" data-focus="status" popovertarget="{{$.IDPrefix}}flow-{{$t.Ref}}"
-            data-shortcut-target="transition"
-            aria-label="{{t "Status %s; move %s" $t.Status $t.Ref}}" title="{{t "Move %s" $t.Ref}}">
-      <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span>
-    </button>
-  </span>
-  {{else}}<span class="pill status {{slug $t.Status}}">{{$t.Status}}</span>{{end}}
+  <div class="prop" data-prop="status">
+    <dt>{{t "Status"}}</dt>
+    <dd>{{if and .Data.CanWrite .Data.Routes}}
+      <span class="statusmenu">
+        {{/* The "t" shortcut focuses this. */}}
+        <button type="button" class="statuspill" data-focus="status" popovertarget="{{$.IDPrefix}}flow-{{$t.Ref}}"
+                data-shortcut-target="transition"
+                aria-label="{{t "Status %s; move %s" $t.Status $t.Ref}}" title="{{t "Move %s" $t.Ref}}">
+          <span class="pill status {{slug $t.Status}}">{{$t.Status}}</span>
+        </button>
+      </span>
+      {{else}}<span class="pill status {{slug $t.Status}}">{{$t.Status}}</span>{{end}}
+      {{if $t.Blocked}}<span class="pill status blocked">{{t "blocked"}}</span>{{end}}</dd>
+  </div>
   {{$p := prio $t.Priority}}
-  {{if .Data.CanWrite}}
-  <span class="priomenu">
-    <button type="button" class="priobtn" data-focus="prio" popovertarget="{{$.IDPrefix}}prio-{{$t.Ref}}"
-            aria-label="{{t "Priority %s; change it" (t $p)}}" title="{{t "Change the priority"}}">
-      <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>
-    </button>
-  </span>
-  {{else}}<span class="prio p-{{$p}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>{{end}}
-  {{if $t.Blocked}}<span class="pill status blocked">{{t "blocked"}}</span>{{end}}
-  {{if snoozed $t}}<span class="snoozemark"{{with $.Data.Names.Label $t.SnoozedByActorID}} title="{{t "Snoozed by %s" .}}"{{end}}>{{t "Snoozed until %s" (stamp $t.SnoozedUntil)}}</span>{{end}}
+  <div class="prop" data-prop="priority">
+    <dt>{{t "Priority"}}</dt>
+    <dd>{{if .Data.CanWrite}}
+      <span class="priomenu">
+        <button type="button" class="priobtn" data-focus="prio" popovertarget="{{$.IDPrefix}}prio-{{$t.Ref}}"
+                aria-label="{{t "Priority %s; change it" (t $p)}}" title="{{t "Change the priority"}}">
+          <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>
+        </button>
+      </span>
+      {{else}}<span class="prio p-{{$p}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>{{end}}</dd>
+  </div>
+  {{if snoozed $t}}
+  <div class="prop" data-prop="snooze">
+    <dt>{{t "Snoozed"}}</dt>
+    <dd><span class="snoozemark"{{with $.Data.Names.Label $t.SnoozedByActorID}} title="{{t "Snoozed by %s" .}}"{{end}}>{{t "Snoozed until %s" (stamp $t.SnoozedUntil)}}</span></dd>
+  </div>
+  {{end}}
   {{/* The lease, and what is left of the last one. The sweeper clears the
        lease columns within a minute of a claim lapsing, so without the
        evidence it leaves behind a task an agent took and abandoned looked
-       exactly like one nobody had ever touched. The claim count sits here
-       rather than on the listing, where it would be a number with nothing to
-       compare it to: beside an expiry it is the difference between an agent
-       that died once and one that keeps dying. */}}
+       exactly like one nobody had ever touched. The claim count sits beside
+       it: with an expiry it is the difference between an agent that died
+       once and one that keeps dying. */}}
   {{$held := claim $t}}
-  {{if eq $held "held"}}<span class="lease held" title="{{t "Until %s" (compact $t.LeaseExpiresAt)}}">{{t "held"}} &middot; {{$.Data.Names.Label $t.ClaimedByActorID}}</span>
-  {{else if eq $held "expired"}}<span class="lease expired" title="{{t "At %s" (compact $t.LeaseExpiredAt)}}">{{t "claim expired"}} &middot; {{$.Data.Names.Label $t.LeaseExpiredByActorID}} &middot; {{t "%s ago" (expiredAgo $t)}}</span>{{end}}
-  {{if $t.ClaimCount}}<span class="muted" title="{{t "How many times this task has been claimed"}}">{{tn "claimed %d time" "claimed %d times" $t.ClaimCount}}</span>{{end}}
+  {{if or $held $t.ClaimCount}}
+  <div class="prop" data-prop="claim">
+    <dt>{{t "Claim"}}</dt>
+    <dd>{{if eq $held "held"}}<span class="lease held" title="{{t "Until %s" (compact $t.LeaseExpiresAt)}}">{{t "held"}} &middot; {{$.Data.Names.Label $t.ClaimedByActorID}}</span>
+      {{else if eq $held "expired"}}<span class="lease expired" title="{{t "At %s" (compact $t.LeaseExpiredAt)}}">{{t "claim expired"}} &middot; {{$.Data.Names.Label $t.LeaseExpiredByActorID}} &middot; {{t "%s ago" (expiredAgo $t)}}</span>{{end}}
+      {{if $t.ClaimCount}}<span class="propnote" title="{{t "How many times this task has been claimed"}}">{{tn "claimed %d time" "claimed %d times" $t.ClaimCount}}</span>{{end}}</dd>
+  </div>
+  {{end}}
 {{end}}
 
+{{/* task-desc is the description as it reads. Its heading is drawn here so
+     the checklist count beside it refreshes with the text. A writer with
+     nothing written sees the heading and the Add a description switch under
+     it; a reader who may not write sees that there is none. */}}
 {{define "task-desc"}}
 {{$t := .Data.Task}}
-{{if or $t.Body (not .Data.CanWrite)}}
-  <div class="card">
-    <div class="headtip"><h2>{{t "Description"}}</h2>{{with $t.Checklist}}{{template "checkmark" .}}{{end}}</div>
-    {{if not $t.Body}}<p class="empty">{{t "No description."}}</p>
+    <div class="tsec-head"><h2>{{t "Description"}}</h2>{{with $t.Checklist}}{{template "checkmark" .}}{{end}}</div>
+    {{if not $t.Body}}{{if not .Data.CanWrite}}<p class="empty quiet">{{t "No description."}}</p>{{end}}
     {{else if and .Data.CanWrite $t.Checklist}}
     {{/* One form around the whole text: each checklist item is a submit
          button naming its number and whether it is being ticked or cleared,
@@ -501,8 +522,6 @@
       <div class="md">{{.Data.BodyHTML}}</div>
     </form>
     {{else}}<div class="md">{{.Data.BodyHTML}}</div>{{end}}
-  </div>
-{{end}}
 {{end}}
 
 {{define "task-comments"}}
@@ -514,7 +533,8 @@
              for the comment, not stacked above a body with an "Edit"
              disclosure below it: three stacked blocks per comment is why ten
              comments were a screenful of chrome. */}}
-        <p class="byline"><span class="who-name" title="{{.AuthorActorID}}">{{$.Data.Names.Label .AuthorActorID}}</span> &middot; {{compact .CreatedAt}}</p>
+        {{$eid := printf "%scedit-%s" $.IDPrefix .ID}}
+        <p class="byline"><span class="avatar" aria-hidden="true">{{monogram ($.Data.Names.Label .AuthorActorID)}}</span><span class="who-name" title="{{.AuthorActorID}}">{{$.Data.Names.Label .AuthorActorID}}</span> <span class="muted">&middot; {{compact .CreatedAt}}</span>{{if $.Data.CanComment}} <button type="button" class="link comment-editopen" popovertarget="{{$eid}}">{{t "Edit"}}</button>{{end}}</p>
         <div class="comment-body md">{{index $.Data.CommentHTML .ID}}</div>
         {{if $.Data.CanComment}}
         {{/* A textarea, and the reason is data loss rather than taste. This
@@ -529,8 +549,6 @@
              the columns control became one: ten comments meant ten expanders
              that each pushed the rest of the thread down the page when
              opened. This opens over the thread and leaves it where it is. */}}
-        {{$eid := printf "cedit-%s" .ID}}
-        <button type="button" class="link comment-editopen" popovertarget="{{$eid}}">{{t "Edit"}}</button>
         <div id="{{$eid}}" class="flowmenu commentpop" popover>
           <p class="flowhead">{{t "Edit comment"}}</p>
           <form method="post" action="/tasks/{{$t.Ref}}/comments/edit">
@@ -551,7 +569,7 @@
         </div>
         {{end}}
       </li>
-      {{else}}<li class="empty">{{t "No comments yet."}}</li>{{end}}
+      {{else}}<li class="empty quiet">{{t "No comments yet."}}</li>{{end}}
     {{end}}
 
 {{define "task-history"}}

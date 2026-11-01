@@ -43,7 +43,7 @@ func TestRowsAndTheTaskScreenSayWhatTheirFormsSwap(t *testing.T) {
 	}
 
 	screen := b.page("/tasks/" + ref)
-	for _, marker := range []string{`class="titlebar"`, `id="flow-` + ref + `"`, `id="prio-` + ref + `"`, `class="detail"`} {
+	for _, marker := range []string{`class="titlebar taskhead"`, `id="taskmenu-` + ref + `"`, `id="flow-` + ref + `"`, `id="prio-` + ref + `"`, `id="snooze-` + ref + `"`, `class="detail taskgrid"`} {
 		tag := openTag(t, screen, marker)
 		if !strings.Contains(tag, `data-inplace="main.wrap"`) {
 			t.Errorf("the task screen's %s does not swap the content in place:\n%s", marker, tag)

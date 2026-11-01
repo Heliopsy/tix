@@ -128,7 +128,7 @@ func TestHidingTheStarKeepsTheOrder(t *testing.T) {
 	}
 }
 
-// The About card: the star in words, the parent, and the next occurrence the
+// The properties: the star in words on its control, the parent, and the next occurrence the
 // rule would create. The due date is far enough out that "finished now" does
 // not depend on the day the suite runs.
 func TestTheTaskScreenStatesStarParentAndNextOccurrence(t *testing.T) {
@@ -153,19 +153,19 @@ func TestTheTaskScreenStatesStarParentAndNextOccurrence(t *testing.T) {
 	_ = resp.Body.Close()
 
 	page := b.page("/tasks/" + weekly.Ref)
-	if row := aboutRow(t, page, "Starred"); !strings.Contains(row, "Yes") {
-		t.Errorf("the starred task does not say so:\n%s", row)
+	if star := between(t, header(t, page), `<button type="submit" class="star`, ">"); !strings.Contains(star, `aria-pressed="true"`) || !strings.Contains(star, `aria-label="Unstar `+weekly.Ref+`"`) {
+		t.Errorf("the starred task does not say so:\n%s", star)
 	}
-	if row := aboutRow(t, page, "Subtask of"); !strings.Contains(row, `href="/tasks/`+parent.Ref+`"`) {
+	if row := aboutRow(t, page, "parent"); !strings.Contains(row, `href="/tasks/`+parent.Ref+`"`) {
 		t.Errorf("the subtask does not link its parent:\n%s", row)
 	}
-	if row := aboutRow(t, page, "Repeats"); !strings.Contains(row, "next due") || !strings.Contains(row, "2099-01-12") {
+	if row := aboutRow(t, page, "repeat"); !strings.Contains(row, "next due") || !strings.Contains(row, "2099-01-12") {
 		t.Errorf("the weekly task does not give the next occurrence's date:\n%s", row)
 	}
-	if row := aboutRow(t, b.page("/tasks/"+parent.Ref), "Starred"); !strings.Contains(row, "No") {
-		t.Errorf("an unstarred task does not say so:\n%s", row)
+	if star := between(t, header(t, b.page("/tasks/"+parent.Ref)), `<button type="submit" class="star`, ">"); !strings.Contains(star, `aria-pressed="false"`) || !strings.Contains(star, `aria-label="Star `+parent.Ref+`"`) {
+		t.Errorf("an unstarred task does not say so:\n%s", star)
 	}
-	if row := aboutRow(t, b.page("/tasks/"+last.Ref), "Repeats"); !strings.Contains(row, "last occurrence") || strings.Contains(row, "next due") {
+	if row := aboutRow(t, b.page("/tasks/"+last.Ref), "repeat"); !strings.Contains(row, "last occurrence") || strings.Contains(row, "next due") {
 		t.Errorf("the rule that has run out does not say so:\n%s", row)
 	}
 }

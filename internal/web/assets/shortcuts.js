@@ -84,9 +84,16 @@
   // any. A page that offers no such control (no comment box because the
   // reader may not comment, no filter box outside the task list) simply has
   // nothing for the key to find, rather than the key doing nothing useful.
+  //
+  // A target inside a closed disclosure (the task title, which edits behind
+  // Rename) opens it first, since a field nobody can see takes no focus.
   function focusTarget(action) {
     var el = document.querySelector('[data-shortcut-target="' + action + '"]');
     if (el) {
+      var fold = typeof el.closest === "function" ? el.closest("details") : null;
+      if (fold && !fold.open) {
+        fold.open = true;
+      }
       el.focus();
     }
   }

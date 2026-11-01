@@ -571,6 +571,13 @@ func (h *handler) updateTask(w http.ResponseWriter, r *http.Request) error {
 	if priority != 0 {
 		in.Priority = &priority
 	}
+	if _, named := r.PostForm["due_at"]; named {
+		due, err := dateField(field(r, "due_at"), "due_at")
+		if err != nil {
+			return err
+		}
+		in.DueAt = &due
+	}
 	if _, named := r.PostForm["repeat"]; named {
 		rule := field(r, "repeat")
 		in.Recurrence = &rule
