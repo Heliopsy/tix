@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.30.0](https://github.com/Heliopsy/tix/compare/v0.29.1...v0.30.0) (2026-11-01)
+
+
+### Features
+
+* let a tenant turn its trash off so deletes are permanent ([#142](https://github.com/Heliopsy/tix/issues/142)) ([99b9783](https://github.com/Heliopsy/tix/commit/99b97835667e0f988726feca23aa3b99f1ab4191))
+* name projects your way in pickers and draw keys upper case ([#145](https://github.com/Heliopsy/tix/issues/145)) ([6463d4f](https://github.com/Heliopsy/tix/commit/6463d4f2c0b26280d575841eba4699b3e55ad940))
+* **web:** redesign the task screen as a header, a main column and a properties panel ([#143](https://github.com/Heliopsy/tix/issues/143)) ([a7c562e](https://github.com/Heliopsy/tix/commit/a7c562e05f1a4b036f3b022dc889c0fc46e041fd))
+
+
+### Bug Fixes
+
+* **web:** fold sidebar groups and stop the sidebar jumping on navigation ([#144](https://github.com/Heliopsy/tix/issues/144)) ([d70b5b8](https://github.com/Heliopsy/tix/commit/d70b5b85c1634091a8ee72df722c24bc9e70bb3a))
+
 ## [0.29.1](https://github.com/Heliopsy/tix/compare/v0.29.0...v0.29.1) (2026-11-01)
 
 
