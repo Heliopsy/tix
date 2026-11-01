@@ -218,7 +218,7 @@ bare colour name otherwise.
 Fields are defined per project:
 
 ```sh
-tix field put rv severity --type enum --option low --option high --label Severity --indexed
+tix field put rv severity --type enum --option low --option high --label Severity --indexed --default low
 tix field put rv owner --type actor --required
 tix field ls rv
 tix field rm rv severity
@@ -229,6 +229,7 @@ tix field rm rv severity
 | `--type` | `string`, `text`, `int`, `float`, `bool`, `date`, `datetime`, `enum`, `actor`, `json` (default `string`) |
 | `--option` | an enum option, repeatable |
 | `--required` | every task in the project must carry a value |
+| `--default` | the value a task created without one is given; it has to fit the type and, for an enum, the options |
 | `--indexed` | see below |
 | `--position` | ordering in the UI |
 | `--label` | human label, defaulting to the key |
@@ -241,6 +242,12 @@ tix task add "harden the ingress" -p rv --field severity=high --field owner=ops
 tix task edit rv-1 --field severity=low
 tix task mv rv-1 working --field owner=alice
 ```
+
+`tix field put` replaces the whole definition, so repeat `--default` when redefining a field that has one.
+A field of type `string`, `text`, `enum`, `actor`, `date` or `datetime` keeps its default as text; any other
+type reads it as JSON first, as `--field` does, so `--default 3` is a number and `--default true` a boolean.
+The browser's field form carries the same controls, and the API takes `default` on `PUT
+/projects/{ref}/fields`.
 
 Marking a field `--required` does not retroactively invalidate existing tasks. Changing `--indexed` later is
 allowed and does not rewrite data.

@@ -113,6 +113,21 @@ func parseDuration(value string) (core.Duration, error) {
 	return d, nil
 }
 
+// fieldDefault reads a --default value the way --field reads a value, except
+// that a field holding text keeps the text even when it would parse as JSON.
+func fieldDefault(kind core.FieldType, raw string) any {
+	switch kind {
+	case core.FieldString, core.FieldText, core.FieldEnum, core.FieldActor,
+		core.FieldDate, core.FieldDateTime:
+		return raw
+	}
+	var decoded any
+	if err := json.Unmarshal([]byte(raw), &decoded); err == nil {
+		return decoded
+	}
+	return raw
+}
+
 // parseFields turns repeated key=value flags into custom field values, decoding
 // each value as JSON when it parses and leaving it a string otherwise.
 func parseFields(pairs []string) (map[string]any, error) {

@@ -338,6 +338,13 @@ func (h *handler) putField(w http.ResponseWriter, r *http.Request) error {
 		Indexed:     checked(r, "indexed"),
 		Position:    position,
 	}
+	def := core.FieldDef{Key: in.Key, Label: in.Label, Type: in.Type, EnumOptions: in.EnumOptions}
+	if def.Label == "" {
+		def.Label = in.Key
+	}
+	if in.Default, err = coerceField(def, field(r, "default")); err != nil {
+		return err
+	}
 	if _, err := h.svc.PutFieldDef(r.Context(), key, in); err != nil {
 		return err
 	}

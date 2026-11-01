@@ -104,6 +104,7 @@ func userCreateCmd(g *globals) *cobra.Command {
 
 func userLsCmd(g *globals) *cobra.Command {
 	var limit int
+	var cursor string
 	cmd := &cobra.Command{
 		Use:     "ls",
 		Aliases: []string{"list"},
@@ -120,7 +121,7 @@ func userLsCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			users, next, err := conn.Service.ListUsers(ctx, core.Page{Limit: size})
+			users, next, err := conn.Service.ListUsers(ctx, core.Page{Limit: size, Cursor: cursor})
 			if err != nil {
 				return err
 			}
@@ -131,6 +132,7 @@ func userLsCmd(g *globals) *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&limit, "limit", config.DefaultPageSize, "maximum records to return")
+	cmd.Flags().StringVar(&cursor, "cursor", "", "continue from a previous page")
 	return cmd
 }
 

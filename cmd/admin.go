@@ -486,6 +486,7 @@ func webhookDeliveriesCmd(g *globals) *cobra.Command {
 	var endpoint string
 	var statuses []string
 	var limit int
+	var cursor string
 	cmd := &cobra.Command{
 		Use:     "deliveries",
 		Short:   "List delivery attempts",
@@ -500,7 +501,7 @@ func webhookDeliveriesCmd(g *globals) *cobra.Command {
 			filter := core.DeliveryFilter{
 				EndpointID: endpoint,
 				Statuses:   deliveryStatuses(statuses),
-				Page:       core.Page{Limit: size},
+				Page:       core.Page{Limit: size, Cursor: cursor},
 			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
@@ -519,6 +520,7 @@ func webhookDeliveriesCmd(g *globals) *cobra.Command {
 	cmd.Flags().StringVar(&endpoint, "endpoint", "", "restrict to one endpoint")
 	cmd.Flags().StringSliceVar(&statuses, "status", nil, "restrict to delivery statuses")
 	cmd.Flags().IntVar(&limit, "limit", config.DefaultPageSize, "maximum records to return")
+	cmd.Flags().StringVar(&cursor, "cursor", "", "continue from a previous page")
 	return cmd
 }
 

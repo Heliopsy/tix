@@ -128,12 +128,14 @@ func projectCreateCmd(g *globals) *cobra.Command {
 func projectLsCmd(g *globals) *cobra.Command {
 	var archived bool
 	var limit int
+	var cursor string
+	var keys []string
 	cmd := &cobra.Command{
 		Use:     "ls",
 		Aliases: []string{"list"},
 		Short:   "List projects",
 		Long:    "List projects in the tenant.\n\nExit codes: 5 permission denied.",
-		Example: "  tix project ls\n  tix project ls --include-archived -o json",
+		Example: "  tix project ls\n  tix project ls --include-archived -o json\n  tix project ls --key infra --key web",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			size, err := g.pageSize(cmd, limit)
@@ -145,8 +147,9 @@ func projectLsCmd(g *globals) *cobra.Command {
 				return err
 			}
 			projects, next, err := conn.Service.ListProjects(ctx, core.ProjectFilter{
+				Keys:            keys,
 				IncludeArchived: archived,
-				Page:            core.Page{Limit: size},
+				Page:            core.Page{Limit: size, Cursor: cursor},
 			})
 			if err != nil {
 				return err
@@ -164,7 +167,9 @@ func projectLsCmd(g *globals) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&archived, "include-archived", false, "include archived projects")
+	cmd.Flags().StringSliceVar(&keys, "key", nil, "restrict to projects with these keys, repeatable")
 	cmd.Flags().IntVar(&limit, "limit", config.DefaultPageSize, "maximum records to return")
+	cmd.Flags().StringVar(&cursor, "cursor", "", "continue from a previous page")
 	return cmd
 }
 
@@ -509,21 +514,26 @@ func newFieldCmd(g *globals) *cobra.Command {
 func fieldPutCmd(g *globals) *cobra.Command {
 	var (
 		label, fieldType string
+		defaultValue     string
 		options          []string
 		required, idx    bool
 		position         int
 		dryRun           bool
 	)
 	cmd := &cobra.Command{
-		Use:     "put PROJECT KEY",
-		Short:   "Define or replace a custom field",
-		Long:    "Define a custom field on a project's tasks.\n\nExit codes: 2 invalid definition, 3 unknown project.",
-		Example: "  tix field put infra severity --type enum --option low --option high",
-		Args:    exactArgs(2),
+		Use:   "put PROJECT KEY",
+		Short: "Define or replace a custom field",
+		Long:  "Define a custom field on a project's tasks.\n\nExit codes: 2 invalid definition, 3 unknown project.",
+		Example: "  tix field put infra severity --type enum --option low --option high --default low\n" +
+			"  tix field put infra points --type int --default 1",
+		Args: exactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			in := core.FieldDefInput{
 				Key: args[1], Label: label, Type: core.FieldType(fieldType),
 				Required: required, EnumOptions: options, Indexed: idx, Position: position,
+			}
+			if cmd.Flags().Changed("default") {
+				in.Default = fieldDefault(in.Type, defaultValue)
 			}
 			if in.Label == "" {
 				in.Label = in.Key
@@ -550,6 +560,7 @@ func fieldPutCmd(g *globals) *cobra.Command {
 	f.StringVar(&label, "label", "", "human label, defaulting to the key")
 	f.StringVar(&fieldType, "type", string(core.FieldString), "field type")
 	f.StringSliceVar(&options, "option", nil, "enum option, repeatable")
+	f.StringVar(&defaultValue, "default", "", "value a task created without one is given")
 	f.BoolVar(&required, "required", false, "require a value on every task")
 	f.BoolVar(&idx, "indexed", false, "index the field for filtering")
 	f.IntVar(&position, "position", 0, "ordering position")

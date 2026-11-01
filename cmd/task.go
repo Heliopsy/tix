@@ -470,6 +470,7 @@ func taskMvCmd(g *globals) *cobra.Command {
 		comment, leaseToken string
 		fields              []string
 		dryRun, hops        bool
+		version             int
 	)
 	cmd := &cobra.Command{
 		Use:     "mv REF... STATUS",
@@ -479,7 +480,8 @@ func taskMvCmd(g *globals) *cobra.Command {
 			"With --hops the status may be one the workflow only reaches through another state: the route is found, " +
 			"printed, and then applied one ordinary transition at a time, so the audit trail records every state the " +
 			"task passed through. Name the route yourself as doing>done when two routes are equally short.\n\n" +
-			"Exit codes: 3 unknown reference, 4 lease expired, 6 illegal transition.",
+			"--version moves a single task only if it is still at that version, as tix task edit --version does.\n\n" +
+			"Exit codes: 3 unknown reference, 4 lease expired or version conflict, 6 illegal transition.",
 		Example: "  tix task mv default-1 doing\n  tix task mv default-1 done --hops\n" +
 			"  tix task ls -o ndjson | jq -r .ref | tix task mv - done",
 		Args: minArgs(2),
@@ -493,15 +495,21 @@ func taskMvCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if version != 0 && len(refs) != 1 {
+				return core.Invalid("--version names one task's version, and %d tasks were given", len(refs))
+			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
 			}
 			if hops {
-				return g.moveByRoute(cmd, conn, ctx, refs, status,
-					core.RouteInput{Comment: comment, LeaseToken: leaseToken, CustomFields: custom}, dryRun)
+				return g.moveByRoute(cmd, conn, ctx, refs, status, core.RouteInput{
+					Comment: comment, LeaseToken: leaseToken, CustomFields: custom, Version: version,
+				}, dryRun)
 			}
-			in := core.TransitionInput{To: status, Comment: comment, LeaseToken: leaseToken, CustomFields: custom}
+			in := core.TransitionInput{
+				To: status, Comment: comment, LeaseToken: leaseToken, CustomFields: custom, Version: version,
+			}
 			if err := in.Validate(); err != nil {
 				return err
 			}
@@ -521,6 +529,7 @@ func taskMvCmd(g *globals) *cobra.Command {
 	f.StringVar(&leaseToken, "lease-token", "", "lease token held on the task")
 	f.StringSliceVar(&fields, "field", nil, "custom field as key=value, repeatable")
 	f.BoolVar(&hops, "hops", false, "reach the status through other states, one transition per hop")
+	f.IntVar(&version, "version", 0, "expected version for optimistic locking")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	registerCompletions(g, cmd, "status")
 	return cmd
