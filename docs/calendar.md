@@ -39,6 +39,7 @@ the latest due first.
 ```sh
 tix calendar create --filter 'project:infra -status:done'
 tix calendar filter 'tag:ops'      # change it; the address stays the same
+tix calendar filter 'assignee:me'  # "me" is the feed's owner, finished tasks included
 tix calendar filter                # back to "assigned to me, not finished"
 ```
 
