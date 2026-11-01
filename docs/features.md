@@ -111,6 +111,11 @@ is yours alone and kept on the server, so it follows you to another browser, to 
 (through its palette) and to `tix view ls|set|order|reset` and `/api/v1/views` over HTTP.
 [docs/web-ui.md](web-ui.md#arranging-columns-and-lanes), [docs/api.md](api.md#arranging-views).
 
+**A command palette.** ctrl+k (command+k on a Mac) in the browser opens one search box over tasks,
+projects, every screen and settings section, and actions such as New task in a project, switching the
+view or the colour scheme, and signing out. Task search runs the filter language on the server once
+something is typed; everything else draws instantly. [docs/web-ui.md](web-ui.md#the-command-palette).
+
 **Copying a task.** A task copies into any project you can create tasks in, its own included: "Copy to…"
 on the task screen in the browser, `Y` in the terminal interface, `tix task copy REF --to PROJECT` on the
 command line and `POST /api/v1/tasks/{ref}/copy` over HTTP. The copy gets a fresh reference and keeps the

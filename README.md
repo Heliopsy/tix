@@ -110,9 +110,9 @@ by a test that fails the build when an operation lacks a binding.
 
 ## What else is in the binary
 
-Statistics, tenant theming, an actor directory, multi-step status moves, tasks that repeat when they
-are done, per-browser dates, lease badges, shell completion, self-update and seedable demonstration
-data.
+Statistics, tenant theming, a ctrl+k command palette in the browser, an actor directory, multi-step
+status moves, tasks that repeat when they are done, per-browser dates, lease badges, shell completion,
+self-update and seedable demonstration data.
 [docs/features.md](docs/features.md) describes each one and why it is there.
 
 ## Screenshots

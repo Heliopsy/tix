@@ -452,6 +452,7 @@ tix task tree default-1              # a task and its descendants
 tix task ls -s todo --unclaimed -o json
 tix task ls --blocked                # only tasks blocked by a dependency
 tix task ls --starred                # only tasks you starred
+tix task ls --filter 'deploy api' --limit 10 -o json   # find by words, as the browser's ctrl+k palette does
 tix task copy default-1 --to work --with-subtasks --link   # a fresh copy in another project
 tix project ls -o json               # the project keys, if you do not know them
 ```
