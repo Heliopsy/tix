@@ -58,7 +58,8 @@ table.
 
 Every project key and task reference the web interface shows a reader (rows, cards, lanes, the task
 screen and its title, breadcrumbs and relations, toasts, aria labels and titles, activity, inbox,
-templates, the projects screen, the command palette and recent tasks) SHALL be drawn upper case, as
+templates, the projects screen, the command palette, Recently viewed and its folded rail names, and the
+question asked before a permanent delete) SHALL be drawn upper case, as
 `INFRA` and `INFRA-8`. Links, element ids, form values and data attributes SHALL keep the stored
 lower-case value. Addresses SHALL answer in any case: `/tasks/INFRA-8` and `/projects/INFRA` SHALL
 show the same task and project as their lower-case forms without a redirect, and a filter

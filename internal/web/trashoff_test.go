@@ -117,3 +117,24 @@ func TestWithTheTrashOffABulkDeleteAsksFirst(t *testing.T) {
 		t.Errorf("a permanent bulk delete offered an undo: %s", location)
 	}
 }
+
+// The question names the tasks the way every other screen does, upper case,
+// while the fields it posts keep the stored refs.
+func TestTheTrashOffQuestionNamesTheTasksUpperCase(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	turnTrashOff(t, b)
+	refs := []string{b.createTask("infra", "one"), b.createTask("infra", "two")}
+
+	asked := b.post("/tasks/bulk?action=delete", url.Values{"ref": refs, "next": {"/tasks"}})
+	wantStatus(t, asked, http.StatusOK)
+	form := confirmForm(t, body(t, asked))
+	lead := "Delete " + strings.ToUpper(refs[0]) + ", " + strings.ToUpper(refs[1]) + "?"
+	if !strings.Contains(form, `<p class="delform-lead">`+lead+`</p>`) {
+		t.Errorf("the question does not read %q:\n%s", lead, form)
+	}
+	if !strings.Contains(form, `name="ref" value="`+refs[0]+`"`) {
+		t.Errorf("the confirmation does not post the stored ref %s:\n%s", refs[0], form)
+	}
+}

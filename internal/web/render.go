@@ -269,6 +269,7 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"key":             output.ShowKey,
 		"ref":             output.ShowRef,
 		"joinKeys":        joinKeys,
+		"joinRefs":        joinRefs,
 		"projClass":       projClass,
 		"projStyle":       projStyle,
 		"projectColours":  projectColourField,
@@ -359,6 +360,16 @@ func joinKeys(keys []string) string {
 	out := make([]string, len(keys))
 	for i, k := range keys {
 		out[i] = output.ShowKey(k)
+	}
+	return strings.Join(out, ", ")
+}
+
+// joinRefs renders a list of task references as a comma separated line, in
+// the case a reader sees them.
+func joinRefs(refs []string) string {
+	out := make([]string, len(refs))
+	for i, r := range refs {
+		out[i] = output.ShowRef(r)
 	}
 	return strings.Join(out, ", ")
 }

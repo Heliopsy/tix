@@ -125,6 +125,10 @@ test("a boosted navigation redraws the preserved list in place and moves only th
   assert.equal(p.box.hidden, false, "a list with entries is shown");
   assert.equal(p.ul.children.length, 2);
   assert.equal(p.ul.children[0].children[0].getAttribute("aria-current"), "page");
+  const first = p.ul.children[0].children[0];
+  assert.equal(first.children[0].textContent, "INFRA-2", "the ref is drawn upper case");
+  assert.equal(first.getAttribute("data-rail-name"), "INFRA-2 Deploy", "the folded rail names it upper case too");
+  assert.equal(first.href, "/tasks/infra-2", "the link keeps the stored ref");
 
   p.navigate("/tasks/infra-1");
   assert.equal(p.ul.children.length, 2, "the same two entries, no row comes or goes");

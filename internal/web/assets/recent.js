@@ -124,7 +124,7 @@
       var a = doc.createElement("a");
       a.href = list[i].href;
       a.className = "recentitem";
-      a.setAttribute("data-rail-name", list[i].ref + " " + list[i].title);
+      a.setAttribute("data-rail-name", String(list[i].ref).toUpperCase() + " " + list[i].title);
       if (global.location && global.location.pathname === list[i].href) a.setAttribute("aria-current", "page");
       var ref = doc.createElement("span");
       ref.className = "ref";
