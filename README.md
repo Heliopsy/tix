@@ -90,7 +90,8 @@ into any project, subtasks and comments included when you ask, instead of being 
 the task list to move, retag, assign, star, copy or delete them in one go, and export any filtered list as
 CSV for a spreadsheet. A fresh install
 needs no configuration: one default workflow, no required fields, and `tix task add "buy milk"` works
-on a machine that has never seen tix.
+on a machine that has never seen tix. A task can be typed in one line, `Fix login !high #auth @raj
+due:fri`, in the browser, the terminal or `tix task add --parse`.
 
 ### For teams
 
@@ -115,8 +116,8 @@ by a test that fails the build when an operation lacks a binding.
 ## What else is in the binary
 
 Statistics, tenant theming, a ctrl+k command palette in the browser, an actor directory, multi-step
-status moves, bulk actions, CSV export, tasks that repeat when they are done, per-browser dates, lease
-badges, shell completion, self-update and seedable demonstration data.
+status moves, bulk actions, CSV export, tasks that repeat when they are done, quick-add syntax,
+per-browser dates, lease badges, shell completion, self-update and seedable demonstration data.
 [docs/features.md](docs/features.md) describes each one and why it is there.
 
 ## Screenshots

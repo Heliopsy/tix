@@ -68,6 +68,15 @@ restore route with the listing as the place to come back to, so the reader stays
 row leaves it, the count drops, and the toast says `task restored`. With scripting on, the listing and
 its count are swapped in place; without it, the form posts and the page reloads on the same trash.
 
+**Quick add.** The one-line box reads [quick-add syntax](features.md): `Fix login !high #auth @raj
+due:fri +web` sets the priority, a tag, the assignee, the due date and the project, and the title is what
+is left. A moment after you stop typing, a row of chips under the box shows what the line will set, and a
+project or handle the tenant does not have is drawn in red with the reason, before anything is sent. A
+refused line comes back in the box with the reason under it. The box's (i) tip lists the syntax. The
+project picker beside the box is where the task goes when the line names no project. Dates count in the
+zone chosen under Settings. With scripting off the add still parses; only the preview needs a script.
+Add with details has a field per attribute and stores its title as typed.
+
 **Repeating tasks.** The add form's details and the task screen's Edit card carry a Repeat field taking
 a rule such as `every week` or `3 days after done`, emptied to stop the task repeating. The task screen's
 About card states the rule, links the occurrence it created once the task is finished, and before that

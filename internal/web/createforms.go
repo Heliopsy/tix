@@ -25,6 +25,9 @@ type taskForm struct {
 	Repeat    string
 	Parent    string
 	DependsOn string
+
+	// Quick marks the one-line box, whose title is a quick-add line.
+	Quick bool
 }
 
 // More reports whether the folded fields hold anything, which is when the
@@ -39,7 +42,7 @@ func readTaskForm(r *http.Request) taskForm {
 		Title: field(r, "title"), Status: field(r, "status"), Body: prose(r, "body"), Project: field(r, "project_ref"),
 		Priority: field(r, "priority"), Due: field(r, "due_at"), Assignee: field(r, "assignee"),
 		Tags: field(r, "tags"), Repeat: field(r, "repeat"), Parent: field(r, "parent"),
-		DependsOn: field(r, "depends_on"),
+		DependsOn: field(r, "depends_on"), Quick: field(r, "quick") != "",
 	}
 }
 

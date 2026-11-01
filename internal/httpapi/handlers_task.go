@@ -13,6 +13,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
+	"github.com/heliopsy/tix/internal/quickadd"
 	"github.com/heliopsy/tix/internal/wire"
 )
 
@@ -24,6 +25,13 @@ type CommentRequest struct {
 // TagRequest carries a tag name.
 type TagRequest struct {
 	Name string `json:"name"`
+}
+
+// CreateTaskRequest is the body of a create. Parse reads Title as a quick-add
+// line, relative dates counted in UTC since the API knows no reader's zone.
+type CreateTaskRequest struct {
+	core.CreateTaskInput
+	Parse bool `json:"parse,omitempty"`
 }
 
 // DependencyRequest names the task a task waits for.
@@ -348,9 +356,20 @@ func timeParam(v string) (*time.Time, error) {
 
 // handleCreateTask creates a task.
 func (rt *Router) handleCreateTask(w http.ResponseWriter, r *http.Request) {
-	var in core.CreateTaskInput
-	if !readJSON(w, r, &in) {
+	var req CreateTaskRequest
+	if !readJSON(w, r, &req) {
 		return
+	}
+	in := req.CreateTaskInput
+	if req.Parse {
+		parsed, err := quickadd.Parse(in.Title, time.Now().UTC())
+		if err == nil {
+			in, err = parsed.Apply(in)
+		}
+		if err != nil {
+			WriteError(w, err)
+			return
+		}
 	}
 	task, err := rt.cfg.Service.CreateTask(r.Context(), in)
 	if err != nil {

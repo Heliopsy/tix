@@ -484,6 +484,13 @@ an uploaded image, fetched with `tix project icon KEY --out FILE`). Set one with
 `tix project edit KEY --icon`, `--icon-name` or `--icon-file`; it replaces the
 others. None of it affects how tasks are listed or claimed.
 
+**Titles are literal unless you pass `--parse`.** `tix task add` stores the
+title you give it, `#`, `@` and `!` included, so pass issue titles and commit
+subjects as they are. `--parse` reads quick-add syntax out of the line instead:
+`tix task add --parse 'Fix login !high #auth @raj due:fri +web ^infra-3'`.
+Prefer explicit flags in scripts; `--parse` is for a line a person wrote. Over
+HTTP the same switch is `"parse": true` on `POST /v1/tasks`.
+
 **A recurring task makes its own successor.** A task whose JSON carries
 `recurrence` (set with `tix task add --repeat 'every week'`, changed with
 `tix task edit --repeat` or removed with `--no-repeat`) creates the next

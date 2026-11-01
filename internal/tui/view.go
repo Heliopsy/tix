@@ -929,10 +929,16 @@ func (m Model) promptPanel() Panel {
 		}
 	}
 	row := "  " + pad(spec.Field, FormLabelWidth) + m.input.View()
+	rows := []string{m.fit(row)}
+	if m.prompt == promptNewTask {
+		if extra, ok := m.quickRow(); ok {
+			rows = append(rows, m.fit("  "+pad("", FormLabelWidth)+extra))
+		}
+	}
 	return Panel{
 		Title: spec.Title(),
 		Note:  spec.Placeholder,
-		Rows:  []string{m.fit(row)},
+		Rows:  rows,
 		Keys:  m.acceptHelp("apply"),
 	}
 }

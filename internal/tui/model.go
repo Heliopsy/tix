@@ -71,7 +71,10 @@ type Model struct {
 	filterText string
 	filter     core.TaskFilter
 	filterErr  string
-	input      textinput.Model
+	// quickErr is why the new-task prompt's line was refused, drawn under
+	// the field while the prompt stays open on the line.
+	quickErr string
+	input    textinput.Model
 	// area is the multi-line field. A body and a comment are prose, and prose
 	// crammed into one line is clipped at the terminal edge with no way to see
 	// the end of it and no way to type a newline.
@@ -612,6 +615,11 @@ func (m Model) onStream(msg streamMsg) (Model, tea.Cmd) {
 
 // onAction reports a board action and reloads so the board shows the truth.
 func (m Model) onAction(msg actionMsg) (Model, tea.Cmd) {
+	if msg.err != nil && msg.kind == actionCreate && msg.line != "" && m.prompt == promptNone {
+		m = m.startPrompt(promptNewTask, msg.line)
+		m.quickErr = actionFailure(msg)
+		return m, textinput.Blink
+	}
 	if msg.err != nil {
 		m.err = actionFailure(msg)
 		if m.project.ID == "" {
@@ -1208,7 +1216,11 @@ func (m Model) handlePromptKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		m.area, cmd = m.area.Update(msg)
 		return m.fitArea(), cmd
 	}
+	before := m.input.Value()
 	m.input, cmd = m.input.Update(msg)
+	if m.input.Value() != before {
+		m.quickErr = ""
+	}
 	return m, cmd
 }
 
@@ -1261,6 +1273,15 @@ func (m Model) submitPrompt(text string) (Model, tea.Cmd) {
 	if m.prompt == promptTenant {
 		return m.submitTenant(text)
 	}
+	if m.prompt == promptNewTask {
+		in, err := m.quickInput(text)
+		if err != nil {
+			m.quickErr = err.Error()
+			return m, nil
+		}
+		next := m.closePrompt()
+		return next, next.createTask(in, text)
+	}
 	kind := m.prompt
 	next := m.closePrompt()
 	if kind == promptNewField {
@@ -1275,8 +1296,6 @@ func (m Model) submitPrompt(text string) (Model, tea.Cmd) {
 // runPrompt turns accepted text into the one service call it stands for.
 func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 	switch kind {
-	case promptNewTask:
-		return m.createTask(text)
 	case promptNewProject:
 		key, name := SplitProjectEntry(text)
 		return m.createProject(key, name)
@@ -1385,7 +1404,7 @@ func (m Model) startPrompt(kind promptKind, initial string) Model {
 
 // closePrompt dismisses the open input.
 func (m Model) closePrompt() Model {
-	m.prompt, m.filterErr, m.activityFilterErr = promptNone, "", ""
+	m.prompt, m.filterErr, m.activityFilterErr, m.quickErr = promptNone, "", "", ""
 	m.input.SetValue("")
 	m.input.Blur()
 	m.area.SetValue("")
