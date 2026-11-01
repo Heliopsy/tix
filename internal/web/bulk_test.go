@@ -189,3 +189,19 @@ func TestExportCSVFollowsTheFilterAndTheColumnPicker(t *testing.T) {
 		t.Errorf("rows = %v, want only the tagged task with its formula defused", records)
 	}
 }
+
+func TestTheTrashHasNoBulkSelection(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "gone")
+	resp := b.post("/tasks/bulk?action=delete", url.Values{"ref": {ref}, "next": {"/tasks"}})
+	_ = resp.Body.Close()
+	page := b.page("/tasks?q=is%3Atrashed")
+	if !strings.Contains(page, `id="t-`+ref+`"`) {
+		t.Fatalf("the trash does not list %s", ref)
+	}
+	if strings.Contains(page, `class="rowpick"`) || strings.Contains(page, `id="bulkbar"`) {
+		t.Error("the trash draws bulk selection, which offers nothing a deleted task can take")
+	}
+}
