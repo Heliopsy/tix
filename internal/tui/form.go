@@ -34,6 +34,8 @@ const (
 	formTaskEdit
 	formCopy
 	formSavedFilter
+	formTemplates
+	formSaveTemplate
 )
 
 // FieldKind says what a form field gathers. A field drawn from a fixed set is
@@ -576,4 +578,117 @@ func CopyInput(t core.Task, f Form) core.CopyTaskInput {
 		in.Title = title
 	}
 	return in
+}
+
+// Template form actions, as the action field offers them.
+const (
+	templateUse    = "create a task"
+	templateShow   = "show"
+	templateRename = "rename"
+	templateDelete = "delete"
+)
+
+// TemplateNote says what a template form fills in, so a reader knows an empty
+// title keeps the template's and that a title may carry placeholders.
+const TemplateNote = "an empty title keeps the template's; {N}, {DATE} and {PROJECT} in a title are filled in; due in takes 3d or 12h"
+
+// TemplatesForm picks a template and what to do with it, offering only the
+// actions this reader's authority reaches. It is not opened without a template
+// or an action, because a picker with nothing to pick is a refusal in waiting.
+func TemplatesForm(templates []core.TaskTemplate, may func(string) bool) Form {
+	names := make([]string, 0, len(templates))
+	for _, t := range templates {
+		names = append(names, t.Name)
+	}
+	names = uniqueSorted(names)
+	var actions []string
+	for _, a := range []struct{ name, method string }{
+		{templateUse, "UseTemplate"}, {templateShow, "GetTemplate"},
+		{templateRename, "UpdateTemplate"}, {templateDelete, "DeleteTemplate"},
+	} {
+		if may != nil && may(a.method) {
+			actions = append(actions, a.name)
+		}
+	}
+	if len(names) == 0 || len(actions) == 0 {
+		return Form{}
+	}
+	return Form{
+		Kind: formTemplates, Title: "templates", Note: TemplateNote,
+		Fields: []FormField{
+			{Key: "template", Label: "template", Options: names, Value: names[0]},
+			{Key: "action", Label: "action", Options: actions, Value: actions[0]},
+			{Key: "title", Label: "title", Kind: FieldText, Limit: core.MaxTitleLength,
+				Needs: FieldCondition{Key: "action", Value: templateUse}},
+			{Key: "due", Label: "due in", Kind: FieldText, Limit: 16,
+				Needs: FieldCondition{Key: "action", Value: templateUse}},
+			{Key: "name", Label: "new name", Kind: FieldText, Limit: core.MaxTemplateNameLength,
+				Needs: FieldCondition{Key: "action", Value: templateRename}},
+		},
+	}
+}
+
+// UseInput is what an answered template form asks UseTemplate for. An empty
+// due offset keeps the template's own; one that does not read is refused.
+func UseInput(project string, f Form) (core.UseTemplateInput, error) {
+	in := core.UseTemplateInput{ProjectRef: project, Title: strings.TrimSpace(f.Value("title"))}
+	if raw := strings.TrimSpace(f.Value("due")); raw != "" {
+		d, err := core.ParseDuration(raw)
+		if err != nil {
+			return in, err
+		}
+		in.DueIn = &d
+	}
+	return in, nil
+}
+
+// Template scopes, as the save form offers them.
+const (
+	scopeProject = "this project"
+	scopeTenant  = "whole tenant"
+)
+
+// SaveTemplateForm gathers what keeping a task as a template needs: a name, the
+// scope and whether its subtasks go with it. The name opens on the task's title.
+func SaveTemplateForm(t core.Task) Form {
+	return Form{
+		Kind: formSaveTemplate, Title: "save " + t.Ref + " as a template",
+		Note: "title, description, priority, tags, fields and repeat are kept; status, assignee and due date are not",
+		Fields: []FormField{
+			{Key: "name", Label: "name", Value: t.Title, Kind: FieldText, Limit: core.MaxTemplateNameLength},
+			{Key: "scope", Label: "for", Options: []string{scopeProject, scopeTenant}, Value: scopeProject},
+			{Key: "subtasks", Label: "with subtasks", Options: switchOptions(), Value: yesValue},
+		},
+	}
+}
+
+// SaveInput is what an answered save form asks SaveTemplate for.
+func SaveInput(t core.Task, f Form) core.SaveTemplateInput {
+	return core.SaveTemplateInput{
+		Name: strings.TrimSpace(f.Value("name")), TaskRef: t.Ref,
+		TenantWide: f.Value("scope") == scopeTenant, WithSubtasks: f.Yes("subtasks"),
+	}
+}
+
+// TemplateSummary states a template on one line: where it applies, how many
+// tasks it makes, its due offset, how often it was used and its title.
+func TemplateSummary(t core.TaskTemplate) string {
+	scope := "every project"
+	if t.ProjectKey != "" {
+		scope = t.ProjectKey
+	}
+	parts := []string{t.Name + ": " + scope, counted(t.Task.Count(), "task", "tasks")}
+	if t.DueIn > 0 {
+		parts = append(parts, "due in "+t.DueIn.Human())
+	}
+	parts = append(parts, "used "+counted(t.Uses, "time", "times"), "title "+strconv.Quote(t.Task.Title))
+	return strings.Join(parts, ", ")
+}
+
+// counted renders a count with the noun it counts, singular for one.
+func counted(n int, one, many string) string {
+	if n == 1 {
+		return "1 " + one
+	}
+	return strconv.Itoa(n) + " " + many
 }

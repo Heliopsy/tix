@@ -21,7 +21,8 @@ func (h *handler) sessionRoutes() []route {
 		public(get(RouteLogin, "login.html", h.showLogin)),
 		public(post(RouteLogin, h.doLogin, "Login")),
 		post(RouteLogout, h.doLogout, "Logout"),
-		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed"),
+		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels"),
+		get(RouteChannels, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels"),
 		get(RouteRelease, "release.html", h.showRelease, "WhoAmI"),
 		post(RouteAdvanced, h.toggleAdvanced, "Logout"),
 		post(RouteTheme, h.setTheme, "Logout"),
@@ -158,6 +159,11 @@ type settingsView struct {
 
 	// Calendar is the reader's own feed of due dates.
 	Calendar calendarView
+	// InboxKinds are the switches that mute a kind of inbox item.
+	InboxKinds []inboxKindChoice
+
+	// Notifications is the reader's own channels and the form adding one.
+	Notifications notificationsSection
 }
 
 // showSettings renders the settings screen: every per-browser display
@@ -169,12 +175,12 @@ func (h *handler) showSettings(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return h.renderSettings(w, r, http.StatusOK, calendar)
+	return h.renderSettings(w, r, http.StatusOK, calendar, h.notifications(r, channelForm{}, nil))
 }
 
-// renderSettings draws the settings screen with the given calendar section,
-// which a refused feed filter replaces with the text it refused.
-func (h *handler) renderSettings(w http.ResponseWriter, r *http.Request, status int, calendar calendarView) error {
+// renderSettings draws the settings screen with the given calendar and
+// Notifications sections, which a refused form replaces with what it refused.
+func (h *handler) renderSettings(w http.ResponseWriter, r *http.Request, status int, calendar calendarView, notes notificationsSection) error {
 	zone := timezoneOf(r)
 	// The same walk the task screen's visibility control is built from, so
 	// the two controls are offered one set of projects rather than one a page
@@ -197,6 +203,8 @@ func (h *handler) renderSettings(w http.ResponseWriter, r *http.Request, status 
 		Prefs:          settingsPrefs(h.prefsFor(r, projects, whole)),
 		TOTP:           totp,
 		Calendar:       calendar,
+		InboxKinds:     inboxKindChoices(h.inboxPrefs(r)),
+		Notifications:  notes,
 	})
 }
 
@@ -476,7 +484,7 @@ const cookieYear = 365 * 24 * 60 * 60
 
 // safeNext keeps a post-login redirect on this origin.
 func safeNext(next string) string {
-	if !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
+	if next == "" || next[0] != '/' || (len(next) > 1 && (next[1] == '/' || next[1] == '\\')) {
 		return RouteProjects
 	}
 	// A backslash is treated as a separator by some browsers, so "/\evil.com"

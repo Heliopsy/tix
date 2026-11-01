@@ -143,6 +143,11 @@ var tableIntroducedIn = map[string]int{
 	"project_key_aliases": 19,
 	"saved_filters":       21,
 	"calendar_feeds":      22,
+	"inbox_items":         24,
+	"inbox_mutes":         24,
+	"inbox_channels":      24,
+	"inbox_deliveries":    24,
+	"task_templates":      25,
 }
 
 func introducedIn(table string) int {

@@ -73,6 +73,8 @@ const (
 	RouteTaskChecklist  = APIPrefix + "/tasks/{ref}/checklist"
 	RouteTaskCopy       = APIPrefix + "/tasks/{ref}/copy"
 	RouteTaskBulk       = APIPrefix + "/tasks/bulk"
+	RouteTaskSnooze     = APIPrefix + "/tasks/{ref}/snooze"
+	RouteSnoozeWake     = APIPrefix + "/snoozes/wake"
 	RouteTaskComments   = APIPrefix + "/tasks/{ref}/comments"
 	RouteTaskArtifacts  = APIPrefix + "/tasks/{ref}/artifacts"
 	RouteTaskAudit      = APIPrefix + "/tasks/{ref}/audit"
@@ -123,6 +125,21 @@ const (
 	// segment is the feed secret followed by CalendarFeedSuffix, because some
 	// clients refuse an address that does not look like a file.
 	RouteCalendarFeed = CalendarFeedPrefix + "{file}"
+	RouteInbox        = APIPrefix + "/inbox"
+	RouteInboxCount   = APIPrefix + "/inbox/count"
+	RouteInboxRead    = APIPrefix + "/inbox/{id}/read"
+	RouteInboxReadAll = APIPrefix + "/inbox/read-all"
+	RouteInboxPrefs   = APIPrefix + "/inbox/prefs"
+
+	RouteChannels          = APIPrefix + "/channels"
+	RouteChannel           = APIPrefix + "/channels/{id}"
+	RouteChannelTest       = APIPrefix + "/channels/{id}/test"
+	RouteChannelDeliveries = APIPrefix + "/channels/{id}/deliveries"
+	RouteChannelRedeliver  = APIPrefix + "/channel-deliveries/{id}/redeliver"
+
+	RouteTemplates   = APIPrefix + "/templates"
+	RouteTemplate    = APIPrefix + "/templates/{ref}"
+	RouteTemplateUse = APIPrefix + "/templates/{ref}/use"
 )
 
 // CalendarFeedPrefix starts every feed address, and CalendarFeedSuffix ends it.

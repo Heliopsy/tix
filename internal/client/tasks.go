@@ -126,6 +126,30 @@ func (c *Client) CheckTaskItem(ctx context.Context, ref core.TaskRef, in core.Ch
 	return call[core.Task](ctx, c, http.MethodPost, taskPath(wire.RouteTaskChecklist, ref), nil, in)
 }
 
+// SnoozeTask hides a task from default listings until in.Until.
+func (c *Client) SnoozeTask(ctx context.Context, ref core.TaskRef, in core.SnoozeInput) (*core.Task, error) {
+	return call[core.Task](ctx, c, http.MethodPut, taskPath(wire.RouteTaskSnooze, ref), nil, in)
+}
+
+// UnsnoozeTask brings a snoozed task back now.
+func (c *Client) UnsnoozeTask(ctx context.Context, ref core.TaskRef) (*core.Task, error) {
+	return call[core.Task](ctx, c, http.MethodDelete, taskPath(wire.RouteTaskSnooze, ref), nil, nil)
+}
+
+// WakeSnoozed runs one wake pass and reports how many tasks woke.
+func (c *Client) WakeSnoozed(ctx context.Context, limit int) (int, error) {
+	body := struct {
+		Limit int `json:"limit,omitempty"`
+	}{Limit: limit}
+	out, err := call[struct {
+		Woken int `json:"woken"`
+	}](ctx, c, http.MethodPost, wire.RouteSnoozeWake, nil, body)
+	if err != nil {
+		return 0, err
+	}
+	return out.Woken, nil
+}
+
 // ListTags returns the tenant's tags.
 func (c *Client) ListTags(ctx context.Context) ([]core.Tag, error) {
 	return listAll[core.Tag](ctx, c, wire.RouteLabels, nil)
@@ -213,5 +237,11 @@ func taskFilterQuery(f core.TaskFilter) url.Values {
 	setJSON(q, "custom_fields", f.CustomFields)
 	setBool(q, "include_deleted", f.IncludeDeleted)
 	setTriState(q, "trashed", f.Trashed)
+	switch {
+	case f.Snoozed != core.Either:
+		setTriState(q, "snoozed", f.Snoozed)
+	case f.IncludeSnoozed:
+		q.Set("snoozed", "any")
+	}
 	return q
 }

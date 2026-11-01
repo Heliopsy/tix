@@ -188,9 +188,11 @@ and `tix task add --body -` composable with anything that writes to a pipe.
 | 3 | not found, empty queue, a filter term naming nothing |
 | 4 | conflict, held lease, version clash |
 | 5 | permission denied |
-| 6 | precondition failed, illegal transition |
+| 6 | precondition failed, illegal transition, claiming a snoozed task |
 | 7 | a system tix imports from could not be read |
 
+`tix template save` and `tix template edit` exit 4 when another template already holds the name in any case,
+and `tix template use` exits 2 when a tenant-wide template names no project in a tenant with several.
 `tix tui` additionally uses 130 for an interrupt, and `tix claim exec` passes the child's exit status through.
 See [agents.md](agents.md).
 
@@ -213,6 +215,12 @@ retrying will not fix. Read the code when the command carries `-p`, `-s` or an a
 tenant, and 3 when the filter names a project or status that does not exist. `create` and `rotate` print the
 feed address on standard output exactly once; the note that it is shown once goes to standard error, so
 `tix calendar create -o json | jq -r .url` captures just the address. See [calendar.md](calendar.md).
+
+`tix inbox read ID` and `tix inbox unread ID` exit 3 for an identifier that is not one of your own items,
+whoever's it is, and `tix inbox prefs --mute` exits 2 for a kind other than `mention`, `assigned`, `status`
+or `comment`. `tix inbox channel add` exits 4 for a name you already use and 6 past the most channels one
+person may keep, and `tix inbox channel test` exits 6 for a channel turned off. `tix inbox count -o json`
+prints `{"unread": N}`, which is the cheap question for a prompt or a status bar.
 
 Diagnostics go to standard error, data to standard output, always. That is why `tix export > file` and
 `tix bundle export | tix bundle import` cannot be polluted by a progress line.
@@ -262,6 +270,10 @@ why. Check both: a non-zero exit does not mean nothing happened.
 them (renumbered there, status mapped onto its workflow) or `--delete-tasks` deletes them permanently with it.
 `--dry-run` prints the count and the status mapping without writing, one `from -> to` row per status in a table
 and a `statuses` array with `"dry_run": true` in JSON.
+
+`tix claim task REF` exits 6 on a snoozed task, naming the wake time; `tix task snooze REF UNTIL` exits 2 for a
+time it cannot read or one that has passed. A snoozed task is left out of `tix task ls` until it wakes;
+`--snoozed` lists only snoozed tasks and `--include-snoozed` lists them beside the rest.
 
 `--cascade` on `tix task rm` also deletes the task's subtasks. `--hard` deletes permanently instead of soft
 deleting; a soft delete is reversible with `tix task restore` and visible with `tix task ls --trashed` (only the

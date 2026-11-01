@@ -53,9 +53,10 @@ Everything below is under `/api/v1`.
 | Projects | `/projects`, `/projects/{ref}`, `/projects/{ref}/icon`, `/projects/{ref}/deletion`, `/projects/{ref}/fields`, `/projects/{ref}/fields/{key}` |
 | Workflows | `/workflows`, `/workflows/{key}` |
 | Tasks | `/tasks`, `/tasks/{ref}`, `/tasks/{ref}/transition`, `/tasks/{ref}/route`, `/tasks/{ref}/restore`, `/tasks/{ref}/tree`, `/tasks/{ref}/copy`, `/tasks/bulk` |
-| Task relations | `/tasks/{ref}/deps`, `/tasks/{ref}/deps/{dep}`, `/tasks/{ref}/tags`, `/tasks/{ref}/tags/{name}`, `/tasks/{ref}/star`, `/tasks/{ref}/checklist` |
+| Task relations | `/tasks/{ref}/deps`, `/tasks/{ref}/deps/{dep}`, `/tasks/{ref}/tags`, `/tasks/{ref}/tags/{name}`, `/tasks/{ref}/star`, `/tasks/{ref}/checklist`, `/tasks/{ref}/snooze` |
 | Comments and artifacts | `/tasks/{ref}/comments`, `/tasks/{ref}/artifacts`, `/comments/{id}`, `/tags` |
 | Claims | `/tasks/{ref}/claim`, `/tasks/{ref}/claim/renew`, `/tasks/{ref}/claim/release`, `/tasks/{ref}/claim/reclaim`, `/claims/next`, `/claims/sweep` |
+| Snoozes | `/snoozes/wake` |
 | Webhooks | `/webhooks`, `/webhooks/{id}`, `/webhooks/deliveries`, `/webhooks/deliveries/{id}/redeliver` |
 | History | `/audit`, `/tasks/{ref}/audit`, `/retention`, `/prune` |
 | Reports | `GET /stats`, see [statistics.md](statistics.md); `GET /status`, the report `tix status` prints, see [scripting.md](scripting.md) |
@@ -65,6 +66,9 @@ Everything below is under `/api/v1`.
 | Views | `/views/{view}/groups`, `/views/{view}/groups/{group}`, `/views/{view}/order` |
 | Saved filters | `/filters`, `/filters/{filter}`, `/filters/order` |
 | Calendar feed | `/calendar`, `/calendar/rotate`, `/calendar/feeds/{file}` (no credential); see [Calendar feed](#calendar-feed) |
+| Inbox | `/inbox`, `/inbox/count`, `/inbox/{id}/read`, `/inbox/read-all`, `/inbox/prefs`; see [Inbox](#inbox) |
+| Notification channels | `/channels`, `/channels/{id}`, `/channels/{id}/test`, `/channels/{id}/deliveries`, `/channel-deliveries/{id}/redeliver`; see [Notification channels](#notification-channels) |
+| Templates | `/templates`, `/templates/{ref}`, `/templates/{ref}/use`; see [Task templates](#task-templates) |
 | Events | `/events` (WebSocket) |
 
 Every route above has a command: `tix doctor`, `tix login`, `tix user totp`, `tix user key`, `tix actor`,
@@ -314,6 +318,25 @@ somebody pages moves between the groups, like a task whose priority changed unde
 stays valid and the moved task may be seen twice or not at all. A cursor issued before stars existed resumes
 among the unstarred tasks.
 
+### Snoozing
+
+`PUT /tasks/{ref}/snooze` with `{"until": "2026-12-01T09:00:00Z"}` hides a task from every default
+listing, for everybody, until that instant, and answers the task with `snoozed_until` and
+`snoozed_by_actor_id`. The time must be in the future (`invalid` otherwise) and is kept to the second.
+Snoozing a snoozed task moves its wake time. `DELETE /tasks/{ref}/snooze` brings it back and answers the
+task; on a task that is not snoozed it changes nothing and writes nothing. Each change writes an audit
+entry naming the caller and emits `task.snoozed` or `task.unsnoozed`.
+
+A task is snoozed while `snoozed_until` is after the present, judged on every read, so it comes back on
+time with nothing running. `snoozed=true` lists only snoozed tasks, `snoozed=false` only the others (the
+default made explicit), and `snoozed=any` both. Reading one task by reference always works.
+
+`POST /snoozes/wake`, with an optional `{"limit": N}`, clears snoozes whose time has passed and answers
+`{"woken": N}`, emitting `task.woke` for each. The server's sweep loop does this every sweep interval.
+
+A snoozed task is not claimable: `/claims/next` skips it, and `POST /tasks/{ref}/claim` answers
+`precondition` with the wake time in `details.snoozed_until` until it wakes or is unsnoozed.
+
 ### Arranging views
 
 Each actor keeps their own arrangement of the groups a view draws: the columns of a board and the lanes of
@@ -369,6 +392,63 @@ pinned to one project cannot keep them, because a filter spans projects.
 
 In any filter, `me` in `assignee:`, `creator:` or `claimed-by:` (and the `assignee` query parameter) names the
 caller, so `assignee:me` lists what is assigned to whoever asks.
+
+### Inbox
+
+Each actor has an inbox. An item is written in the same transaction as the change that caused it when
+somebody mentions the actor as `@handle` in a comment or a task description (`mention`), assigns them a
+task (`assigned`), comments on a task they are assigned to or starred (`comment`), or moves a task
+assigned to them (`status`). Nobody receives an item for their own change, one change gives one
+recipient at most one item per task (the strongest reason in that order wins), and a kind the recipient
+muted creates nothing. Editing a comment or a description mentions only handles the earlier text did not.
+
+| Route | Does |
+| --- | --- |
+| `GET /inbox` | The caller's items, newest first; `?unread=true` for unread only, `limit` and `cursor` as every listing |
+| `GET /inbox/count` | `{"unread": N}` |
+| `PUT /inbox/{id}/read` | Marks one item read and answers it |
+| `DELETE /inbox/{id}/read` | Marks one item unread and answers it |
+| `POST /inbox/read-all` | Marks every item read; answers `{"marked": N}` |
+| `GET /inbox/prefs` | `{"muted": [...]}`, the kinds that create no item for the caller |
+| `PUT /inbox/prefs` | Replaces the muted kinds; an unknown kind is `invalid` |
+
+```json
+{"id": "01J...", "kind": "status", "task_id": "01J...", "task_ref": "infra-42", "task_title": "Cut over",
+ "actor_id": "01J...", "actor_handle": "ada", "from_status": "todo", "to_status": "doing",
+ "created_at": "2026-11-01T09:30:00Z"}
+```
+
+Every route works on the caller's own items: another actor's identifier is `not_found`. They need
+`task:read`, and a token pinned to one project cannot use them, because an inbox spans projects. Marking
+and muting write an audit entry and emit `inbox.updated`; one that changes nothing writes neither. A
+change that creates items emits one `inbox.updated` whose payload `recipients` lists the actor
+identifiers that received one, which is what the web sidebar's badge listens for.
+
+### Notification channels
+
+A person can deliver their own inbox items to endpoints of their own: a Slack incoming webhook, a Discord
+webhook, an ntfy topic URL, or any URL taking signed JSON. These are not the tenant's webhooks: a channel
+belongs to the actor who added it and receives only that actor's items, of the kinds it lists, and nothing
+of a kind they muted. Each item queues a delivery in the transaction that writes it, and the webhook
+dispatcher drains the queue beside its own, with the same claim, retry schedule, network guard and
+`X-Tix-Signature` (the event header is `inbox.item`, or `inbox.test` for a test).
+
+| Route | Does |
+| --- | --- |
+| `GET /channels` | The caller's channels, without their secrets |
+| `POST /channels` | Takes `name`, `url`, `format` (`generic`, `slack`, `discord`, `ntfy`), `kinds` (default all) and `active`; answers `201` with the channel and its `secret`, which no later read returns |
+| `PATCH /channels/{id}` | Changes any of those fields |
+| `DELETE /channels/{id}` | Removes the channel and its deliveries; `204` |
+| `POST /channels/{id}/test` | Queues a test message and answers the delivery, attempted already when the server drains inline |
+| `GET /channels/{id}/deliveries` | The channel's deliveries, newest first, keyset paged |
+| `POST /channel-deliveries/{id}/redeliver` | Queues another attempt; `204` |
+
+Every message says who did what to which task, links the task when the tenant has a domain
+(`https://DOMAIN/tasks/REF`), and quotes the comment or description when there is one. Signed JSON
+carries `type`, `message`, `task_ref`, `task_title`, `url`, `excerpt` and the `item`. Discord messages
+disable mentions, so a comment quoting `@everyone` pings nobody. Another actor's channel or delivery is
+`not_found`. The audit log keeps a channel's URL cut to its scheme and host, because a Slack or Discord
+webhook URL is itself the credential.
 
 ### Copying a task
 
@@ -449,6 +529,44 @@ response header:
 curl -H "Authorization: Bearer $TIX_TOKEN" 'http://127.0.0.1:8080/api/v1/tasks?format=csv&status=todo'
 ```
 
+### Task templates
+
+A template is a named shape of a task kept apart from tasks: it never appears in a task listing, a claim, the
+statistics or a snapshot. `{ref}` is the template's name, matched in any case, or its identifier.
+
+| Route | Does |
+| --- | --- |
+| `GET /templates` | The templates the caller can read, by name; `?project=KEY` keeps that project's and the tenant-wide ones |
+| `POST /templates` | Saves a task as a template; answers `201` with it |
+| `GET /templates/{ref}` | One template, its task shape and subtasks included |
+| `PATCH /templates/{ref}` | Renames, rescopes or edits it; answers the template |
+| `DELETE /templates/{ref}` | Deletes it, leaving tasks made from it alone; answers `204 No Content` |
+| `POST /templates/{ref}/use` | Creates a task, with the template's subtasks; answers `201` with the new task |
+
+Saving takes the task and a name, and optionally makes the template tenant-wide, keeps the live subtasks at any
+depth and gives it a due offset:
+
+{"name": "release", "task_ref": "infra-4", "tenant_wide": false, "with_subtasks": true, "due_in": "3d"}
+
+The template keeps the title, description, priority, tags, custom fields and repeat rule. A `PATCH` takes any of
+`name`, `project_ref` (the empty string makes it tenant-wide), `due_in`, `title`, `body`, `priority`, `tags`,
+`custom_fields` (a `null` value removes a field) and `recurrence`. Using one takes an optional `project_ref`
+(required in practice for a tenant-wide template in a tenant with several projects), `title` and `due_in` (`"0s"`
+for no due date, absent for the template's own offset):
+
+{"project_ref": "web", "title": "Release {N}", "due_in": "72h"}
+
+Titles may carry placeholders, matched in any case: `{DATE}` is today's date as YYYY-MM-DD in UTC, `{N}` the use
+number and `{PROJECT}` the target project's key. Other braced words stay as written. A use goes through the same
+code as [copying a task](#copying-a-task): the tasks start in the project's initial state, keep the custom fields
+it defines with its defaults applied, write a `task.template` audit entry and emit `task.created` with the
+template's name in its payload. Saving, editing and deleting write `template.save`, `template.update` and
+`template.delete` and emit `template.updated`.
+
+A name taken by another template in any case is `409`. A project template needs `task:write` on its project to
+change; a tenant-wide one needs `task:write` and a token that is not pinned to a project, so a pinned token sees
+and uses its own project's templates and the tenant-wide ones and cannot change the latter (`403`).
+
 ### NDJSON
 
 Send `Accept: application/x-ndjson` and the list streams one object per line with no envelope:
@@ -468,6 +586,8 @@ and `checklist:open`).
 Soft-deleted tasks are left out unless asked for. `include_deleted=true` adds them to the listing
 (`is:deleted`), `trashed=true` lists only them (`is:trashed`), and `trashed=false` lists only live tasks
 whatever `include_deleted` says (`-is:trashed`).
+the filter expression). Snoozed tasks are left out unless `snoozed=true` (only them) or `snoozed=any`
+(beside the rest) asks for them.
 
 Custom field values are filtered with a `field.` prefixed parameter, one per field:
 
@@ -537,11 +657,12 @@ one connection. `{"type":"unsubscribe","id":"s1"}` ends one.
 
 Event types are matched as glob patterns, so `task.*` selects every task event. The vocabulary is closed:
 `task.created`, `task.updated`, `task.transitioned`, `task.claimed`, `task.released`, `task.lease_expired`,
-`task.reclaimed`, `task.deleted`, `task.starred`, `task.unstarred`, `comment.added`, `artifact.added`,
+`task.reclaimed`, `task.deleted`, `task.starred`, `task.unstarred`, `task.snoozed`, `task.unsnoozed`,
+`task.woke`, `comment.added`, `artifact.added`,
 `dependency.added`, `tag.added`, `project.created`, `project.updated`, `workflow.updated`, `field.updated`,
-`webhook.delivered`, `import.completed`, `view.arranged`, `filter.saved`, `filter.updated`, `filter.deleted`.
-A type outside it is an error rather than a filter
-that silently matches nothing.
+`webhook.delivered`, `import.completed`, `view.arranged`, `filter.saved`, `filter.updated`, `filter.deleted`,
+`inbox.updated`, `template.updated`. A type outside it is an error rather than a filter that silently matches
+nothing.
 
 A project-scoped token has its subscription narrowed to that project automatically, and naming a different
 project is `forbidden`.
@@ -640,6 +761,10 @@ and tix generates one, returned in the response to that registration alone — i
 renders it once, in the same one-time secret region the token screen uses for a freshly minted token, and
 never again. Supply your own and nothing is shown back to you, since you already hold it. Saving an existing
 endpoint with the secret field blank keeps the secret it already has rather than rotating it.
+
+Inbox items reach a person's own URL through their [notification channels](#notification-channels),
+not through these endpoints, which are tenant configuration filtered by event type. One subscribed to
+`inbox.updated` still receives every inbox change in the tenant with its `recipients`.
 
 ## Related
 

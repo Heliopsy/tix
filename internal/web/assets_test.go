@@ -37,6 +37,8 @@ func TestEveryAssetCarriesACacheValidator(t *testing.T) {
 		{"/assets/lanes.js", "text/javascript; charset=utf-8"},
 		{"/assets/groups.js", "text/javascript; charset=utf-8"},
 		{"/assets/select.js", "text/javascript; charset=utf-8"},
+		{"/assets/inbox.js", "text/javascript; charset=utf-8"},
+		{"/assets/mention.js", "text/javascript; charset=utf-8"},
 		{"/assets/sidebar.js", "text/javascript; charset=utf-8"},
 		{"/assets/recent.js", "text/javascript; charset=utf-8"},
 		{"/assets/tix.svg", "image/svg+xml"},

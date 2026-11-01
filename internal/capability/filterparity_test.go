@@ -70,6 +70,8 @@ var filterFields = map[string]filterReach{
 	"Trashed":        {Expr: "is:trashed", CLI: "--trashed"},
 	"Checklist":      {Expr: "has:checklist", CLI: ""},
 	"ChecklistOpen":  {Expr: "checklist:open", CLI: ""},
+	"Snoozed":        {Expr: "is:snoozed", CLI: "--snoozed"},
+	"IncludeSnoozed": {Expr: "snoozed:any", CLI: "--include-snoozed"},
 }
 
 // filterExempt names the fields no filter expression reaches, with the reason.

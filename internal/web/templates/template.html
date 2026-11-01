@@ -1,0 +1,101 @@
+{{define "content"}}
+{{$tpl := .Data.Template}}{{$f := .Data.Form}}{{$e := .Data.Errors}}
+<p class="backlink"><a href="/templates">&larr; {{t "Templates"}}</a></p>
+{{/* Drawn as the create forms are (create-forms-read-as-forms): the name
+     leads, the task the template creates is under it, and what a reader picks
+     rather than writes sits in the side column. A refused save comes back with
+     every value kept and the message under its field. */}}
+<form method="post" class="cform" data-form action="/templates/{{$tpl.ID}}/update">
+  {{template "csrf" .CSRF}}
+  <div class="cform-head">
+    <h1 class="cform-title">{{t "Template"}} <span class="mono">{{$tpl.Name}}</span></h1>
+    {{template "tip" (tip "Task templates" "Changes apply to tasks made from now on; tasks already made from the template keep what they were made with. Subtasks change only by saving a task as a template again." "docs/web-ui.md")}}
+  </div>
+  {{with $e.On ""}}{{template "field-error" .}}{{end}}
+  <div class="cform-grid">
+    <div class="cform-main">
+      <div class="cfield">
+        <div class="cfield-label"><label for="tpl-name">{{t "Name"}}</label>{{template "required-mark"}}</div>
+        <input id="tpl-name" class="cform-lead" name="name" value="{{$f.Name}}" maxlength="100" autocomplete="off" required{{$e.Attrs "name"}}>
+        {{with $e.On "name"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="cfield">
+        <div class="cfield-label"><label for="tpl-title">{{t "Task title"}}</label>{{template "required-mark"}}{{template "field-info" "Placeholders are filled in each time the template is used, in any case: {DATE} is today's date as YYYY-MM-DD, {N} the use number and {PROJECT} the key of the project the task lands in."}}</div>
+        <input id="tpl-title" name="title" value="{{$f.Title}}" maxlength="500" autocomplete="off" required{{$e.Attrs "title"}}>
+        {{with $e.On "title"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="cfield cfield-grow">
+        <div class="cfield-label"><label for="tpl-body">{{t "Description"}}</label></div>
+        <textarea id="tpl-body" name="body" rows="6"{{$e.Attrs "body"}}>{{$f.Body}}</textarea>
+        {{with $e.On "body"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="cfield">
+        <div class="cfield-label"><label for="tpl-fields">{{t "Custom fields"}}</label>{{template "field-info" "One key=value per line. A line removed removes the field. The project a task lands in keeps the fields it defines and drops the rest."}}</div>
+        <textarea id="tpl-fields" name="custom_fields" rows="3" class="mono"{{$e.Attrs "custom_fields"}}>{{$f.Fields}}</textarea>
+        {{with $e.On "custom_fields"}}{{template "field-error" .}}{{end}}
+      </div>
+      {{with $tpl.Task.Subtasks}}
+      <div class="cfield">
+        <div class="cfield-label"><span>{{t "Subtasks"}}</span></div>
+        {{template "template-subtasks" .}}
+      </div>
+      {{end}}
+    </div>
+    <div class="cform-side">
+      <div class="cfield">
+        <div class="cfield-label"><label for="tpl-project">{{t "Project"}}</label></div>
+        <select id="tpl-project" name="project_ref"{{$e.Attrs "project_ref"}}>
+          <option value=""{{if not $f.Project}} selected{{end}}>{{t "All projects"}}</option>
+          {{range .Data.Projects}}<option value="{{.Key}}"{{if eq .Key $f.Project}} selected{{end}}>{{.Name}} ({{.Key}})</option>{{end}}
+        </select>
+        {{with $e.On "project_ref"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="cform-pair">
+        <div class="cfield">
+          <div class="cfield-label"><label for="tpl-priority">{{t "Priority"}}</label></div>
+          <select id="tpl-priority" name="priority"{{$e.Attrs "priority"}}>
+            {{range .Data.Priorities}}<option value="{{.Value}}"{{if or (eq (printf "%d" .Value) $f.Priority) (and (not $f.Priority) (eq .Label "normal"))}} selected{{end}}>{{t .Label}}</option>{{end}}
+          </select>
+          {{with $e.On "priority"}}{{template "field-error" .}}{{end}}
+        </div>
+        <div class="cfield">
+          <div class="cfield-label"><label for="tpl-due">{{t "Due in"}}</label></div>
+          <input id="tpl-due" name="due_in" value="{{$f.DueIn}}" placeholder="{{t "3d"}}" autocomplete="off"{{$e.Attrs "due_in"}}>
+          {{with $e.On "due_in"}}{{template "field-error" .}}{{end}}
+        </div>
+      </div>
+      <div class="cfield">
+        <div class="cfield-label"><label for="tpl-tags">{{t "Tags"}}</label></div>
+        <input id="tpl-tags" name="tags" value="{{$f.Tags}}" autocomplete="off" placeholder="{{t "comma separated"}}"{{$e.Attrs "tags"}}>
+        {{with $e.On "tags"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="cfield">
+        <div class="cfield-label"><label for="tpl-repeat">{{t "Repeat when done"}}</label></div>
+        <input id="tpl-repeat" name="repeat" value="{{$f.Repeat}}" autocomplete="off"{{$e.Attrs "repeat"}}>
+        {{with $e.On "repeat"}}{{template "field-error" .}}{{end}}
+      </div>
+      <p class="muted">{{t "Used %d times" $tpl.Uses}}</p>
+    </div>
+  </div>
+  <div class="cform-foot">
+    {{template "form-keys" (t "to save")}}
+    <div class="cform-actions">
+      <a class="secondary cform-alt" href="/templates/new?template={{$tpl.ID}}">{{t "Use"}}</a>
+      <a class="secondary cform-cancel" href="/templates" data-form-cancel>{{t "Cancel"}}</a>
+      <button type="submit">{{t "Save template"}}</button>
+    </div>
+  </div>
+</form>
+<details class="panel danger">
+  <summary>{{t "Danger zone"}}</summary>
+  <div class="body">
+    <form method="post" action="/templates/{{$tpl.ID}}/delete">
+      {{template "csrf" .CSRF}}
+      <p>{{t "Tasks already made from this template stay as they are."}}</p>
+      <div class="actions"><button class="danger" type="submit">{{t "Delete template"}}</button></div>
+    </form>
+  </div>
+</details>
+{{end}}
+
+{{define "template-subtasks"}}<ul class="tplsubs">{{range .}}<li>{{.Title}}{{with .Subtasks}}{{template "template-subtasks" .}}{{end}}</li>{{end}}</ul>{{end}}

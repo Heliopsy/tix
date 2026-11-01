@@ -77,9 +77,10 @@ func newClaimCmd(g *globals) *cobra.Command {
 func claimTaskCmd(g *globals) *cobra.Command {
 	var ttl, onBehalf string
 	cmd := &cobra.Command{
-		Use:     "task REF",
-		Short:   "Claim one named task",
-		Long:    "Take a lease on one task.\n\nExit codes: 3 unknown reference, 4 already claimed.",
+		Use:   "task REF",
+		Short: "Claim one named task",
+		Long: "Take a lease on one task. A snoozed task is refused until it wakes or is unsnoozed.\n\n" +
+			"Exit codes: 3 unknown reference, 4 already claimed, 6 snoozed.",
 		Example: "  tix claim task default-1 --ttl 15m",
 		Args:    exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -114,7 +115,7 @@ func claimNextCmd(g *globals) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "next",
 		Short:   "Claim the next eligible task",
-		Long:    "Claim the highest-priority unblocked task matching the filter.\n\nExit codes: 3 no eligible task or unknown project or status, 5 permission denied.",
+		Long:    "Claim the highest-priority unblocked task matching the filter. Snoozed tasks are skipped until they wake.\n\nExit codes: 3 no eligible task or unknown project or status, 5 permission denied.",
 		Example: "  tix claim next\n  tix claim next -p infra --tag ops --ttl 30m",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {

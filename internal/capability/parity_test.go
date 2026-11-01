@@ -361,7 +361,7 @@ func contains(values []string, want string) bool {
 // from a view that does not exist.
 var tuiViews = map[string]bool{
 	"projects": true, "board": true, "detail": true, "activity": true, "tenant": true,
-	"stats": true, "project": true, "history": true,
+	"stats": true, "project": true, "history": true, "inbox": true,
 }
 
 // TestEveryTUIViewCarriesAnOperation is the other half of the previous guard.

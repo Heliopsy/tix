@@ -177,6 +177,8 @@ type view struct {
 	Upgrade     upgrade
 	// Saved is the sidebar's list of the reader's saved filters.
 	Saved savedNav
+	// Inbox is the reader's unread count, which the sidebar's badge shows.
+	Inbox int
 	Data  any
 }
 
@@ -219,6 +221,7 @@ func parseTemplates(style output.TimeStyle, lang string) map[string]*template.Te
 // configured TimeStyle.
 func funcs(style output.TimeStyle) template.FuncMap {
 	return template.FuncMap{
+		"hasPrefix":       strings.HasPrefix,
 		"compact":         style.Format,
 		"stamp":           style.FormatPtr,
 		"absolute":        style.Absolute,
@@ -242,6 +245,8 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"groupHeadNone":   noGroupHead,
 		"taskRow":         newTaskRow,
 		"due":             dueState,
+		"snoozed":         snoozedNow,
+		"snoozeForm":      newSnoozeForm,
 		"expiredAgo":      expiredAgo,
 		"stateLabel":      core.StateLabel,
 		"category":        categoryLabel,
@@ -371,6 +376,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		InTrash:         inTrash(r),
 		Here:            here(r),
 		Upgrade:         h.releases.state(),
+		Inbox:           h.unreadCount(r),
 		ColumnPage:      columnPage(name),
 		Columns:         columnsOf(r),
 		Flash:           r.URL.Query().Get("flash"),
@@ -384,7 +390,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		DragMove:        dragMoveMode(r),
 		OpenAfterAdd:    openAfterAdd(r),
 		Hover:           hoverEffects(r),
-		TaskDialog:      taskDialogMode(r) && name != "task.html" && name != "taskcopy.html",
+		TaskDialog:      taskDialogMode(r) && !dialogScreens[name],
 		TitleEdit:       titleEditMode(r),
 		Theme:           themeOf(r),
 		Tint:            tintOf(r),
@@ -835,6 +841,25 @@ func (h *handler) templatesFor(r *http.Request) map[string]*template.Template {
 	return set.(map[string]*template.Template)
 }
 
+// defaultTemplates caches the template set each handler draws in its
+// configured style. Parsed templates are read-only once built, so every
+// handler in a process with the same style shares one set; parsing a set per
+// handler held a copy for every live handler, which in the web test suite,
+// with one handler per parallel test, came to more than 9 GB of parse trees.
+var defaultTemplates sync.Map
+
+func defaultTemplatesFor(style output.TimeStyle) map[string]*template.Template {
+	key, ok := style.CacheKey()
+	if !ok {
+		return parseTemplates(style, i18n.English)
+	}
+	if set, ok := defaultTemplates.Load(key); ok {
+		return set.(map[string]*template.Template)
+	}
+	set, _ := defaultTemplates.LoadOrStore(key, parseTemplates(style, i18n.English))
+	return set.(map[string]*template.Template)
+}
+
 // brand resolves the signed-in tenant's branding, falling back to the default
 // when the caller may not read the tenant record.
 func (h *handler) brand(r *http.Request) branding {
@@ -875,6 +900,10 @@ func (h *handler) render(w http.ResponseWriter, r *http.Request, name, title str
 	return h.renderStatus(w, r, http.StatusOK, name, title, data)
 }
 
+// dialogScreens are the screens that draw inside the task dialog when they
+// are asked for from it: the task itself and the forms its actions open.
+var dialogScreens = map[string]bool{"task.html": true, "taskcopy.html": true, "tasktemplate.html": true}
+
 // renderStatus writes one screen with an explicit status.
 func (h *handler) renderStatus(w http.ResponseWriter, r *http.Request, status int, name, title string, data any) error {
 	tmpl, ok := h.templatesFor(r)[name]
@@ -889,7 +918,7 @@ func (h *handler) renderStatus(w http.ResponseWriter, r *http.Request, status in
 		v.Saved = h.buildSavedNav(r)
 	}
 	w.Header().Add("Vary", DialogHeader)
-	if (name == "task.html" || name == "taskcopy.html") && dialogRequest(r) {
+	if dialogScreens[name] && dialogRequest(r) {
 		v.InDialog, v.IDPrefix = true, "dlg-"
 		w.WriteHeader(status)
 		return tmpl.ExecuteTemplate(w, "task-dialog", v)

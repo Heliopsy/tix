@@ -386,6 +386,31 @@
     cap: 1000
   });
 
+  // The sidebar's unread badge (partials.html "inbox-badge"), on every
+  // screen. It subscribes to inbox.updated alone, so the work stream never
+  // wakes it; the event names its recipients by identifier, which the page
+  // does not carry, so every one of them asks the server for the count, the
+  // coalescer folding a burst into one request.
+  var badge = liveStream({
+    id: "inbox",
+    find: function () {
+      var el = document.getElementById("inbox-badge");
+      return el && el.getAttribute("data-events") && el.getAttribute("data-inbox") ? el : null;
+    },
+    href: function (el) { return el.getAttribute("data-inbox"); },
+    filter: function () { return { types: ["inbox.updated"] }; },
+    wants: function () { return true; },
+    busy: function () { return false; },
+    apply: function (el, html) {
+      var fresh = new DOMParser().parseFromString(html, "text/html").getElementById("inbox-badge");
+      if (fresh) {
+        tix.applyBadge(el, fresh, document.querySelectorAll("[data-inbox-mirror]"));
+      }
+    },
+    window: function () { return 500; },
+    cap: 2000
+  });
+
   function regionIDs(el) {
     var listed = el ? el.getAttribute("data-live-regions") : "";
     return listed ? listed.split(/\s+/) : [];
@@ -447,11 +472,15 @@
         tix.focusRestore(document, memo);
       }
     }
+    // Tells a screen's own script that its regions were redrawn, so it can
+    // mark what is new (assets/inbox.js).
+    document.dispatchEvent(new CustomEvent("tix:regions", { detail: ids }));
   }
 
   function rebindAll() {
     feed.rebind();
     screen.rebind();
+    badge.rebind();
   }
 
   rebindAll();
@@ -459,12 +488,18 @@
   document.addEventListener("visibilitychange", function () {
     feed.woken();
     screen.woken();
+    badge.woken();
   });
   // A save made where no event is guaranteed to reach this page in time (a
   // task saved in the dialog, a title renamed in place) asks for the
   // refresh directly. See taskopen.js.
   document.addEventListener("tix:refresh", function () {
     screen.poke();
+  });
+  // An inbox item marked read from this page (assets/inbox.js) asks for the
+  // badge at once rather than waiting for its own event to come round.
+  document.addEventListener("tix:inbox", function () {
+    badge.poke();
   });
 })();
 

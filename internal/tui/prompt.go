@@ -40,6 +40,7 @@ const (
 	promptTenantAccent
 	promptSaveFilter
 	promptCheck
+	promptSnooze
 )
 
 // PromptSpec is how one input introduces itself.
@@ -73,6 +74,7 @@ var promptSpecs = map[promptKind]PromptSpec{
 	promptComment:     {Prompt: "comment: ", Placeholder: "what you want to record", Limit: 4096, Field: "comment", Multiline: true},
 	promptCommentEdit: {Prompt: "edit comment: ", Placeholder: "what the comment should say", Limit: 4096, Field: "comment", Multiline: true},
 
+	promptSnooze:     {Prompt: "snooze until: ", Placeholder: "later, tomorrow, next-week, 3d or 2026-12-01 14:00", Limit: 64, Field: "time"},
 	promptTag:        {Prompt: "add tag: ", Placeholder: "tag to attach", Limit: 128, Field: "tag"},
 	promptCheck:      {Prompt: "tick item: ", Placeholder: "checklist item number; a ticked item is cleared", Limit: 6, Field: "item"},
 	promptUntag:      {Prompt: "remove tag: ", Placeholder: "tag to detach", Limit: 128, Field: "tag"},

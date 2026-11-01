@@ -63,6 +63,9 @@ type Tx interface {
 	ViewTx
 	SavedFilterTx
 	CalendarTx
+	InboxTx
+	InboxChannelTx
+	TemplateTx
 
 	Commit() error
 	Rollback() error
@@ -200,6 +203,14 @@ type TaskTx interface {
 	StarTask(ctx context.Context, actorID, taskID string) (bool, error)
 	// UnstarTask removes an actor's star, reporting whether there was one.
 	UnstarTask(ctx context.Context, actorID, taskID string) (bool, error)
+	// SetSnooze writes a task's wake time and who set it, or clears both
+	// when until is nil. It touches neither the version nor any other field.
+	SetSnooze(ctx context.Context, taskID string, until *time.Time, by string) error
+	// ExpiredSnoozes returns live tasks whose wake time has passed.
+	ExpiredSnoozes(ctx context.Context, now time.Time, limit int) ([]core.Task, error)
+	// WakeSnooze clears a passed snooze only if the task still carries the
+	// wake time the caller read, reporting whether it did.
+	WakeSnooze(ctx context.Context, taskID string, until time.Time) (bool, error)
 	// StarredTasks reports which of the given tasks the actor has starred.
 	StarredTasks(ctx context.Context, actorID string, taskIDs []string) (map[string]bool, error)
 }
@@ -245,6 +256,68 @@ type CalendarTx interface {
 	SetCalendarFeedFilter(ctx context.Context, id, filter string) error
 	// RevokeCalendarFeed marks a live feed unusable from the given instant.
 	RevokeCalendarFeed(ctx context.Context, id string, at time.Time) error
+}
+
+// InboxTx covers each actor's inbox. Every method but CreateInboxItem and
+// InboxMutesOf is confined to the one recipient it names.
+type InboxTx interface {
+	// CreateInboxItem inserts an item, filling its identifier when empty.
+	CreateInboxItem(ctx context.Context, item *core.InboxItem) error
+	// ListInbox returns one page of a recipient's items, newest first.
+	ListInbox(ctx context.Context, recipientID string, f core.InboxFilter) ([]core.InboxItem, error)
+	// CountUnreadInbox counts a recipient's unread items.
+	CountUnreadInbox(ctx context.Context, recipientID string) (int, error)
+	// GetInboxItem returns one of a recipient's items.
+	GetInboxItem(ctx context.Context, recipientID, id string) (*core.InboxItem, error)
+	// SetInboxRead sets or clears when an item was read, reporting whether
+	// the row changed.
+	SetInboxRead(ctx context.Context, recipientID, id string, at *time.Time) (bool, error)
+	// ReadAllInbox marks every unread item of a recipient read, reporting
+	// how many it marked.
+	ReadAllInbox(ctx context.Context, recipientID string, at time.Time) (int64, error)
+	// InboxMutesOf returns the kinds each of the given actors muted.
+	InboxMutesOf(ctx context.Context, actorIDs []string) (map[string][]core.InboxKind, error)
+	// SetInboxMutes replaces the kinds an actor muted.
+	SetInboxMutes(ctx context.Context, actorID string, kinds []core.InboxKind) error
+	// TaskStarrers lists the actors who starred a task.
+	TaskStarrers(ctx context.Context, taskID string) ([]string, error)
+}
+
+// InboxChannelTx covers each person's own notification channels and their
+// delivery queue, which the webhook dispatcher drains beside its own.
+type InboxChannelTx interface {
+	CreateInboxChannel(ctx context.Context, c *core.InboxChannel) error
+	UpdateInboxChannel(ctx context.Context, c *core.InboxChannel) error
+	GetInboxChannel(ctx context.Context, id string) (*core.InboxChannel, error)
+	// ListInboxChannels returns the channels of the given actors, by name.
+	ListInboxChannels(ctx context.Context, actorIDs []string) ([]core.InboxChannel, error)
+	DeleteInboxChannel(ctx context.Context, id string) error
+
+	EnqueueChannelDelivery(ctx context.Context, d *core.ChannelDelivery) error
+	// ClaimChannelDeliveries locks due deliveries, as ClaimDeliveries does.
+	ClaimChannelDeliveries(ctx context.Context, owner string, now, until time.Time, limit int) ([]core.ChannelDelivery, error)
+	MarkChannelDelivered(ctx context.Context, id string, statusCode int, at time.Time) error
+	MarkChannelFailed(ctx context.Context, id string, statusCode int, errMsg string, nextAttempt time.Time, terminal bool) error
+	GetChannelDelivery(ctx context.Context, id string) (*core.ChannelDelivery, error)
+	// ListChannelDeliveries returns a page of one channel's deliveries, newest first.
+	ListChannelDeliveries(ctx context.Context, f core.ChannelDeliveryFilter) ([]core.ChannelDelivery, error)
+}
+
+// TemplateTx covers task templates.
+type TemplateTx interface {
+	CreateTemplate(ctx context.Context, t *core.TaskTemplate) error
+	// GetTemplate reads a template by identifier or, ignoring case, name.
+	GetTemplate(ctx context.Context, ref string) (*core.TaskTemplate, error)
+	ListTemplates(ctx context.Context, f TemplateQuery) ([]core.TaskTemplate, error)
+	UpdateTemplate(ctx context.Context, t *core.TaskTemplate) error
+	DeleteTemplate(ctx context.Context, id string) error
+}
+
+// TemplateQuery narrows a template listing. A ProjectID keeps that project's
+// templates and the tenant-wide ones.
+type TemplateQuery struct {
+	ProjectID string
+	Page      core.Page
 }
 
 // ClaimTx covers the work queue.

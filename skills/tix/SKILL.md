@@ -130,6 +130,9 @@ tix claim release "$ref" --token "$token" --status done \
   one. Exit `4` if it's already held. Unlike `claim next` it does **not**
   screen for `blocked`: it will hand you a task with an unfinished
   dependency. Check `"blocked"` yourself if you claimed by ref.
+- A **snoozed** task is invisible to the queue: `claim next` skips it and
+  `claim task REF` refuses it with exit `6` (`precondition`) naming the wake
+  time, until it wakes on its own or somebody runs `tix task unsnooze REF`.
 - Claiming does **not** transition the task. Move it yourself (`task mv`) or
   use `--on-start` with `claim exec`.
 - There is no `tix claim` subcommand that lists leases. To see what is
@@ -467,6 +470,8 @@ tix task ls -s todo --unclaimed -o json
 tix task ls --blocked                # only tasks blocked by a dependency
 tix task ls --starred                # only tasks you starred
 tix task ls --filter 'deploy api' --limit 10 -o json   # find by words, as the browser's ctrl+k palette does
+tix task ls --snoozed                # only snoozed tasks, hidden by default
+tix task ls --include-snoozed        # snoozed tasks beside the rest
 tix task copy default-1 --to work --with-subtasks --link   # a fresh copy in another project
 tix project ls -o json               # the project keys, if you do not know them
 ```
@@ -543,6 +548,18 @@ finished"), `tix calendar rotate` issues a new address and stops the old one,
 and `tix calendar revoke` stops it. Only do this when a person asks: the
 address reads their tasks without signing in.
 
+**Your inbox says what concerns you.** `tix inbox ls --unread -o json` lists
+items written when somebody mentions you as `@handle`, assigns you a task,
+comments on a task you are assigned to or starred, or moves a task assigned to
+you; each names the task (`task_ref`), who (`actor_handle`) and the `kind`
+(`mention`, `assigned`, `comment`, `status`). `tix inbox count -o json` is the
+unread count, `tix inbox read ID` and `tix inbox read-all` mark them, and
+`tix inbox prefs --mute comment` stops a kind. `tix inbox channel add NAME URL
+--format slack|discord|ntfy|generic --kinds mention` sends your items to an
+endpoint of your own (`--off` adds it turned off); its secret is printed once, `tix inbox channel test ID`
+tries it and `tix inbox channel deliveries ID` shows how it answered. Write `@handle` in a comment to
+get a person's attention; your own changes never reach your own inbox.
+
 **Copy rather than retype.** `tix task copy REF` makes a new task with a fresh
 reference, in the same project or another (`--to`), keeping the title (or
 `--title`), description, priority, tags, assignee, due date, repeat rule and
@@ -565,6 +582,16 @@ references too, one request per task.
 tags, due, created, updated` for a human's spreadsheet; parse `-o json` or
 `-o ndjson` yourself, since a CSV cell that looks like a formula is prefixed
 with `'`.
+
+**Recurring shapes of work live in templates.** `tix template ls` lists them,
+`tix template use NAME` creates a task (and the subtasks the template holds) in
+the template's project or `--project`, with `--title` and `--due-in 3d` to
+override (`--no-due` for no due date whatever the template says), and prints
+the new task. `tix template save REF --name NAME
+[--with-subtasks] [--tenant-wide]` keeps a task's shape, `tix template show`,
+`edit` and `rm` manage them. A template is not a task: it never appears in a
+listing and cannot be claimed. Titles may carry `{N}`, `{DATE}` and `{PROJECT}`
+in any case, filled in at each use.
 
 **Do not poll `tix task ls` in a loop.** `tix watch` subscribes to the event
 stream instead; see [reference/queries.md](reference/queries.md).
@@ -625,6 +652,19 @@ and `task show` answers exit `3` for it, but `--trashed` (`is:trashed`) and
 `--include-deleted` still list it and `task restore` brings it back. `task rm --hard` has no way back: a
 restore after it is exit `3` too. Never pass `--hard` to tidy up your own
 plan; cancel the task instead, which is terminal and keeps the history.
+
+## Parking a task until later
+
+```sh
+tix task snooze default-4 tomorrow     # gone from every listing until 09:00 tomorrow
+tix task snooze default-4 3d           # or a duration, a date, or 'YYYY-MM-DD HH:MM'
+tix task unsnooze default-4            # back now
+```
+
+A snooze is for everybody, not just you, and nothing has to run for the task
+to come back: listings compare the wake time with the clock. Snooze a task you
+cannot move until a date instead of parking it in a fake status, and note
+that it leaves the claim queue for that time too.
 
 ## Know which store you are writing to
 

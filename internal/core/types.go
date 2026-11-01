@@ -424,6 +424,11 @@ type Task struct {
 	// asked to keep that link.
 	CopiedFromID string `json:"copied_from_id,omitempty" yaml:"copied_from_id,omitempty"`
 
+	// SnoozedUntil hides the task from default listings while it is in the
+	// future; SnoozedByActorID is who set it. A past value is not a snooze.
+	SnoozedUntil     *time.Time `json:"snoozed_until,omitempty" yaml:"snoozed_until,omitempty"`
+	SnoozedByActorID string     `json:"snoozed_by_actor_id,omitempty" yaml:"snoozed_by_actor_id,omitempty"`
+
 	Version   int        `json:"version" yaml:"version"`
 	CreatedAt time.Time  `json:"created_at" yaml:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at" yaml:"updated_at"`
@@ -479,6 +484,11 @@ func (t Task) ClaimExpiredRecently(now time.Time) bool {
 
 // Deleted reports whether the task is soft deleted.
 func (t Task) Deleted() bool { return t.DeletedAt != nil }
+
+// SnoozedAt reports whether the task is snoozed at time now.
+func (t Task) SnoozedAt(now time.Time) bool {
+	return t.SnoozedUntil != nil && t.SnoozedUntil.After(now)
+}
 
 // Dependency is a directed edge: Task waits for DependsOn to reach a terminal state.
 type Dependency struct {
@@ -570,6 +580,11 @@ const (
 	// star. They are tenant-visible, like the audit entry beside them.
 	EventTaskStarred   EventType = "task.starred"
 	EventTaskUnstarred EventType = "task.unstarred"
+	// EventTaskSnoozed and EventTaskUnsnoozed record a snooze being set and
+	// cleared by an actor; EventTaskWoke records a snooze that ran out.
+	EventTaskSnoozed   EventType = "task.snoozed"
+	EventTaskUnsnoozed EventType = "task.unsnoozed"
+	EventTaskWoke      EventType = "task.woke"
 
 	EventCommentAdded    EventType = "comment.added"
 	EventArtifactAdded   EventType = "artifact.added"
@@ -593,6 +608,13 @@ const (
 	EventFilterSaved   EventType = "filter.saved"
 	EventFilterUpdated EventType = "filter.updated"
 	EventFilterDeleted EventType = "filter.deleted"
+	// EventInboxUpdated says one or more actors' inboxes changed: items were
+	// created for them, read or unread, or their mutes changed. Its payload
+	// names the actors under "recipients".
+	EventInboxUpdated EventType = "inbox.updated"
+	// EventTemplateUpdated records a task template saved, edited or deleted;
+	// the payload's action says which.
+	EventTemplateUpdated EventType = "template.updated"
 )
 
 // eventTypes is the complete event vocabulary, in declaration order.
@@ -601,11 +623,14 @@ var eventTypes = []EventType{
 	EventTaskClaimed, EventTaskReleased, EventTaskLeaseExpired,
 	EventTaskReclaimed,
 	EventTaskDeleted, EventTaskStarred, EventTaskUnstarred,
+	EventTaskSnoozed, EventTaskUnsnoozed, EventTaskWoke,
 	EventCommentAdded, EventArtifactAdded,
 	EventDependencyAdded, EventLabelAdded, EventProjectCreated,
 	EventProjectUpdated, EventWorkflowUpdated, EventFieldUpdated,
 	EventWebhookDelivered, EventImportCompleted, EventViewArranged,
 	EventFilterSaved, EventFilterUpdated, EventFilterDeleted,
+	EventInboxUpdated,
+	EventTemplateUpdated,
 }
 
 // EventTypes returns the complete event vocabulary. Callers outside this

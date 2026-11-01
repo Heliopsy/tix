@@ -28,6 +28,7 @@ type capped struct {
 func (c capped) CreateTask(ctx context.Context, in core.CreateTaskInput) (*core.Task, error) {
 	page, err := c.ListTasks(ctx, core.TaskFilter{
 		IncludeDeleted: true,
+		IncludeSnoozed: true,
 		Page:           core.Page{Limit: c.limit},
 	})
 	if err != nil {

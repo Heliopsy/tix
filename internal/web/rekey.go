@@ -37,8 +37,9 @@ type refChange struct{ From, To string }
 // to a reference it would have, when it holds no task yet.
 func (h *handler) exampleRefs(r *http.Request, p *core.Project, to string) ([]refChange, error) {
 	page, err := h.svc.ListTasks(r.Context(), core.TaskFilter{
-		ProjectKeys: []string{p.Key},
-		Page:        core.Page{Limit: 2, Sort: core.SortSeq},
+		ProjectKeys:    []string{p.Key},
+		IncludeSnoozed: true,
+		Page:           core.Page{Limit: 2, Sort: core.SortSeq},
 	})
 	if err != nil {
 		return nil, err

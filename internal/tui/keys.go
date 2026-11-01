@@ -40,6 +40,7 @@ type KeyMap struct {
 	Restore       key.Binding
 	Star          key.Binding
 	Check         key.Binding
+	Snooze        key.Binding
 	HideColumn    key.Binding
 	StarColumn    key.Binding
 	FoldColumn    key.Binding
@@ -49,6 +50,8 @@ type KeyMap struct {
 	SavedFilters  key.Binding
 	SaveFilter    key.Binding
 	Copy          key.Binding
+	Templates     key.Binding
+	SaveTemplate  key.Binding
 	Artifact      key.Binding
 	ClaimNext     key.Binding
 	Renew         key.Binding
@@ -59,6 +62,9 @@ type KeyMap struct {
 	Settings      key.Binding
 	Activity      key.Binding
 	History       key.Binding
+	Inbox         key.Binding
+	ToggleRead    key.Binding
+	ReadAll       key.Binding
 	Stats         key.Binding
 	Tenant        key.Binding
 	Refresh       key.Binding
@@ -123,6 +129,9 @@ func DefaultKeyMap() KeyMap {
 		// item's number and flips it: an open item is ticked, a ticked one
 		// cleared.
 		Check: key.NewBinding(key.WithKeys("["), key.WithHelp("[", "tick checklist item")),
+		// b, for back later: s and z were spoken for. On a snoozed card the
+		// same key unsnoozes, the way * takes a star off.
+		Snooze: key.NewBinding(key.WithKeys("b"), key.WithHelp("b", "snooze")),
 		// The column keys. z folds, as it folds a region in vim, and Z, its
 		// capital, puts the column away altogether. + stars it, beside * which
 		// stars a task; < and > move it the way the arrows point; = shows
@@ -140,6 +149,11 @@ func DefaultKeyMap() KeyMap {
 		// Y, vim's yank, which is the copy a reader of these schemes already
 		// knows. Lowercase y is Agree, the answer to a confirmation.
 		Copy: key.NewBinding(key.WithKeys("Y"), key.WithHelp("Y", "copy task")),
+		// B, for a blueprint, since t, T and the obvious capitals are spoken
+		// for. E keeps the selected task as an exemplar to make more from; K
+		// went to saving the filter.
+		Templates:    key.NewBinding(key.WithKeys("B"), key.WithHelp("B", "templates")),
+		SaveTemplate: key.NewBinding(key.WithKeys("E"), key.WithHelp("E", "save as template")),
 		// O, for the output a worker records. Lowercase o opens a new task under
 		// vim and helix, so the capital is what the other taken letters use.
 		Artifact:  key.NewBinding(key.WithKeys("O"), key.WithHelp("O", "record artifact")),
@@ -163,6 +177,13 @@ func DefaultKeyMap() KeyMap {
 		// H, for the stored history, beside v for the live tail. Lowercase h
 		// moves a column, so the capital is what the taken letters already use.
 		History: key.NewBinding(key.WithKeys("H"), key.WithHelp("H", "history")),
+		// I, for the inbox. Lowercase i is free but the cross-view keys that
+		// open a screen are capitals when they are not the obvious letter.
+		Inbox: key.NewBinding(key.WithKeys("I"), key.WithHelp("I", "inbox")),
+		// Space toggles the selected item and a marks everything read: the
+		// inbox's own keys, free there because the inbox acts on no task.
+		ToggleRead: key.NewBinding(key.WithKeys("space"), key.WithHelp("space", "read/unread")),
+		ReadAll:    key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "mark all read")),
 		// S, not s: lowercase s is taken on the board, and a capital is what
 		// the other cross-view keys already use when their letter is spoken
 		// for.
@@ -222,6 +243,7 @@ const (
 	doSettings
 	doActivity
 	doHistory
+	doInbox
 	doStats
 	doTenant
 	doQuit
@@ -247,7 +269,10 @@ const (
 	doRestore
 	doStar
 	doCheck
+	doSnooze
 	doCopy
+	doTemplates
+	doSaveTemplate
 	doArtifact
 	doRenew
 	doReclaim
@@ -329,6 +354,7 @@ func (k KeyMap) globalKeys() []Action {
 		{id: doHistory, binding: k.History, opens: viewHistory},
 		{id: doStats, binding: k.Stats, opens: viewStats},
 		{id: doTenant, binding: k.Tenant, opens: viewTenant},
+		{id: doInbox, binding: k.Inbox, opens: viewInbox},
 		{id: doQuit, binding: k.Quit, always: true},
 		{id: doInterrupt, binding: k.Interrupt, always: true},
 	}
@@ -506,12 +532,19 @@ func (k KeyMap) taskBindings() []Action {
 			gate: gatedAction{methods: []string{"DeleteTask", "DeleteComment"}}},
 		{id: doRestore, binding: k.Restore, needsTask: true,
 			gate: gatedAction{methods: []string{"RestoreTask"}}},
+		{id: doSnooze, binding: k.Snooze, needsTask: true,
+			gate: gatedAction{methods: []string{"SnoozeTask"}, needs: []string{"UnsnoozeTask"}}},
 		{id: doStar, binding: k.Star, needsTask: true,
 			gate: gatedAction{methods: []string{"StarTask"}, needs: []string{"UnstarTask"}}},
 		{id: doCheck, binding: k.Check, needsTask: true,
 			gate: gatedAction{methods: []string{"CheckTaskItem"}}},
 		{id: doCopy, binding: k.Copy, needsTask: true,
 			gate: gatedAction{methods: []string{"CopyTask"}}},
+		{id: doTemplates, binding: k.Templates, needsProject: true,
+			gate: gatedAction{methods: []string{"UseTemplate", "GetTemplate", "UpdateTemplate", "DeleteTemplate"},
+				needs: []string{"ListTemplates"}}},
+		{id: doSaveTemplate, binding: k.SaveTemplate, needsTask: true,
+			gate: gatedAction{methods: []string{"SaveTemplate"}}},
 		{id: doArtifact, binding: k.Artifact, needsTask: true,
 			gate: gatedAction{methods: []string{"PutArtifact"}}},
 		{id: doRenew, binding: k.Renew, needsTask: true,
@@ -567,6 +600,11 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 	case viewHistory:
 		return []HelpEntry{
 			entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom), entry(k.Back),
+		}
+	case viewInbox:
+		return []HelpEntry{
+			entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom), entry(k.Enter),
+			entry(k.ToggleRead), entry(k.ReadAll), entry(k.Back),
 		}
 	case viewProject:
 		return append([]HelpEntry{entry(k.Up), entry(k.Down)},
@@ -756,6 +794,8 @@ func (k KeyMap) ShortHelp(v viewKind, ctx ActionContext) []HelpEntry {
 			append(k.tenantShort(ctx), entry(k.Back))...)
 	case viewHistory:
 		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
+	case viewInbox:
+		short = []HelpEntry{entry(k.Enter), entry(k.ToggleRead), entry(k.ReadAll), entry(k.Back)}
 	case viewProject:
 		short = append(k.projectShort(ctx), entry(k.Back))
 	default:

@@ -39,6 +39,8 @@ type fakeService struct {
 	untagged []string
 	deps     []core.TaskRef
 	starred  []core.TaskRef
+	snoozes  []core.SnoozeInput
+	unsnooze []core.TaskRef
 	unstars  []core.TaskRef
 	checks   []core.CheckItemInput
 	copies   []copyCall
@@ -49,6 +51,10 @@ type fakeService struct {
 	savedFilters []core.SavedFilter
 	savedInputs  []core.SavedFilterInput
 	savedErr     error
+	inbox        []core.InboxItem
+	inboxErr     error
+	inboxReads   int
+	tpl          fakeTemplates
 
 	// what the destructive and corrective calls recorded, and what the reads
 	// the forms offer from are scripted to answer with.
@@ -461,6 +467,23 @@ func (f *fakeService) CopyTask(_ context.Context, ref core.TaskRef, in core.Copy
 	f.copies = append(f.copies, copyCall{ref: ref, in: in})
 	return &core.Task{ID: "copy", Ref: in.ProjectRef + "-99", Title: in.Title}, nil
 }
+
+func (f *fakeService) SnoozeTask(_ context.Context, ref core.TaskRef, in core.SnoozeInput) (*core.Task, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.snoozes = append(f.snoozes, in)
+	until := in.Until
+	return &core.Task{ID: ref.ID, SnoozedUntil: &until}, nil
+}
+
+func (f *fakeService) UnsnoozeTask(_ context.Context, ref core.TaskRef) (*core.Task, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.unsnooze = append(f.unsnooze, ref)
+	return &core.Task{ID: ref.ID}, nil
+}
+
+func (f *fakeService) WakeSnoozed(context.Context, int) (int, error) { return 0, nil }
 
 func (f *fakeService) TaskTree(context.Context, core.TaskRef, int) ([]core.Task, error) {
 	return nil, nil

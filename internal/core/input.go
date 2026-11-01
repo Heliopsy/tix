@@ -410,6 +410,11 @@ func (in ArtifactInput) Validate() error {
 	return nil
 }
 
+// SnoozeInput says until when a task sleeps.
+type SnoozeInput struct {
+	Until time.Time `json:"until" yaml:"until"`
+}
+
 // ClaimInput claims one task.
 type ClaimInput struct {
 	TTL     Duration `json:"ttl,omitempty" yaml:"ttl,omitempty"`

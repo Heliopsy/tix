@@ -13,10 +13,10 @@ actually dispatching, so neither can describe keys you do not have. This page ex
 cannot cover: what is here before you connect. Over SSH that is the whole problem, because you connect
 first and find out afterwards.
 
-## The ten views
+## The eleven views
 
 The title bar names the open one, between the project and the connection state, because projects, the
-board, the task, the project screen, activity, history, the tenant screen, statistics and settings all
+board, the task, the project screen, activity, history, the inbox, the tenant screen, statistics and settings all
 render into the same frame and recognising the body was the only way to tell where you were.
 
 <!-- Rows asserted against the view list by TestDocsViewsTableListsEveryView in internal/tui. -->
@@ -28,6 +28,7 @@ render into the same frame and recognising the body was the only way to tell whe
 | detail | `enter` on a card | one task in full: body, custom fields, subtasks, dependencies, artifacts, comments |
 | activity | `v` | the live event tail, filtered by the audit grammar |
 | history | `H` | the stored audit log for the selected task, the open project or the tenant |
+| inbox | `I` | your mentions, assignments, comments on tasks you follow and status changes, newest first |
 | statistics | `S` | the same figures as `tix stats`, for the open project or the whole tenant |
 | tenant | `T` | the tenant in force, its domains and its members, and a key to switch this session |
 | settings | `,` | display preferences, and what this session is connected to |
@@ -71,6 +72,7 @@ than the first half of it:
 | `+` | has dependencies |
 | `↻` | repeats when done |
 | `†` | deleted, revealed by `is:deleted` or `is:trashed` |
+| `zz` | snoozed, revealed by `is:snoozed` or `snoozed:any` |
 | `due` | falls due within a week |
 | `due!` | overdue |
 
@@ -82,6 +84,12 @@ set it with `tix task edit --repeat` or in the browser.
 the same task unstarred and in its usual place, while on your board a starred card leads its column ahead of
 the priority order. It is stored on the server, so the star you set here is the one `tix task ls` and the
 browser show you too, and `is:starred` in the filter narrows the board to them.
+
+`zz` marks a snoozed task. Snoozed tasks are off the board until they wake, so the marker shows only
+under `is:snoozed` or `snoozed:any`. `b` on a card asks when it should wake (`later`, `tomorrow`,
+`next-week`, a duration such as `3d`, a date or `YYYY-MM-DD HH:MM`, read in the local zone) and takes it
+off the board; `b` on a snoozed card unsnoozes it. The detail view says until when and who snoozed it. A
+snooze is for everybody, unlike a star, and a snoozed task is not handed to agents claiming work.
 
 `@me` is separate from `@` because "is that me" is the first question anybody asks of a claimed card on a
 shared board, and a single marker left it answerable only by opening the task.
@@ -187,17 +195,22 @@ impossible for a scheme to leave an action unbound.
 | `u` | restore a deleted task | board, detail |
 | `*` | star the task, or unstar a starred one; starred cards lead their column | board, detail |
 | `[` | tick a checklist item of the description by its number, or clear a ticked one | board, detail |
+| `b` | snooze the task until a time you type, or unsnooze a snoozed one | board, detail |
 | `Y` | copy the task to any project, this one included, with a form for the title and what travels | board, detail |
+| `B` | pick a task template: create a task from it, show it, rename it or delete it | board, detail |
+| `E` | save the task as a template, for this project or the whole tenant | board, detail |
 | `X` | delete the task or the selected comment; removes the selected domain or member | board, detail, project, tenant |
 | `Z` | hide the selected column, for you, on this project's board everywhere | board |
 | `+` | star the selected column, or unstar it; starred columns lead | board |
 | `z` | collapse the selected column to its name and count, or expand it | board |
 | `<`, `>` | move the selected column left, right | board |
 | `=` | show every hidden column again | board |
+| `space` | mark the selected item read, or unread | inbox |
+| `a` | mark every item read | inbox |
 | `y` | agree to a confirmation | wherever one is open |
 | `w` | project setup | everywhere |
 | `f` | custom field definitions | project |
-| `W`, `,`, `v`, `H`, `S`, `T` | projects, settings, activity, history, statistics, tenant | everywhere |
+| `W`, `,`, `v`, `H`, `I`, `S`, `T` | projects, settings, activity, history, inbox, statistics, tenant | everywhere |
 | `ctrl+k`, `:` | the command palette: every action by name | everywhere |
 | `r` | refresh | everywhere |
 | `?` | help | everywhere |
@@ -384,6 +397,20 @@ dependencies. Link to the original starts on, and records on the copy which task
 Description, priority, tags, the custom fields the target defines, the repeat rule, the due date and the
 assignee always travel. Stars, claims, history and artifacts never do. The status bar names the new task,
 since it may have landed in a project the board is not showing.
+
+### Task templates
+
+`E` keeps the selected task as a template. The form asks for a name (the task's title to start with),
+whether the template is for this project or the whole tenant, and whether the subtasks go with it. The
+title, description, priority, tags, custom fields and repeat rule are kept; status, assignee and due date
+are not, because they describe one piece of work rather than its shape.
+
+`B` lists the templates the open project can use: its own and the tenant-wide ones. Pick one and an
+action. Create a task makes a task, with the template's subtasks, in the board's project; leave the title
+empty to keep the template's, and give due in as `3d` or `12h` to set a due date that far from now. A
+title may carry `{N}` (the use number), `{DATE}` (today) and `{PROJECT}` (the project key), in any case,
+and the service fills them in. Show states the template on the status bar, rename gives it a new name,
+and delete asks first. The status bar names the new task.
 
 ### Cycling a priority
 
@@ -578,6 +605,18 @@ points at `tix audit ls` for the older entries. A subject with nothing recorded 
 words, since a heading over blank space reads as a read that failed, and a read that did fail opens no
 view at all. `r` re-reads the same subject, rather than refreshing a screen you are not looking at.
 
+## The inbox view
+
+`I` reads the newest hundred items of your inbox: somebody mentioned you as `@handle`, assigned you a task,
+commented on a task you are assigned to or starred, or moved a task assigned to you. Unread items carry a
+dot and full brightness; read ones are dimmed. `enter` marks the selected item read and opens its task,
+`space` toggles it between read and unread, and `a` marks everything read. `r` reads the inbox again. The
+status bar counts the items and the unread ones, and points at `tix inbox ls` for older pages.
+
+Muting a kind is a setting kept with your account, set from the browser's Settings or `tix inbox prefs`;
+the terminal has no screen for it, which the registry records as an exemption rather than a gap. The
+same holds for notification channels (`tix inbox channel`).
+
 ## The project screen
 
 `w` opens the project the board is on. `e` edits it: the colour and, when there is another one to move to,
@@ -695,7 +734,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 121
+a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 144
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:

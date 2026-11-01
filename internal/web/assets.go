@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -50,7 +51,13 @@ type assetSet struct {
 
 // assetHandler serves the embedded stylesheet and scripts with a strong
 // validator per file, computed once because the bytes are compiled in.
-func assetHandler() http.Handler {
+// sharedAssets is built once per process: the embedded files never change, so
+// every handler serves the same compressed bytes instead of compressing its own.
+var sharedAssets = sync.OnceValue(buildAssetHandler)
+
+func assetHandler() http.Handler { return sharedAssets() }
+
+func buildAssetHandler() http.Handler {
 	sub, err := fs.Sub(assetFS, "assets")
 	if err != nil {
 		panic(err)

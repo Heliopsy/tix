@@ -4,6 +4,7 @@ package integration
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"reflect"
 	"slices"
@@ -402,6 +403,98 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name: "inbox round-trip",
+		covers: []string{"ListInbox", "CountInbox", "ReadInboxItem", "UnreadInboxItem", "ReadAllInbox",
+			"GetInboxPrefs", "PutInboxPrefs"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			peer, err := h.local.CreateUser(h.adminCtx, core.CreateUserInput{Email: "peer@example.com", Handle: "peer"})
+			mustf(t, tg, err, "creating a peer")
+			peerCtx := core.WithActor(context.Background(), &core.Actor{ID: peer.ID, TenantID: h.tenantID,
+				Kind: core.ActorUser, Handle: "peer", Scopes: []core.Scope{core.ScopeAll}})
+			for _, title := range []string{"first", "second"} {
+				_, err := h.local.CreateTask(peerCtx, core.CreateTaskInput{ProjectRef: p.Key, Title: title,
+					AssigneeActorID: h.adminActor.ID})
+				mustf(t, tg, err, "assigning %s", title)
+			}
+			items, _, err := tg.svc.ListInbox(tg.ctx, core.InboxFilter{})
+			if err != nil {
+				return nil, err
+			}
+			read, err := tg.svc.ReadInboxItem(tg.ctx, items[0].ID)
+			if err != nil {
+				return nil, err
+			}
+			unread, err := tg.svc.UnreadInboxItem(tg.ctx, items[0].ID)
+			if err != nil {
+				return nil, err
+			}
+			all, err := tg.svc.ReadAllInbox(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			count, err := tg.svc.CountInbox(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			if _, err := tg.svc.PutInboxPrefs(tg.ctx, core.InboxPrefsInput{Muted: []string{"status"}}); err != nil {
+				return nil, err
+			}
+			prefs, err := tg.svc.GetInboxPrefs(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			listed := make([]string, 0, len(items))
+			for _, it := range items {
+				listed = append(listed, fmt.Sprintf("%s %s by %s", it.Kind, it.TaskTitle, it.ActorHandle))
+			}
+			return sig{"listed": listed, "read": read.Read(), "unread": unread.Read(), "marked": all.Marked,
+				"count": count.Unread, "muted": prefs.Muted}, nil
+		},
+	},
+	{
+		name: "notification channel round-trip",
+		covers: []string{"CreateInboxChannel", "ListInboxChannels", "UpdateInboxChannel", "TestInboxChannel",
+			"ListChannelDeliveries", "RedeliverChannelDelivery", "DeleteInboxChannel"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			issued, err := tg.svc.CreateInboxChannel(tg.ctx, core.InboxChannelInput{Name: "phone",
+				URL: "https://ntfy.invalid/topic", Format: "ntfy", Kinds: []string{"status", "mention"}})
+			if err != nil {
+				return nil, err
+			}
+			off := false
+			updated, err := tg.svc.UpdateInboxChannel(tg.ctx, issued.ID, core.InboxChannelUpdate{Active: &off})
+			if err != nil {
+				return nil, err
+			}
+			on := true
+			if _, err := tg.svc.UpdateInboxChannel(tg.ctx, issued.ID, core.InboxChannelUpdate{Active: &on}); err != nil {
+				return nil, err
+			}
+			d, err := tg.svc.TestInboxChannel(tg.ctx, issued.ID)
+			if err != nil {
+				return nil, err
+			}
+			if err := tg.svc.RedeliverChannelDelivery(tg.ctx, d.ID); err != nil {
+				return nil, err
+			}
+			deliveries, _, err := tg.svc.ListChannelDeliveries(tg.ctx, core.ChannelDeliveryFilter{ChannelID: issued.ID})
+			if err != nil {
+				return nil, err
+			}
+			listed, err := tg.svc.ListInboxChannels(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			if err := tg.svc.DeleteInboxChannel(tg.ctx, issued.ID); err != nil {
+				return nil, err
+			}
+			return sig{"secret": issued.SigningSecret != "", "kinds": issued.Kinds, "format": issued.Format,
+				"off": updated.Active, "deliveries": len(deliveries), "test": deliveries[0].Test(),
+				"listed": len(listed)}, nil
+		},
+	},
+	{
 		name:   "view arrangement round-trip",
 		covers: []string{"CreateProject", "SetGroupPref", "OrderGroups", "ListGroupPrefs", "ResetGroupPrefs"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
@@ -556,6 +649,44 @@ var serviceScenarios = []svcScenario{
 				codes = append(codes, o.Code)
 			}
 			return sig{"applied": result.Applied, "refused": result.Refused, "codes": codes, "priority": int(got.Priority)}, nil
+		},
+	},
+	{
+		name: "template round-trip",
+		covers: []string{"CreateProject", "CreateTask", "SaveTemplate", "GetTemplate", "ListTemplates",
+			"UpdateTemplate", "UseTemplate", "DeleteTemplate", "TaskTree"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			from := h.newProject(t, tg)
+			to := h.newProject(t, tg)
+			root, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: from.Key, Title: "root {N}", Tags: []string{"x"}})
+			mustf(t, tg, err, "creating the root")
+			_, err = tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: from.Key, Title: "child", ParentRef: root.Ref})
+			mustf(t, tg, err, "creating the child")
+			name := "tpl-" + from.Key
+			saved, err := tg.svc.SaveTemplate(tg.ctx, core.SaveTemplateInput{Name: name, TaskRef: root.Ref, WithSubtasks: true})
+			if err != nil {
+				return nil, err
+			}
+			listed, _, err := tg.svc.ListTemplates(tg.ctx, core.TemplateFilter{ProjectRef: from.Key})
+			mustf(t, tg, err, "listing templates")
+			wide := ""
+			_, err = tg.svc.UpdateTemplate(tg.ctx, name, core.UpdateTemplateInput{ProjectRef: &wide})
+			mustf(t, tg, err, "making the template tenant-wide")
+			made, err := tg.svc.UseTemplate(tg.ctx, name, core.UseTemplateInput{ProjectRef: to.Key})
+			mustf(t, tg, err, "using the template")
+			tree, err := tg.svc.TaskTree(tg.ctx, core.TaskRef{ID: made.ID}, 0)
+			mustf(t, tg, err, "reading the made tree")
+			shown, err := tg.svc.GetTemplate(tg.ctx, name)
+			mustf(t, tg, err, "showing the template")
+			mustf(t, tg, tg.svc.DeleteTemplate(tg.ctx, name), "deleting the template")
+			titles := make([]string, 0, len(tree))
+			for _, task := range tree {
+				titles = append(titles, task.Title)
+			}
+			return sig{
+				"subtasks": len(saved.Task.Subtasks), "listed": len(listed), "titles": titles, "tags": made.Tags,
+				"moved": made.ProjectID == to.ID, "uses": shown.Uses, "wide": shown.TenantWide(),
+			}, nil
 		},
 	},
 	{
@@ -1084,6 +1215,50 @@ var serviceScenarios = []svcScenario{
 			after, err := tg.svc.GetTask(tg.ctx, core.TaskRef{ID: task.ID})
 			mustf(t, tg, err, "reading the task back")
 			return sig{"swept": swept, "claimed_by": after.ClaimedByActorID}, nil
+		},
+	},
+	{
+		name:   "snooze hides a task until it wakes",
+		covers: []string{"CreateProject", "CreateTask", "SnoozeTask", "UnsnoozeTask", "WakeSnoozed", "ListTasks", "ClaimTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			a, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "a"})
+			mustf(t, tg, err, "creating a")
+			b, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "b"})
+			mustf(t, tg, err, "creating b")
+			titles := func(f core.TaskFilter) []string {
+				f.ProjectKeys = []string{p.Key}
+				f.Page.Sort = core.SortSeq
+				page, err := tg.svc.ListTasks(tg.ctx, f)
+				mustf(t, tg, err, "listing")
+				out := []string{}
+				for _, task := range page.Tasks {
+					out = append(out, task.Title)
+				}
+				return out
+			}
+			if _, err := tg.svc.SnoozeTask(tg.ctx, core.TaskRef{ID: a.ID},
+				core.SnoozeInput{Until: h.clk.Now().Add(time.Hour)}); err != nil {
+				return nil, err
+			}
+			if _, err := tg.svc.SnoozeTask(tg.ctx, core.TaskRef{ID: b.ID},
+				core.SnoozeInput{Until: h.clk.Now().Add(3 * time.Hour)}); err != nil {
+				return nil, err
+			}
+			_, claimErr := tg.svc.ClaimTask(tg.ctx, core.TaskRef{ID: a.ID}, core.ClaimInput{})
+			hidden := titles(core.TaskFilter{})
+			only := titles(core.TaskFilter{Snoozed: core.Yes})
+			both := titles(core.TaskFilter{IncludeSnoozed: true})
+			if _, err := tg.svc.UnsnoozeTask(tg.ctx, core.TaskRef{ID: b.ID}); err != nil {
+				return nil, err
+			}
+			h.clk.Advance(2 * time.Hour)
+			woken, err := tg.svc.WakeSnoozed(tg.ctx, 10)
+			if err != nil {
+				return nil, err
+			}
+			return sig{"hidden": hidden, "only": only, "both": both, "claim": core.KindOf(claimErr),
+				"woken": woken, "after": titles(core.TaskFilter{})}, nil
 		},
 	},
 	{

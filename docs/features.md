@@ -133,12 +133,30 @@ the lease columns it clears, which is what makes an abandoned claim visible at a
 the minute before the next sweep. [docs/web-ui.md](web-ui.md) covers these and the rest of the
 browser interface.
 
+**An inbox.** Each person gets an item when somebody mentions them as `@handle` in a comment or a
+description, assigns them a task, comments on a task they are assigned to or starred, or moves a task
+assigned to them; never for their own changes. The browser's sidebar counts the unread ones and keeps the
+count live, `/inbox` lists them and marks them read, Settings mutes any of the four kinds, and comment and
+description boxes complete handles after `@`. `tix inbox ls|count|read|unread|read-all|prefs`, `I` in the
+terminal interface, and `/api/v1/inbox` cover the rest. Each person can also send their items to Slack,
+Discord, ntfy or an endpoint of their own from Settings, Notifications, or `tix inbox channel`, delivered
+and retried by the same dispatcher as tenant webhooks. [docs/web-ui.md](web-ui.md#the-inbox).
+
 **Stars.** Star a task and it lists ahead of the rest for you, on every surface: the star button on a
 row, a card or the task screen in the browser, `*` in the terminal interface, `tix task star` and
 `tix task unstar` on the command line, `PUT` and `DELETE /api/v1/tasks/{ref}/star` over HTTP. A star is
 yours alone, stored with your actor rather than in a cookie, so it follows you between the browser, the
 terminal and the command line and never reorders a colleague's queue. Your starred tasks lead under
 every sort, and `is:starred` narrows a listing to them. [docs/filtering.md](filtering.md#stars).
+
+**Snooze.** Snooze a task until later and it leaves every default listing, for everybody, until that
+moment, then comes back by itself; nothing has to run for that, because listings compare the wake time
+with the clock. Pick later today, tomorrow morning, next week or a date in the browser (the task screen,
+a lane card's three dots), `b` in the terminal interface, `tix task snooze REF UNTIL` and
+`tix task unsnooze REF`, or `PUT` and `DELETE /api/v1/tasks/{ref}/snooze`. A snoozed task drawn
+anywhere carries its wake time, the audit names who snoozed it, and agents cannot claim it until it
+wakes. A running server announces each wake as `task.woke`. `is:snoozed` lists them, `snoozed:any`
+lists them beside the rest. [docs/filtering.md](filtering.md#snoozed-tasks).
 
 **Lanes.** Besides the list and the board, the task screen can draw one lane per project, each lane
 holding that project's open work as cards. A card ticks, changes status and changes priority where it
@@ -204,6 +222,16 @@ why. `tix task edit`, `tix task copy`, `tix tag add` and `tix tag rm` take many 
 **CSV export.** Export CSV in the task list's View menu, `tix task ls -o csv` and
 `GET /api/v1/tasks?format=csv` write a listing as CSV, with any cell a spreadsheet would read as a formula
 prefixed with a quote. [docs/web-ui.md](web-ui.md#exporting-the-list), [docs/api.md](api.md#csv).
+
+**Task templates.** Save a task as a named template, for one project or the whole tenant, with its
+description (checklists included), priority, tags, custom fields, repeat rule and, when asked, its subtasks.
+Create tasks from it in one step, optionally with another title, project or a due offset such as 3d. A
+template is not a task: it never appears in a listing, a claim or the statistics. Titles may carry
+placeholders, matched in any case and filled in at each use: `{DATE}` is today's date, `{N}` the use number
+and `{PROJECT}` the project's key. Save as template on the task screen and New from template in the add box
+in the browser, a Templates screen under Configure, `B` and `E` in the terminal interface, `tix template
+ls|save|show|edit|rm|use` and `/api/v1/templates` over HTTP.
+[docs/web-ui.md](web-ui.md#task-templates), [docs/api.md](api.md#task-templates).
 
 **Shell completion.** `tix completion install` detects the shell, writes the script where that shell
 looks for it and never edits a startup file. It completes task references, project keys, tags and the

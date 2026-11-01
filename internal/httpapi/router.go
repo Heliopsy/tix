@@ -172,6 +172,8 @@ func (rt *Router) register() {
 	rt.registerViewRoutes()
 	rt.registerFilterRoutes()
 	rt.registerCalendarRoutes()
+	rt.registerInboxRoutes()
+	rt.registerTemplateRoutes()
 
 	if rt.cfg.EventHandler != nil {
 		rt.mux.Handle(wire.RouteEvents, rt.cfg.EventHandler)

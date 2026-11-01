@@ -27,7 +27,7 @@ var Keys = []string{
 	"project", "status", "tag", "assignee", "creator", "claimed-by",
 	"priority", "due", "due-before", "due-after", "parent", "is", "sort", "limit",
 	"text", "title", "body", "claimed", "blocked", "deleted", "starred",
-	"has", "checklist",
+	"has", "checklist", "snoozed",
 }
 
 // SyntaxHint is the one line that tells somebody the two operators exist. A
@@ -217,6 +217,8 @@ func applyTerm(f *core.TaskFilter, key, value, op string, negate bool, now time.
 	// The three boolean forms the web filter bar has always accepted. They
 	// say the same thing as is:, and dropping them would break every saved
 	// link and bookmark that spells it the old way for no gain.
+	case "snoozed":
+		return applySnoozed(f, value, negate)
 	case "claimed", "blocked", "deleted", "starred":
 		state, err := boolTerm(key, value)
 		if err != nil {
@@ -247,6 +249,27 @@ func boolTerm(key, value string) (string, error) {
 		}
 	default:
 		return "", core.Invalid("filter term %q takes true or false, not %q", key, value)
+	}
+}
+
+// applySnoozed folds snoozed:true, snoozed:false and snoozed:any in. The
+// first two say what is:snoozed and is:awake say; any widens the listing to
+// hold snoozed tasks beside the rest, which no is: term spells.
+func applySnoozed(f *core.TaskFilter, value string, negate bool) error {
+	switch strings.ToLower(value) {
+	case "any", "all":
+		if negate {
+			return core.Invalid("snoozed:any cannot be negated; use -is:snoozed for tasks that are not snoozed")
+		}
+		f.Snoozed = core.Either
+		f.IncludeSnoozed = true
+		return nil
+	case "true", "yes", "1":
+		return applyIs(f, "snoozed", negate)
+	case "false", "no", "0":
+		return applyIs(f, "awake", negate)
+	default:
+		return core.Invalid("filter term \"snoozed\" takes true, false or any, not %q", value)
 	}
 }
 
@@ -445,6 +468,10 @@ func applyIs(f *core.TaskFilter, value string, negate bool) error {
 		f.IncludeDeleted = !negate
 	case "trashed":
 		f.Trashed = yes
+	case "snoozed":
+		f.Snoozed = yes
+	case "awake":
+		f.Snoozed = no
 	case "recurring":
 		f.Recurring = yes
 	case "root":
@@ -453,7 +480,7 @@ func applyIs(f *core.TaskFilter, value string, negate bool) error {
 		}
 		f.ParentIsNull = true
 	default:
-		return core.Invalid("unknown is: value %q; try claimed, unclaimed, blocked, unblocked, recurring, starred, unstarred, deleted, trashed or root", value)
+		return core.Invalid("unknown is: value %q; try claimed, unclaimed, blocked, unblocked, recurring, starred, unstarred, snoozed, awake, deleted, trashed or root", value)
 	}
 	return nil
 }

@@ -38,10 +38,10 @@ each get a different task, with no lock, no coordinator and no server process.
 | `--actor` | claim on behalf of another actor |
 
 Claim eligibility covers every task that is not blocked by an unfinished dependency, not held by a live lease,
-and not already in a terminal state (`done`, `cancelled`). A queue whose tasks are all terminal reports the same
-empty-queue result as a queue with nothing in it: exit 3, `no_task_available`. A worker that should only pick up
-work in a specific non-terminal status still should say so, e.g. `tix claim next -s todo`, since a task sitting in
-`blocked` is non-terminal and would otherwise be handed out.
+not snoozed, and not already in a terminal state (`done`, `cancelled`). A queue whose tasks are all terminal
+reports the same empty-queue result as a queue with nothing in it: exit 3, `no_task_available`. A worker that
+should only pick up work in a specific non-terminal status still should say so, e.g. `tix claim next -s todo`,
+since a task sitting in `blocked` is non-terminal and would otherwise be handed out.
 
 A queue filter that names nothing is a different answer from an empty queue, and the codes say which is which.
 `-p` naming no project, and `-s` naming a status no workflow of this tenant defines, both fail with exit 3 and
@@ -53,6 +53,11 @@ gives: a tag exists by being applied, so an unused tag and an unknown one are th
 
 `tix claim task REF` claims one named task instead of taking the next. It fails with exit 4 when the task is
 already held.
+
+A snoozed task is not work anybody should start. `claim next` skips it until its wake time passes, and
+`tix claim task REF` refuses it with exit 6 (`precondition`) and the wake time in `details.snoozed_until`.
+`tix task unsnooze REF` is how a person hands it out early. Snoozing a task somebody already holds leaves the
+lease alone: the holder can still finish or release it.
 
 ## The JSON an agent sees
 

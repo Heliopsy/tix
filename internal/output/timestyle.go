@@ -65,6 +65,16 @@ func (s TimeStyle) Location() *time.Location {
 	return s.loc
 }
 
+// CacheKey names the style for callers that keep work derived from it, such
+// as parsed templates. It is false for a style with an injected clock, which
+// no two callers can be assumed to share.
+func (s TimeStyle) CacheKey() (string, bool) {
+	if s.now != nil {
+		return "", false
+	}
+	return s.format + "|" + s.Location().String(), true
+}
+
 // loadLocation resolves a timezone name, treating the empty string as local.
 func loadLocation(name string) (*time.Location, error) {
 	switch strings.ToLower(strings.TrimSpace(name)) {

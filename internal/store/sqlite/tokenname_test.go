@@ -70,6 +70,10 @@ func TestUpgradeKeepsDuplicateTokensWorkingAndTellsThemApart(t *testing.T) {
 		"ALTER TABLE tenants DROP COLUMN lease_max",
 		"DROP TABLE task_stars",
 		"DROP TABLE group_prefs",
+		"DROP TABLE inbox_deliveries",
+		"DROP TABLE inbox_channels",
+		"DROP TABLE inbox_items",
+		"DROP TABLE inbox_mutes",
 		"ALTER TABLE tasks DROP COLUMN recurrence",
 		"ALTER TABLE tasks DROP COLUMN recurrence_next_id",
 		"DROP INDEX idx_task_tags_task",
@@ -81,6 +85,10 @@ func TestUpgradeKeepsDuplicateTokensWorkingAndTellsThemApart(t *testing.T) {
 		"ALTER TABLE tasks DROP COLUMN copied_from_id",
 		"DROP TABLE saved_filters",
 		"DROP TABLE calendar_feeds",
+		"DROP INDEX idx_tasks_snoozed",
+		"ALTER TABLE tasks DROP COLUMN snoozed_until",
+		"ALTER TABLE tasks DROP COLUMN snoozed_by",
+		"DROP TABLE task_templates",
 		"DELETE FROM schema_migrations WHERE version > 9",
 	} {
 		if _, err := s.writer.ExecContext(ctx, stmt); err != nil {

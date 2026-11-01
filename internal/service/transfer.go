@@ -1065,6 +1065,10 @@ func (i *importer) buildLiveTaskTarget(ctx context.Context, tx store.Tx, project
 	if err != nil {
 		return nil, false, i.reject("task %q at line %d: %v", t.Title, line, err)
 	}
+	snoozedBy, err := i.actorRef(ctx, tx, t.SnoozedByActorID, false)
+	if err != nil {
+		return nil, false, err
+	}
 
 	target = &core.Task{
 		ProjectID: projectID, Seq: t.Seq, Title: title, Body: t.Body,
@@ -1073,6 +1077,7 @@ func (i *importer) buildLiveTaskTarget(ctx context.Context, tx store.Tx, project
 		CustomFields: fields, CreatedAt: t.CreatedAt, Tags: t.Tags,
 		Recurrence: rule, RecurrenceNextID: t.RecurrenceNextID,
 		CopiedFromID: t.CopiedFromID,
+		SnoozedUntil: t.SnoozedUntil, SnoozedByActorID: snoozedBy,
 	}
 	if mapped, ok := i.ids[t.CopiedFromID]; ok {
 		target.CopiedFromID = mapped

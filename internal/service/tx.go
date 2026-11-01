@@ -22,6 +22,7 @@ type mutation struct {
 
 	events []*core.Event
 	audits []*core.AuditEntry
+	notes  []inboxNote
 
 	// queued counts the webhook deliveries this mutation enqueued, so the
 	// caller knows whether an inline drain has anything to do.
@@ -141,6 +142,9 @@ func refOf(v any) string {
 // the endpoints matching it. Called before commit, so a delivery is exactly as
 // durable as the event that caused it. Only the attempt happens after commit.
 func (m *mutation) flush(ctx context.Context) error {
+	if err := m.deliverInbox(ctx); err != nil {
+		return err
+	}
 	for _, a := range m.audits {
 		if err := m.tx.AppendAudit(ctx, a); err != nil {
 			return err

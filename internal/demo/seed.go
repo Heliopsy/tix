@@ -98,7 +98,7 @@ func (o Options) normalize() (Options, error) {
 // alone do not count: a fresh installation is given starter lists before any
 // command runs, so refusing on those would refuse every empty database.
 func HasData(ctx context.Context, svc core.Service) (bool, error) {
-	page, err := svc.ListTasks(ctx, core.TaskFilter{IncludeDeleted: true, Page: core.Page{Limit: 1}})
+	page, err := svc.ListTasks(ctx, core.TaskFilter{IncludeDeleted: true, IncludeSnoozed: true, Page: core.Page{Limit: 1}})
 	if err != nil {
 		return false, err
 	}
@@ -131,6 +131,7 @@ func resetTasks(ctx context.Context, svc core.Service) error {
 	for {
 		page, err := svc.ListTasks(ctx, core.TaskFilter{
 			IncludeDeleted: true,
+			IncludeSnoozed: true,
 			Page:           core.Page{Limit: core.MaxPageLimit},
 		})
 		if err != nil {
@@ -295,6 +296,7 @@ func (s *seeder) dropEmptyLists(ctx context.Context) error {
 		page, err := s.svc.ListTasks(admin, core.TaskFilter{
 			ProjectIDs:     []string{p.ID},
 			IncludeDeleted: true,
+			IncludeSnoozed: true,
 			Page:           core.Page{Limit: 1},
 		})
 		if err != nil {

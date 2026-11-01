@@ -157,6 +157,8 @@ func newTip(topic, text string, doc ...string) tipView {
 // head carries translated for assets/i18n.js. A test reads every say("...") in
 // the assets and fails on one missing here.
 var jsMessages = []string{
+	"Mark unread",
+	"People to mention",
 	"Copied",
 	"Copy failed",
 	"Nothing has changed yet",

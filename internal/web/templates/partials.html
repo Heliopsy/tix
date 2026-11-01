@@ -27,6 +27,7 @@
 
 {{define "nav"}}
 <nav class="main">
+  <a href="/inbox" data-rail-name="{{t "Inbox"}}" {{if eq .Path "/inbox"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#inbox"/></svg>{{template "inbox-badge" .}}<span>{{t "Inbox"}}</span></a>
   <a href="/tasks" data-rail-name="{{t "Tasks"}}" {{if and (eq .Path "/tasks") (not .InTrash)}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tasks"/></svg><span>{{t "Tasks"}}</span></a>
   {{/* The trash is the task list filtered by is:trashed, so the filter box
        says what it is. It sits under Tasks because it is that list's
@@ -46,6 +47,7 @@
   {{if .Advanced}}
   <p class="group">{{t "Configure"}}</p>
   <a href="/workflows" data-rail-name="{{t "Workflows"}}" {{if eq .Path "/workflows"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#workflows"/></svg><span>{{t "Workflows"}}</span></a>
+  <a href="/templates" data-rail-name="{{t "Templates"}}" {{if hasPrefix .Path "/templates"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#templates"/></svg><span>{{t "Templates"}}</span></a>
   <a href="/admin/tenant" data-rail-name="{{t "Tenant"}}" {{if eq .Path "/admin/tenant"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tenant"/></svg><span>{{t "Tenant"}}</span></a>
   <a href="/admin/domains" data-rail-name="{{t "Domains"}}" {{if eq .Path "/admin/domains"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#domains"/></svg><span>{{t "Domains"}}</span></a>
   <a href="/admin/users" data-rail-name="{{t "Users"}}" {{if eq .Path "/admin/users"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#users"/></svg><span>{{t "Users"}}</span></a>
@@ -155,6 +157,15 @@
   <ul class="recentlist" data-recent-list></ul>
 </details>
 {{end}}
+{{/* inbox-badge is the reader's unread count beside the Inbox entry, hidden
+     at zero. live.js refreshes it from /inbox/badge on every inbox.updated
+     event, so it stays current on every screen; without a script it is as
+     current as the page. The page carries no actor identifier for the script
+     to compare the event's recipients with, so the refresh asks the server,
+     which knows who is reading. The sr-only words make the link read
+     "3 unread, Inbox" rather than "3 Inbox"; the badge comes first in the
+     markup so the label stays the link's last span, and CSS draws it last. */}}
+{{define "inbox-badge"}}<span class="navbadge" id="inbox-badge" data-inbox-count="{{.Inbox}}"{{if .Actor}} data-events="{{.EventsPath}}" data-inbox="/inbox/badge"{{end}}{{if not .Inbox}} hidden{{end}}>{{.Inbox}}<span class="sr-only"> {{t "unread"}},</span></span>{{end}}
 
 {{/* The repeat marker a listing row and a board card share, given the rule.
      It links to every recurring task, the way a tag links to its tag. The
@@ -183,6 +194,27 @@
           aria-label="{{if .Starred}}{{t "Unstar %s" .Ref}}{{else}}{{t "Star %s" .Ref}}{{end}}" title="{{if .Starred}}{{t "Unstar"}}{{else}}{{t "Star"}}{{end}}">
     <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#star"/></svg>
   </button>
+</form>{{end}}
+
+{{/* snooze-choices is a snooze menu's one form: a button per preset, each
+     posting until=<preset>, and a date and time picked by hand posted as at.
+     The server resolves both in the reader's zone. Card, on a lane card,
+     swaps the answer into the card the way the card's other forms do; the
+     snoozed card is not in the answer, so it leaves the lane, and the toast
+     comes along out of band. */}}
+{{define "snooze-choices"}}<form method="post" action="/tasks/{{.Ref}}/snooze"
+  {{- if .Card}} hx-post="/tasks/{{.Ref}}/snooze" hx-target="{{.Card}}" hx-select="{{.Card}}" hx-select-oob="#toast" hx-swap="outerHTML"
+  hx-indicator="{{.Card}}" hx-sync="closest .lane-card:drop" data-lane-control="more"{{end}}>
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="next" value="{{.Next}}">
+  {{range .Presets}}
+  <button type="submit" name="until" value="{{.Value}}" class="flowgo"><span class="flowto">{{t .Label}}</span></button>
+  {{end}}
+  <label class="flowhead snooze-pick" for="{{.ID}}">{{t "Pick a date"}}</label>
+  <span class="snooze-row">
+    <input type="datetime-local" id="{{.ID}}" name="at">
+    <button type="submit" class="secondary">{{t "Snooze"}}</button>
+  </span>
 </form>{{end}}
 
 {{/* field-info is the small "i" affordance a field's label carries when its
@@ -763,6 +795,50 @@
     <button type="submit" name="group" value="{{.Value}}" class="segment{{if .Selected}} is-on{{end}}"
             {{if .Selected}}aria-current="true"{{end}}>{{t .Label}}</button>
     {{end}}
+  </div>
+</form>
+{{end}}
+
+{{/* channel-form adds or edits a notification channel (channels.go
+     channelFormView), in the create-form layout: name and URL in the main
+     column, the format and the kinds beside them. A refusal comes back with
+     the message under the field it is about and what was typed in place. */}}
+{{define "channel-form"}}
+{{$e := .Errors}}{{$f := .Form}}
+<form method="post" class="cform" data-form action="{{.Action}}">
+  {{template "csrf" .CSRF}}
+  <div class="cform-head"><h2 class="cform-title">{{t .Title}}</h2></div>
+  {{with $e.On ""}}{{template "field-error" .}}{{end}}
+  <div class="cform-grid">
+    <div class="cform-main">
+      <div class="cfield">
+        <div class="cfield-label"><label for="{{.Prefix}}name">{{t "Name"}}</label>{{template "required-mark"}}</div>
+        <input id="{{.Prefix}}name" name="name" value="{{$f.Name}}" placeholder="{{t "Phone"}}" maxlength="80" autocomplete="off" required{{$e.Attrs "name"}}>
+        {{with $e.On "name"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="cfield">
+        <div class="cfield-label"><label for="{{.Prefix}}url">{{t "URL"}}</label>{{template "required-mark"}}{{template "tip" (tip "URL" "Where tix posts: a Slack or Discord webhook URL, an ntfy topic URL, or your own endpoint. Addresses on private networks are refused, as they are for tenant webhooks.")}}</div>
+        <input id="{{.Prefix}}url" class="mono" name="url" type="url" value="{{$f.URL}}" placeholder="{{t "The address to post to"}}" autocomplete="off" spellcheck="false" required{{$e.Attrs "url"}}>
+        {{with $e.On "url"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="cfield">
+        <div class="cfield-label"><label for="{{.Prefix}}format">{{t "Format"}}</label></div>
+        <select id="{{.Prefix}}format" name="format"{{$e.Attrs "format"}}>
+          {{range .Formats}}<option value="{{.Value}}"{{if eq .Value $f.Format}} selected{{end}}>{{t .Label}}</option>{{end}}
+        </select>
+        {{with $e.On "format"}}{{template "field-error" .}}{{end}}
+      </div>
+      <label class="check"><input type="checkbox" name="active" value="on"{{if $f.Active}} checked{{end}}> {{t "Send to this channel"}}</label>
+    </div>
+    <fieldset class="cform-side cform-group">
+      <legend>{{t "Sends"}}</legend>
+      {{range .Kinds}}<label class="check"><input type="checkbox" name="kinds" value="{{.Kind}}"{{if $f.Has .Kind}} checked{{end}}> {{t .Label}}</label>{{end}}
+      {{with $e.On "kinds"}}{{template "field-error" .}}{{end}}
+    </fieldset>
+  </div>
+  <div class="cform-foot">
+    {{template "form-keys" (t "to save")}}
+    <div class="cform-actions"><button type="submit">{{t .Submit}}</button></div>
   </div>
 </form>
 {{end}}

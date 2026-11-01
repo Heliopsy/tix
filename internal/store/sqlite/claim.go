@@ -43,7 +43,8 @@ func (t *tx) ClaimNextTask(ctx context.Context, in store.ClaimNextRow) (string, 
 	inner := t.builder("tasks").
 		Select("tasks.id").
 		Where("tasks.deleted_at IS NULL").
-		Where(unclaimedPredicate, now)
+		Where(unclaimedPredicate, now).
+		Where(awakePredicate, now)
 	blocked, blockedArgs := blockedByDependency(in.Terminal)
 	inner.Where("NOT EXISTS "+blocked, blockedArgs...)
 	finished, finishedArgs := terminalPredicate("tasks.status", "tasks.project_id", in.Terminal)

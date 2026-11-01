@@ -53,6 +53,7 @@ func Exemptions() []Exemption {
 		{"RenewLease", "a lease is renewed by the worker holding its token, which a browser session does not hold"},
 		{"ReleaseLease", "a lease is released by the worker holding its token, which a browser session does not hold"},
 		{"SweepLeases", "lease sweeping is a background maintenance loop, not an operator action"},
+		{"WakeSnoozed", "waking snoozed tasks is a background loop beside the lease sweep, not an operator action"},
 		{"Subscribe", "the browser consumes the event stream over the WebSocket route rather than calling the method directly"},
 		{"Close", "closing the service is process lifecycle, not an operation"},
 		{"WhoAmI", "the root route calls it to bounce a visitor who is not signed in and discards the identity it answers with, so no screen states who the reader is"},
@@ -75,7 +76,10 @@ func (h *handler) routes() []route {
 	out = append(out, h.viewRoutes()...)
 	out = append(out, h.filterRoutes()...)
 	out = append(out, h.myWorkRoutes()...)
+	out = append(out, h.inboxRoutes()...)
+	out = append(out, h.channelRoutes()...)
 	out = append(out, h.workflowRoutes()...)
+	out = append(out, h.templateRoutes()...)
 	out = append(out, h.taskRoutes()...)
 	out = append(out, h.actorRoutes()...)
 	out = append(out, h.adminRoutes()...)
@@ -171,14 +175,36 @@ const (
 	RouteMarkdownPreview = "/markdown/preview"
 	RouteTaskCopy        = "/tasks/{ref}/copy"
 	RouteTaskUnstar      = "/tasks/{ref}/star/remove"
+	RouteTaskSnooze      = "/tasks/{ref}/snooze"
+	RouteTaskUnsnooze    = "/tasks/{ref}/snooze/remove"
 	RouteTaskComments    = "/tasks/{ref}/comments"
 	RouteCommentEdit     = "/tasks/{ref}/comments/edit"
 	RouteCommentDel      = "/tasks/{ref}/comments/delete"
 	RouteTaskArts        = "/tasks/{ref}/artifacts"
+	RouteTemplates       = "/templates"
+	RouteTemplateNew     = "/templates/new"
+	RouteTemplate        = "/templates/{id}"
+	RouteTemplateEdit    = "/templates/{id}/update"
+	RouteTemplateDel     = "/templates/{id}/delete"
+	RouteTaskTemplate    = "/tasks/{ref}/template"
 
 	RouteViewGroup = "/view/group"
 	RouteViewOrder = "/view/order"
 	RouteViewReset = "/view/reset"
+
+	RouteInbox        = "/inbox"
+	RouteInboxBadge   = "/inbox/badge"
+	RouteInboxRead    = "/inbox/read"
+	RouteInboxUnread  = "/inbox/unread"
+	RouteInboxReadAll = "/inbox/read-all"
+	RouteInboxMutes   = "/settings/inbox"
+
+	RouteChannels         = "/settings/notifications"
+	RouteChannel          = "/settings/notifications/{id}"
+	RouteChannelEdit      = "/settings/notifications/{id}/edit"
+	RouteChannelDelete    = "/settings/notifications/{id}/delete"
+	RouteChannelTest      = "/settings/notifications/{id}/test"
+	RouteChannelRedeliver = "/settings/notifications/{id}/redeliver"
 
 	RouteTenant        = "/admin/tenant"
 	RouteMembers       = "/admin/tenant/members"

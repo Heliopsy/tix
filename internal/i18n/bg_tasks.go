@@ -59,7 +59,7 @@ func init() {
 		"What the project is for, in a sentence or two":                            "За какво е проектът, в едно-две изречения",
 		"Shown beside the project's name in lists, on its board and on its tasks.": "Показва се до името на проекта в списъците, на таблото и на задачите му.",
 		"Filter, for example status:todo tag:ops":                                  "Филтър, например status:todo tag:ops",
-		"Terms are combined: status:todo tag:ops assignee:lena is:starred is:recurring due:overdue. A leading - excludes a term, as in -tag:chore, title~api matches part of a title, and a bare word searches titles and descriptions.": "Условията се комбинират: status:todo tag:ops assignee:lena is:starred is:recurring due:overdue. Водещо - изключва условие, например -tag:chore, title~api търси част от заглавие, а обикновена дума търси в заглавията и описанията.",
+		"Terms are combined: status:todo tag:ops assignee:lena is:starred is:recurring is:snoozed due:overdue. A leading - excludes a term, as in -tag:chore, title~api matches part of a title, and a bare word searches titles and descriptions.": "Условията се комбинират: status:todo tag:ops assignee:lena is:starred is:recurring is:snoozed due:overdue. Водещо - изключва условие, например -tag:chore, title~api търси част от заглавие, а обикновена дума търси в заглавията и описанията.",
 		"Due":          "Краен срок",
 		"any deadline": "всеки краен срок",
 		"Deadline":     "Краен срок",

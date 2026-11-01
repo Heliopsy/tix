@@ -20,7 +20,8 @@ import (
 // taskRoutes are the task list, detail and attachment screens.
 func (h *handler) taskRoutes() []route {
 	return []route{
-		get(RouteTasks, "tasks.html", h.showTasks, "ListTasks", "ListProjects", "ListTags", "ListGroupPrefs", "ListSavedFilters"),
+		get(RouteTasks, "tasks.html", h.showTasks, "ListTasks", "ListProjects", "ListTags", "ListGroupPrefs", "ListSavedFilters",
+			"ListTemplates"),
 		post(RouteTasks, h.createTask, "CreateTask"),
 		post(RouteTasksBulk, h.bulkTasks, "BulkTasks"),
 		getFile(RouteTasksCSV, h.exportTasksCSV, "ListTasks", "ListProjects"),
@@ -49,6 +50,8 @@ func (h *handler) taskRoutes() []route {
 		post(RouteTaskCopy, h.copyTask, "CopyTask"),
 		post(RouteTaskStar, h.starTask, "StarTask"),
 		post(RouteTaskUnstar, h.unstarTask, "UnstarTask"),
+		post(RouteTaskSnooze, h.snoozeTask, "SnoozeTask"),
+		post(RouteTaskUnsnooze, h.unsnoozeTask, "UnsnoozeTask"),
 		post(RouteTaskComments, h.addComment, "AddComment"),
 		post(RouteTaskChecklist, h.checkItem, "CheckTaskItem"),
 		post(RouteMarkdownPreview, h.previewMarkdown, "UpdateTask", "AddComment", "EditComment"),
@@ -256,7 +259,7 @@ func nextOccurrence(t core.Task, now time.Time) (*time.Time, bool) {
 // covers the whole page rather than one lookup per element.
 func (v taskView) actorIDs() []string {
 	out := []string{v.Task.CreatorActorID, v.Task.AssigneeActorID,
-		v.Task.ClaimedByActorID, v.Task.LeaseExpiredByActorID}
+		v.Task.ClaimedByActorID, v.Task.LeaseExpiredByActorID, v.Task.SnoozedByActorID}
 	for _, c := range v.Comments {
 		out = append(out, c.AuthorActorID)
 	}

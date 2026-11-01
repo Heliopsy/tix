@@ -13,6 +13,7 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/markdown"
 	"github.com/heliopsy/tix/internal/output"
+	"github.com/heliopsy/tix/internal/query"
 )
 
 // loadProjects lists the projects the caller can reach.
@@ -756,6 +757,92 @@ func (m Model) copyTask(task core.Task, in core.CopyTaskInput) tea.Cmd {
 	}
 }
 
+// loadTemplates lists the templates the board's project can use, for the
+// template form to offer.
+func (m Model) loadTemplates() tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, project := m.svc, m.ctx, m.project.Key
+	return func() tea.Msg {
+		templates, _, err := svc.ListTemplates(ctx, core.TemplateFilter{ProjectRef: project,
+			Page: core.Page{Limit: core.MaxPageLimit}})
+		return templatesMsg{templates: templates, err: err}
+	}
+}
+
+// useTemplate creates a task from a template and names it on the status bar.
+func (m Model) useTemplate(name string, in core.UseTemplateInput) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx := m.svc, m.ctx
+	return func() tea.Msg {
+		task, err := svc.UseTemplate(ctx, name, in)
+		msg := actionMsg{kind: actionUseTemplate, label: name, err: err}
+		if err == nil {
+			msg.ref, msg.sentence = core.TaskRef{ID: task.ID}, "created "+task.Ref+" from "+name
+		}
+		return msg
+	}
+}
+
+// showTemplate reads one template and states it on the status bar.
+func (m Model) showTemplate(name string) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx := m.svc, m.ctx
+	return func() tea.Msg {
+		tpl, err := svc.GetTemplate(ctx, name)
+		msg := actionMsg{kind: actionShowTemplate, label: name, err: err}
+		if err == nil {
+			msg.sentence = TemplateSummary(*tpl)
+		}
+		return msg
+	}
+}
+
+// renameTemplate gives a template a new name.
+func (m Model) renameTemplate(name, to string) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx := m.svc, m.ctx
+	return func() tea.Msg {
+		_, err := svc.UpdateTemplate(ctx, name, core.UpdateTemplateInput{Name: &to})
+		return actionMsg{kind: actionRenameTemplate, label: name, err: err,
+			sentence: "renamed template " + name + " to " + to}
+	}
+}
+
+// deleteTemplate removes a template the reader agreed to delete.
+func (m Model) deleteTemplate(name string) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx := m.svc, m.ctx
+	return func() tea.Msg {
+		return actionMsg{kind: actionDeleteTemplate, label: name, err: svc.DeleteTemplate(ctx, name)}
+	}
+}
+
+// saveTemplate keeps a task as a template.
+func (m Model) saveTemplate(task core.Task, in core.SaveTemplateInput) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	return func() tea.Msg {
+		tpl, err := svc.SaveTemplate(ctx, in)
+		msg := actionMsg{kind: actionSaveTemplate, ref: ref, label: label, err: err}
+		if err == nil {
+			msg.sentence = "saved " + label + " as template " + tpl.Name
+		}
+		return msg
+	}
+}
+
 // restore brings a deleted task back.
 func (m Model) restore(task core.Task) tea.Cmd {
 	if m.svc == nil {
@@ -765,6 +852,36 @@ func (m Model) restore(task core.Task) tea.Cmd {
 	return func() tea.Msg {
 		_, err := svc.RestoreTask(ctx, ref)
 		return actionMsg{kind: actionRestore, ref: ref, label: label, err: err}
+	}
+}
+
+// snooze hides a task until the time the reader typed, read in the local zone
+// the way the CLI reads it.
+func (m Model) snooze(task core.Task, when string) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	until, err := query.ParseUntil(when, m.now(), time.Local)
+	return func() tea.Msg {
+		if err != nil {
+			return actionMsg{kind: actionSnooze, ref: ref, label: label, err: err}
+		}
+		_, err := svc.SnoozeTask(ctx, ref, core.SnoozeInput{Until: until})
+		return actionMsg{kind: actionSnooze, ref: ref, label: label, err: err,
+			sentence: "snoozed " + label + " until " + until.Local().Format("Mon 2 Jan 15:04")}
+	}
+}
+
+// unsnooze brings a snoozed task back now.
+func (m Model) unsnooze(task core.Task) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, task.Ref
+	return func() tea.Msg {
+		_, err := svc.UnsnoozeTask(ctx, ref)
+		return actionMsg{kind: actionUnsnooze, ref: ref, label: label, err: err}
 	}
 }
 

@@ -36,8 +36,8 @@ tix task ls --filter 'status:todo -tag:chore'          # to do, excluding chores
 tix task ls --filter '-assignee:01M3... -priority:low' # not theirs, not low priority
 ```
 
-Negatable: `project`, `status`, `tag`, `assignee`, `creator`, `claimed-by`, `priority`, `is:`, `title`, `body`,
-`text`, and a bare word.
+Negatable: `project`, `status`, `tag`, `assignee`, `creator`, `claimed-by`, `priority`, `is:`, `snoozed`
+(except `snoozed:any`), `title`, `body`, `text`, and a bare word.
 
 Not negatable: `sort`, `limit`, `parent`, `due`, `due-before`, `due-after`. Those name a shape of the listing rather
 than a set of tasks, so "not sorted by title" is not a question with an answer; asking is a usage error, not a
@@ -121,6 +121,9 @@ is what makes a large PostgreSQL install fast. If you need an answer that does n
 | `is:starred`, `is:unstarred`, `starred:true`, `starred:false` | tasks you starred, or did not | yes | no |
 | `has:checklist` | the description carries a checklist | yes | no |
 | `checklist:open`, `checklist:done` | a checklist item is still open, or every item is ticked | `checklist:open` only | no |
+| `is:snoozed`, `snoozed:true` | only snoozed tasks; it narrows | yes | no |
+| `is:awake`, `snoozed:false` | only tasks that are not snoozed, which is the default | yes | no |
+| `snoozed:any` | snoozed tasks beside the rest; it widens, like `is:deleted` | no | no |
 | `sort:FIELD`, `limit:N` | listing shape | no | no |
 | bare word | free text, engine-native | yes (becomes a weak match) | n/a |
 
@@ -166,6 +169,27 @@ what both storage engines can answer the same way and the terminal can answer in
 card is taken from the rendered Markdown instead, so a marker typed inside a code block, or an ordered
 list item such as `1. [ ] ...`, is the one place the two can disagree: the filter counts the first and
 not the second, the card the other way round.
+
+## Snoozed tasks
+
+A snoozed task is left out of every listing that does not ask for it, for every reader: a snooze is
+set on the task, not by the person looking. It is snoozed while its `snoozed_until` is after the
+moment the listing is answered, so it comes back on time whether or not a server is running.
+
+| Expression | Flag | HTTP | Lists |
+| --- | --- | --- | --- |
+| nothing | nothing | nothing | tasks that are not snoozed |
+| `is:snoozed`, `snoozed:true` | `--snoozed` | `snoozed=true` | only snoozed tasks |
+| `-is:snoozed`, `is:awake`, `snoozed:false` | `--snoozed=false` | `snoozed=false` | tasks that are not snoozed |
+| `snoozed:any` | `--include-snoozed` | `snoozed=any` | both |
+
+The two families differ on purpose. `is:deleted` widens, because nobody goes looking for only the
+deleted tasks by that name; `is:snoozed` narrows, because "what did I park" is exactly the question
+people ask about snoozes. The widening spelling for snoozes is therefore `snoozed:any`, and
+`-snoozed:any` is a usage error rather than a guess.
+
+Reading one task by reference (`tix task show`, the task screen) always works on a snoozed task. Export,
+copy and project deletion walk every task, snoozed or not.
 
 ## Deadlines
 
@@ -301,6 +325,7 @@ $ curl -s -H "Authorization: Bearer $TIX_TOKEN" \
 | `not_priority` | repeatable, numeric 1–5 |
 | `starred` | `true` or `false`, against the caller's own stars |
 | `checklist`, `checklist_open` | `true` or `false`; `has:checklist` and `checklist:open` |
+| `snoozed` | `true`, `false` or `any`; absent leaves snoozed tasks out |
 | `text` | repeatable; `title~api`, `body:exact`, `any~value`, each optionally `-` prefixed |
 
 Everything is keyset-paginated as usual: there is no `OFFSET`, and the `cursor` a page returns is what fetches

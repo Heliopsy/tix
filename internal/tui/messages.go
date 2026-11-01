@@ -23,6 +23,7 @@ const (
 	viewStats
 	viewProject
 	viewHistory
+	viewInbox
 )
 
 // actionKind names a board action whose result is reported back.
@@ -55,8 +56,15 @@ const (
 	actionArtifact
 	actionStar
 	actionUnstar
+	actionSnooze
+	actionUnsnooze
 	actionArrange
 	actionCopy
+	actionUseTemplate
+	actionSaveTemplate
+	actionRenameTemplate
+	actionDeleteTemplate
+	actionShowTemplate
 	actionEditTenant
 	actionAddDomain
 	actionRemoveDomain
@@ -100,8 +108,16 @@ var actionLabels = map[actionKind][2]string{
 	actionStar:     {"star the task", "starred"},
 	actionCheck:    {"tick the checklist item", "updated the checklist of"},
 	actionUnstar:   {"unstar the task", "unstarred"},
+	actionSnooze:   {"snooze the task", "snoozed"},
+	actionUnsnooze: {"unsnooze the task", "unsnoozed"},
 	actionArrange:  {"arrange the board", "arranged the board"},
 	actionCopy:     {"copy the task", "copied"},
+
+	actionUseTemplate:    {"create a task from the template", "created"},
+	actionSaveTemplate:   {"save the template", "saved template"},
+	actionRenameTemplate: {"rename the template", "renamed template"},
+	actionDeleteTemplate: {"delete the template", "deleted template"},
+	actionShowTemplate:   {"read the template", "read template"},
 
 	// The tenant screen's own actions. Their subject is the tenant, a hostname
 	// or a membership rather than a task, so each carries its own sentence and
@@ -125,7 +141,7 @@ func (a actionKind) Past() string { return actionLabels[a][1] }
 // view knows to fetch it again.
 func (a actionKind) Mutates() bool {
 	switch a {
-	case actionClaim, actionRelease, actionRenew:
+	case actionClaim, actionRelease, actionRenew, actionShowTemplate:
 		return false
 	default:
 		return true
@@ -315,6 +331,13 @@ type statsMsg struct {
 type tagsMsg struct {
 	tags []core.Tag
 	err  error
+}
+
+// templatesMsg carries the templates the board's project can use, which the
+// template form offers to pick from.
+type templatesMsg struct {
+	templates []core.TaskTemplate
+	err       error
 }
 
 // actorsMsg carries the tenant's directory, which the assignee form offers to

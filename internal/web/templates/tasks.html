@@ -132,7 +132,24 @@
     <span class="addmore-label">{{t "Add with details"}}</span>
   </button>
   {{end}}
+  {{/* The add box menu: the templates a new task can start from. A popover
+       like the lane card menu, so Escape closes only the menu and focus
+       returns to its button; each entry is a link to the New from template
+       form, which works with scripting off. */}}
+  {{if $v.Templates}}
+  <button type="button" class="secondary addtpl-open" popovertarget="addtpl" aria-label="{{t "New from template"}}" title="{{t "New from template"}}">
+    <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#templates"/></svg>
+    <span class="addmore-label">{{t "From template"}}</span>
+  </button>
+  {{end}}
 </form>
+{{if $v.Templates}}
+<div id="addtpl" class="flowmenu lanepop lanemore-menu addtpl-menu" popover data-lane-menu>
+  <p class="flowhead">{{t "New from template"}}</p>
+  {{range $v.Templates}}<a class="flowgo" href="/templates/new?template={{.ID}}&amp;next={{$v.Self | urlquery}}">{{.Name}}{{if not .TenantWide}} <span class="muted mono">{{.ProjectKey}}</span>{{end}}</a>{{end}}
+  <a class="flowgo" href="/templates">{{t "All templates…"}}</a>
+</div>
+{{end}}
 
 <div id="quickadd-preview" class="quickadd-preview" aria-live="polite">{{template "quickadd-preview" $v.Quick}}</div>
 
@@ -155,7 +172,7 @@
 
 <div id="filterpop" class="filterpop" popover>
 <form method="get" action="/tasks" class="filterbar">
-  <input name="q" value="{{$v.Query}}" placeholder="{{t "Filter, for example status:todo tag:ops"}}" aria-label="{{t "Filter"}}" data-shortcut-target="filter">{{template "tip" (tip "Filter" "Terms are combined: status:todo tag:ops assignee:lena is:starred is:recurring due:overdue. A leading - excludes a term, as in -tag:chore, title~api matches part of a title, and a bare word searches titles and descriptions." "docs/filtering.md")}}
+  <input name="q" value="{{$v.Query}}" placeholder="{{t "Filter, for example status:todo tag:ops"}}" aria-label="{{t "Filter"}}" data-shortcut-target="filter">{{template "tip" (tip "Filter" "Terms are combined: status:todo tag:ops assignee:lena is:starred is:recurring is:snoozed due:overdue. A leading - excludes a term, as in -tag:chore, title~api matches part of a title, and a bare word searches titles and descriptions." "docs/filtering.md")}}
   {{/* The deadline control. "What is overdue" was answerable over the API and
        nowhere a reader could click, so the one question a due date exists to
        answer needed a filter expression typed by hand. What it selects is
@@ -351,12 +368,13 @@
         {{/* A merged board mixes projects in one column, so each card says
              which list it belongs to. A board of one project does not: the
              heading already said it, and repeating it on every card is noise. */}}
-        {{if or $v.Board.Merged $showPrio $showTags $showRepeat .Task.Checklist}}
+        {{if or $v.Board.Merged $showPrio $showTags $showRepeat (snoozed .Task) .Task.Checklist}}
         <div class="card-meta">
           {{if $v.Board.Merged}}<a class="projref{{with projClass $acc.Color}} {{.}}{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} href="/tasks?q=project:{{$acc.Key}}" title="{{t "Only tasks in %s" $acc.Name}}">{{template "proj-icon" (projIcon $acc true)}}{{$acc.Key}}</a>{{end}}
           {{if $showPrio}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="{{t "Only %s priority tasks" (t (prio .Task.Priority))}}"><span class="caret" aria-hidden="true"></span>{{t (prio .Task.Priority)}}</a>{{end}}
           {{if $showRepeat}}{{template "repeatmark" .Task.Recurrence}}{{end}}
           {{with .Task.Checklist}}{{template "checkmark" .}}{{end}}
+          {{if snoozed .Task}}<span class="snoozemark" title="{{t "Snoozed until %s" (stamp .Task.SnoozedUntil)}}">{{t "until %s" (stamp .Task.SnoozedUntil)}}</span>{{end}}
           {{if $showTags}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
         </div>
         {{end}}
@@ -543,6 +561,7 @@
           {{with .Task.Checklist}}{{template "checkmark" .}}{{end}}
           {{if $.Columns.Show "tasks" "tags"}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
           {{if $.Columns.Show "tasks" "ref"}}<span class="ref mono">{{.Task.Ref}}</span>{{end}}
+          {{if snoozed .Task}}<span class="snoozemark" title="{{t "Snoozed until %s" (stamp .Task.SnoozedUntil)}}">{{t "until %s" (stamp .Task.SnoozedUntil)}}</span>{{end}}
         </div>
       </div>
       {{/* More actions: the one control the View menu cannot hide, so a
@@ -561,7 +580,8 @@
           <button type="button" class="flowgo" data-copy-link="/tasks/{{.Task.Ref}}">{{t "Copy link"}}</button>
           <button type="button" class="flowgo" data-copy-text="{{.Task.Ref}}">{{t "Copy reference"}}</button>
           {{if .Write}}<a class="flowgo" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}" data-rename="{{.Task.Ref}}" data-version="{{.Task.Version}}" data-no-press>{{t "Rename"}}</a>{{end}}
-          {{if .Write}}<a class="flowgo" href="/tasks/{{.Task.Ref}}/copy?next={{$v.Self | urlquery}}" data-dialog-load data-copy-to>{{t "Copy to…"}}</a>{{end}}
+          {{if .Write}}<a class="flowgo" href="/tasks/{{.Task.Ref}}/copy?next={{$v.Self | urlquery}}" data-dialog-load data-copy-to>{{t "Copy to…"}}</a>
+          <a class="flowgo" href="/tasks/{{.Task.Ref}}/template" data-dialog-load>{{t "Save as template"}}</a>{{end}}
           {{if $.CanStar}}
           <form method="post" action="/tasks/{{.Task.Ref}}/star{{if .Task.Starred}}/remove{{end}}"
                 hx-post="/tasks/{{.Task.Ref}}/star{{if .Task.Starred}}/remove{{end}}" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
@@ -570,6 +590,21 @@
             <input type="hidden" name="next" value="{{$v.Self}}">
             <button type="submit" class="flowgo">{{if .Task.Starred}}{{t "Unstar"}}{{else}}{{t "Star"}}{{end}}</button>
           </form>
+          {{end}}
+
+          {{if .Write}}
+          {{if snoozed .Task}}
+          <form method="post" action="/tasks/{{.Task.Ref}}/snooze/remove"
+                hx-post="/tasks/{{.Task.Ref}}/snooze/remove" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
+                hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="more">
+            {{template "csrf" $.CSRF}}
+            <input type="hidden" name="next" value="{{$v.Self}}">
+            <button type="submit" class="flowgo">{{t "Unsnooze"}}</button>
+          </form>
+          {{else}}
+          <p class="flowhead lanemore-sect">{{t "Snooze"}}</p>
+          {{template "snooze-choices" (snoozeForm .Task.Ref $v.Self $.CSRF (print "lsnooze-" .Task.Ref) $card)}}
+          {{end}}
           {{end}}
 
           {{if or .Tick .Locked.Key}}
@@ -997,6 +1032,7 @@
       {{if $r.Columns.Show "tasks" "due"}}{{$due := due .}}{{if $due}}<a class="duemark is-{{$due}}" href="/tasks?due={{if eq $due "overdue"}}overdue{{else}}week{{end}}" title="{{t "Due %s" (stamp .DueAt)}}">{{if eq $due "overdue"}}{{t "overdue"}}{{else}}{{t "due this week"}}{{end}}</a>{{end}}{{end}}
       {{if and .Recurrence ($r.Columns.Show "tasks" "repeat")}}{{template "repeatmark" .Recurrence}}{{end}}
       {{with .Checklist}}{{template "checkmark" .}}{{end}}
+      {{if snoozed .}}<a class="snoozemark" href="/tasks?q=is:snoozed" title="{{t "Snoozed until %s" (stamp .SnoozedUntil)}}{{with $r.Data.Names.Label .SnoozedByActorID}}, {{t "snoozed by %s" .}}{{end}}">{{t "until %s" (stamp .SnoozedUntil)}}</a>{{end}}
       </span>
       {{if $r.Columns.Show "tasks" "updated"}}<span class="tm tm-when"><span class="when" title="{{t "Last updated %s" (compact .UpdatedAt)}}"><span class="when-label">{{t "updated"}}</span> {{compact .UpdatedAt}}</span></span>{{end}}
       {{if $r.Columns.Show "tasks" "ref"}}<span class="tm tm-ref"><span class="ref mono">{{.Ref}}</span></span>{{end}}
@@ -1027,6 +1063,7 @@
   {{with $f.Status}}<input type="hidden" name="status" value="{{.}}">{{end}}
   <div class="cform-head">
     <h2 class="cform-title">{{t "New task"}}</h2>
+    <a class="ghostlink cform-fromtpl" href="/templates/new?next={{$v.Self | urlquery}}">{{t "New from template"}}</a>
   </div>
   {{with $e.On ""}}{{template "field-error" .}}{{end}}
   <div class="cform-grid">
@@ -1038,7 +1075,7 @@
       </div>
       <div class="cfield cfield-grow">
         <div class="cfield-label"><label for="new-body">{{t "Description"}}</label></div>
-        <textarea id="new-body" name="body" rows="6" placeholder="{{t "Add a description"}}"{{$e.Attrs "body"}}>{{$f.Body}}</textarea>
+        <textarea id="new-body" name="body" rows="6" data-mention="new-handles" placeholder="{{t "Add a description"}}"{{$e.Attrs "body"}}>{{$f.Body}}</textarea>
         {{with $e.On "body"}}{{template "field-error" .}}{{end}}
       </div>
     </div>

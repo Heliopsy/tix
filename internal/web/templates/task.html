@@ -21,6 +21,18 @@
        data-dialog-load keeps it inside the dialog when the task is open in
        one; see assets/taskopen.js. */}}
   {{if .Data.CanWrite}}<a class="ghostlink copyto" href="/tasks/{{$t.Ref}}/copy" data-dialog-load>{{t "Copy to…"}}</a>{{end}}
+  {{/* Snooze opens its menu, which lives below with the other two so a live
+       refresh never swaps it away. A snoozed task offers Unsnooze instead,
+       one press, since there is nothing to choose. */}}
+  {{if .Data.CanWrite}}{{if snoozed $t}}
+  <form method="post" class="snoozeform" action="/tasks/{{$t.Ref}}/snooze/remove">
+    {{template "csrf" $.CSRF}}
+    <input type="hidden" name="next" value="{{$.Here}}">
+    <button type="submit" class="ghostlink snoozebtn" data-focus="snooze">{{t "Unsnooze"}}</button>
+  </form>
+  {{else}}<button type="button" class="ghostlink snoozebtn" data-focus="snooze" popovertarget="{{$.IDPrefix}}snooze-{{$t.Ref}}"
+          aria-label="{{t "Snooze %s" $t.Ref}}" title="{{t "Hide it from every listing until later"}}">{{t "Snooze"}}</button>{{end}}{{end}}
+  {{if .Data.CanWrite}}<a class="ghostlink savetpl" href="/tasks/{{$t.Ref}}/template" data-dialog-load>{{t "Save as template"}}</a>{{end}}
 </div>
 {{$held := claim $t}}
 {{/* A div, not a p. The status and priority controls carry popover panels,
@@ -70,6 +82,15 @@
 </div>
 {{end}}
 
+{{if and .Data.CanWrite (not (snoozed $t))}}
+<div id="{{$.IDPrefix}}snooze-{{$t.Ref}}" class="flowmenu snoozepop" popover{{if not .InDialog}} data-inplace="main.wrap"{{end}}>
+  <p class="flowhead">{{t "Snooze"}} <span class="mono">{{$t.Ref}}</span></p>
+  {{template "tip" (tip "Snooze" "A snoozed task leaves every listing, for everybody, until the time you pick, then comes back by itself. Agents cannot claim it meanwhile. is:snoozed finds it." "docs/web-ui.md")}}
+  {{template "snooze-choices" (snoozeForm $t.Ref $.Here $.CSRF (print $.IDPrefix "snoozeat-" $t.Ref) "")}}
+  <button type="button" class="flowclose" popovertarget="{{$.IDPrefix}}snooze-{{$t.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
+</div>
+{{end}}
+
 <div class="detail"{{if not .InDialog}} data-inplace="main.wrap"{{end}}>
 <div class="main">
 
@@ -99,7 +120,7 @@
       <div class="field-label"><label for="{{.IDPrefix}}body">{{t "Description"}}</label>
         {{template "tip" (tip "Description" "Written in Markdown: **bold**, lists, tables, `code`, links, and - [ ] for a checklist the task screen can tick. A reference such as infra-8 and an @handle become links. HTML is shown as typed, and images are linked rather than loaded." "docs/features.md")}}
         {{template "md-preview" (print .IDPrefix "body")}}</div>
-      <textarea id="{{.IDPrefix}}body" name="body" placeholder="{{t "Add a description"}}">{{$t.Body}}</textarea>
+      <textarea id="{{.IDPrefix}}body" name="body" data-mention="actor-handles" placeholder="{{t "Add a description"}}">{{$t.Body}}</textarea>
       <div class="md mdpreview" id="{{.IDPrefix}}body-preview" aria-live="polite" hidden></div>
       <div class="row">
         <div>
@@ -209,7 +230,7 @@
       {{/* One row, not a label over a four-line box over a button. The
            composer was the tallest thing in the card and it is the part
            nobody is reading. It grows when it is typed into. */}}
-      <textarea id="comment-body" name="body" rows="1" class="composer"
+      <textarea id="comment-body" name="body" rows="1" class="composer" data-mention="actor-handles"
                 placeholder="{{t "Add a comment"}}" aria-label="{{t "Add a comment"}}"
                 data-shortcut-target="comment" required></textarea>
       <div class="md mdpreview" id="comment-body-preview" aria-live="polite" hidden></div>
@@ -449,6 +470,7 @@
   </span>
   {{else}}<span class="prio p-{{$p}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>{{end}}
   {{if $t.Blocked}}<span class="pill status blocked">{{t "blocked"}}</span>{{end}}
+  {{if snoozed $t}}<span class="snoozemark"{{with $.Data.Names.Label $t.SnoozedByActorID}} title="{{t "Snoozed by %s" .}}"{{end}}>{{t "Snoozed until %s" (stamp $t.SnoozedUntil)}}</span>{{end}}
   {{/* The lease, and what is left of the last one. The sweeper clears the
        lease columns within a minute of a claim lapsing, so without the
        evidence it leaves behind a task an agent took and abandoned looked
@@ -515,7 +537,7 @@
             {{template "csrf" $.CSRF}}
             <input type="hidden" name="id" value="{{.ID}}">
             <label for="edit-{{.ID}}">{{t "Rewrite"}}</label>
-            <textarea id="edit-{{.ID}}" name="body" rows="5" required>{{.Body}}</textarea>
+            <textarea id="edit-{{.ID}}" name="body" rows="5" required data-mention="actor-handles">{{.Body}}</textarea>
             <div class="actions">
               <button type="submit">{{t "Save"}}</button>
               <button type="button" class="secondary flowclose" popovertarget="{{$eid}}" popovertargetaction="hide">{{t "Cancel"}}</button>

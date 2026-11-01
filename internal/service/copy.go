@@ -84,6 +84,9 @@ type copier struct {
 	copies   map[string]*core.Task
 	order    []string
 	handles  map[string]string
+	// template names the template a use copies from; empty for a copy of a
+	// task. It changes the audit action and what the event payload names.
+	template string
 }
 
 // newCopier resolves the target project and checks the authority the options
@@ -97,6 +100,12 @@ func (l *Local) newCopier(ctx context.Context, m *mutation, source *core.Task, i
 	if err != nil {
 		return nil, core.OnField(err, "project_ref")
 	}
+	return l.copierInto(ctx, m, project, in, project.ID == source.ProjectID)
+}
+
+// copierInto builds a copier into a resolved project, checking the authority
+// the options need there.
+func (l *Local) copierInto(ctx context.Context, m *mutation, project *core.Project, in core.CopyTaskInput, sameHome bool) (*copier, error) {
 	if _, err := l.authorize(ctx, authz.ActionTaskCreate, authz.Resource{ProjectID: project.ID}); err != nil {
 		return nil, err
 	}
@@ -115,7 +124,7 @@ func (l *Local) newCopier(ctx context.Context, m *mutation, source *core.Task, i
 	}
 	return &copier{
 		l: l, m: m, in: in, project: project, workflow: wf.Definition, defs: defs,
-		sameHome: project.ID == source.ProjectID,
+		sameHome: sameHome,
 		copies:   map[string]*core.Task{}, handles: map[string]string{},
 	}, nil
 }
@@ -302,10 +311,15 @@ func (c *copier) record(ctx context.Context, sources []core.Task) error {
 		if err != nil {
 			return err
 		}
-		if err := c.m.Record("task.copy", core.EventTaskCreated, "task", loaded.ID, loaded.ProjectID,
-			nil, loaded, map[string]any{
-				"ref": loaded.Ref, "title": loaded.Title, "status": loaded.Status, "copied_from": refs[id],
-			}); err != nil {
+		action := "task.copy"
+		payload := map[string]any{"ref": loaded.Ref, "title": loaded.Title, "status": loaded.Status}
+		if c.template != "" {
+			action, payload["template"] = auditTaskTemplate, c.template
+		} else {
+			payload["copied_from"] = refs[id]
+		}
+		if err := c.m.Record(action, core.EventTaskCreated, "task", loaded.ID, loaded.ProjectID,
+			nil, loaded, payload); err != nil {
 			return err
 		}
 	}

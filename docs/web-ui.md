@@ -285,9 +285,9 @@ swapping the error page in, which used to make the card disappear.
 They open a menu with the whole task in it: open the task (in the dialog when Task opens in is set
 to Dialog), copy its link or its reference, complete or reopen it along the tick's routes (or the
 tick's reason when it offers none), move it to any state the status menu offers, follow a link to the
-task for a move that needs a comment, change the priority, star or unstar it, rename the title in
-place, set the assignee (the field suggests the tenant's handles), add and remove tags, and delete it.
-A reader sees only what their scopes allow: moves need `task:transition`; priority, rename,
+task for a move that needs a comment, change the priority, star or unstar it, snooze or unsnooze it,
+rename the title in place, set the assignee (the field suggests the tenant's handles), add and remove tags, and delete it.
+A reader sees only what their scopes allow: moves need `task:transition`; priority, snooze, rename,
 assignee and tags need `task:write`; delete needs `task:delete`. A reader who may only read gets
 open, copy and their star.
 
@@ -392,6 +392,65 @@ keyboard shortcuts stand down and a live refresh waits; Escape closes only the m
 The list can group its rows: View, **Group the list**, or Settings, Listings. The grouping splits the
 page being shown, so paging is unchanged and a group can run on to the next page.
 
+## The inbox
+
+The first entry in the sidebar is Inbox, with a badge counting your unread items. An item arrives when
+somebody mentions you as `@handle` in a comment or a task description, assigns you a task, comments on a
+task you are assigned to or starred, or moves a task assigned to you to another status. Your own changes
+never reach it, and one change gives you at most one item per task: a comment that mentions the assignee
+is a mention, not a mention and a comment. Editing a comment or a description notifies only handles the
+earlier text did not name, so fixing a typo does not mention everybody again.
+
+The badge stays current on every screen: it subscribes to the event stream for `inbox.updated` alone and
+asks `/inbox/badge` for the count when one arrives. The page carries no actor identifier for the script to
+compare against, so the server, which knows who is reading, answers. Without JavaScript it is as current
+as the page. On the collapsed rail it is a dot on the icon, and on a phone a dot on the menu button.
+
+`/inbox` lists items newest first, each saying who did what (mentioned you, assigned you, commented,
+moved it from one status to another), the task's reference and title, the text quoted from the comment or
+description, and when. Unread items carry a dot and bold text. All and Unread switch the list; Mark read
+and Mark unread on each row, and Mark all read above the list, are plain forms that redraw the list in
+place with htmx and work without it. Opening an item marks it read and opens the task the way your
+dialog setting says, over the inbox or as its own page; without JavaScript the link opens the task and
+the row's button marks it read. The listing pages by keyset like every other.
+
+Settings has an Inbox section with one switch per kind: Mentions, Assignments, Status changes and
+Comments. A kind turned off creates no item for you at all. Unlike the rest of Settings these are kept
+with your account rather than the browser, because they decide what the server writes, so they apply in
+every browser, the terminal and the command line (`tix inbox prefs`).
+
+The list keeps itself current. It is bound to the event stream for `inbox.updated`, and when one arrives
+it fetches its own page again and swaps the bar and the list in place, the way the task list does: the
+scroll position and focus stay where they were, a refresh waits while you are in the middle of something,
+and the rows the redraw brought are washed in the accent colour for a few seconds (shown without the fade
+when your system asks for reduced motion).
+
+### Notification channels
+
+Settings has a Notifications section for sending your inbox items elsewhere as they arrive: a Slack
+incoming webhook, a Discord webhook, an ntfy topic URL, or your own endpoint taking signed JSON. Each
+channel has a name, a URL, a format, the kinds it sends (mentions, assignments, status changes, comments)
+and an on switch. The add form uses the same layout as New project. These are yours, kept with your
+account, and only your items reach them; a kind you turned off above is not sent either. They are not the
+tenant's webhooks under Configure.
+
+Adding a channel opens its own screen, which shows the signing secret once (signed JSON deliveries carry
+`X-Tix-Signature` made with it), then the channel's settings, Send test, and its recent deliveries with
+their state, attempts and the last answer, each not yet delivered with a Redeliver button. A refused
+delivery is retried on the same schedule as a tenant webhook, and private network addresses are refused
+the same way. Each message says who did what to which task and links it when the tenant has a domain.
+
+### Mentioning someone
+
+Typing `@` in a comment box, the task description or the new task form's description offers the handles
+of the tenant's directory, the same list the assignee field suggests, narrowed as you type: handles that
+start with what you typed first, then those containing it. The arrow keys move through the list, Enter
+or Tab inserts `@handle` and a space and does not submit the form, and Escape closes the list and nothing else, so a
+comment in the task dialog stays open. The box is a combobox while the list is open, so a screen reader
+announces the option under the arrows. On a phone the list is a bottom sheet, and each option is at
+least 40px tall on a touch screen. Without JavaScript the box is a plain textarea, and a handle typed in
+full mentions just the same. An `@` after a letter, as in an email address, is not a mention.
+
 ## Starring a task
 
 Every task the browser draws carries a star: beside the tick on a list row or a lane card, before the
@@ -413,6 +472,32 @@ CSRF token, so it works with no script. It is a real button, `aria-pressed` says
 starred, and its name says what pressing it does: "Star infra-2" or "Unstar infra-2". The icon is an
 outline until pressed and filled after, so the state is a shape and not a colour alone. Starring
 needs only what reading the task needs.
+
+## Snoozing a task
+
+Snooze hides a task from every listing, for everybody, until a time you pick, and then it comes back
+by itself. Nothing has to run for that: every listing compares the wake time with the clock. Agents
+cannot claim a snoozed task until it wakes.
+
+Snooze is in two places. On the task screen it is in the title bar, beside Copy to; on a lane card it
+is a section of the three dots menu. Both offer **Later today** (three hours on, rounded up to the
+hour), **Tomorrow morning** (09:00), **Next week** (09:00 next Monday) and **Pick a date**, a date
+and time field with its own Snooze button. Every choice is read in the time zone chosen under
+Settings, or the server's when none is, so tomorrow morning is your morning. A time that has passed
+is refused and nothing changes: on the task screen the refusal is a toast, in the lane it is said
+inside the card. List rows have no snooze control of their own; open the task or use the lanes.
+
+Each choice is a plain form posting to `/tasks/REF/snooze` with `until` set to `later`, `tomorrow` or
+`next-week`, or with the picked time in `at`, so it works with no script. With htmx a lane card's
+snooze swaps the card, and because a snoozed task is not in the listing the card leaves the lane and
+the toast names the task and when it wakes.
+
+A snoozed task is drawn only where it was asked for, under `is:snoozed` or `snoozed:any` in the
+filter, and there it carries a dashed badge saying until when: "until 3 Nov 09:00" on a row or a card,
+"Snoozed until ..." on its own screen, where hovering names who snoozed it. Its task screen offers
+**Unsnooze** in place of Snooze, as does its lane card's menu; it posts to `/tasks/REF/snooze/remove`
+and the task is back at once. Snoozing and unsnoozing need `task:write`, and a reader without it is
+offered neither. See [filtering.md](filtering.md#snoozed-tasks).
 
 ## Moving a task through its workflow
 
@@ -575,6 +660,42 @@ in the order the list draws them. Cells are quoted the RFC 4180 way, and a cell 
 `-`, `@`, a tab or a carriage return gets a leading `'`, so a spreadsheet shows it as text instead of
 running it as a formula. `tix task ls -o csv` and `GET /api/v1/tasks?format=csv` export with a fixed set of
 columns.
+
+## Task templates
+
+A template is a named shape of a task that is not itself work: it never shows in a listing, a claim or the
+statistics.
+
+**Save as template**, beside Copy to… in the task screen's title bar and in a lane card's three dots menu,
+opens a small form drawn like the copy form: the template's name (the task's title to start with), whether
+it is for **This project** or **All projects**, whether the subtasks come along (ticked when the task has
+any), and an optional **Due in** such as 3d or 12h. The template keeps the title, description with its
+checklists, priority, tags, custom fields and repeat rule. Status, assignee, due date, comments and history
+stay with the task. A name another template already holds, in any case, is refused under the name field.
+When tasks open in a dialog the form opens in the same dialog; saving returns to the task with a toast.
+
+**Templates**, under Configure in the sidebar, lists every template the reader can see with its project
+(or All projects), the title it creates, how many tasks it holds, its due offset and how often it was used.
+Each row links to **Use** and **Edit**. The edit screen renames the template, moves it to a project or to
+all projects, and changes the title, description, priority, due offset, tags, repeat rule and custom fields
+(one `key=value` per line; a line removed removes the field). Its subtasks are listed for reading; save a
+task as a template again to change them. **Delete template** sits under Danger zone; tasks already made
+from it stay as they are.
+
+**New from template** creates a task, and a subtask for each one the template holds. It is offered by the
+**From template** button at the end of the add box, a menu listing the templates with All templates… at
+the bottom, by a link at the top of Add with details, and by Use on the Templates screen. The form takes
+the template, a title (empty keeps the template's), the project (the template's own to start with, which a
+template for all projects needs when the tenant has several) and **Due in** (empty for the template's own
+offset, 0 for none). Titles may carry placeholders, matched in any case and filled in at each use:
+`{DATE}` is today's date as YYYY-MM-DD, `{N}` the use number and `{PROJECT}` the project's key. The task
+starts in the project's first state and keeps the custom fields the project defines. Creating returns to
+the listing the form was opened from with a toast linking the new task, or opens it when "Open a new task"
+is on. A refusal comes back with every value kept and the reason under its field.
+
+The add box menu is a popover like the lane card menu: arrow keys move through it, Escape closes it and
+returns focus to its button, and on a phone it rises from the bottom of the screen with 40px rows. Every
+entry is a link, so it all works with scripting off.
 
 ## Acting in place
 
