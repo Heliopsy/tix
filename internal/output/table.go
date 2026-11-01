@@ -138,6 +138,12 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, groupPrefHeader, []core.GroupPref{v}, groupPrefRow)
 	case *core.GroupPref:
 		return renderRows(w, p, groupPrefHeader, []core.GroupPref{*v}, groupPrefRow)
+	case []core.InboxItem:
+		return renderRows(w, p, inboxHeader, v, p.inboxRow)
+	case core.InboxItem:
+		return renderRows(w, p, inboxHeader, []core.InboxItem{v}, p.inboxRow)
+	case *core.InboxItem:
+		return renderRows(w, p, inboxHeader, []core.InboxItem{*v}, p.inboxRow)
 	case core.ProjectDeletion:
 		return renderProjectDeletion(w, p, &v)
 	case []core.SavedFilter:
@@ -172,6 +178,7 @@ var (
 	fieldHeader       = table.Row{"KEY", "LABEL", "TYPE", "REQUIRED", "INDEXED", "OPTIONS"}
 	depHeader         = table.Row{"TASK", "DEPENDS ON", "CREATED"}
 	deliveryHeader    = table.Row{"ID", "ENDPOINT", "EVENT", "STATUS", "ATTEMPTS", "NEXT ATTEMPT", "CODE"}
+	inboxHeader       = table.Row{"ID", "KIND", "TASK", "TITLE", "BY", "WHAT", "CREATED", "READ"}
 	tagHeader         = table.Row{"ID", "NAME", "PROJECT", "COLOR"}
 	groupPrefHeader   = table.Row{"VIEW", "GROUP", "HIDDEN", "COLLAPSED", "STARRED", "POSITION"}
 	savedFilterHeader = table.Row{"NAME", "FILTER", "VIEW", "SORT", "SHARED", "MINE", "ID"}
@@ -313,6 +320,21 @@ func dashIfEmpty(s string) string {
 		return "-"
 	}
 	return s
+}
+
+// inboxRow is one inbox item. WHAT is the status change of a status item and
+// the quoted text of the others.
+func (p Painter) inboxRow(it core.InboxItem) table.Row {
+	what := it.Excerpt
+	if it.Kind == core.InboxStatus {
+		what = it.FromStatus + " -> " + it.ToStatus
+	}
+	ref := it.TaskRef
+	if ref == "" {
+		ref = it.TaskID
+	}
+	return table.Row{it.ID, string(it.Kind), ref, it.TaskTitle, it.ActorHandle, what,
+		p.style.Format(it.CreatedAt), yesNo(it.Read())}
 }
 
 func tagRow(t core.Tag) table.Row {

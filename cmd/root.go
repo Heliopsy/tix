@@ -227,6 +227,7 @@ func newRoot(environ []string, dir string) (*cobra.Command, *globals) {
 var builders = []func(*globals) *cobra.Command{
 	newTaskCmd, newDepCmd, newTagCmd, newCommentCmd,
 	newProjectCmd, newWorkflowCmd, newFieldCmd, newClaimCmd, newViewCmd, newFilterCmd, newCalendarCmd,
+	newInboxCmd,
 	newTenantCmd, newDomainCmd, newMemberCmd, newActorCmd, newUserCmd, newTokenCmd, newLoginCmd,
 	newCtxCmd, newConfigCmd, newDoctorCmd, newPruneCmd, newRetentionCmd, newWebhookCmd,
 	newAuditCmd, newSyncCmd, newArtifactCmd, newWatchCmd, newLogoutCmd, newConnectionCmd,
