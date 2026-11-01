@@ -136,6 +136,10 @@ const (
 	RouteChannelTest       = APIPrefix + "/channels/{id}/test"
 	RouteChannelDeliveries = APIPrefix + "/channels/{id}/deliveries"
 	RouteChannelRedeliver  = APIPrefix + "/channel-deliveries/{id}/redeliver"
+
+	RouteTemplates   = APIPrefix + "/templates"
+	RouteTemplate    = APIPrefix + "/templates/{ref}"
+	RouteTemplateUse = APIPrefix + "/templates/{ref}/use"
 )
 
 // CalendarFeedPrefix starts every feed address, and CalendarFeedSuffix ends it.
