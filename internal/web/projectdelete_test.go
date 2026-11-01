@@ -155,3 +155,39 @@ func TestMovingFromTheBrowserLandsOnTheTarget(t *testing.T) {
 		t.Errorf("tasks in ops after the move = %d, %v", len(page.Tasks), err)
 	}
 }
+
+// The confirmation is drawn in the shared form layout: a form forms.js knows,
+// so Escape follows its Cancel link back to the board, Cancel beside the
+// action at the foot, and each answer a card holding the controls it needs.
+func TestTheDeletionConfirmationReadsAsAForm(t *testing.T) {
+	t.Parallel()
+	_, b := deletionFixture(t)
+
+	page := b.page("/projects/infra/delete")
+	if !strings.Contains(page, `<form method="post" class="cform delform" data-form hx-boost="false" data-apply action="/projects/infra/delete">`) {
+		t.Fatalf("the confirmation is not a shared-layout form forms.js handles:\n%s", page)
+	}
+	form := formAt(t, page, "/projects/infra/delete")
+	at := strings.Index(form, `<div class="cform-foot">`)
+	if at < 0 {
+		t.Fatalf("the confirmation has no form foot:\n%s", form)
+	}
+	foot := form[at:]
+	cancel := strings.Index(foot, `<a class="secondary cform-cancel" href="/projects/infra" data-form-cancel>`)
+	submit := strings.Index(foot, `<button class="danger" type="submit" name="intent" value="delete">`)
+	if cancel < 0 || submit < 0 || cancel > submit {
+		t.Errorf("the foot does not carry Cancel, then the delete action:\n%s", foot)
+	}
+	move := between(t, form, `<div class="delchoice">`, `<div class="delchoice is-danger">`)
+	for _, want := range []string{`value="move"`, `id="move_to"`, `<table class="delmap">`} {
+		if !strings.Contains(move, want) {
+			t.Errorf("the move card does not hold %q:\n%s", want, move)
+		}
+	}
+	gone := between(t, form, `<div class="delchoice is-danger">`, `<div class="cform-foot">`)
+	for _, want := range []string{`value="delete"`, `id="confirm"`} {
+		if !strings.Contains(gone, want) {
+			t.Errorf("the delete card does not hold %q:\n%s", want, gone)
+		}
+	}
+}

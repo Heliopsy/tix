@@ -26,3 +26,8 @@
 ## 4. Docs
 
 - [x] 4.1 `docs/api.md`, `docs/scripting.md`, `docs/web-ui.md`, `docs/tui.md`, `skills/tix/SKILL.md`
+
+## 5. Layout
+
+- [x] 5.1 `internal/web/templates/projectdelete.html`, `internal/web/assets/app.css`: the confirmation in the
+      shared form layout, radio cards, a mapping table that fits the card, sticky actions on a phone
