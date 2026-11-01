@@ -124,7 +124,7 @@ func (m Model) eventLine(e core.Event, selected bool) string {
 	when := output.FormatClock(e.OccurredAt)
 	actor := output.EventActor(e)
 	verb := output.EventVerb(e.Type)
-	ref := output.EventRef(e)
+	ref := output.ShowRef(output.EventRef(e))
 	head := marker + when + "  " + actor + "  " + verb + "  " + ref + "  "
 	detail := Truncate(output.EventDetail(e), max(0, m.width-lipgloss.Width(head)))
 	if selected {

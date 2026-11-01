@@ -76,7 +76,7 @@ func TestZeroConfigFirstRunCreatesTheDatabase(t *testing.T) {
 	if !strings.Contains(got.out, "buy milk") {
 		t.Fatalf("stdout = %q, want the title", got.out)
 	}
-	if !strings.Contains(got.out, "default-1") {
+	if !strings.Contains(got.out, "DEFAULT-1") {
 		t.Fatalf("stdout = %q, want a reusable ref", got.out)
 	}
 	if _, err := os.Stat(c.dbPath()); err != nil {
@@ -92,7 +92,7 @@ func TestEndToEndAddListClaim(t *testing.T) {
 	c.mustRun("task", "add", "buy milk")
 
 	list := c.mustRun("task", "ls")
-	if !strings.Contains(list.out, "default-1") || !strings.Contains(list.out, "buy milk") {
+	if !strings.Contains(list.out, "DEFAULT-1") || !strings.Contains(list.out, "buy milk") {
 		t.Fatalf("task ls = %q", list.out)
 	}
 
@@ -295,7 +295,7 @@ func TestRefsReadFromStandardInput(t *testing.T) {
 	if got.code != core.ExitOK {
 		t.Fatalf("exit = %d\n%s\n%s", got.code, got.out, got.err)
 	}
-	var outcomes []outcome
+	var outcomes []taskOutcome
 	if err := json.Unmarshal([]byte(got.out), &outcomes); err != nil {
 		t.Fatalf("not json: %v\n%s", err, got.out)
 	}
@@ -317,7 +317,7 @@ func TestBulkPartialFailureExitsNonZero(t *testing.T) {
 	if got.code == core.ExitOK {
 		t.Fatal("partial failure exited 0")
 	}
-	var outcomes []outcome
+	var outcomes []taskOutcome
 	if err := json.Unmarshal([]byte(got.out), &outcomes); err != nil {
 		t.Fatalf("not json: %v\n%s", err, got.out)
 	}

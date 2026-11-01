@@ -35,6 +35,9 @@ func init() {
 		for _, v := range tintLabels {
 			out = append(out, v)
 		}
+		for _, v := range projectLabelNames {
+			out = append(out, v)
+		}
 		for _, p := range columnPages {
 			out = append(out, p.Label)
 		}

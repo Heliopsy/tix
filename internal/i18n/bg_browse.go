@@ -193,8 +193,8 @@ func init() {
 		"No projects yet. Use New project to make the first one.": "Все още няма проекти. Създайте първия с „Нов проект“.",
 		"New project":    "Нов проект",
 		"Create project": "Създай проект",
-		"A project groups tasks under a short key that starts every reference, as in infra-5. Each project uses one workflow, which gives its board its columns. An archived project is hidden from active lists and keeps its tasks.": "Проектът групира задачи под кратък ключ, с който започва всяка референция, например infra-5. Всеки проект използва един работен процес, който дава колоните на таблото му. Архивираният проект е скрит от активните списъци и запазва задачите си.",
-		"A short code for the project, such as infra. Every task reference starts with it, as in infra-5.":                                                                                                                             "Кратък код на проекта, например infra. С него започва всяка референция на задача, например infra-5.",
+		"A project groups tasks under a short key that starts every reference, as in INFRA-5. Each project uses one workflow, which gives its board its columns. An archived project is hidden from active lists and keeps its tasks.": "Проектът групира задачи под кратък ключ, с който започва всяка референция, например INFRA-5. Всеки проект използва един работен процес, който дава колоните на таблото му. Архивираният проект е скрит от активните списъци и запазва задачите си.",
+		"A short code for the project, such as INFRA. Every task reference starts with it, as in INFRA-5.":                                                                                                                             "Кратък код на проекта, например INFRA. С него започва всяка референция на задача, например INFRA-5.",
 
 		// Custom fields.
 		"Field definitions for %s":      "Дефиниции на полета за %s",

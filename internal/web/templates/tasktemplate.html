@@ -7,7 +7,7 @@
 <form method="post" class="cform copyform" data-form action="/tasks/{{$t.Ref}}/template">
   {{template "csrf" .CSRF}}
   <div class="cform-head">
-    <h1 class="cform-title"{{if .InDialog}} id="taskdlg-title"{{end}}>{{t "Save as template"}} <span class="ref mono">{{$t.Ref}}</span></h1>
+    <h1 class="cform-title"{{if .InDialog}} id="taskdlg-title"{{end}}>{{t "Save as template"}} <span class="ref mono">{{ref $t.Ref}}</span></h1>
     {{template "tip" (tip "Task templates" "The template keeps this task's title, description, priority, tags, custom fields and repeat rule, and its subtasks when ticked. Status, assignee, due date, comments and history stay with the task. Templates never show in a listing; find them under Templates." "docs/web-ui.md")}}
   </div>
   {{with $e.On ""}}{{template "field-error" .}}{{end}}

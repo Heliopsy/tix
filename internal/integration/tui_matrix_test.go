@@ -118,10 +118,10 @@ var tuiScenarios = []tuiScenario{
 				t.Fatalf("[%s] creating a task: %v", tg.name, err)
 			}
 			// The board column is narrow enough to truncate a title before
-			// its distinguishing suffix would show; the task's ref is always
-			// rendered in full and is exactly as much proof that this
-			// specific write reached the board.
-			return *p, task.Ref
+			// its distinguishing suffix would show; the task's ref, drawn
+			// upper case, is always rendered in full and is exactly as much
+			// proof that this specific write reached the board.
+			return *p, strings.ToUpper(task.Ref)
 		},
 	},
 }

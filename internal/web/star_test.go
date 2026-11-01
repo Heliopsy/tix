@@ -80,7 +80,7 @@ func TestEveryTaskScreenOffersAStarButton(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			form := starButton(t, tc.page, action)
 			for _, want := range []string{
-				`aria-pressed="false"`, `aria-label="Star ` + ref + `"`,
+				`aria-pressed="false"`, `aria-label="Star ` + strings.ToUpper(ref) + `"`,
 				`name="csrf_token"`, `name="next" value="` + tc.next,
 			} {
 				if !strings.Contains(form, want) {
@@ -114,7 +114,7 @@ func TestPressingTheStarStarsTheTaskAndReturnsToTheScreen(t *testing.T) {
 		t.Errorf("rows drawn as %v, want the starred %s first", got, second)
 	}
 	pressed := starButton(t, list, "/tasks/"+second+"/star/remove")
-	if !strings.Contains(pressed, `aria-pressed="true"`) || !strings.Contains(pressed, `aria-label="Unstar `+second+`"`) {
+	if !strings.Contains(pressed, `aria-pressed="true"`) || !strings.Contains(pressed, `aria-label="Unstar `+strings.ToUpper(second)+`"`) {
 		t.Errorf("the starred row's button is not pressed:\n%s", pressed)
 	}
 

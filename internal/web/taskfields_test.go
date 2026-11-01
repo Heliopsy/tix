@@ -153,7 +153,7 @@ func TestTheTaskScreenStatesStarParentAndNextOccurrence(t *testing.T) {
 	_ = resp.Body.Close()
 
 	page := b.page("/tasks/" + weekly.Ref)
-	if star := between(t, header(t, page), `<button type="submit" class="star`, ">"); !strings.Contains(star, `aria-pressed="true"`) || !strings.Contains(star, `aria-label="Unstar `+weekly.Ref+`"`) {
+	if star := between(t, header(t, page), `<button type="submit" class="star`, ">"); !strings.Contains(star, `aria-pressed="true"`) || !strings.Contains(star, `aria-label="Unstar `+strings.ToUpper(weekly.Ref)+`"`) {
 		t.Errorf("the starred task does not say so:\n%s", star)
 	}
 	if row := aboutRow(t, page, "parent"); !strings.Contains(row, `href="/tasks/`+parent.Ref+`"`) {
@@ -162,7 +162,7 @@ func TestTheTaskScreenStatesStarParentAndNextOccurrence(t *testing.T) {
 	if row := aboutRow(t, page, "repeat"); !strings.Contains(row, "next due") || !strings.Contains(row, "2099-01-12") {
 		t.Errorf("the weekly task does not give the next occurrence's date:\n%s", row)
 	}
-	if star := between(t, header(t, b.page("/tasks/"+parent.Ref)), `<button type="submit" class="star`, ">"); !strings.Contains(star, `aria-pressed="false"`) || !strings.Contains(star, `aria-label="Star `+parent.Ref+`"`) {
+	if star := between(t, header(t, b.page("/tasks/"+parent.Ref)), `<button type="submit" class="star`, ">"); !strings.Contains(star, `aria-pressed="false"`) || !strings.Contains(star, `aria-label="Star `+strings.ToUpper(parent.Ref)+`"`) {
 		t.Errorf("an unstarred task does not say so:\n%s", star)
 	}
 	if row := aboutRow(t, b.page("/tasks/"+last.Ref), "repeat"); !strings.Contains(row, "last occurrence") || strings.Contains(row, "next due") {

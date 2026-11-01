@@ -91,7 +91,7 @@ func TestTheTemplatesScreenListsAndEditsAndDeletes(t *testing.T) {
 
 	page := b.page("/templates")
 	row := between(t, page, `<a href="/templates/`+id+`">`, "</tr>")
-	if !strings.Contains(row, "daily") || !strings.Contains(row, "infra") || !strings.Contains(row, `/templates/new?template=`+id) {
+	if !strings.Contains(row, "daily") || !strings.Contains(row, "INFRA") || !strings.Contains(row, `/templates/new?template=`+id) {
 		t.Errorf("the row does not name the template, its project and Use:\n%s", row)
 	}
 	if !strings.Contains(nav(t, page), `href="/templates"`) {

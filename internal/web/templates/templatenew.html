@@ -19,7 +19,7 @@
       <div class="cfield">
         <div class="cfield-label"><label for="use-template">{{t "Template"}}</label>{{template "required-mark"}}</div>
         <select id="use-template" class="cform-lead" name="template" required{{$e.Attrs "template"}}>
-          {{range .Data.Templates}}<option value="{{.ID}}"{{if eq .ID $f.Template}} selected{{end}}>{{.Name}} &middot; {{if .TenantWide}}{{t "All projects"}}{{else}}{{.ProjectKey}}{{end}}</option>{{end}}
+          {{range .Data.Templates}}<option value="{{.ID}}"{{if eq .ID $f.Template}} selected{{end}}>{{.Name}} &middot; {{if .TenantWide}}{{t "All projects"}}{{else}}{{key .ProjectKey}}{{end}}</option>{{end}}
         </select>
         {{with $e.On "template"}}{{template "field-error" .}}{{end}}
       </div>
@@ -34,7 +34,7 @@
         <div class="cfield-label"><label for="use-project">{{t "Project"}}</label></div>
         <select id="use-project" name="project_ref"{{$e.Attrs "project_ref"}}>
           <option value=""{{if not $f.Project}} selected{{end}}>{{t "The template's project"}}</option>
-          {{range .Data.Projects}}<option value="{{.Key}}"{{if eq .Key $f.Project}} selected{{end}}>{{.Name}} ({{.Key}})</option>{{end}}
+          {{range .Data.Projects}}<option value="{{.Key}}"{{if eq .Key $f.Project}} selected{{end}}>{{projLabel $.ProjectLabel .}}</option>{{end}}
         </select>
         {{with $e.On "project_ref"}}{{template "field-error" .}}{{end}}
       </div>

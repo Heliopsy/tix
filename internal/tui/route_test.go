@@ -141,7 +141,7 @@ func TestThePickerAppliesARouteOneHopAtATime(t *testing.T) {
 	if !ok || msg.err != nil {
 		t.Fatalf("applying the route: %+v", msg)
 	}
-	if want := "moved " + b.task.Ref + " todo → doing → done, one step at a time"; msg.sentence != want {
+	if want := "moved " + strings.ToUpper(b.task.Ref) + " todo → doing → done, one step at a time"; msg.sentence != want {
 		t.Errorf("sentence = %q, want %q", msg.sentence, want)
 	}
 	if got := b.trail(t); strings.Join(got, ",") != "todo>doing,doing>done" {

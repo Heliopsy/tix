@@ -823,7 +823,7 @@ func liveTask(ctx context.Context, tx store.Tx, ref core.TaskRef) (*core.Task, e
 // tenant's only project when the caller names none.
 func projectForTask(ctx context.Context, tx store.Tx, ref string) (*core.Project, error) {
 	if ref != "" {
-		return tx.GetProject(ctx, ref)
+		return lookupProject(ctx, tx, ref)
 	}
 	projects, err := tx.ListProjects(ctx, core.ProjectFilter{Page: core.Page{Limit: 2}})
 	if err != nil {

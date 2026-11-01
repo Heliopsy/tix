@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 )
 
 // The choices the deletion screen offers for a project's tasks.
@@ -115,7 +116,7 @@ func (h *handler) deleteProject(w http.ResponseWriter, r *http.Request) error {
 		in.MoveTasksTo = form.MoveTo
 	case choiceDelete:
 		if !strings.EqualFold(field(r, "confirm"), key) {
-			err := core.Invalid("type the project key %s to confirm", key).WithDetail(core.DetailField, "confirm")
+			err := core.Invalid("type the project key %s to confirm", output.ShowKey(key)).WithDetail(core.DetailField, "confirm")
 			return h.refuseProjectDelete(w, r, form, err)
 		}
 		in.DeleteTasks = true

@@ -145,8 +145,9 @@ func (p Painter) apply(s sgr, text string) string {
 	return "\x1b[" + string(s) + "m" + text + "\x1b[0m"
 }
 
-// Ref styles a task reference so it stands out when scanning a listing.
-func (p Painter) Ref(text string) string { return p.apply(styleRef, text) }
+// Ref styles a task reference so it stands out when scanning a listing, with
+// its project key upper case as every surface shows it.
+func (p Painter) Ref(text string) string { return p.apply(styleRef, ShowRef(text)) }
 
 // Header styles a table header cell.
 func (p Painter) Header(text string) string { return p.apply(styleHeader, text) }

@@ -7,7 +7,7 @@
   {{range .Data.Templates}}
     <tr>
       <td><a href="/templates/{{.ID}}">{{.Name}}</a></td>
-      <td>{{if .TenantWide}}{{t "All projects"}}{{else}}<span class="mono">{{.ProjectKey}}</span>{{end}}</td>
+      <td>{{if .TenantWide}}{{t "All projects"}}{{else}}<span class="mono">{{key .ProjectKey}}</span>{{end}}</td>
       <td>{{.Task.Title}}</td>
       <td>{{.Task.Count}}</td>
       <td>{{if .DueIn}}{{.DueIn.Human}}{{else}}&ndash;{{end}}</td>

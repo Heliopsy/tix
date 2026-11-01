@@ -17,7 +17,7 @@ import (
 // claimView is the table rendering of a claim. Machine formats emit the claim
 // itself, whose field names are part of the stable contract.
 type claimView struct {
-	Ref            string `json:"ref" yaml:"ref"`
+	Ref            string `json:"ref" yaml:"ref" show:"ref"`
 	Title          string `json:"title" yaml:"title"`
 	Status         string `json:"status" yaml:"status"`
 	LeaseToken     string `json:"lease_token" yaml:"lease_token"`
@@ -31,7 +31,7 @@ type sweepResult struct {
 
 // execResult reports what a wrapped command did under its lease.
 type execResult struct {
-	Ref      string `json:"ref" yaml:"ref"`
+	Ref      string `json:"ref" yaml:"ref" show:"ref"`
 	ExitCode int    `json:"exit_code" yaml:"exit_code"`
 	Status   string `json:"status,omitempty" yaml:"status,omitempty"`
 }
@@ -199,7 +199,7 @@ func claimReleaseCmd(g *globals) *cobra.Command {
 			if err := conn.Service.ReleaseLease(ctx, ref, token, in); err != nil {
 				return err
 			}
-			return g.render(cmd, outcome{Ref: ref.String(), Status: statusOK})
+			return g.render(cmd, taskOutcome{Ref: ref.String(), Status: statusOK})
 		},
 		ValidArgsFunction: g.completeTaskRefs,
 	}
@@ -243,7 +243,7 @@ func claimReclaimCmd(g *globals) *cobra.Command {
 			if g.formatName() != output.FormatTable {
 				return g.render(cmd, task)
 			}
-			return g.render(cmd, outcome{Ref: task.Ref, Status: statusOK})
+			return g.render(cmd, taskOutcome{Ref: task.Ref, Status: statusOK})
 		},
 		ValidArgsFunction: g.completeTaskRefs,
 	}
@@ -307,7 +307,7 @@ func claimExecCmd(g *globals) *cobra.Command {
 				return err
 			}
 			target := core.TaskRef{ID: claim.Task.ID}
-			g.diag(cmd, "claimed %s until %s", claim.Task.Ref, claim.LeaseExpiresAt.Format(time.RFC3339))
+			g.diag(cmd, "claimed %s until %s", output.ShowRef(claim.Task.Ref), claim.LeaseExpiresAt.Format(time.RFC3339))
 			if startStatus != "" {
 				if _, err := conn.Service.TransitionTask(ctx, target, core.TransitionInput{
 					To: startStatus, LeaseToken: claim.LeaseToken,

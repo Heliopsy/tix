@@ -26,7 +26,7 @@ func noteSuccessor(ctx context.Context, g *globals, cmd *cobra.Command, svc core
 	if err != nil {
 		return
 	}
-	g.diag(cmd, "next occurrence: %s", next.Ref)
+	g.diag(cmd, "next occurrence: %s", output.ShowRef(next.Ref))
 }
 
 // noteCopiedFrom names the task a copy was copied from, in table output only,
@@ -39,5 +39,5 @@ func noteCopiedFrom(ctx context.Context, g *globals, cmd *cobra.Command, svc cor
 	if err != nil {
 		return
 	}
-	g.diag(cmd, "copied from: %s", source.Ref)
+	g.diag(cmd, "copied from: %s", output.ShowRef(source.Ref))
 }

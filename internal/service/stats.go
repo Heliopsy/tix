@@ -45,7 +45,7 @@ func (l *Local) Stats(ctx context.Context, in core.StatsInput) (*core.Stats, err
 		q := store.StatsQuery{Since: since, Until: until, Oldest: statsOldest(in)}
 		workflowID := ""
 		if in.ProjectRef != "" {
-			project, err := tx.GetProject(ctx, in.ProjectRef)
+			project, err := lookupProject(ctx, tx, in.ProjectRef)
 			if err != nil {
 				return err
 			}

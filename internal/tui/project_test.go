@@ -112,7 +112,7 @@ func TestTheProjectScreenStatesTheProjectItFetched(t *testing.T) {
 	m, svc := setupModel(t)
 	frame := m.Frame()
 
-	if got := setupRow(t, frame, "project:", "key"); !strings.Contains(got, "infra") {
+	if got := setupRow(t, frame, "project:", "key"); !strings.Contains(got, "INFRA") {
 		t.Errorf("the project's key row says %q", got)
 	}
 	if got := setupRow(t, frame, "project:", "description"); !strings.Contains(got, "the racks") {
@@ -173,7 +173,7 @@ func TestTheProjectScreenSaysWhyAWorkflowIsMissing(t *testing.T) {
 	}
 	// The rest of the screen still arrives, which is the point of not failing
 	// the whole read over one refusal.
-	if got := setupRow(t, m.Frame(), "project:", "key"); !strings.Contains(got, "infra") {
+	if got := setupRow(t, m.Frame(), "project:", "key"); !strings.Contains(got, "INFRA") {
 		t.Errorf("a refused workflow lost the project rows: %q", got)
 	}
 }
@@ -365,7 +365,7 @@ func TestEditingAProjectAttributeDrawnFromAListSendsIt(t *testing.T) {
 	m, svc := setupModel(t)
 	m, _ = m.reduce(pressKey("e"))
 	frame := m.Frame()
-	if got := formRow(t, frame, "edit project infra", "attribute"); !strings.Contains(got, attrName) {
+	if got := formRow(t, frame, "edit project INFRA", "attribute"); !strings.Contains(got, attrName) {
 		t.Errorf("the form opens on %q", got)
 	}
 
@@ -373,12 +373,12 @@ func TestEditingAProjectAttributeDrawnFromAListSendsIt(t *testing.T) {
 	for range 4 {
 		m, _ = m.reduce(pressKey("right"))
 	}
-	if got := formRow(t, m.Frame(), "edit project infra", "attribute"); !strings.Contains(got, attrColour) {
+	if got := formRow(t, m.Frame(), "edit project INFRA", "attribute"); !strings.Contains(got, attrColour) {
 		t.Fatalf("the attribute row says %q", got)
 	}
 	m, _ = m.reduce(pressKey("down"))
 	m, _ = m.reduce(pressKey("right"))
-	chosen := formRow(t, m.Frame(), "edit project infra", "colour")
+	chosen := formRow(t, m.Frame(), "edit project INFRA", "colour")
 
 	m, cmd := m.reduce(pressKey("enter"))
 	_, _ = m.reduce(run(t, cmd))
@@ -416,7 +416,7 @@ func TestEditingAFreeTextAttributeOpensThePromptSeededWithIt(t *testing.T) {
 	if got := *svc.projectsEdited[0].Name; got != "Infra" {
 		t.Fatalf("the name edit sent %q", got)
 	}
-	if !strings.Contains(m.status, "name") || !strings.Contains(m.status, "infra") {
+	if !strings.Contains(m.status, "name") || !strings.Contains(m.status, "INFRA") {
 		t.Errorf("the status bar says %q", m.status)
 	}
 }
@@ -425,7 +425,7 @@ func TestEditingTheKeyOpensThePromptSeededWithIt(t *testing.T) {
 	m, svc := setupModel(t)
 	m, _ = m.reduce(pressKey("e"))
 	m, _ = m.reduce(pressKey("right"))
-	if got := formRow(t, m.Frame(), "edit project infra", "attribute"); !strings.Contains(got, attrKey) {
+	if got := formRow(t, m.Frame(), "edit project INFRA", "attribute"); !strings.Contains(got, attrKey) {
 		t.Fatalf("the attribute row says %q", got)
 	}
 	m, _ = m.reduce(pressKey("enter"))
@@ -453,13 +453,13 @@ func TestEditingTheKeyOpensThePromptSeededWithIt(t *testing.T) {
 func TestArchivingAProjectNamesItBeforeItHappens(t *testing.T) {
 	m, svc := setupModel(t)
 	m, _ = m.reduce(pressKey("X"))
-	if got := formRow(t, m.Frame(), "remove project infra", "action"); !strings.Contains(got, "archive") {
+	if got := formRow(t, m.Frame(), "remove project INFRA", "action"); !strings.Contains(got, "archive") {
 		t.Fatalf("the removal form opens on %q", got)
 	}
 	m, _ = m.reduce(pressKey("enter"))
 
 	line := confirmLine(t, m.Frame(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
-	if !strings.Contains(line, "archive project infra") {
+	if !strings.Contains(line, "archive project INFRA") {
 		t.Errorf("the confirmation asks %q", line)
 	}
 	if strings.Contains(line, "permanently") || strings.Contains(line, "task") {
@@ -480,7 +480,7 @@ func TestDeletingAProjectStatesHowFarItReachesAndLeavesTheScreen(t *testing.T) {
 	m, svc := setupModel(t)
 	m, _ = m.reduce(pressKey("X"))
 	m, _ = m.reduce(pressKey("right"))
-	if got := formRow(t, m.Frame(), "remove project infra", "action"); !strings.Contains(got, "delete") {
+	if got := formRow(t, m.Frame(), "remove project INFRA", "action"); !strings.Contains(got, "delete") {
 		t.Fatalf("the action row says %q", got)
 	}
 	m, cmd := m.reduce(pressKey("enter"))
@@ -490,7 +490,7 @@ func TestDeletingAProjectStatesHowFarItReachesAndLeavesTheScreen(t *testing.T) {
 	m, _ = m.reduce(run(t, cmd))
 
 	line := confirmLine(t, m.Frame(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
-	if !strings.Contains(line, "delete project infra") || !strings.Contains(line, "with its 3 tasks, permanently") {
+	if !strings.Contains(line, "delete project INFRA") || !strings.Contains(line, "with its 3 tasks, permanently") {
 		t.Errorf("the confirmation asks %q", line)
 	}
 
@@ -642,7 +642,7 @@ func TestTheProjectScreenOpensOnTheRowTheListingSelected(t *testing.T) {
 	m, cmd := m.reduce(pressKey("w"))
 	m, _ = m.reduce(run(t, cmd))
 
-	if got := setupRow(t, m.Frame(), "project:", "key"); !strings.Contains(got, "web") {
+	if got := setupRow(t, m.Frame(), "project:", "key"); !strings.Contains(got, "WEB") {
 		t.Errorf("the screen opened on %q rather than the selected row", got)
 	}
 }
@@ -795,7 +795,7 @@ func TestEverySchemeDrivesTheProjectScreen(t *testing.T) {
 			// The form moves and cycles on the keys the scheme carries, with no
 			// bindings of its own.
 			m, _ = m.reduce(keyMsgFor(keys.Right.Help().Key))
-			if got := formRow(t, m.Frame(), "remove project infra", "action"); !strings.Contains(got, "delete") {
+			if got := formRow(t, m.Frame(), "remove project INFRA", "action"); !strings.Contains(got, "delete") {
 				t.Errorf("%q did not cycle the answer: %q", keys.Right.Help().Key, got)
 			}
 			m, cmd = m.reduce(keyMsgFor(keys.Accept.Help().Key))
@@ -861,7 +861,7 @@ func TestChoosingACustomColourAsksForItAndSendsIt(t *testing.T) {
 	for range 3 {
 		m, _ = m.reduce(pressKey("right"))
 	}
-	if got := formRow(t, m.Frame(), "edit project infra", "colour"); !strings.Contains(got, customColour) {
+	if got := formRow(t, m.Frame(), "edit project INFRA", "colour"); !strings.Contains(got, customColour) {
 		t.Fatalf("the colour row says %q", got)
 	}
 	m, _ = m.reduce(pressKey("enter"))
@@ -899,12 +899,12 @@ func TestDeletingAProjectCanMoveItsTasksAndSaysWhere(t *testing.T) {
 	m, _ = m.reduce(pressKey("X"))
 	m, _ = m.reduce(pressKey("right"))
 	m, _ = m.reduce(pressKey("down"))
-	row := formRow(t, m.Frame(), "remove project infra", "its tasks")
+	row := formRow(t, m.Frame(), "remove project INFRA", "its tasks")
 	if !strings.Contains(row, TasksDeleted) {
 		t.Fatalf("the tasks row opens on %q", row)
 	}
 	m, _ = m.reduce(pressKey("right"))
-	if row := formRow(t, m.Frame(), "remove project infra", "its tasks"); !strings.Contains(row, "move to ops") {
+	if row := formRow(t, m.Frame(), "remove project INFRA", "its tasks"); !strings.Contains(row, "move to OPS") {
 		t.Fatalf("the tasks row offers %q after one step", row)
 	}
 	if slices.Contains(m.form.Fields[1].Options, TasksMoveTo+"attic") || slices.Contains(m.form.Fields[1].Options, TasksMoveTo+"infra") {
@@ -917,7 +917,7 @@ func TestDeletingAProjectCanMoveItsTasksAndSaysWhere(t *testing.T) {
 	}
 
 	line := confirmLine(t, m.Frame(), m.keys.Agree.Help().Key, m.keys.Cancel.Help().Key)
-	for _, want := range []string{"delete project infra", "moving its 3 tasks to ops", "review to doing (1)"} {
+	for _, want := range []string{"delete project INFRA", "moving its 3 tasks to OPS", "review to doing (1)"} {
 		if !strings.Contains(line, want) {
 			t.Errorf("the confirmation %q does not say %q", line, want)
 		}

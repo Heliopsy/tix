@@ -101,7 +101,7 @@ func (m Model) viewName() string {
 
 // projectLabel renders a project with its icon and its palette colour.
 func (m Model) projectLabel(p core.Project) string {
-	label := m.theme.Project(p.Color).Render(ProjectGlyph(p) + " " + p.Key)
+	label := m.theme.Project(p.Color).Render(ProjectGlyph(p) + " " + output.ShowKey(p.Key))
 	if p.Name != "" {
 		label += m.theme.Dim.Render(" " + p.Name)
 	}
@@ -263,7 +263,7 @@ const ProjectIconCells = 2
 func ProjectKeyColumn(projects []core.Project) int {
 	widest := 0
 	for _, p := range projects {
-		if w := lipgloss.Width(p.Key); w > widest {
+		if w := lipgloss.Width(output.ShowKey(p.Key)); w > widest {
 			widest = w
 		}
 	}
@@ -272,7 +272,7 @@ func ProjectKeyColumn(projects []core.Project) int {
 
 // projectRow renders one project of the picker.
 func (m Model) projectRow(p core.Project, keyCol int, selected bool) string {
-	label := SelectionMarker(selected) + ProjectIcon(p) + pad(p.Key, keyCol) + "  " + p.Name
+	label := SelectionMarker(selected) + ProjectIcon(p) + pad(output.ShowKey(p.Key), keyCol) + "  " + p.Name
 	if p.Archived() {
 		label += "  (archived)"
 	}
@@ -299,7 +299,7 @@ func (m Model) emptyLines(state EmptyState) []string {
 
 // boardLines renders the columns that fit, keeping the selection in view.
 func (m Model) boardLines(layout Layout) []string {
-	empty := BoardEmptyState(m.project.Key, m.columns, m.filterText != "")
+	empty := BoardEmptyState(output.ShowKey(m.project.Key), m.columns, m.filterText != "")
 	if !empty.Zero() {
 		return m.emptyLines(empty)
 	}
@@ -545,7 +545,7 @@ func (m Model) detailLines(layout Layout) []string {
 	claim := claimSummary(t, now, leaseTimeStyle(), d.actors)
 
 	lines := []string{
-		m.theme.Ref.Render(t.Ref) + "  " + m.theme.Title.Render(t.Title),
+		m.theme.Ref.Render(output.ShowRef(t.Ref)) + "  " + m.theme.Title.Render(t.Title),
 		stateLine(m.theme, t.Status, category, t.Priority, claim, claimed),
 		m.theme.Dim.Render(peopleText(t, d.actors)),
 		m.theme.Dim.Render(timeText(t, m.timeStyle)) + m.dueText(t, now),
@@ -769,7 +769,7 @@ func customFieldLines(t core.Task, defs []core.FieldDef) []string {
 func refLines(tasks []core.Task) []string {
 	out := make([]string, 0, len(tasks))
 	for _, t := range tasks {
-		out = append(out, "  "+t.Ref+" ["+t.Status+"] "+t.Title)
+		out = append(out, "  "+output.ShowRef(t.Ref)+" ["+t.Status+"] "+t.Title)
 	}
 	return out
 }

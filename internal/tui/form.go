@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 )
 
 // formKind names the multi-field input the interface has open, if any. The
@@ -506,7 +507,7 @@ func TaskEditForm(t core.Task, actors []core.Actor) Form {
 		fields = append(fields, FormField{Key: "assignee", Label: "assignee",
 			Options: ActorOptions(actors), Value: value})
 	}
-	return Form{Kind: formTaskEdit, Title: "edit " + t.Ref, Note: TaskEditNote, Fields: fields}
+	return Form{Kind: formTaskEdit, Title: "edit " + output.ShowRef(t.Ref), Note: TaskEditNote, Fields: fields}
 }
 
 // PriorityOptions names every priority the way the rest of the interface names
@@ -539,18 +540,18 @@ const CopyNote = "title, description, priority, tags, fields, repeat, due date a
 func CopyForm(t core.Task, projects []core.Project, current string) Form {
 	keys := make([]string, 0, len(projects))
 	for _, p := range projects {
-		keys = append(keys, p.Key)
+		keys = append(keys, output.ShowKey(p.Key))
 	}
 	keys = uniqueSorted(keys)
 	if len(keys) == 0 {
 		return Form{}
 	}
 	target := keys[0]
-	if slices.Contains(keys, current) {
-		target = current
+	if shown := output.ShowKey(current); slices.Contains(keys, shown) {
+		target = shown
 	}
 	return Form{
-		Kind: formCopy, Title: "copy " + t.Ref, Note: CopyNote,
+		Kind: formCopy, Title: "copy " + output.ShowRef(t.Ref), Note: CopyNote,
 		Fields: []FormField{
 			{Key: "project", Label: "to project", Options: keys, Value: target},
 			{Key: "title", Label: "title", Value: t.Title, Kind: FieldText, Limit: core.MaxTitleLength},
@@ -565,9 +566,10 @@ func CopyForm(t core.Task, projects []core.Project, current string) Form {
 
 // CopyInput is what an answered copy form asks the service for. A title left
 // as the source's is sent empty, which the service reads as unchanged.
+// The target is offered as its upper-case key and sent as the stored one.
 func CopyInput(t core.Task, f Form) core.CopyTaskInput {
 	in := core.CopyTaskInput{
-		ProjectRef:       f.Value("project"),
+		ProjectRef:       strings.ToLower(f.Value("project")),
 		KeepStatus:       f.Yes("keep_status"),
 		WithComments:     f.Yes("comments"),
 		WithSubtasks:     f.Yes("subtasks"),
@@ -652,7 +654,7 @@ const (
 // scope and whether its subtasks go with it. The name opens on the task's title.
 func SaveTemplateForm(t core.Task) Form {
 	return Form{
-		Kind: formSaveTemplate, Title: "save " + t.Ref + " as a template",
+		Kind: formSaveTemplate, Title: "save " + output.ShowRef(t.Ref) + " as a template",
 		Note: "title, description, priority, tags, fields and repeat are kept; status, assignee and due date are not",
 		Fields: []FormField{
 			{Key: "name", Label: "name", Value: t.Title, Kind: FieldText, Limit: core.MaxTemplateNameLength},
@@ -675,7 +677,7 @@ func SaveInput(t core.Task, f Form) core.SaveTemplateInput {
 func TemplateSummary(t core.TaskTemplate) string {
 	scope := "every project"
 	if t.ProjectKey != "" {
-		scope = t.ProjectKey
+		scope = output.ShowKey(t.ProjectKey)
 	}
 	parts := []string{t.Name + ": " + scope, counted(t.Task.Count(), "task", "tasks")}
 	if t.DueIn > 0 {

@@ -1,5 +1,5 @@
 {{define "content"}}
-<div class="headtip"><h1>{{t "Field definitions for %s" .Data.Project.Key}}</h1>{{template "tip" (tip "Custom fields" "Extra typed values every task in this project can carry, set from the task screen, with tix task edit --field key=value, or through the API. Filter on one with field.KEY:VALUE." "docs/workflows.md")}}</div>
+<div class="headtip"><h1>{{t "Field definitions for %s" (key .Data.Project.Key)}}</h1>{{template "tip" (tip "Custom fields" "Extra typed values every task in this project can carry, set from the task screen, with tix task edit --field key=value, or through the API. Filter on one with field.KEY:VALUE." "docs/workflows.md")}}</div>
 <table>
   <thead><tr><th>{{t "Key"}}</th><th>{{t "Label"}}</th><th>{{t "Type"}}</th><th>{{t "Required"}}</th><th></th></tr></thead>
   <tbody>

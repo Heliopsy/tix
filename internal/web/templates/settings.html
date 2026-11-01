@@ -153,6 +153,23 @@
       <div class="setrow-ctl" aria-describedby="listgroup-help">{{template "listgroup-switch" .Data.Prefs.ListGroup}}</div>
     </div>
 
+    {{/* How a project is named wherever one is chosen. The option values stay
+         the key whatever this says; see projectlabel.go. */}}
+    <form class="setrow" method="post" action="/projectlabel" hx-boost="false" data-apply>
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="next" value="{{savedNext "Project names in pickers" "listings"}}">
+      <div class="setrow-text">
+        <div class="setname-line"><label class="setname" for="projectlabel">{{t "Project names in pickers"}}</label>{{template "field-info" "How a project reads in every list you choose one from: the add box, Add with details, Copy to, New from template, a heading's New task in, the move target when a project is deleted, and the statistics filter. The name with its key, the key first, the name alone, or the key alone. A long name is shortened; the key never is."}}</div>
+        <span class="sethelp" id="projectlabel-help">{{t "How a project reads where you choose one."}}</span>
+      </div>
+      <div class="setrow-ctl">
+        <select id="projectlabel" name="label" aria-describedby="projectlabel-help">
+          {{range .ProjectLabels}}<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{t .Label}}</option>{{end}}
+        </select>
+        <button class="apply" type="submit">{{t "Apply project names"}}</button>
+      </div>
+    </form>
+
     {{/* How a listing behaves under a click. Both default to what the
          interface did before they existed; see taskopen.go. */}}
     <form class="setrow" method="post" action="/taskopen" hx-boost="false">

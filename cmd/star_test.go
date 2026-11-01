@@ -60,7 +60,7 @@ func TestTaskStarPutsTheTaskFirst(t *testing.T) {
 		t.Fatalf("show -o json starred = %v (%v)\n%s", task.Starred, err, show.out)
 	}
 	table := c.mustRun("task", "ls", "--sort", "seq").out
-	if !strings.Contains(table, "* default-3") || strings.Contains(table, "* default-1") {
+	if !strings.Contains(table, "* DEFAULT-3") || strings.Contains(table, "* DEFAULT-1") {
 		t.Fatalf("table marks the wrong rows:\n%s", table)
 	}
 

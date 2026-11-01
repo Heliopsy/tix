@@ -93,7 +93,7 @@ func TestCalendarFeedOverHTTP(t *testing.T) {
 	}
 	for _, want := range []string{
 		"BEGIN:VCALENDAR\r\n", "DTSTART;VALUE=DATE:20261105\r\n",
-		"SUMMARY:" + task.Ref + ": renew\\, the cert\r\n",
+		"SUMMARY:" + strings.ToUpper(task.Ref) + ": renew\\, the cert\r\n",
 		"URL:http://" + f.hostA + "/tasks/" + task.Ref + "\r\n",
 	} {
 		if !strings.Contains(body, want) {

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 )
 
 // DueParam is the query parameter the deadline control submits. Its values are
@@ -802,7 +803,7 @@ func (h *handler) completeTask(w http.ResponseWriter, r *http.Request) error {
 		// the plain list.
 		back = RouteTasks
 	}
-	redirectTo(w, r, back, "t-"+task.Ref, done+task.Ref)
+	redirectTo(w, r, back, "t-"+task.Ref, done+output.ShowRef(task.Ref))
 	return nil
 }
 

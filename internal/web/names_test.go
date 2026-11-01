@@ -101,7 +101,7 @@ func TestActivityFeedNamesItsActorsAndSubjects(t *testing.T) {
 	if strings.Contains(page, `class="meta"`) {
 		t.Error("the activity feed still uses a class the stylesheet dropped")
 	}
-	if !strings.Contains(page, ">"+ref+"<") {
+	if !strings.Contains(page, ">"+strings.ToUpper(ref)+"<") {
 		t.Errorf("the feed does not name the task by its reference %q:\n%s", ref, page)
 	}
 	if !strings.Contains(page, ">alice<") {

@@ -76,7 +76,7 @@
     var target = form.querySelector("[data-key-target]");
     var shown = form.querySelector("[data-key-preview]");
     if (!target || !shown) return;
-    shown.textContent = (target.value.trim().toLowerCase() || target.placeholder || "key") + "-1";
+    shown.textContent = (target.value.trim() || target.placeholder || "key").toUpperCase() + "-1";
   }
 
   var QUICK_DELAY = 200;
@@ -171,13 +171,32 @@
     }
   }
 
-  window.tixForms = { suggestKey: suggestKey, onKeydown: onKeydown, onInput: onInput, reveal: reveal };
+  // shortLabels puts every compact project picker's options in their short
+  // form, the key alone, while the screen is narrow and back when it widens.
+  // A native select cuts its text at the end, so on a phone the name is what
+  // goes and the key stays whole (projectlabel.go).
+  function shortLabels(scope, narrow) {
+    var options = (scope || document).querySelectorAll("option[data-short]");
+    for (var i = 0; i < options.length; i++) {
+      var o = options[i];
+      if (!o.hasAttribute("data-full")) o.setAttribute("data-full", o.textContent);
+      o.textContent = narrow ? o.getAttribute("data-short") : o.getAttribute("data-full");
+    }
+  }
+
+  window.tixForms = { suggestKey: suggestKey, onKeydown: onKeydown, onInput: onInput, reveal: reveal, shortLabels: shortLabels };
 
   if (typeof document === "undefined" || !document.addEventListener) return;
   document.addEventListener("keydown", onKeydown);
   document.addEventListener("input", onInput);
   reveal(document);
+  var narrow = window.matchMedia ? window.matchMedia("(max-width: 639px)") : null;
+  function fit(scope) { if (narrow) shortLabels(scope, narrow.matches); }
+  fit(document);
+  if (narrow && narrow.addEventListener) narrow.addEventListener("change", function () { fit(document); });
   document.addEventListener("htmx:load", function (event) {
-    reveal(event.target && event.target.querySelectorAll ? event.target : document);
+    var scope = event.target && event.target.querySelectorAll ? event.target : document;
+    reveal(scope);
+    fit(scope);
   });
 })();

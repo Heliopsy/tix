@@ -94,6 +94,15 @@ func TestReduceProjects(t *testing.T) {
 			t.Fatal("the requested project was not consumed")
 		}
 	})
+	t.Run("opens the requested project in any case", func(t *testing.T) {
+		for _, asked := range []string{"WEB", "Web", "web"} {
+			m := New(Config{Access: fullAccess(), Project: asked, Service: newFakeService()})
+			m, cmd := m.reduce(projectsMsg{projects: []core.Project{{Key: "infra"}, {Key: "web"}}})
+			if m.projectSel != 1 || cmd == nil || m.err != "" {
+				t.Fatalf("--project %s: sel = %d cmd = %v err = %q", asked, m.projectSel, cmd, m.err)
+			}
+		}
+	})
 	t.Run("reports an unreachable project", func(t *testing.T) {
 		m := New(Config{Access: fullAccess(), Project: "gone"})
 		m, _ = m.reduce(projectsMsg{projects: []core.Project{{Key: "infra"}}})

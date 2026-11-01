@@ -148,7 +148,7 @@ func TestFormatEventLineReadsAtAGlanceAndNeverColoursWithoutAPainter(t *testing.
 	if strings.Contains(plain, "\x1b[") {
 		t.Fatalf("plain line carries an escape code: %q", plain)
 	}
-	for _, want := range []string{"10:15:03", "alice", "claimed", "homelab-3"} {
+	for _, want := range []string{"10:15:03", "alice", "claimed", "HOMELAB-3"} {
 		if !strings.Contains(plain, want) {
 			t.Fatalf("line = %q, missing %q", plain, want)
 		}

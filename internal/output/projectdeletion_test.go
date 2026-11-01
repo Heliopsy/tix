@@ -33,7 +33,7 @@ func TestAProjectDeletionPlanReadsAsAMapping(t *testing.T) {
 		Statuses: []core.StatusMove{{From: "todo", To: "backlog", Tasks: 2}, {From: "doing", To: "active", Tasks: 2}},
 	})
 	for _, want := range []string{
-		"Dry run, planned only: deleting old would move its 4 tasks to lab; nothing was written.",
+		"Dry run, planned only: deleting OLD would move its 4 tasks to LAB; nothing was written.",
 		"todo -> backlog", "doing -> active",
 	} {
 		if !strings.Contains(got, want) {
@@ -55,15 +55,15 @@ func TestAProjectDeletionStatesWhatHappened(t *testing.T) {
 		want string
 	}{
 		{"deleted with its tasks", core.ProjectDeletion{Project: "old", Tasks: 3, DeleteTasks: true},
-			"Deleted project old with its 3 tasks, permanently."},
-		{"empty", core.ProjectDeletion{Project: "old"}, "Deleted project old, which held no tasks."},
+			"Deleted project OLD with its 3 tasks, permanently."},
+		{"empty", core.ProjectDeletion{Project: "old"}, "Deleted project OLD, which held no tasks."},
 		{"one task moved", core.ProjectDeletion{Project: "old", Tasks: 1, MoveTo: "ops",
 			Statuses: []core.StatusMove{{From: "todo", To: "todo", Tasks: 1}}},
-			"Deleted project old and moved its 1 task to ops."},
+			"Deleted project OLD and moved its 1 task to OPS."},
 		{"planned deletion", core.ProjectDeletion{Project: "old", Tasks: 2, DeleteTasks: true, DryRun: true},
-			"Dry run, planned only: deleting old would delete its 2 tasks permanently; nothing was written."},
+			"Dry run, planned only: deleting OLD would delete its 2 tasks permanently; nothing was written."},
 		{"planned without a choice", core.ProjectDeletion{Project: "old", Tasks: 2, DryRun: true},
-			"Dry run, planned only: old holds 2 tasks; pass --move-tasks-to KEY or --delete-tasks; nothing was written."},
+			"Dry run, planned only: OLD holds 2 tasks; pass --move-tasks-to KEY or --delete-tasks; nothing was written."},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

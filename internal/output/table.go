@@ -374,7 +374,7 @@ func (p Painter) inboxRow(it core.InboxItem) table.Row {
 	if it.Kind == core.InboxStatus {
 		what = it.FromStatus + " -> " + it.ToStatus
 	}
-	ref := it.TaskRef
+	ref := ShowRef(it.TaskRef)
 	if ref == "" {
 		ref = it.TaskID
 	}
@@ -385,7 +385,7 @@ func (p Painter) inboxRow(it core.InboxItem) table.Row {
 // templateRow is one template: a tenant-wide one names no project, shown as
 // "all", and one with no due offset shows a dash.
 func templateRow(t core.TaskTemplate) table.Row {
-	project, due := t.ProjectKey, "-"
+	project, due := ShowKey(t.ProjectKey), "-"
 	if t.TenantWide() {
 		project = "all"
 	}
@@ -449,7 +449,7 @@ func projectIconCell(p core.Project) string {
 
 func (p Painter) projectRow(project core.Project) table.Row {
 	return table.Row{
-		project.Key, truncate(project.Name, 40), project.WorkflowID,
+		ShowKey(project.Key), truncate(project.Name, 40), project.WorkflowID,
 		p.Swatch(project.Color), projectIconCell(project),
 		yesNo(project.Archived()), p.style.Format(project.CreatedAt), p.style.Format(project.UpdatedAt),
 	}
@@ -615,11 +615,24 @@ func renderStructs(w io.Writer, p Painter, rv reflect.Value) error {
 			if skipField(elem.Field(f)) {
 				continue
 			}
-			row = append(row, fmt.Sprintf("%v", item.Field(f).Interface()))
+			row = append(row, showCell(elem.Field(f), fmt.Sprintf("%v", item.Field(f).Interface())))
 		}
 		tbl.AppendRow(row)
 	}
 	return emit(w, p, tbl)
+}
+
+// showCell renders a reflected cell in display form when its field is tagged
+// show:"ref" (a task reference) or show:"key" (a project key), so a command's
+// own result struct shows INFRA-8 while its JSON keeps the stored infra-8.
+func showCell(f reflect.StructField, cell string) string {
+	switch f.Tag.Get("show") {
+	case "ref":
+		return ShowRef(cell)
+	case "key":
+		return ShowKey(cell)
+	}
+	return cell
 }
 
 func newWriter() table.Writer {
@@ -782,7 +795,10 @@ func renderProjectDeletion(w io.Writer, p Painter, d *core.ProjectDeletion) erro
 }
 
 // projectDeletionLead is the sentence above a project deletion's mapping.
-func projectDeletionLead(d *core.ProjectDeletion) string {
+func projectDeletionLead(deletion *core.ProjectDeletion) string {
+	shown := *deletion
+	shown.Project, shown.MoveTo = ShowKey(shown.Project), ShowKey(shown.MoveTo)
+	d := &shown
 	n := countOf(d.Total(), "task", "tasks")
 	switch {
 	case d.DryRun && d.Total() == 0:

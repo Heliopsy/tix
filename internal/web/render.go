@@ -167,10 +167,13 @@ type view struct {
 	Theme    string
 	// Tint is what a row's stripe and a card's edge are saying: the project,
 	// the status, the priority, or nothing. See tint.go.
-	Tint      string
-	Tints     []tintChoice
-	KeyScheme string
-	Schemes   []KeyScheme
+	Tint  string
+	Tints []tintChoice
+	// ProjectLabel is how a project is named in a picker; see projectlabel.go.
+	ProjectLabel  string
+	ProjectLabels []projectLabelChoice
+	KeyScheme     string
+	Schemes       []KeyScheme
 	// LanguageChoices is the settings screen's language picker.
 	LanguageChoices []languageChoice
 	ShortcutsJSON   template.JS
@@ -261,6 +264,12 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"tokenState":      tokenState,
 		"savedNext":       savedNext,
 		"projIcon":        markOf,
+		"projLabel":       projectLabel,
+		"projShort":       projectShortLabel,
+		"key":             output.ShowKey,
+		"ref":             output.ShowRef,
+		"joinKeys":        joinKeys,
+		"joinRefs":        joinRefs,
 		"projClass":       projClass,
 		"projStyle":       projStyle,
 		"projectColours":  projectColourField,
@@ -345,6 +354,26 @@ func componentKindLabel(k core.ComponentKind) string {
 // joinValues renders a list of strings as a comma separated line.
 func joinValues(values []string) string { return strings.Join(values, ", ") }
 
+// joinKeys renders a list of project keys as a comma separated line, in the
+// case a reader sees them.
+func joinKeys(keys []string) string {
+	out := make([]string, len(keys))
+	for i, k := range keys {
+		out[i] = output.ShowKey(k)
+	}
+	return strings.Join(out, ", ")
+}
+
+// joinRefs renders a list of task references as a comma separated line, in
+// the case a reader sees them.
+func joinRefs(refs []string) string {
+	out := make([]string, len(refs))
+	for i, r := range refs {
+		out[i] = output.ShowRef(r)
+	}
+	return strings.Join(out, ", ")
+}
+
 // joinScopes renders a token's scopes as a comma separated line.
 func joinScopes(values []core.Scope) string {
 	out := make([]string, 0, len(values))
@@ -404,6 +433,8 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Theme:           themeOf(r),
 		Tint:            tintOf(r),
 		Tints:           tintChoices(tintOf(r)),
+		ProjectLabel:    projectLabelOf(r),
+		ProjectLabels:   projectLabelChoices(projectLabelOf(r)),
 		KeyScheme:       string(scheme),
 		Schemes:         KeySchemes(),
 		LanguageChoices: languageChoices(r),

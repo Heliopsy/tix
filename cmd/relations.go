@@ -45,7 +45,7 @@ func depAddCmd(g *globals) *cobra.Command {
 			if err := conn.Service.AddDependency(ctx, ref, dep); err != nil {
 				return err
 			}
-			return g.render(cmd, outcome{Ref: ref.String(), Status: statusOK})
+			return g.render(cmd, taskOutcome{Ref: ref.String(), Status: statusOK})
 		},
 		ValidArgsFunction: g.completeTaskRefs,
 	}
@@ -76,7 +76,7 @@ func depRmCmd(g *globals) *cobra.Command {
 			if err := conn.Service.RemoveDependency(ctx, ref, dep); err != nil {
 				return err
 			}
-			return g.render(cmd, outcome{Ref: ref.String(), Status: statusOK})
+			return g.render(cmd, taskOutcome{Ref: ref.String(), Status: statusOK})
 		},
 		ValidArgsFunction: g.completeTaskRefs,
 	}
@@ -174,7 +174,7 @@ func labelAddCmd(g *globals) *cobra.Command {
 			if err := apply(refs[0]); err != nil {
 				return err
 			}
-			return g.render(cmd, outcome{Ref: refs[0].String(), Status: statusOK})
+			return g.render(cmd, taskOutcome{Ref: refs[0].String(), Status: statusOK})
 		},
 		ValidArgsFunction: g.completeTaskRefs,
 	}
@@ -212,7 +212,7 @@ func labelRmCmd(g *globals) *cobra.Command {
 			if err := conn.Service.RemoveTag(ctx, refs[0], label); err != nil {
 				return err
 			}
-			return g.render(cmd, outcome{Ref: refs[0].String(), Status: statusOK})
+			return g.render(cmd, taskOutcome{Ref: refs[0].String(), Status: statusOK})
 		},
 		ValidArgsFunction: g.completeTaskRefs,
 	}

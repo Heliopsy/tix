@@ -90,10 +90,10 @@ func taskBulkCmd(g *globals) *cobra.Command {
 // renderBulk prints a bulk answer as one outcome per task and fails with the
 // first refusal's kind, so the exit status says what went wrong first.
 func (g *globals) renderBulk(cmd *cobra.Command, result *core.BulkResult) error {
-	rows := make([]outcome, 0, len(result.Outcomes))
+	rows := make([]taskOutcome, 0, len(result.Outcomes))
 	var failure error
 	for _, o := range result.Outcomes {
-		row := outcome{Ref: o.Ref, Status: statusOK, Copy: o.CopyRef}
+		row := taskOutcome{Ref: o.Ref, Status: statusOK, Copy: o.CopyRef}
 		if !o.Applied {
 			row.Status, row.Code, row.Error = statusFailed, o.Code, o.Error
 			if failure == nil {

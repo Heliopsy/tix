@@ -52,6 +52,11 @@ tix task add "update the changelog" --parent default-1 --depends-on default-3 -q
 tix task tree default-1
 ```
 
+A table or a line of text shows a reference with its project key upper case,
+as `DEFAULT-1`; JSON, YAML and NDJSON keep the stored `default-1`, so parse
+those. Every argument, `-p` value and `project:` filter takes a key or a ref in
+any case.
+
 **Subtasks and dependencies are deliberately different things, and you want
 both.**
 
@@ -318,7 +323,7 @@ stops **before** the child runs:
 
 ```console
 $ tix claim exec --ref default-2 --on-start doing -- true
-claimed default-2 until 2026-10-11T13:40:40Z
+claimed DEFAULT-2 until 2026-10-11T13:40:40Z
 error: precondition_failed: cannot move task "default-2" from "doing" to "doing"; allowed targets are todo, blocked, done, cancelled
 ```
 

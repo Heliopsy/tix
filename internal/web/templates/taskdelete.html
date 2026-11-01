@@ -11,7 +11,7 @@
   {{template "csrf" .CSRF}}
   {{range $d.Fields}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}
   <input type="hidden" name="confirm" value="1">
-  <p class="delform-lead">{{t "Delete %s?" (join $d.Refs)}}</p>
+  <p class="delform-lead">{{t "Delete %s?" (joinRefs $d.Refs)}}</p>
   <p class="cfield-hint">{{t "The trash is turned off for this tenant, so this cannot be undone."}}{{if $d.Cascade}} {{t "Their subtasks are deleted with them."}}{{end}}</p>
   <div class="cform-foot">
     <div class="cform-actions">

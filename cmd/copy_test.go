@@ -61,7 +61,7 @@ func TestTaskCopy(t *testing.T) {
 			t.Fatalf("copied_from_id = %q, want %q", got.CopiedFromID, source.ID)
 		}
 		shown := c.mustRun("task", "show", got.Ref)
-		if !strings.Contains(shown.err, "copied from: infra-1") {
+		if !strings.Contains(shown.err, "copied from: INFRA-1") {
 			t.Fatalf("task show does not name the original: %q", shown.err)
 		}
 	})

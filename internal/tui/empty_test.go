@@ -87,7 +87,7 @@ func TestAnEmptyBoardSaysSoOnScreen(t *testing.T) {
 	if !strings.Contains(frame, "This board is empty.") {
 		t.Fatalf("an empty board drew no empty state:\n%s", frame)
 	}
-	if !strings.Contains(frame, "infra") {
+	if !strings.Contains(frame, "INFRA") {
 		t.Fatalf("the empty state does not name the project:\n%s", frame)
 	}
 }

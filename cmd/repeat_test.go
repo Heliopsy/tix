@@ -72,7 +72,7 @@ func TestFinishingFromTheCommandLineSpawnsAndShowNamesIt(t *testing.T) {
 	if !strings.Contains(shown.out, "every week") {
 		t.Fatalf("task show does not state the rule:\n%s", shown.out)
 	}
-	if !strings.Contains(shown.err, "next occurrence: default-2") {
+	if !strings.Contains(shown.err, "next occurrence: DEFAULT-2") {
 		t.Fatalf("task show does not name the successor: %q", shown.err)
 	}
 

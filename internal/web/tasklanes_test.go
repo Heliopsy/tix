@@ -320,7 +320,7 @@ func TestUntickingALaneCardReopensIt(t *testing.T) {
 	if got := tickRoute(card); got != "todo" {
 		t.Fatalf("the finished card's tick submits %q, want todo:\n%s", got, card)
 	}
-	if !strings.Contains(card, `class="check is-done"`) || !strings.Contains(card, "Reopen "+ref) {
+	if !strings.Contains(card, `class="check is-done"`) || !strings.Contains(card, "Reopen "+strings.ToUpper(ref)) {
 		t.Errorf("the reopening box is not drawn ticked and named as reopening:\n%s", card)
 	}
 
