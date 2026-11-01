@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.29.0](https://github.com/Heliopsy/tix/compare/v0.28.0...v0.29.0) (2026-11-01)
+
+
+### Features
+
+* an inbox of mentions, assignments, comments and status changes, with personal notification channels ([#135](https://github.com/Heliopsy/tix/issues/135)) ([1331ca9](https://github.com/Heliopsy/tix/commit/1331ca9246c956368dbc226ba9ab8b5a853e2bd4))
+* bulk task actions and CSV export of task listings ([#134](https://github.com/Heliopsy/tix/issues/134)) ([57175b2](https://github.com/Heliopsy/tix/commit/57175b2bed96bdc442810ec2c6bb23ef91e88b68))
+* is:trashed lists the trash, and the browser has a Trash screen ([#128](https://github.com/Heliopsy/tix/issues/128)) ([57d349b](https://github.com/Heliopsy/tix/commit/57d349b28686e98a4679b55ff2c407defdd06e94))
+* quick-add syntax for creating a task from one line ([#127](https://github.com/Heliopsy/tix/issues/127)) ([3ce3dc7](https://github.com/Heliopsy/tix/commit/3ce3dc7d4febb08bb8a02efdfb39ec4225ad566e))
+* render task text as Markdown and tick checklists in place ([#129](https://github.com/Heliopsy/tix/issues/129)) ([b99be14](https://github.com/Heliopsy/tix/commit/b99be1455b7800f54efac1782efd1bde0109872b))
+* saved filters, My work and recently viewed in the sidebar ([#136](https://github.com/Heliopsy/tix/issues/136)) ([739e95f](https://github.com/Heliopsy/tix/commit/739e95f088dea63a82d69fe7c5f119d6538fa3af))
+* snooze a task until later, hidden from listings and claim queues until it wakes ([#130](https://github.com/Heliopsy/tix/issues/130)) ([1331ca9](https://github.com/Heliopsy/tix/commit/1331ca9246c956368dbc226ba9ab8b5a853e2bd4))
+* subscribe to your due dates from a calendar app ([#131](https://github.com/Heliopsy/tix/issues/131)) ([b0426be](https://github.com/Heliopsy/tix/commit/b0426be66f65cbe8ced1075d2cea5f18eff826ed))
+* task templates, saved from a task and used to create tasks on every surface ([#132](https://github.com/Heliopsy/tix/issues/132)) ([1331ca9](https://github.com/Heliopsy/tix/commit/1331ca9246c956368dbc226ba9ab8b5a853e2bd4))
+* **web:** a ctrl+k command palette for tasks, projects, screens and actions ([#133](https://github.com/Heliopsy/tix/issues/133)) ([d59e0fa](https://github.com/Heliopsy/tix/commit/d59e0fad8e47c49d49e1a0d7cdb644c7dda456c1))
+
+
+### Bug Fixes
+
+* **cli:** register task copy, star and unstar once ([1331ca9](https://github.com/Heliopsy/tix/commit/1331ca9246c956368dbc226ba9ab8b5a853e2bd4))
+
+
+### Performance
+
+* **web:** parse the templates once per style, not once per handler ([1331ca9](https://github.com/Heliopsy/tix/commit/1331ca9246c956368dbc226ba9ab8b5a853e2bd4))
+
 ## [0.28.0](https://github.com/Heliopsy/tix/compare/v0.27.0...v0.28.0) (2026-11-01)
 
 
