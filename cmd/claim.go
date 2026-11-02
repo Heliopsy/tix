@@ -106,7 +106,7 @@ func claimTaskCmd(g *globals) *cobra.Command {
 		},
 		ValidArgsFunction: g.completeTaskRefs,
 	}
-	cmd.Flags().StringVar(&ttl, "ttl", "", "how long the lease holds; defaults to the project workflow, then the tenant, then the deployment")
+	cmd.Flags().StringVar(&ttl, "ttl", "", "how long the lease holds; defaults to the task, then its project, then the workflow, then the tenant, then the deployment")
 	cmd.Flags().StringVar(&onBehalf, "actor", "", "claim on behalf of another actor, by handle or identifier")
 	return cmd
 }
@@ -359,7 +359,7 @@ func bindClaimFilter(g *globals, cmd *cobra.Command, projects, tags, statuses *[
 	f.StringSliceVarP(projects, "project", "p", nil, "restrict to project keys")
 	f.StringSliceVarP(tags, "tag", "l", nil, "restrict to tags")
 	f.StringSliceVarP(statuses, "status", "s", nil, "restrict to statuses")
-	f.StringVar(ttl, "ttl", "", "how long the lease holds; defaults to the project workflow, then the tenant, then the deployment")
+	f.StringVar(ttl, "ttl", "", "how long the lease holds; defaults to the task, then its project, then the workflow, then the tenant, then the deployment")
 	f.StringVar(actor, "actor", "", "claim on behalf of another actor, by handle or identifier")
 	registerCompletions(g, cmd, "project", "tag", "status")
 }
