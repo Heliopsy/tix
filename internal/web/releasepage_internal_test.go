@@ -3,9 +3,13 @@
 package web
 
 import (
+	"fmt"
+	"html"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/heliopsy/tix/internal/changelog"
 )
 
 // releaseNotes is a release-please body after stripLinks, which is the only
@@ -17,9 +21,15 @@ const releaseNotes = "## 0.30.0 (2026-11-01)\n\n### Features\n\n" +
 // renderRelease draws the release screen's content block for one state.
 func renderRelease(t *testing.T, up upgrade) string {
 	t.Helper()
+	return renderReleaseWith(t, up, nil)
+}
+
+// renderReleaseWith draws it with a bundled changelog.
+func renderReleaseWith(t *testing.T, up upgrade, log []changelog.Entry) string {
+	t.Helper()
 	tmpl := Handler(nil).(*handler).templates["release.html"]
 	var out strings.Builder
-	if err := tmpl.ExecuteTemplate(&out, "content", view{Upgrade: up, Data: newReleaseView(up)}); err != nil {
+	if err := tmpl.ExecuteTemplate(&out, "content", view{Upgrade: up, Data: newReleaseView(up, log)}); err != nil {
 		t.Fatalf("rendering the release screen: %v", err)
 	}
 	return out.String()
@@ -195,5 +205,117 @@ func TestARefreshRecordsWhetherItFailed(t *testing.T) {
 	ok.refresh()
 	if got := ok.state(); !got.Checked || got.Failed {
 		t.Errorf("a refresh that answered reads Checked=%v Failed=%v, want checked and not failed", got.Checked, got.Failed)
+	}
+}
+
+// changelogFixture is three release-please entries, the newest carrying a
+// link, a commit hash and raw HTML the page must not pass through.
+var changelogFixture = changelog.Parse(`# Changelog
+
+## [0.31.0](https://github.com/Heliopsy/tix/compare/v0.30.0...v0.31.0) (2026-11-02)
+
+
+### Features
+
+* **web:** redesign the release screen ([#149](https://github.com/Heliopsy/tix/issues/149)) ([768a287](https://github.com/Heliopsy/tix/commit/768a287a0e79d5c61259e927c397304e745d6d8f))
+* <script>alert(1)</script> see www.example.com
+
+## [0.30.0](https://github.com/Heliopsy/tix/compare/v0.29.1...v0.30.0) (2026-11-01)
+
+
+### Bug Fixes
+
+* **web:** fold sidebar groups
+
+## 0.29.1 (2026-11-01)
+
+
+### Bug Fixes
+
+* stop tix ssh hanging
+`)
+
+// The running version's entry comes first and is the one marked as running
+// here; the releases before it are folded under it.
+func TestTheRunningVersionsEntryIsHighlighted(t *testing.T) {
+	t.Parallel()
+	page := renderReleaseWith(t, upgrade{Running: "0.30.0", Latest: "0.31.0", Newer: true, Checked: true}, changelogFixture)
+	section := element(t, page, `<section class="relsec relchanges"`)
+	running := element(t, section, `<article class="relentry relentry-running"`)
+	if !strings.Contains(running, "v0.30.0") || !strings.Contains(running, "You are running this") || !strings.Contains(running, "fold sidebar groups") {
+		t.Errorf("the highlighted entry is not 0.30.0 marked as running:\n%s", running)
+	}
+	if strings.Contains(running, "0.31.0") || strings.Contains(running, "0.29.1") {
+		t.Errorf("the highlighted entry carries another release:\n%s", running)
+	}
+	earlier := element(t, section, `<div class="relentries"`)
+	if !strings.Contains(earlier, "<details") || !strings.Contains(earlier, "v0.29.1") || strings.Contains(earlier, "0.31.0") || strings.Contains(earlier, "0.30.0") {
+		t.Errorf("the earlier entries are not 0.29.1 alone, folded:\n%s", earlier)
+	}
+	if strings.Contains(earlier, " open") {
+		t.Errorf("an earlier entry starts unfolded:\n%s", earlier)
+	}
+	if strings.Index(page, `class="relstatus"`) > strings.Index(page, `id="changes"`) {
+		t.Error("the update card is not above the changes")
+	}
+}
+
+// A build that is not a tagged release lists the newest entries and claims
+// none of them, including one whose numbers match a release.
+func TestAnUntaggedBuildListsTheNewestEntries(t *testing.T) {
+	t.Parallel()
+	for _, running := range []string{"dev", "0.31.0+dirty", "0.31.0-rc.1"} {
+		t.Run(running, func(t *testing.T) {
+			t.Parallel()
+			section := element(t, renderReleaseWith(t, upgrade{Running: running}, changelogFixture), `<section class="relsec relchanges"`)
+			if strings.Contains(section, "relentry-running") || strings.Contains(section, "You are running this") {
+				t.Errorf("an untagged build marks an entry as running:\n%s", section)
+			}
+			if !strings.Contains(html.UnescapeString(section), "v"+running+" is not a tagged release") {
+				t.Errorf("the section does not say v%s is not a tagged release:\n%s", running, section)
+			}
+			first := element(t, section, `<details class="relentry"`)
+			if !strings.Contains(first, " open>") || !strings.Contains(first, "v0.31.0") {
+				t.Errorf("the newest entry is not first and unfolded:\n%s", first)
+			}
+		})
+	}
+}
+
+// Entries go through stripLinks and the sanitising renderer: link text stays,
+// no target, no commit hash and no raw HTML reach the page.
+func TestChangelogEntriesAreSanitised(t *testing.T) {
+	t.Parallel()
+	section := element(t, renderReleaseWith(t, upgrade{Running: "0.31.0"}, changelogFixture), `<section class="relsec relchanges"`)
+	running := element(t, section, `<article class="relentry relentry-running"`)
+	if !strings.Contains(running, "<strong>web:</strong>") || !strings.Contains(running, "(#149)") {
+		t.Errorf("the entry lost its Markdown or its link text:\n%s", running)
+	}
+	for _, gone := range []string{"https://", "www.example.com", "768a287", "<script", "href="} {
+		if strings.Contains(running, gone) {
+			t.Errorf("the entry still carries %q:\n%s", gone, running)
+		}
+	}
+}
+
+// Only ten earlier entries are listed, however long the changelog is.
+func TestEarlierEntriesAreBounded(t *testing.T) {
+	t.Parallel()
+	var log []changelog.Entry
+	for i := 40; i > 0; i-- {
+		log = append(log, changelog.Entry{Version: fmt.Sprintf("0.%d.0", i), Body: "* x"})
+	}
+	if got := newChangesView("0.40.0", log); got.Running == nil || len(got.Earlier) != earlierChanges {
+		t.Errorf("a tagged build lists %d earlier entries, want %d", len(got.Earlier), earlierChanges)
+	}
+}
+
+// When the installation is current the feed's notes are the running entry a
+// second time, so they are left out.
+func TestFeedNotesOnlyForANewerRelease(t *testing.T) {
+	t.Parallel()
+	page := renderReleaseWith(t, upgrade{Running: "0.31.0", Latest: "0.31.0", Checked: true, Notes: releaseNotes}, changelogFixture)
+	if strings.Contains(page, "relnotes-sec") {
+		t.Errorf("a current installation repeats the feed notes:\n%s", page)
 	}
 }

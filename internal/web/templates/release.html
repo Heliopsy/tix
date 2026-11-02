@@ -74,5 +74,39 @@
   <p class="meta">{{t "Links have been removed. These notes come from the release feed, so they describe the newest release rather than the one running here."}}</p>
 </section>
 {{end}}
+
+{{/* What changed, from the CHANGELOG.md embedded in this binary, so it
+     answers with no route out. The footer's version links here. Entries go
+     through stripLinks and the sanitising renderer, like the feed notes. */}}
+{{with .Data.Changes}}
+<section class="relsec relchanges" id="changes" aria-labelledby="relchanges-title">
+  <h2 id="relchanges-title">{{t "What's new"}}</h2>
+  {{if .Running}}
+  <p class="meta">{{t "From the changelog this build carries: the version running here, then the releases before it."}}</p>
+  <article class="relentry relentry-running" aria-labelledby="relentry-running-title">
+    <header>
+      <h3 id="relentry-running-title"><span class="ver">v{{.Running.Version}}</span>{{with .Running.Date}} <span class="reldate">{{.}}</span>{{end}}</h3>
+      <span class="badge rel-running">{{t "You are running this"}}</span>
+    </header>
+    <div class="md relnotes">{{.Running.HTML}}</div>
+  </article>
+  {{else if .Earlier}}
+  <p class="meta relchanges-untagged">{{if .Untagged}}{{t "v%s is not a tagged release, so these are the newest entries in the changelog it was built with." $u.Running}}{{else}}{{t "The changelog this build carries has no entry for v%s, so these are its newest entries." $u.Running}}{{end}}</p>
+  {{else}}
+  <p class="meta">{{t "This build carries no changelog."}}</p>
+  {{end}}
+  {{if .Earlier}}
+  <div class="relentries">
+    {{range $i, $e := .Earlier}}
+    <details class="relentry"{{if and (eq $i 0) (not $.Data.Changes.Running)}} open{{end}}>
+      <summary><span class="ver">v{{$e.Version}}</span>{{with $e.Date}} <span class="reldate">{{.}}</span>{{end}}</summary>
+      <div class="md relnotes">{{$e.HTML}}</div>
+    </details>
+    {{end}}
+  </div>
+  {{end}}
+  {{if or .Running .Earlier}}<p class="meta">{{t "Links have been removed."}}</p>{{end}}
+</section>
+{{end}}
 </div>
 {{end}}

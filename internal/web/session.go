@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/changelog"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
 )
@@ -235,7 +236,7 @@ func settingsPrefs(p prefsView) prefsView {
 // finds it empty, which is the same state in which the footer offers no link
 // to it.
 func (h *handler) showRelease(w http.ResponseWriter, r *http.Request) error {
-	return h.render(w, r, "release.html", "Release", newReleaseView(h.releases.state()))
+	return h.render(w, r, "release.html", "Release", newReleaseView(h.releases.state(), changelog.Entries()))
 }
 
 // doLogout ends the session the browser presented.

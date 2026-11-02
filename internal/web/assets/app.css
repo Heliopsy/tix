@@ -4383,6 +4383,9 @@ nav.main .version .upgrade {
   color: var(--accent);
   font-weight: 600;
 }
+nav.main .version .running { color: inherit; text-decoration: none; }
+nav.main .version .running:hover,
+nav.main .version .running:focus-visible { color: var(--ink); text-decoration: underline; }
 
 /* Preformatted text, which had no rule anywhere in this sheet. A <pre> with
    browser defaults keeps its own monospace size and, more to the point,
@@ -7034,7 +7037,32 @@ details[open] > .editswitch .when-open { display: inline; }
 .relnotes h5 { margin: var(--space-5) 0 var(--space-2); font-size: var(--text-md); }
 .relnotes h5:first-child { margin-top: 0; }
 .relnotes li + li { margin-top: var(--space-1); }
+/* What's new: the running entry is a card in the "current" tint with its
+   badge beside the version; the earlier ones fold, one line each until
+   opened, so ten releases do not bury the one being read. */
+.relentry .reldate { margin-left: var(--space-2); font-size: var(--text-sm); font-weight: 400; color: var(--muted); }
+.relentry .ver { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; }
+.relentry-running {
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--ok);
+  border-radius: var(--radius-lg);
+  background: var(--ok-soft);
+}
+.relentry-running header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+.relentry-running h3 { margin: 0; font-size: var(--text-lg); }
+.badge.rel-running { background: var(--bg); color: var(--ok); border-color: transparent; }
+.relentries { margin-top: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+details.relentry + details.relentry { border-top: 1px solid var(--line); }
+details.relentry > summary { padding: var(--space-3) var(--space-4); cursor: pointer; }
+details.relentry > .relnotes { padding: 0 var(--space-4) var(--space-4); }
 @media (max-width: 639px) {
+  .relentry-running { padding: var(--space-3) var(--space-4); }
   .relpage { gap: var(--space-5); }
   .relstatus { grid-template-columns: minmax(0, 1fr); padding: var(--space-4); }
   .relversions { gap: var(--space-4); flex-wrap: wrap; }

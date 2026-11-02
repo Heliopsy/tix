@@ -76,14 +76,16 @@
   {{/* The running version, under the last button, and whether anything newer
        exists.
 
-       Text, not a link. TestPagesReferenceNoExternalOrigin forbids any
+       Never a link off this server. TestPagesReferenceNoExternalOrigin forbids any
        external origin in a rendered page, and that guard is worth more than
        the convenience of a hyperlink: it is what stops a CDN tag or a tracking
        pixel arriving here later. The lookup happens on the server, cached and
        off the render path, so a machine with no route out shows the version
        alone and says nothing about an upgrade it could not check. */}}
   <p class="version">
-    v{{.Upgrade.Running}}
+    {{/* The version opens what it changed, from the changelog this binary
+         carries, so it is worth clicking with no route out as well. */}}
+    <a class="running" href="/release#changes" title="{{t "What's new"}}">v{{.Upgrade.Running}}</a>
     {{/* A link now, to a page this install serves. It stays an internal
          route: the guard above is about not pasting somebody else's origin
          into these pages, not about refusing to say what changed, and the
