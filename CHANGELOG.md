@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.0](https://github.com/Heliopsy/tix/compare/v0.32.1...v0.33.0) (2026-11-02)
+
+
+### Features
+
+* clean up finished tasks and the trash per tenant and project ([#154](https://github.com/Heliopsy/tix/issues/154)) ([3c8bad3](https://github.com/Heliopsy/tix/commit/3c8bad3065cdd005f3ea9725dbac228d1164d2ce))
+
 ## [0.32.1](https://github.com/Heliopsy/tix/compare/v0.32.0...v0.32.1) (2026-11-02)
 
 
