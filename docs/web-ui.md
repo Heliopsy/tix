@@ -1216,12 +1216,13 @@ enrolment secret handed to it.
 ## Calendar feed
 
 Settings carries a Calendar feed section with an (i) tip. Its first row states the feed: No feed, with a
-filter field and Create feed below it, or Active and since when, with the filter and Save filter, Rotate
-and Revoke below it. Revoking returns to the section with a notice. Creating and rotating answer a
-screen that shows the address once, as text a reader with scripting off can select, beside a Copy button and a link that asks the device's calendar to subscribe. That screen is
-rendered rather than redirected to, so the secret never travels in a URL the browser keeps, and it is sent
-`Cache-Control: no-store`. A filter the service refuses draws Settings again with the text kept in the field
-and the reason beside it. [calendar.md](calendar.md) covers the feed itself.
+filter field and Create feed below it, or Active and since when, with the filter and Save filter, Rotate and
+Revoke below it. Revoking returns to the section with a notice. Creating and rotating answer a screen that
+shows the address once, as text a reader with scripting off can select, beside a Copy button and a link that
+asks the device's calendar to subscribe. That screen is rendered rather than redirected to, so the secret
+never travels in a URL the browser keeps, and it is sent `Cache-Control: no-store`. A filter the service
+refuses draws Settings again with the text kept in the field and the reason beside it.
+[calendar.md](calendar.md) covers the feed itself.
 
 ## Project icons
 
