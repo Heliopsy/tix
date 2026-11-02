@@ -194,7 +194,8 @@ func taskLsCmd(g *globals) *cobra.Command {
 			"assigned to you; claimed-by:me in --filter selects the ones you hold.\n\n" +
 			"Snoozed tasks are left out until they wake; --snoozed (is:snoozed) lists only them and " +
 			"--include-snoozed (snoozed:any) lists them beside the rest.\n\n" +
-			"Exit codes: 2 invalid filter, 3 unknown project, status, parent, actor or saved filter, 5 permission denied.",
+			"Exit codes: 2 invalid filter, 3 unknown project, status, parent, actor or saved filter, 5 permission denied, " +
+			"6 --trashed or is:trashed while the tenant has its trash turned off.",
 		Example: "  tix task ls\n  tix task ls --status todo -o ndjson\n" +
 			"  tix task ls -p infra --tag ops --all\n" +
 			"  tix task ls --filter 'status:todo -tag:ops title~deploy'\n" +
@@ -788,7 +789,7 @@ func taskRestoreCmd(g *globals) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "restore REF...",
 		Short:   "Restore soft-deleted tasks",
-		Long:    "Restore tasks that were soft deleted.\n\nExit codes: 3 unknown reference, 5 permission denied.",
+		Long:    "Restore tasks that were soft deleted.\n\nExit codes: 3 unknown reference, 5 permission denied, 6 the tenant has its trash turned off.",
 		Example: "  tix task restore default-1",
 		Args:    minArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
