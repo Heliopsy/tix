@@ -29,5 +29,12 @@ func init() {
 		"Installed with go install. tix update refuses this copy, because the toolchain owns it.": "Инсталиран с go install. tix update отказва да замени това копие, защото то принадлежи на инструментите на Go.",
 		"Installed from a package manager? Upgrade it the way you installed it.":                  "Инсталирали сте от пакетен мениджър? Обновете по същия начин, по който сте инсталирали.",
 		"What changed in v%s": "Какво се промени във v%s",
+		"What's new":          "Какво ново",
+		"From the changelog this build carries: the version running here, then the releases before it.": "От списъка с промени в тази компилация: версията, която работи тук, и версиите преди нея.",
+		"You are running this": "Работите с тази версия",
+		"v%s is not a tagged release, so these are the newest entries in the changelog it was built with.": "v%s не е издадена версия, затова това са най-новите записи в списъка с промени, с който е компилирана.",
+		"The changelog this build carries has no entry for v%s, so these are its newest entries.":          "Списъкът с промени в тази компилация няма запис за v%s, затова това са най-новите му записи.",
+		"This build carries no changelog.": "Тази компилация не съдържа списък с промени.",
+		"Links have been removed.":         "Връзките са премахнати.",
 	})
 }

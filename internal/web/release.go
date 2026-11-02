@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/heliopsy/tix/internal/changelog"
 	"github.com/heliopsy/tix/internal/markdown"
 	"github.com/heliopsy/tix/internal/version"
 )
@@ -277,6 +278,72 @@ type releaseView struct {
 	// Methods are the upgrade commands, one per install method, empty
 	// unless a newer release is on offer.
 	Methods []upgradeMethod
+	// Changes is what the changelog bundled with this binary says.
+	Changes changesView
+}
+
+// earlierChanges is how many entries before the running one the screen lists.
+const earlierChanges = 10
+
+// changesView is the "What's new" section, drawn from the bundled changelog.
+type changesView struct {
+	// Running is the running version's own entry, nil unless this build is
+	// a tagged release the changelog has an entry for.
+	Running *changeEntry
+	// Earlier are the entries listed under it, or the newest entries when
+	// Running is nil.
+	Earlier []changeEntry
+	// Untagged reports that the running version is not a plain
+	// major.minor.patch, so the build is not a tagged release.
+	Untagged bool
+}
+
+// changeEntry is one changelog entry ready to draw.
+type changeEntry struct {
+	Version string
+	Date    string
+	HTML    template.HTML
+}
+
+// plainRelease matches a version that names a tag and nothing else: not dev,
+// not a pre-release, not a build from an edited tree.
+var plainRelease = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
+
+// newChangesView picks the running version's entry and those before it. A
+// build that is not a tagged release, or one the changelog does not know,
+// gets the newest entries and none of them is called the running one: a
+// 0.31.0+dirty build is not what the 0.31.0 notes describe.
+func newChangesView(running string, entries []changelog.Entry) changesView {
+	v := changesView{Untagged: !plainRelease.MatchString(running)}
+	from := 0
+	if !v.Untagged {
+		for i, e := range entries {
+			if e.Version == running {
+				drawn := drawEntry(e)
+				v.Running = &drawn
+				from = i + 1
+				break
+			}
+		}
+	}
+	limit := earlierChanges
+	if v.Running == nil {
+		limit++
+	}
+	for _, e := range entries[from:] {
+		if len(v.Earlier) == limit {
+			break
+		}
+		v.Earlier = append(v.Earlier, drawEntry(e))
+	}
+	return v
+}
+
+// drawEntry renders an entry the way the feed notes are rendered: links
+// stripped by the same policy, then the sanitising Markdown renderer.
+func drawEntry(e changelog.Entry) changeEntry {
+	return changeEntry{Version: e.Version, Date: e.Date,
+		HTML: markdown.Render(stripLinks(e.Body), markdown.Options{})}
 }
 
 // upgradeMethod is one way tix is installed and the command that upgrades it.
@@ -288,14 +355,19 @@ type upgradeMethod struct {
 }
 
 // newReleaseView derives the screen's own figures from the cached state.
-func newReleaseView(up upgrade) releaseView {
-	var v releaseView
+//
+// The feed's notes are drawn only when they describe something newer: when
+// the installation is current they are the running version's changelog entry
+// a second time.
+func newReleaseView(up upgrade, entries []changelog.Entry) releaseView {
+	v := releaseView{Changes: newChangesView(up.Running, entries)}
+	if !up.Newer {
+		return v
+	}
 	if body := notesBody(up.Notes, up.Latest); body != "" {
 		v.NotesHTML = markdown.Render(body, markdown.Options{})
 	}
-	if up.Newer {
-		v.Methods = upgradeMethods(up.Latest)
-	}
+	v.Methods = upgradeMethods(up.Latest)
 	return v
 }
 

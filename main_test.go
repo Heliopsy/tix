@@ -5,9 +5,13 @@ package main
 import (
 	"go/parser"
 	"go/token"
+	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/heliopsy/tix/internal/changelog"
 )
 
 // TestTheBinaryCarriesItsOwnZoneDatabase guards the import, not the host. The
@@ -34,4 +38,20 @@ func TestTheBinaryCarriesItsOwnZoneDatabase(t *testing.T) {
 		}
 	}
 	t.Fatal("main.go does not import time/tzdata; the binary depends on the host having a zone database")
+}
+
+// TestTheBinaryCarriesItsChangelog pins both halves: the embedded file parses
+// into releases, and main hands it to the package the release screen reads.
+func TestTheBinaryCarriesItsChangelog(t *testing.T) {
+	t.Parallel()
+	if got := changelog.Parse(changelogMD); len(got) == 0 {
+		t.Fatal("the embedded CHANGELOG.md has no release entries")
+	}
+	src, err := os.ReadFile("main.go")
+	if err != nil {
+		t.Fatalf("reading main.go: %v", err)
+	}
+	if !strings.Contains(string(src), "changelog.Source = changelogMD") {
+		t.Fatal("main.go does not hand the embedded changelog to internal/changelog")
+	}
 }

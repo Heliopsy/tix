@@ -914,8 +914,9 @@ the listener and live connections.
 
 ## The release screen
 
-`/release`, linked from the version in the sidebar footer when a newer release exists, answers one
-question: is there something newer? A single card at the top says which of five things is true:
+`/release` is linked twice from the sidebar footer: the running version opens its "What's new"
+section, and a "vX is available" line under it, shown when a newer release exists, opens the top. It
+answers one question first: is there something newer? A single card at the top says which of five things is true:
 
 | State | When |
 | --- | --- |
@@ -934,8 +935,17 @@ a release binary, `podman pull` of the new image tag for the container, and `go 
 version for the Go toolchain. None of them restarts a running `tix serve`. [upgrading.md](upgrading.md)
 explains what `tix update` checks and what it refuses.
 
-The newest release's notes are drawn as Markdown by the same renderer as a task description, with
-every link taken out first, since the text comes from a server this installation does not control.
+When a newer release exists, its notes are drawn as Markdown by the same renderer as a task
+description, with every link taken out first, since the text comes from a server this installation
+does not control. When the installation is current they are left out, because they would repeat the
+section below.
+
+"What's new" (`/release#changes`) is read from the `CHANGELOG.md` embedded in the binary when it was
+built, so it answers with no route out. The running version's entry comes first, marked "You are
+running this", and the ten releases before it follow, folded. A build that is not a tagged release,
+such as `dev` or `0.31.0+dirty` from an edited tree, says so and lists the newest entries with none
+marked as running. Entries go through the same link stripping and Markdown renderer as the feed's
+notes: the text of a link stays, its target and the trailing commit hash do not.
 
 ## Choosing a colour
 

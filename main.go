@@ -10,9 +10,19 @@ import (
 	// binary, paid once, against a wrong timestamp nobody can see is wrong.
 	_ "time/tzdata"
 
+	_ "embed"
+
 	"github.com/heliopsy/tix/cmd"
+	"github.com/heliopsy/tix/internal/changelog"
 )
 
+// changelogMD is the release-please changelog, carried so the release screen
+// can say what the running version changed without asking anybody.
+//
+//go:embed CHANGELOG.md
+var changelogMD string
+
 func main() {
+	changelog.Source = changelogMD
 	cmd.Execute()
 }
