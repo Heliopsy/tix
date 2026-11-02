@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.36.0](https://github.com/Heliopsy/tix/compare/v0.35.0...v0.36.0) (2026-11-02)
+
+
+### Features
+
+* **web:** arrange the sidebar by use ([#161](https://github.com/Heliopsy/tix/issues/161)) ([5dee15d](https://github.com/Heliopsy/tix/commit/5dee15dc0fdd4caaa5e532666357024b46c57325))
+
+
+### Bug Fixes
+
+* **cli:** say where a claim's lease comes from and that ssh watch takes -o table ([#163](https://github.com/Heliopsy/tix/issues/163)) ([54b5ecf](https://github.com/Heliopsy/tix/commit/54b5ecfad90b7edbc6f22a9e2c5c2a575d541ebe))
+
 ## [0.35.0](https://github.com/Heliopsy/tix/compare/v0.34.0...v0.35.0) (2026-11-02)
 
 
