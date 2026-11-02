@@ -154,6 +154,7 @@ func (c *copier) copyOne(ctx context.Context, src *core.Task, root bool) error {
 		DueAt:           src.DueAt,
 		CustomFields:    fields,
 		Recurrence:      src.Recurrence,
+		Lease:           src.Lease,
 	}
 	if root && c.in.Title != "" {
 		task.Title = c.in.Title

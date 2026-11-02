@@ -218,6 +218,30 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "lease length is set per project and per task and explained",
+		covers: []string{"CreateProject", "CreateTask", "UpdateProject", "UpdateTask", "TaskLease", "ClaimTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			two, four := core.Duration(2*time.Hour), core.Duration(4*time.Hour)
+			_, err = tg.svc.UpdateProject(tg.ctx, p.Key, core.UpdateProjectInput{LeaseDefault: &two})
+			mustf(t, tg, err, "setting the project lease")
+			fromProject, err := tg.svc.TaskLease(tg.ctx, core.TaskRef{ID: task.ID})
+			if err != nil {
+				return nil, err
+			}
+			_, err = tg.svc.UpdateTask(tg.ctx, core.TaskRef{ID: task.ID}, core.UpdateTaskInput{Lease: &four})
+			mustf(t, tg, err, "setting the task lease")
+			claim, err := tg.svc.ClaimTask(tg.ctx, core.TaskRef{ID: task.ID}, core.ClaimInput{})
+			mustf(t, tg, err, "claiming")
+			return sig{
+				"project_ttl": fromProject.TTL.String(), "project_source": fromProject.Source,
+				"claim_ttl": claim.Lease.TTL.String(), "claim_source": claim.Lease.Source,
+			}, nil
+		},
+	},
+	{
 		name:   "a claim conflict",
 		covers: []string{"CreateProject", "CreateTask", "ClaimTask"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

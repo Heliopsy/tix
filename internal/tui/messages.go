@@ -211,6 +211,8 @@ type detailMsg struct {
 	comments  []core.Comment
 	fieldDefs []core.FieldDef
 	artifacts []core.Artifact
+	// lease is how long a claim on the task would hold, nil when unread.
+	lease *core.LeaseGrant
 	// actors maps an actor identifier to its handle, for every actor the
 	// task or its comments name, so the detail view never has to show a raw
 	// identifier for a lookup it already made.

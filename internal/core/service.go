@@ -142,6 +142,9 @@ type TaskService interface {
 // ClaimService covers the agent work queue.
 type ClaimService interface {
 	ClaimTask(ctx context.Context, ref TaskRef, in ClaimInput) (*Claim, error)
+	// TaskLease reports the lease a claim on the task naming no ttl would be
+	// granted now, and which level decides it.
+	TaskLease(ctx context.Context, ref TaskRef) (*LeaseGrant, error)
 	ClaimNext(ctx context.Context, in ClaimNextInput) (*Claim, error)
 	RenewLease(ctx context.Context, ref TaskRef, token string, ttl Duration) (*Claim, error)
 	ReleaseLease(ctx context.Context, ref TaskRef, token string, in ReleaseInput) error

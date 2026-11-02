@@ -152,6 +152,13 @@ type Project struct {
 	IconName  string       `json:"icon_name,omitempty" yaml:"icon_name,omitempty"`
 	IconImage string       `json:"icon_image,omitempty" yaml:"icon_image,omitempty"`
 
+	// LeaseDefault is how long a claim on this project's tasks holds when
+	// neither the claim nor the task says; it outranks the workflow and the
+	// tenant. LeaseMax narrows the tenant's ceiling and never raises it. Zero
+	// on either inherits.
+	LeaseDefault Duration `json:"lease_default,omitempty" yaml:"lease_default,omitempty"`
+	LeaseMax     Duration `json:"lease_max,omitempty" yaml:"lease_max,omitempty"`
+
 	ArchivedAt *time.Time `json:"archived_at,omitempty" yaml:"archived_at,omitempty"`
 	CreatedAt  time.Time  `json:"created_at" yaml:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at" yaml:"updated_at"`
@@ -427,6 +434,10 @@ type Task struct {
 	// asked to keep that link.
 	CopiedFromID string `json:"copied_from_id,omitempty" yaml:"copied_from_id,omitempty"`
 
+	// Lease is how long a claim on this task holds when the claim names no
+	// ttl of its own. Zero falls through to the project, workflow and tenant.
+	Lease Duration `json:"lease,omitempty" yaml:"lease,omitempty"`
+
 	// SnoozedUntil hides the task from default listings while it is in the
 	// future; SnoozedByActorID is who set it. A past value is not a snooze.
 	SnoozedUntil     *time.Time `json:"snoozed_until,omitempty" yaml:"snoozed_until,omitempty"`
@@ -560,6 +571,53 @@ type Claim struct {
 	Task           *Task     `json:"task" yaml:"task"`
 	LeaseToken     string    `json:"lease_token" yaml:"lease_token"`
 	LeaseExpiresAt time.Time `json:"lease_expires_at" yaml:"lease_expires_at"`
+	// Lease is how long the lease granted runs and which level decided it.
+	Lease *LeaseGrant `json:"lease,omitempty" yaml:"lease,omitempty"`
+}
+
+// LeaseSource names the level a lease length or ceiling was taken from.
+type LeaseSource string
+
+// Lease sources, most specific first.
+const (
+	LeaseFromClaim      LeaseSource = "claim"
+	LeaseFromTask       LeaseSource = "task"
+	LeaseFromProject    LeaseSource = "project"
+	LeaseFromWorkflow   LeaseSource = "workflow"
+	LeaseFromTenant     LeaseSource = "tenant"
+	LeaseFromDeployment LeaseSource = "deployment"
+	LeaseFromBuiltin    LeaseSource = "builtin"
+)
+
+// LeaseGrant is the lease a claim is, or would be, granted on one task: its
+// length and the level it came from, and the ceiling and the level setting it.
+// Clamped reports a length cut down to the ceiling.
+type LeaseGrant struct {
+	TTL       Duration    `json:"ttl" yaml:"ttl"`
+	Source    LeaseSource `json:"source" yaml:"source"`
+	Max       Duration    `json:"max" yaml:"max"`
+	MaxSource LeaseSource `json:"max_source" yaml:"max_source"`
+	Clamped   bool        `json:"clamped,omitempty" yaml:"clamped,omitempty"`
+}
+
+// leaseSourceText is where a lease length came from, as a phrase.
+var leaseSourceText = map[LeaseSource]string{
+	LeaseFromClaim:      "from the claim",
+	LeaseFromTask:       "from the task",
+	LeaseFromProject:    "from the project",
+	LeaseFromWorkflow:   "from the workflow",
+	LeaseFromTenant:     "from the tenant",
+	LeaseFromDeployment: "from the server configuration",
+	LeaseFromBuiltin:    "the built-in default",
+}
+
+// Sentence says how long a claim holds and why, such as
+// "claims last 4h, from the project".
+func (g LeaseGrant) Sentence() string {
+	if g.Clamped {
+		return "claims last " + g.TTL.Human() + ", capped by the " + string(g.MaxSource) + " maximum"
+	}
+	return "claims last " + g.TTL.Human() + ", " + leaseSourceText[g.Source]
 }
 
 // EventType names a kind of domain event.

@@ -63,7 +63,7 @@
        operator wants to tune into a state-machine edit. */}}
   <div class="field-label">
     <label for="lease_default">{{t "Default lease"}}</label>
-    {{template "field-info" "How long a claim on this tenant's tasks holds when neither the claim nor the project's workflow asks for a particular length. A worker that stops renewing loses the task back to the queue after this long. Empty falls back to the deployment setting, and then to 15m. Written as a duration: 45m, 2h30m, 7d."}}
+    {{template "field-info" "How long a claim on this tenant's tasks holds when nothing more specific asks for a length: not the claim, the task, the project or an authored workflow. A worker that stops renewing loses the task back to the queue after this long. Empty falls back to the deployment setting, and then to 30m. Written as a duration: 45m, 2h30m, 7d."}}
   </div>
   <input id="lease_default" name="lease_default" class="mono"
          value="{{if .Data.Tenant.LeaseDefault}}{{.Data.Tenant.LeaseDefault}}{{end}}"

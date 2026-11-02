@@ -320,6 +320,12 @@ func (l *Local) UpdateTask(ctx context.Context, ref core.TaskRef, in core.Update
 			}
 			task.CustomFields = fields
 		}
+		if in.Lease != nil {
+			task.Lease = *in.Lease
+			if err := l.checkTaskLease(ctx, m.tx, task); err != nil {
+				return err
+			}
+		}
 
 		if err := m.tx.UpdateTask(ctx, task); err != nil {
 			return err
@@ -385,6 +391,9 @@ func updatedFields(in core.UpdateTaskInput) []string {
 	if in.Recurrence != nil {
 		out = append(out, "recurrence")
 	}
+	if in.Lease != nil {
+		out = append(out, "lease")
+	}
 	return out
 }
 
@@ -422,6 +431,9 @@ func changedTaskFields(before, after *core.Task) []string {
 	}
 	if before.Recurrence != after.Recurrence {
 		out = append(out, "recurrence")
+	}
+	if before.Lease != after.Lease {
+		out = append(out, "lease")
 	}
 	return out
 }

@@ -13,7 +13,7 @@ import (
 
 var projectColumns = []string{
 	"id", "tenant_id", "key", "name", "description", "workflow_id",
-	"color", "icon", "icon_name", "icon_image", "archived_at", "created_at", "updated_at",
+	"color", "icon", "icon_name", "icon_image", "lease_default", "lease_max", "archived_at", "created_at", "updated_at",
 }
 
 var projectSortColumns = map[string]string{
@@ -27,14 +27,22 @@ func scanProject(s scanner) (core.Project, error) {
 	var (
 		p        core.Project
 		archived sql.NullString
+		leaseDef string
+		leaseMax string
 		created  sql.NullString
 		updated  sql.NullString
 	)
 	if err := s.Scan(&p.ID, &p.TenantID, &p.Key, &p.Name, &p.Description, &p.WorkflowID,
-		&p.Color, &p.Icon, &p.IconName, &p.IconImage, &archived, &created, &updated); err != nil {
+		&p.Color, &p.Icon, &p.IconName, &p.IconImage, &leaseDef, &leaseMax, &archived, &created, &updated); err != nil {
 		return core.Project{}, mapErr(err, "scanning project")
 	}
 	var err error
+	if p.LeaseDefault, err = sqlb.ScanDuration(leaseDef, "project lease default"); err != nil {
+		return core.Project{}, err
+	}
+	if p.LeaseMax, err = sqlb.ScanDuration(leaseMax, "project lease maximum"); err != nil {
+		return core.Project{}, err
+	}
 	if p.ArchivedAt, err = sqlb.ScanNullTime(archived); err != nil {
 		return core.Project{}, err
 	}
@@ -68,6 +76,8 @@ func (t *tx) CreateProject(ctx context.Context, p *core.Project) error {
 		Set("icon", p.Icon).
 		Set("icon_name", p.IconName).
 		Set("icon_image", p.IconImage).
+		Set("lease_default", sqlb.DurationText(p.LeaseDefault)).
+		Set("lease_max", sqlb.DurationText(p.LeaseMax)).
 		Set("archived_at", sqlb.NullTimeText(p.ArchivedAt)).
 		Set("created_at", sqlb.TimeText(p.CreatedAt)).
 		Set("updated_at", sqlb.TimeText(p.UpdatedAt))
@@ -148,6 +158,8 @@ func (t *tx) UpdateProject(ctx context.Context, p *core.Project) error {
 		Set("icon", p.Icon).
 		Set("icon_name", p.IconName).
 		Set("icon_image", p.IconImage).
+		Set("lease_default", sqlb.DurationText(p.LeaseDefault)).
+		Set("lease_max", sqlb.DurationText(p.LeaseMax)).
 		Set("archived_at", sqlb.NullTimeText(p.ArchivedAt)).
 		Set("updated_at", sqlb.TimeText(p.UpdatedAt))
 	n, err := t.execUpdate(ctx, b, "updating project %q", p.ID)

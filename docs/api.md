@@ -55,7 +55,7 @@ Everything below is under `/api/v1`.
 | Tasks | `/tasks`, `/tasks/{ref}`, `/tasks/{ref}/transition`, `/tasks/{ref}/route`, `/tasks/{ref}/restore`, `/tasks/{ref}/tree`, `/tasks/{ref}/copy`, `/tasks/bulk`, `GET /trash`; see [Trash](#trash) |
 | Task relations | `/tasks/{ref}/deps`, `/tasks/{ref}/deps/{dep}`, `/tasks/{ref}/tags`, `/tasks/{ref}/tags/{name}`, `/tasks/{ref}/star`, `/tasks/{ref}/checklist`, `/tasks/{ref}/snooze` |
 | Comments and artifacts | `/tasks/{ref}/comments`, `/tasks/{ref}/artifacts`, `/comments/{id}`, `/tags` |
-| Claims | `/tasks/{ref}/claim`, `/tasks/{ref}/claim/renew`, `/tasks/{ref}/claim/release`, `/tasks/{ref}/claim/reclaim`, `/claims/next`, `/claims/sweep` |
+| Claims | `/tasks/{ref}/claim`, `/tasks/{ref}/claim/renew`, `/tasks/{ref}/claim/release`, `/tasks/{ref}/claim/reclaim`, `/tasks/{ref}/lease`, `/claims/next`, `/claims/sweep` |
 | Snoozes | `/snoozes/wake` |
 | Webhooks | `/webhooks`, `/webhooks/{id}`, `/webhooks/deliveries`, `/webhooks/deliveries/{id}/redeliver` |
 | History | `/audit`, `/tasks/{ref}/audit`, `/retention`, `/prune`, `/housekeeping`, `/housekeeping/run`; see [Housekeeping](#housekeeping) |
@@ -468,7 +468,7 @@ of the body is optional, and an empty body copies the task into its own project:
 ```
 
 The copy gets a fresh reference in the target project and carries the title (or `title`), description,
-priority, tags, assignee, due date, repeat rule and the custom fields the target defines and accepts. It starts
+priority, tags, assignee, due date, repeat rule, lease and the custom fields the target defines and accepts. It starts
 in the target workflow's initial state, or in the same-named state with `keep_status` when the target has one.
 `with_comments` copies the comments as new ones by the caller that name the original author and time,
 `with_subtasks` the live subtree, `with_dependencies` the edges (pointed at the copies when both ends were
@@ -584,6 +584,20 @@ response header:
 ```sh
 curl -H "Authorization: Bearer $TIX_TOKEN" 'http://127.0.0.1:8080/api/v1/tasks?format=csv&status=todo'
 ```
+
+### Lease length
+
+`lease` on a task, and `lease_default` and `lease_max` on a project, set how long claims hold; `PATCH` either with
+a duration such as `"4h"`, or `"0s"` to inherit again. `GET /tasks/{ref}/lease` answers with the lease a claim
+naming no `ttl` would be granted now and the level that decided it:
+
+```json
+{"ttl":"4h0m0s","source":"task","max":"8h0m0s","max_source":"project"}
+```
+
+A claim, a queue claim and a renewal carry the same object as `lease`. The order is in
+[agents.md](agents.md#how-long-a-lease-lasts). A length above the ceiling is refused with `invalid`, a project
+maximum above the tenant's likewise.
 
 ### Task templates
 

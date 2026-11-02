@@ -34,7 +34,7 @@ each get a different task, with no lock, no coordinator and no server process.
 | `-p, --project` | restrict to project keys |
 | `-s, --status` | restrict to statuses |
 | `-l, --tag` | restrict to tags |
-| `--ttl` | how long the lease holds; falls back to an authored workflow's `default_lease`, then the tenant, then the deployment, then 30m |
+| `--ttl` | how long the lease holds; falls back to the task's lease, the project's, an authored workflow's `default_lease`, the tenant's, the deployment's, then 30m (see [How long a lease lasts](#how-long-a-lease-lasts)) |
 | `--actor` | claim on behalf of another actor |
 
 Claim eligibility covers every task that is not blocked by an unfinished dependency, not held by a live lease,
@@ -124,6 +124,42 @@ The status is the part that is not lazy. Until a sweep runs the task sits in wha
 a worker draining the queue with `tix claim next -s todo` will not see a crashed `doing` task again --
 `no_task_available`, exit 3, while the task is claimable. Either sweep, or do not scope the claim by status.
 `tix status` reports how many leases have expired and are unswept, which says whether anything is sweeping.
+
+### How long a lease lasts
+
+A claim that names no `--ttl` takes the first length set on this list, most specific first:
+
+| Level | Set with | Notes |
+| --- | --- | --- |
+| claim | `tix claim task/next --ttl 15m`, `ttl` on the claim request | refused when above the maximum |
+| task | `tix task edit REF --lease 4h`, `lease` on `PATCH /tasks/REF`, the Lease row of the task screen | `--lease ""` clears it |
+| project | `tix project edit KEY --lease-default 2h`, `lease_default` on `PATCH /projects/KEY`, the Claims panel on the board | `""` inherits the tenant's |
+| workflow | `default_lease` in an authored workflow | the shipped builtin's figure does not count |
+| tenant | `tix tenant edit KEY --lease-default 1h`, the Tenant screen | |
+| deployment | `lease.default` in the config file, `TIX_LEASE_DEFAULT` | |
+| built-in | 30m | |
+
+The ceiling is the lowest of the deployment's `lease.max` (24h when unset), the tenant's `lease_max` and the
+project's `lease_max` (`tix project edit KEY --lease-max 8h`). A project can only lower the tenant's ceiling:
+setting one above it is refused. A `--ttl` above the ceiling is refused; a length from any other level above it
+is cut down to it, so lowering a maximum later never stops claims.
+
+The same order decides a renewal that names no `--ttl`. Setting a task's or a project's length refuses a figure
+above its ceiling, and each change is a `task.update` or `project.update` with its audit entry and event.
+
+Every claim and renewal reports what it granted and why:
+
+```json
+"lease": {"ttl": "4h0m0s", "source": "project", "max": "24h0m0s", "max_source": "builtin"}
+```
+
+`source` and `max_source` are one of `claim`, `task`, `project`, `workflow`, `tenant`, `deployment` and
+`builtin`; `clamped` is true when the length was cut to the ceiling. `GET /api/v1/tasks/REF/lease` reports the
+same for a claim taken now, `tix task show` prints it as `claims last 4h, from the project`, and the task screen
+shows it under the Lease row.
+
+A task's lease travels with the task through `tix task copy`, a template and the next occurrence of a repeating
+task, and through export and import, because it describes the work rather than the worker.
 
 ## Taking a lease back before it runs out
 

@@ -868,6 +868,9 @@
      default, or a project's overrides with an Inherit choice naming what it
      inherits. Each rule says how many tasks it would act on now, so a number
      is never saved blind. */}}
+{{/* lease-grant says how long a claim lasts and which level decided it. */}}
+{{define "lease-grant"}}{{if .Clamped}}{{if eq .MaxSource "project"}}{{t "Claims last %s, capped by the project maximum" .TTL.Human}}{{else if eq .MaxSource "tenant"}}{{t "Claims last %s, capped by the tenant maximum" .TTL.Human}}{{else}}{{t "Claims last %s, capped by the server maximum" .TTL.Human}}{{end}}{{else if eq .Source "task"}}{{t "Claims last %s, set on this task" .TTL.Human}}{{else if eq .Source "project"}}{{t "Claims last %s, from the project" .TTL.Human}}{{else if eq .Source "workflow"}}{{t "Claims last %s, from the workflow" .TTL.Human}}{{else if eq .Source "tenant"}}{{t "Claims last %s, from the tenant" .TTL.Human}}{{else if eq .Source "deployment"}}{{t "Claims last %s, from the server configuration" .TTL.Human}}{{else}}{{t "Claims last %s, the built-in default" .TTL.Human}}{{end}}{{end}}
+
 {{define "housekeeping-rules"}}
 {{if .Paused}}<p class="note hkpaused">{{t "The trash is off, so cleanup is paused: nothing is moved or deleted until the trash is on again."}}</p>{{end}}
 {{range .Rows}}

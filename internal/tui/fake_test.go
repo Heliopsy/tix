@@ -22,6 +22,7 @@ type fakeService struct {
 	events    chan core.Event
 
 	claimErr      error
+	lease         *core.LeaseGrant
 	releaseErr    error
 	reclaimErr    error
 	transitionErr error
@@ -157,6 +158,12 @@ func (f *fakeService) ListTasks(context.Context, core.TaskFilter) (core.TaskPage
 		return core.TaskPage{}, f.listErr
 	}
 	return core.TaskPage{Tasks: f.tasks}, nil
+}
+
+func (f *fakeService) TaskLease(context.Context, core.TaskRef) (*core.LeaseGrant, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.lease, nil
 }
 
 func (f *fakeService) ClaimTask(_ context.Context, ref core.TaskRef, _ core.ClaimInput) (*core.Claim, error) {

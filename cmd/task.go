@@ -429,6 +429,7 @@ func taskShowCmd(g *globals) *cobra.Command {
 			noteCopiedFrom(ctx, g, cmd, conn.Service, task)
 			noteChecklist(g, cmd, task)
 			noteSnoozed(g, cmd, task)
+			noteLease(ctx, g, cmd, conn.Service, task)
 			return nil
 		},
 		ValidArgsFunction: g.completeTaskRefs,
@@ -448,7 +449,7 @@ func taskCopyCmd(g *globals) *cobra.Command {
 		Short: "Copy tasks to any project",
 		Long: "Copy a task into another project, or into its own when --to is omitted. The copy " +
 			"gets a fresh reference and carries the title, description, priority, tags, assignee, " +
-			"due date, repeat rule and the custom fields the target project defines. It starts in " +
+			"due date, repeat rule, lease and the custom fields the target project defines. It starts in " +
 			"the target workflow's initial state unless --keep-status finds a state of the same name.\n\n" +
 			"--with-comments copies the comments as new ones of yours that name the original author " +
 			"and time, --with-subtasks copies the whole live subtree, --with-deps keeps what the task " +
@@ -541,10 +542,10 @@ func copyDetail(in core.CopyTaskInput) map[string]any {
 
 func taskEditCmd(g *globals) *cobra.Command {
 	var (
-		title, bodyFlag, priority, assignee, parent, due, repeat string
-		tags, fields                                             []string
-		version                                                  int
-		dryRun, noRepeat                                         bool
+		title, bodyFlag, priority, assignee, parent, due, repeat, leaseRaw string
+		tags, fields                                                       []string
+		version                                                            int
+		dryRun, noRepeat                                                   bool
 	)
 	cmd := &cobra.Command{
 		Use:   "edit REF...",
@@ -553,10 +554,14 @@ func taskEditCmd(g *globals) *cobra.Command {
 			"Given several references, the same change is applied to each and one outcome per task " +
 			"is printed; --title and --version are refused then. Pass - to read references from standard input.\n\n" +
 			"--repeat sets or replaces the repeat rule and --no-repeat removes it. " + repeatHelp + "\n\n" +
+			"--lease sets how long a claim on the task holds when the claim names no --ttl, such as 4h; it " +
+			"outranks the project, workflow and tenant defaults and is held to their maximum. --lease \"\" " +
+			"clears it back to the project's.\n\n" +
 			"Exit codes: 2 invalid input, 3 unknown reference or assignee, 4 version conflict, 5 permission denied.",
 		Example: "  tix task edit default-1 --title \"buy oat milk\"\n  tix task edit default-1 --priority high --dry-run\n" +
 			"  tix task edit default-1 default-2 --priority low\n" +
-			"  tix task edit default-1 --repeat 'every 2 weeks on mon,thu'\n  tix task edit default-1 --no-repeat",
+			"  tix task edit default-1 --repeat 'every 2 weeks on mon,thu'\n  tix task edit default-1 --no-repeat\n" +
+			"  tix task edit default-1 --lease 4h",
 		Args: minArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			refs, err := readRefs(cmd, args)
@@ -613,6 +618,9 @@ func taskEditCmd(g *globals) *cobra.Command {
 				cleared := ""
 				in.Recurrence = &cleared
 			}
+			if in.Lease, err = leaseFlag(cmd, "lease", leaseRaw); err != nil {
+				return err
+			}
 			custom, err := parseFields(fields)
 			if err != nil {
 				return err
@@ -655,6 +663,7 @@ func taskEditCmd(g *globals) *cobra.Command {
 	f.StringVar(&due, "due", "", "new due date")
 	f.StringVar(&repeat, "repeat", "", "new repeat rule, such as 'every month on day 1'")
 	f.BoolVar(&noRepeat, "no-repeat", false, "remove the repeat rule")
+	f.StringVar(&leaseRaw, "lease", "", "how long a claim on the task holds, such as 4h, or \"\" to use the project's")
 	f.StringSliceVarP(&tags, "tag", "l", nil, "replace the tag set")
 	f.StringSliceVar(&fields, "field", nil, "custom field as key=value, repeatable")
 	f.IntVar(&version, "version", 0, "expected version for optimistic locking")

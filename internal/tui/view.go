@@ -559,6 +559,9 @@ func (m Model) detailLines(layout Layout) []string {
 	if snoozed := snoozeText(t, now, m.timeStyle, d.actors); snoozed != "" {
 		lines = append(lines, m.theme.Dim.Render(snoozed))
 	}
+	if d.lease != nil {
+		lines = append(lines, m.theme.Dim.Render("lease: "+d.lease.Sentence()))
+	}
 	lines = append(lines, "")
 
 	body := bodyLines(t.Body, max(1, m.width-DetailIndent))

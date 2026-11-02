@@ -19,6 +19,7 @@ func (h *handler) projectRoutes() []route {
 		// and the same block, the full board does. See showBoardLive.
 		get(RouteBoardLive, "board.html", h.showBoardLive, "GetProject"),
 		post(RouteProjectEdit, h.updateProject, "UpdateProject"),
+		post(RouteProjectLease, h.updateProjectLease, "UpdateProject"),
 		getFile(RouteProjectIcon, h.showProjectIcon, "GetProjectIcon"),
 		post(RouteProjectArch, h.archiveProject, "ArchiveProject"),
 		get(RouteProjectDel, "projectdelete.html", h.showProjectDelete,
@@ -210,6 +211,38 @@ func (h *handler) updateProject(w http.ResponseWriter, r *http.Request) error {
 	}
 	redirect(w, r, RouteProjects+"/"+updated.Key, "project updated")
 	return nil
+}
+
+// updateProjectLease saves the board's Claims panel: the project's lease
+// default and maximum, each blank to inherit the tenant's.
+func (h *handler) updateProjectLease(w http.ResponseWriter, r *http.Request) error {
+	var in core.UpdateProjectInput
+	var err error
+	if in.LeaseDefault, err = namedDuration(r, "lease_default"); err != nil {
+		return err
+	}
+	if in.LeaseMax, err = namedDuration(r, "lease_max"); err != nil {
+		return err
+	}
+	updated, err := h.svc.UpdateProject(r.Context(), r.PathValue("key"), in)
+	if err != nil {
+		return err
+	}
+	redirect(w, r, RouteProjects+"/"+updated.Key, "claim length saved")
+	return nil
+}
+
+// namedDuration reads a duration field only when the form named it, so a
+// form that does not carry it leaves it alone. Blank is zero, which inherits.
+func namedDuration(r *http.Request, name string) (*core.Duration, error) {
+	if _, named := r.PostForm[name]; !named {
+		return nil, nil
+	}
+	d, err := durationField(r, name)
+	if err != nil {
+		return nil, core.OnField(err, name)
+	}
+	return &d, nil
 }
 
 // refuseSettings answers a settings save the reader can correct by drawing

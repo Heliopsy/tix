@@ -912,6 +912,13 @@ Under every rule that is on, both say how many tasks it would act on now, and bo
 the trash is off. Clean up now on the Tenant screen runs one pass; otherwise `tix serve` runs it hourly. See
 [configuration.md](configuration.md#housekeeping).
 
+## Claim length
+
+A task's Lease row sets how long a claim on it holds, and under it the screen says how long a claim taken now
+would last and which level decided it, such as "Claims last 4h, from the project". The Claims panel on each
+project's board sets the project's lease length and its longest lease; both blank inherit the tenant's, and the
+tenant's are on the Tenant screen. The order is in [agents.md](agents.md#how-long-a-lease-lasts).
+
 ## Server administration
 
 Three screens in the Configure group answer for the installation rather than the work in it, and each
