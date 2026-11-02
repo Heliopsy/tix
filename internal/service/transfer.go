@@ -1078,6 +1078,7 @@ func (i *importer) buildLiveTaskTarget(ctx context.Context, tx store.Tx, project
 		Recurrence: rule, RecurrenceNextID: t.RecurrenceNextID,
 		CopiedFromID: t.CopiedFromID,
 		SnoozedUntil: t.SnoozedUntil, SnoozedByActorID: snoozedBy,
+		Lease: t.Lease,
 	}
 	if mapped, ok := i.ids[t.CopiedFromID]; ok {
 		target.CopiedFromID = mapped

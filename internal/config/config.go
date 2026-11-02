@@ -210,8 +210,9 @@ type Discovery struct {
 // lever available when tenants are created by people other than the operator.
 //
 // The full order a lease lifetime is decided by, most specific first: the ttl
-// on the claim, the project's workflow default_lease, the tenant's own
-// setting, these, and finally the constants. Max is a clamp rather than an
+// on the claim, the task's lease, the project's lease_default, the project's
+// workflow default_lease, the tenant's own setting, these, and finally the
+// constants. Max is a clamp rather than an
 // override at every level, so a tenant may tighten this ceiling and never
 // raise it. See lease.Policy.Narrow.
 type Lease struct {
@@ -224,10 +225,10 @@ type Lease struct {
 func (l Lease) Policy() lease.Policy {
 	p := lease.DefaultPolicy()
 	if l.Default > 0 {
-		p.Default = l.Default.D()
+		p.Default, p.DefaultFrom = l.Default.D(), core.LeaseFromDeployment
 	}
 	if l.Max > 0 {
-		p.Max = l.Max.D()
+		p.Max, p.MaxFrom = l.Max.D(), core.LeaseFromDeployment
 	}
 	return p
 }

@@ -33,9 +33,9 @@ func (h *handler) taskRoutes() []route {
 		// rather than the whole page. See showTasksLive and showTaskLive.
 		get(RouteTasksLive, "tasks.html", h.showTasksLive, "ListTasks", "ListProjects", "ListTags"),
 		get(RouteTask, "task.html", h.showTask, "GetTask", "TaskTree",
-			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor"),
+			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor", "TaskLease"),
 		get(RouteTaskLive, "task.html", h.showTaskLive, "GetTask", "TaskTree",
-			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor"),
+			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor", "TaskLease"),
 		post(RouteTask, h.updateTask, "UpdateTask"),
 		post(RouteTaskMove, h.transitionTask, "TransitionRoute"),
 		post(RouteTaskComplete, h.completeTask, "TransitionTask"),
@@ -151,6 +151,10 @@ type taskView struct {
 	// LastOccurrence says the rule has run out: finishing this task creates
 	// no further one.
 	LastOccurrence bool
+
+	// Lease is how long a claim on the task would hold and which level says
+	// so, nil when it could not be read.
+	Lease *core.LeaseGrant
 
 	// Parent is the task this one is a subtask of, when the reader can see it.
 	Parent *core.Task
@@ -355,6 +359,9 @@ func (h *handler) buildTaskView(r *http.Request) (taskView, error) {
 		}
 	} else {
 		data.NextDue, data.LastOccurrence = nextOccurrence(*task, time.Now())
+	}
+	if grant, err := h.svc.TaskLease(r.Context(), core.TaskRef{ID: task.ID}); err == nil {
+		data.Lease = grant
 	}
 	if task.ParentID != "" {
 		if parent, err := h.svc.GetTask(r.Context(), core.TaskRef{ID: task.ParentID}); err == nil {
@@ -585,6 +592,9 @@ func (h *handler) updateTask(w http.ResponseWriter, r *http.Request) error {
 	if _, named := r.PostForm["repeat"]; named {
 		rule := field(r, "repeat")
 		in.Recurrence = &rule
+	}
+	if in.Lease, err = namedDuration(r, "lease"); err != nil {
+		return err
 	}
 	if _, err := h.svc.UpdateTask(r.Context(), ref, in); err != nil {
 		return err

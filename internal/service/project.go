@@ -262,6 +262,17 @@ func (l *Local) UpdateProject(ctx context.Context, ref string, in core.UpdatePro
 			}
 			p.WorkflowID = wf.ID
 		}
+		if in.LeaseDefault != nil || in.LeaseMax != nil {
+			if in.LeaseDefault != nil {
+				p.LeaseDefault = *in.LeaseDefault
+			}
+			if in.LeaseMax != nil {
+				p.LeaseMax = *in.LeaseMax
+			}
+			if err := l.checkProjectLease(ctx, m.tx, p); err != nil {
+				return err
+			}
+		}
 		if err := m.tx.UpdateProject(ctx, p); err != nil {
 			return err
 		}

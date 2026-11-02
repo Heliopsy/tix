@@ -47,7 +47,66 @@ func (l *Local) leasePolicy(ctx context.Context, tx store.Tx) (lease.Policy, err
 	if err != nil {
 		return lease.Policy{}, err
 	}
-	return l.leaseDefaults.Narrow(t.LeaseDefault, t.LeaseMax), nil
+	pol := l.leaseDefaults
+	if pol.Default <= 0 {
+		pol.Default, pol.DefaultFrom = lease.DefaultTTL, core.LeaseFromBuiltin
+	}
+	if pol.Max <= 0 {
+		pol.Max, pol.MaxFrom = lease.MaxTTL, core.LeaseFromBuiltin
+	}
+	return pol.Narrow(t.LeaseDefault, t.LeaseMax), nil
+}
+
+// leaseGrant decides the lease a claim on task is granted. Most specific
+// first: the claim's own ttl, the task, the project, an authored workflow,
+// then the tenant and deployment defaults in the policy. The project's
+// maximum narrows the tenant's ceiling and cannot raise it.
+func (l *Local) leaseGrant(ctx context.Context, tx store.Tx, task *core.Task, perClaim core.Duration) (core.LeaseGrant, error) {
+	pol, err := l.leasePolicy(ctx, tx)
+	if err != nil {
+		return core.LeaseGrant{}, err
+	}
+	project, err := tx.GetProject(ctx, task.ProjectID)
+	if err != nil {
+		return core.LeaseGrant{}, err
+	}
+	wf, err := tx.GetWorkflowByID(ctx, project.WorkflowID)
+	if err != nil {
+		return core.LeaseGrant{}, err
+	}
+	return pol.Cap(project.LeaseMax, core.LeaseFromProject).Grant(lease.Offer{
+		Claim:    perClaim,
+		Task:     task.Lease,
+		Project:  project.LeaseDefault,
+		Workflow: workflowLease(wf),
+	})
+}
+
+// TaskLease reports the lease a claim on the task naming no ttl would get.
+func (l *Local) TaskLease(ctx context.Context, ref core.TaskRef) (*core.LeaseGrant, error) {
+	actor, err := l.authorize(ctx, authz.ActionTaskRead, authz.Resource{})
+	if err != nil {
+		return nil, err
+	}
+	var out core.LeaseGrant
+	err = l.read(ctx, actor, func(tx store.Tx) error {
+		task, err := tx.GetTask(ctx, ref)
+		if err != nil {
+			return err
+		}
+		if task.Deleted() {
+			return core.NotFound("task %q", ref.String())
+		}
+		if err := l.authorizeTask(ctx, authz.ActionTaskRead, task); err != nil {
+			return err
+		}
+		out, err = l.leaseGrant(ctx, tx, task, 0)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 // ClaimTask takes a lease on one task.
@@ -73,11 +132,7 @@ func (l *Local) ClaimTask(ctx context.Context, ref core.TaskRef, in core.ClaimIn
 		if task.SnoozedAt(m.now) {
 			return snoozedTask(task)
 		}
-		pol, err := l.leasePolicy(ctx, m.tx)
-		if err != nil {
-			return err
-		}
-		ttl, err := pol.Resolve(in.TTL, workflowLease(wf))
+		grant, err := l.leaseGrant(ctx, m.tx, task, in.TTL)
 		if err != nil {
 			return err
 		}
@@ -90,7 +145,7 @@ func (l *Local) ClaimTask(ctx context.Context, ref core.TaskRef, in core.ClaimIn
 			return err
 		}
 
-		until := lease.Until(m.now, ttl)
+		until := lease.Until(m.now, grant.TTL.D())
 		ok, err := m.tx.ClaimTask(ctx, store.ClaimRow{
 			TaskID:     task.ID,
 			ActorID:    holder,
@@ -106,6 +161,9 @@ func (l *Local) ClaimTask(ctx context.Context, ref core.TaskRef, in core.ClaimIn
 		}
 
 		out, err = l.recordClaim(ctx, m, task, token, until)
+		if out != nil {
+			out.Lease = &grant
+		}
 		return err
 	})
 	if err != nil {
@@ -195,43 +253,33 @@ func (l *Local) claimNextOnce(ctx context.Context, m *mutation, actor *core.Acto
 	if err != nil {
 		return nil, err
 	}
-	until, err = l.applyWorkflowTTL(ctx, m, task, in.TTL, token, until)
+	grant, until, err := l.applyTaskLease(ctx, m, task, in.TTL, token, until)
 	if err != nil {
 		return nil, err
 	}
-	return l.recordClaim(ctx, m, task, token, until)
+	out, err := l.recordClaim(ctx, m, task, token, until)
+	if out != nil {
+		out.Lease = &grant
+	}
+	return out, err
 }
 
-// applyWorkflowTTL narrows a queue claim's lease to the workflow's own default,
-// which is only known once the compare-and-swap has picked a task.
-func (l *Local) applyWorkflowTTL(ctx context.Context, m *mutation, task *core.Task, perClaim core.Duration, token string, until time.Time) (time.Time, error) {
-	if perClaim != 0 {
-		return until, nil
-	}
-	wf, err := claimWorkflow(ctx, m.tx, task.ProjectID)
+// applyTaskLease settles a queue claim's lease once the compare-and-swap has
+// picked a task, since the task, its project and its workflow can each name
+// their own length and none was known before the pick.
+func (l *Local) applyTaskLease(ctx context.Context, m *mutation, task *core.Task, perClaim core.Duration, token string, until time.Time) (core.LeaseGrant, time.Time, error) {
+	grant, err := l.leaseGrant(ctx, m.tx, task, perClaim)
 	if err != nil {
-		return until, err
+		return grant, until, err
 	}
-	// workflowLease, not the raw field: a builtin workflow contributes
-	// nothing, and the lease already granted above was resolved from the same
-	// tenant and deployment bounds this would re-derive. Returning here saves
-	// a second write that could only arrive at the answer already in place.
-	if workflowLease(wf) == 0 {
-		return until, nil
+	revised := lease.Until(m.now, grant.TTL.D())
+	if revised.Equal(until) {
+		return grant, until, nil
 	}
-	pol, err := l.leasePolicy(ctx, m.tx)
-	if err != nil {
-		return until, err
-	}
-	ttl, err := pol.Resolve(0, workflowLease(wf))
-	if err != nil {
-		return until, err
-	}
-	revised := lease.Until(m.now, ttl)
 	if _, err := m.tx.RenewLease(ctx, task.ID, token, revised); err != nil {
-		return until, err
+		return grant, until, err
 	}
-	return revised, nil
+	return grant, revised, nil
 }
 
 // RenewLease extends a live lease held under the caller's token.
@@ -250,20 +298,12 @@ func (l *Local) RenewLease(ctx context.Context, ref core.TaskRef, token string, 
 		if token == "" {
 			return core.Invalid("renewing the lease on task %q requires its lease token", task.Ref)
 		}
-		wf, err := claimWorkflow(ctx, m.tx, task.ProjectID)
-		if err != nil {
-			return err
-		}
-		pol, err := l.leasePolicy(ctx, m.tx)
-		if err != nil {
-			return err
-		}
-		resolved, err := pol.Resolve(ttl, workflowLease(wf))
+		grant, err := l.leaseGrant(ctx, m.tx, task, ttl)
 		if err != nil {
 			return err
 		}
 
-		until := lease.Until(m.now, resolved)
+		until := lease.Until(m.now, grant.TTL.D())
 		ok, err := m.tx.RenewLease(ctx, task.ID, token, until)
 		if err != nil {
 			return err
@@ -280,7 +320,7 @@ func (l *Local) RenewLease(ctx context.Context, ref core.TaskRef, token string, 
 			task, renewed, map[string]any{"lease_expires_at": until}); err != nil {
 			return err
 		}
-		out = &core.Claim{Task: renewed, LeaseToken: token, LeaseExpiresAt: until}
+		out = &core.Claim{Task: renewed, LeaseToken: token, LeaseExpiresAt: until, Lease: &grant}
 		return nil
 	})
 	if err != nil {

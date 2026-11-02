@@ -91,6 +91,9 @@ func TestUpgradeKeepsDuplicateTokensWorkingAndTellsThemApart(t *testing.T) {
 		"DROP TABLE task_templates",
 		"ALTER TABLE tenants DROP COLUMN trash_off",
 		"DROP TABLE housekeeping_policies",
+		"ALTER TABLE projects DROP COLUMN lease_default",
+		"ALTER TABLE projects DROP COLUMN lease_max",
+		"ALTER TABLE tasks DROP COLUMN lease",
 		"DELETE FROM schema_migrations WHERE version > 9",
 	} {
 		if _, err := s.writer.ExecContext(ctx, stmt); err != nil {

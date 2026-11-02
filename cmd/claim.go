@@ -22,6 +22,7 @@ type claimView struct {
 	Status         string `json:"status" yaml:"status"`
 	LeaseToken     string `json:"lease_token" yaml:"lease_token"`
 	LeaseExpiresAt string `json:"lease_expires_at" yaml:"lease_expires_at"`
+	Lease          string `json:"lease,omitempty" yaml:"lease,omitempty"`
 }
 
 // sweepResult reports how many leases a sweep expired.
@@ -44,6 +45,7 @@ func (g *globals) renderClaim(cmd *cobra.Command, claim *core.Claim) error {
 	view := claimView{
 		LeaseToken:     claim.LeaseToken,
 		LeaseExpiresAt: output.FormatTimestamp(claim.LeaseExpiresAt),
+		Lease:          leasePhrase(claim.Lease),
 	}
 	if claim.Task != nil {
 		view.Ref, view.Title, view.Status = claim.Task.Ref, claim.Task.Title, claim.Task.Status

@@ -21,7 +21,7 @@ var taskColumns = []string{
 	"tasks.due_at", "tasks.started_at", "tasks.completed_at",
 	"tasks.claimed_by_actor_id", "tasks.claimed_at", "tasks.lease_expires_at", "tasks.claim_count",
 	"tasks.lease_expired_at", "tasks.lease_expired_by",
-	"tasks.recurrence", "tasks.recurrence_next_id", "tasks.copied_from_id",
+	"tasks.recurrence", "tasks.recurrence_next_id", "tasks.copied_from_id", "tasks.lease",
 	"tasks.snoozed_until", "tasks.snoozed_by",
 	"tasks.custom_fields", "tasks.version", "tasks.created_at", "tasks.updated_at", "tasks.deleted_at",
 	"projects.key",
@@ -90,6 +90,7 @@ func scanTaskWith(s scanner, extra ...any) (core.Task, error) {
 		expiredBy    sql.NullString
 		nextID       sql.NullString
 		copiedFrom   sql.NullString
+		leaseText    string
 		snoozed      sql.NullString
 		snoozedBy    sql.NullString
 		custom       string
@@ -104,7 +105,7 @@ func scanTaskWith(s scanner, extra ...any) (core.Task, error) {
 		&due, &started, &completed,
 		&claimedBy, &claimedAt, &leaseExpires, &t.ClaimCount,
 		&expiredAt, &expiredBy,
-		&t.Recurrence, &nextID, &copiedFrom,
+		&t.Recurrence, &nextID, &copiedFrom, &leaseText,
 		&snoozed, &snoozedBy,
 		&custom, &t.Version, &created, &updated, &deleted, &projectKey}
 	if err := s.Scan(append(dests, extra...)...); err != nil {
@@ -125,6 +126,9 @@ func scanTaskWith(s scanner, extra ...any) (core.Task, error) {
 	}
 
 	var err error
+	if t.Lease, err = sqlb.ScanDuration(leaseText, "task lease"); err != nil {
+		return core.Task{}, err
+	}
 	if t.DueAt, err = sqlb.ScanNullTime(due); err != nil {
 		return core.Task{}, err
 	}
@@ -209,6 +213,7 @@ func (t *tx) CreateTask(ctx context.Context, task *core.Task) error {
 		Set("custom_fields", custom).
 		Set("recurrence", task.Recurrence).
 		Set("recurrence_next_id", sqlb.NullText(task.RecurrenceNextID)).
+		Set("lease", sqlb.DurationText(task.Lease)).
 		Set("copied_from_id", sqlb.NullText(task.CopiedFromID)).
 		Set("snoozed_until", sqlb.NullTimeText(task.SnoozedUntil)).
 		Set("snoozed_by", sqlb.NullText(task.SnoozedByActorID)).
@@ -561,6 +566,7 @@ func (t *tx) UpdateTask(ctx context.Context, task *core.Task) error {
 		Set("custom_fields", custom).
 		Set("recurrence", task.Recurrence).
 		Set("recurrence_next_id", sqlb.NullText(task.RecurrenceNextID)).
+		Set("lease", sqlb.DurationText(task.Lease)).
 		Set("updated_at", sqlb.TimeText(task.UpdatedAt)).
 		SetExpr("version", "version + 1")
 	n, err := t.execUpdate(ctx, b, "updating task %q", task.ID)

@@ -52,6 +52,7 @@ type TemplateTask struct {
 	Tags         []string       `json:"tags,omitempty" yaml:"tags,omitempty"`
 	CustomFields map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
 	Recurrence   string         `json:"recurrence,omitempty" yaml:"recurrence,omitempty"`
+	Lease        Duration       `json:"lease,omitempty" yaml:"lease,omitempty"`
 	Subtasks     []TemplateTask `json:"subtasks,omitempty" yaml:"subtasks,omitempty"`
 }
 

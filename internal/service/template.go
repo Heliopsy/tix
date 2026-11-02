@@ -333,7 +333,7 @@ func snapshotTask(ctx context.Context, tx store.Tx, root *core.Task, withSubtask
 	build = func(t core.Task) core.TemplateTask {
 		node := core.TemplateTask{
 			Title: t.Title, Body: t.Body, Priority: t.Priority, Tags: t.Tags,
-			CustomFields: t.CustomFields, Recurrence: t.Recurrence,
+			CustomFields: t.CustomFields, Recurrence: t.Recurrence, Lease: t.Lease,
 		}
 		for _, child := range children[t.ID] {
 			node.Subtasks = append(node.Subtasks, build(child))
@@ -358,6 +358,7 @@ func templateSources(root core.TemplateTask, v core.TemplateValues) []core.Task 
 		out = append(out, core.Task{
 			ID: id, ParentID: parent, Title: core.FillPlaceholders(t.Title, v), Body: t.Body,
 			Priority: priority, Tags: t.Tags, CustomFields: t.CustomFields, Recurrence: t.Recurrence,
+			Lease: t.Lease,
 		})
 		for _, s := range t.Subtasks {
 			walk(s, id)

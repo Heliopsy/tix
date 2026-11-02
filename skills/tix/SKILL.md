@@ -143,6 +143,13 @@ tix claim release "$ref" --token "$token" --status done \
 - There is no `tix claim` subcommand that lists leases. To see what is
   currently held — which is how you tell whether another agent is already on
   the queue — ask the task listing: `tix task ls --filter 'claimed:yes'`.
+- Without `--ttl` the lease length comes from the task (`tix task edit REF
+  --lease 4h`), then the project (`tix project edit KEY --lease-default 2h`),
+  then an authored workflow, the tenant and the server, then 30m. The claim's
+  `lease` object says which (`"source": "project"`), and `tix task show` prints
+  `claims last 2h, from the project`. A `--ttl` above the maximum is exit `2`.
+  Renew at a third of the length you were actually granted, not the one you
+  assumed.
 
 ## Leases
 

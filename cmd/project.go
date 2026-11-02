@@ -197,7 +197,7 @@ func projectShowCmd(g *globals) *cobra.Command {
 }
 
 func projectEditCmd(g *globals) *cobra.Command {
-	var key, name, description, workflow, color, icon, iconName, iconFile string
+	var key, name, description, workflow, color, icon, iconName, iconFile, leaseDefault, leaseMax string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "edit KEY",
@@ -208,10 +208,14 @@ func projectEditCmd(g *globals) *cobra.Command {
 			"other project can take it.\n\n" +
 			"The icon is one of --icon, --icon-name or --icon-file; setting one replaces whichever the project had, " +
 			"and setting any of them empty clears the icon.\n\n" +
-			"Exit codes: 2 invalid key, colour or icon, 3 unknown project, 4 key held by another project.",
+			"--lease-default sets how long a claim on this project's tasks holds when neither the claim nor the task " +
+			"says; it outranks the workflow's default_lease and the tenant's. --lease-max lowers the tenant's maximum " +
+			"for this project and cannot raise it. \"\" on either inherits the tenant's again.\n\n" +
+			"Exit codes: 2 invalid key, colour, icon or lease, 3 unknown project, 4 key held by another project.",
 		Example: "  tix project edit infra --name \"Platform\"\n  tix project edit infra --key ops\n" +
 			"  tix project edit infra --color \"\" --icon \"\"\n" +
-			"  tix project edit infra --icon-name rocket\n  tix project edit infra --icon-file logo.png",
+			"  tix project edit infra --icon-name rocket\n  tix project edit infra --icon-file logo.png\n" +
+			"  tix project edit infra --lease-default 2h --lease-max 8h",
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var in core.UpdateProjectInput
@@ -251,6 +255,13 @@ func projectEditCmd(g *globals) *cobra.Command {
 					return err
 				}
 			}
+			var err error
+			if in.LeaseDefault, err = leaseFlag(cmd, "lease-default", leaseDefault); err != nil {
+				return err
+			}
+			if in.LeaseMax, err = leaseFlag(cmd, "lease-max", leaseMax); err != nil {
+				return err
+			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
@@ -277,6 +288,10 @@ func projectEditCmd(g *globals) *cobra.Command {
 	cmd.Flags().StringVar(&icon, "icon", "", iconFlagUsage+", or empty to clear it")
 	cmd.Flags().StringVar(&iconName, "icon-name", "", iconNameUsage+", or empty to clear it")
 	cmd.Flags().StringVar(&iconFile, "icon-file", "", iconFileUsage+", or empty to clear it")
+	cmd.Flags().StringVar(&leaseDefault, "lease-default", "",
+		"how long a claim on this project's tasks holds, such as 2h, or \"\" to inherit the tenant's")
+	cmd.Flags().StringVar(&leaseMax, "lease-max", "",
+		"the longest lease a claim here may take, only lower than the tenant's, or \"\" to inherit it")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	return cmd
 }

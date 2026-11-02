@@ -46,6 +46,7 @@ func spawnOccurrence(ctx context.Context, m *mutation, def core.WorkflowDefiniti
 		DueAt:           &due,
 		CustomFields:    maps.Clone(task.CustomFields),
 		Recurrence:      rule.Successor().String(),
+		Lease:           task.Lease,
 	}
 	if def.IsTerminal(next.Status) {
 		completed := m.now

@@ -45,6 +45,7 @@ var inputReaches = []inputReach{
 	{"tix project edit", core.UpdateProjectInput{}, map[string]string{
 		"key": "--key", "name": "--name", "description": "--description", "workflow_key": "--workflow",
 		"color": "--color", "icon": "--icon", "icon_name": "--icon-name", "icon_file": "--icon-file",
+		"lease_default": "--lease-default", "lease_max": "--lease-max",
 	}},
 	{"tix project ls", core.ProjectFilter{}, map[string]string{
 		"keys": "--key", "include_archived": "--include-archived", "page": "--cursor",
@@ -65,7 +66,7 @@ var inputReaches = []inputReach{
 	{"tix task edit", core.UpdateTaskInput{}, map[string]string{
 		"title": "--title", "body": "--body", "priority": "--priority", "assignee_actor_id": "--assignee",
 		"parent_ref": "--parent", "due_at": "--due", "custom_fields": "--field", "tags": "--tag",
-		"recurrence": "--repeat", "version": "--version",
+		"recurrence": "--repeat", "lease": "--lease", "version": "--version",
 	}},
 	{"tix task check", core.CheckItemInput{}, map[string]string{
 		"item": "arg", "version": "--version",

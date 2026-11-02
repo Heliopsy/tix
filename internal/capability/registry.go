@@ -868,6 +868,14 @@ var registry = []Operation{
 		},
 	},
 	{
+		Name: "task.lease", Method: "TaskLease",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix task show",
+		HTTP:  apiGet(wire.RouteTaskLease),
+		Web:   webGet(web.RouteTask, tplTask),
+		TUI:   "detail",
+	},
+	{
 		Name: "claim.next", Method: "ClaimNext",
 		Scope: core.ScopeTaskClaim,
 		CLI:   "tix claim next",

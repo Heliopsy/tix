@@ -206,7 +206,7 @@ heading per deadline. The sidebar also lists the last ten tasks the browser open
 **Copying a task.** A task copies into any project you can create tasks in, its own included: "Copy to…"
 on the task screen in the browser, `Y` in the terminal interface, `tix task copy REF --to PROJECT` on the
 command line and `POST /api/v1/tasks/{ref}/copy` over HTTP. The copy gets a fresh reference and keeps the
-title (editable), description, priority, tags, assignee, due date, repeat rule and the custom fields the
+title (editable), description, priority, tags, assignee, due date, repeat rule, lease and the custom fields the
 target defines. It starts in the target workflow's first state, or keeps its state when asked and the target
 has one of the same name. Comments, subtasks (recursively) and dependencies come along only when asked, and a
 linked copy shows "Copied from" with the original. Stars, claims, history and artifacts stay behind.

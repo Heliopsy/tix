@@ -129,6 +129,11 @@ type UpdateProjectInput struct {
 	IconName    *string `json:"icon_name,omitempty" yaml:"icon_name,omitempty"`
 
 	IconFile *ProjectIconFile `json:"icon_file,omitempty" yaml:"icon_file,omitempty"`
+
+	// LeaseDefault and LeaseMax set the project's lease bounds; a pointer to
+	// zero inherits the tenant's again.
+	LeaseDefault *Duration `json:"lease_default,omitempty" yaml:"lease_default,omitempty"`
+	LeaseMax     *Duration `json:"lease_max,omitempty" yaml:"lease_max,omitempty"`
 }
 
 // IconChanged reports whether the update names the project's icon at all.
@@ -370,6 +375,9 @@ type UpdateTaskInput struct {
 	// Recurrence replaces the repeat rule; a pointer to the empty string
 	// removes it and nil leaves it alone.
 	Recurrence *string `json:"recurrence,omitempty" yaml:"recurrence,omitempty"`
+	// Lease sets how long a claim on the task holds; a pointer to zero clears
+	// it back to the project's.
+	Lease *Duration `json:"lease,omitempty" yaml:"lease,omitempty"`
 
 	Version int `json:"version,omitempty" yaml:"version,omitempty"`
 }

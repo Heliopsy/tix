@@ -121,6 +121,7 @@ func (m Model) detailFor(ref core.TaskRef) tea.Cmd {
 		out.comments, _ = svc.ListComments(ctx, ref)
 		out.fieldDefs, _ = svc.ListFieldDefs(ctx, projectRef)
 		out.artifacts, _ = svc.ListArtifacts(ctx, ref)
+		out.lease, _ = svc.TaskLease(ctx, ref)
 		out.actors = resolveActors(ctx, svc, actorIDs(*full, out.comments))
 		return out
 	}

@@ -532,7 +532,7 @@ func PriorityFor(label string) (core.Priority, bool) {
 }
 
 // CopyNote says what a copy carries, so a reader knows what the switches add to.
-const CopyNote = "title, description, priority, tags, fields, repeat, due date and assignee travel; stars, claims and history do not"
+const CopyNote = "title, description, priority, tags, fields, repeat, lease, due date and assignee travel; stars, claims and history do not"
 
 // CopyForm gathers where a copy of a task goes and what travels with it. The
 // target opens on the project the board shows, so copying beside the original

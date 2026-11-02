@@ -29,6 +29,22 @@ func (rt *Router) registerClaimRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteTaskClaimReclaim, rt.handleForceReclaim)
 	rt.mux.HandleFunc("POST "+wire.RouteClaimNext, rt.handleClaimNext)
 	rt.mux.HandleFunc("POST "+wire.RouteClaimSweep, rt.handleSweepLeases)
+	rt.mux.HandleFunc("GET "+wire.RouteTaskLease, rt.handleTaskLease)
+}
+
+// handleTaskLease reports the lease a claim on the task would be granted.
+func (rt *Router) handleTaskLease(w http.ResponseWriter, r *http.Request) {
+	ref, err := taskRef(r)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	grant, err := rt.cfg.Service.TaskLease(r.Context(), ref)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, grant)
 }
 
 // handleClaimTask claims one named task.

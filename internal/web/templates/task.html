@@ -249,6 +249,22 @@
         {{else if .Data.LastOccurrence}}<span class="propnote">{{t "this is the last occurrence"}}</span>{{end}}
       </dd>
     </div>
+    <div class="prop" data-prop="lease">
+      <dt><span class="proplabel">{{if .Data.CanWrite}}<label for="{{.IDPrefix}}lease">{{t "Lease"}}</label>{{else}}{{t "Lease"}}{{end}}{{template "tip" (tip "Lease length" "How long a claim on this task holds before it expires, when the claim names no length of its own. Empty uses the project's, then an authored workflow's, then the tenant's. Never longer than the maximum." "docs/agents.md")}}</span></dt>
+      <dd class="leaseline">
+        {{/* Only this form names the lease, so saving anything else leaves it. */}}
+        {{if .Data.CanWrite}}
+        <form method="post" class="propform" action="/tasks/{{$t.Ref}}">
+          {{template "csrf" .CSRF}}
+          <input type="hidden" name="version" value="{{$t.Version}}">
+          <input type="hidden" name="title" value="{{$t.Title}}">
+          <input id="{{.IDPrefix}}lease" name="lease" class="mono" value="{{if $t.Lease}}{{$t.Lease.Human}}{{end}}" placeholder="{{t "Inherited"}}">
+          <button type="submit" class="propsave">{{t "Save"}}</button>
+        </form>
+        {{else if $t.Lease}}{{$t.Lease.Human}}{{else}}<span class="muted">&mdash;</span>{{end}}
+        {{with .Data.Lease}}<span class="propnote leasenote">{{template "lease-grant" .}}</span>{{end}}
+      </dd>
+    </div>
     {{/* Each custom field edits on its own. A form that names one field
          changes that field and leaves the others, and the repeat rule, alone. */}}
     {{range .Data.Fields}}

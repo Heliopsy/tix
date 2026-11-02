@@ -15,6 +15,11 @@ func (c *Client) ClaimTask(ctx context.Context, ref core.TaskRef, in core.ClaimI
 	return call[core.Claim](ctx, c, http.MethodPost, taskPath(wire.RouteTaskClaim, ref), nil, in)
 }
 
+// TaskLease reads the lease a claim on the task would be granted.
+func (c *Client) TaskLease(ctx context.Context, ref core.TaskRef) (*core.LeaseGrant, error) {
+	return call[core.LeaseGrant](ctx, c, http.MethodGet, taskPath(wire.RouteTaskLease, ref), nil, nil)
+}
+
 // ClaimNext claims the next eligible task.
 func (c *Client) ClaimNext(ctx context.Context, in core.ClaimNextInput) (*core.Claim, error) {
 	return call[core.Claim](ctx, c, http.MethodPost, wire.RouteClaimNext, nil, in)

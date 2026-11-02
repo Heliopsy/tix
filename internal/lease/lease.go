@@ -35,14 +35,26 @@ const RenewDivisor = 3
 // TokenBytes is the entropy behind one lease token.
 const TokenBytes = 32
 
-// Policy bounds lease lifetimes for one installation.
+// Policy bounds lease lifetimes for one installation. DefaultFrom and
+// MaxFrom name the level each bound was last set by; empty reads as builtin.
 type Policy struct {
-	Default time.Duration
-	Max     time.Duration
+	Default     time.Duration
+	Max         time.Duration
+	DefaultFrom core.LeaseSource
+	MaxFrom     core.LeaseSource
 }
 
 // DefaultPolicy returns the shipped lease policy.
 func DefaultPolicy() Policy { return Policy{Default: DefaultTTL, Max: MaxTTL} }
+
+// Offer is what the levels between the claim and the tenant say about one
+// lease, each zero when that level names nothing.
+type Offer struct {
+	Claim    core.Duration
+	Task     core.Duration
+	Project  core.Duration
+	Workflow core.Duration
+}
 
 // Narrow layers a tenant's own bounds over this one.
 //
@@ -59,10 +71,17 @@ func DefaultPolicy() Policy { return Policy{Default: DefaultTTL, Max: MaxTTL} }
 func (p Policy) Narrow(def, max core.Duration) Policy {
 	out := p
 	if def > 0 {
-		out.Default = def.D()
+		out.Default, out.DefaultFrom = def.D(), core.LeaseFromTenant
 	}
+	return out.Cap(max, core.LeaseFromTenant)
+}
+
+// Cap lowers the ceiling to max when max is set and lower, recording from as
+// the level that set it. It never raises the ceiling.
+func (p Policy) Cap(max core.Duration, from core.LeaseSource) Policy {
+	out := p
 	if max > 0 && (out.Max <= 0 || max.D() < out.Max) {
-		out.Max = max.D()
+		out.Max, out.MaxFrom = max.D(), from
 	}
 	return out
 }
@@ -70,24 +89,42 @@ func (p Policy) Narrow(def, max core.Duration) Policy {
 // Resolve picks the most specific lifetime offered: the per-claim value, then
 // the workflow's default, then the policy default.
 func (p Policy) Resolve(perClaim, workflow core.Duration) (time.Duration, error) {
+	g, err := p.Grant(Offer{Claim: perClaim, Workflow: workflow})
+	return g.TTL.D(), err
+}
+
+// Grant picks the first level of the offer that names a length, falling back
+// to the policy default, and holds it to the policy ceiling.
+func (p Policy) Grant(o Offer) (core.LeaseGrant, error) {
 	def, limit := p.Default, p.Max
+	defFrom, maxFrom := sourceOr(p.DefaultFrom), sourceOr(p.MaxFrom)
 	if def <= 0 {
-		def = DefaultTTL
+		def, defFrom = DefaultTTL, core.LeaseFromBuiltin
 	}
 	if limit <= 0 {
-		limit = MaxTTL
+		limit, maxFrom = MaxTTL, core.LeaseFromBuiltin
 	}
 
-	ttl, asked := def, false
-	switch {
-	case perClaim != 0:
-		ttl, asked = perClaim.D(), true
-	case workflow != 0:
-		ttl = workflow.D()
+	ttl, from := def, defFrom
+	for _, level := range []struct {
+		d    core.Duration
+		from core.LeaseSource
+	}{
+		{o.Claim, core.LeaseFromClaim},
+		{o.Task, core.LeaseFromTask},
+		{o.Project, core.LeaseFromProject},
+		{o.Workflow, core.LeaseFromWorkflow},
+	} {
+		if level.d != 0 {
+			ttl, from = level.d.D(), level.from
+			break
+		}
 	}
+	asked := from == core.LeaseFromClaim
+	g := core.LeaseGrant{Source: from, Max: core.Duration(limit), MaxSource: maxFrom}
 
 	if ttl <= 0 {
-		return 0, core.Invalid("lease ttl %s must be positive", ttl)
+		return g, core.Invalid("lease ttl %s must be positive", ttl)
 	}
 	if ttl > limit {
 		// Only a caller who named the figure is told it is too long. A
@@ -98,11 +135,19 @@ func (p Policy) Resolve(perClaim, workflow core.Duration) (time.Duration, error)
 		// refuse every claim on the tenant until somebody noticed. Clamping
 		// shortens leases; erroring stops work.
 		if asked {
-			return 0, core.Invalid("lease ttl %s exceeds the maximum of %s", ttl, limit)
+			return g, core.Invalid("lease ttl %s exceeds the maximum of %s", ttl, limit)
 		}
-		ttl = limit
+		ttl, g.Clamped = limit, true
 	}
-	return ttl, nil
+	g.TTL = core.Duration(ttl)
+	return g, nil
+}
+
+func sourceOr(s core.LeaseSource) core.LeaseSource {
+	if s == "" {
+		return core.LeaseFromBuiltin
+	}
+	return s
 }
 
 // Resolve picks a lease lifetime under the default policy.
