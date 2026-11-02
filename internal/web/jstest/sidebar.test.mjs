@@ -75,7 +75,7 @@ function group(name) {
 
 function page(cookie = "") {
   const jar = cookieJar(cookie);
-  const configure = group("configure");
+  const admin = group("admin");
   const recent = group("recent");
   const classes = new Set();
   const props = {};
@@ -87,11 +87,11 @@ function page(cookie = "") {
   const side = { getBoundingClientRect: () => ({ left: 0, width: 224 }) };
   const lists = {
     "[data-side-resize]": [handle], "[data-side-toggle]": [toggle], "[data-rail-name]": [link],
-    '[data-navgroup="configure"]': [configure.box], '[data-navgroup-toggle="configure"]': [configure.button],
+    '[data-navgroup="admin"]': [admin.box], '[data-navgroup-toggle="admin"]': [admin.button],
     '[data-navgroup="recent"]': [recent.box], '[data-navgroup-toggle="recent"]': [recent.button],
   };
   return {
-    classes, props, listeners, handle, toggle, link, jar, configure, recent,
+    classes, props, listeners, handle, toggle, link, jar, admin, recent,
     fire(type, event) { for (const fn of listeners[type] || []) fn(event); },
     document: {
       get cookie() { return jar.cookie; },
@@ -156,13 +156,13 @@ test("a stored width outside the limits is clamped, and garbage is the default",
 
 test("the cookie value reads and writes the same state, leaving defaults out", () => {
   const { tix } = load();
-  const state = JSON.parse(JSON.stringify(tix.sidebarParse("fold=data.configure.bogus&w=300&rail=1")));
-  assert.deepEqual(state, { width: 300, collapsed: true, fold: ["data", "configure"] });
+  const state = JSON.parse(JSON.stringify(tix.sidebarParse("fold=admin.bogus&w=300&rail=1")));
+  assert.deepEqual(state, { width: 300, collapsed: true, fold: ["admin"] });
   assert.equal(tix.sidebarFormat(state), "w=300&rail=1", "the default folds are left out");
-  assert.deepEqual(JSON.parse(JSON.stringify(tix.sidebarParse(""))).fold, ["configure", "data"], "no cookie folds the admin groups");
+  assert.deepEqual(JSON.parse(JSON.stringify(tix.sidebarParse(""))).fold, ["admin"], "no cookie folds the admin group");
   assert.deepEqual(JSON.parse(JSON.stringify(tix.sidebarParse("fold="))).fold, [], "an empty list opens every group");
-  assert.deepEqual(JSON.parse(JSON.stringify(tix.sidebarParse("fold=trash"))).fold, ["configure", "data"], "a list naming no group is the default");
-  assert.equal(tix.sidebarFormat({ width: null, collapsed: false, fold: ["configure", "data"] }), "");
+  assert.deepEqual(JSON.parse(JSON.stringify(tix.sidebarParse("fold=trash"))).fold, ["admin"], "a list naming no group is the default");
+  assert.equal(tix.sidebarFormat({ width: null, collapsed: false, fold: ["admin"] }), "");
   assert.equal(tix.sidebarFormat({ width: null, collapsed: false, fold: [] }), "fold=", "every group opened is kept");
 });
 
@@ -248,26 +248,37 @@ test("a boosted swap brings the server's drawing and the script leaves it in pla
 
 test("a group heading folds and unfolds its group and remembers it", () => {
   const { p } = load("w=300&fold=");
-  p.fire("click", { target: p.configure.button });
-  assert.equal(p.configure.box.classes.has("is-folded"), true);
-  assert.equal(p.configure.button.attrs["aria-expanded"], "false");
-  assert.equal(stored(p), "w=300&fold=configure");
+  p.fire("click", { target: p.admin.button });
+  assert.equal(p.admin.box.classes.has("is-folded"), true);
+  assert.equal(p.admin.button.attrs["aria-expanded"], "false");
+  assert.equal(stored(p), "w=300", "admin folded is the default again");
   p.fire("click", { target: p.recent.button });
-  assert.equal(stored(p), "w=300&fold=recent.configure", "groups are written in drawing order");
-  p.fire("click", { target: p.configure.button });
-  assert.equal(p.configure.box.classes.has("is-folded"), false);
-  assert.equal(p.configure.button.attrs["aria-expanded"], "true");
+  assert.equal(stored(p), "w=300&fold=recent.admin", "groups are written in drawing order");
+  p.fire("click", { target: p.admin.button });
+  assert.equal(p.admin.box.classes.has("is-folded"), false);
+  assert.equal(p.admin.button.attrs["aria-expanded"], "true");
   assert.equal(stored(p), "w=300&fold=recent");
 });
 
-test("the admin groups start folded, and opening one is remembered", () => {
+test("the admin group starts folded, and opening it is remembered", () => {
   const { p, tix } = load("w=300");
-  assert.deepEqual(JSON.parse(JSON.stringify(tix.sidebarParse("w=300"))).fold, ["configure", "data"]);
-  p.configure.box.classes.add("is-folded");
-  p.configure.button.attrs["aria-expanded"] = "false";
-  p.fire("click", { target: p.configure.button });
-  assert.equal(p.configure.box.classes.has("is-folded"), false);
-  assert.equal(stored(p), "w=300&fold=data", "configure opened, data still folded");
+  assert.deepEqual(JSON.parse(JSON.stringify(tix.sidebarParse("w=300"))).fold, ["admin"]);
+  p.admin.box.classes.add("is-folded");
+  p.admin.button.attrs["aria-expanded"] = "false";
+  p.fire("click", { target: p.admin.button });
+  assert.equal(p.admin.box.classes.has("is-folded"), false);
+  assert.equal(stored(p), "w=300&fold=", "admin opened");
+});
+
+test("a cookie from the build with Configure and Data opens Admin if either was open", () => {
+  const { tix } = load();
+  const fold = (v) => JSON.parse(JSON.stringify(tix.sidebarParse(v))).fold;
+  assert.deepEqual(fold("fold=configure.data"), ["admin"], "both folded folds Admin");
+  assert.deepEqual(fold("fold=recent.configure.data"), ["recent", "admin"]);
+  assert.deepEqual(fold("fold=configure"), [], "data was open, so Admin opens");
+  assert.deepEqual(fold("fold=data.recent"), ["recent"], "configure was open, so Admin opens");
+  assert.deepEqual(fold("fold=data.data"), [], "naming one group twice is not both");
+  assert.equal(tix.sidebarFormat({ width: null, collapsed: false, fold: fold("fold=configure") }), "fold=", "rewritten in the new names");
 });
 
 test("on the rail a group heading opens the sidebar with the group unfolded", () => {
@@ -284,7 +295,7 @@ test("on the rail a group heading opens the sidebar with the group unfolded", ()
 test("what an earlier build kept in localStorage moves into the cookie once", () => {
   const storage = memoryStorage({ "tix.sidebar.width": "320", "tix.sidebar.collapsed": "true", "tix.recent.closed": "true" });
   const { p } = load("", { storage });
-  assert.equal(stored(p), "w=320&rail=1&fold=recent.configure.data", "the old build's closed recent list joins the default folds");
+  assert.equal(stored(p), "w=320&rail=1&fold=recent.admin", "the old build's closed recent list joins the default folds");
   assert.equal(storage.data.size, 0, "the old keys are forgotten");
   assert.equal(p.classes.has(CLASS), true);
 
@@ -300,5 +311,5 @@ test("storage and cookies that throw read as the default and pressing does not t
   const { p: got } = load("", { storage: throwingStorage, p });
   assert.equal(got.classes.has(CLASS), false);
   assert.doesNotThrow(() => got.fire("click", { target: got.toggle }));
-  assert.doesNotThrow(() => got.fire("click", { target: got.configure.button }));
+  assert.doesNotThrow(() => got.fire("click", { target: got.admin.button }));
 });

@@ -656,13 +656,15 @@
   // applyBadge copies a freshly rendered unread badge onto the one on screen:
   // its count and whether it shows. mirrors are the other marks that say
   // there is something unread (the phone menu button's dot), shown with it.
-  tix.applyBadge = function (here, fresh, mirrors) {
+  // attr names the attribute holding the count, the unread one by default.
+  tix.applyBadge = function (here, fresh, mirrors, attr) {
     if (!here || !fresh) {
       return;
     }
-    var count = parseInt(fresh.getAttribute("data-inbox-count"), 10) || 0;
+    var name = attr || "data-inbox-count";
+    var count = parseInt(fresh.getAttribute(name), 10) || 0;
     here.innerHTML = fresh.innerHTML;
-    here.setAttribute("data-inbox-count", String(count));
+    here.setAttribute(name, String(count));
     var marks = [here].concat(Array.prototype.slice.call(mirrors || []));
     for (var i = 0; i < marks.length; i++) {
       if (count > 0) {

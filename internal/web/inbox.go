@@ -63,14 +63,14 @@ func (h *handler) showInbox(w http.ResponseWriter, r *http.Request) error {
 	})
 }
 
-// showInboxBadge renders the sidebar's unread badge alone, for the live
-// refresh to swap in.
+// showInboxBadge renders the sidebar's two badges, the unread count and My
+// work's overdue count, for the live refresh to swap in.
 func (h *handler) showInboxBadge(w http.ResponseWriter, r *http.Request) error {
 	v := h.newView(r, "inbox.html", "Inbox", nil)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", "no-store")
-	return h.templatesFor(r)["inbox.html"].ExecuteTemplate(w, "inbox-badge", v)
+	return h.templatesFor(r)["inbox.html"].ExecuteTemplate(w, "side-badges", v)
 }
 
 // unreadCount is the reader's unread count, or nothing for a reader the

@@ -340,8 +340,6 @@ body {
 
 .logo { width: 28px; height: 28px; border-radius: 8px; display: block; }
 
-.who { color: var(--muted); font-size: var(--text-sm); margin: 0 0 14px 37px; }
-
 nav.main { display: flex; flex-wrap: wrap; gap: 2px; }
 
 @media (min-width: 900px) { nav.main { display: block; } }
@@ -506,7 +504,8 @@ nav .group {
 @media (max-width: 899px) {
   nav.main { display: block; }
   nav.main a { min-height: 44px; }
-  .sidemenu .side-foot a { min-height: 44px; display: inline-flex; align-items: center; }
+  .sidemenu .account-open,
+  .accountmenu .flowgo { min-height: 44px; align-items: center; }
   /* The one control on a task screen somebody presses every time. */
   .backlink a { min-height: 44px; }
 
@@ -2755,47 +2754,69 @@ li.task.is-blocked a.task-title { color: var(--muted); }
   .task-meta .tm-proj { display: none; }
 }
 
-/* The settings entry is a plain link under the navigation, so the way to
-   reach the display preferences is always on screen and never hunted for.
-   The preferences themselves live on their own page (templates/settings.html)
-   rather than in a sidebar disclosure, so there is exactly one place that
-   holds them. */
-.side-foot { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
-
-.side-foot a {
-  display: block;
-  padding: 7px 10px;
+/* The reader at the foot of the sidebar (templates/partials.html "account"):
+   one row, avatar and handle, opening a menu that holds Settings, the colour
+   scheme, the shortcuts overlay and Sign out. They were four blocks stacked
+   under the navigation, the tallest strip of the column for the things in it
+   used least. The version sits under the row, a fact about the server. */
+.side-account { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
+.account-open {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
   border-radius: 7px;
-  color: var(--muted);
-  text-decoration: none;
-  font-size: var(--text-md);
-}
-
-.side-foot a:hover { background: var(--bg); color: var(--ink); }
-
-/* Marked the same way the navigation above it marks the current screen:
-   weight and ink on the sidebar's own surface. It was the one entry in the
-   column that filled itself with accent when current, so landing on Settings
-   made the quietest link in the sidebar the brightest thing in it, and the
-   two halves of the same column disagreed about what "you are here" looks
-   like. */
-.side-foot a[aria-current="page"] {
-  background: var(--surface);
+  background: none;
+  box-shadow: none;
   color: var(--ink);
-  font-weight: 600;
+  font-size: var(--text-md);
+  font-weight: 500;
+  text-align: left;
 }
-
-/* The colour scheme switch sits on the Settings link's own row rather than
-   under it. The foot is the only strip of the sidebar present on every
-   screen, and a second full-width block there reads as another navigation
-   entry rather than as a control. */
-/* It wraps because the row is 196px wide and the two widest states --
-   "Low contrast" beside a Settings link carrying the current-page weight --
-   do not fit on it. Overflowing put a scrollbar under the sidebar and cut
-   the chip off; a second line costs 30px on one screen. */
-.side-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.side-foot a { flex: 1 1 auto; min-width: 0; }
-.themer { flex: 0 0 auto; margin: 0; }
+.account-open:hover { background: var(--bg); filter: none; }
+.account-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+}
+.account-handle { flex: 1 1 auto; min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+.account-chev {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-top: 1.5px solid currentcolor;
+  border-right: 1.5px solid currentcolor;
+  transform: rotate(-45deg);
+  color: var(--muted);
+}
+.accountmenu { min-width: 14rem; }
+.accountlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.accountmenu .flowgo { align-items: center; text-decoration: none; }
+.accountmenu .flowgo[aria-current="page"] { font-weight: 600; }
+.accountmenu .themer, .accountmenu .actions { margin: 0; }
+.accountmenu .theme-switch { width: 100%; padding: var(--space-2) var(--space-3); background: transparent; border-color: transparent; color: var(--ink); }
+.accountmenu .theme-switch:hover { background: var(--accent-soft); }
+.accountmenu .kbdhint { gap: var(--space-2); }
+.accountmenu button.flowgo, .accountmenu .theme-switch { justify-content: flex-start; }
+/* Above the button rather than under it: the button is the last thing in
+   the column, so under it is usually off the screen. */
+@supports (position-area: bottom) {
+  .accountmenu:popover-open {
+    position-area: top span-right;
+    position-try-fallbacks: flip-block;
+    margin: 0 0 4px;
+  }
+}
 
 /* Recessed rather than accented: --bg is a shade under --surface in all
    three schemes, so the chip reads as sidebar furniture in each, while the
@@ -3324,6 +3345,7 @@ div.formsheet:popover-open:not(.is-inplace) { inset: 0; height: fit-content; mar
 .projrow-tools { display: flex; gap: var(--space-1); flex: 0 0 auto; opacity: 0; transition: opacity 120ms ease; }
 .projrow:hover .projrow-tools, .projrow:focus-within .projrow-tools { opacity: 1; }
 @media (hover: none) { .projrow-tools { opacity: 1; } }
+.projpin { margin: 0; display: inline-flex; }
 
 .ghostlink {
   padding: var(--space-1) var(--space-2);
@@ -4372,20 +4394,21 @@ ul.connlist li.empty { padding: 26px 14px; text-align: center; }
 /* The version sits under the navigation rather than in it: it is a fact about
    the server, not a place to go. The upgrade note only renders when there is
    one, so it never occupies space saying everything is fine. */
-nav.main .version {
-  margin-top: 1.25rem;
+.side-account .version {
+  margin: var(--space-2) 0 0;
+  padding: 0 8px;
   font-size: var(--text-xs);
   line-height: 1.5;
   color: var(--muted);
 }
-nav.main .version .upgrade {
+.side-account .version .upgrade {
   display: block;
   color: var(--accent);
   font-weight: 600;
 }
-nav.main .version .running { color: inherit; text-decoration: none; }
-nav.main .version .running:hover,
-nav.main .version .running:focus-visible { color: var(--ink); text-decoration: underline; }
+.side-account .version .running { color: inherit; text-decoration: none; }
+.side-account .version .running:hover,
+.side-account .version .running:focus-visible { color: var(--ink); text-decoration: underline; }
 
 /* Preformatted text, which had no rule anywhere in this sheet. A <pre> with
    browser defaults keeps its own monospace size and, more to the point,
@@ -5353,7 +5376,7 @@ td > details.panel > summary { overflow-wrap: normal; word-break: keep-all; }
 :root[data-hover="off"] .projrow:hover { background: transparent; border-color: transparent; border-bottom-color: var(--line); }
 :root[data-hover="off"] nav.main a:not([aria-current="page"]):hover { background: transparent; color: var(--muted); }
 :root[data-hover="off"] nav.main a:not([aria-current="page"]):hover .nav-icon { color: inherit; }
-:root[data-hover="off"] .side-foot a:hover { background: transparent; color: var(--muted); }
+:root[data-hover="off"] .account-open:hover { background: transparent; }
 :root[data-hover="off"] button.check:hover { transform: none; }
 :root[data-hover="off"] .projrow-tools { opacity: 1; }
 
@@ -5734,7 +5757,6 @@ button.star.is-starred svg { fill: currentColor; }
      .sr-only, so every entry in the rail keeps its accessible name. The
      script adds a title to each while collapsed for a pointer to hover. */
   .side-collapsed .brand-name,
-  .side-collapsed .who,
   .side-collapsed nav.main a > span,
   .side-collapsed .rail-label,
   .side-collapsed .theme-name {
@@ -5747,7 +5769,9 @@ button.star.is-starred svg { fill: currentColor; }
     clip: rect(0, 0, 0, 0);
     border: 0;
   }
-  .side-collapsed nav.main .version { display: none; }
+  .side-collapsed .side-account .version { display: none; }
+  .side-collapsed .account-open { justify-content: center; padding: var(--space-2) 0; }
+  .side-collapsed .account-chev { display: none; }
   /* A group heading becomes a hairline. Its text stays for a screen reader,
      at a size nobody sees. */
   .side-collapsed nav .group {
@@ -5758,17 +5782,10 @@ button.star.is-starred svg { fill: currentColor; }
     color: transparent;
     background: var(--line);
   }
-  .side-collapsed nav.main a,
-  .side-collapsed .side-foot a,
-  .side-collapsed .theme-switch,
-  .side-collapsed .signout {
+  .side-collapsed nav.main a {
     justify-content: center;
     padding: var(--space-2);
   }
-  .side-collapsed .side-foot { flex-direction: column; align-items: stretch; }
-  .side-collapsed .side-foot a { display: flex; }
-  .side-collapsed .theme-switch { width: 100%; }
-  .side-collapsed .actions .signout { width: 100%; }
   .side-collapsed .rail-icon { display: block; flex: 0 0 auto; width: 16px; height: 16px; }
 }
 
@@ -6231,11 +6248,31 @@ a.secondary.exportlink:hover { filter: brightness(1.08); }
 .wrap:has(#tasks-listing) .listgroup > ul.tasklist { flex: 0 0 auto; height: auto; max-height: none; min-height: 0; }
 
 /* ---------------------------------------------------------------------------
-   The reader's own entries under Tasks in the sidebar: My work, the saved
-   filters (templates/partials.html "saved-filters") and the recently viewed
-   tasks ("recent-tasks", assets/recent.js). They are indented under Tasks,
-   a step quieter than the screens above them, and a saved filter's three
-   dots show on hover and focus as a heading's do, always on a touch screen. */
+   The reader's own entries in the sidebar: the pinned projects under
+   Projects ("pinned-projects"), the saved filters ("saved-filters") and the
+   recently viewed tasks ("recent-tasks", assets/recent.js). They are
+   indented, a step quieter than the screens above them, and a saved filter's
+   three dots show on hover and focus as a heading's do, always on a touch
+   screen. A pinned project's mark is its icon, or its key's first letter, in
+   its own colour. */
+.side-pins { list-style: none; margin: 0; padding: 0; }
+nav.main .side-pin > a { padding-inline-start: calc(var(--space-3) + 12px); font-size: var(--text-sm); }
+nav.main .side-pin > a > span:last-child { min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+.side-pin-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--proj, var(--muted)) 18%, transparent);
+  color: var(--proj, var(--muted));
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  line-height: 1;
+}
+.side-pin-mark .proj-icon { width: 14px; height: 14px; font-size: 12px; }
 nav.main a.side-sub { padding-inline-start: calc(var(--space-3) + 12px); }
 nav .side-group { margin-top: var(--space-3); padding-inline-start: 12px; }
 .side-saved, .side-recent { display: block; }
@@ -6313,6 +6350,9 @@ a.heldswitch[aria-checked="true"]::before { content: "\2611"; }
    list folds to its clock, which opens the sidebar when pressed. */
 @media (min-width: 900px) {
   .side-collapsed nav.main a.side-sub { padding: var(--space-2); justify-content: center; }
+  .side-collapsed nav.main .side-pin > a { padding: var(--space-2); justify-content: center; }
+  /* The rail clips every label span; a pinned project's mark is its icon. */
+  .side-collapsed nav.main .side-pin > a > .side-pin-mark { position: static; width: 16px; height: 16px; margin: 0; overflow: visible; clip: auto; }
   .side-collapsed .savedmore,
   .side-collapsed .recentlist,
   .side-collapsed .navgroup-chev { display: none; }
@@ -6509,6 +6549,9 @@ button.ghostlink {
   text-align: center;
 }
 .navbadge[hidden] { display: none; }
+/* My work's count is of late tasks, so it is drawn in the colour a late
+   deadline is drawn in everywhere else rather than the unread accent. */
+.navbadge.is-late { background: var(--danger); color: var(--on-accent); }
 nav.main a { position: relative; }
 @media (min-width: 900px) {
   /* The rail keeps the badge as a dot on the icon: the number would not fit,
