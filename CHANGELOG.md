@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.0](https://github.com/Heliopsy/tix/compare/v0.34.0...v0.35.0) (2026-11-02)
+
+
+### Features
+
+* **auth:** log in from the CLI with an enrolled SSH key ([#157](https://github.com/Heliopsy/tix/issues/157)) ([3c4738f](https://github.com/Heliopsy/tix/commit/3c4738f3c8d2dcd9c330d0b05f6836e774dcafb8))
+
 ## [0.34.0](https://github.com/Heliopsy/tix/compare/v0.33.0...v0.34.0) (2026-11-02)
 
 
