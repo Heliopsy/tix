@@ -5,6 +5,7 @@ package web
 import (
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
 )
@@ -48,6 +49,9 @@ type projectsView struct {
 	// Taken is every key in use, so the key the form suggests from a name is
 	// one the service will accept.
 	Taken []string
+	// Pinned are the keys the reader pinned to the sidebar, upper-cased: a
+	// project lane the reader starred (see pinnedProjects).
+	Pinned map[string]bool
 	// Form, Errors and Refused redraw a refused create in place, holding what
 	// was typed.
 	Form    projectForm
@@ -87,8 +91,14 @@ func (h *handler) buildProjectsView(r *http.Request) (projectsView, error) {
 	for _, p := range all {
 		taken = append(taken, p.Key)
 	}
+	pinned := map[string]bool{}
+	for _, p := range h.groupPrefs(r, core.ViewLanes) {
+		if p.Starred {
+			pinned[strings.ToUpper(p.Group)] = true
+		}
+	}
 	return projectsView{Projects: projects, Workflows: workflows,
-		Colors: core.ProjectColors(), Taken: taken,
+		Colors: core.ProjectColors(), Taken: taken, Pinned: pinned,
 		Picker: newIconPicker(core.Project{}),
 		Pager:  newPager(r, RouteProjects, next, len(projects), "projects", SizeParam)}, nil
 }
@@ -503,3 +513,6 @@ func (h *handler) deleteField(w http.ResponseWriter, r *http.Request) error {
 	redirect(w, r, RouteProjects+"/"+key+"/fields", "field deleted")
 	return nil
 }
+
+// IsPinned reports whether the reader pinned a project to the sidebar.
+func (v projectsView) IsPinned(key string) bool { return v.Pinned[strings.ToUpper(key)] }

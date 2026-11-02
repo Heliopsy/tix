@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -187,7 +188,12 @@ type view struct {
 	Saved savedNav
 	// Inbox is the reader's unread count, which the sidebar's badge shows.
 	Inbox int
-	Data  any
+	// Overdue is how many of the reader's open tasks are late, which My
+	// work's badge shows; see sidebar.go.
+	Overdue int
+	// Pinned are the projects the reader pinned under Projects.
+	Pinned []pinnedProject
+	Data   any
 }
 
 // ColumnForm is this screen's own column picker, built by the same
@@ -195,6 +201,14 @@ type view struct {
 // and the one on settings are one form over one resolved value.
 func (v view) ColumnForm() columnFormView {
 	return newColumnForm(v.CSRF, v.Here, v.ColumnPage, columnLabel(v.ColumnPage), v.Columns)
+}
+
+// OverdueBadge is My work's badge text: the count, or 99+ past overdueCap.
+func (v view) OverdueBadge() string {
+	if v.Overdue > overdueCap {
+		return strconv.Itoa(overdueCap) + "+"
+	}
+	return strconv.Itoa(v.Overdue)
 }
 
 // ThemeToggle is the sidebar's colour scheme switch, built from the scheme
@@ -414,6 +428,8 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Here:            here(r),
 		Upgrade:         h.releases.state(),
 		Inbox:           h.unreadCount(r),
+		Overdue:         h.overdueCount(r),
+		Pinned:          h.pinnedProjects(r),
 		ColumnPage:      columnPage(name),
 		Columns:         columnsOf(r),
 		Flash:           r.URL.Query().Get("flash"),

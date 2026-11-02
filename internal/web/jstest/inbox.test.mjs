@@ -59,6 +59,16 @@ test("a fresh badge carries its count and shows or hides every mark", () => {
   assert.equal(dot.getAttribute("hidden"), "hidden");
 });
 
+test("My work's badge reads its count from its own attribute", () => {
+  const here = mark({ "data-badge-count": "0", "data-inbox-count": "7", hidden: "hidden" });
+  const fresh = mark({ "data-badge-count": "2", "data-inbox-count": "0" });
+  fresh.innerHTML = "2";
+  tix.applyBadge(here, fresh, [], "data-badge-count");
+  assert.equal(here.innerHTML, "2");
+  assert.equal(here.getAttribute("data-badge-count"), "2");
+  assert.equal(here.getAttribute("hidden"), null, "shown by its own count, not the unread one");
+});
+
 test("a redraw's fresh rows are the ones that were not there before", () => {
   assert.deepEqual(plain(tix.freshIDs(["i-2", "i-1"], ["i-4", "i-3", "i-2", "i-1"])), ["i-4", "i-3"]);
   assert.deepEqual(plain(tix.freshIDs(["i-2"], ["i-2"])), []);

@@ -3,10 +3,15 @@
 package web
 
 import (
+	"html/template"
+	"math"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // SidebarCookie holds how this browser arranged the sidebar: its width, its
@@ -24,13 +29,18 @@ const (
 )
 
 // SidebarGroups are the sidebar's foldable groups, in the order they are drawn.
-var SidebarGroups = []string{"saved", "recent", "configure", "data"}
+var SidebarGroups = []string{"saved", "recent", "admin"}
 
 // sidebarDefaultFold are the groups drawn folded until a reader opens them: the
 // admin screens, visited far less than tasks. A cookie without a "fold" key
 // means this default; an empty "fold=" means every group open. Kept in step
 // with DEFAULT_FOLD in assets/sidebar.js.
-var sidebarDefaultFold = []string{"configure", "data"}
+var sidebarDefaultFold = []string{"admin"}
+
+// sidebarLegacyAdmin are the two groups an earlier build drew where Admin is
+// now. A cookie that folded both folds Admin; one that left either open
+// opens it, so nobody who had opened Configure or Data finds it shut.
+var sidebarLegacyAdmin = []string{"configure", "data"}
 
 func defaultFold() map[string]bool {
 	fold := map[string]bool{}
@@ -69,7 +79,7 @@ func sidebarOf(r *http.Request) sidebarState {
 	}
 	state.Rail = values.Get("rail") == "1"
 	known := map[string]bool{}
-	for _, g := range SidebarGroups {
+	for _, g := range append(append([]string{}, SidebarGroups...), sidebarLegacyAdmin...) {
 		known[g] = true
 	}
 	if _, set := values["fold"]; set {
@@ -80,13 +90,25 @@ func sidebarOf(r *http.Request) sidebarState {
 				fold[g] = true
 			}
 		}
-		// An empty list is a reader who opened every group. A list naming
-		// nothing this version draws is damage, and gets the default.
-		if raw == "" || len(fold) > 0 {
+		if fold[sidebarLegacyAdmin[0]] && fold[sidebarLegacyAdmin[1]] {
+			fold["admin"] = true
+		}
+		for _, g := range sidebarLegacyAdmin {
+			delete(fold, g)
+		}
+		// An empty list is a reader who opened every group, and so is a list
+		// naming only one of the legacy admin groups. A list naming nothing
+		// this version or the last one drew is damage, and gets the default.
+		if raw == "" || len(fold) > 0 || namesAny(raw, sidebarLegacyAdmin) {
 			state.fold = fold
 		}
 	}
 	return state
+}
+
+// namesAny reports whether a dotted fold list names any of groups.
+func namesAny(raw string, groups []string) bool {
+	return slices.ContainsFunc(strings.Split(raw, "."), func(g string) bool { return slices.Contains(groups, g) })
 }
 
 // navGroupHead is what one foldable group's heading is drawn from.
@@ -105,4 +127,89 @@ func newNavGroup(side sidebarState, name, label, icon string) navGroupHead {
 		Name: name, Label: label, Icon: icon, Folded: side.Folded(name),
 		Sub: name == "saved" || name == "recent",
 	}
+}
+
+// sidebarPinLimit is the most pinned projects the sidebar draws. Each is one
+// lookup on every page, and a list longer than this is the projects screen.
+const sidebarPinLimit = 12
+
+// pinnedProject is one project the reader pinned, as the sidebar draws it.
+type pinnedProject struct {
+	Key     string
+	Label   string
+	Mark    iconMark
+	Class   string
+	Style   template.CSS
+	Current bool
+}
+
+// pinnedProjects are the projects the reader starred as lanes, which is what
+// pinning one to the sidebar is: one per-reader mark, so a project pinned
+// here leads the lanes and a lane starred there is pinned here. A project the
+// reader may no longer read, or one archived since, is left out rather than
+// refusing the page.
+func (h *handler) pinnedProjects(r *http.Request) []pinnedProject {
+	if _, ok := core.ActorFrom(r.Context()); !ok {
+		return nil
+	}
+	prefs := slices.Clone(h.groupPrefs(r, core.ViewLanes))
+	slices.SortStableFunc(prefs, func(a, b core.GroupPref) int { return pinRank(a) - pinRank(b) })
+	style := projectLabelOf(r)
+	var out []pinnedProject
+	for _, pref := range prefs {
+		if !pref.Starred || len(out) == sidebarPinLimit {
+			continue
+		}
+		p, err := h.svc.GetProject(r.Context(), pref.Group)
+		if err != nil || p.Archived() {
+			continue
+		}
+		plain := *p
+		plain.Icon = ""
+		out = append(out, pinnedProject{
+			Key: p.Key, Label: projectLabel(style, plain), Mark: markOf(*p, true),
+			Class: projClass(p.Color), Style: projStyle(p.Color),
+			Current: strings.EqualFold(r.URL.Path, strings.Replace(RouteProject, "{key}", p.Key, 1)),
+		})
+	}
+	return out
+}
+
+// pinRank orders pinned projects the way the lanes draw them: those the
+// reader moved, by where they moved them, then the rest as stored.
+func pinRank(p core.GroupPref) int {
+	if p.Position > 0 {
+		return p.Position
+	}
+	return math.MaxInt32
+}
+
+// overdueCap is the largest count My work's badge spells out; past it the
+// badge reads 99+.
+const overdueCap = 99
+
+// overdueCount is how many of the reader's open assigned tasks are past their
+// deadline, which is what My work's badge shows: the part of the list that
+// wants attention, rather than its length. It asks for one small page and
+// counts it, so it costs what the overdue filter costs and never more than
+// overdueCap+1 rows. A reader the service will not tell gets no badge.
+func (h *handler) overdueCount(r *http.Request) int {
+	if _, ok := core.ActorFrom(r.Context()); !ok {
+		return 0
+	}
+	filter, err := ParseFilter(myWorkQuery + " due:overdue")
+	if err != nil {
+		return 0
+	}
+	open, err := h.unfinishedStatuses(r.Context())
+	if err != nil || len(open) == 0 {
+		return 0
+	}
+	filter.Statuses = open
+	filter.Page.Limit = overdueCap + 1
+	page, err := h.svc.ListTasks(r.Context(), filter)
+	if err != nil {
+		return 0
+	}
+	return len(page.Tasks)
 }

@@ -390,7 +390,10 @@
   // screen. It subscribes to inbox.updated alone, so the work stream never
   // wakes it; the event names its recipients by identifier, which the page
   // does not carry, so every one of them asks the server for the count, the
-  // coalescer folding a burst into one request.
+  // coalescer folding a burst into one request. The answer carries My work's
+  // overdue badge too ("side-badges"): a task assigned to the reader, or one
+  // of theirs changing status, is an inbox item, so the same event that moves
+  // one count is the one that can move the other.
   var badge = liveStream({
     id: "inbox",
     find: function () {
@@ -402,10 +405,12 @@
     wants: function () { return true; },
     busy: function () { return false; },
     apply: function (el, html) {
-      var fresh = new DOMParser().parseFromString(html, "text/html").getElementById("inbox-badge");
+      var doc = new DOMParser().parseFromString(html, "text/html");
+      var fresh = doc.getElementById("inbox-badge");
       if (fresh) {
         tix.applyBadge(el, fresh, document.querySelectorAll("[data-inbox-mirror]"));
       }
+      tix.applyBadge(document.getElementById("mywork-badge"), doc.getElementById("mywork-badge"), [], "data-badge-count");
     },
     window: function () { return 500; },
     cap: 2000

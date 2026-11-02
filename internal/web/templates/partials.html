@@ -26,29 +26,33 @@
 {{end}}
 
 {{define "nav"}}
+{{/* The entries in the order they are used: what came in, what is mine, every
+     task, the projects with the ones the reader pinned under them, then the
+     tenant's history and figures. The reader's own views follow, and the
+     screens visited least go last, folded under Admin. */}}
 <nav class="main">
   <a href="/inbox" data-rail-name="{{t "Inbox"}}" {{if eq .Path "/inbox"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#inbox"/></svg>{{template "inbox-badge" .}}<span>{{t "Inbox"}}</span></a>
+  <a href="/mine" data-rail-name="{{t "My work"}}" {{if eq .Path "/mine"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#mywork"/></svg>{{template "mywork-badge" .}}<span>{{t "My work"}}</span></a>
   <a href="/tasks" data-rail-name="{{t "Tasks"}}" {{if and (eq .Path "/tasks") (not .InTrash)}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tasks"/></svg><span>{{t "Tasks"}}</span></a>
-  {{/* The trash is the task list filtered by is:trashed, so the filter box
-       says what it is. It sits under Tasks because it is that list's
-       deleted half, and it is the only way the browser reaches a deleted
-       task without already knowing its ref. */}}
-  {{if not .TrashOff}}<a href="/tasks?q=is:trashed" data-rail-name="{{t "Trash"}}" {{if .InTrash}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#trash"/></svg><span>{{t "Trash"}}</span></a>{{end}}
-  {{/* The reader's own entries under Tasks: My work, the saved filters and
-       the tasks opened lately. They are links like the rest of the
-       navigation, so the rail draws them as icons with their names kept for
-       a screen reader; the menus and the recent list are put away there. */}}
-  <a class="side-sub" href="/mine" data-rail-name="{{t "My work"}}" {{if eq .Path "/mine"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#mywork"/></svg><span>{{t "My work"}}</span></a>
-  {{template "saved-filters" .}}
-  {{template "recent-tasks" .}}
   <a href="/projects" data-rail-name="{{t "Projects"}}" {{if eq .Path "/projects"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#projects"/></svg><span>{{t "Projects"}}</span></a>
+  {{template "pinned-projects" .}}
   <a href="/activity" data-rail-name="{{t "Activity"}}" {{if eq .Path "/activity"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#activity"/></svg><span>{{t "Activity"}}</span></a>
   <a href="/stats" data-rail-name="{{t "Statistics"}}" {{if eq .Path "/stats"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#stats"/></svg><span>{{t "Statistics"}}</span></a>
-  {{if .Advanced}}
+  {{template "saved-filters" .}}
+  {{template "recent-tasks" .}}
+  {{/* Admin is what Configure, Data and the Trash entry were: the screens a
+       reader opens least, folded by default. Trash is the task list
+       filtered by is:trashed, the only way the browser reaches a deleted
+       task without already knowing its ref, and leaves with a tenant that
+       deletes for good. The configuration screens need Advanced screens on.
+       A reader with neither gets no heading over nothing. */}}
+  {{if or .Advanced (not .TrashOff)}}
   {{$side := .Side}}
-  <div class="navgroup{{if $side.Folded "configure"}} is-folded{{end}}" data-navgroup="configure">
-  {{template "navgroup-head" navGroup $side "configure" (t "Configure") ""}}
-  <div class="navgroup-body" id="navgroup-configure">
+  <div class="navgroup{{if $side.Folded "admin"}} is-folded{{end}}" data-navgroup="admin">
+  {{template "navgroup-head" navGroup $side "admin" (t "Admin") ""}}
+  <div class="navgroup-body" id="navgroup-admin">
+  {{if not .TrashOff}}<a href="/tasks?q=is:trashed" data-rail-name="{{t "Trash"}}" {{if .InTrash}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#trash"/></svg><span>{{t "Trash"}}</span></a>{{end}}
+  {{if .Advanced}}
   <a href="/workflows" data-rail-name="{{t "Workflows"}}" {{if eq .Path "/workflows"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#workflows"/></svg><span>{{t "Workflows"}}</span></a>
   <a href="/templates" data-rail-name="{{t "Templates"}}" {{if hasPrefix .Path "/templates"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#templates"/></svg><span>{{t "Templates"}}</span></a>
   <a href="/admin/tenant" data-rail-name="{{t "Tenant"}}" {{if eq .Path "/admin/tenant"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tenant"/></svg><span>{{t "Tenant"}}</span></a>
@@ -59,41 +63,69 @@
   <a href="/admin/status" data-rail-name="{{t "Status"}}" {{if eq .Path "/admin/status"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#status"/></svg><span>{{t "Status"}}</span></a>
   <a href="/admin/connections" data-rail-name="{{t "Connections"}}" {{if eq .Path "/admin/connections"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#connections"/></svg><span>{{t "Connections"}}</span></a>
   <a href="/admin/webhooks" data-rail-name="{{t "Webhooks"}}" {{if eq .Path "/admin/webhooks"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#webhooks"/></svg><span>{{t "Webhooks"}}</span></a>
-  </div>
-  </div>
-  <div class="navgroup{{if $side.Folded "data"}} is-folded{{end}}" data-navgroup="data">
-  {{template "navgroup-head" navGroup $side "data" (t "Data") ""}}
-  <div class="navgroup-body" id="navgroup-data">
   {{/* One entry, because they are one screen now. Either tab's URL lights it,
        so landing on Components from a link does not leave the navigation
        looking like you are somewhere else. */}}
   <a href="/transfer" data-rail-name="{{t "Import and export"}}" {{if or (eq .Path "/transfer") (eq .Path "/bundles")}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#transfer"/></svg><span>{{t "Import and export"}}</span></a>
   <a href="/sync" data-rail-name="{{t "Sync"}}" {{if or (eq .Path "/sync") (eq .Path "/sync/runs")}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#sync"/></svg><span>{{t "Sync"}}</span></a>
+  {{end}}
   </div>
   </div>
   {{end}}
+</nav>
+{{end}}
 
-  {{/* The running version, under the last button, and whether anything newer
-       exists.
+{{/* pinned-projects are the projects the reader pinned, under Projects: each
+     its icon, or its key's first letter, in its colour, and its name the way
+     the reader asked projects to be named. A link to its board like every
+     other entry, so the rail draws the mark and keeps the name. See
+     pinnedProjects in sidebar.go. */}}
+{{define "pinned-projects"}}{{with .Pinned}}
+<ul class="side-pins" aria-label="{{t "Pinned projects"}}">
+{{range .}}  <li class="side-pin{{with .Class}} {{.}}{{end}}"{{with .Style}} style="{{.}}"{{end}}><a href="/projects/{{.Key}}" data-rail-name="{{.Label}}" {{if .Current}}aria-current="page"{{end}}><span class="side-pin-mark nav-icon" aria-hidden="true">{{if .Mark.Any}}{{template "proj-icon" .Mark}}{{else}}{{slice (key .Key) 0 1}}{{end}}</span><span>{{.Label}}</span></a></li>
+{{end}}</ul>
+{{end}}{{end}}
 
-       Never a link off this server. TestPagesReferenceNoExternalOrigin forbids any
-       external origin in a rendered page, and that guard is worth more than
-       the convenience of a hyperlink: it is what stops a CDN tag or a tracking
-       pixel arriving here later. The lookup happens on the server, cached and
-       off the render path, so a machine with no route out shows the version
-       alone and says nothing about an upgrade it could not check. */}}
+{{/* account is the reader at the foot of the sidebar: an avatar and the
+     handle, which open one menu holding Settings, the colour scheme,
+     Keyboard shortcuts and Sign out. A popover, like every other menu here,
+     so it opens, closes on Escape or a click outside and gives focus back to
+     the button with no script; a browser without popovers draws the list in
+     place. The version and what it changed sit under it, a fact about the
+     server rather than about the reader.
+
+     Never a link off this server. TestPagesReferenceNoExternalOrigin forbids
+     any external origin in a rendered page, and that guard is worth more
+     than the convenience of a hyperlink: it is what stops a CDN tag or a
+     tracking pixel arriving here later. The upgrade lookup happens on the
+     server, cached and off the render path, so a machine with no route out
+     shows the version alone. */}}
+{{define "account"}}
+<div class="side-account">
+  <button type="button" class="account-open" popovertarget="account-menu" data-account-open data-rail-name="{{.Actor.Handle}}" aria-label="{{t "Account menu for %s" .Actor.Handle}}"><span class="account-avatar" aria-hidden="true">{{monogram (or .Actor.DisplayName .Actor.Handle)}}</span><span class="account-handle rail-label">{{.Actor.Handle}}</span><span class="account-chev" aria-hidden="true"></span></button>
+  <div id="account-menu" class="flowmenu accountmenu" popover>
+    <p class="flowhead">{{if .Actor.DisplayName}}{{.Actor.DisplayName}} &middot; {{end}}{{.Actor.Handle}}</p>
+    <ul class="accountlist">
+      <li><a href="/settings" class="flowgo" {{if eq .Path "/settings"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#settings"/></svg><span>{{t "Settings"}}</span></a></li>
+      <li>{{template "themeswitch" .ThemeToggle}}</li>
+      {{/* The "?" overlay, findable by someone who does not know to press
+           "?". Shown only with scripting: shortcuts.js is what opens it. */}}
+      <li data-needs-js><button type="button" class="flowgo kbdhint" data-shortcuts-open data-needs-js><kbd>?</kbd>{{t "Keyboard shortcuts"}}</button></li>
+      <li><form method="post" action="/logout" class="actions">
+        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+        <button class="flowgo signout" type="submit"><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#signout"/></svg>{{t "Sign out"}}</button>
+      </form></li>
+    </ul>
+  </div>
   <p class="version">
     {{/* The version opens what it changed, from the changelog this binary
-         carries, so it is worth clicking with no route out as well. */}}
+         carries, so it is worth clicking with no route out as well. The
+         upgrade note is a page this install serves, shown only when there
+         is something to read. */}}
     <a class="running" href="/release#changes" title="{{t "What's new"}}">v{{.Upgrade.Running}}</a>
-    {{/* A link now, to a page this install serves. It stays an internal
-         route: the guard above is about not pasting somebody else's origin
-         into these pages, not about refusing to say what changed, and the
-         notes are fetched server side and stripped of links before they are
-         cached. Only shown when there is something to read. */}}
     {{if .Upgrade.Newer}}<a class="upgrade" href="/release">{{t "v%s is available" .Upgrade.Latest}}</a>{{end}}
   </p>
-</nav>
+</div>
 {{end}}
 
 {{/* saved-filters is the sidebar's list of saved filters, redrawn in place
@@ -187,6 +219,12 @@
      "3 unread, Inbox" rather than "3 Inbox"; the badge comes first in the
      markup so the label stays the link's last span, and CSS draws it last. */}}
 {{define "inbox-badge"}}<span class="navbadge" id="inbox-badge" data-inbox-count="{{.Inbox}}"{{if .Actor}} data-events="{{.EventsPath}}" data-inbox="/inbox/badge"{{end}}{{if not .Inbox}} hidden{{end}}>{{.Inbox}}<span class="sr-only"> {{t "unread"}},</span></span>{{end}}
+{{/* mywork-badge is how many of the reader's open tasks are overdue, beside
+     My work, hidden at none. Redrawn with the inbox badge (side-badges). */}}
+{{define "mywork-badge"}}<span class="navbadge is-late" id="mywork-badge" data-badge-count="{{.Overdue}}"{{if not .Overdue}} hidden{{end}}>{{.OverdueBadge}}<span class="sr-only"> {{t "overdue tasks"}},</span></span>{{end}}
+{{/* side-badges is what the live badge stream fetches: both counts, each
+     applied to its own badge by id (assets/live.js). */}}
+{{define "side-badges"}}{{template "inbox-badge" .}}{{template "mywork-badge" .}}{{end}}
 
 {{/* The repeat marker a listing row and a board card share, given the rule.
      It links to every recurring task, the way a tag links to its tag. The

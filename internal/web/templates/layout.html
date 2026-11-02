@@ -64,7 +64,11 @@
        the way down instead of one that stops at the fold. */}}
   <aside class="side" id="side">
     <div class="side-inner">
-      {{/* Brand and, on a phone, the button that opens everything else.
+      {{/* The tenant's name and, on a phone, the button that opens
+           everything else. A session belongs to the one tenant its host
+           resolves to, and listing a person's accounts in other tenants
+           would mean looking across tenants by address, so the name is plain
+           text rather than a switcher.
 
            On a 390px screen this sidebar stacked its whole self above the
            page: brand, handle, sixteen links wrapped into seven ragged rows,
@@ -87,8 +91,9 @@
           <svg aria-hidden="true" width="18" height="18"><use href="/assets/icons.svg#sidebar"/></svg>
         </button>
         {{/* The command palette (assets/palette.js), also ctrl+k. A field-like
-             row under the brand on a desktop, an icon in the bar on a phone.
-             Shown only with scripting, since the script is what opens it. */}}
+             row under the tenant's name on a desktop, an icon in the bar on a
+             phone. Shown only with scripting, since the script is what opens
+             it. */}}
         <button type="button" class="palette-open" data-palette-open aria-keyshortcuts="Control+K Meta+K" data-rail-name="{{t "Search"}}" data-needs-js>
           <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#search"/></svg>
           <span class="palette-open-label rail-label">{{t "Search"}}</span>
@@ -99,19 +104,11 @@
         </button>
       </div>
       <div id="sidemenu" class="sidemenu" popover>
-      <p class="who">{{.Actor.Handle}}</p>
       {{template "nav" .}}
-      <div class="side-foot">
-        <a href="/settings" data-rail-name="{{t "Settings"}}" {{if eq .Path "/settings"}}aria-current="page"{{end}}><svg class="rail-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#settings"/></svg><span class="rail-label">{{t "Settings"}}</span></a>
-        {{template "themeswitch" .ThemeToggle}}
-        {{/* The "?" overlay, findable by someone who does not know to press
-             "?". Shown only with scripting: shortcuts.js is what opens it. */}}
-        <button type="button" class="kbdhint" data-shortcuts-open data-rail-name="{{t "Keyboard shortcuts"}}" data-needs-js><kbd>?</kbd><span class="rail-label">{{t "Keyboard shortcuts"}}</span></button>
-      </div>
-      <form method="post" action="/logout" class="actions">
-        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-        <button class="secondary signout" type="submit" data-rail-name="{{t "Sign out"}}"><svg class="rail-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#signout"/></svg><span class="rail-label">{{t "Sign out"}}</span></button>
-      </form>
+      {{/* Settings, the colour scheme, the shortcuts overlay and Sign out,
+           under the reader's own name rather than as four blocks stacked
+           under the navigation. See "account" in partials.html. */}}
+      {{template "account" .}}
       <button type="button" class="menuclose" popovertarget="sidemenu" popovertargetaction="hide">{{t "Close"}}</button>
       </div>
     </div>

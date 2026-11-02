@@ -165,7 +165,7 @@ func TestNoSidebarControlWaitsForItsScriptToAppear(t *testing.T) {
 	b.setCookie(web.AdvancedCookie, "1")
 	side := sidebarOf(t, b.page("/tasks"))
 
-	for _, marker := range []string{"data-side-resize", "data-side-toggle", "data-palette-open", "data-shortcuts-open", `data-navgroup-toggle="configure"`} {
+	for _, marker := range []string{"data-side-resize", "data-side-toggle", "data-palette-open", "data-shortcuts-open", `data-navgroup-toggle="admin"`} {
 		tag := tagWith(t, side, marker)
 		if regexp.MustCompile(`\shidden[\s>=]`).MatchString(tag) {
 			t.Errorf("%s is rendered hidden for a script to reveal after the swap has painted:\n%s", marker, tag)
@@ -193,11 +193,14 @@ func TestTheSidebarIsDrawnFromItsCookie(t *testing.T) {
 		name, cookie, root, toggle string
 		folded, open               []string
 	}{
-		{name: "no cookie", root: `<html lang="en">`, toggle: `aria-expanded="true"`, folded: []string{"configure", "data"}, open: []string{"recent"}},
-		{name: "every group opened", cookie: "fold=", root: `<html lang="en">`, toggle: `aria-expanded="true"`, open: []string{"configure", "data", "recent"}},
-		{name: "width rail and folds", cookie: "w=300&rail=1&fold=configure.recent", root: `<html lang="en" class="side-collapsed" style="--side-w: 300px">`, toggle: `aria-expanded="false"`, folded: []string{"configure", "recent"}, open: []string{"data"}},
-		{name: "width clamped", cookie: "w=9000", root: `<html lang="en" style="--side-w: 480px">`, toggle: `aria-expanded="true"`, folded: []string{"configure"}, open: []string{"recent"}},
-		{name: "garbage is the default", cookie: "w=wide&rail=yes&fold=trash.<b>", root: `<html lang="en">`, toggle: `aria-expanded="true"`, folded: []string{"configure", "data"}, open: []string{"recent"}},
+		{name: "no cookie", root: `<html lang="en">`, toggle: `aria-expanded="true"`, folded: []string{"admin"}, open: []string{"recent"}},
+		{name: "every group opened", cookie: "fold=", root: `<html lang="en">`, toggle: `aria-expanded="true"`, open: []string{"admin", "recent"}},
+		{name: "width rail and folds", cookie: "w=300&rail=1&fold=admin.recent", root: `<html lang="en" class="side-collapsed" style="--side-w: 300px">`, toggle: `aria-expanded="false"`, folded: []string{"admin", "recent"}},
+		{name: "width clamped", cookie: "w=9000", root: `<html lang="en" style="--side-w: 480px">`, toggle: `aria-expanded="true"`, folded: []string{"admin"}, open: []string{"recent"}},
+		{name: "garbage is the default", cookie: "w=wide&rail=yes&fold=trash.<b>", root: `<html lang="en">`, toggle: `aria-expanded="true"`, folded: []string{"admin"}, open: []string{"recent"}},
+		{name: "legacy configure and data folded", cookie: "fold=configure.data.recent", root: `<html lang="en">`, toggle: `aria-expanded="true"`, folded: []string{"admin", "recent"}},
+		{name: "legacy configure open", cookie: "fold=data", root: `<html lang="en">`, toggle: `aria-expanded="true"`, open: []string{"admin", "recent"}},
+		{name: "legacy data open", cookie: "fold=configure.recent", root: `<html lang="en">`, toggle: `aria-expanded="true"`, folded: []string{"recent"}, open: []string{"admin"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -11,35 +11,73 @@ browser that runs no script submits it normally and follows the redirect.
 
 ## The sidebar
 
+The sidebar is ordered by how often each part is used. At the top is the tenant's name with the rail
+toggle, then Search (ctrl+k). Then Inbox with its unread badge, My work with a badge counting your open
+tasks that are overdue, Tasks, Projects with the projects you pinned under it, Activity and Statistics.
+Your own views follow, Saved filters and Recently viewed, then Admin, and at the foot your account menu
+with the version under it.
+
+The tenant's name is plain text. A session belongs to the tenant its host resolves to, and finding your
+accounts in other tenants would mean looking your address up across tenants, so there is no switcher.
+
+**My work's badge** counts your open assigned tasks past their deadline, not all of them: a count of
+everything assigned is never zero for anybody with work, so it says nothing. It reads 99+ past 99 and is
+hidden at none. The server draws it, and it is refreshed with the unread badge: `/inbox/badge` answers
+both, and a task assigned to you or one of yours changing status is an inbox item, so the same event moves
+both. A deadline passing is not an event; the next navigation, or the page becoming visible again,
+redraws it.
+
+**Pinned projects.** Pin to sidebar, on each row of the projects screen, lists the project under
+Projects: its icon, or the first letter of its key, in its colour, and its name the way you asked
+projects to be named in Settings, Listings, the key upper-cased. It links to the project's board and is
+marked current there. Pinning is the star a project's lane already has in the lane menu (the `lanes`
+view's group preferences, see Arranging columns and lanes), not a second mark: pinning a project moves its
+lane to the front, and starring a lane pins it. Pins are yours alone. At most twelve are listed, in the
+lanes' order; an archived project, or one you can no longer read, is left out.
+
+**Admin** holds Trash and the screens Configure and Data used to: Workflows, Templates, Tenant, Domains,
+Users, Tokens, SSH keys, Status, Connections, Webhooks, Import and export, and Sync. The configuration
+screens need Advanced screens on, and Trash leaves when the tenant deletes for good, so a reader with
+neither gets no Admin heading at all.
+
+**The account menu.** Your initials and handle at the foot open one menu: Settings, the colour scheme
+switch, Keyboard shortcuts and Sign out. These were four blocks stacked under the navigation. It is a
+popover, like every other menu here, so it opens and closes with no script, Escape closes it alone (inside
+the phone menu too, which stays open) and focus returns to the button. A browser without popovers draws
+the list in place. Keyboard shortcuts needs scripting and is hidden without it. On the rail the button is
+your initials, named by your handle.
+
 On a window 900px or wider the sidebar is a column, and its right edge can be dragged to make it
 anywhere from 180px to 480px wide. The edge is also a keyboard control, a vertical separator in the
 tab order: the arrow keys move it 16px (64px with Shift), Home and End jump to the limits, and Enter
 or a double-click puts it back to the default width.
 
 Dragging it below 120px, pressing the left arrow at the minimum, or pressing the button beside the
-brand collapses it to a 64px rail holding the logo, the navigation icons, the Settings icon, the
-scheme glyph and a sign-out icon. The labels are clipped rather than removed, so every entry keeps its
+brand collapses it to a 64px rail holding the logo, the navigation icons, each pinned project's mark
+and your initials, which open the account menu. The labels are clipped rather than removed, so every entry keeps its
 accessible name, and each gets a tooltip while the rail is showing. The same button, or the right
 arrow on the edge, expands it to the width it had.
 
-Configure and Data start folded, since they hold screens you visit far less than your tasks; open
-them once and they stay open.
-Both are kept in the `tix_sidebar` cookie, with the groups folded below: `w=320&rail=1&fold=configure.data`
-holds a width in pixels, the rail, and the folded groups by name (`saved`, `recent`, `configure`,
-`data`). A default is left out, and a cookie holding only defaults is removed. None of it says anything
-about anybody's work. The server reads the cookie and draws the page with it: the rail as a class on
-`<html>`, the width as `--side-w` on its style, each folded group folded. `assets/sidebar.js` changes the
-same places and rewrites the cookie when the reader drags, presses or folds. An earlier build kept the
-width and the rail in `localStorage` (`tix.sidebar.width`, `tix.sidebar.collapsed`) and the recent list's
-fold under `tix.recent.closed`; the script moves those into the cookie once and removes them. Without
+Admin starts folded, since it holds screens you visit far less than your tasks; open it once and it
+stays open. Both are kept in the `tix_sidebar` cookie, with the groups folded below:
+`w=320&rail=1&fold=recent.admin` holds a width in pixels, the rail, and the folded groups by name
+(`saved`, `recent`, `admin`). A cookie written before Admin existed names `configure` and `data`
+instead: both named folds Admin, and either one missing opens it, since you had opened that group. The
+server and the script read it the same way, and the script writes the new names the next time it saves.
+A default is left out, and a cookie holding only defaults is removed. None of it says anything about
+anybody's work. The server reads the cookie and draws the page with it: the rail as a class on `<html>`,
+the width as `--side-w` on its style, each folded group folded. `assets/sidebar.js` changes the same
+places and rewrites the cookie when the reader drags, presses or folds. An earlier build kept the width
+and the rail in `localStorage` (`tix.sidebar.width`, `tix.sidebar.collapsed`) and the recent list's fold
+under `tix.recent.closed`; the script moves those into the cookie once and removes them. Without
 JavaScript neither control is shown and the sidebar is its default width. Below 900px neither applies: a
 phone gets the brand bar and its menu whatever a desktop chose.
 
-**Folding a group.** Saved filters, Recently viewed, Configure and Data each have a heading that is a
+**Folding a group.** Saved filters, Recently viewed and Admin each have a heading that is a
 button: pressing it, or Enter or Space on it, folds the group under a chevron and again unfolds it. The
 button says `aria-expanded` and names the group's body with `aria-controls`. Because the server draws the
 fold from the cookie, a folded group arrives folded and nothing animates or moves on load. A folded group
-still shows the entry for the page you are on, so the sidebar never hides where you are: folding Configure
+still shows the entry for the page you are on, so the sidebar never hides where you are: folding Admin
 while on Users leaves Users under the heading. On the collapsed rail folding does not apply, and every
 group is its icons as before; the Recently viewed clock opens the sidebar with the list unfolded. Without
 JavaScript the heading is plain text and every group is open.
@@ -81,7 +119,7 @@ and its row or card is ringed. Settings has "Open a new task" for the other way 
 is opened to write it out in full. That used to be the default; a browser that never touched the
 preference now stays, and one that turned it on keeps opening.
 
-**The trash.** Trash, under Tasks in the sidebar, is the task list filtered by `is:trashed`: the
+**The trash.** Trash, under Admin in the sidebar, is the task list filtered by `is:trashed`: the
 soft-deleted tasks and nothing else. It is a filter rather than a screen of its own, so the box says
 what it is, the address can be bookmarked, and a term added to it narrows the trash. Tasks is not
 marked current while it is open. The screen is headed Trash and counts the deleted tasks on the page.
@@ -367,7 +405,8 @@ shown and finished cards are.
 
 ## My work, saved filters and recently viewed
 
-Under Tasks the sidebar holds three things of the reader's own.
+The sidebar holds three things of the reader's own: My work, under Inbox, and the saved filters and
+recently viewed tasks, under Statistics.
 
 **My work** is your open tasks assigned to you, drawn as the list under a heading per deadline:
 Overdue, Today, This week, Later and No date, read in the time zone you chose in Settings. An empty
@@ -395,7 +434,7 @@ keep apart lists, and is drawn by `assets/recent.js`; with scripting off it is n
 list is `tix.recentTasks()` for other scripts, an array of `{ref, title, href, at}` newest first,
 and the document receives a `tix:recent` event whenever it changes.
 
-On the collapsed rail My work and each saved filter are icons with their names kept as accessible
+On the collapsed rail My work, each pinned project and each saved filter are icons with their names kept as accessible
 names and tooltips, the menus are put away, and Recently viewed folds to a clock that opens the
 sidebar with the list unfolded.
 
@@ -470,7 +509,7 @@ incoming webhook, a Discord webhook, an ntfy topic URL, or your own endpoint tak
 channel has a name, a URL, a format, the kinds it sends (mentions, assignments, status changes, comments)
 and an on switch. The add form uses the same layout as New project. These are yours, kept with your
 account, and only your items reach them; a kind you turned off above is not sent either. They are not the
-tenant's webhooks under Configure.
+tenant's webhooks under Admin.
 
 Adding a channel opens its own screen, which shows the signing secret once (signed JSON deliveries carry
 `X-Tix-Signature` made with it), then the channel's settings, Send test, and its recent deliveries with
@@ -752,7 +791,7 @@ checklists, priority, tags, custom fields and repeat rule. Status, assignee, due
 stay with the task. A name another template already holds, in any case, is refused under the name field.
 When tasks open in a dialog the form opens in the same dialog; saving returns to the task with a toast.
 
-**Templates**, under Configure in the sidebar, lists every template the reader can see with its project
+**Templates**, under Admin in the sidebar, lists every template the reader can see with its project
 (or All projects), the title it creates, how many tasks it holds, its due offset and how often it was used.
 Each row links to **Use** and **Edit**. The edit screen renames the template, moves it to a project or to
 all projects, and changes the title, description, priority, due offset, tags, repeat rule and custom fields
@@ -823,9 +862,9 @@ remember, so the positions are kept in `sessionStorage` per address. The filter 
 type, 300ms after the last key, and the deadline and sort selects apply when changed; Apply stays for
 a browser without scripting. The list, board and lanes switch swaps the page instead of reloading it.
 
-**Keyboard shortcuts** are behind "?" on every screen, and behind the Keyboard shortcuts button at the
-foot of the sidebar for anyone who does not know to press it. The overlay used to be looked up once
-when the page first loaded, so after the first boosted navigation "?" opened a copy nobody could see.
+**Keyboard shortcuts** are behind "?" on every screen, and behind Keyboard shortcuts in the account
+menu at the foot of the sidebar for anyone who does not know to press it. The overlay used to be looked
+up once when the page first loaded, so after the first boosted navigation "?" opened a copy nobody could see.
 
 ## The command palette
 
@@ -838,8 +877,8 @@ phone, opens it as well. It is one search box over four groups:
   term is searched as plain words. A ref, in any case, puts its task first. Ten at most, most
   recently changed first.
 - **Projects**, read once when the palette opens, each going to its board.
-- **Screens**, every destination the sidebar shows (the Configure and Data ones only with Advanced
-  screens on) and every section of Settings.
+- **Screens**, every destination the sidebar shows (the configuration and data ones under Admin only
+  with Advanced screens on) and every section of Settings.
 - **Actions**: New task, New task in a project, New project, Open the filter, Show tasks as a list, a
   board or in lanes, Switch the colour scheme, Keyboard shortcuts and Sign out. Each one presses a
   control the screen already has; from a screen without it, the palette goes to the one that has it.
@@ -921,7 +960,7 @@ tenant's are on the Tenant screen. The order is in [agents.md](agents.md#how-lon
 
 ## Server administration
 
-Three screens in the Configure group answer for the installation rather than the work in it, and each
+Three screens under Admin answer for the installation rather than the work in it, and each
 is the browser's view of a command. `/admin/status` is `tix status`: what the installation holds and
 which servers are running against it. `/admin/connections` is `tix connection ls` and `kill`: the live
 event streams and SSH sessions this server holds, and ending one. `/admin/ssh-keys` is `tix user key`:
@@ -1044,8 +1083,8 @@ going back a page.
 | Project names in pickers | `tix_project_label` | How a project reads in every control that chooses one: `key-name` (`INFRA · Infrastructure`), `name` or `key`. Anything else, including no cookie, is the name with the key, `Infrastructure (INFRA)`. The option's value is always the key |
 
 `tix_advanced` has three states rather than two: shown, hidden, and absent, which leaves the answer
-to who is reading. A tenant administrator who has never chosen gets the Configure and Data groups,
-because the tenant screen was otherwise reachable by typing its URL and by no other means: the only
+to who is reading. A tenant administrator who has never chosen gets the configuration and data
+screens under Admin, because the tenant screen was otherwise reachable by typing its URL and by no other means: the only
 entry to it lived behind a preference on a settings page they had no reason to open. Anybody else
 gets the short navigation, since every screen in those groups refuses them and an entry leading to a
 refusal is worse than no entry. Being on one of those screens expands its group whatever the

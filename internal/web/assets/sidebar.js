@@ -30,11 +30,15 @@
   var LEGACY_WIDTH = "tix.sidebar.width";
   var LEGACY_COLLAPSED = "tix.sidebar.collapsed";
   var LEGACY_RECENT = "tix.recent.closed";
-  var GROUPS = ["saved", "recent", "configure", "data"];
+  var GROUPS = ["saved", "recent", "admin"];
   // DEFAULT_FOLD are the groups folded until the reader opens them: the admin
   // screens, which a reader visits far less than their tasks. Kept in step with
   // sidebarDefaultFold in internal/web/sidebar.go.
-  var DEFAULT_FOLD = ["configure", "data"];
+  var DEFAULT_FOLD = ["admin"];
+  // LEGACY_ADMIN are the two groups an earlier build drew where Admin is now.
+  // Both folded is Admin folded; either open is Admin open. Kept in step with
+  // sidebarLegacyAdmin in internal/web/sidebar.go.
+  var LEGACY_ADMIN = ["configure", "data"];
   var CLASS = "side-collapsed";
   var DRAGGING = "side-dragging";
   var MIN = 180;
@@ -71,12 +75,16 @@
       } else if (key === "fold") {
         var names = val.split(".");
         var fold = [];
+        var legacy = 0;
         for (var j = 0; j < names.length; j++) {
           if (GROUPS.indexOf(names[j]) >= 0 && fold.indexOf(names[j]) < 0) fold.push(names[j]);
+          if (LEGACY_ADMIN.indexOf(names[j]) >= 0 && names.indexOf(names[j]) === j) legacy++;
         }
-        // An empty list is every group opened; a list naming nothing this
-        // version draws is damage and keeps the default.
-        if (val === "" || fold.length) {
+        if (legacy === LEGACY_ADMIN.length && fold.indexOf("admin") < 0) fold.push("admin");
+        // An empty list is every group opened, and so is one naming a single
+        // legacy admin group; a list naming nothing this version or the last
+        // one drew is damage and keeps the default.
+        if (val === "" || fold.length || legacy) {
           sawFold = true;
           state.fold = fold;
         }

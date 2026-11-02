@@ -43,6 +43,19 @@
       </span>
     </a>
     <span class="projrow-tools">
+      {{/* Pinning is the per-reader star the lanes already keep on a
+           project (view "lanes"), so this and a lane's Star are one switch.
+           See pinnedProjects in sidebar.go. */}}
+      {{$pinned := $v.IsPinned .Key}}
+      <form method="post" action="/view/group" class="projpin">
+        {{template "csrf" $.CSRF}}
+        <input type="hidden" name="view" value="lanes">
+        <input type="hidden" name="group" value="{{.Key}}">
+        <input type="hidden" name="set" value="starred">
+        <input type="hidden" name="value" value="{{if $pinned}}0{{else}}1{{end}}">
+        <input type="hidden" name="next" value="{{$.Here}}">
+        <button type="submit" class="ghostlink projpin-btn" aria-pressed="{{if $pinned}}true{{else}}false{{end}}" aria-label="{{if $pinned}}{{t "Unpin %s from the sidebar" .Name}}{{else}}{{t "Pin %s to the sidebar" .Name}}{{end}}">{{if $pinned}}{{t "Unpin"}}{{else}}{{t "Pin to sidebar"}}{{end}}</button>
+      </form>
       <a class="ghostlink" href="/tasks?q=project:{{.Key}}">{{t "Tasks"}}</a>
       <a class="ghostlink" href="/projects/{{.Key}}/fields">{{t "Fields"}}</a>
       <a class="ghostlink" href="/projects/{{.Key}}">{{t "Manage"}}</a>

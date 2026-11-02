@@ -39,6 +39,18 @@ func init() {
 		"Sources":            "Източници",
 		"Runs":               "Изпълнения",
 		"Keyboard shortcuts": "Клавишни комбинации",
+		"Admin":              "Администрация",
+		"Pinned projects":    "Закачени проекти",
+		"overdue tasks":      "просрочени задачи",
+
+		// The account menu at the foot of the sidebar.
+		"Account menu for %s": "Меню на профила на %s",
+
+		// Pinning a project to the sidebar, on the projects screen.
+		"Pin to sidebar":            "Закачи в страничната лента",
+		"Unpin":                     "Откачи",
+		"Pin %s to the sidebar":     "Закачи %s в страничната лента",
+		"Unpin %s from the sidebar": "Откачи %s от страничната лента",
 
 		// Info tips and field notes.
 		"About %s":            "За „%s“",
