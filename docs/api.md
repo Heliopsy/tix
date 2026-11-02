@@ -58,7 +58,7 @@ Everything below is under `/api/v1`.
 | Claims | `/tasks/{ref}/claim`, `/tasks/{ref}/claim/renew`, `/tasks/{ref}/claim/release`, `/tasks/{ref}/claim/reclaim`, `/claims/next`, `/claims/sweep` |
 | Snoozes | `/snoozes/wake` |
 | Webhooks | `/webhooks`, `/webhooks/{id}`, `/webhooks/deliveries`, `/webhooks/deliveries/{id}/redeliver` |
-| History | `/audit`, `/tasks/{ref}/audit`, `/retention`, `/prune` |
+| History | `/audit`, `/tasks/{ref}/audit`, `/retention`, `/prune`, `/housekeeping`, `/housekeeping/run`; see [Housekeeping](#housekeeping) |
 | Reports | `GET /stats`, see [statistics.md](statistics.md); `GET /status`, the report `tix status` prints, see [scripting.md](scripting.md) |
 | Live connections | `GET /connections`, `DELETE /connections/{id}`; see [deployment.md](deployment.md#live-connections) |
 | Transfer | `/export`, `/import`, `/bundles/export`, `/bundles/import` |
@@ -515,6 +515,40 @@ event, so a refused task never holds back or undoes another; a copy's outcome na
 `copy_ref`. A reference named twice is acted on once. An unknown action, no references, more than 500, or a
 missing argument is `400` before any task changes, and a caller without the scope the action needs (for
 example `task:delete` for a bulk delete) gets one `403` for the request.
+
+### Housekeeping
+
+Housekeeping moves finished tasks to the trash and empties the trash after a number of days. It is set per
+tenant and overridden per project, everything off by default, and `tix serve` applies it on the retention
+pruner's tick. All three routes need `tenant:admin`.
+
+`GET /housekeeping` answers the tenant's rules, and with `?project=KEY` also the project's override and
+the rules in effect there, with how many tasks each rule would act on now. In a policy, `null` is inherit
+on a project and off on the tenant, `0` is off, and a number is days:
+
+```json
+{"tenant":{"done":30,"cancelled":null,"trash":90},"project":"OPS",
+ "override":{"project_id":"01J...","done":0,"cancelled":null,"trash":null},
+ "effective":{"project_id":"01J...","done":0,"cancelled":0,"trash":90},
+ "paused":false,"pending":{"done":0,"cancelled":0,"trash":4}}
+```
+
+`PUT /housekeeping` changes one level and answers the same shape. Each of `done`, `cancelled` and `trash`
+takes `"off"`, a number of days (`"30"` or `"30d"`), or with `project` set `"inherit"`; a rule left out
+keeps its value:
+
+```json
+{"project":"OPS","done":"off","trash":"inherit"}
+```
+
+Turning on `done` or `cancelled` while the [trash](#trash) is off is refused with `422` and
+`details.reason` `trash_off`, because the tasks would be deleted for good; with the trash turned off later,
+every rule pauses and `paused` is `true`.
+
+`POST /housekeeping/run` applies the rules once, at most `limit` tasks per rule (200 by default), or with
+`dry_run` only counts; `project` narrows it to one project. It answers
+`{"dry_run":false,"paused":false,"done":3,"cancelled":0,"trash":1}`. Every task moved or purged gets its own
+`task.delete` audit entry and `task.deleted` event, with `cleanup` and `after_days` in the payload.
 
 ### Trash
 

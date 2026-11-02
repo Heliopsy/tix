@@ -16,7 +16,7 @@ import (
 func (h *handler) adminRoutes() []route {
 	return []route{
 		get(RouteTenant, "tenant.html", h.showTenant,
-			"GetTenant", "ListTenants", "ListMembers", "GetRetention", "GetActor"),
+			"GetTenant", "ListTenants", "ListMembers", "GetRetention", "GetActor", "GetHousekeeping"),
 		post(RouteTenant, h.updateTenant, "UpdateTenant"),
 		post(RouteMembers, h.addMember, "AddMember"),
 		post(RouteMemberRemove, h.removeMember, "RemoveMember"),
@@ -57,8 +57,11 @@ type tenantView struct {
 	Trash     core.TrashStatus
 	Members   []core.Membership
 	Retention core.RetentionPolicy
-	Roles     []core.Role
-	Shape     []shapeNode
+	// Housekeeping is the tenant's cleanup rules and what they would act on
+	// now.
+	Housekeeping *housekeepingForm
+	Roles        []core.Role
+	Shape        []shapeNode
 	// Names labels each member by the handle its actor carries, because a
 	// membership row holds an actor identifier and nothing else. Without
 	// this the table read as three 26-character ULIDs under a heading
@@ -117,6 +120,10 @@ func (h *handler) showTenant(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	housekeeping, err := h.svc.GetHousekeeping(r.Context(), "")
+	if err != nil {
+		return err
+	}
 	actors := make([]string, 0, len(members))
 	for _, m := range members {
 		actors = append(actors, m.ActorID)
@@ -125,7 +132,8 @@ func (h *handler) showTenant(w http.ResponseWriter, r *http.Request) error {
 		Tenant: *tenant, Tenants: tenants, Members: members, Themes: h.themes.List(),
 		LeaseDefault: core.Duration(h.leases.Default), LeaseMax: core.Duration(h.leases.Max),
 		Retention: *retention, Roles: core.Roles, Shape: shape, Trash: *trash,
-		Names: h.resolveActors(r, actors...)})
+		Housekeeping: newHousekeepingForm(housekeeping),
+		Names:        h.resolveActors(r, actors...)})
 }
 
 // tenantShape counts what hangs off this tenant, for the diagram.

@@ -734,7 +734,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 145
+a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 148
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:
@@ -786,6 +786,10 @@ than no entry.
 Bulk task actions are absent on purpose as well: the board acts on the card under the cursor, and each
 action a bulk request applies (move, priority, tags, assignee, star, copy, delete, restore) is bound
 there for that card. Selecting many rows at once belongs to the web task list and `tix task bulk`.
+
+Housekeeping accounts for three more, by choice: its rules are tenant administration, set on the Tenant
+screen, `tix cleanup` and the API, and `tix serve` applies them on its own; the board only shows what they
+moved, in the trash.
 
 Saved filters account for four more, by choice: renaming, sharing, ordering and removing one belong to
 the browser's sidebar and `tix filter`, reading one by name is `tix filter show`, and the board applies

@@ -229,7 +229,7 @@ var builders = []func(*globals) *cobra.Command{
 	newProjectCmd, newWorkflowCmd, newFieldCmd, newClaimCmd, newViewCmd, newFilterCmd, newCalendarCmd,
 	newInboxCmd, newTemplateCmd,
 	newTenantCmd, newDomainCmd, newMemberCmd, newActorCmd, newUserCmd, newTokenCmd, newLoginCmd,
-	newCtxCmd, newConfigCmd, newDoctorCmd, newPruneCmd, newRetentionCmd, newWebhookCmd,
+	newCtxCmd, newConfigCmd, newDoctorCmd, newPruneCmd, newRetentionCmd, newCleanupCmd, newWebhookCmd,
 	newAuditCmd, newSyncCmd, newArtifactCmd, newWatchCmd, newLogoutCmd, newConnectionCmd,
 	newDocsCmd, newCompletionCmd, newVersionCmd,
 }

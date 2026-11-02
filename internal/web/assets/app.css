@@ -7069,3 +7069,9 @@ details.relentry > .relnotes { padding: 0 var(--space-4) var(--space-4); }
   .relmethod { grid-template-columns: minmax(0, 1fr); }
   .relmethod .copyline { grid-column: 1; grid-row: auto; margin-top: var(--space-2); }
 }
+
+/* Housekeeping: one rule per row, the choice and its number side by side. */
+.hkform .hkrule { margin-bottom: var(--space-3); }
+.hkinputs { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
+.cform .hkinputs select { width: auto; min-width: 14rem; }
+.cform .hkinputs input.hkdays:not([type="checkbox"]) { width: 7rem; }

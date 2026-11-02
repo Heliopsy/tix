@@ -163,6 +163,19 @@
   <p><button class="secondary" type="submit">{{t "Prune now"}}</button></p>
 </form>
 
+{{with .Data.Housekeeping}}
+<div class="headtip"><h2>{{t "Housekeeping"}}</h2>{{template "tip" (tip "Housekeeping" "Cleans up finished tasks and the trash on its own, on the same schedule as retention. These are the defaults for every project; a project can override each one in its settings. Everything is off until you set it." "docs/configuration.md")}}</div>
+<form method="post" class="cform hkform" action="/admin/tenant/housekeeping">
+  {{template "csrf" $.CSRF}}
+  {{template "housekeeping-rules" .}}
+  <p><button type="submit">{{t "Save housekeeping"}}</button></p>
+</form>
+<form method="post" action="/admin/tenant/housekeeping/run">
+  {{template "csrf" $.CSRF}}
+  <p><button class="secondary" type="submit">{{t "Clean up now"}}</button></p>
+</form>
+{{end}}
+
 <h2>{{t "Add a member"}}</h2>
 <form method="post" action="/admin/tenant/members">
   {{template "csrf" .CSRF}}

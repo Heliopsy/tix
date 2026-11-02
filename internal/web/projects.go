@@ -14,7 +14,7 @@ func (h *handler) projectRoutes() []route {
 	return []route{
 		get(RouteProjects, "projects.html", h.showProjects, "ListProjects", "ListWorkflows"),
 		post(RouteProjects, h.createProject, "CreateProject"),
-		get(RouteProject, "board.html", h.showBoard, "GetProject", "ListGroupPrefs"),
+		get(RouteProject, "board.html", h.showBoard, "GetProject", "ListGroupPrefs", "GetHousekeeping"),
 		// The board's live fragment renders through the same template set,
 		// and the same block, the full board does. See showBoardLive.
 		get(RouteBoardLive, "board.html", h.showBoardLive, "GetProject"),
@@ -284,6 +284,10 @@ type boardView struct {
 	// KeyChange, when set, turns the screen into the confirmation of a new
 	// key and nothing else.
 	KeyChange *keyChange
+
+	// Housekeeping is the project's cleanup overrides, nil for a reader who
+	// may not change them.
+	Housekeeping *housekeepingForm
 }
 
 // showBoard renders one column per workflow state.
@@ -294,6 +298,9 @@ func (h *handler) showBoard(w http.ResponseWriter, r *http.Request) error {
 	}
 	if redirectOldKey(w, r, r.PathValue("key"), &data.Project) {
 		return nil
+	}
+	if data.Housekeeping, err = h.projectHousekeeping(r, data.Project.Key); err != nil {
+		return err
 	}
 	return h.render(w, r, "board.html", data.Project.Name, data)
 }

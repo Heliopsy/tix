@@ -220,6 +220,41 @@ record while an event is a transport buffer and a delivery is a receipt. A negat
 `0` does not mean "keep forever": it means "unset", and the shipped default for that class applies. Say `87600h`
 rather than `0` if you mean ten years.
 
+### Housekeeping
+
+Housekeeping tidies tasks on its own, and is per tenant rather than per deployment, so it has no configuration
+key: a tenant admin sets it with `tix cleanup set`, the Housekeeping section of the Tenant screen, or
+`PUT /api/v1/housekeeping`. It has three rules, all off until set:
+
+| Rule | After N days |
+| --- | --- |
+| `done` | a task finished in a terminal done-category state goes to the trash |
+| `cancelled` | a task finished in a terminal cancelled-category state goes to the trash |
+| `trash` | a task in the trash since longer ago is deleted for good, its trashed subtasks first |
+
+The tenant's rules are the default for every project. A project overrides any of them from its board's
+Housekeeping panel or `tix cleanup set --project KEY`, with `inherit`, `off` or a number of days:
+
+```sh
+tix cleanup set --done 30 --cancelled 7 --trash 90   # the tenant default
+tix cleanup set --project OPS --done off             # OPS keeps its done tasks
+tix cleanup preview --project OPS                    # what would go now, changing nothing
+tix cleanup show --project OPS                       # tenant, override and effective rule side by side
+```
+
+Tasks have no archived state, so a finished task leaves the board by going to the trash, where the Trash
+listing and `tix task restore` bring it back. That is also why the trash setting matters here: with the
+trash off a delete is permanent, so turning on `done` or `cancelled` is refused (exit 6, `trash_off`), and
+if the trash is turned off afterwards every rule pauses, the trash rule included, until it is on again.
+`show` and `preview` say so, and so do both screens. A done task with open subtasks stays until they are
+finished and gone too.
+
+`tix serve` applies the rules after every retention prune (`tix serve --prune-interval`, hourly by default) as
+the system actor, at most 200 tasks per rule per tick; `tix cleanup run` does one pass now. Every task moved
+or purged writes the same `task.delete` audit entry and `task.deleted` event a delete by hand does, with
+`cleanup` and `after_days` in the payload, so Activity shows it and nobody's inbox is notified. Each
+statement re-checks the row it acts on, so two servers ticking at once never act on a task twice.
+
 `server.listen` is the address `tix serve` binds. `--listen` is its flag layer, and a flag nobody typed is not
 a layer: it leaves the configured address alone even though it declares `127.0.0.1:8080` of its own. That is
 what lets a container be pointed at an address with `TIX_SERVER_LISTEN` and no command line. It says nothing

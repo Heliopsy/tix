@@ -66,6 +66,7 @@ type Tx interface {
 	InboxTx
 	InboxChannelTx
 	TemplateTx
+	HousekeepingTx
 
 	Commit() error
 	Rollback() error
@@ -504,6 +505,41 @@ type EventTx interface {
 	PruneEvents(ctx context.Context, before time.Time, floorSeq int64, limit int) (int64, error)
 	PruneAudit(ctx context.Context, before time.Time, limit int) (int64, error)
 	PruneDeliveries(ctx context.Context, before time.Time, limit int) (int64, error)
+}
+
+// HousekeepingTx covers the housekeeping policy and the tasks it acts on.
+// Every statement that acts is conditional on what selected the row, so a
+// second worker that selected the same task affects nothing.
+type HousekeepingTx interface {
+	// HousekeepingPolicies returns every stored level; the tenant default is
+	// the one with no project.
+	HousekeepingPolicies(ctx context.Context) ([]core.HousekeepingPolicy, error)
+	// PutHousekeepingPolicy stores one level, removing a project row whose
+	// every rule inherits.
+	PutHousekeepingPolicy(ctx context.Context, p *core.HousekeepingPolicy) error
+	// FinishedTasks returns live tasks of a project in one of the statuses,
+	// completed before the cutoff and with no live child, oldest first.
+	FinishedTasks(ctx context.Context, q FinishedQuery, limit int) ([]core.Task, error)
+	CountFinishedTasks(ctx context.Context, q FinishedQuery) (int, error)
+	// TrashFinished soft deletes one task if it still matches the query.
+	TrashFinished(ctx context.Context, taskID string, q FinishedQuery) (bool, error)
+	// ExpiredTrash returns tasks of a project soft deleted before the
+	// cutoff, oldest first.
+	ExpiredTrash(ctx context.Context, projectID string, before time.Time, limit int) ([]core.Task, error)
+	CountExpiredTrash(ctx context.Context, projectID string, before time.Time) (int, error)
+	// TrashedChildren returns a task's children soft deleted before the
+	// cutoff.
+	TrashedChildren(ctx context.Context, parentID string, before time.Time) ([]core.Task, error)
+	// PurgeTrashed permanently deletes one task if it is still in the trash
+	// and was deleted before the cutoff.
+	PurgeTrashed(ctx context.Context, taskID string, before time.Time) (bool, error)
+}
+
+// FinishedQuery selects the finished tasks one housekeeping rule covers.
+type FinishedQuery struct {
+	ProjectID string
+	Statuses  []string
+	Before    time.Time
 }
 
 // WebhookTx covers delivery endpoints and their queue.
