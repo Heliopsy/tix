@@ -23,6 +23,15 @@ func calendarSection(t *testing.T, page string) string {
 	return section
 }
 
+// feedState reads the value the section's first row states for the feed,
+// which is where a reader looks to learn whether there is one at all.
+func feedState(t *testing.T, section string) string {
+	t.Helper()
+	row := between(t, section, `<div class="setrow" id="calendar-state">`, `</div>
+    </div>`)
+	return between(t, row+"<", `<span class="setvalue">`, `<`)
+}
+
 // feedURL reads the one address the issued screen shows.
 func feedURL(t *testing.T, page string) string {
 	t.Helper()
@@ -40,6 +49,9 @@ func TestCalendarFeedSettingsLifecycle(t *testing.T) {
 	b := f.asActor(user.ID)
 
 	section := calendarSection(t, b.page(web.RouteSettings))
+	if got := feedState(t, section); got != "No feed" {
+		t.Errorf("with no feed the section states %q, want No feed:\n%s", got, section)
+	}
 	form := totpForm(t, section, web.RouteCalendarCreate)
 	if !strings.Contains(form, `name="filter"`) || !strings.Contains(form, "Create feed") {
 		t.Fatalf("no create form with a filter field:\n%s", section)
@@ -68,8 +80,15 @@ func TestCalendarFeedSettingsLifecycle(t *testing.T) {
 	if strings.Contains(settings, token) {
 		t.Fatal("settings shows the feed secret after it was issued")
 	}
-	for _, action := range []string{web.RouteCalendarFilter, web.RouteCalendarRotate, web.RouteCalendarRevoke} {
-		totpForm(t, section, action)
+	if got := feedState(t, section); got != "Active" {
+		t.Errorf("with a feed the section states %q, want Active:\n%s", got, section)
+	}
+	for action, control := range map[string]string{
+		web.RouteCalendarFilter: "Save filter", web.RouteCalendarRotate: "Rotate", web.RouteCalendarRevoke: "Revoke",
+	} {
+		if form := totpForm(t, section, action); !strings.Contains(form, `type="submit"`) || !strings.Contains(form, ">"+control+"</button>") {
+			t.Errorf("the form posting to %s has no %s button:\n%s", action, control, form)
+		}
 	}
 	if inputValue(t, section, "calendar-filter") != "project:infra" {
 		t.Errorf("the filter field does not hold the stored filter:\n%s", section)
@@ -92,7 +111,23 @@ func TestCalendarFeedSettingsLifecycle(t *testing.T) {
 	resp = b.post(web.RouteCalendarRevoke, url.Values{})
 	_ = resp.Body.Close()
 	wantStatus(t, resp, http.StatusSeeOther)
+	wantSettingsReturn(t, resp, "calendar")
 	totpForm(t, calendarSection(t, b.page(web.RouteSettings)), web.RouteCalendarCreate)
+}
+
+// wantSettingsReturn asserts a redirect lands on one settings section with its
+// toast: the flash in the query and the section as the whole fragment. A flash
+// written after the "#" is part of the fragment, so the toast never shows and
+// the fragment names no element, which drops the reader at the top.
+func wantSettingsReturn(t *testing.T, resp *http.Response, section string) {
+	t.Helper()
+	loc, err := url.Parse(resp.Header.Get("Location"))
+	if err != nil {
+		t.Fatalf("parsing the redirect %q: %v", resp.Header.Get("Location"), err)
+	}
+	if loc.Path != web.RouteSettings || loc.Fragment != section || loc.Query().Get("flash") == "" {
+		t.Errorf("redirected to %q, want %s with a flash and the fragment #%s", loc, web.RouteSettings, section)
+	}
 }
 
 func TestCalendarFilterRefusalKeepsTheText(t *testing.T) {

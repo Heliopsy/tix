@@ -103,7 +103,9 @@ func TestChannelFormsRefuseInPlaceTestAndRemove(t *testing.T) {
 	if !strings.Contains(screen, `action="`+page+`/redeliver">`) {
 		t.Fatal("a delivery not yet delivered offers no Redeliver")
 	}
-	b.post(page+"/delete", url.Values{})
+	resp = b.post(page+"/delete", url.Values{})
+	_ = resp.Body.Close()
+	wantSettingsReturn(t, resp, "notifications")
 	if left, _ := f.svc.ListInboxChannels(f.ctx()); len(left) != 0 {
 		t.Fatalf("removing left %v", left)
 	}

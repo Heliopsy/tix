@@ -233,7 +233,7 @@ func (h *handler) removeTOTP(w http.ResponseWriter, r *http.Request) error {
 	if err := h.svc.RemoveTOTP(r.Context()); err != nil {
 		return err
 	}
-	redirect(w, r, RouteSettings, "second factor removed")
+	redirect(w, r, RouteSettings+"#second-factor", "second factor removed")
 	return nil
 }
 

@@ -1090,11 +1090,17 @@ func flashRef(target, ref string) string {
 func redirectTo(w http.ResponseWriter, r *http.Request, path, fragment, flash string) {
 	target := path
 	if flash != "" {
+		// The flash goes before any fragment: after the "#" it is part of the
+		// fragment, so no toast shows and the fragment names no section.
+		base, fragment, hasFragment := strings.Cut(target, "#")
 		sep := "?"
-		if strings.Contains(target, "?") {
+		if strings.Contains(base, "?") {
 			sep = "&"
 		}
-		target += sep + "flash=" + url.QueryEscape(flash)
+		target = base + sep + "flash=" + url.QueryEscape(flash)
+		if hasFragment {
+			target += "#" + fragment
+		}
 	}
 	// The fragment on a listing redirect is the row the action was taken on,
 	// which is also the task the flash is about: one source, so the toast and
@@ -1118,11 +1124,17 @@ func redirect(w http.ResponseWriter, r *http.Request, path, flash string) {
 		// ordinary character and the sort value silently becomes
 		// "urgency?flash=task+created". redirectTo next door already did this;
 		// the two now agree.
+		// The flash goes before any fragment: after the "#" it is part of the
+		// fragment, so no toast shows and the fragment names no section.
+		base, fragment, hasFragment := strings.Cut(target, "#")
 		sep := "?"
-		if strings.Contains(target, "?") {
+		if strings.Contains(base, "?") {
 			sep = "&"
 		}
-		target += sep + "flash=" + url.QueryEscape(flash)
+		target = base + sep + "flash=" + url.QueryEscape(flash)
+		if hasFragment {
+			target += "#" + fragment
+		}
 	}
 	// #nosec G710 -- path is a route constant with at most one caller-derived
 	// segment spliced into it: a project or workflow key the contract has
