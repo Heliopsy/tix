@@ -459,7 +459,7 @@
       <div class="setrow-ctl"><span class="setvalue">{{t "Not applicable"}}</span></div>
     </div>
   {{else if $c.Active}}
-    <div class="setrow">
+    <div class="setrow" id="calendar-state">
       <div class="setrow-text">
         <div class="setname-line"><span class="setname">{{t "Feed address"}}</span>{{template "field-info" "The address was shown once, when it was created. Rotate to see a new one; calendars subscribed to the old address stop updating."}}</div>
         <span class="sethelp">{{t "Active since %s." (stamp $c.Feed.CreatedAt)}}</span>
@@ -498,11 +498,22 @@
       <div class="setrow-ctl"><button class="danger" type="submit" aria-describedby="calendar-revoke-help">{{t "Revoke"}}</button></div>
     </form>
   {{else}}
+    {{/* The state first, as the second factor states Off before its Add, so
+         an empty section reads as "there is no feed" rather than as a filter
+         box with nothing to filter. */}}
+    <div class="setrow" id="calendar-state">
+      <div class="setrow-text">
+        <div class="setname-line"><span class="setname">{{t "Feed address"}}</span>{{template "field-info" "Creating a feed shows its address once, on the screen that follows, with a Copy button. Only a hash of it is kept, so it cannot be shown again; rotating issues a new one."}}</div>
+        <span class="sethelp">{{t "You have no calendar feed. Create one to subscribe to your due dates."}}</span>
+      </div>
+      <div class="setrow-ctl"><span class="setvalue">{{t "No feed"}}</span></div>
+    </div>
+
     <form class="setrow" method="post" action="/settings/calendar" hx-boost="false">
       {{template "csrf" .CSRF}}
       <div class="setrow-text">
-        <div class="setname-line"><label class="setname" for="calendar-filter">{{t "Feed filter"}}</label>{{template "field-info" "A filter expression, the same language as the task list's filter box. Leave it empty for the tasks assigned to you that are not finished. Only tasks with a due date are listed either way. Changing it keeps the address."}}</div>
-        <span class="sethelp" id="calendar-filter-help">{{t "You have no calendar feed. Create one to subscribe to your due dates."}}</span>
+        <div class="setname-line"><label class="setname" for="calendar-filter">{{t "Feed filter"}}</label>{{template "field-info" "A filter expression, the same language as the task list's filter box. Leave it empty for the tasks assigned to you that are not finished. Only tasks with a due date are listed either way. It can be changed later without changing the address."}}</div>
+        <span class="sethelp" id="calendar-filter-help">{{t "Optional. Empty means yours, not finished."}}</span>
         {{if $c.Error}}<span class="field-error" id="calendar-filter-error">{{$c.Error}}</span>{{end}}
       </div>
       <div class="setrow-ctl">

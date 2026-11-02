@@ -459,6 +459,7 @@ func TestRecoveryCodesAreReplacedAndTheFactorRemoved(t *testing.T) {
 	resp := b.post("/settings/totp/remove", url.Values{})
 	_ = resp.Body.Close()
 	wantStatus(t, resp, http.StatusSeeOther)
+	wantSettingsReturn(t, resp, "second-factor")
 	page := b.page("/settings")
 	if !strings.Contains(page, "This account has <strong>no</strong> second factor") {
 		t.Errorf("the factor was not removed:\n%s", page)
