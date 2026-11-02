@@ -193,10 +193,11 @@ func TestTheSidebarIsDrawnFromItsCookie(t *testing.T) {
 		name, cookie, root, toggle string
 		folded, open               []string
 	}{
-		{name: "no cookie", root: `<html lang="en">`, toggle: `aria-expanded="true"`, open: []string{"configure", "data", "recent"}},
+		{name: "no cookie", root: `<html lang="en">`, toggle: `aria-expanded="true"`, folded: []string{"configure", "data"}, open: []string{"recent"}},
+		{name: "every group opened", cookie: "fold=", root: `<html lang="en">`, toggle: `aria-expanded="true"`, open: []string{"configure", "data", "recent"}},
 		{name: "width rail and folds", cookie: "w=300&rail=1&fold=configure.recent", root: `<html lang="en" class="side-collapsed" style="--side-w: 300px">`, toggle: `aria-expanded="false"`, folded: []string{"configure", "recent"}, open: []string{"data"}},
-		{name: "width clamped", cookie: "w=9000", root: `<html lang="en" style="--side-w: 480px">`, toggle: `aria-expanded="true"`, open: []string{"configure"}},
-		{name: "garbage is the default", cookie: "w=wide&rail=yes&fold=trash.<b>", root: `<html lang="en">`, toggle: `aria-expanded="true"`, open: []string{"configure", "data"}},
+		{name: "width clamped", cookie: "w=9000", root: `<html lang="en" style="--side-w: 480px">`, toggle: `aria-expanded="true"`, folded: []string{"configure"}, open: []string{"recent"}},
+		{name: "garbage is the default", cookie: "w=wide&rail=yes&fold=trash.<b>", root: `<html lang="en">`, toggle: `aria-expanded="true"`, folded: []string{"configure", "data"}, open: []string{"recent"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

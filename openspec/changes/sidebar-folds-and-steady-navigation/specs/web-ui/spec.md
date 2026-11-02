@@ -9,6 +9,22 @@ group's body with `aria-controls`. Which groups are folded SHALL be kept per bro
 paint. A folded group SHALL still show the entry for the page being read. On the collapsed rail a fold
 SHALL have no effect. Without scripting the heading SHALL be plain text and every group open.
 
+Configure and Data SHALL start folded for a browser that has not folded or opened any group, since
+they hold administration screens read far less often than tasks; once the reader opens or folds a group,
+the reader's arrangement SHALL be kept instead, every group open included.
+
+#### Scenario: The admin groups start folded
+
+- **GIVEN** a browser with no sidebar cookie
+- **WHEN** any screen is drawn
+- **THEN** Configure and Data are drawn folded and Saved filters and Recently viewed are open
+
+#### Scenario: Opening every group is kept
+
+- **GIVEN** a reader who unfolded Configure and Data
+- **WHEN** they open another screen
+- **THEN** both groups are drawn open
+
 #### Scenario: Folding Configure is remembered
 
 - **GIVEN** a reader who presses the Configure heading

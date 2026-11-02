@@ -26,6 +26,20 @@ const (
 // SidebarGroups are the sidebar's foldable groups, in the order they are drawn.
 var SidebarGroups = []string{"saved", "recent", "configure", "data"}
 
+// sidebarDefaultFold are the groups drawn folded until a reader opens them: the
+// admin screens, visited far less than tasks. A cookie without a "fold" key
+// means this default; an empty "fold=" means every group open. Kept in step
+// with DEFAULT_FOLD in assets/sidebar.js.
+var sidebarDefaultFold = []string{"configure", "data"}
+
+func defaultFold() map[string]bool {
+	fold := map[string]bool{}
+	for _, g := range sidebarDefaultFold {
+		fold[g] = true
+	}
+	return fold
+}
+
 // sidebarState is the sidebar as this browser left it.
 type sidebarState struct {
 	// Width is the dragged width in pixels, zero for the stylesheet's own.
@@ -41,7 +55,7 @@ func (s sidebarState) Folded(group string) bool { return s.fold[group] }
 // sidebarOf reads the sidebar cookie. Anything it does not understand is the
 // default, so a damaged cookie costs an arrangement and never a page.
 func sidebarOf(r *http.Request) sidebarState {
-	state := sidebarState{fold: map[string]bool{}}
+	state := sidebarState{fold: defaultFold()}
 	c, err := r.Cookie(SidebarCookie)
 	if err != nil {
 		return state
@@ -58,9 +72,18 @@ func sidebarOf(r *http.Request) sidebarState {
 	for _, g := range SidebarGroups {
 		known[g] = true
 	}
-	for _, g := range strings.Split(values.Get("fold"), ".") {
-		if known[g] {
-			state.fold[g] = true
+	if _, set := values["fold"]; set {
+		raw := values.Get("fold")
+		fold := map[string]bool{}
+		for _, g := range strings.Split(raw, ".") {
+			if known[g] {
+				fold[g] = true
+			}
+		}
+		// An empty list is a reader who opened every group. A list naming
+		// nothing this version draws is damage, and gets the default.
+		if raw == "" || len(fold) > 0 {
+			state.fold = fold
 		}
 	}
 	return state
