@@ -1,5 +1,6 @@
 {{define "content"}}
 {{$u := .Upgrade}}
+{{$status := $u.Status}}
 <div class="pagehead">
   <div class="pagehead-title">
     <h1>{{t "Release"}}</h1>
@@ -7,40 +8,71 @@
   </div>
 </div>
 
-<h2>{{t "Versions"}}</h2>
-<div class="setlist">
-  <div class="setrow">
-    <div class="setrow-text"><span class="setname">{{t "Running here"}}</span></div>
-    <div class="setrow-ctl"><span class="setvalue">v{{$u.Running}}</span></div>
+<div class="relpage">
+{{/* One card answers the question the page is opened for. The check is the
+     footer's, cached and six-hourly, so an install that has never had an
+     answer is told so rather than told it is current: an install with no
+     route out must not read as up to date. */}}
+<section class="relstatus" data-status="{{$status}}" aria-labelledby="relstatus-title">
+  <div class="relstatus-text">
+    {{if eq $status "newer"}}
+    <span class="badge rel-newer">{{t "Update available"}}</span>
+    <h2 id="relstatus-title">{{t "v%s is available" $u.Latest}}</h2>
+    <p class="meta">{{t "This installation runs v%s. The commands below install the newer release." $u.Running}}</p>
+    {{else if eq $status "current"}}
+    <span class="badge rel-current">{{t "Up to date"}}</span>
+    <h2 id="relstatus-title">{{t "This installation is up to date"}}</h2>
+    <p class="meta">{{t "v%s is the newest published release." $u.Latest}}</p>
+    {{else if eq $status "unknown"}}
+    <span class="badge rel-quiet">{{t "Not comparable"}}</span>
+    <h2 id="relstatus-title">{{t "This build's version cannot be compared"}}</h2>
+    <p class="meta">{{t "v%s is the newest published release, and v%s is not a version number it can be ordered against." $u.Latest $u.Running}}</p>
+    {{else if eq $status "failed"}}
+    <span class="badge rel-quiet">{{t "Check failed"}}</span>
+    <h2 id="relstatus-title">{{t "The release feed could not be reached"}}</h2>
+    <p class="meta">{{t "That is the ordinary case for an isolated network. The server tries again within six hours."}}</p>
+    {{else}}
+    <span class="badge rel-quiet">{{t "Not checked"}}</span>
+    <h2 id="relstatus-title">{{t "Not checked yet"}}</h2>
+    <p class="meta">{{t "The server asks the release feed in the background. Reload in a moment."}}</p>
+    {{end}}
   </div>
-  <div class="setrow">
-    <div class="setrow-text">
-      <span class="setname">{{t "Newest published"}}</span>
-      {{/* The check is the footer's, cached and six-hourly, so this says
-           "not known" rather than "up to date" when it has never succeeded.
-           An install with no route out must not be told it is current. */}}
-      <span class="sethelp">{{t "Checked against the public release feed at most every six hours, from the server rather than your browser."}}</span>
+  <dl class="relversions">
+    <div><dt>{{t "Running here"}}</dt><dd class="ver">v{{$u.Running}}</dd></div>
+    <div><dt>{{t "Newest published"}}</dt>{{if $u.Latest}}<dd class="ver">v{{$u.Latest}}</dd>{{else}}<dd class="muted">{{t "not known"}}</dd>{{end}}</div>
+  </dl>
+  <p class="relstatus-foot">{{t "Checked against the public release feed at most every six hours, from the server rather than your browser."}}</p>
+</section>
+
+{{with .Data.Methods}}
+<section class="relsec relupgrade" aria-labelledby="relupgrade-title">
+  <h2 id="relupgrade-title">{{t "How to upgrade"}}</h2>
+  <p class="meta">{{t "Use the way this server was installed. Nothing here restarts a running tix serve: restart it once the new version is in place."}}</p>
+  <div class="relmethods">
+    {{range .}}
+    <div class="relmethod">
+      <h3>{{t .Name}}</h3>
+      <p class="meta">{{t .Help}}</p>
+      <div class="copyline">
+        <code id="{{.ID}}">{{.Command}}</code>
+        <button type="button" class="secondary" data-copy-target="{{.ID}}">{{t "Copy"}}</button>
+      </div>
     </div>
-    <div class="setrow-ctl">
-      <span class="setvalue">{{if $u.Latest}}v{{$u.Latest}}{{else}}{{t "not known"}}{{end}}</span>
-    </div>
+    {{end}}
   </div>
+  <p class="meta">{{t "Installed from a package manager? Upgrade it the way you installed it."}}</p>
+</section>
+{{end}}
+
+{{if .Data.NotesHTML}}
+<section class="relsec relnotes-sec" aria-labelledby="relnotes-title">
+  <h2 id="relnotes-title">{{t "What changed in v%s" $u.Latest}}</h2>
+  {{/* Through the same renderer as a task description, which passes no raw
+       HTML and loads no image. The links were taken out when the notes were
+       cached; see stripLinks. */}}
+  <div class="md relnotes">{{.Data.NotesHTML}}</div>
+  <p class="meta">{{t "Links have been removed. These notes come from the release feed, so they describe the newest release rather than the one running here."}}</p>
+</section>
+{{end}}
 </div>
-
-{{if $u.Newer}}
-<p class="note">{{t "v%s is newer than what is running here. Upgrading is the operator's business: this page only reports." $u.Latest}}</p>
-{{end}}
-
-<h2>{{t "What changed"}}</h2>
-{{if $u.Notes}}
-{{/* A <pre>, because these notes are markdown and this product does not
-     render markdown anywhere. Rendering them as HTML would mean running a
-     remote server's text through a renderer, which is the one thing a
-     self-hosted page should not do with a string it fetched. The links were
-     taken out when the notes were cached; see stripLinks. */}}
-<pre class="notes">{{$u.Notes}}</pre>
-<p class="meta">{{t "Links have been removed. These notes come from the release feed, so they describe the newest release rather than the one running here."}}</p>
-{{else}}
-<p class="meta">{{t "No release notes are available. Either the check has not run yet, or this installation has no route to the release feed, which is the ordinary case for an isolated network."}}</p>
-{{end}}
 {{end}}

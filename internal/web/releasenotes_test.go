@@ -72,3 +72,15 @@ func TestUpgradeStateCarriesNotesOnlyOnceChecked(t *testing.T) {
 		t.Fatalf("a watch that never ran reports %+v, want no notes and no upgrade", got)
 	}
 }
+
+// TestStripLinksHandlesAWWWAddress covers an address with no scheme, which
+// the Markdown renderer the notes now go through would turn into a link.
+func TestStripLinksHandlesAWWWAddress(t *testing.T) {
+	out := stripLinks("Mirrored at www.example.invalid/notes for now.")
+	if strings.Contains(out, "www.") {
+		t.Fatalf("a www address survived: %q", out)
+	}
+	if !strings.Contains(out, "Mirrored at") || !strings.Contains(out, "for now.") {
+		t.Fatalf("the sentence around the address was lost: %q", out)
+	}
+}

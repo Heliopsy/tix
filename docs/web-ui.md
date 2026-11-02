@@ -912,6 +912,31 @@ event streams and SSH sessions this server holds, and ending one. `/admin/ssh-ke
 the public keys the SSH listener accepts, enrolled and revoked. [deployment.md](deployment.md) covers
 the listener and live connections.
 
+## The release screen
+
+`/release`, linked from the version in the sidebar footer when a newer release exists, answers one
+question: is there something newer? A single card at the top says which of five things is true:
+
+| State | When |
+| --- | --- |
+| Update available | The newest published release is ahead of the running version |
+| Up to date | It is the running version, or behind it |
+| Not comparable | One of the two versions is not a `major.minor.patch` this build can order |
+| Check failed | The last check got no usable answer and none ever has |
+| Not checked yet | The server has not finished its first check |
+
+The check runs on the server, in the background, at most every six hours, and never from the
+browser. A failed check is not logged and is drawn quietly: an isolated network is the normal case
+for a self-hosted tracker.
+
+With an update on offer the screen lists one copyable command per install method: `tix update` for
+a release binary, `podman pull` of the new image tag for the container, and `go install` of the new
+version for the Go toolchain. None of them restarts a running `tix serve`. [upgrading.md](upgrading.md)
+explains what `tix update` checks and what it refuses.
+
+The newest release's notes are drawn as Markdown by the same renderer as a task description, with
+every link taken out first, since the text comes from a server this installation does not control.
+
 ## Choosing a colour
 
 Every place the browser asks for a colour, a project's on the new project form and in its settings, and
