@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.31.0](https://github.com/Heliopsy/tix/compare/v0.30.0...v0.31.0) (2026-11-02)
+
+
+### Features
+
+* **web:** redesign the release screen around one status card ([#149](https://github.com/Heliopsy/tix/issues/149)) ([768a287](https://github.com/Heliopsy/tix/commit/768a287a0e79d5c61259e927c397304e745d6d8f))
+
+
+### Bug Fixes
+
+* **web:** start the Configure and Data groups folded ([#148](https://github.com/Heliopsy/tix/issues/148)) ([8bc5876](https://github.com/Heliopsy/tix/commit/8bc58764ae4fa7f841815c1932c72fc93578f376))
+
 ## [0.30.0](https://github.com/Heliopsy/tix/compare/v0.29.1...v0.30.0) (2026-11-01)
 
 
