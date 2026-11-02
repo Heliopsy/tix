@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.1](https://github.com/Heliopsy/tix/compare/v0.32.0...v0.32.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **web:** land settings redirects on their section and state the calendar feed ([#152](https://github.com/Heliopsy/tix/issues/152)) ([75d5cef](https://github.com/Heliopsy/tix/commit/75d5cefc96d9a7671faa9dca211d788829722a63))
+
 ## [0.32.0](https://github.com/Heliopsy/tix/compare/v0.31.0...v0.32.0) (2026-11-02)
 
 
