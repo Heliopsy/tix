@@ -184,6 +184,21 @@ and the project's `docs/deployment.md` owns that subject.
 knowing exists because it is what a human watching your queue will be looking
 at.
 
+## Housekeeping
+
+Finished tasks and the trash can be cleaned up on the same tick, all off by
+default, set per tenant and overridden per project:
+
+```sh
+tix cleanup set --done 30 --cancelled 7 --trash 90
+tix cleanup set --project OPS --done inherit --trash off
+tix cleanup preview
+tix cleanup run --limit 50
+```
+
+Done and cancelled tasks only ever go to the trash. With the tenant's trash
+off, turning them on is exit `6` and every rule pauses.
+
 ## History retention
 
 Events, audit entries and webhook deliveries are kept for a bounded window,

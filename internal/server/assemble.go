@@ -238,6 +238,7 @@ func workersFor(opts Options) []Worker {
 			systemRunner{service: opts.Service, tenantID: opts.TenantID},
 			opts.Clock,
 			core.Duration(opts.PruneInterval),
+			retention.WithHousekeeper(systemRunner{service: opts.Service, tenantID: opts.TenantID}),
 			retention.WithErrorHandler(func(err error) {
 				opts.Logger.Error("retention prune failed", "error", err.Error())
 			}),
@@ -287,4 +288,9 @@ type systemRunner struct {
 // Prune removes records past their retention window.
 func (r systemRunner) Prune(ctx context.Context, in core.PruneInput) (*core.PruneResult, error) {
 	return r.service.Prune(systemContext(ctx, r.tenantID), in)
+}
+
+// RunHousekeeping applies the housekeeping policy as the system actor.
+func (r systemRunner) RunHousekeeping(ctx context.Context, in core.HousekeepingRunInput) (*core.HousekeepingResult, error) {
+	return r.service.RunHousekeeping(systemContext(ctx, r.tenantID), in)
 }

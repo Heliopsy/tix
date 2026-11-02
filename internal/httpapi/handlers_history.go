@@ -15,6 +15,9 @@ func (rt *Router) registerHistoryRoutes() {
 	rt.mux.HandleFunc("GET "+wire.RouteRetention, rt.handleGetRetention)
 	rt.mux.HandleFunc("PUT "+wire.RouteRetention, rt.handlePutRetention)
 	rt.mux.HandleFunc("POST "+wire.RoutePrune, rt.handlePrune)
+	rt.mux.HandleFunc("GET "+wire.RouteHousekeeping, rt.handleGetHousekeeping)
+	rt.mux.HandleFunc("PUT "+wire.RouteHousekeeping, rt.handlePutHousekeeping)
+	rt.mux.HandleFunc("POST "+wire.RouteHousekeepingRun, rt.handleRunHousekeeping)
 }
 
 // auditFilterFrom builds an audit filter from the query string.
@@ -90,6 +93,45 @@ func (rt *Router) handlePrune(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := rt.cfg.Service.Prune(r.Context(), in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, result)
+}
+
+// handleGetHousekeeping returns the housekeeping policy, for one project when
+// the query names it.
+func (rt *Router) handleGetHousekeeping(w http.ResponseWriter, r *http.Request) {
+	view, err := rt.cfg.Service.GetHousekeeping(r.Context(), r.URL.Query().Get("project"))
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, view)
+}
+
+// handlePutHousekeeping changes the tenant default or one project's override.
+func (rt *Router) handlePutHousekeeping(w http.ResponseWriter, r *http.Request) {
+	var in core.HousekeepingInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	view, err := rt.cfg.Service.PutHousekeeping(r.Context(), in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, view)
+}
+
+// handleRunHousekeeping applies or previews the housekeeping policy once.
+func (rt *Router) handleRunHousekeeping(w http.ResponseWriter, r *http.Request) {
+	var in core.HousekeepingRunInput
+	if !readOptionalJSON(w, r, &in) {
+		return
+	}
+	result, err := rt.cfg.Service.RunHousekeeping(r.Context(), in)
 	if err != nil {
 		WriteError(w, err)
 		return

@@ -103,6 +103,11 @@ const (
 	RouteRetention = APIPrefix + "/retention"
 	RoutePrune     = APIPrefix + "/prune"
 
+	// RouteHousekeeping reads and sets the housekeeping policy, and
+	// RouteHousekeepingRun applies or previews it once.
+	RouteHousekeeping    = APIPrefix + "/housekeeping"
+	RouteHousekeepingRun = APIPrefix + "/housekeeping/run"
+
 	RouteExport = APIPrefix + "/export"
 	RouteImport = APIPrefix + "/import"
 

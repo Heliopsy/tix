@@ -156,6 +156,15 @@ type HistoryService interface {
 	Prune(ctx context.Context, in PruneInput) (*PruneResult, error)
 	GetRetention(ctx context.Context) (*RetentionPolicy, error)
 	PutRetention(ctx context.Context, p RetentionPolicy) (*RetentionPolicy, error)
+
+	// GetHousekeeping returns the housekeeping policy, for one project when
+	// project is set, and how many tasks it would act on now.
+	GetHousekeeping(ctx context.Context, project string) (*HousekeepingView, error)
+	// PutHousekeeping changes the tenant default or one project's override.
+	PutHousekeeping(ctx context.Context, in HousekeepingInput) (*HousekeepingView, error)
+	// RunHousekeeping applies the policy once, in bounded batches, or
+	// previews it.
+	RunHousekeeping(ctx context.Context, in HousekeepingRunInput) (*HousekeepingResult, error)
 }
 
 // AuthService covers users, sessions and API tokens.

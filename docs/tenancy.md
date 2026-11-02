@@ -39,9 +39,9 @@ and the bookmarked trash address shows that refusal in its filter bar.
 Turning the trash off does not empty it. Tasks deleted while it was on stay where they are, out of reach,
 and `tix task trash` and the Tenant screen count them; turning it back on makes them listable and
 restorable again. Emptying the trash on the same click would make the safe-looking choice the one that
-cannot be taken back. Retention never deletes tasks, so there is no "empty the trash after N days" either:
-a task stays in the trash until somebody restores it or the trash is off and somebody deletes it again from
-another surface with `--hard`. Changing the setting writes one `tenant.update` audit entry and one
+cannot be taken back. Emptying the trash after a number of days is a [housekeeping](configuration.md#housekeeping)
+rule, off unless a tenant admin sets it, and every housekeeping rule pauses while the trash is off, so
+what it holds then is kept as promised. Changing the setting writes one `tenant.update` audit entry and one
 `tenant.updated` event in the same transaction.
 
 ## Members and roles

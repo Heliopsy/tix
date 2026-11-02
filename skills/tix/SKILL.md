@@ -664,6 +664,14 @@ and `--trashed` fail with exit `6`. `tix task trash -o json` answers
 `{"enabled": ..., "held": N}`; check it before deleting anything you might
 want back, and prefer cancelling a task over deleting it when it is off.
 
+A tenant can also tidy up on its own: `tix cleanup show` lists the rules that
+move done and cancelled tasks to the trash after N days and empty the trash
+after N days, per tenant and per project (`--project KEY`). A task that
+vanished from the board weeks after it was finished is probably in the trash
+because of them; check `tix cleanup show` before assuming it was deleted by
+hand, and `tix task restore` it. Do not change these rules unless asked: the
+trash rule deletes for good.
+
 ## Parking a task until later
 
 ```sh

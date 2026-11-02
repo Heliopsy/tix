@@ -619,6 +619,18 @@ func (f *fakeService) PutRetention(context.Context, core.RetentionPolicy) (*core
 	return nil, nil
 }
 
+func (f *fakeService) GetHousekeeping(context.Context, string) (*core.HousekeepingView, error) {
+	return nil, nil
+}
+
+func (f *fakeService) PutHousekeeping(context.Context, core.HousekeepingInput) (*core.HousekeepingView, error) {
+	return nil, nil
+}
+
+func (f *fakeService) RunHousekeeping(context.Context, core.HousekeepingRunInput) (*core.HousekeepingResult, error) {
+	return nil, nil
+}
+
 func (f *fakeService) CreateUser(context.Context, core.CreateUserInput) (*core.User, error) {
 	return nil, nil
 }

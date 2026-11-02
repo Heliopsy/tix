@@ -70,6 +70,22 @@
   </div>
 </details>
 
+{{with .Data.Housekeeping}}
+<details class="panel hkpanel">
+  <summary>{{t "Housekeeping"}}</summary>
+  <div class="body">
+    <form method="post" class="cform hkform" data-form action="/projects/{{$.Data.Project.Key}}/housekeeping">
+      {{template "csrf" $.CSRF}}
+      <p class="cfield-hint">{{t "Overrides the tenant's cleanup defaults for this project. Inherit follows the Tenant screen."}}</p>
+      {{template "housekeeping-rules" .}}
+      <div class="cform-foot">
+        <div class="cform-actions"><button type="submit">{{t "Save housekeeping"}}</button></div>
+      </div>
+    </form>
+  </div>
+</details>
+{{end}}
+
 <details class="panel danger">
   <summary>{{t "Danger zone"}}</summary>
   <div class="body">

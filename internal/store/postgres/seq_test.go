@@ -179,6 +179,7 @@ func TestMigrationResumesAboveExistingTasks(t *testing.T) {
 		"ALTER TABLE tasks DROP COLUMN snoozed_by",
 		"DROP TABLE task_templates",
 		"ALTER TABLE tenants DROP COLUMN trash_off",
+		"DROP TABLE housekeeping_policies",
 		"DELETE FROM schema_migrations WHERE version > 1",
 	} {
 		if _, err := s.db.ExecContext(ctx, stmt); err != nil {

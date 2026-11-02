@@ -863,3 +863,28 @@
   </div>
 </form>
 {{end}}
+
+{{/* housekeeping-rules draws the cleanup rules of one level: the tenant
+     default, or a project's overrides with an Inherit choice naming what it
+     inherits. Each rule says how many tasks it would act on now, so a number
+     is never saved blind. */}}
+{{define "housekeeping-rules"}}
+{{if .Paused}}<p class="note hkpaused">{{t "The trash is off, so cleanup is paused: nothing is moved or deleted until the trash is on again."}}</p>{{end}}
+{{range .Rows}}
+<div class="cfield hkrule" data-rule="{{.Rule}}">
+  <div class="cfield-label">
+    <label for="hk-{{.Rule}}">{{if eq .Rule "done"}}{{t "Done tasks"}}{{else if eq .Rule "cancelled"}}{{t "Cancelled tasks"}}{{else}}{{t "Trash"}}{{end}}</label>
+    {{if eq .Rule "done"}}{{template "tip" (tip "Done tasks" "Tasks that have sat in a done state this many days go to the trash, where they can be restored. A done task with open subtasks stays until they are finished too. Cannot be turned on while the trash is off." "docs/configuration.md")}}{{else if eq .Rule "cancelled"}}{{template "tip" (tip "Cancelled tasks" "Tasks that have sat in a cancelled state this many days go to the trash, where they can be restored. Set apart from done tasks, because abandoned work is usually worth less to keep." "docs/configuration.md")}}{{else}}{{template "tip" (tip "Trash" "Tasks deleted more than this many days ago are deleted for good, subtasks first. This cannot be undone." "docs/configuration.md")}}{{end}}
+  </div>
+  <div class="hkinputs">
+    <select id="hk-{{.Rule}}" name="{{.Rule}}_mode">
+      {{if .Project}}<option value="inherit"{{if eq .Mode "inherit"}} selected{{end}}>{{if .Inherited}}{{tn "Inherit: %d day" "Inherit: %d days" .Inherited}}{{else}}{{t "Inherit: off"}}{{end}}</option>{{end}}
+      <option value="off"{{if eq .Mode "off"}} selected{{end}}>{{t "Off"}}</option>
+      <option value="days"{{if eq .Mode "days"}} selected{{end}}>{{t "After a number of days"}}</option>
+    </select>
+    <input id="hk-{{.Rule}}-days" name="{{.Rule}}_days" type="number" min="1" max="36500" inputmode="numeric" class="mono hkdays" value="{{if .Days}}{{.Days}}{{end}}" aria-label="{{t "Days"}}">
+  </div>
+  {{if .Effective}}<p class="cfield-hint hkpending">{{if eq .Rule "trash"}}{{tn "%d task would be deleted for good now." "%d tasks would be deleted for good now." .Pending}}{{else}}{{tn "%d task would be moved to the trash now." "%d tasks would be moved to the trash now." .Pending}}{{end}}</p>{{end}}
+</div>
+{{end}}
+{{end}}

@@ -14,9 +14,15 @@ type Runner interface {
 	Prune(ctx context.Context, in core.PruneInput) (*core.PruneResult, error)
 }
 
+// Housekeeper applies a tenant's housekeeping policy once.
+type Housekeeper interface {
+	RunHousekeeping(ctx context.Context, in core.HousekeepingRunInput) (*core.HousekeepingResult, error)
+}
+
 // Pruner prunes on a ticker until its context is cancelled.
 type Pruner struct {
 	runner  Runner
+	keeper  Housekeeper
 	ticker  clock.Ticker
 	enabled bool
 	limit   int
@@ -29,6 +35,10 @@ type PrunerOption func(*Pruner)
 
 // WithLimit bounds how many rows per class one run removes.
 func WithLimit(n int) PrunerOption { return func(p *Pruner) { p.limit = n } }
+
+// WithHousekeeper runs the housekeeping policy after every prune on the same
+// tick, so tidying tasks needs no loop of its own.
+func WithHousekeeper(h Housekeeper) PrunerOption { return func(p *Pruner) { p.keeper = h } }
 
 // WithErrorHandler reports a failed run. A failed run never stops the loop.
 func WithErrorHandler(fn func(error)) PrunerOption { return func(p *Pruner) { p.onError = fn } }
@@ -75,17 +85,33 @@ func (p *Pruner) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-p.ticker.C():
-			res, err := p.RunOnce(ctx)
-			if err != nil {
-				if p.onError != nil {
-					p.onError(err)
-				}
-				continue
-			}
-			if p.onRun != nil {
-				p.onRun(res)
-			}
+			p.tick(ctx)
 		}
+	}
+}
+
+// tick prunes, then housekeeps. A failure of either is reported and never
+// stops the other.
+func (p *Pruner) tick(ctx context.Context) {
+	res, err := p.RunOnce(ctx)
+	switch {
+	case err != nil:
+		p.report(err)
+	case p.onRun != nil:
+		p.onRun(res)
+	}
+	if p.keeper == nil {
+		return
+	}
+	if _, err := p.keeper.RunHousekeeping(ctx, core.HousekeepingRunInput{Limit: p.limit}); err != nil {
+		p.report(err)
+	}
+}
+
+// report hands a failed run to the error handler.
+func (p *Pruner) report(err error) {
+	if p.onError != nil {
+		p.onError(err)
 	}
 }
 

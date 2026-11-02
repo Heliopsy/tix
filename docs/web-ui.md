@@ -903,6 +903,15 @@ narrows to that actor. Each active filter is a chip that removes itself, and the
 filter rather than widening back out. On the command line the same narrowing is
 `tix audit ls --filter "kind:task source:web"`; [filtering.md](filtering.md) has the expression.
 
+## Housekeeping
+
+The Tenant screen has a Housekeeping section: how many days a done task, a cancelled task and a task in the
+trash wait before cleanup acts, each Off or After a number of days. Each project's board has a Housekeeping
+panel under its settings that overrides any of them, with an Inherit choice naming what the tenant has set.
+Under every rule that is on, both say how many tasks it would act on now, and both say cleanup is paused while
+the trash is off. Clean up now on the Tenant screen runs one pass; otherwise `tix serve` runs it hourly. See
+[configuration.md](configuration.md#housekeeping).
+
 ## Server administration
 
 Three screens in the Configure group answer for the installation rather than the work in it, and each

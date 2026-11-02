@@ -982,6 +982,37 @@ var registry = []Operation{
 	},
 
 	{
+		Name: "housekeeping.get", Method: "GetHousekeeping",
+		Scope: core.ScopeTenantAdmin,
+		CLI:   "tix cleanup show",
+		HTTP:  apiGet(wire.RouteHousekeeping),
+		Web:   webGet(web.RouteTenant, tplTenant),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "cleanup rules are tenant administration, set on the Tenant screen, the command line or the API; the board only shows what they moved, in the trash"),
+		},
+	},
+	{
+		Name: "housekeeping.put", Method: "PutHousekeeping",
+		Scope: core.ScopeTenantAdmin,
+		CLI:   "tix cleanup set",
+		HTTP:  apiPut(wire.RouteHousekeeping),
+		Web:   webPost(web.RouteHousekeeping),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "cleanup rules are tenant administration, set on the Tenant screen, the command line or the API; the board only shows what they moved, in the trash"),
+		},
+	},
+	{
+		Name: "housekeeping.run", Method: "RunHousekeeping",
+		Scope: core.ScopeTenantAdmin,
+		CLI:   "tix cleanup run",
+		HTTP:  apiPost(wire.RouteHousekeepingRun),
+		Web:   webPost(web.RouteHousekeepingRun),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "tix serve runs cleanup on the retention tick; running it by hand is an administration step for the Tenant screen or the command line"),
+		},
+	},
+
+	{
 		Name: "actor.list", Method: "ListActors",
 		CLI:  "tix actor ls",
 		HTTP: apiGet(wire.RouteActors),

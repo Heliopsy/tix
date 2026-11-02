@@ -130,3 +130,51 @@ func TestPrunerRunOnce(t *testing.T) {
 		t.Errorf("limit = %d, want 7", got)
 	}
 }
+
+// fakeKeeper records every housekeeping run.
+type fakeKeeper struct{ limits chan int }
+
+var errKeep = errors.New("housekeeping failed")
+
+func (f *fakeKeeper) RunHousekeeping(_ context.Context, in core.HousekeepingRunInput) (*core.HousekeepingResult, error) {
+	f.limits <- in.Limit
+	if in.DryRun {
+		return nil, errors.New("the tick must apply, not preview")
+	}
+	return nil, errKeep
+}
+
+// Housekeeping rides the pruner's tick with its limit, even when the prune
+// failed, and its own failure is reported rather than stopping the loop.
+func TestPrunerTickRunsHousekeeping(t *testing.T) {
+	r := newFakeRunner()
+	r.fail.Store(true)
+	k := &fakeKeeper{limits: make(chan int, 4)}
+	clk := clock.NewFakeAt()
+	failures := make(chan error, 8)
+	p := NewPruner(r, clk, core.Duration(time.Hour), WithLimit(7), WithHousekeeper(k),
+		WithErrorHandler(func(err error) { failures <- err }))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = p.Run(ctx) }()
+
+	for range 2 {
+		clk.Advance(time.Hour)
+		<-r.limits
+		select {
+		case got := <-k.limits:
+			if got != 7 {
+				t.Fatalf("housekeeping limit = %d, want 7", got)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("the tick never ran housekeeping")
+		}
+		if err := <-failures; !errors.Is(err, errPrune) {
+			t.Fatalf("first failure %v, want the prune's", err)
+		}
+		if err := <-failures; !errors.Is(err, errKeep) {
+			t.Fatalf("second failure %v, want housekeeping's", err)
+		}
+	}
+}
