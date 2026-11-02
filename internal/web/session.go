@@ -235,13 +235,8 @@ func settingsPrefs(p prefsView) prefsView {
 // finds it empty, which is the same state in which the footer offers no link
 // to it.
 func (h *handler) showRelease(w http.ResponseWriter, r *http.Request) error {
-	return h.render(w, r, "release.html", "Release", releaseView{})
+	return h.render(w, r, "release.html", "Release", newReleaseView(h.releases.state()))
 }
-
-// releaseView carries nothing of its own. Every figure on the screen is in
-// Upgrade, which render attaches to every page for the footer, and a second
-// copy here would be a second thing to keep true.
-type releaseView struct{}
 
 // doLogout ends the session the browser presented.
 func (h *handler) doLogout(w http.ResponseWriter, r *http.Request) error {

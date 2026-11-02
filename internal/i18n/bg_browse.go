@@ -215,15 +215,11 @@ func init() {
 		// Release.
 		"Release": "Версия",
 		"What this installation is running, and what the newest published release says about itself.": "Какво работи на тази инсталация и какво казва за себе си най-новата публикувана версия.",
-		"Versions":         "Версии",
 		"Running here":     "Работи тук",
 		"Newest published": "Най-нова публикувана",
 		"Checked against the public release feed at most every six hours, from the server rather than your browser.": "Проверява се в публичния канал за версии най-много веднъж на шест часа, от сървъра, а не от браузъра ви.",
 		"not known": "неизвестно",
-		"v%s is newer than what is running here. Upgrading is the operator's business: this page only reports.": "v%s е по-нова от работещата тук. Обновяването е работа на администратора: тази страница само съобщава.",
-		"What changed": "Какво се промени",
-		"Links have been removed. These notes come from the release feed, so they describe the newest release rather than the one running here.":                                       "Връзките са премахнати. Бележките идват от канала за версии, затова описват най-новата версия, а не работещата тук.",
-		"No release notes are available. Either the check has not run yet, or this installation has no route to the release feed, which is the ordinary case for an isolated network.": "Няма налични бележки по версията. Или проверката още не е минала, или инсталацията няма достъп до канала за версии, което е обичайно за изолирана мрежа.",
+		"Links have been removed. These notes come from the release feed, so they describe the newest release rather than the one running here.": "Връзките са премахнати. Бележките идват от канала за версии, затова описват най-новата версия, а не работещата тук.",
 
 		// Sign in.
 		"Can't sign in?": "Не можете да влезете?",

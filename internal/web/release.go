@@ -5,12 +5,14 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"html/template"
 	"net/http"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/heliopsy/tix/internal/markdown"
 	"github.com/heliopsy/tix/internal/version"
 )
 
@@ -41,6 +43,31 @@ type upgrade struct {
 	// taken out. Empty when no check has succeeded, which is also when
 	// Newer is false, so nothing offers to show notes that are not there.
 	Notes string
+	// Checked reports whether a check has finished, whatever it answered.
+	Checked bool
+	// Failed reports whether the most recent check got no usable answer.
+	Failed bool
+}
+
+// Status names what the release screen says about this installation: newer,
+// current, unknown when the versions cannot be compared, failed when the feed
+// could not be read, or pending when nothing has been asked yet.
+func (u upgrade) Status() string {
+	switch {
+	case u.Newer:
+		return "newer"
+	case u.Latest != "":
+		_, rok := semver(u.Running)
+		_, lok := semver(u.Latest)
+		if u.Running == u.Latest || (rok && lok) {
+			return "current"
+		}
+		return "unknown"
+	case u.Failed:
+		return "failed"
+	default:
+		return "pending"
+	}
 }
 
 // releaseWatch caches the newest published release.
@@ -63,6 +90,7 @@ type releaseWatch struct {
 	mu       sync.Mutex
 	latest   string
 	notes    string
+	failed   bool
 	checked  time.Time
 	inFlight bool
 }
@@ -80,7 +108,7 @@ func (w *releaseWatch) state() upgrade {
 	}
 
 	w.mu.Lock()
-	latest, notes, checked, busy := w.latest, w.notes, w.checked, w.inFlight
+	latest, notes, checked, busy, failed := w.latest, w.notes, w.checked, w.inFlight, w.failed
 	stale := time.Since(checked) > releaseCheckEvery
 	if stale && !busy {
 		w.inFlight = true
@@ -94,12 +122,16 @@ func (w *releaseWatch) state() upgrade {
 	up.Latest = latest
 	up.Notes = notes
 	up.Newer = newerRelease(running, latest)
+	up.Checked = !checked.IsZero()
+	up.Failed = failed
 	return up
 }
 
 func (w *releaseWatch) refresh() {
+	answered := false
 	defer func() {
 		w.mu.Lock()
+		w.failed = !answered
 		w.inFlight = false
 		w.checked = time.Now()
 		w.mu.Unlock()
@@ -137,6 +169,7 @@ func (w *releaseWatch) refresh() {
 	w.latest = tag
 	w.notes = stripLinks(body.Body)
 	w.mu.Unlock()
+	answered = true
 }
 
 // newerRelease reports whether latest is ahead of running.
@@ -199,9 +232,10 @@ func semver(v string) ([3]int, bool) {
 // line ends with a short sha linking to a commit.
 var markdownLink = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)
 
-// bareURL matches a scheme and everything up to whitespace, for a link written
-// without markdown around it.
-var bareURL = regexp.MustCompile(`https?://\S+`)
+// bareURL matches a scheme or a www. address and everything up to whitespace,
+// for a link written without markdown around it, which the Markdown renderer
+// would otherwise turn back into one.
+var bareURL = regexp.MustCompile(`(?:https?://|www\.)\S+`)
 
 // trailingRef matches the " (sha)" left behind once a commit link has been
 // reduced to its text, which is a bare hash saying nothing to somebody reading
@@ -231,4 +265,67 @@ func stripLinks(body string) string {
 		kept = append(kept, strings.TrimRight(line, " \t"))
 	}
 	return strings.TrimSpace(strings.Join(kept, "\n"))
+}
+
+// releaseView is what the release screen draws beyond Upgrade, which render
+// attaches to every page for the footer: the notes as HTML, and the commands
+// that install the newest release.
+type releaseView struct {
+	// NotesHTML is the newest release's notes through the sanitising
+	// Markdown renderer, empty when there are none.
+	NotesHTML template.HTML
+	// Methods are the upgrade commands, one per install method, empty
+	// unless a newer release is on offer.
+	Methods []upgradeMethod
+}
+
+// upgradeMethod is one way tix is installed and the command that upgrades it.
+type upgradeMethod struct {
+	ID      string
+	Name    string
+	Help    string
+	Command string
+}
+
+// newReleaseView derives the screen's own figures from the cached state.
+func newReleaseView(up upgrade) releaseView {
+	var v releaseView
+	if body := notesBody(up.Notes, up.Latest); body != "" {
+		v.NotesHTML = markdown.Render(body, markdown.Options{})
+	}
+	if up.Newer {
+		v.Methods = upgradeMethods(up.Latest)
+	}
+	return v
+}
+
+// upgradeMethods are the install methods docs/upgrading.md and the README
+// describe, each with the command that moves it to version.
+func upgradeMethods(version string) []upgradeMethod {
+	return []upgradeMethod{
+		{ID: "upgrade-binary", Name: "Release binary",
+			Help:    "Installed with install.sh or unpacked from a release archive. Checks the download against its published checksum before replacing the binary.",
+			Command: "tix update"},
+		{ID: "upgrade-container", Name: "Container image",
+			Help:    "Pull the new tag, then recreate the container on the same volume.",
+			Command: "podman pull ghcr.io/heliopsy/tix:" + version},
+		{ID: "upgrade-go", Name: "Go toolchain",
+			Help:    "Installed with go install. tix update refuses this copy, because the toolchain owns it.",
+			Command: "go install github.com/heliopsy/tix@v" + version},
+	}
+}
+
+// releaseHeading matches a first line that is a Markdown heading.
+var releaseHeading = regexp.MustCompile(`^#{1,6}\s+(.*)$`)
+
+// notesBody drops the heading release-please opens every changelog with,
+// which names the release the section heading above it already names. Any
+// other first line is the author's and is kept.
+func notesBody(notes, latest string) string {
+	first, rest, _ := strings.Cut(notes, "\n")
+	m := releaseHeading.FindStringSubmatch(strings.TrimSpace(first))
+	if latest == "" || m == nil || !strings.Contains(m[1], latest) {
+		return notes
+	}
+	return strings.TrimSpace(rest)
 }
