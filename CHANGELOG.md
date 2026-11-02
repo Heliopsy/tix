@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.0](https://github.com/Heliopsy/tix/compare/v0.31.0...v0.32.0) (2026-11-02)
+
+
+### Features
+
+* **web:** open what changed from the version in the sidebar ([#151](https://github.com/Heliopsy/tix/issues/151)) ([dc18454](https://github.com/Heliopsy/tix/commit/dc1845431f54bd8eb0516ecaaf8164f37e49614a))
+
 ## [0.31.0](https://github.com/Heliopsy/tix/compare/v0.30.0...v0.31.0) (2026-11-02)
 
 
