@@ -104,7 +104,14 @@ func TestDiscoverListsAgentKeysThenDefaultFiles(t *testing.T) {
 	if err := keyring.Add(agent.AddedKey{PrivateKey: priv}); err != nil {
 		t.Fatal(err)
 	}
-	socket := filepath.Join(t.TempDir(), "agent.sock")
+	// A short directory, not t.TempDir(): macOS caps a unix socket path at
+	// 104 bytes and its temporary directories alone come close to that.
+	sockDir, err := os.MkdirTemp("/tmp", "tixag")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(sockDir) })
+	socket := filepath.Join(sockDir, "a.sock")
 	ln, err := net.Listen("unix", socket)
 	if err != nil {
 		t.Fatalf("listen: %v", err)
