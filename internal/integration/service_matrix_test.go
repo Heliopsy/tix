@@ -1315,6 +1315,35 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "housekeeping is set per tenant and per project and previewed",
+		covers: []string{"GetHousekeeping", "PutHousekeeping", "RunHousekeeping"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			if _, err := tg.svc.PutHousekeeping(tg.ctx, core.HousekeepingInput{Done: "30", Trash: "90"}); err != nil {
+				return nil, err
+			}
+			put, err := tg.svc.PutHousekeeping(tg.ctx, core.HousekeepingInput{Project: p.Key, Done: "off"})
+			if err != nil {
+				return nil, err
+			}
+			got, err := tg.svc.GetHousekeeping(tg.ctx, p.Key)
+			mustf(t, tg, err, "reading the project's housekeeping")
+			res, err := tg.svc.RunHousekeeping(tg.ctx, core.HousekeepingRunInput{DryRun: true, Project: p.Key})
+			mustf(t, tg, err, "previewing housekeeping")
+			_, inherit := tg.svc.PutHousekeeping(tg.ctx, core.HousekeepingInput{Done: "inherit"})
+			return sig{
+				"put_done":       put.Effective.Days(core.RuleDone),
+				"effective_done": got.Effective.Days(core.RuleDone),
+				"tenant_done":    got.Tenant.Days(core.RuleDone),
+				"trash":          got.Effective.Days(core.RuleTrash),
+				"inherits_trash": got.Override.Trash == nil,
+				"dry_run":        res.DryRun,
+				"pending":        res.Total(),
+				"tenant_inherit": core.KindOf(inherit),
+			}, nil
+		},
+	},
+	{
 		name:   "pruning in dry run removes nothing",
 		covers: []string{"Prune"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
