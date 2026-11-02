@@ -723,7 +723,7 @@ before a session is built, naming what does exist:
 
 ```console
 $ ssh -p 2222 tix@tix.example.com ls -la
-tix: tix is an interface, not a shell: run one of `board [KEY]`, `watch [KEY...] [--project REF] [--type TYPE] [--actor ID] [--since N] [--limit N] [-o ndjson]`, or name a project key to open its board
+tix: tix is an interface, not a shell: run one of `board [KEY]`, `watch [KEY...] [--project REF] [--type TYPE] [--actor ID] [--since N] [--limit N] [-o table|ndjson]`, or name a project key to open its board
 ```
 
 #### A project keyed like an interface

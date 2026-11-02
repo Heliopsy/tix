@@ -31,7 +31,7 @@ func Interfaces() []Interface {
 		{
 			Name: "watch", Title: "Watch", opens: viewActivity,
 			Summary: "live events as they are committed, optionally for one project",
-			Usage:   "watch [KEY...] [--project REF] [--type TYPE] [--actor ID] [--since N] [--limit N] [-o ndjson]",
+			Usage:   "watch [KEY...] [--project REF] [--type TYPE] [--actor ID] [--since N] [--limit N] [-o table|ndjson]",
 		},
 	}
 }
