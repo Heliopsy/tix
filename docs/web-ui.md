@@ -22,6 +22,8 @@ scheme glyph and a sign-out icon. The labels are clipped rather than removed, so
 accessible name, and each gets a tooltip while the rail is showing. The same button, or the right
 arrow on the edge, expands it to the width it had.
 
+Configure and Data start folded, since they hold screens you visit far less than your tasks; open
+them once and they stay open.
 Both are kept in the `tix_sidebar` cookie, with the groups folded below: `w=320&rail=1&fold=configure.data`
 holds a width in pixels, the rail, and the folded groups by name (`saved`, `recent`, `configure`,
 `data`). A default is left out, and a cookie holding only defaults is removed. None of it says anything

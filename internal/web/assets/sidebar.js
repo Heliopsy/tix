@@ -31,6 +31,10 @@
   var LEGACY_COLLAPSED = "tix.sidebar.collapsed";
   var LEGACY_RECENT = "tix.recent.closed";
   var GROUPS = ["saved", "recent", "configure", "data"];
+  // DEFAULT_FOLD are the groups folded until the reader opens them: the admin
+  // screens, which a reader visits far less than their tasks. Kept in step with
+  // sidebarDefaultFold in internal/web/sidebar.go.
+  var DEFAULT_FOLD = ["configure", "data"];
   var CLASS = "side-collapsed";
   var DRAGGING = "side-dragging";
   var MIN = 180;
@@ -53,6 +57,7 @@
   // width is the default; anything unreadable is the default.
   tix.sidebarParse = function (value) {
     var state = { width: null, collapsed: false, fold: [] };
+    var sawFold = false;
     var parts = String(value || "").split("&");
     for (var i = 0; i < parts.length; i++) {
       var eq = parts[i].indexOf("=");
@@ -65,11 +70,19 @@
         state.collapsed = val === "1";
       } else if (key === "fold") {
         var names = val.split(".");
+        var fold = [];
         for (var j = 0; j < names.length; j++) {
-          if (GROUPS.indexOf(names[j]) >= 0 && state.fold.indexOf(names[j]) < 0) state.fold.push(names[j]);
+          if (GROUPS.indexOf(names[j]) >= 0 && fold.indexOf(names[j]) < 0) fold.push(names[j]);
+        }
+        // An empty list is every group opened; a list naming nothing this
+        // version draws is damage and keeps the default.
+        if (val === "" || fold.length) {
+          sawFold = true;
+          state.fold = fold;
         }
       }
     }
+    if (!sawFold) state.fold = DEFAULT_FOLD.slice();
     return state;
   };
 
@@ -83,7 +96,9 @@
     for (var i = 0; i < GROUPS.length; i++) {
       if (state.fold && state.fold.indexOf(GROUPS[i]) >= 0) fold.push(GROUPS[i]);
     }
-    if (fold.length) parts.push("fold=" + fold.join("."));
+    // The admin groups start folded, so "fold" is written whenever it differs
+    // from that default, empty included: an absent key means the default.
+    if (fold.join(".") !== DEFAULT_FOLD.join(".")) parts.push("fold=" + fold.join("."));
     return parts.join("&");
   };
 
