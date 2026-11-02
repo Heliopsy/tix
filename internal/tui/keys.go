@@ -61,6 +61,8 @@ type KeyMap struct {
 	Fields        key.Binding
 	Settings      key.Binding
 	Activity      key.Binding
+	Menu          key.Binding
+	Pause         key.Binding
 	History       key.Binding
 	Inbox         key.Binding
 	ToggleRead    key.Binding
@@ -174,6 +176,11 @@ func DefaultKeyMap() KeyMap {
 		Fields:   key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "custom fields")),
 		Settings: key.NewBinding(key.WithKeys(","), key.WithHelp(",", "settings")),
 		Activity: key.NewBinding(key.WithKeys("v"), key.WithHelp("v", "activity")),
+		// ~, for home: every letter worth having is spoken for, and the start
+		// menu is the one place every session can go back to.
+		Menu: key.NewBinding(key.WithKeys("~"), key.WithHelp("~", "start menu")),
+		// Space, the activity view's own key: it acts on no task there.
+		Pause: key.NewBinding(key.WithKeys("space"), key.WithHelp("space", "pause/resume")),
 		// H, for the stored history, beside v for the live tail. Lowercase h
 		// moves a column, so the capital is what the taken letters already use.
 		History: key.NewBinding(key.WithKeys("H"), key.WithHelp("H", "history")),
@@ -238,6 +245,7 @@ const (
 	doPalette actionID = iota
 	doHelp
 	doRefresh
+	doMenu
 	doProjects
 	doProject
 	doSettings
@@ -347,6 +355,7 @@ func (k KeyMap) globalKeys() []Action {
 		{id: doPalette, binding: k.Palette, always: true, hidden: true},
 		{id: doHelp, binding: k.Help, always: true},
 		{id: doRefresh, binding: k.Refresh, always: true},
+		{id: doMenu, binding: k.Menu, opens: viewMenu},
 		{id: doProjects, binding: k.Projects, opens: viewProjects},
 		{id: doProject, binding: k.Project, opens: viewProject},
 		{id: doSettings, binding: k.Settings, opens: viewSettings},
@@ -591,7 +600,12 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 	case viewActivity:
 		return []HelpEntry{
 			entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom),
-			entry(k.Filter), entry(k.ClearFltr), entry(k.Back),
+			entry(k.Filter), entry(k.ClearFltr), entry(k.Pause), entry(k.Back),
+		}
+	case viewMenu:
+		return []HelpEntry{
+			entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom), entry(k.Enter),
+			{Keys: "←/→", Desc: "pick a project to watch"},
 		}
 	case viewTenant:
 		return append([]HelpEntry{
@@ -788,7 +802,9 @@ func (k KeyMap) ShortHelp(v viewKind, ctx ActionContext) []HelpEntry {
 		}
 		short = append(short, entry(k.Back))
 	case viewActivity:
-		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Filter), entry(k.Back)}
+		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Filter), entry(k.Pause), entry(k.Back)}
+	case viewMenu:
+		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Enter), {Keys: "←/→", Desc: "project"}}
 	case viewTenant:
 		short = append([]HelpEntry{entry(k.Up), entry(k.Down), entry(k.Enter)},
 			append(k.tenantShort(ctx), entry(k.Back))...)

@@ -31,6 +31,8 @@ var localOnlyViews = map[viewKind]bool{
 	// up, so there is nowhere to send a reader who is refused it. A reader who
 	// cannot list projects is told so by the list's own empty state.
 	viewProjects: true,
+	// The start menu reads nothing; each row it opens is gated where it lands.
+	viewMenu: true,
 }
 
 // canReach reports whether this session may enter a view. It is the one door:

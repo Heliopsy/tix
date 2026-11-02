@@ -62,6 +62,12 @@ func (m Model) titleBar() string {
 	// know a key did anything was that the body changed.
 	parts = append(parts, m.theme.Header.Render(m.viewName()))
 	parts = append(parts, m.connectionLabel())
+	if m.view == viewActivity && m.activityProject.Key != "" {
+		parts = append(parts, m.theme.Ref.Render("watching "+output.ShowKey(m.activityProject.Key)))
+	}
+	if m.view == viewActivity && m.activityPaused {
+		parts = append(parts, m.theme.Header.Render(m.pausedLabel()))
+	}
 	if m.view == viewActivity && m.activityFilterText != "" {
 		parts = append(parts, m.theme.Ref.Render("activity: "+m.activityFilterText))
 	} else if m.filterText != "" {
@@ -93,6 +99,8 @@ func (m Model) viewName() string {
 		return "history"
 	case viewInbox:
 		return "inbox"
+	case viewMenu:
+		return "start"
 	case viewHelp:
 		return "help"
 	}
@@ -147,6 +155,8 @@ func (m Model) bodyLines(layout Layout) []string {
 		return m.historyLines(layout)
 	case viewInbox:
 		return m.inboxLines(layout)
+	case viewMenu:
+		return m.menuLines()
 	default:
 		return m.boardLines(layout)
 	}

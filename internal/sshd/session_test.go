@@ -3,9 +3,12 @@
 package sshd
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/heliopsy/tix/internal/tui"
 )
 
 func TestColorForReadsWhatTheClientSaid(t *testing.T) {
@@ -96,22 +99,23 @@ func TestTheTerminalTypeReachesTheInterface(t *testing.T) {
 
 func TestASessionLandsWhereItsModeHasABoard(t *testing.T) {
 	tests := []struct {
-		name string
-		demo bool
-		want string
+		name  string
+		demo  bool
+		want  string
+		start bool
 	}{
-		{"a sandbox opens its seeded board", true, seedProjectKey},
-		{"a hosted session opens the project list", false, ""},
+		{"a sandbox opens its seeded board", true, seedProjectKey, false},
+		{"a hosted session opens the start menu", false, "", true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			s := &Server{opts: Options{Demo: tc.demo}}
-			got, err := s.openProject(nil)
+			got, err := s.route(nil)
 			if err != nil {
-				t.Fatalf("openProject(nil) = %v", err)
+				t.Fatalf("route(nil) = %v", err)
 			}
-			if got != tc.want {
-				t.Fatalf("openProject(nil) = %q, want %q", got, tc.want)
+			if got.iface != "board" || got.project != tc.want || got.start != tc.start {
+				t.Fatalf("route(nil) = %+v, want the board interface on %q with start %v", got, tc.want, tc.start)
 			}
 		})
 	}
@@ -123,14 +127,63 @@ func TestASessionLandsWhereItsModeHasABoard(t *testing.T) {
 // was the only way to say it and it did nothing.
 func TestASessionCanNameTheBoardItWants(t *testing.T) {
 	for _, demo := range []bool{false, true} {
-		s := &Server{opts: Options{Demo: demo}}
-		got, err := s.openProject([]string{"infra"})
+		for _, command := range [][]string{{"infra"}, {"board", "infra"}, {"BOARD", "infra"}} {
+			s := &Server{opts: Options{Demo: demo}}
+			got, err := s.route(command)
+			if err != nil {
+				t.Fatalf("demo=%v: route(%q) = %v", demo, command, err)
+			}
+			if got.iface != "board" || got.project != "infra" || got.start {
+				t.Errorf("demo=%v: route(%q) = %+v, want the infra board", demo, command, got)
+			}
+		}
+	}
+}
+
+// TestARegisteredNameIsReservedAndBoardReachesTheProject is the name clash:
+// `watch` is a project key anybody may create, and the bare word is the stream
+// on every tenant, so `board watch` is how that project opens.
+func TestARegisteredNameIsReservedAndBoardReachesTheProject(t *testing.T) {
+	s := &Server{opts: Options{}}
+	for _, word := range []string{"watch", "WATCH", "Watch"} {
+		got, err := s.route([]string{word})
 		if err != nil {
-			t.Fatalf("demo=%v: openProject([infra]) = %v", demo, err)
+			t.Fatalf("route([%s]) = %v", word, err)
 		}
-		if got != "infra" {
-			t.Errorf("demo=%v: openProject([infra]) = %q, want %q", demo, got, "infra")
+		if got.iface != "watch" || got.project != "" {
+			t.Errorf("route([%s]) = %+v, want the watch stream and no board", word, got)
 		}
+	}
+	got, err := s.route([]string{"board", "watch"})
+	if err != nil {
+		t.Fatalf("route([board watch]) = %v", err)
+	}
+	if got.iface != "board" || got.project != "watch" {
+		t.Fatalf("route([board watch]) = %+v, want the board of the project keyed watch", got)
+	}
+	got, err = s.route([]string{"board"})
+	if err != nil || got.iface != "board" || got.project != "" || got.start {
+		t.Fatalf("route([board]) = %+v, %v, want the project list", got, err)
+	}
+}
+
+// TestWatchReadsTheFlagsTixWatchTakes keeps the SSH spelling of watch the
+// same as the command line's, plus project keys as words.
+func TestWatchReadsTheFlagsTixWatchTakes(t *testing.T) {
+	s := &Server{opts: Options{}}
+	got, err := s.route([]string{"watch", "infra", "--project", "ops,web", "--type", "task.*",
+		"--actor", "ada", "--actor", "bob", "--since", "42", "--limit=3", "-o", "ndjson", "house"})
+	if err != nil {
+		t.Fatalf("route = %v", err)
+	}
+	w := got.watch
+	want := watchRequest{
+		projects: []string{"infra", "ops", "web", "house"}, types: []string{"task.*"},
+		actors: []string{"ada", "bob"}, since: 42, limit: 3, ndjson: true,
+	}
+	if !slices.Equal(w.projects, want.projects) || !slices.Equal(w.types, want.types) ||
+		!slices.Equal(w.actors, want.actors) || w.since != want.since || w.limit != want.limit || w.ndjson != want.ndjson {
+		t.Fatalf("watch read %+v, want %+v", w, want)
 	}
 }
 
@@ -138,7 +191,7 @@ func TestASessionCanNameTheBoardItWants(t *testing.T) {
 // apart. A key that is merely unknown belongs to the interface, which answers
 // it against the projects this actor can reach; a key that could not name a
 // board at all, or a command line that is reaching for a shell, is refused
-// before a session is built.
+// before a session is built, naming every command that does exist.
 func TestNamingSomethingThatIsNotABoardIsRefused(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -149,18 +202,59 @@ func TestNamingSomethingThatIsNotABoardIsRefused(t *testing.T) {
 		{"a control character", []string{"infra\r\n"}},
 		{"longer than a key may be", []string{strings.Repeat("a", 65)}},
 		{"reaching for a shell", []string{"ls", "-la"}},
+		{"a board with two keys", []string{"board", "a", "b"}},
+		{"a board that is not a key", []string{"board", "../x"}},
+		{"watch with an unknown flag", []string{"watch", "--follow"}},
+		{"watch with a negative cursor", []string{"watch", "--since", "-1"}},
+		{"watch with a format it cannot stream", []string{"watch", "-o", "yaml"}},
+		{"watch with a project that is not a key", []string{"watch", "../x"}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			s := &Server{opts: Options{}}
-			got, err := s.openProject(tc.command)
+			got, err := s.route(tc.command)
 			if err == nil {
-				t.Fatalf("openProject(%q) = %q, want an error", tc.command, got)
+				t.Fatalf("route(%q) = %+v, want an error", tc.command, got)
 			}
-			if got != "" {
-				t.Errorf("openProject(%q) = %q alongside its error, want no board", tc.command, got)
+			if got.project != "" {
+				t.Errorf("route(%q) = %+v alongside its error, want no board", tc.command, got)
 			}
 		})
+	}
+}
+
+// TestTheRefusalNamesEveryInterface is the registry's third reader: a person
+// told no is told what yes looks like.
+func TestTheRefusalNamesEveryInterface(t *testing.T) {
+	_, err := (&Server{}).route([]string{"ls", "-la"})
+	if err == nil {
+		t.Fatal("a shell command was accepted")
+	}
+	for _, i := range tui.Interfaces() {
+		if !strings.Contains(err.Error(), "`"+i.Usage+"`") {
+			t.Errorf("the refusal %q does not name %q", err, i.Usage)
+		}
+	}
+}
+
+// TestEveryInterfaceHasALauncher is the registry's listener half: the menu
+// half is in internal/tui.
+func TestEveryInterfaceHasALauncher(t *testing.T) {
+	registered := map[string]bool{}
+	for _, i := range tui.Interfaces() {
+		registered[i.Name] = true
+		if launchers[i.Name] == nil {
+			t.Errorf("interface %q is registered and the listener has no launcher for it", i.Name)
+		}
+		got, err := (&Server{}).route([]string{i.Name})
+		if err != nil || got.iface != i.Name {
+			t.Errorf("route([%s]) = %+v, %v, want that interface", i.Name, got, err)
+		}
+	}
+	for name := range launchers {
+		if !registered[name] {
+			t.Errorf("the listener has a launcher for %q, which no interface registers", name)
+		}
 	}
 }
 

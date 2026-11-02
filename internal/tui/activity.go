@@ -20,7 +20,11 @@ const activityCap = 200
 // openActivity shows the live event tail. The subscription already runs in
 // the background for every view, so opening this one only changes what is
 // drawn, never what is fetched.
-func (m Model) openActivity() Model { return m.enterView(viewActivity) }
+// It watches every project: narrowing to one is the start menu's Watch row.
+func (m Model) openActivity() Model {
+	m.activityProject = core.Project{}
+	return m.reselectActivity(true).enterView(viewActivity)
+}
 
 // recordActivity appends an event to the capped ring the activity view draws
 // from, dropping the oldest once the cap is reached, and follows the newest
@@ -28,17 +32,56 @@ func (m Model) openActivity() Model { return m.enterView(viewActivity) }
 // The selection indexes the events the filter keeps, not the ring, so an
 // event the filter hides never moves it.
 func (m Model) recordActivity(e core.Event) Model {
-	following := m.activitySel >= len(m.shownActivity())-1
-	m.activity = append(m.activity, e)
-	if len(m.activity) > activityCap {
-		m.activity = append([]core.Event(nil), m.activity[len(m.activity)-activityCap:]...)
+	if m.activityPaused {
+		m.activityHeld = capEvents(append(m.activityHeld, e))
+		return m
 	}
+	following := m.activitySel >= len(m.shownActivity())-1
+	m.activity = capEvents(append(m.activity, e))
 	return m.reselectActivity(following)
+}
+
+// capEvents keeps the newest activityCap events.
+func capEvents(events []core.Event) []core.Event {
+	if len(events) <= activityCap {
+		return events
+	}
+	return append([]core.Event(nil), events[len(events)-activityCap:]...)
+}
+
+// togglePause stops the tail moving, or resumes it, drawing everything that
+// arrived meanwhile and following the newest line again.
+func (m Model) togglePause() Model {
+	if !m.activityPaused {
+		m.activityPaused = true
+		return m
+	}
+	m.activityPaused = false
+	m.activity = capEvents(append(m.activity, m.activityHeld...))
+	m.activityHeld = nil
+	return m.reselectActivity(true)
+}
+
+// pausedLabel says the tail is paused and how much it is holding back.
+func (m Model) pausedLabel() string {
+	return fmt.Sprintf("paused, %d new", len(m.activityHeld))
 }
 
 // shownActivity is the tail the activity view draws: the events the ring
 // holds that the activity filter accepts.
-func (m Model) shownActivity() []core.Event { return VisibleEvents(m.activity, m.activityFilter) }
+func (m Model) shownActivity() []core.Event {
+	shown := VisibleEvents(m.activity, m.activityFilter)
+	if m.activityProject.ID == "" {
+		return shown
+	}
+	out := make([]core.Event, 0, len(shown))
+	for _, e := range shown {
+		if e.ProjectID == m.activityProject.ID {
+			out = append(out, e)
+		}
+	}
+	return out
+}
 
 // reselectActivity keeps the selection inside the filtered tail, pinning it
 // to the newest line when the view was following it.
@@ -79,7 +122,10 @@ func (m Model) handleActivityKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Filter):
 		return m.startPrompt(promptActivityFilter, m.activityFilterText), textinput.Blink
 	case key.Matches(msg, m.keys.ClearFltr):
+		m.activityProject = core.Project{}
 		return m.applyActivityFilterText(""), nil
+	case key.Matches(msg, m.keys.Pause):
+		return m.togglePause(), nil
 	case key.Matches(msg, m.keys.Up):
 		m.activitySel = clamp(m.activitySel-1, 0, shown-1)
 	case key.Matches(msg, m.keys.Down):

@@ -203,6 +203,18 @@ type Model struct {
 	activityFilterText string
 	activityFilter     query.ActivityFilter
 	activityFilterErr  string
+	// activityProject narrows the tail to one project, as the start menu's
+	// Watch row picked it. The zero value watches every project.
+	activityProject core.Project
+	// activityPaused holds new events in activityHeld instead of drawing
+	// them, so a line being read does not scroll away under the reader.
+	activityPaused bool
+	activityHeld   []core.Event
+
+	// menuSel is the start menu's selected row and menuProject the project
+	// its Watch row has picked, zero for every project and i for projects[i-1].
+	menuSel     int
+	menuProject int
 
 	err         string
 	status      string
@@ -262,6 +274,9 @@ type Config struct {
 	Tenant string
 	Dial   TenantDialer
 	Now    func() time.Time
+	// Start lands the session on the start menu rather than the project
+	// list. The SSH listener sets it for a session that named nothing.
+	Start bool
 }
 
 // New builds the initial model.
@@ -305,6 +320,9 @@ func New(cfg Config) Model {
 	m.pulsing = MotionEnabled(prefs.Motion, m.theme.Color)
 	if cfg.Filter != "" {
 		m = m.applyFilterText(cfg.Filter)
+	}
+	if cfg.Start && cfg.Project == "" {
+		m.view = viewMenu
 	}
 	return m
 }
@@ -768,6 +786,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.handleHistoryKey(msg)
 	case viewInbox:
 		return m.handleInboxKey(msg)
+	case viewMenu:
+		return m.handleMenuKey(msg)
 	}
 	return m, nil
 }
@@ -1097,6 +1117,8 @@ func (m Model) performAction(id actionID) (Model, tea.Cmd, bool) {
 		return m.enterView(viewHelp), nil, true
 	case doRefresh:
 		return m, m.refresh(), true
+	case doMenu:
+		return m.openMenu(), nil, true
 	case doProjects:
 		return m.rootView(), nil, true
 	case doProject:

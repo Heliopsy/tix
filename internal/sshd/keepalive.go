@@ -55,11 +55,12 @@ func (w watched) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // watch drops a session whose client has gone, and quits one whose person has.
+// A nil act turns the idle check off, for a stream nobody types at.
 //
 // The two are independent on purpose. A keepalive refreshes every deadline the
 // transport keeps, so it cannot also be what the idle decision reads: the idle
 // decision reads the activity tap, which only a keystroke moves.
-func (s *Server) watch(sess ssh.Session, program *tea.Program, act *activity) {
+func (s *Server) watch(sess ssh.Session, quit func(), act *activity) {
 	ctx := sess.Context()
 	conn, ok := ctx.Value(ssh.ContextKeyConn).(*gossh.ServerConn)
 	if !ok {
@@ -67,21 +68,25 @@ func (s *Server) watch(sess ssh.Session, program *tea.Program, act *activity) {
 	}
 	ping := s.opts.Clock.NewTicker(s.opts.KeepaliveInterval)
 	defer ping.Stop()
-	idle := s.opts.Clock.NewTicker(min(s.opts.KeepaliveInterval, s.opts.IdleTimeout))
-	defer idle.Stop()
+	var idleC <-chan time.Time
+	if act != nil {
+		idle := s.opts.Clock.NewTicker(min(s.opts.KeepaliveInterval, s.opts.IdleTimeout))
+		defer idle.Stop()
+		idleC = idle.C()
+	}
 
 	var missed atomic.Int64
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-idle.C():
+		case <-idleC:
 			if act.idleFor(s.opts.Clock.Now()) < s.opts.IdleTimeout {
 				continue
 			}
 			s.log.Info("closing an idle ssh session",
 				"source", sourceOf(sess.RemoteAddr()), "idle", s.opts.IdleTimeout)
-			program.Quit()
+			quit()
 			return
 		case <-ping.C():
 			if missed.Load() >= int64(s.opts.KeepaliveMaxMissed) {

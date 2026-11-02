@@ -295,7 +295,10 @@ type promptSession struct {
 }
 
 // openPromptSession authenticates, asks for a pseudo-terminal and starts the
-// interface, leaving both streams collected and standard input open.
+// interface on the project list, where the tenant's own data is drawn, leaving
+// both streams collected and standard input open. It names `board` because a
+// session naming nothing lands on the start menu, which draws no tenant data
+// and so could not show the prompt came first.
 func openPromptSession(t *testing.T, addr, user string, signer gossh.Signer) *promptSession {
 	t.Helper()
 	client, err := gossh.Dial("tcp", addr, &gossh.ClientConfig{
@@ -330,8 +333,8 @@ func openPromptSession(t *testing.T, addr, user string, signer gossh.Signer) *pr
 	if err := sess.RequestPty("xterm-256color", 40, 120, gossh.TerminalModes{}); err != nil {
 		t.Fatalf("pty: %v", err)
 	}
-	if err := sess.Shell(); err != nil {
-		t.Fatalf("shell: %v", err)
+	if err := sess.Start("board"); err != nil {
+		t.Fatalf("start: %v", err)
 	}
 
 	var streams sync.WaitGroup

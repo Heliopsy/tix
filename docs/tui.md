@@ -13,16 +13,17 @@ actually dispatching, so neither can describe keys you do not have. This page ex
 cannot cover: what is here before you connect. Over SSH that is the whole problem, because you connect
 first and find out afterwards.
 
-## The eleven views
+## The twelve views
 
-The title bar names the open one, between the project and the connection state, because projects, the
+The title bar names the open one, between the project and the connection state, because the start menu, projects, the
 board, the task, the project screen, activity, history, the inbox, the tenant screen, statistics and settings all
 render into the same frame and recognising the body was the only way to tell where you were.
 
 <!-- Rows asserted against the view list by TestDocsViewsTableListsEveryView in internal/tui. -->
 | View | Opened by | Shows |
 | --- | --- | --- |
-| projects | `W`, and every session starts here | every project this tenant has, with its colour and icon (a built-in or uploaded icon as a text stand-in) |
+| start | `~`, and a hosted SSH session that named nothing starts here | one row per interface a session can host: Boards and Watch, Watch with a project picker |
+| projects | `W`, and every local session starts here | every project this tenant has, with its colour and icon (a built-in or uploaded icon as a text stand-in) |
 | board | `enter` on a project | one project's tasks in columns, one column per workflow state |
 | project | `w` | one project's attributes, the workflow it runs on, and its custom field definitions |
 | detail | `enter` on a card | one task in full: body, custom fields, subtasks, dependencies, artifacts, comments |
@@ -171,7 +172,8 @@ impossible for a scheme to leave an action unbound.
 | `ctrl+s` | apply an input, including from a multi-line field | wherever one is open |
 | `esc`/`backspace` | back one level | everywhere |
 | `/` | filter | board, activity; cycles the window on statistics |
-| `C` | clear the filter | board, activity |
+| `C` | clear the filter, and on activity the project the start menu picked | board, activity |
+| `space` | pause the tail, holding new events back; again to resume and draw them | activity |
 | `s` | apply one of your saved filters, or one shared with the tenant | board |
 | `K` | keep the board's filter as a saved filter, under a name | board |
 | `c` | claim | board, detail |
@@ -210,6 +212,7 @@ impossible for a scheme to leave an action unbound.
 | `y` | agree to a confirmation | wherever one is open |
 | `w` | project setup | everywhere |
 | `f` | custom field definitions | project |
+| `~` | the start menu | everywhere |
 | `W`, `,`, `v`, `H`, `I`, `S`, `T` | projects, settings, activity, history, inbox, statistics, tenant | everywhere |
 | `ctrl+k`, `:` | the command palette: every action by name | everywhere |
 | `r` | refresh | everywhere |
@@ -222,7 +225,7 @@ cross-view keys already use when their letter is taken.
 
 ### The command palette
 
-Fifty-nine bindings is more than anyone holds in their head, and the letters ran out: `W` lists projects
+Seventy bindings is more than anyone holds in their head, and the letters ran out: `W` lists projects
 while `w` opens project setup, `H` reads history while `v` draws the live tail, `L` picks a tag, `O` records
 an artifact, `N` claims the next task, `Y` copies one. The capitals were handed out by elimination rather than by meaning.
 
@@ -563,6 +566,20 @@ in the tail is a word they can filter it by.
 thing worth narrowing and it is the period, so rather than open a text prompt for a single number, the key
 that means "narrow this" everywhere else steps through the windows.
 
+## The start menu
+
+`~` opens a menu with one row per interface a session can host. Today that is Boards, which opens the
+project list, and Watch, which opens the activity view. On the Watch row `←` and `→` step through
+`all projects` and every project you can read, and `enter` opens the tail narrowed to the one picked;
+`v` from anywhere else always watches every project. `esc` goes back to the menu from whichever
+interface it opened.
+
+The rows come from one registry in `internal/tui/interfaces.go`, the same one the SSH listener reads its
+command words and its refusal message from, so an interface added there appears on the menu and as an
+`ssh` command together, and a test fails if either is missing. A hosted SSH session that names no command
+starts on this menu; `tix tui` starts on the project list as it always has, and a demo sandbox opens its
+seeded board. See [deployment.md](deployment.md#the-command-picks-the-interface) for the commands.
+
 ## The activity view
 
 `v` draws the live event tail. The subscription is already running for every view, so opening this one
@@ -572,6 +589,8 @@ changes what is drawn and never what is fetched, and each line is rendered from 
 The view keeps the most recent 200 events and drops the rest, so a long session watching a busy tenant
 cannot grow without limit, and the view says so rather than silently dropping what it held. It follows the
 newest event until the selection is pulled back to read an older one, and then stays where it was put.
+`space` pauses it outright: new events are held back, the title bar says `paused, N new`, and a second
+`space` draws them and follows the newest line again. The held events count against the same 200 cap.
 
 The status bar counts what is held, and what the filter is keeping when one is in force, so a short list
 is never mistaken for a quiet tenant. The empty state distinguishes the three cases for the same reason:
