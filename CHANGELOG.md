@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.34.0](https://github.com/Heliopsy/tix/compare/v0.33.0...v0.34.0) (2026-11-02)
+
+
+### Features
+
+* set claim lease length per project and per task ([#159](https://github.com/Heliopsy/tix/issues/159)) ([06c20c7](https://github.com/Heliopsy/tix/commit/06c20c7bee2f48f7a6dd2e7253c449ad2a16df76))
+* **ssh:** stream watch over ssh and open sessions on a start menu ([#156](https://github.com/Heliopsy/tix/issues/156)) ([83488bc](https://github.com/Heliopsy/tix/commit/83488bc33a1e4e6e3ace9582d56bb0b8e72600d8))
+
 ## [0.33.0](https://github.com/Heliopsy/tix/compare/v0.32.1...v0.33.0) (2026-11-02)
 
 
