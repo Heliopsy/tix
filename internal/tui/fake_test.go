@@ -666,6 +666,12 @@ func (f *fakeService) DeleteUser(context.Context, string) error { return nil }
 func (f *fakeService) Login(context.Context, core.LoginInput) (*core.LoginResult, error) {
 	return nil, nil
 }
+func (f *fakeService) SSHLoginChallenge(context.Context) (*core.SSHChallenge, error) {
+	return nil, nil
+}
+func (f *fakeService) SSHLogin(context.Context, core.SSHLoginInput) (*core.LoginResult, error) {
+	return nil, nil
+}
 func (f *fakeService) TOTPStatus(context.Context) (*core.TOTPStatus, error) { return nil, nil }
 func (f *fakeService) BeginTOTPEnrolment(context.Context) (*core.TOTPEnrolment, error) {
 	return nil, nil

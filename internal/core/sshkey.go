@@ -82,3 +82,68 @@ func (in EnrolSSHKeyInput) Validate() error {
 	}
 	return nil
 }
+
+// Ways a person can sign in, recorded on the audit entry and the event.
+const (
+	LoginMethodPassword = "password"
+	LoginMethodSSHKey   = "ssh-key"
+)
+
+// SSHLoginNamespacePrefix opens the sshsig namespace a sign-in signature is
+// made under. The audience follows it, so a signature names the server it was
+// made for and is worthless for git, for file signing and on any other host.
+const SSHLoginNamespacePrefix = "tix-login@"
+
+// AudienceLocal is the audience of a sign-in that reaches a database directly,
+// where there is no host to name.
+const AudienceLocal = "local"
+
+// SSHLoginNamespace returns the namespace a signature for audience is made under.
+func SSHLoginNamespace(audience string) string {
+	if strings.TrimSpace(audience) == "" {
+		audience = AudienceLocal
+	}
+	return SSHLoginNamespacePrefix + strings.ToLower(strings.TrimSpace(audience))
+}
+
+// Reasons an SSH sign-in refusal carries, so a client walking several keys
+// knows the next one may still work.
+const (
+	ReasonSSHKeyNotEnrolled = "ssh_key_not_enrolled"
+	ReasonSSHKeyRevoked     = "ssh_key_revoked"
+)
+
+// SSHChallenge is what a client signs to prove it holds a key. Nonce is opaque
+// and signed by the server; Namespace is what the server expects the signature
+// to be made under, which a client checks against its own idea of the host
+// rather than adopting.
+type SSHChallenge struct {
+	Nonce     string    `json:"nonce" yaml:"nonce"`
+	Namespace string    `json:"namespace" yaml:"namespace"`
+	ExpiresAt time.Time `json:"expires_at" yaml:"expires_at"`
+}
+
+// SSHLoginInput is the signed answer to a challenge.
+type SSHLoginInput struct {
+	// PublicKey is the key in authorized_keys form.
+	PublicKey string `json:"public_key" yaml:"public_key"`
+	// Signature is the armored sshsig block over the nonce.
+	Signature string `json:"signature" yaml:"signature"`
+	Nonce     string `json:"nonce" yaml:"nonce"`
+	// Tenant, when set, is the tenant key the caller means. A server that
+	// resolved another one refuses rather than signing in somewhere else.
+	Tenant string `json:"tenant,omitempty" yaml:"tenant,omitempty"`
+}
+
+// Validate checks the shape of the input.
+func (in SSHLoginInput) Validate() error {
+	switch {
+	case strings.TrimSpace(in.PublicKey) == "":
+		return Invalid("a public key is required")
+	case strings.TrimSpace(in.Signature) == "":
+		return Invalid("a signature is required")
+	case strings.TrimSpace(in.Nonce) == "":
+		return Invalid("a challenge nonce is required")
+	}
+	return nil
+}

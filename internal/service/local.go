@@ -72,6 +72,11 @@ type Local struct {
 
 	dummyOnce sync.Once
 	dummy     string
+
+	// The key SSH sign-in challenges are signed under, derived on first use.
+	nonceOnce     sync.Once
+	nonceKeyBytes []byte
+	nonceKeyErr   error
 }
 
 // HookMode selects who delivers webhooks after a mutation commits.

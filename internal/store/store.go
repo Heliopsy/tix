@@ -441,6 +441,14 @@ type AuthTx interface {
 	ListSSHKeys(ctx context.Context, actorID string) ([]core.SSHKey, error)
 	RevokeSSHKey(ctx context.Context, id string, at time.Time) error
 	TouchSSHKey(ctx context.Context, id string, at time.Time) error
+	// GetSSHKeyByFingerprint returns this tenant's enrolment of a fingerprint,
+	// revoked or not, so a sign-in can say which of the two it was.
+	GetSSHKeyByFingerprint(ctx context.Context, fingerprint string) (*core.SSHKey, error)
+	// ClaimSSHKeyUse records a use of the key at the instant given, provided
+	// its last use is older than issued, and reports whether it did. It is the
+	// compare-and-swap that makes a sign-in challenge single use per key
+	// across every process sharing the database.
+	ClaimSSHKeyUse(ctx context.Context, id string, issued, at time.Time) (bool, error)
 }
 
 // TOTPTx covers the enrolled second factor and its recovery codes.

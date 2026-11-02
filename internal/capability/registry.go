@@ -1102,6 +1102,24 @@ var registry = []Operation{
 		},
 	},
 	{
+		Name: "session.ssh_challenge", Method: "SSHLoginChallenge",
+		CLI:  "tix login",
+		HTTP: apiPost(wire.RouteSSHChallenge),
+		Exempt: []Exemption{
+			off(SurfaceWeb, "a browser cannot reach ssh-agent or a private key, so it has nothing to sign a challenge with"),
+			off(SurfaceTUI, "the interface opens on a session that already exists; the ssh listener has already proved the key"),
+		},
+	},
+	{
+		Name: "session.ssh_login", Method: "SSHLogin",
+		CLI:  "tix login",
+		HTTP: apiPost(wire.RouteSSHVerify),
+		Exempt: []Exemption{
+			off(SurfaceWeb, "a browser cannot reach ssh-agent or a private key, so it has nothing to sign a challenge with"),
+			off(SurfaceTUI, "the interface opens on a session that already exists; the ssh listener has already proved the key"),
+		},
+	},
+	{
 		Name: "session.logout", Method: "Logout",
 		CLI:  "tix logout",
 		HTTP: apiPost(wire.RouteLogout),

@@ -183,7 +183,7 @@ func (l *Local) beginLogin(ctx context.Context, scope core.TenantScope, surface 
 	}
 	sessionActor := cand.sessionActor(scope)
 
-	challenge, err := l.secondFactorFor(ctx, scope, surface, sessionActor, cand.user)
+	challenge, err := l.secondFactorFor(ctx, scope, surface, sessionActor, cand.user, core.LoginMethodPassword)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +192,7 @@ func (l *Local) beginLogin(ctx context.Context, scope core.TenantScope, surface 
 		// here would be a write on a path that may never produce a session.
 		return &core.LoginResult{Challenge: challenge}, nil
 	}
-	return l.mintSession(ctx, scope, sessionActor, cand.user, rehashed, nil)
+	return l.mintSession(ctx, scope, sessionActor, cand.user, rehashed, core.LoginMethodPassword, nil)
 }
 
 // secondFactorFor decides what, if anything, stands between this person and a
@@ -204,7 +204,7 @@ func (l *Local) beginLogin(ctx context.Context, scope core.TenantScope, surface 
 // on: without it a user who enrolled voluntarily would be asked for nothing,
 // and the factor they set up would protect no sign-in at all.
 func (l *Local) secondFactorFor(ctx context.Context, scope core.TenantScope, surface core.Surface,
-	actor *core.Actor, user *core.User,
+	actor *core.Actor, user *core.User, method string,
 ) (*core.TOTPChallenge, error) {
 	var (
 		required bool
@@ -237,6 +237,7 @@ func (l *Local) secondFactorFor(ctx context.Context, scope core.TenantScope, sur
 		TenantID:  scope.TenantID,
 		Surface:   surface,
 		ExpiresAt: l.clock.Now().Add(auth.TicketTTL),
+		Method:    method,
 	})
 	if err != nil {
 		return nil, err
@@ -299,6 +300,10 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 		return nil, errInvalidCredentials()
 	}
 	sessionActor := cand.sessionActor(scope)
+	method := ticket.Method
+	if method == "" {
+		method = core.LoginMethodPassword
+	}
 
 	pending := !enrolment.Confirmed()
 	attempt, verifyErr := l.verifyCode(ctx, sessionActor, user, enrolment, in.Code)
@@ -309,11 +314,11 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 			// extra round trip a recovery attempt costs.
 			return nil, verifyErr
 		}
-		return l.loginWithRecoveryCode(ctx, scope, sessionActor, user, in.Code, verifyErr)
+		return l.loginWithRecoveryCode(ctx, scope, sessionActor, user, method, in.Code, verifyErr)
 	}
 
 	if !pending {
-		return l.mintSession(ctx, scope, sessionActor, user, "", func(m *mutation) error {
+		return l.mintSession(ctx, scope, sessionActor, user, "", method, func(m *mutation) error {
 			return m.tx.SaveUserTOTPAttempt(ctx, user.ID, attempt)
 		})
 	}
@@ -329,7 +334,7 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 	for _, h := range hashes {
 		rows = append(rows, core.RecoveryCode{UserID: user.ID, CodeHash: h})
 	}
-	out, err := l.mintSession(ctx, scope, sessionActor, user, "", func(m *mutation) error {
+	out, err := l.mintSession(ctx, scope, sessionActor, user, "", method, func(m *mutation) error {
 		if err := m.tx.SaveUserTOTPAttempt(ctx, user.ID, attempt); err != nil {
 			return err
 		}
@@ -360,9 +365,9 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 // code. A recovery code is accepted anywhere a code is, and the one that was
 // spent is named in the audit trail.
 func (l *Local) loginWithRecoveryCode(ctx context.Context, scope core.TenantScope, actor *core.Actor,
-	user *core.User, submitted string, codeErr error,
+	user *core.User, method, submitted string, codeErr error,
 ) (*core.LoginResult, error) {
-	result, err := l.mintSessionIf(ctx, scope, actor, func(m *mutation) (bool, error) {
+	result, err := l.mintSessionIf(ctx, scope, actor, method, func(m *mutation) (bool, error) {
 		id, spent, err := l.spendRecoveryCode(ctx, m, user.ID, submitted, m.now)
 		if err != nil {
 			return false, err
@@ -404,9 +409,9 @@ func (c candidate) sessionActor(scope core.TenantScope) *core.Actor {
 // mintSession writes the session, the optional password rehash and whatever
 // else the sign-in has to record, in one transaction.
 func (l *Local) mintSession(ctx context.Context, scope core.TenantScope, actor *core.Actor,
-	user *core.User, rehashed string, also func(*mutation) error,
+	user *core.User, rehashed, method string, also func(*mutation) error,
 ) (*core.LoginResult, error) {
-	out, err := l.mintSessionIf(ctx, scope, actor, func(m *mutation) (bool, error) {
+	out, err := l.mintSessionIf(ctx, scope, actor, method, func(m *mutation) (bool, error) {
 		if rehashed != "" {
 			if err := m.tx.UpdateUser(ctx, user, rehashed); err != nil {
 				return false, err
@@ -429,7 +434,7 @@ func (l *Local) mintSession(ctx context.Context, scope core.TenantScope, actor *
 // mintSessionIf mints a session only when also reports the sign-in may
 // complete, so a check that has to run inside the transaction can refuse
 // without leaving a session behind. It answers nil, nil when it refused.
-func (l *Local) mintSessionIf(ctx context.Context, scope core.TenantScope, actor *core.Actor,
+func (l *Local) mintSessionIf(ctx context.Context, scope core.TenantScope, actor *core.Actor, method string,
 	also func(*mutation) (bool, error),
 ) (*core.LoginResult, error) {
 	minted, err := auth.MintSession(l.clock, auth.SessionInput{
@@ -451,8 +456,8 @@ func (l *Local) mintSessionIf(ctx context.Context, scope core.TenantScope, actor
 			return err
 		}
 		return m.Record(auditUserLogin, eventSessionCreated, "session", actor.ID, "", nil,
-			map[string]any{"actor_id": actor.ID, "expires_at": minted.Session.ExpiresAt},
-			map[string]any{"actor_id": actor.ID, "handle": actor.Handle})
+			map[string]any{"actor_id": actor.ID, "expires_at": minted.Session.ExpiresAt, "method": method},
+			map[string]any{"actor_id": actor.ID, "handle": actor.Handle, "method": method})
 	}); err != nil {
 		return nil, err
 	}

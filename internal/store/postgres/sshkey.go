@@ -125,6 +125,34 @@ func (t *tx) TouchSSHKey(ctx context.Context, keyID string, at time.Time) error 
 	return nil
 }
 
+// GetSSHKeyByFingerprint returns this tenant's enrolment of a fingerprint,
+// revoked or not. The unique on (tenant_id, fingerprint) makes it at most one.
+func (t *tx) GetSSHKeyByFingerprint(ctx context.Context, fingerprint string) (*core.SSHKey, error) {
+	b := t.builder("ssh_keys").Select(sshKeyColumns...).Where("fingerprint = ?", fingerprint).Limit(1)
+	q, args := b.SelectQuery()
+	k, err := scanSSHKey(t.ex.QueryRowContext(ctx, q, args...))
+	if err != nil {
+		if core.IsKind(err, core.KindNotFound) {
+			return nil, core.NotFound("ssh key %q", fingerprint)
+		}
+		return nil, err
+	}
+	return &k, nil
+}
+
+// ClaimSSHKeyUse sets last_used_at to at only while it is older than issued.
+func (t *tx) ClaimSSHKeyUse(ctx context.Context, keyID string, issued, at time.Time) (bool, error) {
+	b := t.builder("ssh_keys").
+		Where("id = ?", keyID).
+		Where("(last_used_at IS NULL OR last_used_at < ?)", timeArg(issued)).
+		Set("last_used_at", timeArg(at))
+	n, err := t.execUpdate(ctx, b, "claiming a use of ssh key %q", keyID)
+	if err != nil {
+		return false, err
+	}
+	return n == 1, nil
+}
+
 // FindSSHKeysByFingerprint returns every live enrolment of a fingerprint,
 // across tenants, for the authentication path that runs before a tenant is known.
 //

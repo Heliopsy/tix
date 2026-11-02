@@ -10,7 +10,7 @@ A second factor applies to the three ways a human proves who they are interactiv
 | Surface | What the first factor is | Flag |
 | --- | --- | --- |
 | Browser | password | `--require-totp-web` |
-| `tix login` | password | `--require-totp-cli` |
+| `tix login` | password, or an enrolled key with `--ssh-key` | `--require-totp-cli` |
 | SSH | an enrolled public key | `--require-totp-ssh` |
 
 They are independent. A tenant can require a code in the browser and leave the SSH board on keys alone, or

@@ -236,3 +236,66 @@ func TestSSHKeyRevocationAndTouch(t *testing.T) {
 		t.Fatalf("FindSSHKeysByFingerprint returned a revoked key: %+v", found)
 	}
 }
+
+func TestSSHKeyByFingerprintStaysInItsTenantAndShowsRevocation(t *testing.T) {
+	ctx := context.Background()
+	s, clk := newStore(t)
+	acme := seed(t, s, clk, "acme")
+	globex := seed(t, s, clk, "globex")
+	mine := enrolKey(t, acme, "SHA256:mine", "")
+	enrolKey(t, globex, "SHA256:theirs", "")
+	if err := s.Update(ctx, acme.scope, func(tx store.Tx) error {
+		return tx.RevokeSSHKey(ctx, mine.ID, clk.Now())
+	}); err != nil {
+		t.Fatalf("revoking: %v", err)
+	}
+	err := s.View(ctx, acme.scope, func(tx store.Tx) error {
+		got, err := tx.GetSSHKeyByFingerprint(ctx, "SHA256:mine")
+		if err != nil {
+			return err
+		}
+		if got.ID != mine.ID || got.Active() {
+			t.Fatalf("GetSSHKeyByFingerprint = %+v, want the revoked enrolment", *got)
+		}
+		if _, err := tx.GetSSHKeyByFingerprint(ctx, "SHA256:theirs"); !core.IsKind(err, core.KindNotFound) {
+			t.Fatalf("GetSSHKeyByFingerprint reached another tenant's key: %v", err)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("reading by fingerprint: %v", err)
+	}
+}
+
+func TestClaimSSHKeyUseIsACompareAndSwap(t *testing.T) {
+	ctx := context.Background()
+	s, clk := newStore(t)
+	f := seed(t, s, clk, "acme")
+	k := enrolKey(t, f, "SHA256:claimed", "")
+	issued := clk.Now().Add(time.Minute).Truncate(time.Microsecond)
+
+	claim := func(issued, at time.Time) bool {
+		t.Helper()
+		var ok bool
+		if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+			var err error
+			ok, err = tx.ClaimSSHKeyUse(ctx, k.ID, issued, at)
+			return err
+		}); err != nil {
+			t.Fatalf("claiming: %v", err)
+		}
+		return ok
+	}
+	if !claim(issued, issued) {
+		t.Fatal("the first claim of an unused key was refused")
+	}
+	if claim(issued, issued.Add(time.Second)) {
+		t.Fatal("a second claim of the same issue time succeeded")
+	}
+	if claim(issued.Add(-time.Second), issued.Add(time.Second)) {
+		t.Fatal("a claim issued before the last use succeeded")
+	}
+	if !claim(issued.Add(time.Microsecond), issued.Add(time.Second)) {
+		t.Fatal("a claim issued after the last use was refused")
+	}
+}

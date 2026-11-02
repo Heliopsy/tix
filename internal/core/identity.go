@@ -188,6 +188,7 @@ const (
 	ctxKeyActor ctxKey = iota
 	ctxKeyTenant
 	ctxKeySource
+	ctxKeyAudience
 )
 
 // Source records which access path an operation arrived through.
@@ -224,6 +225,22 @@ func RequireActor(ctx context.Context) (*Actor, error) {
 		return nil, Unauthenticated("no authenticated actor")
 	}
 	return a, nil
+}
+
+// WithAudience returns a context naming the host a request was made to, which
+// an SSH sign-in binds its challenge and signature to. Only a transport sets
+// it, from the request itself and never from the body.
+func WithAudience(ctx context.Context, host string) context.Context {
+	return context.WithValue(ctx, ctxKeyAudience, host)
+}
+
+// AudienceFrom returns the audience carried by ctx, or AudienceLocal when the
+// call did not arrive over a network.
+func AudienceFrom(ctx context.Context) string {
+	if a, ok := ctx.Value(ctxKeyAudience).(string); ok && strings.TrimSpace(a) != "" {
+		return strings.ToLower(strings.TrimSpace(a))
+	}
+	return AudienceLocal
 }
 
 // WithTenant returns a context carrying the tenant scope.

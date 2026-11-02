@@ -435,6 +435,18 @@ func (g *globals) overrides() connect.Overrides {
 
 // dial opens the single connection this invocation uses.
 func (g *globals) dial(cmd *cobra.Command) (*connect.Conn, context.Context, error) {
+	return g.dialWith(cmd, g.overrides())
+}
+
+// dialAnonymous opens the connection without confirming a credential, for
+// the sign-in that exists to obtain one.
+func (g *globals) dialAnonymous(cmd *cobra.Command) (*connect.Conn, context.Context, error) {
+	ov := g.overrides()
+	ov.Anonymous = true
+	return g.dialWith(cmd, ov)
+}
+
+func (g *globals) dialWith(cmd *cobra.Command, ov connect.Overrides) (*connect.Conn, context.Context, error) {
 	if g.conn != nil {
 		return g.conn, g.conn.Context(cmd.Context()), nil
 	}
@@ -442,7 +454,7 @@ func (g *globals) dial(cmd *cobra.Command) (*connect.Conn, context.Context, erro
 	if err != nil {
 		return nil, nil, err
 	}
-	conn, err := connect.Dial(cmd.Context(), resolved, g.overrides())
+	conn, err := connect.Dial(cmd.Context(), resolved, ov)
 	if err != nil {
 		return nil, nil, err
 	}

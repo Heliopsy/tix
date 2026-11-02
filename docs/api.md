@@ -44,7 +44,7 @@ Everything below is under `/api/v1`.
 
 | Area | Routes |
 | --- | --- |
-| Identity | `GET /whoami`, `POST /auth/login`, `POST /auth/logout` |
+| Identity | `GET /whoami`, `POST /auth/login`, `POST /auth/ssh/challenge`, `POST /auth/ssh/verify`, `POST /auth/logout` |
 | Second factor | `/auth/totp`, `/auth/totp/confirm`, `/auth/totp/verify`, `/auth/totp/recovery-codes`, `/users/{id}/totp`; see [Second factor](#second-factor) |
 | Users and tokens | `/users`, `/users/{id}`, `/tokens`, `/tokens/{id}` |
 | SSH keys | `/ssh-keys`, `/ssh-keys/{id}`; see [deployment.md](deployment.md#enrolling-a-key) |
@@ -218,6 +218,38 @@ Moving a recurring task into a done state, through `/transition`, `/route` or a 
 status, creates the next occurrence in the same transaction. The stream carries the move's
 `task.transitioned` event with `next`, the new task's reference, followed by an ordinary `task.created`
 event whose payload names `recurs_from`. Moving into a cancelled state creates nothing.
+
+### SSH key sign-in
+
+A person with an enrolled SSH key can sign in without a password. Both routes are public, like
+`POST /auth/login`, and the tenant is the one the Host resolves to.
+
+`POST /auth/ssh/challenge` takes no body and answers a nonce, valid for two minutes, and the namespace the
+signature must be made under, `tix-login@` followed by the request's host:
+
+```console
+$ curl -s -X POST https://tix.example/api/v1/auth/ssh/challenge
+{"nonce":"...","namespace":"tix-login@tix.example","expires_at":"..."}
+```
+
+Sign the nonce bytes, with no trailing newline, as `ssh-keygen -Y sign` does, and post the armored
+signature with the public key:
+
+```console
+$ printf %s "$nonce" > nonce && ssh-keygen -Y sign -f ~/.ssh/id_ed25519 -n tix-login@tix.example nonce
+$ jq -n --arg k "$(cat ~/.ssh/id_ed25519.pub)" --arg s "$(cat nonce.sig)" --arg n "$nonce" \
+    '{public_key:$k, signature:$s, nonce:$n}' |
+  curl -s -X POST -H 'Content-Type: application/json' -d @- https://tix.example/api/v1/auth/ssh/verify
+{"session":{"token":"...","actor_id":"...","tenant_id":"...","expires_at":"..."}}
+```
+
+The answer is shaped like `POST /auth/login`'s: a session (also set as a cookie), or, for a person with a
+second factor, a challenge whose ticket finishes on `POST /auth/login` with the code. An optional `tenant`
+names the tenant the caller means; a different resolved tenant is refused with `400`. A nonce is accepted
+once per key. Refusals are `401` and say which check failed: an expired or foreign challenge, a signature
+that does not verify or was made under another namespace, a key that is not enrolled
+(`details.reason` `ssh_key_not_enrolled`) or was revoked (`ssh_key_revoked`), or a challenge already used.
+[deployment.md](deployment.md#signing-in-from-the-command-line-with-a-key) has the reasoning.
 
 ### Second factor
 

@@ -51,6 +51,8 @@ type SweepResult struct {
 func (rt *Router) registerAuthRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteLogin, rt.handleLogin)
 	rt.mux.HandleFunc("POST "+wire.RouteLogout, rt.handleLogout)
+	rt.mux.HandleFunc("POST "+wire.RouteSSHChallenge, rt.handleSSHChallenge)
+	rt.mux.HandleFunc("POST "+wire.RouteSSHVerify, rt.handleSSHLogin)
 
 	rt.mux.HandleFunc("GET "+wire.RouteTOTP, rt.handleTOTPStatus)
 	rt.mux.HandleFunc("POST "+wire.RouteTOTP, rt.handleBeginTOTP)
@@ -128,6 +130,35 @@ func (rt *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Ticket:   in.Ticket,
 		Code:     in.Code,
 	})
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	if result.Session != nil {
+		http.SetCookie(w, auth.NewSessionCookie(
+			result.Session.Token, result.Session.ExpiresAt, rt.secureCookie(r)))
+	}
+	WriteJSON(w, http.StatusOK, result)
+}
+
+// handleSSHChallenge issues a nonce bound to the host the request names, the
+// same value that resolved the tenant.
+func (rt *Router) handleSSHChallenge(w http.ResponseWriter, r *http.Request) {
+	challenge, err := rt.cfg.Service.SSHLoginChallenge(core.WithAudience(r.Context(), hostOf(r)))
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, challenge)
+}
+
+// handleSSHLogin verifies a signed challenge. It answers as handleLogin does.
+func (rt *Router) handleSSHLogin(w http.ResponseWriter, r *http.Request) {
+	var in core.SSHLoginInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	result, err := rt.cfg.Service.SSHLogin(core.WithAudience(r.Context(), hostOf(r)), in)
 	if err != nil {
 		WriteError(w, err)
 		return

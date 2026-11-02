@@ -87,6 +87,11 @@ type Overrides struct {
 	// and the statistics screens it exists to populate have nothing to show.
 	// Nil means the real clock, which is every other caller.
 	Clock clock.Clock
+
+	// Anonymous skips confirming the credential against a remote server.
+	// tix login sets it: it exists to obtain a credential, so asking the
+	// server who the caller is first could only fail.
+	Anonymous bool
 }
 
 // Target is the resolved endpoint a command will talk to.
@@ -294,6 +299,9 @@ func dialRemote(ctx context.Context, target Target, ov Overrides) (*Conn, error)
 		return nil, err
 	}
 	conn := &Conn{Service: remote, Info: Info{Target: target}, closers: []func() error{remote.Close}}
+	if ov.Anonymous {
+		return conn, nil
+	}
 	actor, err := remote.WhoAmI(ctx)
 	if err != nil {
 		return nil, closeWith(conn, err)

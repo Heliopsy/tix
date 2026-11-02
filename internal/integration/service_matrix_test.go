@@ -5,6 +5,8 @@ package integration
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"fmt"
 	"reflect"
 	"slices"
@@ -15,6 +17,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
+	"golang.org/x/crypto/ssh"
 )
 
 // svcScenario is one row of the transport-equivalence table: a sequence of
@@ -1541,6 +1544,37 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "login with an enrolled ssh key",
+		covers: []string{"CreateUser", "EnrolSSHKey", "SSHLoginChallenge", "SSHLogin"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			user, err := tg.svc.CreateUser(tg.ctx, core.CreateUserInput{
+				Email: "keyed@example.test", Handle: "keyed", Password: "correct horse battery",
+			})
+			mustf(t, tg, err, "creating the user")
+			signer := matrixSigner(t)
+			_, err = tg.svc.EnrolSSHKey(tg.ctx, core.EnrolSSHKeyInput{
+				ActorID: user.ID, PublicKey: string(ssh.MarshalAuthorizedKey(signer.PublicKey())),
+			})
+			mustf(t, tg, err, "enrolling the key")
+			result, err := tg.svc.SSHLogin(tg.ctx, matrixSSHAnswer(t, tg, signer))
+			if err != nil {
+				return nil, err
+			}
+			return sig{
+				"actor_matches": result.Session != nil && result.Session.ActorID == user.ID,
+				"has_token":     result.Session != nil && result.Session.Token != "",
+			}, nil
+		},
+	},
+	{
+		name:   "login with an ssh key nobody enrolled",
+		covers: []string{"SSHLoginChallenge", "SSHLogin"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			_, err := tg.svc.SSHLogin(tg.ctx, matrixSSHAnswer(t, tg, matrixSigner(t)))
+			return nil, err
+		},
+	},
+	{
 		name:   "login for an address nobody holds",
 		covers: []string{"Login"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
@@ -2313,5 +2347,34 @@ func TestTransportEquivalence(t *testing.T) {
 					localSig, remoteSig)
 			}
 		})
+	}
+}
+
+// matrixSigner is a throwaway ed25519 key.
+func matrixSigner(t *testing.T) ssh.Signer {
+	t.Helper()
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generating a key: %v", err)
+	}
+	signer, err := ssh.NewSignerFromKey(priv)
+	if err != nil {
+		t.Fatalf("wrapping the key: %v", err)
+	}
+	return signer
+}
+
+// matrixSSHAnswer signs the target's challenge under the namespace it named,
+// which differs by transport: a host over HTTP, local in process.
+func matrixSSHAnswer(t *testing.T, tg target, signer ssh.Signer) core.SSHLoginInput {
+	t.Helper()
+	challenge, err := tg.svc.SSHLoginChallenge(tg.ctx)
+	mustf(t, tg, err, "asking for a challenge")
+	signature, err := auth.SignSSH(signer, challenge.Namespace, []byte(challenge.Nonce))
+	mustf(t, tg, err, "signing the challenge")
+	return core.SSHLoginInput{
+		PublicKey: string(ssh.MarshalAuthorizedKey(signer.PublicKey())),
+		Signature: signature,
+		Nonce:     challenge.Nonce,
 	}
 }
