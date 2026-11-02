@@ -16,6 +16,7 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
 	"github.com/heliopsy/tix/internal/qr"
+	"github.com/heliopsy/tix/internal/sshlogin"
 )
 
 // terminalReader is a standard input that knows for itself whether it is a
@@ -66,6 +67,32 @@ func (g *globals) ask(cmd *cobra.Command, prompt string) (string, error) {
 		return "", core.Invalid("no code was given")
 	}
 	return line, nil
+}
+
+// passphrasePrompt asks for a key's passphrase on standard error and reads it
+// without echo. With no terminal it answers nil, so an encrypted key is
+// refused rather than waited on.
+func (g *globals) passphrasePrompt(cmd *cobra.Command) sshlogin.Passphrase {
+	if !onATerminal(cmd) {
+		return nil
+	}
+	return func(path string) ([]byte, error) {
+		errw := cmd.ErrOrStderr()
+		_, _ = fmt.Fprint(errw, output.NewPainter(g.colorMode(), errw).Muted("passphrase for "+path+": "))
+		defer func() { _, _ = fmt.Fprintln(errw) }()
+		if f, ok := cmd.InOrStdin().(*os.File); ok {
+			phrase, err := term.ReadPassword(f.Fd())
+			if err != nil {
+				return nil, core.Internal("reading the passphrase").Wrap(err)
+			}
+			return phrase, nil
+		}
+		line, err := g.stdin(cmd).ReadString('\n')
+		if err != nil && !errors.Is(err, io.EOF) {
+			return nil, core.Internal("reading the passphrase").Wrap(err)
+		}
+		return []byte(strings.TrimRight(line, "\r\n")), nil
+	}
 }
 
 // stdin returns the buffered reader every prompt shares. A fresh reader per

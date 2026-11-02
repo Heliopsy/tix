@@ -32,6 +32,9 @@ type Ticket struct {
 	TenantID  string
 	Surface   core.Surface
 	ExpiresAt time.Time
+	// Method is how the first step was passed, carried so the session the
+	// second step mints is recorded as what it was. Empty reads as password.
+	Method string
 }
 
 // ticketSeparator divides the payload fields. None of the fields may contain
@@ -58,7 +61,7 @@ func MintTicket(encoded string, t Ticket) (string, error) {
 		return "", core.Invalid("a sign-in ticket requires a known surface")
 	}
 	payload := strings.Join([]string{
-		t.UserID, t.TenantID, string(t.Surface), strconv.FormatInt(t.ExpiresAt.UTC().Unix(), 10),
+		t.UserID, t.TenantID, string(t.Surface), strconv.FormatInt(t.ExpiresAt.UTC().Unix(), 10), t.Method,
 	}, ticketSeparator)
 	body := base64.RawURLEncoding.EncodeToString([]byte(payload))
 	return body + "." + base64.RawURLEncoding.EncodeToString(ticketSignature(key, body)), nil
@@ -86,7 +89,7 @@ func ParseTicket(encoded, ticket string, now time.Time) (Ticket, error) {
 		return Ticket{}, errTicket()
 	}
 	parts := strings.Split(string(raw), ticketSeparator)
-	if len(parts) != 4 {
+	if len(parts) != 4 && len(parts) != 5 {
 		return Ticket{}, errTicket()
 	}
 	unix, err := strconv.ParseInt(parts[3], 10, 64)
@@ -98,6 +101,9 @@ func ParseTicket(encoded, ticket string, now time.Time) (Ticket, error) {
 		TenantID:  parts[1],
 		Surface:   core.Surface(parts[2]),
 		ExpiresAt: time.Unix(unix, 0).UTC(),
+	}
+	if len(parts) == 5 {
+		out.Method = parts[4]
 	}
 	if !out.Surface.Valid() || !out.ExpiresAt.After(now) {
 		return Ticket{}, errTicket()

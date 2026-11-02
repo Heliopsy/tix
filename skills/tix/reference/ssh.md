@@ -35,6 +35,19 @@ against the implicit `local` actor a zero-configuration CLI runs as
 authenticates and then holds **no scopes at all**: it has no membership row.
 Pass `--actor` naming a real user.
 
+**An enrolled key also signs a person in on the command line.** `tix login
+--ssh-key` tries the keys in `ssh-agent`, then `~/.ssh/id_ed25519`,
+`id_ecdsa`, `id_rsa`; `tix login --ssh-key=PATH` uses that key only and asks
+for its passphrase without echo. It prints the same session `tix login
+--email` does. The signature is an `ssh-keygen -Y sign` signature under the
+namespace `tix-login@HOST`, over a nonce valid two minutes and usable once
+per key, so it is worthless for git or against another server. A TOTP
+enrolment still asks for the code after the key. Over HTTP it is
+`POST /api/v1/auth/ssh/challenge` then `POST /api/v1/auth/ssh/verify`. Exit
+`5` names the check that failed (not enrolled, revoked, wrong namespace,
+expired or used challenge), `2` a configured tenant the server does not
+serve. This is for people; an agent still uses a token.
+
 **The username is the tenant selector, not a login name.** A fingerprint
 identifies the actor, and SSH offers the server only one other field, so the
 username carries the tenant. A key enrolled in exactly one tenant connects as

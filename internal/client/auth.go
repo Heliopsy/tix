@@ -57,6 +57,16 @@ func (c *Client) Login(ctx context.Context, in core.LoginInput) (*core.LoginResu
 	return call[core.LoginResult](ctx, c, http.MethodPost, wire.RouteLogin, nil, in)
 }
 
+// SSHLoginChallenge asks the server for a nonce to sign.
+func (c *Client) SSHLoginChallenge(ctx context.Context) (*core.SSHChallenge, error) {
+	return call[core.SSHChallenge](ctx, c, http.MethodPost, wire.RouteSSHChallenge, nil, nil)
+}
+
+// SSHLogin presents a signed challenge.
+func (c *Client) SSHLogin(ctx context.Context, in core.SSHLoginInput) (*core.LoginResult, error) {
+	return call[core.LoginResult](ctx, c, http.MethodPost, wire.RouteSSHVerify, nil, in)
+}
+
 // TOTPStatus reports the caller's own second factor.
 func (c *Client) TOTPStatus(ctx context.Context) (*core.TOTPStatus, error) {
 	return call[core.TOTPStatus](ctx, c, http.MethodGet, wire.RouteTOTP, nil, nil)

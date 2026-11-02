@@ -201,6 +201,15 @@ type AuthService interface {
 	Login(ctx context.Context, in LoginInput) (*LoginResult, error)
 	Logout(ctx context.Context) error
 
+	// SSHLoginChallenge issues a short-lived nonce for an SSH key sign-in,
+	// bound to this tenant and to the host the request was made to. Nothing
+	// is stored.
+	SSHLoginChallenge(ctx context.Context) (*SSHChallenge, error)
+	// SSHLogin is the first step of a sign-in that proves an enrolled key
+	// instead of a password. It answers as Login does: a session, or the
+	// second-factor challenge the password step would have returned.
+	SSHLogin(ctx context.Context, in SSHLoginInput) (*LoginResult, error)
+
 	// TOTPStatus reports the caller's own enrolment and what their tenant
 	// requires of them. It discloses nothing that could produce a code.
 	TOTPStatus(ctx context.Context) (*TOTPStatus, error)

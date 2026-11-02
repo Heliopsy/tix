@@ -12,7 +12,7 @@ import (
 func TestRoutesAreVersioned(t *testing.T) {
 	unversioned := map[string]bool{RouteHealth: true, RouteReady: true}
 	routes := []string{
-		RouteWhoAmI, RouteLogin, RouteUsers, RouteTokens, RouteTenants, RouteDomains,
+		RouteWhoAmI, RouteLogin, RouteSSHChallenge, RouteSSHVerify, RouteUsers, RouteTokens, RouteTenants, RouteDomains,
 		RouteProjects, RouteWorkflows, RouteTasks, RouteTaskClaim, RouteClaimNext,
 		RouteWebhooks, RouteAudit, RouteStats, RouteExport, RouteImport, RouteEvents, RouteSyncRun,
 		RouteCalendar, RouteCalendarRotate, RouteCalendarFeed,

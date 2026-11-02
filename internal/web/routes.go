@@ -59,6 +59,8 @@ func Exemptions() []Exemption {
 		{"WhoAmI", "the root route calls it to bounce a visitor who is not signed in and discards the identity it answers with, so no screen states who the reader is"},
 		{"GetActor", "the screens call it to label an identifier, keeping the handle and discarding the rest, and there is no actor screen to open"},
 		{"ReadCalendarFeed", "a feed is iCalendar a calendar app reads at its address with no session; the settings screen hands that address out"},
+		{"SSHLoginChallenge", "a browser cannot reach ssh-agent or a private key, so it has nothing to sign a challenge with"},
+		{"SSHLogin", "a browser cannot reach ssh-agent or a private key, so it has nothing to sign a challenge with"},
 		{"VerifySecondFactor", "the browser proves a factor on the second sign-in page, which posts the ticket the password step returned; a screen that verified a code outside a sign-in would protect nothing"},
 	}
 }

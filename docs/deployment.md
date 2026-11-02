@@ -624,6 +624,49 @@ stopped working is usually the one being looked for.
 The same three operations are on the API at `/api/v1/ssh-keys` (`GET`, `POST`, and `DELETE
 /api/v1/ssh-keys/{id}`) and in the web interface at `/admin/ssh-keys`.
 
+### Signing in from the command line with a key
+
+An enrolled key also gets a command line session, instead of a password:
+
+```sh
+tix --server https://tix.example login --ssh-key                         # ssh-agent, then ~/.ssh/id_*
+tix --server https://tix.example login --ssh-key=~/.ssh/work_ed25519     # this key only
+TIX_SESSION=$(tix --server https://tix.example login --ssh-key -o json | jq -r .token)
+```
+
+Alone, `--ssh-key` tries every key `ssh-agent` holds, then `~/.ssh/id_ed25519`, `id_ecdsa` and `id_rsa`,
+and stops at the first one enrolled for you. With `=PATH` it uses that private key only, and asks for its
+passphrase on the terminal with echo off. The session is the one `tix login --email` issues, with the same
+lifetime, and the audit log records the sign-in as `user.login` with `method` `ssh-key`.
+
+The server issues a nonce valid for two minutes, signed rather than stored, and naming the tenant and the
+host it was asked on. The CLI signs it exactly as `ssh-keygen -Y sign -n tix-login@HOST` would, taking
+`HOST` from the server address it was given, never from the server: a signature made for one server is
+refused by another, and one made for git or file signing (`git`, `file` namespaces) is refused everywhere.
+`ssh-rsa` (SHA-1) signatures are refused; RSA keys sign with `rsa-sha2-512`.
+
+A nonce is single use per key. Accepting it records the key's last use at or after the nonce's issue time,
+in the same transaction as the session, with a conditional update, so a replay of a captured nonce and
+signature is refused even on another replica. A newer nonce, or the key opening a terminal session in the
+meantime, supersedes an older one; the CLI just asks again. Challenges are signed under a key derived from
+`auth.totp_key`, or a random one per process when none is set: several replicas behind a balancer without
+sticky routing need `auth.totp_key` for this as they do for second factors.
+
+The tenant is the one the server address resolves to, as for a password. A key enrolled in two tenants
+signs in to whichever one the address names, and the CLI sends its configured tenant so a mismatch is
+refused (exit 2) rather than signing in somewhere unexpected.
+
+**The key replaces the password, not the code.** A person with a TOTP enrolment, or in a tenant requiring
+one on the command line, is asked for the code after the key, exactly as after a password. A key is often a
+file beside the shell, or an agent forwarded to hosts its owner does not control, so the factor the person
+or the tenant chose stays in front of the session.
+
+Refusals exit 5 and say which check failed: the key is not enrolled in this tenant, it was revoked, the
+signature does not verify, it was made for another namespace, the challenge expired or was already used.
+The enrolment status of a key is only ever disclosed to whoever proved they hold it. There is no counter on
+this step, as there is none on the password step: a signature cannot be guessed. The code step after it
+keeps its own lockout.
+
 ### The username selects the tenant
 
 A fingerprint identifies the actor. A key enrolled in two tenants speaks for a different actor in each, and

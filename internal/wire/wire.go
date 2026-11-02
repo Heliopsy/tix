@@ -21,6 +21,9 @@ const (
 	RouteLogin  = APIPrefix + "/auth/login"
 	RouteLogout = APIPrefix + "/auth/logout"
 
+	RouteSSHChallenge = APIPrefix + "/auth/ssh/challenge"
+	RouteSSHVerify    = APIPrefix + "/auth/ssh/verify"
+
 	RouteActors = APIPrefix + "/actors"
 	RouteActor  = APIPrefix + "/actors/{id}"
 

@@ -4,6 +4,8 @@ package cmd
 
 import (
 	"context"
+	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/service"
+	"github.com/heliopsy/tix/internal/sshlogin"
 	"github.com/spf13/cobra"
 )
 
@@ -351,20 +354,33 @@ func tokenRmCmd(g *globals) *cobra.Command {
 
 // newLoginCmd builds the login command.
 func newLoginCmd(g *globals) *cobra.Command {
-	var email, password string
+	var email, password, sshKey string
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Exchange a password for a session",
+		Short: "Exchange a password or an SSH key for a session",
 		Long: "Log in and print the session token.\n\n" +
+			"--ssh-key signs a challenge from the server with an SSH key enrolled for you (tix user key add) " +
+			"instead of sending a password. Alone it tries every key in ssh-agent, then ~/.ssh/id_ed25519, " +
+			"id_ecdsa and id_rsa; --ssh-key=PATH uses only that private key and asks for its passphrase " +
+			"without echo. The signature is made under the namespace tix-login@HOST, so it is good for " +
+			"nothing but signing in to this server.\n\n" +
 			"Where a second factor is required, the code is asked for on the terminal after the password. " +
 			"No flag and no environment variable carries it: a live code passed as an argument lands in " +
 			"shell history and in the process table. An unattended caller uses an API token instead, which " +
 			"is exempt from the second factor; see tix token create.\n\n" +
 			"Exit codes: 2 missing credentials, 5 invalid credentials, 6 no terminal to prompt for a code.",
-		Example: "  tix login --email ada@example.com --password -",
+		Example: "  tix login --email ada@example.com --password -\n" +
+			"  tix --server https://tix.example login --ssh-key\n" +
+			"  tix --server https://tix.example login --ssh-key=~/.ssh/work_ed25519",
 		GroupID: "setup",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if cmd.Flags().Changed("ssh-key") {
+				if email != "" || password != "" {
+					return usagef(cmd, "--ssh-key replaces --email and --password; pass one or the other")
+				}
+				return g.loginWithSSHKey(cmd, sshKey)
+			}
 			secret, err := body(cmd, password)
 			if err != nil {
 				return err
@@ -373,7 +389,7 @@ func newLoginCmd(g *globals) *cobra.Command {
 			if email == "" || secret == "" {
 				return usagef(cmd, "both --email and --password are required")
 			}
-			conn, ctx, err := g.dial(cmd)
+			conn, ctx, err := g.dialAnonymous(cmd)
 			if err != nil {
 				return err
 			}
@@ -383,21 +399,86 @@ func newLoginCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if result.Challenge != nil {
-				if result, err = g.answerChallenge(cmd, conn.Service, ctx, result.Challenge); err != nil {
-					return err
-				}
-			}
-			if result.Session == nil {
-				return core.Internal("the sign-in finished without a session")
-			}
-			showRecoveryCodes(cmd, result.RecoveryCodes)
-			return g.render(cmd, result.Session)
+			return g.finishLogin(cmd, conn.Service, ctx, result)
 		},
 	}
 	cmd.Flags().StringVar(&email, "email", "", "account email address")
 	cmd.Flags().StringVar(&password, "password", "", "password, or - to read standard input")
+	cmd.Flags().StringVar(&sshKey, "ssh-key", "",
+		"sign in with an enrolled SSH key: alone, ssh-agent then the default keys; =PATH, that private key")
+	cmd.Flags().Lookup("ssh-key").NoOptDefVal = sshKeyDiscover
 	return cmd
+}
+
+// sshKeyDiscover is what --ssh-key holds when given without a path.
+const sshKeyDiscover = "auto"
+
+// finishLogin takes a first step's answer through the second factor, when
+// there is one, and prints the session.
+func (g *globals) finishLogin(cmd *cobra.Command, svc core.Service, ctx context.Context,
+	result *core.LoginResult,
+) error {
+	var err error
+	if result.Challenge != nil {
+		if result, err = g.answerChallenge(cmd, svc, ctx, result.Challenge); err != nil {
+			return err
+		}
+	}
+	if result.Session == nil {
+		return core.Internal("the sign-in finished without a session")
+	}
+	showRecoveryCodes(cmd, result.RecoveryCodes)
+	return g.render(cmd, result.Session)
+}
+
+// loginWithSSHKey signs the server's challenge with the key the flag names,
+// or with each key the person holds until one is accepted.
+func (g *globals) loginWithSSHKey(cmd *cobra.Command, path string) error {
+	ask := g.passphrasePrompt(cmd)
+	home := lookupEnv(g.environ, "HOME")
+	var candidates []sshlogin.Candidate
+	if path != sshKeyDiscover {
+		candidates = []sshlogin.Candidate{sshlogin.FromFile(expandTilde(path, home), ask)}
+	} else {
+		found, closeAgent, err := sshlogin.Discover(lookupEnv(g.environ, "SSH_AUTH_SOCK"), home, ask)
+		defer func() { _ = closeAgent() }()
+		if err != nil {
+			return err
+		}
+		candidates = found
+	}
+	conn, ctx, err := g.dialAnonymous(cmd)
+	if err != nil {
+		return err
+	}
+	target := conn.Info.Target
+	result, err := sshlogin.Login(ctx, conn.Service, audienceOf(target.URL), target.Tenant, candidates)
+	if err != nil {
+		return err
+	}
+	return g.finishLogin(cmd, conn.Service, ctx, result)
+}
+
+// audienceOf is the host a signature is bound to: the server this invocation
+// was told to reach, or nothing for a database opened directly.
+func audienceOf(serverURL string) string {
+	if serverURL == "" {
+		return ""
+	}
+	u, err := url.Parse(serverURL)
+	if err != nil {
+		return ""
+	}
+	return strings.ToLower(u.Hostname())
+}
+
+// expandTilde resolves a leading ~/ the shell left alone, which it does for
+// --ssh-key=~/.ssh/key.
+func expandTilde(path, home string) string {
+	if rest, ok := strings.CutPrefix(path, "~/"); ok && home != "" {
+		return filepath.Join(home, rest)
+	}
+	return path
 }
 
 // answerChallenge completes a sign-in that the password alone did not.
