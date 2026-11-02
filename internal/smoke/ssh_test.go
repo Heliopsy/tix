@@ -130,8 +130,12 @@ func TestSSHServesEnrolledKeysAndRefusesTheRest(t *testing.T) {
 	listener := s.start("--db", db, "ssh", "--listen", addr)
 	waitForLog(t, listener, "tix ssh listening on")
 
-	t.Run("an enrolled key lands on its own board", func(t *testing.T) {
+	t.Run("an enrolled key lands on the start menu and reaches its own board", func(t *testing.T) {
 		term := dialSSH(t, s, addr, enrolled)
+		// A session that named nothing starts on the menu, whose first row is
+		// Boards; enter on it opens the project list.
+		term.waitForScreen("as smoke", "start", "Boards", "Watch")
+		term.send("\r")
 		// The project key and its name sit on the same row of the projects
 		// list, which is the screen this asserts about, so the wait and the
 		// assertion name the same thing. "connected" is gone for the reason

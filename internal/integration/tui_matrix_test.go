@@ -200,7 +200,8 @@ func pressRune(t *testing.T, m tea.Model, r rune) tea.Model {
 // not the model's gating predicate, as two readers of the same tenant: one who
 // may subscribe to events and one who may not. It is the end of the chain the
 // unit guards cover in pieces, and it is the one that would catch a caller
-// wiring the authority set to the wrong actor.
+// wiring the authority set to the wrong actor. The terminal is tall enough for
+// the whole overlay, so a key scrolled below the fold is not read as dropped.
 func TestTheRealInterfaceNavigatesByTheReadersScopes(t *testing.T) {
 	t.Parallel()
 	h := newMatrixHarness(t)
@@ -221,7 +222,7 @@ func TestTheRealInterfaceNavigatesByTheReadersScopes(t *testing.T) {
 			Access: capability.TUIAccess(actor), Out: io.Discard,
 			Environ: []string{"NO_COLOR=1"},
 		})
-		var model tea.Model = m
+		model, _ := tea.Model(m).Update(tea.WindowSizeMsg{Width: 120, Height: 60})
 		return driveTUI(t, model, model.Init())
 	}
 

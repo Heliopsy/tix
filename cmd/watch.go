@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os/signal"
 	"slices"
-	"strconv"
-	"strings"
 	"syscall"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -115,24 +113,7 @@ func filterByActor(events <-chan core.Event, actors []string) <-chan core.Event 
 // the channel and ends the command rather than hanging quietly forever.
 // Printing on a timer besides would just be noise on top of that signal.
 func (g *globals) watchBanner(cmd *cobra.Command, target string, projects, types, actors []string, since int64) {
-	var filters []string
-	if len(projects) > 0 {
-		filters = append(filters, "project="+strings.Join(projects, ","))
-	}
-	if len(types) > 0 {
-		filters = append(filters, "type="+strings.Join(types, ","))
-	}
-	if len(actors) > 0 {
-		filters = append(filters, "actor="+strings.Join(actors, ","))
-	}
-	if since > 0 {
-		filters = append(filters, "since="+strconv.FormatInt(since, 10))
-	}
-	msg := "watching " + target
-	if len(filters) > 0 {
-		msg += ", filtering on " + strings.Join(filters, " ")
-	}
-	g.diag(cmd, "%s; ctrl-c to stop", msg)
+	g.diag(cmd, "%s", output.WatchBanner(target, projects, types, actors, since))
 }
 
 // follow renders events until the stream ends or limit events were rendered.

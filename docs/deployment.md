@@ -650,31 +650,79 @@ tix: this key is enrolled in more than one tenant: connect as one of acme, defau
 
 No tenant is picked on your behalf. Guessing would drop somebody into the wrong board.
 
-### The command names the board
+### The command picks the interface
 
-A session with no command lands on the project list and you choose. Name a project key as the command to open
-that board directly, which is what `tix tui -p infra` is locally:
+The session's command names what to open, the way every other ssh service takes a command. The username
+already carries the tenant, so the command is the only field left to say this in.
 
-```sh
-ssh -p 2222 tix@tix.example.com infra
-```
+| Command | Opens |
+| --- | --- |
+| nothing | the start menu, one row per interface; a `--demo` sandbox opens its seeded board instead |
+| `board` | the project list |
+| `board KEY` | that project's board, whatever its key is spelled like |
+| `KEY` | that project's board, which is what `tix tui -p KEY` is locally |
+| `watch [KEY...] [flags]` | the live event stream `tix watch` prints |
 
-The username already carries the tenant, so the command is the only field left to say this in. Note that ssh
-allocates a terminal for an interactive session but not for one with a command, and the listener has nothing
-to draw on without one, so pass `-t` when you name a board from a script:
+The interfaces come from one registry in `internal/tui/interfaces.go`. The start menu draws a row for each,
+the listener keeps a launcher for each, and a refused command lists each one's usage, so a new interface
+shows up in all three places and a test fails if it does not.
+
+ssh allocates a terminal for an interactive session but not for one with a command, and a board has
+nothing to draw on without one, so pass `-t` when you name a board:
 
 ```sh
 ssh -t -p 2222 tix@tix.example.com infra
 ```
 
 A key that names a project you cannot reach opens the project list and says so, rather than closing the
-connection. Anything that could not be a project key, or more than one argument, is refused before a session
-is built:
+connection. Anything that could not be a project key, or several words not led by an interface, is refused
+before a session is built, naming what does exist:
 
 ```console
 $ ssh -p 2222 tix@tix.example.com ls -la
-tix: tix is an interface, not a shell: the only argument it takes is a project key to open
+tix: tix is an interface, not a shell: run one of `board [KEY]`, `watch [KEY...] [--project REF] [--type TYPE] [--actor ID] [--since N] [--limit N] [-o ndjson]`, or name a project key to open its board
 ```
+
+#### A project keyed like an interface
+
+`watch` and `board` are reserved as the first word, in any case, because a project key may be spelled
+either way and the command has to mean the same thing on every tenant. A project keyed `watch` opens with
+`board watch`. Every other key still opens as a bare word, so `ssh ... infra` is unchanged.
+
+#### `watch` over ssh
+
+```sh
+ssh -p 2222 tix@tix.example.com watch                          # every project
+ssh -p 2222 tix@tix.example.com watch infra --type 'task.*'    # one project, task events
+ssh -p 2222 tix@tix.example.com watch --since 42 -o ndjson | jq .type
+ssh -t -p 2222 tix@tix.example.com watch infra                 # coloured, in a terminal
+```
+
+It prints the lines `tix watch` prints, through the same renderer, as the key's actor and in its tenant;
+subscribing needs `event:subscribe`, as everywhere else. It takes the flags `tix watch` takes:
+`--project`, `--type`, `--actor` (each repeatable or comma-separated), `--since`, `--limit` and `-o
+table|ndjson`. Unlike `tix watch --project`, which takes identifiers, a project here is a key or an
+identifier, given as a bare word or with `--project`, and each is resolved under the project read check
+before the stream starts: one you cannot read is refused rather than silently matching nothing. The
+banner (`watching as ada, filtering on project=infra; ctrl-c to stop`) goes to standard error, so a pipe
+sees only events.
+
+Without `-t` there is no terminal: lines are plain, with no escape codes, and ctrl-c is handled by your
+ssh client, which closes the connection. With `-t` they are coloured when the terminal type takes colour
+(`NO_COLOR`, `TIX_NO_COLOR` and `TERM=dumb` opt out, as for the board), and ctrl-c, ctrl-d or `q` ends
+the stream with exit status 0.
+
+The stream ends when the client disconnects, when the keepalive limit is reached (see
+`--keepalive-interval` and `--keepalive-max-missed`), when an administrator ends it with
+`tix connection kill`, and on shutdown, where a stream still open at the drain deadline is told the
+server is shutting down. `--idle-timeout` does not apply: a watch has no keystrokes by design, and the
+keepalive is what notices a client that has gone.
+
+#### The start menu
+
+A hosted session with no command lands on the start menu: Boards opens the project list, and Watch opens
+the live activity view, narrowed to a project picked with `←`/`→` on its row. `~` returns to the menu
+from anywhere in the interface. See [tui.md](tui.md#the-start-menu).
 
 A key nobody enrolled gets a refusal that says nothing about what exists:
 

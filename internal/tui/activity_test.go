@@ -320,6 +320,7 @@ func TestActivitySelectionStaysInsideTheFilteredTail(t *testing.T) {
 
 func TestActivityHelpNamesTheFilterKeys(t *testing.T) {
 	m := openFilteredActivity(t, "kind:task", taskEvent(1, "alice"))
+	m.height = 60
 	m, _ = m.reduce(pressKey("?"))
 	frame := m.Frame()
 	for _, want := range []string{"activity filter accepts", "kind", "actor", "source"} {

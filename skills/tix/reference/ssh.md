@@ -45,6 +45,25 @@ ssh -p 2222 tix@localhost                 # the one tenant this key is enrolled 
 ssh -p 2222 acme@localhost                # this key's enrolment in tenant acme
 ```
 
+**The command picks the interface.** No command lands on a start menu (Boards,
+Watch; a `--demo` sandbox opens its board instead). `board` is the project
+list, `board KEY` or a bare `KEY` opens that board (pass `-t`), and `watch`
+streams the lines `tix watch` prints, as the key's actor:
+
+```sh
+ssh -p 2222 tix@localhost watch infra --type 'task.*'      # plain, pipeable
+ssh -p 2222 tix@localhost watch --since 42 -o ndjson | jq .
+ssh -t -p 2222 tix@localhost watch                         # coloured; ctrl-c or q ends it
+```
+
+`watch` takes `--project` (key or id, resolved under the read check), `--type`,
+`--actor`, `--since`, `--limit` and `-o table|ndjson`, plus project keys as
+words. `watch` and `board` are reserved first words in any case: a project keyed
+`watch` opens with `board watch`. A refused command lists every interface. The
+stream ends on client disconnect, the keepalive limit, `tix connection kill`
+and shutdown; `--idle-timeout` does not apply to it. Inside the interface `~`
+opens the start menu from anywhere.
+
 Every failure leaves by the same door, so a stranger cannot use the listener to
 learn which tenants exist. An unenrolled key, a username naming a tenant that
 does not exist and a username naming one that holds no enrolment of this key

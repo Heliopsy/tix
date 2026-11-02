@@ -18,7 +18,7 @@ import (
 // resolve a name for.
 var everyView = []viewKind{
 	viewProjects, viewBoard, viewDetail, viewHelp, viewSettings,
-	viewActivity, viewTenant, viewStats, viewProject, viewHistory, viewInbox,
+	viewActivity, viewTenant, viewStats, viewProject, viewHistory, viewInbox, viewMenu,
 }
 
 // fullAccess offers every view, which is what an administrator's authority
@@ -93,12 +93,12 @@ func TestEveryGatedViewResolvesToARegistryName(t *testing.T) {
 // TestLocalOnlyViewsReadNothingFromTheService pins the carve-out. A view listed
 // there is offered to every reader, so the list is the one place a screen can
 // escape the policy and it has to stay the three that read nothing a scope
-// covers.
+// covers. The start menu is the fourth: it lists interfaces and reads nothing.
 func TestLocalOnlyViewsReadNothingFromTheService(t *testing.T) {
-	want := []viewKind{viewProjects, viewSettings, viewHelp}
+	want := []viewKind{viewProjects, viewSettings, viewHelp, viewMenu}
 	for v := range localOnlyViews {
 		if !slices.Contains(want, v) {
-			t.Errorf("view %q is exempt from gating and is not one of the three that may be",
+			t.Errorf("view %q is exempt from gating and is not one of the four that may be",
 				viewName(v))
 		}
 	}

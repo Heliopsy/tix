@@ -31,6 +31,10 @@ type handleKey struct{}
 // program handler, which runs the interface as it.
 type actorKey struct{}
 
+// launchKey carries what the session's command asked for to the program
+// handler.
+type launchKey struct{}
+
 // handle serves one connection: the wish middleware owns the terminal, the
 // program handler owns the interface.
 //
@@ -81,7 +85,15 @@ func (s *Server) handle(sess ssh.Session) {
 		fatalf(sess, "%s", message(err))
 		return
 	}
+	// The command is read after the second factor, as it always was: a
+	// refusal naming what the listener hosts is still not for a stranger.
+	l, err := s.route(sess.Command())
+	if err != nil {
+		fatalf(sess, "%s", err.Error())
+		return
+	}
 	sess.Context().SetValue(actorKey{}, actor)
+	sess.Context().SetValue(launchKey{}, l)
 	// The registration is made once the session is running, inside program, and
 	// given back here: this defer runs when the session is genuinely over,
 	// however it ended.
@@ -90,6 +102,10 @@ func (s *Server) handle(sess ssh.Session) {
 			h.Unregister()
 		}
 	}()
+	if l.iface == "watch" {
+		s.stream(sess, actor, l.watch)
+		return
+	}
 	bm.MiddlewareWithProgramHandler(s.program)(s.farewell)(sess)
 }
 
@@ -107,11 +123,7 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 		return nil
 	}
 
-	open, err := s.openProject(sess.Command())
-	if err != nil {
-		fatalf(sess, "%s", err.Error())
-		return nil
-	}
+	l, _ := sess.Context().Value(launchKey{}).(launch)
 
 	ctx := core.WithSource(core.WithActor(sess.Context(), actor), core.SourceTUI)
 	pty, _, hasPty := sess.Pty()
@@ -131,7 +143,8 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 		Environ:   environ,
 		Color:     &color,
 		Profile:   profile,
-		Project:   open,
+		Project:   l.project,
+		Start:     l.start,
 		TimeStyle: s.opts.TimeStyle,
 		Now:       s.opts.Clock.Now,
 	})
@@ -164,45 +177,8 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 		tea.WithContext(sess.Context()),
 	}, append(bm.MakeOptions(sess), tea.WithColorProfile(profile))...)
 	program := tea.NewProgram(watched{Model: model, act: act, clk: s.opts.Clock}, opts...)
-	go s.watch(sess, program, act)
+	go s.watch(sess, program.Quit, act)
 	return program
-}
-
-// openProject names the board a session lands on, from what the client asked
-// for and what the listener can offer without guessing.
-//
-// A session may name a project the way every other ssh service takes a
-// command: `ssh tix@host infra` is what `tix tui -p infra` is locally. Until
-// it was, the argument was read off the wire and dropped, so a client that
-// named a board got the project list and no word about why. The command is
-// the only field ssh offers for it, the username already carrying the tenant,
-// so the local flag had no equivalent here at all.
-//
-// With nothing named, a sandbox opens its seeded board, since it holds exactly
-// one and opening it is the demo. A hosted tenant's projects are its own and
-// there is no board this listener could name without inventing one, so the
-// session lands on the project list and its owner chooses.
-//
-// The key is checked for shape here rather than left to the interface: an
-// unknown-but-plausible key is the interface's to answer, against the projects
-// this actor can actually reach, but a 4KB argument or one carrying control
-// characters is not a board anybody has and would be drawn into an error line
-// on the way to saying so.
-func (s *Server) openProject(command []string) (string, error) {
-	switch len(command) {
-	case 0:
-		if s.opts.Demo {
-			return seedProjectKey, nil
-		}
-		return "", nil
-	case 1:
-		if err := core.ValidateProjectKey(command[0]); err != nil {
-			return "", fmt.Errorf("%w; the only argument tix takes is a project key to open", err)
-		}
-		return command[0], nil
-	default:
-		return "", errors.New("tix is an interface, not a shell: the only argument it takes is a project key to open")
-	}
 }
 
 // notice is the line a session leaves behind, or the empty string for a
