@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.0](https://github.com/Heliopsy/tix/compare/v0.36.0...v0.37.0) (2026-11-03)
+
+
+### Features
+
+* **web:** clean up one project now from its board ([adc1ac8](https://github.com/Heliopsy/tix/commit/adc1ac83f29fbc00bfa5b662c452344b4f6015a5))
+
 ## [0.36.0](https://github.com/Heliopsy/tix/compare/v0.35.0...v0.36.0) (2026-11-02)
 
 
