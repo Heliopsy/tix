@@ -676,8 +676,11 @@ move done and cancelled tasks to the trash after N days and empty the trash
 after N days, per tenant and per project (`--project KEY`). A task that
 vanished from the board weeks after it was finished is probably in the trash
 because of them; check `tix cleanup show` before assuming it was deleted by
-hand, and `tix task restore` it. Do not change these rules unless asked: the
-trash rule deletes for good.
+hand, and `tix task restore` it. `tix cleanup preview --project KEY -o json`
+counts what a pass would take now without touching anything. Do not change
+these rules or `tix cleanup run` unless asked: the trash rule deletes for
+good. [setup.md](reference/setup.md#housekeeping) has the JSON shape and
+exit codes.
 
 ## Parking a task until later
 

@@ -186,18 +186,34 @@ at.
 
 ## Housekeeping
 
-Finished tasks and the trash can be cleaned up on the same tick, all off by
-default, set per tenant and overridden per project:
+Finished tasks and the trash can be cleaned up on the same tick, set per
+tenant and overridden per project. Every rule is off until someone sets it,
+so a fresh tenant moves nothing:
 
 ```sh
+tix cleanup show --project OPS            # tenant, override and effective rule
 tix cleanup set --done 30 --cancelled 7 --trash 90
 tix cleanup set --project OPS --done inherit --trash off
-tix cleanup preview
-tix cleanup run --limit 50
+tix cleanup preview --project OPS         # counts only, writes nothing
+tix cleanup run --project OPS             # one pass on OPS alone
+tix cleanup run --limit 50                # every project, 50 per rule
 ```
 
-Done and cancelled tasks only ever go to the trash. With the tenant's trash
-off, turning them on is exit `6` and every rule pauses.
+`run` acts on at most 200 tasks per rule unless `--limit` says otherwise;
+run it again for the rest. `preview` and `run` answer the same shape with
+`-o json`, counts per rule:
+
+```json
+{"dry_run": false, "paused": false, "done": 3, "cancelled": 0, "trash": 1}
+```
+
+`done` and `cancelled` were moved to the trash, `trash` deleted for good.
+With `paused: true` the tenant's trash is off and nothing was touched; the
+exit is still `0`, with a line on stderr. Exit codes: `2` a negative
+`--limit`, `3` unknown project, `5` not a tenant admin. Done and cancelled
+tasks only ever go to the trash, so turning those rules on while the trash
+is off is `set` exit `6`. Do not change the rules or run cleanup unless
+asked: the trash rule deletes for good.
 
 ## History retention
 
