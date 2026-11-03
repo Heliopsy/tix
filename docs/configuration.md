@@ -250,10 +250,12 @@ if the trash is turned off afterwards every rule pauses, the trash rule included
 finished and gone too.
 
 `tix serve` applies the rules after every retention prune (`tix serve --prune-interval`, hourly by default) as
-the system actor, at most 200 tasks per rule per tick; `tix cleanup run` does one pass now. Every task moved
-or purged writes the same `task.delete` audit entry and `task.deleted` event a delete by hand does, with
-`cleanup` and `after_days` in the payload, so Activity shows it and nobody's inbox is notified. Each
-statement re-checks the row it acts on, so two servers ticking at once never act on a task twice.
+the system actor, at most 200 tasks per rule per tick; `tix cleanup run` does one pass now, and
+`tix cleanup run --project KEY` or Clean up now in a board's Housekeeping panel one pass on that project.
+Every task moved or purged writes the same `task.delete` audit entry and `task.deleted` event a delete by
+hand does, with `cleanup` and `after_days` in the payload, so Activity shows it and nobody's inbox is
+notified. Each statement re-checks the row it acts on, so two servers ticking at once never act on a task
+twice.
 
 `server.listen` is the address `tix serve` binds. `--listen` is its flag layer, and a flag nobody typed is not
 a layer: it leaves the configured address alone even though it declares `127.0.0.1:8080` of its own. That is
