@@ -96,7 +96,7 @@
 {{with .Data.Housekeeping}}
 <details class="panel hkpanel">
   <summary>{{t "Housekeeping"}}</summary>
-  <div class="body">
+  <div class="body" id="housekeeping">
     <form method="post" class="cform hkform" data-form action="/projects/{{$.Data.Project.Key}}/housekeeping">
       {{template "csrf" $.CSRF}}
       <p class="cfield-hint">{{t "Overrides the tenant's cleanup defaults for this project. Inherit follows the Tenant screen."}}</p>
@@ -105,6 +105,19 @@
         <div class="cform-actions"><button type="submit">{{t "Save housekeeping"}}</button></div>
       </div>
     </form>
+    {{if .Due}}
+    <details class="hkrun">
+      <summary>{{t "Clean up now"}}</summary>
+      <form method="post" class="hkrunform" action="/projects/{{$.Data.Project.Key}}/housekeeping/run">
+        {{template "csrf" $.CSRF}}
+        <input type="hidden" name="confirm" value="1">
+        <p class="cfield-hint">{{t "Cleanup acts on this project only: %d to the trash, %d deleted for good." .Moving .Purging}}</p>
+        <button class="danger" type="submit">{{t "Clean up this project"}}</button>
+      </form>
+    </details>
+    {{else}}
+    <p><button class="secondary" type="button" disabled>{{t "Clean up now"}}</button> <span class="cfield-hint">{{if .Paused}}{{t "Paused while the trash is off."}}{{else}}{{t "Nothing to clean up now."}}{{end}}</span></p>
+    {{end}}
   </div>
 </details>
 {{end}}

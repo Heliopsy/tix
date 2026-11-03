@@ -7,7 +7,12 @@ import (
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/i18n"
 )
+
+// housekeepingRanKey is the toast after a project's cleanup: how many tasks
+// went to the trash and how many were deleted for good.
+const housekeepingRanKey = "cleanup ran: %d moved to the trash, %d deleted for good"
 
 // housekeepingRoutes set the tenant's cleanup rules, a project's overrides,
 // and run a pass now.
@@ -16,6 +21,7 @@ func (h *handler) housekeepingRoutes() []route {
 		post(RouteHousekeeping, h.putTenantHousekeeping, "PutHousekeeping"),
 		post(RouteHousekeepingRun, h.runHousekeeping, "RunHousekeeping"),
 		post(RouteProjectHousekeeping, h.putProjectHousekeeping, "PutHousekeeping"),
+		post(RouteProjectHousekeepingRun, h.runProjectHousekeeping, "RunHousekeeping"),
 	}
 }
 
@@ -24,7 +30,14 @@ type housekeepingForm struct {
 	Project string
 	Paused  bool
 	Rows    []housekeepingRow
+	// Moving and Purging are what a run would move to the trash and delete
+	// for good now, under the rules in force.
+	Moving, Purging int
 }
+
+// Due reports whether a run now would act on anything. Nothing is pending
+// while cleanup is paused.
+func (f *housekeepingForm) Due() bool { return f.Moving+f.Purging > 0 }
 
 // housekeepingRow is one rule of the form.
 type housekeepingRow struct {
@@ -65,6 +78,11 @@ func newHousekeepingForm(v *core.HousekeepingView) *housekeepingForm {
 			row.Mode, row.Days = "days", *level
 		}
 		f.Rows = append(f.Rows, row)
+		if row.Effective > 0 && r == core.RuleTrash {
+			f.Purging += row.Pending
+		} else if row.Effective > 0 {
+			f.Moving += row.Pending
+		}
 	}
 	return f
 }
@@ -132,6 +150,26 @@ func (h *handler) runHousekeeping(w http.ResponseWriter, r *http.Request) error 
 		return nil
 	}
 	redirect(w, r, RouteTenant, "cleanup ran")
+	return nil
+}
+
+// runProjectHousekeeping applies the cleanup rules to one project once, now,
+// after the reader confirmed it on the board.
+func (h *handler) runProjectHousekeeping(w http.ResponseWriter, r *http.Request) error {
+	key := r.PathValue("key")
+	if field(r, "confirm") != "1" {
+		return core.Invalid("confirm the cleanup of %s first", key)
+	}
+	res, err := h.svc.RunHousekeeping(r.Context(), core.HousekeepingRunInput{Project: key})
+	if err != nil {
+		return err
+	}
+	back := RouteProjects + "/" + key + "#housekeeping"
+	if res.Paused {
+		redirect(w, r, back, "cleanup is paused while the trash is off")
+		return nil
+	}
+	redirect(w, r, back, i18n.T(langOf(r), housekeepingRanKey, res.Done+res.Cancelled, res.Trash))
 	return nil
 }
 

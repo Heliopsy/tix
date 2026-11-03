@@ -951,6 +951,11 @@ Under every rule that is on, both say how many tasks it would act on now, and bo
 the trash is off. Clean up now on the Tenant screen runs one pass; otherwise `tix serve` runs it hourly. See
 [configuration.md](configuration.md#housekeeping).
 
+The board's panel has its own Clean up now, which runs one pass on that project alone, the way
+`tix cleanup run --project KEY` does. It opens a confirmation first that says how many of the project's tasks go
+to the trash and how many are deleted for good, and the toast after it says how many were. It is greyed out
+while nothing is due or the trash is off. Like the rest of the panel it is shown to tenant admins only.
+
 ## Claim length
 
 A task's Lease row sets how long a claim on it holds, and under it the screen says how long a claim taken now

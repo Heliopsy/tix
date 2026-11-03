@@ -151,8 +151,10 @@ const (
 	RouteProjectArch = "/projects/{key}/archive"
 	RouteProjectDel  = "/projects/{key}/delete"
 	RouteProjectIcon = "/projects/{key}/icon"
-	// RouteProjectHousekeeping saves a project's cleanup overrides.
-	RouteProjectHousekeeping = "/projects/{key}/housekeeping"
+	// RouteProjectHousekeeping saves a project's cleanup overrides and
+	// RouteProjectHousekeepingRun applies the rules to that project once.
+	RouteProjectHousekeeping    = "/projects/{key}/housekeeping"
+	RouteProjectHousekeepingRun = "/projects/{key}/housekeeping/run"
 	// RouteProjectLease saves how long claims on a project's tasks hold.
 	RouteProjectLease    = "/projects/{key}/lease"
 	RouteBoardMove       = "/projects/{key}/move"

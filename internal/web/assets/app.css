@@ -6322,7 +6322,7 @@ a.heldswitch[aria-checked="true"]::before { content: "\2611"; }
 .heldswitch[aria-checked="true"] { background: var(--accent-soft); color: var(--ink); border-color: var(--accent); }
 
 .savefilter { margin: 0 0 var(--space-3); }
-.savefilter > summary {
+.savefilter > summary, .hkrun > summary {
   display: inline-flex;
   align-items: center;
   min-height: var(--control-h);
@@ -6335,7 +6335,7 @@ a.heldswitch[aria-checked="true"]::before { content: "\2611"; }
   cursor: pointer;
   list-style: none;
 }
-.savefilter > summary::-webkit-details-marker { display: none; }
+.savefilter > summary::-webkit-details-marker, .hkrun > summary::-webkit-details-marker { display: none; }
 .savefilter-form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-2); }
 .savefilter-form input[name="name"] { flex: 1 1 14rem; min-width: 0; }
 .savefilter-share { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-sm); }
@@ -7118,3 +7118,7 @@ details.relentry > .relnotes { padding: 0 var(--space-4) var(--space-4); }
 .hkinputs { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 .cform .hkinputs select { width: auto; min-width: 14rem; }
 .cform .hkinputs input.hkdays:not([type="checkbox"]) { width: 7rem; }
+/* Clean up now opens a confirmation in place rather than running on one click. */
+.hkrun { margin-top: var(--space-3); }
+.hkrunform { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-2); }
+.hkrunform .cfield-hint { flex: 1 1 100%; margin: 0; }
