@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 type yamlFormatter struct{}
@@ -23,7 +23,7 @@ func (y *yamlFormatter) Format(w io.Writer, data any) error {
 	return nil
 }
 
-// marshalYAML converts yaml.v3's panic on unsupported types into an error.
+// marshalYAML converts the yaml encoder's panic on unsupported types into an error.
 func marshalYAML(data any) (b []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
