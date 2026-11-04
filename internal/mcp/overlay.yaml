@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Decisions the OpenAPI document cannot make about `tix mcp` tools. Every
+# operation of api/openapi.yaml becomes a tool unless it is listed here as
+# hidden or answers something other than JSON. Format: docs/mcp.md.
+operations:
+  # Signing in and second-factor enrolment belong to a person at a browser or a
+  # terminal. The MCP server already runs with a credential.
+  session.login:
+    hide: true
+    reason: signing in is how a credential is obtained, and the server already holds one
+  session.logout:
+    hide: true
+    reason: ends a browser session, which a bearer token does not have
+  session.ssh_challenge:
+    hide: true
+    reason: one step of an SSH key sign-in, which a bearer token never needs
+  session.ssh_login:
+    hide: true
+    reason: one step of an SSH key sign-in, which a bearer token never needs
+  totp.enrol:
+    hide: true
+    reason: a second factor is enrolled by its owner, on a device a model does not hold
+  totp.confirm:
+    hide: true
+    reason: a second factor is enrolled by its owner, on a device a model does not hold
+  totp.codes:
+    hide: true
+    reason: recovery codes are shown once to a person and are not for a model to read
+  totp.verify:
+    hide: true
+    reason: a code comes from a person's device
+  totp.status:
+    hide: true
+    reason: the caller's own second factor, which only the enrolment flow needs
+  totp.remove:
+    hide: true
+    reason: a person removes their own second factor, never an agent on their behalf
+
+  # Plumbing rather than work.
+  api.spec:
+    hide: true
+    reason: the document these tools are generated from; the client already has it as tools
+  server.health:
+    hide: true
+    reason: a liveness probe for a load balancer
+  server.ready:
+    hide: true
+    reason: a readiness probe for a load balancer
+
+  task.list:
+    hide_params: [format]
+    description: |-
+      List tasks, keyset paginated: pass next_cursor back as cursor for the next page.
+      Filters combine with AND; a list filter matches any of its values, and the not_ ones exclude.
+
+  # A DELETE that only undoes a reversible mark is not destructive.
+  task.unstar:
+    destructive: false
+    reason: unstarring is undone by starring
+  task.unsnooze:
+    destructive: false
+    reason: waking a task early is undone by snoozing it again
+  inbox.unread:
+    destructive: false
+    reason: marking an item unread is undone by reading it
+  dependency.remove:
+    destructive: false
+    reason: removing an edge is undone by adding it back
+  tag.remove:
+    destructive: false
+    reason: removing a tag is undone by adding it back
+  view.reset:
+    destructive: false
+    reason: resets a personal column arrangement to its default and loses no task data
+
+  # Not a DELETE, but loses work or data all the same.
+  task.bulk:
+    destructive: true
+    reason: one call can delete many tasks
+  claim.reclaim:
+    destructive: true
+    reason: takes a live lease from the worker holding it, whose work is then refused
+  retention.prune:
+    destructive: true
+    reason: deletes history past its retention window, which cannot be brought back
+  housekeeping.run:
+    destructive: true
+    reason: moves finished tasks to the trash and empties the trash for good

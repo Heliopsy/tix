@@ -48,6 +48,9 @@ needs, its error statuses and, where one exists, the OpenSpec capability that sp
 The document is never edited by hand. A contributor changing a route runs `just openapi` and commits the
 result, and the build fails while the committed file differs from what the registry produces.
 
+`tix mcp` builds its MCP tools from the same document, one per JSON operation, so a route is an agent's tool
+as soon as it is in the document. See [mcp.md](mcp.md).
+
 ## Routes
 
 Everything below is under `/api/v1`.

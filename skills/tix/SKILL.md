@@ -1,7 +1,7 @@
 ---
 name: tix
-description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. There is no MCP server; this CLI is the only interface. Covers writing your own plan down as tasks with a lease sized to each before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 14
+description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. `tix mcp` serves the same API as MCP tools for a client that wants them, but this skill drives the CLI, which reaches everything. Covers writing your own plan down as tasks with a lease sized to each before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
+version: 15
 verified-against: tix 17d1152 (2026-11-01)
 ---
 
@@ -14,7 +14,7 @@ need once in a while:
 - [reference/queries.md](reference/queries.md) — the filter language, deadlines,
   sorting and paging, the actor directory, `tix stats`, `tix watch`.
 - [reference/setup.md](reference/setup.md) — targets and contexts, API tokens
-  and scopes, `tix serve`, workflows and custom fields, the audit log,
+  and scopes, `tix serve`, `tix mcp`, workflows and custom fields, the audit log,
   import/export, sync, webhooks, bundles, retention.
 - [reference/ssh.md](reference/ssh.md) — serving the terminal interface over
   SSH, enrolling keys, and `tix login --ssh-key`.

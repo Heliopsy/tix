@@ -104,7 +104,7 @@ second time by row-level security policies, applied to the connection when tix o
 
 ## Access paths
 
-One binary, one service layer, five ways in. The web UI is required to cover 100% of the CLI, enforced
+One binary, one service layer, six ways in. The web UI is required to cover 100% of the CLI, enforced
 by a test that fails the build when an operation lacks a binding.
 
 | Path | Notes |
@@ -114,6 +114,7 @@ by a test that fails the build when an operation lacks a binding.
 | HTTP API | `/api/v1`, keyset paginated, consistent error envelope |
 | WebSocket | Subscribe to events, resume from a cursor after a reconnect |
 | Web UI | Server-rendered, no JavaScript build step, works without JavaScript |
+| MCP | `tix mcp` serves every JSON operation of the API as a tool, generated from its OpenAPI document |
 
 ## What else is in the binary
 
@@ -200,6 +201,7 @@ code there. Nothing else changes: the commands, the output and the exit codes ar
 | [docs/commands.md](docs/commands.md) | Every command, grouped |
 | [docs/configuration.md](docs/configuration.md) | Contexts, the five layers, `TIX_*` variables, discovery |
 | [docs/api.md](docs/api.md) | HTTP API and the WebSocket event stream |
+| [docs/mcp.md](docs/mcp.md) | `tix mcp`: the API as MCP tools, the overlay, scopes and destructive tools |
 | [docs/deployment.md](docs/deployment.md) | `tix serve`, the container image, Kubernetes, TLS, proxies |
 | [docs/features.md](docs/features.md) | Statistics, theming, completion, self-update and the rest |
 | [docs/specifications.md](docs/specifications.md) | The normative OpenSpec contract, capability by capability |
