@@ -1,0 +1,87 @@
+{
+  "params": {
+    "project": { "from": "/projects", "match": "^/projects/([^/?#]+)$", "prefer": "web" },
+    "workflow": { "from": "/workflows", "match": "^/workflows/([^/?#]+)$", "prefer": "default" },
+    "task": { "from": "/tasks", "match": "^/tasks/([a-z0-9]+-[0-9]+)$", "prefer": "infra-4" },
+    "template": { "from": "/templates", "match": "^/templates/([0-9A-Z]{26})$" },
+    "channel": { "from": "/settings/notifications", "match": "^/settings/notifications/([0-9A-Z]{26})$" },
+    "filter": { "from": "/tasks", "match": "^/filters/([^/?#]+)$" }
+  },
+  "global": [
+    { "name": "command-palette", "click": "[data-palette-open]", "wait": "dialog#palette[open]" },
+    { "name": "keyboard-shortcuts", "press": "?", "wait": "#shortcuts-help:not([hidden])" }
+  ],
+  "routes": [
+    { "pattern": "/", "skip": "redirects to /projects, which is captured" },
+    { "pattern": "/login", "public": true },
+    { "pattern": "/settings" },
+    { "pattern": "/settings/notifications" },
+    { "pattern": "/release" },
+    { "pattern": "/activity" },
+    { "pattern": "/activity/feed", "skip": "htmx fragment of /activity" },
+    { "pattern": "/stats" },
+    { "pattern": "/admin/status" },
+    { "pattern": "/projects" },
+    {
+      "pattern": "/projects/{key}",
+      "params": { "key": "project" },
+      "states": [{ "name": "lanes", "cookies": { "tix_task_view": "lanes" } }]
+    },
+    { "pattern": "/projects/{key}/live", "skip": "htmx fragment of the board" },
+    { "pattern": "/projects/{key}/icon", "skip": "image file, not a screen" },
+    { "pattern": "/projects/{key}/delete", "params": { "key": "project" } },
+    { "pattern": "/projects/{key}/fields", "params": { "key": "project" } },
+    { "pattern": "/filters/{filter}", "params": { "filter": "filter" } },
+    {
+      "pattern": "/mine",
+      "states": [
+        { "name": "board", "cookies": { "tix_task_view": "board" } },
+        { "name": "lanes", "cookies": { "tix_task_view": "lanes" } }
+      ]
+    },
+    { "pattern": "/mine/live", "skip": "htmx fragment of /mine" },
+    { "pattern": "/inbox" },
+    { "pattern": "/inbox/badge", "skip": "htmx fragment of the sidebar" },
+    { "pattern": "/settings/notifications/{id}", "params": { "id": "channel" } },
+    { "pattern": "/workflows" },
+    { "pattern": "/workflows/{key}", "params": { "key": "workflow" } },
+    { "pattern": "/templates" },
+    { "pattern": "/templates/new" },
+    { "pattern": "/templates/{id}", "params": { "id": "template" } },
+    { "pattern": "/tasks/{ref}/template", "params": { "ref": "task" } },
+    {
+      "pattern": "/tasks",
+      "states": [
+        { "name": "board", "cookies": { "tix_task_view": "board" } },
+        { "name": "lanes", "cookies": { "tix_task_view": "lanes" } },
+        { "name": "selected", "click": "input.rowpick[data-pick]", "wait": "[data-bulk-count]" },
+        {
+          "name": "task-dialog",
+          "cookies": { "tix_task_open": "dialog" },
+          "click": "main [data-shortcut-row] a[href^='/tasks/']",
+          "wait": "dialog#taskdlg[open] #taskdlg-body > *"
+        }
+      ]
+    },
+    { "pattern": "/tasks/export.csv", "skip": "CSV download, not a screen" },
+    { "pattern": "/tasks/quickadd", "skip": "htmx fragment of the quick add preview" },
+    { "pattern": "/tasks/live", "skip": "htmx fragment of /tasks" },
+    { "pattern": "/tasks/{ref}", "params": { "ref": "task" } },
+    { "pattern": "/tasks/{ref}/live", "skip": "htmx fragment of the task screen" },
+    { "pattern": "/tasks/{ref}/copy", "params": { "ref": "task" } },
+    { "pattern": "/actors" },
+    { "pattern": "/admin/tenant" },
+    { "pattern": "/admin/domains" },
+    { "pattern": "/admin/users" },
+    { "pattern": "/admin/tokens" },
+    { "pattern": "/admin/ssh-keys" },
+    { "pattern": "/admin/connections" },
+    { "pattern": "/admin/webhooks" },
+    { "pattern": "/transfer" },
+    { "pattern": "/sync" },
+    { "pattern": "/sync/runs" },
+    { "pattern": "/bundles" },
+    { "pattern": "/palette/tasks", "skip": "JSON the command palette reads" },
+    { "pattern": "/palette/projects", "skip": "JSON the command palette reads" }
+  ]
+}
