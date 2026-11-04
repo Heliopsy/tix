@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.39.0](https://github.com/Heliopsy/tix/compare/v0.38.1...v0.39.0) (2026-11-04)
+
+
+### Features
+
+* **api:** generate the OpenAPI document from the capability registry ([39fe07c](https://github.com/Heliopsy/tix/commit/39fe07ca14aa3625fb17cc22f47cca81ac015f1b))
+
+
+### Dependencies
+
+* **deps:** bump pgx to v5.12.0 and modernc sqlite to v1.61.1 ([1e1b9e0](https://github.com/Heliopsy/tix/commit/1e1b9e02f4eeaabbe2b10a349994b12ee305a072))
+* **deps:** move markdown rendering to goldmark v2 ([d8404a8](https://github.com/Heliopsy/tix/commit/d8404a86f5cdf55df471630aeef50a1c257ef2c0))
+* **deps:** move YAML to go.yaml.in/yaml/v4 ([9360424](https://github.com/Heliopsy/tix/commit/9360424ed2038757c1c80993d882b837ef0040a5))
+
 ## [0.38.1](https://github.com/Heliopsy/tix/compare/v0.38.0...v0.38.1) (2026-11-04)
 
 
