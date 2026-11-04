@@ -1098,17 +1098,26 @@ input[readonly] {
 
 /* A line holding an (i): a heading, a label or a setting's name. Its note
    opens under the line and pushes what follows down, rather than floating
-   over it: on a phone, floating covered the next setting's name. The line is
-   a block whose children are inline, and the disclosure itself is inline,
-   so its note, a block, is laid out as a full-width block after the line. A
-   flex line cannot do this: its items are blockified, and the note would
-   widen the disclosure beside the label instead of dropping under it. */
-:is(.setname-line, .field-label, .cfield-label, .headtip) { display: block; }
-:is(.setname-line, .field-label, .cfield-label, .headtip) > :not(.field-info) { display: inline-block; vertical-align: middle; }
-:is(.setname-line, .field-label, .cfield-label, .headtip) > .field-info { display: inline; position: static; }
-:is(.setname-line, .field-label, .cfield-label, .headtip) > .field-info > summary { vertical-align: middle; margin-inline-start: 6px; }
+   over it: on a phone, floating covered the next setting's name.
+
+   A setting's name and a field's label are a block whose children are
+   inline, and the disclosure itself is inline, so its note, a block, is laid
+   out as a full-width block after the line. A heading or a create form's
+   label, whose line also carries a large heading or a "required" mark, stays
+   a wrapping flex line and the disclosure gives its box away
+   (display: contents), so the note is a flex item of its own that wraps to a
+   full row under the line. Either way no script positions anything. */
+:is(.setname-line, .field-label) { display: block; }
+:is(.setname-line, .field-label) > :not(.field-info) { display: inline-block; vertical-align: middle; }
+:is(.setname-line, .field-label) > .field-info { display: inline; position: static; }
+:is(.setname-line, .field-label) > .field-info > summary { vertical-align: middle; margin-inline-start: 6px; }
+.headtip, .cfield-label { display: flex; flex-wrap: wrap; align-items: center; }
+:is(.headtip, .cfield-label) > .field-info { display: contents; }
+:is(.headtip, .cfield-label) > .field-info > summary { margin-inline-start: 6px; }
+:is(.headtip, .cfield-label) > .field-info::details-content { flex: 1 0 100%; }
 :is(.setname-line, .field-label, .cfield-label, .headtip) > .field-info > p {
   position: static;
+  flex: 1 0 100%;
   width: auto;
   max-width: var(--measure-text);
   margin: var(--space-2) 0 var(--space-1);
@@ -3037,8 +3046,8 @@ details.panel.addmore .actions {
 .cfield label, .cfield-name { margin: 0; font-size: var(--text-xs); font-weight: 500; color: var(--muted); }
 /* The label, its required mark and its tip on one line, so a tip never wraps
    under its label and pushes the control below its neighbours. */
-.cfield-label { min-height: 20px; }
-.cfield-label .req { float: right; }
+.cfield-label { gap: var(--space-1); min-height: 20px; }
+.cfield-label .req { margin-inline-start: auto; }
 .req { font-size: var(--text-2xs); font-weight: 500; color: var(--muted); text-transform: lowercase; }
 .cfield-hint { margin: 0; font-size: var(--text-xs); color: var(--muted); line-height: 1.4; }
 .cfield-hint .mono { font-size: inherit; }
@@ -5015,9 +5024,9 @@ input#code {
 
 /* The control column is one width for every row, so the selects are one
    width and the switches sit in one vertical line. Sized by the widest thing
-   it holds, the task view's three segments. */
+   it holds, the list groups' three segments, each on one line. */
 .setrow {
-  --setctl-w: 17rem;
+  --setctl-w: 20rem;
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--setctl-w);
   align-items: center;
