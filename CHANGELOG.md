@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.0](https://github.com/Heliopsy/tix/compare/v0.37.0...v0.38.0) (2026-11-04)
+
+
+### Features
+
+* **cli:** set a task's lease when adding it ([b6702c7](https://github.com/Heliopsy/tix/commit/b6702c704a4d9c50fc38aab5b112acd9042c7b87))
+
 ## [0.37.0](https://github.com/Heliopsy/tix/compare/v0.36.0...v0.37.0) (2026-11-03)
 
 
