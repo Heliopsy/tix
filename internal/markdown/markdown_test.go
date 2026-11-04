@@ -104,6 +104,8 @@ func TestOnlyWebAddressesBecomeLinks(t *testing.T) {
 		src, href string
 	}{
 		{"[a](https://example.com/x?y=1)", `href="https://example.com/x?y=1"`},
+		{"[a](https://example.com/x?y=1&z=2)", `href="https://example.com/x?y=1&amp;z=2"`},
+		{"see https://example.com/x?y=1&z=2", `href="https://example.com/x?y=1&amp;z=2"`},
 		{"[a](http://example.com)", `href="http://example.com"`},
 		{"[a](mailto:ops@example.com)", `href="mailto:ops@example.com"`},
 		{"see https://example.com/p", `href="https://example.com/p"`},

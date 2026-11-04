@@ -15,18 +15,17 @@ package markdown
 import (
 	"bytes"
 	"html/template"
+	"io"
 	"net/url"
 	"strconv"
 	"strings"
 
-	"github.com/yuin/goldmark"
-	"github.com/yuin/goldmark/ast"
-	"github.com/yuin/goldmark/extension"
-	extast "github.com/yuin/goldmark/extension/ast"
-	"github.com/yuin/goldmark/renderer"
-	"github.com/yuin/goldmark/renderer/html"
-	"github.com/yuin/goldmark/text"
-	"github.com/yuin/goldmark/util"
+	"github.com/yuin/goldmark/v2/ast"
+	"github.com/yuin/goldmark/v2/extension"
+	"github.com/yuin/goldmark/v2/parser"
+	"github.com/yuin/goldmark/v2/renderer"
+	"github.com/yuin/goldmark/v2/renderer/html"
+	"github.com/yuin/goldmark/v2/util"
 )
 
 // Rel is the relationship every rendered link carries.
@@ -49,18 +48,15 @@ type Options struct {
 	IDPrefix string
 }
 
-// tableAlign keeps cell alignment out of style attributes, which a policy
-// without unsafe-inline styles would refuse.
-var tableAlign = extension.WithTableCellAlignMethod(extension.TableCellAlignAttribute)
-
-// md is the one parser. Its renderer is never used: Render builds one per call
-// because numbering checklist items is state.
-var md = goldmark.New(goldmark.WithExtensions(
-	extension.NewTable(tableAlign), extension.Strikethrough, extension.TaskList, extension.Linkify,
+// md is the one parser. Render builds a renderer per call because numbering
+// checklist items is state.
+var md = parser.New(parser.WithExtensions(
+	extension.NewTableParser(), extension.NewStrikethroughParser(),
+	extension.NewTaskListItemParser(), extension.NewLinkifyParser(),
 ))
 
 func parse(src []byte) ast.Node {
-	return md.Parser().Parse(text.NewReader(src))
+	return md.Parse(src)
 }
 
 // Render returns the HTML for src. It never fails: a rendering error leaves
@@ -72,12 +68,17 @@ func Render(src string, opt Options) template.HTML {
 	source := []byte(src)
 	doc := parse(source)
 	linkRefs(doc, source, opt)
-	r := renderer.NewRenderer(renderer.WithNodeRenderers(
-		util.Prioritized(html.NewRenderer(html.WithHardWraps()), 1000),
-		util.Prioritized(extension.NewTableHTMLRenderer(tableAlign), 500),
-		util.Prioritized(extension.NewStrikethroughHTMLRenderer(), 500),
-		util.Prioritized(&safeRenderer{opt: opt}, 100),
-	))
+	s := &safeRenderer{opt: opt}
+	// Cell alignment goes in an attribute, not a style, which a policy
+	// without unsafe-inline styles would refuse.
+	r := html.New(
+		html.WithHardWraps(),
+		html.WithExtensions(
+			extension.NewTableHTMLRenderer(extension.WithTableCellAlignMethod(extension.TableCellAlignAttribute)),
+			extension.NewStrikethroughHTMLRenderer(),
+		),
+		html.WithNodeRenderers(s.renderers()),
+	)
 	var buf bytes.Buffer
 	if err := r.Render(&buf, source, doc); err != nil {
 		return template.HTML("<p>" + template.HTMLEscapeString(src) + "</p>") // #nosec G203 -- escaped above
@@ -88,7 +89,7 @@ func Render(src string, opt Options) template.HTML {
 // SafeHref returns dest as an attribute-ready address when it is an absolute
 // http, https or mailto URL, and reports false for anything else.
 func SafeHref(dest []byte) (string, bool) {
-	escaped := string(util.URLEscape(dest, true))
+	escaped := urlEscape(dest)
 	u, err := url.Parse(escaped)
 	if err != nil {
 		return "", false
@@ -108,6 +109,13 @@ func SafeHref(dest []byte) (string, bool) {
 	return escaped, true
 }
 
+// urlEscape percent-encodes dest. goldmark's URLEscape also writes & as
+// &amp;, which is HTML escaping; that is undone here so the address parses as
+// a URL and is escaped once, where it is written into the attribute.
+func urlEscape(dest []byte) string {
+	return strings.ReplaceAll(string(util.URLEscape(dest)), "&amp;", "&")
+}
+
 // safeRenderer draws the nodes whose default rendering is unsafe or wrong for
 // tix: raw HTML, links, images, checklist items and headings.
 type safeRenderer struct {
@@ -115,114 +123,99 @@ type safeRenderer struct {
 	items int
 }
 
-// RegisterFuncs claims the node kinds this renderer draws.
-func (r *safeRenderer) RegisterFuncs(reg renderer.NodeRendererFuncRegisterer) {
-	reg.Register(ast.KindRawHTML, r.rawHTML)
-	reg.Register(ast.KindHTMLBlock, r.htmlBlock)
-	reg.Register(ast.KindLink, r.link)
-	reg.Register(ast.KindAutoLink, r.autoLink)
-	reg.Register(ast.KindImage, r.image)
-	reg.Register(ast.KindHeading, r.heading)
-	reg.Register(ast.KindListItem, r.listItem)
-	reg.Register(extast.KindTaskCheckBox, r.checkBox)
-	reg.Register(kindRef, r.ref)
+// renderers claims the node kinds this renderer draws.
+func (r *safeRenderer) renderers() map[ast.NodeKind]html.NodeRenderer {
+	return map[ast.NodeKind]html.NodeRenderer{
+		ast.KindRawHTML:   html.NodeRendererFunc(r.rawHTML),
+		ast.KindHTMLBlock: html.NodeRendererFunc(r.htmlBlock),
+		ast.KindLink:      html.NodeRendererFunc(r.link),
+		ast.KindAutoLink:  html.NodeRendererFunc(r.autoLink),
+		ast.KindImage:     html.NodeRendererFunc(r.image),
+		ast.KindHeading:   html.NodeRendererFunc(r.heading),
+		ast.KindListItem:  html.NodeRendererFunc(r.listItem),
+		ast.KindParagraph: html.NodeRendererFunc(r.paragraph),
+		kindRef:           html.NodeRendererFunc(r.ref),
+	}
 }
 
-func (r *safeRenderer) rawHTML(w util.BufWriter, src []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
-	if !entering {
-		return ast.WalkSkipChildren, nil
-	}
-	segs := node.(*ast.RawHTML).Segments
-	for i := range segs.Len() {
-		seg := segs.At(i)
-		_, _ = w.Write(util.EscapeHTML(seg.Value(src)))
+func (r *safeRenderer) rawHTML(w io.Writer, src []byte, node ast.Node, entering bool, _ renderer.Context) (ast.WalkStatus, error) {
+	if entering {
+		_, _ = w.Write(util.EscapeHTML(node.(*ast.RawHTML).Value.Bytes(src)))
 	}
 	return ast.WalkSkipChildren, nil
 }
 
-func (r *safeRenderer) htmlBlock(w util.BufWriter, src []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
-	n := node.(*ast.HTMLBlock)
+func (r *safeRenderer) htmlBlock(w io.Writer, src []byte, node ast.Node, entering bool, _ renderer.Context) (ast.WalkStatus, error) {
 	if !entering {
 		return ast.WalkContinue, nil
 	}
-	var buf bytes.Buffer
-	for i := range n.Lines().Len() {
-		line := n.Lines().At(i)
-		buf.Write(line.Value(src))
-	}
-	if n.HasClosure() {
-		buf.Write(n.ClosureLine.Value(src))
-	}
-	_, _ = w.WriteString(`<p class="md-html">`)
-	_, _ = w.Write(util.EscapeHTML(bytes.TrimRight(buf.Bytes(), "\r\n")))
-	_, _ = w.WriteString("</p>\n")
+	n := node.(*ast.HTMLBlock)
+	_, _ = io.WriteString(w, `<p class="md-html">`)
+	_, _ = w.Write(util.EscapeHTML(bytes.TrimRight(n.Value.Bytes(src), "\r\n")))
+	_, _ = io.WriteString(w, "</p>\n")
 	return ast.WalkSkipChildren, nil
 }
 
-func writeAnchor(w util.BufWriter, href string, class string) {
-	_, _ = w.WriteString(`<a href="`)
+func writeAnchor(w io.Writer, href string, class string) {
+	_, _ = io.WriteString(w, `<a href="`)
 	_, _ = w.Write(util.EscapeHTML([]byte(href)))
-	_, _ = w.WriteString(`" rel="` + Rel + `"`)
+	_, _ = io.WriteString(w, `" rel="`+Rel+`"`)
 	if class != "" {
-		_, _ = w.WriteString(` class="` + class + `"`)
+		_, _ = io.WriteString(w, ` class="`+class+`"`)
 	}
-	_ = w.WriteByte('>')
+	_, _ = io.WriteString(w, ">")
 }
 
-func (r *safeRenderer) link(w util.BufWriter, _ []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
+func (r *safeRenderer) link(w io.Writer, src []byte, node ast.Node, entering bool, _ renderer.Context) (ast.WalkStatus, error) {
 	n := node.(*ast.Link)
-	href, ok := SafeHref(n.Destination)
+	href, ok := SafeHref([]byte(n.Destination.Value(src)))
 	if !ok {
 		return ast.WalkContinue, nil
 	}
 	if entering {
 		writeAnchor(w, href, "")
 	} else {
-		_, _ = w.WriteString("</a>")
+		_, _ = io.WriteString(w, "</a>")
 	}
 	return ast.WalkContinue, nil
 }
 
-func (r *safeRenderer) autoLink(w util.BufWriter, src []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
+func (r *safeRenderer) autoLink(w io.Writer, src []byte, node ast.Node, entering bool, _ renderer.Context) (ast.WalkStatus, error) {
 	if !entering {
 		return ast.WalkContinue, nil
 	}
 	n := node.(*ast.AutoLink)
-	dest, label := n.URL(src), n.Label(src)
-	lower := bytes.ToLower(dest)
-	switch {
-	case n.AutoLinkType == ast.AutoLinkEmail && !bytes.HasPrefix(lower, []byte("mailto:")):
-		dest = append([]byte("mailto:"), dest...)
-	case n.AutoLinkType == ast.AutoLinkURL && !bytes.Contains(lower, []byte(":")):
-		dest = append([]byte("https://"), dest...)
+	dest, label := n.Destination.Value(src), n.Label.Value(src)
+	if !strings.Contains(dest, ":") {
+		dest = "https://" + dest
 	}
-	href, ok := SafeHref(dest)
+	href, ok := SafeHref([]byte(dest))
 	if ok {
 		writeAnchor(w, href, "")
 	}
-	_, _ = w.Write(util.EscapeHTML(label))
+	_, _ = w.Write(util.EscapeHTML([]byte(label)))
 	if ok {
-		_, _ = w.WriteString("</a>")
+		_, _ = io.WriteString(w, "</a>")
 	}
 	return ast.WalkContinue, nil
 }
 
 // image never loads the picture. It links to the address, labelled by the alt
 // text, and inside a link it is only the alt text, since anchors do not nest.
-func (r *safeRenderer) image(w util.BufWriter, src []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
+func (r *safeRenderer) image(w io.Writer, src []byte, node ast.Node, entering bool, _ renderer.Context) (ast.WalkStatus, error) {
 	if !entering {
 		return ast.WalkSkipChildren, nil
 	}
 	n := node.(*ast.Image)
 	alt := plainText(n, src)
-	href, ok := SafeHref(n.Destination)
+	href, ok := SafeHref([]byte(n.Destination.Value(src)))
 	if ok && !insideLink(n) {
 		if alt == "" {
 			alt = href
 		}
 		writeAnchor(w, href, "md-image")
 		_, _ = w.Write(util.EscapeHTML([]byte(alt)))
-		_, _ = w.WriteString("</a>")
+		_, _ = io.WriteString(w, "</a>")
 		return ast.WalkSkipChildren, nil
 	}
 	_, _ = w.Write(util.EscapeHTML([]byte(alt)))
@@ -239,73 +232,87 @@ func insideLink(n ast.Node) bool {
 }
 
 // heading sits two levels down, under the h2 of the card the text is in.
-func (r *safeRenderer) heading(w util.BufWriter, _ []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
+func (r *safeRenderer) heading(w io.Writer, _ []byte, node ast.Node, entering bool, _ renderer.Context) (ast.WalkStatus, error) {
 	tag := "h" + strconv.Itoa(min(node.(*ast.Heading).Level+2, 6))
 	if entering {
-		_, _ = w.WriteString("<" + tag + ">")
+		_, _ = io.WriteString(w, "<"+tag+">")
 	} else {
-		_, _ = w.WriteString("</" + tag + ">\n")
+		_, _ = io.WriteString(w, "</"+tag+">\n")
 	}
 	return ast.WalkContinue, nil
 }
 
-func (r *safeRenderer) listItem(w util.BufWriter, _ []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
+func (r *safeRenderer) listItem(w io.Writer, _ []byte, node ast.Node, entering bool, _ renderer.Context) (ast.WalkStatus, error) {
 	if !entering {
-		_, _ = w.WriteString("</li>\n")
+		_, _ = io.WriteString(w, "</li>\n")
 		return ast.WalkContinue, nil
 	}
-	if first := node.FirstChild(); first != nil && first.FirstChild() != nil &&
-		first.FirstChild().Kind() == extast.KindTaskCheckBox {
-		_, _ = w.WriteString(`<li class="task-item">`)
+	if extension.IsTask(node) {
+		_, _ = io.WriteString(w, `<li class="task-item">`)
 	} else {
-		_, _ = w.WriteString("<li>")
+		_, _ = io.WriteString(w, "<li>")
 	}
 	if fc := node.FirstChild(); fc != nil {
-		if _, ok := fc.(*ast.TextBlock); !ok {
-			_ = w.WriteByte('\n')
+		if p, ok := fc.(*ast.Paragraph); !ok || !html.IsInTightBlock(p) {
+			_, _ = io.WriteString(w, "\n")
 		}
 	}
 	return ast.WalkContinue, nil
 }
 
-func (r *safeRenderer) checkBox(w util.BufWriter, src []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
+// paragraph is goldmark's paragraph with the checklist box drawn at the start
+// of the one that opens a checklist item.
+func (r *safeRenderer) paragraph(w io.Writer, src []byte, node ast.Node, entering bool, _ renderer.Context) (ast.WalkStatus, error) {
+	tight := html.IsInTightBlock(node)
 	if !entering {
+		switch {
+		case !tight:
+			_, _ = io.WriteString(w, "</p>\n")
+		case node.NextSibling() != nil && node.FirstChild() != nil:
+			_, _ = io.WriteString(w, "\n")
+		}
 		return ast.WalkContinue, nil
 	}
-	n := node.(*extast.TaskCheckBox)
-	r.items++
-	label := itemLabel(n, src)
-	if !r.opt.Interactive {
-		_, _ = w.WriteString(`<input type="checkbox" disabled`)
-		if n.IsChecked {
-			_, _ = w.WriteString(" checked")
+	if !tight {
+		_, _ = io.WriteString(w, "<p>")
+	}
+	if item := node.Parent(); item != nil && item.FirstChild() == node {
+		if status, ok := extension.TaskStatusOf(item); ok {
+			r.checkBox(w, src, node, status == extension.TaskStatusCompleted)
 		}
-		_, _ = w.WriteString(` aria-label="`)
+	}
+	return ast.WalkContinue, nil
+}
+
+func (r *safeRenderer) checkBox(w io.Writer, src []byte, para ast.Node, checked bool) {
+	r.items++
+	label := itemLabel(para, src)
+	if !r.opt.Interactive {
+		_, _ = io.WriteString(w, `<input type="checkbox" disabled`)
+		if checked {
+			_, _ = io.WriteString(w, " checked")
+		}
+		_, _ = io.WriteString(w, ` aria-label="`)
 		_, _ = w.Write(util.EscapeHTML([]byte(label)))
-		_, _ = w.WriteString(`"> `)
-		return ast.WalkContinue, nil
+		_, _ = io.WriteString(w, `"> `)
+		return
 	}
 	name, state := "check", "false"
-	if n.IsChecked {
+	if checked {
 		name, state = "uncheck", "true"
 	}
 	num := strconv.Itoa(r.items)
-	_, _ = w.WriteString(`<button type="submit" class="check" id="`)
+	_, _ = io.WriteString(w, `<button type="submit" class="check" id="`)
 	_, _ = w.Write(util.EscapeHTML([]byte(r.opt.IDPrefix)))
-	_, _ = w.WriteString(`check-` + num + `" role="checkbox" aria-checked="` + state +
-		`" name="` + name + `" value="` + num + `" aria-label="`)
+	_, _ = io.WriteString(w, `check-`+num+`" role="checkbox" aria-checked="`+state+
+		`" name="`+name+`" value="`+num+`" aria-label="`)
 	_, _ = w.Write(util.EscapeHTML([]byte(label)))
-	_, _ = w.WriteString(`"></button> `)
-	return ast.WalkContinue, nil
+	_, _ = io.WriteString(w, `"></button> `)
 }
 
 // itemLabel is the text of a checklist item, which names its checkbox.
-func itemLabel(box ast.Node, src []byte) string {
-	var b strings.Builder
-	for s := box.NextSibling(); s != nil; s = s.NextSibling() {
-		b.WriteString(nodeText(s, src))
-	}
-	label := strings.Join(strings.Fields(b.String()), " ")
+func itemLabel(para ast.Node, src []byte) string {
+	label := strings.Join(strings.Fields(plainText(para, src)), " ")
 	if r := []rune(label); len(r) > 200 {
 		label = string(r[:200])
 	}
@@ -323,15 +330,15 @@ func plainText(n ast.Node, src []byte) string {
 func nodeText(n ast.Node, src []byte) string {
 	switch v := n.(type) {
 	case *ast.Text:
-		s := string(v.Value(src))
+		s := v.Value.Value(src)
 		if v.SoftLineBreak() || v.HardLineBreak() {
 			s += " "
 		}
 		return s
-	case *ast.String:
-		return string(v.Value)
+	case *ast.CodeSpan:
+		return v.Value.Value(src)
 	case *ast.AutoLink:
-		return string(v.Label(src))
+		return v.Label.Value(src)
 	case *refNode:
 		return v.label
 	}
