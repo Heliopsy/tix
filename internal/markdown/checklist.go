@@ -6,8 +6,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/yuin/goldmark/ast"
-	extast "github.com/yuin/goldmark/extension/ast"
+	"github.com/yuin/goldmark/v2/ast"
+	"github.com/yuin/goldmark/v2/extension"
 )
 
 // ErrNoItem reports a checklist item number the text does not have.
@@ -15,15 +15,20 @@ var ErrNoItem = errors.New("no such checklist item")
 
 // boxes returns the checklist items of a parsed document in reading order,
 // which is the order Render numbers them in.
-func boxes(doc ast.Node) []*extast.TaskCheckBox {
-	var out []*extast.TaskCheckBox
+func boxes(doc ast.Node) []*ast.ListItem {
+	var out []*ast.ListItem
 	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
-		if box, ok := n.(*extast.TaskCheckBox); ok && entering {
-			out = append(out, box)
+		if item, ok := n.(*ast.ListItem); ok && entering && extension.IsTask(item) {
+			out = append(out, item)
 		}
 		return ast.WalkContinue, nil
 	})
 	return out
+}
+
+func checked(item *ast.ListItem) bool {
+	status, _ := extension.TaskStatusOf(item)
+	return status == extension.TaskStatusCompleted
 }
 
 // Checklist counts the ticked and the total checklist items in src.
@@ -33,7 +38,7 @@ func Checklist(src string) (done, total int) {
 	}
 	for _, box := range boxes(parse([]byte(src))) {
 		total++
-		if box.IsChecked {
+		if checked(box) {
 			done++
 		}
 	}
@@ -46,7 +51,7 @@ func Items(src string) []bool {
 	list := boxes(parse([]byte(src)))
 	out := make([]bool, len(list))
 	for i, box := range list {
-		out[i] = box.IsChecked
+		out[i] = checked(box)
 	}
 	return out
 }
@@ -61,14 +66,14 @@ func SetItem(src string, n int, done bool) (string, error) {
 		return "", ErrNoItem
 	}
 	box := list[n-1]
-	if box.IsChecked == done {
+	if checked(box) == done {
 		return src, nil
 	}
-	block := box.Parent()
-	if block == nil || block.Lines().Len() == 0 {
+	block, ok := box.FirstChild().(ast.BlockNode)
+	if !ok || len(block.Source()) == 0 {
 		return "", ErrNoItem
 	}
-	at := block.Lines().At(0).Start
+	at := block.Source()[0].Start
 	for at < len(source) && source[at] != '[' && (source[at] == ' ' || source[at] == '\t') {
 		at++
 	}

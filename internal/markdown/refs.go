@@ -3,13 +3,14 @@
 package markdown
 
 import (
+	"io"
 	"regexp"
 	"strings"
 
-	"github.com/yuin/goldmark/ast"
-	"github.com/yuin/goldmark/renderer"
-	"github.com/yuin/goldmark/text"
-	"github.com/yuin/goldmark/util"
+	"github.com/yuin/goldmark/v2/ast"
+	"github.com/yuin/goldmark/v2/renderer"
+	"github.com/yuin/goldmark/v2/text"
+	"github.com/yuin/goldmark/v2/util"
 )
 
 // kindRef is the node a linked task reference or handle becomes.
@@ -24,9 +25,15 @@ type refNode struct {
 // Kind reports the node kind.
 func (n *refNode) Kind() ast.NodeKind { return kindRef }
 
-// Dump writes the node for goldmark's debugging output.
-func (n *refNode) Dump(src []byte, level int) {
-	ast.DumpHelper(n, src, level, map[string]string{"label": n.label, "href": n.href}, nil)
+// Dump describes the node for goldmark's debugging output.
+func (n *refNode) Dump(_ []byte) *ast.NodeDump {
+	return ast.NewNodeDump(n, map[string]any{"label": n.label, "href": n.href})
+}
+
+func newRefNode(label, href, class string) *refNode {
+	n := &refNode{label: label, href: href, class: class}
+	n.Init(n)
+	return n
 }
 
 // refPattern finds a task reference or a handle. A reference is a project key
@@ -37,7 +44,7 @@ var refPattern = regexp.MustCompile(`(^|[^\w@./-])(@[A-Za-z0-9][A-Za-z0-9_.-]*[A
 
 // linkRefs replaces the references and handles in the document's text with
 // links, wherever the options resolve them. Existing links keep their text,
-// and code keeps it because its text nodes are raw.
+// and code keeps it because a code span holds no text nodes.
 func linkRefs(doc ast.Node, src []byte, opt Options) {
 	if opt.TaskHref == nil && opt.HandleHref == nil {
 		return
@@ -51,7 +58,7 @@ func linkRefs(doc ast.Node, src []byte, opt Options) {
 		case ast.KindLink, ast.KindAutoLink, ast.KindImage:
 			return ast.WalkSkipChildren, nil
 		}
-		if t, ok := n.(*ast.Text); ok && !t.IsRaw() {
+		if t, ok := n.(*ast.Text); ok {
 			texts = append(texts, t)
 		}
 		return ast.WalkContinue, nil
@@ -62,26 +69,30 @@ func linkRefs(doc ast.Node, src []byte, opt Options) {
 }
 
 func splitRefs(t *ast.Text, src []byte, opt Options) {
-	seg := t.Segment
-	value := src[seg.Start:seg.Stop]
+	value := t.Value.Value(src)
 	parent := t.Parent()
 	start := 0
-	for _, m := range refPattern.FindAllSubmatchIndex(value, -1) {
+	for _, m := range refPattern.FindAllStringSubmatchIndex(value, -1) {
 		lo, hi := m[4], m[5]
-		token := string(value[lo:hi])
+		token := value[lo:hi]
 		href, class := resolve(token, opt)
 		if href == "" {
 			continue
 		}
 		if lo > start {
-			parent.InsertBefore(parent, t, ast.NewTextSegment(text.NewSegment(seg.Start+start, seg.Start+lo)))
+			parent.InsertBefore(t, ast.NewText(literal(value[start:lo])))
 		}
-		parent.InsertBefore(parent, t, &refNode{label: token, href: href, class: class})
+		parent.InsertBefore(t, newRefNode(token, href, class))
 		start = hi
 	}
 	if start > 0 {
-		t.Segment = text.NewSegment(seg.Start+start, seg.Stop)
+		t.Value = literal(value[start:])
 	}
+}
+
+// literal is text that was already decoded, so it is kept as it stands.
+func literal(s string) text.SingleLineValue {
+	return text.NewSingleLineValueFromString(s, text.IdentityDecoder)
 }
 
 func resolve(token string, opt Options) (string, string) {
@@ -97,17 +108,17 @@ func resolve(token string, opt Options) (string, string) {
 	return opt.TaskHref(token), "taskref"
 }
 
-func (r *safeRenderer) ref(w util.BufWriter, _ []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
+func (r *safeRenderer) ref(w io.Writer, _ []byte, node ast.Node, entering bool, _ renderer.Context) (ast.WalkStatus, error) {
 	if !entering {
 		return ast.WalkContinue, nil
 	}
 	n := node.(*refNode)
-	_, _ = w.WriteString(`<a href="`)
-	_, _ = w.Write(util.EscapeHTML(util.URLEscape([]byte(n.href), false)))
-	_, _ = w.WriteString(`" class="` + n.class + `">`)
+	_, _ = io.WriteString(w, `<a href="`)
+	_, _ = w.Write(util.EscapeHTML([]byte(urlEscape([]byte(n.href)))))
+	_, _ = io.WriteString(w, `" class="`+n.class+`">`)
 	_, _ = w.Write(util.EscapeHTML([]byte(n.label)))
-	_, _ = w.WriteString("</a>")
+	_, _ = io.WriteString(w, "</a>")
 	return ast.WalkContinue, nil
 }
 
-var _ renderer.NodeRenderer = (*safeRenderer)(nil)
+var _ ast.InlineNode = (*refNode)(nil)
