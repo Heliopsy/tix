@@ -1,7 +1,7 @@
 ---
 name: tix
-description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. There is no MCP server; this CLI is the only interface. Covers writing your own plan down as tasks before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 13
+description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. There is no MCP server; this CLI is the only interface. Covers writing your own plan down as tasks with a lease sized to each before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
+version: 14
 verified-against: tix 17d1152 (2026-11-01)
 ---
 
@@ -43,10 +43,10 @@ or another agent can pick it up.
 # 1. the assignment, as one parent task
 tix task add "ship the retry fix" -p default --priority high -q -o json
 
-# 2. the steps, as subtasks of it, with the ordering written down
-tix task add "reproduce the flake" --parent default-1 -q
-tix task add "patch and test" --parent default-1 --depends-on default-2 -q
-tix task add "update the changelog" --parent default-1 --depends-on default-3 -q
+# 2. the steps, as subtasks of it, with the ordering and a lease for each
+tix task add "reproduce the flake" --parent default-1 --lease 30m -q
+tix task add "patch and test" --parent default-1 --depends-on default-2 --lease 2h -q
+tix task add "update the changelog" --parent default-1 --depends-on default-3 --lease 15m -q
 
 # 3. read back what you committed to
 tix task tree default-1
@@ -74,7 +74,16 @@ works it. A plan with only parents lets you claim step three before step one.
 Write the steps at the granularity you are willing to lose. One task per unit
 of work you could redo from its description alone.
 
-Then take them one at a time, leaving a trail as you go:
+**Give each step a `--lease` sized to the work**, rather than leaving every
+step on the project default: 30m for a quick fix, 2h for a test-and-patch step.
+The lease is how long a claim holds without a `--ttl`, so a sensible one means
+a crashed agent's step is back in the queue soon, and a long one does not
+expire mid-work. Over the maximum is exit `2` and nothing is created. If a step
+runs over anyway, renew (`tix claim renew`) before it lapses.
+
+Then take them one at a time, leaving a trail as you go, including a comment
+for every block and every significant decision (see "Comments, artifacts and
+results"):
 
 ```sh
 tix comment add default-2 "reproduced on the third run; it is a race in TestRetry"
@@ -616,6 +625,18 @@ Leave a trail a human can read without re-running your work:
 tix comment add default-1 "reproduced: race in TestRetry, fixed with a mutex"
 tix artifact put default-1 --kind result --payload '{"tests_run":42,"fixed":true}' --lease-token "$token"
 tix artifact put default-1 --kind log --file build.log --content-type text/plain --lease-token "$token"
+```
+
+**Comment whenever you are blocked and whenever you make a significant
+decision.** Blocked: say so on the task, then follow "When the work needs a
+decision you are not entitled to make". A decision is choosing one approach
+over another, changing scope, skipping something, or an assumption others will
+build on. Write what you decided and why, in one or two lines, so a reviewer or
+your replacement does not have to rediscover it:
+
+```sh
+tix comment add default-3 "Decided: retry in the client, not the server; the server fix needs a migration"
+tix comment add default-3 "Skipped the Windows path: no Windows runner in CI to test it"
 ```
 
 `artifact put --kind` is `result|log|file|metric` (default `result`), and
