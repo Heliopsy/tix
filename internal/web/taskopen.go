@@ -37,24 +37,31 @@ func dialogRequest(r *http.Request) bool {
 	return r != nil && r.Header.Get(DialogHeader) == "1"
 }
 
-// toggleTaskOpen moves this browser between opening a task as a page and in a
-// dialog. Both states are written explicitly so a stored choice never depends
-// on how an absent cookie is read.
+// toggleTaskOpen sets whether this browser opens a task as a page or in a
+// dialog: the position the form names, or the other one when it names none,
+// which is what the form posted before it named both. Both states are written
+// explicitly so a stored choice never depends on how an absent cookie is read.
 func (h *handler) toggleTaskOpen(w http.ResponseWriter, r *http.Request) error {
 	value := "dialog"
 	if taskDialogMode(r) {
 		value = "page"
 	}
+	if named := field(r, "open"); named == "page" || named == "dialog" {
+		value = named
+	}
 	h.setPreference(w, r, TaskOpenCookie, value)
 	return nil
 }
 
-// toggleTitleClick moves this browser between a title click opening the task
-// and editing the title.
+// toggleTitleClick sets whether a title click opens the task or edits the
+// title: the position the form names, or the other one when it names none.
 func (h *handler) toggleTitleClick(w http.ResponseWriter, r *http.Request) error {
 	value := "edit"
 	if titleEditMode(r) {
 		value = "open"
+	}
+	if named := field(r, "click"); named == "open" || named == "edit" {
+		value = named
 	}
 	h.setPreference(w, r, TitleClickCookie, value)
 	return nil

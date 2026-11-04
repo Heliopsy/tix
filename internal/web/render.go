@@ -455,7 +455,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Schemes:         KeySchemes(),
 		LanguageChoices: languageChoices(r),
 		ShortcutsJSON:   shortcutsJSON(scheme, langOf(r)),
-		PaletteJSON:     paletteJSON(langOf(r), advancedMode(r)),
+		PaletteJSON:     paletteJSON(langOf(r), advancedMode(r), tenantAdmin(r)),
 		Data:            data,
 	}
 }
@@ -588,15 +588,15 @@ func advancedChoiceOf(r *http.Request) advancedChoice {
 	return advancedUnset
 }
 
-// advancedPaths are the screens the Configure and Data groups lead to. Being
-// on one of them expands its group whatever the preference says, so a reader
+// advancedPaths are the configuration screens of the sidebar's Admin group.
+// Being on one of them draws them whatever the preference says, so a reader
 // is never on a page the navigation beside them denies exists.
 var advancedPaths = []string{
 	RouteWorkflows, RouteTransfer, RouteBundles, RouteSync, "/admin/",
 }
 
-// OnAdvancedPath reports whether a path is one of the screens the Configure
-// and Data navigation groups lead to.
+// OnAdvancedPath reports whether a path is one of the configuration screens
+// of the sidebar's Admin group.
 func OnAdvancedPath(path string) bool {
 	for _, prefix := range advancedPaths {
 		if path == prefix || strings.HasPrefix(path, strings.TrimSuffix(prefix, "/")+"/") {
@@ -606,15 +606,15 @@ func OnAdvancedPath(path string) bool {
 	return false
 }
 
-// advancedMode reports whether this page shows the configuration and data
-// groups in its navigation.
+// advancedMode reports whether this page shows the configuration screens of
+// the Admin group in its navigation.
 //
 // The default follows the reader rather than being off for everybody. A
 // tenant administrator arriving for the first time could not find the tenant
 // screen at all: it was reachable by typing its URL and by no other means,
 // because the only entry to it lived behind a preference on a settings page
 // they had no reason to open. Anybody else keeps the simple view, since every
-// screen in those groups refuses them, and an entry that leads to a refusal is
+// one of those screens refuses them, and an entry that leads to a refusal is
 // worse than no entry.
 //
 // The preference still decides whenever it has been set, in either direction,
@@ -636,12 +636,18 @@ func advancedMode(r *http.Request) bool {
 	case advancedOff:
 		return false
 	}
+	return tenantAdmin(r)
+}
+
+// tenantAdmin reports whether the reader administers this tenant.
+func tenantAdmin(r *http.Request) bool {
+	actor, _ := core.ActorFrom(r.Context())
 	return actor != nil && actor.HasScope(core.ScopeTenantAdmin)
 }
 
-// advancedScopes are the scopes that make at least one screen in the
-// configuration and data groups reachable. Holding none of them means every
-// entry in those groups ends in a refusal.
+// advancedScopes are the scopes that make at least one configuration screen
+// of the Admin group reachable. Holding none of them means every
+// one of those screens ends in a refusal.
 //
 // workflow:read is in the list because it is the scope the workflow screens
 // are gated on, and it was not: a reader holding it opened /workflows
@@ -655,7 +661,7 @@ var advancedScopes = []core.Scope{
 }
 
 // AdvancedNavigation reports whether holding one scope reaches any screen in
-// the configuration and data groups, and so is shown their navigation.
+// the Admin group's configuration screens, and so is shown their navigation.
 func AdvancedNavigation(scope core.Scope) bool {
 	return slices.Contains(advancedScopes, scope)
 }

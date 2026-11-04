@@ -140,11 +140,13 @@ func (h *handler) doLogin(w http.ResponseWriter, r *http.Request) error {
 // overlay does not also know about.
 type settingsView struct {
 	TargetDescribe string
-	Shortcuts      shortcutTable
-	TimeFormat     string
-	Timezone       string
-	TimeFormats    []timeChoice
-	Timezones      []timeChoice
+	// ShowTarget draws the Database section, for a tenant administrator only.
+	ShowTarget  bool
+	Shortcuts   shortcutTable
+	TimeFormat  string
+	Timezone    string
+	TimeFormats []timeChoice
+	Timezones   []timeChoice
 
 	// Prefs holds the three preferences whose controls also sit on the screen
 	// that uses them: the column picker of every listing, the project
@@ -197,6 +199,7 @@ func (h *handler) renderSettings(w http.ResponseWriter, r *http.Request, status 
 	}
 	return h.renderStatus(w, r, status, "settings.html", "Settings", settingsView{
 		TargetDescribe: h.targetDescribe,
+		ShowTarget:     tenantAdmin(r),
 		Shortcuts:      buildShortcutTable(),
 		TimeFormat:     timeFormatOf(r),
 		Timezone:       zone,

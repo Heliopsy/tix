@@ -135,7 +135,6 @@ func init() {
 		"Enrol a key": "Регистриране на ключ",
 		"Public key":  "Публичен ключ",
 		"The contents of a .pub file, such as ~/.ssh/id_ed25519.pub -- never the private half. Paste one key. Any authorized_keys options or the trailing comment are discarded: only the key itself is stored.": "Съдържанието на файл .pub, например ~/.ssh/id_ed25519.pub -- никога частния ключ. Поставете един ключ. Опциите на authorized_keys и коментарът накрая се премахват: пази се само самият ключ.",
-		"laptop":    "лаптоп",
 		"Enrol key": "Регистрирай ключ",
 
 		// The domains screen.
@@ -236,9 +235,10 @@ func init() {
 		"each one picks a workflow":                                      "всеки избира работен процес",
 		"the work, and its comments, artifacts and dependencies":         "работата, с коментарите, артефактите и зависимостите ѝ",
 		"the custom fields a task in that project carries":               "персонализираните полета на задачите в този проект",
-		"unavailable":      "недостъпно",
-		"incomplete":       "непълно",
-		"on the task list": "в списъка със задачи",
-		"per project":      "за всеки проект",
+		"unavailable":         "недостъпно",
+		"incomplete":          "непълно",
+		"on the task list":    "в списъка със задачи",
+		"per project":         "за всеки проект",
+		"For example, laptop": "Например лаптоп",
 	})
 }

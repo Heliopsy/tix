@@ -64,7 +64,6 @@ func init() {
 		"Export a bundle": "Износ на пакет",
 		"Workflows, field definitions, tags, project templates and webhook endpoints. Never tasks, comments or artifacts, and never a webhook's signing secret: the endpoint arrives, its secret does not, so an imported webhook is inert until somebody gives it one.": "Работни процеси, дефиниции на полета, етикети, шаблони на проекти и крайни точки на уебхукове. Никога задачи, коментари или артефакти и никога тайната за подписване на уебхук: крайната точка пристига, тайната ѝ не, затова внесеният уебхук е неактивен, докато някой не му зададе тайна.",
 		"Bundle name": "Име на пакета",
-		"starter kit": "начален комплект",
 		"Component kinds, blank for every kind the selection reaches": "Видове компоненти, празно за всеки вид, до който стига изборът",
 		"Workflow keys, comma separated":                              "Ключове на работни процеси, разделени със запетая",
 		"Which workflows to include, by their key (not their display name), for example default,triage. Leave it blank to include every workflow the selected component kinds and projects reach.": "Кои работни процеси да се включат, по ключ (не по показваното име), например default,triage. Оставете празно, за да включите всеки работен процес, до който стигат избраните видове компоненти и проекти.",
@@ -180,5 +179,6 @@ func init() {
 		"the account, when the instance wants basic auth": "акаунтът, когато инстанцията иска basic auth",
 		"a project identifier, when you want one project": "идентификатор на проект, когато искате един проект",
 		"an API filter expression":                        "израз за филтър на API",
+		"For example, starter kit":                        "Например начален комплект",
 	})
 }

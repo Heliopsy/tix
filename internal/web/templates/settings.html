@@ -23,13 +23,13 @@
 <nav class="setnav" aria-label="{{t "Settings sections"}}">
   <a href="#appearance">{{t "Appearance"}}</a>
   <a href="#listings">{{t "Listings"}}</a>
-  <a href="#keyboard">{{t "Keyboard"}}</a>
+  <a href="#keyboard" class="needs-keys">{{t "Keyboard"}}</a>
   <a href="#dates">{{t "Dates and times"}}</a>
   <a href="#inbox">{{t "Inbox"}}</a>
   <a href="#notifications">{{t "Notifications"}}</a>
   <a href="#second-factor">{{t "Second factor"}}</a>
   <a href="#calendar">{{t "Calendar feed"}}</a>
-  <a href="#database">{{t "Database"}}</a>
+  {{if .Data.ShowTarget}}<a href="#database">{{t "Database"}}</a>{{end}}
 </nav>
 
 <div class="setbody">
@@ -79,7 +79,9 @@
         <button class="apply" type="submit">{{t "Apply language"}}</button>
       </div>
     </form>
-    <form class="setrow" method="post" action="/hover" hx-boost="false">
+    {{/* Not drawn where nothing can hover: there is nothing for it to turn
+         off. See .needs-hover in app.css. */}}
+    <form class="setrow needs-hover" method="post" action="/hover" hx-boost="false">
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Hover effects" "appearance"}}">
       <div class="setrow-text">
@@ -95,8 +97,8 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Advanced screens" "appearance"}}">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname" id="advanced-name">{{t "Advanced screens"}}</span>{{template "field-info" "Adds the configuration and data screens to the sidebar: workflows, tenant, domains, users, tokens, webhooks, bundles, transfer and sync. On by default for a tenant administrator, who has to be able to find them, and off for everybody else, whom every one of those screens refuses."}}</div>
-        <span class="sethelp" id="advanced-help">{{t "Show the Configure and Data groups in the sidebar."}}</span>
+        <div class="setname-line"><span class="setname" id="advanced-name">{{t "Advanced screens"}}</span>{{template "field-info" "Adds the configuration screens to the sidebar's Admin group, under Trash: workflows, templates, tenant, domains, users, tokens, SSH keys, status, connections, webhooks, import and export, and sync. On by default for a tenant administrator, who has to be able to find them, and off for everybody else, whom every one of those screens refuses."}}</div>
+        <span class="sethelp" id="advanced-help">{{t "Show the configuration screens in the sidebar's Admin group."}}</span>
       </div>
       <div class="setrow-ctl">
         <button class="switch" type="submit" role="switch" aria-checked="{{if .Advanced}}true{{else}}false{{end}}" aria-labelledby="advanced-name" aria-describedby="advanced-help"><span class="switch-track" aria-hidden="true"></span><span class="switch-state">{{if .Advanced}}{{t "Shown"}}{{else}}{{t "Hidden"}}{{end}}</span></button>
@@ -179,8 +181,13 @@
         <div class="setname-line"><span class="setname" id="taskopen-name">{{t "Task opens in"}}</span>{{template "field-info" "Page leaves the listing for the task's own screen. Dialog opens the task over the listing you are on: the address changes so a reload or a copied link opens the full page, Back or Escape closes it, and saves made in it update the listing underneath. A ctrl-click or a middle click still opens a new tab."}}</div>
         <span class="sethelp" id="taskopen-help">{{t "Open a task as its own page, or in a dialog over the list."}}</span>
       </div>
+      {{/* Two named positions, not a switch: a switch drawn off beside "Page"
+           read as the page being off. Each segment posts its own position. */}}
       <div class="setrow-ctl">
-        <button class="switch" type="submit" role="switch" aria-checked="{{if .TaskDialog}}true{{else}}false{{end}}" aria-labelledby="taskopen-name" aria-describedby="taskopen-help"><span class="switch-track" aria-hidden="true"></span><span class="switch-state">{{if .TaskDialog}}{{t "Dialog"}}{{else}}{{t "Page"}}{{end}}</span></button>
+        <div class="segmented" role="group" aria-labelledby="taskopen-name" aria-describedby="taskopen-help" data-choice="taskopen">
+          <button type="submit" name="open" value="page" class="segment{{if not .TaskDialog}} is-on{{end}}"{{if not .TaskDialog}} aria-current="true"{{end}}>{{t "Page"}}</button>
+          <button type="submit" name="open" value="dialog" class="segment{{if .TaskDialog}} is-on{{end}}"{{if .TaskDialog}} aria-current="true"{{end}}>{{t "Dialog"}}</button>
+        </div>
       </div>
     </form>
 
@@ -188,11 +195,14 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Clicking a title" "listings"}}">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname" id="titleclick-name">{{t "Clicking a title"}}</span>{{template "field-info" "Edits the title turns a task's title in the list, on a board card or on a lane card into a text field: Enter or clicking away saves, Escape cancels. The small open link beside each title still opens the task. Enter or F2 on a selected row edits its title too."}}</div>
+        <div class="setname-line"><span class="setname" id="titleclick-name">{{t "Clicking a title"}}</span>{{template "field-info" "Edit the title turns a task's title in the list, on a board card or on a lane card into a text field: Enter or clicking away saves, Escape cancels. The small open link beside each title still opens the task. Enter or F2 on a selected row edits its title too."}}</div>
         <span class="sethelp" id="titleclick-help">{{t "Open the task, or rename it where it is listed."}}</span>
       </div>
       <div class="setrow-ctl">
-        <button class="switch" type="submit" role="switch" aria-checked="{{if .TitleEdit}}true{{else}}false{{end}}" aria-labelledby="titleclick-name" aria-describedby="titleclick-help"><span class="switch-track" aria-hidden="true"></span><span class="switch-state">{{if .TitleEdit}}{{t "Edits the title"}}{{else}}{{t "Opens the task"}}{{end}}</span></button>
+        <div class="segmented" role="group" aria-labelledby="titleclick-name" aria-describedby="titleclick-help" data-choice="titleclick">
+          <button type="submit" name="click" value="open" class="segment{{if not .TitleEdit}} is-on{{end}}"{{if not .TitleEdit}} aria-current="true"{{end}}>{{t "Open the task"}}</button>
+          <button type="submit" name="click" value="edit" class="segment{{if .TitleEdit}} is-on{{end}}"{{if .TitleEdit}} aria-current="true"{{end}}>{{t "Edit the title"}}</button>
+        </div>
       </div>
     </form>
 
@@ -238,7 +248,8 @@
   </div>
 </section>
 
-<section class="setgroup" id="keyboard">
+{{/* Keys only: not drawn on a device with no keyboard to speak of. */}}
+<section class="setgroup needs-keys" id="keyboard">
   <h2>{{t "Keyboard"}}</h2>
   <div class="setlist">
 
@@ -330,8 +341,8 @@
   {{/* Unlike the rest of this screen these are kept with the account, not
        the browser: they decide what the server writes to the inbox, so they
        follow the reader to every browser, the command line and the API. */}}
-  <p class="sethelp">{{t "What reaches your inbox. Kept with your account, so it applies everywhere you sign in."}}</p>
   <div class="setlist">
+    <p class="setrow setlead">{{t "What reaches your inbox. Kept with your account, so it applies everywhere you sign in."}}</p>
   {{range .Data.InboxKinds}}
     <form class="setrow" method="post" action="/settings/inbox" hx-boost="false">
       {{template "csrf" $.CSRF}}
@@ -339,7 +350,7 @@
       <input type="hidden" name="kind" value="{{.Kind}}">
       <input type="hidden" name="receive" value="{{if .Receive}}off{{else}}on{{end}}">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname" id="inbox-{{.Kind}}-name">{{t .Label}}</span></div>
+        <div class="setname-line"><span class="setname" id="inbox-{{.Kind}}-name">{{t .Label}}</span>{{template "field-info" .Info}}</div>
         <span class="sethelp" id="inbox-{{.Kind}}-help">{{t .Help}}</span>
       </div>
       <div class="setrow-ctl">
@@ -354,21 +365,35 @@
   <h2>{{t "Notifications"}}</h2>
   {{/* The reader's own delivery endpoints for their inbox items. Kept with
        the account, like the switches above, and nothing to do with the
-       tenant's webhooks under Configure. */}}
-  <p class="sethelp">{{t "Send your inbox items to Slack, Discord, ntfy or your own endpoint as they arrive. Only your items, of the kinds you choose, and nothing you muted above."}}</p>
+       tenant's webhooks under Admin. */}}
+  {{/* The channels are rows of the section's card, like every other list
+       on this screen, and the form adding one is folded behind the same Add
+       disclosure Users and Webhooks use. It opens by itself when there is no
+       channel yet, and when a refused submission comes back to it. */}}
   {{$n := .Data.Notifications}}
-  {{if $n.Channels}}
-  <ul class="plain channels">
-    {{range $n.Channels}}
-    <li class="channelrow">
-      <a class="channelrow-main" href="/settings/notifications/{{.ID}}"><span class="channelrow-name">{{.Name}}</span> <span class="muted">{{t ($n.Label .Format)}}</span></a>
-      <span class="pill status {{if .Active}}done{{else}}cancelled{{end}}">{{if .Active}}{{t "on"}}{{else}}{{t "off"}}{{end}}</span>
-      <a class="ghostlink" href="/settings/notifications/{{.ID}}">{{t "Manage"}}</a>
-    </li>
+  <div class="setlist">
+    <p class="setrow setlead">{{t "Send your inbox items to Slack, Discord, ntfy or your own endpoint as they arrive. Only your items, of the kinds you choose, and nothing you muted above."}}</p>
+    {{if $n.Channels}}
+    <ul class="plain channels">
+      {{range $n.Channels}}
+      <li class="setrow channelrow">
+        <div class="setrow-text">
+          <a class="setname" href="/settings/notifications/{{.ID}}">{{.Name}}</a>
+          <span class="sethelp">{{t ($n.Label .Format)}}</span>
+        </div>
+        <div class="setrow-ctl">
+          <span class="setvalue">{{if .Active}}{{t "On"}}{{else}}{{t "Off"}}{{end}}</span>
+          <a class="ghostlink" href="/settings/notifications/{{.ID}}">{{t "Manage"}}</a>
+        </div>
+      </li>
+      {{end}}
+    </ul>
     {{end}}
-  </ul>
-  {{end}}
-  <div class="card">{{template "channel-form" $n.Adder}}</div>
+  </div>
+  <details class="panel addmore"{{if or (not $n.Channels) $n.Adder.Errors}} open{{end}}>
+    <summary>{{t "Add a channel"}}</summary>
+    <div class="body"><div class="card">{{template "channel-form" $n.Adder}}</div></div>
+  </details>
 </section>
 
 <section class="setgroup" id="second-factor">
@@ -444,12 +469,13 @@
 </section>
 
 <section class="setgroup" id="calendar">
-  <div class="headtip"><h2>{{t "Calendar feed"}}</h2>{{template "tip" (tip "Calendar feed" "A private address Google Calendar, Apple Calendar or Outlook subscribes to, so your due dates appear beside the rest of your week. Each task with a due date is an all-day event that links back here. Anybody holding the address can read what it lists, so treat it like a password: rotate it to issue a new one, revoke it to stop it." "docs/calendar.md")}}</div>
+  <h2>{{t "Calendar feed"}}</h2>
   {{/* Like the second factor, this belongs to the account rather than the
        browser. The address is shown once, on the screen creating or rotating
        it answers with, because only its hash is kept. */}}
   {{$c := .Data.Calendar}}
   <div class="setlist">
+    <p class="setrow setlead">{{t "A private address your calendar subscribes to, so your due dates appear beside the rest of your week."}}</p>
   {{if not $c.Available}}
     <div class="setrow">
       <div class="setrow-text">
@@ -461,8 +487,8 @@
   {{else if $c.Active}}
     <div class="setrow" id="calendar-state">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname">{{t "Feed address"}}</span>{{template "field-info" "The address was shown once, when it was created. Rotate to see a new one; calendars subscribed to the old address stop updating."}}</div>
-        <span class="sethelp">{{t "Active since %s." (stamp $c.Feed.CreatedAt)}}</span>
+        <div class="setname-line"><span class="setname">{{t "Feed address"}}</span>{{template "field-info" "Google Calendar, Apple Calendar or Outlook subscribes to the address, and each task with a due date is an all-day event that links back here. Anybody holding the address can read what it lists, so treat it like a password. Only a hash of it is kept, which is why it was shown once, when it was created, and cannot be shown again. Rotate issues a new one; calendars subscribed to the old address stop updating. More in docs/calendar.md."}}</div>
+        <span class="sethelp">{{t "Created %s. The address is shown only once, when the feed is created or rotated; Rotate below issues a new one." (stamp $c.Feed.CreatedAt)}}</span>
       </div>
       <div class="setrow-ctl"><span class="setvalue">{{t "Active"}}</span></div>
     </div>
@@ -475,7 +501,7 @@
         {{if $c.Error}}<span class="field-error" id="calendar-filter-error">{{$c.Error}}</span>{{end}}
       </div>
       <div class="setrow-ctl">
-        <input id="calendar-filter" name="filter" value="{{$c.Filter}}" placeholder="{{t "assigned to you, not finished"}}" maxlength="1000" spellcheck="false" autocomplete="off" aria-describedby="calendar-filter-help{{if $c.Error}} calendar-filter-error{{end}}"{{if $c.Error}} aria-invalid="true"{{end}}>
+        <input id="calendar-filter" name="filter" value="{{$c.Filter}}" placeholder="{{t "For example, project:infra tag:ops"}}" maxlength="1000" spellcheck="false" autocomplete="off" aria-describedby="calendar-filter-help{{if $c.Error}} calendar-filter-error{{end}}"{{if $c.Error}} aria-invalid="true"{{end}}>
         <button class="apply" type="submit">{{t "Save filter"}}</button>
       </div>
     </form>
@@ -503,7 +529,7 @@
          box with nothing to filter. */}}
     <div class="setrow" id="calendar-state">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname">{{t "Feed address"}}</span>{{template "field-info" "Creating a feed shows its address once, on the screen that follows, with a Copy button. Only a hash of it is kept, so it cannot be shown again; rotating issues a new one."}}</div>
+        <div class="setname-line"><span class="setname">{{t "Feed address"}}</span>{{template "field-info" "Google Calendar, Apple Calendar or Outlook subscribes to the address, and each task with a due date is an all-day event that links back here. Creating a feed shows its address once, on the screen that follows, with a Copy button. Anybody holding it can read what it lists, so treat it like a password. Only a hash of it is kept, so it cannot be shown again; rotating issues a new one. More in docs/calendar.md."}}</div>
         <span class="sethelp">{{t "You have no calendar feed. Create one to subscribe to your due dates."}}</span>
       </div>
       <div class="setrow-ctl"><span class="setvalue">{{t "No feed"}}</span></div>
@@ -517,7 +543,7 @@
         {{if $c.Error}}<span class="field-error" id="calendar-filter-error">{{$c.Error}}</span>{{end}}
       </div>
       <div class="setrow-ctl">
-        <input id="calendar-filter" name="filter" value="{{$c.Filter}}" placeholder="{{t "assigned to you, not finished"}}" maxlength="1000" spellcheck="false" autocomplete="off" aria-describedby="calendar-filter-help{{if $c.Error}} calendar-filter-error{{end}}"{{if $c.Error}} aria-invalid="true"{{end}}>
+        <input id="calendar-filter" name="filter" value="{{$c.Filter}}" placeholder="{{t "For example, project:infra tag:ops"}}" maxlength="1000" spellcheck="false" autocomplete="off" aria-describedby="calendar-filter-help{{if $c.Error}} calendar-filter-error{{end}}"{{if $c.Error}} aria-invalid="true"{{end}}>
         <button type="submit">{{t "Create feed"}}</button>
       </div>
     </form>
@@ -525,21 +551,24 @@
   </div>
 </section>
 
+{{/* For a tenant administrator only: a path on the server or a redacted DSN
+     says where the data lives, which is the operator's business and nobody
+     else's. Stacked: on the right of a row it took the whole width and
+     squeezed the description beside it into a column one word wide. */}}
+{{if .Data.ShowTarget}}
 <section class="setgroup" id="database">
   <h2>{{t "Database"}}</h2>
-  {{/* Stacked: a target is a path or a redacted DSN, and on the right of a
-       row it took the whole width and squeezed the description beside it
-       into a column one word wide. */}}
   <div class="setlist">
     <div class="setrow stacked">
       <div class="setrow-text">
         <span class="setname">{{t "Target"}}</span>
         <span class="sethelp">{{if .Data.TargetDescribe}}{{t "What this server is talking to."}}{{else}}{{t "This server was not started with a database description to show, so its target cannot be shown here."}}{{end}}</span>
       </div>
-      <div class="setrow-ctl">{{if .Data.TargetDescribe}}<code class="settarget">{{.Data.TargetDescribe}}</code>{{else}}<span class="setvalue">{{t "Not shown"}}</span>{{end}}</div>
+      <div class="setrow-ctl">{{if .Data.TargetDescribe}}<span class="settarget">{{.Data.TargetDescribe}}</span>{{else}}<span class="setvalue">{{t "Not shown"}}</span>{{end}}</div>
     </div>
   </div>
 </section>
+{{end}}
 </div>
 </div>
 </div>

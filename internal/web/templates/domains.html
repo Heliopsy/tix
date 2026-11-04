@@ -25,7 +25,11 @@
   </tbody>
 </table>
 
-<h2>{{t "Map a hostname"}}</h2>
+{{/* Folded behind the Add disclosure Users and Webhooks use, open by
+     itself when there is nothing listed yet. */}}
+<details class="panel addmore"{{if not .Data.Domains}} open{{end}}>
+  <summary>{{t "Map a hostname"}}</summary>
+  <div class="body">
 <form method="post" action="/admin/domains">
   {{template "csrf" .CSRF}}
   <div class="row">
@@ -46,4 +50,6 @@
     <div><label for="key_path">{{t "Key path"}}</label><input id="key_path" name="key_path"></div>
   </div>
 </form>
+  </div>
+</details>
 {{end}}

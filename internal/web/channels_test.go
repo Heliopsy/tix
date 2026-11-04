@@ -36,6 +36,7 @@ func TestSettingsAddsAChannelAndShowsItsSecretOnce(t *testing.T) {
 	f := newFixture(t)
 	b := f.as("alice")
 	section := between(t, b.page("/settings"), `<section class="setgroup" id="notifications">`, "</section>\n\n<section")
+	assertChannelsInACard(t, section, false)
 	form := formAt(t, section, "/settings/notifications")
 	for _, want := range []string{`name="name"`, `name="url"`, `<select id="ch-format" name="format"`,
 		`name="kinds" value="mention" checked`, `name="kinds" value="comment" checked`, `name="active" value="on" checked`} {
@@ -65,8 +66,35 @@ func TestSettingsAddsAChannelAndShowsItsSecretOnce(t *testing.T) {
 			t.Errorf("the channel screen lacks %s", want)
 		}
 	}
-	if list := between(t, b.page("/settings"), `<ul class="plain channels">`, "</ul>"); !strings.Contains(list, "phone") {
+	settings := b.page("/settings")
+	if list := between(t, settings, `<ul class="plain channels">`, "</ul>"); !strings.Contains(list, "phone") {
 		t.Fatalf("settings does not list the channel:\n%s", list)
+	}
+	assertChannelsInACard(t, between(t, settings, `<section class="setgroup" id="notifications">`, "</section>"), true)
+}
+
+// assertChannelsInACard checks the Notifications section's shape: its
+// description and channels are rows of one card, and Add a channel is a
+// disclosure, closed once a channel exists and open while there is none.
+func assertChannelsInACard(t *testing.T, section string, has bool) {
+	t.Helper()
+	card := between(t, section, `<div class="setlist">`, "\n  </div>\n  <details")
+	if !strings.Contains(card, `<p class="setrow setlead">Send your inbox items`) {
+		t.Errorf("the description is not the card's lead row:\n%s", section)
+	}
+	if has && !strings.Contains(card, `<li class="setrow channelrow">`) {
+		t.Errorf("the channels are not rows of the card:\n%s", section)
+	}
+	adder := between(t, section, `<details class="panel addmore"`, "</details>")
+	head, _, _ := strings.Cut(adder, "<form")
+	if !strings.Contains(head, "<summary>Add a channel</summary>") {
+		t.Errorf("Add a channel is not a disclosure:\n%s", adder)
+	}
+	if open := strings.HasPrefix(head, "open>"); open == has {
+		t.Errorf("Add a channel open = %v with a channel = %v:\n%s", open, has, adder)
+	}
+	if !strings.Contains(adder, `action="/settings/notifications"`) {
+		t.Errorf("the disclosure does not hold the add form:\n%s", adder)
 	}
 }
 

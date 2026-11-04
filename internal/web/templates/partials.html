@@ -110,7 +110,7 @@
       <li>{{template "themeswitch" .ThemeToggle}}</li>
       {{/* The "?" overlay, findable by someone who does not know to press
            "?". Shown only with scripting: shortcuts.js is what opens it. */}}
-      <li data-needs-js><button type="button" class="flowgo kbdhint" data-shortcuts-open data-needs-js><kbd>?</kbd>{{t "Keyboard shortcuts"}}</button></li>
+      <li class="needs-keys" data-needs-js><button type="button" class="flowgo kbdhint" data-shortcuts-open data-needs-js><kbd>?</kbd>{{t "Keyboard shortcuts"}}</button></li>
       <li><form method="post" action="/logout" class="actions">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
         <button class="flowgo signout" type="submit"><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#signout"/></svg>{{t "Sign out"}}</button>
@@ -364,7 +364,7 @@
 
 {{/* form-keys is the keyboard line at the foot of a create or settings form.
      Hidden until assets/forms.js is there to honour it. */}}
-{{define "form-keys"}}<p class="cform-keys" data-form-keys hidden><kbd data-form-mod>Ctrl</kbd>+<kbd>Enter</kbd> {{.}} &middot; <kbd>Esc</kbd> {{t "to cancel"}}</p>{{end}}
+{{define "form-keys"}}<p class="cform-keys needs-keys" data-form-keys hidden><kbd data-form-mod>Ctrl</kbd>+<kbd>Enter</kbd> {{.}} &middot; <kbd>Esc</kbd> {{t "to cancel"}}</p>{{end}}
 
 {{/* The dl content is filled entirely by assets/shortcuts.js from the same
      JSON blob the keydown handler reads, so this markup is a shell: nothing
@@ -398,7 +398,7 @@
   </div>
   <div id="palette-list" class="palette-list" role="listbox" aria-label="{{t "Results"}}"></div>
   <p id="palette-status" class="palette-status" role="status" aria-live="polite"></p>
-  <p id="palette-foot" class="palette-foot">{{th "<kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close"}}</p>
+  <p id="palette-foot" class="palette-foot needs-keys">{{th "<kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close"}}</p>
 </dialog>
 {{end}}
 
@@ -861,18 +861,19 @@
 {{/* channel-form adds or edits a notification channel (channels.go
      channelFormView), in the create-form layout: name and URL in the main
      column, the format and the kinds beside them. A refusal comes back with
-     the message under the field it is about and what was typed in place. */}}
+     the message under the field it is about and what was typed in place. No
+     title when the disclosure around it already names it. */}}
 {{define "channel-form"}}
 {{$e := .Errors}}{{$f := .Form}}
 <form method="post" class="cform" data-form action="{{.Action}}">
   {{template "csrf" .CSRF}}
-  <div class="cform-head"><h2 class="cform-title">{{t .Title}}</h2></div>
+  {{with .Title}}<div class="cform-head"><h2 class="cform-title">{{t .}}</h2></div>{{end}}
   {{with $e.On ""}}{{template "field-error" .}}{{end}}
   <div class="cform-grid">
     <div class="cform-main">
       <div class="cfield">
         <div class="cfield-label"><label for="{{.Prefix}}name">{{t "Name"}}</label>{{template "required-mark"}}</div>
-        <input id="{{.Prefix}}name" name="name" value="{{$f.Name}}" placeholder="{{t "Phone"}}" maxlength="80" autocomplete="off" required{{$e.Attrs "name"}}>
+        <input id="{{.Prefix}}name" name="name" value="{{$f.Name}}" placeholder="{{t "For example, Phone"}}" maxlength="80" autocomplete="off" required{{$e.Attrs "name"}}>
         {{with $e.On "name"}}{{template "field-error" .}}{{end}}
       </div>
       <div class="cfield">

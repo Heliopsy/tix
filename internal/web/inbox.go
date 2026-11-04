@@ -164,20 +164,25 @@ type inboxKindChoice struct {
 	Kind    core.InboxKind
 	Label   string
 	Help    string
+	Info    string
 	Receive bool
 }
 
 // inboxKindChoices lists every kind with whether the reader receives it.
 func inboxKindChoices(prefs *core.InboxPrefs) []inboxKindChoice {
-	labels := map[core.InboxKind][2]string{
-		core.InboxMention:  {"Mentions", "Somebody writes @you in a comment or a description."},
-		core.InboxAssigned: {"Assignments", "A task is assigned to you."},
-		core.InboxStatus:   {"Status changes", "A task assigned to you moves to another status."},
-		core.InboxComment:  {"Comments", "Somebody comments on a task you are assigned to or starred."},
+	labels := map[core.InboxKind][3]string{
+		core.InboxMention: {"Mentions", "Somebody writes @you in a comment or a description.",
+			"An item when somebody writes @ and your handle in a comment or a task's description. Editing the text mentions only handles it did not name before. Off, a mention creates no item; items already in your inbox stay."},
+		core.InboxAssigned: {"Assignments", "A task is assigned to you.",
+			"An item when somebody else assigns a task to you. Off, an assignment creates no item; items already in your inbox stay."},
+		core.InboxStatus: {"Status changes", "A task assigned to you moves to another status.",
+			"An item when somebody else moves a task assigned to you to another workflow state. Off, a move creates no item; items already in your inbox stay."},
+		core.InboxComment: {"Comments", "Somebody comments on a task you are assigned to or starred.",
+			"An item when somebody else comments on a task assigned to you or one you starred. Off, a comment creates no item; items already in your inbox stay."},
 	}
 	out := make([]inboxKindChoice, 0, len(labels))
 	for _, k := range core.InboxKinds() {
-		out = append(out, inboxKindChoice{Kind: k, Label: labels[k][0], Help: labels[k][1],
+		out = append(out, inboxKindChoice{Kind: k, Label: labels[k][0], Help: labels[k][1], Info: labels[k][2],
 			Receive: prefs == nil || !prefs.Mutes(k)})
 	}
 	return out

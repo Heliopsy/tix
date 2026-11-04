@@ -23,6 +23,13 @@ func calendarSection(t *testing.T, page string) string {
 	return section
 }
 
+// stateRow is the section's first row, stating whether there is a feed.
+func stateRow(t *testing.T, section string) string {
+	t.Helper()
+	return between(t, section, `<div class="setrow" id="calendar-state">`, `</div>
+    </div>`)
+}
+
 // feedState reads the value the section's first row states for the feed,
 // which is where a reader looks to learn whether there is one at all.
 func feedState(t *testing.T, section string) string {
@@ -56,8 +63,11 @@ func TestCalendarFeedSettingsLifecycle(t *testing.T) {
 	if !strings.Contains(form, `name="filter"`) || !strings.Contains(form, "Create feed") {
 		t.Fatalf("no create form with a filter field:\n%s", section)
 	}
-	if !strings.Contains(section, `class="field-info tip"`) {
-		t.Errorf("the section carries no (i) tip:\n%s", section)
+	if !strings.Contains(stateRow(t, section), `class="field-info"`) {
+		t.Errorf("the state row carries no (i) tip:\n%s", section)
+	}
+	if strings.Contains(between(t, section, "<h2", "</h2>"), "field-info") {
+		t.Errorf("the section heading carries an (i) tip, which no other section's does:\n%s", section)
 	}
 	if !strings.Contains(b.page(web.RouteSettings), `href="#calendar"`) {
 		t.Error("the settings navigation does not lead to the calendar section")
@@ -82,6 +92,16 @@ func TestCalendarFeedSettingsLifecycle(t *testing.T) {
 	}
 	if got := feedState(t, section); got != "Active" {
 		t.Errorf("with a feed the section states %q, want Active:\n%s", got, section)
+	}
+	row := stateRow(t, section)
+	if n := strings.Count(row, "Active"); n != 1 {
+		t.Errorf("the state row says Active %d times, want once:\n%s", n, row)
+	}
+	help := between(t, row, `<span class="sethelp">`, "</span>")
+	for _, want := range []string{"Created ", "shown only once", "Rotate"} {
+		if !strings.Contains(help, want) {
+			t.Errorf("the state row does not say where the address went (%q missing): %s", want, help)
+		}
 	}
 	for action, control := range map[string]string{
 		web.RouteCalendarFilter: "Save filter", web.RouteCalendarRotate: "Rotate", web.RouteCalendarRevoke: "Revoke",

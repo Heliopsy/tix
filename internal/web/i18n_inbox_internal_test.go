@@ -6,7 +6,7 @@ func init() {
 	labelSets = append(labelSets, func() []string {
 		var out []string
 		for _, c := range inboxKindChoices(nil) {
-			out = append(out, c.Label, c.Help)
+			out = append(out, c.Label, c.Help, c.Info)
 		}
 		for _, c := range channelFormats() {
 			out = append(out, c.Label)
