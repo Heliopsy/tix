@@ -3,12 +3,18 @@
 ## A note flows instead of floating
 
 The (i) note is a `<details>` whose `<p>` was absolutely positioned under the label. Positioned, it
-covers whatever comes next, and on a phone that is the next setting. The lines that hold a note
-(`.setname-line`, `.field-label`, `.cfield-label`, `.headtip`) become block boxes whose children are
-inline, and the `<details>` itself is inline. A block inside an inline box is laid out as a full
-width block after the line, which is exactly "open under the name and push the rest down", with no
-script and in every engine. A flex line cannot do it: a flex item is blockified, so the note would
-widen the `<details>` beside the label instead of dropping under it.
+covers whatever comes next, and on a phone that is the next setting. Two layouts replace it, with no
+script either way.
+
+A setting's name and a field's label (`.setname-line`, `.field-label`) become block boxes whose
+children are inline, and the `<details>` itself is inline. A block inside an inline box is laid out as
+a full width block after the line, which is exactly "open under the name and push the rest down".
+
+A heading or a create form's label (`.headtip`, `.cfield-label`) stays a flex line, because its large
+heading or its right-aligned "required" mark lines up badly as inline content. The line wraps, and the
+`<details>` is `display: contents`, so its note is a flex item of its own with a full-row basis. An
+engine that does not honour `contents` on `<details>` draws the note beside the heading instead, which
+is no worse than before.
 
 Notes in toolbars (the view switch, a page's header actions) keep floating, since there is no row
 below them to push and the toolbar should not reflow when one opens.
