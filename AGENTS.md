@@ -194,6 +194,12 @@ Rules for a batch of agents working at once, each learned the slow way.
   docs, TUI binding or a written exemption, web, OpenSpec change, docs, the
   skill under `skills/tix`, Bulgarian strings. The parity guards in
   `internal/capability` fail on most of the gaps; the rest is review.
+- **HTTP changes reach MCP on their own.** `tix mcp` generates its tools from
+  `api/openapi.yaml`, so a new JSON route is a tool once `just openapi` has run.
+  Touch `internal/mcp/overlay.yaml` only to hide an operation a model has no
+  use for, to rename one, or to mark one destructive when it is not a DELETE
+  but loses data (or not, when a DELETE only clears a reversible mark), each
+  with its reason. See [docs/mcp.md](docs/mcp.md).
 - **Leave a Website note in the PR body.** List the new commands, flags, exit
   codes and screens, so the tix.red docs can be updated at release. Write route
   parameters as `REF`, `KEY` or `ID`, never a bare lowercase word in braces:

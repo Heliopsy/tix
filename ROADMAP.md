@@ -259,9 +259,11 @@ with no schema migration and no signature change.
 
 ### MCP server mode
 
-**Seam in v1:** `core.Service` is transport-neutral and complete. An MCP server is a third
-adapter alongside `internal/httpapi` and `cmd/`, mapping tools onto Service methods.
-Nothing in v1 needs to change to add it.
+**Shipped as `tix mcp`.** It turned out thinner than this entry planned: rather than a third
+adapter mapping tools onto Service methods by hand, its tools are generated from the OpenAPI
+document and each call is one request through the HTTP client, so a tool cannot drift from the
+API. [docs/mcp.md](docs/mcp.md) has the details. Left for later: a streamable HTTP transport,
+which needs its own answer to whose token a remote session runs with.
 
 ### ACME / automatic certificates
 

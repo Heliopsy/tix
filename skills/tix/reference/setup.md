@@ -184,6 +184,20 @@ and the project's `docs/deployment.md` owns that subject.
 knowing exists because it is what a human watching your queue will be looking
 at.
 
+## MCP tools
+
+```sh
+tix mcp --server https://tix.example.com --token "$TIX_TOKEN"
+```
+
+`tix mcp` serves the HTTP API to an MCP client over stdio, one tool per JSON
+operation, named after the operation with dots as underscores (`task_create`,
+`claim_next`). It needs a server and a token: it never opens a database.
+Tools the token has no scope for are not listed, and destructive ones
+(deletes, prune, bulk, reclaim) only appear with `--allow-destructive`.
+`tix mcp --list` prints every operation and what became of it. The CLI stays
+the complete interface; the project's `docs/mcp.md` owns the details.
+
 ## Housekeeping
 
 Finished tasks and the trash can be cleaned up on the same tick, set per

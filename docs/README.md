@@ -18,6 +18,7 @@ with the thing.
 | [tenancy.md](tenancy.md) | Tenants, domains, roles, and how isolation is enforced |
 | [second-factor.md](second-factor.md) | TOTP per tenant and per surface, enrolment, recovery codes, the sealing key |
 | [api.md](api.md) | The HTTP API, the WebSocket event stream, and resuming with `since_seq` |
+| [mcp.md](mcp.md) | `tix mcp`: the API as MCP tools for Claude Code and other clients, the overlay, scopes and destructive tools |
 | [filtering.md](filtering.md) | The filter expression language: negation, weak matching, and what each engine does |
 | [calendar.md](calendar.md) | Subscribing to your due dates from Google Calendar, Apple Calendar or Outlook, and what the feed carries |
 | [scripting.md](scripting.md) | NDJSON everywhere, output formats, piping, exit codes |
@@ -38,7 +39,8 @@ with the thing.
 
 ## Where to start
 
-- Running an AI agent against tix: [agents.md](agents.md), then [scripting.md](scripting.md).
+- Running an AI agent against tix: [agents.md](agents.md), then [scripting.md](scripting.md), or
+  [mcp.md](mcp.md) for an MCP client.
 - Building a queue view to replace a Jira filter: [filtering.md](filtering.md).
 - Setting up a team: [configuration.md](configuration.md), [workflows.md](workflows.md),
   [deployment.md](deployment.md).
