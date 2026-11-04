@@ -374,7 +374,7 @@ waits and with a refusal said on the card. The edit, tag and restore routes retu
 for this, exactly as moves already did; without one they go to the task screen as before. A delete is
 soft, the card goes, focus moves to the next card in the lane, and the toast offers Undo, which brings
 the card back on the same listing. Rename starts the same in-place editor a title click does with
-Clicking a title set to Edits the title, whatever that setting says; without JavaScript it is a link
+Clicking a title set to Edit the title, whatever that setting says; without JavaScript it is a link
 to the task. A due date is not offered: the web has no form that sets one.
 
 The menu behaves as the badge's does: Escape closes it and puts focus back on the dots, no shortcut
@@ -1041,8 +1041,9 @@ the API `DELETE /api/v1/projects/{ref}?move_tasks_to=OTHER` or `?delete_tasks=tr
 Every display preference under Settings is a property of the person reading, not of the tenant, so
 each one is stored in a cookie on that browser and reaches no other reader. The Second factor and
 Database sections are not preferences: the first is your enrolment, kept by the service and the same
-from every surface, and the second only shows what this server is talking to. Two people sharing a tenant are
-frequently in different timezones for the same reason they may want different keyboard shortcuts.
+from every surface, and the second only shows a tenant administrator what this server is talking to.
+Two people sharing a tenant are frequently in different timezones for the same reason they may want
+different keyboard shortcuts.
 
 Settings carries all but one of them. Three are also editable from the screen they affect, because
 that is where the decision is actually made: whether a column reads better absent is answerable only by
@@ -1075,7 +1076,7 @@ going back a page.
 | Keyboard shortcuts | `tix_keyscheme` | the shipped schemes, `?` shows the active one |
 | Date format | `tix_time_format` | one of the layouts this build renders |
 | Timezone | `tix_timezone` | one of the offered zones, empty follows the deployment |
-| Advanced screens | `tix_advanced` | whether the configuration and data screens are in the sidebar |
+| Advanced screens | `tix_advanced` | whether the configuration screens are in the sidebar's Admin group |
 | Drag to move | `tix_drag_move` | `0` stops board cards being dragged between columns; absent or anything else lets them |
 | Open a new task | `tix_open_after_add` | `1` opens the new task after adding. Absent or `0` stays on the listing. An empty value, which earlier builds wrote for "on", also opens it |
 | Hover effects | `tix_hover` | `0` turns hover highlights off and puts `data-hover="off"` on `<html>`; absent or anything else leaves them on |
@@ -1140,8 +1141,10 @@ fallback stays regardless: a value that does not resolve must not take a page do
 
 ### The settings screen
 
-Settings is six sections (Appearance, Listings, Keyboard, Dates and times, Second factor, Database)
-with a navigation of plain anchors to each. Where the settings block has room the navigation is a
+Settings is nine sections (Appearance, Listings, Keyboard, Dates and times, Inbox, Notifications,
+Second factor, Calendar feed, Database) with a navigation of plain anchors to each. Database, which
+names the server's database path or a redacted DSN, is drawn for a tenant administrator only, and the
+command palette offers it to nobody else either. Where the settings block has room the navigation is a
 column that stays in view beside the sections; where it does not, it is a wrapped row of links above
 them. The choice is a container query on the block rather than a viewport breakpoint, because the
 sidebar is resizable and collapsible and the room beside it is what decides. The section last jumped
@@ -1151,7 +1154,21 @@ Each setting is a row: its name and one line saying what it does on the left, it
 right in a column every row shares, so selects are one width and switches line up. The longer
 explanation is behind the (i) beside the name. At 900px and below each row stacks its control under
 its description. On/off preferences are switches: a submit button with `role="switch"` and
-`aria-checked`, so they still post with scripting off.
+`aria-checked`, its state in words (On and Off, Shown and Hidden), so they still post with scripting
+off. A choice between two named positions is not on or off, so it is a segmented control naming both:
+Task opens in is Page or Dialog, Clicking a title is Open the task or Edit the title, as Task view and
+List groups name theirs. Each segment is a submit button posting its own position (`open=page`,
+`click=edit`); a post naming none flips the setting, as the switch did.
+
+Every section is a heading and then its card. A section with a description (Inbox, Notifications,
+Calendar feed) draws it as the card's first row, and every row carries its own (i); no heading does.
+Notification channels are rows of the Notifications card, and Add a channel is folded behind the same
+Add disclosure as Create a user, Issue a token, Enrol a key, Map a hostname and Add a member, open by
+itself while there is no channel and when a refused form comes back to it.
+
+On a phone or tablet, where the main input is a finger (`(hover: none) and (pointer: coarse)`), the
+Hover effects row and the Keyboard section are not drawn, nor are the account menu's Keyboard shortcuts
+entry, the palette's key hints and the create forms' Ctrl+Enter line. A touch laptop keeps them.
 
 Every form on the screen returns to `/settings?flash=...#section`, so after the full-page reload the
 reader is back at the section they changed with a toast naming what was saved. The shared Listings
@@ -1199,7 +1216,7 @@ A click with a modifier, a middle click, and any click without scripting open th
 
 ### Renaming a title in place
 
-With Clicking a title set to Edits the title, the title of a task in the list, on a board card and on
+With Clicking a title set to Edit the title, the title of a task in the list, on a board card and on
 a lane card carries its reference and version, and a small open link is drawn beside it. A click turns
 the title into a text field. Enter or leaving the field posts `version` and `title` to the task's
 edit address (`POST /tasks/{ref}`), the same address and the same version check as the task screen's
@@ -1252,7 +1269,11 @@ Settings can override the browser's choice for this browser (`tix_lang`).
 
 A small (i) beside a heading, a filter or a figure opens a sentence or two on what it means and names
 the page in `docs/` that says more. It is a disclosure, so it works with no script, from the keyboard
-and on touch.
+and on touch. Beside a heading, a label or a setting's name the note opens under that line and pushes
+what follows down, rather than floating over the next row; one in a toolbar still floats.
+
+A placeholder is italic, in the muted colour and the body font even in a monospace field, so it does
+not read as a value already saved, and one that gives an example says so: "For example, laptop".
 
 To add a language, add `internal/i18n/<lang>_*.go` files registering one entry per key. The tests in
 `internal/web/i18n_internal_test.go` name every key it is missing.
@@ -1287,13 +1308,15 @@ enrolment secret handed to it.
 
 ## Calendar feed
 
-Settings carries a Calendar feed section with an (i) tip. Its first row states the feed: No feed, with a
-filter field and Create feed below it, or Active and since when, with the filter and Save filter, Rotate and
-Revoke below it. Revoking returns to the section with a notice. Creating and rotating answer a screen that
-shows the address once, as text a reader with scripting off can select, beside a Copy button and a link that
-asks the device's calendar to subscribe. That screen is rendered rather than redirected to, so the secret
-never travels in a URL the browser keeps, and it is sent `Cache-Control: no-store`. A filter the service
-refuses draws Settings again with the text kept in the field and the reason beside it.
+Settings carries a Calendar feed section. Its first row states the feed: No feed, with a filter field and
+Create feed below it, or Active, with when it was created and that its address is shown only once, at creation
+or rotation, so Rotate is how to get a new one; the filter and Save filter, Rotate and Revoke follow. The
+address itself is never on Settings: only its hash is kept. Revoking returns to the section with a notice.
+Creating and rotating answer a screen that shows the address once, as text a reader with scripting off can
+select, beside a Copy button and a link that asks the device's calendar to subscribe. That screen is rendered
+rather than redirected to, so the secret never travels in a URL the browser keeps, and it is sent
+`Cache-Control: no-store`. A filter the service refuses draws Settings again with the text kept in the field
+and the reason beside it.
 [calendar.md](calendar.md) covers the feed itself.
 
 ## Project icons
