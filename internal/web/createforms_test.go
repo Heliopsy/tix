@@ -66,7 +66,7 @@ func TestAddWithDetailsLeadsWithTheTitleAndFoldsTheRareFields(t *testing.T) {
 		t.Errorf("the title is not marked as required:\n%s", label)
 	}
 	more := between(t, form, `<details class="cform-more"`, `<div class="cform-foot">`)
-	for _, name := range []string{"repeat", "parent", "depends_on"} {
+	for _, name := range []string{"repeat", "parent", "depends_on", "lease"} {
 		if !strings.Contains(more, `name="`+name+`"`) {
 			t.Errorf("%s is not under More options:\n%s", name, more)
 		}
@@ -152,6 +152,8 @@ func TestARefusedAddKeepsWhatWasTyped(t *testing.T) {
 		{"unknown parent", url.Values{"parent": {"infra-99"}}, "parent", http.StatusNotFound},
 		{"bad repeat rule", url.Values{"repeat": {"whenever"}}, "repeat", http.StatusBadRequest},
 		{"bad due date", url.Values{"due_at": {"someday"}}, "due_at", http.StatusBadRequest},
+		{"lease above the maximum", url.Values{"lease": {"48h"}}, "lease", http.StatusBadRequest},
+		{"unreadable lease", url.Values{"lease": {"soon"}}, "lease", http.StatusBadRequest},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -172,6 +174,15 @@ func TestARefusedAddKeepsWhatWasTyped(t *testing.T) {
 			}
 			if !strings.Contains(between(t, page, `id="new-body"`, "</textarea>"), "kept") {
 				t.Error("the description was lost")
+			}
+			if typed := tc.form.Get("lease"); typed != "" {
+				if got := inputValue(t, page, "new-lease"); got != typed {
+					t.Errorf("the lease came back as %q, want %q", got, typed)
+				}
+				tasks, err := f.svc.ListTasks(f.ctx(), core.TaskFilter{})
+				if err != nil || len(tasks.Tasks) != 0 {
+					t.Errorf("the refused add left %d tasks, %v", len(tasks.Tasks), err)
+				}
 			}
 			control := tagWith(t, addForm(t, page), `name="`+tc.field+`"`)
 			if !strings.Contains(control, `aria-describedby="`+tc.field+`-error"`) {

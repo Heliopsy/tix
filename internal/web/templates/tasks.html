@@ -1115,8 +1115,8 @@
       </div>
     </div>
   </div>
-  <details class="cform-more"{{if or $f.More ($e.On "repeat") ($e.On "parent") ($e.On "depends_on")}} open{{end}}>
-    <summary>{{t "More options"}} <span class="muted">{{t "repeat, parent, dependencies"}}</span></summary>
+  <details class="cform-more"{{if or $f.More ($e.On "repeat") ($e.On "parent") ($e.On "depends_on") ($e.On "lease")}} open{{end}}>
+    <summary>{{t "More options"}} <span class="muted">{{t "repeat, parent, dependencies, lease"}}</span></summary>
     <div class="cform-moregrid">
       <div class="cfield cfield-wide">
         <div class="cfield-label"><label for="new-repeat">{{t "Repeat when done"}}</label>{{template "tip" (tip "Repeating tasks" "Finishing a repeating task creates the next one, with the same title, tags and assignee, due on the next date. Cancelling it ends the series." "docs/features.md")}}</div>
@@ -1132,6 +1132,11 @@
         <div class="cfield-label"><label for="new-depends">{{t "Depends on"}}</label>{{template "tip" (tip "Dependencies" "Tasks that have to be finished before this one can start, comma separated. The task is shown as blocked until they are.")}}</div>
         <input id="new-depends" name="depends_on" value="{{$f.DependsOn}}" class="mono" autocomplete="off" placeholder="{{"proj-42, proj-7"}}"{{$e.Attrs "depends_on"}}>
         {{with $e.On "depends_on"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="cfield">
+        <div class="cfield-label"><label for="new-lease">{{t "Lease"}}</label>{{template "tip" (tip "Lease length" "How long a claim on this task holds before it expires, when the claim names no length of its own. Empty uses the project's, then an authored workflow's, then the tenant's. Never longer than the maximum." "docs/agents.md")}}</div>
+        <input id="new-lease" name="lease" value="{{$f.Lease}}" class="mono" autocomplete="off" placeholder="{{t "Inherited"}}"{{$e.Attrs "lease"}}>
+        {{with $e.On "lease"}}{{template "field-error" .}}{{end}}
       </div>
     </div>
   </details>

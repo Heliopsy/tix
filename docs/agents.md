@@ -132,7 +132,7 @@ A claim that names no `--ttl` takes the first length set on this list, most spec
 | Level | Set with | Notes |
 | --- | --- | --- |
 | claim | `tix claim task/next --ttl 15m`, `ttl` on the claim request | refused when above the maximum |
-| task | `tix task edit REF --lease 4h`, `lease` on `PATCH /tasks/REF`, the Lease row of the task screen | `--lease ""` clears it |
+| task | `tix task add --lease 2h`, `tix task edit REF --lease 4h`, `lease` on `POST /tasks` and `PATCH /tasks/REF`, the Lease field of Add with details and the Lease row of the task screen | `--lease ""` clears it |
 | project | `tix project edit KEY --lease-default 2h`, `lease_default` on `PATCH /projects/KEY`, the Claims panel on the board | `""` inherits the tenant's |
 | workflow | `default_lease` in an authored workflow | the shipped builtin's figure does not count |
 | tenant | `tix tenant edit KEY --lease-default 1h`, the Tenant screen | |

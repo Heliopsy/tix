@@ -48,3 +48,18 @@ func TestLeaseLengthOverTheAPI(t *testing.T) {
 	mustStatus(t, tooLong, http.StatusBadRequest)
 	_ = tooLong.Body.Close()
 }
+
+func TestCreateTaskTakesALeaseOverTheAPI(t *testing.T) {
+	f := newFixture(t)
+	created := f.call(http.MethodPost, "/api/v1/tasks", map[string]any{"project_ref": "infra", "title": "build", "lease": "2h"})
+	mustStatus(t, created, http.StatusCreated)
+	var task core.Task
+	decodeBody(t, created, &task)
+	if task.Lease.D() != 2*time.Hour {
+		t.Fatalf("created task lease = %s, want 2h", task.Lease)
+	}
+
+	tooLong := f.call(http.MethodPost, "/api/v1/tasks", map[string]any{"project_ref": "infra", "title": "x", "lease": "48h"})
+	mustStatus(t, tooLong, http.StatusBadRequest)
+	_ = tooLong.Body.Close()
+}

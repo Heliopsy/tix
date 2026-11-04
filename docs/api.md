@@ -620,8 +620,9 @@ curl -H "Authorization: Bearer $TIX_TOKEN" 'http://127.0.0.1:8080/api/v1/tasks?f
 ### Lease length
 
 `lease` on a task, and `lease_default` and `lease_max` on a project, set how long claims hold; `PATCH` either with
-a duration such as `"4h"`, or `"0s"` to inherit again. `GET /tasks/{ref}/lease` answers with the lease a claim
-naming no `ttl` would be granted now and the level that decided it:
+a duration such as `"4h"`, or `"0s"` to inherit again. `POST /tasks` takes `lease` too, so a task can be created
+with its own length; one above the ceiling is `400` and nothing is created. `GET /tasks/{ref}/lease` answers with
+the lease a claim naming no `ttl` would be granted now and the level that decided it:
 
 ```json
 {"ttl":"4h0m0s","source":"task","max":"8h0m0s","max_source":"project"}

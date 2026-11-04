@@ -150,7 +150,9 @@ project or handle the tenant does not have is drawn in red with the reason, befo
 refused line comes back in the box with the reason under it. The box's (i) tip lists the syntax. The
 project picker beside the box is where the task goes when the line names no project. Dates count in the
 zone chosen under Settings. With scripting off the add still parses; only the preview needs a script.
-Add with details has a field per attribute and stores its title as typed.
+Add with details has a field per attribute and stores its title as typed. Its More options fold holds
+the repeat rule, parent, dependencies and the task's lease length, blank to inherit; a lease above the
+maximum is refused on that field and nothing is created.
 
 **Repeating tasks.** The add form's details and the task screen's Repeats row carry a Repeat field taking
 a rule such as `every week` or `3 days after done`, emptied to stop the task repeating. The task screen's

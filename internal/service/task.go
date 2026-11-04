@@ -102,6 +102,10 @@ func (l *Local) CreateTask(ctx context.Context, in core.CreateTaskInput) (*core.
 			DueAt:           in.DueAt,
 			CustomFields:    fields,
 			Recurrence:      rule,
+			Lease:           in.Lease,
+		}
+		if err := l.checkTaskLease(ctx, m.tx, task); err != nil {
+			return err
 		}
 		if wf.Definition.IsTerminal(status) {
 			completed := m.now

@@ -71,3 +71,17 @@ func TestTheBoardAndTheTaskScreenSetLeaseLength(t *testing.T) {
 		t.Error("a project maximum above the tenant's was saved")
 	}
 }
+
+func TestAddWithDetailsSetsTheLease(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	resp := b.post("/tasks", url.Values{"project_ref": {"infra"}, "title": {"long build"}, "lease": {"2h"}})
+	_ = resp.Body.Close()
+	wantStatus(t, resp, http.StatusSeeOther)
+	ref := createdRef(resp.Header.Get("Location"))
+	row := leaseRow(t, b.page("/tasks/"+ref))
+	if got := inputValue(t, row, "lease"); got != "2h" || !strings.Contains(row, "Claims last 2h, set on this task") {
+		t.Fatalf("a task added with 2h holds %q:\n%s", got, row)
+	}
+}

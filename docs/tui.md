@@ -520,7 +520,8 @@ choices last until you quit.
 unless the line names another with `+key`. A row under the field names what the line will set while you
 type. A line the parser refuses keeps the prompt open with the reason, and one the service refuses, an
 unknown handle or project, reopens the prompt holding the line as typed. Relative dates count in the
-local zone.
+local zone. Quick-add syntax names no lease length, so a task added here inherits its project's: set
+one with `tix task add --lease`, `tix task edit --lease` or in the browser.
 
 ## Filtering
 

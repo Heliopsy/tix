@@ -25,6 +25,7 @@ type taskForm struct {
 	Repeat    string
 	Parent    string
 	DependsOn string
+	Lease     string
 
 	// Quick marks the one-line box, whose title is a quick-add line.
 	Quick bool
@@ -33,7 +34,7 @@ type taskForm struct {
 // More reports whether the folded fields hold anything, which is when the
 // More options disclosure is drawn open.
 func (f taskForm) More() bool {
-	return f.Repeat != "" || f.Parent != "" || f.DependsOn != ""
+	return f.Repeat != "" || f.Parent != "" || f.DependsOn != "" || f.Lease != ""
 }
 
 // readTaskForm reads both add forms, the one-line box and Add with details.
@@ -42,7 +43,7 @@ func readTaskForm(r *http.Request) taskForm {
 		Title: field(r, "title"), Status: field(r, "status"), Body: prose(r, "body"), Project: field(r, "project_ref"),
 		Priority: field(r, "priority"), Due: field(r, "due_at"), Assignee: field(r, "assignee"),
 		Tags: field(r, "tags"), Repeat: field(r, "repeat"), Parent: field(r, "parent"),
-		DependsOn: field(r, "depends_on"), Quick: field(r, "quick") != "",
+		DependsOn: field(r, "depends_on"), Lease: field(r, "lease"), Quick: field(r, "quick") != "",
 	}
 }
 
@@ -56,10 +57,14 @@ func (f taskForm) input(r *http.Request) (core.CreateTaskInput, error) {
 	if err != nil {
 		return core.CreateTaskInput{}, err
 	}
+	lease, err := durationField(r, "lease")
+	if err != nil {
+		return core.CreateTaskInput{}, core.OnField(err, "lease")
+	}
 	return core.CreateTaskInput{
 		ProjectRef: f.Project, Title: f.Title, Status: f.Status, Body: f.Body, Priority: priority,
 		Tags: splitList(f.Tags), Recurrence: f.Repeat, AssigneeActorID: f.Assignee,
-		ParentRef: f.Parent, DependsOn: splitList(f.DependsOn), DueAt: due,
+		ParentRef: f.Parent, DependsOn: splitList(f.DependsOn), DueAt: due, Lease: lease,
 	}, nil
 }
 

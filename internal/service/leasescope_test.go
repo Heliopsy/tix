@@ -227,3 +227,35 @@ func TestACopyCarriesTheTaskLease(t *testing.T) {
 		t.Fatalf("copy lease = %s, want 4h", copied.Lease)
 	}
 }
+
+func TestCreateTaskTakesALeaseHeldToTheMaximum(t *testing.T) {
+	f := newClaimFixture(t, 0)
+	task, err := f.local.CreateTask(f.ctx, core.CreateTaskInput{ProjectRef: f.project.Key, Title: "build",
+		Lease: core.Duration(2 * time.Hour)})
+	if err != nil {
+		t.Fatalf("creating with a lease: %v", err)
+	}
+	claim, err := f.local.ClaimTask(f.ctx, core.TaskRef{ID: task.ID}, core.ClaimInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := claim.LeaseExpiresAt.Sub(f.clock.Now()); got != 2*time.Hour || claim.Lease.Source != core.LeaseFromTask {
+		t.Fatalf("claim = %s from %s, want 2h from the task", got, claim.Lease.Source)
+	}
+
+	if err := f.setProjectLease(t, nil, leaseOf(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	_, err = f.local.CreateTask(f.ctx, core.CreateTaskInput{ProjectRef: f.project.Key, Title: "too long",
+		Lease: core.Duration(2 * time.Hour)})
+	if core.KindOf(err) != core.KindInvalid || core.FieldOf(err) != "lease" {
+		t.Fatalf("a lease above the project maximum = %v, want invalid on lease", err)
+	}
+	page, err := f.local.ListTasks(f.ctx, core.TaskFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Tasks) != 1 {
+		t.Fatalf("after the refused create the tenant holds %d tasks, want only the first", len(page.Tasks))
+	}
+}
