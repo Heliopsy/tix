@@ -30,9 +30,13 @@ import (
 type contract struct {
 	doc     map[string]any
 	matcher *openapi.Matcher
-	c       *jsonschema.Compiler
-	mu      sync.Mutex
-	cache   map[string]*jsonschema.Schema
+	// lax checks requests against the document as published. strict checks
+	// responses against a copy whose objects admit no property they do not
+	// describe, since a handler writing a type other than the one declared
+	// otherwise passes wherever the two types share no field by the same name.
+	lax, strict *jsonschema.Compiler
+	mu          sync.Mutex
+	cache       map[string]*jsonschema.Schema
 }
 
 const contractURL = "file:///openapi.json"
@@ -53,12 +57,12 @@ var loadContract = sync.OnceValues(func() (*contract, error) {
 	if err := json.Unmarshal(raw, &doc); err != nil {
 		return nil, err
 	}
-	inst, err := jsonschema.UnmarshalJSON(bytes.NewReader(raw))
+	lax, err := compiler(raw, false)
 	if err != nil {
 		return nil, err
 	}
-	c := jsonschema.NewCompiler()
-	if err := c.AddResource(contractURL, inst); err != nil {
+	strict, err := compiler(raw, true)
+	if err != nil {
 		return nil, err
 	}
 	var patterns []string
@@ -71,8 +75,44 @@ var loadContract = sync.OnceValues(func() (*contract, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &contract{doc: doc, matcher: m, c: c, cache: map[string]*jsonschema.Schema{}}, nil
+	return &contract{doc: doc, matcher: m, lax: lax, strict: strict, cache: map[string]*jsonschema.Schema{}}, nil
 })
+
+// compiler loads the document, closing every described object when strict.
+func compiler(raw []byte, strict bool) (*jsonschema.Compiler, error) {
+	inst, err := jsonschema.UnmarshalJSON(bytes.NewReader(raw))
+	if err != nil {
+		return nil, err
+	}
+	if strict {
+		closeObjects(inst)
+	}
+	c := jsonschema.NewCompiler()
+	if err := c.AddResource(contractURL, inst); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+// closeObjects forbids undescribed properties on every schema that lists
+// properties and says nothing about others.
+func closeObjects(v any) {
+	switch v := v.(type) {
+	case map[string]any:
+		if _, ok := v["properties"].(map[string]any); ok {
+			if _, set := v["additionalProperties"]; !set {
+				v["additionalProperties"] = false
+			}
+		}
+		for _, child := range v {
+			closeObjects(child)
+		}
+	case []any:
+		for _, child := range v {
+			closeObjects(child)
+		}
+	}
+}
 
 // checkContract wraps the fixture's handler. The response is held until it
 // has been checked, so a failure is reported while the test is still running.
@@ -187,7 +227,7 @@ func (ct *contract) checkRequest(op map[string]any, ptr string, r *http.Request,
 	if _, ok := content[wire.ContentJSON]; !ok {
 		return []string{"the request carried JSON and the document declares no JSON body"}
 	}
-	return ct.validate(ptr+"/requestBody/content/"+escape(wire.ContentJSON)+"/schema", body, "request body")
+	return ct.validate(ct.lax, ptr+"/requestBody/content/"+escape(wire.ContentJSON)+"/schema", body, "request body")
 }
 
 // checkResponse validates the status, the media type and the body.
@@ -227,7 +267,7 @@ func (ct *contract) checkResponse(op map[string]any, ptr string, rec *httptest.R
 	schemaPtr := ptr + "/content/" + escape(key) + "/schema"
 	switch key {
 	case wire.ContentJSON:
-		return ct.validate(schemaPtr, body, "response "+code)
+		return ct.validate(ct.strict, schemaPtr, body, "response "+code)
 	case wire.ContentNDJSON:
 		if _, ok := content[key].(map[string]any)["schema"]; !ok {
 			return nil
@@ -236,7 +276,7 @@ func (ct *contract) checkResponse(op map[string]any, ptr string, rec *httptest.R
 		sc := bufio.NewScanner(bytes.NewReader(body))
 		sc.Buffer(nil, 1<<24)
 		for line := 1; sc.Scan(); line++ {
-			problems = append(problems, ct.validate(schemaPtr, sc.Bytes(), fmt.Sprintf("response %s line %d", code, line))...)
+			problems = append(problems, ct.validate(ct.strict, schemaPtr, sc.Bytes(), fmt.Sprintf("response %s line %d", code, line))...)
 		}
 		return problems
 	}
@@ -244,8 +284,8 @@ func (ct *contract) checkResponse(op map[string]any, ptr string, rec *httptest.R
 }
 
 // validate checks one JSON document against the schema at a pointer.
-func (ct *contract) validate(ptr string, body []byte, what string) []string {
-	sch, err := ct.schema(ptr)
+func (ct *contract) validate(c *jsonschema.Compiler, ptr string, body []byte, what string) []string {
+	sch, err := ct.schema(c, ptr)
 	if err != nil {
 		return []string{fmt.Sprintf("compiling %s: %v", ptr, err)}
 	}
@@ -254,23 +294,24 @@ func (ct *contract) validate(ptr string, body []byte, what string) []string {
 		return []string{fmt.Sprintf("%s is not JSON: %v", what, err)}
 	}
 	if err := sch.Validate(inst); err != nil {
-		return []string{fmt.Sprintf("%s does not match the document: %v", what, err)}
+		return []string{fmt.Sprintf("%s does not match the document: %#v", what, err)}
 	}
 	return nil
 }
 
 // schema compiles the schema at a pointer once.
-func (ct *contract) schema(ptr string) (*jsonschema.Schema, error) {
+func (ct *contract) schema(c *jsonschema.Compiler, ptr string) (*jsonschema.Schema, error) {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
-	if s, ok := ct.cache[ptr]; ok {
+	key := fmt.Sprintf("%p%s", c, ptr)
+	if s, ok := ct.cache[key]; ok {
 		return s, nil
 	}
-	s, err := ct.c.Compile(contractURL + ptr)
+	s, err := c.Compile(contractURL + ptr)
 	if err != nil {
 		return nil, err
 	}
-	ct.cache[ptr] = s
+	ct.cache[key] = s
 	return s, nil
 }
 
