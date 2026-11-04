@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.38.1](https://github.com/Heliopsy/tix/compare/v0.38.0...v0.38.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* **web:** keep heading and create-form tips on a wrapping flex line, and give segments room ([86df0d7](https://github.com/Heliopsy/tix/commit/86df0d7e99dd089ed5ec0ec0cafcf23e0802b120))
+* **web:** make settings read plainly on a phone, and fix the same patterns elsewhere ([237916c](https://github.com/Heliopsy/tix/commit/237916ce0569fd21d7569c5d301acfcea4d58318))
+
+
+### Dependencies
+
+* screenshot every web page and popup with just screenshots ([3614e51](https://github.com/Heliopsy/tix/commit/3614e51c82cd94c4c21216d50cea4d31b09427e9))
+
 ## [0.38.0](https://github.com/Heliopsy/tix/compare/v0.37.0...v0.38.0) (2026-11-04)
 
 
