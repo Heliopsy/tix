@@ -901,8 +901,16 @@ textarea { padding: var(--space-3); line-height: 1.5; }
 /* Left to the browser, a placeholder is its light-scheme grey whatever the
    theme, which on the dark and dim surfaces is near-black on near-black. It
    takes the muted token instead, so it reads as a hint in every scheme. The
-   opacity resets Firefox, which fades placeholders on top of their colour. */
-::placeholder { color: var(--muted); opacity: 1; }
+   opacity resets Firefox, which fades placeholders on top of their colour.
+   Italic and in the body font, so an example in it cannot be taken for a
+   value already saved, and a monospace field's hint reads like every other
+   field's: the muted token alone is near enough to the ink to be mistaken. */
+::placeholder {
+  color: var(--muted);
+  opacity: 1;
+  font-style: italic;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
 
 /* A field is as wide as the thing it holds, not as wide as the page.
 
@@ -1085,9 +1093,27 @@ input[readonly] {
 /* A tip near the page's right edge opens leftwards, so its note stays on
    screen: the view switch sits at the end of the task screen's header. */
 .viewswitch .tip > p, .pagehead-actions .tip > p { left: auto; right: 0; }
-.headtip { display: flex; align-items: center; gap: 2px; }
 .headtip > h1, .headtip > h2, .headtip > h3 { margin-inline-end: 0; }
 .headtip:first-child > :is(h1, h2, h3) { margin-top: 0; }
+
+/* A line holding an (i): a heading, a label or a setting's name. Its note
+   opens under the line and pushes what follows down, rather than floating
+   over it: on a phone, floating covered the next setting's name. The line is
+   a block whose children are inline, and the disclosure itself is inline,
+   so its note, a block, is laid out as a full-width block after the line. A
+   flex line cannot do this: its items are blockified, and the note would
+   widen the disclosure beside the label instead of dropping under it. */
+:is(.setname-line, .field-label, .cfield-label, .headtip) { display: block; }
+:is(.setname-line, .field-label, .cfield-label, .headtip) > :not(.field-info) { display: inline-block; vertical-align: middle; }
+:is(.setname-line, .field-label, .cfield-label, .headtip) > .field-info { display: inline; position: static; }
+:is(.setname-line, .field-label, .cfield-label, .headtip) > .field-info > summary { vertical-align: middle; margin-inline-start: 6px; }
+:is(.setname-line, .field-label, .cfield-label, .headtip) > .field-info > p {
+  position: static;
+  width: auto;
+  max-width: var(--measure-text);
+  margin: var(--space-2) 0 var(--space-1);
+  box-shadow: none;
+}
 
 /* A single-choice <select> gets the same border, background and padding
    every other field already has from the shared rule above; what is left of
@@ -3011,9 +3037,8 @@ details.panel.addmore .actions {
 .cfield label, .cfield-name { margin: 0; font-size: var(--text-xs); font-weight: 500; color: var(--muted); }
 /* The label, its required mark and its tip on one line, so a tip never wraps
    under its label and pushes the control below its neighbours. */
-.cfield-label { display: flex; align-items: center; gap: var(--space-1); min-height: 20px; }
-.cfield-label .tip { margin-inline-start: 2px; }
-.cfield-label .req { margin-inline-start: auto; }
+.cfield-label { min-height: 20px; }
+.cfield-label .req { float: right; }
 .req { font-size: var(--text-2xs); font-weight: 500; color: var(--muted); text-transform: lowercase; }
 .cfield-hint { margin: 0; font-size: var(--text-xs); color: var(--muted); line-height: 1.4; }
 .cfield-hint .mono { font-size: inherit; }
@@ -5016,9 +5041,7 @@ input#code {
 /* The name and its (i). The note is anchored to this line rather than to the
    icon, and capped at its width, so it opens under the name and can never
    run past the right edge of the row. */
-.setname-line { position: relative; display: flex; align-items: center; gap: 6px; min-width: 0; }
-.setname-line > .field-info { position: static; }
-.setname-line > .field-info > p { max-width: min(26rem, 100%); }
+.setname-line { min-width: 0; }
 
 .setrow-ctl {
   display: flex;
@@ -5055,8 +5078,29 @@ input#code {
   clip-path: inset(50%);
 }
 
-/* A path or a redacted DSN, which has no break opportunity of its own. */
-.settarget { display: block; overflow-wrap: anywhere; }
+/* A path or a redacted DSN, which has no break opportunity of its own: body
+   text that breaks anywhere, not a code block in a larger face. */
+.settarget { display: block; font-size: var(--text-sm); color: var(--ink); overflow-wrap: anywhere; word-break: break-all; }
+
+/* A section's one-line description, as the first row of its card rather than
+   loose above it, so every section is a heading and then a card. */
+.setrow.setlead { display: block; font-size: var(--text-sm); color: var(--muted); line-height: 1.5; }
+
+/* Existing channels are rows of the Notifications card. */
+.setlist > .channels { margin: 0; padding: 0; }
+ul.plain.channels > li.setrow { padding: var(--space-4); border-bottom: 0; }
+.setlist > .channels > .setrow:first-child { border-top: 1px solid var(--line); }
+.setlist > .channels:last-child > .setrow:last-child { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+a.setname { color: var(--ink); text-decoration: none; }
+a.setname:hover { text-decoration: underline; }
+.setgroup > details.panel.addmore { margin-top: var(--space-3); max-width: var(--measure-form); }
+
+/* What only a hovering pointer or a keyboard can use is not drawn on a device
+   whose main input is a finger: a phone or a tablet. A touch laptop's main
+   input is its trackpad, so it keeps them. */
+@media (hover: none) and (pointer: coarse) {
+  .needs-hover, .needs-keys { display: none !important; }
+}
 
 /* An on/off preference. Still a submit button, so it works with no script;
    role="switch" and aria-checked say what it is and which way it is set.
@@ -5292,9 +5336,7 @@ td > details.panel > summary { overflow-wrap: normal; word-break: keep-all; }
 /* The (i) note hangs from the label's line rather than from the icon, and is
    no wider than that line, so it cannot leave the viewport whichever column
    the field is in. */
-.field-label { position: relative; }
-.field-label > .field-info { position: static; }
-.field-label > .field-info > p { max-width: min(320px, 100%); }
+
 
 /* ---------------------------------------------------------------------------
    Hover effects.
@@ -6680,10 +6722,6 @@ ul.plain > li.inbox-item.is-fresh { animation: inbox-fresh 4s ease-out; }
 }
 
 /* Notification channels (templates/settings.html, templates/channel.html). */
-ul.plain > li.channelrow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
-.channelrow-main { flex: 1 1 auto; min-width: 0; color: var(--ink); text-decoration: none; }
-.channelrow-main:hover .channelrow-name { text-decoration: underline; }
-.channelrow-name { font-weight: 600; }
 .cform label.check { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-weight: 400; }
 .cform label.check input { width: auto; margin: 0; }
 .cform-group:has(label.check) { gap: var(--space-2); }

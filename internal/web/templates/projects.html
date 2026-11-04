@@ -86,7 +86,7 @@
     <div class="cform-main">
       <div class="cfield">
         <div class="cfield-label"><label for="name">{{t "Name"}}</label>{{template "required-mark"}}</div>
-        <input id="name" class="cform-lead" name="name" value="{{$f.Name}}" placeholder="{{t "Website relaunch"}}" autocomplete="off" required autofocus data-key-source{{$e.Attrs "name"}}>
+        <input id="name" class="cform-lead" name="name" value="{{$f.Name}}" placeholder="{{t "For example, Website relaunch"}}" autocomplete="off" required autofocus data-key-source{{$e.Attrs "name"}}>
         {{with $e.On "name"}}{{template "field-error" .}}{{end}}
       </div>
       <div class="cform-pair">

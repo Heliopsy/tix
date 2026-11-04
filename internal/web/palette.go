@@ -137,39 +137,42 @@ type paletteData struct {
 
 // paletteScreen is one destination: every sidebar entry, and every section
 // of Settings. Advanced marks the entries the sidebar shows only with
-// Advanced screens on, so the palette offers what the sidebar offers.
+// Advanced screens on, so the palette offers what the sidebar offers; Admin
+// marks the ones drawn only for a tenant administrator.
 type paletteScreen struct {
 	Href     string
 	Label    string
 	Hint     string
 	Advanced bool
+	Admin    bool
 }
 
 // paletteScreens follow the sidebar's order (templates/partials.html "nav"
 // and layout.html), then the sections of Settings.
 var paletteScreens = []paletteScreen{
-	{RouteTasks, "Tasks", "", false},
-	{RouteProjects, "Projects", "", false},
-	{RouteActivity, "Activity", "", false},
-	{RouteStats, "Statistics", "", false},
-	{RouteWorkflows, "Workflows", "Configure", true},
-	{RouteTenant, "Tenant", "Configure", true},
-	{RouteDomains, "Domains", "Configure", true},
-	{RouteUsers, "Users", "Configure", true},
-	{RouteTokens, "Tokens", "Configure", true},
-	{RouteSSHKeys, "SSH keys", "Configure", true},
-	{RouteStatus, "Status", "Configure", true},
-	{RouteConnections, "Connections", "Configure", true},
-	{RouteWebhooks, "Webhooks", "Configure", true},
-	{RouteTransfer, "Import and export", "Data", true},
-	{RouteSync, "Sync", "Data", true},
-	{RouteSettings, "Settings", "", false},
-	{RouteSettings + "#appearance", "Appearance", "Settings", false},
-	{RouteSettings + "#listings", "Listings", "Settings", false},
-	{RouteSettings + "#keyboard", "Keyboard", "Settings", false},
-	{RouteSettings + "#dates", "Dates and times", "Settings", false},
-	{RouteSettings + "#second-factor", "Second factor", "Settings", false},
-	{RouteSettings + "#database", "Database", "Settings", false},
+	{RouteTasks, "Tasks", "", false, false},
+	{RouteProjects, "Projects", "", false, false},
+	{RouteActivity, "Activity", "", false, false},
+	{RouteStats, "Statistics", "", false, false},
+	{RouteWorkflows, "Workflows", "Admin", true, false},
+	{RouteTemplates, "Templates", "Admin", true, false},
+	{RouteTenant, "Tenant", "Admin", true, false},
+	{RouteDomains, "Domains", "Admin", true, false},
+	{RouteUsers, "Users", "Admin", true, false},
+	{RouteTokens, "Tokens", "Admin", true, false},
+	{RouteSSHKeys, "SSH keys", "Admin", true, false},
+	{RouteStatus, "Status", "Admin", true, false},
+	{RouteConnections, "Connections", "Admin", true, false},
+	{RouteWebhooks, "Webhooks", "Admin", true, false},
+	{RouteTransfer, "Import and export", "Admin", true, false},
+	{RouteSync, "Sync", "Admin", true, false},
+	{RouteSettings, "Settings", "", false, false},
+	{RouteSettings + "#appearance", "Appearance", "Settings", false, false},
+	{RouteSettings + "#listings", "Listings", "Settings", false, false},
+	{RouteSettings + "#keyboard", "Keyboard", "Settings", false, false},
+	{RouteSettings + "#dates", "Dates and times", "Settings", false, false},
+	{RouteSettings + "#second-factor", "Second factor", "Settings", false, false},
+	{Href: RouteSettings + "#database", Label: "Database", Hint: "Settings", Admin: true},
 }
 
 // paletteActions are what the palette can do besides going somewhere. The
@@ -204,10 +207,10 @@ func paletteLabels() []string {
 }
 
 // paletteDataFor builds the palette's fixed entries for one page.
-func paletteDataFor(lang string, advanced bool) paletteData {
+func paletteDataFor(lang string, advanced, admin bool) paletteData {
 	data := paletteData{Screens: []paletteEntry{}, Actions: []paletteEntry{}}
 	for _, s := range paletteScreens {
-		if s.Advanced && !advanced {
+		if (s.Advanced && !advanced) || (s.Admin && !admin) {
 			continue
 		}
 		e := paletteEntry{ID: "screen:" + s.Href, Label: i18n.T(lang, s.Label), Href: s.Href}
@@ -225,8 +228,8 @@ func paletteDataFor(lang string, advanced bool) paletteData {
 // paletteJSON renders the palette's fixed entries as the JSON a page embeds
 // in a <script type="application/json"> element, so they draw the moment
 // the palette opens with no request behind them.
-func paletteJSON(lang string, advanced bool) template.JS {
-	raw, err := json.Marshal(paletteDataFor(lang, advanced))
+func paletteJSON(lang string, advanced, admin bool) template.JS {
+	raw, err := json.Marshal(paletteDataFor(lang, advanced, admin))
 	if err != nil {
 		return template.JS("{}") // #nosec G203 -- fixed fallback, not caller input
 	}

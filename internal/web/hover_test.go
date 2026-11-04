@@ -78,7 +78,7 @@ func TestSettingsDrawsOnOffPreferencesAsSwitches(t *testing.T) {
 }
 
 // sectionIDs are the ids of the settings screen's sections, in order.
-var sectionIDs = regexp.MustCompile(`<section class="setgroup" id="([^"]+)">`)
+var sectionIDs = regexp.MustCompile(`<section class="setgroup[^"]*" id="([^"]+)">`)
 
 // The section navigation links every section and nothing else, read from the
 // navigation itself: the sections' own ids are in the page whatever it says.
@@ -93,7 +93,7 @@ func TestSettingsNavigationLinksEverySection(t *testing.T) {
 		t.Fatalf("the settings screen has %d sections, want at least six:\n%s", len(ids), page)
 	}
 	for _, id := range ids {
-		if !strings.Contains(nav, `<a href="#`+id[1]+`">`) {
+		if !strings.Contains(nav, `<a href="#`+id[1]+`"`) {
 			t.Errorf("the section navigation does not link %q:\n%s", id[1], nav)
 		}
 	}

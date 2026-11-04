@@ -98,7 +98,7 @@ func (h *handler) notifications(r *http.Request, form channelForm, errs fieldErr
 		}
 	}
 	return notificationsSection{Channels: channels, Adder: channelFormView{Action: RouteChannels,
-		Title: "Add a channel", Submit: "Add channel", Prefix: "ch-", CSRF: csrfFrom(r), Form: form, Errors: errs,
+		Submit: "Add channel", Prefix: "ch-", CSRF: csrfFrom(r), Form: form, Errors: errs,
 		Formats: channelFormats(), Kinds: inboxKindChoices(nil)}}
 }
 

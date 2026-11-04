@@ -38,10 +38,8 @@ func init() {
 		"Off":                                  "Изкл.",
 
 		"Advanced screens": "Разширени екрани",
-		"Adds the configuration and data screens to the sidebar: workflows, tenant, domains, users, tokens, webhooks, bundles, transfer and sync. On by default for a tenant administrator, who has to be able to find them, and off for everybody else, whom every one of those screens refuses.": "Добавя екраните за конфигурация и данни в страничната лента: работни процеси, тенант, домейни, потребители, токени, уебхукове, пакети, пренос и синхронизация. Включено по подразбиране за администратор на тенанта, който трябва да може да ги намери, и изключено за всички останали, на които всеки от тези екрани отказва.",
-		"Show the Configure and Data groups in the sidebar.": "Показвай групите „Конфигурация“ и „Данни“ в страничната лента.",
-		"Shown":  "Показани",
-		"Hidden": "Скрити",
+		"Shown":            "Показани",
+		"Hidden":           "Скрити",
 
 		"Drag to move": "Премествай с влачене",
 		"Drag a card between board columns to move it. Each card's own Move menu always works, drag or no drag, so turning this off costs nothing for keyboard or touch use.": "Влачи карта между колоните на таблото, за да я преместиш. Менюто „Премести“ на всяка карта работи винаги, с или без влачене, така че изключването не пречи при работа с клавиатура или с докосване.",
@@ -53,10 +51,7 @@ func init() {
 		"Page":             "Страница",
 		"Dialog":           "Диалог",
 		"Clicking a title": "Щракване върху заглавие",
-		"Edits the title turns a task's title in the list, on a board card or on a lane card into a text field: Enter or clicking away saves, Escape cancels. The small open link beside each title still opens the task. Enter or F2 on a selected row edits its title too.": "„Редактира заглавието“ превръща заглавието на задачата в списъка, в картата на таблото или в картата в лентата в текстово поле: Enter или щракване другаде запазва, Escape отменя. Малката връзка за отваряне до всяко заглавие все така отваря задачата. Enter или F2 върху избран ред също редактира заглавието му.",
 		"Open the task, or rename it where it is listed.": "Отваряй задачата или я преименувай направо в списъка.",
-		"Edits the title": "Редактира заглавието",
-		"Opens the task":  "Отваря задачата",
 
 		"Open a new task": "Отваряй новата задача",
 		"Off by default: adding a task keeps you on the listing with the filter, sort and page you were on, and the toast links the new task. Turn this on to open each task as soon as it is added, for writing one task out in full. Applies to the one-line box and to Add with details.": "Изключено по подразбиране: след добавяне оставаш в списъка със същия филтър, подредба и страница, а известието води към новата задача. Включи го, за да се отваря всяка задача веднага след добавянето, когато искаш да я опишеш подробно. Важи за полето на един ред и за „Добави с подробности“.",
@@ -134,5 +129,10 @@ func init() {
 		"Not shown": "Не се показва",
 
 		"%s saved": "%s: запазено",
+		"Adds the configuration screens to the sidebar's Admin group, under Trash: workflows, templates, tenant, domains, users, tokens, SSH keys, status, connections, webhooks, import and export, and sync. On by default for a tenant administrator, who has to be able to find them, and off for everybody else, whom every one of those screens refuses.": "Добавя екраните за конфигурация в групата „Администрация“ на страничната лента, под „Кошче“: работни процеси, шаблони, тенант, домейни, потребители, токени, SSH ключове, състояние, връзки, уебкуки, внос и износ, и синхронизация. Включено по подразбиране за администратор на тенанта, който трябва да може да ги намери, и изключено за всички останали, които всеки от тези екрани отказва.",
+		"Show the configuration screens in the sidebar's Admin group.": "Показвай екраните за конфигурация в групата „Администрация“ на страничната лента.",
+		"Edit the title turns a task's title in the list, on a board card or on a lane card into a text field: Enter or clicking away saves, Escape cancels. The small open link beside each title still opens the task. Enter or F2 on a selected row edits its title too.": "„Редактирай заглавието“ превръща заглавието на задачата в списъка, в картата на таблото или в картата в лентата в текстово поле: Enter или щракване встрани запазва, Escape отказва. Малката връзка за отваряне до всяко заглавие пак отваря задачата. Enter или F2 върху избран ред също редактира заглавието му.",
+		"Open the task":  "Отвори задачата",
+		"Edit the title": "Редактирай заглавието",
 	})
 }

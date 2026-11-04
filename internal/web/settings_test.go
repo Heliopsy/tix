@@ -369,32 +369,57 @@ func TestSettingsPageShowsTheConfiguredDatabaseDescription(t *testing.T) {
 
 	withHint := web.Handler(f.svc, web.WithTargetDescribe("local /tmp/claude-1000/example.db (from flag)"))
 	page := f.settingsPage(t, withHint)
-	if !strings.Contains(page, "local /tmp/claude-1000/example.db (from flag)") {
+	if !strings.Contains(databaseSection(t, page), `<span class="settarget">local /tmp/claude-1000/example.db (from flag)</span>`) {
 		t.Errorf("the settings page does not show the configured database description:\n%s", page)
 	}
 
 	without := web.Handler(f.svc)
 	bare := f.settingsPage(t, without)
-	// Read from the Database heading to the end of the page rather than over
-	// the whole document: the preference sections above it legitimately set a
-	// project key and a filter term in <code>, and a search over the document
-	// cannot tell those from a target. What this is about is whether the
-	// Database section names one.
-	if section := databaseSection(t, bare); strings.Contains(section, "<code>") {
+	if section := databaseSection(t, bare); strings.Contains(section, "settarget") || !strings.Contains(section, "Not shown") {
 		t.Errorf("the settings page shows a database target with nothing configured:\n%s", section)
 	}
 }
 
-// databaseSection is the markup from the Database heading to the end of the
-// page, which is where a configured target is named and the only place one
-// may appear.
+// Where the data lives is the operator's business: the Database section, its
+// link in the section navigation and its palette entry are drawn for a
+// tenant administrator and for nobody else.
+func TestSettingsShowsTheDatabaseTargetToAdministratorsOnly(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	const target = "local /srv/tix/private.db (from flag)"
+	handler := web.Handler(f.svc, web.WithTargetDescribe(target))
+
+	admin := f.settingsPageAs(t, handler, "alice")
+	if !strings.Contains(databaseSection(t, admin), target) {
+		t.Errorf("an administrator is not shown the target:\n%s", databaseSection(t, admin))
+	}
+	if !strings.Contains(between(t, admin, `<nav class="setnav"`, "</nav>"), `href="#database"`) {
+		t.Error("an administrator's section navigation does not link the Database section")
+	}
+	if !strings.Contains(between(t, admin, `id="tix-palette-data"`, "</script>"), `/settings#database`) {
+		t.Error("an administrator's palette does not offer the Database section")
+	}
+
+	member := f.settingsPageAs(t, handler, "member:"+f.actorA.ID)
+	if strings.Contains(member, target) || strings.Contains(member, "settarget") {
+		t.Errorf("a member is shown the database target:\n%s", member)
+	}
+	if strings.Contains(member, `id="database"`) || strings.Contains(member, "<h2>Database</h2>") {
+		t.Error("a member is drawn the Database section")
+	}
+	if strings.Contains(between(t, member, `<nav class="setnav"`, "</nav>"), `#database`) {
+		t.Error("a member's section navigation links the Database section")
+	}
+	if strings.Contains(between(t, member, `id="tix-palette-data"`, "</script>"), `#database`) {
+		t.Error("a member's palette offers the Database section")
+	}
+}
+
+// databaseSection is the Database section's own markup, which is where a
+// configured target is named and the only place one may appear.
 func databaseSection(t *testing.T, page string) string {
 	t.Helper()
-	i := strings.Index(page, "<h2>Database</h2>")
-	if i < 0 {
-		t.Fatalf("the settings page has no Database section:\n%s", page)
-	}
-	return page[i:]
+	return between(t, page, `<section class="setgroup" id="database">`, "</section>")
 }
 
 // settingsPage renders the settings page through a handler built with custom
@@ -403,6 +428,12 @@ func databaseSection(t *testing.T, page string) string {
 // up a whole second fixture.
 func (f *fixture) settingsPage(t *testing.T, handler http.Handler) string {
 	t.Helper()
+	return f.settingsPageAs(t, handler, "alice")
+}
+
+// settingsPageAs is settingsPage signed in as the named fixture actor.
+func (f *fixture) settingsPageAs(t *testing.T, handler http.Handler, actor string) string {
+	t.Helper()
 	server := httptest.NewServer(f.authenticate(handler))
 	defer server.Close()
 
@@ -410,7 +441,7 @@ func (f *fixture) settingsPage(t *testing.T, handler http.Handler) string {
 	if err != nil {
 		t.Fatalf("building request: %v", err)
 	}
-	req.Header.Set(actorHeader, "alice")
+	req.Header.Set(actorHeader, actor)
 	resp, err := server.Client().Do(req)
 	if err != nil {
 		t.Fatalf("getting /settings: %v", err)
@@ -473,5 +504,55 @@ func TestATenantAccentReachesEveryScheme(t *testing.T) {
 	}
 	if !strings.Contains(page, "@media (prefers-color-scheme: dark)") {
 		t.Error("the accent is not restated for the system dark preference, which is the default")
+	}
+}
+
+// Since one Admin group replaced Configure and Data, the row that adds the
+// configuration screens to the sidebar names the group they appear in, in
+// its line and in its (i) note alike.
+func TestAdvancedScreensNamesTheAdminGroup(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	row := prefForm(t, contentOf(t, f.as("alice").page("/settings")), "/advanced")
+	for _, part := range []string{
+		between(t, row, `<span class="sethelp" id="advanced-help">`, "</span>"),
+		between(t, row, `<details class="field-info">`, "</details>"),
+	} {
+		if strings.Contains(part, "Configure") || strings.Contains(part, "Data group") || strings.Contains(part, "data screens") {
+			t.Errorf("the Advanced screens row names the groups Admin replaced: %s", part)
+		}
+		if !strings.Contains(part, "Admin group") {
+			t.Errorf("the Advanced screens row does not name the Admin group: %s", part)
+		}
+	}
+}
+
+// Every section is a heading and then its card: a description is the card's
+// lead row, not a paragraph loose above it, and no heading carries an (i),
+// which the rows carry instead.
+func TestSettingsSectionsShareOneShape(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	page := contentOf(t, f.as("alice").page("/settings"))
+	for _, id := range []string{"appearance", "listings", "dates", "inbox", "notifications", "second-factor", "calendar", "database"} {
+		section := between(t, page, `id="`+id+`">`, "</section>")
+		head, after, found := strings.Cut(section, "</h2>")
+		head = strings.TrimSpace(head)
+		if !found || !strings.HasPrefix(head, "<h2>") || strings.Contains(head, "field-info") || strings.Contains(head, "headtip") {
+			t.Errorf("%s's heading is not a plain heading: %s", id, head)
+		}
+		if i := strings.Index(after, `class="sethelp"`); i >= 0 && i < strings.Index(after, `<div class="setlist">`) {
+			t.Errorf("%s has a description outside its card:\n%s", id, section)
+		}
+	}
+	inbox := between(t, page, `id="inbox">`, "</section>")
+	if !strings.Contains(between(t, inbox, `<div class="setlist">`, `<form`), `<p class="setrow setlead">What reaches your inbox.`) {
+		t.Errorf("Inbox's description is not its card's lead row:\n%s", inbox)
+	}
+	for _, kind := range []string{"mention", "assigned", "status", "comment"} {
+		row := between(t, inbox, `name="kind" value="`+kind+`"`, "</form>")
+		if !strings.Contains(between(t, row, `<div class="setname-line">`, "</div>"), `<details class="field-info">`) {
+			t.Errorf("Inbox's %s row has no (i):\n%s", kind, row)
+		}
 	}
 }

@@ -60,12 +60,17 @@
 </table>
 </div>
 
-<h2>{{t "Issue a token"}}</h2>
-{{/* A refused submission re-renders this form rather than answering with the
+{{/* Folded behind the Add disclosure Users and Webhooks use, and open by
+     itself when nothing is listed yet or a refusal comes back to it.
+
+     A refused submission re-renders this form rather than answering with the
      error screen, so the message arrives beside the control it is about and
      nothing the reader typed is lost. It is the response to the ordinary POST,
      so it works the same with scripting off; the required attributes below are
      a convenience on top of it, never the thing doing the checking. */}}
+<details class="panel addmore"{{if or (not .Data.Tokens) .Data.Errors}} open{{end}}>
+  <summary>{{t "Issue a token"}}</summary>
+  <div class="body">
 <form method="post" action="/admin/tokens">
   {{template "csrf" .CSRF}}
   {{with .Data.Errors.On ""}}{{template "field-error" .}}{{end}}
@@ -90,4 +95,6 @@
   {{with .Data.Errors.On "expires"}}{{template "field-error" .}}{{end}}
   <p><button type="submit">{{t "Issue token"}}</button></p>
 </form>
+  </div>
+</details>
 {{end}}

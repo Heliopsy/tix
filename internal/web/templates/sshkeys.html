@@ -32,7 +32,11 @@
   </tbody>
 </table>
 
-<h2>{{t "Enrol a key"}}</h2>
+{{/* Folded behind the Add disclosure Users and Webhooks use, open by
+     itself when there is nothing listed yet. */}}
+<details class="panel addmore"{{if not .Data.Keys}} open{{end}}>
+  <summary>{{t "Enrol a key"}}</summary>
+  <div class="body">
 <form method="post" action="/admin/ssh-keys">
   {{template "csrf" .CSRF}}
   <div class="field-label">
@@ -41,7 +45,9 @@
   </div>
   <textarea id="public_key" name="public_key" rows="4" required placeholder="{{"ssh-ed25519 AAAAC3Nza..."}}"></textarea>
   <label for="label">{{t "Label"}}</label>
-  <input id="label" name="label" placeholder="{{t "laptop"}}">
+  <input id="label" name="label" placeholder="{{t "For example, laptop"}}">
   <p><button type="submit">{{t "Enrol key"}}</button></p>
 </form>
+  </div>
+</details>
 {{end}}

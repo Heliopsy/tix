@@ -12,7 +12,7 @@
 <form method="post" action="/bundles/export">
   {{template "csrf" .CSRF}}
   <label for="bundle_name">{{t "Bundle name"}}</label>
-  <input id="bundle_name" name="name" placeholder="{{t "starter kit"}}">
+  <input id="bundle_name" name="name" placeholder="{{t "For example, starter kit"}}">
   <fieldset>
     <legend>{{t "Component kinds, blank for every kind the selection reaches"}}</legend>
     {{range .Data.Kinds}}

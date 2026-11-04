@@ -121,6 +121,27 @@
   {{end}}
   </tbody>
 </table>
+{{/* Under the members it adds to, folded behind the Add disclosure Users and
+     Webhooks use. It sat at the foot of the screen, after Retention and
+     Housekeeping, a screen's length from the list it changes. */}}
+<details class="panel addmore">
+  <summary>{{t "Add a member"}}</summary>
+  <div class="body">
+<form method="post" action="/admin/tenant/members">
+  {{template "csrf" .CSRF}}
+  <div class="row">
+    <div><label for="actor_id">{{t "Actor identifier"}}</label><input id="actor_id" name="actor_id" required></div>
+    <div>
+      <label for="role">{{t "Role"}}</label>
+      <select id="role" name="role">
+        {{range .Data.Roles}}<option value="{{.}}">{{.}}</option>{{end}}
+      </select>
+    </div>
+    <div><button type="submit">{{t "Add member"}}</button></div>
+  </div>
+</form>
+  </div>
+</details>
 
 <div class="headtip"><h2>{{t "Retention"}}</h2>{{template "tip" (tip "Retention" "How long old history is kept. Prune deletes events, audit entries and webhook deliveries older than these windows; tix serve also runs it on its own, hourly by default. Tasks, projects and comments are never pruned." "docs/configuration.md")}}</div>
 <form method="post" action="/admin/tenant/retention">
@@ -176,18 +197,4 @@
 </form>
 {{end}}
 
-<h2>{{t "Add a member"}}</h2>
-<form method="post" action="/admin/tenant/members">
-  {{template "csrf" .CSRF}}
-  <div class="row">
-    <div><label for="actor_id">{{t "Actor identifier"}}</label><input id="actor_id" name="actor_id" required></div>
-    <div>
-      <label for="role">{{t "Role"}}</label>
-      <select id="role" name="role">
-        {{range .Data.Roles}}<option value="{{.}}">{{.}}</option>{{end}}
-      </select>
-    </div>
-    <div><button type="submit">{{t "Add member"}}</button></div>
-  </div>
-</form>
 {{end}}

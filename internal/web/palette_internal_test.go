@@ -42,7 +42,7 @@ func TestPaletteOffersWhatTheSidebarOffers(t *testing.T) {
 	t.Parallel()
 	hrefs := func(advanced bool) map[string]bool {
 		out := map[string]bool{}
-		for _, s := range paletteDataFor("en", advanced).Screens {
+		for _, s := range paletteDataFor("en", advanced, false).Screens {
 			out[s.Href] = true
 		}
 		return out
@@ -59,6 +59,22 @@ func TestPaletteOffersWhatTheSidebarOffers(t *testing.T) {
 		}
 		if !advanced[h] {
 			t.Errorf("%s is not offered with Advanced screens", h)
+		}
+	}
+}
+
+// The configuration screens are hinted as the sidebar group they sit in,
+// Admin, not as the Configure and Data groups it replaced.
+func TestPaletteHintsTheAdminGroup(t *testing.T) {
+	t.Parallel()
+	for _, s := range paletteDataFor("en", true, true).Screens {
+		if s.Hint == "Configure" || s.Hint == "Data" {
+			t.Errorf("%s is hinted as %q, a group the sidebar no longer has", s.Href, s.Hint)
+		}
+	}
+	for _, s := range paletteScreens {
+		if s.Advanced && s.Hint != "Admin" {
+			t.Errorf("%s sits in the Admin group and is hinted %q", s.Href, s.Hint)
 		}
 	}
 }

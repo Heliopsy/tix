@@ -70,7 +70,7 @@ func TestTaskOpenAndTitleClickArePreferencesOffByDefault(t *testing.T) {
 		t.Error("Dialog mode does not put the dialog on the task list")
 	}
 	if !strings.Contains(page, "data-edit-title=") {
-		t.Error("Edits the title does not mark the titles")
+		t.Error("Edit the title does not mark the titles")
 	}
 
 	for _, c := range []struct{ route, cookie, off string }{
@@ -111,43 +111,96 @@ func TestTheDialogIsOnEveryScreenButTheTaskScreen(t *testing.T) {
 	}
 }
 
-// Settings has a switch for each, in Listings, saying which way it is set.
-func TestSettingsDrawsTheTaskOpenAndTitleClickSwitches(t *testing.T) {
+// segmentOf reads one position of a segmented control: the submit button
+// posting name=value, from its opening tag to its close.
+func segmentOf(t *testing.T, form, name, value string) string {
+	t.Helper()
+	return between(t, form, `name="`+name+`" value="`+value+`"`, "</button>")
+}
+
+// Settings offers each as two named positions in Listings, the one in force
+// marked current. A switch drawn off beside "Page" read as the page being
+// off, so neither may be a switch.
+func TestSettingsDrawsTheTaskOpenAndTitleClickChoices(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	b := f.as("alice")
-	listings := between(t, contentOf(t, b.page("/settings")), `id="listings"`, "</section>")
 
-	for _, c := range []struct{ route, state, next string }{
-		{web.RouteTaskOpen, "Page", "Task&#43;opens&#43;in&#43;saved#listings"},
-		{web.RouteTitleClick, "Opens the task", "Clicking&#43;a&#43;title&#43;saved#listings"},
-	} {
-		form := prefForm(t, listings, c.route)
-		if !strings.Contains(form, `role="switch" aria-checked="false"`) {
-			t.Errorf("%s is not a switch reading off:\n%s", c.route, form)
-		}
-		if !strings.Contains(form, `<span class="switch-state">`+c.state+`</span>`) {
-			t.Errorf("%s does not name the position in force, %q:\n%s", c.route, c.state, form)
-		}
-		if !strings.Contains(form, c.next) {
-			t.Errorf("%s does not return to Listings with a toast:\n%s", c.route, form)
-		}
-		if !strings.Contains(form, `class="field-info"`) && !strings.Contains(form, "field-info") {
-			t.Errorf("%s has no (i) explanation:\n%s", c.route, form)
+	type position struct{ value, label string }
+	cases := []struct {
+		route, field, next string
+		def, other         position
+	}{
+		{web.RouteTaskOpen, "open", "Task&#43;opens&#43;in&#43;saved#listings", position{"page", "Page"}, position{"dialog", "Dialog"}},
+		{web.RouteTitleClick, "click", "Clicking&#43;a&#43;title&#43;saved#listings", position{"open", "Open the task"}, position{"edit", "Edit the title"}},
+	}
+	check := func(listings string, current func(c int) (on, off position)) {
+		t.Helper()
+		for i, c := range cases {
+			form := prefForm(t, listings, c.route)
+			if strings.Contains(form, `role="switch"`) || strings.Contains(form, "switch-track") {
+				t.Errorf("%s is still a switch:\n%s", c.route, form)
+			}
+			if !strings.Contains(form, `class="segmented" role="group"`) {
+				t.Errorf("%s is not a segmented control:\n%s", c.route, form)
+			}
+			on, off := current(i)
+			if seg := segmentOf(t, form, c.field, on.value); !strings.Contains(seg, `aria-current="true"`) || !strings.HasSuffix(seg, ">"+on.label) {
+				t.Errorf("%s does not mark %q current: %s", c.route, on.label, seg)
+			}
+			if seg := segmentOf(t, form, c.field, off.value); strings.Contains(seg, "aria-current") || !strings.HasSuffix(seg, ">"+off.label) {
+				t.Errorf("%s marks %q current, or does not name it: %s", c.route, off.label, seg)
+			}
+			if !strings.Contains(form, c.next) {
+				t.Errorf("%s does not return to Listings with a toast:\n%s", c.route, form)
+			}
+			if !strings.Contains(form, `class="field-info"`) {
+				t.Errorf("%s has no (i) explanation:\n%s", c.route, form)
+			}
 		}
 	}
+
+	listings := between(t, contentOf(t, b.page("/settings")), `id="listings"`, "</section>")
+	check(listings, func(i int) (position, position) { return cases[i].def, cases[i].other })
 
 	b.setCookie(web.TaskOpenCookie, "dialog")
 	b.setCookie(web.TitleClickCookie, "edit")
 	listings = between(t, contentOf(t, b.page("/settings")), `id="listings"`, "</section>")
-	for _, c := range []struct{ route, state string }{
-		{web.RouteTaskOpen, "Dialog"},
-		{web.RouteTitleClick, "Edits the title"},
+	check(listings, func(i int) (position, position) { return cases[i].other, cases[i].def })
+}
+
+// A post naming a position stores it whatever was stored before, so pressing
+// the current segment keeps it; a post naming none still flips, which is
+// what the form posted before it named both.
+func TestTaskOpenAndTitleClickStoreTheNamedPosition(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	for _, c := range []struct {
+		route, cookie, field string
+		values               [2]string
+	}{
+		{web.RouteTaskOpen, web.TaskOpenCookie, "open", [2]string{"page", "dialog"}},
+		{web.RouteTitleClick, web.TitleClickCookie, "click", [2]string{"open", "edit"}},
 	} {
-		form := prefForm(t, listings, c.route)
-		if !strings.Contains(form, `role="switch" aria-checked="true"`) ||
-			!strings.Contains(form, `<span class="switch-state">`+c.state+`</span>`) {
-			t.Errorf("%s does not read %q once chosen:\n%s", c.route, c.state, form)
+		for _, step := range []struct{ named, want string }{
+			{c.values[1], c.values[1]},
+			{c.values[1], c.values[1]},
+			{c.values[0], c.values[0]},
+			{c.values[0], c.values[0]},
+			{"", c.values[1]},
+			{"sideways", c.values[0]},
+		} {
+			form := url.Values{"next": {"/settings"}}
+			if step.named != "" {
+				form.Set(c.field, step.named)
+			}
+			resp := b.post(c.route, form)
+			_ = resp.Body.Close()
+			wantStatus(t, resp, http.StatusSeeOther)
+			if got := b.cookie(c.cookie); got != step.want {
+				t.Errorf("posting %s=%q to %s stored %q, want %q", c.field, step.named, c.route, got, step.want)
+			}
 		}
 	}
 }

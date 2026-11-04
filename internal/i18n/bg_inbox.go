@@ -12,7 +12,6 @@ func init() {
 		"Nothing more is sent to it, and its delivery history goes with it.": "Към него вече нищо не се изпраща, а историята на доставките се изтрива с него.",
 		"Notification channels":                                              "Канали за известия",
 		"Notifications":                                                      "Известия",
-		"Phone":                                                              "Телефон",
 		"Posts a short test message to the channel now.":                     "Изпраща кратко пробно съобщение към канала сега.",
 		"Recent deliveries":                                                  "Последни доставки",
 		"Remove channel":                                                     "Премахни канала",
@@ -72,5 +71,10 @@ func init() {
 		"Nothing here yet. When somebody mentions you, assigns you a task or comments on one you follow, it shows up here.": "Все още няма нищо. Когато някой ви спомене, ви възложи задача или коментира задача, която следите, ще се появи тук.",
 		"What reaches your inbox. Kept with your account, so it applies everywhere you sign in.":                            "Какво стига до входящите ви. Пази се към профила ви, така че важи навсякъде, където влезете.",
 		"What concerns you: somebody mentions you as @handle in a comment or a description, assigns you a task, comments on a task you are assigned to or starred, or moves a task assigned to you. Your own changes never appear here. Turn kinds off under Settings, Inbox.": "Това, което ви засяга: някой ви споменава като @име в коментар или описание, възлага ви задача, коментира задача, възложена на вас или отбелязана от вас със звезда, или премества задача, възложена на вас. Вашите собствени промени никога не се появяват тук. Видовете се изключват от Настройки, Входящи.",
+		"For example, Phone": "Например Телефон",
+		"An item when somebody writes @ and your handle in a comment or a task's description. Editing the text mentions only handles it did not name before. Off, a mention creates no item; items already in your inbox stay.": "Известие, когато някой напише @ и вашия идентификатор в коментар или в описанието на задача. Редакция на текста споменава само идентификатори, които преди не е съдържал. Изключено, споменаването не създава известие; известията, които вече са във входящите ви, остават.",
+		"An item when somebody else assigns a task to you. Off, an assignment creates no item; items already in your inbox stay.":                                                                                               "Известие, когато някой друг ви възложи задача. Изключено, възлагането не създава известие; известията, които вече са във входящите ви, остават.",
+		"An item when somebody else moves a task assigned to you to another workflow state. Off, a move creates no item; items already in your inbox stay.":                                                                     "Известие, когато някой друг премести възложена на вас задача в друго състояние на работния процес. Изключено, преместването не създава известие; известията, които вече са във входящите ви, остават.",
+		"An item when somebody else comments on a task assigned to you or one you starred. Off, a comment creates no item; items already in your inbox stay.":                                                                   "Известие, когато някой друг коментира възложена на вас задача или задача, която сте отбелязали със звезда. Изключено, коментарът не създава известие; известията, които вече са във входящите ви, остават.",
 	})
 }
