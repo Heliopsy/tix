@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/httpapi"
 	"github.com/heliopsy/tix/internal/web"
 	"github.com/heliopsy/tix/internal/wire"
 )
@@ -104,7 +105,7 @@ var registry = []Operation{
 	},
 
 	{
-		Name: "tenant.create", Method: "CreateTenant",
+		Name: "tenant.create", Method: "CreateTenant", Contract: Contract{Status: http.StatusCreated},
 		Scope: core.ScopeTenantAdmin,
 		CLI:   "tix tenant create",
 		HTTP:  apiPost(wire.RouteTenants),
@@ -148,7 +149,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "domain.add", Method: "AddDomain",
+		Name: "domain.add", Method: "AddDomain", Contract: Contract{Status: http.StatusCreated},
 		Scope: core.ScopeTenantAdmin,
 		CLI:   "tix domain add",
 		HTTP:  apiPost(wire.RouteDomains),
@@ -184,7 +185,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "member.add", Method: "AddMember",
+		Name: "member.add", Method: "AddMember", Contract: Contract{Body: httpapi.AddMemberRequest{}, Status: http.StatusCreated},
 		Scope: core.ScopeTenantAdmin,
 		CLI:   "tix member add",
 		HTTP:  apiPost(wire.RouteMembers),
@@ -209,7 +210,7 @@ var registry = []Operation{
 	},
 
 	{
-		Name: "project.create", Method: "CreateProject",
+		Name: "project.create", Method: "CreateProject", Contract: Contract{Status: http.StatusCreated},
 		Scope: core.ScopeProjectWrite,
 		CLI:   "tix project create",
 		HTTP:  apiPost(wire.RouteProjects),
@@ -230,7 +231,7 @@ var registry = []Operation{
 		TUI: "project",
 	},
 	{
-		Name: "project.icon", Method: "GetProjectIcon",
+		Name: "project.icon", Method: "GetProjectIcon", Contract: Contract{Resp: None{}, Status: http.StatusOK, Content: contentImage, Also: map[int]any{http.StatusNotModified: None{}}},
 		Scope: core.ScopeProjectRead,
 		CLI:   "tix project icon",
 		HTTP:  apiGet(wire.RouteProjectIcon),
@@ -240,7 +241,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "project.list", Method: "ListProjects",
+		Name: "project.list", Method: "ListProjects", Contract: Contract{Query: httpapi.ProjectListQuery{}},
 		Scope: core.ScopeProjectRead,
 		CLI:   "tix project ls",
 		HTTP:  apiGet(wire.RouteProjects),
@@ -259,7 +260,7 @@ var registry = []Operation{
 		TUI: "project",
 	},
 	{
-		Name: "project.archive", Method: "ArchiveProject",
+		Name: "project.archive", Method: "ArchiveProject", Contract: Contract{Query: httpapi.ProjectDeleteQuery{}},
 		Scope: core.ScopeProjectWrite,
 		CLI:   "tix project archive",
 		HTTP:  apiDeleteWhen(wire.RouteProject, "archive=true"),
@@ -267,7 +268,7 @@ var registry = []Operation{
 		TUI:   "project",
 	},
 	{
-		Name: "project.delete", Method: "DeleteProject",
+		Name: "project.delete", Method: "DeleteProject", Contract: Contract{Query: httpapi.ProjectDeleteQuery{}},
 		Scope: core.ScopeProjectWrite,
 		CLI:   "tix project rm",
 		HTTP:  apiDelete(wire.RouteProject),
@@ -277,7 +278,7 @@ var registry = []Operation{
 	{
 		// The plan behind every deletion confirmation: the task count and,
 		// for a move, the status mapping the target's workflow implies.
-		Name: "project.delete-plan", Method: "PlanProjectDeletion",
+		Name: "project.delete-plan", Method: "PlanProjectDeletion", Contract: Contract{Query: httpapi.DeletionPlanQuery{}},
 		Scope: core.ScopeProjectRead,
 		CLI:   "tix project rm",
 		HTTP:  apiGet(wire.RouteProjectDeletion),
@@ -351,7 +352,7 @@ var registry = []Operation{
 	},
 
 	{
-		Name: "task.create", Method: "CreateTask",
+		Name: "task.create", Method: "CreateTask", Contract: Contract{Body: httpapi.CreateTaskRequest{}, Status: http.StatusCreated},
 		Scope: core.ScopeTaskWrite,
 		CLI:   "tix task add",
 		HTTP:  apiPost(wire.RouteTasks),
@@ -367,7 +368,7 @@ var registry = []Operation{
 		TUI:   "detail",
 	},
 	{
-		Name: "task.list", Method: "ListTasks",
+		Name: "task.list", Method: "ListTasks", Contract: Contract{Query: httpapi.TaskListQuery{}, Resp: wire.Page[core.Task]{}, Alt: []string{wire.ContentCSV}},
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix task ls",
 		HTTP:  apiGet(wire.RouteTasks),
@@ -404,7 +405,7 @@ var registry = []Operation{
 		TUI:   "board",
 	},
 	{
-		Name: "task.delete", Method: "DeleteTask",
+		Name: "task.delete", Method: "DeleteTask", Contract: Contract{Query: httpapi.DeleteTaskQuery{}},
 		Scope: core.ScopeTaskDelete,
 		CLI:   "tix task rm",
 		HTTP:  apiDelete(wire.RouteTask),
@@ -435,7 +436,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "task.copy", Method: "CopyTask",
+		Name: "task.copy", Method: "CopyTask", Contract: Contract{OptionalBody: true, Status: http.StatusCreated},
 		Scope: core.ScopeTaskWrite,
 		CLI:   "tix task copy",
 		HTTP:  apiPost(wire.RouteTaskCopy),
@@ -451,7 +452,7 @@ var registry = []Operation{
 			"selection of many; every action a bulk request applies is bound there for that card")},
 	},
 	{
-		Name: "template.list", Method: "ListTemplates",
+		Name: "template.list", Method: "ListTemplates", Contract: Contract{Query: httpapi.TemplateListQuery{}},
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix template ls",
 		HTTP:  apiGet(wire.RouteTemplates),
@@ -467,7 +468,7 @@ var registry = []Operation{
 		TUI:   "board",
 	},
 	{
-		Name: "template.save", Method: "SaveTemplate",
+		Name: "template.save", Method: "SaveTemplate", Contract: Contract{Status: http.StatusCreated},
 		Scope: core.ScopeTaskWrite,
 		CLI:   "tix template save",
 		HTTP:  apiPost(wire.RouteTemplates),
@@ -491,7 +492,7 @@ var registry = []Operation{
 		TUI:   "board",
 	},
 	{
-		Name: "template.use", Method: "UseTemplate",
+		Name: "template.use", Method: "UseTemplate", Contract: Contract{OptionalBody: true, Status: http.StatusCreated},
 		Scope: core.ScopeTaskWrite,
 		CLI:   "tix template use",
 		HTTP:  apiPost(wire.RouteTemplateUse),
@@ -499,7 +500,7 @@ var registry = []Operation{
 		TUI:   "board",
 	},
 	{
-		Name: "task.tree", Method: "TaskTree",
+		Name: "task.tree", Method: "TaskTree", Contract: Contract{Query: httpapi.TreeQuery{}},
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix task tree",
 		HTTP:  apiGet(wire.RouteTaskTree),
@@ -509,7 +510,7 @@ var registry = []Operation{
 			"the task screen asks for depth 1, so it shows direct subtasks only where the cli and the api walk the tree to any depth"}},
 	},
 	{
-		Name: "dependency.add", Method: "AddDependency",
+		Name: "dependency.add", Method: "AddDependency", Contract: Contract{Body: httpapi.DependencyRequest{}},
 		Scope: core.ScopeTaskWrite,
 		CLI:   "tix dep add",
 		HTTP:  apiPost(wire.RouteTaskDeps),
@@ -533,7 +534,7 @@ var registry = []Operation{
 		TUI:   "detail",
 	},
 	{
-		Name: "tag.add", Method: "AddTag",
+		Name: "tag.add", Method: "AddTag", Contract: Contract{Body: httpapi.TagRequest{}},
 		Scope: core.ScopeTaskWrite,
 		CLI:   "tix tag add",
 		HTTP:  apiPost(wire.RouteTaskLabels),
@@ -589,7 +590,7 @@ var registry = []Operation{
 		TUI:   "board",
 	},
 	{
-		Name: "task.wake", Method: "WakeSnoozed",
+		Name: "task.wake", Method: "WakeSnoozed", Contract: Contract{Body: httpapi.SweepRequest{}, OptionalBody: true, Resp: httpapi.WakeResult{}},
 		Scope: core.ScopeTaskWrite,
 		CLI:   "tix task wake",
 		HTTP:  apiPost(wire.RouteSnoozeWake),
@@ -623,7 +624,7 @@ var registry = []Operation{
 		TUI:   "board",
 	},
 	{
-		Name: "view.reset", Method: "ResetGroupPrefs",
+		Name: "view.reset", Method: "ResetGroupPrefs", Contract: Contract{Query: httpapi.GroupQuery{}},
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix view reset",
 		HTTP:  apiDelete(wire.RouteViewGroups),
@@ -649,7 +650,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "filter.save", Method: "CreateSavedFilter",
+		Name: "filter.save", Method: "CreateSavedFilter", Contract: Contract{Status: http.StatusCreated},
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix filter save",
 		HTTP:  apiPost(wire.RouteFilters),
@@ -687,7 +688,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "inbox.list", Method: "ListInbox",
+		Name: "inbox.list", Method: "ListInbox", Contract: Contract{Query: httpapi.InboxQuery{}},
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix inbox ls",
 		HTTP:  apiGet(wire.RouteInbox),
@@ -751,7 +752,7 @@ var registry = []Operation{
 		Exempt: []Exemption{off(SurfaceTUI, "notification channels are a setting, and the terminal interface has no settings screen for the account; manage them from the browser or tix inbox channel")},
 	},
 	{
-		Name: "inbox.channel.add", Method: "CreateInboxChannel",
+		Name: "inbox.channel.add", Method: "CreateInboxChannel", Contract: Contract{Status: http.StatusCreated},
 		Scope:  core.ScopeTaskRead,
 		CLI:    "tix inbox channel add",
 		HTTP:   apiPost(wire.RouteChannels),
@@ -783,7 +784,7 @@ var registry = []Operation{
 		Exempt: []Exemption{off(SurfaceTUI, "notification channels are a setting, and the terminal interface has no settings screen for the account; manage them from the browser or tix inbox channel")},
 	},
 	{
-		Name: "inbox.channel.deliveries", Method: "ListChannelDeliveries",
+		Name: "inbox.channel.deliveries", Method: "ListChannelDeliveries", Contract: Contract{Query: httpapi.PageQuery{}},
 		Scope:  core.ScopeTaskRead,
 		CLI:    "tix inbox channel deliveries",
 		HTTP:   apiGet(wire.RouteChannelDeliveries),
@@ -807,7 +808,7 @@ var registry = []Operation{
 		TUI:   "detail",
 	},
 	{
-		Name: "comment.add", Method: "AddComment",
+		Name: "comment.add", Method: "AddComment", Contract: Contract{Body: httpapi.CommentRequest{}, Status: http.StatusCreated},
 		Scope: core.ScopeCommentWrite,
 		CLI:   "tix comment add",
 		HTTP:  apiPost(wire.RouteTaskComments),
@@ -823,7 +824,7 @@ var registry = []Operation{
 		TUI:   "detail",
 	},
 	{
-		Name: "comment.edit", Method: "EditComment",
+		Name: "comment.edit", Method: "EditComment", Contract: Contract{Body: httpapi.CommentRequest{}},
 		Scope: core.ScopeCommentWrite,
 		CLI:   "tix comment edit",
 		HTTP:  apiPatch(wire.RouteComment),
@@ -858,7 +859,7 @@ var registry = []Operation{
 	},
 
 	{
-		Name: "claim.task", Method: "ClaimTask",
+		Name: "claim.task", Method: "ClaimTask", Contract: Contract{OptionalBody: true},
 		Scope: core.ScopeTaskClaim,
 		CLI:   "tix claim task",
 		HTTP:  apiPost(wire.RouteTaskClaim),
@@ -876,7 +877,7 @@ var registry = []Operation{
 		TUI:   "detail",
 	},
 	{
-		Name: "claim.next", Method: "ClaimNext",
+		Name: "claim.next", Method: "ClaimNext", Contract: Contract{OptionalBody: true},
 		Scope: core.ScopeTaskClaim,
 		CLI:   "tix claim next",
 		HTTP:  apiPost(wire.RouteClaimNext),
@@ -886,7 +887,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "claim.renew", Method: "RenewLease",
+		Name: "claim.renew", Method: "RenewLease", Contract: Contract{Body: httpapi.RenewRequest{}},
 		Scope: core.ScopeTaskClaim,
 		CLI:   "tix claim renew",
 		HTTP:  apiPost(wire.RouteTaskClaimRenew),
@@ -896,7 +897,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "claim.release", Method: "ReleaseLease",
+		Name: "claim.release", Method: "ReleaseLease", Contract: Contract{Body: httpapi.ReleaseRequest{}},
 		Scope: core.ScopeTaskClaim,
 		CLI:   "tix claim release",
 		HTTP:  apiPost(wire.RouteTaskClaimRelease),
@@ -906,7 +907,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "claim.reclaim", Method: "ForceReclaim",
+		Name: "claim.reclaim", Method: "ForceReclaim", Contract: Contract{OptionalBody: true},
 		Scope: core.ScopeTaskReclaim,
 		CLI:   "tix claim reclaim",
 		HTTP:  apiPost(wire.RouteTaskClaimReclaim),
@@ -914,7 +915,7 @@ var registry = []Operation{
 		TUI:   "board",
 	},
 	{
-		Name: "claim.sweep", Method: "SweepLeases",
+		Name: "claim.sweep", Method: "SweepLeases", Contract: Contract{Body: httpapi.SweepRequest{}, OptionalBody: true, Resp: httpapi.SweepResult{}},
 		Scope: core.ScopeTaskWrite,
 		CLI:   "tix claim sweep",
 		HTTP:  apiPost(wire.RouteClaimSweep),
@@ -925,7 +926,7 @@ var registry = []Operation{
 	},
 
 	{
-		Name: "stats.read", Method: "Stats",
+		Name: "stats.read", Method: "Stats", Contract: Contract{Query: httpapi.StatsQuery{}},
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix stats",
 		HTTP:  apiGet(wire.RouteStats),
@@ -934,7 +935,7 @@ var registry = []Operation{
 	},
 
 	{
-		Name: "audit.list", Method: "ListAudit",
+		Name: "audit.list", Method: "ListAudit", Contract: Contract{Query: httpapi.AuditQuery{}},
 		Scope: core.ScopeAuditRead,
 		CLI:   "tix audit ls",
 		HTTP:  apiGet(wire.RouteAudit),
@@ -947,7 +948,7 @@ var registry = []Operation{
 		TUI: "history",
 	},
 	{
-		Name: "event.subscribe", Method: "Subscribe",
+		Name: "event.subscribe", Method: "Subscribe", Contract: Contract{Body: None{}, Resp: None{}, Status: http.StatusSwitchingProtocols},
 		Scope: core.ScopeEventSubscribe,
 		CLI:   "tix watch",
 		HTTP:  apiGet(wire.RouteEvents),
@@ -959,7 +960,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "retention.prune", Method: "Prune",
+		Name: "retention.prune", Method: "Prune", Contract: Contract{OptionalBody: true},
 		Scope: core.ScopeTenantAdmin,
 		CLI:   "tix prune",
 		HTTP:  apiPost(wire.RoutePrune),
@@ -990,7 +991,7 @@ var registry = []Operation{
 	},
 
 	{
-		Name: "housekeeping.get", Method: "GetHousekeeping",
+		Name: "housekeeping.get", Method: "GetHousekeeping", Contract: Contract{Query: httpapi.ProjectQuery{}},
 		Scope: core.ScopeTenantAdmin,
 		CLI:   "tix cleanup show",
 		HTTP:  apiGet(wire.RouteHousekeeping),
@@ -1010,7 +1011,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "housekeeping.run", Method: "RunHousekeeping",
+		Name: "housekeeping.run", Method: "RunHousekeeping", Contract: Contract{OptionalBody: true},
 		Scope: core.ScopeTenantAdmin,
 		CLI:   "tix cleanup run",
 		HTTP:  apiPost(wire.RouteHousekeepingRun),
@@ -1043,7 +1044,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "user.create", Method: "CreateUser",
+		Name: "user.create", Method: "CreateUser", Contract: Contract{Status: http.StatusCreated},
 		Scope: core.ScopeUserAdmin,
 		CLI:   "tix user create",
 		HTTP:  apiPost(wire.RouteUsers),
@@ -1093,7 +1094,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "session.login", Method: "Login",
+		Name: "session.login", Method: "Login", Contract: Contract{Body: httpapi.LoginRequest{}, Public: true},
 		CLI:  "tix login",
 		HTTP: apiPost(wire.RouteLogin),
 		Web:  webPost(web.RouteLogin),
@@ -1102,7 +1103,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "session.ssh_challenge", Method: "SSHLoginChallenge",
+		Name: "session.ssh_challenge", Method: "SSHLoginChallenge", Contract: Contract{Public: true},
 		CLI:  "tix login",
 		HTTP: apiPost(wire.RouteSSHChallenge),
 		Exempt: []Exemption{
@@ -1111,7 +1112,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "session.ssh_login", Method: "SSHLogin",
+		Name: "session.ssh_login", Method: "SSHLogin", Contract: Contract{Public: true},
 		CLI:  "tix login",
 		HTTP: apiPost(wire.RouteSSHVerify),
 		Exempt: []Exemption{
@@ -1138,7 +1139,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "totp.enrol", Method: "BeginTOTPEnrolment",
+		Name: "totp.enrol", Method: "BeginTOTPEnrolment", Contract: Contract{Status: http.StatusCreated},
 		CLI:  "tix user totp enrol",
 		HTTP: apiPost(wire.RouteTOTP),
 		Web:  webPost(web.RouteTOTPSetup),
@@ -1147,7 +1148,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "totp.confirm", Method: "ConfirmTOTPEnrolment",
+		Name: "totp.confirm", Method: "ConfirmTOTPEnrolment", Contract: Contract{Body: httpapi.TOTPCodeRequest{}},
 		CLI:  "tix user totp enrol",
 		HTTP: apiPost(wire.RouteTOTPConfirm),
 		Web:  webPost(web.RouteTOTPConfirm),
@@ -1156,7 +1157,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "totp.verify", Method: "VerifySecondFactor",
+		Name: "totp.verify", Method: "VerifySecondFactor", Contract: Contract{Body: httpapi.TOTPCodeRequest{}},
 		HTTP: apiPost(wire.RouteTOTPVerify),
 		Exempt: []Exemption{
 			off(SurfaceCLI, "the command line proves a factor inside tix login, which carries the ticket the password step returned; a command that verified a code outside a sign-in would protect nothing"),
@@ -1204,7 +1205,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "calendar.create", Method: "CreateCalendarFeed",
+		Name: "calendar.create", Method: "CreateCalendarFeed", Contract: Contract{OptionalBody: true, Status: http.StatusCreated},
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix calendar create",
 		HTTP:  apiPost(wire.RouteCalendar),
@@ -1244,7 +1245,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "calendar.read", Method: "ReadCalendarFeed",
+		Name: "calendar.read", Method: "ReadCalendarFeed", Contract: Contract{Resp: None{}, Status: http.StatusOK, Content: contentCalendar, Also: map[int]any{http.StatusNotModified: None{}}, Public: true},
 		HTTP: apiGet(wire.RouteCalendarFeed),
 		Exempt: []Exemption{
 			off(SurfaceCLI, "a feed is read by a calendar app at its address, with no credential; the cli prints that address"),
@@ -1254,7 +1255,7 @@ var registry = []Operation{
 	},
 
 	{
-		Name: "token.create", Method: "CreateToken",
+		Name: "token.create", Method: "CreateToken", Contract: Contract{Status: http.StatusCreated},
 		Scope: core.ScopeTokenAdmin,
 		CLI:   "tix token create",
 		HTTP:  apiPost(wire.RouteTokens),
@@ -1264,7 +1265,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "token.list", Method: "ListTokens",
+		Name: "token.list", Method: "ListTokens", Contract: Contract{Query: httpapi.ActorQuery{}},
 		Scope: core.ScopeTokenAdmin,
 		CLI:   "tix token ls",
 		HTTP:  apiGet(wire.RouteTokens),
@@ -1288,7 +1289,7 @@ var registry = []Operation{
 	},
 
 	{
-		Name: "sshkey.enrol", Method: "EnrolSSHKey",
+		Name: "sshkey.enrol", Method: "EnrolSSHKey", Contract: Contract{Status: http.StatusCreated},
 		Scope: core.ScopeTokenAdmin,
 		CLI:   "tix user key add",
 		HTTP:  apiPost(wire.RouteSSHKeys),
@@ -1298,7 +1299,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "sshkey.list", Method: "ListSSHKeys",
+		Name: "sshkey.list", Method: "ListSSHKeys", Contract: Contract{Query: httpapi.ActorQuery{}},
 		Scope: core.ScopeTokenAdmin,
 		CLI:   "tix user key ls",
 		HTTP:  apiGet(wire.RouteSSHKeys),
@@ -1351,7 +1352,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "webhook.deliveries", Method: "ListDeliveries",
+		Name: "webhook.deliveries", Method: "ListDeliveries", Contract: Contract{Query: httpapi.DeliveryListQuery{}},
 		Scope: core.ScopeWebhookAdmin,
 		CLI:   "tix webhook deliveries",
 		HTTP:  apiGet(wire.RouteDeliveries),
@@ -1372,7 +1373,7 @@ var registry = []Operation{
 	},
 
 	{
-		Name: "snapshot.export", Method: "ExportTo",
+		Name: "snapshot.export", Method: "ExportTo", Contract: Contract{OptionalBody: true, Resp: None{}, Status: http.StatusOK, Content: wire.ContentNDJSON},
 		Scope: core.ScopeExport,
 		CLI:   "tix export",
 		HTTP:  apiPost(wire.RouteExport),
@@ -1382,7 +1383,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "snapshot.import", Method: "ImportFrom",
+		Name: "snapshot.import", Method: "ImportFrom", Contract: Contract{Body: None{}, BodyContent: wire.ContentNDJSON, Query: httpapi.ImportQuery{}},
 		Scope: core.ScopeImport,
 		CLI:   "tix import",
 		HTTP:  apiPost(wire.RouteImport),
@@ -1392,7 +1393,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "bundle.export", Method: "ExportBundle",
+		Name: "bundle.export", Method: "ExportBundle", Contract: Contract{OptionalBody: true, Resp: None{}, Status: http.StatusOK, Content: wire.ContentBundle},
 		Scope: core.ScopeWorkflowRead,
 		CLI:   "tix bundle export",
 		HTTP:  apiPost(wire.RouteBundleExport),
@@ -1405,7 +1406,7 @@ var registry = []Operation{
 		// The scope this needs is decided by the component kinds the bundle
 		// carries, so no single one describes it. authority_test.go names it
 		// rather than letting an empty scope read as "needs nothing".
-		Name: "bundle.import", Method: "ImportBundle",
+		Name: "bundle.import", Method: "ImportBundle", Contract: Contract{Body: None{}, BodyContent: wire.ContentBundle, Query: httpapi.BundleImportQuery{}},
 		CLI:  "tix bundle import",
 		HTTP: apiPost(wire.RouteBundleImport),
 		Web:  webPost(web.RouteBundleImport),

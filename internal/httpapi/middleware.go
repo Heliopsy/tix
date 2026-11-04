@@ -310,7 +310,7 @@ func hostOf(r *http.Request) string {
 // tenant than the one the Host resolved to.
 func (rt *Router) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if isPublicPath(r.URL.Path) {
+		if IsPublicPath(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -349,11 +349,11 @@ func (rt *Router) authenticate(next http.Handler) http.Handler {
 
 // isUnscopedPath reports whether a route runs before tenant resolution.
 func isUnscopedPath(path string) bool {
-	return path == wire.RouteHealth || path == wire.RouteReady
+	return path == wire.RouteHealth || path == wire.RouteReady || path == wire.RouteOpenAPI
 }
 
-// isPublicPath reports whether a route runs without a credential.
-func isPublicPath(path string) bool {
+// IsPublicPath reports whether a route runs without a credential.
+func IsPublicPath(path string) bool {
 	return isUnscopedPath(path) || path == wire.RouteLogin ||
 		path == wire.RouteSSHChallenge || path == wire.RouteSSHVerify || isCalendarFeedPath(path)
 }

@@ -115,7 +115,45 @@ type Operation struct {
 	Scope  core.Scope
 	Exempt []Exemption
 	Limits []Limitation
+	// Contract describes the HTTP binding wherever the service method's own
+	// signature does not, and is what internal/openapi reads.
+	Contract
 }
+
+// Contract is what an HTTP binding reads and answers when the service method
+// does not say it. Left zero, the request body is the method's last struct
+// parameter on a POST, PUT or PATCH, and the response is its first result: a
+// slice is answered as a wire.Page of its elements and an error alone as 204.
+type Contract struct {
+	// Body is the request body the handler decodes, as a zero value. None
+	// means the route reads no body although the method takes an input.
+	Body any
+	// BodyContent is the media type of a body that is not JSON, read raw.
+	BodyContent string
+	// OptionalBody marks a body the handler tolerates being absent.
+	OptionalBody bool
+	// Resp is the response the handler writes, as a zero value.
+	Resp any
+	// Content is the media type of a response that is not JSON.
+	Content string
+	// Alt names further media types the handler answers the same route in
+	// when the client negotiates them, such as text/csv.
+	Alt []string
+	// Status is the success status when it is not 200, or 204 for no body.
+	Status int
+	// Also lists further statuses the handler answers with outside the error
+	// envelope, each with the body it carries or None.
+	Also map[int]any
+	// Query is a struct whose query-tagged fields are the parameters the
+	// handler reads from the URL.
+	Query any
+	// Public marks a route answered without a credential.
+	Public bool
+}
+
+// None is the Body or Resp of a binding that sends or answers nothing where
+// the service method's signature would suggest otherwise.
+type None struct{}
 
 // Reads reports whether the operation only reads. It is what decides whether
 // an operation can be the reason a view is offered at all: a reader who may

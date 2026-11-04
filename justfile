@@ -426,7 +426,17 @@ docs-check:
         grep -q "$base" screenshots/README.md || { echo "screenshots/README.md does not list $base"; rc=1; }
       done
     fi
+    # api/openapi.yaml and the routes table of docs/api.md are generated from
+    # the capability registry. The test regenerates both in memory and names
+    # the first line that differs from what is committed.
+    go test ./internal/openapi -run '^TestTheCommittedDocumentIsGenerated$' -count=1 || { echo "run: just openapi"; rc=1; }
     exit $rc
+
+# Never edit either file by hand; docs-check and the tests fail while the
+# committed files differ from what this writes.
+# Regenerate api/openapi.yaml and the docs/api.md routes table from the registry.
+openapi:
+    go run ./internal/openapi/gen
 
 # Capability registry parity: every operation reachable from CLI, HTTP and web.
 #

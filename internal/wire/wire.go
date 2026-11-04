@@ -18,6 +18,10 @@ const (
 
 	RouteWhoAmI = APIPrefix + "/whoami"
 
+	// RouteOpenAPI serves the OpenAPI document of this API, without a
+	// credential.
+	RouteOpenAPI = APIPrefix + "/openapi.json"
+
 	RouteLogin  = APIPrefix + "/auth/login"
 	RouteLogout = APIPrefix + "/auth/logout"
 
