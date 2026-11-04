@@ -21,7 +21,7 @@ reusable shape of a task that is not itself work.
 - Creating from a template reuses the copy machinery behind `CopyTask`, so fields, tags, status
   and the audit trail follow the same rules as a copy.
 - Surfaces: `tix template ls|save|show|edit|rm|use`, `/v1/templates` routes, a Templates screen
-  under Configure, Save as template in the task actions, New from template in the add box menu
+  in the Admin group, Save as template in the task actions, New from template in the add box menu
   and the Add with details form, and a template picker in the terminal board.
 
 ## Impact

@@ -3,7 +3,7 @@
 ### Requirement: Templates in the browser
 
 The task screen's actions SHALL offer Save as template, a form taking the name, the scope and
-whether subtasks are kept. A Templates screen under Configure SHALL list the templates a reader
+whether subtasks are kept. A Templates screen in the Admin group SHALL list the templates a reader
 can see with their scope and use count, and let a reader rename, edit the fields of, use and
 delete each. The add box menu and the Add with details form SHALL offer New from template,
 which takes a template, a title, a project for a tenant-wide template and a due offset.
