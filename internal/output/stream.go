@@ -8,7 +8,7 @@ import (
 	"io"
 	"reflect"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // FormatNDJSON writes one JSON object per line.

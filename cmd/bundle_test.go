@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // reviewWorkflow is the fixture every bundle test shares.
