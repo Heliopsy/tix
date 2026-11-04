@@ -200,9 +200,6 @@ jobs:
         with:
           tools: openspec
 
-      - name: Install OpenSpec
-        run: npm install -g @fission-ai/openspec@1.13.1
-
       # `just spec`, not a hardcoded change name. This step read
       # `openspec validate tix-v1 --strict` until tix-v1 was archived, at which
       # point CI failed with "Unknown item 'tix-v1'" while `just ci` passed,
