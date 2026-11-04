@@ -44,3 +44,43 @@ func TestLeaseLengthFromTheCommandLine(t *testing.T) {
 		t.Fatalf("an unreadable lease exited %d, want 2", got.code)
 	}
 }
+
+func TestTaskAddSetsTheLease(t *testing.T) {
+	c := newCLI(t)
+	var task core.Task
+	if err := json.Unmarshal([]byte(c.mustRun("task", "add", "long build", "--lease", "2h", "-o", "json").out), &task); err != nil {
+		t.Fatal(err)
+	}
+	if task.Lease.String() != "2h0m0s" {
+		t.Fatalf("created task lease = %s, want 2h", task.Lease)
+	}
+	if got := c.mustRun("claim", "task", task.Ref).out; !strings.Contains(got, "2h (task)") {
+		t.Fatalf("claim output = %q, want 2h from the task", got)
+	}
+}
+
+func TestTaskAddRefusesALeaseAboveTheMaximum(t *testing.T) {
+	cases := []struct {
+		name  string
+		setup []string
+		lease string
+	}{
+		{name: "deployment maximum", lease: "48h"},
+		{name: "project maximum", setup: []string{"project", "edit", "default", "--lease-max", "1h"}, lease: "2h"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newCLI(t)
+			c.mustRun("task", "add", "first")
+			if tc.setup != nil {
+				c.mustRun(tc.setup...)
+			}
+			if got := c.run("task", "add", "too long", "--lease", tc.lease); got.code != 2 {
+				t.Fatalf("--lease %s exited %d (%s), want 2", tc.lease, got.code, got.err)
+			}
+			if got := strings.Count(c.mustRun("task", "ls", "-o", "ndjson").out, "\n"); got != 1 {
+				t.Fatalf("after the refusal the project holds %d tasks, want only the first", got)
+			}
+		})
+	}
+}

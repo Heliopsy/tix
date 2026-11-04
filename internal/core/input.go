@@ -306,6 +306,8 @@ type CreateTaskInput struct {
 
 	CustomFields map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
 	DependsOn    []string       `json:"depends_on,omitempty" yaml:"depends_on,omitempty"`
+	// Lease is how long a claim on the task holds; zero inherits the project's.
+	Lease Duration `json:"lease,omitempty" yaml:"lease,omitempty"`
 }
 
 // Validate checks the input.

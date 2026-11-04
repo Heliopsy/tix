@@ -59,9 +59,9 @@ func (g *globals) projectFallback(cmd *cobra.Command) (string, error) {
 
 func taskAddCmd(g *globals) *cobra.Command {
 	var (
-		project, bodyFlag, status, priority, assignee, parent, due, repeat string
-		tags, depends, fields                                              []string
-		dryRun, parse                                                      bool
+		project, bodyFlag, status, priority, assignee, parent, due, repeat, leaseRaw string
+		tags, depends, fields                                                        []string
+		dryRun, parse                                                                bool
 	)
 	cmd := &cobra.Command{
 		Use:   "add TITLE...",
@@ -72,10 +72,14 @@ func taskAddCmd(g *globals) *cobra.Command {
 			". Relative dates count from today in the local time zone. Off by default, so a script " +
 			"passing a title it did not write is stored as given; single-quote the line so the shell " +
 			"leaves ! and # alone. A flag the line contradicts is refused.\n\n" +
-			"Exit codes: 2 invalid input, 3 unknown project, parent or assignee, 5 permission denied.",
+			"--lease sets how long a claim on the task holds when the claim names no --ttl, such as 2h, " +
+			"as tix task edit --lease does. A length above the maximum is refused and nothing is created.\n\n" +
+			"Exit codes: 2 invalid input or a lease above the maximum, 3 unknown project, parent or assignee, " +
+			"5 permission denied.",
 		Example: "  tix task add \"buy milk\"\n  tix task add \"ship release\" -p infra --priority high --tag ops\n" +
 			"  tix task add \"pay rent\" --due 2026-12-01 --repeat monthly\n" +
-			"  tix task add --parse 'Fix login !high #auth @raj due:fri +web'",
+			"  tix task add --parse 'Fix login !high #auth @raj due:fri +web'\n" +
+			"  tix task add \"run the migration tests\" --lease 2h",
 		Args: minArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fallback, err := g.projectFallback(cmd)
@@ -106,11 +110,18 @@ func taskAddCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			lease, err := leaseFlag(cmd, "lease", leaseRaw)
+			if err != nil {
+				return err
+			}
 			in := core.CreateTaskInput{
 				ProjectRef: project, Title: strings.TrimSpace(title), Body: text,
 				Status: status, Priority: prio, Tags: tags,
 				AssigneeActorID: assignee, ParentRef: parent, DueAt: dueAt,
 				CustomFields: custom, DependsOn: depends, Recurrence: repeat,
+			}
+			if lease != nil {
+				in.Lease = *lease
 			}
 			if parse {
 				parsed, err := quickadd.Parse(in.Title, time.Now())
@@ -151,6 +162,7 @@ func taskAddCmd(g *globals) *cobra.Command {
 	f.StringVar(&parent, "parent", "", "parent task reference")
 	f.StringVar(&due, "due", "", "due date")
 	f.StringVar(&repeat, "repeat", "", "repeat rule, such as 'every week' or '3 days after done'")
+	f.StringVar(&leaseRaw, "lease", "", "how long a claim on the task holds, such as 2h; empty uses the project's")
 	f.StringSliceVarP(&tags, "tag", "l", nil, "tag to attach, repeatable")
 	f.StringSliceVar(&depends, "depends-on", nil, "task this one depends on, repeatable")
 	f.StringSliceVar(&fields, "field", nil, "custom field as key=value, repeatable")

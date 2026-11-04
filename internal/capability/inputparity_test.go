@@ -61,7 +61,7 @@ var inputReaches = []inputReach{
 		"project_ref": "--project", "title": "arg", "body": "--body", "status": "--status",
 		"priority": "--priority", "tags": "--tag", "assignee_actor_id": "--assignee",
 		"parent_ref": "--parent", "due_at": "--due", "recurrence": "--repeat",
-		"custom_fields": "--field", "depends_on": "--depends-on",
+		"custom_fields": "--field", "depends_on": "--depends-on", "lease": "--lease",
 	}},
 	{"tix task edit", core.UpdateTaskInput{}, map[string]string{
 		"title": "--title", "body": "--body", "priority": "--priority", "assignee_actor_id": "--assignee",
