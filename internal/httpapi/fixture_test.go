@@ -372,7 +372,7 @@ func newFixtureWith(t *testing.T, mutators ...func(*apiFixture, *httpapi.Config)
 	if err != nil {
 		t.Fatalf("building router: %v", err)
 	}
-	f.server = httptest.NewServer(router)
+	f.server = httptest.NewServer(checkContract(t, router))
 	t.Cleanup(f.server.Close)
 
 	f.projectA = seedProject(t, st, f.tenantA.ID, "infra")

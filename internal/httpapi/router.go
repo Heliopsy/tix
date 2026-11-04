@@ -84,9 +84,31 @@ type Config struct {
 type Router struct {
 	cfg     Config
 	proxies *auth.ProxyPolicy
-	mux     *http.ServeMux
+	mux     *routeMux
 	handler http.Handler
 }
+
+// routeMux is a ServeMux that remembers every pattern registered on it, so
+// the routes the server answers can be compared with the ones it documents.
+type routeMux struct {
+	*http.ServeMux
+	patterns []string
+}
+
+// Handle registers a handler and records its pattern.
+func (m *routeMux) Handle(pattern string, h http.Handler) {
+	m.patterns = append(m.patterns, pattern)
+	m.ServeMux.Handle(pattern, h)
+}
+
+// HandleFunc registers a handler function and records its pattern.
+func (m *routeMux) HandleFunc(pattern string, h func(http.ResponseWriter, *http.Request)) {
+	m.Handle(pattern, http.HandlerFunc(h))
+}
+
+// Patterns returns every pattern registered on the router, in the order it
+// was registered.
+func (rt *Router) Patterns() []string { return slices.Clone(rt.mux.patterns) }
 
 // New builds a Router over the configured service.
 func New(cfg Config) (*Router, error) {
@@ -121,7 +143,7 @@ func New(cfg Config) (*Router, error) {
 		return nil, err
 	}
 
-	rt := &Router{cfg: cfg, proxies: proxies, mux: http.NewServeMux()}
+	rt := &Router{cfg: cfg, proxies: proxies, mux: &routeMux{ServeMux: http.NewServeMux()}}
 	rt.register()
 	rt.handler = chain(rt.mux,
 		rt.authenticate,
@@ -156,6 +178,7 @@ func (rt *Router) register() {
 	rt.mux.HandleFunc("GET "+wire.RouteHealth, rt.handleHealth)
 	rt.mux.HandleFunc("GET "+wire.RouteReady, rt.handleReady)
 	rt.mux.HandleFunc("GET "+wire.RouteWhoAmI, rt.handleWhoAmI)
+	rt.mux.HandleFunc("GET "+wire.RouteOpenAPI, rt.handleOpenAPI)
 
 	rt.registerAuthRoutes()
 	rt.registerTenantRoutes()

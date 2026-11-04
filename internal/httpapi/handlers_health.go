@@ -5,7 +5,10 @@ package httpapi
 import (
 	"net/http"
 
+	"github.com/heliopsy/tix/api"
+	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/version"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // HealthBody reports that the process is alive.
@@ -30,6 +33,17 @@ type ReadyBody struct {
 // handleHealth answers liveness without touching the database.
 func (rt *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	WriteJSON(w, http.StatusOK, HealthBody{Status: "ok", Version: version.Version})
+}
+
+// handleOpenAPI serves the OpenAPI document embedded at build time.
+func (rt *Router) handleOpenAPI(w http.ResponseWriter, _ *http.Request) {
+	doc, err := api.JSON()
+	if err != nil {
+		WriteError(w, core.Internal("reading the openapi document").Wrap(err))
+		return
+	}
+	w.Header().Set(wire.HeaderContentType, wire.ContentJSON)
+	_, _ = w.Write(doc)
 }
 
 // handleReady answers readiness, reporting each failing check by name.
