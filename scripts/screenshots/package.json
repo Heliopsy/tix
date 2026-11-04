@@ -1,0 +1,13 @@
+{
+  "name": "tix-screenshots",
+  "private": true,
+  "description": "Screenshots every web page and popup of tix at phone, tablet, Full HD and 4K sizes",
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "shoot": "node shoot.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.64.1"
+  }
+}

@@ -229,6 +229,58 @@ One thing neither guard covers: those copies live in `/tmp/gremlins-*`, about a 
 gremlins only removes them when it exits normally. Interrupt a run and they stay. `rm -rf
 /tmp/gremlins-*` after a Ctrl-C.
 
+## Web screenshots
+
+`just screenshots` captures every screen of the browser interface, and every popup on it, at four sizes:
+
+| Name | Viewport | Scale |
+| --- | --- | --- |
+| `phone` | 390 x 844, touch, mobile user agent | 3x |
+| `tablet` | 820 x 1180, touch | 2x |
+| `fullhd` | 1920 x 1080 | 1x |
+| `4k` | 3840 x 2160 | 1x |
+
+```sh
+just screenshots                                   # everything, light theme
+just screenshots --only /tasks --viewports phone   # a quick look while working on one screen
+just screenshots --theme both --viewports fullhd   # light and dark side by side
+```
+
+Each run writes `out/screenshots/<time>/<viewport>/<page>[--<state>][--<popup>].png` and an `index.html`
+contact sheet beside them, one table per page with the viewports side by side, and prints its path at the
+end. `report.json` there lists the routes not captured and why. `out/` is ignored by git.
+
+By default the recipe builds `bin/tix`, seeds a fresh database in a temporary directory with
+`tix demo seed`, serves it on a free loopback port with `--db` and isolated XDG directories, signs in as
+the seeded administrator through the login form, and adds what the seed does not write: a template, two
+saved filters, a notification channel and a calendar feed. The server is stopped and the directory deleted
+on every exit, a failure or Ctrl-C included.
+
+`--url URL` captures a running instance instead, signed in as `TIX_SHOT_EMAIL` with `TIX_SHOT_PASSWORD`.
+When the tenant asks for a second factor, `TIX_SHOT_TOTP` is the account's TOTP secret and the code is
+derived from it; an account that still has to enrol cannot be used. Against a running instance the tool
+only reads screens and opens menus, and adds no fixtures, so a screen whose parameter has nothing to point
+at (no template, no channel) is reported as not captured. The session it signs in with is left to expire,
+and the credentials are never printed. Use an administrator, or the admin screens render as refusals.
+
+Which pages exist comes from `scripts/screenshots/routes.json`, which lists every GET route in
+`internal/web/routes.go`, with how to fill its parameters, extra states to capture (the board and lanes
+views, a selection, the task dialog) or why it is skipped (an htmx fragment, a file). A test in
+`internal/web` fails when a route is missing from it or it names one that no longer exists, so a new
+screen is added there in the same change.
+
+Popups are found rather than listed: every `[popover]`, every `<details>` (the (i) tips, More options,
+the confirmations inside them) and the command palette and shortcuts overlay. Each is opened through its
+visible trigger, after opening whatever encloses it, so a menu inside the phone's sidebar is captured the
+way a person reaches it. A popup with the same text as one already captured in that viewport, the
+sidebar or a tip repeated on every page, is captured once, and a menu repeated on every row once per page.
+`--max-popups N` (default 40) caps one page state. Toasts are not captured: they follow a change, and the
+tool makes none.
+
+Animations and transitions are off, fonts and htmx settle before each shot, and the viewports run one after
+another in a single browser, so a full run stays light on the machine. Playwright is pinned in
+`scripts/screenshots/package-lock.json`; the recipe installs it and Chromium only when they are missing.
+
 ## PostgreSQL
 
 ```sh

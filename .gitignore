@@ -23,3 +23,7 @@ image-digest.txt
 # otherwise show up as untracked alongside real work.
 .claude/worktrees/
 demo/out/
+
+# just screenshots: its output and its own node_modules.
+out/
+scripts/screenshots/node_modules/

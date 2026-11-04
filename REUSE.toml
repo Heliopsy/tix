@@ -27,3 +27,11 @@ path = ["screenshots/**", "tix.svg", "internal/web/assets/**.png"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "tix contributors"
 SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+# The screenshot tool's manifest and lockfiles, which are JSON and cannot hold
+# a comment.
+[[annotations]]
+path = ["scripts/screenshots/*.json"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "tix contributors"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
