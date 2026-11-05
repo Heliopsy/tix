@@ -103,17 +103,17 @@ type fieldSeed struct {
 
 var fieldDefs = []fieldSeed{
 	{project: "infra", def: core.FieldDefInput{
-		Key: "environment", Label: "Environment", Type: core.FieldEnum, Indexed: true, Position: 1,
+		Key: "environment", Label: "Environment", Type: core.FieldEnum, Position: 1,
 		EnumOptions: []string{"production", "staging", "development"}}},
 	{project: "infra", def: core.FieldDefInput{
 		Key: "change_window", Label: "Change window", Type: core.FieldString, Position: 2}},
 	{project: "ops", def: core.FieldDefInput{
-		Key: "severity", Label: "Severity", Type: core.FieldEnum, Indexed: true, Position: 1,
+		Key: "severity", Label: "Severity", Type: core.FieldEnum, Position: 1,
 		EnumOptions: []string{"sev1", "sev2", "sev3"}}},
 	{project: "ops", def: core.FieldDefInput{
 		Key: "paged", Label: "Woke somebody up", Type: core.FieldBool, Position: 2}},
 	{project: "data", def: core.FieldDefInput{
-		Key: "dataset", Label: "Dataset", Type: core.FieldString, Indexed: true, Position: 1}},
+		Key: "dataset", Label: "Dataset", Type: core.FieldString, Position: 1}},
 }
 
 // commentSeed is one comment, by one actor, on one day.

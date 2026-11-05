@@ -743,16 +743,19 @@ func TestTheFlashDoesNotAccumulateInTheReturnURL(t *testing.T) {
 // TestFieldFormSetsADefaultIndexAndPosition holds the field form to every
 // part of a definition the service takes. A put replaces the whole definition,
 // so a form that left one out cleared it on every save.
-func TestFieldFormSetsADefaultIndexAndPosition(t *testing.T) {
+func TestFieldFormSetsADefaultAndPosition(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	b := f.as("alice")
 
 	form := formAt(t, b.page("/projects/infra/fields"), "/projects/infra/fields")
-	for _, name := range []string{`name="default"`, `name="indexed"`, `name="position"`} {
+	for _, name := range []string{`name="default"`, `name="position"`} {
 		if !strings.Contains(form, name) {
 			t.Errorf("the field form has no %s control", name)
 		}
+	}
+	if strings.Contains(form, `name="indexed"`) {
+		t.Error("the field form still offers indexed, which nothing reads")
 	}
 
 	saved := b.post("/projects/infra/fields", url.Values{"key": {"points"}, "type": {"int"},
@@ -767,8 +770,8 @@ func TestFieldFormSetsADefaultIndexAndPosition(t *testing.T) {
 	if fmt.Sprint(def.Default) != "3" {
 		t.Errorf("default = %#v, want 3", def.Default)
 	}
-	if !def.Indexed || def.Position != 2 {
-		t.Errorf("indexed = %v, position = %d, want true and 2", def.Indexed, def.Position)
+	if def.Position != 2 {
+		t.Errorf("position = %d, want 2", def.Position)
 	}
 
 	bad := b.post("/projects/infra/fields", url.Values{"key": {"size"}, "type": {"int"}, "default": {"big"}})

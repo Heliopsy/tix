@@ -206,9 +206,7 @@ func init() {
 		"What a value must look like: string, text, int, float, bool, date, datetime, enum (one of the options below), actor (a person or agent) or json.":                                 "Какъв вид трябва да е стойността: string, text, int, float, bool, date, datetime, enum (една от стойностите по-долу), actor (човек или агент) или json.",
 		"Default value": "Стойност по подразбиране",
 		"Position":      "Позиция",
-		"Indexed":       "Индексирано",
 		"The value a task created without one is given. It has to fit the type, and for an enum it has to be one of the options. Leave it blank for none.": "Стойността, която получава задача, създадена без такава. Трябва да отговаря на типа, а за изброим тип да е една от възможностите. Оставете празно, ако няма.",
-		"Keep an index on this field so filtering a large project on field.KEY:VALUE stays fast.":                                                          "Поддържа индекс по това поле, за да остава бързо филтрирането на голям проект по field.KEY:VALUE.",
 		"Every task in the project must carry a value for this field. Marking a field required later does not invalidate tasks that already lack one.":     "Всяка задача в проекта трябва да има стойност за това поле. Ако го направите задължително по-късно, съществуващите задачи без стойност остават валидни.",
 
 		// Release.

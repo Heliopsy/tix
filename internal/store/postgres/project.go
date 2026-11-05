@@ -181,7 +181,7 @@ func (t *tx) DeleteProject(ctx context.Context, projectID string) error {
 
 var fieldDefColumns = []string{
 	"id", "tenant_id", "project_id", "key", "tag", "type", "required",
-	"enum_options", "default_value", "indexed", "position",
+	"enum_options", "default_value", "position",
 }
 
 func scanFieldDef(s scanner) (core.FieldDef, error) {
@@ -191,7 +191,7 @@ func scanFieldDef(s scanner) (core.FieldDef, error) {
 		def     sql.NullString
 	)
 	if err := s.Scan(&d.ID, &d.TenantID, &d.ProjectID, &d.Key, &d.Label, &d.Type,
-		&d.Required, &options, &def, &d.Indexed, &d.Position); err != nil {
+		&d.Required, &options, &def, &d.Position); err != nil {
 		return core.FieldDef{}, mapErr(err, "scanning field definition")
 	}
 	if err := sqlb.ParseJSON(text(options), &d.EnumOptions); err != nil {
@@ -225,7 +225,6 @@ func (t *tx) PutFieldDef(ctx context.Context, d *core.FieldDef) error {
 		Set("required", d.Required).
 		Set("enum_options", nullText(options)).
 		Set("default_value", nullText(def)).
-		Set("indexed", d.Indexed).
 		Set("position", d.Position)
 	n, err := t.execUpdate(ctx, upd, "updating field %q", d.Key)
 	if err != nil {
@@ -254,7 +253,6 @@ func (t *tx) PutFieldDef(ctx context.Context, d *core.FieldDef) error {
 		Set("required", d.Required).
 		Set("enum_options", nullText(options)).
 		Set("default_value", nullText(def)).
-		Set("indexed", d.Indexed).
 		Set("position", d.Position)
 	_, err = t.execInsert(ctx, ins, "creating field %q", d.Key)
 	return err

@@ -187,23 +187,21 @@ func (t *tx) DeleteProject(ctx context.Context, projectID string) error {
 
 var fieldDefColumns = []string{
 	"id", "tenant_id", "project_id", "key", "tag", "type", "required",
-	"enum_options", "default_value", "indexed", "position",
+	"enum_options", "default_value", "position",
 }
 
 func scanFieldDef(s scanner) (core.FieldDef, error) {
 	var (
 		d        core.FieldDef
 		required int64
-		indexed  int64
 		options  sql.NullString
 		def      sql.NullString
 	)
 	if err := s.Scan(&d.ID, &d.TenantID, &d.ProjectID, &d.Key, &d.Label, &d.Type,
-		&required, &options, &def, &indexed, &d.Position); err != nil {
+		&required, &options, &def, &d.Position); err != nil {
 		return core.FieldDef{}, mapErr(err, "scanning field definition")
 	}
 	d.Required = sqlb.Bool(required)
-	d.Indexed = sqlb.Bool(indexed)
 	if err := sqlb.ParseJSON(sqlb.Text(options), &d.EnumOptions); err != nil {
 		return core.FieldDef{}, core.Internal("decoding enum options of field %q", d.Key).Wrap(err)
 	}
@@ -235,7 +233,6 @@ func (t *tx) PutFieldDef(ctx context.Context, d *core.FieldDef) error {
 		Set("required", sqlb.BoolInt(d.Required)).
 		Set("enum_options", sqlb.NullText(options)).
 		Set("default_value", sqlb.NullText(def)).
-		Set("indexed", sqlb.BoolInt(d.Indexed)).
 		Set("position", d.Position)
 	n, err := t.execUpdate(ctx, upd, "updating field %q", d.Key)
 	if err != nil {
@@ -264,7 +261,6 @@ func (t *tx) PutFieldDef(ctx context.Context, d *core.FieldDef) error {
 		Set("required", sqlb.BoolInt(d.Required)).
 		Set("enum_options", sqlb.NullText(options)).
 		Set("default_value", sqlb.NullText(def)).
-		Set("indexed", sqlb.BoolInt(d.Indexed)).
 		Set("position", d.Position)
 	_, err = t.execInsert(ctx, ins, "creating field %q", d.Key)
 	return err

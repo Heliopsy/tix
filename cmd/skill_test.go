@@ -848,6 +848,7 @@ var skillFlagOmits = map[string]string{
 	"tix serve --no-retention-pruner":   "as above: operator tuning, not agent behaviour",
 	"tix serve --no-webhook-dispatcher": "as above: operator tuning, not agent behaviour",
 	"tix serve --no-registry":           "as above: whether a server counts itself in `tix status` is operator tuning, and an agent reads work rather than inventory",
+	"tix field put --indexed":           "hidden and ignored, kept only so old scripts run; teaching it would put a dead flag back into new ones",
 }
 
 // TestSkillNamesEveryModeSwitch fails when a command the skill documents grows

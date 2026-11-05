@@ -141,13 +141,13 @@ Custom fields are per-project typed slots on a task:
 
 ```sh
 tix field ls default
-tix field put default severity --type string --required --indexed
+tix field put default severity --type string --required
 tix task add "outage" -p default --field severity=high
 tix task ls --filter 'field.severity:high'
 ```
 
-`--required` refuses a task that omits the field; `--indexed` makes it
-filterable at scale rather than scanned. Note that an unknown field key in a
+`--required` refuses a task that omits the field. Filtering on a field reads
+each candidate row, so pair it with `-p` or a status. Note that an unknown field key in a
 filter answers empty rather than `not_found`, so a typo looks like "nothing
 matches".
 

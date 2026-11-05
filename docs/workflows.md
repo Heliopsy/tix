@@ -238,7 +238,7 @@ bare colour name otherwise.
 Fields are defined per project:
 
 ```sh
-tix field put rv severity --type enum --option low --option high --label Severity --indexed --default low
+tix field put rv severity --type enum --option low --option high --label Severity --default low
 tix field put rv owner --type actor --required
 tix field ls rv
 tix field rm rv severity
@@ -250,7 +250,6 @@ tix field rm rv severity
 | `--option` | an enum option, repeatable |
 | `--required` | every task in the project must carry a value |
 | `--default` | the value a task created without one is given; it has to fit the type and, for an enum, the options |
-| `--indexed` | see below |
 | `--position` | ordering in the UI |
 | `--label` | human label, defaulting to the key |
 | `--dry-run` | validate without writing |
@@ -269,21 +268,18 @@ type reads it as JSON first, as `--field` does, so `--default 3` is a number and
 The browser's field form carries the same controls, and the API takes `default` on `PUT
 /projects/{ref}/fields`.
 
-Marking a field `--required` does not retroactively invalidate existing tasks. Changing `--indexed` later is
-allowed and does not rewrite data.
+Marking a field `--required` does not retroactively invalidate existing tasks.
 
-## Indexed versus scanned field filters
+Field definitions used to take `--indexed`. Nothing ever read it, so it was removed. The flag is still
+accepted and ignored, with a note on stderr, and an API body, bundle or snapshot that sends `indexed` is accepted
+with the key dropped.
 
-Filtering on a custom field is always allowed and never an error. What changes with `--indexed` is the cost.
+## What a custom field filter costs
 
-An indexed field is one the engine is expected to answer efficiently. A field that is not indexed is filtered by
-reading the JSON document on each candidate row, so the work grows with the number of rows the rest of the filter
-leaves behind.
+Filtering on a custom field is always allowed and never an error. It is answered by reading the JSON document on
+each candidate row, so the work grows with the number of rows the rest of the filter leaves behind.
 
-The practical rule: a custom field you filter or sort a queue on should be indexed. A custom field you only read
-back on a task you already fetched should not be, because an index you never query is write cost with no payoff.
-
-Either way, narrow the scan first. A custom field predicate is cheap once the project, status and tag predicates
+Narrow the scan first. A custom field predicate is cheap once the project, status and tag predicates
 have already cut the candidate set:
 
 ```sh

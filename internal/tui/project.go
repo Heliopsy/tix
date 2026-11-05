@@ -188,9 +188,6 @@ func FieldDefNote(f core.FieldDef) string {
 	if f.Required {
 		parts = append(parts, "required")
 	}
-	if f.Indexed {
-		parts = append(parts, "indexed")
-	}
 	note := strings.Join(parts, ", ")
 	if len(f.EnumOptions) > 0 {
 		note += "   " + strings.Join(f.EnumOptions, " / ")
@@ -453,7 +450,7 @@ func FieldDefUpdate(key, label string, base core.FieldDef, kind core.FieldType, 
 	}
 	in := core.FieldDefInput{
 		Key: key, Label: label, Type: kind, Required: required,
-		Default: base.Default, Indexed: base.Indexed, Position: base.Position,
+		Default: base.Default, Position: base.Position,
 	}
 	if kind == core.FieldEnum {
 		in.EnumOptions = base.EnumOptions

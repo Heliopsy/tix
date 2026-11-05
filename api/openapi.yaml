@@ -9861,9 +9861,6 @@ components:
         id:
           description: ID is the field definition's unique identifier.
           type: string
-        indexed:
-          description: Indexed marks the field as one worth indexing for queries.
-          type: boolean
         key:
           description: Key names the field in a task's custom_fields, unique within
             the project.
@@ -9901,10 +9898,6 @@ components:
           items:
             type: string
           type: array
-        indexed:
-          description: Indexed marks the field as one task listings are expected to
-            filter on.
-          type: boolean
         key:
           description: Key identifies the field within the project and in a task's
             custom_fields; an existing key is redefined. Required.

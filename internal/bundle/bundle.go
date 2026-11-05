@@ -64,7 +64,6 @@ type Field struct {
 	Required    bool           `json:"required,omitempty"`
 	EnumOptions []string       `json:"enum_options,omitempty"`
 	Default     any            `json:"default,omitempty"`
-	Indexed     bool           `json:"indexed,omitempty"`
 	Position    int            `json:"position,omitempty"`
 }
 
@@ -190,7 +189,7 @@ func (f Field) validate() error {
 	in := core.FieldDefInput{
 		Key: f.Key, Label: f.Label, Type: f.Type,
 		Required: f.Required, EnumOptions: f.EnumOptions,
-		Default: f.Default, Indexed: f.Indexed, Position: f.Position,
+		Default: f.Default, Position: f.Position,
 	}
 	if err := in.Validate(); err != nil {
 		return core.Invalid("field definition %q is not valid: %s", f.Key, message(err))

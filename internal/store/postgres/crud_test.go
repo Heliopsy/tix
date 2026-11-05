@@ -162,7 +162,7 @@ func TestProjectAndFieldDefRoundTrip(t *testing.T) {
 
 		def := core.FieldDef{ProjectID: p.ID, Key: "severity", Label: "Severity",
 			Type: core.FieldEnum, Required: true, EnumOptions: []string{"low", "high"},
-			Default: "low", Indexed: true, Position: 2}
+			Default: "low", Position: 2}
 		if err := tx.PutFieldDef(ctx, &def); err != nil {
 			return err
 		}
@@ -181,7 +181,7 @@ func TestProjectAndFieldDefRoundTrip(t *testing.T) {
 		if len(defs) != 1 {
 			t.Fatalf("field definitions = %d, want 1", len(defs))
 		}
-		if defs[0].Label != "How bad" || !defs[0].Required || !defs[0].Indexed {
+		if defs[0].Label != "How bad" || !defs[0].Required {
 			t.Fatalf("field definition = %+v", defs[0])
 		}
 		if len(defs[0].EnumOptions) != 2 || defs[0].Default != "low" {

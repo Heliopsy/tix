@@ -129,3 +129,15 @@ func ids(t *testing.T, out string) string {
 	}
 	return strings.Join(parts, ",")
 }
+
+func TestFieldPutAcceptsTheDeprecatedIndexedFlag(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("project", "create", "infra", "Infrastructure")
+	got := c.mustRun("field", "put", "infra", "severity", "--indexed")
+	if !strings.Contains(got.err, "deprecated") {
+		t.Errorf("stderr = %q, want a deprecation notice", got.err)
+	}
+	if help := c.mustRun("field", "put", "--help"); strings.Contains(help.out, "--indexed") {
+		t.Error("field put --help still offers --indexed")
+	}
+}
