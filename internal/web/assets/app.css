@@ -7263,9 +7263,11 @@ dialog.actiondlg.is-inplace {
   .actiondlg-foot > .btn, .actiondlg-foot > button { flex: 1 1 0; }
 }
 
-/* The header strip holds the screen's action button beside the column menu. */
-.pagehead-tools > a.btn { flex: 0 0 auto; }
-.cform-head-tools { margin-inline-start: auto; }
+/* A button beside a title takes its own width and moves under the title
+   when the line is too short for both, rather than breaking its label. */
+.cform-head:has(> .cform-head-tools) { flex-wrap: wrap; }
+.cform-head-tools { flex: 0 0 auto; margin-inline-start: auto; }
+.pagehead-tools > a.btn, .sechead > a.btn, .dangerrow > a.btn, .person-act > a.btn { flex-shrink: 0; }
 
 /* Reference text that used to be folded: drawn, quietly, at the measure of
    prose. */
