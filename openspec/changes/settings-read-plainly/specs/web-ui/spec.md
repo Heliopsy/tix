@@ -1,34 +1,15 @@
 ## MODIFIED Requirements
 
-### Requirement: A setting is a row with its control in one column
+### Requirement: An on/off setting is an accessible switch that still posts a form
 
-On a wide viewport each setting SHALL be drawn as a row with its name and a short description on the
-left and its control on the right, and the controls of every row SHALL share one column width so that
-they align. At a viewport 900px wide or narrower each row SHALL stack its control under its
-description. A setting whose explanation is longer than its description SHALL offer it behind an
-information disclosure beside its name. An on/off preference SHALL be drawn as a switch that exposes
-its state to assistive technology, names its state in words such as On and Off or Shown and Hidden,
-and remains a plain form submission. A preference choosing between two or more named positions SHALL
-be drawn as a segmented control naming every position, the current one marked with `aria-current`,
-each position a submit button that works without scripting, and SHALL NOT be drawn as a switch.
+An on/off preference SHALL be drawn as a switch that exposes its state to assistive technology,
+names its state in words such as On and Off or Shown and Hidden, and remains a plain form
+submission.
 
 #### Scenario: An on/off preference is a switch
 
 - **WHEN** the settings screen is drawn
 - **THEN** each on/off preference's submit button has the switch role and reports whether it is on
-
-#### Scenario: Two named positions are a segmented control
-
-- **WHEN** the settings screen is drawn
-- **THEN** the Task opens in row offers Page and Dialog as two submit buttons and no switch
-- **AND** the Clicking a title row offers Open the task and Edit the title as two submit buttons and
-  no switch
-
-#### Scenario: Rows stack on a narrow screen
-
-- **GIVEN** a viewport 900px wide
-- **WHEN** the settings screen is drawn
-- **THEN** each row's control sits under its description
 
 ### Requirement: A browser chooses whether a task opens as a page or in a dialog
 
@@ -68,6 +49,19 @@ post naming a position SHALL store it; a post naming none SHALL move to the othe
   has an open link beside it
 
 ## ADDED Requirements
+
+### Requirement: A preference among named positions is a segmented control
+
+A preference choosing between two or more named positions SHALL be drawn as a segmented control
+naming every position, the current one marked with `aria-current`, each position a submit button
+that works without scripting, and SHALL NOT be drawn as a switch.
+
+#### Scenario: Two named positions are a segmented control
+
+- **WHEN** the settings screen is drawn
+- **THEN** the Task opens in row offers Page and Dialog as two submit buttons and no switch
+- **AND** the Clicking a title row offers Open the task and Edit the title as two submit buttons and
+  no switch
 
 ### Requirement: A post to Task opens in stores the position it names
 

@@ -108,6 +108,17 @@ focusing the target.
 - **WHEN** a reader presses the edit-title shortcut on a task screen
 - **THEN** the Rename disclosure opens and the title field has focus
 
+### Requirement: The task screen's star control states whether the reader starred the task
+
+The task screen's star control SHALL state in words, through its accessible name and pressed
+state, whether the reader has starred the task.
+
+#### Scenario: An unstarred task's star control
+
+- **GIVEN** a task the reader has not starred
+- **WHEN** its screen is drawn
+- **THEN** its star control is not pressed and is named Star followed by the task's reference
+
 ## MODIFIED Requirements
 
 ### Requirement: The browser sets and shows a repeat rule
@@ -119,19 +130,10 @@ the task screen SHALL carry it. A rule the service refuses SHALL be reported on 
 than dropped. The task screen SHALL state the rule and, once the task has spawned, link its
 successor.
 
-A listing row and a board card for a task carrying a rule SHALL show a small repeat marker whose
-accessible name states the rule. Completing a recurring task from the browser SHALL create the next
-occurrence exactly as on every other surface.
-
 #### Scenario: Setting a rule from the task screen
 
 - **WHEN** a reader enters `every week` in the Repeats row and saves
 - **THEN** the task carries `every week` and the screen states it
-
-#### Scenario: Marker on a row
-
-- **WHEN** the listing shows a task carrying `every month`
-- **THEN** its row shows the repeat marker naming `every month`, and a row of a task with no rule shows none
 
 #### Scenario: Refused rule
 
@@ -140,12 +142,10 @@ occurrence exactly as on every other surface.
 
 ### Requirement: The task screen states the star, the parent and the next occurrence
 
-The task screen's star control SHALL state in words, through its accessible name and pressed
-state, whether the reader has starred the task. A subtask's screen SHALL link the task it belongs
-to. A repeating task's screen SHALL state its rule and, when the next occurrence exists, link it
+A subtask's screen SHALL link the task it belongs to. A repeating task's screen SHALL state its rule and, when the next occurrence exists, link it
 with its due date; when it does not exist yet, SHALL state the date finishing the task now would
 give it, computed by the same rule completion applies; and when the rule has run out, SHALL say
-that this is the last occurrence. When the task has started or finished, the screen SHALL say when.
+that this is the last occurrence.
 
 #### Scenario: A weekly task not yet finished
 

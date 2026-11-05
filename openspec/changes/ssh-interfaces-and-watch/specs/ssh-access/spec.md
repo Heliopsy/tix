@@ -6,12 +6,7 @@ The listener SHALL read the session's command as the name of a registered interf
 its arguments, or, when the first word is not a registered name and is the only word, as the key of
 a project to open, so that a client can land on a board rather than on the project list. This is
 the SSH equivalent of `--project` on the local interface, which has no other channel here because
-the username already carries the tenant. `board KEY` SHALL open any project key, including one
-spelled like a registered interface.
-
-The project SHALL be opened as the session's own actor, through the same
-service and the same scopes the project list would have used, so naming a
-project reaches nothing that choosing it from the list would not have reached.
+the username already carries the tenant.
 
 #### Scenario: A client names a board
 
@@ -19,21 +14,10 @@ project reaches nothing that choosing it from the list would not have reached.
   and sends a project key as the command
 - **THEN** the session opens on that project's board rather than the project list
 
-#### Scenario: A client names a board through the board interface
-
-- **WHEN** the command is `board watch`
-- **THEN** the session opens on the board of the project keyed `watch`
-
 #### Scenario: A client names nothing
 
 - **WHEN** an SSH client connects without a command
 - **THEN** a hosted session opens the start menu and a sandbox session opens its seeded board
-
-#### Scenario: A client names a project it cannot reach
-
-- **WHEN** the command is a well formed project key that this actor cannot open
-- **THEN** the session opens on the project list carrying the reason, rather
-  than being refused
 
 #### Scenario: A client sends something that is not a project key
 
@@ -49,6 +33,15 @@ project reaches nothing that choosing it from the list would not have reached.
   interface rather than a shell, naming every registered interface
 
 ## ADDED Requirements
+
+### Requirement: The board interface opens any project key over SSH
+
+`board KEY` SHALL open any project key, including one spelled like a registered interface.
+
+#### Scenario: A client names a board through the board interface
+
+- **WHEN** the command is `board watch`
+- **THEN** the session opens on the board of the project keyed `watch`
 
 ### Requirement: SSH interfaces come from one registry
 
