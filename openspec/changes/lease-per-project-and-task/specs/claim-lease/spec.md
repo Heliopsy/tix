@@ -4,10 +4,7 @@
 
 The lease time-to-live SHALL be decided, most specific first, by: the TTL the claim supplies, the task's own
 lease, the project's lease default, an authored workflow's `default_lease`, the tenant's `lease_default`, the
-deployment's `lease.default`, and finally 30 minutes. The first level that names a figure SHALL apply. The
-ceiling SHALL be the lowest of the deployment maximum (24 hours when unset), the tenant's `lease_max` and the
-project's `lease_max`. A TTL the claim supplies above the ceiling SHALL be rejected; a figure from any other level
-above the ceiling SHALL be clamped to it.
+deployment's `lease.default`, and finally 30 minutes. The first level that names a figure SHALL apply.
 
 #### Scenario: Global default applied
 
@@ -34,17 +31,23 @@ above the ceiling SHALL be clamped to it.
 - **WHEN** a claim supplies its own TTL
 - **THEN** the lease expiry reflects the supplied TTL regardless of every other level
 
-#### Scenario: A project maximum tightens the tenant's
-
-- **WHEN** a project's lease maximum is lower than the tenant's and the task's own lease is longer than it
-- **THEN** the claim is granted the project maximum, and a claim naming a longer TTL is rejected
-
 #### Scenario: Invalid TTL
 
 - **WHEN** a claim supplies a TTL that is zero, negative, or beyond the effective maximum
 - **THEN** the claim is rejected with a validation error and no lease is taken
 
 ## ADDED Requirements
+
+### Requirement: The lease ceiling is the lowest of the deployment, tenant and project maximums
+
+The ceiling SHALL be the lowest of the deployment maximum (24 hours when unset), the tenant's `lease_max` and the
+project's `lease_max`. A TTL the claim supplies above the ceiling SHALL be rejected; a figure from any other level
+above the ceiling SHALL be clamped to it.
+
+#### Scenario: A project maximum tightens the tenant's
+
+- **WHEN** a project's lease maximum is lower than the tenant's and the task's own lease is longer than it
+- **THEN** the claim is granted the project maximum, and a claim naming a longer TTL is rejected
 
 ### Requirement: The effective lease is explained
 

@@ -4,15 +4,18 @@
 
 The projects screen SHALL offer "New project" as a button in its header. The form it opens SHALL put
 the name first and focus it, then the key, the workflow and the description, and SHALL group the
-colour and icon controls under "Appearance". Name and key SHALL be marked as required. With scripting
-on, the key SHALL be suggested from the name until the reader edits it, SHALL avoid keys already in
-use, and the form SHALL say what the project's tasks will be numbered. The project settings on a
-board SHALL use the same layout and the same Appearance group.
+colour and icon controls under "Appearance". Name and key SHALL be marked as required. The project
+settings on a board SHALL use the same layout and the same Appearance group.
 
 #### Scenario: Opening the form
 
 - **WHEN** the reader opens New project
 - **THEN** the name field is first and focused, the key follows it, and colour and icon sit under Appearance
+
+### Requirement: The new project form suggests a free key from the name
+
+With scripting on, the key SHALL be suggested from the name until the reader edits it, SHALL avoid
+keys already in use, and the form SHALL say what the project's tasks will be numbered.
 
 #### Scenario: Suggesting a key
 

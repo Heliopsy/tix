@@ -36,8 +36,7 @@ The web interface SHALL offer a per-browser preference, Task opens in, stored in
 cookie, whose positions are Page and Dialog. Absent, or any value other than `dialog`, SHALL mean
 Page, which SHALL behave exactly as the interface did before the preference existed. The control
 SHALL be a segmented control in the Listings section of Settings that posts without scripting, names
-both positions and marks the one in force. A post naming a position SHALL store it; a post naming none
-SHALL move to the other position.
+both positions and marks the one in force.
 
 #### Scenario: An untouched browser opens tasks as pages
 
@@ -52,12 +51,6 @@ SHALL move to the other position.
 - **THEN** the browser stores `tix_task_open=dialog`
 - **AND** the reader is returned to the Listings section with a toast naming the setting
 - **AND** the task list carries the task dialog
-
-#### Scenario: Pressing the current position keeps it
-
-- **GIVEN** Task opens in is Dialog
-- **WHEN** the reader presses Dialog again
-- **THEN** the browser still stores `tix_task_open=dialog`
 
 ### Requirement: A browser chooses whether clicking a title edits it
 
@@ -75,6 +68,16 @@ post naming a position SHALL store it; a post naming none SHALL move to the othe
   has an open link beside it
 
 ## ADDED Requirements
+
+### Requirement: A post to Task opens in stores the position it names
+
+A post naming a position SHALL store it; a post naming none SHALL move to the other position.
+
+#### Scenario: Pressing the current position keeps it
+
+- **GIVEN** Task opens in is Dialog
+- **WHEN** the reader presses Dialog again
+- **THEN** the browser still stores `tix_task_open=dialog`
 
 ### Requirement: The database target is for administrators
 

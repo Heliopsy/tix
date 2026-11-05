@@ -3,12 +3,10 @@
 ### Requirement: View arrangement endpoints
 
 The API SHALL expose, for the authenticated actor: `GET /v1/views/{view}/groups` returning the
-actor's preferences on the view; `PATCH /v1/views/{view}/groups/{group}` taking any of `hidden`,
-`collapsed` and `starred` and returning the resulting preference; `PUT /v1/views/{view}/order`
-taking `groups` and returning the preferences it wrote; and `DELETE /v1/views/{view}/groups`
-forgetting every preference on the view, or only the one named by the `group` query parameter, and
-answering `204 No Content`. A view is `board`, `lanes` or `project:KEY`; anything else SHALL be
-refused as invalid, and a group the view cannot hold SHALL be refused as invalid or not found.
+actor's preferences on the view; and `PATCH /v1/views/{view}/groups/{group}` taking any of `hidden`,
+`collapsed` and `starred` and returning the resulting preference. A view is `board`, `lanes` or
+`project:KEY`; anything else SHALL be refused as invalid, and a group the view cannot hold SHALL be
+refused as invalid or not found.
 
 #### Scenario: Hiding a column over HTTP
 
@@ -19,3 +17,15 @@ refused as invalid, and a group the view cannot hold SHALL be refused as invalid
 
 - **WHEN** a client sends `GET /v1/views/calendar/groups`
 - **THEN** the response is 400
+
+### Requirement: View arrangement order and reset endpoints
+
+The API SHALL expose, for the authenticated actor: `PUT /v1/views/{view}/order` taking `groups` and
+returning the preferences it wrote; and `DELETE /v1/views/{view}/groups` forgetting every preference
+on the view, or only the one named by the `group` query parameter, and answering `204 No Content`.
+
+#### Scenario: Resetting one group over HTTP
+
+- **GIVEN** an actor with preferences on the `done` and `todo` groups of `project:infra`
+- **WHEN** a client resets the view naming `done` in the `group` query parameter
+- **THEN** listing the view's preferences returns only the one for `todo`

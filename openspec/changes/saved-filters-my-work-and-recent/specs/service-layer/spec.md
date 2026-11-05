@@ -5,11 +5,7 @@
 The service SHALL offer `ListSavedFilters`, `GetSavedFilter`, `CreateSavedFilter`, `UpdateSavedFilter`,
 `OrderSavedFilters` and `DeleteSavedFilter`. Each SHALL require `task:read`; changing or deleting a shared
 filter the caller does not own SHALL require `tenant:admin` and SHALL otherwise be refused as forbidden.
-Another actor's private filter SHALL be reported as not found. A filter SHALL be addressed by identifier,
-then by the caller's own name, then by a shared name. Names SHALL be unique per owner without regard to
-case. A saved expression SHALL be refused as invalid when the filter parser cannot read it. Each change
-SHALL write its rows, an audit entry and an event in one transaction, and a change that changes nothing
-SHALL write nothing.
+Another actor's private filter SHALL be reported as not found.
 
 #### Scenario: A member cannot change somebody's shared filter
 
@@ -27,6 +23,19 @@ SHALL write nothing.
 
 - **WHEN** a reader orders filters naming one somebody else shared
 - **THEN** the call is refused as not found
+
+### Requirement: Saved filters are addressed, named and written consistently
+
+A filter SHALL be addressed by identifier, then by the caller's own name, then by a shared name. Names
+SHALL be unique per owner without regard to case. A saved expression SHALL be refused as invalid when the
+filter parser cannot read it. Each saved filter change SHALL write its rows, an audit entry and an event in
+one transaction, and a change that changes nothing SHALL write nothing.
+
+#### Scenario: A name taken in another case is refused
+
+- **GIVEN** a reader with a saved filter named "Ops"
+- **WHEN** they create another saved filter named "OPS"
+- **THEN** the call is refused as a conflict
 
 ### Requirement: me names the caller in a filter
 

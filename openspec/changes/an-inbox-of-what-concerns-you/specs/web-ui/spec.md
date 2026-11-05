@@ -3,13 +3,8 @@
 ### Requirement: Inbox in the web interface
 
 The sidebar SHALL carry an Inbox entry with a badge counting unread items, hidden at zero, refreshed
-live over the event stream when an `inbox.updated` event names the reader. The inbox page SHALL list
-the reader's items newest first, each naming the task, the actor, what happened and when, unread
-items marked, with a filter for unread only, per-item mark read and mark unread, mark all read, and
-keyset paging. With scripting, opening an item SHALL mark it read and open the task the way the
-reader's dialog setting says; without it, the link SHALL open the task and the row's button SHALL
-mark it read. Every action SHALL work without scripting and swap in place with it. Settings SHALL
-offer one switch per kind to mute it, kept with the account.
+live over the event stream when an `inbox.updated` event names the reader. Settings SHALL offer one
+switch per kind to mute it, kept with the account.
 
 #### Scenario: The badge counts unread items
 
@@ -17,15 +12,33 @@ offer one switch per kind to mute it, kept with the account.
 - **WHEN** they open any page
 - **THEN** the sidebar's Inbox entry shows 2
 
-#### Scenario: Opening an item
-
-- **WHEN** a reader opens an unread item
-- **THEN** the item is marked read and the task opens
-
 #### Scenario: Muting from settings
 
 - **WHEN** a reader turns off status changes in Settings
 - **THEN** `status` is muted for them
+
+### Requirement: The inbox page lists the reader's items with read controls
+
+The inbox page SHALL list the reader's items newest first, each naming the task, the actor, what
+happened and when, unread items marked, with a filter for unread only, per-item mark read and mark
+unread, mark all read, and keyset paging. Every action SHALL work without scripting and swap in
+place with it.
+
+#### Scenario: Filtering to unread items
+
+- **GIVEN** a reader with one read item and one unread item
+- **WHEN** they open the inbox showing unread items only
+- **THEN** the list holds the unread item and not the read one
+
+### Requirement: Opening an inbox item marks it read, with or without scripting
+
+With scripting, opening an item SHALL mark it read and open the task the way the reader's dialog
+setting says; without it, the link SHALL open the task and the row's button SHALL mark it read.
+
+#### Scenario: Opening an item
+
+- **WHEN** a reader opens an unread item
+- **THEN** the item is marked read and the task opens
 
 ### Requirement: Mention completion
 

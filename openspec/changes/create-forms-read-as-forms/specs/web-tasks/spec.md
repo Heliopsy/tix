@@ -3,16 +3,20 @@
 ### Requirement: Add with details leads with the title and folds the rare fields
 
 The Add with details form SHALL put the title first, as the largest control of the form, and SHALL
-focus it when the form opens. It SHALL offer the description, project, priority, due date, assignee
-and tags without further disclosure, and SHALL offer the repeat rule, the parent task and the
-dependencies behind a "More options" disclosure. That disclosure SHALL be drawn open when any of its
-fields holds a value or a refusal. The title SHALL be marked as required. Every control other than
-the title SHALL be `--control-h` tall.
+focus it when the form opens. The title SHALL be marked as required. Every control other than the
+title SHALL be `--control-h` tall.
 
 #### Scenario: Opening the form
 
 - **WHEN** the reader opens Add with details on the task list
 - **THEN** the title field is first and focused, and the repeat rule is inside a closed More options disclosure
+
+### Requirement: Add with details folds the repeat rule, parent and dependencies under More options
+
+The Add with details form SHALL offer the description, project, priority, due date, assignee and tags
+without further disclosure, and SHALL offer the repeat rule, the parent task and the dependencies
+behind a "More options" disclosure. That disclosure SHALL be drawn open when any of its fields holds
+a value or a refusal.
 
 #### Scenario: Creating with a due date, an assignee and a parent
 

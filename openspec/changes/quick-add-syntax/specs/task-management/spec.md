@@ -6,13 +6,17 @@ The system SHALL provide one parser, shared by every surface that offers it, tha
 single line into a task title and the attributes it names: priority (`!highest`, `!high`,
 `!normal`, `!low`, `!lowest`, `!1` to `!5`, `priority:X`), tags (`#tag`, `tag:X`), assignee
 (`@handle`, `assignee:X`), due date (`due:X`), project (`+key`, `project:key`), parent
-(`^ref`, `parent:ref`) and initial status (`status:X`). Recognised tokens SHALL be removed
-from the title and the remaining words SHALL form the title in their original order.
+(`^ref`, `parent:ref`) and initial status (`status:X`).
 
 #### Scenario: A line with every attribute
 
 - **WHEN** the line `Fix login !high #auth @raj due:2026-11-20 +web ^infra-3 status:doing` is parsed
 - **THEN** the title is `Fix login`, the priority is high, the tags are `auth`, the assignee is `raj`, the due date is 2026-11-20, the project is `web`, the parent is `infra-3` and the status is `doing`
+
+### Requirement: Quick-add keeps the words it does not recognise as the title
+
+Recognised tokens SHALL be removed from the title and the remaining words SHALL form the title in
+their original order.
 
 #### Scenario: Unicode titles
 

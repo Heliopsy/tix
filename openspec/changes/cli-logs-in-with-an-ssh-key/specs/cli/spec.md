@@ -5,9 +5,7 @@
 `tix login --ssh-key` SHALL sign the server's challenge with each key in `ssh-agent`, then each default
 key file under `~/.ssh`, until one is accepted, and print the session as `tix login` does. `tix login
 --ssh-key PATH` SHALL use only that private key, asking for its passphrase on the terminal without echo
-when it is encrypted. `--ssh-key` SHALL NOT be combined with `--email` or `--password`. The CLI SHALL
-compute the namespace from the server address it was given and SHALL refuse to sign when the server
-announces a different one. A second factor SHALL be asked for exactly as after a password.
+when it is encrypted.
 
 #### Scenario: Logging in with a key file
 
@@ -24,6 +22,17 @@ announces a different one. A second factor SHALL be asked for exactly as after a
 
 - **WHEN** none of the keys tried is enrolled
 - **THEN** it exits 5 naming the fingerprints it tried
+
+### Requirement: An SSH key login takes no password and checks the server's namespace
+
+`--ssh-key` SHALL NOT be combined with `--email` or `--password`. The CLI SHALL compute the namespace
+from the server address it was given and SHALL refuse to sign when the server announces a different
+one. A second factor SHALL be asked for exactly as after a password.
+
+#### Scenario: A key login with an email is a usage error
+
+- **WHEN** `tix login --ssh-key --email ada@example.com` runs
+- **THEN** it exits 2 as a usage error
 
 ### Requirement: Logging in does not need a credential first
 

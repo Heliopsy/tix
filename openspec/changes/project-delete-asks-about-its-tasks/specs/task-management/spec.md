@@ -4,17 +4,8 @@
 
 Deleting a project that holds tasks, live or soft deleted, SHALL require the caller to choose between moving the
 tasks to another project and deleting them with the project. A deletion of such a project that makes neither choice
-SHALL be refused as a failed precondition naming the number of tasks, and SHALL write nothing. Making both choices,
-or naming the project itself as the target, SHALL be refused as invalid input. Naming an archived project as the
-target SHALL be refused as a failed precondition. A project holding no tasks SHALL delete without a choice.
-
-Deleting a project SHALL remain permanent. When the tasks are deleted with it, every one of them, soft deleted
-tasks included, SHALL be removed permanently together with its comments, attachments, tags, dependencies and stars,
-and each SHALL be recorded with its own `task.delete` audit entry and `task.deleted` event marked hard, in the same
-transaction as the project's own audit entry and event.
-
-Moving and deleting with the project SHALL require the authority project deletion requires. Moving SHALL in
-addition require the authority to update tasks in the target project.
+SHALL be refused as a failed precondition naming the number of tasks, and SHALL write nothing. A project holding
+no tasks SHALL delete without a choice.
 
 #### Scenario: A project with tasks and no choice is refused
 
@@ -28,6 +19,23 @@ addition require the authority to update tasks in the target project.
 - **WHEN** a project holding no tasks is deleted without a choice
 - **THEN** the project is removed with one audit entry and one event
 
+### Requirement: A project deletion refuses both choices at once and an unusable target
+
+Making both choices, or naming the project itself as the target, SHALL be refused as invalid input. Naming an
+archived project as the target SHALL be refused as a failed precondition.
+
+#### Scenario: Both choices at once are invalid
+
+- **WHEN** a deletion names a target project and also asks to delete the tasks
+- **THEN** it is refused as invalid input and nothing is written
+
+### Requirement: Deleting a project with its tasks removes and records every task permanently
+
+Deleting a project SHALL remain permanent. When the tasks are deleted with it, every one of them, soft deleted
+tasks included, SHALL be removed permanently together with its comments, attachments, tags, dependencies and stars,
+and each SHALL be recorded with its own `task.delete` audit entry and `task.deleted` event marked hard, in the same
+transaction as the project's own audit entry and event.
+
 #### Scenario: Deleting the tasks with the project records each one
 
 - **GIVEN** a project holding two live tasks and one soft deleted task
@@ -35,10 +43,10 @@ addition require the authority to update tasks in the target project.
 - **THEN** the project and all three tasks are gone
 - **AND** three `task.deleted` events marked hard and one `project.deleted` event were written in one transaction
 
-#### Scenario: Both choices at once are invalid
+### Requirement: Moving or deleting a project's tasks needs the project deletion authority
 
-- **WHEN** a deletion names a target project and also asks to delete the tasks
-- **THEN** it is refused as invalid input and nothing is written
+Moving and deleting with the project SHALL require the authority project deletion requires. Moving SHALL in
+addition require the authority to update tasks in the target project.
 
 #### Scenario: Moving needs task authority on the target
 
@@ -54,13 +62,6 @@ attachments, tags, dependencies, stars, parent, repeat rule, lease and soft dele
 to the deleted project that a moved task carries SHALL be re-created under the target project with the same name
 and colour and stay on the task.
 
-Each moved task's status SHALL be mapped onto the target project's workflow: to the same state when the target
-workflow defines it, otherwise to the first state of the target workflow, in declared order, of the same category as
-the task's state, otherwise to the target workflow's initial state.
-
-Each moved task SHALL be recorded with a `task.move` audit entry and a `task.updated` event naming its previous and
-new reference, project and status, in the same transaction as the project's deletion.
-
 #### Scenario: Tasks are renumbered in the target
 
 - **GIVEN** a target project whose counter has issued 4
@@ -73,6 +74,17 @@ new reference, project and status, in the same transaction as the project's dele
 - **WHEN** its project is deleted moving it elsewhere
 - **THEN** the task under its new reference still has the comment, the tag, the star and the dependency
 
+#### Scenario: A soft deleted task stays restorable
+
+- **WHEN** a project holding a soft deleted task is deleted moving its tasks
+- **THEN** the task is soft deleted in the target and restoring it under its new reference succeeds
+
+### Requirement: A moved task's status is mapped onto the target project's workflow
+
+Each moved task's status SHALL be mapped onto the target project's workflow: to the same state when the target
+workflow defines it, otherwise to the first state of the target workflow, in declared order, of the same category as
+the task's state, otherwise to the target workflow's initial state.
+
 #### Scenario: A state the target lacks maps by category
 
 - **GIVEN** a task in `review`, a state of category in progress, and a target workflow without `review` whose first
@@ -80,10 +92,15 @@ new reference, project and status, in the same transaction as the project's dele
 - **WHEN** its project is deleted moving it to that target
 - **THEN** the task is in `doing`
 
-#### Scenario: A soft deleted task stays restorable
+### Requirement: Each task moved off a deleted project is audited with its old and new place
 
-- **WHEN** a project holding a soft deleted task is deleted moving its tasks
-- **THEN** the task is soft deleted in the target and restoring it under its new reference succeeds
+Each moved task SHALL be recorded with a `task.move` audit entry and a `task.updated` event naming its previous and
+new reference, project and status, in the same transaction as the project's deletion.
+
+#### Scenario: Each move is recorded
+
+- **WHEN** a project holding two tasks is deleted moving them to another project
+- **THEN** two `task.updated` events name the deleted project as the previous project and the target as the new one
 
 ### Requirement: A project deletion can be planned before it is made
 

@@ -5,11 +5,7 @@
 The project settings form SHALL offer the project's key alongside its name and description, with an
 explanation that task references change and old links redirect. Submitting a different key SHALL NOT
 change anything at once: the reader SHALL be shown a confirmation naming the old and new key with
-example task references before and after, and SHALL change the key only by confirming. The
-confirmation SHALL carry every other submitted field so confirming also saves them, and SHALL work
-without scripting. An icon image uploaded in the same save cannot be carried to a second screen, so
-the confirmation SHALL ask for it again rather than drop it. Submitting the current key SHALL save
-without a confirmation.
+example task references before and after, and SHALL change the key only by confirming.
 
 #### Scenario: A changed key asks first
 
@@ -21,6 +17,13 @@ without a confirmation.
 
 - **WHEN** the reader confirms the change of `infra` to `ops`
 - **THEN** the key is `ops` and the reader is taken to `/projects/ops`
+
+### Requirement: The key change confirmation carries the rest of the settings save
+
+The confirmation SHALL carry every other submitted field so confirming also saves them, and SHALL work
+without scripting. An icon image uploaded in the same save cannot be carried to a second screen, so
+the confirmation SHALL ask for it again rather than drop it. Submitting the current key SHALL save
+without a confirmation.
 
 #### Scenario: The icon chosen with a new key is kept
 

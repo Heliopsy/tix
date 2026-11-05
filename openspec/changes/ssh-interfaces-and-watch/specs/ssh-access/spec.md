@@ -73,10 +73,19 @@ case.
 The `watch` command SHALL stream the event lines `tix watch` prints, as the session's actor and in
 its tenant, through the same `Subscribe` permission check. It SHALL take project keys as
 arguments and the `--project`, `--type`, `--actor`, `--since`, `--limit` and `-o ndjson` options,
-resolving each project through the project read check before the stream starts. It SHALL write
-no escape codes without a pseudo-terminal, and colour with one whose terminal type takes colour.
-It SHALL end on ctrl-c from a pseudo-terminal, client disconnect, the keepalive limit, an
-administrator ending the connection and server shutdown, and SHALL NOT be closed for idleness.
+resolving each project through the project read check before the stream starts.
+
+#### Scenario: A project the actor cannot read
+
+- **WHEN** the command is `watch secret` and the actor cannot read project `secret`
+- **THEN** the session is refused with the reason and no subscription is opened
+
+### Requirement: Watch over SSH colours only a terminal and ends only when stopped
+
+The `watch` command SHALL write no escape codes without a pseudo-terminal, and colour with one whose
+terminal type takes colour. It SHALL end on ctrl-c from a pseudo-terminal, client disconnect, the
+keepalive limit, an administrator ending the connection and server shutdown, and SHALL NOT be closed
+for idleness.
 
 #### Scenario: Piped watch
 
@@ -87,11 +96,6 @@ administrator ending the connection and server shutdown, and SHALL NOT be closed
 
 - **WHEN** a client runs `ssh -t tix@host watch`
 - **THEN** lines are coloured and ctrl-c ends the session with exit status zero
-
-#### Scenario: A project the actor cannot read
-
-- **WHEN** the command is `watch secret` and the actor cannot read project `secret`
-- **THEN** the session is refused with the reason and no subscription is opened
 
 #### Scenario: Shutdown
 

@@ -25,13 +25,17 @@ Each event SHALL carry a `UID` derived from the task's identifier alone, a `SUMM
 reference and title, a `DESCRIPTION` and `URL` linking to the task's page, `DTSTAMP` and
 `LAST-MODIFIED` from the task's update time, `SEQUENCE` from its version, and a `STATUS` of
 `CANCELLED` for a task in a cancelled state and `CONFIRMED` otherwise, with a finished task's summary
-marked with a check. Text SHALL be escaped and every line folded at 75 octets without splitting a
-character, with CRLF line endings.
+marked with a check.
 
 #### Scenario: The same task keeps its UID
 
 - **WHEN** a task's title and due date change between two fetches
 - **THEN** both documents carry the same `UID` for it and the later one a higher `SEQUENCE`
+
+### Requirement: Feed text is escaped and folded
+
+Text SHALL be escaped and every line folded at 75 octets without splitting a character, with CRLF
+line endings.
 
 #### Scenario: A long title round-trips
 

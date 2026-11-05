@@ -6,15 +6,25 @@ The filter bar SHALL offer "Save this filter" with a name and a share choice whe
 expression or a deadline window, saving the expression, the deadline window, the sort and the view in
 force. The sidebar SHALL list the reader's saved filters under Tasks, own first, then shared, each a link
 that opens the task screen on the filter and sets the view it names, marked current when the screen shows
-exactly that filter. A filter the reader may change SHALL carry a three dots menu that renames, shares or
-stops sharing, moves up or down among the reader's own, and deletes; its forms work without scripting and
-redraw the sidebar in place with the heading menus' focus return and keyboard rules.
+exactly that filter.
 
 #### Scenario: Save from the filter bar
 
 - **GIVEN** the task screen filtered with `tag:ops` and sorted by priority on the board
 - **WHEN** the reader saves it as "Ops"
 - **THEN** "Ops" is listed in the sidebar, and opening it later shows the board filtered and sorted the same way
+
+### Requirement: A saved filter's menu renames, shares, moves and deletes it in place
+
+A filter the reader may change SHALL carry a three dots menu that renames, shares or stops sharing,
+moves up or down among the reader's own, and deletes; its forms work without scripting and redraw the
+sidebar in place with the heading menus' focus return and keyboard rules.
+
+#### Scenario: Moving a saved filter up from its menu
+
+- **GIVEN** a reader's own saved filters "first" and then "second"
+- **WHEN** the reader moves "second" up from its menu
+- **THEN** the sidebar lists "second" before "first"
 
 ### Requirement: My work
 
