@@ -116,26 +116,62 @@ Every API token SHALL be bound to exactly one tenant, MAY be further restricted 
 MAY carry an expiry. A token SHALL grant no more than its declared scopes, and a token restricted to a
 project SHALL NOT authorize operations on resources outside that project.
 
+#### Scenario: Project-restricted token
+
+- **WHEN** a token restricted to project A is used to read a task in project B of the same tenant
+- **THEN** the request is rejected as unauthorized
+
+#### Scenario: Expired token
+
+- **WHEN** a token is presented after its expiry
+- **THEN** the request is rejected as unauthenticated
+
+#### Scenario: Scope not granted
+
+- **WHEN** a token without the task delete scope attempts to delete a task
+- **THEN** the request is rejected as unauthorized and the task is unchanged
+
+### Requirement: An expiry can be set on every surface that mints a token
+
 An expiry SHALL be expressible on every surface that can mint a token, since an expiry is the only control
 that bounds the damage of a token that leaks unnoticed, and a surface that cannot set one can only mint
 credentials that never expire.
+
+#### Scenario: An expiry can be set wherever a token can be minted
+
+- **WHEN** a token is minted from the command line, the HTTP API or the browser
+- **THEN** an expiry can be given as part of that request
+
+### Requirement: A token without an expiry is shown as having none
 
 A token carrying no expiry SHALL authenticate until it is revoked, and every surface that displays a
 token's expiry SHALL say that it has none rather than leaving the value blank, so that "no expiry" is
 distinguishable from an expiry the display failed to render.
 
+#### Scenario: A token with no expiry is shown as having none
+
+- **GIVEN** a token carrying no expiry
+- **WHEN** its expiry is displayed
+- **THEN** the display says the token does not expire
+
+### Requirement: Project confinement is the default
+
 Confinement SHALL be the default rather than a property of the operation being asked for. The authorization
 policy SHALL name the operations a project-restricted token may perform, being those whose subject belongs
-to a single project, and SHALL refuse a project-restricted token every other operation outright. An
-operation that reads or writes state belonging to the tenant rather than to one project — exporting,
+to a single project, and SHALL refuse a project-restricted token every other operation outright.
+
+#### Scenario: An operation the policy does not name is refused to a project-restricted token
+
+- **WHEN** a project-restricted token asks for an operation the authorization policy does not name as one it may perform
+- **THEN** the request is rejected as unauthorized, even on a resource inside the token's own project
+- **AND** an operation the policy does name is permitted inside that project and refused in any other
+
+### Requirement: Tenant-wide operations are refused to a project-restricted token
+
+An operation that reads or writes state belonging to the tenant rather than to one project — exporting,
 importing, reading the audit log, subscribing to the tenant event stream, administering tenants, users,
 tokens, webhooks, sync sources or retention, and rewriting workflow definitions — SHALL therefore be
 refused to a project-restricted token, whether or not the call names a project.
-
-#### Scenario: Project-restricted token
-
-- **WHEN** a token restricted to project A is used to read a task in project B of the same tenant
-- **THEN** the request is rejected as unauthorized
 
 #### Scenario: Project-restricted token cannot export the tenant
 
@@ -151,27 +187,6 @@ refused to a project-restricted token, whether or not the call names a project.
 
 - **WHEN** a token restricted to project A and carrying the token admin scope mints a new token naming no project
 - **THEN** the request is rejected as unauthorized and no token is created
-
-#### Scenario: Expired token
-
-- **WHEN** a token is presented after its expiry
-- **THEN** the request is rejected as unauthenticated
-
-#### Scenario: An expiry can be set wherever a token can be minted
-
-- **WHEN** a token is minted from the command line, the HTTP API or the browser
-- **THEN** an expiry can be given as part of that request
-
-#### Scenario: A token with no expiry is shown as having none
-
-- **GIVEN** a token carrying no expiry
-- **WHEN** its expiry is displayed
-- **THEN** the display says the token does not expire
-
-#### Scenario: Scope not granted
-
-- **WHEN** a token without the task delete scope attempts to delete a task
-- **THEN** the request is rejected as unauthorized and the task is unchanged
 
 ### Requirement: API token lifecycle
 
@@ -283,20 +298,6 @@ Within one tenant, no two API tokens that are neither revoked nor deleted SHALL 
 creation naming a name a live token of that tenant already holds SHALL be refused as a conflict, and no
 token SHALL be created.
 
-The rule SHALL be enforced in the service layer, so every surface that mints a token — the command line,
-the HTTP API and the browser — is held to it, and SHALL additionally be enforced by the store, so two
-creations that race cannot both pass the check and both insert.
-
-A revoked token SHALL keep its name, so a listing can still say which credential stopped working, and
-SHALL release it, so that revoking a token and issuing its replacement under the same name is permitted.
-This is the ordinary way a credential is rotated.
-
-Uniqueness SHALL be scoped to the tenant and no wider. One tenant SHALL NOT be able to learn, or
-constrain, what another has named its credentials.
-
-The refusal SHALL name the submitted field it concerns, so a surface rendering a form can present it
-against the control that caused it.
-
 #### Scenario: A second live token cannot take a name
 
 - **GIVEN** a tenant holding a live token named `ci`
@@ -304,18 +305,12 @@ against the control that caused it.
 - **THEN** the creation is refused as a conflict
 - **AND** the tenant still holds exactly one token named `ci`
 
-#### Scenario: Revoking a token frees its name
+### Requirement: Token name uniqueness is enforced by the service and the store
 
-- **GIVEN** a tenant holding a live token named `ci`
-- **WHEN** that token is revoked and a new token named `ci` is created
-- **THEN** the new token is created
-- **AND** it is a different token from the revoked one
-
-#### Scenario: Two tenants may each name a token the same
-
-- **GIVEN** a tenant holding a live token named `ci`
-- **WHEN** a token named `ci` is created in a different tenant
-- **THEN** the creation succeeds
+The rule that no two live tokens of a tenant share a name SHALL be enforced in the service layer, so
+every surface that mints a token — the command line, the HTTP API and the browser — is held to it, and
+SHALL additionally be enforced by the store, so two creations that race cannot both pass the check and
+both insert.
 
 #### Scenario: Upgrading a database that already holds duplicates
 
@@ -324,6 +319,35 @@ against the control that caused it.
 - **THEN** both tokens still authenticate
 - **AND** the two names differ
 - **AND** the older of the two still carries the name `ci`
+
+### Requirement: A revoked token keeps its name and releases it
+
+A revoked token SHALL keep its name, so a listing can still say which credential stopped working, and
+SHALL release it, so that revoking a token and issuing its replacement under the same name is permitted.
+This is the ordinary way a credential is rotated.
+
+#### Scenario: Revoking a token frees its name
+
+- **GIVEN** a tenant holding a live token named `ci`
+- **WHEN** that token is revoked and a new token named `ci` is created
+- **THEN** the new token is created
+- **AND** it is a different token from the revoked one
+
+### Requirement: Token name uniqueness is scoped to the tenant
+
+Token name uniqueness SHALL be scoped to the tenant and no wider. One tenant SHALL NOT be able to learn,
+or constrain, what another has named its credentials.
+
+#### Scenario: Two tenants may each name a token the same
+
+- **GIVEN** a tenant holding a live token named `ci`
+- **WHEN** a token named `ci` is created in a different tenant
+- **THEN** the creation succeeds
+
+### Requirement: A refused token name names the submitted field
+
+A refusal of a taken token name SHALL name the submitted field it concerns, so a surface rendering a
+form can present it against the control that caused it.
 
 #### Scenario: The refusal names the field
 
@@ -353,20 +377,22 @@ message text at a presentation layer.
 Where a surface is driven by a person composing a command or a form, minting an API token without stating
 an expiry SHALL produce a token that expires, and the window SHALL be the same on every such surface.
 
-The command line SHALL default to ninety days, which SHALL be the window the browser form proposes. The
-command line SHALL accept an explicit instruction to mint a non-expiring token, and that instruction SHALL
-be the only way to obtain one: an omitted value and an empty value SHALL both take the default.
-
-The default SHALL be stated in the command's own flag help, so that a reader is told what typing nothing
-does without consulting a changelog.
-
-The HTTP API SHALL mint a non-expiring token when the request carries no expiry, because an API client
-composes that field rather than typing it, and SHALL NOT substitute a default of its own.
+The command line SHALL default to ninety days, which SHALL be the window the browser form proposes.
 
 #### Scenario: A token minted with no stated expiry expires in ninety days
 
 - **WHEN** a token is minted from the command line with no expiry given
 - **THEN** the stored token expires ninety days from the invocation
+
+#### Scenario: An absolute expiry is still accepted
+
+- **WHEN** a token is minted from the command line with the expiry given as a date
+- **THEN** the stored token expires on that date
+
+### Requirement: A non-expiring token is minted only when asked for
+
+The command line SHALL accept an explicit instruction to mint a non-expiring token, and that instruction
+SHALL be the only way to obtain one: an omitted value and an empty value SHALL both take the default.
 
 #### Scenario: A non-expiring token must be asked for
 
@@ -378,16 +404,21 @@ composes that field rather than typing it, and SHALL NOT substitute a default of
 - **WHEN** a token is minted from the command line with the expiry given as an empty value
 - **THEN** the stored token expires ninety days from the invocation
 
-#### Scenario: An absolute expiry is still accepted
+### Requirement: The token expiry default is stated in the flag help
 
-- **WHEN** a token is minted from the command line with the expiry given as a date
-- **THEN** the stored token expires on that date
+The command line's default expiry SHALL be stated in the command's own flag help, so that a reader is told
+what typing nothing does without consulting a changelog.
 
 #### Scenario: The flag help states the default
 
 - **WHEN** the help for the token creation command is read
 - **THEN** the expiry flag's own entry states that it defaults to ninety days
 - **AND** names the value that mints a non-expiring token
+
+### Requirement: The HTTP API applies no default token expiry
+
+The HTTP API SHALL mint a non-expiring token when the request carries no expiry, because an API client
+composes that field rather than typing it, and SHALL NOT substitute a default of its own.
 
 #### Scenario: The API mints a non-expiring token when none is requested
 

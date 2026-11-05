@@ -244,21 +244,7 @@ action, the kind of record touched, the surface it arrived from, or either snaps
 weak, case-insensitive substring match, and a wildcard character in the term SHALL select that character
 rather than act as a wildcard.
 
-The term SHALL be answered where the structured terms are answered, so that a page returned for it carries
-as many entries as the page size allows and the cursor returned with it names the position after the last
-entry on that page.
-
-Walking the listing from its first page to its last SHALL return every entry the term selects, exactly
-once.
-
 The term SHALL be reachable over the HTTP API alongside the structured terms.
-
-#### Scenario: Every match is reachable by walking the listing
-
-- **GIVEN** more entries matching a term than one page holds
-- **WHEN** the listing is walked from its first page to its last
-- **THEN** every matching entry is returned
-- **AND** no entry is returned twice
 
 #### Scenario: The term reads the whole record
 
@@ -272,6 +258,22 @@ The term SHALL be reachable over the HTTP API alongside the structured terms.
 - **GIVEN** entries holding no percent sign
 - **WHEN** the listing is filtered by a percent sign
 - **THEN** no entries are returned
+
+### Requirement: A free-text audit listing pages like a structured one
+
+A free-text term on the audit listing SHALL be answered where the structured terms are answered, so that
+a page returned for it carries as many entries as the page size allows and the cursor returned with it
+names the position after the last entry on that page.
+
+Walking the listing from its first page to its last SHALL return every entry the term selects, exactly
+once.
+
+#### Scenario: Every match is reachable by walking the listing
+
+- **GIVEN** more entries matching a term than one page holds
+- **WHEN** the listing is walked from its first page to its last
+- **THEN** every matching entry is returned
+- **AND** no entry is returned twice
 
 ### Requirement: The activity screen searches the whole log
 

@@ -238,7 +238,7 @@ Per-directory discovery SHALL be disabled when `discovery.enabled` is set to `fa
 
 ### Requirement: First-run bootstrap
 
-On first use against a database that does not yet exist or has never been initialized, tix SHALL create the database, apply all migrations, and create a default tenant together with a small set of starter projects, one of which SHALL be the default project, without requiring any prior command. The starter projects SHALL be seeded only when the tenant is created, never on a later run, so that a project deleted on purpose is not recreated and an existing installation gains nothing on upgrade. Each starter project SHALL carry a distinct colour and an icon so the lists are distinguishable on sight, and seeding beyond the default project SHALL be suppressible for an installation that wants none.
+On first use against a database that does not yet exist or has never been initialized, tix SHALL create the database, apply all migrations, and create a default tenant together with a small set of starter projects, one of which SHALL be the default project, without requiring any prior command.
 
 #### Scenario: Fresh machine
 
@@ -250,6 +250,20 @@ On first use against a database that does not yet exist or has never been initia
 - **WHEN** a second command runs against the already-bootstrapped database
 - **THEN** no duplicate tenant or project is created and no migration is reapplied
 
+#### Scenario: A task still needs no project named
+
+- **WHEN** a task is created without naming a project on an installation carrying the starter projects
+- **THEN** it is created in the default project rather than refused as ambiguous
+
+#### Scenario: Bootstrap failure is reported clearly
+
+- **WHEN** the database path cannot be created because of permissions
+- **THEN** the command fails with an error naming the path and the reason, and leaves no partially initialized database in use
+
+### Requirement: Starter projects are seeded only when the tenant is created
+
+The starter projects SHALL be seeded only when the tenant is created, never on a later run, so that a project deleted on purpose is not recreated and an existing installation gains nothing on upgrade.
+
 #### Scenario: A deleted project is not recreated
 
 - **WHEN** a starter project is deleted and a later command bootstraps again
@@ -260,15 +274,19 @@ On first use against a database that does not yet exist or has never been initia
 - **WHEN** a database bootstrapped before the starter projects existed is opened
 - **THEN** no project is added to it
 
-#### Scenario: A task still needs no project named
+### Requirement: Starter projects are distinguishable and can be suppressed
 
-- **WHEN** a task is created without naming a project on an installation carrying the starter projects
-- **THEN** it is created in the default project rather than refused as ambiguous
+Each starter project SHALL carry a distinct colour and an icon so the lists are distinguishable on sight, and seeding beyond the default project SHALL be suppressible for an installation that wants none.
 
-#### Scenario: Bootstrap failure is reported clearly
+#### Scenario: Starter projects are told apart on sight
 
-- **WHEN** the database path cannot be created because of permissions
-- **THEN** the command fails with an error naming the path and the reason, and leaves no partially initialized database in use
+- **WHEN** a fresh installation is bootstrapped
+- **THEN** every starter project carries a colour and an icon, and no two of them share a colour
+
+#### Scenario: Starter projects can be suppressed
+
+- **WHEN** a fresh installation is bootstrapped with the starter projects suppressed
+- **THEN** the default project is the only project created
 
 ### Requirement: Configuration validation
 

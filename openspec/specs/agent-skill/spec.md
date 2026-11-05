@@ -12,11 +12,6 @@ The agent skill SHALL instruct an agent holding an assignment to decompose
 that assignment into tix tasks before it begins work, and to claim and work
 those tasks one at a time.
 
-It SHALL state why: a plan held only in an agent's context is lost in full
-when the process dies, where a plan recorded as tasks costs at most the one
-task in flight, because every other task remains in the store for the same or
-another agent to claim.
-
 It SHALL distinguish containment from ordering, naming `--parent` for the
 first and `--depends-on` for the second, and SHALL say that only the second is
 enforced by the queue.
@@ -26,6 +21,13 @@ enforced by the queue.
 - **WHEN** an agent reads the skill with an assignment it has not started
 - **THEN** the skill directs it to record the assignment and its steps as tasks first
 - **AND** names the flag that records ordering separately from the flag that records containment
+
+### Requirement: The skill states why a plan is recorded as tasks
+
+The skill SHALL state why: a plan held only in an agent's context is lost in full
+when the process dies, where a plan recorded as tasks costs at most the one
+task in flight, because every other task remains in the store for the same or
+another agent to claim.
 
 #### Scenario: The durability argument is stated, not assumed
 
@@ -41,15 +43,22 @@ It SHALL state that comment and artifact writes carry no lease token and are
 not checked against one, and that an agent whose lease has lapsed can
 therefore record a result over the live holder's work.
 
-It SHALL give the defences that exist: confirming the lease is still held
-before recording a result, and closing the task through a release, whose
-comment and results travel with the guarded transition.
-
 #### Scenario: A reader asks what the lease protects
 
 - **WHEN** a reader reads the skill's lease material
 - **THEN** it names transitions as the guarded operations
 - **AND** names comments and artifacts as unguarded, with the consequence for a queue of agents
+
+### Requirement: The skill gives the defences the lease leaves to the agent
+
+The skill SHALL give the defences that exist: confirming the lease is still held
+before recording a result, and closing the task through a release, whose
+comment and results travel with the guarded transition.
+
+#### Scenario: A reader asks how to close a task with its result
+
+- **WHEN** a reader reads the skill's lease material
+- **THEN** it directs the agent to close the task with `claim release --comment` and `--result`, so the comment and result travel with the lease-guarded release
 
 ### Requirement: The skill states that lazy expiry frees the task but does not move it
 
@@ -79,13 +88,15 @@ Every file the skill ships SHALL be reachable by a link from the file an agent
 loads, because a reference nothing points at is never opened and goes stale
 unread while the skill's guards continue to report it sound.
 
-Exactly one version marker SHALL exist across the whole skill, and it SHALL be
-in the file an agent loads, since a reference file cannot date the skill.
-
 #### Scenario: A reference file is added without a link
 
 - **WHEN** the skill directory holds a Markdown file that the loaded file does not link to
 - **THEN** the skill's guards fail and name the unreachable file
+
+### Requirement: The skill carries one version marker, in the file an agent loads
+
+Exactly one version marker SHALL exist across the whole skill, and it SHALL be
+in the file an agent loads, since a reference file cannot date the skill.
 
 #### Scenario: A version marker moves out of the loaded file
 
@@ -103,14 +114,6 @@ messages the binary can print; a default stated in any file SHALL be checked
 against the flag's real default; and a command the skill is required to cover
 SHALL be satisfied by a mention in any file of it.
 
-Files SHALL be parsed separately rather than joined, so that a fenced block
-opened in one file cannot absorb another file's content and hide the commands
-in it.
-
-A positional word the skill passes to a command SHALL be checked against that
-command's own argument validator, so that a subcommand which does not exist
-fails rather than being read as an argument to its parent.
-
 #### Scenario: A reference file names a flag that does not exist
 
 - **WHEN** a file beside the loaded file passes a flag no command registers
@@ -120,6 +123,23 @@ fails rather than being read as an argument to its parent.
 
 - **WHEN** a file beside the loaded file states a default that is not the flag's
 - **THEN** the guard fails and reports the real default
+
+### Requirement: The skill's guards parse each file on its own
+
+Files SHALL be parsed separately rather than joined, so that a fenced block
+opened in one file cannot absorb another file's content and hide the commands
+in it.
+
+#### Scenario: A fenced block left open does not hide the next file
+
+- **WHEN** the guards extract the commands the skill runs
+- **THEN** each file's commands are extracted from that file alone, so a fenced block one file leaves open does not swallow the commands of another
+
+### Requirement: The skill's guards check a positional word against the command's argument validator
+
+A positional word the skill passes to a command SHALL be checked against that
+command's own argument validator, so that a subcommand which does not exist
+fails rather than being read as an argument to its parent.
 
 #### Scenario: The skill names a subcommand that does not exist
 

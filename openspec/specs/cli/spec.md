@@ -214,12 +214,7 @@ Every command that mutates state SHALL accept `--dry-run`, which reports exactly
 
 ### Requirement: Command surface
 
-The CLI SHALL provide the top-level commands `actor`, `artifact`, `audit`, `bundle`, `claim`, `comment`, `completion`, `config`, `connection`, `ctx`, `demo`, `dep`, `docs`, `doctor`, `domain`, `export`, `field`, `import`, `login`, `logout`, `member`, `project`, `prune`, `retention`, `serve`, `ssh`, `stats`, `status`, `sync`, `tag`, `task`, `tenant`, `theme`, `token`, `tui`, `update`, `user`, `version`, `watch`, `webhook`, and `workflow`. The root help SHALL list exactly these, so a command added to the tree is added here.
-
-#### Scenario: Every group is reachable
-
-- **WHEN** the root help is displayed
-- **THEN** each of the listed command groups appears
+The CLI SHALL provide the top-level commands `actor`, `artifact`, `audit`, `bundle`, `claim`, `comment`, `completion`, `config`, `connection`, `ctx`, `demo`, `dep`, `docs`, `doctor`, `domain`, `export`, `field`, `import`, `login`, `logout`, `member`, `project`, `prune`, `retention`, `serve`, `ssh`, `stats`, `status`, `sync`, `tag`, `task`, `tenant`, `theme`, `token`, `tui`, `update`, `user`, `version`, `watch`, `webhook`, and `workflow`.
 
 #### Scenario: Unknown command
 
@@ -231,9 +226,18 @@ The CLI SHALL provide the top-level commands `actor`, `artifact`, `audit`, `bund
 - **WHEN** `tix version` is run
 - **THEN** the version is printed, and `-o json` yields it as structured data along with build metadata
 
+### Requirement: The root help lists exactly the command surface
+
+The root help SHALL list exactly the top-level commands of the command surface, so a command added to the tree is added here.
+
+#### Scenario: Every group is reachable
+
+- **WHEN** the root help is displayed
+- **THEN** each of the listed command groups appears
+
 ### Requirement: Filter expression on the command line
 
-The task listing command SHALL accept the same filter expression language the terminal interface's filter bar accepts, so an expression selects the same tasks from either surface. The expression SHALL be a conjunction of space-separated terms, SHALL support negating a term with a leading `-`, and SHALL support a weak match written with `~` in place of `:`. Flags given alongside the expression SHALL add to it rather than replace it. An expression the parser cannot read SHALL be a usage error, not an empty listing.
+The task listing command SHALL accept the same filter expression language the terminal interface's filter bar accepts, so an expression selects the same tasks from either surface. The expression SHALL be a conjunction of space-separated terms, SHALL support negating a term with a leading `-`, and SHALL support a weak match written with `~` in place of `:`.
 
 #### Scenario: Negated term
 
@@ -244,6 +248,10 @@ The task listing command SHALL accept the same filter expression language the te
 
 - **WHEN** tasks are listed with the expression `title~api`
 - **THEN** only tasks whose title contains that value are returned, whatever its case
+
+### Requirement: A task filter expression adds to the flags and refuses what it cannot read
+
+Flags given alongside the expression SHALL add to it rather than replace it. An expression the parser cannot read SHALL be a usage error, not an empty listing.
 
 #### Scenario: Expression and flags combine
 
@@ -390,7 +398,7 @@ When a command operates on multiple references, it SHALL report a per-reference 
 
 ### Requirement: Activity filter expression on the command line
 
-The audit listing command SHALL accept a filter expression over the activity vocabulary, spelled the way the task filter expression is spelled, and SHALL accept the same expression the terminal interface's activity filter accepts. The expression SHALL select on actor, subject kind, action, source and free text, SHALL support negating any of those with a leading `-`, and SHALL add to the command's own flags rather than replace them. An expression the parser cannot read, or one naming a source that is not recorded, SHALL be a usage error rather than an empty listing.
+The audit listing command SHALL accept a filter expression over the activity vocabulary, spelled the way the task filter expression is spelled, and SHALL accept the same expression the terminal interface's activity filter accepts. The expression SHALL select on actor, subject kind, action, source and free text, SHALL support negating any of those with a leading `-`, and SHALL add to the command's own flags rather than replace them.
 
 #### Scenario: Select by kind
 
@@ -417,15 +425,19 @@ The audit listing command SHALL accept a filter expression over the activity voc
 - **WHEN** audit entries are listed with both an expression and a filter flag that contradict each other
 - **THEN** nothing is returned, because a filter narrows what the flags selected and never widens it
 
-#### Scenario: Unreadable expression
-
-- **WHEN** audit entries are listed with an expression naming a key the activity vocabulary does not have, or a source that is not recorded
-- **THEN** the command exits with a usage error rather than returning an empty listing
-
 #### Scenario: Free text does not stop at the first page
 
 - **WHEN** a free-text expression discards every entry on the first page read
 - **THEN** further pages are read, up to a bound, and the command reports on its diagnostic stream how much was discarded and the cursor to resume from
+
+### Requirement: An unreadable activity filter expression is a usage error
+
+An activity filter expression the parser cannot read, or one naming a source that is not recorded, SHALL be a usage error rather than an empty listing.
+
+#### Scenario: Unreadable expression
+
+- **WHEN** audit entries are listed with an expression naming a key the activity vocabulary does not have, or a source that is not recorded
+- **THEN** the command exits with a usage error rather than returning an empty listing
 
 ### Requirement: Completion installs itself where the shell looks
 
@@ -434,11 +446,6 @@ for bash, zsh and fish, and SHALL report the path it wrote.
 
 The shell SHALL be taken from the environment when it is not given explicitly, and an explicit choice SHALL
 override it. An unsupported shell SHALL be refused.
-
-Installation SHALL write only under the invoking user's own directories, and SHALL NOT modify shell startup
-files. Where a shell needs something further before completion works, the command SHALL say so.
-
-Installing twice SHALL succeed and leave the same result.
 
 #### Scenario: Installing for the running shell
 
@@ -455,6 +462,19 @@ Installing twice SHALL succeed and leave the same result.
 - **WHEN** completion is installed as a dry run
 - **THEN** the path that would be written is reported and no file is created or changed
 
+#### Scenario: An unsupported shell is refused
+
+- **WHEN** completion is installed for a shell that is not supported
+- **THEN** the command fails with the exit code for unusable input and names the shells that are supported
+
+### Requirement: Completion installation stays in the user's own directories and can be repeated
+
+Completion installation SHALL write only under the invoking user's own directories, and SHALL NOT modify
+shell startup files. Where a shell needs something further before completion works, the command SHALL say
+so.
+
+Installing completion twice SHALL succeed and leave the same result.
+
 #### Scenario: Installing twice is not an error
 
 - **WHEN** completion is installed and then installed again
@@ -465,18 +485,10 @@ Installing twice SHALL succeed and leave the same result.
 - **WHEN** completion is uninstalled
 - **THEN** the file this command writes is removed, and removing it when absent is reported rather than failed
 
-#### Scenario: An unsupported shell is refused
-
-- **WHEN** completion is installed for a shell that is not supported
-- **THEN** the command fails with the exit code for unusable input and names the shells that are supported
-
 ### Requirement: The binary can replace itself with a published release
 
 The command line SHALL replace the running binary with a release built for its own operating system and
 architecture, and SHALL report the version it moved from and to.
-
-It SHALL verify the downloaded archive against the checksum published with that release, and SHALL refuse
-to install an archive whose checksum does not match or that the checksum file does not list.
 
 The replacement SHALL be atomic: the new binary SHALL be written beside the target and moved into place,
 so that an interrupted or failed update never leaves a partially written file where the binary was.
@@ -486,6 +498,22 @@ so that an interrupted or failed update never leaves a partially written file wh
 - **WHEN** a newer release exists for this platform and the binary is one this command may replace
 - **THEN** the archive for this platform is downloaded, its checksum verified, and the binary replaced,
   and the output names the version before and after
+
+#### Scenario: An interrupted download leaves the binary alone
+
+- **WHEN** the download or extraction fails part way through
+- **THEN** the binary that was already there still runs and no partial file is left in its place
+
+#### Scenario: Already current
+
+- **WHEN** the running version is the newest release
+- **THEN** the command reports that it is current, writes nothing, and succeeds
+
+### Requirement: A self-update verifies the published checksum
+
+The command line SHALL verify the downloaded archive against the checksum published with that release,
+and SHALL refuse to install an archive whose checksum does not match or that the checksum file does not
+list.
 
 #### Scenario: A checksum that does not match is refused
 
@@ -497,16 +525,6 @@ so that an interrupted or failed update never leaves a partially written file wh
 
 - **WHEN** the published checksum file carries no entry for the archive that was downloaded
 - **THEN** nothing is installed and the failure says the archive was not listed
-
-#### Scenario: An interrupted download leaves the binary alone
-
-- **WHEN** the download or extraction fails part way through
-- **THEN** the binary that was already there still runs and no partial file is left in its place
-
-#### Scenario: Already current
-
-- **WHEN** the running version is the newest release
-- **THEN** the command reports that it is current, writes nothing, and succeeds
 
 ### Requirement: It refuses what is not its to replace
 

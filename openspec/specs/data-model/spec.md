@@ -12,23 +12,27 @@ The system SHALL persist the following entities: `tenants`, `tenant_domains`, `t
 `actors`, `users`, `sessions`, `api_tokens`, `workflows`, `projects`, `field_defs`, `tasks`,
 `task_deps`, `tags`, `task_tags`, `comments`, `artifacts`, `events`, `audit_entries`,
 `webhook_endpoints`, `webhook_deliveries`, `retention_policies`, `external_refs`, `sync_sources`,
-and `schema_migrations`. Every entity SHALL be reachable through the service layer and SHALL NOT
-require direct database access to read or write.
+and `schema_migrations`.
 
 #### Scenario: Fresh database contains every entity
 
 - **WHEN** migrations are applied to an empty database
 - **THEN** every entity listed above exists with its documented columns and constraints
 
-#### Scenario: Entity reachable through the service
-
-- **WHEN** a caller needs to read or modify any persisted entity
-- **THEN** a service method exists for that operation and no direct SQL is required of the caller
-
 #### Scenario: Referential integrity is enforced
 
 - **WHEN** a row is created that references a parent row which does not exist
 - **THEN** the write is rejected with a validation error and nothing is persisted
+
+### Requirement: Every entity is reachable through the service layer
+
+Every entity SHALL be reachable through the service layer and SHALL NOT require direct database
+access to read or write.
+
+#### Scenario: Entity reachable through the service
+
+- **WHEN** a caller needs to read or modify any persisted entity
+- **THEN** a service method exists for that operation and no direct SQL is required of the caller
 
 ### Requirement: Identifier format
 
@@ -324,27 +328,13 @@ names SHALL be unique per tenant, and task sequence numbers SHALL be unique per 
 ### Requirement: Project colour and icon
 
 A project SHALL carry an optional colour and an optional icon so that rows belonging to different
-projects can be told apart at a glance. The colour SHALL be a token drawn from a fixed palette
-defined by the system rather than a free-form colour value, and a colour outside the palette SHALL
-be rejected with a validation error by the service layer, on every access path. The icon SHALL be a
-short printable token, at most two characters, which admits a single emoji or a brief monogram and
-requires no icon font or asset pipeline. Both SHALL default to empty, SHALL be settable at creation
+projects can be told apart at a glance. Both SHALL default to empty, SHALL be settable at creation
 and afterwards, and SHALL be clearable by setting them to empty.
 
 #### Scenario: Colour and icon round trip
 
 - **WHEN** a project is created with a palette colour and an icon
 - **THEN** reading the project back returns the same colour and icon
-
-#### Scenario: Colour outside the palette is refused
-
-- **WHEN** a project is created or updated with a colour that is not in the palette
-- **THEN** the write is rejected with a validation error and nothing is persisted
-
-#### Scenario: Icon longer than the limit is refused
-
-- **WHEN** a project is created or updated with an icon longer than two characters
-- **THEN** the write is rejected with a validation error
 
 #### Scenario: Both are clearable
 
@@ -373,6 +363,27 @@ and afterwards, and SHALL be clearable by setting them to empty.
 - **WHEN** a project carrying a colour and an icon is exported as a bundle component and the bundle is applied
 - **THEN** the resulting project carries the same colour and the same icon, and a bundle naming a
   colour outside the palette or an over-long icon is rejected before anything is written
+
+### Requirement: A project colour is drawn from a fixed palette
+
+The colour SHALL be a token drawn from a fixed palette defined by the system rather than a free-form
+colour value, and a colour outside the palette SHALL be rejected with a validation error by the
+service layer, on every access path.
+
+#### Scenario: Colour outside the palette is refused
+
+- **WHEN** a project is created or updated with a colour that is not in the palette
+- **THEN** the write is rejected with a validation error and nothing is persisted
+
+### Requirement: A project icon is a short printable token
+
+The icon SHALL be a short printable token, at most two characters, which admits a single emoji or a
+brief monogram and requires no icon font or asset pipeline.
+
+#### Scenario: Icon longer than the limit is refused
+
+- **WHEN** a project is created or updated with an icon longer than two characters
+- **THEN** the write is rejected with a validation error
 
 ### Requirement: Stars are tenant-owned rows keyed by actor and task
 
