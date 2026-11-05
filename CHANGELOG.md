@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.41.0](https://github.com/Heliopsy/tix/compare/v0.40.0...v0.41.0) (2026-11-05)
+
+
+### Features
+
+* **api:** describe every operation in the OpenAPI document ([4d9cee7](https://github.com/Heliopsy/tix/commit/4d9cee7fbdc8701d7a5904f11b3edc2d184885e6))
+
+
+### Bug Fixes
+
+* **cli:** plainer help text ([9c2dfdc](https://github.com/Heliopsy/tix/commit/9c2dfdcae457d437ef65d731233fc06994f7ef20))
+* **web:** plainer wording across the interface ([790f29e](https://github.com/Heliopsy/tix/commit/790f29e3c9f4cfb0746e5c495820eb8cb69c8475))
+
 ## [0.40.0](https://github.com/Heliopsy/tix/compare/v0.39.0...v0.40.0) (2026-11-05)
 
 
