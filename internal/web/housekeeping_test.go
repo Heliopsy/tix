@@ -27,6 +27,58 @@ func hkRule(t *testing.T, form, rule string) string {
 	return block
 }
 
+// hkDays is the label holding one rule's number of days, opening tag
+// included, so a hidden attribute on it is seen and one elsewhere is not.
+func hkDays(t *testing.T, rule string) string {
+	t.Helper()
+	start := strings.Index(rule, `<label class="hkdays"`)
+	if start < 0 {
+		t.Fatalf("the rule has no days field:\n%s", rule)
+	}
+	end := strings.Index(rule[start:], "</label>")
+	if end < 0 {
+		t.Fatalf("the days field is not closed:\n%s", rule)
+	}
+	return rule[start : start+end]
+}
+
+func TestTheDaysFieldIsDrawnOnlyForADaysRule(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	saved := b.post("/admin/tenant/housekeeping", url.Values{
+		"done_mode": {"days"}, "done_days": {"30"}, "cancelled_mode": {"off"}, "trash_mode": {"off"}})
+	_ = saved.Body.Close()
+	wantStatus(t, saved, http.StatusSeeOther)
+	override := b.post("/projects/infra/housekeeping", url.Values{
+		"done_mode": {"inherit"}, "cancelled_mode": {"off"}, "trash_mode": {"days"}, "trash_days": {"7"}})
+	_ = override.Body.Close()
+	wantStatus(t, override, http.StatusSeeOther)
+
+	tenant := formAt(t, b.page("/admin/tenant"), "/admin/tenant/housekeeping")
+	project := formAt(t, b.page("/projects/infra/settings"), "/projects/infra/housekeeping")
+	for _, tc := range []struct {
+		screen, form, rule string
+		shown              bool
+	}{
+		{"tenant", tenant, "done", true},
+		{"tenant", tenant, "cancelled", false},
+		{"tenant", tenant, "trash", false},
+		{"project", project, "done", false},
+		{"project", project, "cancelled", false},
+		{"project", project, "trash", true},
+	} {
+		days := hkDays(t, hkRule(t, tc.form, tc.rule))
+		open, _, _ := strings.Cut(days, ">")
+		if hidden := strings.Contains(open, " hidden"); hidden == tc.shown {
+			t.Errorf("%s %s rule: days field hidden=%v, want %v:\n%s", tc.screen, tc.rule, hidden, !tc.shown, days)
+		}
+		if !strings.Contains(days, `<span>days</span>`) {
+			t.Errorf("%s %s rule: the days field has no visible unit:\n%s", tc.screen, tc.rule, days)
+		}
+	}
+}
+
 func TestTheTenantScreenSetsHousekeepingAndCountsWhatIsDue(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)

@@ -12,7 +12,7 @@ func init() {
 		"Done tasks":             "Завършени задачи",
 		"Cancelled tasks":        "Отменени задачи",
 		"After a number of days": "След брой дни",
-		"Days":                   "Дни",
+		"days":                   "дни",
 		"Inherit: off":           "Наследява: изключено",
 		"Inherit: %d day":        "Наследява: %d ден",
 		"Inherit: %d days":       "Наследява: %d дни",

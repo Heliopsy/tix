@@ -912,7 +912,9 @@
 {{/* housekeeping-rules draws the cleanup rules of one level: the tenant
      default, or a project's overrides with an Inherit choice naming what it
      inherits. Each rule says how many tasks it would act on now, so a number
-     is never saved blind. */}}
+     is never saved blind. The number of days is drawn only beside "After a
+     number of days": the stylesheet shows it once that option is chosen,
+     and assets/forms.js keeps its hidden attribute in step. */}}
 {{/* lease-grant says how long a claim lasts and which level decided it. */}}
 {{define "lease-grant"}}{{if .Clamped}}{{if eq .MaxSource "project"}}{{t "Claims last %s, capped by the project maximum" .TTL.Human}}{{else if eq .MaxSource "tenant"}}{{t "Claims last %s, capped by the tenant maximum" .TTL.Human}}{{else}}{{t "Claims last %s, capped by the server maximum" .TTL.Human}}{{end}}{{else if eq .Source "task"}}{{t "Claims last %s, set on this task" .TTL.Human}}{{else if eq .Source "project"}}{{t "Claims last %s, from the project" .TTL.Human}}{{else if eq .Source "workflow"}}{{t "Claims last %s, from the workflow" .TTL.Human}}{{else if eq .Source "tenant"}}{{t "Claims last %s, from the tenant" .TTL.Human}}{{else if eq .Source "deployment"}}{{t "Claims last %s, from the server configuration" .TTL.Human}}{{else}}{{t "Claims last %s, the built-in default" .TTL.Human}}{{end}}{{end}}
 
@@ -925,12 +927,12 @@
     {{if eq .Rule "done"}}{{template "tip" (tip "Done tasks" "Tasks that have sat in a done state this many days go to the trash, where they can be restored. A done task with open subtasks stays until they are finished too. Cannot be turned on while the trash is off." "docs/configuration.md")}}{{else if eq .Rule "cancelled"}}{{template "tip" (tip "Cancelled tasks" "Tasks that have sat in a cancelled state this many days go to the trash, where they can be restored. Set apart from done tasks, because abandoned work is usually worth less to keep." "docs/configuration.md")}}{{else}}{{template "tip" (tip "Trash" "Tasks deleted more than this many days ago are deleted for good, subtasks first. This cannot be undone." "docs/configuration.md")}}{{end}}
   </div>
   <div class="hkinputs">
-    <select id="hk-{{.Rule}}" name="{{.Rule}}_mode">
+    <select id="hk-{{.Rule}}" name="{{.Rule}}_mode" data-hk-mode>
       {{if .Project}}<option value="inherit"{{if eq .Mode "inherit"}} selected{{end}}>{{if .Inherited}}{{tn "Inherit: %d day" "Inherit: %d days" .Inherited}}{{else}}{{t "Inherit: off"}}{{end}}</option>{{end}}
       <option value="off"{{if eq .Mode "off"}} selected{{end}}>{{t "Off"}}</option>
       <option value="days"{{if eq .Mode "days"}} selected{{end}}>{{t "After a number of days"}}</option>
     </select>
-    <input id="hk-{{.Rule}}-days" name="{{.Rule}}_days" type="number" min="1" max="36500" inputmode="numeric" class="mono hkdays" value="{{if .Days}}{{.Days}}{{end}}" aria-label="{{t "Days"}}">
+    <label class="hkdays" for="hk-{{.Rule}}-days"{{if ne .Mode "days"}} hidden{{end}}><input id="hk-{{.Rule}}-days" name="{{.Rule}}_days" type="number" min="1" max="36500" inputmode="numeric" class="mono" value="{{if .Days}}{{.Days}}{{end}}"> <span>{{t "days"}}</span></label>
   </div>
   {{if .Effective}}<p class="cfield-hint hkpending">{{if eq .Rule "trash"}}{{tn "%d task would be deleted for good now." "%d tasks would be deleted for good now." .Pending}}{{else}}{{tn "%d task would be moved to the trash now." "%d tasks would be moved to the trash now." .Pending}}{{end}}</p>{{end}}
 </div>
