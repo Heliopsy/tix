@@ -59,19 +59,26 @@ paths:
         Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: actor.list
       parameters:
-        - in: query
+        - description: 'Limit is the most items one page holds: default 50, at most
+            500.'
+          in: query
           name: limit
           schema:
             type: integer
-        - in: query
+        - description: Cursor is the next_cursor of the previous page, to read the
+            page after it. Leave it out for the first page.
+          in: query
           name: cursor
           schema:
             type: string
-        - in: query
+        - description: Sort names the field the listing is ordered by. Each listing
+            has its own default and refuses a field it cannot sort by.
+          in: query
           name: sort
           schema:
             type: string
-        - in: query
+        - description: Direction is asc or desc, default asc.
+          in: query
           name: direction
           schema:
             enum:
@@ -134,7 +141,8 @@ paths:
         Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: actor.show
       parameters:
-        - in: path
+        - description: Actor ID.
+          in: path
           name: id
           required: true
           schema:
@@ -181,61 +189,81 @@ paths:
         Command line: `tix audit ls`.
       operationId: audit.list
       parameters:
-        - in: query
+        - description: 'Limit is the most items one page holds: default 50, at most
+            500.'
+          in: query
           name: limit
           schema:
             type: integer
-        - in: query
+        - description: Cursor is the next_cursor of the previous page, to read the
+            page after it. Leave it out for the first page.
+          in: query
           name: cursor
           schema:
             type: string
-        - in: query
+        - description: Sort names the field the listing is ordered by. Each listing
+            has its own default and refuses a field it cannot sort by.
+          in: query
           name: sort
           schema:
             type: string
-        - in: query
+        - description: Direction is asc or desc, default asc.
+          in: query
           name: direction
           schema:
             enum:
               - asc
               - desc
             type: string
-        - in: query
+        - description: SubjectType keeps entries about one kind of record, such as
+            task, project or workflow.
+          in: query
           name: subject_type
           schema:
             type: string
-        - in: query
+        - description: SubjectID keeps entries about one record, named by its ID.
+          in: query
           name: subject_id
           schema:
             type: string
-        - in: query
+        - description: ActorID keeps entries recorded by an actor, named by ID; repeat
+            it for several.
+          in: query
           name: actor_id
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: Action keeps entries of an action such as task.create or project.update;
+            repeat it for several.
+          in: query
           name: action
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: Text is a case-insensitive substring searched for in the action,
+            the kind of record, the source and the recorded before and after values.
+          in: query
           name: text
           schema:
             type: string
-        - in: query
+        - description: 'Source keeps entries that arrived from a surface: cli, api,
+            web, tui or system; repeat it for several.'
+          in: query
           name: source
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: Since keeps entries recorded at or after an RFC 3339 instant.
+          in: query
           name: since
           schema:
             format: date-time
             type: string
-        - in: query
+        - description: Until keeps entries recorded at or before an RFC 3339 instant.
+          in: query
           name: until
           schema:
             format: date-time
@@ -800,15 +828,21 @@ paths:
         Command line: `tix bundle import`.
       operationId: bundle.import
       parameters:
-        - in: query
+        - description: 'OnCollision is what happens to a component whose key is taken:
+            skip keeps the existing one, rename imports under a new key, replace overwrites.
+            Required when a key collides; there is no default.'
+          in: query
           name: on_collision
           schema:
             type: string
-        - in: query
+        - description: Preview is true to report the plan and write nothing.
+          in: query
           name: preview
           schema:
             type: boolean
-        - in: query
+        - description: ProjectRef is the key or ID of the project that project-scoped
+            components, such as field definitions, land in.
+          in: query
           name: project_ref
           schema:
             type: string
@@ -1043,7 +1077,9 @@ paths:
         to find a live feed is the same not found.
       operationId: calendar.read
       parameters:
-        - in: path
+        - description: 'Feed file name: the feed''s secret followed by .ics, as the
+            feed address ends.'
+          in: path
           name: file
           required: true
           schema:
@@ -1135,7 +1171,8 @@ paths:
         Command line: `tix inbox channel redeliver`.
       operationId: inbox.channel.redeliver
       parameters:
-        - in: path
+        - description: Channel delivery ID.
+          in: path
           name: id
           required: true
           schema:
@@ -1285,7 +1322,8 @@ paths:
         Command line: `tix inbox channel rm`.
       operationId: inbox.channel.rm
       parameters:
-        - in: path
+        - description: Notification channel ID.
+          in: path
           name: id
           required: true
           schema:
@@ -1326,7 +1364,8 @@ paths:
         Command line: `tix inbox channel edit`.
       operationId: inbox.channel.edit
       parameters:
-        - in: path
+        - description: Notification channel ID.
+          in: path
           name: id
           required: true
           schema:
@@ -1385,24 +1424,32 @@ paths:
         Command line: `tix inbox channel deliveries`.
       operationId: inbox.channel.deliveries
       parameters:
-        - in: path
+        - description: Notification channel ID.
+          in: path
           name: id
           required: true
           schema:
             type: string
-        - in: query
+        - description: 'Limit is the most items one page holds: default 50, at most
+            500.'
+          in: query
           name: limit
           schema:
             type: integer
-        - in: query
+        - description: Cursor is the next_cursor of the previous page, to read the
+            page after it. Leave it out for the first page.
+          in: query
           name: cursor
           schema:
             type: string
-        - in: query
+        - description: Sort names the field the listing is ordered by. Each listing
+            has its own default and refuses a field it cannot sort by.
+          in: query
           name: sort
           schema:
             type: string
-        - in: query
+        - description: Direction is asc or desc, default asc.
+          in: query
           name: direction
           schema:
             enum:
@@ -1463,7 +1510,8 @@ paths:
         Command line: `tix inbox channel test`.
       operationId: inbox.channel.test
       parameters:
-        - in: path
+        - description: Notification channel ID.
+          in: path
           name: id
           required: true
           schema:
@@ -1617,7 +1665,8 @@ paths:
         Command line: `tix comment rm`.
       operationId: comment.delete
       parameters:
-        - in: path
+        - description: Comment ID.
+          in: path
           name: id
           required: true
           schema:
@@ -1658,7 +1707,8 @@ paths:
         Command line: `tix comment edit`.
       operationId: comment.edit
       parameters:
-        - in: path
+        - description: Comment ID.
+          in: path
           name: id
           required: true
           schema:
@@ -1763,7 +1813,9 @@ paths:
         Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: connection.end
       parameters:
-        - in: path
+        - description: Connection ID, as the connection listing gives it. It is local
+            to the server that answered.
+          in: path
           name: id
           required: true
           schema:
@@ -1910,7 +1962,9 @@ paths:
         Command line: `tix domain rm`.
       operationId: domain.remove
       parameters:
-        - in: path
+        - description: Hostname, such as tix.example.com. Case, a port and a trailing
+            dot are ignored.
+          in: path
           name: hostname
           required: true
           schema:
@@ -1949,7 +2003,9 @@ paths:
         before authentication and reads across tenants.
       operationId: domain.resolve
       parameters:
-        - in: path
+        - description: Hostname, such as tix.example.com. Case, a port and a trailing
+            dot are ignored.
+          in: path
           name: hostname
           required: true
           schema:
@@ -2246,7 +2302,9 @@ paths:
         Command line: `tix filter rm`.
       operationId: filter.delete
       parameters:
-        - in: path
+        - description: Saved filter ID, or its name, not case sensitive. The caller's
+            own filter wins over a shared one of the same name.
+          in: path
           name: filter
           required: true
           schema:
@@ -2288,7 +2346,9 @@ paths:
         Command line: `tix filter show`.
       operationId: filter.show
       parameters:
-        - in: path
+        - description: Saved filter ID, or its name, not case sensitive. The caller's
+            own filter wins over a shared one of the same name.
+          in: path
           name: filter
           required: true
           schema:
@@ -2336,7 +2396,9 @@ paths:
         Command line: `tix filter set`.
       operationId: filter.update
       parameters:
-        - in: path
+        - description: Saved filter ID, or its name, not case sensitive. The caller's
+            own filter wins over a shared one of the same name.
+          in: path
           name: filter
           required: true
           schema:
@@ -2394,7 +2456,9 @@ paths:
         Command line: `tix cleanup show`.
       operationId: housekeeping.get
       parameters:
-        - in: query
+        - description: Project is the key or ID of the project whose policy to show;
+            absent shows the tenant's.
+          in: query
           name: project
           schema:
             type: string
@@ -2544,11 +2608,16 @@ paths:
         Command line: `tix import`.
       operationId: snapshot.import
       parameters:
-        - in: query
+        - description: 'Mode is required: merge adds and updates, while replace also
+            removes the tasks and field definitions of an imported project that the
+            snapshot does not carry.'
+          in: query
           name: mode
           schema:
             type: string
-        - in: query
+        - description: DryRun is true to report what the import would do and write
+            nothing.
+          in: query
           name: dry_run
           schema:
             type: boolean
@@ -2605,26 +2674,34 @@ paths:
         Command line: `tix inbox ls`.
       operationId: inbox.list
       parameters:
-        - in: query
+        - description: 'Limit is the most items one page holds: default 50, at most
+            500.'
+          in: query
           name: limit
           schema:
             type: integer
-        - in: query
+        - description: Cursor is the next_cursor of the previous page, to read the
+            page after it. Leave it out for the first page.
+          in: query
           name: cursor
           schema:
             type: string
-        - in: query
+        - description: Sort names the field the listing is ordered by. Each listing
+            has its own default and refuses a field it cannot sort by.
+          in: query
           name: sort
           schema:
             type: string
-        - in: query
+        - description: Direction is asc or desc, default asc.
+          in: query
           name: direction
           schema:
             enum:
               - asc
               - desc
             type: string
-        - in: query
+        - description: Unread is true to keep unread items only.
+          in: query
           name: unread
           schema:
             type: boolean
@@ -2859,7 +2936,8 @@ paths:
         Command line: `tix inbox unread`.
       operationId: inbox.unread
       parameters:
-        - in: path
+        - description: Inbox item ID.
+          in: path
           name: id
           required: true
           schema:
@@ -2905,7 +2983,8 @@ paths:
         Command line: `tix inbox read`.
       operationId: inbox.read
       parameters:
-        - in: path
+        - description: Inbox item ID.
+          in: path
           name: id
           required: true
           schema:
@@ -3059,7 +3138,8 @@ paths:
         Command line: `tix member rm`.
       operationId: member.remove
       parameters:
-        - in: path
+        - description: Actor ID of the member.
+          in: path
           name: actorID
           required: true
           schema:
@@ -3135,32 +3215,41 @@ paths:
         Command line: `tix project ls`.
       operationId: project.list
       parameters:
-        - in: query
+        - description: 'Limit is the most items one page holds: default 50, at most
+            500.'
+          in: query
           name: limit
           schema:
             type: integer
-        - in: query
+        - description: Cursor is the next_cursor of the previous page, to read the
+            page after it. Leave it out for the first page.
+          in: query
           name: cursor
           schema:
             type: string
-        - in: query
+        - description: Sort names the field the listing is ordered by. Each listing
+            has its own default and refuses a field it cannot sort by.
+          in: query
           name: sort
           schema:
             type: string
-        - in: query
+        - description: Direction is asc or desc, default asc.
+          in: query
           name: direction
           schema:
             enum:
               - asc
               - desc
             type: string
-        - in: query
+        - description: Key keeps a project, named by key; repeat it for several.
+          in: query
           name: key
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: IncludeArchived is true to list archived projects too.
+          in: query
           name: include_archived
           schema:
             type: boolean
@@ -3271,20 +3360,28 @@ paths:
         With `?archive=true` this route is `project.archive`: ArchiveProject hides a project from default listings without destroying its tasks or history. Archiving an archived project is a conflict.
       operationId: project.delete
       parameters:
-        - in: path
+        - description: Project key, such as infra, not case sensitive, or the project's
+            ID.
+          in: path
           name: ref
           required: true
           schema:
             type: string
-        - in: query
+        - description: Archive is true to archive the project instead of deleting
+            it, which keeps its tasks and answers 204.
+          in: query
           name: archive
           schema:
             type: boolean
-        - in: query
+        - description: MoveTasksTo is the key or ID of the project the tasks move
+            to. A project holding tasks needs this or delete_tasks, not both.
+          in: query
           name: move_tasks_to
           schema:
             type: string
-        - in: query
+        - description: DeleteTasks is true to delete the project's tasks permanently
+            with it.
+          in: query
           name: delete_tasks
           schema:
             type: boolean
@@ -3332,7 +3429,9 @@ paths:
         Command line: `tix project show`.
       operationId: project.show
       parameters:
-        - in: path
+        - description: Project key, such as infra, not case sensitive, or the project's
+            ID.
+          in: path
           name: ref
           required: true
           schema:
@@ -3378,7 +3477,9 @@ paths:
         Command line: `tix project edit`.
       operationId: project.update
       parameters:
-        - in: path
+        - description: Project key, such as infra, not case sensitive, or the project's
+            ID.
+          in: path
           name: ref
           required: true
           schema:
@@ -3435,16 +3536,21 @@ paths:
         Command line: `tix project rm`.
       operationId: project.delete-plan
       parameters:
-        - in: path
+        - description: Project key, such as infra, not case sensitive, or the project's
+            ID.
+          in: path
           name: ref
           required: true
           schema:
             type: string
-        - in: query
+        - description: MoveTasksTo is the key or ID of the project the tasks would
+            move to.
+          in: query
           name: move_tasks_to
           schema:
             type: string
-        - in: query
+        - description: DeleteTasks is true to plan deleting the tasks with the project.
+          in: query
           name: delete_tasks
           schema:
             type: boolean
@@ -3490,7 +3596,9 @@ paths:
         Command line: `tix field ls`.
       operationId: field.list
       parameters:
-        - in: path
+        - description: Project key, such as infra, not case sensitive, or the project's
+            ID.
+          in: path
           name: ref
           required: true
           schema:
@@ -3549,7 +3657,9 @@ paths:
         Command line: `tix field put`.
       operationId: field.put
       parameters:
-        - in: path
+        - description: Project key, such as infra, not case sensitive, or the project's
+            ID.
+          in: path
           name: ref
           required: true
           schema:
@@ -3606,12 +3716,15 @@ paths:
         Command line: `tix field rm`.
       operationId: field.delete
       parameters:
-        - in: path
+        - description: Project key, such as infra, not case sensitive, or the project's
+            ID.
+          in: path
           name: ref
           required: true
           schema:
             type: string
-        - in: path
+        - description: Custom field key, as the project defines it.
+          in: path
           name: key
           required: true
           schema:
@@ -3653,7 +3766,9 @@ paths:
         Command line: `tix project icon`.
       operationId: project.icon
       parameters:
-        - in: path
+        - description: Project key, such as infra, not case sensitive, or the project's
+            ID.
+          in: path
           name: ref
           required: true
           schema:
@@ -3904,7 +4019,9 @@ paths:
         Command line: `tix user key ls`.
       operationId: sshkey.list
       parameters:
-        - in: query
+        - description: ActorID is the ID of the actor whose credentials to list; absent
+            means the caller.
+          in: query
           name: actor_id
           schema:
             type: string
@@ -4018,7 +4135,8 @@ paths:
         Command line: `tix user key rm`.
       operationId: sshkey.revoke
       parameters:
-        - in: path
+        - description: SSH key ID.
+          in: path
           name: id
           required: true
           schema:
@@ -4062,24 +4180,34 @@ paths:
         Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: stats.read
       parameters:
-        - in: query
+        - description: Project is the key or ID of one project to report on; absent
+            covers the whole tenant.
+          in: query
           name: project
           schema:
             type: string
-        - in: query
+        - description: Since is the RFC 3339 instant the window starts at. It overrides
+            window.
+          in: query
           name: since
           schema:
             format: date-time
             type: string
-        - in: query
+        - description: 'Window is how far back the report reaches, a duration such
+            as 7d or 168h: default 14 days, at most 3650.'
+          in: query
           name: window
           schema:
             type: string
-        - in: query
+        - description: 'Top is how many actors the report ranks: default 5, at most
+            100.'
+          in: query
           name: top
           schema:
             type: integer
-        - in: query
+        - description: 'Oldest is how many of the oldest open tasks the report lists:
+            default 5, at most 100.'
+          in: query
           name: oldest
           schema:
             type: integer
@@ -4329,7 +4457,8 @@ paths:
         Command line: `tix sync source rm`.
       operationId: sync.source.delete
       parameters:
-        - in: path
+        - description: Sync source ID.
+          in: path
           name: id
           required: true
           schema:
@@ -4424,184 +4553,256 @@ paths:
         Command line: `tix task ls`.
       operationId: task.list
       parameters:
-        - in: query
+        - description: 'Limit is the most items one page holds: default 50, at most
+            500.'
+          in: query
           name: limit
           schema:
             type: integer
-        - in: query
+        - description: Cursor is the next_cursor of the previous page, to read the
+            page after it. Leave it out for the first page.
+          in: query
           name: cursor
           schema:
             type: string
-        - in: query
+        - description: Sort names the field the listing is ordered by. Each listing
+            has its own default and refuses a field it cannot sort by.
+          in: query
           name: sort
           schema:
             type: string
-        - in: query
+        - description: Direction is asc or desc, default asc.
+          in: query
           name: direction
           schema:
             enum:
               - asc
               - desc
             type: string
-        - in: query
+        - description: Project keeps tasks in a project, named by key, not case sensitive;
+            repeat it for several. An unknown key is an error.
+          in: query
           name: project
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: ProjectID keeps tasks in a project, named by ID; repeat it
+            for several.
+          in: query
           name: project_id
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: Status keeps tasks in a workflow state, named by key, not case
+            sensitive; repeat it for several. A state no workflow declares is an error.
+          in: query
           name: status
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: Tag keeps tasks carrying a tag; repeat it for several, and
+            a task must carry every one.
+          in: query
           name: tag
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: Assignee keeps tasks assigned to an actor, named by ID, handle
+            or me; repeat it for several.
+          in: query
           name: assignee
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: Creator keeps tasks created by an actor, named by ID, handle
+            or me; repeat it for several.
+          in: query
           name: creator
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: ClaimedBy keeps tasks claimed by an actor, named by ID, handle
+            or me; repeat it for several.
+          in: query
           name: claimed_by
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: ParentID keeps the direct subtasks of one task, named by reference
+            such as INFRA-42 or by ID. It cannot be combined with root_only.
+          in: query
           name: parent_id
           schema:
             type: string
-        - in: query
+        - description: 'Q is a free text search over title and body: a substring match
+            on SQLite, a full text match on PostgreSQL.'
+          in: query
           name: q
           schema:
             type: string
-        - in: query
+        - description: RootOnly is true to keep only tasks without a parent.
+          in: query
           name: root_only
           schema:
             type: boolean
-        - in: query
+        - description: IncludeDeleted is true to list tasks in the trash alongside
+            live ones.
+          in: query
           name: include_deleted
           schema:
             type: boolean
-        - in: query
+        - description: Claimed is true for tasks under a live claim, false for the
+            rest, and absent for either.
+          in: query
           name: claimed
           schema:
             type: string
-        - in: query
+        - description: Starred is true for tasks the caller starred, false for the
+            rest, and absent for either.
+          in: query
           name: starred
           schema:
             type: string
-        - in: query
+        - description: Blocked is true for tasks waiting on an unfinished dependency,
+            false for the rest, and absent for either.
+          in: query
           name: blocked
           schema:
             type: string
-        - in: query
+        - description: Recurring is true for tasks with a repeat rule, false for the
+            rest, and absent for either.
+          in: query
           name: recurring
           schema:
             type: string
-        - in: query
+        - description: Checklist is true for tasks whose body holds a checklist, false
+            for the rest, and absent for either.
+          in: query
           name: checklist
           schema:
             type: string
-        - in: query
+        - description: ChecklistOpen is true for tasks with an unticked checklist
+            item, false for the rest, and absent for either.
+          in: query
           name: checklist_open
           schema:
             type: string
-        - in: query
+        - description: Trashed is true for the trash alone, false for live tasks alone,
+            and absent to follow include_deleted.
+          in: query
           name: trashed
           schema:
             type: string
-        - in: query
+        - description: Snoozed is true for snoozed tasks alone, false for the rest,
+            or any for both. Absent leaves snoozed tasks out.
+          in: query
           name: snoozed
           schema:
             type: string
-        - in: query
+        - description: Priority keeps tasks of a priority from 1, the highest, to
+            5, the lowest; repeat it for several.
+          in: query
           name: priority
           schema:
             items:
               type: integer
             type: array
-        - in: query
+        - description: NotProject leaves out tasks in a project, named by key; repeat
+            it for several.
+          in: query
           name: not_project
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: NotStatus leaves out tasks in a workflow state; repeat it for
+            several.
+          in: query
           name: not_status
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: NotTag leaves out tasks carrying a tag; repeat it for several.
+          in: query
           name: not_tag
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: NotAssignee leaves out tasks assigned to an actor, named by
+            ID, handle or me; repeat it for several.
+          in: query
           name: not_assignee
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: NotCreator leaves out tasks created by an actor, named by ID,
+            handle or me; repeat it for several.
+          in: query
           name: not_creator
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: NotClaimedBy leaves out tasks claimed by an actor, named by
+            ID, handle or me; repeat it for several.
+          in: query
           name: not_claimed_by
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: NotPriority leaves out tasks of a priority from 1 to 5; repeat
+            it for several.
+          in: query
           name: not_priority
           schema:
             items:
               type: integer
             type: array
-        - in: query
+        - description: 'Text is a title or body predicate: title, body or any, then
+            : for the whole field or ~ for a substring, then the value, as in title~api.
+            A leading - negates it. Case is ignored; repeat it, and every term must
+            hold.'
+          in: query
           name: text
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: DueBefore keeps tasks due before an RFC 3339 instant, such
+            as 2026-05-01T00:00:00Z.
+          in: query
           name: due_before
           schema:
             format: date-time
             type: string
-        - in: query
+        - description: DueAfter keeps tasks due after an RFC 3339 instant, such as
+            2026-05-01T00:00:00Z.
+          in: query
           name: due_after
           schema:
             format: date-time
             type: string
-        - in: query
+        - description: CustomFields is a JSON object of custom field values a task
+            must hold, such as {"severity":"high","points":3}. Each value is a string,
+            number or boolean. A parameter field.KEY matches one field and wins over
+            this.
+          in: query
           name: custom_fields
           schema:
             type: string
-        - in: query
+        - description: Format is csv to answer the page as CSV instead of JSON.
+          in: query
           name: format
           schema:
             enum:
@@ -4657,6 +4858,10 @@ paths:
         at a time, with the cursor for the next page
       tags:
         - task
+      x-tix-query-prefix-descriptions:
+        field.: FieldFilterPrefix starts a parameter field.KEY that keeps tasks whose
+          custom field KEY holds the value, as in field.severity=high. A value that
+          parses as JSON is matched as that scalar, so 3 is a number and "3" a string.
       x-tix-query-prefixes:
         - field.
     post:
@@ -4766,16 +4971,22 @@ paths:
         Command line: `tix task rm`.
       operationId: task.delete
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
             type: string
-        - in: query
+        - description: Hard is true to delete the task for good instead of moving
+            it to the trash.
+          in: query
           name: hard
           schema:
             type: boolean
-        - in: query
+        - description: Cascade is true to delete the task's whole subtree with it.
+            Without it, a task with subtasks is refused.
+          in: query
           name: cascade
           schema:
             type: boolean
@@ -4818,7 +5029,9 @@ paths:
         Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: task.show
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -4865,7 +5078,9 @@ paths:
         Command line: `tix task edit`.
       operationId: task.update
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -4922,7 +5137,9 @@ paths:
         Command line: `tix artifact ls`.
       operationId: artifact.list
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -4980,7 +5197,9 @@ paths:
         Command line: `tix artifact put`.
       operationId: artifact.put
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -5037,58 +5256,77 @@ paths:
         Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: task.audit
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
             type: string
-        - in: query
+        - description: 'Limit is the most items one page holds: default 50, at most
+            500.'
+          in: query
           name: limit
           schema:
             type: integer
-        - in: query
+        - description: Cursor is the next_cursor of the previous page, to read the
+            page after it. Leave it out for the first page.
+          in: query
           name: cursor
           schema:
             type: string
-        - in: query
+        - description: Sort names the field the listing is ordered by. Each listing
+            has its own default and refuses a field it cannot sort by.
+          in: query
           name: sort
           schema:
             type: string
-        - in: query
+        - description: Direction is asc or desc, default asc.
+          in: query
           name: direction
           schema:
             enum:
               - asc
               - desc
             type: string
-        - in: query
+        - description: ActorID keeps entries recorded by an actor, named by ID; repeat
+            it for several.
+          in: query
           name: actor_id
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: Action keeps entries of an action such as task.create or project.update;
+            repeat it for several.
+          in: query
           name: action
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: Text is a case-insensitive substring searched for in the action,
+            the kind of record, the source and the recorded before and after values.
+          in: query
           name: text
           schema:
             type: string
-        - in: query
+        - description: 'Source keeps entries that arrived from a surface: cli, api,
+            web, tui or system; repeat it for several.'
+          in: query
           name: source
           schema:
             items:
               type: string
             type: array
-        - in: query
+        - description: Since keeps entries recorded at or after an RFC 3339 instant.
+          in: query
           name: since
           schema:
             format: date-time
             type: string
-        - in: query
+        - description: Until keeps entries recorded at or before an RFC 3339 instant.
+          in: query
           name: until
           schema:
             format: date-time
@@ -5149,7 +5387,9 @@ paths:
         Command line: `tix task check`.
       operationId: task.check
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -5205,7 +5445,9 @@ paths:
         Command line: `tix claim task`.
       operationId: claim.task
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -5264,7 +5506,9 @@ paths:
         Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: claim.reclaim
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -5323,7 +5567,9 @@ paths:
         Command line: `tix claim release`.
       operationId: claim.release
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -5375,7 +5621,9 @@ paths:
         Command line: `tix claim renew`.
       operationId: claim.renew
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -5432,7 +5680,9 @@ paths:
         Command line: `tix comment ls`.
       operationId: comment.list
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -5490,7 +5740,9 @@ paths:
         Command line: `tix comment add`.
       operationId: comment.add
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -5547,7 +5799,9 @@ paths:
         Command line: `tix task copy`.
       operationId: task.copy
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -5604,7 +5858,9 @@ paths:
         Command line: `tix dep ls`.
       operationId: dependency.list
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -5663,7 +5919,9 @@ paths:
         Command line: `tix dep add`.
       operationId: dependency.add
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -5715,12 +5973,16 @@ paths:
         Command line: `tix dep rm`.
       operationId: dependency.remove
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
             type: string
-        - in: path
+        - description: 'The task depended on: a reference such as INFRA-41, or its
+            ID.'
+          in: path
           name: dep
           required: true
           schema:
@@ -5762,7 +6024,9 @@ paths:
         Command line: `tix task show`.
       operationId: task.lease
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -5813,7 +6077,9 @@ paths:
         Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: task.restore
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -5867,7 +6133,9 @@ paths:
         Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: task.route
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -5928,7 +6196,9 @@ paths:
         Command line: `tix task unsnooze`.
       operationId: task.unsnooze
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -5973,7 +6243,9 @@ paths:
         Command line: `tix task snooze`.
       operationId: task.snooze
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -6032,7 +6304,9 @@ paths:
         Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: task.unstar
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -6077,7 +6351,9 @@ paths:
         Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: task.star
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -6122,7 +6398,9 @@ paths:
       description: The tags of one task.
       operationId: task.tags
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -6180,7 +6458,9 @@ paths:
         Command line: `tix tag add`.
       operationId: tag.add
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -6233,12 +6513,15 @@ paths:
         Command line: `tix tag rm`.
       operationId: tag.remove
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
             type: string
-        - in: path
+        - description: Tag name.
+          in: path
           name: name
           required: true
           schema:
@@ -6280,7 +6563,9 @@ paths:
         Command line: `tix task mv`.
       operationId: task.transition
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
@@ -6339,12 +6624,16 @@ paths:
         Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: task.tree
       parameters:
-        - in: path
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
           name: ref
           required: true
           schema:
             type: string
-        - in: query
+        - description: Depth is how many levels below the task to include; 0 or absent
+            is every level.
+          in: query
           name: depth
           schema:
             type: integer
@@ -6405,26 +6694,35 @@ paths:
         Command line: `tix template ls`.
       operationId: template.list
       parameters:
-        - in: query
+        - description: 'Limit is the most items one page holds: default 50, at most
+            500.'
+          in: query
           name: limit
           schema:
             type: integer
-        - in: query
+        - description: Cursor is the next_cursor of the previous page, to read the
+            page after it. Leave it out for the first page.
+          in: query
           name: cursor
           schema:
             type: string
-        - in: query
+        - description: Sort names the field the listing is ordered by. Each listing
+            has its own default and refuses a field it cannot sort by.
+          in: query
           name: sort
           schema:
             type: string
-        - in: query
+        - description: Direction is asc or desc, default asc.
+          in: query
           name: direction
           schema:
             enum:
               - asc
               - desc
             type: string
-        - in: query
+        - description: 'Project is the key or ID of a project: the listing keeps its
+            templates and the tenant-wide ones.'
+          in: query
           name: project
           schema:
             type: string
@@ -6532,7 +6830,8 @@ paths:
         Command line: `tix template rm`.
       operationId: template.delete
       parameters:
-        - in: path
+        - description: Template name, not case sensitive, or the template's ID.
+          in: path
           name: ref
           required: true
           schema:
@@ -6573,7 +6872,8 @@ paths:
         Command line: `tix template show`.
       operationId: template.show
       parameters:
-        - in: path
+        - description: Template name, not case sensitive, or the template's ID.
+          in: path
           name: ref
           required: true
           schema:
@@ -6619,7 +6919,8 @@ paths:
         Command line: `tix template edit`.
       operationId: template.update
       parameters:
-        - in: path
+        - description: Template name, not case sensitive, or the template's ID.
+          in: path
           name: ref
           required: true
           schema:
@@ -6676,7 +6977,8 @@ paths:
         Command line: `tix template use`.
       operationId: template.use
       parameters:
-        - in: path
+        - description: Template name, not case sensitive, or the template's ID.
+          in: path
           name: ref
           required: true
           schema:
@@ -6733,19 +7035,26 @@ paths:
         Command line: `tix tenant ls`.
       operationId: tenant.list
       parameters:
-        - in: query
+        - description: 'Limit is the most items one page holds: default 50, at most
+            500.'
+          in: query
           name: limit
           schema:
             type: integer
-        - in: query
+        - description: Cursor is the next_cursor of the previous page, to read the
+            page after it. Leave it out for the first page.
+          in: query
           name: cursor
           schema:
             type: string
-        - in: query
+        - description: Sort names the field the listing is ordered by. Each listing
+            has its own default and refuses a field it cannot sort by.
+          in: query
           name: sort
           schema:
             type: string
-        - in: query
+        - description: Direction is asc or desc, default asc.
+          in: query
           name: direction
           schema:
             enum:
@@ -6857,7 +7166,8 @@ paths:
         Command line: `tix tenant rm`.
       operationId: tenant.delete
       parameters:
-        - in: path
+        - description: Tenant key or ID. Only the caller's own tenant is found.
+          in: path
           name: ref
           required: true
           schema:
@@ -6899,7 +7209,8 @@ paths:
         Command line: `tix tenant show`.
       operationId: tenant.show
       parameters:
-        - in: path
+        - description: Tenant key or ID. Only the caller's own tenant is found.
+          in: path
           name: ref
           required: true
           schema:
@@ -6945,7 +7256,8 @@ paths:
         Command line: `tix tenant edit`.
       operationId: tenant.update
       parameters:
-        - in: path
+        - description: Tenant key or ID. Only the caller's own tenant is found.
+          in: path
           name: ref
           required: true
           schema:
@@ -7002,7 +7314,9 @@ paths:
         Command line: `tix token ls`.
       operationId: token.list
       parameters:
-        - in: query
+        - description: ActorID is the ID of the actor whose credentials to list; absent
+            means the caller.
+          in: query
           name: actor_id
           schema:
             type: string
@@ -7111,7 +7425,8 @@ paths:
         Command line: `tix token rm`.
       operationId: token.revoke
       parameters:
-        - in: path
+        - description: API token ID.
+          in: path
           name: id
           required: true
           schema:
@@ -7196,19 +7511,26 @@ paths:
         Command line: `tix user ls`.
       operationId: user.list
       parameters:
-        - in: query
+        - description: 'Limit is the most items one page holds: default 50, at most
+            500.'
+          in: query
           name: limit
           schema:
             type: integer
-        - in: query
+        - description: Cursor is the next_cursor of the previous page, to read the
+            page after it. Leave it out for the first page.
+          in: query
           name: cursor
           schema:
             type: string
-        - in: query
+        - description: Sort names the field the listing is ordered by. Each listing
+            has its own default and refuses a field it cannot sort by.
+          in: query
           name: sort
           schema:
             type: string
-        - in: query
+        - description: Direction is asc or desc, default asc.
+          in: query
           name: direction
           schema:
             enum:
@@ -7320,7 +7642,8 @@ paths:
         Command line: `tix user rm`.
       operationId: user.delete
       parameters:
-        - in: path
+        - description: User's actor ID.
+          in: path
           name: id
           required: true
           schema:
@@ -7362,7 +7685,8 @@ paths:
         Command line: `tix user show`.
       operationId: user.show
       parameters:
-        - in: path
+        - description: User's actor ID.
+          in: path
           name: id
           required: true
           schema:
@@ -7407,7 +7731,8 @@ paths:
         Command line: `tix user edit`.
       operationId: user.update
       parameters:
-        - in: path
+        - description: User's actor ID.
+          in: path
           name: id
           required: true
           schema:
@@ -7466,7 +7791,8 @@ paths:
         Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: totp.clear
       parameters:
-        - in: path
+        - description: User's actor ID.
+          in: path
           name: id
           required: true
           schema:
@@ -7510,12 +7836,16 @@ paths:
         Command line: `tix view reset`.
       operationId: view.reset
       parameters:
-        - in: path
+        - description: 'View: board, lanes, mine, or project:KEY for one project''s
+            board.'
+          in: path
           name: view
           required: true
           schema:
             type: string
-        - in: query
+        - description: Group is the group to reset, spelled as in the view's groups;
+            absent resets every group of the view.
+          in: query
           name: group
           schema:
             type: string
@@ -7556,7 +7886,9 @@ paths:
         Command line: `tix view ls`.
       operationId: view.groups
       parameters:
-        - in: path
+        - description: 'View: board, lanes, mine, or project:KEY for one project''s
+            board.'
+          in: path
           name: view
           required: true
           schema:
@@ -7615,12 +7947,17 @@ paths:
         Command line: `tix view set`.
       operationId: view.group.set
       parameters:
-        - in: path
+        - description: 'View: board, lanes, mine, or project:KEY for one project''s
+            board.'
+          in: path
           name: view
           required: true
           schema:
             type: string
-        - in: path
+        - description: 'Group of the view: a state key on board or a project''s board,
+            a project key on lanes, or a deadline bucket on mine (overdue, today,
+            week, later or none).'
+          in: path
           name: group
           required: true
           schema:
@@ -7679,7 +8016,9 @@ paths:
         Command line: `tix view order`.
       operationId: view.order
       parameters:
-        - in: path
+        - description: 'View: board, lanes, mine, or project:KEY for one project''s
+            board.'
+          in: path
           name: view
           required: true
           schema:
@@ -7852,30 +8191,40 @@ paths:
         Command line: `tix webhook deliveries`.
       operationId: webhook.deliveries
       parameters:
-        - in: query
+        - description: 'Limit is the most items one page holds: default 50, at most
+            500.'
+          in: query
           name: limit
           schema:
             type: integer
-        - in: query
+        - description: Cursor is the next_cursor of the previous page, to read the
+            page after it. Leave it out for the first page.
+          in: query
           name: cursor
           schema:
             type: string
-        - in: query
+        - description: Sort names the field the listing is ordered by. Each listing
+            has its own default and refuses a field it cannot sort by.
+          in: query
           name: sort
           schema:
             type: string
-        - in: query
+        - description: Direction is asc or desc, default asc.
+          in: query
           name: direction
           schema:
             enum:
               - asc
               - desc
             type: string
-        - in: query
+        - description: EndpointID keeps the deliveries of one webhook, named by ID.
+          in: query
           name: endpoint_id
           schema:
             type: string
-        - in: query
+        - description: 'Status keeps deliveries in a state: pending, delivered or
+            failed; repeat it for several.'
+          in: query
           name: status
           schema:
             items:
@@ -7936,7 +8285,8 @@ paths:
         Command line: `tix webhook redeliver`.
       operationId: webhook.redeliver
       parameters:
-        - in: path
+        - description: Webhook delivery ID.
+          in: path
           name: id
           required: true
           schema:
@@ -7983,7 +8333,8 @@ paths:
         Command line: `tix webhook rm`.
       operationId: webhook.delete
       parameters:
-        - in: path
+        - description: Webhook endpoint ID.
+          in: path
           name: id
           required: true
           schema:
@@ -8172,7 +8523,9 @@ paths:
         Command line: `tix workflow rm`.
       operationId: workflow.delete
       parameters:
-        - in: path
+        - description: Workflow key. Reading and deleting also accept the workflow's
+            ID.
+          in: path
           name: key
           required: true
           schema:
@@ -8213,7 +8566,9 @@ paths:
         Command line: `tix workflow get`.
       operationId: workflow.get
       parameters:
-        - in: path
+        - description: Workflow key. Reading and deleting also accept the workflow's
+            ID.
+          in: path
           name: key
           required: true
           schema:
@@ -8256,7 +8611,9 @@ paths:
       description: Create or replace the workflow the path names.
       operationId: workflow.put_by_key
       parameters:
-        - in: path
+        - description: Workflow key. Reading and deleting also accept the workflow's
+            ID.
+          in: path
           name: key
           required: true
           schema:

@@ -304,3 +304,44 @@ func TestEveryOperationIsDescribed(t *testing.T) {
 		}
 	}
 }
+
+// TestEveryParameterIsDescribed fails on a path or query parameter, or a
+// parameter family read by prefix, that the document leaves undescribed. The
+// MCP tools take their arguments from these parameters, so a bare name is all
+// a model would have to go on.
+func TestEveryParameterIsDescribed(t *testing.T) {
+	t.Parallel()
+	seen := 0
+	for path, item := range document(t)["paths"].(map[string]any) {
+		for method, raw := range item.(map[string]any) {
+			op, ok := raw.(map[string]any)
+			if !ok {
+				continue
+			}
+			params, _ := op["parameters"].([]any)
+			for _, rp := range params {
+				p := rp.(map[string]any)
+				seen++
+				if d, _ := p["description"].(string); strings.TrimSpace(d) == "" {
+					where := "give its Query struct field a doc comment"
+					if p["in"] == "path" {
+						where = "add it to pathParamDocs in internal/openapi/params.go"
+					}
+					t.Errorf("%s %s: %s parameter %q has no description; %s",
+						strings.ToUpper(method), path, p["in"], p["name"], where)
+				}
+			}
+			prefixes, _ := op["x-tix-query-prefixes"].([]any)
+			docs, _ := op["x-tix-query-prefix-descriptions"].(map[string]any)
+			for _, x := range prefixes {
+				if d, _ := docs[x.(string)].(string); strings.TrimSpace(d) == "" {
+					t.Errorf("%s %s: query parameters starting %q have no description; "+
+						"give the constant spelling the prefix a doc comment", strings.ToUpper(method), path, x)
+				}
+			}
+		}
+	}
+	if seen < 150 {
+		t.Fatalf("read %d parameters, which is not all of them", seen)
+	}
+}

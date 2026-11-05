@@ -38,6 +38,7 @@ func (g *generator) finish(doc map[string]any, entries []entry) {
 		op := obj(obj(paths, e.route.Pattern), strings.ToLower(e.route.Method))
 		tags[tagOf(e.name)] = true
 		g.describe(op, e)
+		g.describeParams(op, e)
 		if e.contract.Public {
 			op["security"] = []any{}
 		}
@@ -68,6 +69,7 @@ func (g *generator) finish(doc map[string]any, entries []entry) {
 				prefixes = append(prefixes, x)
 			}
 			op["x-tix-query-prefixes"] = prefixes
+			op["x-tix-query-prefix-descriptions"] = g.prefixDocs(e.contract.Query, p.QueryPrefixes())
 		}
 	}
 
