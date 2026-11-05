@@ -13,7 +13,7 @@
 {{/* Above the table, beside the claim it qualifies: this tenant has more
      actors than the listing walked, so the rows are a part of the tenant's
      tokens and the reader has to know that before acting on an absence. */}}
-<p class="meta">{{t "This tenant has more actors than this listing walked, so the rows below are not every token of the tenant. A credential you cannot find here may belong to an actor past the walk."}}</p>
+<p class="meta">{{t "This tenant has more actors than this listing reads, so the rows below do not cover every token. A credential you cannot find here may belong to an actor it did not reach."}}</p>
 {{end}}
 <div class="table-wrap">
 <table>
@@ -79,7 +79,7 @@
   {{with .Data.Errors.On "name"}}{{template "field-error" .}}{{end}}
   <div class="field-label">
     <label for="scopes">{{t "Scopes"}}</label>
-    {{template "field-info" "Exactly what this token may do; the CLI or agent holding it can do nothing outside this list, and at least one scope is required. Select every scope its work needs, for example task:write and task:transition for an agent that moves its own tasks, and no more than that -- a token is usually held outside your own control."}}
+    {{template "field-info" "Exactly what this token may do; the CLI or agent holding it can do nothing outside this list, and at least one scope is required. Select the scopes its work needs and no others, for example task:write and task:transition for an agent that moves its own tasks. A token is usually held outside your own control."}}
   </div>
   <select id="scopes" name="scopes" multiple size="8" required{{with .Data.Errors.On "scopes"}} aria-invalid="true" aria-describedby="{{.ID}}"{{end}}>
     {{range .Data.Scopes}}<option value="{{.}}" {{if $.Data.Form.Chose .}}selected{{end}}>{{.}}</option>{{end}}

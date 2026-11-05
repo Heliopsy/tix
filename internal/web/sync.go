@@ -89,7 +89,7 @@ type syncSystem struct {
 // additionally refusing without a project or a JQL query.
 var syncSystems = []syncSystem{
 	{core.SystemGeneric, "generic",
-		"A CSV or JSON file on the machine running tix. Pick this for any tracker with no adapter of its own: export it to a file, describe the columns in a mapping, and no code is written and no binary is rebuilt."},
+		"A CSV or JSON file on the machine running tix. Pick this for any tracker with no adapter of its own: export it to a file and describe the columns in a mapping, with no code to write and no binary to rebuild."},
 	{core.SystemJira, "jira",
 		"A Jira instance, read through its search endpoint. Needs the site url and either a project key or a JQL query."},
 	{core.SystemOpenProject, "openproject",

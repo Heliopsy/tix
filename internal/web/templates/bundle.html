@@ -2,12 +2,12 @@
 <div class="headtip"><h1>{{t "Share components"}}</h1>{{template "tip" (tip "Snapshot or components" "A snapshot moves work: projects, tasks and their history. A components bundle moves configuration: workflows, fields, tags, project templates and webhooks. Use a snapshot to move a tenant, a bundle to share a way of working." "docs/migrating.md")}}</div>
 {{template "datatabs" .}}
 
-<p>{{th "A bundle carries this tenant's <strong>configuration</strong>: the shapes work takes, rather than the work itself. The work travels separately, under Snapshot."}}</p>
+<p>{{th "A bundle carries this tenant's <strong>configuration</strong>, such as its workflows and fields, and none of its work. The work travels separately, under Snapshot."}}</p>
 
 <h2>{{t "Export a bundle"}}</h2>
 <details class="note">
   <summary>{{t "What goes into the file"}}</summary>
-  <p>{{t "Workflows, field definitions, tags, project templates and webhook endpoints. Never tasks, comments or artifacts, and never a webhook's signing secret: the endpoint arrives, its secret does not, so an imported webhook is inert until somebody gives it one."}}</p>
+  <p>{{t "Workflows, field definitions, tags, project templates and webhook endpoints. Never tasks, comments or artifacts, and never a webhook's signing secret, so an imported webhook is inert until somebody gives it one."}}</p>
 </details>
 <form method="post" action="/bundles/export">
   {{template "csrf" .CSRF}}
@@ -63,7 +63,7 @@
       <div class="field-label">
         <label for="on_collision">{{t "On a name collision, required"}}</label>
         {{template "tip" (tip "Conflict policy" "A collision is matched by key, never by display name. Rename brings the incoming component in under a derived key such as default-2, shown in the New key column of the result." "docs/migrating.md")}}
-        {{template "field-info" "What to do when an incoming component's key already names something in this tenant: skip leaves the existing one alone, replace overwrites it, and rename keeps both by giving the incoming one a new key. There is no default on purpose -- pick the one you mean for this import."}}
+        {{template "field-info" "What to do when an incoming component's key already names something in this tenant: skip leaves the existing one alone, replace overwrites it, and rename keeps both by giving the incoming one a new key. There is no default, so pick the one you mean for this import."}}
       </div>
       <select id="on_collision" name="on_collision" required>
         <option value="">{{t "Choose what to do"}}</option>

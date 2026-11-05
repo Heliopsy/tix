@@ -229,7 +229,7 @@ func init() {
 
 		// Second factor.
 		"Second step": "Втора стъпка",
-		"Enter the six digit code from your authenticator app.": "Въведете шестцифрения код от приложението за удостоверяване.",
+		"Enter the six-digit code from your authenticator app.": "Въведете шестцифрения код от приложението за удостоверяване.",
 		"This tenant asks for a second factor and this account holds none yet. Add the code below to an authenticator app, then enter the code it shows.": "Този тенант изисква втори фактор, а този акаунт все още няма такъв. Добавете кода по-долу в приложение за удостоверяване и въведете кода, който то показва.",
 		"Add a second factor": "Добави втори фактор",
 		"Scan this with an authenticator app, or type the key into it, then enter the code it shows to prove it works.": "Сканирайте това с приложение за удостоверяване или въведете ключа в него, след което въведете кода, който показва, за да потвърдите, че работи.",

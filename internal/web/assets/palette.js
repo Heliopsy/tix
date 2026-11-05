@@ -328,7 +328,7 @@
       return say("Searching tasks");
     }
     if (q && tasks && tasks.error) {
-      return say("The task search did not answer.");
+      return say("The task search did not respond.");
     }
     if (!shown.length) {
       return say("No matches");

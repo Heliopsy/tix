@@ -493,7 +493,7 @@
   {{/* The walk behind these checkboxes stopped at its bound, so the set is a
        part of the tenant's projects. Said here rather than on each screen,
        because both screens render this one control. */}}
-  <p class="muted short-projects">{{t "This tenant has more projects than this control walked, so the list above is not the whole set."}}</p>
+  <p class="muted short-projects">{{t "This tenant has more projects than this control loads, so the list above is incomplete."}}</p>
   {{end}}
   {{if .Stale}}
   <p class="muted stale-projects">{{tn "Still hidden, and no project on this list answers to it:" "Still hidden, and no project on this list answers to them:" (len .Stale)}} {{range $i, $key := .Stale}}{{if $i}}, {{end}}<code>{{$key}}</code>{{end}}. {{tn "Kept from an earlier choice; applying this form forgets it." "Kept from an earlier choice; applying this form forgets them." (len .Stale)}}</p>

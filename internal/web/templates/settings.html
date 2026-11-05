@@ -97,7 +97,7 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Advanced screens" "appearance"}}">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname" id="advanced-name">{{t "Advanced screens"}}</span>{{template "field-info" "Adds the configuration screens to the sidebar's Admin group, under Trash: workflows, templates, tenant, domains, users, tokens, SSH keys, status, connections, webhooks, import and export, and sync. On by default for a tenant administrator, who has to be able to find them, and off for everybody else, whom every one of those screens refuses."}}</div>
+        <div class="setname-line"><span class="setname" id="advanced-name">{{t "Advanced screens"}}</span>{{template "field-info" "Adds the configuration screens to the sidebar's Admin group, under Trash: workflows, templates, tenant, domains, users, tokens, SSH keys, status, connections, webhooks, import and export, and sync. On by default for a tenant administrator, who has to be able to find them, and off for everybody else, since every one of those screens refuses them."}}</div>
         <span class="sethelp" id="advanced-help">{{t "Show the configuration screens in the sidebar's Admin group."}}</span>
       </div>
       <div class="setrow-ctl">
@@ -141,7 +141,7 @@
 
     <div class="setrow">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname">{{t "Task view"}}</span>{{template "field-info" "Whether Tasks draws rows, a board of workflow states, or one lane per project. Same tasks every way: the filter, the deadline window, the sort, the page and the project choice are answered once and then drawn."}}</div>
+        <div class="setname-line"><span class="setname">{{t "Task view"}}</span>{{template "field-info" "Whether Tasks draws rows, a board of workflow states, or one lane per project. Each view shows the same tasks: the filter, the deadline window, the sort, the page and the project choice apply to all three."}}</div>
         <span class="sethelp" id="taskview-help">{{th "How <a href=\"/tasks\">Tasks</a> is drawn."}}</span>
       </div>
       <div class="setrow-ctl" aria-describedby="taskview-help">{{template "taskview-switch" .Data.Prefs.TaskView}}</div>
@@ -407,7 +407,7 @@
     {{if $totp.Enrolled}}
     <div class="setrow">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname">{{t "Authenticator"}}</span>{{template "field-info" "A six digit code from an authenticator application, asked for after your password. It belongs to your account, so it applies in every browser and in the terminal."}}</div>
+        <div class="setname-line"><span class="setname">{{t "Authenticator"}}</span>{{template "field-info" "A six-digit code from an authenticator application, asked for after your password. It belongs to your account, so it applies in every browser and in the terminal."}}</div>
         <span class="sethelp">{{if $totp.ConfirmedAt}}{{th "A second factor is <strong>on</strong> for this account, since"}} {{stamp $totp.ConfirmedAt}}.{{else}}{{th "A second factor is <strong>on</strong> for this account."}}{{end}} <strong>{{$totp.RecoveryCodesLeft}}</strong> {{t "of ten recovery codes are unused."}}</span>
       </div>
       <div class="setrow-ctl"><span class="setvalue">{{t "On"}}</span></div>
@@ -446,7 +446,7 @@
     <form class="setrow" method="post" action="/settings/totp" hx-boost="false">
       {{template "csrf" .CSRF}}
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname">{{t "Authenticator"}}</span>{{template "field-info" "A six digit code from an authenticator application, asked for after your password. Recovery codes stand in for it when the application is out of reach."}}</div>
+        <div class="setname-line"><span class="setname">{{t "Authenticator"}}</span>{{template "field-info" "A six-digit code from an authenticator application, asked for after your password. Recovery codes stand in for it when the application is out of reach."}}</div>
         <span class="sethelp" id="totp-help">{{if $totp.Pending}}{{th "An enrolment was started and never confirmed, so this account has <strong>no</strong> second factor yet; starting again replaces it."}}{{else}}{{th "This account has <strong>no</strong> second factor."}}{{end}}{{if $totp.RequiredWeb}} {{t "This tenant requires one in the browser, so the next sign-in will ask for it."}}{{end}}</span>
       </div>
       <div class="setrow-ctl">
