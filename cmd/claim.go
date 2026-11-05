@@ -221,8 +221,8 @@ func claimReclaimCmd(g *globals) *cobra.Command {
 		Use:   "reclaim REF",
 		Short: "Take a lease away from the worker holding it",
 		Long: "End the lease another worker holds, without its token, so the task can be claimed again. " +
-			"The task keeps its status: a finished task stays finished, and reopening one is a transition " +
-			"to make separately.\n\nRequires the task:reclaim scope.\n\n" +
+			"The task keeps its status: a finished task stays finished, and reopening it is a separate " +
+			"transition.\n\nRequires the task:reclaim scope.\n\n" +
 			"Exit codes: 3 unknown reference, 4 the lease is no longer the one you read, 5 permission denied.",
 		Example: "  tix claim reclaim default-1 --reason 'agent host died'",
 		Args:    exactArgs(1),

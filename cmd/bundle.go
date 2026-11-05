@@ -38,8 +38,8 @@ func newBundleCmd(g *globals) *cobra.Command {
 		Use:   "bundle",
 		Short: "Share reusable components between projects, tenants and installations",
 		Long: "Export reusable components as a bundle and import one somewhere else.\n\n" +
-			"A bundle carries configuration and never work items, so sharing a way of " +
-			"working cannot disclose what anyone is working on. Webhook endpoints travel " +
+			"A bundle holds configuration only, never work items, so sharing one " +
+			"cannot disclose what anyone is working on. Webhook endpoints travel " +
 			"without their signing secrets and arrive inactive.\n\n" +
 			"Both directions stream: a bundle written to standard output pipes straight " +
 			"into an import on another installation, with no intermediate file.",
@@ -64,7 +64,7 @@ func bundleExportCmd(g *globals) *cobra.Command {
 			"Components are written as they are walked, so the bundle never has to be " +
 			"assembled in memory and pipes straight into tix bundle import.\n\n" +
 			"Without a selector every kind the caller may read is exported. " +
-			"Diagnostics go to standard error so the bundle is never polluted.\n\n" +
+			"Diagnostics go to standard error, so they never end up in the bundle.\n\n" +
 			fmt.Sprintf("Exit codes: %d unknown kind or selector, %d unknown component, %d permission denied.",
 				core.KindInvalid.ExitCode(), core.KindNotFound.ExitCode(), core.KindForbidden.ExitCode()),
 		Example: "  tix bundle export --kind workflow --workflow review > review.bundle\n" +

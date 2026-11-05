@@ -362,8 +362,8 @@ func newLoginCmd(g *globals) *cobra.Command {
 			"--ssh-key signs a challenge from the server with an SSH key enrolled for you (tix user key add) " +
 			"instead of sending a password. Alone it tries every key in ssh-agent, then ~/.ssh/id_ed25519, " +
 			"id_ecdsa and id_rsa; --ssh-key=PATH uses only that private key and asks for its passphrase " +
-			"without echo. The signature is made under the namespace tix-login@HOST, so it is good for " +
-			"nothing but signing in to this server.\n\n" +
+			"without echo. The signature is made under the namespace tix-login@HOST, so it can only be " +
+			"used to sign in to this server.\n\n" +
 			"Where a second factor is required, the code is asked for on the terminal after the password. " +
 			"No flag and no environment variable carries it: a live code passed as an argument lands in " +
 			"shell history and in the process table. An unattended caller uses an API token instead, which " +

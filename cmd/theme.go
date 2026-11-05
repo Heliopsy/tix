@@ -33,7 +33,7 @@ func themeLsCmd(g *globals) *cobra.Command {
 		Long: "List every theme a tenant may name: the built-in palettes and anything\n" +
 			"this deployment defines under `themes:` in its configuration.\n\n" +
 			"A configured theme may reuse a built-in name, and then it wins, so the\n" +
-			"source column is what tells you which palette you are actually getting.\n\n" +
+			"source column tells you which palette you get.\n\n" +
 			"Set one with `tix tenant edit REF --theme NAME`.\n\n" +
 			"Exit codes: 2 a theme in configuration has a colour that is not #rrggbb.",
 		Example: "  tix theme ls\n  tix theme ls -o json",

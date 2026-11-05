@@ -25,7 +25,7 @@ func newImportCmd(g *globals) *cobra.Command {
 			"A mode is required: merge creates and updates, replace also removes " +
 			"records the snapshot does not carry.\n" +
 			"A task is matched by its own identifier, never by its project-and-sequence " +
-			"reference; a record older than what it would replace is skipped, not applied, " +
+			"reference; a record older than what it would replace is skipped, " +
 			"and every skip is named in the result.\n\n" +
 			fmt.Sprintf("Exit codes: %d invalid snapshot or missing mode, %d unknown reference, %d permission denied.",
 				core.KindInvalid.ExitCode(), core.KindNotFound.ExitCode(), core.KindForbidden.ExitCode()),
