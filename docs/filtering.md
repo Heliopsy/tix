@@ -1,14 +1,14 @@
 # Filtering
 
 One expression language. What you type into the terminal interface's filter bar is what
-`tix task ls --filter` takes -- both go through the same parser -- and the HTTP API carries the same terms as
+`tix task ls --filter` takes, because both go through the same parser, and the HTTP API carries the same terms as
 query parameters. A filter that selects a set of tasks in one place selects the same set in the others.
 
-The browser's filter box ran a second parser of its own once, which is why this paragraph used to warn you off
-it. The two disagreed quietly: when the language gained negation and weak matching, `-tag:ops` failed there
-with a clear error, which is survivable, but `title~api` was swallowed as free text and matched nothing, which
-is an empty board, no error, and a reader who reasonably concludes their tasks are gone. The browser bar, the
-terminal interface's bar and `tix task ls --filter` now run the same parser and cannot drift again.
+The browser's filter box once ran a second parser of its own. The two disagreed quietly: when the language
+gained negation and weak matching, `-tag:ops` failed there with a clear error, which is survivable, but
+`title~api` was swallowed as free text and matched nothing, which is an empty board, no error, and a reader
+who reasonably concludes their tasks are gone. The browser bar, the terminal interface's bar and
+`tix task ls --filter` now run the same parser and cannot drift again.
 
 ## The shape of an expression
 
@@ -46,7 +46,7 @@ silently ignored term.
 Rules worth knowing:
 
 - **An exclusion beats an inclusion of the same value.** `tag:ops -tag:ops` returns nothing. The terms are
-  ANDed, and that is the honest result rather than a guess at what you meant.
+  ANDed, and tix does not guess at what you meant.
 - **A missing value is not an excluded value.** `-assignee:alice` returns unassigned tasks. Not being assigned
   to Alice is not the same as being assigned to somebody else, and SQL's `NOT IN` would have dropped them.
 - **`-is:` inverts the sense.** `-is:claimed` means the same as `is:unclaimed`, and `-is:recurring` lists
@@ -83,17 +83,16 @@ not match `1000 things`.
 
 **A weak match behaves identically on SQLite and on PostgreSQL.** It is a case-insensitive substring test
 (`LOWER(col) LIKE LOWER(?)`) built once and run unchanged on both, and a shared conformance corpus is asserted
-against both engines in CI. That is the whole reason it exists as its own term rather than being folded into
-the free-text query.
+against both engines in CI. That is why it is a term of its own and not part of the free-text query.
 
 The one residue is case folding outside ASCII: SQLite's `LOWER` is ASCII-only, PostgreSQL's is locale-aware, so
-`title~ÄPFEL` may match `Äpfel` on PostgreSQL and not on SQLite. Every ASCII value -- which is every status,
-every tag and most titles -- folds identically.
+`title~ÄPFEL` may match `Äpfel` on PostgreSQL and not on SQLite. Every ASCII value (every status,
+every tag and most titles) folds identically.
 
 **Free text is different, and always has been.** A bare word, or `text:value`, feeds each engine's *native*
 search: a `tsvector` match on PostgreSQL, which is word-based and stemmed, and a `LIKE` on SQLite, which is a
 substring. `tix task ls --query deploy` therefore matches `deployment` on SQLite and (depending on the
-dictionary) may not on PostgreSQL. That divergence predates this document; it is kept because the native search
+dictionary) may not on PostgreSQL. The divergence is kept because the native search
 is what makes a large PostgreSQL install fast. If you need an answer that does not depend on the engine, use
 `text~deploy` rather than a bare `deploy`.
 
@@ -107,7 +106,7 @@ is what makes a large PostgreSQL install fast. If you need an answer that does n
 | `assignee:REF`, `a:REF` | assigned actor, by handle or id, or `me` | yes | no |
 | `creator:REF` | who created it, by handle or id, or `me` | yes | no |
 | `claimed-by:REF` | who holds the lease, by handle or id, or `me` | yes | no |
-| `priority:NAME` | `highest`…`lowest`, or 1–5 | yes | no |
+| `priority:NAME` | `highest`…`lowest`, or 1 to 5 | yes | no |
 | `title:VALUE` | whole title | yes | `title~` |
 | `body:VALUE` | whole body | yes | `body~` |
 | `text:VALUE`, `q:VALUE` | title or body | yes | `text~` |
@@ -285,8 +284,7 @@ returns an empty page and exit 0.
 
 **A custom field key is the one remaining member of this family that still answers empty.** `--filter
 'field.nosuchfield:high'` returns `[]` with exit 0 today. A field key is declared, unlike a tag, so
-this is a gap rather than a decision; it is written down here so the difference is not mistaken for
-one.
+this is a gap, not a decision.
 
 **A failed listing writes no document.** The error is the whole of the answer, so standard output
 stays empty rather than carrying `[]` beside an error on standard error, which a pipeline reading
@@ -322,7 +320,7 @@ $ curl -s -H "Authorization: Bearer $TIX_TOKEN" \
 | Parameter | Meaning |
 | --- | --- |
 | `not_project`, `not_status`, `not_tag`, `not_assignee`, `not_creator`, `not_claimed_by` | repeatable exclusions |
-| `not_priority` | repeatable, numeric 1–5 |
+| `not_priority` | repeatable, numeric 1 to 5 |
 | `starred` | `true` or `false`, against the caller's own stars |
 | `checklist`, `checklist_open` | `true` or `false`; `has:checklist` and `checklist:open` |
 | `snoozed` | `true`, `false` or `any`; absent leaves snoozed tasks out |
@@ -334,8 +332,8 @@ the next one. See [api.md](api.md).
 ## Filtering activity
 
 The activity feed is a different set of rows, so it takes a different set of terms: an audit entry has a kind
-and a source, and no status, tag or due date to ask about. The spelling is shared -- the same quoting, the same
-leading `-` for negation -- so only the vocabulary changes.
+and a source, and no status, tag or due date to ask about. The spelling is shared (the same quoting, the same
+leading `-` for negation), so only the vocabulary changes.
 
 | Term | Meaning |
 | --- | --- |

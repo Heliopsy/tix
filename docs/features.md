@@ -34,8 +34,8 @@ and links keep resolving and the browser is redirected to the new address.
 
 **A status control that can move more than one step.** The status pill on a row offers the states
 that row's own workflow can reach, including ones reachable only through another state. The whole
-route is spelled out before it is applied, and each hop is an ordinary transition, so a task that
-passed through a state really did pass through it and the audit trail says so.
+route is spelled out before it is applied, and each hop is an ordinary transition, so the audit trail
+records every state the task passed through.
 
 **Quick-add syntax.** One line can carry a task's attributes: `Fix login !high #auth @raj due:fri +web
 ^infra-3` is a task titled "Fix login", priority high, tagged `auth`, assigned to `raj`, due next Friday,
@@ -120,18 +120,17 @@ in the workflow's first state, and carries the rule. It does not copy comments, 
 lease. It is created only by moving to a state whose category is `done`, never `cancelled`, so cancelling
 ends the series. Each finished task records the one it spawned and never spawns again, however often it is
 reopened and finished. Creating a task already done, importing a snapshot and an external sync never spawn,
-and the rule travels in an export. The parser is strict: anything it cannot read exactly is refused with
-what was wrong, rather than guessed at.
+and the rule travels in an export. The parser is strict and does not guess: anything it cannot read
+exactly is refused with what was wrong.
 
 **Per-browser dates and times.** Format and timezone are chosen in the settings screen and stored in
 a cookie, not on the tenant. Two people sharing a tenant are frequently in different zones.
 
 **Lease badges.** A task list says which rows an agent is holding and which ones were claimed by
 somebody who never came back, how long ago that claim lapsed and how many times the task has been
-picked up. The second of those is read from evidence the sweeper leaves on the task rather than from
-the lease columns it clears, which is what makes an abandoned claim visible at all rather than for
-the minute before the next sweep. [docs/web-ui.md](web-ui.md) covers these and the rest of the
-browser interface.
+picked up. The second of those is read from evidence the sweeper leaves on the task, not from the
+lease columns it clears; those would show an abandoned claim only for the minute before the next
+sweep. [docs/web-ui.md](web-ui.md) covers these and the rest of the browser interface.
 
 **An inbox.** Each person gets an item when somebody mentions them as `@handle` in a comment or a
 description, assigns them a task, comments on a task they are assigned to or starred, or moves a task
@@ -235,7 +234,7 @@ ls|save|show|edit|rm|use` and `/api/v1/templates` over HTTP.
 
 **Shell completion.** `tix completion install` detects the shell, writes the script where that shell
 looks for it and never edits a startup file. It completes task references, project keys, tags and the
-states your workflows actually define, not only flag names.
+states your workflows define, not only flag names.
 [docs/shell-completion.md](shell-completion.md).
 
 **Self-update.** `tix update` replaces this binary with a release built for its platform, checked

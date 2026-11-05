@@ -1,16 +1,16 @@
 # The terminal interface
 
 `tix tui` opens a board in the terminal, over the same service layer the command line and the browser
-call. That is enforced rather than asserted: `internal/capability` lists `tui` among the surfaces every
-operation must reach, and the parity test fails the build when a new operation names no terminal view or
+call. A test enforces it: `internal/capability` lists `tui` among the surfaces every operation must
+reach, and the parity test fails the build when a new operation names no terminal view or
 records no reason for not having one.
 
 The interface documents itself while it runs. `ctrl+k` opens a searchable list of every action, each named
 in words and each showing its own key, and the footer names that key in every view so you do not have to
 know it first. `?` opens an overlay listing the bindings of the view you came from, the bindings that work
 everywhere, the card markers and both filter grammars. Both are built from the same `KeyMap` the program is
-actually dispatching, so neither can describe keys you do not have. This page exists for the part they
-cannot cover: what is here before you connect. Over SSH that is the whole problem, because you connect
+actually dispatching, so neither can describe keys you do not have. This page covers what they cannot:
+what is here before you connect. Over SSH that is the whole problem, because you connect
 first and find out afterwards.
 
 ## The twelve views
@@ -56,8 +56,8 @@ whichever markers are true of the task, separated so that a priority and a marke
 ```
 
 The bar down the left edge carries the workflow category as a colour and the selection as a shape: the
-selected card's bar is heavier. That is deliberate rather than decorative, since a terminal getting no
-colour has nothing else left to say which card the keys will act on.
+selected card's bar is heavier. A terminal getting no colour has nothing else left to say which card the
+keys will act on.
 
 The priority is `P1` through `P5`, highest to lowest, the same digits `tix task list` prints. The rest of
 the line is markers. The legend is in `?`, wrapped to the terminal so a narrow one shows all of it rather
@@ -99,7 +99,7 @@ The two due markers are drawn only while a deadline is pressing. A card carrying
 card carrying no date at all, both draw nothing: an earlier marker was drawn for any due date whatsoever,
 which put it on nearly every card in a real backlog, so it distinguished nothing and was removed. `due!`
 is drawn in the colour the theme gives an overdue deadline and `due` in the colour it gives a near one, but
-neither is only a colour -- the marker is a word, so a terminal getting no escapes keeps the meaning. The
+neither is only a colour: the marker is a word, so a terminal getting no escapes keeps the meaning. The
 detail view names the state in full beside the date, as `due 2026-02-01 (overdue)`.
 
 `tix task ls --overdue`, and `due:overdue` in any of the three filter bars, list exactly the cards carrying
@@ -120,7 +120,7 @@ column has to show, so the column holding eight tasks with long titles is wider 
 content is the word `empty`, and a column with nothing in it is a short box rather than a screenful of
 blank frame. Every column keeps a floor wide enough for its own heading.
 
-**The footer is a promise.** It advertises only the keys the selected task can accept: `c` while the task
+The footer advertises only the keys the selected task can accept: `c` while the task
 is free, `x` and `R` while this session holds the lease, neither while another worker does, and `t` only
 where the workflow permits a move out of the current state. A deleted card is offered the restore and
 none of the editing keys, because the service answers a deleted task as not found for an edit, a claim, a
@@ -156,8 +156,8 @@ remove nothing it had nothing to mean here, so it was left unbound rather than g
 now that `X` removes a task or a comment, `ctrl+k` carries nano's own meaning. `ctrl+c` is left alone,
 because interrupt already owns it.
 
-A scheme lists only the actions it moves. Everything else keeps its default keys, which is what makes it
-impossible for a scheme to leave an action unbound.
+A scheme lists only the actions it moves. Everything else keeps its default keys, so a scheme cannot leave
+an action unbound.
 
 ### The default bindings
 
@@ -229,8 +229,8 @@ Seventy bindings is more than anyone holds in their head, and the letters ran ou
 while `w` opens project setup, `H` reads history while `v` draws the live tail, `L` picks a tag, `O` records
 an artifact, `N` claims the next task, `Y` copies one. The capitals were handed out by elimination rather than by meaning.
 
-`ctrl+k` opens every action by name. The footer says so in every view, which is the point: the keys were
-always there and nothing advertised them.
+`ctrl+k` opens every action by name, and the footer says so in every view. The keys were always there;
+nothing advertised them.
 
 ```text
 tix │ as local │ @default │ projects │ ● live
@@ -265,7 +265,7 @@ commands:
   enter run   ↑/↓ move   esc cancel
 ```
 
-**Every entry shows its own key.** That is what makes the palette a way out of itself: a reader who reaches
+Every entry shows its own key, so the palette teaches its own way out: a reader who reaches
 for `ctrl+k` and then `statistics` has read `S` beside it, and eventually stops needing the trip. The open
 view is marked `· here`, in a word rather than a colour, so a list whose whole purpose is going somewhere
 else still says where you are.
@@ -290,7 +290,7 @@ A query that matches nothing says so rather than drawing an empty box:
   no action matches "zzz"
 ```
 
-**The entries are the actions, not a menu beside them.** Selecting one makes the same call the key press
+Each entry is the action itself. Selecting one makes the same call the key press
 makes, through one switch that both reach, so a palette entry cannot do something slightly different from
 the key it is teaching. On the board, with a card selected, that includes everything that acts on the task:
 
@@ -313,19 +313,19 @@ artifact name:
   enter apply   esc cancel
 ```
 
-**Nothing is listed that would be refused.** The entries are filtered by the same authority the `?` overlay
+Nothing is listed that would be refused. The entries are filtered by the same authority the `?` overlay
 is filtered by, so a reader who may not subscribe to events is not offered `v`, and a reader who may not
 claim is not offered `c`. An action that acts on the selected task is left out while nothing is selected,
 and a new task is left out while no project is open, rather than listed in a form that cannot be pressed.
 
 The order is fixed: the cross-view keys in the order `?` prints them, then the actions on the selection.
-Narrowing never reorders what is left, because a row that moves as the query grows is a row that is not
+Narrowing never reorders what is left, because a row that moved as the query grew would no longer be
 under `enter` where the reader left it.
 
 Two things are deliberately not filtered. Lease state is one: the palette offers `x` on a task this session
 does not hold, because the `?` overlay documents every binding a view has regardless of the lease, and the
 palette's list and the overlay's list are held equal by a test. The palette itself is the other: `?`
-documents `ctrl+k`, and the palette does not offer the door it is already standing in.
+documents `ctrl+k`, and the palette does not list itself.
 
 `ctrl+k` and `:` both open it. Two schemes have already spent one of the two, so `vim` and `helix` keep `:`
 for the filter, which is what their own `:` opens onto, and `nano` keeps `ctrl+k` for the cut and takes `:`.
@@ -333,7 +333,7 @@ for the filter, which is what their own `:` opens onto, and `nano` keeps `ctrl+k
 reach for a list like this.
 
 Every action that acts on a task is offered wherever a task is selected, so the board and the detail view
-run the same set rather than drifting apart. Two of them need a sub-item only the detail view has a cursor
+run the same set. Two of them need a sub-item only the detail view has a cursor
 over, the comment thread and the dependency list, so `M` and `-` pressed on the board say to open the task
 rather than acting on a guess.
 
@@ -364,7 +364,7 @@ several lines tall inside the same panel, seeded with what is there, newlines an
 you type, between three lines and a third of the terminal, so a one-line note does not reserve half the
 screen and a long one is not read through a two-line slot.
 
-`enter` inserts a newline there, which is the whole point of the field, so it cannot also apply. `ctrl+s`
+`enter` inserts a newline there, so it cannot also apply. `ctrl+s`
 applies, and the panel's own legend says so on screen the whole time the field is open. Nothing here shells
 out to `$EDITOR`: `tix ssh` serves this interface over SSH, so an editor spawned from a keystroke would run
 on the server rather than on the reader's machine, which is useless to them and hands a remote reader a
@@ -459,13 +459,13 @@ of the interface's own key map, so `--key New=o` and `--key Filter=ctrl+s,/` are
 A per-invocation flag wins for the action it names and leaves the rest of a configured set alone. A
 rebinding keeps the action's description, so the footer goes on saying what the key does.
 
-A rebinding that would make one key mean two things in the same view is refused with the collision
-named, rather than applied. The other behaviour is a key that quietly stops doing what its owner expects.
+A rebinding that would make one key mean two things in the same view is refused, and the refusal names
+the collision. Applying it would leave a key that quietly stops doing what its owner expects.
 The same check runs per view, because the same key may mean two things in two views and often should.
 
-An unusable scheme name or an override naming an action that does not exist is reported rather than
-swallowed. `tix tui --keys nonsense` refuses before a terminal is opened at all, so a typo in
-`tui.keymap` reports the typo and not a TTY error.
+An unusable scheme name or an override naming an action that does not exist is reported.
+`tix tui --keys nonsense` refuses before a terminal is opened at all, so a typo in `tui.keymap` reports
+the typo and not a TTY error.
 
 ## The settings screen
 
@@ -492,7 +492,7 @@ format and zone rows show the same instant formatted, so an example cannot claim
 does not draw, and `auto` says what it currently decides for this terminal rather than what it decides in
 general.
 
-**A row can say that writing it will change nothing.** The screen is given the configuration layer each
+A row can say that writing it will change nothing. The screen is given the configuration layer each
 value arrived from, and a value coming from anything above the file, an environment variable for
 instance, carries a line saying that layer still wins after a restart. Without it the sequence is: change
 a row, watch it apply, see the file written, restart, find the old value back, and conclude the screen is
@@ -503,7 +503,7 @@ offers a selection: six hundred entries cycled one press at a time is not a cont
 zone or a scheme already configured is folded into the list so it is never cycled away and lost, and a
 value this build cannot render is refused rather than adopted.
 
-**The session section is read only.** It names the target, the tenant, the actor, the build and the
+The session section is read only. It names the target, the tenant, the actor, the build and the
 configuration file. The target is taken from the redacted view of the resolved configuration, so a DSN
 carrying a password is not drawn on a screen somebody is sharing, and a file that does not exist yet says
 so rather than reading as one that failed to load. Changing a target from inside a session already pinned
@@ -608,7 +608,7 @@ project, or the tenant when neither is named. The heading says which, because a 
 subject named is a listing of changes to whatever happened to be selected. There is no filter bar here:
 the subject is the filter, and it is chosen by what you press `H` from rather than typed.
 
-It is not the activity tail, and folding it in would have been wrong twice over. Activity is a live
+It is kept apart from the activity tail for two reasons. Activity is a live
 subscription: it starts empty, holds the latest two hundred events of this session, and is offered to a
 reader holding `event:subscribe`. History is the stored log: it answers what happened before this session
 opened, it is bounded by a page rather than by a session, and reading it needs `audit:read`. One view for
@@ -666,7 +666,7 @@ rather than held for the session, with one of the three roles beside it.
 ### Switching tenant
 
 The same screen takes a key to switch this session to another tenant. There is no list of other tenants to
-pick from, and that is not an omission: the listing above it is the tenants this session can see, which is
+pick from: the listing above it is the tenants this session can see, which is
 its own, because an actor belongs to one tenant and both listing tenants and reading one are scoped to it.
 From inside `default` a tenant named `acme` and a tenant that was never created are the same answer. The
 key is checked the way `tix tenant use` checks it, by opening a connection pinned to it and asking who you
@@ -700,10 +700,10 @@ navigation keys and the `?` overlay obey it: a reader who may not subscribe to e
 `v`, and pressing it does nothing.
 
 The set is derived rather than written down. `capability.TUIAccess` offers a view when the actor may
-perform at least one of the reads the registry binds to it, and the scope each read needs is the scope the
-service actually enforces, which `internal/capability/authority_test.go` proves against the real service
-rather than taking on trust. There is no second table of permissions in the terminal package to fall out
-of step with the first.
+perform at least one of the reads the registry binds to it, and the scope each read needs is the scope
+the service actually enforces, which `internal/capability/authority_test.go` proves against the real
+service. There is no second table of permissions in the terminal package to fall out of step with the
+first.
 
 | View | Offered when |
 | --- | --- |
@@ -764,7 +764,7 @@ grep 'gap(SurfaceTUI' internal/capability/registry.go
 go test ./internal/capability/...
 ```
 
-Every one of the 38 now has one of two shapes, which is worth knowing before you try:
+Every one of the 38 now has one of two shapes:
 
 - **Administration.** Users, tokens, credentials, webhooks and their deliveries, retention and the server
   itself have no terminal screen at all, and neither the live connections a server holds nor the servers
@@ -779,17 +779,17 @@ The calendar feed is absent on purpose rather than as a gap: its address is past
 which the terminal has no part in, so its six operations are managed from `tix calendar` and the settings
 screen.
 
-Four shapes that were on this list have closed, and how they closed is the part worth keeping. Working
-on definitions rather than instances: the project screen edits a project, defines and removes custom
-fields, and renders the workflow it runs on. Input a single line of text cannot gather: a prompt now hands
-over to a form whose every field picks from the values the operation accepts, which is how the assignee
-and the artifact arrived, and what the terminal still cannot gather is recorded as a limitation on the
-binding rather than as a gap, so `artifact.put` is bound and says in the same breath that a payload, a
-content type and an inline blob belong to `tix artifact put` and the API. Listings needing a selectable
-sub-item: the comment thread, the tag list, the dependency list, the actor directory and the deleted cards
-`is:deleted` reveals all have a cursor over them now. And the tenant itself: the screen that stated only
-which tenant a session was pinned to now reads the tenant, the tenants the session can see, its domains
-and its memberships, and edits all three, which closed nine.
+Four shapes that were on this list have closed. Working on definitions rather than instances: the project
+screen edits a project, defines and removes custom fields, and renders the workflow it runs on. Input a
+single line of text cannot gather: a prompt now hands over to a form whose every field picks from the
+values the operation accepts, which is how the assignee and the artifact arrived, and what the terminal
+still cannot gather is recorded as a limitation on the binding rather than as a gap, so `artifact.put` is
+bound and says in the same breath that a payload, a content type and an inline blob belong to
+`tix artifact put` and the API. Listings needing a selectable sub-item: the comment thread, the tag list,
+the dependency list, the actor directory and the deleted cards `is:deleted` reveals all have a cursor
+over them now. And the tenant itself: the screen that stated only which tenant a session was pinned to
+now reads the tenant, the tenants the session can see, its domains and its memberships, and edits all
+three, which closed nine.
 
 Eight absences are not gaps and will not close. Closing the service is process lifecycle; hostname
 resolution runs in the server request path; lease sweeping is a background loop; signing in and out
@@ -815,11 +815,11 @@ Saved filters account for four more, by choice: renaming, sharing, ordering and 
 the browser's sidebar and `tix filter`, reading one by name is `tix filter show`, and the board applies
 them from the list with `s` and keeps a new one with `K`.
 
-What is bound is daily work, and that is asserted rather than hoped for: a test names the operations a
-board has to reach and fails if any of them loses its terminal binding.
+What is bound is daily work: a test names the operations a board has to reach and fails if any of them
+loses its terminal binding.
 
-The honest summary is that the terminal interface is where you work on tasks, and the command line is
-where you configure the thing you are working in. Every gap names a reason, and `tix <command> --help` or
+The terminal interface is where you work on tasks, and the command line is where you configure the thing
+you are working in. Every gap names a reason, and `tix <command> --help` or
 `tix docs` will have the command.
 
 ## Narrow terminals, and colour
@@ -834,8 +834,7 @@ and what it has, rather than rendering something unreadable:
 terminal is 20x6; tix tui needs at least 24x8
 ```
 
-At the floor itself the footer keeps the palette hint and loses the view's own keys, which is the trade it is
-ordered for:
+At the floor itself the footer keeps the palette hint and loses the view's own keys:
 
 ```text
 tix │ as local │ @defaul

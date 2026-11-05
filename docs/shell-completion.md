@@ -5,7 +5,7 @@ else is exit 2.
 
 Completion is not only for command and flag names. The scripts complete task references, project keys, tags and
 statuses by querying the target the current directory resolves to, so `tix task mv <TAB>` offers real references
-and `tix task ls --status <TAB>` offers the states your workflows actually define. A lookup that cannot reach the
+and `tix task ls --status <TAB>` offers the states your workflows define. A lookup that cannot reach the
 target offers nothing rather than hanging.
 
 ## The short way

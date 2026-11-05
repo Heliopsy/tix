@@ -725,7 +725,7 @@ and `checklist:open`).
 Soft-deleted tasks are left out unless asked for. `include_deleted=true` adds them to the listing
 (`is:deleted`), `trashed=true` lists only them (`is:trashed`), and `trashed=false` lists only live tasks
 whatever `include_deleted` says (`-is:trashed`).
-the filter expression). Snoozed tasks are left out unless `snoozed=true` (only them) or `snoozed=any`
+Snoozed tasks are left out unless `snoozed=true` (only them) or `snoozed=any`
 (beside the rest) asks for them.
 
 Custom field values are filtered with a `field.` prefixed parameter, one per field:
@@ -854,8 +854,8 @@ retained event is refused rather than silently skipped:
   "message":"cursor 12 is no longer available; the oldest retained event is 4000"}}
 ```
 
-A client that sees this has provably missed events and should resynchronize by listing rather than pretending to
-resume.
+A client that sees this has provably missed events and should resynchronize by listing instead of
+resuming.
 
 ### A minimal subscriber
 
@@ -896,7 +896,7 @@ Deliveries carry `X-Tix-Event`, `X-Tix-Delivery`, `X-Tix-Timestamp` and `X-Tix-S
 trusting a delivery.
 
 A signing secret is stored write-only: no read of an endpoint ever returns it. Register one without a secret
-and tix generates one, returned in the response to that registration alone — in the browser, `/admin/webhooks`
+and tix generates one, returned in the response to that registration alone. In the browser, `/admin/webhooks`
 renders it once, in the same one-time secret region the token screen uses for a freshly minted token, and
 never again. Supply your own and nothing is shown back to you, since you already hold it. Saving an existing
 endpoint with the secret field blank keeps the secret it already has rather than rotating it.

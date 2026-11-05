@@ -1,8 +1,8 @@
 # Documentation
 
 Guides for using and operating tix. [`openspec/`](../openspec/) is the normative behaviour contract and the
-[README](../README.md) is the front door; these pages are the part in between, explaining how to actually work
-with the thing.
+[README](../README.md) is the front door. These pages sit between the two and explain how to use and run
+tix.
 
 `tix <command> --help` documents every flag, and `tix docs` emits the whole command tree as Markdown.
 

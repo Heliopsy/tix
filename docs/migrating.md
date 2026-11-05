@@ -130,7 +130,8 @@ workflow state the workflow does not define, fails with exit 2 and names the off
 error: invalid: mapping entry statuses.Review names workflow state "review", which the workflow does not define
 ```
 
-`identity.id` is what makes a re-run an update rather than a duplicate. Get it right the first time.
+`identity.id` lets a re-run update what it imported before instead of duplicating it, so get it right the
+first time.
 
 `lossy` does not change behaviour. It exists so that what you decided not to carry across is recorded next to the
 mapping instead of in somebody's memory.
@@ -188,8 +189,8 @@ tix import --mode merge < snapshot.ndjson
 tix import --mode replace --dry-run < snapshot.ndjson
 ```
 
-The whole snapshot is applied in a single transaction, so a partial import is not a state you can end up in. A
-snapshot never chooses where it lands: the importing caller's own tenant does.
+The whole snapshot is applied in a single transaction, so an import never ends up partly applied. A snapshot
+never chooses where it lands: the importing caller's own tenant does.
 
 ### Identity, staleness, and what gets skipped
 

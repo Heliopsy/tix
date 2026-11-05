@@ -21,7 +21,7 @@ tix tenant edit acme --require-totp-web
 tix tenant edit acme --require-totp-ssh=false
 ```
 
-SSH is worth calling out. A key alone is one factor: whoever holds the private key is in. With
+Over SSH, a key alone is one factor: whoever holds the private key is in. With
 `--require-totp-ssh` the listener asks for a code after the key is accepted and before the terminal
 interface draws anything belonging to the tenant.
 

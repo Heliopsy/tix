@@ -53,7 +53,7 @@ The `--log-*` flags are global rather than serve's own, so they are not in the t
 `tix serve` logs to stderr in text at `info`, which is what a supervisor collects and what `journalctl -u tix`
 shows. Nothing needs configuring for that.
 
-Point `log.output` at a path instead and tix owns that file, which means tix has to bound it. It does:
+Point `log.output` at a path instead and tix owns that file, so tix bounds it:
 
 ```sh
 tix serve --db /var/lib/tix/tix.db \
@@ -76,9 +76,9 @@ would go on writing to a file logrotate has renamed, and there is no signal to t
 rotates centrally, leave `log.output` on `stderr` and let the supervisor collect the stream, which is what the
 default is for.
 
-The directory is created if missing and the file is written `0600`. A path tix cannot open is refused at startup
-rather than at the first record, so a unit that fails to start is the signal rather than a server that runs and
-logs nothing. Under `ProtectSystem=strict`, add the log directory to `ReadWritePaths`.
+The directory is created if missing and the file is written `0600`. A path tix cannot open is refused at startup,
+not at the first record, so the unit fails to start instead of running and logging nothing. Under
+`ProtectSystem=strict`, add the log directory to `ReadWritePaths`.
 
 The `--log-*` flags apply to every command, not only to `serve`, because the destination is a property of the
 process. Only a command that builds a logger opens the file, which today is `tix serve` and `tix ssh`.
@@ -93,8 +93,8 @@ error: invalid: refusing to bind non-loopback address "0.0.0.0:8080" without tls
 or pass the explicit insecure opt-out
 ```
 
-That is exit 2, before the socket is opened. The point is that bearer tokens and session cookies do not survive a
-plaintext hop, and the failure mode of getting it wrong is silent.
+That is exit 2, before the socket is opened. Bearer tokens and session cookies do not survive a plaintext hop,
+and getting it wrong fails silently.
 
 Three ways forward, in order of preference:
 
@@ -118,7 +118,7 @@ the network itself is the boundary, such as a pod whose port is reachable only f
 Preserve the `Host` header. The tenant is resolved from it, so a proxy that rewrites `Host` sends every request
 to the default tenant regardless of which hostname the client asked for. See [tenancy.md](tenancy.md).
 
-**List the proxy in `server.trusted_proxies`.** Without it tix reads neither `X-Forwarded-Proto` nor
+List the proxy in `server.trusted_proxies`. Without it tix reads neither `X-Forwarded-Proto` nor
 `X-Forwarded-For`, because any client can send them: a forged `X-Forwarded-Proto: https` would otherwise be
 enough to change how cookies are issued, and a forged `X-Forwarded-For` would be enough to wear somebody else's
 address. With the proxy listed, the client's scheme and address are taken from those headers when, and only
@@ -202,7 +202,7 @@ The server runs three tickers:
   only if something else runs `tix prune`.
 
 Run exactly one process with the sweeper and the pruner enabled against a given database. The registrar is
-the exception and is meant to run in every process: that is the whole point of it.
+the exception: it is meant to run in every process.
 
 ### What a stop leaves behind
 
@@ -232,7 +232,7 @@ Registration and delivery both refuse a target that resolves to:
 - the unspecified address, multicast, the IPv4 broadcast address, carrier-grade NAT `100.64/10`, IETF protocol
   assignments `192.0.0.0/24`, the benchmarking range `198.18/15` and the NAT64 well-known prefixes
 
-Three details are worth knowing, because a guard that only inspects the string is not a guard:
+Three details matter, because checking the string alone is not enough:
 
 - **The address decides, not the name.** The check runs again in the dialer, immediately before connect, on the
   address the socket is about to use. A hostname that answers publicly while the endpoint is being registered and
@@ -249,20 +249,20 @@ Three details are worth knowing, because a guard that only inspects the string i
 A url that embeds a username or password (`https://user:pass@host/hook`) is refused outright. Send a credential in
 a header your receiver checks, or in a path segment you treat as a bearer.
 
-A delivery failure is recorded in categories only — `endpoint address is not permitted`, `endpoint host could not
-be resolved`, `endpoint did not answer in time`, `endpoint could not be reached` — because the delivery log is
+A delivery failure is recorded only as a category (`endpoint address is not permitted`, `endpoint host could not
+be resolved`, `endpoint did not answer in time`, `endpoint could not be reached`), because the delivery log is
 readable by the tenant who registered the endpoint, and a precise transport error turns it into a port scan of
 your network.
 
 ### Allowing an internal target
 
-Some deployments genuinely deliver to something inside the network: a queue bridge on the same host, a service on
+Some deployments do deliver to something inside the network: a queue bridge on the same host, a service on
 the cluster network. That is allowed only when the operator turns it on, never by a tenant, and it is off by
 default.
 
 Today the allowance is the same switch as the plaintext opt-out: the `service.WithInsecureWebhooks(true)`
 construction option. It is not yet reachable from a flag, an environment variable or the config file, so a stock
-`tix serve` refuses every internal target. If your deployment needs one, that wiring has to be added first — see
+`tix serve` refuses every internal target. If your deployment needs one, that wiring has to be added first; see
 the note in `internal/service/local.go`.
 
 ## systemd
@@ -317,8 +317,7 @@ what they are.
 There is deliberately no `:0`. release-please runs `bump-minor-pre-major` here, so before 1.0 a breaking change
 arrives as a minor bump: a `:0` tag would carry a deployment from 0.6.x to 0.7.x across exactly the break the
 version scheme exists to announce, and nobody would have typed a version to find out. The widest tag that can
-carry a compatibility promise is therefore the minor series. The policy is asserted rather than described, in
-`just image-tags-check`.
+carry a compatibility promise is therefore the minor series. `just image-tags-check` enforces the policy.
 
 Pin the patch tag for anything you depend on, `:0.6` if you want patches, `:latest` only to try the project out.
 
@@ -410,7 +409,7 @@ Three details in that identity are easy to get wrong:
   is ever built by pushing a tag by hand, that run's signature will read `refs/tags/vX.Y.Z` instead. Use
   `--certificate-identity-regexp` if you need to accept both.
 - **It names `release.yaml`.** The identity is the workflow file, so it stops being satisfied if signing moves
-  to another workflow. That is the point: it is what distinguishes this project's release job from anything
+  to another workflow. That is intended: it distinguishes this project's release job from anything
   else that can get a token from the same issuer.
 
 The signature is made `--recursive`, so the two architecture manifests are signed as well as the list. Somebody
@@ -517,19 +516,19 @@ because a static binary on distroless has nothing else it legitimately needs to 
 Ingress or the mesh in front of this; the container serves clear text, which is what `--insecure-no-tls` in the
 image's command is acknowledging.
 
-Probe both routes rather than one. `/healthz` says the process is up and `/readyz` says the database answers and
-its migrations are applied, so a pod still opening its database, or waiting on a PostgreSQL that has not
-finished starting, stays out of the Service rather than taking traffic it cannot serve. Neither needs a credential. See
-[Health checks](#health-checks).
+Probe both routes. `/healthz` says the process is up and `/readyz` says the database answers and its
+migrations are applied, so a pod still opening its database, or waiting on a PostgreSQL that has not finished
+starting, stays out of the Service rather than taking traffic it cannot serve. Neither needs a credential.
+See [Health checks](#health-checks).
 
 Keep `terminationGracePeriodSeconds` above `--shutdown-timeout` for the same reason systemd needs
 `TimeoutStopSec` above it.
 
 ### Building your own
 
-The published image is not the only route, and building remains a first-class one: it is how you get an
-unreleased commit, a patched dependency, or a base image your organisation requires. `Containerfile` at the
-repository root is exactly what the release builds, and `just image` produces it as `localhost/tix:latest`:
+You can also build the image yourself, which is how you get an unreleased commit, a patched dependency, or a base
+image your organisation requires. `Containerfile` at the repository root is exactly what the release builds, and
+`just image` produces it as `localhost/tix:latest`:
 
 ```sh
 just image
@@ -590,8 +589,8 @@ The default used to be the sandbox. If you are upgrading, read
 
 ### Enrolling a key
 
-A public key is the only credential. No password, no keyboard-interactive, no fallback. Enrol the public
-half, never the private one:
+A public key is the only credential: there is no password, no keyboard-interactive and no fallback. Enrol
+the public half, never the private one:
 
 ```sh
 tix user key add --file ~/.ssh/id_ed25519.pub --actor ada --label laptop
@@ -779,11 +778,11 @@ names only tenants that key is already enrolled in.
 
 ### The zero-configuration `local` actor cannot use the hosted listener
 
-This one looks exactly like a bug the first time you hit it, so here it is plainly.
+This looks exactly like a bug the first time you hit it.
 
 A CLI with no configuration runs as an implicit actor called `local`, which holds `ScopeAll` in-process. It
 has no `tenant_members` row. The enrolled lookup reads authority from membership, so a key enrolled against
-`local` authenticates, opens a session, and then holds **no scopes at all**:
+`local` authenticates, opens a session, and then holds no scopes at all:
 
 ```console
 $ tix user key add --file ~/.ssh/id_ed25519.pub --db /var/lib/tix/tix.db
@@ -871,13 +870,13 @@ TIX_SSH_LISTEN=0.0.0.0:2222 TIX_SSH_ALLOW_PUBLIC=true TIX_SSH_DEMO=true TIX_SSH_
 
 ### Behind an L4 proxy
 
-An SSH stream carries no headers, so a proxy that terminates TCP in front of the listener, HAProxy, an AWS NLB
-or an nginx `stream` block, cannot say who the client is the way a reverse proxy does over HTTP. Without being
-told, tix sees every connection as coming from the proxy. That is not only a cosmetic problem in the logs and in
-`tix connection ls`: `--rate-per-hour` is an allowance **per source address**, so one bucket for the whole
-internet throttles all of your users together while handing a single attacker the allowance meant for everybody.
+An SSH stream carries no headers, so a proxy that terminates TCP in front of the listener, HAProxy, an AWS NLB or
+an nginx `stream` block, cannot say who the client is the way a reverse proxy does over HTTP. Without being told,
+tix sees every connection as coming from the proxy. That shows in the logs and in `tix connection ls`, and it also
+breaks the rate limit: `--rate-per-hour` is an allowance per source address, so one bucket for the whole internet
+throttles all of your users together while handing a single attacker the allowance meant for everybody.
 
-The answer is the PROXY protocol, which the proxy prepends to the connection before any SSH byte. Name the proxy
+The fix is the PROXY protocol, which the proxy prepends to the connection before any SSH byte. Name the proxy
 in `ssh.trusted_proxies` and the listener reads it:
 
 ```yaml
@@ -976,10 +975,10 @@ expires is told the server is shutting down and then closed, rather than cut sil
 ### Demo mode
 
 `--demo` is the public sandbox. Any public key is accepted: SSH requires a client to prove a key, but nothing
-requires the server to have seen it before, and that proof is the whole identity here. No signup, no
-password, no enrolment.
+requires the server to have seen it before, and that proof is the whole identity here. There is no signup,
+password or enrolment.
 
-Each fingerprint gets an **ephemeral tenant of its own**, seeded on first connection with a demo board. The
+Each fingerprint gets an ephemeral tenant of its own, seeded on first connection with a demo board. The
 same key connecting again gets the same tenant back, with whatever the visitor changed still in it. Two
 visitors are two tenants, so the scoped query builder, the tenant predicate and, on PostgreSQL, row-level
 security are all doing their real job.
@@ -1005,7 +1004,7 @@ configured target is the point.
 
 #### Expiry, and why it slides
 
-The time to live counts from the **last connection**, not from creation, so someone who keeps coming back
+The time to live counts from the last connection, not from creation, so someone who keeps coming back
 keeps their board. A sandbox nobody has visited for the time to live is deleted with everything under it: the
 delete is the store's hard delete, and every tenant-owned table cascades from `tenants(id)`.
 
@@ -1097,8 +1096,8 @@ whatever any other session connected before it is using.
 
 ### Port 22
 
-Binding port 22 for a bare `ssh tix.example.com` is a deployment problem, not a code one. tix binds 2222 and
-does not ask for the privilege to bind a low port. Put one of these in front:
+Binding port 22 for a bare `ssh tix.example.com` is left to the deployment. tix binds 2222 and does not ask
+for the privilege to bind a low port. Put one of these in front:
 
 ```sh
 # iptables
@@ -1131,8 +1130,8 @@ registry in the database and so answers for every server rather than for the one
 The registry is in memory, per process. A connection lives in exactly one server, and you query the server
 holding it.
 
-That is worth stating because the obvious thing to do is the wrong one. `tix connection ls --db <file>` is a
-separate process with its own empty registry, so it reports zero while sessions are live:
+Pointing the command at the database does not work. `tix connection ls --db <file>` is a separate process
+with its own empty registry, so it reports zero while sessions are live:
 
 ```console
 $ tix connection ls --db /var/lib/tix/tix.db
@@ -1155,8 +1154,8 @@ Server AMGUL-e67c6b0a, holding 2 connections in total.
 ```
 
 Every answer names the server that gave it and says the view covers that server only. Run several servers
-against one database and you get a partial view from each, which is why the line is there rather than left to
-be inferred. Nothing is stored: a restart empties the registry, because the connections are gone too.
+against one database and you get a partial view from each, which is why every answer carries that line.
+Nothing is stored: a restart empties the registry, because the connections are gone too.
 
 `SURFACE` is `events` for an event-stream connection and `ssh` for a terminal session. `KEY` is the
 fingerprint that opened an SSH session, and is empty for anything else.
