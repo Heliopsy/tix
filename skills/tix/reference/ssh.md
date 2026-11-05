@@ -1,8 +1,7 @@
 # Serving the terminal interface over SSH
 
 Read this only if you are standing up a tix SSH listener or connecting to one.
-Nothing here is needed to work a queue; it is here so the skill covers the
-listener rather than asserting its defaults in silence.
+Nothing here is needed to work a queue.
 
 `tix ssh` serves the terminal interface (the same thing as `tix tui`) over
 SSH. tix is the SSH server itself: no sshd, no system account, no password. A

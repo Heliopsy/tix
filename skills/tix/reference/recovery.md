@@ -63,7 +63,7 @@ $ tix task ls --unclaimed -s doing -o json -q
 []
 ```
 
-Then `kill -9` — a crash, so no release, no final comment, no further
+Then `kill -9`: a crash, so no release, no final comment, no further
 renewal. The shell reports exit 137.
 
 Immediately afterwards the lease is still live, so the task is still held:
@@ -79,7 +79,7 @@ as the same local actor; a different actor is refused just as firmly.)
 ## 3. the lease lapses on its own
 
 Wait past the deadline. **No sweeper. No cron. No `tix serve`. Nothing
-running.** The stored row is byte-for-byte unchanged — still `doing`, still
+running.** The stored row is byte-for-byte unchanged: still `doing`, still
 carrying agent A's `claimed_by_actor_id` and its expired `lease_expires_at`:
 
 ```console
@@ -133,8 +133,8 @@ $ tix claim task default-2 -o json -q
 
 Agent B now holds the task under a fresh token, and finds it exactly where
 agent A left it: same status, same comments, same artifacts. The unit of loss
-was whatever agent A had in flight on this one task — not the plan, and not
-the other two tasks.
+was whatever agent A had in flight on this one task. The plan and the other two
+tasks were untouched.
 
 Agent A's token is dead:
 
