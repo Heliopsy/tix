@@ -197,6 +197,9 @@ Tools the token has no scope for are not listed, and destructive ones
 `tix mcp --list` prints every operation and what became of it. The CLI stays
 the complete interface; the project's `docs/mcp.md` owns the details.
 
+Registering it in Claude Code, Codex, OpenCode, Gemini CLI, Claude Desktop,
+Cursor, VS Code or Zed: see "Wiring it into a client" in `docs/mcp.md`.
+
 ## Housekeeping
 
 Finished tasks and the trash can be cleaned up on the same tick, set per
