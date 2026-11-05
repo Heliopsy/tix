@@ -36,21 +36,6 @@ again.
 
 ## ADDED Requirements
 
-### Requirement: A row draws each kind of project icon its own way
-
-When the task list shows the project's icon beside a row, it SHALL draw a text icon as text, a
-built-in icon from the interface's own symbol sprite and an uploaded image through an image element.
-
-#### Scenario: A built-in icon is drawn from the sprite
-
-- **WHEN** the task list renders a task belonging to a project whose icon is the built-in rocket
-- **THEN** the row draws the sprite's rocket symbol and no emoji
-
-#### Scenario: An uploaded icon is drawn as an image
-
-- **WHEN** the task list renders a task belonging to a project whose icon is an uploaded image
-- **THEN** the row draws an image element whose address names the project and the image's digest
-
 ### Requirement: A custom project colour is drawn legibly wherever a palette colour is
 
 A custom colour SHALL be drawn wherever a palette colour is drawn: the row stripe, the board card,
