@@ -271,3 +271,36 @@ func TestAListingIsDescribedAsItIsWritten(t *testing.T) {
 		t.Error("a listing is not offered as ndjson")
 	}
 }
+
+// fallback matches the sentence describe writes for a folded operation whose
+// method has no doc comment: the operation's name, repeated.
+var fallback = regexp.MustCompile("this route is `([^`]+)`: ([^ ]+)\\.$")
+
+// TestEveryOperationIsDescribed fails when an operation falls back to its own
+// name because the core.Service method behind it has no doc comment. The
+// summary and description are all a reader of the document, and all a model
+// choosing among the MCP tools built from it, has to go on.
+func TestEveryOperationIsDescribed(t *testing.T) {
+	t.Parallel()
+	for path, item := range document(t)["paths"].(map[string]any) {
+		for method, raw := range item.(map[string]any) {
+			op, ok := raw.(map[string]any)
+			if !ok {
+				continue
+			}
+			id, _ := op["operationId"].(string)
+			summary, _ := op["summary"].(string)
+			if summary == "" || summary == id {
+				t.Errorf("%s %s (%s) has no summary; give its core.Service method a doc comment",
+					strings.ToUpper(method), path, id)
+			}
+			desc, _ := op["description"].(string)
+			for _, para := range strings.Split(desc, "\n\n") {
+				if m := fallback.FindStringSubmatch(para); m != nil && m[1] == m[2] {
+					t.Errorf("%s %s?%s has no description; give its core.Service method a doc comment",
+						strings.ToUpper(method), path, m[1])
+				}
+			}
+		}
+	}
+}

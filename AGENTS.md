@@ -36,6 +36,9 @@ Coding standards for tix. Terse by design. Read before writing code.
 ## Comments
 
 - One line of doc comment on exported items. No multi-line essays.
+- A `core.Service` method's doc comment is its OpenAPI summary and MCP tool
+  description, so it may run past one line. `TestEveryOperationIsDescribed`
+  fails on an HTTP operation without one.
 - No commentary inside function bodies. If code needs explaining, rename or restructure it.
 - Comment only what the code cannot say: a non-obvious invariant, a deliberate trade-off.
 
