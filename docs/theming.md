@@ -1,8 +1,7 @@
 # Theming
 
 A tenant presents itself with one accent colour, and it is the same accent everywhere: the browser, the
-terminal interface, and any surface added later. This page covers how one is chosen, how to define your
-own, and what deliberately is not themeable.
+terminal interface, and any surface added later.
 
 ## What a theme is
 
@@ -17,13 +16,13 @@ An accent and the tint it sits on, once for the light scheme and once for the da
 
 The dark pair exists because an accent picked to read on white is usually too dark to read on
 near-black, and the browser follows the system, which for most people is dark. A theme that names only
-the light pair used to render as a barely visible smear on the scheme most people actually see. The
+the light pair used to render as a barely visible smear on the scheme most people see. The
 dark fields are optional and fall back to the light pair, so a theme written before they existed still
 applies everywhere rather than being dropped on half the schemes.
 
-Not a colour per element. The web interface already has light, dark and a low-contrast scheme for
-everything structural, chosen per browser in Settings, and a 256-colour terminal cannot honour a
-browser's palette anyway. What a tenant actually wants to set is the accent.
+A theme does not set a colour per element. The web interface already has light, dark and a
+low-contrast scheme for everything structural, chosen per browser in Settings, and a 256-colour
+terminal cannot honour a browser's palette anyway. The accent is what a tenant wants to set.
 
 ## Choosing one
 
@@ -83,7 +82,7 @@ the same software looked unrelated, and neither matched the logo, so "we did not
 than it cost. Empty now means "use the product default", and the default is recognisably tix.
 
 If you were relying on a derived colour, name a theme: `tix theme ls` prints every palette, and setting
-the one closest to what you had makes the choice explicit rather than emergent.
+the one closest to what you had makes the choice explicit.
 
 ## When a theme stops existing
 
@@ -98,8 +97,8 @@ board down, but the moment someone types a name is the moment to tell them it is
 **State and priority colours.** Blocked is red, done is green, and a tenant that themes itself red does not
 get a board where nothing stands out. These carry meaning rather than identity.
 
-**Light, dark and dim.** A separate axis, chosen per browser rather than per tenant, because it is a
-property of the person reading rather than of the organisation. See
+**Light, dark and dim.** A separate axis, chosen per browser, not per tenant, because it belongs to
+the person reading, not the organisation. See
 [web-ui.md](web-ui.md) for that and the other preferences a browser keeps.
 
 **`NO_COLOR`.** Setting `NO_COLOR` or `TIX_NO_COLOR` suppresses every escape in the terminal interface

@@ -42,7 +42,7 @@ expected. The container image is signed by the same workflow, and
 [deployment.md](deployment.md#verifying-the-image) explains each part of that identity, including why the ref is
 a branch and not the tag.
 
-This page says so rather than letting "checksum verified" in the output read as more than it is.
+So when the output says "checksum verified", it means the download matches the release and nothing more.
 
 ## What it refuses, and why
 
@@ -56,7 +56,7 @@ This page says so rather than letting "checksum verified" in the output read as 
 | The directory cannot be written | Refused **before** downloading anything |
 
 Overwriting a file another tool owns leaves that tool's database describing something that is no longer
-there, and the next upgrade from that tool silently reverts you. Refusing is the only honest answer.
+there, and the next upgrade from that tool silently reverts you.
 
 The unwritable case is checked first on purpose. Finding out after the download wastes it, and reports a
 permission error at the exact moment the binary is being replaced, which reads like the replacement half

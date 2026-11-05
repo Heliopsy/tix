@@ -121,8 +121,8 @@ stops renewing, and its task returns to the queue. Expiry is lazy: a lapsed leas
 next query, so the task is claimable again with nothing running at all.
 
 The status is the part that is not lazy. Until a sweep runs the task sits in whatever state it was left in, so
-a worker draining the queue with `tix claim next -s todo` will not see a crashed `doing` task again --
-`no_task_available`, exit 3, while the task is claimable. Either sweep, or do not scope the claim by status.
+a worker draining the queue with `tix claim next -s todo` will not see a crashed `doing` task again: it
+gets `no_task_available`, exit 3, while the task is claimable. Either sweep, or do not scope the claim by status.
 `tix status` reports how many leases have expired and are unswept, which says whether anything is sweeping.
 
 ### How long a lease lasts
@@ -174,7 +174,7 @@ The task is free at once: the previous holder's token stops working exactly as i
 the next `tix claim next` can pick the task up.
 
 A reclaim moves the lease and nothing else. The task keeps its status, a finished task stays finished, and
-`revert_on_lease_expiry` is not consulted -- that rule belongs to a lease that lapsed, not to a person who
+`revert_on_lease_expiry` is not consulted, since that rule belongs to a lease that lapsed, not to a person who
 decided. Reopening finished work is `tix task mv`, made separately so the trail says who chose it.
 
 A reclaim writes no `lease_expired_at` / `lease_expired_by_actor_id`. Those columns mean "the holder stopped
@@ -189,7 +189,7 @@ worker's lease can end work it knows nothing about. The `admin` role holds it th
 ## Why a zombie cannot write
 
 A worker whose lease expired while it was blocked on something has no way to notice on its own. The lease token
-makes that harmless: while a task holds a live lease, its **status and its results** can only be written under
+makes that harmless: while a task holds a live lease, its status and its results can only be written under
 that lease's token.
 
 - `tix claim renew` needs `--token`
@@ -213,21 +213,21 @@ error: lease_expired: task "default-1" is claimed; supply the lease token
 
 When the lease expired and another worker re-claimed the task, the store minted a new token. The old one no
 longer matches, so the zombie can neither move the task out from under the new holder nor write a result over
-it. A zombie presenting no token at all is refused the same way, which is the part that matters: the zombie does
-not need to cooperate, and the new holder does not need to defend itself.
+it. A zombie presenting no token at all is refused the same way, so the zombie does not need to cooperate and the
+new holder does not need to defend itself.
 
-One guard decides this, `requireLeaseToken`, and it runs against the lease rather than against the token's text
--- the store is asked to renew under the offered token, so holding the lease is what passes. A task whose lease
+One guard decides this, `requireLeaseToken`, and it runs against the lease rather than against the token's text:
+the store is asked to renew under the offered token, so holding the lease is what passes. A task whose lease
 has lapsed and that nobody has re-claimed reads as unclaimed and takes these writes with **no** token; offering
 one for a lease that is no longer live is itself a `lease_expired`, because a caller that believes it still holds
 the task should find that out rather than write.
 
 ### What the lease deliberately does not cover
 
-tix is one queue shared by humans and agents, so two writes are left open on purpose. These are not gaps:
+tix is one queue shared by humans and agents, so two writes are left open on purpose:
 
 - **Comments.** `tix comment add` never needs a token, on a claimed task or any other. A person commenting on a
-  task an agent is working is the ordinary case, and comments are append-only -- nothing replaces another, so
+  task an agent is working is the ordinary case, and comments are append-only: nothing replaces another, so
   there is no work for a token to defend. It is also the channel that always works from the browser, which holds
   no lease, and that is what makes guarding the artifact list affordable.
 - **Field edits.** `tix task edit` never needs a token. Re-prioritising, re-assigning or re-titling live work is
@@ -338,7 +338,7 @@ environment variable, or a named context.
 
 A token's name has to identify one token, because the name is what you choose by when you revoke: two
 credentials called `ci` make "revoke the one that leaked" a guess. Within a tenant, no two tokens that are
-still live may share a name, on every surface — the command line, the API and the browser. A revoked token
+still live may share a name, on every surface: the command line, the API and the browser. A revoked token
 keeps its name in the listing and releases it, so rotation is the obvious thing:
 
 ```sh
@@ -365,8 +365,8 @@ tix token create ci --expires 2027-01-01 --scope task:read
 ```
 
 `--expires` takes a duration such as `90d`, a date, an RFC 3339 timestamp, or `never`. The browser form at
-`/admin/tokens` proposes ninety days too, which is the point: one product should not hand out an immortal
-credential on one surface and a bounded one on the other. `tix token ls` shows which of your tokens expire
+`/admin/tokens` proposes ninety days too, so the product does not hand out an immortal credential on one
+surface and a bounded one on the other. `tix token ls` shows which of your tokens expire
 and when.
 
 The HTTP API has no default of its own and is left that way. `POST /api/v1/tokens` takes the `expires_at` the
@@ -382,8 +382,8 @@ carol` lists hers and `tix token rm ID` ends it.
 In the browser, `/admin/tokens` lists the whole tenant's tokens to a reader holding `tenant:admin`, with an
 Owner column saying whose each one is, and offers the same confirming disclosure to revoke them. A reader
 without `tenant:admin` sees their own and no others, which is all the screen ever showed. That narrower view
-was deliberate once and was decided before anybody considered incident response: the case the browser has to
-serve is somebody else's token leaking and needing to be dead now, and in that case the screen was useless.
+was decided before anybody considered incident response, and it was useless for the case the browser has to
+serve: somebody else's token leaking and needing to be dead now.
 
 Revoking a token that is not yours is recorded in the audit trail as `token.revoke_other` rather than
 `token.revoke`, against the actor who performed it, so an operator reading the trail afterwards can tell the

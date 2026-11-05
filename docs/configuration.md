@@ -105,8 +105,8 @@ emphasis once every 800ms and stops after 45 seconds with no keystroke, resuming
 an idle session sends nothing down an SSH connection. A session drawing without colour never pulses
 at all: there is no second style it could alternate with.
 
-`cli.page_size` and `web.page_size` are how many rows one page of a listing carries. There are two of them,
-not one, because how many rows are worth showing is a property of the thing showing them: a browser window
+`cli.page_size` and `web.page_size` are how many rows one page of a listing carries. There are two because
+how many rows are worth showing is a property of the thing showing them: a browser window
 and a terminal do not hold the same number of lines, and a terminal writing into a pipe is a third case.
 Both default to 25.
 
@@ -160,9 +160,8 @@ which is what a deployment shipping its logs elsewhere wants; setting both to `0
 is a deliberate choice rather than something you can arrive at by accident. `compress` gzips an archive once it is
 closed, off by default because it spends CPU on the machine that is already busy writing the log.
 
-The shipped values bound the worst case at eight files of 100 MiB, so 800 MiB. That number is the point of the
-defaults: large enough that no incident is lost to rotation, small enough that no reasonable disk is filled by a
-server nobody is watching.
+The shipped values bound the worst case at eight files of 100 MiB, so 800 MiB. The defaults are sized so that no
+incident is lost to rotation and no reasonable disk is filled by a server nobody is watching.
 
 Rotation is not limited to `tix serve`. The destination is a property of the process, so a command that logs
 honours it wherever it runs. The file is opened only by a command that actually builds a logger, which today is
@@ -185,12 +184,12 @@ A lease lifetime is decided by the first of these that has an opinion:
 4. `lease.default` here
 5. the built-in `30m`
 
-The builtin workflow is the exception in step 2, and it is worth knowing about because every tenant starts with
-one. The shipped `default` workflow carries a 30m `default_lease` that nobody chose, and counting it would mask
-the tenant setting on every project of an ordinary installation: you would set `--lease-default` and watch it do
-nothing. So a workflow speaks for its project only once a person has spoken through it. Editing the builtin with
-`tix workflow put` clears its builtin flag, and from that point its lease is a choice and outranks the tenant's
-again. An unconfigured installation still gets 30m, because that is what `lease.default` falls back to.
+The builtin workflow is the exception in step 2, and every tenant starts with one. The shipped `default` workflow
+carries a 30m `default_lease` that nobody chose, and counting it would mask the tenant setting on every project of
+an ordinary installation: you would set `--lease-default` and watch it do nothing. So a workflow speaks for its
+project only once a person has spoken through it. Editing the builtin with `tix workflow put` clears its builtin
+flag, and from that point its lease is a choice and outranks the tenant's again. An unconfigured installation
+still gets 30m, because that is what `lease.default` falls back to.
 
 The maximum works the other way round. It is a clamp rather than an override, and the effective ceiling is the
 lowest of the tenant's `lease_max`, `lease.max` here, and the built-in `24h`. A tenant can therefore tighten the
@@ -200,8 +199,8 @@ tenants are administered by people other than whoever runs the machine.
 The two bounds also fail differently when a lifetime exceeds the ceiling. A caller who named the figure is told:
 `tix claim next --ttl 48h` is refused with "lease ttl 48h0m0s exceeds the maximum of 24h0m0s", because the error
 is the useful answer to a request somebody typed. A *default* that exceeds the ceiling is clamped down to it
-instead. That case is not a mistake anyone is making right now: it is what happens when an operator lowers
-`lease.max` below a default some tenant configured months ago, and refusing every claim on that tenant until
+instead. Nobody typed that figure: it is what happens when an operator lowers `lease.max` below a default
+some tenant configured months ago, and refusing every claim on that tenant until
 somebody noticed would be a worse answer than shortening its leases.
 
 Setting a tenant's default longer than its own maximum is refused at the point of setting, where both figures
@@ -303,17 +302,17 @@ This default flipped: the sandbox used to be unconditional. `ssh.tenant_ttl`, `s
 false.
 
 `ssh.trusted_proxies` lists the L4 proxies, as IPs or CIDR blocks, whose PROXY protocol header the listener
-believes. There are no headers in an SSH stream, so a proxy that terminates TCP in front of this listener can
-only name the real client that way, and without it every connection appears to come from the proxy: one rate
-limit bucket for the whole internet, one address in every session record and every log line. Any peer can
-prepend such a header, so the list is default-deny. Empty, which is the default, means no header is read from
-anybody, nothing is consumed from any stream, and the client address is the one the transport reports, exactly
-as before this key existed. When the peer that opened the connection is on the list, its header is read and the
-address it names becomes the client address every reader sees, including the rate limiter. A listed peer that
-does not begin with a valid header is closed rather than accepted as itself, and so is one that sends nothing
-before the listener's idle timeout; a `PROXY UNKNOWN` line or a v2 `LOCAL` command keeps the transport address,
-because the proxy has said it is speaking for itself. Both protocol versions are accepted. An entry that is
-neither an IP nor a CIDR block is refused at startup.
+believes. There are no headers in an SSH stream, so a proxy that terminates TCP in front of this listener can only
+name the real client that way, and without it every connection appears to come from the proxy: one rate limit
+bucket for the whole internet, one address in every session record and every log line. Any peer can prepend such a
+header, so the list is default-deny. Empty, which is the default, means no header is read from anybody, nothing is
+consumed from any stream, and the client address is the one the transport reports, as before this key existed.
+When the peer that opened the connection is on the list, its header is read and the address it names becomes the
+client address every reader sees, including the rate limiter. A listed peer that does not begin with a valid
+header is closed rather than accepted as itself, and so is one that sends nothing before the listener's idle
+timeout; a `PROXY UNKNOWN` line or a v2 `LOCAL` command keeps the transport address, because the proxy has said it
+is speaking for itself. Both protocol versions are accepted. An entry that is neither an IP nor a CIDR block is
+refused at startup.
 
 This is a different key from `server.trusted_proxies` and neither implies the other. The HTTP reverse proxy and
 the L4 SSH proxy need not be the same host, and a list written for one surface must not arm the other. See
@@ -542,8 +541,8 @@ what is checked in.
 ## .env
 
 The nearest `.env` at or above the working directory, found the same way, supplies `TIX_*` variables. It sits
-below the real environment and above the configuration file, which is the ordering that lets a developer keep
-credentials out of a shell profile while still allowing an explicit `TIX_TOKEN=... tix ...` to win.
+below the real environment and above the configuration file, so a developer can keep credentials out of a shell
+profile and an explicit `TIX_TOKEN=... tix ...` still wins.
 
 ## Checking the result
 

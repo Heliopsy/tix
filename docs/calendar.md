@@ -80,7 +80,7 @@ The server log records a feed request with the secret replaced by `[redacted]`.
 
 ### Why events and not to-dos
 
-iCalendar has a `VTODO` component made for tasks, and none of the three calendars people actually use shows
+iCalendar has a `VTODO` component made for tasks, and none of the three calendars people mostly use shows
 it from a subscription: Google Calendar ignores it, Outlook drops it, and Apple Calendar only reads tasks
 over CalDAV. An all-day `VEVENT` is drawn by all three. `VEVENT` has no `COMPLETED` property, so a finished
 task is marked in its summary instead, and `CANCELLED` is kept for work that was abandoned, since calendars

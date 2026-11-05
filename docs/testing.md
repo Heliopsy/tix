@@ -56,8 +56,8 @@ package whose tests pass, so the report is invisible there unless you pass `-v`.
 renders one summary at the end. Use `just test` rather than `go test ./...` when you want to know
 what you proved.
 
-A missing capability never fails a run. Working without a database stays possible; the goal is
-honesty about what was proven, not a forced dependency.
+A missing capability never fails a run, so working without a database stays possible and no
+dependency is forced. The report says what was proven.
 
 ### Adding a gate
 
@@ -93,8 +93,7 @@ headroom it warns rather than failing, which is the moment to raise coverage rat
 
 No package is excluded from the total. `internal/tui` used to be, as untestable `View()` rendering;
 it is now covered like every other package, and excluding it only hid a covered package from the
-number. Its current figure comes from `go tool cover`, like any other package, so no count is
-repeated here to go stale.
+number. Its current figure comes from `go tool cover`, like any other package.
 
 ## Mutation testing
 
@@ -102,7 +101,8 @@ repeated here to go stale.
 `just mutate` does that mechanically: [gremlins](https://github.com/go-gremlins/gremlins) changes one
 operator at a time, reruns the package's tests, and reports every change the tests did not notice.
 Fourteen guards in this repository have passed over broken behaviour, and none of them was found by
-review or by coverage. This is the tool shaped like the thing that did find them.
+review or by coverage. They were found by breaking the behaviour by hand, which is what this tool
+automates.
 
 | Command | What it does |
 | --- | --- |
@@ -171,7 +171,7 @@ A mutant is one run of the package's tests, so the cost is the mutant count time
 by the six workers. Measured on a twenty-core machine at `269bd9a`; the last column is that
 arithmetic rather than a stopwatch for the two that were never run to the end.
 
-**These figures understate it, and the reason is worth knowing.** They were taken while the coverage
+**These figures understate the cost.** They were taken while the coverage
 run was still being served from Go's build cache, which gave every mutant a budget of a couple of
 dozen seconds. Mutants were being cut short rather than finishing, so the sweep looked fast because
 it was doing less. With the cache defeated the budgets are honest and the runs are longer:
@@ -197,8 +197,8 @@ deliberately out of the sweep; reach them a file at a time.
 
 **`internal/tui` is excluded for runner time, not because it is clean.** It had 207 survivors in the
 first sweep, more than any other package, so it is the first one to reach for by hand. It is out
-because a hosted runner is far smaller than a developer machine and the difference is the whole
-story: `internal/sshd` takes 6m19s locally and 45 minutes on a runner, for a byte-identical result
+because a hosted runner is far smaller than a developer machine: `internal/sshd` takes 6m19s
+locally and 45 minutes on a runner, for a byte-identical result
 (180 killed, 10 survived, 39 uncovered, 1 timed out, both times). `internal/tui` has five times the
 mutants, which does not fit one scheduled job, and a job that cannot pass should not be scheduled: a
 permanently red weekly run teaches everyone that red means nothing.
@@ -214,7 +214,7 @@ and a signal. Split, each package has its own budget and its own summary.
 ### Two ways the tool lies, and the guards against them
 
 Both are configured in [`.gremlins.yaml`](../.gremlins.yaml), which explains them at the point of
-the setting. Neither is hypothetical; both happened while this was being set up.
+the setting. Both happened while the tool was being set up.
 
 - **Every mutant times out and the run reports perfect efficacy.** The per-mutant timeout is derived
   from how long the coverage run took, so on a package whose tests finish in milliseconds it is

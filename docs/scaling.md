@@ -12,11 +12,11 @@ The driver is pure Go, so builds stay `CGO_ENABLED=0` and the binary has no libc
 
 SQLite serializes writes to one at a time. For a laptop, a single agent fleet, or a team sharing one server
 process, that is not the bottleneck; claims are short transactions and reads run concurrently. It stops being
-comfortable when several processes write to the same file at once, which is the case a network filesystem makes
-worse rather than better.
+comfortable when several processes write to the same file at once, and a network filesystem makes that case
+worse.
 
-Keep the database on local disk. SQLite over NFS or SMB is a reliable way to corrupt it, and this is enforced,
-not just documented: `Open` refuses a database file it detects on NFS, SMB/CIFS, a network FUSE mount (sshfs,
+Keep the database on local disk. SQLite over NFS or SMB is a reliable way to corrupt it, and tix enforces
+this: `Open` refuses a database file it detects on NFS, SMB/CIFS, a network FUSE mount (sshfs,
 rclone, and similar), WebDAV, or, on Windows, a UNC path or a mapped network drive. The refusal happens at open
 time, in `internal/store/sqlite`, so it applies to every command and to `tix serve`, not only to `tix doctor`.
 The error names the path and the detected filesystem, and says to move the database to local disk or to switch

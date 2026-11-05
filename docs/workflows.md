@@ -101,7 +101,7 @@ The vocabulary is fixed, and a state carries a category rather than a colour of 
 purpose: a category is what every surface derives colour from, so `blocked` is the same hue in one
 tenant's terminal as in another's browser, and a terminal that renders no colour still has the word.
 
-`cancelled` is not `done`, and this matters beyond the hue. The statistics screen's *where the work is*
+`cancelled` and `done` differ in more than the hue. The statistics screen's *where the work is*
 breakdown counts them in separate rows, so abandoned work no longer inflates the completed column of
 that table. The `completed` figure itself, the lead times and the leaderboard are unchanged: they read
 `completed_at`, which follows `terminal`, and a cancelled task is still terminal.

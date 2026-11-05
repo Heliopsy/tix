@@ -56,20 +56,20 @@ watching local /tmp/scratch/tix.db (from --db); ctrl-c to stop
 ```
 
 Each line leads with the event's sequence number, and that number is the resume cursor: whatever handled line
-`000047` can pass `--since 47` after a restart and pick up from there. The rest of the line answers "what
-changed", not just "something changed": a transition names both states, an edit names the attributes it
+`000047` can pass `--since 47` after a restart and pick up from there. The rest of the line says what
+changed: a transition names both states, an edit names the attributes it
 touched, a claim names the lease length and, when the lease was taken on somebody else's behalf, its holder,
 and a lease expiry names the holder it was taken from and the state the task fell back to.
 
 The banner always goes to standard error, never standard output, and `--quiet` suppresses it the same way it
-suppresses every other diagnostic: a working stream, a hung one, a wrong filter and a failed connection no
-longer all look identical -- silence -- but stdout stays exactly as parseable as before.
+suppresses every other diagnostic. A working stream, a hung one, a wrong filter and a failed connection no
+longer all look like the same silence, and stdout stays exactly as parseable as before.
 
 The `updated` line's detail is only ever as specific as the event's own payload: a restore, a lease renewal, a
 tag or dependency removal and a comment deletion each say what happened, because their payload carries a flag
-for it, and a plain field edit now does too -- the `task.updated` payload carries a `fields` array naming every
+for it, and a plain field edit now does too: the `task.updated` payload carries a `fields` array naming every
 attribute the edit touched, so the line reads `updated  homelab-9  the title, priority and due date` for a
-multi-field `task edit`, not just "updated" with no detail.
+multi-field `task edit`.
 
 That default line-per-event format is what `table` renders for this command: a table cannot size its columns
 until the stream ends, which a live tail never does, so `watch` draws one readable line per event instead. Pass
@@ -83,8 +83,8 @@ $ tix watch -o ndjson --since 42 | jq .
  "occurred_at":"..."}
 ```
 
-The structured formats carry the whole event -- sequence number, identifier, tenant, type, actor, subject type
-and identifier, timestamp and the full payload -- so a watching process never has to go back and query for
+The structured formats carry the whole event (sequence number, identifier, tenant, type, actor, subject type
+and identifier, timestamp and the full payload), so a watching process never has to go back and query for
 what the event already knows. The human line is the summary; `ndjson` is the record.
 
 `--project`, `--type` and `--actor` narrow the stream, each repeatable; `--type` takes a trailing `*` for a
@@ -97,7 +97,7 @@ tix watch --actor agent-pax --type task.*
 
 ### The delivery guarantee
 
-**At-least-once, with a cursor.** Not exactly-once. Concretely:
+Delivery is at-least-once with a cursor, not exactly-once:
 
 - Every event is a durable row with a sequence number that is monotonic within a tenant. That number is the
   only thing a consumer has to remember.
@@ -318,12 +318,11 @@ $ tix status -o json
 
 Four things about that document are worth relying on:
 
-- **`attached` is the answer, not the ingredients.** It is the reader's own judgement about whether the
+- **Use `attached` instead of computing it.** It is the reader's own judgement about whether the
   server is still heartbeating, so you do not have to know the threshold or re-derive it. `last_seen_at` and
-  `heartbeat_interval` are there anyway if you want a finer one -- the threshold is three of that interval,
-  which is the cadence this particular server beats at rather than a product-wide constant -- but two
-  consumers deriving `attached` differently is how two dashboards come to disagree about how many servers
-  are up.
+  `heartbeat_interval` are there if you want a finer one. The threshold is three of that interval, the
+  cadence this particular server beats at and not a product-wide constant. Two consumers deriving
+  `attached` differently is how two dashboards come to disagree about how many servers are up.
 - **`connections` is absent, never zero, when it is unknown.** A connection lives in one process's memory,
   so only the server holding it can count it. A count appears against the server that produced the report
   and against no other; reading against a database directly, no server carries one. A zero would be a claim

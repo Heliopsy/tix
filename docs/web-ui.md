@@ -1,9 +1,9 @@
 # The web interface
 
 `tix serve` puts the browser interface on the same service layer the command line calls, so a screen
-can do everything a command can. That is enforced rather than aspired to: the capability registry in
-`internal/capability` names a web binding for every operation, and the parity test fails the build
-when one is missing.
+can do everything a command can. The build enforces it: the capability registry in
+`internal/capability` names a web binding for every operation, and the parity test fails when one is
+missing.
 
 The pages are server-rendered Go templates with no build step. htmx swaps fragments where a full
 reload would lose the reader's place, but every form carries a real `method` and `action`, so a
@@ -54,9 +54,9 @@ or a double-click puts it back to the default width.
 
 Dragging it below 120px, pressing the left arrow at the minimum, or pressing the button beside the
 brand collapses it to a 64px rail holding the logo, the navigation icons, each pinned project's mark
-and your initials, which open the account menu. The labels are clipped rather than removed, so every entry keeps its
-accessible name, and each gets a tooltip while the rail is showing. The same button, or the right
-arrow on the edge, expands it to the width it had.
+and your initials, which open the account menu. The labels are clipped rather than removed, so every
+entry keeps its accessible name, and each gets a tooltip while the rail is showing. The same button, or
+the right arrow on the edge, expands it to the width it had.
 
 Admin starts folded, since it holds screens you visit far less than your tasks; open it once and it
 stays open. Both are kept in the `tix_sidebar` cookie, with the groups folded below:
@@ -94,8 +94,7 @@ inbox badge, the saved filters, the current entry and the folds are server-rende
 only in this browser, so it carries `hx-preserve` and a swap keeps the list already drawn; recent.js then
 moves only its current mark, or adds the task just opened. Its links are handed to htmx as they are
 drawn, so opening a recent task swaps the page like every other entry instead of reloading it, which it
-used to. On a full reload the list is still drawn by the
-deferred script, a step after the first paint.
+used to. On a full reload the deferred script still draws the list, a step after the first paint.
 
 The page content starts the gutter's width from the sidebar on every screen. It used to be centred in
 the space beside the sidebar, under a width cap that differs between a listing and a form, which put
@@ -127,9 +126,9 @@ It is always drawn as the list, whatever the reader chose for the task screen, b
 columns are moves a deleted card cannot make; it does not narrow to open work, since a finished task
 that was deleted is still worth finding; and it has no quick-add row.
 
-A deleted row, there or on an `is:deleted` listing, carries a `deleted` badge, whose tooltip gives the time, and a
-struck-through title that is text rather than a link, since the task screen answers not found for a
-deleted task. It has no tick, and its status and priority are labels rather than menus, since
+A deleted row, there or on an `is:deleted` listing, carries a `deleted` badge, whose tooltip gives the
+time, and a struck-through title that is text rather than a link, since the task screen answers not
+found for a deleted task. It has no tick, and its status and priority are labels rather than menus, since
 the service refuses all three on a deleted task. Restore at the end of the row posts to the task's
 restore route with the listing as the place to come back to, so the reader stays on the trash, the
 row leaves it, the count drops, and the toast says `task restored`. With scripting on, the listing and
@@ -168,12 +167,11 @@ than as a bound of its own, so the same window is sayable by hand in the box, th
 the URL like the rest of the query, and a window the language does not have is refused under the box like
 any other bad term. Whatever is in the box is ANDed with it, and a `due:` term typed there wins.
 
-A row whose deadline has passed carries an `overdue`
-badge, one falling due within the week a `due this week` badge, and a row whose deadline is further out
-or absent carries nothing -- a badge on every dated row marks nearly every row in a real backlog. The
-badge is a word as well as a colour and links to the listing it belongs to. The task screen says the
-same thing beside the date in the Details rail. The `Due` column can be turned off in View, like any
-other optional column.
+A row whose deadline has passed carries an `overdue` badge, one falling due within the week a
+`due this week` badge, and a row whose deadline is further out or absent carries nothing, since a badge
+on every dated row marks nearly every row in a real backlog. The badge is a word as well as a colour and
+links to the listing it belongs to. The task screen says the same thing beside the date in the Details
+rail. The `Due` column can be turned off in View, like any other optional column.
 
 An expression the listing cannot answer is reported under the box, with the expression still in the
 box. A filter naming a project, status or handle this tenant does not have is a typo in a control,
@@ -233,8 +231,8 @@ The claim count is shown only beside an expiry, where it distinguishes two diffe
 task claimed seven times whose last claim was dropped is a holder that keeps dying, while the same
 seven claims with no expiry is ordinary work changing hands.
 
-`tix claim sweep`, and the sweeper a server runs on a ticker, is what actually returns the task to
-the queue. See [agents.md](agents.md) for what a lease is and why the token matters.
+`tix claim sweep`, and the sweeper a server runs on a ticker, returns the task to the queue. See
+[agents.md](agents.md) for what a lease is and why the token matters.
 
 **Ticking a task** swaps that one row rather than the page. The completion animation belongs to the
 act of completing, not to the completed state, so opening a list of finished tasks animates nothing.
@@ -249,14 +247,13 @@ can show a position the other denies.
 
 It is one selection drawn two ways. The filter, the deadline window, the sort, the page size, the
 page position and the project visibility choice are resolved once and apply to both, so switching
-changes the drawing and never which tasks are on screen, and one pager walks both. That is the whole
-point of putting the board on this screen rather than sending the reader to a different one: the
-project board at `/projects/{key}` answers a different question -- one project, no filter -- and it
-stays as it is, with the project's settings and danger zone on it.
+changes the drawing and never which tasks are on screen, and one pager walks both. That is why the
+board is on this screen. The project board at `/projects/{key}` answers a different question (one
+project, no filter), and it stays as it is, with the project's settings and danger zone on it.
 
 **Columns come from a workflow, and the list mixes projects.** So a board over several projects is
 only drawable when those projects agree about their states, and agreement is decided structurally,
-not by name. A name is not an identity: two projects can each run a workflow called `default` whose
+not by name: two projects can each run a workflow called `default` whose
 states differ, and the state-category vocabulary now has six words where it had three, so two
 same-named workflows can differ in ways that decide where a task may go. What is compared is
 everything a board draws or a move depends on:
@@ -278,32 +275,31 @@ workflow's name, key and identifier. Two projects pointing at one stored workflo
 two pointing at separately stored workflows that describe the same machine agree too, which is the
 ordinary case in a tenant that made a project before it had a shared workflow.
 
-The asymmetry of cost is what decides the borderline cases. Being too strict costs a refusal that
+The difference in cost decides the borderline cases. Being too strict costs a refusal that
 explains itself and is one click from a board that draws. Being too loose costs a card that looks
 draggable to a column it can never reach, with the refusal arriving from the service after the reader
 has already dropped it. So anything not demonstrably harmless is compared.
 
 **Every card's moves come from its own project's workflow**, resolved per card, never from the
 definition the columns were drawn from. On a board whose workflows agreed those are the same answer;
-asking the card's own project anyway is what keeps it impossible for a change to the merge rule to
-start offering a foreign move. Drag-and-drop reads the card's own move control to decide which
+asking the card's own project anyway means a change to the merge rule can never start offering a
+foreign move. Drag-and-drop reads the card's own move control to decide which
 columns light up, so a column outside that list is refused before any request is made.
 
 **When the projects do not agree the board is refused and the list is drawn**, with a notice naming
 each distinct workflow and the projects running it. Each group links to the same screen narrowed to
 exactly its own projects, filter and sort intact, so a board is one click away. Where two of those
-workflows carry the same name, which is precisely the case the merge rule exists for, the entry adds
-the workflow's key: two lines both reading `Default` would be the refusal explaining nothing. Drawing whichever
-workflow came first would show a subset of the selected tasks without saying so, which is the failure
+workflows carry the same name, the case the merge rule exists for, the entry adds the workflow's key:
+two lines both reading `Default` would be a refusal that explains nothing. Drawing whichever workflow
+came first would show a subset of the selected tasks without saying so, which is the failure
 this screen exists to avoid; the same reason a task whose status is in none of the columns is named
 in a notice rather than dropped. The preference is not touched by a refusal, so narrowing draws the
 board with no second press of the switch.
 
-Which projects decide the columns is the set the listing may draw from -- the keys an explicit
-`project:` filter names, or every project not put away -- rather than the projects the current page
-happens to carry. A page is a page: deciding on its contents would merge on page one and refuse on
-page three, and creating the first task in a disagreeing project would turn a working board into a
-refusal with no visible cause.
+The columns are decided by the set the listing may draw from (the keys an explicit `project:` filter
+names, or every project not put away), not by the projects the current page happens to carry. Deciding
+on a page's contents would merge on page one and refuse on page three, and creating the first task in a
+disagreeing project would turn a working board into a refusal with no visible cause.
 
 A merged board carries more columns than one project's does, so the board is one row of columns
 scrolled sideways inside its own frame rather than scrolling the page sideways. At phone width it
@@ -363,7 +359,8 @@ They open a menu with the whole task in it: open the task (in the dialog when Ta
 to Dialog), copy its link or its reference, complete or reopen it along the tick's routes (or the
 tick's reason when it offers none), move it to any state the status menu offers, follow a link to the
 task for a move that needs a comment, change the priority, star or unstar it, snooze or unsnooze it,
-rename the title in place, set the assignee (the field suggests the tenant's handles), add and remove tags, and delete it.
+rename the title in place, set the assignee (the field suggests the tenant's handles), add and remove
+tags, and delete it.
 A reader sees only what their scopes allow: moves need `task:transition`; priority, snooze, rename,
 assignee and tags need `task:write`; delete needs `task:delete`. A reader who may only read gets
 open, copy and their star.
@@ -393,17 +390,16 @@ lane, scrolls down. It was a frame of fixed height whose lanes scrolled inside i
 for one thumb, and the guessed height cut the last card off below the fold. On a touch screen the
 tick, the badge and the priority each answer a press 40px tall, and the menu rows are 40px.
 
-**Show completed** hides finished cards in every lane. It is kept in the browser's `localStorage`
-rather than a cookie, as a single key, `tix.lanes.showCompleted`, which holds `false` when finished
-cards are hidden and is removed when they are shown. The sidebar's width and collapsed state used to
-sit beside it and are a cookie now, because the server has to draw them (see The sidebar). Nothing
-about work goes there: no project key, no task
-reference, no count. Screens are served `no-store` so that a page does not outlive the
-session on a shared machine, and browser storage is the same disk with no logout to clear it, so only
-a choice that says nothing about anybody's work may live in it. The script that applies it loads in
-the head, before the body paints, and sets a class on the root element, so hidden cards never flash
-in and a live refresh of the lanes does not bring them back. Without JavaScript the toggle is not
-shown and finished cards are.
+**Show completed** hides finished cards in every lane. It is kept in the browser's `localStorage` rather
+than a cookie, as a single key, `tix.lanes.showCompleted`, which holds `false` when finished cards are
+hidden and is removed when they are shown. The sidebar's width and collapsed state used to sit beside it
+and are a cookie now, because the server has to draw them (see The sidebar). Nothing about work goes
+there: no project key, no task reference, no count. Screens are served `no-store` so that a page does
+not outlive the session on a shared machine, and browser storage is the same disk with no logout to
+clear it, so only a choice that says nothing about anybody's work may live in it. The script that
+applies it loads in the head, before the body paints, and sets a class on the root element, so hidden
+cards never flash in and a live refresh of the lanes does not bring them back. Without JavaScript the
+toggle is not shown and finished cards are.
 
 ## My work, saved filters and recently viewed
 
@@ -436,8 +432,8 @@ keep apart lists, and is drawn by `assets/recent.js`; with scripting off it is n
 list is `tix.recentTasks()` for other scripts, an array of `{ref, title, href, at}` newest first,
 and the document receives a `tix:recent` event whenever it changes.
 
-On the collapsed rail My work, each pinned project and each saved filter are icons with their names kept as accessible
-names and tooltips, the menus are put away, and Recently viewed folds to a clock that opens the
+On the collapsed rail My work, each pinned project and each saved filter are icons with their names
+kept as accessible names and tooltips, the menus are put away, and Recently viewed folds to a clock that opens the
 sidebar with the list unfolded.
 
 ## Arranging columns and lanes
@@ -461,8 +457,8 @@ follows you to any browser and device, to `tix view` on the command line and to 
 and changes nothing anybody else sees. It is kept per view: `board` is the task screen grouped by
 status (the board and the list grouped by status), `lanes` is the task screen grouped by project
 (the lanes and the list grouped by project), `mine` is My work grouped by deadline, and
-`project:KEY` is one project's own board. A lane
-is kept by the project, so renaming a project's key keeps it.
+`project:KEY` is one project's own board. A lane is kept by the project, so renaming a project's key
+keeps it.
 
 Every action is a form, so it works without scripting. With scripting it redraws the view in place
 and puts focus back on the same heading's dots, or on Hidden after a hide. While a menu is open the
@@ -524,22 +520,24 @@ the same way. Each message says who did what to which task and links it when the
 Typing `@` in a comment box, the task description or the new task form's description offers the handles
 of the tenant's directory, the same list the assignee field suggests, narrowed as you type: handles that
 start with what you typed first, then those containing it. The arrow keys move through the list, Enter
-or Tab inserts `@handle` and a space and does not submit the form, and Escape closes the list and nothing else, so a
-comment in the task dialog stays open. The box is a combobox while the list is open, so a screen reader
-announces the option under the arrows. On a phone the list is a bottom sheet, and each option is at
-least 40px tall on a touch screen. Without JavaScript the box is a plain textarea, and a handle typed in
-full mentions just the same. An `@` after a letter, as in an email address, is not a mention.
+or Tab inserts `@handle` and a space and does not submit the form, and Escape closes the list and
+nothing else, so a comment in the task dialog stays open. The box is a combobox while the list is open,
+so a screen reader announces the option under the arrows. On a phone the list is a bottom sheet, and
+each option is at least 40px tall on a touch screen. Without JavaScript the box is a plain textarea, and
+a handle typed in full mentions just the same. An `@` after a letter, as in an email address, is not a
+mention.
 
 ## Starring a task
 
 Every task the browser draws carries a star: beside the tick on a list row or a lane card, before the
 reference on a board card (the task screen's board and a project's own board alike), and beside the
-title on the task screen. Pressing it stars the task, pressing it again unstars it, and the reader lands back on
-the screen they pressed it from, filters and all, at the row they pressed.
+title on the task screen. Pressing it stars the task, pressing it again unstars it, and the reader
+lands back on the screen they pressed it from, filters and all, at the row they pressed.
 
 A starred task comes first. The list puts the reader's starred tasks above everything else and keeps
 the chosen sort inside each group, and each board column and each lane does the same, because they
-are the same listing split by state or by project. Paging stays exact across the point where the starred tasks end.
+are the same listing split by state or by project. Paging stays exact across the point where the
+starred tasks end.
 
 A star is personal. It belongs to the reader who set it, so two people sharing a queue each see their
 own stars first and never reorder each other's screen. It is kept on the server, so it follows the
@@ -558,25 +556,25 @@ Snooze hides a task from every listing, for everybody, until a time you pick, an
 by itself. Nothing has to run for that: every listing compares the wake time with the clock. Agents
 cannot claim a snoozed task until it wakes.
 
-Snooze is in two places. On the task screen it is in the actions menu (the three dots in the header); on a lane card it
-is a section of the three dots menu. Both offer **Later today** (three hours on, rounded up to the
-hour), **Tomorrow morning** (09:00), **Next week** (09:00 next Monday) and **Pick a date**, a date
-and time field with its own Snooze button. Every choice is read in the time zone chosen under
-Settings, or the server's when none is, so tomorrow morning is your morning. A time that has passed
-is refused and nothing changes: on the task screen the refusal is a toast, in the lane it is said
-inside the card. List rows have no snooze control of their own; open the task or use the lanes.
+Snooze is in two places. On the task screen it is in the actions menu (the three dots in the header); on
+a lane card it is a section of the three dots menu. Both offer **Later today** (three hours on, rounded
+up to the hour), **Tomorrow morning** (09:00), **Next week** (09:00 next Monday) and **Pick a date**, a
+date and time field with its own Snooze button. Every choice is read in the time zone chosen under
+Settings, or the server's when none is, so tomorrow morning is your morning. A time that has passed is
+refused and nothing changes: on the task screen the refusal is a toast, in the lane it is said inside
+the card. List rows have no snooze control of their own; open the task or use the lanes.
 
 Each choice is a plain form posting to `/tasks/REF/snooze` with `until` set to `later`, `tomorrow` or
 `next-week`, or with the picked time in `at`, so it works with no script. With htmx a lane card's
 snooze swaps the card, and because a snoozed task is not in the listing the card leaves the lane and
 the toast names the task and when it wakes.
 
-A snoozed task is drawn only where it was asked for, under `is:snoozed` or `snoozed:any` in the
-filter, and there it carries a dashed badge saying until when: "until 3 Nov 09:00" on a row or a card,
-"Snoozed until ..." in the Snoozed row of its own screen, where hovering names who snoozed it. Its
-task screen's actions menu offers **Unsnooze** in place of Snooze, as does its lane card's menu; it posts to `/tasks/REF/snooze/remove`
-and the task is back at once. Snoozing and unsnoozing need `task:write`, and a reader without it is
-offered neither. See [filtering.md](filtering.md#snoozed-tasks).
+A snoozed task is drawn only where it was asked for, under `is:snoozed` or `snoozed:any` in the filter,
+and there it carries a dashed badge saying until when: "until 3 Nov 09:00" on a row or a card, "Snoozed
+until ..." in the Snoozed row of its own screen, where hovering names who snoozed it. Its task screen's
+actions menu offers **Unsnooze** in place of Snooze, as does its lane card's menu; it posts to
+`/tasks/REF/snooze/remove` and the task is back at once. Snoozing and unsnoozing need `task:write`, and
+a reader without it is offered neither. See [filtering.md](filtering.md#snoozed-tasks).
 
 ## Moving a task through its workflow
 
@@ -588,12 +586,11 @@ States that are not adjacent are offered too. The panel spells out the whole rou
 applied, `todo → doing → review`, and says how many steps it takes, so the reader agrees to the
 states it passes through rather than finding them in the history afterwards.
 
-Each step is then an ordinary transition. A three-state route performs three service calls, writes
-three audit entries and emits three events, exactly as making those moves one at a time would. That
-is the intended behaviour and not an implementation leak: a task that passed through `doing` really
-did pass through it, and the trail should say so. If a step is refused after earlier ones have
-applied, the message names the state actually reached and says it stopped there, rather than
-reporting a move that did not happen.
+Each step is then an ordinary transition. A three-state route performs three service calls, writes three
+audit entries and emits three events, exactly as making those moves one at a time would. That is
+intended: a task that passed through `doing` did pass through it, and the trail should say so. If a step
+is refused after earlier ones have applied, the message names the state actually reached and says it
+stopped there, rather than reporting a move that did not happen.
 
 The panel is a popover. It was an absolutely positioned disclosure first, inside a list that clips
 its overflow, so on a low row the choices were cut out of the scrollable area entirely: they took no
@@ -610,7 +607,7 @@ paragraph holding a link and one a row of actions, with two different words for 
 and no styling on any of them. None said where the reader was and none offered a way back. A listing
 that fits on one page renders no control at all, rather than a pair of steps that lead nowhere.
 
-Previous is the part worth explaining. Keyset pagination only goes forward: a cursor names where the
+Previous takes more work, because keyset pagination only goes forward: a cursor names where the
 next page starts and carries nothing about where the current one did, so there is no backwards cursor
 to ask the store for. The page remembers, in its own URL, the cursors it came through, and Previous
 pops the last one off:
@@ -648,13 +645,13 @@ same tasks as `project:infra`.
 
 Every control a project is chosen in names it the same way: the add box, Add with details, the bulk Copy
 to, a heading's New task in, Copy to, New from template, a template's project, the move target of a
-project delete and the statistics filter. The Project row on the task screen reads the same way. Settings,
-under Listings, picks the style: `Name (KEY)` by
-default, `KEY · Name`, `Name` or `KEY`. The choice is a cookie, `tix_project_label`, like every other
-display preference, and the value each option submits is the key whatever the label says. A name past
-24 characters is shortened with an ellipsis so the key after it is never cut off, and on a
-phone the add box and a heading's add field, which are only a few characters wide, list projects by key
-alone. A project's text icon leads the label, since a native option holds text only.
+project delete and the statistics filter. The Project row on the task screen reads the same way.
+Settings, under Listings, picks the style: `Name (KEY)` by default, `KEY · Name`, `Name` or `KEY`. The
+choice is a cookie, `tix_project_label`, like every other display preference, and the value each option
+submits is the key whatever the label says. A name past 24 characters is shortened with an ellipsis so
+the key after it is never cut off, and on a phone the add box and a heading's add field, which are only
+a few characters wide, list projects by key alone. A project's text icon leads the label, since a native
+option holds text only.
 
 ## Changing a project's key
 
@@ -703,11 +700,11 @@ names its parent beside its reference and in a Subtask of row.
 When a page fails, the error screen offers the page that linked to it and the task list, each named for
 where it goes. It used to offer "the dashboard", which was `/`, a redirect to the projects list.
 
-The description is drawn from its Markdown, and **Edit** beside its heading turns it into the editor in
+**Edit** beside the description's heading turns it into the editor in
 place, reading **Cancel** until you save; a task with no description offers **Add a description** instead.
 Both are disclosures, so they work with no script, and the `e` shortcut opens Rename and focuses the title.
-The description is drawn from its Markdown: lists, tables, code, links, and references
-such as `infra-8` and `@handles` linked to their pages. A checklist written `- [ ]` draws as checkboxes. With
+The description is drawn from its Markdown: lists, tables, code, links, and references such as
+`infra-8` and `@handles` linked to their pages. A checklist written `- [ ]` draws as checkboxes. With
 `task:write` each one ticks in place: it is a button a screen reader announces as a checkbox, Space and
 Enter press it, it flips at once and the screen swaps in place when the answer arrives, and a description
 somebody changed in the meantime is refused like any other stale save, with the box put back. Without a
@@ -737,8 +734,8 @@ by default, records where the copy came from: its properties then show **Copied 
 Stars, claims, history and artifacts never travel.
 
 The form is laid out like New task: the title is the large field, the project sits beside it, the options
-are one group of checkboxes, and Cancel and Copy close the form at the bottom right, with Ctrl+Enter (Cmd+Enter
-on a Mac) to copy and Escape to cancel. A copy that is refused, such as one into a project that no longer
+are one group of checkboxes, and Cancel and Copy close the form at the bottom right, with Ctrl+Enter
+(Cmd+Enter on a Mac) to copy and Escape to cancel. A copy that is refused, such as one into a project that no longer
 exists, comes back with every choice kept and the reason under the field it is about.
 
 When tasks open in a dialog the form opens in the same dialog. Copying returns to the original with a
@@ -820,8 +817,8 @@ entry is a link, so it all works with scripting off.
 
 Every action on a list row and on the task screen answers where it was taken. A row's star, status
 and priority swap that row and nothing else, as the tick always did, and a lane card's star swaps that
-card, as its other controls already did; a star, move, priority, tag or
-comment on the task screen swaps the page content and leaves the sidebar alone. The list keeps its
+card, as its other controls already did; a star, move, priority, tag or comment on the task screen
+swaps the page content and leaves the sidebar alone. The list keeps its
 scroll position and the control you used keeps focus. The element the forms sit in declares this
 with `data-inplace` (`templates/tasks.html`, `templates/task.html`) and `assets/feel.js` reads it at
 submit; with scripting off the forms post and redirect exactly as before. In the task dialog the
@@ -865,8 +862,9 @@ type, 300ms after the last key, and the deadline and sort selects apply when cha
 a browser without scripting. The list, board and lanes switch swaps the page instead of reloading it.
 
 **Keyboard shortcuts** are behind "?" on every screen, and behind Keyboard shortcuts in the account
-menu at the foot of the sidebar for anyone who does not know to press it. The overlay used to be looked
-up once when the page first loaded, so after the first boosted navigation "?" opened a copy nobody could see.
+menu at the foot of the sidebar for anyone who does not know to press it. The overlay used to be
+looked up once when the page first loaded, so after the first boosted navigation "?" opened a copy
+nobody could see.
 
 ## The command palette
 
@@ -913,8 +911,8 @@ the field takes a typed value either way.
 The field takes a handle as readily as an identifier. The reference is resolved in the service, so
 the browser, the command line and the API obey one rule rather than each transport obeying its own,
 and it is classified by shape: a value of exactly the length and alphabet of a generated identifier
-is an identifier and is passed through without a lookup, which is what keeps an actor of another
-tenant assignable. Anything else is a handle, and one this tenant does not have is refused as not
+is an identifier and is passed through without a lookup, which keeps an actor of another tenant
+assignable. Anything else is a handle, and one this tenant does not have is refused as not
 found, naming the reference, rather than reaching storage, where it used to fail a foreign key and
 surface the constraint text to the reader.
 
@@ -978,7 +976,8 @@ the listener and live connections.
 
 `/release` is linked twice from the sidebar footer: the running version opens its "What's new"
 section, and a "vX is available" line under it, shown when a newer release exists, opens the top. It
-answers one question first: is there something newer? A single card at the top says which of five things is true:
+answers one question first: is there something newer? A single card at the top says which of five
+things is true:
 
 | State | When |
 | --- | --- |
@@ -1046,11 +1045,11 @@ Two people sharing a tenant are frequently in different timezones for the same r
 different keyboard shortcuts.
 
 Settings carries all but one of them. Three are also editable from the screen they affect, because
-that is where the decision is actually made: whether a column reads better absent is answerable only by
+that is where the decision is made: whether a column reads better absent is answerable only by
 looking at the listing, and ticking projects off a task list is something you do while watching the
-list redraw. Those three are **one control rendered in two places, not two controls** -- one
-constructor builds the state, one template renders the form, one function reads the cookie and one
-handler writes it -- so changing a preference on either screen is what the other shows. A preference
+list redraw. Those three are one control rendered in two places, not two controls: one constructor
+builds the state, one template renders the form, one function reads the cookie and one handler
+writes it, so changing a preference on either screen is what the other shows. A preference
 with two editors has two defaults, two validations and two readings of one value, and the drift that
 follows is not noticed until a reader is looking at two screens that disagree.
 
@@ -1092,8 +1091,8 @@ going back a page.
 
 `tix_advanced` has three states rather than two: shown, hidden, and absent, which leaves the answer
 to who is reading. A tenant administrator who has never chosen gets the configuration and data
-screens under Admin, because the tenant screen was otherwise reachable by typing its URL and by no other means: the only
-entry to it lived behind a preference on a settings page they had no reason to open. Anybody else
+screens under Admin, because the tenant screen was otherwise reachable only by typing its URL: the
+only entry to it lived behind a preference on a settings page they had no reason to open. Anybody else
 gets the short navigation, since every screen in those groups refuses them and an entry leading to a
 refusal is worse than no entry. Being on one of those screens expands its group whatever the
 preference says, so a reader is never on a page the navigation beside them denies exists. Once the
@@ -1108,8 +1107,8 @@ Reset returns a listing to its declared defaults, which is not the same as untic
 column declared off by default is shown by the first and not the second.
 
 `tix_hidden_projects` names each project as well as keying it, because on Settings there is no task
-list in front of the reader to decode a key against. A key naming a project that no longer exists --
-deleted, or archived since the choice was made -- has no checkbox, since the project it names is
+list in front of the reader to decode a key against. A key naming a project that no longer exists
+(deleted, or archived since the choice was made) has no checkbox, since the project it names is
 gone, so the control names it in a sentence instead and the next submission of the form forgets it.
 Such a key excludes nothing: an unknown project key in a filter is refused as not found by the
 service, deliberately, so sending one would answer the task screen with a not-found page and leave
@@ -1231,7 +1230,7 @@ when the submission names them, so renaming leaves them alone. Without scripting
 A browser preference is a cookie on that browser. The terminal interface's settings screen writes the
 CLI's own configuration keys instead, because somebody at a terminal already has a configuration file
 and a second place to write a timezone down would be a second place to disagree with the command
-line. The two surfaces therefore do **not** share a store, and setting a preference in one does not
+line. The two surfaces therefore do not share a store, and setting a preference in one does not
 change the other:
 
 | Preference | Browser | Terminal and CLI |
@@ -1288,7 +1287,7 @@ exists until the code is taken. The destination a deep link was bounced from rid
 steps, so the reader still lands where they were going.
 
 An account the tenant requires a factor from that holds none is taken through enrolment on that same
-step rather than refused. This is what keeps turning the requirement on from locking out the
+step rather than refused. That keeps turning the requirement on from locking out the
 administrator who turned it on, and it is why the recovery codes appear there: they exist for exactly
 one response and are shown before the reader goes on.
 
@@ -1316,8 +1315,7 @@ Creating and rotating answer a screen that shows the address once, as text a rea
 select, beside a Copy button and a link that asks the device's calendar to subscribe. That screen is rendered
 rather than redirected to, so the secret never travels in a URL the browser keeps, and it is sent
 `Cache-Control: no-store`. A filter the service refuses draws Settings again with the text kept in the field
-and the reason beside it.
-[calendar.md](calendar.md) covers the feed itself.
+and the reason beside it. [calendar.md](calendar.md) covers the feed itself.
 
 ## Project icons
 
@@ -1337,7 +1335,7 @@ The stylesheet, the scripts and the icon are compiled into the binary and served
 strong `ETag` derived from their bytes and `Cache-Control: public, max-age=60, must-revalidate`. A
 conditional request for an unchanged asset gets a 304 with no body.
 
-The validator is the point. The asset URLs do not change between releases, and the responses used to
+The validator matters because the asset URLs do not change between releases. The responses used to
 carry no validator at all, so a browser cached them heuristically and after an upgrade a reader got
 the new markup with the previous release's stylesheet. That happened during review and was reported
 as the interface being broken. Each file is fingerprinted independently, so changing one does not
@@ -1384,9 +1382,9 @@ dependencies and `ABANDONED CLAIMS`. `-o json` carries the same counts, the last
 `abandoned`.
 
 The history is replayed through the ordinary service calls against a clock the command advances,
-not written behind them. That is not fastidiousness: statistics attribute a completion by matching
-the transition entry written in the same instant, so data inserted underneath the service would leave
-every leaderboard and lead-time figure empty, which is the opposite of the point.
+not written behind them. Statistics attribute a completion by matching the transition entry written
+in the same instant, so data inserted underneath the service would leave every leaderboard and
+lead-time figure empty.
 
 It refuses a database that already holds tasks or users unless `--reset` is passed, exiting 4 like any
 other conflict, so nobody discovers this command by finding a few dozen invented tasks in their real

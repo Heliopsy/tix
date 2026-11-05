@@ -65,8 +65,7 @@ breakdown exists to tell apart. If you want throughput with the abandonments exc
 
 ## An empty window
 
-Every count is zero, every list is empty, and the call succeeds. A window in which nothing happened is an
-answer, not an error.
+Every count is zero, every list is empty, and the call succeeds without an error.
 
 `where the work is` still reports each of the six categories, including the zeroes: a board that hides "0 in progress"
 reads as a missing figure rather than an empty one.

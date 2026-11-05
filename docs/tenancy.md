@@ -71,7 +71,7 @@ named another tenant's user and their email address.
 Tokens carry explicit scopes instead of a role, and may additionally be pinned to one project with
 `tix token create ... --project infra`. See [agents.md](agents.md) for the scope vocabulary.
 
-Pinning is confinement, not a hint. The policy in `internal/authz` holds an allow list of the operations whose
+A pinned token is confined to its project. The policy in `internal/authz` holds an allow list of the operations whose
 subject belongs to a single project: reading, creating, updating, transitioning, claiming and deleting tasks,
 reading and writing projects, reading workflows, and writing fields, comments and artifacts. A pinned token may
 perform those, and only inside its own project. Every other operation is refused outright, because its subject
@@ -121,7 +121,7 @@ not compile into existence.
 `Context` suffix, on a raw `*sql.DB`, `*sql.Tx` or `*sql.Conn`. Taking a handle out of the store and querying it
 directly fails the build.
 
-This layer is narrower than the one above it, and it is worth being exact about where it stops. The dialect
+This layer is narrower than the one above it. The dialect
 packages run the builder's output through an executor interface, and every correct call site in
 `internal/store/sqlite` and `internal/store/postgres` goes through that interface; forbidding it would flag some
 sixty sanctioned call sites and prove nothing, so the rule does not try. What the rule cannot see is a query
@@ -190,9 +190,9 @@ $ tix --tenant default project ls -o json | grep -o '"key":"[^"]*"'
 "key":"default"
 ```
 
-The key is checked before it is written, by opening the target tenant and asking it who you are. That check is
-not a nicety: an actor is bound to exactly one tenant, so from inside `default` a tenant named `acme` and a
-tenant that was never created are indistinguishable -- `tix tenant ls` returns your own tenant and nothing
+The key is checked before it is written, by opening the target tenant and asking it who you are. This matters
+because an actor is bound to exactly one tenant, so from inside `default` a tenant named `acme` and a
+tenant that was never created are indistinguishable: `tix tenant ls` returns your own tenant and nothing
 else, by design. Writing an unreachable key would leave every later command failing with an error that names
 the wrong problem. Pass `--force` for the case where the tenant genuinely does not exist yet.
 
@@ -215,8 +215,8 @@ checks one by opening it: the actor cannot see any tenant but its own, so there 
 checked by opening a connection pinned to it and asking who you are there; a key that cannot be reached is
 refused and the session stays where it was.
 
-A switch inside the interface lasts for the session. Everything loaded from the previous tenant is dropped --
-the project list, the open board, the event tail -- because all of it belonged to that tenant, and the session
+A switch inside the interface lasts for the session. Everything loaded from the previous tenant is dropped
+(the project list, the open board, the event tail), because all of it belonged to that tenant, and the session
 lands back on the project list of the new one. A lease this session was holding goes with it: a lease is held
 in the tenant it was taken in, so it is not released by walking away from it and will expire on its own. The
 status bar says so when it happens. Use `tix tenant use` to write the choice down for later runs.
