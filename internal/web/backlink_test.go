@@ -18,7 +18,10 @@ func backLink(t *testing.T, page string) (href, label string) {
 		t.Fatalf("the task screen has no back link")
 	}
 	href, label, _ = strings.Cut(link, `">`)
-	return html.UnescapeString(href), strings.TrimSpace(strings.TrimPrefix(html.UnescapeString(label), "←"))
+	if !strings.HasPrefix(label, `<svg class="icon" aria-hidden="true"`) {
+		t.Errorf("the back link does not open with its arrow icon: %s", label)
+	}
+	return html.UnescapeString(href), strings.Join(strings.Fields(html.UnescapeString(stripTags(label))), " ")
 }
 
 // Where the back link goes, for every way the screen can be reached. The

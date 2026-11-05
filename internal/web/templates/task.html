@@ -5,8 +5,8 @@
 {{/* The way back to the listing the reader came from, filters and all. In
      the dialog there is nowhere to go back to: the listing is under it, and
      the way out is closing it, which assets/taskopen.js turns into Back. */}}
-{{if .InDialog}}<p class="backlink"><button type="button" class="ghost dlgclose" data-dialog-close>&larr; {{t "Close"}}</button></p>
-{{else}}<p class="backlink"><a href="{{.Data.Back}}">&larr; {{phrase .Data.BackLabel}}</a></p>{{end}}
+{{if .InDialog}}<p class="backlink"><button type="button" class="ghost dlgclose" data-dialog-close>{{template "icon" "arrow-left"}}<span>{{t "Close"}}</span></button></p>
+{{else}}<p class="backlink"><a href="{{.Data.Back}}">{{template "icon" "arrow-left"}}<span>{{phrase .Data.BackLabel}}</span></a></p>{{end}}
 
 {{/* The header: the reference, the title, the star and one menu holding
      every action on the task as a whole. Copy to, Save as template, Snooze
@@ -213,7 +213,7 @@
             <form method="post" action="/tasks/{{$t.Ref}}/tags/remove">
               {{template "csrf" $.CSRF}}
               <input type="hidden" name="tag" value="{{.}}">
-              <button class="tagdrop" type="submit" aria-label="{{t "Remove the tag %s" .}}" title="{{t "Remove %s" .}}">&times;</button>
+              <button class="tagdrop" type="submit" aria-label="{{t "Remove the tag %s" .}}" title="{{t "Remove %s" .}}">{{template "icon" "x"}}</button>
             </form>
             {{end}}
           </li>
@@ -241,7 +241,7 @@
           <input id="{{.IDPrefix}}repeat" name="repeat" value="{{$t.Recurrence}}" placeholder="{{t "Does not repeat"}}">
           <button type="submit" class="propsave">{{t "Save"}}</button>
         </form>
-        {{else if $t.Recurrence}}<span aria-hidden="true">&#x21bb;</span> {{$t.Recurrence}}{{else}}<span class="muted">&mdash;</span>{{end}}
+        {{else if $t.Recurrence}}{{template "icon" "repeat"}} {{$t.Recurrence}}{{else}}<span class="muted">&mdash;</span>{{end}}
         {{/* What the rule will do next: the occurrence already created, or
              the date finishing now would give one. */}}
         {{if .Data.Successor}}<span class="propnote">{{t "next"}} <a class="mono" href="/tasks/{{.Data.Successor}}">{{.Data.Successor}}</a>{{if .Data.SuccessorDue}} {{t "due %s" (stamp .Data.SuccessorDue)}}{{end}}</span>
@@ -349,7 +349,7 @@
         <form method="post" class="reldrop" action="/tasks/{{$t.Ref}}/deps/remove">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="depends_on" value="{{.ID}}">
-          <button class="tagdrop" type="submit" aria-label="{{t "Remove the dependency on %s" .Label}}" title="{{t "Remove %s" .Label}}">&times;</button>
+          <button class="tagdrop" type="submit" aria-label="{{t "Remove the dependency on %s" .Label}}" title="{{t "Remove %s" .Label}}">{{template "icon" "x"}}</button>
         </form>
         {{end}}
       </li>

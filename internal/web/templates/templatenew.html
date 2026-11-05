@@ -1,7 +1,7 @@
 {{define "content"}}
 {{$f := .Data.Form}}{{$e := .Data.Errors}}{{$c := .Data.Chosen}}
 {{$back := "/tasks"}}{{if $f.Next}}{{$back = $f.Next}}{{end}}
-<p class="backlink"><a href="{{$back}}">&larr; {{t "Back to tasks"}}</a></p>
+<p class="backlink"><a href="{{$back}}">{{template "icon" "arrow-left"}}<span>{{t "Back to tasks"}}</span></a></p>
 {{if not .Data.Templates}}
 <div class="headtip"><h1>{{t "New from template"}}</h1></div>
 <p>{{t "No templates yet. Open a task and pick Save as template."}}</p>

@@ -159,7 +159,7 @@ func TestStarCollapseAndMoveRearrangeTheLanes(t *testing.T) {
 		t.Errorf("after starring ops the lanes are %v, want ops first", got)
 	}
 	lane := groupSection(t, b.page("/tasks"), `id="lane-ops"`)
-	if !strings.Contains(lane, "is-starred") || !strings.Contains(lane, `class="groupstar"`) {
+	if !strings.Contains(lane, "is-starred") || !strings.Contains(lane, `class="icon groupstar"`) {
 		t.Error("a starred lane does not say so")
 	}
 	arrange(t, b, "/view/group", setGroup("lanes", "ops", "starred", "0", "/tasks"))
