@@ -13,9 +13,6 @@ permit it, or record that the operation needs an authenticated session and nothi
 SHALL be the scope the service actually refuses for, proved against the running service rather than
 asserted.
 
-An operation whose required scope is decided by its input rather than by the operation SHALL be named as
-such with the reason, and SHALL be bound to no terminal view, because no single scope could gate it.
-
 #### Scenario: A declared scope that nothing enforces fails the build
 
 - **WHEN** an operation declares a scope the service does not refuse for
@@ -25,6 +22,11 @@ such with the reason, and SHALL be bound to no terminal view, because no single 
 
 - **WHEN** an operation declares no scope
 - **THEN** calling it as an actor holding no scope is not refused for want of one
+
+### Requirement: An operation whose scope varies by input names no scope and no view
+
+An operation whose required scope is decided by its input rather than by the operation SHALL be named as
+such with the reason, and SHALL be bound to no terminal view, because no single scope could gate it.
 
 #### Scenario: An operation whose scope varies by input names no scope and no view
 
@@ -53,10 +55,6 @@ An operation whose binding on one surface is present but narrower than the same 
 record that shortfall against that surface with its reason. A shortfall SHALL name a surface the operation
 binds, and SHALL NOT be recorded against a surface the operation is exempted from.
 
-A recorded shortfall SHALL describe the narrowing the code actually performs. Where a narrowing is lifted
-or replaced, the record SHALL be rewritten rather than left describing the former behaviour, and any spec
-stating the former narrowing as deliberate SHALL be corrected, including an archived one.
-
 #### Scenario: The browser's subtask depth is recorded
 
 - **WHEN** the registry is read
@@ -73,6 +71,12 @@ stating the former narrowing as deliberate SHALL be corrected, including an arch
 - **THEN** the token list records that the browser reaches another actor's tokens only for a reader holding
   the tenant administration scope, where the command line and the API reach them on the token
   administration scope alone
+
+### Requirement: A recorded shortfall describes the narrowing the code performs
+
+A recorded shortfall SHALL describe the narrowing the code actually performs. Where a narrowing is lifted
+or replaced, the record SHALL be rewritten rather than left describing the former behaviour, and any spec
+stating the former narrowing as deliberate SHALL be corrected, including an archived one.
 
 #### Scenario: A lifted narrowing is not left recorded as it was
 
@@ -147,13 +151,6 @@ The recorded terminal gap count SHALL fall by exactly those four, so that closin
 count happen in one change and neither can drift from the other. The gate SHALL fail both when the count
 grows and when it falls without the constant being lowered with it.
 
-`audit.list` SHALL name a terminal view distinct from the one `event.subscribe` names, because the two are
-offered on different scopes and a shared view would be offered on either.
-
-The terminal binding for `artifact.put` SHALL record a limitation naming the parts of an artifact the
-interface does not gather, because a surface that serves part of an operation while the registry says it
-serves all of it is the same untruth as a missing binding.
-
 #### Scenario: None of the four records a terminal gap
 
 - **WHEN** the registry is asked for its terminal gaps
@@ -166,10 +163,21 @@ serves all of it is the same untruth as a missing binding.
 - **THEN** the count is the number the gate records
 - **AND** a gap put back fails the gate
 
+### Requirement: The stored audit log and the live tail name different terminal views
+
+`audit.list` SHALL name a terminal view distinct from the one `event.subscribe` names, because the two are
+offered on different scopes and a shared view would be offered on either.
+
 #### Scenario: The live tail and the stored log name different views
 
 - **WHEN** the registry is asked which view each is bound to
 - **THEN** the two names differ
+
+### Requirement: The terminal artifact binding records the parts it does not gather
+
+The terminal binding for `artifact.put` SHALL record a limitation naming the parts of an artifact the
+interface does not gather, because a surface that serves part of an operation while the registry says it
+serves all of it is the same untruth as a missing binding.
 
 #### Scenario: The artifact binding says how far it reaches
 
@@ -182,29 +190,10 @@ The capability registry SHALL bind `project.show`, `project.update`, `project.ar
 `workflow.get`, `field.put` and `field.delete` to the terminal interface, and SHALL no longer record a
 terminal gap against any of them.
 
-The registry SHALL record `workflow.put` and `workflow.delete` as absences the terminal cannot serve rather
-than as gaps, each with the reason: a state machine is not gatherable by a single line of text or a form of
-fixed lists, and the only workflow a terminal names is one the service refuses to delete.
-
-The recorded terminal gap count SHALL fall by exactly those nine, so that closing a gap and lowering the count
-happen in one change and neither can drift from the other.
-
 #### Scenario: None of the nine records a terminal gap
 
 - **WHEN** the registry is asked for its terminal gaps
 - **THEN** none of the nine operations is among them
-
-#### Scenario: The seven declare a terminal binding and the two declare a reason
-
-- **WHEN** each of the nine is read from the registry
-- **THEN** seven of them name a terminal view
-- **AND** the other two record an exemption carrying a reason
-
-#### Scenario: The recorded count matches the gaps that remain
-
-- **WHEN** the terminal gaps are counted
-- **THEN** the count is the number the gate records
-- **AND** a gap put back fails the gate
 
 #### Scenario: The view the bindings name exists and can be reached
 
@@ -212,19 +201,35 @@ happen in one change and neither can drift from the other.
 - **THEN** the interface has a view of that name
 - **AND** at least one read is bound to it, so a reader can be offered it
 
+### Requirement: The registry records the two workflow writes as terminal absences
+
+The registry SHALL record `workflow.put` and `workflow.delete` as absences the terminal cannot serve rather
+than as gaps, each with the reason: a state machine is not gatherable by a single line of text or a form of
+fixed lists, and the only workflow a terminal names is one the service refuses to delete.
+
+#### Scenario: The seven declare a terminal binding and the two declare a reason
+
+- **WHEN** each of the nine is read from the registry
+- **THEN** seven of them name a terminal view
+- **AND** the other two record an exemption carrying a reason
+
+### Requirement: The project screen lowers the terminal gap count by nine
+
+The recorded terminal gap count SHALL fall by exactly the nine operations the project screen binds or records
+as absences, so that closing a gap and lowering the count happen in one change and neither can drift from the
+other.
+
+#### Scenario: The recorded count matches the gaps that remain
+
+- **WHEN** the terminal gaps are counted
+- **THEN** the count is the number the gate records
+- **AND** a gap put back fails the gate
+
 ### Requirement: The registry records the tenant screen's bindings and the two absences it does not close
 
 The capability registry SHALL bind `tenant.show`, `tenant.list`, `tenant.update`, `domain.add`,
 `domain.list`, `domain.remove`, `member.add`, `member.list` and `member.remove` to the terminal interface,
 and SHALL no longer record a terminal gap against any of them.
-
-The registry SHALL go on recording a terminal gap against `tenant.create` and `tenant.delete`, each with the
-reason that a session pinned to one tenant is neither where another is made nor where the one in use is
-destroyed.
-
-`domain.add` SHALL record a terminal limitation naming what the screen cannot gather, because a binding that
-serves part of an operation while the registry says it serves all of it is the same untruth as a missing
-binding.
 
 The recorded terminal gap count SHALL fall by exactly those nine, so that closing a gap and lowering the
 count happen in one change and neither can drift from the other.
@@ -234,17 +239,29 @@ count happen in one change and neither can drift from the other.
 - **WHEN** the registry is asked for its terminal gaps
 - **THEN** none of the nine operations is among them
 
+#### Scenario: The recorded count matches the gaps that remain
+
+- **WHEN** the terminal gaps are counted
+- **THEN** the count is the number the gate records
+- **AND** a gap put back fails the gate
+
+### Requirement: The registry keeps the tenant creation and deletion gaps
+
+The registry SHALL go on recording a terminal gap against `tenant.create` and `tenant.delete`, each with the
+reason that a session pinned to one tenant is neither where another is made nor where the one in use is
+destroyed.
+
 #### Scenario: The two that stay are still recorded
 
 - **WHEN** the registry is asked for its terminal gaps
 - **THEN** `tenant.create` and `tenant.delete` are among them
 - **AND** each carries a reason
 
-#### Scenario: The recorded count matches the gaps that remain
+### Requirement: The terminal domain binding records what it cannot gather
 
-- **WHEN** the terminal gaps are counted
-- **THEN** the count is the number the gate records
-- **AND** a gap put back fails the gate
+`domain.add` SHALL record a terminal limitation naming what the screen cannot gather, because a binding that
+serves part of an operation while the registry says it serves all of it is the same untruth as a missing
+binding.
 
 #### Scenario: The partial binding says how far it reaches
 
@@ -257,19 +274,8 @@ count happen in one change and neither can drift from the other.
 The capability registry SHALL hold exactly one operation for the new `Status` service method, bound to the
 command line, the HTTP API and the browser.
 
-It SHALL record a terminal gap rather than an exemption, because the terminal interface has no
-administration screen at all and the server is one more thing it cannot show, which is a parity defect kept
-visible rather than an operation a terminal cannot serve.
-
 The declared scope SHALL be the scope the service actually enforces, which the authority gate proves
 against the real service rather than taking on trust.
-
-The recorded terminal gap count SHALL rise by exactly one, so that opening a gap and raising the count
-happen in one change and neither can drift from the other. The operation count SHALL rise by exactly one
-for the same reason.
-
-The prose in `docs/tui.md` SHALL state the new figures, both the gap count and the operation count, because
-a page that names the old one is a page that has quietly stopped being true.
 
 #### Scenario: The operation is declared once
 
@@ -277,17 +283,34 @@ a page that names the old one is a page that has quietly stopped being true.
 - **THEN** exactly one operation names that method
 - **AND** it declares a command line binding, an HTTP route and a browser screen
 
+### Requirement: The status operation's terminal absence is recorded as a gap
+
+The status operation SHALL record a terminal gap rather than an exemption, because the terminal interface
+has no administration screen at all and the server is one more thing it cannot show, which is a parity
+defect kept visible rather than an operation a terminal cannot serve.
+
 #### Scenario: The terminal absence is recorded as a gap
 
 - **WHEN** the registry is asked for its terminal gaps
 - **THEN** the status operation is among them
 - **AND** its reason is marked as a gap rather than as an operation the terminal cannot serve
 
+### Requirement: The status operation raises the gap count and the operation count by one
+
+The recorded terminal gap count SHALL rise by exactly one, so that opening a gap and raising the count
+happen in one change and neither can drift from the other. The operation count SHALL rise by exactly one
+for the same reason.
+
 #### Scenario: The counts move together
 
 - **WHEN** the terminal gaps are counted
 - **THEN** the count is the number the gate records
 - **AND** the gate fails if the gap is closed without lowering the number
+
+### Requirement: The terminal documentation states the status operation's figures
+
+The prose in `docs/tui.md` SHALL state the new figures, both the gap count and the operation count, because
+a page that names the old one is a page that has quietly stopped being true.
 
 #### Scenario: The page states the figures the registry holds
 
