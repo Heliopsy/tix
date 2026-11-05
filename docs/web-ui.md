@@ -960,9 +960,9 @@ the section it is shown to tenant admins only.
 ## Claim length
 
 A task's Lease row sets how long a claim on it holds, and under it the screen says how long a claim taken now
-would last and which level decided it, such as "Claims last 4h, from the project". The Claims panel on each
-project's board sets the project's lease length and its longest lease; both blank inherit the tenant's, and the
-tenant's are on the Tenant screen. The order is in [agents.md](agents.md#how-long-a-lease-lasts).
+would last and which level decided it, such as "Claims last 4h, from the project". The Claims section of a
+project's settings screen (`/projects/KEY/settings`, Settings on the board) sets the project's lease length and its
+longest lease; both blank inherit the tenant's, and the tenant's are on the Tenant screen. The order is in [agents.md](agents.md#how-long-a-lease-lasts).
 
 ## Server administration
 
