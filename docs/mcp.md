@@ -19,7 +19,27 @@ other command does: `--server` and `--token`, `TIX_SERVER_URL` and `TIX_TOKEN`, 
 tix token create claude --scope task:read --scope task:write --scope task:claim --scope comment:write -o json
 ```
 
-Claude Code, in `.mcp.json` at the root of a project or through `claude mcp add`:
+Every client registers it the same way: `tix` with the argument `mcp` as a stdio server, and the two variables
+in its environment. Below, URL stands for your server's address, such as `https://tix.example.com`, and TOKEN
+for the token you just minted. Any client not listed here that launches a stdio server takes the same command
+and environment.
+
+Startup asks the server who the token belongs to, so a wrong URL or a refused token ends the process with a
+message on standard error before the client sees any tools. A client started from a desktop launcher may not
+see your shell's `PATH`; give it the absolute path to `tix` as the command if it cannot start the server.
+
+Only stdio is served. An HTTP transport would hand your token's authority to whoever reaches the port, and
+`tix serve` is already the network surface, with its own authentication.
+
+### Claude Code
+
+From the command line ([docs](https://code.claude.com/docs/en/mcp)):
+
+```sh
+claude mcp add tix --env TIX_SERVER_URL=URL --env TIX_TOKEN=TOKEN -- tix mcp
+```
+
+Or in `.mcp.json` at the root of a project:
 
 ```json
 {
@@ -28,24 +48,165 @@ Claude Code, in `.mcp.json` at the root of a project or through `claude mcp add`
       "command": "tix",
       "args": ["mcp"],
       "env": {
-        "TIX_SERVER_URL": "https://tix.example.com",
-        "TIX_TOKEN": "tix_..."
+        "TIX_SERVER_URL": "URL",
+        "TIX_TOKEN": "TOKEN"
       }
     }
   }
 }
 ```
 
+### Codex
+
+From the command line ([docs](https://developers.openai.com/codex/mcp)):
+
 ```sh
-claude mcp add tix --env TIX_SERVER_URL=https://tix.example.com --env TIX_TOKEN=tix_... -- tix mcp
+codex mcp add tix --env TIX_SERVER_URL=URL --env TIX_TOKEN=TOKEN -- tix mcp
 ```
 
-Any other client that launches a stdio server takes the same command and environment. Startup asks the server
-who the token belongs to, so a wrong URL or a refused token ends the process with a message on standard error
-before the client sees any tools.
+Or in `~/.codex/config.toml`, which the Codex CLI and IDE extension share:
 
-Only stdio is served. An HTTP transport would hand your token's authority to whoever reaches the port, and
-`tix serve` is already the network surface, with its own authentication.
+```toml
+[mcp_servers.tix]
+command = "tix"
+args = ["mcp"]
+
+[mcp_servers.tix.env]
+TIX_SERVER_URL = "URL"
+TIX_TOKEN = "TOKEN"
+```
+
+### OpenCode
+
+In `opencode.json` ([docs](https://opencode.ai/docs/mcp-servers/)). The command and its arguments are one
+array, and the variables go under `environment`, not `env`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "tix": {
+      "type": "local",
+      "command": ["tix", "mcp"],
+      "enabled": true,
+      "environment": {
+        "TIX_SERVER_URL": "URL",
+        "TIX_TOKEN": "TOKEN"
+      }
+    }
+  }
+}
+```
+
+### Gemini CLI
+
+In `.gemini/settings.json` in a project, or `~/.gemini/settings.json` for every project
+([docs](https://geminicli.com/docs/tools/mcp-server/)). Gemini CLI starts stdio servers only in a folder you
+have trusted:
+
+```json
+{
+  "mcpServers": {
+    "tix": {
+      "command": "tix",
+      "args": ["mcp"],
+      "env": {
+        "TIX_SERVER_URL": "URL",
+        "TIX_TOKEN": "TOKEN"
+      }
+    }
+  }
+}
+```
+
+### Claude Desktop
+
+In `claude_desktop_config.json`, which is `~/Library/Application Support/Claude/` on macOS and `%APPDATA%\Claude\`
+on Windows ([docs](https://modelcontextprotocol.io/docs/develop/connect-local-servers)). Quit and reopen the app
+after editing it:
+
+```json
+{
+  "mcpServers": {
+    "tix": {
+      "command": "tix",
+      "args": ["mcp"],
+      "env": {
+        "TIX_SERVER_URL": "URL",
+        "TIX_TOKEN": "TOKEN"
+      }
+    }
+  }
+}
+```
+
+### Cursor
+
+In `.cursor/mcp.json` in a project, or `~/.cursor/mcp.json` for every project
+([docs](https://cursor.com/docs/context/mcp)):
+
+```json
+{
+  "mcpServers": {
+    "tix": {
+      "type": "stdio",
+      "command": "tix",
+      "args": ["mcp"],
+      "env": {
+        "TIX_SERVER_URL": "URL",
+        "TIX_TOKEN": "TOKEN"
+      }
+    }
+  }
+}
+```
+
+### VS Code
+
+In `.vscode/mcp.json` in a workspace, for GitHub Copilot's agent mode
+([docs](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)). The top-level key is `servers`,
+not `mcpServers`:
+
+```json
+{
+  "servers": {
+    "tix": {
+      "type": "stdio",
+      "command": "tix",
+      "args": ["mcp"],
+      "env": {
+        "TIX_SERVER_URL": "URL",
+        "TIX_TOKEN": "TOKEN"
+      }
+    }
+  }
+}
+```
+
+`code --add-mcp` writes the same server to your user profile instead:
+
+```sh
+code --add-mcp '{"name":"tix","type":"stdio","command":"tix","args":["mcp"],"env":{"TIX_SERVER_URL":"URL","TIX_TOKEN":"TOKEN"}}'
+```
+
+### Zed
+
+In Zed's `settings.json`, opened with `zed: open settings file` ([docs](https://zed.dev/docs/ai/mcp)):
+
+```json
+{
+  "context_servers": {
+    "tix": {
+      "command": "tix",
+      "args": ["mcp"],
+      "env": {
+        "TIX_SERVER_URL": "URL",
+        "TIX_TOKEN": "TOKEN"
+      }
+    }
+  }
+}
+```
 
 ## What becomes a tool
 
