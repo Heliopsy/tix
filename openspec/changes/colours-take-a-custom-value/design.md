@@ -66,4 +66,6 @@ SGR of the nearest palette colour by the palette's light-scheme shades.
 ## Beside the icon change
 
 `a-project-icon-can-be-a-symbol-or-an-image` modifies the same two requirements. The deltas here carry
-its icon text as well as the colour text, so archiving the two in either order leaves both in the spec.
+its icon text as well as the colour text, so archiving the two in either order leaves both in the spec. The rule
+for drawing each kind of icon on a row is added by the icon change alone; it was copied here once,
+under another name, and would have been archived twice.
