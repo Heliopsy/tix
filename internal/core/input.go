@@ -3,6 +3,8 @@
 package core
 
 import (
+	"bytes"
+	"encoding/json"
 	"slices"
 	"time"
 )
@@ -475,8 +477,8 @@ type UpdateTaskInput struct {
 	// ParentRef moves the task under another task, refusing a cycle; empty
 	// detaches it and omitted leaves it.
 	ParentRef *string `json:"parent_ref,omitempty" yaml:"parent_ref,omitempty"`
-	// DueAt sets the due time, an RFC 3339 timestamp. Omitted or null leaves
-	// it unchanged, so a JSON request cannot clear it.
+	// DueAt sets the due time, an RFC 3339 timestamp; null clears it and
+	// omitted leaves it.
 	DueAt **time.Time `json:"due_at,omitempty" yaml:"due_at,omitempty"`
 	// CustomFields merges values over the stored ones by field key; a null
 	// value clears that field.
@@ -494,6 +496,29 @@ type UpdateTaskInput struct {
 	// Version is the task version the caller last read. When set and stale the
 	// update is refused as a conflict; 0 skips the check.
 	Version int `json:"version,omitempty" yaml:"version,omitempty"`
+}
+
+// UnmarshalJSON decodes the update, keeping "due_at": null as a clear. The
+// standard decoder turns null into a nil outer pointer, which reads as omitted.
+func (in *UpdateTaskInput) UnmarshalJSON(b []byte) error {
+	type plain UpdateTaskInput
+	var decoded plain
+	if err := json.Unmarshal(b, &decoded); err != nil {
+		return err
+	}
+	if decoded.DueAt == nil {
+		var present struct {
+			DueAt json.RawMessage `json:"due_at"`
+		}
+		if err := json.Unmarshal(b, &present); err != nil {
+			return err
+		}
+		if bytes.Equal(bytes.TrimSpace(present.DueAt), []byte("null")) {
+			decoded.DueAt = new(*time.Time)
+		}
+	}
+	*in = UpdateTaskInput(decoded)
+	return nil
 }
 
 // TransitionInput moves a task to a new status.

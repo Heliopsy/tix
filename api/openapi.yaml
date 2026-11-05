@@ -12284,8 +12284,8 @@ components:
             a null value clears that field.
           type: object
         due_at:
-          description: DueAt sets the due time, an RFC 3339 timestamp. Omitted or
-            null leaves it unchanged, so a JSON request cannot clear it.
+          description: DueAt sets the due time, an RFC 3339 timestamp; null clears
+            it and omitted leaves it.
           format: date-time
           type:
             - "null"
