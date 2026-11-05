@@ -66,12 +66,6 @@ the same predicate the help overlay filters with.
 The palette SHALL offer an action on the selected task only when the reader holds the authority the
 action's operation needs, decided by the same predicate the footer filters with.
 
-An action that acts on the selected task SHALL NOT be listed while no task is selected, and an action that
-needs an open project SHALL NOT be listed while no project is open. Such an entry SHALL be omitted rather
-than listed in a disabled form.
-
-The palette SHALL mark the entry for the view the reader is currently in.
-
 #### Scenario: A reader refused a view is not offered its entry
 
 - **WHEN** the palette is opened by a reader who may not subscribe to events
@@ -83,10 +77,20 @@ The palette SHALL mark the entry for the view the reader is currently in.
 - **WHEN** the palette is opened by a reader who may not claim a task
 - **THEN** no entry claims the selected task
 
+### Requirement: The palette omits an action whose subject is missing
+
+An action that acts on the selected task SHALL NOT be listed while no task is selected, and an action that
+needs an open project SHALL NOT be listed while no project is open. Such an entry SHALL be omitted rather
+than listed in a disabled form.
+
 #### Scenario: An action on the selection is hidden with nothing selected
 
 - **WHEN** the palette is opened with no task selected
 - **THEN** no entry acts on a selected task
+
+### Requirement: The palette marks the view the reader is in
+
+The palette SHALL mark the entry for the view the reader is currently in.
 
 #### Scenario: The open view is marked
 

@@ -13,9 +13,6 @@ whole-task form on a view where a task is selected, the project form on the proj
 tenant form on the tenant screen. It SHALL NOT offer a second binding that edits a task's title alone,
 and no free-text input gathering only a title SHALL remain registered.
 
-Each screen that borrows the binding SHALL describe it in its own words, because the description that
-fits a task does not fit a screen holding none.
-
 #### Scenario: The edit key opens the whole-task form
 
 - **WHEN** the edit key is pressed with a task selected, on the board or in the detail view
@@ -37,16 +34,22 @@ fits a task does not fit a screen holding none.
 - **WHEN** the reader's authority does not reach the update the binding calls
 - **THEN** the footer and the help overlay leave the binding out, and pressing it does nothing
 
+### Requirement: Each screen describes the edit binding in its own words
+
+Each screen that borrows the edit binding SHALL describe it in its own words, because the description
+that fits a task does not fit a screen holding none.
+
+#### Scenario: The project screen describes the edit key as its own
+
+- **WHEN** the help overlay is drawn on the project screen
+- **THEN** the edit key is described as editing the project
+- **AND** it is not described in the board's words for a task
+
 ### Requirement: A key cycles the selected task's priority
 
 The interface SHALL offer a binding that moves the selected task one place down the priority scale and
 applies it immediately, without opening a picker or any other input. From the lowest priority it SHALL
 wrap to the highest, so every priority is reachable from that binding alone.
-
-The binding SHALL be offered wherever a task is selected, gated on the same update operation the rest of
-the task actions are gated on, and SHALL NOT be offered on a deleted task.
-
-The binding that opens the priority picker SHALL continue to set any priority in one trip.
 
 #### Scenario: One press moves one place
 
@@ -58,10 +61,19 @@ The binding that opens the priority picker SHALL continue to set any priority in
 - **WHEN** the cycle key is pressed on a task at the lowest priority
 - **THEN** the task is updated to the highest priority
 
+### Requirement: The priority cycle is offered wherever a task is selected
+
+The priority cycle binding SHALL be offered wherever a task is selected, gated on the same update
+operation the rest of the task actions are gated on, and SHALL NOT be offered on a deleted task.
+
 #### Scenario: The cycle reaches the open task too
 
 - **WHEN** the cycle key is pressed in the detail view
 - **THEN** the open task's priority moves one place, the same as on the board
+
+### Requirement: The priority picker still sets any priority in one trip
+
+The binding that opens the priority picker SHALL continue to set any priority in one trip.
 
 #### Scenario: The picker is still one trip
 

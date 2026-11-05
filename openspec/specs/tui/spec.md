@@ -613,13 +613,6 @@ The terminal interface SHALL offer a reader the views their scopes permit and SH
 view whose every read the service would refuse. A view SHALL be considered reachable when the reader may
 perform at least one of the read operations the capability registry binds to it.
 
-The interface SHALL NOT hold its own table of the scopes a view requires. The set of reachable views SHALL
-be supplied to it, resolved from the same scopes the registry records and the service enforces, and SHALL be
-resolved once for the session rather than per keystroke.
-
-A session supplied with no set of reachable views SHALL be offered only the views that read nothing from the
-service.
-
 #### Scenario: A reader who may not subscribe to events is not offered the activity view
 
 - **WHEN** a session's actor holds the task and project read scopes but not the event subscribe scope
@@ -640,6 +633,15 @@ service.
 
 - **WHEN** a reader not offered a view presses the key that opens it
 - **THEN** the open view does not change
+
+### Requirement: The reachable views are supplied to the terminal interface, not held by it
+
+The interface SHALL NOT hold its own table of the scopes a view requires. The set of reachable views SHALL
+be supplied to it, resolved from the same scopes the registry records and the service enforces, and SHALL be
+resolved once for the session rather than per keystroke.
+
+A session supplied with no set of reachable views SHALL be offered only the views that read nothing from the
+service.
 
 #### Scenario: A session with no authority supplied reaches only the local views
 
@@ -683,10 +685,6 @@ its subject SHALL NOT be presented.
 The question SHALL also state what the action will do beyond its subject where the subject alone cannot say
 it, such as a deletion that is permanent or that takes the subtasks with it.
 
-The confirmation SHALL be answered by a key of its own and SHALL NOT be answered by the key that accepts the
-interface's other inputs. A key that is neither the agreement nor the cancellation SHALL leave the question
-standing rather than answering or dismissing it.
-
 #### Scenario: Deleting a task names the task
 
 - **WHEN** a reader asks to delete the selected task
@@ -703,6 +701,12 @@ standing rather than answering or dismissing it.
 
 - **WHEN** a reader asks for a deletion that is permanent and takes the subtasks with it
 - **THEN** the confirmation says both before it is agreed to
+
+### Requirement: A confirmation is answered only by its own keys
+
+The confirmation SHALL be answered by a key of its own and SHALL NOT be answered by the key that accepts the
+interface's other inputs. A key that is neither the agreement nor the cancellation SHALL leave the question
+standing rather than answering or dismissing it.
 
 #### Scenario: The key that accepts other inputs does not confirm
 
@@ -725,15 +729,22 @@ makes it irrelevant, and a hidden field SHALL contribute no answer.
 Each field SHALL show the values it could hold instead of its current answer, or where its current answer sits
 in that list when the list is too long to show.
 
-A form SHALL be moved through and answered with the bindings the interface already defines for moving and
-accepting, so that every shipped keybinding scheme drives it, and SHALL name the keys of the loaded scheme
-rather than fixed keys.
-
 #### Scenario: A form's own answer takes a field off the screen
 
 - **WHEN** the delete form's subject is changed from the task to a comment
 - **THEN** the switches that control how far a task deletion reaches are no longer shown
 - **AND** they contribute nothing to the action
+
+#### Scenario: A long list of values says where the answer sits
+
+- **WHEN** a field offers more values than its row has room to list
+- **THEN** the row states the answer's position in the list instead of listing them
+
+### Requirement: A form is driven by the bindings of the loaded scheme
+
+A form SHALL be moved through and answered with the bindings the interface already defines for moving and
+accepting, so that every shipped keybinding scheme drives it, and SHALL name the keys of the loaded scheme
+rather than fixed keys.
 
 #### Scenario: A form is driven under every scheme
 
@@ -745,11 +756,6 @@ rather than fixed keys.
 
 - **WHEN** a form is open under a scheme that binds accepting to another key
 - **THEN** the form's own instruction names that scheme's key
-
-#### Scenario: A long list of values says where the answer sits
-
-- **WHEN** a field offers more values than its row has room to list
-- **THEN** the row states the answer's position in the list instead of listing them
 
 ### Requirement: The terminal interface can remove a task
 
@@ -867,16 +873,9 @@ on.
 The terminal interface SHALL offer a view of the durable audit log, scoped to the task the reader has
 selected, the project whose screen is open, or the tenant when neither is named.
 
-The view SHALL be distinct from the live event tail. The tail renders the subscription this session holds;
-the history renders what the store recorded, including what it recorded before this session opened. Neither
-SHALL draw the other's records.
-
 The view SHALL name the subject whose history it is drawing, SHALL resolve the actor of each entry to the
 handle a reader recognises where that lookup succeeds, and SHALL say when the log runs past the page it
 drew, naming the command that reads the rest.
-
-A reader who may not read the audit log SHALL NOT be offered the view, SHALL NOT be told about its key, and
-pressing that key SHALL issue no read.
 
 #### Scenario: The history of the selected task
 
@@ -884,16 +883,27 @@ pressing that key SHALL issue no read.
 - **THEN** the log is read for that task
 - **AND** the view names the task whose history it is
 
+#### Scenario: A subject with no history says so
+
+- **WHEN** the log holds nothing for the subject
+- **THEN** the view says so in words and names the subject it found nothing for
+
+### Requirement: The stored history stays apart from the live event tail
+
+The view SHALL be distinct from the live event tail. The tail renders the subscription this session holds;
+the history renders what the store recorded, including what it recorded before this session opened. Neither
+SHALL draw the other's records.
+
 #### Scenario: The live tail and the stored log stay apart
 
 - **WHEN** a session has seen a live event and the store holds an older entry
 - **THEN** the history view draws the stored entry and not the live event
 - **AND** the activity view draws the live event and not the stored entry
 
-#### Scenario: A subject with no history says so
+### Requirement: A reader who may not read the audit log is not offered the history
 
-- **WHEN** the log holds nothing for the subject
-- **THEN** the view says so in words and names the subject it found nothing for
+A reader who may not read the audit log SHALL NOT be offered the history view, SHALL NOT be told about its
+key, and pressing that key SHALL issue no read.
 
 #### Scenario: A reader without audit authority reaches nothing
 
@@ -908,10 +918,6 @@ kinds offered SHALL be exactly the kinds the service accepts, so the interface c
 offer one that would be refused.
 
 The interface SHALL state, where the artifact is gathered, which parts of an artifact it does not record.
-
-An artifact with no name SHALL NOT be recorded, so a stray keystroke never attaches an empty artifact.
-
-A reader who may not write artifacts SHALL NOT be told about the key, and pressing it SHALL record nothing.
 
 #### Scenario: A named artifact of a chosen kind
 
@@ -928,23 +934,37 @@ A reader who may not write artifacts SHALL NOT be told about the key, and pressi
 - **WHEN** the artifact form is open
 - **THEN** it says that the payload, the content type and the inline blob are recorded elsewhere
 
+### Requirement: An artifact is recorded only with a name and only by a reader who may write artifacts
+
+An artifact with no name SHALL NOT be recorded, so a stray keystroke never attaches an empty artifact.
+
+A reader who may not write artifacts SHALL NOT be told about the key, and pressing it SHALL record nothing.
+
+#### Scenario: A blank name records nothing
+
+- **WHEN** a reader asks to record an artifact and accepts a name of only spaces
+- **THEN** the kind form does not open
+- **AND** no artifact is recorded
+
 ### Requirement: The terminal interface restores a deleted task from the board that reveals it
 
 The board's filter SHALL be the way deleted tasks are seen, through the same expression the command line
 takes, and a deleted card SHALL carry a marker distinguishing it from live work, explained in the legend.
 
-The interface SHALL restore the selected task where that task is deleted. Where it is not, the interface
-SHALL refuse without calling the service and SHALL name the filter that reveals the deleted tasks.
-
 The footer of a deleted card SHALL offer the restore and SHALL NOT offer the actions the service refuses on
 a deleted task.
-
-A reader who may not restore SHALL NOT be offered the key, and pressing it SHALL issue no call.
 
 #### Scenario: A deleted card is told apart from a live one
 
 - **WHEN** the board's filter includes deleted tasks
 - **THEN** a deleted card carries the deleted marker and a live card does not
+
+### Requirement: The terminal interface restores only a deleted task, for a reader who may restore
+
+The interface SHALL restore the selected task where that task is deleted. Where it is not, the interface
+SHALL refuse without calling the service and SHALL name the filter that reveals the deleted tasks.
+
+A reader who may not restore SHALL NOT be offered the key, and pressing it SHALL issue no call.
 
 #### Scenario: Restoring the selected deleted task
 
@@ -966,12 +986,6 @@ identifier.
 The offer SHALL include a way to leave the task assigned to nobody, so clearing an assignment is a choice on
 the same list.
 
-The picker SHALL open on whoever holds the task now. An assignee the directory no longer holds SHALL open on
-nobody rather than on another actor.
-
-A reader who may not read the directory SHALL NOT be offered the picker, whatever else they may change about
-a task, and a tenant with no actors SHALL say so rather than opening a picker with nothing to pick.
-
 #### Scenario: Assigning by handle
 
 - **WHEN** a reader picks an actor by handle
@@ -981,6 +995,14 @@ a task, and a tenant with no actors SHALL say so rather than opening a picker wi
 
 - **WHEN** a reader chooses nobody
 - **THEN** the task is left with no assignee
+
+### Requirement: The assignee picker opens on the current holder and needs the directory
+
+The assignee picker SHALL open on whoever holds the task now. An assignee the directory no longer holds
+SHALL open on nobody rather than on another actor.
+
+A reader who may not read the directory SHALL NOT be offered the picker, whatever else they may change about
+a task, and a tenant with no actors SHALL say so rather than opening a picker with nothing to pick.
 
 #### Scenario: A reader who cannot read the directory is offered no picker
 
@@ -993,9 +1015,6 @@ The terminal interface SHALL offer a settings view carrying the display preferen
 keybinding scheme, the time format, the timezone and the colour mode. Each SHALL name the configuration
 key it is written to, and SHALL show what choosing a value would mean, rendered by the renderer that will
 render it, so an example can never claim a layout or a zone the interface does not produce.
-
-A value the build does not ship, arriving from a configuration file written elsewhere, SHALL remain on
-offer rather than being dropped, so stepping through the values cannot silently discard it.
 
 #### Scenario: Every preference names its key
 
@@ -1017,6 +1036,11 @@ offer rather than being dropped, so stepping through the values cannot silently 
 - **WHEN** a preference is stepped past either end of its values
 - **THEN** it continues from the other end
 
+### Requirement: A configured display value the build does not ship stays on offer
+
+A value the build does not ship, arriving from a configuration file written elsewhere, SHALL remain on
+offer rather than being dropped, so stepping through the values cannot silently discard it.
+
 #### Scenario: A configured value this build does not ship is kept
 
 - **WHEN** a preference holds a value that is not one this build offers
@@ -1028,13 +1052,6 @@ A preference changed in the settings view SHALL take effect in the frame it is r
 written to the reader's configuration file in the same act, with no separate save. The interface SHALL
 state where the change was written.
 
-The write SHALL edit the configuration file in place, carrying forward the keys it already held and
-writing only the keys that changed, so choosing a display preference never pins a value another layer was
-supplying.
-
-A session with no configuration file to write SHALL say that its choices last only for the session,
-rather than offering a choice it cannot keep. A write that fails SHALL be reported, naming the failure.
-
 #### Scenario: A change is written down at once
 
 - **WHEN** a preference is stepped to a new value
@@ -1045,10 +1062,26 @@ rather than offering a choice it cannot keep. A write that fails SHALL be report
 - **WHEN** the interface is closed and opened again
 - **THEN** the preference chosen in the previous run is the one in force
 
+#### Scenario: A value the build cannot render is refused
+
+- **WHEN** a preference would be set to a value this build cannot resolve
+- **THEN** the value is not adopted and the refusal names it
+
+### Requirement: Writing a display preference edits the configuration file in place
+
+The write SHALL edit the configuration file in place, carrying forward the keys it already held and
+writing only the keys that changed, so choosing a display preference never pins a value another layer was
+supplying.
+
 #### Scenario: Writing one preference pins nothing else
 
 - **WHEN** a display preference is written to a configuration file
 - **THEN** no key that the file did not already carry, and that the change did not alter, is written to it
+
+### Requirement: A display preference that cannot be kept says so
+
+A session with no configuration file to write SHALL say that its choices last only for the session,
+rather than offering a choice it cannot keep. A write that fails SHALL be reported, naming the failure.
 
 #### Scenario: A session that cannot write says so
 
@@ -1059,11 +1092,6 @@ rather than offering a choice it cannot keep. A write that fails SHALL be report
 
 - **WHEN** writing the configuration file fails
 - **THEN** the interface says the change was not saved and names the failure
-
-#### Scenario: A value the build cannot render is refused
-
-- **WHEN** a preference would be set to a value this build cannot resolve
-- **THEN** the value is not adopted and the refusal names it
 
 ### Requirement: The settings view states which layer supplies each preference
 
@@ -1088,13 +1116,6 @@ configuration file. The target SHALL be stated with its secrets redacted, so a c
 a password is never drawn on a screen. A fact the session was not told SHALL say so rather than rendering
 blank, which reads as a value that failed to load.
 
-The tenant and the actor SHALL be the ones in force, so a session that has switched tenant reports the
-tenant it switched to.
-
-The view SHALL name the command that answers the same question across every configuration key, and SHALL
-NOT offer to change the target, the credentials or any other deployment setting: a session is already
-connected through the target it resolved and could not act on a new one.
-
 #### Scenario: The connection is named
 
 - **WHEN** the settings view is open
@@ -1105,15 +1126,26 @@ connected through the target it resolved and could not act on a new one.
 - **WHEN** the resolved target is a connection string carrying a password
 - **THEN** the password does not appear on the screen
 
+#### Scenario: A fact the session was not told
+
+- **WHEN** a fact was never supplied to the session
+- **THEN** the row says so rather than rendering empty
+
+### Requirement: The settings view names the tenant and the actor in force
+
+The tenant and the actor SHALL be the ones in force, so a session that has switched tenant reports the
+tenant it switched to.
+
 #### Scenario: The tenant follows a switch
 
 - **WHEN** the session has switched to another tenant
 - **THEN** the settings view names the tenant the session switched to
 
-#### Scenario: A fact the session was not told
+### Requirement: The settings view points at the rest of the configuration and changes no deployment setting
 
-- **WHEN** a fact was never supplied to the session
-- **THEN** the row says so rather than rendering empty
+The settings view SHALL name the command that answers the same question across every configuration key, and
+SHALL NOT offer to change the target, the credentials or any other deployment setting: a session is already
+connected through the target it resolved and could not act on a new one.
 
 #### Scenario: The rest of the configuration is pointed at, not duplicated
 
@@ -1149,21 +1181,28 @@ workflow its tasks move through and the custom field definitions those tasks car
 The screen SHALL read the project it shows rather than reusing a row from a listing, so that what it states is
 true after an action it performed.
 
-The workflow SHALL be shown as its state machine: the initial state, every state with the category it reports
-under and whether it is terminal, every permitted edge with what that edge requires, and the lease a claim
-takes by default.
-
-An attribute that is not set SHALL be shown as unset rather than as an empty row, so a blank cannot be
-mistaken for a row that failed to draw.
-
-A part of the screen the reader's authority does not reach SHALL say why it is not shown, and SHALL NOT cost
-the reader the rest of the screen.
-
 #### Scenario: The screen names the project it read
 
 - **WHEN** a reader opens the project screen
 - **THEN** it states that project's key, name, description, colour, icon and whether it is archived
 - **AND** the project was read rather than taken from the listing
+
+#### Scenario: An archived project says when it was archived
+
+- **WHEN** the project screen shows an archived project
+- **THEN** it states that it is archived and when
+
+#### Scenario: The screen opens on the project the reader chose
+
+- **WHEN** a reader presses the key from the project listing
+- **THEN** the screen opens on the row under the cursor
+- **AND** pressing it from a board opens the project the board has open
+
+### Requirement: The project screen shows the workflow as its state machine
+
+The workflow SHALL be shown as its state machine: the initial state, every state with the category it reports
+under and whether it is terminal, every permitted edge with what that edge requires, and the lease a claim
+takes by default.
 
 #### Scenario: The workflow is shown as a state machine
 
@@ -1171,22 +1210,19 @@ the reader the rest of the screen.
 - **THEN** it names the workflow, its initial state, each of its states and each permitted edge
 - **AND** marks a state a task stops in as terminal
 
-#### Scenario: An archived project says when it was archived
+### Requirement: The project screen marks what is unset and what it may not show
 
-- **WHEN** the project screen shows an archived project
-- **THEN** it states that it is archived and when
+An attribute that is not set SHALL be shown as unset rather than as an empty row, so a blank cannot be
+mistaken for a row that failed to draw.
+
+A part of the screen the reader's authority does not reach SHALL say why it is not shown, and SHALL NOT cost
+the reader the rest of the screen.
 
 #### Scenario: A refused workflow costs nothing else
 
 - **WHEN** the reader may read the project but not its workflow
 - **THEN** the screen says why the workflow is not shown
 - **AND** still states the project's own attributes
-
-#### Scenario: The screen opens on the project the reader chose
-
-- **WHEN** a reader presses the key from the project listing
-- **THEN** the screen opens on the row under the cursor
-- **AND** pressing it from a board opens the project the board has open
 
 ### Requirement: A workflow is read in the terminal and changed elsewhere
 
@@ -1232,11 +1268,6 @@ then confirm it against the project named as the reader sees it.
 The confirmation for a deletion SHALL state how far the deletion reaches. The confirmation for an archive
 SHALL NOT claim a deletion's reach.
 
-An archive SHALL NOT be offered for a project that is already archived, because the service refuses it.
-
-Once a project is deleted the interface SHALL leave the screen that showed it rather than reading a project
-the service has removed.
-
 #### Scenario: An archive names the project and nothing more
 
 - **WHEN** a reader asks to archive the open project
@@ -1249,15 +1280,22 @@ the service has removed.
 - **THEN** the confirmation names the project and states what goes with it
 - **AND** agreeing deletes it and returns the reader to the project listing
 
-#### Scenario: An archived project is not offered archiving
-
-- **WHEN** the project screen shows an archived project
-- **THEN** archiving is not among the actions offered
-
 #### Scenario: Cancelling leaves the project alone
 
 - **WHEN** a confirmation about a project is cancelled
 - **THEN** the project is neither archived nor deleted
+
+### Requirement: An archived project is not archived again and a deleted one is left
+
+An archive SHALL NOT be offered for a project that is already archived, because the service refuses it.
+
+Once a project is deleted the interface SHALL leave the screen that showed it rather than reading a project
+the service has removed.
+
+#### Scenario: An archived project is not offered archiving
+
+- **WHEN** the project screen shows an archived project
+- **THEN** archiving is not among the actions offered
 
 ### Requirement: The terminal interface defines and removes a project's custom fields
 
@@ -1266,12 +1304,6 @@ text and the answers drawn from fixed sets in a form.
 
 A redefinition SHALL be seeded from the definition it replaces, and SHALL carry through every part of that
 definition the form did not ask about, because the operation replaces the whole definition.
-
-A field type whose values the form cannot gather SHALL be offered only to a definition that already holds it.
-
-Removing a definition SHALL be confirmed against the field named as the screen shows it.
-
-A picker SHALL NOT be offered where there is nothing to pick.
 
 #### Scenario: A new field is named and then shaped
 
@@ -1285,6 +1317,14 @@ A picker SHALL NOT be offered where there is nothing to pick.
 - **WHEN** a reader picks the second of two definitions to redefine
 - **THEN** the form opens on that definition's own type and requirement
 - **AND** the parts the form did not ask about are sent unchanged
+
+### Requirement: A custom field's type, removal and picker are offered only where they apply
+
+A field type whose values the form cannot gather SHALL be offered only to a definition that already holds it.
+
+Removing a definition SHALL be confirmed against the field named as the screen shows it.
+
+A picker SHALL NOT be offered where there is nothing to pick.
 
 #### Scenario: An enumerated type is not offered to a field that cannot carry it
 
@@ -1334,24 +1374,26 @@ The terminal interface SHALL animate the selected row by alternating the emphasi
 than by using the terminal's blink attribute, so that every terminal able to draw colour draws the same
 animation. No other element of the interface SHALL animate.
 
-The selection SHALL remain unambiguous at every point in the cycle: the selection marker and the
-selection's colour SHALL be drawn in every frame, and only the emphasis SHALL vary. A reader looking at
-the screen at any moment SHALL be able to tell which row is selected.
-
 #### Scenario: The selected row changes emphasis
 
 - **WHEN** consecutive phases of the pulse are drawn
 - **THEN** the selected row is rendered differently in each
 
-#### Scenario: The marker survives both phases
-
-- **WHEN** the selected row is drawn at either phase of the pulse
-- **THEN** it carries the selection marker and is rendered differently from an unselected row
-
 #### Scenario: Nothing else moves
 
 - **WHEN** the interface is idle at the keyboard but connected
 - **THEN** only the selected row's emphasis changes, and no other element animates
+
+### Requirement: The pulsing selection stays unambiguous
+
+The selection SHALL remain unambiguous at every point in the cycle: the selection marker and the
+selection's colour SHALL be drawn in every frame, and only the emphasis SHALL vary. A reader looking at
+the screen at any moment SHALL be able to tell which row is selected.
+
+#### Scenario: The marker survives both phases
+
+- **WHEN** the selected row is drawn at either phase of the pulse
+- **THEN** it carries the selection marker and is rendered differently from an unselected row
 
 ### Requirement: An idle session animates nothing
 
@@ -1393,25 +1435,27 @@ The settings screen SHALL offer motion as a display preference alongside the key
 format, the timezone and the colour mode. It SHALL be on unless it is turned off, including in a session
 given no preferences at all.
 
-The row SHALL name the configuration key it is written to, SHALL say what the chosen value means on this
-terminal, SHALL apply the change to the frame it is read in, SHALL write the change down at once, and SHALL
-report the configuration layer supplying the value when a layer above the file supplies it. A session with
-nowhere to write SHALL keep the row usable and say the choice lasts only for the session.
-
 #### Scenario: Motion is on by default
 
 - **WHEN** a session is opened with nothing configured
 - **THEN** the selected row pulses
 
-#### Scenario: The row is written down when it is stepped
-
-- **WHEN** the motion row is stepped to another value
-- **THEN** the interface adopts it for the open frame and writes it to the configuration file
-
 #### Scenario: Turning motion off stops the animation
 
 - **WHEN** the motion row is stepped to off
 - **THEN** no further phase of the pulse is scheduled
+
+### Requirement: The motion row behaves as every display preference row
+
+The motion row SHALL name the configuration key it is written to, SHALL say what the chosen value means on
+this terminal, SHALL apply the change to the frame it is read in, SHALL write the change down at once, and
+SHALL report the configuration layer supplying the value when a layer above the file supplies it. A session
+with nowhere to write SHALL keep the row usable and say the choice lasts only for the session.
+
+#### Scenario: The row is written down when it is stepped
+
+- **WHEN** the motion row is stepped to another value
+- **THEN** the interface adopts it for the open frame and writes it to the configuration file
 
 #### Scenario: The row says what it means on this terminal
 
@@ -1427,12 +1471,6 @@ who belong to it.
 The screen SHALL read what it states rather than rendering it from what the session already held, so that
 what it says is true after an action it performed.
 
-A section the reader's authority does not reach SHALL say why it is not shown, and SHALL NOT cost the reader
-the rest of the screen.
-
-A member SHALL be named by the handle a reader recognises wherever the handle can be resolved, and by the
-identifier the service stores otherwise, so that a row is never blank.
-
 #### Scenario: The screen names the tenant it read
 
 - **WHEN** a reader opens the tenant screen
@@ -1445,17 +1483,25 @@ identifier the service stores otherwise, so that a row is never blank.
 - **THEN** it lists each hostname that resolves to the tenant
 - **AND** lists each member with the role that member holds
 
-#### Scenario: A refused section costs nothing else
-
-- **WHEN** the reader may reach the screen but not read its domains
-- **THEN** the domains section says why it is not shown
-- **AND** the screen still states the tenant's own attributes
-
 #### Scenario: The switch the screen already offered still works
 
 - **WHEN** a reader with a way to dial another tenant opens the screen
 - **THEN** it still takes a tenant key and switches the session to it
 - **AND** a session with no way to dial still says so and names the command that can
+
+### Requirement: The tenant screen survives a refused section and never draws a blank member
+
+A section the reader's authority does not reach SHALL say why it is not shown, and SHALL NOT cost the reader
+the rest of the screen.
+
+A member SHALL be named by the handle a reader recognises wherever the handle can be resolved, and by the
+identifier the service stores otherwise, so that a row is never blank.
+
+#### Scenario: A refused section costs nothing else
+
+- **WHEN** the reader may reach the screen but not read its domains
+- **THEN** the domains section says why it is not shown
+- **AND** the screen still states the tenant's own attributes
 
 ### Requirement: The tenant screen selects the row an action acts on
 
@@ -1504,16 +1550,18 @@ being added.
 A domain SHALL gather its hostname through the single-line input, and SHALL be added carrying no certificate
 of its own, because a certificate is a pair of paths on the server that no control here can gather.
 
-A member SHALL gather both of its answers from fixed lists: the actor from the tenant's own directory, read at
-the keystroke rather than held for the session, and the role from the roles the service accepts.
-
-A tenant whose directory holds nobody SHALL say so rather than opening a picker with nothing in it.
-
 #### Scenario: A domain is added by hostname
 
 - **WHEN** a reader chooses to add a domain and types a hostname
 - **THEN** the domain is added with the hostname that was typed
 - **AND** it carries no certificate of its own
+
+### Requirement: A member is added from fixed lists
+
+A member SHALL gather both of its answers from fixed lists: the actor from the tenant's own directory, read at
+the keystroke rather than held for the session, and the role from the roles the service accepts.
+
+A tenant whose directory holds nobody SHALL say so rather than opening a picker with nothing in it.
 
 #### Scenario: A member is picked from the directory
 
@@ -1567,12 +1615,19 @@ refuse.
 The terminal interface's truncation primitive SHALL measure a string by the cells it draws and SHALL
 cut it to a given number of cells, marking the cut with an ellipsis.
 
+Where the budget is one cell, which has no room for both a character and the mark, the character
+SHALL be kept and the mark dropped.
+
+#### Scenario: One cell keeps the character
+
+- **WHEN** a string, styled or plain, is cut to one cell
+- **THEN** it draws the first character of its visible text and no ellipsis
+
+### Requirement: Escape sequences draw nothing and survive the cut
+
 A string that already carries ANSI escape sequences SHALL be measured as though those sequences were
 absent, because they draw nothing, and the sequences SHALL be carried through the cut rather than
 counted against the budget or broken in half. A styled string that fits SHALL be returned whole.
-
-Where the budget is one cell, which has no room for both a character and the mark, the character
-SHALL be kept and the mark dropped.
 
 #### Scenario: A styled string that fits is untouched
 
@@ -1587,11 +1642,6 @@ SHALL be kept and the mark dropped.
 - **THEN** it draws six cells
 - **AND** the five cells before the ellipsis are the first five characters of the visible text, not
   part of an escape sequence
-
-#### Scenario: One cell keeps the character
-
-- **WHEN** a string, styled or plain, is cut to one cell
-- **THEN** it draws the first character of its visible text and no ellipsis
 
 ### Requirement: The terminal interface stars a task
 
