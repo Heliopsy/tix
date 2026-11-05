@@ -190,7 +190,7 @@ func exportFields(ctx context.Context, tx store.Tx, projects []core.Project) ([]
 func bundleField(d core.FieldDef) *bundle.Field {
 	return &bundle.Field{
 		Key: d.Key, Label: d.Label, Type: d.Type, Required: d.Required,
-		EnumOptions: d.EnumOptions, Default: d.Default, Indexed: d.Indexed, Position: d.Position,
+		EnumOptions: d.EnumOptions, Default: d.Default, Position: d.Position,
 	}
 }
 
@@ -651,7 +651,7 @@ func fieldFromBundle(f bundle.Field, key, projectID string) *core.FieldDef {
 	return &core.FieldDef{
 		ProjectID: projectID, Key: key, Label: bundleLabel(f.Label, key),
 		Type: f.Type, Required: f.Required, EnumOptions: f.EnumOptions,
-		Default: f.Default, Indexed: f.Indexed, Position: f.Position,
+		Default: f.Default, Position: f.Position,
 	}
 }
 

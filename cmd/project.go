@@ -561,12 +561,16 @@ func newFieldCmd(g *globals) *cobra.Command {
 	return cmd
 }
 
+// retiredIndexedFlag is accepted and ignored, so scripts written while field
+// definitions carried an indexed flag keep running.
+const retiredIndexedFlag = "indexed"
+
 func fieldPutCmd(g *globals) *cobra.Command {
 	var (
 		label, fieldType string
 		defaultValue     string
 		options          []string
-		required, idx    bool
+		required         bool
 		position         int
 		dryRun           bool
 	)
@@ -580,10 +584,13 @@ func fieldPutCmd(g *globals) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			in := core.FieldDefInput{
 				Key: args[1], Label: label, Type: core.FieldType(fieldType),
-				Required: required, EnumOptions: options, Indexed: idx, Position: position,
+				Required: required, EnumOptions: options, Position: position,
 			}
 			if cmd.Flags().Changed("default") {
 				in.Default = fieldDefault(in.Type, defaultValue)
+			}
+			if cmd.Flags().Changed(retiredIndexedFlag) {
+				g.diag(cmd, "--%s is deprecated and ignored: it never changed how a field is filtered", retiredIndexedFlag)
 			}
 			if in.Label == "" {
 				in.Label = in.Key
@@ -612,7 +619,8 @@ func fieldPutCmd(g *globals) *cobra.Command {
 	f.StringSliceVar(&options, "option", nil, "enum option, repeatable")
 	f.StringVar(&defaultValue, "default", "", "value a task created without one is given")
 	f.BoolVar(&required, "required", false, "require a value on every task")
-	f.BoolVar(&idx, "indexed", false, "index the field for filtering")
+	f.Bool(retiredIndexedFlag, false, "ignored; kept so older scripts still run")
+	_ = f.MarkHidden(retiredIndexedFlag)
 	f.IntVar(&position, "position", 0, "ordering position")
 	f.BoolVar(&dryRun, "dry-run", false, "validate without writing")
 	return cmd

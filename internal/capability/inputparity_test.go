@@ -52,7 +52,7 @@ var inputReaches = []inputReach{
 	}},
 	{"tix field put", core.FieldDefInput{}, map[string]string{
 		"key": "arg", "label": "--label", "type": "--type", "required": "--required",
-		"enum_options": "--option", "default": "--default", "indexed": "--indexed", "position": "--position",
+		"enum_options": "--option", "default": "--default", "position": "--position",
 	}},
 	{"tix workflow put", core.WorkflowInput{}, map[string]string{
 		"key": "--file", "name": "--file", "definition": "--file", "migrate": "--file",

@@ -49,7 +49,6 @@
     <div><div class="field-label"><label for="default">{{t "Default"}}</label>{{template "tip" (tip "Default value" "The value a task created without one is given. It has to fit the type, and for an enum it has to be one of the options. Leave it blank for none.")}}</div><input id="default" name="default" value="{{$d.Value "default"}}"{{$d.Errors.Attrs "default"}}>{{with $d.Errors.On "default"}}{{template "field-error" .}}{{end}}</div>
     <div><label for="position">{{t "Position"}}</label><input id="position" name="position" type="number" min="0" value="{{or ($d.Value "position") "0"}}"{{$d.Errors.Attrs "position"}}>{{with $d.Errors.On "position"}}{{template "field-error" .}}{{end}}</div>
   </div>
-  <div class="field-label"><label for="indexed"><input id="indexed" type="checkbox" name="indexed" value="1"{{if $d.Checked "indexed" false}} checked{{end}}> {{t "Indexed"}}</label>{{template "tip" (tip "Indexed" "Keep an index on this field so filtering a large project on field.KEY:VALUE stays fast.")}}</div>
   <div class="field-label"><label for="required"><input id="required" type="checkbox" name="required" value="1"{{if $d.Checked "required" false}} checked{{end}}> {{t "Required"}}</label>{{template "tip" (tip "Required" "Every task in the project must carry a value for this field. Marking a field required later does not invalidate tasks that already lack one.")}}</div>
   <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Save field"}}</button></div>
 </form>

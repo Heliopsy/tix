@@ -191,7 +191,7 @@ var (
 	userHeader            = table.Row{"ID", "EMAIL", "NAME", "CREATED", "DISABLED"}
 	issuedHeader          = table.Row{"ID", "NAME", "SCOPES", "TOKEN", "EXPIRES"}
 	claimHeader           = table.Row{"REF", "TITLE", "STATUS", "LEASE EXPIRES", "TOKEN"}
-	fieldHeader           = table.Row{"KEY", "LABEL", "TYPE", "REQUIRED", "INDEXED", "OPTIONS"}
+	fieldHeader           = table.Row{"KEY", "LABEL", "TYPE", "REQUIRED", "OPTIONS"}
 	depHeader             = table.Row{"TASK", "DEPENDS ON", "CREATED"}
 	deliveryHeader        = table.Row{"ID", "ENDPOINT", "EVENT", "STATUS", "ATTEMPTS", "NEXT ATTEMPT", "CODE"}
 	inboxHeader           = table.Row{"ID", "KIND", "TASK", "TITLE", "BY", "WHAT", "CREATED", "READ"}
@@ -301,7 +301,7 @@ func (p Painter) claimRow(c core.Claim) table.Row {
 }
 
 func fieldRow(f core.FieldDef) table.Row {
-	return table.Row{f.Key, f.Label, string(f.Type), yesNo(f.Required), yesNo(f.Indexed),
+	return table.Row{f.Key, f.Label, string(f.Type), yesNo(f.Required),
 		truncate(strings.Join(f.EnumOptions, ", "), 40)}
 }
 

@@ -268,8 +268,6 @@ type FieldDefInput struct {
 	EnumOptions []string `json:"enum_options,omitempty" yaml:"enum_options,omitempty"`
 	// Default is the value a new task gets when it names none, coerced to Type.
 	Default any `json:"default,omitempty" yaml:"default,omitempty"`
-	// Indexed marks the field as one task listings are expected to filter on.
-	Indexed bool `json:"indexed" yaml:"indexed"`
 	// Position orders the project's fields, lowest first.
 	Position int `json:"position" yaml:"position"`
 }

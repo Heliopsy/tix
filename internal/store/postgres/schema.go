@@ -54,6 +54,8 @@ const (
 )
 
 // boolColumns are stored as INTEGER in the portable schema and BOOLEAN here.
+// field_defs.indexed stays listed because 0001 still creates it on a fresh
+// database, before 0029 drops it.
 var boolColumns = map[string]bool{
 	"workflows.builtin":        true,
 	"field_defs.required":      true,

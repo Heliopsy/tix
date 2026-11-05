@@ -750,8 +750,8 @@ Custom field values are filtered with a `field.` prefixed parameter, one per fie
 curl -H "Authorization: Bearer $TIX_TOKEN" 'http://127.0.0.1:8080/api/v1/tasks?field.severity=high'
 ```
 
-A custom field predicate is always permitted; whether it is cheap depends on the field being marked indexed. See
-[workflows.md](workflows.md).
+A custom field predicate is always permitted. It reads each candidate row, so pair it with a project, status or
+tag predicate; see [workflows.md](workflows.md#what-a-custom-field-filter-costs).
 
 ## Errors
 

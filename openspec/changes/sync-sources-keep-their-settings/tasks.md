@@ -12,8 +12,8 @@
 
 ## 2. Drop the indexed flag
 
-- [ ] 2.1 Remove `Indexed` from `core.FieldDef`, `FieldDefInput`, bundles, TUI, web, output, demo
-- [ ] 2.2 Migration 0029 drops `field_defs.indexed` on both engines
-- [ ] 2.3 `tix field put --indexed` hidden and deprecated
-- [ ] 2.4 Tests: API body, old bundle and old snapshot carrying `indexed` still import
-- [ ] 2.5 Docs and skill no longer describe the flag
+- [x] 2.1 Remove `Indexed` from `core.FieldDef`, `FieldDefInput`, bundles, TUI, web, output, demo
+- [x] 2.2 Migration 0029 drops `field_defs.indexed` on both engines
+- [x] 2.3 `tix field put --indexed` hidden and deprecated
+- [x] 2.4 Tests: API body, old bundle and old snapshot carrying `indexed` still import
+- [x] 2.5 Docs and skill no longer describe the flag

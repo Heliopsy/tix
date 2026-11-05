@@ -43,7 +43,6 @@ func (l *Local) PutFieldDef(ctx context.Context, projectRef string, in core.Fiel
 			Required:    in.Required,
 			EnumOptions: in.EnumOptions,
 			Default:     in.Default,
-			Indexed:     in.Indexed,
 			Position:    in.Position,
 		}
 		if in.Default != nil {

@@ -13,7 +13,7 @@ tix.
 | [commands.md](commands.md) | Every command, grouped: tasks, administration, configuration and tooling |
 | [features.md](features.md) | Statistics, theming, the actor directory, lease badges, completion, self-update, demo data |
 | [agents.md](agents.md) | Claiming work, leases and lease tokens, `tix claim exec`, token scopes, exit codes, why a zombie cannot write |
-| [workflows.md](workflows.md) | Custom state machines, transitions, terminal states, custom fields, indexed versus scanned filters |
+| [workflows.md](workflows.md) | Custom state machines, transitions, terminal states, custom fields, what a custom field filter costs |
 | [configuration.md](configuration.md) | Contexts, the five layers, `TIX_*` variables, per-directory discovery |
 | [tenancy.md](tenancy.md) | Tenants, domains, roles, and how isolation is enforced |
 | [second-factor.md](second-factor.md) | TOTP per tenant and per surface, enrolment, recovery codes, the sealing key |

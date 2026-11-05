@@ -244,3 +244,18 @@ func TestNegationAndWeakMatchSurviveTheClientRoundTrip(t *testing.T) {
 		t.Fatalf("an unknown text field = %v, want invalid", err)
 	}
 }
+
+func TestFieldPutStillAcceptsTheRetiredIndexedKey(t *testing.T) {
+	f := newFixture(t)
+	resp := f.call(http.MethodPut, "/api/v1/projects/infra/fields",
+		map[string]any{"key": "severity", "type": "string", "indexed": true})
+	mustStatus(t, resp, http.StatusOK)
+	var raw map[string]any
+	decodeBody(t, resp, &raw)
+	if raw["key"] != "severity" {
+		t.Errorf("response = %v, want the saved field", raw)
+	}
+	if _, ok := raw["indexed"]; ok {
+		t.Errorf("the response still carries indexed: %v", raw)
+	}
+}

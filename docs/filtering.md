@@ -218,7 +218,7 @@ A custom field is `field.NAME:VALUE`, which the whole expression language carrie
 it parses as one, so `field.count:3` filters on the number and `field.paged:true` on the boolean,
 falling back to the literal text. A custom field term cannot be negated or weakly matched yet, and
 asking is a usage error rather than a term quietly dropped. See
-[workflows.md](workflows.md#indexed-versus-scanned-field-filters) for what indexing one costs.
+[workflows.md](workflows.md#what-a-custom-field-filter-costs) for what one costs.
 
 ## A term that names nothing
 
@@ -364,5 +364,5 @@ than which surface asked for it, so `source:` is refused on the live tail by nam
 ## Related
 
 - [scripting.md](scripting.md) for NDJSON output and piping listings
-- [workflows.md](workflows.md) for custom field filters and which of them are indexed
+- [workflows.md](workflows.md) for custom fields and what filtering on one costs
 - [api.md](api.md) for the rest of the query parameters

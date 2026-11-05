@@ -531,7 +531,6 @@ func (h *handler) putField(w http.ResponseWriter, r *http.Request) error {
 		Type:        core.FieldType(field(r, "type")),
 		Required:    checked(r, "required"),
 		EnumOptions: fieldList(r, "enum_options"),
-		Indexed:     checked(r, "indexed"),
 		Position:    position,
 	}
 	def := core.FieldDef{Key: in.Key, Label: in.Label, Type: in.Type, EnumOptions: in.EnumOptions}
