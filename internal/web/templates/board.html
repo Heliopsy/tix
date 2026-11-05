@@ -1,7 +1,17 @@
 {{define "content"}}
-{{if .Data.KeyChange}}{{template "key-change" .}}{{else}}
-<div class="headtip"><h1>{{with projIcon .Data.Project false}}{{if .Any}}{{template "proj-icon" .}} {{end}}{{end}}{{t "%s board" .Data.Project.Name}}</h1>{{template "tip" (tip "Board" "Each column is one state of this project's workflow, in the workflow's order. Drag a card to another column, or use its Move control: only the moves the workflow allows are offered." "docs/workflows.md")}}</div>
-<p class="meta">{{t "Workflow %s" .Data.Workflow.Name}} &middot; <a href="/projects/{{.Data.Project.Key}}/fields">{{t "Field definitions"}}</a> &middot; <a href="/workflows/{{.Data.Workflow.Key}}">{{t "Workflow editor"}}</a></p>
+{{/* The board is the columns. What the project is called, how its claims
+     and cleanup behave and how it is archived or deleted are its settings,
+     a screen of their own behind the Settings button, rather than four
+     folds stacked under the last card. */}}
+<div class="pagehead">
+  <div class="pagehead-title">
+    <div class="headtip"><h1>{{with projIcon .Data.Project false}}{{if .Any}}{{template "proj-icon" .}} {{end}}{{end}}{{t "%s board" .Data.Project.Name}}</h1>{{template "tip" (tip "Board" "Each column is one state of this project's workflow, in the workflow's order. Drag a card to another column, or use its Move control: only the moves the workflow allows are offered." "docs/workflows.md")}}</div>
+    <p class="meta">{{t "Workflow %s" .Data.Workflow.Name}} &middot; <a href="/projects/{{.Data.Project.Key}}/fields">{{t "Field definitions"}}</a> &middot; <a href="/workflows/{{.Data.Workflow.Key}}">{{t "Workflow editor"}}</a></p>
+  </div>
+  <div class="pagehead-tools">
+    <a class="btn secondary" href="/projects/{{.Data.Project.Key}}/settings"><svg class="btn-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#settings"/></svg><span class="btn-label">{{t "Settings"}}</span></a>
+  </div>
+</div>
 {{/* A screen reader user learns a drag-and-drop move happened here, since
      nothing else on the page narrates it: the move itself patches the DOM in
      place (assets/live.js) rather than navigating, which a screen reader
@@ -9,178 +19,12 @@
 <p class="sr-only" aria-live="polite" id="board-status"></p>
 <div id="project-board">{{template "project-board" .}}</div>
 
-{{/* The same layout as New project: what the project is called and how it
-     works on the left, how it looks under Appearance on the right. A refused
-     save opens it again with what was typed and the message under its field. */}}
-{{$e := .Data.Errors}}{{$f := .Data.Form}}
-<details class="panel projsettings"{{if .Data.Refused}} open{{end}}>
-  <summary>{{t "Project settings"}}</summary>
-  <div class="body">
-    <form method="post" class="cform" data-form action="/projects/{{.Data.Project.Key}}/update" enctype="multipart/form-data">
-      {{template "csrf" .CSRF}}
-      {{with $e.On ""}}{{template "field-error" .}}{{end}}
-      <div class="cform-grid">
-        <div class="cform-main">
-          <div class="cfield">
-            <div class="cfield-label"><label for="name">{{t "Name"}}</label>{{template "required-mark"}}</div>
-            <input id="name" name="name" value="{{$f.Name}}" autocomplete="off" required{{$e.Attrs "name"}}>
-            {{with $e.On "name"}}{{template "field-error" .}}{{end}}
-          </div>
-          <div class="cform-pair">
-            <div class="cfield">
-              <div class="cfield-label"><label for="key">{{t "Key"}}</label>{{template "required-mark"}}{{template "tip" (tip "Key" "The key starts every task reference, such as INFRA-8, and the project's address. Changing it changes every reference; old links, references and filters keep working and lead to the new ones. You are asked to confirm before it changes." "docs/workflows.md")}}</div>
-              <input id="key" name="key" class="mono" value="{{$f.Key}}" maxlength="64" autocomplete="off" spellcheck="false" required{{$e.Attrs "key"}}>
-              {{with $e.On "key"}}{{template "field-error" .}}{{end}}
-            </div>
-            <div class="cfield">
-              <div class="cfield-label"><label for="workflow_key">{{t "Workflow"}}</label>{{template "tip" (tip "Workflow" "A project uses exactly one workflow. It sets the states a task can be in, the board's columns and the moves allowed between them. Several projects can share one workflow." "docs/workflows.md")}}</div>
-              <select id="workflow_key" name="workflow_key"{{$e.Attrs "workflow_key"}}>
-                {{range .Data.Workflows}}<option value="{{.Key}}" {{if eq .Key $f.Workflow}}selected{{end}}>{{.Name}}</option>{{end}}
-              </select>
-              {{with $e.On "workflow_key"}}{{template "field-error" .}}{{end}}
-            </div>
-          </div>
-          <div class="cfield cfield-grow">
-            <div class="cfield-label"><label for="description">{{t "Description"}}</label></div>
-            <textarea id="description" name="description" rows="4" placeholder="{{t "What the project is for, in a sentence or two"}}">{{$f.Description}}</textarea>
-          </div>
-        </div>
-        <fieldset class="cform-side cform-group">
-          <legend>{{t "Appearance"}}</legend>
-          <p class="cfield-hint">{{t "Shown beside the project's name in lists, on its board and on its tasks."}}</p>
-          <div class="cfield">
-          <div class="cfield-label"><span id="color-label" class="cfield-name">{{t "Colour"}}</span>{{template "tip" (tip "Colour" "Pick one of the predefined colours, or choose Custom and set any colour with the picker or as #rrggbb. Each colour scheme draws a custom colour as close to it as stays readable.")}}</div>
-          {{template "colour-field" (projectColours "color" $f.Colour)}}
-          {{with $e.On "color"}}{{template "field-error" .}}{{end}}
-          </div>
-          <div class="cfield">
-          {{template "icon-picker" .Data.Picker}}
-          {{with $e.On "icon"}}{{template "field-error" .}}{{end}}
-          </div>
-        </fieldset>
-      </div>
-      <div class="cform-foot">
-        {{template "form-keys" (t "to save")}}
-        <div class="cform-actions">
-          <a class="secondary cform-cancel" href="/projects/{{.Data.Project.Key}}" data-form-cancel>{{t "Cancel"}}</a>
-          <button type="submit">{{t "Save project"}}</button>
-        </div>
-      </div>
-    </form>
-  </div>
-</details>
-
-<details class="panel leasepanel">
-  <summary>{{t "Claims"}}</summary>
-  <div class="body">
-    <form method="post" class="cform leaseform" data-form action="/projects/{{.Data.Project.Key}}/lease">
-      {{template "csrf" .CSRF}}
-      <p class="cfield-hint">{{t "How long a claim on this project's tasks holds when neither the claim nor the task says. It outranks the workflow's lease and the tenant's. Empty inherits the tenant's."}}</p>
-      <div class="cform-pair">
-        <div class="cfield">
-          <div class="cfield-label"><label for="lease-default">{{t "Lease length"}}</label></div>
-          <input id="lease-default" name="lease_default" class="mono" value="{{if .Data.Project.LeaseDefault}}{{.Data.Project.LeaseDefault.Human}}{{end}}" placeholder="{{t "Inherited"}}">
-        </div>
-        <div class="cfield">
-          <div class="cfield-label"><label for="lease-max">{{t "Longest lease"}}</label>{{template "tip" (tip "Longest lease" "No claim on this project holds longer, whatever it asks for. It can only be lower than the tenant's maximum." "docs/agents.md")}}</div>
-          <input id="lease-max" name="lease_max" class="mono" value="{{if .Data.Project.LeaseMax}}{{.Data.Project.LeaseMax.Human}}{{end}}" placeholder="{{t "Inherited"}}">
-        </div>
-      </div>
-      <div class="cform-foot">
-        <div class="cform-actions"><button type="submit">{{t "Save claim length"}}</button></div>
-      </div>
-    </form>
-  </div>
-</details>
-
-{{with .Data.Housekeeping}}
-<details class="panel hkpanel">
-  <summary>{{t "Housekeeping"}}</summary>
-  <div class="body" id="housekeeping">
-    <form method="post" class="cform hkform" data-form action="/projects/{{$.Data.Project.Key}}/housekeeping">
-      {{template "csrf" $.CSRF}}
-      <p class="cfield-hint">{{t "Overrides the tenant's cleanup defaults for this project. Inherit follows the Tenant screen."}}</p>
-      {{template "housekeeping-rules" .}}
-      <div class="cform-foot">
-        <div class="cform-actions"><button type="submit">{{t "Save housekeeping"}}</button></div>
-      </div>
-    </form>
-    {{if .Due}}
-    <details class="hkrun">
-      <summary>{{t "Clean up now"}}</summary>
-      <form method="post" class="hkrunform" action="/projects/{{$.Data.Project.Key}}/housekeeping/run">
-        {{template "csrf" $.CSRF}}
-        <input type="hidden" name="confirm" value="1">
-        <p class="cfield-hint">{{t "Cleanup acts on this project only: %d to the trash, %d deleted for good." .Moving .Purging}}</p>
-        <button class="danger" type="submit">{{t "Clean up this project"}}</button>
-      </form>
-    </details>
-    {{else}}
-    <p><button class="secondary" type="button" disabled>{{t "Clean up now"}}</button> <span class="cfield-hint">{{if .Paused}}{{t "Paused while the trash is off."}}{{else}}{{t "Nothing to clean up now."}}{{end}}</span></p>
-    {{end}}
-  </div>
-</details>
-{{end}}
-
-<details class="panel danger">
-  <summary>{{t "Danger zone"}}</summary>
-  <div class="body">
-    <p class="muted">{{t "Archiving hides %s from active lists. Deleting it removes it, and cannot be undone." .Data.Project.Name}}</p>
-    <form method="post" action="/projects/{{.Data.Project.Key}}/archive">
-      {{template "csrf" .CSRF}}
-      <div class="actions"><button class="secondary" type="submit">{{t "Archive project"}}</button></div>
-    </form>
-    <form method="get" hx-boost="false" action="/projects/{{.Data.Project.Key}}/delete">
-      <div class="actions"><button class="danger" type="submit">{{t "Delete project"}}</button></div>
-    </form>
-  </div>
-</details>
 {{template "live-screen" .Data.Live}}
-{{end}}
-{{end}}
-
-{{/* key-change asks before a project's key changes, because every task
-     reference changes with it. It repeats the whole settings form as hidden
-     fields, so confirming saves what the reader submitted, and needs no
-     script. */}}
-{{define "key-change"}}{{$c := .Data.KeyChange}}
-<h1>{{t "Change the key of %s?" $c.Name}}</h1>
-<section class="panel">
-  <div class="body">
-    <p>{{t "The key changes from %s to %s, and every task reference changes with it:" (key $c.From) (key $c.To)}}</p>
-    <ul class="key-examples">
-      {{range $c.Examples}}<li><code>{{ref .From}}</code> <span class="sr-only">{{t "becomes"}}</span>{{template "icon" "arrow-right"}} <code>{{ref .To}}</code></li>{{end}}
-    </ul>
-    <p class="muted">{{t "Old links, references and filters that use %s keep working and lead here. No other project can take %s while this one exists." (key $c.From) (key $c.From)}}</p>
-    <form method="post" action="/projects/{{$c.From}}/update" enctype="multipart/form-data">
-      {{template "csrf" .CSRF}}
-      <input type="hidden" name="confirm_key" value="1">
-      <input type="hidden" name="key" value="{{$c.To}}">
-      <input type="hidden" name="name" value="{{$c.Name}}">
-      <input type="hidden" name="description" value="{{$c.Description}}">
-      <input type="hidden" name="workflow_key" value="{{$c.Workflow}}">
-      <input type="hidden" name="color" value="{{$c.Color}}">
-      <input type="hidden" name="icon" value="{{$c.Icon}}">
-      {{if $c.IconKindSent}}<input type="hidden" name="icon_kind" value="{{$c.IconKind}}">{{end}}
-      <input type="hidden" name="icon_name" value="{{$c.IconName}}">
-      {{if $c.ReuploadImage}}
-      <label for="icon_file">{{t "Image file"}}</label>
-      <p class="muted">{{t "A browser cannot carry a file to this screen, so choose the image again."}}</p>
-      <input id="icon_file" name="icon_file" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" required>
-      {{end}}
-      <div class="actions">
-        <button type="submit">{{t "Change the key to %s" (key $c.To)}}</button>
-        <a href="/projects/{{$c.From}}">{{t "Cancel"}}</a>
-      </div>
-    </form>
-  </div>
-</section>
 {{end}}
 
 {{/* The columns, and only the columns. A live update replaces them from the
      same block the page draws, so a card that arrives carries the moves its
-     own project's workflow allows. The settings disclosure and the danger
-     zone below are forms, and are left where they are. */}}
+     own project's workflow allows. */}}
 {{define "board-live"}}
 <div id="project-board">{{template "project-board" .}}</div>
 {{end}}

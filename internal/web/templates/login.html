@@ -20,9 +20,9 @@
      typed above, so it cannot be used to probe whether an account exists.
      Both commands need shell access to the machine running tix; a browser
      alone cannot create or reset an account. */}}
-<details class="panel login-help">
-  <summary>{{t "Can't sign in?"}}</summary>
-  <div class="body">
+<p class="login-help">{{template "dlg-open" (opener "signin-help" (t "Can't sign in?") "" "link" .Here)}}</p>
+{{$sh := shell "signin-help" (t "Can't sign in?") "" .Dialog .Here}}
+{{template "dlg-start" $sh}}
     <p class="muted">{{t "No account yet on this tenant? Create one from a shell with access to this server:"}}</p>
     <div class="copyline">
       <code id="hint-create">tix user create you@example.com --role admin --password 'change-me'{{if .Data.TargetHint}} --db {{.Data.TargetHint}}{{end}}</code>
@@ -38,6 +38,6 @@
       <button type="button" class="secondary" data-copy-target="hint-reset">{{t "Copy"}}</button>
     </div>
     <p class="muted">{{t "Both run on the machine running tix, not in this browser."}}</p>
-  </div>
-</details>
+  <div class="actiondlg-foot"><a class="btn" href="{{$sh.Back}}" data-dlg-close>{{t "Close"}}</a></div>
+{{template "dlg-end"}}
 {{end}}

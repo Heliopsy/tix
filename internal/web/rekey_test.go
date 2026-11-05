@@ -25,7 +25,7 @@ func settingsAt(t *testing.T, page, action string) string {
 func TestProjectSettingsOfferTheKey(t *testing.T) {
 	f := newFixture(t)
 	b := f.as("alice")
-	form := settingsAt(t, b.page("/projects/infra"), "/projects/infra/update")
+	form := settingsAt(t, b.page("/projects/infra/settings"), "/projects/infra/update")
 	if got := inputValue(t, form, "key"); got != "infra" {
 		t.Errorf("key field holds %q, want infra", got)
 	}
@@ -35,7 +35,7 @@ func TestProjectSettingsOfferTheKey(t *testing.T) {
 }
 
 // A changed key asks first, shows the references it changes, and saves only
-// once confirmed, landing on the new board.
+// once confirmed, landing on the project's settings under the new key.
 func TestChangingAProjectKeyIsConfirmedFirst(t *testing.T) {
 	f := newFixture(t)
 	b := f.as("alice")
@@ -55,7 +55,7 @@ func TestChangingAProjectKeyIsConfirmedFirst(t *testing.T) {
 			t.Errorf("the confirmation form lacks %s:\n%s", want, confirm)
 		}
 	}
-	if board := b.page("/projects/infra"); !strings.Contains(board, `value="infra"`) {
+	if board := b.page("/projects/infra/settings"); !strings.Contains(board, `value="infra"`) {
 		t.Error("asking for a confirmation already changed the key")
 	}
 
@@ -64,10 +64,10 @@ func TestChangingAProjectKeyIsConfirmedFirst(t *testing.T) {
 	resp = b.post("/projects/infra/update", form)
 	_ = resp.Body.Close()
 	wantStatus(t, resp, http.StatusSeeOther)
-	if loc := resp.Header.Get("Location"); !strings.HasPrefix(loc, "/projects/ops?") {
-		t.Errorf("confirmed rename went to %q, want /projects/ops", loc)
+	if loc := resp.Header.Get("Location"); !strings.HasPrefix(loc, "/projects/ops/settings?") {
+		t.Errorf("confirmed rename went to %q, want /projects/ops/settings", loc)
 	}
-	if got := inputValue(t, settingsAt(t, b.page("/projects/ops"), "/projects/ops/update"), "name"); got != "Renamed" {
+	if got := inputValue(t, settingsAt(t, b.page("/projects/ops/settings"), "/projects/ops/update"), "name"); got != "Renamed" {
 		t.Errorf("confirming did not save the other fields: name %q", got)
 	}
 }
@@ -93,12 +93,13 @@ func TestOldProjectAndTaskURLsRedirect(t *testing.T) {
 	_ = b.post("/projects/infra/update", form).Body.Close()
 
 	for path, want := range map[string]string{
-		"/projects/infra":         "/projects/ops",
-		"/projects/infra/fields":  "/projects/ops/fields",
-		"/projects/infra/live":    "/projects/ops/live",
-		"/tasks/" + ref:           "/tasks/ops-" + seq,
-		"/tasks/" + ref + "?x=1":  "/tasks/ops-" + seq + "?x=1",
-		"/tasks/" + ref + "/live": "/tasks/ops-" + seq + "/live",
+		"/projects/infra":          "/projects/ops",
+		"/projects/infra/fields":   "/projects/ops/fields",
+		"/projects/infra/settings": "/projects/ops/settings",
+		"/projects/infra/live":     "/projects/ops/live",
+		"/tasks/" + ref:            "/tasks/ops-" + seq,
+		"/tasks/" + ref + "?x=1":   "/tasks/ops-" + seq + "?x=1",
+		"/tasks/" + ref + "/live":  "/tasks/ops-" + seq + "/live",
 	} {
 		resp := b.get(path)
 		_ = resp.Body.Close()

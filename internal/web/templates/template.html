@@ -10,6 +10,7 @@
   <div class="cform-head">
     <h1 class="cform-title">{{t "Template"}} <span class="mono">{{$tpl.Name}}</span></h1>
     {{template "tip" (tip "Task templates" "Changes apply to tasks made from now on; tasks already made from the template keep what they were made with. Subtasks change only by saving a task as a template again." "docs/web-ui.md")}}
+    <span class="cform-head-tools">{{template "dlg-open" (opener "template-delete" (t "Delete template") "trash" "danger" $.Here)}}</span>
   </div>
   {{with $e.On ""}}{{template "field-error" .}}{{end}}
   <div class="cform-grid">
@@ -86,16 +87,15 @@
     </div>
   </div>
 </form>
-<details class="panel danger">
-  <summary>{{t "Danger zone"}}</summary>
-  <div class="body">
-    <form method="post" action="/templates/{{$tpl.ID}}/delete">
-      {{template "csrf" .CSRF}}
-      <p>{{t "Tasks already made from this template stay as they are."}}</p>
-      <div class="actions"><button class="danger" type="submit">{{t "Delete template"}}</button></div>
-    </form>
-  </div>
-</details>
+{{/* Deleting is the red button by the title, and it asks first. */}}
+{{$sh := shell "template-delete" (t "Delete %s?" $tpl.Name) "confirm" .Dialog .Here}}
+{{template "dlg-start" $sh}}
+<form method="post" action="/templates/{{$tpl.ID}}/delete">
+  {{template "csrf" .CSRF}}
+  <p>{{t "Tasks already made from this template stay as they are."}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button class="danger" type="submit">{{t "Delete template"}}</button></div>
+</form>
+{{template "dlg-end"}}
 {{end}}
 
 {{define "template-subtasks"}}<ul class="tplsubs">{{range .}}<li>{{.Title}}{{with .Subtasks}}{{template "template-subtasks" .}}{{end}}</li>{{end}}</ul>{{end}}

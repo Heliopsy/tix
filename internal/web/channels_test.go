@@ -75,26 +75,27 @@ func TestSettingsAddsAChannelAndShowsItsSecretOnce(t *testing.T) {
 
 // assertChannelsInACard checks the Notifications section's shape: its
 // description and channels are rows of one card, and Add a channel is a
-// disclosure, closed once a channel exists and open while there is none.
+// button beside the heading opening a dialog that holds the add form, drawn
+// shut until it is asked for.
 func assertChannelsInACard(t *testing.T, section string, has bool) {
 	t.Helper()
-	card := between(t, section, `<div class="setlist">`, "\n  </div>\n  <details")
+	card := between(t, section, `<div class="setlist">`, `<dialog id="channel-new"`)
 	if !strings.Contains(card, `<p class="setrow setlead">Send your inbox items`) {
 		t.Errorf("the description is not the card's lead row:\n%s", section)
 	}
 	if has && !strings.Contains(card, `<li class="setrow channelrow">`) {
 		t.Errorf("the channels are not rows of the card:\n%s", section)
 	}
-	adder := between(t, section, `<details class="panel addmore"`, "</details>")
-	head, _, _ := strings.Cut(adder, "<form")
-	if !strings.Contains(head, "<summary>Add a channel</summary>") {
-		t.Errorf("Add a channel is not a disclosure:\n%s", adder)
+	head := between(t, section, `<div class="sechead">`, "</div>")
+	if !strings.Contains(head, `href="/settings?dialog=channel-new#channel-new" data-dlg-open="channel-new"`) || !strings.Contains(head, "Add a channel") {
+		t.Errorf("Add a channel is not a button beside the heading:\n%s", head)
 	}
-	if open := strings.HasPrefix(head, "open>"); open == has {
-		t.Errorf("Add a channel open = %v with a channel = %v:\n%s", open, has, adder)
+	adder := dialogBlock(section, "channel-new")
+	if tag, _, _ := strings.Cut(adder, ">"); strings.Contains(tag, " open") {
+		t.Errorf("Add a channel is drawn open before it was asked for:\n%s", tag)
 	}
 	if !strings.Contains(adder, `action="/settings/notifications"`) {
-		t.Errorf("the disclosure does not hold the add form:\n%s", adder)
+		t.Errorf("the dialog does not hold the add form:\n%s", adder)
 	}
 }
 
@@ -107,6 +108,9 @@ func TestChannelFormsRefuseInPlaceTestAndRemove(t *testing.T) {
 	if resp.StatusCode != http.StatusBadRequest || !strings.Contains(refused, `id="url-error"`) ||
 		!strings.Contains(refused, `value="bad"`) {
 		t.Fatalf("a refused channel answered %d without the message beside the url:\n%s", resp.StatusCode, refused)
+	}
+	if tag, _, _ := strings.Cut(dialogBlock(refused, "channel-new"), ">"); !strings.HasSuffix(tag, " open") {
+		t.Errorf("a refused channel does not come back with its dialog open: %s", tag)
 	}
 
 	page, _ := addChannel(t, f, b, url.Values{"name": {"hook"}, "url": {"https://hooks.invalid/hook"}, "kinds": {"mention"}, "active": {"on"}})

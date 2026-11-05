@@ -14,17 +14,23 @@ import (
 
 // A first-run trap: a store with zero users has no way to log in, and the
 // sign-in screen used to give no hint that this was even the problem. The
-// disclosure has to name the actual commands, work with scripting off, and
-// never react to what was typed into the form above it.
+// help has to name the actual commands, work with scripting off, and never
+// react to what was typed into the form above it. It is a dialog opened from
+// a link under the card, and the link alone reaches it with scripting off.
 
 func TestLoginPageOffersACantSignInDisclosure(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	page := body(t, f.as("").get("/login"))
 
-	if !strings.Contains(page, `<details class="panel login-help">`) {
-		t.Fatalf("the login page carries no can't-sign-in disclosure:\n%s", page)
+	if !strings.Contains(page, `href="/login?dialog=signin-help#signin-help" data-dlg-open="signin-help"`) {
+		t.Fatalf("the login page carries no can't-sign-in link:\n%s", page)
 	}
+	help := dialogBlock(page, "signin-help")
+	if help == "" {
+		t.Fatalf("the login page carries no can't-sign-in dialog:\n%s", page)
+	}
+	page = help
 	if !strings.Contains(page, "tix user create") {
 		t.Errorf("the disclosure does not show how to create the first user:\n%s", page)
 	}
@@ -47,7 +53,7 @@ func TestLoginPageDisclosureDoesNotReactToTheForm(t *testing.T) {
 	_ = resp.Body.Close()
 	after := body(t, b.get("/login"))
 
-	if extractDetails(before, "panel login-help") != extractDetails(after, "panel login-help") {
+	if help := dialogBlock(before, "signin-help"); help == "" || help != dialogBlock(after, "signin-help") {
 		t.Errorf("the disclosure changed after a failed sign-in attempt, which makes it an enumeration oracle")
 	}
 }
@@ -90,14 +96,15 @@ func TestLoginPageDisclosureOmitsTheTargetFlagWhenThereIsNone(t *testing.T) {
 	}
 }
 
-func extractDetails(page, class string) string {
-	marker := `<details class="` + class + `">`
+// dialogBlock is one action dialog of a page, by its id, or nothing.
+func dialogBlock(page, id string) string {
+	marker := `<dialog id="` + id + `"`
 	start := strings.Index(page, marker)
 	if start < 0 {
 		return ""
 	}
 	rest := page[start:]
-	end := strings.Index(rest, "</details>")
+	end := strings.Index(rest, "</dialog>")
 	if end < 0 {
 		return rest
 	}

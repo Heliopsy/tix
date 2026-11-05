@@ -107,6 +107,27 @@ A list the code already holds is asserted rather than maintained: see
 `internal/tui/docs_test.go`, `internal/capability/docs_test.go` and
 `cmd/docs_readme_test.go`. Judgement stays prose and stays reviewed.
 
+## Web interface
+
+- No expander sections for page actions or settings. A `<details>` fold at the
+  foot of a screen is how create forms, project settings and danger zones hid
+  for months, and the owner asked for them gone more than once.
+- A create action is a primary button (plus icon and a label) in the page
+  header, or on the right of its section's heading, that opens the form in a
+  `<dialog>` (the `dlg-open`, `dlg-start` and `dlg-end` partials,
+  `internal/web/actiondlg.go`). Without scripting the button is a link to
+  `?dialog=ID`, which draws the same form in place; a refused submission comes
+  back with the dialog open (`refuseIn`). An empty list carries the same button.
+- A destructive action is a red button that opens a confirm dialog. Its form
+  lives only in the dialog.
+- Settings are headed sections that are always drawn, on their own screen when
+  they are not the screen's point (a project's settings are
+  `/projects/{key}/settings`, not folds under the board).
+- An explanation is visible text or an (i) tip, never a fold.
+- `TestNoPageActionOrSectionSitsInAnExpander` lists the few toggles allowed to
+  stay `<details>` (a row's Move menu, the (i) tips, a task's Rename), each with
+  its reason. Adding to it needs the same kind of reason.
+
 ## Never touch a real store
 
 - Tests, hand verification and demos use an isolated database, always. Pass

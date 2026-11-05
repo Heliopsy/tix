@@ -163,6 +163,20 @@ func personRow(t *testing.T, page, userID string) string {
 	return row
 }
 
+// manageDialog is the dialog one account's Manage button opens, which holds
+// its controls; the row itself carries only the button.
+func manageDialog(t *testing.T, page, userID string) string {
+	t.Helper()
+	if !strings.Contains(personRow(t, page, userID), `data-dlg-open="user-`+userID+`"`) {
+		t.Fatalf("the row for %q has no Manage button", userID)
+	}
+	dlg := dialogBlock(page, "user-"+userID)
+	if dlg == "" {
+		t.Fatalf("the listing has no Manage dialog for %q", userID)
+	}
+	return dlg
+}
+
 // The chip marking the reader's own account belongs on exactly one row. Read
 // across the whole page it is indistinguishable from marking every row, which
 // is what leaving the identity comparison out does.
@@ -265,7 +279,7 @@ func TestEmptyingTheDisplayNameRemovesIt(t *testing.T) {
 
 	page := b.page("/admin/users")
 	id := userIDFor(t, page, "named@example.test")
-	if got := inputValue(t, personRow(t, page, id), "name-"+id); got != "Named Person" {
+	if got := inputValue(t, manageDialog(t, page, id), "name-"+id); got != "Named Person" {
 		t.Fatalf("the name input holds %q before it is emptied", got)
 	}
 
@@ -275,7 +289,7 @@ func TestEmptyingTheDisplayNameRemovesIt(t *testing.T) {
 	wantStatus(t, saved, http.StatusSeeOther)
 
 	after := b.page("/admin/users")
-	if got := inputValue(t, personRow(t, after, id), "name-"+id); got != "" {
+	if got := inputValue(t, manageDialog(t, after, id), "name-"+id); got != "" {
 		t.Errorf("emptying the display name left %q on the account", got)
 	}
 }

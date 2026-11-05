@@ -104,10 +104,9 @@ func init() {
 		"Clearing it drops the enrolment and its recovery codes. Use it when somebody has lost both.": "Изчистването премахва регистрацията и кодовете ѝ за възстановяване. Използвайте го, когато някой е загубил и двете.",
 		"Clear second factor":                                                                         "Изчисти втория фактор",
 		"Deleting removes the account and its membership. Disabling is usually what you want, and can be undone.": "Изтриването премахва профила и членството му. Обикновено ви трябва деактивиране, а то може да се отмени.",
-		"No users yet":                "Все още няма потребители",
-		"Create the first one below.": "Създайте първия по-долу.",
-		"Create a user":               "Създаване на потребител",
-		"Create user":                 "Създай потребител",
+		"No users yet":  "Все още няма потребители",
+		"Create a user": "Създаване на потребител",
+		"Create user":   "Създай потребител",
 
 		// The tokens screen.
 		"A token is the credential a script, the CLI or an agent presents to the HTTP API instead of signing in. It carries its own list of scopes rather than a role, and its value is shown once, when it is issued.": "Токенът е идентификационните данни, които скрипт, CLI или агент представя на HTTP API вместо вход. Той носи собствен списък с обхвати вместо роля, а стойността му се показва веднъж, при издаването.",
@@ -202,7 +201,6 @@ func init() {
 		"every event type": "всеки тип събитие",
 		"off":              "изключен",
 		"No endpoints":     "Няма крайни точки",
-		"Nothing is subscribed to this tenant's events. Register one below.": "Нищо не е абонирано за събитията на този тенант. Регистрирайте крайна точка по-долу.",
 		"A stored signing secret is never displayed. One tix generates is shown once, on this screen, immediately after you save; one you supply is not shown at all, because you already have it.": "Запазеният таен ключ за подпис никога не се показва. Ключ, генериран от tix, се показва веднъж, на този екран, веднага след запазване; ключ, който сте задали сами, не се показва изобщо, защото вече го имате.",
 		"Register an endpoint": "Регистриране на крайна точка",
 		"Signing secret":       "Таен ключ за подпис",

@@ -15,7 +15,9 @@ func (h *handler) projectRoutes() []route {
 	return []route{
 		get(RouteProjects, "projects.html", h.showProjects, "ListProjects", "ListWorkflows"),
 		post(RouteProjects, h.createProject, "CreateProject"),
-		get(RouteProject, "board.html", h.showBoard, "GetProject", "ListGroupPrefs", "GetHousekeeping"),
+		get(RouteProject, "board.html", h.showBoard, "GetProject", "ListGroupPrefs"),
+		get(RouteProjectSettings, "projectsettings.html", h.showProjectSettings,
+			"GetProject", "ListWorkflows", "GetHousekeeping"),
 		// The board's live fragment renders through the same template set,
 		// and the same block, the full board does. See showBoardLive.
 		get(RouteBoardLive, "board.html", h.showBoardLive, "GetProject"),
@@ -219,7 +221,7 @@ func (h *handler) updateProject(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return h.refuseSettings(w, r, form, err)
 	}
-	redirect(w, r, RouteProjects+"/"+updated.Key, "project updated")
+	redirect(w, r, settingsPath(updated.Key), "project updated")
 	return nil
 }
 
@@ -238,7 +240,7 @@ func (h *handler) updateProjectLease(w http.ResponseWriter, r *http.Request) err
 	if err != nil {
 		return err
 	}
-	redirect(w, r, RouteProjects+"/"+updated.Key, "claim length saved")
+	redirect(w, r, settingsPath(updated.Key), "claim length saved")
 	return nil
 }
 
@@ -256,12 +258,12 @@ func namedDuration(r *http.Request, name string) (*core.Duration, error) {
 }
 
 // refuseSettings answers a settings save the reader can correct by drawing
-// the board again with its settings open, holding what was typed.
+// the project's settings screen again, holding what was typed.
 func (h *handler) refuseSettings(w http.ResponseWriter, r *http.Request, form projectForm, err error) error {
 	if !refusable(err) {
 		return err
 	}
-	data, viewErr := h.buildBoardView(r)
+	data, viewErr := h.buildSettingsView(r)
 	if viewErr != nil {
 		return viewErr
 	}
@@ -274,7 +276,7 @@ func (h *handler) refuseSettings(w http.ResponseWriter, r *http.Request, form pr
 		typed.Icon, typed.IconName, typed.IconImage = form.Icon, "", ""
 		data.Picker = newIconPicker(typed)
 	}
-	return h.renderStatus(w, r, core.KindOf(err).HTTPStatus(), "board.html", data.Project.Name, data)
+	return h.renderStatus(w, r, core.KindOf(err).HTTPStatus(), "projectsettings.html", data.Project.Name, data)
 }
 
 // archiveProject archives a project.
@@ -301,28 +303,36 @@ type column struct {
 	Head groupHead
 }
 
-// boardView is what the project board renders.
+// boardView is what the project board renders: the columns and nothing
+// else. The project's settings are a screen of their own; see
+// projectSettingsView.
 type boardView struct {
+	Project  core.Project
+	Workflow core.Workflow
+	Columns  []column
+
+	// Arrange is the reader's own arrangement of this board's columns.
+	Arrange arrangement
+
+	// Live is what keeps the columns current while the board is open. See
+	// live.go.
+	Live liveScreen
+}
+
+// projectSettingsView is what a project's settings screen renders.
+type projectSettingsView struct {
 	Project   core.Project
 	Workflow  core.Workflow
 	Workflows []core.Workflow
 	Colors    []core.ProjectColor
 	Picker    iconPicker
-	Columns   []column
-
-	// Arrange is the reader's own arrangement of this board's columns.
-	Arrange arrangement
 
 	// Form is what the settings form holds: the stored project, or what a
-	// refused save was submitted with, in which case Refused opens the
-	// settings and Errors sits beside the fields.
+	// refused save was submitted with, in which case Errors sits beside the
+	// fields.
 	Form    projectForm
 	Errors  fieldErrors
 	Refused bool
-
-	// Live is what keeps the columns current while the board is open. See
-	// live.go.
-	Live liveScreen
 
 	// KeyChange, when set, turns the screen into the confirmation of a new
 	// key and nothing else.
@@ -342,11 +352,48 @@ func (h *handler) showBoard(w http.ResponseWriter, r *http.Request) error {
 	if redirectOldKey(w, r, r.PathValue("key"), &data.Project) {
 		return nil
 	}
+	return h.render(w, r, "board.html", data.Project.Name, data)
+}
+
+// showProjectSettings renders a project's settings, its claims, its
+// housekeeping and its danger zone, as the headed sections of one screen.
+func (h *handler) showProjectSettings(w http.ResponseWriter, r *http.Request) error {
+	data, err := h.buildSettingsView(r)
+	if err != nil {
+		return err
+	}
+	if redirectOldKey(w, r, r.PathValue("key"), &data.Project) {
+		return nil
+	}
 	if data.Housekeeping, err = h.projectHousekeeping(r, data.Project.Key); err != nil {
 		return err
 	}
-	return h.render(w, r, "board.html", data.Project.Name, data)
+	return h.render(w, r, "projectsettings.html", data.Project.Name, data)
 }
+
+// buildSettingsView reads what a project's settings screen draws.
+func (h *handler) buildSettingsView(r *http.Request) (projectSettingsView, error) {
+	project, err := h.svc.GetProject(r.Context(), r.PathValue("key"))
+	if err != nil {
+		return projectSettingsView{}, err
+	}
+	workflows, err := h.svc.ListWorkflows(r.Context())
+	if err != nil {
+		return projectSettingsView{}, err
+	}
+	workflow, err := workflowFor(project, workflows)
+	if err != nil {
+		return projectSettingsView{}, err
+	}
+	return projectSettingsView{Project: *project, Workflow: *workflow, Workflows: workflows,
+		Colors: core.ProjectColors(),
+		Picker: newIconPicker(*project),
+		Form:   formOf(*project, workflow.Key),
+	}, nil
+}
+
+// settingsPath is a project's settings screen.
+func settingsPath(key string) string { return RouteProjects + "/" + key + "/settings" }
 
 // showBoardLive renders only the columns, from the same block the whole
 // board is drawn by, so a card that arrives live carries the moves its own
@@ -386,12 +433,9 @@ func (h *handler) buildBoardView(r *http.Request) (boardView, error) {
 		return boardView{}, err
 	}
 	columns, arrange := h.arrangeProjectBoard(r, *project, workflow.Definition, buildColumns(workflow.Definition, page.Tasks))
-	return boardView{Project: *project, Workflow: *workflow, Workflows: workflows,
-		Colors:  core.ProjectColors(),
-		Picker:  newIconPicker(*project),
+	return boardView{Project: *project, Workflow: *workflow,
 		Columns: columns,
 		Arrange: arrange,
-		Form:    formOf(*project, workflow.Key),
 		Live:    h.liveBoard(*project),
 	}, nil
 }
@@ -479,7 +523,7 @@ func (h *handler) putField(w http.ResponseWriter, r *http.Request) error {
 	key := r.PathValue("key")
 	position, err := intField(r, "position")
 	if err != nil {
-		return err
+		return h.refuseIn(w, r, "field-new", RouteProjects+"/"+key+"/fields", core.OnField(err, "position"), h.showFields)
 	}
 	in := core.FieldDefInput{
 		Key:         field(r, "key"),
@@ -495,10 +539,10 @@ func (h *handler) putField(w http.ResponseWriter, r *http.Request) error {
 		def.Label = in.Key
 	}
 	if in.Default, err = coerceField(def, field(r, "default")); err != nil {
-		return err
+		return h.refuseIn(w, r, "field-new", RouteProjects+"/"+key+"/fields", core.OnField(err, "default"), h.showFields)
 	}
 	if _, err := h.svc.PutFieldDef(r.Context(), key, in); err != nil {
-		return err
+		return h.refuseIn(w, r, "field-new", RouteProjects+"/"+key+"/fields", err, h.showFields)
 	}
 	redirect(w, r, RouteProjects+"/"+key+"/fields", "field saved")
 	return nil

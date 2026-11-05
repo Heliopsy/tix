@@ -1,7 +1,7 @@
 {{define "content"}}
 <div class="pagehead">
   <div class="pagehead-title"><div class="headtip"><h1>{{t "API tokens"}}</h1>{{template "tip" (tip "API tokens" "A token is the credential a script, the CLI or an agent presents to the HTTP API instead of signing in. It carries its own list of scopes rather than a role, and its value is shown once, when it is issued." "docs/api.md")}}</div></div>
-  <div class="pagehead-tools">{{template "column-menu" .}}</div>
+  <div class="pagehead-tools">{{template "column-menu" .}}{{template "dlg-open" (opener "token-new" (t "Issue a token") "plus" "" .Here)}}</div>
 </div>
 {{with .Data.Secret}}{{template "secret" .}}{{end}}
 {{if .Data.Owners}}
@@ -34,43 +34,39 @@
       {{if $.Columns.Show "tokens" "expires"}}<td>{{if .ExpiresAt}}{{stamp .ExpiresAt}}{{else}}<span class="muted">{{t "Never"}}</span>{{end}}</td>{{end}}
       <td><span class="badge tok-{{tokenState .APIToken}}">{{t (tokenState .APIToken)}}</span>{{if .RevokedAt}} <span class="muted">{{stamp .RevokedAt}}</span>{{end}}</td>
       <td>
-        {{if not .RevokedAt}}
-        {{/* Behind a disclosure, like every other irreversible control in this
-             interface (a project, a task, an account): the button that ends a
-             credential should not be one stray click away, and the words
-             explaining what it ends have nowhere else to go. */}}
-        <details class="panel danger">
-          <summary>{{t "Revoke"}}</summary>
-          <div class="body">
-            <form method="post" action="/admin/tokens/revoke">
-              {{template "csrf" $.CSRF}}
-              <input type="hidden" name="id" value="{{.ID}}">
-              <p class="muted">{{t "Whatever holds this token stops authenticating at once. It cannot be undone, and the value cannot be recovered, so anything still using it needs a new token."}}{{if and $.Data.Owners (not .Mine)}} {{t "This token is %s's, not yours, and the trail will record that you ended somebody else's." .Owner}}{{end}}</p>
-              <div class="actions"><button class="danger" type="submit">{{t "Revoke %s" .Name}}{{if and $.Data.Owners (not .Mine)}} ({{.Owner}}){{end}}</button></div>
-            </form>
-          </div>
-        </details>
-        {{end}}
+        {{if not .RevokedAt}}{{template "dlg-open" ((opener (print "token-revoke-" .ID) (t "Revoke") "" "danger small" $.Here).Named (t "Revoke %s" .Name))}}{{end}}
       </td>
     </tr>
   {{else}}
-    <tr><td colspan="{{$.Columns.Span "tokens" $.Data.Fixed}}">{{t "No tokens."}}</td></tr>
+    <tr><td colspan="{{$.Columns.Span "tokens" $.Data.Fixed}}"><div class="empty-action"><span>{{t "No tokens."}}</span>{{template "dlg-open" (opener "token-new" (t "Issue a token") "plus" "" $.Here)}}</div></td></tr>
   {{end}}
   </tbody>
 </table>
 </div>
 
-{{/* Folded behind the Add disclosure Users and Webhooks use, and open by
-     itself when nothing is listed yet or a refusal comes back to it.
+{{/* Revoking ends a credential something may be holding, so the button
+     only asks: the dialog names the token, whose it is, and what revoking
+     does, and its red button is the one that revokes. */}}
+{{range .Data.Tokens}}{{if not .RevokedAt}}
+{{$sh := shell (print "token-revoke-" .ID) (t "Revoke %s?" .Name) "confirm" $.Dialog $.Here}}
+{{template "dlg-start" $sh}}
+<form method="post" action="/admin/tokens/revoke">
+  {{template "csrf" $.CSRF}}
+  <input type="hidden" name="id" value="{{.ID}}">
+  <p>{{t "Whatever holds this token stops authenticating at once. It cannot be undone, and the value cannot be recovered, so anything still using it needs a new token."}}{{if and $.Data.Owners (not .Mine)}} {{t "This token is %s's, not yours, and the trail will record that you ended somebody else's." .Owner}}{{end}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button class="danger" type="submit">{{t "Revoke %s" .Name}}{{if and $.Data.Owners (not .Mine)}} ({{.Owner}}){{end}}</button></div>
+</form>
+{{template "dlg-end"}}
+{{end}}{{end}}
 
-     A refused submission re-renders this form rather than answering with the
-     error screen, so the message arrives beside the control it is about and
-     nothing the reader typed is lost. It is the response to the ordinary POST,
-     so it works the same with scripting off; the required attributes below are
-     a convenience on top of it, never the thing doing the checking. */}}
-<details class="panel addmore"{{if or (not .Data.Tokens) .Data.Errors}} open{{end}}>
-  <summary>{{t "Issue a token"}}</summary>
-  <div class="body">
+{{/* Issuing a token is the screen's one action, so it is the button in the
+     header and the form opens over the list. A refused submission draws the
+     screen again with the dialog open, the message beside the control it is
+     about and nothing the reader typed lost. It is the response to the
+     ordinary POST, so it works the same with scripting off, where the
+     dialog is drawn in place at the top of the screen. */}}
+{{$sh := shell "token-new" (t "Issue a token") "" .Dialog .Here}}
+{{template "dlg-start" $sh}}
 <form method="post" action="/admin/tokens">
   {{template "csrf" .CSRF}}
   {{with .Data.Errors.On ""}}{{template "field-error" .}}{{end}}
@@ -93,8 +89,7 @@
     {{range .Data.Expiry}}<option value="{{.Key}}" {{if $.Data.Form.ChoseExpiry .Key}}selected{{end}}>{{t .Label}}</option>{{end}}
   </select>
   {{with .Data.Errors.On "expires"}}{{template "field-error" .}}{{end}}
-  <p><button type="submit">{{t "Issue token"}}</button></p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Issue token"}}</button></div>
 </form>
-  </div>
-</details>
+{{template "dlg-end"}}
 {{end}}

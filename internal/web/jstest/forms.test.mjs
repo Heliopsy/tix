@@ -233,3 +233,84 @@ test("a narrow screen shows compact project pickers by key alone, and a wide one
   forms.shortLabels(scope, false);
   assert.equal(option.textContent, "Infrastructure (INFRA)");
 });
+
+// -- action dialogs -----------------------------------------------------------
+
+function actionDialog(id, { inplace = false } = {}) {
+  const classes = new Set(inplace ? ["actiondlg", "is-inplace"] : ["actiondlg"]);
+  const field = { focused: 0, focus() { this.focused++; } };
+  return {
+    id, open: inplace, modal: 0, closed: 0, field,
+    classList: { remove(c) { classes.delete(c); }, contains(c) { return classes.has(c); } },
+    has(c) { return classes.has(c); },
+    showModal() { this.open = true; this.modal++; },
+    close() { this.open = false; this.closed++; },
+    hasAttribute(k) { return k === "data-dlg"; },
+    querySelector(sel) { return sel.startsWith("input") ? field : null; },
+  };
+}
+
+function loadWithDocument(dialogs, openers = {}) {
+  const listeners = {};
+  const document = {
+    addEventListener(type, fn) { (listeners[type] ||= []).push(fn); },
+    getElementById(id) { return dialogs.find((d) => d.id === id) || null; },
+    querySelector(sel) { const m = /data-dlg-open="([^"]+)"/.exec(sel); return m ? openers[m[1]] || null : null; },
+    querySelectorAll(sel) { return sel.startsWith("dialog") ? dialogs.filter((d) => d.has("is-inplace") && d.open) : []; },
+    contains() { return true; },
+  };
+  const location = { pathname: "/admin/tokens", search: "", hash: "", assign() {} };
+  const ctx = bareContext({ document, location, navigator: { platform: "Linux" }, history: { state: null, replaceState() {} } });
+  run(ctx, "forms.js");
+  return { forms: ctx.tixForms, listeners };
+}
+
+function click(target) {
+  return { target, button: 0, prevented: 0, stopped: 0, preventDefault() { this.prevented++; }, stopPropagation() { this.stopped++; } };
+}
+
+function opener(id) {
+  return {
+    focused: 0, focus() { this.focused++; },
+    getAttribute(k) { return k === "data-dlg-open" ? id : null; },
+    closest(sel) { return sel === "[data-dlg-open]" ? this : null; },
+  };
+}
+
+test("a dialog button opens its dialog as a modal one instead of following its link", () => {
+  const dlg = actionDialog("token-new");
+  const { forms } = loadWithDocument([dlg]);
+  const btn = opener("token-new");
+  const ev = click(btn);
+  forms.onDialogClick(ev);
+  assert.equal(dlg.modal, 1, "the dialog was not opened modally");
+  assert.equal(ev.prevented, 1, "the link was followed as well");
+  assert.equal(dlg.field.focused, 1, "focus did not move into the form");
+});
+
+test("a dialog button whose dialog is missing stays a link", () => {
+  const { forms } = loadWithDocument([]);
+  const ev = click(opener("absent"));
+  forms.onDialogClick(ev);
+  assert.equal(ev.prevented, 0);
+});
+
+test("Cancel inside a dialog closes it without navigating", () => {
+  const dlg = actionDialog("token-new");
+  const { forms } = loadWithDocument([dlg]);
+  forms.showDialog(dlg, null);
+  const cancel = { closest(sel) { return sel === "[data-dlg-close]" ? this : sel === "dialog[data-dlg]" ? dlg : null; } };
+  const ev = click(cancel);
+  forms.onDialogClick(ev);
+  assert.equal(dlg.closed >= 1 && !dlg.open, true, "Cancel left the dialog open");
+  assert.equal(ev.prevented, 1, "Cancel also navigated");
+});
+
+test("a dialog the server drew open in place becomes the modal one on load", () => {
+  const drawn = actionDialog("user-new", { inplace: true });
+  const shut = actionDialog("token-new");
+  loadWithDocument([drawn, shut], { "user-new": opener("user-new") });
+  assert.equal(drawn.modal, 1, "a refused form's dialog was not reopened");
+  assert.equal(drawn.has("is-inplace"), false);
+  assert.equal(shut.modal, 0, "a closed dialog was opened");
+});

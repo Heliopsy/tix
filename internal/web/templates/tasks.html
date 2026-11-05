@@ -195,24 +195,11 @@
   {{if or $v.Query $v.Due}}<a class="secondary clear" href="/tasks{{if $v.Sort}}?sort={{$v.Sort}}{{end}}">{{t "Clear"}}</a>{{end}}
 </form>
 {{/* Keeps what the bar is answering under a name, listed in the sidebar
-     under Tasks: the expression, the deadline window, the sort and the view
-     the screen is drawn in. A disclosure rather than a popover, so it works
-     with scripting off and opens in place inside this menu. */}}
-{{if or $v.Query $v.Due}}
-<details class="savefilter"{{if $v.FilterError}} hidden{{end}}>
-  <summary class="secondary">{{t "Save this filter"}}</summary>
-  <form method="post" class="savefilter-form" action="/filters">
-    {{template "csrf" .CSRF}}
-    <input type="hidden" name="q" value="{{$v.Query}}">
-    <input type="hidden" name="due" value="{{$v.Due}}">
-    <input type="hidden" name="sort" value="{{$v.Sort}}">
-    <input type="hidden" name="view" value="{{$v.View}}">
-    <label for="savefilter-name">{{t "Name"}}</label>
-    <input id="savefilter-name" name="name" required maxlength="80" placeholder="{{t "For example, my overdue work"}}">
-    <label class="savefilter-share"><input type="checkbox" name="shared" value="1"> {{t "Share with everyone in the tenant"}}</label>{{template "tip" (tip "Saved filters" "A saved filter keeps this filter, its sort and the view under a name in the sidebar, under Tasks. It is yours; a shared one is listed for everybody in the tenant, and only you or an administrator can change it." "docs/web-ui.md")}}
-    <button type="submit">{{t "Save"}}</button>
-  </form>
-</details>
+     under Tasks. The button opens the naming form over the screen; the form
+     itself is drawn after this menu, outside it, because a dialog inside a
+     closed popover would be hidden with it. */}}
+{{if and (or $v.Query $v.Due) (not $v.FilterError)}}
+{{template "dlg-open" (opener "savefilter" (t "Save this filter") "filter" "secondary savefilter-open" .Here)}}
 {{end}}
 <button type="button" class="flowclose filterclose" popovertarget="filterpop" popovertargetaction="hide">{{t "Close"}}</button>
 </div>
@@ -223,6 +210,23 @@
      the expression still in the box. */}}
 {{if $v.FilterError}}
 <p class="filterfault" role="alert">{{$v.FilterError}}</p>
+{{end}}
+{{if and (or $v.Query $v.Due) (not $v.FilterError)}}
+{{$sh := shell "savefilter" (t "Save this filter") "" .Dialog .Here}}
+{{template "dlg-start" $sh}}
+<form method="post" class="savefilter-form" action="/filters">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="q" value="{{$v.Query}}">
+  <input type="hidden" name="due" value="{{$v.Due}}">
+  <input type="hidden" name="sort" value="{{$v.Sort}}">
+  <input type="hidden" name="view" value="{{$v.View}}">
+  <p class="meta">{{t "A saved filter keeps this filter, its sort and the view under a name in the sidebar, under Tasks. It is yours; a shared one is listed for everybody in the tenant, and only you or an administrator can change it."}}</p>
+  <label for="savefilter-name">{{t "Name"}}</label>
+  <input id="savefilter-name" name="name" required maxlength="80" placeholder="{{t "For example, my overdue work"}}">
+  <label class="savefilter-share"><input type="checkbox" name="shared" value="1"> {{t "Share with everyone in the tenant"}}</label>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Save"}}</button></div>
+</form>
+{{template "dlg-end"}}
 {{end}}
 
 {{/* The view switch. One screen, two drawings of the same tasks: the filter,

@@ -180,8 +180,8 @@ func TestHoverRulesAreGatedOnThePreferenceAndOnMotion(t *testing.T) {
 }
 
 // A settings row stacks its control under its description at 900px and
-// below, and the token table scrolls in its own frame rather than widening
-// the page when a Revoke disclosure opens.
+// below, the token table scrolls in its own frame rather than widening the
+// page, and a row's button label does not break between its letters.
 func TestSettingsRowsStackAndTheTokenTableScrollsInItsFrame(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
@@ -192,8 +192,8 @@ func TestSettingsRowsStackAndTheTokenTableScrollsInItsFrame(t *testing.T) {
 	if rule := declarations(t, sheet, "@media (max-width: 900px)"); !strings.Contains(rule, ".setrow { grid-template-columns: minmax(0, 1fr); }") {
 		t.Errorf("a settings row does not stack at 900px: %s", rule)
 	}
-	if rule := declarations(t, sheet, "*/\ntd > details.panel > summary"); !strings.Contains(rule, "overflow-wrap: normal") {
-		t.Errorf("a row disclosure's label may still break between letters: %s", rule)
+	if rule := declarations(t, sheet, "*/\n.btn-label {"); !strings.Contains(rule, "overflow-wrap: normal") {
+		t.Errorf("a row button's label may still break between letters: %s", rule)
 	}
 
 	page := contentOf(t, b.page("/admin/tokens"))

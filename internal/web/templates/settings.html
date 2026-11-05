@@ -270,12 +270,18 @@
       </div>
     </form>
 
-    {{/* Folded. It is a fourteen row table of key names, and it answers one
-         question, asked once: what changes if I switch. */}}
-    <div class="setrow stacked">
-      <details class="panel">
-        <summary>{{t "Compare the schemes"}}</summary>
-        <div class="body">
+    {{/* A fourteen row table of key names answers one question, asked once:
+         what changes if I switch. It opens over the screen from a button on
+         the row it is about, rather than folding open inside the list. */}}
+    <div class="setrow">
+      <div class="setrow-text"><span class="sethelp">{{t "Which key each scheme uses for each action."}}</span></div>
+      <div class="setrow-ctl">{{template "dlg-open" (opener "schemes" (t "Compare the schemes") "" "secondary" .Here)}}</div>
+    </div>
+
+  </div>
+</section>
+{{$sh := shell "schemes" (t "Compare the schemes") "wide" .Dialog .Here}}
+{{template "dlg-start" $sh}}
           <div class="table-wrap">
           <table>
             <thead>
@@ -294,12 +300,8 @@
             </tbody>
           </table>
           </div>
-        </div>
-      </details>
-    </div>
-
-  </div>
-</section>
+<div class="actiondlg-foot"><a class="btn" href="{{$sh.Back}}" data-dlg-close>{{t "Close"}}</a></div>
+{{template "dlg-end"}}
 
 <section class="setgroup" id="dates">
   <h2>{{t "Dates and times"}}</h2>
@@ -364,7 +366,7 @@
 </section>
 
 <section class="setgroup" id="notifications">
-  <h2>{{t "Notifications"}}</h2>
+  <div class="sechead"><h2>{{t "Notifications"}}</h2>{{template "dlg-open" (opener "channel-new" (t "Add a channel") "plus" "" .Here)}}</div>
   {{/* The reader's own delivery endpoints for their inbox items. Kept with
        the account, like the switches above, and nothing to do with the
        tenant's webhooks under Admin. */}}
@@ -392,10 +394,8 @@
     </ul>
     {{end}}
   </div>
-  <details class="panel addmore"{{if or (not $n.Channels) $n.Adder.Errors}} open{{end}}>
-    <summary>{{t "Add a channel"}}</summary>
-    <div class="body"><div class="card">{{template "channel-form" $n.Adder}}</div></div>
-  </details>
+  {{$sh := shell "channel-new" (t "Add a channel") "wide" .Dialog .Here}}
+  {{template "dlg-start" $sh}}{{template "channel-form" $n.Adder}}{{template "dlg-end"}}
 </section>
 
 <section class="setgroup" id="second-factor">

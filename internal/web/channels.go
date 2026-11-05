@@ -78,6 +78,9 @@ type channelFormView struct {
 	Errors  fieldErrors
 	Formats []choice
 	Kinds   []inboxKindChoice
+	// Back is where Cancel goes when the form is in a dialog: the screen
+	// under it, which is closing the dialog when scripting runs.
+	Back string
 }
 
 // notificationsSection is the settings screen's Notifications section.
@@ -99,7 +102,7 @@ func (h *handler) notifications(r *http.Request, form channelForm, errs fieldErr
 	}
 	return notificationsSection{Channels: channels, Adder: channelFormView{Action: RouteChannels,
 		Submit: "Add channel", Prefix: "ch-", CSRF: csrfFrom(r), Form: form, Errors: errs,
-		Formats: channelFormats(), Kinds: inboxKindChoices(nil)}}
+		Formats: channelFormats(), Kinds: inboxKindChoices(nil), Back: RouteSettings}}
 }
 
 // createChannel adds a channel and answers with its screen showing the
@@ -119,6 +122,7 @@ func (h *handler) createChannel(w http.ResponseWriter, r *http.Request) error {
 		if readErr != nil {
 			return readErr
 		}
+		r = drawnWith(r, "channel-new", RouteSettings)
 		return h.renderSettings(w, r, core.KindOf(err).HTTPStatus(), calendar, h.notifications(r, form, refusal(err)))
 	}
 	return h.renderChannel(w, r, http.StatusCreated, issued.ID, nil, nil, issued.SigningSecret)

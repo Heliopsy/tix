@@ -89,7 +89,7 @@ func (h *handler) confirmKeyChange(w http.ResponseWriter, r *http.Request, p *co
 		}
 		change.ReuploadImage = file != nil
 	}
-	return true, h.render(w, r, "board.html", p.Name, boardView{Project: *p, KeyChange: change})
+	return true, h.render(w, r, "projectsettings.html", p.Name, projectSettingsView{Project: *p, KeyChange: change})
 }
 
 // movedTo is the request's own location with the one path segment that named

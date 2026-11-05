@@ -11,7 +11,7 @@
       {{end}}
     </p>
   </div>
-  <div class="pagehead-tools">{{template "column-menu" .}}</div>
+  <div class="pagehead-tools">{{template "column-menu" .}}{{template "dlg-open" (opener "user-new" (t "Create a user") "plus" "" .Here)}}</div>
 </div>
 
 {{/* A list of records, not a table of cells: every account is one block with
@@ -37,9 +37,25 @@
         {{else}}<span class="state on">{{t "active"}}</span>{{end}}
       {{end}}
     </span>
-    <details class="panel person-edit">
-      <summary aria-label="{{t "Manage %s" .Label}}">{{t "Manage"}}</summary>
-      <div class="body">
+    <span class="person-act">{{template "dlg-open" ((opener (print "user-" .User.ID) (t "Manage") "settings" "secondary small" $.Here).Named (t "Manage %s" .Label))}}</span>
+  </li>
+{{else}}
+  <li class="empty">
+    <p class="empty-title">{{t "No users yet"}}</p>
+    {{template "dlg-open" (opener "user-new" (t "Create a user") "plus" "" $.Here)}}
+  </li>
+{{end}}
+</ul>
+
+{{template "pager" $v.Pager}}
+
+{{/* Each account's controls open over the list, from its Manage button.
+     Deleting is a step of its own, behind its own red button and the
+     dialog that asks first, because disabling is usually what is meant and
+     can be undone. */}}
+{{range $v.Users}}
+{{$sh := shell (print "user-" .User.ID) (t "Manage %s" .Label) "" $.Dialog $.Here}}
+{{template "dlg-start" $sh}}
         <form method="post" action="/admin/users/update">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="id" value="{{.User.ID}}">
@@ -50,10 +66,7 @@
             </div>
             <div>
               {{/* Pre-selected from the membership this account actually
-                   holds. Without that the control offered every role with
-                   none chosen, so saving any other change on this form
-                   demoted the account to whichever role happened to be
-                   first. */}}
+                   holds, so saving any other change never demotes it. */}}
               <label for="role-{{.User.ID}}">{{t "Role"}}</label>
               {{$role := .Role}}
               <select id="role-{{.User.ID}}" name="role">
@@ -62,11 +75,6 @@
               </select>
             </div>
           </div>
-          {{/* The info sits on the checkbox's own line, in the .field-label
-               row every other explained field uses. A details element is
-               block level, so left as a sibling it dropped to a line of its
-               own and rendered as an "i" with nothing beside it to say what
-               it was about. */}}
           <div class="field-label">
             <label class="check-inline" for="disabled-{{.User.ID}}">
               <input id="disabled-{{.User.ID}}" type="checkbox" name="disabled" value="1" {{if .Disabled}}checked{{end}}>
@@ -74,15 +82,13 @@
             </label>
             {{template "field-info" "A disabled account cannot sign in: its sessions are dropped and its API tokens are revoked the moment you save. Clearing the box lets it sign in again, but does not bring the old tokens back."}}
           </div>
-          <div class="actions"><button type="submit">{{t "Save changes"}}</button></div>
+          <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Save changes"}}</button></div>
         </form>
         {{if $.Data.CanClearTOTP}}
         {{/* Clearing is all an administrator can do to somebody else's second
-             factor: no secret and no recovery code is theirs to see. It is
-             the way back in for a person who lost both the device and the
-             codes, and the tenant's requirement, if there is one, then takes
-             them through enrolment at their next sign-in. */}}
-        <form method="post" action="/admin/users/totp/clear">
+             factor: the way back in for a person who lost both the device and
+             the codes. */}}
+        <form method="post" action="/admin/users/totp/clear" class="actiondlg-part">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="id" value="{{.User.ID}}">
           <p class="muted">
@@ -92,48 +98,43 @@
           <div class="actions"><button class="secondary" type="submit">{{t "Clear second factor"}}</button></div>
         </form>
         {{end}}
-        <form method="post" action="/admin/users/delete" class="person-delete">
-          {{template "csrf" $.CSRF}}
-          <input type="hidden" name="id" value="{{.User.ID}}">
+        <div class="actiondlg-part actiondlg-danger">
           <p class="muted">{{t "Deleting removes the account and its membership. Disabling is usually what you want, and can be undone."}}</p>
-          <div class="actions"><button class="danger" type="submit">{{t "Delete %s" .Label}}</button></div>
-        </form>
-      </div>
-    </details>
-  </li>
-{{else}}
-  <li class="empty">
-    <p class="empty-title">{{t "No users yet"}}</p>
-    <p>{{t "Create the first one below."}}</p>
-  </li>
+          <div class="actions">{{template "dlg-open" (opener (print "user-del-" .User.ID) (t "Delete %s" .Label) "trash" "danger" $.Here)}}</div>
+        </div>
+{{template "dlg-end"}}
+{{$del := shell (print "user-del-" .User.ID) (t "Delete %s?" .Label) "confirm" $.Dialog $.Here}}
+{{template "dlg-start" $del}}
+<form method="post" action="/admin/users/delete" class="person-delete">
+  {{template "csrf" $.CSRF}}
+  <input type="hidden" name="id" value="{{.User.ID}}">
+  <p>{{t "Deleting removes the account and its membership. It cannot be undone."}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $del.Back}}<button class="danger" type="submit">{{t "Delete %s" .Label}}</button></div>
+</form>
+{{template "dlg-end"}}
 {{end}}
-</ul>
 
-{{template "pager" $v.Pager}}
-
-{{/* The same disclosure Projects, Webhooks and the task list put their
-     "make one" form behind, rather than a full panel of its own: four
-     screens that each end in a form for adding a record should not end in
-     four differently shaped controls. */}}
-<details class="panel addmore">
-  <summary>{{t "Create a user"}}</summary>
-  <div class="body">
+{{$d := .Dialog.For "user-new"}}
+{{$sh := shell "user-new" (t "Create a user") "" .Dialog .Here}}
+{{template "dlg-start" $sh}}
     <form method="post" action="/admin/users">
       {{template "csrf" .CSRF}}
+      {{with $d.Errors.On ""}}{{template "field-error" .}}{{end}}
       <div class="row">
-        <div><label for="email">{{t "Email"}}</label><input id="email" name="email" type="email" required></div>
-        <div><label for="display_name">{{t "Display name"}}</label><input id="display_name" name="display_name"></div>
+        <div><label for="email">{{t "Email"}}</label><input id="email" name="email" type="email" value="{{$d.Value "email"}}" required{{$d.Errors.Attrs "email"}}>{{with $d.Errors.On "email"}}{{template "field-error" .}}{{end}}</div>
+        <div><label for="display_name">{{t "Display name"}}</label><input id="display_name" name="display_name" value="{{$d.Value "display_name"}}"></div>
         <div>
           <label for="role">{{t "Role"}}</label>
-          <select id="role" name="role">
-            {{range $v.Roles}}<option value="{{.}}">{{.}}</option>{{end}}
+          <select id="role" name="role"{{$d.Errors.Attrs "role"}}>
+            {{range $v.Roles}}<option value="{{.}}"{{if $d.Chose "role" (print .)}} selected{{end}}>{{.}}</option>{{end}}
           </select>
+          {{with $d.Errors.On "role"}}{{template "field-error" .}}{{end}}
         </div>
       </div>
       <label for="password">{{t "Password"}}</label>
-      <input id="password" name="password" type="password" autocomplete="new-password">
-      <div class="actions"><button type="submit">{{t "Create user"}}</button></div>
+      <input id="password" name="password" type="password" autocomplete="new-password"{{$d.Errors.Attrs "password"}}>
+      {{with $d.Errors.On "password"}}{{template "field-error" .}}{{end}}
+      <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Create user"}}</button></div>
     </form>
-  </div>
-</details>
+{{template "dlg-end"}}
 {{end}}

@@ -254,8 +254,8 @@ func TestARefusedProjectKeepsWhatWasTyped(t *testing.T) {
 	saved := b.post("/projects/infra/update", url.Values{"name": {""}, "description": {"changed"}})
 	board := body(t, saved)
 	wantStatus(t, saved, http.StatusBadRequest)
-	if !strings.Contains(board, `<details class="panel projsettings" open>`) {
-		t.Error("the settings are not open after a refused save")
+	if !strings.Contains(board, `<section class="projset" id="project"`) || !strings.Contains(board, `action="/projects/infra/update"`) {
+		t.Error("a refused save does not come back to the project's settings")
 	}
 	if !strings.Contains(board, `id="name-error"`) || !strings.Contains(between(t, board, `id="description"`, "</textarea>"), "changed") {
 		t.Error("the refused save lost what was typed or its message")

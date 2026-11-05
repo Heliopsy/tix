@@ -97,7 +97,7 @@
   <p><button type="submit">{{t "Save"}}</button></p>
 </form>
 
-<div class="headtip"><h2>{{t "Members"}}</h2>{{template "tip" (tip "Members and roles" "A member is a person or agent with a role in this tenant. viewer reads, member also writes, claims and moves tasks, and admin may do everything, this screen included." "docs/tenancy.md")}}</div>
+<div class="sechead"><div class="headtip"><h2>{{t "Members"}}</h2>{{template "tip" (tip "Members and roles" "A member is a person or agent with a role in this tenant. viewer reads, member also writes, claims and moves tasks, and admin may do everything, this screen included." "docs/tenancy.md")}}</div>{{template "dlg-open" (opener "member-new" (t "Add a member") "plus" "" .Here)}}</div>
 <table>
   <thead><tr><th>{{t "Member"}}</th><th>{{t "Role"}}</th><th></th></tr></thead>
   <tbody>
@@ -117,31 +117,31 @@
       </td>
     </tr>
   {{else}}
-    <tr><td colspan="3">{{t "No members."}}</td></tr>
+    <tr><td colspan="3"><div class="empty-action"><span>{{t "No members."}}</span>{{template "dlg-open" (opener "member-new" (t "Add a member") "plus" "" $.Here)}}</div></td></tr>
   {{end}}
   </tbody>
 </table>
-{{/* Under the members it adds to, folded behind the Add disclosure Users and
-     Webhooks use. It sat at the foot of the screen, after Retention and
-     Housekeeping, a screen's length from the list it changes. */}}
-<details class="panel addmore">
-  <summary>{{t "Add a member"}}</summary>
-  <div class="body">
+{{/* Adding a member opens over the screen from the button beside the
+     Members heading, the section it changes. */}}
+{{$d := .Dialog.For "member-new"}}
+{{$sh := shell "member-new" (t "Add a member") "" .Dialog .Here}}
+{{template "dlg-start" $sh}}
 <form method="post" action="/admin/tenant/members">
   {{template "csrf" .CSRF}}
+  {{with $d.Errors.On ""}}{{template "field-error" .}}{{end}}
   <div class="row">
-    <div><label for="actor_id">{{t "Actor identifier"}}</label><input id="actor_id" name="actor_id" required></div>
+    <div><label for="actor_id">{{t "Actor identifier"}}</label><input id="actor_id" name="actor_id" value="{{$d.Value "actor_id"}}" required{{$d.Errors.Attrs "actor_id"}}>{{with $d.Errors.On "actor_id"}}{{template "field-error" .}}{{end}}</div>
     <div>
       <label for="role">{{t "Role"}}</label>
-      <select id="role" name="role">
-        {{range .Data.Roles}}<option value="{{.}}">{{.}}</option>{{end}}
+      <select id="role" name="role"{{$d.Errors.Attrs "role"}}>
+        {{range .Data.Roles}}<option value="{{.}}"{{if $d.Chose "role" (print .)}} selected{{end}}>{{.}}</option>{{end}}
       </select>
+      {{with $d.Errors.On "role"}}{{template "field-error" .}}{{end}}
     </div>
-    <div><button type="submit">{{t "Add member"}}</button></div>
   </div>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Add member"}}</button></div>
 </form>
-  </div>
-</details>
+{{template "dlg-end"}}
 
 <div class="headtip"><h2>{{t "Retention"}}</h2>{{template "tip" (tip "Retention" "How long old history is kept. Prune deletes events, audit entries and webhook deliveries older than these windows; tix serve also runs it on its own, hourly by default. Tasks, projects and comments are never pruned." "docs/configuration.md")}}</div>
 <form method="post" action="/admin/tenant/retention">
