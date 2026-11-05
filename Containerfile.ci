@@ -13,10 +13,10 @@ ARG GORELEASER_VERSION=v2.20.0
 ARG TRIVY_VERSION=v0.76.1
 ARG GITLEAKS_VERSION=v8.30.1
 ARG HADOLINT_VERSION=v2.15.1
-# Held at 1.14.0. 1.14.1 added a warning for requirement text over 500
-# characters, and --strict fails on warnings: 145 baseline requirements and 25
-# open changes trip it. Splitting them is spec work, not a tool bump.
-ARG OPENSPEC_VERSION=1.14.0
+# 1.14.1 made requirement text over 500 characters a warning, and --strict
+# fails on warnings, so requirements are split rather than compressed. 1.16.0
+# needs node 22.12 or newer for an npm install.
+ARG OPENSPEC_VERSION=1.16.0
 ARG MARKDOWNLINT_VERSION=0.50.0
 ARG YAMLLINT_VERSION=1.38.0
 
