@@ -122,6 +122,8 @@ A list the code already holds is asserted rather than maintained: see
 
 - OpenSpec is normative. Behaviour changes update `openspec/` before the code.
 - Requirements use SHALL. Every requirement has at least one scenario.
+- Requirement text stays under 500 characters, or `openspec validate --strict` fails. Split a long
+  requirement into several, each with its own scenario, rather than compressing it.
 - Tick tasks in `tasks.md` as soon as the code ships.
 
 ## Commits
