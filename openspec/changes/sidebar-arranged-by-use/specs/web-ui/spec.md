@@ -5,16 +5,20 @@
 The sidebar SHALL draw, from the top: the tenant's name with the rail toggle, Search, then Inbox, My
 work, Tasks, Projects, Activity and Statistics as top-level entries in that order, then the reader's
 pinned projects under Projects, then Saved filters and Recently viewed, then the Admin group, then the
-account menu and the version. My work SHALL be a top-level entry, not indented under another. My work
-SHALL carry a badge counting the reader's open assigned tasks that are overdue, hidden at zero and
-reading 99+ past 99, rendered by the server and refreshed by the same live stream as the unread badge.
-The tenant's name SHALL be plain text, since a session belongs to one tenant.
+account menu and the version. The tenant's name SHALL be plain text, since a session belongs to one
+tenant.
 
 #### Scenario: Entries in order of use
 
 - **GIVEN** a signed-in reader
 - **WHEN** any screen is drawn
 - **THEN** the navigation lists Inbox, My work, Tasks, Projects, Activity and Statistics in that order, each at the top level
+
+### Requirement: My work is a top-level entry counting overdue assigned tasks
+
+My work SHALL be a top-level entry, not indented under another. My work SHALL carry a badge counting
+the reader's open assigned tasks that are overdue, hidden at zero and reading 99+ past 99, rendered by
+the server and refreshed by the same live stream as the unread badge.
 
 #### Scenario: Overdue work is counted on My work
 
@@ -32,10 +36,7 @@ The tenant's name SHALL be plain text, since a session belongs to one tenant.
 
 A reader SHALL be able to pin a project to the sidebar from the projects screen and unpin it there.
 Pinning SHALL be the reader's own star on the project's lane, so a starred lane is pinned and a pinned
-project's lane is starred. Pinned projects SHALL be listed under Projects, each a link to the project's
-board showing its icon, or the first letter of its key, in its colour, named by the reader's project
-label preference with the key upper-cased. An archived project, or one the reader cannot read, SHALL be
-left out. On the rail each SHALL show its mark and keep its name as its accessible name.
+project's lane is starred.
 
 #### Scenario: Pinning a project
 
@@ -54,6 +55,19 @@ left out. On the rail each SHALL show its mark and keep its name as its accessib
 - **GIVEN** a project pinned by one reader
 - **WHEN** another reader opens any screen
 - **THEN** that reader's sidebar does not list it
+
+### Requirement: Pinned projects are listed with their mark and label
+
+Pinned projects SHALL be listed under Projects, each a link to the project's board showing its icon, or
+the first letter of its key, in its colour, named by the reader's project label preference with the key
+upper-cased. An archived project, or one the reader cannot read, SHALL be left out. On the rail each
+SHALL show its mark and keep its name as its accessible name.
+
+#### Scenario: A pinned project follows the label preference
+
+- **GIVEN** a reader who pinned project infra and chose to label projects by key
+- **WHEN** any screen is drawn
+- **THEN** the sidebar lists it as INFRA, marked with the letter I and linking to its board
 
 ### Requirement: The administration screens fold under one Admin group
 
@@ -91,15 +105,19 @@ and Data SHALL fold Admin, and one that left either open SHALL open it.
 
 The sidebar SHALL end with one control showing the reader's initials and handle, opening a menu that
 holds Settings, the colour scheme switch, Keyboard shortcuts and Sign out, with the version link under
-the control. The menu SHALL open and close without scripting, Escape SHALL close it alone, including
-inside the phone menu, and focus SHALL return to its control. Keyboard shortcuts SHALL be shown only
-with scripting. On the rail the control SHALL show the initials and keep the handle as its name.
+the control. On the rail the control SHALL show the initials and keep the handle as its name.
 
 #### Scenario: Opening the account menu
 
 - **GIVEN** a signed-in reader
 - **WHEN** they press their name at the foot of the sidebar
 - **THEN** a menu offers Settings, the colour scheme, Keyboard shortcuts and Sign out
+
+### Requirement: The account menu opens without scripting and closes alone on Escape
+
+The menu SHALL open and close without scripting, Escape SHALL close it alone, including inside the
+phone menu, and focus SHALL return to its control. Keyboard shortcuts SHALL be shown only with
+scripting.
 
 #### Scenario: Escape inside the phone menu
 

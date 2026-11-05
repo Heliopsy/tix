@@ -5,39 +5,11 @@
 The command line SHALL provide a command that fills a database with a backlog spanning a configurable
 window, so that the screens can be shown doing the thing they exist for rather than empty.
 
-The seeded data SHALL be written through the ordinary service calls on a clock the command advances, not
-by writing rows or importing a snapshot. Statistics attribute a completion by matching the transition
-entry written in the same instant as the completion, so data written behind the service leaves every
-leaderboard and lead-time figure empty, which is the opposite of the point.
-
-The seeded backlog SHALL carry descriptions, tags, priorities, assignees, due dates and custom fields,
-completions spread unevenly across many days and performed by several actors, and lead times that vary.
-A completion on every day of the window is as useless to the throughput chart as no completion at all,
-because every value is then also the maximum the bars are scaled against.
-
 #### Scenario: Seeding a scratch database
 
 - **WHEN** the command is run against a database holding no tasks or users
 - **THEN** projects, actors, custom field definitions, tasks, comments and dependencies are written across
   the requested window, and the command reports what it wrote
-
-#### Scenario: The statistics screens have something to show
-
-- **WHEN** statistics are read over the seeded window
-- **THEN** completions fall on many different days, the leaderboard names more than one actor, and the
-  median lead time is not zero
-
-#### Scenario: The throughput chart reads as work rather than a flat wall
-
-- **WHEN** statistics are read over each of the windows the statistics screen offers
-- **THEN** the per-day completion counts within that window differ from one another, so the chart draws
-  bars of differing lengths rather than one identical bar per day
-
-#### Scenario: A dropped claim falls on the first page of the default ordering
-
-- **WHEN** the seeded backlog is listed in the default urgency ordering
-- **THEN** a task carrying a recently expired claim falls inside the first page, so the expiry badge and
-  the pager can be seen on one screen
 
 #### Scenario: A database that already holds work is refused
 
@@ -51,6 +23,44 @@ because every value is then also the maximum the bars are scaled against.
 - **THEN** the tasks and projects already there are removed before the new backlog is written, and the
   accounts are kept so that the seed can put its credentials back on them
 
+#### Scenario: The seeded tenant shows only the lists it wrote
+
+- **WHEN** the command is run against a database carrying the starter lists a fresh installation is given
+- **THEN** the starter lists that hold no task are removed, so the projects screen and the project filters
+  name only the lists the backlog works out of
+
+### Requirement: Seeded data is written through the service on an advancing clock
+
+The seeded data SHALL be written through the ordinary service calls on a clock the command advances, not
+by writing rows or importing a snapshot. Statistics attribute a completion by matching the transition
+entry written in the same instant as the completion, so data written behind the service leaves every
+leaderboard and lead-time figure empty, which is the opposite of the point.
+
+#### Scenario: The statistics screens have something to show
+
+- **WHEN** statistics are read over the seeded window
+- **THEN** completions fall on many different days, the leaderboard names more than one actor, and the
+  median lead time is not zero
+
+### Requirement: The seeded backlog varies in content, days, actors and lead times
+
+The seeded backlog SHALL carry descriptions, tags, priorities, assignees, due dates and custom fields,
+completions spread unevenly across many days and performed by several actors, and lead times that vary.
+A completion on every day of the window is as useless to the throughput chart as no completion at all,
+because every value is then also the maximum the bars are scaled against.
+
+#### Scenario: The throughput chart reads as work rather than a flat wall
+
+- **WHEN** statistics are read over each of the windows the statistics screen offers
+- **THEN** the per-day completion counts within that window differ from one another, so the chart draws
+  bars of differing lengths rather than one identical bar per day
+
+#### Scenario: A dropped claim falls on the first page of the default ordering
+
+- **WHEN** the seeded backlog is listed in the default urgency ordering
+- **THEN** a task carrying a recently expired claim falls inside the first page, so the expiry badge and
+  the pager can be seen on one screen
+
 #### Scenario: A dropped claim is visible in the seeded backlog
 
 - **WHEN** the seeded backlog is read
@@ -58,47 +68,23 @@ because every value is then also the maximum the bars are scaled against.
   them having been claimed more than once, so the state a lease expiry leaves behind can be seen without
   arranging it by hand
 
-#### Scenario: The seeded tenant shows only the lists it wrote
-
-- **WHEN** the command is run against a database carrying the starter lists a fresh installation is given
-- **THEN** the starter lists that hold no task are removed, so the projects screen and the project filters
-  name only the lists the backlog works out of
-
 ### Requirement: The seeded demonstration can be signed in to
 
 The seeding command SHALL leave at least one credentialed account that can sign in to the browser
 interface, created through the same service call the user-creation command makes, so that a seeded
 demonstration is one identity per person rather than an account beside the actor that wrote the history.
 
-The accounts SHALL be identities the fixture already writes history as, at least one of them an
-administrator and at least one holding a different role, so the screens can be shown as more than one
-kind of user. An account that the fixture drives as an agent SHALL NOT be given a password, because an
-agent authenticates with the token minted beside it.
-
-The password SHALL be a documented default that the caller may replace with a flag, because an account
-nobody can guess the password of leaves the demonstration as unreachable as no account at all. The seeded
-data is demonstration data by construction, and a database that already holds work or accounts is
-refused before any of it is written.
-
-The command SHALL report the credentials it left in every output format, so that the person who ran it is
-told how to open what it wrote without reading the documentation.
-
 #### Scenario: Signing in to a freshly seeded database
 
 - **WHEN** a database is seeded and the reported email and password are presented to the sign-in path
 - **THEN** a session is issued, and a password that is not the reported one is rejected
 
-#### Scenario: Re-seeding leaves a working sign-in
+### Requirement: Seeded sign-in accounts are identities the fixture writes history as
 
-- **WHEN** the command is run with the reset flag against a database seeded before
-- **THEN** the accounts are re-credentialed with the password the run reports, and signing in with it
-  succeeds
-
-#### Scenario: The credentials are reported
-
-- **WHEN** the seed finishes
-- **THEN** the table output names the email, password and role of every account that can sign in, and the
-  machine-readable formats carry the same fields
+The accounts SHALL be identities the fixture already writes history as, at least one of them an
+administrator and at least one holding a different role, so the screens can be shown as more than one
+kind of user. An account that the fixture drives as an agent SHALL NOT be given a password, because an
+agent authenticates with the token minted beside it.
 
 #### Scenario: Agents hold tokens rather than passwords
 
@@ -111,6 +97,30 @@ told how to open what it wrote without reading the documentation.
   stands behind
 - **THEN** the seed is refused, naming the handle, rather than writing a history whose authors nobody can
   sign in as
+
+### Requirement: The seeded password is a documented default the caller may replace
+
+The password SHALL be a documented default that the caller may replace with a flag, because an account
+nobody can guess the password of leaves the demonstration as unreachable as no account at all. The seeded
+data is demonstration data by construction, and a database that already holds work or accounts is
+refused before any of it is written.
+
+#### Scenario: Re-seeding leaves a working sign-in
+
+- **WHEN** the command is run with the reset flag against a database seeded before
+- **THEN** the accounts are re-credentialed with the password the run reports, and signing in with it
+  succeeds
+
+### Requirement: The seed reports the credentials it left in every output format
+
+The command SHALL report the credentials it left in every output format, so that the person who ran it is
+told how to open what it wrote without reading the documentation.
+
+#### Scenario: The credentials are reported
+
+- **WHEN** the seed finishes
+- **THEN** the table output names the email, password and role of every account that can sign in, and the
+  machine-readable formats carry the same fields
 
 ### Requirement: Durations are rendered for a reader
 
@@ -137,24 +147,7 @@ The product SHALL read durations in one vocabulary everywhere a person supplies 
 SHALL include everything it renders. A duration rendered for a reader SHALL parse, and parsing it and
 rendering it again SHALL produce the identical text.
 
-The vocabulary SHALL be Go's duration syntax extended with a day unit of exactly twenty-four hours, and
-SHALL accept whitespace between terms, because that is the form the reader's rendering takes. It SHALL NOT
-add a unit nothing renders, since a unit accepted but never printed is the same asymmetry facing the other
-way. The grammar SHALL belong to the duration type, so the command line, the HTTP interface, the browser
-and the configuration reader cannot drift apart on what a duration is.
-
 The machine rendering SHALL stay Go's syntax, because snapshots and JSON round-trip through it.
-
-#### Scenario: A retention window as the screen shows it
-
-- **WHEN** a retention window is given as `30d`
-- **THEN** it is accepted as seven hundred and twenty hours, on the command line, over HTTP and in
-  configuration
-
-#### Scenario: A statistics window in days
-
-- **WHEN** `--window 30d` is passed to the statistics command
-- **THEN** the window is thirty days, and the refusal for an unreadable value names a form that works
 
 #### Scenario: The reader's rendering is valid input
 
@@ -166,16 +159,34 @@ The machine rendering SHALL stay Go's syntax, because snapshots and JSON round-t
 - **WHEN** a duration is written to a snapshot or to JSON
 - **THEN** it carries Go's syntax, which Go's own parser still reads
 
+### Requirement: The duration vocabulary is Go's syntax with a day unit
+
+The vocabulary SHALL be Go's duration syntax extended with a day unit of exactly twenty-four hours, and
+SHALL accept whitespace between terms, because that is the form the reader's rendering takes. It SHALL NOT
+add a unit nothing renders, since a unit accepted but never printed is the same asymmetry facing the other
+way.
+
+#### Scenario: A statistics window in days
+
+- **WHEN** `--window 30d` is passed to the statistics command
+- **THEN** the window is thirty days, and the refusal for an unreadable value names a form that works
+
+### Requirement: One duration grammar serves every surface
+
+The grammar SHALL belong to the duration type, so the command line, the HTTP interface, the browser
+and the configuration reader cannot drift apart on what a duration is.
+
+#### Scenario: A retention window as the screen shows it
+
+- **WHEN** a retention window is given as `30d`
+- **THEN** it is accepted as seven hundred and twenty hours, on the command line, over HTTP and in
+  configuration
+
 ### Requirement: A failed listing writes no answer to standard output
 
 A listing command that fails SHALL NOT write a complete document to standard output. A document that
 parses is an answer, and a consumer reading only standard output, which is the ordinary shape of a
 pipeline, cannot tell an empty answer from a failure it never saw.
-
-Where records were already streamed before the failure, the command SHALL NOT complete the document: a
-bracketed format is left unterminated, so a consumer parsing standard output gets a syntax error rather
-than a short listing it would believe. A record-oriented format has no terminator to withhold, and the
-records already written stand, each true on its own.
 
 The failure SHALL still be reported on standard error with the exit status of its kind.
 
@@ -184,6 +195,13 @@ The failure SHALL still be reported on standard error with the exit status of it
 - **WHEN** a listing is filtered by an assignee that does not resolve, in any output format
 - **THEN** standard output is empty, the failure is on standard error, and the exit status is the one for
   the failure's kind
+
+### Requirement: A listing that fails part way leaves its document unterminated
+
+Where records were already streamed before the failure, the command SHALL NOT complete the document: a
+bracketed format is left unterminated, so a consumer parsing standard output gets a syntax error rather
+than a short listing it would believe. A record-oriented format has no terminator to withhold, and the
+records already written stand, each true on its own.
 
 #### Scenario: A listing that fails part way through
 
