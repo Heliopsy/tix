@@ -10,12 +10,22 @@ import "strings"
 // workflow find it. Naming both is refused rather than reconciled, because the
 // two can disagree and no reading of the pair is obviously right.
 type RouteInput struct {
-	Route        []string       `json:"route,omitempty" yaml:"route,omitempty"`
-	To           string         `json:"to,omitempty" yaml:"to,omitempty"`
-	Comment      string         `json:"comment,omitempty" yaml:"comment,omitempty"`
-	LeaseToken   string         `json:"lease_token,omitempty" yaml:"lease_token,omitempty"`
+	// Route lists the states to pass through in order, the current one left
+	// out, each once; set this or To.
+	Route []string `json:"route,omitempty" yaml:"route,omitempty"`
+	// To is the destination state, reached by the route the workflow finds;
+	// set this or Route.
+	To string `json:"to,omitempty" yaml:"to,omitempty"`
+	// Comment is attached to every hop's transition.
+	Comment string `json:"comment,omitempty" yaml:"comment,omitempty"`
+	// LeaseToken proves the caller's claim when the task is leased.
+	LeaseToken string `json:"lease_token,omitempty" yaml:"lease_token,omitempty"`
+	// CustomFields are custom field values set on the last hop, keyed by
+	// field definition key.
 	CustomFields map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
-	Version      int            `json:"version,omitempty" yaml:"version,omitempty"`
+	// Version is the task version the move was based on, checked on the first
+	// hop; a stale one is a conflict and omitted skips the check.
+	Version int `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
 // Validate checks the input.
@@ -45,12 +55,18 @@ func (in RouteInput) Validate() error {
 // asked for. A route that stops halfway leaves the task somewhere, and a
 // caller told only that it failed would have to go and look.
 type RouteResult struct {
-	Task    *Task    `json:"task,omitempty" yaml:"task,omitempty"`
-	From    string   `json:"from" yaml:"from"`
-	Route   []string `json:"route" yaml:"route"`
+	// Task is the task as it stands after the last hop that landed.
+	Task *Task `json:"task,omitempty" yaml:"task,omitempty"`
+	// From is the status the task started in.
+	From string `json:"from" yaml:"from"`
+	// Route is the full list of states the move set out to pass through.
+	Route []string `json:"route" yaml:"route"`
+	// Applied lists the states the task actually entered, in order.
 	Applied []string `json:"applied" yaml:"applied"`
-	Stopped string   `json:"stopped,omitempty" yaml:"stopped,omitempty"`
-	Reason  string   `json:"reason,omitempty" yaml:"reason,omitempty"`
+	// Stopped is the state a hop was refused for, empty when the route completed.
+	Stopped string `json:"stopped,omitempty" yaml:"stopped,omitempty"`
+	// Reason is why that hop was refused.
+	Reason string `json:"reason,omitempty" yaml:"reason,omitempty"`
 }
 
 // Partial reports whether the route stopped before the end.

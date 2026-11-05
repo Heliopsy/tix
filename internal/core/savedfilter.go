@@ -39,32 +39,49 @@ const (
 // view and the sort the task screen opens with. It belongs to its owner, and
 // a shared one is listed for everybody in the tenant.
 type SavedFilter struct {
-	ID    string `json:"id" yaml:"id"`
-	Name  string `json:"name" yaml:"name"`
+	// ID identifies the filter.
+	ID string `json:"id" yaml:"id"`
+	// Name labels the filter, unique among its owner's filters ignoring case.
+	Name string `json:"name" yaml:"name"`
+	// Query is the task filter expression, as typed on the task screen.
 	Query string `json:"query" yaml:"query"`
-	View  string `json:"view,omitempty" yaml:"view,omitempty"`
-	Sort  string `json:"sort,omitempty" yaml:"sort,omitempty"`
+	// View is the view the task screen opens in: list, board or lanes, or
+	// empty to keep the reader's current view.
+	View string `json:"view,omitempty" yaml:"view,omitempty"`
+	// Sort is the task field the listing is ordered by, empty for the default.
+	Sort string `json:"sort,omitempty" yaml:"sort,omitempty"`
 	// Shared lists the filter for every reader of the tenant. Only its owner
 	// and an administrator may change it.
-	Shared  bool   `json:"shared" yaml:"shared"`
+	Shared bool `json:"shared" yaml:"shared"`
+	// OwnerID is the actor who owns the filter.
 	OwnerID string `json:"owner_id" yaml:"owner_id"`
 	// Position is where the owner put the filter among their own, from 1.
 	Position int `json:"position" yaml:"position"`
-	// Mine reports whether the reader owns the filter, and Editable whether
-	// the reader may change it. Both are answered for the caller.
-	Mine      bool      `json:"mine" yaml:"mine"`
-	Editable  bool      `json:"editable" yaml:"editable"`
+	// Mine reports whether the caller owns the filter.
+	Mine bool `json:"mine" yaml:"mine"`
+	// Editable reports whether the caller may change the filter: its owner
+	// or an administrator.
+	Editable bool `json:"editable" yaml:"editable"`
+	// CreatedAt is when the filter was saved, RFC 3339.
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
+	// UpdatedAt is when the filter last changed, RFC 3339.
 	UpdatedAt time.Time `json:"updated_at" yaml:"updated_at"`
 }
 
 // SavedFilterInput creates a saved filter.
 type SavedFilterInput struct {
-	Name   string `json:"name" yaml:"name"`
-	Query  string `json:"query" yaml:"query"`
-	View   string `json:"view,omitempty" yaml:"view,omitempty"`
-	Sort   string `json:"sort,omitempty" yaml:"sort,omitempty"`
-	Shared bool   `json:"shared,omitempty" yaml:"shared,omitempty"`
+	// Name labels the filter: required, at most 80 characters, unique among
+	// the caller's filters.
+	Name string `json:"name" yaml:"name"`
+	// Query is the task filter expression, at most 2000 bytes.
+	Query string `json:"query" yaml:"query"`
+	// View is list, board or lanes; empty keeps the reader's current view.
+	View string `json:"view,omitempty" yaml:"view,omitempty"`
+	// Sort is one of urgency, created_at, updated_at, priority, due_at, seq
+	// or title; empty uses the default ordering.
+	Sort string `json:"sort,omitempty" yaml:"sort,omitempty"`
+	// Shared lists the filter for every reader of the tenant.
+	Shared bool `json:"shared,omitempty" yaml:"shared,omitempty"`
 }
 
 // Normalize trims the input and checks it, returning the stored form.
@@ -90,11 +107,16 @@ func (in SavedFilterInput) Normalize() (SavedFilterInput, error) {
 
 // SavedFilterUpdate changes a saved filter. A nil field is left as it is.
 type SavedFilterUpdate struct {
-	Name   *string `json:"name,omitempty" yaml:"name,omitempty"`
-	Query  *string `json:"query,omitempty" yaml:"query,omitempty"`
-	View   *string `json:"view,omitempty" yaml:"view,omitempty"`
-	Sort   *string `json:"sort,omitempty" yaml:"sort,omitempty"`
-	Shared *bool   `json:"shared,omitempty" yaml:"shared,omitempty"`
+	// Name renames the filter, under the same rules as on creation.
+	Name *string `json:"name,omitempty" yaml:"name,omitempty"`
+	// Query replaces the filter expression.
+	Query *string `json:"query,omitempty" yaml:"query,omitempty"`
+	// View replaces the view; the empty string clears it.
+	View *string `json:"view,omitempty" yaml:"view,omitempty"`
+	// Sort replaces the ordering; the empty string restores the default.
+	Sort *string `json:"sort,omitempty" yaml:"sort,omitempty"`
+	// Shared shares the filter with the tenant or takes it back.
+	Shared *bool `json:"shared,omitempty" yaml:"shared,omitempty"`
 }
 
 // Apply returns the filter with the update's fields set, checked.
@@ -128,6 +150,8 @@ func (in SavedFilterUpdate) Apply(f SavedFilter) (SavedFilter, error) {
 
 // SavedFilterOrderInput is the order a reader put their own filters in.
 type SavedFilterOrderInput struct {
+	// Filters names the caller's own filters by id or name, in the order
+	// wanted; filters left out keep their relative order after them.
 	Filters []string `json:"filters" yaml:"filters"`
 }
 
@@ -146,14 +170,18 @@ type SavedFilterService interface {
 	// ListSavedFilters returns the caller's own filters in their order, then
 	// the filters others shared with the tenant, by name.
 	ListSavedFilters(ctx context.Context) ([]SavedFilter, error)
-	// GetSavedFilter returns one filter the caller can see, by id or name.
+	// GetSavedFilter returns one filter the caller can see, by id or name,
+	// preferring the caller's own on a shared name; not_found otherwise.
 	GetSavedFilter(ctx context.Context, ref string) (*SavedFilter, error)
-	// CreateSavedFilter saves a new filter for the caller.
+	// CreateSavedFilter saves a new filter for the caller. A name the caller
+	// already uses is a conflict, and one reader keeps at most 100 filters.
 	CreateSavedFilter(ctx context.Context, in SavedFilterInput) (*SavedFilter, error)
-	// UpdateSavedFilter renames, edits or shares a filter.
+	// UpdateSavedFilter renames, edits or shares a filter. Only its owner or an
+	// administrator may change it, and a clashing name is a conflict.
 	UpdateSavedFilter(ctx context.Context, ref string, in SavedFilterUpdate) (*SavedFilter, error)
 	// OrderSavedFilters puts the caller's named filters first, in that order.
 	OrderSavedFilters(ctx context.Context, in SavedFilterOrderInput) ([]SavedFilter, error)
-	// DeleteSavedFilter removes a filter.
+	// DeleteSavedFilter removes a filter, which only its owner or an
+	// administrator may do.
 	DeleteSavedFilter(ctx context.Context, ref string) error
 }

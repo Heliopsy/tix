@@ -99,8 +99,11 @@ func NormalizeProjectIconName(s string) (string, error) {
 // ProjectIconFile is an image a caller uploads as a project's icon. The
 // declared content type is advisory: the bytes decide.
 type ProjectIconFile struct {
+	// ContentType is the declared media type, advisory only; the bytes decide.
 	ContentType string `json:"content_type,omitempty" yaml:"content_type,omitempty"`
-	Data        []byte `json:"data" yaml:"data"`
+	// Data is the image, base64 in JSON: a PNG, JPEG, WebP or script-free SVG
+	// of at most 64 KiB. Empty asks for no image.
+	Data []byte `json:"data" yaml:"data"`
 }
 
 // Empty reports whether the file carries no bytes, which asks for no image.
@@ -108,11 +111,16 @@ func (f *ProjectIconFile) Empty() bool { return f == nil || len(f.Data) == 0 }
 
 // ProjectIconImage is a stored project icon image.
 type ProjectIconImage struct {
-	ProjectID   string    `json:"project_id" yaml:"project_id"`
-	ContentType string    `json:"content_type" yaml:"content_type"`
-	Digest      string    `json:"digest" yaml:"digest"`
-	Data        []byte    `json:"data" yaml:"data"`
-	UpdatedAt   time.Time `json:"updated_at" yaml:"updated_at"`
+	// ProjectID is the project the icon belongs to.
+	ProjectID string `json:"project_id" yaml:"project_id"`
+	// ContentType is the media type detected from the bytes.
+	ContentType string `json:"content_type" yaml:"content_type"`
+	// Digest fingerprints the bytes, hex, and serves as the ETag.
+	Digest string `json:"digest" yaml:"digest"`
+	// Data is the image bytes.
+	Data []byte `json:"data" yaml:"data"`
+	// UpdatedAt is when the image was last stored, RFC 3339.
+	UpdatedAt time.Time `json:"updated_at" yaml:"updated_at"`
 }
 
 // NewProjectIconImage checks an upload and returns the image to store, typed

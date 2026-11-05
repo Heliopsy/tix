@@ -69,11 +69,17 @@ const MaxGroupsOrdered = 500
 // moved to. It belongs to the actor who set it and changes nothing anybody
 // else sees.
 type GroupPref struct {
-	View      string `json:"view" yaml:"view"`
-	Group     string `json:"group" yaml:"group"`
-	Hidden    bool   `json:"hidden" yaml:"hidden"`
-	Collapsed bool   `json:"collapsed" yaml:"collapsed"`
-	Starred   bool   `json:"starred" yaml:"starred"`
+	// View names the view: board, lanes, mine or project:KEY.
+	View string `json:"view" yaml:"view"`
+	// Group names the group on that view: a state key on a board, a project
+	// key on lanes, or a deadline bucket on mine.
+	Group string `json:"group" yaml:"group"`
+	// Hidden leaves the group out of the view.
+	Hidden bool `json:"hidden" yaml:"hidden"`
+	// Collapsed draws the group as a narrow strip.
+	Collapsed bool `json:"collapsed" yaml:"collapsed"`
+	// Starred moves the group ahead of the unstarred ones.
+	Starred bool `json:"starred" yaml:"starred"`
 	// Position is the place the reader moved the group to, from 1, or 0 when
 	// the group keeps the order the view draws it in.
 	Position int `json:"position,omitempty" yaml:"position,omitempty"`
@@ -87,9 +93,12 @@ func (p GroupPref) Plain() bool {
 
 // GroupPrefInput changes one group's preference. A nil field is left as it is.
 type GroupPrefInput struct {
-	Hidden    *bool `json:"hidden,omitempty" yaml:"hidden,omitempty"`
+	// Hidden hides or shows the group.
+	Hidden *bool `json:"hidden,omitempty" yaml:"hidden,omitempty"`
+	// Collapsed collapses or expands the group.
 	Collapsed *bool `json:"collapsed,omitempty" yaml:"collapsed,omitempty"`
-	Starred   *bool `json:"starred,omitempty" yaml:"starred,omitempty"`
+	// Starred stars or unstars the group.
+	Starred *bool `json:"starred,omitempty" yaml:"starred,omitempty"`
 }
 
 // Validate checks that the input changes something.
@@ -116,6 +125,8 @@ func (in GroupPrefInput) Apply(p GroupPref) GroupPref {
 
 // GroupOrderInput is the order a reader put a view's groups in.
 type GroupOrderInput struct {
+	// Groups names the groups to put first, in that order: at most 500, each
+	// once, spelled as GroupPref.Group is.
 	Groups []string `json:"groups" yaml:"groups"`
 }
 

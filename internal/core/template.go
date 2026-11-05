@@ -23,22 +23,31 @@ const (
 // TaskTemplate is a named shape of a task that is not itself work: it never
 // appears where tasks do, and using it creates tasks.
 type TaskTemplate struct {
-	ID       string `json:"id" yaml:"id"`
+	// ID identifies the template.
+	ID string `json:"id" yaml:"id"`
+	// TenantID identifies the tenant the template belongs to.
 	TenantID string `json:"tenant_id" yaml:"tenant_id"`
-	Name     string `json:"name" yaml:"name"`
+	// Name labels the template, unique in the tenant ignoring case.
+	Name string `json:"name" yaml:"name"`
 	// ProjectID is the project the template belongs to, empty for a template
-	// the whole tenant shares. ProjectKey is that project's key, for display.
-	ProjectID  string       `json:"project_id,omitempty" yaml:"project_id,omitempty"`
-	ProjectKey string       `json:"project_key,omitempty" yaml:"project_key,omitempty"`
-	Task       TemplateTask `json:"task" yaml:"task"`
-	// DueIn is how far from a use its task falls due, zero for no due date.
+	// the whole tenant shares.
+	ProjectID string `json:"project_id,omitempty" yaml:"project_id,omitempty"`
+	// ProjectKey is that project's key, for display.
+	ProjectKey string `json:"project_key,omitempty" yaml:"project_key,omitempty"`
+	// Task is the task shape a use creates, with its subtasks.
+	Task TemplateTask `json:"task" yaml:"task"`
+	// DueIn is how far from a use its task falls due, as a duration such as
+	// "3d", zero for no due date.
 	DueIn Duration `json:"due_in,omitempty" yaml:"due_in,omitempty"`
 	// Uses counts the times the template was used; the N placeholder is the
 	// count the next use makes.
-	Uses           int       `json:"uses" yaml:"uses"`
-	CreatorActorID string    `json:"creator_actor_id,omitempty" yaml:"creator_actor_id,omitempty"`
-	CreatedAt      time.Time `json:"created_at" yaml:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at" yaml:"updated_at"`
+	Uses int `json:"uses" yaml:"uses"`
+	// CreatorActorID is the actor who saved the template.
+	CreatorActorID string `json:"creator_actor_id,omitempty" yaml:"creator_actor_id,omitempty"`
+	// CreatedAt is when the template was saved, RFC 3339.
+	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
+	// UpdatedAt is when the template last changed, RFC 3339.
+	UpdatedAt time.Time `json:"updated_at" yaml:"updated_at"`
 }
 
 // TenantWide reports whether the template is shared by the whole tenant.
@@ -46,14 +55,24 @@ func (t TaskTemplate) TenantWide() bool { return t.ProjectID == "" }
 
 // TemplateTask is the part of a task a template keeps, with its subtasks.
 type TemplateTask struct {
-	Title        string         `json:"title" yaml:"title"`
-	Body         string         `json:"body,omitempty" yaml:"body,omitempty"`
-	Priority     Priority       `json:"priority,omitempty" yaml:"priority,omitempty"`
-	Tags         []string       `json:"tags,omitempty" yaml:"tags,omitempty"`
+	// Title is the task title, which may carry the placeholders {date}, {n}
+	// and {project}, filled in on each use.
+	Title string `json:"title" yaml:"title"`
+	// Body is the task description, in Markdown.
+	Body string `json:"body,omitempty" yaml:"body,omitempty"`
+	// Priority runs from 1, highest, to 5, lowest; zero creates normal (3).
+	Priority Priority `json:"priority,omitempty" yaml:"priority,omitempty"`
+	// Tags are the tag names the task gets.
+	Tags []string `json:"tags,omitempty" yaml:"tags,omitempty"`
+	// CustomFields are custom field values keyed by field definition key.
 	CustomFields map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
-	Recurrence   string         `json:"recurrence,omitempty" yaml:"recurrence,omitempty"`
-	Lease        Duration       `json:"lease,omitempty" yaml:"lease,omitempty"`
-	Subtasks     []TemplateTask `json:"subtasks,omitempty" yaml:"subtasks,omitempty"`
+	// Recurrence is the task's repeat rule, empty for none.
+	Recurrence string `json:"recurrence,omitempty" yaml:"recurrence,omitempty"`
+	// Lease is the claim lease the task carries, as a duration such as "4h",
+	// zero to inherit.
+	Lease Duration `json:"lease,omitempty" yaml:"lease,omitempty"`
+	// Subtasks are the child tasks created under this one, in order.
+	Subtasks []TemplateTask `json:"subtasks,omitempty" yaml:"subtasks,omitempty"`
 }
 
 // Count is the number of tasks the template task stands for, itself included.
@@ -69,18 +88,25 @@ func (t TemplateTask) Count() int {
 type TemplateFilter struct {
 	// ProjectRef keeps the templates of one project and the tenant-wide ones.
 	ProjectRef string `json:"project,omitempty" yaml:"project,omitempty"`
-	Page       Page   `json:"page" yaml:"page"`
+	// Page is the cursor and size of the page asked for.
+	Page Page `json:"page" yaml:"page"`
 }
 
 // SaveTemplateInput names a task to keep as a template.
 type SaveTemplateInput struct {
-	Name    string `json:"name" yaml:"name"`
+	// Name labels the template: required, at most 100 characters, unique in
+	// the tenant ignoring case.
+	Name string `json:"name" yaml:"name"`
+	// TaskRef is the live task to keep, by reference such as OPS-12 or by id.
 	TaskRef string `json:"task_ref" yaml:"task_ref"`
 	// TenantWide shares the template with every project rather than keeping
 	// it in the task's own.
-	TenantWide   bool     `json:"tenant_wide,omitempty" yaml:"tenant_wide,omitempty"`
-	WithSubtasks bool     `json:"with_subtasks,omitempty" yaml:"with_subtasks,omitempty"`
-	DueIn        Duration `json:"due_in,omitempty" yaml:"due_in,omitempty"`
+	TenantWide bool `json:"tenant_wide,omitempty" yaml:"tenant_wide,omitempty"`
+	// WithSubtasks keeps the task's live subtasks too, at most 200 tasks in all.
+	WithSubtasks bool `json:"with_subtasks,omitempty" yaml:"with_subtasks,omitempty"`
+	// DueIn is how far from a use the task falls due, a duration such as "3d"
+	// of at most ten years; omitted means no due date.
+	DueIn Duration `json:"due_in,omitempty" yaml:"due_in,omitempty"`
 }
 
 // Validate checks the input.
@@ -96,15 +122,21 @@ func (in SaveTemplateInput) Validate() error {
 
 // UpdateTemplateInput changes a template. A nil field is left as it is.
 type UpdateTemplateInput struct {
+	// Name renames the template, under the same rules as on saving.
 	Name *string `json:"name,omitempty" yaml:"name,omitempty"`
 	// ProjectRef moves the template to a project; a pointer to the empty
 	// string makes it tenant-wide.
-	ProjectRef *string   `json:"project_ref,omitempty" yaml:"project_ref,omitempty"`
-	DueIn      *Duration `json:"due_in,omitempty" yaml:"due_in,omitempty"`
-	Title      *string   `json:"title,omitempty" yaml:"title,omitempty"`
-	Body       *string   `json:"body,omitempty" yaml:"body,omitempty"`
-	Priority   *Priority `json:"priority,omitempty" yaml:"priority,omitempty"`
-	Tags       *[]string `json:"tags,omitempty" yaml:"tags,omitempty"`
+	ProjectRef *string `json:"project_ref,omitempty" yaml:"project_ref,omitempty"`
+	// DueIn replaces the due offset, a duration such as "3d"; zero removes it.
+	DueIn *Duration `json:"due_in,omitempty" yaml:"due_in,omitempty"`
+	// Title replaces the root task's title, placeholders allowed.
+	Title *string `json:"title,omitempty" yaml:"title,omitempty"`
+	// Body replaces the root task's Markdown description.
+	Body *string `json:"body,omitempty" yaml:"body,omitempty"`
+	// Priority replaces the root task's priority, 1 highest to 5 lowest.
+	Priority *Priority `json:"priority,omitempty" yaml:"priority,omitempty"`
+	// Tags replaces the root task's tag names.
+	Tags *[]string `json:"tags,omitempty" yaml:"tags,omitempty"`
 	// CustomFields sets the named fields; a null value removes one.
 	CustomFields map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
 	// Recurrence replaces the repeat rule; a pointer to the empty string
@@ -140,9 +172,14 @@ func (in UpdateTemplateInput) Validate() error {
 // ProjectRef uses the template's project, an empty Title the template's, and
 // a nil DueIn the template's offset; a zero DueIn sets no due date.
 type UseTemplateInput struct {
-	ProjectRef string    `json:"project_ref,omitempty" yaml:"project_ref,omitempty"`
-	Title      string    `json:"title,omitempty" yaml:"title,omitempty"`
-	DueIn      *Duration `json:"due_in,omitempty" yaml:"due_in,omitempty"`
+	// ProjectRef is the project to create the task in, by key or id; empty
+	// uses the template's project.
+	ProjectRef string `json:"project_ref,omitempty" yaml:"project_ref,omitempty"`
+	// Title overrides the template's title, placeholders allowed.
+	Title string `json:"title,omitempty" yaml:"title,omitempty"`
+	// DueIn overrides the due offset, a duration such as "3d"; zero sets no
+	// due date and omitted keeps the template's.
+	DueIn *Duration `json:"due_in,omitempty" yaml:"due_in,omitempty"`
 }
 
 // Validate checks the input.
@@ -215,8 +252,10 @@ func FillPlaceholders(title string, v TemplateValues) string {
 // TemplateService covers task templates.
 type TemplateService interface {
 	// SaveTemplate keeps a task, and its subtasks when asked, as a template.
+	// A name already taken in the tenant is a conflict.
 	SaveTemplate(ctx context.Context, in SaveTemplateInput) (*TaskTemplate, error)
-	// GetTemplate reads one template by name or identifier.
+	// GetTemplate reads one template by name or identifier. A template in a
+	// project the caller cannot read is not_found.
 	GetTemplate(ctx context.Context, ref string) (*TaskTemplate, error)
 	// ListTemplates lists the templates the caller can read, by name.
 	ListTemplates(ctx context.Context, f TemplateFilter) ([]TaskTemplate, string, error)
@@ -225,5 +264,6 @@ type TemplateService interface {
 	// DeleteTemplate removes a template; tasks made from it stay.
 	DeleteTemplate(ctx context.Context, ref string) error
 	// UseTemplate creates a task, with the template's subtasks, and returns it.
+	// Everything is written in one transaction and the use count goes up by one.
 	UseTemplate(ctx context.Context, ref string, in UseTemplateInput) (*Task, error)
 }

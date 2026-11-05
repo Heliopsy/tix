@@ -11,7 +11,10 @@ import (
 
 // CreateTenantInput creates a tenant.
 type CreateTenantInput struct {
-	Key  string `json:"key" yaml:"key"`
+	// Key is the tenant's short unique key, lowercased: letters, digits, hyphens
+	// and underscores, starting with a letter. Required.
+	Key string `json:"key" yaml:"key"`
+	// Name is the tenant's display name. Required.
 	Name string `json:"name" yaml:"name"`
 }
 
@@ -28,30 +31,35 @@ func (in CreateTenantInput) Validate() error {
 
 // UpdateTenantInput changes a tenant.
 type UpdateTenantInput struct {
+	// Name renames the tenant; it must not be blank, and omitted leaves it.
 	Name *string `json:"name,omitempty" yaml:"name,omitempty"`
 	// Theme names the palette this tenant presents itself with. A pointer to
 	// the empty string clears it, which returns the tenant to the accent
 	// derived from its own identity; nil leaves it alone.
 	Theme *string `json:"theme,omitempty" yaml:"theme,omitempty"`
-	// RequireTOTPWeb and its siblings turn the second-factor requirement on or
-	// off for one sign-in surface each; nil leaves that surface alone. They are
-	// here rather than on a command of their own because the requirement is a
-	// property of the tenant, and a separate path to write it would be a second
-	// place to get the authorization wrong.
+	// RequireTOTPWeb turns the second-factor requirement for browser sign-in
+	// on or off; omitted leaves it alone.
 	//
-	// Turning one on cannot lock the tenant out: a user who is subject to it
-	// and holds no enrolment is taken through enrolment at sign-in rather than
-	// refused, the administrator who turned it on first among them.
+	// The requirement is a property of the tenant rather than a command of its
+	// own, so there is one place to get its authorization right. Turning one
+	// on cannot lock the tenant out: a user subject to it who holds no
+	// enrolment is taken through enrolment at sign-in rather than refused.
 	RequireTOTPWeb *bool `json:"require_totp_web,omitempty" yaml:"require_totp_web,omitempty"`
+	// RequireTOTPCLI turns the second-factor requirement for command line
+	// sign-in on or off; omitted leaves it alone.
 	RequireTOTPCLI *bool `json:"require_totp_cli,omitempty" yaml:"require_totp_cli,omitempty"`
+	// RequireTOTPSSH turns the second-factor requirement for SSH sign-in on or
+	// off; omitted leaves it alone.
 	RequireTOTPSSH *bool `json:"require_totp_ssh,omitempty" yaml:"require_totp_ssh,omitempty"`
-	// LeaseDefault and LeaseMax bound how long a claim on this tenant holds.
-	// A pointer to zero clears the setting, returning that bound to the
-	// deployment configuration; nil leaves it alone. Same shape as Theme,
-	// and for the same reason: "unset" and "unchanged" are different answers
-	// and a plain value cannot tell them apart.
+	// LeaseDefault is the lease a claim on this tenant gets when nothing more
+	// specific names one, a duration such as "30m". Zero clears it back to the
+	// deployment configuration and omitted leaves it alone. A default longer
+	// than the maximum the tenant would hold, sent or stored, is refused.
 	LeaseDefault *Duration `json:"lease_default,omitempty" yaml:"lease_default,omitempty"`
-	LeaseMax     *Duration `json:"lease_max,omitempty" yaml:"lease_max,omitempty"`
+	// LeaseMax is the longest lease a claim on this tenant may hold, a
+	// duration such as "4h". Zero clears it back to the deployment
+	// configuration and omitted leaves it alone.
+	LeaseMax *Duration `json:"lease_max,omitempty" yaml:"lease_max,omitempty"`
 	// TrashOff turns the trash off (true) or back on (false); nil leaves it
 	// alone. Turning it off keeps the tasks already in the trash.
 	TrashOff *bool `json:"trash_off,omitempty" yaml:"trash_off,omitempty"`
@@ -79,22 +87,44 @@ func (in UpdateTenantInput) Validate() error {
 
 // AddDomainInput maps a hostname to the current tenant.
 type AddDomainInput struct {
-	Hostname string   `json:"hostname" yaml:"hostname"`
+	// Hostname is the host requests for this tenant arrive on. It is
+	// lowercased and any port or trailing dot is dropped. Required.
+	Hostname string `json:"hostname" yaml:"hostname"`
+	// CertMode says how the host's TLS certificate is obtained; empty means
+	// "none".
 	CertMode CertMode `json:"cert_mode,omitempty" yaml:"cert_mode,omitempty"`
-	CertPath string   `json:"cert_path,omitempty" yaml:"cert_path,omitempty"`
-	KeyPath  string   `json:"key_path,omitempty" yaml:"key_path,omitempty"`
+	// CertPath is the server-side path of the PEM certificate, required when
+	// CertMode is "file".
+	CertPath string `json:"cert_path,omitempty" yaml:"cert_path,omitempty"`
+	// KeyPath is the server-side path of the PEM private key, required when
+	// CertMode is "file".
+	KeyPath string `json:"key_path,omitempty" yaml:"key_path,omitempty"`
 }
 
 // CreateProjectInput creates a project.
 type CreateProjectInput struct {
-	Key         string `json:"key" yaml:"key"`
-	Name        string `json:"name" yaml:"name"`
+	// Key is the project's unique key and the prefix of its task references,
+	// lowercased: letters, digits, hyphens and underscores, starting with a
+	// letter. Required.
+	Key string `json:"key" yaml:"key"`
+	// Name is the project's display name. Required.
+	Name string `json:"name" yaml:"name"`
+	// Description is free text shown with the project.
 	Description string `json:"description,omitempty" yaml:"description,omitempty"`
+	// WorkflowKey names the workflow the project's tasks follow; empty uses the
+	// builtin workflow.
 	WorkflowKey string `json:"workflow_key,omitempty" yaml:"workflow_key,omitempty"`
-	Color       string `json:"color,omitempty" yaml:"color,omitempty"`
-	Icon        string `json:"icon,omitempty" yaml:"icon,omitempty"`
-	IconName    string `json:"icon_name,omitempty" yaml:"icon_name,omitempty"`
+	// Color is a palette colour name or a custom "#rrggbb"; empty means none.
+	Color string `json:"color,omitempty" yaml:"color,omitempty"`
+	// Icon is a text icon: one emoji or a monogram of at most two characters.
+	// At most one of Icon, IconName and IconFile may be set.
+	Icon string `json:"icon,omitempty" yaml:"icon,omitempty"`
+	// IconName names one of the built-in icons. At most one of Icon, IconName
+	// and IconFile may be set.
+	IconName string `json:"icon_name,omitempty" yaml:"icon_name,omitempty"`
 
+	// IconFile is an uploaded image icon. At most one of Icon, IconName and
+	// IconFile may be set.
 	IconFile *ProjectIconFile `json:"icon_file,omitempty" yaml:"icon_file,omitempty"`
 }
 
@@ -120,20 +150,38 @@ func (in CreateProjectInput) Validate() error {
 // empty one clears it. A new key renames every task reference and keeps the
 // old key as an alias of the project.
 type UpdateProjectInput struct {
-	Key         *string `json:"key,omitempty" yaml:"key,omitempty"`
-	Name        *string `json:"name,omitempty" yaml:"name,omitempty"`
+	// Key renames the project's key, rewriting every task reference and keeping
+	// the old key as an alias; omitted leaves it.
+	Key *string `json:"key,omitempty" yaml:"key,omitempty"`
+	// Name renames the project; omitted leaves it.
+	Name *string `json:"name,omitempty" yaml:"name,omitempty"`
+	// Description replaces the description; omitted leaves it.
 	Description *string `json:"description,omitempty" yaml:"description,omitempty"`
+	// WorkflowKey switches the project to another workflow, refused while a
+	// task sits in a status the new workflow lacks; omitted leaves it.
 	WorkflowKey *string `json:"workflow_key,omitempty" yaml:"workflow_key,omitempty"`
-	Color       *string `json:"color,omitempty" yaml:"color,omitempty"`
-	Icon        *string `json:"icon,omitempty" yaml:"icon,omitempty"`
-	IconName    *string `json:"icon_name,omitempty" yaml:"icon_name,omitempty"`
+	// Color is a palette colour name or "#rrggbb"; empty clears it and omitted
+	// leaves it.
+	Color *string `json:"color,omitempty" yaml:"color,omitempty"`
+	// Icon sets a text icon, replacing any icon; empty clears the icon and
+	// omitted leaves it.
+	Icon *string `json:"icon,omitempty" yaml:"icon,omitempty"`
+	// IconName sets a built-in icon, replacing any icon; empty clears the icon
+	// and omitted leaves it.
+	IconName *string `json:"icon_name,omitempty" yaml:"icon_name,omitempty"`
 
+	// IconFile sets an uploaded image icon, replacing any icon; omitted leaves
+	// it.
 	IconFile *ProjectIconFile `json:"icon_file,omitempty" yaml:"icon_file,omitempty"`
 
-	// LeaseDefault and LeaseMax set the project's lease bounds; a pointer to
-	// zero inherits the tenant's again.
+	// LeaseDefault is the lease a claim on this project's tasks gets when the
+	// claim and task name none, a duration such as "30m"; zero inherits the
+	// tenant's again and omitted leaves it.
 	LeaseDefault *Duration `json:"lease_default,omitempty" yaml:"lease_default,omitempty"`
-	LeaseMax     *Duration `json:"lease_max,omitempty" yaml:"lease_max,omitempty"`
+	// LeaseMax caps a lease on this project's tasks below the tenant's
+	// ceiling, a duration such as "4h"; zero inherits the tenant's again and
+	// omitted leaves it.
+	LeaseMax *Duration `json:"lease_max,omitempty" yaml:"lease_max,omitempty"`
 }
 
 // IconChanged reports whether the update names the project's icon at all.
@@ -172,9 +220,11 @@ func (in DeleteProjectInput) Validate() error {
 
 // ProjectDeletion is what deleting a project does, or did, to its tasks.
 type ProjectDeletion struct {
+	// Project is the key of the project being deleted.
 	Project string `json:"project" yaml:"project"`
-	// Tasks counts the live tasks and Deleted the soft deleted ones.
-	Tasks   int `json:"tasks" yaml:"tasks"`
+	// Tasks counts the project's live tasks.
+	Tasks int `json:"tasks" yaml:"tasks"`
+	// Deleted counts the project's soft deleted tasks, in the trash.
 	Deleted int `json:"deleted" yaml:"deleted"`
 	// MoveTo is the target's key when the tasks move.
 	MoveTo string `json:"move_to,omitempty" yaml:"move_to,omitempty"`
@@ -192,21 +242,34 @@ func (d ProjectDeletion) Total() int { return d.Tasks + d.Deleted }
 // StatusMove is one source status, the target status it maps to and how many
 // tasks it carries.
 type StatusMove struct {
-	From  string `json:"from" yaml:"from"`
-	To    string `json:"to" yaml:"to"`
-	Tasks int    `json:"tasks" yaml:"tasks"`
+	// From is the status in the deleted project's workflow.
+	From string `json:"from" yaml:"from"`
+	// To is the status the tasks take in the target project's workflow.
+	To string `json:"to" yaml:"to"`
+	// Tasks counts the tasks in From.
+	Tasks int `json:"tasks" yaml:"tasks"`
 }
 
 // FieldDefInput defines or redefines a custom field.
 type FieldDefInput struct {
-	Key         string    `json:"key" yaml:"key"`
-	Label       string    `json:"label" yaml:"label"`
-	Type        FieldType `json:"type" yaml:"type"`
-	Required    bool      `json:"required" yaml:"required"`
-	EnumOptions []string  `json:"enum_options,omitempty" yaml:"enum_options,omitempty"`
-	Default     any       `json:"default,omitempty" yaml:"default,omitempty"`
-	Indexed     bool      `json:"indexed" yaml:"indexed"`
-	Position    int       `json:"position" yaml:"position"`
+	// Key identifies the field within the project and in a task's
+	// custom_fields; an existing key is redefined. Required.
+	Key string `json:"key" yaml:"key"`
+	// Label is the name shown for the field; empty uses the key.
+	Label string `json:"label" yaml:"label"`
+	// Type is the kind of value the field holds. Required.
+	Type FieldType `json:"type" yaml:"type"`
+	// Required refuses a task that ends up with no value and no default.
+	Required bool `json:"required" yaml:"required"`
+	// EnumOptions lists the allowed values, required for an enum field and
+	// refused on any other type.
+	EnumOptions []string `json:"enum_options,omitempty" yaml:"enum_options,omitempty"`
+	// Default is the value a new task gets when it names none, coerced to Type.
+	Default any `json:"default,omitempty" yaml:"default,omitempty"`
+	// Indexed marks the field as one task listings are expected to filter on.
+	Indexed bool `json:"indexed" yaml:"indexed"`
+	// Position orders the project's fields, lowest first.
+	Position int `json:"position" yaml:"position"`
 }
 
 // Validate checks the input.
@@ -228,10 +291,17 @@ func (in FieldDefInput) Validate() error {
 
 // WorkflowInput defines or redefines a workflow.
 type WorkflowInput struct {
-	Key        string             `json:"key" yaml:"key"`
-	Name       string             `json:"name" yaml:"name"`
+	// Key identifies the workflow; an existing key is redefined. Letters,
+	// digits, hyphens and underscores, starting with a letter. Required.
+	Key string `json:"key" yaml:"key"`
+	// Name is the workflow's display name.
+	Name string `json:"name" yaml:"name"`
+	// Definition is the states and transitions. It needs an initial state that
+	// it defines and at least one terminal state.
 	Definition WorkflowDefinition `json:"definition" yaml:"definition"`
-	Migrate    map[string]string  `json:"migrate,omitempty" yaml:"migrate,omitempty"`
+	// Migrate maps each removed state that still holds tasks to a state of the
+	// new definition; a redefinition stranding tasks without one is a conflict.
+	Migrate map[string]string `json:"migrate,omitempty" yaml:"migrate,omitempty"`
 }
 
 // Validate checks the workflow definition for internal consistency.
@@ -291,21 +361,38 @@ func (in WorkflowInput) Validate() error {
 
 // CreateTaskInput creates a task.
 type CreateTaskInput struct {
-	ProjectRef string   `json:"project_ref,omitempty" yaml:"project_ref,omitempty"`
-	Title      string   `json:"title" yaml:"title"`
-	Body       string   `json:"body,omitempty" yaml:"body,omitempty"`
-	Status     string   `json:"status,omitempty" yaml:"status,omitempty"`
-	Priority   Priority `json:"priority,omitempty" yaml:"priority,omitempty"`
-	Tags       []string `json:"tags,omitempty" yaml:"tags,omitempty"`
+	// ProjectRef is the key or identifier of the project to create the task
+	// in. Empty picks the tenant's only project, or its "default" project
+	// when it has several.
+	ProjectRef string `json:"project_ref,omitempty" yaml:"project_ref,omitempty"`
+	// Title is a one-line summary of at most 500 characters. Required.
+	Title string `json:"title" yaml:"title"`
+	// Body is the Markdown description, up to 1 MiB.
+	Body string `json:"body,omitempty" yaml:"body,omitempty"`
+	// Status is the starting state of the project's workflow; empty uses the
+	// workflow's initial state.
+	Status string `json:"status,omitempty" yaml:"status,omitempty"`
+	// Priority runs from 1 (highest) to 5 (lowest); 0 or omitted means 3.
+	Priority Priority `json:"priority,omitempty" yaml:"priority,omitempty"`
+	// Tags names the tags to attach, creating any that do not exist.
+	Tags []string `json:"tags,omitempty" yaml:"tags,omitempty"`
 
-	AssigneeActorID string     `json:"assignee_actor_id,omitempty" yaml:"assignee_actor_id,omitempty"`
-	ParentRef       string     `json:"parent_ref,omitempty" yaml:"parent_ref,omitempty"`
-	DueAt           *time.Time `json:"due_at,omitempty" yaml:"due_at,omitempty"`
-	// Recurrence is a repeat rule in the syntax ParseRecurrence reads.
+	// AssigneeActorID is the actor to assign, by identifier or handle.
+	AssigneeActorID string `json:"assignee_actor_id,omitempty" yaml:"assignee_actor_id,omitempty"`
+	// ParentRef makes the task a subtask of this task reference.
+	ParentRef string `json:"parent_ref,omitempty" yaml:"parent_ref,omitempty"`
+	// DueAt is when the task is due, an RFC 3339 timestamp.
+	DueAt *time.Time `json:"due_at,omitempty" yaml:"due_at,omitempty"`
+	// Recurrence is a repeat rule such as "every 2 weeks"; finishing the task
+	// creates the next occurrence.
 	Recurrence string `json:"recurrence,omitempty" yaml:"recurrence,omitempty"`
 
+	// CustomFields holds values for the project's custom fields, by field key.
+	// A field left out takes its default, and a required one without a default
+	// is refused.
 	CustomFields map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
-	DependsOn    []string       `json:"depends_on,omitempty" yaml:"depends_on,omitempty"`
+	// DependsOn lists references of tasks this task waits on.
+	DependsOn []string `json:"depends_on,omitempty" yaml:"depends_on,omitempty"`
 	// Lease is how long a claim on the task holds; zero inherits the project's.
 	Lease Duration `json:"lease,omitempty" yaml:"lease,omitempty"`
 }
@@ -336,7 +423,10 @@ const (
 // delete a task that still has children; without it such a delete is refused
 // so a subtree is never removed by accident.
 type DeleteTaskInput struct {
-	Hard    bool `json:"hard,omitempty" yaml:"hard,omitempty"`
+	// Hard removes the task permanently instead of moving it to the trash. A
+	// tenant with the trash turned off always deletes hard.
+	Hard bool `json:"hard,omitempty" yaml:"hard,omitempty"`
+	// Cascade deletes the task's subtasks with it.
 	Cascade bool `json:"cascade,omitempty" yaml:"cascade,omitempty"`
 }
 
@@ -344,13 +434,20 @@ type DeleteTaskInput struct {
 // An empty ProjectRef copies into the source's own project and an empty Title
 // keeps the source's.
 type CopyTaskInput struct {
+	// ProjectRef is the key or identifier of the project to copy into; empty
+	// copies into the source's own project.
 	ProjectRef string `json:"project_ref,omitempty" yaml:"project_ref,omitempty"`
-	Title      string `json:"title,omitempty" yaml:"title,omitempty"`
+	// Title is the copy's title; empty keeps the source's.
+	Title string `json:"title,omitempty" yaml:"title,omitempty"`
 	// KeepStatus starts the copy in the source's state when the target
 	// workflow has one of that name, rather than in its initial state.
-	KeepStatus       bool `json:"keep_status,omitempty" yaml:"keep_status,omitempty"`
-	WithComments     bool `json:"with_comments,omitempty" yaml:"with_comments,omitempty"`
-	WithSubtasks     bool `json:"with_subtasks,omitempty" yaml:"with_subtasks,omitempty"`
+	KeepStatus bool `json:"keep_status,omitempty" yaml:"keep_status,omitempty"`
+	// WithComments copies the source's comments onto the copy.
+	WithComments bool `json:"with_comments,omitempty" yaml:"with_comments,omitempty"`
+	// WithSubtasks copies the source's subtasks too, as subtasks of the copy.
+	WithSubtasks bool `json:"with_subtasks,omitempty" yaml:"with_subtasks,omitempty"`
+	// WithDependencies copies dependency edges, pointing an edge at the copy of
+	// its far end when that was copied too.
 	WithDependencies bool `json:"with_dependencies,omitempty" yaml:"with_dependencies,omitempty"`
 	// Link records the source on each copy as its CopiedFromID.
 	Link bool `json:"link,omitempty" yaml:"link,omitempty"`
@@ -366,14 +463,27 @@ func (in CopyTaskInput) Validate() error {
 
 // UpdateTaskInput changes a task.
 type UpdateTaskInput struct {
-	Title           *string        `json:"title,omitempty" yaml:"title,omitempty"`
-	Body            *string        `json:"body,omitempty" yaml:"body,omitempty"`
-	Priority        *Priority      `json:"priority,omitempty" yaml:"priority,omitempty"`
-	AssigneeActorID *string        `json:"assignee_actor_id,omitempty" yaml:"assignee_actor_id,omitempty"`
-	ParentRef       *string        `json:"parent_ref,omitempty" yaml:"parent_ref,omitempty"`
-	DueAt           **time.Time    `json:"due_at,omitempty" yaml:"due_at,omitempty"`
-	CustomFields    map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
-	Tags            *[]string      `json:"tags,omitempty" yaml:"tags,omitempty"`
+	// Title replaces the title, at most 500 characters; omitted leaves it.
+	Title *string `json:"title,omitempty" yaml:"title,omitempty"`
+	// Body replaces the Markdown description; omitted leaves it.
+	Body *string `json:"body,omitempty" yaml:"body,omitempty"`
+	// Priority sets the priority, 1 (highest) to 5 (lowest); omitted leaves it.
+	Priority *Priority `json:"priority,omitempty" yaml:"priority,omitempty"`
+	// AssigneeActorID assigns an actor by identifier or handle; empty
+	// unassigns and omitted leaves it.
+	AssigneeActorID *string `json:"assignee_actor_id,omitempty" yaml:"assignee_actor_id,omitempty"`
+	// ParentRef moves the task under another task, refusing a cycle; empty
+	// detaches it and omitted leaves it.
+	ParentRef *string `json:"parent_ref,omitempty" yaml:"parent_ref,omitempty"`
+	// DueAt sets the due time, an RFC 3339 timestamp. Omitted or null leaves
+	// it unchanged, so a JSON request cannot clear it.
+	DueAt **time.Time `json:"due_at,omitempty" yaml:"due_at,omitempty"`
+	// CustomFields merges values over the stored ones by field key; a null
+	// value clears that field.
+	CustomFields map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
+	// Tags replaces the task's whole tag set; an empty list removes every tag
+	// and omitted leaves them.
+	Tags *[]string `json:"tags,omitempty" yaml:"tags,omitempty"`
 	// Recurrence replaces the repeat rule; a pointer to the empty string
 	// removes it and nil leaves it alone.
 	Recurrence *string `json:"recurrence,omitempty" yaml:"recurrence,omitempty"`
@@ -381,16 +491,27 @@ type UpdateTaskInput struct {
 	// it back to the project's.
 	Lease *Duration `json:"lease,omitempty" yaml:"lease,omitempty"`
 
+	// Version is the task version the caller last read. When set and stale the
+	// update is refused as a conflict; 0 skips the check.
 	Version int `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
 // TransitionInput moves a task to a new status.
 type TransitionInput struct {
-	To           string         `json:"to" yaml:"to"`
-	Comment      string         `json:"comment,omitempty" yaml:"comment,omitempty"`
-	LeaseToken   string         `json:"lease_token,omitempty" yaml:"lease_token,omitempty"`
+	// To is the target status, which the workflow must allow from the current
+	// one. Required.
+	To string `json:"to" yaml:"to"`
+	// Comment is added to the task as a comment; required when the transition
+	// demands one.
+	Comment string `json:"comment,omitempty" yaml:"comment,omitempty"`
+	// LeaseToken is the claim's token, required while the task is claimed.
+	LeaseToken string `json:"lease_token,omitempty" yaml:"lease_token,omitempty"`
+	// CustomFields merges values over the stored ones by field key; a null
+	// value clears that field.
 	CustomFields map[string]any `json:"custom_fields,omitempty" yaml:"custom_fields,omitempty"`
-	Version      int            `json:"version,omitempty" yaml:"version,omitempty"`
+	// Version is the task version the caller last read. When set and stale the
+	// move is refused as a conflict; 0 skips the check.
+	Version int `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
 // Validate checks the input.
@@ -404,12 +525,19 @@ func (in TransitionInput) Validate() error {
 // ArtifactInput records structured output on a task. An artifact is the
 // holder's work product, so a task carrying a live lease requires its token.
 type ArtifactInput struct {
-	Kind        ArtifactKind   `json:"kind" yaml:"kind"`
-	Name        string         `json:"name,omitempty" yaml:"name,omitempty"`
-	Payload     map[string]any `json:"payload,omitempty" yaml:"payload,omitempty"`
-	ContentType string         `json:"content_type,omitempty" yaml:"content_type,omitempty"`
-	Blob        []byte         `json:"blob,omitempty" yaml:"blob,omitempty"`
-	LeaseToken  string         `json:"lease_token,omitempty" yaml:"lease_token,omitempty"`
+	// Kind classifies the output. Required.
+	Kind ArtifactKind `json:"kind" yaml:"kind"`
+	// Name labels the artifact among the task's others.
+	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	// Payload is structured output as a JSON object.
+	Payload map[string]any `json:"payload,omitempty" yaml:"payload,omitempty"`
+	// ContentType is the media type of Blob.
+	ContentType string `json:"content_type,omitempty" yaml:"content_type,omitempty"`
+	// Blob is inline content, base64 in JSON, at most 1 MiB; larger content
+	// belongs elsewhere, referenced from Payload.
+	Blob []byte `json:"blob,omitempty" yaml:"blob,omitempty"`
+	// LeaseToken is the claim's token, required while the task is claimed.
+	LeaseToken string `json:"lease_token,omitempty" yaml:"lease_token,omitempty"`
 }
 
 // Validate checks the input.
@@ -425,22 +553,38 @@ func (in ArtifactInput) Validate() error {
 
 // SnoozeInput says until when a task sleeps.
 type SnoozeInput struct {
+	// Until is when the task wakes, an RFC 3339 timestamp in the future,
+	// truncated to the second. Required.
 	Until time.Time `json:"until" yaml:"until"`
 }
 
 // ClaimInput claims one task.
 type ClaimInput struct {
-	TTL     Duration `json:"ttl,omitempty" yaml:"ttl,omitempty"`
-	ActorID string   `json:"actor_id,omitempty" yaml:"actor_id,omitempty"`
+	// TTL is how long the lease holds, a duration such as "30m". Omitted takes
+	// the task, project, workflow or tenant default; a value above the maximum
+	// is refused.
+	TTL Duration `json:"ttl,omitempty" yaml:"ttl,omitempty"`
+	// ActorID claims on behalf of another actor, by identifier or handle;
+	// empty claims for the caller.
+	ActorID string `json:"actor_id,omitempty" yaml:"actor_id,omitempty"`
 }
 
 // ClaimNextInput claims the next eligible task.
 type ClaimNextInput struct {
+	// ProjectRefs restricts the queue to these projects, by key or identifier;
+	// empty means every project the caller may claim in.
 	ProjectRefs []string `json:"project_refs,omitempty" yaml:"project_refs,omitempty"`
-	Tags        []string `json:"tags,omitempty" yaml:"tags,omitempty"`
-	Statuses    []string `json:"statuses,omitempty" yaml:"statuses,omitempty"`
-	TTL         Duration `json:"ttl,omitempty" yaml:"ttl,omitempty"`
-	ActorID     string   `json:"actor_id,omitempty" yaml:"actor_id,omitempty"`
+	// Tags restricts the queue to tasks carrying any of these tags.
+	Tags []string `json:"tags,omitempty" yaml:"tags,omitempty"`
+	// Statuses restricts the queue to tasks in any of these statuses; empty
+	// means every status that is not terminal.
+	Statuses []string `json:"statuses,omitempty" yaml:"statuses,omitempty"`
+	// TTL is how long the lease holds, a duration such as "30m". Omitted takes
+	// the configured default; a value above the maximum is refused.
+	TTL Duration `json:"ttl,omitempty" yaml:"ttl,omitempty"`
+	// ActorID claims on behalf of another actor, by identifier or handle;
+	// empty claims for the caller.
+	ActorID string `json:"actor_id,omitempty" yaml:"actor_id,omitempty"`
 }
 
 // ForceReclaimInput carries the administrator's reason for taking a lease.
@@ -448,6 +592,7 @@ type ClaimNextInput struct {
 // question asked of a forced reclaim afterwards is never whether it happened,
 // which the entry says, but why somebody else's work was taken.
 type ForceReclaimInput struct {
+	// Reason says why the lease was taken, at most 500 characters.
 	Reason string `json:"reason,omitempty" yaml:"reason,omitempty"`
 }
 
@@ -461,18 +606,29 @@ func (in ForceReclaimInput) Validate() error {
 
 // ReleaseInput gives up a lease.
 type ReleaseInput struct {
-	Status  string         `json:"status,omitempty" yaml:"status,omitempty"`
-	Result  map[string]any `json:"result,omitempty" yaml:"result,omitempty"`
-	Comment string         `json:"comment,omitempty" yaml:"comment,omitempty"`
+	// Status moves the task to this status as it is released; empty leaves
+	// the status as it is.
+	Status string `json:"status,omitempty" yaml:"status,omitempty"`
+	// Result is recorded as a "result" artifact named "result".
+	Result map[string]any `json:"result,omitempty" yaml:"result,omitempty"`
+	// Comment is added to the task as a comment.
+	Comment string `json:"comment,omitempty" yaml:"comment,omitempty"`
 }
 
 // CreateUserInput creates a user.
 type CreateUserInput struct {
-	Email       string `json:"email" yaml:"email"`
-	Password    string `json:"password,omitempty" yaml:"password,omitempty"`
+	// Email is the user's sign-in address, lowercased. Required.
+	Email string `json:"email" yaml:"email"`
+	// Password is at least 12 characters; empty creates a user with no
+	// password.
+	Password string `json:"password,omitempty" yaml:"password,omitempty"`
+	// DisplayName is the name shown for the user.
 	DisplayName string `json:"display_name,omitempty" yaml:"display_name,omitempty"`
-	Handle      string `json:"handle,omitempty" yaml:"handle,omitempty"`
-	Role        Role   `json:"role,omitempty" yaml:"role,omitempty"`
+	// Handle is the user's unique short name, lowercased; empty uses the
+	// part of the email before the "@".
+	Handle string `json:"handle,omitempty" yaml:"handle,omitempty"`
+	// Role is the user's role in this tenant; empty means "viewer".
+	Role Role `json:"role,omitempty" yaml:"role,omitempty"`
 }
 
 // Validate checks the input.
@@ -494,18 +650,31 @@ const MinPasswordLength = 12
 
 // UpdateUserInput changes a user.
 type UpdateUserInput struct {
+	// DisplayName replaces the display name; omitted leaves it.
 	DisplayName *string `json:"display_name,omitempty" yaml:"display_name,omitempty"`
-	Password    *string `json:"password,omitempty" yaml:"password,omitempty"`
-	Role        *Role   `json:"role,omitempty" yaml:"role,omitempty"`
-	Disabled    *bool   `json:"disabled,omitempty" yaml:"disabled,omitempty"`
+	// Password sets a new password; omitted leaves it.
+	Password *string `json:"password,omitempty" yaml:"password,omitempty"`
+	// Role changes the user's role in this tenant; omitted leaves it.
+	Role *Role `json:"role,omitempty" yaml:"role,omitempty"`
+	// Disabled true disables the user, ending their sessions and revoking
+	// their tokens at once; false enables them; omitted leaves it.
+	Disabled *bool `json:"disabled,omitempty" yaml:"disabled,omitempty"`
 }
 
 // CreateTokenInput mints an API token.
 type CreateTokenInput struct {
-	Name      string     `json:"name" yaml:"name"`
-	ActorID   string     `json:"actor_id,omitempty" yaml:"actor_id,omitempty"`
-	Scopes    []Scope    `json:"scopes" yaml:"scopes"`
-	ProjectID string     `json:"project_id,omitempty" yaml:"project_id,omitempty"`
+	// Name labels the token, unique among the tenant's live tokens. Required.
+	Name string `json:"name" yaml:"name"`
+	// ActorID is the actor the token acts as, by identifier or handle; empty
+	// means the caller.
+	ActorID string `json:"actor_id,omitempty" yaml:"actor_id,omitempty"`
+	// Scopes are the permissions the token carries, each one the creator must
+	// hold. At least one is required.
+	Scopes []Scope `json:"scopes" yaml:"scopes"`
+	// ProjectID confines the token to one project, by key or identifier.
+	ProjectID string `json:"project_id,omitempty" yaml:"project_id,omitempty"`
+	// ExpiresAt is when the token stops working, an RFC 3339 timestamp; omitted
+	// means it does not expire.
 	ExpiresAt *time.Time `json:"expires_at,omitempty" yaml:"expires_at,omitempty"`
 }
 
@@ -526,11 +695,19 @@ func (in CreateTokenInput) Validate() error {
 
 // WebhookInput registers or updates a delivery endpoint.
 type WebhookInput struct {
-	ID         string   `json:"id,omitempty" yaml:"id,omitempty"`
-	URL        string   `json:"url" yaml:"url"`
-	Secret     string   `json:"secret,omitempty" yaml:"secret,omitempty"`
+	// ID names the endpoint to update; empty registers a new one.
+	ID string `json:"id,omitempty" yaml:"id,omitempty"`
+	// URL receives the deliveries. It must use https unless it is a loopback
+	// address. Required.
+	URL string `json:"url" yaml:"url"`
+	// Secret signs each delivery. Empty keeps an existing endpoint's secret,
+	// or generates one that the response returns once.
+	Secret string `json:"secret,omitempty" yaml:"secret,omitempty"`
+	// EventTypes filters the events delivered; a pattern may end in "*".
+	// Empty delivers every event.
 	EventTypes []string `json:"event_types,omitempty" yaml:"event_types,omitempty"`
-	Active     bool     `json:"active" yaml:"active"`
+	// Active turns delivery on; an inactive endpoint receives nothing.
+	Active bool `json:"active" yaml:"active"`
 }
 
 // Validate checks the input.
@@ -543,15 +720,23 @@ func (in WebhookInput) Validate() error {
 
 // ExportInput selects what to export.
 type ExportInput struct {
-	ProjectRefs      []string `json:"project_refs,omitempty" yaml:"project_refs,omitempty"`
-	IncludeArtifacts bool     `json:"include_artifacts,omitempty" yaml:"include_artifacts,omitempty"`
-	IncludeComments  bool     `json:"include_comments,omitempty" yaml:"include_comments,omitempty"`
+	// ProjectRefs restricts the snapshot to these projects, by key or
+	// identifier; empty exports every project.
+	ProjectRefs []string `json:"project_refs,omitempty" yaml:"project_refs,omitempty"`
+	// IncludeArtifacts adds the tasks' artifacts.
+	IncludeArtifacts bool `json:"include_artifacts,omitempty" yaml:"include_artifacts,omitempty"`
+	// IncludeComments adds the tasks' comments.
+	IncludeComments bool `json:"include_comments,omitempty" yaml:"include_comments,omitempty"`
 }
 
 // ImportInput controls an import.
 type ImportInput struct {
-	Mode   ImportMode `json:"mode" yaml:"mode"`
-	DryRun bool       `json:"dry_run,omitempty" yaml:"dry_run,omitempty"`
+	// Mode is required: "merge" adds and updates, while "replace" also removes
+	// the tasks and field definitions of an imported project that the
+	// snapshot does not carry.
+	Mode ImportMode `json:"mode" yaml:"mode"`
+	// DryRun reports what the import would do and writes nothing.
+	DryRun bool `json:"dry_run,omitempty" yaml:"dry_run,omitempty"`
 }
 
 // Validate checks the input.
@@ -568,11 +753,18 @@ func (in ImportInput) Validate() error {
 
 // SyncSourceInput registers an external import source.
 type SyncSourceInput struct {
-	ID          string         `json:"id,omitempty" yaml:"id,omitempty"`
-	System      string         `json:"system" yaml:"system"`
-	Name        string         `json:"name" yaml:"name"`
-	Config      map[string]any `json:"config,omitempty" yaml:"config,omitempty"`
-	MappingPath string         `json:"mapping_path,omitempty" yaml:"mapping_path,omitempty"`
+	// ID names the source to update; empty registers a new one.
+	ID string `json:"id,omitempty" yaml:"id,omitempty"`
+	// System is the external system: "generic", "jira" or "openproject".
+	System string `json:"system" yaml:"system"`
+	// Name labels the source. Required.
+	Name string `json:"name" yaml:"name"`
+	// Config is checked for credential keys, which are refused, and is not
+	// stored: connection settings are read from the environment at run time.
+	Config map[string]any `json:"config,omitempty" yaml:"config,omitempty"`
+	// MappingPath is accepted and not stored; the mapping file is read from
+	// the environment at run time.
+	MappingPath string `json:"mapping_path,omitempty" yaml:"mapping_path,omitempty"`
 }
 
 // Supported external systems.
@@ -601,13 +793,19 @@ func (in SyncSourceInput) Validate() error {
 
 // RunSyncInput runs an import from a configured source.
 type RunSyncInput struct {
+	// SourceID is the identifier of the registered source to run. Required.
 	SourceID string `json:"source_id" yaml:"source_id"`
-	DryRun   bool   `json:"dry_run,omitempty" yaml:"dry_run,omitempty"`
-	Full     bool   `json:"full,omitempty" yaml:"full,omitempty"`
+	// DryRun reports what the run would import and writes nothing.
+	DryRun bool `json:"dry_run,omitempty" yaml:"dry_run,omitempty"`
+	// Full reads the source from the beginning instead of resuming from the
+	// stored cursor.
+	Full bool `json:"full,omitempty" yaml:"full,omitempty"`
 }
 
 // PruneInput removes records past their retention window.
 type PruneInput struct {
+	// DryRun reports what would be removed and removes nothing.
 	DryRun bool `json:"dry_run,omitempty" yaml:"dry_run,omitempty"`
-	Limit  int  `json:"limit,omitempty" yaml:"limit,omitempty"`
+	// Limit caps how many rows of each kind one run removes; 0 means 500.
+	Limit int `json:"limit,omitempty" yaml:"limit,omitempty"`
 }

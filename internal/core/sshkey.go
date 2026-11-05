@@ -15,15 +15,24 @@ import (
 // one leaves the other standing. Fingerprint is the SHA-256 form an ssh client
 // prints, so what an operator compares by eye is what is stored.
 type SSHKey struct {
-	ID          string     `json:"id" yaml:"id"`
-	TenantID    string     `json:"tenant_id" yaml:"tenant_id"`
-	ActorID     string     `json:"actor_id" yaml:"actor_id"`
-	Fingerprint string     `json:"fingerprint" yaml:"fingerprint"`
-	PublicKey   string     `json:"public_key" yaml:"public_key"`
-	Label       string     `json:"label,omitempty" yaml:"label,omitempty"`
-	CreatedAt   time.Time  `json:"created_at" yaml:"created_at"`
-	LastUsedAt  *time.Time `json:"last_used_at,omitempty" yaml:"last_used_at,omitempty"`
-	RevokedAt   *time.Time `json:"revoked_at,omitempty" yaml:"revoked_at,omitempty"`
+	// ID identifies the enrolment; revoke a key by it.
+	ID string `json:"id" yaml:"id"`
+	// TenantID is the tenant the key is enrolled in.
+	TenantID string `json:"tenant_id" yaml:"tenant_id"`
+	// ActorID is the actor the key signs in as.
+	ActorID string `json:"actor_id" yaml:"actor_id"`
+	// Fingerprint is the key's SHA-256 fingerprint as ssh prints it ("SHA256:...").
+	Fingerprint string `json:"fingerprint" yaml:"fingerprint"`
+	// PublicKey is the key in authorized_keys form.
+	PublicKey string `json:"public_key" yaml:"public_key"`
+	// Label is a human note for telling one key from another.
+	Label string `json:"label,omitempty" yaml:"label,omitempty"`
+	// CreatedAt is when the key was enrolled, RFC 3339.
+	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
+	// LastUsedAt is when the key last authenticated, absent if never.
+	LastUsedAt *time.Time `json:"last_used_at,omitempty" yaml:"last_used_at,omitempty"`
+	// RevokedAt is when the key was revoked, absent while it still works.
+	RevokedAt *time.Time `json:"revoked_at,omitempty" yaml:"revoked_at,omitempty"`
 }
 
 // Active reports whether the key may still authenticate. Unlike a token a key
@@ -118,8 +127,13 @@ const (
 // to be made under, which a client checks against its own idea of the host
 // rather than adopting.
 type SSHChallenge struct {
-	Nonce     string    `json:"nonce" yaml:"nonce"`
-	Namespace string    `json:"namespace" yaml:"namespace"`
+	// Nonce is the opaque, server-signed value to sign.
+	Nonce string `json:"nonce" yaml:"nonce"`
+	// Namespace is the sshsig namespace the signature must be made under,
+	// "tix-login@" followed by the host.
+	Namespace string `json:"namespace" yaml:"namespace"`
+	// ExpiresAt is when the nonce stops being accepted, two minutes after
+	// issue, RFC 3339.
 	ExpiresAt time.Time `json:"expires_at" yaml:"expires_at"`
 }
 
@@ -129,7 +143,8 @@ type SSHLoginInput struct {
 	PublicKey string `json:"public_key" yaml:"public_key"`
 	// Signature is the armored sshsig block over the nonce.
 	Signature string `json:"signature" yaml:"signature"`
-	Nonce     string `json:"nonce" yaml:"nonce"`
+	// Nonce is the nonce from the challenge being answered.
+	Nonce string `json:"nonce" yaml:"nonce"`
 	// Tenant, when set, is the tenant key the caller means. A server that
 	// resolved another one refuses rather than signing in somewhere else.
 	Tenant string `json:"tenant,omitempty" yaml:"tenant,omitempty"`

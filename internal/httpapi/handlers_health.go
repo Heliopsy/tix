@@ -13,20 +13,27 @@ import (
 
 // HealthBody reports that the process is alive.
 type HealthBody struct {
-	Status  string `json:"status"`
+	// Status is always "ok".
+	Status string `json:"status"`
+	// Version is the tix version the process runs.
 	Version string `json:"version"`
 }
 
 // Check is one readiness probe and its outcome.
 type Check struct {
-	Name  string `json:"name"`
-	OK    bool   `json:"ok"`
+	// Name is the probe, "database" or "migrations".
+	Name string `json:"name"`
+	// OK is true when the probe passed.
+	OK bool `json:"ok"`
+	// Error says why the probe failed, set only when it did.
 	Error string `json:"error,omitempty"`
 }
 
 // ReadyBody reports whether the server can serve traffic.
 type ReadyBody struct {
-	Ready  bool    `json:"ready"`
+	// Ready is true when every check passed.
+	Ready bool `json:"ready"`
+	// Checks are the individual probes and their outcomes.
 	Checks []Check `json:"checks"`
 }
 
