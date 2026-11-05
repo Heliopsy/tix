@@ -260,15 +260,33 @@
     }
   }
 
+  // paletteTouchOnly reports whether the main input is a finger, the same
+  // query that hides .needs-keys in app.css.
+  tix.paletteTouchOnly = function (matchMedia) {
+    if (typeof matchMedia !== "function") {
+      return false;
+    }
+    var query = matchMedia("(hover: none) and (pointer: coarse)");
+    return !!(query && query.matches);
+  };
+
+  // paletteForDevice leaves out the entries marked keys, which point at
+  // something a touch-only device does not draw.
+  tix.paletteForDevice = function (entries, touchOnly) {
+    var list = entries || [];
+    return touchOnly ? list.filter(function (e) { return !e.keys; }) : list;
+  };
+
   // staticItems are the screens and actions, and the projects once read.
   // "New task in" a project is offered only once something is typed: with
   // nothing typed it would be one row per project ahead of everything else.
   function staticItems(typed) {
     var data = readData();
-    var screens = (data.screens || []).map(function (s) {
+    var touchOnly = tix.paletteTouchOnly(global.matchMedia && global.matchMedia.bind(global));
+    var screens = tix.paletteForDevice(data.screens, touchOnly).map(function (s) {
       return { key: s.id, kind: "screen", label: s.label, hint: s.hint || "", href: s.href };
     });
-    var actions = (data.actions || []).map(function (a) {
+    var actions = tix.paletteForDevice(data.actions, touchOnly).map(function (a) {
       return { key: "action:" + a.id, kind: "action", action: a.id, label: a.label, hint: "" };
     });
     var projs = (projects || []).map(function (p) {

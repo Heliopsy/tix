@@ -1092,7 +1092,25 @@ input[readonly] {
 .tip-doc { display: block; margin-top: 4px; }
 /* A tip near the page's right edge opens leftwards, so its note stays on
    screen: the view switch sits at the end of the task screen's header. */
-.viewswitch .tip > p, .pagehead-actions .tip > p { left: auto; right: 0; }
+.viewswitch .tip > p, .pagehead-actions .tip > p, .lanesbar .tip > p { left: auto; right: 0; }
+/* On a phone or a tablet a floating note covered the listing under the
+   toolbar and ran off the screen's edge, so there a toolbar's note opens the
+   way a heading's does: the disclosure gives its box away and the note is a
+   full row of the toolbar, pushing the listing down. */
+@media (max-width: 899px), (hover: none) and (pointer: coarse) {
+  :is(.viewswitch, .pagehead-tools, .lanesbar) > .tip { display: contents; }
+  :is(.viewswitch, .pagehead-tools, .lanesbar) > .tip::details-content { flex: 1 0 100%; }
+  :is(.viewswitch, .pagehead-tools, .lanesbar) > .tip > summary { flex: 0 0 auto; }
+  :is(.viewswitch, .pagehead-tools, .lanesbar) > .tip > p {
+    position: static;
+    flex: 1 0 100%;
+    width: auto;
+    max-width: var(--measure-text);
+    margin: var(--space-1) 0;
+    box-shadow: none;
+  }
+  .lanesbar { flex-wrap: wrap; align-items: center; }
+}
 .headtip > h1, .headtip > h2, .headtip > h3 { margin-inline-end: 0; }
 .headtip:first-child > :is(h1, h2, h3) { margin-top: 0; }
 
@@ -1112,6 +1130,10 @@ input[readonly] {
 :is(.setname-line, .field-label) > .field-info { display: inline; position: static; }
 :is(.setname-line, .field-label) > .field-info > summary { vertical-align: middle; margin-inline-start: 6px; }
 .headtip, .cfield-label { display: flex; flex-wrap: wrap; align-items: center; }
+/* Centred, the (i) sat on the middle of the heading's margin box, which an
+   h1's bottom margin pulled below the middle of its text. On the baseline its
+   circle stands on the heading's line, level with its capitals at any size. */
+.headtip { align-items: baseline; }
 :is(.headtip, .cfield-label) > .field-info { display: contents; }
 :is(.headtip, .cfield-label) > .field-info > summary { margin-inline-start: 6px; }
 :is(.headtip, .cfield-label) > .field-info::details-content { flex: 1 0 100%; }
@@ -5104,11 +5126,14 @@ a.setname { color: var(--ink); text-decoration: none; }
 a.setname:hover { text-decoration: underline; }
 .setgroup > details.panel.addmore { margin-top: var(--space-3); max-width: var(--measure-form); }
 
-/* What only a hovering pointer or a keyboard can use is not drawn on a device
-   whose main input is a finger: a phone or a tablet. A touch laptop's main
-   input is its trackpad, so it keeps them. */
+/* What only a hovering pointer, a keyboard or a dragging pointer can use is
+   not drawn on a device whose main input is a finger: a phone or a tablet. A
+   touch laptop's main input is its trackpad, so it keeps them. A card keeps
+   its draggable attribute, drawn from the setting, but a long press no longer
+   lifts it; its Move menu is how a finger moves it. */
 @media (hover: none) and (pointer: coarse) {
-  .needs-hover, .needs-keys { display: none !important; }
+  .needs-hover, .needs-keys, .needs-drag { display: none !important; }
+  .card[draggable="true"] { -webkit-user-drag: none; cursor: auto; }
 }
 
 /* An on/off preference. Still a submit button, so it works with no script;

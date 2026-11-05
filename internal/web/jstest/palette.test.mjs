@@ -181,7 +181,7 @@ function node(tag, attrs = {}) {
 
 let doc;
 
-function page({ data, recentTasks, openTaskHref } = {}) {
+function page({ data, recentTasks, openTaskHref, matchMedia } = {}) {
   const timers = fakeTimers();
   const requests = [];
   const answers = {};
@@ -246,6 +246,7 @@ function page({ data, recentTasks, openTaskHref } = {}) {
     Date,
     Promise,
     JSON,
+    ...(matchMedia ? { matchMedia } : {}),
   });
   if (recentTasks) ctx.tix.recentTasks = recentTasks;
   if (openTaskHref) ctx.tix.openTaskHref = openTaskHref;
@@ -402,4 +403,24 @@ test("a chosen screen is remembered and offered first next time", () => {
   doc.dispatch("keydown", key("Enter", { target: p.input }));
   p.ctx.tix.openPalette();
   assert.equal(labels(p.list)[0], "Settings");
+});
+
+test("a touch-only device is not offered what it does not draw", () => {
+  const data = {
+    screens: [{ id: "screen:/settings", label: "Settings", href: "/settings" },
+      { id: "screen:/settings#keyboard", label: "Keyboard", hint: "Settings", href: "/settings#keyboard", keys: true }],
+    actions: [{ id: "theme", label: "Switch the colour scheme" }, { id: "shortcuts", label: "Keyboard shortcuts", keys: true }],
+  };
+  const media = (touch) => (q) => ({ matches: q === "(hover: none) and (pointer: coarse)" ? touch : !touch });
+  const phone = page({ data, matchMedia: media(true) });
+  doc.dispatch("keydown", key("k", { ctrlKey: true }));
+  assert.deepEqual(labels(phone.list), ["Switch the colour scheme", "Settings"]);
+
+  const laptop = page({ data, matchMedia: media(false) });
+  doc.dispatch("keydown", key("k", { ctrlKey: true }));
+  assert.deepEqual(labels(laptop.list), ["Switch the colour scheme", "Keyboard shortcuts", "Settings", "Keyboard"]);
+
+  const unknown = page({ data });
+  doc.dispatch("keydown", key("k", { ctrlKey: true }));
+  assert.equal(labels(unknown.list).length, 4, "a browser without matchMedia lost entries");
 });
