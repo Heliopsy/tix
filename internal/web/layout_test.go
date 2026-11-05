@@ -41,9 +41,18 @@ func TestStylesheetEmitsNoHorizontalScrollLayout(t *testing.T) {
 			t.Errorf("the stylesheet is missing %q", want)
 		}
 	}
-	if strings.Contains(sheet, "white-space: nowrap") {
-		t.Errorf("the stylesheet forces text to stay on one line")
+	for _, r := range cssRules(sheet) {
+		if declared(r.body, "white-space", "nowrap") && !isControlRule(r) {
+			t.Errorf("%s forces text to stay on one line; only a control's label may", r.selector)
+		}
 	}
+}
+
+// isControlRule reports whether r is the one rule that keeps a control's
+// label on a line: the base button rule's companion, listing button first.
+func isControlRule(r cssRule) bool {
+	first, _, _ := strings.Cut(r.selector, ",")
+	return r.media == "" && strings.TrimSpace(first) == "button" && strings.Contains(r.selector, ".flowgo")
 }
 
 // fixedWidth matches a declared width in pixels, which would break a narrow

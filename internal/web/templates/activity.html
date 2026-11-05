@@ -25,10 +25,10 @@
 {{if $v.Query.Active}}
 <p class="activechips">
   <span class="muted">{{t "Showing"}}</span>
-  {{if $v.Query.Text}}<a class="chip removable" href="{{$v.Query.Without "q"}}">{{t "matching “%s”" $v.Query.Text}}<span aria-hidden="true">&times;</span><span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
-  {{if $v.Query.Actor}}<a class="chip removable" href="{{$v.Query.Without "actor"}}">{{if $v.ActorLabel}}{{t "by %s" $v.ActorLabel}}{{else}}{{t "by %s" $v.Query.Actor}}{{end}}<span aria-hidden="true">&times;</span><span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
-  {{if $v.Query.Kind}}<a class="chip removable" href="{{$v.Query.Without "kind"}}">{{$v.Query.Kind}}<span aria-hidden="true">&times;</span><span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
-  {{if $v.Query.Source}}<a class="chip removable" href="{{$v.Query.Without "source"}}">{{t "from %s" $v.Query.Source}}<span aria-hidden="true">&times;</span><span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
+  {{if $v.Query.Text}}<a class="chip removable" href="{{$v.Query.Without "q"}}">{{t "matching “%s”" $v.Query.Text}}{{template "icon" "x"}}<span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
+  {{if $v.Query.Actor}}<a class="chip removable" href="{{$v.Query.Without "actor"}}">{{if $v.ActorLabel}}{{t "by %s" $v.ActorLabel}}{{else}}{{t "by %s" $v.Query.Actor}}{{end}}{{template "icon" "x"}}<span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
+  {{if $v.Query.Kind}}<a class="chip removable" href="{{$v.Query.Without "kind"}}">{{$v.Query.Kind}}{{template "icon" "x"}}<span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
+  {{if $v.Query.Source}}<a class="chip removable" href="{{$v.Query.Without "source"}}">{{t "from %s" $v.Query.Source}}{{template "icon" "x"}}<span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
   <a class="clear" href="/activity">{{t "Clear all"}}</a>
 </p>
 {{end}}

@@ -164,21 +164,21 @@
         <form method="post" action="/filters/{{.ID}}/edit" hx-post="/filters/{{.ID}}/edit" hx-target="#side-saved" hx-select="#side-saved" hx-swap="outerHTML" hx-select-oob="#toast" data-group-control="{{.ID}}">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="next" value="{{$.Here}}">
-          <button type="submit" name="shared" value="{{if .Shared}}0{{else}}1{{end}}" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">{{if .Shared}}&#8856;{{else}}&#8853;{{end}}</span>{{if .Shared}}{{t "Stop sharing"}}{{else}}{{t "Share with everyone in the tenant"}}{{end}}</button>
+          <button type="submit" name="shared" value="{{if .Shared}}0{{else}}1{{end}}" class="flowgo">{{if .Shared}}{{template "icon" "circle-slash"}}{{else}}{{template "icon" "circle-plus"}}{{end}}{{if .Shared}}{{t "Stop sharing"}}{{else}}{{t "Share with everyone in the tenant"}}{{end}}</button>
         </form>
         {{end}}
         {{if or .Up .Down}}
         <form method="post" action="/filters/{{.ID}}/move" hx-post="/filters/{{.ID}}/move" hx-target="#side-saved" hx-select="#side-saved" hx-swap="outerHTML" data-group-control="{{.ID}}">
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="next" value="{{$.Here}}">
-          {{if .Up}}<button type="submit" name="dir" value="up" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">&#8593;</span>{{t "Move up"}}</button>{{end}}
-          {{if .Down}}<button type="submit" name="dir" value="down" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">&#8595;</span>{{t "Move down"}}</button>{{end}}
+          {{if .Up}}<button type="submit" name="dir" value="up" class="flowgo">{{template "icon" "arrow-up"}}{{t "Move up"}}</button>{{end}}
+          {{if .Down}}<button type="submit" name="dir" value="down" class="flowgo">{{template "icon" "arrow-down"}}{{t "Move down"}}</button>{{end}}
         </form>
         {{end}}
         <form method="post" action="/filters/{{.ID}}/delete" hx-post="/filters/{{.ID}}/delete" hx-target="#side-saved" hx-select="#side-saved" hx-swap="outerHTML" hx-select-oob="#toast" data-group-control="{{.ID}}" data-group-hides>
           {{template "csrf" $.CSRF}}
           <input type="hidden" name="next" value="{{$.Here}}">
-          <button type="submit" class="flowgo savedmenu-delete"><span class="groupmenu-icon" aria-hidden="true">&#215;</span>{{t "Delete"}}</button>
+          <button type="submit" class="flowgo savedmenu-delete">{{template "icon" "trash"}}{{t "Delete"}}</button>
         </form>
         <button type="button" class="flowclose" popovertarget="{{$id}}-menu" popovertargetaction="hide">{{t "Close"}}</button>
       </div>
@@ -231,7 +231,7 @@
      rule is written out beside the glyph: a bare arrow said that a task
      repeats and hid how often behind a hover, which a touch screen never
      gets. Readers who find it loud turn the Repeats field off under View. */}}
-{{define "repeatmark"}}<a class="repeatmark" href="/tasks?q=is:recurring" title="{{t "Repeats %s" .}}"><span aria-hidden="true">&#x21bb;</span><span class="sr-only">{{t "Repeats"}}</span> <span class="repeat-rule">{{.}}</span></a>{{end}}
+{{define "repeatmark"}}<a class="repeatmark" href="/tasks?q=is:recurring" title="{{t "Repeats %s" .}}">{{template "icon" "repeat"}}<span class="sr-only">{{t "Repeats"}}</span> <span class="repeat-rule">{{.}}</span></a>{{end}}
 {{/* The checklist count a card, a row and the task screen carry. A progress
      element rather than a styled bar: its width needs no inline style, so it
      holds under a strict content security policy. */}}
@@ -574,6 +574,12 @@
 {{end}}
 {{end}}
 
+{{/* One symbol from assets/icons.svg, hidden from screen readers because
+     the words beside it already say what it means. The sprite holds the
+     arrows and marks that were text characters, so they sit on the label's
+     line at the icon set's weight in both themes. */}}
+{{define "icon"}}<svg class="icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#{{.}}"/></svg>{{end}}
+
 {{/* The position control every keyset listing renders. It was six hand-rolled
      copies before this: five bare paragraphs holding a link, one div.actions,
      two different words for the same direction, no styling on any of them, no
@@ -585,9 +591,9 @@
 {{define "pager"}}
 {{if .Show}}
 <nav class="pager" aria-label="{{t "Pages of this list"}}">
-  {{if .HasPrev}}<a class="pager-step pager-prev" href="{{.PrevHref}}" rel="prev"><span class="pager-arrow" aria-hidden="true">&larr;</span> {{t "Previous"}}</a>{{end}}
+  {{if .HasPrev}}<a class="pager-step pager-prev" href="{{.PrevHref}}" rel="prev">{{template "icon" "arrow-left"}}<span>{{t "Previous"}}</span></a>{{end}}
   <span class="pager-at">{{t "Page %d" .Page}}{{if .Count}} <span class="pager-count">&middot; {{.Count}} {{t .Unit}}</span>{{end}}</span>
-  {{if .HasNext}}<a class="pager-step pager-next" href="{{.NextHref}}" rel="next">{{t "Next"}} <span class="pager-arrow" aria-hidden="true">&rarr;</span></a>{{end}}
+  {{if .HasNext}}<a class="pager-step pager-next" href="{{.NextHref}}" rel="next"><span>{{t "Next"}}</span>{{template "icon" "arrow-right"}}</a>{{end}}
 </nav>
 {{end}}
 {{end}}
@@ -757,7 +763,7 @@
       <input type="hidden" name="group" value="{{$g.Key}}">
       <input type="hidden" name="next" value="{{$a.Self}}">
       <input type="hidden" name="set" value="starred">
-      <button type="submit" name="value" value="{{if $g.Starred}}0{{else}}1{{end}}" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">{{if $g.Starred}}&#9734;{{else}}&#9733;{{end}}</span>{{if $g.Starred}}{{t "Unstar"}}{{else}}{{t "Star, to show it first"}}{{end}}</button>
+      <button type="submit" name="value" value="{{if $g.Starred}}0{{else}}1{{end}}" class="flowgo">{{if $g.Starred}}{{template "icon" "star-outline"}}{{else}}{{template "icon" "star-filled"}}{{end}}{{if $g.Starred}}{{t "Unstar"}}{{else}}{{t "Star, to show it first"}}{{end}}</button>
     </form>
     <form method="post" action="/view/group" hx-post="/view/group" hx-target="{{$a.Region}}" hx-select="{{$a.Region}}" hx-swap="outerHTML"{{if eq $a.Region "#tasks-listing"}} hx-select-oob="#view-groups"{{end}} data-group-control="{{$g.Key}}">
       {{template "csrf" $a.CSRF}}
@@ -765,7 +771,7 @@
       <input type="hidden" name="group" value="{{$g.Key}}">
       <input type="hidden" name="next" value="{{$a.Self}}">
       <input type="hidden" name="set" value="collapsed">
-      <button type="submit" name="value" value="{{if $g.Collapsed}}0{{else}}1{{end}}" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">{{if $g.Collapsed}}&#8677;{{else}}&#8676;{{end}}</span>{{if $g.Collapsed}}{{t "Expand"}}{{else}}{{t "Collapse"}}{{end}}</button>
+      <button type="submit" name="value" value="{{if $g.Collapsed}}0{{else}}1{{end}}" class="flowgo">{{if $g.Collapsed}}{{template "icon" "to-end"}}{{else}}{{template "icon" "to-start"}}{{end}}{{if $g.Collapsed}}{{t "Expand"}}{{else}}{{t "Collapse"}}{{end}}</button>
     </form>
     {{if or $g.Left $g.Right}}
     <form method="post" action="/view/order" hx-post="/view/order" hx-target="{{$a.Region}}" hx-select="{{$a.Region}}" hx-swap="outerHTML"{{if eq $a.Region "#tasks-listing"}} hx-select-oob="#view-groups"{{end}} data-group-control="{{$g.Key}}">
@@ -774,8 +780,8 @@
       <input type="hidden" name="group" value="{{$g.Key}}">
       <input type="hidden" name="order" value="{{$a.Order}}">
       <input type="hidden" name="next" value="{{$a.Self}}">
-      {{if $g.Left}}<button type="submit" name="dir" value="left" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">{{if $a.Vertical}}&#8593;{{else}}&#8592;{{end}}</span>{{if $a.Vertical}}{{t "Move up"}}{{else}}{{t "Move left"}}{{end}}</button>{{end}}
-      {{if $g.Right}}<button type="submit" name="dir" value="right" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">{{if $a.Vertical}}&#8595;{{else}}&#8594;{{end}}</span>{{if $a.Vertical}}{{t "Move down"}}{{else}}{{t "Move right"}}{{end}}</button>{{end}}
+      {{if $g.Left}}<button type="submit" name="dir" value="left" class="flowgo">{{if $a.Vertical}}{{template "icon" "arrow-up"}}{{else}}{{template "icon" "arrow-left"}}{{end}}{{if $a.Vertical}}{{t "Move up"}}{{else}}{{t "Move left"}}{{end}}</button>{{end}}
+      {{if $g.Right}}<button type="submit" name="dir" value="right" class="flowgo">{{if $a.Vertical}}{{template "icon" "arrow-down"}}{{else}}{{template "icon" "arrow-right"}}{{end}}{{if $a.Vertical}}{{t "Move down"}}{{else}}{{t "Move right"}}{{end}}</button>{{end}}
     </form>
     {{end}}
     <form method="post" action="/view/group" hx-post="/view/group" hx-target="{{$a.Region}}" hx-select="{{$a.Region}}" hx-swap="outerHTML"{{if eq $a.Region "#tasks-listing"}} hx-select-oob="#view-groups"{{end}} data-group-control="{{$g.Key}}" data-group-hides>
@@ -784,17 +790,17 @@
       <input type="hidden" name="group" value="{{$g.Key}}">
       <input type="hidden" name="next" value="{{$a.Self}}">
       <input type="hidden" name="set" value="hidden">
-      <button type="submit" name="value" value="1" class="flowgo"><span class="groupmenu-icon" aria-hidden="true">&#8856;</span>{{t "Hide"}}</button>
+      <button type="submit" name="value" value="1" class="flowgo">{{template "icon" "circle-slash"}}{{t "Hide"}}</button>
     </form>
     {{if ne $g.Kind "due"}}
     <p class="flowhead lanemore-sect groupmenu-sect">{{if eq $g.Kind "project"}}{{t "Project"}}{{else}}{{t "Status"}}{{end}}</p>
     {{end}}
     {{if eq $g.Kind "due"}}
     {{else if eq $g.Kind "project"}}
-    <a class="flowgo" href="/projects/{{$g.Key}}"><span class="groupmenu-icon" aria-hidden="true">&#8599;&#xFE0E;</span>{{t "Open the project"}}</a>
-    <a class="flowgo" href="/tasks?q=project:{{$g.Key}}"><span class="groupmenu-icon" aria-hidden="true">&#8981;</span>{{t "Show only this project"}}</a>
+    <a class="flowgo" href="/projects/{{$g.Key}}">{{template "icon" "arrow-up-right"}}{{t "Open the project"}}</a>
+    <a class="flowgo" href="/tasks?q=project:{{$g.Key}}">{{template "icon" "filter"}}{{t "Show only this project"}}</a>
     {{else}}
-    <a class="flowgo" href="/tasks?q=status:{{$g.Key}}"><span class="groupmenu-icon" aria-hidden="true">&#8981;</span>{{t "Show only this status"}}</a>
+    <a class="flowgo" href="/tasks?q=status:{{$g.Key}}">{{template "icon" "filter"}}{{t "Show only this status"}}</a>
     {{end}}
     {{if and $a.CanCreate $g.Projects}}
     <form method="post" action="/tasks" class="groupmenu-add">

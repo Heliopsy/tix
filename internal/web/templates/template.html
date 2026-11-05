@@ -1,6 +1,6 @@
 {{define "content"}}
 {{$tpl := .Data.Template}}{{$f := .Data.Form}}{{$e := .Data.Errors}}
-<p class="backlink"><a href="/templates">&larr; {{t "Templates"}}</a></p>
+<p class="backlink"><a href="/templates">{{template "icon" "arrow-left"}}<span>{{t "Templates"}}</span></a></p>
 {{/* Drawn as the create forms are (create-forms-read-as-forms): the name
      leads, the task the template creates is under it, and what a reader picks
      rather than writes sits in the side column. A refused save comes back with

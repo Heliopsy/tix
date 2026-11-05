@@ -10,6 +10,7 @@ func init() {
 		"The key changes from %s to %s, and every task reference changes with it:":                                                      "Ключът се сменя от %s на %s и всяка препратка към задача се променя с него:",
 		"Old links, references and filters that use %s keep working and lead here. No other project can take %s while this one exists.": "Старите връзки, препратки и филтри с %s продължават да работят и водят тук. Никой друг проект не може да вземе %s, докато този съществува.",
 		"Change the key to %s": "Смени ключа на %s",
+		"becomes":              "става",
 		"A browser cannot carry a file to this screen, so choose the image again.": "Браузърът не може да пренесе файл до този екран, затова изберете изображението отново.",
 	})
 }

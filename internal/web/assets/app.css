@@ -852,8 +852,8 @@ details.card-move > summary {
 }
 
 details.card-move > summary::-webkit-details-marker { display: none; }
-details.card-move > summary::before { content: "\25B8"; font-size: 0.75em; }
-details.card-move[open] > summary::before { content: "\25BE"; }
+details.card-move > summary::before { --mark: var(--mark-chevron-right); }
+details.card-move[open] > summary::before { --mark: var(--mark-chevron-down); }
 
 details.card-move > .body {
   display: flex;
@@ -1253,6 +1253,80 @@ button {
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
+/* A control's label is one unit and stays on one line.
+ *
+ * Table cells and a dozen other containers break text anywhere, because an
+ * id or a URL has no break opportunity of its own. Nothing stopped a button
+ * inheriting that, so a squeezed column drew "Save" as "Sav" over "e". Every
+ * control states its own wrapping instead of taking its container's: no break
+ * inside the label, none inside a word, and it does not shrink below its
+ * label in a flex row. The row it sits in wraps whole controls onto the next
+ * line instead (TestControlsKeepTheirLabelOnOneLine). */
+button,
+.backlink a,
+.failure .actions a,
+.pager-step,
+.flowgo,
+.ghostlink,
+.file-button,
+.segmented .segment,
+nav.tabs a,
+.badge,
+.pill,
+.role,
+.state,
+.evchip,
+.chip,
+.qchip,
+.statuspill,
+.navbadge,
+.heldswitch,
+details.panel.addmore > summary,
+td > details.panel > summary,
+details.person-edit > summary,
+.comment-edit > summary,
+.savefilter > summary,
+.hkrun > summary,
+kbd {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  flex-shrink: 0;
+}
+
+/* An icon from the sprite beside a label: the label's colour, never squeezed
+   by the label, centred on its line whatever the row aligns on. */
+.icon { flex: none; align-self: center; vertical-align: -0.2em; }
+.tagdrop .icon, .chip.removable .icon { width: 12px; height: 12px; }
+.key-examples .icon { color: var(--muted); }
+
+/* The same drawings for a pseudo-element, which cannot reach into the sprite:
+   a mask cut from the path, painted in the text colour. These were the
+   triangles, the plus and the cross of the font in use, at its weight. */
+:root {
+  --mark-chevron-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6l6 6-6 6'/%3E%3C/svg%3E");
+  --mark-chevron-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  --mark-plus: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+  --mark-x: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6L6 18M6 6l12 12'/%3E%3C/svg%3E");
+  --mark-square: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='16' rx='3'/%3E%3C/svg%3E");
+  --mark-square-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='16' rx='3'/%3E%3Cpath d='M8 12l3 3 5-6'/%3E%3C/svg%3E");
+}
+details.card-move > summary::before,
+details.panel > summary::before,
+.cform-more > summary::before,
+details.note > summary::before,
+a.heldswitch::before {
+  content: "";
+  flex: none;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  vertical-align: -0.15em;
+  background: currentColor;
+  -webkit-mask: var(--mark) center / contain no-repeat;
+  mask: var(--mark) center / contain no-repeat;
+}
+
 /* Hover was a brightness filter, which lightens a dark button and a light one
    alike and washes the label out with it. A colour step reads as a state
    change rather than as the screen dimming. */
@@ -1373,8 +1447,9 @@ tbody tr:last-child td { border-bottom: 0; }
 /* A cell may break a long value anywhere, because a ULID or a URL has no
    break opportunity of its own and would otherwise push the table wider than
    the page. A badge is a word, and inheriting that rule it came out as
-   "acti / ve" down two lines whenever its column was squeezed. */
-td .badge, td .role, td .pill, td .state, td .evchip { overflow-wrap: normal; }
+   "acti / ve" down two lines whenever its column was squeezed; a Save button
+   came out as "Sav / e". Controls, badges and chips say their own wrapping in
+   the one rule under the button, so nothing in a cell inherits this. */
 tbody tr:hover { background: var(--surface); }
 td a { font-weight: 500; text-decoration: none; }
 td a:hover { text-decoration: underline; }
@@ -1507,8 +1582,8 @@ details.panel > summary {
 }
 
 details.panel > summary::-webkit-details-marker { display: none; }
-details.panel > summary::before { content: "\25B8"; color: var(--muted); font-size: 0.8em; }
-details.panel[open] > summary::before { content: "\25BE"; }
+details.panel > summary::before { --mark: var(--mark-chevron-right); color: var(--muted); }
+details.panel[open] > summary::before { --mark: var(--mark-chevron-down); }
 details.panel > summary:hover { color: var(--accent); }
 details.panel > .body { padding: 0 16px 16px; }
 details.panel.danger > summary { color: var(--danger); }
@@ -2846,7 +2921,7 @@ li.task.is-blocked a.task-title { color: var(--muted); }
   font-size: var(--text-2xs);
   font-weight: 700;
 }
-.account-handle { flex: 1 1 auto; min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+.account-handle { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .account-chev {
   width: 7px;
   height: 7px;
@@ -3012,8 +3087,8 @@ details.panel.addmore > summary:hover { border-color: var(--ink); background: va
 /* A plus, not the disclosure triangle every other panel carries. What this
    one opens is a form for making a new thing, and at 0.8em the triangle read
    as a bullet in front of the words rather than as a control. */
-details.panel.addmore > summary::before { content: "+"; font-size: var(--text-base); line-height: 1; color: var(--muted); }
-details.panel.addmore[open] > summary::before { content: "\00d7"; }
+details.panel.addmore > summary::before { --mark: var(--mark-plus); color: var(--muted); }
+details.panel.addmore[open] > summary::before { --mark: var(--mark-x); }
 details.panel.addmore[open] > .body {
   margin-top: var(--space-2);
   padding: var(--space-4);
@@ -3095,7 +3170,7 @@ details.panel.addmore .actions {
   list-style: none;
 }
 .cform-more > summary::-webkit-details-marker { display: none; }
-.cform-more > summary::before { content: "\25B8"; color: var(--muted); font-size: 0.8em; transition: transform 120ms ease; }
+.cform-more > summary::before { --mark: var(--mark-chevron-right); color: var(--muted); transition: transform 120ms ease; }
 .cform-more[open] > summary::before { transform: rotate(90deg); }
 .cform-more > summary .muted { font-weight: 400; font-size: var(--text-xs); }
 .cform-moregrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-3); margin-top: var(--space-3); }
@@ -3251,7 +3326,8 @@ div.formsheet:popover-open:not(.is-inplace) { inset: 0; height: fit-content; mar
 .cform .delpick select { flex: 1 1 12rem; width: auto; min-width: 0; }
 .delmap { table-layout: fixed; font-size: var(--text-sm); background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-md); }
 .delmap caption { caption-side: top; text-align: left; padding: 0 0 var(--space-1); font-size: var(--text-xs); font-weight: 500; color: var(--muted); }
-.delmap th, .delmap td { padding: var(--space-1) var(--space-2); overflow-wrap: anywhere; }
+.delmap th, .delmap td { padding: var(--space-1) var(--space-2); }
+.delmap td { overflow-wrap: anywhere; }
 .delmap .delmap-n { width: 4.5rem; }
 .delmap td:last-child, .delmap th:last-child { text-align: right; }
 .delform .cform-foot .danger { min-height: var(--control-h); }
@@ -4526,8 +4602,8 @@ details.note > summary {
   min-height: var(--control-h-sm);
 }
 details.note > summary::-webkit-details-marker { display: none; }
-details.note > summary::before { content: "\25B8"; color: var(--muted); font-size: 0.8em; }
-details.note[open] > summary::before { content: "\25BE"; }
+details.note > summary::before { --mark: var(--mark-chevron-right); color: var(--muted); }
+details.note[open] > summary::before { --mark: var(--mark-chevron-down); }
 details.note > summary:hover { color: var(--ink); }
 details.note p { margin: 0.5rem 0 0; color: var(--muted); max-width: 60ch; }
 
@@ -4549,9 +4625,14 @@ ul.shape li.depth-1 { padding-left: 1.5rem; }
 ul.shape li.depth-2 { padding-left: 3rem; }
 ul.shape li.depth-1::before,
 ul.shape li.depth-2::before {
-  content: "└";
+  content: "";
+  flex: none;
+  align-self: flex-start;
+  width: 0.55rem;
+  height: 0.7rem;
   margin-left: -1rem;
-  color: var(--muted);
+  border-left: 1px solid var(--muted);
+  border-bottom: 1px solid var(--muted);
 }
 ul.shape .name { font-weight: 600; }
 ul.shape .count {
@@ -5111,7 +5192,7 @@ input#code {
 
 /* A path or a redacted DSN, which has no break opportunity of its own: body
    text that breaks anywhere, not a code block in a larger face. */
-.settarget { display: block; font-size: var(--text-sm); color: var(--ink); overflow-wrap: anywhere; word-break: break-all; }
+.settarget { display: block; font-size: var(--text-sm); color: var(--ink); overflow-wrap: anywhere; }
 
 /* A section's one-line description, as the first row of its card rather than
    loose above it, so every section is a heading and then a card. */
@@ -6057,7 +6138,7 @@ li.task:has(> .title-edit-error:not([hidden])),
 .groupmenu { min-width: 15rem; max-height: min(75vh, 34rem); overflow-y: auto; }
 .groupmenu .flowgo { justify-content: flex-start; gap: var(--space-2); text-decoration: none; }
 .groupmenu > form { display: flex; flex-direction: column; gap: 1px; margin: 0; }
-.groupmenu-icon { display: inline-block; width: 1.25em; text-align: center; color: var(--muted); }
+.groupmenu .flowgo > .icon { color: var(--muted); }
 .groupmenu-count { color: var(--muted); font-weight: 400; }
 .groupmenu .groupmenu-sect { display: block; margin: var(--space-2) 0 2px; padding-top: var(--space-2); border-top: 1px solid var(--line); }
 .groupmenu .groupmenu-row { display: flex; gap: var(--space-1); padding: 0 var(--space-1); }
@@ -6393,8 +6474,8 @@ a.heldswitch {
   font-weight: 500;
   text-decoration: none;
 }
-a.heldswitch::before { content: "\2610"; margin-inline-end: var(--space-2); }
-a.heldswitch[aria-checked="true"]::before { content: "\2611"; }
+a.heldswitch::before { --mark: var(--mark-square); margin-inline-end: var(--space-2); }
+a.heldswitch[aria-checked="true"]::before { --mark: var(--mark-square-check); }
 .heldswitch[aria-checked="true"] { background: var(--accent-soft); color: var(--ink); border-color: var(--accent); }
 
 .savefilter { margin: 0 0 var(--space-3); }

@@ -149,7 +149,7 @@
   <div class="body">
     <p>{{t "The key changes from %s to %s, and every task reference changes with it:" (key $c.From) (key $c.To)}}</p>
     <ul class="key-examples">
-      {{range $c.Examples}}<li><code>{{ref .From}}</code> &rarr; <code>{{ref .To}}</code></li>{{end}}
+      {{range $c.Examples}}<li><code>{{ref .From}}</code> <span class="sr-only">{{t "becomes"}}</span>{{template "icon" "arrow-right"}} <code>{{ref .To}}</code></li>{{end}}
     </ul>
     <p class="muted">{{t "Old links, references and filters that use %s keep working and lead here. No other project can take %s while this one exists." (key $c.From) (key $c.From)}}</p>
     <form method="post" action="/projects/{{$c.From}}/update" enctype="multipart/form-data">
@@ -190,7 +190,7 @@
 {{range .Data.Columns}}
   <section class="column{{if .Head.Collapsed}} is-collapsed{{end}}{{if .Head.Starred}} is-starred{{end}}" data-state="{{.State.Key}}" data-group="{{.Head.Key}}">
     <div class="grouphead">
-      <h2>{{if .Head.Starred}}<span class="groupstar" aria-label="{{t "Starred"}}" title="{{t "Starred"}}">&#9733;</span>{{end}}{{.State.Label}} <span class="meta">({{len .Tasks}})</span></h2>
+      <h2>{{if .Head.Starred}}<svg class="icon groupstar" role="img" aria-label="{{t "Starred"}}" width="16" height="16"><title>{{t "Starred"}}</title><use href="/assets/icons.svg#star-filled"/></svg>{{end}}{{.State.Label}} <span class="meta">({{len .Tasks}})</span></h2>
       {{template "group-menu" (groupMenu $.Data.Arrange .Head)}}
     </div>
     {{if not .Head.Collapsed}}

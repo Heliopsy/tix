@@ -2,7 +2,7 @@
 {{$t := .Data.Task}}{{$f := .Data.Form}}{{$e := .Data.Errors}}
 {{/* In the dialog the way out is closing it, which assets/taskopen.js turns
      into Back. On a page the form's own Cancel is the way back. */}}
-{{if .InDialog}}<p class="backlink"><button type="button" class="ghost dlgclose" data-dialog-close>&larr; {{t "Close"}}</button></p>{{end}}
+{{if .InDialog}}<p class="backlink"><button type="button" class="ghost dlgclose" data-dialog-close>{{template "icon" "arrow-left"}}<span>{{t "Close"}}</span></button></p>{{end}}
 {{$back := printf "/tasks/%s" $t.Ref}}{{if .Data.Next}}{{$back = .Data.Next}}{{end}}
 {{/* Drawn as the create forms are (create-forms-read-as-forms): the title
      leads as the one large control, the target project sits in the side

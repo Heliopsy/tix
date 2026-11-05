@@ -286,6 +286,18 @@ Animations and transitions are off, fonts and htmx settle before each shot, and 
 another in a single browser, so a full run stays light on the machine. Playwright is pinned in
 `scripts/screenshots/package-lock.json`; the recipe installs it and Chromium only when they are missing.
 
+**The layout check.** After every shot the page is measured: each visible button, button-styled link, menu
+item, segment, tab, badge, pill, chip and kbd whose label takes two lines or runs past the window's edge,
+and each control, heading, label, `th` or `dt` with a word split across two lines, is printed under
+`layout:` at the end of the run and listed in `report.json`. Lines are told apart by the rectangles
+`Range.getClientRects` returns for each text node, which is the only place a browser says where it broke
+a line. A "Save" drawn as "Sav" over "e" is what it exists to catch. `--strict` makes any finding fail the
+run with a non-zero exit:
+
+```sh
+just screenshots --viewports phone,tablet,fullhd --strict
+```
+
 ## PostgreSQL
 
 ```sh

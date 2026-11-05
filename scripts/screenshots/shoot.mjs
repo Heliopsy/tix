@@ -51,6 +51,8 @@ const USAGE = `usage: node shoot.mjs [flags]
   --max-popups N        popups captured per page state, after dedupe (default 40)
   --out DIR             parent of the timestamped output directory (default out/screenshots)
   --headed              show the browser
+  --strict              exit non-zero when the layout check finds a control on two lines or a
+                        word broken in the middle
 
   TIX_SHOT_DEBUG=1 prints how long each step took.
 `;
@@ -71,6 +73,7 @@ function parseArgs(argv) {
     else if (k === "--max-popups") a.maxPopups = Number(v());
     else if (k === "--out") a.out = v();
     else if (k === "--headed") a.headed = true;
+    else if (k === "--strict") a.strict = true;
     else if (k === "-h" || k === "--help") {
       out(USAGE);
       process.exit(0);
@@ -297,7 +300,7 @@ function mark(what) {
 // the shot shows what a phone hides. Growing the viewport itself to the page's
 // height keeps the context's touch and mobile emulation, and the shot is then
 // one plain viewport capture.
-async function shoot(page, file) {
+async function shoot(page, file, layout) {
   mkdirSync(dirname(file), { recursive: true });
   await page.evaluate(() => window.scrollTo(0, 0));
   mark(`before ${file.split("/").pop()}`);
@@ -306,6 +309,7 @@ async function shoot(page, file) {
   if (!touch) {
     await page.screenshot({ ...opts, fullPage: true });
     mark("shot");
+    if (layout) for (const f of await page.evaluate(layoutFindings, LAYOUT)) layout(f);
     return;
   }
   const size = page.viewportSize();
@@ -323,6 +327,111 @@ async function shoot(page, file) {
     await page.setViewportSize(size);
   }
   mark("shot");
+  if (layout) for (const f of await page.evaluate(layoutFindings, LAYOUT)) layout(f);
+}
+
+// ---------------------------------------------------------------- layout check
+
+// What counts as a control, whose label is one unit and must sit on one line,
+// and what counts as a label or heading, whose words must never be split.
+// A "Save" drawn as "Sav" over "e" is what this exists to catch: the browser
+// draws it without complaint, and no screenshot reviewer reads every button.
+const LAYOUT = {
+  controls: [
+    "button", "summary", "[role=button]", "[role=menuitem]", "[role=tab]",
+    ".flowgo", ".ghostlink", ".segment", ".badge", ".pill", ".chip", ".qchip", ".role", ".state",
+    ".evchip", ".statuspill", ".navbadge", ".pager-step", ".backlink a", "nav.tabs a", "kbd",
+  ].join(","),
+  words: "h1,h2,h3,h4,h5,h6,label,legend,th,dt",
+};
+
+// Runs in the page. Returns every visible control whose label takes more than
+// one line or runs past the window's edge, and every control, label or
+// heading with a word split across two lines. Lines are told apart by the
+// rectangles a Range reports for each text node, which is the only place the
+// browser says where it broke a line.
+function layoutFindings({ controls, words }) {
+  const found = [];
+  const shown = (el) => {
+    if (el.closest("[hidden], .sr-only, [aria-hidden=true] > .sr-only")) return false;
+    const r = el.getBoundingClientRect();
+    if (r.width <= 2 || r.height <= 2) return false;
+    const cs = getComputedStyle(el);
+    return cs.visibility !== "hidden" && cs.display !== "none";
+  };
+  const texts = (el) => {
+    const out = [];
+    const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+      if (!n.nodeValue.trim()) continue;
+      const p = n.parentElement;
+      if (!p || p.closest(".sr-only") || p.getBoundingClientRect().width <= 2) continue;
+      out.push(n);
+    }
+    return out;
+  };
+  const rects = (range) => [...range.getClientRects()].filter((r) => r.width > 0.5 && r.height > 0.5);
+  const lines = (nodes) => {
+    const tops = [];
+    for (const n of nodes) {
+      const r = document.createRange();
+      r.selectNodeContents(n);
+      for (const b of rects(r)) {
+        const mid = b.top + b.height / 2;
+        if (!tops.some((t) => Math.abs(t - mid) < b.height / 2)) tops.push(mid);
+      }
+    }
+    return tops.length;
+  };
+  const broken = (nodes) => {
+    for (const n of nodes) {
+      for (const m of n.nodeValue.matchAll(/\p{L}{2,}/gu)) {
+        const r = document.createRange();
+        r.setStart(n, m.index);
+        r.setEnd(n, m.index + m[0].length);
+        const tops = new Set(rects(r).map((b) => Math.round(b.top)));
+        if (tops.size > 1) return m[0];
+      }
+    }
+    return "";
+  };
+  const scrolls = (el) => {
+    for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+      if (/(auto|scroll|hidden|clip)/.test(getComputedStyle(a).overflowX)) return true;
+    }
+    return false;
+  };
+  const pastEdge = (el) => el.getBoundingClientRect().right > document.documentElement.clientWidth + 1 && !scrolls(el);
+  const name = (el) => {
+    let s = el.tagName.toLowerCase();
+    if (el.id) s += `#${el.id}`;
+    for (const c of el.classList) s += `.${c}`;
+    return s;
+  };
+  const label = (el) => (el.innerText || el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 60);
+  const seen = new Set();
+  const report = (el, kind, extra) => {
+    const key = `${kind}|${name(el)}|${label(el)}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    found.push({ kind, el: name(el), text: label(el), word: extra || "" });
+  };
+  for (const el of document.querySelectorAll(controls)) {
+    if (!shown(el)) continue;
+    if (el.parentElement && el.parentElement.closest(controls) && !el.matches("kbd, .badge, .pill, .navbadge")) continue;
+    const nodes = texts(el);
+    if (!nodes.length) continue;
+    const w = broken(nodes);
+    if (w) report(el, "word split", w);
+    else if (lines(nodes) > 1) report(el, "control on two lines");
+    else if (pastEdge(el)) report(el, "control past the window edge");
+  }
+  for (const el of document.querySelectorAll(words)) {
+    if (!shown(el)) continue;
+    const w = broken(texts(el));
+    if (w) report(el, "word split", w);
+  }
+  return found;
 }
 
 function slug(s, max = 60) {
@@ -549,6 +658,14 @@ async function captureViewport(browser, args, target, storageState, vp, theme, r
   const seen = new Set();
   const globalsDone = new Set();
   const host = new URL(target.base).hostname;
+  const layout = (pg, popup) => (f) => {
+    const where = `${dirName} ${pg.path}${popup ? ` [${popup}]` : ""}`;
+    const line = `${where}: ${f.kind}${f.word ? ` "${f.word}"` : ""} in ${f.el} "${f.text}"`;
+    const sig = `${dirName}|${pg.pattern}|${f.kind}|${f.el}|${f.text}`;
+    if (stats.layoutSeen.has(sig)) return;
+    stats.layoutSeen.add(sig);
+    stats.layout.push(line);
+  };
   const record = (pg, state, popup, file) => {
     shots.push({ page: pg.pattern, slug: pg.slug, state, popup, viewport: dirName, file: relative(runDir, file) });
     stats.images++;
@@ -573,16 +690,16 @@ async function captureViewport(browser, args, target, storageState, vp, theme, r
           continue;
         }
         const base = join(runDir, dirName, pg.slug + (st.name ? `--${st.name}` : ""));
-        await shoot(page, `${base}.png`);
+        await shoot(page, `${base}.png`, layout(pg, st.name));
         record(pg, st.name, "", `${base}.png`);
-        if (!pg.public) await capturePopups(page, args, pg, st, base, seen, record, stats, dirName);
+        if (!pg.public) await capturePopups(page, args, pg, st, base, seen, record, stats, dirName, layout);
         if (!pg.public && !st.name) {
           for (const g of MANIFEST.global) {
             if (globalsDone.has(g.name)) continue;
             await page.evaluate(resetPopups);
             if (await applyState(page, g)) {
               const f = `${base}--${g.name}.png`;
-              await shoot(page, f);
+              await shoot(page, f, layout(pg, g.name));
               record(pg, st.name, g.name, f);
               globalsDone.add(g.name);
             }
@@ -604,7 +721,7 @@ async function captureViewport(browser, args, target, storageState, vp, theme, r
   return shots;
 }
 
-async function capturePopups(page, args, pg, st, base, seen, record, stats, dirName) {
+async function capturePopups(page, args, pg, st, base, seen, record, stats, dirName, layout) {
   const found = await page.evaluate(discover);
   const where = new URL(page.url()).pathname;
   const perRow = new Set();
@@ -637,7 +754,7 @@ async function capturePopups(page, args, pg, st, base, seen, record, stats, dirN
     for (let i = 2; names.has(name); i++) name = `${stem}-${i}`;
     names.add(name);
     const f = `${base}--${name}.png`;
-    await shoot(page, f);
+    await shoot(page, f, layout(pg, name));
     record(pg, st.name, c.type === "details" ? `${c.kind}: ${c.name}` : c.kind, f);
     taken++;
     if (new URL(page.url()).pathname !== where) {
@@ -758,7 +875,7 @@ async function main() {
   out(`capturing ${plans.pages.length} pages into ${runDir}`);
 
   const themes = args.theme === "both" ? ["light", "dark"] : [args.theme];
-  const stats = { pages: new Set(), images: 0, popups: 0, capped: 0, problems: [] };
+  const stats = { pages: new Set(), images: 0, popups: 0, capped: 0, problems: [], layout: [], layoutSeen: new Set() };
   const shots = [];
   const columns = [];
   for (const theme of themes) {
@@ -776,7 +893,7 @@ async function main() {
   const index = writeIndex(runDir, shots, columns, summary);
   writeFileSync(
     join(runDir, "report.json"),
-    JSON.stringify({ summary, skipped: plans.skipped, problems: stats.problems, shots }, null, 2) + "\n",
+    JSON.stringify({ summary, skipped: plans.skipped, problems: stats.problems, layout: stats.layout, shots }, null, 2) + "\n",
   );
   out(summary);
   if (plans.skipped.length) {
@@ -787,6 +904,11 @@ async function main() {
     out(`problems:`);
     for (const p of stats.problems) out(`  ${p}`);
   }
+  if (stats.layout.length) {
+    out(`layout: ${stats.layout.length} controls on two lines or words split`);
+    for (const l of stats.layout) out(`  ${l}`);
+    if (args.strict) process.exitCode = 1;
+  } else out("layout: no control on two lines, no word split");
   out(`\ncontact sheet: ${index}`);
 }
 
