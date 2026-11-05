@@ -5,9 +5,7 @@
 The service SHALL copy a task into any project of the same tenant the caller may create tasks
 in, the source's own project included. The copy SHALL be a new task with a fresh reference in
 the target project. It SHALL carry the source's title unless the caller supplies another, and
-the source's description, priority, tags, assignee, due date and repeat rule. It SHALL carry
-only the custom field values the target project defines and accepts, then apply the target's
-defaults, and SHALL refuse the copy when a field the target requires is still missing. The copy
+the source's description, priority, tags, assignee, due date and repeat rule. The copy
 SHALL NOT carry stars, claims, leases, history, artifacts or the recurrence successor link.
 
 #### Scenario: Copy to another project
@@ -25,15 +23,21 @@ SHALL NOT carry stars, claims, leases, history, artifacts or the recurrence succ
 - **WHEN** a caller copies OPS-3 with the title "Rotate keys again"
 - **THEN** the copy is titled "Rotate keys again"
 
-#### Scenario: Fields the target does not define
-
-- **WHEN** OPS-3 carries the custom field `env` and project WEB defines no `env`
-- **THEN** the copy in WEB carries no `env` value and the copy succeeds
-
 #### Scenario: Nothing personal travels
 
 - **WHEN** OPS-3 is starred and claimed by the caller and is copied
 - **THEN** the copy is neither starred nor claimed and has no artifacts
+
+### Requirement: A copy carries only the custom fields its target project accepts
+
+A copy SHALL carry only the custom field values the target project defines and accepts, then
+apply the target's defaults, and SHALL refuse the copy when a field the target requires is still
+missing.
+
+#### Scenario: Fields the target does not define
+
+- **WHEN** OPS-3 carries the custom field `env` and project WEB defines no `env`
+- **THEN** the copy in WEB carries no `env` value and the copy succeeds
 
 ### Requirement: Status of a copy
 
@@ -60,11 +64,9 @@ instead, and a copy that starts in a terminal state SHALL carry a completion tim
 
 A copy SHALL include the source's live comments only when asked, each as a new comment written
 by the caller that names the original author and time. It SHALL include the live subtree only
-when asked, recursively, each subtask copied under the copy of its parent. It SHALL keep the
-source's dependencies only when asked, pointing an edge whose far end was copied in the same
-operation at that copy and skipping an edge the caller may not create. When asked to link, each
-copy SHALL record the task it was copied from. A copy that stays in the source's project SHALL
-keep the source's parent; a copy into another project SHALL be a root task.
+when asked, recursively, each subtask copied under the copy of its parent. A copy that stays in
+the source's project SHALL keep the source's parent; a copy into another project SHALL be a root
+task.
 
 #### Scenario: With comments
 
@@ -80,6 +82,12 @@ keep the source's parent; a copy into another project SHALL be a root task.
 
 - **WHEN** OPS-3 has subtask OPS-4, which has subtask OPS-5, and OPS-3 is copied to WEB with subtasks
 - **THEN** three tasks are created in WEB and the copy of OPS-5 is a subtask of the copy of OPS-4, which is a subtask of the copy of OPS-3
+
+### Requirement: A copy keeps dependencies and records its source only when asked
+
+A copy SHALL keep the source's dependencies only when asked, pointing an edge whose far end was
+copied in the same operation at that copy and skipping an edge the caller may not create. When
+asked to link, each copy SHALL record the task it was copied from.
 
 #### Scenario: With dependencies
 

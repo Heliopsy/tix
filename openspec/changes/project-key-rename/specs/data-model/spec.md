@@ -8,23 +8,12 @@ project in the tenant; such a key SHALL be refused with a conflict error. The re
 project row, record the previous key as an alias of the project, and write its audit entry and a
 `project.updated` event naming the previous key, all in one transaction.
 
-Old keys SHALL be kept as aliases for as long as the project exists. A lookup of a project or of a
-task reference by an alias SHALL resolve to the renamed project, and the returned record SHALL carry
-the current key and the current reference. A project MAY take back one of its own aliases, which then
-stops being an alias. Deleting a project SHALL remove its aliases.
-
 #### Scenario: Renaming a key renames every reference
 
 - **GIVEN** a project `infra` holding task `infra-8`
 - **WHEN** the project's key is changed to `ops`
 - **THEN** reading the task returns reference `ops-8`
 - **AND** the audit log and the event stream each record one project update naming `infra` as the previous key
-
-#### Scenario: Old references still resolve
-
-- **GIVEN** project `infra` was renamed to `ops`
-- **WHEN** a caller reads project `infra` or task `infra-8`
-- **THEN** the project `ops` and the task `ops-8` are returned
 
 #### Scenario: A key in use is refused
 
@@ -38,16 +27,29 @@ stops being an alias. Deleting a project SHALL remove its aliases.
 - **WHEN** a new project is created with key `infra`, or another project is renamed to `infra`
 - **THEN** the write is refused with a conflict error
 
+#### Scenario: An invalid key is refused
+
+- **WHEN** a project is renamed to `9lives` or to `a b`
+- **THEN** the rename is refused with a validation error
+
+### Requirement: A renamed project's old keys resolve as aliases until it is deleted
+
+Old keys SHALL be kept as aliases for as long as the project exists. A lookup of a project or of a
+task reference by an alias SHALL resolve to the renamed project, and the returned record SHALL carry
+the current key and the current reference. A project MAY take back one of its own aliases, which then
+stops being an alias. Deleting a project SHALL remove its aliases.
+
+#### Scenario: Old references still resolve
+
+- **GIVEN** project `infra` was renamed to `ops`
+- **WHEN** a caller reads project `infra` or task `infra-8`
+- **THEN** the project `ops` and the task `ops-8` are returned
+
 #### Scenario: A project takes back its own old key
 
 - **GIVEN** project `infra` was renamed to `ops`
 - **WHEN** `ops` is renamed back to `infra`
 - **THEN** the rename succeeds and `ops` becomes an alias of the project
-
-#### Scenario: An invalid key is refused
-
-- **WHEN** a project is renamed to `9lives` or to `a b`
-- **THEN** the rename is refused with a validation error
 
 #### Scenario: Aliases are isolated per tenant
 

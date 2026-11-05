@@ -16,17 +16,7 @@ receive it like any other event, recipients included.
 An actor SHALL be able to keep notification channels of their own, each with a name, a URL, a format
 (`generic` signed JSON, `slack`, `discord` or `ntfy`), the inbox kinds it receives and an enabled flag.
 Creating an inbox item SHALL queue, in the same transaction, one delivery to each enabled channel of the
-item's recipient that receives the item's kind, and to no other actor's channel. The webhook dispatcher
-SHALL drain these deliveries with the same claim, retry schedule, network guard and signature as tenant
-webhook deliveries. A channel's signing secret SHALL be returned only by its creation. A test message and
-a redelivery SHALL go through the same queue. Another actor's channel or delivery SHALL be not found. The
-audit log SHALL NOT keep a channel's URL beyond its scheme and host.
-
-#### Scenario: A mention reaches a Slack channel
-
-- **GIVEN** bob has an enabled Slack channel receiving mentions
-- **WHEN** ada mentions @bob in a comment on infra-42
-- **THEN** the channel is posted a Slack message saying ada mentioned bob on infra-42, signed with its secret
+item's recipient that receives the item's kind, and to no other actor's channel.
 
 #### Scenario: A kind the channel does not take
 
@@ -38,3 +28,17 @@ audit log SHALL NOT keep a channel's URL beyond its scheme and host.
 
 - **WHEN** a comment notifies bob and carol
 - **THEN** carol's channel is queued carol's item only
+
+### Requirement: Personal channel deliveries go through the webhook queue and stay private
+
+The webhook dispatcher SHALL drain personal channel deliveries with the same claim, retry schedule,
+network guard and signature as tenant webhook deliveries. A channel's signing secret SHALL be returned
+only by its creation. A test message and a redelivery SHALL go through the same queue. Another actor's
+channel or delivery SHALL be not found. The audit log SHALL NOT keep a channel's URL beyond its scheme
+and host.
+
+#### Scenario: A mention reaches a Slack channel
+
+- **GIVEN** bob has an enabled Slack channel receiving mentions
+- **WHEN** ada mentions @bob in a comment on infra-42
+- **THEN** the channel is posted a Slack message saying ada mentioned bob on infra-42, signed with its secret

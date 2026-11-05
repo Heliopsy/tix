@@ -7,10 +7,6 @@ menu's New task in, Copy to, New from template, a template's project, the move t
 delete and the statistics filter) SHALL label each project in the style held in the
 `tix_project_label` cookie: `name-key` draws `Name (KEY)`, `key-name` draws `KEY · Name`, `name`
 draws `Name` and `key` draws `KEY`. No cookie, or a value naming no style, SHALL draw `Name (KEY)`.
-The task screen's Project row SHALL name its project in the same style, linked by the key. A project with no name SHALL be labelled by its key. A project with a text icon SHALL have it before
-the label. Each option's value SHALL be the stored project key whatever the style. A name longer than
-24 characters SHALL be shortened with an ellipsis, and the key SHALL never be shortened. On a screen
-at most 639px wide, the add box and a heading's add field SHALL list each project by its key alone.
 
 #### Scenario: Default style
 
@@ -18,11 +14,24 @@ at most 639px wide, the add box and a heading's add field SHALL list each projec
 - **WHEN** the reader opens the task screen
 - **THEN** the add box offers `<option value="infra">Infrastructure (INFRA)</option>`
 
+### Requirement: A project label keeps the key as its value and falls back to it
+
+The task screen's Project row SHALL name its project in the reader's chosen label style, linked by
+the key. A project with no name SHALL be labelled by its key. A project with a text icon SHALL have it
+before the label.
+Each option's value SHALL be the stored project key whatever the style.
+
 #### Scenario: Key first
 
 - **GIVEN** the cookie holds `key-name`
 - **WHEN** the reader opens Copy to on a task
 - **THEN** the project option reads `INFRA · Infrastructure` and its value is `infra`
+
+### Requirement: A project label shortens a long name and narrows to the key on a phone
+
+A name longer than 24 characters SHALL be shortened with an ellipsis, and the key SHALL never be
+shortened. On a screen at most 639px wide, the add box and a heading's add field SHALL list each
+project by its key alone.
 
 #### Scenario: A phone
 
@@ -60,15 +69,19 @@ Every project key and task reference the web interface shows a reader (rows, car
 screen and its title, breadcrumbs and relations, toasts, aria labels and titles, activity, inbox,
 templates, the projects screen, the command palette, Recently viewed and its folded rail names, and the
 question asked before a permanent delete) SHALL be drawn upper case, as
-`INFRA` and `INFRA-8`. Links, element ids, form values and data attributes SHALL keep the stored
-lower-case value. Addresses SHALL answer in any case: `/tasks/INFRA-8` and `/projects/INFRA` SHALL
-show the same task and project as their lower-case forms without a redirect, and a filter
-`project:INFRA` SHALL select the tasks of `infra`.
+`INFRA` and `INFRA-8`.
 
 #### Scenario: Task screen
 
 - **WHEN** the reader opens `/tasks/infra-1`
 - **THEN** the page title and the heading read `INFRA-1` and the project link reads `INFRA` over `/projects/infra`
+
+### Requirement: Links keep lower-case keys and addresses answer in any case
+
+Links, element ids, form values and data attributes SHALL keep the stored lower-case value. Addresses
+SHALL answer in any case: `/tasks/INFRA-8` and `/projects/INFRA` SHALL show the same task and project
+as their lower-case forms without a redirect, and a filter `project:INFRA` SHALL select the tasks of
+`infra`.
 
 #### Scenario: Upper-case address
 

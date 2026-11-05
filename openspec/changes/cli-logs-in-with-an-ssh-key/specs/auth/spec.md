@@ -33,20 +33,24 @@ sign-in issues, with the same lifetime, and the sign-in SHALL write the `user.lo
 
 A challenge SHALL be a value signed by the server naming its tenant, its audience (the host the request
 was made to, or `local`), its issue time and an expiry two minutes later. A challenge SHALL be refused
-after its expiry, on another tenant or host, or when altered. A challenge SHALL be accepted at most once
-per key: accepting it SHALL record a last use no earlier than its issue time, and a challenge issued at
-or before a key's last use SHALL be refused, decided by the database so that it holds across replicas.
+after its expiry, on another tenant or host, or when altered.
+
+#### Scenario: An expired challenge is refused
+
+- **WHEN** a challenge is presented more than two minutes after it was issued
+- **THEN** the sign-in is refused saying the challenge expired
+
+### Requirement: An SSH sign-in challenge is accepted at most once per key
+
+A challenge SHALL be accepted at most once per key: accepting it SHALL record a last use no earlier
+than its issue time, and a challenge issued at or before a key's last use SHALL be refused, decided by
+the database so that it holds across replicas.
 
 #### Scenario: A replayed challenge is refused
 
 - **GIVEN** a sign-in that succeeded with a challenge and a signature
 - **WHEN** the same challenge and signature are presented again
 - **THEN** the sign-in is refused saying the challenge was already used, and no second session exists
-
-#### Scenario: An expired challenge is refused
-
-- **WHEN** a challenge is presented more than two minutes after it was issued
-- **THEN** the sign-in is refused saying the challenge expired
 
 ### Requirement: An SSH sign-in signature is bound to tix and to the server
 

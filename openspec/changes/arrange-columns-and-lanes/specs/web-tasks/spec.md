@@ -6,16 +6,20 @@ Each column of the task screen's board, each lane of the lanes view, each column
 board and each group heading of a grouped list SHALL carry a three dots button opening a menu of
 actions on that group. The button SHALL be visible while the pointer is over the heading or focus
 is inside it, and SHALL always be visible on a coarse pointer, where it and every menu item SHALL be
-at least 40px tall. Escape SHALL close only the menu and return focus to its button; keyboard
-shortcuts SHALL not act and a live refresh SHALL wait while the menu is open. Every action SHALL be
-a form post that works without scripting and, with scripting, SHALL redraw the view in place
-without reloading the page.
+at least 40px tall.
 
 #### Scenario: Hovering a column reveals its dots
 
 - **GIVEN** the task screen drawn as a board
 - **WHEN** the reader moves the pointer over the `todo` column heading
 - **THEN** its three dots button becomes visible and opens a menu of actions on `todo`
+
+### Requirement: A group menu holds the keyboard and refresh and works without scripting
+
+Escape SHALL close only the group menu and return focus to its button; keyboard shortcuts SHALL not
+act and a live refresh SHALL wait while the menu is open. Every action SHALL be a form post that
+works without scripting and, with scripting, SHALL redraw the view in place without reloading the
+page.
 
 #### Scenario: The menu works without scripting
 
@@ -28,15 +32,7 @@ The menu SHALL offer to hide the group, to star or unstar it, to collapse or exp
 it left or right (up or down in a list). A hidden group SHALL not be drawn. A starred group SHALL be
 drawn before every unstarred one. A collapsed group SHALL be drawn as a strip naming the group and
 its count with no cards or rows. Move SHALL swap the group with its drawn neighbour of the same star
-state and SHALL be absent where there is none. The arrangement SHALL be stored per actor and per
-view on the server, so it applies in any browser the reader signs in to, and SHALL never change
-what another reader sees.
-
-#### Scenario: A hidden column stays hidden in another browser
-
-- **GIVEN** a reader who hid the `done` column of the task screen's board
-- **WHEN** they sign in from a fresh browser and open the board
-- **THEN** the `done` column is not drawn
+state and SHALL be absent where there is none.
 
 #### Scenario: A starred lane comes first
 
@@ -44,16 +40,27 @@ what another reader sees.
 - **WHEN** the reader stars the `beta` lane
 - **THEN** the `beta` lane is drawn before `alpha`
 
-#### Scenario: Another reader is unaffected
-
-- **WHEN** one reader hides a column
-- **THEN** another reader of the same tenant still sees it
-
 #### Scenario: A collapsed column still takes a dropped card
 
 - **GIVEN** a collapsed `doing` column
 - **WHEN** the reader drags a card from `todo` onto it
 - **THEN** the task moves to `doing`
+
+### Requirement: A reader's group arrangement is kept per actor and view on the server
+
+The arrangement of groups SHALL be stored per actor and per view on the server, so it applies in
+any browser the reader signs in to, and SHALL never change what another reader sees.
+
+#### Scenario: A hidden column stays hidden in another browser
+
+- **GIVEN** a reader who hid the `done` column of the task screen's board
+- **WHEN** they sign in from a fresh browser and open the board
+- **THEN** the `done` column is not drawn
+
+#### Scenario: Another reader is unaffected
+
+- **WHEN** one reader hides a column
+- **THEN** another reader of the same tenant still sees it
 
 ### Requirement: Hidden groups are counted and can be shown again
 

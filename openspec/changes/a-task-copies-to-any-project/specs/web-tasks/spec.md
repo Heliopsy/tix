@@ -5,16 +5,31 @@
 The task screen and each lane card's more actions menu SHALL offer "Copy to…" to a reader who
 may create tasks. It SHALL open a form
 with the target project, defaulting to the task's own, the title prefilled and editable, and the
-options keep status, with comments, with subtasks, with dependencies and link, link checked, in
-the shared create form layout: the title as the lead field, the project in the side column, the
-options as one checkbox group, Cancel and Copy at the bottom right, Ctrl or Cmd+Enter to copy and
-Escape to cancel. A refused copy SHALL draw the form again with every submitted value kept and the
-reason under the field it is about. The
-form SHALL be drawn in the task dialog when the task is open in one, and as a page otherwise.
-After copying, the reader SHALL stay where the form was opened from, the source task or the
-listing, with a toast linking the copy, unless
-"open after add" is on, in which case the copy opens. The About card SHALL name the task a
-copy was copied from.
+options keep status, with comments, with subtasks, with dependencies and link, link checked.
+
+#### Scenario: Read-only reader
+
+- **WHEN** a reader without task write opens OPS-3
+- **THEN** no Copy to… action is drawn
+
+### Requirement: The copy form uses the shared create form layout and keeps a refused submission
+
+The copy form SHALL be drawn in the shared create form layout: the title as the lead field, the
+project in the side column, the options as one checkbox group, Cancel and Copy at the bottom
+right, Ctrl or Cmd+Enter to copy and Escape to cancel. A refused copy SHALL draw the form again
+with every submitted value kept and the reason under the field it is about.
+
+#### Scenario: A refused copy keeps the reader's choices
+
+- **WHEN** a reader submits the copy form with subtasks ticked and a project that no longer exists
+- **THEN** the form is drawn again with the same title and subtasks still ticked, and the reason is shown under the project field
+
+### Requirement: After a browser copy the reader stays where the copy form was opened
+
+The copy form SHALL be drawn in the task dialog when the task is open in one, and as a page
+otherwise. After copying, the reader SHALL stay where the form was opened from, the source task
+or the listing, with a toast linking the copy, unless "open after add" is on, in which case the
+copy opens.
 
 #### Scenario: Copy and stay
 
@@ -26,22 +41,16 @@ copy was copied from.
 - **WHEN** "open after add" is on and a reader copies OPS-3
 - **THEN** the copy's task screen opens
 
-#### Scenario: Copied from on the About card
-
-- **WHEN** a reader opens a linked copy of OPS-3
-- **THEN** the About card shows "Copied from" with a link to OPS-3
-
 #### Scenario: Copy from a lane card
 
 - **WHEN** a reader opens a lane card's three dots menu on the lanes filtered by `tag:ops`, chooses Copy to… and submits
 - **THEN** the reader returns to the lanes filtered by `tag:ops` with a toast linking the copy
 
-#### Scenario: A refused copy keeps the reader's choices
+### Requirement: The About card names the task a copy was copied from
 
-- **WHEN** a reader submits the copy form with subtasks ticked and a project that no longer exists
-- **THEN** the form is drawn again with the same title and subtasks still ticked, and the reason is shown under the project field
+The About card SHALL name the task a copy was copied from.
 
-#### Scenario: Read-only reader
+#### Scenario: Copied from on the About card
 
-- **WHEN** a reader without task write opens OPS-3
-- **THEN** no Copy to… action is drawn
+- **WHEN** a reader opens a linked copy of OPS-3
+- **THEN** the About card shows "Copied from" with a link to OPS-3

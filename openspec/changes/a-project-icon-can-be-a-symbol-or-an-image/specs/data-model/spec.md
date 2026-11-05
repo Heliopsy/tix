@@ -80,17 +80,7 @@ setting them to empty.
 An uploaded project icon SHALL be a PNG, JPEG, WebP or SVG image of at most 64 KiB, recognised from
 its bytes rather than from a type the caller declares. An SVG SHALL be refused when it carries a
 script element, a `foreignObject` element, an event handler attribute, a `javascript:` URL, or a
-reference to anything other than a fragment of itself or an embedded `data:` image. The image bytes
-SHALL be stored in the database on both engines, in a tenant-owned table subject to the same tenant
-scoping and, on PostgreSQL, the same row-level isolation policy as every other tenant-owned table,
-and SHALL be removed with their project. The project SHALL carry the image's content digest, and
-reading the image SHALL require the same permission as reading the project. An image SHALL be
-written in the same transaction as the project change, its audit entry and its event.
-
-#### Scenario: An image round trips
-
-- **WHEN** a project is updated with a 1 KiB PNG and its icon is read back
-- **THEN** the read returns the same bytes with content type `image/png`, and the project carries the image's digest and no text or built-in icon
+reference to anything other than a fragment of itself or an embedded `data:` image.
 
 #### Scenario: A declared type is not trusted
 
@@ -107,6 +97,13 @@ written in the same transaction as the project change, its audit entry and its e
 - **WHEN** an SVG carrying a script element or an `onload` attribute is uploaded
 - **THEN** the write is rejected with a validation error
 
+### Requirement: Project icon image bytes are stored with their project in the tenant
+
+The image bytes SHALL be stored in the database on both engines, in a tenant-owned table subject to
+the same tenant scoping and, on PostgreSQL, the same row-level isolation policy as every other
+tenant-owned table, and SHALL be removed with their project. An image SHALL be written in the same
+transaction as the project change, its audit entry and its event.
+
 #### Scenario: Another tenant cannot read the image
 
 - **GIVEN** a project with an uploaded icon in one tenant
@@ -122,3 +119,13 @@ written in the same transaction as the project change, its audit entry and its e
 
 - **WHEN** a snapshot holding a project with an uploaded icon is imported into a store where that project already carries an image
 - **THEN** the project keeps the image it had, and an import into a store without the project creates it with no icon
+
+### Requirement: A project carries its icon image's digest and guards reading the image
+
+The project SHALL carry the image's content digest, and reading the image SHALL require the same
+permission as reading the project.
+
+#### Scenario: An image round trips
+
+- **WHEN** a project is updated with a 1 KiB PNG and its icon is read back
+- **THEN** the read returns the same bytes with content type `image/png`, and the project carries the image's digest and no text or built-in icon

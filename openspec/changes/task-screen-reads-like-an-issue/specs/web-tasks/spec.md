@@ -5,14 +5,18 @@
 The task screen SHALL draw a header holding the task's reference, its title, the reader's star and
 one actions menu; a main column holding, in order, the description, the subtasks, the
 dependencies, the artifacts, the comments and the history; and a properties panel. On a viewport
-at least 1024 pixels wide the properties panel SHALL sit to the right of the main column. Below
-that width the properties panel SHALL come directly under the header and the record's facts SHALL
-come last. The dialog a listing opens a task in SHALL draw the same screen.
+at least 1024 pixels wide the properties panel SHALL sit to the right of the main column.
 
 #### Scenario: Wide screen
 
 - **WHEN** a reader opens a task on a 1440 pixel wide screen
 - **THEN** the description and comments are in the left column and the properties in the right
+
+### Requirement: A narrow task screen puts the properties under the header
+
+On a viewport narrower than 1024 pixels the properties panel SHALL come directly under the header
+and the record's facts SHALL come last. The dialog a listing opens a task in SHALL draw the same
+screen.
 
 #### Scenario: Phone
 
@@ -24,21 +28,24 @@ come last. The dialog a listing opens a task in SHALL draw the same screen.
 The properties panel SHALL hold one row per property, each a label and a value: status, priority,
 snooze state when snoozed, claim state when claimed or once claimed, assignee, due date, project,
 tags, repeat rule and each custom field the project defines, followed by the record's facts:
-creator, created, updated, started and finished when set, version and identifier. For a reader who
-may write, the status and priority SHALL open their menus, and the assignee, due date, tags, repeat
-rule and each custom field SHALL be changed from a form in their own row that names only that
-property. A reader who may not write SHALL see the same rows with no form in them. No property
-SHALL be edited anywhere else on the screen.
-
-#### Scenario: Changing the assignee in place
-
-- **WHEN** a writer types a handle into the assignee row and saves
-- **THEN** the task is assigned to that actor and no other property changes
+creator, created, updated, started and finished when set, version and identifier.
 
 #### Scenario: An enum field
 
 - **WHEN** a project defines an enum field
 - **THEN** its row offers the field's options
+
+### Requirement: A property is edited only in its own row and only by a writer
+
+For a reader who may write, the status and priority SHALL open their menus, and the assignee, due
+date, tags, repeat rule and each custom field SHALL be changed from a form in their own row that
+names only that property. A reader who may not write SHALL see the same rows with no form in them.
+No property SHALL be edited anywhere else on the screen.
+
+#### Scenario: Changing the assignee in place
+
+- **WHEN** a writer types a handle into the assignee row and saves
+- **THEN** the task is assigned to that actor and no other property changes
 
 #### Scenario: A reader who may not write
 

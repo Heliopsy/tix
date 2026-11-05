@@ -6,11 +6,19 @@ The service SHALL offer `BulkTasks` taking an action, a list of task references 
 action's argument, and SHALL apply the action to each referenced task through the same rules as
 the single-task operation: move to a status (along the shortest route of the task's own
 workflow), set the priority, add a tag, remove a tag, set or clear the assignee, star, unstar,
-copy to a project, soft delete and restore. Each task SHALL be changed in its own transaction
-with its own audit entry and event. The answer SHALL carry one outcome per distinct reference,
-in the order given, saying whether it was applied and, when refused, the error code and
-message; a copy's outcome SHALL name the new task. A refusal for one task SHALL NOT undo or
-prevent the change to another.
+copy to a project, soft delete and restore.
+
+#### Scenario: Adding a tag to several tasks
+
+- **WHEN** a caller adds the tag `ops` to OPS-1 and OPS-2 in one bulk action
+- **THEN** both tasks carry the tag `ops`
+
+### Requirement: Each task in a bulk action is changed and reported on its own
+
+Each task SHALL be changed in its own transaction with its own audit entry and event. The answer
+SHALL carry one outcome per distinct reference, in the order given, saying whether it was applied
+and, when refused, the error code and message; a copy's outcome SHALL name the new task. A refusal
+for one task SHALL NOT undo or prevent the change to another.
 
 #### Scenario: Partial refusal
 
