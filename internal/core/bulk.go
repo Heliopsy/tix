@@ -42,14 +42,23 @@ const MaxBulkRefs = 500
 // actions, AssigneeActorID for assign (empty clears), ProjectRef for a copy
 // and Cascade for a delete.
 type BulkTaskInput struct {
-	Action          BulkAction `json:"action" yaml:"action"`
-	Refs            []string   `json:"refs" yaml:"refs"`
-	To              string     `json:"to,omitempty" yaml:"to,omitempty"`
-	Priority        Priority   `json:"priority,omitempty" yaml:"priority,omitempty"`
-	Tag             string     `json:"tag,omitempty" yaml:"tag,omitempty"`
-	AssigneeActorID string     `json:"assignee_actor_id,omitempty" yaml:"assignee_actor_id,omitempty"`
-	ProjectRef      string     `json:"project_ref,omitempty" yaml:"project_ref,omitempty"`
-	Cascade         bool       `json:"cascade,omitempty" yaml:"cascade,omitempty"`
+	// Action is what to do to each task.
+	Action BulkAction `json:"action" yaml:"action"`
+	// Refs are the tasks to act on, by reference such as OPS-12 or by id: 1
+	// to 500, repeats folded.
+	Refs []string `json:"refs" yaml:"refs"`
+	// To is the status a move walks each task to, by its workflow's shortest route.
+	To string `json:"to,omitempty" yaml:"to,omitempty"`
+	// Priority is the priority to set, 1 highest to 5 lowest.
+	Priority Priority `json:"priority,omitempty" yaml:"priority,omitempty"`
+	// Tag is the tag name to add or remove.
+	Tag string `json:"tag,omitempty" yaml:"tag,omitempty"`
+	// AssigneeActorID is the actor to assign; empty clears the assignee.
+	AssigneeActorID string `json:"assignee_actor_id,omitempty" yaml:"assignee_actor_id,omitempty"`
+	// ProjectRef is the project a copy goes to, by key or id.
+	ProjectRef string `json:"project_ref,omitempty" yaml:"project_ref,omitempty"`
+	// Cascade lets a delete take a task's subtasks with it.
+	Cascade bool `json:"cascade,omitempty" yaml:"cascade,omitempty"`
 }
 
 // Normalize trims the arguments and folds repeated references, keeping the
@@ -117,10 +126,14 @@ func joinActions() string {
 
 // BulkOutcome is what a bulk action did to one task.
 type BulkOutcome struct {
-	Ref     string `json:"ref" yaml:"ref"`
-	Applied bool   `json:"applied" yaml:"applied"`
-	Code    string `json:"code,omitempty" yaml:"code,omitempty"`
-	Error   string `json:"error,omitempty" yaml:"error,omitempty"`
+	// Ref is the task reference as given.
+	Ref string `json:"ref" yaml:"ref"`
+	// Applied reports whether the action landed on the task.
+	Applied bool `json:"applied" yaml:"applied"`
+	// Code is the error kind of a refusal, such as not_found or conflict.
+	Code string `json:"code,omitempty" yaml:"code,omitempty"`
+	// Error is the refusal's message.
+	Error string `json:"error,omitempty" yaml:"error,omitempty"`
 	// CopyRef names the new task a copy created.
 	CopyRef string `json:"copy_ref,omitempty" yaml:"copy_ref,omitempty"`
 }
@@ -128,9 +141,13 @@ type BulkOutcome struct {
 // BulkResult reports a bulk action, one outcome per distinct reference in the
 // order they were given.
 type BulkResult struct {
-	Action   BulkAction    `json:"action" yaml:"action"`
-	Applied  int           `json:"applied" yaml:"applied"`
-	Refused  int           `json:"refused" yaml:"refused"`
+	// Action is the action applied.
+	Action BulkAction `json:"action" yaml:"action"`
+	// Applied counts the tasks the action landed on.
+	Applied int `json:"applied" yaml:"applied"`
+	// Refused counts the tasks it was refused for.
+	Refused int `json:"refused" yaml:"refused"`
+	// Outcomes holds one entry per distinct reference, in the order given.
 	Outcomes []BulkOutcome `json:"outcomes" yaml:"outcomes"`
 }
 

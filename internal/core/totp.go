@@ -80,17 +80,25 @@ type RecoveryCode struct {
 // TOTPStatus reports a user's enrolment without disclosing anything that could
 // produce a code.
 type TOTPStatus struct {
+	// Enrolled is true when the caller holds a confirmed second factor.
 	Enrolled bool `json:"enrolled" yaml:"enrolled"`
 	// Pending is an enrolment that was begun and never confirmed. It grants
 	// nothing; it is reported so a user who abandoned enrolment is told why
 	// their authenticator entry does not work.
-	Pending             bool       `json:"pending" yaml:"pending"`
-	ConfirmedAt         *time.Time `json:"confirmed_at,omitempty" yaml:"confirmed_at,omitempty"`
-	RecoveryCodesLeft   int        `json:"recovery_codes_left" yaml:"recovery_codes_left"`
-	RequiredWeb         bool       `json:"required_web" yaml:"required_web"`
-	RequiredCLI         bool       `json:"required_cli" yaml:"required_cli"`
-	RequiredSSH         bool       `json:"required_ssh" yaml:"required_ssh"`
-	VerificationLocked  bool       `json:"verification_locked" yaml:"verification_locked"`
+	Pending bool `json:"pending" yaml:"pending"`
+	// ConfirmedAt is when the enrolment was confirmed, RFC 3339, absent if never.
+	ConfirmedAt *time.Time `json:"confirmed_at,omitempty" yaml:"confirmed_at,omitempty"`
+	// RecoveryCodesLeft is how many unused recovery codes the caller holds.
+	RecoveryCodesLeft int `json:"recovery_codes_left" yaml:"recovery_codes_left"`
+	// RequiredWeb is true when the tenant requires a second factor for web sign-in.
+	RequiredWeb bool `json:"required_web" yaml:"required_web"`
+	// RequiredCLI is true when the tenant requires a second factor for command line sign-in.
+	RequiredCLI bool `json:"required_cli" yaml:"required_cli"`
+	// RequiredSSH is true when the tenant requires a second factor over SSH.
+	RequiredSSH bool `json:"required_ssh" yaml:"required_ssh"`
+	// VerificationLocked is true while too many wrong codes have locked verification.
+	VerificationLocked bool `json:"verification_locked" yaml:"verification_locked"`
+	// VerificationLockEnd is when the lock lifts, RFC 3339, set only while locked.
 	VerificationLockEnd *time.Time `json:"verification_lock_end,omitempty" yaml:"verification_lock_end,omitempty"`
 }
 
@@ -98,8 +106,11 @@ type TOTPStatus struct {
 // an authenticator, in both the forms a person might use. It takes effect only
 // once a code produced from it is confirmed.
 type TOTPEnrolment struct {
+	// Secret is the base32 shared secret, for typing into an authenticator.
 	Secret string `json:"secret" yaml:"secret"`
-	URI    string `json:"uri" yaml:"uri"`
+	// URI is the otpauth:// URI carrying the secret, for a QR code.
+	URI string `json:"uri" yaml:"uri"`
+	// Issuer is the name the authenticator files the entry under, the tenant's name or "tix".
 	Issuer string `json:"issuer" yaml:"issuer"`
 	// Account is the label the authenticator shows beside the code.
 	Account string `json:"account" yaml:"account"`
@@ -108,6 +119,7 @@ type TOTPEnrolment struct {
 // TOTPRecoveryCodes carries codes the caller must show exactly once. They are
 // stored hashed, so nothing can produce them again.
 type TOTPRecoveryCodes struct {
+	// Codes are the single-use recovery codes, shown this once.
 	Codes []string `json:"codes" yaml:"codes"`
 }
 
@@ -128,8 +140,10 @@ const (
 // that was already passed and is presented again with the code; it proves the
 // password was accepted and carries no authority of its own.
 type TOTPChallenge struct {
-	Kind   TOTPChallengeKind `json:"kind" yaml:"kind"`
-	Ticket string            `json:"ticket" yaml:"ticket"`
+	// Kind says whether a code is asked for or enrolment must happen first.
+	Kind TOTPChallengeKind `json:"kind" yaml:"kind"`
+	// Ticket is presented with the code in the next step; it expires after five minutes.
+	Ticket string `json:"ticket" yaml:"ticket"`
 	// Enrolment is set only for ChallengeEnrol.
 	Enrolment *TOTPEnrolment `json:"enrolment,omitempty" yaml:"enrolment,omitempty"`
 }
@@ -143,17 +157,25 @@ type TOTPChallenge struct {
 // a flag or an environment variable, which puts a live second factor in shell
 // history and in the process table.
 type LoginInput struct {
-	Email    string  `json:"email,omitempty" yaml:"email,omitempty"`
-	Password string  `json:"password,omitempty" yaml:"password,omitempty"`
-	Surface  Surface `json:"surface" yaml:"surface"`
-	Ticket   string  `json:"ticket,omitempty" yaml:"ticket,omitempty"`
-	Code     string  `json:"code,omitempty" yaml:"code,omitempty"`
+	// Email identifies the user, in the first step.
+	Email string `json:"email,omitempty" yaml:"email,omitempty"`
+	// Password is the user's password, in the first step.
+	Password string `json:"password,omitempty" yaml:"password,omitempty"`
+	// Surface is the sign-in path the session is for, which decides whether a
+	// second factor is required.
+	Surface Surface `json:"surface" yaml:"surface"`
+	// Ticket is the challenge ticket, in the second step.
+	Ticket string `json:"ticket,omitempty" yaml:"ticket,omitempty"`
+	// Code is the TOTP or recovery code, in the second step.
+	Code string `json:"code,omitempty" yaml:"code,omitempty"`
 }
 
 // LoginResult is either a session or the challenge standing between the caller
 // and one. Exactly one of the two is set.
 type LoginResult struct {
-	Session   *Session       `json:"session,omitempty" yaml:"session,omitempty"`
+	// Session is the new session, set when sign-in is complete.
+	Session *Session `json:"session,omitempty" yaml:"session,omitempty"`
+	// Challenge is set when a second factor is still needed.
 	Challenge *TOTPChallenge `json:"challenge,omitempty" yaml:"challenge,omitempty"`
 	// RecoveryCodes is set once, when a sign-in completed by enrolling. The
 	// caller must show them and cannot ask for them again.
@@ -174,12 +196,18 @@ type TOTPReport struct {
 	// undecryptable until an administrator clears it and the user enrols again.
 	Unrecoverable bool `json:"unrecoverable" yaml:"unrecoverable"`
 
-	TenantKey      string `json:"tenant_key" yaml:"tenant_key"`
-	RequireWeb     bool   `json:"require_web" yaml:"require_web"`
-	RequireCLI     bool   `json:"require_cli" yaml:"require_cli"`
-	RequireSSH     bool   `json:"require_ssh" yaml:"require_ssh"`
-	Admins         int    `json:"admins" yaml:"admins"`
-	EnrolledAdmins int    `json:"enrolled_admins" yaml:"enrolled_admins"`
+	// TenantKey is the key of the tenant the rest of the report covers.
+	TenantKey string `json:"tenant_key" yaml:"tenant_key"`
+	// RequireWeb is true when the tenant requires a second factor for web sign-in.
+	RequireWeb bool `json:"require_web" yaml:"require_web"`
+	// RequireCLI is true when the tenant requires a second factor for command line sign-in.
+	RequireCLI bool `json:"require_cli" yaml:"require_cli"`
+	// RequireSSH is true when the tenant requires a second factor over SSH.
+	RequireSSH bool `json:"require_ssh" yaml:"require_ssh"`
+	// Admins is how many members of the tenant hold the admin role.
+	Admins int `json:"admins" yaml:"admins"`
+	// EnrolledAdmins is how many of those admins hold a confirmed second factor.
+	EnrolledAdmins int `json:"enrolled_admins" yaml:"enrolled_admins"`
 }
 
 // RequiresAnywhere reports whether this tenant demands a factor on any surface.

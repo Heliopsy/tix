@@ -9,6 +9,10 @@ import (
 
 // StatusService reports what the installation holds and what is running in it.
 type StatusService interface {
+	// Status reports the health of the installation and the caller's tenant.
+	// It covers the version and schema, the registered server processes and
+	// whether each still heartbeats, the tenant's work counts, and the state of
+	// second-factor sign-in. It only reads.
 	Status(ctx context.Context) (*StatusReport, error)
 }
 
@@ -158,12 +162,18 @@ func (s Server) StatusAt(now time.Time) ServerStatus {
 // shape here is a contract that should not depend on which of the two somebody
 // reads it through.
 type ServerStatus struct {
-	ID         string          `json:"id" yaml:"id"`
-	Address    string          `json:"address" yaml:"address"`
-	Version    string          `json:"version" yaml:"version"`
-	Surfaces   []ServerSurface `json:"surfaces" yaml:"surfaces"`
-	StartedAt  time.Time       `json:"started_at" yaml:"started_at"`
-	LastSeenAt time.Time       `json:"last_seen_at" yaml:"last_seen_at"`
+	// ID identifies the server process.
+	ID string `json:"id" yaml:"id"`
+	// Address is the address the process listens on.
+	Address string `json:"address" yaml:"address"`
+	// Version is the tix version the process runs.
+	Version string `json:"version" yaml:"version"`
+	// Surfaces are what the process serves.
+	Surfaces []ServerSurface `json:"surfaces" yaml:"surfaces"`
+	// StartedAt is when the process registered, RFC 3339.
+	StartedAt time.Time `json:"started_at" yaml:"started_at"`
+	// LastSeenAt is the process's last heartbeat, RFC 3339.
+	LastSeenAt time.Time `json:"last_seen_at" yaml:"last_seen_at"`
 
 	// HeartbeatInterval is the cadence this server beats at, resolved to the
 	// default for a row that predates the column. Attached is judged against
@@ -189,10 +199,13 @@ type ServerStatus struct {
 
 // Installation describes the store the report was taken against.
 type Installation struct {
-	Version       string `json:"version" yaml:"version"`
-	SchemaVersion int    `json:"schema_version" yaml:"schema_version"`
+	// Version is the tix version that produced the report.
+	Version string `json:"version" yaml:"version"`
+	// SchemaVersion is the highest database migration applied.
+	SchemaVersion int `json:"schema_version" yaml:"schema_version"`
 	// Store is the resolved target, with any password already redacted.
-	Store  string `json:"store,omitempty" yaml:"store,omitempty"`
+	Store string `json:"store,omitempty" yaml:"store,omitempty"`
+	// Engine is the database engine, "sqlite" or "postgres".
 	Engine string `json:"engine,omitempty" yaml:"engine,omitempty"`
 	// ObservedAt is the instant every staleness judgement in this report was
 	// made against.
@@ -207,24 +220,32 @@ type Installation struct {
 // administrator of one tenant that six others exist, which nothing else in the
 // product tells them.
 type Work struct {
-	Tenants  int `json:"tenants" yaml:"tenants"`
+	// Tenants is how many tenants the caller can see.
+	Tenants int `json:"tenants" yaml:"tenants"`
+	// Projects is how many projects the tenant holds.
 	Projects int `json:"projects" yaml:"projects"`
-	Tasks    int `json:"tasks" yaml:"tasks"`
-	Claimed  int `json:"claimed" yaml:"claimed"`
+	// Tasks is how many tasks the tenant holds, trashed ones excluded.
+	Tasks int `json:"tasks" yaml:"tasks"`
+	// Claimed is how many tasks hold an unexpired lease.
+	Claimed int `json:"claimed" yaml:"claimed"`
 	// LeasesExpiredUnswept are claims past their expiry that the sweeper has
 	// not yet cleared. They read as unclaimed already; the figure says how much
 	// the sweeper is behind.
 	LeasesExpiredUnswept int `json:"leases_expired_unswept" yaml:"leases_expired_unswept"`
-	WebhooksPending      int `json:"webhooks_pending" yaml:"webhooks_pending"`
-	WebhooksFailed       int `json:"webhooks_failed" yaml:"webhooks_failed"`
+	// WebhooksPending is how many webhook deliveries await a first or next attempt.
+	WebhooksPending int `json:"webhooks_pending" yaml:"webhooks_pending"`
+	// WebhooksFailed is how many webhook deliveries have failed for good.
+	WebhooksFailed int `json:"webhooks_failed" yaml:"webhooks_failed"`
 }
 
 // StatusReport is the whole answer to "what exists and what is running".
 type StatusReport struct {
+	// Installation describes the store and the build that read it.
 	Installation Installation `json:"installation" yaml:"installation"`
 	// Servers is never nil, so a consumer iterating it need not nil-check.
 	Servers []ServerStatus `json:"servers" yaml:"servers"`
-	Work    Work           `json:"work" yaml:"work"`
+	// Work counts what the caller's tenant holds.
+	Work Work `json:"work" yaml:"work"`
 	// SecondFactor reports the state of TOTP for this installation and this
 	// tenant. It rides the status report rather than a diagnostic method of
 	// its own so that every surface that already shows status shows it, and

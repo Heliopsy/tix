@@ -19,11 +19,13 @@ import (
 
 // CommentRequest carries a comment body.
 type CommentRequest struct {
+	// Body is the comment text, Markdown.
 	Body string `json:"body"`
 }
 
 // TagRequest carries a tag name.
 type TagRequest struct {
+	// Name is the tag to attach; it is created on first use.
 	Name string `json:"name"`
 }
 
@@ -31,11 +33,14 @@ type TagRequest struct {
 // line, relative dates counted in UTC since the API knows no reader's zone.
 type CreateTaskRequest struct {
 	core.CreateTaskInput
+	// Parse reads Title as a quick-add line such as "Fix login !high #auth
+	// @raj due:fri", with relative dates counted in UTC.
 	Parse bool `json:"parse,omitempty"`
 }
 
 // DependencyRequest names the task a task waits for.
 type DependencyRequest struct {
+	// DependsOn is the reference of the task to wait for, such as "OPS-12".
 	DependsOn string `json:"depends_on"`
 }
 

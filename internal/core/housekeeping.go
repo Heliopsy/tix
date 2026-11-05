@@ -29,10 +29,17 @@ const MaxHousekeepingDays = 36500
 // HousekeepingPolicy is one level's rules in days. On a project a nil rule
 // inherits the tenant's; on the tenant a nil rule is off. Zero is off.
 type HousekeepingPolicy struct {
+	// ProjectID is the project this override belongs to, empty for the tenant default.
 	ProjectID string `json:"project_id,omitempty" yaml:"project_id,omitempty"`
-	Done      *int   `json:"done" yaml:"done"`
-	Cancelled *int   `json:"cancelled" yaml:"cancelled"`
-	Trash     *int   `json:"trash" yaml:"trash"`
+	// Done is the days a done task stays before it moves to the trash; null
+	// inherits on a project and is off on the tenant, 0 is off.
+	Done *int `json:"done" yaml:"done"`
+	// Cancelled is the days a cancelled task stays before it moves to the
+	// trash; null inherits on a project and is off on the tenant, 0 is off.
+	Cancelled *int `json:"cancelled" yaml:"cancelled"`
+	// Trash is the days a task stays in the trash before it is deleted for
+	// good; null inherits on a project and is off on the tenant, 0 is off.
+	Trash *int `json:"trash" yaml:"trash"`
 }
 
 // Rule returns the days a rule is set to, nil when it inherits.
@@ -92,10 +99,15 @@ func (p HousekeepingPolicy) Resolve(override *HousekeepingPolicy) HousekeepingPo
 // HousekeepingInput changes one level of the policy. Each rule takes "off", a
 // number of days ("30" or "30d"), or on a project "inherit"; empty leaves it.
 type HousekeepingInput struct {
-	Project   string `json:"project,omitempty" yaml:"project,omitempty"`
-	Done      string `json:"done,omitempty" yaml:"done,omitempty"`
+	// Project is the key or ID of the project whose override changes; empty
+	// changes the tenant default.
+	Project string `json:"project,omitempty" yaml:"project,omitempty"`
+	// Done sets the done rule: "off", days ("30" or "30d"), or "inherit" on a project.
+	Done string `json:"done,omitempty" yaml:"done,omitempty"`
+	// Cancelled sets the cancelled rule: "off", days, or "inherit" on a project.
 	Cancelled string `json:"cancelled,omitempty" yaml:"cancelled,omitempty"`
-	Trash     string `json:"trash,omitempty" yaml:"trash,omitempty"`
+	// Trash sets the trash rule: "off", days, or "inherit" on a project.
+	Trash string `json:"trash,omitempty" yaml:"trash,omitempty"`
 }
 
 // Value returns the raw value given for a rule.
@@ -136,9 +148,12 @@ func ParseHousekeepingValue(rule HousekeepingRule, raw string, project bool) (*i
 
 // HousekeepingCounts is how many tasks each rule acts on.
 type HousekeepingCounts struct {
-	Done      int `json:"done" yaml:"done"`
+	// Done is the number of done tasks moved, or due to move, to the trash.
+	Done int `json:"done" yaml:"done"`
+	// Cancelled is the number of cancelled tasks moved, or due to move, to the trash.
 	Cancelled int `json:"cancelled" yaml:"cancelled"`
-	Trash     int `json:"trash" yaml:"trash"`
+	// Trash is the number of trashed tasks deleted, or due to be deleted, for good.
+	Trash int `json:"trash" yaml:"trash"`
 }
 
 // Total sums the counts.
@@ -173,25 +188,36 @@ func (c HousekeepingCounts) Of(r HousekeepingRule) int {
 // act on now. Project, Override and Effective describe the project asked
 // about; without one, Effective is the tenant default.
 type HousekeepingView struct {
-	Tenant    HousekeepingPolicy  `json:"tenant" yaml:"tenant"`
-	Project   string              `json:"project,omitempty" yaml:"project,omitempty"`
-	Override  *HousekeepingPolicy `json:"override,omitempty" yaml:"override,omitempty"`
-	Effective HousekeepingPolicy  `json:"effective" yaml:"effective"`
+	// Tenant is the tenant default policy.
+	Tenant HousekeepingPolicy `json:"tenant" yaml:"tenant"`
+	// Project is the key of the project asked about, empty for the tenant.
+	Project string `json:"project,omitempty" yaml:"project,omitempty"`
+	// Override is the project's own rules, a null rule inheriting the tenant's.
+	Override *HousekeepingPolicy `json:"override,omitempty" yaml:"override,omitempty"`
+	// Effective is the policy that applies, with every rule resolved to days.
+	Effective HousekeepingPolicy `json:"effective" yaml:"effective"`
 	// Paused is true while the tenant's trash is off: no rule runs then.
-	Paused  bool               `json:"paused" yaml:"paused"`
+	Paused bool `json:"paused" yaml:"paused"`
+	// Pending counts the tasks each rule would act on now.
 	Pending HousekeepingCounts `json:"pending" yaml:"pending"`
 }
 
 // HousekeepingRunInput runs housekeeping once, or previews it.
 type HousekeepingRunInput struct {
+	// Project is the key or ID of one project to run for; empty runs every project.
 	Project string `json:"project,omitempty" yaml:"project,omitempty"`
-	DryRun  bool   `json:"dry_run,omitempty" yaml:"dry_run,omitempty"`
-	Limit   int    `json:"limit,omitempty" yaml:"limit,omitempty"`
+	// DryRun counts what a run would act on and changes nothing.
+	DryRun bool `json:"dry_run,omitempty" yaml:"dry_run,omitempty"`
+	// Limit caps the tasks each rule acts on in this run; 0 means 200, negative is refused.
+	Limit int `json:"limit,omitempty" yaml:"limit,omitempty"`
 }
 
 // HousekeepingResult says what one run did, or would do.
 type HousekeepingResult struct {
-	DryRun             bool `json:"dry_run" yaml:"dry_run"`
-	Paused             bool `json:"paused" yaml:"paused"`
+	// DryRun is true when the run was a preview and changed nothing.
+	DryRun bool `json:"dry_run" yaml:"dry_run"`
+	// Paused is true while the tenant's trash is off, so no rule acted.
+	Paused bool `json:"paused" yaml:"paused"`
+	// HousekeepingCounts holds how many tasks each rule acted on, or would.
 	HousekeepingCounts `yaml:",inline"`
 }

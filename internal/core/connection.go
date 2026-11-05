@@ -34,13 +34,20 @@ func (s ConnectionSurface) Valid() bool {
 // Connection is one connection a server process is holding right now. Nothing
 // about it is stored: it is true only while the process runs.
 type Connection struct {
-	ID          string            `json:"id" yaml:"id"`
-	Surface     ConnectionSurface `json:"surface" yaml:"surface"`
-	TenantID    string            `json:"tenant_id" yaml:"tenant_id"`
-	ActorID     string            `json:"actor_id" yaml:"actor_id"`
-	ActorHandle string            `json:"actor_handle,omitempty" yaml:"actor_handle,omitempty"`
-	Remote      string            `json:"remote,omitempty" yaml:"remote,omitempty"`
-	Since       time.Time         `json:"since" yaml:"since"`
+	// ID identifies the connection within the answering server, for ending it.
+	ID string `json:"id" yaml:"id"`
+	// Surface is the access path the connection arrived on.
+	Surface ConnectionSurface `json:"surface" yaml:"surface"`
+	// TenantID identifies the tenant the connection reads.
+	TenantID string `json:"tenant_id" yaml:"tenant_id"`
+	// ActorID is the actor the connection authenticated as.
+	ActorID string `json:"actor_id" yaml:"actor_id"`
+	// ActorHandle is that actor's handle.
+	ActorHandle string `json:"actor_handle,omitempty" yaml:"actor_handle,omitempty"`
+	// Remote is the client address the connection came from, without its port.
+	Remote string `json:"remote,omitempty" yaml:"remote,omitempty"`
+	// Since is when the connection opened, RFC 3339.
+	Since time.Time `json:"since" yaml:"since"`
 	// Fingerprint names the key an SSH connection opened with, and is empty
 	// on every other surface.
 	Fingerprint string `json:"fingerprint,omitempty" yaml:"fingerprint,omitempty"`
@@ -51,9 +58,13 @@ type Connection struct {
 // connection the server holds and deliberately carries no breakdown by tenant,
 // actor or address: it is capacity information, not a directory.
 type ConnectionCounts struct {
-	Events  int `json:"events" yaml:"events"`
-	SSH     int `json:"ssh" yaml:"ssh"`
-	Tenant  int `json:"tenant" yaml:"tenant"`
+	// Events counts the tenant's live event stream connections.
+	Events int `json:"events" yaml:"events"`
+	// SSH counts the tenant's live SSH connections.
+	SSH int `json:"ssh" yaml:"ssh"`
+	// Tenant counts all of the tenant's live connections.
+	Tenant int `json:"tenant" yaml:"tenant"`
+	// Process counts every connection this server holds, across all tenants.
 	Process int `json:"process" yaml:"process"`
 }
 
@@ -61,9 +72,12 @@ type ConnectionCounts struct {
 // names the process that answered, because a deployment running several
 // servers against one database gets a partial view from each.
 type ConnectionList struct {
-	ServerID    string           `json:"server_id" yaml:"server_id"`
-	Connections []Connection     `json:"connections" yaml:"connections"`
-	Counts      ConnectionCounts `json:"counts" yaml:"counts"`
+	// ServerID names the server process that answered.
+	ServerID string `json:"server_id" yaml:"server_id"`
+	// Connections are the caller's tenant's live connections on that server.
+	Connections []Connection `json:"connections" yaml:"connections"`
+	// Counts are the totals that go with the list.
+	Counts ConnectionCounts `json:"counts" yaml:"counts"`
 }
 
 // ConnectionService covers the live connections one server process holds.

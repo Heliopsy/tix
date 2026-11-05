@@ -11,12 +11,16 @@ import (
 
 // RenewRequest extends a lease held under a token.
 type RenewRequest struct {
-	Token string        `json:"token"`
-	TTL   core.Duration `json:"ttl,omitempty"`
+	// Token is the lease token the claim returned.
+	Token string `json:"token"`
+	// TTL is the new lease length from now, such as "30m" or "4h"; omitted
+	// takes the default a fresh claim would get. The lease cap still applies.
+	TTL core.Duration `json:"ttl,omitempty"`
 }
 
 // ReleaseRequest gives up a lease held under a token.
 type ReleaseRequest struct {
+	// Token is the lease token the claim returned.
 	Token string `json:"token"`
 	core.ReleaseInput
 }

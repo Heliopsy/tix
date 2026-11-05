@@ -14,36 +14,49 @@ import (
 // sends the address, the password and the surface; the second sends the
 // ticket the challenge answered with and the code.
 type LoginRequest struct {
-	Email    string       `json:"email,omitempty"`
-	Password string       `json:"password,omitempty"`
-	Surface  core.Surface `json:"surface,omitempty"`
-	Ticket   string       `json:"ticket,omitempty"`
-	Code     string       `json:"code,omitempty"`
+	// Email identifies the user, in the first step.
+	Email string `json:"email,omitempty"`
+	// Password is the user's password, in the first step.
+	Password string `json:"password,omitempty"`
+	// Surface is the sign-in path the session is for, which decides whether a
+	// second factor is required.
+	Surface core.Surface `json:"surface,omitempty"`
+	// Ticket is the challenge ticket from the first step, in the second step.
+	Ticket string `json:"ticket,omitempty"`
+	// Code is the six-digit TOTP code or a recovery code, in the second step.
+	Code string `json:"code,omitempty"`
 }
 
 // TOTPCodeRequest carries the code proving possession of an authenticator.
 type TOTPCodeRequest struct {
+	// Code is the current code from the authenticator, or a recovery code
+	// where one is accepted.
 	Code string `json:"code"`
 }
 
 // AddMemberRequest grants an actor a role in the resolved tenant.
 type AddMemberRequest struct {
-	ActorID string    `json:"actor_id"`
-	Role    core.Role `json:"role"`
+	// ActorID is the actor to grant the role to.
+	ActorID string `json:"actor_id"`
+	// Role is the role to grant, which decides the member's scopes.
+	Role core.Role `json:"role"`
 }
 
 // SweepRequest bounds one lease sweep.
 type SweepRequest struct {
+	// Limit caps how many records this pass handles; 0 or omitted means 50.
 	Limit int `json:"limit,omitempty"`
 }
 
 // WakeResult reports how many snoozes a wake pass cleared.
 type WakeResult struct {
+	// Woken is how many expired snoozes were cleared.
 	Woken int `json:"woken"`
 }
 
 // SweepResult reports how many leases a sweep materialized.
 type SweepResult struct {
+	// Swept is how many expired leases were cleared.
 	Swept int `json:"swept"`
 }
 

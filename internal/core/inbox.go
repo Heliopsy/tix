@@ -68,24 +68,39 @@ const MaxInboxExcerpt = 200
 // InboxItem is one thing that concerned its recipient: a mention, an
 // assignment, a comment on a task they follow, or a status change.
 type InboxItem struct {
-	ID          string    `json:"id" yaml:"id"`
-	RecipientID string    `json:"recipient_id" yaml:"recipient_id"`
-	Kind        InboxKind `json:"kind" yaml:"kind"`
-	TaskID      string    `json:"task_id" yaml:"task_id"`
-	// TaskRef and TaskTitle name the task when the item was read back.
-	TaskRef   string `json:"task_ref,omitempty" yaml:"task_ref,omitempty"`
+	// ID identifies the item, for marking it read or unread.
+	ID string `json:"id" yaml:"id"`
+	// RecipientID is the actor the item is for, always the caller on a read.
+	RecipientID string `json:"recipient_id" yaml:"recipient_id"`
+	// Kind is why the item reached its recipient, the strongest reason when
+	// one change concerned them for several.
+	Kind InboxKind `json:"kind" yaml:"kind"`
+	// TaskID identifies the task the item is about.
+	TaskID string `json:"task_id" yaml:"task_id"`
+	// TaskRef is the task's reference, such as OPS-12, filled in when the item is read back.
+	TaskRef string `json:"task_ref,omitempty" yaml:"task_ref,omitempty"`
+	// TaskTitle is the task's current title, filled in when the item is read back.
 	TaskTitle string `json:"task_title,omitempty" yaml:"task_title,omitempty"`
 	// TaskGone is set when the task has since been deleted.
-	TaskGone    bool   `json:"task_gone,omitempty" yaml:"task_gone,omitempty"`
-	ActorID     string `json:"actor_id" yaml:"actor_id"`
+	TaskGone bool `json:"task_gone,omitempty" yaml:"task_gone,omitempty"`
+	// ActorID is the actor whose change produced the item.
+	ActorID string `json:"actor_id" yaml:"actor_id"`
+	// ActorHandle is that actor's handle, empty when the actor no longer exists.
 	ActorHandle string `json:"actor_handle,omitempty" yaml:"actor_handle,omitempty"`
-	CommentID   string `json:"comment_id,omitempty" yaml:"comment_id,omitempty"`
-	// FromStatus and ToStatus are set on a status item.
-	FromStatus string     `json:"from_status,omitempty" yaml:"from_status,omitempty"`
-	ToStatus   string     `json:"to_status,omitempty" yaml:"to_status,omitempty"`
-	Excerpt    string     `json:"excerpt,omitempty" yaml:"excerpt,omitempty"`
-	CreatedAt  time.Time  `json:"created_at" yaml:"created_at"`
-	ReadAt     *time.Time `json:"read_at,omitempty" yaml:"read_at,omitempty"`
+	// CommentID identifies the comment behind a mention or comment item.
+	CommentID string `json:"comment_id,omitempty" yaml:"comment_id,omitempty"`
+	// FromStatus is the status a task left, set on a status item only.
+	FromStatus string `json:"from_status,omitempty" yaml:"from_status,omitempty"`
+	// ToStatus is the status a task entered, set on a status item only.
+	ToStatus string `json:"to_status,omitempty" yaml:"to_status,omitempty"`
+	// Excerpt quotes the comment, description or title on one line, cut to
+	// 200 characters.
+	Excerpt string `json:"excerpt,omitempty" yaml:"excerpt,omitempty"`
+	// CreatedAt is when the item was written, RFC 3339.
+	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
+	// ReadAt is when the recipient marked the item read, RFC 3339, absent
+	// while it is unread.
+	ReadAt *time.Time `json:"read_at,omitempty" yaml:"read_at,omitempty"`
 }
 
 // Read reports whether the recipient has read the item.
@@ -93,22 +108,27 @@ func (i InboxItem) Read() bool { return i.ReadAt != nil }
 
 // InboxFilter selects a page of the caller's own inbox, newest first.
 type InboxFilter struct {
+	// Unread keeps only the items not yet read.
 	Unread bool `json:"unread,omitempty" yaml:"unread,omitempty"`
-	Page   Page `json:"page,omitempty" yaml:"page,omitempty"`
+	// Page is the cursor and size of the page asked for.
+	Page Page `json:"page,omitempty" yaml:"page,omitempty"`
 }
 
 // InboxCount is how many of the caller's items are unread.
 type InboxCount struct {
+	// Unread is the number of the caller's items not yet read.
 	Unread int `json:"unread" yaml:"unread"`
 }
 
 // InboxReadAll reports how many items marking everything read changed.
 type InboxReadAll struct {
+	// Marked is how many unread items were marked read.
 	Marked int `json:"marked" yaml:"marked"`
 }
 
 // InboxPrefs is the caller's choice of kinds that create no item for them.
 type InboxPrefs struct {
+	// Muted lists the kinds that create no inbox item for the caller.
 	Muted []InboxKind `json:"muted" yaml:"muted"`
 }
 
@@ -117,6 +137,8 @@ func (p InboxPrefs) Mutes(k InboxKind) bool { return slices.Contains(p.Muted, k)
 
 // InboxPrefsInput replaces the caller's muted kinds.
 type InboxPrefsInput struct {
+	// Muted is the complete list of kinds to mute: mention, assigned, status
+	// or comment. An empty list mutes nothing.
 	Muted []string `json:"muted" yaml:"muted"`
 }
 
@@ -127,7 +149,7 @@ type InboxService interface {
 	ListInbox(ctx context.Context, f InboxFilter) ([]InboxItem, string, error)
 	// CountInbox counts the caller's unread items.
 	CountInbox(ctx context.Context) (*InboxCount, error)
-	// ReadInboxItem marks one of the caller's items read.
+	// ReadInboxItem marks one of the caller's items read and returns it.
 	ReadInboxItem(ctx context.Context, id string) (*InboxItem, error)
 	// UnreadInboxItem marks one of the caller's items unread.
 	UnreadInboxItem(ctx context.Context, id string) (*InboxItem, error)
@@ -173,15 +195,24 @@ const (
 // a URL tix posts to, shaped for the service behind it, for the kinds the
 // person chose. It is not a tenant webhook and nobody else's items reach it.
 type InboxChannel struct {
-	ID        string        `json:"id" yaml:"id"`
-	ActorID   string        `json:"actor_id" yaml:"actor_id"`
-	Name      string        `json:"name" yaml:"name"`
-	URL       string        `json:"url" yaml:"url"`
-	Secret    string        `json:"-" yaml:"-"`
-	Format    ChannelFormat `json:"format" yaml:"format"`
-	Kinds     []InboxKind   `json:"kinds" yaml:"kinds"`
-	Active    bool          `json:"active" yaml:"active"`
-	CreatedAt time.Time     `json:"created_at" yaml:"created_at"`
+	// ID identifies the channel.
+	ID string `json:"id" yaml:"id"`
+	// ActorID is the person who owns the channel.
+	ActorID string `json:"actor_id" yaml:"actor_id"`
+	// Name labels the channel, unique among its owner's channels ignoring case.
+	Name string `json:"name" yaml:"name"`
+	// URL is where tix posts each message.
+	URL string `json:"url" yaml:"url"`
+	// Secret signs generic deliveries. It is never serialised.
+	Secret string `json:"-" yaml:"-"`
+	// Format shapes the message for the service behind the URL.
+	Format ChannelFormat `json:"format" yaml:"format"`
+	// Kinds lists the inbox kinds the channel receives.
+	Kinds []InboxKind `json:"kinds" yaml:"kinds"`
+	// Active is false when the channel is turned off and receives nothing.
+	Active bool `json:"active" yaml:"active"`
+	// CreatedAt is when the channel was created, RFC 3339.
+	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
 }
 
 // Receives reports whether the channel takes items of a kind.
@@ -191,39 +222,64 @@ func (c InboxChannel) Receives(k InboxKind) bool { return c.Active && slices.Con
 // carries its signing secret, which no later read returns.
 type IssuedInboxChannel struct {
 	InboxChannel
+	// SigningSecret is the secret that signs the channel's generic deliveries,
+	// returned on creation only.
 	SigningSecret string `json:"secret" yaml:"secret"`
 }
 
 // InboxChannelInput creates a channel. Kinds empty means every kind.
 type InboxChannelInput struct {
-	Name   string   `json:"name" yaml:"name"`
-	URL    string   `json:"url" yaml:"url"`
-	Format string   `json:"format,omitempty" yaml:"format,omitempty"`
-	Kinds  []string `json:"kinds,omitempty" yaml:"kinds,omitempty"`
-	Active *bool    `json:"active,omitempty" yaml:"active,omitempty"`
+	// Name labels the channel, at most 80 characters and unique among the
+	// caller's channels.
+	Name string `json:"name" yaml:"name"`
+	// URL is where messages are posted; it must be https unless it is a
+	// loopback address or the server allows insecure webhooks.
+	URL string `json:"url" yaml:"url"`
+	// Format is generic, slack, discord or ntfy; empty means generic.
+	Format string `json:"format,omitempty" yaml:"format,omitempty"`
+	// Kinds lists the inbox kinds to receive. Omitted means every kind; an
+	// empty list is refused.
+	Kinds []string `json:"kinds,omitempty" yaml:"kinds,omitempty"`
+	// Active turns the channel on or off; omitted means on.
+	Active *bool `json:"active,omitempty" yaml:"active,omitempty"`
 }
 
 // InboxChannelUpdate changes a channel. A nil field is left as it is.
 type InboxChannelUpdate struct {
-	Name   *string   `json:"name,omitempty" yaml:"name,omitempty"`
-	URL    *string   `json:"url,omitempty" yaml:"url,omitempty"`
-	Format *string   `json:"format,omitempty" yaml:"format,omitempty"`
-	Kinds  *[]string `json:"kinds,omitempty" yaml:"kinds,omitempty"`
-	Active *bool     `json:"active,omitempty" yaml:"active,omitempty"`
+	// Name renames the channel, at most 80 characters and unique among the
+	// caller's channels.
+	Name *string `json:"name,omitempty" yaml:"name,omitempty"`
+	// URL changes where messages are posted, under the same rules as on creation.
+	URL *string `json:"url,omitempty" yaml:"url,omitempty"`
+	// Format changes the shape: generic, slack, discord or ntfy.
+	Format *string `json:"format,omitempty" yaml:"format,omitempty"`
+	// Kinds replaces the inbox kinds received; an empty list is refused.
+	Kinds *[]string `json:"kinds,omitempty" yaml:"kinds,omitempty"`
+	// Active turns the channel on or off.
+	Active *bool `json:"active,omitempty" yaml:"active,omitempty"`
 }
 
 // ChannelDelivery is one attempt queue entry for a channel: an inbox item,
 // or a test when ItemID is empty.
 type ChannelDelivery struct {
-	ID             string         `json:"id" yaml:"id"`
-	ChannelID      string         `json:"channel_id" yaml:"channel_id"`
-	ItemID         string         `json:"item_id,omitempty" yaml:"item_id,omitempty"`
-	Attempts       int            `json:"attempts" yaml:"attempts"`
-	NextAttemptAt  time.Time      `json:"next_attempt_at" yaml:"next_attempt_at"`
-	Status         DeliveryStatus `json:"status" yaml:"status"`
-	LastError      string         `json:"last_error,omitempty" yaml:"last_error,omitempty"`
-	LastStatusCode int            `json:"last_status_code,omitempty" yaml:"last_status_code,omitempty"`
-	CreatedAt      time.Time      `json:"created_at" yaml:"created_at"`
+	// ID identifies the delivery, for redelivering it.
+	ID string `json:"id" yaml:"id"`
+	// ChannelID identifies the channel the delivery goes to.
+	ChannelID string `json:"channel_id" yaml:"channel_id"`
+	// ItemID identifies the inbox item delivered, empty for a test message.
+	ItemID string `json:"item_id,omitempty" yaml:"item_id,omitempty"`
+	// Attempts counts the attempts made so far.
+	Attempts int `json:"attempts" yaml:"attempts"`
+	// NextAttemptAt is when the next attempt is due, RFC 3339.
+	NextAttemptAt time.Time `json:"next_attempt_at" yaml:"next_attempt_at"`
+	// Status is pending, delivered or failed.
+	Status DeliveryStatus `json:"status" yaml:"status"`
+	// LastError is the error of the most recent failed attempt.
+	LastError string `json:"last_error,omitempty" yaml:"last_error,omitempty"`
+	// LastStatusCode is the HTTP status the most recent attempt received.
+	LastStatusCode int `json:"last_status_code,omitempty" yaml:"last_status_code,omitempty"`
+	// CreatedAt is when the delivery was queued, RFC 3339.
+	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
 }
 
 // Test reports whether the delivery is a test rather than an inbox item.
@@ -231,8 +287,10 @@ func (d ChannelDelivery) Test() bool { return d.ItemID == "" }
 
 // ChannelDeliveryFilter selects a page of one channel's deliveries, newest first.
 type ChannelDeliveryFilter struct {
+	// ChannelID identifies one of the caller's channels.
 	ChannelID string `json:"channel_id" yaml:"channel_id"`
-	Page      Page   `json:"page,omitempty" yaml:"page,omitempty"`
+	// Page is the cursor and size of the page asked for.
+	Page Page `json:"page,omitempty" yaml:"page,omitempty"`
 }
 
 // InboxChannelService covers each person's own notification channels.
@@ -250,6 +308,7 @@ type InboxChannelService interface {
 	TestInboxChannel(ctx context.Context, id string) (*ChannelDelivery, error)
 	// ListChannelDeliveries returns a page of one channel's deliveries.
 	ListChannelDeliveries(ctx context.Context, f ChannelDeliveryFilter) ([]ChannelDelivery, string, error)
-	// RedeliverChannelDelivery queues another attempt of a delivery.
+	// RedeliverChannelDelivery queues another attempt of one of the caller's
+	// deliveries, made on the next drain. Another person's is not_found.
 	RedeliverChannelDelivery(ctx context.Context, id string) error
 }

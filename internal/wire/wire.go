@@ -190,13 +190,18 @@ const (
 
 // ErrorBody is the single error envelope every failing response carries.
 type ErrorBody struct {
-	Code    core.Kind      `json:"code"`
-	Message string         `json:"message"`
+	// Code is the error kind, which decides the HTTP status.
+	Code core.Kind `json:"code"`
+	// Message is a human-readable explanation.
+	Message string `json:"message"`
+	// Details carries structured context when there is some, such as "field"
+	// naming the input at fault or "reason" refining the kind.
 	Details map[string]any `json:"details,omitempty"`
 }
 
 // ErrorEnvelope wraps ErrorBody so the payload is self-describing.
 type ErrorEnvelope struct {
+	// Error describes what went wrong.
 	Error ErrorBody `json:"error"`
 }
 

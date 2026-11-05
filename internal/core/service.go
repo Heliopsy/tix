@@ -17,6 +17,8 @@ import (
 // the error alone, and an implementation that returned a nil pair would panic
 // them one dereference later rather than report its own fault.
 type Service interface {
+	// WhoAmI returns the actor the request authenticated as, with its tenant,
+	// role and scopes.
 	WhoAmI(ctx context.Context) (*Actor, error)
 
 	TenantService
@@ -40,34 +42,75 @@ type Service interface {
 	InboxChannelService
 	TemplateService
 
+	// Close releases the service's resources, such as the underlying store.
 	Close() error
 }
 
 // TenantService covers tenants, their domains, and membership.
 type TenantService interface {
+	// CreateTenant creates a tenant with the given key and name and seeds it with
+	// the builtin workflow. A key already in use is a conflict.
 	CreateTenant(ctx context.Context, in CreateTenantInput) (*Tenant, error)
+	// GetTenant returns the caller's own tenant by identifier or key; an empty
+	// reference means the caller's tenant. Any other tenant reads as not_found.
 	GetTenant(ctx context.Context, ref string) (*Tenant, error)
+	// ListTenants lists the tenants the caller can see, which is only its own,
+	// since an actor is bound to one tenant.
 	ListTenants(ctx context.Context, page Page) ([]Tenant, string, error)
+	// UpdateTenant changes the caller's tenant: its name, theme, lease bounds,
+	// second-factor requirements and trash setting. Fields left out are
+	// unchanged. A lease default longer than the maximum, an unknown theme, or a
+	// second-factor requirement with no sealing key configured is refused.
 	UpdateTenant(ctx context.Context, ref string, in UpdateTenantInput) (*Tenant, error)
+	// DeleteTenant soft deletes the caller's tenant, so its data stops being
+	// reachable and its domains stop resolving. No row is destroyed.
 	DeleteTenant(ctx context.Context, ref string) error
 
+	// AddDomain maps a hostname to the current tenant, so requests to that host
+	// resolve to it. A certificate mode of file needs both a certificate and a
+	// key path.
 	AddDomain(ctx context.Context, in AddDomainInput) (*Domain, error)
+	// ListDomains lists the hostnames mapped to the current tenant.
 	ListDomains(ctx context.Context) ([]Domain, error)
+	// RemoveDomain detaches a hostname from the current tenant. An unmapped
+	// hostname is not_found.
 	RemoveDomain(ctx context.Context, hostname string) error
+	// ResolveDomain returns the tenant a hostname is mapped to. It runs before
+	// authentication and reads across tenants.
 	ResolveDomain(ctx context.Context, hostname string) (*Tenant, error)
 
+	// AddMember grants an existing actor a role (viewer, member or admin) in the
+	// current tenant. An actor who is already a member is a conflict.
 	AddMember(ctx context.Context, actorID string, role Role) (*Membership, error)
+	// ListMembers lists every membership of the current tenant with its role.
 	ListMembers(ctx context.Context) ([]Membership, error)
+	// RemoveMember revokes an actor's membership of the current tenant. An actor
+	// who is not a member is not_found.
 	RemoveMember(ctx context.Context, actorID string) error
 }
 
 // ProjectService covers projects and their custom field definitions.
 type ProjectService interface {
+	// CreateProject creates a project with a unique key, on the named workflow or
+	// the builtin one. A key in use, or kept as an old key of another project, is
+	// a conflict.
 	CreateProject(ctx context.Context, in CreateProjectInput) (*Project, error)
+	// GetProject returns a project by identifier, key, or one of its old keys.
 	GetProject(ctx context.Context, ref string) (*Project, error)
+	// GetProjectIcon returns a project's uploaded icon image. A project without
+	// an uploaded image is not_found.
 	GetProjectIcon(ctx context.Context, ref string) (*ProjectIconImage, error)
+	// ListProjects lists projects matching the filter, keyset paginated, with the
+	// cursor for the next page. A token pinned to one project sees only that
+	// project.
 	ListProjects(ctx context.Context, f ProjectFilter) ([]Project, string, error)
+	// UpdateProject changes a project's name, key, description, colour, icon,
+	// workflow or lease bounds; fields left out are unchanged. A new key keeps
+	// the old one as an alias, and a workflow that lacks a state some task is in
+	// is a conflict.
 	UpdateProject(ctx context.Context, ref string, in UpdateProjectInput) (*Project, error)
+	// ArchiveProject hides a project from default listings without destroying its
+	// tasks or history. Archiving an archived project is a conflict.
 	ArchiveProject(ctx context.Context, ref string) error
 	// DeleteProject removes a project permanently, moving or deleting its
 	// tasks as the input says; a project holding tasks needs a choice.
@@ -75,30 +118,71 @@ type ProjectService interface {
 	// PlanProjectDeletion reports what DeleteProject would do, writing nothing.
 	PlanProjectDeletion(ctx context.Context, ref string, in DeleteProjectInput) (*ProjectDeletion, error)
 
+	// PutFieldDef creates or replaces a custom field definition on a project,
+	// keyed by its field key. A default value must fit the field's type.
 	PutFieldDef(ctx context.Context, projectRef string, in FieldDefInput) (*FieldDef, error)
+	// ListFieldDefs lists a project's custom field definitions in display order.
 	ListFieldDefs(ctx context.Context, projectRef string) ([]FieldDef, error)
+	// DeleteFieldDef removes a custom field definition from a project. An unknown
+	// key is not_found.
 	DeleteFieldDef(ctx context.Context, projectRef, key string) error
 }
 
 // WorkflowService covers state machine definitions.
 type WorkflowService interface {
+	// PutWorkflow creates or replaces a workflow by key: its states, initial
+	// state and allowed transitions. Removing a state that tasks are in is a
+	// conflict unless the input migrates them to another state.
 	PutWorkflow(ctx context.Context, in WorkflowInput) (*Workflow, error)
+	// GetWorkflow returns a workflow by key or identifier.
 	GetWorkflow(ctx context.Context, key string) (*Workflow, error)
+	// ListWorkflows lists every workflow in the current tenant.
 	ListWorkflows(ctx context.Context) ([]Workflow, error)
+	// DeleteWorkflow deletes a workflow by key or identifier. The builtin
+	// workflow, and a workflow any project still uses, cannot be deleted and
+	// answer conflict.
 	DeleteWorkflow(ctx context.Context, key string) error
 }
 
 // TaskService covers tasks and everything attached to them.
 type TaskService interface {
+	// CreateTask creates a task in a project and returns it. Only the title is
+	// required: status defaults to the workflow's initial state, and the project
+	// may be left out when the tenant has exactly one.
 	CreateTask(ctx context.Context, in CreateTaskInput) (*Task, error)
+	// GetTask returns one live task by identifier or reference such as infra-42.
+	// A deleted task is not_found.
 	GetTask(ctx context.Context, ref TaskRef) (*Task, error)
+	// ListTasks lists tasks matching the filter, one keyset-paginated page at a
+	// time, with the cursor for the next page. Snoozed tasks are left out unless
+	// the filter asks for them.
 	ListTasks(ctx context.Context, f TaskFilter) (TaskPage, error)
+	// UpdateTask changes only the task attributes the input supplies and returns
+	// the task. With a version set, a task that has changed since is a conflict
+	// carrying the current version.
 	UpdateTask(ctx context.Context, ref TaskRef, in UpdateTaskInput) (*Task, error)
+	// TransitionTask moves a task to another status along a transition its
+	// workflow allows. A move the workflow does not allow is precondition_failed,
+	// a transition that requires a comment needs one, and a stale version is a
+	// conflict.
 	TransitionTask(ctx context.Context, ref TaskRef, in TransitionInput) (*Task, error)
+	// TransitionRoute walks a task through a route of statuses, one ordinary
+	// transition per hop, each with its own audit entry and event. A route that
+	// stops partway reports where and why; only a refused first hop is an error.
 	TransitionRoute(ctx context.Context, ref TaskRef, in RouteInput) (*RouteResult, error)
+	// DeleteTask moves a task to the trash, or deletes it permanently when hard
+	// is set or the tenant keeps no trash. A task with children is refused unless
+	// cascade is set, which takes the whole subtree.
 	DeleteTask(ctx context.Context, ref TaskRef, in DeleteTaskInput) error
+	// RestoreTask brings a task back out of the trash and returns it. It is
+	// refused with precondition_failed when the tenant keeps no trash.
 	RestoreTask(ctx context.Context, ref TaskRef) (*Task, error)
+	// TrashStatus reports whether the tenant keeps deleted tasks in a trash, and
+	// how many it holds.
 	TrashStatus(ctx context.Context) (*TrashStatus, error)
+	// TaskTree returns a task followed by its live descendants in depth-first
+	// pre-order, down to the given depth. A subtree too large to walk is
+	// precondition_failed.
 	TaskTree(ctx context.Context, ref TaskRef, depth int) ([]Task, error)
 	// CopyTask creates a copy of a task, in its own project or another one,
 	// and returns the copy. See CopyTaskInput for what travels.
@@ -107,57 +191,110 @@ type TaskService interface {
 	// and reports an outcome per task rather than failing on the first refusal.
 	BulkTasks(ctx context.Context, in BulkTaskInput) (*BulkResult, error)
 
+	// AddDependency records that a task waits for another task. A self edge or
+	// one that would close a cycle is invalid, and the caller needs write access
+	// to both tasks.
 	AddDependency(ctx context.Context, ref, dependsOn TaskRef) error
+	// RemoveDependency removes the edge saying a task waits for another.
 	RemoveDependency(ctx context.Context, ref, dependsOn TaskRef) error
+	// ListDependencies lists the tasks a task waits for, leaving out edges to
+	// tasks the caller cannot read.
 	ListDependencies(ctx context.Context, ref TaskRef) ([]Dependency, error)
 
+	// AddTag puts a tag on a task, creating the tag in the tenant when it is new.
+	// Tagging a task that already carries the tag changes nothing.
 	AddTag(ctx context.Context, ref TaskRef, tag string) error
+	// RemoveTag takes a tag off a task. A tag the tenant does not have is
+	// not_found.
 	RemoveTag(ctx context.Context, ref TaskRef, tag string) error
+	// ListTags lists every tag defined in the tenant.
 	ListTags(ctx context.Context) ([]Tag, error)
 
-	// StarTask and UnstarTask set and clear the caller's own star on a task.
-	// Both are idempotent: a call that changes nothing writes nothing.
+	// StarTask stars a task for the caller alone. Starring a starred task writes
+	// nothing.
 	StarTask(ctx context.Context, ref TaskRef) error
+	// UnstarTask clears the caller's own star on a task. A task that is not
+	// starred is left as it is, with nothing written.
 	UnstarTask(ctx context.Context, ref TaskRef) error
 
 	// CheckTaskItem ticks or clears one checklist item of a task's description.
 	CheckTaskItem(ctx context.Context, ref TaskRef, in CheckItemInput) (*Task, error)
-	// SnoozeTask hides a task from default listings until a future instant,
-	// for every reader. UnsnoozeTask clears it, writing nothing when the task
-	// is not snoozed. WakeSnoozed clears snoozes that have run out, announcing
-	// each, and reports how many it cleared.
+	// SnoozeTask hides a task from default listings, for every reader, until a
+	// future time. Snoozing a snoozed task moves its wake time, and a snoozed
+	// task cannot be claimed.
 	SnoozeTask(ctx context.Context, ref TaskRef, in SnoozeInput) (*Task, error)
+	// UnsnoozeTask clears a task's snooze and returns the task. A task that is
+	// not snoozed is returned as it is, with nothing written.
 	UnsnoozeTask(ctx context.Context, ref TaskRef) (*Task, error)
+	// WakeSnoozed clears up to limit snoozes whose wake time has passed, emitting
+	// a task.woke event for each, and reports how many it cleared.
 	WakeSnoozed(ctx context.Context, limit int) (int, error)
 
+	// AddComment adds a comment to a task and returns it, notifying the people it
+	// mentions, the assignee and anyone who starred the task.
 	AddComment(ctx context.Context, ref TaskRef, body string) (*Comment, error)
+	// ListComments lists a task's comments that are not deleted, oldest first.
 	ListComments(ctx context.Context, ref TaskRef) ([]Comment, error)
+	// EditComment replaces a comment's body and marks it edited. A deleted
+	// comment is not_found.
 	EditComment(ctx context.Context, id, body string) (*Comment, error)
+	// DeleteComment soft deletes a comment, so it no longer lists.
 	DeleteComment(ctx context.Context, id string) error
 
+	// PutArtifact attaches a new piece of structured output, such as a result or
+	// a log, to a task. While the task is claimed it needs the current lease
+	// token, and a stale one is lease_expired.
 	PutArtifact(ctx context.Context, ref TaskRef, in ArtifactInput) (*Artifact, error)
+	// ListArtifacts lists a task's artifacts, oldest first.
 	ListArtifacts(ctx context.Context, ref TaskRef) ([]Artifact, error)
 }
 
 // ClaimService covers the agent work queue.
 type ClaimService interface {
+	// ClaimTask takes a lease on one task for the caller, or for the actor named,
+	// and returns the lease token to renew and release it with. A task another
+	// worker holds, or one already finished, is a conflict; a snoozed task is
+	// precondition_failed.
 	ClaimTask(ctx context.Context, ref TaskRef, in ClaimInput) (*Claim, error)
 	// TaskLease reports the lease a claim on the task naming no ttl would be
 	// granted now, and which level decides it.
 	TaskLease(ctx context.Context, ref TaskRef) (*LeaseGrant, error)
+	// ClaimNext claims the highest-priority unblocked, unclaimed task matching
+	// the filter and returns it with its lease token. An empty queue answers
+	// no_task_available.
 	ClaimNext(ctx context.Context, in ClaimNextInput) (*Claim, error)
+	// RenewLease extends the lease the caller holds on a task under its token, by
+	// the ttl given or the task's default lease. A token that no longer holds the
+	// lease is lease_expired, and the worker should claim again.
 	RenewLease(ctx context.Context, ref TaskRef, token string, ttl Duration) (*Claim, error)
+	// ReleaseLease gives up the lease held under the caller's token. It can
+	// also move the task to a final status and attach a result artifact and a
+	// closing comment. A token that no longer holds the lease is lease_expired.
 	ReleaseLease(ctx context.Context, ref TaskRef, token string, in ReleaseInput) error
+	// ForceReclaim ends the lease another actor holds on a task, for an
+	// administrator whose worker has died. The task keeps its status.
 	ForceReclaim(ctx context.Context, ref TaskRef, in ForceReclaimInput) (*Task, error)
+	// SweepLeases clears up to limit expired leases and reports how many it
+	// cleared. Each is recorded, and the status reverts where the workflow asks.
 	SweepLeases(ctx context.Context, limit int) (int, error)
 }
 
 // HistoryService covers the audit log, the event stream, and retention.
 type HistoryService interface {
+	// ListAudit lists audit entries matching the filter, one keyset-paginated
+	// page at a time, with the cursor for the next page.
 	ListAudit(ctx context.Context, f AuditFilter) ([]AuditEntry, string, error)
+	// Subscribe streams committed events matching the filter, from the given
+	// sequence number or from now. A sequence number already pruned is invalid.
 	Subscribe(ctx context.Context, f EventFilter) (<-chan Event, error)
+	// Prune deletes events, audit entries and webhook deliveries older than the
+	// retention policy allows. A dry run reports the counts and writes nothing,
+	// not even an audit entry.
 	Prune(ctx context.Context, in PruneInput) (*PruneResult, error)
+	// GetRetention returns the tenant's effective retention policy.
 	GetRetention(ctx context.Context) (*RetentionPolicy, error)
+	// PutRetention changes the tenant's retention windows and returns the policy
+	// now in force. Windows left unset keep their current value.
 	PutRetention(ctx context.Context, p RetentionPolicy) (*RetentionPolicy, error)
 
 	// GetHousekeeping returns the housekeeping policy, for one project when
@@ -172,21 +309,31 @@ type HistoryService interface {
 
 // AuthService covers users, sessions and API tokens.
 type AuthService interface {
-	// GetActor resolves an actor identifier of this tenant to the identity
-	// behind it, so a record can name who acted rather than show a raw
-	// identifier. It returns the naming fields only, never authority.
+	// GetActor returns the actor an identifier of this tenant names, so a
+	// record can show who acted rather than a raw identifier. It returns the
+	// naming fields only, never authority.
 	GetActor(ctx context.Context, id string) (*Actor, error)
 
-	// ListActors returns this tenant's directory, agents included, so a
-	// caller can offer the actors it holds instead of asking for an
-	// identifier to be typed from memory. Like GetActor it returns the
-	// naming fields only, never authority.
+	// ListActors lists this tenant's actors, agents included, keyset
+	// paginated. A caller can offer them instead of asking for an identifier
+	// typed from memory. Like GetActor it returns the naming fields only,
+	// never authority.
 	ListActors(ctx context.Context, page Page) ([]Actor, string, error)
 
+	// CreateUser creates a user, its actor in this tenant and a membership with
+	// the given role. A handle already in use is a conflict.
 	CreateUser(ctx context.Context, in CreateUserInput) (*User, error)
+	// GetUser returns a user of this tenant by identifier.
 	GetUser(ctx context.Context, id string) (*User, error)
+	// ListUsers lists the users of this tenant, keyset paginated, with the cursor
+	// for the next page.
 	ListUsers(ctx context.Context, page Page) ([]User, string, error)
+	// UpdateUser changes a user's display name, password, role or disabled state;
+	// fields left out are unchanged. Disabling a user also revokes its API
+	// tokens.
 	UpdateUser(ctx context.Context, id string, in UpdateUserInput) (*User, error)
+	// DeleteUser deletes a user and revokes its membership of this tenant, which
+	// stops its actor acting.
 	DeleteUser(ctx context.Context, id string) error
 
 	// Login is one step of an interactive sign-in. It answers with a session
@@ -199,6 +346,8 @@ type AuthService interface {
 	// take the code from a flag or an environment variable, which puts a live
 	// second factor in shell history and in the process table.
 	Login(ctx context.Context, in LoginInput) (*LoginResult, error)
+	// Logout ends the session the caller presented. With no session to end it
+	// answers unauthenticated.
 	Logout(ctx context.Context) error
 
 	// SSHLoginChallenge issues a short-lived nonce for an SSH key sign-in,
@@ -237,8 +386,15 @@ type AuthService interface {
 	// an administrator holds that a member does not.
 	ClearUserTOTP(ctx context.Context, userID string) error
 
+	// CreateToken mints an API token with the given scopes, optionally pinned to
+	// one project, and returns its secret value exactly once. A token cannot
+	// carry scopes its creator lacks, and a name already in use is a conflict.
 	CreateToken(ctx context.Context, in CreateTokenInput) (*IssuedToken, error)
+	// ListTokens lists an actor's API tokens as metadata only, never their
+	// values. An empty actor means the caller.
 	ListTokens(ctx context.Context, actorID string) ([]APIToken, error)
+	// RevokeToken revokes an API token of this tenant. Revoking a revoked token
+	// changes nothing.
 	RevokeToken(ctx context.Context, id string) error
 
 	// EnrolSSHKey registers a public key against an actor of this tenant, so
@@ -254,10 +410,20 @@ type AuthService interface {
 
 // WebhookService covers outgoing delivery.
 type WebhookService interface {
+	// PutWebhook registers an https delivery endpoint, or updates one by
+	// identifier. A registration with no secret gets a generated one, returned
+	// only in this response.
 	PutWebhook(ctx context.Context, in WebhookInput) (*WebhookEndpoint, error)
+	// ListWebhooks lists this tenant's delivery endpoints, without their secrets.
 	ListWebhooks(ctx context.Context) ([]WebhookEndpoint, error)
+	// DeleteWebhook removes a delivery endpoint and its pending deliveries.
 	DeleteWebhook(ctx context.Context, id string) error
+	// ListDeliveries lists the webhook delivery log, one keyset-paginated page at
+	// a time, with the cursor for the next page.
 	ListDeliveries(ctx context.Context, f DeliveryFilter) ([]WebhookDelivery, string, error)
+	// RedeliverWebhook queues an existing delivery for another attempt against
+	// the same endpoint with the same event. The attempt happens on the next
+	// delivery run, not inside this call.
 	RedeliverWebhook(ctx context.Context, deliveryID string) error
 }
 
@@ -267,9 +433,12 @@ type WebhookService interface {
 // comfortably in memory, and a snapshot assembled before the first byte is
 // written would bound export by RAM rather than by disk.
 type TransferService interface {
-	// ExportTo writes a snapshot as it walks the data.
+	// ExportTo writes a snapshot of the tenant's data as a stream of records,
+	// walking the data as it writes.
 	ExportTo(ctx context.Context, in ExportInput, w io.Writer) error
-	// ImportFrom reads a snapshot record by record.
+	// ImportFrom reads a snapshot record by record and merges it into, or
+	// replaces, the tenant's data. A dry run reports the counts and writes
+	// nothing.
 	ImportFrom(ctx context.Context, r io.Reader, in ImportInput) (*ImportResult, error)
 }
 
@@ -322,10 +491,14 @@ type BundleExportInput struct {
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 	// Kinds restricts the export. Empty exports every kind the selectors reach.
 	Kinds []ComponentKind `json:"kinds,omitempty" yaml:"kinds,omitempty"`
-	// WorkflowKeys, ProjectRefs and WebhookIDs select individual components.
+	// WorkflowKeys selects individual workflows by key.
 	WorkflowKeys []string `json:"workflow_keys,omitempty" yaml:"workflow_keys,omitempty"`
-	ProjectRefs  []string `json:"project_refs,omitempty" yaml:"project_refs,omitempty"`
-	WebhookIDs   []string `json:"webhook_ids,omitempty" yaml:"webhook_ids,omitempty"`
+	// ProjectRefs selects projects by key or identifier, exported as project
+	// templates.
+	ProjectRefs []string `json:"project_refs,omitempty" yaml:"project_refs,omitempty"`
+	// WebhookIDs selects individual webhook endpoints by identifier. Secrets
+	// never travel in a bundle.
+	WebhookIDs []string `json:"webhook_ids,omitempty" yaml:"webhook_ids,omitempty"`
 }
 
 // Validate checks the selection.
@@ -357,6 +530,9 @@ func (p CollisionPolicy) Valid() bool { return slices.Contains(CollisionPolicies
 
 // BundleImportInput controls an import.
 type BundleImportInput struct {
+	// OnCollision decides what happens to a component whose key is already
+	// taken: skip it, rename the incoming one, or replace the existing one.
+	// It is required.
 	OnCollision CollisionPolicy `json:"on_collision" yaml:"on_collision"`
 	// Preview reports the plan and writes nothing, not even an audit entry.
 	Preview bool `json:"preview,omitempty" yaml:"preview,omitempty"`
@@ -390,36 +566,57 @@ const (
 
 // ComponentOutcome reports what happened to one component.
 type ComponentOutcome struct {
-	Kind   ComponentKind   `json:"kind" yaml:"kind"`
-	Key    string          `json:"key" yaml:"key"`
+	// Kind is the kind of component.
+	Kind ComponentKind `json:"kind" yaml:"kind"`
+	// Key is the component's key as the bundle carries it.
+	Key string `json:"key" yaml:"key"`
+	// Action is what the import did, or would do, to the component.
 	Action ComponentAction `json:"action" yaml:"action"`
 	// NewKey is set when the component was renamed to avoid a collision.
 	NewKey string `json:"new_key,omitempty" yaml:"new_key,omitempty"`
+	// Reason explains a rename or a skip.
 	Reason string `json:"reason,omitempty" yaml:"reason,omitempty"`
 }
 
 // BundleResult reports an import, or what a preview would have done.
 type BundleResult struct {
-	BundleName    string             `json:"bundle_name,omitempty" yaml:"bundle_name,omitempty"`
-	BundleVersion int                `json:"bundle_version" yaml:"bundle_version"`
-	Outcomes      []ComponentOutcome `json:"outcomes" yaml:"outcomes"`
-	Warnings      []string           `json:"warnings,omitempty" yaml:"warnings,omitempty"`
-	Preview       bool               `json:"preview" yaml:"preview"`
+	// BundleName is the name the bundle was exported under, if any.
+	BundleName string `json:"bundle_name,omitempty" yaml:"bundle_name,omitempty"`
+	// BundleVersion is the bundle format version that was read.
+	BundleVersion int `json:"bundle_version" yaml:"bundle_version"`
+	// Outcomes lists what happened to each component, in bundle order.
+	Outcomes []ComponentOutcome `json:"outcomes" yaml:"outcomes"`
+	// Warnings lists things the import noticed but did not refuse.
+	Warnings []string `json:"warnings,omitempty" yaml:"warnings,omitempty"`
+	// Preview is true when nothing was written.
+	Preview bool `json:"preview" yaml:"preview"`
 }
 
 // SyncService covers one-way import from external systems.
 type SyncService interface {
+	// PutSyncSource registers an external system to import from, or updates one
+	// in place. Credentials are never stored: they are read from the environment
+	// when the sync runs.
 	PutSyncSource(ctx context.Context, in SyncSourceInput) (*SyncSource, error)
+	// ListSyncSources lists this tenant's external import sources.
 	ListSyncSources(ctx context.Context) ([]SyncSource, error)
+	// DeleteSyncSource removes an import source and its cursor.
 	DeleteSyncSource(ctx context.Context, id string) error
+	// RunSync imports from a configured source, creating what is new, updating
+	// what changed and skipping the rest. A rerun refreshes rather than
+	// duplicating, and a dry run writes nothing.
 	RunSync(ctx context.Context, in RunSyncInput) (*SyncResult, error)
 }
 
 // Session is a browser or terminal login.
 type Session struct {
-	Token     string    `json:"token" yaml:"token"`
-	ActorID   string    `json:"actor_id" yaml:"actor_id"`
-	TenantID  string    `json:"tenant_id" yaml:"tenant_id"`
+	// Token is the session secret, presented as the session cookie.
+	Token string `json:"token" yaml:"token"`
+	// ActorID is the actor the session acts as.
+	ActorID string `json:"actor_id" yaml:"actor_id"`
+	// TenantID is the tenant the session belongs to.
+	TenantID string `json:"tenant_id" yaml:"tenant_id"`
+	// ExpiresAt is when the session stops working, in RFC 3339.
 	ExpiresAt time.Time `json:"expires_at" yaml:"expires_at"`
 }
 
@@ -504,27 +701,42 @@ func (m ImportMode) Valid() bool { return slices.Contains(ImportModes, m) }
 
 // ImportResult reports what an import did, or would do under a dry run.
 type ImportResult struct {
-	Created  map[string]int `json:"created" yaml:"created"`
-	Updated  map[string]int `json:"updated" yaml:"updated"`
-	Skipped  map[string]int `json:"skipped" yaml:"skipped"`
-	Deleted  map[string]int `json:"deleted,omitempty" yaml:"deleted,omitempty"`
-	Warnings []string       `json:"warnings,omitempty" yaml:"warnings,omitempty"`
-	DryRun   bool           `json:"dry_run" yaml:"dry_run"`
+	// Created counts the records created, by record kind.
+	Created map[string]int `json:"created" yaml:"created"`
+	// Updated counts the records updated, by record kind.
+	Updated map[string]int `json:"updated" yaml:"updated"`
+	// Skipped counts the records left alone, by record kind.
+	Skipped map[string]int `json:"skipped" yaml:"skipped"`
+	// Deleted counts the records deleted, by record kind.
+	Deleted map[string]int `json:"deleted,omitempty" yaml:"deleted,omitempty"`
+	// Warnings lists records the import could not take as they were.
+	Warnings []string `json:"warnings,omitempty" yaml:"warnings,omitempty"`
+	// DryRun is true when nothing was written.
+	DryRun bool `json:"dry_run" yaml:"dry_run"`
 }
 
 // SyncResult reports what an external import did, or would do under a dry run.
 type SyncResult struct {
 	ImportResult
+	// System is the external system the source imports from.
 	System string `json:"system" yaml:"system"`
+	// Source is the name of the sync source that ran.
 	Source string `json:"source" yaml:"source"`
+	// Cursor is where the next incremental run resumes.
 	Cursor string `json:"cursor,omitempty" yaml:"cursor,omitempty"`
 }
 
 // PruneResult reports what pruning removed, or would remove under a dry run.
 type PruneResult struct {
-	Events                 int64 `json:"events" yaml:"events"`
-	AuditEntries           int64 `json:"audit_entries" yaml:"audit_entries"`
-	WebhookDeliveries      int64 `json:"webhook_deliveries" yaml:"webhook_deliveries"`
+	// Events counts the events removed.
+	Events int64 `json:"events" yaml:"events"`
+	// AuditEntries counts the audit entries removed.
+	AuditEntries int64 `json:"audit_entries" yaml:"audit_entries"`
+	// WebhookDeliveries counts the webhook delivery records removed.
+	WebhookDeliveries int64 `json:"webhook_deliveries" yaml:"webhook_deliveries"`
+	// RetainedForSubscribers counts events past their window kept because a
+	// subscriber has not consumed them yet.
 	RetainedForSubscribers int64 `json:"retained_for_subscribers" yaml:"retained_for_subscribers"`
-	DryRun                 bool  `json:"dry_run" yaml:"dry_run"`
+	// DryRun is true when nothing was removed.
+	DryRun bool `json:"dry_run" yaml:"dry_run"`
 }
