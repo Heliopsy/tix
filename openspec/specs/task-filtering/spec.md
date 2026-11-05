@@ -48,16 +48,20 @@ Every surface that draws or filters by a deadline SHALL read that one classifica
 The filter expression language SHALL accept a `due:` term taking either a named window — `overdue` (or
 `late`), `today`, `week`, `month` — or a bound spelled `due:<DATE` or `due:>DATE`.
 
+#### Scenario: The bounded form takes a date
+
+- **WHEN** a filter expression carries `due:<2026-04-01`
+- **THEN** the upper deadline bound is that date
+- **WHEN** a filter expression carries `due:>2026-04-01`
+- **THEN** the lower deadline bound is that date
+
+### Requirement: A named deadline window is resolved when the expression is answered
+
 A named window SHALL be resolved against the moment the expression is answered. `due:overdue` SHALL set
 the upper bound to that moment.
 
 The term SHALL set the same upper and lower bounds `due-before:` and `due-after:` set, and those spellings
 SHALL keep working unchanged.
-
-The term SHALL NOT be negatable, because it names a shape of the listing rather than a set of tasks.
-
-A value that is neither a known window nor a parsable bound SHALL be refused as invalid input, naming the
-windows it accepts, rather than being dropped.
 
 #### Scenario: The shorthand bounds the listing at now
 
@@ -70,12 +74,12 @@ windows it accepts, rather than being dropped.
 - **WHEN** a filter expression carries `due:week`
 - **THEN** the upper deadline bound is seven days after the moment the expression was answered
 
-#### Scenario: The bounded form takes a date
+### Requirement: The deadline term is not negatable and refuses a value it does not know
 
-- **WHEN** a filter expression carries `due:<2026-04-01`
-- **THEN** the upper deadline bound is that date
-- **WHEN** a filter expression carries `due:>2026-04-01`
-- **THEN** the lower deadline bound is that date
+The term SHALL NOT be negatable, because it names a shape of the listing rather than a set of tasks.
+
+A value that is neither a known window nor a parsable bound SHALL be refused as invalid input, naming the
+windows it accepts, rather than being dropped.
 
 #### Scenario: An unknown window is refused
 
@@ -173,10 +177,6 @@ or has not starred. The command line SHALL offer the same selection as `--starre
 API as the `starred` query parameter. The terminal interface SHALL answer the term in memory the
 same way the store does.
 
-The task filter contract's field naming the reading actor SHALL be set by the service from the
-caller and SHALL NOT be settable by a caller, so that no reader can list by another actor's
-stars.
-
 #### Scenario: Only starred tasks
 
 - **GIVEN** a reader who has starred one of three tasks
@@ -187,6 +187,12 @@ stars.
 
 - **WHEN** the same reader lists with `-is:starred`
 - **THEN** the two unstarred tasks are listed
+
+### Requirement: Only the service names whose stars a listing reads
+
+The task filter contract's field naming the reading actor SHALL be set by the service from the
+caller and SHALL NOT be settable by a caller, so that no reader can list by another actor's
+stars.
 
 #### Scenario: Another reader's stars
 

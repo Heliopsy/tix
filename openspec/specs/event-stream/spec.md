@@ -46,12 +46,12 @@ Each event SHALL carry a sequence number that increases monotonically within a d
 
 ### Requirement: Event taxonomy
 
-The system SHALL define a closed set of event types covering task created, task updated, task transitioned, task claimed, task released, task lease expired, task deleted, task starred, task unstarred, comment created, artifact created, dependency changed, tag changed, project changed, workflow changed, field definition changed, webhook delivery outcome, webhook redelivery, and import completed. Each mutation SHALL emit the event type that describes it, and every type a mutation can emit SHALL be nameable in a subscription filter.
+The system SHALL define a closed set of event types covering task created, task updated, task transitioned, task claimed, task released, task lease expired, task deleted, task starred, task unstarred, comment created, artifact created, dependency changed, tag changed, project changed, workflow changed, field definition changed, webhook delivery outcome, webhook redelivery, and import completed.
 
-#### Scenario: Transition emits its own type
+#### Scenario: Closed set
 
-- **WHEN** a task moves from one workflow state to another
-- **THEN** a task transitioned event is emitted rather than a generic task updated event
+- **WHEN** a consumer subscribes with a filter naming an event type outside the defined set
+- **THEN** the server responds with an error identifying the unknown event type
 
 #### Scenario: Lease expiry
 
@@ -63,10 +63,14 @@ The system SHALL define a closed set of event types covering task created, task 
 - **WHEN** an operator replays a webhook delivery
 - **THEN** a webhook redelivery event is emitted rather than a second webhook delivery event
 
-#### Scenario: Closed set
+### Requirement: Each mutation emits the event type that describes it
 
-- **WHEN** a consumer subscribes with a filter naming an event type outside the defined set
-- **THEN** the server responds with an error identifying the unknown event type
+Each mutation SHALL emit the event type that describes it, and every type a mutation can emit SHALL be nameable in a subscription filter.
+
+#### Scenario: Transition emits its own type
+
+- **WHEN** a task moves from one workflow state to another
+- **THEN** a task transitioned event is emitted rather than a generic task updated event
 
 #### Scenario: Every emitted type is subscribable by name
 
@@ -163,8 +167,6 @@ A subscription SHALL support filtering by project and by event type, including s
 
 Events SHALL be delivered only to subscribers entitled to the event's tenant and holding the event subscribe scope. A subscriber SHALL NOT receive any event belonging to a tenant it is not entitled to.
 
-An event whose subject is an administrative object SHALL additionally require the scope that reads that object over the API. Administrative subjects are users, memberships, sessions, API tokens, SSH keys, tenants, domains, connections, webhook endpoints, webhook deliveries, and sync sources. Events describing ordinary work SHALL require the event subscribe scope alone.
-
 #### Scenario: Cross-tenant isolation
 
 - **WHEN** a mutation occurs in tenant A while a subscriber is connected for tenant B
@@ -175,6 +177,15 @@ An event whose subject is an administrative object SHALL additionally require th
 - **WHEN** a client whose credential lacks the event subscribe scope sends a subscribe message
 - **THEN** the server replies with an authorization error and delivers no events
 
+#### Scenario: Project-restricted credential
+
+- **WHEN** a client authenticated with a project-restricted token subscribes to all projects
+- **THEN** only events for the permitted project are delivered
+
+### Requirement: An event about an administrative object needs the scope that reads it
+
+An event whose subject is an administrative object SHALL additionally require the scope that reads that object over the API. Administrative subjects are users, memberships, sessions, API tokens, SSH keys, tenants, domains, connections, webhook endpoints, webhook deliveries, and sync sources. Events describing ordinary work SHALL require the event subscribe scope alone.
+
 #### Scenario: Administrative subject without its scope
 
 - **WHEN** a credential holding only the event subscribe scope is connected and a user is created
@@ -184,11 +195,6 @@ An event whose subject is an administrative object SHALL additionally require th
 
 - **WHEN** a credential holding only the event subscribe scope is connected and a task is created
 - **THEN** that subscriber receives the event
-
-#### Scenario: Project-restricted credential
-
-- **WHEN** a client authenticated with a project-restricted token subscribes to all projects
-- **THEN** only events for the permitted project are delivered
 
 ### Requirement: Connection lifecycle
 
@@ -316,22 +322,40 @@ When a lease expiry reverts a task's status because the workflow state it was in
 `revert_on_lease_expiry`, the system SHALL emit a task transitioned event for that move in addition to the
 task lease expired event, in the same transaction as the row it describes.
 
+#### Scenario: One action leaves one audit entry
+
+- **WHEN** a reverting expiry is swept
+- **THEN** the audit log holds one entry for that task under the lease expiry action and none under the transition action
+
+### Requirement: A transition caused by a lease expiry has the ordinary shape and names its reason
+
 The task transitioned event SHALL carry the state the task left, the state it reached and the task's human
 reference, in the same payload shape every other transition uses, so a consumer already handling
 transitions needs no case of its own for this one. It SHALL additionally name the lease expiry as the
 reason, so a consumer that wants to tell a sweep apart from a person's transition can.
 
+#### Scenario: The transition says where the task went and why
+
+- **WHEN** a reverting expiry is swept
+- **THEN** the task transitioned event names the state left, the state reached, the task's reference, and the lease expiry as the reason
+
+### Requirement: An expiry that reverts nothing announces no transition
+
 An expiry that reverts nothing SHALL emit the task lease expired event alone. A task whose state carries
 no revert rule did not move, and a transition event naming the state it is already in would have to be
 filtered by every consumer.
+
+#### Scenario: An expiry that moves nothing announces no transition
+
+- **WHEN** a held lease expires on a task in a state that does not revert on lease expiry
+- **THEN** a task lease expired event is emitted and no task transitioned event is
+
+### Requirement: Transition events alone reproduce the status a sweep leaves
 
 A consumer that rebuilds task status from task transitioned events alone SHALL arrive at the status the
 task actually holds after a sweep. Announcing the change only as a field inside another event type's
 payload does not satisfy this: a consumer that does not read that field cannot be told by the stream that
 it has missed a status change.
-
-The expiry event SHALL keep naming the state the task was reverted to, so consumers already reading it
-are not broken.
 
 #### Scenario: A reverting expiry is visible to a transition consumer
 
@@ -339,25 +363,15 @@ are not broken.
 - **THEN** a task transitioned event is emitted for that task alongside the task lease expired event
 - **AND** a consumer applying only task transitioned events holds the task in the state it was reverted to
 
-#### Scenario: The transition says where the task went and why
+### Requirement: The lease expired event keeps naming the reverted state
 
-- **WHEN** a reverting expiry is swept
-- **THEN** the task transitioned event names the state left, the state reached, the task's reference, and the lease expiry as the reason
-
-#### Scenario: An expiry that moves nothing announces no transition
-
-- **WHEN** a held lease expires on a task in a state that does not revert on lease expiry
-- **THEN** a task lease expired event is emitted and no task transitioned event is
+The expiry event SHALL keep naming the state the task was reverted to, so consumers already reading it
+are not broken.
 
 #### Scenario: The expiry event is unchanged for its existing readers
 
 - **WHEN** a reverting expiry is swept
 - **THEN** the task lease expired event still names the state the task was reverted to
-
-#### Scenario: One action leaves one audit entry
-
-- **WHEN** a reverting expiry is swept
-- **THEN** the audit log holds one entry for that task under the lease expiry action and none under the transition action
 
 ### Requirement: A commit wakes a subscriber
 
@@ -366,12 +380,6 @@ announce the commit to that subscriber. The announcement SHALL be an optimisatio
 never a replacement for it: a subscriber SHALL keep an independent timer, and an announcement that is
 lost, coalesced, delayed or never made SHALL cost latency until that timer fires and SHALL NOT cost an
 event.
-
-The poll interval SHALL remain the stated worst case for delivery, so the latency a deployment is
-promised does not depend on a notification arriving.
-
-Waking a subscriber SHALL NOT change the order events are delivered in, the resume guarantee a cursor
-carries, or the retry behaviour of a subscriber whose reads are failing.
 
 #### Scenario: A commit is delivered long before the poll would fire
 
@@ -382,11 +390,6 @@ carries, or the retry behaviour of a subscriber whose reads are failing.
 
 - **WHEN** an event is committed and no announcement reaches the subscriber
 - **THEN** the subscriber receives the event on its next poll, in order and exactly as it would have without any announcement
-
-#### Scenario: A subscriber that is given no announcement channel behaves as before
-
-- **WHEN** a subscriber runs against an engine or a deployment that announces nothing
-- **THEN** it polls at its configured interval and delivers every event in sequence order
 
 #### Scenario: A transaction that appended no events announces nothing
 
@@ -402,6 +405,21 @@ carries, or the retry behaviour of a subscriber whose reads are failing.
 
 - **WHEN** an event is committed for one tenant while a subscriber is watching another
 - **THEN** that subscriber is not woken by the commit
+
+### Requirement: The poll interval stays the worst case for delivery
+
+The poll interval SHALL remain the stated worst case for delivery, so the latency a deployment is
+promised does not depend on a notification arriving.
+
+#### Scenario: A subscriber that is given no announcement channel behaves as before
+
+- **WHEN** a subscriber runs against an engine or a deployment that announces nothing
+- **THEN** it polls at its configured interval and delivers every event in sequence order
+
+### Requirement: Waking a subscriber changes no delivery guarantee
+
+Waking a subscriber SHALL NOT change the order events are delivered in, the resume guarantee a cursor
+carries, or the retry behaviour of a subscriber whose reads are failing.
 
 #### Scenario: Ordering and resume are unchanged by the wake
 

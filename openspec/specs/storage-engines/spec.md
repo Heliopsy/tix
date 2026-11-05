@@ -195,18 +195,6 @@ Both engines SHALL share a single logical schema and a single ordered migration 
 migration SHALL NOT exist for one engine only; engine-specific statements SHALL live within the
 same numbered migration step.
 
-The engines SHALL NOT store different instants for the same value. Where an engine's column type is
-coarser than the clock, the coarser resolution SHALL be the resolution the value is authored at, so
-that what is handed to an engine is what the row holds and what a caller is told. Any remaining
-precision difference SHALL be documented in the engine package rather than left for a reader to
-discover from a disagreement.
-
-A migration SHALL run with whatever access its login role has and nothing more. On PostgreSQL that
-places a migration outside the row-level security policies the same sequence creates, so a step that
-mutates tenant-scoped rows is not guaranteed to see them. That exposure SHALL be documented in the
-engine package, naming which shipped migrations it reaches and what it would cost, for as long as the
-migration runner does not account for it.
-
 #### Scenario: Same migration count
 
 - **WHEN** migrations are applied to a fresh SQLite database and a fresh PostgreSQL database
@@ -222,10 +210,26 @@ migration runner does not account for it.
 - **WHEN** the same service operations run against each engine
 - **THEN** they produce equivalent stored data and identical results apart from documented search differences
 
+### Requirement: The engines store the same instant for the same value
+
+The engines SHALL NOT store different instants for the same value. Where an engine's column type is
+coarser than the clock, the coarser resolution SHALL be the resolution the value is authored at, so
+that what is handed to an engine is what the row holds and what a caller is told. Any remaining
+precision difference SHALL be documented in the engine package rather than left for a reader to
+discover from a disagreement.
+
 #### Scenario: An instant written to either engine comes back unchanged
 
 - **WHEN** an instant authored at the resolution the coarser engine keeps is stored and read back
 - **THEN** both engines return the instant that was written
+
+### Requirement: A migration runs with its login role's access and the exposure is documented
+
+A migration SHALL run with whatever access its login role has and nothing more. On PostgreSQL that
+places a migration outside the row-level security policies the same sequence creates, so a step that
+mutates tenant-scoped rows is not guaranteed to see them. That exposure SHALL be documented in the
+engine package, naming which shipped migrations it reaches and what it would cost, for as long as the
+migration runner does not account for it.
 
 #### Scenario: The migration runner's exposure to row-level security is written down
 
@@ -288,10 +292,6 @@ The refusal SHALL happen when the database is opened, not only when the diagnost
 that it cannot be bypassed by never running diagnostics. The refusal SHALL name the path and the
 detected filesystem type, and SHALL say what to do instead.
 
-An operator SHALL be able to override the refusal explicitly, by flag or by configuration key,
-because a refusal with no escape hatch invites patching the binary. The override SHALL NOT be the
-default, and taking it SHALL be reported as a warning by the diagnostic command.
-
 #### Scenario: Network filesystem detected on open
 
 - **WHEN** a SQLite database on a network filesystem is opened
@@ -301,11 +301,6 @@ default, and taking it SHALL be reported as a warning by the diagnostic command.
 
 - **WHEN** the diagnostic command runs against a SQLite file on a network filesystem
 - **THEN** it reports the path and the filesystem type
-
-#### Scenario: Override taken
-
-- **WHEN** the override is set and the database is on a network filesystem
-- **THEN** the database opens and the diagnostic command reports a warning that the override is active
 
 #### Scenario: Local filesystem
 
@@ -318,6 +313,17 @@ default, and taking it SHALL be reported as a warning by the diagnostic command.
 - **THEN** the database opens and the check reports a warning explaining what could not be verified
   rather than silently passing
 
+### Requirement: An operator may override the network filesystem refusal
+
+An operator SHALL be able to override the refusal explicitly, by flag or by configuration key,
+because a refusal with no escape hatch invites patching the binary. The override SHALL NOT be the
+default, and taking it SHALL be reported as a warning by the diagnostic command.
+
+#### Scenario: Override taken
+
+- **WHEN** the override is set and the database is on a network filesystem
+- **THEN** the database opens and the diagnostic command reports a warning that the override is active
+
 ### Requirement: Warn about a database inside a file-sync directory
 
 The system SHALL detect when a SQLite database sits inside a directory managed by a file
@@ -325,9 +331,6 @@ synchronisation tool and SHALL warn, because such a tool replaces whole files an
 divergence by choosing a winner, which loses one side's writes silently and can corrupt the
 database. The warning SHALL name both risks, since silent loss is the more common of the two and the
 less obvious.
-
-Detection is a heuristic, so the system SHALL warn rather than refuse. A false positive that blocked
-an operator from their own tasks would be worse than the risk it prevents.
 
 #### Scenario: Database inside a synchronised directory
 
@@ -338,6 +341,16 @@ an operator from their own tasks would be worse than the risk it prevents.
 
 - **WHEN** a database is opened from a directory with no such markers
 - **THEN** no warning is reported
+
+### Requirement: File-sync detection warns rather than refuses
+
+Detection is a heuristic, so the system SHALL warn rather than refuse. A false positive that blocked
+an operator from their own tasks would be worse than the risk it prevents.
+
+#### Scenario: The diagnostic command reports a synchronised directory as a warning
+
+- **WHEN** the diagnostic command runs against a database in a directory carrying a sync tool's marker
+- **THEN** its sync directory check is reported with a warning status rather than as a failure
 
 ### Requirement: Report existing sync conflict files
 
@@ -356,12 +369,6 @@ Text search results SHALL differ between engines: PostgreSQL SHALL provide token
 search and SQLite SHALL provide substring matching. The system SHALL report which search mode is
 active and SHALL NOT claim parity between them.
 
-The matching model is the only difference either engine is permitted. A search value SHALL be
-matched as literal text on both: no character the caller typed SHALL act as a pattern operator.
-On SQLite specifically, where the substring match is a `LIKE`, `%` and `_` SHALL be escaped and the
-predicate SHALL declare its escape character, exactly as the explicit title and body terms already
-do.
-
 #### Scenario: Substring matching on SQLite
 
 - **WHEN** a text search runs on SQLite
@@ -372,16 +379,24 @@ do.
 - **WHEN** the same text search runs on PostgreSQL
 - **THEN** results are matched by tokens and may include matches that substring matching would miss
 
+#### Scenario: Mode reported
+
+- **WHEN** a caller inspects capabilities or runs the diagnostic command
+- **THEN** the active search mode is reported and the difference is stated
+
+### Requirement: A search value is literal text on both engines
+
+The matching model is the only difference either engine is permitted. A search value SHALL be
+matched as literal text on both: no character the caller typed SHALL act as a pattern operator.
+On SQLite specifically, where the substring match is a `LIKE`, `%` and `_` SHALL be escaped and the
+predicate SHALL declare its escape character, exactly as the explicit title and body terms already
+do.
+
 #### Scenario: A wildcard character in the search value is literal
 
 - **WHEN** a text search runs for a value containing `%` or `_`
 - **THEN** only tasks whose text holds that character are returned, on either engine
 - **AND** tasks that a pattern operator would have matched are not returned
-
-#### Scenario: Mode reported
-
-- **WHEN** a caller inspects capabilities or runs the diagnostic command
-- **THEN** the active search mode is reported and the difference is stated
 
 ### Requirement: Engine selection from configuration
 
@@ -410,20 +425,21 @@ Each engine SHALL announce a transaction that appended events, as far as that en
 event reader acts on the commit rather than on a timer. The announcement SHALL be optional: an engine
 that cannot make one SHALL remain fully usable, and a reader given none SHALL poll.
 
+An announcement SHALL NOT block the transaction making it, and SHALL be made only after the commit is
+durable, so a reader woken by it never reads a position that does not yet exist.
+
+#### Scenario: Durability precedes the announcement
+
+- **WHEN** a reader is woken by a commit
+- **THEN** every event that commit appended is already readable
+
+### Requirement: PostgreSQL announces a commit through the database
+
 **PostgreSQL** SHALL announce through the database, so a commit made by any process connected to the
 same database reaches every reader of it. A process SHALL hold at most one listener connection however
 many tenants it is reading, so the cost of the announcement does not grow with the number of tenants.
 A listener connection that fails SHALL be retaken, and its absence SHALL be reported nowhere but the
 log, because a reader without it is late rather than wrong.
-
-**SQLite** SHALL announce within the writing process only. SQLite offers no cross-process
-notification, and the engine SHALL NOT invent one outside the database: a commit by a separate process
-against the same file SHALL be observed by the reader's poll instead. This limit SHALL be documented
-where a reader of the code and a reader of the specification will each meet it, rather than left to be
-discovered by measurement.
-
-An announcement SHALL NOT block the transaction making it, and SHALL be made only after the commit is
-durable, so a reader woken by it never reads a position that does not yet exist.
 
 #### Scenario: A PostgreSQL commit from another process wakes a reader
 
@@ -440,6 +456,14 @@ durable, so a reader woken by it never reads a position that does not yet exist.
 - **WHEN** the listener connection fails
 - **THEN** readers continue to deliver every event on their timer, a new listener connection is taken, and no event is lost
 
+### Requirement: SQLite announces a commit within the writing process only
+
+**SQLite** SHALL announce within the writing process only. SQLite offers no cross-process
+notification, and the engine SHALL NOT invent one outside the database: a commit by a separate process
+against the same file SHALL be observed by the reader's poll instead. This limit SHALL be documented
+where a reader of the code and a reader of the specification will each meet it, rather than left to be
+discovered by measurement.
+
 #### Scenario: A SQLite commit in the same process wakes a reader
 
 - **WHEN** a transaction appending events commits in the same process as a reader of that tenant
@@ -449,11 +473,6 @@ durable, so a reader woken by it never reads a position that does not yet exist.
 
 - **WHEN** a separate process commits a transaction appending events to the same SQLite file
 - **THEN** the reader observes those events within its poll interval, in order, with none missing
-
-#### Scenario: Durability precedes the announcement
-
-- **WHEN** a reader is woken by a commit
-- **THEN** every event that commit appended is already readable
 
 ### Requirement: A page of tasks reaches its tags and dependencies by task
 

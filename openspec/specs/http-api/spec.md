@@ -103,7 +103,7 @@ All list endpoints SHALL paginate using a keyset cursor over a stable sort key a
 
 ### Requirement: Custom field filters on list queries
 
-A list route SHALL accept custom field filters in two forms: a shorthand query parameter per field, spelled `field.<key>=<value>`, and one typed JSON object in a `custom_fields` parameter. A shorthand value SHALL be typed as the JSON scalar it spells, so an unquoted number filters a number and anything that is not JSON stays the string it was typed as. When both forms name the same key, the shorthand SHALL win. A key the store cannot address, a shorthand key given more than once, and a value that is not a string, number, or boolean SHALL each be rejected with a validation error.
+A list route SHALL accept custom field filters in two forms: a shorthand query parameter per field, spelled `field.<key>=<value>`, and one typed JSON object in a `custom_fields` parameter. A shorthand value SHALL be typed as the JSON scalar it spells, so an unquoted number filters a number and anything that is not JSON stays the string it was typed as. When both forms name the same key, the shorthand SHALL win.
 
 #### Scenario: Shorthand parameter
 
@@ -119,6 +119,10 @@ A list route SHALL accept custom field filters in two forms: a shorthand query p
 
 - **WHEN** a client supplies the same key in both forms, as in `?custom_fields={"severity":"low"}&field.severity=high`
 - **THEN** the filter applied is the shorthand value `high`
+
+### Requirement: An unusable custom field filter is rejected
+
+A key the store cannot address, a shorthand key given more than once, and a value that is not a string, number, or boolean SHALL each be rejected with a validation error.
 
 #### Scenario: Malformed key
 
@@ -295,10 +299,30 @@ Besides the resource routes, the API SHALL serve these routes under `/api/v1`:
 - identity and sessions: `GET /whoami`, `POST /auth/login`, `POST /auth/logout`
 - the directory: `GET /actors`, `GET /actors/{id}`, and membership at `/members` and
   `/members/{actorID}`
+
+#### Scenario: Every registry route is served
+
+- **WHEN** each HTTP binding in the capability registry is requested on the real server mux
+- **THEN** none answers 404 or 405
+
+### Requirement: Second factor and SSH key routes are served
+
+Besides the resource routes, the API SHALL serve these routes under `/api/v1`:
+
 - second factor: `GET`, `POST` and `DELETE /auth/totp`, `POST /auth/totp/confirm`,
   `POST /auth/totp/verify`, `POST /auth/totp/recovery-codes`, and `DELETE /users/{id}/totp` for an
   administrator clearing another user's enrolment
 - ssh keys: `/ssh-keys` and `/ssh-keys/{id}`
+
+#### Scenario: A revoked SSH key is still listed
+
+- **WHEN** a client revokes one of its two enrolled SSH keys and then lists its keys at `/api/v1/ssh-keys`
+- **THEN** both keys are returned, and the revoked one is reported as revoked
+
+### Requirement: Task movement, retention, report and connection routes are served
+
+Besides the resource routes, the API SHALL serve these routes under `/api/v1`:
+
 - task movement and history: `POST /tasks/{ref}/route` for a multi-hop move, `POST
   /tasks/{ref}/restore`, `GET /tasks/{ref}/tree`, `GET /tasks/{ref}/audit` and
   `POST /tasks/{ref}/claim/reclaim`
@@ -306,21 +330,18 @@ Besides the resource routes, the API SHALL serve these routes under `/api/v1`:
 - reports: `GET /stats` and `GET /status`
 - live connections: `GET /connections` and `DELETE /connections/{id}`
 
-Each SHALL answer with the standard error envelope on failure and SHALL be held to the same scopes
-as the CLI command bound to the same operation.
-
 #### Scenario: Restoring a deleted task over HTTP
 
 - **GIVEN** a soft-deleted task `infra-3`
 - **WHEN** a client holding `task:delete` sends `POST /api/v1/tasks/infra-3/restore`
 - **THEN** the task is listed again and the response carries it
 
+### Requirement: Routes beyond the resource collections fail and authorize like the CLI
+
+Each route beyond the resource collections SHALL answer with the standard error envelope on failure
+and SHALL be held to the same scopes as the CLI command bound to the same operation.
+
 #### Scenario: A route without its scope
 
 - **WHEN** a client without `tenant:admin` sends `GET /api/v1/connections`
 - **THEN** the response is 403 in the standard error envelope
-
-#### Scenario: Every registry route is served
-
-- **WHEN** each HTTP binding in the capability registry is requested on the real server mux
-- **THEN** none answers 404 or 405

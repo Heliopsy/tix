@@ -35,25 +35,28 @@ remove it.
 The parser SHALL accept `every [N] UNIT` with UNIT one of day, week, month or year (singular or plural),
 N from 1 to 1000, the shorthands `daily`, `weekly`, `monthly` and `yearly`, an optional `on` clause
 naming weekdays for a weekly rule or `on day D` (1 to 31) for a monthly rule, an optional `after done`
-anchor, and at most one end: `until YYYY-MM-DD` or `for N times` (1 to 1000). The leading `every` MAY be
-omitted only in the form `N UNIT after done`. Words SHALL be matched case-insensitively.
-
-Anything else SHALL be refused as invalid input with a message naming the problem: an unknown word, a
-clause given twice, weekdays on a rule that is not weekly, a day of month on a rule that is not monthly,
-both `until` and `for`, or a number out of range.
-
-Rendering a parsed rule SHALL produce its canonical spelling, and parsing a canonical spelling SHALL
-reproduce it exactly.
+anchor, and at most one end: `until YYYY-MM-DD` or `for N times` (1 to 1000).
 
 #### Scenario: Shorthand and long form agree
 
 - **WHEN** `monthly` and `every 1 month` are parsed
 - **THEN** both render as `every month`
 
+### Requirement: A rule may drop its leading every only after done, and its words ignore case
+
+The leading `every` MAY be omitted only in the form `N UNIT after done`. Words SHALL be matched
+case-insensitively.
+
 #### Scenario: After done without every
 
 - **WHEN** `3 days after done` is parsed
 - **THEN** it renders as `every 3 days after done`
+
+### Requirement: A rule outside the syntax is refused naming the problem
+
+Anything else SHALL be refused as invalid input with a message naming the problem: an unknown word, a
+clause given twice, weekdays on a rule that is not weekly, a day of month on a rule that is not monthly,
+both `until` and `for`, or a number out of range.
 
 #### Scenario: Weekdays on a monthly rule
 
@@ -64,6 +67,11 @@ reproduce it exactly.
 
 - **WHEN** `every day until 2027-01-01 for 3 times` is parsed
 - **THEN** it is refused, naming that a rule takes one end
+
+### Requirement: A rule renders and parses as its canonical spelling
+
+Rendering a parsed rule SHALL produce its canonical spelling, and parsing a canonical spelling SHALL
+reproduce it exactly.
 
 #### Scenario: Round trip
 
@@ -77,9 +85,6 @@ create the next occurrence in the same transaction as the move, writing its row,
 `task.created` event alongside the move's own. A state completes work when it is terminal and its category
 is `done` or unset. If any part of the write fails, neither the move nor the new task SHALL be stored.
 
-This SHALL apply to an ordinary transition, to every hop of a route, and to a lease release that names a
-final status.
-
 #### Scenario: Completing a weekly task
 
 - **WHEN** a task due Monday 2 November carrying `every week` is moved to `done` on that Monday
@@ -90,6 +95,11 @@ final status.
 
 - **WHEN** creating the next occurrence fails inside the transaction
 - **THEN** the original task is still in its previous state and no new task exists
+
+### Requirement: Every move that finishes a recurring task creates its next occurrence
+
+Creating the next occurrence SHALL apply to an ordinary transition, to every hop of a route, and to a lease release that names a
+final status.
 
 #### Scenario: A release that finishes the task
 
@@ -136,11 +146,6 @@ occurrence of the rule counted from the previous due date that falls after both 
 the completion moment. For an `after done` rule, or a task with no due date, the rule SHALL be counted
 from the completion date, at the previous due date's time of day or at midnight when there was none.
 
-Occurrences SHALL be computed from their origin in the origin's location, preserving its wall-clock time.
-A monthly rule SHALL keep the origin's day of month, or the `on day` day, clamped to the end of a shorter
-month; a yearly rule SHALL keep month and day, clamping 29 February. Weeks SHALL start on Monday, and a
-weekly rule with weekdays SHALL take the listed weekdays of every Nth week counted from the origin's week.
-
 #### Scenario: Finished late on a schedule
 
 - **WHEN** a task due 1 October carrying `every week` is finished on 20 October
@@ -155,6 +160,13 @@ weekly rule with weekdays SHALL take the listed weekdays of every Nth week count
 
 - **WHEN** a task with no due date carrying `every 2 weeks` is finished on 20 October
 - **THEN** the next occurrence is due 3 November at midnight
+
+### Requirement: Occurrences keep the origin's wall-clock time, day and week
+
+Occurrences SHALL be computed from their origin in the origin's location, preserving its wall-clock time.
+A monthly rule SHALL keep the origin's day of month, or the `on day` day, clamped to the end of a shorter
+month; a yearly rule SHALL keep month and day, clamping 29 February. Weeks SHALL start on Monday, and a
+weekly rule with weekdays SHALL take the listed weekdays of every Nth week counted from the origin's week.
 
 #### Scenario: Month end
 

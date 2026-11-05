@@ -34,6 +34,18 @@ A workflow SHALL be a named state machine consisting of a set of states and a se
 
 The system SHALL ship a builtin default workflow containing the states `todo`, `doing`, `blocked`, `done`, and `cancelled`, so that a fresh installation is usable without configuring any workflow.
 
+#### Scenario: Fresh installation
+
+- **WHEN** a project is created on a fresh installation with no workflow configured
+- **THEN** the project is assigned the builtin default workflow and tasks can be created and transitioned without further configuration
+
+#### Scenario: Default terminal states
+
+- **WHEN** the builtin default workflow is inspected
+- **THEN** `done` and `cancelled` are reported as terminal states and `todo` is reported as the initial state
+
+### Requirement: The builtin workflow is seeded per tenant, idempotently
+
 A workflow belongs to exactly one tenant, so the builtin workflow SHALL be seeded per tenant, at the
 moment the tenant is created, rather than by a schema migration: a migration runs once per database
 and cannot reach a tenant created afterwards. Seeding SHALL be idempotent, so a repeated start or a
@@ -48,16 +60,6 @@ retry after a partial failure neither duplicates the workflow nor fails.
 
 - **WHEN** the seeding path runs again against a tenant that already holds the builtin default workflow
 - **THEN** it succeeds and the tenant still holds exactly one workflow under that key
-
-#### Scenario: Fresh installation
-
-- **WHEN** a project is created on a fresh installation with no workflow configured
-- **THEN** the project is assigned the builtin default workflow and tasks can be created and transitioned without further configuration
-
-#### Scenario: Default terminal states
-
-- **WHEN** the builtin default workflow is inspected
-- **THEN** `done` and `cancelled` are reported as terminal states and `todo` is reported as the initial state
 
 ### Requirement: Project workflow assignment
 
@@ -441,20 +443,6 @@ A workflow key SHALL start with a letter, SHALL end with a letter or a digit, SH
 digits, hyphens and underscores, and SHALL be at most 64 characters. This is the shape a project key already
 holds, and it is held for the same reason: the key is spent as a path segment in a URL.
 
-A key failing the shape SHALL be refused as invalid input, and the refusal SHALL name the workflow key so an
-operator is not left guessing which field was wrong.
-
-The rule SHALL be enforced by the contract rather than by one surface, so the command line, the HTTP API, the
-browser editor and a snapshot import all refuse the same keys.
-
-A refused key SHALL leave no workflow stored and SHALL produce no redirect.
-
-#### Scenario: A key carrying a path separator
-
-- **WHEN** a workflow is saved under a key containing a slash, or one made of relative path segments such as `../admin`
-- **THEN** the save is refused as invalid input naming the workflow key
-- **AND** no workflow is stored and the response carries no redirect location
-
 #### Scenario: A key carrying a query or a fragment
 
 - **WHEN** a workflow is saved under a key containing `?` or `#`
@@ -464,6 +452,24 @@ A refused key SHALL leave no workflow stored and SHALL produce no redirect.
 
 - **WHEN** a workflow is saved under a key of letters, digits, hyphens or underscores beginning with a letter
 - **THEN** the save succeeds and the response redirects to that workflow's own route under the workflows prefix
+
+### Requirement: A refused workflow key is named and leaves nothing behind
+
+A key failing the shape SHALL be refused as invalid input, and the refusal SHALL name the workflow key so an
+operator is not left guessing which field was wrong.
+
+A refused key SHALL leave no workflow stored and SHALL produce no redirect.
+
+#### Scenario: A key carrying a path separator
+
+- **WHEN** a workflow is saved under a key containing a slash, or one made of relative path segments such as `../admin`
+- **THEN** the save is refused as invalid input naming the workflow key
+- **AND** no workflow is stored and the response carries no redirect location
+
+### Requirement: The contract enforces the workflow key shape for every surface
+
+The rule SHALL be enforced by the contract rather than by one surface, so the command line, the HTTP API, the
+browser editor and a snapshot import all refuse the same keys.
 
 #### Scenario: Every surface refuses it
 

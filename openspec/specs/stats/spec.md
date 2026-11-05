@@ -13,9 +13,6 @@ The system SHALL report, for a tenant and optionally one project, over a window 
 - the number of tasks that reached a terminal state in the window, and the same count per day
 - the number of tasks created in the window
 - the median and slowest time from creation to terminal state, over tasks that reached one in the window
-- the count of tasks currently in each state category
-- the actors who moved the most tasks to a terminal state, with their counts
-- the oldest tasks not yet in a terminal state, with their age
 
 Every count SHALL be scoped to one tenant, and SHALL NOT include tasks from any other tenant.
 
@@ -43,6 +40,19 @@ Every count SHALL be scoped to one tenant, and SHALL NOT include tasks from any 
 
 - **WHEN** statistics are read for a window in which nothing happened
 - **THEN** every count is zero, every list is empty, and the call succeeds
+
+### Requirement: The system reports open work by state and age and the actors who closed the most
+
+The system SHALL report, for a tenant and optionally one project, over a window ending now:
+
+- the count of tasks currently in each state category
+- the actors who moved the most tasks to a terminal state, with their counts
+- the oldest tasks not yet in a terminal state, with their age
+
+#### Scenario: The actors who closed the most are named with their counts
+
+- **WHEN** one actor moves two tasks to a terminal state inside the window and another actor moves one
+- **THEN** the first actor is reported with a count of two, ahead of the second with a count of one
 
 ### Requirement: Statistics are reachable from every surface
 

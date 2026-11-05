@@ -526,26 +526,28 @@ including across the page boundary where the starred group ends.
 A cursor issued before stars existed SHALL remain valid and SHALL resume among the unstarred
 tasks.
 
-A task starred or unstarred while a listing is being walked SHALL move between the groups as a
-task whose sort key changed does: the cursor SHALL remain valid, the walk SHALL continue, the
-moved task MAY be returned twice or not at all, and no other task SHALL be skipped or repeated.
-
 #### Scenario: Walking across the boundary
 
 - **GIVEN** five starred and seven unstarred tasks
 - **WHEN** they are listed two at a time, in either direction and under every sort, following each next cursor
 - **THEN** each of the twelve tasks is returned exactly once, the five starred ones first
 
+#### Scenario: An old cursor still pages
+
+- **WHEN** a cursor carrying no starred state is presented
+- **THEN** the listing resumes among the unstarred tasks after the position the cursor names
+
+### Requirement: A task starred during a walk moves between the groups
+
+A task starred or unstarred while a listing is being walked SHALL move between the groups as a
+task whose sort key changed does: the cursor SHALL remain valid, the walk SHALL continue, the
+moved task MAY be returned twice or not at all, and no other task SHALL be skipped or repeated.
+
 #### Scenario: Starring during a walk
 
 - **GIVEN** a reader part of the way through the unstarred group
 - **WHEN** they star a task they have not reached yet and then request the next page
 - **THEN** the next page continues from the cursor, the remaining unchanged tasks are each returned once, and no error is raised
-
-#### Scenario: An old cursor still pages
-
-- **WHEN** a cursor carrying no starred state is presented
-- **THEN** the listing resumes among the unstarred tasks after the position the cursor names
 
 ### Requirement: Deleting a task removes its stars
 

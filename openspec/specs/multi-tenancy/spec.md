@@ -256,7 +256,7 @@ Selecting the tenant that later commands work in SHALL be an operation, not an i
 
 ### Requirement: Tenant selection is reachable from the terminal interface
 
-Switching the tenant a session works in SHALL be reachable from inside the terminal interface, and SHALL NOT require leaving it and relaunching. The interface SHALL take a typed tenant key rather than offering a list, because tenant listings are scoped to the caller's own tenant and so cannot enumerate the alternatives. The key SHALL be checked by opening a connection pinned to it and asking that connection who the actor is, which is the same check the command-line selection makes and for the same reason.
+Switching the tenant a session works in SHALL be reachable from inside the terminal interface, and SHALL NOT require leaving it and relaunching. The interface SHALL take a typed tenant key rather than offering a list, because tenant listings are scoped to the caller's own tenant and so cannot enumerate the alternatives.
 
 #### Scenario: Switching without leaving the interface
 
@@ -268,15 +268,19 @@ Switching the tenant a session works in SHALL be reachable from inside the termi
 - **WHEN** the terminal interface asks which tenant to switch to
 - **THEN** it takes a typed key and states that no list exists, because an actor belongs to one tenant and a tenant it cannot see is indistinguishable from one that was never created
 
-#### Scenario: A failed switch changes nothing
-
-- **WHEN** the typed key cannot be reached
-- **THEN** the session keeps working in the tenant it was in and the failure names the key
-
 #### Scenario: The switch is not written down
 
 - **WHEN** a tenant is switched to from inside the terminal interface
 - **THEN** the choice applies to that session only, and the persisted selection is unchanged
+
+### Requirement: A tenant key typed into the terminal interface is checked like the command line's
+
+The typed tenant key SHALL be checked by opening a connection pinned to it and asking that connection who the actor is, which is the same check the command-line selection makes and for the same reason.
+
+#### Scenario: A failed switch changes nothing
+
+- **WHEN** the typed key cannot be reached
+- **THEN** the session keeps working in the tenant it was in and the failure names the key
 
 ### Requirement: Tenant resolved once per request
 
