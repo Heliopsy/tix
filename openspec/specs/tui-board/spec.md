@@ -11,16 +11,18 @@ Lays out the terminal board: what a card draws, in what order, and what it drops
 A board card SHALL draw the task's title first, across the column's text width, and SHALL draw the
 reference, the priority and the task's markers beneath it in the dim style.
 
-A title that does not fit on one line SHALL wrap onto at most one further line, broken on a word where
-the line allows it, and the continuation SHALL begin in the same text column as the first line. Only the
-last line drawn SHALL be truncated, and truncation SHALL be marked with an ellipsis.
-
 A card whose title fits on one line SHALL occupy one line of title and no more.
 
 #### Scenario: A title that fits takes one line
 
 - **WHEN** a task's title fits the column's text width
 - **THEN** the card draws one title line and one line of identifiers
+
+### Requirement: A long card title wraps once and is cut once
+
+A title that does not fit on one line SHALL wrap onto at most one further line, broken on a word where
+the line allows it, and the continuation SHALL begin in the same text column as the first line. Only the
+last line drawn SHALL be truncated, and truncation SHALL be marked with an ellipsis.
 
 #### Scenario: A long title wraps to an indented continuation
 
@@ -149,15 +151,17 @@ The deadline marker SHALL be rendered through the theme's own style for that dea
 the theme's priority and category styles are built, so that it is flattened to the terminal's declared
 colour depth and renders as an unstyled string when the theme carries no colour.
 
-The style for a passed deadline, the style for a near one and the dim style the rest of the identifier line
-uses SHALL be distinct from one another where colour is available. A deadline that is not notable SHALL
-carry no style of its own.
-
 #### Scenario: The marker is not drawn dim
 
 - **WHEN** a card carrying a passed deadline is rendered in colour
 - **THEN** the marker is rendered by the theme's overdue style
 - **AND** it is not rendered by the dim style the rest of the line uses
+
+### Requirement: Deadline styles are distinct and a distant deadline is plain
+
+The style for a passed deadline, the style for a near one and the dim style the rest of the identifier line
+uses SHALL be distinct from one another where colour is available. A deadline that is not notable SHALL
+carry no style of its own.
 
 #### Scenario: A distant deadline has no style
 
