@@ -1166,8 +1166,10 @@ Add disclosure as Create a user, Issue a token, Enrol a key, Map a hostname and 
 itself while there is no channel and when a refused form comes back to it.
 
 On a phone or tablet, where the main input is a finger (`(hover: none) and (pointer: coarse)`), the
-Hover effects row and the Keyboard section are not drawn, nor are the account menu's Keyboard shortcuts
-entry, the palette's key hints and the create forms' Ctrl+Enter line. A touch laptop keeps them.
+Hover effects row, the Drag to move row and the Keyboard section are not drawn, nor are the account
+menu's Keyboard shortcuts entry, the palette's key hints, its Keyboard and Keyboard shortcuts entries
+and the create forms' Ctrl+Enter line. A board card is not lifted by a long press there; its Move menu
+is how a finger moves it. A touch laptop keeps all of them.
 
 Every form on the screen returns to `/settings?flash=...#section`, so after the full-page reload the
 reader is back at the section they changed with a toast naming what was saved. The shared Listings
@@ -1269,7 +1271,9 @@ Settings can override the browser's choice for this browser (`tix_lang`).
 A small (i) beside a heading, a filter or a figure opens a sentence or two on what it means and names
 the page in `docs/` that says more. It is a disclosure, so it works with no script, from the keyboard
 and on touch. Beside a heading, a label or a setting's name the note opens under that line and pushes
-what follows down, rather than floating over the next row; one in a toolbar still floats.
+what follows down, rather than floating over the next row. One in a toolbar, the view switch or the
+task screen's header, floats on a wide screen with a mouse and opens under the toolbar the same way
+on a phone, a tablet or any window narrower than 900px.
 
 A placeholder is italic, in the muted colour and the body font even in a monospace field, so it does
 not read as a value already saved, and one that gives an example says so: "For example, laptop".

@@ -127,6 +127,16 @@ type paletteEntry struct {
 	Label string `json:"label"`
 	Hint  string `json:"hint,omitempty"`
 	Href  string `json:"href,omitempty"`
+	// Keys marks an entry pointing at something only a keyboard uses, which
+	// a touch-only device does not draw and assets/palette.js leaves out.
+	Keys bool `json:"keys,omitempty"`
+}
+
+// paletteNeedsKeys are the entry ids whose target is drawn only for a
+// device with a keyboard and a hovering pointer: .needs-keys in app.css.
+var paletteNeedsKeys = map[string]bool{
+	"screen:" + RouteSettings + "#keyboard": true,
+	"shortcuts":                             true,
 }
 
 // paletteData is what a page embeds for the palette.
@@ -213,14 +223,15 @@ func paletteDataFor(lang string, advanced, admin bool) paletteData {
 		if (s.Advanced && !advanced) || (s.Admin && !admin) {
 			continue
 		}
-		e := paletteEntry{ID: "screen:" + s.Href, Label: i18n.T(lang, s.Label), Href: s.Href}
+		id := "screen:" + s.Href
+		e := paletteEntry{ID: id, Label: i18n.T(lang, s.Label), Href: s.Href, Keys: paletteNeedsKeys[id]}
 		if s.Hint != "" {
 			e.Hint = i18n.T(lang, s.Hint)
 		}
 		data.Screens = append(data.Screens, e)
 	}
 	for _, a := range paletteActions {
-		data.Actions = append(data.Actions, paletteEntry{ID: a.ID, Label: i18n.T(lang, a.Label)})
+		data.Actions = append(data.Actions, paletteEntry{ID: a.ID, Label: i18n.T(lang, a.Label), Keys: paletteNeedsKeys[a.ID]})
 	}
 	return data
 }

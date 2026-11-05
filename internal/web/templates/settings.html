@@ -105,7 +105,9 @@
       </div>
     </form>
 
-    <form class="setrow" method="post" action="/dragmove" hx-boost="false">
+    {{/* Not drawn where the main input is a finger: a card's Move menu is how
+         a finger moves it. See .needs-drag in app.css. */}}
+    <form class="setrow needs-drag" method="post" action="/dragmove" hx-boost="false">
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Drag to move" "appearance"}}">
       <div class="setrow-text">

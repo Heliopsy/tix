@@ -277,6 +277,11 @@ sidebar or a tip repeated on every page, is captured once, and a menu repeated o
 `--max-popups N` (default 40) caps one page state. Toasts are not captured: they follow a change, and the
 tool makes none.
 
+The phone and tablet shots keep their touch emulation while they are taken: Playwright's full-page
+capture drops it, so for those two the tool grows the viewport to the page's height and takes a plain
+shot instead. A phone shot shows what a phone shows, without the rows hidden under
+`(hover: none) and (pointer: coarse)`.
+
 Animations and transitions are off, fonts and htmx settle before each shot, and the viewports run one after
 another in a single browser, so a full run stays light on the machine. Playwright is pinned in
 `scripts/screenshots/package-lock.json`; the recipe installs it and Chromium only when they are missing.

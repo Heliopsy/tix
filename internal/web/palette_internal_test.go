@@ -3,6 +3,8 @@
 package web
 
 import (
+	"os"
+	"regexp"
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -76,5 +78,37 @@ func TestPaletteHintsTheAdminGroup(t *testing.T) {
 		if s.Advanced && s.Hint != "Admin" {
 			t.Errorf("%s sits in the Admin group and is hinted %q", s.Href, s.Hint)
 		}
+	}
+}
+
+// A section a touch-only device does not draw (.needs-keys on Settings) and
+// the shortcuts overlay are not offered by the palette there either: their
+// entries carry keys, which assets/palette.js leaves out on such a device.
+// Every other entry stays offered.
+func TestPaletteMarksWhatATouchDeviceDoesNotDraw(t *testing.T) {
+	t.Parallel()
+	raw, err := os.ReadFile("templates/settings.html")
+	if err != nil {
+		t.Fatalf("reading the settings template: %v", err)
+	}
+	hidden := map[string]bool{"shortcuts": true}
+	for _, m := range regexp.MustCompile(`<section class="setgroup needs-keys" id="([a-z-]+)">`).FindAllStringSubmatch(string(raw), -1) {
+		hidden["screen:"+RouteSettings+"#"+m[1]] = true
+	}
+	if len(hidden) < 2 {
+		t.Fatal("the settings template has no keyboard-only section to check")
+	}
+	data := paletteDataFor("en", true, true)
+	seen := 0
+	for _, e := range append(data.Screens, data.Actions...) {
+		if e.Keys != hidden[e.ID] {
+			t.Errorf("palette entry %s keys = %v, want %v", e.ID, e.Keys, hidden[e.ID])
+		}
+		if hidden[e.ID] {
+			seen++
+		}
+	}
+	if seen != len(hidden) {
+		t.Errorf("the palette offers %d of the %d keyboard-only entries", seen, len(hidden))
 	}
 }
