@@ -52,7 +52,7 @@ paths:
   /api/v1/actors:
     get:
       description: |-
-        ListActors returns this tenant's directory, agents included, so a caller can offer the actors it holds instead of asking for an identifier to be typed from memory. Like GetActor it returns the naming fields only, never authority.
+        ListActors lists this tenant's actors, agents included, keyset paginated. A caller can offer them instead of asking for an identifier typed from memory. Like GetActor it returns the naming fields only, never authority.
 
         Command line: `tix actor ls`.
 
@@ -119,9 +119,7 @@ paths:
       security:
         - bearer: []
         - session: []
-      summary: ListActors returns this tenant's directory, agents included, so a caller
-        can offer the actors it holds instead of asking for an identifier to be typed
-        from memory
+      summary: ListActors lists this tenant's actors, agents included, keyset paginated
       tags:
         - actor
       x-tix-openspec:
@@ -129,7 +127,7 @@ paths:
   /api/v1/actors/{id}:
     get:
       description: |-
-        GetActor resolves an actor identifier of this tenant to the identity behind it, so a record can name who acted rather than show a raw identifier. It returns the naming fields only, never authority.
+        GetActor returns the actor an identifier of this tenant names, so a record can show who acted rather than a raw identifier. It returns the naming fields only, never authority.
 
         Command line: `tix actor show`.
 
@@ -169,8 +167,8 @@ paths:
       security:
         - bearer: []
         - session: []
-      summary: GetActor resolves an actor identifier of this tenant to the identity
-        behind it, so a record can name who acted rather than show a raw identifier
+      summary: GetActor returns the actor an identifier of this tenant names, so a
+        record can show who acted rather than a raw identifier
       tags:
         - actor
       x-tix-openspec:
@@ -178,7 +176,7 @@ paths:
   /api/v1/audit:
     get:
       description: |-
-        audit.list.
+        ListAudit lists audit entries matching the filter, one keyset-paginated page at a time, with the cursor for the next page.
 
         Command line: `tix audit ls`.
       operationId: audit.list
@@ -285,7 +283,8 @@ paths:
             - audit:read
         - session:
             - audit:read
-      summary: audit.list
+      summary: ListAudit lists audit entries matching the filter, one keyset-paginated
+        page at a time, with the cursor for the next page
       tags:
         - audit
   /api/v1/auth/login:
@@ -342,7 +341,7 @@ paths:
   /api/v1/auth/logout:
     post:
       description: |-
-        session.logout.
+        Logout ends the session the caller presented. With no session to end it answers unauthenticated.
 
         Command line: `tix logout`.
 
@@ -376,7 +375,7 @@ paths:
       security:
         - bearer: []
         - session: []
-      summary: session.logout
+      summary: Logout ends the session the caller presented
       tags:
         - session
       x-tix-openspec:
@@ -858,7 +857,7 @@ paths:
   /api/v1/calendar:
     delete:
       description: |-
-        RevokeCalendarFeed stops the caller's feed.
+        RevokeCalendarFeed stops the caller's feed, so its address answers not_found from then on.
 
         Command line: `tix calendar revoke`.
       operationId: calendar.revoke
@@ -888,12 +887,13 @@ paths:
             - task:read
         - session:
             - task:read
-      summary: RevokeCalendarFeed stops the caller's feed
+      summary: RevokeCalendarFeed stops the caller's feed, so its address answers
+        not_found from then on
       tags:
         - calendar
     get:
       description: |-
-        GetCalendarFeed returns the caller's live feed.
+        GetCalendarFeed returns the caller's live feed, without its secret. It is not_found when the caller has none.
 
         Command line: `tix calendar show`.
       operationId: calendar.show
@@ -929,7 +929,7 @@ paths:
             - task:read
         - session:
             - task:read
-      summary: GetCalendarFeed returns the caller's live feed
+      summary: GetCalendarFeed returns the caller's live feed, without its secret
       tags:
         - calendar
     patch:
@@ -1083,7 +1083,7 @@ paths:
   /api/v1/calendar/rotate:
     post:
       description: |-
-        RotateCalendarFeed replaces the caller's feed secret, keeping the filter.
+        RotateCalendarFeed replaces the caller's feed secret, keeping the filter. The old address stops answering in the same transaction and the new secret is returned once; not_found when there is no live feed.
 
         Command line: `tix calendar rotate`.
       operationId: calendar.rotate
@@ -1130,7 +1130,7 @@ paths:
   /api/v1/channel-deliveries/{id}/redeliver:
     post:
       description: |-
-        RedeliverChannelDelivery queues another attempt of a delivery.
+        RedeliverChannelDelivery queues another attempt of one of the caller's deliveries, made on the next drain. Another person's is not_found.
 
         Command line: `tix inbox channel redeliver`.
       operationId: inbox.channel.redeliver
@@ -1170,7 +1170,8 @@ paths:
             - task:read
         - session:
             - task:read
-      summary: RedeliverChannelDelivery queues another attempt of a delivery
+      summary: RedeliverChannelDelivery queues another attempt of one of the caller's
+        deliveries, made on the next drain
       tags:
         - inbox
   /api/v1/channels:
@@ -1509,7 +1510,7 @@ paths:
   /api/v1/claims/next:
     post:
       description: |-
-        claim.next.
+        ClaimNext claims the highest-priority unblocked, unclaimed task matching the filter and returns it with its lease token. An empty queue answers no_task_available.
 
         Command line: `tix claim next`.
       operationId: claim.next
@@ -1553,13 +1554,14 @@ paths:
             - task:claim
         - session:
             - task:claim
-      summary: claim.next
+      summary: ClaimNext claims the highest-priority unblocked, unclaimed task matching
+        the filter and returns it with its lease token
       tags:
         - claim
   /api/v1/claims/sweep:
     post:
       description: |-
-        claim.sweep.
+        SweepLeases clears up to limit expired leases and reports how many it cleared. Each is recorded, and the status reverts where the workflow asks.
 
         Command line: `tix claim sweep`.
       operationId: claim.sweep
@@ -1603,13 +1605,14 @@ paths:
             - task:write
         - session:
             - task:write
-      summary: claim.sweep
+      summary: SweepLeases clears up to limit expired leases and reports how many
+        it cleared
       tags:
         - claim
   /api/v1/comments/{id}:
     delete:
       description: |-
-        comment.delete.
+        DeleteComment soft deletes a comment, so it no longer lists.
 
         Command line: `tix comment rm`.
       operationId: comment.delete
@@ -1645,12 +1648,12 @@ paths:
             - comment:write
         - session:
             - comment:write
-      summary: comment.delete
+      summary: DeleteComment soft deletes a comment, so it no longer lists
       tags:
         - comment
     patch:
       description: |-
-        comment.edit.
+        EditComment replaces a comment's body and marks it edited. A deleted comment is not_found.
 
         Command line: `tix comment edit`.
       operationId: comment.edit
@@ -1700,7 +1703,7 @@ paths:
             - comment:write
         - session:
             - comment:write
-      summary: comment.edit
+      summary: EditComment replaces a comment's body and marks it edited
       tags:
         - comment
   /api/v1/connections:
@@ -1799,7 +1802,7 @@ paths:
   /api/v1/domains:
     get:
       description: |-
-        domain.list.
+        ListDomains lists the hostnames mapped to the current tenant.
 
         Command line: `tix domain ls`.
       operationId: domain.list
@@ -1846,12 +1849,12 @@ paths:
             - tenant:admin
         - session:
             - tenant:admin
-      summary: domain.list
+      summary: ListDomains lists the hostnames mapped to the current tenant
       tags:
         - domain
     post:
       description: |-
-        domain.add.
+        AddDomain maps a hostname to the current tenant, so requests to that host resolve to it. A certificate mode of file needs both a certificate and a key path.
 
         Command line: `tix domain add`.
       operationId: domain.add
@@ -1895,13 +1898,14 @@ paths:
             - tenant:admin
         - session:
             - tenant:admin
-      summary: domain.add
+      summary: AddDomain maps a hostname to the current tenant, so requests to that
+        host resolve to it
       tags:
         - domain
   /api/v1/domains/{hostname}:
     delete:
       description: |-
-        domain.remove.
+        RemoveDomain detaches a hostname from the current tenant. An unmapped hostname is not_found.
 
         Command line: `tix domain rm`.
       operationId: domain.remove
@@ -1937,11 +1941,12 @@ paths:
             - tenant:admin
         - session:
             - tenant:admin
-      summary: domain.remove
+      summary: RemoveDomain detaches a hostname from the current tenant
       tags:
         - domain
     get:
-      description: domain.resolve.
+      description: ResolveDomain returns the tenant a hostname is mapped to. It runs
+        before authentication and reads across tenants.
       operationId: domain.resolve
       parameters:
         - in: path
@@ -1977,13 +1982,13 @@ paths:
       security:
         - bearer: []
         - session: []
-      summary: domain.resolve
+      summary: ResolveDomain returns the tenant a hostname is mapped to
       tags:
         - domain
   /api/v1/events:
     get:
       description: |-
-        event.subscribe.
+        Subscribe streams committed events matching the filter, from the given sequence number or from now. A sequence number already pruned is invalid.
 
         Command line: `tix watch`.
       operationId: event.subscribe
@@ -2011,13 +2016,14 @@ paths:
             - event:subscribe
         - session:
             - event:subscribe
-      summary: event.subscribe
+      summary: Subscribe streams committed events matching the filter, from the given
+        sequence number or from now
       tags:
         - event
   /api/v1/export:
     post:
       description: |-
-        ExportTo writes a snapshot as it walks the data.
+        ExportTo writes a snapshot of the tenant's data as a stream of records, walking the data as it writes.
 
         Command line: `tix export`.
       operationId: snapshot.export
@@ -2060,7 +2066,8 @@ paths:
             - export
         - session:
             - export
-      summary: ExportTo writes a snapshot as it walks the data
+      summary: ExportTo writes a snapshot of the tenant's data as a stream of records,
+        walking the data as it writes
       tags:
         - snapshot
   /api/v1/filters:
@@ -2119,7 +2126,7 @@ paths:
         - filter
     post:
       description: |-
-        CreateSavedFilter saves a new filter for the caller.
+        CreateSavedFilter saves a new filter for the caller. A name the caller already uses is a conflict, and one reader keeps at most 100 filters.
 
         Command line: `tix filter save`.
       operationId: filter.save
@@ -2234,7 +2241,7 @@ paths:
   /api/v1/filters/{filter}:
     delete:
       description: |-
-        DeleteSavedFilter removes a filter.
+        DeleteSavedFilter removes a filter, which only its owner or an administrator may do.
 
         Command line: `tix filter rm`.
       operationId: filter.delete
@@ -2270,12 +2277,13 @@ paths:
             - task:read
         - session:
             - task:read
-      summary: DeleteSavedFilter removes a filter
+      summary: DeleteSavedFilter removes a filter, which only its owner or an administrator
+        may do
       tags:
         - filter
     get:
       description: |-
-        GetSavedFilter returns one filter the caller can see, by id or name.
+        GetSavedFilter returns one filter the caller can see, by id or name, preferring the caller's own on a shared name; not_found otherwise.
 
         Command line: `tix filter show`.
       operationId: filter.show
@@ -2317,12 +2325,13 @@ paths:
             - task:read
         - session:
             - task:read
-      summary: GetSavedFilter returns one filter the caller can see, by id or name
+      summary: GetSavedFilter returns one filter the caller can see, by id or name,
+        preferring the caller's own on a shared name; not_found otherwise
       tags:
         - filter
     patch:
       description: |-
-        UpdateSavedFilter renames, edits or shares a filter.
+        UpdateSavedFilter renames, edits or shares a filter. Only its owner or an administrator may change it, and a clashing name is a conflict.
 
         Command line: `tix filter set`.
       operationId: filter.update
@@ -2530,7 +2539,7 @@ paths:
   /api/v1/import:
     post:
       description: |-
-        ImportFrom reads a snapshot record by record.
+        ImportFrom reads a snapshot record by record and merges it into, or replaces, the tenant's data. A dry run reports the counts and writes nothing.
 
         Command line: `tix import`.
       operationId: snapshot.import
@@ -2584,7 +2593,8 @@ paths:
             - import
         - session:
             - import
-      summary: ImportFrom reads a snapshot record by record
+      summary: ImportFrom reads a snapshot record by record and merges it into, or
+        replaces, the tenant's data
       tags:
         - snapshot
   /api/v1/inbox:
@@ -2890,7 +2900,7 @@ paths:
         - inbox
     put:
       description: |-
-        ReadInboxItem marks one of the caller's items read.
+        ReadInboxItem marks one of the caller's items read and returns it.
 
         Command line: `tix inbox read`.
       operationId: inbox.read
@@ -2935,13 +2945,13 @@ paths:
             - task:read
         - session:
             - task:read
-      summary: ReadInboxItem marks one of the caller's items read
+      summary: ReadInboxItem marks one of the caller's items read and returns it
       tags:
         - inbox
   /api/v1/members:
     get:
       description: |-
-        member.list.
+        ListMembers lists every membership of the current tenant with its role.
 
         Command line: `tix member ls`.
       operationId: member.list
@@ -2988,12 +2998,12 @@ paths:
             - tenant:admin
         - session:
             - tenant:admin
-      summary: member.list
+      summary: ListMembers lists every membership of the current tenant with its role
       tags:
         - member
     post:
       description: |-
-        member.add.
+        AddMember grants an existing actor a role (viewer, member or admin) in the current tenant. An actor who is already a member is a conflict.
 
         Command line: `tix member add`.
       operationId: member.add
@@ -3037,13 +3047,14 @@ paths:
             - tenant:admin
         - session:
             - tenant:admin
-      summary: member.add
+      summary: AddMember grants an existing actor a role (viewer, member or admin)
+        in the current tenant
       tags:
         - member
   /api/v1/members/{actorID}:
     delete:
       description: |-
-        member.remove.
+        RemoveMember revokes an actor's membership of the current tenant. An actor who is not a member is not_found.
 
         Command line: `tix member rm`.
       operationId: member.remove
@@ -3079,7 +3090,7 @@ paths:
             - tenant:admin
         - session:
             - tenant:admin
-      summary: member.remove
+      summary: RemoveMember revokes an actor's membership of the current tenant
       tags:
         - member
   /api/v1/openapi.json:
@@ -3119,7 +3130,7 @@ paths:
   /api/v1/projects:
     get:
       description: |-
-        project.list.
+        ListProjects lists projects matching the filter, keyset paginated, with the cursor for the next page. A token pinned to one project sees only that project.
 
         Command line: `tix project ls`.
       operationId: project.list
@@ -3196,12 +3207,13 @@ paths:
             - project:read
         - session:
             - project:read
-      summary: project.list
+      summary: ListProjects lists projects matching the filter, keyset paginated,
+        with the cursor for the next page
       tags:
         - project
     post:
       description: |-
-        project.create.
+        CreateProject creates a project with a unique key, on the named workflow or the builtin one. A key in use, or kept as an old key of another project, is a conflict.
 
         Command line: `tix project create`.
       operationId: project.create
@@ -3245,7 +3257,8 @@ paths:
             - project:write
         - session:
             - project:write
-      summary: project.create
+      summary: CreateProject creates a project with a unique key, on the named workflow
+        or the builtin one
       tags:
         - project
   /api/v1/projects/{ref}:
@@ -3255,7 +3268,7 @@ paths:
 
         Command line: `tix project rm`.
 
-        With `?archive=true` this route is `project.archive`: project.archive.
+        With `?archive=true` this route is `project.archive`: ArchiveProject hides a project from default listings without destroying its tasks or history. Archiving an archived project is a conflict.
       operationId: project.delete
       parameters:
         - in: path
@@ -3314,7 +3327,7 @@ paths:
         - project
     get:
       description: |-
-        project.show.
+        GetProject returns a project by identifier, key, or one of its old keys.
 
         Command line: `tix project show`.
       operationId: project.show
@@ -3354,12 +3367,13 @@ paths:
             - project:read
         - session:
             - project:read
-      summary: project.show
+      summary: GetProject returns a project by identifier, key, or one of its old
+        keys
       tags:
         - project
     patch:
       description: |-
-        project.update.
+        UpdateProject changes a project's name, key, description, colour, icon, workflow or lease bounds; fields left out are unchanged. A new key keeps the old one as an alias, and a workflow that lacks a state some task is in is a conflict.
 
         Command line: `tix project edit`.
       operationId: project.update
@@ -3409,7 +3423,8 @@ paths:
             - project:write
         - session:
             - project:write
-      summary: project.update
+      summary: UpdateProject changes a project's name, key, description, colour, icon,
+        workflow or lease bounds; fields left out are unchanged
       tags:
         - project
   /api/v1/projects/{ref}/deletion:
@@ -3470,7 +3485,7 @@ paths:
   /api/v1/projects/{ref}/fields:
     get:
       description: |-
-        field.list.
+        ListFieldDefs lists a project's custom field definitions in display order.
 
         Command line: `tix field ls`.
       operationId: field.list
@@ -3523,12 +3538,13 @@ paths:
             - project:read
         - session:
             - project:read
-      summary: field.list
+      summary: ListFieldDefs lists a project's custom field definitions in display
+        order
       tags:
         - field
     put:
       description: |-
-        field.put.
+        PutFieldDef creates or replaces a custom field definition on a project, keyed by its field key. A default value must fit the field's type.
 
         Command line: `tix field put`.
       operationId: field.put
@@ -3578,13 +3594,14 @@ paths:
             - project:write
         - session:
             - project:write
-      summary: field.put
+      summary: PutFieldDef creates or replaces a custom field definition on a project,
+        keyed by its field key
       tags:
         - field
   /api/v1/projects/{ref}/fields/{key}:
     delete:
       description: |-
-        field.delete.
+        DeleteFieldDef removes a custom field definition from a project. An unknown key is not_found.
 
         Command line: `tix field rm`.
       operationId: field.delete
@@ -3625,13 +3642,13 @@ paths:
             - project:write
         - session:
             - project:write
-      summary: field.delete
+      summary: DeleteFieldDef removes a custom field definition from a project
       tags:
         - field
   /api/v1/projects/{ref}/icon:
     get:
       description: |-
-        project.icon.
+        GetProjectIcon returns a project's uploaded icon image. A project without an uploaded image is not_found.
 
         Command line: `tix project icon`.
       operationId: project.icon
@@ -3673,13 +3690,13 @@ paths:
             - project:read
         - session:
             - project:read
-      summary: project.icon
+      summary: GetProjectIcon returns a project's uploaded icon image
       tags:
         - project
   /api/v1/prune:
     post:
       description: |-
-        retention.prune.
+        Prune deletes events, audit entries and webhook deliveries older than the retention policy allows. A dry run reports the counts and writes nothing, not even an audit entry.
 
         Command line: `tix prune`.
 
@@ -3726,7 +3743,8 @@ paths:
             - tenant:admin
         - session:
             - tenant:admin
-      summary: retention.prune
+      summary: Prune deletes events, audit entries and webhook deliveries older than
+        the retention policy allows
       tags:
         - retention
       x-tix-openspec:
@@ -3734,7 +3752,7 @@ paths:
   /api/v1/retention:
     get:
       description: |-
-        retention.get.
+        GetRetention returns the tenant's effective retention policy.
 
         Command line: `tix retention show`.
       operationId: retention.get
@@ -3769,12 +3787,12 @@ paths:
             - tenant:admin
         - session:
             - tenant:admin
-      summary: retention.get
+      summary: GetRetention returns the tenant's effective retention policy
       tags:
         - retention
     put:
       description: |-
-        retention.put.
+        PutRetention changes the tenant's retention windows and returns the policy now in force. Windows left unset keep their current value.
 
         Command line: `tix retention set`.
 
@@ -3821,7 +3839,8 @@ paths:
             - tenant:admin
         - session:
             - tenant:admin
-      summary: retention.put
+      summary: PutRetention changes the tenant's retention windows and returns the
+        policy now in force
       tags:
         - retention
       x-tix-openspec:
@@ -3829,7 +3848,7 @@ paths:
   /api/v1/snoozes/wake:
     post:
       description: |-
-        task.wake.
+        WakeSnoozed clears up to limit snoozes whose wake time has passed, emitting a task.woke event for each, and reports how many it cleared.
 
         Command line: `tix task wake`.
       operationId: task.wake
@@ -3873,7 +3892,8 @@ paths:
             - task:write
         - session:
             - task:write
-      summary: task.wake
+      summary: WakeSnoozed clears up to limit snoozes whose wake time has passed,
+        emitting a task.woke event for each, and reports how many it cleared
       tags:
         - task
   /api/v1/ssh-keys:
@@ -4035,7 +4055,7 @@ paths:
   /api/v1/stats:
     get:
       description: |-
-        stats.read.
+        Stats reports task throughput, lead times, ageing and a completion leaderboard over a window ending now, for the tenant or one project. The window defaults to 14 days; an unknown project is not_found and an out-of-range window or count is invalid.
 
         Command line: `tix stats`.
 
@@ -4095,7 +4115,8 @@ paths:
             - task:read
         - session:
             - task:read
-      summary: stats.read
+      summary: Stats reports task throughput, lead times, ageing and a completion
+        leaderboard over a window ending now, for the tenant or one project
       tags:
         - stats
       x-tix-openspec:
@@ -4103,7 +4124,7 @@ paths:
   /api/v1/status:
     get:
       description: |-
-        status.read.
+        Status reports the health of the installation and the caller's tenant. It covers the version and schema, the registered server processes and whether each still heartbeats, the tenant's work counts, and the state of second-factor sign-in. It only reads.
 
         Command line: `tix status`.
 
@@ -4140,7 +4161,7 @@ paths:
             - tenant:admin
         - session:
             - tenant:admin
-      summary: status.read
+      summary: Status reports the health of the installation and the caller's tenant
       tags:
         - status
       x-tix-openspec:
@@ -4148,7 +4169,7 @@ paths:
   /api/v1/sync/run:
     post:
       description: |-
-        sync.run.
+        RunSync imports from a configured source, creating what is new, updating what changed and skipping the rest. A rerun refreshes rather than duplicating, and a dry run writes nothing.
 
         Command line: `tix sync run`.
       operationId: sync.run
@@ -4193,13 +4214,14 @@ paths:
             - sync:admin
         - session:
             - sync:admin
-      summary: sync.run
+      summary: RunSync imports from a configured source, creating what is new, updating
+        what changed and skipping the rest
       tags:
         - sync
   /api/v1/sync/sources:
     get:
       description: |-
-        sync.source.list.
+        ListSyncSources lists this tenant's external import sources.
 
         Command line: `tix sync source ls`.
       operationId: sync.source.list
@@ -4246,12 +4268,12 @@ paths:
             - sync:admin
         - session:
             - sync:admin
-      summary: sync.source.list
+      summary: ListSyncSources lists this tenant's external import sources
       tags:
         - sync
     put:
       description: |-
-        sync.source.put.
+        PutSyncSource registers an external system to import from, or updates one in place. Credentials are never stored: they are read from the environment when the sync runs.
 
         Command line: `tix sync source add`.
       operationId: sync.source.put
@@ -4295,13 +4317,14 @@ paths:
             - sync:admin
         - session:
             - sync:admin
-      summary: sync.source.put
+      summary: PutSyncSource registers an external system to import from, or updates
+        one in place
       tags:
         - sync
   /api/v1/sync/sources/{id}:
     delete:
       description: |-
-        sync.source.delete.
+        DeleteSyncSource removes an import source and its cursor.
 
         Command line: `tix sync source rm`.
       operationId: sync.source.delete
@@ -4337,13 +4360,13 @@ paths:
             - sync:admin
         - session:
             - sync:admin
-      summary: sync.source.delete
+      summary: DeleteSyncSource removes an import source and its cursor
       tags:
         - sync
   /api/v1/tags:
     get:
       description: |-
-        tag.list.
+        ListTags lists every tag defined in the tenant.
 
         Command line: `tix tag ls`.
       operationId: tag.list
@@ -4390,13 +4413,13 @@ paths:
             - task:read
         - session:
             - task:read
-      summary: tag.list
+      summary: ListTags lists every tag defined in the tenant
       tags:
         - tag
   /api/v1/tasks:
     get:
       description: |-
-        task.list.
+        ListTasks lists tasks matching the filter, one keyset-paginated page at a time, with the cursor for the next page. Snoozed tasks are left out unless the filter asks for them.
 
         Command line: `tix task ls`.
       operationId: task.list
@@ -4630,14 +4653,15 @@ paths:
             - task:read
         - session:
             - task:read
-      summary: task.list
+      summary: ListTasks lists tasks matching the filter, one keyset-paginated page
+        at a time, with the cursor for the next page
       tags:
         - task
       x-tix-query-prefixes:
         - field.
     post:
       description: |-
-        task.create.
+        CreateTask creates a task in a project and returns it. Only the title is required: status defaults to the workflow's initial state, and the project may be left out when the tenant has exactly one.
 
         Command line: `tix task add`.
       operationId: task.create
@@ -4681,7 +4705,7 @@ paths:
             - task:write
         - session:
             - task:write
-      summary: task.create
+      summary: CreateTask creates a task in a project and returns it
       tags:
         - task
   /api/v1/tasks/bulk:
@@ -4737,7 +4761,7 @@ paths:
   /api/v1/tasks/{ref}:
     delete:
       description: |-
-        task.delete.
+        DeleteTask moves a task to the trash, or deletes it permanently when hard is set or the tenant keeps no trash. A task with children is refused unless cascade is set, which takes the whole subtree.
 
         Command line: `tix task rm`.
       operationId: task.delete
@@ -4781,12 +4805,13 @@ paths:
             - task:delete
         - session:
             - task:delete
-      summary: task.delete
+      summary: DeleteTask moves a task to the trash, or deletes it permanently when
+        hard is set or the tenant keeps no trash
       tags:
         - task
     get:
       description: |-
-        task.show.
+        GetTask returns one live task by identifier or reference such as infra-42. A deleted task is not_found.
 
         Command line: `tix task show`.
 
@@ -4828,14 +4853,14 @@ paths:
             - task:read
         - session:
             - task:read
-      summary: task.show
+      summary: GetTask returns one live task by identifier or reference such as infra-42
       tags:
         - task
       x-tix-openspec:
         - http-api
     patch:
       description: |-
-        task.update.
+        UpdateTask changes only the task attributes the input supplies and returns the task. With a version set, a task that has changed since is a conflict carrying the current version.
 
         Command line: `tix task edit`.
       operationId: task.update
@@ -4885,13 +4910,14 @@ paths:
             - task:write
         - session:
             - task:write
-      summary: task.update
+      summary: UpdateTask changes only the task attributes the input supplies and
+        returns the task
       tags:
         - task
   /api/v1/tasks/{ref}/artifacts:
     get:
       description: |-
-        artifact.list.
+        ListArtifacts lists a task's artifacts, oldest first.
 
         Command line: `tix artifact ls`.
       operationId: artifact.list
@@ -4944,12 +4970,12 @@ paths:
             - task:read
         - session:
             - task:read
-      summary: artifact.list
+      summary: ListArtifacts lists a task's artifacts, oldest first
       tags:
         - artifact
     put:
       description: |-
-        artifact.put.
+        PutArtifact attaches a new piece of structured output, such as a result or a log, to a task. While the task is claimed it needs the current lease token, and a stale one is lease_expired.
 
         Command line: `tix artifact put`.
       operationId: artifact.put
@@ -4999,7 +5025,8 @@ paths:
             - artifact:write
         - session:
             - artifact:write
-      summary: artifact.put
+      summary: PutArtifact attaches a new piece of structured output, such as a result
+        or a log, to a task
       tags:
         - artifact
   /api/v1/tasks/{ref}/audit:
@@ -5173,7 +5200,7 @@ paths:
   /api/v1/tasks/{ref}/claim:
     post:
       description: |-
-        claim.task.
+        ClaimTask takes a lease on one task for the caller, or for the actor named, and returns the lease token to renew and release it with. A task another worker holds, or one already finished, is a conflict; a snoozed task is precondition_failed.
 
         Command line: `tix claim task`.
       operationId: claim.task
@@ -5223,13 +5250,14 @@ paths:
             - task:claim
         - session:
             - task:claim
-      summary: claim.task
+      summary: ClaimTask takes a lease on one task for the caller, or for the actor
+        named, and returns the lease token to renew and release it with
       tags:
         - claim
   /api/v1/tasks/{ref}/claim/reclaim:
     post:
       description: |-
-        claim.reclaim.
+        ForceReclaim ends the lease another actor holds on a task, for an administrator whose worker has died. The task keeps its status.
 
         Command line: `tix claim reclaim`.
 
@@ -5281,7 +5309,8 @@ paths:
             - task:reclaim
         - session:
             - task:reclaim
-      summary: claim.reclaim
+      summary: ForceReclaim ends the lease another actor holds on a task, for an administrator
+        whose worker has died
       tags:
         - claim
       x-tix-openspec:
@@ -5289,7 +5318,7 @@ paths:
   /api/v1/tasks/{ref}/claim/release:
     post:
       description: |-
-        claim.release.
+        ReleaseLease gives up the lease held under the caller's token. It can also move the task to a final status and attach a result artifact and a closing comment. A token that no longer holds the lease is lease_expired.
 
         Command line: `tix claim release`.
       operationId: claim.release
@@ -5335,13 +5364,13 @@ paths:
             - task:claim
         - session:
             - task:claim
-      summary: claim.release
+      summary: ReleaseLease gives up the lease held under the caller's token
       tags:
         - claim
   /api/v1/tasks/{ref}/claim/renew:
     post:
       description: |-
-        claim.renew.
+        RenewLease extends the lease the caller holds on a task under its token, by the ttl given or the task's default lease. A token that no longer holds the lease is lease_expired, and the worker should claim again.
 
         Command line: `tix claim renew`.
       operationId: claim.renew
@@ -5391,13 +5420,14 @@ paths:
             - task:claim
         - session:
             - task:claim
-      summary: claim.renew
+      summary: RenewLease extends the lease the caller holds on a task under its token,
+        by the ttl given or the task's default lease
       tags:
         - claim
   /api/v1/tasks/{ref}/comments:
     get:
       description: |-
-        comment.list.
+        ListComments lists a task's comments that are not deleted, oldest first.
 
         Command line: `tix comment ls`.
       operationId: comment.list
@@ -5450,12 +5480,12 @@ paths:
             - task:read
         - session:
             - task:read
-      summary: comment.list
+      summary: ListComments lists a task's comments that are not deleted, oldest first
       tags:
         - comment
     post:
       description: |-
-        comment.add.
+        AddComment adds a comment to a task and returns it, notifying the people it mentions, the assignee and anyone who starred the task.
 
         Command line: `tix comment add`.
       operationId: comment.add
@@ -5505,7 +5535,8 @@ paths:
             - comment:write
         - session:
             - comment:write
-      summary: comment.add
+      summary: AddComment adds a comment to a task and returns it, notifying the people
+        it mentions, the assignee and anyone who starred the task
       tags:
         - comment
   /api/v1/tasks/{ref}/copy:
@@ -5568,7 +5599,7 @@ paths:
   /api/v1/tasks/{ref}/deps:
     get:
       description: |-
-        dependency.list.
+        ListDependencies lists the tasks a task waits for, leaving out edges to tasks the caller cannot read.
 
         Command line: `tix dep ls`.
       operationId: dependency.list
@@ -5621,12 +5652,13 @@ paths:
             - task:read
         - session:
             - task:read
-      summary: dependency.list
+      summary: ListDependencies lists the tasks a task waits for, leaving out edges
+        to tasks the caller cannot read
       tags:
         - dependency
     post:
       description: |-
-        dependency.add.
+        AddDependency records that a task waits for another task. A self edge or one that would close a cycle is invalid, and the caller needs write access to both tasks.
 
         Command line: `tix dep add`.
       operationId: dependency.add
@@ -5672,13 +5704,13 @@ paths:
             - task:write
         - session:
             - task:write
-      summary: dependency.add
+      summary: AddDependency records that a task waits for another task
       tags:
         - dependency
   /api/v1/tasks/{ref}/deps/{dep}:
     delete:
       description: |-
-        dependency.remove.
+        RemoveDependency removes the edge saying a task waits for another.
 
         Command line: `tix dep rm`.
       operationId: dependency.remove
@@ -5719,7 +5751,7 @@ paths:
             - task:write
         - session:
             - task:write
-      summary: dependency.remove
+      summary: RemoveDependency removes the edge saying a task waits for another
       tags:
         - dependency
   /api/v1/tasks/{ref}/lease:
@@ -5774,7 +5806,7 @@ paths:
   /api/v1/tasks/{ref}/restore:
     post:
       description: |-
-        task.restore.
+        RestoreTask brings a task back out of the trash and returns it. It is refused with precondition_failed when the tenant keeps no trash.
 
         Command line: `tix task restore`.
 
@@ -5820,7 +5852,7 @@ paths:
             - task:delete
         - session:
             - task:delete
-      summary: task.restore
+      summary: RestoreTask brings a task back out of the trash and returns it
       tags:
         - task
       x-tix-openspec:
@@ -5828,7 +5860,7 @@ paths:
   /api/v1/tasks/{ref}/route:
     post:
       description: |-
-        task.route.
+        TransitionRoute walks a task through a route of statuses, one ordinary transition per hop, each with its own audit entry and event. A route that stops partway reports where and why; only a refused first hop is an error.
 
         Command line: `tix task mv`.
 
@@ -5882,7 +5914,8 @@ paths:
             - task:transition
         - session:
             - task:transition
-      summary: task.route
+      summary: TransitionRoute walks a task through a route of statuses, one ordinary
+        transition per hop, each with its own audit entry and event
       tags:
         - task
       x-tix-openspec:
@@ -5890,7 +5923,7 @@ paths:
   /api/v1/tasks/{ref}/snooze:
     delete:
       description: |-
-        task.unsnooze.
+        UnsnoozeTask clears a task's snooze and returns the task. A task that is not snoozed is returned as it is, with nothing written.
 
         Command line: `tix task unsnooze`.
       operationId: task.unsnooze
@@ -5930,12 +5963,12 @@ paths:
             - task:write
         - session:
             - task:write
-      summary: task.unsnooze
+      summary: UnsnoozeTask clears a task's snooze and returns the task
       tags:
         - task
     put:
       description: |-
-        SnoozeTask hides a task from default listings until a future instant, for every reader. UnsnoozeTask clears it, writing nothing when the task is not snoozed. WakeSnoozed clears snoozes that have run out, announcing each, and reports how many it cleared.
+        SnoozeTask hides a task from default listings, for every reader, until a future time. Snoozing a snoozed task moves its wake time, and a snoozed task cannot be claimed.
 
         Command line: `tix task snooze`.
       operationId: task.snooze
@@ -5985,14 +6018,14 @@ paths:
             - task:write
         - session:
             - task:write
-      summary: SnoozeTask hides a task from default listings until a future instant,
-        for every reader
+      summary: SnoozeTask hides a task from default listings, for every reader, until
+        a future time
       tags:
         - task
   /api/v1/tasks/{ref}/star:
     delete:
       description: |-
-        task.unstar.
+        UnstarTask clears the caller's own star on a task. A task that is not starred is left as it is, with nothing written.
 
         Command line: `tix task unstar`.
 
@@ -6030,14 +6063,14 @@ paths:
             - task:read
         - session:
             - task:read
-      summary: task.unstar
+      summary: UnstarTask clears the caller's own star on a task
       tags:
         - task
       x-tix-openspec:
         - http-api
     put:
       description: |-
-        StarTask and UnstarTask set and clear the caller's own star on a task. Both are idempotent: a call that changes nothing writes nothing.
+        StarTask stars a task for the caller alone. Starring a starred task writes nothing.
 
         Command line: `tix task star`.
 
@@ -6079,7 +6112,7 @@ paths:
             - task:read
         - session:
             - task:read
-      summary: StarTask and UnstarTask set and clear the caller's own star on a task
+      summary: StarTask stars a task for the caller alone
       tags:
         - task
       x-tix-openspec:
@@ -6142,7 +6175,7 @@ paths:
         - task
     post:
       description: |-
-        tag.add.
+        AddTag puts a tag on a task, creating the tag in the tenant when it is new. Tagging a task that already carries the tag changes nothing.
 
         Command line: `tix tag add`.
       operationId: tag.add
@@ -6188,13 +6221,14 @@ paths:
             - task:write
         - session:
             - task:write
-      summary: tag.add
+      summary: AddTag puts a tag on a task, creating the tag in the tenant when it
+        is new
       tags:
         - tag
   /api/v1/tasks/{ref}/tags/{name}:
     delete:
       description: |-
-        tag.remove.
+        RemoveTag takes a tag off a task. A tag the tenant does not have is not_found.
 
         Command line: `tix tag rm`.
       operationId: tag.remove
@@ -6235,13 +6269,13 @@ paths:
             - task:write
         - session:
             - task:write
-      summary: tag.remove
+      summary: RemoveTag takes a tag off a task
       tags:
         - tag
   /api/v1/tasks/{ref}/transition:
     post:
       description: |-
-        task.transition.
+        TransitionTask moves a task to another status along a transition its workflow allows. A move the workflow does not allow is precondition_failed, a transition that requires a comment needs one, and a stale version is a conflict.
 
         Command line: `tix task mv`.
       operationId: task.transition
@@ -6291,13 +6325,14 @@ paths:
             - task:transition
         - session:
             - task:transition
-      summary: task.transition
+      summary: TransitionTask moves a task to another status along a transition its
+        workflow allows
       tags:
         - task
   /api/v1/tasks/{ref}/tree:
     get:
       description: |-
-        task.tree.
+        TaskTree returns a task followed by its live descendants in depth-first pre-order, down to the given depth. A subtree too large to walk is precondition_failed.
 
         Command line: `tix task tree`.
 
@@ -6356,7 +6391,8 @@ paths:
             - task:read
         - session:
             - task:read
-      summary: task.tree
+      summary: TaskTree returns a task followed by its live descendants in depth-first
+        pre-order, down to the given depth
       tags:
         - task
       x-tix-openspec:
@@ -6440,7 +6476,7 @@ paths:
         - template
     post:
       description: |-
-        SaveTemplate keeps a task, and its subtasks when asked, as a template.
+        SaveTemplate keeps a task, and its subtasks when asked, as a template. A name already taken in the tenant is a conflict.
 
         Command line: `tix template save`.
       operationId: template.save
@@ -6532,7 +6568,7 @@ paths:
         - template
     get:
       description: |-
-        GetTemplate reads one template by name or identifier.
+        GetTemplate reads one template by name or identifier. A template in a project the caller cannot read is not_found.
 
         Command line: `tix template show`.
       operationId: template.show
@@ -6635,7 +6671,7 @@ paths:
   /api/v1/templates/{ref}/use:
     post:
       description: |-
-        UseTemplate creates a task, with the template's subtasks, and returns it.
+        UseTemplate creates a task, with the template's subtasks, and returns it. Everything is written in one transaction and the use count goes up by one.
 
         Command line: `tix template use`.
       operationId: template.use
@@ -6692,7 +6728,7 @@ paths:
   /api/v1/tenants:
     get:
       description: |-
-        tenant.list.
+        ListTenants lists the tenants the caller can see, which is only its own, since an actor is bound to one tenant.
 
         Command line: `tix tenant ls`.
       operationId: tenant.list
@@ -6759,12 +6795,13 @@ paths:
             - tenant:admin
         - session:
             - tenant:admin
-      summary: tenant.list
+      summary: ListTenants lists the tenants the caller can see, which is only its
+        own, since an actor is bound to one tenant
       tags:
         - tenant
     post:
       description: |-
-        tenant.create.
+        CreateTenant creates a tenant with the given key and name and seeds it with the builtin workflow. A key already in use is a conflict.
 
         Command line: `tix tenant create`.
       operationId: tenant.create
@@ -6808,13 +6845,14 @@ paths:
             - tenant:admin
         - session:
             - tenant:admin
-      summary: tenant.create
+      summary: CreateTenant creates a tenant with the given key and name and seeds
+        it with the builtin workflow
       tags:
         - tenant
   /api/v1/tenants/{ref}:
     delete:
       description: |-
-        tenant.delete.
+        DeleteTenant soft deletes the caller's tenant, so its data stops being reachable and its domains stop resolving. No row is destroyed.
 
         Command line: `tix tenant rm`.
       operationId: tenant.delete
@@ -6850,12 +6888,13 @@ paths:
             - tenant:admin
         - session:
             - tenant:admin
-      summary: tenant.delete
+      summary: DeleteTenant soft deletes the caller's tenant, so its data stops being
+        reachable and its domains stop resolving
       tags:
         - tenant
     get:
       description: |-
-        tenant.show.
+        GetTenant returns the caller's own tenant by identifier or key; an empty reference means the caller's tenant. Any other tenant reads as not_found.
 
         Command line: `tix tenant show`.
       operationId: tenant.show
@@ -6895,12 +6934,13 @@ paths:
             - tenant:admin
         - session:
             - tenant:admin
-      summary: tenant.show
+      summary: GetTenant returns the caller's own tenant by identifier or key; an
+        empty reference means the caller's tenant
       tags:
         - tenant
     patch:
       description: |-
-        tenant.update.
+        UpdateTenant changes the caller's tenant: its name, theme, lease bounds, second-factor requirements and trash setting. Fields left out are unchanged. A lease default longer than the maximum, an unknown theme, or a second-factor requirement with no sealing key configured is refused.
 
         Command line: `tix tenant edit`.
       operationId: tenant.update
@@ -6950,13 +6990,14 @@ paths:
             - tenant:admin
         - session:
             - tenant:admin
-      summary: tenant.update
+      summary: 'UpdateTenant changes the caller''s tenant: its name, theme, lease
+        bounds, second-factor requirements and trash setting'
       tags:
         - tenant
   /api/v1/tokens:
     get:
       description: |-
-        token.list.
+        ListTokens lists an actor's API tokens as metadata only, never their values. An empty actor means the caller.
 
         Command line: `tix token ls`.
       operationId: token.list
@@ -7008,12 +7049,13 @@ paths:
             - token:admin
         - session:
             - token:admin
-      summary: token.list
+      summary: ListTokens lists an actor's API tokens as metadata only, never their
+        values
       tags:
         - token
     post:
       description: |-
-        token.create.
+        CreateToken mints an API token with the given scopes, optionally pinned to one project, and returns its secret value exactly once. A token cannot carry scopes its creator lacks, and a name already in use is a conflict.
 
         Command line: `tix token create`.
       operationId: token.create
@@ -7057,13 +7099,14 @@ paths:
             - token:admin
         - session:
             - token:admin
-      summary: token.create
+      summary: CreateToken mints an API token with the given scopes, optionally pinned
+        to one project, and returns its secret value exactly once
       tags:
         - token
   /api/v1/tokens/{id}:
     delete:
       description: |-
-        token.revoke.
+        RevokeToken revokes an API token of this tenant. Revoking a revoked token changes nothing.
 
         Command line: `tix token rm`.
       operationId: token.revoke
@@ -7099,13 +7142,13 @@ paths:
             - token:admin
         - session:
             - token:admin
-      summary: token.revoke
+      summary: RevokeToken revokes an API token of this tenant
       tags:
         - token
   /api/v1/trash:
     get:
       description: |-
-        trash.status.
+        TrashStatus reports whether the tenant keeps deleted tasks in a trash, and how many it holds.
 
         Command line: `tix task trash`.
       operationId: trash.status
@@ -7141,13 +7184,14 @@ paths:
             - task:read
         - session:
             - task:read
-      summary: trash.status
+      summary: TrashStatus reports whether the tenant keeps deleted tasks in a trash,
+        and how many it holds
       tags:
         - trash
   /api/v1/users:
     get:
       description: |-
-        user.list.
+        ListUsers lists the users of this tenant, keyset paginated, with the cursor for the next page.
 
         Command line: `tix user ls`.
       operationId: user.list
@@ -7214,12 +7258,13 @@ paths:
             - user:admin
         - session:
             - user:admin
-      summary: user.list
+      summary: ListUsers lists the users of this tenant, keyset paginated, with the
+        cursor for the next page
       tags:
         - user
     post:
       description: |-
-        user.create.
+        CreateUser creates a user, its actor in this tenant and a membership with the given role. A handle already in use is a conflict.
 
         Command line: `tix user create`.
       operationId: user.create
@@ -7263,13 +7308,14 @@ paths:
             - user:admin
         - session:
             - user:admin
-      summary: user.create
+      summary: CreateUser creates a user, its actor in this tenant and a membership
+        with the given role
       tags:
         - user
   /api/v1/users/{id}:
     delete:
       description: |-
-        user.delete.
+        DeleteUser deletes a user and revokes its membership of this tenant, which stops its actor acting.
 
         Command line: `tix user rm`.
       operationId: user.delete
@@ -7305,12 +7351,13 @@ paths:
             - user:admin
         - session:
             - user:admin
-      summary: user.delete
+      summary: DeleteUser deletes a user and revokes its membership of this tenant,
+        which stops its actor acting
       tags:
         - user
     get:
       description: |-
-        user.show.
+        GetUser returns a user of this tenant by identifier.
 
         Command line: `tix user show`.
       operationId: user.show
@@ -7350,12 +7397,12 @@ paths:
             - user:admin
         - session:
             - user:admin
-      summary: user.show
+      summary: GetUser returns a user of this tenant by identifier
       tags:
         - user
     patch:
       description: |-
-        user.update.
+        UpdateUser changes a user's display name, password, role or disabled state; fields left out are unchanged. Disabling a user also revokes its API tokens.
 
         Command line: `tix user edit`.
       operationId: user.update
@@ -7405,7 +7452,8 @@ paths:
             - user:admin
         - session:
             - user:admin
-      summary: user.update
+      summary: UpdateUser changes a user's display name, password, role or disabled
+        state; fields left out are unchanged
       tags:
         - user
   /api/v1/users/{id}/totp:
@@ -7695,7 +7743,7 @@ paths:
   /api/v1/webhooks:
     get:
       description: |-
-        webhook.list.
+        ListWebhooks lists this tenant's delivery endpoints, without their secrets.
 
         Command line: `tix webhook ls`.
       operationId: webhook.list
@@ -7742,12 +7790,13 @@ paths:
             - webhook:admin
         - session:
             - webhook:admin
-      summary: webhook.list
+      summary: ListWebhooks lists this tenant's delivery endpoints, without their
+        secrets
       tags:
         - webhook
     put:
       description: |-
-        webhook.put.
+        PutWebhook registers an https delivery endpoint, or updates one by identifier. A registration with no secret gets a generated one, returned only in this response.
 
         Command line: `tix webhook put`.
       operationId: webhook.put
@@ -7791,13 +7840,14 @@ paths:
             - webhook:admin
         - session:
             - webhook:admin
-      summary: webhook.put
+      summary: PutWebhook registers an https delivery endpoint, or updates one by
+        identifier
       tags:
         - webhook
   /api/v1/webhooks/deliveries:
     get:
       description: |-
-        webhook.deliveries.
+        ListDeliveries lists the webhook delivery log, one keyset-paginated page at a time, with the cursor for the next page.
 
         Command line: `tix webhook deliveries`.
       operationId: webhook.deliveries
@@ -7874,13 +7924,14 @@ paths:
             - webhook:admin
         - session:
             - webhook:admin
-      summary: webhook.deliveries
+      summary: ListDeliveries lists the webhook delivery log, one keyset-paginated
+        page at a time, with the cursor for the next page
       tags:
         - webhook
   /api/v1/webhooks/deliveries/{id}/redeliver:
     post:
       description: |-
-        webhook.redeliver.
+        RedeliverWebhook queues an existing delivery for another attempt against the same endpoint with the same event. The attempt happens on the next delivery run, not inside this call.
 
         Command line: `tix webhook redeliver`.
       operationId: webhook.redeliver
@@ -7920,13 +7971,14 @@ paths:
             - webhook:admin
         - session:
             - webhook:admin
-      summary: webhook.redeliver
+      summary: RedeliverWebhook queues an existing delivery for another attempt against
+        the same endpoint with the same event
       tags:
         - webhook
   /api/v1/webhooks/{id}:
     delete:
       description: |-
-        webhook.delete.
+        DeleteWebhook removes a delivery endpoint and its pending deliveries.
 
         Command line: `tix webhook rm`.
       operationId: webhook.delete
@@ -7962,13 +8014,13 @@ paths:
             - webhook:admin
         - session:
             - webhook:admin
-      summary: webhook.delete
+      summary: DeleteWebhook removes a delivery endpoint and its pending deliveries
       tags:
         - webhook
   /api/v1/whoami:
     get:
       description: |-
-        identity.whoami.
+        WhoAmI returns the actor the request authenticated as, with its tenant, role and scopes.
 
         Command line: `tix doctor`.
 
@@ -8002,7 +8054,8 @@ paths:
       security:
         - bearer: []
         - session: []
-      summary: identity.whoami
+      summary: WhoAmI returns the actor the request authenticated as, with its tenant,
+        role and scopes
       tags:
         - identity
       x-tix-openspec:
@@ -8010,7 +8063,7 @@ paths:
   /api/v1/workflows:
     get:
       description: |-
-        workflow.list.
+        ListWorkflows lists every workflow in the current tenant.
 
         Command line: `tix workflow ls`.
       operationId: workflow.list
@@ -8057,12 +8110,12 @@ paths:
             - workflow:read
         - session:
             - workflow:read
-      summary: workflow.list
+      summary: ListWorkflows lists every workflow in the current tenant
       tags:
         - workflow
     put:
       description: |-
-        workflow.put.
+        PutWorkflow creates or replaces a workflow by key: its states, initial state and allowed transitions. Removing a state that tasks are in is a conflict unless the input migrates them to another state.
 
         Command line: `tix workflow put`.
       operationId: workflow.put
@@ -8107,13 +8160,14 @@ paths:
             - workflow:write
         - session:
             - workflow:write
-      summary: workflow.put
+      summary: 'PutWorkflow creates or replaces a workflow by key: its states, initial
+        state and allowed transitions'
       tags:
         - workflow
   /api/v1/workflows/{key}:
     delete:
       description: |-
-        workflow.delete.
+        DeleteWorkflow deletes a workflow by key or identifier. The builtin workflow, and a workflow any project still uses, cannot be deleted and answer conflict.
 
         Command line: `tix workflow rm`.
       operationId: workflow.delete
@@ -8149,12 +8203,12 @@ paths:
             - workflow:write
         - session:
             - workflow:write
-      summary: workflow.delete
+      summary: DeleteWorkflow deletes a workflow by key or identifier
       tags:
         - workflow
     get:
       description: |-
-        workflow.get.
+        GetWorkflow returns a workflow by key or identifier.
 
         Command line: `tix workflow get`.
       operationId: workflow.get
@@ -8195,7 +8249,7 @@ paths:
             - workflow:read
         - session:
             - workflow:read
-      summary: workflow.get
+      summary: GetWorkflow returns a workflow by key or identifier
       tags:
         - workflow
     put:
@@ -8400,62 +8454,91 @@ components:
       description: APIToken is a scoped bearer credential, normally held by an agent.
       properties:
         actor_id:
+          description: ActorID is the actor the token acts as.
           type: string
         created_at:
+          description: CreatedAt is when the token was issued, RFC 3339.
           format: date-time
           type: string
         expires_at:
+          description: ExpiresAt is when the token stops authenticating, RFC 3339.
+            Absent means it never expires.
           format: date-time
           type:
             - "null"
             - string
         id:
+          description: ID is the token's identifier, used to list and revoke it. It
+            is not the secret.
           type: string
         last_used_at:
+          description: LastUsedAt is when the token last authenticated a request,
+            RFC 3339. Absent if never used.
           format: date-time
           type:
             - "null"
             - string
         name:
+          description: Name is the label given to the token when it was created.
           type: string
         project_id:
+          description: ProjectID restricts the token to one project when set. Empty
+            means every project the actor can reach.
           type: string
         revoked_at:
+          description: RevokedAt is when the token was revoked, RFC 3339. A revoked
+            token never authenticates again.
           format: date-time
           type:
             - "null"
             - string
         scopes:
+          description: Scopes are the permissions the token carries; a request outside
+            them is refused.
           items:
             $ref: '#/components/schemas/Scope'
           type:
             - array
             - "null"
         tenant_id:
+          description: TenantID is the tenant the token authenticates to.
           type: string
       type: object
     Actor:
       description: Actor is the authenticated identity performing an operation.
       properties:
         display_name:
+          description: DisplayName is the human-readable name, when one is set.
           type: string
         handle:
+          description: Handle is the actor's short unique name within the tenant.
           type: string
         id:
+          description: ID is the actor's stable identifier.
           type: string
         kind:
           $ref: '#/components/schemas/ActorKind'
+          description: Kind says whether the actor is a user, an agent or the system.
         project_id:
+          description: ProjectID restricts the actor to one project when set, as a
+            project-scoped token does.
           type: string
         role:
           $ref: '#/components/schemas/Role'
+          description: Role is the human's role in the tenant, whose scopes add to
+            Scopes.
         scopes:
+          description: Scopes are the scopes granted directly, as an API token's are;
+            empty when authority comes from Role alone.
           items:
             $ref: '#/components/schemas/Scope'
           type: array
         tenant_id:
+          description: TenantID is the tenant the actor acts in.
           type: string
         token_id:
+          description: TokenID is the API token the request authenticated with, if
+            any.
           type: string
       type: object
     ActorKind:
@@ -8472,45 +8555,65 @@ components:
           description: CertMode describes how a domain obtains its TLS certificate.
           type: string
         cert_path:
+          description: CertPath is the server-side path of the PEM certificate, required
+            when CertMode is "file".
           type: string
         hostname:
+          description: Hostname is the host requests for this tenant arrive on. It
+            is lowercased and any port or trailing dot is dropped. Required.
           type: string
         key_path:
+          description: KeyPath is the server-side path of the PEM private key, required
+            when CertMode is "file".
           type: string
       type: object
     AddMemberRequest:
       description: AddMemberRequest grants an actor a role in the resolved tenant.
       properties:
         actor_id:
+          description: ActorID is the actor to grant the role to.
           type: string
         role:
           $ref: '#/components/schemas/Role'
+          description: Role is the role to grant, which decides the member's scopes.
       type: object
     Artifact:
       description: Artifact is structured output attached to a task by a worker.
       properties:
         actor_id:
+          description: ActorID is the actor that wrote the artifact, normally the
+            claim holder.
           type: string
         blob:
+          description: Blob is inline content, base64 in JSON, at most 1 MiB. Larger
+            content belongs elsewhere, referenced from Payload.
           format: base64
           type: string
         content_type:
+          description: ContentType is the media type of Blob, such as "text/plain".
           type: string
         created_at:
+          description: CreatedAt is when the artifact was written, RFC 3339.
           format: date-time
           type: string
         id:
+          description: ID is the artifact's unique identifier.
           type: string
         kind:
           $ref: '#/components/schemas/ArtifactKind'
+          description: Kind classifies the output.
         name:
+          description: Name labels the artifact among the task's others.
           type: string
         payload:
           additionalProperties: {}
+          description: Payload is structured output as a JSON object.
           type: object
         task_id:
+          description: TaskID is the ID of the task the artifact is attached to.
           type: string
         tenant_id:
+          description: TenantID is the tenant that owns the artifact.
           type: string
       type: object
     ArtifactInput:
@@ -8519,18 +8622,26 @@ components:
         token.
       properties:
         blob:
+          description: Blob is inline content, base64 in JSON, at most 1 MiB; larger
+            content belongs elsewhere, referenced from Payload.
           format: base64
           type: string
         content_type:
+          description: ContentType is the media type of Blob.
           type: string
         kind:
           $ref: '#/components/schemas/ArtifactKind'
+          description: Kind classifies the output. Required.
         lease_token:
+          description: LeaseToken is the claim's token, required while the task is
+            claimed.
           type: string
         name:
+          description: Name labels the artifact among the task's others.
           type: string
         payload:
           additionalProperties: {}
+          description: Payload is structured output as a JSON object.
           type: object
       type: object
     ArtifactKind:
@@ -8545,24 +8656,37 @@ components:
       description: AuditEntry is one append-only record of a change.
       properties:
         action:
+          description: Action names the change, such as "task.create".
           type: string
         actor_id:
+          description: ActorID is the actor who made the change. Empty for a system
+            change.
           type: string
-        after: {}
-        before: {}
+        after:
+          description: After is the record as JSON after the change. Absent for a
+            removal.
+        before:
+          description: Before is the record as JSON before the change. Absent for
+            a creation.
         occurred_at:
+          description: OccurredAt is when the change was made, RFC 3339.
           format: date-time
           type: string
         seq:
+          description: Seq is the entry's position in the tenant's audit log, increasing.
           format: int64
           type: integer
         source:
           $ref: '#/components/schemas/Source'
+          description: Source is the surface the change came through.
         subject_id:
+          description: SubjectID is the ID of the record changed.
           type: string
         subject_type:
+          description: SubjectType is the kind of record changed, such as "task".
           type: string
         tenant_id:
+          description: TenantID is the tenant the entry belongs to.
           type: string
       type: object
     BulkAction:
@@ -8584,15 +8708,19 @@ components:
       description: BulkOutcome is what a bulk action did to one task.
       properties:
         applied:
+          description: Applied reports whether the action landed on the task.
           type: boolean
         code:
+          description: Code is the error kind of a refusal, such as not_found or conflict.
           type: string
         copy_ref:
           description: CopyRef names the new task a copy created.
           type: string
         error:
+          description: Error is the refusal's message.
           type: string
         ref:
+          description: Ref is the task reference as given.
           type: string
       type: object
     BulkResult:
@@ -8601,15 +8729,20 @@ components:
       properties:
         action:
           $ref: '#/components/schemas/BulkAction'
+          description: Action is the action applied.
         applied:
+          description: Applied counts the tasks the action landed on.
           type: integer
         outcomes:
+          description: Outcomes holds one entry per distinct reference, in the order
+            given.
           items:
             $ref: '#/components/schemas/BulkOutcome'
           type:
             - array
             - "null"
         refused:
+          description: Refused counts the tasks it was refused for.
           type: integer
       type: object
     BulkTaskInput:
@@ -8620,24 +8753,33 @@ components:
       properties:
         action:
           $ref: '#/components/schemas/BulkAction'
+          description: Action is what to do to each task.
         assignee_actor_id:
+          description: AssigneeActorID is the actor to assign; empty clears the assignee.
           type: string
         cascade:
+          description: Cascade lets a delete take a task's subtasks with it.
           type: boolean
         priority:
           description: Priority orders tasks in a queue.
           type: integer
         project_ref:
+          description: ProjectRef is the project a copy goes to, by key or id.
           type: string
         refs:
+          description: 'Refs are the tasks to act on, by reference such as OPS-12
+            or by id: 1 to 500, repeats folded.'
           items:
             type: string
           type:
             - array
             - "null"
         tag:
+          description: Tag is the tag name to add or remove.
           type: string
         to:
+          description: To is the status a move walks each task to, by its workflow's
+            shortest route.
           type: string
       type: object
     BundleExportInput:
@@ -8653,16 +8795,19 @@ components:
           description: Name labels the bundle for the people who receive it.
           type: string
         project_refs:
+          description: ProjectRefs selects projects by key or identifier, exported
+            as project templates.
           items:
             type: string
           type: array
         webhook_ids:
+          description: WebhookIDs selects individual webhook endpoints by identifier.
+            Secrets never travel in a bundle.
           items:
             type: string
           type: array
         workflow_keys:
-          description: WorkflowKeys, ProjectRefs and WebhookIDs select individual
-            components.
+          description: WorkflowKeys selects individual workflows by key.
           items:
             type: string
           type: array
@@ -8671,18 +8816,23 @@ components:
       description: BundleResult reports an import, or what a preview would have done.
       properties:
         bundle_name:
+          description: BundleName is the name the bundle was exported under, if any.
           type: string
         bundle_version:
+          description: BundleVersion is the bundle format version that was read.
           type: integer
         outcomes:
+          description: Outcomes lists what happened to each component, in bundle order.
           items:
             $ref: '#/components/schemas/ComponentOutcome'
           type:
             - array
             - "null"
         preview:
+          description: Preview is true when nothing was written.
           type: boolean
         warnings:
+          description: Warnings lists things the import noticed but did not refuse.
           items:
             type: string
           type: array
@@ -8693,8 +8843,10 @@ components:
         that, and only on the call that minted it.'
       properties:
         actor_id:
+          description: ActorID is the feed's owner, whose access it reads with.
           type: string
         created_at:
+          description: CreatedAt is when this secret was issued, RFC 3339.
           format: date-time
           type: string
         filter:
@@ -8702,19 +8854,25 @@ components:
             Empty means the tasks assigned to the owner that are not finished.
           type: string
         id:
+          description: ID identifies the feed.
           type: string
         revoked_at:
+          description: RevokedAt is when the feed stopped answering, RFC 3339, absent
+            while it is live.
           format: date-time
           type:
             - "null"
             - string
         tenant_id:
+          description: TenantID identifies the tenant the feed reads.
           type: string
       type: object
     CalendarFeedInput:
       description: CalendarFeedInput sets a feed's filter.
       properties:
         filter:
+          description: Filter is a task filter expression of at most 1000 characters.
+            Empty selects the caller's assigned tasks that are not finished.
           type: string
       type: object
     ChannelDelivery:
@@ -8722,25 +8880,35 @@ components:
         item, or a test when ItemID is empty.'
       properties:
         attempts:
+          description: Attempts counts the attempts made so far.
           type: integer
         channel_id:
+          description: ChannelID identifies the channel the delivery goes to.
           type: string
         created_at:
+          description: CreatedAt is when the delivery was queued, RFC 3339.
           format: date-time
           type: string
         id:
+          description: ID identifies the delivery, for redelivering it.
           type: string
         item_id:
+          description: ItemID identifies the inbox item delivered, empty for a test
+            message.
           type: string
         last_error:
+          description: LastError is the error of the most recent failed attempt.
           type: string
         last_status_code:
+          description: LastStatusCode is the HTTP status the most recent attempt received.
           type: integer
         next_attempt_at:
+          description: NextAttemptAt is when the next attempt is due, RFC 3339.
           format: date-time
           type: string
         status:
           $ref: '#/components/schemas/DeliveryStatus'
+          description: Status is pending, delivered or failed.
       type: object
     ChannelFormat:
       description: ChannelFormat names how a personal channel's messages are shaped.
@@ -8754,10 +8922,13 @@ components:
       description: Check is one readiness probe and its outcome.
       properties:
         error:
+          description: Error says why the probe failed, set only when it did.
           type: string
         name:
+          description: Name is the probe, "database" or "migrations".
           type: string
         ok:
+          description: OK is true when the probe passed.
           type: boolean
       type: object
     CheckItemInput:
@@ -8765,18 +8936,25 @@ components:
         from one in reading order; Version, when set, must be the task's current version.
       properties:
         done:
+          description: Done ticks the item when true and clears it when false.
           type: boolean
         item:
+          description: Item is the checklist item to change, counted from 1 in reading
+            order.
           type: integer
         version:
+          description: Version is the task version the change was based on; a stale
+            one is a conflict, and omitted skips the check.
           type: integer
       type: object
     Checklist:
       description: Checklist is how many of a description's checklist items are ticked.
       properties:
         done:
+          description: Done counts the ticked items.
           type: integer
         total:
+          description: Total counts every item.
           type: integer
       type: object
     Claim:
@@ -8787,63 +8965,91 @@ components:
           description: Lease is how long the lease granted runs and which level decided
             it.
         lease_expires_at:
+          description: LeaseExpiresAt is when the claim runs out unless renewed, RFC
+            3339.
           format: date-time
           type: string
         lease_token:
+          description: LeaseToken proves the claim. Renewing, releasing and writing
+            artifacts need it; keep it secret.
           type: string
         task:
           $ref: '#/components/schemas/Task'
+          description: Task is the claimed task as it stands after the claim.
       type: object
     ClaimInput:
       description: ClaimInput claims one task.
       properties:
         actor_id:
+          description: ActorID claims on behalf of another actor, by identifier or
+            handle; empty claims for the caller.
           type: string
         ttl:
+          description: TTL is how long the lease holds, a duration such as "30m".
+            Omitted takes the task, project, workflow or tenant default; a value above
+            the maximum is refused.
           type: string
       type: object
     ClaimNextInput:
       description: ClaimNextInput claims the next eligible task.
       properties:
         actor_id:
+          description: ActorID claims on behalf of another actor, by identifier or
+            handle; empty claims for the caller.
           type: string
         project_refs:
+          description: ProjectRefs restricts the queue to these projects, by key or
+            identifier; empty means every project the caller may claim in.
           items:
             type: string
           type: array
         statuses:
+          description: Statuses restricts the queue to tasks in any of these statuses;
+            empty means every status that is not terminal.
           items:
             type: string
           type: array
         tags:
+          description: Tags restricts the queue to tasks carrying any of these tags.
           items:
             type: string
           type: array
         ttl:
+          description: TTL is how long the lease holds, a duration such as "30m".
+            Omitted takes the configured default; a value above the maximum is refused.
           type: string
       type: object
     Comment:
       description: Comment is a message on a task.
       properties:
         author_actor_id:
+          description: AuthorActorID is the actor who wrote the comment.
           type: string
         body:
+          description: Body is the comment text, in Markdown.
           type: string
         created_at:
+          description: CreatedAt is when the comment was written, RFC 3339.
           format: date-time
           type: string
         deleted_at:
+          description: DeletedAt is when the comment was deleted, RFC 3339. Absent
+            on a live comment.
           format: date-time
           type:
             - "null"
             - string
         id:
+          description: ID is the comment's unique identifier.
           type: string
         task_id:
+          description: TaskID is the ID of the task commented on.
           type: string
         tenant_id:
+          description: TenantID is the tenant that owns the comment.
           type: string
         updated_at:
+          description: UpdatedAt is when the comment was last edited, RFC 3339.
           format: date-time
           type: string
       type: object
@@ -8851,6 +9057,7 @@ components:
       description: CommentRequest carries a comment body.
       properties:
         body:
+          description: Body is the comment text, Markdown.
           type: string
       type: object
     ComponentAction:
@@ -8875,14 +9082,18 @@ components:
       properties:
         action:
           $ref: '#/components/schemas/ComponentAction'
+          description: Action is what the import did, or would do, to the component.
         key:
+          description: Key is the component's key as the bundle carries it.
           type: string
         kind:
           $ref: '#/components/schemas/ComponentKind'
+          description: Kind is the kind of component.
         new_key:
           description: NewKey is set when the component was renamed to avoid a collision.
           type: string
         reason:
+          description: Reason explains a rename or a skip.
           type: string
       type: object
     Connection:
@@ -8890,23 +9101,32 @@ components:
         now. Nothing about it is stored: it is true only while the process runs.'
       properties:
         actor_handle:
+          description: ActorHandle is that actor's handle.
           type: string
         actor_id:
+          description: ActorID is the actor the connection authenticated as.
           type: string
         fingerprint:
           description: Fingerprint names the key an SSH connection opened with, and
             is empty on every other surface.
           type: string
         id:
+          description: ID identifies the connection within the answering server, for
+            ending it.
           type: string
         remote:
+          description: Remote is the client address the connection came from, without
+            its port.
           type: string
         since:
+          description: Since is when the connection opened, RFC 3339.
           format: date-time
           type: string
         surface:
           $ref: '#/components/schemas/ConnectionSurface'
+          description: Surface is the access path the connection arrived on.
         tenant_id:
+          description: TenantID identifies the tenant the connection reads.
           type: string
       type: object
     ConnectionCounts:
@@ -8916,12 +9136,17 @@ components:
         address: it is capacity information, not a directory.'
       properties:
         events:
+          description: Events counts the tenant's live event stream connections.
           type: integer
         process:
+          description: Process counts every connection this server holds, across all
+            tenants.
           type: integer
         ssh:
+          description: SSH counts the tenant's live SSH connections.
           type: integer
         tenant:
+          description: Tenant counts all of the tenant's live connections.
           type: integer
       type: object
     ConnectionList:
@@ -8930,6 +9155,8 @@ components:
         servers against one database gets a partial view from each.
       properties:
         connections:
+          description: Connections are the caller's tenant's live connections on that
+            server.
           items:
             $ref: '#/components/schemas/Connection'
           type:
@@ -8937,7 +9164,9 @@ components:
             - "null"
         counts:
           $ref: '#/components/schemas/ConnectionCounts'
+          description: Counts are the totals that go with the list.
         server_id:
+          description: ServerID names the server process that answered.
           type: string
       type: object
     ConnectionSurface:
@@ -8960,34 +9189,57 @@ components:
           description: Link records the source on each copy as its CopiedFromID.
           type: boolean
         project_ref:
+          description: ProjectRef is the key or identifier of the project to copy
+            into; empty copies into the source's own project.
           type: string
         title:
+          description: Title is the copy's title; empty keeps the source's.
           type: string
         with_comments:
+          description: WithComments copies the source's comments onto the copy.
           type: boolean
         with_dependencies:
+          description: WithDependencies copies dependency edges, pointing an edge
+            at the copy of its far end when that was copied too.
           type: boolean
         with_subtasks:
+          description: WithSubtasks copies the source's subtasks too, as subtasks
+            of the copy.
           type: boolean
       type: object
     CreateProjectInput:
       description: CreateProjectInput creates a project.
       properties:
         color:
+          description: Color is a palette colour name or a custom "#rrggbb"; empty
+            means none.
           type: string
         description:
+          description: Description is free text shown with the project.
           type: string
         icon:
+          description: 'Icon is a text icon: one emoji or a monogram of at most two
+            characters. At most one of Icon, IconName and IconFile may be set.'
           type: string
         icon_file:
           $ref: '#/components/schemas/ProjectIconFile'
+          description: IconFile is an uploaded image icon. At most one of Icon, IconName
+            and IconFile may be set.
         icon_name:
+          description: IconName names one of the built-in icons. At most one of Icon,
+            IconName and IconFile may be set.
           type: string
         key:
+          description: 'Key is the project''s unique key and the prefix of its task
+            references, lowercased: letters, digits, hyphens and underscores, starting
+            with a letter. Required.'
           type: string
         name:
+          description: Name is the project's display name. Required.
           type: string
         workflow_key:
+          description: WorkflowKey names the workflow the project's tasks follow;
+            empty uses the builtin workflow.
           type: string
       type: object
     CreateTaskRequest:
@@ -8996,17 +9248,24 @@ components:
         zone.
       properties:
         assignee_actor_id:
+          description: AssigneeActorID is the actor to assign, by identifier or handle.
           type: string
         body:
+          description: Body is the Markdown description, up to 1 MiB.
           type: string
         custom_fields:
           additionalProperties: {}
+          description: CustomFields holds values for the project's custom fields,
+            by field key. A field left out takes its default, and a required one without
+            a default is refused.
           type: object
         depends_on:
+          description: DependsOn lists references of tasks this task waits on.
           items:
             type: string
           type: array
         due_at:
+          description: DueAt is when the task is due, an RFC 3339 timestamp.
           format: date-time
           type:
             - "null"
@@ -9016,49 +9275,72 @@ components:
             the project's.
           type: string
         parent_ref:
+          description: ParentRef makes the task a subtask of this task reference.
           type: string
         parse:
+          description: 'Parse reads Title as a quick-add line such as "Fix login !high
+            #auth @raj due:fri", with relative dates counted in UTC.'
           type: boolean
         priority:
           description: Priority orders tasks in a queue.
           type: integer
         project_ref:
+          description: ProjectRef is the key or identifier of the project to create
+            the task in. Empty picks the tenant's only project, or its "default" project
+            when it has several.
           type: string
         recurrence:
-          description: Recurrence is a repeat rule in the syntax ParseRecurrence reads.
+          description: Recurrence is a repeat rule such as "every 2 weeks"; finishing
+            the task creates the next occurrence.
           type: string
         status:
+          description: Status is the starting state of the project's workflow; empty
+            uses the workflow's initial state.
           type: string
         tags:
+          description: Tags names the tags to attach, creating any that do not exist.
           items:
             type: string
           type: array
         title:
+          description: Title is a one-line summary of at most 500 characters. Required.
           type: string
       type: object
     CreateTenantInput:
       description: CreateTenantInput creates a tenant.
       properties:
         key:
+          description: 'Key is the tenant''s short unique key, lowercased: letters,
+            digits, hyphens and underscores, starting with a letter. Required.'
           type: string
         name:
+          description: Name is the tenant's display name. Required.
           type: string
       type: object
     CreateTokenInput:
       description: CreateTokenInput mints an API token.
       properties:
         actor_id:
+          description: ActorID is the actor the token acts as, by identifier or handle;
+            empty means the caller.
           type: string
         expires_at:
+          description: ExpiresAt is when the token stops working, an RFC 3339 timestamp;
+            omitted means it does not expire.
           format: date-time
           type:
             - "null"
             - string
         name:
+          description: Name labels the token, unique among the tenant's live tokens.
+            Required.
           type: string
         project_id:
+          description: ProjectID confines the token to one project, by key or identifier.
           type: string
         scopes:
+          description: Scopes are the permissions the token carries, each one the
+            creator must hold. At least one is required.
           items:
             $ref: '#/components/schemas/Scope'
           type:
@@ -9069,15 +9351,22 @@ components:
       description: CreateUserInput creates a user.
       properties:
         display_name:
+          description: DisplayName is the name shown for the user.
           type: string
         email:
+          description: Email is the user's sign-in address, lowercased. Required.
           type: string
         handle:
+          description: Handle is the user's unique short name, lowercased; empty uses
+            the part of the email before the "@".
           type: string
         password:
+          description: Password is at least 12 characters; empty creates a user with
+            no password.
           type: string
         role:
           $ref: '#/components/schemas/Role'
+          description: Role is the user's role in this tenant; empty means "viewer".
       type: object
     DeliveryStatus:
       description: DeliveryStatus is the state of one webhook delivery attempt chain.
@@ -9091,19 +9380,26 @@ components:
         a terminal state.'
       properties:
         created_at:
+          description: CreatedAt is when the dependency was added, RFC 3339.
           format: date-time
           type: string
         depends_on:
+          description: DependsOn is the ID of the task waited for, which must reach
+            a terminal state.
           type: string
         task_id:
+          description: TaskID is the ID of the task that waits.
           type: string
         tenant_id:
+          description: TenantID is the tenant that owns both tasks.
           type: string
       type: object
     DependencyRequest:
       description: DependencyRequest names the task a task waits for.
       properties:
         depends_on:
+          description: DependsOn is the reference of the task to wait for, such as
+            "OPS-12".
           type: string
       type: object
     Domain:
@@ -9113,19 +9409,29 @@ components:
           description: CertMode describes how a domain obtains its TLS certificate.
           type: string
         cert_path:
+          description: CertPath is the server-side path of the PEM certificate, set
+            when CertMode is "file".
           type: string
         created_at:
+          description: CreatedAt is when the domain was added, RFC 3339.
           format: date-time
           type: string
         hostname:
+          description: Hostname is the host name requests arrive on, such as "tix.example.com".
           type: string
         id:
+          description: ID is the domain's unique identifier.
           type: string
         key_path:
+          description: KeyPath is the server-side path of the PEM private key, set
+            when CertMode is "file".
           type: string
         tenant_id:
+          description: TenantID is the tenant the hostname resolves to.
           type: string
         verified_at:
+          description: VerifiedAt is when the hostname was verified, RFC 3339. Absent
+            until it is.
           format: date-time
           type:
             - "null"
@@ -9151,10 +9457,14 @@ components:
       properties:
         code:
           $ref: '#/components/schemas/Kind'
+          description: Code is the error kind, which decides the HTTP status.
         details:
           additionalProperties: {}
+          description: Details carries structured context when there is some, such
+            as "field" naming the input at fault or "reason" refining the kind.
           type: object
         message:
+          description: Message is a human-readable explanation.
           type: string
       type: object
     ErrorEnvelope:
@@ -9162,15 +9472,20 @@ components:
       properties:
         error:
           $ref: '#/components/schemas/ErrorBody'
+          description: Error describes what went wrong.
       type: object
     ExportInput:
       description: ExportInput selects what to export.
       properties:
         include_artifacts:
+          description: IncludeArtifacts adds the tasks' artifacts.
           type: boolean
         include_comments:
+          description: IncludeComments adds the tasks' comments.
           type: boolean
         project_refs:
+          description: ProjectRefs restricts the snapshot to these projects, by key
+            or identifier; empty exports every project.
           items:
             type: string
           type: array
@@ -9178,50 +9493,77 @@ components:
     FieldDef:
       description: FieldDef defines one custom field on a project's tasks.
       properties:
-        default: {}
+        default:
+          description: Default is the value a new task gets when it sets none, coerced
+            to Type.
         enum_options:
+          description: EnumOptions are the allowed values when Type is "enum".
           items:
             type: string
           type: array
         id:
+          description: ID is the field definition's unique identifier.
           type: string
         indexed:
+          description: Indexed marks the field as one worth indexing for queries.
           type: boolean
         key:
+          description: Key names the field in a task's custom_fields, unique within
+            the project.
           type: string
         label:
+          description: Label is the field's display name.
           type: string
         position:
+          description: Position orders the project's fields, lowest first, ties broken
+            by key.
           type: integer
         project_id:
+          description: ProjectID is the project whose tasks carry the field.
           type: string
         required:
+          description: Required refuses a new task that sets no value for the field
+            and has no Default to fall back on.
           type: boolean
         tenant_id:
+          description: TenantID is the tenant that owns the field.
           type: string
         type:
           $ref: '#/components/schemas/FieldType'
+          description: Type is the type every value of the field must have.
       type: object
     FieldDefInput:
       description: FieldDefInput defines or redefines a custom field.
       properties:
-        default: {}
+        default:
+          description: Default is the value a new task gets when it names none, coerced
+            to Type.
         enum_options:
+          description: EnumOptions lists the allowed values, required for an enum
+            field and refused on any other type.
           items:
             type: string
           type: array
         indexed:
+          description: Indexed marks the field as one task listings are expected to
+            filter on.
           type: boolean
         key:
+          description: Key identifies the field within the project and in a task's
+            custom_fields; an existing key is redefined. Required.
           type: string
         label:
+          description: Label is the name shown for the field; empty uses the key.
           type: string
         position:
+          description: Position orders the project's fields, lowest first.
           type: integer
         required:
+          description: Required refuses a task that ends up with no value and no default.
           type: boolean
         type:
           $ref: '#/components/schemas/FieldType'
+          description: Type is the kind of value the field holds. Required.
       type: object
     FieldType:
       description: FieldType is the type of a custom field's value.
@@ -9244,12 +9586,15 @@ components:
         which the entry says, but why somebody else's work was taken.
       properties:
         reason:
+          description: Reason says why the lease was taken, at most 500 characters.
           type: string
       type: object
     GroupOrderInput:
       description: GroupOrderInput is the order a reader put a view's groups in.
       properties:
         groups:
+          description: 'Groups names the groups to put first, in that order: at most
+            500, each once, spelled as GroupPref.Group is.'
           items:
             type: string
           type:
@@ -9263,18 +9608,24 @@ components:
         else sees.'
       properties:
         collapsed:
+          description: Collapsed draws the group as a narrow strip.
           type: boolean
         group:
+          description: 'Group names the group on that view: a state key on a board,
+            a project key on lanes, or a deadline bucket on mine.'
           type: string
         hidden:
+          description: Hidden leaves the group out of the view.
           type: boolean
         position:
           description: Position is the place the reader moved the group to, from 1,
             or 0 when the group keeps the order the view draws it in.
           type: integer
         starred:
+          description: Starred moves the group ahead of the unstarred ones.
           type: boolean
         view:
+          description: 'View names the view: board, lanes, mine or project:KEY.'
           type: string
       type: object
     GroupPrefInput:
@@ -9282,14 +9633,17 @@ components:
         as it is.
       properties:
         collapsed:
+          description: Collapsed collapses or expands the group.
           type:
             - "null"
             - boolean
         hidden:
+          description: Hidden hides or shows the group.
           type:
             - "null"
             - boolean
         starred:
+          description: Starred stars or unstars the group.
           type:
             - "null"
             - boolean
@@ -9298,18 +9652,26 @@ components:
       description: HealthBody reports that the process is alive.
       properties:
         status:
+          description: Status is always "ok".
           type: string
         version:
+          description: Version is the tix version the process runs.
           type: string
       type: object
     HousekeepingCounts:
       description: HousekeepingCounts is how many tasks each rule acts on.
       properties:
         cancelled:
+          description: Cancelled is the number of cancelled tasks moved, or due to
+            move, to the trash.
           type: integer
         done:
+          description: Done is the number of done tasks moved, or due to move, to
+            the trash.
           type: integer
         trash:
+          description: Trash is the number of trashed tasks deleted, or due to be
+            deleted, for good.
           type: integer
       type: object
     HousekeepingInput:
@@ -9318,12 +9680,20 @@ components:
         leaves it.
       properties:
         cancelled:
+          description: 'Cancelled sets the cancelled rule: "off", days, or "inherit"
+            on a project.'
           type: string
         done:
+          description: 'Done sets the done rule: "off", days ("30" or "30d"), or "inherit"
+            on a project.'
           type: string
         project:
+          description: Project is the key or ID of the project whose override changes;
+            empty changes the tenant default.
           type: string
         trash:
+          description: 'Trash sets the trash rule: "off", days, or "inherit" on a
+            project.'
           type: string
       type: object
     HousekeepingPolicy:
@@ -9331,16 +9701,25 @@ components:
         nil rule inherits the tenant's; on the tenant a nil rule is off. Zero is off.
       properties:
         cancelled:
+          description: Cancelled is the days a cancelled task stays before it moves
+            to the trash; null inherits on a project and is off on the tenant, 0 is
+            off.
           type:
             - "null"
             - integer
         done:
+          description: Done is the days a done task stays before it moves to the trash;
+            null inherits on a project and is off on the tenant, 0 is off.
           type:
             - "null"
             - integer
         project_id:
+          description: ProjectID is the project this override belongs to, empty for
+            the tenant default.
           type: string
         trash:
+          description: Trash is the days a task stays in the trash before it is deleted
+            for good; null inherits on a project and is off on the tenant, 0 is off.
           type:
             - "null"
             - integer
@@ -9349,24 +9728,38 @@ components:
       description: HousekeepingResult says what one run did, or would do.
       properties:
         cancelled:
+          description: Cancelled is the number of cancelled tasks moved, or due to
+            move, to the trash.
           type: integer
         done:
+          description: Done is the number of done tasks moved, or due to move, to
+            the trash.
           type: integer
         dry_run:
+          description: DryRun is true when the run was a preview and changed nothing.
           type: boolean
         paused:
+          description: Paused is true while the tenant's trash is off, so no rule
+            acted.
           type: boolean
         trash:
+          description: Trash is the number of trashed tasks deleted, or due to be
+            deleted, for good.
           type: integer
       type: object
     HousekeepingRunInput:
       description: HousekeepingRunInput runs housekeeping once, or previews it.
       properties:
         dry_run:
+          description: DryRun counts what a run would act on and changes nothing.
           type: boolean
         limit:
+          description: Limit caps the tasks each rule acts on in this run; 0 means
+            200, negative is refused.
           type: integer
         project:
+          description: Project is the key or ID of one project to run for; empty runs
+            every project.
           type: string
       type: object
     HousekeepingView:
@@ -9376,18 +9769,26 @@ components:
       properties:
         effective:
           $ref: '#/components/schemas/HousekeepingPolicy'
+          description: Effective is the policy that applies, with every rule resolved
+            to days.
         override:
           $ref: '#/components/schemas/HousekeepingPolicy'
+          description: Override is the project's own rules, a null rule inheriting
+            the tenant's.
         paused:
           description: 'Paused is true while the tenant''s trash is off: no rule runs
             then.'
           type: boolean
         pending:
           $ref: '#/components/schemas/HousekeepingCounts'
+          description: Pending counts the tasks each rule would act on now.
         project:
+          description: Project is the key of the project asked about, empty for the
+            tenant.
           type: string
         tenant:
           $ref: '#/components/schemas/HousekeepingPolicy'
+          description: Tenant is the tenant default policy.
       type: object
     ImportResult:
       description: ImportResult reports what an import did, or would do under a dry
@@ -9396,28 +9797,34 @@ components:
         created:
           additionalProperties:
             type: integer
+          description: Created counts the records created, by record kind.
           type:
             - object
             - "null"
         deleted:
           additionalProperties:
             type: integer
+          description: Deleted counts the records deleted, by record kind.
           type: object
         dry_run:
+          description: DryRun is true when nothing was written.
           type: boolean
         skipped:
           additionalProperties:
             type: integer
+          description: Skipped counts the records left alone, by record kind.
           type:
             - object
             - "null"
         updated:
           additionalProperties:
             type: integer
+          description: Updated counts the records updated, by record kind.
           type:
             - object
             - "null"
         warnings:
+          description: Warnings lists records the import could not take as they were.
           items:
             type: string
           type: array
@@ -9429,43 +9836,61 @@ components:
         reach it.'
       properties:
         active:
+          description: Active is false when the channel is turned off and receives
+            nothing.
           type: boolean
         actor_id:
+          description: ActorID is the person who owns the channel.
           type: string
         created_at:
+          description: CreatedAt is when the channel was created, RFC 3339.
           format: date-time
           type: string
         format:
           $ref: '#/components/schemas/ChannelFormat'
+          description: Format shapes the message for the service behind the URL.
         id:
+          description: ID identifies the channel.
           type: string
         kinds:
+          description: Kinds lists the inbox kinds the channel receives.
           items:
             $ref: '#/components/schemas/InboxKind'
           type:
             - array
             - "null"
         name:
+          description: Name labels the channel, unique among its owner's channels
+            ignoring case.
           type: string
         url:
+          description: URL is where tix posts each message.
           type: string
       type: object
     InboxChannelInput:
       description: InboxChannelInput creates a channel. Kinds empty means every kind.
       properties:
         active:
+          description: Active turns the channel on or off; omitted means on.
           type:
             - "null"
             - boolean
         format:
+          description: Format is generic, slack, discord or ntfy; empty means generic.
           type: string
         kinds:
+          description: Kinds lists the inbox kinds to receive. Omitted means every
+            kind; an empty list is refused.
           items:
             type: string
           type: array
         name:
+          description: Name labels the channel, at most 80 characters and unique among
+            the caller's channels.
           type: string
         url:
+          description: URL is where messages are posted; it must be https unless it
+            is a loopback address or the server allows insecure webhooks.
           type: string
       type: object
     InboxChannelUpdate:
@@ -9473,24 +9898,31 @@ components:
         is.
       properties:
         active:
+          description: Active turns the channel on or off.
           type:
             - "null"
             - boolean
         format:
+          description: 'Format changes the shape: generic, slack, discord or ntfy.'
           type:
             - "null"
             - string
         kinds:
+          description: Kinds replaces the inbox kinds received; an empty list is refused.
           items:
             type: string
           type:
             - "null"
             - array
         name:
+          description: Name renames the channel, at most 80 characters and unique
+            among the caller's channels.
           type:
             - "null"
             - string
         url:
+          description: URL changes where messages are posted, under the same rules
+            as on creation.
           type:
             - "null"
             - string
@@ -9499,6 +9931,7 @@ components:
       description: InboxCount is how many of the caller's items are unread.
       properties:
         unread:
+          description: Unread is the number of the caller's items not yet read.
           type: integer
       type: object
     InboxItem:
@@ -9506,42 +9939,63 @@ components:
         an assignment, a comment on a task they follow, or a status change.'
       properties:
         actor_handle:
+          description: ActorHandle is that actor's handle, empty when the actor no
+            longer exists.
           type: string
         actor_id:
+          description: ActorID is the actor whose change produced the item.
           type: string
         comment_id:
+          description: CommentID identifies the comment behind a mention or comment
+            item.
           type: string
         created_at:
+          description: CreatedAt is when the item was written, RFC 3339.
           format: date-time
           type: string
         excerpt:
+          description: Excerpt quotes the comment, description or title on one line,
+            cut to 200 characters.
           type: string
         from_status:
-          description: FromStatus and ToStatus are set on a status item.
+          description: FromStatus is the status a task left, set on a status item
+            only.
           type: string
         id:
+          description: ID identifies the item, for marking it read or unread.
           type: string
         kind:
           $ref: '#/components/schemas/InboxKind'
+          description: Kind is why the item reached its recipient, the strongest reason
+            when one change concerned them for several.
         read_at:
+          description: ReadAt is when the recipient marked the item read, RFC 3339,
+            absent while it is unread.
           format: date-time
           type:
             - "null"
             - string
         recipient_id:
+          description: RecipientID is the actor the item is for, always the caller
+            on a read.
           type: string
         task_gone:
           description: TaskGone is set when the task has since been deleted.
           type: boolean
         task_id:
+          description: TaskID identifies the task the item is about.
           type: string
         task_ref:
-          description: TaskRef and TaskTitle name the task when the item was read
-            back.
+          description: TaskRef is the task's reference, such as OPS-12, filled in
+            when the item is read back.
           type: string
         task_title:
+          description: TaskTitle is the task's current title, filled in when the item
+            is read back.
           type: string
         to_status:
+          description: ToStatus is the status a task entered, set on a status item
+            only.
           type: string
       type: object
     InboxKind:
@@ -9557,6 +10011,7 @@ components:
         for them.
       properties:
         muted:
+          description: Muted lists the kinds that create no inbox item for the caller.
           items:
             $ref: '#/components/schemas/InboxKind'
           type:
@@ -9567,6 +10022,8 @@ components:
       description: InboxPrefsInput replaces the caller's muted kinds.
       properties:
         muted:
+          description: 'Muted is the complete list of kinds to mute: mention, assigned,
+            status or comment. An empty list mutes nothing.'
           items:
             type: string
           type:
@@ -9577,12 +10034,14 @@ components:
       description: InboxReadAll reports how many items marking everything read changed.
       properties:
         marked:
+          description: Marked is how many unread items were marked read.
           type: integer
       type: object
     Installation:
       description: Installation describes the store the report was taken against.
       properties:
         engine:
+          description: Engine is the database engine, "sqlite" or "postgres".
           type: string
         observed_at:
           description: ObservedAt is the instant every staleness judgement in this
@@ -9590,11 +10049,13 @@ components:
           format: date-time
           type: string
         schema_version:
+          description: SchemaVersion is the highest database migration applied.
           type: integer
         store:
           description: Store is the resolved target, with any password already redacted.
           type: string
         version:
+          description: Version is the tix version that produced the report.
           type: string
       type: object
     IssuedCalendarFeed:
@@ -9603,8 +10064,10 @@ components:
         by a surface that knows the address it was reached at, and is empty otherwise.
       properties:
         actor_id:
+          description: ActorID is the feed's owner, whose access it reads with.
           type: string
         created_at:
+          description: CreatedAt is when this secret was issued, RFC 3339.
           format: date-time
           type: string
         filter:
@@ -9612,19 +10075,29 @@ components:
             Empty means the tasks assigned to the owner that are not finished.
           type: string
         id:
+          description: ID identifies the feed.
           type: string
         path:
+          description: 'Path is the route a calendar app reads the feed at, with no
+            credential: /api/v1/calendar/feeds/TOKEN.ics.'
           type: string
         revoked_at:
+          description: RevokedAt is when the feed stopped answering, RFC 3339, absent
+            while it is live.
           format: date-time
           type:
             - "null"
             - string
         tenant_id:
+          description: TenantID identifies the tenant the feed reads.
           type: string
         token:
+          description: Token is the secret that addresses the feed, returned only
+            by the call that minted it.
           type: string
         url:
+          description: URL is Path made absolute, empty when the surface does not
+            know its own address.
           type: string
       type: object
     IssuedInboxChannel:
@@ -9632,67 +10105,97 @@ components:
         that carries its signing secret, which no later read returns.'
       properties:
         active:
+          description: Active is false when the channel is turned off and receives
+            nothing.
           type: boolean
         actor_id:
+          description: ActorID is the person who owns the channel.
           type: string
         created_at:
+          description: CreatedAt is when the channel was created, RFC 3339.
           format: date-time
           type: string
         format:
           $ref: '#/components/schemas/ChannelFormat'
+          description: Format shapes the message for the service behind the URL.
         id:
+          description: ID identifies the channel.
           type: string
         kinds:
+          description: Kinds lists the inbox kinds the channel receives.
           items:
             $ref: '#/components/schemas/InboxKind'
           type:
             - array
             - "null"
         name:
+          description: Name labels the channel, unique among its owner's channels
+            ignoring case.
           type: string
         secret:
+          description: SigningSecret is the secret that signs the channel's generic
+            deliveries, returned on creation only.
           type: string
         url:
+          description: URL is where tix posts each message.
           type: string
       type: object
     IssuedToken:
       description: IssuedToken carries a newly minted token value.
       properties:
         actor_id:
+          description: ActorID is the actor the token acts as.
           type: string
         created_at:
+          description: CreatedAt is when the token was issued, RFC 3339.
           format: date-time
           type: string
         expires_at:
+          description: ExpiresAt is when the token stops authenticating, RFC 3339.
+            Absent means it never expires.
           format: date-time
           type:
             - "null"
             - string
         id:
+          description: ID is the token's identifier, used to list and revoke it. It
+            is not the secret.
           type: string
         last_used_at:
+          description: LastUsedAt is when the token last authenticated a request,
+            RFC 3339. Absent if never used.
           format: date-time
           type:
             - "null"
             - string
         name:
+          description: Name is the label given to the token when it was created.
           type: string
         project_id:
+          description: ProjectID restricts the token to one project when set. Empty
+            means every project the actor can reach.
           type: string
         revoked_at:
+          description: RevokedAt is when the token was revoked, RFC 3339. A revoked
+            token never authenticates again.
           format: date-time
           type:
             - "null"
             - string
         scopes:
+          description: Scopes are the permissions the token carries; a request outside
+            them is refused.
           items:
             $ref: '#/components/schemas/Scope'
           type:
             - array
             - "null"
         tenant_id:
+          description: TenantID is the tenant the token authenticates to.
           type: string
         token:
+          description: Token is the secret bearer value. It is returned only when
+            the token is issued and cannot be read again.
           type: string
       type: object
     Kind:
@@ -9715,14 +10218,21 @@ components:
         setting it. Clamped reports a length cut down to the ceiling.'
       properties:
         clamped:
+          description: Clamped reports that the requested or inherited length was
+            cut down to Max.
           type: boolean
         max:
+          description: Max is the ceiling a lease on the task may not exceed, as a
+            duration such as "24h".
           type: string
         max_source:
           $ref: '#/components/schemas/LeaseSource'
+          description: MaxSource is the level Max was taken from.
         source:
           $ref: '#/components/schemas/LeaseSource'
+          description: Source is the level TTL was taken from.
         ttl:
+          description: TTL is the lease length granted, as a duration such as "4h".
           type: string
       type: object
     LeaseSource:
@@ -9743,14 +10253,22 @@ components:
         ticket the challenge answered with and the code.
       properties:
         code:
+          description: Code is the six-digit TOTP code or a recovery code, in the
+            second step.
           type: string
         email:
+          description: Email identifies the user, in the first step.
           type: string
         password:
+          description: Password is the user's password, in the first step.
           type: string
         surface:
           $ref: '#/components/schemas/Surface'
+          description: Surface is the sign-in path the session is for, which decides
+            whether a second factor is required.
         ticket:
+          description: Ticket is the challenge ticket from the first step, in the
+            second step.
           type: string
       type: object
     LoginResult:
@@ -9759,6 +10277,7 @@ components:
       properties:
         challenge:
           $ref: '#/components/schemas/TOTPChallenge'
+          description: Challenge is set when a second factor is still needed.
         recovery_codes:
           description: RecoveryCodes is set once, when a sign-in completed by enrolling.
             The caller must show them and cannot ask for them again.
@@ -9767,24 +10286,31 @@ components:
           type: array
         session:
           $ref: '#/components/schemas/Session'
+          description: Session is the new session, set when sign-in is complete.
       type: object
     Membership:
       description: Membership grants a human a role within one tenant.
       properties:
         actor_id:
+          description: ActorID is the member's actor ID.
           type: string
         created_at:
+          description: CreatedAt is when the membership was granted, RFC 3339.
           format: date-time
           type: string
         role:
           $ref: '#/components/schemas/Role'
+          description: Role is the role granted, which decides the member's scopes.
         tenant_id:
+          description: TenantID is the tenant the membership belongs to.
           type: string
       type: object
     Project:
       description: Project groups tasks and is assigned exactly one workflow.
       properties:
         archived_at:
+          description: ArchivedAt is when the project was archived, RFC 3339. Absent
+            on an active project.
           format: date-time
           type:
             - "null"
@@ -9795,36 +10321,54 @@ components:
             #rrggbb value, which every scheme renders as near to itself as stays legible.'
           type: string
         created_at:
+          description: CreatedAt is when the project was created, RFC 3339.
           format: date-time
           type: string
         description:
+          description: Description is free text about the project.
           type: string
         icon:
+          description: Icon is a text icon, one emoji or a one or two letter monogram.
+            At most one of Icon, IconName and IconImage is set.
           type: string
         icon_image:
+          description: IconImage is the digest of an uploaded icon image, whose bytes
+            are read from the project's icon route. Empty when the project has no
+            image.
           type: string
         icon_name:
+          description: IconName names one of the built-in icons, such as "rocket"
+            or "bug".
           type: string
         id:
+          description: ID is the project's unique identifier.
           type: string
         key:
+          description: Key is the project's short unique key, which prefixes its task
+            references such as "INFRA-42".
           type: string
         lease_default:
           description: LeaseDefault is how long a claim on this project's tasks holds
-            when neither the claim nor the task says; it outranks the workflow and
-            the tenant. LeaseMax narrows the tenant's ceiling and never raises it.
-            Zero on either inherits.
+            when neither the claim nor the task says, as a duration such as "4h".
+            It outranks the workflow and the tenant; zero or absent inherits.
           type: string
         lease_max:
+          description: LeaseMax caps any lease granted on this project's tasks, as
+            a duration such as "24h". It narrows the tenant's ceiling and never raises
+            it; zero or absent inherits.
           type: string
         name:
+          description: Name is the project's display name.
           type: string
         tenant_id:
+          description: TenantID is the tenant that owns the project.
           type: string
         updated_at:
+          description: UpdatedAt is when the project was last changed, RFC 3339.
           format: date-time
           type: string
         workflow_id:
+          description: WorkflowID is the ID of the workflow the project's tasks follow.
           type: string
       type: object
     ProjectDeletion:
@@ -9836,6 +10380,7 @@ components:
             project.
           type: boolean
         deleted:
+          description: Deleted counts the project's soft deleted tasks, in the trash.
           type: integer
         dry_run:
           description: 'DryRun marks a plan: what the deletion would do, nothing written.'
@@ -9844,6 +10389,7 @@ components:
           description: MoveTo is the target's key when the tasks move.
           type: string
         project:
+          description: Project is the key of the project being deleted.
           type: string
         statuses:
           description: Statuses is the mapping a move applies, one entry per source
@@ -9852,7 +10398,7 @@ components:
             $ref: '#/components/schemas/StatusMove'
           type: array
         tasks:
-          description: Tasks counts the live tasks and Deleted the soft deleted ones.
+          description: Tasks counts the project's live tasks.
           type: integer
       type: object
     ProjectIconFile:
@@ -9860,8 +10406,12 @@ components:
         The declared content type is advisory: the bytes decide.'
       properties:
         content_type:
+          description: ContentType is the declared media type, advisory only; the
+            bytes decide.
           type: string
         data:
+          description: 'Data is the image, base64 in JSON: a PNG, JPEG, WebP or script-free
+            SVG of at most 64 KiB. Empty asks for no image.'
           format: base64
           type: string
       type: object
@@ -9869,8 +10419,11 @@ components:
       description: PruneInput removes records past their retention window.
       properties:
         dry_run:
+          description: DryRun reports what would be removed and removes nothing.
           type: boolean
         limit:
+          description: Limit caps how many rows of each kind one run removes; 0 means
+            500.
           type: integer
       type: object
     PruneResult:
@@ -9878,17 +10431,23 @@ components:
         a dry run.
       properties:
         audit_entries:
+          description: AuditEntries counts the audit entries removed.
           format: int64
           type: integer
         dry_run:
+          description: DryRun is true when nothing was removed.
           type: boolean
         events:
+          description: Events counts the events removed.
           format: int64
           type: integer
         retained_for_subscribers:
+          description: RetainedForSubscribers counts events past their window kept
+            because a subscriber has not consumed them yet.
           format: int64
           type: integer
         webhook_deliveries:
+          description: WebhookDeliveries counts the webhook delivery records removed.
           format: int64
           type: integer
       type: object
@@ -9896,33 +10455,44 @@ components:
       description: ReadyBody reports whether the server can serve traffic.
       properties:
         checks:
+          description: Checks are the individual probes and their outcomes.
           items:
             $ref: '#/components/schemas/Check'
           type:
             - array
             - "null"
         ready:
+          description: Ready is true when every check passed.
           type: boolean
       type: object
     ReleaseRequest:
       description: ReleaseRequest gives up a lease held under a token.
       properties:
         comment:
+          description: Comment is added to the task as a comment.
           type: string
         result:
           additionalProperties: {}
+          description: Result is recorded as a "result" artifact named "result".
           type: object
         status:
+          description: Status moves the task to this status as it is released; empty
+            leaves the status as it is.
           type: string
         token:
+          description: Token is the lease token the claim returned.
           type: string
       type: object
     RenewRequest:
       description: RenewRequest extends a lease held under a token.
       properties:
         token:
+          description: Token is the lease token the claim returned.
           type: string
         ttl:
+          description: TTL is the new lease length from now, such as "30m" or "4h";
+            omitted takes the default a fresh claim would get. The lease cap still
+            applies.
           type: string
       type: object
     RetentionPolicy:
@@ -9930,12 +10500,19 @@ components:
         tables.
       properties:
         audit_entries:
+          description: AuditEntries is how long audit entries are kept, as a duration
+            such as "8760h". The default is 365 days.
           type: string
         events:
+          description: Events is how long events are kept, as a duration such as "720h".
+            The default is 30 days.
           type: string
         tenant_id:
+          description: TenantID is the tenant the policy applies to.
           type: string
         webhook_deliveries:
+          description: WebhookDeliveries is how long webhook delivery records are
+            kept, as a duration. The default is 30 days.
           type: string
       type: object
     Role:
@@ -9955,19 +10532,29 @@ components:
         because the two can disagree and no reading of the pair is obviously right.
       properties:
         comment:
+          description: Comment is attached to every hop's transition.
           type: string
         custom_fields:
           additionalProperties: {}
+          description: CustomFields are custom field values set on the last hop, keyed
+            by field definition key.
           type: object
         lease_token:
+          description: LeaseToken proves the caller's claim when the task is leased.
           type: string
         route:
+          description: Route lists the states to pass through in order, the current
+            one left out, each once; set this or To.
           items:
             type: string
           type: array
         to:
+          description: To is the destination state, reached by the route the workflow
+            finds; set this or Route.
           type: string
         version:
+          description: Version is the task version the move was based on, checked
+            on the first hop; a stale one is a conflict and omitted skips the check.
           type: integer
       type: object
     RouteResult:
@@ -9976,34 +10563,46 @@ components:
         a caller told only that it failed would have to go and look.
       properties:
         applied:
+          description: Applied lists the states the task actually entered, in order.
           items:
             type: string
           type:
             - array
             - "null"
         from:
+          description: From is the status the task started in.
           type: string
         reason:
+          description: Reason is why that hop was refused.
           type: string
         route:
+          description: Route is the full list of states the move set out to pass through.
           items:
             type: string
           type:
             - array
             - "null"
         stopped:
+          description: Stopped is the state a hop was refused for, empty when the
+            route completed.
           type: string
         task:
           $ref: '#/components/schemas/Task'
+          description: Task is the task as it stands after the last hop that landed.
       type: object
     RunSyncInput:
       description: RunSyncInput runs an import from a configured source.
       properties:
         dry_run:
+          description: DryRun reports what the run would import and writes nothing.
           type: boolean
         full:
+          description: Full reads the source from the beginning instead of resuming
+            from the stored cursor.
           type: boolean
         source_id:
+          description: SourceID is the identifier of the registered source to run.
+            Required.
           type: string
       type: object
     SSHChallenge:
@@ -10013,11 +10612,16 @@ components:
         the host rather than adopting.
       properties:
         expires_at:
+          description: ExpiresAt is when the nonce stops being accepted, two minutes
+            after issue, RFC 3339.
           format: date-time
           type: string
         namespace:
+          description: Namespace is the sshsig namespace the signature must be made
+            under, "tix-login@" followed by the host.
           type: string
         nonce:
+          description: Nonce is the opaque, server-signed value to sign.
           type: string
       type: object
     SSHKey:
@@ -10029,35 +10633,47 @@ components:
         so what an operator compares by eye is what is stored.'
       properties:
         actor_id:
+          description: ActorID is the actor the key signs in as.
           type: string
         created_at:
+          description: CreatedAt is when the key was enrolled, RFC 3339.
           format: date-time
           type: string
         fingerprint:
+          description: Fingerprint is the key's SHA-256 fingerprint as ssh prints
+            it ("SHA256:...").
           type: string
         id:
+          description: ID identifies the enrolment; revoke a key by it.
           type: string
         label:
+          description: Label is a human note for telling one key from another.
           type: string
         last_used_at:
+          description: LastUsedAt is when the key last authenticated, absent if never.
           format: date-time
           type:
             - "null"
             - string
         public_key:
+          description: PublicKey is the key in authorized_keys form.
           type: string
         revoked_at:
+          description: RevokedAt is when the key was revoked, absent while it still
+            works.
           format: date-time
           type:
             - "null"
             - string
         tenant_id:
+          description: TenantID is the tenant the key is enrolled in.
           type: string
       type: object
     SSHLoginInput:
       description: SSHLoginInput is the signed answer to a challenge.
       properties:
         nonce:
+          description: Nonce is the nonce from the challenge being answered.
           type: string
         public_key:
           description: PublicKey is the key in authorized_keys form.
@@ -10074,16 +10690,24 @@ components:
       description: SaveTemplateInput names a task to keep as a template.
       properties:
         due_in:
+          description: DueIn is how far from a use the task falls due, a duration
+            such as "3d" of at most ten years; omitted means no due date.
           type: string
         name:
+          description: 'Name labels the template: required, at most 100 characters,
+            unique in the tenant ignoring case.'
           type: string
         task_ref:
+          description: TaskRef is the live task to keep, by reference such as OPS-12
+            or by id.
           type: string
         tenant_wide:
           description: TenantWide shares the template with every project rather than
             keeping it in the task's own.
           type: boolean
         with_subtasks:
+          description: WithSubtasks keeps the task's live subtasks too, at most 200
+            tasks in all.
           type: boolean
       type: object
     SavedFilter:
@@ -10092,50 +10716,70 @@ components:
         and a shared one is listed for everybody in the tenant.'
       properties:
         created_at:
+          description: CreatedAt is when the filter was saved, RFC 3339.
           format: date-time
           type: string
         editable:
+          description: 'Editable reports whether the caller may change the filter:
+            its owner or an administrator.'
           type: boolean
         id:
+          description: ID identifies the filter.
           type: string
         mine:
-          description: Mine reports whether the reader owns the filter, and Editable
-            whether the reader may change it. Both are answered for the caller.
+          description: Mine reports whether the caller owns the filter.
           type: boolean
         name:
+          description: Name labels the filter, unique among its owner's filters ignoring
+            case.
           type: string
         owner_id:
+          description: OwnerID is the actor who owns the filter.
           type: string
         position:
           description: Position is where the owner put the filter among their own,
             from 1.
           type: integer
         query:
+          description: Query is the task filter expression, as typed on the task screen.
           type: string
         shared:
           description: Shared lists the filter for every reader of the tenant. Only
             its owner and an administrator may change it.
           type: boolean
         sort:
+          description: Sort is the task field the listing is ordered by, empty for
+            the default.
           type: string
         updated_at:
+          description: UpdatedAt is when the filter last changed, RFC 3339.
           format: date-time
           type: string
         view:
+          description: 'View is the view the task screen opens in: list, board or
+            lanes, or empty to keep the reader''s current view.'
           type: string
       type: object
     SavedFilterInput:
       description: SavedFilterInput creates a saved filter.
       properties:
         name:
+          description: 'Name labels the filter: required, at most 80 characters, unique
+            among the caller''s filters.'
           type: string
         query:
+          description: Query is the task filter expression, at most 2000 bytes.
           type: string
         shared:
+          description: Shared lists the filter for every reader of the tenant.
           type: boolean
         sort:
+          description: Sort is one of urgency, created_at, updated_at, priority, due_at,
+            seq or title; empty uses the default ordering.
           type: string
         view:
+          description: View is list, board or lanes; empty keeps the reader's current
+            view.
           type: string
       type: object
     SavedFilterOrderInput:
@@ -10143,6 +10787,8 @@ components:
         in.
       properties:
         filters:
+          description: Filters names the caller's own filters by id or name, in the
+            order wanted; filters left out keep their relative order after them.
           items:
             type: string
           type:
@@ -10154,22 +10800,27 @@ components:
         it is.
       properties:
         name:
+          description: Name renames the filter, under the same rules as on creation.
           type:
             - "null"
             - string
         query:
+          description: Query replaces the filter expression.
           type:
             - "null"
             - string
         shared:
+          description: Shared shares the filter with the tenant or takes it back.
           type:
             - "null"
             - boolean
         sort:
+          description: Sort replaces the ordering; the empty string restores the default.
           type:
             - "null"
             - string
         view:
+          description: View replaces the view; the empty string clears it.
           type:
             - "null"
             - string
@@ -10211,6 +10862,7 @@ components:
         through.'
       properties:
         address:
+          description: Address is the address the process listens on.
           type: string
         attached:
           description: Attached is the reader's own staleness judgement, carried in
@@ -10232,14 +10884,18 @@ components:
             boolean has the threshold rather than having to assume one.
           type: string
         id:
+          description: ID identifies the server process.
           type: string
         last_seen_at:
+          description: LastSeenAt is the process's last heartbeat, RFC 3339.
           format: date-time
           type: string
         started_at:
+          description: StartedAt is when the process registered, RFC 3339.
           format: date-time
           type: string
         surfaces:
+          description: Surfaces are what the process serves.
           items:
             description: ServerSurface names a surface a server process serves.
             type: string
@@ -10251,25 +10907,32 @@ components:
             was taken, so a reader need not subtract two instants to learn it.
           type: string
         version:
+          description: Version is the tix version the process runs.
           type: string
       type: object
     Session:
       description: Session is a browser or terminal login.
       properties:
         actor_id:
+          description: ActorID is the actor the session acts as.
           type: string
         expires_at:
+          description: ExpiresAt is when the session stops working, in RFC 3339.
           format: date-time
           type: string
         tenant_id:
+          description: TenantID is the tenant the session belongs to.
           type: string
         token:
+          description: Token is the session secret, presented as the session cookie.
           type: string
       type: object
     SnoozeInput:
       description: SnoozeInput says until when a task sleeps.
       properties:
         until:
+          description: Until is when the task wakes, an RFC 3339 timestamp in the
+            future, truncated to the second. Required.
           format: date-time
           type: string
       type: object
@@ -10287,15 +10950,27 @@ components:
       properties:
         category:
           $ref: '#/components/schemas/StateCategory'
+          description: 'Category groups the state for display and reporting. Empty
+            derives one: done when terminal, todo for the initial state, in progress
+            otherwise.'
         key:
+          description: Key identifies the state within its workflow and is what a
+            task's status holds.
           type: string
         label:
+          description: Label is the state's display name.
           type: string
         revert_on_lease_expiry:
+          description: RevertOnLeaseExpiry moves a task in this state to RevertTo
+            when its claim runs out.
           type: boolean
         revert_to:
+          description: RevertTo is the state a task returns to when RevertOnLeaseExpiry
+            applies.
           type: string
         terminal:
+          description: 'Terminal marks a state that ends the work: reaching it completes
+            the task and satisfies dependencies on it.'
           type: boolean
       type: object
     StateCategory:
@@ -10318,53 +10993,69 @@ components:
         is a successful answer rather than an error.
       properties:
         by_category:
+          description: ByCategory counts the tasks presently in each state category.
           items:
             $ref: '#/components/schemas/StatsCategory'
           type:
             - array
             - "null"
         completed:
+          description: Completed is how many tasks reached a terminal state in the
+            window.
           type: integer
         created:
+          description: Created is how many tasks were created in the window.
           type: integer
         leaderboard_measure:
           description: LeaderboardMeasure states what TopActors counts, for every
             surface that shows it.
           type: string
         median_lead_time:
-          description: MedianLeadTime and SlowestLeadTime cover creation to terminal
-            state, over the tasks that reached one inside the window.
+          description: MedianLeadTime is the median time from creation to terminal
+            state over the tasks that reached one inside the window.
           type: string
         oldest:
+          description: Oldest are the longest-waiting tasks not yet in a terminal
+            state, oldest first.
           items:
             $ref: '#/components/schemas/StatsAgeing'
           type:
             - array
             - "null"
         per_day:
+          description: PerDay is the completion series by UTC day, oldest first; days
+            with no completion are absent.
           items:
             $ref: '#/components/schemas/StatsDay'
           type:
             - array
             - "null"
         project_id:
-          description: ProjectID and ProjectKey are set only when the read named one
-            project.
+          description: ProjectID is the project's ID, set only when the read named
+            one project.
           type: string
         project_key:
+          description: ProjectKey is the project's key, set only when the read named
+            one project.
           type: string
         since:
+          description: Since is the start of the window, RFC 3339.
           format: date-time
           type: string
         slowest_lead_time:
+          description: SlowestLeadTime is the longest such creation-to-terminal time.
           type: string
         top_actors:
+          description: TopActors are the actors who moved the most tasks to a terminal
+            state in the window, most first.
           items:
             $ref: '#/components/schemas/StatsActor'
           type:
             - array
             - "null"
         until:
+          description: Until is the end of the window, the moment of the read, RFC
+            3339.
           format: date-time
           type: string
       type: object
@@ -10373,10 +11064,14 @@ components:
         See StatsLeaderboardMeasure: the count is of moves, not of work done.'
       properties:
         actor_id:
+          description: ActorID is the actor who made the moves.
           type: string
         handle:
+          description: Handle is the actor's handle, when it is known.
           type: string
         moved:
+          description: Moved is how many tasks the actor moved to a terminal state
+            in the window.
           type: integer
       type: object
     StatsAgeing:
@@ -10384,15 +11079,20 @@ components:
         and how long it has been waiting.
       properties:
         age:
+          description: Age is how long since the task was created, as a duration string.
           type: string
         created_at:
+          description: CreatedAt is when the task was created, RFC 3339.
           format: date-time
           type: string
         ref:
+          description: Ref is the task's reference, such as "OPS-12".
           type: string
         status:
+          description: Status is the task's current state key.
           type: string
         title:
+          description: Title is the task's title.
           type: string
       type: object
     StatsCategory:
@@ -10400,7 +11100,9 @@ components:
       properties:
         category:
           $ref: '#/components/schemas/StateCategory'
+          description: Category is the state category counted.
         count:
+          description: Count is how many tasks are in a state of that category now.
           type: integer
       type: object
     StatsDay:
@@ -10408,8 +11110,10 @@ components:
         date.
       properties:
         completed:
+          description: Completed is how many tasks reached a terminal state that day.
           type: integer
         date:
+          description: Date is the UTC calendar day, YYYY-MM-DD.
           type: string
       type: object
     StatusMove:
@@ -10417,10 +11121,13 @@ components:
         how many tasks it carries.
       properties:
         from:
+          description: From is the status in the deleted project's workflow.
           type: string
         tasks:
+          description: Tasks counts the tasks in From.
           type: integer
         to:
+          description: To is the status the tasks take in the target project's workflow.
           type: string
       type: object
     StatusReport:
@@ -10437,6 +11144,7 @@ components:
           type: string
         installation:
           $ref: '#/components/schemas/Installation'
+          description: Installation describes the store and the build that read it.
         second_factor:
           $ref: '#/components/schemas/TOTPReport'
           description: SecondFactor reports the state of TOTP for this installation
@@ -10452,6 +11160,7 @@ components:
             - "null"
         work:
           $ref: '#/components/schemas/Work'
+          description: Work counts what the caller's tenant holds.
       type: object
     Surface:
       description: 'Surface names an interactive sign-in path a second factor can
@@ -10468,12 +11177,15 @@ components:
       description: SweepRequest bounds one lease sweep.
       properties:
         limit:
+          description: Limit caps how many records this pass handles; 0 or omitted
+            means 50.
           type: integer
       type: object
     SweepResult:
       description: SweepResult reports how many leases a sweep materialized.
       properties:
         swept:
+          description: Swept is how many expired leases were cleared.
           type: integer
       type: object
     SyncResult:
@@ -10483,34 +11195,43 @@ components:
         created:
           additionalProperties:
             type: integer
+          description: Created counts the records created, by record kind.
           type:
             - object
             - "null"
         cursor:
+          description: Cursor is where the next incremental run resumes.
           type: string
         deleted:
           additionalProperties:
             type: integer
+          description: Deleted counts the records deleted, by record kind.
           type: object
         dry_run:
+          description: DryRun is true when nothing was written.
           type: boolean
         skipped:
           additionalProperties:
             type: integer
+          description: Skipped counts the records left alone, by record kind.
           type:
             - object
             - "null"
         source:
+          description: Source is the name of the sync source that ran.
           type: string
         system:
+          description: System is the external system the source imports from.
           type: string
         updated:
           additionalProperties:
             type: integer
+          description: Updated counts the records updated, by record kind.
           type:
             - object
             - "null"
         warnings:
+          description: Warnings lists records the import could not take as they were.
           items:
             type: string
           type: array
@@ -10519,24 +11240,33 @@ components:
       description: SyncSource records an import source and its cursor.
       properties:
         created_at:
+          description: CreatedAt is when the source was added, RFC 3339.
           format: date-time
           type: string
         cursor:
+          description: Cursor is how far the import has read, opaque and owned by
+            the system's importer.
           type: string
         id:
+          description: ID is the source's unique identifier.
           type: string
         last_run_at:
+          description: LastRunAt is when the source was last run, RFC 3339.
           format: date-time
           type:
             - "null"
             - string
         last_status:
+          description: 'LastStatus is how the last run went: "running", "ok" or "failed".'
           type: string
         name:
+          description: Name identifies the source within its system.
           type: string
         system:
+          description: System names the external system imported from.
           type: string
         tenant_id:
+          description: TenantID is the tenant that owns the source.
           type: string
       type: object
     SyncSourceInput:
@@ -10544,14 +11274,22 @@ components:
       properties:
         config:
           additionalProperties: {}
+          description: 'Config is checked for credential keys, which are refused,
+            and is not stored: connection settings are read from the environment at
+            run time.'
           type: object
         id:
+          description: ID names the source to update; empty registers a new one.
           type: string
         mapping_path:
+          description: MappingPath is accepted and not stored; the mapping file is
+            read from the environment at run time.
           type: string
         name:
+          description: Name labels the source. Required.
           type: string
         system:
+          description: 'System is the external system: "generic", "jira" or "openproject".'
           type: string
       type: object
     TOTPChallenge:
@@ -10564,7 +11302,11 @@ components:
           description: Enrolment is set only for ChallengeEnrol.
         kind:
           $ref: '#/components/schemas/TOTPChallengeKind'
+          description: Kind says whether a code is asked for or enrolment must happen
+            first.
         ticket:
+          description: Ticket is presented with the code in the next step; it expires
+            after five minutes.
           type: string
       type: object
     TOTPChallengeKind:
@@ -10578,6 +11320,8 @@ components:
       description: TOTPCodeRequest carries the code proving possession of an authenticator.
       properties:
         code:
+          description: Code is the current code from the authenticator, or a recovery
+            code where one is accepted.
           type: string
       type: object
     TOTPEnrolment:
@@ -10589,10 +11333,14 @@ components:
           description: Account is the label the authenticator shows beside the code.
           type: string
         issuer:
+          description: Issuer is the name the authenticator files the entry under,
+            the tenant's name or "tix".
           type: string
         secret:
+          description: Secret is the base32 shared secret, for typing into an authenticator.
           type: string
         uri:
+          description: URI is the otpauth:// URI carrying the secret, for a QR code.
           type: string
       type: object
     TOTPRecoveryCodes:
@@ -10600,6 +11348,7 @@ components:
         They are stored hashed, so nothing can produce them again.
       properties:
         codes:
+          description: Codes are the single-use recovery codes, shown this once.
           items:
             type: string
           type:
@@ -10611,8 +11360,11 @@ components:
         names no user and carries no secret.
       properties:
         admins:
+          description: Admins is how many members of the tenant hold the admin role.
           type: integer
         enrolled_admins:
+          description: EnrolledAdmins is how many of those admins hold a confirmed
+            second factor.
           type: integer
         enrolments:
           description: Enrolments counts confirmed enrolments across the installation,
@@ -10625,12 +11377,19 @@ components:
             plaintext.
           type: boolean
         require_cli:
+          description: RequireCLI is true when the tenant requires a second factor
+            for command line sign-in.
           type: boolean
         require_ssh:
+          description: RequireSSH is true when the tenant requires a second factor
+            over SSH.
           type: boolean
         require_web:
+          description: RequireWeb is true when the tenant requires a second factor
+            for web sign-in.
           type: boolean
         tenant_key:
+          description: TenantKey is the key of the tenant the rest of the report covers.
           type: string
         unrecoverable:
           description: 'Unrecoverable is enrolments present with no key: every one
@@ -10643,11 +11402,14 @@ components:
         that could produce a code.
       properties:
         confirmed_at:
+          description: ConfirmedAt is when the enrolment was confirmed, RFC 3339,
+            absent if never.
           format: date-time
           type:
             - "null"
             - string
         enrolled:
+          description: Enrolled is true when the caller holds a confirmed second factor.
           type: boolean
         pending:
           description: Pending is an enrolment that was begun and never confirmed.
@@ -10655,49 +11417,74 @@ components:
             told why their authenticator entry does not work.
           type: boolean
         recovery_codes_left:
+          description: RecoveryCodesLeft is how many unused recovery codes the caller
+            holds.
           type: integer
         required_cli:
+          description: RequiredCLI is true when the tenant requires a second factor
+            for command line sign-in.
           type: boolean
         required_ssh:
+          description: RequiredSSH is true when the tenant requires a second factor
+            over SSH.
           type: boolean
         required_web:
+          description: RequiredWeb is true when the tenant requires a second factor
+            for web sign-in.
           type: boolean
         verification_lock_end:
+          description: VerificationLockEnd is when the lock lifts, RFC 3339, set only
+            while locked.
           format: date-time
           type:
             - "null"
             - string
         verification_locked:
+          description: VerificationLocked is true while too many wrong codes have
+            locked verification.
           type: boolean
       type: object
     Tag:
       description: Tag is a free-form tag.
       properties:
         color:
+          description: Color is the tag's display colour. Empty when none was chosen.
           type: string
         id:
+          description: ID is the tag's unique identifier.
           type: string
         name:
+          description: Name is the tag as written on tasks.
           type: string
         project_id:
+          description: ProjectID limits the tag to one project when set. Empty for
+            a tenant-wide tag.
           type: string
         tenant_id:
+          description: TenantID is the tenant that owns the tag.
           type: string
       type: object
     TagRequest:
       description: TagRequest carries a tag name.
       properties:
         name:
+          description: Name is the tag to attach; it is created on first use.
           type: string
       type: object
     Task:
       description: Task is the central record.
       properties:
         assignee_actor_id:
+          description: AssigneeActorID is the actor the task is assigned to. Empty
+            when unassigned.
           type: string
         blocked:
+          description: Blocked reports that at least one task this one depends on
+            is neither completed nor deleted.
           type: boolean
         body:
+          description: Body is the task's description, in Markdown. Lines of the form
+            "- [ ] item" form its checklist.
           type: string
         checklist:
           $ref: '#/components/schemas/Checklist'
@@ -10705,15 +11492,21 @@ components:
             read sets it from the body, so it is absent from audit snapshots and exports,
             and nil when the description has no items.
         claim_count:
+          description: ClaimCount is how many times the task has been claimed.
           type: integer
         claimed_at:
+          description: ClaimedAt is when the current claim was taken, RFC 3339.
           format: date-time
           type:
             - "null"
             - string
         claimed_by_actor_id:
+          description: ClaimedByActorID is the actor holding the current claim. A
+            claim whose LeaseExpiresAt has passed holds nothing.
           type: string
         completed_at:
+          description: CompletedAt is when the task reached a terminal state, RFC
+            3339. Cleared when it leaves one.
           format: date-time
           type:
             - "null"
@@ -10723,74 +11516,95 @@ components:
             the copy was asked to keep that link.
           type: string
         created_at:
+          description: CreatedAt is when the task was created, RFC 3339.
           format: date-time
           type: string
         creator_actor_id:
+          description: CreatorActorID is the actor who created the task.
           type: string
         custom_fields:
           additionalProperties: {}
+          description: CustomFields holds the values of the project's custom fields,
+            keyed by field key.
           type: object
         deleted_at:
+          description: DeletedAt is when the task was moved to the trash, RFC 3339.
+            Absent on a live task.
           format: date-time
           type:
             - "null"
             - string
         depends_on:
+          description: DependsOn lists the IDs of the tasks this one waits for.
           items:
             type: string
           type: array
         due_at:
+          description: DueAt is when the task is due, RFC 3339. Absent when it has
+            no due date.
           format: date-time
           type:
             - "null"
             - string
         id:
+          description: ID is the task's unique identifier.
           type: string
         lease:
           description: Lease is how long a claim on this task holds when the claim
-            names no ttl of its own. Zero falls through to the project, workflow and
-            tenant.
+            names no ttl of its own, as a duration such as "4h". Zero or absent falls
+            through to the project, workflow and tenant.
           type: string
         lease_expired_at:
-          description: Evidence of the last claim that ran out rather than being released.
-            The sweeper writes both as it clears the lease columns, so the fact that
-            a holder dropped the task survives the clearing that hides it.
+          description: LeaseExpiredAt is when the last claim on the task ran out rather
+            than being released, RFC 3339. The sweeper writes it as it clears the
+            lease, so the fact that a holder dropped the task survives the clearing.
           format: date-time
           type:
             - "null"
             - string
         lease_expired_by_actor_id:
+          description: LeaseExpiredByActorID is the actor whose claim ran out at LeaseExpiredAt.
           type: string
         lease_expires_at:
+          description: LeaseExpiresAt is when the current claim runs out unless renewed,
+            RFC 3339.
           format: date-time
           type:
             - "null"
             - string
         parent_id:
+          description: ParentID is the ID of the task this one is a subtask of. Empty
+            for a top- level task.
           type: string
         priority:
           description: Priority orders tasks in a queue.
           type: integer
         project_id:
+          description: ProjectID is the project the task belongs to.
           type: string
         recurrence:
           description: Recurrence is the canonical repeat rule, empty for a task that
-            does not repeat. RecurrenceNextID names the occurrence this task spawned
-            when it was finished; once set, the task never spawns again.
+            does not repeat. Finishing a repeating task spawns its next occurrence.
           type: string
         recurrence_next_id:
+          description: RecurrenceNextID is the ID of the occurrence this task spawned
+            when it was finished. Once set, the task never spawns again.
           type: string
         ref:
+          description: Ref is the human reference, the project key and Seq such as
+            "INFRA-42". Anywhere a task is named, Ref or ID is accepted.
           type: string
         seq:
+          description: Seq is the task's number within its project, the numeric part
+            of Ref.
           format: int64
           type: integer
         snoozed_by_actor_id:
+          description: SnoozedByActorID is the actor who set the snooze.
           type: string
         snoozed_until:
           description: SnoozedUntil hides the task from default listings while it
-            is in the future; SnoozedByActorID is who set it. A past value is not
-            a snooze.
+            is in the future, RFC 3339. A past value is not a snooze.
           format: date-time
           type:
             - "null"
@@ -10802,24 +11616,33 @@ components:
             exports.
           type: boolean
         started_at:
+          description: StartedAt is when the task first left its workflow's initial
+            state, RFC 3339.
           format: date-time
           type:
             - "null"
             - string
         status:
+          description: Status is the key of the task's current workflow state.
           type: string
         tags:
+          description: Tags are the names of the tags on the task.
           items:
             type: string
           type: array
         tenant_id:
+          description: TenantID is the tenant that owns the task.
           type: string
         title:
+          description: Title is the task's one-line summary.
           type: string
         updated_at:
+          description: UpdatedAt is when the task was last changed, RFC 3339.
           format: date-time
           type: string
         version:
+          description: Version increases by one on every change. Pass it back on an
+            update to have a stale write refused with a conflict.
           type: integer
       type: object
     TaskTemplate:
@@ -10827,30 +11650,37 @@ components:
         it never appears where tasks do, and using it creates tasks.'
       properties:
         created_at:
+          description: CreatedAt is when the template was saved, RFC 3339.
           format: date-time
           type: string
         creator_actor_id:
+          description: CreatorActorID is the actor who saved the template.
           type: string
         due_in:
-          description: DueIn is how far from a use its task falls due, zero for no
-            due date.
+          description: DueIn is how far from a use its task falls due, as a duration
+            such as "3d", zero for no due date.
           type: string
         id:
+          description: ID identifies the template.
           type: string
         name:
+          description: Name labels the template, unique in the tenant ignoring case.
           type: string
         project_id:
           description: ProjectID is the project the template belongs to, empty for
-            a template the whole tenant shares. ProjectKey is that project's key,
-            for display.
+            a template the whole tenant shares.
           type: string
         project_key:
+          description: ProjectKey is that project's key, for display.
           type: string
         task:
           $ref: '#/components/schemas/TemplateTask'
+          description: Task is the task shape a use creates, with its subtasks.
         tenant_id:
+          description: TenantID identifies the tenant the template belongs to.
           type: string
         updated_at:
+          description: UpdatedAt is when the template last changed, RFC 3339.
           format: date-time
           type: string
         uses:
@@ -10862,65 +11692,85 @@ components:
       description: TemplateTask is the part of a task a template keeps, with its subtasks.
       properties:
         body:
+          description: Body is the task description, in Markdown.
           type: string
         custom_fields:
           additionalProperties: {}
+          description: CustomFields are custom field values keyed by field definition
+            key.
           type: object
         lease:
+          description: Lease is the claim lease the task carries, as a duration such
+            as "4h", zero to inherit.
           type: string
         priority:
           description: Priority orders tasks in a queue.
           type: integer
         recurrence:
+          description: Recurrence is the task's repeat rule, empty for none.
           type: string
         subtasks:
+          description: Subtasks are the child tasks created under this one, in order.
           items:
             $ref: '#/components/schemas/TemplateTask'
           type: array
         tags:
+          description: Tags are the tag names the task gets.
           items:
             type: string
           type: array
         title:
+          description: Title is the task title, which may carry the placeholders {date},
+            {n} and {project}, filled in on each use.
           type: string
       type: object
     Tenant:
       description: Tenant is the top-level isolation boundary.
       properties:
         created_at:
+          description: CreatedAt is when the tenant was created, RFC 3339.
           format: date-time
           type: string
         deleted_at:
+          description: DeletedAt is when the tenant was deleted, RFC 3339. Absent
+            on a live tenant.
           format: date-time
           type:
             - "null"
             - string
         id:
+          description: ID is the tenant's unique identifier.
           type: string
         key:
+          description: Key is the tenant's short, unique, human-readable key, used
+            to refer to it in place of the ID.
           type: string
         lease_default:
-          description: 'LeaseDefault and LeaseMax bound how long a claim on this tenant''s
-            tasks may hold. Zero on either means nobody chose, and the deployment
-            configuration decides, then the built-in constant. LeaseDefault is an
-            override and LeaseMax a clamp: this tenant may make its own ceiling lower
-            than the deployment''s but never higher, because raising it would be deciding
-            something on the operator''s behalf. The resolution lives in lease.Policy.Narrow,
-            not here, so every surface that grants a lease agrees on what these mean.'
+          description: LeaseDefault is how long a claim on this tenant's tasks holds
+            when the claim, task, project and workflow name none, as a duration such
+            as "4h". Zero or absent defers to the deployment configuration, then the
+            built-in default.
           type: string
         lease_max:
+          description: LeaseMax caps any lease granted on this tenant's tasks, as
+            a duration such as "24h". It can lower the deployment's ceiling but never
+            raise it; zero or absent inherits the deployment's.
           type: string
         name:
+          description: Name is the tenant's display name.
           type: string
         require_totp_cli:
+          description: RequireTOTPCLI requires a second factor when signing in from
+            the command line. Defaults to false.
           type: boolean
         require_totp_ssh:
+          description: RequireTOTPSSH requires a second factor when opening the board
+            over SSH, on top of the key. Defaults to false.
           type: boolean
         require_totp_web:
-          description: RequireTOTPWeb and its siblings require a second factor on
-            one sign-in surface each. They are independent and all default false,
-            so a tenant can require a code in the browser and leave the SSH board
-            on keys alone.
+          description: RequireTOTPWeb requires a second factor when signing in to
+            the browser interface. Each surface is set independently and defaults
+            to false.
           type: boolean
         theme:
           description: Theme names the palette this tenant presents itself with, on
@@ -10932,6 +11782,7 @@ components:
             the default, keeps deleted tasks in a trash they can be restored from.
           type: boolean
         updated_at:
+          description: UpdatedAt is when the tenant was last changed, RFC 3339.
           format: date-time
           type: string
       type: object
@@ -10939,27 +11790,42 @@ components:
       description: Transition is one permitted edge of a workflow's state machine.
       properties:
         from:
+          description: From is the state key the move starts from.
           type: string
         requires_comment:
+          description: RequiresComment refuses the move unless it carries a comment.
           type: boolean
         requires_scope:
           $ref: '#/components/schemas/Scope'
+          description: RequiresScope is a scope the actor must hold to make this move.
+            Empty means no extra scope.
         to:
+          description: To is the state key the move ends in.
           type: string
       type: object
     TransitionInput:
       description: TransitionInput moves a task to a new status.
       properties:
         comment:
+          description: Comment is added to the task as a comment; required when the
+            transition demands one.
           type: string
         custom_fields:
           additionalProperties: {}
+          description: CustomFields merges values over the stored ones by field key;
+            a null value clears that field.
           type: object
         lease_token:
+          description: LeaseToken is the claim's token, required while the task is
+            claimed.
           type: string
         to:
+          description: To is the target status, which the workflow must allow from
+            the current one. Required.
           type: string
         version:
+          description: Version is the task version the caller last read. When set
+            and stale the move is refused as a conflict; 0 skips the check.
           type: integer
       type: object
     TrashStatus:
@@ -10968,8 +11834,12 @@ components:
         it off keeps what is already there rather than destroying it.
       properties:
         enabled:
+          description: Enabled reports whether deleted tasks go to the trash rather
+            than being removed for good.
           type: boolean
         held:
+          description: Held is how many deleted tasks the trash holds, counted even
+            while the trash is off.
           type: integer
       type: object
     UpdateProjectInput:
@@ -10979,42 +11849,60 @@ components:
         old key as an alias of the project.
       properties:
         color:
+          description: Color is a palette colour name or "#rrggbb"; empty clears it
+            and omitted leaves it.
           type:
             - "null"
             - string
         description:
+          description: Description replaces the description; omitted leaves it.
           type:
             - "null"
             - string
         icon:
+          description: Icon sets a text icon, replacing any icon; empty clears the
+            icon and omitted leaves it.
           type:
             - "null"
             - string
         icon_file:
           $ref: '#/components/schemas/ProjectIconFile'
+          description: IconFile sets an uploaded image icon, replacing any icon; omitted
+            leaves it.
         icon_name:
+          description: IconName sets a built-in icon, replacing any icon; empty clears
+            the icon and omitted leaves it.
           type:
             - "null"
             - string
         key:
+          description: Key renames the project's key, rewriting every task reference
+            and keeping the old key as an alias; omitted leaves it.
           type:
             - "null"
             - string
         lease_default:
-          description: LeaseDefault and LeaseMax set the project's lease bounds; a
-            pointer to zero inherits the tenant's again.
+          description: LeaseDefault is the lease a claim on this project's tasks gets
+            when the claim and task name none, a duration such as "30m"; zero inherits
+            the tenant's again and omitted leaves it.
           type:
             - "null"
             - string
         lease_max:
+          description: LeaseMax caps a lease on this project's tasks below the tenant's
+            ceiling, a duration such as "4h"; zero inherits the tenant's again and
+            omitted leaves it.
           type:
             - "null"
             - string
         name:
+          description: Name renames the project; omitted leaves it.
           type:
             - "null"
             - string
         workflow_key:
+          description: WorkflowKey switches the project to another workflow, refused
+            while a task sits in a status the new workflow lacks; omitted leaves it.
           type:
             - "null"
             - string
@@ -11023,17 +11911,24 @@ components:
       description: UpdateTaskInput changes a task.
       properties:
         assignee_actor_id:
+          description: AssigneeActorID assigns an actor by identifier or handle; empty
+            unassigns and omitted leaves it.
           type:
             - "null"
             - string
         body:
+          description: Body replaces the Markdown description; omitted leaves it.
           type:
             - "null"
             - string
         custom_fields:
           additionalProperties: {}
+          description: CustomFields merges values over the stored ones by field key;
+            a null value clears that field.
           type: object
         due_at:
+          description: DueAt sets the due time, an RFC 3339 timestamp. Omitted or
+            null leaves it unchanged, so a JSON request cannot clear it.
           format: date-time
           type:
             - "null"
@@ -11045,6 +11940,8 @@ components:
             - "null"
             - string
         parent_ref:
+          description: ParentRef moves the task under another task, refusing a cycle;
+            empty detaches it and omitted leaves it.
           type:
             - "null"
             - string
@@ -11060,16 +11957,22 @@ components:
             - "null"
             - string
         tags:
+          description: Tags replaces the task's whole tag set; an empty list removes
+            every tag and omitted leaves them.
           items:
             type: string
           type:
             - "null"
             - array
         title:
+          description: Title replaces the title, at most 500 characters; omitted leaves
+            it.
           type:
             - "null"
             - string
         version:
+          description: Version is the task version the caller last read. When set
+            and stale the update is refused as a conflict; 0 skips the check.
           type: integer
       type: object
     UpdateTemplateInput:
@@ -11077,6 +11980,7 @@ components:
         it is.
       properties:
         body:
+          description: Body replaces the root task's Markdown description.
           type:
             - "null"
             - string
@@ -11085,10 +11989,13 @@ components:
           description: CustomFields sets the named fields; a null value removes one.
           type: object
         due_in:
+          description: DueIn replaces the due offset, a duration such as "3d"; zero
+            removes it.
           type:
             - "null"
             - string
         name:
+          description: Name renames the template, under the same rules as on saving.
           type:
             - "null"
             - string
@@ -11110,12 +12017,14 @@ components:
             - "null"
             - string
         tags:
+          description: Tags replaces the root task's tag names.
           items:
             type: string
           type:
             - "null"
             - array
         title:
+          description: Title replaces the root task's title, placeholders allowed.
           type:
             - "null"
             - string
@@ -11124,39 +12033,46 @@ components:
       description: UpdateTenantInput changes a tenant.
       properties:
         lease_default:
-          description: 'LeaseDefault and LeaseMax bound how long a claim on this tenant
-            holds. A pointer to zero clears the setting, returning that bound to the
-            deployment configuration; nil leaves it alone. Same shape as Theme, and
-            for the same reason: "unset" and "unchanged" are different answers and
-            a plain value cannot tell them apart.'
+          description: LeaseDefault is the lease a claim on this tenant gets when
+            nothing more specific names one, a duration such as "30m". Zero clears
+            it back to the deployment configuration and omitted leaves it alone. A
+            default longer than the maximum the tenant would hold, sent or stored,
+            is refused.
           type:
             - "null"
             - string
         lease_max:
+          description: LeaseMax is the longest lease a claim on this tenant may hold,
+            a duration such as "4h". Zero clears it back to the deployment configuration
+            and omitted leaves it alone.
           type:
             - "null"
             - string
         name:
+          description: Name renames the tenant; it must not be blank, and omitted
+            leaves it.
           type:
             - "null"
             - string
         require_totp_cli:
+          description: RequireTOTPCLI turns the second-factor requirement for command
+            line sign-in on or off; omitted leaves it alone.
           type:
             - "null"
             - boolean
         require_totp_ssh:
+          description: RequireTOTPSSH turns the second-factor requirement for SSH
+            sign-in on or off; omitted leaves it alone.
           type:
             - "null"
             - boolean
         require_totp_web:
-          description: 'RequireTOTPWeb and its siblings turn the second-factor requirement
-            on or off for one sign-in surface each; nil leaves that surface alone.
-            They are here rather than on a command of their own because the requirement
-            is a property of the tenant, and a separate path to write it would be
-            a second place to get the authorization wrong. Turning one on cannot lock
-            the tenant out: a user who is subject to it and holds no enrolment is
-            taken through enrolment at sign-in rather than refused, the administrator
-            who turned it on first among them.'
+          description: 'RequireTOTPWeb turns the second-factor requirement for browser
+            sign-in on or off; omitted leaves it alone. The requirement is a property
+            of the tenant rather than a command of its own, so there is one place
+            to get its authorization right. Turning one on cannot lock the tenant
+            out: a user subject to it who holds no enrolment is taken through enrolment
+            at sign-in rather than refused.'
           type:
             - "null"
             - boolean
@@ -11178,19 +12094,25 @@ components:
       description: UpdateUserInput changes a user.
       properties:
         disabled:
+          description: Disabled true disables the user, ending their sessions and
+            revoking their tokens at once; false enables them; omitted leaves it.
           type:
             - "null"
             - boolean
         display_name:
+          description: DisplayName replaces the display name; omitted leaves it.
           type:
             - "null"
             - string
         password:
+          description: Password sets a new password; omitted leaves it.
           type:
             - "null"
             - string
         role:
           $ref: '#/components/schemas/Role'
+          description: Role changes the user's role in this tenant; omitted leaves
+            it.
       type: object
     UseTemplateInput:
       description: UseTemplateInput says where a task made from a template goes. An
@@ -11198,34 +12120,49 @@ components:
         and a nil DueIn the template's offset; a zero DueIn sets no due date.
       properties:
         due_in:
+          description: DueIn overrides the due offset, a duration such as "3d"; zero
+            sets no due date and omitted keeps the template's.
           type:
             - "null"
             - string
         project_ref:
+          description: ProjectRef is the project to create the task in, by key or
+            id; empty uses the template's project.
           type: string
         title:
+          description: Title overrides the template's title, placeholders allowed.
           type: string
       type: object
     User:
       description: User is a credentialed human.
       properties:
         created_at:
+          description: CreatedAt is when the user was created, RFC 3339.
           format: date-time
           type: string
         disabled_at:
+          description: DisabledAt is when the user was disabled, RFC 3339. A disabled
+            user cannot sign in; absent on an active user.
           format: date-time
           type:
             - "null"
             - string
         display_name:
+          description: DisplayName is the name shown for the user. Empty means the
+            email is shown instead.
           type: string
         email:
+          description: Email is the user's sign-in address, unique within the installation.
           type: string
         id:
+          description: ID is the user's actor identifier.
           type: string
         sso_provider:
+          description: SSOProvider names the single sign-on provider that vouches
+            for the user. Empty for a password user.
           type: string
         sso_subject:
+          description: SSOSubject is the user's subject identifier at SSOProvider.
           type: string
         totp_enrolled:
           description: 'TOTPEnrolled reports whether this user holds a confirmed second
@@ -11235,6 +12172,7 @@ components:
             user written back from one carries it and nothing reads it as an input.'
           type: boolean
         updated_at:
+          description: UpdatedAt is when the user was last changed, RFC 3339.
           format: date-time
           type: string
       type: object
@@ -11242,70 +12180,98 @@ components:
       description: WakeResult reports how many snoozes a wake pass cleared.
       properties:
         woken:
+          description: Woken is how many expired snoozes were cleared.
           type: integer
       type: object
     WebhookDelivery:
       description: WebhookDelivery tracks one event's delivery to one endpoint.
       properties:
         attempts:
+          description: Attempts is how many times delivery has been tried.
           type: integer
         created_at:
+          description: CreatedAt is when the delivery was queued, RFC 3339.
           format: date-time
           type: string
         endpoint_id:
+          description: EndpointID is the ID of the endpoint delivered to.
           type: string
         event_seq:
+          description: EventSeq is the Seq of the event delivered.
           format: int64
           type: integer
         id:
+          description: ID is the delivery's unique identifier, used to redeliver it.
           type: string
         last_error:
+          description: LastError describes why the last attempt failed. Empty after
+            a success.
           type: string
         last_status_code:
+          description: LastStatusCode is the HTTP status the endpoint answered the
+            last attempt with. Absent when no response arrived.
           type: integer
         next_attempt_at:
+          description: NextAttemptAt is when the next attempt is due, RFC 3339.
           format: date-time
           type: string
         status:
           $ref: '#/components/schemas/DeliveryStatus'
+          description: Status is where the delivery stands.
         tenant_id:
+          description: TenantID is the tenant that owns the delivery.
           type: string
       type: object
     WebhookEndpoint:
       description: WebhookEndpoint is a registered delivery target.
       properties:
         active:
+          description: Active turns deliveries on. An inactive endpoint receives nothing.
           type: boolean
         created_at:
+          description: CreatedAt is when the endpoint was registered, RFC 3339.
           format: date-time
           type: string
         event_types:
+          description: EventTypes are the event types delivered, exact or with a trailing
+            "*" such as "task.*". Empty delivers every event.
           items:
             type: string
           type:
             - array
             - "null"
         id:
+          description: ID is the endpoint's unique identifier.
           type: string
         tenant_id:
+          description: TenantID is the tenant that owns the endpoint.
           type: string
         url:
+          description: URL is where deliveries are POSTed.
           type: string
       type: object
     WebhookInput:
       description: WebhookInput registers or updates a delivery endpoint.
       properties:
         active:
+          description: Active turns delivery on; an inactive endpoint receives nothing.
           type: boolean
         event_types:
+          description: EventTypes filters the events delivered; a pattern may end
+            in "*". Empty delivers every event.
           items:
             type: string
           type: array
         id:
+          description: ID names the endpoint to update; empty registers a new one.
           type: string
         secret:
+          description: Secret signs each delivery. Empty keeps an existing endpoint's
+            secret, or generates one that the response returns once.
           type: string
         url:
+          description: URL receives the deliveries. It must use https unless it is
+            a loopback address. Required.
           type: string
       type: object
     Work:
@@ -11316,6 +12282,7 @@ components:
         nothing else in the product tells them.
       properties:
         claimed:
+          description: Claimed is how many tasks hold an unexpired lease.
           type: integer
         leases_expired_unswept:
           description: LeasesExpiredUnswept are claims past their expiry that the
@@ -11323,14 +12290,21 @@ components:
             says how much the sweeper is behind.
           type: integer
         projects:
+          description: Projects is how many projects the tenant holds.
           type: integer
         tasks:
+          description: Tasks is how many tasks the tenant holds, trashed ones excluded.
           type: integer
         tenants:
+          description: Tenants is how many tenants the caller can see.
           type: integer
         webhooks_failed:
+          description: WebhooksFailed is how many webhook deliveries have failed for
+            good.
           type: integer
         webhooks_pending:
+          description: WebhooksPending is how many webhook deliveries await a first
+            or next attempt.
           type: integer
       type: object
     Workflow:
@@ -11338,21 +12312,30 @@ components:
         to projects.
       properties:
         builtin:
+          description: Builtin marks a workflow shipped with tix. It can be changed
+            but not deleted.
           type: boolean
         created_at:
+          description: CreatedAt is when the workflow was created, RFC 3339.
           format: date-time
           type: string
         definition:
           $ref: '#/components/schemas/WorkflowDefinition'
+          description: Definition is the state machine itself.
         id:
+          description: ID is the workflow's unique identifier.
           type: string
         key:
+          description: Key is the workflow's unique key within the tenant.
           type: string
         name:
+          description: Name is the workflow's display name.
           type: string
         tenant_id:
+          description: TenantID is the tenant that owns the workflow.
           type: string
         updated_at:
+          description: UpdatedAt is when the workflow was last changed, RFC 3339.
           format: date-time
           type: string
       type: object
@@ -11360,16 +12343,23 @@ components:
       description: WorkflowDefinition is the state machine, stored as one JSON document.
       properties:
         default_lease:
+          description: DefaultLease is how long a claim on a task under this workflow
+            holds when the claim, task and project name none, as a duration such as
+            "4h". Zero or absent defers to the tenant.
           type: string
         initial:
+          description: Initial is the key of the state a new task starts in.
           type: string
         states:
+          description: States are the workflow's states.
           items:
             $ref: '#/components/schemas/State'
           type:
             - array
             - "null"
         transitions:
+          description: Transitions are the permitted moves between states. A move
+            not listed is refused.
           items:
             $ref: '#/components/schemas/Transition'
           type:
@@ -11381,13 +12371,21 @@ components:
       properties:
         definition:
           $ref: '#/components/schemas/WorkflowDefinition'
+          description: Definition is the states and transitions. It needs an initial
+            state that it defines and at least one terminal state.
         key:
+          description: Key identifies the workflow; an existing key is redefined.
+            Letters, digits, hyphens and underscores, starting with a letter. Required.
           type: string
         migrate:
           additionalProperties:
             type: string
+          description: Migrate maps each removed state that still holds tasks to a
+            state of the new definition; a redefinition stranding tasks without one
+            is a conflict.
           type: object
         name:
+          description: Name is the workflow's display name.
           type: string
       type: object
   securitySchemes:
