@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.43.0](https://github.com/Heliopsy/tix/compare/v0.42.0...v0.43.0) (2026-11-05)
+
+
+### Features
+
+* **sync:** sources keep their own settings ([883f664](https://github.com/Heliopsy/tix/commit/883f664d97c48481543f9ec7f9cbcbdc678fa6fd))
+
+
+### Bug Fixes
+
+* **fields:** drop the indexed flag that nothing used ([4907ebf](https://github.com/Heliopsy/tix/commit/4907ebfb981894f84c3700a803aa4570d892ebf7))
+* **web:** replace expander sections with header buttons and dialogs ([9ed293c](https://github.com/Heliopsy/tix/commit/9ed293cac9a93bb67b1194ab6d90f1a17661866d))
+* **web:** show the housekeeping value field only when it is needed ([b868d98](https://github.com/Heliopsy/tix/commit/b868d98e6cc7a96e8defc9c1a3feba76059aeb6d))
+
 ## [0.42.0](https://github.com/Heliopsy/tix/compare/v0.41.0...v0.42.0) (2026-11-05)
 
 
