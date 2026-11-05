@@ -44,6 +44,9 @@ Neither requires authentication, which is what a load balancer needs.
 [api/openapi.yaml](../api/openapi.yaml), generated from the capability registry by `just openapi` and
 embedded in the binary, so it describes the server it is read from. Every operation names the scope it
 needs, its error statuses and, where one exists, the OpenSpec capability that specifies it.
+Every query parameter is described by the doc comment of its field on the operation's query type in
+`internal/httpapi/query.go`, and every path parameter by the table in `internal/openapi/params.go`; a
+parameter without a description fails the build.
 
 The document is never edited by hand. A contributor changing a route runs `just openapi` and commits the
 result, and the build fails while the committed file differs from what the registry produces.

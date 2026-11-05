@@ -84,9 +84,14 @@ func (c Cursor) CheckOrdering(sort string, dir SortDirection) error {
 
 // Page bounds one page of a listing.
 type Page struct {
-	Limit     int           `json:"limit,omitempty" yaml:"limit,omitempty"`
-	Cursor    string        `json:"cursor,omitempty" yaml:"cursor,omitempty"`
-	Sort      string        `json:"sort,omitempty" yaml:"sort,omitempty"`
+	// Limit is the most items one page holds: default 50, at most 500.
+	Limit int `json:"limit,omitempty" yaml:"limit,omitempty"`
+	// Cursor is the next_cursor of the previous page; empty reads the first.
+	Cursor string `json:"cursor,omitempty" yaml:"cursor,omitempty"`
+	// Sort names the field the listing is ordered by; each listing has its
+	// own default and refuses a field it cannot sort by.
+	Sort string `json:"sort,omitempty" yaml:"sort,omitempty"`
+	// Direction is asc or desc, default asc.
 	Direction SortDirection `json:"direction,omitempty" yaml:"direction,omitempty"`
 }
 

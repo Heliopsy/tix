@@ -263,8 +263,9 @@ func textTermsFrom(raws []string) ([]core.TextTerm, error) {
 	return out, nil
 }
 
-// FieldFilterPrefix marks a query parameter that filters on a custom field, as
-// in "?field.severity=high".
+// FieldFilterPrefix starts a parameter field.KEY that keeps tasks whose custom
+// field KEY holds the value, as in field.severity=high. A value that parses as
+// JSON is matched as that scalar, so 3 is a number and "3" a string.
 const FieldFilterPrefix = "field."
 
 // FieldFilterParam carries custom field filters as one typed JSON object, which

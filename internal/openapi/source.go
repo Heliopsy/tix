@@ -30,6 +30,9 @@ type source struct {
 	// consts holds the string constants declared with each type, keyed
 	// "pkg.Type", in declaration order.
 	consts map[string][]string
+	// values holds the doc comment of every string constant, keyed by
+	// package then the constant's value.
+	values map[string]map[string]string
 }
 
 // readSource parses the contract packages under the module root.
@@ -39,6 +42,7 @@ func readSource(root string) (*source, error) {
 		types:   map[string]string{},
 		fields:  map[string]map[string]string{},
 		consts:  map[string][]string{},
+		values:  map[string]map[string]string{},
 	}
 	for _, dir := range sourceDirs {
 		if err := s.readDir(filepath.Join(root, dir)); err != nil {
@@ -120,9 +124,14 @@ func (s *source) readType(pkg string, gen *ast.GenDecl, spec *ast.TypeSpec) {
 	}
 }
 
-// readConst records a typed string constant against its type.
+// readConst records a string constant's comment by value, and a typed one
+// against its type.
 func (s *source) readConst(pkg string, gen *ast.GenDecl, spec *ast.ValueSpec) {
-	if gen.Tok != token.CONST || spec.Type == nil {
+	if gen.Tok != token.CONST {
+		return
+	}
+	s.readValueDoc(pkg, gen, spec)
+	if spec.Type == nil {
 		return
 	}
 	typ, ok := spec.Type.(*ast.Ident)
@@ -137,6 +146,33 @@ func (s *source) readConst(pkg string, gen *ast.GenDecl, spec *ast.ValueSpec) {
 		if val, err := strconv.Unquote(lit.Value); err == nil {
 			key := pkg + "." + typ.Name
 			s.consts[key] = append(s.consts[key], val)
+		}
+	}
+}
+
+// readValueDoc records the comment of each string constant in a spec under
+// its value.
+func (s *source) readValueDoc(pkg string, gen *ast.GenDecl, spec *ast.ValueSpec) {
+	comment := spec.Doc
+	if comment == nil && len(gen.Specs) == 1 {
+		comment = gen.Doc
+	}
+	d := text(comment)
+	if d == "" {
+		return
+	}
+	for _, v := range spec.Values {
+		lit, ok := v.(*ast.BasicLit)
+		if !ok || lit.Kind != token.STRING {
+			continue
+		}
+		if val, err := strconv.Unquote(lit.Value); err == nil {
+			if s.values[pkg] == nil {
+				s.values[pkg] = map[string]string{}
+			}
+			if _, taken := s.values[pkg][val]; !taken {
+				s.values[pkg][val] = d
+			}
 		}
 	}
 }

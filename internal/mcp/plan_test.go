@@ -254,3 +254,27 @@ func TestOverlayFileLaysOverTheShippedOne(t *testing.T) {
 		t.Error("a missing overlay file loaded")
 	}
 }
+
+// TestEveryParameterArgumentIsDescribed holds each tool argument that fills a
+// path or query parameter to the description the document gives it, so a
+// model choosing a value reads what the parameter takes, not a bare name.
+func TestEveryParameterArgumentIsDescribed(t *testing.T) {
+	checked := 0
+	for _, tool := range shippedPlan(t, Options{AllowDestructive: true}) {
+		props, _ := tool.Schema["properties"].(map[string]any)
+		for name, p := range tool.args {
+			if p == nil {
+				continue
+			}
+			checked++
+			prop, _ := props[name].(map[string]any)
+			got, _ := prop["description"].(string)
+			if got == "" || got != p.Description {
+				t.Errorf("%s: argument %q has description %q, want the parameter's %q", tool.Name, name, got, p.Description)
+			}
+		}
+	}
+	if checked < 100 {
+		t.Fatalf("checked %d parameter arguments, which is not all of them", checked)
+	}
+}
