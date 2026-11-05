@@ -84,13 +84,13 @@ func TestMCPServesTheAPIOverStdio(t *testing.T) {
 	waitFor(t, "http://"+addr+"/healthz")
 	defer stopServe(t, done)
 
-	session := strings.Join([]string{
+	session := []string{
 		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}`,
 		`{"jsonrpc":"2.0","method":"notifications/initialized"}`,
 		`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`,
 		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"task_list","arguments":{}}}`,
-	}, "\n") + "\n"
-	replies := c.mcpSession(t, session, 3, "--server", "http://"+addr, "--token", created.Token)
+	}
+	replies := c.mcpSession(t, session, "--server", "http://"+addr, "--token", created.Token)
 	tools := string(replies[2])
 	if !strings.Contains(tools, `"name":"task_list"`) || strings.Contains(tools, `"name":"task_create"`) {
 		t.Errorf("a task:read token was offered the wrong tools: %s", tools)
@@ -100,9 +100,11 @@ func TestMCPServesTheAPIOverStdio(t *testing.T) {
 	}
 }
 
-// mcpSession runs tix mcp with session on standard input, which stays open
-// until the reply to the last request has been read, as a client keeps it.
-func (c *cli) mcpSession(t *testing.T, session string, last float64, args ...string) map[float64]json.RawMessage {
+// mcpSession runs tix mcp and sends session one line at a time, waiting for
+// the reply to each request before sending the next, as a client does: the
+// server answers concurrently, so a burst can be answered out of order or
+// reach tools/list before initialize has finished.
+func (c *cli) mcpSession(t *testing.T, session []string, args ...string) map[float64]json.RawMessage {
 	t.Helper()
 	stdin, feed := io.Pipe()
 	replies, writer := io.Pipe()
@@ -112,22 +114,39 @@ func (c *cli) mcpSession(t *testing.T, session string, last float64, args ...str
 		done <- Run(append([]string{"mcp"}, args...), stdin, writer, &errb, c.environ(), c.home)
 		_ = writer.Close()
 	}()
-	go func() { _, _ = io.WriteString(feed, session) }()
 
 	got := map[float64]json.RawMessage{}
 	scanner := bufio.NewScanner(replies)
 	scanner.Buffer(nil, 1<<22)
-	for scanner.Scan() {
-		var msg struct {
-			ID     float64         `json:"id"`
-			Result json.RawMessage `json:"result"`
+	for _, line := range session {
+		var req struct {
+			ID *float64 `json:"id"`
 		}
-		if err := json.Unmarshal(scanner.Bytes(), &msg); err != nil {
-			t.Fatalf("tix mcp wrote a line that is not JSON-RPC: %q", scanner.Text())
+		if err := json.Unmarshal([]byte(line), &req); err != nil {
+			t.Fatalf("session line %q: %v", line, err)
 		}
-		got[msg.ID] = msg.Result
-		if msg.ID == last {
-			break
+		if _, err := io.WriteString(feed, line+"\n"); err != nil {
+			t.Fatalf("writing to tix mcp: %v (%s)", err, errb.String())
+		}
+		if req.ID == nil {
+			continue
+		}
+		for got[*req.ID] == nil {
+			if !scanner.Scan() {
+				t.Fatalf("tix mcp closed its output before answering request %v: %s", *req.ID, errb.String())
+			}
+			var msg struct {
+				ID     float64         `json:"id"`
+				Result json.RawMessage `json:"result"`
+				Error  json.RawMessage `json:"error"`
+			}
+			if err := json.Unmarshal(scanner.Bytes(), &msg); err != nil {
+				t.Fatalf("tix mcp wrote a line that is not JSON-RPC: %q", scanner.Text())
+			}
+			if msg.Error != nil {
+				t.Fatalf("tix mcp answered request %v with an error: %s", msg.ID, msg.Error)
+			}
+			got[msg.ID] = msg.Result
 		}
 	}
 	_ = feed.Close()
