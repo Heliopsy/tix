@@ -138,7 +138,7 @@
       <span class="setname">{{t "Delete project"}}</span>
       <span class="sethelp">{{t "Deleting removes the project for good. You choose what happens to its tasks first."}}</span>
     </div>
-    <a class="btn danger" href="/projects/{{$p.Key}}/delete" hx-boost="false"><svg class="btn-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#trash"/></svg><span class="btn-label">{{t "Delete project"}}</span></a>
+    <a class="btn danger" href="/projects/{{$p.Key}}/delete" hx-boost="false">{{template "icon" "trash"}}<span class="btn-label">{{t "Delete project"}}</span></a>
   </div>
 </section>
 {{$sh := shell "archive" (t "Archive %s?" $p.Name) "confirm" .Dialog .Here}}
