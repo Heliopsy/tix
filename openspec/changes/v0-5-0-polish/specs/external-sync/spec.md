@@ -5,32 +5,10 @@
 An import run SHALL store its watermark only when the run advances past records it has committed, and a
 run that fails SHALL leave the stored watermark at the last position it successfully committed.
 
-A full refresh ignores the stored watermark for the duration of the run. It SHALL NOT overwrite it with an
-empty value: a full refresh that fails before committing a page leaves the source exactly as it found it,
-so a transient network error during a refresh does not turn the next incremental run into a full re-import.
-
-The audit entry a run writes SHALL carry the watermark the run reached, because that entry is the durable
-record of the run and the immediate command output is not.
-
-#### Scenario: A full refresh that fails leaves the watermark alone
-
-- **WHEN** a run started with a full refresh fails before any page is committed
-- **THEN** the stored watermark is the one the previous run left, and the run is recorded as failed
-
-#### Scenario: A full refresh that succeeds stores the new watermark
-
-- **WHEN** a run started with a full refresh commits pages and completes
-- **THEN** the stored watermark is the one the final page carried
-
 #### Scenario: An incremental run that fails keeps its position
 
 - **WHEN** a run fails after committing some pages
 - **THEN** the stored watermark covers exactly the pages that were committed
-
-#### Scenario: The audit entry carries the watermark
-
-- **WHEN** a run completes and writes its audit entry
-- **THEN** that entry records the watermark the run reached, not an empty value
 
 ### Requirement: A source that cannot be read is reported as an upstream failure
 
@@ -67,3 +45,31 @@ NOT fall back to printing the underlying structure.
 
 - **WHEN** a run is a dry run
 - **THEN** the output states that nothing was written
+
+## ADDED Requirements
+
+### Requirement: A full refresh leaves the stored watermark intact until it commits
+
+A full refresh ignores the stored watermark for the duration of the run. It SHALL NOT overwrite it with an
+empty value: a full refresh that fails before committing a page leaves the source exactly as it found it,
+so a transient network error during a refresh does not turn the next incremental run into a full re-import.
+
+#### Scenario: A full refresh that fails leaves the watermark alone
+
+- **WHEN** a run started with a full refresh fails before any page is committed
+- **THEN** the stored watermark is the one the previous run left, and the run is recorded as failed
+
+#### Scenario: A full refresh that succeeds stores the new watermark
+
+- **WHEN** a run started with a full refresh commits pages and completes
+- **THEN** the stored watermark is the one the final page carried
+
+### Requirement: An import run's audit entry carries the watermark it reached
+
+The audit entry a run writes SHALL carry the watermark the run reached, because that entry is the durable
+record of the run and the immediate command output is not.
+
+#### Scenario: The audit entry carries the watermark
+
+- **WHEN** a run completes and writes its audit entry
+- **THEN** that entry records the watermark the run reached, not an empty value

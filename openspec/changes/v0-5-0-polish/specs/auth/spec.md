@@ -5,10 +5,6 @@
 The service SHALL offer a listing of the actors a tenant holds, so that a screen or a command can offer a
 choice of who to assign work to rather than asking for an identifier to be typed from memory.
 
-The listing SHALL be confined to the caller's tenant, SHALL be keyset paginated like every other listing,
-and SHALL return only the fields that name an actor: its identifier, kind, handle and display name. It
-SHALL NOT report what an actor may do, because the question it answers is who is here.
-
 It SHALL include agents as well as people. An agent holding work is ordinary in this product, so a
 directory built from the user accounts alone would omit exactly the actors an operator most often needs to
 look up.
@@ -18,15 +14,21 @@ look up.
 - **WHEN** a signed-in caller lists actors
 - **THEN** the actors of that caller's tenant are returned, agents among them
 
-#### Scenario: Another tenant's actors are never listed
-
-- **WHEN** a caller lists actors and another tenant holds actors of its own
-- **THEN** none of the other tenant's actors appear
-
 #### Scenario: A caller who is not signed in
 
 - **WHEN** an unauthenticated caller lists actors
 - **THEN** the request is refused
+
+### Requirement: The actor listing is confined to the tenant and names actors only
+
+The listing SHALL be confined to the caller's tenant, SHALL be keyset paginated like every other listing,
+and SHALL return only the fields that name an actor: its identifier, kind, handle and display name. It
+SHALL NOT report what an actor may do, because the question it answers is who is here.
+
+#### Scenario: Another tenant's actors are never listed
+
+- **WHEN** a caller lists actors and another tenant holds actors of its own
+- **THEN** none of the other tenant's actors appear
 
 #### Scenario: A sort the listing cannot serve
 

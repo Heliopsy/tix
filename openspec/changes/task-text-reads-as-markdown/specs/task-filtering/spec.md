@@ -6,7 +6,7 @@ The filter language SHALL accept `has:checklist`, selecting tasks whose descript
 marker (a `-`, `*` or `+` bullet, a space, `[ ]`, `[x]` or `[X]`, and a space), and `-has:checklist` for the rest;
 `checklist:open`, selecting those carrying an unticked marker, and `-checklist:open` for the rest; and
 `checklist:done`, selecting those carrying a marker and no unticked one. `checklist:done` SHALL NOT be
-negatable. Both storage engines and the in-memory matcher SHALL select the same tasks for each term.
+negatable.
 
 #### Scenario: Open and done are told apart
 
@@ -14,3 +14,13 @@ negatable. Both storage engines and the in-memory matcher SHALL select the same 
 - **WHEN** the listing is filtered by `checklist:open`, then by `checklist:done`
 - **THEN** the first lists only the task with an open item, and the second only the one with every
   item ticked
+
+### Requirement: Every engine answers a checklist term alike
+
+Both storage engines and the in-memory matcher SHALL select the same tasks for each term.
+
+#### Scenario: The terminal matches as the stores do
+
+- **GIVEN** the shared corpus the storage engines are tested against
+- **WHEN** each checklist term is matched in memory
+- **THEN** it selects the same tasks the storage engines select

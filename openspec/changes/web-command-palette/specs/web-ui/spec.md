@@ -4,12 +4,8 @@
 
 Every signed-in screen SHALL carry a command palette, a modal dialog with one search box over a list
 grouped into Tasks, Projects, Screens and Actions. It SHALL open on ctrl+k and on command+k in every
-shipped key scheme, including while a text field has focus, and from a Search button in the sidebar
-and in the phone's bar. The "?" overlay SHALL list its key. Screens SHALL be every sidebar destination
-the reader's sidebar shows and every section of Settings. Actions SHALL include New task, New task in
-a named project, New project, Open the filter, Show tasks as a list, a board and in lanes, Switch the
-colour scheme, Keyboard shortcuts and Sign out, each driving a control the interface already has.
-Every label SHALL be in the page's language. The sign-in screen SHALL NOT carry the palette.
+shipped key scheme, including while a text field has focus, and from a Search button in the sidebar and
+in the phone's bar. The "?" overlay SHALL list its key. The sign-in screen SHALL NOT carry the palette.
 
 #### Scenario: Opening from the keyboard
 
@@ -23,6 +19,13 @@ Every label SHALL be in the page's language. The sign-in screen SHALL NOT carry 
 - **WHEN** the reader presses "?"
 - **THEN** the overlay lists ctrl+k and meta+k against Open the command palette
 
+### Requirement: The palette offers every sidebar destination, Settings section and listed action
+
+Screens SHALL be every sidebar destination the reader's sidebar shows and every section of Settings.
+Actions SHALL include New task, New task in a named project, New project, Open the filter, Show tasks
+as a list, a board and in lanes, Switch the colour scheme, Keyboard shortcuts and Sign out, each
+driving a control the interface already has. Every label SHALL be in the page's language.
+
 #### Scenario: A Bulgarian reader
 
 - **GIVEN** a reader whose language is Bulgarian
@@ -31,17 +34,9 @@ Every label SHALL be in the page's language. The sign-in screen SHALL NOT carry 
 
 ### Requirement: The palette asks the server for tasks only once something is typed
 
-Screens and actions SHALL be embedded in the page and matched in the browser with a fuzzy match.
-Once something is typed, the group holding the best match SHALL be listed first, and an answer
-arriving from the server SHALL NOT move the selection off the option the reader had selected.
 Projects SHALL be read from `GET /palette/projects` when the palette opens. Tasks SHALL be asked for
-from `GET /palette/tasks?q=` only when the search box holds text, once the reader has paused typing
-for 150ms, and an answer to an older query SHALL NOT be drawn. The task search SHALL read the query
-with the filter language, falling back to plain words when it does not parse, SHALL put the task a
-ref-shaped query names first, SHALL leave out deleted tasks, and SHALL answer at most ten tasks with
-keyset pagination. Both routes SHALL require a signed-in reader and SHALL answer only the session
-tenant's records. They SHALL add no capability: the API answers the same through
-`GET /api/v1/tasks?q=`, `GET /api/v1/tasks/{ref}` and `GET /api/v1/projects`.
+from `GET /palette/tasks?q=` only when the search box holds text, once the reader has paused typing for
+150ms, and an answer to an older query SHALL NOT be drawn.
 
 #### Scenario: Opening sends no task search
 
@@ -54,10 +49,33 @@ tenant's records. They SHALL add no capability: the API answers the same through
 - **THEN** one task search for "dep" is made after they pause
 - **AND** the matching tasks are listed under Tasks
 
+### Requirement: The palette matches screens and actions in the browser
+
+Screens and actions SHALL be embedded in the page and matched in the browser with a fuzzy match. Once
+something is typed, the group holding the best match SHALL be listed first, and an answer arriving from
+the server SHALL NOT move the selection off the option the reader had selected.
+
+#### Scenario: The best match leads its group
+
+- **WHEN** the reader types "board"
+- **THEN** the Actions group, holding Show tasks as a board, is listed before Screens and Tasks
+
+### Requirement: The palette's task search reads the filter language and stops at ten tasks
+
+The task search SHALL read the query with the filter language, falling back to plain words when it does
+not parse, SHALL put the task a ref-shaped query names first, SHALL leave out deleted tasks, and SHALL
+answer at most ten tasks with keyset pagination.
+
 #### Scenario: A ref finds its task
 
 - **WHEN** the reader types a task's ref in any case
 - **THEN** that task is the first under Tasks
+
+### Requirement: The palette's routes answer only a signed-in reader's own tenant
+
+Both palette routes SHALL require a signed-in reader and SHALL answer only the session tenant's
+records. They SHALL add no capability: the API answers the same through `GET /api/v1/tasks?q=`,
+`GET /api/v1/tasks/{ref}` and `GET /api/v1/projects`.
 
 #### Scenario: Another tenant's task is never offered
 
@@ -74,10 +92,8 @@ tenant's records. They SHALL add no capability: the API answers the same through
 
 ArrowDown and ArrowUp SHALL move the selection through every option, wrapping at either end, Enter
 SHALL choose the selected option, a click SHALL choose the option clicked, and Escape, the Close button
-or a click on the backdrop SHALL close the palette. Tab SHALL stay inside the palette. When the
-palette closes without leaving the page, focus SHALL return to the element that had it. The search
-box SHALL be a combobox naming the selected option with `aria-activedescendant`. On a coarse pointer
-each option SHALL be at least 44px tall, and under 600px the palette SHALL fill the screen.
+or a click on the backdrop SHALL close the palette. Tab SHALL stay inside the palette. When the palette
+closes without leaving the page, focus SHALL return to the element that had it.
 
 #### Scenario: Choosing with the arrows
 
@@ -89,6 +105,16 @@ each option SHALL be at least 44px tall, and under 600px the palette SHALL fill 
 - **GIVEN** the reader opened the palette from a task row
 - **WHEN** they press Escape
 - **THEN** the palette closes and the row has focus again
+
+### Requirement: The palette's search box is a combobox and its options fit a finger
+
+The search box SHALL be a combobox naming the selected option with `aria-activedescendant`. On a coarse
+pointer each option SHALL be at least 44px tall, and under 600px the palette SHALL fill the screen.
+
+#### Scenario: The selection is announced
+
+- **WHEN** the reader moves the selection with ArrowDown
+- **THEN** the search box's `aria-activedescendant` names the newly selected option
 
 ### Requirement: A task chosen in the palette opens the way the reader chose
 

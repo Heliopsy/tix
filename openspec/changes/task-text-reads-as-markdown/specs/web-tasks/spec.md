@@ -4,11 +4,8 @@
 
 The task screen SHALL render a task's description and each comment as CommonMark with the GitHub
 tables, task lists, autolinks, strikethrough and fenced code. Raw HTML SHALL be shown escaped as the
-text that was typed. A link SHALL be rendered only when its address is absolute http or https with a
-host, or mailto, and SHALL carry `rel="noopener noreferrer nofollow"`; any other address SHALL render as
-its label text. An image SHALL NOT be loaded: it SHALL render as a link to its address labelled by its
-alt text, or as the alt text alone when the address is not allowed or the image is inside a link. The
-rendering SHALL carry no `style` attribute, no event handler attribute and no script.
+text that was typed. The rendering SHALL carry no `style` attribute, no event handler attribute and no
+script.
 
 #### Scenario: Hostile text renders inert
 
@@ -17,6 +14,23 @@ rendering SHALL carry no `style` attribute, no event handler attribute and no sc
 - **WHEN** the task screen is drawn
 - **THEN** the HTML is shown as escaped text, neither address is a link, and no element carries an
   event handler or a style
+
+### Requirement: Task text links only to web and mail addresses
+
+A link SHALL be rendered only when its address is absolute http or https with a host, or mailto, and
+SHALL carry `rel="noopener noreferrer nofollow"`; any other address SHALL render as its label text.
+
+#### Scenario: A relative address is not a link
+
+- **GIVEN** a description containing `[a](https://example.com/x)`, `[b](mailto:ops@example.com)` and
+  `[c](/relative)`
+- **WHEN** the task screen is drawn
+- **THEN** the first two are links carrying `rel="noopener noreferrer nofollow"` and `c` is plain text
+
+### Requirement: An image in task text is never loaded
+
+An image SHALL NOT be loaded: it SHALL render as a link to its address labelled by its alt text, or as
+the alt text alone when the address is not allowed or the image is inside a link.
 
 #### Scenario: An image is a link
 
@@ -53,15 +67,19 @@ Each GitHub task-list item of a description SHALL render, for a reader with `tas
 exposed as a checkbox with its checked state and named by the item's text, inside a form that carries
 the CSRF token and the version the screen was drawn at. Activating it SHALL post the item's number and
 the state asked for, and SHALL work without scripting. The service SHALL rewrite only that item's
-marker. A post against a version the task has moved past SHALL be refused with the conflict refusal and
-change nothing. A reader without `task:write` SHALL see disabled checkboxes and no form, and comments'
-items SHALL always be disabled.
+marker.
 
 #### Scenario: A tick lands on its item
 
 - **GIVEN** a description with three items, the second open
 - **WHEN** a writer ticks the second
 - **THEN** only the second item's marker changes, and the screen shows 2 of 3 done
+
+### Requirement: A stale checklist tick is refused and readers cannot tick
+
+A post against a version the task has moved past SHALL be refused with the conflict refusal and change
+nothing. A reader without `task:write` SHALL see disabled checkboxes and no form, and comments' items
+SHALL always be disabled.
 
 #### Scenario: A tick on a changed description is refused
 

@@ -2,19 +2,22 @@
 
 ### Requirement: A task can be snoozed until a moment in the future
 
-The service SHALL let an actor with task write snooze a live task until an instant after the
-present. Snoozing SHALL record the instant and the snoozing actor on the task, write a
-`task.snooze` audit entry naming that actor with the previous and new wake times, and emit
-`task.snoozed`, all in one transaction. Snoozing an already snoozed task SHALL replace its wake
-time. A wake time that is not after the present SHALL be refused as invalid, and a deleted task
-SHALL be not found. A snooze SHALL be visible to every reader of the task, not only to the actor
-who set it.
+The service SHALL let an actor with task write snooze a live task until an instant after the present.
+Snoozing SHALL record the instant and the snoozing actor on the task, write a `task.snooze` audit entry
+naming that actor with the previous and new wake times, and emit `task.snoozed`, all in one
+transaction. Snoozing an already snoozed task SHALL replace its wake time. A snooze SHALL be visible to
+every reader of the task, not only to the actor who set it.
 
 #### Scenario: Snoozing hides the task from everyone
 
 - **GIVEN** alice and bob both read project OPS
 - **WHEN** alice snoozes OPS-3 until tomorrow
 - **THEN** OPS-3 is absent from bob's default listing and the audit entry for it names alice
+
+### Requirement: A snooze needs a future wake time and a live task
+
+A wake time that is not after the present SHALL be refused as invalid, and a deleted task SHALL be not
+found.
 
 #### Scenario: A wake time in the past is refused
 

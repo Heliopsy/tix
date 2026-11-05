@@ -29,17 +29,20 @@ snapshots.
 
 ### Requirement: Create a task from a template
 
-The service SHALL create a task, and a subtask for every subtask the template holds, from a
-template in one transaction. The task SHALL go to the template's project or, for a tenant-wide
-template, the project the caller names. The caller MAY replace the title and give a due offset
-that sets the due date relative to now; otherwise the template's own offset applies. Status,
-custom fields and tags SHALL follow the rules a copy into that project follows. The template's
-use counter SHALL go up by one.
+The service SHALL create a task, and a subtask for every subtask the template holds, from a template in
+one transaction. The caller MAY replace the title and give a due offset that sets the due date relative
+to now; otherwise the template's own offset applies. Status, custom fields and tags SHALL follow the
+rules a copy into that project follows. The template's use counter SHALL go up by one.
 
 #### Scenario: Use with an offset
 
 - **WHEN** a member uses template "release" with a due offset of 3d
 - **THEN** a new OPS task with the template's subtasks exists, due three days from now, in the initial state
+
+### Requirement: A task made from a template goes to the template's project or the one named
+
+The task SHALL go to the template's project or, for a tenant-wide template, the project the caller
+names.
 
 #### Scenario: Tenant-wide template needs a project
 

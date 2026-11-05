@@ -9,8 +9,6 @@ id into a small fixed palette. That kept an upgrade from repainting an existing 
 a fresh install opening in a colour nobody chose, two installs of the same software looking unrelated, and
 neither matching the logo.
 
-The default SHALL be the product's own green, so the colour is recognisable rather than arbitrary.
-
 #### Scenario: A tenant that names nothing
 
 - **WHEN** a tenant's theme is empty or whitespace
@@ -20,6 +18,12 @@ The default SHALL be the product's own green, so the colour is recognisable rath
 
 - **WHEN** two tenants with different keys and ids both name no theme
 - **THEN** they resolve to the same accent
+
+## ADDED Requirements
+
+### Requirement: The default theme is the product green
+
+The default SHALL be the product's own green, so the colour is recognisable rather than arbitrary.
 
 #### Scenario: The default is the product green
 
