@@ -41,7 +41,7 @@
   {{template "csrf" .CSRF}}
   <div class="field-label">
     <label for="public_key">{{t "Public key"}}</label>
-    {{template "field-info" "The contents of a .pub file, such as ~/.ssh/id_ed25519.pub -- never the private half. Paste one key. Any authorized_keys options or the trailing comment are discarded: only the key itself is stored."}}
+    {{template "field-info" "Paste one public key, the contents of a .pub file such as ~/.ssh/id_ed25519.pub. Never paste the private key. Any authorized_keys options or the trailing comment are discarded: only the key itself is stored."}}
   </div>
   <textarea id="public_key" name="public_key" rows="4" required placeholder="{{"ssh-ed25519 AAAAC3Nza..."}}"></textarea>
   <label for="label">{{t "Label"}}</label>

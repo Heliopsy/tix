@@ -181,7 +181,7 @@ var jsMessages = []string{
 	"Projects",
 	"Tasks",
 	"Searching tasks",
-	"The task search did not answer.",
+	"The task search did not respond.",
 	"No matches",
 	"%d task selected",
 	"%d tasks selected",

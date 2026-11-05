@@ -752,7 +752,7 @@
 <div class="boardfault" role="alert">
   {{if $v.Board.Groups}}
   {{if gt (len $v.Board.Groups) 1}}
-  <p><strong>{{t "These projects do not share a workflow, so one board cannot show them all honestly."}}</strong>
+  <p><strong>{{t "These projects do not share a workflow, so they cannot share one board."}}</strong>
      {{t "The list is shown instead. Pick a set that agrees, or put the others away under View."}}</p>
   {{else}}
   {{/* One group and still not drawable: its workflow could not be read at

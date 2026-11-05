@@ -101,7 +101,7 @@ func signInChallenge(ticket, next, uri string, errs fieldErrors) totpView {
 	v := totpView{
 		Action:   RouteLogin,
 		Heading:  "Second step",
-		Lede:     "Enter the six digit code from your authenticator app.",
+		Lede:     "Enter the six-digit code from your authenticator app.",
 		Ticket:   ticket,
 		Next:     next,
 		Cancel:   RouteLogin,

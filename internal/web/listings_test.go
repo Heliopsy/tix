@@ -198,7 +198,7 @@ func TestAListingThatCouldNotReadEverythingSaysSo(t *testing.T) {
 	}{
 		{
 			name: "the token table", actors: true, path: "/admin/tokens",
-			says: "not every token of the tenant",
+			says: "do not cover every token",
 			read: func(t *testing.T, page string) string { t.Helper(); return page },
 		},
 		{
@@ -224,12 +224,12 @@ func TestAListingThatCouldNotReadEverythingSaysSo(t *testing.T) {
 		},
 		{
 			name: "the task screen's visibility control", path: "/tasks",
-			says: "not the whole set",
+			says: "the list above is incomplete",
 			read: visibilityControl,
 		},
 		{
 			name: "the settings visibility control", path: "/settings",
-			says: "not the whole set",
+			says: "the list above is incomplete",
 			read: visibilityControl,
 		},
 	}

@@ -126,7 +126,7 @@ func init() {
 		"Everything here is finished.":               "Всичко тук е завършено.",
 		"%d task belongs to a project this screen does not list, so it has no lane:":            "%d задача е в проект, който този екран не показва, затова няма лента:",
 		"%d tasks belong to a project this screen does not list, so they have no lane:":         "%d задачи са в проект, който този екран не показва, затова нямат лента:",
-		"These projects do not share a workflow, so one board cannot show them all honestly.":   "Тези проекти нямат общ работен процес, затова едно табло не може да ги покаже честно.",
+		"These projects do not share a workflow, so they cannot share one board.":               "Тези проекти нямат общ работен процес, затова не могат да споделят едно табло.",
 		"The list is shown instead. Pick a set that agrees, or put the others away under View.": "Вместо това е показан списъкът. Изберете проекти с общ процес или скрийте останалите от „Изглед“.",
 		"The workflow behind this listing could not be read, so no columns can be drawn.":       "Работният процес на този списък не може да бъде прочетен, затова не могат да се начертаят колони.",
 		"The list is shown instead.": "Вместо това е показан списъкът.",
