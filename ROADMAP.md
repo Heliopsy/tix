@@ -1,7 +1,7 @@
 # Roadmap
 
-v1 scope is the `tix-v1` OpenSpec change. This file records what comes after, and
-the seam in v1 that makes each one additive rather than a rewrite.
+v1 scope is the `tix-v1` OpenSpec change. Below is what comes after, and the seam in
+v1 that lets each one be added without a rewrite.
 
 ## Shipped since v1
 
@@ -19,7 +19,7 @@ less than it cost. A theme also grew an optional dark pair, because an accent pi
 white is a smear on near-black and the browser follows the system, which for most people is
 dark.
 
-**What differs from the plan below:** the palette is an accent pair rather than a scheme per
+**What differs from the plan below:** the palette is an accent pair, not a scheme per
 surface. The web interface already has light, dark and dim for everything structural, and a
 terminal cannot honour a browser's palette, so the themeable thing is the accent. State and
 priority colours are deliberately excluded: they carry meaning, and a tenant that themes itself
@@ -45,11 +45,11 @@ target so an interrupted download cannot leave a truncated binary on PATH. `--ch
 reports without writing, and `--version` installs a named release, including an older one.
 
 **What differs from the plan above:** the refusals are decided by the recorded VCS revision
-rather than by the module version. A `go build` from a tagged tree records a module version
+instead of the module version. A `go build` from a tagged tree records a module version
 indistinguishable from an installed one, so version alone refused a locally built binary as
 "installed with the Go toolchain"; only `go install pkg@version` has no checkout and
-therefore no revision. That was found by running the command against a real release, not by
-the unit test that had been fed plausible-looking values.
+therefore no revision. Running the command against a real release found this, not the unit test,
+which had been fed plausible-looking values.
 
 Restarting a running server is still not part of it, for the reason the plan gave.
 
@@ -72,7 +72,7 @@ cannot drift apart on it.
 **What differs from the plan above:** attributing a completion to an actor needed the audit
 trail. The tasks table records when a task reached a terminal state and never by whom, so the
 query matches the transition entry written in the same instant. A completion whose transition
-has aged out of retention reports no actor rather than the wrong one.
+has aged out of retention reports no actor instead of the wrong one.
 
 See [docs/statistics.md](docs/statistics.md).
 
@@ -81,7 +81,7 @@ See [docs/statistics.md](docs/statistics.md).
 A release spent on defects that shared a shape: each was covered by a test asserting the code
 returned the right value, and none asserted what a person experiences.
 
-The completion animation was attached to the completed state rather than to the act of
+The completion animation was attached to the completed state instead of the act of
 completing, so every render replayed it on every already-ticked checkbox and opening a list
 sent a wave of ticks down the page.
 
@@ -96,8 +96,8 @@ the fetch boundary only. And a finished import printed its own Go struct, becaus
 `SyncResult` had no case in the renderer.
 
 **What this changed about the tests:** two mapping tables in `core` are now exhaustive over
-`Kinds`, and the taxonomy the tests iterate is `Kinds` itself rather than a hand-kept copy
-that called itself complete while nothing checked it. `just docs-check` now covers
+`Kinds`, and the tests iterate `Kinds` itself. Before, they iterated a hand-kept copy that
+called itself complete while nothing checked it. `just docs-check` now covers
 `screenshots/` as well as `docs/`, after the screenshot index drifted from its own directory.
 
 ### A backlog worth looking at, and durations a person can read
@@ -108,7 +108,7 @@ comments, with completions spread across the window by several actors. Every scr
 then showed titles and nothing else, which is the opposite of what the screens are for.
 
 The history is replayed through the ordinary service calls against a clock the command
-advances rather than written behind them. That is forced rather than tasteful: statistics
+advances, not written behind them. This was forced: statistics
 attribute a completion by matching the transition entry written in the same instant, so a
 snapshot import would have left every leaderboard and lead-time figure empty.
 `connect.Overrides` grew a `Clock` for this and nothing else uses it. The command refuses a
@@ -131,7 +131,7 @@ The status pill is a control now, offering the moves the row's own workflow allo
 states reachable only through another state. The whole route is spelled out before it is
 applied and each hop is an ordinary transition, so the audit trail carries one entry per step:
 a task that passed through a state really did pass through it. That control was unusable at
-first, and the reason is worth recording. It was a panel positioned inside the task list,
+first. It was a panel positioned inside the task list,
 which hides its overflow, so on a lower row the choices were clipped out of the scrollable
 area entirely, took no pointer events, and could not be reached at any scroll position.
 Clicking a choice did nothing, forever, which reads as a frozen page. It is a popover in the
@@ -144,14 +144,14 @@ nothing to say so. That happened during review: a reader saw new markup styled b
 and reported the interface as broken. Each asset now carries an `ETag` derived from its own
 bytes and answers conditional requests.
 
-Dates are the reader's business, not the deployment's. Format and timezone are per-browser
-preferences with the configured values as the default. The obstacle was that the time style
+Format and timezone are per-browser preferences, with the configured values as the
+default. The obstacle was that the time style
 was bound into the templates at parse time and shared by every request; template sets are
 cached per resolved style now, and a test drives concurrent readers to prove none is served
 another's zone.
 
 `ListActors` runs the full length of the contract, service to CLI to HTTP to a `/actors`
-screen, and feeds the assignee field, which suggests handles rather than asking for an
+screen, and feeds the assignee field, which suggests handles so nobody has to type an
 identifier from memory. It suggests without constraining, because an actor from another tenant
 is deliberately assignable and a control that only accepted what it listed would remove that
 silently.
@@ -167,17 +167,17 @@ See [docs/web-ui.md](docs/web-ui.md).
 ### A filter that says when it does not understand, and a list you can walk back
 
 Using the seeded demo for a second afternoon turned up the same shape once more, this time in the
-answers rather than the screens. `tix task ls -p nosuchproject` returned `[]` and exited 0, which is
+answers instead of the screens. `tix task ls -p nosuchproject` returned `[]` and exited 0, which is
 the one answer that cannot be told apart from a correct one: it reads as "that project has no work"
 rather than "there is no such project", and a person or an agent acts on it. Every
 reference-shaped term of a filter is resolved before the listing is queried now, and one that names
 nothing fails as `not_found`. Project keys and statuses are matched without regard to case, because
 `-p INFRA` selecting nothing was the same silence by another route.
 
-Two of those decisions are worth recording because a later tidying would get them wrong. A tag is
+A later tidying could easily get two of those decisions wrong. A tag is
 never checked: a tag comes into being by being applied, so "no such tag" and "a tag with no tasks"
 are the same state, and refusing the first would refuse the second. A status is checked against the
-union of every workflow in the tenant rather than the workflow of the project in scope, because
+union of every workflow in the tenant, not just the workflow of the project in scope, because
 workflows need not agree and a cross-project listing may reasonably name a status only one of them
 defines.
 
@@ -188,17 +188,17 @@ listing also stopped writing a document to standard output, where a closing `[]`
 standard error let a pipeline reading only stdout believe an empty answer.
 
 The listings gained one shared position control. Six of them had one each before, none of which said
-where the reader was and none of which offered a way back. Previous is the interesting half: keyset
+where the reader was and none of which offered a way back. Previous is the harder half: keyset
 pagination only goes forward, so the page carries the cursors it walked through in its own URL and
 pops the last one off, which keeps the whole position shareable and asks nothing of the store. The
-trail arrives from the address bar, so it is validated and bounded and discarded whole rather than
-repaired.
+trail arrives from the address bar, so it is validated and bounded, and a bad one is discarded
+whole instead of repaired.
 
 The rest was the same lesson in smaller places. The column cookie recorded the columns shown, which
 cannot tell a column the reader turned off from one that did not exist when they chose, so every
 column added later read as refused by exactly the readers who had customised most; it records what is
 hidden now, behind a version marker, and converts what it finds in the old form. A refused filter
-reports on the filter bar with the expression still in the box rather than on the full-page error
+reports on the filter bar with the expression still in the box, not on the full-page error
 screen. A tenant administrator gets the configuration navigation by default, since the tenant screen
 was otherwise reachable only by typing its URL. Durations became one vocabulary, Go's syntax plus a
 day, so anything the product prints can be typed back, and the binary embeds `time/tzdata` so a
@@ -207,8 +207,7 @@ reader's zone does not depend on the base image.
 ### The terminal interface over SSH
 
 `ssh tix.example.com` lands in the terminal interface, with no client to install and nothing to
-configure. The same board, driven by the same keys, reached by a protocol every machine already
-has.
+configure: the same board and the same keys, over a protocol every machine already has.
 
 `charmbracelet/wish` serves a bubbletea program over SSH, forwards window resizes as the
 resize message the program already handles, and resolves the colour profile from the client's
@@ -217,16 +216,16 @@ resize message the program already handles, and resolves the colour profile from
 The work is authentication. Today a credential is a password or an opaque token; this needs a
 public key bound to a user, and a way to enrol one. That is a small, well understood mechanism,
 but it is a new one, and it has to reach the same authorization decisions everything else goes
-through rather than growing a second path.
+through instead of growing a second path.
 
 The rest is the usual cost of a network listener: a persisted host key, connection rate
 limiting, and the same refusal to bind a non-loopback address without an explicit choice that
-`tix serve` already makes. Session isolation needs proving rather than assuming, because a
+`tix serve` already makes. Session isolation has to be proved by a test, because a
 shared map behind an SSH handler would be a cross-tenant leak, and that is the one failure this
 project treats as unrecoverable.
 
 A public read-only demo tenant is the obvious second use: `ssh tix.red` showing seeded tasks in
-the real interface, rather than a video of it.
+the real interface instead of a video of it.
 
 **Seam in v1:** `tui.Options` already takes `In io.Reader` and `Out io.Writer` and passes them
 to bubbletea's `WithInput` and `WithOutput`, so the interface is not bound to `/dev/tty` and a
@@ -259,8 +258,8 @@ with no schema migration and no signature change.
 
 ### MCP server mode
 
-**Shipped as `tix mcp`.** It turned out thinner than this entry planned: rather than a third
-adapter mapping tools onto Service methods by hand, its tools are generated from the OpenAPI
+**Shipped as `tix mcp`.** It turned out thinner than this entry planned: there is no third
+adapter mapping tools onto Service methods by hand. Its tools are generated from the OpenAPI
 document and each call is one request through the HTTP client, so a tool cannot drift from the
 API. [docs/mcp.md](docs/mcp.md) has the details. Left for later: a streamable HTTP transport,
 which needs its own answer to whose token a remote session runs with.
@@ -281,7 +280,7 @@ The asymmetry is documented in `docs/scaling.md`.
 A background worker that fills in what a hurried capture left out: a body for a one line task,
 a priority, tags, a first pass at subtasks. Enabled per project, or asked for per task with
 `tix task enrich`. The model is reached over an OpenAI-compatible API, so the endpoint, key and
-model name are configuration rather than a hard dependency on one vendor, and a local runtime
+model name are configuration, with no hard dependency on one vendor, and a local runtime
 serving that API works without tix knowing the difference.
 
 This is the first feature that sends task content off the machine, and that changes the
@@ -291,13 +290,13 @@ product's promise, so it has to be built defensively:
   posts a private task list to a third party because a key was present in the environment is a
   breach, whatever the release notes said.
 - **Say what leaves.** A dry run shows the exact payload before anything is sent, and the
-  configured endpoint is visible in `tix doctor` rather than buried in a config file.
+  configured endpoint is visible in `tix doctor` instead of buried in a config file.
 - **Attribute the writes.** Enrichment mutates tasks, so it runs as a system actor and its
   changes land in the audit log like any other mutation. "Who wrote this description" must have
   an answer.
-- **Never overwrite a human.** Enrich empty fields, and offer a suggestion rather than an edit
-  where a person has already written something. A field a person typed is the one thing a model
-  should not silently replace.
+- **Never overwrite a human.** Enrich empty fields, and where a person has already written
+  something, offer a suggestion instead of an edit. A model should never silently replace a field
+  a person typed.
 - **Ask rather than guess.** Where the capture is too thin to enrich confidently, the worker
   records a question on the task instead of inventing an answer. "Which NAS, the old QNAP or the
   Synology?" is useful; a confident wrong description is worse than an empty one, because a
@@ -321,7 +320,7 @@ Two constraints follow from that, and both are the same shape as the rules above
   prefix somebody forgot they wrote a year ago.
 - **It is not a place for secrets.** Refusing to send a project instruction that looks like a
   credential is cheap and worth doing, because someone will eventually paste one in, and the
-  field is text a person types rather than a field a schema constrains.
+  field is free text a person types, with no schema to constrain it.
 
 An instruction is per project, which is the unit people already think in, and it inherits from
 the tenant when a project has none, so a house style is written once.
@@ -332,7 +331,7 @@ worker is an actor that claims and writes like any other. A project instruction 
 colour and icon already are. The webhook dispatcher already
 establishes the pattern for a bounded background worker with retry and backoff that a server
 owns and a direct-database CLI drains opportunistically. Every mutation already writes rows,
-audit and event in one transaction, so enrichment inherits the audit trail rather than needing
+audit and event in one transaction, so enrichment inherits the audit trail and needs none of
 its own. Custom fields already hold whatever a model produces that has no typed column.
 
 ### Read-only view links
@@ -346,7 +345,7 @@ already query parameters on the web routes, so the URL for a board filtered the 
 wants already exists; what is missing is a way to open it without a session. `api_tokens`
 already carries scopes, so a read-only view is a token whose scopes permit reads and nothing
 else, revoked the same way as any other. The event stream already exists, so a display can
-update when something commits rather than polling on a timer. The web interface already
+update when something commits instead of polling on a timer. The web interface already
 renders server-side with no build step, which is what makes a cheap browser on a fridge door
 a reasonable target.
 
@@ -355,11 +354,11 @@ Two things have to be decided before any of that matters.
 The first is how the link authenticates. A long unguessable URL is the shape people expect,
 and it is also the shape that leaks: it lands in browser history, in proxy logs and in a
 `Referer` header on every outbound click. A token in a header is safe and cannot be typed
-into a television. Whatever is chosen should be scoped to one view rather than one tenant,
+into a television. Whatever is chosen should be scoped to one view, not one tenant,
 and revocable on its own, so a display in a corridor does not become a key to the backlog.
 
 The second is the preferences. Scheme, date format and timezone live in a cookie today
-because they belong to the person reading rather than the tenant. A kiosk has nobody to set
+because they belong to the person reading, not the tenant. A kiosk has nobody to set
 them, so for these links they have to travel in the link itself.
 
 ### Scheduled backups to S3 or a directory
@@ -388,12 +387,12 @@ Each target carries its own scope, schedule and retention:
 - **Naming.** A template with the tenant, the scope and the timestamp, so a bucket listing is
   legible without opening anything.
 
-What it must not do is become a second, weaker export path. The dump is the existing snapshot
+It must not become a second, weaker export path. The dump is the existing snapshot
 format, written by the same code, so a backup is restorable by the importer that already exists
 and is already tested. If the two ever diverge, the backup is the thing that will be wrong on
 the day it matters.
 
-Two things it has to get right, because they are the ones that are embarrassing later:
+Two things it has to get right, because getting them wrong is embarrassing later:
 
 - **Credentials stay out of the snapshot and out of the logs.** A dump carries task content, and
   the target carries a secret key. Neither belongs in the other, and the redaction that already
@@ -417,7 +416,7 @@ There is a prerequisite: **tix does not read `X-Forwarded-For`, `X-Real-IP` or
 `X-Forwarded-Proto` anywhere.** Behind a reverse proxy, which is the documented deployment,
 every request already appears to come from the proxy. Limiting by source address before that is
 fixed would either limit everyone as one client or be trivially evaded, so the forwarded-header
-handling has to land first, with an explicit trusted-proxy setting rather than blind faith in a
+handling has to land first, with an explicit trusted-proxy setting instead of blind faith in a
 header any client can send.
 
 **Security headers.** `X-Content-Type-Options: nosniff` is set in three places and nothing else
@@ -425,7 +424,7 @@ is. Missing: a Content Security Policy, `Strict-Transport-Security`, `Referrer-P
 `Permissions-Policy`, and frame-ancestors.
 
 CSP is the one with real work behind it. `layout.html` carries inline scripts, deliberately, so
-the theme and the dismissed announcement apply before first paint rather than flashing. A
+the theme and the dismissed announcement apply before first paint instead of flashing. A
 policy strict enough to be worth having cannot allow `unsafe-inline`, so those scripts need
 nonces threaded through the render path, or hashes computed at build time. Everything else on
 the list is a header and a test.
@@ -437,7 +436,7 @@ these protect is already the documented one.
 
 ### Desktop application
 
-A thin wrapper around the browser interface rather than a second client: the same
+A thin wrapper around the browser interface, not a second client: the same
 server-rendered screens in a native window, so there is one interface to build and one to
 test. A wrapper keeps the multiplatform cost near zero compared with a native rewrite, and
 the CLI already covers the scripted path.

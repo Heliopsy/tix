@@ -33,8 +33,8 @@ To reproduce the full CI suite locally, including PostgreSQL and every scanner:
 just ci
 ```
 
-Linters and scanners run inside a pinned toolbox image, so local results match CI rather
-than approximating it. The first run builds that image.
+Linters and scanners run inside a pinned toolbox image, so local results match CI exactly.
+The first run builds that image.
 
 ## Commit messages
 
@@ -104,7 +104,7 @@ Coverage must stay at or above 85% with both engines, or 78% when the PostgreSQL
 There is no donation link, and the Sponsor button brings you here on purpose. tix is one
 binary you run yourself, so it costs nothing to use and there is nothing to subscribe to.
 
-The things that actually help, in the order they help most:
+What helps, most useful first:
 
 - **Tell us when it breaks.** A bug report with the command you ran and what happened
   instead is worth more than money, because it is the only way a fault on hardware we do
