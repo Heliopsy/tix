@@ -489,16 +489,6 @@ Enrolment SHALL parse the submitted text as an SSH public key and SHALL store th
 parsed key, never the submitted bytes. The recorded fingerprint SHALL be derived from the parsed key. No
 comment accompanying the submission SHALL be stored.
 
-A submission carrying authorized_keys options, such as a command directive or a restriction, SHALL be
-refused rather than accepted with the options discarded. Silently dropping a directive would leave the
-submitter believing they had applied a restriction that does not exist, which is a worse outcome than
-refusing the submission and saying so.
-
-#### Scenario: Options are refused, not quietly dropped
-
-- **WHEN** enrolment is given an authorized_keys line carrying options such as a command directive
-- **THEN** it is refused, the message says options are not supported, and nothing is recorded
-
 #### Scenario: A comment is not stored
 
 - **WHEN** a key is enrolled from a line ending in a comment, as ssh-keygen writes it
@@ -513,6 +503,18 @@ refusing the submission and saying so.
 
 - **WHEN** enrolment is given text carrying more than one key, or content after the key that is not a comment
 - **THEN** it is refused and nothing is recorded
+
+### Requirement: A key submitted with authorized_keys options is refused
+
+A submission carrying authorized_keys options, such as a command directive or a restriction, SHALL be
+refused rather than accepted with the options discarded. Silently dropping a directive would leave the
+submitter believing they had applied a restriction that does not exist, which is a worse outcome than
+refusing the submission and saying so.
+
+#### Scenario: Options are refused, not quietly dropped
+
+- **WHEN** enrolment is given an authorized_keys line carrying options such as a command directive
+- **THEN** it is refused, the message says options are not supported, and nothing is recorded
 
 ### Requirement: Enrolment cannot grant authority the caller lacks
 
@@ -710,10 +712,6 @@ so that a client can land on a board rather than on the project list. This is
 the SSH equivalent of `--project` on the local interface, which has no other
 channel here because the username already carries the tenant.
 
-The project SHALL be opened as the session's own actor, through the same
-service and the same scopes the project list would have used, so naming a
-project reaches nothing that choosing it from the list would not have reached.
-
 #### Scenario: A client names a board
 
 - **WHEN** an SSH client connects with a public key, requests a pseudo-terminal
@@ -725,12 +723,6 @@ project reaches nothing that choosing it from the list would not have reached.
 - **WHEN** an SSH client connects without a command
 - **THEN** a hosted session opens the project list and a sandbox session opens
   its seeded board, as each did before
-
-#### Scenario: A client names a project it cannot reach
-
-- **WHEN** the command is a well formed project key that this actor cannot open
-- **THEN** the session opens on the project list carrying the reason, rather
-  than being refused
 
 #### Scenario: A client sends something that is not a project key
 
@@ -744,3 +736,15 @@ project reaches nothing that choosing it from the list would not have reached.
 - **WHEN** the command is more than one argument
 - **THEN** the session is refused with a message saying the listener serves an
   interface rather than a shell
+
+### Requirement: A board named over SSH is opened as the session's own actor
+
+The project SHALL be opened as the session's own actor, through the same
+service and the same scopes the project list would have used, so naming a
+project reaches nothing that choosing it from the list would not have reached.
+
+#### Scenario: A client names a project it cannot reach
+
+- **WHEN** the command is a well formed project key that this actor cannot open
+- **THEN** the session opens on the project list carrying the reason, rather
+  than being refused

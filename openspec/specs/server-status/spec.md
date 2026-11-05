@@ -11,21 +11,18 @@ Lets a running serve process record itself, so an operator can see which servers
 A running `tix serve` process SHALL record itself in an installation-scoped `servers` table: once when it
 starts, and again on a fixed interval for as long as it runs.
 
+#### Scenario: The heartbeat moves only the last seen instant
+
+- **WHEN** the heartbeat interval elapses
+- **THEN** the row's last seen instant advances to the current time
+- **AND** the instant it started is unchanged
+
+### Requirement: A server row describes the process that wrote it
+
 The row SHALL carry the server's identifier, its advertised listen address, its build version, the surfaces
 it serves, the instant it started, the instant it was last seen, and the heartbeat interval this process
 beats at. The identifier SHALL be generated with `internal/id`, as every other identifier in the product
 is.
-
-A graceful shutdown SHALL remove the row. A process that ends any other way SHALL leave it, because a
-server that died is what a reader most needs to be told about.
-
-A heartbeat that matches no row SHALL be reported to the caller rather than treated as success, and a
-running process whose row has been removed SHALL register itself again. Leaving the loop beating against
-nothing under-reports what is running, which reads as the server being down.
-
-Registration, heartbeating and removal SHALL NOT write an audit entry and SHALL NOT write an outbox event.
-Both of those tables are tenant-scoped and a server belongs to no tenant, so there is no tenant to attribute
-process liveness to.
 
 #### Scenario: A started server appears
 
@@ -33,11 +30,10 @@ process liveness to.
 - **THEN** the table holds one row for it
 - **AND** the row states its address, its version, its surfaces, when it started and how often it beats
 
-#### Scenario: The heartbeat moves only the last seen instant
+### Requirement: A graceful shutdown removes the row and a crash leaves it
 
-- **WHEN** the heartbeat interval elapses
-- **THEN** the row's last seen instant advances to the current time
-- **AND** the instant it started is unchanged
+A graceful shutdown SHALL remove the row. A process that ends any other way SHALL leave it, because a
+server that died is what a reader most needs to be told about.
 
 #### Scenario: A graceful shutdown leaves nothing behind
 
@@ -49,6 +45,12 @@ process liveness to.
 - **WHEN** a server ends without running its shutdown
 - **THEN** its row is still in the table
 
+### Requirement: A heartbeat that finds no row is not a success
+
+A heartbeat that matches no row SHALL be reported to the caller rather than treated as success, and a
+running process whose row has been removed SHALL register itself again. Leaving the loop beating against
+nothing under-reports what is running, which reads as the server being down.
+
 #### Scenario: A beat against a row that is gone is reported
 
 - **WHEN** a heartbeat is written for a server whose row no longer exists
@@ -59,6 +61,12 @@ process liveness to.
 - **WHEN** a running server's row is deleted underneath it and the process keeps running
 - **THEN** the process registers itself again without being restarted
 - **AND** the restored row carries the same identifier and the uptime the process actually has
+
+### Requirement: Server liveness is neither audited nor announced
+
+Registration, heartbeating and removal SHALL NOT write an audit entry and SHALL NOT write an outbox event.
+Both of those tables are tenant-scoped and a server belongs to no tenant, so there is no tenant to attribute
+process liveness to.
 
 #### Scenario: Liveness is not audited
 
@@ -74,13 +82,6 @@ no value the column could hold that is not a falsehood.
 A server row SHALL carry no tenant identifier, no tenant key, no hostname that resolves to a tenant, no
 actor identifier and no count of anything a tenant owns.
 
-The table SHALL be reached only through `store.UnscopedTx`, and only the files the confinement requirement
-names SHALL name those methods.
-
-On PostgreSQL the table SHALL NOT have row-level security enabled and SHALL carry no tenant isolation
-policy, because a predicate over a column that does not exist cannot be written, and a forced table with no
-policy would be readable by nobody including the server registering itself.
-
 #### Scenario: No tenant column exists
 
 - **WHEN** the schema is inspected after migration
@@ -92,11 +93,10 @@ policy would be readable by nobody including the server registering itself.
 - **WHEN** the fields of a server row are enumerated
 - **THEN** none of them carries a tenant identifier, a tenant key, a hostname or an actor
 
-#### Scenario: PostgreSQL leaves the table unforced
+### Requirement: The servers table is reached only through the unscoped transaction
 
-- **WHEN** the PostgreSQL catalogue is asked about `servers`
-- **THEN** row-level security is disabled on it
-- **AND** no tenant isolation policy exists for it
+The table SHALL be reached only through `store.UnscopedTx`, and only the files the confinement requirement
+names SHALL name those methods.
 
 #### Scenario: The unscoped door is the only door
 
@@ -104,20 +104,24 @@ policy would be readable by nobody including the server registering itself.
 - **THEN** they are named in exactly the interface, the two engines, the registrar and the status reader
 - **AND** a sixth file naming one of them fails the build
 
+### Requirement: PostgreSQL does not force row-level security on the servers table
+
+On PostgreSQL the table SHALL NOT have row-level security enabled and SHALL carry no tenant isolation
+policy, because a predicate over a column that does not exist cannot be written, and a forced table with no
+policy would be readable by nobody including the server registering itself.
+
+#### Scenario: PostgreSQL leaves the table unforced
+
+- **WHEN** the PostgreSQL catalogue is asked about `servers`
+- **THEN** row-level security is disabled on it
+- **AND** no tenant isolation policy exists for it
+
 ### Requirement: A reader decides staleness for itself
 
 A reader SHALL treat a server whose last seen instant is older than the staleness threshold as not
 heartbeating, computing that from the row and the current time alone.
 
 Correctness of that judgement SHALL NOT depend on any sweeper, pruner or other background job having run.
-
-The threshold SHALL be three heartbeat intervals, so that one missed beat is not mistaken for a dead
-process. The interval SHALL be the one that server declared on its own row, not a product-wide constant,
-because the cadence is set per process and only the process writing the row knows it. A row that declares
-no interval SHALL be judged against the default interval, which is what every such row was judged against
-before the cadence was recorded.
-
-A stale server SHALL remain in the report, marked as not heartbeating, rather than being hidden.
 
 #### Scenario: A fresh server reads as attached
 
@@ -129,6 +133,19 @@ A stale server SHALL remain in the report, marked as not heartbeating, rather th
 - **WHEN** a server's last seen instant is older than the threshold
 - **THEN** the report marks it not heartbeating
 - **AND** it says how long ago it was last seen
+
+#### Scenario: No cleanup job is needed for the answer
+
+- **WHEN** a server's last seen instant passes the threshold and nothing else runs at all
+- **THEN** the very next read already reports it as not heartbeating
+
+### Requirement: The staleness threshold is three of the server's own heartbeat intervals
+
+The threshold SHALL be three heartbeat intervals, so that one missed beat is not mistaken for a dead
+process. The interval SHALL be the one that server declared on its own row, not a product-wide constant,
+because the cadence is set per process and only the process writing the row knows it. A row that declares
+no interval SHALL be judged against the default interval, which is what every such row was judged against
+before the cadence was recorded.
 
 #### Scenario: A server beating slower than the default is not called down between its beats
 
@@ -145,10 +162,9 @@ A stale server SHALL remain in the report, marked as not heartbeating, rather th
 - **WHEN** a row written before the cadence was recorded is judged
 - **THEN** the default interval is used and the threshold is three of it
 
-#### Scenario: No cleanup job is needed for the answer
+### Requirement: A stale server stays in the report
 
-- **WHEN** a server's last seen instant passes the threshold and nothing else runs at all
-- **THEN** the very next read already reports it as not heartbeating
+A stale server SHALL remain in the report, marked as not heartbeating, rather than being hidden.
 
 #### Scenario: A stale server is still listed
 
@@ -167,16 +183,6 @@ the instant the report was taken.
 The servers SHALL list every registered server with its identifier, address, version, surfaces, start
 instant, last seen instant and whether it is attached.
 
-The work SHALL state, for the caller's own tenant, the project count, the task count, the number of claimed
-tasks, the number of leases that have expired and not been swept, and the pending and failed webhook
-deliveries. It SHALL also state the number of tenants the caller can see.
-
-The command SHALL accept `-o table`, `-o json` and `-o yaml` like every other command, and SHALL exit zero
-whenever it produced the report.
-
-The exit code SHALL NOT depend on whether any server is attached, because a server on another machine being
-down is not a fault of the installation the command was run against.
-
 #### Scenario: The report names the installation
 
 - **WHEN** `tix status` runs against a database
@@ -187,6 +193,26 @@ down is not a fault of the installation the command was run against.
 - **WHEN** two servers are registered and both heartbeating
 - **THEN** the report lists two servers
 - **AND** says two are attached
+
+### Requirement: The status report counts the caller's own work
+
+The work SHALL state, for the caller's own tenant, the project count, the task count, the number of claimed
+tasks, the number of leases that have expired and not been swept, and the pending and failed webhook
+deliveries. It SHALL also state the number of tenants the caller can see.
+
+#### Scenario: The work counts only the caller's tenant
+
+- **WHEN** the caller's tenant holds one task and another tenant holds three
+- **THEN** the caller's report counts one task
+- **AND** the other tenant's report counts three
+
+### Requirement: `tix status` renders every output format and succeeds whenever it reports
+
+The command SHALL accept `-o table`, `-o json` and `-o yaml` like every other command, and SHALL exit zero
+whenever it produced the report.
+
+The exit code SHALL NOT depend on whether any server is attached, because a server on another machine being
+down is not a fault of the installation the command was run against.
 
 #### Scenario: A stale server does not fail the command
 
@@ -228,13 +254,15 @@ stored count would be true only inside that process.
 The report SHALL carry a connection count for a server only when the report was produced by that server
 itself, and SHALL attribute it by matching the answering process's identifier to the registered row.
 
-For every other server the count SHALL be reported as unknown, distinguishable from zero, and SHALL be
-absent from the JSON rather than present and zero.
-
 #### Scenario: The answering server reports its own connections
 
 - **WHEN** a server produces the report and holds connections
 - **THEN** the count appears against that server's row and no other
+
+### Requirement: A connection count the reader does not know is reported as unknown
+
+For every other server the count SHALL be reported as unknown, distinguishable from zero, and SHALL be
+absent from the JSON rather than present and zero.
 
 #### Scenario: Unknown is not zero
 
@@ -279,11 +307,6 @@ The JSON output SHALL carry three top-level objects: `installation`, `servers` a
 
 `servers` SHALL be an array and SHALL be empty rather than null when there are none.
 
-Each server SHALL carry an `attached` boolean the reader computed, so a consumer need not know the
-staleness threshold, alongside the `last_seen_at` instant it was computed from and the
-`heartbeat_interval` the threshold is three of. A row that declared no interval SHALL report the default
-rather than a zero, so the field is always a threshold a consumer can use.
-
 `surfaces` SHALL be an array of strings whatever the storage shape is.
 
 Every instant SHALL be RFC 3339 in UTC.
@@ -297,6 +320,13 @@ Every instant SHALL be RFC 3339 in UTC.
 
 - **WHEN** no server is registered
 - **THEN** `servers` is `[]` and not null
+
+### Requirement: Each server in the JSON report carries the reader's judgement
+
+Each server SHALL carry an `attached` boolean the reader computed, so a consumer need not know the
+staleness threshold, alongside the `last_seen_at` instant it was computed from and the
+`heartbeat_interval` the threshold is three of. A row that declared no interval SHALL report the default
+rather than a zero, so the field is always a threshold a consumer can use.
 
 #### Scenario: The reader's judgement is in the document
 

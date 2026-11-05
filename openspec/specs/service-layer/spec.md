@@ -10,14 +10,6 @@ Holds the single Service interface every access path goes through, so business r
 
 A single `Service` interface SHALL describe the complete product surface, and every access path, including the CLI, TUI, HTTP API, WebSocket stream, and web UI, SHALL perform its operations exclusively through that interface. No access path SHALL reach the storage layer directly.
 
-A method of that interface declared as returning a pointer and an error SHALL return a non-nil
-pointer whenever it returns a nil error. There is no third answer: an absent record is an error, and
-a read that succeeded has a record to return. A caller MAY therefore branch on the error alone.
-
-An access path SHALL NOT be required to defend that guarantee at each of its own call sites. Where a
-path consumes such a read, a violation SHALL be reported as an internal fault naming the record that
-was missing, rather than reaching a dereference.
-
 #### Scenario: Operation available on every path
 
 - **WHEN** a new operation is added to the service contract
@@ -33,10 +25,22 @@ was missing, rather than reaching a dereference.
 - **WHEN** the service contract is inspected
 - **THEN** no method signature refers to HTTP, CLI, terminal, or any other transport concept
 
+### Requirement: A successful read through the contract returns a record
+
+A method of that interface declared as returning a pointer and an error SHALL return a non-nil
+pointer whenever it returns a nil error. There is no third answer: an absent record is an error, and
+a read that succeeded has a record to return. A caller MAY therefore branch on the error alone.
+
 #### Scenario: A read that succeeded returns a record
 
 - **WHEN** a service method declared to return a pointer and an error returns a nil error
 - **THEN** the pointer it returns is not nil
+
+### Requirement: A broken read guarantee is reported as an internal fault
+
+An access path SHALL NOT be required to defend that guarantee at each of its own call sites. Where a
+path consumes such a read, a violation SHALL be reported as an internal fault naming the record that
+was missing, rather than reaching a dereference.
 
 #### Scenario: An implementation that breaks the guarantee is reported, not dereferenced
 
@@ -257,22 +261,26 @@ Operations documented as idempotent SHALL produce the same resulting state and t
 
 ### Requirement: Operation registry spans every surface
 
-Every operation SHALL be declared once in a registry that records its stable product name, the service method it maps to, and its bindings on each access path: the CLI command path, the HTTP route, the browser route and the template it renders, and the terminal view it is reachable from where one exists. The CLI, the HTTP API, and the browser SHALL be the surfaces every operation is required to reach; the terminal interface SHALL be recorded where it applies but SHALL NOT be required. The registry SHALL be the single source of truth for what operations exist, and no surface SHALL expose an operation the registry does not declare.
+Every operation SHALL be declared once in a registry that records its stable product name, the service method it maps to, and its bindings on each access path: the CLI command path, the HTTP route, the browser route and the template it renders, and the terminal view it is reachable from where one exists.
 
 #### Scenario: Every service method is registered
 
 - **WHEN** the registry is checked against the exported service interface
 - **THEN** every exported service method appears in the registry exactly once
 
-#### Scenario: Entries name their bindings
-
-- **WHEN** a registry entry is read
-- **THEN** it names the CLI command, the HTTP route, and the browser route that expose that operation, or carries an exemption for each required surface it omits
-
 #### Scenario: Lookup by service method
 
 - **WHEN** an operation is looked up by the service method it maps to
 - **THEN** the registry returns the single entry declaring that method
+
+### Requirement: The registry decides which surfaces an operation must reach
+
+The CLI, the HTTP API, and the browser SHALL be the surfaces every operation is required to reach; the terminal interface SHALL be recorded where it applies but SHALL NOT be required. The registry SHALL be the single source of truth for what operations exist, and no surface SHALL expose an operation the registry does not declare.
+
+#### Scenario: Entries name their bindings
+
+- **WHEN** a registry entry is read
+- **THEN** it names the CLI command, the HTTP route, and the browser route that expose that operation, or carries an exemption for each required surface it omits
 
 ### Requirement: Exemptions distinguish inapplicability from a known gap
 

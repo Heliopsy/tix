@@ -12,11 +12,6 @@ The domain SHALL provide, as a pure function of a workflow definition and a star
 that reach every other state: the adjacent ones as a single hop and the ones reachable only through
 another state as the sequence of states they pass through.
 
-The walk SHALL be breadth first, so an adjacent state is never offered as a detour, and SHALL terminate
-on a workflow containing cycles. It SHALL drop an edge naming a state the definition does not declare,
-and SHALL bound both the length of a route and the number of equally short routes it enumerates to one
-state.
-
 No surface SHALL compute reachability for itself.
 
 #### Scenario: A state reachable only through another is offered as a route
@@ -24,6 +19,13 @@ No surface SHALL compute reachability for itself.
 - **WHEN** the workflow reaches a state only by passing through another
 - **THEN** that state is offered, named with every state the route passes through and the number of
   moves it takes
+
+### Requirement: The reachability walk is breadth first and bounded
+
+The walk SHALL be breadth first, so an adjacent state is never offered as a detour, and SHALL terminate
+on a workflow containing cycles. It SHALL drop an edge naming a state the definition does not declare,
+and SHALL bound both the length of a route and the number of equally short routes it enumerates to one
+state.
 
 #### Scenario: An adjacent state is offered as one hop
 
@@ -113,21 +115,17 @@ The terminal's transition picker SHALL list the adjacent states before the route
 the same one keystroke it costs today, and SHALL name the states a route passes through and how many
 moves it is before it is applied.
 
-The command line SHALL offer a switch on the move command that finds the route, prints it before acting,
-and honours the existing dry-run switch by printing the route and writing nothing. Its machine-readable
-output SHALL report the route found and the hops applied.
-
-The HTTP API SHALL accept a route additively, leaving the single-state form working unchanged, and SHALL
-use the existing error envelope.
-
-The browser's task detail screen and its board SHALL offer what its task list already offers. Dragging a
-card between columns SHALL remain a single hop, because a drop names a destination and no journey.
-
 #### Scenario: The terminal offers a route
 
 - **WHEN** the transition picker is opened on a task whose workflow reaches a state only through another
 - **THEN** that state appears in the picker, named with the states it passes through and its hop count
 - **AND** the adjacent states are numbered first, so a direct move is still one digit
+
+### Requirement: The command line finds and prints a route before it acts
+
+The command line SHALL offer a switch on the move command that finds the route, prints it before acting,
+and honours the existing dry-run switch by printing the route and writing nothing. Its machine-readable
+output SHALL report the route found and the hops applied.
 
 #### Scenario: The command line prints the route before acting
 
@@ -139,10 +137,26 @@ card between columns SHALL remain a single hop, because a drop names a destinati
 - **WHEN** the same command is given the dry-run switch
 - **THEN** the route is printed and reported as planned, and the task's state and trail are unchanged
 
+### Requirement: The HTTP API accepts a route additively
+
+The HTTP API SHALL accept a route additively, leaving the single-state form working unchanged, and SHALL
+use the existing error envelope.
+
 #### Scenario: The single-state API form is unchanged
 
 - **WHEN** a client posts a single target status to the existing transition endpoint
 - **THEN** it behaves exactly as before, with no route semantics applied
+
+### Requirement: The browser offers routes on every screen its task list does
+
+The browser's task detail screen and its board SHALL offer what its task list already offers. Dragging a
+card between columns SHALL remain a single hop, because a drop names a destination and no journey.
+
+#### Scenario: The task detail screen offers a route
+
+- **WHEN** a task's detail screen is opened in a workflow that reaches `done` only through `doing`
+- **THEN** its move control offers `done` by way of `doing`, naming the state the route passes through
+- **AND** `doing` is still offered on its own
 
 ### Requirement: Multi-hop is an operation the capability registry names
 
