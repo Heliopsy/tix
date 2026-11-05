@@ -16,7 +16,7 @@ other command does: `--server` and `--token`, `TIX_SERVER_URL` and `TIX_TOKEN`, 
 ([configuration.md](configuration.md)). Mint a token with only the scopes the agent needs:
 
 ```sh
-tix token create claude --scope task:read --scope task:write --scope task:claim --scope comment:write -o json
+tix token create mcp-agent --scope task:read --scope task:write --scope task:claim --scope comment:write -o json
 ```
 
 Every client registers it the same way: `tix` with the argument `mcp` as a stdio server, and the two variables
