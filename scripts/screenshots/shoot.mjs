@@ -291,11 +291,37 @@ function mark(what) {
   lastMark = now;
 }
 
+// A touch viewport is not captured with fullPage. Playwright draws a full-page
+// shot under a device metrics override of its own that drops touch emulation,
+// so while it captures, (hover: none) and (pointer: coarse) stops matching and
+// the shot shows what a phone hides. Growing the viewport itself to the page's
+// height keeps the context's touch and mobile emulation, and the shot is then
+// one plain viewport capture.
 async function shoot(page, file) {
   mkdirSync(dirname(file), { recursive: true });
   await page.evaluate(() => window.scrollTo(0, 0));
   mark(`before ${file.split("/").pop()}`);
-  await page.screenshot({ path: file, fullPage: true, animations: "disabled", caret: "hide" });
+  const opts = { path: file, animations: "disabled", caret: "hide" };
+  const touch = await page.evaluate(() => matchMedia("(hover: none) and (pointer: coarse)").matches);
+  if (!touch) {
+    await page.screenshot({ ...opts, fullPage: true });
+    mark("shot");
+    return;
+  }
+  const size = page.viewportSize();
+  try {
+    let height = size.height;
+    for (let i = 0; i < 4; i++) {
+      const want = Math.max(size.height, await page.evaluate(() => document.documentElement.scrollHeight));
+      if (want === height) break;
+      height = want;
+      await page.setViewportSize({ width: size.width, height });
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    }
+    await page.screenshot(opts);
+  } finally {
+    await page.setViewportSize(size);
+  }
   mark("shot");
 }
 
