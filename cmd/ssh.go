@@ -127,7 +127,7 @@ func newSSHCmd(g *globals) *cobra.Command {
 			"Revoking a key stops it authenticating at once. It does not cut sessions it " +
 			"already holds: those are bounded by --idle-timeout. Restart the listener for a " +
 			"hard cut.\n\n" +
-			"--demo serves a different thing entirely: any key is accepted and given a seeded " +
+			"--demo serves something else: any key is accepted and given a seeded " +
 			"ephemeral tenant of its own, reaped after --tenant-ttl without a visit. That " +
 			"listener faces strangers, so it takes its own database and refuses the " +
 			"zero-configuration store that holds somebody's real work.\n\n" +

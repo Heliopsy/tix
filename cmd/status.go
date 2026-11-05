@@ -21,11 +21,11 @@ func newStatusCmd(g *globals) *cobra.Command {
 		Long: "Report the installation, the servers registered against it and the work it holds.\n\n" +
 			"A server registers itself when it starts and refreshes that registration while it " +
 			"runs, so this answers how many servers are up rather than what one of them can see. " +
-			"A server that stopped answering is listed and marked, not hidden: a graceful " +
-			"shutdown removes its own row, so a row nobody is refreshing is a process that died.\n\n" +
-			"This is not `tix doctor`. Doctor asks whether the installation is sound and fails " +
-			"when a check does; this reports what exists, and a server on another machine being " +
-			"down does not make it fail.\n\n" +
+			"A server that stopped answering stays listed and is marked. A graceful shutdown " +
+			"removes its own row, so a row nobody is refreshing is a process that died.\n\n" +
+			"`tix doctor` asks whether the installation is sound and fails when a check does. " +
+			"This command reports what exists, and a server on another machine being down " +
+			"does not make it fail.\n\n" +
 			"Exit codes: 5 permission denied.",
 		Example: "  tix status\n  tix status -o json",
 		GroupID: "admin",

@@ -83,7 +83,7 @@ func tenantUseCmd(g *globals) *cobra.Command {
 			"--tenant still overrides it for one command.\n\n" +
 			"The key is checked by opening the target tenant and asking it who the actor is, because an actor " +
 			"is bound to one tenant and so cannot list another one to validate the key against. " +
-			"--force skips that check, which is what a tenant that does not exist yet needs.\n\n" +
+			"--force skips that check, for a tenant that does not exist yet.\n\n" +
 			"Exit codes: 2 unreadable configuration, 3 the tenant could not be reached, 5 permission denied.",
 		Example: "  tix tenant use acme\n  tix tenant use acme --dry-run\n  tix tenant use new-tenant --force",
 		Args:    exactArgs(1),

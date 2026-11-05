@@ -26,7 +26,7 @@ func newUpdateCmd(g *globals) *cobra.Command {
 			"The archive is checked against the checksum published with it, then written\n" +
 			"beside this binary and moved over it, so an interrupted update cannot leave a\n" +
 			"truncated file where tix was.\n\n" +
-			"What that checksum proves: the download is the file the release published.\n" +
+			"The checksum proves only that the download is the file the release published.\n" +
 			"It is not a supply-chain guarantee, because the archive and the checksum come\n" +
 			"from the same host; the trust anchor is TLS to that host. See docs/upgrading.md.\n\n" +
 			"A binary installed by the Go toolchain or owned by a package manager is not\n" +

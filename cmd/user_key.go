@@ -51,8 +51,8 @@ func userKeyAddCmd(g *globals) *cobra.Command {
 		Short: "Enrol an SSH public key",
 		Long: "Enrol a public key against an actor.\n\n" +
 			"Pass the public half, usually ~/.ssh/id_ed25519.pub, never the private key. " +
-			"Options carried on an authorized_keys line are refused rather than dropped, because a " +
-			"restriction that was silently discarded is worse than one that was rejected.\n\n" +
+			"Options carried on an authorized_keys line are refused. They are not dropped, because " +
+			"dropping one would discard a restriction without telling anyone.\n\n" +
 			"Exit codes: 2 invalid key, 3 unknown actor, 4 key already enrolled, 5 permission denied.",
 		Example: "  tix user key add --file ~/.ssh/id_ed25519.pub --label laptop\n" +
 			"  ssh-add -L | head -1 | tix user key add --file -",

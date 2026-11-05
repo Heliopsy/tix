@@ -44,7 +44,7 @@ func demoSeedCmd(g *globals) *cobra.Command {
 			"The history is replayed through the ordinary write path against a clock that is advanced, " +
 			"so it carries the audit trail the statistics are derived from.\n\n" +
 			"The seed leaves accounts that can sign in to the browser interface, and reports their " +
-			"credentials, so the demonstration it wrote can be opened rather than only queried.\n\n" +
+			"credentials, so the demonstration it wrote can be opened in a browser as well as queried.\n\n" +
 			fmt.Sprintf("Exit codes: %d invalid window, %d the database already holds data.",
 				core.KindInvalid.ExitCode(), core.KindConflict.ExitCode()),
 		Example: "  tix demo seed --db /tmp/demo.db\n  tix demo seed --db /tmp/demo.db --days 30 --reset",

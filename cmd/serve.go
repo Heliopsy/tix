@@ -64,8 +64,8 @@ func newServeCmd(g *globals) *cobra.Command {
 		Short: "Serve the tix HTTP API",
 		Long: "Serve the tix HTTP API, the browser interface and, with --ssh-listen, the " +
 			"terminal interface over SSH.\n\n" +
-			"One process, one database and one shutdown: the SSH listener runs beside the " +
-			"lease sweeper, webhook dispatcher and retention pruner, and a change made over " +
+			"The SSH listener shares the process, database and shutdown with the lease " +
+			"sweeper, webhook dispatcher and retention pruner, and a change made over " +
 			"either surface is immediately visible to the other.\n\n" +
 			"--ssh-listen is empty by default, and nothing else turns the listener on. It " +
 			"serves the keys enrolled with `tix user key add`; the sandbox mode `tix ssh " +
