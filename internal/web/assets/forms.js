@@ -25,6 +25,9 @@
 // row its data-quickadd-target names. Only the latest answer is drawn, so a
 // slow reply never overwrites a newer one.
 //
+// A housekeeping rule's number of days, label.hkdays, is shown only while its
+// select[data-hk-mode] says "days"; choosing that option moves focus into it.
+//
 // Everything here is decoration over an ordinary form post: with scripting
 // off every form still submits, and the keyboard line stays hidden because
 // nothing would honour it.
@@ -263,14 +266,28 @@
     }
   }
 
+  // onHousekeepingMode shows a rule's days beside "After a number of days"
+  // and hides them for any other choice.
+  function onHousekeepingMode(event) {
+    var select = event.target;
+    if (!select || !select.hasAttribute || !select.hasAttribute("data-hk-mode")) return;
+    var row = select.closest(".hkinputs");
+    var days = row ? row.querySelector(".hkdays") : null;
+    if (!days) return;
+    days.hidden = select.value !== "days";
+    var input = days.querySelector("input");
+    if (!days.hidden && input && typeof input.focus === "function") input.focus();
+  }
+
   window.tixForms = {
     suggestKey: suggestKey, onKeydown: onKeydown, onInput: onInput, reveal: reveal, shortLabels: shortLabels,
-    showDialog: showDialog, onDialogClick: onDialogClick, promote: promote,
+    showDialog: showDialog, onDialogClick: onDialogClick, promote: promote, onHousekeepingMode: onHousekeepingMode,
   };
 
   if (typeof document === "undefined" || !document.addEventListener) return;
   document.addEventListener("keydown", onKeydown);
   document.addEventListener("input", onInput);
+  document.addEventListener("change", onHousekeepingMode);
   document.addEventListener("click", onDialogClick, true);
   document.addEventListener("close", onDialogClose, true);
   reveal(document);

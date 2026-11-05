@@ -1129,6 +1129,9 @@ input[readonly] {
 :is(.setname-line, .field-label) > :not(.field-info) { display: inline-block; vertical-align: middle; }
 :is(.setname-line, .field-label) > .field-info { display: inline; position: static; }
 :is(.setname-line, .field-label) > .field-info > summary { vertical-align: middle; margin-inline-start: 6px; }
+/* A checkbox's label stays a centred flex row: as an inline block, the 44px
+   a phone gives it left the box and its word at the top and the (i) below. */
+:is(.setname-line, .field-label) > label:has(> input[type="checkbox"]) { display: inline-flex; }
 .headtip, .cfield-label { display: flex; flex-wrap: wrap; align-items: center; }
 /* Centred, the (i) sat on the middle of the heading's margin box, which an
    h1's bottom margin pulled below the middle of its text. On the baseline its
@@ -7101,7 +7104,13 @@ details.relentry > .relnotes { padding: 0 var(--space-4) var(--space-4); }
 .hkform .hkrule { margin-bottom: var(--space-3); }
 .hkinputs { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 .cform .hkinputs select { width: auto; min-width: 14rem; }
-.cform .hkinputs input.hkdays:not([type="checkbox"]) { width: 7rem; }
+/* The number of days is a field only "After a number of days" needs. The
+   server draws it hidden for the other choices; choosing that option shows it
+   with no script (overriding the global [hidden] rule, hence the
+   !important), and assets/forms.js keeps the attribute in step. */
+.hkinputs > .hkdays { display: inline-flex; align-items: center; gap: var(--space-2); margin: 0; font-weight: 400; color: var(--ink); }
+.hkinputs:has(> select option[value="days"]:checked) > .hkdays[hidden] { display: inline-flex !important; }
+.cform .hkinputs .hkdays input:not([type="checkbox"]) { width: 6rem; }
 
 /* ===== Action buttons and dialogs (actiondlg.go) =====================
  *

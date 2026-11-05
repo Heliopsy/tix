@@ -314,3 +314,29 @@ test("a dialog the server drew open in place becomes the modal one on load", () 
   assert.equal(drawn.has("is-inplace"), false);
   assert.equal(shut.modal, 0, "a closed dialog was opened");
 });
+
+test("a housekeeping rule's days show only beside After a number of days", () => {
+  const { forms } = load();
+  let focused = 0;
+  const input = { focus() { focused++; } };
+  const days = { hidden: true, querySelector: (sel) => (sel === "input" ? input : null) };
+  const row = { querySelector: (sel) => (sel === ".hkdays" ? days : null) };
+  const select = node({ "data-hk-mode": "" }, { ".hkinputs": row });
+
+  select.value = "days";
+  forms.onHousekeepingMode({ target: select });
+  assert.equal(days.hidden, false);
+  assert.equal(focused, 1);
+
+  for (const mode of ["off", "inherit"]) {
+    select.value = mode;
+    forms.onHousekeepingMode({ target: select });
+    assert.equal(days.hidden, true, mode);
+  }
+  assert.equal(focused, 1);
+
+  const other = node({}, { ".hkinputs": row });
+  other.value = "days";
+  forms.onHousekeepingMode({ target: other });
+  assert.equal(days.hidden, true, "a select that is not a rule's mode changed the days");
+});

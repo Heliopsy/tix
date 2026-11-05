@@ -231,8 +231,9 @@ key: a tenant admin sets it with `tix cleanup set`, the Housekeeping section of 
 | `cancelled` | a task finished in a terminal cancelled-category state goes to the trash |
 | `trash` | a task in the trash since longer ago is deleted for good, its trashed subtasks first |
 
-The tenant's rules are the default for every project. A project overrides any of them from its board's
-Housekeeping panel or `tix cleanup set --project KEY`, with `inherit`, `off` or a number of days:
+The tenant's rules are the default for every project. A project overrides any of them from the Housekeeping
+section of its settings screen or `tix cleanup set --project KEY`, with `inherit`, `off` or a number of days.
+On either screen the days field is drawn beside a rule only while it is set to After a number of days:
 
 ```sh
 tix cleanup set --done 30 --cancelled 7 --trash 90   # the tenant default
