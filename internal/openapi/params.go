@@ -10,7 +10,7 @@ import (
 // pathParamDocs describes each path parameter by name. A name that means
 // something else under one collection is keyed "collection/{name}" too, by
 // the path segment before it, and that entry wins.
-var pathParamDocs = map[string]string{
+var pathParamDocs = map[string]string{ // #nosec G101 -- parameter descriptions, not credentials
 	"{ref}":                   "Task reference: the project key and number, such as INFRA-42, with the key not case sensitive, or the task's ID.",
 	"projects/{ref}":          "Project key, such as infra, not case sensitive, or the project's ID.",
 	"templates/{ref}":         "Template name, not case sensitive, or the template's ID.",
