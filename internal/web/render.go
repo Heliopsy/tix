@@ -183,7 +183,10 @@ type view struct {
 	Columns     columnPrefs
 	ColumnPage  string
 	Here        string
-	Upgrade     upgrade
+	// Dialog is which of the screen's dialogs is drawn open, and what a
+	// refused submission from it was sent with. See actiondlg.go.
+	Dialog  dialogState
+	Upgrade upgrade
 	// Saved is the sidebar's list of the reader's saved filters.
 	Saved savedNav
 	// Inbox is the reader's unread count, which the sidebar's badge shows.
@@ -244,6 +247,8 @@ func parseTemplates(style output.TimeStyle, lang string) map[string]*template.Te
 func funcs(style output.TimeStyle) template.FuncMap {
 	return template.FuncMap{
 		"hasPrefix":       strings.HasPrefix,
+		"opener":          newOpener,
+		"shell":           newShell,
 		"monogram":        monogramOf,
 		"navGroup":        newNavGroup,
 		"compact":         style.Format,
@@ -423,6 +428,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Lang:            langOf(r),
 		JSText:          jsMessagesFor(langOf(r)),
 		Path:            r.URL.Path,
+		Dialog:          dialogOf(r),
 		InTrash:         inTrash(r),
 		TrashOff:        h.trashOff(r),
 		Here:            here(r),
@@ -553,6 +559,7 @@ func here(r *http.Request) string {
 	query.Del("flash")
 	query.Del("flashref")
 	query.Del(FlashUndoParam)
+	query.Del(DialogParam)
 	if len(query) == 0 {
 		return r.URL.Path
 	}
@@ -973,6 +980,7 @@ func (h *handler) renderStatus(w http.ResponseWriter, r *http.Request, status in
 		return core.Internal("no template named %q", name)
 	}
 	v := h.newView(r, name, title, data)
+	status = refusedStatus(r, status)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", screenCacheControl)

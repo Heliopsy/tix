@@ -81,7 +81,7 @@ func TestProjectFormsOfferTheIconPicker(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	b := f.as("alice")
-	for path, action := range map[string]string{"/projects": "/projects", "/projects/infra": "/projects/infra/update"} {
+	for path, action := range map[string]string{"/projects": "/projects", "/projects/infra/settings": "/projects/infra/update"} {
 		picker := iconPicker(t, b.page(path), action)
 		for _, kind := range []string{"text", "builtin", "image", "none"} {
 			if !strings.Contains(picker, `name="icon_kind" value="`+kind+`"`) {
@@ -152,7 +152,7 @@ func TestChoosingIconKindsFromTheSettingsForm(t *testing.T) {
 	if ref := projectRef(t, b.page("/tasks")); !strings.Contains(ref, img) {
 		t.Fatalf("the task row's project reference does not draw the uploaded image: %s", ref)
 	}
-	if picker := iconPicker(t, b.page("/projects/infra"), "/projects/infra/update"); !strings.Contains(picker, `value="image" checked`) ||
+	if picker := iconPicker(t, b.page("/projects/infra/settings"), "/projects/infra/update"); !strings.Contains(picker, `value="image" checked`) ||
 		!strings.Contains(between(t, picker, "data-iconpick-preview", "</span>"), img) {
 		t.Fatal("the settings form does not open on the image it previews")
 	}

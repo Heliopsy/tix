@@ -74,8 +74,11 @@ func sent(r *http.Request, name string) (string, bool) {
 }
 
 // checked reports whether a checkbox was ticked.
-func checked(r *http.Request, name string) bool {
-	switch strings.ToLower(field(r, name)) {
+func checked(r *http.Request, name string) bool { return checkedValue(field(r, name)) }
+
+// checkedValue reports whether a submitted checkbox value means ticked.
+func checkedValue(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
 	case "1", "true", "on", "yes":
 		return true
 	default:

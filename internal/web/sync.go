@@ -193,7 +193,7 @@ func (h *handler) putSyncSource(w http.ResponseWriter, r *http.Request) error {
 		Name:   field(r, "name"),
 	}
 	if _, err := h.svc.PutSyncSource(r.Context(), in); err != nil {
-		return err
+		return h.refuseIn(w, r, "source-new", RouteSync, err, h.showSync)
 	}
 	redirect(w, r, RouteSync, "source saved, now set "+extsync.EnvName(in.Name, "")+"* in the server's environment")
 	return nil

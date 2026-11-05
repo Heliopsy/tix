@@ -35,9 +35,9 @@ func TestTheDeleteButtonOpensAConfirmationRatherThanDeleting(t *testing.T) {
 	f := newFixture(t)
 	b := f.as("alice")
 
-	board := b.page("/projects/infra")
-	danger := between(t, board, `<details class="panel danger">`, "</details>")
-	if !strings.Contains(danger, `<form method="get" hx-boost="false" action="/projects/infra/delete">`) {
+	settings := b.page("/projects/infra/settings")
+	danger := between(t, settings, `<section class="projset danger"`, "</section>")
+	if !strings.Contains(danger, `<a class="btn danger" href="/projects/infra/delete" hx-boost="false">`) {
 		t.Fatalf("the danger zone's delete does not open the confirmation:\n%s", danger)
 	}
 	if strings.Contains(danger, `method="post" action="/projects/infra/delete"`) {

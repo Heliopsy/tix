@@ -249,7 +249,7 @@ It is one selection drawn two ways. The filter, the deadline window, the sort, t
 page position and the project visibility choice are resolved once and apply to both, so switching
 changes the drawing and never which tasks are on screen, and one pager walks both. That is why the
 board is on this screen. The project board at `/projects/{key}` answers a different question (one
-project, no filter), and it stays as it is, with the project's settings and danger zone on it.
+project, no filter), and its header's **Settings** button opens the project's settings screen.
 
 **Columns come from a workflow, and the list mixes projects.** So a board over several projects is
 only drawable when those projects agree about their states, and agreement is decided structurally,
@@ -414,16 +414,16 @@ headings carry the same three dots as any list group and are kept per reader as 
 there are more, linking the full listing. The filter box reads `assignee:me`, so Apply takes you to
 the task list on the same question and Save keeps it.
 
-**Saved filters.** With an expression or a deadline window in the filter bar, **Save this filter**
-asks for a name and whether to share it with everyone in the tenant, and keeps the expression, the
-deadline window, the sort and the view the screen is drawn in. The filter is listed in the sidebar,
-your own in your order and then the ones others shared; opening it sets the view switch to its view
-and lands on the task screen filtered and sorted the same way, marked current there. The three dots
-beside a filter you may change rename it, share it or stop sharing it, move it up or down among your
-own, and delete it. A shared filter is changed only by its owner or an administrator. The forms work
-without scripting; with it the sidebar is redrawn in place, focus goes back to the same filter's
-dots, and a refusal (a name you already use) is said inside the menu. `tix filter` keeps the same
-filters from the command line.
+**Saved filters.** With an expression or a deadline window in the filter bar, **Save this filter** in the
+filter menu opens a dialog that asks for a name and whether to share it with everyone in the tenant, and
+keeps the expression, the deadline window, the sort and the view the screen is drawn in. The filter is
+listed in the sidebar, your own in your order and then the ones others shared; opening it sets the view
+switch to its view and lands on the task screen filtered and sorted the same way, marked current there.
+The three dots beside a filter you may change rename it, share it or stop sharing it, move it up or down
+among your own, and delete it. A shared filter is changed only by its owner or an administrator. The
+forms work without scripting; with it the sidebar is redrawn in place, focus goes back to the same
+filter's dots, and a refusal (a name you already use) is said inside the menu. `tix filter` keeps the
+same filters from the command line.
 
 **Recently viewed** lists the last ten tasks this browser opened, as a page or in the dialog, newest
 first, in a group that folds like the others (see The sidebar). It is kept in `localStorage`
@@ -795,8 +795,8 @@ When tasks open in a dialog the form opens in the same dialog; saving returns to
 Each row links to **Use** and **Edit**. The edit screen renames the template, moves it to a project or to
 all projects, and changes the title, description, priority, due offset, tags, repeat rule and custom fields
 (one `key=value` per line; a line removed removes the field). Its subtasks are listed for reading; save a
-task as a template again to change them. **Delete template** sits under Danger zone; tasks already made
-from it stay as they are.
+task as a template again to change them. **Delete template** is the red button beside the title, and
+it asks in a dialog first; tasks already made from it stay as they are.
 
 **New from template** creates a task, and a subtask for each one the template holds. It is offered by the
 **From template** button at the end of the add box, a menu listing the templates with All templates… at
@@ -945,16 +945,17 @@ filter rather than widening back out. On the command line the same narrowing is
 ## Housekeeping
 
 The Tenant screen has a Housekeeping section: how many days a done task, a cancelled task and a task in the
-trash wait before cleanup acts, each Off or After a number of days. Each project's board has a Housekeeping
-panel under its settings that overrides any of them, with an Inherit choice naming what the tenant has set.
+trash wait before cleanup acts, each Off or After a number of days. Each project's settings screen has a
+Housekeeping section that overrides any of them, with an Inherit choice naming what the tenant has set.
 Under every rule that is on, both say how many tasks it would act on now, and both say cleanup is paused while
 the trash is off. Clean up now on the Tenant screen runs one pass; otherwise `tix serve` runs it hourly. See
 [configuration.md](configuration.md#housekeeping).
 
-The board's panel has its own Clean up now, which runs one pass on that project alone, the way
-`tix cleanup run --project KEY` does. It opens a confirmation first that says how many of the project's tasks go
-to the trash and how many are deleted for good, and the toast after it says how many were. It is greyed out
-while nothing is due or the trash is off. Like the rest of the panel it is shown to tenant admins only.
+The project's Housekeeping section has its own Clean up now, a red button that runs one pass on that
+project alone, the way `tix cleanup run --project KEY` does. It opens a confirmation dialog first that
+says how many of the project's tasks go to the trash and how many are deleted for good, and the toast
+after it says how many were. It is greyed out while nothing is due or the trash is off. Like the rest of
+the section it is shown to tenant admins only.
 
 ## Claim length
 
@@ -1018,9 +1019,29 @@ palette name is, and is drawn wherever a palette colour is, in a shade per colou
 on that scheme's page and surface, the same floor the palette is tuned to. A colour that already clears it
 is drawn exactly as chosen.
 
+## Actions and dialogs
+
+What a screen offers to do is a button, never a fold at the foot of the page:
+
+- **Making a record** (Issue a token, Create a user, Map a hostname, Enrol a key, Register an endpoint, Add a
+  member, Add a channel, Define a field, Configure a source, Save this filter) is a primary button with a plus
+  in the page header, or beside the heading of the section it adds to, and an empty list carries the same
+  button. It opens the form in a dialog: focus stays inside it, Escape or Cancel closes it, and a refused
+  submission comes back with the dialog open, the message under the field and what was typed kept.
+- **A step that cannot be undone** (Revoke a token, Delete a user, Delete template, Remove channel, Clean up
+  now) is a red button that opens a dialog saying what happens, whose own red button takes the step.
+- **A project's settings** are their own screen at `/projects/{key}/settings`, reached from **Settings** in
+  the board's header: Project (name, key, workflow, description, colour and icon), Claims, Housekeeping and,
+  last, the Danger zone with Archive project and Delete project. Every section is always drawn.
+- **Reference text** (what a snapshot or a bundle carries, what the sync run list leaves out) is drawn as
+  text, and the sign-in help and the key scheme comparison open in a dialog from a button.
+
+Without scripting each button is a link to the same screen with `?dialog=ID`, which draws the dialog in
+place at the top of the screen.
+
 ## Deleting a project
 
-Delete project in a board's danger zone opens a confirmation screen at `/projects/{key}/delete`; nothing
+Delete project in the danger zone of a project's settings opens a confirmation screen at `/projects/{key}/delete`; nothing
 is deleted by the button itself. A project with no tasks gets one button. A project with tasks, soft
 deleted ones counted, offers two choices:
 
@@ -1161,9 +1182,9 @@ List groups name theirs. Each segment is a submit button posting its own positio
 
 Every section is a heading and then its card. A section with a description (Inbox, Notifications,
 Calendar feed) draws it as the card's first row, and every row carries its own (i); no heading does.
-Notification channels are rows of the Notifications card, and Add a channel is folded behind the same
-Add disclosure as Create a user, Issue a token, Enrol a key, Map a hostname and Add a member, open by
-itself while there is no channel and when a refused form comes back to it.
+Notification channels are rows of the Notifications card, and **Add a channel** beside the section's
+heading opens the form in a dialog, as Create a user, Issue a token, Enrol a key, Map a hostname and Add a
+member do on their screens. A refused form comes back with the dialog open.
 
 On a phone or tablet, where the main input is a finger (`(hover: none) and (pointer: coarse)`), the
 Hover effects row, the Drag to move row and the Keyboard section are not drawn, nor are the account

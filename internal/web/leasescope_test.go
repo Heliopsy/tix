@@ -35,11 +35,11 @@ func TestTheBoardAndTheTaskScreenSetLeaseLength(t *testing.T) {
 		t.Fatalf("a fresh task's lease row does not name the fixture workflow's 30m:\n%s", row)
 	}
 
-	formAt(t, b.page("/projects/infra"), "/projects/infra/lease")
+	formAt(t, b.page("/projects/infra/settings"), "/projects/infra/lease")
 	saved := b.post("/projects/infra/lease", url.Values{"lease_default": {"2h"}, "lease_max": {""}})
 	_ = saved.Body.Close()
 	wantStatus(t, saved, http.StatusSeeOther)
-	if got := inputValue(t, b.page("/projects/infra"), "lease-default"); got != "2h" {
+	if got := inputValue(t, b.page("/projects/infra/settings"), "lease-default"); got != "2h" {
 		t.Fatalf("the Claims panel holds %q, want 2h", got)
 	}
 	page := b.page("/tasks/" + ref)

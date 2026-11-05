@@ -78,7 +78,7 @@ func TestProjectScreenSetsAndClearsTheAppearance(t *testing.T) {
 		t.Errorf("the project list does not carry the saved colour:\n%s", list)
 	}
 
-	board := b.page("/projects/ops")
+	board := b.page("/projects/ops/settings")
 	if !strings.Contains(board, `value="teal" checked`) {
 		t.Errorf("the project form does not preselect the saved colour:\n%s", board)
 	}
@@ -148,7 +148,7 @@ func colourFieldOf(t *testing.T, page, name string) string {
 func TestProjectFormsOfferThePaletteAndACustomColour(t *testing.T) {
 	t.Parallel()
 	b := newFixture(t).as("alice")
-	for _, path := range []string{"/projects", "/projects/infra"} {
+	for _, path := range []string{"/projects", "/projects/infra/settings"} {
 		field := colourFieldOf(t, b.page(path), "color")
 		for _, c := range core.ProjectColors() {
 			if !strings.Contains(field, `value="`+string(c)+`"`) {
@@ -177,7 +177,7 @@ func TestACustomColourIsSavedFromTheBrowserAndDrawn(t *testing.T) {
 	wantStatus(t, resp, http.StatusSeeOther)
 	wantStatus(t, b.post("/tasks", url.Values{"title": {"tinted"}, "project_ref": {"infra"}}), http.StatusSeeOther)
 
-	field := colourFieldOf(t, b.page("/projects/infra"), "color")
+	field := colourFieldOf(t, b.page("/projects/infra/settings"), "color")
 	for _, want := range []string{`value="#custom" checked`, `value="#1a7f5a" placeholder`, `type="color" value="#1a7f5a"`} {
 		if !strings.Contains(field, want) {
 			t.Errorf("the settings form does not show the saved custom colour as %s:\n%s", want, field)

@@ -5,10 +5,9 @@
 <p>{{th "A snapshot carries this tenant's <strong>work</strong>: its projects, tasks and their history. Configuration travels separately, under Components."}}</p>
 
 <h2>{{t "Export a snapshot"}}</h2>
-<details class="note">
-  <summary>{{t "What goes into the file"}}</summary>
+<div class="helptext">
   <p>{{t "Every task in the projects you name, with its status, priority, tags, dependencies and custom field values. Comments and artifacts are included only if you tick them. People, tokens, SSH keys and webhook secrets are never exported: a snapshot is safe to hand to another install without handing over credentials with it."}}</p>
-</details>
+</div>
 <form method="post" action="/transfer/export">
   {{template "csrf" .CSRF}}
   <label for="projects">{{t "Projects, comma separated, blank for every project"}}</label>
@@ -19,12 +18,11 @@
 </form>
 
 <h2>{{t "Import a snapshot"}}</h2>
-<details class="note">
-  <summary>{{t "What an import changes"}}</summary>
+<div class="helptext">
   <p>{{th "<strong>Merge</strong> adds what is new and updates what the snapshot carries. Anything already here that the snapshot does not mention is left alone."}}</p>
   <p>{{th "<strong>Replace</strong> does that and then <strong>deletes</strong>, from the projects the snapshot covers, the tasks and field definitions it does not carry. It is how you make this tenant match the file exactly. Projects outside the snapshot are untouched either way."}}</p>
   <p>{{th "Leave <strong>dry run</strong> ticked to see the counts first. Nothing is written until you untick it."}}</p>
-</details>
+</div>
 <form method="post" action="/transfer/import" enctype="multipart/form-data">
   {{template "csrf" .CSRF}}
   <label class="file-field">

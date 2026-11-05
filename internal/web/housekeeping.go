@@ -135,7 +135,7 @@ func (h *handler) putProjectHousekeeping(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return err
 	}
-	redirect(w, r, RouteProjects+"/"+view.Project, "cleanup saved")
+	redirect(w, r, settingsPath(view.Project)+"#housekeeping", "cleanup saved")
 	return nil
 }
 
@@ -154,7 +154,7 @@ func (h *handler) runHousekeeping(w http.ResponseWriter, r *http.Request) error 
 }
 
 // runProjectHousekeeping applies the cleanup rules to one project once, now,
-// after the reader confirmed it on the board.
+// after the reader confirmed it on the project's settings screen.
 func (h *handler) runProjectHousekeeping(w http.ResponseWriter, r *http.Request) error {
 	key := r.PathValue("key")
 	if field(r, "confirm") != "1" {
@@ -164,7 +164,7 @@ func (h *handler) runProjectHousekeeping(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return err
 	}
-	back := RouteProjects + "/" + key + "#housekeeping"
+	back := settingsPath(key) + "#housekeeping"
 	if res.Paused {
 		redirect(w, r, back, "cleanup is paused while the trash is off")
 		return nil

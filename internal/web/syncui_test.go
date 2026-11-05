@@ -190,6 +190,7 @@ func TestSyncRunsShowsNoRowForADryRun(t *testing.T) {
 func TestSyncRunsSaysWhatItCannotShow(t *testing.T) {
 	t.Parallel()
 	page := newFixture(t).as("alice").page("/sync/runs")
+	help := between(t, page, `<div class="helptext">`, "</div>")
 
 	// The two gaps are real and neither is visible from the table: a failed
 	// run writes no completion entry, and a completed one carries no cursor.
@@ -199,11 +200,13 @@ func TestSyncRunsSaysWhatItCannotShow(t *testing.T) {
 		"writes nothing, so it",
 		"stops without",
 		"cannot show where the cursor stood",
-		"Where each source stands",
 	} {
-		if !strings.Contains(page, want) {
-			t.Errorf("the run history does not admit %q", want)
+		if !strings.Contains(help, want) {
+			t.Errorf("the run history does not admit %q where it is read without opening anything", want)
 		}
+	}
+	if !strings.Contains(page, "Where each source stands") {
+		t.Error("the run history does not show where each source stands")
 	}
 }
 

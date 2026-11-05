@@ -69,14 +69,14 @@ func TestTheTenantScreenSetsHousekeepingAndCountsWhatIsDue(t *testing.T) {
 	}
 }
 
-func TestTheBoardOverridesHousekeepingForItsProject(t *testing.T) {
+func TestAProjectsSettingsOverrideHousekeeping(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	b := f.as("alice")
 	saved := b.post("/admin/tenant/housekeeping", url.Values{"done_mode": {"days"}, "done_days": {"30"}})
 	_ = saved.Body.Close()
 
-	form := formAt(t, b.page("/projects/infra"), "/projects/infra/housekeeping")
+	form := formAt(t, b.page("/projects/infra/settings"), "/projects/infra/housekeeping")
 	if done := hkRule(t, form, "done"); !strings.Contains(done, `<option value="inherit" selected>Inherit: 30 days</option>`) {
 		t.Fatalf("the project does not inherit the tenant's 30 days:\n%s", done)
 	}
@@ -84,12 +84,12 @@ func TestTheBoardOverridesHousekeepingForItsProject(t *testing.T) {
 		"done_mode": {"off"}, "cancelled_mode": {"inherit"}, "trash_mode": {"inherit"}})
 	_ = override.Body.Close()
 	wantStatus(t, override, http.StatusSeeOther)
-	form = formAt(t, b.page("/projects/infra"), "/projects/infra/housekeeping")
+	form = formAt(t, b.page("/projects/infra/settings"), "/projects/infra/housekeeping")
 	if done := hkRule(t, form, "done"); !strings.Contains(done, `<option value="off" selected>`) {
 		t.Errorf("the override is not shown off:\n%s", done)
 	}
 
-	if page := f.as("viewer").page("/projects/infra"); strings.Contains(page, "/housekeeping") {
+	if page := f.as("viewer").page("/projects/infra/settings"); strings.Contains(page, "/housekeeping") {
 		t.Error("a viewer's board carries the housekeeping form")
 	}
 }
@@ -114,9 +114,9 @@ func TestWithTheTrashOffHousekeepingSaysItIsPaused(t *testing.T) {
 // hkPanel is the board's Housekeeping panel, cut before the panel after it.
 func hkPanel(t *testing.T, page string) string {
 	t.Helper()
-	panel := between(t, page, `<details class="panel hkpanel">`, `<details class="panel danger">`)
+	panel := between(t, page, `<section class="projset" id="housekeeping"`, `</section>`)
 	if panel == "" {
-		t.Fatal("the board has no Housekeeping panel")
+		t.Fatal("the project's settings have no Housekeeping section")
 	}
 	return panel
 }
@@ -157,22 +157,24 @@ func finishedIn(t *testing.T, f *fixture, b *browser, projects ...string) []stri
 	return refs
 }
 
-func TestTheBoardCleansUpItsOwnProjectNow(t *testing.T) {
+func TestAProjectCleansUpItselfNowFromItsSettings(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	seedProject(t, f.store, f.tenantA.ID, "ops")
 	b := f.as("alice")
 	refs := finishedIn(t, f, b, "infra", "ops")
 
-	panel := hkPanel(t, b.page("/projects/infra"))
-	form := formAt(t, panel, "/projects/infra/housekeeping/run")
+	page := b.page("/projects/infra/settings")
+	panel := hkPanel(t, page)
+	if strings.Contains(panel, "/projects/infra/housekeeping/run") ||
+		!strings.Contains(panel, `class="btn danger" href="/projects/infra/settings?dialog=cleanup#cleanup" data-dlg-open="cleanup"`) {
+		t.Errorf("Clean up now does not open a confirmation first:\n%s", panel)
+	}
+	form := formAt(t, dialogBlock(page, "cleanup"), "/projects/infra/housekeeping/run")
 	for _, want := range []string{`name="confirm" value="1"`, "Cleanup acts on this project only: 1 to the trash, 0 deleted for good."} {
 		if !strings.Contains(form, want) {
 			t.Errorf("the run form lacks %q:\n%s", want, form)
 		}
-	}
-	if !strings.Contains(between(t, panel, `<details class="hkrun">`, "</details>"), "<summary>Clean up now</summary>") {
-		t.Errorf("Clean up now does not open a confirmation first:\n%s", panel)
 	}
 	if strings.Contains(b.page("/admin/tenant"), "/projects/infra/housekeeping/run") {
 		t.Error("the Tenant screen carries the project's run form")
@@ -187,7 +189,7 @@ func TestTheBoardCleansUpItsOwnProjectNow(t *testing.T) {
 	ran := b.post("/projects/infra/housekeeping/run", url.Values{"confirm": {"1"}})
 	_ = ran.Body.Close()
 	wantStatus(t, ran, http.StatusSeeOther)
-	const want = "/projects/infra?flash=cleanup+ran%3A+1+moved+to+the+trash%2C+0+deleted+for+good#housekeeping"
+	const want = "/projects/infra/settings?flash=cleanup+ran%3A+1+moved+to+the+trash%2C+0+deleted+for+good#housekeeping"
 	if got := ran.Header.Get("Location"); got != want {
 		t.Errorf("the run went to %q, want %q", got, want)
 	}
@@ -216,8 +218,9 @@ func TestCleanUpNowIsOffWhenNothingIsDueOrTheTrashIsOff(t *testing.T) {
 			f := newFixture(t)
 			b := f.as("alice")
 			tc.setup(t, f, b)
-			panel := hkPanel(t, b.page("/projects/infra"))
-			if strings.Contains(panel, "/housekeeping/run") {
+			page := b.page("/projects/infra/settings")
+			panel := hkPanel(t, page)
+			if strings.Contains(page, "/housekeeping/run") || strings.Contains(panel, `data-dlg-open="cleanup"`) {
 				t.Errorf("the panel offers a run:\n%s", panel)
 			}
 			if !strings.Contains(panel, `<button class="secondary" type="button" disabled>Clean up now</button>`) ||
@@ -233,7 +236,7 @@ func TestOnlyAnAdminCleansUpAProject(t *testing.T) {
 	f := newFixture(t)
 	refs := finishedIn(t, f, f.as("alice"), "infra")
 	member := f.as("member:m1")
-	if page := member.page("/projects/infra"); strings.Contains(page, "/housekeeping/run") {
+	if page := member.page("/projects/infra/settings"); strings.Contains(page, "/housekeeping/run") {
 		t.Error("a member's board carries the run form")
 	}
 	refused := member.post("/projects/infra/housekeeping/run", url.Values{"confirm": {"1"}})

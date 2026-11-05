@@ -3,9 +3,14 @@
      deliveries with Redeliver. Every control is a plain post. */}}
 {{define "content"}}
 {{$v := .Data}}{{$c := $v.Channel}}
-<p class="backlink"><a href="/settings#notifications">{{template "icon" "arrow-left"}}<span>{{t "Notifications"}}</span></a></p>
-<div class="headtip"><h1>{{$c.Name}}</h1>{{template "tip" (tip "Notification channels" "A channel of your own: tix posts your inbox items of the kinds you ticked to its URL, shaped for the service behind it, and retries a refused delivery on the same schedule as a tenant webhook. Nobody else's items reach it." "docs/web-ui.md")}}</div>
-<p class="lede">{{t $v.Format}} &middot; {{if $c.Active}}{{t "on"}}{{else}}{{t "off"}}{{end}}</p>
+<p class="backlink"><a href="/settings#notifications">&larr; {{t "Notifications"}}</a></p>
+<div class="pagehead">
+  <div class="pagehead-title">
+    <div class="headtip"><h1>{{$c.Name}}</h1>{{template "tip" (tip "Notification channels" "A channel of your own: tix posts your inbox items of the kinds you ticked to its URL, shaped for the service behind it, and retries a refused delivery on the same schedule as a tenant webhook. Nobody else's items reach it." "docs/web-ui.md")}}</div>
+    <p class="lede">{{t $v.Format}} &middot; {{if $c.Active}}{{t "on"}}{{else}}{{t "off"}}{{end}}</p>
+  </div>
+  <div class="pagehead-tools">{{template "dlg-open" (opener "channel-remove" (t "Remove channel") "trash" "danger" .Here)}}</div>
+</div>
 
 {{with $v.Secret}}{{template "secret" .}}{{end}}
 
@@ -44,14 +49,13 @@
   {{template "pager" $v.Pager}}
 </section>
 
-<details class="panel danger">
-  <summary>{{t "Remove this channel"}}</summary>
-  <div class="body">
-    <form method="post" action="/settings/notifications/{{$c.ID}}/delete">
-      {{template "csrf" .CSRF}}
-      <p class="muted">{{t "Nothing more is sent to it, and its delivery history goes with it."}}</p>
-      <div class="actions"><button class="danger" type="submit">{{t "Remove channel"}}</button></div>
-    </form>
-  </div>
-</details>
+{{/* Removing is the red button in the header, and it asks first. */}}
+{{$sh := shell "channel-remove" (t "Remove %s?" $c.Name) "confirm" .Dialog .Here}}
+{{template "dlg-start" $sh}}
+<form method="post" action="/settings/notifications/{{$c.ID}}/delete">
+  {{template "csrf" .CSRF}}
+  <p>{{t "Nothing more is sent to it, and its delivery history goes with it."}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button class="danger" type="submit">{{t "Remove channel"}}</button></div>
+</form>
+{{template "dlg-end"}}
 {{end}}

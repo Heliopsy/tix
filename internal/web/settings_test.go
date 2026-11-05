@@ -537,7 +537,7 @@ func TestSettingsSectionsShareOneShape(t *testing.T) {
 	for _, id := range []string{"appearance", "listings", "dates", "inbox", "notifications", "second-factor", "calendar", "database"} {
 		section := between(t, page, `id="`+id+`">`, "</section>")
 		head, after, found := strings.Cut(section, "</h2>")
-		head = strings.TrimSpace(head)
+		head = strings.TrimPrefix(strings.TrimSpace(head), `<div class="sechead">`)
 		if !found || !strings.HasPrefix(head, "<h2>") || strings.Contains(head, "field-info") || strings.Contains(head, "headtip") {
 			t.Errorf("%s's heading is not a plain heading: %s", id, head)
 		}

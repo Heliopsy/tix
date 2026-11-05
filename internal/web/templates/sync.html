@@ -4,7 +4,7 @@
 
 <p class="lede">{{t "Pull work that already lives in another tracker into tix. Imports run one way: tix reads from the source and never writes anything back to it."}}</p>
 
-<h2>{{t "Sources"}}</h2>
+<div class="sechead"><h2>{{t "Sources"}}</h2>{{template "dlg-open" (opener "source-new" (t "Configure a source") "plus" "" .Here)}}</div>
 <table>
   <thead><tr><th>{{t "Name"}}</th><th>{{t "System"}}</th><th>{{t "Configured through"}}</th><th>{{t "Last run"}}</th><th>{{t "Status"}}</th><th></th></tr></thead>
   <tbody>
@@ -51,42 +51,46 @@
       </td>
     </tr>
   {{else}}
-    <tr><td colspan="6">{{t "No sources configured."}}</td></tr>
+    <tr><td colspan="6"><div class="empty-action"><span>{{t "No sources configured."}}</span>{{template "dlg-open" (opener "source-new" (t "Configure a source") "plus" "" $.Here)}}</div></td></tr>
   {{end}}
   </tbody>
 </table>
 
-<h2>{{t "Configure a source"}}</h2>
-<p>{{t "A source is just a name and a system. Save it here, then set its environment variables on the server: the row above will tell you which ones."}}</p>
+{{/* Adding a source opens over the screen from the button beside the
+     Sources heading, instead of a form at the foot of the list. */}}
+{{$d := .Dialog.For "source-new"}}
+{{$sh := shell "source-new" (t "Configure a source") "" .Dialog .Here}}
+{{template "dlg-start" $sh}}
+<p class="meta">{{t "A source is just a name and a system. Save it here, then set its environment variables on the server: the row above will tell you which ones."}}</p>
 <form method="post" action="/sync/sources">
   {{template "csrf" .CSRF}}
+  {{with $d.Errors.On ""}}{{template "field-error" .}}{{end}}
   <div class="row">
     <div>
       <div class="field-label">
         <label for="name">{{t "Name"}}</label>
         {{template "field-info" "Your own label for this source, and also what its environment variables are named after. Something short and stable is easiest to live with, because renaming a source renames every variable that configures it."}}
       </div>
-      <input id="name" name="name" required>
+      <input id="name" name="name" value="{{$d.Value "name"}}" required{{$d.Errors.Attrs "name"}}>
+      {{with $d.Errors.On "name"}}{{template "field-error" .}}{{end}}
     </div>
     <div>
       <label for="system">{{t "System"}}</label>
-      <select id="system" name="system">
-        {{range .Data.Systems}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
+      <select id="system" name="system"{{$d.Errors.Attrs "system"}}>
+        {{range .Data.Systems}}<option value="{{.Value}}"{{if $d.Chose "system" .Value}} selected{{end}}>{{.Label}}</option>{{end}}
       </select>
+      {{with $d.Errors.On "system"}}{{template "field-error" .}}{{end}}
     </div>
   </div>
-  {{/* What each option means, under the row rather than inside the cell that
-       holds the picker. A glossary three entries long made that cell four
-       times the height of the one beside it, and because a row of fields
-       aligns on its controls, the name box was pushed a quarter of a screen
-       down the page to sit level with the bottom of the glossary. It belongs
-       to the whole choice, not to one cell of the row. */}}
+  {{/* What each option means, under the row rather than inside the cell
+       that holds the picker, so the row's controls stay level. */}}
   <dl class="fields choosehelp">
     {{range .Data.Systems}}<dt>{{.Label}}</dt><dd>{{t .Note}}</dd>{{end}}
   </dl>
   <p class="meta choosemeta">{{t "These three are what this build carries. Naming anything else is refused when you save."}}</p>
-  <p><button type="submit">{{t "Save source"}}</button></p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Save source"}}</button></div>
 </form>
+{{template "dlg-end"}}
 
 {{/* Five disclosures used to sit here, each holding several paragraphs of
      manual, and together they pushed the Sources table below the fold on a

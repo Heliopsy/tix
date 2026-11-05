@@ -377,14 +377,15 @@ func TestRevokedTokenSaysSoAndOffersNoRevocation(t *testing.T) {
 	if !strings.Contains(rows, "tok-revoked") {
 		t.Errorf("the revoked token is not marked revoked:\n%s", rows)
 	}
-	if strings.Contains(rows, "/admin/tokens/revoke") {
+	if strings.Contains(rows, `data-dlg-open="token-revoke-`) {
 		t.Errorf("a revoked token still offers a revoke control:\n%s", rows)
 	}
 }
 
 // TestRevocationIsBehindAConfirmation covers the destructive control itself:
 // ending a credential should not be one stray click away, and the words
-// saying what it ends have to be somewhere.
+// saying what it ends have to be somewhere. The row's red Revoke button opens
+// a dialog, and only the dialog's button revokes.
 func TestRevocationIsBehindAConfirmation(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
@@ -394,11 +395,16 @@ func TestRevocationIsBehindAConfirmation(t *testing.T) {
 	_ = resp.Body.Close()
 	wantStatus(t, resp, http.StatusSeeOther)
 
-	rows := tokenRows(t, b.page("/admin/tokens"))
-	if !strings.Contains(rows, `<details class="panel danger">`) {
-		t.Errorf("revocation is not behind a disclosure:\n%s", rows)
+	page := b.page("/admin/tokens")
+	rows := tokenRows(t, page)
+	if strings.Contains(rows, "/admin/tokens/revoke") {
+		t.Errorf("a row revokes on one click:\n%s", rows)
 	}
-	confirm := formAt(t, rows, "/admin/tokens/revoke")
+	id := between(t, rows, `data-dlg-open="token-revoke-`, `"`)
+	if !strings.Contains(rows, `class="btn danger small" href="/admin/tokens?dialog=token-revoke-`+id+`#token-revoke-`+id+`"`) {
+		t.Errorf("the row's Revoke is not a red button reaching the confirmation:\n%s", rows)
+	}
+	confirm := revokeControlFor(page, id)
 	if !strings.Contains(confirm, "stops authenticating") {
 		t.Errorf("the revoke control does not say what it does:\n%s", confirm)
 	}

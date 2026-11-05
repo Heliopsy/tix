@@ -143,7 +143,7 @@ func TestUpdatingAnAccountWithoutTheNameInputLeavesTheNameAlone(t *testing.T) {
 	wantStatus(t, saved, http.StatusSeeOther)
 
 	after := b.page("/admin/users")
-	if got := inputValue(t, personRow(t, after, id), "name-"+id); got != "Kept Name" {
+	if got := inputValue(t, manageDialog(t, after, id), "name-"+id); got != "Kept Name" {
 		t.Errorf("a save that named no display name left %q, want \"Kept Name\"", got)
 	}
 }

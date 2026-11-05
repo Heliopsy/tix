@@ -272,7 +272,7 @@ func (h *handler) updateTenant(w http.ResponseWriter, r *http.Request) error {
 // addMember grants an actor a role in this tenant.
 func (h *handler) addMember(w http.ResponseWriter, r *http.Request) error {
 	if _, err := h.svc.AddMember(r.Context(), field(r, "actor_id"), core.Role(field(r, "role"))); err != nil {
-		return err
+		return h.refuseIn(w, r, "member-new", RouteTenant, err, h.showTenant)
 	}
 	redirect(w, r, RouteTenant, "member added")
 	return nil
@@ -362,7 +362,7 @@ func (h *handler) addDomain(w http.ResponseWriter, r *http.Request) error {
 		KeyPath:  field(r, "key_path"),
 	}
 	if _, err := h.svc.AddDomain(r.Context(), in); err != nil {
-		return err
+		return h.refuseIn(w, r, "domain-new", RouteDomains, err, h.showDomains)
 	}
 	redirect(w, r, RouteDomains, "domain added")
 	return nil
@@ -505,7 +505,7 @@ func (h *handler) createUser(w http.ResponseWriter, r *http.Request) error {
 		Role:        core.Role(field(r, "role")),
 	}
 	if _, err := h.svc.CreateUser(r.Context(), in); err != nil {
-		return err
+		return h.refuseIn(w, r, "user-new", RouteUsers, err, h.showUsers)
 	}
 	redirect(w, r, RouteUsers, "user created")
 	return nil
@@ -815,6 +815,7 @@ func (h *handler) refuseToken(w http.ResponseWriter, r *http.Request, form token
 	if !correctable(err) {
 		return err
 	}
+	r = drawnWith(r, "token-new", RouteTokens)
 	return h.renderTokens(w, r, core.KindOf(err).HTTPStatus(), form, refusal(err), "")
 }
 
@@ -882,7 +883,7 @@ func (h *handler) enrolSSHKey(w http.ResponseWriter, r *http.Request) error {
 		Label:     field(r, "label"),
 	}
 	if _, err := h.svc.EnrolSSHKey(r.Context(), in); err != nil {
-		return err
+		return h.refuseIn(w, r, "key-new", RouteSSHKeys, err, h.showSSHKeys)
 	}
 	redirect(w, r, RouteSSHKeys, "key enrolled")
 	return nil

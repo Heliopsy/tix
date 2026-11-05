@@ -250,7 +250,7 @@ finished and gone too.
 
 `tix serve` applies the rules after every retention prune (`tix serve --prune-interval`, hourly by default) as
 the system actor, at most 200 tasks per rule per tick; `tix cleanup run` does one pass now, and
-`tix cleanup run --project KEY` or Clean up now in a board's Housekeeping panel one pass on that project.
+`tix cleanup run --project KEY` or Clean up now in a project's Housekeeping settings one pass on that project.
 Every task moved or purged writes the same `task.delete` audit entry and `task.deleted` event a delete by
 hand does, with `cleanup` and `after_days` in the payload, so Activity shows it and nobody's inbox is
 notified. Each statement re-checks the row it acts on, so two servers ticking at once never act on a task

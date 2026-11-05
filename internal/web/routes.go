@@ -148,9 +148,12 @@ const (
 	RouteProjects    = "/projects"
 	RouteProject     = "/projects/{key}"
 	RouteProjectEdit = "/projects/{key}/update"
-	RouteProjectArch = "/projects/{key}/archive"
-	RouteProjectDel  = "/projects/{key}/delete"
-	RouteProjectIcon = "/projects/{key}/icon"
+	// RouteProjectSettings is a project's settings screen: its name and
+	// look, claims, housekeeping and danger zone, off the board.
+	RouteProjectSettings = "/projects/{key}/settings"
+	RouteProjectArch     = "/projects/{key}/archive"
+	RouteProjectDel      = "/projects/{key}/delete"
+	RouteProjectIcon     = "/projects/{key}/icon"
 	// RouteProjectHousekeeping saves a project's cleanup overrides and
 	// RouteProjectHousekeepingRun applies the rules to that project once.
 	RouteProjectHousekeeping    = "/projects/{key}/housekeeping"

@@ -85,7 +85,7 @@ func (h *handler) putWebhook(w http.ResponseWriter, r *http.Request) error {
 	}
 	saved, err := h.svc.PutWebhook(r.Context(), in)
 	if err != nil {
-		return err
+		return h.refuseIn(w, r, "webhook-new", RouteWebhooks, err, h.showWebhooks)
 	}
 	if saved != nil && saved.Secret != "" {
 		// #nosec G124 -- one-time value, HttpOnly, cleared by the screen that shows it

@@ -39,17 +39,24 @@ func seedOtherActorsToken(t *testing.T, f *fixture, handle, name string) (core.A
 }
 
 // revokeControlFor returns the revocation form the listing offers for one
-// token identifier, and an empty string when it offers none. The form, not the
-// page: a page that merely mentions an identifier somewhere is not a page
-// offering to end it.
-func revokeControlFor(rows, tokenID string) string {
-	for _, form := range strings.Split(rows, `action="/admin/tokens/revoke"`)[1:] {
-		body, _, _ := strings.Cut(form, "</form>")
-		if strings.Contains(body, `value="`+tokenID+`"`) {
-			return body
-		}
+// token identifier, and an empty string when it offers none. The row's own
+// Revoke button and the form in the dialog it opens, not the page: a page that
+// merely mentions an identifier somewhere is not a page offering to end it.
+func revokeControlFor(page, tokenID string) string {
+	opener := `data-dlg-open="token-revoke-` + tokenID + `"`
+	body, _, _ := strings.Cut(page[strings.Index(page, "<tbody>")+1:], "</tbody>")
+	if !strings.Contains(body, opener) {
+		return ""
 	}
-	return ""
+	_, form, found := strings.Cut(dialogBlock(page, "token-revoke-"+tokenID), `action="/admin/tokens/revoke"`)
+	if !found {
+		return ""
+	}
+	form, _, _ = strings.Cut(form, "</form>")
+	if !strings.Contains(form, `value="`+tokenID+`"`) {
+		return ""
+	}
+	return form
 }
 
 // TestAReaderWithoutTenantAdminSeesOnlyTheirOwnTokens is the unchanged half.
@@ -77,7 +84,7 @@ func TestAReaderWithoutTenantAdminSeesOnlyTheirOwnTokens(t *testing.T) {
 	if strings.Contains(rows, theirs.ID) {
 		t.Errorf("another actor's token identifier reaches the listing:\n%s", rows)
 	}
-	if offered := revokeControlFor(rows, theirs.ID); offered != "" {
+	if offered := revokeControlFor(page, theirs.ID); offered != "" {
 		t.Errorf("a revoke control is offered for a token this reader may not see:\n%s", offered)
 	}
 	if !strings.Contains(rows, "mine") {
@@ -111,7 +118,7 @@ func TestATenantAdminSeesOtherActorsTokensWithTheOwnerNamed(t *testing.T) {
 	if got := tokenCellUnder(t, page, "Owner"); !strings.Contains(got, carol.Handle) {
 		t.Errorf("the owner cell reads %q, want it to name %q", got, carol.Handle)
 	}
-	offered := revokeControlFor(rows, theirs.ID)
+	offered := revokeControlFor(page, theirs.ID)
 	if offered == "" {
 		t.Fatalf("no revoke control is offered for another actor's token:\n%s", rows)
 	}
@@ -135,7 +142,8 @@ func TestATenantAdminCanRevokeAnotherActorsTokenInTheBrowser(t *testing.T) {
 	_ = resp.Body.Close()
 	wantStatus(t, resp, http.StatusSeeOther)
 
-	rows := tokenRows(t, b.page("/admin/tokens"))
+	after := b.page("/admin/tokens")
+	rows := tokenRows(t, after)
 	row, _, _ := strings.Cut(rows, "</tr>")
 	if !strings.Contains(row, "carols-agent") {
 		t.Fatalf("the first row is not the token just revoked:\n%s", row)
@@ -143,7 +151,7 @@ func TestATenantAdminCanRevokeAnotherActorsTokenInTheBrowser(t *testing.T) {
 	if !strings.Contains(row, "tok-revoked") {
 		t.Errorf("another actor's token was not revoked:\n%s", row)
 	}
-	if revokeControlFor(rows, theirs.ID) != "" {
+	if revokeControlFor(after, theirs.ID) != "" {
 		t.Errorf("the revoked token still offers a revoke control:\n%s", rows)
 	}
 }

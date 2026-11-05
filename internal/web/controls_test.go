@@ -15,7 +15,7 @@ import (
 var controlSelectors = []string{
 	"button", ".backlink a", ".pager-step", ".flowgo", ".ghostlink", ".segmented .segment",
 	"nav.tabs a", ".badge", ".pill", ".role", ".state", ".evchip", ".chip", ".qchip",
-	".statuspill", ".navbadge", "details.panel.addmore > summary", "td > details.panel > summary",
+	".statuspill", ".navbadge", "a.btn",
 }
 
 func readSheet(t *testing.T) string {

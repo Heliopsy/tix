@@ -148,11 +148,11 @@ func TestTheTokenListingReachesATokenHeldPastTheFirstActorPage(t *testing.T) {
 		t.Fatalf("minting the far actor's token: %v", err)
 	}
 
-	rows := tokenRows(t, f.as("alice").page("/admin/tokens"))
-	if !strings.Contains(rows, issued.ID) {
+	page := f.as("alice").page("/admin/tokens")
+	if !strings.Contains(tokenRows(t, page), issued.ID) {
 		t.Errorf("the listing does not carry the token of an actor past the first page")
 	}
-	if revokeControlFor(rows, issued.ID) == "" {
+	if revokeControlFor(page, issued.ID) == "" {
 		t.Errorf("the listing offers no revocation for that token, so it cannot be ended here")
 	}
 }

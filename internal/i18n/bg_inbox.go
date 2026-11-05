@@ -15,7 +15,6 @@ func init() {
 		"Posts a short test message to the channel now.":                     "Изпраща кратко пробно съобщение към канала сега.",
 		"Recent deliveries":                                                  "Последни доставки",
 		"Remove channel":                                                     "Премахни канала",
-		"Remove this channel":                                                "Премахване на канала",
 		"Send test":                                                          "Изпрати проба",
 		"Send your inbox items to Slack, Discord, ntfy or your own endpoint as they arrive. Only your items, of the kinds you choose, and nothing you muted above.": "Изпращайте входящите си известия към Slack, Discord, ntfy или собствен адрес веднага щом пристигнат. Само вашите, от избраните видове, и нищо от заглушеното по-горе.",
 		"Sends":                           "Изпраща",

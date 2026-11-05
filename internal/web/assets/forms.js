@@ -8,6 +8,14 @@
 // disclosure, and in a form drawn in place after a refusal it follows the
 // form's Cancel link.
 //
+// An action dialog (dialog[data-dlg], internal/web/actiondlg.go) opens from
+// its button, a[data-dlg-open], which is a link to the same screen with the
+// dialog drawn in place when scripting is off. Here the link opens the dialog
+// as a modal one instead: focus stays inside it, Escape and Cancel close it,
+// and focus goes back to the button. A dialog the server drew open, because
+// the address asked for it or a submission from it was refused, is turned
+// into the modal one as soon as it is on the page.
+//
 // The new project form suggests its key from the name as the name is typed,
 // until the reader types a key of their own, and says what the project's
 // tasks will be numbered.
@@ -184,12 +192,89 @@
     }
   }
 
-  window.tixForms = { suggestKey: suggestKey, onKeydown: onKeydown, onInput: onInput, reveal: reveal, shortLabels: shortLabels };
+  // -- action dialogs -------------------------------------------------------
+
+  var dialogOpener = null;
+
+  function firstField(dlg) {
+    var field = dlg.querySelector("[aria-invalid=\"true\"]") ||
+      dlg.querySelector("input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])");
+    return field || dlg.querySelector("[data-dlg-close]");
+  }
+
+  // showDialog opens one action dialog as a modal one, remembering what to
+  // give focus back to.
+  function showDialog(dlg, from) {
+    if (!dlg || typeof dlg.showModal !== "function") return false;
+    if (dlg.open) dlg.close();
+    dlg.classList.remove("is-inplace");
+    dialogOpener = from || null;
+    dlg.showModal();
+    var field = firstField(dlg);
+    if (field && typeof field.focus === "function") field.focus();
+    return true;
+  }
+
+  // forgetDialog takes the dialog out of the address once it is closed, so a
+  // reload does not open it again.
+  function forgetDialog() {
+    var loc = window.location;
+    if (!loc || !window.history || !window.history.replaceState || loc.search.indexOf("dialog=") < 0) return;
+    var q = loc.search.slice(1).split("&").filter(function (p) { return p.indexOf("dialog=") !== 0; }).join("&");
+    window.history.replaceState(window.history.state, "", loc.pathname + (q ? "?" + q : "") + loc.hash);
+  }
+
+  function onDialogClose(event) {
+    var dlg = event.target;
+    if (!dlg || !dlg.hasAttribute || !dlg.hasAttribute("data-dlg")) return;
+    forgetDialog();
+    var back = dialogOpener;
+    dialogOpener = null;
+    if (back && document.contains(back) && typeof back.focus === "function") back.focus();
+  }
+
+  function onDialogClick(event) {
+    var target = event.target;
+    if (!target || typeof target.closest !== "function") return;
+    var close = target.closest("[data-dlg-close]");
+    if (close) {
+      var dlg = close.closest("dialog[data-dlg]");
+      if (dlg && typeof dlg.close === "function" && !dlg.classList.contains("is-inplace")) {
+        event.preventDefault();
+        event.stopPropagation();
+        dlg.close();
+      }
+      return;
+    }
+    var open = target.closest("[data-dlg-open]");
+    if (!open || event.button > 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    if (showDialog(document.getElementById(open.getAttribute("data-dlg-open")), open)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+
+  // promote turns a dialog the server drew open in place into the modal one.
+  function promote(scope) {
+    var drawn = (scope || document).querySelectorAll("dialog[data-dlg].is-inplace[open]");
+    for (var i = 0; i < drawn.length; i++) {
+      var opener = document.querySelector("[data-dlg-open=\"" + drawn[i].id + "\"]");
+      showDialog(drawn[i], opener);
+    }
+  }
+
+  window.tixForms = {
+    suggestKey: suggestKey, onKeydown: onKeydown, onInput: onInput, reveal: reveal, shortLabels: shortLabels,
+    showDialog: showDialog, onDialogClick: onDialogClick, promote: promote,
+  };
 
   if (typeof document === "undefined" || !document.addEventListener) return;
   document.addEventListener("keydown", onKeydown);
   document.addEventListener("input", onInput);
+  document.addEventListener("click", onDialogClick, true);
+  document.addEventListener("close", onDialogClose, true);
   reveal(document);
+  promote(document);
   var narrow = window.matchMedia ? window.matchMedia("(max-width: 639px)") : null;
   function fit(scope) { if (narrow) shortLabels(scope, narrow.matches); }
   fit(document);
@@ -198,5 +283,6 @@
     var scope = event.target && event.target.querySelectorAll ? event.target : document;
     reveal(scope);
     fit(scope);
+    promote(scope);
   });
 })();

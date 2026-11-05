@@ -37,16 +37,19 @@ func TestProjectListingLinksThroughToEveryProjectControl(t *testing.T) {
 		t.Error("a project control depends on scripting")
 	}
 
-	board := b.page("/projects/infra")
+	if board := b.page("/projects/infra"); !strings.Contains(board, `href="/projects/infra/settings"`) {
+		t.Errorf("the board does not link to the project's settings:\n%s", board)
+	}
+	settings := b.page("/projects/infra/settings")
 	for _, want := range []string{`action="/projects/infra/update"`,
-		`action="/projects/infra/archive"`, `action="/projects/infra/delete"`} {
-		if !strings.Contains(board, want) {
-			t.Errorf("the project page offers no %s:\n%s", want, board)
+		`action="/projects/infra/archive"`, `href="/projects/infra/delete"`} {
+		if !strings.Contains(settings, want) {
+			t.Errorf("the project's settings offer no %s:\n%s", want, settings)
 		}
 	}
 }
 
-// The project page's settings form is the only place a project is edited
+// The project's settings form is the only place a project is edited
 // now, so it has to carry the whole record -- not just whatever the listing
 // happened to show -- or saving there would blank what it did not carry.
 func TestProjectPageSettingsFormCarriesTheWholeRecordAndSavingKeepsIt(t *testing.T) {
@@ -59,7 +62,7 @@ func TestProjectPageSettingsFormCarriesTheWholeRecordAndSavingKeepsIt(t *testing
 	defer func() { _ = created.Body.Close() }()
 	wantStatus(t, created, http.StatusSeeOther)
 
-	page := b.page("/projects/ops")
+	page := b.page("/projects/ops/settings")
 	for _, want := range []string{`value="Ops"`, `value="teal" checked`,
 		"keeps the lights on", `id="workflow_key"`} {
 		if !strings.Contains(page, want) {
@@ -77,7 +80,7 @@ func TestProjectPageSettingsFormCarriesTheWholeRecordAndSavingKeepsIt(t *testing
 	if !strings.Contains(after, "Operations") {
 		t.Errorf("the edit did not take:\n%s", after)
 	}
-	reloaded := b.page("/projects/ops")
+	reloaded := b.page("/projects/ops/settings")
 	if !strings.Contains(reloaded, "keeps the lights on") {
 		t.Error("saving blanked a field the form did not change")
 	}
