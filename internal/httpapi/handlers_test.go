@@ -486,3 +486,35 @@ func TestResolveDomainRoute(t *testing.T) {
 		t.Error("resolved tenant carries no id")
 	}
 }
+
+func TestSyncSourceSettingsRoundTripOverHTTP(t *testing.T) {
+	f := newFixture(t)
+	put := f.call(http.MethodPut, wire.RouteSyncSources, map[string]any{
+		"system": core.SystemJira, "name": "platform", "mapping_path": "/etc/tix/platform.yaml",
+		"config": map[string]any{"url": "https://jira.test", "project": "PLAT", "page_size": 50},
+	})
+	mustStatus(t, put, http.StatusOK)
+	var saved core.SyncSource
+	decodeBody(t, put, &saved)
+
+	list := f.call(http.MethodGet, wire.RouteSyncSources, nil)
+	mustStatus(t, list, http.StatusOK)
+	var page wire.Page[core.SyncSource]
+	decodeBody(t, list, &page)
+	listed := page.Items
+	if len(listed) != 1 {
+		t.Fatalf("listed %d sources, want 1", len(listed))
+	}
+	for _, got := range []core.SyncSource{saved, listed[0]} {
+		if got.Config["url"] != "https://jira.test" || got.Config["project"] != "PLAT" ||
+			got.Config["page_size"] != "50" || got.MappingPath != "/etc/tix/platform.yaml" {
+			t.Errorf("source = %+v, want the settings it was put with", got)
+		}
+	}
+
+	refused := f.call(http.MethodPut, wire.RouteSyncSources, map[string]any{
+		"system": core.SystemJira, "name": "platform", "config": map[string]any{"token": "s3cr3t"},
+	})
+	mustStatus(t, refused, http.StatusBadRequest)
+	_ = refused.Body.Close()
+}

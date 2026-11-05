@@ -151,3 +151,35 @@ func TestSyncCommandsReportBadInput(t *testing.T) {
 		t.Errorf("missing argument exited %d, want %d", got.code, core.ExitUsage)
 	}
 }
+
+func TestSyncSourceAddStoresItsSettings(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("sync", "source", "add", core.SystemJira, "platform",
+		"--url", "https://jira.test/", "--project", "PLAT", "--query", "status = Open",
+		"--page-size", "25", "--mapping", "/etc/tix/platform.yaml")
+
+	var sources []core.SyncSource
+	listed := c.mustRun("-o", "json", "sync", "source", "ls")
+	if err := json.Unmarshal([]byte(listed.out), &sources); err != nil {
+		t.Fatalf("decoding sources: %v\n%s", err, listed.out)
+	}
+	want := map[string]string{"url": "https://jira.test", "project": "PLAT", "query": "status = Open",
+		"page_size": "25"}
+	if len(sources) != 1 || sources[0].MappingPath != "/etc/tix/platform.yaml" || len(sources[0].Config) != len(want) {
+		t.Fatalf("sources = %+v", sources)
+	}
+	for k, v := range want {
+		if sources[0].Config[k] != v {
+			t.Errorf("config[%s] = %q, want %q", k, sources[0].Config[k], v)
+		}
+	}
+	table := c.mustRun("sync", "source", "ls")
+	if !strings.Contains(table.out, "project=PLAT") || !strings.Contains(table.out, "mapping=/etc/tix/platform.yaml") {
+		t.Errorf("the table does not show the stored settings:\n%s", table.out)
+	}
+
+	got := c.run("sync", "source", "add", core.SystemGeneric, "ops", "--url", "https://jira.test")
+	if got.code != core.ExitUsage {
+		t.Errorf("a url on a generic source exited %d, want %d\n%s", got.code, core.ExitUsage, got.err)
+	}
+}

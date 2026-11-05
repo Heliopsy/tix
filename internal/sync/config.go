@@ -12,8 +12,9 @@ import (
 )
 
 // EnvPrefix is the environment namespace external source configuration is read
-// from. Credentials live here and nowhere else: nothing on this struct is ever
-// written to the store, a snapshot, an audit entry, an event or an error.
+// from. Credentials live here and nowhere else: no credential on SourceConfig
+// is ever written to the store, a snapshot, an audit entry, an event or an
+// error. A setting stored on the source takes precedence over its variable.
 const EnvPrefix = "TIX_SYNC_"
 
 // Environment suffixes, one per configurable setting.
@@ -139,6 +140,46 @@ func LoadSourceConfig(sourceName string, getenv func(string) string) (SourceConf
 		cfg.PageSize = n
 	}
 	return cfg, nil
+}
+
+// settingEnv maps a stored setting to the environment suffix it stands in for.
+// No credential suffix is listed, so a stored value can never supply one.
+var settingEnv = map[string]string{
+	core.SyncSettingURL:      EnvURL,
+	core.SyncSettingProject:  EnvProject,
+	core.SyncSettingQuery:    EnvQuery,
+	core.SyncSettingFile:     EnvFile,
+	core.SyncSettingPageSize: EnvPageSize,
+}
+
+// SettingEnv returns the environment suffix a stored setting replaces.
+func SettingEnv(key string) (string, bool) {
+	suffix, ok := settingEnv[key]
+	return suffix, ok
+}
+
+// StoredFirst returns an environment reader that answers a source's stored
+// settings for the variables they replace and getenv for everything else, so
+// a stored value wins and the environment fills what the source leaves empty.
+func StoredFirst(src core.SyncSource, getenv func(string) string) func(string) string {
+	stored := map[string]string{}
+	for key, value := range src.Config {
+		if suffix, ok := settingEnv[key]; ok && strings.TrimSpace(value) != "" {
+			stored[EnvName(src.Name, suffix)] = value
+		}
+	}
+	if strings.TrimSpace(src.MappingPath) != "" {
+		stored[EnvName(src.Name, EnvMapping)] = src.MappingPath
+	}
+	return func(name string) string {
+		if value, ok := stored[name]; ok {
+			return value
+		}
+		if getenv == nil {
+			return ""
+		}
+		return getenv(name)
+	}
 }
 
 // WithCredentials returns a copy carrying the given credentials, for a caller

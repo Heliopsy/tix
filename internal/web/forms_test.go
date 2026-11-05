@@ -325,7 +325,7 @@ func TestAdministrationScreensAcceptSubmissions(t *testing.T) {
 		{"webhook", "/admin/webhooks", url.Values{"url": {"https://hooks.example/x"},
 			"event_types": {"task.created"}, "active": {"1"}}, "/admin/webhooks", "hooks.example"},
 		{"sync source", "/sync/sources", url.Values{"name": {"jira import"},
-			"system": {"jira"}, "config": {"url=https://jira.example"}}, "/sync", "jira import"},
+			"system": {"jira"}, "url": {"https://jira.example"}}, "/sync", "jira import"},
 	}
 	for _, step := range steps {
 		t.Run(step.name, func(t *testing.T) {

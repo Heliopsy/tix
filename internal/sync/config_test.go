@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/heliopsy/tix/internal/core"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -115,5 +116,43 @@ func TestWithCredentialsReplacesThemOutOfBand(t *testing.T) {
 	}
 	if strings.Contains(cfg.String(), "t") && strings.Contains(cfg.String(), "token=") {
 		t.Errorf("String() disclosed the token: %s", cfg.String())
+	}
+}
+
+func TestStoredFirstPrefersTheSourceAndFallsBackToTheEnvironment(t *testing.T) {
+	src := core.SyncSource{
+		Name:        "ops",
+		Config:      map[string]string{core.SyncSettingURL: "https://stored.test", core.SyncSettingQuery: ""},
+		MappingPath: "/stored/map.yaml",
+	}
+	env := fakeEnv(map[string]string{
+		"TIX_SYNC_OPS_URL":     "https://env.test",
+		"TIX_SYNC_OPS_QUERY":   "project = ENV",
+		"TIX_SYNC_OPS_MAPPING": "/env/map.yaml",
+		"TIX_SYNC_OPS_TOKEN":   "s3cr3t",
+	})
+	cfg, err := LoadSourceConfig(src.Name, StoredFirst(src, env))
+	if err != nil {
+		t.Fatalf("LoadSourceConfig: %v", err)
+	}
+	if cfg.BaseURL != "https://stored.test" || cfg.MappingPath != "/stored/map.yaml" {
+		t.Errorf("url, mapping = %q, %q, want the stored values", cfg.BaseURL, cfg.MappingPath)
+	}
+	if cfg.Query != "project = ENV" {
+		t.Errorf("query = %q, want the environment to fill an empty stored value", cfg.Query)
+	}
+	if cfg.Token() != "s3cr3t" {
+		t.Errorf("token = %q, want it from the environment", cfg.Token())
+	}
+}
+
+func TestStoredFirstNeverSuppliesACredential(t *testing.T) {
+	src := core.SyncSource{Name: "ops", Config: map[string]string{"token": "stored", "password": "stored"}}
+	cfg, err := LoadSourceConfig(src.Name, StoredFirst(src, fakeEnv(nil)))
+	if err != nil {
+		t.Fatalf("LoadSourceConfig: %v", err)
+	}
+	if cfg.HasCredential() {
+		t.Error("a credential was read from stored settings")
 	}
 }

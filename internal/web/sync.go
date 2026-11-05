@@ -64,6 +64,28 @@ type syncSourceRow struct {
 	core.SyncSource
 	EnvPrefix string
 	Settings  []syncSetting
+	Stored    []syncStored
+}
+
+// syncStored is one setting stored on a source, which wins over its variable.
+type syncStored struct {
+	Key   string
+	Value string
+}
+
+// storedSettings lists what a source stores, the mapping first and then the
+// config keys in the order its system documents them.
+func storedSettings(s core.SyncSource) []syncStored {
+	var out []syncStored
+	if s.MappingPath != "" {
+		out = append(out, syncStored{"mapping_path", s.MappingPath})
+	}
+	for _, key := range core.SyncSettingKeys(s.System) {
+		if value := s.Config[key]; value != "" {
+			out = append(out, syncStored{key, value})
+		}
+	}
+	return out
 }
 
 // syncSetting is one environment variable a source reads, with what it is for
@@ -170,6 +192,7 @@ func (h *handler) buildSyncView(r *http.Request, result *core.SyncResult) (syncV
 			SyncSource: s,
 			EnvPrefix:  extsync.EnvName(s.Name, ""),
 			Settings:   syncSettingsFor(s.System),
+			Stored:     storedSettings(s),
 		})
 	}
 	return syncView{
@@ -180,23 +203,37 @@ func (h *handler) buildSyncView(r *http.Request, result *core.SyncResult) (syncV
 
 // putSyncSource registers or updates an external import source.
 //
-// Only the name and the system travel. A source record holds nothing else:
-// PutSyncSource writes an ID, a system and a name, and everything the adapter
-// needs to reach the source is read from the environment when a run starts.
-// The screen used to offer a mapping path and a free-text configuration box,
-// neither of which was stored anywhere, so a reader who filled them in got a
-// saved source and no working import.
+// The form offers every setting any system stores, and sends on only the ones
+// filled in. The service refuses a setting the chosen system does not take,
+// so a url typed into a generic source is an error rather than ignored.
 func (h *handler) putSyncSource(w http.ResponseWriter, r *http.Request) error {
 	in := core.SyncSourceInput{
-		ID:     field(r, "id"),
-		System: field(r, "system"),
-		Name:   field(r, "name"),
+		ID:          field(r, "id"),
+		System:      field(r, "system"),
+		Name:        field(r, "name"),
+		MappingPath: field(r, "mapping_path"),
+	}
+	for _, key := range syncFormSettings {
+		if value := field(r, key); value != "" {
+			if in.Config == nil {
+				in.Config = map[string]any{}
+			}
+			in.Config[key] = value
+		}
 	}
 	if _, err := h.svc.PutSyncSource(r.Context(), in); err != nil {
 		return h.refuseIn(w, r, "source-new", RouteSync, err, h.showSync)
 	}
-	redirect(w, r, RouteSync, "source saved, now set "+extsync.EnvName(in.Name, "")+"* in the server's environment")
+	redirect(w, r, RouteSync, "source saved, credentials and unset settings come from "+
+		extsync.EnvName(in.Name, "")+"* in the server's environment")
 	return nil
+}
+
+// syncFormSettings are the config keys the source form offers, the union of
+// what every system takes.
+var syncFormSettings = []string{
+	core.SyncSettingURL, core.SyncSettingProject, core.SyncSettingQuery,
+	core.SyncSettingFile, core.SyncSettingPageSize,
 }
 
 // deleteSyncSource removes an external import source.

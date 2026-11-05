@@ -122,6 +122,8 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, tagHeader, []core.Tag{v}, tagRow)
 	case []core.SyncSource:
 		return renderRows(w, p, syncHeader, v, p.syncRow)
+	case core.SyncSource:
+		return renderRows(w, p, syncHeader, []core.SyncSource{v}, p.syncRow)
 	case core.Tenant:
 		return renderRows(w, p, tenantHeader, []core.Tenant{v}, p.tenantRow)
 	case []core.Connection:
@@ -199,7 +201,7 @@ var (
 	tagHeader             = table.Row{"ID", "NAME", "PROJECT", "COLOR"}
 	groupPrefHeader       = table.Row{"VIEW", "GROUP", "HIDDEN", "COLLAPSED", "STARRED", "POSITION"}
 	savedFilterHeader     = table.Row{"NAME", "FILTER", "VIEW", "SORT", "SHARED", "MINE", "ID"}
-	syncHeader            = table.Row{"ID", "SYSTEM", "NAME", "CURSOR", "LAST RUN", "LAST STATUS"}
+	syncHeader            = table.Row{"ID", "SYSTEM", "NAME", "SETTINGS", "CURSOR", "LAST RUN", "LAST STATUS"}
 	templateHeader        = table.Row{"NAME", "PROJECT", "TITLE", "TASKS", "DUE IN", "USES"}
 
 	connectionHeader = table.Row{"ID", "SURFACE", "ACTOR", "FROM", "SINCE", "KEY"}
@@ -400,8 +402,27 @@ func tagRow(t core.Tag) table.Row {
 }
 
 func (p Painter) syncRow(s core.SyncSource) table.Row {
-	return table.Row{s.ID, s.System, s.Name, truncate(s.Cursor, 24),
+	return table.Row{s.ID, s.System, s.Name, truncate(syncSettingsCell(s), 60), truncate(s.Cursor, 24),
 		p.style.FormatPtr(s.LastRunAt), s.LastStatus}
+}
+
+// syncSettingsCell lists a source's stored settings as key=value pairs, the
+// mapping first, so a reader can tell what the source holds from what its
+// environment supplies.
+func syncSettingsCell(s core.SyncSource) string {
+	var parts []string
+	if s.MappingPath != "" {
+		parts = append(parts, "mapping="+s.MappingPath)
+	}
+	keys := make([]string, 0, len(s.Config))
+	for k := range s.Config {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		parts = append(parts, k+"="+s.Config[k])
+	}
+	return strings.Join(parts, " ")
 }
 
 func joinScopes(scopes []core.Scope) string {

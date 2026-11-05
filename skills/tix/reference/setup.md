@@ -301,16 +301,19 @@ error: invalid: a collision policy is required; there is no default because repl
 
 ```sh
 tix sync source ls
-tix sync source add jira production-jira
+tix sync source add jira production-jira --url https://acme.atlassian.net --project OPS --mapping ./jira.yaml
 tix sync run SOURCEID --dry-run
 tix sync run SOURCEID --full
 ```
 
 A run names the source it pulls from, which `sync source ls` lists. A run is
 incremental by default; `--full` ignores the stored cursor and reconsiders
-every source record. Adding a source only registers it: credentials come from
-`TIX_SYNC_<NAME>_*` in the environment and the field mapping from a file, and
-a run before either is in place is exit `2` saying which is missing. A source that answers badly is exit `7`,
+every source record. A source stores the settings given to `sync source add`
+(`--mapping`, `--url`, `--project`, `--query`, `--file`, `--page-size`; generic
+takes only `--file` and `--page-size` of the config ones) and reads the rest
+from `TIX_SYNC_<NAME>_*`, a stored value winning over its variable.
+Credentials come only from the environment. A run with no mapping or no
+endpoint is exit `2` saying which is missing. A source that answers badly is exit `7`,
 `upstream_failed`. That is the one exit code an agent will otherwise never
 see, and it means the remote system failed, not that your request was wrong.
 

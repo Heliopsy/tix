@@ -21,6 +21,7 @@
              and needs no script. Same mechanism as the Columns menu. */}}
         {{$id := printf "env-%s" .ID}}
         <code class="envname">{{envName .EnvPrefix "*"}}</code>
+        {{range .Stored}}<div class="meta storedset">{{.Key}} <code>{{.Value}}</code></div>{{end}}
         <div class="colmenu">
           <button type="button" class="link" popovertarget="{{$id}}">{{t "Which variables"}}</button>
           <div id="{{$id}}" class="flowmenu colpop envpop" popover>
@@ -61,7 +62,7 @@
 {{$d := .Dialog.For "source-new"}}
 {{$sh := shell "source-new" (t "Configure a source") "" .Dialog .Here}}
 {{template "dlg-start" $sh}}
-<p class="meta">{{t "A source is just a name and a system. Save it here, then set its environment variables on the server: the row above will tell you which ones."}}</p>
+<p class="meta">{{t "A source is a name, a system and whichever settings you fill in below. Anything left empty, and every credential, comes from the server's environment variables: the row above names them."}}</p>
 <form method="post" action="/sync/sources">
   {{template "csrf" .CSRF}}
   {{with $d.Errors.On ""}}{{template "field-error" .}}{{end}}
@@ -88,6 +89,19 @@
     {{range .Data.Systems}}<dt>{{.Label}}</dt><dd>{{t .Note}}</dd>{{end}}
   </dl>
   <p class="meta choosemeta">{{t "These three are what this build carries. Naming anything else is refused when you save."}}</p>
+  <p class="meta">{{t "Each setting filled in is stored on the source and wins over its environment variable. generic takes a file; jira and openproject take a url, a project and a query. Credentials are never stored here."}}</p>
+  <div class="row">
+    <div><label for="mapping_path">{{t "Mapping file"}}</label><input id="mapping_path" name="mapping_path" value="{{$d.Value "mapping_path"}}"{{$d.Errors.Attrs "mapping_path"}}></div>
+    <div><label for="file">{{t "File"}}</label><input id="file" name="file" value="{{$d.Value "file"}}"{{$d.Errors.Attrs "file"}}></div>
+  </div>
+  <div class="row">
+    <div><label for="url">{{t "URL"}}</label><input id="url" name="url" type="url" value="{{$d.Value "url"}}"{{$d.Errors.Attrs "url"}}></div>
+    <div><label for="project">{{t "External project"}}</label><input id="project" name="project" value="{{$d.Value "project"}}"{{$d.Errors.Attrs "project"}}></div>
+  </div>
+  <div class="row">
+    <div><label for="query">{{t "Query"}}</label><input id="query" name="query" value="{{$d.Value "query"}}"{{$d.Errors.Attrs "query"}}></div>
+    <div><label for="page_size">{{t "Page size"}}</label><input id="page_size" name="page_size" type="number" min="1" value="{{$d.Value "page_size"}}"{{$d.Errors.Attrs "page_size"}}></div>
+  </div>
   <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Save source"}}</button></div>
 </form>
 {{template "dlg-end"}}
@@ -107,7 +121,7 @@
   <div class="setrow">
     <div class="setrow-text">
       <span class="setname">{{t "A source"}}</span>
-      <span class="sethelp">{{t "A name and a system, and nothing else: no url, no file path, no credential. Those live in environment variables on the machine running tix, read when a run starts rather than when you save, so changing one takes effect on the next run and none of them can reach a snapshot, an audit entry or a log line."}}</span>
+      <span class="sethelp">{{t "A name, a system, and the settings filled in on the form. A stored setting wins over its environment variable, and one left empty is read from that variable when a run starts. Credentials are never stored: they live only in environment variables on the machine running tix, so none of them can reach a snapshot, an audit entry or a log line."}}</span>
     </div>
   </div>
   <div class="setrow">

@@ -4,9 +4,13 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/url"
 	"os"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/heliopsy/tix/internal/authz"
@@ -83,9 +87,10 @@ func buildImporter(system string, cfg extsync.SourceConfig, m *extsync.Mapping) 
 
 // PutSyncSource registers an external import source or updates one in place.
 //
-// Nothing a source needs to authenticate is stored: credentials, endpoints and
-// the mapping file are read from the environment at run time, so no credential
-// can reach a snapshot, an audit entry or an event.
+// A source stores its non-secret settings and its mapping path, which win over
+// the matching TIX_SYNC_<SOURCE>_* variables at run time. Credentials are
+// refused and read only from the environment, so none can reach a snapshot, an
+// audit entry or an event.
 func (l *Local) PutSyncSource(ctx context.Context, in core.SyncSourceInput) (*core.SyncSource, error) {
 	actor, err := l.authorize(ctx, authz.ActionSyncAdmin, authz.Resource{})
 	if err != nil {
@@ -98,6 +103,11 @@ func (l *Local) PutSyncSource(ctx context.Context, in core.SyncSourceInput) (*co
 	if err := refuseCredentialKeys(in.Config); err != nil {
 		return nil, err
 	}
+	settings, err := syncSettings(in.System, in.Config)
+	if err != nil {
+		return nil, err
+	}
+	mappingPath := strings.TrimSpace(in.MappingPath)
 
 	var out core.SyncSource
 	err = l.write(ctx, actor, func(m *mutation) error {
@@ -109,7 +119,8 @@ func (l *Local) PutSyncSource(ctx context.Context, in core.SyncSourceInput) (*co
 			}
 			before = *existing
 		}
-		src := core.SyncSource{ID: in.ID, System: in.System, Name: in.Name}
+		src := core.SyncSource{ID: in.ID, System: in.System, Name: in.Name,
+			Config: settings, MappingPath: mappingPath}
 		if err := m.tx.PutSyncSource(ctx, &src); err != nil {
 			return err
 		}
@@ -123,16 +134,86 @@ func (l *Local) PutSyncSource(ctx context.Context, in core.SyncSourceInput) (*co
 	return &out, nil
 }
 
+// syncCredentialKeys are credential names isSecretKey does not match, because
+// "user" and "login" are ordinary fields everywhere but here.
+var syncCredentialKeys = map[string]bool{"user": true, "username": true, "login": true}
+
 // refuseCredentialKeys rejects a registration that tries to persist a secret,
 // rather than storing it and redacting it later.
 func refuseCredentialKeys(config map[string]any) error {
 	for _, key := range sortedMapKeys(config) {
-		if isSecretKey(key) {
+		if isSecretKey(key) || syncCredentialKeys[strings.ToLower(strings.TrimSpace(key))] {
 			return core.Invalid("sync source configuration must not carry %q; credentials are read from %s%s_* at run time",
 				key, extsync.EnvPrefix, "<SOURCE>")
 		}
 	}
 	return nil
+}
+
+// syncSettings checks a source's config against the keys its system accepts
+// and returns it as stored: trimmed text, empty values dropped.
+func syncSettings(system string, config map[string]any) (map[string]string, error) {
+	allowed := core.SyncSettingKeys(system)
+	out := map[string]string{}
+	for _, key := range sortedMapKeys(config) {
+		if !slices.Contains(allowed, key) {
+			return nil, core.Invalid("sync source configuration key %q is not one a %s source takes; it takes %s",
+				key, system, strings.Join(allowed, ", "))
+		}
+		value, err := syncSettingText(key, config[key])
+		if err != nil {
+			return nil, err
+		}
+		if value != "" {
+			out[key] = value
+		}
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
+}
+
+// syncSettingText renders one setting as the text it is stored as.
+func syncSettingText(key string, raw any) (string, error) {
+	var value string
+	switch v := raw.(type) {
+	case nil:
+		return "", nil
+	case string:
+		value = strings.TrimSpace(v)
+	case float64:
+		value = strconv.FormatFloat(v, 'f', -1, 64)
+	case int:
+		value = strconv.Itoa(v)
+	case int64:
+		value = strconv.FormatInt(v, 10)
+	case json.Number:
+		value = v.String()
+	default:
+		return "", core.Invalid("sync source configuration %q must be text, not %T", key, raw)
+	}
+	switch key {
+	case core.SyncSettingPageSize:
+		if value == "" {
+			return "", nil
+		}
+		n, err := strconv.Atoi(value)
+		if err != nil || n <= 0 {
+			return "", core.Invalid("sync source configuration %q must be a positive integer, not %q", key, value)
+		}
+		return strconv.Itoa(n), nil
+	case core.SyncSettingURL:
+		if value == "" {
+			return "", nil
+		}
+		u, err := url.Parse(value)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return "", core.Invalid("sync source configuration %q must be an http or https url, not %q", key, value)
+		}
+		return strings.TrimRight(value, "/"), nil
+	}
+	return value, nil
 }
 
 func sortedMapKeys(m map[string]any) []string {
@@ -241,7 +322,7 @@ func (l *Local) RunSync(ctx context.Context, in core.RunSyncInput) (*core.SyncRe
 		return nil, err
 	}
 
-	cfg, err := extsync.LoadSourceConfig(source.Name, syncEnv)
+	cfg, err := extsync.LoadSourceConfig(source.Name, extsync.StoredFirst(source, syncEnv))
 	if err != nil {
 		return nil, err
 	}
@@ -470,6 +551,7 @@ func (r *syncRun) advance(ctx context.Context, m *mutation, cursor, status strin
 	now := m.now
 	src := core.SyncSource{
 		ID: r.source.ID, System: r.source.System, Name: r.source.Name,
+		Config: r.source.Config, MappingPath: r.source.MappingPath,
 		Cursor: r.cursor, LastRunAt: &now, LastStatus: status,
 	}
 	return m.tx.PutSyncSource(ctx, &src)

@@ -10,11 +10,12 @@ Three separate mechanisms, often confused:
 
 ## Importing from an external tracker
 
-A source is registered once, configured from the environment, and run as often as you like. Only records changed
+A source is registered once, with whichever settings you want stored on it, and run as often as you like.
+Anything it does not store, credentials always among them, is read from the environment. Only records changed
 since the last successful run are fetched.
 
 ```sh
-tix sync source add jira platform
+tix sync source add jira platform --url https://acme.atlassian.net --project PLAT --mapping /etc/tix/platform.yaml
 tix sync source ls
 tix sync run 01J0000000000000000000 --dry-run
 tix sync run 01J0000000000000000000
@@ -23,28 +24,45 @@ tix sync source rm 01J0000000000000000000
 ```
 
 `SYSTEM` is `generic`, `jira` or `openproject`. `NAME` selects the environment variables the source reads. Pass
-`--id` to `tix sync source add` to update an existing source rather than create one.
+`--id` to `tix sync source add` to update an existing source rather than create one. An update replaces the stored
+settings whole, so repeat the ones you want to keep.
 
-The same operations are on the web interface under **Sync**. Its Sources tab registers and runs a source, and
-prints the exact environment variables that source reads; its Runs tab lists the imports that have completed,
-with what each created, updated and skipped, beside the current state of every source.
+The same operations are on the web interface under **Sync**. Its Sources tab registers and runs a source, shows
+the settings each source stores, and prints the exact environment variables that source reads; its Runs tab lists
+the imports that have completed, with what each created, updated and skipped, beside the current state of every
+source.
 
 ### Configuration and credentials
 
-Credentials are read from the environment and nowhere else. They are never written to the store, a snapshot, an
-audit entry, an event or an error message. For a source named `platform`:
+A source stores its non-secret settings. At run time a stored setting wins over its environment variable, and a
+setting the source leaves empty is read from the variable, so a source configured entirely from the environment
+keeps working with nothing stored. Each system takes only the settings its adapter reads; any other key is refused
+with exit 2.
+
+| Setting | Flag | API `config` key | Systems |
+| --- | --- | --- | --- |
+| mapping file | `--mapping` | `mapping_path` (top level) | all |
+| base URL | `--url` | `url` | jira, openproject |
+| external project | `--project` | `project` | jira, openproject |
+| query, such as JQL | `--query` | `query` | jira, openproject |
+| file to read | `--file` | `file` | generic |
+| records per request | `--page-size` | `page_size` | all |
+
+Credentials are read from the environment and nowhere else. A source refuses a `token`, `user`, `password` or any
+other credential-looking key with exit 2, and no credential is ever written to the store, a snapshot, an audit
+entry, an event or an error message. For a source named `platform`:
 
 | Variable | Meaning |
 | --- | --- |
-| `TIX_SYNC_PLATFORM_MAPPING` | path to the mapping file |
-| `TIX_SYNC_PLATFORM_URL` | base URL of the external system |
+| `TIX_SYNC_PLATFORM_MAPPING` | path to the mapping file, unless the source stores one |
+| `TIX_SYNC_PLATFORM_URL` | base URL of the external system, unless stored |
 | `TIX_SYNC_PLATFORM_TOKEN` | bearer credential |
 | `TIX_SYNC_PLATFORM_USER` | basic auth user |
 | `TIX_SYNC_PLATFORM_PASSWORD` | basic auth password |
-| `TIX_SYNC_PLATFORM_QUERY` | query selecting the records to fetch, such as JQL |
-| `TIX_SYNC_PLATFORM_PROJECT` | external project identifier |
-| `TIX_SYNC_PLATFORM_FILE` | file to read instead of an HTTP endpoint |
-| `TIX_SYNC_PLATFORM_PAGE_SIZE` | records per request |
+| `TIX_SYNC_PLATFORM_QUERY` | query selecting the records to fetch, such as JQL, unless stored |
+| `TIX_SYNC_PLATFORM_PROJECT` | external project identifier, unless stored |
+| `TIX_SYNC_PLATFORM_FILE` | file to read instead of an HTTP endpoint, unless stored |
+| `TIX_SYNC_PLATFORM_PAGE_SIZE` | records per request, unless stored |
 
 The name is uppercased and non-alphanumeric characters become underscores, so a source named `acme-jira` reads
 `TIX_SYNC_ACME_JIRA_TOKEN`.

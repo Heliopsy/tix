@@ -135,8 +135,7 @@ var inputReaches = []inputReach{
 	}},
 	{"tix sync source add", core.SyncSourceInput{}, map[string]string{
 		"id": "--id", "system": "arg", "name": "arg",
-		"config":       "!the service stores no source configuration; it is read from the environment at run time",
-		"mapping_path": "!the mapping file is named by the environment at run time, not stored",
+		"config": "--url", "mapping_path": "--mapping",
 	}},
 	{"tix sync run", core.RunSyncInput{}, map[string]string{"source_id": "arg", "dry_run": "--dry-run", "full": "--full"}},
 	{"tix prune", core.PruneInput{}, map[string]string{"dry_run": "--dry-run", "limit": "--limit"}},

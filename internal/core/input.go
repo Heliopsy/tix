@@ -784,12 +784,35 @@ type SyncSourceInput struct {
 	System string `json:"system" yaml:"system"`
 	// Name labels the source. Required.
 	Name string `json:"name" yaml:"name"`
-	// Config is checked for credential keys, which are refused, and is not
-	// stored: connection settings are read from the environment at run time.
+	// Config holds the source's non-secret settings, stored and preferred over
+	// TIX_SYNC_<SOURCE>_* at run time: "file" and "page_size" for generic,
+	// "url", "project", "query" and "page_size" for jira and openproject. A
+	// credential key or any other key is refused. Updating replaces them whole.
 	Config map[string]any `json:"config,omitempty" yaml:"config,omitempty"`
-	// MappingPath is accepted and not stored; the mapping file is read from
-	// the environment at run time.
+	// MappingPath is the mapping file, stored and preferred over
+	// TIX_SYNC_<SOURCE>_MAPPING at run time.
 	MappingPath string `json:"mapping_path,omitempty" yaml:"mapping_path,omitempty"`
+}
+
+// Sync source settings a source may store in its Config.
+const (
+	SyncSettingURL      = "url"
+	SyncSettingProject  = "project"
+	SyncSettingQuery    = "query"
+	SyncSettingFile     = "file"
+	SyncSettingPageSize = "page_size"
+)
+
+// SyncSettingKeys returns the Config keys a system accepts, in display order.
+func SyncSettingKeys(system string) []string {
+	switch system {
+	case SystemGeneric:
+		return []string{SyncSettingFile, SyncSettingPageSize}
+	case SystemJira, SystemOpenProject:
+		return []string{SyncSettingURL, SyncSettingProject, SyncSettingQuery, SyncSettingPageSize}
+	default:
+		return nil
+	}
 }
 
 // Supported external systems.

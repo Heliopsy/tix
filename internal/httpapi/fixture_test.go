@@ -259,14 +259,18 @@ func (s *apiService) PutSyncSource(ctx context.Context, in core.SyncSourceInput)
 	if _, err := core.RequireActor(ctx); err != nil {
 		return nil, err
 	}
-	if err := in.Validate(); err != nil {
+	stored, err := s.Local.PutSyncSource(ctx, core.SyncSourceInput{
+		System: in.System, Name: in.Name, Config: in.Config, MappingPath: in.MappingPath,
+	})
+	if err != nil {
 		return nil, err
 	}
 	id := in.ID
 	if id == "" {
 		id = "src-1"
 	}
-	src := &core.SyncSource{ID: id, System: in.System, Name: in.Name}
+	src := &core.SyncSource{ID: id, System: in.System, Name: in.Name,
+		Config: stored.Config, MappingPath: stored.MappingPath}
 	s.sources[id] = src
 	return src, nil
 }

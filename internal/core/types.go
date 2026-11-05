@@ -1055,6 +1055,11 @@ type SyncSource struct {
 	System string `json:"system" yaml:"system"`
 	// Name identifies the source within its system.
 	Name string `json:"name" yaml:"name"`
+	// Config is the source's stored non-secret settings, such as "url" or
+	// "project". It never holds a credential.
+	Config map[string]string `json:"config,omitempty" yaml:"config,omitempty"`
+	// MappingPath is the stored mapping file, empty when the environment names it.
+	MappingPath string `json:"mapping_path,omitempty" yaml:"mapping_path,omitempty"`
 	// Cursor is how far the import has read, opaque and owned by the system's
 	// importer.
 	Cursor string `json:"cursor,omitempty" yaml:"cursor,omitempty"`
