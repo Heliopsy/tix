@@ -7,7 +7,7 @@ is on the hot path.
 ## Targets and contexts
 
 Everything resolves the same way whether it's a flag, an env var, or a
-named context — so the same script works locally, in CI, and in a
+named context, so the same script works locally, in CI, and in a
 container with no code change:
 
 | Flag | Env var | |
@@ -16,7 +16,7 @@ container with no code change:
 | `--server` | `TIX_SERVER_URL` | remote API |
 | `--token` | `TIX_TOKEN` (or `TIX_SERVER_TOKEN`) | API token |
 | `--tenant` | `TIX_TENANT` | tenant key |
-| — | `TIX_PROJECT` | default project |
+| (none) | `TIX_PROJECT` | default project |
 | `--ctx` | `TIX_CURRENT_CONTEXT` | named context (see `tix ctx --help`) |
 | `-o` | `TIX_OUTPUT_FORMAT` | output format |
 
@@ -36,8 +36,8 @@ tix status            # what the installation holds and what is serving it
 
 `tix status` and `tix doctor` are different questions. Doctor asks whether
 this installation is sound and fails when it is not. Status reports what
-exists — version, schema, engine, attached servers, tenants, projects, tasks,
-claims, **unswept expired leases**, pending and failed webhooks — and a server
+exists (version, schema, engine, attached servers, tenants, projects, tasks,
+claims, **unswept expired leases**, pending and failed webhooks), and a server
 on another machine being down does not make it fail. A server registers itself
 when it starts and refreshes that registration while it runs, so a row nobody
 is refreshing is a process that died; a graceful shutdown removes its own row.
@@ -180,9 +180,8 @@ until somebody sweeps. `tix serve --ssh-listen <addr>` adds the SSH listener
 beside it; see [ssh.md](ssh.md). `tix serve --help` has the deployment flags,
 and the project's `docs/deployment.md` owns that subject.
 
-`tix tui` is the terminal interface over the same store, which is worth
-knowing exists because it is what a human watching your queue will be looking
-at.
+`tix tui` is the terminal interface over the same store. It is what a human
+watching your queue will be looking at.
 
 ## MCP tools
 
@@ -312,7 +311,7 @@ incremental by default; `--full` ignores the stored cursor and reconsiders
 every source record. Adding a source only registers it: credentials come from
 `TIX_SYNC_<NAME>_*` in the environment and the field mapping from a file, and
 a run before either is in place is exit `2` saying which is missing. A source that answers badly is exit `7`,
-`upstream_failed` — that is the one exit code an agent will otherwise never
+`upstream_failed`. That is the one exit code an agent will otherwise never
 see, and it means the remote system failed, not that your request was wrong.
 
 `tix webhook` registers outgoing HTTP calls on events:

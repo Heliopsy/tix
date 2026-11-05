@@ -7,7 +7,7 @@ report, or the event stream instead of a poll.
 ## Filter flags
 
 `task ls` and `claim next` share filter flags; each is a repeatable flag
-(pass it more than once, or comma-separate one instance — both work), OR'd
+(pass it more than once, or comma-separate one instance; both work), OR'd
 within a flag, AND'd across flags:
 
 ```sh
@@ -85,8 +85,8 @@ selects. Tags and text terms are matched as written.
 ## Deadlines
 
 `--overdue` is the shorthand; `--due-before` and `--due-after` take a date.
-`due:` says the same thing in an expression, either as a named window —
-`overdue`, `today`, `week`, `month` — or bounded with `due:<DATE` and
+`due:` says the same thing in an expression, either as a named window
+(`overdue`, `today`, `week`, `month`) or bounded with `due:<DATE` and
 `due:>DATE`:
 
 ```sh
@@ -200,13 +200,13 @@ tix watch --type task.created --type task.released -o ndjson --since "$last_seq"
 Prints one JSON event per line as it happens (`--since` resumes without a
 gap, `--limit N` stops after N events, `0` follows forever; with no
 `--since` the stream starts at the *next* event, it does not replay
-history). On connect it prints one banner line to **stderr** — `watching
-local <db> (from flag); ctrl-c to stop` — never stdout, so a piped `-o
+history). On connect it prints one banner line to **stderr**, `watching
+local <db> (from flag); ctrl-c to stop`, and never stdout, so a piped `-o
 ndjson` stays clean; `-q` suppresses it like every other diagnostic.
 
 Default output (no `-o`) is one human-readable line per event, e.g.
 `13:53:02  local  created  default-7  watch me` or, for an edit,
-`12:54:45  local  updated  default-1  the title and priority` — the payload
+`12:54:45  local  updated  default-1  the title and priority`; the payload
 names the changed field(s). Filter with `--actor`, `--project`, `--type`
 (trailing `*` is a prefix match).
 

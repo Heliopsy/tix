@@ -1,7 +1,7 @@
 ---
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. `tix mcp` serves the same API as MCP tools for a client that wants them, but this skill drives the CLI, which reaches everything. Covers writing your own plan down as tasks with a lease sized to each before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 15
+version: 16
 verified-against: tix 17d1152 (2026-11-01)
 ---
 
@@ -11,14 +11,14 @@ One queue, shared by people and agents. This file is the whole hot path: the
 loop you run constantly. Four reference files sit beside it for the things you
 need once in a while:
 
-- [reference/queries.md](reference/queries.md) — the filter language, deadlines,
+- [reference/queries.md](reference/queries.md): the filter language, deadlines,
   sorting and paging, the actor directory, `tix stats`, `tix watch`.
-- [reference/setup.md](reference/setup.md) — targets and contexts, API tokens
+- [reference/setup.md](reference/setup.md): targets and contexts, API tokens
   and scopes, `tix serve`, `tix mcp`, workflows and custom fields, the audit log,
   import/export, sync, webhooks, bundles, retention.
-- [reference/ssh.md](reference/ssh.md) — serving the terminal interface over
+- [reference/ssh.md](reference/ssh.md): serving the terminal interface over
   SSH, enrolling keys, and `tix login --ssh-key`.
-- [reference/recovery.md](reference/recovery.md) — the worked crash transcript
+- [reference/recovery.md](reference/recovery.md): the worked crash transcript
   this skill's claims were verified against.
 
 The commit this file was checked against is the `verified-against` field above,
@@ -62,7 +62,7 @@ both.**
 
 - `--parent` is **containment**: this work belongs to that work. It groups the
   plan so a reader (or your replacement) sees the shape of it, and it stops the
-  parent being deleted out from under the children — `task rm` on a task with
+  parent being deleted out from under the children: `task rm` on a task with
   subtasks is exit `6` unless you pass `--cascade`.
 - `--depends-on` is **ordering**: this cannot start until that is finished. It
   is what the queue enforces. A task with an unfinished dependency reports
@@ -74,7 +74,7 @@ works it. A plan with only parents lets you claim step three before step one.
 Write the steps at the granularity you are willing to lose. One task per unit
 of work you could redo from its description alone.
 
-**Give each step a `--lease` sized to the work**, rather than leaving every
+**Give each step a `--lease` sized to the work** instead of leaving every
 step on the project default: 30m for a quick fix, 2h for a test-and-patch step.
 The lease is how long a claim holds without a `--ttl`, so a sensible one means
 a crashed agent's step is back in the queue soon, and a long one does not
@@ -91,7 +91,7 @@ tix artifact put default-2 --kind log --file ./test-output.txt --content-type te
 ```
 
 (Once you have *claimed* default-2, `artifact put` also needs
-`--lease-token "$token"` — see "Leases" below. `comment add` never does.)
+`--lease-token "$token"`; see "Leases" below. `comment add` never does.)
 
 For small steps that do not each deserve a task, a checklist in the
 description is enough. A description is Markdown, and `- [ ]` lines are items:
@@ -106,9 +106,9 @@ Items count from 1 in reading order, nested ones included. Pass `--version`
 when you read the task first, so a description somebody changed since is a
 version conflict, exit `4`, rather than a tick on the wrong line.
 
-When you discover work you did not plan for, add it as a task rather than
-doing it silently. That is the same durability argument: an unrecorded detour
-is lost with your context.
+When you discover work you did not plan for, add it as a task instead of
+doing it silently. An unrecorded detour is lost with your context, for the
+same reason an unrecorded plan is.
 
 ## The loop
 
@@ -127,7 +127,7 @@ tix claim release "$ref" --token "$token" --status done \
   **non-terminal** task matching the filter and claims it atomically. No
   filter still excludes `done`/`cancelled` tasks; it does not exclude other
   non-terminal statuses like `blocked`, so scope with `-s todo` if that
-  matters — but read the trap under "Crash recovery" before you rely on
+  matters, but read the trap under "Crash recovery" before you rely on
   `-s todo` to drain a queue.
 - Empty queue (or nothing eligible) is exit `3` with code `no_task_available`,
   not an empty success. Treat it as "nothing to do right now", not an error.
@@ -150,8 +150,8 @@ tix claim release "$ref" --token "$token" --status done \
 - Claiming does **not** transition the task. Move it yourself (`task mv`) or
   use `--on-start` with `claim exec`.
 - There is no `tix claim` subcommand that lists leases. To see what is
-  currently held — which is how you tell whether another agent is already on
-  the queue — ask the task listing: `tix task ls --filter 'claimed:yes'`.
+  currently held (which is how you tell whether another agent is already on
+  the queue), ask the task listing: `tix task ls --filter 'claimed:yes'`.
 - Without `--ttl` the lease length comes from the task (`tix task edit REF
   --lease 4h`), then the project (`tix project edit KEY --lease-default 2h`),
   then an authored workflow, the tenant and the server, then 30m. The claim's
@@ -163,15 +163,15 @@ tix claim release "$ref" --token "$token" --status done \
 ## Leases
 
 A claim mints a `lease_token` and an absolute `lease_expires_at` (UTC, not a
-duration — no clock-drift math). That token is required on every write to the
+duration, so no clock-drift math). That token is required on every write to the
 task's **status or its results**:
 
-- `tix claim renew REF --token T --ttl 15m` — resets the deadline to
+- `tix claim renew REF --token T --ttl 15m`: resets the deadline to
   now+ttl (not "extend by").
 - `tix claim release REF --token T [--status S]`
-- `tix task mv REF STATUS --lease-token T` — required whenever the task is
+- `tix task mv REF STATUS --lease-token T`: required whenever the task is
   currently claimed.
-- `tix artifact put REF --lease-token T` — required whenever the task is
+- `tix artifact put REF --lease-token T`: required whenever the task is
   currently claimed. `claim release --result` and `claim exec` already carry
   results under the token, so reach for this one when you are recording
   something mid-run rather than at the end.
@@ -179,7 +179,7 @@ task's **status or its results**:
 **Omit `--ttl` unless the work is genuinely long.** Without one the length
 comes from the project's workflow, then the tenant, then the deployment. A ttl
 you do pass is capped at whatever the operator set, 24h at most, and over that
-is refused — exit `2`, nothing renewed, old deadline still running:
+is refused: exit `2`, nothing renewed, old deadline still running:
 
 ```console
 $ tix claim renew infra-8 --token "$token" --ttl 48h
@@ -195,8 +195,8 @@ it is.
 On `claim renew` and `claim release`, `--token` is the *lease* token and
 shadows the global API `--token`. Elsewhere `--token` is the API token.
 
-**If your token goes stale — because you didn't renew in time, or someone
-reclaimed the task, or someone else claimed it — every such write with that
+**If your token goes stale (because you didn't renew in time, or someone
+reclaimed the task, or someone else claimed it), every such write with that
 token fails with exit `4` and error code `lease_expired`:**
 
 ```console
@@ -221,11 +221,11 @@ error: lease_expired: task "default-2" is claimed; supply the lease token
 `task mv`'s `lease_expired` only fires when the target status is otherwise a
 legal transition from the task's current state. If the transition itself
 isn't legal you get the ordinary `precondition_failed`/exit `6` for an
-illegal move instead — check the error text, not just that `mv` failed.
+illegal move instead. Check the error text, not just that `mv` failed.
 
 **Do not retry the write with a fresh guess at the token, and do not force
 it.** The right response to exit `4` is: stop, re-`claim next` or `claim
-task`, and re-evaluate — the new holder may already be doing the work, or
+task`, and re-evaluate: the new holder may already be doing the work, or
 the task may need to be re-picked up from scratch.
 
 ### What the lease covers, and what it deliberately does not
@@ -238,7 +238,7 @@ against it.
 Two writes deliberately take **no** token, on a claimed task or any other. Do
 not pass one and do not expect a refusal:
 
-- **`tix comment add`.** Comments are discussion, and append-only — nothing
+- **`tix comment add`.** Comments are discussion, and append-only: nothing
   replaces another. This is how a human talks to you about work you are
   holding, so it has to keep working; it is also the only channel someone in
   the browser has on a task you hold, since a browser session holds no lease.
@@ -267,7 +267,7 @@ the transcript.
 
 **The trap: a crashed task is claimable again but its status has not moved.**
 The row stays in `doing`. So a worker draining the queue with
-`claim next -s todo` will **never see it again** — it answers
+`claim next -s todo` will **never see it again**: it answers
 `no_task_available`, exit `3`, while the task sits there claimable in `doing`.
 Verified against a killed agent.
 
@@ -293,7 +293,7 @@ tix claim reclaim REF --reason 'agent host died'
 That frees the lease and leaves the status alone: it does not apply
 `revert_on_lease_expiry` and it does not reopen anything, because reopening
 work is `tix task mv`, made as its own decision. A task holding no live lease
-is `conflict`, exit `4` — a finished task cannot be reclaimed, and neither can
+is `conflict`, exit `4`. A finished task cannot be reclaimed, and neither can
 one whose lease already lapsed, since there is nothing left to take.
 `task:reclaim` is a scope of its own and is not implied by `task:claim`.
 
@@ -312,7 +312,7 @@ tix claim exec -p default -s todo --on-start doing --on-failure blocked -- ./wor
 | Flag | Effect |
 | --- | --- |
 | `--ref` | claim this task instead of the next eligible one |
-| `--on-start` | move here before running (often required — see below) |
+| `--on-start` | move here before running (often required, see below) |
 | `--on-success` | release status on exit 0 (default `done`) |
 | `--on-failure` | release status on nonzero exit |
 | `-p / -s / -l / --ttl / --actor` | same as `claim next` |
@@ -323,7 +323,7 @@ child; `-q` suppresses that.
 Both the start and the release status must be reachable from the status the
 task is in at the time. The built-in workflow has no `todo`→`done` edge, so
 skipping `--on-start doing` means the release fails **after the child already
-ran** — the child's side effects land, then
+ran**: the child's side effects land, then
 
 ```console
 error: invalid: workflow "default" has no transition from "todo" to "done"
@@ -344,16 +344,16 @@ error: precondition_failed: cannot move task "default-2" from "doing" to "doing"
 ```
 
 That is exit `6`, which is not in exec's table below, so a child exiting `6`
-and a refused `--on-start` look alike — read the message.
+and a refused `--on-start` look alike, so read the message.
 
 Exec's exit codes are not the normal table, because the child's own exit
 status is threaded through:
 
 | Exit | Meaning |
 | --- | --- |
-| `3` | no eligible task — child never started |
+| `3` | no eligible task; the child never started |
 | `4` | the lease was lost mid-run |
-| `2` | the release was illegal (see above) — the child may already have run |
+| `2` | the release was illegal (see above); the child may already have run |
 | anything else | the child's own exit status |
 
 2, 3 and 4 can collide with a real child exit code. If that distinction
@@ -361,7 +361,7 @@ matters, claim explicitly with `claim next`/`claim task` instead, or check
 whether the child produced its expected output.
 
 If `claim exec` itself is killed, renewal stops with it and the lease just
-expires on schedule — no cleanup step needed.
+expires on schedule, with no cleanup step needed.
 
 ## Statuses, categories and terminal states
 
@@ -374,13 +374,13 @@ tix workflow get default -o json      # states, transitions, and default_lease
 
 Every state carries a `category`, and there are six: `todo`, `in_progress`,
 `blocked`, `waiting`, `done`, `cancelled`. The category is how you reason
-about a status you have never seen — a state in `waiting` is parked on
+about a status you have never seen: a state in `waiting` is parked on
 something outside the queue, so it is not work you can push forward by
 claiming it, and a state in `done` or `cancelled` is `terminal`, which is what
 releases a dependency.
 
 The built-in workflow's terminal states are `done` and `cancelled`. **Use
-`cancelled` when you abandon work**, rather than leaving the task in `doing`
+`cancelled` when you abandon work** instead of leaving the task in `doing`
 or marking it `done`: it is terminal, so dependants unblock, and it records
 that the work did not happen.
 
@@ -393,7 +393,7 @@ one, written `doing>done`.
 
 ## When the work needs a decision you are not entitled to make
 
-Some tasks cannot be finished by trying harder. The requirement is genuinely
+Some tasks cannot be finished by trying harder. The requirement is
 ambiguous, or the choice belongs to somebody with authority you do not have:
 what the retention period should be, which of two behaviours is wanted, whether
 an external service may be called at all.
@@ -414,7 +414,7 @@ The comment is the question and belongs on the task, where whoever answers is
 already looking. The status change is what takes the task out of the queue, so
 `claim next` stops offering it and no other agent spends a second on it.
 
-Three things make this the right move rather than a failure:
+This is the right move, not a failure, for three reasons:
 
 - The question is durable. It outlives your process, so it is still there when
   somebody reads the board tomorrow.
@@ -441,12 +441,12 @@ subcommand's `--help` names the codes that command can return; the root
 | --- | --- |
 | 0 | success |
 | 1 | error |
-| 2 | usage — invalid flag, bad value, illegal input |
+| 2 | usage: invalid flag, bad value, illegal input |
 | 3 | not found: a filter term naming nothing, or an empty/no-match queue |
-| 4 | conflict — held task, lost lease, version clash, duplicate name |
+| 4 | conflict: held task, lost lease, version clash, duplicate name |
 | 5 | permission denied |
-| 6 | precondition failed — illegal transition, task has subtasks, project still holds tasks |
-| 7 | upstream failed — a system tix called, such as a sync source, answered badly |
+| 6 | precondition failed: illegal transition, task has subtasks, project still holds tasks |
+| 7 | upstream failed: a system tix called, such as a sync source, answered badly |
 
 Exit `6` is for things a legal *value* still can't do right now (no edge from
 the current status, subtasks blocking a delete); exit `2` is for the value
@@ -462,7 +462,7 @@ think you're in is not the state that's actually there.
 `tix task ls` only. `tix task ls`
 streams so large listings never buffer. Machine formats **never** carry
 colour escapes, even with `--color` forced. `-q` suppresses diagnostics (not
-errors — those still go to stderr with a nonzero exit), and it does not
+errors, which still go to stderr with a nonzero exit), and it does not
 suppress the command's own result table.
 
 ```console
@@ -508,7 +508,7 @@ carries the new `ref`. Store the `id` if you need a handle that never changes,
 and write the `ref` from the latest response rather than the one you started
 with.
 
-A fresh database seeds four projects — `default`, `work`, `homelab`, `house` —
+A fresh database seeds four projects (`default`, `work`, `homelab`, `house`),
 so `task ls` with no `-p` spans all of them, while `task add` with no `-p`
 lands in `default`. `--limit` (default 25) sizes a page, `--cursor` continues
 one, `--all` follows them for you. Tasks the caller starred (`tix task star
@@ -643,7 +643,7 @@ tix comment add default-3 "Skipped the Windows path: no Windows runner in CI to 
 `--name` labels it on the task. `--payload -` / `--file -` read stdin.
 
 **`artifact put` needs `--lease-token` while you hold the task; `comment add`
-never does** — see "What the lease covers" above. Drop `--lease-token` only
+never does**; see "What the lease covers" above. Drop `--lease-token` only
 when the task is genuinely unclaimed; on a claimed one it is exit `4`.
 `claim release --comment "..."` and `--result key=value` (repeatable) are the
 fast path when you're closing the task anyway, and need no token of their own.
@@ -660,7 +660,7 @@ tix dep rm default-3 default-2
 ```
 
 A dependency is released when the task it points at reaches a **terminal**
-state — `done` or `cancelled` in the built-in workflow, not merely "moved on".
+state: `done` or `cancelled` in the built-in workflow, not merely "moved on".
 `dep add` fails exit `2` on a self-edge or a cycle (`invalid`, not
 `precondition_failed`).
 
@@ -746,13 +746,13 @@ Targets, contexts, tokens and scopes are in
 - Do not ignore exit `4`. Re-claim; don't retry the write.
 - Do not sleep on exit `3` without reading the code. `no_task_available` means
   wait; `not_found` means your filter is wrong and waiting is forever.
-- Do not write to somebody's default store while testing or demoing — always
+- Do not write to somebody's default store while testing or demoing. Always
   pass `--db` (or `TIX_DATABASE_DSN`) at a scratch path.
-- Do not assume a ref (`default-1`) is stable across databases or tenants —
+- Do not assume a ref (`default-1`) is stable across databases or tenants:
   it's a per-project sequence, not a global ID. If you need a durable
   identifier, use the task's `id`.
 - Do not skip `--on-start` on `claim exec` when the workflow has no direct
-  edge from the current status to your `--on-success`/`--on-failure` target —
+  edge from the current status to your `--on-success`/`--on-failure` target:
   the release fails after the child already ran.
 - Do not assume `claim task REF` screened the task for you. It hands out
   blocked tasks; `claim next` does not.
