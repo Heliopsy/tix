@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.40.0](https://github.com/Heliopsy/tix/compare/v0.39.0...v0.40.0) (2026-11-05)
+
+
+### Features
+
+* **mcp:** serve the API as MCP tools generated from the OpenAPI document ([294c7e3](https://github.com/Heliopsy/tix/commit/294c7e30e62893100fca6a27b73290240f0f6d03))
+
 ## [0.39.0](https://github.com/Heliopsy/tix/compare/v0.38.1...v0.39.0) (2026-11-04)
 
 
