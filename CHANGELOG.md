@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.42.0](https://github.com/Heliopsy/tix/compare/v0.41.0...v0.42.0) (2026-11-05)
+
+
+### Features
+
+* **api:** describe every query and path parameter ([#183](https://github.com/Heliopsy/tix/issues/183)) ([f81d3dc](https://github.com/Heliopsy/tix/commit/f81d3dc1448516643c85ca60ddb2169cf678076b))
+
+
+### Bug Fixes
+
+* **api:** clear a task's due date with null over HTTP ([f9a9c6f](https://github.com/Heliopsy/tix/commit/f9a9c6f16d28b31788ba8a38b98195fcedeecf97))
+* **scripts:** keep touch emulation in phone and tablet screenshots ([e45b485](https://github.com/Heliopsy/tix/commit/e45b4857a789f1b6931a270ade6e6273c4c233d4))
+* **web:** keep buttons on one line and draw arrows as icons ([9c64d74](https://github.com/Heliopsy/tix/commit/9c64d741ee1ab3d5a33cd2080e00c7955f3c8f68))
+* **web:** stop offering a phone what it cannot use, and let toolbar notes flow ([cae3f1d](https://github.com/Heliopsy/tix/commit/cae3f1da6eb50ffd83ae86a16509fb6154682912))
+
 ## [0.41.0](https://github.com/Heliopsy/tix/compare/v0.40.0...v0.41.0) (2026-11-05)
 
 
