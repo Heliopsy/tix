@@ -106,7 +106,7 @@ func TestEveryCreateButtonOpensItsFormInADialog(t *testing.T) {
 	b := f.as("alice")
 	for _, tc := range createDialogs {
 		page := b.page(tc.path)
-		opener := `href="` + tc.path + `?dialog=` + tc.id + `#` + tc.id + `" data-dlg-open="` + tc.id + `" aria-haspopup="dialog"><svg class="btn-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#plus"/>`
+		opener := `href="` + tc.path + `?dialog=` + tc.id + `#` + tc.id + `" data-dlg-open="` + tc.id + `" aria-haspopup="dialog"><svg class="icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#plus"/>`
 		at, from := strings.Index(page, opener), strings.Index(page, tc.head)
 		if at < 0 || from < 0 || from > at ||
 			strings.Contains(page[from:at], "<table") || strings.Contains(page[from:at], "<dialog") ||

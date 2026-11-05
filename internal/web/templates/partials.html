@@ -944,12 +944,12 @@
      in place, which is also how a refused submission comes back to it;
      assets/forms.js turns the link into the dialog and an in-place dialog
      into a modal one. Takes opener. */}}
-{{define "dlg-open"}}<a class="btn{{with .Class}} {{.}}{{end}}" href="{{.Href}}" data-dlg-open="{{.ID}}" aria-haspopup="dialog"{{with .Aria}} aria-label="{{.}}"{{end}}>{{with .Icon}}<svg class="btn-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#{{.}}"/></svg>{{end}}<span class="btn-label">{{.Label}}</span></a>{{end}}
+{{define "dlg-open"}}<a class="btn{{with .Class}} {{.}}{{end}}" href="{{.Href}}" data-dlg-open="{{.ID}}" aria-haspopup="dialog"{{with .Aria}} aria-label="{{.}}"{{end}}>{{with .Icon}}{{template "icon" .}}{{end}}<span class="btn-label">{{.Label}}</span></a>{{end}}
 
 {{/* The frame of an action dialog: its heading and the close control.
      Whatever follows up to dlg-end is its body. Takes shell. */}}
 {{define "dlg-start"}}<dialog id="{{.ID}}" class="actiondlg{{with .Class}} {{.}}{{end}}{{if .Open}} is-inplace{{end}}" aria-labelledby="{{.ID}}-title" data-dlg{{if .Open}} open{{end}}>
-<div class="actiondlg-head"><h2 id="{{.ID}}-title">{{.Label}}</h2><a class="actiondlg-x" href="{{.Back}}" data-dlg-close aria-label="{{t "Close"}}" title="{{t "Close"}}"><svg aria-hidden="true" width="18" height="18"><use href="/assets/icons.svg#close"/></svg></a></div>{{end}}
+<div class="actiondlg-head"><h2 id="{{.ID}}-title">{{.Label}}</h2><a class="actiondlg-x" href="{{.Back}}" data-dlg-close aria-label="{{t "Close"}}" title="{{t "Close"}}">{{template "icon" "x"}}</a></div>{{end}}
 {{define "dlg-end"}}</dialog>{{end}}
 
 {{/* A dialog's Cancel: back to the screen without the dialog, which is

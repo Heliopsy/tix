@@ -3,7 +3,7 @@
      deliveries with Redeliver. Every control is a plain post. */}}
 {{define "content"}}
 {{$v := .Data}}{{$c := $v.Channel}}
-<p class="backlink"><a href="/settings#notifications">&larr; {{t "Notifications"}}</a></p>
+<p class="backlink"><a href="/settings#notifications">{{template "icon" "arrow-left"}}<span>{{t "Notifications"}}</span></a></p>
 <div class="pagehead">
   <div class="pagehead-title">
     <div class="headtip"><h1>{{$c.Name}}</h1>{{template "tip" (tip "Notification channels" "A channel of your own: tix posts your inbox items of the kinds you ticked to its URL, shaped for the service behind it, and retries a refused delivery on the same schedule as a tenant webhook. Nobody else's items reach it." "docs/web-ui.md")}}</div>

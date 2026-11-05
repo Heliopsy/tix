@@ -9,7 +9,7 @@
     <p class="meta">{{t "Workflow %s" .Data.Workflow.Name}} &middot; <a href="/projects/{{.Data.Project.Key}}/fields">{{t "Field definitions"}}</a> &middot; <a href="/workflows/{{.Data.Workflow.Key}}">{{t "Workflow editor"}}</a></p>
   </div>
   <div class="pagehead-tools">
-    <a class="btn secondary" href="/projects/{{.Data.Project.Key}}/settings"><svg class="btn-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#settings"/></svg><span class="btn-label">{{t "Settings"}}</span></a>
+    <a class="btn secondary" href="/projects/{{.Data.Project.Key}}/settings">{{template "icon" "settings"}}<span class="btn-label">{{t "Settings"}}</span></a>
   </div>
 </div>
 {{/* A screen reader user learns a drag-and-drop move happened here, since
