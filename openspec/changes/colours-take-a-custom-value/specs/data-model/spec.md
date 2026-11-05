@@ -3,52 +3,13 @@
 ### Requirement: Project colour and icon
 
 A project SHALL carry an optional colour and an optional icon so that rows belonging to different
-projects can be told apart at a glance. The colour SHALL be either a token drawn from a fixed palette
-defined by the system, or a custom colour written as `#` followed by six hexadecimal digits. The
-system SHALL store a palette token or a custom colour in lowercase, and SHALL reject any other value,
-including short hexadecimal forms, colour names outside the palette and functional notations, with a
-validation error raised by the service layer on every access path. The icon SHALL be
-exactly one of three kinds, or none: a text icon, which is a short printable token of at most two
-characters admitting a single emoji or a brief monogram; a built-in icon, named from a fixed set of
-symbols the system ships; or an uploaded image. Setting one kind SHALL replace whichever kind the
-project carried, and a write naming two kinds at once SHALL be rejected. Both the colour and the
-icon SHALL default to empty, SHALL be settable at creation and afterwards, and SHALL be clearable by
-setting them to empty.
+projects can be told apart at a glance. Both the colour and the icon SHALL default to empty, SHALL
+be settable at creation and afterwards, and SHALL be clearable by setting them to empty.
 
 #### Scenario: Colour and icon round trip
 
 - **WHEN** a project is created with a palette colour and an icon
 - **THEN** reading the project back returns the same colour and icon
-
-#### Scenario: A custom colour round trips in lowercase
-
-- **WHEN** a project is created or updated with the colour `#1A7F5A`
-- **THEN** reading the project back returns the colour `#1a7f5a`
-
-#### Scenario: Colour outside the palette is refused
-
-- **WHEN** a project is created or updated with a colour that is neither in the palette nor `#` followed by six hexadecimal digits
-- **THEN** the write is rejected with a validation error and nothing is persisted
-
-#### Scenario: Icon longer than the limit is refused
-
-- **WHEN** a project is created or updated with a text icon longer than two characters
-- **THEN** the write is rejected with a validation error
-
-#### Scenario: Unknown built-in icon is refused
-
-- **WHEN** a project is created or updated with a built-in icon name the system does not ship
-- **THEN** the write is rejected with a validation error naming the available icons
-
-#### Scenario: One kind replaces another
-
-- **WHEN** a project carrying a text icon is updated with a built-in icon
-- **THEN** the project carries the built-in icon and no text icon
-
-#### Scenario: Two kinds at once are refused
-
-- **WHEN** a project is created with both a text icon and a built-in icon
-- **THEN** the write is rejected with a validation error and nothing is persisted
 
 #### Scenario: Both are clearable
 
@@ -79,3 +40,48 @@ setting them to empty.
 - **THEN** the resulting project carries the same colour and the same icon, and a bundle naming a
   colour that is neither in the palette nor a custom colour, an over-long icon or an unknown built-in icon is rejected before
   anything is written
+
+### Requirement: A project colour is drawn from a fixed palette
+
+The colour SHALL be either a token drawn from a fixed palette defined by the system, or a custom
+colour written as `#` followed by six hexadecimal digits. The system SHALL store a palette token or a
+custom colour in lowercase, and SHALL reject any other value, including short hexadecimal forms,
+colour names outside the palette and functional notations, with a validation error raised by the
+service layer on every access path.
+
+#### Scenario: A custom colour round trips in lowercase
+
+- **WHEN** a project is created or updated with the colour `#1A7F5A`
+- **THEN** reading the project back returns the colour `#1a7f5a`
+
+#### Scenario: Colour outside the palette is refused
+
+- **WHEN** a project is created or updated with a colour that is neither in the palette nor `#` followed by six hexadecimal digits
+- **THEN** the write is rejected with a validation error and nothing is persisted
+
+### Requirement: A project icon is a short printable token
+
+The icon SHALL be exactly one of three kinds, or none: a text icon, which is a short printable
+token of at most two characters admitting a single emoji or a brief monogram; a built-in icon,
+named from a fixed set of symbols the system ships; or an uploaded image. Setting one kind SHALL
+replace whichever kind the project carried, and a write naming two kinds at once SHALL be rejected.
+
+#### Scenario: Icon longer than the limit is refused
+
+- **WHEN** a project is created or updated with a text icon longer than two characters
+- **THEN** the write is rejected with a validation error
+
+#### Scenario: Unknown built-in icon is refused
+
+- **WHEN** a project is created or updated with a built-in icon name the system does not ship
+- **THEN** the write is rejected with a validation error naming the available icons
+
+#### Scenario: One kind replaces another
+
+- **WHEN** a project carrying a text icon is updated with a built-in icon
+- **THEN** the project carries the built-in icon and no text icon
+
+#### Scenario: Two kinds at once are refused
+
+- **WHEN** a project is created with both a text icon and a built-in icon
+- **THEN** the write is rejected with a validation error and nothing is persisted
