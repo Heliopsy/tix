@@ -106,7 +106,8 @@ $ tix task ls --filter 'due:fortnight'
 error: invalid: unknown due: value "fortnight"; try one of overdue, today, week, month, or a bound such as due:<2026-02-01
 ```
 
-Set a deadline with `tix task add --due` or `tix task edit --due`.
+Set a deadline with `tix task add --due` or `tix task edit --due`; `tix task edit --due ""` clears it,
+locally or against `--server`.
 
 ## Sorting and paging
 

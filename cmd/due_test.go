@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -128,4 +129,32 @@ func contains(values []string, want string) bool {
 		}
 	}
 	return false
+}
+
+// TestTaskEditClearsTheDueDateOverTheServer runs `task edit --due ""` in
+// remote mode, where the clear travels as a JSON null rather than a Go nil.
+func TestTaskEditClearsTheDueDateOverTheServer(t *testing.T) {
+	c := newCLI(t)
+	var task core.Task
+	added := c.mustRun("task", "add", "--due", "2026-12-01", "renew the certificate", "-o", "json").out
+	if err := json.Unmarshal([]byte(added), &task); err != nil {
+		t.Fatalf("task add: %v (%s)", err, added)
+	}
+	var created struct {
+		Token string `json:"token"`
+	}
+	out := c.mustRun("token", "create", "edit", "--scope", "task:read", "--scope", "task:write", "-o", "json").out
+	if err := json.Unmarshal([]byte(out), &created); err != nil {
+		t.Fatalf("token create: %v (%s)", err, out)
+	}
+	url := c.loginServer()
+	remote := []string{"--server", url, "--token", created.Token}
+
+	if shown := c.mustRun(append(remote, "task", "show", task.Ref, "-o", "json")...); !strings.Contains(shown.out, `"due_at"`) {
+		t.Fatalf("the task has no due date to clear:\n%s", shown.out)
+	}
+	c.mustRun(append(remote, "task", "edit", task.Ref, "--due", "")...)
+	if shown := c.mustRun(append(remote, "task", "show", task.Ref, "-o", "json")...); strings.Contains(shown.out, `"due_at"`) {
+		t.Fatalf("the due date survived --due \"\" over the server:\n%s", shown.out)
+	}
 }

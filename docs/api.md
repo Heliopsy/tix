@@ -221,6 +221,19 @@ $ curl -s -H "Authorization: Bearer $TIX_TOKEN" http://127.0.0.1:8080/api/v1/tas
 {"id":"01M6...","ref":"ops-8", ...}
 ```
 
+### Updating a task
+
+`PATCH /tasks/{ref}` changes only the fields the body names; an absent key leaves that field alone. To clear
+a field, send the value that means empty: `null` for `due_at`, `""` for `assignee_actor_id`, `parent_ref`
+and `recurrence`, `"0"` for `lease`, `[]` for `tags`, and `null` for one key inside `custom_fields`.
+A timestamp or any other value sets the field.
+
+```console
+$ curl -s -X PATCH -H "Authorization: Bearer $TIX_TOKEN" -H 'Content-Type: application/json' \
+    -d '{"due_at":null}' http://127.0.0.1:8080/api/v1/tasks/infra-8
+{"id":"01M6...","ref":"infra-8","title":"Fix login", ...}
+```
+
 ### Quick add
 
 `POST /tasks` with `"parse": true` reads `title` as a quick-add line, the syntax

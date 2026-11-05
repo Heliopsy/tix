@@ -33,6 +33,8 @@ func TestArgumentsBecomeOneRequest(t *testing.T) {
 		{"body at the top level", "task.create", `{"title":"t","priority":2}`, "/api/v1/tasks", "", `{"priority":2,"title":"t"}`},
 		{"body nested on a collision", "workflow.put_by_key", `{"key":"k","body":{"key":"k","name":"n"}}`,
 			"/api/v1/workflows/k", "", `{"key":"k","name":"n"}`},
+		{"null reaches the body as a clear", "task.update", `{"ref":"ops-1","due_at":null}`,
+			"/api/v1/tasks/ops-1", "", `{"due_at":null}`},
 		{"optional body left out", "claim.next", `{}`, "/api/v1/claims/next", "", ""},
 		{"no arguments at all", "tag.list", ``, "/api/v1/tags", "", ""},
 	} {
