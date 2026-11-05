@@ -11596,6 +11596,12 @@ components:
     SyncSource:
       description: SyncSource records an import source and its cursor.
       properties:
+        config:
+          additionalProperties:
+            type: string
+          description: Config is the source's stored non-secret settings, such as
+            "url" or "project". It never holds a credential.
+          type: object
         created_at:
           description: CreatedAt is when the source was added, RFC 3339.
           format: date-time
@@ -11616,6 +11622,10 @@ components:
         last_status:
           description: 'LastStatus is how the last run went: "running", "ok" or "failed".'
           type: string
+        mapping_path:
+          description: MappingPath is the stored mapping file, empty when the environment
+            names it.
+          type: string
         name:
           description: Name identifies the source within its system.
           type: string
@@ -11631,16 +11641,17 @@ components:
       properties:
         config:
           additionalProperties: {}
-          description: 'Config is checked for credential keys, which are refused,
-            and is not stored: connection settings are read from the environment at
-            run time.'
+          description: 'Config holds the source''s non-secret settings, stored and
+            preferred over TIX_SYNC_<SOURCE>_* at run time: "file" and "page_size"
+            for generic, "url", "project", "query" and "page_size" for jira and openproject.
+            A credential key or any other key is refused. Updating replaces them whole.'
           type: object
         id:
           description: ID names the source to update; empty registers a new one.
           type: string
         mapping_path:
-          description: MappingPath is accepted and not stored; the mapping file is
-            read from the environment at run time.
+          description: MappingPath is the mapping file, stored and preferred over
+            TIX_SYNC_<SOURCE>_MAPPING at run time.
           type: string
         name:
           description: Name labels the source. Required.

@@ -17,10 +17,11 @@ func newSyncCmd(g *globals) *cobra.Command {
 			"Imports are one way: tix never writes back. Every imported entity records an\n" +
 			"external reference, so a second run refreshes what changed instead of\n" +
 			"duplicating it.\n\n" +
-			"Endpoints, mapping files and credentials are read from the environment as\n" +
-			extsync.EnvPrefix + "<SOURCE>_URL, _TOKEN, _USER, _PASSWORD, _FILE, _MAPPING,\n" +
-			"_QUERY, _PROJECT and _PAGE_SIZE. Nothing a source authenticates with is ever\n" +
-			"stored, audited or logged.",
+			"A source stores its url, project, query, file, page size and mapping file\n" +
+			"when given them, and reads anything it does not store from the environment as\n" +
+			extsync.EnvPrefix + "<SOURCE>_URL, _FILE, _MAPPING, _QUERY, _PROJECT and\n" +
+			"_PAGE_SIZE. Credentials come only from _TOKEN, _USER and _PASSWORD; nothing a\n" +
+			"source authenticates with is ever stored, audited or logged.",
 		GroupID: "admin",
 		Args:    noArgs,
 		RunE:    helpRunner,
@@ -43,7 +44,8 @@ func newSyncSourceCmd(g *globals) *cobra.Command {
 }
 
 func syncSourceAddCmd(g *globals) *cobra.Command {
-	var id string
+	var id, mapping, url, project, query, file string
+	var pageSize int
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:     "add SYSTEM NAME",
@@ -52,17 +54,40 @@ func syncSourceAddCmd(g *globals) *cobra.Command {
 		Long: "Register an import source, or update one by passing --id.\n\n" +
 			"SYSTEM is one of generic, jira or openproject. NAME selects the environment\n" +
 			"variables the source is configured from.\n\n" +
-			"Exit codes: 2 unknown system or missing name, 5 permission denied.",
-		Example: "  tix sync source add generic ops\n  tix sync source add jira platform",
-		Args:    exactArgs(2),
+			"The setting flags are stored on the source and win over the matching\n" +
+			extsync.EnvPrefix + "<SOURCE>_* variable; a setting left out is read from its\n" +
+			"variable at run time. generic takes --file and --page-size; jira and\n" +
+			"openproject take --url, --project, --query and --page-size. Every system\n" +
+			"takes --mapping. Updating a source replaces its stored settings whole.\n" +
+			"Credentials are never stored and come only from the environment.\n\n" +
+			"Exit codes: 2 unknown system, missing name or a setting the system does not\n" +
+			"take, 5 permission denied.",
+		Example: "  tix sync source add generic ops --file /srv/ops.csv --mapping /etc/tix/ops.yaml\n" +
+			"  tix sync source add jira platform --url https://acme.atlassian.net --project PLAT",
+		Args: exactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			in := core.SyncSourceInput{ID: id, System: args[0], Name: args[1]}
+			config := map[string]any{}
+			for key, value := range map[string]string{
+				core.SyncSettingURL: url, core.SyncSettingProject: project,
+				core.SyncSettingQuery: query, core.SyncSettingFile: file,
+			} {
+				if value != "" {
+					config[key] = value
+				}
+			}
+			if pageSize != 0 {
+				config[core.SyncSettingPageSize] = pageSize
+			}
+			in := core.SyncSourceInput{ID: id, System: args[0], Name: args[1], MappingPath: mapping}
+			if len(config) > 0 {
+				in.Config = config
+			}
 			if err := in.Validate(); err != nil {
 				return err
 			}
 			if dryRun {
 				return g.render(cmd, newPlan("sync.source.put", in.Name,
-					map[string]any{"system": in.System}))
+					map[string]any{"system": in.System, "config": in.Config, "mapping_path": in.MappingPath}))
 			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
@@ -72,12 +97,18 @@ func syncSourceAddCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			g.diag(cmd, "configure this source through %s*", extsync.EnvName(in.Name, ""))
+			g.diag(cmd, "credentials and unset settings come from %s*", extsync.EnvName(in.Name, ""))
 			return g.render(cmd, source)
 		},
 	}
 	f := cmd.Flags()
 	f.StringVar(&id, "id", "", "identifier of the source to update")
+	f.StringVar(&mapping, "mapping", "", "path to the mapping file")
+	f.StringVar(&url, "url", "", "base url of the external system (jira, openproject)")
+	f.StringVar(&project, "project", "", "external project key or identifier to import (jira, openproject)")
+	f.StringVar(&query, "query", "", "query selecting the records, such as JQL (jira, openproject)")
+	f.StringVar(&file, "file", "", "the .csv or .json file to read (generic)")
+	f.IntVar(&pageSize, "page-size", 0, "records per request")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	return cmd
 }

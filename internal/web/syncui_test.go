@@ -113,18 +113,41 @@ func TestSyncScreenNamesOnlyTheVariablesThatSystemReads(t *testing.T) {
 	}
 }
 
-func TestSyncScreenOffersNoFieldItCannotStore(t *testing.T) {
+func TestSyncScreenStoresTheSettingsItCollects(t *testing.T) {
 	t.Parallel()
-	page := newFixture(t).as("alice").page("/sync")
+	b := newFixture(t).as("alice")
+	b.page("/sync")
+	resp := b.post("/sync/sources", url.Values{"system": {"jira"}, "name": {"platform"},
+		"mapping_path": {"/etc/tix/platform.yaml"}, "url": {"https://jira.example/"},
+		"project": {"PLAT"}, "query": {""}, "file": {""}, "page_size": {""}})
+	_ = resp.Body.Close()
+	wantStatus(t, resp, http.StatusSeeOther)
 
-	// A sync source record holds an id, a system and a name. The screen used
-	// to collect a mapping path and a free-text configuration block as well,
-	// neither of which was stored anywhere, so filling them in produced a
-	// saved source and no working import.
-	for _, dead := range []string{`name="mapping_path"`, `name="config"`} {
-		if strings.Contains(page, dead) {
-			t.Errorf("the sync screen still collects %s, which no source record keeps", dead)
+	row := section(t, b.page("/sync"), "Sources")
+	for _, want := range []string{
+		"mapping_path <code>/etc/tix/platform.yaml</code>",
+		"url <code>https://jira.example</code>",
+		"project <code>PLAT</code>",
+	} {
+		if !strings.Contains(row, want) {
+			t.Errorf("the Sources table does not show %q", want)
 		}
+	}
+	if strings.Contains(row, "query <code>") {
+		t.Error("the Sources table shows a query that was left empty")
+	}
+}
+
+func TestSyncScreenRefusesASettingTheSystemDoesNotTake(t *testing.T) {
+	t.Parallel()
+	b := newFixture(t).as("alice")
+	b.page("/sync")
+	resp := b.post("/sync/sources", url.Values{"system": {"generic"}, "name": {"ops"},
+		"url": {"https://jira.example"}})
+	_ = resp.Body.Close()
+	wantStatus(t, resp, http.StatusBadRequest)
+	if strings.Contains(section(t, b.page("/sync"), "Sources"), ">ops<") {
+		t.Error("a refused source was saved")
 	}
 }
 

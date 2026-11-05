@@ -1150,3 +1150,40 @@ func TestRollbackDiscardsWrites(t *testing.T) {
 		t.Fatalf("reading after rollback: %v", err)
 	}
 }
+
+func TestSyncSourceKeepsItsSettings(t *testing.T) {
+	ctx := context.Background()
+	s, clk := newStore(t)
+	f := seed(t, s, clk, "acme")
+
+	src := core.SyncSource{System: "jira", Name: "platform",
+		Config:      map[string]string{"url": "https://jira.test", "project": "PLAT"},
+		MappingPath: "/etc/tix/platform.yaml"}
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+		if err := tx.PutSyncSource(ctx, &src); err != nil {
+			return err
+		}
+		got, err := tx.GetSyncSource(ctx, src.ID)
+		if err != nil {
+			return err
+		}
+		if got.Config["url"] != "https://jira.test" || got.Config["project"] != "PLAT" ||
+			got.MappingPath != "/etc/tix/platform.yaml" {
+			t.Fatalf("stored source = %+v", got)
+		}
+		cleared := core.SyncSource{System: "jira", Name: "platform"}
+		if err := tx.PutSyncSource(ctx, &cleared); err != nil {
+			return err
+		}
+		sources, err := tx.ListSyncSources(ctx)
+		if err != nil {
+			return err
+		}
+		if len(sources) != 1 || sources[0].Config != nil || sources[0].MappingPath != "" {
+			t.Fatalf("after clearing, sources = %+v", sources)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}

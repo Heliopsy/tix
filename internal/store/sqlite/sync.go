@@ -12,18 +12,26 @@ import (
 )
 
 var syncSourceColumns = []string{
-	"id", "tenant_id", "system", "name", "cursor", "last_run_at", "last_status", "created_at",
+	"id", "tenant_id", "system", "name", "config", "mapping_path", "cursor", "last_run_at", "last_status",
+	"created_at",
 }
 
 func scanSyncSource(s scanner) (core.SyncSource, error) {
 	var (
 		src     core.SyncSource
+		config  string
 		lastRun sql.NullString
 		created sql.NullString
 	)
-	if err := s.Scan(&src.ID, &src.TenantID, &src.System, &src.Name, &src.Cursor,
-		&lastRun, &src.LastStatus, &created); err != nil {
+	if err := s.Scan(&src.ID, &src.TenantID, &src.System, &src.Name, &config, &src.MappingPath,
+		&src.Cursor, &lastRun, &src.LastStatus, &created); err != nil {
 		return core.SyncSource{}, mapErr(err, "scanning sync source")
+	}
+	if err := sqlb.ParseJSON(config, &src.Config); err != nil {
+		return core.SyncSource{}, core.Internal("decoding settings of sync source %q", src.ID).Wrap(err)
+	}
+	if len(src.Config) == 0 {
+		src.Config = nil
 	}
 	var err error
 	if src.LastRunAt, err = sqlb.ScanNullTime(lastRun); err != nil {
@@ -38,9 +46,15 @@ func scanSyncSource(s scanner) (core.SyncSource, error) {
 // PutSyncSource creates or replaces an import source and its cursor.
 func (t *tx) PutSyncSource(ctx context.Context, s *core.SyncSource) error {
 	s.TenantID = t.scope.TenantID
+	config, err := sqlb.JSONText(s.Config, "{}")
+	if err != nil {
+		return core.Internal("encoding settings of sync source %q", s.Name).Wrap(err)
+	}
 	upd := t.builder("sync_sources").
 		Where("system = ?", s.System).
 		Where("name = ?", s.Name).
+		Set("config", config).
+		Set("mapping_path", s.MappingPath).
 		Set("cursor", s.Cursor).
 		Set("last_run_at", sqlb.NullTimeText(s.LastRunAt)).
 		Set("last_status", s.LastStatus)
@@ -70,6 +84,8 @@ func (t *tx) PutSyncSource(ctx context.Context, s *core.SyncSource) error {
 		Set("id", s.ID).
 		Set("system", s.System).
 		Set("name", s.Name).
+		Set("config", config).
+		Set("mapping_path", s.MappingPath).
 		Set("cursor", s.Cursor).
 		Set("last_run_at", sqlb.NullTimeText(s.LastRunAt)).
 		Set("last_status", s.LastStatus).
