@@ -1600,10 +1600,6 @@ whole set.
 A statement of incompleteness SHALL appear with the control or figure it qualifies, and SHALL be
 written in the register the rest of the interface uses for such notes.
 
-A figure whose listing stopped before the end SHALL NOT be rendered as a number, since the number
-would be a floor presented as a total; the screen SHALL print in its place that the figure is
-incomplete, distinguishably from a listing that failed to be read at all.
-
 #### Scenario: A listing that reached the end says nothing
 
 - **GIVEN** a tenant whose projects and actors are both fewer than the bounded walks cover
@@ -1618,17 +1614,23 @@ incomplete, distinguishably from a listing that failed to be read at all.
 - **WHEN** a reader opens the task screen or the settings screen
 - **THEN** the project visibility control states that the list it offers is not the whole set
 
-#### Scenario: A figure whose walk stopped prints no total
-
-- **GIVEN** a tenant with more projects than the project walk covers
-- **WHEN** a reader opens the tenant screen
-- **THEN** the Projects row of the diagram prints that the count is incomplete, in the figure's place
-
 #### Scenario: One caveat for one control rendered twice
 
 - **GIVEN** the project visibility control, which the task screen and the settings screen both render
 - **WHEN** the walk behind its choices stops before the end
 - **THEN** both screens state it, from the control's own state rather than from either screen's
+
+### Requirement: A figure from a walk stopped short prints that it is incomplete
+
+A figure whose listing stopped before the end SHALL NOT be rendered as a number, since the number
+would be a floor presented as a total; the screen SHALL print in its place that the figure is
+incomplete, distinguishably from a listing that failed to be read at all.
+
+#### Scenario: A figure whose walk stopped prints no total
+
+- **GIVEN** a tenant with more projects than the project walk covers
+- **WHEN** a reader opens the tenant screen
+- **THEN** the Projects row of the diagram prints that the count is incomplete, in the figure's place
 
 ### Requirement: The tenant diagram's token figure means what the token screen shows
 
@@ -1698,17 +1700,6 @@ The position control a keyset listing renders SHALL state which page of the walk
 counting from one, and that number SHALL keep counting for as long as the walk continues. It SHALL
 NOT stall at the bound of any memory the control keeps in its own links.
 
-The number SHALL be derived from what the control's own links carry. Where that memory is bounded and
-has discarded the earliest of it, the number SHALL be carried alongside rather than recomputed from
-what is left.
-
-A number arriving from the address bar SHALL NOT be believed below what the link's own history
-already proves, SHALL be bounded, and SHALL reach no query. The worst a value a reader typed can cost
-is a wrong label on the control.
-
-A link short of that bound SHALL carry no page number of its own, since its history already counts
-it.
-
 #### Scenario: Walking past the bound of the control's memory
 
 - **GIVEN** a listing with more pages than the control's cursor memory holds
@@ -1721,17 +1712,32 @@ it.
 - **THEN** each page states a number one lower than the page before it, for every page the control
   can still reach
 
+### Requirement: The position control's page number is carried in its own links
+
+The number SHALL be derived from what the control's own links carry. Where that memory is bounded and
+has discarded the earliest of it, the number SHALL be carried alongside rather than recomputed from
+what is left.
+
+A link short of that bound SHALL carry no page number of its own, since its history already counts
+it.
+
+#### Scenario: An early page's link carries no page number
+
+- **WHEN** a reader follows the control forward or back from a page within the bound of its memory
+- **THEN** the resulting address carries no page number parameter
+
+### Requirement: A page number from the address bar never undercuts the link's history
+
+A number arriving from the address bar SHALL NOT be believed below what the link's own history
+already proves, SHALL be bounded, and SHALL reach no query. The worst a value a reader typed can cost
+is a wrong label on the control.
+
 #### Scenario: A number below what the history proves is ignored
 
 - **GIVEN** a page whose link carries a history of forty positions
 - **WHEN** the address bar names a page number lower than that history accounts for, or a value that
   is not a number at all
 - **THEN** the control states the number the history itself counts
-
-#### Scenario: An early page's link carries no page number
-
-- **WHEN** a reader follows the control forward or back from a page within the bound of its memory
-- **THEN** the resulting address carries no page number parameter
 
 ### Requirement: Rendered screens forbid storage
 
@@ -1831,23 +1837,24 @@ not meet every open browser at once. A successful connection SHALL reset the
 delay. A hidden page SHALL NOT retry; returning to it SHALL reconnect at once
 and re-read what it missed.
 
-A resubscription SHALL carry the sequence of the last event the screen saw, so
-the server replays the gap. Where that cursor is no longer retained, the
-screen SHALL subscribe afresh and re-fetch its fragment whole rather than
-leaving a gap nothing fills.
-
-Where no connection can be established at all, the screen SHALL poll its
-fragment on a slow interval, and SHALL stop polling as soon as a connection
-succeeds.
-
-While a screen is not receiving events it SHALL say so on screen, naming the
-consequence: that what is shown may be out of date.
-
 #### Scenario: A dropped connection is reopened
 
 - **GIVEN** a screen receiving events
 - **WHEN** the connection drops
 - **THEN** it is reopened after a bounded, growing, jittered delay, and updates resume
+
+#### Scenario: A sleeping laptop does not storm the server
+
+- **GIVEN** a page hidden while its connection is down
+- **WHEN** it is hidden
+- **THEN** it does not retry, and on becoming visible it reconnects at once and re-reads
+
+### Requirement: A resubscription resumes from the last sequence the screen saw
+
+A resubscription SHALL carry the sequence of the last event the screen saw, so
+the server replays the gap. Where that cursor is no longer retained, the
+screen SHALL subscribe afresh and re-fetch its fragment whole rather than
+leaving a gap nothing fills.
 
 #### Scenario: Nothing is lost across the gap
 
@@ -1861,11 +1868,14 @@ consequence: that what is shown may be out of date.
 - **WHEN** the server refuses the cursor
 - **THEN** the screen subscribes from the present and re-fetches its fragment, rather than failing silently
 
-#### Scenario: A sleeping laptop does not storm the server
+### Requirement: A screen with no event connection polls and warns that it may be stale
 
-- **GIVEN** a page hidden while its connection is down
-- **WHEN** it is hidden
-- **THEN** it does not retry, and on becoming visible it reconnects at once and re-reads
+Where no connection can be established at all, the screen SHALL poll its
+fragment on a slow interval, and SHALL stop polling as soon as a connection
+succeeds.
+
+While a screen is not receiving events it SHALL say so on screen, naming the
+consequence: that what is shown may be out of date.
 
 #### Scenario: No socket available
 
@@ -1943,16 +1953,6 @@ A screen that defers its refresh while the reader is mid-edit SHALL decide
 that from what the reader changed, and not from what the browser did on its
 own.
 
-A `<select>` whose rendered markup names no option as selected is presented by
-every browser with its first option selected. That presentation SHALL NOT be
-read as an edit: such a control SHALL be treated as untouched while it sits on
-its first option, and as edited once it sits on any other. A `<select>` whose
-markup does declare a default SHALL continue to be read against that default.
-
-A control rendered inside a live region SHALL declare its own default, so that
-what the reader is shown and what the markup asked for agree. The project
-board's Move control SHALL mark its first route selected.
-
 A live region SHALL NOT be reported as holding work in progress on a page that
 has only been rendered.
 
@@ -1968,16 +1968,30 @@ has only been rendered.
 - **WHEN** an event arrives for that board
 - **THEN** the refresh is deferred until the menu is back at its default, and then lands
 
-#### Scenario: The Move control names the option the browser will show
+### Requirement: A select that declares no default is untouched on its first option
 
-- **WHEN** the board is rendered, as a whole page or as its live fragment
-- **THEN** each Move select carries exactly one selected option, and it is the first route
+A `<select>` whose rendered markup names no option as selected is presented by
+every browser with its first option selected. That presentation SHALL NOT be
+read as an edit: such a control SHALL be treated as untouched while it sits on
+its first option, and as edited once it sits on any other. A `<select>` whose
+markup does declare a default SHALL continue to be read against that default.
 
 #### Scenario: A declared default is still what a choice is measured against
 
 - **GIVEN** a select whose markup marks an option other than the first as selected
 - **WHEN** the control sits on the first option instead
 - **THEN** it is reported as edited
+
+### Requirement: A control in a live region declares its own default
+
+A control rendered inside a live region SHALL declare its own default, so that
+what the reader is shown and what the markup asked for agree. The project
+board's Move control SHALL mark its first route selected.
+
+#### Scenario: The Move control names the option the browser will show
+
+- **WHEN** the board is rendered, as a whole page or as its live fragment
+- **THEN** each Move select carries exactly one selected option, and it is the first route
 
 ### Requirement: The task list opens on unfinished work
 
@@ -2077,14 +2091,7 @@ The task board SHALL remain readable as the number of columns grows with the pro
 it, and SHALL NOT make the page scroll sideways.
 
 The board SHALL be drawn as one row of columns at every viewport width, scrolled horizontally within
-its own frame. Its columns SHALL NOT wrap onto further rows and SHALL NOT be stacked one above
-another, because a board column is a fixed-height scroller and both arrangements grow past that
-height, overrunning whatever the page draws beneath the board.
-
-At phone width the board SHALL snap one column to the viewport, so that a column is read whole
-rather than in parts.
-
-A card on a board covering more than one project SHALL name the project it belongs to.
+its own frame.
 
 #### Scenario: Many columns scroll within the board rather than overflowing the page
 
@@ -2100,17 +2107,32 @@ A card on a board covering more than one project SHALL name the project it belon
 - **THEN** the columns are one row scrolled sideways rather than stacked one above another
 - **AND** the board's height stays within the viewport rather than running past whatever follows it
 
-#### Scenario: A phone settles on one column at a time
+### Requirement: Board columns neither wrap nor stack
 
-- **GIVEN** a viewport of phone width
-- **WHEN** the reader swipes the board sideways
-- **THEN** it comes to rest with a single column filling the viewport
+The board's columns SHALL NOT wrap onto further rows and SHALL NOT be stacked one above another,
+because a board column is a fixed-height scroller and both arrangements grow past that height,
+overrunning whatever the page draws beneath the board.
 
 #### Scenario: The board does not draw over what follows it
 
 - **GIVEN** a project board with a settings panel beneath it
 - **WHEN** the board is drawn at phone width
 - **THEN** the settings panel is visible and operable below the board rather than covered by it
+
+### Requirement: At phone width the board snaps one column to the viewport
+
+At phone width the board SHALL snap one column to the viewport, so that a column is read whole
+rather than in parts.
+
+#### Scenario: A phone settles on one column at a time
+
+- **GIVEN** a viewport of phone width
+- **WHEN** the reader swipes the board sideways
+- **THEN** it comes to rest with a single column filling the viewport
+
+### Requirement: A card on a board of several projects names its project
+
+A card on a board covering more than one project SHALL name the project it belongs to.
 
 #### Scenario: A merged card names its project
 
@@ -2127,26 +2149,28 @@ Below a narrow threshold the row SHALL omit the tags and the last-updated stamp,
 narrower one it SHALL also omit the project. The status, the priority, the assignee, the lease
 state, the deadline mark and the reference SHALL be shown at every width.
 
-An attribute omitted for width SHALL remain available on the task's own screen, which the row
-links to, so that nothing is unreachable rather than merely unshown.
-
 #### Scenario: A phone row keeps its title
 
 - **GIVEN** a task with several tags, an assignee, a project and a deadline
 - **WHEN** its row is drawn at phone width
 - **THEN** the title is drawn without being compressed to make room for the tags
 
-#### Scenario: The shed attributes are on the task screen
-
-- **GIVEN** a row drawn at a width that omits its tags
-- **WHEN** the reader opens the task
-- **THEN** the tags are listed there
-
 #### Scenario: Identifying attributes survive every width
 
 - **GIVEN** any viewport width the interface supports
 - **WHEN** a task row is drawn
 - **THEN** its status, priority, assignee, lease state, deadline mark and reference are present
+
+### Requirement: An attribute a narrow row omits stays on the task screen
+
+An attribute omitted for width SHALL remain available on the task's own screen, which the row
+links to, so that nothing is unreachable rather than merely unshown.
+
+#### Scenario: The shed attributes are on the task screen
+
+- **GIVEN** a row drawn at a width that omits its tags
+- **WHEN** the reader opens the task
+- **THEN** the tags are listed there
 
 ### Requirement: A failure states itself in the flow of its own screen
 
@@ -2156,9 +2180,6 @@ sentence.
 
 The reason SHALL NOT be rendered as a transient notification, so that it cannot be placed apart from
 the heading it explains, mistaken for an unrelated notice, or drawn outside the reader's view.
-
-The screen SHALL offer the ways out of it as controls carrying the same appearance as the other
-navigation controls in the interface.
 
 #### Scenario: The reason sits under its heading
 
@@ -2172,6 +2193,11 @@ navigation controls in the interface.
 - **WHEN** it is drawn
 - **THEN** the reason is not rendered as the transient notification the rest of the interface uses for flashes
 
+### Requirement: The failure screen's ways out are drawn as navigation controls
+
+The screen SHALL offer the ways out of it as controls carrying the same appearance as the other
+navigation controls in the interface.
+
 #### Scenario: The ways out look like the controls they are
 
 - **GIVEN** a failure screen offering a way back
@@ -2181,12 +2207,10 @@ navigation controls in the interface.
 ### Requirement: The error screen's ways out lead where they say
 
 Every link the error screen offers SHALL be labelled with where it leads, and no link SHALL point at
-an address that redirects somewhere other than its label. A failed mutation SHALL offer the screen
-it was submitted from. A failed page SHALL offer the same-origin page that linked to it, and SHALL
-offer the task list when there is none or when that page is the failing one. The task list SHALL
-always be one of the ways out. The error screen SHALL reach the browser as the page it is, at its own
-status, under the server that also serves the API, and SHALL NOT be replaced by the API's error
-envelope.
+an address that redirects somewhere other than its label. A failed mutation SHALL offer the screen it
+was submitted from. A failed page SHALL offer the same-origin page that linked to it, and SHALL offer
+the task list when there is none or when that page is the failing one. The task list SHALL always be
+one of the ways out.
 
 #### Scenario: A missing page with no referrer
 
@@ -2194,27 +2218,27 @@ envelope.
 - **THEN** the error screen offers "Back to tasks" leading to the task list
 - **AND** it offers no link to the root address
 
-#### Scenario: A missing task under the full server
-
-- **GIVEN** `tix serve` serving the API and the browser interface together
-- **WHEN** a signed-in reader opens a task reference that does not exist
-- **THEN** they get the HTML error screen with a not found status, not a JSON body
-
 #### Scenario: A missing page reached from a filtered listing
 
 - **GIVEN** a reader on the task list filtered to one tag
 - **WHEN** they follow a link to a task that no longer exists
 - **THEN** the error screen leads back to that filtered listing and also offers the task list
 
+### Requirement: The error screen reaches the browser as HTML at its own status
+
+The error screen SHALL reach the browser as the page it is, at its own status, under the server that
+also serves the API, and SHALL NOT be replaced by the API's error envelope.
+
+#### Scenario: A missing task under the full server
+
+- **GIVEN** `tix serve` serving the API and the browser interface together
+- **WHEN** a signed-in reader opens a task reference that does not exist
+- **THEN** they get the HTML error screen with a not found status, not a JSON body
+
 ### Requirement: The task screen's back link returns to the listing it was opened from
 
 The task screen SHALL offer a link back to the listing the reader opened it from, filter, sort, view
-and page intact, and SHALL label it with that listing's name. The listing SHALL be taken from the
-`next` the link carried, else from the referring page when that is a task listing or a project board,
-else from the `next` of the referring page when that page is the same task screen, else the task
-list. Every redirect that returns the reader to the task screen after a change made on it SHALL keep
-the listing, so the link survives any number of saves. Deleting the task SHALL return the reader to
-that listing. A `next` that is not a relative path on this origin SHALL be replaced by the task list.
+and page intact, and SHALL label it with that listing's name.
 
 #### Scenario: Opened from a filtered list
 
@@ -2222,11 +2246,12 @@ that listing. A `next` that is not a relative path on this origin SHALL be repla
 - **WHEN** the reader opens a task from it
 - **THEN** the back link is labelled "Back to tasks" and leads to the list filtered to `tag:ops`
 
-#### Scenario: The listing survives a save
+### Requirement: The back link's listing comes from next, then the referrer, then the task list
 
-- **GIVEN** a task opened from the task list filtered to `tag:ops`
-- **WHEN** the reader adds a tag and then a comment on the task screen
-- **THEN** the back link still leads to the list filtered to `tag:ops`
+The listing SHALL be taken from the `next` the link carried, else from the referring page when that
+is a task listing or a project board, else from the `next` of the referring page when that page is
+the same task screen, else the task list. A `next` that is not a relative path on this origin SHALL
+be replaced by the task list.
 
 #### Scenario: Opened from a project board
 
@@ -2238,14 +2263,25 @@ that listing. A `next` that is not a relative path on this origin SHALL be repla
 - **WHEN** the reader opens a task from a link that carries no listing and no listing referred them
 - **THEN** the back link leads to the task list
 
+### Requirement: Saving or deleting on the task screen keeps the listing it came from
+
+Every redirect that returns the reader to the task screen after a change made on it SHALL keep the
+listing, so the link survives any number of saves. Deleting the task SHALL return the reader to that
+listing.
+
+#### Scenario: The listing survives a save
+
+- **GIVEN** a task opened from the task list filtered to `tag:ops`
+- **WHEN** the reader adds a tag and then a comment on the task screen
+- **THEN** the back link still leads to the list filtered to `tag:ops`
+
 ### Requirement: Adding a task stays on the listing by default
 
 Creating a task from the task list, by the one-line box or by Add with details, SHALL return the
 reader to the listing they added from, filter, sort, view and page intact, unless this browser has
-turned the "Open a new task" preference on. The listing SHALL then say that the task was created,
-SHALL link the new task, and SHALL mark its row or card when it is on the page. A browser that has
-never chosen SHALL be treated as having chosen to stay. A browser whose stored preference says it
-turned opening on SHALL keep opening the new task.
+turned the "Open a new task" preference on. A browser that has never chosen SHALL be treated as
+having chosen to stay. A browser whose stored preference says it turned opening on SHALL keep
+opening the new task.
 
 #### Scenario: Quick add with no preference stored
 
@@ -2265,6 +2301,11 @@ turned opening on SHALL keep opening the new task.
 - **WHEN** the reader adds a task
 - **THEN** the new task's screen is opened
 
+### Requirement: The listing returned to after adding names and marks the new task
+
+The listing SHALL then say that the task was created, SHALL link the new task, and SHALL mark its
+row or card when it is on the page.
+
 #### Scenario: Adding twice names the second task
 
 - **GIVEN** the reader has just added one task and is on the listing with its toast
@@ -2274,11 +2315,9 @@ turned opening on SHALL keep opening the new task.
 ### Requirement: The task fields chosen in View apply to every drawing of the tasks
 
 The task listing's View menu SHALL offer a Star field and a Repeats field among the task fields, both
-shown by default. The Repeats field SHALL draw the repeat glyph together with the task's rule. Hiding
-Star SHALL remove the star toggle from rows and cards without changing the order starred tasks are
-drawn in, and the star SHALL remain on the task's own screen. Board cards and lane cards SHALL draw a
-field the cards carry -- star, status on a lane card, priority, tags, repeat rule and reference --
-only when it is chosen.
+shown by default. The Repeats field SHALL draw the repeat glyph together with the task's rule. Board
+cards and lane cards SHALL draw a field the cards carry -- star, status on a lane card, priority,
+tags, repeat rule and reference -- only when it is chosen.
 
 #### Scenario: A repeating task shows its rule
 
@@ -2291,6 +2330,11 @@ only when it is chosen.
 - **GIVEN** the reader has hidden Tags and Repeats under View
 - **WHEN** the tasks are drawn as lanes or as a board
 - **THEN** no card draws a tag or a repeat rule
+
+### Requirement: Hiding the Star field keeps starred order and the task screen's star
+
+Hiding Star SHALL remove the star toggle from rows and cards without changing the order starred tasks
+are drawn in, and the star SHALL remain on the task's own screen.
 
 #### Scenario: Hiding the star keeps the order
 
@@ -2324,9 +2368,7 @@ SHALL store nothing.
 With JavaScript, starring, moving or changing the priority of a task from a list row SHALL replace
 that row only, and starring, moving, re-prioritising, tagging or commenting on the task screen SHALL
 replace the page content without the sidebar. The scroll position SHALL be kept and focus SHALL
-return to the control that was used. The chosen state SHALL be drawn before the server answers, and
-a refused or failed action SHALL put the previous state back and say why. Without JavaScript the same
-forms SHALL post and redirect.
+return to the control that was used. Without JavaScript the same forms SHALL post and redirect.
 
 #### Scenario: Starring a row halfway down the list
 
@@ -2335,16 +2377,21 @@ forms SHALL post and redirect.
 - **THEN** the star fills at once, only that row is replaced, the list stays where it was, and the
   star keeps focus
 
-#### Scenario: A move the server refuses
-
-- **WHEN** a move chosen from a row's status menu is refused
-- **THEN** the row shows its previous status and a toast says why
-
 #### Scenario: No JavaScript
 
 - **GIVEN** a browser with scripting off
 - **WHEN** the reader stars a row
 - **THEN** the form posts and the listing is drawn again on that row
+
+### Requirement: An in-place action draws its result first and puts it back if refused
+
+The chosen state SHALL be drawn before the server answers, and a refused or failed action SHALL put
+the previous state back and say why.
+
+#### Scenario: A move the server refuses
+
+- **WHEN** a move chosen from a row's status menu is refused
+- **THEN** the row shows its previous status and a toast says why
 
 ### Requirement: A toast offers to undo what it reports
 
@@ -2384,11 +2431,11 @@ focus on the same control, and leave the new links and forms working as boosted 
 
 ### Requirement: Moving between screens feels immediate
 
-Links into tasks and listings SHALL start on the primary mouse button's press, except a link on a card that can be dragged, which SHALL open on its click so the press can start a drag. Boosted navigations
-SHALL cross-fade where the browser supports view transitions, and SHALL NOT for a reader who prefers
-reduced motion. Back to the task list SHALL restore the list's scroll position. The task filter SHALL
-apply as the reader types, after a pause, and when a select beside it changes, and the Apply button
-SHALL remain. The list, board and lanes switch SHALL swap the page without reloading its assets.
+Links into tasks and listings SHALL start on the primary mouse button's press, except a link on a
+card that can be dragged, which SHALL open on its click so the press can start a drag. The task
+filter SHALL apply as the reader types, after a pause, and when a select beside it changes, and the
+Apply button SHALL remain. The list, board and lanes switch SHALL swap the page without reloading
+its assets.
 
 #### Scenario: Dragging a card by its title
 
@@ -2402,17 +2449,26 @@ SHALL remain. The list, board and lanes switch SHALL swap the page without reloa
 - **WHEN** the reader drops the card on a column it may move to
 - **THEN** the move is posted to the Move form's action and the star is left as it was
 
-#### Scenario: Back to the list
+### Requirement: Boosted navigations cross-fade unless the reader prefers reduced motion
 
-- **GIVEN** the task list scrolled to the fortieth row
-- **WHEN** the reader opens a task and presses Back
-- **THEN** the list is shown scrolled to where it was
+Boosted navigations SHALL cross-fade where the browser supports view transitions, and SHALL NOT for
+a reader who prefers reduced motion.
 
 #### Scenario: Reduced motion
 
 - **GIVEN** a reader whose system prefers reduced motion
 - **WHEN** they open a task from the list
 - **THEN** the screen is swapped with no cross-fade
+
+### Requirement: Back to the task list restores where it was scrolled
+
+Back to the task list SHALL restore the list's scroll position.
+
+#### Scenario: Back to the list
+
+- **GIVEN** the task list scrolled to the fortieth row
+- **WHEN** the reader opens a task and presses Back
+- **THEN** the list is shown scrolled to where it was
 
 ### Requirement: The keyboard shortcuts can be found
 
@@ -2549,19 +2605,23 @@ On a wide viewport each setting SHALL be drawn as a row with its name and a shor
 left and its control on the right, and the controls of every row SHALL share one column width so that
 they align. At a viewport 900px wide or narrower each row SHALL stack its control under its
 description. A setting whose explanation is longer than its description SHALL offer it behind an
-information disclosure beside its name. An on/off preference SHALL be drawn as a switch that exposes
-its state to assistive technology and remains a plain form submission.
-
-#### Scenario: An on/off preference is a switch
-
-- **WHEN** the settings screen is drawn
-- **THEN** each on/off preference's submit button has the switch role and reports whether it is on
+information disclosure beside its name.
 
 #### Scenario: Rows stack on a narrow screen
 
 - **GIVEN** a viewport 900px wide
 - **WHEN** the settings screen is drawn
 - **THEN** each row's control sits under its description
+
+### Requirement: An on/off setting is an accessible switch that still posts a form
+
+An on/off preference SHALL be drawn as a switch that exposes its state to assistive technology and
+remains a plain form submission.
+
+#### Scenario: An on/off preference is a switch
+
+- **WHEN** the settings screen is drawn
+- **THEN** each on/off preference's submit button has the switch role and reports whether it is on
 
 ### Requirement: Saving a setting says so
 
@@ -2639,10 +2699,6 @@ and a maximum, SHALL be kept per browser, and SHALL be applied before the page p
 a navigation never draws the default width first. Restoring the default width SHALL remove what was
 kept.
 
-The control SHALL be reachable by keyboard as a vertical separator that exposes its current value,
-minimum and maximum, and the arrow keys SHALL change the width. Without scripting the control SHALL
-be absent and the sidebar SHALL keep its default width.
-
 #### Scenario: A dragged width survives a reload
 
 - **GIVEN** a reader who drags the sidebar's edge to 320px
@@ -2653,6 +2709,12 @@ be absent and the sidebar SHALL keep its default width.
 
 - **WHEN** the reader drags the edge further right than the maximum width
 - **THEN** the sidebar is drawn at the maximum width
+
+### Requirement: The sidebar's resize edge is a keyboard separator, absent without scripting
+
+The control SHALL be reachable by keyboard as a vertical separator that exposes its current value,
+minimum and maximum, and the arrow keys SHALL change the width. Without scripting the control SHALL
+be absent and the sidebar SHALL keep its default width.
 
 #### Scenario: The edge is moved from the keyboard
 
@@ -2670,12 +2732,8 @@ be absent and the sidebar SHALL keep its default width.
 
 On a viewport wide enough to show the sidebar as a column, the sidebar SHALL offer a button that
 collapses it to a narrow rail and expands it again, and dragging its edge below a threshold SHALL
-collapse it. The rail SHALL keep the product logo and every navigation entry as an icon, and every
-entry in the rail SHALL keep its accessible name. The collapsed state SHALL be kept per browser and
-applied before the page paints, and expanding SHALL return the sidebar to the width it had.
-
-On a viewport too narrow for the sidebar column, the collapsed state SHALL have no effect, and the
-sidebar SHALL be the bar and menu it is without it.
+collapse it. The collapsed state SHALL be kept per browser and applied before the page paints, and
+expanding SHALL return the sidebar to the width it had.
 
 #### Scenario: Dragging it small collapses it
 
@@ -2689,11 +2747,21 @@ sidebar SHALL be the bar and menu it is without it.
 - **WHEN** the reader presses the collapse button and then presses it again
 - **THEN** the sidebar is a rail after the first press and back at its previous width after the second
 
+### Requirement: A collapsed sidebar rail keeps every entry's icon and name
+
+The rail SHALL keep the product logo and every navigation entry as an icon, and every entry in the
+rail SHALL keep its accessible name.
+
 #### Scenario: A rail entry still has its name
 
 - **GIVEN** a collapsed sidebar
 - **WHEN** assistive technology reads a navigation entry in the rail
 - **THEN** the entry is announced by the same name it has when the sidebar is expanded
+
+### Requirement: The collapsed sidebar has no effect below the column layout
+
+On a viewport too narrow for the sidebar column, the collapsed state SHALL have no effect, and the
+sidebar SHALL be the bar and menu it is without it.
 
 #### Scenario: The phone layout ignores the collapsed state
 
@@ -2728,13 +2796,8 @@ position in force.
 When Task opens in is Dialog, a plain primary click on a link to a task screen, on any screen other
 than a task screen, SHALL open that task in a modal dialog over the page instead of navigating. This
 SHALL apply to task titles in the list, on board cards and lane cards, to the activity feed, to
-search results and to the toast offered after adding a task. The address SHALL change to the task's
-address, so that reloading or opening the address elsewhere draws the full task page, and Back SHALL
-close the dialog and leave the page under it as it was. Escape, the dialog's Close button and a click
-on the backdrop SHALL close it, and focus SHALL return to the element that opened it, or to the same
-task's row when that element has been redrawn. A click with a modifier key, a middle click, and any
-click in a browser without scripting SHALL open the full task page as before. Under 600px the dialog
-SHALL fill the screen.
+search results and to the toast offered after adding a task. Under 600px the dialog SHALL fill the
+screen.
 
 #### Scenario: Opening and closing from the list
 
@@ -2744,6 +2807,11 @@ SHALL fill the screen.
 - **AND** the address is the task's
 - **WHEN** they press Escape
 - **THEN** the dialog closes, the address is the list's again, and focus is on the title they clicked
+
+### Requirement: A task dialog carries the task's address and Back closes it
+
+The address SHALL change to the task's address, so that reloading or opening the address elsewhere
+draws the full task page, and Back SHALL close the dialog and leave the page under it as it was.
 
 #### Scenario: Back closes the dialog
 
@@ -2757,6 +2825,23 @@ SHALL fill the screen.
 - **WHEN** the reader reloads while a task is open in the dialog
 - **THEN** the full task page is drawn, with its back link
 
+### Requirement: A task dialog closes on Escape, Close or its backdrop and returns focus
+
+Escape, the dialog's Close button and a click on the backdrop SHALL close the dialog, and focus
+SHALL return to the element that opened it, or to the same task's row when that element has been
+redrawn.
+
+#### Scenario: A click on the backdrop closes the dialog
+
+- **GIVEN** Task opens in is Dialog and a task opened in the dialog from the list
+- **WHEN** the reader clicks the backdrop outside the dialog
+- **THEN** the dialog closes and focus is on the title they clicked
+
+### Requirement: A modified click or no scripting opens the full task page instead of the dialog
+
+A click with a modifier key, a middle click, and any click in a browser without scripting SHALL open
+the full task page as before.
+
 #### Scenario: A modified click opens a new tab
 
 - **GIVEN** Task opens in is Dialog
@@ -2767,10 +2852,9 @@ SHALL fill the screen.
 
 A request for a task screen carrying the header `X-Tix-Dialog: 1` SHALL be answered with the task
 screen's content and its flash, without the layout, the sidebar or the page's live binding, inside
-one element marking it as the dialog's answer. Ids the task screen shares with a listing's rows SHALL
-be distinct in that answer, so a control in the dialog cannot address an element of the page behind
-it. The back link SHALL be a Close button. The same request without the header SHALL be answered
-with the full page. Other screens SHALL ignore the header.
+one element marking it as the dialog's answer. The back link SHALL be a Close button. The same
+request without the header SHALL be answered with the full page. Other screens SHALL ignore the
+header.
 
 #### Scenario: The dialog's answer
 
@@ -2793,6 +2877,17 @@ with the full page. Other screens SHALL ignore the header.
 - **WHEN** the reader deletes it
 - **THEN** the dialog closes and the listing is drawn without the task
 
+### Requirement: The dialog's answer keeps its ids apart from the page's
+
+Ids the task screen shares with a listing's rows SHALL be distinct in the dialog's answer, so a
+control in the dialog cannot address an element of the page behind it.
+
+#### Scenario: The dialog's ids are its own
+
+- **WHEN** a signed-in reader requests a task screen with `X-Tix-Dialog: 1`
+- **THEN** its comment field and its priority menu carry ids of the dialog's own
+- **AND** neither carries the id the same control has on the full page or on a list row
+
 ### Requirement: A browser chooses whether clicking a title edits it
 
 The web interface SHALL offer a per-browser preference, Clicking a title, stored in the
@@ -2812,11 +2907,8 @@ section of Settings that posts without scripting and names the position in force
 When Clicking a title is Edits the title, a plain click on a task's title in the list, on a board
 card or on a lane card SHALL turn it into a text field holding the title. Enter, or leaving the
 field, SHALL save it through the task's existing edit address with the version the listing was drawn
-with; Escape SHALL put the title back unchanged. An unchanged title SHALL send nothing. A refusal,
-including a conflict with a newer version and an empty title, SHALL be shown beside the field with
-the field kept open. Enter or F2 on a selected row SHALL edit its title. The open link beside the
-title SHALL open the task, as a page or in the dialog as Task opens in says. Without scripting the
-title SHALL be a link to the task.
+with; Escape SHALL put the title back unchanged. An unchanged title SHALL send nothing. Enter or F2
+on a selected row SHALL edit its title.
 
 #### Scenario: Renaming from the list
 
@@ -2825,12 +2917,29 @@ title SHALL be a link to the task.
 - **THEN** the task's title is the new one and the row shows it
 - **AND** the task's description and assignee are unchanged
 
+### Requirement: A refused inline rename is shown beside the field it leaves open
+
+A refusal, including a conflict with a newer version and an empty title, SHALL be shown beside the
+field with the field kept open.
+
 #### Scenario: Somebody else saved first
 
 - **GIVEN** a listing drawn at a task's version 3, and the task since saved at version 4
 - **WHEN** the reader renames it from the listing
 - **THEN** the save is refused and the reason is shown beside the field
 - **AND** the title is unchanged
+
+### Requirement: An editable title keeps an open link and is a plain link without scripting
+
+The open link beside the title SHALL open the task, as a page or in the dialog as Task opens in
+says. Without scripting the title SHALL be a link to the task.
+
+#### Scenario: An editable title still leads to its task
+
+- **GIVEN** Clicking a title is Edits the title
+- **WHEN** the tasks are drawn as a list, a board or lanes
+- **THEN** every title has an open link to its task beside it
+- **AND** the title itself is a link to the task, which a browser without scripting follows
 
 ### Requirement: A save that does not name the description or assignee leaves them alone
 
@@ -2847,21 +2956,24 @@ with an empty value SHALL clear it, as before.
 ### Requirement: Screens are drawn in the language the browser asks for
 
 The browser interface SHALL negotiate a language from the request's `Accept-Language` header, choosing
-the highest-weighted language it ships, matching an exact tag before its base language, and SHALL
-draw English when the header names none it ships. Every screen SHALL carry the chosen language in
-the root element's `lang` attribute and SHALL draw its text, flashes, page title, error heading and
-hint, and fixed labels in that language. Text a language's catalog lacks SHALL be drawn in English.
-The interface SHALL ship English and Bulgarian.
-
-#### Scenario: A Bulgarian browser
-
-- **WHEN** a browser sends `Accept-Language: bg-BG,bg;q=0.9,en;q=0.5` and opens the task screen
-- **THEN** the root says `lang="bg"` and the navigation, the flash and the error screen are in Bulgarian
+the highest-weighted language it ships, matching an exact tag before its base language, and SHALL draw
+English when the header names none it ships. Text a language's catalog lacks SHALL be drawn in
+English. The interface SHALL ship English and Bulgarian.
 
 #### Scenario: A language the build does not ship
 
 - **WHEN** a browser sends `Accept-Language: de-DE,fr;q=0.8`
 - **THEN** the screen is drawn in English with `lang="en"`
+
+### Requirement: Every screen carries its negotiated language in lang and draws its text in it
+
+Every screen SHALL carry the chosen language in the root element's `lang` attribute and SHALL draw its
+text, flashes, page title, error heading and hint, and fixed labels in that language.
+
+#### Scenario: A Bulgarian browser
+
+- **WHEN** a browser sends `Accept-Language: bg-BG,bg;q=0.9,en;q=0.5` and opens the task screen
+- **THEN** the root says `lang="bg"` and the navigation, the flash and the error screen are in Bulgarian
 
 ### Requirement: A browser can choose its language on settings
 
@@ -2895,15 +3007,19 @@ to the English text when no translation is carried. An English page SHALL carry 
 
 No template SHALL write visible text, or a `title`, `placeholder`, `aria-label`, `alt`,
 `data-rail-name`, `aria-valuetext` or `data-confirm` value, other than through the translation
-helpers, except text inside `code`, `kbd`, `pre` and `samp`. Every language other than English SHALL
-hold an entry for every key the interface uses and no entry it does not, and each entry SHALL format
-the same number of arguments and carry the same markup as its key. A screen exempted from this check
-SHALL be named, with its reason, in the test that makes it.
+helpers, except text inside `code`, `kbd`, `pre` and `samp`. A screen exempted from this check SHALL
+be named, with its reason, in the test that makes it.
 
 #### Scenario: A new English literal
 
 - **WHEN** a template gains `<p class="group">Data</p>`
 - **THEN** the test suite fails naming the template and the literal
+
+### Requirement: Every translation catalog holds exactly the keys the interface uses
+
+Every language other than English SHALL hold an entry for every key the interface uses and no entry
+it does not, and each entry SHALL format the same number of arguments and carry the same markup as
+its key.
 
 #### Scenario: A missing translation
 
@@ -2915,10 +3031,19 @@ SHALL be named, with its reason, in the test that makes it.
 Beside a concept a newcomer cannot decode from the screen (claims and leases, tokens and scopes,
 the filter syntax, recurrence, stars, list, board and lane views, workflows, states and categories,
 webhooks, connections, sync, domains, import and export, retention, SSH keys, statistics figures,
-the activity feed) the interface SHALL offer an info tip: a disclosure that works without
-scripting, from the keyboard and on touch, is named "About" its topic for assistive technology,
-explains the concept in one or two plain sentences in the page's language, and names the `docs/`
-page that says more where one exists. A tip SHALL NOT link to another origin.
+the activity feed) the interface SHALL offer an info tip. A tip SHALL NOT link to another origin.
+
+#### Scenario: A tip names its page rather than linking it
+
+- **WHEN** a reader opens the tip beside the Domains screen's heading
+- **THEN** it names `docs/tenancy.md` as text
+- **AND** it carries no link
+
+### Requirement: An info tip is a named disclosure that works without scripting and names its doc
+
+An info tip SHALL be a disclosure that works without scripting, from the keyboard and on touch, is
+named "About" its topic for assistive technology, explains the concept in one or two plain
+sentences in the page's language, and names the `docs/` page that says more where one exists.
 
 #### Scenario: The view switch explains itself
 
