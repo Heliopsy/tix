@@ -35,7 +35,11 @@ const VIEWPORTS = {
   tablet: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, userAgent: TABLET_UA },
   fullhd: { viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 },
   "4k": { viewport: { width: 3840, height: 2160 }, deviceScaleFactor: 1 },
+  // A laptop, which is where the task list sits between its phone layout and
+  // its widest one. Opt-in: the default four are what the docs carry.
+  laptop: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 },
 };
+const DEFAULT_VIEWPORTS = ["phone", "tablet", "fullhd", "4k"];
 
 const QUIET_CSS = `*,*::before,*::after{transition:none!important;animation:none!important;
 caret-color:transparent!important;scroll-behavior:auto!important}`;
@@ -45,20 +49,23 @@ const USAGE = `usage: node shoot.mjs [flags]
   --tix PATH            tix binary to seed and serve a scratch database with (default mode)
   --url URL             capture a running instance instead; signs in with TIX_SHOT_EMAIL,
                         TIX_SHOT_PASSWORD and, when the tenant asks for a code, TIX_SHOT_TOTP
-  --viewports LIST      comma separated: phone,tablet,fullhd,4k (default all four)
+  --viewports LIST      comma separated: phone,tablet,fullhd,4k,laptop (default all but laptop)
   --theme T             light, dark or both (default light)
   --only SUBSTR         only routes whose pattern contains SUBSTR (repeatable, comma separated)
   --max-popups N        popups captured per page state, after dedupe (default 40)
   --out DIR             parent of the timestamped output directory (default out/screenshots)
   --headed              show the browser
-  --strict              exit non-zero when the layout check finds a control on two lines or a
-                        word broken in the middle
+  --hostile             also seed a project of tasks with long titles, long tags and long
+                        Markdown descriptions (headings, tables, code, unbroken tokens), sorted
+                        to the top of /tasks, so the row checks have something to break on
+  --strict              exit non-zero when the layout check finds a control on two lines, a
+                        word broken in the middle, or a task row or card out of shape
 
   TIX_SHOT_DEBUG=1 prints how long each step took.
 `;
 
 function parseArgs(argv) {
-  const a = { viewports: Object.keys(VIEWPORTS), theme: "light", only: [], maxPopups: 40, out: "out/screenshots" };
+  const a = { viewports: DEFAULT_VIEWPORTS, theme: "light", only: [], maxPopups: 40, out: "out/screenshots" };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i];
     const v = () => {
@@ -74,6 +81,7 @@ function parseArgs(argv) {
     else if (k === "--out") a.out = v();
     else if (k === "--headed") a.headed = true;
     else if (k === "--strict") a.strict = true;
+    else if (k === "--hostile") a.hostile = true;
     else if (k === "-h" || k === "--help") {
       out(USAGE);
       process.exit(0);
@@ -83,6 +91,7 @@ function parseArgs(argv) {
   if (!["light", "dark", "both"].includes(a.theme)) throw new Error(`--theme must be light, dark or both`);
   if (!(a.maxPopups >= 0)) throw new Error("--max-popups must be a number");
   if (!a.url && !a.tix) throw new Error("pass --tix PATH, or --url URL for a running instance");
+  if (a.hostile && a.url) throw new Error("--hostile seeds a scratch database, so it cannot be used with --url");
   return a;
 }
 
@@ -159,7 +168,7 @@ function isolatedEnv(dir) {
   return env;
 }
 
-async function startLocal(tix) {
+async function startLocal(tix, hostile) {
   const dir = mkdtempSync(join(tmpdir(), "tix-shots-"));
   cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
   const db = join(dir, "tix.db");
@@ -171,6 +180,7 @@ async function startLocal(tix) {
     encoding: "utf8",
   });
   if (seed.status !== 0) throw new Error(`tix demo seed failed: ${seed.stderr || seed.stdout}`);
+  if (hostile) seedHostile(tix, db, env, dir);
   const port = await freePort();
   const base = `http://127.0.0.1:${port}`;
   const server = spawn(
@@ -205,6 +215,62 @@ async function startLocal(tix) {
     await new Promise((r) => setTimeout(r, 100));
   }
   throw new Error(`tix serve did not become ready: ${serverLog}`);
+}
+
+// Content shaped like a real imported checklist and worse: Markdown bodies
+// with headings, tables, fenced code, nested lists and tokens with no break
+// opportunity, long titles and long tags. Every task is highest priority and
+// overdue so urgency puts them on the first page of /tasks, and there are
+// more than nine so the references change width part way down the list.
+const HOSTILE_TOKEN = "checklists/01-product-development-readiness/1.3-openspec-and-working-agreement.md";
+function hostileBody(i) {
+  return [
+    `**Checklist item \`1.3.${i}\`** \u2014 section 01 \u00b7 Product & Development Readiness`,
+    "Subsection: OpenSpec",
+    "Tier: **V1** \u00b7 Owner: **SWE**",
+    "",
+    "# A heading inside a description",
+    "",
+    "Definition of done includes updating OpenSpec on any feature or behaviour-changing fix, written into the team's working agreement, so the obligation outlives any one person.",
+    "",
+    "| column | another |",
+    "|---|---|",
+    `| ${"x".repeat(120)} | y |`,
+    "",
+    "```",
+    "y".repeat(200),
+    "```",
+    "",
+    "- **Audit notes:**",
+    `  - nested \`${HOSTILE_TOKEN}\``,
+    "",
+    `https://example.com/${"z".repeat(150)}`,
+    "",
+    `_Source: \`${HOSTILE_TOKEN}\`_`,
+  ].join("\n");
+}
+
+function seedHostile(tix, db, env, dir) {
+  const run = (argv) => {
+    const r = spawnSync(tix, [...argv, "--db", db, "-q"], { env, cwd: dir, encoding: "utf8" });
+    if (r.status !== 0) throw new Error(`tix ${argv.slice(0, 3).join(" ")} failed: ${r.stderr || r.stdout}`);
+  };
+  run(["project", "create", "HOSTILE", "Hostile content"]);
+  const due = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const titles = [
+    "1.1.1 Core customer problem works end-to-end",
+    "A very long title that keeps going and going well past any reasonable width for a single row in the list view of tasks, and then some more",
+    HOSTILE_TOKEN,
+    "w".repeat(90),
+    "tagged",
+    "1.3.15 OpenSpec updated on every behaviour change",
+  ];
+  for (let i = 0; i < 12; i++) {
+    const argv = ["task", "add", titles[i % titles.length], "-p", "HOSTILE", "--priority", "highest", "--due", due, "--body", hostileBody(i)];
+    if (i % 3 === 1) argv.push("--tag", "an-extremely-long-tag-name-without-any-spaces-at-all-anywhere", "--tag", "another-long-tag-name-here");
+    if (i % 4 === 2) argv.push("--assignee", "nadia");
+    run(argv);
+  }
 }
 
 // ---------------------------------------------------------------- sign in
@@ -343,6 +409,11 @@ const LAYOUT = {
     ".evchip", ".statuspill", ".navbadge", ".pager-step", ".backlink a", "nav.tabs a", "kbd",
   ].join(","),
   words: "h1,h2,h3,h4,h5,h6,label,legend,th,dt",
+  rows: "ul.tasklist",
+  cards: "article.card",
+  blocks: "p,ul,ol,h1,h2,h3,h4,h5,h6,pre,table,blockquote,hr",
+  aside: "[popover],details,dialog",
+  columnsFrom: 640,
 };
 
 // Runs in the page. Returns every visible control whose label takes more than
@@ -350,7 +421,7 @@ const LAYOUT = {
 // heading with a word split across two lines. Lines are told apart by the
 // rectangles a Range reports for each text node, which is the only place the
 // browser says where it broke a line.
-function layoutFindings({ controls, words }) {
+function layoutFindings({ controls, words, rows, cards, blocks, aside, columnsFrom }) {
   const found = [];
   const shown = (el) => {
     if (el.closest("[hidden], .sr-only, [aria-hidden=true] > .sr-only")) return false;
@@ -430,6 +501,49 @@ function layoutFindings({ controls, words }) {
     if (!shown(el)) continue;
     const w = broken(texts(el));
     if (w) report(el, "word split", w);
+  }
+
+  // A task row or card is a summary of a task. Its description, rendered,
+  // belongs on the task, and a row wider than its list or far taller than
+  // its neighbours is the list losing its shape. Popovers and folds inside a
+  // row are its menus, drawn elsewhere, so their paragraphs do not count.
+  const wider = (el, box) => el.scrollWidth > el.clientWidth + 1 || el.getBoundingClientRect().right > box.getBoundingClientRect().right + 1;
+  const leaked = (el) => [...el.querySelectorAll(blocks)].find((b) => !b.closest(aside) && shown(b));
+  for (const list of document.querySelectorAll(rows)) {
+    if (!shown(list)) continue;
+    const items = [...list.querySelectorAll(":scope > li.task")].filter(shown);
+    for (const li of items) {
+      if (wider(li, list)) report(li, "row wider than its list");
+      const b = leaked(li);
+      if (b) report(li, "markdown block inside a row", b.tagName.toLowerCase());
+    }
+    if (items.length < 3) continue;
+    const heights = items.map((li) => li.getBoundingClientRect().height).sort((x, y) => x - y);
+    const median = heights[Math.floor(heights.length / 2)];
+    for (const li of items) {
+      if (li.getBoundingClientRect().height > 2 * median + 1) report(li, "row over twice the height of the others", `${Math.round(median)}px`);
+    }
+    if (document.documentElement.clientWidth < columnsFrom) continue;
+    const at = new Map();
+    for (const li of items) {
+      for (const cell of li.querySelectorAll(".task-meta > .tm")) {
+        if (!shown(cell)) continue;
+        const kind = [...cell.classList].find((c) => c.startsWith("tm-"));
+        const x = Math.round(cell.getBoundingClientRect().left);
+        if (!at.has(kind)) at.set(kind, { x, li });
+        else if (Math.abs(at.get(kind).x - x) > 1) {
+          report(li, "column out of line with the rows above", `${kind} ${at.get(kind).x}px vs ${x}px`);
+          at.set(kind, { x, li });
+        }
+      }
+    }
+  }
+  for (const card of document.querySelectorAll(cards)) {
+    if (!shown(card)) continue;
+    const box = card.parentElement.closest(".column, .lane, .board, .lanes") || card.parentElement;
+    if (wider(card, box)) report(card, "card wider than its column");
+    const b = leaked(card);
+    if (b) report(card, "markdown block inside a card", b.tagName.toLowerCase());
   }
   return found;
 }
@@ -841,7 +955,7 @@ async function main() {
     if (!email || !password) throw new Error("--url needs TIX_SHOT_EMAIL and TIX_SHOT_PASSWORD in the environment");
     target = { base: args.url, email, password, totp: process.env.TIX_SHOT_TOTP, local: false };
   } else {
-    target = await startLocal(resolve(args.tix));
+    target = await startLocal(resolve(args.tix), args.hostile);
   }
 
   // Playwright's own signal handlers exit the process after closing the
@@ -905,10 +1019,10 @@ async function main() {
     for (const p of stats.problems) out(`  ${p}`);
   }
   if (stats.layout.length) {
-    out(`layout: ${stats.layout.length} controls on two lines or words split`);
+    out(`layout: ${stats.layout.length} findings (controls on two lines, words split, rows or cards out of shape)`);
     for (const l of stats.layout) out(`  ${l}`);
     if (args.strict) process.exitCode = 1;
-  } else out("layout: no control on two lines, no word split");
+  } else out("layout: no control on two lines, no word split, every row and card in shape");
   out(`\ncontact sheet: ${index}`);
 }
 
