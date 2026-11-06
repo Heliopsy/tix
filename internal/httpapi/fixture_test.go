@@ -45,6 +45,7 @@ type apiFixture struct {
 	svc      *apiService
 	live     *connections.Registry
 	logs     *bytes.Buffer
+	lookup   mapTokens
 }
 
 // apiService completes core.Service with in-memory stand-ins for the groups
@@ -353,6 +354,7 @@ func newFixtureWith(t *testing.T, mutators ...func(*apiFixture, *httpapi.Config)
 	lookup := mapTokens{byHash: map[string]*core.APIToken{}}
 	f.tokenA = mintToken(t, clk, lookup, f.tenantA.ID, f.actorA.ID)
 	f.tokenB = mintToken(t, clk, lookup, f.tenantB.ID, f.actorB.ID)
+	f.lookup = lookup
 
 	svc := newAPIService(f.local)
 	latest, err := migrations.Latest()

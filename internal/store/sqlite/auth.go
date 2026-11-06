@@ -91,7 +91,7 @@ func (t *tx) ListActors(ctx context.Context, page core.Page) ([]core.Actor, erro
 
 var userColumns = []string{
 	"id", "email", "display_name", "created_at", "updated_at", "disabled_at",
-	"sso_provider", "sso_subject",
+	"sso_provider", "sso_subject", "global_admin",
 }
 
 func scanUser(s scanner) (core.User, error) {
@@ -102,7 +102,7 @@ func scanUser(s scanner) (core.User, error) {
 		disabled sql.NullString
 	)
 	if err := s.Scan(&u.ID, &u.Email, &u.DisplayName, &created, &updated, &disabled,
-		&u.SSOProvider, &u.SSOSubject); err != nil {
+		&u.SSOProvider, &u.SSOSubject, &u.GlobalAdmin); err != nil {
 		return core.User{}, mapErr(err, "scanning user")
 	}
 	var err error
@@ -171,7 +171,7 @@ func (t *tx) GetUserByEmail(ctx context.Context, email string) (*core.User, stri
 		hash     string
 	)
 	err := t.ex.QueryRowContext(ctx, q, args...).Scan(&u.ID, &u.Email, &u.DisplayName,
-		&created, &updated, &disabled, &u.SSOProvider, &u.SSOSubject, &hash)
+		&created, &updated, &disabled, &u.SSOProvider, &u.SSOSubject, &u.GlobalAdmin, &hash)
 	if err != nil {
 		if mapped := mapErr(err, "reading user %q", email); core.IsKind(mapped, core.KindNotFound) {
 			return nil, "", core.NotFound("user %q", email)
@@ -237,6 +237,24 @@ func (t *tx) UpdateUser(ctx context.Context, u *core.User, passwordHash string) 
 	}
 	if n == 0 {
 		return core.NotFound("user %q", u.ID)
+	}
+	return nil
+}
+
+// SetUserGlobalAdmin grants or revokes global admin. It is its own write
+// rather than a field of UpdateUser, so no path that rewrites a user from an
+// older snapshot can grant or revoke it by accident.
+func (t *tx) SetUserGlobalAdmin(ctx context.Context, userID string, on bool) error {
+	b := t.builder("users").
+		Where("id = ?", userID).
+		Set("global_admin", sqlb.BoolInt(on)).
+		Set("updated_at", sqlb.TimeText(t.store.clock.Now()))
+	n, err := t.execUpdate(ctx, b, "setting global admin on user %q", userID)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return core.NotFound("user %q", userID)
 	}
 	return nil
 }

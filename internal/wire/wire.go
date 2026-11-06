@@ -34,6 +34,11 @@ const (
 	RouteUsers = APIPrefix + "/users"
 	RouteUser  = APIPrefix + "/users/{id}"
 
+	// Global admins administer every tenant; the collection is the
+	// installation's, not the caller's tenant's.
+	RouteGlobalAdmins = APIPrefix + "/global-admins"
+	RouteGlobalAdmin  = APIPrefix + "/global-admins/{email}"
+
 	RouteTokens = APIPrefix + "/tokens"
 	RouteToken  = APIPrefix + "/tokens/{id}"
 
@@ -50,10 +55,13 @@ const (
 
 	RouteTenants = APIPrefix + "/tenants"
 	RouteTenant  = APIPrefix + "/tenants/{ref}"
-	RouteMembers = APIPrefix + "/members"
-	RouteMember  = APIPrefix + "/members/{actorID}"
-	RouteDomains = APIPrefix + "/domains"
-	RouteDomain  = APIPrefix + "/domains/{hostname}"
+	// The users of a named tenant, which only a global admin reaches.
+	RouteTenantUsers = APIPrefix + "/tenants/{ref}/users"
+	RouteTenantUser  = APIPrefix + "/tenants/{ref}/users/{id}"
+	RouteMembers     = APIPrefix + "/members"
+	RouteMember      = APIPrefix + "/members/{actorID}"
+	RouteDomains     = APIPrefix + "/domains"
+	RouteDomain      = APIPrefix + "/domains/{hostname}"
 
 	RouteProjects      = APIPrefix + "/projects"
 	RouteProject       = APIPrefix + "/projects/{ref}"

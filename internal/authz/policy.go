@@ -22,6 +22,9 @@ func (p Policy) Can(actor *core.Actor, action Action, res Resource) error {
 	if actor == nil {
 		return core.Unauthenticated("no authenticated actor")
 	}
+	if action == ActionGlobalAdmin {
+		return p.deny(action, res, "global admin is decided by CanGlobal, not by a scope")
+	}
 	if res.TenantID != "" && res.TenantID != actor.TenantID {
 		return core.NotFound("resource not found")
 	}
@@ -39,6 +42,42 @@ func (p Policy) Can(actor *core.Actor, action Action, res Resource) error {
 	}
 	if !actor.HasScope(scope) {
 		return p.deny(action, res, "missing required scope")
+	}
+	return nil
+}
+
+// GlobalStanding is what the caller of CanGlobal found out about the actor,
+// since the policy holds no state and cannot look.
+type GlobalStanding struct {
+	// DirectStore is true when the call comes from a process that opened the
+	// database itself with no credential.
+	DirectStore bool
+	// GlobalAdmin is true when the actor's user is a global admin right now.
+	GlobalAdmin bool
+}
+
+// CanGlobal returns nil when the actor may act as a global admin.
+//
+// Holding the database is enough, because the file already holds every row.
+// Otherwise the actor's user has to be a global admin at the moment of the
+// call, so a revoke takes effect on live sessions and tokens at once. A token
+// needs global:admin named among its scopes as well: "*" does not carry it,
+// so no token minted before global admins existed gained the authority.
+func (p Policy) CanGlobal(actor *core.Actor, standing GlobalStanding) error {
+	if actor == nil {
+		return core.Unauthenticated("no authenticated actor")
+	}
+	if standing.DirectStore && actor.TokenID == "" {
+		return nil
+	}
+	if actor.ScopedToProject() {
+		return p.deny(ActionGlobalAdmin, Resource{}, "token is pinned to a project and this action is not confined to one")
+	}
+	if !standing.GlobalAdmin {
+		return p.deny(ActionGlobalAdmin, Resource{}, "only a global admin may do this")
+	}
+	if actor.TokenID != "" && !actor.HasScope(core.ScopeGlobalAdmin) {
+		return p.deny(ActionGlobalAdmin, Resource{}, "the token does not carry the global:admin scope")
 	}
 	return nil
 }

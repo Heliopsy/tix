@@ -137,6 +137,9 @@ type User struct {
 	// only offering to clear it. Set by the listings and by GetUser; a user
 	// written back from one carries it and nothing reads it as an input.
 	TOTPEnrolled bool `json:"totp_enrolled" yaml:"totp_enrolled"`
+	// GlobalAdmin reports whether the user is a global admin, who administers
+	// every tenant of the installation rather than only their own.
+	GlobalAdmin bool `json:"global_admin" yaml:"global_admin"`
 }
 
 // APIToken is a scoped bearer credential, normally held by an agent.

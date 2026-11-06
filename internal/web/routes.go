@@ -44,8 +44,6 @@ func Bindings() []Binding {
 // each with the justification for its absence.
 func Exemptions() []Exemption {
 	return []Exemption{
-		{"CreateTenant", "a browser session is pinned to one tenant, so creating another tenant is an installation-level operation reserved for the CLI"},
-		{"DeleteTenant", "deleting the tenant the session belongs to would destroy the operator's own access, so it is reserved for the CLI"},
 		{"ResolveDomain", "hostname resolution runs in the request path before any screen is chosen and is not an operator action"},
 		{"GetUser", "the user administration list already shows every field a single user screen would show"},
 		{"ClaimTask", "claiming is the agent work queue; the lease token it returns belongs to the worker and is never displayed in a browser"},
@@ -85,6 +83,7 @@ func (h *handler) routes() []route {
 	out = append(out, h.taskRoutes()...)
 	out = append(out, h.actorRoutes()...)
 	out = append(out, h.adminRoutes()...)
+	out = append(out, h.globalRoutes()...)
 	out = append(out, h.housekeepingRoutes()...)
 	out = append(out, h.connectionRoutes()...)
 	out = append(out, h.webhookRoutes()...)
@@ -231,19 +230,32 @@ const (
 	RouteHousekeepingRun = "/admin/tenant/housekeeping/run"
 	RouteDomains         = "/admin/domains"
 	RouteDomainRemove    = "/admin/domains/remove"
-	RouteUsers           = "/admin/users"
-	RouteUserUpdate      = "/admin/users/update"
-	RouteUserDelete      = "/admin/users/delete"
-	RouteTokens          = "/admin/tokens"
-	RouteTokenRevoke     = "/admin/tokens/revoke" // #nosec G101 -- a url path, not a credential
-	RouteStatus          = "/admin/status"
-	RouteConnections     = "/admin/connections"
-	RouteConnectionEnd   = "/admin/connections/end"
-	RouteSSHKeys         = "/admin/ssh-keys"
-	RouteSSHKeyRevoke    = "/admin/ssh-keys/revoke"
-	RouteWebhooks        = "/admin/webhooks"
-	RouteWebhookDelete   = "/admin/webhooks/delete"
-	RouteRedeliver       = "/admin/webhooks/deliveries/redeliver"
+	// The global admin area, which only a global admin sees: every tenant,
+	// the global admins, and the users of any tenant.
+	RouteGlobal             = "/admin/global"
+	RouteGlobalTenants      = "/admin/global/tenants"
+	RouteGlobalTenantRename = "/admin/global/tenants/rename"
+	RouteGlobalTenantDelete = "/admin/global/tenants/delete"
+	RouteGlobalAdmins       = "/admin/global/admins"
+	RouteGlobalAdminRevoke  = "/admin/global/admins/revoke"
+	RouteGlobalTenant       = "/admin/global/tenants/{key}"
+	RouteGlobalUsers        = "/admin/global/users"
+	RouteGlobalUserUpdate   = "/admin/global/users/update"
+	RouteGlobalUserDelete   = "/admin/global/users/delete"
+
+	RouteUsers         = "/admin/users"
+	RouteUserUpdate    = "/admin/users/update"
+	RouteUserDelete    = "/admin/users/delete"
+	RouteTokens        = "/admin/tokens"
+	RouteTokenRevoke   = "/admin/tokens/revoke" // #nosec G101 -- a url path, not a credential
+	RouteStatus        = "/admin/status"
+	RouteConnections   = "/admin/connections"
+	RouteConnectionEnd = "/admin/connections/end"
+	RouteSSHKeys       = "/admin/ssh-keys"
+	RouteSSHKeyRevoke  = "/admin/ssh-keys/revoke"
+	RouteWebhooks      = "/admin/webhooks"
+	RouteWebhookDelete = "/admin/webhooks/delete"
+	RouteRedeliver     = "/admin/webhooks/deliveries/redeliver"
 
 	RouteTransfer    = "/transfer"
 	RouteExport      = "/transfer/export"

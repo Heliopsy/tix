@@ -65,6 +65,7 @@ var boolColumns = map[string]bool{
 	"tenants.require_totp_cli": true,
 	"tenants.require_totp_ssh": true,
 	"tenants.trash_off":        true,
+	"users.global_admin":       true,
 }
 
 // jsonColumns are stored as TEXT in the portable schema and JSONB here.

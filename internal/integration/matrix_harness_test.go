@@ -90,7 +90,9 @@ func newMatrixHarness(t *testing.T) *matrixHarness {
 	if err != nil {
 		t.Fatalf("bootstrapping defaults: %v", err)
 	}
-	bootstrapCtx := core.WithSource(core.WithActor(ctx, core.SystemActor(tenant.ID)), core.SourceCLI)
+	// The bootstrap stands where a shell holding the database stands, which is
+	// what may grant the first global admin.
+	bootstrapCtx := core.WithDirectStore(core.WithSource(core.WithActor(ctx, core.SystemActor(tenant.ID)), core.SourceCLI))
 
 	user, err := svc.CreateUser(bootstrapCtx, core.CreateUserInput{
 		Email: "matrix@example.test", Handle: "matrix", Role: core.RoleAdmin,
@@ -98,8 +100,13 @@ func newMatrixHarness(t *testing.T) *matrixHarness {
 	if err != nil {
 		t.Fatalf("creating the admin actor: %v", err)
 	}
+	// The matrix admin is a global admin too, so the installation-level
+	// operations have a caller both transports can compare.
+	if _, err := svc.GrantGlobalAdmin(bootstrapCtx, core.GlobalAdminInput{Email: user.Email}); err != nil {
+		t.Fatalf("granting global admin: %v", err)
+	}
 	issued, err := svc.CreateToken(bootstrapCtx, core.CreateTokenInput{
-		Name: "matrix-admin", ActorID: user.ID, Scopes: []core.Scope{core.ScopeAll},
+		Name: "matrix-admin", ActorID: user.ID, Scopes: []core.Scope{core.ScopeAll, core.ScopeGlobalAdmin},
 	})
 	if err != nil {
 		t.Fatalf("minting the admin token: %v", err)
@@ -107,7 +114,7 @@ func newMatrixHarness(t *testing.T) *matrixHarness {
 
 	adminActor := &core.Actor{
 		ID: user.ID, TenantID: tenant.ID, Kind: core.ActorUser,
-		Handle: "matrix", Role: core.RoleAdmin, Scopes: []core.Scope{core.ScopeAll},
+		Handle: "matrix", Role: core.RoleAdmin, Scopes: []core.Scope{core.ScopeAll, core.ScopeGlobalAdmin},
 	}
 	adminCtx := core.WithSource(core.WithActor(ctx, adminActor), core.SourceCLI)
 

@@ -136,12 +136,20 @@ type Conn struct {
 	// remote target.
 	Store store.Store
 
+	// direct is true for a local target opened with no token: this process
+	// holds the database, and its calls stand as a global admin.
+	direct bool
+
 	closers []func() error
 }
 
 // Context returns ctx carrying the connection's actor and the CLI source.
 func (c *Conn) Context(ctx context.Context) context.Context {
-	return core.WithSource(core.WithActor(ctx, c.Actor), core.SourceCLI)
+	ctx = core.WithSource(core.WithActor(ctx, c.Actor), core.SourceCLI)
+	if c.direct {
+		ctx = core.WithDirectStore(ctx)
+	}
+	return ctx
 }
 
 // Close releases the service and everything opened beneath it.
@@ -359,6 +367,7 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		return nil, closeWith(conn, err)
 	}
 	conn.Actor = actor
+	conn.direct = strings.TrimSpace(ov.Token) == ""
 	return conn, nil
 }
 

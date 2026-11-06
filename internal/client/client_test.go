@@ -77,6 +77,26 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 			return err
 		}, http.MethodPatch, "/api/v1/tenants/acme"},
 		{"delete tenant", func(c *Client) error { return c.DeleteTenant(ctx, "acme") }, http.MethodDelete, "/api/v1/tenants/acme"},
+		{"list tenant users", func(c *Client) error { _, _, err := c.ListTenantUsers(ctx, "acme", core.Page{}); return err },
+			http.MethodGet, "/api/v1/tenants/acme/users"},
+		{"create tenant user", func(c *Client) error {
+			_, err := c.CreateTenantUser(ctx, "acme", core.CreateUserInput{Email: "a@b.test"})
+			return err
+		}, http.MethodPost, "/api/v1/tenants/acme/users"},
+		{"update tenant user", func(c *Client) error {
+			_, err := c.UpdateTenantUser(ctx, "acme", "u1", core.UpdateUserInput{})
+			return err
+		}, http.MethodPatch, "/api/v1/tenants/acme/users/u1"},
+		{"delete tenant user", func(c *Client) error { return c.DeleteTenantUser(ctx, "acme", "u1") },
+			http.MethodDelete, "/api/v1/tenants/acme/users/u1"},
+		{"list global admins", func(c *Client) error { _, err := c.ListGlobalAdmins(ctx); return err },
+			http.MethodGet, wire.RouteGlobalAdmins},
+		{"grant global admin", func(c *Client) error {
+			_, err := c.GrantGlobalAdmin(ctx, core.GlobalAdminInput{Email: "a@b.test"})
+			return err
+		}, http.MethodPost, wire.RouteGlobalAdmins},
+		{"revoke global admin", func(c *Client) error { return c.RevokeGlobalAdmin(ctx, "a@b.test") },
+			http.MethodDelete, "/api/v1/global-admins/a@b.test"},
 		{"add domain", func(c *Client) error {
 			_, err := c.AddDomain(ctx, core.AddDomainInput{Hostname: "a.example"})
 			return err

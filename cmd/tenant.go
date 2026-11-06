@@ -7,6 +7,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -20,19 +21,86 @@ func newTenantCmd(g *globals) *cobra.Command {
 		RunE:    helpRunner,
 	}
 	cmd.AddCommand(
-		simpleCreate(g, "create KEY NAME", "Create a tenant",
-			"Create a tenant, the top-level isolation boundary.\n\nExit codes: 2 invalid key, 4 key already exists.",
-			"  tix tenant create acme \"Acme Corp\"",
-			func(cmd *cobra.Command, args []string) (any, error) {
-				conn, ctx, err := g.dial(cmd)
-				if err != nil {
-					return nil, err
-				}
-				return conn.Service.CreateTenant(ctx, core.CreateTenantInput{Key: args[0], Name: args[1]})
-			}, 2, "tenant.create"),
+		tenantCreateCmd(g), newTenantUserCmd(g),
 		tenantLsCmd(g), tenantShowCmd(g), tenantUseCmd(g), tenantEditCmd(g), tenantRmCmd(g),
 	)
 	return cmd
+}
+
+// tenantCreateCmd creates a tenant, optionally with its first admins, whose
+// generated passwords it prints once.
+func tenantCreateCmd(g *globals) *cobra.Command {
+	var name string
+	var admins []string
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "create KEY [NAME]",
+		Short: "Create a tenant",
+		Long: "Create a tenant, the top-level isolation boundary, and with --admin its first admins.\n\n" +
+			"Each --admin becomes a user holding the admin role in the new tenant only, with a generated " +
+			"password printed once. Only a global admin may create a tenant; a shell holding the database is one.\n\n" +
+			"Exit codes: 2 invalid key or email, 4 key or email already in use, 5 not a global admin.",
+		Example: "  tix tenant create acme \"Acme Corp\"\n" +
+			"  tix tenant create acme --name \"Acme Corp\" --admin ada@example.com --admin bob@example.com",
+		Args: rangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			in, err := tenantCreateInput(cmd, args, name, admins)
+			if err != nil {
+				return err
+			}
+			if dryRun {
+				return g.render(cmd, newPlan("tenant.create", in.Key, map[string]any{"admins": admins}))
+			}
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			created, err := conn.Service.CreateTenant(ctx, in)
+			if err != nil {
+				return err
+			}
+			return g.renderCreatedTenant(cmd, created)
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&name, "name", "", "the tenant's display name, instead of the NAME argument")
+	f.StringArrayVar(&admins, "admin", nil, "email of a first admin to create in the tenant, repeatable")
+	f.BoolVar(&dryRun, "dry-run", false, "report what would be created without writing")
+	return cmd
+}
+
+// tenantCreateInput reads the name from the argument or the flag, never both.
+func tenantCreateInput(cmd *cobra.Command, args []string, name string, admins []string) (core.CreateTenantInput, error) {
+	in := core.CreateTenantInput{Key: args[0], Name: name}
+	switch {
+	case len(args) == 2 && name != "":
+		return in, usagef(cmd, "give the name as NAME or as --name, not both")
+	case len(args) == 2:
+		in.Name = args[1]
+	case name == "":
+		return in, usagef(cmd, "a tenant needs a name: NAME or --name")
+	}
+	for _, email := range admins {
+		in.Admins = append(in.Admins, core.TenantAdminInput{Email: email})
+	}
+	return in, in.Validate()
+}
+
+// renderCreatedTenant prints the tenant and, in a table, the generated
+// passwords as a table of their own after a warning on stderr. Other formats
+// carry the whole result, passwords included, as the API returns it.
+func (g *globals) renderCreatedTenant(cmd *cobra.Command, created *core.CreatedTenant) error {
+	if g.formatName() != output.FormatTable {
+		return g.render(cmd, created)
+	}
+	if err := g.render(cmd, created.Tenant); err != nil {
+		return err
+	}
+	if len(created.InitialCredentials) == 0 {
+		return nil
+	}
+	g.diag(cmd, "these passwords are shown once and cannot be retrieved again")
+	return g.render(cmd, created.InitialCredentials)
 }
 
 func tenantLsCmd(g *globals) *cobra.Command {
@@ -514,32 +582,6 @@ func memberRmCmd(g *globals) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
-	return cmd
-}
-
-// simpleCreate builds a create command whose only inputs are positional.
-func simpleCreate(g *globals, use, short, long, example string,
-	run func(*cobra.Command, []string) (any, error), argc int, action string,
-) *cobra.Command {
-	var dryRun bool
-	cmd := &cobra.Command{
-		Use:     use,
-		Short:   short,
-		Long:    long,
-		Example: example,
-		Args:    exactArgs(argc),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if dryRun {
-				return g.render(cmd, newPlan(action, args[0], nil))
-			}
-			created, err := run(cmd, args)
-			if err != nil {
-				return err
-			}
-			return g.render(cmd, created)
-		},
-	}
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be created without writing")
 	return cmd
 }
 

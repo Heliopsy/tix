@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -18,7 +19,16 @@ type CreateTenantInput struct {
 	Key string `json:"key" yaml:"key"`
 	// Name is the tenant's display name. Required.
 	Name string `json:"name" yaml:"name"`
+	// Admins are the first administrators of the new tenant, each created as a
+	// user holding the admin role there and nowhere else, in the same
+	// operation as the tenant. Omitted creates a tenant with no members.
+	Admins []TenantAdminInput `json:"admins,omitempty" yaml:"admins,omitempty"`
 }
+
+// MaxTenantAdmins bounds the administrators one tenant creation may name.
+// Each one costs a password hash, so the bound is what keeps one request from
+// buying an unbounded amount of hashing.
+const MaxTenantAdmins = 10
 
 // Validate checks the input.
 func (in CreateTenantInput) Validate() error {
@@ -28,7 +38,134 @@ func (in CreateTenantInput) Validate() error {
 	if in.Name == "" {
 		return Invalid("tenant name is required")
 	}
+	if len(in.Admins) > MaxTenantAdmins {
+		return Invalid("a tenant can be created with at most %d admins", MaxTenantAdmins)
+	}
+	emails := map[string]bool{}
+	handles := map[string]bool{}
+	for _, a := range in.Admins {
+		if err := a.Validate(); err != nil {
+			return err
+		}
+		email := NormalEmail(a.Email)
+		if emails[email] {
+			return Invalid("admin %q is named twice", email).WithDetail(DetailField, "admins")
+		}
+		emails[email] = true
+		handle := a.HandleOrDefault()
+		if handles[handle] {
+			return Invalid("two admins would share the handle %q; give one a handle", handle).
+				WithDetail(DetailField, "admins")
+		}
+		handles[handle] = true
+	}
 	return nil
+}
+
+// TenantAdminInput names one first administrator of a new tenant.
+type TenantAdminInput struct {
+	// Email is the administrator's sign-in address, lowercased. Required.
+	Email string `json:"email" yaml:"email"`
+	// Handle is the administrator's short name in the new tenant, lowercased;
+	// empty uses the part of the email before the "@".
+	Handle string `json:"handle,omitempty" yaml:"handle,omitempty"`
+	// DisplayName is the name shown for the administrator.
+	DisplayName string `json:"display_name,omitempty" yaml:"display_name,omitempty"`
+	// Password is at least 12 characters. Empty generates a random one, which
+	// the response carries once in initial_credentials and nothing stores.
+	Password string `json:"password,omitempty" yaml:"password,omitempty"`
+}
+
+// Validate checks one administrator.
+func (in TenantAdminInput) Validate() error {
+	if err := ValidateEmail(in.Email); err != nil {
+		return err
+	}
+	if in.HandleOrDefault() == "" {
+		return Invalid("admin %q needs a handle", in.Email)
+	}
+	if in.Password != "" && len(in.Password) < MinPasswordLength {
+		return Invalid("password for admin %q must be at least %d characters", NormalEmail(in.Email), MinPasswordLength)
+	}
+	return nil
+}
+
+// HandleOrDefault is the handle the administrator will get: the one given, or
+// the local part of the email.
+func (in TenantAdminInput) HandleOrDefault() string {
+	if h := strings.ToLower(strings.TrimSpace(in.Handle)); h != "" {
+		return h
+	}
+	local, _, _ := strings.Cut(NormalEmail(in.Email), "@")
+	return local
+}
+
+// NormalEmail is an address as it is stored: trimmed and lowercased.
+func NormalEmail(email string) string { return strings.ToLower(strings.TrimSpace(email)) }
+
+// ValidateEmail refuses an address that is plainly not one: no "@", nothing on
+// either side of it, or whitespace inside. Deliverability is not checked.
+func ValidateEmail(email string) error {
+	e := NormalEmail(email)
+	if e == "" {
+		return Invalid("email is required").WithDetail(DetailField, "email")
+	}
+	local, domain, ok := strings.Cut(e, "@")
+	if !ok || local == "" || domain == "" || strings.Contains(domain, "@") ||
+		strings.ContainsAny(e, " \t\r\n") {
+		return Invalid("%q is not an email address", e).WithDetail(DetailField, "email")
+	}
+	return nil
+}
+
+// CreatedTenant is a tenant just created, with the administrators created
+// alongside it.
+type CreatedTenant struct {
+	Tenant
+	// Admins are the administrators created with the tenant, in the order
+	// they were named.
+	Admins []CreatedAdmin `json:"admins,omitempty" yaml:"admins,omitempty"`
+	// InitialCredentials carries every password the server generated, in
+	// plain text, exactly once. Nothing stores it and no later call returns
+	// it; a caller that discards it has to set a new password.
+	InitialCredentials []InitialCredential `json:"initial_credentials,omitempty" yaml:"initial_credentials,omitempty"`
+}
+
+// CreatedAdmin is one administrator created with a tenant.
+type CreatedAdmin struct {
+	// UserID is the new user's identifier, which is also its actor's.
+	UserID string `json:"user_id" yaml:"user_id"`
+	// Email is the administrator's sign-in address.
+	Email string `json:"email" yaml:"email"`
+	// Handle is the administrator's handle in the new tenant.
+	Handle string `json:"handle" yaml:"handle"`
+	// PasswordGenerated is true when the server chose the password, which is
+	// then in InitialCredentials.
+	PasswordGenerated bool `json:"password_generated" yaml:"password_generated"`
+}
+
+// InitialCredential is a generated password, shown once.
+type InitialCredential struct {
+	// Email is the address the password signs in with.
+	Email string `json:"email" yaml:"email"`
+	// Handle is the administrator's handle in the new tenant.
+	Handle string `json:"handle" yaml:"handle"`
+	// Password is the generated password in plain text.
+	Password string `json:"password" yaml:"password"`
+}
+
+// TenantUser is a user of some tenant together with their role there.
+type TenantUser struct {
+	User
+	// Role is the user's role in that tenant; empty when they hold no
+	// membership there.
+	Role Role `json:"role,omitempty" yaml:"role,omitempty"`
+}
+
+// GlobalAdminInput names the user a global admin grant concerns.
+type GlobalAdminInput struct {
+	// Email is the user's sign-in address. Required.
+	Email string `json:"email" yaml:"email"`
 }
 
 // UpdateTenantInput changes a tenant.

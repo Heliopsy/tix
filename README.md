@@ -97,7 +97,8 @@ line, `Fix login !high #auth @raj due:fri`, in the browser, the terminal or `tix
 
 ### For teams
 
-Multi-tenant, with domains mapping to tenants. Isolation does not depend on somebody remembering a
+Multi-tenant, with domains mapping to tenants, and global admins who create tenants with their first
+admins and manage every tenant from the CLI, the API or the browser. Isolation does not depend on somebody remembering a
 `WHERE` clause: queries are built by a scoped builder that cannot produce an unscoped statement, and a
 lint rule forbids raw database calls. On PostgreSQL the same scoping is enforced a second time by
 row-level security policies, applied to the connection when tix opens the database.

@@ -210,6 +210,14 @@ async function startLocal(tix, hostile) {
   });
   if (seed.status !== 0) throw new Error(`tix demo seed failed: ${seed.stderr || seed.stdout}`);
   if (hostile) seedHostile(tix, db, env, dir);
+  // The demo admin is made a global admin from the shell, the way the first
+  // one is on a real installation, so the global admin area has a reader.
+  const grant = spawnSync(tix, ["--db", db, "--no-discovery", "global-admin", "grant", "nadia@demo.invalid", "-q"], {
+    env,
+    cwd: dir,
+    encoding: "utf8",
+  });
+  if (grant.status !== 0) throw new Error(`tix global-admin grant failed: ${grant.stderr || grant.stdout}`);
   const port = await freePort();
   const base = `http://127.0.0.1:${port}`;
   const server = spawn(

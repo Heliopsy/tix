@@ -85,13 +85,13 @@ func TestRoleActionMatrix(t *testing.T) {
 	allowedByRole := map[core.Role][]Action{
 		core.RoleViewer: viewer,
 		core.RoleMember: member,
-		core.RoleAdmin:  Actions(),
+		core.RoleAdmin:  scopedActions(),
 		core.Role(""):   nil,
 	}
 
 	p := New()
 	for role, allowed := range allowedByRole {
-		for _, action := range Actions() {
+		for _, action := range scopedActions() {
 			want := slices.Contains(allowed, action)
 			err := p.Can(roleActor(role), action, resource())
 			got := err == nil
@@ -124,7 +124,7 @@ func TestScopeActionMatrix(t *testing.T) {
 	p := New()
 	for _, held := range core.AllScopes {
 		actor := scopeActor(held)
-		for _, action := range Actions() {
+		for _, action := range scopedActions() {
 			required, _ := action.Scope()
 			want := required == held
 			err := p.Can(actor, action, resource())
@@ -149,7 +149,7 @@ func TestEmptyScopeSetDeniesEverything(t *testing.T) {
 func TestNoAuthWildcardActorAllowedEverywhere(t *testing.T) {
 	p := New()
 	actor := core.SystemActor(tenantA)
-	for _, action := range Actions() {
+	for _, action := range scopedActions() {
 		if err := p.Can(actor, action, resource()); err != nil {
 			t.Errorf("wildcard actor denied %q: %v", action, err)
 		}
@@ -429,5 +429,65 @@ func TestClearingAnotherUsersSecondFactorIsAdminOnly(t *testing.T) {
 	// outright rather than held inside its own project.
 	if ActionTOTPAdmin.ProjectConfinable() {
 		t.Fatal("clearing a second factor is confinable to a project, which it does not belong to")
+	}
+}
+
+// scopedActions are the actions Can decides. ActionGlobalAdmin is decided by
+// CanGlobal and Can refuses it outright, which TestCanNeverGrantGlobalAdmin
+// pins.
+func scopedActions() []Action {
+	return slices.DeleteFunc(Actions(), func(a Action) bool { return a == ActionGlobalAdmin })
+}
+
+func TestCanNeverGrantGlobalAdmin(t *testing.T) {
+	p := New()
+	for name, actor := range map[string]*core.Actor{
+		"system":           core.SystemActor(tenantA),
+		"admin role":       roleActor(core.RoleAdmin),
+		"global:admin":     scopeActor(core.ScopeGlobalAdmin),
+		"wildcard + named": scopeActor(core.ScopeAll, core.ScopeGlobalAdmin),
+	} {
+		if err := p.Can(actor, ActionGlobalAdmin, resource()); !core.IsKind(err, core.KindForbidden) {
+			t.Errorf("Can(%s, global admin) = %v, want forbidden", name, err)
+		}
+	}
+}
+
+func TestCanGlobal(t *testing.T) {
+	session := &core.Actor{ID: "u1", TenantID: tenantA, Kind: core.ActorUser, Role: core.RoleAdmin}
+	token := func(scopes ...core.Scope) *core.Actor {
+		return &core.Actor{ID: "u1", TenantID: tenantA, Kind: core.ActorAgent, TokenID: "t1", Scopes: scopes}
+	}
+	pinned := token(core.ScopeGlobalAdmin)
+	pinned.ProjectID = "p1"
+	tests := []struct {
+		name     string
+		actor    *core.Actor
+		standing GlobalStanding
+		want     bool
+	}{
+		{"shell holding the database", session, GlobalStanding{DirectStore: true}, true},
+		{"session of a global admin", session, GlobalStanding{GlobalAdmin: true}, true},
+		{"session of a tenant admin", session, GlobalStanding{}, false},
+		{"token naming the scope, global admin", token(core.ScopeGlobalAdmin), GlobalStanding{GlobalAdmin: true}, true},
+		{"wildcard token, global admin", token(core.ScopeAll), GlobalStanding{GlobalAdmin: true}, false},
+		{"token naming the scope, not a global admin", token(core.ScopeGlobalAdmin), GlobalStanding{}, false},
+		{"token over a local store is still a token", token(core.ScopeAll), GlobalStanding{DirectStore: true}, false},
+		{"project-pinned token", pinned, GlobalStanding{GlobalAdmin: true}, false},
+	}
+	p := New()
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := p.CanGlobal(tc.actor, tc.standing)
+			if (err == nil) != tc.want {
+				t.Fatalf("CanGlobal = %v, want allowed=%v", err, tc.want)
+			}
+			if !tc.want && !core.IsKind(err, core.KindForbidden) {
+				t.Errorf("CanGlobal = %v, want forbidden", err)
+			}
+		})
+	}
+	if err := p.CanGlobal(nil, GlobalStanding{DirectStore: true}); !core.IsKind(err, core.KindUnauthenticated) {
+		t.Errorf("CanGlobal(nil) = %v, want unauthenticated", err)
 	}
 }

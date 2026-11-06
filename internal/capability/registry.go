@@ -76,6 +76,8 @@ const (
 	tplChannel   = "channel.html"
 	tplTemplates = "templates.html"
 	tplTemplate  = "template.html"
+	tplGlobal    = "globaladmin.html"
+	tplGlobalUsr = "globalusers.html"
 )
 
 // registry declares every operation the product offers. Every exported method
@@ -106,11 +108,11 @@ var registry = []Operation{
 
 	{
 		Name: "tenant.create", Method: "CreateTenant", Contract: Contract{Status: http.StatusCreated},
-		Scope: core.ScopeTenantAdmin,
+		Scope: core.ScopeGlobalAdmin,
 		CLI:   "tix tenant create",
 		HTTP:  apiPost(wire.RouteTenants),
+		Web:   webPost(web.RouteGlobalTenants),
 		Exempt: []Exemption{
-			off(SurfaceWeb, "a browser session is pinned to one tenant, so creating another is an installation-level operation reserved for the CLI"),
 			gap(SurfaceTUI, "GAP: no tui binding yet; the tenant view administers the tenant in force, and a session pinned to one tenant has no installation-level entry for creating another"),
 		},
 	},
@@ -143,8 +145,8 @@ var registry = []Operation{
 		Scope: core.ScopeTenantAdmin,
 		CLI:   "tix tenant rm",
 		HTTP:  apiDelete(wire.RouteTenant),
+		Web:   webPost(web.RouteGlobalTenantDelete),
 		Exempt: []Exemption{
-			off(SurfaceWeb, "deleting the tenant the session belongs to would destroy the operator's own access, so it is reserved for the CLI"),
 			gap(SurfaceTUI, "GAP: no tui binding yet; destroying the tenant a running session is pinned to would revoke the interface's own access mid-session"),
 		},
 	},
@@ -1091,6 +1093,76 @@ var registry = []Operation{
 		Web:   webPost(web.RouteUserDelete),
 		Exempt: []Exemption{
 			gap(SurfaceTUI, "GAP: no tui binding yet; there is no user administration view"),
+		},
+	},
+	{
+		Name: "tenant.user.list", Method: "ListTenantUsers",
+		Scope: core.ScopeGlobalAdmin,
+		CLI:   "tix tenant user ls",
+		HTTP:  apiGet(wire.RouteTenantUsers),
+		Web:   webGet(web.RouteGlobalTenant, tplGlobalUsr),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
+		},
+	},
+	{
+		Name: "tenant.user.create", Method: "CreateTenantUser", Contract: Contract{Status: http.StatusCreated},
+		Scope: core.ScopeGlobalAdmin,
+		CLI:   "tix tenant user create",
+		HTTP:  apiPost(wire.RouteTenantUsers),
+		Web:   webPost(web.RouteGlobalUsers),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
+		},
+	},
+	{
+		Name: "tenant.user.update", Method: "UpdateTenantUser",
+		Scope: core.ScopeGlobalAdmin,
+		CLI:   "tix tenant user edit",
+		HTTP:  apiPatch(wire.RouteTenantUser),
+		Web:   webPost(web.RouteGlobalUserUpdate),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
+		},
+	},
+	{
+		Name: "tenant.user.delete", Method: "DeleteTenantUser",
+		Scope: core.ScopeGlobalAdmin,
+		CLI:   "tix tenant user rm",
+		HTTP:  apiDelete(wire.RouteTenantUser),
+		Web:   webPost(web.RouteGlobalUserDelete),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
+		},
+	},
+	{
+		Name: "global_admin.list", Method: "ListGlobalAdmins",
+		Scope: core.ScopeGlobalAdmin,
+		CLI:   "tix global-admin ls",
+		HTTP:  apiGet(wire.RouteGlobalAdmins),
+		Web:   webGet(web.RouteGlobal, tplGlobal),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
+		},
+	},
+	{
+		Name: "global_admin.grant", Method: "GrantGlobalAdmin",
+		Scope: core.ScopeGlobalAdmin,
+		CLI:   "tix global-admin grant",
+		HTTP:  apiPost(wire.RouteGlobalAdmins),
+		Web:   webPost(web.RouteGlobalAdmins),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
+		},
+	},
+	{
+		Name: "global_admin.revoke", Method: "RevokeGlobalAdmin",
+		Scope: core.ScopeGlobalAdmin,
+		CLI:   "tix global-admin revoke",
+		HTTP:  apiDelete(wire.RouteGlobalAdmin),
+		Web:   webPost(web.RouteGlobalAdminRevoke),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
 		},
 	},
 	{

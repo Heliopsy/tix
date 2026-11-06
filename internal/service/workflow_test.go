@@ -372,7 +372,7 @@ func TestDeleteWorkflowRefusesTheBuiltinAndOnesInUse(t *testing.T) {
 
 func TestWorkflowsDoNotLeakAcrossTenants(t *testing.T) {
 	l, _, ctx := withDefaults(t)
-	other, err := l.CreateTenant(ctx, core.CreateTenantInput{Key: "beta", Name: "Beta"})
+	other, err := l.CreateTenant(core.WithDirectStore(ctx), core.CreateTenantInput{Key: "beta", Name: "Beta"})
 	if err != nil {
 		t.Fatalf("CreateTenant: %v", err)
 	}

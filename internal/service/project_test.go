@@ -336,7 +336,7 @@ func TestProjectsDoNotLeakAcrossTenants(t *testing.T) {
 		t.Fatalf("CreateProject: %v", err)
 	}
 
-	other, err := l.CreateTenant(ctx, core.CreateTenantInput{Key: "beta", Name: "Beta"})
+	other, err := l.CreateTenant(core.WithDirectStore(ctx), core.CreateTenantInput{Key: "beta", Name: "Beta"})
 	if err != nil {
 		t.Fatalf("CreateTenant: %v", err)
 	}

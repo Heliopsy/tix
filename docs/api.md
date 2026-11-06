@@ -78,6 +78,7 @@ the routes the server registers. The areas are the first segment of each operati
 | event | `GET /events` |
 | field | `GET /projects/{ref}/fields`, `PUT /projects/{ref}/fields`, `DELETE /projects/{ref}/fields/{key}` |
 | filter | `GET /filters`, `POST /filters`, `PUT /filters/order`, `GET /filters/{filter}`, `PATCH /filters/{filter}`, `DELETE /filters/{filter}` |
+| global_admin | `GET /global-admins`, `POST /global-admins`, `DELETE /global-admins/{email}` |
 | housekeeping | `GET /housekeeping`, `PUT /housekeeping`, `POST /housekeeping/run` |
 | identity | `GET /whoami` |
 | inbox | `POST /channel-deliveries/{id}/redeliver`, `GET /channels`, `POST /channels`, `PATCH /channels/{id}`, `DELETE /channels/{id}`, `GET /channels/{id}/deliveries`, `POST /channels/{id}/test`, `GET /inbox`, `GET /inbox/count`, `GET /inbox/prefs`, `PUT /inbox/prefs`, `POST /inbox/read-all`, `PUT /inbox/{id}/read`, `DELETE /inbox/{id}/read` |
@@ -93,7 +94,7 @@ the routes the server registers. The areas are the first segment of each operati
 | tag | `GET /tags`, `POST /tasks/{ref}/tags`, `DELETE /tasks/{ref}/tags/{name}` |
 | task | `POST /snoozes/wake`, `GET /tasks`, `POST /tasks`, `POST /tasks/bulk`, `GET /tasks/{ref}`, `PATCH /tasks/{ref}`, `DELETE /tasks/{ref}`, `GET /tasks/{ref}/audit`, `POST /tasks/{ref}/checklist`, `POST /tasks/{ref}/copy`, `GET /tasks/{ref}/lease`, `POST /tasks/{ref}/restore`, `POST /tasks/{ref}/route`, `PUT /tasks/{ref}/snooze`, `DELETE /tasks/{ref}/snooze`, `PUT /tasks/{ref}/star`, `DELETE /tasks/{ref}/star`, `GET /tasks/{ref}/tags`, `POST /tasks/{ref}/transition`, `GET /tasks/{ref}/tree` |
 | template | `GET /templates`, `POST /templates`, `GET /templates/{ref}`, `PATCH /templates/{ref}`, `DELETE /templates/{ref}`, `POST /templates/{ref}/use` |
-| tenant | `GET /tenants`, `POST /tenants`, `GET /tenants/{ref}`, `PATCH /tenants/{ref}`, `DELETE /tenants/{ref}` |
+| tenant | `GET /tenants`, `POST /tenants`, `GET /tenants/{ref}`, `PATCH /tenants/{ref}`, `DELETE /tenants/{ref}`, `GET /tenants/{ref}/users`, `POST /tenants/{ref}/users`, `PATCH /tenants/{ref}/users/{id}`, `DELETE /tenants/{ref}/users/{id}` |
 | token | `GET /tokens`, `POST /tokens`, `DELETE /tokens/{id}` |
 | totp | `GET /auth/totp`, `POST /auth/totp`, `DELETE /auth/totp`, `POST /auth/totp/confirm`, `POST /auth/totp/recovery-codes`, `POST /auth/totp/verify`, `DELETE /users/{id}/totp` |
 | trash | `GET /trash` |
@@ -341,6 +342,44 @@ also carries `recovery_codes`, once. There is no way to send a code with the pas
 
 API tokens never meet a second factor. [second-factor.md](second-factor.md) covers the policy, the key and
 recovery.
+
+### Creating a tenant
+
+`POST /api/v1/tenants` needs a global admin: a session of one, or a token naming `global:admin` whose actor is
+one (see [tenancy.md](tenancy.md#global-admins)). `admins` is optional; each entry takes `email` and optionally
+`handle`, `display_name` and `password`. A password left out is generated and returned once in
+`initial_credentials`; one given is not echoed back.
+
+```http
+POST /api/v1/tenants
+Authorization: Bearer tix_pat_...
+
+{"key": "test", "name": "Test",
+ "admins": [{"email": "villy@example.com"}, {"email": "icek@example.com", "display_name": "Icek"}]}
+```
+
+```json
+{
+  "id": "01JTENANT0000000000000000A", "key": "test", "name": "Test", "created_at": "2026-11-06T12:00:00Z",
+  "admins": [
+    {"user_id": "01JUSER00000000000000000AA", "email": "villy@example.com", "handle": "villy", "password_generated": true},
+    {"user_id": "01JUSER00000000000000000AB", "email": "icek@example.com", "handle": "icek", "password_generated": true}
+  ],
+  "initial_credentials": [
+    {"email": "villy@example.com", "handle": "villy", "password": "xxxxxx-xxxxxx-xxxxxx-xxxxx1"},
+    {"email": "icek@example.com", "handle": "icek", "password": "xxxxxx-xxxxxx-xxxxxx-xxxxx2"}
+  ]
+}
+```
+
+The answer is 201. A tenant admin is 403. An admin email that already belongs to a user is 409 naming the
+address, and nothing is created. A bad email, an address named twice, two admins sharing a handle, a password
+under 12 characters or more than 10 admins is 400.
+
+A global admin also reaches `GET`, `PATCH` and `DELETE /tenants/{ref}` for any tenant, lists every tenant on
+`GET /tenants`, manages any tenant's users on `/tenants/{ref}/users`, and grants global admin on
+`/global-admins`. Anybody else gets 403 on the global routes whatever tenant they name, and `not_found` for
+another tenant on the others.
 
 ## Listing and pagination
 

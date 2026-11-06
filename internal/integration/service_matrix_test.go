@@ -2173,22 +2173,91 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
-		name:   "a created tenant is not visible to its creator",
-		covers: []string{"CreateTenant", "GetTenant"},
+		name:   "a global admin creates a tenant with its first admins and reads it back",
+		covers: []string{"CreateTenant", "GetTenant", "ListTenantUsers"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
 			key := "t" + randSuffix()
-			created, err := tg.svc.CreateTenant(tg.ctx, core.CreateTenantInput{Key: key, Name: "Matrix Tenant"})
+			created, err := tg.svc.CreateTenant(tg.ctx, core.CreateTenantInput{Key: key, Name: "Matrix Tenant",
+				Admins: []core.TenantAdminInput{{Email: key + "@first.test"}}})
 			if err != nil {
 				return nil, err
 			}
-			// Reads are bound to the caller's own tenant, so the tenant just
-			// created is absent rather than refused.
-			_, err = tg.svc.GetTenant(tg.ctx, key)
+			got, err := tg.svc.GetTenant(tg.ctx, key)
+			if err != nil {
+				return nil, err
+			}
+			users, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.Page{})
+			if err != nil {
+				return nil, err
+			}
+			roles := []string{}
+			for _, u := range users {
+				roles = append(roles, string(u.Role))
+			}
 			return sig{
-				"name":         created.Name,
-				"key":          created.Key == key,
-				"other_tenant": core.KindOf(err),
+				"name":        created.Name,
+				"key":         created.Key == key && got.ID == created.ID,
+				"admins":      len(created.Admins),
+				"credentials": len(created.InitialCredentials),
+				"roles":       roles,
 			}, nil
+		},
+	},
+	{
+		name:   "a global admin manages the users of another tenant",
+		covers: []string{"CreateTenantUser", "UpdateTenantUser", "DeleteTenantUser", "ListTenantUsers"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			key := "u" + randSuffix()
+			if _, err := tg.svc.CreateTenant(tg.ctx, core.CreateTenantInput{Key: key, Name: "Other"}); err != nil {
+				return nil, err
+			}
+			u, err := tg.svc.CreateTenantUser(tg.ctx, key, core.CreateUserInput{
+				Email: key + "@other.test", Password: "correct-horse-battery", Role: core.RoleViewer})
+			if err != nil {
+				return nil, err
+			}
+			role := core.RoleMember
+			if _, err := tg.svc.UpdateTenantUser(tg.ctx, key, u.ID, core.UpdateUserInput{Role: &role}); err != nil {
+				return nil, err
+			}
+			before, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.Page{})
+			if err != nil {
+				return nil, err
+			}
+			if err := tg.svc.DeleteTenantUser(tg.ctx, key, u.ID); err != nil {
+				return nil, err
+			}
+			after, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.Page{})
+			if err != nil {
+				return nil, err
+			}
+			return sig{"role": string(before[0].Role), "before": len(before), "after": len(after)}, nil
+		},
+	},
+	{
+		name:   "granting and revoking global admin",
+		covers: []string{"GrantGlobalAdmin", "ListGlobalAdmins", "RevokeGlobalAdmin"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			email := "g" + randSuffix() + "@grant.test"
+			if _, err := tg.svc.CreateUser(tg.ctx, core.CreateUserInput{Email: email, Role: core.RoleViewer}); err != nil {
+				return nil, err
+			}
+			granted, err := tg.svc.GrantGlobalAdmin(tg.ctx, core.GlobalAdminInput{Email: email})
+			if err != nil {
+				return nil, err
+			}
+			listed, err := tg.svc.ListGlobalAdmins(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			if err := tg.svc.RevokeGlobalAdmin(tg.ctx, email); err != nil {
+				return nil, err
+			}
+			after, err := tg.svc.ListGlobalAdmins(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			return sig{"granted": granted.GlobalAdmin, "listed": len(listed), "after": len(after)}, nil
 		},
 	},
 	{

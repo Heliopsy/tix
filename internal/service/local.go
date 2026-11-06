@@ -201,7 +201,17 @@ func (l *Local) Close() error { return l.store.Close() }
 
 // WhoAmI returns the authenticated actor.
 func (l *Local) WhoAmI(ctx context.Context) (*core.Actor, error) {
-	return core.RequireActor(ctx)
+	actor, err := core.RequireActor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	global, err := l.globalAllowed(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := *actor
+	out.GlobalAdmin = global
+	return &out, nil
 }
 
 // authorize resolves the actor and checks the policy in one step. Every

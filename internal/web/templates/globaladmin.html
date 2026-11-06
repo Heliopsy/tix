@@ -1,0 +1,135 @@
+{{define "content"}}
+{{$v := .Data}}
+<div class="pagehead">
+  <div class="pagehead-title">
+    <h1>{{t "Global admin"}}</h1>
+    <p class="lede summary">{{t "Every tenant of this installation, and who may administer all of them."}}</p>
+  </div>
+  <div class="pagehead-tools">{{template "dlg-open" (opener "tenant-new" (t "Create a tenant") "plus" "" .Here)}}</div>
+</div>
+
+{{/* The passwords a tenant creation generated, shown once. They arrive in a
+     cookie this screen clears as it reads it, so a reload shows nothing. */}}
+{{with $v.Credentials}}
+<section class="secret" aria-labelledby="initial-passwords-heading">
+  <h2 id="initial-passwords-heading">{{t "Copy these passwords now"}}</h2>
+  <p>{{t "They are shown once and cannot be retrieved again. If one is lost, set a new password from the tenant's users."}}</p>
+  {{range .}}
+  <p class="secret-who"><strong>{{.Heading}}</strong> <span class="muted mono">{{.Note}}</span></p>
+  <div class="copyline">
+    <code id="{{.ID}}">{{.Value}}</code>
+    <button type="button" class="secondary" data-copy-target="{{.ID}}">{{t "Copy"}}</button>
+  </div>
+  {{end}}
+</section>
+{{end}}
+
+<h2>{{t "Tenants"}}</h2>
+<ul class="peoplelist rows">
+{{range $v.Tenants}}
+  <li class="person" id="tenant-{{.Tenant.Key}}">
+    <span class="avatar" aria-hidden="true">{{monogram .Tenant.Name}}</span>
+    <span class="person-id">
+      <span class="person-name">{{.Tenant.Name}}{{if .Own}} <span class="chip you">{{t "yours"}}</span>{{end}}</span>
+      <span class="person-mail mono">{{.Tenant.Key}}</span>
+    </span>
+    <span class="person-act">
+      <a class="btn secondary small" href="/admin/global/tenants/{{.Tenant.Key}}">{{template "icon" "users"}}<span class="btn-label">{{t "Users"}}</span></a>
+      {{template "dlg-open" ((opener (print "tenant-rename-" .Tenant.Key) (t "Rename") "settings" "secondary small" $.Here).Named (t "Rename %s" .Tenant.Name))}}
+      {{if not .Own}}{{template "dlg-open" ((opener (print "tenant-del-" .Tenant.Key) (t "Delete") "trash" "danger small" $.Here).Named (t "Delete %s" .Tenant.Name))}}{{end}}
+    </span>
+  </li>
+{{else}}
+  <li class="empty"><p class="empty-title">{{t "No tenants yet"}}</p></li>
+{{end}}
+</ul>
+
+{{template "pager" $v.Pager}}
+
+<div class="pagehead">
+  <div class="pagehead-title"><h2>{{t "Global admins"}}</h2></div>
+  <div class="pagehead-tools">{{template "dlg-open" (opener "global-grant" (t "Grant global admin") "plus" "secondary" .Here)}}</div>
+</div>
+<ul class="peoplelist rows">
+{{range $v.Admins}}
+  <li class="person{{if .DisabledAt}} is-off{{end}}" id="global-{{.ID}}">
+    <span class="avatar" aria-hidden="true">{{monogram (or .DisplayName .Email)}}</span>
+    <span class="person-id">
+      <span class="person-name">{{or .DisplayName .Email}}</span>
+      <span class="person-mail mono">{{.Email}}</span>
+    </span>
+    <span class="person-act">{{template "dlg-open" ((opener (print "global-revoke-" .ID) (t "Revoke") "x" "secondary small" $.Here).Named (t "Revoke global admin from %s" .Email))}}</span>
+  </li>
+{{end}}
+</ul>
+
+{{range $v.Tenants}}
+{{$sh := shell (print "tenant-rename-" .Tenant.Key) (t "Rename %s" .Tenant.Name) "" $.Dialog $.Here}}
+{{$d := $.Dialog.For (print "tenant-rename-" .Tenant.Key)}}
+{{template "dlg-start" $sh}}
+<form method="post" action="/admin/global/tenants/rename">
+  {{template "csrf" $.CSRF}}
+  <input type="hidden" name="target" value="{{.Tenant.Key}}">
+  {{with $d.Errors.On ""}}{{template "field-error" .}}{{end}}
+  <label for="rename-{{.Tenant.Key}}">{{t "Name"}}</label>
+  <input id="rename-{{.Tenant.Key}}" name="name" value="{{.Tenant.Name}}" required>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Save changes"}}</button></div>
+</form>
+{{template "dlg-end"}}
+{{if not .Own}}
+{{$del := shell (print "tenant-del-" .Tenant.Key) (t "Delete %s?" .Tenant.Name) "confirm" $.Dialog $.Here}}
+{{template "dlg-start" $del}}
+<form method="post" action="/admin/global/tenants/delete">
+  {{template "csrf" $.CSRF}}
+  <input type="hidden" name="target" value="{{.Tenant.Key}}">
+  <p>{{t "Its people can no longer sign in, its data stops being reachable and its domains stop resolving. Nothing is destroyed, but nothing here brings it back."}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $del.Back}}<button class="danger" type="submit">{{t "Delete %s" .Tenant.Name}}</button></div>
+</form>
+{{template "dlg-end"}}
+{{end}}
+{{end}}
+
+{{range $v.Admins}}
+{{$rv := shell (print "global-revoke-" .ID) (t "Revoke global admin from %s?" .Email) "confirm" $.Dialog $.Here}}
+{{template "dlg-start" $rv}}
+<form method="post" action="/admin/global/admins/revoke">
+  {{template "csrf" $.CSRF}}
+  <input type="hidden" name="email" value="{{.Email}}">
+  <p>{{t "They keep their own tenant and their role in it, and stop administering the others at once. The last global admin cannot be revoked."}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $rv.Back}}<button class="danger" type="submit">{{t "Revoke"}}</button></div>
+</form>
+{{template "dlg-end"}}
+{{end}}
+
+{{$g := .Dialog.For "global-grant"}}
+{{$gs := shell "global-grant" (t "Grant global admin") "" .Dialog .Here}}
+{{template "dlg-start" $gs}}
+<form method="post" action="/admin/global/admins">
+  {{template "csrf" .CSRF}}
+  {{with $g.Errors.On ""}}{{template "field-error" .}}{{end}}
+  <p class="muted">{{t "A global admin creates tenants and administers every tenant here. Name a user who already exists, in any tenant."}}</p>
+  <label for="grant-email">{{t "Email"}}</label>
+  <input id="grant-email" name="email" type="email" value="{{$g.Value "email"}}" required{{$g.Errors.Attrs "email"}}>
+  {{with $g.Errors.On "email"}}{{template "field-error" .}}{{end}}
+  <div class="actiondlg-foot">{{template "dlg-cancel" $gs.Back}}<button type="submit">{{t "Grant global admin"}}</button></div>
+</form>
+{{template "dlg-end"}}
+
+{{$d := .Dialog.For "tenant-new"}}
+{{$sh := shell "tenant-new" (t "Create a tenant") "" .Dialog .Here}}
+{{template "dlg-start" $sh}}
+<form method="post" action="/admin/global/tenants">
+  {{template "csrf" .CSRF}}
+  {{with $d.Errors.On ""}}{{template "field-error" .}}{{end}}
+  <div class="row">
+    <div><label for="tenant-key">{{t "Key"}}</label><input id="tenant-key" name="key" value="{{$d.Value "key"}}" required autocapitalize="none" spellcheck="false"{{$d.Errors.Attrs "key"}}>{{with $d.Errors.On "key"}}{{template "field-error" .}}{{end}}</div>
+    <div><label for="tenant-name">{{t "Name"}}</label><input id="tenant-name" name="name" value="{{$d.Value "name"}}" required{{$d.Errors.Attrs "name"}}>{{with $d.Errors.On "name"}}{{template "field-error" .}}{{end}}</div>
+  </div>
+  <label for="tenant-admins">{{t "First admins"}}</label>
+  <textarea id="tenant-admins" name="admins" rows="3" autocapitalize="none" spellcheck="false"{{$d.Errors.Attrs "admins"}}>{{$d.Value "admins"}}</textarea>
+  {{with $d.Errors.On "admins"}}{{template "field-error" .}}{{end}}
+  <p class="muted">{{t "One email per line. Each becomes an admin of the new tenant only, with a password generated and shown to you once."}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Create tenant"}}</button></div>
+</form>
+{{template "dlg-end"}}
+{{end}}

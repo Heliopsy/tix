@@ -38,7 +38,12 @@ lanes' order; an archived project, or one you can no longer read, is left out.
 **Admin** holds Trash and the screens Configure and Data used to: Workflows, Templates, Tenant, Domains,
 Users, Tokens, SSH keys, Status, Connections, Webhooks, Import and export, and Sync. The configuration
 screens need Advanced screens on, and Trash leaves when the tenant deletes for good, so a reader with
-neither gets no Admin heading at all.
+neither gets no Admin heading at all. A global admin also gets Global admin there, whatever the
+preference says: every tenant with Create a tenant, Rename and Delete, each opening a dialog; the global
+admins with Grant and Revoke; and a Users button per tenant that opens that tenant's accounts with the same
+Manage dialog as Users. A tenant created with first admins brings the screen back with their generated
+passwords at the top, each with a Copy button, once; a reload shows none. See
+[tenancy.md](tenancy.md#global-admins).
 
 **The account menu.** Your initials and handle at the foot open one menu: Settings, the colour scheme
 switch, Keyboard shortcuts and Sign out. These were four blocks stacked under the navigation. It is a
