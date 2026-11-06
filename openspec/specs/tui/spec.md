@@ -1676,3 +1676,239 @@ NOT edit the rule either; it is set from the command line, the browser or the AP
 
 - **WHEN** the detail view is opened on a task carrying `every 2 weeks on mon,thu`
 - **THEN** it states `every 2 weeks on mon,thu`
+
+### Requirement: Project icons the terminal cannot draw
+
+The terminal interface SHALL draw a built-in project icon as that symbol's fallback glyph and an
+uploaded image as a fixed mark, wherever it draws a text icon, and the project view SHALL name the
+kind of icon the project carries.
+
+#### Scenario: Built-in icon in the project list
+
+- **WHEN** a project whose icon is the built-in rocket is listed
+- **THEN** its row starts with the rocket's fallback glyph
+
+#### Scenario: Image in the project view
+
+- **WHEN** the project view shows a project whose icon is an uploaded image
+- **THEN** the icon line states that the icon is an uploaded image
+
+### Requirement: The board follows the reader's arrangement
+
+The terminal board of a project SHALL draw its columns by the reader's arrangement of
+`project:KEY`: hidden columns SHALL not be drawn, starred columns SHALL lead and positioned ones
+follow in their order, and a collapsed column SHALL be drawn as a narrow strip with its name and
+count. The command palette SHALL offer to hide, star, collapse and move the selected column, and to
+show every hidden column again.
+
+#### Scenario: Hiding the selected column from the palette
+
+- **WHEN** the reader runs "Hide column" from the palette with `done` selected
+- **THEN** the board no longer draws `done`, and the web board of the same project hides it too
+
+### Requirement: The terminal asks what happens to a deleted project's tasks
+
+The terminal interface's project removal form SHALL, when deletion is chosen, ask whether the project's tasks are
+deleted with it or moved to one of the other live projects, offering each by key. Before confirming a deletion the
+interface SHALL read the plan, and the confirmation SHALL state the number of tasks and either that they are deleted
+permanently or the target and the status mapping. Agreeing SHALL perform the deletion with the choice made.
+
+#### Scenario: The confirmation states the move
+
+- **GIVEN** a project holding tasks and another live project OPS
+- **WHEN** the reader chooses delete and "move to OPS" and agrees to the form
+- **THEN** the confirmation names the task count, OPS and the status mapping
+- **AND** agreeing moves the tasks to OPS and deletes the project
+
+#### Scenario: The confirmation states the permanent deletion
+
+- **WHEN** the reader chooses delete and "delete them"
+- **THEN** the confirmation says the tasks are deleted permanently
+
+### Requirement: The terminal interface changes a project's key
+
+The project edit form SHALL offer the key as an attribute, answered by the single-line prompt seeded
+with the current key, and SHALL send only the key. After the change the project screen SHALL address
+the project by its new key.
+
+#### Scenario: A key is typed into the prompt it opens
+
+- **WHEN** a reader chooses the key attribute
+- **THEN** the prompt opens seeded with the project's current key
+- **AND** accepting it sends only the key
+
+### Requirement: Copying in the terminal interface
+
+The terminal interface SHALL bind `Y` to copying the selected task, offered only to a reader who
+may copy. It SHALL open a form with the target project, defaulting to the open one, the title
+prefilled, and the copy options, and on applying SHALL report the new task's reference.
+
+#### Scenario: Copy from the board
+
+- **WHEN** a reader selects OPS-3, presses `Y`, picks WEB and applies
+- **THEN** the status line names the new WEB task
+
+#### Scenario: Not offered without authority
+
+- **WHEN** a reader without task write presses `Y`
+- **THEN** no form opens and no copy is made
+
+### Requirement: The board filter reaches the trash
+
+The board's filter bar SHALL accept `is:trashed`, showing only deleted cards, each with its deleted
+marker and its restore key. Refusing a restore on a live card SHALL name `is:trashed` as the way to
+find the deleted ones.
+
+#### Scenario: Filtering the board to the trash
+
+- **GIVEN** a board with one deleted task and live ones
+- **WHEN** the reader filters with `is:trashed`
+- **THEN** the service is asked for deleted tasks only and only the deleted card is drawn
+
+### Requirement: Saved filters in the terminal
+
+The board SHALL offer a picker listing the reader's saved filters and the shared ones; choosing one SHALL
+apply its expression and sort to the filter bar, and Escape SHALL close only the picker. The board SHALL
+offer saving the active filter under a name. Both SHALL be in the command palette and offered only to a
+reader with `task:read`.
+
+#### Scenario: Apply a saved filter
+
+- **GIVEN** a saved filter `ops` holding `tag:ops`
+- **WHEN** the reader picks it
+- **THEN** the board shows only the `tag:ops` tasks and the filter bar reads its expression
+
+### Requirement: The terminal ticks a checklist item and shows the count
+
+On the board and the detail view, `[` SHALL ask for a checklist item number and flip that item of the
+selected task's description, ticking an open item and clearing a ticked one, against the version the
+reader is looking at. It SHALL be offered only to a reader allowed `CheckTaskItem`. The detail view
+SHALL head the description with how many of its checklist items are done.
+
+#### Scenario: The detail view counts the checklist
+
+- **GIVEN** a task with one of three items ticked
+- **WHEN** its detail view is open
+- **THEN** the body section is headed `body (checklist 1/3)`
+
+### Requirement: Inbox view in the terminal interface
+
+The terminal interface SHALL offer an Inbox view listing the reader's items newest first, unread
+ones marked, from which Enter opens the task and marks the item read, a key toggles read state, and
+a key marks everything read.
+
+#### Scenario: Opening an item from the terminal
+
+- **WHEN** a reader selects an unread item in the Inbox view and presses Enter
+- **THEN** the task opens and the item is read
+
+### Requirement: Channels are not managed in the terminal
+
+The terminal interface SHALL NOT offer notification channels, and the registry SHALL record that as an
+exemption naming the browser and `tix inbox channel`.
+
+#### Scenario: The registry says why
+
+- **WHEN** the capability registry is read for `inbox.channel.add`
+- **THEN** its terminal binding is an exemption, not a gap
+
+### Requirement: Snooze from the terminal interface
+
+On the board, `b` SHALL open a prompt for when to snooze the selected task, taking the same values
+as the CLI, and SHALL unsnooze the task instead when it is snoozed. A snoozed card shown under a
+snooze filter SHALL say so.
+
+#### Scenario: Snooze the selected card
+
+- **WHEN** the reader presses `b` on OPS-3, types `tomorrow` and confirms
+- **THEN** OPS-3 is snoozed and leaves the board
+
+### Requirement: Templates in the terminal
+
+On a board with an open project, `B` SHALL load the templates the session can read for that project and
+open a form choosing a template and an action: create a task (with an optional title and due offset),
+show, rename or delete, offering only the actions the session's authority reaches. Create a task SHALL
+use the template in the board's project and name the new task on the status bar; delete SHALL ask for
+`y` first.
+
+#### Scenario: Use from the board
+
+- **WHEN** a user presses `B` on the OPS board, picks "release" and create a task, and applies
+- **THEN** a new OPS task exists and the status bar names it
+
+### Requirement: The terminal saves the selected task as a template
+
+`E` SHALL open a form saving the selected task as a template with a name, a scope (this project or the
+whole tenant) and whether subtasks are kept.
+
+#### Scenario: Save the selected task
+
+- **WHEN** a user selects OPS-3, presses `E`, types "release" and applies
+- **THEN** template "release" exists in OPS
+
+### Requirement: The terminal interface draws keys and references upper case
+
+The terminal interface SHALL draw project keys and task references upper case in its lists, cards,
+lanes, headers, palette, dialogs, status lines, activity and inbox, and SHALL accept a project key
+in any case, including `tix tui --project INFRA`.
+
+#### Scenario: A card
+
+- **WHEN** the board shows task `infra-3`
+- **THEN** its card reads `INFRA-3`
+
+#### Scenario: Opening a board in any case
+
+- **WHEN** a user runs `tix tui --project INFRA`
+- **THEN** the board of `infra` opens
+
+### Requirement: The start menu lists every interface
+
+The terminal interface SHALL offer a start menu with one row per registered interface: Boards,
+which opens the project list, and Watch, which opens the activity view with a project filter
+chosen on the row. `~` SHALL open the start menu from any view and the command palette SHALL offer
+it. A hosted SSH session with no command SHALL start on it.
+
+#### Scenario: Watch one project from the menu
+
+- **GIVEN** the start menu is open with projects OPS and WEB
+- **WHEN** the reader moves to Watch, picks OPS with the right arrow and presses enter
+- **THEN** the activity view opens showing only events from OPS
+
+#### Scenario: Back to the menu
+
+- **WHEN** the reader presses `~` on a board
+- **THEN** the start menu opens
+
+### Requirement: The activity view can pause
+
+On the activity view `space` SHALL pause the tail, holding new events off screen and saying how
+many are held, and pressing it again SHALL resume and draw them.
+
+#### Scenario: Pause and resume
+
+- **GIVEN** the activity view is paused
+- **WHEN** two events arrive and the reader presses `space`
+- **THEN** both events are drawn and the view follows the newest
+
+### Requirement: The terminal history reads the newest entries first
+
+The terminal interface's history view SHALL read the newest entries of the subject's log first, so a log
+longer than the view's page draws its most recent changes and points at `tix audit ls` for the older ones.
+
+#### Scenario: A log longer than one page
+
+- **GIVEN** a task whose log holds more entries than the history view reads
+- **WHEN** the reader opens its history
+- **THEN** the view is read in descending sequence and draws the newest entries
+
+### Requirement: The new-task line reads dates in the configured order
+
+The TUI's new-task prompt SHALL read a `due:` date in the order the configured time format writes dates,
+so a reader whose format is `dotted` can type `due:06.11.2026`.
+
+#### Scenario: A dotted date on the new-task line
+
+- **GIVEN** the time format is `dotted`
+- **WHEN** a reader types `pay rent due:06.11.2026` at the new-task prompt
+- **THEN** the task is created due on 6 November 2026

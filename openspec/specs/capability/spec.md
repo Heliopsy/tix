@@ -339,3 +339,58 @@ A server that has stopped heartbeating SHALL be visibly distinguished on the scr
 - **WHEN** the screen renders a server that stopped heartbeating
 - **THEN** that server appears
 - **AND** it is marked as not heartbeating
+
+### Requirement: The registry records the project deletion plan on every surface
+
+The capability registry SHALL declare `project.delete-plan` for `PlanProjectDeletion` with scope `project:read`,
+bound to `tix project rm` on the command line, `GET /api/v1/projects/{ref}/deletion` over HTTP, the deletion
+confirmation screen in the browser, and the project view in the terminal, with no gap recorded against it.
+
+#### Scenario: The plan binds every surface
+
+- **WHEN** the registry entry for `PlanProjectDeletion` is read
+- **THEN** it names a binding on the command line, HTTP, the browser and the terminal, and records no gap
+
+### Requirement: Copy is a registered capability
+
+The capability registry SHALL hold `task.copy` bound to `CopyTask` with the `task:write` scope
+and bindings on the CLI, HTTP, web and terminal surfaces.
+
+#### Scenario: Registry parity
+
+- **WHEN** the parity tests run
+- **THEN** `CopyTask` appears exactly once with a CLI command, an HTTP route, a web route and a TUI view
+
+### Requirement: Bulk actions are a registered capability
+
+The capability registry SHALL hold `task.bulk` bound to `BulkTasks` with CLI, HTTP and web
+bindings, recorded as varying its scope by input, and exempted from the terminal interface with
+the reason that the board acts on one card at a time.
+
+#### Scenario: Registry parity
+
+- **WHEN** the parity tests run
+- **THEN** `BulkTasks` appears exactly once with a CLI command, an HTTP route, a web route and a TUI exemption
+
+### Requirement: Snooze is a registered capability
+
+The capability registry SHALL hold `task.snooze` bound to `SnoozeTask` and `task.unsnooze` bound
+to `UnsnoozeTask`, each with the `task:write` scope and CLI, HTTP, web and terminal bindings, and
+`task.wake` bound to `WakeSnoozed` with CLI and HTTP bindings and the web and terminal recorded as
+inapplicable, because waking is a background loop.
+
+#### Scenario: Registry parity
+
+- **WHEN** the parity tests run
+- **THEN** `SnoozeTask`, `UnsnoozeTask` and `WakeSnoozed` each appear exactly once with their bindings
+
+### Requirement: Templates are registered capabilities
+
+The capability registry SHALL hold `template.list`, `template.show`, `template.save`,
+`template.update`, `template.delete` and `template.use`, each bound to its service method with
+CLI, HTTP, web and terminal bindings.
+
+#### Scenario: Registry parity
+
+- **WHEN** the parity tests run
+- **THEN** every template method appears exactly once with a binding on every surface

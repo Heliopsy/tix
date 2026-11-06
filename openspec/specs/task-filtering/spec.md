@@ -216,3 +216,117 @@ same selection as `recurring=true` or `recurring=false`.
 
 - **WHEN** tasks are listed with `-is:recurring`
 - **THEN** no task carrying a rule is returned
+
+### Requirement: A project term may name an old key
+
+A `project:` filter term SHALL accept a kept alias of a project and SHALL select that project's
+tasks, exactly as its current key does.
+
+#### Scenario: Filtering by an old key
+
+- **GIVEN** project `infra` was renamed to `ops`
+- **WHEN** tasks are listed with `project:infra`
+- **THEN** the tasks of `ops` are returned
+
+### Requirement: The filter language selects the trash
+
+The filter language SHALL accept `is:trashed`, selecting only soft-deleted tasks, and its negation
+`-is:trashed`, selecting only live tasks. When either form is present it SHALL decide whether deleted
+tasks are listed, whatever `is:deleted` says, so `is:deleted -is:trashed` SHALL list live tasks only.
+Both storage engines SHALL answer it in the listing query with keyset pagination unchanged, and the
+in-memory matcher SHALL answer it the same way.
+
+#### Scenario: Only deleted tasks
+
+- **GIVEN** three tasks, one of them soft-deleted
+- **WHEN** tasks are listed with `is:trashed`
+- **THEN** only the deleted task is returned
+
+#### Scenario: The trash pages like any listing
+
+- **GIVEN** three soft-deleted tasks and two live ones
+- **WHEN** tasks are listed with `is:trashed` one per page, following the cursor
+- **THEN** the three deleted tasks are returned, each once, and no live task is
+
+#### Scenario: Live only, whatever is:deleted says
+
+- **WHEN** tasks are listed with `is:deleted -is:trashed`
+- **THEN** no deleted task is returned
+
+### Requirement: me in actor terms
+
+The filter language SHALL accept `me` as the value of `assignee:`, `creator:` and `claimed-by:`, negated
+or not, meaning the reader, on every surface that answers a filter.
+
+#### Scenario: The terminal answers assignee:me
+
+- **WHEN** a reader types `assignee:me` in the terminal interface's filter bar
+- **THEN** the board shows the tasks assigned to that reader
+
+### Requirement: Checklist filter terms
+
+The filter language SHALL accept `has:checklist`, selecting tasks whose description carries a checklist
+marker (a `-`, `*` or `+` bullet, a space, `[ ]`, `[x]` or `[X]`, and a space), and `-has:checklist` for the rest;
+`checklist:open`, selecting those carrying an unticked marker, and `-checklist:open` for the rest; and
+`checklist:done`, selecting those carrying a marker and no unticked one. `checklist:done` SHALL NOT be
+negatable.
+
+#### Scenario: Open and done are told apart
+
+- **GIVEN** one task with an open item, one with every item ticked, and one with no checklist
+- **WHEN** the listing is filtered by `checklist:open`, then by `checklist:done`
+- **THEN** the first lists only the task with an open item, and the second only the one with every
+  item ticked
+
+### Requirement: Every engine answers a checklist term alike
+
+Both storage engines and the in-memory matcher SHALL select the same tasks for each term.
+
+#### Scenario: The terminal matches as the stores do
+
+- **GIVEN** the shared corpus the storage engines are tested against
+- **WHEN** each checklist term is matched in memory
+- **THEN** it selects the same tasks the storage engines select
+
+### Requirement: Default listings leave out snoozed tasks
+
+A task listing that names no snooze term SHALL leave out every task whose wake time is after the
+present. Internal readers that walk every task, such as export, copy and project deletion, SHALL
+NOT be narrowed by it.
+
+#### Scenario: A snoozed task is not listed
+
+- **GIVEN** OPS-3 is snoozed until tomorrow
+- **WHEN** a listing is read with no filter
+- **THEN** OPS-3 is not in it
+
+#### Scenario: Export keeps a snoozed task
+
+- **GIVEN** OPS-3 is snoozed until tomorrow
+- **WHEN** the tenant is exported
+- **THEN** the export holds OPS-3 with its wake time
+
+### Requirement: The filter language selects snoozed tasks
+
+The filter language SHALL accept `is:snoozed` and `snoozed:true` selecting only snoozed tasks;
+`-is:snoozed`, `is:awake` and `snoozed:false` selecting only tasks not snoozed; and `snoozed:any`
+listing both. The CLI SHALL take `--snoozed`, `--snoozed=false` and `--include-snoozed` for the
+same three, and the HTTP API `snoozed=true`, `snoozed=false` and `snoozed=any`. The terminal
+interface SHALL answer the same terms against a loaded page.
+
+#### Scenario: Only snoozed tasks
+
+- **GIVEN** OPS-3 is snoozed and OPS-4 is not
+- **WHEN** a listing is read with `is:snoozed`
+- **THEN** it holds OPS-3 and not OPS-4
+
+#### Scenario: Both
+
+- **GIVEN** OPS-3 is snoozed and OPS-4 is not
+- **WHEN** a listing is read with `snoozed:any`
+- **THEN** it holds both
+
+#### Scenario: Unknown snoozed value
+
+- **WHEN** a listing is read with `snoozed:maybe`
+- **THEN** it fails as a usage error

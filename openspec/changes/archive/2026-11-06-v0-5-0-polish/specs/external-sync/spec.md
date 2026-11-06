@@ -1,4 +1,4 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: A run records where it got to
 
@@ -45,8 +45,6 @@ NOT fall back to printing the underlying structure.
 
 - **WHEN** a run is a dry run
 - **THEN** the output states that nothing was written
-
-## ADDED Requirements
 
 ### Requirement: A full refresh leaves the stored watermark intact until it commits
 

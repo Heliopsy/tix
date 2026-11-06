@@ -280,26 +280,38 @@ held.
 
 ### Requirement: Configurable lease TTL
 
-The lease time-to-live SHALL be configurable globally, overridable per workflow, and overridable per claim. The most specific value supplied SHALL apply.
+The lease time-to-live SHALL be decided, most specific first, by: the TTL the claim supplies, the task's own
+lease, the project's lease default, an authored workflow's `default_lease`, the tenant's `lease_default`, the
+deployment's `lease.default`, and finally 30 minutes. The first level that names a figure SHALL apply.
 
 #### Scenario: Global default applied
 
-- **WHEN** a task is claimed with no per-workflow and no per-claim TTL
-- **THEN** the lease expiry reflects the configured global TTL
+- **WHEN** a task is claimed and no claim, task, project, workflow or tenant figure is set
+- **THEN** the lease expiry reflects the configured deployment default, or 30 minutes when there is none
 
 #### Scenario: Workflow override
 
-- **WHEN** a task is claimed in a project whose workflow declares a TTL and the claim supplies none
+- **WHEN** a task is claimed in a project whose authored workflow declares a TTL, and neither the claim, the task nor the project supplies one
 - **THEN** the lease expiry reflects the workflow's TTL
+
+#### Scenario: Project default outranks the workflow
+
+- **WHEN** a project sets a lease default and its authored workflow declares a different TTL
+- **THEN** a claim on any of its tasks without a TTL of its own is granted the project's figure
+
+#### Scenario: Task lease outranks the project
+
+- **WHEN** a task carries its own lease and its project sets a lease default
+- **THEN** a claim on the task without a TTL of its own is granted the task's figure
 
 #### Scenario: Per-claim override
 
 - **WHEN** a claim supplies its own TTL
-- **THEN** the lease expiry reflects the supplied TTL regardless of the global and workflow values
+- **THEN** the lease expiry reflects the supplied TTL regardless of every other level
 
 #### Scenario: Invalid TTL
 
-- **WHEN** a claim supplies a TTL that is zero, negative, or beyond the configured maximum
+- **WHEN** a claim supplies a TTL that is zero, negative, or beyond the effective maximum
 - **THEN** the claim is rejected with a validation error and no lease is taken
 
 ### Requirement: Lease renewal
@@ -787,3 +799,146 @@ wrapper and release-with-result already carry results under the guard, and SHALL
 
 - **WHEN** the exec wrapper claims a task, runs a child command, and releases with the exit status as a result
 - **THEN** the result artifact is written and no lease token is handled outside the wrapper
+
+### Requirement: An expired claim leaves durable evidence
+
+A task whose claim expired SHALL keep, on the task itself, the instant the claim expired and the actor
+that held it, so that a reader can tell a task nobody ever took from a task somebody took and then
+stopped answering for.
+
+#### Scenario: A released claim leaves no expiry evidence
+
+- **WHEN** a worker releases a live lease rather than letting it run out
+- **THEN** the task records no expired claim, because nothing was dropped
+
+### Requirement: Expired-claim evidence survives the lease sweep
+
+The evidence SHALL survive the sweep that clears the lease columns. Before this, the only trace of an
+expired claim on a task was the populated lease columns themselves, which the sweeper nulls within one
+sweep interval, so the state was observable for under a minute and in practice never seen.
+
+#### Scenario: Evidence outlives the sweep
+
+- **WHEN** the sweeper clears an expired claim and the task is read afterwards
+- **THEN** the task reads as unclaimed and still reports the instant its claim expired and the actor that
+  held it
+
+### Requirement: Expired-claim evidence is read from the task alone
+
+The evidence SHALL be readable from the task alone, with no extra query per task in a list, so that a
+keyset-paginated listing can show it at any backlog size. The lease-expired event and its audit entry
+SHALL remain the full record; the task fields are the cheap read beside the task, not a replacement for
+the history.
+
+#### Scenario: Reading a list shows it without a per-task lookup
+
+- **WHEN** a page of tasks is listed
+- **THEN** each task carries its own expiry evidence in the same row, with no additional query per task
+
+### Requirement: A fresh claim clears the expired-claim evidence
+
+A fresh claim on the task SHALL clear the evidence, because the question it answers is whether the work
+was dropped and left dropped.
+
+#### Scenario: A fresh claim clears the evidence
+
+- **WHEN** a task whose claim expired is claimed again
+- **THEN** the recorded expiry instant and previous holder are cleared and the task reports a live claim
+
+### Requirement: Expired-claim evidence is current only for a bounded period
+
+Surfaces SHALL treat the evidence as current for a bounded, documented period after the expiry, so that
+the mark means "recently" rather than accumulating permanently on a long-lived backlog. The stored
+fields SHALL NOT be cleared when that period passes; the bound is a read-time judgement.
+
+#### Scenario: Evidence is current only for a bounded period
+
+- **WHEN** a task whose claim expired is read within the documented period
+- **THEN** it reports that its claim expired recently, and after that period has passed it no longer does,
+  while the recorded instant and actor are unchanged
+
+### Requirement: A queue filter naming a status no workflow defines fails the claim
+
+A claim SHALL check the status terms of its queue filter against the union of the states of every workflow
+the tenant defines, before it looks for an eligible task, and SHALL fail as not found when no workflow
+declares one of them.
+
+#### Scenario: A claim filtered by an undefined status
+
+- **WHEN** `claim next` is filtered by a status that no workflow of the tenant defines
+- **THEN** it fails as not found, naming the term, rather than reporting that no task is available
+
+### Requirement: A claim queue filter naming a declared status is answered normally
+
+An unmatched queue is reported as no task available, and the published guidance tells an agent to read that
+as "nothing to do right now" rather than as an error. A status that can describe no task anywhere would
+therefore be answered as an idle queue: the same wrong conclusion an empty listing invited, wearing a
+different code. A status some workflow declares SHALL stay a legitimate filter and SHALL be answered
+normally, for the reasons the listing's requirement gives.
+
+#### Scenario: A claim filtered by a declared status in another case
+
+- **WHEN** `claim next` is filtered by a status that differs from the declared state only in case
+- **THEN** it claims the eligible task, rather than reporting that no task is available
+
+### Requirement: A snoozed task is not claimable
+
+Claiming the next task SHALL skip every task whose wake time is after the present. Claiming a
+snoozed task by reference SHALL fail as a precondition naming its wake time. A task snoozed while
+claimed SHALL keep its lease.
+
+#### Scenario: The queue skips a snoozed task
+
+- **GIVEN** the only open task in OPS is snoozed
+- **WHEN** an agent claims the next task in OPS
+- **THEN** no task is available
+
+#### Scenario: Claiming a snoozed task by reference
+
+- **GIVEN** OPS-3 is snoozed until tomorrow
+- **WHEN** an agent claims OPS-3
+- **THEN** the claim fails as a precondition
+
+#### Scenario: A woken task is claimable
+
+- **GIVEN** OPS-3 was snoozed until 10:00
+- **WHEN** an agent claims the next task at 10:01
+- **THEN** it receives OPS-3
+
+### Requirement: The lease ceiling is the lowest of the deployment, tenant and project maximums
+
+The ceiling SHALL be the lowest of the deployment maximum (24 hours when unset), the tenant's `lease_max` and the
+project's `lease_max`. A TTL the claim supplies above the ceiling SHALL be rejected; a figure from any other level
+above the ceiling SHALL be clamped to it.
+
+#### Scenario: A project maximum tightens the tenant's
+
+- **WHEN** a project's lease maximum is lower than the tenant's and the task's own lease is longer than it
+- **THEN** the claim is granted the project maximum, and a claim naming a longer TTL is rejected
+
+### Requirement: The effective lease is explained
+
+The service SHALL report, for one task, the lease a claim without a TTL would be granted, the level it comes from,
+the effective maximum and the level that sets it. A claim and a renewal SHALL report the same for the lease they
+granted.
+
+#### Scenario: Reading where a lease comes from
+
+- **WHEN** a project sets a 2h lease default and the task sets none
+- **THEN** the task's lease reads 2h from the project
+
+### Requirement: A task's lease can be set at creation
+
+Creating a task SHALL accept the task's own lease. A lease longer than the ceiling the task's project is held to
+SHALL be refused as invalid input and no task SHALL be created. A claim naming no TTL on a task created with a
+lease SHALL be granted that lease with source `task`.
+
+#### Scenario: Creating a task with a lease
+
+- **WHEN** a task is created with a 2h lease and later claimed without a TTL
+- **THEN** the claim's lease is 2h from the task
+
+#### Scenario: A lease above the maximum is refused at creation
+
+- **WHEN** a task is created with a lease longer than its project's effective maximum
+- **THEN** the create is refused as invalid input and no task exists

@@ -148,11 +148,11 @@
       it, and focus on arrival took the screen away from the rows it exists to show
 - [x] guard: the box read as an element rather than the page, watched to fail with autofocus restored
       and with the shortcut target removed
-- [ ] the tenant screen still fetches a tenant listing it never renders; dropping it also needs the
-      `tenant.list` web binding removed from `internal/capability`, which this change does not own
+Left for a later change, not part of this one: the tenant screen still fetches a tenant listing it
+never renders; dropping it also needs the `tenant.list` web binding removed from `internal/capability`.
 
 ## Release
 
-- [ ] `just ci` green
-- [ ] docs and ROADMAP updated
-- [ ] archive this change
+- [x] `just ci` green
+- [x] docs and ROADMAP updated
+- [x] archive this change

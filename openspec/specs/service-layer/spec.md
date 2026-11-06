@@ -357,3 +357,177 @@ belonging to another tenant SHALL be reported missing, like any other record of 
 
 - **WHEN** the identifier recording an import, a sweep or a prune is resolved
 - **THEN** it resolves to the system identity rather than being reported missing
+
+### Requirement: View arrangement operations
+
+The service SHALL offer `ListGroupPrefs`, `SetGroupPref`, `OrderGroups` and `ResetGroupPrefs`,
+each acting only on the caller's own preferences and requiring the `task:read` scope. A view SHALL
+be `board`, `lanes` or `project:` followed by a project reference. A `lanes` group SHALL be a
+project of the tenant; a `project:` group SHALL be a state of that project's workflow; a `board`
+group SHALL be a state of some workflow of the tenant.
+
+#### Scenario: A state the workflow lacks is refused
+
+- **WHEN** a caller hides group `shipped` on `project:infra` whose workflow has no such state
+- **THEN** the call fails as invalid and nothing is written
+
+#### Scenario: A project-pinned token cannot arrange
+
+- **WHEN** a token pinned to one project calls `SetGroupPref`
+- **THEN** the call is refused as forbidden
+
+### Requirement: Ordering view groups writes their positions in the order named
+
+`OrderGroups` SHALL write positions 1..n for the groups named, in that order, and SHALL refuse a
+duplicate. Every view arrangement operation SHALL be registered with CLI, HTTP and web bindings.
+
+#### Scenario: Ordering lanes writes positions
+
+- **WHEN** a caller orders the `lanes` view as `ops` then `infra`
+- **THEN** `ops` is stored at position 1 and `infra` at position 2
+
+### Requirement: Saved filter operations
+
+The service SHALL offer `ListSavedFilters`, `GetSavedFilter`, `CreateSavedFilter`, `UpdateSavedFilter`,
+`OrderSavedFilters` and `DeleteSavedFilter`. Each SHALL require `task:read`; changing or deleting a shared
+filter the caller does not own SHALL require `tenant:admin` and SHALL otherwise be refused as forbidden.
+Another actor's private filter SHALL be reported as not found.
+
+#### Scenario: A member cannot change somebody's shared filter
+
+- **GIVEN** a shared filter owned by alice
+- **WHEN** bob, a member, renames it
+- **THEN** the call is refused as forbidden and nothing is written
+
+#### Scenario: An administrator can
+
+- **GIVEN** a shared filter owned by alice
+- **WHEN** an administrator renames it
+- **THEN** the new name is stored and an audit entry records it
+
+#### Scenario: Ordering moves only the caller's own filters
+
+- **WHEN** a reader orders filters naming one somebody else shared
+- **THEN** the call is refused as not found
+
+### Requirement: Saved filters are addressed, named and written consistently
+
+A filter SHALL be addressed by identifier, then by the caller's own name, then by a shared name. Names
+SHALL be unique per owner without regard to case. A saved expression SHALL be refused as invalid when the
+filter parser cannot read it. Each saved filter change SHALL write its rows, an audit entry and an event in
+one transaction, and a change that changes nothing SHALL write nothing.
+
+#### Scenario: A name taken in another case is refused
+
+- **GIVEN** a reader with a saved filter named "Ops"
+- **WHEN** they create another saved filter named "OPS"
+- **THEN** the call is refused as a conflict
+
+### Requirement: me names the caller in a filter
+
+A task listing SHALL read `me` (any case) in the assignee, creator and claimant terms, included or
+excluded, as the calling actor, without changing the filter the caller passed.
+
+#### Scenario: assignee:me lists the caller's tasks
+
+- **GIVEN** a task assigned to alice and one assigned to bob
+- **WHEN** alice lists tasks with `assignee:me`
+- **THEN** only her task is listed
+
+### Requirement: Calendar feed operations
+
+The service SHALL offer `GetCalendarFeed`, `CreateCalendarFeed`, `RotateCalendarFeed`,
+`SetCalendarFeedFilter` and `RevokeCalendarFeed` on the caller's own feed behind the `calendar.feed`
+action, which needs `task:read` and is not confinable to a project, and `ReadCalendarFeed`, which
+takes the secret and no actor.
+
+#### Scenario: Rotation keeps the filter
+
+- **GIVEN** a feed with the filter `tag:ops`
+- **WHEN** its owner rotates it
+- **THEN** the new URL answers with the same filter and the old URL answers 404
+
+### Requirement: Calendar feed changes are refused on conflict and never carry the secret
+
+Creating a feed while one is live SHALL be refused as a conflict, and an actor with no membership
+in the tenant SHALL be refused. Each calendar feed change SHALL write its row, an audit entry and a
+`calendar_feed.*` event in one transaction, and no event or audit entry SHALL carry the secret or
+its hash.
+
+#### Scenario: A second feed is a conflict
+
+- **GIVEN** an actor with a live feed
+- **WHEN** they create another
+- **THEN** the call fails as a conflict and the first feed's URL still answers
+
+### Requirement: Changes that concern somebody create inbox items
+
+The service SHALL create an inbox item, in the same transaction as the change, when an actor is
+mentioned as `@handle` in a comment or a task description (`mention`), when a task is assigned to an
+actor (`assigned`), when somebody comments on a task an actor is assigned to or has starred
+(`comment`), and when a task an actor is assigned to changes status (`status`).
+
+#### Scenario: A mention reaches the person named
+
+- **WHEN** ada comments "@bob can you look" on a task
+- **THEN** bob's inbox holds one unread `mention` item naming the task, ada and the comment
+
+#### Scenario: Watchers hear about comments
+
+- **GIVEN** carol starred a task assigned to bob
+- **WHEN** ada comments on it
+- **THEN** bob and carol each receive a `comment` item
+
+#### Scenario: A status change reaches the assignee
+
+- **GIVEN** a task assigned to bob
+- **WHEN** ada moves it from `todo` to `doing`
+- **THEN** bob receives a `status` item carrying `todo` and `doing`
+
+### Requirement: Inbox items leave out the actor, repeats, unknown handles and muted kinds
+
+The service SHALL NOT create an inbox item for the actor who made the change. One change SHALL give
+one recipient at most one item per task, keeping the strongest reason in the order mention, assigned,
+status, comment. Editing a comment or a description SHALL mention only handles the earlier text did
+not. A handle that names no actor SHALL be ignored. A kind the recipient muted SHALL create no item
+for them.
+
+#### Scenario: Your own actions do not notify you
+
+- **WHEN** ada assigns a task to herself and comments "@ada note to self"
+- **THEN** ada's inbox is unchanged
+
+#### Scenario: The strongest reason wins
+
+- **GIVEN** bob is assigned to a task and has starred it
+- **WHEN** ada comments on it mentioning @bob
+- **THEN** bob receives exactly one item, of kind `mention`
+
+#### Scenario: A muted kind is silent
+
+- **GIVEN** bob muted `comment`
+- **WHEN** ada comments on a task bob is assigned to
+- **THEN** bob receives nothing
+
+### Requirement: Reading and muting the inbox
+
+The service SHALL let an actor list their own items newest first with keyset pagination, optionally
+only unread ones; count their unread items; mark one item read or unread; mark every item read; and
+read and replace the set of kinds they muted. An item of another actor SHALL be not found.
+
+#### Scenario: Somebody else's item
+
+- **WHEN** ada marks bob's item read
+- **THEN** the call fails as not found and the item stays unread
+
+### Requirement: Inbox changes are audited and need task read authority
+
+Each inbox change SHALL write an audit entry and an `inbox.updated` event in one transaction, and a
+change that changes nothing SHALL write nothing. The inbox methods SHALL need `task:read` and SHALL
+NOT be available to a project-pinned token.
+
+#### Scenario: Marking everything read
+
+- **GIVEN** bob has three unread items
+- **WHEN** bob marks everything read
+- **THEN** his unread count is 0 and one audit entry records it

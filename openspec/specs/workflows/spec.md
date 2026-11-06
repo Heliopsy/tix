@@ -238,25 +238,6 @@ A field definition MAY be marked required. A required field SHALL be enforced wh
 - **WHEN** an existing field definition is marked required while tasks without a value for that field exist
 - **THEN** the change is accepted, existing tasks are not modified, and the requirement applies to subsequent creates and declared transitions
 
-### Requirement: Indexed custom fields
-
-A field definition MAY be marked indexed. A field marked indexed SHALL be efficiently filterable. A field not marked indexed SHALL remain filterable, but without an efficiency guarantee, and filtering it SHALL NOT be reported as an error.
-
-#### Scenario: Filtering an indexed field
-
-- **WHEN** tasks are filtered by an indexed custom field value
-- **THEN** matching tasks are returned and the query does not degrade with the number of tasks in the project
-
-#### Scenario: Filtering a non-indexed field
-
-- **WHEN** tasks are filtered by a non-indexed custom field value
-- **THEN** matching tasks are returned correctly and no error is raised
-
-#### Scenario: Marking a field indexed later
-
-- **WHEN** an existing field definition is marked indexed
-- **THEN** existing values for that field become filterable under the efficiency guarantee without any task being modified
-
 ### Requirement: Workflow editing safety
 
 Editing a workflow in a way that would leave existing tasks in a state no longer present in the workflow SHALL be rejected, unless the request supplies an explicit migration mapping each removed state to a surviving state.
@@ -475,3 +456,13 @@ browser editor and a snapshot import all refuse the same keys.
 
 - **WHEN** a workflow carrying such a key arrives through a snapshot import rather than through the editor
 - **THEN** it is refused for the same reason
+
+### Requirement: A field definition ignores a legacy indexed key
+
+A field definition SHALL NOT carry an indexed flag. An API body, bundle or snapshot that sends `indexed`
+SHALL be accepted with the key ignored.
+
+#### Scenario: An old bundle
+
+- **WHEN** a bundle exported before the flag was removed, with `"indexed": true` on a field, is imported
+- **THEN** the field is created and the import succeeds

@@ -27,4 +27,4 @@
 
 - [x] 5.1 features, commands, web-ui, tui, api, README, agent skill
 - [x] 5.2 Service tests on both engines; HTTP, CLI, web and TUI tests; mutation-checked guards
-- [ ] 5.3 `just check` passes
+- [x] 5.3 `just check` passes
