@@ -343,21 +343,12 @@ func (b *Builder) writeWhere(sb *strings.Builder) {
 	}
 }
 
-// maxPreallocArgs is the most bind arguments concat reserves room for up
-// front: PostgreSQL's own limit on parameters in one statement.
-const maxPreallocArgs = 65535
-
 // concat joins two argument runs into a fresh slice, so neither is aliased.
-//
-// The capacity is only a hint, so it is bounded: a sum past maxPreallocArgs (or
-// one that overflowed) preallocates the bound and append grows from there.
+// The copy of first is allocated at first's own length and second is
+// appended, so no capacity is computed from a sum that could overflow.
 func concat(first, second []any) []any {
-	size := len(first) + len(second)
-	if size < 0 || size > maxPreallocArgs {
-		size = maxPreallocArgs
-	}
-	out := make([]any, 0, size)
-	out = append(out, first...)
+	out := make([]any, len(first))
+	copy(out, first)
 	return append(out, second...)
 }
 
