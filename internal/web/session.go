@@ -527,6 +527,16 @@ func zoneDisplay(zone string) string { return strings.ReplaceAll(zone, "_", " ")
 // cookieYear keeps a display preference for a year.
 const cookieYear = 365 * 24 * 60 * 60
 
+// isLocalURL reports whether p is a path on this site: it starts with one
+// "/", not "//" or "/\" which browsers read as another host, and carries no
+// backslash or control character that could split the Location header.
+func isLocalURL(p string) bool {
+	if p == "" || p[0] != '/' || (len(p) > 1 && (p[1] == '/' || p[1] == '\\')) {
+		return false
+	}
+	return !strings.ContainsAny(p, "\\\r\n\t")
+}
+
 // safeNext keeps a post-login redirect on this origin.
 func safeNext(next string) string {
 	if next == "" || next[0] != '/' || (len(next) > 1 && (next[1] == '/' || next[1] == '\\')) {

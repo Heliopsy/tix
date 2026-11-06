@@ -41,6 +41,9 @@ func checkSyncSourceInput(in core.SyncSourceInput) error {
 	if in.HasCredentials() && in.System == core.SystemGeneric {
 		return core.OnField(core.Invalid("a generic source reads a file on the server and takes no credentials"), "token")
 	}
+	if strings.Contains(in.MappingPath, "..") {
+		return core.OnField(core.Invalid("the mapping file path may not contain \"..\""), "mapping_path")
+	}
 	if len(in.Mapping) > maxSyncMappingBytes {
 		return core.OnField(core.Invalid("the mapping document is %d bytes; the limit is %d",
 			len(in.Mapping), maxSyncMappingBytes), "mapping")
@@ -156,8 +159,12 @@ func (l *Local) resolveSync(src core.SyncSource) core.SyncResolution {
 		out.Missing = append(out.Missing, "a mapping document (upload one with "+setUsage+
 			" --mapping-file FILE or in the source dialog, or set "+mappingVar+" to a file on the server)")
 	}
+	// A stored path came from a request, so one that climbs with ".." is
+	// reported missing rather than probed; saving such a path is refused.
 	if path := mappingFileOf(out.Mapping, src.MappingPath, mappingEnv); path != "" {
-		if _, err := os.Stat(path); err != nil {
+		if strings.Contains(path, "..") {
+			out.Missing = append(out.Missing, "the mapping file "+path+" (a path with \"..\" is not read)")
+		} else if _, err := os.Stat(path); err != nil {
 			out.Missing = append(out.Missing, "the mapping file "+path+" (the server cannot read it; "+
 				"upload the document itself with "+setUsage+" --mapping-file FILE)")
 		}

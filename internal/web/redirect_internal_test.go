@@ -32,3 +32,19 @@ func TestSafeNextKeepsRelativePaths(t *testing.T) {
 		}
 	}
 }
+
+// redirect falls back to the projects page for anything that is not a path on
+// this site, so no caller can hand it another host.
+func TestIsLocalURL(t *testing.T) {
+	for _, local := range []string{"/", "/tasks?q=a#t-1", "/projects/web/import"} {
+		if !isLocalURL(local) {
+			t.Errorf("isLocalURL(%q) = false, want true", local)
+		}
+	}
+	for _, off := range []string{"", "tasks", "//evil.example.com", "/\\evil.example.com",
+		"https://evil.example.com", "/a\r\nSet-Cookie: x=1"} {
+		if isLocalURL(off) {
+			t.Errorf("isLocalURL(%q) = true, want false", off)
+		}
+	}
+}

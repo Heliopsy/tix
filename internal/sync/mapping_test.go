@@ -381,3 +381,11 @@ func TestUsersSectionDefaultsAndEmailField(t *testing.T) {
 		})
 	}
 }
+
+// A mapping path is stored from a request, so one that climbs is never read.
+func TestLoadMappingRefusesDotDot(t *testing.T) {
+	_, err := LoadMapping(t.TempDir() + "/../mapping.yaml")
+	if err == nil || !strings.Contains(err.Error(), `".."`) {
+		t.Fatalf("LoadMapping with .. = %v, want a refusal", err)
+	}
+}
