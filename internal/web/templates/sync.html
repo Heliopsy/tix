@@ -32,6 +32,7 @@
 
 <p class="lede">{{t "Pull work that already lives in another tracker into tix. Imports run one way: tix reads from the source and never writes anything back to it."}}</p>
 <p class="syncwhere" role="note"><strong>{{t "Sync runs on the tix server, not on your machine."}}</strong> {{t "The mapping and the credentials a run uses have to be on the server. Upload the mapping and store the credentials in the source dialog, or from the command line with tix sync source set; the server's operator can use TIX_SYNC_ environment variables instead. Each source below says what its runs will use and what the server is still missing."}}</p>
+<p class="note"><strong>{{t "Only a few tasks, or one file?"}}</strong> {{t "A sync is for a tracker you keep pulling from. Add a few tasks directly with quick add, tix task add, the API or MCP, or bring one CSV or JSON file in with Import on the project's page, where the mapping is suggested for you."}}</p>
 
 <div class="sechead"><h2>{{t "Sources"}}</h2>{{template "dlg-open" (opener "source-new" (t "Configure a source") "plus" "" .Here)}}</div>
 <table class="rows">

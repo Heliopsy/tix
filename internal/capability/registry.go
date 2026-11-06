@@ -1550,6 +1550,16 @@ var registry = []Operation{
 		},
 	},
 	{
+		Name: "task.import", Method: "ImportTasks", Contract: Contract{Body: core.TaskImportInput{}, BodyForm: true},
+		Scope: core.ScopeImport,
+		CLI:   "tix import tasks",
+		HTTP:  apiPost(wire.RouteProjectTaskImport),
+		Web:   webPost(web.RouteProjectImport),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no import or export view"),
+		},
+	},
+	{
 		Name: "bundle.export", Method: "ExportBundle", Contract: Contract{OptionalBody: true, Resp: None{}, Status: http.StatusOK, Content: wire.ContentBundle},
 		Scope: core.ScopeWorkflowRead,
 		CLI:   "tix bundle export",

@@ -54,5 +54,6 @@ func newImportCmd(g *globals) *cobra.Command {
 	f.StringVar(&mode, "mode", "", "how to apply the snapshot: "+strings.Join(importModes, "|"))
 	f.BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	_ = cmd.RegisterFlagCompletionFunc("mode", fixedCompletion(importModes))
+	cmd.AddCommand(newImportTasksCmd(g))
 	return cmd
 }

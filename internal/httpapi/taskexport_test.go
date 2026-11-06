@@ -3,6 +3,8 @@
 package httpapi_test
 
 import (
+	"bytes"
+	"mime/multipart"
 	"net/http"
 	"strings"
 	"testing"
@@ -51,4 +53,40 @@ func TestTaskExportRefusesInTheErrorEnvelope(t *testing.T) {
 	}
 	missing := strings.Replace(wire.RouteProjectTaskExport, "{ref}", "nope", 1)
 	mustStatus(t, f.call(http.MethodPost, missing, nil), http.StatusNotFound)
+}
+
+func TestTaskImportTakesJSONOrAMultipartUpload(t *testing.T) {
+	f := newFixture(t)
+	route := strings.Replace(wire.RouteProjectTaskImport, "{ref}", "infra", 1)
+	resp := f.call(http.MethodPost, route, core.TaskImportInput{Content: "Title\nfrom json\n", DryRun: true})
+	mustStatus(t, resp, http.StatusOK)
+	var dry core.TaskImportResult
+	decodeBody(t, resp, &dry)
+	if !dry.DryRun || dry.Committed || dry.Created != 1 {
+		t.Errorf("json dry run = %+v", dry)
+	}
+
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	_ = form.WriteField("mapping", "columns: {Name: title}\n")
+	part, _ := form.CreateFormFile("file", "tasks.csv")
+	_, _ = part.Write([]byte("Name\nfrom a form\n"))
+	_ = form.Close()
+	req, err := http.NewRequest(http.MethodPost, f.server.URL+route, &body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Host = f.hostA
+	req.Header.Set(wire.HeaderContentType, form.FormDataContentType())
+	req.Header.Set(wire.HeaderAuth, "Bearer "+f.tokenA)
+	resp, err = f.server.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustStatus(t, resp, http.StatusOK)
+	var done core.TaskImportResult
+	decodeBody(t, resp, &done)
+	if !done.Committed || done.Created != 1 || done.Preview[0].Title != "from a form" {
+		t.Errorf("multipart import = %+v", done)
+	}
 }

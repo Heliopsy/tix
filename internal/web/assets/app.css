@@ -7863,3 +7863,67 @@ time.ts.ts-placed:focus::after {
 }
 .syncpreview h3 { margin: 0 0 var(--space-2); font-size: var(--text-md); }
 .syncpreview dd { overflow-wrap: anywhere; }
+
+/* A project's import: a numbered row of steps, the step's form, and a foot
+   whose Back and Cancel are on every step. */
+.importsteps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.importsteps > li { display: inline-flex; align-items: center; gap: var(--space-2); }
+.importstep-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  font-size: var(--text-xs, 0.75rem);
+}
+.importsteps > li.is-current { color: var(--ink); font-weight: 600; }
+.importsteps > li.is-current .importstep-n { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.importsteps > li.is-done .importstep-n { border-color: var(--accent); color: var(--accent); }
+.importnote { max-width: none; }
+.importnote > p { margin: 0; }
+.importnote > p + p { margin-top: var(--space-2); }
+.importform { max-width: none; }
+.importform .importpart { margin-top: var(--space-4); }
+.importform .importpart > h2 { margin: 0 0 var(--space-2); font-size: var(--text-md); }
+.importform textarea { width: 100%; }
+.importtable { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+.importtable th, .importtable td { padding: var(--space-2); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.importtable th[scope="row"] { font-weight: 500; }
+.importtable td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.importtable .field-error { display: block; margin-top: 2px; }
+.importsample { max-width: 24rem; overflow-wrap: anywhere; }
+.importopts { margin-top: var(--space-4); display: flex; flex-direction: column; gap: var(--space-1); }
+.importopts label { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-sm); color: var(--ink); }
+.importgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: var(--space-3); margin-top: var(--space-4); }
+.importpolicy { max-width: 20rem; margin-top: var(--space-2); }
+.importcounts { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); margin: 0 0 var(--space-4); padding: 0; list-style: none; }
+.importcounts .figure { font-size: var(--text-lg, 1.125rem); font-weight: 600; margin-right: var(--space-1); }
+.importerrs { margin: 0 0 var(--space-3); padding-left: var(--space-4); font-size: var(--text-sm); }
+.importerror { margin: 0 0 var(--space-3); }
+.importfoot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-3); margin-top: var(--space-5); }
+.importfoot .cform-actions { flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 639px) {
+  .importfoot .cform-actions { width: 100%; }
+  .importfoot .cform-actions > * { flex: 1 1 auto; }
+  .importsteps .importstep-label { display: none; }
+  .importsteps > li.is-current .importstep-label { display: inline; }
+}
+.importtable td.importkey { overflow-wrap: anywhere; }
+.importtable td.importkey .mono { font-size: var(--text-sm); }
+.importtable select, .importtable input { width: 100%; min-width: 0; }
+@media (min-width: 640px) {
+  .importtable.importmap { table-layout: fixed; }
+  .importtable.importmap th:last-child, .importtable.importmap td:last-child { width: 40%; }
+  .importtable.importmap td.num, .importtable.importmap th.num { width: 5rem; }
+}

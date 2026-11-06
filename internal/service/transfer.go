@@ -381,12 +381,18 @@ func (s *snapshot) Close() error {
 // the rest spills to a temporary file, so the bound is that constant rather
 // than the size of the upload.
 func bufferSnapshot(r io.Reader) (*snapshot, error) {
-	limited := io.LimitReader(r, maxSnapshotBytes+1)
+	return bufferUpload(r, maxSnapshotBytes, "snapshot")
+}
+
+// bufferUpload drains an upload of at most limit bytes the way bufferSnapshot
+// does, naming it as what in its errors.
+func bufferUpload(r io.Reader, limit int64, what string) (*snapshot, error) {
+	limited := io.LimitReader(r, limit+1)
 
 	var mem bytes.Buffer
 	n, err := io.CopyN(&mem, limited, maxSnapshotMemory)
 	if err != nil && !errors.Is(err, io.EOF) {
-		return nil, core.Invalid("reading snapshot: %v", err)
+		return nil, core.Invalid("reading %s: %v", what, err)
 	}
 	if n < maxSnapshotMemory {
 		return &snapshot{Reader: bytes.NewReader(mem.Bytes())}, nil
@@ -394,26 +400,26 @@ func bufferSnapshot(r io.Reader) (*snapshot, error) {
 
 	f, err := os.CreateTemp("", "tix-snapshot-*.ndjson")
 	if err != nil {
-		return nil, core.Internal("buffering snapshot: %v", err)
+		return nil, core.Internal("buffering %s: %v", what, err)
 	}
 	out := &snapshot{Reader: f, file: f}
 	if _, err := f.Write(mem.Bytes()); err != nil {
 		_ = out.Close()
-		return nil, core.Internal("buffering snapshot: %v", err)
+		return nil, core.Internal("buffering %s: %v", what, err)
 	}
 	spilled, err := io.Copy(f, limited)
 	if err != nil {
 		_ = out.Close()
-		return nil, core.Invalid("reading snapshot: %v", err)
+		return nil, core.Invalid("reading %s: %v", what, err)
 	}
-	if n+spilled > maxSnapshotBytes {
+	if n+spilled > limit {
 		_ = out.Close()
-		return nil, core.Invalid("snapshot is larger than %d bytes", maxSnapshotBytes).
-			WithDetail("max_bytes", maxSnapshotBytes)
+		return nil, core.Invalid("the %s is larger than %d bytes; split it and import the parts", what, limit).
+			WithDetail("max_bytes", limit)
 	}
 	if _, err := f.Seek(0, io.SeekStart); err != nil {
 		_ = out.Close()
-		return nil, core.Internal("buffering snapshot: %v", err)
+		return nil, core.Internal("buffering %s: %v", what, err)
 	}
 	return out, nil
 }
