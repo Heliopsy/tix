@@ -298,6 +298,19 @@ run with a non-zero exit:
 just screenshots --viewports phone,tablet,fullhd --strict
 ```
 
+**Task rows and cards.** The same check measures every task row and card on the page. It reports a row
+wider than its list or a card wider than its column, a paragraph, list, heading, table or code block
+inside one (a rendered description leaking into a summary), a row over twice the median row height of
+its list, and, from 640px up, an attribute cell (status, priority, tags and so on) whose left edge is
+out of line with the same cell in the rows above. `--hostile` adds a project of tasks with long titles,
+long tags and Markdown descriptions holding headings, tables, fenced code and unbroken tokens, sorted to
+the top of `/tasks`, and the opt-in `laptop` viewport (1440x900) covers the width most of these broke
+at. `just ui-rows` runs the listings with both at phone, tablet and laptop, light and dark:
+
+```sh
+just ui-rows
+```
+
 ## PostgreSQL
 
 ```sh

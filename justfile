@@ -86,6 +86,11 @@ screenshots *ARGS: build
       || npx playwright install chromium
     node shoot.mjs --tix ../../bin/{{binary}} --out ../../out/screenshots {{ARGS}}
 
+# Seeds tasks with long titles, tags and Markdown descriptions and fails when a
+# task row or card on the listings loses its shape, at phone, tablet and laptop.
+ui-rows *ARGS:
+    just screenshots --hostile --strict --only /tasks,/mine,/projects/ --viewports phone,tablet,laptop --theme both --max-popups 0 {{ARGS}}
+
 # After a version bump, update the versions and sha256 recorded in REUSE.toml.
 # Rebuild the description editor's Rich text library from scripts/vendor/prosemirror.
 vendor-prosemirror:
