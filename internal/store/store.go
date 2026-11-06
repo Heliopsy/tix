@@ -63,6 +63,7 @@ type Tx interface {
 	ViewTx
 	SavedFilterTx
 	CalendarTx
+	InviteTx
 	InboxTx
 	InboxChannelTx
 	TemplateTx
@@ -257,6 +258,26 @@ type CalendarTx interface {
 	SetCalendarFeedFilter(ctx context.Context, id, filter string) error
 	// RevokeCalendarFeed marks a live feed unusable from the given instant.
 	RevokeCalendarFeed(ctx context.Context, id string, at time.Time) error
+}
+
+// InviteTx covers invite links. Every lookup returns the row whatever its
+// state, so the service alone decides what a used or expired invite answers.
+type InviteTx interface {
+	// CreateInvite stores an invite and the hash of its secret.
+	CreateInvite(ctx context.Context, inv *core.Invite, tokenHash string) error
+	// GetInvite returns an invite by identifier.
+	GetInvite(ctx context.Context, id string) (*core.Invite, error)
+	// InviteByHash returns the invite behind a secret's hash and the stored hash.
+	InviteByHash(ctx context.Context, tokenHash string) (*core.Invite, string, error)
+	// PendingInviteFor returns a user's unaccepted, unrevoked invite.
+	PendingInviteFor(ctx context.Context, userID string) (*core.Invite, error)
+	// ListPendingInvites returns the unaccepted, unrevoked invites, oldest
+	// first, at most core.MaxPageLimit of them.
+	ListPendingInvites(ctx context.Context) ([]core.Invite, error)
+	// AcceptInvite marks a pending invite used from the given instant.
+	AcceptInvite(ctx context.Context, id string, at time.Time) error
+	// RevokeInvite marks a pending invite unusable from the given instant.
+	RevokeInvite(ctx context.Context, id string, at time.Time) error
 }
 
 // InboxTx covers each actor's inbox. Every method but CreateInboxItem and

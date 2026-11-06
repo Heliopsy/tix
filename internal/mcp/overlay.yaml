@@ -36,6 +36,12 @@ operations:
   totp.remove:
     hide: true
     reason: a person removes their own second factor, never an agent on their behalf
+  invite.preview:
+    hide: true
+    reason: an invite link is opened by the person it was sent to, in a browser, before they hold any credential
+  invite.accept:
+    hide: true
+    reason: accepting an invite chooses a person's password and signs them in, which is theirs to do
 
   # Plumbing rather than work.
   api.spec:

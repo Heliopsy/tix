@@ -20,9 +20,14 @@ const (
 
 // Audit actions recorded for sessions.
 const (
-	auditUserLogin  = "user.login"
-	auditUserLogout = "user.logout"
+	auditUserLogin          = "user.login"
+	auditUserLogout         = "user.logout"
+	auditUserPasswordChange = "user.password_change"
 )
+
+// eventUserPasswordChanged records a user replacing a password they were
+// required to change.
+const eventUserPasswordChanged core.EventType = "user.password_changed"
 
 // SessionTTL is how long a password login stays valid.
 const SessionTTL = 12 * time.Hour
@@ -175,8 +180,16 @@ func (l *Local) beginLogin(ctx context.Context, scope core.TenantScope, surface 
 		return nil, errInvalidCredentials()
 	}
 
+	changed, err := l.replacementPassword(cand.user, in)
+	if err != nil {
+		return nil, err
+	}
+	if changed == "" && cand.user.RequirePasswordChange {
+		return &core.LoginResult{Challenge: &core.TOTPChallenge{Kind: core.ChallengePasswordChange}}, nil
+	}
+
 	rehashed := ""
-	if auth.NeedsRehash(cand.hash, l.hasher.Params()) {
+	if changed == "" && auth.NeedsRehash(cand.hash, l.hasher.Params()) {
 		if rehashed, err = l.hasher.Hash(in.Password); err != nil {
 			return nil, err
 		}
@@ -187,12 +200,62 @@ func (l *Local) beginLogin(ctx context.Context, scope core.TenantScope, surface 
 	if err != nil {
 		return nil, err
 	}
+	if changed != "" {
+		record := func(m *mutation) error { return recordPasswordChange(ctx, m, cand.user, changed) }
+		if challenge == nil {
+			return l.mintSession(ctx, scope, sessionActor, cand.user, "", core.LoginMethodPassword, record)
+		}
+		// The second factor is a separate step, so the new password is kept
+		// now: the person signs in with it from here on whether or not they
+		// finish this sign-in.
+		if err := l.write(ctx, sessionActor, record); err != nil {
+			return nil, err
+		}
+		return &core.LoginResult{Challenge: challenge}, nil
+	}
 	if challenge != nil {
 		// The password rehash waits for the sign-in to finish. Writing it
 		// here would be a write on a path that may never produce a session.
 		return &core.LoginResult{Challenge: challenge}, nil
 	}
 	return l.mintSession(ctx, scope, sessionActor, cand.user, rehashed, core.LoginMethodPassword, nil)
+}
+
+// replacementPassword hashes the new password a sign-in carries, once the old
+// one was accepted. It answers "" when none was sent. A new password is taken
+// only from an account required to change it: this is not a general way to
+// change a password, and accepting one here would make it one.
+func (l *Local) replacementPassword(user *core.User, in core.LoginInput) (string, error) {
+	if in.NewPassword == "" {
+		return "", nil
+	}
+	if !user.RequirePasswordChange {
+		return "", core.Invalid("this account has no password change pending; sign in without a new password").
+			WithDetail(core.DetailField, "new_password")
+	}
+	if err := auth.ValidatePassword(in.NewPassword); err != nil {
+		return "", core.Invalid("new password must be at least %d characters", core.MinPasswordLength).
+			WithDetail(core.DetailField, "new_password")
+	}
+	if in.NewPassword == in.Password {
+		return "", core.Invalid("the new password must differ from the current one").
+			WithDetail(core.DetailField, "new_password")
+	}
+	return l.hasher.Hash(in.NewPassword)
+}
+
+// recordPasswordChange stores a required password change and clears the
+// requirement, with its audit entry and event. Neither carries the password
+// or its hash.
+func recordPasswordChange(ctx context.Context, m *mutation, user *core.User, hash string) error {
+	user.RequirePasswordChange = false
+	if err := m.tx.UpdateUser(ctx, user, hash); err != nil {
+		return err
+	}
+	return m.Record(auditUserPasswordChange, eventUserPasswordChanged, "user", user.ID, "",
+		map[string]any{"user_id": user.ID, "require_password_change": true},
+		map[string]any{"user_id": user.ID, "require_password_change": false},
+		map[string]any{"user_id": user.ID, "email": user.Email})
 }
 
 // secondFactorFor decides what, if anything, stands between this person and a

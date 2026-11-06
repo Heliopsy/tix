@@ -134,15 +134,21 @@ const (
 	// tenant that turns the requirement on must not lock out the people it
 	// applies to, the administrator who turned it on first among them.
 	ChallengeEnrol TOTPChallengeKind = "enrol"
+	// ChallengePasswordChange asks a user whose account requires it for a
+	// new password. It carries no ticket: the next step sends the email and
+	// current password again together with NewPassword.
+	ChallengePasswordChange TOTPChallengeKind = "password_change"
 )
 
 // TOTPChallenge is the second step of a sign-in. Ticket names the first step
 // that was already passed and is presented again with the code; it proves the
 // password was accepted and carries no authority of its own.
 type TOTPChallenge struct {
-	// Kind says whether a code is asked for or enrolment must happen first.
+	// Kind says whether a code is asked for, enrolment must happen first, or
+	// a new password must be chosen.
 	Kind TOTPChallengeKind `json:"kind" yaml:"kind"`
-	// Ticket is presented with the code in the next step; it expires after five minutes.
+	// Ticket is presented with the code in the next step; it expires after
+	// five minutes. Empty for a password change.
 	Ticket string `json:"ticket" yaml:"ticket"`
 	// Enrolment is set only for ChallengeEnrol.
 	Enrolment *TOTPEnrolment `json:"enrolment,omitempty" yaml:"enrolment,omitempty"`
@@ -161,6 +167,10 @@ type LoginInput struct {
 	Email string `json:"email,omitempty" yaml:"email,omitempty"`
 	// Password is the user's password, in the first step.
 	Password string `json:"password,omitempty" yaml:"password,omitempty"`
+	// NewPassword replaces the password in the first step, sent only after a
+	// password_change challenge. It must differ from Password and be at
+	// least 12 characters.
+	NewPassword string `json:"new_password,omitempty" yaml:"new_password,omitempty"`
 	// Surface is the sign-in path the session is for, which decides whether a
 	// second factor is required.
 	Surface Surface `json:"surface" yaml:"surface"`
@@ -175,7 +185,7 @@ type LoginInput struct {
 type LoginResult struct {
 	// Session is the new session, set when sign-in is complete.
 	Session *Session `json:"session,omitempty" yaml:"session,omitempty"`
-	// Challenge is set when a second factor is still needed.
+	// Challenge is set when a second factor or a new password is still needed.
 	Challenge *TOTPChallenge `json:"challenge,omitempty" yaml:"challenge,omitempty"`
 	// RecoveryCodes is set once, when a sign-in completed by enrolling. The
 	// caller must show them and cannot ask for them again.

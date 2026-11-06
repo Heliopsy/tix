@@ -181,6 +181,12 @@ record, kind, surface and actor, and as `tix audit ls --filter` and the terminal
 surface, with recovery codes and an administrator's clear for a lost phone. API tokens are exempt.
 [docs/second-factor.md](second-factor.md).
 
+**Invite links and a required password change.** An administrator invites an address instead of
+choosing a password for somebody: the account is created at once and a single-use link, valid for a
+week by default, lets its owner choose their own password and sign in. An account given a password by
+somebody else can be required to change it at the next sign-in, on every surface. tix sends no email;
+the link is copied and passed on. [docs/tenancy.md](tenancy.md#invites-and-first-passwords).
+
 **Custom field defaults.** A field definition can carry a `default`, which a task created without a value
 for that field is given. It is part of the definition the API's `PUT /projects/{ref}/fields` takes and
 travels in a bundle. [docs/workflows.md](workflows.md#custom-fields).

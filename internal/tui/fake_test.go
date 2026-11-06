@@ -641,6 +641,20 @@ func (f *fakeService) RunHousekeeping(context.Context, core.HousekeepingRunInput
 func (f *fakeService) CreateUser(context.Context, core.CreateUserInput) (*core.User, error) {
 	return nil, nil
 }
+func (f *fakeService) CreateInvite(context.Context, core.CreateInviteInput) (*core.IssuedInvite, error) {
+	return nil, nil
+}
+func (f *fakeService) ListInvites(context.Context) ([]core.Invite, error) { return nil, nil }
+func (f *fakeService) RevokeInvite(context.Context, string) error         { return nil }
+func (f *fakeService) ReissueInvite(context.Context, string, core.ReissueInviteInput) (*core.IssuedInvite, error) {
+	return nil, nil
+}
+func (f *fakeService) PreviewInvite(context.Context, string) (*core.InvitePreview, error) {
+	return nil, nil
+}
+func (f *fakeService) AcceptInvite(context.Context, string, core.AcceptInviteInput) (*core.LoginResult, error) {
+	return nil, nil
+}
 func (f *fakeService) GetActor(_ context.Context, id string) (*core.Actor, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

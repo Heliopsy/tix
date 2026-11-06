@@ -138,6 +138,45 @@ this version an address signs in to exactly one tenant. Listing users therefore 
 back always names a user the caller can see; a cursor is base64 of a sort key and an identifier, not a secret, and
 one taken from the unfiltered page would have named another tenant's user and their email address.
 
+### Invites and first passwords
+
+An administrator has two ways to bring somebody in, on the Users screen or from the command line.
+
+**Set a password and require a change.** `tix user create EMAIL --password - --require-password-change`
+(the browser's create dialog ticks the box by default). The first password sign-in with it is answered with
+a `password_change` challenge rather than a session, on every surface: the browser shows a Choose a new
+password page, `tix login` asks for the new password twice on a terminal, and `POST /api/v1/auth/login`
+expects the same email and password again with `new_password`. The new one must be at least 12 characters
+and differ from the old. Only that change clears the flag, recorded as `user.password_change`; an
+administrator can also set or lift it later with `tix user edit ID --require-password-change[=false]` or the
+Manage dialog. API tokens and SSH key sign-in are not passwords and are not affected.
+
+**Send an invite link.**
+
+```sh
+tix user invite ada@example.com --role member --expires 3d
+tix user invite ls
+tix user invite reissue 01J0000000000000000000
+tix user invite revoke 01J0000000000000000000
+```
+
+The account, its actor and its membership are created at once, with no password, so the person can be
+assigned work before they accept. The answer carries a single-use link, `https://HOST/invite/tix_inv_...`,
+shown once. It expires after 7 days unless `--expires` says otherwise, between one hour and 30 days.
+Opening it shows a page to choose a password and a display name, and accepting signs the person in,
+second factor rules included. An address of this tenant's user who holds no membership is granted one and
+keeps their password, which they confirm on the page instead. An address that belongs to a member who can
+already sign in, or to a user of another tenant, is refused.
+
+tix sends no email: copy the link and send it yourself. It is built from the scheme and host the request
+reached tix at, as calendar feed addresses are, so create it through the address people use. Run against a
+database directly, the command prints only the path.
+
+Only the SHA-256 hash of the secret is stored, it never appears in the audit log, events or the request log,
+and an unknown, expired, used or revoked link all answer the same "this invite link is not valid" message.
+Re-issuing stops the old link at once; revoking stops it and leaves the account without a password until
+somebody re-issues it or deletes the account.
+
 Tokens carry explicit scopes instead of a role, and may additionally be pinned to one project with
 `tix token create ... --project infra`. See [agents.md](agents.md) for the scope vocabulary.
 

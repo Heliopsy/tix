@@ -100,18 +100,25 @@ var inputReaches = []inputReach{
 	}},
 	{"tix user create", core.CreateUserInput{}, map[string]string{
 		"email": "arg", "password": "--password", "display_name": "--display-name",
-		"handle": "--handle", "role": "--role",
+		"handle": "--handle", "role": "--role", "require_password_change": "--require-password-change",
 	}},
 	{"tix tenant user create", core.CreateUserInput{}, map[string]string{
 		"email": "arg", "password": "--password", "display_name": "--display-name",
-		"handle": "--handle", "role": "--role",
+		"handle": "--handle", "role": "--role", "require_password_change": "--require-password-change",
 	}},
 	{"tix tenant user edit", core.UpdateUserInput{}, map[string]string{
 		"display_name": "--display-name", "password": "--password", "role": "--role", "disabled": "--disabled",
+		"require_password_change": "--require-password-change",
 	}},
 	{"tix user edit", core.UpdateUserInput{}, map[string]string{
 		"display_name": "--display-name", "password": "--password", "role": "--role", "disabled": "--disabled",
+		"require_password_change": "--require-password-change",
 	}},
+	{"tix user invite", core.CreateInviteInput{}, map[string]string{
+		"email": "arg", "display_name": "--display-name", "handle": "--handle", "role": "--role",
+		"expires_in": "--expires",
+	}},
+	{"tix user invite reissue", core.ReissueInviteInput{}, map[string]string{"expires_in": "--expires"}},
 	{"tix user key add", core.EnrolSSHKeyInput{}, map[string]string{
 		"actor_id": "--actor", "public_key": "--file", "label": "--label",
 	}},
@@ -120,6 +127,8 @@ var inputReaches = []inputReach{
 		"surface": "!the command line names itself; a caller choosing its surface would choose which second-factor rule applies",
 		"ticket":  "!carried from the password step to the code prompt inside one tix login",
 		"code":    "!prompted for, never a flag, so a live second factor stays out of shell history",
+		"new_password": "!prompted for twice without echo after the password_change challenge, so it stays " +
+			"out of shell history",
 	}},
 	{"tix token create", core.CreateTokenInput{}, map[string]string{
 		"name": "arg", "actor_id": "--actor", "scopes": "--scope", "project_id": "--project", "expires_at": "--expires",
