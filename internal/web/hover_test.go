@@ -174,8 +174,8 @@ func TestHoverRulesAreGatedOnThePreferenceAndOnMotion(t *testing.T) {
 		t.Error("the hover layer moves something outside the reduced-motion gate")
 	}
 
-	if off := declarations(t, sheet, `:root[data-hover="off"] tbody tr:hover`); !strings.Contains(off, "background: transparent") {
-		t.Errorf("turning hover effects off leaves the row tint: %s", off)
+	if !strings.Contains(layer, `:root:not([data-hover="off"]) .rows > tbody > tr:hover`) {
+		t.Error("the row tint is not in the hover layer, so turning hover effects off leaves it")
 	}
 }
 
@@ -198,7 +198,7 @@ func TestSettingsRowsStackAndTheTokenTableScrollsInItsFrame(t *testing.T) {
 
 	page := contentOf(t, b.page("/admin/tokens"))
 	wrap := strings.Index(page, `<div class="table-wrap">`)
-	table := strings.Index(page, "<table>")
+	table := strings.Index(page, `<table class="rows">`)
 	if wrap < 0 || table < 0 || strings.Contains(page[wrap:table], "</div>") {
 		t.Errorf("the token table is not inside a scrolling frame:\n%s", page)
 	}

@@ -127,7 +127,7 @@ func TestTheViewSwitchOffersAndKeepsLanes(t *testing.T) {
 	if !selected(viewSwitch(t, b.page("/settings")), web.TaskViewLanes) {
 		t.Error("settings does not show the lanes the task screen switched to")
 	}
-	if strings.Contains(page, `<ul class="tasklist"`) || len(columnStates(page)) != 0 {
+	if strings.Contains(page, `<ul class="tasklist`) || len(columnStates(page)) != 0 {
 		t.Error("the lanes view also drew the list or the board")
 	}
 

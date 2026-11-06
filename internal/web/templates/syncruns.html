@@ -11,7 +11,7 @@
 </div>
 
 <h2>{{t "Completed runs"}}</h2>
-<table>
+<table class="rows">
   <thead><tr><th>{{t "When"}}</th><th>{{t "Source"}}</th><th>{{t "System"}}</th><th>{{t "Created"}}</th><th>{{t "Updated"}}</th><th>{{t "Skipped"}}</th><th>{{t "Ran as"}}</th></tr></thead>
   <tbody>
   {{range $v.Runs}}
@@ -43,7 +43,7 @@
 
 <div class="headtip"><h2>{{t "Where each source stands"}}</h2>{{template "tip" (tip "Cursor" "The cursor marks the last record a source committed, so an ordinary run fetches only what changed since. A run that stops part way resumes from there, and a Full run ignores it." "docs/migrating.md")}}</div>
 <p>{{t "The current state of every configured source, which is the only place a run that failed is reported."}}</p>
-<table>
+<table class="rows">
   <thead><tr><th>{{t "Name"}}</th><th>{{t "System"}}</th><th>{{t "Last run"}}</th><th>{{t "Status"}}</th><th>{{t "Cursor"}}</th></tr></thead>
   <tbody>
   {{range $v.Sources}}

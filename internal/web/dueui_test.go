@@ -15,7 +15,7 @@ import (
 // row cannot pass on the row beside it. The listing is one <li> per task.
 func dueRow(t *testing.T, page, title string) string {
 	t.Helper()
-	_, after, ok := strings.Cut(page, `<ul class="tasklist">`)
+	_, after, ok := strings.Cut(page, `<ul class="tasklist rows">`)
 	if !ok {
 		t.Fatalf("the page carries no task list")
 	}

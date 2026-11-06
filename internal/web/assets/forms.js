@@ -218,19 +218,22 @@
     return true;
   }
 
-  // forgetDialog takes the dialog out of the address once it is closed, so a
-  // reload does not open it again.
-  function forgetDialog() {
+  // forgetDialog takes the dialog out of the address once it is closed, the
+  // parameter and the fragment naming it both, so a reload does not open it
+  // again and nothing on the screen stays marked as the place it landed.
+  function forgetDialog(id) {
     var loc = window.location;
-    if (!loc || !window.history || !window.history.replaceState || loc.search.indexOf("dialog=") < 0) return;
-    var q = loc.search.slice(1).split("&").filter(function (p) { return p.indexOf("dialog=") !== 0; }).join("&");
-    window.history.replaceState(window.history.state, "", loc.pathname + (q ? "?" + q : "") + loc.hash);
+    if (!loc || !window.history || !window.history.replaceState) return;
+    var named = id && loc.hash === "#" + id;
+    if (loc.search.indexOf("dialog=") < 0 && !named) return;
+    var q = loc.search.slice(1).split("&").filter(function (p) { return p && p.indexOf("dialog=") !== 0; }).join("&");
+    window.history.replaceState(window.history.state, "", loc.pathname + (q ? "?" + q : "") + (named ? "" : loc.hash));
   }
 
   function onDialogClose(event) {
     var dlg = event.target;
     if (!dlg || !dlg.hasAttribute || !dlg.hasAttribute("data-dlg")) return;
-    forgetDialog();
+    forgetDialog(dlg.id);
     var back = dialogOpener;
     dialogOpener = null;
     if (back && document.contains(back) && typeof back.focus === "function") back.focus();
@@ -282,6 +285,7 @@
   window.tixForms = {
     suggestKey: suggestKey, onKeydown: onKeydown, onInput: onInput, reveal: reveal, shortLabels: shortLabels,
     showDialog: showDialog, onDialogClick: onDialogClick, promote: promote, onHousekeepingMode: onHousekeepingMode,
+    forgetDialog: forgetDialog,
   };
 
   if (typeof document === "undefined" || !document.addEventListener) return;

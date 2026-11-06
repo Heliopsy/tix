@@ -327,7 +327,7 @@
   <section class="tsec" id="{{.IDPrefix}}subtasks">
     <div class="tsec-head"><h2>{{t "Subtasks"}}</h2>{{with .Data.Subtasks}}<span class="tsec-count">{{len .}}</span>{{end}}</div>
     {{if .Data.Subtasks}}
-    <ul class="rellist">
+    <ul class="rellist rows">
       {{range .Data.Subtasks}}
       <li><a class="mono" href="/tasks/{{.Ref}}">{{ref .Ref}}</a> <span class="reltitle">{{.Title}}</span> <span class="pill status {{slug .Status}}">{{.Status}}</span></li>
       {{end}}
@@ -338,7 +338,7 @@
   <section class="tsec" id="{{.IDPrefix}}dependencies">
     <div class="tsec-head"><h2>{{t "Dependencies"}}</h2>{{with .Data.Dependencies}}<span class="tsec-count">{{len .}}</span>{{end}}{{template "tip" (tip "Dependencies" "This task waits for the tasks listed here. It counts as blocked, and claim next never hands it out, until each of them reaches a terminal state of its own workflow." "docs/workflows.md")}}</div>
     {{if .Data.Dependencies}}
-    <ul class="rellist">
+    <ul class="rellist rows">
       {{/* Named the way the field below asks for one, a reference rather
            than the raw identifier the record carries. */}}
       {{range .Data.Dependencies}}
@@ -373,7 +373,7 @@
   <details class="tsec tfold" id="artifacts" data-open-for="artifact">
     <summary><h2>{{t "Artifacts"}}</h2>{{with .Data.Artifacts}}<span class="tsec-count">{{len .}}</span>{{end}}</summary>
     {{template "tip" (tip "Artifacts" "An artifact is a record of work product kept on the task: a result, a log, a file reference or a metric, usually written by an agent. While the task is claimed only the lease holder can attach one." "docs/agents.md")}}
-    <ul class="rellist">
+    <ul class="rellist rows">
       {{range .Data.Artifacts}}<li id="artifact-{{.ID}}">{{t (print .Kind)}} {{.Name}} <span class="muted">{{compact .CreatedAt}}</span></li>{{else}}<li class="empty quiet">{{t "None."}}</li>{{end}}
     </ul>
     {{if .Data.CanComment}}
@@ -595,7 +595,7 @@
            is not the newest one, and leads back to it. */}}
       {{if .Data.HistoryCursor}}<p class="histnewest"><a class="ghostlink" href="{{.Data.HistoryNewestHref}}">{{t "Newest changes"}}</a></p>{{end}}
       <div class="table-wrap">
-        <table>
+        <table class="rows">
           {{/* When holds a relative stamp and Source a one-word badge, so an
                even three-way split starved the only column with a sentence in
                it: "What changed" wrapped on every row while the two beside it

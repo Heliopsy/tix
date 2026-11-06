@@ -16,7 +16,7 @@
 <p class="meta">{{t "This tenant has more actors than this listing reads, so the rows below do not cover every token. A credential you cannot find here may belong to an actor it did not reach."}}</p>
 {{end}}
 <div class="table-wrap">
-<table>
+<table class="rows">
   <thead><tr><th>{{t "Name"}}</th>{{if .Data.Owners}}<th>{{t "Owner"}}</th>{{end}}{{if .Columns.Show "tokens" "scopes"}}<th class="scopecell">{{t "Scopes"}}</th>{{end}}{{if .Columns.Show "tokens" "created"}}<th>{{t "Created"}}</th>{{end}}{{if .Columns.Show "tokens" "expires"}}<th>{{t "Expires"}}</th>{{end}}<th>{{t "State"}}</th><th class="actioncell"></th></tr></thead>
   <tbody>
   {{range .Data.Tokens}}

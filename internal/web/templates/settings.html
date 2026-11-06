@@ -283,7 +283,7 @@
 {{$sh := shell "schemes" (t "Compare the schemes") "wide" .Dialog .Here}}
 {{template "dlg-start" $sh}}
           <div class="table-wrap">
-          <table>
+          <table class="rows">
             <thead>
               <tr>
                 <th scope="col">{{t "Action"}}</th>
@@ -378,7 +378,7 @@
   <div class="setlist">
     <p class="setrow setlead">{{t "Send your inbox items to Slack, Discord, ntfy or your own endpoint as they arrive. Only your items, of the kinds you choose, and nothing you muted above."}}</p>
     {{if $n.Channels}}
-    <ul class="plain channels">
+    <ul class="plain channels rows">
       {{range $n.Channels}}
       <li class="setrow channelrow">
         <div class="setrow-text">

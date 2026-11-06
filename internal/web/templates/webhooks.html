@@ -14,7 +14,7 @@
      every row of a tenant that never deactivated one, and a Delete column
      whose entire content was the word Delete. A row is the URL, what it is
      subscribed to and whether it is on, with the one action at its end. */}}
-<ul class="reclist">
+<ul class="reclist rows">
 {{range .Data.Endpoints}}
   <li class="recrow{{if not .Active}} is-off{{end}}">
     <span class="recrow-main">
@@ -75,7 +75,7 @@
      deliveries are failing and why, so the state leads, the error is given
      room to be read, and the identifiers go where identifiers belong. */}}
 <div class="headtip"><h2>{{t "Delivery log"}}</h2>{{template "tip" (tip "Delivery log" "One row per event sent to an endpoint, with its last error and how many attempts it took. Redeliver queues the same event to the same endpoint again, for example once a receiver that was down is back." "docs/api.md")}}</div>
-<ul class="reclist">
+<ul class="reclist rows">
 {{range .Data.Deliveries}}
   <li class="recrow delivery">
     <span class="pill status {{if eq .Status "delivered"}}done{{else if eq .Status "failed"}}blocked{{else}}todo{{end}}">{{t (printf "%s" .Status)}}</span>

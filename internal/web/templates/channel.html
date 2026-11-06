@@ -30,7 +30,7 @@
   <h2>{{t "Recent deliveries"}}</h2>
   {{if not $v.Deliveries}}<p class="muted">{{t "Nothing has been sent to this channel yet."}}</p>
   {{else}}
-  <table class="deliveries">
+  <table class="rows deliveries">
     <thead><tr><th>{{t "When"}}</th><th>{{t "What"}}</th><th>{{t "State"}}</th><th>{{t "Attempts"}}</th><th>{{t "Last answer"}}</th><th class="actioncell"></th></tr></thead>
     <tbody>
     {{range $v.Deliveries}}
