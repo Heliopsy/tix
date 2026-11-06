@@ -1161,6 +1161,12 @@ func redirectTo(w http.ResponseWriter, r *http.Request, path, fragment, flash st
 }
 
 func redirect(w http.ResponseWriter, r *http.Request, path, flash string) {
+	// Every caller passes a site-relative path; anything else (another host,
+	// a scheme, a protocol-relative "//host") falls back to the projects page
+	// rather than leaving the site.
+	if !isLocalURL(path) {
+		path = RouteProjects
+	}
 	target := path
 	if flash != "" {
 		// The separator is chosen rather than assumed. Every caller used to

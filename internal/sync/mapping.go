@@ -175,8 +175,13 @@ func LoadMapping(path string) (*Mapping, error) {
 	if strings.TrimSpace(path) == "" {
 		return nil, core.Invalid("a mapping file is required; none is configured for this source")
 	}
-	// #nosec G304 -- the operator configures this path in their own environment,
-	// exactly like a config file; it is not reachable from a request.
+	// A path stored on a source arrives from a request, so it may not climb
+	// out of where it points with "..".
+	if strings.Contains(path, "..") {
+		return nil, core.Invalid("mapping file %q: a path with \"..\" is not read", path)
+	}
+	// #nosec G304 -- the path is the operator's mapping file setting, refused
+	// above when it climbs with "..".
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, core.Invalid("reading mapping file %q: %v", path, err)
