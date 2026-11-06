@@ -1012,11 +1012,22 @@ what the leaderboard does and does not measure.
 events arrive. It is the browser's `tix audit ls` and the terminal's history view. The filter bar is a
 plain `GET` form, so a narrowed feed is a link somebody can send: `q` searches the records (a task
 reference such as `infra-5` works), `kind` picks a kind of record (tasks, comments, artifacts,
-projects, workflows, users, memberships, sign-ins, API tokens, webhooks, the tenant), `source` the
-surface a change came from (`web`, `cli`, `api`, `tui`, `system`), and the actor's name on any row
-narrows to that actor. Each active filter is a chip that removes itself, and the live refresh keeps the
-filter rather than widening back out. On the command line the same narrowing is
-`tix audit ls --filter "kind:task source:web"`; [filtering.md](filtering.md) has the expression.
+projects, workflows, users, memberships, sign-ins, API tokens, webhooks, the tenant), `via` the
+channel a change came through (web, API token, CLI on the database, CLI through a server, SSH, MCP, sync,
+import, system, or unknown for entries older than the channel), `token` the API token by name, and the
+actor's name on any row narrows to that actor. A `source` link from before the channel existed still
+filters by surface.
+
+Every row ends with its channel as an icon and a few words: "via web", "via SSH", "via token ci-agent",
+"via MCP (token scout-runner)", "via CLI". Hovering it shows what identified the caller: the client
+address, the user agent, the SSH key fingerprint, the token's name and ID, the session reference, the job
+for background work. The row's Raw view lists the same details, and the channel itself links to the feed
+narrowed to that channel and token. A task's History has the same channel in its Channel column.
+[audit-log.md](audit-log.md) says what each channel means and what is and is not stored.
+
+Each active filter is a chip that removes itself, and the live refresh keeps the filter rather than
+widening back out. On the command line the same narrowing is `tix audit ls --filter "kind:task via:web"`;
+[filtering.md](filtering.md) has the expression.
 
 ## Housekeeping
 

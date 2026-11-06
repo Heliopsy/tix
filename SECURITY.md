@@ -37,3 +37,9 @@ web UI. Findings of particular interest:
 - A SQLite database on a network filesystem can corrupt. Use PostgreSQL for shared
   deployments; `tix doctor` reports this.
 - API tokens are shown once and stored hashed. Rotate them with `tix token revoke`.
+- Every audit entry records the access channel: the token's ID and name, an opaque session
+  reference, the SSH key fingerprint, the client address and a truncated user agent. Any
+  member with `audit:read` can see them. The token secret and the session cookie are never
+  stored. Set `server.trusted_proxies` so the address is the client's and not the proxy's,
+  and leave `cli.record_host` off unless the team wants host names in the log. See
+  [docs/audit-log.md](docs/audit-log.md).
