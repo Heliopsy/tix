@@ -108,7 +108,7 @@ func (s *importStages) get(actor *core.Actor, project, id string) (*importStage,
 
 // open reads a stage's file.
 func (s *importStages) open(st *importStage) (io.ReadCloser, error) {
-	f, err := os.Open(st.path)
+	f, err := os.Open(st.path) // #nosec G703 G304 -- the stage's own temp file, named by the server
 	if err != nil {
 		return nil, core.NotFound("this import has expired; upload the file again")
 	}

@@ -186,7 +186,7 @@ func mediaType(r *http.Request) string {
 // readImportForm reads a multipart import: the choices from its fields, the
 // mapping from a mapping part or field, and the file part it returns open.
 func readImportForm(r *http.Request, in *core.TaskImportInput) (multipart.File, error) {
-	if err := r.ParseMultipartForm(8 << 20); err != nil {
+	if err := r.ParseMultipartForm(8 << 20); err != nil { // #nosec G120 -- the body is capped by the MaxBytesReader in middleware
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
 			return nil, core.Invalid("request body exceeds the configured limit")
