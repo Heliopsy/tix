@@ -24,6 +24,14 @@ func TestEnvNameBreaksOnlyAtUnderscores(t *testing.T) {
 	}
 }
 
+func TestEnvNameBreaksAVeryLongSegment(t *testing.T) {
+	t.Parallel()
+	got := string(envName(extsync.EnvName("wolfeschlegelsteinhausenbergerdorff", "TOKEN")))
+	if want := "TIX_<wbr>SYNC_<wbr>WOLFESCHLEGE<wbr>LSTEINHAUSEN<wbr>BERGERDORFF_<wbr>TOKEN"; got != want {
+		t.Fatalf("envName = %q, want %q", got, want)
+	}
+}
+
 // TestEnvNameEscapesAnythingOutsideItsAlphabet covers the branch that can
 // never be reached through the screen: envName returns template.HTML, so a
 // value carrying markup would be written to the page unescaped if the

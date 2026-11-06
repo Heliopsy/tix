@@ -442,6 +442,15 @@ async function addHostileFixtures(page, base, taskRef) {
       role: "member",
     });
   }
+  // Sync sources whose rows carry the longest things the screen draws for
+  // one: every "missing on the server" line, a stored mapping and a long url.
+  await api("PUT", "/sync/sources", { system: "openproject", name: `${word}-${hex.slice(0, 16)}` });
+  await api("PUT", "/sync/sources", {
+    system: "openproject",
+    name: "op",
+    config: { url: `https://openproject.example.invalid/${word}/${hex}`, project: word.toLowerCase() },
+    mapping: `version: 1\nproject: web\nidentity:\n  id: id\nfields:\n  subject: title\n  description.raw: body\n`,
+  });
   const day = 24 * 60 * 60 * 1000;
   for (let i = 1; i <= 24; i++) {
     await api("POST", "/tokens", {
