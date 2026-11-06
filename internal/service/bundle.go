@@ -304,6 +304,7 @@ func (l *Local) authorizeComponentKinds(ctx context.Context, kinds []core.Compon
 // ImportBundle reads a bundle and applies it atomically. With Preview set it
 // reports what it would do and writes nothing at all.
 func (l *Local) ImportBundle(ctx context.Context, r io.Reader, in core.BundleImportInput) (*core.BundleResult, error) {
+	ctx = core.WithVia(ctx, core.ViaFrom(ctx).Derive(core.ViaImport))
 	if _, err := core.RequireActor(ctx); err != nil {
 		return nil, err
 	}

@@ -256,6 +256,23 @@ paths:
             items:
               type: string
             type: array
+        - description: 'Via keeps entries that arrived through an access channel:
+            web, api, cli-local, cli-remote, ssh, mcp, sync, import, system or unknown;
+            repeat it for several.'
+          in: query
+          name: via
+          schema:
+            items:
+              type: string
+            type: array
+        - description: Token keeps entries made with an API token, named by the token's
+            name; repeat it for several.
+          in: query
+          name: token
+          schema:
+            items:
+              type: string
+            type: array
         - description: Since keeps entries recorded at or after an RFC 3339 instant.
           in: query
           name: since
@@ -5319,6 +5336,23 @@ paths:
             items:
               type: string
             type: array
+        - description: 'Via keeps entries that arrived through an access channel:
+            web, api, cli-local, cli-remote, ssh, mcp, sync, import, system or unknown;
+            repeat it for several.'
+          in: query
+          name: via
+          schema:
+            items:
+              type: string
+            type: array
+        - description: Token keeps entries made with an API token, named by the token's
+            name; repeat it for several.
+          in: query
+          name: token
+          schema:
+            items:
+              type: string
+            type: array
         - description: Since keeps entries recorded at or after an RFC 3339 instant.
           in: query
           name: since
@@ -9045,6 +9079,11 @@ components:
         tenant_id:
           description: TenantID is the tenant the entry belongs to.
           type: string
+        via:
+          $ref: '#/components/schemas/Via'
+          description: Via is the access channel the change arrived through and what
+            identified the caller on it. Kind is unknown on an entry recorded before
+            channels were.
       type: object
     BulkAction:
       description: BulkAction names what a bulk task request does to each task it
@@ -12535,6 +12574,57 @@ components:
         updated_at:
           description: UpdatedAt is when the user was last changed, RFC 3339.
           format: date-time
+          type: string
+      type: object
+    Via:
+      description: 'Via is the access channel of one change and what identified the
+        caller on it. It is set once by the entry point the request arrived through
+        and never read from a request body. It holds no secret: a token is named by
+        its ID and name, a browser session by an opaque reference, never by the value
+        presented.'
+      properties:
+        client_addr:
+          description: ClientAddr is the client address, as the trusted proxies report
+            it.
+          type: string
+        host:
+          description: Host is the machine a local command ran on, when cli.record_host
+            is on.
+          type: string
+        job:
+          description: Job names the background work a system change came from, such
+            as lease-sweep or housekeeping.
+          type: string
+        key_fingerprint:
+          description: KeyFingerprint is the SHA256 fingerprint of the SSH key a terminal
+            session signed in with.
+          type: string
+        kind:
+          description: 'ViaKind names the access channel a change arrived through.
+            It is finer than Source: Source says which surface, ViaKind says how the
+            caller reached it.'
+          type: string
+        origin:
+          description: 'ViaKind names the access channel a change arrived through.
+            It is finer than Source: Source says which surface, ViaKind says how the
+            caller reached it.'
+          type: string
+        os_user:
+          description: OSUser is the operating-system user a local command ran as,
+            when cli.record_host is on.
+          type: string
+        session:
+          description: Session is an opaque reference to the browser session, a digest
+            that is neither the cookie nor the hash a lookup accepts.
+          type: string
+        token_id:
+          description: TokenID is the API token the caller authenticated with.
+          type: string
+        token_name:
+          description: TokenName is that token's name when the change was made.
+          type: string
+        user_agent:
+          description: UserAgent is the HTTP user agent, truncated.
           type: string
       type: object
     WakeResult:

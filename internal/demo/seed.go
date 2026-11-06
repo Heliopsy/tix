@@ -193,6 +193,7 @@ func Seed(ctx context.Context, svc core.Service, clk *clock.Fake, admin *core.Ac
 		opts:   opts,
 		start:  opts.Now.Add(-time.Duration(opts.Days) * dayDur),
 		actors: map[string]*core.Actor{},
+		vias:   map[string]core.ViaKind{},
 		refs:   map[string]string{},
 	}
 	return s.run(ctx)
@@ -207,6 +208,7 @@ type seeder struct {
 
 	start   time.Time
 	actors  map[string]*core.Actor
+	vias    map[string]core.ViaKind
 	refs    map[string]string
 	summary Summary
 }
@@ -265,7 +267,24 @@ func (s *seeder) as(ctx context.Context, handle string) (context.Context, error)
 	if !ok {
 		return nil, core.Invalid("fixture names actor %q, which it never creates", handle)
 	}
-	return core.WithSource(core.WithActor(ctx, actor), core.SourceCLI), nil
+	ctx = core.WithSource(core.WithActor(ctx, actor), core.SourceCLI)
+	return core.WithVia(ctx, demoVia(actor, s.vias[handle])), nil
+}
+
+// demoVia is the channel a seeded identity's changes record. The addresses
+// are from the documentation range and the key fingerprint says it is a demo,
+// so nothing seeded can be mistaken for a real client.
+func demoVia(actor *core.Actor, kind core.ViaKind) core.Via {
+	v := core.Via{Kind: kind, TokenID: actor.TokenID, TokenName: actor.TokenName}
+	switch kind {
+	case core.ViaWeb:
+		v.ClientAddr, v.UserAgent = "192.0.2.10", "Mozilla/5.0 (demo browser)"
+	case core.ViaSSH:
+		v.ClientAddr, v.KeyFingerprint = "192.0.2.20", "SHA256:demo-key-"+actor.Handle
+	case core.ViaAPI, core.ViaCLIRemote, core.ViaMCP:
+		v.ClientAddr, v.UserAgent = "198.51.100.7", "tix-client"
+	}
+	return v
 }
 
 // adminCtx returns ctx carrying the actor the fixture itself is written by.
@@ -361,7 +380,7 @@ func (s *seeder) createActors(ctx context.Context) error {
 				return err
 			}
 			actor.Kind, actor.Role = core.ActorAgent, ""
-			actor.Scopes, actor.TokenID = token.Scopes, token.ID
+			actor.Scopes, actor.TokenID, actor.TokenName = token.Scopes, token.ID, token.Name
 		}
 		if p.signIn {
 			s.summary.Credentials = append(s.summary.Credentials, Credential{
@@ -369,6 +388,7 @@ func (s *seeder) createActors(ctx context.Context) error {
 			})
 		}
 		s.actors[p.handle] = actor
+		s.vias[p.handle] = p.via
 		s.summary.Actors++
 	}
 	if len(s.summary.Credentials) == 0 {
@@ -630,7 +650,7 @@ func (s *seeder) abandonClaims(ctx context.Context, floor time.Time) error {
 			}
 			floor = at.Add(abandonTTL + abandonSweepDelay)
 			s.clk.Set(floor)
-			if _, err := s.svc.SweepLeases(admin, core.MaxPageLimit); err != nil {
+			if _, err := s.svc.SweepLeases(core.WithVia(admin, core.Via{Kind: core.ViaSystem, Job: "lease-sweep"}), core.MaxPageLimit); err != nil {
 				return err
 			}
 		}

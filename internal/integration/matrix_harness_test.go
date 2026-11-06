@@ -42,6 +42,7 @@ type matrixHarness struct {
 
 	clk      *clock.Fake
 	tenantID string
+	dbPath   string
 
 	local      *service.Local
 	baseURL    string
@@ -144,7 +145,7 @@ func newMatrixHarness(t *testing.T) *matrixHarness {
 	waitForRegistration(adminCtx, t, svc)
 
 	return &matrixHarness{
-		t: t, clk: clk, tenantID: tenant.ID,
+		t: t, clk: clk, tenantID: tenant.ID, dbPath: path,
 		local: svc, baseURL: "http://" + srv.Addr(),
 		adminActor: adminActor, adminCtx: adminCtx, adminToken: issued.Token,
 	}

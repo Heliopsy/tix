@@ -25,6 +25,12 @@ server is reached over TLS.
 
 A missing or invalid credential is `401`. A valid credential without the required scope is `403`.
 
+A client may name itself in `X-Tix-Client`: `cli` or `mcp`. The tix client and `tix mcp` send it. It only
+changes how a token request is recorded in the audit log (`cli-remote` or `mcp` instead of `api`) and grants
+nothing; a session cookie is recorded as `web` whatever the header says. Every audit entry carries `via`, the
+access channel and what identified the caller, and `GET /api/v1/audit` filters it with `via` and `token`. See
+[audit-log.md](audit-log.md).
+
 ## Health
 
 | Route | Purpose |
@@ -838,8 +844,12 @@ project is `forbidden`.
   "subject_id":"01M30B3Y1TVT299QJPV8W8MM4X",
   "actor_id":"01M30B3Y1SNEPGNQJ489NMR8TT",
   "payload":{"claimed_by":"01M30B3Y1SNEPGNQJ489NMR8TT","lease_expires_at":"2026-09-20T21:51:24.047605506Z"},
+  "via":{"kind":"mcp","token_id":"01M30B6JZ96FN5R8765P6FG35Z","token_name":"ci"},
   "occurred_at":"2026-09-20T21:21:24.047605506Z"}}
 ```
+
+`via` is the access channel: its kind, the token's ID and name, and for background work the job. An event
+never carries the client address, user agent, session or SSH key; those are in the audit log.
 
 `seq` is a per-tenant monotonic sequence number. It is the cursor.
 

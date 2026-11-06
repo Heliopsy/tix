@@ -330,6 +330,9 @@ type Output struct {
 // window, a browser window and a pipe do not hold the same number of lines.
 type CLI struct {
 	PageSize int `yaml:"page_size"`
+	// RecordHost adds the host name and operating-system user to the access
+	// channel of every change a command makes against a database directly.
+	RecordHost bool `yaml:"record_host"`
 }
 
 // Web holds the settings of the browser interface. PageSize is how many rows

@@ -1480,7 +1480,7 @@ col.c-ref { width: 104px; }
 col.c-state { width: 104px; }
 col.c-tags { width: 150px; }
 col.c-when { width: 142px; }
-col.c-source { width: 116px; }
+col.c-source { width: 230px; }
 col.c-age { width: 96px; }
 
 /* The raw audit entry behind a row of history. Wide enough for a timestamp
@@ -4443,6 +4443,22 @@ li.person.is-off .avatar { background: var(--line); color: var(--muted); }
    row downward without moving anything already laid out. */
 .feed .feed-raw { flex: 0 0 auto; margin: 0 0 0 4px; }
 .feed .muted.when { margin-left: auto; font-size: var(--text-sm); }
+
+/* The access channel of a recorded change: an icon and a few words, small and
+   muted so it qualifies the row rather than competing with the sentence. The
+   details are in its title, and in the raw view. In the feed it is a link to
+   the feed narrowed to that channel. */
+.via {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 4px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.via .icon { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+.via-link { text-decoration: none; }
+.via-link:hover .via, .via-link:focus-visible .via { color: var(--ink); text-decoration: underline; }
+.feed .via-link { margin-left: 8px; }
 
 
 /* ------------------------------------------------------------------------

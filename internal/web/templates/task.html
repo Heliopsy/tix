@@ -596,12 +596,12 @@
       {{if .Data.HistoryCursor}}<p class="histnewest"><a class="ghostlink" href="{{.Data.HistoryNewestHref}}">{{t "Newest changes"}}</a></p>{{end}}
       <div class="table-wrap">
         <table>
-          {{/* When holds a relative stamp and Source a one-word badge, so an
+          {{/* When holds a relative stamp and Channel a few words, so an
                even three-way split starved the only column with a sentence in
                it: "What changed" wrapped on every row while the two beside it
                sat mostly empty. */}}
           <colgroup><col class="c-when"><col><col class="c-source"></colgroup>
-          <thead><tr><th>{{t "When"}}</th><th>{{t "What changed"}}</th><th>{{t "Source"}}</th></tr></thead>
+          <thead><tr><th>{{t "When"}}</th><th>{{t "What changed"}}</th><th>{{t "Channel"}}</th></tr></thead>
           <tbody>
           {{template "task-history-rows" .}}
           </tbody>
@@ -652,12 +652,13 @@
                     <div><dt>{{t "When"}}</dt><dd class="mono">{{compact .Entry.OccurredAt}}</dd></div>
                     <div><dt>{{t "Action"}}</dt><dd class="mono">{{.Entry.Action}}</dd></div>
                     {{if .Changed}}<div><dt>{{t "Fields"}}</dt><dd class="mono">{{join .Changed}}</dd></div>{{end}}
+                    {{template "via-fields" .Channel}}
                   </dl>
                   {{end}}
                   <button type="button" class="flowclose" popovertarget="{{$raw}}" popovertargetaction="hide">{{t "Close"}}</button>
                 </div>
               </td>
-              <td data-label="{{t "Source"}}"><span class="badge source">{{$latest.Entry.Source}}</span></td>
+              <td data-label="{{t "Channel"}}">{{template "via" .Channel}}</td>
             </tr>
             {{end}}
           {{else}}

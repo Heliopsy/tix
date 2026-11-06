@@ -19,6 +19,7 @@ type mutation struct {
 	now    time.Time
 	local  *Local
 	source core.Source
+	via    core.Via
 
 	events []*core.Event
 	audits []*core.AuditEntry
@@ -39,6 +40,7 @@ func (m *mutation) Event(typ core.EventType, subjectType, subjectID, projectID s
 		SubjectID:   subjectID,
 		ActorID:     m.actor.ID,
 		Payload:     m.withActor(payload),
+		Via:         new(m.via),
 		OccurredAt:  m.now,
 	})
 }
@@ -83,6 +85,7 @@ func (m *mutation) Audit(action, subjectType, subjectID string, before, after an
 		Before:      b,
 		After:       a,
 		Source:      m.source,
+		Via:         m.via,
 		OccurredAt:  m.now,
 	})
 	return nil
@@ -180,6 +183,7 @@ func (l *Local) write(ctx context.Context, actor *core.Actor, fn func(*mutation)
 			now:    l.clock.Now(),
 			local:  l,
 			source: core.SourceFrom(ctx),
+			via:    core.ViaFrom(ctx),
 		}
 		if err := fn(m); err != nil {
 			return err

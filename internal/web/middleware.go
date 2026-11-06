@@ -17,6 +17,9 @@ var tenantParams = []string{"tenant", "tenant_id", "tenant_key"}
 func (h *handler) wrap(rt route) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r = r.WithContext(core.WithSource(r.Context(), core.SourceWeb))
+		if core.ViaFrom(r.Context()).Kind == core.ViaUnknown {
+			r = r.WithContext(core.WithVia(r.Context(), core.Via{Kind: core.ViaWeb}))
+		}
 		if _, ok := core.ActorFrom(r.Context()); !ok && !rt.Public {
 			redirectToLogin(w, r)
 			return
