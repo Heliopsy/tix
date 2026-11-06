@@ -106,6 +106,8 @@ func init() {
 		"Fields":                                "Полета",
 		"No recorded changes.":                  "Няма записани промени.",
 		"You do not hold the audit read scope.": "Нямате обхвата за четене на одитния журнал.",
+		"Show older":                            "Покажи по-старите",
+		"Newest changes":                        "Най-новите промени",
 
 		"Stars": "Звезди",
 		"A star is yours alone: your starred tasks come first in every listing you see, and is:starred finds them. Nobody else's order changes.": "Звездата е само ваша: задачите със звезда са първи във всеки списък, който виждате, а is:starred ги намира. Подредбата на другите не се променя.",
